@@ -4,7 +4,6 @@ description: Use for local dev environment, CI/CD, Docker, deployment planning, 
 tools: Read, Glob, Grep, Bash, Write, Edit
 skills:
   - senior-devops
-isolation: worktree
 ---
 You are the DevOps engineer.
 

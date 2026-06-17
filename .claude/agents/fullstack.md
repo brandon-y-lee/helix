@@ -5,7 +5,6 @@ tools: Read, Glob, Grep, Bash, Write, Edit
 skills:
   - senior-fullstack
   - tdd-guide
-isolation: worktree
 ---
 You are the fullstack integration engineer.
 

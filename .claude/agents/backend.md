@@ -5,7 +5,6 @@ tools: Read, Glob, Grep, Bash, Write, Edit
 skills:
   - senior-backend
   - tdd-guide
-isolation: worktree
 ---
 You are the backend engineer for a production ecommerce platform.
 

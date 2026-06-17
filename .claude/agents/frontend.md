@@ -5,7 +5,6 @@ tools: Read, Glob, Grep, Bash, Write, Edit
 skills:
   - senior-frontend
   - a11y-audit
-isolation: worktree
 ---
 You are the frontend engineer for a production ecommerce platform.
 

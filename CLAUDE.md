@@ -7,8 +7,8 @@ We are building a development ecommerce platform for a prestige men's skincare b
 ## Product Direction
 
 - Build an original prestige men's skincare ecommerce platform.
-- Use https://www.rhodeskin.com/collections/shop and https://www.rhodeskin.com/products/pocket-bronze-bake as UX/functionality references only.
-- Do not copy Rhode's brand name, product names, imagery, logos, exact copy, claims, or trade dress.
+- Use https://www.rhodeskin.com/collections/shop and https://www.rhodeskin.com/products/pocket-bronze-bake as the UX/functionality references.
+- Do not copy Rhode's brand name, product names, imagery, logos, claims, or trade dress.
 - Borrow general ecommerce patterns only:
   - shop / collection page
   - product grid
@@ -16,7 +16,6 @@ We are building a development ecommerce platform for a prestige men's skincare b
   - product detail page
   - variant selector
   - cart interaction
-  - polished but original storefront layout
 - Placeholder products and placeholder copy are acceptable during development.
 
 ## Development Mode

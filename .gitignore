@@ -1,8 +1,31 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# next.js
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+
+# production build
+dist/
+build/
+
+# testing / coverage
+coverage/
+playwright-report/
+test-results/
+.playwright/
+
+# env files
 .env
 .env.*
 !.env.example
-.claude/worktrees/
-node_modules/
-dist/
-build/
+
+# misc
 .DS_Store
+*.log
+
+# agent worktrees
+.claude/worktrees/
