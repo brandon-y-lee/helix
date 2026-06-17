@@ -14,6 +14,11 @@ export function Header() {
         </Link>
         <nav className="site-nav" aria-label="Primary">
           <Link href="/products">Shop</Link>
+          <Link href="/about">About</Link>
+          <Link href="/search" aria-label="Search">
+            Search
+          </Link>
+          <Link href="/account">Account</Link>
           <Link href="/cart" className="cart-link">
             Cart
             {count > 0 && (

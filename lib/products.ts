@@ -10,6 +10,9 @@ export type Variant = {
   price: number;
 };
 
+/** Availability state driving badges and the buy/waitlist CTA. */
+export type ProductStatus = "available" | "coming_soon" | "sold_out";
+
 export type Product = {
   slug: string;
   name: string;
@@ -26,6 +29,14 @@ export type Product = {
   variants: Variant[];
   /** Decorative gradient stops used in place of product photography. */
   swatch: [string, string];
+  /** Availability state. */
+  status: ProductStatus;
+  /** Non-claim placeholder metadata for the PDP "made for / good for / texture" grid. */
+  madeFor: string | null;
+  goodFor: string | null;
+  texture: string | null;
+  /** ISO timestamp; used for the "Newest first" sort. */
+  createdAt: string;
 };
 
 export function formatPrice(cents: number): string {

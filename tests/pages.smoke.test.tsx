@@ -21,43 +21,29 @@ import type { Product } from "@/lib/products";
 
 const mockedGetProducts = getProducts as unknown as Mock;
 
-const fixtures: Product[] = [
-  {
-    slug: "alpha-cleanser",
-    name: "Alpha Cleanser",
-    tagline: "Daily wash",
+function makeProduct(overrides: Partial<Product> & Pick<Product, "slug" | "name">): Product {
+  return {
+    tagline: "Tagline",
     collection: "Cleanse",
-    blurb: "A gentle daily cleanser.",
+    blurb: "A short descriptor.",
     description: "Description.",
     benefits: [],
     howToUse: "",
     variants: [{ id: "50ml", label: "50 ml", price: 2000 }],
     swatch: ["#ffffff", "#000000"],
-  },
-  {
-    slug: "beta-serum",
-    name: "Beta Serum",
-    tagline: "Night serum",
-    collection: "Treat",
-    blurb: "An overnight serum.",
-    description: "Description.",
-    benefits: [],
-    howToUse: "",
-    variants: [{ id: "30ml", label: "30 ml", price: 5000 }],
-    swatch: ["#ffffff", "#000000"],
-  },
-  {
-    slug: "gamma-cream",
-    name: "Gamma Cream",
-    tagline: "Rich cream",
-    collection: "Hydrate",
-    blurb: "A restorative cream.",
-    description: "Description.",
-    benefits: [],
-    howToUse: "",
-    variants: [{ id: "50ml", label: "50 ml", price: 4000 }],
-    swatch: ["#ffffff", "#000000"],
-  },
+    status: "available",
+    madeFor: "All skin types",
+    goodFor: "Everyday",
+    texture: "Light gel",
+    createdAt: "2026-06-14T00:00:00.000Z",
+    ...overrides,
+  };
+}
+
+const fixtures: Product[] = [
+  makeProduct({ slug: "alpha-cleanser", name: "Alpha Cleanser", collection: "Cleanse" }),
+  makeProduct({ slug: "beta-serum", name: "Beta Serum", collection: "Treat" }),
+  makeProduct({ slug: "gamma-cream", name: "Gamma Cream", collection: "Hydrate" }),
 ];
 
 beforeEach(() => {
@@ -71,7 +57,8 @@ beforeEach(() => {
 describe("storefront page smoke", () => {
   it("Home renders its hero h1 and featured cards", async () => {
     // HomePage is an async server component; await it to get its element tree.
-    render(await HomePage());
+    // ProductCard consumes the cart context, so wrap in CartProvider.
+    render(<CartProvider>{await HomePage()}</CartProvider>);
     expect(
       screen.getByRole("heading", {
         level: 1,
@@ -85,13 +72,15 @@ describe("storefront page smoke", () => {
   });
 
   it("Shop renders its h1 and a card per product", async () => {
-    render(await ProductsPage());
+    render(<CartProvider>{await ProductsPage()}</CartProvider>);
     expect(
       screen.getByRole("heading", { level: 1, name: "Shop" }),
     ).toBeInTheDocument();
     for (const product of fixtures) {
+      // Each card has a media link (aria-label includes the tagline) and a name
+      // link (accessible name === product name); match the latter exactly.
       expect(
-        screen.getByRole("link", { name: new RegExp(product.name, "i") }),
+        screen.getByRole("link", { name: product.name }),
       ).toHaveAttribute("href", `/products/${product.slug}`);
     }
   });

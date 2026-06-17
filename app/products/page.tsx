@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { ProductCard } from "@/components/ProductCard";
+import { ShopBrowser } from "@/components/ShopBrowser";
 import { getProducts } from "@/lib/catalog";
 
 export const metadata: Metadata = {
@@ -17,22 +17,18 @@ export default async function ProductsPage() {
         <p style={{ color: "var(--ink-soft)", marginTop: "10px" }}>
           {isEmpty
             ? "Our catalog is being prepared — check back soon."
-            : `The full collection — ${products.length} formulas, one simple routine.`}
+            : "The full collection — cleanse, treat, hydrate, protect."}
         </p>
       </div>
-      <section className="container" style={{ paddingTop: "32px" }}>
-        {isEmpty ? (
+      {isEmpty ? (
+        <section className="container" style={{ paddingTop: "32px" }}>
           <p style={{ color: "var(--ink-soft)" }}>
             No products are available right now.
           </p>
-        ) : (
-          <ul className="product-grid">
-            {products.map((product) => (
-              <ProductCard key={product.slug} product={product} />
-            ))}
-          </ul>
-        )}
-      </section>
+        </section>
+      ) : (
+        <ShopBrowser products={products} />
+      )}
     </>
   );
 }

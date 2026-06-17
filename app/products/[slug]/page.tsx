@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ProductDetail } from "@/components/ProductDetail";
-import { getProduct, getProducts } from "@/lib/catalog";
+import { getProduct, getProducts, getRelatedProducts } from "@/lib/catalog";
 
 export async function generateStaticParams() {
   const products = await getProducts();
@@ -33,9 +33,11 @@ export default async function ProductDetailPage({
     notFound();
   }
 
+  const related = await getRelatedProducts(product.collection, product.slug);
+
   return (
     <div className="container">
-      <ProductDetail product={product} />
+      <ProductDetail product={product} related={related} />
     </div>
   );
 }

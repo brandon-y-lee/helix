@@ -6,7 +6,7 @@ import { Swatch } from "@/components/Swatch";
 import { formatPrice } from "@/lib/products";
 
 export function CartView() {
-  const { lines, subtotal, count, setQuantity, remove } = useCart();
+  const { lines, subtotal, count, setQuantity, remove, clear } = useCart();
 
   if (lines.length === 0) {
     return (
@@ -25,6 +25,13 @@ export function CartView() {
 
   return (
     <div className="cart-layout">
+      <div>
+        <div className="cart-items__head">
+          <span>{count} {count === 1 ? "item" : "items"}</span>
+          <button type="button" className="link-button" onClick={clear}>
+            Clear cart
+          </button>
+        </div>
       <ul className="cart-items" aria-label="Cart items">
         {lines.map((line) => (
           <li key={line.key} className="cart-item">
@@ -63,6 +70,7 @@ export function CartView() {
           </li>
         ))}
       </ul>
+      </div>
 
       <aside className="cart-summary" aria-label="Order summary">
         <h2>Summary</h2>
@@ -81,6 +89,9 @@ export function CartView() {
         <Link href="/checkout" className="btn">
           Checkout
         </Link>
+        <p className="cart-summary__note">
+          Development storefront — checkout is a placeholder. No payment is taken.
+        </p>
       </aside>
     </div>
   );

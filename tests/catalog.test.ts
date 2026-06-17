@@ -40,6 +40,11 @@ const sampleRow = {
   how_to_use: "Apply at night.",
   swatch_from: "#e3ddea",
   swatch_to: "#c2b5d6",
+  status: "available",
+  made_for: "Uneven texture or tone",
+  good_for: "Nighttime routine",
+  texture: "Silky serum",
+  created_at: "2026-06-14T00:00:00.000Z",
   // Intentionally out of order to verify sort-by-position.
   product_variants: [
     { variant_key: "50ml", label: "50 ml", price_cents: 7800, position: 1 },
@@ -66,6 +71,22 @@ describe("catalog data access (Supabase-backed)", () => {
       label: "30 ml",
       price: 5400,
     });
+    expect(products[0].status).toBe("available");
+    expect(products[0].madeFor).toBe("Uneven texture or tone");
+    expect(products[0].goodFor).toBe("Nighttime routine");
+    expect(products[0].texture).toBe("Silky serum");
+    expect(products[0].createdAt).toBe("2026-06-14T00:00:00.000Z");
+  });
+
+  it("getProducts coerces an unknown status to 'available'", async () => {
+    mockedGetClient.mockReturnValue(
+      makeClient({
+        data: [{ ...sampleRow, status: "bogus" }],
+        error: null,
+      }),
+    );
+    const products = await getProducts();
+    expect(products[0].status).toBe("available");
   });
 
   it("getProducts returns [] for a reachable but empty catalog", async () => {

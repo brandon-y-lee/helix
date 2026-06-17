@@ -7,10 +7,10 @@
 // explicit empty state.
 
 import { getSupabaseClient } from "@/lib/supabase";
-import type { Product, Variant } from "@/lib/products";
+import type { Product, ProductStatus, Variant } from "@/lib/products";
 
 export { formatPrice } from "@/lib/products";
-export type { Product, Variant } from "@/lib/products";
+export type { Product, ProductStatus, Variant } from "@/lib/products";
 
 // Shape returned by the Supabase query (snake_case columns + joined variants).
 type ProductRow = {
@@ -24,6 +24,11 @@ type ProductRow = {
   how_to_use: string;
   swatch_from: string;
   swatch_to: string;
+  status: string;
+  made_for: string | null;
+  good_for: string | null;
+  texture: string | null;
+  created_at: string;
   product_variants: VariantRow[] | null;
 };
 
@@ -35,8 +40,17 @@ type VariantRow = {
 };
 
 const PRODUCT_SELECT =
-  "slug, name, tagline, collection, blurb, description, benefits, how_to_use, swatch_from, swatch_to, " +
+  "slug, name, tagline, collection, blurb, description, benefits, how_to_use, " +
+  "swatch_from, swatch_to, status, made_for, good_for, texture, created_at, " +
   "product_variants ( variant_key, label, price_cents, position )";
+
+const VALID_STATUSES: ProductStatus[] = ["available", "coming_soon", "sold_out"];
+
+function toStatus(value: string): ProductStatus {
+  return (VALID_STATUSES as string[]).includes(value)
+    ? (value as ProductStatus)
+    : "available";
+}
 
 function mapRow(row: ProductRow): Product {
   const variants: Variant[] = (row.product_variants ?? [])
@@ -55,6 +69,11 @@ function mapRow(row: ProductRow): Product {
     howToUse: row.how_to_use,
     variants,
     swatch: [row.swatch_from, row.swatch_to],
+    status: toStatus(row.status),
+    madeFor: row.made_for,
+    goodFor: row.good_for,
+    texture: row.texture,
+    createdAt: row.created_at,
   };
 }
 
@@ -98,4 +117,32 @@ export async function getProduct(slug: string): Promise<Product | undefined> {
   if (!data) return undefined;
 
   return mapRow(data as unknown as ProductRow);
+}
+
+/**
+ * Products in the same collection, excluding the current one — the "complete
+ * the routine" rail on the PDP. Returns up to `limit` products.
+ */
+export async function getRelatedProducts(
+  collection: string,
+  excludeSlug: string,
+  limit = 4,
+): Promise<Product[]> {
+  const supabase = getSupabaseClient();
+
+  const { data, error } = await supabase
+    .from("products")
+    .select(PRODUCT_SELECT)
+    .eq("collection", collection)
+    .neq("slug", excludeSlug)
+    .order("position", { ascending: true })
+    .limit(limit);
+
+  if (error) {
+    throw new Error(
+      `[catalog] Failed to load related products for "${collection}": ${error.message}.`,
+    );
+  }
+
+  return (data as unknown as ProductRow[]).map(mapRow);
 }
