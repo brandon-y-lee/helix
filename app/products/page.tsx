@@ -1,26 +1,27 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import { ProductCard } from "@/components/ProductCard";
+import { products } from "@/lib/products";
 
 export const metadata: Metadata = {
-  title: "Products | Mei Pelle",
+  title: "Shop | Mei Pelle",
 };
-
-const products: ReadonlyArray<{ slug: string; name: string }> = [
-  { slug: "renewal-serum", name: "Renewal Serum" },
-  { slug: "daily-moisturizer", name: "Daily Moisturizer" },
-];
 
 export default function ProductsPage() {
   return (
-    <article>
-      <h1>Products</h1>
-      <ul>
-        {products.map((product) => (
-          <li key={product.slug}>
-            <Link href={`/products/${product.slug}`}>{product.name}</Link>
-          </li>
-        ))}
-      </ul>
-    </article>
+    <>
+      <div className="container page-head">
+        <h1>Shop</h1>
+        <p style={{ color: "var(--ink-soft)", marginTop: "10px" }}>
+          The full collection — {products.length} formulas, one simple routine.
+        </p>
+      </div>
+      <section className="container" style={{ paddingTop: "32px" }}>
+        <ul className="product-grid">
+          {products.map((product) => (
+            <ProductCard key={product.slug} product={product} />
+          ))}
+        </ul>
+      </section>
+    </>
   );
 }

@@ -7,46 +7,71 @@ import CartPage from "@/app/cart/page";
 import CheckoutPage from "@/app/checkout/page";
 import AccountPage from "@/app/account/page";
 import AdminPage from "@/app/admin/page";
+import { CartProvider } from "@/components/CartProvider";
+import { products } from "@/lib/products";
 
-// Scaffold smoke verification: render each synchronous page component and
-// assert its unique <h1> signal renders. The async [slug] page is covered
-// by the e2e suite, not here (async server components are awkward under RTL).
-describe("page shell smoke", () => {
-  it("Home renders its h1", () => {
+// Storefront smoke verification: render each synchronous page component and
+// assert its primary signal renders. The async [slug] detail page and the
+// interactive cart/add-to-cart flows are covered by the e2e suite.
+describe("storefront page smoke", () => {
+  it("Home renders its hero h1 and featured cards", () => {
     render(<HomePage />);
-    expect(screen.getByRole("heading", { level: 1, name: "Home" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", {
+        level: 1,
+        name: /skin that actually shows up/i,
+      }),
+    ).toBeInTheDocument();
+    // Featured grid links to product detail pages.
+    expect(
+      screen.getByRole("link", { name: /Shop the collection/i }),
+    ).toHaveAttribute("href", "/products");
   });
 
-  it("Products renders its h1 and links to product slugs", () => {
+  it("Shop renders its h1 and a card per product", () => {
     render(<ProductsPage />);
-    expect(screen.getByRole("heading", { level: 1, name: "Products" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Renewal Serum" })).toHaveAttribute(
-      "href",
-      "/products/renewal-serum",
-    );
-    expect(screen.getByRole("link", { name: "Daily Moisturizer" })).toHaveAttribute(
-      "href",
-      "/products/daily-moisturizer",
-    );
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Shop" }),
+    ).toBeInTheDocument();
+    for (const product of products) {
+      expect(
+        screen.getByRole("link", {
+          name: new RegExp(product.name, "i"),
+        }),
+      ).toHaveAttribute("href", `/products/${product.slug}`);
+    }
   });
 
-  it("Cart renders its h1", () => {
-    render(<CartPage />);
-    expect(screen.getByRole("heading", { level: 1, name: "Cart" })).toBeInTheDocument();
+  it("Cart renders its h1 (empty state) inside the provider", () => {
+    render(
+      <CartProvider>
+        <CartPage />
+      </CartProvider>,
+    );
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Cart" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/your cart is empty/i)).toBeInTheDocument();
   });
 
   it("Checkout renders its h1", () => {
     render(<CheckoutPage />);
-    expect(screen.getByRole("heading", { level: 1, name: "Checkout" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Checkout" }),
+    ).toBeInTheDocument();
   });
 
   it("Account renders its h1", () => {
     render(<AccountPage />);
-    expect(screen.getByRole("heading", { level: 1, name: "Account" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Account" }),
+    ).toBeInTheDocument();
   });
 
   it("Admin renders its h1", () => {
     render(<AdminPage />);
-    expect(screen.getByRole("heading", { level: 1, name: "Admin" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Admin" }),
+    ).toBeInTheDocument();
   });
 });

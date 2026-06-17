@@ -6,9 +6,14 @@ export const metadata: Metadata = {
 
 export default function CheckoutPage() {
   return (
-    <article>
-      <h1>Checkout</h1>
-      <p>Checkout placeholder.</p>
-    </article>
+    <div className="container">
+      <div className="page-head">
+        <h1>Checkout</h1>
+      </div>
+      <p className="empty-state">
+        Checkout is a development placeholder. Real payments are not
+        implemented.
+      </p>
+    </div>
   );
 }

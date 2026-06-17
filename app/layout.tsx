@@ -1,48 +1,29 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import Link from "next/link";
+import "./globals.css";
+import { CartProvider } from "@/components/CartProvider";
+import { Header } from "@/components/Header";
 
 export const metadata: Metadata = {
-  title: "Mei Pelle",
-  description: "Ecommerce platform baseline application shell.",
+  title: "Mei Pelle — Prestige Skincare for Men",
+  description:
+    "An original, focused men's skincare routine. Cleanse, treat, hydrate, and protect.",
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: ReactNode;
-}) {
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <body>
-        <header>
-          <nav aria-label="Primary">
-            <ul>
-              <li>
-                <Link href="/">Home</Link>
-              </li>
-              <li>
-                <Link href="/products">Products</Link>
-              </li>
-              <li>
-                <Link href="/cart">Cart</Link>
-              </li>
-              <li>
-                <Link href="/checkout">Checkout</Link>
-              </li>
-              <li>
-                <Link href="/account">Account</Link>
-              </li>
-              <li>
-                <Link href="/admin">Admin</Link>
-              </li>
-            </ul>
-          </nav>
-        </header>
-        <main>{children}</main>
-        <footer>
-          <p>Mei Pelle baseline shell &mdash; placeholder footer.</p>
-        </footer>
+        <CartProvider>
+          <Header />
+          <main>{children}</main>
+          <footer className="site-footer">
+            <div className="container site-footer__bar">
+              <span>&copy; Mei Pelle — development storefront.</span>
+              <span>Placeholder products &amp; copy. Not for sale.</span>
+            </div>
+          </footer>
+        </CartProvider>
       </body>
     </html>
   );

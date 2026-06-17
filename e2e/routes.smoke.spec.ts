@@ -2,11 +2,11 @@ import { test, expect } from "@playwright/test";
 
 // Route-load smoke gate: visit every baseline route and assert its unique
 // <h1> signal is visible. Includes the async [slug] detail route, which
-// renders the raw slug as its h1.
-const routes: ReadonlyArray<{ path: string; heading: string }> = [
-  { path: "/", heading: "Home" },
-  { path: "/products", heading: "Products" },
-  { path: "/products/renewal-serum", heading: "renewal-serum" },
+// renders the product name as its h1.
+const routes: ReadonlyArray<{ path: string; heading: string | RegExp }> = [
+  { path: "/", heading: /skin that actually shows up/i },
+  { path: "/products", heading: "Shop" },
+  { path: "/products/northpoint-renewal-serum", heading: "Northpoint Renewal Serum" },
   { path: "/cart", heading: "Cart" },
   { path: "/checkout", heading: "Checkout" },
   { path: "/account", heading: "Account" },
@@ -14,9 +14,27 @@ const routes: ReadonlyArray<{ path: string; heading: string }> = [
 ];
 
 for (const { path, heading } of routes) {
-  test(`${path} loads and shows h1 "${heading}"`, async ({ page }) => {
+  test(`${path} loads and shows its h1`, async ({ page }) => {
     const response = await page.goto(path);
     expect(response?.ok(), `expected 2xx for ${path}`).toBeTruthy();
     await expect(page.getByRole("heading", { level: 1, name: heading })).toBeVisible();
   });
 }
+
+test("add to cart updates the cart and persists to checkout", async ({ page }) => {
+  await page.goto("/products/northpoint-renewal-serum");
+
+  // Pick the second size variant, then add to cart.
+  await page.getByRole("button", { name: "50 ml" }).click();
+  await page.getByRole("button", { name: /Add to cart/ }).click();
+  await expect(page.getByText("Added to cart")).toBeVisible();
+
+  // Cart badge in the header reflects the added item.
+  await expect(page.getByText("1", { exact: true })).toBeVisible();
+
+  // Cart page shows the line item and a non-empty summary.
+  await page.goto("/cart");
+  await expect(page.getByText("Northpoint Renewal Serum")).toBeVisible();
+  await expect(page.getByText("50 ml")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Checkout" })).toBeVisible();
+});

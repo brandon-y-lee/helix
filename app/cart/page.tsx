@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { CartView } from "@/components/CartView";
 
 export const metadata: Metadata = {
   title: "Cart | Mei Pelle",
@@ -6,9 +7,11 @@ export const metadata: Metadata = {
 
 export default function CartPage() {
   return (
-    <article>
-      <h1>Cart</h1>
-      <p>Your cart is empty.</p>
-    </article>
+    <div className="container">
+      <div className="page-head">
+        <h1>Cart</h1>
+      </div>
+      <CartView />
+    </div>
   );
 }
