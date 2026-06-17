@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ProductCard } from "@/components/ProductCard";
-import { products } from "@/lib/products";
+import { getProducts } from "@/lib/catalog";
 
 export const metadata: Metadata = {
   title: "Mei Pelle — Prestige Skincare for Men",
 };
 
-export default function HomePage() {
+export default async function HomePage() {
+  const products = await getProducts();
   const featured = products.slice(0, 3);
 
   return (
@@ -35,17 +36,19 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="container">
-        <div className="section-head">
-          <h2>Featured</h2>
-          <p>The essentials to start with.</p>
-        </div>
-        <ul className="product-grid">
-          {featured.map((product) => (
-            <ProductCard key={product.slug} product={product} />
-          ))}
-        </ul>
-      </section>
+      {featured.length > 0 && (
+        <section className="container">
+          <div className="section-head">
+            <h2>Featured</h2>
+            <p>The essentials to start with.</p>
+          </div>
+          <ul className="product-grid">
+            {featured.map((product) => (
+              <ProductCard key={product.slug} product={product} />
+            ))}
+          </ul>
+        </section>
+      )}
     </>
   );
 }
