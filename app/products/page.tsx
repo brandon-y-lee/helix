@@ -6,8 +6,12 @@ export const metadata: Metadata = {
   title: "Shop | Mei Pelle",
 };
 
-export default async function ProductsPage() {
-  const products = await getProducts();
+export default async function ProductsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ collection?: string }>;
+}) {
+  const [products, params] = await Promise.all([getProducts(), searchParams]);
   const isEmpty = products.length === 0;
 
   return (
@@ -27,7 +31,7 @@ export default async function ProductsPage() {
           </p>
         </section>
       ) : (
-        <ShopBrowser products={products} />
+        <ShopBrowser products={products} initialCollection={params.collection} />
       )}
     </>
   );

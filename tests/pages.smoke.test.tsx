@@ -72,7 +72,11 @@ describe("storefront page smoke", () => {
   });
 
   it("Shop renders its h1 and a card per product", async () => {
-    render(<CartProvider>{await ProductsPage()}</CartProvider>);
+    render(
+      <CartProvider>
+        {await ProductsPage({ searchParams: Promise.resolve({}) })}
+      </CartProvider>,
+    );
     expect(
       screen.getByRole("heading", { level: 1, name: "Shop" }),
     ).toBeInTheDocument();
@@ -87,7 +91,7 @@ describe("storefront page smoke", () => {
 
   it("Shop renders a clear empty state when the catalog is empty", async () => {
     mockedGetProducts.mockResolvedValue([]);
-    render(await ProductsPage());
+    render(await ProductsPage({ searchParams: Promise.resolve({}) }));
     expect(
       screen.getByRole("heading", { level: 1, name: "Shop" }),
     ).toBeInTheDocument();

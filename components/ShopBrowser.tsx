@@ -27,10 +27,13 @@ function minPrice(p: Product): number {
   return p.variants.length ? Math.min(...p.variants.map((v) => v.price)) : 0;
 }
 
-export function ShopBrowser({ products }: { products: Product[] }) {
-  const [collection, setCollection] = useState<string>(ALL);
-  const [sort, setSort] = useState<SortKey>("featured");
-
+export function ShopBrowser({
+  products,
+  initialCollection,
+}: {
+  products: Product[];
+  initialCollection?: string;
+}) {
   // Collections in the catalog's featured order.
   const collections = useMemo(() => {
     const seen: string[] = [];
@@ -39,6 +42,16 @@ export function ShopBrowser({ products }: { products: Product[] }) {
     }
     return seen;
   }, [products]);
+
+  // Honor a ?collection= deep-link from the homepage, but only if it names a
+  // real collection; otherwise fall back to "All".
+  const startCollection =
+    initialCollection && collections.includes(initialCollection)
+      ? initialCollection
+      : ALL;
+
+  const [collection, setCollection] = useState<string>(startCollection);
+  const [sort, setSort] = useState<SortKey>("featured");
 
   const visible = useMemo(() => {
     const filtered =
