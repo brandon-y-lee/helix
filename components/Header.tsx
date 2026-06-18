@@ -1,13 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useCart } from "@/components/CartProvider";
 import { SearchOverlay } from "@/components/SearchOverlay";
 
 export function Header() {
   const { count } = useCart();
   const [searchOpen, setSearchOpen] = useState(false);
+  const searchTriggerRef = useRef<HTMLButtonElement>(null);
+  const closeSearch = useCallback(() => setSearchOpen(false), []);
+  const returnFocusToSearch = useCallback(() => {
+    searchTriggerRef.current?.focus();
+  }, []);
 
   return (
     <header className="site-header">
@@ -19,6 +24,7 @@ export function Header() {
           <Link href="/products">Shop</Link>
           <Link href="/about">About</Link>
           <button
+            ref={searchTriggerRef}
             type="button"
             className="site-nav__search"
             onClick={() => setSearchOpen(true)}
@@ -42,7 +48,11 @@ export function Header() {
         </nav>
       </div>
 
-      <SearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} />
+      <SearchOverlay
+        open={searchOpen}
+        onClose={closeSearch}
+        returnFocus={returnFocusToSearch}
+      />
     </header>
   );
 }

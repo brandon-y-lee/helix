@@ -12,11 +12,14 @@
 
 import { NextResponse } from "next/server";
 import { verifyWebhookSecret, WEBHOOK_SECRET_HEADER } from "@/lib/algolia/sync";
-import { fetchAllSearchRecords } from "@/lib/algolia/source";
-import { reindexAllSearchRecords, getIndexName } from "@/lib/algolia/server";
+import {
+  runSearchBackfill,
+  SearchBackfillError,
+} from "@/lib/algolia/backfill";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 30;
 
 export async function POST(request: Request): Promise<NextResponse> {
   if (!verifyWebhookSecret(request.headers.get(WEBHOOK_SECRET_HEADER))) {
@@ -24,12 +27,15 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   try {
-    const records = await fetchAllSearchRecords();
-    const count = await reindexAllSearchRecords(records);
-    return NextResponse.json({ ok: true, indexName: getIndexName(), indexed: count });
+    const report = await runSearchBackfill();
+    return NextResponse.json({ ok: true, ...report });
   } catch (err) {
     const message = err instanceof Error ? err.message : "unknown reindex error";
     console.error("[search-reindex] reindex failed:", message);
-    return NextResponse.json({ error: "reindex failed", message }, { status: 502 });
+    const report = err instanceof SearchBackfillError ? err.report : undefined;
+    return NextResponse.json(
+      { error: "reindex failed", message, report },
+      { status: 502 },
+    );
   }
 }

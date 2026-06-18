@@ -1,8 +1,15 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { SearchResultCard } from "@/components/SearchResultCard";
 import { useProductSearch } from "@/components/useProductSearch";
+
+const POPULAR_SEARCHES = [
+  "Cleanser",
+  "Serum",
+  "Moisturizer",
+  "Daily protection",
+];
 
 /**
  * Algolia-backed search surface. Used both as the standalone /search page
@@ -23,6 +30,8 @@ export function SearchView({
   const [query, setQuery] = useState("");
   const { status, result, errorMessage } = useProductSearch(query);
   const inputRef = useRef<HTMLInputElement>(null);
+  const inputId = useId();
+  const suggestionsId = useId();
 
   useEffect(() => {
     if (autoFocus) inputRef.current?.focus();
@@ -35,14 +44,39 @@ export function SearchView({
     inputRef.current?.focus();
   }
 
+  function chooseSuggestion(suggestion: string) {
+    setQuery(suggestion);
+    inputRef.current?.focus();
+  }
+
+  function suggestions() {
+    return (
+      <section className="search-suggestions" aria-labelledby={suggestionsId}>
+        <p className="search-suggestions__eyebrow">A useful place to begin</p>
+        <h3 id={suggestionsId}>Popular searches</h3>
+        <div className="search-suggestions__list">
+          {POPULAR_SEARCHES.map((suggestion) => (
+            <button
+              key={suggestion}
+              type="button"
+              onClick={() => chooseSuggestion(suggestion)}
+            >
+              {suggestion}
+            </button>
+          ))}
+        </div>
+      </section>
+    );
+  }
+
   return (
     <div className="search-panel">
       <div className="search-field">
-        <label htmlFor="product-search" className="sr-only">
+        <label htmlFor={inputId} className="sr-only">
           Search products
         </label>
         <input
-          id="product-search"
+          id={inputId}
           ref={inputRef}
           type="search"
           placeholder="Search the collection…"
@@ -75,7 +109,12 @@ export function SearchView({
 
       <div className="search-body">
         {status === "idle" && (
-          <p className="search-message">Type to search the collection.</p>
+          <>
+            <p className="search-message">
+              Search by product, routine step, texture, or concern.
+            </p>
+            {suggestions()}
+          </>
         )}
 
         {status === "unconfigured" && (
@@ -95,10 +134,24 @@ export function SearchView({
           </p>
         )}
 
+        {status === "loading" && (
+          <div className="search-loading" role="status" aria-label="Searching">
+            {[0, 1, 2].map((item) => (
+              <span className="search-loading__card" key={item} aria-hidden="true">
+                <span className="search-loading__media" />
+                <span className="search-loading__lines" />
+              </span>
+            ))}
+          </div>
+        )}
+
         {status === "success" && result && result.hits.length === 0 && (
-          <p className="search-message">
-            No products match &ldquo;{result.query}&rdquo;. Try a different term.
-          </p>
+          <>
+            <p className="search-message">
+              No products match &ldquo;{result.query}&rdquo;. Try a different term.
+            </p>
+            {suggestions()}
+          </>
         )}
 
         {status === "success" && result && result.hits.length > 0 && (

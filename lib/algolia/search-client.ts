@@ -4,17 +4,14 @@
 // "search not configured" error state rather than crashing.
 
 import { liteClient, type LiteClient } from "algoliasearch/lite";
-import {
-  DEFAULT_INDEX_NAME,
-  type AlgoliaProductRecord,
-} from "@/lib/algolia/record";
+import type { AlgoliaProductRecord } from "@/lib/algolia/record";
 
 export class SearchNotConfiguredError extends Error {
   constructor() {
     super(
       "Search is not configured. Set NEXT_PUBLIC_ALGOLIA_APP_ID and " +
-        "NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY (and optionally " +
-        "NEXT_PUBLIC_ALGOLIA_INDEX_NAME).",
+        "NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY and " +
+        "NEXT_PUBLIC_ALGOLIA_INDEX_NAME.",
     );
     this.name = "SearchNotConfiguredError";
   }
@@ -33,10 +30,9 @@ let cached: ClientConfig | null = null;
 function getConfig(): ClientConfig {
   const appId = process.env.NEXT_PUBLIC_ALGOLIA_APP_ID;
   const apiKey = process.env.NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY;
-  const indexName =
-    process.env.NEXT_PUBLIC_ALGOLIA_INDEX_NAME || DEFAULT_INDEX_NAME;
+  const indexName = process.env.NEXT_PUBLIC_ALGOLIA_INDEX_NAME;
 
-  if (!appId || !apiKey) throw new SearchNotConfiguredError();
+  if (!appId || !apiKey || !indexName) throw new SearchNotConfiguredError();
 
   if (!cached || cached.indexName !== indexName) {
     cached = { client: liteClient(appId, apiKey), indexName };
@@ -48,7 +44,8 @@ function getConfig(): ClientConfig {
 export function isSearchConfigured(): boolean {
   return Boolean(
     process.env.NEXT_PUBLIC_ALGOLIA_APP_ID &&
-      process.env.NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY,
+      process.env.NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY &&
+      process.env.NEXT_PUBLIC_ALGOLIA_INDEX_NAME,
   );
 }
 

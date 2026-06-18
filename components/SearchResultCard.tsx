@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Swatch } from "@/components/Swatch";
 import { formatPrice } from "@/lib/products";
 import type { AlgoliaProductRecord } from "@/lib/algolia/record";
+import { statusLabel } from "@/components/productStatus";
 
 /** Availability-aware label shown on the result's link CTA. */
 function ctaLabel(hit: AlgoliaProductRecord): string {
@@ -22,6 +23,10 @@ export function SearchResultCard({
     hit.priceMax > hit.priceMin
       ? `From ${formatPrice(hit.priceMin)}`
       : formatPrice(hit.priceMin);
+  const availability = hit.available
+    ? "Available"
+    : statusLabel(hit.status) ?? "View details";
+  const colors = hit.cardMedia?.colors ?? hit.swatch;
 
   return (
     <li className="search-result">
@@ -32,7 +37,7 @@ export function SearchResultCard({
         aria-label={`${hit.title} — ${hit.subtitle}`}
       >
         <div className="search-result__media">
-          <Swatch colors={hit.swatch} style={{ position: "absolute", inset: 0 }} />
+          <Swatch colors={colors} style={{ position: "absolute", inset: 0 }} />
           {hit.badge ? (
             <span className="badge badge--status">{hit.badge}</span>
           ) : (
@@ -41,6 +46,7 @@ export function SearchResultCard({
         </div>
         <div className="search-result__body">
           <span className="search-result__name">{hit.title}</span>
+          <span className="search-result__status">{availability}</span>
           <span className="search-result__descriptor">{hit.descriptor}</span>
           <span className="search-result__meta">
             <span className="search-result__price">{priceLabel}</span>

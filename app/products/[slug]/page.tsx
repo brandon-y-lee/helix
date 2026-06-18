@@ -1,10 +1,14 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ProductDetail } from "@/components/ProductDetail";
-import { getProduct, getProducts, getRelatedProducts } from "@/lib/catalog";
+import {
+  getCachedProduct,
+  getCachedProducts,
+  getCachedRelatedProducts,
+} from "@/lib/catalog-cache";
 
 export async function generateStaticParams() {
-  const products = await getProducts();
+  const products = await getCachedProducts();
   return products.map((product) => ({ slug: product.slug }));
 }
 
@@ -14,7 +18,7 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const product = await getProduct(slug);
+  const product = await getCachedProduct(slug);
   return {
     title: product ? `${product.name} | Mei Pelle` : "Product | Mei Pelle",
     description: product?.tagline,
@@ -27,13 +31,16 @@ export default async function ProductDetailPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const product = await getProduct(slug);
+  const product = await getCachedProduct(slug);
 
   if (!product) {
     notFound();
   }
 
-  const related = await getRelatedProducts(product.collection, product.slug);
+  const related = await getCachedRelatedProducts(
+    product.collection,
+    product.slug,
+  );
 
   return (
     <div className="container">

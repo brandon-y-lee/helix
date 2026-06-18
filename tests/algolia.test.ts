@@ -10,22 +10,36 @@ import {
 // is exercised without any network or real credentials.
 vi.mock("@/lib/algolia/source", () => ({
   fetchSearchRecordById: vi.fn(),
+  fetchAllSearchRecords: vi.fn(),
 }));
 vi.mock("@/lib/algolia/server", () => ({
   upsertSearchRecord: vi.fn(() => Promise.resolve()),
   deleteSearchRecord: vi.fn(() => Promise.resolve()),
+  getIndexName: vi.fn(() => "mei_pelle_products_test"),
+  reindexAllSearchRecords: vi.fn(),
 }));
 
-import { fetchSearchRecordById } from "@/lib/algolia/source";
-import { upsertSearchRecord, deleteSearchRecord } from "@/lib/algolia/server";
+import {
+  fetchAllSearchRecords,
+  fetchSearchRecordById,
+} from "@/lib/algolia/source";
+import {
+  upsertSearchRecord,
+  deleteSearchRecord,
+  reindexAllSearchRecords,
+} from "@/lib/algolia/server";
 import {
   applyCatalogWebhookEvent,
   verifyWebhookSecret,
 } from "@/lib/algolia/sync";
+import { runSearchBackfill } from "@/lib/algolia/backfill";
+import { getCatalogInvalidationTargets } from "@/lib/catalog-invalidation";
 
 const mockedFetch = fetchSearchRecordById as unknown as Mock;
 const mockedUpsert = upsertSearchRecord as unknown as Mock;
 const mockedDelete = deleteSearchRecord as unknown as Mock;
+const mockedFetchAll = fetchAllSearchRecords as unknown as Mock;
+const mockedReindex = reindexAllSearchRecords as unknown as Mock;
 
 const sourceRow: CatalogProductSource = {
   id: "11111111-1111-1111-1111-111111111111",
@@ -60,6 +74,7 @@ describe("buildAlgoliaRecord", () => {
     expect(r.descriptor).toBe("A nightly serum that refines tone.");
     expect(r.collection).toBe("Treat");
     expect(r.category).toBe("Treat");
+    expect(r.productType).toBe("Treat");
     expect(r.currency).toBe("USD");
     // Price range derived from variants (min/max in cents).
     expect(r.priceMin).toBe(5400);
@@ -75,6 +90,10 @@ describe("buildAlgoliaRecord", () => {
     expect(r.keywords).toContain("Treat");
     expect(r.keywords).toContain("Silky serum");
     expect(r.keywords).toContain("30 ml");
+    expect(r.cardMedia).toEqual({
+      kind: "gradient",
+      colors: ["#e3ddea", "#c2b5d6"],
+    });
   });
 
   it("flags availability/waitlist and badge from status", () => {
@@ -158,6 +177,19 @@ describe("applyCatalogWebhookEvent", () => {
     expect(outcome).toMatchObject({ action: "upsert", objectID: sourceRow.id });
   });
 
+  it("upserts on product INSERT", async () => {
+    const built = buildAlgoliaRecord(sourceRow);
+    mockedFetch.mockResolvedValue(built);
+
+    await applyCatalogWebhookEvent({
+      type: "INSERT",
+      table: "products",
+      record: { id: sourceRow.id },
+    });
+
+    expect(mockedUpsert).toHaveBeenCalledWith(built);
+  });
+
   it("deletes the record on product DELETE using old_record.id", async () => {
     const outcome = await applyCatalogWebhookEvent({
       type: "DELETE",
@@ -207,5 +239,91 @@ describe("applyCatalogWebhookEvent", () => {
     expect(outcome.action).toBe("noop");
     expect(mockedUpsert).not.toHaveBeenCalled();
     expect(mockedDelete).not.toHaveBeenCalled();
+  });
+});
+
+describe("runSearchBackfill", () => {
+  const originalEnvironment = process.env.SEARCH_BACKFILL_ENVIRONMENT;
+  const originalProductionFlag = process.env.ALLOW_PRODUCTION_SEARCH_REINDEX;
+
+  beforeEach(() => {
+    process.env.SEARCH_BACKFILL_ENVIRONMENT = "development";
+    delete process.env.ALLOW_PRODUCTION_SEARCH_REINDEX;
+    mockedFetchAll.mockReset();
+    mockedReindex.mockReset();
+  });
+
+  afterEach(() => {
+    if (originalEnvironment === undefined) {
+      delete process.env.SEARCH_BACKFILL_ENVIRONMENT;
+    } else {
+      process.env.SEARCH_BACKFILL_ENVIRONMENT = originalEnvironment;
+    }
+    if (originalProductionFlag === undefined) {
+      delete process.env.ALLOW_PRODUCTION_SEARCH_REINDEX;
+    } else {
+      process.env.ALLOW_PRODUCTION_SEARCH_REINDEX = originalProductionFlag;
+    }
+  });
+
+  it("reads, submits, and verifies every transformed product", async () => {
+    const record = buildAlgoliaRecord(sourceRow);
+    mockedFetchAll.mockResolvedValue([record]);
+    mockedReindex.mockResolvedValue({ submitted: 1, verified: 1 });
+
+    await expect(runSearchBackfill()).resolves.toMatchObject({
+      indexName: "mei_pelle_products_test",
+      read: 1,
+      transformed: 1,
+      upserted: 1,
+      skipped: 0,
+      failed: 0,
+      verified: 1,
+    });
+    expect(mockedReindex).toHaveBeenCalledWith([record]);
+  });
+
+  it("refuses to silently replace the index from an empty catalog", async () => {
+    mockedFetchAll.mockResolvedValue([]);
+
+    await expect(runSearchBackfill()).rejects.toMatchObject({
+      name: "SearchBackfillError",
+      report: { read: 0, failed: 1 },
+    });
+    expect(mockedReindex).not.toHaveBeenCalled();
+  });
+
+  it("requires an explicit opt-in for production", async () => {
+    process.env.SEARCH_BACKFILL_ENVIRONMENT = "production";
+    await expect(runSearchBackfill()).rejects.toThrow(/Production search reindex/);
+  });
+});
+
+describe("catalog cache invalidation", () => {
+  it("targets global, product, and collection caches after a rebuild", () => {
+    const targets = getCatalogInvalidationTargets(
+      {
+        type: "UPDATE",
+        table: "product_variants",
+        record: { product_id: sourceRow.id },
+      },
+      {
+        action: "upsert",
+        table: "product_variants",
+        objectID: sourceRow.id,
+        slug: sourceRow.slug,
+        collection: sourceRow.collection,
+      },
+    );
+
+    expect(targets.tags).toEqual(
+      expect.arrayContaining([
+        "catalog",
+        "products",
+        `product:${sourceRow.slug}`,
+        "collection:treat",
+      ]),
+    );
+    expect(targets.paths).toContain(`/products/${sourceRow.slug}`);
   });
 });

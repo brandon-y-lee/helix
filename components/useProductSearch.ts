@@ -35,15 +35,16 @@ export function useProductSearch(
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!isSearchConfigured()) {
+      setStatus("unconfigured");
+      setResult(null);
+      return;
+    }
+
     if (!term) {
       setStatus("idle");
       setResult(null);
       setErrorMessage(null);
-      return;
-    }
-
-    if (!isSearchConfigured()) {
-      setStatus("unconfigured");
       return;
     }
 

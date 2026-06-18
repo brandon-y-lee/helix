@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { ShopBrowser } from "@/components/ShopBrowser";
-import { getProducts } from "@/lib/catalog";
+import { getCachedProducts } from "@/lib/catalog-cache";
 
 export const metadata: Metadata = {
   title: "Shop | Mei Pelle",
@@ -11,7 +11,10 @@ export default async function ProductsPage({
 }: {
   searchParams: Promise<{ collection?: string }>;
 }) {
-  const [products, params] = await Promise.all([getProducts(), searchParams]);
+  const [products, params] = await Promise.all([
+    getCachedProducts(),
+    searchParams,
+  ]);
   const isEmpty = products.length === 0;
 
   return (

@@ -14,14 +14,16 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "search:backfill": "tsx scripts/search-backfill.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.108.2",
     "algoliasearch": "^5",
     "next": "15.5.19",
     "react": "19.1.0",
-    "react-dom": "19.1.0"
+    "react-dom": "19.1.0",
+    "ws": "^8.21.0"
   },
   "devDependencies": {
     "@playwright/test": "1.55.1",
@@ -31,10 +33,13 @@
     "@types/node": "20.17.30",
     "@types/react": "19.1.2",
     "@types/react-dom": "19.1.2",
+    "@types/ws": "^8.18.1",
     "@vitejs/plugin-react": "4.4.1",
+    "dotenv": "^17.4.2",
     "eslint": "9.25.1",
     "eslint-config-next": "15.5.19",
     "jsdom": "26.1.0",
+    "tsx": "^4.22.4",
     "typescript": "5.8.3",
     "vitest": "3.2.6"
   },

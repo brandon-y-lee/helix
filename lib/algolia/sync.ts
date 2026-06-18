@@ -27,6 +27,8 @@ export type SyncOutcome = {
   action: "upsert" | "delete" | "noop";
   table: string;
   objectID?: string;
+  slug?: string;
+  collection?: string;
   reason?: string;
 };
 
@@ -67,7 +69,13 @@ export async function applyCatalogWebhookEvent(
       const id = asId(old_record?.id);
       if (!id) return { action: "noop", table, reason: "delete without old_record.id" };
       await deleteSearchRecord(id);
-      return { action: "delete", table, objectID: id };
+      return {
+        action: "delete",
+        table,
+        objectID: id,
+        slug: asId(old_record?.slug),
+        collection: asId(old_record?.collection),
+      };
     }
 
     const id = asId(record?.id);
@@ -77,7 +85,13 @@ export async function applyCatalogWebhookEvent(
     if (!built) return { action: "noop", table, reason: "product not found on read-back" };
 
     await upsertSearchRecord(built);
-    return { action: "upsert", table, objectID: id };
+    return {
+      action: "upsert",
+      table,
+      objectID: id,
+      slug: built.slug,
+      collection: built.collection,
+    };
   }
 
   if (table === VARIANTS_TABLE) {
@@ -94,7 +108,13 @@ export async function applyCatalogWebhookEvent(
     }
 
     await upsertSearchRecord(built);
-    return { action: "upsert", table, objectID: productId };
+    return {
+      action: "upsert",
+      table,
+      objectID: productId,
+      slug: built.slug,
+      collection: built.collection,
+    };
   }
 
   return { action: "noop", table, reason: `unhandled table "${table}"` };

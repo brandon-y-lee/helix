@@ -8,16 +8,28 @@
 // automatic sync path — no manual script runs are required after setup.
 
 import { NextResponse } from "next/server";
+import { revalidatePath, revalidateTag } from "next/cache";
 import {
   applyCatalogWebhookEvent,
   verifyWebhookSecret,
   WEBHOOK_SECRET_HEADER,
   type CatalogWebhookPayload,
 } from "@/lib/algolia/sync";
+import { getCatalogInvalidationTargets } from "@/lib/catalog-invalidation";
 
 // Needs Node (algoliasearch + supabase-js); never statically cached.
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 30;
+
+function invalidateCatalog(
+  payload: CatalogWebhookPayload,
+  outcome?: Awaited<ReturnType<typeof applyCatalogWebhookEvent>>,
+): void {
+  const targets = getCatalogInvalidationTargets(payload, outcome);
+  for (const tag of targets.tags) revalidateTag(tag);
+  for (const path of targets.paths) revalidatePath(path);
+}
 
 export async function POST(request: Request): Promise<NextResponse> {
   // 1) Auth FIRST — before touching env-gated Algolia config or parsing —
@@ -44,8 +56,12 @@ export async function POST(request: Request): Promise<NextResponse> {
   // 3) Apply the change to Algolia.
   try {
     const outcome = await applyCatalogWebhookEvent(payload);
+    invalidateCatalog(payload, outcome);
     return NextResponse.json({ ok: true, ...outcome });
   } catch (err) {
+    // Canonical Supabase data changed even if Algolia is temporarily down.
+    // Invalidate page data so PDP/collection reads do not stay stale.
+    invalidateCatalog(payload);
     // Developer-facing message without leaking secrets/keys.
     const message = err instanceof Error ? err.message : "unknown sync error";
     console.error("[catalog-search-sync] sync failed:", message);

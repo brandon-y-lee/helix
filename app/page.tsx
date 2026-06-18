@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ProductCard } from "@/components/ProductCard";
 import { Swatch } from "@/components/Swatch";
-import { getProducts } from "@/lib/catalog";
+import { getCachedProducts } from "@/lib/catalog-cache";
 import {
   featuredProducts,
   newArrivals,
@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 };
 
 export default async function HomePage() {
-  const products = await getProducts();
+  const products = await getCachedProducts();
   const featured = featuredProducts(products, 3);
   const collections = collectionNames(products);
   const routineSteps = routine(products, 4);

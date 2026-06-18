@@ -15,6 +15,7 @@ const SERUM_HIT = {
   descriptor: "A nightly serum that refines tone.",
   collection: "Treat",
   category: "Treat",
+  productType: "Treat",
   badge: null,
   status: "available",
   priceMin: 5400,
@@ -26,6 +27,10 @@ const SERUM_HIT = {
   variantNames: ["30 ml", "50 ml"],
   keywords: ["Treat"],
   swatch: ["#e3ddea", "#c2b5d6"],
+  cardMedia: {
+    kind: "gradient",
+    colors: ["#e3ddea", "#c2b5d6"],
+  },
   sortOrder: 0,
   featuredRank: 0,
   createdAt: "2026-06-14T00:00:00.000Z",
@@ -66,9 +71,12 @@ async function mockAlgolia(page: Page) {
   });
 }
 
-test("empty query prompts the user to type", async ({ page }) => {
+test("empty query offers popular discovery suggestions", async ({ page }) => {
   await page.goto("/search");
-  await expect(page.getByText("Type to search the collection.")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Popular searches" }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Serum" })).toBeVisible();
 });
 
 test("Algolia-backed results render with a count and link to the PDP", async ({
@@ -79,6 +87,10 @@ test("Algolia-backed results render with a count and link to the PDP", async ({
 
   await page.getByLabel("Search products").fill("serum");
   await expect(page.getByText(/1 result for/i)).toBeVisible();
+  await expect(page.locator(".search-result")).toHaveCount(1);
+  await expect(page.getByText("A nightly serum that refines tone.")).toBeVisible();
+  await expect(page.getByText("Available")).toBeVisible();
+  await expect(page.getByText("From $54.00")).toBeVisible();
 
   const link = page
     .getByRole("link", { name: /Northpoint Renewal Serum/ })
@@ -98,6 +110,9 @@ test("no-results query shows a clear empty state", async ({ page }) => {
 
   await page.getByLabel("Search products").fill("zzznotathing");
   await expect(page.getByText(/No products match/i)).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Popular searches" }),
+  ).toBeVisible();
 });
 
 test("error state is shown when the search request fails", async ({ page }) => {
@@ -110,18 +125,56 @@ test("error state is shown when the search request fails", async ({ page }) => {
   );
 });
 
-test("header search overlay opens, focuses the input, and closes on Escape", async ({
+test("header search opens a right drawer and Escape restores trigger focus", async ({
   page,
 }) => {
   await page.goto("/");
 
-  await page.getByRole("button", { name: "Search" }).click();
+  const trigger = page.getByRole("button", { name: "Search" });
+  await trigger.click();
   const dialog = page.getByRole("dialog", { name: "Search" });
   await expect(dialog).toBeVisible();
   await expect(page.getByLabel("Search products")).toBeFocused();
+  const box = await dialog.locator(".search-overlay__panel").boundingBox();
+  const viewport = page.viewportSize();
+  expect(box).not.toBeNull();
+  expect(viewport).not.toBeNull();
+  expect(box!.x).toBeGreaterThanOrEqual(viewport!.width - 700);
+  await expect(
+    dialog.getByRole("heading", { name: "Popular searches" }),
+  ).toBeVisible();
 
   await page.keyboard.press("Escape");
   await expect(dialog).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+});
+
+test("drawer traps focus and closes from the backdrop", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Search" }).click();
+  const dialog = page.getByRole("dialog", { name: "Search" });
+
+  await page.keyboard.press("Shift+Tab");
+  await expect(dialog.getByRole("button", { name: "Close search" })).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(dialog.locator(":focus")).toBeVisible();
+
+  await dialog.click({ position: { x: 8, y: 100 } });
+  await expect(dialog).toHaveCount(0);
+});
+
+test("search exposes a loading state while Algolia resolves", async ({ page }) => {
+  await page.route(/algolia/i, async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ results: [{ hits: [], nbHits: 0, query: "serum" }] }),
+    });
+  });
+  await page.goto("/search");
+  await page.getByLabel("Search products").fill("serum");
+  await expect(page.getByRole("status", { name: "Searching" })).toBeVisible();
 });
 
 test("catalog sync webhook rejects unauthorized requests", async ({

@@ -3,10 +3,12 @@ import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
 
 // Mock the catalog data layer so the async server pages render deterministically
 // without touching Supabase or the network. formatPrice and types stay real.
-vi.mock("@/lib/catalog", async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import("@/lib/catalog")>();
-  return { ...actual, getProducts: vi.fn(), getProduct: vi.fn() };
+vi.mock("@/lib/catalog-cache", () => {
+  return {
+    getCachedProducts: vi.fn(),
+    getCachedProduct: vi.fn(),
+    getCachedRelatedProducts: vi.fn(),
+  };
 });
 
 import HomePage from "@/app/page";
@@ -16,10 +18,10 @@ import CheckoutPage from "@/app/checkout/page";
 import AccountPage from "@/app/account/page";
 import AdminPage from "@/app/admin/page";
 import { CartProvider } from "@/components/CartProvider";
-import { getProducts } from "@/lib/catalog";
+import { getCachedProducts } from "@/lib/catalog-cache";
 import type { Product } from "@/lib/products";
 
-const mockedGetProducts = getProducts as unknown as Mock;
+const mockedGetProducts = getCachedProducts as unknown as Mock;
 
 function makeProduct(overrides: Partial<Product> & Pick<Product, "slug" | "name">): Product {
   return {

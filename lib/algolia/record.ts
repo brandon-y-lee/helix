@@ -56,6 +56,7 @@ export type AlgoliaProductRecord = {
   descriptor: string;
   collection: string;
   category: string;
+  productType: string;
   badge: string | null;
   status: ProductStatus;
   priceMin: number;
@@ -67,6 +68,10 @@ export type AlgoliaProductRecord = {
   variantNames: string[];
   keywords: string[];
   swatch: [string, string];
+  cardMedia: {
+    kind: "gradient";
+    colors: [string, string];
+  };
   sortOrder: number;
   featuredRank: number;
   createdAt: string;
@@ -114,6 +119,7 @@ export function buildAlgoliaRecord(
     descriptor: row.blurb,
     collection: row.collection,
     category: row.collection,
+    productType: row.collection,
     badge: statusLabel(status),
     status,
     priceMin,
@@ -125,6 +131,10 @@ export function buildAlgoliaRecord(
     variantNames: variants.map((v) => v.label),
     keywords,
     swatch: [row.swatch_from, row.swatch_to],
+    cardMedia: {
+      kind: "gradient",
+      colors: [row.swatch_from, row.swatch_to],
+    },
     sortOrder: row.position ?? 0,
     featuredRank: row.position ?? 0,
     createdAt: row.created_at,
