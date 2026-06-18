@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { signUpErrorMessage } from "@/lib/auth/errors";
 import { safeReturnTo } from "@/lib/auth/redirect";
 import { validateEmail, validatePassword } from "@/lib/auth/validation";
 import { normalizeCartQuantity, subtotal } from "@/lib/cart/validation";
@@ -25,6 +26,22 @@ describe("account validation", () => {
     expect(validateEmail("not-email")).toMatch(/valid email/);
     expect(validatePassword("1234567")).toMatch(/at least 8/);
     expect(validatePassword("12345678")).toBeNull();
+  });
+
+  it("maps Supabase signup rate limits to an actionable message", () => {
+    expect(
+      signUpErrorMessage({
+        code: "over_email_send_rate_limit",
+        message: "email rate limit exceeded",
+        status: 429,
+      }),
+    ).toMatch(/temporarily rate-limited/i);
+  });
+
+  it("keeps unknown signup failures generic", () => {
+    expect(signUpErrorMessage({ message: "User already registered" })).toMatch(
+      /could not create the account/i,
+    );
   });
 });
 

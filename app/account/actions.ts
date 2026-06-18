@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { mergeGuestCartIntoCurrentUser } from "@/lib/cart/server";
+import { signUpErrorMessage } from "@/lib/auth/errors";
 import { safeReturnTo } from "@/lib/auth/redirect";
 import {
   normalizeProfileName,
@@ -86,7 +87,7 @@ export async function signUpAction(
   if (error) {
     return {
       status: "error",
-      message: "We could not create the account. Check the details and try again.",
+      message: signUpErrorMessage(error),
     };
   }
 
