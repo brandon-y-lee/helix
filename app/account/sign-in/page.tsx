@@ -1,0 +1,35 @@
+import type { Metadata } from "next";
+import { redirect } from "next/navigation";
+import { SignInForm } from "@/components/account/AccountForms";
+import { safeReturnTo } from "@/lib/auth/redirect";
+import { getCurrentUser } from "@/lib/auth/session";
+
+export const metadata: Metadata = {
+  title: "Sign in | Mei Pelle",
+};
+
+const LINK_ERRORS: Record<string, string> = {
+  "invalid-link": "This sign-in link is invalid. Request a new one and try again.",
+  "expired-link": "This sign-in link expired. Request a new one and try again.",
+};
+
+export default async function SignInPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ next?: string; error?: string }>;
+}) {
+  const params = await searchParams;
+  const next = safeReturnTo(params.next);
+  const user = await getCurrentUser();
+  if (user) redirect(next);
+
+  return (
+    <div className="container account-shell">
+      <section className="account-panel">
+        <p className="eyebrow">Account</p>
+        <h1>Sign in</h1>
+        <SignInForm next={next} error={params.error ? LINK_ERRORS[params.error] : undefined} />
+      </section>
+    </div>
+  );
+}

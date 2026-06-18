@@ -2,27 +2,57 @@
 
 import Link from "next/link";
 import { useCallback, useRef, useState } from "react";
+import { CartDrawer } from "@/components/CartDrawer";
 import { useCart } from "@/components/CartProvider";
 import { SearchOverlay } from "@/components/SearchOverlay";
+import { Sheet } from "@/components/Sheet";
 
 export function Header() {
   const { count } = useCart();
   const [searchOpen, setSearchOpen] = useState(false);
+  const [cartOpen, setCartOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const searchTriggerRef = useRef<HTMLButtonElement>(null);
+  const cartTriggerRef = useRef<HTMLButtonElement>(null);
+  const menuTriggerRef = useRef<HTMLButtonElement>(null);
   const closeSearch = useCallback(() => setSearchOpen(false), []);
+  const closeCart = useCallback(() => setCartOpen(false), []);
+  const closeMenu = useCallback(() => setMenuOpen(false), []);
   const returnFocusToSearch = useCallback(() => {
     searchTriggerRef.current?.focus();
+  }, []);
+  const returnFocusToCart = useCallback(() => {
+    cartTriggerRef.current?.focus();
+  }, []);
+  const returnFocusToMenu = useCallback(() => {
+    menuTriggerRef.current?.focus();
   }, []);
 
   return (
     <header className="site-header">
-      <div className="container site-header__bar">
-        <Link href="/" className="brand" aria-label="Mei Pelle home">
-          Mei&nbsp;Pelle <span>/ skincare</span>
+      <a href="#content" className="skip-link">
+        Skip to main content
+      </a>
+      <div className="site-header__bar">
+        <button
+          ref={menuTriggerRef}
+          type="button"
+          className="mobile-menu-trigger"
+          onClick={() => setMenuOpen(true)}
+          aria-haspopup="dialog"
+          aria-expanded={menuOpen}
+        >
+          Menu
+        </button>
+        <nav className="site-nav site-nav--left" aria-label="Primary">
+          <Link href="/products">SHOP</Link>
+          <Link href="/about#method">METHOD</Link>
+          <Link href="/about">ABOUT</Link>
+        </nav>
+        <Link href="/" className="brand" aria-label="Mei-Pelle home">
+          MEI-PELLE
         </Link>
-        <nav className="site-nav" aria-label="Primary">
-          <Link href="/products">Shop</Link>
-          <Link href="/about">About</Link>
+        <nav className="site-nav site-nav--right" aria-label="Utilities">
           <button
             ref={searchTriggerRef}
             type="button"
@@ -31,27 +61,54 @@ export function Header() {
             aria-haspopup="dialog"
             aria-expanded={searchOpen}
           >
-            <span aria-hidden="true">⌕</span> Search
+            SEARCH
           </button>
-          <Link href="/account">Account</Link>
-          <Link href="/cart" className="cart-link">
-            Cart
-            {count > 0 && (
-              <span className="cart-badge" aria-hidden="true">
-                {count}
-              </span>
-            )}
+          <Link href="/account">ACCOUNT</Link>
+          <button
+            ref={cartTriggerRef}
+            type="button"
+            className="cart-link"
+            onClick={() => setCartOpen(true)}
+            aria-haspopup="dialog"
+            aria-expanded={cartOpen}
+          >
+            CART ({count})
             <span className="sr-only">
               {count > 0 ? `, ${count} items` : ", empty"}
             </span>
-          </Link>
+          </button>
         </nav>
       </div>
 
+      <Sheet
+        open={menuOpen}
+        side="left"
+        title="Menu"
+        eyebrow="Mei-Pelle"
+        description="Primary navigation"
+        onClose={closeMenu}
+        returnFocus={returnFocusToMenu}
+        className="mobile-nav-sheet"
+      >
+        <nav className="mobile-nav" aria-label="Mobile primary">
+          <Link href="/products" onClick={closeMenu}>SHOP</Link>
+          <Link href="/about#method" onClick={closeMenu}>METHOD</Link>
+          <Link href="/about" onClick={closeMenu}>ABOUT</Link>
+          <button type="button" onClick={() => { closeMenu(); setSearchOpen(true); }}>
+            SEARCH
+          </button>
+          <Link href="/account" onClick={closeMenu}>ACCOUNT</Link>
+        </nav>
+      </Sheet>
       <SearchOverlay
         open={searchOpen}
         onClose={closeSearch}
         returnFocus={returnFocusToSearch}
+      />
+      <CartDrawer
+        open={cartOpen}
+        onClose={closeCart}
+        returnFocus={returnFocusToCart}
       />
     </header>
   );

@@ -1,0 +1,47 @@
+import { describe, expect, it } from "vitest";
+import { safeReturnTo } from "@/lib/auth/redirect";
+import { validateEmail, validatePassword } from "@/lib/auth/validation";
+import { normalizeCartQuantity, subtotal } from "@/lib/cart/validation";
+import { CartError } from "@/lib/cart/types";
+
+describe("safe auth redirects", () => {
+  it("allows internal paths", () => {
+    expect(safeReturnTo("/account")).toBe("/account");
+    expect(safeReturnTo("/products/northpoint-renewal-serum")).toBe(
+      "/products/northpoint-renewal-serum",
+    );
+  });
+
+  it("rejects external or malformed paths", () => {
+    expect(safeReturnTo("https://example.com")).toBe("/account");
+    expect(safeReturnTo("//example.com")).toBe("/account");
+    expect(safeReturnTo("/account\nLocation:https://example.com")).toBe("/account");
+  });
+});
+
+describe("account validation", () => {
+  it("validates email and password shape", () => {
+    expect(validateEmail("user@example.com")).toBeNull();
+    expect(validateEmail("not-email")).toMatch(/valid email/);
+    expect(validatePassword("1234567")).toMatch(/at least 8/);
+    expect(validatePassword("12345678")).toBeNull();
+  });
+});
+
+describe("cart validation", () => {
+  it("bounds line quantities", () => {
+    expect(normalizeCartQuantity(2)).toBe(2);
+    expect(normalizeCartQuantity(150)).toBe(99);
+    expect(() => normalizeCartQuantity(0)).toThrow(CartError);
+    expect(() => normalizeCartQuantity(1.5)).toThrow(CartError);
+  });
+
+  it("calculates subtotal from current available lines only", () => {
+    expect(
+      subtotal([
+        { price: 5400, quantity: 2, available: true },
+        { price: 7800, quantity: 1, available: false },
+      ]),
+    ).toBe(10800);
+  });
+});

@@ -9,106 +9,205 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import type { CartLine, CartState } from "@/lib/cart/types";
 
-export type CartLine = {
-  /** Stable key: `${slug}:${variantId}`. */
-  key: string;
-  slug: string;
-  name: string;
-  variantId: string;
-  variantLabel: string;
-  price: number;
-  swatch: [string, string];
-  quantity: number;
-};
-
-type AddInput = Omit<CartLine, "key" | "quantity">;
+type AddInput = Pick<
+  CartLine,
+  "slug" | "name" | "variantId" | "variantLabel" | "price" | "swatch"
+>;
 
 type CartContextValue = {
   lines: CartLine[];
   count: number;
   subtotal: number;
-  add: (item: AddInput, quantity?: number) => void;
-  setQuantity: (key: string, quantity: number) => void;
-  remove: (key: string) => void;
-  clear: () => void;
+  loading: boolean;
+  error: string | null;
+  refresh: () => Promise<void>;
+  add: (item: AddInput, quantity?: number) => Promise<boolean>;
+  setQuantity: (key: string, quantity: number) => Promise<boolean>;
+  remove: (key: string) => Promise<boolean>;
+  clear: () => Promise<boolean>;
 };
 
 const CartContext = createContext<CartContextValue | null>(null);
 
-const STORAGE_KEY = "mei-pelle:cart:v1";
+const EMPTY_CART: CartState = { lines: [], count: 0, subtotal: 0, currency: "USD" };
 
-function keyFor(slug: string, variantId: string): string {
-  return `${slug}:${variantId}`;
+function optimisticKey(slug: string, variantId: string): string {
+  return `optimistic:${slug}:${variantId}`;
+}
+
+async function readResponse(response: Response): Promise<CartState> {
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    const message =
+      data && typeof data.error === "string"
+        ? data.error
+        : "Cart is temporarily unavailable.";
+    throw new Error(message);
+  }
+  return data as CartState;
 }
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [lines, setLines] = useState<CartLine[]>([]);
-  const [hydrated, setHydrated] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Load persisted cart once on mount (client only).
-  useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw) as CartLine[];
-        if (Array.isArray(parsed)) setLines(parsed);
-      }
-    } catch {
-      // Ignore malformed storage; start with an empty cart.
-    }
-    setHydrated(true);
+  const applyState = useCallback((cart: CartState) => {
+    setLines(cart.lines);
   }, []);
 
-  // Persist on change (after initial hydration).
-  useEffect(() => {
-    if (!hydrated) return;
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    setError(null);
     try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(lines));
-    } catch {
-      // Storage may be unavailable (private mode); cart stays in-memory.
+      const response = await fetch("/api/cart", { cache: "no-store" });
+      applyState(await readResponse(response));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Cart is temporarily unavailable.");
+      applyState(EMPTY_CART);
+    } finally {
+      setLoading(false);
     }
-  }, [lines, hydrated]);
+  }, [applyState]);
 
-  const add = useCallback((item: AddInput, quantity = 1) => {
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  useEffect(() => {
+    function onFocus() {
+      void refresh();
+    }
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [refresh]);
+
+  const rollback = useCallback((previous: CartLine[], err: unknown) => {
+    setLines(previous);
+    setError(err instanceof Error ? err.message : "Cart update failed.");
+  }, []);
+
+  const add = useCallback(async (item: AddInput, quantity = 1) => {
+    setError(null);
+    const previous = lines;
+    const key = optimisticKey(item.slug, item.variantId);
     setLines((prev) => {
-      const key = keyFor(item.slug, item.variantId);
-      const existing = prev.find((line) => line.key === key);
+      const existing = prev.find((line) => line.slug === item.slug && line.variantId === item.variantId);
       if (existing) {
         return prev.map((line) =>
-          line.key === key
-            ? { ...line, quantity: line.quantity + quantity }
+          line.key === existing.key
+            ? { ...line, quantity: line.quantity + quantity, lineSubtotal: line.price * (line.quantity + quantity) }
             : line,
         );
       }
-      return [...prev, { ...item, key, quantity }];
+      return [
+        ...prev,
+        {
+          ...item,
+          key,
+          collection: "",
+          quantity,
+          available: true,
+          warning: null,
+          lineSubtotal: item.price * quantity,
+        },
+      ];
     });
-  }, []);
 
-  const setQuantity = useCallback((key: string, quantity: number) => {
+    try {
+      const response = await fetch("/api/cart/items", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ slug: item.slug, variantId: item.variantId, quantity }),
+      });
+      applyState(await readResponse(response));
+      return true;
+    } catch (err) {
+      rollback(previous, err);
+      return false;
+    }
+  }, [applyState, lines, rollback]);
+
+  const setQuantity = useCallback(async (key: string, quantity: number) => {
+    setError(null);
+    const previous = lines;
     setLines((prev) =>
       quantity <= 0
         ? prev.filter((line) => line.key !== key)
         : prev.map((line) =>
-            line.key === key ? { ...line, quantity } : line,
+            line.key === key
+              ? { ...line, quantity, lineSubtotal: line.available ? line.price * quantity : 0 }
+              : line,
           ),
     );
-  }, []);
 
-  const remove = useCallback((key: string) => {
+    try {
+      const response = await fetch("/api/cart/items", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ lineId: key, quantity }),
+      });
+      applyState(await readResponse(response));
+      return true;
+    } catch (err) {
+      rollback(previous, err);
+      return false;
+    }
+  }, [applyState, lines, rollback]);
+
+  const remove = useCallback(async (key: string) => {
+    setError(null);
+    const previous = lines;
     setLines((prev) => prev.filter((line) => line.key !== key));
-  }, []);
+    try {
+      const response = await fetch("/api/cart/items", {
+        method: "DELETE",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ lineId: key }),
+      });
+      applyState(await readResponse(response));
+      return true;
+    } catch (err) {
+      rollback(previous, err);
+      return false;
+    }
+  }, [applyState, lines, rollback]);
 
-  const clear = useCallback(() => setLines([]), []);
+  const clear = useCallback(async () => {
+    setError(null);
+    const previous = lines;
+    setLines([]);
+    try {
+      const response = await fetch("/api/cart", { method: "DELETE" });
+      applyState(await readResponse(response));
+      return true;
+    } catch (err) {
+      rollback(previous, err);
+      return false;
+    }
+  }, [applyState, lines, rollback]);
 
   const value = useMemo<CartContextValue>(() => {
     const count = lines.reduce((sum, line) => sum + line.quantity, 0);
     const subtotal = lines.reduce(
-      (sum, line) => sum + line.price * line.quantity,
+      (sum, line) => sum + line.lineSubtotal,
       0,
     );
-    return { lines, count, subtotal, add, setQuantity, remove, clear };
-  }, [lines, add, setQuantity, remove, clear]);
+    return {
+      lines,
+      count,
+      subtotal,
+      loading,
+      error,
+      refresh,
+      add,
+      setQuantity,
+      remove,
+      clear,
+    };
+  }, [lines, loading, error, refresh, add, setQuantity, remove, clear]);
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }

@@ -63,12 +63,12 @@ test("add to cart updates the count and persists across reload", async ({
   await page.getByRole("button", { name: /Add to cart/ }).click();
   await expect(page.getByText("Added to cart")).toBeVisible();
 
-  // Header cart badge reflects the item.
-  await expect(page.locator(".cart-badge")).toHaveText("1");
+  // Header cart trigger reflects the item.
+  await expect(page.getByRole("button", { name: /CART \(1\)/ })).toBeVisible();
 
-  // Reload: localStorage-backed cart persists.
+  // Reload: server-backed guest cart persists.
   await page.reload();
-  await expect(page.locator(".cart-badge")).toHaveText("1");
+  await expect(page.getByRole("button", { name: /CART \(1\)/ })).toBeVisible();
 
   // Cart page shows the line item, then clear empties it.
   await page.goto("/cart");

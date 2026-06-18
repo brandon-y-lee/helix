@@ -32,6 +32,7 @@ export function ProductDetail({
   const [activePanel, setActivePanel] = useState(0);
   const [variantId, setVariantId] = useState(product.variants[0]?.id);
   const [added, setAdded] = useState(false);
+  const [addError, setAddError] = useState("");
 
   const variant =
     product.variants.find((v) => v.id === variantId) ?? product.variants[0];
@@ -44,9 +45,10 @@ export function ProductDetail({
     { label: "Texture", value: product.texture },
   ].filter((m): m is { label: string; value: string } => Boolean(m.value));
 
-  function handleAdd() {
+  async function handleAdd() {
     if (!variant) return;
-    add({
+    setAddError("");
+    const ok = await add({
       slug: product.slug,
       name: product.name,
       variantId: variant.id,
@@ -54,8 +56,12 @@ export function ProductDetail({
       price: variant.price,
       swatch: product.swatch,
     });
-    setAdded(true);
-    window.setTimeout(() => setAdded(false), 2200);
+    if (ok) {
+      setAdded(true);
+      window.setTimeout(() => setAdded(false), 2200);
+    } else {
+      setAddError("Cart is temporarily unavailable. Try again in a moment.");
+    }
   }
 
   return (
@@ -120,7 +126,7 @@ export function ProductDetail({
 
           <div className="pdp__actions">
             {isAvailable && variant ? (
-              <button type="button" className="btn" onClick={handleAdd}>
+              <button type="button" className="btn" onClick={() => void handleAdd()}>
                 Add to cart &middot; {formatPrice(variant.price)}
               </button>
             ) : product.status === "sold_out" ? (
@@ -130,7 +136,7 @@ export function ProductDetail({
             )}
           </div>
           <p className="add-feedback" role="status" aria-live="polite">
-            {added ? "Added to cart" : ""}
+            {added ? "Added to cart" : addError}
           </p>
 
           {metaItems.length > 0 && (

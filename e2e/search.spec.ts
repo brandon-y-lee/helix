@@ -130,12 +130,12 @@ test("header search opens a right drawer and Escape restores trigger focus", asy
 }) => {
   await page.goto("/");
 
-  const trigger = page.getByRole("button", { name: "Search" });
+  const trigger = page.getByRole("button", { name: "SEARCH" });
   await trigger.click();
   const dialog = page.getByRole("dialog", { name: "Search" });
   await expect(dialog).toBeVisible();
   await expect(page.getByLabel("Search products")).toBeFocused();
-  const box = await dialog.locator(".search-overlay__panel").boundingBox();
+  const box = await dialog.locator(".sheet__panel").boundingBox();
   const viewport = page.viewportSize();
   expect(box).not.toBeNull();
   expect(viewport).not.toBeNull();
@@ -151,11 +151,11 @@ test("header search opens a right drawer and Escape restores trigger focus", asy
 
 test("drawer traps focus and closes from the backdrop", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "Search" }).click();
+  await page.getByRole("button", { name: "SEARCH" }).click();
   const dialog = page.getByRole("dialog", { name: "Search" });
 
   await page.keyboard.press("Shift+Tab");
-  await expect(dialog.getByRole("button", { name: "Close search" })).toBeFocused();
+  await expect(dialog.getByRole("button", { name: "Close" })).toBeFocused();
   await page.keyboard.press("Shift+Tab");
   await expect(dialog.locator(":focus")).toBeVisible();
 

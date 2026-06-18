@@ -11,6 +11,7 @@ import { formatPrice, type Product } from "@/lib/products";
 export function ProductCard({ product }: { product: Product }) {
   const { add } = useCart();
   const [added, setAdded] = useState(false);
+  const [addError, setAddError] = useState("");
 
   const defaultVariant = product.variants[0];
   const hasVariants = Boolean(defaultVariant);
@@ -21,9 +22,10 @@ export function ProductCard({ product }: { product: Product }) {
   const badge = statusLabel(product.status);
   const href = `/products/${product.slug}`;
 
-  function handleAdd() {
+  async function handleAdd() {
     if (!defaultVariant) return;
-    add({
+    setAddError("");
+    const ok = await add({
       slug: product.slug,
       name: product.name,
       variantId: defaultVariant.id,
@@ -31,8 +33,12 @@ export function ProductCard({ product }: { product: Product }) {
       price: defaultVariant.price,
       swatch: product.swatch,
     });
-    setAdded(true);
-    window.setTimeout(() => setAdded(false), 1800);
+    if (ok) {
+      setAdded(true);
+      window.setTimeout(() => setAdded(false), 1800);
+    } else {
+      setAddError("Cart is temporarily unavailable.");
+    }
   }
 
   return (
@@ -71,7 +77,7 @@ export function ProductCard({ product }: { product: Product }) {
             <button
               type="button"
               className="btn btn--sm"
-              onClick={handleAdd}
+              onClick={() => void handleAdd()}
               aria-label={`Add ${product.name} to cart`}
             >
               {added ? "Added ✓" : "Add"}
@@ -87,7 +93,7 @@ export function ProductCard({ product }: { product: Product }) {
           )}
         </div>
         <span className="sr-only" role="status" aria-live="polite">
-          {added ? `${product.name} added to cart` : ""}
+          {added ? `${product.name} added to cart` : addError}
         </span>
       </div>
     </li>

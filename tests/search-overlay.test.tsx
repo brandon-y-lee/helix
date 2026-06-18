@@ -53,7 +53,7 @@ describe("SearchOverlay", () => {
     await user.click(screen.getByRole("button", { name: "Search" }));
 
     const dialog = screen.getByRole("dialog", { name: "Search" });
-    const close = screen.getByRole("button", { name: "Close search" });
+    const close = screen.getByRole("button", { name: "Close" });
     const input = screen.getByLabelText("Search products");
     expect(input).toHaveFocus();
 

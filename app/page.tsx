@@ -23,24 +23,18 @@ export default async function HomePage() {
 
   return (
     <>
-      <section className="hero">
+      <section className="hero hero--ascend">
         <div className="container">
-          <p className="hero__eyebrow">Prestige skincare, simplified</p>
-          <h1>A focused routine for skin that actually shows up.</h1>
-          <p>
-            Six considered formulas — cleanse, treat, hydrate, protect. No
-            clutter, no guesswork. Just the steps that earn their place on the
-            shelf.
-          </p>
+          <div className="hero__media" aria-hidden="true">
+            <span className="hero__form hero__form--tall" />
+            <span className="hero__form hero__form--low" />
+            <span className="hero__blade" />
+          </div>
+          <p className="hero__eyebrow">Prestige men&apos;s skincare</p>
+          <h1>ASCEND.</h1>
           <div className="hero__actions">
             <Link href="/products" className="btn">
-              Shop the collection
-            </Link>
-            <Link
-              href="/products/northpoint-renewal-serum"
-              className="btn btn--ghost"
-            >
-              Meet the serum
+              SHOP THE SYSTEM
             </Link>
           </div>
         </div>

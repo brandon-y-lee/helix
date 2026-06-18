@@ -4,12 +4,12 @@ import { test, expect } from "@playwright/test";
 // <h1> signal is visible. Includes the async [slug] detail route, which
 // renders the product name as its h1.
 const routes: ReadonlyArray<{ path: string; heading: string | RegExp }> = [
-  { path: "/", heading: /skin that actually shows up/i },
+  { path: "/", heading: "ASCEND." },
   { path: "/products", heading: "Shop" },
   { path: "/products/northpoint-renewal-serum", heading: "Northpoint Renewal Serum" },
   { path: "/cart", heading: "Cart" },
   { path: "/checkout", heading: "Checkout" },
-  { path: "/account", heading: "Account" },
+  { path: "/account", heading: "Sign in" },
   { path: "/admin", heading: "Admin" },
 ];
 
@@ -29,12 +29,12 @@ test("add to cart updates the cart and persists to checkout", async ({ page }) =
   await page.getByRole("button", { name: /Add to cart/ }).click();
   await expect(page.getByText("Added to cart")).toBeVisible();
 
-  // Cart badge in the header reflects the added item.
-  await expect(page.getByText("1", { exact: true })).toBeVisible();
+  // Cart trigger in the header reflects the added item.
+  await expect(page.getByRole("button", { name: /CART \(1\)/ })).toBeVisible();
 
   // Cart page shows the line item and a non-empty summary.
   await page.goto("/cart");
   await expect(page.getByText("Northpoint Renewal Serum")).toBeVisible();
   await expect(page.getByText("50 ml")).toBeVisible();
-  await expect(page.getByRole("link", { name: "Checkout" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Checkout unavailable" })).toBeVisible();
 });

@@ -11,11 +11,15 @@ vi.mock("@/lib/catalog-cache", () => {
   };
 });
 
+vi.mock("@/lib/auth/session", () => ({
+  getCurrentUser: vi.fn(async () => null),
+}));
+
 import HomePage from "@/app/page";
 import ProductsPage from "@/app/products/page";
 import CartPage from "@/app/cart/page";
 import CheckoutPage from "@/app/checkout/page";
-import AccountPage from "@/app/account/page";
+import SignInPage from "@/app/account/sign-in/page";
 import AdminPage from "@/app/admin/page";
 import { CartProvider } from "@/components/CartProvider";
 import { getCachedProducts } from "@/lib/catalog-cache";
@@ -51,6 +55,15 @@ const fixtures: Product[] = [
 beforeEach(() => {
   mockedGetProducts.mockReset();
   mockedGetProducts.mockResolvedValue(fixtures);
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () =>
+      new Response(
+        JSON.stringify({ lines: [], count: 0, subtotal: 0, currency: "USD" }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    ),
+  );
 });
 
 // Storefront smoke verification: render each page component and assert its
@@ -64,12 +77,12 @@ describe("storefront page smoke", () => {
     expect(
       screen.getByRole("heading", {
         level: 1,
-        name: /skin that actually shows up/i,
+        name: "ASCEND.",
       }),
     ).toBeInTheDocument();
     // Featured grid links to product detail pages.
     expect(
-      screen.getByRole("link", { name: /Shop the collection/i }),
+      screen.getByRole("link", { name: /SHOP THE SYSTEM/i }),
     ).toHaveAttribute("href", "/products");
   });
 
@@ -102,7 +115,7 @@ describe("storefront page smoke", () => {
     ).toBeInTheDocument();
   });
 
-  it("Cart renders its h1 (empty state) inside the provider", () => {
+  it("Cart renders its h1 (empty state) inside the provider", async () => {
     render(
       <CartProvider>
         <CartPage />
@@ -111,7 +124,7 @@ describe("storefront page smoke", () => {
     expect(
       screen.getByRole("heading", { level: 1, name: "Cart" }),
     ).toBeInTheDocument();
-    expect(screen.getByText(/your cart is empty/i)).toBeInTheDocument();
+    expect(await screen.findByText(/your cart is empty/i)).toBeInTheDocument();
   });
 
   it("Checkout renders its h1", () => {
@@ -121,10 +134,10 @@ describe("storefront page smoke", () => {
     ).toBeInTheDocument();
   });
 
-  it("Account renders its h1", () => {
-    render(<AccountPage />);
+  it("Account sign-in renders its h1", async () => {
+    render(await SignInPage({ searchParams: Promise.resolve({}) }));
     expect(
-      screen.getByRole("heading", { level: 1, name: "Account" }),
+      screen.getByRole("heading", { level: 1, name: "Sign in" }),
     ).toBeInTheDocument();
   });
 
