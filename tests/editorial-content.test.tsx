@@ -291,7 +291,9 @@ describe("Method content architecture", () => {
     });
 
     render(await MethodPage());
-    expect(screen.getByRole("heading", { name: "INGREDIENT LITERACY" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "KNOW WHAT YOU’RE USING." })).toBeInTheDocument();
+    expect(screen.queryByText("INGREDIENT LITERACY")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Composition, mechanism/i)).not.toBeInTheDocument();
     expect(screen.getAllByText("INCI / IDENTITY").length).toBeGreaterThan(0);
     expect(screen.getAllByText("MECHANISM").length).toBeGreaterThan(0);
     expect(screen.getAllByText("SKIN RELEVANCE").length).toBeGreaterThan(0);

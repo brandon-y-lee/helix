@@ -316,8 +316,7 @@ export default async function MethodPage() {
             >
               <div className="section-head">
                 <div>
-                  <p className="eyebrow">Composition, mechanism, role</p>
-                  <h2 id="method-ingredients-heading">INGREDIENT LITERACY</h2>
+                  <h2 id="method-ingredients-heading">KNOW WHAT YOU’RE USING.</h2>
                 </div>
               </div>
               <div className="ingredient-index">

@@ -106,7 +106,9 @@ test("Method page renders the full routine without treating SPF as merchandise",
   await expect(page.locator("#step-refine")).not.toContainText("THE RULE:");
   await expect(page.locator("#step-recode")).not.toContainText("ADVANCED DOES NOT MEAN AGGRESSIVE");
 
-  await expect(page.getByRole("heading", { name: "INGREDIENT LITERACY" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "KNOW WHAT YOU’RE USING." })).toBeVisible();
+  await expect(page.getByText("INGREDIENT LITERACY")).toHaveCount(0);
+  await expect(page.getByText(/Composition, mechanism/i)).toHaveCount(0);
   await expect(page.locator(".ingredient-card")).not.toHaveCount(0);
   await expect(page.getByText("INCI / IDENTITY").first()).toBeVisible();
   await expect(page.getByText("MECHANISM").first()).toBeVisible();
@@ -123,6 +125,67 @@ test("Method page renders the full routine without treating SPF as merchandise",
     () => document.documentElement.scrollWidth > window.innerWidth + 1,
   );
   expect(hasHorizontalOverflow).toBe(false);
+});
+
+test("skip link stays hidden during overscroll and appears on keyboard focus", async ({
+  page,
+}) => {
+  await page.goto("/method");
+
+  const skipLink = page.locator(".skip-link");
+  await expect(skipLink).toHaveText("Skip to main content");
+
+  await page.mouse.wheel(0, -800);
+  await expect.poll(async () => {
+    return skipLink.evaluate((node) => {
+      const styles = window.getComputedStyle(node);
+      const rect = node.getBoundingClientRect();
+      return {
+        clipPath: styles.clipPath,
+        pointerEvents: styles.pointerEvents,
+        width: Math.round(rect.width),
+        height: Math.round(rect.height),
+        paddingTop: styles.paddingTop,
+        hasTransparentBackground: ["rgba(0, 0, 0, 0)", "transparent"].includes(
+          styles.backgroundColor,
+        ),
+      };
+    });
+  })
+    .toEqual({
+      clipPath: "inset(50%)",
+      pointerEvents: "none",
+      width: 1,
+      height: 1,
+      paddingTop: "0px",
+      hasTransparentBackground: true,
+    });
+
+  await page.keyboard.press("Tab");
+  await expect(skipLink).toBeFocused();
+  await expect.poll(async () => {
+    return skipLink.evaluate((node) => {
+      const styles = window.getComputedStyle(node);
+      const rect = node.getBoundingClientRect();
+      return {
+        clipPath: styles.clipPath,
+        pointerEvents: styles.pointerEvents,
+        width: rect.width > 1,
+        height: rect.height > 1,
+        hasVisibleColor: styles.color !== "rgba(0, 0, 0, 0)",
+      };
+    });
+  })
+    .toEqual({
+      clipPath: "none",
+      pointerEvents: "auto",
+      width: true,
+      height: true,
+      hasVisibleColor: true,
+    });
+
+  await page.keyboard.press("Enter");
+  await expect(page.locator("#content")).toBeFocused();
 });
 
 test("Method product links navigate to live product detail pages", async ({ page }) => {

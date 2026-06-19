@@ -31,7 +31,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body>
         <CartProvider>
           <Header />
-          <main id="content">{children}</main>
+          <main id="content" tabIndex={-1}>
+            {children}
+          </main>
           <footer className="site-footer">
             <div className="container site-footer__bar">
               <span>&copy; Mei-Pelle — development storefront.</span>
