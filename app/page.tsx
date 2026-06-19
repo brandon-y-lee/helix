@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ProductCard } from "@/components/ProductCard";
+import { ProductGrid } from "@/components/ProductGrid";
 import { ProductImage } from "@/components/ProductImage";
 import { getCachedProducts } from "@/lib/catalog-cache";
 import {
@@ -89,11 +89,7 @@ export default async function HomePage() {
             <h2>Featured</h2>
             <p>The essentials to start with.</p>
           </div>
-          <ul className="product-grid">
-            {featured.map((product) => (
-              <ProductCard key={product.slug} product={product} />
-            ))}
-          </ul>
+          <ProductGrid products={featured} />
         </section>
       )}
 
@@ -146,11 +142,7 @@ export default async function HomePage() {
             <h2>New arrivals</h2>
             <p>The latest to join the lineup.</p>
           </div>
-          <ul className="product-grid">
-            {fresh.map((product) => (
-              <ProductCard key={product.slug} product={product} />
-            ))}
-          </ul>
+          <ProductGrid products={fresh} />
         </section>
       )}
     </>

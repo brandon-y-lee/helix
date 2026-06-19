@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useCart } from "@/components/CartProvider";
 import { ProductImage } from "@/components/ProductImage";
 import { WaitlistButton } from "@/components/WaitlistButton";
-import { ProductCard } from "@/components/ProductCard";
+import { ProductGrid } from "@/components/ProductGrid";
 import { formatPrice, type Product, type ProductMedia } from "@/lib/products";
 import type { CartPlaceholderMedia } from "@/lib/cart/types";
 
@@ -271,11 +271,7 @@ export function ProductDetail({
             <h2>COMPLETE THE SYSTEM</h2>
             <p>The next useful steps.</p>
           </div>
-          <ul className="product-grid">
-            {related.map((p) => (
-              <ProductCard key={p.slug} product={p} />
-            ))}
-          </ul>
+          <ProductGrid products={related} />
         </section>
       )}
     </>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ProductCard } from "@/components/ProductCard";
+import { ProductGrid } from "@/components/ProductGrid";
 import type { Product } from "@/lib/products";
 
 type SortKey =
@@ -139,11 +139,7 @@ export function ShopBrowser({
             No products match this collection.
           </p>
         ) : (
-          <ul className="product-grid">
-            {visible.map((product) => (
-              <ProductCard key={product.slug} product={product} />
-            ))}
-          </ul>
+          <ProductGrid products={visible} />
         )}
       </section>
     </>

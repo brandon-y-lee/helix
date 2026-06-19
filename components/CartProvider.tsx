@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -28,6 +29,7 @@ type CartContextValue = {
   lines: CartLine[];
   count: number;
   subtotal: number;
+  cartDrawerOpen: boolean;
   loading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
@@ -35,6 +37,9 @@ type CartContextValue = {
   setQuantity: (key: string, quantity: number) => Promise<boolean>;
   remove: (key: string) => Promise<boolean>;
   clear: () => Promise<boolean>;
+  openCartDrawer: (returnFocus?: () => void) => void;
+  closeCartDrawer: () => void;
+  returnFocusAfterCartDrawerClose: () => void;
 };
 
 const CartContext = createContext<CartContextValue | null>(null);
@@ -61,6 +66,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [lines, setLines] = useState<CartLine[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [cartDrawerOpen, setCartDrawerOpen] = useState(false);
+  const cartDrawerReturnFocusRef = useRef<() => void>(() => {});
 
   const applyState = useCallback((cart: CartState) => {
     setLines(cart.lines);
@@ -197,6 +204,20 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   }, [applyState, lines, rollback]);
 
+  const openCartDrawer = useCallback((returnFocus?: () => void) => {
+    cartDrawerReturnFocusRef.current = returnFocus ?? (() => {});
+    setCartDrawerOpen(true);
+  }, []);
+
+  const closeCartDrawer = useCallback(() => {
+    setCartDrawerOpen(false);
+  }, []);
+
+  const returnFocusAfterCartDrawerClose = useCallback(() => {
+    cartDrawerReturnFocusRef.current();
+    cartDrawerReturnFocusRef.current = () => {};
+  }, []);
+
   const value = useMemo<CartContextValue>(() => {
     const count = lines.reduce((sum, line) => sum + line.quantity, 0);
     const subtotal = lines.reduce(
@@ -207,6 +228,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       lines,
       count,
       subtotal,
+      cartDrawerOpen,
       loading,
       error,
       refresh,
@@ -214,8 +236,24 @@ export function CartProvider({ children }: { children: ReactNode }) {
       setQuantity,
       remove,
       clear,
+      openCartDrawer,
+      closeCartDrawer,
+      returnFocusAfterCartDrawerClose,
     };
-  }, [lines, loading, error, refresh, add, setQuantity, remove, clear]);
+  }, [
+    lines,
+    cartDrawerOpen,
+    loading,
+    error,
+    refresh,
+    add,
+    setQuantity,
+    remove,
+    clear,
+    openCartDrawer,
+    closeCartDrawer,
+    returnFocusAfterCartDrawerClose,
+  ]);
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }

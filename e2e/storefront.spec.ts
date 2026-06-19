@@ -83,16 +83,58 @@ test("add to cart updates the count and persists across reload", async ({
   await expect(page.getByText(/your cart is empty/i)).toBeVisible();
 });
 
-test("product card hover reveals direct buy for a single available variant", async ({
+test("product card quick buy opens inline, then final buy opens cart drawer", async ({
   page,
 }) => {
   await page.goto("/products");
   const resetCard = page.locator(".product-card").filter({ hasText: "RESET" }).first();
   await resetCard.hover();
-  const buyButton = resetCard.getByRole("button", { name: /Buy RESET/i });
-  await expect(buyButton).toBeVisible();
-  await buyButton.click();
+  const quickBuyTrigger = resetCard.getByRole("button", {
+    name: "Open quick buy for RESET",
+  });
+  await expect(quickBuyTrigger).toBeVisible();
+
+  await quickBuyTrigger.click();
+  await expect(page.getByRole("button", { name: /CART \(0\)/ })).toBeVisible();
+  await expect(resetCard.locator(".product-card__quick-buy")).toHaveAttribute(
+    "data-open",
+    "true",
+  );
+
+  await page.mouse.move(10, 10);
+  const finalBuy = resetCard.getByRole("button", {
+    name: /Buy RESET .+ for \$\d+\.\d{2}/,
+  });
+  await expect(finalBuy).toBeVisible();
+  await finalBuy.click();
+
+  await expect(page.getByRole("dialog", { name: "Cart" })).toBeVisible();
   await expect(page.getByRole("button", { name: /CART \(1\)/ })).toBeVisible();
+  await expect(resetCard.locator(".product-card__quick-buy")).toHaveAttribute(
+    "data-open",
+    "true",
+  );
+
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog", { name: "Cart" })).toHaveCount(0);
+  await expect(finalBuy).toBeFocused();
+
+  await page.keyboard.press("Escape");
+  await expect(resetCard.locator(".product-card__quick-buy")).toHaveAttribute(
+    "data-open",
+    "false",
+  );
+});
+
+test("product card quick buy trigger is visible on mobile without hover", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/products");
+  const resetCard = page.locator(".product-card").filter({ hasText: "RESET" }).first();
+  await expect(
+    resetCard.getByRole("button", { name: "Open quick buy for RESET" }),
+  ).toBeVisible();
 });
 
 test("unknown product slug shows a clear not-found state", async ({ page }) => {

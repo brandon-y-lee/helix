@@ -8,15 +8,19 @@ import { SearchOverlay } from "@/components/SearchOverlay";
 import { Sheet } from "@/components/Sheet";
 
 export function Header() {
-  const { count } = useCart();
+  const {
+    count,
+    cartDrawerOpen,
+    openCartDrawer,
+    closeCartDrawer,
+    returnFocusAfterCartDrawerClose,
+  } = useCart();
   const [searchOpen, setSearchOpen] = useState(false);
-  const [cartOpen, setCartOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const searchTriggerRef = useRef<HTMLButtonElement>(null);
   const cartTriggerRef = useRef<HTMLButtonElement>(null);
   const menuTriggerRef = useRef<HTMLButtonElement>(null);
   const closeSearch = useCallback(() => setSearchOpen(false), []);
-  const closeCart = useCallback(() => setCartOpen(false), []);
   const closeMenu = useCallback(() => setMenuOpen(false), []);
   const returnFocusToSearch = useCallback(() => {
     searchTriggerRef.current?.focus();
@@ -68,9 +72,9 @@ export function Header() {
             ref={cartTriggerRef}
             type="button"
             className="cart-link"
-            onClick={() => setCartOpen(true)}
+            onClick={() => openCartDrawer(returnFocusToCart)}
             aria-haspopup="dialog"
-            aria-expanded={cartOpen}
+            aria-expanded={cartDrawerOpen}
           >
             CART ({count})
             <span className="sr-only">
@@ -106,9 +110,9 @@ export function Header() {
         returnFocus={returnFocusToSearch}
       />
       <CartDrawer
-        open={cartOpen}
-        onClose={closeCart}
-        returnFocus={returnFocusToCart}
+        open={cartDrawerOpen}
+        onClose={closeCartDrawer}
+        returnFocus={returnFocusAfterCartDrawerClose}
       />
     </header>
   );
