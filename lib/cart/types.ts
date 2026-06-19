@@ -1,3 +1,12 @@
+import type { PlaceholderPalette } from "@/lib/products";
+
+export type CartPlaceholderMedia = {
+  kind: "placeholder";
+  alt: string;
+  paletteId: string | null;
+  palette: PlaceholderPalette;
+} | null;
+
 export type CartLine = {
   key: string;
   slug: string;
@@ -7,6 +16,9 @@ export type CartLine = {
   variantLabel: string;
   price: number;
   swatch: [string, string];
+  imageUrl: string | null;
+  imageAlt: string | null;
+  placeholderMedia: CartPlaceholderMedia;
   quantity: number;
   available: boolean;
   warning: string | null;

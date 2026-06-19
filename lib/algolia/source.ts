@@ -14,9 +14,14 @@ import {
 // Includes `id` (the Algolia objectID) alongside every storefront-safe field
 // the record builder needs.
 const SOURCE_SELECT =
-  "id, slug, name, tagline, collection, blurb, status, swatch_from, swatch_to, " +
-  "position, created_at, made_for, good_for, texture, " +
-  "product_variants ( variant_key, label, price_cents, position )";
+  "id, slug, name, display_name, formal_title, tagline, card_tagline, collection, " +
+  "action_name, routine_number, subtitle, descriptor, product_type, badge, " +
+  "catalog_status, blurb, description, editorial_description, editorial_how_to_use, " +
+  "status, swatch_from, swatch_to, position, featured_rank, sort_order, created_at, " +
+  "published_at, updated_at, made_for, good_for, texture, key_ingredients, " +
+  "ingredients, concerns, routine_step, usage_time, search_keywords, " +
+  "product_variants ( variant_key, label, price_cents, position, sort_order, available, inventory_status ), " +
+  "product_media ( media_kind, url, alt, role, sort_order, palette_id, placeholder_palette )";
 
 /** All products as Algolia records, in featured (position) order. */
 export async function fetchAllSearchRecords(): Promise<AlgoliaProductRecord[]> {
@@ -24,6 +29,7 @@ export async function fetchAllSearchRecords(): Promise<AlgoliaProductRecord[]> {
   const { data, error } = await supabase
     .from("products")
     .select(SOURCE_SELECT)
+    .order("sort_order", { ascending: true, nullsFirst: false })
     .order("position", { ascending: true });
 
   if (error) {

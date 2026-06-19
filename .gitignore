@@ -23,6 +23,9 @@ test-results/
 .env.*
 !.env.example
 
+# Supabase local link/cache metadata
+supabase/.temp/
+
 # misc
 .DS_Store
 *.log

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ProductCard } from "@/components/ProductCard";
-import { Swatch } from "@/components/Swatch";
+import { ProductImage } from "@/components/ProductImage";
 import { getCachedProducts } from "@/lib/catalog-cache";
 import {
   featuredProducts,
@@ -20,22 +20,45 @@ export default async function HomePage() {
   const collections = collectionNames(products);
   const routineSteps = routine(products, 4);
   const fresh = newArrivals(products, 3);
+  const heroProduct = featured[0] ?? products[0];
 
   return (
     <>
-      <section className="hero hero--ascend">
+      <section className="hero hero--system">
         <div className="container">
-          <div className="hero__media" aria-hidden="true">
-            <span className="hero__form hero__form--tall" />
-            <span className="hero__form hero__form--low" />
-            <span className="hero__blade" />
-          </div>
-          <p className="hero__eyebrow">Prestige men&apos;s skincare</p>
-          <h1>ASCEND.</h1>
-          <div className="hero__actions">
-            <Link href="/products" className="btn">
-              SHOP THE SYSTEM
-            </Link>
+          <div className="hero__grid">
+            <div className="hero__copy">
+              <p className="hero__eyebrow">Prestige men&apos;s skincare</p>
+              <h1>ASCEND.</h1>
+              <p>
+                A sharper daily system for fresh, conditioned, better-rested skin.
+              </p>
+              <div className="hero__actions">
+                <Link href="/products" className="btn">
+                  Shop the system
+                </Link>
+              </div>
+            </div>
+            {heroProduct && (
+              <Link
+                href={`/products/${heroProduct.slug}`}
+                className="hero-product"
+                aria-label={`Shop ${heroProduct.displayName}`}
+              >
+                <ProductImage
+                  media={heroProduct.detailMedia ?? heroProduct.cardMedia}
+                  swatch={heroProduct.swatch}
+                  className="hero-product__media"
+                  imageClassName="hero-product__img"
+                  sizes="(max-width: 860px) 92vw, 50vw"
+                  priority
+                />
+                <span className="hero-product__caption">
+                  <span>{heroProduct.routineNumber ?? "01"}</span>
+                  {heroProduct.displayName} — {heroProduct.cardTagline}
+                </span>
+              </Link>
+            )}
           </div>
         </div>
       </section>
@@ -95,16 +118,19 @@ export default async function HomePage() {
                       {i + 1}
                     </span>
                     <span className="routine-step__media">
-                      <Swatch
-                        colors={p.swatch}
-                        style={{ position: "absolute", inset: 0 }}
+                      <ProductImage
+                        media={p.cardMedia}
+                        swatch={p.swatch}
+                        className="routine-step__image"
+                        imageClassName="routine-step__img"
+                        sizes="52px"
                       />
                     </span>
                     <span className="routine-step__text">
                       <span className="routine-step__collection">
                         {p.collection}
                       </span>
-                      <span className="routine-step__name">{p.name}</span>
+                      <span className="routine-step__name">{p.displayName}</span>
                     </span>
                   </Link>
                 </li>

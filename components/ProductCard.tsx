@@ -3,36 +3,70 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useCart } from "@/components/CartProvider";
-import { Swatch } from "@/components/Swatch";
+import { ProductImage } from "@/components/ProductImage";
 import { WaitlistButton } from "@/components/WaitlistButton";
-import { statusLabel } from "@/components/productStatus";
-import { formatPrice, type Product } from "@/lib/products";
+import { formatPrice, type Product, type ProductMedia } from "@/lib/products";
+import type { CartPlaceholderMedia } from "@/lib/cart/types";
+
+function minPrice(product: Product): number {
+  return product.variants.length
+    ? Math.min(...product.variants.map((variant) => variant.price))
+    : 0;
+}
+
+function cartPlaceholderMedia(
+  media: ProductMedia | null | undefined,
+): CartPlaceholderMedia {
+  if (media?.kind !== "placeholder" || !media.palette) return null;
+  return {
+    kind: "placeholder",
+    alt: media.alt,
+    paletteId: media.paletteId,
+    palette: media.palette,
+  };
+}
 
 export function ProductCard({ product }: { product: Product }) {
   const { add } = useCart();
   const [added, setAdded] = useState(false);
+  const [pending, setPending] = useState(false);
   const [addError, setAddError] = useState("");
 
-  const defaultVariant = product.variants[0];
-  const hasVariants = Boolean(defaultVariant);
-  const startingPrice = hasVariants
-    ? Math.min(...product.variants.map((v) => v.price))
-    : 0;
-  const hasRange = product.variants.length > 1;
-  const badge = statusLabel(product.status);
   const href = `/products/${product.slug}`;
+  const availableVariants = product.variants.filter(
+    (variant) =>
+      variant.available &&
+      variant.inventoryStatus !== "out_of_stock" &&
+      variant.inventoryStatus !== "unavailable",
+  );
+  const singleAvailableVariant =
+    product.status === "available" &&
+    product.variants.length === 1 &&
+    availableVariants.length === 1
+      ? availableVariants[0]
+      : null;
+  const startingPrice = minPrice(product);
+  const hasRange = product.variants.length > 1;
+  const priceLabel = `${hasRange ? "From " : ""}${formatPrice(startingPrice)}`;
+  const displayName = product.displayName;
 
   async function handleAdd() {
-    if (!defaultVariant) return;
+    if (!singleAvailableVariant || pending) return;
+    setPending(true);
     setAddError("");
+    const media = product.cartMedia ?? product.cardMedia;
     const ok = await add({
       slug: product.slug,
-      name: product.name,
-      variantId: defaultVariant.id,
-      variantLabel: defaultVariant.label,
-      price: defaultVariant.price,
+      name: displayName,
+      variantId: singleAvailableVariant.id,
+      variantLabel: singleAvailableVariant.label,
+      price: singleAvailableVariant.price,
       swatch: product.swatch,
+      imageUrl: null,
+      imageAlt: media?.alt ?? null,
+      placeholderMedia: cartPlaceholderMedia(media),
     });
+    setPending(false);
     if (ok) {
       setAdded(true);
       window.setTimeout(() => setAdded(false), 1800);
@@ -43,59 +77,64 @@ export function ProductCard({ product }: { product: Product }) {
 
   return (
     <li className="product-card">
-      <Link
-        href={href}
-        className="product-card__media-link"
-        aria-label={`${product.name} — ${product.tagline}`}
-        tabIndex={-1}
-      >
-        <div className="product-card__media">
-          <Swatch
-            colors={product.swatch}
-            style={{ position: "absolute", inset: 0 }}
-          />
-          {badge ? (
-            <span className="badge badge--status">{badge}</span>
-          ) : (
-            <span className="product-card__collection">
-              {product.collection}
-            </span>
-          )}
-        </div>
-      </Link>
-      <div className="product-card__body">
-        <Link href={href} className="product-card__name">
-          {product.name}
+      <div className="product-card__surface">
+        <ProductImage
+          media={product.cardMedia}
+          swatch={product.swatch}
+          className="product-card__image"
+          imageClassName="product-card__img"
+          sizes="(max-width: 720px) 92vw, (max-width: 1180px) 33vw, 420px"
+        />
+        <ProductImage
+          media={product.cardHoverMedia}
+          swatch={product.swatch}
+          className="product-card__image product-card__image--hover"
+          imageClassName="product-card__img"
+          sizes="(max-width: 720px) 92vw, (max-width: 1180px) 33vw, 420px"
+        />
+
+        <Link
+          href={href}
+          className="product-card__link"
+          aria-label={displayName}
+        >
+          <span className="product-card__name">{displayName}</span>
+          <span className="product-card__meta">
+            <span className="product-card__tagline">{product.cardTagline}</span>
+            <span className="product-card__price">{priceLabel}</span>
+          </span>
         </Link>
-        <span className="product-card__blurb">{product.blurb}</span>
-        <span className="product-card__price">
-          {hasRange ? "From " : ""}
-          {formatPrice(startingPrice)}
-        </span>
-        <div className="product-card__cta">
-          {product.status === "available" && hasVariants && (
+
+        <div className="product-card__cta" aria-hidden={false}>
+          {singleAvailableVariant ? (
             <button
               type="button"
-              className="btn btn--sm"
+              className="product-card__button"
               onClick={() => void handleAdd()}
-              aria-label={`Add ${product.name} to cart`}
+              disabled={pending}
+              aria-label={`Buy ${displayName} for ${formatPrice(singleAvailableVariant.price)}`}
             >
-              {added ? "Added ✓" : "Add"}
+              {pending
+                ? "ADDING"
+                : added
+                  ? "ADDED"
+                  : `BUY ${displayName} — ${formatPrice(singleAvailableVariant.price)}`}
             </button>
-          )}
-          {product.status === "coming_soon" && (
-            <WaitlistButton className="btn btn--ghost btn--sm" />
-          )}
-          {product.status === "sold_out" && (
-            <button type="button" className="btn btn--sm" disabled>
-              Sold out
-            </button>
+          ) : product.status === "available" ? (
+            <Link href={href} className="product-card__button">
+              CHOOSE {displayName}
+            </Link>
+          ) : (
+            <WaitlistButton
+              className="product-card__button"
+              label="JOIN THE WAITLIST"
+            />
           )}
         </div>
-        <span className="sr-only" role="status" aria-live="polite">
-          {added ? `${product.name} added to cart` : addError}
-        </span>
       </div>
+      <span className="sr-only" role="status" aria-live="polite">
+        {added ? `${displayName} added to cart` : addError}
+      </span>
     </li>
   );
 }

@@ -5,8 +5,8 @@ import { test, expect } from "@playwright/test";
 // renders the product name as its h1.
 const routes: ReadonlyArray<{ path: string; heading: string | RegExp }> = [
   { path: "/", heading: "ASCEND." },
-  { path: "/products", heading: "Shop" },
-  { path: "/products/northpoint-renewal-serum", heading: "Northpoint Renewal Serum" },
+  { path: "/products", heading: "RAISE YOUR BASELINE." },
+  { path: "/products/recode-03-pdrn-5-ampoule", heading: "RECODE" },
   { path: "/cart", heading: "Cart" },
   { path: "/checkout", heading: "Checkout" },
   { path: "/account", heading: "Sign in" },
@@ -22,10 +22,9 @@ for (const { path, heading } of routes) {
 }
 
 test("add to cart updates the cart and persists to checkout", async ({ page }) => {
-  await page.goto("/products/northpoint-renewal-serum");
+  await page.goto("/products/recode-03-pdrn-5-ampoule");
 
-  // Pick the second size variant, then add to cart.
-  await page.getByRole("button", { name: "50 ml" }).click();
+  await page.getByRole("button", { name: "30 mL" }).click();
   await page.getByRole("button", { name: /Add to cart/ }).click();
   await expect(page.getByText("Added to cart")).toBeVisible();
 
@@ -34,7 +33,7 @@ test("add to cart updates the cart and persists to checkout", async ({ page }) =
 
   // Cart page shows the line item and a non-empty summary.
   await page.goto("/cart");
-  await expect(page.getByText("Northpoint Renewal Serum")).toBeVisible();
-  await expect(page.getByText("50 ml")).toBeVisible();
+  await expect(page.getByText("RECODE")).toBeVisible();
+  await expect(page.getByText("30 mL")).toBeVisible();
   await expect(page.getByRole("button", { name: "Checkout unavailable" })).toBeVisible();
 });

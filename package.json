@@ -15,7 +15,10 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "e2e": "playwright test",
-    "search:backfill": "tsx scripts/search-backfill.ts"
+    "catalog:import:leaders": "tsx scripts/catalog-import-leaders.ts",
+    "catalog:refresh:presentation": "tsx scripts/catalog-refresh-presentation.ts",
+    "search:backfill": "tsx scripts/search-backfill.ts",
+    "search:reindex": "pnpm run search:backfill"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.0",

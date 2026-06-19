@@ -9,31 +9,55 @@ import { test, expect, type Page } from "@playwright/test";
 const SERUM_HIT = {
   objectID: "e2e-serum",
   productId: "e2e-serum",
-  slug: "northpoint-renewal-serum",
-  title: "Northpoint Renewal Serum",
-  subtitle: "Overnight resurfacing concentrate",
-  descriptor: "A nightly serum that refines tone.",
-  collection: "Treat",
-  category: "Treat",
-  productType: "Treat",
+  slug: "recode-03-pdrn-5-ampoule",
+  title: "RECODE",
+  displayName: "RECODE",
+  formalTitle: "RECODE 03 PDRN 5% Ampoule",
+  cardTagline: "Bounce and glow",
+  editorialDescription: "A lightweight ampoule that layers hydration with a polished finish.",
+  subtitle: "Ampoule / Serum",
+  descriptor: "A lightweight ampoule that layers hydration with a polished finish.",
+  collection: "THE SYSTEM",
+  collections: ["THE SYSTEM"],
+  category: "THE SYSTEM",
+  productType: "Ampoule / Serum",
+  routineNumber: "03",
+  routineStep: "Treat",
   badge: null,
   status: "available",
-  priceMin: 5400,
-  priceMax: 7800,
+  priceMin: 2500,
+  priceMax: 2500,
   currency: "USD",
   available: true,
   waitlist: false,
-  variantCount: 2,
-  variantNames: ["30 ml", "50 ml"],
-  keywords: ["Treat"],
-  swatch: ["#e3ddea", "#c2b5d6"],
+  variantCount: 1,
+  variantNames: ["30 mL"],
+  keywords: ["THE SYSTEM", "PDRN", "ampoule"],
+  concerns: ["Texture"],
+  ingredients: ["PDRN"],
+  swatch: ["#dfe4e5", "#7f8f95"],
+  placeholderMedia: {
+    kind: "placeholder",
+    alt: "RECODE search placeholder surface",
+    paletteId: "recode-search",
+    palette: {
+      start: "#dfe4e5",
+      end: "#7f8f95",
+      accent: "#244B56",
+      surface: "#FFFDF8",
+      ink: "#111312",
+      highlight: "#FAF2E8",
+    },
+  },
   cardMedia: {
     kind: "gradient",
-    colors: ["#e3ddea", "#c2b5d6"],
+    colors: ["#dfe4e5", "#7f8f95"],
   },
   sortOrder: 0,
   featuredRank: 0,
   createdAt: "2026-06-14T00:00:00.000Z",
+  publishedAt: "2026-06-14T00:00:00.000Z",
+  updatedAt: "2026-06-15T00:00:00.000Z",
   madeFor: null,
   goodFor: null,
   texture: null,
@@ -88,19 +112,20 @@ test("Algolia-backed results render with a count and link to the PDP", async ({
   await page.getByLabel("Search products").fill("serum");
   await expect(page.getByText(/1 result for/i)).toBeVisible();
   await expect(page.locator(".search-result")).toHaveCount(1);
-  await expect(page.getByText("A nightly serum that refines tone.")).toBeVisible();
+  await expect(page.getByText("Bounce and glow")).toBeVisible();
   await expect(page.getByText("Available")).toBeVisible();
-  await expect(page.getByText("From $54.00")).toBeVisible();
+  await expect(page.getByText("$25.00")).toBeVisible();
+  await expect(page.locator('[data-media-kind="placeholder"]').first()).toBeVisible();
 
   const link = page
-    .getByRole("link", { name: /Northpoint Renewal Serum/ })
+    .getByRole("link", { name: /RECODE/ })
     .first();
   await expect(link).toBeVisible();
   await link.click();
 
-  await expect(page).toHaveURL(/\/products\/northpoint-renewal-serum$/);
+  await expect(page).toHaveURL(/\/products\/recode-03-pdrn-5-ampoule$/);
   await expect(
-    page.getByRole("heading", { level: 1, name: "Northpoint Renewal Serum" }),
+    page.getByRole("heading", { level: 1, name: "RECODE" }),
   ).toBeVisible();
 });
 

@@ -38,15 +38,8 @@ export function collectionNames(products: Product[]): string[] {
  * homepage a guided "start here" module without any schema additions.
  */
 export function routine(products: Product[], limit = 4): Product[] {
-  const byCollection = new Map<string, Product>();
-  for (const p of products) {
-    const current = byCollection.get(p.collection);
-    if (!current) {
-      byCollection.set(p.collection, p);
-    } else if (current.status !== "available" && p.status === "available") {
-      // Upgrade to an available product if the first pick wasn't buyable.
-      byCollection.set(p.collection, p);
-    }
-  }
-  return [...byCollection.values()].slice(0, limit);
+  return [...products]
+    .filter((product) => product.routineOrder !== null)
+    .sort((a, b) => (a.routineOrder ?? 999) - (b.routineOrder ?? 999))
+    .slice(0, limit);
 }

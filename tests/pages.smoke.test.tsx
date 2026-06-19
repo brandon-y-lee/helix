@@ -28,22 +28,76 @@ import type { Product } from "@/lib/products";
 const mockedGetProducts = getCachedProducts as unknown as Mock;
 
 function makeProduct(overrides: Partial<Product> & Pick<Product, "slug" | "name">): Product {
-  return {
+  const base: Product = {
+    id: "11111111-1111-4111-8111-111111111111",
+    slug: overrides.slug,
+    displayName: overrides.displayName ?? overrides.name,
+    formalTitle: overrides.formalTitle ?? overrides.name,
+    name: overrides.displayName ?? overrides.name,
     tagline: "Tagline",
+    cardTagline: overrides.cardTagline ?? "Tagline",
     collection: "Cleanse",
+    actionName: null,
+    routineNumber: null,
+    subtitle: "Tagline",
+    descriptor: "A short descriptor.",
+    productType: "Cleanser",
+    badge: null,
+    currency: "USD",
+    featuredRank: 0,
+    sortOrder: 0,
     blurb: "A short descriptor.",
     description: "Description.",
+    editorialDescription: "Description.",
     benefits: [],
     howToUse: "",
-    variants: [{ id: "50ml", label: "50 ml", price: 2000 }],
+    editorialHowToUse: "",
+    formulaNotes: [],
+    variants: [
+      {
+        id: "50ml",
+        label: "50 ml",
+        price: 2000,
+        compareAtPrice: null,
+        sku: null,
+        available: true,
+        inventoryStatus: "in_stock",
+        volume: "50 ml",
+        packCount: null,
+        optionValues: { size: "50 ml" },
+        sortOrder: 0,
+      },
+    ],
     swatch: ["#ffffff", "#000000"],
+    media: [],
+    cardMedia: null,
+    cardHoverMedia: null,
+    heroMedia: null,
+    detailMedia: null,
+    cartMedia: null,
+    searchMedia: null,
     status: "available",
+    catalogStatus: "active",
     madeFor: "All skin types",
     goodFor: "Everyday",
     texture: "Light gel",
+    keyIngredients: [],
+    ingredients: null,
+    productDetails: {},
+    cautions: [],
+    finish: null,
+    volume: null,
+    skinTypes: [],
+    concerns: [],
+    routineStep: null,
+    routineOrder: null,
+    usageTime: [],
+    seoTitle: null,
+    seoDescription: null,
+    searchKeywords: [],
     createdAt: "2026-06-14T00:00:00.000Z",
-    ...overrides,
   };
+  return { ...base, ...overrides };
 }
 
 const fixtures: Product[] = [
@@ -82,7 +136,7 @@ describe("storefront page smoke", () => {
     ).toBeInTheDocument();
     // Featured grid links to product detail pages.
     expect(
-      screen.getByRole("link", { name: /SHOP THE SYSTEM/i }),
+      screen.getByRole("link", { name: /Shop the system/i }),
     ).toHaveAttribute("href", "/products");
   });
 
@@ -93,13 +147,13 @@ describe("storefront page smoke", () => {
       </CartProvider>,
     );
     expect(
-      screen.getByRole("heading", { level: 1, name: "Shop" }),
+      screen.getByRole("heading", { level: 1, name: "RAISE YOUR BASELINE." }),
     ).toBeInTheDocument();
     for (const product of fixtures) {
       // Each card has a media link (aria-label includes the tagline) and a name
       // link (accessible name === product name); match the latter exactly.
       expect(
-        screen.getByRole("link", { name: product.name }),
+        screen.getByRole("link", { name: product.displayName }),
       ).toHaveAttribute("href", `/products/${product.slug}`);
     }
   });
@@ -108,7 +162,7 @@ describe("storefront page smoke", () => {
     mockedGetProducts.mockResolvedValue([]);
     render(await ProductsPage({ searchParams: Promise.resolve({}) }));
     expect(
-      screen.getByRole("heading", { level: 1, name: "Shop" }),
+      screen.getByRole("heading", { level: 1, name: "RAISE YOUR BASELINE." }),
     ).toBeInTheDocument();
     expect(
       screen.getByText(/no products are available/i),

@@ -34,6 +34,16 @@ const sampleRow = {
   name: "Northpoint Renewal Serum",
   tagline: "Overnight resurfacing concentrate",
   collection: "Treat",
+  action_name: "NORTHPOINT",
+  routine_number: "03",
+  subtitle: "Overnight resurfacing concentrate",
+  descriptor: "A nightly serum that refines tone.",
+  product_type: "Serum",
+  badge: null,
+  currency: "USD",
+  featured_rank: 2,
+  sort_order: 2,
+  position: 2,
   blurb: "A nightly serum that refines tone.",
   description: "Long description.",
   benefits: ["Refines tone", "Softens fine lines"],
@@ -41,14 +51,65 @@ const sampleRow = {
   swatch_from: "#e3ddea",
   swatch_to: "#c2b5d6",
   status: "available",
+  catalog_status: "active",
   made_for: "Uneven texture or tone",
   good_for: "Nighttime routine",
   texture: "Silky serum",
+  key_ingredients: ["Niacinamide"],
+  ingredients: "Water, Niacinamide",
+  product_details: { volume: "30 ml" },
+  cautions: [],
+  finish: "Soft",
+  volume: "30 ml",
+  skin_types: ["Combination"],
+  concerns: ["Texture"],
+  routine_step: "Treat",
+  routine_order: 3,
+  usage_time: ["PM"],
+  seo_title: "Northpoint Renewal Serum | Mei Pelle",
+  seo_description: "Overnight resurfacing concentrate",
+  search_keywords: ["serum"],
   created_at: "2026-06-14T00:00:00.000Z",
   // Intentionally out of order to verify sort-by-position.
   product_variants: [
-    { variant_key: "50ml", label: "50 ml", price_cents: 7800, position: 1 },
-    { variant_key: "30ml", label: "30 ml", price_cents: 5400, position: 0 },
+    {
+      variant_key: "50ml",
+      label: "50 ml",
+      price_cents: 7800,
+      compare_at_price_cents: null,
+      sku: null,
+      available: true,
+      inventory_status: "in_stock",
+      option_values: { size: "50 ml" },
+      volume: "50 ml",
+      pack_count: null,
+      position: 1,
+      sort_order: 1,
+    },
+    {
+      variant_key: "30ml",
+      label: "30 ml",
+      price_cents: 5400,
+      compare_at_price_cents: null,
+      sku: null,
+      available: true,
+      inventory_status: "in_stock",
+      option_values: { size: "30 ml" },
+      volume: "30 ml",
+      pack_count: null,
+      position: 0,
+      sort_order: 0,
+    },
+  ],
+  product_media: [
+    {
+      url: "https://example.supabase.co/storage/v1/object/public/mei-pelle-catalog/products/northpoint/card.jpg",
+      alt: "Northpoint product",
+      width: 1000,
+      height: 1000,
+      role: "card",
+      sort_order: 0,
+    },
   ],
 };
 
@@ -70,11 +131,21 @@ describe("catalog data access (Supabase-backed)", () => {
       id: "30ml",
       label: "30 ml",
       price: 5400,
+      compareAtPrice: null,
+      sku: null,
+      available: true,
+      inventoryStatus: "in_stock",
+      volume: "30 ml",
+      packCount: null,
+      optionValues: { size: "30 ml" },
+      sortOrder: 0,
     });
     expect(products[0].status).toBe("available");
     expect(products[0].madeFor).toBe("Uneven texture or tone");
     expect(products[0].goodFor).toBe("Nighttime routine");
     expect(products[0].texture).toBe("Silky serum");
+    expect(products[0].cardMedia?.role).toBe("card");
+    expect(products[0].routineOrder).toBe(3);
     expect(products[0].createdAt).toBe("2026-06-14T00:00:00.000Z");
   });
 

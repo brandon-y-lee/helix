@@ -13,7 +13,15 @@ import type { CartLine, CartState } from "@/lib/cart/types";
 
 type AddInput = Pick<
   CartLine,
-  "slug" | "name" | "variantId" | "variantLabel" | "price" | "swatch"
+  | "slug"
+  | "name"
+  | "variantId"
+  | "variantLabel"
+  | "price"
+  | "swatch"
+  | "imageUrl"
+  | "imageAlt"
+  | "placeholderMedia"
 >;
 
 type CartContextValue = {

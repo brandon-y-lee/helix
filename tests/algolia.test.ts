@@ -45,20 +45,74 @@ const sourceRow: CatalogProductSource = {
   id: "11111111-1111-1111-1111-111111111111",
   slug: "northpoint-renewal-serum",
   name: "Northpoint Renewal Serum",
+  display_name: "NORTHPOINT",
+  formal_title: "NORTHPOINT 03 Renewal Serum",
   tagline: "Overnight resurfacing concentrate",
+  card_tagline: "Smoother-looking tone",
   collection: "Treat",
+  action_name: "NORTHPOINT",
+  routine_number: "03",
+  subtitle: "Overnight resurfacing concentrate",
+  descriptor: "A nightly serum that refines tone.",
+  product_type: "Serum",
+  badge: "Night step",
+  catalog_status: "active",
   blurb: "A nightly serum that refines tone.",
+  description: "Long description.",
+  editorial_description: "A nightly serum for smoother-looking tone.",
+  editorial_how_to_use: "Apply at night.",
   status: "available",
   swatch_from: "#e3ddea",
   swatch_to: "#c2b5d6",
   position: 2,
+  featured_rank: 2,
+  sort_order: 2,
   created_at: "2026-06-14T00:00:00.000Z",
+  published_at: "2026-06-14T00:00:00.000Z",
+  updated_at: "2026-06-15T00:00:00.000Z",
   made_for: "Uneven texture or tone",
   good_for: "Nighttime routine",
   texture: "Silky serum",
+  key_ingredients: ["Niacinamide"],
+  ingredients: "Water, Niacinamide",
+  concerns: ["Texture"],
+  routine_step: "Treat",
+  usage_time: ["PM"],
+  search_keywords: ["serum"],
   product_variants: [
-    { variant_key: "50ml", label: "50 ml", price_cents: 7800, position: 1 },
-    { variant_key: "30ml", label: "30 ml", price_cents: 5400, position: 0 },
+    {
+      variant_key: "50ml",
+      label: "50 ml",
+      price_cents: 7800,
+      position: 1,
+      sort_order: 1,
+      available: true,
+      inventory_status: "in_stock",
+    },
+    {
+      variant_key: "30ml",
+      label: "30 ml",
+      price_cents: 5400,
+      position: 0,
+      sort_order: 0,
+      available: true,
+      inventory_status: "in_stock",
+    },
+  ],
+  product_media: [
+    {
+      media_kind: "placeholder",
+      url: null,
+      alt: "Northpoint product",
+      role: "search",
+      sort_order: 0,
+      palette_id: "northpoint-search",
+      placeholder_palette: {
+        start: "#e3ddea",
+        end: "#c2b5d6",
+        accent: "#735f86",
+      },
+    },
   ],
 };
 
@@ -69,12 +123,15 @@ describe("buildAlgoliaRecord", () => {
     expect(r.objectID).toBe(sourceRow.id);
     expect(r.productId).toBe(sourceRow.id);
     expect(r.slug).toBe("northpoint-renewal-serum");
-    expect(r.title).toBe("Northpoint Renewal Serum");
+    expect(r.title).toBe("NORTHPOINT");
+    expect(r.displayName).toBe("NORTHPOINT");
+    expect(r.formalTitle).toBe("NORTHPOINT 03 Renewal Serum");
     expect(r.subtitle).toBe("Overnight resurfacing concentrate");
+    expect(r.cardTagline).toBe("Smoother-looking tone");
     expect(r.descriptor).toBe("A nightly serum that refines tone.");
     expect(r.collection).toBe("Treat");
     expect(r.category).toBe("Treat");
-    expect(r.productType).toBe("Treat");
+    expect(r.productType).toBe("Serum");
     expect(r.currency).toBe("USD");
     // Price range derived from variants (min/max in cents).
     expect(r.priceMin).toBe(5400);
@@ -84,16 +141,19 @@ describe("buildAlgoliaRecord", () => {
     expect(r.variantNames).toEqual(["30 ml", "50 ml"]);
     expect(r.available).toBe(true);
     expect(r.waitlist).toBe(false);
-    expect(r.badge).toBeNull();
+    expect(r.badge).toBe("Night step");
     expect(r.featuredRank).toBe(2);
     // Keywords pull from safe descriptive fields + variant labels.
     expect(r.keywords).toContain("Treat");
     expect(r.keywords).toContain("Silky serum");
     expect(r.keywords).toContain("30 ml");
-    expect(r.cardMedia).toEqual({
-      kind: "gradient",
-      colors: ["#e3ddea", "#c2b5d6"],
+    expect(r.placeholderMedia).toMatchObject({
+      kind: "placeholder",
+      paletteId: "northpoint-search",
+      palette: { start: "#e3ddea", end: "#c2b5d6" },
     });
+    expect(JSON.stringify(r)).not.toContain("shopify");
+    expect(JSON.stringify(r)).not.toContain("/storage/v1/object/public/");
   });
 
   it("flags availability/waitlist and badge from status", () => {
@@ -175,6 +235,23 @@ describe("applyCatalogWebhookEvent", () => {
     expect(mockedFetch).toHaveBeenCalledWith(sourceRow.id);
     expect(mockedUpsert).toHaveBeenCalledWith(built);
     expect(outcome).toMatchObject({ action: "upsert", objectID: sourceRow.id });
+  });
+
+  it("deletes the record on product UPDATE when it is no longer public", async () => {
+    mockedFetch.mockResolvedValue(null);
+
+    const outcome = await applyCatalogWebhookEvent({
+      type: "UPDATE",
+      table: "products",
+      record: { id: sourceRow.id },
+    });
+
+    expect(mockedDelete).toHaveBeenCalledWith(sourceRow.id);
+    expect(outcome).toMatchObject({
+      action: "delete",
+      objectID: sourceRow.id,
+      reason: "product no longer public",
+    });
   });
 
   it("upserts on product INSERT", async () => {

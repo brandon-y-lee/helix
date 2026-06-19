@@ -23,17 +23,32 @@ type VariantRow = {
   label: string;
   price_cents: number;
   position: number;
+  available: boolean;
+  inventory_status: "in_stock" | "low_stock" | "out_of_stock" | "unavailable";
 };
 
 type ProductRow = {
   id: string;
   slug: string;
   name: string;
+  display_name: string | null;
   collection: string;
   status: string;
+  catalog_status: string;
   swatch_from: string;
   swatch_to: string;
   product_variants: VariantRow[] | null;
+  product_media: MediaRow[] | null;
+};
+
+type MediaRow = {
+  media_kind: string | null;
+  url: string | null;
+  alt: string;
+  role: string;
+  sort_order: number;
+  palette_id: string | null;
+  placeholder_palette: Record<string, string> | null;
 };
 
 type CartItemRow = {
@@ -154,28 +169,78 @@ function firstProduct(value: ProductRow | ProductRow[] | null): ProductRow | nul
   return value;
 }
 
+function isHex(value: unknown): value is string {
+  return typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value);
+}
+
+function placeholderMedia(media: MediaRow | undefined, swatch: [string, string]) {
+  if (!media || media.media_kind !== "placeholder") return null;
+  const palette = media.placeholder_palette ?? {};
+  return {
+    kind: "placeholder" as const,
+    alt: media.alt,
+    paletteId: media.palette_id ?? null,
+    palette: {
+      start: isHex(palette.start) ? palette.start : swatch[0],
+      end: isHex(palette.end) ? palette.end : swatch[1],
+      accent: isHex(palette.accent) ? palette.accent : undefined,
+      surface: isHex(palette.surface) ? palette.surface : undefined,
+      ink: isHex(palette.ink) ? palette.ink : undefined,
+      highlight: isHex(palette.highlight) ? palette.highlight : undefined,
+    },
+  };
+}
+
 function mapLine(row: CartItemRow): CartLine {
   const product = firstProduct(row.products);
   const variant = product?.product_variants?.find((v) => v.variant_key === row.variant_key);
-  const available = Boolean(product && variant && product.status === "available");
+  const available = Boolean(
+    product &&
+      variant &&
+      product.catalog_status === "active" &&
+      product.status === "available" &&
+      variant.available &&
+      variant.inventory_status !== "out_of_stock" &&
+      variant.inventory_status !== "unavailable",
+  );
   const price = variant?.price_cents ?? 0;
+  const swatch: [string, string] = [
+    product?.swatch_from ?? "#d8d2c8",
+    product?.swatch_to ?? "#9c9488",
+  ];
+  const media = product?.product_media
+    ?.slice()
+    .sort((a, b) => {
+      const roleA = a.role === "cart" ? -2 : a.role === "card_default" || a.role === "card" ? -1 : 1;
+      const roleB = b.role === "cart" ? -2 : b.role === "card_default" || b.role === "card" ? -1 : 1;
+      return roleA - roleB || a.sort_order - b.sort_order;
+    })[0];
   const warning = !product
     ? "This product is no longer available."
     : !variant
       ? "This variant is no longer available."
-      : product.status !== "available"
+      : product.catalog_status !== "active"
+        ? "This product is no longer available."
+        : product.status !== "available"
         ? "This product is not currently available."
+        : !variant.available ||
+            variant.inventory_status === "out_of_stock" ||
+            variant.inventory_status === "unavailable"
+          ? "This variant is no longer available."
         : null;
 
   return {
     key: row.id,
     slug: product?.slug ?? "",
-    name: product?.name ?? "Unavailable product",
+    name: product?.display_name ?? product?.name ?? "Unavailable product",
     collection: product?.collection ?? "",
     variantId: row.variant_key,
     variantLabel: variant?.label ?? row.variant_key,
     price,
-    swatch: [product?.swatch_from ?? "#d8d2c8", product?.swatch_to ?? "#9c9488"],
+    swatch,
+    imageUrl: media?.media_kind === "image" ? media.url : null,
+    imageAlt: media?.alt ?? null,
+    placeholderMedia: placeholderMedia(media, swatch),
     quantity: row.quantity,
     available,
     warning,
@@ -188,7 +253,7 @@ async function readCart(cartId: string): Promise<CartState> {
   const { data, error } = await admin
     .from("cart_items")
     .select(
-      "id, product_id, variant_key, quantity, products ( id, slug, name, collection, status, swatch_from, swatch_to, product_variants ( variant_key, label, price_cents, position ) )",
+      "id, product_id, variant_key, quantity, products ( id, slug, name, display_name, collection, status, catalog_status, swatch_from, swatch_to, product_variants ( variant_key, label, price_cents, position, available, inventory_status ), product_media ( media_kind, url, alt, role, sort_order, palette_id, placeholder_palette ) )",
     )
     .eq("cart_id", cartId)
     .order("created_at", { ascending: true });
@@ -212,10 +277,12 @@ async function getCatalogProduct(slug: string, variantKey: string): Promise<{
   const { data, error } = await admin
     .from("products")
     .select(
-      "id, slug, name, collection, status, swatch_from, swatch_to, product_variants!inner ( variant_key, label, price_cents, position )",
+      "id, slug, name, display_name, collection, status, catalog_status, swatch_from, swatch_to, product_variants!inner ( variant_key, label, price_cents, position, available, inventory_status ), product_media ( media_kind, url, alt, role, sort_order, palette_id, placeholder_palette )",
     )
     .eq("slug", slug)
+    .eq("catalog_status", "active")
     .eq("product_variants.variant_key", variantKey)
+    .eq("product_variants.available", true)
     .maybeSingle();
 
   if (error) throw new Error(`[cart] Failed to validate product: ${error.message}`);
@@ -226,6 +293,13 @@ async function getCatalogProduct(slug: string, variantKey: string): Promise<{
   if (!variant) throw new CartError("missing_variant", "Choose an available product variant.");
   if (product.status !== "available") {
     throw new CartError("unavailable_product", "This product is not currently available.");
+  }
+  if (
+    !variant.available ||
+    variant.inventory_status === "out_of_stock" ||
+    variant.inventory_status === "unavailable"
+  ) {
+    throw new CartError("missing_variant", "Choose an available product variant.");
   }
 
   return { product, variant };

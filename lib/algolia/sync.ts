@@ -12,6 +12,7 @@ export const WEBHOOK_SECRET_HEADER = "x-webhook-secret";
 
 const PRODUCTS_TABLE = "products";
 const VARIANTS_TABLE = "product_variants";
+const MEDIA_TABLE = "product_media";
 
 export type WebhookEventType = "INSERT" | "UPDATE" | "DELETE";
 
@@ -56,8 +57,8 @@ function asId(value: unknown): string | undefined {
  *
  * - products INSERT/UPDATE → rebuild from Supabase + upsert
  * - products DELETE        → delete by old_record.id
- * - variants INSERT/UPDATE/DELETE → rebuild parent product (or delete if the
- *   parent no longer exists, e.g. cascade delete)
+ * - variants/media INSERT/UPDATE/DELETE → rebuild parent product (or delete if
+ *   the parent no longer exists, e.g. cascade delete)
  */
 export async function applyCatalogWebhookEvent(
   payload: CatalogWebhookPayload,
@@ -82,7 +83,10 @@ export async function applyCatalogWebhookEvent(
     if (!id) return { action: "noop", table, reason: "missing record.id" };
 
     const built = await fetchSearchRecordById(id);
-    if (!built) return { action: "noop", table, reason: "product not found on read-back" };
+    if (!built) {
+      await deleteSearchRecord(id);
+      return { action: "delete", table, objectID: id, reason: "product no longer public" };
+    }
 
     await upsertSearchRecord(built);
     return {
@@ -94,7 +98,7 @@ export async function applyCatalogWebhookEvent(
     };
   }
 
-  if (table === VARIANTS_TABLE) {
+  if (table === VARIANTS_TABLE || table === MEDIA_TABLE) {
     const productId = asId(record?.product_id) ?? asId(old_record?.product_id);
     if (!productId) {
       return { action: "noop", table, reason: "variant event without product_id" };

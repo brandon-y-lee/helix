@@ -20,8 +20,10 @@ export async function generateMetadata({
   const { slug } = await params;
   const product = await getCachedProduct(slug);
   return {
-    title: product ? `${product.name} | Mei Pelle` : "Product | Mei Pelle",
-    description: product?.tagline,
+    title: product
+      ? product.seoTitle ?? `${product.formalTitle} | Mei Pelle`
+      : "Product | Mei Pelle",
+    description: product?.seoDescription ?? product?.cardTagline,
   };
 }
 

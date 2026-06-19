@@ -19,14 +19,12 @@ export default async function ProductsPage({
 
   return (
     <>
-      <div className="container page-head">
-        <h1>Shop</h1>
-        <p style={{ color: "var(--ink-soft)", marginTop: "10px" }}>
-          {isEmpty
-            ? "Our catalog is being prepared — check back soon."
-            : "The full collection — cleanse, treat, hydrate, protect."}
-        </p>
-      </div>
+      <section className="container shop-hero" aria-labelledby="shop-heading">
+        <div className="shop-hero__surface">
+          <p>THE SYSTEM</p>
+          <h1 id="shop-heading">RAISE YOUR BASELINE.</h1>
+        </div>
+      </section>
       {isEmpty ? (
         <section className="container" style={{ paddingTop: "32px" }}>
           <p style={{ color: "var(--ink-soft)" }}>
