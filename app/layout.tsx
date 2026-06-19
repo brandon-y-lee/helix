@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Manrope, Marcellus } from "next/font/google";
+import Link from "next/link";
 import type { ReactNode } from "react";
 import "./globals.css";
 import { CartProvider } from "@/components/CartProvider";
@@ -34,6 +35,11 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           <footer className="site-footer">
             <div className="container site-footer__bar">
               <span>&copy; Mei-Pelle — development storefront.</span>
+              <nav className="site-footer__nav" aria-label="Footer navigation">
+                <Link href="/products">Shop</Link>
+                <Link href="/method">Method</Link>
+                <Link href="/about">About</Link>
+              </nav>
               <span>Placeholder products &amp; copy. Not for sale.</span>
             </div>
           </footer>

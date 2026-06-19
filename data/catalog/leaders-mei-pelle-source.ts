@@ -828,8 +828,8 @@ export const leadersMeiPelleCatalog: LeadersCatalogProduct[] = [
   {
     "slug": "lift-06-pdrn-mask-system",
     "actionName": "LIFT",
-    "routineNumber": "06",
-    "title": "LIFT 06 — PDRN MASK SYSTEM",
+    "routineNumber": "07",
+    "title": "LIFT 07 — PDRN MASK SYSTEM",
     "subtitle": "PDRN 0.5% lifting mask",
     "descriptor": "Weekly contour-hugging sheet mask for plumper, smoother-looking skin.",
     "productType": "Sheet mask",
@@ -875,12 +875,12 @@ export const leadersMeiPelleCatalog: LeadersCatalogProduct[] = [
       "Pre-event prep"
     ],
     "routineStep": "Weekly intensive",
-    "routineOrder": 6,
+    "routineOrder": 7,
     "usageTime": [
       "Weekly",
       "PM"
     ],
-    "seoTitle": "LIFT 06 — PDRN MASK SYSTEM | Mei-Pelle",
+    "seoTitle": "LIFT 07 — PDRN MASK SYSTEM | Mei-Pelle",
     "seoDescription": "Weekly contour-hugging sheet mask for plumper, smoother-looking skin.",
     "searchKeywords": [
       "PDRN",
@@ -920,7 +920,7 @@ export const leadersMeiPelleCatalog: LeadersCatalogProduct[] = [
       {
         "sourceUrl": "https://cdn.shopify.com/s/files/1/0734/9573/files/mask_3d212f68-f06e-4f9a-b390-ba10a58066bd.png?v=1773191744",
         "sourceFilename": "mask_3d212f68-f06e-4f9a-b390-ba10a58066bd.png",
-        "alt": "Mei-Pelle LIFT 06 weekly contour-hugging sheet mask for plumper, smoother-looking skin. product image 1",
+        "alt": "Mei-Pelle LIFT 07 weekly contour-hugging sheet mask for plumper, smoother-looking skin. product image 1",
         "width": 1000,
         "height": 1000,
         "role": "card",
@@ -929,7 +929,7 @@ export const leadersMeiPelleCatalog: LeadersCatalogProduct[] = [
       {
         "sourceUrl": "https://cdn.shopify.com/s/files/1/0734/9573/files/mask1.png?v=1773191744",
         "sourceFilename": "mask1.png",
-        "alt": "Mei-Pelle LIFT 06 weekly contour-hugging sheet mask for plumper, smoother-looking skin. product image 2",
+        "alt": "Mei-Pelle LIFT 07 weekly contour-hugging sheet mask for plumper, smoother-looking skin. product image 2",
         "width": 1751,
         "height": 1751,
         "role": "hero",
@@ -938,7 +938,7 @@ export const leadersMeiPelleCatalog: LeadersCatalogProduct[] = [
       {
         "sourceUrl": "https://cdn.shopify.com/s/files/1/0734/9573/files/mask2.png?v=1773191744",
         "sourceFilename": "mask2.png",
-        "alt": "Mei-Pelle LIFT 06 weekly contour-hugging sheet mask for plumper, smoother-looking skin. product image 3",
+        "alt": "Mei-Pelle LIFT 07 weekly contour-hugging sheet mask for plumper, smoother-looking skin. product image 3",
         "width": 1751,
         "height": 1751,
         "role": "gallery",
@@ -947,7 +947,7 @@ export const leadersMeiPelleCatalog: LeadersCatalogProduct[] = [
       {
         "sourceUrl": "https://cdn.shopify.com/s/files/1/0734/9573/files/mask5.png?v=1773191744",
         "sourceFilename": "mask5.png",
-        "alt": "Mei-Pelle LIFT 06 weekly contour-hugging sheet mask for plumper, smoother-looking skin. product image 4",
+        "alt": "Mei-Pelle LIFT 07 weekly contour-hugging sheet mask for plumper, smoother-looking skin. product image 4",
         "width": 1751,
         "height": 1751,
         "role": "gallery",
@@ -956,7 +956,7 @@ export const leadersMeiPelleCatalog: LeadersCatalogProduct[] = [
       {
         "sourceUrl": "https://cdn.shopify.com/s/files/1/0734/9573/files/mask5_f157c6dd-d93f-418a-ae4c-8ec68b58fe9d.jpg?v=1773195853",
         "sourceFilename": "mask5_f157c6dd-d93f-418a-ae4c-8ec68b58fe9d.jpg",
-        "alt": "Mei-Pelle LIFT 06 weekly contour-hugging sheet mask for plumper, smoother-looking skin. product image 5",
+        "alt": "Mei-Pelle LIFT 07 weekly contour-hugging sheet mask for plumper, smoother-looking skin. product image 5",
         "width": 1200,
         "height": 1200,
         "role": "gallery",

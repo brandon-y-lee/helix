@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useCallback, useRef, useState } from "react";
 import { CartDrawer } from "@/components/CartDrawer";
 import { useCart } from "@/components/CartProvider";
@@ -17,6 +18,7 @@ export function Header() {
   } = useCart();
   const [searchOpen, setSearchOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const pathname = usePathname();
   const searchTriggerRef = useRef<HTMLButtonElement>(null);
   const cartTriggerRef = useRef<HTMLButtonElement>(null);
   const menuTriggerRef = useRef<HTMLButtonElement>(null);
@@ -31,6 +33,10 @@ export function Header() {
   const returnFocusToMenu = useCallback(() => {
     menuTriggerRef.current?.focus();
   }, []);
+  const current = useCallback(
+    (href: string) => (pathname === href ? "page" : undefined),
+    [pathname],
+  );
 
   return (
     <header className="site-header">
@@ -49,9 +55,9 @@ export function Header() {
           Menu
         </button>
         <nav className="site-nav site-nav--left" aria-label="Primary">
-          <Link href="/products">SHOP</Link>
-          <Link href="/about#method">METHOD</Link>
-          <Link href="/about">ABOUT</Link>
+          <Link href="/products" aria-current={current("/products")}>SHOP</Link>
+          <Link href="/method" aria-current={current("/method")}>METHOD</Link>
+          <Link href="/about" aria-current={current("/about")}>ABOUT</Link>
         </nav>
         <Link href="/" className="brand" aria-label="Mei-Pelle home">
           MEI-PELLE
@@ -95,9 +101,9 @@ export function Header() {
         className="mobile-nav-sheet"
       >
         <nav className="mobile-nav" aria-label="Mobile primary">
-          <Link href="/products" onClick={closeMenu}>SHOP</Link>
-          <Link href="/about#method" onClick={closeMenu}>METHOD</Link>
-          <Link href="/about" onClick={closeMenu}>ABOUT</Link>
+          <Link href="/products" onClick={closeMenu} aria-current={current("/products")}>SHOP</Link>
+          <Link href="/method" onClick={closeMenu} aria-current={current("/method")}>METHOD</Link>
+          <Link href="/about" onClick={closeMenu} aria-current={current("/about")}>ABOUT</Link>
           <button type="button" onClick={() => { closeMenu(); setSearchOpen(true); }}>
             SEARCH
           </button>

@@ -1,33 +1,190 @@
 import type { Metadata } from "next";
+import Link from "next/link";
+import { EditorialHueField } from "@/components/EditorialHueField";
+import {
+  ABOUT_CLOSING,
+  ABOUT_HERO,
+  ABOUT_OPENING,
+  BRAND_PROMISES,
+  CULTURE_PANELS,
+  QUALITY_POINTS,
+  STANDARD_PRINCIPLES,
+  SUSTAINABILITY,
+  WHY_MEN,
+} from "@/lib/content/about";
+
+const siteUrl = new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000");
 
 export const metadata: Metadata = {
-  title: "About | Mei Pelle",
+  metadataBase: siteUrl,
+  title: "About Mei-Pelle | Seoul Precision, Los Angeles Perspective",
+  description:
+    "Discover the values behind Mei-Pelle, a prestige men's skincare system shaped by South Korean formulation discipline and Los Angeles self-invention.",
+  alternates: {
+    canonical: "/about",
+  },
+  openGraph: {
+    title: "About Mei-Pelle | Seoul Precision, Los Angeles Perspective",
+    description:
+      "Discover the values behind Mei-Pelle, a prestige men's skincare system shaped by South Korean formulation discipline and Los Angeles self-invention.",
+    url: "/about",
+    siteName: "Mei-Pelle",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "About Mei-Pelle | Seoul Precision, Los Angeles Perspective",
+    description:
+      "Discover the values behind Mei-Pelle, a prestige men's skincare system shaped by South Korean formulation discipline and Los Angeles self-invention.",
+  },
 };
 
 export default function AboutPage() {
   return (
-    <div className="container">
-      <div className="page-head">
-        <h1>About</h1>
-      </div>
-      <div className="prose">
-        <section id="method">
-          <h2>Method</h2>
+    <div className="about-page">
+      <section className="about-hero" aria-labelledby="about-heading">
+        <EditorialHueField className="about-hero__field" />
+        <div className="about-hero__copy">
+          <p className="eyebrow">{ABOUT_HERO.eyebrow}</p>
+          <h1 id="about-heading">{ABOUT_HERO.title}</h1>
+          <p>{ABOUT_HERO.body}</p>
+          <div className="hero__actions">
+            <Link href={ABOUT_HERO.primaryCta.href} className="btn">
+              {ABOUT_HERO.primaryCta.label}
+            </Link>
+            <Link href={ABOUT_HERO.secondaryCta.href} className="btn btn--ghost">
+              {ABOUT_HERO.secondaryCta.label}
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      <section className="about-opening" aria-label="Mei-Pelle origin principles">
+        <p className="about-opening__lead">Mei-Pelle exists between two beauty cultures.</p>
+        <div className="about-opening__text">
+          {ABOUT_OPENING.map((paragraph) => (
+            <p key={paragraph}>{paragraph}</p>
+          ))}
+        </div>
+      </section>
+
+      <section className="culture-split" aria-labelledby="culture-heading">
+        <div className="culture-split__head">
+          <p className="eyebrow">Influences, not stereotypes</p>
+          <h2 id="culture-heading">
+            MEI-PELLE IS WHERE DISCIPLINE MEETS SELF-INVENTION.
+          </h2>
+        </div>
+        <div className="culture-split__panels">
+          {CULTURE_PANELS.map((panel) => (
+            <article
+              key={panel.city}
+              className="culture-panel"
+              data-tone={panel.tone}
+            >
+              <p>{panel.city}</p>
+              <h3>{panel.heading}</h3>
+              <span>{panel.body}</span>
+              <ul>
+                {panel.points.map((point) => (
+                  <li key={point}>{point}</li>
+                ))}
+              </ul>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="about-men" aria-labelledby="about-men-heading">
+        <div>
+          <p className="eyebrow">{WHY_MEN.eyebrow}</p>
+          <h2 id="about-men-heading">{WHY_MEN.heading}</h2>
+        </div>
+        <blockquote>{WHY_MEN.statement}</blockquote>
+        <p>{WHY_MEN.body}</p>
+      </section>
+
+      <section className="about-standard" aria-labelledby="standard-heading">
+        <div className="section-head">
+          <div>
+            <p className="eyebrow">The Mei-Pelle standard</p>
+            <h2 id="standard-heading">THE STANDARD.</h2>
+          </div>
+          <p>Prestige without needless complexity.</p>
+        </div>
+        <ol>
+          {STANDARD_PRINCIPLES.map((principle, index) => (
+            <li key={principle.title}>
+              <span aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>
+              <div>
+                <h3>{principle.title}</h3>
+                <p>{principle.body}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      <section className="about-quality" aria-labelledby="quality-heading">
+        <div className="about-quality__visual" aria-hidden="true">
+          <span>FORMULA</span>
+          <span>FACTS</span>
+          <span>FUNCTION</span>
+        </div>
+        <div className="about-quality__copy">
+          <p className="eyebrow">Formula philosophy</p>
+          <h2 id="quality-heading">PURPOSEFUL COMPOUNDS. NO EMPTY STATUS.</h2>
           <p>
-            Cleanse. Treat. Hydrate. Protect. Mei-Pelle is structured around a
-            disciplined routine, not a crowded shelf.
+            We pursue high-specification, purposeful ingredients selected for
+            function, compatibility, and a place in the system.
           </p>
-        </section>
-        <p>
-          Mei Pelle is an original, development-only storefront for a focused
-          men&rsquo;s skincare routine — cleanse, treat, hydrate, protect.
-        </p>
-        <p>
-          This is placeholder copy used to build and test the shopping
-          experience. Products, names, and descriptions are invented for
-          development and are not for sale.
-        </p>
-      </div>
+          <ul>
+            {QUALITY_POINTS.map((point) => (
+              <li key={point}>{point}</li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      <section className="about-sustainability" aria-labelledby="sustainability-heading">
+        <div>
+          <p className="eyebrow">Operating discipline</p>
+          <h2 id="sustainability-heading">{SUSTAINABILITY.heading}</h2>
+          <p>{SUSTAINABILITY.body}</p>
+        </div>
+        <ul>
+          {SUSTAINABILITY.points.map((point) => (
+            <li key={point}>{point}</li>
+          ))}
+        </ul>
+      </section>
+
+      <section className="about-system" aria-labelledby="about-system-heading">
+        <p className="eyebrow">The Mei-Pelle system</p>
+        <h2 id="about-system-heading">PREPARE. TREAT. PRESERVE.</h2>
+        <div className="about-system__promises">
+          {BRAND_PROMISES.map((promise) => (
+            <p key={promise}>{promise}</p>
+          ))}
+        </div>
+        <Link href="/method" className="btn btn--ghost">
+          See the method
+        </Link>
+      </section>
+
+      <section className="editorial-cta about-cta" aria-labelledby="about-cta-heading">
+        <p className="eyebrow">Standards repeated</p>
+        <h2 id="about-cta-heading">{ABOUT_CLOSING.heading}</h2>
+        <p>{ABOUT_CLOSING.body}</p>
+        <div className="hero__actions">
+          <Link href={ABOUT_CLOSING.primaryCta.href} className="btn">
+            {ABOUT_CLOSING.primaryCta.label}
+          </Link>
+          <Link href={ABOUT_CLOSING.secondaryCta.href} className="btn btn--ghost">
+            {ABOUT_CLOSING.secondaryCta.label}
+          </Link>
+        </div>
+      </section>
     </div>
   );
 }

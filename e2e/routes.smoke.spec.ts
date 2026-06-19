@@ -6,6 +6,8 @@ import { test, expect } from "@playwright/test";
 const routes: ReadonlyArray<{ path: string; heading: string | RegExp }> = [
   { path: "/", heading: "ASCEND." },
   { path: "/products", heading: "RAISE YOUR BASELINE." },
+  { path: "/method", heading: "THE METHOD." },
+  { path: "/about", heading: "TWO CITIES. ONE STANDARD." },
   { path: "/products/recode-03-pdrn-5-ampoule", heading: "RECODE" },
   { path: "/cart", heading: "Cart" },
   { path: "/checkout", heading: "Checkout" },

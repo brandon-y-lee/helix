@@ -17,6 +17,8 @@ vi.mock("@/lib/auth/session", () => ({
 
 import HomePage from "@/app/page";
 import ProductsPage from "@/app/products/page";
+import MethodPage from "@/app/method/page";
+import AboutPage from "@/app/about/page";
 import CartPage from "@/app/cart/page";
 import CheckoutPage from "@/app/checkout/page";
 import SignInPage from "@/app/account/sign-in/page";
@@ -101,9 +103,77 @@ function makeProduct(overrides: Partial<Product> & Pick<Product, "slug" | "name"
 }
 
 const fixtures: Product[] = [
-  makeProduct({ slug: "alpha-cleanser", name: "Alpha Cleanser", collection: "Cleanse" }),
-  makeProduct({ slug: "beta-serum", name: "Beta Serum", collection: "Treat" }),
-  makeProduct({ slug: "gamma-cream", name: "Gamma Cream", collection: "Hydrate" }),
+  makeProduct({
+    slug: "reset-01-calming-gel-cleanser",
+    name: "RESET",
+    displayName: "RESET",
+    collection: "THE SYSTEM",
+    routineNumber: "01",
+    routineStep: "Cleanse",
+    productType: "Gel cleanser",
+    keyIngredients: ["6-Type Cica Complex", "Centella-derived support"],
+    usageTime: ["AM", "PM"],
+  }),
+  makeProduct({
+    slug: "refine-02-pore-treatment-pads",
+    name: "REFINE",
+    displayName: "REFINE",
+    collection: "THE SYSTEM",
+    routineNumber: "02",
+    routineStep: "Treat",
+    productType: "Toner pad",
+    keyIngredients: ["Panthenol", "Sodium hyaluronate", "LHA"],
+    ingredients: "Panthenol, Sodium Hyaluronate, Glycerin",
+    usageTime: ["AM", "PM"],
+  }),
+  makeProduct({
+    slug: "recode-03-pdrn-5-ampoule",
+    name: "RECODE",
+    displayName: "RECODE",
+    collection: "THE SYSTEM",
+    routineNumber: "03",
+    routineStep: "Treat",
+    productType: "Ampoule / Serum",
+    keyIngredients: ["Sodium DNA (50,000 ppm)", "Niacinamide", "Copper Tripeptide-1"],
+    ingredients: "Sodium DNA (50,000 ppm), Niacinamide, Glycerin, Copper Tripeptide-1",
+    usageTime: ["AM", "PM"],
+  }),
+  makeProduct({
+    slug: "frame-04-pdrn-eye-cream",
+    name: "FRAME",
+    displayName: "FRAME",
+    collection: "THE SYSTEM",
+    routineNumber: "04",
+    routineStep: "Eye",
+    productType: "Eye contour cream",
+    keyIngredients: ["Sodium DNA", "Niacinamide", "Panthenol"],
+    ingredients: "Sodium DNA, Niacinamide, Panthenol",
+    usageTime: ["AM", "PM"],
+  }),
+  makeProduct({
+    slug: "seal-05-green-collagen-cream",
+    name: "SEAL",
+    displayName: "SEAL",
+    collection: "THE SYSTEM",
+    routineNumber: "05",
+    routineStep: "Moisturize",
+    productType: "Cream",
+    keyIngredients: ["Green collagen complex", "Sodium hyaluronate", "Panthenol"],
+    ingredients: "Sodium Hyaluronate, Panthenol",
+    usageTime: ["AM", "PM"],
+  }),
+  makeProduct({
+    slug: "lift-06-pdrn-mask-system",
+    name: "LIFT",
+    displayName: "LIFT",
+    collection: "INTENSIVE",
+    routineNumber: "07",
+    routineStep: "Weekly intensive",
+    productType: "Sheet mask",
+    keyIngredients: ["Sodium DNA (5,000 ppm)", "Niacinamide", "Glycerin"],
+    ingredients: "Sodium DNA (5,000 ppm), Niacinamide, Glycerin",
+    usageTime: ["Weekly", "PM"],
+  }),
 ];
 
 beforeEach(() => {
@@ -156,6 +226,29 @@ describe("storefront page smoke", () => {
         screen.getByRole("link", { name: product.displayName }),
       ).toHaveAttribute("href", `/products/${product.slug}`);
     }
+  });
+
+  it("Method renders its instructional h1 and SPF education", async () => {
+    render(await MethodPage());
+    expect(
+      screen.getByRole("heading", { level: 1, name: "THE METHOD." }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("A system for clearer, healthier, beautiful skin"),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "PROTECT" })).toBeInTheDocument();
+    expect(screen.getAllByText("COMING SOON").length).toBeGreaterThan(0);
+  });
+
+  it("About renders its narrative h1", () => {
+    render(<AboutPage />);
+    expect(
+      screen.getByRole("heading", {
+        level: 1,
+        name: "TWO CITIES. ONE STANDARD.",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("MEN DESERVE A BETTER SYSTEM.")).toBeInTheDocument();
   });
 
   it("Shop renders a clear empty state when the catalog is empty", async () => {

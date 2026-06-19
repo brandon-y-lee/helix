@@ -403,14 +403,14 @@ export const meiPellePresentationCatalog: MeiPellePresentationProduct[] = [
   {
     slug: "lift-06-pdrn-mask-system",
     displayName: "LIFT",
-    formalTitle: "LIFT 06 PDRN Mask System",
+    formalTitle: "LIFT 07 PDRN Mask System",
     cardTagline: "The weekly reset",
     editorialDescription:
       "A weekly sheet-mask reset for a replenished, smoother-looking finish.",
     editorialHowToUse:
       "Apply to clean skin for the directed wear time, then remove and press in remaining essence.",
     productType: "Sheet mask",
-    routineNumber: "06",
+    routineNumber: "07",
     routineStep: "Weekly intensive",
     collection: "INTENSIVE",
     searchKeywords: ["lift", "mask", "sheet mask", "weekly", "pdrn", "reset"],
