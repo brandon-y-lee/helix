@@ -30,6 +30,28 @@ function cartPlaceholderMedia(
   };
 }
 
+type PurchaseAccordionId = "does" | "use" | "ingredients";
+
+function compactDescription(value: string) {
+  const sentences = value
+    .split(/(?<=[.!?])\s+/)
+    .map((sentence) => sentence.trim())
+    .filter(Boolean);
+
+  return (sentences.length ? sentences.slice(0, 2).join(" ") : value).trim();
+}
+
+function availabilityLabel(product: Product, variant: Product["variants"][number] | undefined) {
+  if (product.status === "coming_soon") return "Coming soon";
+  if (product.status === "sold_out") return "Sold out";
+  if (!variant?.available || variant.inventoryStatus === "unavailable") {
+    return "Unavailable";
+  }
+  if (variant.inventoryStatus === "out_of_stock") return "Out of stock";
+  if (variant.inventoryStatus === "low_stock") return "Low stock";
+  return "Available";
+}
+
 export function ProductDetail({
   product,
   related = [],
@@ -48,6 +70,8 @@ export function ProductDetail({
   const [added, setAdded] = useState(false);
   const [pending, setPending] = useState(false);
   const [addError, setAddError] = useState("");
+  const [openAccordion, setOpenAccordion] =
+    useState<PurchaseAccordionId | null>(null);
 
   const variant =
     product.variants.find((v) => v.id === variantId) ?? product.variants[0];
@@ -60,13 +84,37 @@ export function ProductDetail({
     );
   const activeMedia = gallery[activePanel] ?? product.detailMedia;
   const activeSwatch = fallbackPanels[activePanel % fallbackPanels.length];
+  const leadDescription = compactDescription(
+    product.editorialDescription || product.description || product.cardTagline,
+  );
+  const availability = availabilityLabel(product, variant);
+  const keyIngredients = product.keyIngredients.slice(0, 5);
+  const whatItDoesItems =
+    product.benefits.length > 0
+      ? product.benefits.slice(0, 4)
+      : [leadDescription || product.cardTagline].filter(Boolean);
+  const howToUse =
+    product.editorialHowToUse || product.howToUse || "Use as directed in your routine.";
+  const fullIngredientsText =
+    product.ingredients ||
+    "The current full ingredient list should be checked on product packaging or the approved product source.";
   const details = [
-    { label: "Routine", value: product.routineStep },
-    { label: "Type", value: product.productType },
+    {
+      label: "Routine",
+      value: [product.routineNumber, product.routineStep].filter(Boolean).join(" · "),
+    },
+    { label: "Format", value: product.productType },
     { label: "Use", value: product.usageTime.join(" / ") },
+    { label: "Availability", value: availability },
     { label: "Texture", value: product.texture },
     { label: "Finish", value: product.finish },
-    { label: "Size", value: product.volume },
+    { label: "Size", value: variant?.volume ?? product.volume },
+    {
+      label: "Pack count",
+      value: variant?.packCount ? String(variant.packCount) : "",
+    },
+    { label: "Made for", value: product.madeFor },
+    { label: "Good for", value: product.goodFor },
     { label: "Skin", value: product.skinTypes.join(", ") },
     { label: "Concern", value: product.concerns.slice(0, 4).join(", ") },
   ].filter((item): item is { label: string; value: string } => Boolean(item.value));
@@ -94,6 +142,10 @@ export function ProductDetail({
     } else {
       setAddError("Cart is temporarily unavailable. Try again in a moment.");
     }
+  }
+
+  function toggleAccordion(id: PurchaseAccordionId) {
+    setOpenAccordion((current) => (current === id ? null : id));
   }
 
   return (
@@ -135,10 +187,12 @@ export function ProductDetail({
         </div>
 
         <div className="pdp__purchase">
-          <p className="pdp__collection">{product.collection}</p>
+          <p className="pdp__collection">
+            {[product.routineNumber, product.collection].filter(Boolean).join(" · ")}
+          </p>
           <h1>{product.displayName}</h1>
           <p className="pdp__tagline">{product.cardTagline}</p>
-          <p className="pdp__description">{product.editorialDescription}</p>
+          <p className="pdp__description">{leadDescription}</p>
           <p className="pdp__price">
             {variant ? formatPrice(variant.price) : "—"}
           </p>
@@ -169,6 +223,10 @@ export function ProductDetail({
             </>
           )}
 
+          <p className="pdp__availability" role="status">
+            {availability}
+          </p>
+
           <div className="pdp__actions">
             {isAvailable && variant ? (
               <button
@@ -186,61 +244,130 @@ export function ProductDetail({
           <p className="add-feedback" role="status" aria-live="polite">
             {added ? "Added to cart" : addError}
           </p>
+
+          <div className="pdp-accordions" aria-label={`${product.displayName} purchase details`}>
+            <section className="pdp-accordion">
+              <h2 className="pdp-accordion__heading">
+                <button
+                  type="button"
+                  className="pdp-accordion__trigger"
+                  id="pdp-accordion-does-trigger"
+                  aria-expanded={openAccordion === "does"}
+                  aria-controls="pdp-accordion-does-panel"
+                  onClick={() => toggleAccordion("does")}
+                >
+                  <span>WHAT IT DOES</span>
+                  <span aria-hidden="true">{openAccordion === "does" ? "-" : "+"}</span>
+                </button>
+              </h2>
+              <div
+                id="pdp-accordion-does-panel"
+                className="pdp-accordion__panel"
+                data-open={openAccordion === "does"}
+                role="region"
+                aria-labelledby="pdp-accordion-does-trigger"
+                aria-hidden={openAccordion !== "does"}
+              >
+                <div className="pdp-accordion__content">
+                  {whatItDoesItems.length > 1 ? (
+                    <ul>
+                      {whatItDoesItems.map((benefit) => (
+                        <li key={benefit}>{benefit}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p>{whatItDoesItems[0]}</p>
+                  )}
+                </div>
+              </div>
+            </section>
+
+            <section className="pdp-accordion">
+              <h2 className="pdp-accordion__heading">
+                <button
+                  type="button"
+                  className="pdp-accordion__trigger"
+                  id="pdp-accordion-use-trigger"
+                  aria-expanded={openAccordion === "use"}
+                  aria-controls="pdp-accordion-use-panel"
+                  onClick={() => toggleAccordion("use")}
+                >
+                  <span>HOW TO USE</span>
+                  <span aria-hidden="true">{openAccordion === "use" ? "-" : "+"}</span>
+                </button>
+              </h2>
+              <div
+                id="pdp-accordion-use-panel"
+                className="pdp-accordion__panel"
+                data-open={openAccordion === "use"}
+                role="region"
+                aria-labelledby="pdp-accordion-use-trigger"
+                aria-hidden={openAccordion !== "use"}
+              >
+                <div className="pdp-accordion__content">
+                  <p>{howToUse}</p>
+                  {product.cautions.length > 0 && (
+                    <p className="pdp-accordion__note">
+                      Check the details below for cautions before use.
+                    </p>
+                  )}
+                </div>
+              </div>
+            </section>
+
+            <section className="pdp-accordion">
+              <h2 className="pdp-accordion__heading">
+                <button
+                  type="button"
+                  className="pdp-accordion__trigger"
+                  id="pdp-accordion-ingredients-trigger"
+                  aria-expanded={openAccordion === "ingredients"}
+                  aria-controls="pdp-accordion-ingredients-panel"
+                  onClick={() => toggleAccordion("ingredients")}
+                >
+                  <span>KEY INGREDIENTS</span>
+                  <span aria-hidden="true">
+                    {openAccordion === "ingredients" ? "-" : "+"}
+                  </span>
+                </button>
+              </h2>
+              <div
+                id="pdp-accordion-ingredients-panel"
+                className="pdp-accordion__panel"
+                data-open={openAccordion === "ingredients"}
+                role="region"
+                aria-labelledby="pdp-accordion-ingredients-trigger"
+                aria-hidden={openAccordion !== "ingredients"}
+              >
+                <div className="pdp-accordion__content">
+                  {keyIngredients.length > 0 ? (
+                    <ul className="pdp-key-ingredients">
+                      {keyIngredients.map((ingredient) => (
+                        <li key={ingredient}>{ingredient}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p>
+                      Key ingredient notes are not available for this product yet.
+                    </p>
+                  )}
+                  <a
+                    href="#full-ingredients"
+                    tabIndex={openAccordion === "ingredients" ? undefined : -1}
+                  >
+                    View full ingredients
+                  </a>
+                </div>
+              </div>
+            </section>
+          </div>
         </div>
       </div>
 
       <section className="pdp-sections" aria-label={`${product.displayName} details`}>
-        <section className="pdp-section">
-          <h2>WHAT IT DOES</h2>
-          {product.benefits.length > 0 ? (
-            <ul className="benefits">
-              {product.benefits.map((benefit) => (
-                <li key={benefit}>{benefit}</li>
-              ))}
-            </ul>
-          ) : (
-            <p>{product.editorialDescription}</p>
-          )}
-        </section>
-
-        <section className="pdp-section">
-          <h2>HOW TO USE</h2>
-          <p>{product.editorialHowToUse}</p>
-        </section>
-
-        {(product.formulaNotes.length > 0 || product.keyIngredients.length > 0) && (
-          <section className="pdp-section">
-            <h2>FORMULA NOTES</h2>
-            {product.formulaNotes.length > 0 && (
-              <ul className="benefits benefits--plain">
-                {product.formulaNotes.map((note) => (
-                  <li key={note}>{note}</li>
-                ))}
-              </ul>
-            )}
-            {product.keyIngredients.length > 0 && (
-              <div className="ingredient-list">
-                <h3>Key ingredients</h3>
-                <ul>
-                  {product.keyIngredients.map((ingredient) => (
-                    <li key={ingredient}>{ingredient}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </section>
-        )}
-
-        {product.ingredients && (
-          <section className="pdp-section">
-            <h2>FULL INGREDIENTS</h2>
-            <p>{product.ingredients}</p>
-          </section>
-        )}
-
         {details.length > 0 && (
           <section className="pdp-section">
-            <h2>DETAILS</h2>
+            <h2 id="product-details">DETAILS</h2>
             <dl className="meta-grid">
               {details.map((m) => (
                 <div key={m.label} className="meta-grid__item">
@@ -261,6 +388,22 @@ export function ProductDetail({
                 </details>
               </div>
             )}
+          </section>
+        )}
+
+        <section className="pdp-section" id="full-ingredients">
+          <h2>FULL INGREDIENTS</h2>
+          <p>{fullIngredientsText}</p>
+        </section>
+
+        {product.formulaNotes.length > 0 && (
+          <section className="pdp-section">
+            <h2>FORMULA NOTES</h2>
+            <ul className="benefits benefits--plain">
+              {product.formulaNotes.map((note) => (
+                <li key={note}>{note}</li>
+              ))}
+            </ul>
           </section>
         )}
       </section>

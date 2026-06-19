@@ -7,7 +7,9 @@ import {
   useMemo,
   useRef,
   useState,
+  type FocusEvent,
   type KeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
 } from "react";
 import { useCart } from "@/components/CartProvider";
 import { ProductImage } from "@/components/ProductImage";
@@ -83,13 +85,26 @@ export function ProductCard({
   const { add, cartDrawerOpen, openCartDrawer } = useCart();
   const panelBaseId = useId();
   const panelId = `${panelBaseId}-quick-buy`;
+  const surfaceRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const finalButtonRef = useRef<HTMLButtonElement>(null);
+  const addedTimeoutRef = useRef<number | null>(null);
+  const pointerPreviewTimeoutRef = useRef<number | null>(null);
+  const closePointerRef = useRef<{
+    clientX: number;
+    clientY: number;
+    pointerType: string;
+  } | null>(null);
   const controlled = quickBuyOpen !== undefined;
   const [localQuickBuyOpen, setLocalQuickBuyOpen] = useState(false);
   const [added, setAdded] = useState(false);
   const [pending, setPending] = useState(false);
   const [addError, setAddError] = useState("");
+  const [pointerInside, setPointerInside] = useState(false);
+  const [keyboardFocusVisibleWithin, setKeyboardFocusVisibleWithin] =
+    useState(false);
+  const keyboardFocusVisibleWithinRef = useRef(false);
+  const lastInputWasKeyboardRef = useRef(false);
   const [selectedVariantId, setSelectedVariantId] = useState(
     product.variants.find(isBuyableVariant)?.id ?? product.variants[0]?.id ?? "",
   );
@@ -117,6 +132,11 @@ export function ProductCard({
   const hasRange = product.variants.length > 1;
   const priceLabel = `${hasRange ? "From " : ""}${formatPrice(startingPrice)}`;
   const displayName = product.displayName;
+  const visualState = isQuickBuyOpen
+    ? "quick-buy"
+    : pointerInside || keyboardFocusVisibleWithin
+      ? "preview"
+      : "default";
   const rows = useMemo(
     () => detailRows(product, selectedVariant),
     [product, selectedVariant],
@@ -133,6 +153,61 @@ export function ProductCard({
     );
   }, [availableVariants, isQuickBuyOpen, product.variants, selectedVariantId]);
 
+  useEffect(() => {
+    function rememberKeyboard() {
+      lastInputWasKeyboardRef.current = true;
+    }
+    function rememberPointer() {
+      lastInputWasKeyboardRef.current = false;
+    }
+
+    window.addEventListener("keydown", rememberKeyboard, true);
+    window.addEventListener("pointerdown", rememberPointer, true);
+    return () => {
+      window.removeEventListener("keydown", rememberKeyboard, true);
+      window.removeEventListener("pointerdown", rememberPointer, true);
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (addedTimeoutRef.current) {
+        window.clearTimeout(addedTimeoutRef.current);
+      }
+      if (pointerPreviewTimeoutRef.current) {
+        window.clearTimeout(pointerPreviewTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    function syncPointerPosition(event: globalThis.PointerEvent) {
+      if (!pointerInside || event.pointerType === "touch") return;
+
+      const surface = surfaceRef.current;
+      if (!surface) return;
+
+      const rect = surface.getBoundingClientRect();
+      const isInside =
+        event.clientX >= rect.left &&
+        event.clientX <= rect.right &&
+        event.clientY >= rect.top &&
+        event.clientY <= rect.bottom;
+
+      if (isInside) return;
+      if (pointerPreviewTimeoutRef.current) {
+        window.clearTimeout(pointerPreviewTimeoutRef.current);
+        pointerPreviewTimeoutRef.current = null;
+      }
+      setPointerInside(false);
+    }
+
+    window.addEventListener("pointermove", syncPointerPosition, true);
+    return () => {
+      window.removeEventListener("pointermove", syncPointerPosition, true);
+    };
+  }, [pointerInside]);
+
   function openQuickBuy() {
     setAddError("");
     setAdded(false);
@@ -143,22 +218,98 @@ export function ProductCard({
     }
   }
 
-  function closeQuickBuy({ focusTrigger = true } = {}) {
+  function closeQuickBuy({
+    focusTrigger = true,
+    restorePointerPreview = false,
+  } = {}) {
     if (controlled) {
       onQuickBuyClose?.();
     } else {
       setLocalQuickBuyOpen(false);
     }
+    if (restorePointerPreview) {
+      const closePointer = closePointerRef.current;
+      const shouldRestorePointerPreview = closePointer?.pointerType !== "touch";
+      setPointerInside(shouldRestorePointerPreview);
+      if (pointerPreviewTimeoutRef.current) {
+        window.clearTimeout(pointerPreviewTimeoutRef.current);
+      }
+      if (shouldRestorePointerPreview) {
+        pointerPreviewTimeoutRef.current = window.setTimeout(() => {
+          setPointerInside(true);
+          pointerPreviewTimeoutRef.current = null;
+        }, 0);
+      }
+    }
     if (focusTrigger) {
-      window.setTimeout(() => triggerRef.current?.focus(), 0);
+      triggerRef.current?.focus();
+    }
+  }
+
+  function updateKeyboardFocusVisibleWithin(nextValue: boolean) {
+    if (keyboardFocusVisibleWithinRef.current === nextValue) return;
+    keyboardFocusVisibleWithinRef.current = nextValue;
+    setKeyboardFocusVisibleWithin(nextValue);
+  }
+
+  function handlePointerEnter(event: ReactPointerEvent<HTMLElement>) {
+    if (event.pointerType === "touch") return;
+    setPointerInside(true);
+  }
+
+  function handlePointerLeave(event: ReactPointerEvent<HTMLElement>) {
+    if (event.pointerType === "touch") return;
+    setPointerInside(false);
+  }
+
+  function handlePointerDownCapture() {
+    lastInputWasKeyboardRef.current = false;
+    updateKeyboardFocusVisibleWithin(false);
+  }
+
+  function handleFocusCapture() {
+    updateKeyboardFocusVisibleWithin(lastInputWasKeyboardRef.current);
+  }
+
+  function handleBlurCapture(event: FocusEvent<HTMLElement>) {
+    const nextFocus = event.relatedTarget;
+    if (
+      !nextFocus ||
+      !(nextFocus instanceof Node) ||
+      !event.currentTarget.contains(nextFocus)
+    ) {
+      updateKeyboardFocusVisibleWithin(false);
     }
   }
 
   function handlePanelKeyDown(event: KeyboardEvent<HTMLElement>) {
+    lastInputWasKeyboardRef.current = true;
     if (event.key !== "Escape" || !isQuickBuyOpen || cartDrawerOpen) return;
     event.preventDefault();
     event.stopPropagation();
     closeQuickBuy();
+  }
+
+  function handleClosePointerDown(event: ReactPointerEvent<HTMLButtonElement>) {
+    closePointerRef.current = {
+      clientX: event.clientX,
+      clientY: event.clientY,
+      pointerType: event.pointerType || "mouse",
+    };
+  }
+
+  function handleCloseTouchStart() {
+    closePointerRef.current = {
+      clientX: 0,
+      clientY: 0,
+      pointerType: "touch",
+    };
+  }
+
+  function handleCloseClick() {
+    closeQuickBuy({
+      restorePointerPreview: !lastInputWasKeyboardRef.current,
+    });
   }
 
   async function handleFinalBuy() {
@@ -181,16 +332,33 @@ export function ProductCard({
     if (ok) {
       setAdded(true);
       openCartDrawer(() => finalButtonRef.current?.focus());
-      window.setTimeout(() => setAdded(false), 2200);
+      if (addedTimeoutRef.current) {
+        window.clearTimeout(addedTimeoutRef.current);
+      }
+      addedTimeoutRef.current = window.setTimeout(() => {
+        setAdded(false);
+        addedTimeoutRef.current = null;
+      }, 2200);
     } else {
       setAddError("Cart is temporarily unavailable.");
     }
   }
 
   return (
-    <li className="product-card" data-quick-buy-open={isQuickBuyOpen}>
+    <li
+      className="product-card"
+      data-quick-buy-open={isQuickBuyOpen}
+      data-visual-state={visualState}
+    >
       <div
+        ref={surfaceRef}
         className="product-card__surface"
+        data-visual-state={visualState}
+        onPointerEnter={handlePointerEnter}
+        onPointerLeave={handlePointerLeave}
+        onPointerDownCapture={handlePointerDownCapture}
+        onFocusCapture={handleFocusCapture}
+        onBlurCapture={handleBlurCapture}
         onKeyDown={handlePanelKeyDown}
       >
         <ProductImage
@@ -247,7 +415,9 @@ export function ProductCard({
           <button
             type="button"
             className="product-card__quick-close"
-            onClick={() => closeQuickBuy()}
+            onPointerDown={handleClosePointerDown}
+            onTouchStart={handleCloseTouchStart}
+            onClick={handleCloseClick}
             aria-label={`Close quick buy for ${displayName}`}
             tabIndex={isQuickBuyOpen ? undefined : -1}
           >

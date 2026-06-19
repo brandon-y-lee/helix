@@ -1,9 +1,27 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import {
+  useEffect,
+  useState,
+  type MouseEvent,
+} from "react";
 import { useCart } from "@/components/CartProvider";
 import { ProductImage } from "@/components/ProductImage";
 import { formatPrice, type ProductMedia } from "@/lib/products";
+
+function isPlainSameTabClick(event: MouseEvent<HTMLAnchorElement>) {
+  return (
+    !event.defaultPrevented &&
+    event.button === 0 &&
+    !event.metaKey &&
+    !event.ctrlKey &&
+    !event.shiftKey &&
+    !event.altKey &&
+    event.currentTarget.target !== "_blank"
+  );
+}
 
 export function CartView({
   mode = "page",
@@ -14,6 +32,24 @@ export function CartView({
 }) {
   const { lines, subtotal, count, loading, error, setQuantity, remove, clear } = useCart();
   const isDrawer = mode === "drawer";
+  const pathname = usePathname();
+  const [pendingCartRoute, setPendingCartRoute] = useState(false);
+
+  useEffect(() => {
+    if (!isDrawer || !pendingCartRoute || pathname !== "/cart") return;
+    setPendingCartRoute(false);
+    onContinue?.();
+  }, [isDrawer, onContinue, pathname, pendingCartRoute]);
+
+  function handleViewCartClick(event: MouseEvent<HTMLAnchorElement>) {
+    if (!isDrawer || !isPlainSameTabClick(event)) return;
+    if (pathname === "/cart") {
+      event.preventDefault();
+      onContinue?.();
+      return;
+    }
+    setPendingCartRoute(true);
+  }
 
   if (loading && lines.length === 0) {
     return (
@@ -143,7 +179,12 @@ export function CartView({
         <button type="button" className="btn" disabled>
           Checkout unavailable
         </button>
-        <Link href="/cart" className="btn btn--ghost">
+        <Link
+          href="/cart"
+          className="btn btn--ghost"
+          onClick={handleViewCartClick}
+          aria-busy={pendingCartRoute || undefined}
+        >
           View cart
         </Link>
         <p className="cart-summary__note">

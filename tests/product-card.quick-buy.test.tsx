@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { act } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const cartMock = vi.hoisted(() => ({
@@ -101,6 +102,14 @@ beforeEach(() => {
 });
 
 describe("ProductCard quick buy", () => {
+  function cardSurface() {
+    const surface = screen
+      .getByRole("listitem")
+      .querySelector<HTMLElement>(".product-card__surface");
+    if (!surface) throw new Error("Product card surface not found");
+    return surface;
+  }
+
   it("opens the inline panel without adding to cart", async () => {
     const user = userEvent.setup();
     render(<ProductCard product={makeProduct()} />);
@@ -112,6 +121,7 @@ describe("ProductCard quick buy", () => {
 
     expect(cartMock.add).not.toHaveBeenCalled();
     expect(cartMock.openCartDrawer).not.toHaveBeenCalled();
+    expect(cardSurface()).toHaveAttribute("data-visual-state", "quick-buy");
     expect(
       screen.getByRole("button", {
         name: "Buy RESET 50 ml for $20.00",
@@ -146,28 +156,124 @@ describe("ProductCard quick buy", () => {
     expect(cartMock.openCartDrawer).toHaveBeenCalledTimes(1);
 
     finalButton.blur();
-    cartMock.openCartDrawer.mock.calls[0][0]();
+    act(() => cartMock.openCartDrawer.mock.calls[0][0]());
     expect(finalButton).toHaveFocus();
   });
 
-  it("collapses from the minus button and returns focus to the trigger", async () => {
+  it("derives preview from live pointer state after pointer close", async () => {
     const user = userEvent.setup();
     render(<ProductCard product={makeProduct()} />);
 
+    const surface = cardSurface();
     const trigger = screen.getByRole("button", {
       name: "Open quick buy for RESET",
     });
+    fireEvent.pointerEnter(surface, { pointerType: "mouse" });
+    expect(surface).toHaveAttribute("data-visual-state", "preview");
+
     await user.click(trigger);
+    expect(surface).toHaveAttribute("data-visual-state", "quick-buy");
     await user.click(
       screen.getByRole("button", { name: "Close quick buy for RESET" }),
     );
 
     await waitFor(() => expect(trigger).toHaveFocus());
+    expect(surface).toHaveAttribute("data-visual-state", "preview");
     expect(
       screen.queryByRole("button", {
         name: "Buy RESET 50 ml for $20.00",
       }),
     ).not.toBeInTheDocument();
+
+    fireEvent.pointerLeave(surface, { pointerType: "mouse" });
+    expect(surface).toHaveAttribute("data-visual-state", "default");
+  });
+
+  it("clears pointer preview when document movement shows the pointer left", async () => {
+    render(<ProductCard product={makeProduct()} />);
+
+    const surface = cardSurface();
+    Object.defineProperty(surface, "getBoundingClientRect", {
+      configurable: true,
+      value: () => ({
+        x: 100,
+        y: 100,
+        top: 100,
+        right: 500,
+        bottom: 500,
+        left: 100,
+        width: 400,
+        height: 400,
+        toJSON: () => ({}),
+      }),
+    });
+
+    fireEvent.pointerEnter(surface, { pointerType: "mouse" });
+    await waitFor(() =>
+      expect(surface).toHaveAttribute("data-visual-state", "preview"),
+    );
+
+    fireEvent.pointerMove(window, {
+      pointerType: "mouse",
+      clientX: 10,
+      clientY: 10,
+    });
+
+    expect(surface).toHaveAttribute("data-visual-state", "default");
+  });
+
+  it("keeps focus-equivalent preview after keyboard close until focus leaves", async () => {
+    const user = userEvent.setup();
+    render(
+      <>
+        <ProductCard product={makeProduct()} />
+        <button type="button">After card</button>
+      </>,
+    );
+
+    const surface = cardSurface();
+    const trigger = screen.getByRole("button", {
+      name: "Open quick buy for RESET",
+    });
+
+    act(() => {
+      fireEvent.keyDown(window, { key: "Tab" });
+      trigger.focus();
+      fireEvent.focusIn(trigger);
+    });
+    expect(surface).toHaveAttribute("data-visual-state", "preview");
+
+    await user.keyboard("{Enter}");
+    expect(surface).toHaveAttribute("data-visual-state", "quick-buy");
+    await user.keyboard("{Escape}");
+
+    await waitFor(() => expect(trigger).toHaveFocus());
+    expect(surface).toHaveAttribute("data-visual-state", "preview");
+
+    await user.tab();
+    expect(screen.getByRole("button", { name: "After card" })).toHaveFocus();
+    expect(surface).toHaveAttribute("data-visual-state", "default");
+  });
+
+  it("does not pin desktop preview after touch close", async () => {
+    render(<ProductCard product={makeProduct()} />);
+
+    const surface = cardSurface();
+    const trigger = screen.getByRole("button", {
+      name: "Open quick buy for RESET",
+    });
+
+    fireEvent.pointerDown(surface, { pointerType: "touch" });
+    fireEvent.click(trigger);
+    expect(surface).toHaveAttribute("data-visual-state", "quick-buy");
+
+    const close = screen.getByRole("button", {
+      name: "Close quick buy for RESET",
+    });
+    fireEvent.touchStart(close);
+    fireEvent.click(close);
+
+    expect(surface).toHaveAttribute("data-visual-state", "default");
   });
 
   it("uses Escape for inline close unless the cart drawer is already open", async () => {
