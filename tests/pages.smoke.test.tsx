@@ -205,15 +205,22 @@ describe("storefront page smoke", () => {
     // HomePage is an async server component; await it to get its element tree.
     // ProductCard consumes the cart context, so wrap in CartProvider.
     render(<CartProvider>{await HomePage()}</CartProvider>);
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+    const heroHeading = screen.getByRole("heading", {
+      level: 1,
+      name: "Ascension awaits.",
+    });
     expect(
-      screen.getByRole("heading", {
-        level: 1,
-        name: "ASCEND.",
-      }),
+      heroHeading,
     ).toBeInTheDocument();
+    expect(heroHeading).toHaveClass("display-secondary");
+    expect(screen.queryByText("ASCEND.")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/A sharper daily system for fresh/i),
+    ).not.toBeInTheDocument();
     // Featured grid links to product detail pages.
     expect(
-      screen.getByRole("link", { name: /Shop the system/i }),
+      screen.getByRole("link", { name: "EXPLORE NOW" }),
     ).toHaveAttribute("href", "/products");
   });
 

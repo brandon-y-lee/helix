@@ -229,7 +229,6 @@ test("About page keeps the brand story editorial and claim-safe", async ({ page 
 });
 
 test("editorial pages remain usable in the mobile header layout", async ({ page }) => {
-  await page.emulateMedia({ reducedMotion: "reduce" });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
 
