@@ -1,0 +1,54 @@
+import type { ReactNode } from "react";
+import type { LegalDocument } from "@/content/legal/types";
+
+export function LegalDocumentLayout({
+  document,
+  children,
+}: {
+  document: LegalDocument;
+  children?: ReactNode;
+}) {
+  return (
+    <article className="legal-page">
+      <header className="legal-hero">
+        <p className="eyebrow">Official</p>
+        <h1>{document.title}</h1>
+        <p>{document.intro}</p>
+        <span>{document.status}</span>
+      </header>
+
+      <div className="legal-shell">
+        <nav className="legal-toc" aria-label={`${document.title} sections`}>
+          <h2>Contents</h2>
+          <ol>
+            {document.sections.map((section) => (
+              <li key={section.id}>
+                <a href={`#${section.id}`}>{section.title}</a>
+              </li>
+            ))}
+          </ol>
+        </nav>
+
+        <div className="legal-document">
+          {children}
+          {document.sections.map((section) => (
+            <section key={section.id} id={section.id}>
+              <h2>{section.title}</h2>
+              {section.body.map((paragraph) => (
+                <p key={paragraph}>{paragraph}</p>
+              ))}
+              {section.list && (
+                <ul>
+                  {section.list.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          ))}
+        </div>
+      </div>
+    </article>
+  );
+}
+

@@ -12,6 +12,13 @@ const routes: ReadonlyArray<{ path: string; heading: string | RegExp }> = [
   { path: "/cart", heading: "Cart" },
   { path: "/checkout", heading: "Checkout" },
   { path: "/account", heading: "Sign in" },
+  { path: "/faq", heading: "FAQ" },
+  { path: "/contact", heading: "CONTACT" },
+  { path: "/privacy-policy", heading: "Privacy Policy" },
+  { path: "/terms-of-service", heading: "Terms of Service" },
+  { path: "/cookie-policy", heading: "Cookie Policy" },
+  { path: "/privacy-choices", heading: "Your Privacy Choices" },
+  { path: "/accessibility", heading: "Accessibility" },
   { path: "/admin", heading: "Admin" },
 ];
 

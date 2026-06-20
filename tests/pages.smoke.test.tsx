@@ -23,6 +23,13 @@ import CartPage from "@/app/cart/page";
 import CheckoutPage from "@/app/checkout/page";
 import SignInPage from "@/app/account/sign-in/page";
 import AdminPage from "@/app/admin/page";
+import AccessibilityPage from "@/app/accessibility/page";
+import ContactPage from "@/app/contact/page";
+import CookiePolicyPage from "@/app/cookie-policy/page";
+import FAQPage from "@/app/faq/page";
+import PrivacyChoicesPage from "@/app/privacy-choices/page";
+import PrivacyPolicyPage from "@/app/privacy-policy/page";
+import TermsOfServicePage from "@/app/terms-of-service/page";
 import { CartProvider } from "@/components/CartProvider";
 import { getCachedProducts } from "@/lib/catalog-cache";
 import type { Product } from "@/lib/products";
@@ -286,6 +293,26 @@ describe("storefront page smoke", () => {
     expect(
       screen.getByRole("heading", { level: 1, name: "Sign in" }),
     ).toBeInTheDocument();
+  });
+
+  it("Support and legal pages render their primary headings", () => {
+    const pages = [
+      { element: <FAQPage />, heading: /^FAQ$/i },
+      { element: <ContactPage />, heading: /^Contact$/i },
+      { element: <PrivacyPolicyPage />, heading: /^Privacy Policy$/i },
+      { element: <TermsOfServicePage />, heading: /^Terms of Service$/i },
+      { element: <CookiePolicyPage />, heading: /^Cookie Policy$/i },
+      { element: <PrivacyChoicesPage />, heading: /^Your Privacy Choices$/i },
+      { element: <AccessibilityPage />, heading: /^Accessibility Statement$/i },
+    ];
+
+    for (const page of pages) {
+      const { unmount } = render(page.element);
+      expect(
+        screen.getByRole("heading", { level: 1, name: page.heading }),
+      ).toBeInTheDocument();
+      unmount();
+    }
   });
 
   it("Admin renders its h1", () => {
