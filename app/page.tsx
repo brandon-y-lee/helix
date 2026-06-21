@@ -24,7 +24,11 @@ export default async function HomePage() {
 
   return (
     <>
-      <section className="home-video-hero" aria-labelledby="home-hero-heading">
+      <section
+        className="home-video-hero"
+        data-header-theme="light"
+        aria-labelledby="home-hero-heading"
+      >
         <HomeHeroVideo />
         <div className="home-video-hero__scrim" aria-hidden="true" />
         <div className="home-video-hero__content">

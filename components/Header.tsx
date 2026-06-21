@@ -8,7 +8,8 @@ import { useCart } from "@/components/CartProvider";
 import { SearchOverlay } from "@/components/SearchOverlay";
 import { Sheet } from "@/components/Sheet";
 
-type HeaderNavState = "home-top" | "revealed" | "hidden";
+type HeaderNavState = "top" | "revealed" | "hidden";
+type HeaderTheme = "dark" | "light";
 
 const TOP_EDGE_Y = 8;
 const HIDE_AFTER_Y = 96;
@@ -22,25 +23,35 @@ function getScrollY() {
   return Math.max(0, window.scrollY || window.pageYOffset || 0);
 }
 
+function readHeaderTheme(): HeaderTheme {
+  if (typeof document === "undefined") {
+    return "dark";
+  }
+
+  const themedSurface = document.querySelector<HTMLElement>(
+    "main [data-header-theme]",
+  );
+
+  return themedSurface?.dataset.headerTheme === "light" ? "light" : "dark";
+}
+
 function resolveHeaderNavState({
   currentState,
-  isHome,
   overlayOpen,
   previousScrollY,
   scrollY,
 }: {
   currentState: HeaderNavState;
-  isHome: boolean;
   overlayOpen: boolean;
   previousScrollY: number;
   scrollY: number;
 }): HeaderNavState {
-  if (!isHome || overlayOpen) {
+  if (overlayOpen) {
     return "revealed";
   }
 
   if (scrollY <= TOP_EDGE_Y) {
-    return "home-top";
+    return "top";
   }
 
   if (scrollY < HIDE_AFTER_Y) {
@@ -50,7 +61,7 @@ function resolveHeaderNavState({
   const deltaY = scrollY - previousScrollY;
 
   if (Math.abs(deltaY) < SCROLL_DELTA_Y) {
-    return currentState === "home-top" ? "revealed" : currentState;
+    return currentState === "top" ? "revealed" : currentState;
   }
 
   return deltaY > 0 ? "hidden" : "revealed";
@@ -67,13 +78,12 @@ export function Header() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const pathname = usePathname();
-  const isHome = pathname === "/";
   const overlayOpen = searchOpen || cartDrawerOpen || menuOpen;
-  const [navState, setNavState] = useState<HeaderNavState>("home-top");
-  const navStateRef = useRef<HeaderNavState>("home-top");
+  const [navState, setNavState] = useState<HeaderNavState>("top");
+  const [headerTheme, setHeaderTheme] = useState<HeaderTheme>("dark");
+  const navStateRef = useRef<HeaderNavState>("top");
   const lastScrollYRef = useRef(0);
   const frameRef = useRef<number | null>(null);
-  const isHomeRef = useRef(isHome);
   const overlayOpenRef = useRef(overlayOpen);
   const searchTriggerRef = useRef<HTMLButtonElement>(null);
   const cartTriggerRef = useRef<HTMLButtonElement>(null);
@@ -106,27 +116,26 @@ export function Header() {
 
     lastScrollYRef.current = scrollY;
 
-    if (!isHome || scrollY > TOP_EDGE_Y) {
+    if (scrollY > TOP_EDGE_Y) {
       setNavStateIfChanged("revealed");
     }
-  }, [isHome, setNavStateIfChanged]);
+  }, [setNavStateIfChanged]);
 
   useEffect(() => {
-    isHomeRef.current = isHome;
     overlayOpenRef.current = overlayOpen;
+    setHeaderTheme(readHeaderTheme());
 
     const scrollY = getScrollY();
     lastScrollYRef.current = scrollY;
     setNavStateIfChanged(
       resolveHeaderNavState({
-        currentState: navStateRef.current,
-        isHome,
+        currentState: "revealed",
         overlayOpen,
         previousScrollY: scrollY,
         scrollY,
       }),
     );
-  }, [isHome, overlayOpen, pathname, setNavStateIfChanged]);
+  }, [overlayOpen, pathname, setNavStateIfChanged]);
 
   useEffect(() => {
     const syncScrollState = () => {
@@ -136,7 +145,6 @@ export function Header() {
       const previousScrollY = lastScrollYRef.current;
       const nextState = resolveHeaderNavState({
         currentState: navStateRef.current,
-        isHome: isHomeRef.current,
         overlayOpen: overlayOpenRef.current,
         previousScrollY,
         scrollY,
@@ -173,12 +181,12 @@ export function Header() {
     };
   }, [setNavStateIfChanged]);
 
-  const renderedNavState: HeaderNavState = !isHome || overlayOpen ? "revealed" : navState;
+  const renderedNavState: HeaderNavState = overlayOpen ? "revealed" : navState;
 
   return (
     <header
       className="site-header"
-      data-home={isHome ? "true" : "false"}
+      data-header-theme={headerTheme}
       data-nav-state={renderedNavState}
       data-overlay-open={overlayOpen ? "true" : "false"}
       onFocusCapture={revealForFocus}

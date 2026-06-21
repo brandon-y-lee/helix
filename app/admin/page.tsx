@@ -6,7 +6,7 @@ export const metadata: Metadata = {
 
 export default function AdminPage() {
   return (
-    <article>
+    <article className="admin-page">
       <h1>Admin</h1>
       <p>Admin placeholder.</p>
     </article>

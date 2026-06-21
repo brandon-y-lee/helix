@@ -72,14 +72,6 @@ main {
   flex: 1;
 }
 
-.site-header + main {
-  padding-top: var(--header-h);
-}
-
-.site-header[data-home="true"] + main {
-  padding-top: 0;
-}
-
 .sr-only {
   position: absolute;
   width: 1px;
@@ -544,7 +536,7 @@ main {
 }
 
 .shop-hero {
-  padding-top: clamp(24px, 4vw, 46px);
+  padding-top: calc(var(--header-h) + clamp(24px, 4vw, 46px));
 }
 
 .shop-hero__surface {
@@ -684,7 +676,7 @@ main {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 56px;
-  padding-top: 40px;
+  padding-top: calc(var(--header-h) + 40px);
   align-items: start;
 }
 
@@ -872,11 +864,15 @@ main {
 
 /* ---------- Cart ---------- */
 .page-head {
-  padding: 48px 0 8px;
+  padding: calc(var(--header-h) + 48px) 0 8px;
 }
 
 .page-head h1 {
   font-size: clamp(2rem, 4vw, 2.6rem);
+}
+
+.admin-page {
+  padding: calc(var(--header-h) + 48px) 24px 48px;
 }
 
 .cart-layout {
@@ -1718,27 +1714,30 @@ main:focus {
   -webkit-backdrop-filter: saturate(140%) blur(14px);
 }
 
-.site-header[data-home="true"][data-nav-state="home-top"] {
+.site-header[data-nav-state="top"] {
   background: transparent;
   border-bottom-color: transparent;
-  color: #fbfaf6;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
 
-.site-header[data-home="true"][data-nav-state="home-top"] .brand,
-.site-header[data-home="true"][data-nav-state="home-top"] .site-nav a,
-.site-header[data-home="true"][data-nav-state="home-top"] .site-nav__search,
-.site-header[data-home="true"][data-nav-state="home-top"] .cart-link,
-.site-header[data-home="true"][data-nav-state="home-top"] .mobile-menu-trigger {
+.site-header[data-nav-state="top"][data-header-theme="light"] {
+  color: #fbfaf6;
+}
+
+.site-header[data-nav-state="top"][data-header-theme="light"] .brand,
+.site-header[data-nav-state="top"][data-header-theme="light"] .site-nav a,
+.site-header[data-nav-state="top"][data-header-theme="light"] .site-nav__search,
+.site-header[data-nav-state="top"][data-header-theme="light"] .cart-link,
+.site-header[data-nav-state="top"][data-header-theme="light"] .mobile-menu-trigger {
   color: #fbfaf6;
   text-shadow: 0 1px 14px rgba(8, 10, 9, 0.38);
 }
 
-.site-header[data-home="true"][data-nav-state="home-top"] .site-nav a:hover,
-.site-header[data-home="true"][data-nav-state="home-top"] .site-nav__search:hover,
-.site-header[data-home="true"][data-nav-state="home-top"] .cart-link:hover,
-.site-header[data-home="true"][data-nav-state="home-top"] .mobile-menu-trigger:hover {
+.site-header[data-nav-state="top"][data-header-theme="light"] .site-nav a:hover,
+.site-header[data-nav-state="top"][data-header-theme="light"] .site-nav__search:hover,
+.site-header[data-nav-state="top"][data-header-theme="light"] .cart-link:hover,
+.site-header[data-nav-state="top"][data-header-theme="light"] .mobile-menu-trigger:hover {
   color: #fffdf8;
 }
 
@@ -1987,7 +1986,7 @@ main:focus {
   min-height: 68svh;
   display: grid;
   place-items: start center;
-  padding-top: clamp(48px, 8vw, 92px);
+  padding-top: calc(var(--header-h) + clamp(48px, 8vw, 92px));
 }
 
 .account-panel {
@@ -2082,7 +2081,7 @@ main:focus {
 }
 
 .account-dashboard {
-  padding-top: clamp(36px, 6vw, 72px);
+  padding-top: calc(var(--header-h) + clamp(36px, 6vw, 72px));
 }
 
 .page-head--account {
@@ -2247,10 +2246,6 @@ main:focus {
     font-size: clamp(2.35rem, 11.4vw, 3.35rem);
   }
 
-  .home-video-hero {
-    min-height: clamp(560px, calc(100svh - 62px), 760px);
-  }
-
   .home-video-hero__media {
     --hero-media-position: 64% center;
   }
@@ -2336,10 +2331,18 @@ main:focus {
 .home-video-hero {
   position: relative;
   display: grid;
-  min-height: clamp(560px, calc(100svh - var(--header-h)), 920px);
+  height: 100vh;
+  min-height: 100vh;
   overflow: hidden;
   background: #161816;
   isolation: isolate;
+}
+
+@supports (height: 100dvh) {
+  .home-video-hero {
+    height: 100dvh;
+    min-height: 100dvh;
+  }
 }
 
 .home-video-hero__media,
@@ -2391,7 +2394,7 @@ main:focus {
   z-index: 2;
   display: flex;
   align-items: flex-end;
-  min-height: inherit;
+  min-height: 100%;
   width: 100%;
   padding:
     clamp(36px, 6vw, 72px)
@@ -3406,14 +3409,14 @@ main:focus {
 .method-hero,
 .about-hero {
   position: relative;
-  min-height: min(760px, calc(100svh - var(--header-h)));
+  min-height: min(760px, 100svh);
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   align-items: end;
   isolation: isolate;
   overflow: hidden;
   border-bottom: 1px solid var(--line);
-  padding-top: clamp(26px, 4vw, 56px);
+  padding-top: calc(var(--header-h) + clamp(26px, 4vw, 56px));
 }
 
 .method-hero__copy,
@@ -4676,7 +4679,7 @@ main:focus {
 .support-page {
   width: min(100%, 1540px);
   margin: 0 auto;
-  padding: clamp(34px, 5vw, 84px) 24px;
+  padding: calc(var(--header-h) + clamp(34px, 5vw, 84px)) 24px clamp(34px, 5vw, 84px);
 }
 
 .legal-hero,
@@ -5157,10 +5160,6 @@ main:focus {
 
   .legal-page {
     padding: 0;
-  }
-
-  .site-header + main {
-    padding-top: 0;
   }
 
   .legal-shell {

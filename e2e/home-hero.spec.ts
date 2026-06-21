@@ -101,14 +101,16 @@ test.describe("homepage video hero", () => {
     const headingBox = await heading.boundingBox();
     const ctaBox = await cta.boundingBox();
     const firstSectionBox = await page.locator(".home-section").first().boundingBox();
+    const viewportHeight = await page.evaluate(() => window.innerHeight);
 
     expect(heroBox?.width).toBeGreaterThan(1400);
-    expect(heroBox?.height).toBeGreaterThan(780);
+    expect(Math.abs((heroBox?.height ?? 0) - viewportHeight)).toBeLessThanOrEqual(1);
+    expect(heroBox?.y).toBe(0);
     expect(headingBox?.x).toBeLessThan(90);
     expect(ctaBox?.x).toBeLessThan(90);
     expect(ctaBox?.y).toBeGreaterThan((heroBox?.y ?? 0) + (heroBox?.height ?? 0) * 0.7);
     expect(firstSectionBox?.y).toBeGreaterThanOrEqual(
-      (heroBox?.y ?? 0) + (heroBox?.height ?? 0),
+      viewportHeight - 1,
     );
 
     const noHorizontalOverflow = await page.evaluate(
@@ -133,9 +135,11 @@ test.describe("homepage video hero", () => {
     const heroBox = await hero.boundingBox();
     const headingBox = await heading.boundingBox();
     const ctaBox = await cta.boundingBox();
+    const viewportHeight = await page.evaluate(() => window.innerHeight);
 
     expect(heroBox?.width).toBeGreaterThan(380);
-    expect(heroBox?.height).toBeGreaterThan(550);
+    expect(Math.abs((heroBox?.height ?? 0) - viewportHeight)).toBeLessThanOrEqual(1);
+    expect(heroBox?.y).toBe(0);
     expect(headingBox?.x).toBeLessThan(32);
     expect(headingBox?.width).toBeLessThan((heroBox?.width ?? 0) - 32);
     expect(headingBox?.height).toBeLessThan((heroBox?.height ?? 0) * 0.22);
