@@ -11,7 +11,9 @@ async function readHeaderState(page: Page) {
       backgroundColor: style.backgroundColor,
       borderBottomColor: style.borderBottomColor,
       brandColor: brandStyle?.color,
+      bottom: rect.bottom,
       color: style.color,
+      height: rect.height,
       headerTheme: element.getAttribute("data-header-theme"),
       navState: element.getAttribute("data-nav-state"),
       overlayOpen: element.getAttribute("data-overlay-open"),
@@ -19,6 +21,41 @@ async function readHeaderState(page: Page) {
       y: rect.y,
     };
   });
+}
+
+async function readLayoutState(page: Page, surfaceSelector: string) {
+  return page.evaluate((selector) => {
+    const header = document.querySelector(".site-header");
+    const main = document.querySelector("main");
+    const surface = document.querySelector(selector);
+    const hueField = surface?.querySelector(".editorial-hue-field") ?? null;
+    const headerRect = header?.getBoundingClientRect();
+    const surfaceRect = surface?.getBoundingClientRect();
+    const hueFieldRect = hueField?.getBoundingClientRect();
+    const token = Number.parseFloat(
+      getComputedStyle(document.documentElement).getPropertyValue("--site-header-height"),
+    );
+
+    return {
+      headerBottom: headerRect?.bottom ?? null,
+      headerHeight: headerRect?.height ?? null,
+      headerY: headerRect?.y ?? null,
+      hueFieldY: hueFieldRect?.y ?? null,
+      mainLayout: main?.getAttribute("data-header-layout") ?? null,
+      surfaceHeight: surfaceRect?.height ?? null,
+      surfaceMinHeight: surface
+        ? Number.parseFloat(getComputedStyle(surface).minHeight)
+        : null,
+      surfaceY: surfaceRect?.y ?? null,
+      token,
+      viewportHeight: window.innerHeight,
+    };
+  }, surfaceSelector);
+}
+
+function expectCloseTo(actual: number | null, expected: number, tolerance = 1) {
+  expect(actual).not.toBeNull();
+  expect(Math.abs((actual ?? 0) - expected)).toBeLessThanOrEqual(tolerance);
 }
 
 async function expectTransparentTop(page: Page, theme: "dark" | "light") {
@@ -38,6 +75,11 @@ async function expectTransparentTop(page: Page, theme: "dark" | "light") {
   expect(topStyle.backgroundColor).toBe("rgba(0, 0, 0, 0)");
   expect(topStyle.borderBottomColor).toBe("rgba(0, 0, 0, 0)");
   expect(topStyle.y).toBe(0);
+  expectCloseTo(topStyle.height, await page.evaluate(() => {
+    return Number.parseFloat(
+      getComputedStyle(document.documentElement).getPropertyValue("--site-header-height"),
+    );
+  }));
   expect(topStyle.brandColor).toBe(theme === "light" ? "rgb(251, 250, 246)" : "rgb(17, 19, 18)");
 }
 
@@ -90,12 +132,74 @@ test.describe("global navbar scroll behavior", () => {
 
     const heroBox = await page.locator(".home-video-hero").boundingBox();
     const viewportHeight = await page.evaluate(() => window.innerHeight);
+    const layout = await readLayoutState(page, ".home-video-hero");
 
+    expect(layout.mainLayout).toBe("overlay");
     expect(Math.abs((heroBox?.height ?? 0) - viewportHeight)).toBeLessThanOrEqual(1);
     expect(heroBox?.y).toBe(0);
+    expect(layout.headerBottom).toBeGreaterThan((layout.surfaceY ?? 0) + 1);
+    expect(layout.headerBottom).toBeLessThan(layout.viewportHeight);
     await expectTransparentTop(page, "light");
 
     await expectScrollCycle(page, "/", "light");
+  });
+
+  test("non-home routes reserve the fixed header row before their first content", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+
+    for (const { path, selector, viewportHero } of [
+      { path: "/method", selector: ".method-hero", viewportHero: true },
+      { path: "/about", selector: ".about-hero", viewportHero: true },
+      { path: "/products", selector: ".shop-hero__surface", viewportHero: false },
+      { path: "/products/recode-03-pdrn-5-ampoule", selector: ".pdp", viewportHero: false },
+      { path: "/account/sign-in", selector: ".account-panel", viewportHero: false },
+    ]) {
+      await page.goto(path);
+      await expectTransparentTop(page, "dark");
+
+      const layout = await readLayoutState(page, selector);
+      expect(layout.mainLayout).toBe("reserved");
+      expectCloseTo(layout.headerY, 0);
+      expectCloseTo(layout.headerHeight, layout.token);
+      expect(layout.surfaceY).toBeGreaterThanOrEqual((layout.headerBottom ?? 0) - 1);
+
+      if (path === "/method" || path === "/about") {
+        expectCloseTo(layout.surfaceY, layout.headerBottom ?? 0);
+        expect(layout.hueFieldY).toBeGreaterThanOrEqual((layout.headerBottom ?? 0) - 1);
+      }
+
+      if (viewportHero) {
+        const expectedHeroHeight = Math.min(760, layout.viewportHeight - layout.token);
+        expectCloseTo(layout.surfaceMinHeight, expectedHeroHeight);
+        expect(layout.surfaceHeight).toBeGreaterThanOrEqual(expectedHeroHeight - 1);
+      }
+    }
+  });
+
+  test("mobile reserved routes use the mobile header height without covering content", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+
+    for (const { path, selector } of [
+      { path: "/method", selector: ".method-hero" },
+      { path: "/about", selector: ".about-hero" },
+      { path: "/products", selector: ".shop-hero__surface" },
+      { path: "/products/recode-03-pdrn-5-ampoule", selector: ".pdp" },
+      { path: "/account/sign-in", selector: ".account-panel" },
+    ]) {
+      await page.goto(path);
+      await expectTransparentTop(page, "dark");
+
+      const layout = await readLayoutState(page, selector);
+      expect(layout.mainLayout).toBe("reserved");
+      expectCloseTo(layout.headerHeight, 62);
+      expectCloseTo(layout.headerHeight, layout.token);
+      expect(layout.surfaceY).toBeGreaterThanOrEqual((layout.headerBottom ?? 0) - 1);
+      expect((layout.surfaceY ?? 0) - (layout.headerBottom ?? 0)).toBeLessThan(120);
+    }
   });
 
   test("uses the same scroll model across product, editorial, account, and auth routes", async ({
@@ -121,9 +225,11 @@ test.describe("global navbar scroll behavior", () => {
     const header = page.locator(".site-header");
 
     await expectTransparentTop(page, "light");
+    await expect(page.locator("main")).toHaveAttribute("data-header-layout", "overlay");
     await scrollDownUntilHidden(page);
 
     await page.goto("/products");
+    await expect(page.locator("main")).toHaveAttribute("data-header-layout", "reserved");
     await expectTransparentTop(page, "dark");
 
     await page.goBack();

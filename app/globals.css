@@ -12,7 +12,7 @@
   --overlay: rgba(17, 19, 18, 0.46);
   --radius: 8px;
   --maxw: 1180px;
-  --header-h: 68px;
+  --site-header-height: 64px;
   --drawer-w: min(520px, 100vw);
   --shadow: 0 1px 2px rgba(17, 19, 18, 0.05), 0 18px 48px rgba(17, 19, 18, 0.12);
   --motion-fast: 140ms;
@@ -72,6 +72,14 @@ main {
   flex: 1;
 }
 
+main[data-header-layout="reserved"] {
+  padding-top: var(--site-header-height);
+}
+
+main[data-header-layout="overlay"] {
+  padding-top: 0;
+}
+
 .sr-only {
   position: absolute;
   width: 1px;
@@ -98,6 +106,7 @@ main {
   left: 0;
   right: 0;
   z-index: 20;
+  height: var(--site-header-height);
   background: rgba(246, 244, 239, 0.85);
   color: var(--ink);
   backdrop-filter: saturate(140%) blur(10px);
@@ -117,7 +126,7 @@ main {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 64px;
+  height: 100%;
   gap: 24px;
 }
 
@@ -536,7 +545,7 @@ main {
 }
 
 .shop-hero {
-  padding-top: calc(var(--header-h) + clamp(24px, 4vw, 46px));
+  padding-top: clamp(24px, 4vw, 46px);
 }
 
 .shop-hero__surface {
@@ -676,7 +685,7 @@ main {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 56px;
-  padding-top: calc(var(--header-h) + 40px);
+  padding-top: 40px;
   align-items: start;
 }
 
@@ -864,7 +873,7 @@ main {
 
 /* ---------- Cart ---------- */
 .page-head {
-  padding: calc(var(--header-h) + 48px) 0 8px;
+  padding: 48px 0 8px;
 }
 
 .page-head h1 {
@@ -872,7 +881,7 @@ main {
 }
 
 .admin-page {
-  padding: calc(var(--header-h) + 48px) 24px 48px;
+  padding: 48px 24px;
 }
 
 .cart-layout {
@@ -1632,7 +1641,7 @@ main:focus {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  height: var(--header-h);
+  height: 100%;
   gap: 20px;
 }
 
@@ -1986,7 +1995,7 @@ main:focus {
   min-height: 68svh;
   display: grid;
   place-items: start center;
-  padding-top: calc(var(--header-h) + clamp(48px, 8vw, 92px));
+  padding-top: clamp(48px, 8vw, 92px);
 }
 
 .account-panel {
@@ -2081,7 +2090,7 @@ main:focus {
 }
 
 .account-dashboard {
-  padding-top: calc(var(--header-h) + clamp(36px, 6vw, 72px));
+  padding-top: clamp(36px, 6vw, 72px);
 }
 
 .page-head--account {
@@ -2226,7 +2235,7 @@ main:focus {
 
 @media (max-width: 620px) {
   :root {
-    --header-h: 62px;
+    --site-header-height: 62px;
   }
 
   .container {
@@ -2484,7 +2493,7 @@ main:focus {
   grid-template-columns: minmax(0, 0.78fr) minmax(420px, 1fr);
   gap: clamp(28px, 5vw, 72px);
   align-items: center;
-  min-height: min(720px, calc(100svh - var(--header-h) - 42px));
+  min-height: min(720px, calc(100svh - var(--site-header-height) - 42px));
 }
 
 .hero__copy h1 {
@@ -3409,14 +3418,14 @@ main:focus {
 .method-hero,
 .about-hero {
   position: relative;
-  min-height: min(760px, 100svh);
+  min-height: min(760px, calc(100svh - var(--site-header-height)));
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   align-items: end;
   isolation: isolate;
   overflow: hidden;
   border-bottom: 1px solid var(--line);
-  padding-top: calc(var(--header-h) + clamp(26px, 4vw, 56px));
+  padding-top: clamp(26px, 4vw, 56px);
 }
 
 .method-hero__copy,
@@ -3493,7 +3502,7 @@ main:focus {
 
 .method-index {
   position: sticky;
-  top: calc(var(--header-h) + 22px);
+  top: calc(var(--site-header-height) + 22px);
   padding: 18px 0;
 }
 
@@ -4323,7 +4332,7 @@ main:focus {
 
   .method-index {
     position: sticky;
-    top: var(--header-h);
+    top: var(--site-header-height);
     z-index: 4;
     padding: 10px 0;
     background: color-mix(in srgb, var(--bg) 88%, transparent);
@@ -4679,7 +4688,7 @@ main:focus {
 .support-page {
   width: min(100%, 1540px);
   margin: 0 auto;
-  padding: calc(var(--header-h) + clamp(34px, 5vw, 84px)) 24px clamp(34px, 5vw, 84px);
+  padding: clamp(34px, 5vw, 84px) 24px;
 }
 
 .legal-hero,
@@ -4726,7 +4735,7 @@ main:focus {
 
 .legal-toc {
   position: sticky;
-  top: calc(var(--header-h) + 28px);
+  top: calc(var(--site-header-height) + 28px);
   padding-left: 18px;
   border-left: 1px solid var(--line);
 }
@@ -4773,7 +4782,7 @@ main:focus {
 
 .legal-document section {
   padding: clamp(22px, 4vw, 34px);
-  scroll-margin-top: calc(var(--header-h) + 24px);
+  scroll-margin-top: calc(var(--site-header-height) + 24px);
 }
 
 .legal-document h2 {
@@ -4875,7 +4884,7 @@ main:focus {
 
 .faq-category-nav {
   position: sticky;
-  top: calc(var(--header-h) + 24px);
+  top: calc(var(--site-header-height) + 24px);
   display: grid;
   gap: 10px;
   padding-left: 18px;
@@ -4888,7 +4897,7 @@ main:focus {
 }
 
 .faq-category {
-  scroll-margin-top: calc(var(--header-h) + 24px);
+  scroll-margin-top: calc(var(--site-header-height) + 24px);
 }
 
 .faq-category .section-head p:not(.eyebrow) {
@@ -4948,7 +4957,7 @@ main:focus {
 
 .contact-routing {
   position: sticky;
-  top: calc(var(--header-h) + 24px);
+  top: calc(var(--site-header-height) + 24px);
 }
 
 .contact-routing h2 {

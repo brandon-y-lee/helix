@@ -5,6 +5,7 @@ import "./globals.css";
 import { CartProvider } from "@/components/CartProvider";
 import { Header } from "@/components/Header";
 import { SiteFooter } from "@/components/SiteFooter";
+import { StorefrontMain } from "@/components/StorefrontMain";
 
 const manrope = Manrope({
   subsets: ["latin"],
@@ -31,9 +32,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body>
         <CartProvider>
           <Header />
-          <main id="content" tabIndex={-1}>
+          <StorefrontMain>
             {children}
-          </main>
+          </StorefrontMain>
           <SiteFooter />
         </CartProvider>
       </body>
