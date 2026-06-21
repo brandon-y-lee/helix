@@ -31,21 +31,25 @@ test.describe("homepage video hero", () => {
     await page.goto("/");
 
     const hero = page.locator(".home-video-hero");
-    const heading = page.getByRole("heading", { level: 1, name: "Ascension awaits." });
+    const heading = page.getByRole("heading", { level: 1, name: "ascend." });
     const cta = page.getByRole("link", { name: "EXPLORE NOW" });
     const video = hero.locator("video");
 
     await expect(hero).toBeVisible();
     await expect(heading).toBeVisible();
     await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
-    await expect(page.locator("text=ASCEND.")).toHaveCount(0);
+    await expect(hero).not.toContainText("ASCEND.", { ignoreCase: false });
     await expect(page.locator(".hero--system")).toHaveCount(0);
     await expect(page.locator("text=A sharper daily system for fresh")).toHaveCount(0);
     await expect(heading).toHaveClass(/display-secondary/);
     await expect(cta).toHaveAttribute("href", "/products");
     await expect(video).toHaveCount(1);
     await expect(video).toHaveAttribute("poster", "/media/home/mei-pelle-hero-poster.webp");
-    await expect(video.locator("source")).toHaveAttribute(
+    await expect(video.locator('source[type="video/webm"]')).toHaveAttribute(
+      "src",
+      "/media/home/mei-pelle-hero.webm",
+    );
+    await expect(video.locator('source[type="video/mp4"]')).toHaveAttribute(
       "src",
       "/media/home/mei-pelle-hero.mp4",
     );
@@ -119,7 +123,7 @@ test.describe("homepage video hero", () => {
     await page.goto("/");
 
     const hero = page.locator(".home-video-hero");
-    const heading = page.getByRole("heading", { level: 1, name: "Ascension awaits." });
+    const heading = page.getByRole("heading", { level: 1, name: "ascend." });
     const cta = page.getByRole("link", { name: "EXPLORE NOW" });
 
     await expect(hero).toBeVisible();
@@ -151,7 +155,7 @@ test.describe("homepage video hero", () => {
     const hero = page.locator(".home-video-hero");
     const media = hero.locator(".home-video-hero__media");
 
-    await expect(page.getByRole("heading", { level: 1, name: "Ascension awaits." })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "ascend." })).toBeVisible();
     await expect(page.getByRole("link", { name: "EXPLORE NOW" })).toBeVisible();
     await expect(hero.locator("video")).toHaveCount(0);
     await expect(hero.locator(".home-video-hero__poster")).toBeVisible();
@@ -161,7 +165,7 @@ test.describe("homepage video hero", () => {
   test("sends the primary hero call-to-action to the collection route", async ({ page }) => {
     await allowHeroMotion(page);
     await page.goto("/");
-    await page.getByRole("link", { name: "EXPLORE NOW" }).click();
+    await page.locator(".home-video-hero__cta").click();
     await expect(page).toHaveURL(/\/products$/);
   });
 });

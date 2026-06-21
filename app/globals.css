@@ -72,6 +72,14 @@ main {
   flex: 1;
 }
 
+.site-header + main {
+  padding-top: var(--header-h);
+}
+
+.site-header[data-home="true"] + main {
+  padding-top: 0;
+}
+
 .sr-only {
   position: absolute;
   width: 1px;
@@ -93,12 +101,24 @@ main {
 
 /* ---------- Header ---------- */
 .site-header {
-  position: sticky;
+  position: fixed;
   top: 0;
+  left: 0;
+  right: 0;
   z-index: 20;
   background: rgba(246, 244, 239, 0.85);
+  color: var(--ink);
   backdrop-filter: saturate(140%) blur(10px);
+  -webkit-backdrop-filter: saturate(140%) blur(10px);
   border-bottom: 1px solid var(--line);
+  transform: translateY(0);
+  transition:
+    transform 260ms var(--ease-out),
+    background-color 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease,
+    backdrop-filter 180ms ease;
+  will-change: transform;
 }
 
 .site-header__bar {
@@ -1687,6 +1707,41 @@ main:focus {
   justify-self: start;
 }
 
+.site-header[data-nav-state="hidden"] {
+  transform: translateY(calc(-100% - 1px));
+}
+
+.site-header[data-nav-state="revealed"] {
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  border-bottom-color: color-mix(in srgb, var(--line) 84%, transparent);
+  backdrop-filter: saturate(140%) blur(14px);
+  -webkit-backdrop-filter: saturate(140%) blur(14px);
+}
+
+.site-header[data-home="true"][data-nav-state="home-top"] {
+  background: transparent;
+  border-bottom-color: transparent;
+  color: #fbfaf6;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.site-header[data-home="true"][data-nav-state="home-top"] .brand,
+.site-header[data-home="true"][data-nav-state="home-top"] .site-nav a,
+.site-header[data-home="true"][data-nav-state="home-top"] .site-nav__search,
+.site-header[data-home="true"][data-nav-state="home-top"] .cart-link,
+.site-header[data-home="true"][data-nav-state="home-top"] .mobile-menu-trigger {
+  color: #fbfaf6;
+  text-shadow: 0 1px 14px rgba(8, 10, 9, 0.38);
+}
+
+.site-header[data-home="true"][data-nav-state="home-top"] .site-nav a:hover,
+.site-header[data-home="true"][data-nav-state="home-top"] .site-nav__search:hover,
+.site-header[data-home="true"][data-nav-state="home-top"] .cart-link:hover,
+.site-header[data-home="true"][data-nav-state="home-top"] .mobile-menu-trigger:hover {
+  color: #fffdf8;
+}
+
 .hero--ascend {
   position: relative;
   min-height: clamp(560px, 78svh, 760px);
@@ -2171,6 +2226,10 @@ main:focus {
 }
 
 @media (max-width: 620px) {
+  :root {
+    --header-h: 62px;
+  }
+
   .container {
     padding: 0 18px;
   }
@@ -2392,6 +2451,17 @@ main:focus {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .site-header {
+    transition:
+      background-color 1ms linear,
+      border-color 1ms linear,
+      color 1ms linear;
+  }
+
+  .site-header[data-nav-state="hidden"] {
+    transform: translateY(0);
+  }
+
   .home-video-hero__video {
     display: none;
   }
@@ -5087,6 +5157,10 @@ main:focus {
 
   .legal-page {
     padding: 0;
+  }
+
+  .site-header + main {
+    padding-top: 0;
   }
 
   .legal-shell {

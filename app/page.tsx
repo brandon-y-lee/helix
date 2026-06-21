@@ -30,7 +30,7 @@ export default async function HomePage() {
         <div className="home-video-hero__content">
           <div>
             <h1 id="home-hero-heading" className="display-secondary home-video-hero__title">
-              Ascension awaits.
+              ascend.
             </h1>
             <Link href="/products" className="home-video-hero__cta">
               EXPLORE NOW

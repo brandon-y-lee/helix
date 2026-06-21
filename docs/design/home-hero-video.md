@@ -2,39 +2,43 @@
 
 ## Source Audit
 
-- Source filename: `Mei-Pelle-Hero.mov`
+- Source filename: `Mei-Pelle-3.mov`
 - Source container: QuickTime movie
 - Source video codec: H.264 / `avc1`
 - Source dimensions: 1920 x 1080
 - Source frame rate: 25 fps
-- Source duration: 12.32 seconds
-- Source bitrate: approximately 7.2 Mbps
-- Source size: approximately 11.2 MB
+- Source duration: 10.24 seconds
+- Source bitrate: approximately 7.5 Mbps
+- Source size: approximately 9.3 MB
 - Source audio: AAC stereo track present
 - Orientation: landscape 16:9
 
-The first and final frames do not match perfectly, but the loop has no black flash or blank transition. The subject stays mostly center-to-right, leaving the lower-left area available for restrained homepage copy when supported by a localized contrast scrim.
+The footage moves from close right-side grooming details into a wider standing composition, then ends with a right-biased profile. The lower-left area stays available for restrained homepage copy when supported by a localized contrast scrim.
 
 ## Committed Outputs
 
 - `public/media/home/mei-pelle-hero.mp4`
   - H.264 MP4
   - 1920 x 1080
-  - 12.32 seconds
+  - 10.24 seconds
   - no audio track
-  - 11,135,021 bytes
+  - 9,651,904 bytes
+- `public/media/home/mei-pelle-hero.webm`
+  - VP9 WebM
+  - 1920 x 1080
+  - 10.24 seconds
+  - no audio track
+  - 4,869,964 bytes
 - `public/media/home/mei-pelle-hero-poster.webp`
-  - representative frame near 3 seconds
+  - representative frame near 0.2 seconds
   - WebP
-  - 16,428 bytes
+  - 22,608 bytes
 
 No separate mobile derivative was created. The source composition holds up with responsive `object-position`, and a second full video would increase transfer weight without materially improving the crop.
 
-No WebM file was committed. The available local tooling could not produce a reliable VP8/VP9 export from the supplied H.264 source; the MP4 remains the practical web-compatible delivery asset for this task.
-
 ## Hero Behavior
 
-The homepage hero renders `Ascension awaits.` as the semantic H1 using the existing Marcellus font variable and a restrained `display-secondary` scale. The only action is the rounded outlined `EXPLORE NOW` link to `/products`.
+The homepage hero renders `ascend.` as the semantic H1 using the existing Marcellus font variable and a restrained `display-secondary` scale. The only action is the rounded outlined `EXPLORE NOW` link to `/products`.
 
 The poster renders immediately. The decorative video is mounted only when `prefers-reduced-motion` allows motion, then fades in after media readiness. If playback or loading fails, the poster remains visible and the headline and CTA continue to work.
 

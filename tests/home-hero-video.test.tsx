@@ -23,7 +23,7 @@ afterEach(() => {
 });
 
 describe("HomeHeroVideo", () => {
-  it("mounts a muted looping mp4 video when motion is allowed", async () => {
+  it("mounts muted looping webm and mp4 video sources when motion is allowed", async () => {
     mockReducedMotion(false);
 
     const { container } = render(<HomeHeroVideo />);
@@ -38,7 +38,7 @@ describe("HomeHeroVideo", () => {
 
     const mediaShell = container.querySelector(".home-video-hero__media");
     const video = container.querySelector("video");
-    const source = container.querySelector("source");
+    const sources = Array.from(container.querySelectorAll("source"));
 
     expect(mediaShell).toHaveAttribute("data-motion-state", "pending");
     expect(mediaShell).toHaveAttribute("data-video-ready", "false");
@@ -46,8 +46,11 @@ describe("HomeHeroVideo", () => {
     expect(video).toHaveAttribute("preload", "metadata");
     expect(video).toHaveAttribute("aria-hidden", "true");
     expect(video).not.toHaveAttribute("controls");
-    expect(source).toHaveAttribute("src", "/media/home/mei-pelle-hero.mp4");
-    expect(source).toHaveAttribute("type", "video/mp4");
+    expect(sources).toHaveLength(2);
+    expect(sources[0]).toHaveAttribute("src", "/media/home/mei-pelle-hero.webm");
+    expect(sources[0]).toHaveAttribute("type", "video/webm");
+    expect(sources[1]).toHaveAttribute("src", "/media/home/mei-pelle-hero.mp4");
+    expect(sources[1]).toHaveAttribute("type", "video/mp4");
 
     expect(video?.autoplay).toBe(true);
     expect(video?.loop).toBe(true);
@@ -82,7 +85,7 @@ describe("HomeHeroVideo", () => {
     const { container } = render(
       <section>
         <HomeHeroVideo />
-        <h1>Ascension awaits.</h1>
+        <h1>ascend.</h1>
         <a href="/products">EXPLORE NOW</a>
       </section>,
     );
@@ -106,7 +109,7 @@ describe("HomeHeroVideo", () => {
     });
     expect(container.querySelector(".home-video-hero__poster")).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { level: 1, name: "Ascension awaits." }),
+      screen.getByRole("heading", { level: 1, name: "ascend." }),
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "EXPLORE NOW" })).toHaveAttribute(
       "href",

@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 
 const HERO_POSTER = "/media/home/mei-pelle-hero-poster.webp";
+const HERO_WEBM = "/media/home/mei-pelle-hero.webm";
 const HERO_MP4 = "/media/home/mei-pelle-hero.mp4";
 
 type HeroMotionState = "pending" | "motion" | "static" | "failed";
@@ -77,6 +78,7 @@ export function HomeHeroVideo() {
           preload="metadata"
           tabIndex={-1}
         >
+          <source src={HERO_WEBM} type="video/webm" />
           <source src={HERO_MP4} type="video/mp4" />
         </video>
       ) : null}
