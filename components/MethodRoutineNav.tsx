@@ -1,26 +1,57 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export type MethodRoutineNavItem = {
   id: string;
   label: string;
   meta?: string;
+  position?: number;
 };
 
 export function MethodRoutineNav({ items }: { items: MethodRoutineNavItem[] }) {
   const [activeId, setActiveId] = useState(items[0]?.id ?? "");
+  const previousItemsRef = useRef(items);
+
+  useEffect(() => {
+    if (items.some((item) => item.id === activeId)) {
+      previousItemsRef.current = items;
+      return;
+    }
+
+    const previousItem = previousItemsRef.current.find((item) => item.id === activeId);
+    const nearestStep =
+      typeof previousItem?.position === "number"
+        ? items
+            .filter((item) => typeof item.position === "number")
+            .sort(
+              (a, b) =>
+                Math.abs((a.position ?? 0) - previousItem.position!) -
+                  Math.abs((b.position ?? 0) - previousItem.position!) ||
+                (a.position ?? 0) - (b.position ?? 0),
+            )[0]
+        : undefined;
+
+    setActiveId(nearestStep?.id ?? items[0]?.id ?? "");
+    previousItemsRef.current = items;
+  }, [activeId, items]);
 
   useEffect(() => {
     if (items.length === 0) return;
-    if (typeof IntersectionObserver === "undefined") return;
+    if (typeof IntersectionObserver === "undefined") {
+      setActiveId(items[0]?.id ?? "");
+      return;
+    }
 
     const sections = items
       .map((item) => document.getElementById(item.id))
       .filter((section): section is HTMLElement => Boolean(section));
 
-    if (sections.length === 0) return;
+    if (sections.length === 0) {
+      setActiveId(items[0]?.id ?? "");
+      return;
+    }
 
     const observer = new IntersectionObserver(
       (entries) => {

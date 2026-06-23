@@ -20,6 +20,100 @@ export const METHOD_PRODUCT_NUMBERS: Record<MethodProductSlug, string> = {
   "lift-06-pdrn-mask-system": "07",
 };
 
+export type RoutineStepCount = 3 | 4 | 5 | 6 | 7;
+
+export type MethodStepId =
+  | "reset"
+  | "refine"
+  | "recode"
+  | "frame"
+  | "seal"
+  | "protect"
+  | "lift";
+
+export type MethodStepConfig =
+  | {
+      id: Exclude<MethodStepId, "protect">;
+      kind: "product";
+      slug: MethodProductSlug;
+      anchorId: string;
+      canonicalPosition: number;
+      minRoutineSize: RoutineStepCount;
+    }
+  | {
+      id: "protect";
+      kind: "protect";
+      anchorId: "step-protect";
+      canonicalPosition: 6;
+      minRoutineSize: 4;
+    };
+
+export const METHOD_STEP_CONFIGS = [
+  {
+    id: "reset",
+    kind: "product",
+    slug: "reset-01-calming-gel-cleanser",
+    anchorId: "step-reset",
+    canonicalPosition: 1,
+    minRoutineSize: 3,
+  },
+  {
+    id: "refine",
+    kind: "product",
+    slug: "refine-02-pore-treatment-pads",
+    anchorId: "step-refine",
+    canonicalPosition: 2,
+    minRoutineSize: 5,
+  },
+  {
+    id: "recode",
+    kind: "product",
+    slug: "recode-03-pdrn-5-ampoule",
+    anchorId: "step-recode",
+    canonicalPosition: 3,
+    minRoutineSize: 3,
+  },
+  {
+    id: "frame",
+    kind: "product",
+    slug: "frame-04-pdrn-eye-cream",
+    anchorId: "step-frame",
+    canonicalPosition: 4,
+    minRoutineSize: 6,
+  },
+  {
+    id: "seal",
+    kind: "product",
+    slug: "seal-05-green-collagen-cream",
+    anchorId: "step-seal",
+    canonicalPosition: 5,
+    minRoutineSize: 3,
+  },
+  {
+    id: "protect",
+    kind: "protect",
+    anchorId: "step-protect",
+    canonicalPosition: 6,
+    minRoutineSize: 4,
+  },
+  {
+    id: "lift",
+    kind: "product",
+    slug: "lift-06-pdrn-mask-system",
+    anchorId: "step-lift",
+    canonicalPosition: 7,
+    minRoutineSize: 7,
+  },
+] as const satisfies readonly MethodStepConfig[];
+
+const METHOD_PRODUCT_STEP_CONFIGS = METHOD_STEP_CONFIGS.filter(
+  (step) => step.kind === "product",
+) as Array<Extract<MethodStepConfig, { kind: "product" }>>;
+
+const METHOD_STEP_BY_SLUG = new Map(
+  METHOD_PRODUCT_STEP_CONFIGS.map((step) => [step.slug, step]),
+);
+
 export type MethodStepCopy = {
   what: string;
   why: string;
@@ -76,6 +170,151 @@ export const PROTECT_STEP = {
     "UV filters absorb, reflect, or scatter ultraviolet radiation depending on filter type. Broad-spectrum performance, film formation, dispersion, photostability, application uniformity, and cosmetic elegance all affect real-world use.",
   note: "A Mei-Pelle sunscreen is in development. No formula details are being claimed yet.",
 };
+
+export type DerivedMethodStep = MethodStepConfig & {
+  displayIndex: number;
+  displayNumber: string;
+  displayName: string;
+  product?: Product;
+};
+
+export type RoutineTimingEntry = {
+  key: string;
+  kind: "product" | "protect";
+  id: MethodStepId;
+  anchorId: string;
+  displayNumber: string;
+  label: string;
+  note?: string;
+  product?: Product;
+  slug?: MethodProductSlug;
+  missing: boolean;
+};
+
+export type IngredientIndexCard = {
+  id: string;
+  name: string;
+  identity: string;
+  ingredientClass: string;
+  mechanism: string;
+  skinRelevance: string;
+  formulationNote?: string;
+  products: Array<{
+    slug: string;
+    displayName: string;
+  }>;
+};
+
+export function normalizeRoutineStepCount(value: number | string): RoutineStepCount {
+  const numericValue = typeof value === "string" ? Number(value) : value;
+  const roundedValue = Number.isFinite(numericValue) ? Math.round(numericValue) : 7;
+  return Math.min(7, Math.max(3, roundedValue)) as RoutineStepCount;
+}
+
+export function formatRoutineDisplayNumber(index: number): string {
+  return String(index + 1).padStart(2, "0");
+}
+
+function displayNameForStep(
+  step: MethodStepConfig,
+  product: Product | undefined,
+): string {
+  if (step.kind === "protect") return PROTECT_STEP.displayName;
+  return product?.displayName ?? step.id.toUpperCase();
+}
+
+export function deriveMethodRoutineSteps(
+  products: Product[],
+  selectedCount: RoutineStepCount | number | string,
+): DerivedMethodStep[] {
+  const count = normalizeRoutineStepCount(selectedCount);
+  const bySlug = new Map(products.map((product) => [product.slug, product]));
+
+  return METHOD_STEP_CONFIGS.filter((step) => step.minRoutineSize <= count)
+    .slice()
+    .sort((a, b) => a.canonicalPosition - b.canonicalPosition)
+    .map((step, index) => {
+      const product = step.kind === "product" ? bySlug.get(step.slug) : undefined;
+      return {
+        ...step,
+        displayIndex: index,
+        displayNumber: formatRoutineDisplayNumber(index),
+        displayName: displayNameForStep(step, product),
+        ...(product ? { product } : {}),
+      };
+    });
+}
+
+export function selectedMethodStepIds(selectedCount: RoutineStepCount | number | string) {
+  return deriveMethodRoutineSteps([], selectedCount).map((step) => step.id);
+}
+
+export function routineTimingEntriesForGroup(
+  group: RoutineGroup,
+  steps: DerivedMethodStep[],
+): RoutineTimingEntry[] {
+  const bySlug = new Map(
+    steps
+      .filter((step): step is DerivedMethodStep & { kind: "product"; slug: MethodProductSlug } =>
+        step.kind === "product",
+      )
+      .map((step) => [step.slug, step]),
+  );
+  const protectStep = steps.find((step) => step.kind === "protect");
+
+  return group.entries.flatMap<RoutineTimingEntry>((entry): RoutineTimingEntry[] => {
+    if (entry.kind === "protect") {
+      if (!protectStep) return [];
+      return [
+        {
+          key: `${group.id}-protect`,
+          kind: "protect" as const,
+          id: "protect" as const,
+          anchorId: protectStep.anchorId,
+          displayNumber: protectStep.displayNumber,
+          label: PROTECT_STEP.displayName,
+          note: entry.note,
+          missing: false,
+        },
+      ];
+    }
+
+    const step = bySlug.get(entry.slug);
+    if (!step) return [];
+
+    return [
+      {
+        key: `${group.id}-${entry.slug}`,
+        kind: "product" as const,
+        id: step.id,
+        slug: entry.slug,
+        anchorId: step.anchorId,
+        displayNumber: step.displayNumber,
+        label: step.displayName,
+        note: entry.note,
+        product: step.product,
+        missing: !step.product,
+      },
+    ];
+  });
+}
+
+export function routineGroupEmptyMessage(group: RoutineGroup): string {
+  if (group.id === "weekly") {
+    return "No separate weekly step is included in this edit.";
+  }
+  return "No dedicated step is included in this edit.";
+}
+
+export function activeProductSlugsForSteps(steps: DerivedMethodStep[]): Set<string> {
+  return new Set(
+    steps
+      .filter((step): step is DerivedMethodStep & { kind: "product"; slug: MethodProductSlug } =>
+        step.kind === "product",
+      )
+      .map((step) => step.slug),
+  );
+}
 
 export type RoutineEntry =
   | { kind: "product"; slug: MethodProductSlug; note?: string }
@@ -271,8 +510,12 @@ const INGREDIENT_DEFINITIONS: IngredientDefinition[] = [
   },
 ];
 
-export function productSectionId(product: Product): string {
-  return `step-${product.displayName.toLowerCase()}`;
+export function productSectionId(product: Product | MethodProductSlug): string {
+  const slug = typeof product === "string" ? product : product.slug;
+  return (
+    METHOD_STEP_BY_SLUG.get(slug as MethodProductSlug)?.anchorId ??
+    `step-${typeof product === "string" ? slug : product.displayName.toLowerCase()}`
+  );
 }
 
 export function getMethodProductState(products: Product[]) {
@@ -342,7 +585,7 @@ function productsForIngredient(
   );
 }
 
-export function buildIngredientIndex(products: Product[]) {
+export function buildIngredientIndex(products: Product[]): IngredientIndexCard[] {
   return INGREDIENT_DEFINITIONS.map((definition) => {
     const containingProducts = productsForIngredient(products, definition);
     if (containingProducts.length === 0) return null;

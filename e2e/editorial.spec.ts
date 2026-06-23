@@ -84,7 +84,7 @@ test("Method page renders the full routine without treating SPF as merchandise",
   const protect = page.locator("#step-protect");
   await expect(protect).toBeVisible();
   await expect(protect.getByText("STEP 06")).toBeVisible();
-  await expect(protect.getByRole("heading", { name: "PROTECT" })).toBeVisible();
+  await expect(protect.getByRole("heading", { name: "06 PROTECT" })).toBeVisible();
   await expect(protect.getByText("COMING SOON")).toBeVisible();
   await expect(protect.getByRole("heading", { name: "WHAT" })).toBeVisible();
   await expect(protect.getByRole("heading", { name: "WHY" })).toBeVisible();

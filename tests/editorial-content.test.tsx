@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 
 vi.mock("@/lib/catalog-cache", () => ({
@@ -10,12 +10,17 @@ import MethodPage from "@/app/method/page";
 import {
   METHOD_PRODUCT_NUMBERS,
   METHOD_PRODUCT_SLUGS,
+  METHOD_STEP_CONFIGS,
   PROTECT_STEP,
   ROUTINE_GROUPS,
+  activeProductSlugsForSteps,
   buildIngredientIndex,
+  deriveMethodRoutineSteps,
   formulaFocus,
   getMethodProductState,
   methodProductNumber,
+  routineTimingEntriesForGroup,
+  selectedMethodStepIds,
 } from "@/lib/content/method";
 import { FORBIDDEN_ABOUT_PATTERNS } from "@/lib/content/about";
 import { getCachedProducts } from "@/lib/catalog-cache";
@@ -224,13 +229,204 @@ describe("Method content architecture", () => {
     expect(methodProductNumber(makeProduct("lift-06-pdrn-mask-system"))).toBe("07");
   });
 
+  it("derives the exact adaptive Method ladder without mutating catalog metadata", () => {
+    const expectedIds = {
+      3: ["reset", "recode", "seal"],
+      4: ["reset", "recode", "seal", "protect"],
+      5: ["reset", "refine", "recode", "seal", "protect"],
+      6: ["reset", "refine", "recode", "frame", "seal", "protect"],
+      7: ["reset", "refine", "recode", "frame", "seal", "protect", "lift"],
+    } as const;
+    const catalogMetadataBefore = methodFixtures.map((product) => ({
+      slug: product.slug,
+      routineNumber: product.routineNumber,
+      routineOrder: product.routineOrder,
+    }));
+
+    for (const count of [3, 4, 5, 6, 7] as const) {
+      const steps = deriveMethodRoutineSteps(methodFixtures, count);
+      const expectedIdSet = new Set<string>(expectedIds[count]);
+      expect(steps.map((step) => step.id)).toEqual(expectedIds[count]);
+      expect(selectedMethodStepIds(count)).toEqual(expectedIds[count]);
+      expect(steps.map((step) => step.canonicalPosition)).toEqual(
+        [...steps].map((step) => step.canonicalPosition).sort((a, b) => a - b),
+      );
+      expect(steps.map((step) => step.displayNumber)).toEqual(
+        steps.map((_, index) => String(index + 1).padStart(2, "0")),
+      );
+      expect(
+        steps
+          .filter((step) => step.kind === "product")
+          .every((step) =>
+            METHOD_STEP_CONFIGS.some(
+              (config) =>
+                config.kind === "product" &&
+                expectedIdSet.has(config.id) &&
+                config.id === step.id &&
+                config.slug === step.slug &&
+                config.anchorId === step.anchorId,
+            ),
+          ),
+      ).toBe(true);
+    }
+
+    for (const [previous, next] of [
+      [3, 4],
+      [4, 5],
+      [5, 6],
+      [6, 7],
+    ] as const) {
+      const previousIds = new Set(selectedMethodStepIds(previous));
+      const nextIds = new Set(selectedMethodStepIds(next));
+      for (const id of previousIds) {
+        expect(nextIds.has(id)).toBe(true);
+      }
+      expect(nextIds.size).toBeGreaterThan(previousIds.size);
+    }
+
+    const protectStep = deriveMethodRoutineSteps(methodFixtures, 4).find(
+      (step) => step.id === "protect",
+    );
+    expect(protectStep).toMatchObject({
+      kind: "protect",
+      displayNumber: "04",
+    });
+    expect(protectStep?.product).toBeUndefined();
+    expect(methodFixtures.map((product) => ({
+      slug: product.slug,
+      routineNumber: product.routineNumber,
+      routineOrder: product.routineOrder,
+    }))).toEqual(catalogMetadataBefore);
+  });
+
+  it("filters routine timing and ingredient active state from the selected steps", () => {
+    const steps3 = deriveMethodRoutineSteps(methodFixtures, 3);
+    const am3 = routineTimingEntriesForGroup(ROUTINE_GROUPS[0], steps3);
+    const pm3 = routineTimingEntriesForGroup(ROUTINE_GROUPS[1], steps3);
+    const weekly3 = routineTimingEntriesForGroup(ROUTINE_GROUPS[2], steps3);
+
+    expect(am3.map((entry) => `${entry.displayNumber} ${entry.label}`)).toEqual([
+      "01 RESET",
+      "02 RECODE",
+      "03 SEAL",
+    ]);
+    expect(pm3.map((entry) => entry.label)).toEqual(["RESET", "RECODE", "SEAL"]);
+    expect(weekly3).toEqual([]);
+    expect(am3.some((entry) => entry.id === "protect")).toBe(false);
+
+    const am4 = routineTimingEntriesForGroup(
+      ROUTINE_GROUPS[0],
+      deriveMethodRoutineSteps(methodFixtures, 4),
+    );
+    expect(am4.map((entry) => `${entry.displayNumber} ${entry.label}`)).toEqual([
+      "01 RESET",
+      "02 RECODE",
+      "03 SEAL",
+      "04 PROTECT",
+    ]);
+
+    const weekly7 = routineTimingEntriesForGroup(
+      ROUTINE_GROUPS[2],
+      deriveMethodRoutineSteps(methodFixtures, 7),
+    );
+    expect(weekly7.map((entry) => `${entry.displayNumber} ${entry.label}`)).toEqual([
+      "07 LIFT",
+    ]);
+
+    const active3 = activeProductSlugsForSteps(steps3);
+    expect(active3.has("reset-01-calming-gel-cleanser")).toBe(true);
+    expect(active3.has("recode-03-pdrn-5-ampoule")).toBe(true);
+    expect(active3.has("seal-05-green-collagen-cream")).toBe(true);
+    expect(active3.has("refine-02-pore-treatment-pads")).toBe(false);
+    expect(active3.has("frame-04-pdrn-eye-cream")).toBe(false);
+    expect(active3.has("lift-06-pdrn-mask-system")).toBe(false);
+  });
+
+  it("renders the accessible routine length selector and condenses Method surfaces together", async () => {
+    render(await MethodPage());
+
+    const ingredientCardCount = document.querySelectorAll(".ingredient-card").length;
+    const slider = screen.getByRole("slider", { name: "Routine length" });
+    expect(slider).toHaveAttribute("min", "3");
+    expect(slider).toHaveAttribute("max", "7");
+    expect(slider).toHaveAttribute("step", "1");
+    expect(slider).toHaveValue("7");
+    expect(slider).toHaveAttribute(
+      "aria-valuetext",
+      "7 steps, full Method with the scheduled weekly intensive",
+    );
+
+    fireEvent.change(slider, { target: { value: "3" } });
+
+    expect(slider).toHaveValue("3");
+    expect(slider).toHaveAttribute("aria-valuenow", "3");
+    expect(slider).toHaveAttribute(
+      "aria-valuetext",
+      "3 steps, foundation: cleanse, treat, moisturize",
+    );
+    expect(screen.getByText("FOUNDATION")).toBeInTheDocument();
+
+    const indexLabels = Array.from(
+      document.querySelectorAll(".method-index__link span"),
+    ).map((node) => node.textContent);
+    expect(indexLabels).toEqual([
+      "Start",
+      "AM / PM",
+      "01 RESET",
+      "02 RECODE",
+      "03 SEAL",
+      "Index",
+    ]);
+
+    expect(document.getElementById("step-reset")).not.toBeNull();
+    expect(document.getElementById("step-recode")).not.toBeNull();
+    expect(document.getElementById("step-seal")).not.toBeNull();
+    expect(document.getElementById("step-refine")).toBeNull();
+    expect(document.getElementById("step-frame")).toBeNull();
+    expect(document.getElementById("step-protect")).toBeNull();
+    expect(document.getElementById("step-lift")).toBeNull();
+    expect(within(document.getElementById("step-recode") as HTMLElement).getByText("STEP 02")).toBeInTheDocument();
+    expect(
+      (document.getElementById("step-recode") as HTMLElement).querySelector(
+        ".method-step__routine",
+      )?.textContent,
+    ).toBe("02");
+
+    const amEntries = Array.from(
+      document.querySelectorAll("#routine-am li"),
+    ).map((entry) => entry.textContent?.replace(/\s+/g, " ").trim());
+    expect(amEntries).toEqual(["01RESET", "02RECODE", "03SEAL"]);
+    expect(screen.getByText(/Broad-spectrum sunscreen is still recommended/i)).toBeInTheDocument();
+    expect(screen.getByText("No separate weekly step is included in this edit.")).toBeInTheDocument();
+
+    expect(document.querySelectorAll(".ingredient-card").length).toBe(ingredientCardCount);
+    const refineChip = document.querySelector(
+      '.ingredient-card__found a[href="/products/refine-02-pore-treatment-pads"]',
+    ) as HTMLAnchorElement | null;
+    expect(refineChip).not.toBeNull();
+    expect(refineChip).toHaveAttribute("data-routine-active", "false");
+    expect(refineChip).toHaveAttribute(
+      "aria-label",
+      "REFINE, not included in the current 3-step system. Opens product details.",
+    );
+    refineChip?.focus();
+    expect(document.activeElement).toBe(refineChip);
+
+    fireEvent.change(slider, { target: { value: "7" } });
+    expect(slider).toHaveValue("7");
+    expect(document.getElementById("step-lift")).not.toBeNull();
+    expect(within(document.getElementById("step-protect") as HTMLElement).getByText("STEP 06")).toBeInTheDocument();
+    expect(within(document.getElementById("step-lift") as HTMLElement).getByText("STEP 07")).toBeInTheDocument();
+    expect(refineChip).toHaveAttribute("href", "/products/refine-02-pore-treatment-pads");
+  });
+
   it("renders PROTECT 06 as a coming-soon Method step instead of a product", async () => {
     render(await MethodPage());
 
     const protect = document.getElementById("step-protect");
     expect(protect).not.toBeNull();
     expect(within(protect as HTMLElement).getByText("STEP 06")).toBeInTheDocument();
-    expect(within(protect as HTMLElement).getByRole("heading", { name: "PROTECT" })).toBeInTheDocument();
+    expect(within(protect as HTMLElement).getByRole("heading", { name: "06 PROTECT" })).toBeInTheDocument();
     expect(within(protect as HTMLElement).getByText("COMING SOON")).toBeInTheDocument();
     expect(within(protect as HTMLElement).getByText("WHAT")).toBeInTheDocument();
     expect(within(protect as HTMLElement).getByText("WHY")).toBeInTheDocument();
@@ -300,10 +496,10 @@ describe("Method content architecture", () => {
     expect(screen.getAllByText("FOUND IN").length).toBeGreaterThan(0);
     expect(document.querySelector(".ingredient-card small")).toBeNull();
     expect(
-      screen
-        .getAllByRole("link", { name: "RECODE" })
-        .some((link) => link.getAttribute("href") === "/products/recode-03-pdrn-5-ampoule"),
-    ).toBe(true);
+      document.querySelector(
+        '.ingredient-card__found a[href="/products/recode-03-pdrn-5-ampoule"]',
+      ),
+    ).not.toBeNull();
     expect(document.body.textContent).not.toMatch(/DNA repair|tissue regeneration|wound healing/i);
     expect(document.body.textContent).not.toMatch(/guaranteed collagen production/i);
   });

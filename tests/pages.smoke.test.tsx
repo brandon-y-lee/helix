@@ -250,7 +250,7 @@ describe("storefront page smoke", () => {
     expect(
       screen.getByText("A system for clearer, healthier, beautiful skin"),
     ).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "PROTECT" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "06 PROTECT" })).toBeInTheDocument();
     expect(screen.getAllByText("COMING SOON").length).toBeGreaterThan(0);
   });
 
