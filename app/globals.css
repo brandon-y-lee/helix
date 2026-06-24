@@ -3387,14 +3387,6 @@ main:focus {
   outline-offset: 2px;
 }
 
-/* ---------- Editorial pages: Method + About ---------- */
-.site-nav a[aria-current="page"],
-.mobile-nav a[aria-current="page"] {
-  color: var(--accent-2);
-  text-decoration: underline;
-  text-underline-offset: 5px;
-}
-
 .site-footer__nav a:focus-visible,
 .site-footer__accordion-trigger:focus-visible,
 .site-footer__accordion a:focus-visible,
