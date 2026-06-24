@@ -5,21 +5,84 @@ import { ProductGrid } from "@/components/ProductGrid";
 import { ProductImage } from "@/components/ProductImage";
 import { getCachedProducts } from "@/lib/catalog-cache";
 import {
-  featuredProducts,
+  PROTECT_STEP,
+  deriveMethodRoutineSteps,
+  type DerivedMethodStep,
+} from "@/lib/content/method";
+import type { Product } from "@/lib/products";
+import {
   newArrivals,
-  collectionNames,
-  routine,
 } from "@/lib/merchandising";
 
 export const metadata: Metadata = {
   title: "Mei Pelle — Prestige Skincare for Men",
 };
 
+function productsFromMethodPreset(products: Product[], count: 3 | 4) {
+  return deriveMethodRoutineSteps(products, count).flatMap((step) =>
+    step.kind === "product" && step.product ? [step.product] : [],
+  );
+}
+
+function renderRoutineStep(step: DerivedMethodStep) {
+  if (step.kind === "protect") {
+    return (
+      <li key={step.id} className="routine-step routine-step--protect">
+        <Link
+          href="/method#step-protect"
+          className="routine-step__link routine-step__link--editorial"
+          aria-label="View PROTECT Method step, coming soon"
+        >
+          <span className="routine-step__index" aria-hidden="true">
+            {step.displayNumber}
+          </span>
+          <span className="routine-step__media routine-step__media--protect" aria-hidden="true">
+            <span className="routine-step__protect-mark">SPF</span>
+          </span>
+          <span className="routine-step__text">
+            <span className="routine-step__collection">{PROTECT_STEP.status}</span>
+            <span className="routine-step__name">{PROTECT_STEP.displayName}</span>
+            <span className="routine-step__note">Final morning SPF step</span>
+          </span>
+        </Link>
+      </li>
+    );
+  }
+
+  if (!step.product) return null;
+
+  return (
+    <li key={step.slug} className="routine-step">
+      <Link href={`/products/${step.product.slug}`} className="routine-step__link">
+        <span className="routine-step__index" aria-hidden="true">
+          {step.displayNumber}
+        </span>
+        <span className="routine-step__media">
+          <ProductImage
+            media={step.product.cardMedia}
+            swatch={step.product.swatch}
+            className="routine-step__image"
+            imageClassName="routine-step__img"
+            sizes="52px"
+          />
+        </span>
+        <span className="routine-step__text">
+          <span className="routine-step__collection">
+            {step.product.collection}
+          </span>
+          <span className="routine-step__name">{step.product.displayName}</span>
+        </span>
+      </Link>
+    </li>
+  );
+}
+
 export default async function HomePage() {
   const products = await getCachedProducts();
-  const featured = featuredProducts(products, 3);
-  const collections = collectionNames(products);
-  const routineSteps = routine(products, 4);
+  const featured = productsFromMethodPreset(products, 3);
+  const routineSteps = deriveMethodRoutineSteps(products, 4).filter(
+    (step) => step.kind === "protect" || Boolean(step.product),
+  );
   const fresh = newArrivals(products, 3);
 
   return (
@@ -43,26 +106,6 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {collections.length > 0 && (
-        <section className="container home-section">
-          <div className="section-head">
-            <h2>Shop by collection</h2>
-            <p>Find your step in the routine.</p>
-          </div>
-          <div className="collection-chips">
-            {collections.map((c) => (
-              <Link
-                key={c}
-                href={`/products?collection=${encodeURIComponent(c)}`}
-                className="chip chip--link"
-              >
-                {c}
-              </Link>
-            ))}
-          </div>
-        </section>
-      )}
-
       {featured.length > 0 && (
         <section className="container home-section">
           <div className="section-head">
@@ -82,35 +125,12 @@ export default async function HomePage() {
               <p style={{ color: "var(--ink-soft)" }}>
                 One pick from each part of the routine — a simple place to begin.
               </p>
-              <Link href="/products" className="btn btn--ghost">
-                See everything
+              <Link href="/method" className="btn btn--ghost">
+                VIEW THE METHOD
               </Link>
             </div>
             <ol className="routine-steps">
-              {routineSteps.map((p, i) => (
-                <li key={p.slug} className="routine-step">
-                  <Link href={`/products/${p.slug}`} className="routine-step__link">
-                    <span className="routine-step__index" aria-hidden="true">
-                      {i + 1}
-                    </span>
-                    <span className="routine-step__media">
-                      <ProductImage
-                        media={p.cardMedia}
-                        swatch={p.swatch}
-                        className="routine-step__image"
-                        imageClassName="routine-step__img"
-                        sizes="52px"
-                      />
-                    </span>
-                    <span className="routine-step__text">
-                      <span className="routine-step__collection">
-                        {p.collection}
-                      </span>
-                      <span className="routine-step__name">{p.displayName}</span>
-                    </span>
-                  </Link>
-                </li>
-              ))}
+              {routineSteps.map((step) => renderRoutineStep(step))}
             </ol>
           </div>
         </section>

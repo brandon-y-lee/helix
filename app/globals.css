@@ -1104,18 +1104,6 @@ main[data-header-layout="overlay"] {
   padding-top: 56px;
 }
 
-.collection-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.chip--link {
-  text-decoration: none;
-  display: inline-flex;
-  align-items: center;
-}
-
 .routine-block {
   display: grid;
   grid-template-columns: 0.8fr 1.2fr;
@@ -1160,16 +1148,20 @@ main[data-header-layout="overlay"] {
   transform: translateX(2px);
 }
 
+.routine-step__link--editorial {
+  cursor: pointer;
+}
+
 .routine-step__index {
   flex: none;
-  width: 26px;
-  height: 26px;
+  width: 32px;
+  height: 32px;
   border-radius: 999px;
   background: var(--accent);
   color: var(--accent-ink);
   display: grid;
   place-items: center;
-  font-size: 0.8rem;
+  font-size: 0.72rem;
   font-weight: 600;
 }
 
@@ -1180,6 +1172,22 @@ main[data-header-layout="overlay"] {
   border-radius: 10px;
   overflow: hidden;
   flex: none;
+}
+
+.routine-step__media--protect {
+  display: grid;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--line));
+  background:
+    radial-gradient(circle at 48% 34%, rgba(255, 255, 255, 0.82), transparent 42%),
+    linear-gradient(135deg, #d9e7dd, #7a9385);
+}
+
+.routine-step__protect-mark {
+  color: var(--ink);
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
 }
 
 .routine-step__text {
@@ -1198,6 +1206,12 @@ main[data-header-layout="overlay"] {
 .routine-step__name {
   font-weight: 600;
   color: var(--ink);
+}
+
+.routine-step__note {
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+  line-height: 1.25;
 }
 
 /* ---------- Header search trigger ---------- */
@@ -3621,7 +3635,41 @@ main:focus {
   text-transform: uppercase;
 }
 
+.method-edit__range {
+  --method-edit-thumb-size: 22px;
+  --method-edit-track-size: 2px;
+  --method-edit-axis-inset: calc(var(--method-edit-thumb-size) / 2);
+  position: relative;
+  min-height: 68px;
+}
+
+.method-edit__track {
+  position: absolute;
+  z-index: 0;
+  top: 21px;
+  right: var(--method-edit-axis-inset);
+  left: var(--method-edit-axis-inset);
+  height: var(--method-edit-track-size);
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--line);
+  pointer-events: none;
+}
+
+.method-edit__track-fill {
+  display: block;
+  width: var(--method-edit-progress, 100%);
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+}
+
 .method-edit input[type="range"] {
+  position: relative;
+  z-index: 2;
+  display: block;
+  appearance: none;
+  -webkit-appearance: none;
   width: 100%;
   min-height: 44px;
   margin: 0;
@@ -3633,12 +3681,14 @@ main:focus {
 .method-edit input[type="range"]::-webkit-slider-runnable-track {
   height: 2px;
   border-radius: 999px;
-  background: linear-gradient(90deg, var(--accent), var(--line));
+  background: transparent;
 }
 
 .method-edit input[type="range"]::-webkit-slider-thumb {
-  width: 22px;
-  height: 22px;
+  appearance: none;
+  -webkit-appearance: none;
+  width: var(--method-edit-thumb-size);
+  height: var(--method-edit-thumb-size);
   margin-top: -10px;
   border: 2px solid var(--bg);
   border-radius: 999px;
@@ -3649,12 +3699,12 @@ main:focus {
 .method-edit input[type="range"]::-moz-range-track {
   height: 2px;
   border-radius: 999px;
-  background: linear-gradient(90deg, var(--accent), var(--line));
+  background: transparent;
 }
 
 .method-edit input[type="range"]::-moz-range-thumb {
-  width: 22px;
-  height: 22px;
+  width: var(--method-edit-thumb-size);
+  height: var(--method-edit-thumb-size);
   border: 2px solid var(--bg);
   border-radius: 999px;
   background: var(--ink);
@@ -3662,26 +3712,40 @@ main:focus {
 }
 
 .method-edit__ticks {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  position: absolute;
+  top: 33px;
+  right: var(--method-edit-axis-inset);
+  left: var(--method-edit-axis-inset);
+  height: 24px;
   list-style: none;
-  margin: -4px 0 0;
+  margin: 0;
   padding: 0;
   color: var(--ink-soft);
   font-size: 0.72rem;
   font-weight: 800;
+  pointer-events: none;
 }
 
 .method-edit__ticks li {
+  position: absolute;
+  left: var(--method-edit-position);
+  min-width: 28px;
+  display: grid;
+  justify-items: center;
+  gap: 4px;
   text-align: center;
+  transform: translateX(-50%);
 }
 
-.method-edit__ticks li:first-child {
-  text-align: left;
+.method-edit__tick {
+  width: 1px;
+  height: 5px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ink-soft) 58%, transparent);
 }
 
-.method-edit__ticks li:last-child {
-  text-align: right;
+.method-edit__tick-label {
+  line-height: 1;
 }
 
 .method-edit__summary {

@@ -13,6 +13,8 @@ import {
   METHOD_STEP_CONFIGS,
   PROTECT_STEP,
   ROUTINE_GROUPS,
+  ROUTINE_PRESET_COPY,
+  ROUTINE_STEP_COUNTS,
   activeProductSlugsForSteps,
   buildIngredientIndex,
   deriveMethodRoutineSteps,
@@ -287,11 +289,18 @@ describe("Method content architecture", () => {
     const protectStep = deriveMethodRoutineSteps(methodFixtures, 4).find(
       (step) => step.id === "protect",
     );
+    expect(selectedMethodStepIds(3)).toEqual(["reset", "recode", "seal"]);
+    expect(selectedMethodStepIds(4)).toEqual(["reset", "recode", "seal", "protect"]);
+    expect(new Set(selectedMethodStepIds(4)).size).toBeGreaterThan(
+      new Set(selectedMethodStepIds(3)).size,
+    );
     expect(protectStep).toMatchObject({
       kind: "protect",
       displayNumber: "04",
     });
     expect(protectStep?.product).toBeUndefined();
+    expect(ROUTINE_STEP_COUNTS).toEqual([3, 4, 5, 6, 7]);
+    expect(ROUTINE_PRESET_COPY[4].summary).toContain("SPF");
     expect(methodFixtures.map((product) => ({
       slug: product.slug,
       routineNumber: product.routineNumber,
@@ -355,6 +364,15 @@ describe("Method content architecture", () => {
       "aria-valuetext",
       "7 steps, full Method with the scheduled weekly intensive",
     );
+    expect(
+      Array.from(document.querySelectorAll(".method-edit__ticks li")).map((tick) => ({
+        count: tick.getAttribute("data-routine-count"),
+        label: tick.textContent,
+      })),
+    ).toEqual(ROUTINE_STEP_COUNTS.map((count) => ({
+      count: String(count),
+      label: String(count),
+    })));
 
     fireEvent.change(slider, { target: { value: "3" } });
 

@@ -22,6 +22,49 @@ export const METHOD_PRODUCT_NUMBERS: Record<MethodProductSlug, string> = {
 
 export type RoutineStepCount = 3 | 4 | 5 | 6 | 7;
 
+export const ROUTINE_STEP_COUNTS = [
+  3,
+  4,
+  5,
+  6,
+  7,
+] as const satisfies readonly RoutineStepCount[];
+
+export const ROUTINE_PRESET_COPY: Record<
+  RoutineStepCount,
+  {
+    label: string;
+    summary: string;
+    ariaValueText: string;
+  }
+> = {
+  3: {
+    label: "FOUNDATION",
+    summary: "Cleanse, treat, moisturize.",
+    ariaValueText: "3 steps, foundation: cleanse, treat, moisturize",
+  },
+  4: {
+    label: "+ PROTECTION",
+    summary: "Adds the final morning SPF step.",
+    ariaValueText: "4 steps, foundation plus protection",
+  },
+  5: {
+    label: "+ TEXTURE",
+    summary: "Adds controlled, frequency-dependent refinement.",
+    ariaValueText: "5 steps, foundation plus protection and texture control",
+  },
+  6: {
+    label: "+ EYE CARE",
+    summary: "Adds targeted support around the eyes.",
+    ariaValueText: "6 steps, foundation plus protection, texture control, and eye care",
+  },
+  7: {
+    label: "+ WEEKLY",
+    summary: "Adds the scheduled intensive.",
+    ariaValueText: "7 steps, full Method with the scheduled weekly intensive",
+  },
+};
+
 export type MethodStepId =
   | "reset"
   | "refine"

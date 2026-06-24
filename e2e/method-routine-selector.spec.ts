@@ -65,6 +65,80 @@ async function expectNoHorizontalOverflow(page: Page) {
     .toBeLessThanOrEqual(1);
 }
 
+async function sliderGeometry(page: Page) {
+  return page.evaluate(() => {
+    const range = document.querySelector<HTMLElement>(".method-edit__range");
+    const input = document.querySelector<HTMLInputElement>('.method-edit input[type="range"]');
+    if (!range || !input) throw new Error("Missing Method range control");
+
+    const rangeStyle = window.getComputedStyle(range);
+    const thumbSize = Number.parseFloat(
+      rangeStyle.getPropertyValue("--method-edit-thumb-size"),
+    );
+    const inputRect = input.getBoundingClientRect();
+    const min = Number(input.min);
+    const max = Number(input.max);
+    const value = Number(input.value);
+    const axisStart = inputRect.left + thumbSize / 2;
+    const axisEnd = inputRect.right - thumbSize / 2;
+    const axisWidth = axisEnd - axisStart;
+    const expectedCenterForValue = (count: number) =>
+      axisStart + ((count - min) / (max - min)) * axisWidth;
+
+    const positions = Array.from(
+      document.querySelectorAll<HTMLElement>(".method-edit__ticks li"),
+    ).map((item) => {
+      const count = Number(item.dataset.routineCount);
+      const tick = item.querySelector<HTMLElement>(".method-edit__tick");
+      const label = item.querySelector<HTMLElement>(".method-edit__tick-label");
+      if (!tick || !label) throw new Error("Missing Method tick or label");
+      const itemRect = item.getBoundingClientRect();
+      const tickRect = tick.getBoundingClientRect();
+      const labelRect = label.getBoundingClientRect();
+      const expectedCenter = expectedCenterForValue(count);
+      return {
+        count,
+        expectedCenter,
+        itemCenter: itemRect.left + itemRect.width / 2,
+        labelCenter: labelRect.left + labelRect.width / 2,
+        tickCenter: tickRect.left + tickRect.width / 2,
+      };
+    });
+
+    return {
+      value,
+      thumbCenter: expectedCenterForValue(value),
+      selected: positions.find((position) => position.count === value),
+      positions,
+    };
+  });
+}
+
+async function expectSliderGeometryAligned(page: Page) {
+  const geometry = await sliderGeometry(page);
+  const tolerance = 2;
+
+  for (const position of geometry.positions) {
+    expect(Math.abs(position.tickCenter - position.expectedCenter)).toBeLessThanOrEqual(
+      tolerance,
+    );
+    expect(Math.abs(position.labelCenter - position.expectedCenter)).toBeLessThanOrEqual(
+      tolerance,
+    );
+    expect(Math.abs(position.tickCenter - position.labelCenter)).toBeLessThanOrEqual(
+      tolerance,
+    );
+  }
+
+  expect(geometry.selected).toBeDefined();
+  expect(
+    Math.abs((geometry.selected?.tickCenter ?? 0) - geometry.thumbCenter),
+  ).toBeLessThanOrEqual(tolerance);
+  expect(
+    Math.abs((geometry.selected?.labelCenter ?? 0) - geometry.thumbCenter),
+  ).toBeLessThanOrEqual(tolerance);
+}
+
 test.describe("Method routine selector responsive viewports", () => {
   for (const viewport of [
     { width: 1920, height: 1080 },
@@ -107,6 +181,30 @@ test.describe("Method routine selector responsive viewports", () => {
       } else {
         expect(layout.selector!.y).toBeGreaterThan(layout.nav!.y);
         expect(layout.firstStep!.y).toBeGreaterThan(layout.selector!.y);
+      }
+    });
+  }
+});
+
+test.describe("Method routine selector geometry", () => {
+  for (const viewport of [
+    { width: 1440, height: 900 },
+    { width: 390, height: 844 },
+  ]) {
+    test(`aligns ticks, labels, and thumb at ${viewport.width}x${viewport.height}`, async ({
+      page,
+    }) => {
+      await page.setViewportSize(viewport);
+      await page.goto("/method");
+
+      const slider = page.getByLabel("Routine length");
+      await slider.focus();
+      await page.keyboard.press("Home");
+
+      for (const count of [3, 4, 5, 6, 7] as const) {
+        await expect(slider).toHaveValue(String(count));
+        await expectSliderGeometryAligned(page);
+        if (count < 7) await page.keyboard.press("ArrowRight");
       }
     });
   }
@@ -160,6 +258,10 @@ test("Method routine length selector adapts nav, sections, timing, hue numerals,
   await expect(page.locator('.method-index__link[href="#step-lift"][aria-current="location"]')).toHaveCount(0);
   expect(new URL(page.url()).hash).not.toBe("#step-lift");
 
+  await page.keyboard.press("PageUp");
+  await expect(slider).toHaveValue("4");
+  await page.keyboard.press("PageDown");
+  await expect(slider).toHaveValue("3");
   await page.keyboard.press("ArrowRight");
   await expect(slider).toHaveValue("4");
   await expectSequence(page, 4);

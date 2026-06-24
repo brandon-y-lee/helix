@@ -8,7 +8,7 @@ test("homepage discovery modules render", async ({ page }) => {
   await page.goto("/");
   await expect(
     page.getByRole("heading", { name: "Shop by collection" }),
-  ).toBeVisible();
+  ).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Featured" })).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "Build your daily routine" }),
@@ -18,19 +18,48 @@ test("homepage discovery modules render", async ({ page }) => {
   ).toBeVisible();
 });
 
-test("collection chip deep-links into the shop, pre-filtered", async ({
-  page,
-}) => {
+test("homepage Method presets drive Featured and Build Your Routine", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("link", { name: "THE SYSTEM", exact: true }).click();
 
-  await expect(page).toHaveURL(/\/products\?collection=THE%20SYSTEM$/);
-  await expect(page.locator(".product-count")).toHaveText("5 products");
+  const merchandising = await page.evaluate(() => {
+    const clean = (text: string | null | undefined) => text?.replace(/\s+/g, " ").trim() ?? "";
+    const sectionByHeading = (heading: string) =>
+      Array.from(document.querySelectorAll("section")).find(
+        (section) => clean(section.querySelector("h2")?.textContent) === heading,
+      );
+    const featured = sectionByHeading("Featured");
+    const routine = sectionByHeading("Build your daily routine");
+    return {
+      featured: Array.from(featured?.querySelectorAll(".product-card__name") ?? []).map((node) =>
+        clean(node.textContent),
+      ),
+      routine: Array.from(routine?.querySelectorAll(".routine-step__name") ?? []).map((node) =>
+        clean(node.textContent),
+      ),
+      routineLinks: Array.from(routine?.querySelectorAll("a") ?? []).map((link) =>
+        link.getAttribute("href"),
+      ),
+      protectText: clean(
+        routine?.querySelector(".routine-step--protect")?.textContent,
+      ),
+      protectButtons: routine?.querySelector(".routine-step--protect")?.querySelectorAll("button")
+        .length ?? 0,
+    };
+  });
+
+  expect(merchandising.featured).toEqual(["RESET", "RECODE", "SEAL"]);
+  expect(merchandising.routine).toEqual(["RESET", "RECODE", "SEAL", "PROTECT"]);
+  expect(merchandising.routineLinks).toContain("/method");
+  expect(merchandising.routineLinks).toContain("/method#step-protect");
+  expect(merchandising.protectText).toContain("COMING SOON");
+  expect(merchandising.protectText).toContain("Final morning SPF step");
+  expect(merchandising.protectText).not.toMatch(/\$\d/);
+  expect(merchandising.protectButtons).toBe(0);
 });
 
 test("routine step navigates to a product detail page", async ({ page }) => {
   await page.goto("/");
-  await page.locator(".routine-step__link").first().click();
+  await page.locator('.routine-step__link[href^="/products/"]').first().click();
   await expect(page).toHaveURL(/\/products\/[\w-]+$/);
   await expect(page.locator("h1")).toBeVisible();
 });

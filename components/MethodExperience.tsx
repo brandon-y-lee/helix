@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { type CSSProperties, useEffect, useId, useMemo, useRef, useState } from "react";
 import { MethodRoutineNav, type MethodRoutineNavItem } from "@/components/MethodRoutineNav";
 import { ProductImage } from "@/components/ProductImage";
 import {
   PROTECT_STEP,
+  ROUTINE_PRESET_COPY,
   ROUTINE_GROUPS,
+  ROUTINE_STEP_COUNTS,
   activeProductSlugsForSteps,
   deriveMethodRoutineSteps,
   formulaFocus,
@@ -22,42 +24,24 @@ import {
 } from "@/lib/content/method";
 import type { Product } from "@/lib/products";
 
-const ROUTINE_STEP_COUNTS = [3, 4, 5, 6, 7] as const satisfies readonly RoutineStepCount[];
+const MIN_ROUTINE_STEP_COUNT = ROUTINE_STEP_COUNTS[0];
+const MAX_ROUTINE_STEP_COUNT = ROUTINE_STEP_COUNTS[ROUTINE_STEP_COUNTS.length - 1];
 
-const ROUTINE_PRESET_COPY: Record<
-  RoutineStepCount,
-  {
-    label: string;
-    summary: string;
-    ariaValueText: string;
-  }
-> = {
-  3: {
-    label: "FOUNDATION",
-    summary: "Cleanse, treat, moisturize.",
-    ariaValueText: "3 steps, foundation: cleanse, treat, moisturize",
-  },
-  4: {
-    label: "+ PROTECTION",
-    summary: "Adds the final morning SPF step.",
-    ariaValueText: "4 steps, foundation plus protection",
-  },
-  5: {
-    label: "+ TEXTURE",
-    summary: "Adds controlled, frequency-dependent refinement.",
-    ariaValueText: "5 steps, foundation plus protection and texture control",
-  },
-  6: {
-    label: "+ EYE CARE",
-    summary: "Adds targeted support around the eyes.",
-    ariaValueText: "6 steps, foundation plus protection, texture control, and eye care",
-  },
-  7: {
-    label: "+ WEEKLY",
-    summary: "Adds the scheduled intensive.",
-    ariaValueText: "7 steps, full Method with the scheduled weekly intensive",
-  },
-};
+function routineStepRatio(count: RoutineStepCount) {
+  return (count - MIN_ROUTINE_STEP_COUNT) / (MAX_ROUTINE_STEP_COUNT - MIN_ROUTINE_STEP_COUNT);
+}
+
+function routinePositionStyle(count: RoutineStepCount) {
+  return {
+    "--method-edit-position": `${routineStepRatio(count) * 100}%`,
+  } as CSSProperties;
+}
+
+function routineRangeStyle(count: RoutineStepCount) {
+  return {
+    "--method-edit-progress": `${routineStepRatio(count) * 100}%`,
+  } as CSSProperties;
+}
 
 function availabilityLabel(product: Product) {
   if (isAvailableProduct(product)) return "Available";
@@ -258,32 +242,40 @@ function MethodRoutineSelector({
           <span>steps</span>
         </div>
         <label htmlFor={inputId}>Routine length</label>
-        <input
-          ref={inputRef}
-          id={inputId}
-          type="range"
-          min="3"
-          max="7"
-          step="1"
-          value={selectedCount}
-          list={listId}
-          aria-valuenow={selectedCount}
-          aria-valuetext={preset.ariaValueText}
-          aria-describedby={`${descriptionId} ${summaryId}`}
-          onChange={(event) =>
-            onSelectedCountChange(normalizeRoutineStepCount(event.currentTarget.value))
-          }
-        />
-        <datalist id={listId}>
-          {ROUTINE_STEP_COUNTS.map((count) => (
-            <option key={count} value={count} label={`${count}`} />
-          ))}
-        </datalist>
-        <ol className="method-edit__ticks" aria-hidden="true">
-          {ROUTINE_STEP_COUNTS.map((count) => (
-            <li key={count}>{count}</li>
-          ))}
-        </ol>
+        <div className="method-edit__range" style={routineRangeStyle(selectedCount)}>
+          <span className="method-edit__track" aria-hidden="true">
+            <span className="method-edit__track-fill" />
+          </span>
+          <input
+            ref={inputRef}
+            id={inputId}
+            type="range"
+            min="3"
+            max="7"
+            step="1"
+            value={selectedCount}
+            list={listId}
+            aria-valuenow={selectedCount}
+            aria-valuetext={preset.ariaValueText}
+            aria-describedby={`${descriptionId} ${summaryId}`}
+            onChange={(event) =>
+              onSelectedCountChange(normalizeRoutineStepCount(event.currentTarget.value))
+            }
+          />
+          <datalist id={listId}>
+            {ROUTINE_STEP_COUNTS.map((count) => (
+              <option key={count} value={count} label={`${count}`} />
+            ))}
+          </datalist>
+          <ol className="method-edit__ticks" aria-hidden="true">
+            {ROUTINE_STEP_COUNTS.map((count) => (
+              <li key={count} style={routinePositionStyle(count)} data-routine-count={count}>
+                <span className="method-edit__tick" />
+                <span className="method-edit__tick-label">{count}</span>
+              </li>
+            ))}
+          </ol>
+        </div>
         <p id={summaryId} className="method-edit__summary" aria-live="polite">
           <strong>{preset.label}</strong>
           {` — ${preset.summary}`}
