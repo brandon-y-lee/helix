@@ -1863,6 +1863,10 @@ main:focus {
   background: color-mix(in srgb, var(--surface) 70%, transparent);
 }
 
+.btn--editorial-rounded {
+  border-radius: 999px;
+}
+
 .product-card,
 .routine-block,
 .cart-summary,
@@ -3417,6 +3421,10 @@ main:focus {
   border-radius: 4px;
 }
 
+.btn.btn--editorial-rounded:focus-visible {
+  border-radius: 999px;
+}
+
 .method-page,
 .about-page {
   --editorial-max: min(100%, 1540px);
@@ -3484,6 +3492,39 @@ main:focus {
     radial-gradient(circle at 22% 18%, #f5f8f6 0%, transparent 26%),
     radial-gradient(circle at 82% 72%, #70483f 0%, transparent 32%),
     linear-gradient(115deg, #dce8df 0%, #c5ccd0 38%, #c9a88f 72%, #4c403c 100%);
+}
+
+.editorial-hue-field--clean {
+  inset: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+}
+
+.editorial-hue-field--method {
+  background:
+    linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.26),
+      rgba(255, 255, 255, 0) 38%,
+      rgba(255, 255, 255, 0.14)
+    ),
+    radial-gradient(circle at 18% 15%, #f5f9f7 0%, transparent 28%),
+    radial-gradient(circle at 78% 76%, rgba(85, 95, 96, 0.38) 0%, transparent 34%),
+    linear-gradient(116deg, #e8f0ec 0%, #cfddd4 36%, #b8c4c5 64%, #65706f 100%);
+}
+
+.editorial-hue-field--about {
+  background:
+    linear-gradient(
+      90deg,
+      rgba(255, 252, 244, 0.28),
+      rgba(255, 255, 255, 0) 40%,
+      rgba(255, 245, 229, 0.12)
+    ),
+    radial-gradient(circle at 18% 16%, #faf1dc 0%, transparent 29%),
+    radial-gradient(circle at 80% 74%, rgba(126, 78, 60, 0.44) 0%, transparent 35%),
+    linear-gradient(116deg, #efe3cd 0%, #d4b59b 40%, #b48d73 70%, #5f5551 100%);
 }
 
 .editorial-hue-field span {
@@ -4815,6 +4856,10 @@ main:focus {
 
   .editorial-hue-field {
     inset: 14px;
+  }
+
+  .editorial-hue-field--clean {
+    inset: 0;
   }
 
   .about-hero__copy {

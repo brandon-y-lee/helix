@@ -43,16 +43,26 @@ export default function AboutPage() {
   return (
     <div className="about-page">
       <section className="about-hero" aria-labelledby="about-heading">
-        <EditorialHueField className="about-hero__field" />
+        <EditorialHueField
+          className="about-hero__field"
+          tone="about"
+          decorated={false}
+        />
         <div className="about-hero__copy">
           <p className="eyebrow">{ABOUT_HERO.eyebrow}</p>
           <h1 id="about-heading">{ABOUT_HERO.title}</h1>
           <p>{ABOUT_HERO.body}</p>
           <div className="hero__actions">
-            <Link href={ABOUT_HERO.primaryCta.href} className="btn">
+            <Link
+              href={ABOUT_HERO.primaryCta.href}
+              className="btn btn--editorial-rounded"
+            >
               {ABOUT_HERO.primaryCta.label}
             </Link>
-            <Link href={ABOUT_HERO.secondaryCta.href} className="btn btn--ghost">
+            <Link
+              href={ABOUT_HERO.secondaryCta.href}
+              className="btn btn--ghost btn--editorial-rounded"
+            >
               {ABOUT_HERO.secondaryCta.label}
             </Link>
           </div>

@@ -46,16 +46,20 @@ export default async function MethodPage() {
         className="method-hero"
         aria-labelledby="method-heading"
       >
-        <EditorialHueField className="method-hero__field" />
+        <EditorialHueField
+          className="method-hero__field"
+          tone="method"
+          decorated={false}
+        />
         <div className="method-hero__copy">
           <p className="eyebrow">Mei-Pelle</p>
           <h1 id="method-heading">THE METHOD.</h1>
           <p>A system for clearer, healthier, beautiful skin</p>
           <div className="hero__actions">
-            <Link href="/products" className="btn">
+            <Link href="/products" className="btn btn--editorial-rounded">
               Start the system
             </Link>
-            <Link href="#method-routine" className="btn btn--ghost">
+            <Link href="#method-routine" className="btn btn--ghost btn--editorial-rounded">
               View the routine
             </Link>
           </div>

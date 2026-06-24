@@ -145,8 +145,11 @@ describe("homepage Method merchandising presets", () => {
         node.textContent?.trim(),
       ),
     ).toEqual(["RESET", "RECODE", "SEAL", "PROTECT"]);
-    expect(within(routine).getByRole("link", { name: "VIEW THE METHOD" }))
-      .toHaveAttribute("href", "/method");
+    const methodCta = within(routine).getByRole("link", { name: "VIEW THE METHOD" });
+    expect(methodCta).toHaveAttribute("href", "/method");
+    expect(methodCta).toHaveClass("btn--editorial-rounded");
+    expect(within(featured).getByRole("button", { name: "Open quick buy for RESET" }))
+      .not.toHaveClass("btn--editorial-rounded");
 
     const protect = within(routine).getByRole("link", {
       name: "View PROTECT Method step, coming soon",

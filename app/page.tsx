@@ -125,7 +125,7 @@ export default async function HomePage() {
               <p style={{ color: "var(--ink-soft)" }}>
                 One pick from each part of the routine — a simple place to begin.
               </p>
-              <Link href="/method" className="btn btn--ghost">
+              <Link href="/method" className="btn btn--ghost btn--editorial-rounded">
                 VIEW THE METHOD
               </Link>
             </div>

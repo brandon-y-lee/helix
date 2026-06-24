@@ -50,6 +50,24 @@ test("Method page renders the full routine without treating SPF as merchandise",
     hero.getByText("A system for clearer, healthier, beautiful skin", { exact: true }),
   ).toBeVisible();
   await expect(hero.locator(".editorial-hue-field")).toBeVisible();
+  const methodHeroField = await hero.locator(".editorial-hue-field").evaluate((node) => ({
+    classes: Array.from(node.classList),
+    decorativeSpanCount: node.querySelectorAll("span").length,
+  }));
+  expect(methodHeroField.classes).toEqual(
+    expect.arrayContaining([
+      "editorial-hue-field--method",
+      "editorial-hue-field--clean",
+    ]),
+  );
+  expect(methodHeroField.classes).not.toContain("editorial-hue-field--about");
+  expect(methodHeroField.decorativeSpanCount).toBe(0);
+  await expect(hero.getByRole("link", { name: "Start the system" }))
+    .toHaveClass(/btn--editorial-rounded/);
+  await expect(hero.getByRole("link", { name: "View the routine" }))
+    .toHaveAttribute("href", "#method-routine");
+  await expect(hero.getByRole("link", { name: "View the routine" }))
+    .toHaveClass(/btn--editorial-rounded/);
   await expect(hero).not.toContainText("01");
   await expect(hero).not.toContainText("SPF");
   await expect(hero.locator(".method-hero__diagram")).toHaveCount(0);
@@ -79,6 +97,8 @@ test("Method page renders the full routine without treating SPF as merchandise",
       "href",
       /\/products\//,
     );
+    await expect(step.getByRole("link", { name: /View / }))
+      .toHaveClass(/btn--editorial-rounded/);
   }
 
   const protect = page.locator("#step-protect");
@@ -120,6 +140,15 @@ test("Method page renders the full routine without treating SPF as merchandise",
   await expect(page.locator("body")).not.toContainText(
     "Only ingredients present in the active Mei-Pelle catalog appear here.",
   );
+  const closingCta = page.locator(".method-cta");
+  await expect(closingCta.getByRole("link", { name: "Build the system" }))
+    .toHaveAttribute("href", "/products");
+  await expect(closingCta.getByRole("link", { name: "Build the system" }))
+    .toHaveClass(/btn--editorial-rounded/);
+  await expect(closingCta.getByRole("link", { name: "About Mei-Pelle" }))
+    .toHaveAttribute("href", "/about");
+  await expect(closingCta.getByRole("link", { name: "About Mei-Pelle" }))
+    .toHaveClass(/btn--editorial-rounded/);
 
   const hasHorizontalOverflow = await page.evaluate(
     () => document.documentElement.scrollWidth > window.innerWidth + 1,
@@ -216,6 +245,28 @@ test("About page keeps the brand story editorial and claim-safe", async ({ page 
   ).toBeVisible();
   await expect(page.getByRole("heading", { name: "LESS, DONE BETTER." })).toBeVisible();
   await expect(page.locator(".about-hero .editorial-hue-field")).toBeVisible();
+  const aboutHeroField = await page
+    .locator(".about-hero .editorial-hue-field")
+    .evaluate((node) => ({
+      classes: Array.from(node.classList),
+      decorativeSpanCount: node.querySelectorAll("span").length,
+    }));
+  expect(aboutHeroField.classes).toEqual(
+    expect.arrayContaining([
+      "editorial-hue-field--about",
+      "editorial-hue-field--clean",
+    ]),
+  );
+  expect(aboutHeroField.classes).not.toContain("editorial-hue-field--method");
+  expect(aboutHeroField.decorativeSpanCount).toBe(0);
+  await expect(page.locator(".about-hero").getByRole("link", { name: "Discover the method" }))
+    .toHaveAttribute("href", "/method");
+  await expect(page.locator(".about-hero").getByRole("link", { name: "Discover the method" }))
+    .toHaveClass(/btn--editorial-rounded/);
+  await expect(page.locator(".about-hero").getByRole("link", { name: "Shop the system" }))
+    .toHaveAttribute("href", "/products");
+  await expect(page.locator(".about-hero").getByRole("link", { name: "Shop the system" }))
+    .toHaveClass(/btn--editorial-rounded/);
   await expect(page.locator(".method-index")).toHaveCount(0);
 
   const bodyText = (await page.locator("body").innerText()).toLowerCase();

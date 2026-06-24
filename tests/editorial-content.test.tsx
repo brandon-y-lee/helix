@@ -177,7 +177,17 @@ describe("Method content architecture", () => {
     expect(
       within(hero).getByText("A system for clearer, healthier, beautiful skin"),
     ).toBeInTheDocument();
-    expect(hero.querySelector(".editorial-hue-field")).not.toBeNull();
+    const field = hero.querySelector(".editorial-hue-field");
+    expect(field).not.toBeNull();
+    expect(field).toHaveClass("editorial-hue-field--method");
+    expect(field).toHaveClass("editorial-hue-field--clean");
+    expect(field?.querySelector("span")).toBeNull();
+    expect(
+      within(hero).getByRole("link", { name: /start the system/i }),
+    ).toHaveClass("btn--editorial-rounded");
+    expect(
+      within(hero).getByRole("link", { name: /view the routine/i }),
+    ).toHaveClass("btn--editorial-rounded");
     expect(within(hero).queryByText("01")).not.toBeInTheDocument();
     expect(within(hero).queryByText("SPF")).not.toBeInTheDocument();
   });
@@ -535,9 +545,22 @@ describe("About content architecture", () => {
   it("renders cultural narrative sections and avoids routine-manual UI", () => {
     render(<AboutPage />);
 
+    const hero = document.querySelector(".about-hero") as HTMLElement;
+    const field = hero.querySelector(".editorial-hue-field");
+    expect(field).not.toBeNull();
+    expect(field).toHaveClass("editorial-hue-field--about");
+    expect(field).toHaveClass("editorial-hue-field--clean");
+    expect(field).not.toHaveClass("editorial-hue-field--method");
+    expect(field?.querySelector("span")).toBeNull();
     expect(
       screen.getByRole("heading", { level: 1, name: "TWO CITIES. ONE STANDARD." }),
     ).toBeInTheDocument();
+    expect(
+      within(hero).getByRole("link", { name: /discover the method/i }),
+    ).toHaveClass("btn--editorial-rounded");
+    expect(
+      within(hero).getByRole("link", { name: /shop the system/i }),
+    ).toHaveClass("btn--editorial-rounded");
     expect(screen.getByText("SEOUL")).toBeInTheDocument();
     expect(screen.getByText("LOS ANGELES")).toBeInTheDocument();
     expect(screen.getByText("MEN DESERVE A BETTER SYSTEM.")).toBeInTheDocument();
