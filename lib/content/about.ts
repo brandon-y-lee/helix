@@ -109,7 +109,7 @@ export const BRAND_PROMISES = [
 ];
 
 export const ABOUT_CLOSING = {
-  heading: "ASCEND, DELIBERATELY.",
+  heading: "ascension., DELIBERATELY.",
   body:
     "Potential is not a promise made by a product. It is the result of standards repeated.",
   primaryCta: { label: "Learn the method", href: "/method" },

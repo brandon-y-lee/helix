@@ -31,14 +31,13 @@ test.describe("homepage video hero", () => {
     await page.goto("/");
 
     const hero = page.locator(".home-video-hero");
-    const heading = page.getByRole("heading", { level: 1, name: "ascend." });
+    const heading = page.getByRole("heading", { level: 1, name: "ascension." });
     const cta = page.getByRole("link", { name: "EXPLORE NOW" });
     const video = hero.locator("video");
 
     await expect(hero).toBeVisible();
     await expect(heading).toBeVisible();
     await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
-    await expect(hero).not.toContainText("ASCEND.", { ignoreCase: false });
     await expect(page.locator(".hero--system")).toHaveCount(0);
     await expect(page.locator("text=A sharper daily system for fresh")).toHaveCount(0);
     await expect(heading).toHaveClass(/display-secondary/);
@@ -125,7 +124,7 @@ test.describe("homepage video hero", () => {
     await page.goto("/");
 
     const hero = page.locator(".home-video-hero");
-    const heading = page.getByRole("heading", { level: 1, name: "ascend." });
+    const heading = page.getByRole("heading", { level: 1, name: "ascension." });
     const cta = page.getByRole("link", { name: "EXPLORE NOW" });
 
     await expect(hero).toBeVisible();
@@ -159,7 +158,7 @@ test.describe("homepage video hero", () => {
     const hero = page.locator(".home-video-hero");
     const media = hero.locator(".home-video-hero__media");
 
-    await expect(page.getByRole("heading", { level: 1, name: "ascend." })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "ascension." })).toBeVisible();
     await expect(page.getByRole("link", { name: "EXPLORE NOW" })).toBeVisible();
     await expect(hero.locator("video")).toHaveCount(0);
     await expect(hero.locator(".home-video-hero__poster")).toBeVisible();

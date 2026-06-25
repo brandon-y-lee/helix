@@ -85,7 +85,7 @@ describe("HomeHeroVideo", () => {
     const { container } = render(
       <section>
         <HomeHeroVideo />
-        <h1>ascend.</h1>
+        <h1>ascension.</h1>
         <a href="/products">EXPLORE NOW</a>
       </section>,
     );
@@ -109,7 +109,7 @@ describe("HomeHeroVideo", () => {
     });
     expect(container.querySelector(".home-video-hero__poster")).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { level: 1, name: "ascend." }),
+      screen.getByRole("heading", { level: 1, name: "ascension." }),
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "EXPLORE NOW" })).toHaveAttribute(
       "href",

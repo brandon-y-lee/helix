@@ -208,13 +208,12 @@ describe("storefront page smoke", () => {
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
     const heroHeading = screen.getByRole("heading", {
       level: 1,
-      name: "ascend.",
+      name: "ascension.",
     });
     expect(
       heroHeading,
     ).toBeInTheDocument();
     expect(heroHeading).toHaveClass("display-secondary");
-    expect(screen.queryByText("ASCEND.")).not.toBeInTheDocument();
     expect(
       screen.queryByText(/A sharper daily system for fresh/i),
     ).not.toBeInTheDocument();

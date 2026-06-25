@@ -231,7 +231,7 @@ function MethodRoutineSelector({
         <h2 id={`${inputId}-heading`}>Choose the system you’ll repeat.</h2>
         <p id={descriptionId}>
           Three steps cover the foundation. Each addition makes the system more
-          comprehensive, not automatically better. Adjust the control to see what earns
+          comprehensive. Adjust the control to see what earns
           a place in your routine.
         </p>
       </div>

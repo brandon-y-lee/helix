@@ -38,7 +38,7 @@ No separate mobile derivative was created. The source composition holds up with 
 
 ## Hero Behavior
 
-The homepage hero renders `ascend.` as the semantic H1 using the existing Marcellus font variable and a restrained `display-secondary` scale. The only action is the rounded outlined `EXPLORE NOW` link to `/products`.
+The homepage hero renders `ascension.` as the semantic H1 using the existing Marcellus font variable and a restrained `display-secondary` scale. The only action is the rounded outlined `EXPLORE NOW` link to `/products`.
 
 The poster renders immediately. The decorative video is mounted only when `prefers-reduced-motion` allows motion, then fades in after media readiness. If playback or loading fails, the poster remains visible and the headline and CTA continue to work.
 
