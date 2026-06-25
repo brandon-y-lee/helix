@@ -2,13 +2,13 @@ import type { LegalDocument } from "./types";
 
 export const accessibilityStatement: LegalDocument = {
   title: "Accessibility Statement",
-  metadataTitle: "Accessibility Statement | Mei-Pelle",
+  metadataTitle: "Accessibility Statement | Mei Pelle",
   description:
-    "Mei-Pelle's accessibility target, implemented practices, known limitations, and feedback path.",
+    "Mei Pelle's accessibility target, implemented practices, known limitations, and feedback path.",
   canonical: "/accessibility",
   status: "Last updated June 24, 2026",
   intro:
-    "Mei-Pelle aims to provide a usable, accessible storefront experience for visitors using keyboard, screen-reader, magnification, touch, and pointer input.",
+    "Mei Pelle aims to provide a usable, accessible storefront experience for visitors using keyboard, screen-reader, magnification, touch, and pointer input.",
   sections: [
     {
       id: "target",
@@ -44,7 +44,7 @@ export const accessibilityStatement: LegalDocument = {
       title: "Feedback",
       body: [
         "Use the Contact page and choose Accessibility feedback to prepare page, device, browser, assistive technology, and task details.",
-        "Mei-Pelle should publish a verified public accessibility feedback channel before relying on customer-submitted accessibility reports.",
+        "Mei Pelle should publish a verified public accessibility feedback channel before relying on customer-submitted accessibility reports.",
       ],
     },
     {
@@ -52,7 +52,7 @@ export const accessibilityStatement: LegalDocument = {
       title: "Known Limitations",
       body: [
         "No third-party accessibility audit, formal conformance report, or accessibility vendor certification has been completed in this repository.",
-        "Some provider-controlled experiences may have separate accessibility behavior outside Mei-Pelle's direct control.",
+        "Some provider-controlled experiences may have separate accessibility behavior outside Mei Pelle's direct control.",
       ],
     },
   ],

@@ -255,7 +255,7 @@ test.describe("global navbar scroll behavior", () => {
     await expectTransparentTop(page, "dark");
     await scrollDownUntilHidden(page);
 
-    await page.getByLabel("Mei-Pelle home").focus();
+    await page.getByLabel("Mei Pelle home").focus();
     await expect(header).toHaveAttribute("data-nav-state", "revealed");
 
     await page.evaluate(() => window.scrollTo(0, 0));

@@ -278,13 +278,28 @@ describe("storefront page smoke", () => {
   it("Cart renders its h1 (empty state) inside the provider", async () => {
     render(
       <CartProvider>
-        <CartPage />
+        {await CartPage({ searchParams: Promise.resolve({}) })}
       </CartProvider>,
     );
     expect(
       screen.getByRole("heading", { level: 1, name: "Cart" }),
     ).toBeInTheDocument();
     expect(await screen.findByText(/your cart is empty/i)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Browse the system" })).toHaveClass(
+      "btn--editorial-rounded",
+    );
+  });
+
+  it("Cart renders a generic checkout cancellation notice", async () => {
+    render(
+      <CartProvider>
+        {await CartPage({ searchParams: Promise.resolve({ checkout: "cancelled" }) })}
+      </CartProvider>,
+    );
+
+    const notice = screen.getByRole("status");
+    expect(notice).toHaveTextContent("Sandbox checkout was cancelled. Your cart is still here.");
+    expect(notice).not.toHaveTextContent(/order|session|payment intent/i);
   });
 
   it("Checkout renders its h1", () => {
@@ -299,6 +314,9 @@ describe("storefront page smoke", () => {
     expect(
       screen.getByRole("heading", { level: 1, name: "Sign in" }),
     ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sign in" })).toHaveClass(
+      "btn--editorial-rounded",
+    );
   });
 
   it("Support and legal pages render their primary headings", () => {

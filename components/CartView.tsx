@@ -7,6 +7,7 @@ import {
   useState,
   type MouseEvent,
 } from "react";
+import { CheckoutPanel } from "@/components/CheckoutPanel";
 import { useCart } from "@/components/CartProvider";
 import { ProductImage } from "@/components/ProductImage";
 import {
@@ -41,6 +42,7 @@ export function CartView({
   const [pendingCartRoute, setPendingCartRoute] = useState(false);
   const freeShippingQualified = qualifiesForFreeStandardShipping(subtotal);
   const freeShippingRemaining = remainingForFreeStandardShipping(subtotal);
+  const checkoutDisabled = loading || lines.some((line) => !line.available || line.quantity <= 0);
 
   useEffect(() => {
     if (!isDrawer || !pendingCartRoute || pathname !== "/cart") return;
@@ -72,11 +74,11 @@ export function CartView({
         {error && <p className="form-status form-status--error">{error}</p>}
         <p>Your cart is empty.</p>
         {isDrawer && onContinue ? (
-          <button type="button" className="btn" onClick={onContinue}>
+          <button type="button" className="btn btn--editorial-rounded" onClick={onContinue}>
             Continue shopping
           </button>
         ) : (
-          <Link href="/products" className="btn">
+          <Link href="/products" className="btn btn--editorial-rounded">
             Browse the system
           </Link>
         )}
@@ -180,23 +182,17 @@ export function CartView({
           <span>{formatPrice(subtotal)}</span>
         </div>
         <div className="summary-row">
-          <span>Checkout</span>
-          <span>Not available yet</span>
-        </div>
-        <div className="summary-row">
           <span>Standard shipping</span>
           <span>
             {freeShippingQualified
               ? "Free threshold met"
-              : `Free at ${formatFreeShippingThreshold()}`}
+            : `Free at ${formatFreeShippingThreshold()}`}
           </span>
         </div>
-        <button type="button" className="btn" disabled>
-          Checkout unavailable
-        </button>
+        <CheckoutPanel disabled={checkoutDisabled} subtotal={subtotal} />
         <Link
           href="/cart"
-          className="btn btn--ghost"
+          className="btn btn--ghost btn--editorial-rounded"
           onClick={handleViewCartClick}
           aria-busy={pendingCartRoute || undefined}
         >
@@ -204,8 +200,8 @@ export function CartView({
         </Link>
         <p className="cart-summary__note">
           {freeShippingQualified
-            ? "Your cart meets the planned free standard shipping threshold. Checkout is not available yet, so no payment is taken."
-            : `${formatPrice(freeShippingRemaining)} away from the planned free standard shipping threshold. Checkout is not available yet, so no payment is taken.`}
+            ? "Your cart meets the free standard shipping threshold. Hosted Stripe Checkout runs in sandbox mode only."
+            : `${formatPrice(freeShippingRemaining)} away from the free standard shipping threshold. Hosted Stripe Checkout runs in sandbox mode only.`}
         </p>
       </aside>
     </div>

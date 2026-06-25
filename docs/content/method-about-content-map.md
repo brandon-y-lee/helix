@@ -28,7 +28,7 @@ Research document status: the requested files `08_barrier_spf_acne.md`, `09_acti
 | About | Hero / opening | None | South Korean formulation discipline and Los Angeles self-invention are creative influences. | User brief | brand narrative | review |
 | About | Cultural split | None | Seoul / Los Angeles are framed as influences, not universal cultural facts. | User brief guardrails | claim-safety decision | low |
 | About | Why men | None | Men deserve sophisticated skincare without confusion. | User brief | brand narrative | low |
-| About | Quality | None | Mei-Pelle pursues high-specification, purposeful ingredients selected for function and compatibility. | User brief | brand aspiration | review |
+| About | Quality | None | Mei Pelle pursues high-specification, purposeful ingredients selected for function and compatibility. | User brief | brand aspiration | review |
 | About | Sustainability | None | Sustainability is an operating discipline to measure, document, and improve. | User brief | brand aspiration | review |
 
 ## Explicit Guardrails
@@ -44,7 +44,7 @@ Research document status: the requested files `08_barrier_spf_acne.md`, `09_acti
 - Pores: appearance and texture language only; no permanent pore-closing claim.
 - Collagen: no topical collagen rebuilding dermal collagen claim.
 - Eye area: rested-looking and smoother-looking language only; no anatomical remodeling.
-- SPF: broad-spectrum SPF education only; no fake Mei-Pelle SPF, no all-day protection, no reef-safety claims.
+- SPF: broad-spectrum SPF education only; no fake Mei Pelle SPF, no all-day protection, no reef-safety claims.
 - Sustainability: no carbon-neutral, zero-waste, recyclable, vegan, cruelty-free, plastic-free, biodegradable, or sustainably sourced claims without documentation.
 - Korean culture: influences and design principles only; no stereotypes, exoticizing, manufacturing-origin claims, or founder biography.
 - Ingredient quality: pursuit/standard language only; no medical grade, clinical proof, dermatologist-developed, pharmaceutical grade, hypoallergenic, non-toxic, or safe-for-everyone claims.

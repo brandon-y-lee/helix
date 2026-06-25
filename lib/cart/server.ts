@@ -23,6 +23,7 @@ type VariantRow = {
   label: string;
   price_cents: number;
   position: number;
+  sku: string | null;
   available: boolean;
   inventory_status: "in_stock" | "low_stock" | "out_of_stock" | "unavailable";
 };
@@ -61,6 +62,23 @@ type CartItemRow = {
 
 type CatalogProductRow = ProductRow;
 
+export type CheckoutCartLine = CartLine & {
+  productId: string;
+  productName: string;
+  variantSku: string | null;
+  productSnapshot: Record<string, unknown>;
+};
+
+export type CheckoutCartSnapshot = {
+  cartId: string;
+  userId: string | null;
+  userEmail: string | null;
+  lines: CheckoutCartLine[];
+  count: number;
+  subtotal: number;
+  currency: "USD";
+};
+
 function emptyCart(): CartState {
   return { lines: [], count: 0, subtotal: 0, currency: "USD" };
 }
@@ -79,6 +97,14 @@ async function getUserId(): Promise<string | null> {
     data: { user },
   } = await supabase.auth.getUser();
   return user?.id ?? null;
+}
+
+async function getUserIdentity(): Promise<{ userId: string | null; email: string | null }> {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  return { userId: user?.id ?? null, email: user?.email ?? null };
 }
 
 async function getGuestToken(create: boolean): Promise<string | null> {
@@ -248,12 +274,41 @@ function mapLine(row: CartItemRow): CartLine {
   };
 }
 
+function mapCheckoutLine(row: CartItemRow): CheckoutCartLine {
+  const line = mapLine(row);
+  const product = firstProduct(row.products);
+  const variant = product?.product_variants?.find((v) => v.variant_key === row.variant_key);
+
+  return {
+    ...line,
+    productId: row.product_id,
+    productName: product?.name ?? line.name,
+    variantSku: variant?.sku ?? null,
+    productSnapshot: {
+      productId: row.product_id,
+      slug: product?.slug ?? line.slug,
+      displayName: product?.display_name ?? product?.name ?? line.name,
+      productName: product?.name ?? line.name,
+      collection: product?.collection ?? line.collection,
+      variantKey: row.variant_key,
+      variantLabel: variant?.label ?? line.variantLabel,
+      variantSku: variant?.sku ?? null,
+      priceCents: variant?.price_cents ?? line.price,
+      swatchFrom: product?.swatch_from ?? line.swatch[0],
+      swatchTo: product?.swatch_to ?? line.swatch[1],
+      imageUrl: line.imageUrl,
+      imageAlt: line.imageAlt,
+      placeholderMedia: line.placeholderMedia,
+    },
+  };
+}
+
 async function readCart(cartId: string): Promise<CartState> {
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin
     .from("cart_items")
     .select(
-      "id, product_id, variant_key, quantity, products ( id, slug, name, display_name, collection, status, catalog_status, swatch_from, swatch_to, product_variants ( variant_key, label, price_cents, position, available, inventory_status ), product_media ( media_kind, url, alt, role, sort_order, palette_id, placeholder_palette ) )",
+      "id, product_id, variant_key, quantity, products ( id, slug, name, display_name, collection, status, catalog_status, swatch_from, swatch_to, product_variants ( variant_key, label, price_cents, position, sku, available, inventory_status ), product_media ( media_kind, url, alt, role, sort_order, palette_id, placeholder_palette ) )",
     )
     .eq("cart_id", cartId)
     .order("created_at", { ascending: true });
@@ -261,6 +316,27 @@ async function readCart(cartId: string): Promise<CartState> {
   if (error) throw new Error(`[cart] Failed to read cart items: ${error.message}`);
 
   const lines = (data as unknown as CartItemRow[]).map(mapLine);
+  return {
+    lines,
+    count: lines.reduce((sum, line) => sum + line.quantity, 0),
+    subtotal: lines.reduce((sum, line) => sum + line.lineSubtotal, 0),
+    currency: "USD",
+  };
+}
+
+async function readCheckoutCart(cartId: string): Promise<Omit<CheckoutCartSnapshot, "cartId" | "userId" | "userEmail">> {
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin
+    .from("cart_items")
+    .select(
+      "id, product_id, variant_key, quantity, products ( id, slug, name, display_name, collection, status, catalog_status, swatch_from, swatch_to, product_variants ( variant_key, label, price_cents, position, sku, available, inventory_status ), product_media ( media_kind, url, alt, role, sort_order, palette_id, placeholder_palette ) )",
+    )
+    .eq("cart_id", cartId)
+    .order("created_at", { ascending: true });
+
+  if (error) throw new Error(`[cart] Failed to read checkout cart items: ${error.message}`);
+
+  const lines = (data as unknown as CartItemRow[]).map(mapCheckoutLine);
   return {
     lines,
     count: lines.reduce((sum, line) => sum + line.quantity, 0),
@@ -277,7 +353,7 @@ async function getCatalogProduct(slug: string, variantKey: string): Promise<{
   const { data, error } = await admin
     .from("products")
     .select(
-      "id, slug, name, display_name, collection, status, catalog_status, swatch_from, swatch_to, product_variants!inner ( variant_key, label, price_cents, position, available, inventory_status ), product_media ( media_kind, url, alt, role, sort_order, palette_id, placeholder_palette )",
+      "id, slug, name, display_name, collection, status, catalog_status, swatch_from, swatch_to, product_variants!inner ( variant_key, label, price_cents, position, sku, available, inventory_status ), product_media ( media_kind, url, alt, role, sort_order, palette_id, placeholder_palette )",
     )
     .eq("slug", slug)
     .eq("catalog_status", "active")
@@ -309,6 +385,30 @@ export async function getCartState(): Promise<CartState> {
   const cart = await getOrCreateActiveCart(false);
   if (!cart) return emptyCart();
   return readCart(cart.id);
+}
+
+export async function getCheckoutCartSnapshot(): Promise<CheckoutCartSnapshot> {
+  const [cart, identity] = await Promise.all([getOrCreateActiveCart(false), getUserIdentity()]);
+  if (!cart) throw new CartError("cart_unavailable", "Add an available item before checkout.");
+
+  const snapshot = await readCheckoutCart(cart.id);
+  return {
+    cartId: cart.id,
+    userId: identity.userId,
+    userEmail: identity.email,
+    ...snapshot,
+  };
+}
+
+export async function getActiveCartIdentity(): Promise<{
+  cartId: string | null;
+  userId: string | null;
+}> {
+  const [cart, identity] = await Promise.all([getOrCreateActiveCart(false), getUserIdentity()]);
+  return {
+    cartId: cart?.id ?? null,
+    userId: identity.userId,
+  };
 }
 
 export async function addCartItem(input: {

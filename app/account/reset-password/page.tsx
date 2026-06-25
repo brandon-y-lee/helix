@@ -20,7 +20,7 @@ export default async function ResetPasswordPage() {
         ) : (
           <div className="empty-state">
             <p>This password reset link is expired or invalid.</p>
-            <Link href="/account/forgot-password" className="btn">
+            <Link href="/account/forgot-password" className="btn btn--editorial-rounded">
               Request a new link
             </Link>
           </div>

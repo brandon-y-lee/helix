@@ -176,7 +176,7 @@ Layout shift notes:
 - The page root did not show meaningful horizontal overflow; large rails hide overflow inside their own containers.
 - The collection grid's alternating row counts are part of the rendered grid pattern, not a late-loading shift in the measured pass.
 
-## Useful Takeaways For Mei-Pelle
+## Useful Takeaways For Mei Pelle
 
 - Use an inset full-bleed frame: proportional desktop gutters around 2.25vw, then fixed 16px phone gutters.
 - Treat homepage and PDP media as framed immersive blocks, not edge-to-edge browser bleeds.

@@ -119,7 +119,7 @@ test("Method page renders the full routine without treating SPF as merchandise",
   await page.goto("/method");
 
   const hero = page.locator(".method-hero");
-  await expect(hero.getByText("Mei-Pelle", { exact: true })).toBeVisible();
+  await expect(hero.getByText("Mei Pelle", { exact: true })).toBeVisible();
   await expect(
     page.getByRole("heading", { level: 1, name: "THE METHOD." }),
   ).toBeVisible();
@@ -220,16 +220,16 @@ test("Method page renders the full routine without treating SPF as merchandise",
     "More steps are not inherently better. Order, purpose, and restraint matter.",
   );
   await expect(page.locator("body")).not.toContainText(
-    "Only ingredients present in the active Mei-Pelle catalog appear here.",
+    "Only ingredients present in the active Mei Pelle catalog appear here.",
   );
   const closingCta = page.locator(".method-cta");
   await expect(closingCta.getByRole("link", { name: "Build the system" }))
     .toHaveAttribute("href", "/products");
   await expect(closingCta.getByRole("link", { name: "Build the system" }))
     .toHaveClass(/btn--editorial-rounded/);
-  await expect(closingCta.getByRole("link", { name: "About Mei-Pelle" }))
+  await expect(closingCta.getByRole("link", { name: "About Mei Pelle" }))
     .toHaveAttribute("href", "/about");
-  await expect(closingCta.getByRole("link", { name: "About Mei-Pelle" }))
+  await expect(closingCta.getByRole("link", { name: "About Mei Pelle" }))
     .toHaveClass(/btn--editorial-rounded/);
 
   const hasHorizontalOverflow = await page.evaluate(

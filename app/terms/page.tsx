@@ -13,7 +13,7 @@ export const metadata: Metadata = {
     title: termsOfService.metadataTitle,
     description: termsOfService.description,
     url: termsOfService.canonical,
-    siteName: "Mei-Pelle",
+    siteName: "Mei Pelle",
     type: "website",
   },
 };

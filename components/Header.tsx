@@ -210,8 +210,8 @@ export function Header() {
           <Link href="/method" aria-current={current("/method")}>METHOD</Link>
           <Link href="/about" aria-current={current("/about")}>ABOUT</Link>
         </nav>
-        <Link href="/" className="brand" aria-label="Mei-Pelle home">
-          MEI-PELLE
+        <Link href="/" className="brand" aria-label="Mei Pelle home">
+          MEI PELLE
         </Link>
         <nav className="site-nav site-nav--right" aria-label="Utilities">
           <button
@@ -245,7 +245,7 @@ export function Header() {
         open={menuOpen}
         side="left"
         title="Menu"
-        eyebrow="Mei-Pelle"
+        eyebrow="Mei Pelle"
         description="Primary navigation"
         onClose={closeMenu}
         returnFocus={returnFocusToMenu}

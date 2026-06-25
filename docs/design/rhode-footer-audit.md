@@ -6,7 +6,7 @@ Reference: https://www.rhodeskin.com/
 
 This audit records structural observations only. Do not copy Rhode wording, code,
 logos, legal text, social links, payment marks, or policy language into
-Mei-Pelle.
+Mei Pelle.
 
 ## Viewport Measurements
 
@@ -37,9 +37,9 @@ Mei-Pelle.
 - Footer ends long and short pages with a strong editorial block instead of a
   generic sitemap strip.
 
-## Mei-Pelle Adaptation
+## Mei Pelle Adaptation
 
-- Use a large MEI-PELLE wordmark and a substantial brand/updates region.
+- Use a large MEI PELLE wordmark and a substantial brand/updates region.
 - Keep Navigate, Support, and Official groups.
 - Omit Social until real approved profiles exist.
 - Omit payment marks while checkout is disabled.

@@ -1,0 +1,39 @@
+import { describe, expect, it } from "vitest";
+import {
+  CheckoutConfigError,
+  checkoutAvailability,
+  readCheckoutConfig,
+  assertSandboxStripeObject,
+} from "@/lib/checkout/config";
+
+describe("sandbox checkout config", () => {
+  const baseEnv = {
+    CHECKOUT_MODE: "sandbox",
+    CHECKOUT_ENABLED: "true",
+    STRIPE_SECRET_KEY: "sk_test_123",
+    NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: "pk_test_123",
+    STRIPE_WEBHOOK_SECRET: "whsec_123",
+  } as unknown as NodeJS.ProcessEnv;
+
+  it("accepts sandbox keys lazily", () => {
+    const config = readCheckoutConfig(baseEnv);
+    expect(config.environment).toBe("sandbox");
+    expect(config.enabled).toBe(true);
+  });
+
+  it("reports unavailable when checkout is disabled", () => {
+    const availability = checkoutAvailability({ ...baseEnv, CHECKOUT_ENABLED: "false" });
+    expect(availability.enabled).toBe(false);
+    expect(availability.reasons[0]).toMatch(/not enabled/i);
+  });
+
+  it("rejects live keys and live objects", () => {
+    expect(() =>
+      readCheckoutConfig({ ...baseEnv, STRIPE_SECRET_KEY: "sk_live_123" }),
+    ).toThrow(CheckoutConfigError);
+    expect(() =>
+      readCheckoutConfig({ ...baseEnv, NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: "pk_live_123" }),
+    ).toThrow(CheckoutConfigError);
+    expect(() => assertSandboxStripeObject({ livemode: true })).toThrow(CheckoutConfigError);
+  });
+});

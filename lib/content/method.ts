@@ -211,7 +211,7 @@ export const PROTECT_STEP = {
     "Apply as the final morning layer. Use broad-spectrum SPF 30 or higher and reapply according to the product label, especially after sweating, swimming, or extended exposure.",
   formulaFocus:
     "UV filters absorb, reflect, or scatter ultraviolet radiation depending on filter type. Broad-spectrum performance, film formation, dispersion, photostability, application uniformity, and cosmetic elegance all affect real-world use.",
-  note: "A Mei-Pelle sunscreen is in development. No formula details are being claimed yet.",
+  note: "A Mei Pelle sunscreen is in development. No formula details are being claimed yet.",
 };
 
 export type DerivedMethodStep = MethodStepConfig & {

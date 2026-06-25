@@ -1,4 +1,4 @@
-// Reviewed source manifest for the initial Mei-Pelle Leaders-backed catalog.
+// Reviewed source manifest for the initial Mei Pelle Leaders-backed catalog.
 // Generated from public Leaders Shopify product data inspected at 2026-06-18T13:39:04.293Z.
 // Do not import customer reviews, ratings, testimonials, loyalty copy, awards, or customer imagery.
 
@@ -128,7 +128,7 @@ export const leadersMeiPelleCatalog: LeadersCatalogProduct[] = [
       "AM",
       "PM"
     ],
-    "seoTitle": "RESET 01 — CALMING GEL CLEANSER | Mei-Pelle",
+    "seoTitle": "RESET 01 — CALMING GEL CLEANSER | Mei Pelle",
     "seoDescription": "Low-pH daily cleanse for fresh, balanced skin.",
     "searchKeywords": [
       "cleanser",
@@ -168,7 +168,7 @@ export const leadersMeiPelleCatalog: LeadersCatalogProduct[] = [
       {
         "sourceUrl": "https://cdn.shopify.com/s/files/1/0734/9573/files/cb-cleansing-gel.jpg?v=1709913115",
         "sourceFilename": "cb-cleansing-gel.jpg",
-        "alt": "Mei-Pelle RESET 01 low-ph daily cleanse for fresh, balanced skin. product image 1",
+        "alt": "Mei Pelle RESET 01 low-ph daily cleanse for fresh, balanced skin. product image 1",
         "width": 1000,
         "height": 1000,
         "role": "card",
@@ -177,7 +177,7 @@ export const leadersMeiPelleCatalog: LeadersCatalogProduct[] = [
       {
         "sourceUrl": "https://cdn.shopify.com/s/files/1/0734/9573/files/cb-cleansing-gel5.jpg?v=1709913270",
         "sourceFilename": "cb-cleansing-gel5.jpg",
-        "alt": "Mei-Pelle RESET 01 low-ph daily cleanse for fresh, balanced skin. product image 2",
+        "alt": "Mei Pelle RESET 01 low-ph daily cleanse for fresh, balanced skin. product image 2",
         "width": 1000,
         "height": 1000,
         "role": "hero",
@@ -186,7 +186,7 @@ export const leadersMeiPelleCatalog: LeadersCatalogProduct[] = [
       {
         "sourceUrl": "https://cdn.shopify.com/s/files/1/0734/9573/files/cb-cleansing-gel2.jpg?v=1709913270",
         "sourceFilename": "cb-cleansing-gel2.jpg",
-        "alt": "Mei-Pelle RESET 01 low-ph daily cleanse for fresh, balanced skin. product image 3",
+        "alt": "Mei Pelle RESET 01 low-ph daily cleanse for fresh, balanced skin. product image 3",
         "width": 1000,
         "height": 1000,
         "role": "gallery",
@@ -195,7 +195,7 @@ export const leadersMeiPelleCatalog: LeadersCatalogProduct[] = [
       {
         "sourceUrl": "https://cdn.shopify.com/s/files/1/0734/9573/files/cb-cleansing-gel4.jpg?v=1709913270",
         "sourceFilename": "cb-cleansing-gel4.jpg",
-        "alt": "Mei-Pelle RESET 01 low-ph daily cleanse for fresh, balanced skin. product image 4",
+        "alt": "Mei Pelle RESET 01 low-ph daily cleanse for fresh, balanced skin. product image 4",
         "width": 1000,
         "height": 1000,
         "role": "gallery",
@@ -204,7 +204,7 @@ export const leadersMeiPelleCatalog: LeadersCatalogProduct[] = [
       {
         "sourceUrl": "https://cdn.shopify.com/s/files/1/0734/9573/files/cb-cleansing-gel3.jpg?v=1709913270",
         "sourceFilename": "cb-cleansing-gel3.jpg",
-        "alt": "Mei-Pelle RESET 01 low-ph daily cleanse for fresh, balanced skin. product image 5",
+        "alt": "Mei Pelle RESET 01 low-ph daily cleanse for fresh, balanced skin. product image 5",
         "width": 1000,
         "height": 1000,
         "role": "gallery",
@@ -278,7 +278,7 @@ export const leadersMeiPelleCatalog: LeadersCatalogProduct[] = [
       "AM",
       "PM"
     ],
-    "seoTitle": "REFINE 02 — PORE TREATMENT PADS | Mei-Pelle",
+    "seoTitle": "REFINE 02 — PORE TREATMENT PADS | Mei Pelle",
     "seoDescription": "Daily toner pads for smoother texture and balanced oil.",
     "searchKeywords": [
       "pores",
@@ -318,7 +318,7 @@ export const leadersMeiPelleCatalog: LeadersCatalogProduct[] = [
       {
         "sourceUrl": "https://cdn.shopify.com/s/files/1/0734/9573/files/po01.jpg?v=1775503521",
         "sourceFilename": "po01.jpg",
-        "alt": "Mei-Pelle REFINE 02 daily toner pads for smoother texture and balanced oil. product image 1",
+        "alt": "Mei Pelle REFINE 02 daily toner pads for smoother texture and balanced oil. product image 1",
         "width": 1000,
         "height": 1000,
         "role": "card",
@@ -327,7 +327,7 @@ export const leadersMeiPelleCatalog: LeadersCatalogProduct[] = [
       {
         "sourceUrl": "https://cdn.shopify.com/s/files/1/0734/9573/files/po1.png?v=1775503987",
         "sourceFilename": "po1.png",
-        "alt": "Mei-Pelle REFINE 02 daily toner pads for smoother texture and balanced oil. product image 2",
+        "alt": "Mei Pelle REFINE 02 daily toner pads for smoother texture and balanced oil. product image 2",
         "width": 1800,
         "height": 1800,
         "role": "hero",
@@ -336,7 +336,7 @@ export const leadersMeiPelleCatalog: LeadersCatalogProduct[] = [
       {
         "sourceUrl": "https://cdn.shopify.com/s/files/1/0734/9573/files/po2.png?v=1775504046",
         "sourceFilename": "po2.png",
-        "alt": "Mei-Pelle REFINE 02 daily toner pads for smoother texture and balanced oil. product image 3",
+        "alt": "Mei Pelle REFINE 02 daily toner pads for smoother texture and balanced oil. product image 3",
         "width": 1800,
         "height": 1800,
         "role": "gallery",
@@ -345,7 +345,7 @@ export const leadersMeiPelleCatalog: LeadersCatalogProduct[] = [
       {
         "sourceUrl": "https://cdn.shopify.com/s/files/1/0734/9573/files/po4.png?v=1775504046",
         "sourceFilename": "po4.png",
-        "alt": "Mei-Pelle REFINE 02 daily toner pads for smoother texture and balanced oil. product image 4",
+        "alt": "Mei Pelle REFINE 02 daily toner pads for smoother texture and balanced oil. product image 4",
         "width": 1800,
         "height": 1800,
         "role": "gallery",
@@ -354,7 +354,7 @@ export const leadersMeiPelleCatalog: LeadersCatalogProduct[] = [
       {
         "sourceUrl": "https://cdn.shopify.com/s/files/1/0734/9573/files/po3.png?v=1775504046",
         "sourceFilename": "po3.png",
-        "alt": "Mei-Pelle REFINE 02 daily toner pads for smoother texture and balanced oil. product image 5",
+        "alt": "Mei Pelle REFINE 02 daily toner pads for smoother texture and balanced oil. product image 5",
         "width": 1800,
         "height": 1800,
         "role": "gallery",
@@ -433,7 +433,7 @@ export const leadersMeiPelleCatalog: LeadersCatalogProduct[] = [
       "AM",
       "PM"
     ],
-    "seoTitle": "RECODE 03 — PDRN 5% AMPOULE | Mei-Pelle",
+    "seoTitle": "RECODE 03 — PDRN 5% AMPOULE | Mei Pelle",
     "seoDescription": "Lightweight conditioning ampoule for radiance, texture, and hydration support.",
     "searchKeywords": [
       "PDRN",
@@ -473,7 +473,7 @@ export const leadersMeiPelleCatalog: LeadersCatalogProduct[] = [
       {
         "sourceUrl": "https://cdn.shopify.com/s/files/1/0734/9573/files/essencem2.png?v=1773191849",
         "sourceFilename": "essencem2.png",
-        "alt": "Mei-Pelle RECODE 03 lightweight conditioning ampoule for radiance, texture, and hydration support. product image 1",
+        "alt": "Mei Pelle RECODE 03 lightweight conditioning ampoule for radiance, texture, and hydration support. product image 1",
         "width": 1000,
         "height": 1000,
         "role": "card",
@@ -482,7 +482,7 @@ export const leadersMeiPelleCatalog: LeadersCatalogProduct[] = [
       {
         "sourceUrl": "https://cdn.shopify.com/s/files/1/0734/9573/files/T01.png?v=1773191849",
         "sourceFilename": "T01.png",
-        "alt": "Mei-Pelle RECODE 03 lightweight conditioning ampoule for radiance, texture, and hydration support. product image 2",
+        "alt": "Mei Pelle RECODE 03 lightweight conditioning ampoule for radiance, texture, and hydration support. product image 2",
         "width": 1751,
         "height": 1751,
         "role": "hero",
@@ -491,7 +491,7 @@ export const leadersMeiPelleCatalog: LeadersCatalogProduct[] = [
       {
         "sourceUrl": "https://cdn.shopify.com/s/files/1/0734/9573/files/T03.png?v=1773191849",
         "sourceFilename": "T03.png",
-        "alt": "Mei-Pelle RECODE 03 lightweight conditioning ampoule for radiance, texture, and hydration support. product image 3",
+        "alt": "Mei Pelle RECODE 03 lightweight conditioning ampoule for radiance, texture, and hydration support. product image 3",
         "width": 1751,
         "height": 1751,
         "role": "gallery",
@@ -500,7 +500,7 @@ export const leadersMeiPelleCatalog: LeadersCatalogProduct[] = [
       {
         "sourceUrl": "https://cdn.shopify.com/s/files/1/0734/9573/files/T02.png?v=1773191849",
         "sourceFilename": "T02.png",
-        "alt": "Mei-Pelle RECODE 03 lightweight conditioning ampoule for radiance, texture, and hydration support. product image 4",
+        "alt": "Mei Pelle RECODE 03 lightweight conditioning ampoule for radiance, texture, and hydration support. product image 4",
         "width": 1751,
         "height": 1751,
         "role": "gallery",
@@ -509,7 +509,7 @@ export const leadersMeiPelleCatalog: LeadersCatalogProduct[] = [
       {
         "sourceUrl": "https://cdn.shopify.com/s/files/1/0734/9573/files/t04.png?v=1773191849",
         "sourceFilename": "t04.png",
-        "alt": "Mei-Pelle RECODE 03 lightweight conditioning ampoule for radiance, texture, and hydration support. product image 5",
+        "alt": "Mei Pelle RECODE 03 lightweight conditioning ampoule for radiance, texture, and hydration support. product image 5",
         "width": 1751,
         "height": 1751,
         "role": "gallery",
@@ -582,7 +582,7 @@ export const leadersMeiPelleCatalog: LeadersCatalogProduct[] = [
       "AM",
       "PM"
     ],
-    "seoTitle": "FRAME 04 — PDRN+ EYE CREAM | Mei-Pelle",
+    "seoTitle": "FRAME 04 — PDRN+ EYE CREAM | Mei Pelle",
     "seoDescription": "Cream-balm care for smoother, rested-looking eyes.",
     "searchKeywords": [
       "eye cream",
@@ -622,7 +622,7 @@ export const leadersMeiPelleCatalog: LeadersCatalogProduct[] = [
       {
         "sourceUrl": "https://cdn.shopify.com/s/files/1/0734/9573/files/eyebag_87b70b0a-670d-42a4-93ec-f26450a01c86.png?v=1773431575",
         "sourceFilename": "eyebag_87b70b0a-670d-42a4-93ec-f26450a01c86.png",
-        "alt": "Mei-Pelle FRAME 04 cream-balm care for smoother, rested-looking eyes. product image 1",
+        "alt": "Mei Pelle FRAME 04 cream-balm care for smoother, rested-looking eyes. product image 1",
         "width": 1000,
         "height": 1000,
         "role": "card",
@@ -631,7 +631,7 @@ export const leadersMeiPelleCatalog: LeadersCatalogProduct[] = [
       {
         "sourceUrl": "https://cdn.shopify.com/s/files/1/0734/9573/files/eyebag1.png?v=1773431575",
         "sourceFilename": "eyebag1.png",
-        "alt": "Mei-Pelle FRAME 04 cream-balm care for smoother, rested-looking eyes. product image 2",
+        "alt": "Mei Pelle FRAME 04 cream-balm care for smoother, rested-looking eyes. product image 2",
         "width": 1751,
         "height": 1751,
         "role": "hero",
@@ -640,7 +640,7 @@ export const leadersMeiPelleCatalog: LeadersCatalogProduct[] = [
       {
         "sourceUrl": "https://cdn.shopify.com/s/files/1/0734/9573/files/pdrningre.jpg?v=1773457134",
         "sourceFilename": "pdrningre.jpg",
-        "alt": "Mei-Pelle FRAME 04 cream-balm care for smoother, rested-looking eyes. product image 3",
+        "alt": "Mei Pelle FRAME 04 cream-balm care for smoother, rested-looking eyes. product image 3",
         "width": 1751,
         "height": 1751,
         "role": "gallery",
@@ -649,7 +649,7 @@ export const leadersMeiPelleCatalog: LeadersCatalogProduct[] = [
       {
         "sourceUrl": "https://cdn.shopify.com/s/files/1/0734/9573/files/eyebag2.png?v=1773457134",
         "sourceFilename": "eyebag2.png",
-        "alt": "Mei-Pelle FRAME 04 cream-balm care for smoother, rested-looking eyes. product image 4",
+        "alt": "Mei Pelle FRAME 04 cream-balm care for smoother, rested-looking eyes. product image 4",
         "width": 1751,
         "height": 1751,
         "role": "gallery",
@@ -658,7 +658,7 @@ export const leadersMeiPelleCatalog: LeadersCatalogProduct[] = [
       {
         "sourceUrl": "https://cdn.shopify.com/s/files/1/0734/9573/files/eyebag3.png?v=1773457134",
         "sourceFilename": "eyebag3.png",
-        "alt": "Mei-Pelle FRAME 04 cream-balm care for smoother, rested-looking eyes. product image 5",
+        "alt": "Mei Pelle FRAME 04 cream-balm care for smoother, rested-looking eyes. product image 5",
         "width": 1751,
         "height": 1751,
         "role": "gallery",
@@ -729,7 +729,7 @@ export const leadersMeiPelleCatalog: LeadersCatalogProduct[] = [
       "AM",
       "PM"
     ],
-    "seoTitle": "SEAL 05 — GREEN COLLAGEN CREAM | Mei-Pelle",
+    "seoTitle": "SEAL 05 — GREEN COLLAGEN CREAM | Mei Pelle",
     "seoDescription": "Nourishing daily cream for moisture balance and smoother-looking texture.",
     "searchKeywords": [
       "green collagen",
@@ -769,7 +769,7 @@ export const leadersMeiPelleCatalog: LeadersCatalogProduct[] = [
       {
         "sourceUrl": "https://cdn.shopify.com/s/files/1/0734/9573/files/Cream_1.jpg?v=1689027789",
         "sourceFilename": "Cream_1.jpg",
-        "alt": "Mei-Pelle SEAL 05 nourishing daily cream for moisture balance and smoother-looking texture. product image 1",
+        "alt": "Mei Pelle SEAL 05 nourishing daily cream for moisture balance and smoother-looking texture. product image 1",
         "width": 1080,
         "height": 1080,
         "role": "card",
@@ -778,7 +778,7 @@ export const leadersMeiPelleCatalog: LeadersCatalogProduct[] = [
       {
         "sourceUrl": "https://cdn.shopify.com/s/files/1/0734/9573/files/Green_Collagen_Cream_Lifestyle_1.jpg?v=1714680426",
         "sourceFilename": "Green_Collagen_Cream_Lifestyle_1.jpg",
-        "alt": "Mei-Pelle SEAL 05 nourishing daily cream for moisture balance and smoother-looking texture. product image 2",
+        "alt": "Mei Pelle SEAL 05 nourishing daily cream for moisture balance and smoother-looking texture. product image 2",
         "width": 1080,
         "height": 1080,
         "role": "hero",
@@ -787,7 +787,7 @@ export const leadersMeiPelleCatalog: LeadersCatalogProduct[] = [
       {
         "sourceUrl": "https://cdn.shopify.com/s/files/1/0734/9573/files/Green_Collagen_Back.jpg?v=1689027789",
         "sourceFilename": "Green_Collagen_Back.jpg",
-        "alt": "Mei-Pelle SEAL 05 nourishing daily cream for moisture balance and smoother-looking texture. product image 3",
+        "alt": "Mei Pelle SEAL 05 nourishing daily cream for moisture balance and smoother-looking texture. product image 3",
         "width": 1080,
         "height": 1080,
         "role": "gallery",
@@ -796,7 +796,7 @@ export const leadersMeiPelleCatalog: LeadersCatalogProduct[] = [
       {
         "sourceUrl": "https://cdn.shopify.com/s/files/1/0734/9573/files/Green_Collagen_Box_Front.jpg?v=1689027789",
         "sourceFilename": "Green_Collagen_Box_Front.jpg",
-        "alt": "Mei-Pelle SEAL 05 nourishing daily cream for moisture balance and smoother-looking texture. product image 4",
+        "alt": "Mei Pelle SEAL 05 nourishing daily cream for moisture balance and smoother-looking texture. product image 4",
         "width": 1080,
         "height": 1080,
         "role": "gallery",
@@ -805,7 +805,7 @@ export const leadersMeiPelleCatalog: LeadersCatalogProduct[] = [
       {
         "sourceUrl": "https://cdn.shopify.com/s/files/1/0734/9573/files/Green_Collagen_Cream_Box_Back.jpg?v=1689027789",
         "sourceFilename": "Green_Collagen_Cream_Box_Back.jpg",
-        "alt": "Mei-Pelle SEAL 05 nourishing daily cream for moisture balance and smoother-looking texture. product image 5",
+        "alt": "Mei Pelle SEAL 05 nourishing daily cream for moisture balance and smoother-looking texture. product image 5",
         "width": 1080,
         "height": 1080,
         "role": "gallery",
@@ -880,7 +880,7 @@ export const leadersMeiPelleCatalog: LeadersCatalogProduct[] = [
       "Weekly",
       "PM"
     ],
-    "seoTitle": "LIFT 07 — PDRN MASK SYSTEM | Mei-Pelle",
+    "seoTitle": "LIFT 07 — PDRN MASK SYSTEM | Mei Pelle",
     "seoDescription": "Weekly contour-hugging sheet mask for plumper, smoother-looking skin.",
     "searchKeywords": [
       "PDRN",
@@ -920,7 +920,7 @@ export const leadersMeiPelleCatalog: LeadersCatalogProduct[] = [
       {
         "sourceUrl": "https://cdn.shopify.com/s/files/1/0734/9573/files/mask_3d212f68-f06e-4f9a-b390-ba10a58066bd.png?v=1773191744",
         "sourceFilename": "mask_3d212f68-f06e-4f9a-b390-ba10a58066bd.png",
-        "alt": "Mei-Pelle LIFT 07 weekly contour-hugging sheet mask for plumper, smoother-looking skin. product image 1",
+        "alt": "Mei Pelle LIFT 07 weekly contour-hugging sheet mask for plumper, smoother-looking skin. product image 1",
         "width": 1000,
         "height": 1000,
         "role": "card",
@@ -929,7 +929,7 @@ export const leadersMeiPelleCatalog: LeadersCatalogProduct[] = [
       {
         "sourceUrl": "https://cdn.shopify.com/s/files/1/0734/9573/files/mask1.png?v=1773191744",
         "sourceFilename": "mask1.png",
-        "alt": "Mei-Pelle LIFT 07 weekly contour-hugging sheet mask for plumper, smoother-looking skin. product image 2",
+        "alt": "Mei Pelle LIFT 07 weekly contour-hugging sheet mask for plumper, smoother-looking skin. product image 2",
         "width": 1751,
         "height": 1751,
         "role": "hero",
@@ -938,7 +938,7 @@ export const leadersMeiPelleCatalog: LeadersCatalogProduct[] = [
       {
         "sourceUrl": "https://cdn.shopify.com/s/files/1/0734/9573/files/mask2.png?v=1773191744",
         "sourceFilename": "mask2.png",
-        "alt": "Mei-Pelle LIFT 07 weekly contour-hugging sheet mask for plumper, smoother-looking skin. product image 3",
+        "alt": "Mei Pelle LIFT 07 weekly contour-hugging sheet mask for plumper, smoother-looking skin. product image 3",
         "width": 1751,
         "height": 1751,
         "role": "gallery",
@@ -947,7 +947,7 @@ export const leadersMeiPelleCatalog: LeadersCatalogProduct[] = [
       {
         "sourceUrl": "https://cdn.shopify.com/s/files/1/0734/9573/files/mask5.png?v=1773191744",
         "sourceFilename": "mask5.png",
-        "alt": "Mei-Pelle LIFT 07 weekly contour-hugging sheet mask for plumper, smoother-looking skin. product image 4",
+        "alt": "Mei Pelle LIFT 07 weekly contour-hugging sheet mask for plumper, smoother-looking skin. product image 4",
         "width": 1751,
         "height": 1751,
         "role": "gallery",
@@ -956,7 +956,7 @@ export const leadersMeiPelleCatalog: LeadersCatalogProduct[] = [
       {
         "sourceUrl": "https://cdn.shopify.com/s/files/1/0734/9573/files/mask5_f157c6dd-d93f-418a-ae4c-8ec68b58fe9d.jpg?v=1773195853",
         "sourceFilename": "mask5_f157c6dd-d93f-418a-ae4c-8ec68b58fe9d.jpg",
-        "alt": "Mei-Pelle LIFT 07 weekly contour-hugging sheet mask for plumper, smoother-looking skin. product image 5",
+        "alt": "Mei Pelle LIFT 07 weekly contour-hugging sheet mask for plumper, smoother-looking skin. product image 5",
         "width": 1200,
         "height": 1200,
         "role": "gallery",

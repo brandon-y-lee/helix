@@ -2,13 +2,13 @@ export const ABOUT_HERO = {
   eyebrow: "SEOUL / LOS ANGELES",
   title: "TWO CITIES. ONE STANDARD.",
   body:
-    "Mei-Pelle brings South Korean formulation discipline together with Los Angeles self-invention: an edited skincare system built for men who expect more from how they look, feel, and move through the world.",
+    "Mei Pelle brings South Korean formulation discipline together with Los Angeles self-invention: an edited skincare system built for men who expect more from how they look, feel, and move through the world.",
   primaryCta: { label: "Discover the method", href: "/method" },
   secondaryCta: { label: "Shop the system", href: "/products" },
 };
 
 export const ABOUT_OPENING = [
-  "Mei-Pelle exists between two beauty cultures, not as a costume of either one. From South Korean skincare we take precision, iteration, thoughtful layering, sensorial formulas, and the belief that skin is maintained before it has to be corrected.",
+  "Mei Pelle exists between two beauty cultures, not as a costume of either one. From South Korean skincare we take precision, iteration, thoughtful layering, sensorial formulas, and the belief that skin is maintained before it has to be corrected.",
   "From Los Angeles we take individuality, visible ambition, performance, cultural range, and the confidence to treat appearance as one part of a larger practice of self-development.",
   "The translation is deliberately simple: fewer decisions, purposeful compounds, clear instructions, and formulas that have to earn their place in the routine.",
 ];
@@ -50,7 +50,7 @@ export const WHY_MEN = {
   statement:
     "YOUR FACE IS PART OF HOW YOU MOVE THROUGH THE WORLD. CARE FOR IT ACCORDINGLY.",
   body:
-    "Men have often been offered either basic grooming stripped of serious skincare, or complicated routines that assume years of beauty literacy. Mei-Pelle occupies the space between them: sophisticated but understandable, elevated but usable, ingredient-aware without becoming clinical, ambitious without shame.",
+    "Men have often been offered either basic grooming stripped of serious skincare, or complicated routines that assume years of beauty literacy. Mei Pelle occupies the space between them: sophisticated but understandable, elevated but usable, ingredient-aware without becoming clinical, ambitious without shame.",
 };
 
 export const STANDARD_PRINCIPLES = [
@@ -113,7 +113,7 @@ export const ABOUT_CLOSING = {
   body:
     "Potential is not a promise made by a product. It is the result of standards repeated.",
   primaryCta: { label: "Learn the method", href: "/method" },
-  secondaryCta: { label: "Shop Mei-Pelle", href: "/products" },
+  secondaryCta: { label: "Shop Mei Pelle", href: "/products" },
 };
 
 export const FORBIDDEN_ABOUT_PATTERNS = [

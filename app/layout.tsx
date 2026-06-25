@@ -21,7 +21,7 @@ const marcellus = Marcellus({
 });
 
 export const metadata: Metadata = {
-  title: "Mei-Pelle — Prestige Skincare for Men",
+  title: "Mei Pelle — Prestige Skincare for Men",
   description:
     "An original, focused men's skincare routine. Cleanse, treat, hydrate, and protect.",
 };

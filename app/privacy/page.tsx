@@ -13,7 +13,7 @@ export const metadata: Metadata = {
     title: privacyPolicy.metadataTitle,
     description: privacyPolicy.description,
     url: privacyPolicy.canonical,
-    siteName: "Mei-Pelle",
+    siteName: "Mei Pelle",
     type: "website",
   },
 };

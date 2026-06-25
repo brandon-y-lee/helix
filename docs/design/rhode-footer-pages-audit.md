@@ -16,9 +16,9 @@ Reference pages inspected with Chrome:
 
 ## Page Matrix
 
-| Rhode page | Function | Structure observed | Mei-Pelle route | Decision |
+| Rhode page | Function | Structure observed | Mei Pelle route | Decision |
 | --- | --- | --- | --- | --- |
-| Privacy Policy | Long privacy/legal disclosure | Long document, many headings, tables, email links, footer | `/privacy-policy` | Include, but write original copy from Mei-Pelle data practices. |
+| Privacy Policy | Long privacy/legal disclosure | Long document, many headings, tables, email links, footer | `/privacy-policy` | Include, but write original copy from Mei Pelle data practices. |
 | Terms of Service | Legal terms | Long legal document, sparse headings, third-party/shipping references | `/terms-of-service` | Include, but omit arbitration, shipping, returns, and live-order terms. |
 | Accessibility Statement | Accessibility position | Title, short sections, contact section | `/accessibility` | Include with WCAG 2.2 AA target and no certification claims. |
 | FAQ | Customer support | Large title, category navigation, product/order/shipping tables | `/faq` | Include, but use current product, Method, account, cart, and contact facts. |
@@ -31,11 +31,11 @@ Reference pages inspected with Chrome:
 ## Implementation Notes
 
 - Rhode's support pages often assume live orders, shipping, returns, retail, and
-  marketing systems. Mei-Pelle should not mirror those claims.
-- Rhode's contact form asks for order numbers and uploads. Mei-Pelle should not
+  marketing systems. Mei Pelle should not mirror those claims.
+- Rhode's contact form asks for order numbers and uploads. Mei Pelle should not
   request unsupported order details, files, payment data, addresses, medical
   records, or government ID.
 - Rhode's privacy/cookie pages mention advertising and opt-out ecosystems.
-  Mei-Pelle should document the current absence of those tools unless they are
+  Mei Pelle should document the current absence of those tools unless they are
   later implemented.
 

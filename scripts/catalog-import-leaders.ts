@@ -164,7 +164,7 @@ async function upsertCollections(products: readonly LeadersCatalogProduct[]): Pr
     name,
     description:
       name === "THE SYSTEM"
-        ? "The core Mei-Pelle routine."
+        ? "The core Mei Pelle routine."
         : "Targeted weekly and event-ready intensives.",
     sort_order: index,
     is_active: true,

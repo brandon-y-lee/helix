@@ -10,13 +10,13 @@ Safe inputs used instead:
 
 - Existing local layout audit: `docs/design/rhode-layout-audit.md`.
 - User-provided structural checklist for a long About page.
-- Existing Mei-Pelle visual system and product presentation contract.
+- Existing Mei Pelle visual system and product presentation contract.
 
 ## Existing Local Layout Takeaways
 
 The prior local Rhode layout audit measured home, collection, and PDP surfaces across `1920x1080`, `1440x900`, `1024x768`, `768x1024`, `390x844`, and `360x800`.
 
-Reusable structural observations for Mei-Pelle:
+Reusable structural observations for Mei Pelle:
 
 - Use an inset wide editorial frame instead of a narrow 1200px marketing-page container.
 - Alternate dense text with large visual fields so the page breathes over a long scroll.
@@ -26,7 +26,7 @@ Reusable structural observations for Mei-Pelle:
 - Use large display typography sparingly for true section statements.
 - Preserve a centered wordmark/header system across editorial routes.
 
-## About-Page Rhythm Applied To Mei-Pelle
+## About-Page Rhythm Applied To Mei Pelle
 
 Because direct About inspection was blocked, this implementation avoids any exact sequence matching. The About route uses an original progression:
 
@@ -42,7 +42,7 @@ Because direct About inspection was blocked, this implementation avoids any exac
 
 ## Measurement Targets For Local Validation
 
-The completed Mei-Pelle pages should be validated at:
+The completed Mei Pelle pages should be validated at:
 
 - `1920x1080`
 - `1440x900`

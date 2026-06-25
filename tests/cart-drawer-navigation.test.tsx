@@ -89,6 +89,13 @@ describe("CartView drawer navigation", () => {
 
     const viewCart = screen.getByRole("link", { name: "View cart" });
     expect(viewCart).toHaveAttribute("href", "/cart");
+    expect(viewCart).toHaveClass("btn--editorial-rounded");
+    expect(screen.getByRole("button", { name: /Sandbox checkout/ })).toHaveClass(
+      "btn--editorial-rounded",
+    );
+    expect(screen.getByRole("button", { name: /Increase RESET quantity/ })).not.toHaveClass(
+      "btn--editorial-rounded",
+    );
 
     await user.click(viewCart);
     expect(onContinue).not.toHaveBeenCalled();

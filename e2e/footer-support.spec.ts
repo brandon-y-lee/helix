@@ -101,14 +101,14 @@ test("global footer renders across public routes without unsupported links", asy
   for (const route of footerPages) {
     await page.goto(route);
     await expect(page.locator(".site-footer")).toBeVisible();
-    await expect(page.locator(".site-footer").getByRole("heading", { name: "MEI-PELLE" })).toBeVisible();
+    await expect(page.locator(".site-footer").getByRole("heading", { name: "MEI PELLE" })).toBeVisible();
     await expect(page.locator(".site-footer")).toContainText("EMAIL UPDATES ARE NOT OPEN");
     await expect(page.locator(".site-footer a[href='/privacy']")).not.toHaveCount(0);
     await expect(page.locator(".site-footer a[href='/terms']")).not.toHaveCount(0);
     await expect(page.locator(".site-footer a[href='/faq#shipping']")).not.toHaveCount(0);
     await expect(page.locator(".site-footer a[href='/faq#returns']")).not.toHaveCount(0);
     await expect(page.locator(".site-footer a[href='/privacy-choices']")).not.toHaveCount(0);
-    await expect(page.locator(".site-footer").getByRole("link", { name: "Rewards" })).toHaveCount(0);
+    await expect(page.locator(".site-footer").getByRole("link", { name: "Rewards" })).not.toHaveCount(0);
     await expect(page.locator(".site-footer").getByRole("link", { name: "Store Locator" })).toHaveCount(0);
     await expect(page.locator(".site-footer").getByRole("link", { name: "Events" })).toHaveCount(0);
     await expect(page.locator(".site-footer").getByRole("link", { name: "Instagram" })).toHaveCount(0);
@@ -238,7 +238,7 @@ test("FAQ anchors and contact route reflect current functionality", async ({
   await expect(page.locator("#shipping")).toBeVisible();
   await expect(page.locator("#returns")).toBeVisible();
   await expect(page.getByText("Can I place an order right now?")).toBeVisible();
-  await expect(page.getByText("Online checkout is not available yet")).toBeVisible();
+  await expect(page.getByText("Stripe-hosted Checkout in sandbox mode")).toBeVisible();
   await expect(page.locator("body")).toContainText("$50+");
   await expect(page.locator("body")).not.toContainText("Development storefront");
   await expect(page.locator("body")).not.toContainText("returns are accepted");
@@ -261,7 +261,6 @@ test("legacy support and legal routes redirect to canonical pages", async ({ pag
     { from: "/returns", to: /\/faq#returns$/ },
     { from: "/returns-exchanges", to: /\/faq#returns$/ },
     { from: "/refund-policy", to: /\/faq#returns$/ },
-    { from: "/rewards", to: /\/faq#rewards$/ },
   ] as const;
 
   for (const redirect of redirects) {
@@ -269,4 +268,8 @@ test("legacy support and legal routes redirect to canonical pages", async ({ pag
     await expect(page).toHaveURL(redirect.to);
     await expect(page.locator("main")).toBeVisible();
   }
+
+  await page.goto("/rewards");
+  await expect(page).toHaveURL(/\/rewards$/);
+  await expect(page.getByRole("heading", { level: 1, name: "MEI PELLE REWARDS" })).toBeVisible();
 });

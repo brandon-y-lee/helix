@@ -16,7 +16,7 @@ import { idleAuthState, type AuthActionState } from "@/lib/auth/validation";
 function SubmitButton({ children }: { children: string }) {
   const { pending } = useFormStatus();
   return (
-    <button type="submit" className="btn" disabled={pending}>
+    <button type="submit" className="btn btn--editorial-rounded" disabled={pending}>
       {pending ? "Working" : children}
     </button>
   );
@@ -262,7 +262,7 @@ export function ProfileForm({
 export function SignOutButton() {
   return (
     <form action={signOutAction}>
-      <button type="submit" className="link-button account-signout">
+      <button type="submit" className="btn btn--ghost btn--sm btn--editorial-rounded account-signout">
         Sign out
       </button>
     </form>

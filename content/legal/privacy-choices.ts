@@ -2,8 +2,8 @@ import type { LegalDocument } from "./types";
 
 export const privacyChoices: LegalDocument = {
   title: "Your Privacy Choices",
-  metadataTitle: "Your Privacy Choices | Mei-Pelle",
-  description: "Current privacy-choice behavior for the Mei-Pelle website.",
+  metadataTitle: "Your Privacy Choices | Mei Pelle",
+  description: "Current privacy-choice behavior for the Mei Pelle website.",
   canonical: "/privacy-choices",
   status: "Last updated June 24, 2026",
   intro:
@@ -29,14 +29,14 @@ export const privacyChoices: LegalDocument = {
       id: "requests",
       title: "Privacy Requests",
       body: [
-        "Use the Contact page to prepare access, correction, deletion, or privacy-choice request details while Mei-Pelle finalizes a verified public privacy intake channel.",
+        "Use the Contact page to prepare access, correction, deletion, or privacy-choice request details while Mei Pelle finalizes a verified public privacy intake channel.",
       ],
     },
     {
       id: "future",
       title: "Future Advertising or Analytics",
       body: [
-        "If Mei-Pelle later adds optional analytics, advertising, or other privacy-choice technology, this page and the Cookie Preferences control should be updated before those tools are enabled.",
+        "If Mei Pelle later adds optional analytics, advertising, or other privacy-choice technology, this page and the Cookie Preferences control should be updated before those tools are enabled.",
       ],
     },
   ],

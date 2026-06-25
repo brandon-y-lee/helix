@@ -296,9 +296,9 @@ Scope: public catalog research for `https://www.leaderscosmeticsusa.com/collecti
   - https://cdn.shopify.com/s/files/1/0734/9573/files/product_image_1.png?v=1773195853
   - https://cdn.shopify.com/s/files/1/0734/9573/files/mask6.jpg?v=1773195853
 
-## Notes For Mei-Pelle
+## Notes For Mei Pelle
 
-- This is reference research only. Do not copy Leaders brand names, exact claims, imagery, or trade dress into Mei-Pelle.
+- This is reference research only. Do not copy Leaders brand names, exact claims, imagery, or trade dress into Mei Pelle.
 - Useful patterns to borrow at the feature level: collection pagination, product cards, product detail sections, variants, price/availability display, ingredient accordions, image gallery, and cart-ready variant IDs.
 - Avoid importing review ratings, testimonials, customer photos, or app-generated social proof.
 - The public source has some data-quality wrinkles worth modeling defensively: stale handles, missing SKUs, product types left blank, one volume discrepancy, and product description HTML containing embedded CSS.

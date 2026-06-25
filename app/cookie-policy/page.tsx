@@ -13,7 +13,7 @@ export const metadata: Metadata = {
     title: cookiePolicy.metadataTitle,
     description: cookiePolicy.description,
     url: cookiePolicy.canonical,
-    siteName: "Mei-Pelle",
+    siteName: "Mei Pelle",
     type: "website",
   },
 };

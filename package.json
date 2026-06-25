@@ -18,7 +18,9 @@
     "catalog:import:leaders": "tsx scripts/catalog-import-leaders.ts",
     "catalog:refresh:presentation": "tsx scripts/catalog-refresh-presentation.ts",
     "search:backfill": "tsx scripts/search-backfill.ts",
-    "search:reindex": "pnpm run search:backfill"
+    "search:reindex": "pnpm run search:backfill",
+    "stripe:sync:sandbox": "tsx scripts/stripe-sync-sandbox.ts",
+    "test:stripe:sandbox": "pnpm run test -- tests/checkout-config.test.ts tests/rewards-rules.test.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.0",
@@ -27,6 +29,7 @@
     "next": "15.5.19",
     "react": "19.1.0",
     "react-dom": "19.1.0",
+    "stripe": "^22.3.0",
     "ws": "^8.21.0"
   },
   "devDependencies": {

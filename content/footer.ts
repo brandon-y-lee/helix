@@ -18,7 +18,7 @@ export const footerUpdateModule = {
   heading: "STAY IN THE SYSTEM.",
   summary: "Product releases, formula notes, and method updates.",
   status: "EMAIL UPDATES ARE NOT OPEN",
-  note: "Mei-Pelle is not collecting newsletter email addresses right now.",
+  note: "Mei Pelle is not collecting newsletter email addresses right now.",
 };
 
 export const footerLinkGroups: FooterLinkGroup[] = [
@@ -30,6 +30,7 @@ export const footerLinkGroups: FooterLinkGroup[] = [
       { label: "Method", href: "/method" },
       { label: "About", href: "/about" },
       { label: "Account", href: "/account" },
+      { label: "Rewards", href: "/rewards" },
     ],
   },
   {

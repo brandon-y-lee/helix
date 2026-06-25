@@ -46,9 +46,9 @@ export const cookieCategories: CookieCategory[] = [
 
 export const cookiePolicy: LegalDocument = {
   title: "Cookie Policy",
-  metadataTitle: "Cookie Policy | Mei-Pelle",
+  metadataTitle: "Cookie Policy | Mei Pelle",
   description:
-    "Current cookie and browser-storage behavior for the Mei-Pelle website.",
+    "Current cookie and browser-storage behavior for the Mei Pelle website.",
   canonical: "/cookie-policy",
   status: "Last updated June 24, 2026",
   intro:

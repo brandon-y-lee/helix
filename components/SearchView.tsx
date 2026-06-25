@@ -59,6 +59,7 @@ export function SearchView({
             <button
               key={suggestion}
               type="button"
+              className="search-suggestions__button"
               onClick={() => chooseSuggestion(suggestion)}
             >
               {suggestion}

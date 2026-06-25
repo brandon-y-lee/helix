@@ -2,7 +2,7 @@
 
 Last updated: June 24, 2026
 
-This checklist is for owner and counsel review before Mei-Pelle treats the
+This checklist is for owner and counsel review before Mei Pelle treats the
 support and legal pages as launch-ready.
 
 ## Before Public Launch

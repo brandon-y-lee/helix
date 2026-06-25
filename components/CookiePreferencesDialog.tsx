@@ -103,7 +103,7 @@ export function CookiePreferencesDialog({
               </button>
             </div>
             <p id={descriptionId}>
-              Mei-Pelle currently uses essential cookies only: Supabase
+              Mei Pelle currently uses essential cookies only: Supabase
               authentication cookies, the guest-cart token, and this preference
               acknowledgement.
             </p>

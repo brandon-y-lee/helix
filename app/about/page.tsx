@@ -17,25 +17,25 @@ const siteUrl = new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:30
 
 export const metadata: Metadata = {
   metadataBase: siteUrl,
-  title: "About Mei-Pelle | Seoul Precision, Los Angeles Perspective",
+  title: "About Mei Pelle | Seoul Precision, Los Angeles Perspective",
   description:
-    "Discover the values behind Mei-Pelle, a prestige men's skincare system shaped by South Korean formulation discipline and Los Angeles self-invention.",
+    "Discover the values behind Mei Pelle, a prestige men's skincare system shaped by South Korean formulation discipline and Los Angeles self-invention.",
   alternates: {
     canonical: "/about",
   },
   openGraph: {
-    title: "About Mei-Pelle | Seoul Precision, Los Angeles Perspective",
+    title: "About Mei Pelle | Seoul Precision, Los Angeles Perspective",
     description:
-      "Discover the values behind Mei-Pelle, a prestige men's skincare system shaped by South Korean formulation discipline and Los Angeles self-invention.",
+      "Discover the values behind Mei Pelle, a prestige men's skincare system shaped by South Korean formulation discipline and Los Angeles self-invention.",
     url: "/about",
-    siteName: "Mei-Pelle",
+    siteName: "Mei Pelle",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "About Mei-Pelle | Seoul Precision, Los Angeles Perspective",
+    title: "About Mei Pelle | Seoul Precision, Los Angeles Perspective",
     description:
-      "Discover the values behind Mei-Pelle, a prestige men's skincare system shaped by South Korean formulation discipline and Los Angeles self-invention.",
+      "Discover the values behind Mei Pelle, a prestige men's skincare system shaped by South Korean formulation discipline and Los Angeles self-invention.",
   },
 };
 
@@ -69,8 +69,8 @@ export default function AboutPage() {
         </div>
       </section>
 
-      <section className="about-opening" aria-label="Mei-Pelle origin principles">
-        <p className="about-opening__lead">Mei-Pelle exists between two beauty cultures.</p>
+      <section className="about-opening" aria-label="Mei Pelle origin principles">
+        <p className="about-opening__lead">Mei Pelle exists between two beauty cultures.</p>
         <div className="about-opening__text">
           {ABOUT_OPENING.map((paragraph) => (
             <p key={paragraph}>{paragraph}</p>
@@ -82,7 +82,7 @@ export default function AboutPage() {
         <div className="culture-split__head">
           <p className="eyebrow">Influences, not stereotypes</p>
           <h2 id="culture-heading">
-            MEI-PELLE IS WHERE DISCIPLINE MEETS SELF-INVENTION.
+            MEI PELLE IS WHERE DISCIPLINE MEETS SELF-INVENTION.
           </h2>
         </div>
         <div className="culture-split__panels">
@@ -117,7 +117,7 @@ export default function AboutPage() {
       <section className="about-standard" aria-labelledby="standard-heading">
         <div className="section-head">
           <div>
-            <p className="eyebrow">The Mei-Pelle standard</p>
+            <p className="eyebrow">The Mei Pelle standard</p>
             <h2 id="standard-heading">THE STANDARD.</h2>
           </div>
           <p>Prestige without needless complexity.</p>
@@ -170,7 +170,7 @@ export default function AboutPage() {
       </section>
 
       <section className="about-system" aria-labelledby="about-system-heading">
-        <p className="eyebrow">The Mei-Pelle system</p>
+        <p className="eyebrow">The Mei Pelle system</p>
         <h2 id="about-system-heading">PREPARE. TREAT. PRESERVE.</h2>
         <div className="about-system__promises">
           {BRAND_PROMISES.map((promise) => (

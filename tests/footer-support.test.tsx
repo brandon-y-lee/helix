@@ -27,7 +27,7 @@ describe("global footer", () => {
   it("renders truthful link groups and omits unsupported destinations", () => {
     render(<SiteFooter />);
 
-    expect(screen.getByRole("heading", { name: "MEI-PELLE" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "MEI PELLE" })).toBeInTheDocument();
     expect(screen.getByText("STAY IN THE SYSTEM.")).toBeInTheDocument();
     expect(screen.getByText("EMAIL UPDATES ARE NOT OPEN")).toBeInTheDocument();
     expect(screen.queryByRole("textbox", { name: /email/i })).not.toBeInTheDocument();
@@ -44,6 +44,7 @@ describe("global footer", () => {
           { label: "Method", href: "/method" },
           { label: "About", href: "/about" },
           { label: "Account", href: "/account" },
+          { label: "Rewards", href: "/rewards" },
         ],
       },
       {
@@ -74,7 +75,7 @@ describe("global footer", () => {
       }
     }
 
-    expect(screen.queryByRole("link", { name: /rewards/i })).not.toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: /rewards/i }).length).toBeGreaterThan(0);
     expect(screen.queryByRole("link", { name: /store locator/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /^events$/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /instagram/i })).not.toBeInTheDocument();
@@ -122,7 +123,8 @@ describe("legal and support content", () => {
     );
     expect(combined).not.toMatch(/mandatory arbitration|class-action waiver|jury-trial waiver/i);
     expect(combined).not.toMatch(/real payments are available|returns are accepted/i);
-    expect(combined).toMatch(/Online checkout is not available yet/i);
+    expect(combined).toMatch(/sandbox Checkout/i);
+    expect(combined).toMatch(/MEI PELLE REWARDS/i);
     expect(combined).toMatch(/does not submit or store messages/i);
     expect(combined).toMatch(/WCAG 2\.2 AA/i);
     expect(privacyPolicy.canonical).toBe("/privacy");
@@ -171,9 +173,7 @@ describe("legal and support content", () => {
     const orderSummary = screen.getByText("Can I place an order right now?");
     const orderDetails = orderSummary.closest("details");
     expect(orderDetails).toHaveAttribute("open");
-    expect(
-      screen.getByText(/Online checkout is not available yet/i),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/Stripe-hosted Checkout in sandbox mode/i)).toBeInTheDocument();
     await user.click(orderSummary);
     expect(orderDetails).not.toHaveAttribute("open");
 

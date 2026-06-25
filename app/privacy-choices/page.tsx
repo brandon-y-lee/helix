@@ -15,7 +15,7 @@ export const metadata: Metadata = {
     title: privacyChoices.metadataTitle,
     description: privacyChoices.description,
     url: privacyChoices.canonical,
-    siteName: "Mei-Pelle",
+    siteName: "Mei Pelle",
     type: "website",
   },
 };

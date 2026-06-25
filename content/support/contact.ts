@@ -83,5 +83,5 @@ export const contactIntakeStatus = {
   configured: supportPolicy.contactIntakeConfigured,
   heading: "PUBLIC SUPPORT INTAKE PENDING",
   message:
-    "Mei-Pelle has not published a verified public support destination yet. This page explains how inquiries will be routed once intake is available.",
+    "Mei Pelle has not published a verified public support destination yet. This page explains how inquiries will be routed once intake is available.",
 };

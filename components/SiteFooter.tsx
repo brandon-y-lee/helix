@@ -16,7 +16,7 @@ export function SiteFooter() {
         <section className="site-footer__brand">
           <div>
             <p className="eyebrow">Seoul / Los Angeles</p>
-            <h2 id="site-footer-heading">MEI-PELLE</h2>
+            <h2 id="site-footer-heading">MEI PELLE</h2>
             <p>{footerBrandStatement}</p>
           </div>
           <div
@@ -60,7 +60,7 @@ export function SiteFooter() {
         </div>
 
         <div className="site-footer__utility">
-          <p>&copy; {year} Mei-Pelle. All rights reserved.</p>
+          <p>&copy; {year} Mei Pelle. All rights reserved.</p>
           <div className="site-footer__utility-links">
             <CookiePreferencesDialog triggerClassName="site-footer__utility-button" />
             <Link href="/privacy-choices">Your Privacy Choices</Link>

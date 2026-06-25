@@ -13,7 +13,7 @@ export const metadata: Metadata = {
     title: accessibilityStatement.metadataTitle,
     description: accessibilityStatement.description,
     url: accessibilityStatement.canonical,
-    siteName: "Mei-Pelle",
+    siteName: "Mei Pelle",
     type: "website",
   },
 };

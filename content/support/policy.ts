@@ -19,7 +19,7 @@ export const returnsPolicy = {
 export const supportPolicy = {
   contactIntakeConfigured: false,
   contactStatus:
-    "Mei-Pelle has not published a verified public support destination yet.",
+    "Mei Pelle has not published a verified public support destination yet.",
   privacyRequestRoute:
     "Use the Contact page to review request categories while a verified privacy intake channel is finalized.",
 };

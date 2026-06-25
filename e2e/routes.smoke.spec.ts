@@ -44,5 +44,5 @@ test("add to cart updates the cart and persists to checkout", async ({ page }) =
   await page.goto("/cart");
   await expect(page.getByText("RECODE")).toBeVisible();
   await expect(page.getByText("30 mL")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Checkout unavailable" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Sandbox checkout/ })).toBeVisible();
 });

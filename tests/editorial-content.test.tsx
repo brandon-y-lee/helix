@@ -170,7 +170,7 @@ describe("Method content architecture", () => {
 
     const hero = document.querySelector(".method-hero") as HTMLElement;
     expect(hero).not.toBeNull();
-    expect(within(hero).getByText("Mei-Pelle")).toBeInTheDocument();
+    expect(within(hero).getByText("Mei Pelle")).toBeInTheDocument();
     expect(
       within(hero).getByRole("heading", { level: 1, name: "THE METHOD." }),
     ).toBeInTheDocument();
@@ -199,7 +199,7 @@ describe("Method content architecture", () => {
       screen.queryByText("More steps are not inherently better. Order, purpose, and restraint matter."),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByText("Only ingredients present in the active Mei-Pelle catalog appear here."),
+      screen.queryByText("Only ingredients present in the active Mei Pelle catalog appear here."),
     ).not.toBeInTheDocument();
   });
 
@@ -584,7 +584,7 @@ describe("About content architecture", () => {
       "href",
       "/method",
     );
-    expect(screen.getByRole("link", { name: /shop mei-pelle/i })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /shop mei pelle/i })).toHaveAttribute(
       "href",
       "/products",
     );

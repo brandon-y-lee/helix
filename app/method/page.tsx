@@ -12,23 +12,23 @@ const siteUrl = new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:30
 
 export const metadata: Metadata = {
   metadataBase: siteUrl,
-  title: "The Mei-Pelle Method | Men's Skincare Routine",
+  title: "The Mei Pelle Method | Men's Skincare Routine",
   description:
     "A clear step-by-step skincare system covering cleansing, treatment, hydration, eye care, weekly care, and daily SPF.",
   alternates: {
     canonical: "/method",
   },
   openGraph: {
-    title: "The Mei-Pelle Method | Men's Skincare Routine",
+    title: "The Mei Pelle Method | Men's Skincare Routine",
     description:
       "A clear step-by-step skincare system covering cleansing, treatment, hydration, eye care, weekly care, and daily SPF.",
     url: "/method",
-    siteName: "Mei-Pelle",
+    siteName: "Mei Pelle",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "The Mei-Pelle Method | Men's Skincare Routine",
+    title: "The Mei Pelle Method | Men's Skincare Routine",
     description:
       "A clear step-by-step skincare system covering cleansing, treatment, hydration, eye care, weekly care, and daily SPF.",
   },
@@ -52,7 +52,7 @@ export default async function MethodPage() {
           decorated={false}
         />
         <div className="method-hero__copy">
-          <p className="eyebrow">Mei-Pelle</p>
+          <p className="eyebrow">Mei Pelle</p>
           <h1 id="method-heading">THE METHOD.</h1>
           <p>A system for clearer, healthier, beautiful skin</p>
           <div className="hero__actions">

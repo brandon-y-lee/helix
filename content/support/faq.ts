@@ -27,9 +27,9 @@ export const faqCategories: FAQCategory[] = [
     items: [
       {
         id: "what-is-mei-pelle",
-        question: "What is Mei-Pelle?",
+        question: "What is Mei Pelle?",
         answer:
-          "Mei-Pelle is a prestige men's skincare system built around concise product steps, ingredient literacy, and a disciplined daily routine.",
+          "Mei Pelle is a prestige men's skincare system built around concise product steps, ingredient literacy, and a disciplined daily routine.",
       },
       {
         id: "available-products",
@@ -59,7 +59,7 @@ export const faqCategories: FAQCategory[] = [
       },
       {
         id: "medical-advice",
-        question: "Is Mei-Pelle medical advice?",
+        question: "Is Mei Pelle medical advice?",
         answer:
           "No. Product pages and ingredient notes are cosmetic and educational. They are not medical advice, diagnosis, or treatment, and they should not replace guidance from a qualified clinician.",
       },
@@ -106,32 +106,32 @@ export const faqCategories: FAQCategory[] = [
   {
     id: "orders",
     label: "Orders",
-    summary: "Current cart and checkout status without payment or fulfillment claims.",
+    summary: "Sandbox checkout, order confirmation, and account order history.",
     items: [
       {
         id: "checkout-availability",
         question: "Can I place an order right now?",
         answer:
-          "No. Online checkout is not available yet, and this site does not collect payment, shipping address, billing address, tax, fulfillment, or live order records.",
+          "You can complete Stripe-hosted Checkout in sandbox mode only. It can collect sandbox checkout details and create sandbox order records, but it does not create a real charge, shipment, fulfillment, customer email, or Trustpilot invitation.",
       },
       {
         id: "cart-purpose",
         question: "What is the cart for?",
         answer:
-          "The cart lets you review products, variants, quantities, and subtotals before checkout is available. Prices and availability are validated against the catalog on the server.",
+          "The cart lets you review products, variants, quantities, subtotals, estimated points, and eligible rewards before sandbox Checkout. Prices, discounts, availability, rewards, and shipping thresholds are revalidated on the server.",
         links: [{ label: "View cart", href: "/cart" }],
       },
       {
         id: "order-history",
         question: "Where is my order history?",
         answer:
-          "Order history will appear in the Account area after online checkout and order creation are added. No purchase records are created by the current site.",
+          "Authenticated sandbox orders appear in the Account area. Guest sandbox orders can be viewed only through the immediate verified confirmation flow and do not earn rewards.",
       },
       {
         id: "edit-order",
         question: "Can I edit or cancel an order?",
         answer:
-          "Order edits and cancellations are not available because the site does not create orders yet. Review product choices in the cart before any future checkout flow is enabled.",
+          "A canceled or expired Stripe Checkout Session preserves the cart and releases reserved points. Sandbox orders do not create fulfillment, so shipment edits and tracking are not available.",
       },
     ],
   },
@@ -142,15 +142,15 @@ export const faqCategories: FAQCategory[] = [
     items: [
       {
         id: "free-shipping",
-        question: "Does Mei-Pelle offer free standard shipping?",
+        question: "Does Mei Pelle offer free standard shipping?",
         answer: `Standard shipping is planned to be free on eligible United States orders of ${formatFreeShippingThreshold()} before taxes and any discounts that change the merchandise subtotal.`,
       },
       {
         id: "shipping-destinations",
-        question: "Where will Mei-Pelle ship?",
+        question: "Where will Mei Pelle ship?",
         answer:
           shippingPolicy.destinationSummary +
-          " International, expedited, freight forwarder, and resale shipping terms are not available unless Mei-Pelle publishes them later.",
+          " International, expedited, freight forwarder, and resale shipping terms are not available unless Mei Pelle publishes them later.",
       },
       {
         id: "shipping-timing",
@@ -161,7 +161,7 @@ export const faqCategories: FAQCategory[] = [
         id: "shipping-address-changes",
         question: "Can I change my shipping address after checkout?",
         answer:
-          "Address-change support is not available yet because checkout is not available. Future order support should confirm whether an address can be changed before fulfillment starts.",
+          "Sandbox Checkout can collect a shipping address for testing, but no real shipment is created. Address-change support and tracking are launch dependencies outside the sandbox flow.",
       },
     ],
   },
@@ -173,7 +173,7 @@ export const faqCategories: FAQCategory[] = [
       {
         id: "return-window",
         question: "What is the return window?",
-        answer: `Mei-Pelle's planned return window is ${returnsPolicy.returnWindowDays} days from delivery for eligible items. ${returnsPolicy.condition}`,
+        answer: `Mei Pelle's planned return window is ${returnsPolicy.returnWindowDays} days from delivery for eligible items. ${returnsPolicy.condition}`,
       },
       {
         id: "damaged-missing",
@@ -189,32 +189,51 @@ export const faqCategories: FAQCategory[] = [
         id: "exchanges",
         question: "Do you offer exchanges?",
         answer:
-          "Direct exchanges are not planned as a default flow. If a damaged, missing, or incorrect item claim is approved, Mei-Pelle may offer a replacement when inventory and support operations allow.",
+          "Direct exchanges are not planned as a default flow. If a damaged, missing, or incorrect item claim is approved, Mei Pelle may offer a replacement when inventory and support operations allow.",
       },
       {
         id: "shipping-costs",
         question: "Are original shipping costs refundable?",
         answer:
-          "Original shipping costs are not planned to be refundable unless Mei-Pelle caused the issue or applicable law requires a different result.",
+          "Original shipping costs are not planned to be refundable unless Mei Pelle caused the issue or applicable law requires a different result.",
       },
     ],
   },
   {
     id: "rewards",
     label: "Rewards",
-    summary: "Current rewards, points, and promotion status.",
+    summary: "Points, redemptions, referrals, private feedback, and refunds.",
     items: [
       {
         id: "rewards-program",
-        question: "Does Mei-Pelle have a rewards program?",
+        question: "Does Mei Pelle have a rewards program?",
         answer:
-          "No rewards, points, loyalty, affiliate, referral, or subscription engine is active. Any future program should publish eligibility, earning, redemption, expiration, and account rules before customer use.",
+          "MEI PELLE REWARDS is account-backed. Confirmed members receive 100 welcome points once, earn 2 points per eligible net merchandise dollar after successful sandbox payment, and can redeem 200, 400, or 600 points for $5, $10, or $15 off one eligible order.",
+        links: [{ label: "Rewards", href: "/rewards" }],
       },
       {
         id: "promo-codes",
-        question: "Can I use a promo code?",
+        question: "Can I stack rewards or promo codes?",
         answer:
-          "Promo-code checkout is not available yet. Any future promotion should state its eligibility, end date, discount basis, exclusions, and whether it affects the free standard shipping threshold.",
+          "No. Checkout applies at most one internal points reward or one referral offer. Stripe promotion-code entry is disabled so points, referrals, and free-shipping calculations stay server-authoritative.",
+      },
+      {
+        id: "referrals",
+        question: "How do referrals work?",
+        answer:
+          "A confirmed account can share a referral code. A referred friend must sign in with a confirmed account and can use 15% off a first qualifying order of $50+ before the referral discount. Self-referrals and stacking are blocked.",
+      },
+      {
+        id: "private-feedback-reward",
+        question: "Does private feedback earn points?",
+        answer:
+          "Eligible paid sandbox orders can unlock one private first-party feedback request worth 300 points. The reward is the same for positive, neutral, or negative sentiment. This is not a Trustpilot review and is not published publicly.",
+      },
+      {
+        id: "trustpilot-rewards",
+        question: "Do Trustpilot reviews earn points?",
+        answer:
+          "No. Trustpilot invitations are independent from rewards. Mei Pelle does not award points for writing, editing, or deleting a Trustpilot review, and sandbox orders do not send real Trustpilot invitations.",
       },
     ],
   },
@@ -225,14 +244,14 @@ export const faqCategories: FAQCategory[] = [
     items: [
       {
         id: "contact-topics",
-        question: "What can I contact Mei-Pelle about?",
+        question: "What can I contact Mei Pelle about?",
         answer:
           "The Contact page organizes product, Method, account, cart, accessibility, privacy, partnership, wholesale, and general inquiry topics so the right information is ready when public support intake opens.",
         links: [{ label: "Contact", href: "/contact" }],
       },
       {
         id: "contact-intake",
-        question: "Can I send Mei-Pelle a message through the site?",
+        question: "Can I send Mei Pelle a message through the site?",
         answer:
           supportPolicy.contactStatus +
           " The Contact page does not submit or store messages until a verified intake channel is published.",
@@ -268,7 +287,7 @@ export const faqCategories: FAQCategory[] = [
         id: "accessibility",
         question: "Where is the Accessibility Statement?",
         answer:
-          "The Accessibility Statement explains Mei-Pelle's WCAG target, implemented practices, testing approach, and feedback path.",
+          "The Accessibility Statement explains Mei Pelle's WCAG target, implemented practices, testing approach, and feedback path.",
         links: [{ label: "Accessibility Statement", href: "/accessibility" }],
       },
       {

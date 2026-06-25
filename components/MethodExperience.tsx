@@ -534,7 +534,7 @@ export function MethodExperience({
               Build the system
             </Link>
             <Link href="/about" className="btn btn--ghost btn--editorial-rounded">
-              About Mei-Pelle
+              About Mei Pelle
             </Link>
           </div>
         </section>

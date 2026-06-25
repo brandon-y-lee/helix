@@ -6,16 +6,16 @@ const siteUrl = new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:30
 
 export const metadata: Metadata = {
   metadataBase: siteUrl,
-  title: "FAQ | Mei-Pelle",
+  title: "FAQ | Mei Pelle",
   description:
-    "Answers about Mei-Pelle products, accounts, orders, shipping, returns, rewards, contact, and policies.",
+    "Answers about Mei Pelle products, accounts, orders, shipping, returns, rewards, contact, and policies.",
   alternates: { canonical: "/faq" },
   openGraph: {
-    title: "FAQ | Mei-Pelle",
+    title: "FAQ | Mei Pelle",
     description:
-      "Answers about Mei-Pelle products, accounts, orders, shipping, returns, rewards, contact, and policies.",
+      "Answers about Mei Pelle products, accounts, orders, shipping, returns, rewards, contact, and policies.",
     url: "/faq",
-    siteName: "Mei-Pelle",
+    siteName: "Mei Pelle",
     type: "website",
   },
 };

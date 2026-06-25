@@ -67,7 +67,7 @@ export const meiPellePresentationCatalog: MeiPellePresentationProduct[] = [
     formulaNotes: [
       "Low-pH gel-to-foam cleanser source formulation.",
       "Centella and green tea are present in the supplier ingredient deck.",
-      "Designed as the first daily step in the Mei-Pelle system.",
+      "Designed as the first daily step in the Mei Pelle system.",
     ],
     palettes: {
       cardDefault: {
