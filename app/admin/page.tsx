@@ -8,7 +8,7 @@ export default function AdminPage() {
   return (
     <article className="admin-page">
       <h1>Admin</h1>
-      <p>Admin placeholder.</p>
+      <p>Admin tools are not available.</p>
     </article>
   );
 }

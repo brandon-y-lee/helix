@@ -13,8 +13,8 @@ const staticRoutes = [
   "/account",
   "/faq",
   "/contact",
-  "/privacy-policy",
-  "/terms-of-service",
+  "/privacy",
+  "/terms",
   "/cookie-policy",
   "/privacy-choices",
   "/accessibility",
@@ -35,4 +35,3 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     })),
   ];
 }
-

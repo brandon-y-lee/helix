@@ -48,9 +48,9 @@ export const cookiePolicy: LegalDocument = {
   title: "Cookie Policy",
   metadataTitle: "Cookie Policy | Mei-Pelle",
   description:
-    "Current cookie and browser-storage behavior for the Mei-Pelle development storefront.",
+    "Current cookie and browser-storage behavior for the Mei-Pelle website.",
   canonical: "/cookie-policy",
-  status: "Development draft - current as of June 20, 2026",
+  status: "Last updated June 24, 2026",
   intro:
     "This policy documents the cookie categories currently reflected in the application code. Optional analytics and advertising cookies are not implemented.",
   sections: [
@@ -79,7 +79,7 @@ export const cookiePolicy: LegalDocument = {
       id: "preferences",
       title: "Cookie Preferences",
       body: [
-        "Because only essential categories are active, Cookie Preferences offers an essential-only acknowledgement rather than fake analytics or advertising toggles.",
+        "Because only essential categories are active, Cookie Preferences offers an essential-only acknowledgement rather than inactive analytics or advertising toggles.",
       ],
     },
     {
@@ -91,4 +91,3 @@ export const cookiePolicy: LegalDocument = {
     },
   ],
 };
-

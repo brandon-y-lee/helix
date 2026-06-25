@@ -9,6 +9,11 @@ import {
 } from "react";
 import { useCart } from "@/components/CartProvider";
 import { ProductImage } from "@/components/ProductImage";
+import {
+  formatFreeShippingThreshold,
+  qualifiesForFreeStandardShipping,
+  remainingForFreeStandardShipping,
+} from "@/content/support/policy";
 import { formatPrice, type ProductMedia } from "@/lib/products";
 
 function isPlainSameTabClick(event: MouseEvent<HTMLAnchorElement>) {
@@ -34,6 +39,8 @@ export function CartView({
   const isDrawer = mode === "drawer";
   const pathname = usePathname();
   const [pendingCartRoute, setPendingCartRoute] = useState(false);
+  const freeShippingQualified = qualifiesForFreeStandardShipping(subtotal);
+  const freeShippingRemaining = remainingForFreeStandardShipping(subtotal);
 
   useEffect(() => {
     if (!isDrawer || !pendingCartRoute || pathname !== "/cart") return;
@@ -174,7 +181,15 @@ export function CartView({
         </div>
         <div className="summary-row">
           <span>Checkout</span>
-          <span>Development placeholder</span>
+          <span>Not available yet</span>
+        </div>
+        <div className="summary-row">
+          <span>Standard shipping</span>
+          <span>
+            {freeShippingQualified
+              ? "Free threshold met"
+              : `Free at ${formatFreeShippingThreshold()}`}
+          </span>
         </div>
         <button type="button" className="btn" disabled>
           Checkout unavailable
@@ -188,7 +203,9 @@ export function CartView({
           View cart
         </Link>
         <p className="cart-summary__note">
-          Checkout is not implemented. No payment is taken.
+          {freeShippingQualified
+            ? "Your cart meets the planned free standard shipping threshold. Checkout is not available yet, so no payment is taken."
+            : `${formatPrice(freeShippingRemaining)} away from the planned free standard shipping threshold. Checkout is not available yet, so no payment is taken.`}
         </p>
       </aside>
     </div>

@@ -60,8 +60,8 @@ export default async function AccountPage() {
         <article className="account-section">
           <h2>Orders</h2>
           <p className="account-muted">
-            Order history will appear here once checkout is implemented. No
-            orders exist in this development storefront.
+            Order history will appear here once online checkout and order
+            creation are available.
           </p>
         </article>
       </section>

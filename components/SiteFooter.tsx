@@ -49,18 +49,18 @@ export function SiteFooter() {
 
           <FooterMobileGroups groups={footerLinkGroups} />
 
-          <aside className="site-footer__support" aria-label="Support status">
-            <p className="eyebrow">Support status</p>
+          <aside className="site-footer__support" aria-label="Customer care">
+            <p className="eyebrow">Customer care</p>
             <p>
-              Checkout, shipping, returns, order support, newsletter delivery,
-              and social profiles are not live in this development storefront.
+              Review product, shipping, return, privacy, and accessibility
+              details before public support intake opens.
             </p>
-            <Link href="/contact">Contact routing</Link>
+            <Link href="/contact">Contact</Link>
           </aside>
         </div>
 
         <div className="site-footer__utility">
-          <p>&copy; {year} Mei-Pelle. Development storefront.</p>
+          <p>&copy; {year} Mei-Pelle. All rights reserved.</p>
           <div className="site-footer__utility-links">
             <CookiePreferencesDialog triggerClassName="site-footer__utility-button" />
             <Link href="/privacy-choices">Your Privacy Choices</Link>
@@ -72,4 +72,3 @@ export function SiteFooter() {
     </footer>
   );
 }
-

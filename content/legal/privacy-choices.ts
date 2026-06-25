@@ -3,10 +3,9 @@ import type { LegalDocument } from "./types";
 export const privacyChoices: LegalDocument = {
   title: "Your Privacy Choices",
   metadataTitle: "Your Privacy Choices | Mei-Pelle",
-  description:
-    "Current privacy-choice behavior for the Mei-Pelle development storefront.",
+  description: "Current privacy-choice behavior for the Mei-Pelle website.",
   canonical: "/privacy-choices",
-  status: "Development draft - current as of June 20, 2026",
+  status: "Last updated June 24, 2026",
   intro:
     "The current site does not include advertising pixels, cross-context behavioral advertising, or a sale/share opt-out workflow. This page explains the current status and links to related controls.",
   sections: [
@@ -14,7 +13,7 @@ export const privacyChoices: LegalDocument = {
       id: "current-status",
       title: "Current Status",
       body: [
-        "The repository does not include advertising tags, behavioral advertising scripts, or a data-sale workflow. Because those categories are not active, this page does not show a fake opt-out switch.",
+        "The site does not include advertising tags, behavioral advertising scripts, or a data-sale workflow. Because those categories are not active, this page does not show an inactive opt-out switch.",
       ],
     },
     {
@@ -30,7 +29,7 @@ export const privacyChoices: LegalDocument = {
       id: "requests",
       title: "Privacy Requests",
       body: [
-        "Use the Contact page to prepare access, correction, deletion, or privacy-choice request details. A real request intake channel must be configured before launch.",
+        "Use the Contact page to prepare access, correction, deletion, or privacy-choice request details while Mei-Pelle finalizes a verified public privacy intake channel.",
       ],
     },
     {
@@ -42,4 +41,3 @@ export const privacyChoices: LegalDocument = {
     },
   ],
 };
-

@@ -8,8 +8,8 @@ const footerPages = [
   "/about",
   "/cart",
   "/account/sign-in",
-  "/privacy-policy",
-  "/terms-of-service",
+  "/privacy",
+  "/terms",
   "/cookie-policy",
   "/privacy-choices",
   "/accessibility",
@@ -102,12 +102,17 @@ test("global footer renders across public routes without unsupported links", asy
     await page.goto(route);
     await expect(page.locator(".site-footer")).toBeVisible();
     await expect(page.locator(".site-footer").getByRole("heading", { name: "MEI-PELLE" })).toBeVisible();
-    await expect(page.locator(".site-footer")).toContainText("EMAIL UPDATES COMING SOON");
-    await expect(page.locator(".site-footer a[href='/privacy-policy']")).not.toHaveCount(0);
+    await expect(page.locator(".site-footer")).toContainText("EMAIL UPDATES ARE NOT OPEN");
+    await expect(page.locator(".site-footer a[href='/privacy']")).not.toHaveCount(0);
+    await expect(page.locator(".site-footer a[href='/terms']")).not.toHaveCount(0);
+    await expect(page.locator(".site-footer a[href='/faq#shipping']")).not.toHaveCount(0);
+    await expect(page.locator(".site-footer a[href='/faq#returns']")).not.toHaveCount(0);
     await expect(page.locator(".site-footer a[href='/privacy-choices']")).not.toHaveCount(0);
+    await expect(page.locator(".site-footer").getByRole("link", { name: "Rewards" })).toHaveCount(0);
     await expect(page.locator(".site-footer").getByRole("link", { name: "Store Locator" })).toHaveCount(0);
     await expect(page.locator(".site-footer").getByRole("link", { name: "Events" })).toHaveCount(0);
     await expect(page.locator(".site-footer").getByRole("link", { name: "Instagram" })).toHaveCount(0);
+    await expect(page.locator(".site-footer")).not.toContainText("Development storefront");
 
     const hasHorizontalOverflow = await page.evaluate(
       () => document.documentElement.scrollWidth > window.innerWidth + 1,
@@ -225,29 +230,43 @@ test("mobile footer accordions and cookie preferences are keyboard reachable", a
   await expect(dialog).toHaveCount(0);
 });
 
-test("FAQ accordions and contact validation reflect current functionality", async ({
+test("FAQ anchors and contact route reflect current functionality", async ({
   page,
 }) => {
   await page.goto("/faq");
   await expect(page.getByRole("heading", { level: 1, name: "FAQ" })).toBeVisible();
-  await page.getByRole("button", { name: "Is checkout currently available?" }).click();
-  await expect(page.getByText("Checkout is a development placeholder.")).toBeVisible();
+  await expect(page.locator("#shipping")).toBeVisible();
+  await expect(page.locator("#returns")).toBeVisible();
+  await expect(page.getByText("Can I place an order right now?")).toBeVisible();
+  await expect(page.getByText("Online checkout is not available yet")).toBeVisible();
+  await expect(page.locator("body")).toContainText("$50+");
+  await expect(page.locator("body")).not.toContainText("Development storefront");
   await expect(page.locator("body")).not.toContainText("returns are accepted");
 
   await page.goto("/contact");
   await expect(page.getByRole("heading", { level: 1, name: "CONTACT" })).toBeVisible();
-  await page.getByRole("button", { name: "Check message" }).click();
-  await expect(page.getByText("Enter your name.")).toBeVisible();
-  await expect(page.getByRole("status")).toContainText("No message was sent");
-
-  await page.getByLabel("Name").fill("Alex Morgan");
-  await page.getByLabel("Email").fill("alex@example.com");
-  await page.getByLabel("Inquiry type").selectOption("privacy");
-  await page.getByLabel("Subject").fill("Privacy request");
-  await page
-    .getByLabel("Message")
-    .fill("I would like to understand what account data is currently stored.");
-  await page.getByRole("button", { name: "Check message" }).click();
-  await expect(page.getByRole("status")).toContainText("No message was sent or stored");
+  await expect(page.getByText("PUBLIC SUPPORT INTAKE PENDING")).toBeVisible();
+  await expect(page.getByText("does not include a message form")).toBeVisible();
+  await expect(page.locator("form")).toHaveCount(0);
   await expect(page.getByText("Message sent successfully")).toHaveCount(0);
+});
+
+test("legacy support and legal routes redirect to canonical pages", async ({ page }) => {
+  const redirects = [
+    { from: "/privacy-policy", to: /\/privacy$/ },
+    { from: "/terms-of-service", to: /\/terms$/ },
+    { from: "/support", to: /\/faq$/ },
+    { from: "/shipping", to: /\/faq#shipping$/ },
+    { from: "/shipping-policy", to: /\/faq#shipping$/ },
+    { from: "/returns", to: /\/faq#returns$/ },
+    { from: "/returns-exchanges", to: /\/faq#returns$/ },
+    { from: "/refund-policy", to: /\/faq#returns$/ },
+    { from: "/rewards", to: /\/faq#rewards$/ },
+  ] as const;
+
+  for (const redirect of redirects) {
+    await page.goto(redirect.from);
+    await expect(page).toHaveURL(redirect.to);
+    await expect(page.locator("main")).toBeVisible();
+  }
 });

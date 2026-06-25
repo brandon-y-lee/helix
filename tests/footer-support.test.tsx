@@ -1,7 +1,6 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
-import { ContactForm } from "@/components/ContactForm";
 import { FAQAccordion } from "@/components/FAQAccordion";
 import { SiteFooter } from "@/components/SiteFooter";
 import { footerLinkGroups } from "@/content/footer";
@@ -10,7 +9,15 @@ import { cookieCategories, cookiePolicy } from "@/content/legal/cookies";
 import { privacyChoices } from "@/content/legal/privacy-choices";
 import { privacyPolicy } from "@/content/legal/privacy";
 import { termsOfService } from "@/content/legal/terms";
+import { contactIntakeStatus } from "@/content/support/contact";
 import { faqCategories } from "@/content/support/faq";
+import {
+  FREE_STANDARD_SHIPPING_THRESHOLD_CENTS,
+  formatFreeShippingThreshold,
+  qualifiesForFreeStandardShipping,
+  remainingForFreeStandardShipping,
+} from "@/content/support/policy";
+import ContactPage from "@/app/contact/page";
 
 function documentText(values: unknown): string {
   return JSON.stringify(values);
@@ -22,11 +29,43 @@ describe("global footer", () => {
 
     expect(screen.getByRole("heading", { name: "MEI-PELLE" })).toBeInTheDocument();
     expect(screen.getByText("STAY IN THE SYSTEM.")).toBeInTheDocument();
-    expect(screen.getByText("EMAIL UPDATES COMING SOON")).toBeInTheDocument();
+    expect(screen.getByText("EMAIL UPDATES ARE NOT OPEN")).toBeInTheDocument();
     expect(screen.queryByRole("textbox", { name: /email/i })).not.toBeInTheDocument();
     expect(
       screen.getByText(new RegExp(String(new Date().getFullYear()))),
     ).toBeInTheDocument();
+
+    expect(footerLinkGroups).toEqual([
+      {
+        id: "navigate",
+        label: "Navigate",
+        links: [
+          { label: "Shop", href: "/products" },
+          { label: "Method", href: "/method" },
+          { label: "About", href: "/about" },
+          { label: "Account", href: "/account" },
+        ],
+      },
+      {
+        id: "support",
+        label: "Support",
+        links: [
+          { label: "FAQ", href: "/faq" },
+          { label: "Contact", href: "/contact" },
+          { label: "Shipping", href: "/faq#shipping" },
+          { label: "Returns & Refunds", href: "/faq#returns" },
+        ],
+      },
+      {
+        id: "legal",
+        label: "Legal",
+        links: [
+          { label: "Privacy", href: "/privacy" },
+          { label: "Terms", href: "/terms" },
+          { label: "Accessibility", href: "/accessibility" },
+        ],
+      },
+    ]);
 
     for (const group of footerLinkGroups) {
       expect(screen.getAllByText(group.label).length).toBeGreaterThan(0);
@@ -35,6 +74,7 @@ describe("global footer", () => {
       }
     }
 
+    expect(screen.queryByRole("link", { name: /rewards/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /store locator/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /^events$/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /instagram/i })).not.toBeInTheDocument();
@@ -67,7 +107,7 @@ describe("global footer", () => {
 });
 
 describe("legal and support content", () => {
-  it("matches actual data practices and avoids unresolved placeholders", () => {
+  it("matches actual data practices and avoids unresolved public placeholders", () => {
     const combined = documentText({
       privacyPolicy,
       termsOfService,
@@ -77,11 +117,16 @@ describe("legal and support content", () => {
     });
 
     expect(combined).not.toMatch(/\[INSERT|INSERT COMPANY|hello@rhodeskin|afterpay/i);
+    expect(combined).not.toMatch(
+      /development storefront|development platform|demo|test store|placeholder/i,
+    );
     expect(combined).not.toMatch(/mandatory arbitration|class-action waiver|jury-trial waiver/i);
-    expect(combined).not.toMatch(/real payments are available|shipping times|returns are accepted/i);
-    expect(combined).toMatch(/Checkout and real payments are not implemented/i);
-    expect(combined).toMatch(/does not transmit or store contact messages/i);
+    expect(combined).not.toMatch(/real payments are available|returns are accepted/i);
+    expect(combined).toMatch(/Online checkout is not available yet/i);
+    expect(combined).toMatch(/does not submit or store messages/i);
     expect(combined).toMatch(/WCAG 2\.2 AA/i);
+    expect(privacyPolicy.canonical).toBe("/privacy");
+    expect(termsOfService.canonical).toBe("/terms");
   });
 
   it("documents only current cookie categories", () => {
@@ -94,41 +139,59 @@ describe("legal and support content", () => {
     );
   });
 
-  it("renders FAQ categories and opens accordions without unsupported claims", async () => {
+  it("defines and applies the shared free standard shipping threshold", () => {
+    expect(FREE_STANDARD_SHIPPING_THRESHOLD_CENTS).toBe(5000);
+    expect(formatFreeShippingThreshold()).toBe("$50+");
+    expect(qualifiesForFreeStandardShipping(4999)).toBe(false);
+    expect(qualifiesForFreeStandardShipping(5000)).toBe(true);
+    expect(qualifiesForFreeStandardShipping(7500)).toBe(true);
+    expect(qualifiesForFreeStandardShipping(-1)).toBe(false);
+    expect(qualifiesForFreeStandardShipping(Number.NaN)).toBe(false);
+    expect(remainingForFreeStandardShipping(4999)).toBe(1);
+    expect(remainingForFreeStandardShipping(5000)).toBe(0);
+  });
+
+  it("renders FAQ categories with canonical anchors and native disclosures", async () => {
     const user = userEvent.setup();
     render(<FAQAccordion categories={faqCategories} />);
 
     expect(screen.getByRole("link", { name: "Products" })).toHaveAttribute(
       "href",
-      "#faq-products",
+      "#products",
     );
-    const checkoutQuestion = screen.getByRole("button", {
-      name: /Is checkout currently available/i,
-    });
-    await user.click(checkoutQuestion);
-    expect(screen.getByText(/Checkout is a development placeholder/i)).toBeInTheDocument();
-    expect(document.body).not.toHaveTextContent(/shipping times|returns are accepted|vegan/i);
+    expect(screen.getByRole("link", { name: "Shipping" })).toHaveAttribute(
+      "href",
+      "#shipping",
+    );
+    expect(screen.getByRole("link", { name: "Returns & Refunds" })).toHaveAttribute(
+      "href",
+      "#returns",
+    );
+
+    const orderSummary = screen.getByText("Can I place an order right now?");
+    const orderDetails = orderSummary.closest("details");
+    expect(orderDetails).toHaveAttribute("open");
+    expect(
+      screen.getByText(/Online checkout is not available yet/i),
+    ).toBeInTheDocument();
+    await user.click(orderSummary);
+    expect(orderDetails).not.toHaveAttribute("open");
+
+    const faqText = document.body.textContent ?? "";
+    expect(faqText).toContain("$50+");
+    expect(faqText).not.toMatch(
+      /development storefront|development platform|demo|test store|placeholder/i,
+    );
   });
 
-  it("validates contact fields and never fakes submission success", async () => {
-    const user = userEvent.setup();
-    render(<ContactForm />);
+  it("renders contact routing without a nonfunctional submission form", () => {
+    render(<ContactPage />);
 
-    await user.click(screen.getByRole("button", { name: "Check message" }));
-    expect(screen.getByText("Enter your name.")).toBeInTheDocument();
-    expect(screen.getByRole("status")).toHaveTextContent("No message was sent");
-
-    await user.type(screen.getByLabelText("Name"), "Alex Morgan");
-    await user.type(screen.getByLabelText("Email"), "alex@example.com");
-    await user.selectOptions(screen.getByLabelText("Inquiry type"), "privacy");
-    await user.type(screen.getByLabelText("Subject"), "Privacy request");
-    await user.type(
-      screen.getByLabelText("Message"),
-      "I would like to understand what account data is currently stored.",
-    );
-    await user.click(screen.getByRole("button", { name: "Check message" }));
-
-    expect(screen.getByRole("status")).toHaveTextContent("No message was sent or stored");
+    expect(screen.getByRole("heading", { level: 1, name: "CONTACT" })).toBeInTheDocument();
+    expect(screen.getByText(contactIntakeStatus.heading)).toBeInTheDocument();
+    expect(screen.getByText(/does not include a message form/i)).toBeInTheDocument();
+    expect(screen.queryByRole("form")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /send|submit|check message/i })).not.toBeInTheDocument();
     expect(screen.queryByText(/message sent successfully/i)).not.toBeInTheDocument();
   });
 });

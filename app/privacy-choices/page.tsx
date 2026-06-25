@@ -30,7 +30,7 @@ export default function PrivacyChoicesPage() {
         </p>
         <div className="hero__actions">
           <CookiePreferencesDialog triggerClassName="btn" />
-          <Link href="/privacy-policy" className="btn btn--ghost">
+          <Link href="/privacy" className="btn btn--ghost">
             Privacy Policy
           </Link>
         </div>
@@ -38,4 +38,3 @@ export default function PrivacyChoicesPage() {
     </LegalDocumentLayout>
   );
 }
-

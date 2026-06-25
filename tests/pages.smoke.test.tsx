@@ -28,8 +28,8 @@ import ContactPage from "@/app/contact/page";
 import CookiePolicyPage from "@/app/cookie-policy/page";
 import FAQPage from "@/app/faq/page";
 import PrivacyChoicesPage from "@/app/privacy-choices/page";
-import PrivacyPolicyPage from "@/app/privacy-policy/page";
-import TermsOfServicePage from "@/app/terms-of-service/page";
+import PrivacyPage from "@/app/privacy/page";
+import TermsPage from "@/app/terms/page";
 import { CartProvider } from "@/components/CartProvider";
 import { getCachedProducts } from "@/lib/catalog-cache";
 import type { Product } from "@/lib/products";
@@ -306,8 +306,8 @@ describe("storefront page smoke", () => {
     const pages = [
       { element: <FAQPage />, heading: /^FAQ$/i },
       { element: <ContactPage />, heading: /^Contact$/i },
-      { element: <PrivacyPolicyPage />, heading: /^Privacy Policy$/i },
-      { element: <TermsOfServicePage />, heading: /^Terms of Service$/i },
+      { element: <PrivacyPage />, heading: /^Privacy Policy$/i },
+      { element: <TermsPage />, heading: /^Terms of Service$/i },
       { element: <CookiePolicyPage />, heading: /^Cookie Policy$/i },
       { element: <PrivacyChoicesPage />, heading: /^Your Privacy Choices$/i },
       { element: <AccessibilityPage />, heading: /^Accessibility Statement$/i },

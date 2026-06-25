@@ -1,3 +1,10 @@
+import {
+  formatFreeShippingThreshold,
+  returnsPolicy,
+  shippingPolicy,
+  supportPolicy,
+} from "@/content/support/policy";
+
 export type FAQItem = {
   id: string;
   question: string;
@@ -16,180 +23,264 @@ export const faqCategories: FAQCategory[] = [
   {
     id: "products",
     label: "Products",
-    summary: "What is available, where ingredient facts live, and how to choose.",
+    summary: "Product selection, ingredient facts, suitability, and routine fit.",
     items: [
       {
         id: "what-is-mei-pelle",
         question: "What is Mei-Pelle?",
         answer:
-          "Mei-Pelle is a development storefront for an original prestige men's skincare system built around concise product steps and routine discipline.",
+          "Mei-Pelle is a prestige men's skincare system built around concise product steps, ingredient literacy, and a disciplined daily routine.",
       },
       {
         id: "available-products",
-        question: "What products are currently available?",
+        question: "What products are in the current system?",
         answer:
-          "The current catalog centers on RESET, REFINE, RECODE, FRAME, SEAL, and LIFT. PROTECT is shown on the Method page as a coming-soon sunscreen step, not as purchasable merchandise.",
+          "The current catalog centers on RESET, REFINE, RECODE, FRAME, SEAL, and LIFT. PROTECT appears in the Method as a sunscreen step that is not currently offered for purchase.",
         links: [{ label: "Shop the system", href: "/products" }],
+      },
+      {
+        id: "choose-products",
+        question: "Where should I start?",
+        answer:
+          "Start with the foundation: cleanse, treat, and moisturize. Add eye care, weekly treatment, and sunscreen steps only when they match your routine and tolerance. More steps are not automatically better.",
+        links: [{ label: "View the Method", href: "/method" }],
       },
       {
         id: "full-ingredients",
         question: "Where can I find full ingredients?",
         answer:
-          "Product detail pages include ingredient and formulation sections when the catalog has complete ingredient information. If a complete INCI list is unavailable, the page should say so honestly.",
+          "Product detail pages include ingredient and formulation sections when complete ingredient information is available. If a complete INCI list is not available, the page should say so plainly.",
       },
       {
-        id: "suitability",
+        id: "skin-suitability",
         question: "Are products suitable for every skin type?",
         answer:
-          "No product should be treated as universal. Review the product page, directions, and cautions, and patch test when introducing a new formula.",
+          "No single formula is universal. Review the product page, directions, and cautions, and patch test when introducing a new product. Stop use if irritation occurs.",
+      },
+      {
+        id: "medical-advice",
+        question: "Is Mei-Pelle medical advice?",
+        answer:
+          "No. Product pages and ingredient notes are cosmetic and educational. They are not medical advice, diagnosis, or treatment, and they should not replace guidance from a qualified clinician.",
       },
     ],
   },
   {
-    id: "method",
-    label: "Method",
-    summary: "Order, timing, and frequency for the current system.",
-    items: [
-      {
-        id: "routine-order",
-        question: "What order should products be used in?",
-        answer:
-          "Use the Method sequence: RESET, REFINE, RECODE, FRAME, SEAL, PROTECT in the morning, and LIFT as a weekly intensive.",
-        links: [{ label: "View the Method", href: "/method" }],
-      },
-      {
-        id: "am-routine",
-        question: "What is the AM routine?",
-        answer:
-          "Morning routine: cleanse, treat, eye, moisturize, and finish with broad-spectrum SPF. Mei-Pelle's PROTECT step is coming soon.",
-      },
-      {
-        id: "pm-routine",
-        question: "What is the PM routine?",
-        answer:
-          "Night routine: cleanse, treat, eye, and moisturize. Use frequency-dependent steps exactly as the product page directs.",
-      },
-      {
-        id: "refine-lift-frequency",
-        question: "How often should REFINE or LIFT be used?",
-        answer:
-          "Follow the current product directions. REFINE is a treatment step with frequency restraint; LIFT is positioned as a weekly intensive.",
-      },
-    ],
-  },
-  {
-    id: "ingredients",
-    label: "Ingredients",
-    summary: "Plain-language ingredient education without medical claims.",
-    items: [
-      {
-        id: "pdrn",
-        question: "What is PDRN?",
-        answer:
-          "In the current Method content, PDRN is described as Sodium DNA used in topical cosmetics as a conditioning ingredient. The site does not claim DNA repair, wound healing, or medical regeneration.",
-      },
-      {
-        id: "peptides",
-        question: "What are peptides?",
-        answer:
-          "Peptides are short amino-acid sequences. Their cosmetic role depends on the exact sequence, stability, concentration, and formula context.",
-      },
-      {
-        id: "niacinamide",
-        question: "Why use niacinamide?",
-        answer:
-          "Niacinamide is a vitamin B3 derivative used in cosmetics for broad conditioning, barrier-feel, tone, and oil-balance appearance support.",
-      },
-      {
-        id: "barrier-support",
-        question: "What does barrier support mean?",
-        answer:
-          "Mei-Pelle uses barrier support as cosmetic comfort and conditioning language. It is not an eczema, wound-healing, or medical-treatment claim.",
-      },
-    ],
-  },
-  {
-    id: "account",
-    label: "Account",
-    summary: "Sign-up, verification, reset links, and profile tools.",
+    id: "accounts",
+    label: "Accounts",
+    summary: "Sign-in, verification, password reset, and cart merge behavior.",
     items: [
       {
         id: "create-account",
         question: "How do I create an account?",
         answer:
-          "Use the Account page to sign up with email and password. Supabase handles authentication and email verification.",
+          "Use the Account page to sign up with email and password. Supabase handles authentication, session cookies, verification, and password reset links.",
         links: [{ label: "Account", href: "/account" }],
       },
       {
         id: "verify-email",
         question: "How do I verify my email?",
         answer:
-          "After signup, follow the verification link sent by the authentication provider. Local email delivery depends on the configured development Supabase project.",
+          "After signup, follow the verification link sent by the authentication provider. Email delivery depends on the configured authentication project.",
       },
       {
         id: "reset-password",
         question: "How do I reset my password?",
         answer:
-          "Use the forgot-password flow from the Account page. If an account exists, reset instructions are sent through Supabase.",
+          "Use the forgot-password flow from the Account page. If an account exists, reset instructions are sent through the authentication provider.",
       },
       {
-        id: "update-profile",
-        question: "How do I update my profile?",
+        id: "guest-cart",
+        question: "What happens to my guest cart if I sign in?",
+        answer:
+          "Guest carts use a secure cart token. After sign-in, eligible guest cart lines merge into the authenticated cart so you can keep reviewing the same routine.",
+      },
+      {
+        id: "profile-updates",
+        question: "Can I update my profile?",
         answer:
           "Signed-in users can update optional first and last name fields from the Account dashboard.",
       },
     ],
   },
   {
-    id: "cart",
-    label: "Cart and Availability",
-    summary: "Cart persistence, variants, unavailable items, and checkout status.",
+    id: "orders",
+    label: "Orders",
+    summary: "Current cart and checkout status without payment or fulfillment claims.",
     items: [
       {
-        id: "cart-persistence",
-        question: "Does the cart persist?",
+        id: "checkout-availability",
+        question: "Can I place an order right now?",
         answer:
-          "Yes. Guest carts use a secure HttpOnly cart token and authenticated carts persist through Supabase. Guest carts merge after sign-in.",
+          "No. Online checkout is not available yet, and this site does not collect payment, shipping address, billing address, tax, fulfillment, or live order records.",
       },
       {
-        id: "variants",
-        question: "How are variants handled?",
+        id: "cart-purpose",
+        question: "What is the cart for?",
         answer:
-          "Cart lines are variant-specific. Prices and availability are validated against canonical catalog data on the server.",
+          "The cart lets you review products, variants, quantities, and subtotals before checkout is available. Prices and availability are validated against the catalog on the server.",
+        links: [{ label: "View cart", href: "/cart" }],
       },
       {
-        id: "unavailable",
-        question: "What happens when an item becomes unavailable?",
+        id: "order-history",
+        question: "Where is my order history?",
         answer:
-          "Unavailable or archived cart lines remain removable and should not crash the cart.",
+          "Order history will appear in the Account area after online checkout and order creation are added. No purchase records are created by the current site.",
       },
       {
-        id: "checkout",
-        question: "Is checkout currently available?",
+        id: "edit-order",
+        question: "Can I edit or cancel an order?",
         answer:
-          "No. Checkout is a development placeholder. Real payments, shipping, tax, fulfillment, and orders are not implemented.",
+          "Order edits and cancellations are not available because the site does not create orders yet. Review product choices in the cart before any future checkout flow is enabled.",
+      },
+    ],
+  },
+  {
+    id: "shipping",
+    label: "Shipping",
+    summary: "Planned standard shipping policy, threshold, timing, and limits.",
+    items: [
+      {
+        id: "free-shipping",
+        question: "Does Mei-Pelle offer free standard shipping?",
+        answer: `Standard shipping is planned to be free on eligible United States orders of ${formatFreeShippingThreshold()} before taxes and any discounts that change the merchandise subtotal.`,
+      },
+      {
+        id: "shipping-destinations",
+        question: "Where will Mei-Pelle ship?",
+        answer:
+          shippingPolicy.destinationSummary +
+          " International, expedited, freight forwarder, and resale shipping terms are not available unless Mei-Pelle publishes them later.",
+      },
+      {
+        id: "shipping-timing",
+        question: "How long will shipping take?",
+        answer: `The planned estimate is ${shippingPolicy.processingWindow} for processing, then ${shippingPolicy.transitWindow}. Carrier tracking can take ${shippingPolicy.trackingWindow} to update.`,
+      },
+      {
+        id: "shipping-address-changes",
+        question: "Can I change my shipping address after checkout?",
+        answer:
+          "Address-change support is not available yet because checkout is not available. Future order support should confirm whether an address can be changed before fulfillment starts.",
+      },
+    ],
+  },
+  {
+    id: "returns",
+    label: "Returns & Refunds",
+    summary: "Return windows, damaged items, exchanges, and refund timing.",
+    items: [
+      {
+        id: "return-window",
+        question: "What is the return window?",
+        answer: `Mei-Pelle's planned return window is ${returnsPolicy.returnWindowDays} days from delivery for eligible items. ${returnsPolicy.condition}`,
+      },
+      {
+        id: "damaged-missing",
+        question: "What if an item arrives damaged, missing, or incorrect?",
+        answer: `Report the issue within ${returnsPolicy.issueReportWindowDays} days of delivery and keep packaging, order details, and clear photos. Approved claims may be resolved with a replacement, refund, or other remedy when order support exists.`,
+      },
+      {
+        id: "refund-timing",
+        question: "When will I receive a refund?",
+        answer: `Approved refunds are planned to be processed within ${returnsPolicy.refundProcessingWindow}. Your bank or card issuer may take additional time to post the credit.`,
+      },
+      {
+        id: "exchanges",
+        question: "Do you offer exchanges?",
+        answer:
+          "Direct exchanges are not planned as a default flow. If a damaged, missing, or incorrect item claim is approved, Mei-Pelle may offer a replacement when inventory and support operations allow.",
+      },
+      {
+        id: "shipping-costs",
+        question: "Are original shipping costs refundable?",
+        answer:
+          "Original shipping costs are not planned to be refundable unless Mei-Pelle caused the issue or applicable law requires a different result.",
+      },
+    ],
+  },
+  {
+    id: "rewards",
+    label: "Rewards",
+    summary: "Current rewards, points, and promotion status.",
+    items: [
+      {
+        id: "rewards-program",
+        question: "Does Mei-Pelle have a rewards program?",
+        answer:
+          "No rewards, points, loyalty, affiliate, referral, or subscription engine is active. Any future program should publish eligibility, earning, redemption, expiration, and account rules before customer use.",
+      },
+      {
+        id: "promo-codes",
+        question: "Can I use a promo code?",
+        answer:
+          "Promo-code checkout is not available yet. Any future promotion should state its eligibility, end date, discount basis, exclusions, and whether it affects the free standard shipping threshold.",
       },
     ],
   },
   {
     id: "contact",
     label: "Contact",
-    summary: "How to route questions without collecting unsupported data.",
+    summary: "Support routing and the current intake limitation.",
     items: [
       {
         id: "contact-topics",
         question: "What can I contact Mei-Pelle about?",
         answer:
-          "The Contact page includes product questions, ingredient or routine questions, account support, cart or technical issues, accessibility feedback, privacy requests, partnerships, wholesale, and general inquiries.",
+          "The Contact page organizes product, Method, account, cart, accessibility, privacy, partnership, wholesale, and general inquiry topics so the right information is ready when public support intake opens.",
         links: [{ label: "Contact", href: "/contact" }],
       },
       {
-        id: "contact-transport",
-        question: "Will the Contact page send my message?",
+        id: "contact-intake",
+        question: "Can I send Mei-Pelle a message through the site?",
         answer:
-          "Not yet. The development site validates the fields but does not transmit or store contact messages until a support transport is configured.",
+          supportPolicy.contactStatus +
+          " The Contact page does not submit or store messages until a verified intake channel is published.",
+      },
+      {
+        id: "private-details",
+        question: "What should I avoid sending?",
+        answer:
+          "Do not send card numbers, passwords, government IDs, health records, or other sensitive information through unofficial channels.",
+      },
+    ],
+  },
+  {
+    id: "policies",
+    label: "Policies",
+    summary: "Privacy, terms, accessibility, cookies, and privacy choices.",
+    items: [
+      {
+        id: "privacy",
+        question: "Where is the Privacy Policy?",
+        answer:
+          "The Privacy Policy explains account, cart, search, cookie, support-intake, and provider data practices for the current site.",
+        links: [{ label: "Privacy Policy", href: "/privacy" }],
+      },
+      {
+        id: "terms",
+        question: "Where are the Terms of Service?",
+        answer:
+          "The Terms explain site use, accounts, product information, cart status, acceptable use, intellectual property, and service limits.",
+        links: [{ label: "Terms of Service", href: "/terms" }],
+      },
+      {
+        id: "accessibility",
+        question: "Where is the Accessibility Statement?",
+        answer:
+          "The Accessibility Statement explains Mei-Pelle's WCAG target, implemented practices, testing approach, and feedback path.",
+        links: [{ label: "Accessibility Statement", href: "/accessibility" }],
+      },
+      {
+        id: "cookies",
+        question: "Where can I manage cookie preferences?",
+        answer:
+          "Cookie Preferences explains the current essential-cookie setup and inactive optional categories. Your Privacy Choices explains the current state of sale, sharing, and targeted advertising controls.",
+        links: [
+          { label: "Cookie Policy", href: "/cookie-policy" },
+          { label: "Your Privacy Choices", href: "/privacy-choices" },
+        ],
       },
     ],
   },
 ];
-

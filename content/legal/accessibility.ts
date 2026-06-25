@@ -4,17 +4,17 @@ export const accessibilityStatement: LegalDocument = {
   title: "Accessibility Statement",
   metadataTitle: "Accessibility Statement | Mei-Pelle",
   description:
-    "Mei-Pelle's current accessibility target and feedback path for the development storefront.",
+    "Mei-Pelle's accessibility target, implemented practices, known limitations, and feedback path.",
   canonical: "/accessibility",
-  status: "Development statement - current as of June 20, 2026",
+  status: "Last updated June 24, 2026",
   intro:
-    "Mei-Pelle is built with accessibility as an engineering requirement. The current target is WCAG 2.2 AA for implemented storefront, account, cart, search, footer, support, and legal flows.",
+    "Mei-Pelle aims to provide a usable, accessible storefront experience for visitors using keyboard, screen-reader, magnification, touch, and pointer input.",
   sections: [
     {
       id: "target",
-      title: "Current Target",
+      title: "Target",
       body: [
-        "The current design and engineering target is WCAG 2.2 AA. This is a target for active development, not a formal certification.",
+        "The design and engineering target is WCAG 2.2 AA for implemented storefront, account, cart, search, footer, support, and legal flows. This is a target, not a formal certification.",
       ],
     },
     {
@@ -26,6 +26,7 @@ export const accessibilityStatement: LegalDocument = {
       list: [
         "Skip link to main content.",
         "Keyboard-operable search and cart drawers.",
+        "Native FAQ disclosure controls.",
         "Accessible mobile navigation and footer accordions.",
         "Focus-visible treatment for links, controls, and dialogs.",
         "Reduced-motion support for animation-heavy states.",
@@ -35,14 +36,15 @@ export const accessibilityStatement: LegalDocument = {
       id: "testing",
       title: "Testing and Improvement",
       body: [
-        "Accessibility checks are included in component and Playwright coverage for the implemented flows. Manual keyboard and responsive review should continue before launch.",
+        "Accessibility checks are included in component and Playwright coverage for implemented flows. Manual keyboard, screen-reader, responsive, and reduced-motion review should continue before major releases.",
       ],
     },
     {
       id: "feedback",
       title: "Feedback",
       body: [
-        "Use the Contact page and choose Accessibility feedback to prepare feedback details. The development site does not transmit messages until support transport is configured.",
+        "Use the Contact page and choose Accessibility feedback to prepare page, device, browser, assistive technology, and task details.",
+        "Mei-Pelle should publish a verified public accessibility feedback channel before relying on customer-submitted accessibility reports.",
       ],
     },
     {
@@ -50,6 +52,7 @@ export const accessibilityStatement: LegalDocument = {
       title: "Known Limitations",
       body: [
         "No third-party accessibility audit, formal conformance report, or accessibility vendor certification has been completed in this repository.",
+        "Some provider-controlled experiences may have separate accessibility behavior outside Mei-Pelle's direct control.",
       ],
     },
   ],

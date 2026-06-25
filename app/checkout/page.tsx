@@ -11,8 +11,9 @@ export default function CheckoutPage() {
         <h1>Checkout</h1>
       </div>
       <p className="empty-state">
-        Checkout is a development placeholder. Real payments are not
-        implemented.
+        Online checkout is not available yet. This site does not collect
+        payment, shipping address, billing address, tax, fulfillment, or live
+        order information.
       </p>
     </div>
   );

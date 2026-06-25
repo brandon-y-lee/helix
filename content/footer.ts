@@ -17,9 +17,8 @@ export const footerUpdateModule = {
   eyebrow: "Updates",
   heading: "STAY IN THE SYSTEM.",
   summary: "Product releases, formula notes, and method updates.",
-  status: "EMAIL UPDATES COMING SOON",
-  note:
-    "Newsletter storage and delivery are not configured yet, so this site does not collect email signups.",
+  status: "EMAIL UPDATES ARE NOT OPEN",
+  note: "Mei-Pelle is not collecting newsletter email addresses right now.",
 };
 
 export const footerLinkGroups: FooterLinkGroup[] = [
@@ -39,19 +38,17 @@ export const footerLinkGroups: FooterLinkGroup[] = [
     links: [
       { label: "FAQ", href: "/faq" },
       { label: "Contact", href: "/contact" },
-      { label: "Cart", href: "/cart" },
-      { label: "Routine Guidance", href: "/method#method-routine" },
+      { label: "Shipping", href: "/faq#shipping" },
+      { label: "Returns & Refunds", href: "/faq#returns" },
     ],
   },
   {
-    id: "official",
-    label: "Official",
+    id: "legal",
+    label: "Legal",
     links: [
-      { label: "Privacy", href: "/privacy-policy" },
-      { label: "Terms", href: "/terms-of-service" },
+      { label: "Privacy", href: "/privacy" },
+      { label: "Terms", href: "/terms" },
       { label: "Accessibility", href: "/accessibility" },
-      { label: "Cookie Policy", href: "/cookie-policy" },
-      { label: "Your Privacy Choices", href: "/privacy-choices" },
     ],
   },
 ];
@@ -65,4 +62,3 @@ export const footerOmittedRoutes = [
   "Payment methods",
   "Social profiles",
 ];
-

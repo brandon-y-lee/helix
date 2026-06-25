@@ -4,11 +4,11 @@ export const termsOfService: LegalDocument = {
   title: "Terms of Service",
   metadataTitle: "Terms of Service | Mei-Pelle",
   description:
-    "Current terms for using the Mei-Pelle development storefront, account tools, product information, and cart.",
-  canonical: "/terms-of-service",
-  status: "Development draft - current as of June 20, 2026",
+    "Terms for using Mei-Pelle account tools, product information, cart features, and website content.",
+  canonical: "/terms",
+  status: "Last updated June 24, 2026",
   intro:
-    "These terms reflect the current development storefront. They do not create live purchase, shipping, return, warranty, subscription, or payment terms.",
+    "These Terms of Service govern use of the Mei-Pelle website, including account tools, product information, cart features, and support-policy content.",
   sections: [
     {
       id: "acceptance",
@@ -22,15 +22,16 @@ export const termsOfService: LegalDocument = {
       title: "Accounts",
       body: [
         "Account tools are powered by Supabase authentication. You are responsible for using accurate account information and keeping your password secure.",
-        "Mei-Pelle may restrict or disable access to accounts used to interfere with the site, bypass security, or misuse the service.",
+        "Mei-Pelle may restrict or disable access to accounts used to interfere with the site, bypass security, misuse the service, or violate these terms.",
       ],
     },
     {
       id: "commerce-status",
-      title: "Current Commerce Status",
+      title: "Commerce Status",
       body: [
-        "The site displays product and cart functionality for development. Checkout and real payments are not implemented.",
-        "Cart totals are informational until an approved checkout, tax, shipping, fulfillment, and order system is implemented.",
+        "Online checkout is not available yet. The site does not collect payment, tax, shipping address, fulfillment, or live order information.",
+        "Cart totals are informational until Mei-Pelle enables checkout, tax, shipping, fulfillment, and order creation.",
+        "Shipping, return, and refund content on the FAQ describes planned policy direction and does not create a completed sale or shipment obligation without an accepted order.",
       ],
     },
     {
@@ -38,21 +39,22 @@ export const termsOfService: LegalDocument = {
       title: "Product Information",
       body: [
         "Product pages, Method content, and ingredient notes are educational and cosmetic in nature. They are not medical advice, diagnosis, or treatment.",
-        "Product availability, variants, pricing, and presentation may change during active development.",
+        "Product availability, variants, pricing, presentation, ingredient details, and directions may change.",
       ],
     },
     {
       id: "acceptable-use",
       title: "Acceptable Use",
       body: [
-        "Do not attempt to disrupt the site, scrape private data, bypass authentication, submit malicious content, or use the site in a way that violates law or harms others.",
+        "Do not attempt to disrupt the site, scrape private data, bypass authentication, submit malicious content, reverse engineer restricted areas, or use the site in a way that violates law or harms others.",
       ],
     },
     {
       id: "intellectual-property",
       title: "Intellectual Property",
       body: [
-        "The Mei-Pelle name, interface, product presentation, editorial copy, and visual system are intended as original brand materials except where third-party services, fonts, or supplier facts are identified internally.",
+        "The Mei-Pelle name, interface, product presentation, editorial copy, and visual system are intended as original brand materials except where third-party services, fonts, or supplier facts are identified.",
+        "You may not copy, modify, distribute, sell, or exploit site content except as allowed by law or with written permission.",
       ],
     },
     {
@@ -60,30 +62,38 @@ export const termsOfService: LegalDocument = {
       title: "Third-Party Services",
       body: [
         "The site uses providers such as Supabase, Algolia, Vercel/Next.js, and Google Fonts. Those services may process technical information needed to operate the site.",
+        "Third-party services have their own terms and privacy practices. Mei-Pelle is not responsible for services it does not control.",
       ],
     },
     {
       id: "disclaimers",
       title: "Disclaimers",
       body: [
-        "The site is provided for development and testing. Mei-Pelle does not promise uninterrupted availability, error-free operation, or that all content is final.",
-        "No medical, dermatological, shipping, return, warranty, or purchase guarantee is made by the current development storefront.",
+        "The site is provided as available. Mei-Pelle does not promise uninterrupted availability, error-free operation, or that all content will remain unchanged.",
+        "To the fullest extent allowed by law, Mei-Pelle disclaims warranties not expressly stated in these terms.",
+      ],
+    },
+    {
+      id: "liability",
+      title: "Limitation of Liability",
+      body: [
+        "To the fullest extent allowed by law, Mei-Pelle will not be liable for indirect, incidental, special, consequential, exemplary, or punitive damages arising from site use.",
+        "Nothing in these terms limits rights that cannot be limited under applicable law.",
       ],
     },
     {
       id: "changes",
       title: "Changes",
       body: [
-        "These terms should be updated before public launch and whenever checkout, order support, returns, subscriptions, or other material functionality is added.",
+        "Mei-Pelle may update these terms as features, providers, or legal requirements change. Material updates should be reviewed before public release.",
       ],
     },
     {
       id: "contact",
       title: "Contact",
       body: [
-        "Use the Contact page for routing support, accessibility, privacy, partnership, or general inquiries once a support transport is configured.",
+        "Use the Contact page to review support, accessibility, privacy, partnership, wholesale, and general inquiry categories while Mei-Pelle finalizes a verified public intake channel.",
       ],
     },
   ],
 };
-

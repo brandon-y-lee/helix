@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ContactForm } from "@/components/ContactForm";
-import { contactInquiryTypes } from "@/content/support/contact";
+import {
+  contactInquiryTypes,
+  contactIntakeStatus,
+  contactPreparationGroups,
+} from "@/content/support/contact";
 
 const siteUrl = new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000");
 
@@ -35,14 +38,24 @@ export default function ContactPage() {
           </p>
         </div>
         <aside>
-          <p className="eyebrow">No order support yet</p>
-          <p>
-            Real checkout, shipping, returns, payment support, and order history
-            are not implemented.
-          </p>
+          <p className="eyebrow">{contactIntakeStatus.heading}</p>
+          <p>{contactIntakeStatus.message}</p>
           <Link href="/faq">Read FAQ</Link>
         </aside>
       </header>
+
+      <section className="contact-status" aria-label="Current contact status">
+        <h2>Current status</h2>
+        <p>
+          The site does not include a message form, email submission, or ticket
+          creation until a verified support destination is published.
+        </p>
+        <p>
+          For now, use the categories below to identify what information should
+          be ready for product, account, accessibility, privacy, wholesale, or
+          partnership questions.
+        </p>
+      </section>
 
       <section className="contact-layout" aria-label="Contact routing">
         <div className="contact-routing">
@@ -56,9 +69,33 @@ export default function ContactPage() {
             ))}
           </ul>
         </div>
-        <ContactForm />
+        <div className="contact-prep">
+          {contactPreparationGroups.map((group) => (
+            <section key={group.title}>
+              <h2>{group.title}</h2>
+              <ul>
+                {group.items.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </section>
+          ))}
+          <section>
+            <h2>Related policies</h2>
+            <ul>
+              <li>
+                <Link href="/faq">FAQ</Link>
+              </li>
+              <li>
+                <Link href="/privacy">Privacy Policy</Link>
+              </li>
+              <li>
+                <Link href="/accessibility">Accessibility Statement</Link>
+              </li>
+            </ul>
+          </section>
+        </div>
       </section>
     </div>
   );
 }
-
