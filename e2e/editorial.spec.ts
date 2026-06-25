@@ -19,6 +19,83 @@ const expectedSequence = [
   "07 LIFT",
 ] as const;
 
+function expectCloseTo(actual: number, expected: number, tolerance = 2) {
+  expect(Math.abs(actual - expected)).toBeLessThanOrEqual(tolerance);
+}
+
+async function readPanelGeometry(
+  page: import("@playwright/test").Page,
+  path: string,
+  selector: string,
+) {
+  await page.goto(path);
+
+  return page.locator(selector).evaluate((node) => {
+    const header = document.querySelector(".site-header");
+    const hueField = node.querySelector(".editorial-hue-field");
+    const rectFor = (element: Element | null) => {
+      if (!element) return null;
+      const rect = element.getBoundingClientRect();
+      const style = getComputedStyle(element);
+
+      return {
+        bottom: rect.bottom,
+        borderRadius: Number.parseFloat(style.borderTopLeftRadius),
+        height: rect.height,
+        right: rect.right,
+        top: rect.top,
+        width: rect.width,
+        x: rect.x,
+      };
+    };
+
+    return {
+      header: rectFor(header),
+      horizontalOverflow:
+        document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      hueField: rectFor(hueField),
+      panel: rectFor(node),
+    };
+  });
+}
+
+test("Method and About hero panels reuse the Shop hero shell geometry", async ({
+  page,
+}) => {
+  for (const viewport of [
+    { width: 1440, height: 900 },
+    { width: 390, height: 844 },
+  ]) {
+    await page.setViewportSize(viewport);
+
+    const shop = await readPanelGeometry(page, "/products", ".shop-hero__surface");
+    const method = await readPanelGeometry(page, "/method", ".method-hero");
+    const about = await readPanelGeometry(page, "/about", ".about-hero");
+
+    for (const target of [method, about]) {
+      expect(target.panel).not.toBeNull();
+      expect(shop.panel).not.toBeNull();
+      expect(target.header).not.toBeNull();
+      expect(target.hueField).not.toBeNull();
+
+      expectCloseTo(target.panel?.x ?? 0, shop.panel?.x ?? 0);
+      expectCloseTo(target.panel?.right ?? 0, shop.panel?.right ?? 0);
+      expectCloseTo(target.panel?.top ?? 0, shop.panel?.top ?? 0);
+      expect(target.panel?.borderRadius).toBe(shop.panel?.borderRadius);
+      expect(target.panel?.borderRadius ?? 0).toBeGreaterThan(0);
+      expect(target.panel?.top ?? 0).toBeGreaterThanOrEqual(
+        (target.header?.bottom ?? 0) - 1,
+      );
+
+      expect(target.hueField?.x ?? 0).toBeGreaterThanOrEqual((target.panel?.x ?? 0) - 1);
+      expect(target.hueField?.right ?? 0).toBeLessThanOrEqual((target.panel?.right ?? 0) + 1);
+      expect(target.hueField?.top ?? 0).toBeGreaterThanOrEqual((target.panel?.top ?? 0) - 1);
+      expect(target.hueField?.bottom ?? 0).toBeLessThanOrEqual((target.panel?.bottom ?? 0) + 1);
+      expect(target.horizontalOverflow).toBeLessThanOrEqual(1);
+    }
+  }
+});
+
 test("primary navigation reaches Method and About editorial pages", async ({ page }) => {
   await page.goto("/");
   const primaryNav = page.getByRole("navigation", { name: "Primary" });
@@ -72,9 +149,14 @@ test("Method page renders the full routine without treating SPF as merchandise",
   await expect(hero).not.toContainText("SPF");
   await expect(hero.locator(".method-hero__diagram")).toHaveCount(0);
 
-  const heroWidth = await hero.evaluate((node) => node.getBoundingClientRect().width);
+  const heroShell = await hero.evaluate((node) => {
+    const rect = node.getBoundingClientRect();
+    return { right: rect.right, width: rect.width, x: rect.x };
+  });
   const viewportWidth = await page.evaluate(() => window.innerWidth);
-  expect(heroWidth).toBeGreaterThan(viewportWidth - 96);
+  expect(heroShell.x).toBeGreaterThan(0);
+  expect(heroShell.right).toBeLessThan(viewportWidth);
+  expect(heroShell.width).toBeLessThan(viewportWidth);
 
   await expect(page.getByRole("heading", { name: /Run the routine by timing/i })).toBeVisible();
   await expect(page.locator(".routine-card")).toHaveCount(3);

@@ -3420,11 +3420,16 @@ main:focus {
 .method-page,
 .about-page {
   --editorial-max: min(100%, 1540px);
+  --editorial-panel-gutter: 24px;
+  --editorial-panel-top: clamp(24px, 4vw, 46px);
+  --editorial-panel-bottom: clamp(24px, 4vw, 46px);
+  --editorial-panel-width: min(
+    calc(100% - (var(--editorial-panel-gutter) * 2)),
+    calc(var(--maxw) - (var(--editorial-panel-gutter) * 2))
+  );
   width: 100%;
 }
 
-.method-hero,
-.about-hero,
 .about-opening,
 .culture-split,
 .about-men,
@@ -3441,14 +3446,22 @@ main:focus {
 .method-hero,
 .about-hero {
   position: relative;
-  min-height: min(760px, calc(100svh - var(--site-header-height)));
+  width: var(--editorial-panel-width);
+  min-height: min(
+    760px,
+    calc(
+      100svh - var(--site-header-height) - var(--editorial-panel-top) -
+        var(--editorial-panel-bottom)
+    )
+  );
+  margin: var(--editorial-panel-top) auto var(--editorial-panel-bottom);
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   align-items: end;
   isolation: isolate;
   overflow: hidden;
-  border-bottom: 1px solid var(--line);
-  padding-top: clamp(26px, 4vw, 56px);
+  border: 1px solid color-mix(in srgb, var(--line) 72%, transparent);
+  border-radius: var(--radius);
 }
 
 .method-hero__copy,
@@ -4795,6 +4808,18 @@ main:focus {
   .editorial-cta,
   .method-shell {
     padding-inline: 18px;
+  }
+
+  .method-page,
+  .about-page {
+    --editorial-panel-gutter: 18px;
+    --editorial-panel-top: 0px;
+    --editorial-panel-bottom: 24px;
+  }
+
+  .method-hero,
+  .about-hero {
+    padding-inline: 0;
   }
 
   .method-hero h1,

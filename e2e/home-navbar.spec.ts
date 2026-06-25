@@ -150,8 +150,8 @@ test.describe("global navbar scroll behavior", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
 
     for (const { path, selector, viewportHero } of [
-      { path: "/method", selector: ".method-hero", viewportHero: true },
-      { path: "/about", selector: ".about-hero", viewportHero: true },
+      { path: "/method", selector: ".method-hero", viewportHero: false },
+      { path: "/about", selector: ".about-hero", viewportHero: false },
       { path: "/products", selector: ".shop-hero__surface", viewportHero: false },
       { path: "/products/recode-03-pdrn-5-ampoule", selector: ".pdp", viewportHero: false },
       { path: "/account/sign-in", selector: ".account-panel", viewportHero: false },
@@ -166,8 +166,9 @@ test.describe("global navbar scroll behavior", () => {
       expect(layout.surfaceY).toBeGreaterThanOrEqual((layout.headerBottom ?? 0) - 1);
 
       if (path === "/method" || path === "/about") {
-        expectCloseTo(layout.surfaceY, layout.headerBottom ?? 0);
-        expect(layout.hueFieldY).toBeGreaterThanOrEqual((layout.headerBottom ?? 0) - 1);
+        expect((layout.surfaceY ?? 0) - (layout.headerBottom ?? 0)).toBeGreaterThan(20);
+        expect((layout.surfaceY ?? 0) - (layout.headerBottom ?? 0)).toBeLessThanOrEqual(56);
+        expectCloseTo(layout.hueFieldY, layout.surfaceY ?? 0, 2);
       }
 
       if (viewportHero) {
