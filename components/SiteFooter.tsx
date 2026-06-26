@@ -11,7 +11,7 @@ export function SiteFooter() {
   const year = new Date().getFullYear();
 
   return (
-    <footer className="site-footer" aria-labelledby="site-footer-heading">
+    <footer className="site-footer site-footer--compact" aria-labelledby="site-footer-heading">
       <div className="site-footer__inner">
         <section className="site-footer__brand">
           <div>
