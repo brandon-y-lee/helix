@@ -4,7 +4,7 @@ import { test, expect } from "@playwright/test";
 // <h1> signal is visible. Includes the async [slug] detail route, which
 // renders the product name as its h1.
 const routes: ReadonlyArray<{ path: string; heading: string | RegExp }> = [
-  { path: "/", heading: "ascension." },
+  { path: "/", heading: "It all starts with three steps." },
   { path: "/products", heading: "RAISE YOUR BASELINE." },
   { path: "/method", heading: "THE METHOD." },
   { path: "/about", heading: "TWO CITIES. ONE STANDARD." },

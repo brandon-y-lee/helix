@@ -25,23 +25,29 @@ async function allowHeroMotion(page: Page) {
 }
 
 test.describe("homepage video hero", () => {
-  test("renders the desktop video hero with restrained semantic copy", async ({ page }) => {
+  test("renders the desktop video hero with the Core Three positioning", async ({ page }) => {
     await allowHeroMotion(page);
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto("/");
 
     const hero = page.locator(".home-video-hero");
-    const heading = page.getByRole("heading", { level: 1, name: "ascension." });
-    const cta = page.getByRole("link", { name: "EXPLORE NOW" });
+    const heading = page.getByRole("heading", {
+      level: 1,
+      name: "It all starts with three steps.",
+    });
+    const cta = page.getByRole("link", { name: "SHOP THE CORE THREE" }).first();
+    const secondary = page.getByRole("link", { name: "SEE THE METHOD" }).first();
     const video = hero.locator("video");
 
     await expect(hero).toBeVisible();
     await expect(heading).toBeVisible();
+    await expect(page.getByText("Cleanse. Treat. Seal.")).toBeVisible();
     await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
     await expect(page.locator(".hero--system")).toHaveCount(0);
     await expect(page.locator("text=A sharper daily system for fresh")).toHaveCount(0);
     await expect(heading).toHaveClass(/display-secondary/);
-    await expect(cta).toHaveAttribute("href", "/products");
+    await expect(cta).toHaveAttribute("href", "#core-three");
+    await expect(secondary).toHaveAttribute("href", "/method");
     await expect(video).toHaveCount(1);
     await expect(video).toHaveAttribute("poster", "/media/home/mei-pelle-hero-poster.webp");
     await expect(video.locator('source[type="video/webm"]')).toHaveAttribute(
@@ -107,7 +113,7 @@ test.describe("homepage video hero", () => {
     expect(heroBox?.y).toBe(0);
     expect(headingBox?.x).toBeLessThan(90);
     expect(ctaBox?.x).toBeLessThan(90);
-    expect(ctaBox?.y).toBeGreaterThan((heroBox?.y ?? 0) + (heroBox?.height ?? 0) * 0.7);
+    expect(ctaBox?.y).toBeGreaterThan((heroBox?.y ?? 0) + (heroBox?.height ?? 0) * 0.62);
     expect(firstSectionBox?.y).toBeGreaterThanOrEqual(
       viewportHeight - 1,
     );
@@ -124,12 +130,17 @@ test.describe("homepage video hero", () => {
     await page.goto("/");
 
     const hero = page.locator(".home-video-hero");
-    const heading = page.getByRole("heading", { level: 1, name: "ascension." });
-    const cta = page.getByRole("link", { name: "EXPLORE NOW" });
+    const heading = page.getByRole("heading", {
+      level: 1,
+      name: "It all starts with three steps.",
+    });
+    const cta = page.getByRole("link", { name: "SHOP THE CORE THREE" }).first();
+    const secondary = page.getByRole("link", { name: "SEE THE METHOD" }).first();
 
     await expect(hero).toBeVisible();
     await expect(heading).toBeVisible();
     await expect(cta).toBeVisible();
+    await expect(secondary).toBeVisible();
 
     const heroBox = await hero.boundingBox();
     const headingBox = await heading.boundingBox();
@@ -141,9 +152,9 @@ test.describe("homepage video hero", () => {
     expect(heroBox?.y).toBe(0);
     expect(headingBox?.x).toBeLessThan(32);
     expect(headingBox?.width).toBeLessThan((heroBox?.width ?? 0) - 32);
-    expect(headingBox?.height).toBeLessThan((heroBox?.height ?? 0) * 0.22);
+    expect(headingBox?.height).toBeLessThan((heroBox?.height ?? 0) * 0.36);
     expect(ctaBox?.x).toBeLessThan(32);
-    expect(ctaBox?.y).toBeGreaterThan((heroBox?.y ?? 0) + (heroBox?.height ?? 0) * 0.68);
+    expect(ctaBox?.y).toBeGreaterThan((heroBox?.y ?? 0) + (heroBox?.height ?? 0) * 0.56);
 
     const noHorizontalOverflow = await page.evaluate(
       () => document.documentElement.scrollWidth <= window.innerWidth,
@@ -158,17 +169,24 @@ test.describe("homepage video hero", () => {
     const hero = page.locator(".home-video-hero");
     const media = hero.locator(".home-video-hero__media");
 
-    await expect(page.getByRole("heading", { level: 1, name: "ascension." })).toBeVisible();
-    await expect(page.getByRole("link", { name: "EXPLORE NOW" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", {
+        level: 1,
+        name: "It all starts with three steps.",
+      }),
+    ).toBeVisible();
+    await expect(page.getByRole("link", { name: "SHOP THE CORE THREE" }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: "SEE THE METHOD" }).first()).toBeVisible();
     await expect(hero.locator("video")).toHaveCount(0);
     await expect(hero.locator(".home-video-hero__poster")).toBeVisible();
     await expect(media).toHaveAttribute("data-motion-state", "static");
   });
 
-  test("sends the primary hero call-to-action to the collection route", async ({ page }) => {
+  test("sends the primary hero call-to-action to the Core Three section", async ({ page }) => {
     await allowHeroMotion(page);
     await page.goto("/");
     await page.locator(".home-video-hero__cta").click();
-    await expect(page).toHaveURL(/\/products$/);
+    await expect(page).toHaveURL(/\/#core-three$/);
+    await expect(page.getByRole("heading", { name: "RESET, RECODE, SEAL." })).toBeVisible();
   });
 });

@@ -208,19 +208,22 @@ describe("storefront page smoke", () => {
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
     const heroHeading = screen.getByRole("heading", {
       level: 1,
-      name: "ascension.",
+      name: "It all starts with three steps.",
     });
     expect(
       heroHeading,
     ).toBeInTheDocument();
     expect(heroHeading).toHaveClass("display-secondary");
     expect(
-      screen.queryByText(/A sharper daily system for fresh/i),
-    ).not.toBeInTheDocument();
-    // Featured grid links to product detail pages.
+      screen.getAllByRole("link", { name: "SHOP THE CORE THREE" })[0],
+    ).toHaveAttribute("href", "#core-three");
     expect(
-      screen.getByRole("link", { name: "EXPLORE NOW" }),
-    ).toHaveAttribute("href", "/products");
+      screen.getAllByRole("link", { name: "SEE THE METHOD" })[0],
+    ).toHaveAttribute("href", "/method");
+    expect(screen.getByText("Cleanse. Treat. Seal.")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 2, name: "RESET, RECODE, SEAL." }),
+    ).toBeInTheDocument();
   });
 
   it("Shop renders its h1 and a card per product", async () => {

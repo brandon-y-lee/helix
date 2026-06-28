@@ -1,24 +1,39 @@
 import { test, expect } from "@playwright/test";
 
-// Discovery / merchandising modules are rendered from the seeded Supabase
-// catalog (server-side) — they are product discovery, not interactive search,
-// so they do not depend on Algolia.
+// Homepage merchandising modules are rendered from the seeded Supabase catalog
+// (server-side). They are product discovery and positioning surfaces, not
+// interactive search, so they do not depend on Algolia.
 
-test("homepage discovery modules render", async ({ page }) => {
+test("homepage Core Three ladder renders", async ({ page }) => {
   await page.goto("/");
+
   await expect(
-    page.getByRole("heading", { name: "Shop by collection" }),
-  ).toHaveCount(0);
-  await expect(page.getByRole("heading", { name: "Featured" })).toBeVisible();
+    page.getByRole("heading", { name: "It all starts with three steps." }),
+  ).toBeVisible();
+  await expect(page.getByText("Cleanse. Treat. Seal.")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "RESET, RECODE, SEAL." }))
+    .toBeVisible();
+  await expect(page.getByRole("heading", { name: "The baseline is the point." }))
+    .toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "Build your daily routine" }),
+    page.getByRole("heading", { name: "Run the full system, or replace one layer." }),
   ).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "New arrivals" }),
+    page.getByRole("heading", {
+      name:
+        "For skin that looks cleaner, more hydrated, more controlled, and less tired by default.",
+    }),
   ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Add only what solves a real problem." }),
+  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Know what each step is doing." }))
+    .toBeVisible();
+  await expect(page.getByRole("heading", { name: "Make the baseline automatic." }))
+    .toBeVisible();
 });
 
-test("homepage Method presets drive Featured and Build Your Routine", async ({ page }) => {
+test("homepage Core Three products and add-ons resolve by stable slugs", async ({ page }) => {
   await page.goto("/");
 
   const merchandising = await page.evaluate(() => {
@@ -27,41 +42,47 @@ test("homepage Method presets drive Featured and Build Your Routine", async ({ p
       Array.from(document.querySelectorAll("section")).find(
         (section) => clean(section.querySelector("h2")?.textContent) === heading,
       );
-    const featured = sectionByHeading("Featured");
-    const routine = sectionByHeading("Build your daily routine");
+    const core = sectionByHeading("RESET, RECODE, SEAL.");
+    const beyond = sectionByHeading("Add only what solves a real problem.");
     return {
-      featured: Array.from(featured?.querySelectorAll(".product-card__name") ?? []).map((node) =>
+      coreProducts: Array.from(core?.querySelectorAll(".product-card__name") ?? []).map((node) =>
         clean(node.textContent),
       ),
-      routine: Array.from(routine?.querySelectorAll(".routine-step__name") ?? []).map((node) =>
-        clean(node.textContent),
+      coreLinks: Array.from(core?.querySelectorAll(".product-card__link") ?? []).map((link) =>
+        link.getAttribute("href"),
       ),
-      routineLinks: Array.from(routine?.querySelectorAll("a") ?? []).map((link) =>
+      addOnLinks: Array.from(beyond?.querySelectorAll("a") ?? []).map((link) =>
         link.getAttribute("href"),
       ),
       protectText: clean(
-        routine?.querySelector(".routine-step--protect")?.textContent,
+        beyond?.querySelector(".home-addon-card--protect")?.textContent,
       ),
-      protectButtons: routine?.querySelector(".routine-step--protect")?.querySelectorAll("button")
+      protectButtons: beyond?.querySelector(".home-addon-card--protect")?.querySelectorAll("button")
         .length ?? 0,
     };
   });
 
-  expect(merchandising.featured).toEqual(["RESET", "RECODE", "SEAL"]);
-  expect(merchandising.routine).toEqual(["RESET", "RECODE", "SEAL", "PROTECT"]);
-  expect(merchandising.routineLinks).toContain("/method");
-  expect(merchandising.routineLinks).toContain("/method#step-protect");
+  expect(merchandising.coreProducts).toEqual(["RESET", "RECODE", "SEAL"]);
+  expect(merchandising.coreLinks).toEqual([
+    "/products/reset-01-calming-gel-cleanser",
+    "/products/recode-03-pdrn-5-ampoule",
+    "/products/seal-05-green-collagen-cream",
+  ]);
+  expect(merchandising.addOnLinks).toContain("/products/refine-02-pore-treatment-pads");
+  expect(merchandising.addOnLinks).toContain("/products/frame-04-pdrn-eye-cream");
+  expect(merchandising.addOnLinks).toContain("/products/lift-06-pdrn-mask-system");
+  expect(merchandising.addOnLinks).toContain("/method#step-protect");
   expect(merchandising.protectText).toContain("COMING SOON");
-  expect(merchandising.protectText).toContain("Final morning SPF step");
+  expect(merchandising.protectText).toContain("SPF");
   expect(merchandising.protectText).not.toMatch(/\$\d/);
   expect(merchandising.protectButtons).toBe(0);
 });
 
-test("routine step navigates to a product detail page", async ({ page }) => {
+test("Core Three product card navigates to a product detail page", async ({ page }) => {
   await page.goto("/");
-  await page.locator('.routine-step__link[href^="/products/"]').first().click();
-  await expect(page).toHaveURL(/\/products\/[\w-]+$/);
-  await expect(page.locator("h1")).toBeVisible();
+  await page.locator('#core-three .product-card__link[href="/products/reset-01-calming-gel-cleanser"]').click();
+  await expect(page).toHaveURL(/\/products\/reset-01-calming-gel-cleanser$/);
+  await expect(page.getByRole("heading", { level: 1, name: "RESET" })).toBeVisible();
 });
 
 test("PDP complete-the-routine renders and a related product navigates", async ({

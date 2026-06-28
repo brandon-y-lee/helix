@@ -6,84 +6,206 @@ import { ProductImage } from "@/components/ProductImage";
 import { getCachedProducts } from "@/lib/catalog-cache";
 import {
   PROTECT_STEP,
-  deriveMethodRoutineSteps,
-  type DerivedMethodStep,
+  buildIngredientIndex,
+  type MethodProductSlug,
 } from "@/lib/content/method";
 import type { Product } from "@/lib/products";
-import {
-  newArrivals,
-} from "@/lib/merchandising";
 
 export const metadata: Metadata = {
-  title: "Mei Pelle — Prestige Skincare for Men",
+  title: "Mei Pelle | Three-Step Men's Skincare System",
+  description:
+    "A three-step men's skincare baseline: cleanse, treat, and seal with RESET, RECODE, and SEAL.",
 };
 
-function productsFromMethodPreset(products: Product[], count: 3 | 4) {
-  return deriveMethodRoutineSteps(products, count).flatMap((step) =>
-    step.kind === "product" && step.product ? [step.product] : [],
+type CoreStep = {
+  id: "reset" | "recode" | "seal";
+  slug: MethodProductSlug;
+  displayName: "RESET" | "RECODE" | "SEAL";
+  role: string;
+  summary: string;
+};
+
+type ProductAddOn = {
+  kind: "product";
+  slug: MethodProductSlug;
+  displayName: "REFINE" | "FRAME" | "LIFT";
+  role: string;
+  summary: string;
+};
+
+type ProtectAddOn = {
+  kind: "protect";
+  displayName: "PROTECT";
+  role: string;
+  summary: string;
+};
+
+type AddOn = ProductAddOn | ProtectAddOn;
+
+const CORE_THREE: readonly CoreStep[] = [
+  {
+    id: "reset",
+    slug: "reset-01-calming-gel-cleanser",
+    displayName: "RESET",
+    role: "Cleanser",
+    summary:
+      "RESET cleans the surface so treatment layers can sit on skin, not on sunscreen, sweat, and daily buildup.",
+  },
+  {
+    id: "recode",
+    slug: "recode-03-pdrn-5-ampoule",
+    displayName: "RECODE",
+    role: "Treatment Serum",
+    summary:
+      "RECODE is the treatment layer: a lightweight serum step for a hydrated, more controlled-looking finish.",
+  },
+  {
+    id: "seal",
+    slug: "seal-05-green-collagen-cream",
+    displayName: "SEAL",
+    role: "Barrier Cream",
+    summary:
+      "SEAL finishes with moisture and barrier support so the routine feels complete instead of complicated.",
+  },
+] as const;
+
+const ADD_ONS: readonly AddOn[] = [
+  {
+    kind: "product",
+    slug: "refine-02-pore-treatment-pads",
+    displayName: "REFINE",
+    role: "texture / controlled refinement",
+    summary:
+      "A frequency-dependent texture step for visible unevenness when the baseline is already consistent.",
+  },
+  {
+    kind: "product",
+    slug: "frame-04-pdrn-eye-cream",
+    displayName: "FRAME",
+    role: "eye area / rested-looking frame",
+    summary:
+      "A smaller-dose eye-area step for a more rested-looking frame around the face.",
+  },
+  {
+    kind: "protect",
+    displayName: "PROTECT",
+    role: "SPF finish / final morning protection / coming soon editorial step",
+    summary:
+      "A non-commerce Method step for broad-spectrum SPF as the final morning layer.",
+  },
+  {
+    kind: "product",
+    slug: "lift-06-pdrn-mask-system",
+    displayName: "LIFT",
+    role: "weekly intensive",
+    summary:
+      "A scheduled weekly intensive for the days you want more than the daily baseline.",
+  },
+] as const;
+
+const WHY_THREE = [
+  "A shorter routine reduces friction, which makes it easier to repeat.",
+  "The order matters: cleanse first, treat on clean skin, seal last.",
+  "A stable baseline makes it easier to understand what is helping.",
+  "More steps are not automatically better. Consistency usually beats length.",
+] as const;
+
+const PLUG_AND_PLAY = [
+  "Use the full system when you want a complete baseline.",
+  "Replace one layer at a time when your current routine already works.",
+  "Introduce new products gradually and follow each product's directions, especially if your skin is reactive.",
+] as const;
+
+const WHAT_ITS_FOR = [
+  "Cleaner-looking skin after the day is removed.",
+  "Hydration that feels controlled, not heavy.",
+  "A face that looks less tired before you start adding extra steps.",
+] as const;
+
+function productsForSlugs(
+  productsBySlug: ReadonlyMap<string, Product>,
+  slugs: readonly MethodProductSlug[],
+): Product[] {
+  return slugs.flatMap((slug) => {
+    const product = productsBySlug.get(slug);
+    return product ? [product] : [];
+  });
+}
+
+function renderCoreStep(step: CoreStep) {
+  return (
+    <article key={step.id} className="home-step-card">
+      <p className="home-step-card__kicker">{step.displayName}</p>
+      <h3>{`${step.displayName} — ${step.role}`}</h3>
+      <p>{step.summary}</p>
+    </article>
   );
 }
 
-function renderRoutineStep(step: DerivedMethodStep) {
-  if (step.kind === "protect") {
-    return (
-      <li key={step.id} className="routine-step routine-step--protect">
-        <Link
-          href="/method#step-protect"
-          className="routine-step__link routine-step__link--editorial"
-          aria-label="View PROTECT Method step, coming soon"
-        >
-          <span className="routine-step__index" aria-hidden="true">
-            {step.displayNumber}
-          </span>
-          <span className="routine-step__media routine-step__media--protect" aria-hidden="true">
-            <span className="routine-step__protect-mark">SPF</span>
-          </span>
-          <span className="routine-step__text">
-            <span className="routine-step__collection">{PROTECT_STEP.status}</span>
-            <span className="routine-step__name">{PROTECT_STEP.displayName}</span>
-            <span className="routine-step__note">Final morning SPF step</span>
-          </span>
-        </Link>
-      </li>
-    );
-  }
-
-  if (!step.product) return null;
-
+function renderProductAddOn(addOn: ProductAddOn, product: Product) {
   return (
-    <li key={step.slug} className="routine-step">
-      <Link href={`/products/${step.product.slug}`} className="routine-step__link">
-        <span className="routine-step__index" aria-hidden="true">
-          {step.displayNumber}
-        </span>
-        <span className="routine-step__media">
-          <ProductImage
-            media={step.product.cardMedia}
-            swatch={step.product.swatch}
-            className="routine-step__image"
-            imageClassName="routine-step__img"
-            sizes="52px"
-          />
-        </span>
-        <span className="routine-step__text">
-          <span className="routine-step__collection">
-            {step.product.collection}
-          </span>
-          <span className="routine-step__name">{step.product.displayName}</span>
-        </span>
-      </Link>
-    </li>
+    <Link
+      key={addOn.displayName}
+      href={`/products/${product.slug}`}
+      className="home-addon-card"
+      aria-label={`View ${product.displayName}, ${addOn.role}`}
+    >
+      <ProductImage
+        media={product.cardMedia}
+        swatch={product.swatch}
+        className="home-addon-card__media"
+        imageClassName="home-addon-card__img"
+        sizes="(max-width: 720px) 84vw, 260px"
+      />
+      <span className="home-addon-card__label">{product.displayName}</span>
+      <h3>{`${product.displayName} — ${addOn.role}`}</h3>
+      <p>{addOn.summary}</p>
+    </Link>
   );
+}
+
+function renderProtectAddOn(addOn: ProtectAddOn) {
+  return (
+    <Link
+      key={addOn.displayName}
+      href="/method#step-protect"
+      className="home-addon-card home-addon-card--protect"
+      aria-label="View PROTECT Method step, coming soon"
+    >
+      <span className="home-addon-card__media home-addon-card__media--protect" aria-hidden="true">
+        <span>SPF</span>
+      </span>
+      <span className="home-addon-card__label">{PROTECT_STEP.status}</span>
+      <h3>{`${addOn.displayName} — ${addOn.role}`}</h3>
+      <p>{addOn.summary}</p>
+    </Link>
+  );
+}
+
+function renderAddOn(addOn: AddOn, productsBySlug: ReadonlyMap<string, Product>) {
+  if (addOn.kind === "protect") return renderProtectAddOn(addOn);
+
+  const product = productsBySlug.get(addOn.slug);
+  if (!product) return null;
+
+  return renderProductAddOn(addOn, product);
 }
 
 export default async function HomePage() {
   const products = await getCachedProducts();
-  const featured = productsFromMethodPreset(products, 3);
-  const routineSteps = deriveMethodRoutineSteps(products, 4).filter(
-    (step) => step.kind === "protect" || Boolean(step.product),
+  const productsBySlug = new Map(products.map((product) => [product.slug, product]));
+  const coreProducts = productsForSlugs(
+    productsBySlug,
+    CORE_THREE.map((step) => step.slug),
   );
-  const fresh = newArrivals(products, 3);
+  const methodProducts = productsForSlugs(
+    productsBySlug,
+    [
+      ...CORE_THREE.map((step) => step.slug),
+      ...ADD_ONS.flatMap((addOn) => (addOn.kind === "product" ? [addOn.slug] : [])),
+    ],
+  );
+  const ingredientCards = buildIngredientIndex(methodProducts).slice(0, 3);
 
   return (
     <>
@@ -96,55 +218,160 @@ export default async function HomePage() {
         <div className="home-video-hero__scrim" aria-hidden="true" />
         <div className="home-video-hero__content">
           <div>
+            <p className="home-video-hero__eyebrow">The baseline system</p>
             <h1 id="home-hero-heading" className="display-secondary home-video-hero__title">
-              ascension.
+              It all starts with three steps.
             </h1>
-            <Link href="/products" className="home-video-hero__cta">
-              EXPLORE NOW
-            </Link>
+            <p className="home-video-hero__display-line">Cleanse. Treat. Seal.</p>
+            <p className="home-video-hero__copy">
+              RESET, RECODE, and SEAL create a repeatable men&apos;s skincare baseline.
+              Add more only when there is a real reason.
+            </p>
+            <div className="home-video-hero__actions">
+              <Link href="#core-three" className="home-video-hero__cta">
+                SHOP THE CORE THREE
+              </Link>
+              <Link href="/method" className="home-video-hero__secondary">
+                SEE THE METHOD
+              </Link>
+            </div>
           </div>
         </div>
       </section>
 
-      {featured.length > 0 && (
-        <section className="container home-section">
-          <div className="section-head">
-            <h2>Featured</h2>
-            <p>The essentials to start with.</p>
-          </div>
-          <ProductGrid products={featured} />
-        </section>
-      )}
+      <section
+        id="core-three"
+        className="container home-section home-section--core"
+        aria-labelledby="core-three-heading"
+      >
+        <div className="home-section__intro">
+          <p className="hero__eyebrow">Core Three</p>
+          <h2 id="core-three-heading">RESET, RECODE, SEAL.</h2>
+          <p>
+            The core is simple by design: cleanse the surface, apply the treatment
+            layer, then finish with moisture and barrier support.
+          </p>
+        </div>
 
-      {routineSteps.length > 0 && (
-        <section className="container home-section">
-          <div className="routine-block">
-            <div className="routine-block__intro">
-              <p className="hero__eyebrow">Start here</p>
-              <h2>Build your daily routine</h2>
-              <p style={{ color: "var(--ink-soft)" }}>
-                One pick from each part of the routine — a simple place to begin.
-              </p>
-              <Link href="/method" className="btn btn--ghost btn--editorial-rounded">
-                VIEW THE METHOD
-              </Link>
+        <div className="home-step-grid">
+          {CORE_THREE.map((step) => renderCoreStep(step))}
+        </div>
+
+        {coreProducts.length > 0 && (
+          <ProductGrid products={coreProducts} className="product-grid home-core-products" />
+        )}
+      </section>
+
+      <section className="container home-section" aria-labelledby="why-three-heading">
+        <div className="home-section__intro home-section__intro--wide">
+          <p className="hero__eyebrow">Why Three</p>
+          <h2 id="why-three-heading">The baseline is the point.</h2>
+        </div>
+        <div className="home-reason-grid">
+          {WHY_THREE.map((reason, index) => (
+            <article key={reason} className="home-reason-card">
+              <span>{String(index + 1).padStart(2, "0")}</span>
+              <p>{reason}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="home-band home-section" aria-labelledby="plug-play-heading">
+        <div className="container home-split">
+          <div>
+            <p className="hero__eyebrow">Plug and Play</p>
+            <h2 id="plug-play-heading">Run the full system, or replace one layer.</h2>
+          </div>
+          <div className="home-copy-stack">
+            <p>
+              Mei Pelle is built to work as a full routine, but it does not need to
+              replace everything at once. Plug RESET, RECODE, or SEAL into the layer
+              your current routine is missing.
+            </p>
+            <ul>
+              {PLUG_AND_PLAY.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section className="container home-section" aria-labelledby="for-heading">
+        <div className="home-outcome">
+          <p className="hero__eyebrow">What It&apos;s For</p>
+          <h2 id="for-heading">
+            For skin that looks cleaner, more hydrated, more controlled, and less
+            tired by default.
+          </h2>
+          <p>Appearance is maintenance. Start with the baseline.</p>
+          <ul>
+            {WHAT_ITS_FOR.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      <section className="container home-section" aria-labelledby="beyond-heading">
+        <div className="home-section__intro home-section__intro--wide">
+          <p className="hero__eyebrow">Beyond Three</p>
+          <h2 id="beyond-heading">Add only what solves a real problem.</h2>
+          <p>Once the core is stable, add only what solves a real problem.</p>
+        </div>
+        <div className="home-addon-grid">
+          {ADD_ONS.map((addOn) => renderAddOn(addOn, productsBySlug))}
+        </div>
+      </section>
+
+      <section className="home-band home-section" aria-labelledby="ingredients-heading">
+        <div className="container home-split home-split--ingredients">
+          <div>
+            <p className="hero__eyebrow">Ingredient Literacy</p>
+            <h2 id="ingredients-heading">Know what each step is doing.</h2>
+            <p>
+              Ingredient language should be useful, not inflated. The Method index
+              explains what an ingredient is, where it appears, and what its formula
+              context can support.
+            </p>
+            <Link href="/method#method-ingredients" className="btn btn--ghost btn--editorial-rounded">
+              READ THE INDEX
+            </Link>
+          </div>
+
+          {ingredientCards.length > 0 && (
+            <div className="home-ingredient-list" aria-label="Ingredient literacy preview">
+              {ingredientCards.map((card) => (
+                <article key={card.id} className="home-ingredient-card">
+                  <p>{card.ingredientClass}</p>
+                  <h3>{card.name}</h3>
+                  <span>{card.skinRelevance}</span>
+                </article>
+              ))}
             </div>
-            <ol className="routine-steps">
-              {routineSteps.map((step) => renderRoutineStep(step))}
-            </ol>
-          </div>
-        </section>
-      )}
+          )}
+        </div>
+      </section>
 
-      {fresh.length > 0 && (
-        <section className="container home-section">
-          <div className="section-head">
-            <h2>New arrivals</h2>
-            <p>The latest to join the lineup.</p>
+      <section className="container home-section home-section--final" aria-labelledby="final-heading">
+        <div className="home-final">
+          <p className="hero__eyebrow">Start Here</p>
+          <h2 id="final-heading">Make the baseline automatic.</h2>
+          <p>
+            Three steps, one order, repeatable morning or night. Build from there only
+            when your skin asks for something specific.
+          </p>
+          <div className="hero__actions">
+            <Link href="#core-three" className="btn btn--editorial-rounded">
+              SHOP THE CORE THREE
+            </Link>
+            <Link href="/method" className="btn btn--ghost btn--editorial-rounded">
+              SEE THE METHOD
+            </Link>
           </div>
-          <ProductGrid products={fresh} />
-        </section>
-      )}
+        </div>
+      </section>
     </>
   );
 }

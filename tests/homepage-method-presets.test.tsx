@@ -71,8 +71,8 @@ function makeProduct(
     madeFor: "All skin types",
     goodFor: "Routine",
     texture: "Light",
-    keyIngredients: [],
-    ingredients: null,
+    keyIngredients: ["Niacinamide", "Glycerin", "Panthenol"],
+    ingredients: "Niacinamide, Glycerin, Panthenol",
     productDetails: {},
     cautions: [],
     finish: null,
@@ -119,70 +119,90 @@ beforeEach(() => {
   );
 });
 
-describe("homepage Method merchandising presets", () => {
-  it("removes collection chips and uses the shared three- and four-step Method presets", async () => {
+describe("homepage Core Three positioning", () => {
+  it("renders the requested hero, Core Three products, add-ons, and editorial PROTECT step", async () => {
     render(<CartProvider>{await HomePage()}</CartProvider>);
 
-    expect(screen.queryByRole("heading", { name: "Shop by collection" })).not.toBeInTheDocument();
-    expect(document.querySelector(".collection-chips")).toBeNull();
-
-    const featured = sectionForHeading("Featured");
     expect(
-      Array.from(featured.querySelectorAll(".product-card__name")).map((node) =>
+      screen.getByRole("heading", {
+        level: 1,
+        name: "It all starts with three steps.",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Cleanse. Treat. Seal.")).toBeInTheDocument();
+    expect(
+      screen.getAllByRole("link", { name: "SHOP THE CORE THREE" })[0],
+    ).toHaveAttribute("href", "#core-three");
+    expect(
+      screen.getAllByRole("link", { name: "SEE THE METHOD" })[0],
+    ).toHaveAttribute("href", "/method");
+
+    const core = sectionForHeading("RESET, RECODE, SEAL.");
+    expect(
+      Array.from(core.querySelectorAll(".product-card__name")).map((node) =>
         node.textContent?.trim(),
       ),
     ).toEqual(["RESET", "RECODE", "SEAL"]);
-    expect(within(featured).getByRole("button", { name: "Open quick buy for RESET" }))
+    expect(within(core).getByText("RESET — Cleanser")).toBeInTheDocument();
+    expect(within(core).getByText("RECODE — Treatment Serum")).toBeInTheDocument();
+    expect(within(core).getByText("SEAL — Barrier Cream")).toBeInTheDocument();
+    expect(within(core).getByRole("button", { name: "Open quick buy for RESET" }))
       .toBeInTheDocument();
-    expect(within(featured).getByRole("button", { name: "Open quick buy for RECODE" }))
+    expect(within(core).getByRole("button", { name: "Open quick buy for RECODE" }))
       .toBeInTheDocument();
-    expect(within(featured).getByRole("button", { name: "Open quick buy for SEAL" }))
+    expect(within(core).getByRole("button", { name: "Open quick buy for SEAL" }))
       .toBeInTheDocument();
 
-    const routine = sectionForHeading("Build your daily routine");
     expect(
-      Array.from(routine.querySelectorAll(".routine-step__name")).map((node) =>
-        node.textContent?.trim(),
+      screen.getByText(
+        "For skin that looks cleaner, more hydrated, more controlled, and less tired by default.",
       ),
-    ).toEqual(["RESET", "RECODE", "SEAL", "PROTECT"]);
-    const methodCta = within(routine).getByRole("link", { name: "VIEW THE METHOD" });
-    expect(methodCta).toHaveAttribute("href", "/method");
-    expect(methodCta).toHaveClass("btn--editorial-rounded");
-    expect(within(featured).getByRole("button", { name: "Open quick buy for RESET" }))
-      .not.toHaveClass("btn--editorial-rounded");
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Appearance is maintenance. Start with the baseline."),
+    ).toBeInTheDocument();
 
-    const protect = within(routine).getByRole("link", {
+    const beyond = sectionForHeading("Add only what solves a real problem.");
+    expect(
+      within(beyond).getByText(
+        "Once the core is stable, add only what solves a real problem.",
+      ),
+    ).toBeInTheDocument();
+    expect(within(beyond).getByText("REFINE — texture / controlled refinement"))
+      .toBeInTheDocument();
+    expect(within(beyond).getByText("FRAME — eye area / rested-looking frame"))
+      .toBeInTheDocument();
+    expect(within(beyond).getByText("LIFT — weekly intensive")).toBeInTheDocument();
+
+    const protect = within(beyond).getByRole("link", {
       name: "View PROTECT Method step, coming soon",
     });
     expect(protect).toHaveAttribute("href", "/method#step-protect");
     expect(within(protect).getByText("COMING SOON")).toBeInTheDocument();
-    expect(within(protect).getByText("Final morning SPF step")).toBeInTheDocument();
+    expect(within(protect).getByText("SPF")).toBeInTheDocument();
     expect(within(protect).queryByRole("button")).not.toBeInTheDocument();
     expect(within(protect).queryByText(/\$\d/)).not.toBeInTheDocument();
     expect(protect.getAttribute("href")).not.toContain("/products/");
+
+    expect(
+      screen.queryByText(/Mei-Pelle|MEI-PELLE/),
+    ).not.toBeInTheDocument();
   });
 
-  it("does not substitute unrelated products when a required Method preset product is missing", async () => {
+  it("does not substitute unrelated products when a required Core Three product is missing", async () => {
     mockedGetProducts.mockResolvedValue(
       fixtures.filter((product) => product.slug !== "seal-05-green-collagen-cream"),
     );
 
     render(<CartProvider>{await HomePage()}</CartProvider>);
 
-    const featured = sectionForHeading("Featured");
+    const core = sectionForHeading("RESET, RECODE, SEAL.");
     expect(
-      Array.from(featured.querySelectorAll(".product-card__name")).map((node) =>
+      Array.from(core.querySelectorAll(".product-card__name")).map((node) =>
         node.textContent?.trim(),
       ),
     ).toEqual(["RESET", "RECODE"]);
-    expect(within(featured).queryByText("REFINE")).not.toBeInTheDocument();
-    expect(within(featured).queryByText("FRAME")).not.toBeInTheDocument();
-
-    const routine = sectionForHeading("Build your daily routine");
-    expect(
-      Array.from(routine.querySelectorAll(".routine-step__name")).map((node) =>
-        node.textContent?.trim(),
-      ),
-    ).toEqual(["RESET", "RECODE", "PROTECT"]);
+    expect(within(core).queryByText("REFINE")).not.toBeInTheDocument();
+    expect(within(core).queryByText("FRAME")).not.toBeInTheDocument();
   });
 });
