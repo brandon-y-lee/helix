@@ -13,7 +13,7 @@ test("homepage Core Three ladder renders", async ({ page }) => {
   await expect(page.getByText("Cleanse. Treat. Seal.")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Cleanse, Treat, Seal." }))
     .toBeVisible();
-  await expect(page.getByRole("heading", { name: "Simple Is Not Basic." }))
+  await expect(page.getByRole("heading", { name: "Simple is not basic." }))
     .toBeVisible();
   await expect(
     page.getByRole("heading", { name: "Use all three. Or upgrade one layer." }),
@@ -21,7 +21,7 @@ test("homepage Core Three ladder renders", async ({ page }) => {
   await expect(
     page.getByRole("heading", {
       name:
-        "For skin that looks cleaner, more hydrated, more controlled, and less tired by default.",
+        "For skin that looks clearer, younger, more hydrated, and less tired by default.",
     }),
   ).toBeVisible();
   await expect(
@@ -40,7 +40,7 @@ test("homepage section eyebrows share the Core section treatment", async ({ page
     const labels = [
       "The Core",
       "Plug and Play",
-      "What It's For",
+      "What The Core Supports",
       "Ingredient Literacy",
       "Start Here",
     ];
@@ -70,10 +70,148 @@ test("homepage section eyebrows share the Core section treatment", async ({ page
 
   const core = styles["The Core"];
   expect(core).not.toBeNull();
-  for (const label of ["Plug and Play", "What It's For", "Ingredient Literacy"]) {
+  for (const label of ["Plug and Play", "What The Core Supports", "Ingredient Literacy"]) {
     expect(styles[label]).toEqual(core);
   }
   expect(styles["Start Here"]).not.toEqual(core);
+});
+
+test("homepage core narrative uses a centered why pause and combined split", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+
+  const desktop = await page.evaluate(() => {
+    const clean = (text: string | null | undefined) =>
+      text?.replace(/\s+/g, " ").trim() ?? "";
+    const sections = Array.from(document.querySelectorAll<HTMLElement>("main > section"));
+    const headings = Array.from(document.querySelectorAll<HTMLElement>("h2"));
+    const sectionByHeading = (heading: string) =>
+      sections.find((section) => clean(section.querySelector("h2")?.textContent) === heading);
+    const core = sectionByHeading("Cleanse, Treat, Seal.");
+    const why = sectionByHeading("Simple is not basic.");
+    const supportHeading = headings.find(
+      (heading) =>
+        clean(heading.textContent) ===
+        "For skin that looks clearer, younger, more hydrated, and less tired by default.",
+    );
+    const plugHeading = headings.find(
+      (heading) => clean(heading.textContent) === "Use all three. Or upgrade one layer.",
+    );
+    const split = supportHeading?.closest<HTMLElement>(".home-section--core-support");
+    const supportPanel = supportHeading?.closest<HTMLElement>(".home-core-split__panel");
+    const plugPanel = plugHeading?.closest<HTMLElement>(".home-core-split__panel");
+    const reasonGrid = why?.querySelector<HTMLElement>(".home-reason-grid");
+    const coreHeading = core?.querySelector<HTMLElement>("h2");
+
+    const box = (element: HTMLElement | null | undefined) => {
+      const rect = element?.getBoundingClientRect();
+      if (!rect) return null;
+      return {
+        bottom: Math.round(rect.bottom),
+        height: Math.round(rect.height),
+        left: Math.round(rect.left),
+        right: Math.round(rect.right),
+        top: Math.round(rect.top),
+        width: Math.round(rect.width),
+      };
+    };
+
+    return {
+      coreIndex: sections.indexOf(core as HTMLElement),
+      whyIndex: sections.indexOf(why as HTMLElement),
+      whyClass: why?.className ?? "",
+      whyBackground: why ? getComputedStyle(why).backgroundColor : "",
+      coreBackground: core ? getComputedStyle(core).backgroundColor : "",
+      whyBorderTop: why ? getComputedStyle(why).borderTopWidth : "",
+      whyHeadingAlign: why?.querySelector("h2")
+        ? getComputedStyle(why.querySelector("h2") as HTMLElement).textAlign
+        : "",
+      whyCardAlign: why?.querySelector(".home-reason-card p")
+        ? getComputedStyle(why.querySelector(".home-reason-card p") as HTMLElement).textAlign
+        : "",
+      supportAndPlugSameSection: Boolean(split && plugHeading?.closest(".home-section--core-support") === split),
+      supportBeforePlug: Boolean(
+        supportHeading &&
+          plugHeading &&
+          headings.indexOf(supportHeading) < headings.indexOf(plugHeading),
+      ),
+      supportBox: box(supportPanel),
+      plugBox: box(plugPanel),
+      splitClass: split?.className ?? "",
+      supportAlign: supportPanel ? getComputedStyle(supportPanel).textAlign : "",
+      plugAlign: plugPanel ? getComputedStyle(plugPanel).textAlign : "",
+      splitHeadingSize: supportHeading
+        ? Number.parseFloat(getComputedStyle(supportHeading).fontSize)
+        : 0,
+      majorHeadingSize: coreHeading
+        ? Number.parseFloat(getComputedStyle(coreHeading).fontSize)
+        : 0,
+      reasonGridTop: box(reasonGrid)?.top ?? 0,
+      overflow: document.documentElement.scrollWidth - window.innerWidth,
+    };
+  });
+
+  expect(desktop.whyClass).toContain("home-section--why");
+  expect(desktop.whyIndex).toBe(desktop.coreIndex + 1);
+  expect(desktop.whyBackground).not.toEqual(desktop.coreBackground);
+  expect(desktop.whyBorderTop).toBe("1px");
+  expect(desktop.whyHeadingAlign).toBe("center");
+  expect(desktop.whyCardAlign).toBe("center");
+  expect(desktop.supportAndPlugSameSection).toBe(true);
+  expect(desktop.supportBeforePlug).toBe(true);
+  expect(desktop.splitClass).toContain("home-section--core-support");
+  expect(desktop.supportBox?.right).toBeLessThanOrEqual(desktop.plugBox?.left ?? 0);
+  expect(Math.abs((desktop.supportBox?.top ?? 0) - (desktop.plugBox?.top ?? 0))).toBeLessThan(4);
+  expect(desktop.supportAlign).toBe("left");
+  expect(desktop.plugAlign).toBe("right");
+  expect(desktop.splitHeadingSize).toBeLessThan(desktop.majorHeadingSize);
+  expect(desktop.overflow).toBeLessThanOrEqual(0);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.reload();
+  const mobile = await page.evaluate(() => {
+    const clean = (text: string | null | undefined) =>
+      text?.replace(/\s+/g, " ").trim() ?? "";
+    const supportHeading = Array.from(document.querySelectorAll<HTMLElement>("h2")).find(
+      (heading) =>
+        clean(heading.textContent) ===
+        "For skin that looks clearer, younger, more hydrated, and less tired by default.",
+    );
+    const plugHeading = Array.from(document.querySelectorAll<HTMLElement>("h2")).find(
+      (heading) => clean(heading.textContent) === "Use all three. Or upgrade one layer.",
+    );
+    const supportPanel = supportHeading?.closest<HTMLElement>(".home-core-split__panel");
+    const plugPanel = plugHeading?.closest<HTMLElement>(".home-core-split__panel");
+    const box = (element: HTMLElement | null | undefined) => {
+      const rect = element?.getBoundingClientRect();
+      if (!rect) return null;
+      return {
+        bottom: Math.round(rect.bottom),
+        left: Math.round(rect.left),
+        top: Math.round(rect.top),
+        width: Math.round(rect.width),
+      };
+    };
+
+    return {
+      supportBox: box(supportPanel),
+      plugBox: box(plugPanel),
+      supportAlign: supportPanel ? getComputedStyle(supportPanel).textAlign : "",
+      plugAlign: plugPanel ? getComputedStyle(plugPanel).textAlign : "",
+      whyHeadingAlign: getComputedStyle(
+        document.querySelector<HTMLElement>("#why-three-heading")!,
+      ).textAlign,
+      overflow: document.documentElement.scrollWidth - window.innerWidth,
+    };
+  });
+
+  expect(mobile.plugBox?.top).toBeGreaterThan(mobile.supportBox?.bottom ?? 0);
+  expect(mobile.supportAlign).toBe("left");
+  expect(mobile.plugAlign).toBe("left");
+  expect(mobile.whyHeadingAlign).toBe("center");
+  expect(mobile.overflow).toBeLessThanOrEqual(0);
 });
 
 test("homepage Core Three products and add-ons resolve by stable slugs", async ({ page }) => {

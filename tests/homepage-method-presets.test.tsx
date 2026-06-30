@@ -153,11 +153,18 @@ describe("homepage Core Three positioning", () => {
     expect(within(core).getByRole("button", { name: "Open quick buy for SEAL" }))
       .toBeInTheDocument();
 
+    const support = sectionForHeading(
+      "For skin that looks clearer, younger, more hydrated, and less tired by default.",
+    );
+    expect(within(support).getByText("What The Core Supports")).toBeInTheDocument();
     expect(
-      screen.getByText(
-        "For skin that looks cleaner, more hydrated, more controlled, and less tired by default.",
-      ),
+      within(support).getByRole("heading", { name: "Use all three. Or upgrade one layer." }),
     ).toBeInTheDocument();
+    expect(
+      Array.from(support.querySelectorAll(".hero__eyebrow")).map((node) =>
+        node.textContent?.trim(),
+      ),
+    ).toEqual(["What The Core Supports", "Plug and Play"]);
     expect(
       screen.getByText("Appearance is maintenance. Start with the baseline."),
     ).toBeInTheDocument();

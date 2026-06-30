@@ -104,9 +104,9 @@ const ADD_ONS: readonly AddOn[] = [
 ] as const;
 
 const WHY_THREE = [
-  "MEI PELLE starts with structure that skin universally understands: cleanse first, apply treatment layer, seal last.",
+  "Mei Pelle starts with structure that skin universally understands: cleanse first, apply treatment layer, seal last.",
   "Most routines fail because they ask for too much too soon. A shorter routine reduces friction.",
-  "Three steps build consistency - and consistency is where the system begins to matter.",
+  "Three steps build consistency - and consistency is where the system starts to matter.",
   "A simple baseline makes it easier to understand what is helping and what can be improved.",
 ] as const;
 
@@ -218,7 +218,7 @@ export default async function HomePage() {
         <div className="home-video-hero__scrim" aria-hidden="true" />
         <div className="home-video-hero__content">
           <div>
-            <p className="home-video-hero__eyebrow">The system</p>
+            <p className="home-video-hero__eyebrow">Mei Pelle</p>
             <h1 id="home-hero-heading" className="display-secondary home-video-hero__title">
               It all starts with three steps.
             </h1>
@@ -258,28 +258,41 @@ export default async function HomePage() {
         )}
       </section>
 
-      <section className="container home-section" aria-labelledby="why-three-heading">
-        <div className="home-section__intro home-section__intro--wide">
-          <p className="hero__eyebrow">Why Three Works</p>
-          <h2 id="why-three-heading">Simple Is Not Basic.</h2>
-        </div>
-        <div className="home-reason-grid">
-          {WHY_THREE.map((reason, index) => (
-            <article key={reason} className="home-reason-card">
-              <span>{String(index + 1).padStart(2, "0")}</span>
-              <p>{reason}</p>
-            </article>
-          ))}
+      <section className="home-section home-section--why" aria-labelledby="why-three-heading">
+        <div className="container">
+          <div className="home-section__intro home-section__intro--wide home-section__intro--center">
+            <p className="hero__eyebrow">Why Three Works</p>
+            <h2 id="why-three-heading">Simple is not basic.</h2>
+          </div>
+          <div className="home-reason-grid">
+            {WHY_THREE.map((reason, index) => (
+              <article key={reason} className="home-reason-card">
+                <span>{String(index + 1).padStart(2, "0")}</span>
+                <p>{reason}</p>
+              </article>
+            ))}
+          </div>
         </div>
       </section>
 
-      <section className="home-band home-section" aria-labelledby="plug-play-heading">
-        <div className="container home-split">
-          <div>
+      <section className="home-section home-section--core-support" aria-labelledby="for-heading plug-play-heading">
+        <div className="container home-core-split">
+          <article className="home-core-split__panel home-core-split__panel--support">
+            <p className="hero__eyebrow">What The Core Supports</p>
+            <h2 id="for-heading">
+              For skin that looks clearer, younger, more hydrated, and less
+              tired by default.
+            </h2>
+            <p>Appearance is maintenance. Start with the baseline.</p>
+            <ul>
+              {WHAT_ITS_FOR.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          </article>
+          <article className="home-core-split__panel home-core-split__panel--plug">
             <p className="hero__eyebrow">Plug and Play</p>
             <h2 id="plug-play-heading">Use all three. Or upgrade one layer.</h2>
-          </div>
-          <div className="home-copy-stack">
             <p>
               Mei Pelle is built to work as a full routine, but it does not need to
               replace everything at once. Plug CLEANSE, TREAT, or SEAL into the layer
@@ -290,23 +303,7 @@ export default async function HomePage() {
                 <li key={item}>{item}</li>
               ))}
             </ul>
-          </div>
-        </div>
-      </section>
-
-      <section className="container home-section" aria-labelledby="for-heading">
-        <div className="home-outcome">
-          <p className="hero__eyebrow">What It&apos;s For</p>
-          <h2 id="for-heading">
-            For skin that looks cleaner, more hydrated, more controlled, and less
-            tired by default.
-          </h2>
-          <p>Appearance is maintenance. Start with the baseline.</p>
-          <ul>
-            {WHAT_ITS_FOR.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
+          </article>
         </div>
       </section>
 
