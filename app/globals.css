@@ -5791,7 +5791,8 @@ main:focus {
   margin-bottom: clamp(28px, 4vw, 48px);
 }
 
-.home-section__intro .hero__eyebrow {
+.home-section__intro .hero__eyebrow,
+.home-split .hero__eyebrow {
   margin-bottom: 0;
 }
 
@@ -5805,8 +5806,8 @@ main:focus {
 }
 
 .home-section__intro p:not(.hero__eyebrow),
-.home-split p,
-.home-outcome p,
+.home-split p:not(.hero__eyebrow),
+.home-outcome p:not(.hero__eyebrow),
 .home-final p {
   max-width: 62ch;
   color: var(--ink-soft);
@@ -5963,7 +5964,7 @@ main:focus {
   margin-bottom: 0;
 }
 
-.home-outcome p {
+.home-outcome p:not(.hero__eyebrow) {
   color: var(--ink);
   font-weight: 800;
 }

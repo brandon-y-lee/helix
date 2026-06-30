@@ -33,6 +33,49 @@ test("homepage Core Three ladder renders", async ({ page }) => {
     .toBeVisible();
 });
 
+test("homepage section eyebrows share the Core section treatment", async ({ page }) => {
+  await page.goto("/");
+
+  const styles = await page.evaluate(() => {
+    const labels = [
+      "The Core",
+      "Plug and Play",
+      "What It's For",
+      "Ingredient Literacy",
+      "Start Here",
+    ];
+    const eyebrows = Array.from(document.querySelectorAll<HTMLElement>(".hero__eyebrow"));
+
+    return Object.fromEntries(
+      labels.map((label) => {
+        const element = eyebrows.find(
+          (eyebrow) => eyebrow.textContent?.replace(/\s+/g, " ").trim() === label,
+        );
+        if (!element) return [label, null];
+        const style = getComputedStyle(element);
+        return [
+          label,
+          {
+            color: style.color,
+            fontSize: style.fontSize,
+            fontWeight: style.fontWeight,
+            letterSpacing: style.letterSpacing,
+            lineHeight: style.lineHeight,
+            marginBottom: style.marginBottom,
+          },
+        ];
+      }),
+    );
+  });
+
+  const core = styles["The Core"];
+  expect(core).not.toBeNull();
+  for (const label of ["Plug and Play", "What It's For", "Ingredient Literacy"]) {
+    expect(styles[label]).toEqual(core);
+  }
+  expect(styles["Start Here"]).not.toEqual(core);
+});
+
 test("homepage Core Three products and add-ons resolve by stable slugs", async ({ page }) => {
   await page.goto("/");
 
@@ -80,8 +123,16 @@ test("homepage Core Three products and add-ons resolve by stable slugs", async (
 
 test("Core Three product card navigates to a product detail page", async ({ page }) => {
   await page.goto("/");
-  await page.locator('#core-three .product-card__link[href="/products/cleanse-01-calming-gel-cleanser"]').click();
-  await expect(page).toHaveURL(/\/products\/cleanse-01-calming-gel-cleanser$/);
+  const core = page.getByRole("region", { name: "Cleanse, Treat, Seal." });
+  const cleanseLink = core.getByRole("link", { name: "CLEANSE", exact: true });
+  await expect(cleanseLink).toHaveAttribute(
+    "href",
+    "/products/cleanse-01-calming-gel-cleanser",
+  );
+  await Promise.all([
+    page.waitForURL(/\/products\/cleanse-01-calming-gel-cleanser$/),
+    cleanseLink.locator(".product-card__name").click(),
+  ]);
   await expect(page.getByRole("heading", { level: 1, name: "CLEANSE" })).toBeVisible();
 });
 
