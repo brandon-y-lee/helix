@@ -1,14 +1,14 @@
 import { expect, test, type Page } from "@playwright/test";
 
 const sequences = {
-  3: ["01 RESET", "02 RECODE", "03 SEAL"],
-  4: ["01 RESET", "02 RECODE", "03 SEAL", "04 PROTECT"],
-  5: ["01 RESET", "02 REFINE", "03 RECODE", "04 SEAL", "05 PROTECT"],
-  6: ["01 RESET", "02 REFINE", "03 RECODE", "04 FRAME", "05 SEAL", "06 PROTECT"],
+  3: ["01 CLEANSE", "02 TREAT", "03 SEAL"],
+  4: ["01 CLEANSE", "02 TREAT", "03 SEAL", "04 PROTECT"],
+  5: ["01 CLEANSE", "02 REFINE", "03 TREAT", "04 SEAL", "05 PROTECT"],
+  6: ["01 CLEANSE", "02 REFINE", "03 TREAT", "04 FRAME", "05 SEAL", "06 PROTECT"],
   7: [
-    "01 RESET",
+    "01 CLEANSE",
     "02 REFINE",
-    "03 RECODE",
+    "03 TREAT",
     "04 FRAME",
     "05 SEAL",
     "06 PROTECT",
@@ -69,7 +69,7 @@ async function sliderGeometry(page: Page) {
   return page.evaluate(() => {
     const range = document.querySelector<HTMLElement>(".method-edit__range");
     const input = document.querySelector<HTMLInputElement>('.method-edit input[type="range"]');
-    if (!range || !input) throw new Error("Missing Method range control");
+    if (!range || !input) throw new Error("Missing System range control");
 
     const rangeStyle = window.getComputedStyle(range);
     const thumbSize = Number.parseFloat(
@@ -91,7 +91,7 @@ async function sliderGeometry(page: Page) {
       const count = Number(item.dataset.routineCount);
       const tick = item.querySelector<HTMLElement>(".method-edit__tick");
       const label = item.querySelector<HTMLElement>(".method-edit__tick-label");
-      if (!tick || !label) throw new Error("Missing Method tick or label");
+      if (!tick || !label) throw new Error("Missing System tick or label");
       const itemRect = item.getBoundingClientRect();
       const tickRect = tick.getBoundingClientRect();
       const labelRect = label.getBoundingClientRect();
@@ -139,7 +139,7 @@ async function expectSliderGeometryAligned(page: Page) {
   ).toBeLessThanOrEqual(tolerance);
 }
 
-test.describe("Method routine selector responsive viewports", () => {
+test.describe("System routine selector responsive viewports", () => {
   for (const viewport of [
     { width: 1920, height: 1080 },
     { width: 1440, height: 900 },
@@ -150,7 +150,7 @@ test.describe("Method routine selector responsive viewports", () => {
   ]) {
     test(`${viewport.width}x${viewport.height}`, async ({ page }) => {
       await page.setViewportSize(viewport);
-      await page.goto("/method");
+      await page.goto("/system");
 
       await expect(page.getByLabel("Routine length")).toBeVisible();
       await expectSequence(page, 7);
@@ -186,7 +186,7 @@ test.describe("Method routine selector responsive viewports", () => {
   }
 });
 
-test.describe("Method routine selector geometry", () => {
+test.describe("System routine selector geometry", () => {
   for (const viewport of [
     { width: 1440, height: 900 },
     { width: 390, height: 844 },
@@ -195,7 +195,7 @@ test.describe("Method routine selector geometry", () => {
       page,
     }) => {
       await page.setViewportSize(viewport);
-      await page.goto("/method");
+      await page.goto("/system");
 
       const slider = page.getByLabel("Routine length");
       await slider.focus();
@@ -210,7 +210,7 @@ test.describe("Method routine selector geometry", () => {
   }
 });
 
-test("Method routine length selector adapts nav, sections, timing, hue numerals, and chips", async ({
+test("System routine length selector adapts nav, sections, timing, hue numerals, and chips", async ({
   page,
 }) => {
   const consoleErrors: string[] = [];
@@ -219,7 +219,7 @@ test("Method routine length selector adapts nav, sections, timing, hue numerals,
   });
   page.on("pageerror", (error) => consoleErrors.push(error.message));
 
-  await page.goto("/method");
+  await page.goto("/system");
   const slider = page.getByLabel("Routine length");
   await expect(slider).toHaveValue("7");
   await expect(slider).toHaveAttribute("min", "3");
@@ -227,13 +227,13 @@ test("Method routine length selector adapts nav, sections, timing, hue numerals,
   await expect(slider).toHaveAttribute("step", "1");
   await expect(slider).toHaveAttribute(
     "aria-valuetext",
-    "7 steps, full Method with the scheduled weekly intensive",
+    "7 steps, full System with the scheduled weekly intensive",
   );
   await expectSequence(page, 7);
   await expect(routineCardLabels(page, "#routine-weekly")).resolves.toEqual(["07 LIFT"]);
 
-  await page.locator('.method-index__link[href="#step-lift"]').click();
-  await expect(page.locator("#step-lift")).toBeInViewport();
+  await page.locator('.method-index__link[href="#system-lift"]').click();
+  await expect(page.locator("#system-lift")).toBeInViewport();
   await slider.focus();
   await page.keyboard.press("Home");
   await expect(slider).toHaveValue("3");
@@ -242,21 +242,21 @@ test("Method routine length selector adapts nav, sections, timing, hue numerals,
     "3 steps, foundation: cleanse, treat, moisturize",
   );
   await expectSequence(page, 3);
-  await expect(page.locator("#step-refine")).toHaveCount(0);
-  await expect(page.locator("#step-frame")).toHaveCount(0);
-  await expect(page.locator("#step-protect")).toHaveCount(0);
-  await expect(page.locator("#step-lift")).toHaveCount(0);
+  await expect(page.locator("#system-refine")).toHaveCount(0);
+  await expect(page.locator("#system-frame")).toHaveCount(0);
+  await expect(page.locator("#system-protect")).toHaveCount(0);
+  await expect(page.locator("#system-lift")).toHaveCount(0);
   await expect(routineCardLabels(page, "#routine-am")).resolves.toEqual([
-    "01 RESET",
-    "02 RECODE",
+    "01 CLEANSE",
+    "02 TREAT",
     "03 SEAL",
   ]);
   await expect(routineCardLabels(page, "#routine-weekly")).resolves.toEqual([]);
   await expect(page.locator("#routine-weekly")).toContainText(
     "No separate weekly step is included in this edit.",
   );
-  await expect(page.locator('.method-index__link[href="#step-lift"][aria-current="location"]')).toHaveCount(0);
-  expect(new URL(page.url()).hash).not.toBe("#step-lift");
+  await expect(page.locator('.method-index__link[href="#system-lift"][aria-current="location"]')).toHaveCount(0);
+  expect(new URL(page.url()).hash).not.toBe("#system-lift");
 
   await page.keyboard.press("PageUp");
   await expect(slider).toHaveValue("4");
@@ -266,12 +266,12 @@ test("Method routine length selector adapts nav, sections, timing, hue numerals,
   await expect(slider).toHaveValue("4");
   await expectSequence(page, 4);
   await expect(routineCardLabels(page, "#routine-am")).resolves.toEqual([
-    "01 RESET",
-    "02 RECODE",
+    "01 CLEANSE",
+    "02 TREAT",
     "03 SEAL",
     "04 PROTECT",
   ]);
-  const protect = page.locator("#step-protect");
+  const protect = page.locator("#system-protect");
   await expect(protect).toContainText("COMING SOON");
   await expect(protect.getByRole("button")).toHaveCount(0);
   await expect(protect.getByRole("link")).toHaveCount(0);
@@ -281,9 +281,9 @@ test("Method routine length selector adapts nav, sections, timing, hue numerals,
   await expect(slider).toHaveValue("5");
   await expectSequence(page, 5);
   await expect(routineCardLabels(page, "#routine-am")).resolves.toEqual([
-    "01 RESET",
+    "01 CLEANSE",
     "02 REFINE",
-    "03 RECODE",
+    "03 TREAT",
     "04 SEAL",
     "05 PROTECT",
   ]);

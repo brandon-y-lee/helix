@@ -35,7 +35,7 @@ export const faqCategories: FAQCategory[] = [
         id: "available-products",
         question: "What products are in the current system?",
         answer:
-          "The current catalog centers on RESET, REFINE, RECODE, FRAME, SEAL, and LIFT. PROTECT appears in the Method as a sunscreen step that is not currently offered for purchase.",
+          "The current catalog centers on CLEANSE, REFINE, TREAT, FRAME, SEAL, and LIFT. PROTECT appears in the System as a sunscreen step that is not currently offered for purchase.",
         links: [{ label: "Shop the system", href: "/products" }],
       },
       {
@@ -43,7 +43,7 @@ export const faqCategories: FAQCategory[] = [
         question: "Where should I start?",
         answer:
           "Start with the foundation: cleanse, treat, and moisturize. Add eye care, weekly treatment, and sunscreen steps only when they match your routine and tolerance. More steps are not automatically better.",
-        links: [{ label: "View the Method", href: "/method" }],
+        links: [{ label: "View the System", href: "/system" }],
       },
       {
         id: "full-ingredients",
@@ -246,7 +246,7 @@ export const faqCategories: FAQCategory[] = [
         id: "contact-topics",
         question: "What can I contact Mei Pelle about?",
         answer:
-          "The Contact page organizes product, Method, account, cart, accessibility, privacy, partnership, wholesale, and general inquiry topics so the right information is ready when public support intake opens.",
+          "The Contact page organizes product, System, account, cart, accessibility, privacy, partnership, wholesale, and general inquiry topics so the right information is ready when public support intake opens.",
         links: [{ label: "Contact", href: "/contact" }],
       },
       {

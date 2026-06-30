@@ -3599,6 +3599,15 @@ main:focus {
   padding-inline: clamp(18px, 3vw, 44px);
 }
 
+.method-anchor-alias {
+  position: relative;
+  top: -96px;
+  display: block;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
 .method-hero,
 .about-hero {
   position: relative;

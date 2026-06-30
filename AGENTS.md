@@ -71,17 +71,6 @@ Mei Pelle should feel editorial, modern, visually led, sparse, confident, ingred
 
 Use Marcellus selectively for display and wordmark treatment. Use Manrope for functional UI and body text.
 
-Avoid:
-
-- shame-based looksmaxxing language
-- guaranteed attractiveness or social outcomes
-- structural facial-change, hormonal, surgical, or anatomical claims
-- medical, disease-treatment, healing, DNA-repair, or unsupported clinical claims
-- fabricated studies, percentages, certifications, endorsements, founders, advisors, laboratories, legal entities, addresses, or environmental achievements
-- generic black-and-gold luxury
-- tactical, supplement, gamer, crypto, or cyberpunk aesthetics
-- verbose supplier-style customer copy
-
 Keep PDRN language cosmetic and appearance-focused. Keep peptide claims sequence- and formulation-specific. Do not imply topical plant-derived collagen becomes human dermal collagen. Avoid fear-based “clean” language. Treat sustainability as an ambition unless verified facts support stronger claims.
 
 Public support, legal, order, rewards, and service-status content must be complete and factual. Do not publish fake contact details, unsupported service levels, or placeholder policies.
@@ -102,30 +91,40 @@ Customer-facing naming, descriptions, merchandising, rewards language, palette, 
 
 For Stripe, Supabase, Algolia, Trustpilot, Vercel, Next.js, and other integrations, use current official documentation for security-sensitive or provider-specific behavior.
 
-## 6. Durable Product and Policy Contracts
+## 6. Durable Product, System, and Policy Contracts
 
 Verify these against the repository before changing them. Do not duplicate canonical product facts into static runtime fallbacks.
 
-Current product names:
+Current customer-facing product names:
 
-- `RESET`
+- `CLEANSE`
 - `REFINE`
-- `RECODE`
+- `TREAT`
 - `FRAME`
 - `SEAL`
 - `LIFT`
 
-Current Method order:
+Current System order:
 
-- `01 RESET`
+- `01 CLEANSE`
 - `02 REFINE`
-- `03 RECODE`
+- `03 TREAT`
 - `04 FRAME`
 - `05 SEAL`
 - `06 PROTECT`
 - `07 LIFT`
 
-`PROTECT` is an editorial Method step, not a commerce product, unless a future task explicitly creates a verified catalog item. Do not fabricate a product, variant, price, inventory record, PDP, cart action, or Algolia record for it.
+Core-three routine:
+
+- `CLEANSE` — cleanser
+- `TREAT` — treatment serum
+- `SEAL` — barrier cream
+
+Customer-facing product-suite terminology is `The System` / `System` / `SYSTEM`, not `The Method` / `Method` / `METHOD`. The canonical route is `/system`; `/method` is legacy compatibility only and should redirect or alias to `/system` without becoming duplicate indexable content.
+
+`PROTECT` is an editorial System step, not a commerce product, unless a future task explicitly creates a verified catalog item. Do not fabricate a product, variant, price, inventory record, PDP, cart action, or Algolia record for it.
+
+Legacy technical identifiers such as `reset`, `recode`, `method`, old migration filenames, hidden search aliases, and compatibility anchors may remain only when changing them would risk migrations, redirects, linked data, tests, or integration compatibility. They must not remain as canonical customer-facing product names, visible product-suite terminology, or active canonical routes.
 
 The canonical free-standard-shipping threshold is `$50.00`, represented as `5000` integer cents. Use one shared server-safe policy source.
 

@@ -8,19 +8,19 @@ import {
   PROTECT_STEP,
   buildIngredientIndex,
   type MethodProductSlug,
-} from "@/lib/content/method";
+} from "@/lib/content/system";
 import type { Product } from "@/lib/products";
 
 export const metadata: Metadata = {
   title: "Mei Pelle | Three-Step Men's Skincare System",
   description:
-    "A three-step men's skincare baseline: cleanse, treat, and seal with RESET, RECODE, and SEAL.",
+    "A three-step men's skincare baseline: cleanse, treat, and seal with CLEANSE, TREAT, and SEAL.",
 };
 
 type CoreStep = {
-  id: "reset" | "recode" | "seal";
+  id: "cleanse" | "treat" | "seal";
   slug: MethodProductSlug;
-  displayName: "RESET" | "RECODE" | "SEAL";
+  displayName: "CLEANSE" | "TREAT" | "SEAL";
   role: string;
   summary: string;
 };
@@ -44,20 +44,20 @@ type AddOn = ProductAddOn | ProtectAddOn;
 
 const CORE_THREE: readonly CoreStep[] = [
   {
-    id: "reset",
-    slug: "reset-01-calming-gel-cleanser",
-    displayName: "RESET",
+    id: "cleanse",
+    slug: "cleanse-01-calming-gel-cleanser",
+    displayName: "CLEANSE",
     role: "Cleanser",
     summary:
-      "RESET cleans the surface so treatment layers can sit on skin, not on sunscreen, sweat, and daily buildup.",
+      "CLEANSE cleans the surface so treatment layers can sit on skin, not on sunscreen, sweat, and daily buildup.",
   },
   {
-    id: "recode",
-    slug: "recode-03-pdrn-5-ampoule",
-    displayName: "RECODE",
+    id: "treat",
+    slug: "treat-03-pdrn-5-ampoule",
+    displayName: "TREAT",
     role: "Treatment Serum",
     summary:
-      "RECODE is the treatment layer: a lightweight serum step for a hydrated, more controlled-looking finish.",
+      "TREAT is the treatment layer: a lightweight serum step for a hydrated, more controlled-looking finish.",
   },
   {
     id: "seal",
@@ -91,7 +91,7 @@ const ADD_ONS: readonly AddOn[] = [
     displayName: "PROTECT",
     role: "SPF finish / final morning protection / coming soon editorial step",
     summary:
-      "A non-commerce Method step for broad-spectrum SPF as the final morning layer.",
+      "A non-commerce System step for broad-spectrum SPF as the final morning layer.",
   },
   {
     kind: "product",
@@ -104,10 +104,10 @@ const ADD_ONS: readonly AddOn[] = [
 ] as const;
 
 const WHY_THREE = [
-  "A shorter routine reduces friction, which makes it easier to repeat.",
-  "The order matters: cleanse first, treat on clean skin, seal last.",
-  "A stable baseline makes it easier to understand what is helping.",
-  "More steps are not automatically better. Consistency usually beats length.",
+  "MEI PELLE starts with structure that skin universally understands: cleanse first, apply treatment layer, seal last.",
+  "Most routines fail because they ask for too much too soon. A shorter routine reduces friction.",
+  "Three steps build consistency - and consistency is where the system begins to matter.",
+  "A simple baseline makes it easier to understand what is helping and what can be improved.",
 ] as const;
 
 const PLUG_AND_PLAY = [
@@ -168,9 +168,9 @@ function renderProtectAddOn(addOn: ProtectAddOn) {
   return (
     <Link
       key={addOn.displayName}
-      href="/method#step-protect"
+      href="/system#system-protect"
       className="home-addon-card home-addon-card--protect"
-      aria-label="View PROTECT Method step, coming soon"
+      aria-label="View PROTECT System step, coming soon"
     >
       <span className="home-addon-card__media home-addon-card__media--protect" aria-hidden="true">
         <span>SPF</span>
@@ -218,21 +218,17 @@ export default async function HomePage() {
         <div className="home-video-hero__scrim" aria-hidden="true" />
         <div className="home-video-hero__content">
           <div>
-            <p className="home-video-hero__eyebrow">The baseline system</p>
+            <p className="home-video-hero__eyebrow">The system</p>
             <h1 id="home-hero-heading" className="display-secondary home-video-hero__title">
               It all starts with three steps.
             </h1>
             <p className="home-video-hero__display-line">Cleanse. Treat. Seal.</p>
-            <p className="home-video-hero__copy">
-              RESET, RECODE, and SEAL create a repeatable men&apos;s skincare baseline.
-              Add more only when there is a real reason.
-            </p>
             <div className="home-video-hero__actions">
               <Link href="#core-three" className="home-video-hero__cta">
-                SHOP THE CORE THREE
+                SHOP THE CORE
               </Link>
-              <Link href="/method" className="home-video-hero__secondary">
-                SEE THE METHOD
+              <Link href="/system" className="home-video-hero__secondary">
+                SEE THE SYSTEM
               </Link>
             </div>
           </div>
@@ -245,10 +241,10 @@ export default async function HomePage() {
         aria-labelledby="core-three-heading"
       >
         <div className="home-section__intro">
-          <p className="hero__eyebrow">Core Three</p>
-          <h2 id="core-three-heading">RESET, RECODE, SEAL.</h2>
+          <p className="hero__eyebrow">The Core</p>
+          <h2 id="core-three-heading">Cleanse, Treat, Seal.</h2>
           <p>
-            The core is simple by design: cleanse the surface, apply the treatment
+            Simple by design: cleanse the surface, apply the treatment
             layer, then finish with moisture and barrier support.
           </p>
         </div>
@@ -264,8 +260,8 @@ export default async function HomePage() {
 
       <section className="container home-section" aria-labelledby="why-three-heading">
         <div className="home-section__intro home-section__intro--wide">
-          <p className="hero__eyebrow">Why Three</p>
-          <h2 id="why-three-heading">The baseline is the point.</h2>
+          <p className="hero__eyebrow">Why Three Works</p>
+          <h2 id="why-three-heading">Simple Is Not Basic.</h2>
         </div>
         <div className="home-reason-grid">
           {WHY_THREE.map((reason, index) => (
@@ -281,12 +277,12 @@ export default async function HomePage() {
         <div className="container home-split">
           <div>
             <p className="hero__eyebrow">Plug and Play</p>
-            <h2 id="plug-play-heading">Run the full system, or replace one layer.</h2>
+            <h2 id="plug-play-heading">Use all three. Or upgrade one layer.</h2>
           </div>
           <div className="home-copy-stack">
             <p>
               Mei Pelle is built to work as a full routine, but it does not need to
-              replace everything at once. Plug RESET, RECODE, or SEAL into the layer
+              replace everything at once. Plug CLEANSE, TREAT, or SEAL into the layer
               your current routine is missing.
             </p>
             <ul>
@@ -331,11 +327,11 @@ export default async function HomePage() {
             <p className="hero__eyebrow">Ingredient Literacy</p>
             <h2 id="ingredients-heading">Know what each step is doing.</h2>
             <p>
-              Ingredient language should be useful, not inflated. The Method index
+              Ingredient language should be useful, not inflated. The System index
               explains what an ingredient is, where it appears, and what its formula
               context can support.
             </p>
-            <Link href="/method#method-ingredients" className="btn btn--ghost btn--editorial-rounded">
+            <Link href="/system#system-ingredients" className="btn btn--ghost btn--editorial-rounded">
               READ THE INDEX
             </Link>
           </div>
@@ -366,8 +362,8 @@ export default async function HomePage() {
             <Link href="#core-three" className="btn btn--editorial-rounded">
               SHOP THE CORE THREE
             </Link>
-            <Link href="/method" className="btn btn--ghost btn--editorial-rounded">
-              SEE THE METHOD
+            <Link href="/system" className="btn btn--ghost btn--editorial-rounded">
+              SEE THE SYSTEM
             </Link>
           </div>
         </div>

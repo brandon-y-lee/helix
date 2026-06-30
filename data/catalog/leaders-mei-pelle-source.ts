@@ -4,6 +4,7 @@
 
 export type LeadersCatalogProduct = {
   slug: string;
+  legacySlugs?: string[];
   actionName: string;
   routineNumber: string;
   title: string;
@@ -77,10 +78,11 @@ export type LeadersCatalogProduct = {
 
 export const leadersMeiPelleCatalog: LeadersCatalogProduct[] = [
   {
-    "slug": "reset-01-calming-gel-cleanser",
-    "actionName": "RESET",
+    "slug": "cleanse-01-calming-gel-cleanser",
+    "legacySlugs": ["reset-01-calming-gel-cleanser"],
+    "actionName": "CLEANSE",
     "routineNumber": "01",
-    "title": "RESET 01 — CALMING GEL CLEANSER",
+    "title": "CLEANSE 01 — CALMING GEL CLEANSER",
     "subtitle": "Calming gel-to-foam cleanser",
     "descriptor": "Low-pH daily cleanse for fresh, balanced skin.",
     "productType": "Gel cleanser",
@@ -128,16 +130,18 @@ export const leadersMeiPelleCatalog: LeadersCatalogProduct[] = [
       "AM",
       "PM"
     ],
-    "seoTitle": "RESET 01 — CALMING GEL CLEANSER | Mei Pelle",
+    "seoTitle": "CLEANSE 01 — CALMING GEL CLEANSER | Mei Pelle",
     "seoDescription": "Low-pH daily cleanse for fresh, balanced skin.",
     "searchKeywords": [
+      "cleanse",
       "cleanser",
       "gel cleanser",
       "cica",
       "biotics",
       "sensitive skin",
       "barrier",
-      "oil"
+      "oil",
+      "reset"
     ],
     "status": "available",
     "catalogStatus": "active",
@@ -168,7 +172,7 @@ export const leadersMeiPelleCatalog: LeadersCatalogProduct[] = [
       {
         "sourceUrl": "https://cdn.shopify.com/s/files/1/0734/9573/files/cb-cleansing-gel.jpg?v=1709913115",
         "sourceFilename": "cb-cleansing-gel.jpg",
-        "alt": "Mei Pelle RESET 01 low-ph daily cleanse for fresh, balanced skin. product image 1",
+        "alt": "Mei Pelle CLEANSE 01 low-ph daily cleanse for fresh, balanced skin. product image 1",
         "width": 1000,
         "height": 1000,
         "role": "card",
@@ -177,7 +181,7 @@ export const leadersMeiPelleCatalog: LeadersCatalogProduct[] = [
       {
         "sourceUrl": "https://cdn.shopify.com/s/files/1/0734/9573/files/cb-cleansing-gel5.jpg?v=1709913270",
         "sourceFilename": "cb-cleansing-gel5.jpg",
-        "alt": "Mei Pelle RESET 01 low-ph daily cleanse for fresh, balanced skin. product image 2",
+        "alt": "Mei Pelle CLEANSE 01 low-ph daily cleanse for fresh, balanced skin. product image 2",
         "width": 1000,
         "height": 1000,
         "role": "hero",
@@ -186,7 +190,7 @@ export const leadersMeiPelleCatalog: LeadersCatalogProduct[] = [
       {
         "sourceUrl": "https://cdn.shopify.com/s/files/1/0734/9573/files/cb-cleansing-gel2.jpg?v=1709913270",
         "sourceFilename": "cb-cleansing-gel2.jpg",
-        "alt": "Mei Pelle RESET 01 low-ph daily cleanse for fresh, balanced skin. product image 3",
+        "alt": "Mei Pelle CLEANSE 01 low-ph daily cleanse for fresh, balanced skin. product image 3",
         "width": 1000,
         "height": 1000,
         "role": "gallery",
@@ -195,7 +199,7 @@ export const leadersMeiPelleCatalog: LeadersCatalogProduct[] = [
       {
         "sourceUrl": "https://cdn.shopify.com/s/files/1/0734/9573/files/cb-cleansing-gel4.jpg?v=1709913270",
         "sourceFilename": "cb-cleansing-gel4.jpg",
-        "alt": "Mei Pelle RESET 01 low-ph daily cleanse for fresh, balanced skin. product image 4",
+        "alt": "Mei Pelle CLEANSE 01 low-ph daily cleanse for fresh, balanced skin. product image 4",
         "width": 1000,
         "height": 1000,
         "role": "gallery",
@@ -204,7 +208,7 @@ export const leadersMeiPelleCatalog: LeadersCatalogProduct[] = [
       {
         "sourceUrl": "https://cdn.shopify.com/s/files/1/0734/9573/files/cb-cleansing-gel3.jpg?v=1709913270",
         "sourceFilename": "cb-cleansing-gel3.jpg",
-        "alt": "Mei Pelle RESET 01 low-ph daily cleanse for fresh, balanced skin. product image 5",
+        "alt": "Mei Pelle CLEANSE 01 low-ph daily cleanse for fresh, balanced skin. product image 5",
         "width": 1000,
         "height": 1000,
         "role": "gallery",
@@ -222,7 +226,7 @@ export const leadersMeiPelleCatalog: LeadersCatalogProduct[] = [
       "originalSourcePriceCents": 2200,
       "formulationVersionNotes": "Public source did not provide a complete INCI list at inspection time."
     },
-    "selectionReason": "Matches RESET as a barrier-conscious daily cleanser with source-supported calming and low-pH cleansing positioning."
+    "selectionReason": "Matches CLEANSE as a barrier-conscious daily cleanser with source-supported calming and low-pH cleansing positioning."
   },
   {
     "slug": "refine-02-pore-treatment-pads",
@@ -375,10 +379,11 @@ export const leadersMeiPelleCatalog: LeadersCatalogProduct[] = [
     "selectionReason": "Fits REFINE as the source-supported texture, pore, and oil-balancing step."
   },
   {
-    "slug": "recode-03-pdrn-5-ampoule",
-    "actionName": "RECODE",
+    "slug": "treat-03-pdrn-5-ampoule",
+    "legacySlugs": ["recode-03-pdrn-5-ampoule"],
+    "actionName": "TREAT",
     "routineNumber": "03",
-    "title": "RECODE 03 — PDRN 5% AMPOULE",
+    "title": "TREAT 03 — PDRN 5% AMPOULE",
     "subtitle": "PDRN 5% daily ampoule",
     "descriptor": "Lightweight conditioning ampoule for radiance, texture, and hydration support.",
     "productType": "Ampoule / Serum",
@@ -433,16 +438,18 @@ export const leadersMeiPelleCatalog: LeadersCatalogProduct[] = [
       "AM",
       "PM"
     ],
-    "seoTitle": "RECODE 03 — PDRN 5% AMPOULE | Mei Pelle",
+    "seoTitle": "TREAT 03 — PDRN 5% AMPOULE | Mei Pelle",
     "seoDescription": "Lightweight conditioning ampoule for radiance, texture, and hydration support.",
     "searchKeywords": [
+      "treat",
       "PDRN",
       "Sodium DNA",
       "niacinamide",
       "peptides",
       "ampoule",
       "radiance",
-      "texture"
+      "texture",
+      "recode"
     ],
     "status": "available",
     "catalogStatus": "active",
@@ -473,7 +480,7 @@ export const leadersMeiPelleCatalog: LeadersCatalogProduct[] = [
       {
         "sourceUrl": "https://cdn.shopify.com/s/files/1/0734/9573/files/essencem2.png?v=1773191849",
         "sourceFilename": "essencem2.png",
-        "alt": "Mei Pelle RECODE 03 lightweight conditioning ampoule for radiance, texture, and hydration support. product image 1",
+        "alt": "Mei Pelle TREAT 03 lightweight conditioning ampoule for radiance, texture, and hydration support. product image 1",
         "width": 1000,
         "height": 1000,
         "role": "card",
@@ -482,7 +489,7 @@ export const leadersMeiPelleCatalog: LeadersCatalogProduct[] = [
       {
         "sourceUrl": "https://cdn.shopify.com/s/files/1/0734/9573/files/T01.png?v=1773191849",
         "sourceFilename": "T01.png",
-        "alt": "Mei Pelle RECODE 03 lightweight conditioning ampoule for radiance, texture, and hydration support. product image 2",
+        "alt": "Mei Pelle TREAT 03 lightweight conditioning ampoule for radiance, texture, and hydration support. product image 2",
         "width": 1751,
         "height": 1751,
         "role": "hero",
@@ -491,7 +498,7 @@ export const leadersMeiPelleCatalog: LeadersCatalogProduct[] = [
       {
         "sourceUrl": "https://cdn.shopify.com/s/files/1/0734/9573/files/T03.png?v=1773191849",
         "sourceFilename": "T03.png",
-        "alt": "Mei Pelle RECODE 03 lightweight conditioning ampoule for radiance, texture, and hydration support. product image 3",
+        "alt": "Mei Pelle TREAT 03 lightweight conditioning ampoule for radiance, texture, and hydration support. product image 3",
         "width": 1751,
         "height": 1751,
         "role": "gallery",
@@ -500,7 +507,7 @@ export const leadersMeiPelleCatalog: LeadersCatalogProduct[] = [
       {
         "sourceUrl": "https://cdn.shopify.com/s/files/1/0734/9573/files/T02.png?v=1773191849",
         "sourceFilename": "T02.png",
-        "alt": "Mei Pelle RECODE 03 lightweight conditioning ampoule for radiance, texture, and hydration support. product image 4",
+        "alt": "Mei Pelle TREAT 03 lightweight conditioning ampoule for radiance, texture, and hydration support. product image 4",
         "width": 1751,
         "height": 1751,
         "role": "gallery",
@@ -509,7 +516,7 @@ export const leadersMeiPelleCatalog: LeadersCatalogProduct[] = [
       {
         "sourceUrl": "https://cdn.shopify.com/s/files/1/0734/9573/files/t04.png?v=1773191849",
         "sourceFilename": "t04.png",
-        "alt": "Mei Pelle RECODE 03 lightweight conditioning ampoule for radiance, texture, and hydration support. product image 5",
+        "alt": "Mei Pelle TREAT 03 lightweight conditioning ampoule for radiance, texture, and hydration support. product image 5",
         "width": 1751,
         "height": 1751,
         "role": "gallery",

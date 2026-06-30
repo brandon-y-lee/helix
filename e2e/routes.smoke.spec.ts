@@ -6,9 +6,9 @@ import { test, expect } from "@playwright/test";
 const routes: ReadonlyArray<{ path: string; heading: string | RegExp }> = [
   { path: "/", heading: "It all starts with three steps." },
   { path: "/products", heading: "RAISE YOUR BASELINE." },
-  { path: "/method", heading: "THE METHOD." },
+  { path: "/system", heading: "THE SYSTEM." },
   { path: "/about", heading: "TWO CITIES. ONE STANDARD." },
-  { path: "/products/recode-03-pdrn-5-ampoule", heading: "RECODE" },
+  { path: "/products/treat-03-pdrn-5-ampoule", heading: "TREAT" },
   { path: "/cart", heading: "Cart" },
   { path: "/checkout", heading: "Checkout" },
   { path: "/account", heading: "Sign in" },
@@ -31,7 +31,7 @@ for (const { path, heading } of routes) {
 }
 
 test("add to cart updates the cart and persists to checkout", async ({ page }) => {
-  await page.goto("/products/recode-03-pdrn-5-ampoule");
+  await page.goto("/products/treat-03-pdrn-5-ampoule");
 
   await page.getByRole("button", { name: "30 mL" }).click();
   await page.getByRole("button", { name: /Add to cart/ }).click();
@@ -42,7 +42,7 @@ test("add to cart updates the cart and persists to checkout", async ({ page }) =
 
   // Cart page shows the line item and a non-empty summary.
   await page.goto("/cart");
-  await expect(page.getByText("RECODE")).toBeVisible();
+  await expect(page.getByText("TREAT")).toBeVisible();
   await expect(page.getByText("30 mL")).toBeVisible();
   await expect(page.getByRole("button", { name: /Sandbox checkout/ })).toBeVisible();
 });

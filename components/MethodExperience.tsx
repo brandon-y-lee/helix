@@ -50,6 +50,17 @@ function availabilityLabel(product: Product) {
   return "Unavailable";
 }
 
+function LegacyAnchors({ ids }: { ids?: readonly string[] }) {
+  if (!ids?.length) return null;
+  return (
+    <>
+      {ids.map((id) => (
+        <span key={id} id={id} className="method-anchor-alias" aria-hidden="true" />
+      ))}
+    </>
+  );
+}
+
 function primaryVariantMeta(product: Product) {
   const variant = product.variants[0];
   if (variant?.volume) return variant.volume;
@@ -77,10 +88,12 @@ function ProductStep({
   product,
   displayNumber,
   anchorId,
+  legacyAnchorIds,
 }: {
   product: Product;
   displayNumber: string;
   anchorId: string;
+  legacyAnchorIds?: readonly string[];
 }) {
   const copy = stepCopyForProduct(product);
   const focus = formulaFocus(product);
@@ -95,6 +108,7 @@ function ProductStep({
       data-method-step-id={product.displayName.toLowerCase()}
       data-display-number={displayNumber}
     >
+      <LegacyAnchors ids={legacyAnchorIds} />
       <div className="method-step__media">
         <ProductImage
           media={product.detailMedia ?? product.cardMedia}
@@ -163,21 +177,30 @@ function ProductStep({
   );
 }
 
-function ProtectStep({ displayNumber }: { displayNumber: string }) {
+function ProtectStep({
+  displayNumber,
+  anchorId,
+  legacyAnchorIds,
+}: {
+  displayNumber: string;
+  anchorId: string;
+  legacyAnchorIds?: readonly string[];
+}) {
   return (
     <section
-      id="step-protect"
+      id={anchorId}
       className="method-step method-step--protect"
-      aria-labelledby="step-protect-heading"
+      aria-labelledby={`${anchorId}-heading`}
       data-method-step-id="protect"
       data-display-number={displayNumber}
     >
+      <LegacyAnchors ids={legacyAnchorIds} />
       <div className="method-step__media method-protect__visual" aria-hidden="true">
         <span className="method-step__routine">{displayNumber}</span>
       </div>
       <div className="method-step__body">
         <p className="eyebrow">STEP {displayNumber}</p>
-        <h2 id="step-protect-heading">
+        <h2 id={`${anchorId}-heading`}>
           <span className="sr-only">{displayNumber} </span>
           {PROTECT_STEP.displayName}
         </h2>
@@ -227,7 +250,7 @@ function MethodRoutineSelector({
   return (
     <section className="method-edit" aria-labelledby={`${inputId}-heading`}>
       <div className="method-edit__copy">
-        <p className="eyebrow">EDIT THE METHOD</p>
+        <p className="eyebrow">EDIT THE SYSTEM</p>
         <h2 id={`${inputId}-heading`}>Choose the system you’ll repeat.</h2>
         <p id={descriptionId}>
           Three steps cover the foundation. Each addition makes the system more
@@ -294,14 +317,15 @@ function RoutineTiming({
 }) {
   return (
     <section
-      id="method-routine"
+      id="system-routine"
       className="method-routine"
-      aria-labelledby="method-routine-heading"
+      aria-labelledby="system-routine-heading"
     >
+      <LegacyAnchors ids={["method-routine"]} />
       <div className="section-head">
         <div>
           <p className="eyebrow">WHAT / WHY / HOW</p>
-          <h2 id="method-routine-heading">Run the routine by timing.</h2>
+          <h2 id="system-routine-heading">Run the routine by timing.</h2>
         </div>
       </div>
 
@@ -369,13 +393,14 @@ function IngredientLiteracy({
 }) {
   return (
     <section
-      id="method-ingredients"
+      id="system-ingredients"
       className="method-ingredients"
-      aria-labelledby="method-ingredients-heading"
+      aria-labelledby="system-ingredients-heading"
     >
+      <LegacyAnchors ids={["method-ingredients"]} />
       <div className="section-head">
         <div>
-          <h2 id="method-ingredients-heading">KNOW WHAT YOU’RE USING.</h2>
+          <h2 id="system-ingredients-heading">KNOW WHAT YOU’RE USING.</h2>
         </div>
       </div>
       <div className="ingredient-index">
@@ -453,8 +478,8 @@ export function MethodExperience({
 
   const navItems: MethodRoutineNavItem[] = useMemo(
     () => [
-      { id: "method-overview", label: "Start", meta: "Protocol" },
-      { id: "method-routine", label: "AM / PM", meta: "Timing" },
+      { id: "system-overview", label: "Start", meta: "Protocol" },
+      { id: "system-routine", label: "AM / PM", meta: "Timing" },
       ...renderableSteps.map((step) => ({
         id: step.anchorId,
         label: `${step.displayNumber} ${step.displayName}`,
@@ -464,7 +489,7 @@ export function MethodExperience({
             : step.product?.routineStep ?? undefined,
         position: step.canonicalPosition,
       })),
-      { id: "method-ingredients", label: "Index", meta: "Ingredients" },
+      { id: "system-ingredients", label: "Index", meta: "Ingredients" },
     ],
     [renderableSteps],
   );
@@ -505,16 +530,22 @@ export function MethodExperience({
 
         <RoutineTiming steps={steps} selectedCount={selectedCount} />
 
-        <div className="method-steps" aria-label="Method product steps">
+        <div className="method-steps" aria-label="System product steps">
           {renderableSteps.map((step) =>
             step.kind === "protect" ? (
-              <ProtectStep key={step.id} displayNumber={step.displayNumber} />
+              <ProtectStep
+                key={step.id}
+                displayNumber={step.displayNumber}
+                anchorId={step.anchorId}
+                legacyAnchorIds={step.legacyAnchorIds}
+              />
             ) : step.product ? (
               <ProductStep
                 key={step.slug}
                 product={step.product}
                 displayNumber={step.displayNumber}
                 anchorId={productSectionId(step.product)}
+                legacyAnchorIds={step.legacyAnchorIds}
               />
             ) : null,
           )}

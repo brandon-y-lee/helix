@@ -16,7 +16,7 @@ export const footerBrandStatement =
 export const footerUpdateModule = {
   eyebrow: "Updates",
   heading: "STAY IN THE SYSTEM.",
-  summary: "Product releases, formula notes, and method updates.",
+  summary: "Product releases, formula notes, and system updates.",
   status: "EMAIL UPDATES ARE NOT OPEN",
   note: "Mei Pelle is not collecting newsletter email addresses right now.",
 };
@@ -27,7 +27,7 @@ export const footerLinkGroups: FooterLinkGroup[] = [
     label: "Navigate",
     links: [
       { label: "Shop", href: "/products" },
-      { label: "Method", href: "/method" },
+      { label: "System", href: "/system" },
       { label: "About", href: "/about" },
       { label: "Account", href: "/account" },
       { label: "Rewards", href: "/rewards" },

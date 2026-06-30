@@ -22,7 +22,7 @@ function makeProduct(
     id: `${slug}-id`,
     slug,
     displayName,
-    formalTitle: `${displayName} Method Product`,
+    formalTitle: `${displayName} System Product`,
     name: displayName,
     tagline: `${displayName} tagline`,
     cardTagline: `${displayName} card tagline`,
@@ -90,9 +90,9 @@ function makeProduct(
 }
 
 const fixtures = [
-  makeProduct("reset-01-calming-gel-cleanser", "RESET", 1, 2200),
+  makeProduct("cleanse-01-calming-gel-cleanser", "CLEANSE", 1, 2200),
   makeProduct("refine-02-pore-treatment-pads", "REFINE", 2, 1700),
-  makeProduct("recode-03-pdrn-5-ampoule", "RECODE", 3, 2500),
+  makeProduct("treat-03-pdrn-5-ampoule", "TREAT", 3, 2500),
   makeProduct("frame-04-pdrn-eye-cream", "FRAME", 4, 2300),
   makeProduct("seal-05-green-collagen-cream", "SEAL", 5, 2600),
   makeProduct("lift-06-pdrn-mask-system", "LIFT", 7, 4500),
@@ -131,24 +131,24 @@ describe("homepage Core Three positioning", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Cleanse. Treat. Seal.")).toBeInTheDocument();
     expect(
-      screen.getAllByRole("link", { name: "SHOP THE CORE THREE" })[0],
+      screen.getAllByRole("link", { name: "SHOP THE CORE" })[0],
     ).toHaveAttribute("href", "#core-three");
     expect(
-      screen.getAllByRole("link", { name: "SEE THE METHOD" })[0],
-    ).toHaveAttribute("href", "/method");
+      screen.getAllByRole("link", { name: "SEE THE SYSTEM" })[0],
+    ).toHaveAttribute("href", "/system");
 
-    const core = sectionForHeading("RESET, RECODE, SEAL.");
+    const core = sectionForHeading("Cleanse, Treat, Seal.");
     expect(
       Array.from(core.querySelectorAll(".product-card__name")).map((node) =>
         node.textContent?.trim(),
       ),
-    ).toEqual(["RESET", "RECODE", "SEAL"]);
-    expect(within(core).getByText("RESET — Cleanser")).toBeInTheDocument();
-    expect(within(core).getByText("RECODE — Treatment Serum")).toBeInTheDocument();
+    ).toEqual(["CLEANSE", "TREAT", "SEAL"]);
+    expect(within(core).getByText("CLEANSE — Cleanser")).toBeInTheDocument();
+    expect(within(core).getByText("TREAT — Treatment Serum")).toBeInTheDocument();
     expect(within(core).getByText("SEAL — Barrier Cream")).toBeInTheDocument();
-    expect(within(core).getByRole("button", { name: "Open quick buy for RESET" }))
+    expect(within(core).getByRole("button", { name: "Open quick buy for CLEANSE" }))
       .toBeInTheDocument();
-    expect(within(core).getByRole("button", { name: "Open quick buy for RECODE" }))
+    expect(within(core).getByRole("button", { name: "Open quick buy for TREAT" }))
       .toBeInTheDocument();
     expect(within(core).getByRole("button", { name: "Open quick buy for SEAL" }))
       .toBeInTheDocument();
@@ -175,9 +175,9 @@ describe("homepage Core Three positioning", () => {
     expect(within(beyond).getByText("LIFT — weekly intensive")).toBeInTheDocument();
 
     const protect = within(beyond).getByRole("link", {
-      name: "View PROTECT Method step, coming soon",
+      name: "View PROTECT System step, coming soon",
     });
-    expect(protect).toHaveAttribute("href", "/method#step-protect");
+    expect(protect).toHaveAttribute("href", "/system#system-protect");
     expect(within(protect).getByText("COMING SOON")).toBeInTheDocument();
     expect(within(protect).getByText("SPF")).toBeInTheDocument();
     expect(within(protect).queryByRole("button")).not.toBeInTheDocument();
@@ -196,12 +196,12 @@ describe("homepage Core Three positioning", () => {
 
     render(<CartProvider>{await HomePage()}</CartProvider>);
 
-    const core = sectionForHeading("RESET, RECODE, SEAL.");
+    const core = sectionForHeading("Cleanse, Treat, Seal.");
     expect(
       Array.from(core.querySelectorAll(".product-card__name")).map((node) =>
         node.textContent?.trim(),
       ),
-    ).toEqual(["RESET", "RECODE"]);
+    ).toEqual(["CLEANSE", "TREAT"]);
     expect(within(core).queryByText("REFINE")).not.toBeInTheDocument();
     expect(within(core).queryByText("FRAME")).not.toBeInTheDocument();
   });

@@ -12,7 +12,7 @@ The filename keeps `mei-pelle` as a stable technical identifier.
 - global wordmark text and accessible label
 - footer wordmark, copyright, newsletter note, and links
 - page metadata and Open Graph site names
-- About, Method, FAQ, Contact, cart, Checkout, account, rewards, legal, and
+- About, System, FAQ, Contact, cart, Checkout, account, rewards, legal, and
   support content
 - product catalog display copy, alt text, SEO titles, and tests
 - visible tests and e2e expectations

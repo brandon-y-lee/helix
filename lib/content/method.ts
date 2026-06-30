@@ -1,9 +1,9 @@
 import type { Product } from "@/lib/products";
 
 export const METHOD_PRODUCT_SLUGS = [
-  "reset-01-calming-gel-cleanser",
+  "cleanse-01-calming-gel-cleanser",
   "refine-02-pore-treatment-pads",
-  "recode-03-pdrn-5-ampoule",
+  "treat-03-pdrn-5-ampoule",
   "frame-04-pdrn-eye-cream",
   "seal-05-green-collagen-cream",
   "lift-06-pdrn-mask-system",
@@ -12,9 +12,9 @@ export const METHOD_PRODUCT_SLUGS = [
 export type MethodProductSlug = (typeof METHOD_PRODUCT_SLUGS)[number];
 
 export const METHOD_PRODUCT_NUMBERS: Record<MethodProductSlug, string> = {
-  "reset-01-calming-gel-cleanser": "01",
+  "cleanse-01-calming-gel-cleanser": "01",
   "refine-02-pore-treatment-pads": "02",
-  "recode-03-pdrn-5-ampoule": "03",
+  "treat-03-pdrn-5-ampoule": "03",
   "frame-04-pdrn-eye-cream": "04",
   "seal-05-green-collagen-cream": "05",
   "lift-06-pdrn-mask-system": "07",
@@ -61,14 +61,14 @@ export const ROUTINE_PRESET_COPY: Record<
   7: {
     label: "+ WEEKLY",
     summary: "Adds the scheduled intensive.",
-    ariaValueText: "7 steps, full Method with the scheduled weekly intensive",
+    ariaValueText: "7 steps, full System with the scheduled weekly intensive",
   },
 };
 
 export type MethodStepId =
-  | "reset"
+  | "cleanse"
   | "refine"
-  | "recode"
+  | "treat"
   | "frame"
   | "seal"
   | "protect"
@@ -80,23 +80,26 @@ export type MethodStepConfig =
       kind: "product";
       slug: MethodProductSlug;
       anchorId: string;
+      legacyAnchorIds: readonly string[];
       canonicalPosition: number;
       minRoutineSize: RoutineStepCount;
     }
   | {
       id: "protect";
       kind: "protect";
-      anchorId: "step-protect";
+      anchorId: "system-protect";
+      legacyAnchorIds: readonly string[];
       canonicalPosition: 6;
       minRoutineSize: 4;
     };
 
 export const METHOD_STEP_CONFIGS = [
   {
-    id: "reset",
+    id: "cleanse",
     kind: "product",
-    slug: "reset-01-calming-gel-cleanser",
-    anchorId: "step-reset",
+    slug: "cleanse-01-calming-gel-cleanser",
+    anchorId: "system-cleanse",
+    legacyAnchorIds: ["step-cleanse", "step-reset", "method-cleanse", "method-reset"],
     canonicalPosition: 1,
     minRoutineSize: 3,
   },
@@ -104,15 +107,17 @@ export const METHOD_STEP_CONFIGS = [
     id: "refine",
     kind: "product",
     slug: "refine-02-pore-treatment-pads",
-    anchorId: "step-refine",
+    anchorId: "system-refine",
+    legacyAnchorIds: ["step-refine", "method-refine"],
     canonicalPosition: 2,
     minRoutineSize: 5,
   },
   {
-    id: "recode",
+    id: "treat",
     kind: "product",
-    slug: "recode-03-pdrn-5-ampoule",
-    anchorId: "step-recode",
+    slug: "treat-03-pdrn-5-ampoule",
+    anchorId: "system-treat",
+    legacyAnchorIds: ["step-treat", "step-recode", "method-treat", "method-recode"],
     canonicalPosition: 3,
     minRoutineSize: 3,
   },
@@ -120,7 +125,8 @@ export const METHOD_STEP_CONFIGS = [
     id: "frame",
     kind: "product",
     slug: "frame-04-pdrn-eye-cream",
-    anchorId: "step-frame",
+    anchorId: "system-frame",
+    legacyAnchorIds: ["step-frame", "method-frame"],
     canonicalPosition: 4,
     minRoutineSize: 6,
   },
@@ -128,14 +134,16 @@ export const METHOD_STEP_CONFIGS = [
     id: "seal",
     kind: "product",
     slug: "seal-05-green-collagen-cream",
-    anchorId: "step-seal",
+    anchorId: "system-seal",
+    legacyAnchorIds: ["step-seal", "method-seal"],
     canonicalPosition: 5,
     minRoutineSize: 3,
   },
   {
     id: "protect",
     kind: "protect",
-    anchorId: "step-protect",
+    anchorId: "system-protect",
+    legacyAnchorIds: ["step-protect", "method-protect"],
     canonicalPosition: 6,
     minRoutineSize: 4,
   },
@@ -143,7 +151,8 @@ export const METHOD_STEP_CONFIGS = [
     id: "lift",
     kind: "product",
     slug: "lift-06-pdrn-mask-system",
-    anchorId: "step-lift",
+    anchorId: "system-lift",
+    legacyAnchorIds: ["step-lift", "method-lift"],
     canonicalPosition: 7,
     minRoutineSize: 7,
   },
@@ -163,7 +172,7 @@ export type MethodStepCopy = {
 };
 
 export const METHOD_STEP_COPY: Record<MethodProductSlug, MethodStepCopy> = {
-  "reset-01-calming-gel-cleanser": {
+  "cleanse-01-calming-gel-cleanser": {
     what:
       "A low-pH gel cleanser for sunscreen, oil, sweat, and surface buildup.",
     why:
@@ -174,7 +183,7 @@ export const METHOD_STEP_COPY: Record<MethodProductSlug, MethodStepCopy> = {
     why:
       "It clears the path between cleansing and serum while keeping frequency adjustable.",
   },
-  "recode-03-pdrn-5-ampoule": {
+  "treat-03-pdrn-5-ampoule": {
     what:
       "A lightweight ampoule built around Sodium DNA, niacinamide, peptides, and humectants.",
     why:
@@ -378,13 +387,13 @@ export const ROUTINE_GROUPS: ReadonlyArray<RoutineGroup> = [
     heading: "Morning",
     summary: "Cleanse, treat, moisturize, then protect.",
     entries: [
-      { kind: "product", slug: "reset-01-calming-gel-cleanser" },
+      { kind: "product", slug: "cleanse-01-calming-gel-cleanser" },
       {
         kind: "product",
         slug: "refine-02-pore-treatment-pads",
         note: "Use at the supported frequency.",
       },
-      { kind: "product", slug: "recode-03-pdrn-5-ampoule" },
+      { kind: "product", slug: "treat-03-pdrn-5-ampoule" },
       { kind: "product", slug: "frame-04-pdrn-eye-cream" },
       { kind: "product", slug: "seal-05-green-collagen-cream" },
       { kind: "protect", id: "protect", label: "PROTECT", note: "Coming soon." },
@@ -396,13 +405,13 @@ export const ROUTINE_GROUPS: ReadonlyArray<RoutineGroup> = [
     heading: "Night",
     summary: "Cleanse, treat, and finish with moisture.",
     entries: [
-      { kind: "product", slug: "reset-01-calming-gel-cleanser" },
+      { kind: "product", slug: "cleanse-01-calming-gel-cleanser" },
       {
         kind: "product",
         slug: "refine-02-pore-treatment-pads",
         note: "Use when directed.",
       },
-      { kind: "product", slug: "recode-03-pdrn-5-ampoule" },
+      { kind: "product", slug: "treat-03-pdrn-5-ampoule" },
       { kind: "product", slug: "frame-04-pdrn-eye-cream" },
       { kind: "product", slug: "seal-05-green-collagen-cream" },
     ],
@@ -444,7 +453,7 @@ const INGREDIENT_DEFINITIONS: IngredientDefinition[] = [
     mechanism:
       "Used in topical cosmetics as a conditioning ingredient within water-based treatment formulas.",
     skinRelevance:
-      "Supports a hydrated, replenished-looking finish in RECODE, FRAME, and LIFT.",
+      "Supports a hydrated, replenished-looking finish in TREAT, FRAME, and LIFT.",
     formulationNote:
       "Evidence from injectable or medical use is not treated as direct proof for a topical cosmetic formula.",
   },
@@ -557,7 +566,7 @@ export function productSectionId(product: Product | MethodProductSlug): string {
   const slug = typeof product === "string" ? product : product.slug;
   return (
     METHOD_STEP_BY_SLUG.get(slug as MethodProductSlug)?.anchorId ??
-    `step-${typeof product === "string" ? slug : product.displayName.toLowerCase()}`
+    `system-${typeof product === "string" ? slug : product.displayName.toLowerCase()}`
   );
 }
 

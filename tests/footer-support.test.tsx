@@ -44,7 +44,7 @@ describe("global footer", () => {
         label: "Navigate",
         links: [
           { label: "Shop", href: "/products" },
-          { label: "Method", href: "/method" },
+          { label: "System", href: "/system" },
           { label: "About", href: "/about" },
           { label: "Account", href: "/account" },
           { label: "Rewards", href: "/rewards" },

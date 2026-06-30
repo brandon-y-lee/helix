@@ -15,10 +15,10 @@ vi.mock("@/components/CartProvider", () => ({
 function makeProduct(overrides: Partial<Product> = {}): Product {
   const base: Product = {
     id: "33333333-3333-4333-8333-333333333333",
-    slug: "recode-03-pdrn-5-ampoule",
-    displayName: "RECODE",
-    formalTitle: "RECODE 03 PDRN 5 Ampoule",
-    name: "RECODE",
+    slug: "treat-03-pdrn-5-ampoule",
+    displayName: "TREAT",
+    formalTitle: "TREAT 03 PDRN 5 Ampoule",
+    name: "TREAT",
     tagline: "Bounce and glow",
     cardTagline: "Bounce and glow",
     collection: "THE SYSTEM",

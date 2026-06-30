@@ -20,7 +20,7 @@ export const contactInquiryTypes: ContactInquiryType[] = [
   {
     value: "routine",
     label: "Ingredient or routine question",
-    description: "Method order, formula notes, skin goals, or ingredient literacy.",
+    description: "System order, formula notes, skin goals, or ingredient literacy.",
   },
   {
     value: "account",

@@ -35,10 +35,10 @@ function makeVariant(overrides: Partial<Variant> = {}): Variant {
 }
 
 function makeProduct(overrides: Partial<Product> = {}): Product {
-  const displayName = overrides.displayName ?? "RESET";
+  const displayName = overrides.displayName ?? "CLEANSE";
   const base: Product = {
     id: "11111111-1111-4111-8111-111111111111",
-    slug: "reset-01-calming-gel-cleanser",
+    slug: "cleanse-01-calming-gel-cleanser",
     displayName,
     formalTitle: `${displayName} 01 Calming Gel Cleanser`,
     name: displayName,
@@ -115,7 +115,7 @@ describe("ProductCard quick buy", () => {
     render(<ProductCard product={makeProduct()} />);
 
     await user.click(
-      screen.getByRole("button", { name: "Open quick buy for RESET" }),
+      screen.getByRole("button", { name: "Open quick buy for CLEANSE" }),
     );
     fireEvent.mouseLeave(screen.getByRole("listitem"));
 
@@ -124,7 +124,7 @@ describe("ProductCard quick buy", () => {
     expect(cardSurface()).toHaveAttribute("data-visual-state", "quick-buy");
     expect(
       screen.getByRole("button", {
-        name: "Buy RESET 50 ml for $20.00",
+        name: "Buy CLEANSE 50 ml for $20.00",
       }),
     ).toBeInTheDocument();
   });
@@ -134,17 +134,17 @@ describe("ProductCard quick buy", () => {
     render(<ProductCard product={makeProduct()} />);
 
     await user.click(
-      screen.getByRole("button", { name: "Open quick buy for RESET" }),
+      screen.getByRole("button", { name: "Open quick buy for CLEANSE" }),
     );
     const finalButton = screen.getByRole("button", {
-      name: "Buy RESET 50 ml for $20.00",
+      name: "Buy CLEANSE 50 ml for $20.00",
     });
     await user.click(finalButton);
 
     await waitFor(() => expect(cartMock.add).toHaveBeenCalledTimes(1));
     expect(cartMock.add).toHaveBeenCalledWith({
-      slug: "reset-01-calming-gel-cleanser",
-      name: "RESET",
+      slug: "cleanse-01-calming-gel-cleanser",
+      name: "CLEANSE",
       variantId: "50ml",
       variantLabel: "50 ml",
       price: 2000,
@@ -166,7 +166,7 @@ describe("ProductCard quick buy", () => {
 
     const surface = cardSurface();
     const trigger = screen.getByRole("button", {
-      name: "Open quick buy for RESET",
+      name: "Open quick buy for CLEANSE",
     });
     fireEvent.pointerEnter(surface, { pointerType: "mouse" });
     expect(surface).toHaveAttribute("data-visual-state", "preview");
@@ -174,14 +174,14 @@ describe("ProductCard quick buy", () => {
     await user.click(trigger);
     expect(surface).toHaveAttribute("data-visual-state", "quick-buy");
     await user.click(
-      screen.getByRole("button", { name: "Close quick buy for RESET" }),
+      screen.getByRole("button", { name: "Close quick buy for CLEANSE" }),
     );
 
     await waitFor(() => expect(trigger).toHaveFocus());
     expect(surface).toHaveAttribute("data-visual-state", "preview");
     expect(
       screen.queryByRole("button", {
-        name: "Buy RESET 50 ml for $20.00",
+        name: "Buy CLEANSE 50 ml for $20.00",
       }),
     ).not.toBeInTheDocument();
 
@@ -233,7 +233,7 @@ describe("ProductCard quick buy", () => {
 
     const surface = cardSurface();
     const trigger = screen.getByRole("button", {
-      name: "Open quick buy for RESET",
+      name: "Open quick buy for CLEANSE",
     });
 
     act(() => {
@@ -260,7 +260,7 @@ describe("ProductCard quick buy", () => {
 
     const surface = cardSurface();
     const trigger = screen.getByRole("button", {
-      name: "Open quick buy for RESET",
+      name: "Open quick buy for CLEANSE",
     });
 
     fireEvent.pointerDown(surface, { pointerType: "touch" });
@@ -268,7 +268,7 @@ describe("ProductCard quick buy", () => {
     expect(surface).toHaveAttribute("data-visual-state", "quick-buy");
 
     const close = screen.getByRole("button", {
-      name: "Close quick buy for RESET",
+      name: "Close quick buy for CLEANSE",
     });
     fireEvent.touchStart(close);
     fireEvent.click(close);
@@ -282,14 +282,14 @@ describe("ProductCard quick buy", () => {
     const { unmount } = render(<ProductCard product={product} />);
 
     await user.click(
-      screen.getByRole("button", { name: "Open quick buy for RESET" }),
+      screen.getByRole("button", { name: "Open quick buy for CLEANSE" }),
     );
     await user.keyboard("{Escape}");
 
     await waitFor(() =>
       expect(
         screen.queryByRole("button", {
-          name: "Buy RESET 50 ml for $20.00",
+          name: "Buy CLEANSE 50 ml for $20.00",
         }),
       ).not.toBeInTheDocument(),
     );
@@ -298,13 +298,13 @@ describe("ProductCard quick buy", () => {
     cartMock.cartDrawerOpen = true;
     render(<ProductCard product={product} />);
     await user.click(
-      screen.getByRole("button", { name: "Open quick buy for RESET" }),
+      screen.getByRole("button", { name: "Open quick buy for CLEANSE" }),
     );
     await user.keyboard("{Escape}");
 
     expect(
       screen.getByRole("button", {
-        name: "Buy RESET 50 ml for $20.00",
+        name: "Buy CLEANSE 50 ml for $20.00",
       }),
     ).toBeInTheDocument();
   });
@@ -330,12 +330,12 @@ describe("ProductCard quick buy", () => {
     );
 
     await user.click(
-      screen.getByRole("button", { name: "Open quick buy for RESET" }),
+      screen.getByRole("button", { name: "Open quick buy for CLEANSE" }),
     );
     await user.click(screen.getByRole("radio", { name: "100 ml $32.00" }));
     await user.click(
       screen.getByRole("button", {
-        name: "Buy RESET 100 ml for $32.00",
+        name: "Buy CLEANSE 100 ml for $32.00",
       }),
     );
 
@@ -353,11 +353,11 @@ describe("ProductCard quick buy", () => {
     render(<ProductCard product={makeProduct()} />);
 
     await user.click(
-      screen.getByRole("button", { name: "Open quick buy for RESET" }),
+      screen.getByRole("button", { name: "Open quick buy for CLEANSE" }),
     );
     await user.click(
       screen.getByRole("button", {
-        name: "Buy RESET 50 ml for $20.00",
+        name: "Buy CLEANSE 50 ml for $20.00",
       }),
     );
 
@@ -365,7 +365,7 @@ describe("ProductCard quick buy", () => {
     expect(cartMock.openCartDrawer).not.toHaveBeenCalled();
     expect(
       screen.getByRole("button", {
-        name: "Buy RESET 50 ml for $20.00",
+        name: "Buy CLEANSE 50 ml for $20.00",
       }),
     ).toBeInTheDocument();
   });
@@ -392,12 +392,12 @@ describe("ProductGrid quick buy coordination", () => {
     const cards = screen.getAllByRole("listitem");
     await user.click(
       within(cards[0]).getByRole("button", {
-        name: "Open quick buy for RESET",
+        name: "Open quick buy for CLEANSE",
       }),
     );
     expect(
       within(cards[0]).getByRole("button", {
-        name: "Buy RESET 50 ml for $20.00",
+        name: "Buy CLEANSE 50 ml for $20.00",
       }),
     ).toBeInTheDocument();
 
@@ -409,7 +409,7 @@ describe("ProductGrid quick buy coordination", () => {
 
     expect(
       within(cards[0]).queryByRole("button", {
-        name: "Buy RESET 50 ml for $20.00",
+        name: "Buy CLEANSE 50 ml for $20.00",
       }),
     ).not.toBeInTheDocument();
     expect(

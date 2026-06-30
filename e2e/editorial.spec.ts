@@ -1,18 +1,18 @@
 import { expect, test } from "@playwright/test";
 
 const methodStepIds = [
-  "step-reset",
-  "step-refine",
-  "step-recode",
-  "step-frame",
-  "step-seal",
-  "step-lift",
+  "system-cleanse",
+  "system-refine",
+  "system-treat",
+  "system-frame",
+  "system-seal",
+  "system-lift",
 ] as const;
 
 const expectedSequence = [
-  "01 RESET",
+  "01 CLEANSE",
   "02 REFINE",
-  "03 RECODE",
+  "03 TREAT",
   "04 FRAME",
   "05 SEAL",
   "06 PROTECT",
@@ -59,7 +59,7 @@ async function readPanelGeometry(
   });
 }
 
-test("Method and About hero panels reuse the Shop hero shell geometry", async ({
+test("System and About hero panels reuse the Shop hero shell geometry", async ({
   page,
 }) => {
   for (const viewport of [
@@ -69,7 +69,7 @@ test("Method and About hero panels reuse the Shop hero shell geometry", async ({
     await page.setViewportSize(viewport);
 
     const shop = await readPanelGeometry(page, "/products", ".shop-hero__surface");
-    const method = await readPanelGeometry(page, "/method", ".method-hero");
+    const method = await readPanelGeometry(page, "/system", ".method-hero");
     const about = await readPanelGeometry(page, "/about", ".about-hero");
 
     for (const target of [method, about]) {
@@ -96,14 +96,14 @@ test("Method and About hero panels reuse the Shop hero shell geometry", async ({
   }
 });
 
-test("primary navigation reaches Method and About editorial pages", async ({ page }) => {
+test("primary navigation reaches System and About editorial pages", async ({ page }) => {
   await page.goto("/");
   const primaryNav = page.getByRole("navigation", { name: "Primary" });
 
-  await primaryNav.getByRole("link", { name: "METHOD" }).click();
-  await expect(page).toHaveURL(/\/method$/);
+  await primaryNav.getByRole("link", { name: "SYSTEM" }).click();
+  await expect(page).toHaveURL(/\/system$/);
   await expect(
-    page.getByRole("heading", { level: 1, name: "THE METHOD." }),
+    page.getByRole("heading", { level: 1, name: "THE SYSTEM." }),
   ).toBeVisible();
 
   await primaryNav.getByRole("link", { name: "ABOUT" }).click();
@@ -113,15 +113,15 @@ test("primary navigation reaches Method and About editorial pages", async ({ pag
   ).toBeVisible();
 });
 
-test("Method page renders the full routine without treating SPF as merchandise", async ({
+test("System page renders the full routine without treating SPF as merchandise", async ({
   page,
 }) => {
-  await page.goto("/method");
+  await page.goto("/system");
 
   const hero = page.locator(".method-hero");
   await expect(hero.getByText("Mei Pelle", { exact: true })).toBeVisible();
   await expect(
-    page.getByRole("heading", { level: 1, name: "THE METHOD." }),
+    page.getByRole("heading", { level: 1, name: "THE SYSTEM." }),
   ).toBeVisible();
   await expect(
     hero.getByText("A system for clearer, healthier, beautiful skin", { exact: true }),
@@ -142,7 +142,7 @@ test("Method page renders the full routine without treating SPF as merchandise",
   await expect(hero.getByRole("link", { name: "Start the system" }))
     .toHaveClass(/btn--editorial-rounded/);
   await expect(hero.getByRole("link", { name: "View the routine" }))
-    .toHaveAttribute("href", "#method-routine");
+    .toHaveAttribute("href", "#system-routine");
   await expect(hero.getByRole("link", { name: "View the routine" }))
     .toHaveClass(/btn--editorial-rounded/);
   await expect(hero).not.toContainText("01");
@@ -183,7 +183,7 @@ test("Method page renders the full routine without treating SPF as merchandise",
       .toHaveClass(/btn--editorial-rounded/);
   }
 
-  const protect = page.locator("#step-protect");
+  const protect = page.locator("#system-protect");
   await expect(protect).toBeVisible();
   await expect(protect.getByText("STEP 06")).toBeVisible();
   await expect(protect.getByRole("heading", { name: "06 PROTECT" })).toBeVisible();
@@ -203,10 +203,10 @@ test("Method page renders the full routine without treating SPF as merchandise",
   await expect(pmRoutine).not.toContainText("PROTECT");
   await expect(weeklyRoutine).toContainText("LIFT");
   await expect(weeklyRoutine).toContainText("07");
-  await expect(page.locator("#step-lift").getByText("STEP 07")).toBeVisible();
+  await expect(page.locator("#system-lift").getByText("STEP 07")).toBeVisible();
 
-  await expect(page.locator("#step-refine")).not.toContainText("THE RULE:");
-  await expect(page.locator("#step-recode")).not.toContainText("ADVANCED DOES NOT MEAN AGGRESSIVE");
+  await expect(page.locator("#system-refine")).not.toContainText("THE RULE:");
+  await expect(page.locator("#system-treat")).not.toContainText("ADVANCED DOES NOT MEAN AGGRESSIVE");
 
   await expect(page.getByRole("heading", { name: "KNOW WHAT YOU’RE USING." })).toBeVisible();
   await expect(page.getByText("INGREDIENT LITERACY")).toHaveCount(0);
@@ -241,7 +241,7 @@ test("Method page renders the full routine without treating SPF as merchandise",
 test("skip link stays hidden during overscroll and appears on keyboard focus", async ({
   page,
 }) => {
-  await page.goto("/method");
+  await page.goto("/system");
 
   const skipLink = page.locator(".skip-link");
   await expect(skipLink).toHaveText("Skip to main content");
@@ -299,13 +299,13 @@ test("skip link stays hidden during overscroll and appears on keyboard focus", a
   await expect(page.locator("#content")).toBeFocused();
 });
 
-test("Method product links navigate to live product detail pages", async ({ page }) => {
-  await page.goto("/method");
-  await page.locator("#step-recode").getByRole("link", { name: /View RECODE/ }).click();
+test("System product links navigate to live product detail pages", async ({ page }) => {
+  await page.goto("/system");
+  await page.locator("#system-treat").getByRole("link", { name: /View TREAT/ }).click();
 
-  await expect(page).toHaveURL(/\/products\/recode-03-pdrn-5-ampoule$/);
+  await expect(page).toHaveURL(/\/products\/treat-03-pdrn-5-ampoule$/);
   await expect(
-    page.getByRole("heading", { level: 1, name: "RECODE" }),
+    page.getByRole("heading", { level: 1, name: "TREAT" }),
   ).toBeVisible();
   await expect(page.getByRole("button", { name: /Add to cart/ })).toBeVisible();
 });
@@ -341,9 +341,9 @@ test("About page keeps the brand story editorial and claim-safe", async ({ page 
   );
   expect(aboutHeroField.classes).not.toContain("editorial-hue-field--method");
   expect(aboutHeroField.decorativeSpanCount).toBe(0);
-  await expect(page.locator(".about-hero").getByRole("link", { name: "Discover the method" }))
-    .toHaveAttribute("href", "/method");
-  await expect(page.locator(".about-hero").getByRole("link", { name: "Discover the method" }))
+  await expect(page.locator(".about-hero").getByRole("link", { name: "Discover the system" }))
+    .toHaveAttribute("href", "/system");
+  await expect(page.locator(".about-hero").getByRole("link", { name: "Discover the system" }))
     .toHaveClass(/btn--editorial-rounded/);
   await expect(page.locator(".about-hero").getByRole("link", { name: "Shop the system" }))
     .toHaveAttribute("href", "/products");
@@ -357,8 +357,8 @@ test("About page keeps the brand story editorial and claim-safe", async ({ page 
   expect(bodyText).not.toContain("dermatologist approved");
   expect(bodyText).not.toContain("certified sustainable");
 
-  await page.getByRole("link", { name: /learn the method/i }).click();
-  await expect(page).toHaveURL(/\/method$/);
+  await page.getByRole("link", { name: /learn the system/i }).click();
+  await expect(page).toHaveURL(/\/system$/);
 });
 
 test("editorial pages remain usable in the mobile header layout", async ({ page }) => {
@@ -375,14 +375,14 @@ test("editorial pages remain usable in the mobile header layout", async ({ page 
     page.getByRole("heading", { level: 1, name: "TWO CITIES. ONE STANDARD." }),
   ).toBeVisible();
 
-  await page.goto("/method");
+  await page.goto("/system");
   await expect(
     page.getByText("A system for clearer, healthier, beautiful skin", { exact: true }),
   ).toBeVisible();
   await expect(page.locator(".method-index")).toBeVisible();
-  await page.locator(".method-index a", { hasText: "RECODE" }).click();
-  await expect(page.locator("#step-recode")).toBeInViewport();
-  await expect(page.locator("#step-protect").getByText("COMING SOON")).toBeVisible();
+  await page.locator('.method-index a[href="#system-treat"]').click();
+  await expect(page.locator("#system-treat")).toBeInViewport();
+  await expect(page.locator("#system-protect").getByText("COMING SOON")).toBeVisible();
 
   const hasHorizontalOverflow = await page.evaluate(
     () => document.documentElement.scrollWidth > window.innerWidth + 1,

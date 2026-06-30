@@ -86,8 +86,8 @@ describe("HomeHeroVideo", () => {
       <section>
         <HomeHeroVideo />
         <h1>It all starts with three steps.</h1>
-        <a href="#core-three">SHOP THE CORE THREE</a>
-        <a href="/method">SEE THE METHOD</a>
+        <a href="#core-three">SHOP THE CORE</a>
+        <a href="/system">SEE THE SYSTEM</a>
       </section>,
     );
 
@@ -115,13 +115,13 @@ describe("HomeHeroVideo", () => {
         name: "It all starts with three steps.",
       }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "SHOP THE CORE THREE" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "SHOP THE CORE" })).toHaveAttribute(
       "href",
       "#core-three",
     );
-    expect(screen.getByRole("link", { name: "SEE THE METHOD" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "SEE THE SYSTEM" })).toHaveAttribute(
       "href",
-      "/method",
+      "/system",
     );
   });
 });

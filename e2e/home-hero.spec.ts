@@ -35,8 +35,8 @@ test.describe("homepage video hero", () => {
       level: 1,
       name: "It all starts with three steps.",
     });
-    const cta = page.getByRole("link", { name: "SHOP THE CORE THREE" }).first();
-    const secondary = page.getByRole("link", { name: "SEE THE METHOD" }).first();
+    const cta = page.getByRole("link", { name: "SHOP THE CORE" }).first();
+    const secondary = page.getByRole("link", { name: "SEE THE SYSTEM" }).first();
     const video = hero.locator("video");
 
     await expect(hero).toBeVisible();
@@ -47,7 +47,7 @@ test.describe("homepage video hero", () => {
     await expect(page.locator("text=A sharper daily system for fresh")).toHaveCount(0);
     await expect(heading).toHaveClass(/display-secondary/);
     await expect(cta).toHaveAttribute("href", "#core-three");
-    await expect(secondary).toHaveAttribute("href", "/method");
+    await expect(secondary).toHaveAttribute("href", "/system");
     await expect(video).toHaveCount(1);
     await expect(video).toHaveAttribute("poster", "/media/home/mei-pelle-hero-poster.webp");
     await expect(video.locator('source[type="video/webm"]')).toHaveAttribute(
@@ -134,8 +134,8 @@ test.describe("homepage video hero", () => {
       level: 1,
       name: "It all starts with three steps.",
     });
-    const cta = page.getByRole("link", { name: "SHOP THE CORE THREE" }).first();
-    const secondary = page.getByRole("link", { name: "SEE THE METHOD" }).first();
+    const cta = page.getByRole("link", { name: "SHOP THE CORE" }).first();
+    const secondary = page.getByRole("link", { name: "SEE THE SYSTEM" }).first();
 
     await expect(hero).toBeVisible();
     await expect(heading).toBeVisible();
@@ -175,8 +175,8 @@ test.describe("homepage video hero", () => {
         name: "It all starts with three steps.",
       }),
     ).toBeVisible();
-    await expect(page.getByRole("link", { name: "SHOP THE CORE THREE" }).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: "SEE THE METHOD" }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: "SHOP THE CORE" }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: "SEE THE SYSTEM" }).first()).toBeVisible();
     await expect(hero.locator("video")).toHaveCount(0);
     await expect(hero.locator(".home-video-hero__poster")).toBeVisible();
     await expect(media).toHaveAttribute("data-motion-state", "static");
@@ -187,6 +187,6 @@ test.describe("homepage video hero", () => {
     await page.goto("/");
     await page.locator(".home-video-hero__cta").click();
     await expect(page).toHaveURL(/\/#core-three$/);
-    await expect(page.getByRole("heading", { name: "RESET, RECODE, SEAL." })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Cleanse, Treat, Seal." })).toBeVisible();
   });
 });

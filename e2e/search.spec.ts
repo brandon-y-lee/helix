@@ -9,10 +9,10 @@ import { test, expect, type Page } from "@playwright/test";
 const SERUM_HIT = {
   objectID: "e2e-serum",
   productId: "e2e-serum",
-  slug: "recode-03-pdrn-5-ampoule",
-  title: "RECODE",
-  displayName: "RECODE",
-  formalTitle: "RECODE 03 PDRN 5% Ampoule",
+  slug: "treat-03-pdrn-5-ampoule",
+  title: "TREAT",
+  displayName: "TREAT",
+  formalTitle: "TREAT 03 PDRN 5% Ampoule",
   cardTagline: "Bounce and glow",
   editorialDescription: "A lightweight ampoule that layers hydration with a polished finish.",
   subtitle: "Ampoule / Serum",
@@ -38,8 +38,8 @@ const SERUM_HIT = {
   swatch: ["#dfe4e5", "#7f8f95"],
   placeholderMedia: {
     kind: "placeholder",
-    alt: "RECODE search placeholder surface",
-    paletteId: "recode-search",
+    alt: "TREAT search placeholder surface",
+    paletteId: "treat-search",
     palette: {
       start: "#dfe4e5",
       end: "#7f8f95",
@@ -118,14 +118,14 @@ test("Algolia-backed results render with a count and link to the PDP", async ({
   await expect(page.locator('[data-media-kind="placeholder"]').first()).toBeVisible();
 
   const link = page
-    .getByRole("link", { name: /RECODE/ })
+    .getByRole("link", { name: /TREAT/ })
     .first();
   await expect(link).toBeVisible();
   await link.click();
 
-  await expect(page).toHaveURL(/\/products\/recode-03-pdrn-5-ampoule$/);
+  await expect(page).toHaveURL(/\/products\/treat-03-pdrn-5-ampoule$/);
   await expect(
-    page.getByRole("heading", { level: 1, name: "RECODE" }),
+    page.getByRole("heading", { level: 1, name: "TREAT" }),
   ).toBeVisible();
 });
 

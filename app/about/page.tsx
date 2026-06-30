@@ -177,8 +177,8 @@ export default function AboutPage() {
             <p key={promise}>{promise}</p>
           ))}
         </div>
-        <Link href="/method" className="btn btn--ghost">
-          See the method
+        <Link href="/system" className="btn btn--ghost">
+          See the system
         </Link>
       </section>
 

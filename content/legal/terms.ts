@@ -49,7 +49,7 @@ export const termsOfService: LegalDocument = {
       id: "product-information",
       title: "Product Information",
       body: [
-        "Product pages, Method content, and ingredient notes are educational and cosmetic in nature. They are not medical advice, diagnosis, or treatment.",
+        "Product pages, System content, and ingredient notes are educational and cosmetic in nature. They are not medical advice, diagnosis, or treatment.",
         "Product availability, variants, pricing, presentation, ingredient details, and directions may change.",
       ],
     },

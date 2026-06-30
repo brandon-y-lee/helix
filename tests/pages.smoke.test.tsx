@@ -17,7 +17,7 @@ vi.mock("@/lib/auth/session", () => ({
 
 import HomePage from "@/app/page";
 import ProductsPage from "@/app/products/page";
-import MethodPage from "@/app/method/page";
+import MethodPage from "@/app/system/page";
 import AboutPage from "@/app/about/page";
 import CartPage from "@/app/cart/page";
 import CheckoutPage from "@/app/checkout/page";
@@ -111,9 +111,9 @@ function makeProduct(overrides: Partial<Product> & Pick<Product, "slug" | "name"
 
 const fixtures: Product[] = [
   makeProduct({
-    slug: "reset-01-calming-gel-cleanser",
-    name: "RESET",
-    displayName: "RESET",
+    slug: "cleanse-01-calming-gel-cleanser",
+    name: "CLEANSE",
+    displayName: "CLEANSE",
     collection: "THE SYSTEM",
     routineNumber: "01",
     routineStep: "Cleanse",
@@ -134,9 +134,9 @@ const fixtures: Product[] = [
     usageTime: ["AM", "PM"],
   }),
   makeProduct({
-    slug: "recode-03-pdrn-5-ampoule",
-    name: "RECODE",
-    displayName: "RECODE",
+    slug: "treat-03-pdrn-5-ampoule",
+    name: "TREAT",
+    displayName: "TREAT",
     collection: "THE SYSTEM",
     routineNumber: "03",
     routineStep: "Treat",
@@ -215,14 +215,14 @@ describe("storefront page smoke", () => {
     ).toBeInTheDocument();
     expect(heroHeading).toHaveClass("display-secondary");
     expect(
-      screen.getAllByRole("link", { name: "SHOP THE CORE THREE" })[0],
+      screen.getAllByRole("link", { name: "SHOP THE CORE" })[0],
     ).toHaveAttribute("href", "#core-three");
     expect(
-      screen.getAllByRole("link", { name: "SEE THE METHOD" })[0],
-    ).toHaveAttribute("href", "/method");
+      screen.getAllByRole("link", { name: "SEE THE SYSTEM" })[0],
+    ).toHaveAttribute("href", "/system");
     expect(screen.getByText("Cleanse. Treat. Seal.")).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { level: 2, name: "RESET, RECODE, SEAL." }),
+      screen.getByRole("heading", { level: 2, name: "Cleanse, Treat, Seal." }),
     ).toBeInTheDocument();
   });
 
@@ -244,10 +244,10 @@ describe("storefront page smoke", () => {
     }
   });
 
-  it("Method renders its instructional h1 and SPF education", async () => {
+  it("System renders its instructional h1 and SPF education", async () => {
     render(await MethodPage());
     expect(
-      screen.getByRole("heading", { level: 1, name: "THE METHOD." }),
+      screen.getByRole("heading", { level: 1, name: "THE SYSTEM." }),
     ).toBeInTheDocument();
     expect(
       screen.getByText("A system for clearer, healthier, beautiful skin"),

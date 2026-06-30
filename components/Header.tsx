@@ -207,7 +207,7 @@ export function Header() {
         </button>
         <nav className="site-nav site-nav--left" aria-label="Primary">
           <Link href="/products" aria-current={current("/products")}>SHOP</Link>
-          <Link href="/method" aria-current={current("/method")}>METHOD</Link>
+          <Link href="/system" aria-current={current("/system")}>SYSTEM</Link>
           <Link href="/about" aria-current={current("/about")}>ABOUT</Link>
         </nav>
         <Link href="/" className="brand" aria-label="Mei Pelle home">
@@ -253,7 +253,7 @@ export function Header() {
       >
         <nav className="mobile-nav" aria-label="Mobile primary">
           <Link href="/products" onClick={closeMenu} aria-current={current("/products")}>SHOP</Link>
-          <Link href="/method" onClick={closeMenu} aria-current={current("/method")}>METHOD</Link>
+          <Link href="/system" onClick={closeMenu} aria-current={current("/system")}>SYSTEM</Link>
           <Link href="/about" onClick={closeMenu} aria-current={current("/about")}>ABOUT</Link>
           <button type="button" onClick={() => { closeMenu(); setSearchOpen(true); }}>
             SEARCH

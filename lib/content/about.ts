@@ -3,7 +3,7 @@ export const ABOUT_HERO = {
   title: "TWO CITIES. ONE STANDARD.",
   body:
     "Mei Pelle brings South Korean formulation discipline together with Los Angeles self-invention: an edited skincare system built for men who expect more from how they look, feel, and move through the world.",
-  primaryCta: { label: "Discover the method", href: "/method" },
+  primaryCta: { label: "Discover the system", href: "/system" },
   secondaryCta: { label: "Shop the system", href: "/products" },
 };
 
@@ -112,7 +112,7 @@ export const ABOUT_CLOSING = {
   heading: "ascension., DELIBERATELY.",
   body:
     "Potential is not a promise made by a product. It is the result of standards repeated.",
-  primaryCta: { label: "Learn the method", href: "/method" },
+  primaryCta: { label: "Learn the system", href: "/system" },
   secondaryCta: { label: "Shop Mei Pelle", href: "/products" },
 };
 

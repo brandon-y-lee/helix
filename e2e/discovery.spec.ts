@@ -11,12 +11,12 @@ test("homepage Core Three ladder renders", async ({ page }) => {
     page.getByRole("heading", { name: "It all starts with three steps." }),
   ).toBeVisible();
   await expect(page.getByText("Cleanse. Treat. Seal.")).toBeVisible();
-  await expect(page.getByRole("heading", { name: "RESET, RECODE, SEAL." }))
+  await expect(page.getByRole("heading", { name: "Cleanse, Treat, Seal." }))
     .toBeVisible();
-  await expect(page.getByRole("heading", { name: "The baseline is the point." }))
+  await expect(page.getByRole("heading", { name: "Simple Is Not Basic." }))
     .toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "Run the full system, or replace one layer." }),
+    page.getByRole("heading", { name: "Use all three. Or upgrade one layer." }),
   ).toBeVisible();
   await expect(
     page.getByRole("heading", {
@@ -42,7 +42,7 @@ test("homepage Core Three products and add-ons resolve by stable slugs", async (
       Array.from(document.querySelectorAll("section")).find(
         (section) => clean(section.querySelector("h2")?.textContent) === heading,
       );
-    const core = sectionByHeading("RESET, RECODE, SEAL.");
+    const core = sectionByHeading("Cleanse, Treat, Seal.");
     const beyond = sectionByHeading("Add only what solves a real problem.");
     return {
       coreProducts: Array.from(core?.querySelectorAll(".product-card__name") ?? []).map((node) =>
@@ -62,16 +62,16 @@ test("homepage Core Three products and add-ons resolve by stable slugs", async (
     };
   });
 
-  expect(merchandising.coreProducts).toEqual(["RESET", "RECODE", "SEAL"]);
+  expect(merchandising.coreProducts).toEqual(["CLEANSE", "TREAT", "SEAL"]);
   expect(merchandising.coreLinks).toEqual([
-    "/products/reset-01-calming-gel-cleanser",
-    "/products/recode-03-pdrn-5-ampoule",
+    "/products/cleanse-01-calming-gel-cleanser",
+    "/products/treat-03-pdrn-5-ampoule",
     "/products/seal-05-green-collagen-cream",
   ]);
   expect(merchandising.addOnLinks).toContain("/products/refine-02-pore-treatment-pads");
   expect(merchandising.addOnLinks).toContain("/products/frame-04-pdrn-eye-cream");
   expect(merchandising.addOnLinks).toContain("/products/lift-06-pdrn-mask-system");
-  expect(merchandising.addOnLinks).toContain("/method#step-protect");
+  expect(merchandising.addOnLinks).toContain("/system#system-protect");
   expect(merchandising.protectText).toContain("COMING SOON");
   expect(merchandising.protectText).toContain("SPF");
   expect(merchandising.protectText).not.toMatch(/\$\d/);
@@ -80,15 +80,15 @@ test("homepage Core Three products and add-ons resolve by stable slugs", async (
 
 test("Core Three product card navigates to a product detail page", async ({ page }) => {
   await page.goto("/");
-  await page.locator('#core-three .product-card__link[href="/products/reset-01-calming-gel-cleanser"]').click();
-  await expect(page).toHaveURL(/\/products\/reset-01-calming-gel-cleanser$/);
-  await expect(page.getByRole("heading", { level: 1, name: "RESET" })).toBeVisible();
+  await page.locator('#core-three .product-card__link[href="/products/cleanse-01-calming-gel-cleanser"]').click();
+  await expect(page).toHaveURL(/\/products\/cleanse-01-calming-gel-cleanser$/);
+  await expect(page.getByRole("heading", { level: 1, name: "CLEANSE" })).toBeVisible();
 });
 
 test("PDP complete-the-routine renders and a related product navigates", async ({
   page,
 }) => {
-  await page.goto("/products/recode-03-pdrn-5-ampoule");
+  await page.goto("/products/treat-03-pdrn-5-ampoule");
   await expect(
     page.getByRole("heading", { name: "COMPLETE THE SYSTEM" }),
   ).toBeVisible();

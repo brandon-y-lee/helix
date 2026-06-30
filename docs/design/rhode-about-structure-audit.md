@@ -55,6 +55,6 @@ Checks:
 
 - No page-level horizontal overflow.
 - Header remains readable and centered.
-- Method and About are visually distinct.
+- System and About are visually distinct.
 - About uses large alternating narrative modules rather than product-manual sections.
-- Method uses ordered, scan-friendly modules rather than brand-origin storytelling.
+- System uses ordered, scan-friendly modules rather than brand-origin storytelling.

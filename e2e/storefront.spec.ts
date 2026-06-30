@@ -18,7 +18,7 @@ test("shop renders Supabase products with a count", async ({ page }) => {
   ).toBeVisible();
   await expect(page.locator(".product-count")).toHaveText("6 products");
   await expect(page.locator(".product-card")).toHaveCount(6);
-  await expect(page.getByRole("link", { name: "RESET", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "CLEANSE", exact: true })).toBeVisible();
   await expect(page.getByText("Fresh, balanced skin").first()).toBeVisible();
   await expect(page.locator('[data-media-kind="placeholder"]').first()).toBeVisible();
   expect(shopifyRequests).toEqual([]);
@@ -28,7 +28,7 @@ test("collection filter narrows the grid", async ({ page }) => {
   await page.goto("/products");
   await page.getByRole("button", { name: "THE SYSTEM" }).click();
   await expect(page.locator(".product-count")).toHaveText("5 products");
-  await expect(page.getByRole("link", { name: "RESET", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "CLEANSE", exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "LIFT", exact: true })).toHaveCount(0);
 });
 
@@ -36,20 +36,20 @@ test("sort control reorders products", async ({ page }) => {
   await page.goto("/products");
   await page.getByLabel("Sort products").selectOption("name-asc");
   await expect(page.locator(".product-card__name").first()).toHaveText(
-    "FRAME",
+    "CLEANSE",
   );
   await page.getByLabel("Sort products").selectOption("name-desc");
   await expect(page.locator(".product-card__name").first()).toHaveText(
-    "SEAL",
+    "TREAT",
   );
 });
 
 test("product detail loads by slug and variant selection updates state", async ({
   page,
 }) => {
-  await page.goto("/products/recode-03-pdrn-5-ampoule");
+  await page.goto("/products/treat-03-pdrn-5-ampoule");
   await expect(
-    page.getByRole("heading", { level: 1, name: "RECODE" }),
+    page.getByRole("heading", { level: 1, name: "TREAT" }),
   ).toBeVisible();
   // Purchase support accordions and lower factual sections are present.
   await expect(page.getByRole("button", { name: /WHAT IT DOES/ })).toBeVisible();
@@ -66,7 +66,7 @@ test("product detail loads by slug and variant selection updates state", async (
 test("add to cart updates the count and persists across reload", async ({
   page,
 }) => {
-  await page.goto("/products/reset-01-calming-gel-cleanser");
+  await page.goto("/products/cleanse-01-calming-gel-cleanser");
   await page.getByRole("button", { name: /Add to cart/ }).click();
   await expect(page.getByText("Added to cart")).toBeVisible();
 
@@ -79,7 +79,7 @@ test("add to cart updates the count and persists across reload", async ({
 
   // Cart page shows the line item, then clear empties it.
   await page.goto("/cart");
-  await expect(page.getByText("RESET")).toBeVisible();
+  await expect(page.getByText("CLEANSE")).toBeVisible();
   await expect(page.locator('[data-media-kind="placeholder"]').first()).toBeVisible();
   await page.getByRole("button", { name: "Clear cart" }).click();
   await expect(page.getByText(/your cart is empty/i)).toBeVisible();
@@ -89,12 +89,12 @@ test("product card quick buy opens inline, then final buy opens cart drawer", as
   page,
 }) => {
   await page.goto("/products");
-  const resetCard = page.locator(".product-card").filter({ hasText: "RESET" }).first();
+  const resetCard = page.locator(".product-card").filter({ hasText: "CLEANSE" }).first();
   const resetSurface = resetCard.locator(".product-card__surface");
   await resetCard.hover();
   await expect(resetSurface).toHaveAttribute("data-visual-state", "preview");
   const quickBuyTrigger = resetCard.getByRole("button", {
-    name: "Open quick buy for RESET",
+    name: "Open quick buy for CLEANSE",
   });
   await expect(quickBuyTrigger).toBeVisible();
 
@@ -106,7 +106,7 @@ test("product card quick buy opens inline, then final buy opens cart drawer", as
     "true",
   );
 
-  await resetCard.getByRole("button", { name: "Close quick buy for RESET" }).click();
+  await resetCard.getByRole("button", { name: "Close quick buy for CLEANSE" }).click();
   await expect(resetCard.locator(".product-card__quick-buy")).toHaveAttribute(
     "data-open",
     "false",
@@ -120,7 +120,7 @@ test("product card quick buy opens inline, then final buy opens cart drawer", as
   await resetCard.hover();
   await quickBuyTrigger.click();
   const finalBuy = resetCard.getByRole("button", {
-    name: /Buy RESET .+ for \$\d+\.\d{2}/,
+    name: /Buy CLEANSE .+ for \$\d+\.\d{2}/,
   });
   await expect(finalBuy).toBeVisible();
   await finalBuy.click();
@@ -146,7 +146,7 @@ test("product card quick buy opens inline, then final buy opens cart drawer", as
 test("view cart closes the drawer after the cart route commits", async ({
   page,
 }) => {
-  await page.goto("/products/reset-01-calming-gel-cleanser");
+  await page.goto("/products/cleanse-01-calming-gel-cleanser");
   await page.getByRole("button", { name: /Add to cart/ }).click();
   await expect(page.getByRole("button", { name: /CART \(1\)/ })).toBeVisible();
 
@@ -161,22 +161,22 @@ test("view cart closes the drawer after the cart route commits", async ({
   ).toBeVisible();
   await expect(page.getByRole("dialog", { name: "Cart" })).toHaveCount(0);
   await expect(page.locator(".sheet")).toHaveCount(0);
-  await expect(page.getByText("RESET").first()).toBeVisible();
+  await expect(page.getByText("CLEANSE").first()).toBeVisible();
   await expect.poll(() => page.evaluate(() => document.body.style.overflow)).toBe("");
 
   await page.goBack();
-  await expect(page).toHaveURL(/\/products\/reset-01-calming-gel-cleanser$/);
+  await expect(page).toHaveURL(/\/products\/cleanse-01-calming-gel-cleanser$/);
 });
 
 test("view cart closes immediately when already on the cart route", async ({
   page,
 }) => {
-  await page.goto("/products/reset-01-calming-gel-cleanser");
+  await page.goto("/products/cleanse-01-calming-gel-cleanser");
   await page.getByRole("button", { name: /Add to cart/ }).click();
   await expect(page.getByText("Added to cart")).toBeVisible();
   await expect(page.getByRole("button", { name: /CART \(1\)/ })).toBeVisible();
   await page.goto("/cart");
-  await expect(page.getByText("RESET").first()).toBeVisible();
+  await expect(page.getByText("CLEANSE").first()).toBeVisible();
 
   await page.getByRole("button", { name: /CART \(1\)/ }).click();
   const drawer = page.getByRole("dialog", { name: "Cart" });
@@ -185,13 +185,13 @@ test("view cart closes immediately when already on the cart route", async ({
 
   await expect(page).toHaveURL(/\/cart$/);
   await expect(page.getByRole("dialog", { name: "Cart" })).toHaveCount(0);
-  await expect(page.getByText("RESET").first()).toBeVisible();
+  await expect(page.getByText("CLEANSE").first()).toBeVisible();
 });
 
 test("product detail purchase accordions sit beneath add to cart", async ({
   page,
 }) => {
-  await page.goto("/products/recode-03-pdrn-5-ampoule");
+  await page.goto("/products/treat-03-pdrn-5-ampoule");
 
   const order = await page.evaluate(() => {
     const add = document.querySelector(".pdp__actions .btn");
@@ -250,9 +250,9 @@ test("product card quick buy trigger is visible on mobile without hover", async 
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/products");
-  const resetCard = page.locator(".product-card").filter({ hasText: "RESET" }).first();
+  const resetCard = page.locator(".product-card").filter({ hasText: "CLEANSE" }).first();
   await expect(
-    resetCard.getByRole("button", { name: "Open quick buy for RESET" }),
+    resetCard.getByRole("button", { name: "Open quick buy for CLEANSE" }),
   ).toBeVisible();
 });
 

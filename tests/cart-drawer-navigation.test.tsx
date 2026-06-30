@@ -50,9 +50,9 @@ vi.mock("@/components/CartProvider", () => ({
 import { CartView } from "@/components/CartView";
 
 const line: CartLine = {
-  key: "line-reset-200ml",
-  slug: "reset-01-calming-gel-cleanser",
-  name: "RESET",
+  key: "line-cleanse-200ml",
+  slug: "cleanse-01-calming-gel-cleanser",
+  name: "CLEANSE",
   collection: "THE SYSTEM",
   variantId: "200ml",
   variantLabel: "200 mL",
@@ -93,20 +93,20 @@ describe("CartView drawer navigation", () => {
     expect(screen.getByRole("button", { name: /Sandbox checkout/ })).toHaveClass(
       "btn--editorial-rounded",
     );
-    expect(screen.getByRole("button", { name: /Increase RESET quantity/ })).not.toHaveClass(
+    expect(screen.getByRole("button", { name: /Increase CLEANSE quantity/ })).not.toHaveClass(
       "btn--editorial-rounded",
     );
 
     await user.click(viewCart);
     expect(onContinue).not.toHaveBeenCalled();
     expect(cartMock.clear).not.toHaveBeenCalled();
-    expect(screen.getByText("RESET")).toBeInTheDocument();
+    expect(screen.getByText("CLEANSE")).toBeInTheDocument();
 
     routeState.pathname = "/cart";
     rerender(<CartView mode="drawer" onContinue={onContinue} />);
 
     await waitFor(() => expect(onContinue).toHaveBeenCalledTimes(1));
-    expect(screen.getByText("RESET")).toBeInTheDocument();
+    expect(screen.getByText("CLEANSE")).toBeInTheDocument();
   });
 
   it("closes immediately when View cart is activated on the cart route", () => {
@@ -133,7 +133,7 @@ describe("CartView drawer navigation", () => {
     rerender(<CartView mode="drawer" onContinue={onContinue} />);
 
     expect(onContinue).not.toHaveBeenCalled();
-    expect(screen.getByText("RESET")).toBeInTheDocument();
+    expect(screen.getByText("CLEANSE")).toBeInTheDocument();
   });
 
   it("does not close for unrelated route changes", async () => {

@@ -73,7 +73,7 @@ export function MethodRoutineNav({ items }: { items: MethodRoutineNavItem[] }) {
   }, [items]);
 
   return (
-    <nav className="method-index" aria-label="Method step navigation">
+    <nav className="method-index" aria-label="System step navigation">
       <p className="method-index__label">Routine index</p>
       <ol>
         {items.map((item) => (

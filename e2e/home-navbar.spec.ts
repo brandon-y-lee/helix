@@ -150,10 +150,10 @@ test.describe("global navbar scroll behavior", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
 
     for (const { path, selector, viewportHero } of [
-      { path: "/method", selector: ".method-hero", viewportHero: false },
+      { path: "/system", selector: ".method-hero", viewportHero: false },
       { path: "/about", selector: ".about-hero", viewportHero: false },
       { path: "/products", selector: ".shop-hero__surface", viewportHero: false },
-      { path: "/products/recode-03-pdrn-5-ampoule", selector: ".pdp", viewportHero: false },
+      { path: "/products/treat-03-pdrn-5-ampoule", selector: ".pdp", viewportHero: false },
       { path: "/account/sign-in", selector: ".account-panel", viewportHero: false },
     ]) {
       await page.goto(path);
@@ -165,7 +165,7 @@ test.describe("global navbar scroll behavior", () => {
       expectCloseTo(layout.headerHeight, layout.token);
       expect(layout.surfaceY).toBeGreaterThanOrEqual((layout.headerBottom ?? 0) - 1);
 
-      if (path === "/method" || path === "/about") {
+      if (path === "/system" || path === "/about") {
         expect((layout.surfaceY ?? 0) - (layout.headerBottom ?? 0)).toBeGreaterThan(20);
         expect((layout.surfaceY ?? 0) - (layout.headerBottom ?? 0)).toBeLessThanOrEqual(56);
         expectCloseTo(layout.hueFieldY, layout.surfaceY ?? 0, 2);
@@ -185,10 +185,10 @@ test.describe("global navbar scroll behavior", () => {
     await page.setViewportSize({ width: 390, height: 844 });
 
     for (const { path, selector } of [
-      { path: "/method", selector: ".method-hero" },
+      { path: "/system", selector: ".method-hero" },
       { path: "/about", selector: ".about-hero" },
       { path: "/products", selector: ".shop-hero__surface" },
-      { path: "/products/recode-03-pdrn-5-ampoule", selector: ".pdp" },
+      { path: "/products/treat-03-pdrn-5-ampoule", selector: ".pdp" },
       { path: "/account/sign-in", selector: ".account-panel" },
     ]) {
       await page.goto(path);
@@ -210,8 +210,8 @@ test.describe("global navbar scroll behavior", () => {
 
     for (const path of [
       "/products",
-      "/products/recode-03-pdrn-5-ampoule",
-      "/method",
+      "/products/treat-03-pdrn-5-ampoule",
+      "/system",
       "/about",
       "/account/sign-in",
     ]) {
@@ -275,7 +275,7 @@ test.describe("global navbar scroll behavior", () => {
     page,
   }) => {
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto("/method");
+    await page.goto("/system");
 
     const header = page.locator(".site-header");
 

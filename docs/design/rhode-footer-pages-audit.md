@@ -21,7 +21,7 @@ Reference pages inspected with Chrome:
 | Privacy Policy | Long privacy/legal disclosure | Long document, many headings, tables, email links, footer | `/privacy-policy` | Include, but write original copy from Mei Pelle data practices. |
 | Terms of Service | Legal terms | Long legal document, sparse headings, third-party/shipping references | `/terms-of-service` | Include, but omit arbitration, shipping, returns, and live-order terms. |
 | Accessibility Statement | Accessibility position | Title, short sections, contact section | `/accessibility` | Include with WCAG 2.2 AA target and no certification claims. |
-| FAQ | Customer support | Large title, category navigation, product/order/shipping tables | `/faq` | Include, but use current product, Method, account, cart, and contact facts. |
+| FAQ | Customer support | Large title, category navigation, product/order/shipping tables | `/faq` | Include, but use current product, System, account, cart, and contact facts. |
 | Contact | Support intake | Editorial form, conditional order fields, upload, CAPTCHA | `/contact` | Include, but no order fields, file upload, CAPTCHA, or fake sending. |
 | Cookie Policy | Cookie/ad disclosure | Legal text and tables | `/cookie-policy` | Include, but list only actual essential categories and inactive optional categories. |
 | Do Not Sell | Privacy choices | Long advertising/opt-out explanation | `/privacy-choices` | Include as truthful current status; no fake opt-out switch. |

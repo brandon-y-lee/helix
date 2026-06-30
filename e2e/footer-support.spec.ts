@@ -3,8 +3,8 @@ import { expect, test } from "@playwright/test";
 const footerPages = [
   "/",
   "/products",
-  "/products/recode-03-pdrn-5-ampoule",
-  "/method",
+  "/products/treat-03-pdrn-5-ampoule",
+  "/system",
   "/about",
   "/cart",
   "/account/sign-in",
@@ -20,8 +20,8 @@ const footerPages = [
 const footerThemeRoutes = [
   "/",
   "/products",
-  "/products/recode-03-pdrn-5-ampoule",
-  "/method",
+  "/products/treat-03-pdrn-5-ampoule",
+  "/system",
   "/about",
   "/cart",
   "/account/sign-in",

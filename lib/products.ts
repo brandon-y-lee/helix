@@ -58,9 +58,9 @@ export type ProductMedia = {
 export type Product = {
   id: string;
   slug: string;
-  /** Short storefront display name, e.g. RESET. */
+  /** Short storefront display name, e.g. CLEANSE. */
   displayName: string;
-  /** Formal catalog title, e.g. RESET 01 Calming Gel Cleanser. */
+  /** Formal catalog title, e.g. CLEANSE 01 Calming Gel Cleanser. */
   formalTitle: string;
   name: string;
   tagline: string;

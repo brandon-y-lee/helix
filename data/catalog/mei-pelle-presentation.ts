@@ -51,19 +51,19 @@ const surface = "#FFFDF8";
 
 export const meiPellePresentationCatalog: MeiPellePresentationProduct[] = [
   {
-    slug: "reset-01-calming-gel-cleanser",
-    displayName: "RESET",
-    formalTitle: "RESET 01 Calming Gel Cleanser",
+    slug: "cleanse-01-calming-gel-cleanser",
+    displayName: "CLEANSE",
+    formalTitle: "CLEANSE 01 Calming Gel Cleanser",
     cardTagline: "Fresh, balanced skin",
     editorialDescription:
       "A low-pH daily cleanse that leaves skin feeling fresh, balanced, and ready for the rest of the routine.",
     editorialHowToUse:
-      "Massage onto damp skin morning or night, then rinse thoroughly. Follow with REFINE or RECODE.",
+      "Massage onto damp skin morning or night, then rinse thoroughly. Follow with REFINE or TREAT.",
     productType: "Gel cleanser",
     routineNumber: "01",
     routineStep: "Cleanse",
     collection: "THE SYSTEM",
-    searchKeywords: ["reset", "cleanser", "cleanse", "daily", "gel", "balance"],
+    searchKeywords: ["cleanse", "cleanser", "daily", "gel", "balance", "reset"],
     formulaNotes: [
       "Low-pH gel-to-foam cleanser source formulation.",
       "Centella and green tea are present in the supplier ingredient deck.",
@@ -191,9 +191,9 @@ export const meiPellePresentationCatalog: MeiPellePresentationProduct[] = [
     },
   },
   {
-    slug: "recode-03-pdrn-5-ampoule",
-    displayName: "RECODE",
-    formalTitle: "RECODE 03 PDRN 5% Ampoule",
+    slug: "treat-03-pdrn-5-ampoule",
+    displayName: "TREAT",
+    formalTitle: "TREAT 03 PDRN 5% Ampoule",
     cardTagline: "Bounce and glow",
     editorialDescription:
       "A lightweight ampoule that layers hydration with a polished, resilient-looking finish.",
@@ -203,7 +203,7 @@ export const meiPellePresentationCatalog: MeiPellePresentationProduct[] = [
     routineNumber: "03",
     routineStep: "Treat",
     collection: "THE SYSTEM",
-    searchKeywords: ["recode", "ampoule", "serum", "pdrn", "glow", "hydration"],
+    searchKeywords: ["treat", "ampoule", "serum", "pdrn", "glow", "hydration", "recode"],
     formulaNotes: [
       "Supplier formulation highlights PDRN 5%.",
       "Lightweight serum texture for layering.",
@@ -347,7 +347,7 @@ export const meiPellePresentationCatalog: MeiPellePresentationProduct[] = [
     formulaNotes: [
       "Supplier formulation references green collagen and moisture-support ingredients.",
       "Daily cream texture for the final routine step.",
-      "Layer over RECODE when skin wants added comfort.",
+      "Layer over TREAT when skin wants added comfort.",
     ],
     palettes: {
       cardDefault: {
@@ -404,16 +404,16 @@ export const meiPellePresentationCatalog: MeiPellePresentationProduct[] = [
     slug: "lift-06-pdrn-mask-system",
     displayName: "LIFT",
     formalTitle: "LIFT 07 PDRN Mask System",
-    cardTagline: "The weekly reset",
+    cardTagline: "The weekly intensive",
     editorialDescription:
-      "A weekly sheet-mask reset for a replenished, smoother-looking finish.",
+      "A weekly sheet-mask intensive for a replenished, smoother-looking finish.",
     editorialHowToUse:
       "Apply to clean skin for the directed wear time, then remove and press in remaining essence.",
     productType: "Sheet mask",
     routineNumber: "07",
     routineStep: "Weekly intensive",
     collection: "INTENSIVE",
-    searchKeywords: ["lift", "mask", "sheet mask", "weekly", "pdrn", "reset"],
+    searchKeywords: ["lift", "mask", "sheet mask", "weekly", "pdrn", "intensive"],
     formulaNotes: [
       "Supplier formulation highlights PDRN 0.5%.",
       "Weekly intensive format, separate from the daily core routine.",

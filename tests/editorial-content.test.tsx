@@ -6,7 +6,7 @@ vi.mock("@/lib/catalog-cache", () => ({
 }));
 
 import AboutPage from "@/app/about/page";
-import MethodPage from "@/app/method/page";
+import MethodPage from "@/app/system/page";
 import {
   METHOD_PRODUCT_NUMBERS,
   METHOD_PRODUCT_SLUGS,
@@ -23,7 +23,7 @@ import {
   methodProductNumber,
   routineTimingEntriesForGroup,
   selectedMethodStepIds,
-} from "@/lib/content/method";
+} from "@/lib/content/system";
 import { FORBIDDEN_ABOUT_PATTERNS } from "@/lib/content/about";
 import { getCachedProducts } from "@/lib/catalog-cache";
 import type { Product } from "@/lib/products";
@@ -31,27 +31,27 @@ import type { Product } from "@/lib/products";
 const mockedGetProducts = getCachedProducts as unknown as Mock;
 
 const nameBySlug: Record<string, string> = {
-  "reset-01-calming-gel-cleanser": "RESET",
+  "cleanse-01-calming-gel-cleanser": "CLEANSE",
   "refine-02-pore-treatment-pads": "REFINE",
-  "recode-03-pdrn-5-ampoule": "RECODE",
+  "treat-03-pdrn-5-ampoule": "TREAT",
   "frame-04-pdrn-eye-cream": "FRAME",
   "seal-05-green-collagen-cream": "SEAL",
   "lift-06-pdrn-mask-system": "LIFT",
 };
 
 const productTypeBySlug: Record<string, string> = {
-  "reset-01-calming-gel-cleanser": "Gel cleanser",
+  "cleanse-01-calming-gel-cleanser": "Gel cleanser",
   "refine-02-pore-treatment-pads": "Toner pad",
-  "recode-03-pdrn-5-ampoule": "Ampoule / Serum",
+  "treat-03-pdrn-5-ampoule": "Ampoule / Serum",
   "frame-04-pdrn-eye-cream": "Eye contour cream",
   "seal-05-green-collagen-cream": "Cream",
   "lift-06-pdrn-mask-system": "Sheet mask",
 };
 
 const ingredientsBySlug: Record<string, string[]> = {
-  "reset-01-calming-gel-cleanser": ["6-Type Cica Complex", "Centella-derived support"],
+  "cleanse-01-calming-gel-cleanser": ["6-Type Cica Complex", "Centella-derived support"],
   "refine-02-pore-treatment-pads": ["Panthenol", "Sodium hyaluronate", "LHA"],
-  "recode-03-pdrn-5-ampoule": [
+  "treat-03-pdrn-5-ampoule": [
     "Sodium DNA (50,000 ppm)",
     "Niacinamide",
     "Copper Tripeptide-1",
@@ -164,15 +164,15 @@ beforeEach(() => {
   mockedGetProducts.mockResolvedValue(methodFixtures);
 });
 
-describe("Method content architecture", () => {
-  it("renders the revised Method hero with the shared hue field and no diagram labels", async () => {
+describe("System content architecture", () => {
+  it("renders the revised System hero with the shared hue field and no diagram labels", async () => {
     render(await MethodPage());
 
     const hero = document.querySelector(".method-hero") as HTMLElement;
     expect(hero).not.toBeNull();
     expect(within(hero).getByText("Mei Pelle")).toBeInTheDocument();
     expect(
-      within(hero).getByRole("heading", { level: 1, name: "THE METHOD." }),
+      within(hero).getByRole("heading", { level: 1, name: "THE SYSTEM." }),
     ).toBeInTheDocument();
     expect(
       within(hero).getByText("A system for clearer, healthier, beautiful skin"),
@@ -192,7 +192,7 @@ describe("Method content architecture", () => {
     expect(within(hero).queryByText("SPF")).not.toBeInTheDocument();
   });
 
-  it("does not render removed Method filler copy", async () => {
+  it("does not render removed System filler copy", async () => {
     render(await MethodPage());
 
     expect(
@@ -216,7 +216,7 @@ describe("Method content architecture", () => {
     expect(state.missingSlugs).toEqual(["seal-05-green-collagen-cream"]);
   });
 
-  it("renders stable 01-07 Method sequence numbers", async () => {
+  it("renders stable 01-07 System sequence numbers", async () => {
     render(await MethodPage());
 
     const indexLabels = Array.from(
@@ -226,9 +226,9 @@ describe("Method content architecture", () => {
     expect(indexLabels).toEqual([
       "Start",
       "AM / PM",
-      "01 RESET",
+      "01 CLEANSE",
       "02 REFINE",
-      "03 RECODE",
+      "03 TREAT",
       "04 FRAME",
       "05 SEAL",
       "06 PROTECT",
@@ -241,13 +241,13 @@ describe("Method content architecture", () => {
     expect(methodProductNumber(makeProduct("lift-06-pdrn-mask-system"))).toBe("07");
   });
 
-  it("derives the exact adaptive Method ladder without mutating catalog metadata", () => {
+  it("derives the exact adaptive System ladder without mutating catalog metadata", () => {
     const expectedIds = {
-      3: ["reset", "recode", "seal"],
-      4: ["reset", "recode", "seal", "protect"],
-      5: ["reset", "refine", "recode", "seal", "protect"],
-      6: ["reset", "refine", "recode", "frame", "seal", "protect"],
-      7: ["reset", "refine", "recode", "frame", "seal", "protect", "lift"],
+      3: ["cleanse", "treat", "seal"],
+      4: ["cleanse", "treat", "seal", "protect"],
+      5: ["cleanse", "refine", "treat", "seal", "protect"],
+      6: ["cleanse", "refine", "treat", "frame", "seal", "protect"],
+      7: ["cleanse", "refine", "treat", "frame", "seal", "protect", "lift"],
     } as const;
     const catalogMetadataBefore = methodFixtures.map((product) => ({
       slug: product.slug,
@@ -299,8 +299,8 @@ describe("Method content architecture", () => {
     const protectStep = deriveMethodRoutineSteps(methodFixtures, 4).find(
       (step) => step.id === "protect",
     );
-    expect(selectedMethodStepIds(3)).toEqual(["reset", "recode", "seal"]);
-    expect(selectedMethodStepIds(4)).toEqual(["reset", "recode", "seal", "protect"]);
+    expect(selectedMethodStepIds(3)).toEqual(["cleanse", "treat", "seal"]);
+    expect(selectedMethodStepIds(4)).toEqual(["cleanse", "treat", "seal", "protect"]);
     expect(new Set(selectedMethodStepIds(4)).size).toBeGreaterThan(
       new Set(selectedMethodStepIds(3)).size,
     );
@@ -325,11 +325,11 @@ describe("Method content architecture", () => {
     const weekly3 = routineTimingEntriesForGroup(ROUTINE_GROUPS[2], steps3);
 
     expect(am3.map((entry) => `${entry.displayNumber} ${entry.label}`)).toEqual([
-      "01 RESET",
-      "02 RECODE",
+      "01 CLEANSE",
+      "02 TREAT",
       "03 SEAL",
     ]);
-    expect(pm3.map((entry) => entry.label)).toEqual(["RESET", "RECODE", "SEAL"]);
+    expect(pm3.map((entry) => entry.label)).toEqual(["CLEANSE", "TREAT", "SEAL"]);
     expect(weekly3).toEqual([]);
     expect(am3.some((entry) => entry.id === "protect")).toBe(false);
 
@@ -338,8 +338,8 @@ describe("Method content architecture", () => {
       deriveMethodRoutineSteps(methodFixtures, 4),
     );
     expect(am4.map((entry) => `${entry.displayNumber} ${entry.label}`)).toEqual([
-      "01 RESET",
-      "02 RECODE",
+      "01 CLEANSE",
+      "02 TREAT",
       "03 SEAL",
       "04 PROTECT",
     ]);
@@ -353,15 +353,15 @@ describe("Method content architecture", () => {
     ]);
 
     const active3 = activeProductSlugsForSteps(steps3);
-    expect(active3.has("reset-01-calming-gel-cleanser")).toBe(true);
-    expect(active3.has("recode-03-pdrn-5-ampoule")).toBe(true);
+    expect(active3.has("cleanse-01-calming-gel-cleanser")).toBe(true);
+    expect(active3.has("treat-03-pdrn-5-ampoule")).toBe(true);
     expect(active3.has("seal-05-green-collagen-cream")).toBe(true);
     expect(active3.has("refine-02-pore-treatment-pads")).toBe(false);
     expect(active3.has("frame-04-pdrn-eye-cream")).toBe(false);
     expect(active3.has("lift-06-pdrn-mask-system")).toBe(false);
   });
 
-  it("renders the accessible routine length selector and condenses Method surfaces together", async () => {
+  it("renders the accessible routine length selector and condenses System surfaces together", async () => {
     render(await MethodPage());
 
     const ingredientCardCount = document.querySelectorAll(".ingredient-card").length;
@@ -372,7 +372,7 @@ describe("Method content architecture", () => {
     expect(slider).toHaveValue("7");
     expect(slider).toHaveAttribute(
       "aria-valuetext",
-      "7 steps, full Method with the scheduled weekly intensive",
+      "7 steps, full System with the scheduled weekly intensive",
     );
     expect(
       Array.from(document.querySelectorAll(".method-edit__ticks li")).map((tick) => ({
@@ -400,22 +400,22 @@ describe("Method content architecture", () => {
     expect(indexLabels).toEqual([
       "Start",
       "AM / PM",
-      "01 RESET",
-      "02 RECODE",
+      "01 CLEANSE",
+      "02 TREAT",
       "03 SEAL",
       "Index",
     ]);
 
-    expect(document.getElementById("step-reset")).not.toBeNull();
-    expect(document.getElementById("step-recode")).not.toBeNull();
-    expect(document.getElementById("step-seal")).not.toBeNull();
-    expect(document.getElementById("step-refine")).toBeNull();
-    expect(document.getElementById("step-frame")).toBeNull();
-    expect(document.getElementById("step-protect")).toBeNull();
-    expect(document.getElementById("step-lift")).toBeNull();
-    expect(within(document.getElementById("step-recode") as HTMLElement).getByText("STEP 02")).toBeInTheDocument();
+    expect(document.getElementById("system-cleanse")).not.toBeNull();
+    expect(document.getElementById("system-treat")).not.toBeNull();
+    expect(document.getElementById("system-seal")).not.toBeNull();
+    expect(document.getElementById("system-refine")).toBeNull();
+    expect(document.getElementById("system-frame")).toBeNull();
+    expect(document.getElementById("system-protect")).toBeNull();
+    expect(document.getElementById("system-lift")).toBeNull();
+    expect(within(document.getElementById("system-treat") as HTMLElement).getByText("STEP 02")).toBeInTheDocument();
     expect(
-      (document.getElementById("step-recode") as HTMLElement).querySelector(
+      (document.getElementById("system-treat") as HTMLElement).querySelector(
         ".method-step__routine",
       )?.textContent,
     ).toBe("02");
@@ -423,7 +423,7 @@ describe("Method content architecture", () => {
     const amEntries = Array.from(
       document.querySelectorAll("#routine-am li"),
     ).map((entry) => entry.textContent?.replace(/\s+/g, " ").trim());
-    expect(amEntries).toEqual(["01RESET", "02RECODE", "03SEAL"]);
+    expect(amEntries).toEqual(["01CLEANSE", "02TREAT", "03SEAL"]);
     expect(screen.getByText(/Broad-spectrum sunscreen is still recommended/i)).toBeInTheDocument();
     expect(screen.getByText("No separate weekly step is included in this edit.")).toBeInTheDocument();
 
@@ -442,16 +442,16 @@ describe("Method content architecture", () => {
 
     fireEvent.change(slider, { target: { value: "7" } });
     expect(slider).toHaveValue("7");
-    expect(document.getElementById("step-lift")).not.toBeNull();
-    expect(within(document.getElementById("step-protect") as HTMLElement).getByText("STEP 06")).toBeInTheDocument();
-    expect(within(document.getElementById("step-lift") as HTMLElement).getByText("STEP 07")).toBeInTheDocument();
+    expect(document.getElementById("system-lift")).not.toBeNull();
+    expect(within(document.getElementById("system-protect") as HTMLElement).getByText("STEP 06")).toBeInTheDocument();
+    expect(within(document.getElementById("system-lift") as HTMLElement).getByText("STEP 07")).toBeInTheDocument();
     expect(refineChip).toHaveAttribute("href", "/products/refine-02-pore-treatment-pads");
   });
 
-  it("renders PROTECT 06 as a coming-soon Method step instead of a product", async () => {
+  it("renders PROTECT 06 as a coming-soon System step instead of a product", async () => {
     render(await MethodPage());
 
-    const protect = document.getElementById("step-protect");
+    const protect = document.getElementById("system-protect");
     expect(protect).not.toBeNull();
     expect(within(protect as HTMLElement).getByText("STEP 06")).toBeInTheDocument();
     expect(within(protect as HTMLElement).getByRole("heading", { name: "06 PROTECT" })).toBeInTheDocument();
@@ -473,7 +473,7 @@ describe("Method content architecture", () => {
 
     render(await MethodPage());
 
-    expect(screen.getByText("Method catalog incomplete")).toBeInTheDocument();
+    expect(screen.getByText("System catalog incomplete")).toBeInTheDocument();
     expect(screen.getAllByText(/lift-06-pdrn-mask-system/).length).toBeGreaterThan(0);
   });
 
@@ -494,7 +494,7 @@ describe("Method content architecture", () => {
   });
 
   it("does not invent formula focus when no key ingredients exist", () => {
-    expect(formulaFocus(makeProduct("reset-01-calming-gel-cleanser", {
+    expect(formulaFocus(makeProduct("cleanse-01-calming-gel-cleanser", {
       keyIngredients: [],
     }))).toEqual([]);
   });
@@ -525,14 +525,14 @@ describe("Method content architecture", () => {
     expect(document.querySelector(".ingredient-card small")).toBeNull();
     expect(
       document.querySelector(
-        '.ingredient-card__found a[href="/products/recode-03-pdrn-5-ampoule"]',
+        '.ingredient-card__found a[href="/products/treat-03-pdrn-5-ampoule"]',
       ),
     ).not.toBeNull();
     expect(document.body.textContent).not.toMatch(/DNA repair|tissue regeneration|wound healing/i);
     expect(document.body.textContent).not.toMatch(/guaranteed collagen production/i);
   });
 
-  it("removes REFINE and RECODE callout disclaimer blocks while preserving directions", async () => {
+  it("removes REFINE and TREAT callout disclaimer blocks while preserving directions", async () => {
     render(await MethodPage());
 
     expect(screen.queryByText(/THE RULE:/i)).not.toBeInTheDocument();
@@ -556,7 +556,7 @@ describe("About content architecture", () => {
       screen.getByRole("heading", { level: 1, name: "TWO CITIES. ONE STANDARD." }),
     ).toBeInTheDocument();
     expect(
-      within(hero).getByRole("link", { name: /discover the method/i }),
+      within(hero).getByRole("link", { name: /discover the system/i }),
     ).toHaveClass("btn--editorial-rounded");
     expect(
       within(hero).getByRole("link", { name: /shop the system/i }),
@@ -577,12 +577,12 @@ describe("About content architecture", () => {
     }
   });
 
-  it("links the final brand narrative to Method and Shop", () => {
+  it("links the final brand narrative to System and Shop", () => {
     render(<AboutPage />);
 
-    expect(screen.getByRole("link", { name: /learn the method/i })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /learn the system/i })).toHaveAttribute(
       "href",
-      "/method",
+      "/system",
     );
     expect(screen.getByRole("link", { name: /shop mei pelle/i })).toHaveAttribute(
       "href",

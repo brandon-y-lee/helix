@@ -130,15 +130,17 @@ async function uploadMedia(product: LeadersCatalogProduct, media: LeadersCatalog
   return { ...media, storagePath: path, publicUrl: data.publicUrl };
 }
 
-async function findExistingProductId(slug: string): Promise<string | null> {
+async function findExistingProductId(slug: string, legacySlugs: readonly string[] = []): Promise<string | null> {
+  const slugs = [slug, ...legacySlugs];
   const { data, error } = await supabase
     .from("products")
     .select("id")
-    .eq("slug", slug)
-    .maybeSingle();
+    .in("slug", slugs)
+    .limit(1);
 
   if (error) throw new Error(`[catalog-import] Failed to inspect product ${slug}: ${error.message}`);
-  return typeof data?.id === "string" ? data.id : null;
+  const row = (data ?? [])[0];
+  return typeof row?.id === "string" ? row.id : null;
 }
 
 async function findExistingVariantId(productId: string, variantKey: string): Promise<string | null> {
@@ -405,7 +407,7 @@ async function run(): Promise<ImportReport> {
   const productIds = new Map<string, string>();
   for (const product of leadersMeiPelleCatalog) {
     const productId =
-      (await findExistingProductId(product.slug)) ??
+      (await findExistingProductId(product.slug, product.legacySlugs)) ??
       deterministicUuid(`mei-pelle:product:${product.slug}`);
 
     await upsertProduct(product, productId);
