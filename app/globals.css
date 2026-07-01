@@ -5788,7 +5788,9 @@ main:focus {
   position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  min-height: clamp(620px, 78vh, 860px);
+  min-height: 100vh;
+  min-height: 100svh;
+  min-height: 100dvh;
   padding-block: 0;
   border-top: 1px solid color-mix(in srgb, var(--line) 72%, transparent);
   border-bottom: 1px solid color-mix(in srgb, var(--line) 56%, transparent);
@@ -5842,33 +5844,17 @@ main:focus {
   text-align: center;
 }
 
-.home-step-grid,
 .home-addon-grid,
 .home-ingredient-list {
   display: grid;
   gap: clamp(12px, 1.7vw, 20px);
 }
 
-.home-step-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  margin-bottom: clamp(28px, 4vw, 48px);
-}
-
-.home-step-card,
 .home-addon-card,
 .home-ingredient-card {
   border: 1px solid color-mix(in srgb, var(--line) 82%, transparent);
   border-radius: var(--radius);
   background: var(--surface);
-}
-
-.home-step-card {
-  min-height: clamp(146px, 12vw, 172px);
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  gap: clamp(28px, 4vw, 48px);
-  padding: clamp(18px, 2.2vw, 26px);
 }
 
 .home-addon-card__label,
@@ -5892,29 +5878,11 @@ main:focus {
   text-transform: uppercase;
 }
 
-.home-step-card h3 {
-  color: var(--ink);
-  font-family: var(--font);
-  font-size: 0.88rem;
-  font-weight: 900;
-  letter-spacing: 0.12em;
-  line-height: 1.2;
-  text-transform: uppercase;
-}
-
-.home-step-card p,
 .home-addon-card p,
 .home-ingredient-card span {
   color: var(--ink-soft);
   font-size: 0.94rem;
   line-height: 1.55;
-}
-
-.home-step-card p {
-  max-width: 30ch;
-  color: var(--ink);
-  font-size: clamp(0.98rem, 1.1vw, 1.08rem);
-  line-height: 1.48;
 }
 
 .home-core-products {
@@ -5929,7 +5897,10 @@ main:focus {
 
 .home-why-list {
   width: min(100%, 38ch);
-  min-height: min(50vh, 420px);
+  height: 50vh;
+  height: 50dvh;
+  min-height: 280px;
+  max-height: 620px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -5953,17 +5924,6 @@ main:focus {
   background: var(--ink);
 }
 
-.home-why-visual::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  background:
-    linear-gradient(180deg, transparent 42%, rgba(0, 0, 0, 0.58) 100%),
-    linear-gradient(270deg, rgba(0, 0, 0, 0.36) 0%, transparent 58%);
-  pointer-events: none;
-}
-
 .home-why-visual__image {
   object-fit: cover;
   object-position: 50% 68%;
@@ -5974,7 +5934,9 @@ main:focus {
   right: clamp(22px, 4vw, 64px);
   bottom: clamp(24px, 4.8vw, 72px);
   z-index: 2;
-  max-width: 7.25ch;
+  width: 7.25ch;
+  max-width: calc(100% - clamp(44px, 8vw, 96px));
+  margin: 0;
   color: #fff;
   font-family: var(--font-heading);
   font-size: clamp(2.8rem, 5.1vw, 5.45rem);
@@ -5982,7 +5944,14 @@ main:focus {
   line-height: 0.86;
   text-align: right;
   text-wrap: balance;
-  text-shadow: 0 2px 22px rgba(0, 0, 0, 0.48);
+  text-shadow:
+    0 1px 1px rgba(0, 0, 0, 0.58),
+    0 8px 22px rgba(0, 0, 0, 0.38),
+    0 20px 48px rgba(0, 0, 0, 0.28);
+}
+
+.home-why-visual__title span {
+  display: block;
 }
 
 .home-band {
@@ -6204,7 +6173,6 @@ main:focus {
 }
 
 @media (max-width: 1080px) {
-  .home-step-grid,
   .home-addon-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -6234,20 +6202,25 @@ main:focus {
 @media (max-width: 900px) {
   .home-section--why {
     grid-template-columns: 1fr;
-    min-height: 0;
+    min-height: 100vh;
+    min-height: 100svh;
+    min-height: 100dvh;
   }
 
   .home-why-principles {
+    min-height: clamp(260px, 34svh, 340px);
     padding: clamp(58px, 13vw, 92px) clamp(18px, 6vw, 42px);
   }
 
   .home-why-list {
-    min-height: 0;
+    height: auto;
+    min-height: clamp(150px, 22svh, 220px);
+    max-height: none;
     gap: 30px;
   }
 
   .home-why-visual {
-    min-height: clamp(420px, 116vw, 620px);
+    min-height: clamp(420px, 66svh, 620px);
   }
 
   .home-why-visual__image {
@@ -6290,23 +6263,13 @@ main:focus {
     margin-bottom: 28px;
   }
 
-  .home-step-grid,
   .home-addon-grid,
   .home-core-products {
     grid-template-columns: 1fr;
   }
 
-  .home-step-card,
   .home-addon-card {
     min-height: 0;
-  }
-
-  .home-step-card {
-    gap: 34px;
-  }
-
-  .home-step-card p {
-    max-width: 100%;
   }
 
   .home-why-list li {
@@ -6317,7 +6280,8 @@ main:focus {
   .home-why-visual__title {
     right: 18px;
     bottom: 22px;
-    max-width: 7ch;
+    width: 7ch;
+    max-width: calc(100% - 36px);
     font-size: clamp(2.35rem, 10vw, 3rem);
   }
 

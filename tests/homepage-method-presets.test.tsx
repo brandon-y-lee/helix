@@ -148,33 +148,8 @@ describe("homepage Core Three positioning", () => {
       ),
     ).toBeInTheDocument();
 
-    const coreStepCards = Array.from(core.querySelectorAll(".home-step-card"));
-    expect(coreStepCards).toHaveLength(3);
-    expect(
-      coreStepCards.map((card) =>
-        Array.from(card.children).map((element) => element.tagName),
-      ),
-    ).toEqual([
-      ["H3", "P"],
-      ["H3", "P"],
-      ["H3", "P"],
-    ]);
-    expect(
-      coreStepCards.map((card) =>
-        within(card as HTMLElement).getByRole("heading", { level: 3 }).textContent?.trim(),
-      ),
-    ).toEqual(["CLEANSE", "TREAT", "SEAL"]);
-    expect(
-      coreStepCards.map((card) => card.querySelector("p")?.textContent?.trim()),
-    ).toEqual([
-      "cleans the surface before the rest of the routine.",
-      "delivers the central treatment layer.",
-      "finishes with moisture and barrier support.",
-    ]);
-    for (const card of coreStepCards) {
-      expect(within(card as HTMLElement).queryByText(/Cleanser|Treatment Serum|Barrier Cream|—/))
-        .not.toBeInTheDocument();
-    }
+    expect(core.querySelector(".home-step-grid")).not.toBeInTheDocument();
+    expect(core.querySelector(".home-step-card")).not.toBeInTheDocument();
 
     expect(
       Array.from(core.querySelectorAll(".product-card__name")).map((node) =>
@@ -196,10 +171,15 @@ describe("homepage Core Three positioning", () => {
     ).toBeInTheDocument();
     expect(within(why).getByText("03 Three steps build consistency."))
       .toBeInTheDocument();
-    expect(within(why).getByText("SIMPLE IS NOT BASIC")).toBeInTheDocument();
+    const whyTitle = why.querySelector(".home-why-visual__title");
+    expect(whyTitle).not.toBeNull();
+    expect(whyTitle?.textContent?.replace(/\s+/g, " ").trim()).toBe(
+      "SIMPLE IS NOT BASIC",
+    );
     const whyImage = within(why).getByAltText("Black-and-white editorial portrait.");
     const whyImageSrc = decodeURIComponent(whyImage.getAttribute("src") ?? "");
     expect(whyImageSrc).toContain("/media/home/why-three.webp");
+    expect(whyImageSrc).not.toContain("/_next/image");
     expect(whyImageSrc).not.toContain("/mnt/data");
 
     const support = sectionForHeading(

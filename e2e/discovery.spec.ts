@@ -84,7 +84,7 @@ test("homepage section eyebrows share the Core section treatment", async ({ page
   expect(styles["Start Here"]).not.toEqual(core);
 });
 
-test("homepage core narrative uses compact cards and a split why editorial section", async ({
+test("homepage core narrative omits removed cards and uses a full-height why editorial section", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -98,12 +98,12 @@ test("homepage core narrative uses compact cards and a split why editorial secti
     const core = document.querySelector<HTMLElement>("#core-three");
     const why = document.querySelector<HTMLElement>(".home-section--why");
     const coreIntro = core?.querySelector<HTMLElement>(".home-section__intro p:not(.hero__eyebrow)");
-    const coreCards = Array.from(core?.querySelectorAll<HTMLElement>(".home-step-card") ?? []);
     const coreIntroBox = coreIntro?.getBoundingClientRect();
     const coreIntroLineHeight = coreIntro
       ? Number.parseFloat(getComputedStyle(coreIntro).lineHeight)
       : 0;
     const whyPrinciples = why?.querySelector<HTMLElement>(".home-why-principles");
+    const whyList = why?.querySelector<HTMLElement>(".home-why-list");
     const whyVisual = why?.querySelector<HTMLElement>(".home-why-visual");
     const whyTitle = why?.querySelector<HTMLElement>(".home-why-visual__title");
     const whyImage = why?.querySelector<HTMLImageElement>(".home-why-visual img");
@@ -143,21 +143,25 @@ test("homepage core narrative uses compact cards and a split why editorial secti
         ? coreIntroBox.height / coreIntroLineHeight
         : 0,
       coreIntroWidth: Math.round(coreIntroBox?.width ?? 0),
-      coreCards: coreCards.map((card) => ({
-        height: Math.round(card.getBoundingClientRect().height),
-        tags: Array.from(card.children).map((child) => child.tagName),
-        text: clean(card.textContent),
-      })),
+      coreStepGridExists: Boolean(core?.querySelector(".home-step-grid")),
+      coreStepCardCount: core?.querySelectorAll(".home-step-card").length ?? 0,
+      coreProductNames: Array.from(core?.querySelectorAll(".product-card__name") ?? []).map((node) =>
+        clean(node.textContent),
+      ),
+      viewportHeight: window.innerHeight,
       whyClass: why?.className ?? "",
       whyBorderTop: why ? getComputedStyle(why).borderTopWidth : "",
       whyBox: box(why),
       whyPrinciplesBox: box(whyPrinciples),
+      whyListBox: box(whyList),
       whyVisualBox: box(whyVisual),
+      whyVisualAfterContent: whyVisual ? getComputedStyle(whyVisual, "::after").content : "",
       whyTitleBox: box(whyTitle),
       whyTitleText: clean(whyTitle?.textContent),
       whyTitleColor: whyTitle ? getComputedStyle(whyTitle).color : "",
       whyTitleFamily: whyTitle ? getComputedStyle(whyTitle).fontFamily : "",
       whyTitleAlign: whyTitle ? getComputedStyle(whyTitle).textAlign : "",
+      whyTitleTextShadow: whyTitle ? getComputedStyle(whyTitle).textShadow : "",
       whyStatements: Array.from(why?.querySelectorAll(".home-why-list li") ?? []).map((node) =>
         clean(node.textContent),
       ),
@@ -171,7 +175,9 @@ test("homepage core narrative uses compact cards and a split why editorial secti
         : null,
       whyImageSrc: whyImage?.currentSrc || whyImage?.src || "",
       whyImageAlt: whyImage?.alt ?? "",
+      whyImageFilter: whyImage ? getComputedStyle(whyImage).filter : "",
       whyImageObjectFit: whyImage ? getComputedStyle(whyImage).objectFit : "",
+      whyImageOpacity: whyImage ? getComputedStyle(whyImage).opacity : "",
       supportAndPlugSameSection: Boolean(split && plugHeading?.closest(".home-section--core-support") === split),
       supportBeforePlug: Boolean(
         supportHeading &&
@@ -193,42 +199,38 @@ test("homepage core narrative uses compact cards and a split why editorial secti
   );
   expect(desktop.coreIntroLines).toBeLessThanOrEqual(1.25);
   expect(desktop.coreIntroWidth).toBeGreaterThan(720);
-  expect(desktop.coreCards).toEqual([
-    {
-      height: expect.any(Number),
-      tags: ["H3", "P"],
-      text: "CLEANSEcleans the surface before the rest of the routine.",
-    },
-    {
-      height: expect.any(Number),
-      tags: ["H3", "P"],
-      text: "TREATdelivers the central treatment layer.",
-    },
-    {
-      height: expect.any(Number),
-      tags: ["H3", "P"],
-      text: "SEALfinishes with moisture and barrier support.",
-    },
-  ]);
-  for (const card of desktop.coreCards) {
-    expect(card.height).toBeLessThan(205);
-    expect(card.text).not.toMatch(/Cleanser|Treatment Serum|Barrier Cream|—/);
-  }
+  expect(desktop.coreStepGridExists).toBe(false);
+  expect(desktop.coreStepCardCount).toBe(0);
+  expect(desktop.coreProductNames).toEqual(["CLEANSE", "TREAT", "SEAL"]);
   expect(desktop.whyClass).toContain("home-section--why");
   expect(desktop.whyIndex).toBe(desktop.coreIndex + 1);
   expect(desktop.whyBorderTop).toBe("1px");
+  expect(desktop.whyBox?.height).toBeGreaterThanOrEqual(desktop.viewportHeight - 2);
+  expect(desktop.whyBox?.height).toBeLessThanOrEqual(desktop.viewportHeight + 6);
+  expect(Math.abs((desktop.whyPrinciplesBox?.height ?? 0) - (desktop.whyVisualBox?.height ?? 0)))
+    .toBeLessThanOrEqual(2);
+  expect(desktop.whyVisualBox?.height).toBeGreaterThanOrEqual(desktop.viewportHeight - 6);
   expect(desktop.whyStatements).toEqual([
     "01 Start with structure skin understands.",
     "02 Most routines fail because they ask for too much too soon.",
     "03 Three steps build consistency.",
   ]);
   expect(desktop.whyStatementStyle?.letterSpacing).not.toBe("normal");
+  expect(desktop.whyListBox?.height).toBeGreaterThanOrEqual(desktop.viewportHeight * 0.45);
+  expect(desktop.whyListBox?.height).toBeLessThanOrEqual(desktop.viewportHeight * 0.53);
+  expect((desktop.whyListBox?.top ?? 0) - (desktop.whyPrinciplesBox?.top ?? 0))
+    .toBeGreaterThan(desktop.viewportHeight * 0.14);
+  expect((desktop.whyPrinciplesBox?.bottom ?? 0) - (desktop.whyListBox?.bottom ?? 0))
+    .toBeGreaterThan(desktop.viewportHeight * 0.14);
   expect(desktop.whyVisualBox?.left).toBeGreaterThanOrEqual(desktop.whyPrinciplesBox?.right ?? 0);
   expect(desktop.whyVisualBox?.right).toBe(desktop.whyBox?.right);
+  expect(desktop.whyVisualAfterContent).toBe("none");
   expect(desktop.whyTitleText).toBe("SIMPLE IS NOT BASIC");
   expect(desktop.whyTitleColor).toBe("rgb(255, 255, 255)");
   expect(desktop.whyTitleFamily).toMatch(/Marcellus/i);
   expect(desktop.whyTitleAlign).toBe("right");
+  expect(desktop.whyTitleTextShadow).toContain("rgba");
+  expect(desktop.whyTitleTextShadow.split("rgba").length).toBeGreaterThanOrEqual(4);
   expect(desktop.whyTitleBox?.right).toBeLessThanOrEqual(desktop.whyVisualBox?.right ?? 0);
   expect((desktop.whyVisualBox?.right ?? 0) - (desktop.whyTitleBox?.right ?? 0))
     .toBeLessThan(90);
@@ -236,9 +238,12 @@ test("homepage core narrative uses compact cards and a split why editorial secti
     .toBeLessThan(100);
   const whyImageSrc = decodeURIComponent(desktop.whyImageSrc);
   expect(whyImageSrc).toContain("/media/home/why-three.webp");
+  expect(whyImageSrc).not.toContain("/_next/image");
   expect(whyImageSrc).not.toContain("/mnt/data");
   expect(desktop.whyImageAlt).toBe("Black-and-white editorial portrait.");
+  expect(desktop.whyImageFilter).toBe("none");
   expect(desktop.whyImageObjectFit).toBe("cover");
+  expect(desktop.whyImageOpacity).toBe("1");
   expect(desktop.supportAndPlugSameSection).toBe(true);
   expect(desktop.supportBeforePlug).toBe(true);
   expect(desktop.splitClass).toContain("home-section--core-support");
@@ -265,6 +270,7 @@ test("homepage core narrative uses compact cards and a split why editorial secti
     const plugPanel = plugHeading?.closest<HTMLElement>(".home-core-split__panel");
     const why = document.querySelector<HTMLElement>(".home-section--why");
     const whyPrinciples = why?.querySelector<HTMLElement>(".home-why-principles");
+    const whyList = why?.querySelector<HTMLElement>(".home-why-list");
     const whyVisual = why?.querySelector<HTMLElement>(".home-why-visual");
     const whyTitle = why?.querySelector<HTMLElement>(".home-why-visual__title");
     const box = (element: HTMLElement | null | undefined) => {
@@ -272,6 +278,7 @@ test("homepage core narrative uses compact cards and a split why editorial secti
       if (!rect) return null;
       return {
         bottom: Math.round(rect.bottom),
+        height: Math.round(rect.height),
         left: Math.round(rect.left),
         right: Math.round(rect.right),
         top: Math.round(rect.top),
@@ -284,7 +291,10 @@ test("homepage core narrative uses compact cards and a split why editorial secti
       plugBox: box(plugPanel),
       supportAlign: supportPanel ? getComputedStyle(supportPanel).textAlign : "",
       plugAlign: plugPanel ? getComputedStyle(plugPanel).textAlign : "",
+      viewportHeight: window.innerHeight,
+      whyBox: box(why),
       whyPrinciplesBox: box(whyPrinciples),
+      whyListBox: box(whyList),
       whyVisualBox: box(whyVisual),
       whyTitleBox: box(whyTitle),
       whyTitleAlign: whyTitle ? getComputedStyle(whyTitle).textAlign : "",
@@ -295,6 +305,10 @@ test("homepage core narrative uses compact cards and a split why editorial secti
   expect(mobile.plugBox?.top).toBeGreaterThan(mobile.supportBox?.bottom ?? 0);
   expect(mobile.supportAlign).toBe("left");
   expect(mobile.plugAlign).toBe("left");
+  expect(mobile.whyBox?.height).toBeGreaterThanOrEqual(mobile.viewportHeight * 0.92);
+  expect(mobile.whyBox?.height).toBeLessThanOrEqual(mobile.viewportHeight * 1.24);
+  expect(mobile.whyListBox?.height).toBeGreaterThanOrEqual(150);
+  expect(mobile.whyListBox?.height).toBeLessThanOrEqual(230);
   expect(mobile.whyVisualBox?.top).toBeGreaterThanOrEqual(mobile.whyPrinciplesBox?.bottom ?? 0);
   expect(mobile.whyTitleAlign).toBe("right");
   expect((mobile.whyVisualBox?.right ?? 0) - (mobile.whyTitleBox?.right ?? 0))

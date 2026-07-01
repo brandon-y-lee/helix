@@ -18,13 +18,6 @@ export const metadata: Metadata = {
     "A three-step men's skincare baseline: cleanse, treat, and seal with CLEANSE, TREAT, and SEAL.",
 };
 
-type CoreStep = {
-  id: "cleanse" | "treat" | "seal";
-  slug: MethodProductSlug;
-  displayName: "CLEANSE" | "TREAT" | "SEAL";
-  summary: string;
-};
-
 type ProductAddOn = {
   kind: "product";
   slug: MethodProductSlug;
@@ -42,26 +35,11 @@ type ProtectAddOn = {
 
 type AddOn = ProductAddOn | ProtectAddOn;
 
-const CORE_THREE: readonly CoreStep[] = [
-  {
-    id: "cleanse",
-    slug: "cleanse-01-calming-gel-cleanser",
-    displayName: "CLEANSE",
-    summary: "cleans the surface before the rest of the routine.",
-  },
-  {
-    id: "treat",
-    slug: "treat-03-pdrn-5-ampoule",
-    displayName: "TREAT",
-    summary: "delivers the central treatment layer.",
-  },
-  {
-    id: "seal",
-    slug: "seal-05-green-collagen-cream",
-    displayName: "SEAL",
-    summary: "finishes with moisture and barrier support.",
-  },
-] as const;
+const CORE_PRODUCT_SLUGS = [
+  "cleanse-01-calming-gel-cleanser",
+  "treat-03-pdrn-5-ampoule",
+  "seal-05-green-collagen-cream",
+] as const satisfies readonly MethodProductSlug[];
 
 const ADD_ONS: readonly AddOn[] = [
   {
@@ -125,15 +103,6 @@ function productsForSlugs(
   });
 }
 
-function renderCoreStep(step: CoreStep) {
-  return (
-    <article key={step.id} className="home-step-card">
-      <h3>{step.displayName}</h3>
-      <p>{step.summary}</p>
-    </article>
-  );
-}
-
 function renderProductAddOn(addOn: ProductAddOn, product: Product) {
   return (
     <Link
@@ -186,14 +155,11 @@ function renderAddOn(addOn: AddOn, productsBySlug: ReadonlyMap<string, Product>)
 export default async function HomePage() {
   const products = await getCachedProducts();
   const productsBySlug = new Map(products.map((product) => [product.slug, product]));
-  const coreProducts = productsForSlugs(
-    productsBySlug,
-    CORE_THREE.map((step) => step.slug),
-  );
+  const coreProducts = productsForSlugs(productsBySlug, CORE_PRODUCT_SLUGS);
   const methodProducts = productsForSlugs(
     productsBySlug,
     [
-      ...CORE_THREE.map((step) => step.slug),
+      ...CORE_PRODUCT_SLUGS,
       ...ADD_ONS.flatMap((addOn) => (addOn.kind === "product" ? [addOn.slug] : [])),
     ],
   );
@@ -241,10 +207,6 @@ export default async function HomePage() {
           </p>
         </div>
 
-        <div className="home-step-grid">
-          {CORE_THREE.map((step) => renderCoreStep(step))}
-        </div>
-
         {coreProducts.length > 0 && (
           <ProductGrid products={coreProducts} className="product-grid home-core-products" />
         )}
@@ -266,8 +228,12 @@ export default async function HomePage() {
             fill
             sizes="(max-width: 900px) 100vw, 50vw"
             className="home-why-visual__image"
+            unoptimized
           />
-          <p className="home-why-visual__title">SIMPLE IS NOT BASIC</p>
+          <p className="home-why-visual__title">
+            <span>SIMPLE IS</span>{" "}
+            <span>NOT BASIC</span>
+          </p>
         </div>
       </section>
 
