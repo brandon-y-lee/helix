@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { HomeHeroVideo } from "@/components/HomeHeroVideo";
 import { ProductGrid } from "@/components/ProductGrid";
@@ -21,7 +22,6 @@ type CoreStep = {
   id: "cleanse" | "treat" | "seal";
   slug: MethodProductSlug;
   displayName: "CLEANSE" | "TREAT" | "SEAL";
-  role: string;
   summary: string;
 };
 
@@ -47,25 +47,19 @@ const CORE_THREE: readonly CoreStep[] = [
     id: "cleanse",
     slug: "cleanse-01-calming-gel-cleanser",
     displayName: "CLEANSE",
-    role: "Cleanser",
-    summary:
-      "CLEANSE cleans the surface so treatment layers can sit on skin, not on sunscreen, sweat, and daily buildup.",
+    summary: "cleans the surface before the rest of the routine.",
   },
   {
     id: "treat",
     slug: "treat-03-pdrn-5-ampoule",
     displayName: "TREAT",
-    role: "Treatment Serum",
-    summary:
-      "TREAT is the treatment layer: a lightweight serum step for a hydrated, more controlled-looking finish.",
+    summary: "delivers the central treatment layer.",
   },
   {
     id: "seal",
     slug: "seal-05-green-collagen-cream",
     displayName: "SEAL",
-    role: "Barrier Cream",
-    summary:
-      "SEAL finishes with moisture and barrier support so the routine feels complete instead of complicated.",
+    summary: "finishes with moisture and barrier support.",
   },
 ] as const;
 
@@ -103,11 +97,10 @@ const ADD_ONS: readonly AddOn[] = [
   },
 ] as const;
 
-const WHY_THREE = [
-  "Mei Pelle starts with structure that skin universally understands: cleanse first, apply treatment layer, seal last.",
-  "Most routines fail because they ask for too much too soon. A shorter routine reduces friction.",
-  "Three steps build consistency - and consistency is where the system starts to matter.",
-  "A simple baseline makes it easier to understand what is helping and what can be improved.",
+const WHY_THREE_STATEMENTS = [
+  "01 Start with structure skin understands.",
+  "02 Most routines fail because they ask for too much too soon.",
+  "03 Three steps build consistency.",
 ] as const;
 
 const PLUG_AND_PLAY = [
@@ -135,8 +128,7 @@ function productsForSlugs(
 function renderCoreStep(step: CoreStep) {
   return (
     <article key={step.id} className="home-step-card">
-      <p className="home-step-card__kicker">{step.displayName}</p>
-      <h3>{`${step.displayName} — ${step.role}`}</h3>
+      <h3>{step.displayName}</h3>
       <p>{step.summary}</p>
     </article>
   );
@@ -240,9 +232,9 @@ export default async function HomePage() {
         className="container home-section home-section--core"
         aria-labelledby="core-three-heading"
       >
-        <div className="home-section__intro">
+        <div className="home-section__intro home-section__intro--core">
           <p className="hero__eyebrow">The Core</p>
-          <h2 id="core-three-heading">Cleanse, Treat, Seal.</h2>
+          <h2 id="core-three-heading" className="sr-only">The Core</h2>
           <p>
             Simple by design: cleanse the surface, apply the treatment
             layer, then finish with moisture and barrier support.
@@ -259,19 +251,23 @@ export default async function HomePage() {
       </section>
 
       <section className="home-section home-section--why" aria-labelledby="why-three-heading">
-        <div className="container">
-          <div className="home-section__intro home-section__intro--wide home-section__intro--center">
-            <p className="hero__eyebrow">Why Three Works</p>
-            <h2 id="why-three-heading">Simple is not basic.</h2>
-          </div>
-          <div className="home-reason-grid">
-            {WHY_THREE.map((reason, index) => (
-              <article key={reason} className="home-reason-card">
-                <span>{String(index + 1).padStart(2, "0")}</span>
-                <p>{reason}</p>
-              </article>
+        <h2 id="why-three-heading" className="sr-only">Why Three Works</h2>
+        <div className="home-why-principles">
+          <ol className="home-why-list" aria-label="Why three works">
+            {WHY_THREE_STATEMENTS.map((statement) => (
+              <li key={statement}>{statement}</li>
             ))}
-          </div>
+          </ol>
+        </div>
+        <div className="home-why-visual">
+          <Image
+            src="/media/home/why-three.webp"
+            alt="Black-and-white editorial portrait."
+            fill
+            sizes="(max-width: 900px) 100vw, 50vw"
+            className="home-why-visual__image"
+          />
+          <p className="home-why-visual__title">SIMPLE IS NOT BASIC</p>
         </div>
       </section>
 

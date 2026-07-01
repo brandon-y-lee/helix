@@ -222,8 +222,11 @@ describe("storefront page smoke", () => {
     ).toHaveAttribute("href", "/system");
     expect(screen.getByText("Cleanse. Treat. Seal.")).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { level: 2, name: "Cleanse, Treat, Seal." }),
+      screen.getByRole("heading", { level: 2, name: "The Core" }),
     ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { level: 2, name: "Cleanse, Treat, Seal." }),
+    ).not.toBeInTheDocument();
   });
 
   it("Shop renders its h1 and a card per product", async () => {

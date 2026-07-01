@@ -11,10 +11,18 @@ test("homepage Core Three ladder renders", async ({ page }) => {
     page.getByRole("heading", { name: "It all starts with three steps." }),
   ).toBeVisible();
   await expect(page.getByText("Cleanse. Treat. Seal.")).toBeVisible();
+  await expect(page.getByRole("region", { name: "The Core" }))
+    .toBeVisible();
   await expect(page.getByRole("heading", { name: "Cleanse, Treat, Seal." }))
+    .toHaveCount(0);
+  await expect(page.getByText("01 Start with structure skin understands."))
     .toBeVisible();
-  await expect(page.getByRole("heading", { name: "Simple is not basic." }))
+  await expect(
+    page.getByText("02 Most routines fail because they ask for too much too soon."),
+  ).toBeVisible();
+  await expect(page.getByText("03 Three steps build consistency."))
     .toBeVisible();
+  await expect(page.getByText("SIMPLE IS NOT BASIC")).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "Use all three. Or upgrade one layer." }),
   ).toBeVisible();
@@ -76,7 +84,7 @@ test("homepage section eyebrows share the Core section treatment", async ({ page
   expect(styles["Start Here"]).not.toEqual(core);
 });
 
-test("homepage core narrative uses a centered why pause and combined split", async ({
+test("homepage core narrative uses compact cards and a split why editorial section", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -87,10 +95,18 @@ test("homepage core narrative uses a centered why pause and combined split", asy
       text?.replace(/\s+/g, " ").trim() ?? "";
     const sections = Array.from(document.querySelectorAll<HTMLElement>("main > section"));
     const headings = Array.from(document.querySelectorAll<HTMLElement>("h2"));
-    const sectionByHeading = (heading: string) =>
-      sections.find((section) => clean(section.querySelector("h2")?.textContent) === heading);
-    const core = sectionByHeading("Cleanse, Treat, Seal.");
-    const why = sectionByHeading("Simple is not basic.");
+    const core = document.querySelector<HTMLElement>("#core-three");
+    const why = document.querySelector<HTMLElement>(".home-section--why");
+    const coreIntro = core?.querySelector<HTMLElement>(".home-section__intro p:not(.hero__eyebrow)");
+    const coreCards = Array.from(core?.querySelectorAll<HTMLElement>(".home-step-card") ?? []);
+    const coreIntroBox = coreIntro?.getBoundingClientRect();
+    const coreIntroLineHeight = coreIntro
+      ? Number.parseFloat(getComputedStyle(coreIntro).lineHeight)
+      : 0;
+    const whyPrinciples = why?.querySelector<HTMLElement>(".home-why-principles");
+    const whyVisual = why?.querySelector<HTMLElement>(".home-why-visual");
+    const whyTitle = why?.querySelector<HTMLElement>(".home-why-visual__title");
+    const whyImage = why?.querySelector<HTMLImageElement>(".home-why-visual img");
     const supportHeading = headings.find(
       (heading) =>
         clean(heading.textContent) ===
@@ -102,8 +118,6 @@ test("homepage core narrative uses a centered why pause and combined split", asy
     const split = supportHeading?.closest<HTMLElement>(".home-section--core-support");
     const supportPanel = supportHeading?.closest<HTMLElement>(".home-core-split__panel");
     const plugPanel = plugHeading?.closest<HTMLElement>(".home-core-split__panel");
-    const reasonGrid = why?.querySelector<HTMLElement>(".home-reason-grid");
-    const coreHeading = core?.querySelector<HTMLElement>("h2");
 
     const box = (element: HTMLElement | null | undefined) => {
       const rect = element?.getBoundingClientRect();
@@ -121,16 +135,43 @@ test("homepage core narrative uses a centered why pause and combined split", asy
     return {
       coreIndex: sections.indexOf(core as HTMLElement),
       whyIndex: sections.indexOf(why as HTMLElement),
+      visibleCoreDisplayHeading: headings.some(
+        (heading) => clean(heading.textContent) === "Cleanse, Treat, Seal.",
+      ),
+      coreIntroText: clean(coreIntro?.textContent),
+      coreIntroLines: coreIntroBox && coreIntroLineHeight
+        ? coreIntroBox.height / coreIntroLineHeight
+        : 0,
+      coreIntroWidth: Math.round(coreIntroBox?.width ?? 0),
+      coreCards: coreCards.map((card) => ({
+        height: Math.round(card.getBoundingClientRect().height),
+        tags: Array.from(card.children).map((child) => child.tagName),
+        text: clean(card.textContent),
+      })),
       whyClass: why?.className ?? "",
-      whyBackground: why ? getComputedStyle(why).backgroundColor : "",
-      coreBackground: core ? getComputedStyle(core).backgroundColor : "",
       whyBorderTop: why ? getComputedStyle(why).borderTopWidth : "",
-      whyHeadingAlign: why?.querySelector("h2")
-        ? getComputedStyle(why.querySelector("h2") as HTMLElement).textAlign
-        : "",
-      whyCardAlign: why?.querySelector(".home-reason-card p")
-        ? getComputedStyle(why.querySelector(".home-reason-card p") as HTMLElement).textAlign
-        : "",
+      whyBox: box(why),
+      whyPrinciplesBox: box(whyPrinciples),
+      whyVisualBox: box(whyVisual),
+      whyTitleBox: box(whyTitle),
+      whyTitleText: clean(whyTitle?.textContent),
+      whyTitleColor: whyTitle ? getComputedStyle(whyTitle).color : "",
+      whyTitleFamily: whyTitle ? getComputedStyle(whyTitle).fontFamily : "",
+      whyTitleAlign: whyTitle ? getComputedStyle(whyTitle).textAlign : "",
+      whyStatements: Array.from(why?.querySelectorAll(".home-why-list li") ?? []).map((node) =>
+        clean(node.textContent),
+      ),
+      whyStatementStyle: why?.querySelector(".home-why-list li")
+        ? {
+            fontSize: getComputedStyle(why.querySelector(".home-why-list li") as HTMLElement)
+              .fontSize,
+            letterSpacing: getComputedStyle(why.querySelector(".home-why-list li") as HTMLElement)
+              .letterSpacing,
+          }
+        : null,
+      whyImageSrc: whyImage?.currentSrc || whyImage?.src || "",
+      whyImageAlt: whyImage?.alt ?? "",
+      whyImageObjectFit: whyImage ? getComputedStyle(whyImage).objectFit : "",
       supportAndPlugSameSection: Boolean(split && plugHeading?.closest(".home-section--core-support") === split),
       supportBeforePlug: Boolean(
         supportHeading &&
@@ -142,23 +183,62 @@ test("homepage core narrative uses a centered why pause and combined split", asy
       splitClass: split?.className ?? "",
       supportAlign: supportPanel ? getComputedStyle(supportPanel).textAlign : "",
       plugAlign: plugPanel ? getComputedStyle(plugPanel).textAlign : "",
-      splitHeadingSize: supportHeading
-        ? Number.parseFloat(getComputedStyle(supportHeading).fontSize)
-        : 0,
-      majorHeadingSize: coreHeading
-        ? Number.parseFloat(getComputedStyle(coreHeading).fontSize)
-        : 0,
-      reasonGridTop: box(reasonGrid)?.top ?? 0,
       overflow: document.documentElement.scrollWidth - window.innerWidth,
     };
   });
 
+  expect(desktop.visibleCoreDisplayHeading).toBe(false);
+  expect(desktop.coreIntroText).toBe(
+    "Simple by design: cleanse the surface, apply the treatment layer, then finish with moisture and barrier support.",
+  );
+  expect(desktop.coreIntroLines).toBeLessThanOrEqual(1.25);
+  expect(desktop.coreIntroWidth).toBeGreaterThan(720);
+  expect(desktop.coreCards).toEqual([
+    {
+      height: expect.any(Number),
+      tags: ["H3", "P"],
+      text: "CLEANSEcleans the surface before the rest of the routine.",
+    },
+    {
+      height: expect.any(Number),
+      tags: ["H3", "P"],
+      text: "TREATdelivers the central treatment layer.",
+    },
+    {
+      height: expect.any(Number),
+      tags: ["H3", "P"],
+      text: "SEALfinishes with moisture and barrier support.",
+    },
+  ]);
+  for (const card of desktop.coreCards) {
+    expect(card.height).toBeLessThan(205);
+    expect(card.text).not.toMatch(/Cleanser|Treatment Serum|Barrier Cream|—/);
+  }
   expect(desktop.whyClass).toContain("home-section--why");
   expect(desktop.whyIndex).toBe(desktop.coreIndex + 1);
-  expect(desktop.whyBackground).not.toEqual(desktop.coreBackground);
   expect(desktop.whyBorderTop).toBe("1px");
-  expect(desktop.whyHeadingAlign).toBe("center");
-  expect(desktop.whyCardAlign).toBe("center");
+  expect(desktop.whyStatements).toEqual([
+    "01 Start with structure skin understands.",
+    "02 Most routines fail because they ask for too much too soon.",
+    "03 Three steps build consistency.",
+  ]);
+  expect(desktop.whyStatementStyle?.letterSpacing).not.toBe("normal");
+  expect(desktop.whyVisualBox?.left).toBeGreaterThanOrEqual(desktop.whyPrinciplesBox?.right ?? 0);
+  expect(desktop.whyVisualBox?.right).toBe(desktop.whyBox?.right);
+  expect(desktop.whyTitleText).toBe("SIMPLE IS NOT BASIC");
+  expect(desktop.whyTitleColor).toBe("rgb(255, 255, 255)");
+  expect(desktop.whyTitleFamily).toMatch(/Marcellus/i);
+  expect(desktop.whyTitleAlign).toBe("right");
+  expect(desktop.whyTitleBox?.right).toBeLessThanOrEqual(desktop.whyVisualBox?.right ?? 0);
+  expect((desktop.whyVisualBox?.right ?? 0) - (desktop.whyTitleBox?.right ?? 0))
+    .toBeLessThan(90);
+  expect((desktop.whyVisualBox?.bottom ?? 0) - (desktop.whyTitleBox?.bottom ?? 0))
+    .toBeLessThan(100);
+  const whyImageSrc = decodeURIComponent(desktop.whyImageSrc);
+  expect(whyImageSrc).toContain("/media/home/why-three.webp");
+  expect(whyImageSrc).not.toContain("/mnt/data");
+  expect(desktop.whyImageAlt).toBe("Black-and-white editorial portrait.");
+  expect(desktop.whyImageObjectFit).toBe("cover");
   expect(desktop.supportAndPlugSameSection).toBe(true);
   expect(desktop.supportBeforePlug).toBe(true);
   expect(desktop.splitClass).toContain("home-section--core-support");
@@ -166,7 +246,6 @@ test("homepage core narrative uses a centered why pause and combined split", asy
   expect(Math.abs((desktop.supportBox?.top ?? 0) - (desktop.plugBox?.top ?? 0))).toBeLessThan(4);
   expect(desktop.supportAlign).toBe("left");
   expect(desktop.plugAlign).toBe("right");
-  expect(desktop.splitHeadingSize).toBeLessThan(desktop.majorHeadingSize);
   expect(desktop.overflow).toBeLessThanOrEqual(0);
 
   await page.setViewportSize({ width: 390, height: 844 });
@@ -184,12 +263,17 @@ test("homepage core narrative uses a centered why pause and combined split", asy
     );
     const supportPanel = supportHeading?.closest<HTMLElement>(".home-core-split__panel");
     const plugPanel = plugHeading?.closest<HTMLElement>(".home-core-split__panel");
+    const why = document.querySelector<HTMLElement>(".home-section--why");
+    const whyPrinciples = why?.querySelector<HTMLElement>(".home-why-principles");
+    const whyVisual = why?.querySelector<HTMLElement>(".home-why-visual");
+    const whyTitle = why?.querySelector<HTMLElement>(".home-why-visual__title");
     const box = (element: HTMLElement | null | undefined) => {
       const rect = element?.getBoundingClientRect();
       if (!rect) return null;
       return {
         bottom: Math.round(rect.bottom),
         left: Math.round(rect.left),
+        right: Math.round(rect.right),
         top: Math.round(rect.top),
         width: Math.round(rect.width),
       };
@@ -200,9 +284,10 @@ test("homepage core narrative uses a centered why pause and combined split", asy
       plugBox: box(plugPanel),
       supportAlign: supportPanel ? getComputedStyle(supportPanel).textAlign : "",
       plugAlign: plugPanel ? getComputedStyle(plugPanel).textAlign : "",
-      whyHeadingAlign: getComputedStyle(
-        document.querySelector<HTMLElement>("#why-three-heading")!,
-      ).textAlign,
+      whyPrinciplesBox: box(whyPrinciples),
+      whyVisualBox: box(whyVisual),
+      whyTitleBox: box(whyTitle),
+      whyTitleAlign: whyTitle ? getComputedStyle(whyTitle).textAlign : "",
       overflow: document.documentElement.scrollWidth - window.innerWidth,
     };
   });
@@ -210,7 +295,12 @@ test("homepage core narrative uses a centered why pause and combined split", asy
   expect(mobile.plugBox?.top).toBeGreaterThan(mobile.supportBox?.bottom ?? 0);
   expect(mobile.supportAlign).toBe("left");
   expect(mobile.plugAlign).toBe("left");
-  expect(mobile.whyHeadingAlign).toBe("center");
+  expect(mobile.whyVisualBox?.top).toBeGreaterThanOrEqual(mobile.whyPrinciplesBox?.bottom ?? 0);
+  expect(mobile.whyTitleAlign).toBe("right");
+  expect((mobile.whyVisualBox?.right ?? 0) - (mobile.whyTitleBox?.right ?? 0))
+    .toBeLessThan(40);
+  expect((mobile.whyVisualBox?.bottom ?? 0) - (mobile.whyTitleBox?.bottom ?? 0))
+    .toBeLessThan(48);
   expect(mobile.overflow).toBeLessThanOrEqual(0);
 });
 
@@ -223,7 +313,7 @@ test("homepage Core Three products and add-ons resolve by stable slugs", async (
       Array.from(document.querySelectorAll("section")).find(
         (section) => clean(section.querySelector("h2")?.textContent) === heading,
       );
-    const core = sectionByHeading("Cleanse, Treat, Seal.");
+    const core = document.querySelector("#core-three");
     const beyond = sectionByHeading("Add only what solves a real problem.");
     return {
       coreProducts: Array.from(core?.querySelectorAll(".product-card__name") ?? []).map((node) =>
@@ -261,7 +351,7 @@ test("homepage Core Three products and add-ons resolve by stable slugs", async (
 
 test("Core Three product card navigates to a product detail page", async ({ page }) => {
   await page.goto("/");
-  const core = page.getByRole("region", { name: "Cleanse, Treat, Seal." });
+  const core = page.getByRole("region", { name: "The Core" });
   const cleanseLink = core.getByRole("link", { name: "CLEANSE", exact: true });
   await expect(cleanseLink).toHaveAttribute(
     "href",

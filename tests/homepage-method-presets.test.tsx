@@ -137,21 +137,70 @@ describe("homepage Core Three positioning", () => {
       screen.getAllByRole("link", { name: "SEE THE SYSTEM" })[0],
     ).toHaveAttribute("href", "/system");
 
-    const core = sectionForHeading("Cleanse, Treat, Seal.");
+    expect(
+      screen.queryByRole("heading", { level: 2, name: "Cleanse, Treat, Seal." }),
+    ).not.toBeInTheDocument();
+
+    const core = sectionForHeading("The Core");
+    expect(
+      within(core).getByText(
+        "Simple by design: cleanse the surface, apply the treatment layer, then finish with moisture and barrier support.",
+      ),
+    ).toBeInTheDocument();
+
+    const coreStepCards = Array.from(core.querySelectorAll(".home-step-card"));
+    expect(coreStepCards).toHaveLength(3);
+    expect(
+      coreStepCards.map((card) =>
+        Array.from(card.children).map((element) => element.tagName),
+      ),
+    ).toEqual([
+      ["H3", "P"],
+      ["H3", "P"],
+      ["H3", "P"],
+    ]);
+    expect(
+      coreStepCards.map((card) =>
+        within(card as HTMLElement).getByRole("heading", { level: 3 }).textContent?.trim(),
+      ),
+    ).toEqual(["CLEANSE", "TREAT", "SEAL"]);
+    expect(
+      coreStepCards.map((card) => card.querySelector("p")?.textContent?.trim()),
+    ).toEqual([
+      "cleans the surface before the rest of the routine.",
+      "delivers the central treatment layer.",
+      "finishes with moisture and barrier support.",
+    ]);
+    for (const card of coreStepCards) {
+      expect(within(card as HTMLElement).queryByText(/Cleanser|Treatment Serum|Barrier Cream|—/))
+        .not.toBeInTheDocument();
+    }
+
     expect(
       Array.from(core.querySelectorAll(".product-card__name")).map((node) =>
         node.textContent?.trim(),
       ),
     ).toEqual(["CLEANSE", "TREAT", "SEAL"]);
-    expect(within(core).getByText("CLEANSE — Cleanser")).toBeInTheDocument();
-    expect(within(core).getByText("TREAT — Treatment Serum")).toBeInTheDocument();
-    expect(within(core).getByText("SEAL — Barrier Cream")).toBeInTheDocument();
     expect(within(core).getByRole("button", { name: "Open quick buy for CLEANSE" }))
       .toBeInTheDocument();
     expect(within(core).getByRole("button", { name: "Open quick buy for TREAT" }))
       .toBeInTheDocument();
     expect(within(core).getByRole("button", { name: "Open quick buy for SEAL" }))
       .toBeInTheDocument();
+
+    const why = sectionForHeading("Why Three Works");
+    expect(within(why).getByText("01 Start with structure skin understands."))
+      .toBeInTheDocument();
+    expect(
+      within(why).getByText("02 Most routines fail because they ask for too much too soon."),
+    ).toBeInTheDocument();
+    expect(within(why).getByText("03 Three steps build consistency."))
+      .toBeInTheDocument();
+    expect(within(why).getByText("SIMPLE IS NOT BASIC")).toBeInTheDocument();
+    const whyImage = within(why).getByAltText("Black-and-white editorial portrait.");
+    const whyImageSrc = decodeURIComponent(whyImage.getAttribute("src") ?? "");
+    expect(whyImageSrc).toContain("/media/home/why-three.webp");
+    expect(whyImageSrc).not.toContain("/mnt/data");
 
     const support = sectionForHeading(
       "For skin that looks clearer, younger, more hydrated, and less tired by default.",
@@ -203,7 +252,7 @@ describe("homepage Core Three positioning", () => {
 
     render(<CartProvider>{await HomePage()}</CartProvider>);
 
-    const core = sectionForHeading("Cleanse, Treat, Seal.");
+    const core = sectionForHeading("The Core");
     expect(
       Array.from(core.querySelectorAll(".product-card__name")).map((node) =>
         node.textContent?.trim(),

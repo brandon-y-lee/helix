@@ -187,6 +187,11 @@ test.describe("homepage video hero", () => {
     await page.goto("/");
     await page.locator(".home-video-hero__cta").click();
     await expect(page).toHaveURL(/\/#core-three$/);
-    await expect(page.getByRole("heading", { name: "Cleanse, Treat, Seal." })).toBeVisible();
+    await expect(page.getByRole("region", { name: "The Core" })).toBeVisible();
+    await expect(
+      page.getByText(
+        "Simple by design: cleanse the surface, apply the treatment layer, then finish with moisture and barrier support.",
+      ),
+    ).toBeVisible();
   });
 });

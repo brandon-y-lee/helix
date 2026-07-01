@@ -5786,22 +5786,13 @@ main:focus {
 
 .home-section--why {
   position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  min-height: clamp(620px, 78vh, 860px);
+  padding-block: 0;
   border-top: 1px solid color-mix(in srgb, var(--line) 72%, transparent);
   border-bottom: 1px solid color-mix(in srgb, var(--line) 56%, transparent);
-  background-color: color-mix(in srgb, var(--surface-muted) 38%, var(--bg));
-  background-image:
-    linear-gradient(180deg, color-mix(in srgb, var(--surface-muted) 42%, var(--bg)) 0%, var(--bg) 100%);
-}
-
-.home-section--why::before {
-  content: "";
-  position: absolute;
-  top: 18px;
-  left: 50%;
-  width: min(220px, calc(100vw - 48px));
-  height: 1px;
-  transform: translateX(-50%);
-  background: color-mix(in srgb, var(--accent-2) 28%, transparent);
+  background: var(--surface-muted);
 }
 
 .home-section__intro {
@@ -5837,6 +5828,14 @@ main:focus {
   max-width: 980px;
 }
 
+.home-section__intro--core {
+  max-width: 1160px;
+}
+
+.home-section--core .home-section__intro p:not(.hero__eyebrow) {
+  max-width: 92ch;
+}
+
 .home-section__intro--center {
   margin-inline: auto;
   justify-items: center;
@@ -5844,7 +5843,6 @@ main:focus {
 }
 
 .home-step-grid,
-.home-reason-grid,
 .home-addon-grid,
 .home-ingredient-list {
   display: grid;
@@ -5857,7 +5855,6 @@ main:focus {
 }
 
 .home-step-card,
-.home-reason-card,
 .home-addon-card,
 .home-ingredient-card {
   border: 1px solid color-mix(in srgb, var(--line) 82%, transparent);
@@ -5866,17 +5863,15 @@ main:focus {
 }
 
 .home-step-card {
-  min-height: 245px;
+  min-height: clamp(146px, 12vw, 172px);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  gap: 26px;
-  padding: clamp(18px, 2.4vw, 28px);
+  gap: clamp(28px, 4vw, 48px);
+  padding: clamp(18px, 2.2vw, 26px);
 }
 
-.home-step-card__kicker,
 .home-addon-card__label,
-.home-reason-card span,
 .home-ingredient-card p {
   color: var(--accent-2);
   font-size: 0.72rem;
@@ -5886,7 +5881,6 @@ main:focus {
   text-transform: uppercase;
 }
 
-.home-step-card h3,
 .home-addon-card h3,
 .home-ingredient-card h3 {
   color: var(--ink);
@@ -5898,8 +5892,17 @@ main:focus {
   text-transform: uppercase;
 }
 
-.home-step-card p:not(.home-step-card__kicker),
-.home-reason-card p,
+.home-step-card h3 {
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: 0.88rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.home-step-card p,
 .home-addon-card p,
 .home-ingredient-card span {
   color: var(--ink-soft);
@@ -5907,31 +5910,79 @@ main:focus {
   line-height: 1.55;
 }
 
+.home-step-card p {
+  max-width: 30ch;
+  color: var(--ink);
+  font-size: clamp(0.98rem, 1.1vw, 1.08rem);
+  line-height: 1.48;
+}
+
 .home-core-products {
   margin-top: 0;
 }
 
-.home-reason-grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+.home-why-principles {
+  display: grid;
+  align-items: center;
+  padding: clamp(56px, 7vw, 112px) clamp(28px, 5.4vw, 86px);
 }
 
-.home-section--why .home-reason-grid {
-  max-width: 1120px;
-  margin-inline: auto;
-}
-
-.home-reason-card {
-  min-height: 210px;
+.home-why-list {
+  width: min(100%, 38ch);
+  min-height: min(50vh, 420px);
+  margin: 0;
+  padding: 0;
+  list-style: none;
   display: grid;
   align-content: space-between;
   gap: 30px;
-  padding: clamp(18px, 2.2vw, 26px);
 }
 
-.home-section--why .home-reason-card {
-  border-color: color-mix(in srgb, var(--line) 56%, transparent);
-  background: color-mix(in srgb, var(--surface) 66%, transparent);
-  text-align: center;
+.home-why-list li {
+  color: var(--ink);
+  font-size: clamp(0.78rem, 0.9vw, 0.88rem);
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  line-height: 1.58;
+}
+
+.home-why-visual {
+  position: relative;
+  min-height: inherit;
+  overflow: hidden;
+  background: var(--ink);
+}
+
+.home-why-visual::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background:
+    linear-gradient(180deg, transparent 42%, rgba(0, 0, 0, 0.58) 100%),
+    linear-gradient(270deg, rgba(0, 0, 0, 0.36) 0%, transparent 58%);
+  pointer-events: none;
+}
+
+.home-why-visual__image {
+  object-fit: cover;
+  object-position: 50% 68%;
+}
+
+.home-why-visual__title {
+  position: absolute;
+  right: clamp(22px, 4vw, 64px);
+  bottom: clamp(24px, 4.8vw, 72px);
+  z-index: 2;
+  max-width: 7.25ch;
+  color: #fff;
+  font-family: var(--font-heading);
+  font-size: clamp(2.8rem, 5.1vw, 5.45rem);
+  letter-spacing: 0;
+  line-height: 0.86;
+  text-align: right;
+  text-wrap: balance;
+  text-shadow: 0 2px 22px rgba(0, 0, 0, 0.48);
 }
 
 .home-band {
@@ -6154,7 +6205,6 @@ main:focus {
 
 @media (max-width: 1080px) {
   .home-step-grid,
-  .home-reason-grid,
   .home-addon-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -6178,6 +6228,30 @@ main:focus {
 
   .home-core-split__panel {
     min-height: auto;
+  }
+}
+
+@media (max-width: 900px) {
+  .home-section--why {
+    grid-template-columns: 1fr;
+    min-height: 0;
+  }
+
+  .home-why-principles {
+    padding: clamp(58px, 13vw, 92px) clamp(18px, 6vw, 42px);
+  }
+
+  .home-why-list {
+    min-height: 0;
+    gap: 30px;
+  }
+
+  .home-why-visual {
+    min-height: clamp(420px, 116vw, 620px);
+  }
+
+  .home-why-visual__image {
+    object-position: 50% 60%;
   }
 }
 
@@ -6208,9 +6282,8 @@ main:focus {
     padding-block: 64px;
   }
 
-  .home-section--why::before {
-    top: 12px;
-    width: min(168px, calc(100vw - 48px));
+  .home-section--why {
+    padding-block: 0;
   }
 
   .home-section__intro {
@@ -6218,16 +6291,34 @@ main:focus {
   }
 
   .home-step-grid,
-  .home-reason-grid,
   .home-addon-grid,
   .home-core-products {
     grid-template-columns: 1fr;
   }
 
   .home-step-card,
-  .home-reason-card,
   .home-addon-card {
     min-height: 0;
+  }
+
+  .home-step-card {
+    gap: 34px;
+  }
+
+  .home-step-card p {
+    max-width: 100%;
+  }
+
+  .home-why-list li {
+    font-size: 0.78rem;
+    letter-spacing: 0.1em;
+  }
+
+  .home-why-visual__title {
+    right: 18px;
+    bottom: 22px;
+    max-width: 7ch;
+    font-size: clamp(2.35rem, 10vw, 3rem);
   }
 
   .home-addon-card {
