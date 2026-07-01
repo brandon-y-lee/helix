@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { HomeHeroVideo } from "@/components/HomeHeroVideo";
+import { HomePlugVideo } from "@/components/HomePlugVideo";
 import { ProductGrid } from "@/components/ProductGrid";
 import { ProductImage } from "@/components/ProductImage";
 import { getCachedProducts } from "@/lib/catalog-cache";
@@ -79,18 +80,6 @@ const WHY_THREE_STATEMENTS = [
   "01 Start with structure skin understands.",
   "02 Most routines fail because they ask for too much too soon.",
   "03 Three steps build consistency.",
-] as const;
-
-const PLUG_AND_PLAY = [
-  "Use the full system when you want a complete baseline.",
-  "Replace one layer at a time when your current routine already works.",
-  "Introduce new products gradually and follow each product's directions, especially if your skin is reactive.",
-] as const;
-
-const WHAT_ITS_FOR = [
-  "Cleaner-looking skin after the day is removed.",
-  "Hydration that feels controlled, not heavy.",
-  "A face that looks less tired before you start adding extra steps.",
 ] as const;
 
 function productsForSlugs(
@@ -237,34 +226,30 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section className="home-section home-section--core-support" aria-labelledby="for-heading plug-play-heading">
-        <div className="container home-core-split">
-          <article className="home-core-split__panel home-core-split__panel--support">
-            <p className="hero__eyebrow">What The Core Supports</p>
-            <h2 id="for-heading">
-              For skin that looks clearer, younger, more hydrated, and less
-              tired by default.
-            </h2>
-            <p>Appearance is maintenance. Start with the baseline.</p>
-            <ul>
-              {WHAT_ITS_FOR.map((item) => (
-                <li key={item}>{item}</li>
-              ))}
-            </ul>
-          </article>
-          <article className="home-core-split__panel home-core-split__panel--plug">
-            <p className="hero__eyebrow">Plug and Play</p>
-            <h2 id="plug-play-heading">Use all three. Or upgrade one layer.</h2>
-            <p>
-              Mei Pelle is built to work as a full routine, but it does not need to
-              replace everything at once. Plug CLEANSE, TREAT, or SEAL into the layer
-              your current routine is missing.
+      <section className="home-section home-section--core-support" aria-labelledby="plug-play-heading">
+        <div className="home-plug-split">
+          <div className="home-plug-media">
+            <HomePlugVideo />
+            <p className="home-plug-media__caption">
+              For skin that is clearer, more hydrated, and less tired.
             </p>
-            <ul>
-              {PLUG_AND_PLAY.map((item) => (
-                <li key={item}>{item}</li>
-              ))}
-            </ul>
+          </div>
+          <article className="home-plug-panel">
+            <h2 id="plug-play-heading" className="home-plug-panel__title" aria-label="Plug and Play">
+              <span aria-hidden="true">Plug</span>
+              <span aria-hidden="true">and</span>
+              <span aria-hidden="true">Play</span>
+            </h2>
+            <div className="home-plug-panel__body">
+              <p>
+                The Core is designed to work as a full routine, but it does not need
+                to replace yours. Upgrade the layer your current routine is missing
+                or underperforming in.
+              </p>
+              <Link href="#core-three" className="btn btn--editorial-rounded">
+                Explore The Core
+              </Link>
+            </div>
           </article>
         </div>
       </section>

@@ -24,14 +24,15 @@ test("homepage Core Three ladder renders", async ({ page }) => {
     .toBeVisible();
   await expect(page.getByText("SIMPLE IS NOT BASIC")).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "Use all three. Or upgrade one layer." }),
+    page.getByText("For skin that is clearer, more hydrated, and less tired."),
   ).toBeVisible();
   await expect(
-    page.getByRole("heading", {
-      name:
-        "For skin that looks clearer, younger, more hydrated, and less tired by default.",
-    }),
+    page.getByRole("heading", { name: "Plug and Play" }),
   ).toBeVisible();
+  await expect(page.getByRole("link", { name: "Explore The Core" })).toHaveAttribute(
+    "href",
+    "#core-three",
+  );
   await expect(
     page.getByRole("heading", { name: "Add only what solves a real problem." }),
   ).toBeVisible();
@@ -47,10 +48,10 @@ test("homepage section eyebrows share the Core section treatment", async ({ page
   const styles = await page.evaluate(() => {
     const labels = [
       "The Core",
-      "Plug and Play",
-      "What The Core Supports",
       "Ingredient Literacy",
       "Start Here",
+      "Plug and Play",
+      "What The Core Supports",
     ];
     const eyebrows = Array.from(document.querySelectorAll<HTMLElement>(".hero__eyebrow"));
 
@@ -78,17 +79,19 @@ test("homepage section eyebrows share the Core section treatment", async ({ page
 
   const core = styles["The Core"];
   expect(core).not.toBeNull();
-  for (const label of ["Plug and Play", "What The Core Supports", "Ingredient Literacy"]) {
-    expect(styles[label]).toEqual(core);
+  expect(styles["Ingredient Literacy"]).toEqual(core);
+  for (const label of ["Plug and Play", "What The Core Supports"]) {
+    expect(styles[label]).toBeNull();
   }
-  expect(styles["Start Here"]).not.toEqual(core);
+  expect(styles["Start Here"]).not.toBeNull();
 });
 
-test("homepage core narrative omits removed cards and uses a full-height why editorial section", async ({
+test("homepage core narrative uses taller why and asymmetric plug video sections", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
+  await page.locator(".home-plug-media__frame").waitFor({ state: "attached" });
 
   const desktop = await page.evaluate(() => {
     const clean = (text: string | null | undefined) =>
@@ -97,6 +100,7 @@ test("homepage core narrative omits removed cards and uses a full-height why edi
     const headings = Array.from(document.querySelectorAll<HTMLElement>("h2"));
     const core = document.querySelector<HTMLElement>("#core-three");
     const why = document.querySelector<HTMLElement>(".home-section--why");
+    const plugSection = document.querySelector<HTMLElement>(".home-section--core-support");
     const coreIntro = core?.querySelector<HTMLElement>(".home-section__intro p:not(.hero__eyebrow)");
     const coreIntroBox = coreIntro?.getBoundingClientRect();
     const coreIntroLineHeight = coreIntro
@@ -107,17 +111,17 @@ test("homepage core narrative omits removed cards and uses a full-height why edi
     const whyVisual = why?.querySelector<HTMLElement>(".home-why-visual");
     const whyTitle = why?.querySelector<HTMLElement>(".home-why-visual__title");
     const whyImage = why?.querySelector<HTMLImageElement>(".home-why-visual img");
-    const supportHeading = headings.find(
-      (heading) =>
-        clean(heading.textContent) ===
-        "For skin that looks clearer, younger, more hydrated, and less tired by default.",
-    );
-    const plugHeading = headings.find(
-      (heading) => clean(heading.textContent) === "Use all three. Or upgrade one layer.",
-    );
-    const split = supportHeading?.closest<HTMLElement>(".home-section--core-support");
-    const supportPanel = supportHeading?.closest<HTMLElement>(".home-core-split__panel");
-    const plugPanel = plugHeading?.closest<HTMLElement>(".home-core-split__panel");
+    const plugSplit = plugSection?.querySelector<HTMLElement>(".home-plug-split");
+    const plugMedia = plugSection?.querySelector<HTMLElement>(".home-plug-media");
+    const plugPanel = plugSection?.querySelector<HTMLElement>(".home-plug-panel");
+    const plugCaption = plugSection?.querySelector<HTMLElement>(".home-plug-media__caption");
+    const plugTitle = plugSection?.querySelector<HTMLElement>("#plug-play-heading");
+    const plugBody = plugSection?.querySelector<HTMLElement>(".home-plug-panel__body");
+    const plugBodyText = plugBody?.querySelector<HTMLElement>("p");
+    const plugCta = plugBody?.querySelector<HTMLAnchorElement>("a");
+    const plugPoster = plugSection?.querySelector<HTMLImageElement>(".home-plug-media__poster");
+    const plugFrame = plugSection?.querySelector<HTMLElement>(".home-plug-media__frame");
+    const plugVideo = plugSection?.querySelector<HTMLVideoElement>(".home-plug-media__video");
 
     const box = (element: HTMLElement | null | undefined) => {
       const rect = element?.getBoundingClientRect();
@@ -135,9 +139,20 @@ test("homepage core narrative omits removed cards and uses a full-height why edi
     return {
       coreIndex: sections.indexOf(core as HTMLElement),
       whyIndex: sections.indexOf(why as HTMLElement),
+      plugIndex: sections.indexOf(plugSection as HTMLElement),
       visibleCoreDisplayHeading: headings.some(
         (heading) => clean(heading.textContent) === "Cleanse, Treat, Seal.",
       ),
+      oldSupportHeadingCount: headings.filter(
+        (heading) =>
+          clean(heading.textContent) ===
+          "For skin that looks clearer, younger, more hydrated, and less tired by default.",
+      ).length,
+      oldPlugHeadingCount: headings.filter(
+        (heading) => clean(heading.textContent) === "Use all three. Or upgrade one layer.",
+      ).length,
+      oldSupportEyebrowCount: Array.from(document.querySelectorAll<HTMLElement>(".hero__eyebrow"))
+        .filter((eyebrow) => clean(eyebrow.textContent) === "What The Core Supports").length,
       coreIntroText: clean(coreIntro?.textContent),
       coreIntroLines: coreIntroBox && coreIntroLineHeight
         ? coreIntroBox.height / coreIntroLineHeight
@@ -149,8 +164,10 @@ test("homepage core narrative omits removed cards and uses a full-height why edi
         clean(node.textContent),
       ),
       viewportHeight: window.innerHeight,
+      bodyBackground: getComputedStyle(document.body).backgroundColor,
       whyClass: why?.className ?? "",
-      whyBorderTop: why ? getComputedStyle(why).borderTopWidth : "",
+      whyBackground: why ? getComputedStyle(why).backgroundColor : "",
+      whyPrinciplesBackground: whyPrinciples ? getComputedStyle(whyPrinciples).backgroundColor : "",
       whyBox: box(why),
       whyPrinciplesBox: box(whyPrinciples),
       whyListBox: box(whyList),
@@ -178,22 +195,55 @@ test("homepage core narrative omits removed cards and uses a full-height why edi
       whyImageFilter: whyImage ? getComputedStyle(whyImage).filter : "",
       whyImageObjectFit: whyImage ? getComputedStyle(whyImage).objectFit : "",
       whyImageOpacity: whyImage ? getComputedStyle(whyImage).opacity : "",
-      supportAndPlugSameSection: Boolean(split && plugHeading?.closest(".home-section--core-support") === split),
-      supportBeforePlug: Boolean(
-        supportHeading &&
-          plugHeading &&
-          headings.indexOf(supportHeading) < headings.indexOf(plugHeading),
+      plugSectionClass: plugSection?.className ?? "",
+      plugSplitBox: box(plugSplit),
+      plugMediaBox: box(plugMedia),
+      plugPanelBox: box(plugPanel),
+      plugPanelBackground: plugPanel ? getComputedStyle(plugPanel).backgroundColor : "",
+      plugPanelShadow: plugPanel ? getComputedStyle(plugPanel).boxShadow : "",
+      plugCaptionBox: box(plugCaption),
+      plugCaptionText: clean(plugCaption?.textContent),
+      plugCaptionColor: plugCaption ? getComputedStyle(plugCaption).color : "",
+      plugCaptionFamily: plugCaption ? getComputedStyle(plugCaption).fontFamily : "",
+      plugCaptionShadow: plugCaption ? getComputedStyle(plugCaption).textShadow : "",
+      plugCaptionWhiteSpace: plugCaption ? getComputedStyle(plugCaption).whiteSpace : "",
+      plugTitleBox: box(plugTitle),
+      plugTitleAria: plugTitle?.getAttribute("aria-label") ?? "",
+      plugTitleSpans: Array.from(plugTitle?.querySelectorAll("span") ?? []).map((node) =>
+        clean(node.textContent),
       ),
-      supportBox: box(supportPanel),
-      plugBox: box(plugPanel),
-      splitClass: split?.className ?? "",
-      supportAlign: supportPanel ? getComputedStyle(supportPanel).textAlign : "",
-      plugAlign: plugPanel ? getComputedStyle(plugPanel).textAlign : "",
-      overflow: document.documentElement.scrollWidth - window.innerWidth,
+      plugTitleAlign: plugTitle ? getComputedStyle(plugTitle).textAlign : "",
+      plugBodyBox: box(plugBody),
+      plugBodyText: clean(plugBodyText?.textContent),
+      plugBodyAlign: plugBody ? getComputedStyle(plugBody).textAlign : "",
+      plugCtaHref: plugCta?.getAttribute("href") ?? "",
+      plugCtaText: clean(plugCta?.textContent),
+      plugPosterSrc: plugPoster?.currentSrc || plugPoster?.src || "",
+      plugMotionState: plugFrame?.getAttribute("data-motion-state") ?? "",
+      plugVideoReady: plugFrame?.getAttribute("data-video-ready") ?? "",
+      plugVideoPoster: plugVideo?.getAttribute("poster") ?? "",
+      plugVideoPreload: plugVideo?.getAttribute("preload") ?? "",
+      plugVideoAttributes: plugVideo
+        ? {
+            autoPlay: plugVideo.autoplay,
+            controls: plugVideo.controls,
+            loop: plugVideo.loop,
+            muted: plugVideo.muted,
+            playsInline: plugVideo.playsInline,
+          }
+        : null,
+      plugVideoSources: Array.from(plugVideo?.querySelectorAll("source") ?? []).map((source) => ({
+        src: source.getAttribute("src"),
+        type: source.getAttribute("type"),
+      })),
+      overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
     };
   });
 
   expect(desktop.visibleCoreDisplayHeading).toBe(false);
+  expect(desktop.oldSupportHeadingCount).toBe(0);
+  expect(desktop.oldPlugHeadingCount).toBe(0);
+  expect(desktop.oldSupportEyebrowCount).toBe(0);
   expect(desktop.coreIntroText).toBe(
     "Simple by design: cleanse the surface, apply the treatment layer, then finish with moisture and barrier support.",
   );
@@ -204,24 +254,26 @@ test("homepage core narrative omits removed cards and uses a full-height why edi
   expect(desktop.coreProductNames).toEqual(["CLEANSE", "TREAT", "SEAL"]);
   expect(desktop.whyClass).toContain("home-section--why");
   expect(desktop.whyIndex).toBe(desktop.coreIndex + 1);
-  expect(desktop.whyBorderTop).toBe("1px");
-  expect(desktop.whyBox?.height).toBeGreaterThanOrEqual(desktop.viewportHeight - 2);
-  expect(desktop.whyBox?.height).toBeLessThanOrEqual(desktop.viewportHeight + 6);
+  expect(desktop.plugIndex).toBe(desktop.whyIndex + 1);
+  expect(desktop.whyBackground).toBe(desktop.bodyBackground);
+  expect(desktop.whyPrinciplesBackground).toBe(desktop.bodyBackground);
+  expect(desktop.whyBox?.height).toBeGreaterThanOrEqual(desktop.viewportHeight * 1.1);
+  expect(desktop.whyBox?.height).toBeLessThanOrEqual(desktop.viewportHeight * 1.17);
   expect(Math.abs((desktop.whyPrinciplesBox?.height ?? 0) - (desktop.whyVisualBox?.height ?? 0)))
     .toBeLessThanOrEqual(2);
-  expect(desktop.whyVisualBox?.height).toBeGreaterThanOrEqual(desktop.viewportHeight - 6);
+  expect(desktop.whyVisualBox?.height).toBeGreaterThanOrEqual(desktop.viewportHeight * 1.1);
   expect(desktop.whyStatements).toEqual([
     "01 Start with structure skin understands.",
     "02 Most routines fail because they ask for too much too soon.",
     "03 Three steps build consistency.",
   ]);
   expect(desktop.whyStatementStyle?.letterSpacing).not.toBe("normal");
-  expect(desktop.whyListBox?.height).toBeGreaterThanOrEqual(desktop.viewportHeight * 0.45);
-  expect(desktop.whyListBox?.height).toBeLessThanOrEqual(desktop.viewportHeight * 0.53);
+  expect(desktop.whyListBox?.height).toBeGreaterThanOrEqual(desktop.viewportHeight * 0.54);
+  expect(desktop.whyListBox?.height).toBeLessThanOrEqual(desktop.viewportHeight * 0.64);
   expect((desktop.whyListBox?.top ?? 0) - (desktop.whyPrinciplesBox?.top ?? 0))
-    .toBeGreaterThan(desktop.viewportHeight * 0.14);
+    .toBeGreaterThan(desktop.viewportHeight * 0.2);
   expect((desktop.whyPrinciplesBox?.bottom ?? 0) - (desktop.whyListBox?.bottom ?? 0))
-    .toBeGreaterThan(desktop.viewportHeight * 0.14);
+    .toBeGreaterThan(desktop.viewportHeight * 0.2);
   expect(desktop.whyVisualBox?.left).toBeGreaterThanOrEqual(desktop.whyPrinciplesBox?.right ?? 0);
   expect(desktop.whyVisualBox?.right).toBe(desktop.whyBox?.right);
   expect(desktop.whyVisualAfterContent).toBe("none");
@@ -233,9 +285,9 @@ test("homepage core narrative omits removed cards and uses a full-height why edi
   expect(desktop.whyTitleTextShadow.split("rgba").length).toBeGreaterThanOrEqual(4);
   expect(desktop.whyTitleBox?.right).toBeLessThanOrEqual(desktop.whyVisualBox?.right ?? 0);
   expect((desktop.whyVisualBox?.right ?? 0) - (desktop.whyTitleBox?.right ?? 0))
-    .toBeLessThan(90);
+    .toBeLessThan(36);
   expect((desktop.whyVisualBox?.bottom ?? 0) - (desktop.whyTitleBox?.bottom ?? 0))
-    .toBeLessThan(100);
+    .toBeLessThan(36);
   const whyImageSrc = decodeURIComponent(desktop.whyImageSrc);
   expect(whyImageSrc).toContain("/media/home/why-three.webp");
   expect(whyImageSrc).not.toContain("/_next/image");
@@ -244,35 +296,76 @@ test("homepage core narrative omits removed cards and uses a full-height why edi
   expect(desktop.whyImageFilter).toBe("none");
   expect(desktop.whyImageObjectFit).toBe("cover");
   expect(desktop.whyImageOpacity).toBe("1");
-  expect(desktop.supportAndPlugSameSection).toBe(true);
-  expect(desktop.supportBeforePlug).toBe(true);
-  expect(desktop.splitClass).toContain("home-section--core-support");
-  expect(desktop.supportBox?.right).toBeLessThanOrEqual(desktop.plugBox?.left ?? 0);
-  expect(Math.abs((desktop.supportBox?.top ?? 0) - (desktop.plugBox?.top ?? 0))).toBeLessThan(4);
-  expect(desktop.supportAlign).toBe("left");
-  expect(desktop.plugAlign).toBe("right");
+  expect(desktop.plugSectionClass).toContain("home-section--core-support");
+  expect((desktop.plugMediaBox?.width ?? 0) / (desktop.plugSplitBox?.width ?? 1))
+    .toBeGreaterThan(0.62);
+  expect((desktop.plugMediaBox?.width ?? 0) / (desktop.plugSplitBox?.width ?? 1))
+    .toBeLessThan(0.68);
+  expect(desktop.plugMediaBox?.right).toBeLessThanOrEqual(desktop.plugPanelBox?.left ?? 0);
+  expect(desktop.plugPanelBackground).toBe(desktop.bodyBackground);
+  expect(desktop.plugPanelShadow).toBe("none");
+  expect(desktop.plugCaptionText).toBe("For skin that is clearer, more hydrated, and less tired.");
+  expect(desktop.plugCaptionColor).toBe("rgb(255, 255, 255)");
+  expect(desktop.plugCaptionFamily).toMatch(/Marcellus/i);
+  expect(desktop.plugCaptionShadow).toContain("rgba");
+  expect(desktop.plugCaptionWhiteSpace).toBe("nowrap");
+  expect((desktop.plugCaptionBox?.left ?? 0) - (desktop.plugMediaBox?.left ?? 0))
+    .toBeLessThan(60);
+  expect((desktop.plugMediaBox?.bottom ?? 0) - (desktop.plugCaptionBox?.bottom ?? 0))
+    .toBeLessThan(60);
+  expect(desktop.plugTitleAria).toBe("Plug and Play");
+  expect(desktop.plugTitleSpans).toEqual(["Plug", "and", "Play"]);
+  expect(desktop.plugTitleAlign).toBe("right");
+  expect((desktop.plugTitleBox?.top ?? 0) - (desktop.plugPanelBox?.top ?? 0)).toBeLessThan(90);
+  expect((desktop.plugPanelBox?.right ?? 0) - (desktop.plugTitleBox?.right ?? 0))
+    .toBeLessThan(60);
+  expect(desktop.plugBodyText).toBe(
+    "The Core is designed to work as a full routine, but it does not need to replace yours. Upgrade the layer your current routine is missing or underperforming in.",
+  );
+  expect(desktop.plugBodyAlign).toBe("right");
+  expect((desktop.plugPanelBox?.bottom ?? 0) - (desktop.plugBodyBox?.bottom ?? 0))
+    .toBeLessThan(90);
+  expect((desktop.plugPanelBox?.right ?? 0) - (desktop.plugBodyBox?.right ?? 0))
+    .toBeLessThan(60);
+  expect(desktop.plugCtaText).toBe("Explore The Core");
+  expect(desktop.plugCtaHref).toBe("#core-three");
+  const plugPosterSrc = decodeURIComponent(desktop.plugPosterSrc);
+  expect(plugPosterSrc).toContain("/media/home/plug-and-play-poster.webp");
+  expect(plugPosterSrc).not.toContain("/mnt/data");
+  expect(["pending", "motion", "static", "failed"]).toContain(desktop.plugMotionState);
+  if (desktop.plugVideoSources.length > 0) {
+    expect(desktop.plugVideoPoster).toBe("/media/home/plug-and-play-poster.webp");
+    expect(desktop.plugVideoPreload).toBe("metadata");
+    expect(desktop.plugVideoAttributes).toEqual({
+      autoPlay: true,
+      controls: false,
+      loop: true,
+      muted: true,
+      playsInline: true,
+    });
+    expect(desktop.plugVideoSources).toEqual([
+      { src: "/media/home/plug-and-play-loop.mp4", type: "video/mp4" },
+    ]);
+  } else {
+    expect(desktop.plugMotionState).toBe("static");
+  }
   expect(desktop.overflow).toBeLessThanOrEqual(0);
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.reload();
+  await page.locator(".home-plug-media__frame").waitFor({ state: "attached" });
   const mobile = await page.evaluate(() => {
-    const clean = (text: string | null | undefined) =>
-      text?.replace(/\s+/g, " ").trim() ?? "";
-    const supportHeading = Array.from(document.querySelectorAll<HTMLElement>("h2")).find(
-      (heading) =>
-        clean(heading.textContent) ===
-        "For skin that looks clearer, younger, more hydrated, and less tired by default.",
-    );
-    const plugHeading = Array.from(document.querySelectorAll<HTMLElement>("h2")).find(
-      (heading) => clean(heading.textContent) === "Use all three. Or upgrade one layer.",
-    );
-    const supportPanel = supportHeading?.closest<HTMLElement>(".home-core-split__panel");
-    const plugPanel = plugHeading?.closest<HTMLElement>(".home-core-split__panel");
     const why = document.querySelector<HTMLElement>(".home-section--why");
     const whyPrinciples = why?.querySelector<HTMLElement>(".home-why-principles");
     const whyList = why?.querySelector<HTMLElement>(".home-why-list");
     const whyVisual = why?.querySelector<HTMLElement>(".home-why-visual");
     const whyTitle = why?.querySelector<HTMLElement>(".home-why-visual__title");
+    const plugSection = document.querySelector<HTMLElement>(".home-section--core-support");
+    const plugMedia = plugSection?.querySelector<HTMLElement>(".home-plug-media");
+    const plugPanel = plugSection?.querySelector<HTMLElement>(".home-plug-panel");
+    const plugCaption = plugSection?.querySelector<HTMLElement>(".home-plug-media__caption");
+    const plugTitle = plugSection?.querySelector<HTMLElement>("#plug-play-heading");
+    const plugBody = plugSection?.querySelector<HTMLElement>(".home-plug-panel__body");
     const box = (element: HTMLElement | null | undefined) => {
       const rect = element?.getBoundingClientRect();
       if (!rect) return null;
@@ -287,26 +380,32 @@ test("homepage core narrative omits removed cards and uses a full-height why edi
     };
 
     return {
-      supportBox: box(supportPanel),
-      plugBox: box(plugPanel),
-      supportAlign: supportPanel ? getComputedStyle(supportPanel).textAlign : "",
-      plugAlign: plugPanel ? getComputedStyle(plugPanel).textAlign : "",
       viewportHeight: window.innerHeight,
+      bodyBackground: getComputedStyle(document.body).backgroundColor,
       whyBox: box(why),
+      whyBackground: why ? getComputedStyle(why).backgroundColor : "",
+      whyPrinciplesBackground: whyPrinciples ? getComputedStyle(whyPrinciples).backgroundColor : "",
       whyPrinciplesBox: box(whyPrinciples),
       whyListBox: box(whyList),
       whyVisualBox: box(whyVisual),
       whyTitleBox: box(whyTitle),
       whyTitleAlign: whyTitle ? getComputedStyle(whyTitle).textAlign : "",
-      overflow: document.documentElement.scrollWidth - window.innerWidth,
+      plugSectionBox: box(plugSection),
+      plugMediaBox: box(plugMedia),
+      plugPanelBox: box(plugPanel),
+      plugPanelAlign: plugPanel ? getComputedStyle(plugPanel).textAlign : "",
+      plugPanelBackground: plugPanel ? getComputedStyle(plugPanel).backgroundColor : "",
+      plugCaptionWhiteSpace: plugCaption ? getComputedStyle(plugCaption).whiteSpace : "",
+      plugTitleAlign: plugTitle ? getComputedStyle(plugTitle).textAlign : "",
+      plugBodyAlign: plugBody ? getComputedStyle(plugBody).textAlign : "",
+      overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
     };
   });
 
-  expect(mobile.plugBox?.top).toBeGreaterThan(mobile.supportBox?.bottom ?? 0);
-  expect(mobile.supportAlign).toBe("left");
-  expect(mobile.plugAlign).toBe("left");
-  expect(mobile.whyBox?.height).toBeGreaterThanOrEqual(mobile.viewportHeight * 0.92);
-  expect(mobile.whyBox?.height).toBeLessThanOrEqual(mobile.viewportHeight * 1.24);
+  expect(mobile.whyBackground).toBe(mobile.bodyBackground);
+  expect(mobile.whyPrinciplesBackground).toBe(mobile.bodyBackground);
+  expect(mobile.whyBox?.height).toBeGreaterThanOrEqual(mobile.viewportHeight);
+  expect(mobile.whyBox?.height).toBeLessThanOrEqual(mobile.viewportHeight * 1.3);
   expect(mobile.whyListBox?.height).toBeGreaterThanOrEqual(150);
   expect(mobile.whyListBox?.height).toBeLessThanOrEqual(230);
   expect(mobile.whyVisualBox?.top).toBeGreaterThanOrEqual(mobile.whyPrinciplesBox?.bottom ?? 0);
@@ -315,6 +414,16 @@ test("homepage core narrative omits removed cards and uses a full-height why edi
     .toBeLessThan(40);
   expect((mobile.whyVisualBox?.bottom ?? 0) - (mobile.whyTitleBox?.bottom ?? 0))
     .toBeLessThan(48);
+  expect(mobile.plugMediaBox?.top).toBeGreaterThanOrEqual(mobile.plugSectionBox?.top ?? 0);
+  expect(mobile.plugPanelBox?.top).toBeGreaterThanOrEqual((mobile.plugMediaBox?.bottom ?? 0) - 1);
+  expect(mobile.plugMediaBox?.height).toBeGreaterThanOrEqual(420);
+  expect(mobile.plugMediaBox?.height).toBeLessThanOrEqual(680);
+  expect(mobile.plugPanelBox?.height).toBeGreaterThanOrEqual(330);
+  expect(mobile.plugPanelAlign).toBe("right");
+  expect(mobile.plugPanelBackground).toBe(mobile.bodyBackground);
+  expect(mobile.plugCaptionWhiteSpace).toBe("normal");
+  expect(mobile.plugTitleAlign).toBe("right");
+  expect(mobile.plugBodyAlign).toBe("right");
   expect(mobile.overflow).toBeLessThanOrEqual(0);
 });
 

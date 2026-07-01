@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 
 vi.mock("@/lib/catalog-cache", () => ({
@@ -182,20 +182,41 @@ describe("homepage Core Three positioning", () => {
     expect(whyImageSrc).not.toContain("/_next/image");
     expect(whyImageSrc).not.toContain("/mnt/data");
 
-    const support = sectionForHeading(
-      "For skin that looks clearer, younger, more hydrated, and less tired by default.",
-    );
-    expect(within(support).getByText("What The Core Supports")).toBeInTheDocument();
+    const plug = sectionForHeading("Plug and Play");
     expect(
-      within(support).getByRole("heading", { name: "Use all three. Or upgrade one layer." }),
+      within(plug).getByText("For skin that is clearer, more hydrated, and less tired."),
     ).toBeInTheDocument();
     expect(
-      Array.from(support.querySelectorAll(".hero__eyebrow")).map((node) =>
-        node.textContent?.trim(),
+      within(plug).getByText(
+        "The Core is designed to work as a full routine, but it does not need to replace yours. Upgrade the layer your current routine is missing or underperforming in.",
       ),
-    ).toEqual(["What The Core Supports", "Plug and Play"]);
+    ).toBeInTheDocument();
     expect(
-      screen.getByText("Appearance is maintenance. Start with the baseline."),
+      within(plug).getByRole("link", { name: "Explore The Core" }),
+    ).toHaveAttribute("href", "#core-three");
+    expect(plug.querySelector(".home-plug-media__poster")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(plug.querySelector(".home-plug-media__video source")).toHaveAttribute(
+        "src",
+        "/media/home/plug-and-play-loop.mp4",
+      ),
+    );
+    expect(within(plug).queryByText("What The Core Supports")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Appearance is maintenance. Start with the baseline."),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Use all three. Or upgrade one layer." }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", {
+        name:
+          "For skin that looks clearer, younger, more hydrated, and less tired by default.",
+      }),
+    ).not.toBeInTheDocument();
+
+    expect(
+      screen.getByText("For skin that is clearer, more hydrated, and less tired."),
     ).toBeInTheDocument();
 
     const beyond = sectionForHeading("Add only what solves a real problem.");
