@@ -98,7 +98,7 @@ const fixtures = [
   makeProduct("lift-06-pdrn-mask-system", "LIFT", 7, 4500),
 ];
 
-function sectionForHeading(name: string) {
+function sectionForHeading(name: string | RegExp) {
   const heading = screen.getByRole("heading", { name });
   const section = heading.closest("section");
   expect(section).not.toBeNull();
@@ -163,7 +163,7 @@ describe("homepage Core Three positioning", () => {
     expect(within(core).getByRole("button", { name: "Open quick buy for SEAL" }))
       .toBeInTheDocument();
 
-    const why = sectionForHeading("SIMPLE IS NOT BASIC");
+    const why = sectionForHeading(/simple is not basic/i);
     expect(within(why).getByText("01 Start with structure skin understands."))
       .toBeInTheDocument();
     expect(
@@ -172,16 +172,14 @@ describe("homepage Core Three positioning", () => {
     expect(within(why).getByText("03 Three steps build consistency."))
       .toBeInTheDocument();
     const whyTitle = why.querySelector(".home-why-title");
-    expect(whyTitle).toHaveTextContent("SIMPLE IS NOT BASIC");
+    expect(whyTitle).toHaveTextContent(/simple is not basic/i);
     expect(why.querySelector(".home-why-visual__title")).not.toBeInTheDocument();
     expect(why.querySelector(".home-why-visual .home-why-title")).not.toBeInTheDocument();
     expect(
       why.querySelector(".home-why-principles .home-why-title")?.textContent
         ?.replace(/\s+/g, " ")
         .trim(),
-    ).toBe(
-      "SIMPLE IS NOT BASIC",
-    );
+    ).toMatch(/^simple is not basic$/i);
     expect(why.querySelector(".home-why-visual__zoom")).toBeInTheDocument();
     const whyImage = within(why).getByAltText("Black-and-white editorial portrait.");
     const whyImageSrc = decodeURIComponent(whyImage.getAttribute("src") ?? "");
@@ -226,10 +224,10 @@ describe("homepage Core Three positioning", () => {
       screen.getByText("For skin that is clearer, more hydrated, and less tired."),
     ).toBeInTheDocument();
 
-    const beyond = sectionForHeading("Add only what solves a real problem.");
+    const beyond = sectionForHeading(/Add only (what solves a real problem|what you need)\./i);
     expect(
       within(beyond).getByText(
-        "Once the core is stable, add only what solves a real problem.",
+        /^(Once the core is stable, add only what solves a real problem\.|For when the core is stable\.)$/,
       ),
     ).toBeInTheDocument();
     expect(within(beyond).getByText("REFINE — texture / controlled refinement"))

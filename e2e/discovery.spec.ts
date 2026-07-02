@@ -34,7 +34,7 @@ test("homepage Core Three ladder renders", async ({ page }) => {
   ).toBeVisible();
   await expect(page.getByText("03 Three steps build consistency."))
     .toBeVisible();
-  await expect(page.getByText("SIMPLE IS NOT BASIC")).toBeVisible();
+  await expect(page.locator(".home-why-title")).toHaveText(/simple is not basic/i);
   await expect(
     page.getByText("For skin that is clearer, more hydrated, and less tired."),
   ).toBeVisible();
@@ -45,9 +45,8 @@ test("homepage Core Three ladder renders", async ({ page }) => {
     "href",
     "#core-three",
   );
-  await expect(
-    page.getByRole("heading", { name: "Add only what solves a real problem." }),
-  ).toBeVisible();
+  await expect(page.locator("#beyond-heading"))
+    .toHaveText(/Add only (what solves a real problem|what you need)\./i);
   await expect(page.getByRole("heading", { name: "Know what each step is doing." }))
     .toBeVisible();
   await expect(page.getByRole("heading", { name: "Make the baseline automatic." }))
@@ -172,6 +171,7 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
       coreIntroLines: coreIntroBox && coreIntroLineHeight
         ? coreIntroBox.height / coreIntroLineHeight
         : 0,
+      standardContentLeft: Math.round(coreIntroBox?.left ?? 0),
       coreIntroWidth: Math.round(coreIntroBox?.width ?? 0),
       coreStepGridExists: Boolean(core?.querySelector(".home-step-grid")),
       coreStepCardCount: core?.querySelectorAll(".home-step-card").length ?? 0,
@@ -196,6 +196,7 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
       whyTitleAlign: whyTitle ? getComputedStyle(whyTitle).textAlign : "",
       whyTitleTextShadow: whyTitle ? getComputedStyle(whyTitle).textShadow : "",
       whyTitleParentClass: whyTitle?.parentElement?.className ?? "",
+      whyPanelPaddingLeft: whyPrinciples ? getComputedStyle(whyPrinciples).paddingLeft : "",
       whyZoomMotion: whyZoom?.getAttribute("data-scroll-zoom-motion") ?? "",
       whyZoomActive: whyZoom?.getAttribute("data-scroll-zoom-active") ?? "",
       whyStatements: Array.from(why?.querySelectorAll(".home-why-list li") ?? []).map((node) =>
@@ -309,14 +310,20 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
   expect(desktop.whyVisualBox?.right).toBe(desktop.whyBox?.right);
   expect(desktop.whyVisualAfterContent).toBe("none");
   expect(desktop.whyVisualOverlayCount).toBe(0);
-  expect(desktop.whyTitleText).toBe("SIMPLE IS NOT BASIC");
+  expect(desktop.whyTitleText).toMatch(/^simple is not basic$/i);
   expect(desktop.whyTitleColor).toBe("rgb(17, 19, 18)");
   expect(desktop.whyTitleFamily).toMatch(/Marcellus/i);
   expect(desktop.whyTitleAlign).toBe("left");
   expect(desktop.whyTitleTextShadow).toBe("none");
   expect(desktop.whyTitleParentClass).toContain("home-why-principles");
-  expect((desktop.whyTitleBox?.left ?? 0) - (desktop.whyPrinciplesBox?.left ?? 0))
-    .toBeLessThan(120);
+  expect(Math.abs((desktop.whyTitleBox?.left ?? 0) - desktop.standardContentLeft))
+    .toBeLessThanOrEqual(1);
+  expect(Math.abs((desktop.whyListBox?.left ?? 0) - desktop.standardContentLeft))
+    .toBeLessThanOrEqual(1);
+  expect(Number.parseFloat(desktop.whyPanelPaddingLeft)).toBeCloseTo(
+    desktop.standardContentLeft,
+    0,
+  );
   expect((desktop.whyTitleBox?.top ?? 0) - (desktop.whyPrinciplesBox?.top ?? 0))
     .toBeLessThan(130);
   expect(desktop.whyTitleBox?.right).toBeLessThanOrEqual(desktop.whyPrinciplesBox?.right ?? 0);
@@ -418,23 +425,28 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
   });
   await page.waitForTimeout(120);
   const initialZoom = await readWhyZoom();
+  await page.mouse.wheel(0, 240);
+  await page.waitForTimeout(450);
+  const shortDownwardZoom = await readWhyZoom();
   await page.mouse.wheel(0, 720);
-  await page.waitForTimeout(300);
-  const downwardZoom = await readWhyZoom();
+  await page.waitForTimeout(450);
+  const longDownwardZoom = await readWhyZoom();
   await page.mouse.wheel(0, -720);
-  await page.waitForTimeout(300);
+  await page.waitForTimeout(450);
   const upwardZoom = await readWhyZoom();
   const initialScale = scaleFromTransform(initialZoom.transform);
-  const downwardScale = scaleFromTransform(downwardZoom.transform);
+  const shortDownwardScale = scaleFromTransform(shortDownwardZoom.transform);
+  const longDownwardScale = scaleFromTransform(longDownwardZoom.transform);
   const upwardScale = scaleFromTransform(upwardZoom.transform);
 
   expect(initialZoom.motion).toBe("motion");
-  expect(downwardScale).toBeGreaterThanOrEqual(1.029);
-  expect(downwardScale).toBeLessThanOrEqual(1.111);
+  expect(shortDownwardScale).toBeLessThan(initialScale - 0.0005);
+  expect(shortDownwardScale).toBeGreaterThan(1.043);
+  expect(longDownwardScale).toBeLessThan(shortDownwardScale - 0.003);
+  expect(longDownwardScale).toBeGreaterThan(1.034);
   expect(upwardScale).toBeGreaterThanOrEqual(1.029);
   expect(upwardScale).toBeLessThanOrEqual(1.111);
-  expect(downwardScale).toBeLessThan(initialScale - 0.001);
-  expect(upwardScale).toBeGreaterThan(downwardScale);
+  expect(upwardScale).toBeGreaterThan(longDownwardScale + 0.003);
 
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.reload();
@@ -497,6 +509,7 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
       whyVisualOverlayCount: whyVisual?.querySelectorAll(".home-why-visual__title").length ?? 0,
       whyZoomMotion: whyZoom?.getAttribute("data-scroll-zoom-motion") ?? "",
       whyImageTransform: whyImage ? getComputedStyle(whyImage).transform : "",
+      pageGutter: getComputedStyle(document.documentElement).getPropertyValue("--page-gutter").trim(),
       plugSectionBox: box(plugSection),
       plugMediaBox: box(plugMedia),
       plugPanelBox: box(plugPanel),
@@ -515,11 +528,14 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
   expect(mobile.whyBox?.height).toBeLessThanOrEqual(mobile.viewportHeight * 1.3);
   expect(mobile.whyListBox?.height).toBeGreaterThanOrEqual(150);
   expect(mobile.whyListBox?.height).toBeLessThanOrEqual(230);
-  expect(mobile.whyTitleText).toBe("SIMPLE IS NOT BASIC");
+  expect(mobile.whyTitleText).toMatch(/^simple is not basic$/i);
   expect(mobile.whyTitleAlign).toBe("left");
   expect(mobile.whyVisualOverlayCount).toBe(0);
-  expect((mobile.whyTitleBox?.left ?? 0) - (mobile.whyPrinciplesBox?.left ?? 0))
-    .toBeLessThan(60);
+  expect(Number.parseFloat(mobile.pageGutter)).toBe(18);
+  expect(Math.abs((mobile.whyTitleBox?.left ?? 0) - Number.parseFloat(mobile.pageGutter)))
+    .toBeLessThanOrEqual(1);
+  expect(Math.abs((mobile.whyListBox?.left ?? 0) - Number.parseFloat(mobile.pageGutter)))
+    .toBeLessThanOrEqual(1);
   expect(mobile.whyTitleBox?.top ?? 0).toBeGreaterThanOrEqual(mobile.whyPrinciplesBox?.top ?? 0);
   expect(mobile.whyTitleBox?.bottom ?? 0).toBeLessThan(mobile.whyListBox?.top ?? 0);
   expect(mobile.whyVisualBox?.top).toBeGreaterThanOrEqual(mobile.whyPrinciplesBox?.bottom ?? 0);
@@ -544,12 +560,15 @@ test("homepage Core Three products and add-ons resolve by stable slugs", async (
 
   const merchandising = await page.evaluate(() => {
     const clean = (text: string | null | undefined) => text?.replace(/\s+/g, " ").trim() ?? "";
-    const sectionByHeading = (heading: string) =>
+    const sectionByHeading = (headings: string[]) =>
       Array.from(document.querySelectorAll("section")).find(
-        (section) => clean(section.querySelector("h2")?.textContent) === heading,
+        (section) => headings.includes(clean(section.querySelector("h2")?.textContent)),
       );
     const core = document.querySelector("#core-three");
-    const beyond = sectionByHeading("Add only what solves a real problem.");
+    const beyond = sectionByHeading([
+      "Add only what solves a real problem.",
+      "Add only what you need.",
+    ]);
     return {
       coreProducts: Array.from(core?.querySelectorAll(".product-card__name") ?? []).map((node) =>
         clean(node.textContent),

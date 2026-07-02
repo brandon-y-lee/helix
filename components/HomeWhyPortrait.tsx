@@ -7,8 +7,9 @@ const MIN_SCALE = 1.03;
 const RESTING_SCALE = 1.05;
 const MAX_SCALE = 1.11;
 const SCROLL_DELTA_Y = 8;
-const SCALE_STEP = 0.016;
-const EASE = 0.2;
+const SCROLL_DISTANCE_TO_BOUND_VIEWPORTS = 1.8;
+const MIN_SCROLL_DISTANCE_TO_BOUND = 720;
+const EASE = 0.14;
 
 function getScrollY() {
   if (typeof window === "undefined") {
@@ -20,6 +21,18 @@ function getScrollY() {
 
 function clampScale(value: number) {
   return Math.min(MAX_SCALE, Math.max(MIN_SCALE, value));
+}
+
+function clampProgress(value: number) {
+  return Math.min(1, Math.max(-1, value));
+}
+
+function scaleForProgress(progress: number) {
+  if (progress >= 0) {
+    return RESTING_SCALE + (MAX_SCALE - RESTING_SCALE) * progress;
+  }
+
+  return RESTING_SCALE + (RESTING_SCALE - MIN_SCALE) * progress;
 }
 
 export function HomeWhyPortrait() {
@@ -34,6 +47,7 @@ export function HomeWhyPortrait() {
     let reducedMotion = false;
     let currentScale = RESTING_SCALE;
     let targetScale = RESTING_SCALE;
+    let targetProgress = 0;
     let lastScrollY = getScrollY();
     let frameId: number | null = null;
 
@@ -47,6 +61,12 @@ export function HomeWhyPortrait() {
     const setScale = (scale: number) => {
       frame.style.setProperty("--home-why-image-scale", scale.toFixed(4));
     };
+
+    const getScrollDistanceToBound = () =>
+      Math.max(
+        MIN_SCROLL_DISTANCE_TO_BOUND,
+        window.innerHeight * SCROLL_DISTANCE_TO_BOUND_VIEWPORTS,
+      );
 
     const observedElement = frame.closest(".home-section--why") ?? frame;
 
@@ -94,6 +114,7 @@ export function HomeWhyPortrait() {
       stopAnimation();
       currentScale = RESTING_SCALE;
       targetScale = RESTING_SCALE;
+      targetProgress = 0;
       setScale(RESTING_SCALE);
     };
 
@@ -112,13 +133,23 @@ export function HomeWhyPortrait() {
       const scrollY = getScrollY();
       const deltaY = scrollY - lastScrollY;
       lastScrollY = scrollY;
-      setActive(isNearViewport());
+      const wasActive = active;
+      const nextActive = isNearViewport();
+      setActive(nextActive);
 
-      if (!active || isStatic() || Math.abs(deltaY) < SCROLL_DELTA_Y) {
+      if (
+        !nextActive ||
+        !wasActive ||
+        isStatic() ||
+        Math.abs(deltaY) < SCROLL_DELTA_Y
+      ) {
         return;
       }
 
-      targetScale = clampScale(targetScale + (deltaY < 0 ? SCALE_STEP : -SCALE_STEP));
+      targetProgress = clampProgress(
+        targetProgress - deltaY / getScrollDistanceToBound(),
+      );
+      targetScale = clampScale(scaleForProgress(targetProgress));
       scheduleScale();
     };
 
