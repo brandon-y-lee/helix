@@ -163,7 +163,7 @@ describe("homepage Core Three positioning", () => {
     expect(within(core).getByRole("button", { name: "Open quick buy for SEAL" }))
       .toBeInTheDocument();
 
-    const why = sectionForHeading("Why Three Works");
+    const why = sectionForHeading("SIMPLE IS NOT BASIC");
     expect(within(why).getByText("01 Start with structure skin understands."))
       .toBeInTheDocument();
     expect(
@@ -171,11 +171,18 @@ describe("homepage Core Three positioning", () => {
     ).toBeInTheDocument();
     expect(within(why).getByText("03 Three steps build consistency."))
       .toBeInTheDocument();
-    const whyTitle = why.querySelector(".home-why-visual__title");
-    expect(whyTitle).not.toBeNull();
-    expect(whyTitle?.textContent?.replace(/\s+/g, " ").trim()).toBe(
+    const whyTitle = why.querySelector(".home-why-title");
+    expect(whyTitle).toHaveTextContent("SIMPLE IS NOT BASIC");
+    expect(why.querySelector(".home-why-visual__title")).not.toBeInTheDocument();
+    expect(why.querySelector(".home-why-visual .home-why-title")).not.toBeInTheDocument();
+    expect(
+      why.querySelector(".home-why-principles .home-why-title")?.textContent
+        ?.replace(/\s+/g, " ")
+        .trim(),
+    ).toBe(
       "SIMPLE IS NOT BASIC",
     );
+    expect(why.querySelector(".home-why-visual__zoom")).toBeInTheDocument();
     const whyImage = within(why).getByAltText("Black-and-white editorial portrait.");
     const whyImageSrc = decodeURIComponent(whyImage.getAttribute("src") ?? "");
     expect(whyImageSrc).toContain("/media/home/why-three.webp");

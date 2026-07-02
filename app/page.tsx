@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import { HomeHeroVideo } from "@/components/HomeHeroVideo";
 import { HomePlugVideo } from "@/components/HomePlugVideo";
+import { HomeWhyPortrait } from "@/components/HomeWhyPortrait";
 import { ProductGrid } from "@/components/ProductGrid";
 import { ProductImage } from "@/components/ProductImage";
 import { getCachedProducts } from "@/lib/catalog-cache";
@@ -202,8 +202,8 @@ export default async function HomePage() {
       </section>
 
       <section className="home-section home-section--why" aria-labelledby="why-three-heading">
-        <h2 id="why-three-heading" className="sr-only">Why Three Works</h2>
         <div className="home-why-principles">
+          <h2 id="why-three-heading" className="home-why-title">SIMPLE IS NOT BASIC</h2>
           <ol className="home-why-list" aria-label="Why three works">
             {WHY_THREE_STATEMENTS.map((statement) => (
               <li key={statement}>{statement}</li>
@@ -211,18 +211,7 @@ export default async function HomePage() {
           </ol>
         </div>
         <div className="home-why-visual">
-          <Image
-            src="/media/home/why-three.webp"
-            alt="Black-and-white editorial portrait."
-            fill
-            sizes="(max-width: 900px) 100vw, 50vw"
-            className="home-why-visual__image"
-            unoptimized
-          />
-          <p className="home-why-visual__title">
-            <span>SIMPLE IS</span>{" "}
-            <span>NOT BASIC</span>
-          </p>
+          <HomeWhyPortrait />
         </div>
       </section>
 
