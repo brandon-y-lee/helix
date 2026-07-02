@@ -5913,12 +5913,12 @@ main:focus {
   margin: 0;
   color: var(--ink);
   font-family: var(--font-heading);
-  font-size: clamp(2.25rem, 3.15vw, 4rem);
+  font-size: clamp(3rem, 4.45vw, 4.35rem);
   font-weight: 400;
   letter-spacing: 0;
-  line-height: 0.9;
+  line-height: 0.82;
   text-align: left;
-  text-transform: uppercase;
+  text-transform: none;
   white-space: nowrap;
 }
 
@@ -5954,7 +5954,7 @@ main:focus {
 }
 
 .home-why-visual__zoom {
-  --home-why-image-scale: 1.05;
+  --home-why-image-scale: 1.07;
   position: absolute;
   inset: 0;
   overflow: hidden;
@@ -6034,7 +6034,7 @@ main:focus {
 
 @media (prefers-reduced-motion: reduce) {
   .home-why-visual__image {
-    transform: scale(1.05);
+    transform: scale(1.07);
     will-change: auto;
   }
 
@@ -6238,9 +6238,9 @@ main:focus {
 
   .home-why-title {
     position: static;
-    max-width: min(100%, 12ch);
-    font-size: clamp(2.45rem, 11vw, 4rem);
-    line-height: 0.92;
+    max-width: min(100%, 9.5ch);
+    font-size: clamp(3.2rem, 15.5vw, 4.9rem);
+    line-height: 0.84;
     white-space: normal;
   }
 

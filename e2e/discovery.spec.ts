@@ -131,7 +131,6 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
     const plugCaption = plugSection?.querySelector<HTMLElement>(".home-plug-media__caption");
     const plugTitle = plugSection?.querySelector<HTMLElement>("#plug-play-heading");
     const plugBody = plugSection?.querySelector<HTMLElement>(".home-plug-panel__body");
-    const plugBodyText = plugBody?.querySelector<HTMLElement>("p");
     const plugCta = plugBody?.querySelector<HTMLAnchorElement>("a");
     const plugPoster = plugSection?.querySelector<HTMLImageElement>(".home-plug-media__poster");
     const plugFrame = plugSection?.querySelector<HTMLElement>(".home-plug-media__frame");
@@ -193,7 +192,11 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
       whyTitleText: clean(whyTitle?.textContent),
       whyTitleColor: whyTitle ? getComputedStyle(whyTitle).color : "",
       whyTitleFamily: whyTitle ? getComputedStyle(whyTitle).fontFamily : "",
+      whyTitleFontSize: whyTitle ? getComputedStyle(whyTitle).fontSize : "",
+      whyTitleLineHeight: whyTitle ? getComputedStyle(whyTitle).lineHeight : "",
       whyTitleAlign: whyTitle ? getComputedStyle(whyTitle).textAlign : "",
+      whyTitleTextTransform: whyTitle ? getComputedStyle(whyTitle).textTransform : "",
+      whyTitleWhiteSpace: whyTitle ? getComputedStyle(whyTitle).whiteSpace : "",
       whyTitleTextShadow: whyTitle ? getComputedStyle(whyTitle).textShadow : "",
       whyTitleParentClass: whyTitle?.parentElement?.className ?? "",
       whyPanelPaddingLeft: whyPrinciples ? getComputedStyle(whyPrinciples).paddingLeft : "",
@@ -233,6 +236,10 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
       plugTitleSpans: Array.from(plugTitle?.querySelectorAll("span") ?? []).map((node) =>
         clean(node.textContent),
       ),
+      plugTitleColor: plugTitle ? getComputedStyle(plugTitle).color : "",
+      plugTitleFamily: plugTitle ? getComputedStyle(plugTitle).fontFamily : "",
+      plugTitleFontSize: plugTitle ? getComputedStyle(plugTitle).fontSize : "",
+      plugTitleLineHeight: plugTitle ? getComputedStyle(plugTitle).lineHeight : "",
       plugTitleAlign: plugTitle ? getComputedStyle(plugTitle).textAlign : "",
       plugTitleDisplay: plugTitle ? getComputedStyle(plugTitle).display : "",
       plugTitleRowGap: plugTitle ? getComputedStyle(plugTitle).rowGap : "",
@@ -246,7 +253,9 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
         };
       }),
       plugBodyBox: box(plugBody),
-      plugBodyText: clean(plugBodyText?.textContent),
+      plugBodyText: Array.from(plugBody?.querySelectorAll("p") ?? [])
+        .map((node) => clean(node.textContent))
+        .join(" "),
       plugBodyAlign: plugBody ? getComputedStyle(plugBody).textAlign : "",
       plugCtaHref: plugCta?.getAttribute("href") ?? "",
       plugCtaText: clean(plugCta?.textContent),
@@ -313,7 +322,25 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
   expect(desktop.whyTitleText).toMatch(/^simple is not basic$/i);
   expect(desktop.whyTitleColor).toBe("rgb(17, 19, 18)");
   expect(desktop.whyTitleFamily).toMatch(/Marcellus/i);
+  expect(desktop.whyTitleFamily).toBe(desktop.plugTitleFamily);
+  expect(desktop.whyTitleColor).toBe(desktop.plugTitleColor);
+  expect(Number.parseFloat(desktop.whyTitleFontSize)).toBeGreaterThanOrEqual(
+    Number.parseFloat(desktop.plugTitleFontSize) * 0.68,
+  );
+  expect(Number.parseFloat(desktop.whyTitleFontSize)).toBeLessThanOrEqual(
+    Number.parseFloat(desktop.plugTitleFontSize),
+  );
+  expect(
+    Number.parseFloat(desktop.whyTitleLineHeight) /
+      Number.parseFloat(desktop.whyTitleFontSize),
+  ).toBeCloseTo(
+    Number.parseFloat(desktop.plugTitleLineHeight) /
+      Number.parseFloat(desktop.plugTitleFontSize),
+    1,
+  );
   expect(desktop.whyTitleAlign).toBe("left");
+  expect(desktop.whyTitleTextTransform).toBe("none");
+  expect(desktop.whyTitleWhiteSpace).toBe("nowrap");
   expect(desktop.whyTitleTextShadow).toBe("none");
   expect(desktop.whyTitleParentClass).toContain("home-why-principles");
   expect(Math.abs((desktop.whyTitleBox?.left ?? 0) - desktop.standardContentLeft))
@@ -338,8 +365,8 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
   expect(desktop.whyImageFilter).toBe("none");
   expect(desktop.whyImageObjectFit).toBe("cover");
   expect(desktop.whyImageOpacity).toBe("1");
-  expect(scaleFromTransform(desktop.whyImageTransform)).toBeGreaterThanOrEqual(1.029);
-  expect(scaleFromTransform(desktop.whyImageTransform)).toBeLessThanOrEqual(1.111);
+  expect(scaleFromTransform(desktop.whyImageTransform)).toBeGreaterThanOrEqual(1.009);
+  expect(scaleFromTransform(desktop.whyImageTransform)).toBeLessThanOrEqual(1.161);
   expect(desktop.plugSectionClass).toContain("home-section--core-support");
   expect((desktop.plugMediaBox?.width ?? 0) / (desktop.plugSplitBox?.width ?? 1))
     .toBeGreaterThan(0.62);
@@ -440,13 +467,15 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
   const upwardScale = scaleFromTransform(upwardZoom.transform);
 
   expect(initialZoom.motion).toBe("motion");
-  expect(shortDownwardScale).toBeLessThan(initialScale - 0.0005);
-  expect(shortDownwardScale).toBeGreaterThan(1.043);
-  expect(longDownwardScale).toBeLessThan(shortDownwardScale - 0.003);
-  expect(longDownwardScale).toBeGreaterThan(1.034);
-  expect(upwardScale).toBeGreaterThanOrEqual(1.029);
-  expect(upwardScale).toBeLessThanOrEqual(1.111);
-  expect(upwardScale).toBeGreaterThan(longDownwardScale + 0.003);
+  expect(initialScale).toBeGreaterThanOrEqual(1.065);
+  expect(initialScale).toBeLessThanOrEqual(1.075);
+  expect(shortDownwardScale).toBeLessThan(initialScale - 0.008);
+  expect(longDownwardScale).toBeLessThan(initialScale - 0.025);
+  expect(longDownwardScale).toBeGreaterThanOrEqual(1.009);
+  expect(longDownwardScale).toBeLessThan(shortDownwardScale - 0.02);
+  expect(upwardScale).toBeGreaterThanOrEqual(1.009);
+  expect(upwardScale).toBeLessThanOrEqual(1.161);
+  expect(upwardScale).toBeGreaterThan(longDownwardScale + 0.025);
 
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.reload();
@@ -540,8 +569,8 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
   expect(mobile.whyTitleBox?.bottom ?? 0).toBeLessThan(mobile.whyListBox?.top ?? 0);
   expect(mobile.whyVisualBox?.top).toBeGreaterThanOrEqual(mobile.whyPrinciplesBox?.bottom ?? 0);
   expect(mobile.whyZoomMotion).toBe("static");
-  expect(scaleFromTransform(mobile.whyImageTransform)).toBeGreaterThanOrEqual(1.049);
-  expect(scaleFromTransform(mobile.whyImageTransform)).toBeLessThanOrEqual(1.051);
+  expect(scaleFromTransform(mobile.whyImageTransform)).toBeGreaterThanOrEqual(1.069);
+  expect(scaleFromTransform(mobile.whyImageTransform)).toBeLessThanOrEqual(1.071);
   expect(mobile.plugMediaBox?.top).toBeGreaterThanOrEqual(mobile.plugSectionBox?.top ?? 0);
   expect(mobile.plugPanelBox?.top).toBeGreaterThanOrEqual((mobile.plugMediaBox?.bottom ?? 0) - 1);
   expect(mobile.plugMediaBox?.height).toBeGreaterThanOrEqual(420);

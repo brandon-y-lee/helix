@@ -193,7 +193,12 @@ describe("homepage Core Three positioning", () => {
     ).toBeInTheDocument();
     expect(
       within(plug).getByText(
-        "The Core is designed to work as a full routine, but it does not need to replace yours. Upgrade the layer your current routine is missing or underperforming in.",
+        /The Core is designed to work as a full routine, but it does not need to replace yours\./,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(plug).getByText(
+        /Upgrade the layer your current routine is missing or underperforming in\./,
       ),
     ).toBeInTheDocument();
     expect(

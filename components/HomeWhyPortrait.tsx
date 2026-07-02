@@ -3,13 +3,13 @@
 import Image from "next/image";
 import { useEffect, useRef } from "react";
 
-const MIN_SCALE = 1.03;
-const RESTING_SCALE = 1.05;
-const MAX_SCALE = 1.11;
+const MIN_SCALE = 1.01;
+const RESTING_SCALE = 1.07;
+const MAX_SCALE = 1.16;
 const SCROLL_DELTA_Y = 8;
-const SCROLL_DISTANCE_TO_BOUND_VIEWPORTS = 1.8;
-const MIN_SCROLL_DISTANCE_TO_BOUND = 720;
-const EASE = 0.14;
+const SCROLL_DISTANCE_TO_BOUND_VIEWPORTS = 1.4;
+const MIN_SCROLL_DISTANCE_TO_BOUND = 960;
+const EASE = 0.18;
 
 function getScrollY() {
   if (typeof window === "undefined") {
