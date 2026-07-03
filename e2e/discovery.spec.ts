@@ -20,10 +20,10 @@ test("homepage Core Three ladder renders", async ({ page }) => {
   await page.goto("/");
 
   await expect(
-    page.getByRole("heading", { name: /^(It all starts|Better skin starts) with three steps\.$/ }),
+    page.getByRole("heading", { name: "Prestige skin starts with three steps." }),
   ).toBeVisible();
   await expect(page.getByText("Cleanse. Treat. Seal.")).toBeVisible();
-  await expect(page.getByRole("region", { name: "The Core" }))
+  await expect(page.getByRole("region", { name: "The Core", exact: true }))
     .toBeVisible();
   await expect(page.getByRole("heading", { name: "Cleanse, Treat, Seal." }))
     .toHaveCount(0);
@@ -45,8 +45,10 @@ test("homepage Core Three ladder renders", async ({ page }) => {
     "href",
     "#core-three",
   );
-  await expect(page.locator("#beyond-heading"))
-    .toHaveText(/^(Add only (what solves a real problem|what you need)\.|Add what you need\.|For when the core is stable\.)$/i);
+  await expect(page.locator("#beyond-heading")).toHaveText("Beyond The Core");
+  await expect(
+    page.getByText("For when your skin has a high baseline. Add what you need."),
+  ).toBeVisible();
   await expect(
     page.getByRole("heading", {
       name: /^(Know what each step is doing\.|Know what you are using\.)$/,
@@ -54,7 +56,7 @@ test("homepage Core Three ladder renders", async ({ page }) => {
   ).toBeVisible();
   await expect(
     page.getByRole("heading", {
-      name: /^(Make the baseline automatic\.|Better skin starts here\.)$/,
+      name: "Invest in your skin's future.",
     }),
   ).toBeVisible();
 });
@@ -106,6 +108,72 @@ test("homepage section eyebrows share the Core section treatment", async ({ page
   ]) {
     expect(styles[label]).toBeNull();
   }
+});
+
+test("homepage ingredient cards navigate to matching System ingredient anchors", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+
+  const targets = [
+    {
+      name: "Read about PDRN in the System",
+      href: "/system#system-ingredient-pdrn",
+      heading: "PDRN / Sodium DNA",
+    },
+    {
+      name: "Read about Peptides in the System",
+      href: "/system#system-ingredient-peptides",
+      heading: "Peptides",
+    },
+    {
+      name: "Read about Niacinamide in the System",
+      href: "/system#system-ingredient-niacinamide",
+      heading: "Niacinamide",
+    },
+  ] as const;
+
+  for (const target of targets) {
+    await page.goto("/");
+    const link = page.getByRole("link", { name: target.name });
+    await expect(link).toHaveAttribute("href", target.href);
+    await expect(link.locator("a")).toHaveCount(0);
+
+    await link.scrollIntoViewIfNeeded();
+    await expect(link).toBeVisible();
+    await Promise.all([
+      page.waitForURL(new RegExp(`${target.href.replace("#", "\\#")}$`), { timeout: 15_000 }),
+      link.click(),
+    ]);
+
+    const card = page.locator(`#${target.href.split("#")[1]}`);
+    await expect(card.getByRole("heading", { name: target.heading })).toBeVisible();
+    const anchorPosition = await card.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      const headerBottom =
+        document.querySelector(".site-header")?.getBoundingClientRect().bottom ?? 0;
+      return {
+        headerBottom: Math.round(headerBottom),
+        scrollMarginTop: Number.parseFloat(getComputedStyle(element).scrollMarginTop),
+        top: Math.round(rect.top),
+      };
+    });
+
+    expect(anchorPosition.scrollMarginTop).toBeGreaterThanOrEqual(88);
+    expect(anchorPosition.top).toBeGreaterThanOrEqual(anchorPosition.headerBottom + 8);
+  }
+});
+
+test("homepage final CTA video uses poster-only treatment for reduced motion", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/");
+
+  const finalSection = page.locator(".home-section--final");
+  const media = finalSection.locator(".home-final-media");
+
+  await expect(finalSection.getByRole("heading", { name: "Invest in your skin's future." }))
+    .toBeVisible();
+  await expect(media).toHaveAttribute("data-motion-state", "static");
+  await expect(finalSection.locator(".home-final-media__poster")).toBeVisible();
+  await expect(finalSection.locator("video")).toHaveCount(0);
 });
 
 test("homepage core narrative uses taller why and asymmetric plug video sections", async ({
@@ -163,6 +231,13 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
     const final = finalSection?.querySelector<HTMLElement>(".home-final");
     const finalTitle = document.querySelector<HTMLElement>("#final-heading");
     const finalDescription = final?.querySelector<HTMLElement>("p:not(.hero__eyebrow)");
+    const finalActions = final?.querySelector<HTMLElement>(".hero__actions");
+    const finalPoster = finalSection?.querySelector<HTMLImageElement>(".home-final-media__poster");
+    const finalMedia = finalSection?.querySelector<HTMLElement>(".home-final-media");
+    const finalVideo = finalSection?.querySelector<HTMLVideoElement>(".home-final-media__video");
+    const homeIngredientCards = Array.from(
+      document.querySelectorAll<HTMLAnchorElement>(".home-ingredient-card"),
+    );
 
     const box = (element: HTMLElement | null | undefined) => {
       const rect = element?.getBoundingClientRect();
@@ -217,11 +292,45 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
       beyondTitleStyle: textStyle(beyondTitle),
       finalBox: box(final),
       finalDescriptionStyle: textStyle(finalDescription),
+      finalDescriptionText: clean(finalDescription?.textContent),
+      finalDescriptionActionsGap: finalDescription && finalActions
+        ? Math.round(finalActions.getBoundingClientRect().top - finalDescription.getBoundingClientRect().bottom)
+        : null,
       finalEyebrowCount: finalSection?.querySelectorAll(".hero__eyebrow").length ?? 0,
+      finalMediaBox: box(finalMedia),
+      finalMotionState: finalMedia?.getAttribute("data-motion-state") ?? "",
+      finalPosterSrc: finalPoster?.currentSrc || finalPoster?.src || "",
       finalSectionBox: box(finalSection),
       finalTitleStyle: textStyle(finalTitle),
+      finalVideoAttributes: finalVideo
+        ? {
+            autoPlay: finalVideo.autoplay,
+            controls: finalVideo.controls,
+            loop: finalVideo.loop,
+            muted: finalVideo.muted,
+            playsInline: finalVideo.playsInline,
+          }
+        : null,
+      finalVideoPoster: finalVideo?.getAttribute("poster") ?? "",
+      finalVideoPreload: finalVideo?.getAttribute("preload") ?? "",
+      finalVideoSources: Array.from(finalVideo?.querySelectorAll("source") ?? []).map((source) => ({
+        src: source.getAttribute("src"),
+        type: source.getAttribute("type"),
+      })),
+      finalVideoReady: finalMedia?.getAttribute("data-video-ready") ?? "",
       ingredientEyebrowCount:
         ingredientsTitle?.parentElement?.querySelectorAll(".hero__eyebrow").length ?? 0,
+      ingredientHeadingGap: ingredientsTitle && ingredientsDescription
+        ? Math.round(
+            ingredientsDescription.getBoundingClientRect().top -
+              ingredientsTitle.getBoundingClientRect().bottom,
+          )
+        : null,
+      ingredientPreviewLinks: homeIngredientCards.map((card) => ({
+        ariaLabel: card.getAttribute("aria-label"),
+        href: card.getAttribute("href"),
+        text: clean(card.textContent),
+      })),
       ingredientsDescriptionStyle: textStyle(ingredientsDescription),
       ingredientsTitleStyle: textStyle(ingredientsTitle),
       coreStepGridExists: Boolean(core?.querySelector(".home-step-grid")),
@@ -377,19 +486,63 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
   expect(desktop.beyondDescriptionStyle).toEqual(desktop.plugBodyParagraphStyle);
   expect(desktop.ingredientsDescriptionStyle).toEqual(desktop.plugBodyParagraphStyle);
   expect(desktop.finalDescriptionStyle).toEqual(desktop.plugBodyParagraphStyle);
-  expect(desktop.beyondTitleStyle).toEqual(desktop.plugTitleStyle);
   expect(desktop.ingredientsTitleStyle).toEqual(desktop.plugTitleStyle);
   expect(desktop.finalTitleStyle).toEqual(desktop.plugTitleStyle);
   expect(desktop.ingredientEyebrowCount).toBe(0);
+  expect(desktop.ingredientHeadingGap).toBeGreaterThanOrEqual(24);
+  expect(desktop.ingredientPreviewLinks).toEqual([
+    expect.objectContaining({
+      ariaLabel: "Read about PDRN in the System",
+      href: "/system#system-ingredient-pdrn",
+    }),
+    expect.objectContaining({
+      ariaLabel: "Read about Peptides in the System",
+      href: "/system#system-ingredient-peptides",
+    }),
+    expect.objectContaining({
+      ariaLabel: "Read about Niacinamide in the System",
+      href: "/system#system-ingredient-niacinamide",
+    }),
+  ]);
+  for (const link of desktop.ingredientPreviewLinks) {
+    expect(link.href).not.toContain("/method");
+  }
   expect(desktop.finalEyebrowCount).toBe(0);
-  expect(desktop.finalSectionBox?.height).toBeLessThanOrEqual(desktop.viewportHeight * 0.5);
-  expect(desktop.finalSectionBox?.height).toBeGreaterThanOrEqual(desktop.viewportHeight * 0.34);
+  expect(desktop.finalSectionBox?.height).toBeLessThanOrEqual(desktop.viewportHeight * 0.72);
+  expect(desktop.finalSectionBox?.height).toBeGreaterThanOrEqual(desktop.viewportHeight * 0.45);
   expect(
     Math.abs(
       ((desktop.finalBox?.top ?? 0) - (desktop.finalSectionBox?.top ?? 0)) -
         ((desktop.finalSectionBox?.bottom ?? 0) - (desktop.finalBox?.bottom ?? 0)),
     ),
   ).toBeLessThanOrEqual(2);
+  expect(desktop.finalDescriptionText).toBe(
+    "Three steps, one order, repeatable morning or night.",
+  );
+  expect(desktop.finalDescriptionActionsGap).toBeGreaterThanOrEqual(2);
+  expect(desktop.finalDescriptionActionsGap).toBeLessThanOrEqual(32);
+  expect(desktop.finalMediaBox?.width).toBe(desktop.finalSectionBox?.width);
+  expect(desktop.finalMediaBox?.height).toBe(desktop.finalSectionBox?.height);
+  const finalPosterSrc = decodeURIComponent(desktop.finalPosterSrc);
+  expect(finalPosterSrc).toContain("/media/home/final-cta-poster.webp");
+  expect(finalPosterSrc).not.toContain("/mnt/data");
+  expect(["pending", "motion", "static", "failed"]).toContain(desktop.finalMotionState);
+  if (desktop.finalVideoSources.length > 0) {
+    expect(desktop.finalVideoPoster).toBe("/media/home/final-cta-poster.webp");
+    expect(desktop.finalVideoPreload).toBe("metadata");
+    expect(desktop.finalVideoAttributes).toEqual({
+      autoPlay: true,
+      controls: false,
+      loop: true,
+      muted: true,
+      playsInline: true,
+    });
+    expect(desktop.finalVideoSources).toEqual([
+      { src: "/media/home/final-cta-loop.mp4", type: "video/mp4" },
+    ]);
+  } else {
+    expect(desktop.finalMotionState).toBe("static");
+  }
   expect(desktop.coreStepGridExists).toBe(false);
   expect(desktop.coreStepCardCount).toBe(0);
   expect(desktop.coreProductNames).toEqual(["CLEANSE", "TREAT", "SEAL"]);
@@ -417,17 +570,17 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
   expect(whyStatementGaps).toHaveLength(2);
   expect(Math.abs(whyStatementGaps[0] - whyStatementGaps[1])).toBeLessThanOrEqual(1);
   for (const gap of whyStatementGaps) {
-    expect(gap).toBeGreaterThan(desktop.viewportHeight * 0.24);
-    expect(gap).toBeLessThan(desktop.viewportHeight * 0.3);
+    expect(gap).toBeGreaterThanOrEqual(28);
+    expect(gap).toBeLessThanOrEqual(58);
   }
-  expect(desktop.whyListBox?.height).toBeGreaterThanOrEqual(desktop.viewportHeight * 0.6);
-  expect(desktop.whyListBox?.height).toBeLessThanOrEqual(desktop.viewportHeight * 0.69);
+  expect(desktop.whyListBox?.height).toBeGreaterThanOrEqual(120);
+  expect(desktop.whyListBox?.height).toBeLessThanOrEqual(desktop.viewportHeight * 0.28);
   expect((desktop.whyListBox?.top ?? 0) - (desktop.whyPrinciplesBox?.top ?? 0))
     .toBeGreaterThan(desktop.viewportHeight * 0.2);
   expect((desktop.whyPrinciplesBox?.bottom ?? 0) - (desktop.whyListBox?.bottom ?? 0))
-    .toBeGreaterThan(desktop.viewportHeight * 0.08);
+    .toBeGreaterThan(desktop.viewportHeight * 0.26);
   expect((desktop.whyPrinciplesBox?.bottom ?? 0) - (desktop.whyListBox?.bottom ?? 0))
-    .toBeLessThan(desktop.viewportHeight * 0.19);
+    .toBeLessThan(desktop.viewportHeight * 0.46);
   expect(desktop.whyVisualBox?.left).toBeGreaterThanOrEqual(desktop.whyPrinciplesBox?.right ?? 0);
   expect(desktop.whyVisualBox?.right).toBe(desktop.whyBox?.right);
   expect(desktop.whyVisualAfterContent).toBe("none");
@@ -516,7 +669,7 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
   expect((desktop.plugPanelBox?.right ?? 0) - (desktop.plugTitleBox?.right ?? 0))
     .toBeLessThan(60);
   expect(desktop.plugBodyText).toBe(
-    "The Core is designed to work as a full routine, but it does not need to replace yours. Upgrade the layer your current routine is missing or underperforming in.",
+    "The Core is designed to work as a full routine. Or simply upgrade the layer your current routine is missing or underperforming in.",
   );
   expect(desktop.plugBodyAlign).toBe("right");
   expect((desktop.plugPanelBox?.bottom ?? 0) - (desktop.plugBodyBox?.bottom ?? 0))
@@ -753,6 +906,7 @@ test("homepage Core Three products and add-ons resolve by stable slugs", async (
       );
     const core = document.querySelector("#core-three");
     const beyond = sectionByHeading([
+      "Beyond The Core",
       "Add only what solves a real problem.",
       "Add only what you need.",
       "Add what you need.",

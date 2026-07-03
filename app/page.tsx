@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { HomeFinalVideo } from "@/components/HomeFinalVideo";
 import { HomeHeroVideo } from "@/components/HomeHeroVideo";
 import { HomePlugVideo } from "@/components/HomePlugVideo";
 import { HomeWhyPortrait } from "@/components/HomeWhyPortrait";
@@ -9,12 +10,14 @@ import { getCachedProducts } from "@/lib/catalog-cache";
 import {
   PROTECT_STEP,
   buildIngredientIndex,
+  ingredientAnchorId,
+  type IngredientIndexCard,
   type MethodProductSlug,
 } from "@/lib/content/system";
 import type { Product } from "@/lib/products";
 
 export const metadata: Metadata = {
-  title: "Mei Pelle | Three-Step Men's Skincare System",
+  title: "Mei Pelle | Men's Skincare",
   description:
     "A three-step men's skincare baseline: cleanse, treat, and seal with CLEANSE, TREAT, and SEAL.",
 };
@@ -82,6 +85,12 @@ const WHY_THREE_STATEMENTS = [
   "03 Three steps build consistency.",
 ] as const;
 
+const INGREDIENT_LINK_LABELS: Record<string, string> = {
+  pdrn: "PDRN",
+  peptides: "Peptides",
+  niacinamide: "Niacinamide",
+};
+
 function productsForSlugs(
   productsBySlug: ReadonlyMap<string, Product>,
   slugs: readonly MethodProductSlug[],
@@ -141,6 +150,10 @@ function renderAddOn(addOn: AddOn, productsBySlug: ReadonlyMap<string, Product>)
   return renderProductAddOn(addOn, product);
 }
 
+function ingredientPreviewLabel(card: IngredientIndexCard) {
+  return `Read about ${INGREDIENT_LINK_LABELS[card.id] ?? card.name} in the System`;
+}
+
 export default async function HomePage() {
   const products = await getCachedProducts();
   const productsBySlug = new Map(products.map((product) => [product.slug, product]));
@@ -167,7 +180,7 @@ export default async function HomePage() {
           <div>
             <p className="home-video-hero__eyebrow">Mei Pelle</p>
             <h1 id="home-hero-heading" className="display-secondary home-video-hero__title">
-              It all starts with three steps.
+              Prestige skin starts with three steps.
             </h1>
             <p className="home-video-hero__display-line">Cleanse. Treat. Seal.</p>
             <div className="home-video-hero__actions">
@@ -203,7 +216,7 @@ export default async function HomePage() {
 
       <section className="home-section home-section--why" aria-labelledby="why-three-heading">
         <div className="home-why-principles">
-          <h2 id="why-three-heading" className="home-plug-panel__title">Simple is <br />not basic.</h2>
+          <h2 id="why-three-heading" className="home-plug-panel__title">Simple is <br />not basic</h2>
           <ol className="home-why-list" aria-label="Why three works">
             {WHY_THREE_STATEMENTS.map((statement) => (
               <li key={statement}>{statement}</li>
@@ -231,8 +244,8 @@ export default async function HomePage() {
             </h2>
             <div className="home-plug-panel__body">
               <p>
-                The Core is designed to work as a full routine, but it does not need
-                to replace yours. Upgrade the layer your current routine is missing
+                The Core is designed to work as a full routine. <br />
+                Or simply upgrade the layer your current routine is missing
                 or underperforming in.
               </p>
               <Link href="#core-three" className="btn btn--editorial-rounded">
@@ -245,9 +258,10 @@ export default async function HomePage() {
 
       <section className="container home-section" aria-labelledby="beyond-heading">
         <div className="home-section__intro home-section__intro--wide">
-          <p className="hero__eyebrow">Beyond Three</p>
-          <h2 id="beyond-heading">Add only what solves a real problem.</h2>
-          <p>Once the core is stable, add only what solves a real problem.</p>
+          <p className="hero__eyebrow">Beyond The Core</p>
+          <h2 id="beyond-heading" className="sr-only">Beyond The Core</h2>
+
+          <p>For when your skin has a high baseline. Add what you need.</p>
         </div>
         <div className="home-addon-grid">
           {ADD_ONS.map((addOn) => renderAddOn(addOn, productsBySlug))}
@@ -257,11 +271,10 @@ export default async function HomePage() {
       <section className="home-band home-section" aria-labelledby="ingredients-heading">
         <div className="container home-split home-split--ingredients">
           <div>
-            <h2 id="ingredients-heading">Know what each step is doing.</h2>
+            <h2 id="ingredients-heading">Know what you are using.</h2>
             <p>
-              Ingredient language should be useful, not inflated. The System index
-              explains what an ingredient is, where it appears, and what its formula
-              context can support.
+              Learn how our formulas nourish your skin--instantly, and years down the line. <br />
+              Our index explains what an ingredient is, where it appears, and how its formula supports your skin.
             </p>
             <Link href="/system#system-ingredients" className="btn btn--ghost btn--editorial-rounded">
               READ THE INDEX
@@ -271,27 +284,32 @@ export default async function HomePage() {
           {ingredientCards.length > 0 && (
             <div className="home-ingredient-list" aria-label="Ingredient literacy preview">
               {ingredientCards.map((card) => (
-                <article key={card.id} className="home-ingredient-card">
+                <Link
+                  key={card.id}
+                  href={`/system#${ingredientAnchorId(card.id)}`}
+                  className="home-ingredient-card"
+                  aria-label={ingredientPreviewLabel(card)}
+                >
                   <p>{card.ingredientClass}</p>
                   <h3>{card.name}</h3>
                   <span>{card.skinRelevance}</span>
-                </article>
+                </Link>
               ))}
             </div>
           )}
         </div>
       </section>
 
-      <section className="container home-section home-section--final" aria-labelledby="final-heading">
+      <section className="home-section home-section--final" aria-labelledby="final-heading">
+        <HomeFinalVideo />
         <div className="home-final">
-          <h2 id="final-heading">Make the baseline automatic.</h2>
+          <h2 id="final-heading">Invest in your skin&apos;s future.</h2>
           <p>
-            Three steps, one order, repeatable morning or night. Build from there only
-            when your skin asks for something specific.
+            Three steps, one order, repeatable morning or night.
           </p>
           <div className="hero__actions">
             <Link href="#core-three" className="btn btn--editorial-rounded">
-              SHOP THE CORE THREE
+              SHOP THE CORE
             </Link>
             <Link href="/system" className="btn btn--ghost btn--editorial-rounded">
               SEE THE SYSTEM

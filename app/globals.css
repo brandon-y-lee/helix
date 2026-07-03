@@ -214,7 +214,8 @@ main[data-header-layout="overlay"] {
   color: var(--ink);
   font-size: clamp(4.8rem, 10vw, 12rem);
   line-height: 0.8;
-  max-width: 7.6ch;
+  max-width: 8ch;
+  text-transform: none;
 }
 
 .site-footer__brand > div > p:not(.eyebrow) {
@@ -4832,7 +4833,8 @@ main:focus {
   .method-ingredients,
   .method-rules,
   .method-missing,
-  .method-step {
+  .method-step,
+  .ingredient-card[id] {
     scroll-margin-top: 190px;
   }
 
@@ -5939,17 +5941,17 @@ main:focus {
 .home-why-list {
   position: relative;
   z-index: 0;
-  align-self: stretch;
+  align-self: center;
   width: min(100%, 38ch);
   height: auto;
   min-height: 0;
-  max-height: clamp(540px, 66dvh, 600px);
+  max-height: none;
   margin: 0;
   padding: 0;
   list-style: none;
   display: grid;
-  align-content: space-between;
-  gap: 30px;
+  align-content: center;
+  gap: clamp(28px, 4.4vh, 42px);
 }
 
 .home-why-list li {
@@ -6053,6 +6055,10 @@ main:focus {
   }
 
   .home-plug-media__video {
+    display: none;
+  }
+
+  .home-final-media__video {
     display: none;
   }
 }
@@ -6192,7 +6198,7 @@ main:focus {
 .home-split--ingredients > div:first-child {
   display: grid;
   justify-items: start;
-  gap: 18px;
+  gap: clamp(24px, 2.8vw, 34px);
 }
 
 .home-ingredient-list {
@@ -6203,6 +6209,23 @@ main:focus {
   display: grid;
   gap: 8px;
   padding: clamp(16px, 2vw, 22px);
+  color: inherit;
+  text-decoration: none;
+  transition:
+    border-color var(--motion-fast) ease,
+    background-color var(--motion-fast) ease,
+    transform var(--motion-fast) ease;
+}
+
+.home-ingredient-card:hover {
+  border-color: color-mix(in srgb, var(--accent) 46%, var(--line));
+  background: color-mix(in srgb, var(--surface) 84%, var(--surface-muted));
+  transform: translateY(-2px);
+}
+
+.home-ingredient-card:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 4px;
 }
 
 .home-ingredient-card h3 {
@@ -6211,21 +6234,91 @@ main:focus {
 }
 
 .home-section--final {
+  position: relative;
+  isolation: isolate;
   display: grid;
-  align-items: center;
-  min-height: clamp(320px, 42dvh, 440px);
-  padding-block: clamp(48px, 5vw, 72px);
+  place-items: center;
+  min-height: clamp(420px, 58dvh, 620px);
+  overflow: hidden;
+  padding: 0 var(--page-gutter);
+  background: var(--surface-muted);
+}
+
+.home-final-media,
+.home-final-media__poster,
+.home-final-media__video {
+  position: absolute;
+  inset: 0;
+}
+
+.home-final-media {
+  z-index: 0;
+  overflow: hidden;
+}
+
+.home-final-media::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--surface) 92%, transparent) 0%,
+      color-mix(in srgb, var(--surface) 78%, transparent) 46%,
+      color-mix(in srgb, var(--surface) 58%, transparent) 100%
+    ),
+    linear-gradient(
+      0deg,
+      color-mix(in srgb, var(--surface) 18%, transparent) 0%,
+      transparent 34%,
+      color-mix(in srgb, var(--surface) 14%, transparent) 100%
+    );
+}
+
+.home-final-media__poster,
+.home-final-media__video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 48% center;
+}
+
+.home-final-media__poster {
+  opacity: 1;
+  transform: scale(1.005);
+}
+
+.home-final-media__video {
+  opacity: 0;
+  transition: opacity 520ms var(--ease-out);
+}
+
+.home-final-media[data-video-ready="true"] .home-final-media__video {
+  opacity: 1;
 }
 
 .home-final {
+  position: relative;
+  z-index: 1;
   max-width: 760px;
   margin-inline: auto;
+  padding-block: clamp(58px, 8vw, 96px);
   text-align: center;
   justify-items: center;
+  gap: clamp(12px, 1.6vw, 18px);
 }
 
 .home-final p:not(.hero__eyebrow) {
   margin-inline: auto;
+}
+
+.home-final .hero__actions {
+  justify-content: center;
+  margin-top: clamp(2px, 0.8vw, 8px);
+}
+
+.ingredient-card[id] {
+  scroll-margin-top: 120px;
 }
 
 @media (max-width: 1080px) {
@@ -6271,9 +6364,9 @@ main:focus {
 
   .home-why-list {
     height: auto;
-    min-height: clamp(142px, 20svh, 190px);
+    min-height: 0;
     max-height: none;
-    gap: 30px;
+    gap: clamp(24px, 7vw, 32px);
   }
 
   .home-why-visual {
@@ -6378,6 +6471,31 @@ main:focus {
 
   .home-plug-panel__body {
     max-width: min(100%, 31ch);
+  }
+
+  .home-section--final {
+    min-height: clamp(420px, 62dvh, 560px);
+  }
+
+  .home-final-media::after {
+    background:
+      linear-gradient(
+        0deg,
+        color-mix(in srgb, var(--surface) 78%, transparent) 0%,
+        color-mix(in srgb, var(--surface) 68%, transparent) 54%,
+        color-mix(in srgb, var(--surface) 62%, transparent) 100%
+      );
+  }
+
+  .home-final-media__poster,
+  .home-final-media__video {
+    object-position: 43% center;
+  }
+
+  .home-final .hero__actions {
+    display: grid;
+    justify-items: center;
+    width: min(100%, 280px);
   }
 }
 

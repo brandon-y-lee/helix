@@ -12,6 +12,7 @@ import {
   activeProductSlugsForSteps,
   deriveMethodRoutineSteps,
   formulaFocus,
+  ingredientAnchorId,
   isAvailableProduct,
   normalizeRoutineStepCount,
   productSectionId,
@@ -404,53 +405,62 @@ function IngredientLiteracy({
         </div>
       </div>
       <div className="ingredient-index">
-        {cards.map((card) => (
-          <article key={card.id} className="ingredient-card">
-            <p>{card.ingredientClass}</p>
-            <h3>{card.name}</h3>
-            <dl className="ingredient-card__fields">
-              <div>
-                <dt>INCI / IDENTITY</dt>
-                <dd>{card.identity}</dd>
-              </div>
-              <div>
-                <dt>MECHANISM</dt>
-                <dd>{card.mechanism}</dd>
-              </div>
-              <div>
-                <dt>SKIN RELEVANCE</dt>
-                <dd>{card.skinRelevance}</dd>
-              </div>
-              {card.formulationNote && (
+        {cards.map((card) => {
+          const anchorId = ingredientAnchorId(card.id);
+
+          return (
+            <article
+              key={card.id}
+              id={anchorId}
+              className="ingredient-card"
+              aria-labelledby={`${anchorId}-heading`}
+            >
+              <p>{card.ingredientClass}</p>
+              <h3 id={`${anchorId}-heading`}>{card.name}</h3>
+              <dl className="ingredient-card__fields">
                 <div>
-                  <dt>FORMULATION NOTE</dt>
-                  <dd>{card.formulationNote}</dd>
+                  <dt>INCI / IDENTITY</dt>
+                  <dd>{card.identity}</dd>
                 </div>
-              )}
-            </dl>
-            <div className="ingredient-card__found">
-              <strong>FOUND IN</strong>
-              <ul aria-label={`${card.name} products`}>
-                {card.products.map((product) => {
-                  const isActive = activeProductSlugs.has(product.slug);
-                  return (
-                    <li key={`${card.id}-${product.slug}`}>
-                      <Link
-                        href={`/products/${product.slug}`}
-                        data-routine-active={isActive ? "true" : "false"}
-                        aria-label={`${product.displayName}, ${
-                          isActive ? "included" : "not included"
-                        } in the current ${selectedCount}-step system. Opens product details.`}
-                      >
-                        {product.displayName}
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          </article>
-        ))}
+                <div>
+                  <dt>MECHANISM</dt>
+                  <dd>{card.mechanism}</dd>
+                </div>
+                <div>
+                  <dt>SKIN RELEVANCE</dt>
+                  <dd>{card.skinRelevance}</dd>
+                </div>
+                {card.formulationNote && (
+                  <div>
+                    <dt>FORMULATION NOTE</dt>
+                    <dd>{card.formulationNote}</dd>
+                  </div>
+                )}
+              </dl>
+              <div className="ingredient-card__found">
+                <strong>FOUND IN</strong>
+                <ul aria-label={`${card.name} products`}>
+                  {card.products.map((product) => {
+                    const isActive = activeProductSlugs.has(product.slug);
+                    return (
+                      <li key={`${card.id}-${product.slug}`}>
+                        <Link
+                          href={`/products/${product.slug}`}
+                          data-routine-active={isActive ? "true" : "false"}
+                          aria-label={`${product.displayName}, ${
+                            isActive ? "included" : "not included"
+                          } in the current ${selectedCount}-step system. Opens product details.`}
+                        >
+                          {product.displayName}
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            </article>
+          );
+        })}
       </div>
     </section>
   );

@@ -101,7 +101,13 @@ test("global footer renders across public routes without unsupported links", asy
   for (const route of footerPages) {
     await page.goto(route);
     await expect(page.locator(".site-footer")).toBeVisible();
-    await expect(page.locator(".site-footer").getByRole("heading", { name: "MEI PELLE" })).toBeVisible();
+    await expect(
+      page.locator(".site-footer").getByRole("heading", {
+        name: "Stay in the System",
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(page.locator(".site-footer__brand")).not.toContainText("Seoul / Los Angeles");
     await expect(page.locator(".site-footer")).toContainText("EMAIL UPDATES ARE NOT OPEN");
     await expect(page.locator(".site-footer a[href='/privacy']")).not.toHaveCount(0);
     await expect(page.locator(".site-footer a[href='/terms']")).not.toHaveCount(0);

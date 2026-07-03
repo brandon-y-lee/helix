@@ -257,6 +257,10 @@ export type IngredientIndexCard = {
   }>;
 };
 
+export function ingredientAnchorId(cardId: string) {
+  return `system-ingredient-${cardId}`;
+}
+
 export function normalizeRoutineStepCount(value: number | string): RoutineStepCount {
   const numericValue = typeof value === "string" ? Number(value) : value;
   const roundedValue = Number.isFinite(numericValue) ? Math.round(numericValue) : 7;

@@ -12,6 +12,36 @@ import type { Product } from "@/lib/products";
 
 const mockedGetProducts = getCachedProducts as unknown as Mock;
 
+const ingredientsBySlug: Record<string, string[]> = {
+  "cleanse-01-calming-gel-cleanser": ["6-Type Cica Complex", "Centella-derived support"],
+  "refine-02-pore-treatment-pads": ["Panthenol", "Sodium hyaluronate", "LHA"],
+  "treat-03-pdrn-5-ampoule": [
+    "Sodium DNA (50,000 ppm)",
+    "Niacinamide",
+    "Copper Tripeptide-1",
+    "Hexapeptide-9",
+    "Glycerin",
+  ],
+  "frame-04-pdrn-eye-cream": [
+    "Sodium DNA",
+    "Niacinamide",
+    "Panthenol",
+    "Acetyl Tetrapeptide-5",
+  ],
+  "seal-05-green-collagen-cream": [
+    "Green collagen complex",
+    "Sodium hyaluronate",
+    "Panthenol",
+    "Niacinamide",
+  ],
+  "lift-06-pdrn-mask-system": [
+    "Sodium DNA (5,000 ppm)",
+    "Niacinamide",
+    "7-Molecular Weight Collagen",
+    "Glycerin",
+  ],
+};
+
 function makeProduct(
   slug: string,
   displayName: string,
@@ -71,8 +101,8 @@ function makeProduct(
     madeFor: "All skin types",
     goodFor: "Routine",
     texture: "Light",
-    keyIngredients: ["Niacinamide", "Glycerin", "Panthenol"],
-    ingredients: "Niacinamide, Glycerin, Panthenol",
+    keyIngredients: ingredientsBySlug[slug] ?? ["Niacinamide", "Glycerin", "Panthenol"],
+    ingredients: (ingredientsBySlug[slug] ?? ["Niacinamide", "Glycerin", "Panthenol"]).join(", "),
     productDetails: {},
     cautions: [],
     finish: null,
@@ -126,7 +156,7 @@ describe("homepage Core Three positioning", () => {
     expect(
       screen.getByRole("heading", {
         level: 1,
-        name: /^(It all starts|Better skin starts) with three steps\.$/,
+        name: "Prestige skin starts with three steps.",
       }),
     ).toBeInTheDocument();
     expect(screen.getByText("Cleanse. Treat. Seal.")).toBeInTheDocument();
@@ -194,12 +224,12 @@ describe("homepage Core Three positioning", () => {
     ).toBeInTheDocument();
     expect(
       within(plug).getByText(
-        /The Core is designed to work as a full routine, but it does not need to replace yours\./,
+        /The Core is designed to work as a full routine\./,
       ),
     ).toBeInTheDocument();
     expect(
       within(plug).getByText(
-        /Upgrade the layer your current routine is missing or underperforming in\./,
+        /Or simply upgrade the layer your current routine is missing or underperforming in\./,
       ),
     ).toBeInTheDocument();
     expect(
@@ -230,18 +260,9 @@ describe("homepage Core Three positioning", () => {
       screen.getByText("For skin that is clearer, more hydrated, and less tired."),
     ).toBeInTheDocument();
 
-    const beyond = sectionForHeading(
-      /^(Add only (what solves a real problem|what you need)\.|Add what you need\.|For when the core is stable\.)$/i,
-    );
+    const beyond = sectionForHeading("Beyond The Core");
     expect(
-      within(beyond).getByText(
-        new RegExp(
-          "^(Once the core is stable, add only what solves a real problem\\.|" +
-            "For when the core is stable\\.|" +
-            "Add only what you need\\.|" +
-            "For when your skin is stable\\.)$",
-        ),
-      ),
+      within(beyond).getByText("For when your skin has a high baseline. Add what you need."),
     ).toBeInTheDocument();
     expect(within(beyond).getByText("REFINE — texture / controlled refinement"))
       .toBeInTheDocument();
@@ -258,6 +279,40 @@ describe("homepage Core Three positioning", () => {
     expect(within(protect).queryByRole("button")).not.toBeInTheDocument();
     expect(within(protect).queryByText(/\$\d/)).not.toBeInTheDocument();
     expect(protect.getAttribute("href")).not.toContain("/products/");
+
+    const ingredients = sectionForHeading("Know what you are using.");
+    const ingredientLinks = [
+      ["Read about PDRN in the System", "/system#system-ingredient-pdrn"],
+      ["Read about Peptides in the System", "/system#system-ingredient-peptides"],
+      ["Read about Niacinamide in the System", "/system#system-ingredient-niacinamide"],
+    ] as const;
+
+    for (const [name, href] of ingredientLinks) {
+      const link = within(ingredients).getByRole("link", { name });
+      expect(link).toHaveClass("home-ingredient-card");
+      expect(link).toHaveAttribute("href", href);
+      expect(link.getAttribute("href")).not.toContain("/method");
+    }
+
+    const final = sectionForHeading("Invest in your skin's future.");
+    expect(
+      within(final).getByText("Three steps, one order, repeatable morning or night."),
+    ).toBeInTheDocument();
+    expect(within(final).getByRole("link", { name: "SHOP THE CORE" })).toHaveAttribute(
+      "href",
+      "#core-three",
+    );
+    expect(within(final).getByRole("link", { name: "SEE THE SYSTEM" })).toHaveAttribute(
+      "href",
+      "/system",
+    );
+    expect(final.querySelector(".home-final-media__poster")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(final.querySelector(".home-final-media__video source")).toHaveAttribute(
+        "src",
+        "/media/home/final-cta-loop.mp4",
+      ),
+    );
 
     expect(
       screen.queryByText(/Mei-Pelle|MEI-PELLE/),

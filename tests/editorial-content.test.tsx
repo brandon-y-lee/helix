@@ -20,6 +20,7 @@ import {
   deriveMethodRoutineSteps,
   formulaFocus,
   getMethodProductState,
+  ingredientAnchorId,
   methodProductNumber,
   routineTimingEntriesForGroup,
   selectedMethodStepIds,
@@ -528,6 +529,15 @@ describe("System content architecture", () => {
         '.ingredient-card__found a[href="/products/treat-03-pdrn-5-ampoule"]',
       ),
     ).not.toBeNull();
+    for (const id of ["pdrn", "peptides", "niacinamide"]) {
+      const anchor = document.getElementById(ingredientAnchorId(id));
+      expect(anchor).not.toBeNull();
+      expect(anchor).toHaveClass("ingredient-card");
+      expect(anchor).toHaveAttribute(
+        "aria-labelledby",
+        `${ingredientAnchorId(id)}-heading`,
+      );
+    }
     expect(document.body.textContent).not.toMatch(/DNA repair|tissue regeneration|wound healing/i);
     expect(document.body.textContent).not.toMatch(/guaranteed collagen production/i);
   });
