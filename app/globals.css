@@ -5794,8 +5794,6 @@ main:focus {
   min-height: 112svh;
   min-height: 112dvh;
   padding-block: 0;
-  border-top: 1px solid color-mix(in srgb, var(--line) 72%, transparent);
-  border-bottom: 1px solid color-mix(in srgb, var(--line) 56%, transparent);
   background: var(--bg);
 }
 
@@ -5893,15 +5891,18 @@ main:focus {
 
 .home-why-principles {
   --home-why-panel-block: clamp(56px, 7vw, 112px);
+  --home-why-title-block: clamp(24px, 3.2vw, 52px);
   --home-why-panel-inline: max(
     var(--page-gutter),
     calc(((100vw - var(--maxw)) / 2) + var(--page-gutter))
   );
   position: relative;
   display: grid;
-  align-items: center;
+  grid-template-rows: auto minmax(0, 1fr);
+  align-content: stretch;
+  gap: clamp(42px, 4vw, 62px);
   background: var(--bg);
-  padding: var(--home-why-panel-block) var(--home-why-panel-inline);
+  padding: var(--home-why-title-block) var(--home-why-panel-inline) var(--home-why-panel-block);
 }
 
 .home-why-title {
@@ -5923,12 +5924,10 @@ main:focus {
 }
 
 .home-why-principles > .home-plug-panel__title {
-  position: absolute;
-  top: clamp(24px, 3.2vw, 52px);
-  left: var(--home-why-panel-inline);
+  position: relative;
   z-index: 1;
   display: block;
-  max-width: calc(100% - var(--home-why-panel-inline));
+  max-width: 100%;
   margin: 0;
   text-align: left;
   white-space: normal;
@@ -5937,11 +5936,11 @@ main:focus {
 .home-why-list {
   position: relative;
   z-index: 0;
+  align-self: stretch;
   width: min(100%, 38ch);
-  height: 56vh;
-  height: 56dvh;
-  min-height: 280px;
-  max-height: 620px;
+  height: auto;
+  min-height: 0;
+  max-height: none;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -5951,11 +5950,11 @@ main:focus {
 }
 
 .home-why-list li {
-  color: var(--ink);
-  font-size: clamp(0.78rem, 0.9vw, 0.88rem);
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  line-height: 1.58;
+  color: var(--ink-soft);
+  font-size: clamp(0.98rem, 1.12vw, 1.08rem);
+  font-weight: 400;
+  letter-spacing: normal;
+  line-height: 1.62;
 }
 
 .home-why-visual {
@@ -6342,8 +6341,9 @@ main:focus {
   }
 
   .home-why-list li {
-    font-size: 0.78rem;
-    letter-spacing: 0.1em;
+    font-size: clamp(0.98rem, 1.12vw, 1.08rem);
+    letter-spacing: normal;
+    line-height: 1.62;
   }
 
   .home-addon-card {

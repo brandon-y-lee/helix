@@ -230,10 +230,12 @@ describe("homepage Core Three positioning", () => {
       screen.getByText("For skin that is clearer, more hydrated, and less tired."),
     ).toBeInTheDocument();
 
-    const beyond = sectionForHeading(/Add only (what solves a real problem|what you need)\./i);
+    const beyond = sectionForHeading(
+      /^(Add only (what solves a real problem|what you need)\.|Add what you need\.|For when the core is stable\.)$/i,
+    );
     expect(
       within(beyond).getByText(
-        /^(Once the core is stable, add only what solves a real problem\.|For when the core is stable\.)$/,
+        /^(Once the core is stable, add only what solves a real problem\.|For when the core is stable\.|Add only what you need\.)$/,
       ),
     ).toBeInTheDocument();
     expect(within(beyond).getByText("REFINE — texture / controlled refinement"))
