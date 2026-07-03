@@ -257,7 +257,6 @@ export default async function HomePage() {
       <section className="home-band home-section" aria-labelledby="ingredients-heading">
         <div className="container home-split home-split--ingredients">
           <div>
-            <p className="hero__eyebrow">Ingredient Literacy</p>
             <h2 id="ingredients-heading">Know what each step is doing.</h2>
             <p>
               Ingredient language should be useful, not inflated. The System index
@@ -285,7 +284,6 @@ export default async function HomePage() {
 
       <section className="container home-section home-section--final" aria-labelledby="final-heading">
         <div className="home-final">
-          <p className="hero__eyebrow">Start Here</p>
           <h2 id="final-heading">Make the baseline automatic.</h2>
           <p>
             Three steps, one order, repeatable morning or night. Build from there only

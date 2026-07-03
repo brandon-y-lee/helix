@@ -5812,8 +5812,11 @@ main:focus {
 .home-section__intro h2,
 .home-final h2,
 .home-split h2 {
-  font-size: clamp(2.05rem, 5vw, 5.2rem);
-  line-height: 0.94;
+  color: var(--ink);
+  font-size: clamp(3.6rem, 6.4vw, 7.5rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 0.82;
   text-wrap: balance;
 }
 
@@ -5822,7 +5825,7 @@ main:focus {
 .home-final p {
   max-width: 62ch;
   color: var(--ink-soft);
-  font-size: clamp(1rem, 1.35vw, 1.14rem);
+  font-size: clamp(0.98rem, 1.12vw, 1.08rem);
   line-height: 1.62;
 }
 
@@ -5940,7 +5943,7 @@ main:focus {
   width: min(100%, 38ch);
   height: auto;
   min-height: 0;
-  max-height: none;
+  max-height: clamp(540px, 66dvh, 600px);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -6095,6 +6098,7 @@ main:focus {
   row-gap: clamp(0.18rem, 0.38vw, 0.44rem);
   color: var(--ink);
   font-size: clamp(3.6rem, 6.4vw, 7.5rem);
+  font-weight: 500;
   line-height: 0.82;
 }
 
@@ -6207,7 +6211,10 @@ main:focus {
 }
 
 .home-section--final {
-  padding-bottom: clamp(88px, 10vw, 150px);
+  display: grid;
+  align-items: center;
+  min-height: clamp(320px, 42dvh, 440px);
+  padding-block: clamp(48px, 5vw, 72px);
 }
 
 .home-final {
@@ -6264,7 +6271,7 @@ main:focus {
 
   .home-why-list {
     height: auto;
-    min-height: clamp(150px, 22svh, 220px);
+    min-height: clamp(142px, 20svh, 190px);
     max-height: none;
     gap: 30px;
   }
@@ -6329,6 +6336,13 @@ main:focus {
 
   .home-section__intro {
     margin-bottom: 28px;
+  }
+
+  .home-section__intro h2,
+  .home-final h2,
+  .home-split h2 {
+    font-size: clamp(3.2rem, 17vw, 4.9rem);
+    line-height: 0.82;
   }
 
   .home-addon-grid,

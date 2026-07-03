@@ -235,7 +235,12 @@ describe("homepage Core Three positioning", () => {
     );
     expect(
       within(beyond).getByText(
-        /^(Once the core is stable, add only what solves a real problem\.|For when the core is stable\.|Add only what you need\.)$/,
+        new RegExp(
+          "^(Once the core is stable, add only what solves a real problem\\.|" +
+            "For when the core is stable\\.|" +
+            "Add only what you need\\.|" +
+            "For when your skin is stable\\.)$",
+        ),
       ),
     ).toBeInTheDocument();
     expect(within(beyond).getByText("REFINE — texture / controlled refinement"))
