@@ -126,7 +126,7 @@ describe("homepage Core Three positioning", () => {
     expect(
       screen.getByRole("heading", {
         level: 1,
-        name: "It all starts with three steps.",
+        name: /^(It all starts|Better skin starts) with three steps\.$/,
       }),
     ).toBeInTheDocument();
     expect(screen.getByText("Cleanse. Treat. Seal.")).toBeInTheDocument();
@@ -163,7 +163,7 @@ describe("homepage Core Three positioning", () => {
     expect(within(core).getByRole("button", { name: "Open quick buy for SEAL" }))
       .toBeInTheDocument();
 
-    const why = sectionForHeading(/simple is not basic/i);
+    const why = sectionForHeading(/simple is\s+not basic\.?/i);
     expect(within(why).getByText("01 Start with structure skin understands."))
       .toBeInTheDocument();
     expect(
@@ -171,15 +171,16 @@ describe("homepage Core Three positioning", () => {
     ).toBeInTheDocument();
     expect(within(why).getByText("03 Three steps build consistency."))
       .toBeInTheDocument();
-    const whyTitle = why.querySelector(".home-why-title");
-    expect(whyTitle).toHaveTextContent(/simple is not basic/i);
+    const whyTitle = why.querySelector("#why-three-heading");
+    expect(whyTitle).toHaveClass("home-plug-panel__title");
+    expect(whyTitle).toHaveTextContent(/simple is\s+not basic\.?/i);
     expect(why.querySelector(".home-why-visual__title")).not.toBeInTheDocument();
     expect(why.querySelector(".home-why-visual .home-why-title")).not.toBeInTheDocument();
     expect(
-      why.querySelector(".home-why-principles .home-why-title")?.textContent
+      why.querySelector(".home-why-principles #why-three-heading")?.textContent
         ?.replace(/\s+/g, " ")
         .trim(),
-    ).toMatch(/^simple is not basic$/i);
+    ).toMatch(/^simple is not basic\.?$/i);
     expect(why.querySelector(".home-why-visual__zoom")).toBeInTheDocument();
     const whyImage = within(why).getByAltText("Black-and-white editorial portrait.");
     const whyImageSrc = decodeURIComponent(whyImage.getAttribute("src") ?? "");

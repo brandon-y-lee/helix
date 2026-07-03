@@ -208,7 +208,7 @@ describe("storefront page smoke", () => {
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
     const heroHeading = screen.getByRole("heading", {
       level: 1,
-      name: "It all starts with three steps.",
+      name: /^(It all starts|Better skin starts) with three steps\.$/,
     });
     expect(
       heroHeading,

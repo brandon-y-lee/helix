@@ -203,7 +203,7 @@ export default async function HomePage() {
 
       <section className="home-section home-section--why" aria-labelledby="why-three-heading">
         <div className="home-why-principles">
-          <h2 id="why-three-heading" className="home-why-title">SIMPLE IS NOT BASIC</h2>
+          <h2 id="why-three-heading" className="home-plug-panel__title">Simple is <br />not basic.</h2>
           <ol className="home-why-list" aria-label="Why three works">
             {WHY_THREE_STATEMENTS.map((statement) => (
               <li key={statement}>{statement}</li>

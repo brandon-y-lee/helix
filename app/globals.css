@@ -5922,6 +5922,18 @@ main:focus {
   white-space: nowrap;
 }
 
+.home-why-principles > .home-plug-panel__title {
+  position: absolute;
+  top: clamp(24px, 3.2vw, 52px);
+  left: var(--home-why-panel-inline);
+  z-index: 1;
+  display: block;
+  max-width: calc(100% - var(--home-why-panel-inline));
+  margin: 0;
+  text-align: left;
+  white-space: normal;
+}
+
 .home-why-list {
   position: relative;
   z-index: 0;
@@ -6242,6 +6254,13 @@ main:focus {
     font-size: clamp(3.2rem, 15.5vw, 4.9rem);
     line-height: 0.84;
     white-space: normal;
+  }
+
+  .home-why-principles > .home-plug-panel__title {
+    position: static;
+    max-width: min(100%, 9.5ch);
+    font-size: clamp(3.2rem, 15.5vw, 4.9rem);
+    line-height: 0.84;
   }
 
   .home-why-list {

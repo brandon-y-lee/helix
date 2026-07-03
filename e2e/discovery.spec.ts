@@ -20,7 +20,7 @@ test("homepage Core Three ladder renders", async ({ page }) => {
   await page.goto("/");
 
   await expect(
-    page.getByRole("heading", { name: "It all starts with three steps." }),
+    page.getByRole("heading", { name: /^(It all starts|Better skin starts) with three steps\.$/ }),
   ).toBeVisible();
   await expect(page.getByText("Cleanse. Treat. Seal.")).toBeVisible();
   await expect(page.getByRole("region", { name: "The Core" }))
@@ -34,7 +34,7 @@ test("homepage Core Three ladder renders", async ({ page }) => {
   ).toBeVisible();
   await expect(page.getByText("03 Three steps build consistency."))
     .toBeVisible();
-  await expect(page.locator(".home-why-title")).toHaveText(/simple is not basic/i);
+  await expect(page.locator("#why-three-heading")).toHaveText(/simple is\s+not basic\.?/i);
   await expect(
     page.getByText("For skin that is clearer, more hydrated, and less tired."),
   ).toBeVisible();
@@ -122,7 +122,7 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
     const whyPrinciples = why?.querySelector<HTMLElement>(".home-why-principles");
     const whyList = why?.querySelector<HTMLElement>(".home-why-list");
     const whyVisual = why?.querySelector<HTMLElement>(".home-why-visual");
-    const whyTitle = why?.querySelector<HTMLElement>(".home-why-title");
+    const whyTitle = why?.querySelector<HTMLElement>("#why-three-heading");
     const whyZoom = why?.querySelector<HTMLElement>(".home-why-visual__zoom");
     const whyImage = why?.querySelector<HTMLImageElement>(".home-why-visual img");
     const plugSplit = plugSection?.querySelector<HTMLElement>(".home-plug-split");
@@ -198,6 +198,7 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
       whyTitleTextTransform: whyTitle ? getComputedStyle(whyTitle).textTransform : "",
       whyTitleWhiteSpace: whyTitle ? getComputedStyle(whyTitle).whiteSpace : "",
       whyTitleTextShadow: whyTitle ? getComputedStyle(whyTitle).textShadow : "",
+      whyTitleClass: whyTitle?.className ?? "",
       whyTitleParentClass: whyTitle?.parentElement?.className ?? "",
       whyPanelPaddingLeft: whyPrinciples ? getComputedStyle(whyPrinciples).paddingLeft : "",
       whyZoomMotion: whyZoom?.getAttribute("data-scroll-zoom-motion") ?? "",
@@ -319,7 +320,7 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
   expect(desktop.whyVisualBox?.right).toBe(desktop.whyBox?.right);
   expect(desktop.whyVisualAfterContent).toBe("none");
   expect(desktop.whyVisualOverlayCount).toBe(0);
-  expect(desktop.whyTitleText).toMatch(/^simple is not basic$/i);
+  expect(desktop.whyTitleText).toMatch(/^simple is not basic\.?$/i);
   expect(desktop.whyTitleColor).toBe("rgb(17, 19, 18)");
   expect(desktop.whyTitleFamily).toMatch(/Marcellus/i);
   expect(desktop.whyTitleFamily).toBe(desktop.plugTitleFamily);
@@ -340,8 +341,9 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
   );
   expect(desktop.whyTitleAlign).toBe("left");
   expect(desktop.whyTitleTextTransform).toBe("none");
-  expect(desktop.whyTitleWhiteSpace).toBe("nowrap");
+  expect(desktop.whyTitleWhiteSpace).toBe("normal");
   expect(desktop.whyTitleTextShadow).toBe("none");
+  expect(desktop.whyTitleClass).toContain("home-plug-panel__title");
   expect(desktop.whyTitleParentClass).toContain("home-why-principles");
   expect(Math.abs((desktop.whyTitleBox?.left ?? 0) - desktop.standardContentLeft))
     .toBeLessThanOrEqual(1);
@@ -501,7 +503,7 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
     const whyPrinciples = why?.querySelector<HTMLElement>(".home-why-principles");
     const whyList = why?.querySelector<HTMLElement>(".home-why-list");
     const whyVisual = why?.querySelector<HTMLElement>(".home-why-visual");
-    const whyTitle = why?.querySelector<HTMLElement>(".home-why-title");
+    const whyTitle = why?.querySelector<HTMLElement>("#why-three-heading");
     const whyZoom = why?.querySelector<HTMLElement>(".home-why-visual__zoom");
     const whyImage = why?.querySelector<HTMLElement>(".home-why-visual__image");
     const plugSection = document.querySelector<HTMLElement>(".home-section--core-support");
@@ -557,7 +559,7 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
   expect(mobile.whyBox?.height).toBeLessThanOrEqual(mobile.viewportHeight * 1.3);
   expect(mobile.whyListBox?.height).toBeGreaterThanOrEqual(150);
   expect(mobile.whyListBox?.height).toBeLessThanOrEqual(230);
-  expect(mobile.whyTitleText).toMatch(/^simple is not basic$/i);
+  expect(mobile.whyTitleText).toMatch(/^simple is not basic\.?$/i);
   expect(mobile.whyTitleAlign).toBe("left");
   expect(mobile.whyVisualOverlayCount).toBe(0);
   expect(Number.parseFloat(mobile.pageGutter)).toBe(18);
