@@ -122,23 +122,25 @@ export function HomeCoreProgress({
                 data-state={checkpointState(activeStep, checkpoint.step)}
                 aria-current={activeStep === checkpoint.step ? "step" : undefined}
               >
-                <span className="home-core-progress__node">{checkpoint.label}</span>
+                <span
+                  className="home-core-progress__node"
+                  data-align={checkpoint.align}
+                  data-mini-card={activeStep === checkpoint.step ? "active" : "idle"}
+                >
+                  <span className="home-core-progress__step-number">
+                    {checkpoint.label}
+                  </span>
+                  <span
+                    className="home-core-progress__mini-description"
+                    data-state={activeStep === checkpoint.step ? "active" : "idle"}
+                    aria-hidden={activeStep !== checkpoint.step}
+                  >
+                    {checkpoint.description}
+                  </span>
+                </span>
               </li>
             ))}
           </ol>
-          <div className="home-core-progress__descriptions" aria-live="polite">
-            {CORE_CHECKPOINTS.map((checkpoint) => (
-              <span
-                key={checkpoint.step}
-                className="home-core-progress__description"
-                data-align={checkpoint.align}
-                data-state={activeStep === checkpoint.step ? "active" : "idle"}
-                aria-hidden={activeStep !== checkpoint.step}
-              >
-                {checkpoint.description}
-              </span>
-            ))}
-          </div>
         </div>
       </div>
 

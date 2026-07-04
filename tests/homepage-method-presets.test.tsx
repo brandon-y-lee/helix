@@ -180,13 +180,16 @@ describe("homepage Core Three positioning", () => {
       ),
     ).not.toBeInTheDocument();
     expect(
-      Array.from(core.querySelectorAll(".home-core-progress__node")).map((node) =>
+      Array.from(core.querySelectorAll(".home-core-progress__step-number")).map((node) =>
         node.textContent?.trim(),
       ),
     ).toEqual(["01", "02", "03"]);
     expect(core.querySelector(".home-core-progress-shell")).toHaveAttribute(
       "data-core-active",
       "0",
+    );
+    expect(within(core).getByText("cleanse the surface")).toHaveClass(
+      "home-core-progress__mini-description",
     );
     expect(within(core).getByText("cleanse the surface")).toHaveAttribute(
       "aria-hidden",
@@ -376,6 +379,9 @@ describe("homepage Core Three positioning", () => {
 
     fireEvent.pointerEnter(cleanseCard as Element, { pointerType: "mouse" });
     await waitFor(() => expect(shell).toHaveAttribute("data-core-active", "1"));
+    expect(within(core).getByText("cleanse the surface")).toHaveClass(
+      "home-core-progress__mini-description",
+    );
     expect(within(core).getByText("cleanse the surface")).toHaveAttribute(
       "aria-hidden",
       "false",

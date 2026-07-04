@@ -216,7 +216,10 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
       core?.querySelectorAll<HTMLElement>(".home-core-progress__node-item") ?? [],
     );
     const coreDescriptions = Array.from(
-      core?.querySelectorAll<HTMLElement>(".home-core-progress__description") ?? [],
+      core?.querySelectorAll<HTMLElement>(".home-core-progress__mini-description") ?? [],
+    );
+    const coreStepNumbers = Array.from(
+      core?.querySelectorAll<HTMLElement>(".home-core-progress__step-number") ?? [],
     );
     const whyPrinciples = why?.querySelector<HTMLElement>(".home-why-principles");
     const whyList = why?.querySelector<HTMLElement>(".home-why-list");
@@ -306,6 +309,7 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
       coreProgressBox: box(coreProgress),
       coreProgressText: clean(coreProgress?.textContent),
       coreRailBackground: coreRailStyle?.backgroundColor ?? "",
+      coreRailImage: coreRailStyle?.backgroundImage ?? "",
       coreRailBox: box(coreRail),
       coreRailHeight: Number.parseFloat(coreRailStyle?.height ?? "0"),
       coreRailWidth: Number.parseFloat(coreRailStyle?.width ?? "0"),
@@ -313,7 +317,7 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
         coreCards[0] ? Math.round(coreCards[0].getBoundingClientRect().left + coreCards[0].getBoundingClientRect().width / 2) : 0,
       coreThirdCardCenter:
         coreCards[2] ? Math.round(coreCards[2].getBoundingClientRect().left + coreCards[2].getBoundingClientRect().width / 2) : 0,
-      coreNodeLabels: coreNodes.map((node) => clean(node.textContent)),
+      coreNodeLabels: coreStepNumbers.map((node) => clean(node.textContent)),
       coreNodeStates: coreNodes.map((node) => node.getAttribute("data-state")),
       coreDescriptions: coreDescriptions.map((node) => ({
         ariaHidden: node.getAttribute("aria-hidden"),
@@ -513,11 +517,12 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
   expect(desktop.oldCoreDescriptionCount).toBe(0);
   expect(desktop.coreProgressActive).toBe("0");
   expect(desktop.coreProgressText).toBe(
-    "010203cleanse the surfaceapply the treatment layerfinish with moisture and barrier support",
+    "01cleanse the surface02apply the treatment layer03finish with moisture and barrier support",
   );
   expect(desktop.coreProgressBox?.width).toBeGreaterThan(920);
   expect(desktop.coreRailHeight).toBeLessThanOrEqual(2);
   expect(desktop.coreRailWidth).toBeGreaterThan(560);
+  expect(desktop.coreRailImage).toContain("repeating-linear-gradient");
   expect(desktop.coreNodeLabels).toEqual(["01", "02", "03"]);
   expect(desktop.coreNodeStates).toEqual(["idle", "idle", "idle"]);
   expect(desktop.coreDescriptions).toEqual([
@@ -531,13 +536,13 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
       ariaHidden: "true",
       state: "idle",
       text: "apply the treatment layer",
-      textAlign: "center",
+      textAlign: "left",
     },
     {
       ariaHidden: "true",
       state: "idle",
       text: "finish with moisture and barrier support",
-      textAlign: "right",
+      textAlign: "left",
     },
   ]);
   expect(Math.abs((desktop.coreRailBox?.left ?? 0) - desktop.coreFirstCardCenter))
@@ -862,7 +867,7 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
       bodyBackground: getComputedStyle(document.body).backgroundColor,
       coreCardBoxes: coreCards.map(box),
       coreNodeLabels: Array.from(
-        core?.querySelectorAll<HTMLElement>(".home-core-progress__node") ?? [],
+        core?.querySelectorAll<HTMLElement>(".home-core-progress__step-number") ?? [],
       ).map((node) => node.textContent?.replace(/\s+/g, " ").trim() ?? ""),
       coreProductGridColumns: coreProducts ? getComputedStyle(coreProducts).gridTemplateColumns : "",
       coreProgressBox: box(coreProgress),
@@ -931,7 +936,7 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
   });
 
   expect(mobile.coreNodeLabels).toEqual(["01", "02", "03"]);
-  expect(mobile.coreProgressColumns.split(" ")).toHaveLength(2);
+  expect(mobile.coreProgressColumns.split(" ")).toHaveLength(1);
   expect(mobile.coreRailHeight).toBeGreaterThan(90);
   expect(mobile.coreRailWidth).toBeLessThanOrEqual(2);
   expect(mobile.coreProductGridColumns.split(" ")).toHaveLength(1);
@@ -1034,6 +1039,7 @@ test("Core checkpoint progress responds to product hover, focus, and touch inten
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
+  await page.emulateMedia({ reducedMotion: "no-preference" });
   await page.goto("/");
 
   const core = page.getByRole("region", { name: "The Core" });
@@ -1049,6 +1055,73 @@ test("Core checkpoint progress responds to product hover, focus, and touch inten
   await cleanseCard.hover();
   await expect(shell).toHaveAttribute("data-core-active", "1");
   await expect(core.getByText("cleanse the surface")).toBeVisible();
+  await expect(
+    core.locator('.home-core-progress__node-item[data-state="active"] .home-core-progress__node'),
+  ).toHaveAttribute("data-mini-card", "active");
+
+  const activeCleanse = await page.evaluate(() => {
+    const coreSection = document.querySelector<HTMLElement>("#core-three");
+    const rail = coreSection?.querySelector<HTMLElement>(".home-core-progress__rail");
+    const fill = coreSection?.querySelector<HTMLElement>(".home-core-progress__rail-fill");
+    const card = coreSection?.querySelector<HTMLElement>(
+      '.home-core-progress__node-item[data-state="active"] .home-core-progress__node',
+    );
+    const step = card?.querySelector<HTMLElement>(".home-core-progress__step-number");
+    const description = card?.querySelector<HTMLElement>(
+      ".home-core-progress__mini-description",
+    );
+    const box = (element: HTMLElement | null | undefined) => {
+      const rect = element?.getBoundingClientRect();
+      if (!rect) return null;
+      return {
+        centerY: rect.top + rect.height / 2,
+        height: rect.height,
+        left: rect.left,
+        top: rect.top,
+        width: rect.width,
+      };
+    };
+    const cardStyle = card ? getComputedStyle(card) : null;
+    const stepStyle = step ? getComputedStyle(step) : null;
+    const railStyle = rail ? getComputedStyle(rail) : null;
+    const fillStyle = fill ? getComputedStyle(fill) : null;
+
+    return {
+      card: box(card),
+      cardBackground: cardStyle?.backgroundColor ?? "",
+      cardBorderColor: cardStyle?.borderColor ?? "",
+      cardRadius: cardStyle?.borderRadius ?? "",
+      cardShadow: cardStyle?.boxShadow ?? "",
+      descriptionAriaHidden: description?.getAttribute("aria-hidden") ?? "",
+      fillTransitionDuration: fillStyle?.transitionDuration ?? "",
+      fillTransitionProperty: fillStyle?.transitionProperty ?? "",
+      rail: box(rail),
+      railImage: railStyle?.backgroundImage ?? "",
+      step: box(step),
+      stepBackground: stepStyle?.backgroundColor ?? "",
+      stepColor: stepStyle?.color ?? "",
+    };
+  });
+
+  expect(activeCleanse.card?.width).toBeGreaterThan(160);
+  expect(activeCleanse.card?.height).toBeGreaterThan(58);
+  expect(activeCleanse.step?.left).toBeGreaterThanOrEqual(activeCleanse.card?.left ?? 0);
+  expect((activeCleanse.step?.top ?? 0) - (activeCleanse.card?.top ?? 0))
+    .toBeLessThanOrEqual(14);
+  expect(
+    Math.abs((activeCleanse.card?.centerY ?? 0) - (activeCleanse.rail?.centerY ?? 0)),
+  ).toBeLessThanOrEqual(2);
+  expect(activeCleanse.descriptionAriaHidden).toBe("false");
+  expect(activeCleanse.cardBackground).not.toBe("rgb(17, 19, 18)");
+  expect(activeCleanse.cardBorderColor).not.toBe("rgba(0, 0, 0, 0)");
+  expect(activeCleanse.cardRadius).not.toBe("999px");
+  expect(activeCleanse.cardShadow).not.toBe("none");
+  expect(activeCleanse.stepBackground).toContain("17, 19, 18");
+  expect(activeCleanse.stepColor).toContain("241");
+  expect(activeCleanse.stepColor).not.toBe(activeCleanse.stepBackground);
+  expect(activeCleanse.railImage).toContain("repeating-linear-gradient");
+  expect(activeCleanse.fillTransitionProperty).toContain("transform");
+  expect(activeCleanse.fillTransitionDuration).toContain("1.18s");
 
   await sealLink.focus();
   await expect(shell).toHaveAttribute("data-core-active", "3");
@@ -1061,6 +1134,22 @@ test("Core checkpoint progress responds to product hover, focus, and touch inten
   await treatCard.dispatchEvent("pointerdown", { pointerType: "touch" });
   await expect(shell).toHaveAttribute("data-core-active", "2");
   await expect(core.getByText("apply the treatment layer")).toBeVisible();
+
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await treatCard.dispatchEvent("pointerdown", { pointerType: "touch" });
+  const reducedMotionState = await page.evaluate(() => {
+    const coreSection = document.querySelector<HTMLElement>("#core-three");
+    const fill = coreSection?.querySelector<HTMLElement>(".home-core-progress__rail-fill");
+    const activeCard = coreSection?.querySelector<HTMLElement>(
+      '.home-core-progress__node-item[data-state="active"] .home-core-progress__node',
+    );
+    return {
+      activeCardTransform: activeCard ? getComputedStyle(activeCard).transform : "",
+      fillTransitionDuration: fill ? getComputedStyle(fill).transitionDuration : "",
+    };
+  });
+  expect(["0s", "0.001s"]).toContain(reducedMotionState.fillTransitionDuration);
+  expect(reducedMotionState.activeCardTransform).toBe("none");
 });
 
 test("Core Three product card navigates to a product detail page", async ({ page }) => {
