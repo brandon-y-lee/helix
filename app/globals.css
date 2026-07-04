@@ -6490,6 +6490,84 @@ main:focus {
 }
 
 @media (max-width: 900px) {
+  .home-core-products {
+    grid-template-columns: 1fr;
+  }
+
+  .home-core-progress__intro {
+    gap: 14px;
+    margin-bottom: 26px;
+  }
+
+  .home-core-progress {
+    --home-core-product-gap: 8px;
+    grid-template-columns: 34px minmax(0, 1fr);
+    column-gap: 14px;
+    row-gap: 0;
+    min-height: 156px;
+    padding-block: 0;
+  }
+
+  .home-core-progress__rail {
+    top: 17px;
+    bottom: 17px;
+    left: 16px;
+    right: auto;
+    width: 2px;
+    height: auto;
+  }
+
+  .home-core-progress__rail-fill {
+    transform: scaleY(var(--core-progress));
+    transform-origin: center top;
+  }
+
+  .home-core-progress__nodes,
+  .home-core-progress__descriptions {
+    grid-template-columns: 1fr;
+    grid-template-rows: repeat(3, 44px);
+    row-gap: 12px;
+  }
+
+  .home-core-progress__nodes {
+    grid-column: 1;
+  }
+
+  .home-core-progress__descriptions {
+    grid-column: 2;
+    min-height: 0;
+  }
+
+  .home-core-progress__node-item {
+    justify-content: flex-start;
+  }
+
+  .home-core-progress__description {
+    grid-column: 1;
+    align-self: center;
+    justify-self: start;
+    max-width: 28ch;
+    text-align: left;
+  }
+
+  .home-core-progress__description:nth-child(1) {
+    grid-row: 1;
+  }
+
+  .home-core-progress__description:nth-child(2) {
+    grid-row: 2;
+  }
+
+  .home-core-progress__description:nth-child(3) {
+    grid-row: 3;
+  }
+
+  .home-core-progress__description[data-align="center"],
+  .home-core-progress__description[data-align="end"] {
+    justify-self: start;
+    text-align: left;
+  }
+
   .home-section--why {
     grid-template-columns: 1fr;
     min-height: 104vh;
