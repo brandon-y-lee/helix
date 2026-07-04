@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { HomeFinalVideo } from "@/components/HomeFinalVideo";
+import { HomeCoreProgress } from "@/components/HomeCoreProgress";
 import { HomeHeroVideo } from "@/components/HomeHeroVideo";
 import { HomePlugVideo } from "@/components/HomePlugVideo";
 import { HomeWhyPortrait } from "@/components/HomeWhyPortrait";
-import { ProductGrid } from "@/components/ProductGrid";
 import { ProductImage } from "@/components/ProductImage";
 import { getCachedProducts } from "@/lib/catalog-cache";
 import {
@@ -80,9 +80,9 @@ const ADD_ONS: readonly AddOn[] = [
 ] as const;
 
 const WHY_THREE_STATEMENTS = [
-  "01 Start with structure skin understands.",
-  "02 Most routines fail because they ask for too much too soon.",
-  "03 Three steps build consistency.",
+  "01 Start with structure that skin understands: cleanse first, treat second, seal last.",
+  "02 Use high-performing, innovative ingredients at efficacious levels in your essential layers.",
+  "03 Most routines fail because they ask for too much too soon. Three steps build consistency.",
 ] as const;
 
 const INGREDIENT_LINK_LABELS: Record<string, string> = {
@@ -180,7 +180,7 @@ export default async function HomePage() {
           <div>
             <p className="home-video-hero__eyebrow">Mei Pelle</p>
             <h1 id="home-hero-heading" className="display-secondary home-video-hero__title">
-              Prestige skin starts with three steps.
+              Your skin starts with three steps.
             </h1>
             <p className="home-video-hero__display-line">Cleanse. Treat. Seal.</p>
             <div className="home-video-hero__actions">
@@ -200,18 +200,7 @@ export default async function HomePage() {
         className="container home-section home-section--core"
         aria-labelledby="core-three-heading"
       >
-        <div className="home-section__intro home-section__intro--core">
-          <p className="hero__eyebrow">The Core</p>
-          <h2 id="core-three-heading" className="sr-only">The Core</h2>
-          <p>
-            Simple by design: cleanse the surface, apply the treatment
-            layer, then finish with moisture and barrier support.
-          </p>
-        </div>
-
-        {coreProducts.length > 0 && (
-          <ProductGrid products={coreProducts} className="product-grid home-core-products" />
-        )}
+        <HomeCoreProgress products={coreProducts} headingId="core-three-heading" />
       </section>
 
       <section className="home-section home-section--why" aria-labelledby="why-three-heading">

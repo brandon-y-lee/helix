@@ -20,20 +20,28 @@ test("homepage Core Three ladder renders", async ({ page }) => {
   await page.goto("/");
 
   await expect(
-    page.getByRole("heading", { name: "Prestige skin starts with three steps." }),
+    page.getByRole("heading", { name: "Your skin starts with three steps." }),
   ).toBeVisible();
   await expect(page.getByText("Cleanse. Treat. Seal.")).toBeVisible();
   await expect(page.getByRole("region", { name: "The Core", exact: true }))
     .toBeVisible();
   await expect(page.getByRole("heading", { name: "Cleanse, Treat, Seal." }))
     .toHaveCount(0);
-  await expect(page.getByText("01 Start with structure skin understands."))
-    .toBeVisible();
   await expect(
-    page.getByText("02 Most routines fail because they ask for too much too soon."),
+    page.getByText(
+      "01 Start with structure that skin understands: cleanse first, treat second, seal last.",
+    ),
   ).toBeVisible();
-  await expect(page.getByText("03 Three steps build consistency."))
-    .toBeVisible();
+  await expect(
+    page.getByText(
+      "02 Use high-performing, innovative ingredients at efficacious levels in your essential layers.",
+    ),
+  ).toBeVisible();
+  await expect(
+    page.getByText(
+      "03 Most routines fail because they ask for too much too soon. Three steps build consistency.",
+    ),
+  ).toBeVisible();
   await expect(page.locator("#why-three-heading")).toHaveText(/simple is\s+not basic\.?/i);
   await expect(
     page.getByText("For skin that is clearer, more hydrated, and less tired."),
@@ -197,11 +205,19 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
     const core = document.querySelector<HTMLElement>("#core-three");
     const why = document.querySelector<HTMLElement>(".home-section--why");
     const plugSection = document.querySelector<HTMLElement>(".home-section--core-support");
-    const coreIntro = core?.querySelector<HTMLElement>(".home-section__intro p:not(.hero__eyebrow)");
-    const coreIntroBox = coreIntro?.getBoundingClientRect();
-    const coreIntroLineHeight = coreIntro
-      ? Number.parseFloat(getComputedStyle(coreIntro).lineHeight)
-      : 0;
+    const coreProgressShell = core?.querySelector<HTMLElement>(".home-core-progress-shell");
+    const coreProgress = core?.querySelector<HTMLElement>(".home-core-progress");
+    const coreProgressBox = coreProgress?.getBoundingClientRect();
+    const coreRail = core?.querySelector<HTMLElement>(".home-core-progress__rail");
+    const coreRailBox = coreRail?.getBoundingClientRect();
+    const coreRailStyle = coreRail ? getComputedStyle(coreRail) : null;
+    const coreCards = Array.from(core?.querySelectorAll<HTMLElement>(".product-card") ?? []);
+    const coreNodes = Array.from(
+      core?.querySelectorAll<HTMLElement>(".home-core-progress__node-item") ?? [],
+    );
+    const coreDescriptions = Array.from(
+      core?.querySelectorAll<HTMLElement>(".home-core-progress__description") ?? [],
+    );
     const whyPrinciples = why?.querySelector<HTMLElement>(".home-why-principles");
     const whyList = why?.querySelector<HTMLElement>(".home-why-list");
     const whyVisual = why?.querySelector<HTMLElement>(".home-why-visual");
@@ -281,13 +297,31 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
       ).length,
       oldSupportEyebrowCount: Array.from(document.querySelectorAll<HTMLElement>(".hero__eyebrow"))
         .filter((eyebrow) => clean(eyebrow.textContent) === "What The Core Supports").length,
-      coreIntroText: clean(coreIntro?.textContent),
-      coreIntroLines: coreIntroBox && coreIntroLineHeight
-        ? coreIntroBox.height / coreIntroLineHeight
-        : 0,
-      coreIntroStyle: textStyle(coreIntro),
-      standardContentLeft: Math.round(coreIntroBox?.left ?? 0),
-      coreIntroWidth: Math.round(coreIntroBox?.width ?? 0),
+      oldCoreDescriptionCount: Array.from(core?.querySelectorAll<HTMLElement>("p") ?? [])
+        .filter((node) =>
+          clean(node.textContent) ===
+          "Simple by design: cleanse the surface, apply the treatment layer, then finish with moisture and barrier support."
+        ).length,
+      coreProgressActive: coreProgressShell?.getAttribute("data-core-active") ?? "",
+      coreProgressBox: box(coreProgress),
+      coreProgressText: clean(coreProgress?.textContent),
+      coreRailBackground: coreRailStyle?.backgroundColor ?? "",
+      coreRailBox: box(coreRail),
+      coreRailHeight: Number.parseFloat(coreRailStyle?.height ?? "0"),
+      coreRailWidth: Number.parseFloat(coreRailStyle?.width ?? "0"),
+      coreFirstCardCenter:
+        coreCards[0] ? Math.round(coreCards[0].getBoundingClientRect().left + coreCards[0].getBoundingClientRect().width / 2) : 0,
+      coreThirdCardCenter:
+        coreCards[2] ? Math.round(coreCards[2].getBoundingClientRect().left + coreCards[2].getBoundingClientRect().width / 2) : 0,
+      coreNodeLabels: coreNodes.map((node) => clean(node.textContent)),
+      coreNodeStates: coreNodes.map((node) => node.getAttribute("data-state")),
+      coreDescriptions: coreDescriptions.map((node) => ({
+        ariaHidden: node.getAttribute("aria-hidden"),
+        text: clean(node.textContent),
+        state: node.getAttribute("data-state"),
+        textAlign: getComputedStyle(node).textAlign,
+      })),
+      standardContentLeft: Math.round(coreProgressBox?.left ?? 0),
       beyondDescriptionStyle: textStyle(beyondDescription),
       beyondTitleStyle: textStyle(beyondTitle),
       finalBox: box(final),
@@ -476,13 +510,40 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
   expect(desktop.oldSupportHeadingCount).toBe(0);
   expect(desktop.oldPlugHeadingCount).toBe(0);
   expect(desktop.oldSupportEyebrowCount).toBe(0);
-  expect(desktop.coreIntroText).toBe(
-    "Simple by design: cleanse the surface, apply the treatment layer, then finish with moisture and barrier support.",
+  expect(desktop.oldCoreDescriptionCount).toBe(0);
+  expect(desktop.coreProgressActive).toBe("0");
+  expect(desktop.coreProgressText).toBe(
+    "010203cleanse the surfaceapply the treatment layerfinish with moisture and barrier support",
   );
-  expect(desktop.coreIntroLines).toBeLessThanOrEqual(1.25);
-  expect(desktop.coreIntroWidth).toBeGreaterThan(720);
-  expect(desktop.coreIntroStyle).toEqual(desktop.plugBodyParagraphStyle);
-  expect(Number.parseFloat(desktop.coreIntroStyle?.fontSize ?? "0")).toBeLessThan(18);
+  expect(desktop.coreProgressBox?.width).toBeGreaterThan(920);
+  expect(desktop.coreRailHeight).toBeLessThanOrEqual(2);
+  expect(desktop.coreRailWidth).toBeGreaterThan(560);
+  expect(desktop.coreNodeLabels).toEqual(["01", "02", "03"]);
+  expect(desktop.coreNodeStates).toEqual(["idle", "idle", "idle"]);
+  expect(desktop.coreDescriptions).toEqual([
+    {
+      ariaHidden: "true",
+      state: "idle",
+      text: "cleanse the surface",
+      textAlign: "left",
+    },
+    {
+      ariaHidden: "true",
+      state: "idle",
+      text: "apply the treatment layer",
+      textAlign: "center",
+    },
+    {
+      ariaHidden: "true",
+      state: "idle",
+      text: "finish with moisture and barrier support",
+      textAlign: "right",
+    },
+  ]);
+  expect(Math.abs((desktop.coreRailBox?.left ?? 0) - desktop.coreFirstCardCenter))
+    .toBeLessThanOrEqual(3);
+  expect(Math.abs((desktop.coreRailBox?.right ?? 0) - desktop.coreThirdCardCenter))
+    .toBeLessThanOrEqual(3);
   expect(desktop.beyondDescriptionStyle).toEqual(desktop.plugBodyParagraphStyle);
   expect(desktop.ingredientsDescriptionStyle).toEqual(desktop.plugBodyParagraphStyle);
   expect(desktop.finalDescriptionStyle).toEqual(desktop.plugBodyParagraphStyle);
@@ -559,9 +620,9 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
     .toBeLessThanOrEqual(2);
   expect(desktop.whyVisualBox?.height).toBeGreaterThanOrEqual(desktop.viewportHeight * 1.1);
   expect(desktop.whyStatements).toEqual([
-    "01 Start with structure skin understands.",
-    "02 Most routines fail because they ask for too much too soon.",
-    "03 Three steps build consistency.",
+    "01 Start with structure that skin understands: cleanse first, treat second, seal last.",
+    "02 Use high-performing, innovative ingredients at efficacious levels in your essential layers.",
+    "03 Most routines fail because they ask for too much too soon. Three steps build consistency.",
   ]);
   expect(desktop.whyStatementStyle).toEqual(desktop.plugBodyParagraphStyle);
   const whyStatementGaps = desktop.whyStatementLineBoxes.slice(1).map((line, index) =>
@@ -764,6 +825,11 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
   await page.reload();
   await page.locator(".home-plug-media__frame").waitFor({ state: "attached" });
   const mobile = await page.evaluate(() => {
+    const core = document.querySelector<HTMLElement>("#core-three");
+    const coreProgress = core?.querySelector<HTMLElement>(".home-core-progress");
+    const coreRail = core?.querySelector<HTMLElement>(".home-core-progress__rail");
+    const coreProducts = core?.querySelector<HTMLElement>(".home-core-products");
+    const coreCards = Array.from(core?.querySelectorAll<HTMLElement>(".product-card") ?? []);
     const why = document.querySelector<HTMLElement>(".home-section--why");
     const whyPrinciples = why?.querySelector<HTMLElement>(".home-why-principles");
     const whyList = why?.querySelector<HTMLElement>(".home-why-list");
@@ -794,6 +860,16 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
     return {
       viewportHeight: window.innerHeight,
       bodyBackground: getComputedStyle(document.body).backgroundColor,
+      coreCardBoxes: coreCards.map(box),
+      coreNodeLabels: Array.from(
+        core?.querySelectorAll<HTMLElement>(".home-core-progress__node") ?? [],
+      ).map((node) => node.textContent?.replace(/\s+/g, " ").trim() ?? ""),
+      coreProductGridColumns: coreProducts ? getComputedStyle(coreProducts).gridTemplateColumns : "",
+      coreProgressBox: box(coreProgress),
+      coreProgressColumns: coreProgress ? getComputedStyle(coreProgress).gridTemplateColumns : "",
+      coreRailBox: box(coreRail),
+      coreRailHeight: coreRail ? Number.parseFloat(getComputedStyle(coreRail).height) : 0,
+      coreRailWidth: coreRail ? Number.parseFloat(getComputedStyle(coreRail).width) : 0,
       whyBox: box(why),
       whyBackground: why ? getComputedStyle(why).backgroundColor : "",
       whyBorderTopWidth: why ? getComputedStyle(why).borderTopWidth : "",
@@ -854,6 +930,14 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
     };
   });
 
+  expect(mobile.coreNodeLabels).toEqual(["01", "02", "03"]);
+  expect(mobile.coreProgressColumns.split(" ")).toHaveLength(2);
+  expect(mobile.coreRailHeight).toBeGreaterThan(90);
+  expect(mobile.coreRailWidth).toBeLessThanOrEqual(2);
+  expect(mobile.coreProductGridColumns.split(" ")).toHaveLength(1);
+  expect(mobile.coreCardBoxes).toHaveLength(3);
+  expect(mobile.coreCardBoxes[1]?.top).toBeGreaterThan(mobile.coreCardBoxes[0]?.bottom ?? 0);
+  expect(mobile.coreCardBoxes[2]?.top).toBeGreaterThan(mobile.coreCardBoxes[1]?.bottom ?? 0);
   expect(mobile.whyBackground).toBe(mobile.bodyBackground);
   expect(mobile.whyBorderTopWidth).toBe("0px");
   expect(mobile.whyBorderBottomWidth).toBe("0px");
@@ -944,6 +1028,39 @@ test("homepage Core Three products and add-ons resolve by stable slugs", async (
   expect(merchandising.protectText).toContain("SPF");
   expect(merchandising.protectText).not.toMatch(/\$\d/);
   expect(merchandising.protectButtons).toBe(0);
+});
+
+test("Core checkpoint progress responds to product hover, focus, and touch intent", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+
+  const core = page.getByRole("region", { name: "The Core" });
+  const shell = core.locator(".home-core-progress-shell");
+  const cleanseCard = core.locator('[data-core-step="1"]');
+  const treatCard = core.locator('[data-core-step="2"]');
+  const sealLink = core.getByRole("link", { name: "SEAL", exact: true });
+
+  await expect(shell).toHaveAttribute("data-core-active", "0");
+  await expect(core.getByText("cleanse the surface")).not.toBeVisible();
+
+  await expect(cleanseCard).toHaveCount(1);
+  await cleanseCard.hover();
+  await expect(shell).toHaveAttribute("data-core-active", "1");
+  await expect(core.getByText("cleanse the surface")).toBeVisible();
+
+  await sealLink.focus();
+  await expect(shell).toHaveAttribute("data-core-active", "3");
+  await expect(core.getByText("finish with moisture and barrier support")).toBeVisible();
+
+  await page.mouse.move(12, 12);
+  await expect(shell).toHaveAttribute("data-core-active", "0");
+
+  await expect(treatCard).toHaveCount(1);
+  await treatCard.dispatchEvent("pointerdown", { pointerType: "touch" });
+  await expect(shell).toHaveAttribute("data-core-active", "2");
+  await expect(core.getByText("apply the treatment layer")).toBeVisible();
 });
 
 test("Core Three product card navigates to a product detail page", async ({ page }) => {

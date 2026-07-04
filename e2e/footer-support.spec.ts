@@ -103,7 +103,7 @@ test("global footer renders across public routes without unsupported links", asy
     await expect(page.locator(".site-footer")).toBeVisible();
     await expect(
       page.locator(".site-footer").getByRole("heading", {
-        name: "Stay in the System",
+        name: "MEI PELLE",
         exact: true,
       }),
     ).toBeVisible();

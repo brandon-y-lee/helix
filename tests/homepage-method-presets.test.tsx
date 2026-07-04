@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 
 vi.mock("@/lib/catalog-cache", () => ({
@@ -156,7 +156,7 @@ describe("homepage Core Three positioning", () => {
     expect(
       screen.getByRole("heading", {
         level: 1,
-        name: "Prestige skin starts with three steps.",
+        name: "Your skin starts with three steps.",
       }),
     ).toBeInTheDocument();
     expect(screen.getByText("Cleanse. Treat. Seal.")).toBeInTheDocument();
@@ -172,11 +172,26 @@ describe("homepage Core Three positioning", () => {
     ).not.toBeInTheDocument();
 
     const core = sectionForHeading("The Core");
+    const coreProgress = core.querySelector(".home-core-progress");
+    expect(coreProgress).toBeInTheDocument();
     expect(
-      within(core).getByText(
+      within(core).queryByText(
         "Simple by design: cleanse the surface, apply the treatment layer, then finish with moisture and barrier support.",
       ),
-    ).toBeInTheDocument();
+    ).not.toBeInTheDocument();
+    expect(
+      Array.from(core.querySelectorAll(".home-core-progress__node")).map((node) =>
+        node.textContent?.trim(),
+      ),
+    ).toEqual(["01", "02", "03"]);
+    expect(core.querySelector(".home-core-progress-shell")).toHaveAttribute(
+      "data-core-active",
+      "0",
+    );
+    expect(within(core).getByText("cleanse the surface")).toHaveAttribute(
+      "aria-hidden",
+      "true",
+    );
 
     expect(core.querySelector(".home-step-grid")).not.toBeInTheDocument();
     expect(core.querySelector(".home-step-card")).not.toBeInTheDocument();
@@ -194,13 +209,21 @@ describe("homepage Core Three positioning", () => {
       .toBeInTheDocument();
 
     const why = sectionForHeading(/simple is\s+not basic\.?/i);
-    expect(within(why).getByText("01 Start with structure skin understands."))
-      .toBeInTheDocument();
     expect(
-      within(why).getByText("02 Most routines fail because they ask for too much too soon."),
+      within(why).getByText(
+        "01 Start with structure that skin understands: cleanse first, treat second, seal last.",
+      ),
     ).toBeInTheDocument();
-    expect(within(why).getByText("03 Three steps build consistency."))
-      .toBeInTheDocument();
+    expect(
+      within(why).getByText(
+        "02 Use high-performing, innovative ingredients at efficacious levels in your essential layers.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(why).getByText(
+        "03 Most routines fail because they ask for too much too soon. Three steps build consistency.",
+      ),
+    ).toBeInTheDocument();
     const whyTitle = why.querySelector("#why-three-heading");
     expect(whyTitle).toHaveClass("home-plug-panel__title");
     expect(whyTitle).toHaveTextContent(/simple is\s+not basic\.?/i);
@@ -334,5 +357,38 @@ describe("homepage Core Three positioning", () => {
     ).toEqual(["CLEANSE", "TREAT"]);
     expect(within(core).queryByText("REFINE")).not.toBeInTheDocument();
     expect(within(core).queryByText("FRAME")).not.toBeInTheDocument();
+  });
+
+  it("activates the Core checkpoint rail from product hover, focus, and pointer leave", async () => {
+    render(<CartProvider>{await HomePage()}</CartProvider>);
+
+    const core = sectionForHeading("The Core");
+    const shell = core.querySelector(".home-core-progress-shell");
+    const products = core.querySelector(".home-core-products");
+    const cleanseCard = core.querySelector('[data-core-step="1"]');
+    const treatButton = within(core).getByRole("button", {
+      name: "Open quick buy for TREAT",
+    });
+
+    expect(shell).toHaveAttribute("data-core-active", "0");
+    expect(cleanseCard).not.toBeNull();
+    expect(products).not.toBeNull();
+
+    fireEvent.pointerEnter(cleanseCard as Element, { pointerType: "mouse" });
+    await waitFor(() => expect(shell).toHaveAttribute("data-core-active", "1"));
+    expect(within(core).getByText("cleanse the surface")).toHaveAttribute(
+      "aria-hidden",
+      "false",
+    );
+
+    fireEvent.focus(treatButton);
+    await waitFor(() => expect(shell).toHaveAttribute("data-core-active", "2"));
+    expect(within(core).getByText("apply the treatment layer")).toHaveAttribute(
+      "aria-hidden",
+      "false",
+    );
+
+    fireEvent.pointerLeave(products as Element, { pointerType: "mouse" });
+    await waitFor(() => expect(shell).toHaveAttribute("data-core-active", "0"));
   });
 });

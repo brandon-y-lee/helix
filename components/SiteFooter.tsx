@@ -15,7 +15,7 @@ export function SiteFooter() {
       <div className="site-footer__inner">
         <section className="site-footer__brand">
           <div>
-            <h2 id="site-footer-heading">Stay in the System</h2>
+            <h2 id="site-footer-heading">MEI PELLE</h2>
             <p>{footerBrandStatement}</p>
           </div>
           <div

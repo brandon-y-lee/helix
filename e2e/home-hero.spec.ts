@@ -33,7 +33,7 @@ test.describe("homepage video hero", () => {
     const hero = page.locator(".home-video-hero");
     const heading = page.getByRole("heading", {
       level: 1,
-      name: "Prestige skin starts with three steps.",
+      name: "Your skin starts with three steps.",
     });
     const cta = page.getByRole("link", { name: "SHOP THE CORE" }).first();
     const secondary = page.getByRole("link", { name: "SEE THE SYSTEM" }).first();
@@ -132,7 +132,7 @@ test.describe("homepage video hero", () => {
     const hero = page.locator(".home-video-hero");
     const heading = page.getByRole("heading", {
       level: 1,
-      name: "Prestige skin starts with three steps.",
+      name: "Your skin starts with three steps.",
     });
     const cta = page.getByRole("link", { name: "SHOP THE CORE" }).first();
     const secondary = page.getByRole("link", { name: "SEE THE SYSTEM" }).first();
@@ -172,7 +172,7 @@ test.describe("homepage video hero", () => {
     await expect(
       page.getByRole("heading", {
         level: 1,
-        name: "Prestige skin starts with three steps.",
+        name: "Your skin starts with three steps.",
       }),
     ).toBeVisible();
     await expect(page.getByRole("link", { name: "SHOP THE CORE" }).first()).toBeVisible();
@@ -188,10 +188,11 @@ test.describe("homepage video hero", () => {
     await page.locator(".home-video-hero__cta").click();
     await expect(page).toHaveURL(/\/#core-three$/);
     await expect(page.getByRole("region", { name: "The Core", exact: true })).toBeVisible();
+    await expect(page.locator(".home-core-progress")).toBeVisible();
     await expect(
       page.getByText(
         "Simple by design: cleanse the surface, apply the treatment layer, then finish with moisture and barrier support.",
       ),
-    ).toBeVisible();
+    ).toHaveCount(0);
   });
 });

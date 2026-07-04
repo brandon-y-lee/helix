@@ -30,7 +30,7 @@ describe("global footer", () => {
     const footer = screen.getByRole("contentinfo");
     expect(screen.getAllByRole("contentinfo")).toHaveLength(1);
     expect(footer).toHaveClass("site-footer--compact");
-    expect(screen.getByRole("heading", { name: "Stay in the System" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "MEI PELLE" })).toBeInTheDocument();
     expect(within(footer).queryByText("Seoul / Los Angeles")).not.toBeInTheDocument();
     expect(screen.getByText("STAY IN THE SYSTEM.")).toBeInTheDocument();
     expect(screen.getByText("EMAIL UPDATES ARE NOT OPEN")).toBeInTheDocument();
