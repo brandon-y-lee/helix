@@ -35,7 +35,7 @@ function scaleForProgress(progress: number) {
   return RESTING_SCALE + (RESTING_SCALE - MIN_SCALE) * progress;
 }
 
-export function HomeWhyPortrait() {
+export function HomePrinciplesPortrait() {
   const frameRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -59,7 +59,7 @@ export function HomeWhyPortrait() {
       : null;
 
     const setScale = (scale: number) => {
-      frame.style.setProperty("--home-why-image-scale", scale.toFixed(4));
+      frame.style.setProperty("--home-principles-image-scale", scale.toFixed(4));
     };
 
     const getScrollDistanceToBound = () =>
@@ -68,7 +68,7 @@ export function HomeWhyPortrait() {
         window.innerHeight * SCROLL_DISTANCE_TO_BOUND_VIEWPORTS,
       );
 
-    const observedElement = frame.closest(".home-section--why") ?? frame;
+    const observedElement = frame.closest(".home-section--principles") ?? frame;
 
     const isNearViewport = () => {
       const rect = observedElement.getBoundingClientRect();
@@ -188,7 +188,7 @@ export function HomeWhyPortrait() {
   return (
     <div
       ref={frameRef}
-      className="home-why-visual__zoom"
+      className="home-three-principles-visual__zoom"
       data-scroll-zoom-active="false"
       data-scroll-zoom-motion="static"
     >
@@ -197,7 +197,7 @@ export function HomeWhyPortrait() {
         alt="Black-and-white editorial portrait."
         fill
         sizes="(max-width: 900px) 100vw, 50vw"
-        className="home-why-visual__image"
+        className="home-three-principles-visual__image"
         unoptimized
       />
     </div>

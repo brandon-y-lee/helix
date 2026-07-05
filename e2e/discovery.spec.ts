@@ -27,22 +27,20 @@ test("homepage Core Three ladder renders", async ({ page }) => {
     .toBeVisible();
   await expect(page.getByRole("heading", { name: "Cleanse, Treat, Seal." }))
     .toHaveCount(0);
+  await expect(page.getByRole("button", { name: "structure" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "restraint" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "consistency" })).toBeVisible();
+  await expect(
+    page.getByText(
+      "Skin improves when the routine has an order: cleanse the surface, apply the treatment layer, and finish with moisture.",
+    ),
+  ).toBeVisible();
   await expect(
     page.getByText(
       "01 Start with structure that skin understands: cleanse first, treat second, seal last.",
     ),
-  ).toBeVisible();
-  await expect(
-    page.getByText(
-      "02 Use high-performing, innovative ingredients at efficacious levels in your essential layers.",
-    ),
-  ).toBeVisible();
-  await expect(
-    page.getByText(
-      "03 Most routines fail because they ask for too much too soon. Three steps build consistency.",
-    ),
-  ).toBeVisible();
-  await expect(page.locator("#why-three-heading")).toHaveText(/simple is\s+not basic\.?/i);
+  ).toHaveCount(0);
+  await expect(page.locator("#home-three-principles-heading")).toHaveText(/simple is\s+not basic\.?/i);
   await expect(
     page.getByText("For skin that is clearer, more hydrated, and less tired."),
   ).toBeVisible();
@@ -191,8 +189,8 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await page.goto("/");
   await page.locator(".home-plug-media__frame").waitFor({ state: "attached" });
-  await page.locator(".home-why-visual__zoom").waitFor({ state: "attached" });
-  await expect(page.locator(".home-why-visual__zoom")).toHaveAttribute(
+  await page.locator(".home-three-principles-visual__zoom").waitFor({ state: "attached" });
+  await expect(page.locator(".home-three-principles-visual__zoom")).toHaveAttribute(
     "data-scroll-zoom-motion",
     "motion",
   );
@@ -203,18 +201,25 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
     const sections = Array.from(document.querySelectorAll<HTMLElement>("main > section"));
     const headings = Array.from(document.querySelectorAll<HTMLElement>("h2"));
     const core = document.querySelector<HTMLElement>("#core-three");
-    const why = document.querySelector<HTMLElement>(".home-section--why");
+    const why = document.querySelector<HTMLElement>(".home-section--principles");
     const plugSection = document.querySelector<HTMLElement>(".home-section--core-support");
     const coreIntro = core?.querySelector<HTMLElement>(".home-section__intro--core");
     const coreEyebrow = coreIntro?.querySelector<HTMLElement>(".hero__eyebrow");
     const coreDescription = coreIntro?.querySelector<HTMLElement>("p:not(.hero__eyebrow)");
     const coreProducts = core?.querySelector<HTMLElement>(".home-core-products");
-    const whyPrinciples = why?.querySelector<HTMLElement>(".home-why-principles");
-    const whyList = why?.querySelector<HTMLElement>(".home-why-list");
-    const whyVisual = why?.querySelector<HTMLElement>(".home-why-visual");
-    const whyTitle = why?.querySelector<HTMLElement>("#why-three-heading");
-    const whyZoom = why?.querySelector<HTMLElement>(".home-why-visual__zoom");
-    const whyImage = why?.querySelector<HTMLImageElement>(".home-why-visual img");
+    const whyPrinciples = why?.querySelector<HTMLElement>(".home-three-principles-panel");
+    const whyList = why?.querySelector<HTMLElement>(".home-three-principles");
+    const whyVisual = why?.querySelector<HTMLElement>(".home-three-principles-visual");
+    const whyTitle = why?.querySelector<HTMLElement>("#home-three-principles-heading");
+    const whyZoom = why?.querySelector<HTMLElement>(".home-three-principles-visual__zoom");
+    const whyImage = why?.querySelector<HTMLImageElement>(".home-three-principles-visual img");
+    const principleDescription = why?.querySelector<HTMLElement>(
+      ".home-three-principles__description",
+    );
+    const principleLabels = why?.querySelector<HTMLElement>(".home-three-principles__labels");
+    const principleButtons = Array.from(
+      why?.querySelectorAll<HTMLButtonElement>(".home-three-principles__label") ?? [],
+    );
     const plugSplit = plugSection?.querySelector<HTMLElement>(".home-plug-split");
     const plugMedia = plugSection?.querySelector<HTMLElement>(".home-plug-media");
     const plugPanel = plugSection?.querySelector<HTMLElement>(".home-plug-panel");
@@ -379,7 +384,7 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
       whyListBox: box(whyList),
       whyVisualBox: box(whyVisual),
       whyVisualAfterContent: whyVisual ? getComputedStyle(whyVisual, "::after").content : "",
-      whyVisualOverlayCount: whyVisual?.querySelectorAll(".home-why-visual__title").length ?? 0,
+      whyVisualOverlayCount: whyVisual?.querySelectorAll(".home-three-principles-visual__title").length ?? 0,
       whyTitleBox: box(whyTitle),
       whyTitleText: clean(whyTitle?.textContent),
       whyTitleColor: whyTitle ? getComputedStyle(whyTitle).color : "",
@@ -395,10 +400,27 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
       whyPanelPaddingLeft: whyPrinciples ? getComputedStyle(whyPrinciples).paddingLeft : "",
       whyZoomMotion: whyZoom?.getAttribute("data-scroll-zoom-motion") ?? "",
       whyZoomActive: whyZoom?.getAttribute("data-scroll-zoom-active") ?? "",
-      whyStatements: Array.from(why?.querySelectorAll(".home-why-list li") ?? []).map((node) =>
-        clean(node.textContent),
-      ),
-      whyStatementLineBoxes: Array.from(why?.querySelectorAll(".home-why-list li") ?? []).map((node) => {
+      oldWhyListCount: why?.querySelectorAll(".home-why-list").length ?? 0,
+      oldWhyStatementCount: Array.from(why?.querySelectorAll<HTMLElement>("li, p") ?? [])
+        .filter((node) =>
+          [
+            "01 Start with structure that skin understands: cleanse first, treat second, seal last.",
+            "02 Use high-performing, innovative ingredients at efficacious levels in your essential layers.",
+            "03 Most routines fail because they ask for too much too soon. Three steps build consistency.",
+          ].includes(clean(node.textContent)),
+        ).length,
+      principleDescriptionBox: box(principleDescription),
+      principleDescriptionText: clean(principleDescription?.textContent),
+      principleDescriptionStyle: textStyle(principleDescription),
+      principleGroupRole: principleLabels?.getAttribute("role") ?? "",
+      principleGroupLabel: principleLabels?.getAttribute("aria-label") ?? "",
+      principleAnchorCount: why?.querySelectorAll(".home-three-principles a").length ?? 0,
+      principleLabels: principleButtons.map((button) => clean(button.textContent)),
+      principlePressedStates: principleButtons.map((button) => button.getAttribute("aria-pressed")),
+      principleButtonTypes: principleButtons.map((button) => button.getAttribute("type")),
+      principleButtonHrefs: principleButtons.map((button) => button.getAttribute("href")),
+      principleButtonCursors: principleButtons.map((button) => getComputedStyle(button).cursor),
+      principleButtonLineBoxes: principleButtons.map((node) => {
         const rect = node.getBoundingClientRect();
         return {
           bottom: Math.round(rect.bottom),
@@ -406,22 +428,6 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
           top: Math.round(rect.top),
         };
       }),
-      whyStatementStyle: why?.querySelector(".home-why-list li")
-        ? {
-            color: getComputedStyle(why.querySelector(".home-why-list li") as HTMLElement)
-              .color,
-            fontFamily: getComputedStyle(why.querySelector(".home-why-list li") as HTMLElement)
-              .fontFamily,
-            fontSize: getComputedStyle(why.querySelector(".home-why-list li") as HTMLElement)
-              .fontSize,
-            fontWeight: getComputedStyle(why.querySelector(".home-why-list li") as HTMLElement)
-              .fontWeight,
-            letterSpacing: getComputedStyle(why.querySelector(".home-why-list li") as HTMLElement)
-              .letterSpacing,
-            lineHeight: getComputedStyle(why.querySelector(".home-why-list li") as HTMLElement)
-              .lineHeight,
-          }
-        : null,
       plugBodyParagraphStyle: plugBodyParagraph
         ? {
             color: getComputedStyle(plugBodyParagraph).color,
@@ -584,7 +590,7 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
   expect(desktop.coreStepGridExists).toBe(false);
   expect(desktop.coreStepCardCount).toBe(0);
   expect(desktop.coreProductNames).toEqual(["CLEANSE", "TREAT", "SEAL"]);
-  expect(desktop.whyClass).toContain("home-section--why");
+  expect(desktop.whyClass).toContain("home-section--principles");
   expect(desktop.whyIndex).toBe(desktop.coreIndex + 1);
   expect(desktop.plugIndex).toBe(desktop.whyIndex + 1);
   expect(desktop.whyBackground).toBe(desktop.bodyBackground);
@@ -596,29 +602,38 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
   expect(Math.abs((desktop.whyPrinciplesBox?.height ?? 0) - (desktop.whyVisualBox?.height ?? 0)))
     .toBeLessThanOrEqual(2);
   expect(desktop.whyVisualBox?.height).toBeGreaterThanOrEqual(desktop.viewportHeight * 1.1);
-  expect(desktop.whyStatements).toEqual([
-    "01 Start with structure that skin understands: cleanse first, treat second, seal last.",
-    "02 Use high-performing, innovative ingredients at efficacious levels in your essential layers.",
-    "03 Most routines fail because they ask for too much too soon. Three steps build consistency.",
-  ]);
-  expect(desktop.whyStatementStyle).toEqual(desktop.plugBodyParagraphStyle);
-  const whyStatementGaps = desktop.whyStatementLineBoxes.slice(1).map((line, index) =>
-    line.top - desktop.whyStatementLineBoxes[index].bottom,
+  expect(desktop.oldWhyListCount).toBe(0);
+  expect(desktop.oldWhyStatementCount).toBe(0);
+  expect(desktop.principleLabels).toEqual(["structure", "restraint", "consistency"]);
+  expect(desktop.principlePressedStates).toEqual(["true", "false", "false"]);
+  expect(desktop.principleButtonTypes).toEqual(["button", "button", "button"]);
+  expect(desktop.principleButtonHrefs).toEqual([null, null, null]);
+  expect(desktop.principleButtonCursors).toEqual(["pointer", "pointer", "pointer"]);
+  expect(desktop.principleGroupRole).toBe("group");
+  expect(desktop.principleGroupLabel).toBe("Simple is not basic principles");
+  expect(desktop.principleAnchorCount).toBe(0);
+  expect(desktop.principleDescriptionText).toBe(
+    "Skin improves when the routine has an order: cleanse the surface, apply the treatment layer, and finish with moisture.",
   );
-  expect(whyStatementGaps).toHaveLength(2);
-  expect(Math.abs(whyStatementGaps[0] - whyStatementGaps[1])).toBeLessThanOrEqual(1);
-  for (const gap of whyStatementGaps) {
-    expect(gap).toBeGreaterThanOrEqual(28);
-    expect(gap).toBeLessThanOrEqual(58);
+  expect(desktop.principleDescriptionStyle?.fontFamily).toMatch(/Marcellus/i);
+  expect(Number.parseFloat(desktop.principleDescriptionStyle?.fontSize ?? "0"))
+    .toBeGreaterThan(Number.parseFloat(desktop.plugBodyParagraphStyle?.fontSize ?? "0") * 1.6);
+  expect(desktop.principleDescriptionBox?.height).toBeGreaterThan(90);
+  expect(desktop.whyListBox?.height).toBeGreaterThanOrEqual(390);
+  expect(desktop.whyListBox?.height).toBeLessThanOrEqual(desktop.viewportHeight * 0.74);
+  const principleButtonGaps = desktop.principleButtonLineBoxes.slice(1).map((line, index) =>
+    line.top - desktop.principleButtonLineBoxes[index].bottom,
+  );
+  expect(principleButtonGaps).toEqual([0, 0]);
+  for (const line of desktop.principleButtonLineBoxes) {
+    expect(line.height).toBeGreaterThanOrEqual(56);
   }
-  expect(desktop.whyListBox?.height).toBeGreaterThanOrEqual(120);
-  expect(desktop.whyListBox?.height).toBeLessThanOrEqual(desktop.viewportHeight * 0.28);
   expect((desktop.whyListBox?.top ?? 0) - (desktop.whyPrinciplesBox?.top ?? 0))
     .toBeGreaterThan(desktop.viewportHeight * 0.2);
   expect((desktop.whyPrinciplesBox?.bottom ?? 0) - (desktop.whyListBox?.bottom ?? 0))
-    .toBeGreaterThan(desktop.viewportHeight * 0.26);
+    .toBeGreaterThan(desktop.viewportHeight * 0.08);
   expect((desktop.whyPrinciplesBox?.bottom ?? 0) - (desktop.whyListBox?.bottom ?? 0))
-    .toBeLessThan(desktop.viewportHeight * 0.46);
+    .toBeLessThan(desktop.viewportHeight * 0.3);
   expect(desktop.whyVisualBox?.left).toBeGreaterThanOrEqual(desktop.whyPrinciplesBox?.right ?? 0);
   expect(desktop.whyVisualBox?.right).toBe(desktop.whyBox?.right);
   expect(desktop.whyVisualAfterContent).toBe("none");
@@ -647,7 +662,7 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
   expect(desktop.whyTitleWhiteSpace).toBe("normal");
   expect(desktop.whyTitleTextShadow).toBe("none");
   expect(desktop.whyTitleClass).toContain("home-plug-panel__title");
-  expect(desktop.whyTitleParentClass).toContain("home-why-principles");
+  expect(desktop.whyTitleParentClass).toContain("home-three-principles-panel");
   expect(Math.abs((desktop.whyTitleBox?.left ?? 0) - desktop.standardContentLeft))
     .toBeLessThanOrEqual(1);
   expect(Math.abs((desktop.whyListBox?.left ?? 0) - desktop.standardContentLeft))
@@ -740,20 +755,20 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
 
   const readWhyZoom = async () =>
     page.evaluate(() => {
-      const image = document.querySelector<HTMLElement>(".home-why-visual__image");
-      const zoom = document.querySelector<HTMLElement>(".home-why-visual__zoom");
+      const image = document.querySelector<HTMLElement>(".home-three-principles-visual__image");
+      const zoom = document.querySelector<HTMLElement>(".home-three-principles-visual__zoom");
       const imageStyle = image ? getComputedStyle(image) : null;
       return {
         motion: zoom?.getAttribute("data-scroll-zoom-motion") ?? "",
         scaleVariable: zoom
-          ? getComputedStyle(zoom).getPropertyValue("--home-why-image-scale").trim()
+          ? getComputedStyle(zoom).getPropertyValue("--home-principles-image-scale").trim()
           : "",
         transform: imageStyle?.transform ?? "",
       };
     });
 
   await page.evaluate(() => {
-    document.querySelector(".home-section--why")?.scrollIntoView({ block: "center" });
+    document.querySelector(".home-section--principles")?.scrollIntoView({ block: "center" });
   });
   await page.waitForTimeout(120);
   const initialZoom = await readWhyZoom();
@@ -784,9 +799,9 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
 
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.reload();
-  await page.locator(".home-why-visual__zoom").waitFor({ state: "attached" });
+  await page.locator(".home-three-principles-visual__zoom").waitFor({ state: "attached" });
   await page.evaluate(() => {
-    document.querySelector(".home-section--why")?.scrollIntoView({ block: "center" });
+    document.querySelector(".home-section--principles")?.scrollIntoView({ block: "center" });
   });
   await page.waitForTimeout(120);
   const reducedStart = await readWhyZoom();
@@ -810,13 +825,19 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
     const coreDescription = coreIntro?.querySelector<HTMLElement>("p:not(.hero__eyebrow)");
     const coreProducts = core?.querySelector<HTMLElement>(".home-core-products");
     const coreCards = Array.from(core?.querySelectorAll<HTMLElement>(".product-card") ?? []);
-    const why = document.querySelector<HTMLElement>(".home-section--why");
-    const whyPrinciples = why?.querySelector<HTMLElement>(".home-why-principles");
-    const whyList = why?.querySelector<HTMLElement>(".home-why-list");
-    const whyVisual = why?.querySelector<HTMLElement>(".home-why-visual");
-    const whyTitle = why?.querySelector<HTMLElement>("#why-three-heading");
-    const whyZoom = why?.querySelector<HTMLElement>(".home-why-visual__zoom");
-    const whyImage = why?.querySelector<HTMLElement>(".home-why-visual__image");
+    const why = document.querySelector<HTMLElement>(".home-section--principles");
+    const whyPrinciples = why?.querySelector<HTMLElement>(".home-three-principles-panel");
+    const whyList = why?.querySelector<HTMLElement>(".home-three-principles");
+    const whyVisual = why?.querySelector<HTMLElement>(".home-three-principles-visual");
+    const whyTitle = why?.querySelector<HTMLElement>("#home-three-principles-heading");
+    const whyZoom = why?.querySelector<HTMLElement>(".home-three-principles-visual__zoom");
+    const whyImage = why?.querySelector<HTMLElement>(".home-three-principles-visual__image");
+    const principleDescription = why?.querySelector<HTMLElement>(
+      ".home-three-principles__description",
+    );
+    const principleButtons = Array.from(
+      why?.querySelectorAll<HTMLButtonElement>(".home-three-principles__label") ?? [],
+    );
     const plugSection = document.querySelector<HTMLElement>(".home-section--core-support");
     const plugMedia = plugSection?.querySelector<HTMLElement>(".home-plug-media");
     const plugPanel = plugSection?.querySelector<HTMLElement>(".home-plug-panel");
@@ -865,30 +886,21 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
       whyTitleBox: box(whyTitle),
       whyTitleText: whyTitle?.textContent?.replace(/\s+/g, " ").trim() ?? "",
       whyTitleAlign: whyTitle ? getComputedStyle(whyTitle).textAlign : "",
-      whyStatementLineBoxes: Array.from(why?.querySelectorAll(".home-why-list li") ?? []).map((node) => {
+      oldWhyListCount: why?.querySelectorAll(".home-why-list").length ?? 0,
+      principleDescriptionText: clean(principleDescription?.textContent),
+      principleDescriptionBox: box(principleDescription),
+      principleLabels: principleButtons.map((button) => clean(button.textContent)),
+      principlePressedStates: principleButtons.map((button) => button.getAttribute("aria-pressed")),
+      principleButtonCursors: principleButtons.map((button) => getComputedStyle(button).cursor),
+      principleButtonLineBoxes: principleButtons.map((node) => {
         const rect = node.getBoundingClientRect();
         return {
           bottom: Math.round(rect.bottom),
+          height: Math.round(rect.height),
           top: Math.round(rect.top),
         };
       }),
-      whyStatementStyle: why?.querySelector(".home-why-list li")
-        ? {
-            color: getComputedStyle(why.querySelector(".home-why-list li") as HTMLElement)
-              .color,
-            fontFamily: getComputedStyle(why.querySelector(".home-why-list li") as HTMLElement)
-              .fontFamily,
-            fontSize: getComputedStyle(why.querySelector(".home-why-list li") as HTMLElement)
-              .fontSize,
-            fontWeight: getComputedStyle(why.querySelector(".home-why-list li") as HTMLElement)
-              .fontWeight,
-            letterSpacing: getComputedStyle(why.querySelector(".home-why-list li") as HTMLElement)
-              .letterSpacing,
-            lineHeight: getComputedStyle(why.querySelector(".home-why-list li") as HTMLElement)
-              .lineHeight,
-          }
-        : null,
-      whyVisualOverlayCount: whyVisual?.querySelectorAll(".home-why-visual__title").length ?? 0,
+      whyVisualOverlayCount: whyVisual?.querySelectorAll(".home-three-principles-visual__title").length ?? 0,
       whyZoomMotion: whyZoom?.getAttribute("data-scroll-zoom-motion") ?? "",
       whyImageTransform: whyImage ? getComputedStyle(whyImage).transform : "",
       pageGutter: getComputedStyle(document.documentElement).getPropertyValue("--page-gutter").trim(),
@@ -934,17 +946,26 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
   expect(mobile.whyBorderBottomWidth).toBe("0px");
   expect(mobile.whyPrinciplesBackground).toBe(mobile.bodyBackground);
   expect(mobile.whyBox?.height).toBeGreaterThanOrEqual(mobile.viewportHeight);
-  expect(mobile.whyBox?.height).toBeLessThanOrEqual(mobile.viewportHeight * 1.3);
-  expect(mobile.whyListBox?.height).toBeGreaterThanOrEqual(150);
-  expect(mobile.whyListBox?.height).toBeLessThanOrEqual(230);
+  expect(mobile.whyBox?.height).toBeLessThanOrEqual(mobile.viewportHeight * 1.65);
+  expect(mobile.oldWhyListCount).toBe(0);
+  expect(mobile.principleLabels).toEqual(["structure", "restraint", "consistency"]);
+  expect(mobile.principlePressedStates).toEqual(["true", "false", "false"]);
+  expect(mobile.principleButtonCursors).toEqual(["pointer", "pointer", "pointer"]);
+  expect(mobile.principleDescriptionText).toBe(
+    "Skin improves when the routine has an order: cleanse the surface, apply the treatment layer, and finish with moisture.",
+  );
+  expect(mobile.principleDescriptionBox?.height).toBeGreaterThan(100);
+  expect(mobile.whyListBox?.height).toBeGreaterThanOrEqual(360);
+  expect(mobile.whyListBox?.height).toBeLessThanOrEqual(520);
+  for (const line of mobile.principleButtonLineBoxes) {
+    expect(line.height).toBeGreaterThanOrEqual(54);
+  }
   expect(mobile.whyTitleText).toMatch(/^simple is not basic\.?$/i);
   expect(mobile.whyTitleAlign).toBe("left");
-  expect(mobile.whyStatementStyle).toEqual(mobile.plugBodyParagraphStyle);
-  const mobileWhyStatementGaps = mobile.whyStatementLineBoxes.slice(1).map((line, index) =>
-    line.top - mobile.whyStatementLineBoxes[index].bottom,
+  const mobilePrincipleButtonGaps = mobile.principleButtonLineBoxes.slice(1).map((line, index) =>
+    line.top - mobile.principleButtonLineBoxes[index].bottom,
   );
-  expect(mobileWhyStatementGaps).toHaveLength(2);
-  expect(Math.abs(mobileWhyStatementGaps[0] - mobileWhyStatementGaps[1])).toBeLessThanOrEqual(1);
+  expect(mobilePrincipleButtonGaps).toEqual([0, 0]);
   expect(mobile.whyVisualOverlayCount).toBe(0);
   expect(Number.parseFloat(mobile.pageGutter)).toBe(18);
   expect(Math.abs((mobile.whyTitleBox?.left ?? 0) - Number.parseFloat(mobile.pageGutter)))
@@ -1019,6 +1040,80 @@ test("homepage Core Three products and add-ons resolve by stable slugs", async (
   expect(merchandising.protectText).toContain("SPF");
   expect(merchandising.protectText).not.toMatch(/\$\d/);
   expect(merchandising.protectButtons).toBe(0);
+});
+
+test("homepage principles switcher updates copy without navigation", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  await page.evaluate(() => {
+    document.querySelector(".home-section--principles")?.scrollIntoView({ block: "center" });
+  });
+
+  const section = page.locator(".home-section--principles");
+  const structure = section.getByRole("button", { name: "structure" });
+  const restraint = section.getByRole("button", { name: "restraint" });
+  const consistency = section.getByRole("button", { name: "consistency" });
+
+  await expect(section.locator(".home-three-principles")).toBeVisible();
+  await expect(section.locator(".home-three-principles a")).toHaveCount(0);
+  await expect(structure).toHaveAttribute("aria-pressed", "true");
+  await expect(restraint).toHaveAttribute("aria-pressed", "false");
+  await expect(consistency).toHaveAttribute("aria-pressed", "false");
+  await expect(
+    section.getByText(
+      "Skin improves when the routine has an order: cleanse the surface, apply the treatment layer, and finish with moisture.",
+    ),
+  ).toBeVisible();
+  await expect(structure).toHaveCSS("cursor", "pointer");
+
+  await restraint.hover();
+  await expect(restraint).toHaveAttribute("aria-pressed", "true");
+  await expect(
+    section.getByText(
+      "Most routines fail because they ask for too much too soon. The Core keeps the baseline repeatable before anything else is added.",
+    ),
+  ).toBeVisible();
+
+  const beforeClickUrl = page.url();
+  const beforeClickScrollY = await page.evaluate(() => window.scrollY);
+  await consistency.click();
+  await expect(page).toHaveURL(beforeClickUrl);
+  await expect(consistency).toHaveAttribute("aria-pressed", "true");
+  await expect(
+    section.getByText(
+      "Three steps build the habit. Additional steps only matter when the baseline is stable enough to repeat.",
+    ),
+  ).toBeVisible();
+  const afterClickScrollY = await page.evaluate(() => window.scrollY);
+  expect(Math.abs(afterClickScrollY - beforeClickScrollY)).toBeLessThanOrEqual(2);
+
+  await structure.focus();
+  await expect(structure).toHaveAttribute("aria-pressed", "true");
+  await page.keyboard.press("ArrowDown");
+  await expect(restraint).toHaveAttribute("aria-pressed", "true");
+  await expect(section.locator(".home-three-principles-visual__zoom")).toBeVisible();
+
+  await expect(
+    page.getByText(
+      "01 Start with structure that skin understands: cleanse first, treat second, seal last.",
+    ),
+  ).toHaveCount(0);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.reload();
+  const mobileSection = page.locator(".home-section--principles");
+  const mobileButtons = mobileSection.locator(".home-three-principles__label");
+  await expect(mobileButtons).toHaveCount(3);
+  const mobileButtonHeights = await mobileButtons.evaluateAll((buttons) =>
+    buttons.map((button) => Math.round(button.getBoundingClientRect().height)),
+  );
+  for (const height of mobileButtonHeights) {
+    expect(height).toBeGreaterThanOrEqual(54);
+  }
+  const mobileOverflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  );
+  expect(mobileOverflow).toBeLessThanOrEqual(0);
 });
 
 test("Core Three product card navigates to a product detail page", async ({ page }) => {

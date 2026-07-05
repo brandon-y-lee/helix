@@ -3,10 +3,12 @@ import Link from "next/link";
 import { HomeFinalVideo } from "@/components/HomeFinalVideo";
 import { HomeHeroVideo } from "@/components/HomeHeroVideo";
 import { HomePlugVideo } from "@/components/HomePlugVideo";
-import { HomeWhyPortrait } from "@/components/HomeWhyPortrait";
+import { HomePrinciplesPortrait } from "@/components/HomePrinciplesPortrait";
+import { HomeThreePrinciples } from "@/components/HomeThreePrinciples";
 import { ProductImage } from "@/components/ProductImage";
 import { ProductGrid } from "@/components/ProductGrid";
 import { getCachedProducts } from "@/lib/catalog-cache";
+import { homeThreePrinciples } from "@/lib/content/home";
 import {
   PROTECT_STEP,
   buildIngredientIndex,
@@ -77,12 +79,6 @@ const ADD_ONS: readonly AddOn[] = [
     summary:
       "A scheduled weekly intensive for the days you want more than the daily baseline.",
   },
-] as const;
-
-const WHY_THREE_STATEMENTS = [
-  "01 Start with structure that skin understands: cleanse first, treat second, seal last.",
-  "02 Use high-performing, innovative ingredients at efficacious levels in your essential layers.",
-  "03 Most routines fail because they ask for too much too soon. Three steps build consistency.",
 ] as const;
 
 const INGREDIENT_LINK_LABELS: Record<string, string> = {
@@ -213,17 +209,18 @@ export default async function HomePage() {
         )}
       </section>
 
-      <section className="home-section home-section--why" aria-labelledby="why-three-heading">
-        <div className="home-why-principles">
-          <h2 id="why-three-heading" className="home-plug-panel__title">Simple is <br />not basic</h2>
-          <ol className="home-why-list" aria-label="Why three works">
-            {WHY_THREE_STATEMENTS.map((statement) => (
-              <li key={statement}>{statement}</li>
-            ))}
-          </ol>
+      <section
+        className="home-section home-section--principles"
+        aria-labelledby="home-three-principles-heading"
+      >
+        <div className="home-three-principles-panel">
+          <h2 id="home-three-principles-heading" className="home-plug-panel__title">
+            SIMPLE IS <br />NOT BASIC
+          </h2>
+          <HomeThreePrinciples principles={homeThreePrinciples} />
         </div>
-        <div className="home-why-visual">
-          <HomeWhyPortrait />
+        <div className="home-three-principles-visual">
+          <HomePrinciplesPortrait />
         </div>
       </section>
 

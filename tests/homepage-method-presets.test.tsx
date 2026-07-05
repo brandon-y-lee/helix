@@ -1,4 +1,5 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 
 vi.mock("@/lib/catalog-cache", () => ({
@@ -8,6 +9,7 @@ vi.mock("@/lib/catalog-cache", () => ({
 import HomePage from "@/app/page";
 import { CartProvider } from "@/components/CartProvider";
 import { getCachedProducts } from "@/lib/catalog-cache";
+import { homeThreePrinciples } from "@/lib/content/home";
 import type { Product } from "@/lib/products";
 
 const mockedGetProducts = getCachedProducts as unknown as Mock;
@@ -151,6 +153,8 @@ beforeEach(() => {
 
 describe("homepage Core Three positioning", () => {
   it("renders the requested hero, Core Three products, add-ons, and editorial PROTECT step", async () => {
+    const user = userEvent.setup();
+
     render(<CartProvider>{await HomePage()}</CartProvider>);
 
     expect(
@@ -209,32 +213,65 @@ describe("homepage Core Three positioning", () => {
       .toBeInTheDocument();
 
     const why = sectionForHeading(/simple is\s+not basic\.?/i);
-    expect(
-      within(why).getByText(
-        "01 Start with structure that skin understands: cleanse first, treat second, seal last.",
-      ),
-    ).toBeInTheDocument();
-    expect(
-      within(why).getByText(
-        "02 Use high-performing, innovative ingredients at efficacious levels in your essential layers.",
-      ),
-    ).toBeInTheDocument();
-    expect(
-      within(why).getByText(
-        "03 Most routines fail because they ask for too much too soon. Three steps build consistency.",
-      ),
-    ).toBeInTheDocument();
-    const whyTitle = why.querySelector("#why-three-heading");
+    const whyTitle = why.querySelector("#home-three-principles-heading");
     expect(whyTitle).toHaveClass("home-plug-panel__title");
     expect(whyTitle).toHaveTextContent(/simple is\s+not basic\.?/i);
-    expect(why.querySelector(".home-why-visual__title")).not.toBeInTheDocument();
-    expect(why.querySelector(".home-why-visual .home-why-title")).not.toBeInTheDocument();
+    expect(why.querySelector(".home-three-principles-visual__title")).not.toBeInTheDocument();
     expect(
-      why.querySelector(".home-why-principles #why-three-heading")?.textContent
+      why.querySelector(".home-three-principles-panel #home-three-principles-heading")?.textContent
         ?.replace(/\s+/g, " ")
         .trim(),
     ).toMatch(/^simple is not basic\.?$/i);
-    expect(why.querySelector(".home-why-visual__zoom")).toBeInTheDocument();
+    expect(why.querySelector(".home-why-list")).not.toBeInTheDocument();
+    expect(why.querySelector(".home-three-principles")).toBeInTheDocument();
+    expect(why.querySelector(".home-three-principles a")).not.toBeInTheDocument();
+    expect(
+      within(why).queryByText(
+        "01 Start with structure that skin understands: cleanse first, treat second, seal last.",
+      ),
+    ).not.toBeInTheDocument();
+    expect(
+      within(why).queryByText(
+        "02 Use high-performing, innovative ingredients at efficacious levels in your essential layers.",
+      ),
+    ).not.toBeInTheDocument();
+    expect(
+      within(why).queryByText(
+        "03 Most routines fail because they ask for too much too soon. Three steps build consistency.",
+      ),
+    ).not.toBeInTheDocument();
+    const principleGroup = within(why).getByRole("group", {
+      name: "Simple is not basic principles",
+    });
+    const principleButtons = within(principleGroup).getAllByRole("button");
+    expect(principleButtons.map((button) => button.textContent?.trim())).toEqual(
+      homeThreePrinciples.map((principle) => principle.label),
+    );
+    expect(principleButtons.map((button) => button.getAttribute("href"))).toEqual([
+      null,
+      null,
+      null,
+    ]);
+    expect(principleButtons[0]).toHaveAttribute("aria-pressed", "true");
+    expect(principleButtons[1]).toHaveAttribute("aria-pressed", "false");
+    expect(principleButtons[2]).toHaveAttribute("aria-pressed", "false");
+    expect(within(why).getByText(homeThreePrinciples[0].description)).toBeInTheDocument();
+
+    fireEvent.pointerEnter(principleButtons[1], { pointerType: "mouse" });
+    expect(principleButtons[1]).toHaveAttribute("aria-pressed", "true");
+    expect(within(why).getByText(homeThreePrinciples[1].description)).toBeInTheDocument();
+
+    fireEvent.focus(principleButtons[2]);
+    expect(principleButtons[2]).toHaveAttribute("aria-pressed", "true");
+    expect(within(why).getByText(homeThreePrinciples[2].description)).toBeInTheDocument();
+
+    const beforeClickUrl = window.location.href;
+    await user.click(principleButtons[0]);
+    expect(window.location.href).toBe(beforeClickUrl);
+    expect(principleButtons[0]).toHaveAttribute("aria-pressed", "true");
+    expect(within(why).getByText(homeThreePrinciples[0].description)).toBeInTheDocument();
+
+    expect(why.querySelector(".home-three-principles-visual__zoom")).toBeInTheDocument();
     const whyImage = within(why).getByAltText("Black-and-white editorial portrait.");
     const whyImageSrc = decodeURIComponent(whyImage.getAttribute("src") ?? "");
     expect(whyImageSrc).toContain("/media/home/why-three.webp");
