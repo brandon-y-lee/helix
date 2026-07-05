@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import {
-  type ComponentPropsWithoutRef,
   useEffect,
   useId,
   useMemo,
@@ -70,16 +69,11 @@ function detailRows(product: Product, variant: Variant | null | undefined) {
   );
 }
 
-type ProductCardRootProps = Omit<ComponentPropsWithoutRef<"li">, "children"> & {
-  [key: `data-${string}`]: string | number | boolean | undefined;
-};
-
 type ProductCardProps = {
   product: Product;
   quickBuyOpen?: boolean;
   onQuickBuyOpen?: () => void;
   onQuickBuyClose?: () => void;
-  rootProps?: ProductCardRootProps;
 };
 
 export function ProductCard({
@@ -87,7 +81,6 @@ export function ProductCard({
   quickBuyOpen,
   onQuickBuyOpen,
   onQuickBuyClose,
-  rootProps,
 }: ProductCardProps) {
   const { add, cartDrawerOpen, openCartDrawer } = useCart();
   const panelBaseId = useId();
@@ -139,7 +132,6 @@ export function ProductCard({
   const hasRange = product.variants.length > 1;
   const priceLabel = `${hasRange ? "From " : ""}${formatPrice(startingPrice)}`;
   const displayName = product.displayName;
-  const { className: rootClassName, ...restRootProps } = rootProps ?? {};
   const visualState = isQuickBuyOpen
     ? "quick-buy"
     : pointerInside || keyboardFocusVisibleWithin
@@ -354,8 +346,7 @@ export function ProductCard({
 
   return (
     <li
-      {...restRootProps}
-      className={["product-card", rootClassName].filter(Boolean).join(" ")}
+      className="product-card"
       data-quick-buy-open={isQuickBuyOpen}
       data-visual-state={visualState}
     >

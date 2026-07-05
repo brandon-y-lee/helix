@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 
 vi.mock("@/lib/catalog-cache", () => ({
@@ -172,29 +172,26 @@ describe("homepage Core Three positioning", () => {
     ).not.toBeInTheDocument();
 
     const core = sectionForHeading("The Core");
-    const coreProgress = core.querySelector(".home-core-progress");
-    expect(coreProgress).toBeInTheDocument();
+    expect(
+      within(core).getByText("Simple by design. For all skin types."),
+    ).toBeInTheDocument();
     expect(
       within(core).queryByText(
         "Simple by design: cleanse the surface, apply the treatment layer, then finish with moisture and barrier support.",
       ),
     ).not.toBeInTheDocument();
+    expect(core.querySelector(".home-core-progress")).not.toBeInTheDocument();
+    expect(core.querySelector(".home-core-progress-shell")).not.toBeInTheDocument();
+    expect(core.querySelector(".home-core-progress__rail")).not.toBeInTheDocument();
+    expect(core.querySelector(".home-core-progress__step-number")).not.toBeInTheDocument();
+    expect(core.querySelector(".home-core-progress__mini-description")).not.toBeInTheDocument();
+    expect(core.querySelector("[data-core-active]")).not.toBeInTheDocument();
+    expect(core.querySelector("[data-core-step]")).not.toBeInTheDocument();
+    expect(within(core).queryByText("cleanse the surface")).not.toBeInTheDocument();
+    expect(within(core).queryByText("apply the treatment layer")).not.toBeInTheDocument();
     expect(
-      Array.from(core.querySelectorAll(".home-core-progress__step-number")).map((node) =>
-        node.textContent?.trim(),
-      ),
-    ).toEqual(["01", "02", "03"]);
-    expect(core.querySelector(".home-core-progress-shell")).toHaveAttribute(
-      "data-core-active",
-      "0",
-    );
-    expect(within(core).getByText("cleanse the surface")).toHaveClass(
-      "home-core-progress__mini-description",
-    );
-    expect(within(core).getByText("cleanse the surface")).toHaveAttribute(
-      "aria-hidden",
-      "true",
-    );
+      within(core).queryByText("finish with moisture and barrier support"),
+    ).not.toBeInTheDocument();
 
     expect(core.querySelector(".home-step-grid")).not.toBeInTheDocument();
     expect(core.querySelector(".home-step-card")).not.toBeInTheDocument();
@@ -360,41 +357,5 @@ describe("homepage Core Three positioning", () => {
     ).toEqual(["CLEANSE", "TREAT"]);
     expect(within(core).queryByText("REFINE")).not.toBeInTheDocument();
     expect(within(core).queryByText("FRAME")).not.toBeInTheDocument();
-  });
-
-  it("activates the Core checkpoint rail from product hover, focus, and pointer leave", async () => {
-    render(<CartProvider>{await HomePage()}</CartProvider>);
-
-    const core = sectionForHeading("The Core");
-    const shell = core.querySelector(".home-core-progress-shell");
-    const products = core.querySelector(".home-core-products");
-    const cleanseCard = core.querySelector('[data-core-step="1"]');
-    const treatButton = within(core).getByRole("button", {
-      name: "Open quick buy for TREAT",
-    });
-
-    expect(shell).toHaveAttribute("data-core-active", "0");
-    expect(cleanseCard).not.toBeNull();
-    expect(products).not.toBeNull();
-
-    fireEvent.pointerEnter(cleanseCard as Element, { pointerType: "mouse" });
-    await waitFor(() => expect(shell).toHaveAttribute("data-core-active", "1"));
-    expect(within(core).getByText("cleanse the surface")).toHaveClass(
-      "home-core-progress__mini-description",
-    );
-    expect(within(core).getByText("cleanse the surface")).toHaveAttribute(
-      "aria-hidden",
-      "false",
-    );
-
-    fireEvent.focus(treatButton);
-    await waitFor(() => expect(shell).toHaveAttribute("data-core-active", "2"));
-    expect(within(core).getByText("apply the treatment layer")).toHaveAttribute(
-      "aria-hidden",
-      "false",
-    );
-
-    fireEvent.pointerLeave(products as Element, { pointerType: "mouse" });
-    await waitFor(() => expect(shell).toHaveAttribute("data-core-active", "0"));
   });
 });

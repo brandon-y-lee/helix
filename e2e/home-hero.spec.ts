@@ -187,8 +187,10 @@ test.describe("homepage video hero", () => {
     await page.goto("/");
     await page.locator(".home-video-hero__cta").click();
     await expect(page).toHaveURL(/\/#core-three$/);
-    await expect(page.getByRole("region", { name: "The Core", exact: true })).toBeVisible();
-    await expect(page.locator(".home-core-progress")).toBeVisible();
+    const core = page.getByRole("region", { name: "The Core", exact: true });
+    await expect(core).toBeVisible();
+    await expect(core.getByText("Simple by design. For all skin types.")).toBeVisible();
+    await expect(core.locator(".home-core-progress")).toHaveCount(0);
     await expect(
       page.getByText(
         "Simple by design: cleanse the surface, apply the treatment layer, then finish with moisture and barrier support.",

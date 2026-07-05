@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { HomeFinalVideo } from "@/components/HomeFinalVideo";
-import { HomeCoreProgress } from "@/components/HomeCoreProgress";
 import { HomeHeroVideo } from "@/components/HomeHeroVideo";
 import { HomePlugVideo } from "@/components/HomePlugVideo";
 import { HomeWhyPortrait } from "@/components/HomeWhyPortrait";
 import { ProductImage } from "@/components/ProductImage";
+import { ProductGrid } from "@/components/ProductGrid";
 import { getCachedProducts } from "@/lib/catalog-cache";
 import {
   PROTECT_STEP,
@@ -200,7 +200,17 @@ export default async function HomePage() {
         className="container home-section home-section--core"
         aria-labelledby="core-three-heading"
       >
-        <HomeCoreProgress products={coreProducts} headingId="core-three-heading" />
+        <div className="home-section__intro home-section__intro--core">
+          <p className="hero__eyebrow">The Core</p>
+          <h2 id="core-three-heading" className="sr-only">
+            The Core
+          </h2>
+          <p>Simple by design. For all skin types.</p>
+        </div>
+
+        {coreProducts.length > 0 && (
+          <ProductGrid products={coreProducts} className="product-grid home-core-products" />
+        )}
       </section>
 
       <section className="home-section home-section--why" aria-labelledby="why-three-heading">
