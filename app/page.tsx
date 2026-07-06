@@ -215,7 +215,7 @@ export default async function HomePage() {
       >
         <div className="home-three-principles-panel">
           <h2 id="home-three-principles-heading" className="home-plug-panel__title">
-            SIMPLE IS <br />NOT BASIC
+            Simple is <br />not basic.
           </h2>
           <HomeThreePrinciples principles={homeThreePrinciples} />
         </div>
