@@ -1,6 +1,7 @@
 export type HomeThreePrinciple = {
   id: "mission" | "innovation" | "sustainability";
   label: string;
+  titleLines: readonly string[];
   description: string;
 };
 
@@ -8,19 +9,22 @@ export const homeThreePrinciples = [
   {
     id: "mission",
     label: "mission",
+    titleLines: ["Simple is", "not basic."],
     description:
-      "Skin improves when the routine has an order: cleanse the surface, apply the treatment layer, and finish with moisture.",
+      "Restore, Protect, and Nurture the skin you have now for lasting results that reveal themselves over time.",
   },
   {
     id: "innovation",
     label: "innovation",
+    titleLines: ["Longevity is", "formulated."],
     description:
-      "Most routines fail because they ask for too much too soon. The Core keeps the baseline repeatable before anything else is added.",
+      "Developed with award-winning dermatologists and industry leaders. Formulated for longevity.",
   },
   {
     id: "sustainability",
     label: "sustainability",
+    titleLines: ["Mindful skincare,", "built in."],
     description:
-      "Three steps build the habit. Additional steps only matter when the baseline is stable enough to repeat.",
+      "From consciously-sourced ingredients to packaging made with post-consumer recycled materials, we’re committed to MINDFUL SKINCARE.",
   },
 ] as const satisfies readonly HomeThreePrinciple[];

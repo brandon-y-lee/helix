@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { homeThreePrinciples } from "../lib/content/home";
 
 // Homepage merchandising modules are rendered from the seeded Supabase catalog
 // (server-side). They are product discovery and positioning surfaces, not
@@ -16,6 +17,12 @@ function scaleFromTransform(transform: string) {
   return scale?.[1] ? Number.parseFloat(scale[1]) : 1;
 }
 
+const principleLabels = homeThreePrinciples.map((principle) => principle.label);
+const principleTitleTexts = homeThreePrinciples.map((principle) =>
+  principle.titleLines.join(" "),
+);
+const principleDescriptions = homeThreePrinciples.map((principle) => principle.description);
+
 test("homepage Core Three ladder renders", async ({ page }) => {
   await page.goto("/");
 
@@ -27,20 +34,18 @@ test("homepage Core Three ladder renders", async ({ page }) => {
     .toBeVisible();
   await expect(page.getByRole("heading", { name: "Cleanse, Treat, Seal." }))
     .toHaveCount(0);
-  await expect(page.getByRole("button", { name: "structure" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "restraint" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "consistency" })).toBeVisible();
+  for (const label of principleLabels) {
+    await expect(page.getByRole("button", { name: label })).toBeVisible();
+  }
   await expect(
-    page.getByText(
-      "Skin improves when the routine has an order: cleanse the surface, apply the treatment layer, and finish with moisture.",
-    ),
+    page.getByText(principleDescriptions[0]),
   ).toBeVisible();
   await expect(
     page.getByText(
       "01 Start with structure that skin understands: cleanse first, treat second, seal last.",
     ),
   ).toHaveCount(0);
-  await expect(page.locator("#home-three-principles-heading")).toHaveText(/simple is\s+not basic\.?/i);
+  await expect(page.locator("#home-three-principles-heading")).toHaveText(principleTitleTexts[0]);
   await expect(
     page.getByText("For skin that is clearer, more hydrated, and less tired."),
   ).toBeVisible();
@@ -516,7 +521,8 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
   expect(desktop.coreEyebrowStyle?.fontWeight).toBe("900");
   expect(["left", "start"]).toContain(desktop.coreEyebrowStyle?.textAlign);
   expect(desktop.coreDescriptionText).toBe("Simple by design. For all skin types.");
-  expect(desktop.coreDescriptionStyle).toEqual(desktop.plugBodyParagraphStyle);
+  expect(Number.parseFloat(desktop.coreDescriptionStyle?.fontSize ?? "0"))
+    .toBeGreaterThan(Number.parseFloat(desktop.plugBodyParagraphStyle?.fontSize ?? "0"));
   expect(desktop.coreIntroBox?.width).toBeGreaterThan(920);
   expect(desktop.coreProductGridBox?.width).toBeGreaterThan(920);
   expect(desktop.coreProgressCount).toBe(0);
@@ -527,7 +533,8 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
   expect(desktop.coreMiniDescriptionCount).toBe(0);
   expect(desktop.coreActiveDataCount).toBe(0);
   expect(desktop.coreStepDataCount).toBe(0);
-  expect(desktop.beyondDescriptionStyle).toEqual(desktop.plugBodyParagraphStyle);
+  expect(Number.parseFloat(desktop.beyondDescriptionStyle?.fontSize ?? "0"))
+    .toBeGreaterThan(Number.parseFloat(desktop.plugBodyParagraphStyle?.fontSize ?? "0"));
   expect(desktop.ingredientsDescriptionStyle).toEqual(desktop.plugBodyParagraphStyle);
   expect(desktop.finalDescriptionStyle).toEqual(desktop.plugBodyParagraphStyle);
   expect(desktop.ingredientsTitleStyle).toEqual(desktop.plugTitleStyle);
@@ -604,23 +611,22 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
   expect(desktop.whyVisualBox?.height).toBeGreaterThanOrEqual(desktop.viewportHeight * 1.1);
   expect(desktop.oldWhyListCount).toBe(0);
   expect(desktop.oldWhyStatementCount).toBe(0);
-  expect(desktop.principleLabels).toEqual(["structure", "restraint", "consistency"]);
+  expect(desktop.principleLabels).toEqual(principleLabels);
   expect(desktop.principlePressedStates).toEqual(["true", "false", "false"]);
   expect(desktop.principleButtonTypes).toEqual(["button", "button", "button"]);
   expect(desktop.principleButtonHrefs).toEqual([null, null, null]);
   expect(desktop.principleButtonCursors).toEqual(["pointer", "pointer", "pointer"]);
   expect(desktop.principleGroupRole).toBe("group");
-  expect(desktop.principleGroupLabel).toBe("Simple is not basic principles");
+  expect(desktop.principleGroupLabel).toBe("Mei Pelle principles");
   expect(desktop.principleAnchorCount).toBe(0);
-  expect(desktop.principleDescriptionText).toBe(
-    "Skin improves when the routine has an order: cleanse the surface, apply the treatment layer, and finish with moisture.",
-  );
+  expect(desktop.principleDescriptionText).toBe(principleDescriptions[0]);
   expect(desktop.principleDescriptionStyle?.fontFamily).toMatch(/Marcellus/i);
   expect(Number.parseFloat(desktop.principleDescriptionStyle?.fontSize ?? "0"))
     .toBeGreaterThan(Number.parseFloat(desktop.plugBodyParagraphStyle?.fontSize ?? "0") * 1.6);
+  expect(Number.parseFloat(desktop.principleDescriptionStyle?.fontSize ?? "0"))
+    .toBeLessThan(Number.parseFloat(desktop.plugTitleFontSize) * 0.5);
   expect(desktop.principleDescriptionBox?.height).toBeGreaterThan(90);
-  expect(desktop.whyListBox?.height).toBeGreaterThanOrEqual(390);
-  expect(desktop.whyListBox?.height).toBeLessThanOrEqual(desktop.viewportHeight * 0.74);
+  expect(desktop.whyListBox?.height).toBeGreaterThanOrEqual(desktop.viewportHeight * 0.8);
   const principleButtonGaps = desktop.principleButtonLineBoxes.slice(1).map((line, index) =>
     line.top - desktop.principleButtonLineBoxes[index].bottom,
   );
@@ -628,17 +634,17 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
   for (const line of desktop.principleButtonLineBoxes) {
     expect(line.height).toBeGreaterThanOrEqual(56);
   }
-  expect((desktop.whyListBox?.top ?? 0) - (desktop.whyPrinciplesBox?.top ?? 0))
-    .toBeGreaterThan(desktop.viewportHeight * 0.2);
-  expect((desktop.whyPrinciplesBox?.bottom ?? 0) - (desktop.whyListBox?.bottom ?? 0))
+  expect((desktop.principleDescriptionBox?.top ?? 0) - (desktop.whyTitleBox?.bottom ?? 0))
     .toBeGreaterThan(desktop.viewportHeight * 0.08);
-  expect((desktop.whyPrinciplesBox?.bottom ?? 0) - (desktop.whyListBox?.bottom ?? 0))
-    .toBeLessThan(desktop.viewportHeight * 0.3);
+  const desktopLabelsBottomGap =
+    (desktop.whyPrinciplesBox?.bottom ?? 0) - (desktop.principleButtonLineBoxes.at(-1)?.bottom ?? 0);
+  expect(desktopLabelsBottomGap).toBeGreaterThanOrEqual(40);
+  expect(desktopLabelsBottomGap).toBeLessThanOrEqual(130);
   expect(desktop.whyVisualBox?.left).toBeGreaterThanOrEqual(desktop.whyPrinciplesBox?.right ?? 0);
   expect(desktop.whyVisualBox?.right).toBe(desktop.whyBox?.right);
   expect(desktop.whyVisualAfterContent).toBe("none");
   expect(desktop.whyVisualOverlayCount).toBe(0);
-  expect(desktop.whyTitleText).toMatch(/^simple is not basic\.?$/i);
+  expect(desktop.whyTitleText).toBe(principleTitleTexts[0]);
   expect(desktop.whyTitleColor).toBe("rgb(17, 19, 18)");
   expect(desktop.whyTitleFamily).toMatch(/Marcellus/i);
   expect(desktop.whyTitleFamily).toBe(desktop.plugTitleFamily);
@@ -662,7 +668,7 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
   expect(desktop.whyTitleWhiteSpace).toBe("normal");
   expect(desktop.whyTitleTextShadow).toBe("none");
   expect(desktop.whyTitleClass).toContain("home-plug-panel__title");
-  expect(desktop.whyTitleParentClass).toContain("home-three-principles-panel");
+  expect(desktop.whyTitleParentClass).toContain("home-three-principles");
   expect(Math.abs((desktop.whyTitleBox?.left ?? 0) - desktop.standardContentLeft))
     .toBeLessThanOrEqual(1);
   expect(Math.abs((desktop.whyListBox?.left ?? 0) - desktop.standardContentLeft))
@@ -674,7 +680,7 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
   expect((desktop.whyTitleBox?.top ?? 0) - (desktop.whyPrinciplesBox?.top ?? 0))
     .toBeLessThan(130);
   expect(desktop.whyTitleBox?.right).toBeLessThanOrEqual(desktop.whyPrinciplesBox?.right ?? 0);
-  expect(desktop.whyTitleBox?.bottom ?? 0).toBeLessThan(desktop.whyListBox?.top ?? 0);
+  expect(desktop.whyTitleBox?.bottom ?? 0).toBeLessThan(desktop.principleDescriptionBox?.top ?? 0);
   expect(desktop.whyZoomMotion).toBe("motion");
   expect(["true", "false"]).toContain(desktop.whyZoomActive);
   const whyImageSrc = decodeURIComponent(desktop.whyImageSrc);
@@ -948,19 +954,17 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
   expect(mobile.whyBox?.height).toBeGreaterThanOrEqual(mobile.viewportHeight);
   expect(mobile.whyBox?.height).toBeLessThanOrEqual(mobile.viewportHeight * 1.65);
   expect(mobile.oldWhyListCount).toBe(0);
-  expect(mobile.principleLabels).toEqual(["structure", "restraint", "consistency"]);
+  expect(mobile.principleLabels).toEqual(principleLabels);
   expect(mobile.principlePressedStates).toEqual(["true", "false", "false"]);
   expect(mobile.principleButtonCursors).toEqual(["pointer", "pointer", "pointer"]);
-  expect(mobile.principleDescriptionText).toBe(
-    "Skin improves when the routine has an order: cleanse the surface, apply the treatment layer, and finish with moisture.",
-  );
-  expect(mobile.principleDescriptionBox?.height).toBeGreaterThan(100);
+  expect(mobile.principleDescriptionText).toBe(principleDescriptions[0]);
+  expect(mobile.principleDescriptionBox?.height).toBeGreaterThan(60);
   expect(mobile.whyListBox?.height).toBeGreaterThanOrEqual(360);
-  expect(mobile.whyListBox?.height).toBeLessThanOrEqual(520);
+  expect(mobile.whyListBox?.height).toBeLessThanOrEqual(680);
   for (const line of mobile.principleButtonLineBoxes) {
     expect(line.height).toBeGreaterThanOrEqual(54);
   }
-  expect(mobile.whyTitleText).toMatch(/^simple is not basic\.?$/i);
+  expect(mobile.whyTitleText).toBe(principleTitleTexts[0]);
   expect(mobile.whyTitleAlign).toBe("left");
   const mobilePrincipleButtonGaps = mobile.principleButtonLineBoxes.slice(1).map((line, index) =>
     line.top - mobile.principleButtonLineBoxes[index].bottom,
@@ -973,7 +977,7 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
   expect(Math.abs((mobile.whyListBox?.left ?? 0) - Number.parseFloat(mobile.pageGutter)))
     .toBeLessThanOrEqual(1);
   expect(mobile.whyTitleBox?.top ?? 0).toBeGreaterThanOrEqual(mobile.whyPrinciplesBox?.top ?? 0);
-  expect(mobile.whyTitleBox?.bottom ?? 0).toBeLessThan(mobile.whyListBox?.top ?? 0);
+  expect(mobile.whyTitleBox?.bottom ?? 0).toBeLessThan(mobile.principleDescriptionBox?.top ?? 0);
   expect(mobile.whyVisualBox?.top).toBeGreaterThanOrEqual(mobile.whyPrinciplesBox?.bottom ?? 0);
   expect(mobile.whyZoomMotion).toBe("static");
   expect(scaleFromTransform(mobile.whyImageTransform)).toBeGreaterThanOrEqual(1.069);
@@ -1050,47 +1054,39 @@ test("homepage principles switcher updates copy without navigation", async ({ pa
   });
 
   const section = page.locator(".home-section--principles");
-  const structure = section.getByRole("button", { name: "structure" });
-  const restraint = section.getByRole("button", { name: "restraint" });
-  const consistency = section.getByRole("button", { name: "consistency" });
+  const firstPrinciple = section.getByRole("button", { name: principleLabels[0] });
+  const secondPrinciple = section.getByRole("button", { name: principleLabels[1] });
+  const thirdPrinciple = section.getByRole("button", { name: principleLabels[2] });
 
   await expect(section.locator(".home-three-principles")).toBeVisible();
   await expect(section.locator(".home-three-principles a")).toHaveCount(0);
-  await expect(structure).toHaveAttribute("aria-pressed", "true");
-  await expect(restraint).toHaveAttribute("aria-pressed", "false");
-  await expect(consistency).toHaveAttribute("aria-pressed", "false");
-  await expect(
-    section.getByText(
-      "Skin improves when the routine has an order: cleanse the surface, apply the treatment layer, and finish with moisture.",
-    ),
-  ).toBeVisible();
-  await expect(structure).toHaveCSS("cursor", "pointer");
+  await expect(firstPrinciple).toHaveAttribute("aria-pressed", "true");
+  await expect(secondPrinciple).toHaveAttribute("aria-pressed", "false");
+  await expect(thirdPrinciple).toHaveAttribute("aria-pressed", "false");
+  await expect(section.locator("#home-three-principles-heading")).toHaveText(principleTitleTexts[0]);
+  await expect(section.getByText(principleDescriptions[0])).toBeVisible();
+  await expect(firstPrinciple).toHaveCSS("cursor", "pointer");
 
-  await restraint.hover();
-  await expect(restraint).toHaveAttribute("aria-pressed", "true");
-  await expect(
-    section.getByText(
-      "Most routines fail because they ask for too much too soon. The Core keeps the baseline repeatable before anything else is added.",
-    ),
-  ).toBeVisible();
+  await secondPrinciple.hover();
+  await expect(secondPrinciple).toHaveAttribute("aria-pressed", "true");
+  await expect(section.locator("#home-three-principles-heading")).toHaveText(principleTitleTexts[1]);
+  await expect(section.getByText(principleDescriptions[1])).toBeVisible();
 
   const beforeClickUrl = page.url();
   const beforeClickScrollY = await page.evaluate(() => window.scrollY);
-  await consistency.click();
+  await thirdPrinciple.click();
   await expect(page).toHaveURL(beforeClickUrl);
-  await expect(consistency).toHaveAttribute("aria-pressed", "true");
-  await expect(
-    section.getByText(
-      "Three steps build the habit. Additional steps only matter when the baseline is stable enough to repeat.",
-    ),
-  ).toBeVisible();
+  await expect(thirdPrinciple).toHaveAttribute("aria-pressed", "true");
+  await expect(section.locator("#home-three-principles-heading")).toHaveText(principleTitleTexts[2]);
+  await expect(section.getByText(principleDescriptions[2])).toBeVisible();
   const afterClickScrollY = await page.evaluate(() => window.scrollY);
   expect(Math.abs(afterClickScrollY - beforeClickScrollY)).toBeLessThanOrEqual(2);
 
-  await structure.focus();
-  await expect(structure).toHaveAttribute("aria-pressed", "true");
+  await firstPrinciple.focus();
+  await expect(firstPrinciple).toHaveAttribute("aria-pressed", "true");
   await page.keyboard.press("ArrowDown");
-  await expect(restraint).toHaveAttribute("aria-pressed", "true");
+  await expect(secondPrinciple).toHaveAttribute("aria-pressed", "true");
+  await expect(section.locator("#home-three-principles-heading")).toHaveText(principleTitleTexts[1]);
   await expect(section.locator(".home-three-principles-visual__zoom")).toBeVisible();
 
   await expect(

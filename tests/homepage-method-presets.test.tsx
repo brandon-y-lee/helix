@@ -212,16 +212,17 @@ describe("homepage Core Three positioning", () => {
     expect(within(core).getByRole("button", { name: "Open quick buy for SEAL" }))
       .toBeInTheDocument();
 
-    const why = sectionForHeading(/simple is\s+not basic\.?/i);
+    const why = sectionForHeading(new RegExp(homeThreePrinciples[0].titleLines.join("\\s+"), "i"));
     const whyTitle = why.querySelector("#home-three-principles-heading");
     expect(whyTitle).toHaveClass("home-plug-panel__title");
-    expect(whyTitle).toHaveTextContent(/simple is\s+not basic\.?/i);
+    expect(whyTitle).toHaveClass("home-three-principles__title");
+    expect(whyTitle).toHaveTextContent(homeThreePrinciples[0].titleLines.join(" "));
     expect(why.querySelector(".home-three-principles-visual__title")).not.toBeInTheDocument();
     expect(
       why.querySelector(".home-three-principles-panel #home-three-principles-heading")?.textContent
         ?.replace(/\s+/g, " ")
         .trim(),
-    ).toMatch(/^simple is not basic\.?$/i);
+    ).toBe(homeThreePrinciples[0].titleLines.join(" "));
     expect(why.querySelector(".home-why-list")).not.toBeInTheDocument();
     expect(why.querySelector(".home-three-principles")).toBeInTheDocument();
     expect(why.querySelector(".home-three-principles a")).not.toBeInTheDocument();
@@ -241,7 +242,7 @@ describe("homepage Core Three positioning", () => {
       ),
     ).not.toBeInTheDocument();
     const principleGroup = within(why).getByRole("group", {
-      name: "Simple is not basic principles",
+      name: "Mei Pelle principles",
     });
     const principleButtons = within(principleGroup).getAllByRole("button");
     expect(principleButtons.map((button) => button.textContent?.trim())).toEqual(
@@ -259,16 +260,19 @@ describe("homepage Core Three positioning", () => {
 
     fireEvent.pointerEnter(principleButtons[1], { pointerType: "mouse" });
     expect(principleButtons[1]).toHaveAttribute("aria-pressed", "true");
+    expect(whyTitle).toHaveTextContent(homeThreePrinciples[1].titleLines.join(" "));
     expect(within(why).getByText(homeThreePrinciples[1].description)).toBeInTheDocument();
 
     fireEvent.focus(principleButtons[2]);
     expect(principleButtons[2]).toHaveAttribute("aria-pressed", "true");
+    expect(whyTitle).toHaveTextContent(homeThreePrinciples[2].titleLines.join(" "));
     expect(within(why).getByText(homeThreePrinciples[2].description)).toBeInTheDocument();
 
     const beforeClickUrl = window.location.href;
     await user.click(principleButtons[0]);
     expect(window.location.href).toBe(beforeClickUrl);
     expect(principleButtons[0]).toHaveAttribute("aria-pressed", "true");
+    expect(whyTitle).toHaveTextContent(homeThreePrinciples[0].titleLines.join(" "));
     expect(within(why).getByText(homeThreePrinciples[0].description)).toBeInTheDocument();
 
     expect(why.querySelector(".home-three-principles-visual__zoom")).toBeInTheDocument();

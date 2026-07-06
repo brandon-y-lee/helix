@@ -4,18 +4,19 @@ import { useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import type { HomeThreePrinciple } from "@/lib/content/home";
 
 type HomeThreePrinciplesProps = {
+  headingId: string;
   principles: readonly HomeThreePrinciple[];
 };
 
-export function HomeThreePrinciples({ principles }: HomeThreePrinciplesProps) {
+export function HomeThreePrinciples({ headingId, principles }: HomeThreePrinciplesProps) {
   const [activeIndex, setActiveIndex] = useState(0);
-  const descriptionId = useId();
+  const contentId = useId();
   const labelRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const activePrinciple = principles[activeIndex] ?? principles[0];
 
   const labelIds = useMemo(
-    () => principles.map((principle) => `${descriptionId}-${principle.id}`),
-    [descriptionId, principles],
+    () => principles.map((principle) => `${contentId}-${principle.id}`),
+    [contentId, principles],
   );
 
   function activate(index: number) {
@@ -51,10 +52,21 @@ export function HomeThreePrinciples({ principles }: HomeThreePrinciplesProps) {
 
   return (
     <div className="home-three-principles" data-active-index={activeIndex}>
-      <div className="home-three-principles__copy">
+      <h2
+        id={headingId}
+        className="home-plug-panel__title home-three-principles__title"
+      >
+        {activePrinciple.titleLines.map((line, index) => (
+          <span key={line}>
+            {line}
+            {index < activePrinciple.titleLines.length - 1 ? " " : ""}
+          </span>
+        ))}
+      </h2>
+
+      <div id={contentId} className="home-three-principles__copy">
         <p
           key={activePrinciple.id}
-          id={descriptionId}
           className="home-three-principles__description"
         >
           {activePrinciple.description}
@@ -64,7 +76,7 @@ export function HomeThreePrinciples({ principles }: HomeThreePrinciplesProps) {
       <div
         className="home-three-principles__labels"
         role="group"
-        aria-label="Simple is not basic principles"
+        aria-label="Mei Pelle principles"
       >
         {principles.map((principle, index) => {
           const isActive = index === activeIndex;
@@ -79,7 +91,7 @@ export function HomeThreePrinciples({ principles }: HomeThreePrinciplesProps) {
               type="button"
               className="home-three-principles__label"
               aria-pressed={isActive}
-              aria-controls={descriptionId}
+              aria-controls={contentId}
               data-active={isActive ? "true" : "false"}
               onClick={() => activate(index)}
               onFocus={() => activate(index)}

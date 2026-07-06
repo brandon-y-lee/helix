@@ -214,10 +214,10 @@ export default async function HomePage() {
         aria-labelledby="home-three-principles-heading"
       >
         <div className="home-three-principles-panel">
-          <h2 id="home-three-principles-heading" className="home-plug-panel__title">
-            Simple is <br />not basic.
-          </h2>
-          <HomeThreePrinciples principles={homeThreePrinciples} />
+          <HomeThreePrinciples
+            headingId="home-three-principles-heading"
+            principles={homeThreePrinciples}
+          />
         </div>
         <div className="home-three-principles-visual">
           <HomePrinciplesPortrait />
@@ -252,7 +252,10 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section className="container home-section" aria-labelledby="beyond-heading">
+      <section
+        className="container home-section home-section--beyond"
+        aria-labelledby="beyond-heading"
+      >
         <div className="home-section__intro home-section__intro--wide">
           <p className="hero__eyebrow">Beyond The Core</p>
           <h2 id="beyond-heading" className="sr-only">Beyond The Core</h2>
