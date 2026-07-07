@@ -11,20 +11,20 @@ export const homeThreePrinciples = [
     label: "mission",
     titleLines: ["Simple is", "not basic."],
     description:
-      "Restore, Protect, and Nurture the skin you have now for lasting results that reveal themselves over time.",
+      "Restore, protect, and nurture the skin you have now for lasting results that reveal themselves over time.",
   },
   {
     id: "innovation",
     label: "innovation",
-    titleLines: ["Longevity is", "formulated."],
+    titleLines: ["Formulated", "for longevity."],
     description:
-      "Developed with award-winning dermatologists and industry leaders. Formulated for longevity.",
+      "Developed with award-winning dermatologists, chemists, and industry leaders.",
   },
   {
     id: "sustainability",
     label: "sustainability",
     titleLines: ["Mindful skincare,", "built in."],
     description:
-      "From consciously-sourced ingredients to packaging made with post-consumer recycled materials, we’re committed to MINDFUL SKINCARE.",
+      "From consciously-sourced ingredients to packaging made with post-consumer recycled materials.",
   },
 ] as const satisfies readonly HomeThreePrinciple[];
