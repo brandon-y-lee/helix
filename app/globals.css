@@ -5865,24 +5865,29 @@ main:focus {
 
 .home-phased-description {
   min-height: 1.56em;
-  opacity: 1;
-  transform: translateY(0);
-  transition:
-    opacity 160ms var(--ease-out),
-    transform 160ms var(--ease-out);
 }
 
-.home-phased-description[data-phase="hidden"] {
-  opacity: 0;
-  transform: translateY(4px);
+.home-phased-description__text {
+  display: block;
+  animation: home-phased-description-in 180ms var(--ease-out) both;
+}
+
+@keyframes home-phased-description-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .home-phased-description {
-    transition-duration: 1ms;
-  }
-
-  .home-phased-description[data-phase="hidden"] {
+  .home-phased-description__text {
+    animation: none;
+    opacity: 1;
     transform: none;
   }
 }

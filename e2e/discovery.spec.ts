@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Locator } from "@playwright/test";
 import {
   homeBeyondCoreDescriptions,
   homeCoreDescriptions,
@@ -28,6 +28,12 @@ const principleTitleTexts = homeThreePrinciples.map((principle) =>
 const principleDescriptions = homeThreePrinciples.map((principle) => principle.description);
 const coreDescriptionItems = homeCoreDescriptions.items;
 const beyondDescriptionItems = homeBeyondCoreDescriptions.items;
+
+async function expectVisiblePhasedDescription(locator: Locator, expectedText: string) {
+  await expect(locator).toHaveText(expectedText);
+  await expect(locator).toHaveCSS("opacity", "1");
+  await expect(locator).not.toHaveAttribute("data-phase", "hidden");
+}
 
 test("homepage Core Three ladder renders", async ({ page }) => {
   await page.goto("/");
@@ -138,32 +144,32 @@ test("homepage Core and Beyond cards phase section descriptions", async ({ page 
   const core = page.getByRole("region", { name: "The Core", exact: true });
   const coreDescription = core.locator(".home-phased-description");
   await expect(coreDescription).toHaveCount(1);
-  await expect(coreDescription).toHaveText(homeCoreDescriptions.default);
+  await expectVisiblePhasedDescription(coreDescription, homeCoreDescriptions.default);
   const coreDefaultBox = await coreDescription.boundingBox();
 
   await core.getByRole("link", { name: "CLEANSE" }).hover();
-  await expect(coreDescription).toHaveText(coreDescriptionItems.cleanse);
+  await expectVisiblePhasedDescription(coreDescription, coreDescriptionItems.cleanse);
   const coreHoverBox = await coreDescription.boundingBox();
   expect(Math.abs((coreHoverBox?.height ?? 0) - (coreDefaultBox?.height ?? 0)))
     .toBeLessThanOrEqual(4);
 
   await page.mouse.move(4, 4);
-  await expect(coreDescription).toHaveText(homeCoreDescriptions.default);
+  await expectVisiblePhasedDescription(coreDescription, homeCoreDescriptions.default);
 
   await core.getByRole("link", { name: "TREAT" }).focus();
-  await expect(coreDescription).toHaveText(coreDescriptionItems.treat);
+  await expectVisiblePhasedDescription(coreDescription, coreDescriptionItems.treat);
   await page.getByRole("link", { name: "Explore The Core" }).focus();
-  await expect(coreDescription).toHaveText(homeCoreDescriptions.default);
+  await expectVisiblePhasedDescription(coreDescription, homeCoreDescriptions.default);
 
   await core.getByRole("button", { name: "Open quick buy for SEAL" }).focus();
-  await expect(coreDescription).toHaveText(coreDescriptionItems.seal);
+  await expectVisiblePhasedDescription(coreDescription, coreDescriptionItems.seal);
   await page.getByRole("link", { name: "Explore The Core" }).focus();
-  await expect(coreDescription).toHaveText(homeCoreDescriptions.default);
+  await expectVisiblePhasedDescription(coreDescription, homeCoreDescriptions.default);
 
   const beyond = page.getByRole("region", { name: "Beyond The Core", exact: true });
   const beyondDescription = beyond.locator(".home-phased-description");
   await expect(beyondDescription).toHaveCount(1);
-  await expect(beyondDescription).toHaveText(homeBeyondCoreDescriptions.default);
+  await expectVisiblePhasedDescription(beyondDescription, homeBeyondCoreDescriptions.default);
   const coreEyebrowWeight = await core.locator(".hero__eyebrow").evaluate((element) =>
     getComputedStyle(element).fontWeight,
   );
@@ -173,14 +179,14 @@ test("homepage Core and Beyond cards phase section descriptions", async ({ page 
   expect(beyondEyebrowWeight).toBe(coreEyebrowWeight);
 
   await beyond.getByRole("link", { name: "View REFINE, texture / controlled refinement" }).hover();
-  await expect(beyondDescription).toHaveText(beyondDescriptionItems.refine);
+  await expectVisiblePhasedDescription(beyondDescription, beyondDescriptionItems.refine);
   await page.mouse.move(4, 4);
-  await expect(beyondDescription).toHaveText(homeBeyondCoreDescriptions.default);
+  await expectVisiblePhasedDescription(beyondDescription, homeBeyondCoreDescriptions.default);
 
   await beyond.getByRole("link", { name: "View FRAME, eye area / rested-looking frame" }).focus();
-  await expect(beyondDescription).toHaveText(beyondDescriptionItems.frame);
+  await expectVisiblePhasedDescription(beyondDescription, beyondDescriptionItems.frame);
   await page.getByRole("link", { name: "Explore The Core" }).focus();
-  await expect(beyondDescription).toHaveText(homeBeyondCoreDescriptions.default);
+  await expectVisiblePhasedDescription(beyondDescription, homeBeyondCoreDescriptions.default);
 
   const protect = beyond.getByRole("link", {
     name: "View PROTECT System step, coming soon",
@@ -189,23 +195,27 @@ test("homepage Core and Beyond cards phase section descriptions", async ({ page 
   await expect(protect.getByRole("button")).toHaveCount(0);
   await expect(protect.getByText(/\$\d/)).toHaveCount(0);
   await protect.hover();
-  await expect(beyondDescription).toHaveText(beyondDescriptionItems.protect);
+  await expectVisiblePhasedDescription(beyondDescription, beyondDescriptionItems.protect);
   await page.mouse.move(4, 4);
-  await expect(beyondDescription).toHaveText(homeBeyondCoreDescriptions.default);
+  await expectVisiblePhasedDescription(beyondDescription, homeBeyondCoreDescriptions.default);
 
   await beyond.getByRole("link", { name: "View LIFT, weekly intensive" }).focus();
-  await expect(beyondDescription).toHaveText(beyondDescriptionItems.lift);
+  await expectVisiblePhasedDescription(beyondDescription, beyondDescriptionItems.lift);
   await page.getByRole("link", { name: "Explore The Core" }).focus();
-  await expect(beyondDescription).toHaveText(homeBeyondCoreDescriptions.default);
+  await expectVisiblePhasedDescription(beyondDescription, homeBeyondCoreDescriptions.default);
 
   expect(await core.locator(".home-core-progress, .home-core-progress-shell").count()).toBe(0);
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
-  await expect(page.locator("#core-three .home-phased-description"))
-    .toHaveText(homeCoreDescriptions.default);
-  await expect(page.locator(".home-section--beyond .home-phased-description"))
-    .toHaveText(homeBeyondCoreDescriptions.default);
+  await expectVisiblePhasedDescription(
+    page.locator("#core-three .home-phased-description"),
+    homeCoreDescriptions.default,
+  );
+  await expectVisiblePhasedDescription(
+    page.locator(".home-section--beyond .home-phased-description"),
+    homeBeyondCoreDescriptions.default,
+  );
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
   );
