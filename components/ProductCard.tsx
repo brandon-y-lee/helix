@@ -72,6 +72,8 @@ function detailRows(product: Product, variant: Variant | null | undefined) {
 type ProductCardProps = {
   product: Product;
   quickBuyOpen?: boolean;
+  previewKey?: string;
+  onPreviewChange?: (key: string | null) => void;
   onQuickBuyOpen?: () => void;
   onQuickBuyClose?: () => void;
 };
@@ -79,6 +81,8 @@ type ProductCardProps = {
 export function ProductCard({
   product,
   quickBuyOpen,
+  previewKey,
+  onPreviewChange,
   onQuickBuyOpen,
   onQuickBuyClose,
 }: ProductCardProps) {
@@ -254,11 +258,13 @@ export function ProductCard({
 
   function handlePointerEnter(event: ReactPointerEvent<HTMLElement>) {
     if (event.pointerType === "touch") return;
+    if (previewKey) onPreviewChange?.(previewKey);
     setPointerInside(true);
   }
 
   function handlePointerLeave(event: ReactPointerEvent<HTMLElement>) {
     if (event.pointerType === "touch") return;
+    if (previewKey) onPreviewChange?.(null);
     setPointerInside(false);
   }
 
@@ -268,6 +274,7 @@ export function ProductCard({
   }
 
   function handleFocusCapture() {
+    if (previewKey) onPreviewChange?.(previewKey);
     updateKeyboardFocusVisibleWithin(lastInputWasKeyboardRef.current);
   }
 
@@ -278,6 +285,7 @@ export function ProductCard({
       !(nextFocus instanceof Node) ||
       !event.currentTarget.contains(nextFocus)
     ) {
+      if (previewKey) onPreviewChange?.(null);
       updateKeyboardFocusVisibleWithin(false);
     }
   }

@@ -5846,6 +5846,13 @@ main:focus {
   letter-spacing: 0.17em;
 }
 
+.home-section--beyond .home-section__intro .hero__eyebrow {
+  color: var(--ink);
+  font-size: 0.82rem;
+  font-weight: 900;
+  letter-spacing: 0.17em;
+}
+
 .home-section--core .home-section__intro p:not(.hero__eyebrow) {
   max-width: 92ch;
 }
@@ -5854,6 +5861,30 @@ main:focus {
 .home-section--beyond .home-section__intro p:not(.hero__eyebrow) {
   font-size: clamp(1.08rem, 1.32vw, 1.22rem);
   line-height: 1.56;
+}
+
+.home-phased-description {
+  min-height: 1.56em;
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    opacity 160ms var(--ease-out),
+    transform 160ms var(--ease-out);
+}
+
+.home-phased-description[data-phase="hidden"] {
+  opacity: 0;
+  transform: translateY(4px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-phased-description {
+    transition-duration: 1ms;
+  }
+
+  .home-phased-description[data-phase="hidden"] {
+    transform: none;
+  }
 }
 
 .home-section__intro--center {
@@ -6528,6 +6559,10 @@ main:focus {
 
   .home-section__intro {
     margin-bottom: 28px;
+  }
+
+  .home-phased-description {
+    min-height: 3.12em;
   }
 
   .home-section__intro h2,

@@ -9,7 +9,11 @@ vi.mock("@/lib/catalog-cache", () => ({
 import HomePage from "@/app/page";
 import { CartProvider } from "@/components/CartProvider";
 import { getCachedProducts } from "@/lib/catalog-cache";
-import { homeThreePrinciples } from "@/lib/content/home";
+import {
+  homeBeyondCoreDescriptions,
+  homeCoreDescriptions,
+  homeThreePrinciples,
+} from "@/lib/content/home";
 import type { Product } from "@/lib/products";
 
 const mockedGetProducts = getCachedProducts as unknown as Mock;
@@ -176,9 +180,14 @@ describe("homepage Core Three positioning", () => {
     ).not.toBeInTheDocument();
 
     const core = sectionForHeading("The Core");
+    expect(homeCoreDescriptions.default).toBe("Simple by design. For all skin types.");
+    expect(Object.keys(homeCoreDescriptions.items)).toEqual(["cleanse", "treat", "seal"]);
     expect(
-      within(core).getByText("Simple by design. For all skin types."),
+      within(core).getByText(homeCoreDescriptions.default),
     ).toBeInTheDocument();
+    for (const description of Object.values(homeCoreDescriptions.items)) {
+      expect(within(core).queryByText(description)).not.toBeInTheDocument();
+    }
     expect(
       within(core).queryByText(
         "Simple by design: cleanse the surface, apply the treatment layer, then finish with moisture and barrier support.",
@@ -211,6 +220,42 @@ describe("homepage Core Three positioning", () => {
       .toBeInTheDocument();
     expect(within(core).getByRole("button", { name: "Open quick buy for SEAL" }))
       .toBeInTheDocument();
+
+    const coreSurfaces = Array.from(
+      core.querySelectorAll<HTMLElement>(".product-card__surface"),
+    );
+    expect(coreSurfaces).toHaveLength(3);
+    fireEvent.pointerEnter(coreSurfaces[0], { pointerType: "mouse" });
+    await waitFor(() =>
+      expect(within(core).getByText(homeCoreDescriptions.items.cleanse)).toBeInTheDocument(),
+    );
+    expect(within(core).queryByText(homeCoreDescriptions.default)).not.toBeInTheDocument();
+    fireEvent.pointerLeave(coreSurfaces[0], { pointerType: "mouse" });
+    await waitFor(() =>
+      expect(within(core).getByText(homeCoreDescriptions.default)).toBeInTheDocument(),
+    );
+
+    const treatLink = within(core).getByRole("link", { name: "TREAT" });
+    fireEvent.focus(treatLink);
+    await waitFor(() =>
+      expect(within(core).getByText(homeCoreDescriptions.items.treat)).toBeInTheDocument(),
+    );
+    fireEvent.blur(treatLink, { relatedTarget: document.body });
+    await waitFor(() =>
+      expect(within(core).getByText(homeCoreDescriptions.default)).toBeInTheDocument(),
+    );
+
+    const sealQuickBuy = within(core).getByRole("button", {
+      name: "Open quick buy for SEAL",
+    });
+    fireEvent.focus(sealQuickBuy);
+    await waitFor(() =>
+      expect(within(core).getByText(homeCoreDescriptions.items.seal)).toBeInTheDocument(),
+    );
+    fireEvent.blur(sealQuickBuy, { relatedTarget: document.body });
+    await waitFor(() =>
+      expect(within(core).getByText(homeCoreDescriptions.default)).toBeInTheDocument(),
+    );
 
     const why = sectionForHeading(new RegExp(homeThreePrinciples[0].titleLines.join("\\s+"), "i"));
     const whyTitle = why.querySelector("#home-three-principles-heading");
@@ -325,9 +370,21 @@ describe("homepage Core Three positioning", () => {
     ).toBeInTheDocument();
 
     const beyond = sectionForHeading("Beyond The Core");
+    expect(homeBeyondCoreDescriptions.default).toBe(
+      "For when your skin has a high baseline. Add what you need.",
+    );
+    expect(Object.keys(homeBeyondCoreDescriptions.items)).toEqual([
+      "refine",
+      "frame",
+      "protect",
+      "lift",
+    ]);
     expect(
-      within(beyond).getByText("For when your skin has a high baseline. Add what you need."),
+      within(beyond).getByText(homeBeyondCoreDescriptions.default),
     ).toBeInTheDocument();
+    for (const description of Object.values(homeBeyondCoreDescriptions.items)) {
+      expect(within(beyond).queryByText(description)).not.toBeInTheDocument();
+    }
     expect(within(beyond).getByText("REFINE — texture / controlled refinement"))
       .toBeInTheDocument();
     expect(within(beyond).getByText("FRAME — eye area / rested-looking frame"))
@@ -343,6 +400,56 @@ describe("homepage Core Three positioning", () => {
     expect(within(protect).queryByRole("button")).not.toBeInTheDocument();
     expect(within(protect).queryByText(/\$\d/)).not.toBeInTheDocument();
     expect(protect.getAttribute("href")).not.toContain("/products/");
+
+    const refine = within(beyond).getByRole("link", {
+      name: "View REFINE, texture / controlled refinement",
+    });
+    fireEvent.pointerEnter(refine, { pointerType: "mouse" });
+    await waitFor(() =>
+      expect(within(beyond).getByText(homeBeyondCoreDescriptions.items.refine))
+        .toBeInTheDocument(),
+    );
+    expect(within(beyond).queryByText(homeBeyondCoreDescriptions.default)).not.toBeInTheDocument();
+    fireEvent.pointerLeave(refine, { pointerType: "mouse" });
+    await waitFor(() =>
+      expect(within(beyond).getByText(homeBeyondCoreDescriptions.default)).toBeInTheDocument(),
+    );
+
+    const frame = within(beyond).getByRole("link", {
+      name: "View FRAME, eye area / rested-looking frame",
+    });
+    fireEvent.focus(frame);
+    await waitFor(() =>
+      expect(within(beyond).getByText(homeBeyondCoreDescriptions.items.frame))
+        .toBeInTheDocument(),
+    );
+    fireEvent.blur(frame, { relatedTarget: document.body });
+    await waitFor(() =>
+      expect(within(beyond).getByText(homeBeyondCoreDescriptions.default)).toBeInTheDocument(),
+    );
+
+    fireEvent.pointerEnter(protect, { pointerType: "mouse" });
+    await waitFor(() =>
+      expect(within(beyond).getByText(homeBeyondCoreDescriptions.items.protect))
+        .toBeInTheDocument(),
+    );
+    fireEvent.pointerLeave(protect, { pointerType: "mouse" });
+    await waitFor(() =>
+      expect(within(beyond).getByText(homeBeyondCoreDescriptions.default)).toBeInTheDocument(),
+    );
+
+    const lift = within(beyond).getByRole("link", {
+      name: "View LIFT, weekly intensive",
+    });
+    fireEvent.focus(lift);
+    await waitFor(() =>
+      expect(within(beyond).getByText(homeBeyondCoreDescriptions.items.lift))
+        .toBeInTheDocument(),
+    );
+    fireEvent.blur(lift, { relatedTarget: document.body });
+    await waitFor(() =>
+      expect(within(beyond).getByText(homeBeyondCoreDescriptions.default)).toBeInTheDocument(),
+    );
 
     const ingredients = sectionForHeading("Know what you are using.");
     const ingredientLinks = [

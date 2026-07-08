@@ -1,14 +1,20 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import {
+  HomeBeyondCoreShowcase,
+  type HomeBeyondCoreCard,
+} from "@/components/HomeBeyondCoreShowcase";
+import { HomeCoreShowcase } from "@/components/HomeCoreShowcase";
 import { HomeFinalVideo } from "@/components/HomeFinalVideo";
 import { HomeHeroVideo } from "@/components/HomeHeroVideo";
 import { HomePlugVideo } from "@/components/HomePlugVideo";
 import { HomePrinciplesPortrait } from "@/components/HomePrinciplesPortrait";
 import { HomeThreePrinciples } from "@/components/HomeThreePrinciples";
-import { ProductImage } from "@/components/ProductImage";
-import { ProductGrid } from "@/components/ProductGrid";
 import { getCachedProducts } from "@/lib/catalog-cache";
-import { homeThreePrinciples } from "@/lib/content/home";
+import {
+  homeThreePrinciples,
+  type HomeBeyondCoreDescriptionKey,
+} from "@/lib/content/home";
 import {
   PROTECT_STEP,
   buildIngredientIndex,
@@ -97,53 +103,44 @@ function productsForSlugs(
   });
 }
 
-function renderProductAddOn(addOn: ProductAddOn, product: Product) {
-  return (
-    <Link
-      key={addOn.displayName}
-      href={`/products/${product.slug}`}
-      className="home-addon-card"
-      aria-label={`View ${product.displayName}, ${addOn.role}`}
-    >
-      <ProductImage
-        media={product.cardMedia}
-        swatch={product.swatch}
-        className="home-addon-card__media"
-        imageClassName="home-addon-card__img"
-        sizes="(max-width: 720px) 84vw, 260px"
-      />
-      <span className="home-addon-card__label">{product.displayName}</span>
-      <h3>{`${product.displayName} — ${addOn.role}`}</h3>
-      <p>{addOn.summary}</p>
-    </Link>
-  );
-}
+const ADD_ON_DESCRIPTION_KEYS = {
+  REFINE: "refine",
+  FRAME: "frame",
+  PROTECT: "protect",
+  LIFT: "lift",
+} as const satisfies Readonly<Record<AddOn["displayName"], HomeBeyondCoreDescriptionKey>>;
 
-function renderProtectAddOn(addOn: ProtectAddOn) {
-  return (
-    <Link
-      key={addOn.displayName}
-      href="/system#system-protect"
-      className="home-addon-card home-addon-card--protect"
-      aria-label="View PROTECT System step, coming soon"
-    >
-      <span className="home-addon-card__media home-addon-card__media--protect" aria-hidden="true">
-        <span>SPF</span>
-      </span>
-      <span className="home-addon-card__label">{PROTECT_STEP.status}</span>
-      <h3>{`${addOn.displayName} — ${addOn.role}`}</h3>
-      <p>{addOn.summary}</p>
-    </Link>
-  );
-}
-
-function renderAddOn(addOn: AddOn, productsBySlug: ReadonlyMap<string, Product>) {
-  if (addOn.kind === "protect") return renderProtectAddOn(addOn);
+function buildBeyondCoreCard(
+  addOn: AddOn,
+  productsBySlug: ReadonlyMap<string, Product>,
+): HomeBeyondCoreCard | null {
+  if (addOn.kind === "protect") {
+    return {
+      kind: "protect",
+      ariaLabel: "View PROTECT System step, coming soon",
+      descriptionKey: ADD_ON_DESCRIPTION_KEYS[addOn.displayName],
+      displayName: addOn.displayName,
+      href: "/system#system-protect",
+      role: addOn.role,
+      status: PROTECT_STEP.status,
+      summary: addOn.summary,
+    };
+  }
 
   const product = productsBySlug.get(addOn.slug);
   if (!product) return null;
 
-  return renderProductAddOn(addOn, product);
+  return {
+    kind: "product",
+    ariaLabel: `View ${product.displayName}, ${addOn.role}`,
+    descriptionKey: ADD_ON_DESCRIPTION_KEYS[addOn.displayName],
+    displayName: product.displayName,
+    href: `/products/${product.slug}`,
+    media: product.cardMedia,
+    role: addOn.role,
+    summary: addOn.summary,
+    swatch: product.swatch,
+  };
 }
 
 function ingredientPreviewLabel(card: IngredientIndexCard) {
@@ -162,6 +159,10 @@ export default async function HomePage() {
     ],
   );
   const ingredientCards = buildIngredientIndex(methodProducts).slice(0, 3);
+  const beyondCoreCards = ADD_ONS.flatMap((addOn) => {
+    const card = buildBeyondCoreCard(addOn, productsBySlug);
+    return card ? [card] : [];
+  });
 
   return (
     <>
@@ -191,23 +192,7 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section
-        id="core-three"
-        className="container home-section home-section--core"
-        aria-labelledby="core-three-heading"
-      >
-        <div className="home-section__intro home-section__intro--core">
-          <p className="hero__eyebrow">The Core</p>
-          <h2 id="core-three-heading" className="sr-only">
-            The Core
-          </h2>
-          <p>Simple by design. For all skin types.</p>
-        </div>
-
-        {coreProducts.length > 0 && (
-          <ProductGrid products={coreProducts} className="product-grid home-core-products" />
-        )}
-      </section>
+      <HomeCoreShowcase products={coreProducts} />
 
       <section
         className="home-section home-section--principles"
@@ -252,20 +237,7 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section
-        className="container home-section home-section--beyond"
-        aria-labelledby="beyond-heading"
-      >
-        <div className="home-section__intro home-section__intro--wide">
-          <p className="hero__eyebrow">Beyond The Core</p>
-          <h2 id="beyond-heading" className="sr-only">Beyond The Core</h2>
-
-          <p>For when your skin has a high baseline. Add what you need.</p>
-        </div>
-        <div className="home-addon-grid">
-          {ADD_ONS.map((addOn) => renderAddOn(addOn, productsBySlug))}
-        </div>
-      </section>
+      <HomeBeyondCoreShowcase cards={beyondCoreCards} />
 
       <section className="home-band home-section" aria-labelledby="ingredients-heading">
         <div className="container home-split home-split--ingredients">

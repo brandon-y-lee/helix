@@ -1,5 +1,9 @@
 import { test, expect } from "@playwright/test";
-import { homeThreePrinciples } from "../lib/content/home";
+import {
+  homeBeyondCoreDescriptions,
+  homeCoreDescriptions,
+  homeThreePrinciples,
+} from "../lib/content/home";
 
 // Homepage merchandising modules are rendered from the seeded Supabase catalog
 // (server-side). They are product discovery and positioning surfaces, not
@@ -22,6 +26,8 @@ const principleTitleTexts = homeThreePrinciples.map((principle) =>
   principle.titleLines.join(" "),
 );
 const principleDescriptions = homeThreePrinciples.map((principle) => principle.description);
+const coreDescriptionItems = homeCoreDescriptions.items;
+const beyondDescriptionItems = homeBeyondCoreDescriptions.items;
 
 test("homepage Core Three ladder renders", async ({ page }) => {
   await page.goto("/");
@@ -58,7 +64,7 @@ test("homepage Core Three ladder renders", async ({ page }) => {
   );
   await expect(page.locator("#beyond-heading")).toHaveText("Beyond The Core");
   await expect(
-    page.getByText("For when your skin has a high baseline. Add what you need."),
+    page.getByText(homeBeyondCoreDescriptions.default),
   ).toBeVisible();
   await expect(
     page.getByRole("heading", {
@@ -78,6 +84,7 @@ test("homepage section eyebrows share the Core section treatment", async ({ page
   const styles = await page.evaluate(() => {
     const labels = [
       "The Core",
+      "Beyond The Core",
       "Ingredient Literacy",
       "Start Here",
       "Mei Pelle",
@@ -110,6 +117,9 @@ test("homepage section eyebrows share the Core section treatment", async ({ page
 
   const core = styles["The Core"];
   expect(core).not.toBeNull();
+  const beyond = styles["Beyond The Core"];
+  expect(beyond).not.toBeNull();
+  expect(beyond).toEqual(core);
   for (const label of [
     "Ingredient Literacy",
     "Start Here",
@@ -119,6 +129,87 @@ test("homepage section eyebrows share the Core section treatment", async ({ page
   ]) {
     expect(styles[label]).toBeNull();
   }
+});
+
+test("homepage Core and Beyond cards phase section descriptions", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+
+  const core = page.getByRole("region", { name: "The Core", exact: true });
+  const coreDescription = core.locator(".home-phased-description");
+  await expect(coreDescription).toHaveCount(1);
+  await expect(coreDescription).toHaveText(homeCoreDescriptions.default);
+  const coreDefaultBox = await coreDescription.boundingBox();
+
+  await core.getByRole("link", { name: "CLEANSE" }).hover();
+  await expect(coreDescription).toHaveText(coreDescriptionItems.cleanse);
+  const coreHoverBox = await coreDescription.boundingBox();
+  expect(Math.abs((coreHoverBox?.height ?? 0) - (coreDefaultBox?.height ?? 0)))
+    .toBeLessThanOrEqual(4);
+
+  await page.mouse.move(4, 4);
+  await expect(coreDescription).toHaveText(homeCoreDescriptions.default);
+
+  await core.getByRole("link", { name: "TREAT" }).focus();
+  await expect(coreDescription).toHaveText(coreDescriptionItems.treat);
+  await page.getByRole("link", { name: "Explore The Core" }).focus();
+  await expect(coreDescription).toHaveText(homeCoreDescriptions.default);
+
+  await core.getByRole("button", { name: "Open quick buy for SEAL" }).focus();
+  await expect(coreDescription).toHaveText(coreDescriptionItems.seal);
+  await page.getByRole("link", { name: "Explore The Core" }).focus();
+  await expect(coreDescription).toHaveText(homeCoreDescriptions.default);
+
+  const beyond = page.getByRole("region", { name: "Beyond The Core", exact: true });
+  const beyondDescription = beyond.locator(".home-phased-description");
+  await expect(beyondDescription).toHaveCount(1);
+  await expect(beyondDescription).toHaveText(homeBeyondCoreDescriptions.default);
+  const coreEyebrowWeight = await core.locator(".hero__eyebrow").evaluate((element) =>
+    getComputedStyle(element).fontWeight,
+  );
+  const beyondEyebrowWeight = await beyond.locator(".hero__eyebrow").evaluate((element) =>
+    getComputedStyle(element).fontWeight,
+  );
+  expect(beyondEyebrowWeight).toBe(coreEyebrowWeight);
+
+  await beyond.getByRole("link", { name: "View REFINE, texture / controlled refinement" }).hover();
+  await expect(beyondDescription).toHaveText(beyondDescriptionItems.refine);
+  await page.mouse.move(4, 4);
+  await expect(beyondDescription).toHaveText(homeBeyondCoreDescriptions.default);
+
+  await beyond.getByRole("link", { name: "View FRAME, eye area / rested-looking frame" }).focus();
+  await expect(beyondDescription).toHaveText(beyondDescriptionItems.frame);
+  await page.getByRole("link", { name: "Explore The Core" }).focus();
+  await expect(beyondDescription).toHaveText(homeBeyondCoreDescriptions.default);
+
+  const protect = beyond.getByRole("link", {
+    name: "View PROTECT System step, coming soon",
+  });
+  await expect(protect).toHaveAttribute("href", "/system#system-protect");
+  await expect(protect.getByRole("button")).toHaveCount(0);
+  await expect(protect.getByText(/\$\d/)).toHaveCount(0);
+  await protect.hover();
+  await expect(beyondDescription).toHaveText(beyondDescriptionItems.protect);
+  await page.mouse.move(4, 4);
+  await expect(beyondDescription).toHaveText(homeBeyondCoreDescriptions.default);
+
+  await beyond.getByRole("link", { name: "View LIFT, weekly intensive" }).focus();
+  await expect(beyondDescription).toHaveText(beyondDescriptionItems.lift);
+  await page.getByRole("link", { name: "Explore The Core" }).focus();
+  await expect(beyondDescription).toHaveText(homeBeyondCoreDescriptions.default);
+
+  expect(await core.locator(".home-core-progress, .home-core-progress-shell").count()).toBe(0);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  await expect(page.locator("#core-three .home-phased-description"))
+    .toHaveText(homeCoreDescriptions.default);
+  await expect(page.locator(".home-section--beyond .home-phased-description"))
+    .toHaveText(homeBeyondCoreDescriptions.default);
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  );
+  expect(overflow).toBe(0);
 });
 
 test("homepage ingredient cards navigate to matching System ingredient anchors", async ({ page }) => {
@@ -520,7 +611,7 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
   expect(desktop.coreEyebrowText).toBe("The Core");
   expect(desktop.coreEyebrowStyle?.fontWeight).toBe("900");
   expect(["left", "start"]).toContain(desktop.coreEyebrowStyle?.textAlign);
-  expect(desktop.coreDescriptionText).toBe("Simple by design. For all skin types.");
+  expect(desktop.coreDescriptionText).toBe(homeCoreDescriptions.default);
   expect(Number.parseFloat(desktop.coreDescriptionStyle?.fontSize ?? "0"))
     .toBeGreaterThan(Number.parseFloat(desktop.plugBodyParagraphStyle?.fontSize ?? "0"));
   expect(desktop.coreIntroBox?.width).toBeGreaterThan(920);
@@ -935,7 +1026,7 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
   expect(mobile.coreEyebrowText).toBe("The Core");
   expect(["left", "start"]).toContain(mobile.coreEyebrowAlign);
   expect(mobile.coreEyebrowFontWeight).toBe("900");
-  expect(mobile.coreDescriptionText).toBe("Simple by design. For all skin types.");
+  expect(mobile.coreDescriptionText).toBe(homeCoreDescriptions.default);
   expect(mobile.coreProgressCount).toBe(0);
   expect(mobile.coreProgressShellCount).toBe(0);
   expect(mobile.coreRailCount).toBe(0);

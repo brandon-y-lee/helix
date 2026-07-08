@@ -5,6 +5,35 @@ export type HomeThreePrinciple = {
   description: string;
 };
 
+export type HomeCoreDescriptionKey = "cleanse" | "treat" | "seal";
+
+export const homeCoreDescriptions = {
+  default: "Simple by design. For all skin types.",
+  items: {
+    cleanse: "cleanse the surface",
+    treat: "apply the treatment layer",
+    seal: "finish with moisture and barrier support",
+  },
+} as const satisfies {
+  default: string;
+  items: Record<HomeCoreDescriptionKey, string>;
+};
+
+export type HomeBeyondCoreDescriptionKey = "refine" | "frame" | "protect" | "lift";
+
+export const homeBeyondCoreDescriptions = {
+  default: "For when your skin has a high baseline. Add what you need.",
+  items: {
+    refine: "refine texture when the baseline is stable",
+    frame: "support the eye area without adding a full routine",
+    protect: "finish the morning with broad-spectrum SPF",
+    lift: "add a weekly intensive when the system is repeatable",
+  },
+} as const satisfies {
+  default: string;
+  items: Record<HomeBeyondCoreDescriptionKey, string>;
+};
+
 export const homeThreePrinciples = [
   {
     id: "mission",
