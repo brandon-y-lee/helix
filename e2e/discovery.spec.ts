@@ -284,7 +284,25 @@ test("homepage final CTA video uses poster-only treatment for reduced motion", a
   await expect(finalSection.getByRole("heading", { name: "Invest in your skin's future." }))
     .toBeVisible();
   await expect(media).toHaveAttribute("data-motion-state", "static");
-  await expect(finalSection.locator(".home-final-media__poster")).toBeVisible();
+  const poster = finalSection.locator(".home-final-media__poster");
+  await expect(poster).toBeVisible();
+  await expect(poster).toHaveCSS("opacity", "1");
+  await expect(poster).toHaveCSS("filter", "none");
+  await expect(media).toHaveCSS("opacity", "1");
+  await expect(media).toHaveCSS("filter", "none");
+  const overlay = await media.evaluate((element) => {
+    const style = getComputedStyle(element, "::after");
+    return {
+      backgroundImage: style.backgroundImage,
+      filter: style.filter,
+      opacity: style.opacity,
+    };
+  });
+  expect(overlay.filter).toBe("none");
+  expect(overlay.opacity).toBe("1");
+  expect(overlay.backgroundImage).toContain("rgba(10, 12, 11");
+  expect(overlay.backgroundImage).not.toContain("0.92");
+  expect(overlay.backgroundImage).not.toContain("0.78");
   await expect(finalSection.locator("video")).toHaveCount(0);
 });
 
@@ -306,6 +324,10 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
       text?.replace(/\s+/g, " ").trim() ?? "";
     const sections = Array.from(document.querySelectorAll<HTMLElement>("main > section"));
     const headings = Array.from(document.querySelectorAll<HTMLElement>("h2"));
+    const heroTitle = document.querySelector<HTMLElement>(".home-video-hero__title");
+    const heroDisplayLine = document.querySelector<HTMLElement>(".home-video-hero__display-line");
+    const heroPrimaryCta = document.querySelector<HTMLAnchorElement>(".home-video-hero__cta");
+    const heroSecondaryCta = document.querySelector<HTMLAnchorElement>(".home-video-hero__secondary");
     const core = document.querySelector<HTMLElement>("#core-three");
     const why = document.querySelector<HTMLElement>(".home-section--principles");
     const plugSection = document.querySelector<HTMLElement>(".home-section--core-support");
@@ -350,6 +372,8 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
     const finalTitle = document.querySelector<HTMLElement>("#final-heading");
     const finalDescription = final?.querySelector<HTMLElement>("p:not(.hero__eyebrow)");
     const finalActions = final?.querySelector<HTMLElement>(".hero__actions");
+    const finalPrimaryCta = final?.querySelector<HTMLAnchorElement>(".home-final__cta--primary");
+    const finalSecondaryCta = final?.querySelector<HTMLAnchorElement>(".home-final__cta--secondary");
     const finalPoster = finalSection?.querySelector<HTMLImageElement>(".home-final-media__poster");
     const finalMedia = finalSection?.querySelector<HTMLElement>(".home-final-media");
     const finalVideo = finalSection?.querySelector<HTMLVideoElement>(".home-final-media__video");
@@ -381,8 +405,48 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
         lineHeight: style.lineHeight,
       };
     };
+    const heroTextStyle = (element: HTMLElement | null | undefined) => {
+      if (!element) return null;
+      const style = getComputedStyle(element);
+      return {
+        ...textStyle(element),
+        textAlign: style.textAlign,
+        textShadow: style.textShadow,
+      };
+    };
+    const buttonStyle = (element: HTMLElement | null | undefined) => {
+      if (!element) return null;
+      const style = getComputedStyle(element);
+      return {
+        backgroundColor: style.backgroundColor,
+        borderColor: style.borderColor,
+        borderRadius: style.borderRadius,
+        color: style.color,
+        fontSize: style.fontSize,
+        fontWeight: style.fontWeight,
+        letterSpacing: style.letterSpacing,
+        lineHeight: style.lineHeight,
+        minHeight: style.minHeight,
+        padding: style.padding,
+        textTransform: style.textTransform,
+      };
+    };
+    const mediaStyle = (element: HTMLElement | null | undefined, pseudo?: string) => {
+      if (!element) return null;
+      const style = getComputedStyle(element, pseudo);
+      return {
+        backgroundImage: style.backgroundImage,
+        filter: style.filter,
+        mixBlendMode: style.mixBlendMode,
+        opacity: style.opacity,
+      };
+    };
 
     return {
+      heroTitleStyle: heroTextStyle(heroTitle),
+      heroDisplayLineStyle: heroTextStyle(heroDisplayLine),
+      heroPrimaryCtaStyle: buttonStyle(heroPrimaryCta),
+      heroSecondaryCtaStyle: buttonStyle(heroSecondaryCta),
       coreIndex: sections.indexOf(core as HTMLElement),
       whyIndex: sections.indexOf(why as HTMLElement),
       plugIndex: sections.indexOf(plugSection as HTMLElement),
@@ -431,17 +495,35 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
       beyondDescriptionStyle: textStyle(beyondDescription),
       beyondTitleStyle: textStyle(beyondTitle),
       finalBox: box(final),
-      finalDescriptionStyle: textStyle(finalDescription),
+      finalDescriptionStyle: heroTextStyle(finalDescription),
       finalDescriptionText: clean(finalDescription?.textContent),
       finalDescriptionActionsGap: finalDescription && finalActions
         ? Math.round(finalActions.getBoundingClientRect().top - finalDescription.getBoundingClientRect().bottom)
         : null,
       finalEyebrowCount: finalSection?.querySelectorAll(".hero__eyebrow").length ?? 0,
       finalMediaBox: box(finalMedia),
+      finalMediaStyle: mediaStyle(finalMedia),
+      finalMediaAfterStyle: mediaStyle(finalMedia, "::after"),
       finalMotionState: finalMedia?.getAttribute("data-motion-state") ?? "",
       finalPosterSrc: finalPoster?.currentSrc || finalPoster?.src || "",
+      finalPosterStyle: mediaStyle(finalPoster),
+      finalPrimaryCtaHref: finalPrimaryCta?.getAttribute("href") ?? "",
+      finalPrimaryCtaStyle: buttonStyle(finalPrimaryCta),
+      finalSecondaryCtaHref: finalSecondaryCta?.getAttribute("href") ?? "",
+      finalSecondaryCtaStyle: buttonStyle(finalSecondaryCta),
       finalSectionBox: box(finalSection),
-      finalTitleStyle: textStyle(finalTitle),
+      finalTitleStyle: heroTextStyle(finalTitle),
+      finalVideoReadyStyle: (() => {
+        if (!finalMedia || !finalVideo) return null;
+        const previousReady = finalMedia.getAttribute("data-video-ready");
+        const previousTransition = finalVideo.style.transition;
+        finalVideo.style.transition = "none";
+        finalMedia.setAttribute("data-video-ready", "true");
+        const readyStyle = mediaStyle(finalVideo);
+        finalMedia.setAttribute("data-video-ready", previousReady ?? "false");
+        finalVideo.style.transition = previousTransition;
+        return readyStyle;
+      })(),
       finalVideoAttributes: finalVideo
         ? {
             autoPlay: finalVideo.autoplay,
@@ -637,9 +719,17 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
   expect(Number.parseFloat(desktop.beyondDescriptionStyle?.fontSize ?? "0"))
     .toBeGreaterThan(Number.parseFloat(desktop.plugBodyParagraphStyle?.fontSize ?? "0"));
   expect(desktop.ingredientsDescriptionStyle).toEqual(desktop.plugBodyParagraphStyle);
-  expect(desktop.finalDescriptionStyle).toEqual(desktop.plugBodyParagraphStyle);
   expect(desktop.ingredientsTitleStyle).toEqual(desktop.plugTitleStyle);
-  expect(desktop.finalTitleStyle).toEqual(desktop.plugTitleStyle);
+  expect(desktop.finalTitleStyle?.color).toBe(desktop.heroTitleStyle?.color);
+  expect(desktop.finalTitleStyle?.fontFamily).toBe(desktop.heroTitleStyle?.fontFamily);
+  expect(desktop.finalTitleStyle?.fontWeight).toBe(desktop.heroTitleStyle?.fontWeight);
+  expect(desktop.finalTitleStyle?.textShadow).toBe(desktop.heroTitleStyle?.textShadow);
+  expect(desktop.finalDescriptionStyle?.color).toBe(desktop.heroDisplayLineStyle?.color);
+  expect(desktop.finalDescriptionStyle?.fontWeight).toBe(desktop.heroDisplayLineStyle?.fontWeight);
+  expect(desktop.finalDescriptionStyle?.letterSpacing)
+    .toBe(desktop.heroDisplayLineStyle?.letterSpacing);
+  expect(desktop.finalDescriptionStyle?.lineHeight).toBe(desktop.heroDisplayLineStyle?.lineHeight);
+  expect(desktop.finalDescriptionStyle?.textShadow).toBe(desktop.heroDisplayLineStyle?.textShadow);
   expect(desktop.ingredientEyebrowCount).toBe(0);
   expect(desktop.ingredientHeadingGap).toBeGreaterThanOrEqual(24);
   expect(desktop.ingredientPreviewLinks).toEqual([
@@ -662,12 +752,9 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
   expect(desktop.finalEyebrowCount).toBe(0);
   expect(desktop.finalSectionBox?.height).toBeLessThanOrEqual(desktop.viewportHeight * 0.72);
   expect(desktop.finalSectionBox?.height).toBeGreaterThanOrEqual(desktop.viewportHeight * 0.45);
-  expect(
-    Math.abs(
-      ((desktop.finalBox?.top ?? 0) - (desktop.finalSectionBox?.top ?? 0)) -
-        ((desktop.finalSectionBox?.bottom ?? 0) - (desktop.finalBox?.bottom ?? 0)),
-    ),
-  ).toBeLessThanOrEqual(2);
+  expect(desktop.finalBox?.left).toBeGreaterThanOrEqual(desktop.standardContentLeft - 4);
+  expect(desktop.finalBox?.bottom).toBeLessThanOrEqual((desktop.finalSectionBox?.bottom ?? 0) - 36);
+  expect(desktop.finalBox?.top).toBeGreaterThan(desktop.finalSectionBox?.top ?? 0);
   expect(desktop.finalDescriptionText).toBe(
     "Three steps, one order, repeatable morning or night.",
   );
@@ -675,6 +762,17 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
   expect(desktop.finalDescriptionActionsGap).toBeLessThanOrEqual(32);
   expect(desktop.finalMediaBox?.width).toBe(desktop.finalSectionBox?.width);
   expect(desktop.finalMediaBox?.height).toBe(desktop.finalSectionBox?.height);
+  expect(desktop.finalMediaStyle?.opacity).toBe("1");
+  expect(desktop.finalMediaStyle?.filter).toBe("none");
+  expect(desktop.finalPosterStyle?.opacity).toBe("1");
+  expect(desktop.finalPosterStyle?.filter).toBe("none");
+  expect(desktop.finalMediaAfterStyle?.backgroundImage).toContain("rgba(10, 12, 11");
+  expect(desktop.finalMediaAfterStyle?.backgroundImage).not.toContain("0.92");
+  expect(desktop.finalMediaAfterStyle?.backgroundImage).not.toContain("0.78");
+  expect(desktop.finalPrimaryCtaHref).toBe("#core-three");
+  expect(desktop.finalSecondaryCtaHref).toBe("/system");
+  expect(desktop.finalPrimaryCtaStyle).toEqual(desktop.heroPrimaryCtaStyle);
+  expect(desktop.finalSecondaryCtaStyle).toEqual(desktop.heroSecondaryCtaStyle);
   const finalPosterSrc = decodeURIComponent(desktop.finalPosterSrc);
   expect(finalPosterSrc).toContain("/media/home/final-cta-poster.webp");
   expect(finalPosterSrc).not.toContain("/mnt/data");
@@ -682,6 +780,9 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
   if (desktop.finalVideoSources.length > 0) {
     expect(desktop.finalVideoPoster).toBe("/media/home/final-cta-poster.webp");
     expect(desktop.finalVideoPreload).toBe("metadata");
+    expect(desktop.finalVideoReadyStyle?.opacity).toBe("1");
+    expect(desktop.finalVideoReadyStyle?.filter).toBe("none");
+    expect(desktop.finalVideoReadyStyle?.mixBlendMode).toBe("normal");
     expect(desktop.finalVideoAttributes).toEqual({
       autoPlay: true,
       controls: false,

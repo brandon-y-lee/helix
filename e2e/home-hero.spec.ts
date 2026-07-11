@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { homeCoreDescriptions } from "../lib/content/home";
 
 async function allowHeroMotion(page: Page) {
   await page.addInitScript(() => {
@@ -189,7 +190,13 @@ test.describe("homepage video hero", () => {
     await expect(page).toHaveURL(/\/#core-three$/);
     const core = page.getByRole("region", { name: "The Core", exact: true });
     await expect(core).toBeVisible();
-    await expect(core.getByText("Simple by design. For all skin types.")).toBeVisible();
+    const coreDescription = core.locator(".home-phased-description");
+    await expect(coreDescription).toBeVisible();
+    await expect(coreDescription).not.toHaveText("");
+    expect([
+      homeCoreDescriptions.default,
+      ...Object.values(homeCoreDescriptions.items),
+    ]).toContain((await coreDescription.textContent())?.trim());
     await expect(core.locator(".home-core-progress")).toHaveCount(0);
     await expect(
       page.getByText(

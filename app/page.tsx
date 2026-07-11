@@ -274,15 +274,17 @@ export default async function HomePage() {
       <section className="home-section home-section--final" aria-labelledby="final-heading">
         <HomeFinalVideo />
         <div className="home-final">
-          <h2 id="final-heading">Invest in your skin&apos;s future.</h2>
-          <p>
+          <h2 id="final-heading" className="display-secondary home-final__title">
+            Invest in your skin&apos;s future.
+          </h2>
+          <p className="home-final__copy">
             Three steps, one order, repeatable morning or night.
           </p>
-          <div className="hero__actions">
-            <Link href="#core-three" className="btn btn--editorial-rounded">
+          <div className="hero__actions home-video-hero__actions home-final__actions">
+            <Link href="#core-three" className="home-final__cta home-final__cta--primary">
               SHOP THE CORE
             </Link>
-            <Link href="/system" className="btn btn--ghost btn--editorial-rounded">
+            <Link href="/system" className="home-final__cta home-final__cta--secondary">
               SEE THE SYSTEM
             </Link>
           </div>
