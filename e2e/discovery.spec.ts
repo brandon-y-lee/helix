@@ -1329,17 +1329,20 @@ test("Core Three product card navigates to a product detail page", async ({ page
   await expect(page.getByRole("heading", { level: 1, name: "CLEANSE" })).toBeVisible();
 });
 
-test("PDP complete-the-routine renders and a related product navigates", async ({
+test("PDP discovery rail renders Core-first related products and navigates", async ({
   page,
 }) => {
   await page.goto("/products/treat-03-pdrn-5-ampoule");
   await expect(
-    page.getByRole("heading", { name: "COMPLETE THE SYSTEM" }),
+    page.getByRole("heading", { name: "BUILD AROUND THIS STEP" }),
   ).toBeVisible();
 
-  const related = page.locator(".related .product-card__name").first();
+  const related = page.locator(".pdp-discovery-card strong").first();
   const name = (await related.textContent())?.trim() ?? "";
   expect(name.length).toBeGreaterThan(0);
+  await expect(page.locator(".pdp-discovery-card__routine").first()).toHaveText(
+    /The Core|Beyond The Core/,
+  );
   await related.click();
 
   await expect(page).toHaveURL(/\/products\/[\w-]+$/);

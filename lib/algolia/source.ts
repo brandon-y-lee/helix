@@ -15,7 +15,8 @@ import {
 // the record builder needs.
 const SOURCE_SELECT =
   "id, slug, name, display_name, formal_title, tagline, card_tagline, collection, " +
-  "action_name, routine_number, subtitle, descriptor, product_type, badge, " +
+  "action_name, routine_number, routine_group, routine_group_label, routine_step_number, " +
+  "routine_step_name, routine_display_label, routine_sort, subtitle, descriptor, product_type, badge, " +
   "catalog_status, blurb, description, editorial_description, editorial_how_to_use, " +
   "status, swatch_from, swatch_to, position, featured_rank, sort_order, created_at, " +
   "published_at, updated_at, made_for, good_for, texture, key_ingredients, " +

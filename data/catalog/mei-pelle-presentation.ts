@@ -31,8 +31,8 @@ export type MeiPellePresentationProduct = {
   editorialDescription: string;
   editorialHowToUse: string;
   productType: string;
-  routineNumber: string;
-  routineStep: string;
+  routineNumber: string | null;
+  routineStep: string | null;
   collection: string;
   searchKeywords: string[];
   formulaNotes: string[];
@@ -54,15 +54,15 @@ export const meiPellePresentationCatalog: MeiPellePresentationProduct[] = [
     slug: "cleanse-01-calming-gel-cleanser",
     displayName: "CLEANSE",
     formalTitle: "CLEANSE 01 Calming Gel Cleanser",
-    cardTagline: "Fresh, balanced skin",
+    cardTagline: "Clean skin. No tight finish.",
     editorialDescription:
-      "A low-pH daily cleanse that leaves skin feeling fresh, balanced, and ready for the rest of the routine.",
+      "The first step in The Core. CLEANSE clears the surface so the rest of the routine can work cleanly, without turning cleansing into a harsh stripping moment. Built for mornings, late nights, and daily SPF removal.",
     editorialHowToUse:
-      "Massage onto damp skin morning or night, then rinse thoroughly. Follow with REFINE or TREAT.",
+      "Massage onto damp skin morning or night, then rinse thoroughly. Follow with TREAT, then SEAL.",
     productType: "Gel cleanser",
     routineNumber: "01",
     routineStep: "Cleanse",
-    collection: "THE SYSTEM",
+    collection: "The Core",
     searchKeywords: ["cleanse", "cleanser", "daily", "gel", "balance", "reset"],
     formulaNotes: [
       "Low-pH gel-to-foam cleanser source formulation.",
@@ -123,21 +123,20 @@ export const meiPellePresentationCatalog: MeiPellePresentationProduct[] = [
   {
     slug: "refine-02-pore-treatment-pads",
     displayName: "REFINE",
-    formalTitle: "REFINE 02 Pore Treatment Pads",
-    cardTagline: "Smoother-looking texture",
+    formalTitle: "REFINE Pore Treatment Pads",
+    cardTagline: "Texture control, used deliberately.",
     editorialDescription:
-      "A daily sweep for smoother-looking texture, clearer-looking pores, and a controlled finish.",
+      "REFINE sits beyond The Core for days when texture needs more attention. It should feel intentional, not automatic — a controlled step used at the product-supported frequency, then followed by The Core.",
     editorialHowToUse:
       "Swipe one pad over clean, dry skin. Start a few times weekly, then build as skin allows.",
     productType: "Toner pad",
-    routineNumber: "02",
-    routineStep: "Treat",
-    collection: "THE SYSTEM",
+    routineNumber: null,
+    routineStep: null,
+    collection: "Beyond The Core",
     searchKeywords: ["refine", "pads", "texture", "pores", "tone", "treatment"],
     formulaNotes: [
-      "Source formulation references exfoliating acids and sebum-balancing ingredients.",
       "Use frequency should be built gradually.",
-      "Follow with hydration and daytime SPF when using exfoliating steps.",
+      "Follow with hydration and daytime SPF when using active texture steps.",
     ],
     palettes: {
       cardDefault: {
@@ -193,16 +192,16 @@ export const meiPellePresentationCatalog: MeiPellePresentationProduct[] = [
   {
     slug: "treat-03-pdrn-5-ampoule",
     displayName: "TREAT",
-    formalTitle: "TREAT 03 PDRN 5% Ampoule",
-    cardTagline: "Bounce and glow",
+    formalTitle: "TREAT 02 PDRN 5% Ampoule",
+    cardTagline: "PDRN care for a steadier glow.",
     editorialDescription:
-      "A lightweight ampoule that layers hydration with a polished, resilient-looking finish.",
+      "The treatment step in The Core. TREAT layers lightweight hydration with advanced appearance-focused conditioning: PDRN / Sodium DNA at 50,000 ppm, niacinamide for a more even-looking tone, trehalose and humectants for comfort, a peptide complex for a smoother-looking finish, and adenosine for fine-line appearance support. Use after cleansing, before sealing.",
     editorialHowToUse:
-      "Press a few drops into clean skin after toning. Use morning or night before cream.",
+      "After cleansing and toner or essence, apply 2-3 drops and press into skin for 30-60 seconds. Follow with moisturizer. Use SPF in the daytime. Use morning and night.",
     productType: "Ampoule / Serum",
-    routineNumber: "03",
+    routineNumber: "02",
     routineStep: "Treat",
-    collection: "THE SYSTEM",
+    collection: "The Core",
     searchKeywords: ["treat", "ampoule", "serum", "pdrn", "glow", "hydration", "recode"],
     formulaNotes: [
       "Supplier formulation highlights PDRN 5%.",
@@ -263,16 +262,16 @@ export const meiPellePresentationCatalog: MeiPellePresentationProduct[] = [
   {
     slug: "frame-04-pdrn-eye-cream",
     displayName: "FRAME",
-    formalTitle: "FRAME 04 PDRN+ Eye Cream",
-    cardTagline: "A more awake look",
+    formalTitle: "FRAME PDRN+ Eye Cream",
+    cardTagline: "A more awake-looking frame.",
     editorialDescription:
-      "A cream-balm eye step for smoother-looking, better-rested contours.",
+      "FRAME is the focused step outside The Core. Use it around the eye area when the routine needs a sharper, more awake-looking finish.",
     editorialHowToUse:
       "Tap a small amount around the orbital area with your ring finger. Use before moisturizer.",
     productType: "Eye contour cream",
-    routineNumber: "04",
-    routineStep: "Eye",
-    collection: "THE SYSTEM",
+    routineNumber: null,
+    routineStep: null,
+    collection: "Beyond The Core",
     searchKeywords: ["frame", "eye", "cream", "pdrn", "awake", "contour"],
     formulaNotes: [
       "Supplier formulation references PDRN+ and eye-area conditioning ingredients.",
@@ -333,16 +332,16 @@ export const meiPellePresentationCatalog: MeiPellePresentationProduct[] = [
   {
     slug: "seal-05-green-collagen-cream",
     displayName: "SEAL",
-    formalTitle: "SEAL 05 Green Collagen Cream",
-    cardTagline: "Weightless moisture",
+    formalTitle: "SEAL 03 Green Collagen Cream",
+    cardTagline: "Lock in comfort. Keep the finish clean.",
     editorialDescription:
-      "A daily cream that seals in comfort without making the routine feel heavy.",
+      "The finishing step in The Core. SEAL completes the routine by cushioning the treatment layer and leaving skin with a controlled, comfortable finish. Use it as the last Mei Pelle step at night, and before SPF in the morning.",
     editorialHowToUse:
-      "Smooth over face and neck as the final moisturizer step, morning or night.",
+      "Smooth over face and neck as the final Mei Pelle step at night, and before SPF in the morning.",
     productType: "Cream",
-    routineNumber: "05",
-    routineStep: "Moisturize",
-    collection: "THE SYSTEM",
+    routineNumber: "03",
+    routineStep: "Seal",
+    collection: "The Core",
     searchKeywords: ["seal", "cream", "moisturizer", "collagen", "hydration"],
     formulaNotes: [
       "Supplier formulation references green collagen and moisture-support ingredients.",
@@ -403,16 +402,16 @@ export const meiPellePresentationCatalog: MeiPellePresentationProduct[] = [
   {
     slug: "lift-06-pdrn-mask-system",
     displayName: "LIFT",
-    formalTitle: "LIFT 07 PDRN Mask System",
-    cardTagline: "The weekly intensive",
+    formalTitle: "LIFT PDRN Sheet Mask",
+    cardTagline: "The scheduled intensive.",
     editorialDescription:
-      "A weekly sheet-mask intensive for a replenished, smoother-looking finish.",
+      "LIFT belongs beyond The Core: a scheduled intensive for the weekly refresh, not another daily requirement. Keep the ritual simple, controlled, and repeatable.",
     editorialHowToUse:
       "Apply to clean skin for the directed wear time, then remove and press in remaining essence.",
     productType: "Sheet mask",
-    routineNumber: "07",
-    routineStep: "Weekly intensive",
-    collection: "INTENSIVE",
+    routineNumber: null,
+    routineStep: null,
+    collection: "Beyond The Core",
     searchKeywords: ["lift", "mask", "sheet mask", "weekly", "pdrn", "intensive"],
     formulaNotes: [
       "Supplier formulation highlights PDRN 0.5%.",

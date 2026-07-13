@@ -13,6 +13,7 @@ import {
 } from "react";
 import { useCart } from "@/components/CartProvider";
 import { ProductImage } from "@/components/ProductImage";
+import { routineDisplayLabelForProduct } from "@/lib/catalog/product-routine";
 import {
   formatPrice,
   type Product,
@@ -55,9 +56,7 @@ function variantSizeLabel(variant: Variant | null | undefined, product: Product)
 }
 
 function detailRows(product: Product, variant: Variant | null | undefined) {
-  const routine = [product.routineNumber, product.routineStep]
-    .filter(Boolean)
-    .join(" · ");
+  const routine = routineDisplayLabelForProduct(product);
 
   return [
     { label: "Routine", value: routine },

@@ -35,7 +35,13 @@ const sampleRow = {
   tagline: "Overnight resurfacing concentrate",
   collection: "Treat",
   action_name: "NORTHPOINT",
-  routine_number: "03",
+  routine_number: "02",
+  routine_group: "core",
+  routine_group_label: "The Core",
+  routine_step_number: 2,
+  routine_step_name: "Treat",
+  routine_display_label: "02 — The Core",
+  routine_sort: 20,
   subtitle: "Overnight resurfacing concentrate",
   descriptor: "A nightly serum that refines tone.",
   product_type: "Serum",
@@ -145,6 +151,12 @@ describe("catalog data access (Supabase-backed)", () => {
     expect(products[0].goodFor).toBe("Nighttime routine");
     expect(products[0].texture).toBe("Silky serum");
     expect(products[0].cardMedia?.role).toBe("card");
+    expect(products[0].routineGroup).toBe("core");
+    expect(products[0].routineGroupLabel).toBe("The Core");
+    expect(products[0].routineStepNumber).toBe(2);
+    expect(products[0].routineStepName).toBe("Treat");
+    expect(products[0].routineDisplayLabel).toBe("02 — The Core");
+    expect(products[0].routineSort).toBe(20);
     expect(products[0].routineOrder).toBe(3);
     expect(products[0].createdAt).toBe("2026-06-14T00:00:00.000Z");
   });

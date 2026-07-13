@@ -12,17 +12,21 @@ const SERUM_HIT = {
   slug: "treat-03-pdrn-5-ampoule",
   title: "TREAT",
   displayName: "TREAT",
-  formalTitle: "TREAT 03 PDRN 5% Ampoule",
-  cardTagline: "Bounce and glow",
+  formalTitle: "TREAT 02 PDRN 5% Ampoule",
+  cardTagline: "PDRN care for a steadier glow.",
   editorialDescription: "A lightweight ampoule that layers hydration with a polished finish.",
   subtitle: "Ampoule / Serum",
   descriptor: "A lightweight ampoule that layers hydration with a polished finish.",
-  collection: "THE SYSTEM",
-  collections: ["THE SYSTEM"],
-  category: "THE SYSTEM",
+  collection: "The Core",
+  collections: ["The Core"],
+  category: "The Core",
   productType: "Ampoule / Serum",
-  routineNumber: "03",
-  routineStep: "Treat",
+  routineGroup: "core",
+  routineGroupLabel: "The Core",
+  routineStepNumber: 2,
+  routineStepName: "Treat",
+  routineDisplayLabel: "02 — The Core",
+  routineSort: 20,
   badge: null,
   status: "available",
   priceMin: 2500,
@@ -32,7 +36,7 @@ const SERUM_HIT = {
   waitlist: false,
   variantCount: 1,
   variantNames: ["30 mL"],
-  keywords: ["THE SYSTEM", "PDRN", "ampoule"],
+  keywords: ["The Core", "02 — The Core", "PDRN", "ampoule"],
   concerns: ["Texture"],
   ingredients: ["PDRN"],
   swatch: ["#dfe4e5", "#7f8f95"],
@@ -112,7 +116,7 @@ test("Algolia-backed results render with a count and link to the PDP", async ({
   await page.getByLabel("Search products").fill("serum");
   await expect(page.getByText(/1 result for/i)).toBeVisible();
   await expect(page.locator(".search-result")).toHaveCount(1);
-  await expect(page.getByText("Bounce and glow")).toBeVisible();
+  await expect(page.getByText("PDRN care for a steadier glow.")).toBeVisible();
   await expect(page.getByText("Available")).toBeVisible();
   await expect(page.getByText("$25.00")).toBeVisible();
   await expect(page.locator('[data-media-kind="placeholder"]').first()).toBeVisible();

@@ -7,8 +7,10 @@
 // explicit empty state.
 
 import { getSupabaseClient } from "@/lib/supabase";
+import { productRoutineForSlug } from "@/lib/catalog/product-routine";
 import type {
   CatalogStatus,
+  CommerceRoutineGroup,
   Product,
   ProductMedia,
   ProductStatus,
@@ -30,6 +32,14 @@ type ProductRow = {
   collection: string;
   action_name: string | null;
   routine_number: string | null;
+  routine_group?: string | null;
+  routine_group_label?: string | null;
+  routine_step_number?: number | null;
+  routine_step_name?: string | null;
+  routine_display_label?: string | null;
+  routine_sort?: number | null;
+  legacy_routine_group_label?: string | null;
+  legacy_routine_display_label?: string | null;
   subtitle: string | null;
   descriptor: string | null;
   product_type: string | null;
@@ -98,7 +108,7 @@ type MediaRow = {
   placeholder_palette: Record<string, string> | null;
 };
 
-const PRODUCT_SELECT =
+const PRODUCT_SELECT_BASE =
   "id, slug, name, display_name, formal_title, tagline, card_tagline, collection, " +
   "action_name, routine_number, subtitle, descriptor, product_type, badge, currency, " +
   "featured_rank, sort_order, position, blurb, description, editorial_description, " +
@@ -109,6 +119,15 @@ const PRODUCT_SELECT =
   "product_variants ( variant_key, label, price_cents, compare_at_price_cents, sku, " +
   "available, inventory_status, option_values, volume, pack_count, position, sort_order ), " +
   "product_media ( media_kind, url, alt, width, height, role, sort_order, palette_id, placeholder_palette )";
+
+const PRODUCT_ROUTINE_SELECT =
+  "routine_group, routine_group_label, routine_step_number, routine_step_name, " +
+  "routine_display_label, routine_sort, legacy_routine_group_label, legacy_routine_display_label";
+
+const PRODUCT_SELECT = PRODUCT_SELECT_BASE.replace(
+  "subtitle, descriptor",
+  `${PRODUCT_ROUTINE_SELECT}, subtitle, descriptor`,
+);
 
 const VALID_STATUSES: ProductStatus[] = ["available", "coming_soon", "sold_out"];
 const VALID_CATALOG_STATUSES: CatalogStatus[] = ["active", "draft", "archived"];
@@ -135,6 +154,21 @@ function toInventoryStatus(value: string): Variant["inventoryStatus"] {
   return (VALID_INVENTORY_STATUSES as readonly string[]).includes(value)
     ? (value as Variant["inventoryStatus"])
     : "in_stock";
+}
+
+function toCommerceRoutineGroup(value: string | null): CommerceRoutineGroup | null {
+  return value === "core" || value === "beyond_core" ? value : null;
+}
+
+function isMissingRoutineColumn(error: { message?: string } | null | undefined) {
+  const message = error?.message?.toLowerCase() ?? "";
+  return (
+    message.includes("routine_group") ||
+    message.includes("routine_step_number") ||
+    message.includes("routine_display_label") ||
+    message.includes("routine_sort") ||
+    message.includes("legacy_routine")
+  );
 }
 
 function toStringRecord(value: Record<string, string> | null | undefined) {
@@ -221,6 +255,7 @@ function mapRow(row: ProductRow): Product {
   const cardTagline = row.card_tagline ?? row.tagline;
   const editorialDescription = row.editorial_description ?? row.description;
   const editorialHowToUse = row.editorial_how_to_use ?? row.how_to_use;
+  const routine = productRoutineForSlug(row.slug);
 
   return {
     id: row.id,
@@ -233,6 +268,19 @@ function mapRow(row: ProductRow): Product {
     collection: row.collection,
     actionName: row.action_name ?? null,
     routineNumber: row.routine_number ?? null,
+    routineGroup: toCommerceRoutineGroup(
+      row.routine_group ?? routine?.routineGroup ?? null,
+    ),
+    routineGroupLabel: row.routine_group_label ?? routine?.routineGroupLabel ?? null,
+    routineStepNumber: row.routine_step_number ?? routine?.routineStepNumber ?? null,
+    routineStepName: row.routine_step_name ?? routine?.routineStepName ?? null,
+    routineDisplayLabel:
+      row.routine_display_label ?? routine?.routineDisplayLabel ?? null,
+    routineSort: row.routine_sort ?? routine?.routineSort ?? null,
+    legacyRoutineGroupLabel:
+      row.legacy_routine_group_label ?? routine?.legacyRoutineGroupLabel ?? null,
+    legacyRoutineDisplayLabel:
+      row.legacy_routine_display_label ?? routine?.legacyRoutineDisplayLabel ?? null,
     subtitle: row.subtitle ?? row.tagline,
     descriptor: row.descriptor ?? editorialDescription,
     productType: row.product_type ?? row.collection,
@@ -299,11 +347,21 @@ function ProductMediaRoleFromRow(role: string): ProductMedia["role"] {
 export async function getProducts(): Promise<Product[]> {
   const supabase = getSupabaseClient();
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from("products")
     .select(PRODUCT_SELECT)
     .order("sort_order", { ascending: true, nullsFirst: false })
     .order("position", { ascending: true });
+
+  if (error && isMissingRoutineColumn(error)) {
+    const legacyResult = await supabase
+      .from("products")
+      .select(PRODUCT_SELECT_BASE)
+      .order("sort_order", { ascending: true, nullsFirst: false })
+      .order("position", { ascending: true });
+    data = legacyResult.data;
+    error = legacyResult.error;
+  }
 
   if (error) {
     throw new Error(
@@ -320,11 +378,21 @@ export async function getProducts(): Promise<Product[]> {
 export async function getProduct(slug: string): Promise<Product | undefined> {
   const supabase = getSupabaseClient();
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from("products")
     .select(PRODUCT_SELECT)
     .eq("slug", slug)
     .maybeSingle();
+
+  if (error && isMissingRoutineColumn(error)) {
+    const legacyResult = await supabase
+      .from("products")
+      .select(PRODUCT_SELECT_BASE)
+      .eq("slug", slug)
+      .maybeSingle();
+    data = legacyResult.data;
+    error = legacyResult.error;
+  }
 
   if (error) {
     throw new Error(
@@ -363,7 +431,7 @@ export async function getRelatedProducts(
   }
 
   if (current?.id) {
-    const { data: relationships, error: relationshipError } = await supabase
+    const relationshipResult = await supabase
       .from("product_relationships")
       .select(
         `sort_order, related_product:products!product_relationships_related_product_id_fkey ( ${PRODUCT_SELECT} )`,
@@ -372,6 +440,22 @@ export async function getRelatedProducts(
       .eq("relationship_type", "complete_the_routine")
       .order("sort_order", { ascending: true })
       .limit(limit);
+    let relationships: unknown = relationshipResult.data;
+    let relationshipError = relationshipResult.error;
+
+    if (relationshipError && isMissingRoutineColumn(relationshipError)) {
+      const legacyResult = await supabase
+        .from("product_relationships")
+        .select(
+          `sort_order, related_product:products!product_relationships_related_product_id_fkey ( ${PRODUCT_SELECT_BASE} )`,
+        )
+        .eq("product_id", current.id)
+        .eq("relationship_type", "complete_the_routine")
+        .order("sort_order", { ascending: true })
+        .limit(limit);
+      relationships = legacyResult.data;
+      relationshipError = legacyResult.error;
+    }
 
     if (relationshipError) {
       throw new Error(
@@ -379,7 +463,7 @@ export async function getRelatedProducts(
       );
     }
 
-    const related = (relationships as unknown as ProductRelationshipRow[])
+    const related = (relationships as ProductRelationshipRow[])
       .map((row) => firstProduct(row.related_product))
       .filter((row): row is ProductRow => Boolean(row))
       .map(mapRow);
@@ -387,7 +471,7 @@ export async function getRelatedProducts(
     if (related.length > 0) return related;
   }
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from("products")
     .select(PRODUCT_SELECT)
     .eq("collection", collection)
@@ -396,6 +480,19 @@ export async function getRelatedProducts(
     .order("position", { ascending: true })
     .limit(limit);
 
+  if (error && isMissingRoutineColumn(error)) {
+    const legacyResult = await supabase
+      .from("products")
+      .select(PRODUCT_SELECT_BASE)
+      .eq("collection", collection)
+      .neq("slug", excludeSlug)
+      .order("sort_order", { ascending: true, nullsFirst: false })
+      .order("position", { ascending: true })
+      .limit(limit);
+    data = legacyResult.data;
+    error = legacyResult.error;
+  }
+
   if (error) {
     throw new Error(
       `[catalog] Failed to load related products for "${collection}": ${error.message}.`,
@@ -403,6 +500,53 @@ export async function getRelatedProducts(
   }
 
   return (data as unknown as ProductRow[]).map(mapRow);
+}
+
+/**
+ * Product discovery rail for commerce PDPs. It is intentionally not the
+ * editorial System order: Core products sort first, then Beyond The Core.
+ */
+export async function getDiscoveryProducts(
+  excludeSlug: string,
+  limit = 6,
+): Promise<Product[]> {
+  const supabase = getSupabaseClient();
+
+  let { data, error } = await supabase
+    .from("products")
+    .select(PRODUCT_SELECT)
+    .neq("slug", excludeSlug)
+    .order("routine_sort", { ascending: true, nullsFirst: false })
+    .order("sort_order", { ascending: true, nullsFirst: false })
+    .order("position", { ascending: true })
+    .limit(limit);
+
+  if (error && isMissingRoutineColumn(error)) {
+    const legacyResult = await supabase
+      .from("products")
+      .select(PRODUCT_SELECT_BASE)
+      .neq("slug", excludeSlug)
+      .order("sort_order", { ascending: true, nullsFirst: false })
+      .order("position", { ascending: true })
+      .limit(limit);
+    data = legacyResult.data;
+    error = legacyResult.error;
+  }
+
+  if (error) {
+    throw new Error(
+      `[catalog] Failed to load discovery products for "${excludeSlug}": ${error.message}.`,
+    );
+  }
+
+  return (data as unknown as ProductRow[])
+    .map(mapRow)
+    .sort(
+      (a, b) =>
+        (a.routineSort ?? a.sortOrder) - (b.routineSort ?? b.sortOrder) ||
+        a.displayName.localeCompare(b.displayName),
+    )
+    .slice(0, limit);
 }
 
 type ProductRelationshipRow = {

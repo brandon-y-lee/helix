@@ -9,9 +9,11 @@ import { useState } from "react";
 export function WaitlistButton({
   className = "btn btn--ghost",
   label = "Join waitlist",
+  tabIndex,
 }: {
   className?: string;
   label?: string;
+  tabIndex?: number;
 }) {
   const [joined, setJoined] = useState(false);
 
@@ -20,6 +22,7 @@ export function WaitlistButton({
       type="button"
       className={className}
       aria-pressed={joined}
+      tabIndex={tabIndex}
       onClick={() => setJoined(true)}
     >
       {joined ? "On the waitlist" : label}

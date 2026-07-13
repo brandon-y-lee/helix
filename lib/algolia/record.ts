@@ -47,6 +47,12 @@ export type CatalogProductSource = {
   collection: string;
   action_name: string | null;
   routine_number: string | null;
+  routine_group: string | null;
+  routine_group_label: string | null;
+  routine_step_number: number | null;
+  routine_step_name: string | null;
+  routine_display_label: string | null;
+  routine_sort: number | null;
   subtitle: string | null;
   descriptor: string | null;
   product_type: string | null;
@@ -99,8 +105,12 @@ export type AlgoliaProductRecord = {
   collections: string[];
   category: string;
   productType: string;
-  routineNumber: string | null;
-  routineStep: string | null;
+  routineGroup: "core" | "beyond_core" | null;
+  routineGroupLabel: string | null;
+  routineStepNumber: number | null;
+  routineStepName: string | null;
+  routineDisplayLabel: string | null;
+  routineSort: number | null;
   badge: string | null;
   status: ProductStatus;
   priceMin: number;
@@ -176,6 +186,10 @@ function placeholderFromMedia(
   };
 }
 
+function toRoutineGroup(value: string | null): "core" | "beyond_core" | null {
+  return value === "core" || value === "beyond_core" ? value : null;
+}
+
 /** Deterministic Supabase-row → Algolia-record mapping. Pure; no I/O. */
 export function buildAlgoliaRecord(
   row: CatalogProductSource,
@@ -206,6 +220,9 @@ export function buildAlgoliaRecord(
   const formalTitle = row.formal_title ?? row.name;
   const cardTagline = row.card_tagline ?? row.tagline;
   const editorialDescription = row.editorial_description ?? row.description ?? row.blurb;
+  const routineGroup = toRoutineGroup(row.routine_group);
+  const routineGroupLabel = row.routine_group_label ?? null;
+  const routineDisplayLabel = row.routine_display_label ?? routineGroupLabel;
   const concerns = row.concerns ?? [];
   const ingredients = [
     ...(row.key_ingredients ?? []),
@@ -214,9 +231,10 @@ export function buildAlgoliaRecord(
 
   // Keyword bag for relevance: only storefront-safe descriptive fields.
   const keywords = [
-    row.collection,
+    routineGroupLabel,
+    routineDisplayLabel,
     row.action_name,
-    row.routine_number,
+    row.routine_step_name,
     row.product_type,
     displayName,
     formalTitle,
@@ -225,7 +243,6 @@ export function buildAlgoliaRecord(
     row.made_for,
     row.good_for,
     row.texture,
-    row.routine_step,
     ...(row.usage_time ?? []),
     ...concerns,
     ...(row.key_ingredients ?? []),
@@ -244,12 +261,16 @@ export function buildAlgoliaRecord(
     editorialDescription,
     subtitle: row.subtitle ?? cardTagline,
     descriptor: row.descriptor ?? editorialDescription,
-    collection: row.collection,
-    collections: [row.collection],
-    category: row.collection,
+    collection: routineGroupLabel ?? row.collection,
+    collections: [routineGroupLabel ?? row.collection],
+    category: routineGroupLabel ?? row.collection,
     productType: row.product_type ?? row.collection,
-    routineNumber: row.routine_number,
-    routineStep: row.routine_step,
+    routineGroup,
+    routineGroupLabel,
+    routineStepNumber: row.routine_step_number,
+    routineStepName: row.routine_step_name,
+    routineDisplayLabel,
+    routineSort: row.routine_sort,
     badge: statusLabel(status) ?? row.badge,
     status,
     priceMin,
@@ -268,8 +289,9 @@ export function buildAlgoliaRecord(
       kind: "gradient",
       colors: swatch,
     },
-    sortOrder: row.sort_order ?? row.position ?? 0,
-    featuredRank: row.featured_rank ?? row.sort_order ?? row.position ?? 0,
+    sortOrder: row.routine_sort ?? row.sort_order ?? row.position ?? 0,
+    featuredRank:
+      row.routine_sort ?? row.featured_rank ?? row.sort_order ?? row.position ?? 0,
     createdAt: row.created_at,
     publishedAt: row.published_at,
     updatedAt: row.updated_at,
@@ -311,7 +333,8 @@ export const INDEX_SETTINGS: IndexSettings = {
     "filterOnly(collection)",
     "filterOnly(collections)",
     "filterOnly(productType)",
-    "filterOnly(routineStep)",
+    "filterOnly(routineGroup)",
+    "filterOnly(routineGroupLabel)",
     "filterOnly(concerns)",
     "filterOnly(available)",
     "status",

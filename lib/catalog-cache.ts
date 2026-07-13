@@ -1,5 +1,10 @@
 import { unstable_cache } from "next/cache";
-import { getProduct, getProducts, getRelatedProducts } from "@/lib/catalog";
+import {
+  getDiscoveryProducts,
+  getProduct,
+  getProducts,
+  getRelatedProducts,
+} from "@/lib/catalog";
 import type { Product } from "@/lib/products";
 
 export const CATALOG_CACHE_REVALIDATE_SECONDS = 60 * 60;
@@ -13,7 +18,7 @@ export function collectionCacheTag(collection: string): string {
   return `collection:${slug || "uncategorized"}`;
 }
 
-const readCachedProducts = unstable_cache(getProducts, ["catalog-products-v4"], {
+const readCachedProducts = unstable_cache(getProducts, ["catalog-products-v5"], {
   revalidate: CATALOG_CACHE_REVALIDATE_SECONDS,
   tags: ["catalog", "products", "collections"],
 });
@@ -25,7 +30,7 @@ export function getCachedProducts(): Promise<Product[]> {
 export function getCachedProduct(slug: string): Promise<Product | undefined> {
   return unstable_cache(
     () => getProduct(slug),
-    ["catalog-product-v4", slug],
+    ["catalog-product-v5", slug],
     {
       revalidate: CATALOG_CACHE_REVALIDATE_SECONDS,
       tags: ["catalog", "products", `product:${slug}`],
@@ -40,7 +45,7 @@ export function getCachedRelatedProducts(
 ): Promise<Product[]> {
   return unstable_cache(
     () => getRelatedProducts(collection, excludeSlug, limit),
-    ["catalog-related-v4", collection, excludeSlug, String(limit)],
+    ["catalog-related-v5", collection, excludeSlug, String(limit)],
     {
       revalidate: CATALOG_CACHE_REVALIDATE_SECONDS,
       tags: [
@@ -50,6 +55,20 @@ export function getCachedRelatedProducts(
         collectionCacheTag(collection),
         `product:${excludeSlug}`,
       ],
+    },
+  )();
+}
+
+export function getCachedDiscoveryProducts(
+  excludeSlug: string,
+  limit = 6,
+): Promise<Product[]> {
+  return unstable_cache(
+    () => getDiscoveryProducts(excludeSlug, limit),
+    ["catalog-discovery-v2", excludeSlug, String(limit)],
+    {
+      revalidate: CATALOG_CACHE_REVALIDATE_SECONDS,
+      tags: ["catalog", "products", "collections", `product:${excludeSlug}`],
     },
   )();
 }

@@ -23,6 +23,8 @@ export type ProductStatus = "available" | "coming_soon" | "sold_out";
 
 export type CatalogStatus = "active" | "draft" | "archived";
 
+export type CommerceRoutineGroup = "core" | "beyond_core";
+
 export type ProductMediaRole =
   | "card"
   | "hero"
@@ -68,6 +70,14 @@ export type Product = {
   collection: string;
   actionName: string | null;
   routineNumber: string | null;
+  routineGroup?: CommerceRoutineGroup | null;
+  routineGroupLabel?: string | null;
+  routineStepNumber?: number | null;
+  routineStepName?: string | null;
+  routineDisplayLabel?: string | null;
+  routineSort?: number | null;
+  legacyRoutineGroupLabel?: string | null;
+  legacyRoutineDisplayLabel?: string | null;
   subtitle: string | null;
   descriptor: string | null;
   productType: string | null;

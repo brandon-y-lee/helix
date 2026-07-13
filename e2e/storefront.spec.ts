@@ -19,17 +19,17 @@ test("shop renders Supabase products with a count", async ({ page }) => {
   await expect(page.locator(".product-count")).toHaveText("6 products");
   await expect(page.locator(".product-card")).toHaveCount(6);
   await expect(page.getByRole("link", { name: "CLEANSE", exact: true })).toBeVisible();
-  await expect(page.getByText("Fresh, balanced skin").first()).toBeVisible();
+  await expect(page.getByText("Clean skin. No tight finish.").first()).toBeVisible();
   await expect(page.locator('[data-media-kind="placeholder"]').first()).toBeVisible();
   expect(shopifyRequests).toEqual([]);
 });
 
 test("collection filter narrows the grid", async ({ page }) => {
   await page.goto("/products");
-  await page.getByRole("button", { name: "THE SYSTEM" }).click();
-  await expect(page.locator(".product-count")).toHaveText("5 products");
+  await page.getByRole("button", { name: "The Core", exact: true }).click();
+  await expect(page.locator(".product-count")).toHaveText("3 products");
   await expect(page.getByRole("link", { name: "CLEANSE", exact: true })).toBeVisible();
-  await expect(page.getByRole("link", { name: "LIFT", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "REFINE", exact: true })).toHaveCount(0);
 });
 
 test("sort control reorders products", async ({ page }) => {
@@ -55,7 +55,11 @@ test("product detail loads by slug and variant selection updates state", async (
   await expect(page.getByRole("button", { name: /WHAT IT DOES/ })).toBeVisible();
   await expect(page.getByRole("button", { name: /HOW TO USE/ })).toBeVisible();
   await expect(page.getByRole("button", { name: /KEY INGREDIENTS/ })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "FORMULA NOTES" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "QUICK SIGNALS" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "INGREDIENTS", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "EARLY READS" })).toBeVisible();
 
   const thirtyMl = page.getByRole("button", { name: "30 mL", exact: true });
   await thirtyMl.click();
@@ -210,7 +214,7 @@ test("product detail purchase accordions sit beneath add to cart", async ({
       doesBeforeUse: before(does, use),
       useBeforeIngredients: before(use, ingredients),
       ingredientsBeforeDetails: before(ingredients, details),
-      detailsBeforeFullIngredients: before(details, fullIngredients),
+      fullIngredientsBeforeDetails: before(fullIngredients, details),
     };
   });
   expect(order).toEqual({
@@ -218,7 +222,7 @@ test("product detail purchase accordions sit beneath add to cart", async ({
     doesBeforeUse: true,
     useBeforeIngredients: true,
     ingredientsBeforeDetails: true,
-    detailsBeforeFullIngredients: true,
+    fullIngredientsBeforeDetails: true,
   });
 
   const does = page.getByRole("button", { name: /WHAT IT DOES/ });

@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ProductDetail } from "@/components/ProductDetail";
 import {
+  getCachedDiscoveryProducts,
   getCachedProduct,
   getCachedProducts,
-  getCachedRelatedProducts,
 } from "@/lib/catalog-cache";
 
 export async function generateStaticParams() {
@@ -39,10 +39,7 @@ export default async function ProductDetailPage({
     notFound();
   }
 
-  const related = await getCachedRelatedProducts(
-    product.collection,
-    product.slug,
-  );
+  const related = await getCachedDiscoveryProducts(product.slug);
 
   return (
     <div className="container">

@@ -21,7 +21,7 @@ export default async function ProductsPage({
     <>
       <section className="container shop-hero" aria-labelledby="shop-heading">
         <div className="shop-hero__surface">
-          <p>THE SYSTEM</p>
+          <p>THE CORE / BEYOND THE CORE</p>
           <h1 id="shop-heading">RAISE YOUR BASELINE.</h1>
         </div>
       </section>

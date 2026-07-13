@@ -49,9 +49,15 @@ const sourceRow: CatalogProductSource = {
   formal_title: "NORTHPOINT 03 Renewal Serum",
   tagline: "Overnight resurfacing concentrate",
   card_tagline: "Smoother-looking tone",
-  collection: "Treat",
+  collection: "The Core",
   action_name: "NORTHPOINT",
-  routine_number: "03",
+  routine_number: "02",
+  routine_group: "core",
+  routine_group_label: "The Core",
+  routine_step_number: 2,
+  routine_step_name: "Treat",
+  routine_display_label: "02 — The Core",
+  routine_sort: 20,
   subtitle: "Overnight resurfacing concentrate",
   descriptor: "A nightly serum that refines tone.",
   product_type: "Serum",
@@ -129,8 +135,14 @@ describe("buildAlgoliaRecord", () => {
     expect(r.subtitle).toBe("Overnight resurfacing concentrate");
     expect(r.cardTagline).toBe("Smoother-looking tone");
     expect(r.descriptor).toBe("A nightly serum that refines tone.");
-    expect(r.collection).toBe("Treat");
-    expect(r.category).toBe("Treat");
+    expect(r.collection).toBe("The Core");
+    expect(r.category).toBe("The Core");
+    expect(r.routineGroup).toBe("core");
+    expect(r.routineGroupLabel).toBe("The Core");
+    expect(r.routineStepNumber).toBe(2);
+    expect(r.routineStepName).toBe("Treat");
+    expect(r.routineDisplayLabel).toBe("02 — The Core");
+    expect(r.routineSort).toBe(20);
     expect(r.productType).toBe("Serum");
     expect(r.currency).toBe("USD");
     // Price range derived from variants (min/max in cents).
@@ -142,9 +154,11 @@ describe("buildAlgoliaRecord", () => {
     expect(r.available).toBe(true);
     expect(r.waitlist).toBe(false);
     expect(r.badge).toBe("Night step");
-    expect(r.featuredRank).toBe(2);
+    expect(r.featuredRank).toBe(20);
+    expect(r.sortOrder).toBe(20);
     // Keywords pull from safe descriptive fields + variant labels.
-    expect(r.keywords).toContain("Treat");
+    expect(r.keywords).toContain("The Core");
+    expect(r.keywords).toContain("02 — The Core");
     expect(r.keywords).toContain("Silky serum");
     expect(r.keywords).toContain("30 ml");
     expect(r.placeholderMedia).toMatchObject({
@@ -184,6 +198,15 @@ describe("buildAlgoliaRecord", () => {
   it("exposes index settings driven by existing fields only", () => {
     expect(INDEX_SETTINGS.searchableAttributes).toContain("title");
     expect(INDEX_SETTINGS.customRanking).toContain("asc(featuredRank)");
+    expect(INDEX_SETTINGS.attributesForFaceting).toContain(
+      "filterOnly(routineGroup)",
+    );
+    expect(INDEX_SETTINGS.attributesForFaceting).toContain(
+      "filterOnly(routineGroupLabel)",
+    );
+    expect(INDEX_SETTINGS.attributesForFaceting).not.toContain(
+      "filterOnly(routineStep)",
+    );
   });
 });
 
@@ -398,7 +421,7 @@ describe("catalog cache invalidation", () => {
         "catalog",
         "products",
         `product:${sourceRow.slug}`,
-        "collection:treat",
+        "collection:the-core",
       ]),
     );
     expect(targets.paths).toContain(`/products/${sourceRow.slug}`);

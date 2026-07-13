@@ -17,13 +17,19 @@ function makeProduct(overrides: Partial<Product> = {}): Product {
     id: "33333333-3333-4333-8333-333333333333",
     slug: "treat-03-pdrn-5-ampoule",
     displayName: "TREAT",
-    formalTitle: "TREAT 03 PDRN 5 Ampoule",
+    formalTitle: "TREAT 02 PDRN 5 Ampoule",
     name: "TREAT",
     tagline: "Bounce and glow",
     cardTagline: "Bounce and glow",
-    collection: "THE SYSTEM",
+    collection: "The Core",
     actionName: null,
-    routineNumber: "03",
+    routineNumber: "02",
+    routineGroup: "core",
+    routineGroupLabel: "The Core",
+    routineStepNumber: 2,
+    routineStepName: "Treat",
+    routineDisplayLabel: "02 — The Core",
+    routineSort: 20,
     subtitle: "Bounce and glow",
     descriptor: "A daily ampoule.",
     productType: "Ampoule",
@@ -108,16 +114,15 @@ describe("ProductDetail purchase accordions", () => {
     const does = screen.getByRole("button", { name: /WHAT IT DOES/ });
     const use = screen.getByRole("button", { name: /HOW TO USE/ });
     const ingredients = screen.getByRole("button", { name: /KEY INGREDIENTS/ });
+    const signals = screen.getByRole("heading", { name: "QUICK SIGNALS" });
+    const fullIngredients = screen.getByRole("heading", { name: "INGREDIENTS" });
     const details = screen.getByRole("heading", { name: "DETAILS" });
-    const fullIngredients = screen.getByRole("heading", {
-      name: "FULL INGREDIENTS",
-    });
 
     expect(before(add, does)).toBe(true);
     expect(before(does, use)).toBe(true);
     expect(before(use, ingredients)).toBe(true);
-    expect(before(ingredients, details)).toBe(true);
-    expect(before(details, fullIngredients)).toBe(true);
+    expect(before(ingredients, signals)).toBe(true);
+    expect(before(fullIngredients, details)).toBe(true);
   });
 
   it("uses a single-open collapsible accordion group", async () => {
@@ -175,5 +180,19 @@ describe("ProductDetail purchase accordions", () => {
     expect(document.getElementById("full-ingredients")).toHaveTextContent(
       /checked on product packaging/i,
     );
+  });
+
+  it("renders the product-specific response meter without verified-buyer claims", () => {
+    render(<ProductDetail product={makeProduct()} />);
+
+    expect(
+      screen.getByText("How refreshed did your skin look?"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("meter", {
+        name: /How refreshed did your skin look\?: 87 out of 100/,
+      }),
+    ).toHaveAttribute("value", "87");
+    expect(screen.queryByText(/Verified Buyer/i)).not.toBeInTheDocument();
   });
 });

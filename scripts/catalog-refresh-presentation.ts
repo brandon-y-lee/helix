@@ -8,6 +8,7 @@ import {
   meiPellePresentationCatalog,
   presentationMediaForProduct,
 } from "../data/catalog/mei-pelle-presentation";
+import { productRoutineForSlug } from "../lib/catalog/product-routine";
 
 config({ path: resolve(process.cwd(), ".env.local"), quiet: true });
 
@@ -90,7 +91,7 @@ async function backupPresentationData(productIds: string[]): Promise<string> {
     supabase
       .from("products")
       .select(
-        "id, slug, name, display_name, formal_title, tagline, subtitle, descriptor, card_tagline, editorial_description, editorial_how_to_use, product_type, collection, routine_number, routine_step, blurb, description, how_to_use, swatch_from, swatch_to, featured_rank, sort_order, search_keywords, formula_notes, seo_title, seo_description, updated_at",
+        "id, slug, name, display_name, formal_title, tagline, subtitle, descriptor, card_tagline, editorial_description, editorial_how_to_use, product_type, collection, routine_number, routine_step, routine_group, routine_group_label, routine_step_number, routine_step_name, routine_display_label, routine_sort, legacy_routine_group_label, legacy_routine_display_label, blurb, description, how_to_use, swatch_from, swatch_to, featured_rank, sort_order, search_keywords, formula_notes, seo_title, seo_description, updated_at",
       )
       .in("id", productIds),
     supabase
@@ -211,6 +212,8 @@ async function updateProducts(productRows: ProductRow[]): Promise<{
       continue;
     }
 
+    const routine = productRoutineForSlug(product.slug);
+
     const { error } = await supabase
       .from("products")
       .update({
@@ -218,7 +221,7 @@ async function updateProducts(productRows: ProductRow[]): Promise<{
         display_name: product.displayName,
         formal_title: product.formalTitle,
         tagline: product.cardTagline,
-        subtitle: product.productType,
+        subtitle: product.cardTagline,
         descriptor: product.editorialDescription,
         card_tagline: product.cardTagline,
         editorial_description: product.editorialDescription,
@@ -226,6 +229,14 @@ async function updateProducts(productRows: ProductRow[]): Promise<{
         action_name: product.displayName,
         routine_number: product.routineNumber,
         routine_step: product.routineStep,
+        routine_group: routine?.routineGroup ?? null,
+        routine_group_label: routine?.routineGroupLabel ?? null,
+        routine_step_number: routine?.routineStepNumber ?? null,
+        routine_step_name: routine?.routineStepName ?? null,
+        routine_display_label: routine?.routineDisplayLabel ?? null,
+        routine_sort: routine?.routineSort ?? null,
+        legacy_routine_group_label: routine?.legacyRoutineGroupLabel ?? null,
+        legacy_routine_display_label: routine?.legacyRoutineDisplayLabel ?? null,
         product_type: product.productType,
         collection: product.collection,
         badge: null,

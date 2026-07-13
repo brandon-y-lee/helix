@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { ProductGrid } from "@/components/ProductGrid";
+import { routineGroupLabelForProduct } from "@/lib/catalog/product-routine";
 import type { Product } from "@/lib/products";
 
 type SortKey =
@@ -27,6 +28,10 @@ function minPrice(p: Product): number {
   return p.variants.length ? Math.min(...p.variants.map((v) => v.price)) : 0;
 }
 
+function groupLabel(product: Product) {
+  return routineGroupLabelForProduct(product);
+}
+
 export function ShopBrowser({
   products,
   initialCollection,
@@ -34,11 +39,12 @@ export function ShopBrowser({
   products: Product[];
   initialCollection?: string;
 }) {
-  // Collections in the catalog's featured order.
+  // Commerce groups in the catalog's featured order.
   const collections = useMemo(() => {
     const seen: string[] = [];
     for (const p of products) {
-      if (!seen.includes(p.collection)) seen.push(p.collection);
+      const label = groupLabel(p);
+      if (!seen.includes(label)) seen.push(label);
     }
     return seen;
   }, [products]);
@@ -57,7 +63,7 @@ export function ShopBrowser({
     const filtered =
       collection === ALL
         ? products
-        : products.filter((p) => p.collection === collection);
+        : products.filter((p) => groupLabel(p) === collection);
 
     // `products` arrives pre-ordered by featured position from Supabase.
     const sorted = [...filtered];
