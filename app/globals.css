@@ -3726,9 +3726,29 @@ main:focus {
   transition: opacity var(--motion-panel) var(--ease-out);
 }
 
+.product-card__image--asset {
+  background:
+    radial-gradient(circle at 50% 34%, rgba(255, 255, 255, 0.78), transparent 33%),
+    linear-gradient(145deg, color-mix(in srgb, var(--surface) 74%, var(--surface-muted)), #c9d3cc);
+  opacity: 1;
+  transition:
+    opacity var(--motion-panel) var(--ease-out),
+    transform var(--motion-panel) var(--ease-out);
+}
+
 .product-card__img {
   width: 100%;
   height: 100%;
+}
+
+.product-card__img--asset {
+  object-fit: contain;
+  object-position: var(--product-card-image-object-position, 50% 50%);
+  padding: clamp(28px, 7%, 50px);
+  transform: scale(0.94);
+  transition: transform var(--motion-panel) var(--ease-out);
+  user-select: none;
+  -webkit-user-drag: none;
 }
 
 .product-card__link {
@@ -3814,6 +3834,16 @@ main:focus {
 .product-card[data-visual-state="preview"] .product-card__image--hover,
 .product-card[data-visual-state="quick-buy"] .product-card__image--hover {
   opacity: 1;
+}
+
+.product-card[data-visual-state="preview"] .product-card__image--asset,
+.product-card[data-visual-state="quick-buy"] .product-card__image--asset {
+  opacity: 0;
+}
+
+.product-card[data-visual-state="preview"] .product-card__img--asset,
+.product-card[data-visual-state="quick-buy"] .product-card__img--asset {
+  transform: scale(0.98);
 }
 
 .product-card[data-visual-state="preview"] .product-card__meta,
@@ -5187,12 +5217,28 @@ main:focus {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .product-card__image--asset,
+  .product-card__img--asset,
   .product-card__image--hover,
   .product-card__cta,
   .product-card__quick-buy,
+  .home-beyond-carousel__track,
+  .home-beyond-carousel__control,
+  .home-beyond-swipe-indicator,
   .pdp-accordion__panel,
   .pdp-sticky-purchase {
     transition: none;
+  }
+
+  .product-card__img--asset,
+  .product-card[data-visual-state="preview"] .product-card__img--asset,
+  .product-card[data-visual-state="quick-buy"] .product-card__img--asset {
+    transform: none;
+  }
+
+  .home-beyond-carousel__track[data-motion="next"] .home-beyond-carousel__card,
+  .home-beyond-carousel__track[data-motion="previous"] .home-beyond-carousel__card {
+    animation: none;
   }
 
   .pdp-discovery__rail,
@@ -6470,6 +6516,10 @@ main:focus {
   letter-spacing: 0.17em;
 }
 
+.home-section--beyond {
+  overflow: hidden;
+}
+
 .home-section--core .home-section__intro p:not(.hero__eyebrow) {
   max-width: 92ch;
 }
@@ -6513,6 +6563,202 @@ main:focus {
   margin-inline: auto;
   justify-items: center;
   text-align: center;
+}
+
+.home-beyond-shell {
+  width: min(100%, 1800px);
+  margin: 0 auto;
+  padding-inline: var(--page-gutter);
+}
+
+.home-beyond-carousel {
+  --home-beyond-gap: clamp(12px, 1.45vw, 20px);
+  --home-beyond-visible: 3;
+  position: relative;
+}
+
+.home-beyond-carousel__viewport {
+  position: relative;
+  overflow: hidden;
+  touch-action: pan-y;
+}
+
+.home-beyond-carousel__track {
+  --home-beyond-drag-x: 0px;
+  display: flex;
+  gap: var(--home-beyond-gap);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  transform: translate3d(var(--home-beyond-drag-x), 0, 0);
+  transition: transform var(--motion-panel) var(--ease-out);
+  will-change: transform;
+}
+
+.home-beyond-carousel__card {
+  order: var(--home-beyond-order);
+  flex: 0 0 calc(
+    (100% - (var(--home-beyond-gap) * (var(--home-beyond-visible) - 1))) /
+      var(--home-beyond-visible)
+  );
+}
+
+.home-beyond-carousel__track[data-motion="next"] .home-beyond-carousel__card {
+  animation: home-beyond-card-next var(--motion-panel) var(--ease-out) both;
+}
+
+.home-beyond-carousel__track[data-motion="previous"] .home-beyond-carousel__card {
+  animation: home-beyond-card-previous var(--motion-panel) var(--ease-out) both;
+}
+
+@keyframes home-beyond-card-next {
+  from {
+    opacity: 0.92;
+    transform: translateX(18px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes home-beyond-card-previous {
+  from {
+    opacity: 0.92;
+    transform: translateX(-18px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.home-beyond-carousel[data-dragging="true"] .home-beyond-carousel__track {
+  transition-duration: 1ms;
+}
+
+.home-beyond-carousel .product-card__surface {
+  cursor: grab;
+}
+
+.home-beyond-carousel[data-dragging="true"] .product-card__surface {
+  cursor: grabbing;
+}
+
+.home-beyond-carousel__control {
+  position: absolute;
+  top: 50%;
+  z-index: 8;
+  width: 48px;
+  height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(17, 19, 18, 0.38);
+  border-radius: 999px;
+  background: rgba(251, 250, 246, 0.9);
+  color: var(--ink);
+  box-shadow: 0 12px 30px rgba(17, 19, 18, 0.16);
+  cursor: pointer;
+  font: inherit;
+  font-size: 1rem;
+  line-height: 1;
+  transform: translateY(-50%);
+  transition:
+    background-color var(--motion-fast) ease,
+    border-color var(--motion-fast) ease,
+    transform var(--motion-fast) var(--ease-out);
+}
+
+.home-beyond-carousel__control--previous {
+  left: 0;
+  transform: translate(-50%, -50%);
+}
+
+.home-beyond-carousel__control--next {
+  right: 0;
+  transform: translate(50%, -50%);
+}
+
+.home-beyond-carousel__control:hover {
+  border-color: color-mix(in srgb, var(--ink) 74%, transparent);
+  background: var(--surface);
+}
+
+.home-beyond-carousel__control:active {
+  transform: translateY(calc(-50% + 1px));
+}
+
+.home-beyond-carousel__control--previous:active {
+  transform: translate(-50%, calc(-50% + 1px));
+}
+
+.home-beyond-carousel__control--next:active {
+  transform: translate(50%, calc(-50% + 1px));
+}
+
+.home-beyond-carousel__control:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 4px;
+}
+
+.home-beyond-swipe-indicator {
+  --home-beyond-indicator-x: 50%;
+  --home-beyond-indicator-y: 50%;
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 7;
+  width: 62px;
+  height: 62px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(251, 250, 246, 0.58);
+  border-radius: 999px;
+  background: rgba(17, 19, 18, 0.72);
+  color: #fbfaf6;
+  font-size: 0.64rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  line-height: 1;
+  pointer-events: none;
+  transform: translate(
+    calc(var(--home-beyond-indicator-x) - 50%),
+    calc(var(--home-beyond-indicator-y) - 50%)
+  );
+  transition:
+    opacity var(--motion-fast) ease,
+    transform var(--motion-fast) var(--ease-out);
+}
+
+.home-beyond-swipe-indicator::after {
+  content: "↔";
+  margin-left: 3px;
+  font-size: 0.78rem;
+  letter-spacing: 0;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .home-beyond-swipe-indicator {
+    display: inline-flex;
+    opacity: 0;
+  }
+
+  .home-beyond-swipe-indicator[data-visible="true"] {
+    opacity: 1;
+  }
+
+  .home-beyond-swipe-indicator[data-active="true"] {
+    transform: translate(
+      calc(var(--home-beyond-indicator-x) - 50%),
+      calc(var(--home-beyond-indicator-y) - 50%)
+    )
+      scale(0.92);
+  }
 }
 
 .home-addon-grid,
@@ -7095,6 +7341,20 @@ main:focus {
   scroll-margin-top: 120px;
 }
 
+@media (max-width: 1199px) {
+  .home-beyond-carousel {
+    --home-beyond-visible: 2.1;
+  }
+
+  .home-beyond-carousel__control--previous {
+    left: 8px;
+  }
+
+  .home-beyond-carousel__control--next {
+    right: 8px;
+  }
+}
+
 @media (max-width: 1080px) {
   .home-addon-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -7225,6 +7485,36 @@ main:focus {
   .home-addon-grid,
   .home-core-products {
     grid-template-columns: 1fr;
+  }
+
+  .home-beyond-shell {
+    padding-inline: clamp(16px, 5vw, 24px);
+  }
+
+  .home-beyond-carousel {
+    --home-beyond-gap: 12px;
+    --home-beyond-visible: 1.12;
+  }
+
+  .home-beyond-carousel__control {
+    width: 44px;
+    height: 44px;
+    box-shadow: 0 10px 24px rgba(17, 19, 18, 0.16);
+  }
+
+  .home-beyond-carousel__control--previous {
+    left: 4px;
+    transform: translateY(-50%);
+  }
+
+  .home-beyond-carousel__control--next {
+    right: 4px;
+    transform: translateY(-50%);
+  }
+
+  .home-beyond-carousel__control--previous:active,
+  .home-beyond-carousel__control--next:active {
+    transform: translateY(calc(-50% + 1px));
   }
 
   .home-addon-card {

@@ -1,17 +1,22 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ProductCard } from "@/components/ProductCard";
+import {
+  ProductCard,
+  type ProductCardImageOverride,
+} from "@/components/ProductCard";
 import type { Product } from "@/lib/products";
 
 export function ProductGrid({
   products,
   className = "product-grid",
+  defaultImageBySlug,
   previewKeyBySlug,
   onPreviewChange,
 }: {
   products: Product[];
   className?: string;
+  defaultImageBySlug?: Readonly<Record<string, ProductCardImageOverride | undefined>>;
   previewKeyBySlug?: Readonly<Record<string, string | undefined>>;
   onPreviewChange?: (key: string | null) => void;
 }) {
@@ -34,6 +39,7 @@ export function ProductGrid({
         <ProductCard
           key={product.slug}
           product={product}
+          defaultImage={defaultImageBySlug?.[product.slug]}
           quickBuyOpen={openQuickBuyProductId === product.id}
           previewKey={previewKeyBySlug?.[product.slug]}
           onPreviewChange={onPreviewChange}

@@ -178,28 +178,22 @@ test("homepage Core and Beyond cards phase section descriptions", async ({ page 
   );
   expect(beyondEyebrowWeight).toBe(coreEyebrowWeight);
 
-  await beyond.getByRole("link", { name: "View REFINE, texture / controlled refinement" }).hover();
+  await beyond.getByRole("link", { name: "REFINE", exact: true }).hover();
   await expectVisiblePhasedDescription(beyondDescription, beyondDescriptionItems.refine);
   await page.mouse.move(4, 4);
   await expectVisiblePhasedDescription(beyondDescription, homeBeyondCoreDescriptions.default);
 
-  await beyond.getByRole("link", { name: "View FRAME, eye area / rested-looking frame" }).focus();
+  await beyond.getByRole("link", { name: "FRAME", exact: true }).focus();
   await expectVisiblePhasedDescription(beyondDescription, beyondDescriptionItems.frame);
   await page.getByRole("link", { name: "Explore The Core" }).focus();
   await expectVisiblePhasedDescription(beyondDescription, homeBeyondCoreDescriptions.default);
 
-  const protect = beyond.getByRole("link", {
-    name: "View PROTECT System step, coming soon",
-  });
-  await expect(protect).toHaveAttribute("href", "/system#system-protect");
-  await expect(protect.getByRole("button")).toHaveCount(0);
-  await expect(protect.getByText(/\$\d/)).toHaveCount(0);
-  await protect.hover();
-  await expectVisiblePhasedDescription(beyondDescription, beyondDescriptionItems.protect);
-  await page.mouse.move(4, 4);
-  await expectVisiblePhasedDescription(beyondDescription, homeBeyondCoreDescriptions.default);
+  await expect(
+    beyond.getByRole("link", { name: "View PROTECT System step, coming soon" }),
+  ).toHaveCount(0);
+  await expect(beyond.locator(".home-addon-card--protect")).toHaveCount(0);
 
-  await beyond.getByRole("link", { name: "View LIFT, weekly intensive" }).focus();
+  await beyond.getByRole("button", { name: "Open quick buy for LIFT" }).focus();
   await expectVisiblePhasedDescription(beyondDescription, beyondDescriptionItems.lift);
   await page.getByRole("link", { name: "Explore The Core" }).focus();
   await expectVisiblePhasedDescription(beyondDescription, homeBeyondCoreDescriptions.default);
@@ -220,6 +214,147 @@ test("homepage Core and Beyond cards phase section descriptions", async ({ page 
     () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
   );
   expect(overflow).toBe(0);
+});
+
+test("homepage Core images and Beyond carousel rotate without partial desktop cards", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+
+  const core = page.getByRole("region", { name: "The Core", exact: true });
+  const coreImageState = await core.evaluate((section) => {
+    const images = Array.from(
+      section.querySelectorAll<HTMLElement>("[data-product-card-default-image='true']"),
+    ).map((node) => decodeURIComponent(node.querySelector("img")?.getAttribute("src") ?? ""));
+    const hoverLayers = Array.from(
+      section.querySelectorAll<HTMLElement>(".product-card__image--hover"),
+    ).map((node) => node.getAttribute("data-media-kind"));
+    return { images, hoverLayers };
+  });
+  expect(coreImageState.images).toHaveLength(3);
+  expect(coreImageState.images[0]).toContain("/media/home/cleanse-home-card.webp");
+  expect(coreImageState.images[1]).toContain("/media/home/treat-home-card.webp");
+  expect(coreImageState.images[2]).toContain("/media/home/seal-home-card.webp");
+  expect(coreImageState.hoverLayers).toEqual(["placeholder", "placeholder", "placeholder"]);
+
+  const readFirstCoreVisualState = () =>
+    core.evaluate((section) => {
+      const firstCard = section.querySelector<HTMLElement>(".product-card");
+      const defaultLayer = firstCard?.querySelector<HTMLElement>(".product-card__image--asset");
+      const hoverLayer = firstCard?.querySelector<HTMLElement>(".product-card__image--hover");
+      return {
+        state: firstCard?.getAttribute("data-visual-state"),
+        defaultOpacity: defaultLayer ? getComputedStyle(defaultLayer).opacity : "",
+        hoverOpacity: hoverLayer ? getComputedStyle(hoverLayer).opacity : "",
+      };
+    });
+
+  await core.getByRole("link", { name: "CLEANSE", exact: true }).hover();
+  await expect
+    .poll(async () => Number.parseFloat((await readFirstCoreVisualState()).hoverOpacity))
+    .toBeGreaterThan(0.9);
+  const coreHoverState = await readFirstCoreVisualState();
+  expect(coreHoverState.state).toBe("preview");
+  expect(Number.parseFloat(coreHoverState.defaultOpacity)).toBeLessThan(0.2);
+
+  await page.mouse.move(4, 4);
+  await expect
+    .poll(async () => Number.parseFloat((await readFirstCoreVisualState()).defaultOpacity))
+    .toBeGreaterThan(0.9);
+  const coreExitState = await readFirstCoreVisualState();
+  expect(coreExitState.state).toBe("default");
+
+  const beyond = page.getByRole("region", { name: "Beyond The Core", exact: true });
+  const track = beyond.locator(".home-beyond-carousel__track");
+  const previous = beyond.getByRole("button", { name: "Previous product" });
+  const next = beyond.getByRole("button", { name: "Next product" });
+  const trackId = await track.getAttribute("id");
+  await expect(previous).toHaveAttribute("aria-controls", trackId ?? "");
+  await expect(next).toHaveAttribute("aria-controls", trackId ?? "");
+
+  const readVisualOrder = () =>
+    track.evaluate((node) =>
+      Array.from(node.querySelectorAll<HTMLElement>(".product-card"))
+        .map((card) => ({
+          name: card.querySelector(".product-card__name")?.textContent?.trim() ?? "",
+          order: Number.parseInt(card.style.getPropertyValue("--home-beyond-order"), 10),
+        }))
+        .sort((a, b) => a.order - b.order)
+        .map((item) => item.name),
+    );
+
+  expect(await readVisualOrder()).toEqual(["REFINE", "FRAME", "LIFT"]);
+  const geometry = await beyond.evaluate((section) => {
+    const viewport = section.querySelector<HTMLElement>(".home-beyond-carousel__viewport");
+    const cards = Array.from(
+      section.querySelectorAll<HTMLElement>(".home-beyond-carousel__card"),
+    );
+    const viewportRect = viewport?.getBoundingClientRect();
+    const rects = cards.map((card) => {
+      const rect = card.getBoundingClientRect();
+      return {
+        left: rect.left,
+        right: rect.right,
+        width: rect.width,
+      };
+    });
+    return {
+      viewportLeft: viewportRect?.left ?? 0,
+      viewportRight: viewportRect?.right ?? 0,
+      cardCount: cards.length,
+      visibleCount: rects.filter(
+        (rect) =>
+          rect.left >= (viewportRect?.left ?? 0) - 1 &&
+          rect.right <= (viewportRect?.right ?? 0) + 1,
+      ).length,
+      rects,
+      overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    };
+  });
+  expect(geometry.cardCount).toBe(3);
+  expect(geometry.visibleCount).toBe(3);
+  expect(geometry.overflow).toBeLessThanOrEqual(0);
+  for (const rect of geometry.rects) {
+    expect(rect.width).toBeGreaterThan(360);
+    expect(rect.left).toBeGreaterThanOrEqual(geometry.viewportLeft - 1);
+    expect(rect.right).toBeLessThanOrEqual(geometry.viewportRight + 1);
+  }
+
+  await next.click();
+  await expect
+    .poll(readVisualOrder)
+    .toEqual(["FRAME", "LIFT", "REFINE"]);
+  await expect(beyond.getByText("FRAME leads Beyond The Core.")).toHaveCount(1);
+
+  await page.waitForTimeout(280);
+  await previous.click();
+  await expect
+    .poll(readVisualOrder)
+    .toEqual(["REFINE", "FRAME", "LIFT"]);
+  await page.waitForTimeout(280);
+
+  const beforeDragUrl = page.url();
+  const viewportBox = await beyond.locator(".home-beyond-carousel__viewport").boundingBox();
+  expect(viewportBox).not.toBeNull();
+  if (viewportBox) {
+    await page.mouse.move(
+      viewportBox.x + viewportBox.width * 0.24,
+      viewportBox.y + Math.min(220, viewportBox.height * 0.36),
+    );
+    await expect(beyond.locator(".home-beyond-swipe-indicator")).toHaveCSS("opacity", "1");
+
+    const startX = viewportBox.x + viewportBox.width * 0.58;
+    const y = viewportBox.y + Math.min(260, viewportBox.height * 0.42);
+    await page.mouse.move(startX, y);
+    await page.mouse.down();
+    await page.mouse.move(startX - 120, y, { steps: 6 });
+    await page.mouse.up();
+  }
+  expect(page.url()).toBe(beforeDragUrl);
+  await expect
+    .poll(readVisualOrder)
+    .toEqual(["FRAME", "LIFT", "REFINE"]);
 });
 
 test("homepage ingredient cards navigate to matching System ingredient anchors", async ({ page }) => {
@@ -1224,11 +1359,10 @@ test("homepage Core Three products and add-ons resolve by stable slugs", async (
       addOnLinks: Array.from(beyond?.querySelectorAll("a") ?? []).map((link) =>
         link.getAttribute("href"),
       ),
-      protectText: clean(
-        beyond?.querySelector(".home-addon-card--protect")?.textContent,
+      addOnProducts: Array.from(beyond?.querySelectorAll(".product-card__name") ?? []).map((node) =>
+        clean(node.textContent),
       ),
-      protectButtons: beyond?.querySelector(".home-addon-card--protect")?.querySelectorAll("button")
-        .length ?? 0,
+      protectCardCount: beyond?.querySelectorAll(".home-addon-card--protect").length ?? 0,
     };
   });
 
@@ -1241,11 +1375,9 @@ test("homepage Core Three products and add-ons resolve by stable slugs", async (
   expect(merchandising.addOnLinks).toContain("/products/refine-02-pore-treatment-pads");
   expect(merchandising.addOnLinks).toContain("/products/frame-04-pdrn-eye-cream");
   expect(merchandising.addOnLinks).toContain("/products/lift-06-pdrn-mask-system");
-  expect(merchandising.addOnLinks).toContain("/system#system-protect");
-  expect(merchandising.protectText).toContain("COMING SOON");
-  expect(merchandising.protectText).toContain("SPF");
-  expect(merchandising.protectText).not.toMatch(/\$\d/);
-  expect(merchandising.protectButtons).toBe(0);
+  expect(merchandising.addOnLinks).not.toContain("/system#system-protect");
+  expect(merchandising.addOnProducts).toEqual(["REFINE", "FRAME", "LIFT"]);
+  expect(merchandising.protectCardCount).toBe(0);
 });
 
 test("homepage principles switcher updates copy without navigation", async ({ page }) => {

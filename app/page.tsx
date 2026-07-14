@@ -1,9 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import {
-  HomeBeyondCoreShowcase,
-  type HomeBeyondCoreCard,
-} from "@/components/HomeBeyondCoreShowcase";
+import { HomeBeyondCoreShowcase } from "@/components/HomeBeyondCoreShowcase";
 import { HomeCoreShowcase } from "@/components/HomeCoreShowcase";
 import { HomeFinalVideo } from "@/components/HomeFinalVideo";
 import { HomeHeroVideo } from "@/components/HomeHeroVideo";
@@ -11,12 +8,8 @@ import { HomePlugVideo } from "@/components/HomePlugVideo";
 import { HomePrinciplesPortrait } from "@/components/HomePrinciplesPortrait";
 import { HomeThreePrinciples } from "@/components/HomeThreePrinciples";
 import { getCachedProducts } from "@/lib/catalog-cache";
+import { homeThreePrinciples } from "@/lib/content/home";
 import {
-  homeThreePrinciples,
-  type HomeBeyondCoreDescriptionKey,
-} from "@/lib/content/home";
-import {
-  PROTECT_STEP,
   buildIngredientIndex,
   ingredientAnchorId,
   type IngredientIndexCard,
@@ -30,62 +23,17 @@ export const metadata: Metadata = {
     "A three-step men's skincare baseline: cleanse, treat, and seal with CLEANSE, TREAT, and SEAL.",
 };
 
-type ProductAddOn = {
-  kind: "product";
-  slug: MethodProductSlug;
-  displayName: "REFINE" | "FRAME" | "LIFT";
-  role: string;
-  summary: string;
-};
-
-type ProtectAddOn = {
-  kind: "protect";
-  displayName: "PROTECT";
-  role: string;
-  summary: string;
-};
-
-type AddOn = ProductAddOn | ProtectAddOn;
-
 const CORE_PRODUCT_SLUGS = [
   "cleanse-01-calming-gel-cleanser",
   "treat-03-pdrn-5-ampoule",
   "seal-05-green-collagen-cream",
 ] as const satisfies readonly MethodProductSlug[];
 
-const ADD_ONS: readonly AddOn[] = [
-  {
-    kind: "product",
-    slug: "refine-02-pore-treatment-pads",
-    displayName: "REFINE",
-    role: "texture / controlled refinement",
-    summary:
-      "A frequency-dependent texture step for visible unevenness when the baseline is already consistent.",
-  },
-  {
-    kind: "product",
-    slug: "frame-04-pdrn-eye-cream",
-    displayName: "FRAME",
-    role: "eye area / rested-looking frame",
-    summary:
-      "A smaller-dose eye-area step for a more rested-looking frame around the face.",
-  },
-  {
-    kind: "protect",
-    displayName: "PROTECT",
-    role: "SPF finish / final morning protection / coming soon editorial step",
-    summary:
-      "A non-commerce System step for broad-spectrum SPF as the final morning layer.",
-  },
-  {
-    kind: "product",
-    slug: "lift-06-pdrn-mask-system",
-    displayName: "LIFT",
-    role: "weekly intensive",
-    summary:
-      "A scheduled weekly intensive for the days you want more than the daily baseline.",
-  },
-] as const;
+const BEYOND_CORE_PRODUCT_SLUGS = [
+  "refine-02-pore-treatment-pads",
+  "frame-04-pdrn-eye-cream",
+  "lift-06-pdrn-mask-system",
+] as const satisfies readonly MethodProductSlug[];
 
 const INGREDIENT_LINK_LABELS: Record<string, string> = {
   pdrn: "PDRN",
@@ -103,46 +51,6 @@ function productsForSlugs(
   });
 }
 
-const ADD_ON_DESCRIPTION_KEYS = {
-  REFINE: "refine",
-  FRAME: "frame",
-  PROTECT: "protect",
-  LIFT: "lift",
-} as const satisfies Readonly<Record<AddOn["displayName"], HomeBeyondCoreDescriptionKey>>;
-
-function buildBeyondCoreCard(
-  addOn: AddOn,
-  productsBySlug: ReadonlyMap<string, Product>,
-): HomeBeyondCoreCard | null {
-  if (addOn.kind === "protect") {
-    return {
-      kind: "protect",
-      ariaLabel: "View PROTECT System step, coming soon",
-      descriptionKey: ADD_ON_DESCRIPTION_KEYS[addOn.displayName],
-      displayName: addOn.displayName,
-      href: "/system#system-protect",
-      role: addOn.role,
-      status: PROTECT_STEP.status,
-      summary: addOn.summary,
-    };
-  }
-
-  const product = productsBySlug.get(addOn.slug);
-  if (!product) return null;
-
-  return {
-    kind: "product",
-    ariaLabel: `View ${product.displayName}, ${addOn.role}`,
-    descriptionKey: ADD_ON_DESCRIPTION_KEYS[addOn.displayName],
-    displayName: product.displayName,
-    href: `/products/${product.slug}`,
-    media: product.cardMedia,
-    role: addOn.role,
-    summary: addOn.summary,
-    swatch: product.swatch,
-  };
-}
-
 function ingredientPreviewLabel(card: IngredientIndexCard) {
   return `Read about ${INGREDIENT_LINK_LABELS[card.id] ?? card.name} in the System`;
 }
@@ -155,14 +63,14 @@ export default async function HomePage() {
     productsBySlug,
     [
       ...CORE_PRODUCT_SLUGS,
-      ...ADD_ONS.flatMap((addOn) => (addOn.kind === "product" ? [addOn.slug] : [])),
+      ...BEYOND_CORE_PRODUCT_SLUGS,
     ],
   );
   const ingredientCards = buildIngredientIndex(methodProducts).slice(0, 3);
-  const beyondCoreCards = ADD_ONS.flatMap((addOn) => {
-    const card = buildBeyondCoreCard(addOn, productsBySlug);
-    return card ? [card] : [];
-  });
+  const beyondCoreProducts = productsForSlugs(
+    productsBySlug,
+    BEYOND_CORE_PRODUCT_SLUGS,
+  );
 
   return (
     <>
@@ -237,7 +145,7 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <HomeBeyondCoreShowcase cards={beyondCoreCards} />
+      <HomeBeyondCoreShowcase products={beyondCoreProducts} />
 
       <section className="home-band home-section" aria-labelledby="ingredients-heading">
         <div className="container home-split home-split--ingredients">

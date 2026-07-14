@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import {
   useEffect,
@@ -7,6 +8,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type FocusEvent,
   type KeyboardEvent,
   type PointerEvent as ReactPointerEvent,
@@ -70,17 +72,33 @@ function detailRows(product: Product, variant: Variant | null | undefined) {
 
 type ProductCardProps = {
   product: Product;
+  className?: string;
+  defaultImage?: ProductCardImageOverride;
   quickBuyOpen?: boolean;
   previewKey?: string;
+  style?: CSSProperties;
   onPreviewChange?: (key: string | null) => void;
   onQuickBuyOpen?: () => void;
   onQuickBuyClose?: () => void;
 };
 
+export type ProductCardImageOverride = {
+  src: string;
+  alt: string;
+  width: number;
+  height: number;
+  objectPosition?: string;
+  priority?: boolean;
+  sizes?: string;
+};
+
 export function ProductCard({
   product,
+  className,
+  defaultImage,
   quickBuyOpen,
   previewKey,
+  style,
   onPreviewChange,
   onQuickBuyOpen,
   onQuickBuyClose,
@@ -135,6 +153,14 @@ export function ProductCard({
   const hasRange = product.variants.length > 1;
   const priceLabel = `${hasRange ? "From " : ""}${formatPrice(startingPrice)}`;
   const displayName = product.displayName;
+  const cardImageSizes =
+    defaultImage?.sizes ?? "(max-width: 720px) 92vw, (max-width: 1180px) 33vw, 420px";
+  const defaultImageStyle = defaultImage
+    ? ({
+        "--product-card-image-object-position":
+          defaultImage.objectPosition ?? "50% 50%",
+      } as CSSProperties)
+    : undefined;
   const visualState = isQuickBuyOpen
     ? "quick-buy"
     : pointerInside || keyboardFocusVisibleWithin
@@ -353,9 +379,11 @@ export function ProductCard({
 
   return (
     <li
-      className="product-card"
+      className={["product-card", className].filter(Boolean).join(" ")}
+      data-product-card-slug={product.slug}
       data-quick-buy-open={isQuickBuyOpen}
       data-visual-state={visualState}
+      style={style}
     >
       <div
         ref={surfaceRef}
@@ -368,25 +396,44 @@ export function ProductCard({
         onBlurCapture={handleBlurCapture}
         onKeyDown={handlePanelKeyDown}
       >
-        <ProductImage
-          media={product.cardMedia}
-          swatch={product.swatch}
-          className="product-card__image"
-          imageClassName="product-card__img"
-          sizes="(max-width: 720px) 92vw, (max-width: 1180px) 33vw, 420px"
-        />
+        {defaultImage ? (
+          <span
+            className="product-card__image product-card__image--asset"
+            data-media-kind="image"
+            data-product-card-default-image="true"
+            style={defaultImageStyle}
+          >
+            <Image
+              src={defaultImage.src}
+              alt={defaultImage.alt}
+              fill
+              sizes={cardImageSizes}
+              priority={defaultImage.priority}
+              className="product-card__img product-card__img--asset"
+            />
+          </span>
+        ) : (
+          <ProductImage
+            media={product.cardMedia}
+            swatch={product.swatch}
+            className="product-card__image"
+            imageClassName="product-card__img"
+            sizes={cardImageSizes}
+          />
+        )}
         <ProductImage
           media={product.cardHoverMedia}
           swatch={product.swatch}
           className="product-card__image product-card__image--hover"
           imageClassName="product-card__img"
-          sizes="(max-width: 720px) 92vw, (max-width: 1180px) 33vw, 420px"
+          sizes={cardImageSizes}
         />
 
         <Link
           href={href}
           className="product-card__link"
           aria-label={displayName}
+          draggable={false}
         >
           <span className="product-card__name">{displayName}</span>
           <span className="product-card__meta">

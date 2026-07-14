@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { act } from "react";
 import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 
 vi.mock("@/lib/catalog-cache", () => ({
@@ -156,7 +157,7 @@ beforeEach(() => {
 });
 
 describe("homepage Core Three positioning", () => {
-  it("renders the requested hero, Core Three products, add-ons, and editorial PROTECT step", async () => {
+  it("renders the requested hero, Core Three products, and Beyond carousel", async () => {
     const user = userEvent.setup();
 
     render(<CartProvider>{await HomePage()}</CartProvider>);
@@ -220,6 +221,20 @@ describe("homepage Core Three positioning", () => {
       .toBeInTheDocument();
     expect(within(core).getByRole("button", { name: "Open quick buy for SEAL" }))
       .toBeInTheDocument();
+    const coreDefaultImages = Array.from(
+      core.querySelectorAll<HTMLElement>("[data-product-card-default-image='true']"),
+    ).map((node) =>
+      decodeURIComponent(node.querySelector("img")?.getAttribute("src") ?? ""),
+    );
+    expect(coreDefaultImages).toHaveLength(3);
+    expect(coreDefaultImages[0]).toContain("/media/home/cleanse-home-card.webp");
+    expect(coreDefaultImages[1]).toContain("/media/home/treat-home-card.webp");
+    expect(coreDefaultImages[2]).toContain("/media/home/seal-home-card.webp");
+    expect(
+      Array.from(core.querySelectorAll<HTMLElement>(".product-card__image--hover")).map((node) =>
+        node.getAttribute("data-media-kind"),
+      ),
+    ).toEqual(["placeholder", "placeholder", "placeholder"]);
 
     const coreSurfaces = Array.from(
       core.querySelectorAll<HTMLElement>(".product-card__surface"),
@@ -385,39 +400,74 @@ describe("homepage Core Three positioning", () => {
     for (const description of Object.values(homeBeyondCoreDescriptions.items)) {
       expect(within(beyond).queryByText(description)).not.toBeInTheDocument();
     }
-    expect(within(beyond).getByText("REFINE — texture / controlled refinement"))
+    const carousel = beyond.querySelector<HTMLElement>(".home-beyond-carousel");
+    const track = beyond.querySelector<HTMLElement>(".home-beyond-carousel__track");
+    expect(carousel).toHaveAttribute("aria-label", "Beyond The Core products");
+    expect(carousel).toHaveAttribute("aria-roledescription", "carousel");
+    expect(track).toBeInTheDocument();
+    expect(
+      Array.from(beyond.querySelectorAll(".product-card__name")).map((node) =>
+        node.textContent?.trim(),
+      ),
+    ).toEqual(["REFINE", "FRAME", "LIFT"]);
+    expect(within(beyond).getByRole("link", { name: "REFINE" })).toHaveAttribute(
+      "href",
+      "/products/refine-02-pore-treatment-pads",
+    );
+    expect(within(beyond).getByRole("link", { name: "FRAME" })).toHaveAttribute(
+      "href",
+      "/products/frame-04-pdrn-eye-cream",
+    );
+    expect(within(beyond).getByRole("link", { name: "LIFT" })).toHaveAttribute(
+      "href",
+      "/products/lift-06-pdrn-mask-system",
+    );
+    expect(within(beyond).getByRole("button", { name: "Open quick buy for REFINE" }))
       .toBeInTheDocument();
-    expect(within(beyond).getByText("FRAME — eye area / rested-looking frame"))
+    expect(within(beyond).getByRole("button", { name: "Open quick buy for FRAME" }))
       .toBeInTheDocument();
-    expect(within(beyond).getByText("LIFT — weekly intensive")).toBeInTheDocument();
+    expect(within(beyond).getByRole("button", { name: "Open quick buy for LIFT" }))
+      .toBeInTheDocument();
+    expect(within(beyond).queryByRole("link", { name: "View PROTECT System step, coming soon" }))
+      .not.toBeInTheDocument();
+    expect(beyond.querySelector(".home-addon-card--protect")).not.toBeInTheDocument();
+    expect(within(beyond).queryByText("SPF")).not.toBeInTheDocument();
 
-    const protect = within(beyond).getByRole("link", {
-      name: "View PROTECT System step, coming soon",
+    const previousButton = within(beyond).getByRole("button", { name: "Previous product" });
+    const nextButton = within(beyond).getByRole("button", { name: "Next product" });
+    expect(previousButton).toHaveAttribute("aria-controls", track?.id);
+    expect(nextButton).toHaveAttribute("aria-controls", track?.id);
+    const visualOrder = () =>
+      Array.from(beyond.querySelectorAll<HTMLElement>(".home-beyond-carousel__card")).map(
+        (card) =>
+          `${card.querySelector(".product-card__name")?.textContent?.trim()}:${
+            card.style.getPropertyValue("--home-beyond-order")
+          }`,
+      );
+    expect(visualOrder()).toEqual(["REFINE:0", "FRAME:1", "LIFT:2"]);
+    await user.click(previousButton);
+    await waitFor(() => expect(visualOrder()).toEqual(["REFINE:1", "FRAME:2", "LIFT:0"]));
+    await act(async () => {
+      await new Promise((resolve) => window.setTimeout(resolve, 260));
     });
-    expect(protect).toHaveAttribute("href", "/system#system-protect");
-    expect(within(protect).getByText("COMING SOON")).toBeInTheDocument();
-    expect(within(protect).getByText("SPF")).toBeInTheDocument();
-    expect(within(protect).queryByRole("button")).not.toBeInTheDocument();
-    expect(within(protect).queryByText(/\$\d/)).not.toBeInTheDocument();
-    expect(protect.getAttribute("href")).not.toContain("/products/");
+    await user.click(nextButton);
+    await waitFor(() => expect(visualOrder()).toEqual(["REFINE:0", "FRAME:1", "LIFT:2"]));
 
-    const refine = within(beyond).getByRole("link", {
-      name: "View REFINE, texture / controlled refinement",
-    });
-    fireEvent.pointerEnter(refine, { pointerType: "mouse" });
+    const beyondSurfaces = Array.from(
+      beyond.querySelectorAll<HTMLElement>(".product-card__surface"),
+    );
+    fireEvent.pointerEnter(beyondSurfaces[0], { pointerType: "mouse" });
     await waitFor(() =>
       expect(within(beyond).getByText(homeBeyondCoreDescriptions.items.refine))
         .toBeInTheDocument(),
     );
     expect(within(beyond).queryByText(homeBeyondCoreDescriptions.default)).not.toBeInTheDocument();
-    fireEvent.pointerLeave(refine, { pointerType: "mouse" });
+    fireEvent.pointerLeave(beyondSurfaces[0], { pointerType: "mouse" });
     await waitFor(() =>
       expect(within(beyond).getByText(homeBeyondCoreDescriptions.default)).toBeInTheDocument(),
     );
 
-    const frame = within(beyond).getByRole("link", {
-      name: "View FRAME, eye area / rested-looking frame",
-    });
+    const frame = within(beyond).getByRole("link", { name: "FRAME" });
     fireEvent.focus(frame);
     await waitFor(() =>
       expect(within(beyond).getByText(homeBeyondCoreDescriptions.items.frame))
@@ -428,18 +478,8 @@ describe("homepage Core Three positioning", () => {
       expect(within(beyond).getByText(homeBeyondCoreDescriptions.default)).toBeInTheDocument(),
     );
 
-    fireEvent.pointerEnter(protect, { pointerType: "mouse" });
-    await waitFor(() =>
-      expect(within(beyond).getByText(homeBeyondCoreDescriptions.items.protect))
-        .toBeInTheDocument(),
-    );
-    fireEvent.pointerLeave(protect, { pointerType: "mouse" });
-    await waitFor(() =>
-      expect(within(beyond).getByText(homeBeyondCoreDescriptions.default)).toBeInTheDocument(),
-    );
-
-    const lift = within(beyond).getByRole("link", {
-      name: "View LIFT, weekly intensive",
+    const lift = within(beyond).getByRole("button", {
+      name: "Open quick buy for LIFT",
     });
     fireEvent.focus(lift);
     await waitFor(() =>
