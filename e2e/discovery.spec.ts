@@ -216,7 +216,7 @@ test("homepage Core and Beyond cards phase section descriptions", async ({ page 
   expect(overflow).toBe(0);
 });
 
-test("homepage Core images and Beyond carousel rotate without partial desktop cards", async ({
+test("homepage Core images and Beyond carousel use finite responsive navigation", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -266,25 +266,21 @@ test("homepage Core images and Beyond carousel rotate without partial desktop ca
   expect(coreExitState.state).toBe("default");
 
   const beyond = page.getByRole("region", { name: "Beyond The Core", exact: true });
+  const carousel = beyond.locator(".home-beyond-carousel");
   const track = beyond.locator(".home-beyond-carousel__track");
-  const previous = beyond.getByRole("button", { name: "Previous product" });
-  const next = beyond.getByRole("button", { name: "Next product" });
-  const trackId = await track.getAttribute("id");
-  await expect(previous).toHaveAttribute("aria-controls", trackId ?? "");
-  await expect(next).toHaveAttribute("aria-controls", trackId ?? "");
+  await expect(carousel).toHaveAttribute("data-carousel-ready", "true");
+  await expect(carousel).toHaveAttribute("data-active-index", "0");
+  await expect(carousel).toHaveAttribute("data-can-scroll-prev", "false");
+  await expect(carousel).toHaveAttribute("data-can-scroll-next", "false");
+  await expect(beyond.getByRole("button", { name: "Previous product" })).toHaveCount(0);
+  await expect(beyond.getByRole("button", { name: "Next product" })).toHaveCount(0);
 
-  const readVisualOrder = () =>
-    track.evaluate((node) =>
-      Array.from(node.querySelectorAll<HTMLElement>(".product-card"))
-        .map((card) => ({
-          name: card.querySelector(".product-card__name")?.textContent?.trim() ?? "",
-          order: Number.parseInt(card.style.getPropertyValue("--home-beyond-order"), 10),
-        }))
-        .sort((a, b) => a.order - b.order)
-        .map((item) => item.name),
-    );
-
-  expect(await readVisualOrder()).toEqual(["REFINE", "FRAME", "LIFT"]);
+  const desktopProductOrder = await track.evaluate((node) =>
+    Array.from(node.querySelectorAll<HTMLElement>(".product-card__name")).map(
+      (name) => name.textContent?.trim() ?? "",
+    ),
+  );
+  expect(desktopProductOrder).toEqual(["REFINE", "FRAME", "LIFT"]);
   const geometry = await beyond.evaluate((section) => {
     const viewport = section.querySelector<HTMLElement>(".home-beyond-carousel__viewport");
     const cards = Array.from(
@@ -321,30 +317,123 @@ test("homepage Core images and Beyond carousel rotate without partial desktop ca
     expect(rect.right).toBeLessThanOrEqual(geometry.viewportRight + 1);
   }
 
-  await next.click();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  const mobileBeyond = page.getByRole("region", { name: "Beyond The Core", exact: true });
+  const mobileCarousel = mobileBeyond.locator(".home-beyond-carousel");
+  const mobileTrack = mobileBeyond.locator(".home-beyond-carousel__track");
+  await expect(mobileCarousel).toHaveAttribute("data-carousel-ready", "true");
+  await expect(mobileCarousel).toHaveAttribute("data-active-index", "0");
+  await expect(mobileCarousel).toHaveAttribute("data-can-scroll-prev", "false");
+  await expect(mobileCarousel).toHaveAttribute("data-can-scroll-next", "true");
+  await expect(mobileBeyond.getByRole("button", { name: "Previous product" })).toHaveCount(0);
+  const mobileNext = mobileBeyond.getByRole("button", { name: "Next product" });
+  await expect(mobileNext).toBeVisible();
+  await expect(mobileNext).toHaveAttribute(
+    "aria-controls",
+    (await mobileTrack.getAttribute("id")) ?? "",
+  );
+
+  const readFiniteState = () =>
+    mobileBeyond.evaluate((section) => {
+      const carouselNode = section.querySelector<HTMLElement>(".home-beyond-carousel");
+      const trackNode = section.querySelector<HTMLElement>(".home-beyond-carousel__track");
+      const controls = Array.from(
+        section.querySelectorAll<HTMLElement>(".home-beyond-carousel__control"),
+      ).map((button) => {
+        const rect = button.getBoundingClientRect();
+        const style = getComputedStyle(button);
+        return {
+          label: button.getAttribute("aria-label"),
+          visible:
+            rect.width > 0 &&
+            rect.height > 0 &&
+            style.display !== "none" &&
+            style.visibility !== "hidden",
+          left: rect.left,
+          right: rect.right,
+          width: rect.width,
+          pointerEvents: style.pointerEvents,
+        };
+      });
+      return {
+        activeIndex: carouselNode?.getAttribute("data-active-index"),
+        canScrollPrev: carouselNode?.getAttribute("data-can-scroll-prev"),
+        canScrollNext: carouselNode?.getAttribute("data-can-scroll-next"),
+        transform: getComputedStyle(trackNode ?? document.documentElement).transform,
+        controls,
+        activeElementLabel:
+          document.activeElement instanceof HTMLElement
+            ? document.activeElement.getAttribute("aria-label")
+            : null,
+        overflow:
+          document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      };
+    });
+
+  const initialMobileState = await readFiniteState();
+  expect(initialMobileState.controls.map((control) => control.label)).toEqual([
+    "Next product",
+  ]);
+  expect(initialMobileState.controls[0].right).toBeLessThanOrEqual(390 - 12);
+  expect(initialMobileState.overflow).toBe(0);
+
+  const readControlStyle = () => mobileNext.evaluate((button) => {
+    const style = getComputedStyle(button);
+    return {
+      backgroundColor: style.backgroundColor,
+      borderColor: style.borderColor,
+      color: style.color,
+    };
+  });
+  const defaultControlStyle = await readControlStyle();
+  await mobileNext.hover();
   await expect
-    .poll(readVisualOrder)
-    .toEqual(["FRAME", "LIFT", "REFINE"]);
-  await expect(beyond.getByText("FRAME leads Beyond The Core.")).toHaveCount(1);
+    .poll(async () => (await readControlStyle()).backgroundColor)
+    .not.toBe(defaultControlStyle.backgroundColor);
+  await expect
+    .poll(async () => (await readControlStyle()).borderColor)
+    .not.toBe(defaultControlStyle.borderColor);
+  await expect
+    .poll(async () => (await readControlStyle()).color)
+    .not.toBe(defaultControlStyle.color);
+
+  await mobileNext.click();
+  await expect(mobileCarousel).toHaveAttribute("data-active-index", "1");
+  await expect(mobileCarousel).toHaveAttribute("data-can-scroll-prev", "true");
+  await expect(mobileCarousel).toHaveAttribute("data-can-scroll-next", "true");
+  await expect(mobileBeyond.getByRole("button", { name: "Previous product" })).toBeVisible();
+  await expect(mobileBeyond.getByRole("button", { name: "Next product" })).toBeVisible();
+  await expect
+    .poll(async () => (await readFiniteState()).transform)
+    .not.toBe(initialMobileState.transform);
 
   await page.waitForTimeout(280);
-  await previous.click();
+  const nextBeforeFinal = mobileBeyond.getByRole("button", { name: "Next product" });
+  await nextBeforeFinal.focus();
+  await page.keyboard.press("Enter");
+  await expect(mobileCarousel).toHaveAttribute("data-active-index", "2");
+  await expect(mobileCarousel).toHaveAttribute("data-can-scroll-prev", "true");
+  await expect(mobileCarousel).toHaveAttribute("data-can-scroll-next", "false");
+  await expect(mobileBeyond.getByRole("button", { name: "Next product" })).toHaveCount(0);
+  const previousAtEnd = mobileBeyond.getByRole("button", { name: "Previous product" });
+  await expect(previousAtEnd).toBeVisible();
   await expect
-    .poll(readVisualOrder)
-    .toEqual(["REFINE", "FRAME", "LIFT"]);
-  await page.waitForTimeout(280);
+    .poll(async () => (await readFiniteState()).activeElementLabel)
+    .toBe("Previous product");
+  await expect(mobileBeyond.getByText("LIFT leads Beyond The Core.")).toHaveCount(1);
 
   const beforeDragUrl = page.url();
-  const viewportBox = await beyond.locator(".home-beyond-carousel__viewport").boundingBox();
+  const viewportBox = await mobileBeyond.locator(".home-beyond-carousel__viewport").boundingBox();
   expect(viewportBox).not.toBeNull();
   if (viewportBox) {
     await page.mouse.move(
       viewportBox.x + viewportBox.width * 0.24,
       viewportBox.y + Math.min(220, viewportBox.height * 0.36),
     );
-    await expect(beyond.locator(".home-beyond-swipe-indicator")).toHaveCSS("opacity", "1");
+    await expect(mobileBeyond.locator(".home-beyond-swipe-indicator")).toHaveCSS("opacity", "1");
 
-    const startX = viewportBox.x + viewportBox.width * 0.58;
+    const startX = viewportBox.x + viewportBox.width * 0.42;
     const y = viewportBox.y + Math.min(260, viewportBox.height * 0.42);
     await page.mouse.move(startX, y);
     await page.mouse.down();
@@ -352,9 +441,54 @@ test("homepage Core images and Beyond carousel rotate without partial desktop ca
     await page.mouse.up();
   }
   expect(page.url()).toBe(beforeDragUrl);
+  await expect(mobileCarousel).toHaveAttribute("data-active-index", "2");
+  await expect(mobileBeyond.getByRole("button", { name: "Next product" })).toHaveCount(0);
+
+  await page.waitForTimeout(280);
+  await previousAtEnd.click();
+  await expect(mobileCarousel).toHaveAttribute("data-active-index", "1");
+  await page.waitForTimeout(280);
+  const previousAtMiddle = mobileBeyond.getByRole("button", { name: "Previous product" });
+  await previousAtMiddle.focus();
+  await page.keyboard.press("Enter");
+  await expect(mobileCarousel).toHaveAttribute("data-active-index", "0");
+  await expect(mobileCarousel).toHaveAttribute("data-can-scroll-prev", "false");
+  await expect(mobileCarousel).toHaveAttribute("data-can-scroll-next", "true");
+  await expect(mobileBeyond.getByRole("button", { name: "Previous product" })).toHaveCount(0);
   await expect
-    .poll(readVisualOrder)
-    .toEqual(["FRAME", "LIFT", "REFINE"]);
+    .poll(async () => (await readFiniteState()).activeElementLabel)
+    .toBe("Next product");
+
+  const startBox = await mobileBeyond.locator(".home-beyond-carousel__viewport").boundingBox();
+  expect(startBox).not.toBeNull();
+  if (startBox) {
+    const startX = startBox.x + startBox.width * 0.42;
+    const y = startBox.y + Math.min(260, startBox.height * 0.42);
+    await page.mouse.move(startX, y);
+    await page.mouse.down();
+    await page.mouse.move(startX + 120, y, { steps: 6 });
+    await page.mouse.up();
+  }
+  await expect(mobileCarousel).toHaveAttribute("data-active-index", "0");
+
+  const nextBeforeResize = mobileBeyond.getByRole("button", { name: "Next product" });
+  await nextBeforeResize.focus();
+  await expect
+    .poll(async () => (await readFiniteState()).activeElementLabel)
+    .toBe("Next product");
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect(mobileCarousel).toHaveAttribute("data-can-scroll-prev", "false");
+  await expect(mobileCarousel).toHaveAttribute("data-can-scroll-next", "false");
+  await expect(mobileBeyond.locator(".home-beyond-carousel__control")).toHaveCount(0);
+  await expect
+    .poll(async () => (await readFiniteState()).activeElementLabel)
+    .toBe("Beyond The Core products");
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(mobileCarousel).toHaveAttribute("data-can-scroll-prev", "false");
+  await expect(mobileCarousel).toHaveAttribute("data-can-scroll-next", "true");
+  await expect(mobileBeyond.getByRole("button", { name: "Next product" })).toBeVisible();
 });
 
 test("homepage ingredient cards navigate to matching System ingredient anchors", async ({ page }) => {

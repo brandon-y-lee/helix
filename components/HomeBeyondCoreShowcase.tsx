@@ -1,12 +1,14 @@
 "use client";
 
 import {
+  useCallback,
   useEffect,
   useId,
-  useMemo,
+  useLayoutEffect,
   useRef,
   useState,
   type CSSProperties,
+  type FocusEvent,
   type MouseEvent,
   type PointerEvent,
   type RefObject,
@@ -31,10 +33,11 @@ const BEYOND_DESCRIPTION_KEY_BY_SLUG: Readonly<
 const DRAG_START_THRESHOLD = 8;
 const DRAG_COMMIT_THRESHOLD = 44;
 const TRANSITION_LOCK_MS = 240;
+const SCROLL_EPSILON = 1;
 
 type Direction = "previous" | "next";
-type CarouselCardStyle = CSSProperties & {
-  "--home-beyond-order"?: number;
+type CarouselTrackStyle = CSSProperties & {
+  "--home-beyond-offset"?: string;
 };
 
 type DragState = {
@@ -42,9 +45,24 @@ type DragState = {
   startX: number;
   startY: number;
   deltaX: number;
+  boundedDeltaX: number;
   dragging: boolean;
   pointerType: string;
 } | null;
+
+type CarouselMetrics = {
+  initialized: boolean;
+  maxIndex: number;
+  maxScroll: number;
+  step: number;
+};
+
+const initialCarouselMetrics: CarouselMetrics = {
+  initialized: false,
+  maxIndex: 0,
+  maxScroll: 0,
+  step: 0,
+};
 
 function isFinePointer() {
   return (
@@ -73,9 +91,17 @@ function isPointInProductSurface(root: HTMLElement, clientX: number, clientY: nu
   );
 }
 
-function visualOrderFor(index: number, leadingIndex: number, length: number) {
-  if (length <= 0) return 0;
-  return (index - leadingIndex + length) % length;
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function metricsChanged(current: CarouselMetrics, next: CarouselMetrics) {
+  return (
+    current.initialized !== next.initialized ||
+    current.maxIndex !== next.maxIndex ||
+    Math.abs(current.maxScroll - next.maxScroll) > 0.5 ||
+    Math.abs(current.step - next.step) > 0.5
+  );
 }
 
 export function HomeBeyondCoreShowcase({
@@ -84,39 +110,85 @@ export function HomeBeyondCoreShowcase({
   products?: readonly Product[];
 }) {
   const trackId = useId();
+  const carouselRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLUListElement>(null);
   const indicatorRef = useRef<HTMLSpanElement>(null);
+  const previousButtonRef = useRef<HTMLButtonElement>(null);
+  const nextButtonRef = useRef<HTMLButtonElement>(null);
   const dragRef = useRef<DragState>(null);
   const lockTimeoutRef = useRef<number | null>(null);
   const indicatorFrameRef = useRef<number | null>(null);
   const indicatorPointRef = useRef({ x: 0, y: 0 });
+  const pendingFocusCorrectionRef = useRef<Direction | null>(null);
+  const focusedControlRef = useRef<Direction | null>(null);
   const suppressClickRef = useRef(false);
   const [activeDescriptionKey, setActiveDescriptionKey] =
     useState<HomeBeyondCoreDescriptionKey | null>(null);
-  const [leadingIndex, setLeadingIndex] = useState(0);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [metrics, setMetrics] = useState<CarouselMetrics>(initialCarouselMetrics);
   const [motionDirection, setMotionDirection] = useState<Direction | null>(null);
   const [dragging, setDragging] = useState(false);
   const [indicatorVisible, setIndicatorVisible] = useState(false);
   const [announcement, setAnnouncement] = useState("");
   const productCount = products.length;
-  const canRotate = productCount > 1;
-
-  const visibleProducts = useMemo(
-    () =>
-      products
-        .map((product, index) => ({
-          product,
-          visualOrder: visualOrderFor(index, leadingIndex, productCount),
-        }))
-        .sort((a, b) => a.visualOrder - b.visualOrder)
-        .map((item) => item.product),
-    [leadingIndex, productCount, products],
-  );
+  const scrollable = metrics.initialized && metrics.maxScroll > SCROLL_EPSILON;
+  const canScrollPrev = scrollable && activeIndex > 0;
+  const canScrollNext = scrollable && activeIndex < metrics.maxIndex;
+  const activeOffset = scrollable
+    ? Math.min(activeIndex * metrics.step, metrics.maxScroll)
+    : 0;
+  const trackStyle = {
+    "--home-beyond-offset": `${activeOffset}px`,
+  } as CarouselTrackStyle;
+  const leadProduct = products[activeIndex] ?? products[0] ?? null;
 
   const description = activeDescriptionKey
     ? homeBeyondCoreDescriptions.items[activeDescriptionKey]
     : homeBeyondCoreDescriptions.default;
+
+  const measureCarousel = useCallback(() => {
+    const viewport = viewportRef.current;
+    const track = trackRef.current;
+    const firstCard = track?.querySelector<HTMLElement>(
+      ".home-beyond-carousel__card",
+    );
+
+    if (!viewport || !track || !firstCard || productCount === 0) {
+      setMetrics((current) =>
+        metricsChanged(current, { ...initialCarouselMetrics, initialized: true })
+          ? { ...initialCarouselMetrics, initialized: true }
+          : current,
+      );
+      setActiveIndex(0);
+      return;
+    }
+
+    const trackStyleDeclaration = window.getComputedStyle(track);
+    const gap =
+      Number.parseFloat(trackStyleDeclaration.columnGap) ||
+      Number.parseFloat(trackStyleDeclaration.gap) ||
+      0;
+    const cardWidth = firstCard.getBoundingClientRect().width;
+    const step = cardWidth + gap;
+    const maxScroll = Math.max(0, track.scrollWidth - viewport.clientWidth);
+    const measuredMaxIndex =
+      maxScroll > SCROLL_EPSILON && step > 0
+        ? Math.ceil((maxScroll - SCROLL_EPSILON) / step)
+        : 0;
+    const maxIndex = Math.min(productCount - 1, Math.max(0, measuredMaxIndex));
+    const nextMetrics = {
+      initialized: true,
+      maxIndex,
+      maxScroll,
+      step,
+    };
+
+    setMetrics((current) =>
+      metricsChanged(current, nextMetrics) ? nextMetrics : current,
+    );
+    setActiveIndex((current) => clamp(current, 0, maxIndex));
+  }, [productCount]);
 
   useEffect(() => {
     return () => {
@@ -130,10 +202,52 @@ export function HomeBeyondCoreShowcase({
   }, []);
 
   useEffect(() => {
-    if (leadingIndex >= productCount) {
-      setLeadingIndex(0);
+    measureCarousel();
+    const frame = window.requestAnimationFrame(measureCarousel);
+    const viewport = viewportRef.current;
+    const track = trackRef.current;
+    const observer =
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(() => measureCarousel())
+        : null;
+
+    if (viewport) observer?.observe(viewport);
+    if (track) observer?.observe(track);
+    window.addEventListener("resize", measureCarousel);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      observer?.disconnect();
+      window.removeEventListener("resize", measureCarousel);
+    };
+  }, [measureCarousel]);
+
+  useLayoutEffect(() => {
+    const pendingDirection =
+      pendingFocusCorrectionRef.current ?? focusedControlRef.current;
+    if (!pendingDirection || !metrics.initialized) return;
+
+    const focusedControlBecameUnavailable =
+      (pendingDirection === "previous" && !canScrollPrev) ||
+      (pendingDirection === "next" && !canScrollNext);
+
+    if (!focusedControlBecameUnavailable) {
+      pendingFocusCorrectionRef.current = null;
+      return;
     }
-  }, [leadingIndex, productCount]);
+
+    pendingFocusCorrectionRef.current = null;
+    focusedControlRef.current = null;
+    if (canScrollPrev) {
+      previousButtonRef.current?.focus();
+      return;
+    }
+    if (canScrollNext) {
+      nextButtonRef.current?.focus();
+      return;
+    }
+    carouselRef.current?.focus();
+  }, [canScrollNext, canScrollPrev, metrics.initialized]);
 
   function releaseMotionLock() {
     if (lockTimeoutRef.current) {
@@ -145,15 +259,56 @@ export function HomeBeyondCoreShowcase({
     }, TRANSITION_LOCK_MS);
   }
 
-  function rotate(direction: Direction) {
-    if (!canRotate || lockTimeoutRef.current) return;
+  function handleControlFocus(direction: Direction) {
+    focusedControlRef.current = direction;
+  }
+
+  function handleControlBlur(event: FocusEvent<HTMLButtonElement>) {
+    const nextTarget = event.relatedTarget;
+    if (
+      nextTarget === previousButtonRef.current ||
+      nextTarget === nextButtonRef.current
+    ) {
+      return;
+    }
+
+    window.requestAnimationFrame(() => {
+      const activeElement = document.activeElement;
+      if (
+        activeElement !== previousButtonRef.current &&
+        activeElement !== nextButtonRef.current
+      ) {
+        focusedControlRef.current = null;
+      }
+    });
+  }
+
+  function boundedDragDelta(deltaX: number) {
+    if (!scrollable) return 0;
+    const proposedOffset = activeOffset - deltaX;
+    const boundedOffset = clamp(proposedOffset, 0, metrics.maxScroll);
+    return activeOffset - boundedOffset;
+  }
+
+  function move(direction: Direction) {
+    if (lockTimeoutRef.current) return;
+    if (direction === "next" && !canScrollNext) return;
+    if (direction === "previous" && !canScrollPrev) return;
+
+    const activeElement = document.activeElement;
+    const activatedButton =
+      direction === "next" ? nextButtonRef.current : previousButtonRef.current;
+    if (activatedButton && activeElement === activatedButton) {
+      pendingFocusCorrectionRef.current = direction;
+    }
 
     setMotionDirection(direction);
-    setLeadingIndex((current) => {
-      const next =
-        direction === "next"
-          ? (current + 1) % productCount
-          : (current - 1 + productCount) % productCount;
+    setActiveIndex((current) => {
+      const next = clamp(
+        current + (direction === "next" ? 1 : -1),
+        0,
+        metrics.maxIndex,
+      );
       const nextProduct = products[next];
       setAnnouncement(
         nextProduct
@@ -191,7 +346,7 @@ export function HomeBeyondCoreShowcase({
   }
 
   function handlePointerDown(event: PointerEvent<HTMLDivElement>) {
-    if (!canRotate || isInteractiveTarget(event.target)) return;
+    if (!scrollable || isInteractiveTarget(event.target)) return;
     if (event.pointerType === "mouse" && event.button !== 0) return;
 
     dragRef.current = {
@@ -199,6 +354,7 @@ export function HomeBeyondCoreShowcase({
       startX: event.clientX,
       startY: event.clientY,
       deltaX: 0,
+      boundedDeltaX: 0,
       dragging: false,
       pointerType: event.pointerType,
     };
@@ -207,6 +363,7 @@ export function HomeBeyondCoreShowcase({
 
   function handlePointerMove(event: PointerEvent<HTMLDivElement>) {
     if (
+      scrollable &&
       isFinePointer() &&
       !isInteractiveTarget(event.target) &&
       isPointInProductSurface(event.currentTarget, event.clientX, event.clientY)
@@ -223,6 +380,7 @@ export function HomeBeyondCoreShowcase({
     const deltaX = event.clientX - drag.startX;
     const deltaY = event.clientY - drag.startY;
     drag.deltaX = deltaX;
+    drag.boundedDeltaX = boundedDragDelta(deltaX);
 
     if (!drag.dragging) {
       const horizontalIntent =
@@ -234,10 +392,9 @@ export function HomeBeyondCoreShowcase({
     }
 
     event.preventDefault();
-    const easedDelta = Math.max(Math.min(deltaX, 120), -120);
     trackRef.current?.style.setProperty(
       "--home-beyond-drag-x",
-      `${easedDelta}px`,
+      `${drag.boundedDeltaX}px`,
     );
   }
 
@@ -249,8 +406,11 @@ export function HomeBeyondCoreShowcase({
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
 
+    const effectiveDelta = drag.boundedDeltaX;
     const shouldRotate =
-      drag.dragging && !cancelled && Math.abs(drag.deltaX) >= DRAG_COMMIT_THRESHOLD;
+      drag.dragging &&
+      !cancelled &&
+      Math.abs(effectiveDelta) >= DRAG_COMMIT_THRESHOLD;
     if (drag.dragging) {
       suppressClickRef.current = true;
       window.setTimeout(() => {
@@ -264,7 +424,7 @@ export function HomeBeyondCoreShowcase({
     dragRef.current = null;
 
     if (shouldRotate) {
-      rotate(drag.deltaX < 0 ? "next" : "previous");
+      move(effectiveDelta < 0 ? "next" : "previous");
     }
   }
 
@@ -276,11 +436,14 @@ export function HomeBeyondCoreShowcase({
   }
 
   function handleWheel(event: WheelEvent<HTMLDivElement>) {
-    if (!canRotate || lockTimeoutRef.current) return;
+    if (!scrollable || lockTimeoutRef.current) return;
     if (Math.abs(event.deltaX) <= Math.abs(event.deltaY)) return;
     if (Math.abs(event.deltaX) < 18) return;
+    const direction = event.deltaX > 0 ? "next" : "previous";
+    if (direction === "next" && !canScrollNext) return;
+    if (direction === "previous" && !canScrollPrev) return;
     event.preventDefault();
-    rotate(event.deltaX > 0 ? "next" : "previous");
+    move(direction);
   }
 
   return (
@@ -300,11 +463,16 @@ export function HomeBeyondCoreShowcase({
 
         {productCount > 0 && (
           <div
+            ref={carouselRef}
             className="home-beyond-carousel"
+            data-carousel-ready={metrics.initialized}
             data-dragging={dragging}
-            data-can-rotate={canRotate}
+            data-can-scroll-prev={canScrollPrev}
+            data-can-scroll-next={canScrollNext}
+            data-active-index={activeIndex}
             aria-roledescription="carousel"
             aria-label="Beyond The Core products"
+            tabIndex={-1}
           >
             <div
               ref={viewportRef}
@@ -321,13 +489,13 @@ export function HomeBeyondCoreShowcase({
               <ProductGridLikeTrack
                 id={trackId}
                 products={products}
-                leadingIndex={leadingIndex}
                 motionDirection={motionDirection}
                 onPreviewChange={(key) =>
                   setActiveDescriptionKey(
                     key as HomeBeyondCoreDescriptionKey | null,
                   )
                 }
+                trackStyle={trackStyle}
                 trackRef={trackRef}
               />
               <span
@@ -341,35 +509,42 @@ export function HomeBeyondCoreShowcase({
               </span>
             </div>
 
-            {canRotate && (
-              <>
-                <button
-                  type="button"
-                  className="home-beyond-carousel__control home-beyond-carousel__control--previous"
-                  aria-label="Previous product"
-                  aria-controls={trackId}
-                  onClick={() => rotate("previous")}
-                >
-                  <span aria-hidden="true">←</span>
-                </button>
-                <button
-                  type="button"
-                  className="home-beyond-carousel__control home-beyond-carousel__control--next"
-                  aria-label="Next product"
-                  aria-controls={trackId}
-                  onClick={() => rotate("next")}
-                >
-                  <span aria-hidden="true">→</span>
-                </button>
-              </>
+            {canScrollPrev && (
+              <button
+                ref={previousButtonRef}
+                type="button"
+                className="home-beyond-carousel__control home-beyond-carousel__control--previous"
+                aria-label="Previous product"
+                aria-controls={trackId}
+                onBlur={handleControlBlur}
+                onClick={() => move("previous")}
+                onFocus={() => handleControlFocus("previous")}
+              >
+                <span aria-hidden="true">←</span>
+              </button>
+            )}
+            {canScrollNext && (
+              <button
+                ref={nextButtonRef}
+                type="button"
+                className="home-beyond-carousel__control home-beyond-carousel__control--next"
+                aria-label="Next product"
+                aria-controls={trackId}
+                onBlur={handleControlBlur}
+                onClick={() => move("next")}
+                onFocus={() => handleControlFocus("next")}
+              >
+                <span aria-hidden="true">→</span>
+              </button>
             )}
 
             <span className="sr-only" aria-live="polite" aria-atomic="true">
               {announcement}
             </span>
             <span className="sr-only">
-              Visible products:{" "}
-              {visibleProducts.map((product) => product.displayName).join(", ")}
+              {leadProduct
+                ? `Lead product: ${leadProduct.displayName}`
+                : "Beyond The Core products"}
             </span>
           </div>
         )}
@@ -380,17 +555,17 @@ export function HomeBeyondCoreShowcase({
 
 function ProductGridLikeTrack({
   id,
-  leadingIndex,
   motionDirection,
   products,
   onPreviewChange,
+  trackStyle,
   trackRef,
 }: {
   id: string;
-  leadingIndex: number;
   motionDirection: Direction | null;
   products: readonly Product[];
   onPreviewChange: (key: string | null) => void;
+  trackStyle: CarouselTrackStyle;
   trackRef: RefObject<HTMLUListElement | null>;
 }) {
   const [openQuickBuyProductId, setOpenQuickBuyProductId] = useState<string | null>(
@@ -412,33 +587,24 @@ function ProductGridLikeTrack({
       ref={trackRef}
       className="home-beyond-carousel__track"
       data-motion={motionDirection ?? "idle"}
+      style={trackStyle}
     >
-      {products.map((product, index) => {
-        const style = {
-          "--home-beyond-order": visualOrderFor(
-            index,
-            leadingIndex,
-            products.length,
-          ),
-        } as CarouselCardStyle;
-        return (
-          <ProductCard
-            key={product.slug}
-            product={product}
-            className="home-beyond-carousel__card"
-            style={style}
-            quickBuyOpen={openQuickBuyProductId === product.id}
-            previewKey={BEYOND_DESCRIPTION_KEY_BY_SLUG[product.slug]}
-            onPreviewChange={onPreviewChange}
-            onQuickBuyOpen={() => setOpenQuickBuyProductId(product.id)}
-            onQuickBuyClose={() =>
-              setOpenQuickBuyProductId((current) =>
-                current === product.id ? null : current,
-              )
-            }
-          />
-        );
-      })}
+      {products.map((product) => (
+        <ProductCard
+          key={product.slug}
+          product={product}
+          className="home-beyond-carousel__card"
+          quickBuyOpen={openQuickBuyProductId === product.id}
+          previewKey={BEYOND_DESCRIPTION_KEY_BY_SLUG[product.slug]}
+          onPreviewChange={onPreviewChange}
+          onQuickBuyOpen={() => setOpenQuickBuyProductId(product.id)}
+          onQuickBuyClose={() =>
+            setOpenQuickBuyProductId((current) =>
+              current === product.id ? null : current,
+            )
+          }
+        />
+      ))}
     </ul>
   );
 }

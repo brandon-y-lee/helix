@@ -6574,6 +6574,7 @@ main:focus {
 .home-beyond-carousel {
   --home-beyond-gap: clamp(12px, 1.45vw, 20px);
   --home-beyond-visible: 3;
+  --home-beyond-control-inset: clamp(20px, 2.5vw, 40px);
   position: relative;
 }
 
@@ -6585,19 +6586,23 @@ main:focus {
 
 .home-beyond-carousel__track {
   --home-beyond-drag-x: 0px;
+  --home-beyond-offset: 0px;
   display: flex;
   gap: var(--home-beyond-gap);
   min-width: 0;
   margin: 0;
   padding: 0;
   list-style: none;
-  transform: translate3d(var(--home-beyond-drag-x), 0, 0);
+  transform: translate3d(
+    calc(var(--home-beyond-drag-x) - var(--home-beyond-offset)),
+    0,
+    0
+  );
   transition: transform var(--motion-panel) var(--ease-out);
   will-change: transform;
 }
 
 .home-beyond-carousel__card {
-  order: var(--home-beyond-order);
   flex: 0 0 calc(
     (100% - (var(--home-beyond-gap) * (var(--home-beyond-visible) - 1))) /
       var(--home-beyond-visible)
@@ -6651,15 +6656,15 @@ main:focus {
 .home-beyond-carousel__control {
   position: absolute;
   top: 50%;
-  z-index: 8;
+  z-index: 9;
   width: 48px;
   height: 48px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(17, 19, 18, 0.38);
+  border: 1px solid color-mix(in srgb, var(--ink) 48%, transparent);
   border-radius: 999px;
-  background: rgba(251, 250, 246, 0.9);
+  background: color-mix(in srgb, var(--surface) 82%, transparent);
   color: var(--ink);
   box-shadow: 0 12px 30px rgba(17, 19, 18, 0.16);
   cursor: pointer;
@@ -6670,37 +6675,34 @@ main:focus {
   transition:
     background-color var(--motion-fast) ease,
     border-color var(--motion-fast) ease,
+    color var(--motion-fast) ease,
     transform var(--motion-fast) var(--ease-out);
 }
 
 .home-beyond-carousel__control--previous {
-  left: 0;
-  transform: translate(-50%, -50%);
+  left: var(--home-beyond-control-inset);
 }
 
 .home-beyond-carousel__control--next {
-  right: 0;
-  transform: translate(50%, -50%);
+  right: var(--home-beyond-control-inset);
 }
 
-.home-beyond-carousel__control:hover {
-  border-color: color-mix(in srgb, var(--ink) 74%, transparent);
-  background: var(--surface);
+@media (hover: hover) and (pointer: fine) {
+  .home-beyond-carousel__control:hover {
+    border-color: var(--ink);
+    background: var(--ink);
+    color: var(--surface);
+  }
 }
 
 .home-beyond-carousel__control:active {
   transform: translateY(calc(-50% + 1px));
 }
 
-.home-beyond-carousel__control--previous:active {
-  transform: translate(-50%, calc(-50% + 1px));
-}
-
-.home-beyond-carousel__control--next:active {
-  transform: translate(50%, calc(-50% + 1px));
-}
-
 .home-beyond-carousel__control:focus-visible {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--surface);
   outline: 2px solid var(--focus);
   outline-offset: 4px;
 }
@@ -7343,15 +7345,8 @@ main:focus {
 
 @media (max-width: 1199px) {
   .home-beyond-carousel {
+    --home-beyond-control-inset: clamp(20px, 2.5vw, 28px);
     --home-beyond-visible: 2.1;
-  }
-
-  .home-beyond-carousel__control--previous {
-    left: 8px;
-  }
-
-  .home-beyond-carousel__control--next {
-    right: 8px;
   }
 }
 
@@ -7493,6 +7488,7 @@ main:focus {
 
   .home-beyond-carousel {
     --home-beyond-gap: 12px;
+    --home-beyond-control-inset: clamp(12px, 4vw, 16px);
     --home-beyond-visible: 1.12;
   }
 
@@ -7501,22 +7497,6 @@ main:focus {
     height: 44px;
     box-shadow: 0 10px 24px rgba(17, 19, 18, 0.16);
   }
-
-  .home-beyond-carousel__control--previous {
-    left: 4px;
-    transform: translateY(-50%);
-  }
-
-  .home-beyond-carousel__control--next {
-    right: 4px;
-    transform: translateY(-50%);
-  }
-
-  .home-beyond-carousel__control--previous:active,
-  .home-beyond-carousel__control--next:active {
-    transform: translateY(calc(-50% + 1px));
-  }
-
   .home-addon-card {
     min-height: 0;
   }

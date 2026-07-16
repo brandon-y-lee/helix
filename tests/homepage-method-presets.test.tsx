@@ -1,6 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { act } from "react";
 import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 
 vi.mock("@/lib/catalog-cache", () => ({
@@ -433,25 +432,14 @@ describe("homepage Core Three positioning", () => {
     expect(beyond.querySelector(".home-addon-card--protect")).not.toBeInTheDocument();
     expect(within(beyond).queryByText("SPF")).not.toBeInTheDocument();
 
-    const previousButton = within(beyond).getByRole("button", { name: "Previous product" });
-    const nextButton = within(beyond).getByRole("button", { name: "Next product" });
-    expect(previousButton).toHaveAttribute("aria-controls", track?.id);
-    expect(nextButton).toHaveAttribute("aria-controls", track?.id);
-    const visualOrder = () =>
-      Array.from(beyond.querySelectorAll<HTMLElement>(".home-beyond-carousel__card")).map(
-        (card) =>
-          `${card.querySelector(".product-card__name")?.textContent?.trim()}:${
-            card.style.getPropertyValue("--home-beyond-order")
-          }`,
-      );
-    expect(visualOrder()).toEqual(["REFINE:0", "FRAME:1", "LIFT:2"]);
-    await user.click(previousButton);
-    await waitFor(() => expect(visualOrder()).toEqual(["REFINE:1", "FRAME:2", "LIFT:0"]));
-    await act(async () => {
-      await new Promise((resolve) => window.setTimeout(resolve, 260));
-    });
-    await user.click(nextButton);
-    await waitFor(() => expect(visualOrder()).toEqual(["REFINE:0", "FRAME:1", "LIFT:2"]));
+    await waitFor(() => expect(carousel).toHaveAttribute("data-carousel-ready", "true"));
+    expect(carousel).toHaveAttribute("data-active-index", "0");
+    expect(carousel).toHaveAttribute("data-can-scroll-prev", "false");
+    expect(carousel).toHaveAttribute("data-can-scroll-next", "false");
+    expect(within(beyond).queryByRole("button", { name: "Previous product" }))
+      .not.toBeInTheDocument();
+    expect(within(beyond).queryByRole("button", { name: "Next product" }))
+      .not.toBeInTheDocument();
 
     const beyondSurfaces = Array.from(
       beyond.querySelectorAll<HTMLElement>(".product-card__surface"),
