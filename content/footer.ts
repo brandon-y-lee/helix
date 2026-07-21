@@ -12,9 +12,9 @@ export type FooterLinkGroup = {
 
 export const footerUpdateModule = {
   eyebrow: "Updates",
-  heading: "STAY IN THE SYSTEM.",
+  heading: "Stay in the system.",
   summary: "Product releases, formula notes, and system updates.",
-  status: "EMAIL UPDATES ARE NOT OPEN",
+  status: "Email updates are not open",
   note: "Mei Pelle is not collecting newsletter email addresses right now.",
 };
 

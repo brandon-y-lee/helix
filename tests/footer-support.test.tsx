@@ -31,25 +31,30 @@ describe("global footer", () => {
     expect(screen.getAllByRole("contentinfo")).toHaveLength(1);
     expect(footer).toHaveClass("site-footer");
     expect(footer).not.toHaveClass("site-footer--compact");
-    expect(screen.getByRole("heading", { name: "MEI PELLE" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "MEI PELLE" })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("heading", { name: "Mei Pelle" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Mei Pelle" })).toHaveAttribute("href", "/");
     expect(within(footer).queryByText("Seoul / Los Angeles")).not.toBeInTheDocument();
     expect(
       within(footer).queryByText(
         "Prestige skincare for men built around discipline, consistency, and a cleaner routine.",
       ),
     ).not.toBeInTheDocument();
-    expect(screen.getByText("STAY IN THE SYSTEM.")).toBeInTheDocument();
-    expect(screen.getByText("EMAIL UPDATES ARE NOT OPEN")).toBeInTheDocument();
+    expect(screen.getByText("Stay in the system.")).toBeInTheDocument();
+    expect(screen.getByText("Email updates are not open")).toBeInTheDocument();
     expect(screen.queryByRole("textbox", { name: /email/i })).not.toBeInTheDocument();
     expect(
       screen.getByText(new RegExp(String(new Date().getFullYear()))),
     ).toBeInTheDocument();
 
+    const inner = footer.querySelector(".site-footer__inner");
     const primary = footer.querySelector(".site-footer__primary");
+    expect(inner?.firstElementChild).toHaveClass("site-footer__wordmark");
+    expect(inner?.children[1]).toHaveClass("site-footer__primary");
     expect(primary?.firstElementChild).toHaveClass("site-footer__updates");
     expect(primary?.lastElementChild).toHaveClass("site-footer__content");
     expect(footer.querySelectorAll(".site-footer__wordmark")).toHaveLength(1);
+    expect(footer.querySelector(".site-footer__support")).not.toBeInTheDocument();
+    expect(within(footer).queryByText("Customer care")).not.toBeInTheDocument();
 
     expect(footerLinkGroups).toEqual([
       {

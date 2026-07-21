@@ -12,6 +12,12 @@ export function SiteFooter() {
   return (
     <footer className="site-footer" aria-labelledby="site-footer-heading">
       <div className="site-footer__inner">
+        <div className="site-footer__wordmark">
+          <h2 id="site-footer-heading">
+            <Link href="/">Mei Pelle</Link>
+          </h2>
+        </div>
+
         <div className="site-footer__primary">
           <section
             className="site-footer__updates"
@@ -41,15 +47,6 @@ export function SiteFooter() {
             </nav>
 
             <FooterMobileGroups groups={footerLinkGroups} />
-
-            <aside className="site-footer__support" aria-label="Customer care">
-              <p className="eyebrow">Customer care</p>
-              <p>
-                Review product, shipping, return, privacy, and accessibility
-                details before public support intake opens.
-              </p>
-              <Link href="/contact">Contact</Link>
-            </aside>
           </div>
         </div>
 
@@ -61,12 +58,6 @@ export function SiteFooter() {
             <Link href="/cookie-policy">Cookie Policy</Link>
             <span>USD display only</span>
           </div>
-        </div>
-
-        <div className="site-footer__wordmark">
-          <h2 id="site-footer-heading">
-            <Link href="/">MEI PELLE</Link>
-          </h2>
         </div>
       </div>
     </footer>

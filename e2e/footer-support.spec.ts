@@ -69,6 +69,7 @@ async function readFooterTheme(page: import("@playwright/test").Page) {
         outlineStyle: style.outlineStyle,
         outlineWidth: style.outlineWidth,
         textAlign: style.textAlign,
+        textTransform: style.textTransform,
         whiteSpace: style.whiteSpace,
       };
     };
@@ -84,7 +85,14 @@ async function readFooterTheme(page: import("@playwright/test").Page) {
     const rectFor = (element: Element | null) => {
       const rect = element?.getBoundingClientRect();
       return rect
-        ? { bottom: rect.bottom, left: rect.left, right: rect.right, top: rect.top, width: rect.width }
+        ? {
+            bottom: rect.bottom,
+            height: rect.height,
+            left: rect.left,
+            right: rect.right,
+            top: rect.top,
+            width: rect.width,
+          }
         : null;
     };
 
@@ -104,15 +112,16 @@ async function readFooterTheme(page: import("@playwright/test").Page) {
       content: styleFor(".site-footer__content"),
       navHeading: styleFor(".site-footer__nav h3"),
       navLink: styleFor(".site-footer__nav a"),
-      support: styleFor(".site-footer__support"),
-      supportText: styleFor(".site-footer__support p:not(.eyebrow)"),
       updates: styleFor(".site-footer__updates"),
+      updatesEyebrow: styleFor(".site-footer__updates .eyebrow"),
+      updatesHeading: styleFor(".site-footer__updates h3"),
       updatesStatus: styleFor(".site-footer__updates span"),
       utility: styleFor(".site-footer__utility"),
       utilityButton: styleFor(".site-footer__utility-button"),
       accordion: styleFor(".site-footer__accordion"),
       accordionTrigger: styleFor(".site-footer__accordion-trigger"),
       layout: {
+        footer: rectFor(footer),
         inner: rectFor(inner),
         mobileGroups: rectFor(mobileGroups),
         nav: rectFor(nav),
@@ -125,6 +134,7 @@ async function readFooterTheme(page: import("@playwright/test").Page) {
           Array.from(primary.children).indexOf(updates) <
             Array.from(primary.children).indexOf(content)
         ),
+        supportCount: footer.querySelectorAll(".site-footer__support").length,
         wordmarkCount: footer.querySelectorAll(".site-footer__wordmark h2").length,
       },
       overflowX: document.documentElement.scrollWidth - document.documentElement.clientWidth,
@@ -140,7 +150,7 @@ test("global footer renders across public routes without unsupported links", asy
     await expect(page.locator(".site-footer")).toBeVisible();
     await expect(
       page.locator(".site-footer").getByRole("heading", {
-        name: "MEI PELLE",
+        name: "Mei Pelle",
         exact: true,
       }),
     ).toBeVisible();
@@ -150,7 +160,8 @@ test("global footer renders across public routes without unsupported links", asy
       "Prestige skincare for men built around discipline, consistency, and a cleaner routine.",
     );
     await expect(page.locator(".site-footer__wordmark a[href='/']")).toHaveCount(1);
-    await expect(page.locator(".site-footer")).toContainText("EMAIL UPDATES ARE NOT OPEN");
+    await expect(page.locator(".site-footer")).toContainText("Email updates are not open");
+    await expect(page.locator(".site-footer")).not.toContainText("Customer care");
     await expect(page.locator(".site-footer a[href='/privacy']")).not.toHaveCount(0);
     await expect(page.locator(".site-footer a[href='/terms']")).not.toHaveCount(0);
     await expect(page.locator(".site-footer a[href='/faq#shipping']")).not.toHaveCount(0);
@@ -194,17 +205,21 @@ test("global footer uses a flat responsive composition with newsletter-first ord
       expect(theme.inner?.boxShadow).toBe("none");
       expect(theme.wordmark?.color).toBe(theme.tokens.ink);
       expect(theme.wordmark?.textAlign).toBe("center");
+      expect(theme.wordmark?.textTransform).toBe("none");
       expect(theme.wordmark?.whiteSpace).toBe("nowrap");
       expect(theme.navLink?.color).toBe(theme.tokens.ink);
       expect(theme.utilityButton?.color).toBe(theme.tokens.ink);
       expect(theme.navHeading?.color).toBe(theme.tokens.inkSoft);
-      expect(theme.supportText?.color).toBe(theme.tokens.inkSoft);
       expect(theme.utility?.color).toBe(theme.tokens.inkSoft);
-      expect(theme.support?.borderTopColor).toBe(theme.tokens.line);
+      expect(theme.updatesEyebrow?.textTransform).toBe("none");
+      expect(theme.updatesHeading?.textTransform).toBe("none");
+      expect(theme.updatesStatus?.textTransform).toBe("none");
       expect(theme.updatesStatus?.color).not.toBe(theme.tokens.surface);
       expect(theme.layout.newsletterBeforeNavigation).toBe(true);
+      expect(theme.layout.supportCount).toBe(0);
       expect(theme.layout.wordmarkCount).toBe(1);
       expect(theme.layout.wordmark?.width).toBeCloseTo(theme.layout.inner?.width ?? 0, 0);
+      expect(theme.layout.wordmark?.top ?? 0).toBeLessThan(theme.layout.updates?.top ?? 0);
       expect(theme.overflowX).toBeLessThanOrEqual(1);
 
       if (viewport.width <= 860) {
@@ -212,6 +227,9 @@ test("global footer uses a flat responsive composition with newsletter-first ord
         expect(theme.accordionTrigger?.color).toBe(theme.tokens.inkSoft);
         expect(theme.layout.updates?.top ?? 0).toBeLessThan(theme.layout.mobileGroups?.top ?? 0);
       } else {
+        expect(theme.layout.footer?.height ?? Number.POSITIVE_INFINITY).toBeLessThan(
+          viewport.height,
+        );
         expect(theme.layout.updates?.left ?? 0).toBeLessThan(theme.layout.nav?.left ?? 0);
         expect(theme.layout.updates?.top).toBeCloseTo(theme.layout.nav?.top ?? 0, 0);
       }
