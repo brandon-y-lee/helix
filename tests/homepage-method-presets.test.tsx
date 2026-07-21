@@ -497,14 +497,12 @@ describe("homepage Core Three positioning", () => {
     expect(
       within(final).getByText("Three steps, one order, repeatable morning or night."),
     ).toBeInTheDocument();
-    expect(within(final).getByRole("link", { name: "SHOP THE CORE" })).toHaveAttribute(
+    expect(within(final).getByRole("link", { name: "Shop The Core" })).toHaveAttribute(
       "href",
       "#core-three",
     );
-    expect(within(final).getByRole("link", { name: "SEE THE SYSTEM" })).toHaveAttribute(
-      "href",
-      "/system",
-    );
+    expect(within(final).getAllByRole("link")).toHaveLength(1);
+    expect(within(final).queryByRole("link", { name: "SEE THE SYSTEM" })).not.toBeInTheDocument();
     expect(final.querySelector(".home-final-media__poster")).toBeInTheDocument();
     await waitFor(() =>
       expect(final.querySelector(".home-final-media__video source")).toHaveAttribute(

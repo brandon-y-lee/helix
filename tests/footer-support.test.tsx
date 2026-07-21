@@ -29,15 +29,27 @@ describe("global footer", () => {
 
     const footer = screen.getByRole("contentinfo");
     expect(screen.getAllByRole("contentinfo")).toHaveLength(1);
-    expect(footer).toHaveClass("site-footer--compact");
+    expect(footer).toHaveClass("site-footer");
+    expect(footer).not.toHaveClass("site-footer--compact");
     expect(screen.getByRole("heading", { name: "MEI PELLE" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "MEI PELLE" })).toHaveAttribute("href", "/");
     expect(within(footer).queryByText("Seoul / Los Angeles")).not.toBeInTheDocument();
+    expect(
+      within(footer).queryByText(
+        "Prestige skincare for men built around discipline, consistency, and a cleaner routine.",
+      ),
+    ).not.toBeInTheDocument();
     expect(screen.getByText("STAY IN THE SYSTEM.")).toBeInTheDocument();
     expect(screen.getByText("EMAIL UPDATES ARE NOT OPEN")).toBeInTheDocument();
     expect(screen.queryByRole("textbox", { name: /email/i })).not.toBeInTheDocument();
     expect(
       screen.getByText(new RegExp(String(new Date().getFullYear()))),
     ).toBeInTheDocument();
+
+    const primary = footer.querySelector(".site-footer__primary");
+    expect(primary?.firstElementChild).toHaveClass("site-footer__updates");
+    expect(primary?.lastElementChild).toHaveClass("site-footer__content");
+    expect(footer.querySelectorAll(".site-footer__wordmark")).toHaveLength(1);
 
     expect(footerLinkGroups).toEqual([
       {

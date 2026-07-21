@@ -190,10 +190,7 @@ export default async function HomePage() {
           </p>
           <div className="hero__actions home-video-hero__actions home-final__actions">
             <Link href="#core-three" className="home-final__cta home-final__cta--primary">
-              SHOP THE CORE
-            </Link>
-            <Link href="/system" className="home-final__cta home-final__cta--secondary">
-              SEE THE SYSTEM
+              Shop The Core
             </Link>
           </div>
         </div>

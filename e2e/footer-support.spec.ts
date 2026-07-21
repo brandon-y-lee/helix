@@ -48,23 +48,45 @@ async function readFooterTheme(page: import("@playwright/test").Page) {
     };
 
     const styleFor = (selector: string) => {
-      const element = footer.querySelector(selector);
+      const element = selector === ":scope" ? footer : footer.querySelector(selector);
       if (!element) return null;
       const style = getComputedStyle(element);
       return {
         backgroundColor: style.backgroundColor,
         backgroundImage: style.backgroundImage,
         borderBottomColor: style.borderBottomColor,
+        borderBottomWidth: style.borderBottomWidth,
         borderLeftColor: style.borderLeftColor,
+        borderLeftWidth: style.borderLeftWidth,
+        borderRadius: style.borderRadius,
+        borderRightWidth: style.borderRightWidth,
         borderTopColor: style.borderTopColor,
+        borderTopWidth: style.borderTopWidth,
+        boxShadow: style.boxShadow,
         color: style.color,
+        display: style.display,
         outlineColor: style.outlineColor,
         outlineStyle: style.outlineStyle,
         outlineWidth: style.outlineWidth,
+        textAlign: style.textAlign,
+        whiteSpace: style.whiteSpace,
       };
     };
 
     const rootStyle = getComputedStyle(document.documentElement);
+    const updates = footer.querySelector(".site-footer__updates");
+    const primary = footer.querySelector(".site-footer__primary");
+    const content = footer.querySelector(".site-footer__content");
+    const nav = footer.querySelector(".site-footer__nav");
+    const mobileGroups = footer.querySelector(".site-footer__mobile-groups");
+    const wordmark = footer.querySelector(".site-footer__wordmark h2");
+    const inner = footer.querySelector(".site-footer__inner");
+    const rectFor = (element: Element | null) => {
+      const rect = element?.getBoundingClientRect();
+      return rect
+        ? { bottom: rect.bottom, left: rect.left, right: rect.right, top: rect.top, width: rect.width }
+        : null;
+    };
 
     return {
       tokens: {
@@ -76,9 +98,9 @@ async function readFooterTheme(page: import("@playwright/test").Page) {
         line: resolveColor(rootStyle.getPropertyValue("--line").trim()),
         surface: resolveColor(rootStyle.getPropertyValue("--surface").trim()),
       },
-      footer: styleFor(".site-footer__inner"),
-      brand: styleFor(".site-footer__brand h2"),
-      brandBody: styleFor(".site-footer__brand > div > p:not(.eyebrow)"),
+      footer: styleFor(":scope"),
+      inner: styleFor(".site-footer__inner"),
+      wordmark: styleFor(".site-footer__wordmark h2"),
       content: styleFor(".site-footer__content"),
       navHeading: styleFor(".site-footer__nav h3"),
       navLink: styleFor(".site-footer__nav a"),
@@ -90,6 +112,21 @@ async function readFooterTheme(page: import("@playwright/test").Page) {
       utilityButton: styleFor(".site-footer__utility-button"),
       accordion: styleFor(".site-footer__accordion"),
       accordionTrigger: styleFor(".site-footer__accordion-trigger"),
+      layout: {
+        inner: rectFor(inner),
+        mobileGroups: rectFor(mobileGroups),
+        nav: rectFor(nav),
+        updates: rectFor(updates),
+        wordmark: rectFor(wordmark),
+        newsletterBeforeNavigation: Boolean(
+          primary &&
+          updates &&
+          content &&
+          Array.from(primary.children).indexOf(updates) <
+            Array.from(primary.children).indexOf(content)
+        ),
+        wordmarkCount: footer.querySelectorAll(".site-footer__wordmark h2").length,
+      },
       overflowX: document.documentElement.scrollWidth - document.documentElement.clientWidth,
     };
   });
@@ -107,7 +144,12 @@ test("global footer renders across public routes without unsupported links", asy
         exact: true,
       }),
     ).toBeVisible();
-    await expect(page.locator(".site-footer__brand")).not.toContainText("Seoul / Los Angeles");
+    await expect(page.locator(".site-footer__brand")).toHaveCount(0);
+    await expect(page.locator(".site-footer")).not.toContainText("Seoul / Los Angeles");
+    await expect(page.locator(".site-footer")).not.toContainText(
+      "Prestige skincare for men built around discipline, consistency, and a cleaner routine.",
+    );
+    await expect(page.locator(".site-footer__wordmark a[href='/']")).toHaveCount(1);
     await expect(page.locator(".site-footer")).toContainText("EMAIL UPDATES ARE NOT OPEN");
     await expect(page.locator(".site-footer a[href='/privacy']")).not.toHaveCount(0);
     await expect(page.locator(".site-footer a[href='/terms']")).not.toHaveCount(0);
@@ -127,7 +169,7 @@ test("global footer renders across public routes without unsupported links", asy
   }
 });
 
-test("global footer uses the light storefront surface and dark text treatment", async ({
+test("global footer uses a flat responsive composition with newsletter-first order", async ({
   page,
 }) => {
   for (const viewport of footerThemeViewports) {
@@ -139,26 +181,39 @@ test("global footer uses the light storefront surface and dark text treatment", 
 
       const theme = await readFooterTheme(page);
 
-      expect(theme.footer?.backgroundColor).toBe(theme.tokens.surface);
+      expect(theme.footer?.backgroundColor).toBe(theme.tokens.bg);
       expect(theme.footer?.backgroundImage).toBe("none");
-      expect(theme.footer?.borderBottomColor).toBe(theme.tokens.line);
-      expect(theme.brand?.color).toBe(theme.tokens.ink);
+      expect(theme.footer?.borderTopColor).toBe(theme.tokens.line);
+      expect(theme.footer?.borderTopWidth).toBe("1px");
+      expect(theme.inner?.backgroundColor).toBe("rgba(0, 0, 0, 0)");
+      expect(theme.inner?.borderRadius).toBe("0px");
+      expect(theme.inner?.borderTopWidth).toBe("0px");
+      expect(theme.inner?.borderRightWidth).toBe("0px");
+      expect(theme.inner?.borderBottomWidth).toBe("0px");
+      expect(theme.inner?.borderLeftWidth).toBe("0px");
+      expect(theme.inner?.boxShadow).toBe("none");
+      expect(theme.wordmark?.color).toBe(theme.tokens.ink);
+      expect(theme.wordmark?.textAlign).toBe("center");
+      expect(theme.wordmark?.whiteSpace).toBe("nowrap");
       expect(theme.navLink?.color).toBe(theme.tokens.ink);
       expect(theme.utilityButton?.color).toBe(theme.tokens.ink);
-      expect(theme.brandBody?.color).toBe(theme.tokens.inkSoft);
       expect(theme.navHeading?.color).toBe(theme.tokens.inkSoft);
       expect(theme.supportText?.color).toBe(theme.tokens.inkSoft);
       expect(theme.utility?.color).toBe(theme.tokens.inkSoft);
-      expect(theme.content?.borderBottomColor).toBe(theme.tokens.line);
-      expect(theme.support?.borderLeftColor).toBe(
-        viewport.width < 981 ? theme.tokens.ink : theme.tokens.line,
-      );
+      expect(theme.support?.borderTopColor).toBe(theme.tokens.line);
       expect(theme.updatesStatus?.color).not.toBe(theme.tokens.surface);
+      expect(theme.layout.newsletterBeforeNavigation).toBe(true);
+      expect(theme.layout.wordmarkCount).toBe(1);
+      expect(theme.layout.wordmark?.width).toBeCloseTo(theme.layout.inner?.width ?? 0, 0);
       expect(theme.overflowX).toBeLessThanOrEqual(1);
 
-      if (viewport.width < 981) {
+      if (viewport.width <= 860) {
         expect(theme.accordion?.borderTopColor).toBe(theme.tokens.line);
         expect(theme.accordionTrigger?.color).toBe(theme.tokens.inkSoft);
+        expect(theme.layout.updates?.top ?? 0).toBeLessThan(theme.layout.mobileGroups?.top ?? 0);
+      } else {
+        expect(theme.layout.updates?.left ?? 0).toBeLessThan(theme.layout.nav?.left ?? 0);
+        expect(theme.layout.updates?.top).toBeCloseTo(theme.layout.nav?.top ?? 0, 0);
       }
     }
   }

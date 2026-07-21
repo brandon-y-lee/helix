@@ -10,9 +10,6 @@ export type FooterLinkGroup = {
   links: FooterLink[];
 };
 
-export const footerBrandStatement =
-  "Prestige skincare for men built around discipline, consistency, and a cleaner routine.";
-
 export const footerUpdateModule = {
   eyebrow: "Updates",
   heading: "STAY IN THE SYSTEM.",

@@ -596,7 +596,6 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
     const heroTitle = document.querySelector<HTMLElement>(".home-video-hero__title");
     const heroDisplayLine = document.querySelector<HTMLElement>(".home-video-hero__display-line");
     const heroPrimaryCta = document.querySelector<HTMLAnchorElement>(".home-video-hero__cta");
-    const heroSecondaryCta = document.querySelector<HTMLAnchorElement>(".home-video-hero__secondary");
     const core = document.querySelector<HTMLElement>("#core-three");
     const why = document.querySelector<HTMLElement>(".home-section--principles");
     const plugSection = document.querySelector<HTMLElement>(".home-section--core-support");
@@ -642,7 +641,6 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
     const finalDescription = final?.querySelector<HTMLElement>("p:not(.hero__eyebrow)");
     const finalActions = final?.querySelector<HTMLElement>(".hero__actions");
     const finalPrimaryCta = final?.querySelector<HTMLAnchorElement>(".home-final__cta--primary");
-    const finalSecondaryCta = final?.querySelector<HTMLAnchorElement>(".home-final__cta--secondary");
     const finalPoster = finalSection?.querySelector<HTMLImageElement>(".home-final-media__poster");
     const finalMedia = finalSection?.querySelector<HTMLElement>(".home-final-media");
     const finalVideo = finalSection?.querySelector<HTMLVideoElement>(".home-final-media__video");
@@ -715,7 +713,6 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
       heroTitleStyle: heroTextStyle(heroTitle),
       heroDisplayLineStyle: heroTextStyle(heroDisplayLine),
       heroPrimaryCtaStyle: buttonStyle(heroPrimaryCta),
-      heroSecondaryCtaStyle: buttonStyle(heroSecondaryCta),
       coreIndex: sections.indexOf(core as HTMLElement),
       whyIndex: sections.indexOf(why as HTMLElement),
       plugIndex: sections.indexOf(plugSection as HTMLElement),
@@ -776,10 +773,10 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
       finalMotionState: finalMedia?.getAttribute("data-motion-state") ?? "",
       finalPosterSrc: finalPoster?.currentSrc || finalPoster?.src || "",
       finalPosterStyle: mediaStyle(finalPoster),
+      finalCtaCount: final?.querySelectorAll("a").length ?? 0,
       finalPrimaryCtaHref: finalPrimaryCta?.getAttribute("href") ?? "",
+      finalPrimaryCtaText: clean(finalPrimaryCta?.textContent),
       finalPrimaryCtaStyle: buttonStyle(finalPrimaryCta),
-      finalSecondaryCtaHref: finalSecondaryCta?.getAttribute("href") ?? "",
-      finalSecondaryCtaStyle: buttonStyle(finalSecondaryCta),
       finalSectionBox: box(finalSection),
       finalTitleStyle: heroTextStyle(finalTitle),
       finalVideoReadyStyle: (() => {
@@ -1020,10 +1017,20 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
   }
   expect(desktop.finalEyebrowCount).toBe(0);
   expect(desktop.finalSectionBox?.height).toBeLessThanOrEqual(desktop.viewportHeight * 0.72);
-  expect(desktop.finalSectionBox?.height).toBeGreaterThanOrEqual(desktop.viewportHeight * 0.45);
-  expect(desktop.finalBox?.left).toBeGreaterThanOrEqual(desktop.standardContentLeft - 4);
-  expect(desktop.finalBox?.bottom).toBeLessThanOrEqual((desktop.finalSectionBox?.bottom ?? 0) - 36);
-  expect(desktop.finalBox?.top).toBeGreaterThan(desktop.finalSectionBox?.top ?? 0);
+  expect(desktop.finalSectionBox?.height).toBeGreaterThanOrEqual(desktop.viewportHeight * 0.68);
+  expect(
+    Math.abs(
+      ((desktop.finalBox?.left ?? 0) + (desktop.finalBox?.width ?? 0) / 2) -
+      ((desktop.finalSectionBox?.left ?? 0) + (desktop.finalSectionBox?.width ?? 0) / 2),
+    ),
+  ).toBeLessThanOrEqual(2);
+  expect(
+    Math.abs(
+      ((desktop.finalBox?.top ?? 0) + (desktop.finalBox?.height ?? 0) / 2) -
+      ((desktop.finalSectionBox?.top ?? 0) + (desktop.finalSectionBox?.height ?? 0) / 2),
+    ),
+  ).toBeLessThanOrEqual(2);
+  expect(desktop.finalTitleStyle?.textAlign).toBe("center");
   expect(desktop.finalDescriptionText).toBe(
     "Three steps, one order, repeatable morning or night.",
   );
@@ -1038,10 +1045,10 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
   expect(desktop.finalMediaAfterStyle?.backgroundImage).toContain("rgba(10, 12, 11");
   expect(desktop.finalMediaAfterStyle?.backgroundImage).not.toContain("0.92");
   expect(desktop.finalMediaAfterStyle?.backgroundImage).not.toContain("0.78");
+  expect(desktop.finalCtaCount).toBe(1);
   expect(desktop.finalPrimaryCtaHref).toBe("#core-three");
-  expect(desktop.finalSecondaryCtaHref).toBe("/system");
+  expect(desktop.finalPrimaryCtaText).toBe("Shop The Core");
   expect(desktop.finalPrimaryCtaStyle).toEqual(desktop.heroPrimaryCtaStyle);
-  expect(desktop.finalSecondaryCtaStyle).toEqual(desktop.heroSecondaryCtaStyle);
   const finalPosterSrc = decodeURIComponent(desktop.finalPosterSrc);
   expect(finalPosterSrc).toContain("/media/home/final-cta-poster.webp");
   expect(finalPosterSrc).not.toContain("/mnt/data");
