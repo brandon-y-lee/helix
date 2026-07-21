@@ -36,6 +36,16 @@ const footerThemeViewports = [
   { width: 360, height: 800 },
 ] as const;
 
+function scaleFromTransform(transform: string) {
+  if (transform === "none") return 1;
+
+  const values = transform.match(/^matrix\(([^)]+)\)$/)?.[1]
+    .split(",")
+    .map((value) => Number.parseFloat(value.trim()));
+
+  return values?.[0] ?? Number.NaN;
+}
+
 async function readFooterTheme(page: import("@playwright/test").Page) {
   return page.locator(".site-footer").evaluate((footer) => {
     const resolveColor = (value: string) => {
@@ -65,11 +75,17 @@ async function readFooterTheme(page: import("@playwright/test").Page) {
         boxShadow: style.boxShadow,
         color: style.color,
         display: style.display,
+        fontWeight: style.fontWeight,
+        overflow: style.overflow,
         outlineColor: style.outlineColor,
         outlineStyle: style.outlineStyle,
         outlineWidth: style.outlineWidth,
+        paddingBottom: style.paddingBottom,
+        paddingTop: style.paddingTop,
         textAlign: style.textAlign,
         textTransform: style.textTransform,
+        transform: style.transform,
+        willChange: style.willChange,
         whiteSpace: style.whiteSpace,
       };
     };
@@ -108,6 +124,7 @@ async function readFooterTheme(page: import("@playwright/test").Page) {
       },
       footer: styleFor(":scope"),
       inner: styleFor(".site-footer__inner"),
+      wordmarkFrame: styleFor(".site-footer__wordmark"),
       wordmark: styleFor(".site-footer__wordmark h2"),
       content: styleFor(".site-footer__content"),
       navHeading: styleFor(".site-footer__nav h3"),
@@ -136,6 +153,9 @@ async function readFooterTheme(page: import("@playwright/test").Page) {
         ),
         supportCount: footer.querySelectorAll(".site-footer__support").length,
         wordmarkCount: footer.querySelectorAll(".site-footer__wordmark h2").length,
+        wordmarkMotion: footer
+          .querySelector(".site-footer__wordmark")
+          ?.getAttribute("data-scroll-zoom-motion"),
       },
       overflowX: document.documentElement.scrollWidth - document.documentElement.clientWidth,
     };
@@ -204,9 +224,14 @@ test("global footer uses a flat responsive composition with newsletter-first ord
       expect(theme.inner?.borderLeftWidth).toBe("0px");
       expect(theme.inner?.boxShadow).toBe("none");
       expect(theme.wordmark?.color).toBe(theme.tokens.ink);
+      expect(Number.parseInt(theme.wordmark?.fontWeight ?? "0", 10)).toBeGreaterThanOrEqual(500);
       expect(theme.wordmark?.textAlign).toBe("center");
       expect(theme.wordmark?.textTransform).toBe("none");
       expect(theme.wordmark?.whiteSpace).toBe("nowrap");
+      expect(["clip", "hidden"]).toContain(theme.wordmarkFrame?.overflow);
+      expect(Number.parseFloat(theme.wordmarkFrame?.paddingTop ?? "0")).toBeGreaterThan(0);
+      expect(Number.parseFloat(theme.wordmarkFrame?.paddingBottom ?? "0")).toBeGreaterThan(0);
+      expect(theme.layout.wordmarkMotion).toBe("motion");
       expect(theme.navLink?.color).toBe(theme.tokens.ink);
       expect(theme.utilityButton?.color).toBe(theme.tokens.ink);
       expect(theme.navHeading?.color).toBe(theme.tokens.inkSoft);
@@ -235,6 +260,96 @@ test("global footer uses a flat responsive composition with newsletter-first ord
       }
     }
   }
+});
+
+test("footer wordmark zoom follows scroll direction and respects reduced motion", async ({
+  page,
+}) => {
+  const readMotion = () =>
+    page.locator(".site-footer__wordmark").evaluate((wordmark) => {
+      const heading = wordmark.querySelector("h2");
+      return {
+        active: wordmark.getAttribute("data-scroll-zoom-active"),
+        motion: wordmark.getAttribute("data-scroll-zoom-motion"),
+        overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        scaleVariable: getComputedStyle(wordmark)
+          .getPropertyValue("--site-footer-wordmark-scale")
+          .trim(),
+        transform: heading ? getComputedStyle(heading).transform : "none",
+      };
+    });
+
+  const positionFooterInViewport = () =>
+    page.evaluate(() => {
+      const footer = document.querySelector<HTMLElement>(".site-footer");
+      if (!footer) return;
+      window.scrollTo(0, Math.max(0, footer.offsetTop - window.innerHeight * 0.55));
+    });
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  await positionFooterInViewport();
+  await expect(page.locator(".site-footer__wordmark")).toHaveAttribute(
+    "data-scroll-zoom-active",
+    "true",
+  );
+  await expect(page.locator(".site-footer__wordmark")).toHaveAttribute(
+    "data-scroll-zoom-motion",
+    "motion",
+  );
+
+  const initial = await readMotion();
+  await page.mouse.wheel(0, 260);
+  await page.waitForTimeout(450);
+  const downward = await readMotion();
+  await page.mouse.wheel(0, -520);
+  await page.waitForTimeout(450);
+  const upward = await readMotion();
+  const initialScale = scaleFromTransform(initial.transform);
+  const downwardScale = scaleFromTransform(downward.transform);
+  const upwardScale = scaleFromTransform(upward.transform);
+
+  expect(initialScale).toBeGreaterThanOrEqual(0.999);
+  expect(initialScale).toBeLessThanOrEqual(1.001);
+  expect(downwardScale).toBeLessThan(initialScale - 0.004);
+  expect(upwardScale).toBeGreaterThan(downwardScale + 0.008);
+  expect(downwardScale).toBeGreaterThanOrEqual(0.959);
+  expect(upwardScale).toBeLessThanOrEqual(1.061);
+  expect(upward.overflow).toBeLessThanOrEqual(1);
+
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.reload();
+  await positionFooterInViewport();
+  await expect(page.locator(".site-footer__wordmark")).toHaveAttribute(
+    "data-scroll-zoom-motion",
+    "static",
+  );
+  const reducedStart = await readMotion();
+  await page.mouse.wheel(0, 260);
+  await page.waitForTimeout(300);
+  const reducedAfter = await readMotion();
+  expect(
+    Math.abs(
+      scaleFromTransform(reducedAfter.transform) - scaleFromTransform(reducedStart.transform),
+    ),
+  ).toBeLessThan(0.002);
+
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.reload();
+  await positionFooterInViewport();
+  await expect(page.locator(".site-footer__wordmark")).toHaveAttribute(
+    "data-scroll-zoom-motion",
+    "motion",
+  );
+  const mobileStart = await readMotion();
+  await page.mouse.wheel(0, 180);
+  await page.waitForTimeout(450);
+  const mobileDownward = await readMotion();
+  expect(scaleFromTransform(mobileDownward.transform)).toBeLessThan(
+    scaleFromTransform(mobileStart.transform) - 0.003,
+  );
+  expect(mobileDownward.overflow).toBeLessThanOrEqual(1);
 });
 
 test("footer keyboard focus remains visible on the light surface", async ({ page }) => {
@@ -267,6 +382,20 @@ test("footer keyboard focus remains visible on the light surface", async ({ page
   expect(focusedLink.outlineColor).toBe(focusColor);
   expect(focusedLink.outlineStyle).toBe("solid");
   expect(focusedLink.outlineWidth).toBe("2px");
+
+  const wordmarkLink = footer.getByRole("link", { name: "Mei Pelle", exact: true });
+  await wordmarkLink.focus();
+  const wordmarkFocus = await footer.locator(".site-footer__wordmark").evaluate((element) => {
+    const style = getComputedStyle(element);
+    return {
+      outlineColor: style.outlineColor,
+      outlineStyle: style.outlineStyle,
+      outlineWidth: style.outlineWidth,
+    };
+  });
+  expect(wordmarkFocus.outlineColor).toBe(focusColor);
+  expect(wordmarkFocus.outlineStyle).toBe("solid");
+  expect(wordmarkFocus.outlineWidth).toBe("2px");
 });
 
 test("all internal footer links resolve", async ({ page }) => {

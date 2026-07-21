@@ -48,7 +48,10 @@ describe("global footer", () => {
 
     const inner = footer.querySelector(".site-footer__inner");
     const primary = footer.querySelector(".site-footer__primary");
-    expect(inner?.firstElementChild).toHaveClass("site-footer__wordmark");
+    const wordmark = footer.querySelector(".site-footer__wordmark");
+    expect(inner?.firstElementChild).toBe(wordmark);
+    expect(wordmark).toHaveAttribute("data-scroll-zoom-active");
+    expect(wordmark).toHaveAttribute("data-scroll-zoom-motion");
     expect(inner?.children[1]).toHaveClass("site-footer__primary");
     expect(primary?.firstElementChild).toHaveClass("site-footer__updates");
     expect(primary?.lastElementChild).toHaveClass("site-footer__content");
