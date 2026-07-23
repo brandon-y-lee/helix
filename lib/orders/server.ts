@@ -11,6 +11,15 @@ import {
   readCheckoutConfig,
   type CheckoutConfig,
 } from "@/lib/checkout/config";
+import { resolveCheckoutOrigin } from "@/lib/checkout/origin";
+import {
+  checkoutCancellationState,
+  checkoutSessionIsPaid,
+  orderCanTransitionToPaymentFailed,
+  sanitizedStripeEventPayload,
+  stripeWebhookClaimIsFresh,
+  stripeWebhookProcessingMarker,
+} from "@/lib/checkout/stripe-state";
 import {
   getActiveCartIdentity,
   getCheckoutCartSnapshot,
@@ -130,12 +139,7 @@ function customerSafeOrderNumber(): string {
 
 async function originFromRequest(): Promise<string> {
   const headerList = await headers();
-  return (
-    headerList.get("origin") ??
-    process.env.NEXT_PUBLIC_SITE_URL ??
-    process.env.VERCEL_URL?.replace(/^/, "https://") ??
-    "http://localhost:3000"
-  );
+  return resolveCheckoutOrigin({ requestOrigin: headerList.get("origin") });
 }
 
 function isUuid(value: string): boolean {
@@ -552,13 +556,20 @@ async function cancelLoadedPendingOrder(order: OrderRow, reason: string): Promis
   revalidatePath("/rewards");
 }
 
-async function markAttemptFailed(order: OrderRow, reason: string): Promise<void> {
+async function markAttemptFailed(order: OrderRow, reason: string): Promise<boolean> {
   const admin = createSupabaseAdminClient();
-  await admin
+  const { data, error } = await admin
     .from("orders")
     .update({ status: "payment_failed", cancelled_at: new Date().toISOString() })
     .eq("id", order.id)
-    .neq("status", "paid");
+    .in("status", ["pending_payment", "payment_failed"])
+    .select("id")
+    .maybeSingle();
+  if (error) {
+    throw new Error(`[orders] Failed to mark payment attempt failed: ${error.message}`);
+  }
+  if (!data) return false;
+
   await admin
     .from("payment_attempts")
     .update({ status: "failed", last_error: reason })
@@ -566,6 +577,7 @@ async function markAttemptFailed(order: OrderRow, reason: string): Promise<void>
     .neq("status", "paid");
   await releaseRewardReservation(order, reason);
   await voidPendingReferralAttribution(order);
+  return true;
 }
 
 export async function createStripeCheckoutSession(
@@ -657,6 +669,13 @@ export async function createStripeCheckoutSession(
         automatic_tax: {
           enabled: config.automaticTaxEnabled,
         },
+        payment_intent_data: {
+          metadata: {
+            order_id: order.id,
+            environment: CHECKOUT_ENVIRONMENT,
+            schema: CHECKOUT_SCHEMA_VERSION,
+          },
+        },
         allow_promotion_codes: false,
         discounts: couponId ? [{ coupon: couponId }] : undefined,
         metadata: {
@@ -694,6 +713,7 @@ export async function createStripeCheckoutSession(
       idempotency_key: `payment-attempt:${order.id}`,
       metadata: {
         schema: CHECKOUT_SCHEMA_VERSION,
+        payment_method_configuration: "stripe_dynamic",
         reward_tier_id: rewardTier?.id ?? null,
         referral_code: referralOffer?.code ?? null,
       },
@@ -808,6 +828,65 @@ async function qualifyReferralForPaidOrder(order: OrderRow): Promise<void> {
   });
 }
 
+async function paymentAttemptMetadata(
+  sessionId: string,
+): Promise<Record<string, unknown>> {
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin
+    .from("payment_attempts")
+    .select("metadata")
+    .eq("stripe_checkout_session_id", sessionId)
+    .maybeSingle();
+  if (error) {
+    throw new Error(`[stripe] Failed to load payment attempt metadata: ${error.message}`);
+  }
+  return ((data as { metadata?: Record<string, unknown> } | null)?.metadata ?? {});
+}
+
+async function paymentMethodTypeForSession(
+  session: Stripe.Checkout.Session,
+): Promise<string | null> {
+  const paymentIntentId =
+    typeof session.payment_intent === "string"
+      ? session.payment_intent
+      : session.payment_intent?.id;
+  if (!paymentIntentId) return null;
+
+  const paymentIntent =
+    typeof session.payment_intent === "object" &&
+    session.payment_intent &&
+    typeof session.payment_intent.payment_method === "object"
+      ? session.payment_intent
+      : await getStripeClient().paymentIntents.retrieve(paymentIntentId, {
+          expand: ["payment_method"],
+        });
+  assertSandboxStripeObject(paymentIntent);
+
+  const paymentMethod = paymentIntent.payment_method;
+  return typeof paymentMethod === "object" && paymentMethod
+    ? paymentMethod.type
+    : null;
+}
+
+async function markStripeSessionProcessing(
+  session: Stripe.Checkout.Session,
+): Promise<void> {
+  const admin = createSupabaseAdminClient();
+  const metadata = await paymentAttemptMetadata(session.id);
+  await admin
+    .from("payment_attempts")
+    .update({
+      status: "processing",
+      raw_status: session.payment_status,
+      metadata: {
+        ...metadata,
+        checkout_session_status: session.status,
+      },
+    })
+    .eq("stripe_checkout_session_id", session.id)
+    .neq("status", "paid");
+}
+
 export async function finalizePaidStripeSession(
   session: Stripe.Checkout.Session,
 ): Promise<OrderRow | null> {
@@ -815,13 +894,17 @@ export async function finalizePaidStripeSession(
   if (session.currency && session.currency !== "usd") {
     throw new Error("[stripe] Checkout Session currency mismatch.");
   }
-  if (session.payment_status !== "paid" && session.status !== "complete") {
+  if (!checkoutSessionIsPaid(session)) {
+    if (session.status === "complete") {
+      await markStripeSessionProcessing(session);
+    }
     return loadOrderBySession(session.id);
   }
 
   const order = await loadOrderBySession(session.id);
   if (!order) return null;
   if (order.status === "paid") return order;
+  if (!["pending_payment", "payment_failed"].includes(order.status)) return order;
 
   const stripeTotal = typeof session.amount_total === "number" ? session.amount_total : order.total_cents;
   const details = session.total_details;
@@ -839,6 +922,7 @@ export async function finalizePaidStripeSession(
       : session.payment_intent?.id ?? null;
   const customerId =
     typeof session.customer === "string" ? session.customer : session.customer?.id ?? null;
+  const paymentMethodType = await paymentMethodTypeForSession(session);
 
   const { data, error } = await admin
     .from("orders")
@@ -855,16 +939,21 @@ export async function finalizePaidStripeSession(
       shipping_name: session.customer_details?.name ?? order.shipping_name,
       shipping_address: publicAddressSnapshot(session.customer_details?.address),
       billing_address: publicAddressSnapshot(session.customer_details?.address),
+      metadata: {
+        ...order.metadata,
+        payment_method_type: paymentMethodType,
+      },
       paid_at: new Date().toISOString(),
     })
     .eq("id", order.id)
-    .neq("status", "paid")
+    .in("status", ["pending_payment", "payment_failed"])
     .select("*")
     .maybeSingle();
   if (error) throw new Error(`[orders] Failed to finalize order: ${error.message}`);
-  const paidOrder = (data as OrderRow | null) ?? (await loadOrderBySession(session.id));
-  if (!paidOrder) return null;
+  const paidOrder = data as OrderRow | null;
+  if (!paidOrder) return loadOrderBySession(session.id);
 
+  const attemptMetadata = await paymentAttemptMetadata(session.id);
   await admin
     .from("payment_attempts")
     .update({
@@ -872,6 +961,10 @@ export async function finalizePaidStripeSession(
       amount_cents: stripeTotal,
       stripe_payment_intent_id: paymentIntent,
       raw_status: session.payment_status,
+      metadata: {
+        ...attemptMetadata,
+        payment_method_type: paymentMethodType,
+      },
     })
     .eq("stripe_checkout_session_id", session.id);
 
@@ -906,9 +999,75 @@ export async function cancelPendingOrder(orderId: string | null, reason = "check
   await cancelLoadedPendingOrder(order, reason);
 }
 
+async function cancelStripeCheckoutOrder(
+  order: OrderRow,
+  reason: string,
+): Promise<"cancelled" | "paid" | "processing"> {
+  if (!order.stripe_checkout_session_id) {
+    await cancelLoadedPendingOrder(order, reason);
+    return "cancelled";
+  }
+
+  const stripe = getStripeClient();
+  let session = await stripe.checkout.sessions.retrieve(
+    order.stripe_checkout_session_id,
+  );
+  assertSandboxStripeObject(session);
+
+  let cancellationState = checkoutCancellationState(session);
+  if (cancellationState === "paid") {
+    await finalizePaidStripeSession(session);
+    return "paid";
+  }
+
+  if (cancellationState === "processing") {
+    await finalizePaidStripeSession(session);
+    return "processing";
+  }
+
+  if (cancellationState === "open") {
+    try {
+      session = await stripe.checkout.sessions.expire(session.id);
+      assertSandboxStripeObject(session);
+    } catch {
+      session = await stripe.checkout.sessions.retrieve(session.id);
+      assertSandboxStripeObject(session);
+      if (checkoutSessionIsPaid(session)) {
+        await finalizePaidStripeSession(session);
+        return "paid";
+      }
+      cancellationState = checkoutCancellationState(session);
+      if (cancellationState === "processing") {
+        await finalizePaidStripeSession(session);
+        return "processing";
+      }
+      if (cancellationState !== "expired") {
+        throw new Error("Stripe Checkout cancellation failed.");
+      }
+    }
+    cancellationState = checkoutCancellationState(session);
+  }
+
+  if (cancellationState === "expired") {
+    await expireStripeSession(session);
+    return "cancelled";
+  }
+
+  throw new Error("Stripe Checkout returned an unknown cancellation state.");
+}
+
 export async function cancelPendingCheckoutFromCookie(
   reason = "customer returned from Stripe Checkout",
-): Promise<{ status: "missing" | "cancelled" | "not_found" | "not_owned" | "not_cancellable" }> {
+): Promise<{
+  status:
+    | "missing"
+    | "cancelled"
+    | "paid"
+    | "processing"
+    | "not_found"
+    | "not_owned"
+    | "not_cancellable";
+}> {
   const cookieStore = await cookies();
   const orderId = cookieStore.get(CHECKOUT_CANCEL_COOKIE)?.value ?? null;
 
@@ -930,8 +1089,8 @@ export async function cancelPendingCheckoutFromCookie(
       return { status: "not_owned" };
     }
 
-    await cancelLoadedPendingOrder(order, reason);
-    return { status: "cancelled" };
+    const status = await cancelStripeCheckoutOrder(order, reason);
+    return { status };
   } finally {
     await clearPendingCheckoutCookie();
   }
@@ -957,6 +1116,23 @@ export async function expireStripeSession(session: Stripe.Checkout.Session): Pro
     .neq("status", "paid");
   await releaseRewardReservation(order, "Stripe Checkout expiration");
   await voidPendingReferralAttribution(order);
+}
+
+export async function failStripeSession(
+  session: Stripe.Checkout.Session,
+  reason = "Stripe Checkout payment failed",
+): Promise<void> {
+  assertSandboxStripeObject(session);
+  const order = await loadOrderBySession(session.id);
+  if (!order || !orderCanTransitionToPaymentFailed(order.status)) return;
+
+  await markAttemptFailed(order, reason);
+  const admin = createSupabaseAdminClient();
+  await admin
+    .from("payment_attempts")
+    .update({ raw_status: session.payment_status })
+    .eq("stripe_checkout_session_id", session.id)
+    .neq("status", "paid");
 }
 
 async function insertLedgerBalanceAdjustment(input: {
@@ -1074,33 +1250,69 @@ async function handleFullRefund(charge: Stripe.Charge): Promise<void> {
   revalidatePath("/rewards");
 }
 
+type StripeWebhookEventClaim = {
+  processed_at: string | null;
+  processing_error: string | null;
+};
+
+async function claimStripeWebhookEvent(
+  event: Stripe.Event,
+): Promise<"claimed" | "duplicate"> {
+  const admin = createSupabaseAdminClient();
+  const marker = stripeWebhookProcessingMarker();
+  const { data: existing, error: selectError } = await admin
+    .from("stripe_webhook_events")
+    .select("processed_at, processing_error")
+    .eq("stripe_event_id", event.id)
+    .maybeSingle();
+  if (selectError) {
+    throw new Error(`[stripe] Failed to inspect webhook event: ${selectError.message}`);
+  }
+
+  const existingClaim = existing as StripeWebhookEventClaim | null;
+  if (existingClaim?.processed_at || stripeWebhookClaimIsFresh(existingClaim?.processing_error)) {
+    return "duplicate";
+  }
+
+  if (!existingClaim) {
+    const { error: insertError } = await admin.from("stripe_webhook_events").insert({
+      stripe_event_id: event.id,
+      type: event.type,
+      livemode: event.livemode,
+      checkout_environment: CHECKOUT_ENVIRONMENT,
+      payload: sanitizedStripeEventPayload(event),
+      processing_error: marker,
+    });
+    if (!insertError) return "claimed";
+    if ((insertError as { code?: string }).code === "23505") return "duplicate";
+    throw new Error(`[stripe] Failed to record webhook event: ${insertError.message}`);
+  }
+
+  let claimQuery = admin
+    .from("stripe_webhook_events")
+    .update({ processing_error: marker })
+    .eq("stripe_event_id", event.id)
+    .is("processed_at", null);
+  claimQuery = existingClaim.processing_error === null
+    ? claimQuery.is("processing_error", null)
+    : claimQuery.eq("processing_error", existingClaim.processing_error);
+  const { data: claimed, error: claimError } = await claimQuery
+    .select("stripe_event_id")
+    .maybeSingle();
+  if (claimError) {
+    throw new Error(`[stripe] Failed to claim webhook event: ${claimError.message}`);
+  }
+  return claimed ? "claimed" : "duplicate";
+}
+
 export async function processStripeWebhookEvent(event: Stripe.Event): Promise<{
   action: "processed" | "duplicate" | "ignored";
   type: string;
 }> {
   assertSandboxStripeObject(event);
   const admin = createSupabaseAdminClient();
-  const { data: existing, error: selectError } = await admin
-    .from("stripe_webhook_events")
-    .select("processed_at")
-    .eq("stripe_event_id", event.id)
-    .maybeSingle();
-  if (selectError) throw new Error(`[stripe] Failed to inspect webhook event: ${selectError.message}`);
-  if ((existing as { processed_at?: string | null } | null)?.processed_at) {
+  if ((await claimStripeWebhookEvent(event)) === "duplicate") {
     return { action: "duplicate", type: event.type };
-  }
-
-  if (!existing) {
-    const { error: insertError } = await admin.from("stripe_webhook_events").insert({
-      stripe_event_id: event.id,
-      type: event.type,
-      livemode: event.livemode,
-      checkout_environment: CHECKOUT_ENVIRONMENT,
-      payload: event as unknown as Record<string, unknown>,
-    });
-    if (insertError && !insertError.message.includes("duplicate")) {
-      throw new Error(`[stripe] Failed to record webhook event: ${insertError.message}`);
-    }
   }
 
   try {
@@ -1109,10 +1321,12 @@ export async function processStripeWebhookEvent(event: Stripe.Event): Promise<{
       event.type === "checkout.session.async_payment_succeeded"
     ) {
       await finalizePaidStripeSession(event.data.object as Stripe.Checkout.Session);
-    } else if (
-      event.type === "checkout.session.async_payment_failed" ||
-      event.type === "checkout.session.expired"
-    ) {
+    } else if (event.type === "checkout.session.async_payment_failed") {
+      await failStripeSession(
+        event.data.object as Stripe.Checkout.Session,
+        "Stripe Checkout asynchronous payment failed",
+      );
+    } else if (event.type === "checkout.session.expired") {
       await expireStripeSession(event.data.object as Stripe.Checkout.Session);
     } else if (event.type === "charge.refunded") {
       await handleFullRefund(event.data.object as Stripe.Charge);
@@ -1153,10 +1367,9 @@ export async function getOrderConfirmationBySession(
   const session = await stripe.checkout.sessions.retrieve(sessionId);
   assertSandboxStripeObject(session);
 
-  const finalized =
-    session.payment_status === "paid" || session.status === "complete"
-      ? await finalizePaidStripeSession(session)
-      : await loadOrderBySession(sessionId);
+  const finalized = checkoutSessionIsPaid(session)
+    ? await finalizePaidStripeSession(session)
+    : await loadOrderBySession(sessionId);
   if (!finalized) return null;
 
   const items = await loadOrderItems(finalized.id);

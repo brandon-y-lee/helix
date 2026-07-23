@@ -48,9 +48,12 @@ describe("global footer", () => {
 
     const inner = footer.querySelector(".site-footer__inner");
     const primary = footer.querySelector(".site-footer__primary");
-    const wordmark = footer.querySelector(".site-footer__wordmark");
-    expect(inner?.firstElementChild).toBe(wordmark);
+    const runway = footer.querySelector<HTMLElement>(".site-footer__wordmark-runway");
+    const wordmark = footer.querySelector<HTMLElement>(".site-footer__wordmark");
+    expect(inner?.firstElementChild).toBe(runway);
+    expect(runway).toContainElement(wordmark);
     expect(wordmark).toHaveAttribute("data-scroll-zoom-active");
+    expect(wordmark).toHaveAttribute("data-scroll-zoom-mode", "element-progress");
     expect(wordmark).toHaveAttribute("data-scroll-zoom-motion");
     expect(inner?.children[1]).toHaveClass("site-footer__primary");
     expect(primary?.firstElementChild).toHaveClass("site-footer__updates");
@@ -123,10 +126,11 @@ describe("global footer", () => {
     await user.click(screen.getByRole("button", { name: "Cookie Preferences" }));
     const dialog = screen.getByRole("dialog", { name: "Cookie Preferences" });
     expect(dialog).toHaveTextContent("Essential cookies");
-    expect(dialog).toHaveTextContent("Not active");
-    await user.click(within(dialog).getByRole("button", { name: /save essential preference/i }));
+    expect(dialog).toHaveTextContent("Payment messaging");
+    expect(dialog).toHaveTextContent("Active when eligible");
+    await user.click(within(dialog).getByRole("button", { name: /save current preference/i }));
     expect(within(dialog).getByRole("status")).toHaveTextContent(
-      "Essential-only preference saved.",
+      "Current preference saved.",
     );
   });
 });
@@ -159,6 +163,7 @@ describe("legal and support content", () => {
     expect(cookieCategories).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ category: "Essential", active: true, optional: false }),
+        expect.objectContaining({ category: "Functional", active: true, optional: false }),
         expect.objectContaining({ category: "Analytics", active: false }),
         expect.objectContaining({ category: "Advertising", active: false }),
       ]),

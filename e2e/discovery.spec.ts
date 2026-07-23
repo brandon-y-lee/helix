@@ -79,7 +79,7 @@ test("homepage Core Three ladder renders", async ({ page }) => {
   ).toBeVisible();
   await expect(
     page.getByRole("heading", {
-      name: "Invest in your skin's future.",
+      name: "It’s time to invest in your skin",
     }),
   ).toBeVisible();
 });
@@ -227,15 +227,29 @@ test("homepage Core images and Beyond carousel use finite responsive navigation"
     const images = Array.from(
       section.querySelectorAll<HTMLElement>("[data-product-card-default-image='true']"),
     ).map((node) => decodeURIComponent(node.querySelector("img")?.getAttribute("src") ?? ""));
+    const frames = Array.from(
+      section.querySelectorAll<HTMLElement>("[data-product-card-default-image='true']"),
+    ).map((node) => ({
+      presentation: node.getAttribute("data-product-card-image-presentation"),
+      objectFit: getComputedStyle(node.querySelector("img") as HTMLElement).objectFit,
+    }));
     const hoverLayers = Array.from(
       section.querySelectorAll<HTMLElement>(".product-card__image--hover"),
     ).map((node) => node.getAttribute("data-media-kind"));
-    return { images, hoverLayers };
+    return { frames, images, hoverLayers };
   });
   expect(coreImageState.images).toHaveLength(3);
-  expect(coreImageState.images[0]).toContain("/media/home/cleanse-home-card.webp");
-  expect(coreImageState.images[1]).toContain("/media/home/treat-home-card.webp");
-  expect(coreImageState.images[2]).toContain("/media/home/seal-home-card.webp");
+  expect(coreImageState.images[0]).toContain("/media/home/cleanse-core-card.webp");
+  expect(coreImageState.images[1]).toContain("/media/home/treat-core-card.webp");
+  expect(coreImageState.images[2]).toContain("/media/home/seal-core-card.webp");
+  expect(coreImageState.images.join(" ")).not.toMatch(
+    /cleanse-home-card|treat-home-card|seal-home-card/,
+  );
+  expect(coreImageState.frames).toEqual([
+    { presentation: "full-frame", objectFit: "cover" },
+    { presentation: "full-frame", objectFit: "cover" },
+    { presentation: "full-frame", objectFit: "cover" },
+  ]);
   expect(coreImageState.hoverLayers).toEqual(["placeholder", "placeholder", "placeholder"]);
 
   const readFirstCoreVisualState = () =>
@@ -550,7 +564,7 @@ test("homepage final CTA video uses poster-only treatment for reduced motion", a
   const finalSection = page.locator(".home-section--final");
   const media = finalSection.locator(".home-final-media");
 
-  await expect(finalSection.getByRole("heading", { name: "Invest in your skin's future." }))
+  await expect(finalSection.getByRole("heading", { name: "It’s time to invest in your skin" }))
     .toBeVisible();
   await expect(media).toHaveAttribute("data-motion-state", "static");
   const poster = finalSection.locator(".home-final-media__poster");
@@ -991,10 +1005,16 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
   expect(desktop.finalTitleStyle?.fontWeight).toBe(desktop.heroTitleStyle?.fontWeight);
   expect(desktop.finalTitleStyle?.textShadow).toBe(desktop.heroTitleStyle?.textShadow);
   expect(desktop.finalDescriptionStyle?.color).toBe(desktop.heroDisplayLineStyle?.color);
-  expect(desktop.finalDescriptionStyle?.fontWeight).toBe(desktop.heroDisplayLineStyle?.fontWeight);
-  expect(desktop.finalDescriptionStyle?.letterSpacing)
-    .toBe(desktop.heroDisplayLineStyle?.letterSpacing);
-  expect(desktop.finalDescriptionStyle?.lineHeight).toBe(desktop.heroDisplayLineStyle?.lineHeight);
+  expect(Number.parseInt(desktop.finalDescriptionStyle?.fontWeight ?? "0", 10))
+    .toBeLessThan(Number.parseInt(desktop.heroDisplayLineStyle?.fontWeight ?? "0", 10));
+  expect(Number.parseFloat(desktop.finalDescriptionStyle?.fontSize ?? "0"))
+    .toBeLessThan(Number.parseFloat(desktop.heroDisplayLineStyle?.fontSize ?? "0"));
+  expect(
+    Number.parseFloat(desktop.finalDescriptionStyle?.lineHeight ?? "0") /
+      Number.parseFloat(desktop.finalDescriptionStyle?.fontSize ?? "1"),
+  ).toBeGreaterThanOrEqual(1.4);
+  expect(["0px", "normal"]).toContain(desktop.finalDescriptionStyle?.letterSpacing);
+  expect(desktop.finalDescriptionStyle?.textAlign).toBe("center");
   expect(desktop.finalDescriptionStyle?.textShadow).toBe(desktop.heroDisplayLineStyle?.textShadow);
   expect(desktop.ingredientEyebrowCount).toBe(0);
   expect(desktop.ingredientHeadingGap).toBeGreaterThanOrEqual(24);
@@ -1283,11 +1303,22 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
 
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.reload();
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () => window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+      ),
+    )
+    .toBe(true);
   await page.locator(".home-three-principles-visual__zoom").waitFor({ state: "attached" });
   await page.evaluate(() => {
     document.querySelector(".home-section--principles")?.scrollIntoView({ block: "center" });
   });
   await page.waitForTimeout(120);
+  await expect
+    .poll(async () => (await readWhyZoom()).motion)
+    .toBe("static");
   const reducedStart = await readWhyZoom();
   await page.mouse.wheel(0, 720);
   await page.waitForTimeout(300);

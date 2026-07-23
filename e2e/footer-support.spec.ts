@@ -97,6 +97,9 @@ async function readFooterTheme(page: import("@playwright/test").Page) {
     const nav = footer.querySelector(".site-footer__nav");
     const mobileGroups = footer.querySelector(".site-footer__mobile-groups");
     const wordmark = footer.querySelector(".site-footer__wordmark h2");
+    const wordmarkFrame = footer.querySelector(".site-footer__wordmark");
+    const wordmarkRunway = footer.querySelector(".site-footer__wordmark-runway");
+    const wordmarkStage = footer.querySelector(".site-footer__wordmark-stage");
     const inner = footer.querySelector(".site-footer__inner");
     const rectFor = (element: Element | null) => {
       const rect = element?.getBoundingClientRect();
@@ -125,6 +128,7 @@ async function readFooterTheme(page: import("@playwright/test").Page) {
       footer: styleFor(":scope"),
       inner: styleFor(".site-footer__inner"),
       wordmarkFrame: styleFor(".site-footer__wordmark"),
+      wordmarkStage: styleFor(".site-footer__wordmark-stage"),
       wordmark: styleFor(".site-footer__wordmark h2"),
       content: styleFor(".site-footer__content"),
       navHeading: styleFor(".site-footer__nav h3"),
@@ -144,6 +148,9 @@ async function readFooterTheme(page: import("@playwright/test").Page) {
         nav: rectFor(nav),
         updates: rectFor(updates),
         wordmark: rectFor(wordmark),
+        wordmarkFrame: rectFor(wordmarkFrame),
+        wordmarkRunway: rectFor(wordmarkRunway),
+        wordmarkStage: rectFor(wordmarkStage),
         newsletterBeforeNavigation: Boolean(
           primary &&
           updates &&
@@ -228,9 +235,9 @@ test("global footer uses a flat responsive composition with newsletter-first ord
       expect(theme.wordmark?.textAlign).toBe("center");
       expect(theme.wordmark?.textTransform).toBe("none");
       expect(theme.wordmark?.whiteSpace).toBe("nowrap");
-      expect(["clip", "hidden"]).toContain(theme.wordmarkFrame?.overflow);
-      expect(Number.parseFloat(theme.wordmarkFrame?.paddingTop ?? "0")).toBeGreaterThan(0);
-      expect(Number.parseFloat(theme.wordmarkFrame?.paddingBottom ?? "0")).toBeGreaterThan(0);
+      expect(["clip", "hidden"]).toContain(theme.wordmarkStage?.overflow);
+      expect(Number.parseFloat(theme.wordmarkStage?.paddingTop ?? "0")).toBeGreaterThan(0);
+      expect(Number.parseFloat(theme.wordmarkStage?.paddingBottom ?? "0")).toBeGreaterThan(0);
       expect(theme.layout.wordmarkMotion).toBe("motion");
       expect(theme.navLink?.color).toBe(theme.tokens.ink);
       expect(theme.utilityButton?.color).toBe(theme.tokens.ink);
@@ -243,7 +250,13 @@ test("global footer uses a flat responsive composition with newsletter-first ord
       expect(theme.layout.newsletterBeforeNavigation).toBe(true);
       expect(theme.layout.supportCount).toBe(0);
       expect(theme.layout.wordmarkCount).toBe(1);
-      expect(theme.layout.wordmark?.width).toBeCloseTo(theme.layout.inner?.width ?? 0, 0);
+      expect(theme.layout.wordmarkFrame?.width).toBeCloseTo(theme.layout.inner?.width ?? 0, 0);
+      expect(theme.layout.wordmarkRunway?.height ?? 0).toBeGreaterThanOrEqual(
+        viewport.height * (viewport.width <= 620 ? 1.75 : 1.95),
+      );
+      expect(theme.layout.wordmarkStage?.height ?? 0).toBeGreaterThanOrEqual(
+        viewport.height * 0.98,
+      );
       expect(theme.layout.wordmark?.top ?? 0).toBeLessThan(theme.layout.updates?.top ?? 0);
       expect(theme.overflowX).toBeLessThanOrEqual(1);
 
@@ -252,9 +265,6 @@ test("global footer uses a flat responsive composition with newsletter-first ord
         expect(theme.accordionTrigger?.color).toBe(theme.tokens.inkSoft);
         expect(theme.layout.updates?.top ?? 0).toBeLessThan(theme.layout.mobileGroups?.top ?? 0);
       } else {
-        expect(theme.layout.footer?.height ?? Number.POSITIVE_INFINITY).toBeLessThan(
-          viewport.height,
-        );
         expect(theme.layout.updates?.left ?? 0).toBeLessThan(theme.layout.nav?.left ?? 0);
         expect(theme.layout.updates?.top).toBeCloseTo(theme.layout.nav?.top ?? 0, 0);
       }
@@ -262,7 +272,7 @@ test("global footer uses a flat responsive composition with newsletter-first ord
   }
 });
 
-test("footer wordmark zoom follows scroll direction and respects reduced motion", async ({
+test("footer wordmark zoom follows runway progress and respects reduced motion", async ({
   page,
 }) => {
   const readMotion = () =>
@@ -272,6 +282,9 @@ test("footer wordmark zoom follows scroll direction and respects reduced motion"
         active: wordmark.getAttribute("data-scroll-zoom-active"),
         motion: wordmark.getAttribute("data-scroll-zoom-motion"),
         overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        progress: Number.parseFloat(
+          wordmark.getAttribute("data-scroll-zoom-progress") ?? "0",
+        ),
         scaleVariable: getComputedStyle(wordmark)
           .getPropertyValue("--site-footer-wordmark-scale")
           .trim(),
@@ -279,16 +292,18 @@ test("footer wordmark zoom follows scroll direction and respects reduced motion"
       };
     });
 
-  const positionFooterInViewport = () =>
-    page.evaluate(() => {
-      const footer = document.querySelector<HTMLElement>(".site-footer");
-      if (!footer) return;
-      window.scrollTo(0, Math.max(0, footer.offsetTop - window.innerHeight * 0.55));
-    });
+  const positionAtProgress = (progress: number) =>
+    page.evaluate((requestedProgress) => {
+      const runway = document.querySelector<HTMLElement>(".site-footer__wordmark-runway");
+      if (!runway) return;
+      const top = runway.getBoundingClientRect().top + window.scrollY;
+      const distance = Math.max(0, runway.offsetHeight - window.innerHeight);
+      window.scrollTo(0, top + distance * Math.min(1, Math.max(0, requestedProgress)));
+    }, progress);
 
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
-  await positionFooterInViewport();
+  await positionAtProgress(0);
   await expect(page.locator(".site-footer__wordmark")).toHaveAttribute(
     "data-scroll-zoom-active",
     "true",
@@ -298,34 +313,44 @@ test("footer wordmark zoom follows scroll direction and respects reduced motion"
     "motion",
   );
 
+  await page.waitForTimeout(300);
   const initial = await readMotion();
-  await page.mouse.wheel(0, 260);
-  await page.waitForTimeout(450);
-  const downward = await readMotion();
-  await page.mouse.wheel(0, -520);
-  await page.waitForTimeout(450);
-  const upward = await readMotion();
+  await positionAtProgress(0.5);
+  await page.waitForTimeout(350);
+  const middle = await readMotion();
+  await positionAtProgress(1);
+  await page.waitForTimeout(350);
+  const complete = await readMotion();
+  await positionAtProgress(0.25);
+  await page.waitForTimeout(350);
+  const reverse = await readMotion();
   const initialScale = scaleFromTransform(initial.transform);
-  const downwardScale = scaleFromTransform(downward.transform);
-  const upwardScale = scaleFromTransform(upward.transform);
+  const middleScale = scaleFromTransform(middle.transform);
+  const completeScale = scaleFromTransform(complete.transform);
+  const reverseScale = scaleFromTransform(reverse.transform);
 
-  expect(initialScale).toBeGreaterThanOrEqual(0.999);
-  expect(initialScale).toBeLessThanOrEqual(1.001);
-  expect(downwardScale).toBeLessThan(initialScale - 0.004);
-  expect(upwardScale).toBeGreaterThan(downwardScale + 0.008);
-  expect(downwardScale).toBeGreaterThanOrEqual(0.959);
-  expect(upwardScale).toBeLessThanOrEqual(1.061);
-  expect(upward.overflow).toBeLessThanOrEqual(1);
+  expect(initialScale).toBeGreaterThanOrEqual(0.515);
+  expect(initialScale).toBeLessThanOrEqual(0.535);
+  expect(middleScale).toBeGreaterThan(initialScale + 0.18);
+  expect(middleScale).toBeLessThan(completeScale - 0.18);
+  expect(completeScale).toBeGreaterThanOrEqual(0.985);
+  expect(completeScale).toBeLessThanOrEqual(1.001);
+  expect(reverseScale).toBeLessThan(middleScale - 0.08);
+  expect(initial.progress).toBeCloseTo(0, 1);
+  expect(middle.progress).toBeCloseTo(0.5, 1);
+  expect(complete.progress).toBeCloseTo(1, 1);
+  expect(reverse.progress).toBeCloseTo(0.25, 1);
+  expect(reverse.overflow).toBeLessThanOrEqual(1);
 
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.reload();
-  await positionFooterInViewport();
+  await page.locator(".site-footer").scrollIntoViewIfNeeded();
   await expect(page.locator(".site-footer__wordmark")).toHaveAttribute(
     "data-scroll-zoom-motion",
     "static",
   );
   const reducedStart = await readMotion();
-  await page.mouse.wheel(0, 260);
+  await page.mouse.wheel(0, 400);
   await page.waitForTimeout(300);
   const reducedAfter = await readMotion();
   expect(
@@ -333,23 +358,30 @@ test("footer wordmark zoom follows scroll direction and respects reduced motion"
       scaleFromTransform(reducedAfter.transform) - scaleFromTransform(reducedStart.transform),
     ),
   ).toBeLessThan(0.002);
+  expect(scaleFromTransform(reducedStart.transform)).toBeCloseTo(1, 2);
+  const reducedRunwayHeight = await page
+    .locator(".site-footer__wordmark-runway")
+    .evaluate((runway) => runway.getBoundingClientRect().height);
+  expect(reducedRunwayHeight).toBeLessThan(450);
 
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.reload();
-  await positionFooterInViewport();
+  await positionAtProgress(0);
   await expect(page.locator(".site-footer__wordmark")).toHaveAttribute(
     "data-scroll-zoom-motion",
     "motion",
   );
+  await page.waitForTimeout(300);
   const mobileStart = await readMotion();
-  await page.mouse.wheel(0, 180);
-  await page.waitForTimeout(450);
-  const mobileDownward = await readMotion();
-  expect(scaleFromTransform(mobileDownward.transform)).toBeLessThan(
-    scaleFromTransform(mobileStart.transform) - 0.003,
+  await positionAtProgress(1);
+  await page.waitForTimeout(350);
+  const mobileComplete = await readMotion();
+  expect(scaleFromTransform(mobileComplete.transform)).toBeGreaterThan(
+    scaleFromTransform(mobileStart.transform) + 0.4,
   );
-  expect(mobileDownward.overflow).toBeLessThanOrEqual(1);
+  expect(scaleFromTransform(mobileComplete.transform)).toBeLessThanOrEqual(1.001);
+  expect(mobileComplete.overflow).toBeLessThanOrEqual(1);
 });
 
 test("footer keyboard focus remains visible on the light surface", async ({ page }) => {
@@ -432,8 +464,8 @@ test("mobile footer accordions and cookie preferences are keyboard reachable", a
   const dialog = page.getByRole("dialog", { name: "Cookie Preferences" });
   await expect(dialog).toBeVisible();
   await expect(dialog).toContainText("Essential cookies");
-  await dialog.getByRole("button", { name: "Save essential preference" }).click();
-  await expect(dialog.getByRole("status")).toContainText("Essential-only preference saved.");
+  await dialog.getByRole("button", { name: "Save current preference" }).click();
+  await expect(dialog.getByRole("status")).toContainText("Current preference saved.");
   await dialog.getByRole("button", { name: "Done" }).click();
   await expect(dialog).toHaveCount(0);
 });

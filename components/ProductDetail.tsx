@@ -2,7 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { AfterpayMessaging } from "@/components/AfterpayMessaging";
 import { useCart } from "@/components/CartProvider";
+import { ProductEndorsementRail } from "@/components/ProductEndorsementRail";
 import { ProductImage } from "@/components/ProductImage";
 import { WaitlistButton } from "@/components/WaitlistButton";
 import {
@@ -21,6 +23,7 @@ import {
 } from "@/lib/catalog/product-reviews";
 import { formatPrice, type Product, type ProductMedia } from "@/lib/products";
 import type { CartPlaceholderMedia } from "@/lib/cart/types";
+import { productEndorsementMedia } from "@/lib/content/product-endorsements";
 
 function fallbackGalleryPanels(swatch: [string, string]): Array<[string, string]> {
   const [a, b] = swatch;
@@ -280,11 +283,13 @@ export function ProductDetail({
   related = [],
   content = getProductPdpContent(product.slug),
   reviews = getProductReviews(product.slug),
+  stripePublishableKey = null,
 }: {
   product: Product;
   related?: Product[];
   content?: ProductPdpContent;
   reviews?: ProductReviews;
+  stripePublishableKey?: string | null;
 }) {
   const { add } = useCart();
   const fallbackPanels = fallbackGalleryPanels(product.swatch);
@@ -490,6 +495,13 @@ export function ProductDetail({
               <WaitlistButton className="btn" label="Join the waitlist" />
             )}
           </div>
+          {isAvailable && variant && (
+            <AfterpayMessaging
+              amount={variant.price}
+              currency={product.currency}
+              publishableKey={stripePublishableKey}
+            />
+          )}
           <p className="add-feedback" role="status" aria-live="polite">
             {added ? "Added to cart" : addError}
           </p>
@@ -613,34 +625,70 @@ export function ProductDetail({
         </div>
       </div>
 
+      <ProductEndorsementRail items={productEndorsementMedia} />
+
       <div
         className="pdp-sticky-purchase"
         data-visible={stickyVisible}
         aria-hidden={!stickyVisible}
       >
-        <div>
-          <span>{routineLabel}</span>
-          <strong>{product.displayName}</strong>
-          <small>{variant?.label ?? product.productType}</small>
-        </div>
-        <span>{variant ? formatPrice(variant.price) : "—"}</span>
-        {isAvailable && variant ? (
-          <button
-            type="button"
-            className="btn"
-            onClick={() => void handleAdd()}
-            disabled={pending}
-            tabIndex={stickyVisible ? undefined : -1}
-          >
-            {pending ? "Adding" : "Add"}
-          </button>
-        ) : (
-          <WaitlistButton
-            className="btn"
-            label="Waitlist"
-            tabIndex={stickyVisible ? undefined : -1}
+        <div className="pdp-sticky-purchase__identity">
+          <ProductImage
+            media={product.cartMedia ?? product.cardMedia}
+            swatch={product.swatch}
+            className="pdp-sticky-purchase__media"
+            imageClassName="pdp-sticky-purchase__image"
+            sizes="64px"
           />
-        )}
+          <span className="pdp-sticky-purchase__identity-copy">
+            <span>{routineLabel}</span>
+            <strong title={product.displayName}>{product.displayName}</strong>
+            <small>{product.productType}</small>
+          </span>
+        </div>
+        <div
+          className="pdp-sticky-purchase__variants"
+          role="group"
+          aria-label={`${product.displayName} sticky size options`}
+        >
+          {product.variants.map((option) => (
+            <button
+              key={option.id}
+              type="button"
+              aria-pressed={option.id === variantId}
+              disabled={!option.available}
+              tabIndex={stickyVisible ? undefined : -1}
+              onClick={() => setVariantId(option.id)}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+        <div className="pdp-sticky-purchase__action">
+          <span>{variant ? formatPrice(variant.price) : "—"}</span>
+          {isAvailable && variant ? (
+            <button
+              type="button"
+              className="btn"
+              onClick={() => void handleAdd()}
+              disabled={pending}
+              tabIndex={stickyVisible ? undefined : -1}
+              aria-label={`Add ${product.displayName} to cart — ${formatPrice(variant.price)}`}
+            >
+              {pending
+                ? "Adding"
+                : added
+                  ? "Added"
+                  : `Add — ${formatPrice(variant.price)}`}
+            </button>
+          ) : (
+            <WaitlistButton
+              className="btn"
+              label="Join the waitlist"
+              tabIndex={stickyVisible ? undefined : -1}
+            />
+          )}
+        </div>
       </div>
 
       <section className="pdp-sections" aria-label={`${product.displayName} details`}>
@@ -717,8 +765,8 @@ export function ProductDetail({
       </section>
 
       <ProductDiscoveryRail current={product} products={related} />
-      <ProductReviewsSection product={product} reviews={reviews} />
       <span ref={bottomSentinelRef} className="pdp-bottom-sentinel" aria-hidden="true" />
+      <ProductReviewsSection product={product} reviews={reviews} />
     </>
   );
 }

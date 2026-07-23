@@ -6,7 +6,7 @@ const COOKIE_NAME = "mei_pelle_cookie_preferences";
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 
 function writeEssentialPreference() {
-  document.cookie = `${COOKIE_NAME}=essential-only; Max-Age=${COOKIE_MAX_AGE}; Path=/; SameSite=Lax`;
+  document.cookie = `${COOKIE_NAME}=required-and-payment-functional; Max-Age=${COOKIE_MAX_AGE}; Path=/; SameSite=Lax`;
 }
 
 export function CookiePreferencesDialog({
@@ -103,9 +103,11 @@ export function CookiePreferencesDialog({
               </button>
             </div>
             <p id={descriptionId}>
-              Mei Pelle currently uses essential cookies only: Supabase
-              authentication cookies, the guest-cart token, and this preference
-              acknowledgement.
+              Mei Pelle uses essential cookies for authentication, guest-cart
+              continuity, and this preference acknowledgement. Stripe may use
+              functional storage when payment-method messaging loads on an
+              eligible product page. Optional analytics and advertising
+              categories are not active.
             </p>
             <div className="cookie-dialog__category">
               <div>
@@ -116,6 +118,16 @@ export function CookiePreferencesDialog({
                 </p>
               </div>
               <span>Always on</span>
+            </div>
+            <div className="cookie-dialog__category">
+              <div>
+                <h3>Payment messaging</h3>
+                <p>
+                  Stripe may use functional storage to determine and display
+                  eligible payment-method information on product pages.
+                </p>
+              </div>
+              <span>Active when eligible</span>
             </div>
             <div className="cookie-dialog__category cookie-dialog__category--inactive">
               <div>
@@ -129,7 +141,7 @@ export function CookiePreferencesDialog({
             </div>
             {saved && (
               <p className="cookie-dialog__status" role="status">
-                Essential-only preference saved.
+                Current preference saved.
               </p>
             )}
             <div className="cookie-dialog__actions">
@@ -141,7 +153,7 @@ export function CookiePreferencesDialog({
                   setSaved(true);
                 }}
               >
-                Save essential preference
+                Save current preference
               </button>
               <button
                 type="button"

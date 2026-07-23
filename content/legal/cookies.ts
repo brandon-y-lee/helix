@@ -23,10 +23,11 @@ export const cookieCategories: CookieCategory[] = [
   },
   {
     category: "Functional",
-    active: false,
-    examples: ["No separate locale, region, or personalization preference storage is implemented."],
-    purpose: "Not currently active.",
-    optional: true,
+    active: true,
+    examples: ["Stripe Payment Method Messaging Element storage on eligible product pages"],
+    purpose:
+      "Let Stripe determine eligibility and render current payment-method information without Mei Pelle calculating or promising installment terms.",
+    optional: false,
   },
   {
     category: "Analytics",
@@ -50,7 +51,7 @@ export const cookiePolicy: LegalDocument = {
   description:
     "Current cookie and browser-storage behavior for the Mei Pelle website.",
   canonical: "/cookie-policy",
-  status: "Last updated June 24, 2026",
+  status: "Last updated July 23, 2026",
   intro:
     "This policy documents the cookie categories currently reflected in the application code. Optional analytics and advertising cookies are not implemented.",
   sections: [
@@ -65,7 +66,7 @@ export const cookiePolicy: LegalDocument = {
       id: "current-categories",
       title: "Current Categories",
       body: [
-        "The current site uses essential cookies for Supabase authentication, server-backed guest carts, and cookie-preference acknowledgement. No optional analytics or advertising categories are active.",
+        "The current site uses essential cookies for Supabase authentication, server-backed guest carts, and cookie-preference acknowledgement. Stripe may use functional cookies or similar storage when its payment-method messaging loads on eligible product pages. No optional analytics or advertising categories are active.",
       ],
     },
     {
@@ -79,7 +80,7 @@ export const cookiePolicy: LegalDocument = {
       id: "preferences",
       title: "Cookie Preferences",
       body: [
-        "Because only essential categories are active, Cookie Preferences offers an essential-only acknowledgement rather than inactive analytics or advertising toggles.",
+        "Cookie Preferences documents the required account, cart, and payment-messaging storage currently in use. Optional analytics and advertising categories are inactive, so there are no optional toggles to save.",
       ],
     },
     {

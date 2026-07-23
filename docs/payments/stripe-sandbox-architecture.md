@@ -1,6 +1,6 @@
 # Stripe Sandbox Checkout Architecture
 
-Date: 2026-06-25
+Date: 2026-07-23
 
 Mei Pelle Checkout is sandbox-only. Live Stripe keys, live Stripe events, live
 Checkout Sessions, real fulfillment, shipping labels, live customer
@@ -20,6 +20,9 @@ approval explicitly enables them.
 - Refunds: https://docs.stripe.com/refunds
 - Test cards: https://docs.stripe.com/testing
 - Stripe CLI webhook forwarding: https://docs.stripe.com/stripe-cli
+- Dynamic payment methods: https://docs.stripe.com/payments/payment-methods/dynamic-payment-methods
+- Afterpay/Clearpay: https://docs.stripe.com/payments/afterpay-clearpay
+- Payment Method Messaging Element: https://docs.stripe.com/elements/payment-method-messaging
 
 ## Runtime Contract
 
@@ -55,6 +58,25 @@ The browser posts to `/api/checkout/sessions`. The server:
 Stripe is not the catalog source of truth. Stripe metadata contains internal IDs
 and environment markers only, never addresses or payment-card data.
 
+## Afterpay/Clearpay
+
+Checkout Sessions omit `payment_method_types`, so Stripe's test-mode dynamic
+payment-method configuration determines which eligible methods appear. This
+preserves card and wallet support while allowing `afterpay_clearpay` only when
+the Stripe account, customer, USD amount, and US checkout context are eligible.
+The application does not calculate installment terms.
+
+Active product PDPs can render Stripe's Payment Method Messaging Element beneath
+the primary purchase action. The element receives the selected catalog variant's
+integer-cent price and `USD` currency from the server-rendered product model and
+is restricted to `afterpay_clearpay`. It is not mounted when sandbox Checkout is
+incompletely configured, the publishable key is missing or not `pk_test_*`, the
+product is unavailable, or the amount is invalid.
+
+Test-mode account onboarding and the test-mode Payment methods configuration
+must both permit Afterpay/Clearpay before either Checkout or product messaging
+can display it. Do not alter live-mode payment-method settings.
+
 ## Webhook And Finalization
 
 `/api/webhooks/stripe` reads the unmodified raw body, verifies the
@@ -74,6 +96,12 @@ the redirect alone is not fulfillment. Finalization verifies sandbox mode,
 currency, totals, and order state before marking an order paid, awarding purchase
 points once, creating private-feedback eligibility, qualifying referrals, and
 removing only purchased cart quantities.
+
+Completed Sessions with an unpaid status remain processing and do not clear the
+cart. A customer cancellation expires an open Stripe Session before releasing
+the pending order, reward reservation, or referral attribution. New webhook
+audit rows retain event and object identifiers rather than full provider
+payloads.
 
 ## Operational Notes
 

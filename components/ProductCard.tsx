@@ -88,6 +88,7 @@ export type ProductCardImageOverride = {
   width: number;
   height: number;
   objectPosition?: string;
+  presentation?: "cutout" | "full-frame";
   priority?: boolean;
   sizes?: string;
 };
@@ -401,12 +402,16 @@ export function ProductCard({
             className="product-card__image product-card__image--asset"
             data-media-kind="image"
             data-product-card-default-image="true"
+            data-product-card-image-presentation={
+              defaultImage.presentation ?? "cutout"
+            }
             style={defaultImageStyle}
           >
             <Image
               src={defaultImage.src}
               alt={defaultImage.alt}
-              fill
+              width={defaultImage.width}
+              height={defaultImage.height}
               sizes={cardImageSizes}
               priority={defaultImage.priority}
               className="product-card__img product-card__img--asset"

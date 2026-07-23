@@ -226,9 +226,31 @@ describe("homepage Core Three positioning", () => {
       decodeURIComponent(node.querySelector("img")?.getAttribute("src") ?? ""),
     );
     expect(coreDefaultImages).toHaveLength(3);
-    expect(coreDefaultImages[0]).toContain("/media/home/cleanse-home-card.webp");
-    expect(coreDefaultImages[1]).toContain("/media/home/treat-home-card.webp");
-    expect(coreDefaultImages[2]).toContain("/media/home/seal-home-card.webp");
+    expect(coreDefaultImages[0]).toContain("/media/home/cleanse-core-card.webp");
+    expect(coreDefaultImages[1]).toContain("/media/home/treat-core-card.webp");
+    expect(coreDefaultImages[2]).toContain("/media/home/seal-core-card.webp");
+    const coreDefaultImageFrames = Array.from(
+      core.querySelectorAll<HTMLElement>("[data-product-card-default-image='true']"),
+    );
+    expect(
+      coreDefaultImageFrames.map((node) =>
+        node.getAttribute("data-product-card-image-presentation"),
+      ),
+    ).toEqual(["full-frame", "full-frame", "full-frame"]);
+    expect(
+      coreDefaultImageFrames.map((node) => {
+        const image = node.querySelector("img");
+        return {
+          alt: image?.getAttribute("alt"),
+          height: image?.getAttribute("height"),
+          width: image?.getAttribute("width"),
+        };
+      }),
+    ).toEqual([
+      { alt: "CLEANSE product bottle.", height: "1650", width: "1200" },
+      { alt: "TREAT product bottle.", height: "1867", width: "1400" },
+      { alt: "SEAL product jar.", height: "1867", width: "1400" },
+    ]);
     expect(
       Array.from(core.querySelectorAll<HTMLElement>(".product-card__image--hover")).map((node) =>
         node.getAttribute("data-media-kind"),
@@ -493,7 +515,7 @@ describe("homepage Core Three positioning", () => {
       expect(link.getAttribute("href")).not.toContain("/method");
     }
 
-    const final = sectionForHeading("Invest in your skin's future.");
+    const final = sectionForHeading("It’s time to invest in your skin");
     expect(
       within(final).getByText("Three steps, one order, repeatable morning or night."),
     ).toBeInTheDocument();

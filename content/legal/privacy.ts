@@ -6,7 +6,7 @@ export const privacyPolicy: LegalDocument = {
   description:
     "How Mei Pelle handles account, cart, search, sandbox checkout, rewards, referral, private-feedback, cookie, support-intake, and provider data.",
   canonical: "/privacy",
-  status: "Last updated June 24, 2026",
+  status: "Last updated July 23, 2026",
   intro:
     "This Privacy Policy explains how Mei Pelle handles information through this website. It reflects the account, cart, search, sandbox checkout, rewards, referral, private-feedback, cookie, and support-intake behavior implemented for the current site.",
   sections: [
@@ -37,6 +37,7 @@ export const privacyPolicy: LegalDocument = {
         "Supabase authentication uses cookies to maintain sessions.",
         "Guest carts use a high-entropy HttpOnly cookie named mei_pelle_guest_cart. The server stores only a hashed version of the guest token with cart records.",
         "Product search sends the search term to the configured Algolia index from the browser and receives storefront product records in response.",
+        "Eligible product pages load Stripe's Payment Method Messaging Element. Stripe may receive technical data such as an IP address, browser details, cookies, and interactions needed to determine eligibility and render current payment-method information.",
         "Vercel, Next.js, Supabase, Algolia, and Google Fonts may process technical request data needed to host, secure, operate, and display the site.",
       ],
     },
@@ -52,7 +53,7 @@ export const privacyPolicy: LegalDocument = {
       id: "providers",
       title: "Service Providers",
       body: [
-        "Current providers reflected in the codebase include Supabase for authentication, profile, catalog, cart, order, reward, referral, and private-feedback data; Stripe for sandbox Checkout and payment status; Algolia for product search; Vercel and Next.js for hosting and application delivery; and Google Fonts for web font delivery.",
+        "Current providers reflected in the codebase include Supabase for authentication, profile, catalog, cart, order, reward, referral, and private-feedback data; Stripe for sandbox Checkout, payment status, and eligible product-page payment-method messaging; Algolia for product search; Vercel and Next.js for hosting and application delivery; and Google Fonts for web font delivery.",
         "Trustpilot is documented as a future neutral invitation boundary only. Sandbox orders do not send real Trustpilot invitations, and reward points are never conditioned on Trustpilot activity.",
         "Providers process information only as needed to provide their services to Mei Pelle, subject to their own terms and privacy practices.",
       ],
@@ -61,7 +62,7 @@ export const privacyPolicy: LegalDocument = {
       id: "cookies",
       title: "Cookies and Browser Storage",
       body: [
-        "Essential cookies support authentication, guest cart continuity, cookie-preference state, and security. Optional analytics and advertising categories are not active.",
+        "Essential cookies support authentication, guest cart continuity, cookie-preference state, and security. Stripe may use cookies or similar technical storage when its payment-method messaging loads on eligible product pages. Optional analytics and advertising categories are not active.",
         "You can review the Cookie Policy and Cookie Preferences controls from the footer.",
       ],
     },

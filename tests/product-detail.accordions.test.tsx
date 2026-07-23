@@ -12,6 +12,25 @@ vi.mock("@/components/CartProvider", () => ({
   useCart: () => cartMock,
 }));
 
+vi.mock("@/components/AfterpayMessaging", () => ({
+  AfterpayMessaging: ({
+    amount,
+    currency,
+    publishableKey,
+  }: {
+    amount: number;
+    currency: string;
+    publishableKey: string | null;
+  }) =>
+    publishableKey ? (
+      <div
+        data-testid="afterpay-messaging-boundary"
+        data-amount={amount}
+        data-currency={currency}
+      />
+    ) : null,
+}));
+
 function makeProduct(overrides: Partial<Product> = {}): Product {
   const base: Product = {
     id: "33333333-3333-4333-8333-333333333333",
@@ -194,5 +213,73 @@ describe("ProductDetail purchase accordions", () => {
       }),
     ).toHaveAttribute("value", "87");
     expect(screen.queryByText(/Verified Buyer/i)).not.toBeInTheDocument();
+  });
+
+  it("keeps selected server product pricing in sync with main messaging and sticky controls", async () => {
+    const user = userEvent.setup();
+    const base = makeProduct();
+    const secondVariant = {
+      ...base.variants[0],
+      id: "30ml",
+      label: "30 mL",
+      price: 4200,
+      volume: "30 mL",
+      optionValues: { size: "30 mL" },
+      sortOrder: 1,
+    };
+    render(
+      <ProductDetail
+        product={makeProduct({ variants: [...base.variants, secondVariant] })}
+        stripePublishableKey="pk_test_product"
+      />,
+    );
+
+    const initialMessage = screen.getByTestId("afterpay-messaging-boundary");
+    const initialAdd = screen.getByRole("button", {
+      name: "Add to cart — $25.00",
+    });
+    expect(initialMessage).toHaveAttribute("data-amount", "2500");
+    expect(initialMessage).toHaveAttribute("data-currency", "USD");
+    expect(before(initialAdd, initialMessage)).toBe(true);
+    expect(document.querySelector(".pdp-sticky-purchase")).not.toContainElement(
+      initialMessage,
+    );
+    expect(screen.getAllByTestId("afterpay-messaging-boundary")).toHaveLength(1);
+
+    await user.click(screen.getByRole("button", { name: "30 mL" }));
+
+    expect(screen.getByTestId("afterpay-messaging-boundary")).toHaveAttribute(
+      "data-amount",
+      "4200",
+    );
+    expect(
+      screen.getByRole("button", { name: "Add to cart — $42.00" }),
+    ).toBeInTheDocument();
+    expect(
+      document.querySelector(
+        ".pdp-sticky-purchase__variants button[aria-pressed='true']",
+      ),
+    ).toHaveTextContent("30 mL");
+  });
+
+  it("does not mount payment messaging for an unavailable product", () => {
+    const base = makeProduct();
+    render(
+      <ProductDetail
+        product={makeProduct({
+          status: "sold_out",
+          variants: base.variants.map((variant) => ({
+            ...variant,
+            available: false,
+            inventoryStatus: "out_of_stock",
+          })),
+        })}
+        stripePublishableKey="pk_test_product"
+      />,
+    );
+
+    expect(
+      screen.queryByTestId("afterpay-messaging-boundary"),
+    ).not.toBeInTheDocument();
   });
 });

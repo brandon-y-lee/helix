@@ -149,6 +149,21 @@ export function checkoutAvailability(env: NodeJS.ProcessEnv = process.env): Chec
   }
 }
 
+export function stripeMessagingPublishableKey(
+  env: NodeJS.ProcessEnv = process.env,
+): string | null {
+  try {
+    readCheckoutConfig(env);
+  } catch {
+    return null;
+  }
+
+  const publishableKey = readEnv(env, "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY");
+  return publishableKey && isTestStripePublishableKey(publishableKey)
+    ? publishableKey
+    : null;
+}
+
 export function assertSandboxStripeObject(value: { livemode?: boolean | null }): void {
   if (value.livemode) {
     throw new CheckoutConfigError(

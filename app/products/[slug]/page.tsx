@@ -6,6 +6,7 @@ import {
   getCachedProduct,
   getCachedProducts,
 } from "@/lib/catalog-cache";
+import { stripeMessagingPublishableKey } from "@/lib/checkout/config";
 
 export async function generateStaticParams() {
   const products = await getCachedProducts();
@@ -43,7 +44,11 @@ export default async function ProductDetailPage({
 
   return (
     <div className="container">
-      <ProductDetail product={product} related={related} />
+      <ProductDetail
+        product={product}
+        related={related}
+        stripePublishableKey={stripeMessagingPublishableKey()}
+      />
     </div>
   );
 }

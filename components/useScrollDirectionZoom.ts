@@ -12,7 +12,9 @@ type ScrollDirectionZoomOptions = {
   restingScale: number;
   scrollDelta?: number;
   scrollDistanceViewports?: number;
+  scrollMode?: "direction" | "element-progress";
   staticMediaQuery?: string;
+  staticScale?: number;
 };
 
 const DEFAULT_SCROLL_DELTA = 8;
@@ -28,6 +30,10 @@ function clampProgress(value: number) {
   return Math.min(1, Math.max(-1, value));
 }
 
+function clampUnitProgress(value: number) {
+  return Math.min(1, Math.max(0, value));
+}
+
 export function useScrollDirectionZoom<T extends HTMLElement>({
   cssVariable,
   ease = DEFAULT_EASE,
@@ -38,7 +44,9 @@ export function useScrollDirectionZoom<T extends HTMLElement>({
   restingScale,
   scrollDelta = DEFAULT_SCROLL_DELTA,
   scrollDistanceViewports = DEFAULT_SCROLL_DISTANCE_VIEWPORTS,
+  scrollMode = "direction",
   staticMediaQuery,
+  staticScale = restingScale,
 }: ScrollDirectionZoomOptions) {
   const frameRef = useRef<T | null>(null);
 
@@ -66,6 +74,10 @@ export function useScrollDirectionZoom<T extends HTMLElement>({
     };
 
     const scaleForProgress = (progress: number) => {
+      if (scrollMode === "element-progress") {
+        return minScale + (maxScale - minScale) * clampUnitProgress(progress);
+      }
+
       if (progress >= 0) {
         return restingScale + (maxScale - restingScale) * progress;
       }
@@ -122,10 +134,10 @@ export function useScrollDirectionZoom<T extends HTMLElement>({
 
     const resetToRestingScale = () => {
       stopAnimation();
-      currentScale = restingScale;
-      targetScale = restingScale;
+      currentScale = isStatic() ? staticScale : restingScale;
+      targetScale = currentScale;
       targetProgress = 0;
-      setScale(restingScale);
+      setScale(currentScale);
     };
 
     const syncMotionPreference = () => {
@@ -146,6 +158,18 @@ export function useScrollDirectionZoom<T extends HTMLElement>({
       const nextActive = isNearViewport();
       setActive(nextActive);
 
+      if (scrollMode === "element-progress") {
+        if (isStatic()) return;
+
+        const rect = observedElement.getBoundingClientRect();
+        const scrollableDistance = Math.max(1, rect.height - window.innerHeight);
+        targetProgress = clampUnitProgress(-rect.top / scrollableDistance);
+        targetScale = scaleForProgress(targetProgress);
+        frame.dataset.scrollZoomProgress = targetProgress.toFixed(4);
+        scheduleScale();
+        return;
+      }
+
       if (
         !nextActive ||
         !wasActive ||
@@ -164,6 +188,7 @@ export function useScrollDirectionZoom<T extends HTMLElement>({
 
     syncMotionPreference();
     setActive(isNearViewport());
+    handleScroll();
 
     const observer = typeof IntersectionObserver === "undefined"
       ? null
@@ -182,11 +207,13 @@ export function useScrollDirectionZoom<T extends HTMLElement>({
     }
 
     window.addEventListener("scroll", handleScroll, { passive: true });
+    window.addEventListener("resize", handleScroll);
     motionQuery?.addEventListener("change", syncMotionPreference);
     staticQuery?.addEventListener("change", syncMotionPreference);
 
     return () => {
       window.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("resize", handleScroll);
       motionQuery?.removeEventListener("change", syncMotionPreference);
       staticQuery?.removeEventListener("change", syncMotionPreference);
       observer?.disconnect();
@@ -202,7 +229,9 @@ export function useScrollDirectionZoom<T extends HTMLElement>({
     restingScale,
     scrollDelta,
     scrollDistanceViewports,
+    scrollMode,
     staticMediaQuery,
+    staticScale,
   ]);
 
   return frameRef;

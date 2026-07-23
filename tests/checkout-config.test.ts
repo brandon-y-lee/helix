@@ -4,6 +4,7 @@ import {
   checkoutAvailability,
   readCheckoutConfig,
   assertSandboxStripeObject,
+  stripeMessagingPublishableKey,
 } from "@/lib/checkout/config";
 
 describe("sandbox checkout config", () => {
@@ -35,5 +36,21 @@ describe("sandbox checkout config", () => {
       readCheckoutConfig({ ...baseEnv, NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: "pk_live_123" }),
     ).toThrow(CheckoutConfigError);
     expect(() => assertSandboxStripeObject({ livemode: true })).toThrow(CheckoutConfigError);
+  });
+
+  it("exposes messaging only for a fully configured sandbox checkout", () => {
+    expect(stripeMessagingPublishableKey(baseEnv)).toBe("pk_test_123");
+    expect(
+      stripeMessagingPublishableKey({
+        ...baseEnv,
+        STRIPE_WEBHOOK_SECRET: undefined,
+      }),
+    ).toBeNull();
+    expect(
+      stripeMessagingPublishableKey({
+        ...baseEnv,
+        NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: "pk_live_blocked",
+      }),
+    ).toBeNull();
   });
 });

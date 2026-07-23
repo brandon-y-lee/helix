@@ -192,6 +192,82 @@ test("view cart closes immediately when already on the cart route", async ({
   await expect(page.getByText("CLEANSE").first()).toBeVisible();
 });
 
+test("PDP sticky purchase bar aligns to the content shell and clears the lower endpoint", async ({
+  page,
+}) => {
+  for (const viewport of [
+    { width: 1440, height: 900 },
+    { width: 390, height: 844 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await page.goto("/products/treat-03-pdrn-5-ampoule");
+    await page.evaluate(() => window.scrollTo(0, 0));
+
+    const sticky = page.locator(".pdp-sticky-purchase");
+    await expect(page.locator(".pdp-endorsements")).toHaveCount(0);
+    await expect(
+      page.getByRole("heading", { name: "Endorsed by familiar faces" }),
+    ).toHaveCount(0);
+    await page.locator(".pdp__actions").scrollIntoViewIfNeeded();
+    await expect(sticky).toHaveAttribute("data-visible", "false");
+    await expect(sticky).toHaveAttribute("aria-hidden", "true");
+
+    await page.locator(".pdp-sections").scrollIntoViewIfNeeded();
+    await expect(sticky).toHaveAttribute("data-visible", "true");
+    await expect(sticky).toHaveAttribute("aria-hidden", "false");
+    await page.waitForTimeout(300);
+
+    const geometry = await page.evaluate(() => {
+      const shell = document.querySelector<HTMLElement>(".pdp");
+      const bar = document.querySelector<HTMLElement>(".pdp-sticky-purchase");
+      if (!shell || !bar) return null;
+      const shellRect = shell.getBoundingClientRect();
+      const barRect = bar.getBoundingClientRect();
+      const style = getComputedStyle(bar);
+      return {
+        barBottom: barRect.bottom,
+        barLeft: barRect.left,
+        barRight: barRect.right,
+        bottomLeftRadius: style.borderBottomLeftRadius,
+        bottomRightRadius: style.borderBottomRightRadius,
+        childClasses: Array.from(bar.children).map((child) => child.className),
+        overflow:
+          document.documentElement.scrollWidth -
+          document.documentElement.clientWidth,
+        shellLeft: shellRect.left,
+        shellRight: shellRect.right,
+        topLeftRadius: Number.parseFloat(style.borderTopLeftRadius),
+        topRightRadius: Number.parseFloat(style.borderTopRightRadius),
+        viewportHeight: window.innerHeight,
+      };
+    });
+
+    expect(geometry).not.toBeNull();
+    expect(geometry?.barLeft).toBeCloseTo(geometry?.shellLeft ?? 0, 0);
+    expect(geometry?.barRight).toBeCloseTo(geometry?.shellRight ?? 0, 0);
+    expect(geometry?.barBottom).toBeCloseTo(geometry?.viewportHeight ?? 0, 0);
+    expect(geometry?.topLeftRadius).toBeGreaterThan(0);
+    expect(geometry?.topRightRadius).toBeGreaterThan(0);
+    expect(geometry?.bottomLeftRadius).toBe("0px");
+    expect(geometry?.bottomRightRadius).toBe("0px");
+    expect(geometry?.childClasses).toEqual([
+      "pdp-sticky-purchase__identity",
+      "pdp-sticky-purchase__variants",
+      "pdp-sticky-purchase__action",
+    ]);
+    expect(geometry?.overflow).toBeLessThanOrEqual(1);
+    await expect(
+      sticky.locator(".pdp-sticky-purchase__variants button[aria-pressed='true']"),
+    ).toHaveCount(1);
+    await expect(sticky.locator(".btn")).toBeVisible();
+    await expect(sticky.locator(".pdp-payment-message")).toHaveCount(0);
+
+    await page.locator(".pdp-bottom-sentinel").scrollIntoViewIfNeeded();
+    await expect(sticky).toHaveAttribute("data-visible", "false");
+    await expect(sticky).toHaveAttribute("aria-hidden", "true");
+  }
+});
+
 test("product detail purchase accordions sit beneath add to cart", async ({
   page,
 }) => {
