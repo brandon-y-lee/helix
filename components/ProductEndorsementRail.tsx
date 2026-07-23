@@ -4,19 +4,19 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
-  approvedProductEndorsements,
-  type ApprovedProductEndorsement,
+  validFamiliarFaceMedia,
+  type FamiliarFaceMedia,
 } from "@/lib/content/product-endorsements";
 
 export function ProductEndorsementRail({
   items,
 }: {
-  items: readonly ApprovedProductEndorsement[];
+  items: readonly FamiliarFaceMedia[];
 }) {
-  const approvedItems = useMemo(() => approvedProductEndorsements(items), [items]);
+  const familiarFaces = useMemo(() => validFamiliarFaceMedia(items), [items]);
   const railRef = useRef<HTMLUListElement>(null);
   const [canPrevious, setCanPrevious] = useState(false);
-  const [canNext, setCanNext] = useState(approvedItems.length > 1);
+  const [canNext, setCanNext] = useState(familiarFaces.length > 1);
 
   const syncControls = useCallback(() => {
     const rail = railRef.current;
@@ -44,7 +44,7 @@ export function ProductEndorsementRail({
     };
   }, [syncControls]);
 
-  if (approvedItems.length === 0) return null;
+  if (familiarFaces.length === 0) return null;
 
   function move(direction: "previous" | "next") {
     const rail = railRef.current;
@@ -89,7 +89,7 @@ export function ProductEndorsementRail({
         ref={railRef}
         className="pdp-endorsements__rail"
         tabIndex={0}
-        aria-label="Approved endorsement images"
+        aria-label="Familiar faces editorial images"
         onKeyDown={(event) => {
           if (event.key === "ArrowLeft" && canPrevious) {
             event.preventDefault();
@@ -100,18 +100,20 @@ export function ProductEndorsementRail({
           }
         }}
       >
-        {approvedItems.map((item) => {
+        {familiarFaces.map((item) => {
           const media = (
             <Image
               src={item.src}
               alt={item.alt}
               width={item.width}
               height={item.height}
+              loading="lazy"
               sizes="(max-width: 620px) 78vw, (max-width: 980px) 42vw, 30vw"
+              style={{ objectPosition: item.focalPosition }}
             />
           );
           return (
-            <li key={item.id}>
+            <li key={item.id} className="pdp-endorsements__item">
               {item.href ? <Link href={item.href}>{media}</Link> : media}
             </li>
           );

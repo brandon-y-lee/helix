@@ -3,18 +3,19 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ProductEndorsementRail } from "@/components/ProductEndorsementRail";
 import {
-  approvedProductEndorsements,
-  type ApprovedProductEndorsement,
+  productEndorsementMedia,
+  validFamiliarFaceMedia,
+  type FamiliarFaceMedia,
 } from "@/lib/content/product-endorsements";
 
-const approvedItems = [
+const familiarFaceItems = [
   {
     id: "portrait-one",
     src: "/media/campaign/portrait-one.webp",
     alt: "Editorial portrait in soft studio light.",
     width: 800,
     height: 1000,
-    approvedForEndorsement: true,
+    focalPosition: "50% 40%",
   },
   {
     id: "portrait-two",
@@ -22,7 +23,6 @@ const approvedItems = [
     alt: "Editorial skincare portrait against a neutral background.",
     width: 800,
     height: 1000,
-    approvedForEndorsement: true,
   },
   {
     id: "portrait-three",
@@ -30,9 +30,8 @@ const approvedItems = [
     alt: "Close editorial portrait with natural skin texture.",
     width: 800,
     height: 1000,
-    approvedForEndorsement: true,
   },
-] as const satisfies readonly ApprovedProductEndorsement[];
+] as const satisfies readonly FamiliarFaceMedia[];
 
 let clientWidthSpy: ReturnType<typeof vi.spyOn>;
 let scrollWidthSpy: ReturnType<typeof vi.spyOn>;
@@ -66,7 +65,7 @@ afterEach(() => {
 });
 
 describe("product endorsement rail", () => {
-  it("renders no empty section when there is no approved media", () => {
+  it("renders no empty section when there is no valid local media", () => {
     const { container } = render(<ProductEndorsementRail items={[]} />);
 
     expect(container).toBeEmptyDOMElement();
@@ -75,25 +74,33 @@ describe("product endorsement rail", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("filters unapproved or uncontrolled media before rendering", () => {
+  it("filters invalid or uncontrolled media before rendering", () => {
     const unsafeItems = [
-      approvedItems[0],
+      familiarFaceItems[0],
       {
-        ...approvedItems[1],
-        approvedForEndorsement: false,
+        ...familiarFaceItems[1],
+        alt: "",
       },
       {
-        ...approvedItems[2],
+        ...familiarFaceItems[2],
         src: "https://social.example/portrait.webp",
       },
-    ] as unknown as readonly ApprovedProductEndorsement[];
+    ] as unknown as readonly FamiliarFaceMedia[];
 
-    expect(approvedProductEndorsements(unsafeItems)).toEqual([approvedItems[0]]);
+    expect(validFamiliarFaceMedia(unsafeItems)).toEqual([familiarFaceItems[0]]);
   });
 
-  it("uses finite controls for approved project media without wraparound", async () => {
+  it("ships populated project-controlled media", () => {
+    expect(productEndorsementMedia).toHaveLength(4);
+    expect(productEndorsementMedia.every((item) => item.src.startsWith("/media/")))
+      .toBe(true);
+    expect(productEndorsementMedia.every((item) => !/https?:\/\//.test(item.src)))
+      .toBe(true);
+  });
+
+  it("uses finite controls for project media without wraparound", async () => {
     const user = userEvent.setup();
-    render(<ProductEndorsementRail items={approvedItems} />);
+    render(<ProductEndorsementRail items={familiarFaceItems} />);
 
     expect(
       screen.getByRole("heading", { name: "Endorsed by familiar faces" }),
@@ -105,7 +112,10 @@ describe("product endorsement rail", () => {
     expect(screen.getAllByRole("img").map((image) => image.getAttribute("src")))
       .toHaveLength(3);
     expect(screen.getAllByRole("img").map((image) => image.getAttribute("alt")))
-      .toEqual(approvedItems.map((item) => item.alt));
+      .toEqual(familiarFaceItems.map((item) => item.alt));
+    expect(screen.getAllByRole("img")[0]).toHaveStyle({
+      objectPosition: "50% 40%",
+    });
 
     await user.click(screen.getByRole("button", { name: /next endorsement/i }));
     expect(screen.getByRole("button", { name: /previous endorsement/i }))
@@ -116,7 +126,7 @@ describe("product endorsement rail", () => {
     expect(screen.queryByRole("button", { name: /next endorsement/i }))
       .not.toBeInTheDocument();
 
-    const rail = screen.getByRole("list", { name: "Approved endorsement images" });
+    const rail = screen.getByRole("list", { name: "Familiar faces editorial images" });
     expect(rail.scrollLeft).toBe(600);
     fireEvent.keyDown(rail, { key: "ArrowLeft" });
     expect(rail.scrollLeft).toBeLessThan(600);

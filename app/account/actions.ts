@@ -13,6 +13,10 @@ import {
   validatePassword,
   type AuthActionState,
 } from "@/lib/auth/validation";
+import {
+  isSupabaseNetworkError,
+  logSupabaseUnavailable,
+} from "@/lib/supabase/network";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 function originFromHeaders(headersList: Headers): string {
@@ -22,6 +26,24 @@ function originFromHeaders(headersList: Headers): string {
     process.env.VERCEL_URL?.replace(/^/, "https://") ??
     "http://localhost:3000"
   );
+}
+
+async function unavailableAuthState(
+  error: unknown,
+  operation: string,
+): Promise<AuthActionState | null> {
+  if (!isSupabaseNetworkError(error)) return null;
+  const headersList = await headers();
+  logSupabaseUnavailable(error, {
+    operation,
+    route: headersList.get("next-url") ?? "/account",
+    runtime: "nodejs",
+    requestId: headersList.get("x-request-id"),
+  });
+  return {
+    status: "error",
+    message: "Account services are temporarily unavailable. Try again.",
+  };
 }
 
 export async function signInAction(
@@ -44,6 +66,11 @@ export async function signInAction(
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) {
+    const unavailable = await unavailableAuthState(
+      error,
+      "auth.signInWithPassword",
+    );
+    if (unavailable) return unavailable;
     return {
       status: "error",
       message: "Email or password did not match. Check your details and try again.",
@@ -85,6 +112,8 @@ export async function signUpAction(
   });
 
   if (error) {
+    const unavailable = await unavailableAuthState(error, "auth.signUp");
+    if (unavailable) return unavailable;
     return {
       status: "error",
       message: signUpErrorMessage(error),
@@ -117,7 +146,16 @@ export async function forgotPasswordAction(
   const headersList = await headers();
   const redirectTo = `${originFromHeaders(headersList)}/auth/callback?next=${encodeURIComponent("/account/reset-password")}`;
   const supabase = await createSupabaseServerClient();
-  await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo,
+  });
+  if (error) {
+    const unavailable = await unavailableAuthState(
+      error,
+      "auth.resetPasswordForEmail",
+    );
+    if (unavailable) return unavailable;
+  }
 
   return {
     status: "success",
@@ -142,7 +180,15 @@ export async function updatePasswordAction(
   const supabase = await createSupabaseServerClient();
   const {
     data: { user },
+    error: userError,
   } = await supabase.auth.getUser();
+  if (userError) {
+    const unavailable = await unavailableAuthState(
+      userError,
+      "auth.getUser.updatePassword",
+    );
+    if (unavailable) return unavailable;
+  }
   if (!user) {
     return { status: "error", message: "This reset link is expired or invalid." };
   }
@@ -165,7 +211,15 @@ export async function updateProfileAction(
   const supabase = await createSupabaseServerClient();
   const {
     data: { user },
+    error: userError,
   } = await supabase.auth.getUser();
+  if (userError) {
+    const unavailable = await unavailableAuthState(
+      userError,
+      "auth.getUser.updateProfile",
+    );
+    if (unavailable) return unavailable;
+  }
   if (!user) {
     redirect("/account/sign-in?next=%2Faccount");
   }

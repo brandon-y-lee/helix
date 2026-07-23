@@ -2,6 +2,7 @@ import "server-only";
 
 import { createHash, randomBytes } from "node:crypto";
 import { cookies } from "next/headers";
+import { getCurrentIdentity } from "@/lib/auth/session";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { CartError, type CartLine, type CartState } from "@/lib/cart/types";
@@ -92,19 +93,15 @@ function newGuestToken(): string {
 }
 
 async function getUserId(): Promise<string | null> {
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  return user?.id ?? null;
+  return (await getCurrentIdentity())?.id ?? null;
 }
 
 async function getUserIdentity(): Promise<{ userId: string | null; email: string | null }> {
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  return { userId: user?.id ?? null, email: user?.email ?? null };
+  const identity = await getCurrentIdentity();
+  return {
+    userId: identity?.id ?? null,
+    email: identity?.email ?? null,
+  };
 }
 
 async function getGuestToken(create: boolean): Promise<string | null> {
@@ -502,12 +499,10 @@ export async function mergeGuestCartIntoCurrentUser(): Promise<void> {
   const token = cookieStore.get(GUEST_CART_COOKIE)?.value;
   if (!token) return;
 
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return;
+  const identity = await getCurrentIdentity();
+  if (!identity) return;
 
+  const supabase = await createSupabaseServerClient();
   const { error } = await supabase.rpc("merge_guest_cart", {
     p_guest_token_hash: hashGuestToken(token),
   });

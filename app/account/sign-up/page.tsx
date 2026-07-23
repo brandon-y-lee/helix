@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { SignUpForm } from "@/components/account/AccountForms";
-import { getCurrentUser } from "@/lib/auth/session";
+import { getCurrentUserForPublicPage } from "@/lib/auth/session";
 
 export const metadata: Metadata = {
   title: "Create account | Mei Pelle",
 };
 
 export default async function SignUpPage() {
-  const user = await getCurrentUser();
+  const user = await getCurrentUserForPublicPage();
   if (user) redirect("/account");
 
   return (

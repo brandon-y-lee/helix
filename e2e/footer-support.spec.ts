@@ -3,7 +3,10 @@ import { expect, test } from "@playwright/test";
 const footerPages = [
   "/",
   "/products",
+  "/products/cleanse-01-calming-gel-cleanser",
   "/products/treat-03-pdrn-5-ampoule",
+  "/products/seal-05-green-collagen-cream",
+  "/products/refine-02-pore-treatment-pads",
   "/system",
   "/about",
   "/cart",
@@ -29,9 +32,12 @@ const footerThemeRoutes = [
 
 const footerThemeViewports = [
   { width: 1920, height: 1080 },
+  { width: 1600, height: 1000 },
   { width: 1440, height: 900 },
   { width: 1024, height: 768 },
   { width: 768, height: 1024 },
+  // Matches the CSS viewport available at 200% zoom from 1440 x 900.
+  { width: 720, height: 450 },
   { width: 390, height: 844 },
   { width: 360, height: 800 },
 ] as const;
@@ -98,8 +104,7 @@ async function readFooterTheme(page: import("@playwright/test").Page) {
     const mobileGroups = footer.querySelector(".site-footer__mobile-groups");
     const wordmark = footer.querySelector(".site-footer__wordmark h2");
     const wordmarkFrame = footer.querySelector(".site-footer__wordmark");
-    const wordmarkRunway = footer.querySelector(".site-footer__wordmark-runway");
-    const wordmarkStage = footer.querySelector(".site-footer__wordmark-stage");
+    const wordmarkBand = footer.querySelector(".site-footer__wordmark-band");
     const inner = footer.querySelector(".site-footer__inner");
     const rectFor = (element: Element | null) => {
       const rect = element?.getBoundingClientRect();
@@ -128,7 +133,7 @@ async function readFooterTheme(page: import("@playwright/test").Page) {
       footer: styleFor(":scope"),
       inner: styleFor(".site-footer__inner"),
       wordmarkFrame: styleFor(".site-footer__wordmark"),
-      wordmarkStage: styleFor(".site-footer__wordmark-stage"),
+      wordmarkBand: styleFor(".site-footer__wordmark-band"),
       wordmark: styleFor(".site-footer__wordmark h2"),
       content: styleFor(".site-footer__content"),
       navHeading: styleFor(".site-footer__nav h3"),
@@ -149,8 +154,9 @@ async function readFooterTheme(page: import("@playwright/test").Page) {
         updates: rectFor(updates),
         wordmark: rectFor(wordmark),
         wordmarkFrame: rectFor(wordmarkFrame),
-        wordmarkRunway: rectFor(wordmarkRunway),
-        wordmarkStage: rectFor(wordmarkStage),
+        wordmarkBand: rectFor(wordmarkBand),
+        wordmarkRunwayCount: footer.querySelectorAll(".site-footer__wordmark-runway").length,
+        wordmarkStageCount: footer.querySelectorAll(".site-footer__wordmark-stage").length,
         newsletterBeforeNavigation: Boolean(
           primary &&
           updates &&
@@ -160,9 +166,7 @@ async function readFooterTheme(page: import("@playwright/test").Page) {
         ),
         supportCount: footer.querySelectorAll(".site-footer__support").length,
         wordmarkCount: footer.querySelectorAll(".site-footer__wordmark h2").length,
-        wordmarkMotion: footer
-          .querySelector(".site-footer__wordmark")
-          ?.getAttribute("data-scroll-zoom-motion"),
+        wordmarkMode: wordmarkBand?.getAttribute("data-scroll-zoom-mode"),
       },
       overflowX: document.documentElement.scrollWidth - document.documentElement.clientWidth,
     };
@@ -235,10 +239,10 @@ test("global footer uses a flat responsive composition with newsletter-first ord
       expect(theme.wordmark?.textAlign).toBe("center");
       expect(theme.wordmark?.textTransform).toBe("none");
       expect(theme.wordmark?.whiteSpace).toBe("nowrap");
-      expect(["clip", "hidden"]).toContain(theme.wordmarkStage?.overflow);
-      expect(Number.parseFloat(theme.wordmarkStage?.paddingTop ?? "0")).toBeGreaterThan(0);
-      expect(Number.parseFloat(theme.wordmarkStage?.paddingBottom ?? "0")).toBeGreaterThan(0);
-      expect(theme.layout.wordmarkMotion).toBe("motion");
+      expect(["clip", "hidden"]).toContain(theme.wordmarkBand?.overflow);
+      expect(Number.parseFloat(theme.wordmarkBand?.paddingTop ?? "0")).toBeGreaterThan(0);
+      expect(Number.parseFloat(theme.wordmarkBand?.paddingBottom ?? "0")).toBeGreaterThan(0);
+      expect(theme.layout.wordmarkMode).toBe("view-timeline");
       expect(theme.navLink?.color).toBe(theme.tokens.ink);
       expect(theme.utilityButton?.color).toBe(theme.tokens.ink);
       expect(theme.navHeading?.color).toBe(theme.tokens.inkSoft);
@@ -251,12 +255,14 @@ test("global footer uses a flat responsive composition with newsletter-first ord
       expect(theme.layout.supportCount).toBe(0);
       expect(theme.layout.wordmarkCount).toBe(1);
       expect(theme.layout.wordmarkFrame?.width).toBeCloseTo(theme.layout.inner?.width ?? 0, 0);
-      expect(theme.layout.wordmarkRunway?.height ?? 0).toBeGreaterThanOrEqual(
-        viewport.height * (viewport.width <= 620 ? 1.75 : 1.95),
-      );
-      expect(theme.layout.wordmarkStage?.height ?? 0).toBeGreaterThanOrEqual(
-        viewport.height * 0.98,
-      );
+      expect(theme.layout.wordmarkRunwayCount).toBe(0);
+      expect(theme.layout.wordmarkStageCount).toBe(0);
+      expect(theme.layout.wordmarkBand?.height ?? Number.POSITIVE_INFINITY)
+        .toBeLessThan(viewport.height * 0.65);
+      expect((theme.layout.updates?.top ?? 0) - (theme.layout.wordmarkBand?.bottom ?? 0))
+        .toBeGreaterThanOrEqual(24);
+      expect((theme.layout.updates?.top ?? 0) - (theme.layout.wordmarkBand?.bottom ?? 0))
+        .toBeLessThanOrEqual(84);
       expect(theme.layout.wordmark?.top ?? 0).toBeLessThan(theme.layout.updates?.top ?? 0);
       expect(theme.overflowX).toBeLessThanOrEqual(1);
 
@@ -272,115 +278,99 @@ test("global footer uses a flat responsive composition with newsletter-first ord
   }
 });
 
-test("footer wordmark zoom follows runway progress and respects reduced motion", async ({
+test("footer wordmark shrinks through its normal-flow passage and respects reduced motion", async ({
   page,
 }) => {
   const readMotion = () =>
-    page.locator(".site-footer__wordmark").evaluate((wordmark) => {
-      const heading = wordmark.querySelector("h2");
+    page.locator(".site-footer__wordmark-band").evaluate((band) => {
+      const wordmark = band.querySelector(".site-footer__wordmark");
+      const heading = wordmark?.querySelector("h2");
       return {
-        active: wordmark.getAttribute("data-scroll-zoom-active"),
-        motion: wordmark.getAttribute("data-scroll-zoom-motion"),
+        bandPosition: getComputedStyle(band).position,
+        bandTop: band.getBoundingClientRect().top,
+        mode: band.getAttribute("data-scroll-zoom-mode"),
         overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
-        progress: Number.parseFloat(
-          wordmark.getAttribute("data-scroll-zoom-progress") ?? "0",
-        ),
-        scaleVariable: getComputedStyle(wordmark)
-          .getPropertyValue("--site-footer-wordmark-scale")
-          .trim(),
         transform: heading ? getComputedStyle(heading).transform : "none",
       };
     });
 
-  const positionAtProgress = (progress: number) =>
-    page.evaluate((requestedProgress) => {
-      const runway = document.querySelector<HTMLElement>(".site-footer__wordmark-runway");
-      if (!runway) return;
-      const top = runway.getBoundingClientRect().top + window.scrollY;
-      const distance = Math.max(0, runway.offsetHeight - window.innerHeight);
-      window.scrollTo(0, top + distance * Math.min(1, Math.max(0, requestedProgress)));
-    }, progress);
+  const positionBandAtViewportRatio = (viewportRatio: number) =>
+    page.evaluate((ratio) => {
+      const band = document.querySelector<HTMLElement>(".site-footer__wordmark-band");
+      if (!band) return;
+      const documentTop = band.getBoundingClientRect().top + window.scrollY;
+      window.scrollTo(0, documentTop - window.innerHeight * ratio);
+    }, viewportRatio);
 
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
-  await positionAtProgress(0);
-  await expect(page.locator(".site-footer__wordmark")).toHaveAttribute(
-    "data-scroll-zoom-active",
-    "true",
+  await expect(page.locator(".site-footer__wordmark-band")).toHaveAttribute(
+    "data-scroll-zoom-mode",
+    "view-timeline",
   );
-  await expect(page.locator(".site-footer__wordmark")).toHaveAttribute(
-    "data-scroll-zoom-motion",
-    "motion",
-  );
+  await expect(page.locator(".site-footer__wordmark-runway")).toHaveCount(0);
+  await expect(page.locator(".site-footer__wordmark-stage")).toHaveCount(0);
 
-  await page.waitForTimeout(300);
+  await positionBandAtViewportRatio(0.95);
+  await page.waitForTimeout(80);
   const initial = await readMotion();
-  await positionAtProgress(0.5);
-  await page.waitForTimeout(350);
+  await positionBandAtViewportRatio(0.45);
+  await page.waitForTimeout(80);
   const middle = await readMotion();
-  await positionAtProgress(1);
-  await page.waitForTimeout(350);
+  await positionBandAtViewportRatio(-0.05);
+  await page.waitForTimeout(80);
   const complete = await readMotion();
-  await positionAtProgress(0.25);
-  await page.waitForTimeout(350);
+  await positionBandAtViewportRatio(0.45);
+  await page.waitForTimeout(80);
   const reverse = await readMotion();
   const initialScale = scaleFromTransform(initial.transform);
   const middleScale = scaleFromTransform(middle.transform);
   const completeScale = scaleFromTransform(complete.transform);
   const reverseScale = scaleFromTransform(reverse.transform);
 
-  expect(initialScale).toBeGreaterThanOrEqual(0.515);
-  expect(initialScale).toBeLessThanOrEqual(0.535);
-  expect(middleScale).toBeGreaterThan(initialScale + 0.18);
-  expect(middleScale).toBeLessThan(completeScale - 0.18);
-  expect(completeScale).toBeGreaterThanOrEqual(0.985);
-  expect(completeScale).toBeLessThanOrEqual(1.001);
-  expect(reverseScale).toBeLessThan(middleScale - 0.08);
-  expect(initial.progress).toBeCloseTo(0, 1);
-  expect(middle.progress).toBeCloseTo(0.5, 1);
-  expect(complete.progress).toBeCloseTo(1, 1);
-  expect(reverse.progress).toBeCloseTo(0.25, 1);
+  expect(initialScale).toBeGreaterThanOrEqual(1.025);
+  expect(initialScale).toBeLessThanOrEqual(1.055);
+  expect(middleScale).toBeLessThan(initialScale - 0.025);
+  expect(completeScale).toBeLessThan(middleScale - 0.025);
+  expect(completeScale).toBeGreaterThanOrEqual(0.915);
+  expect(completeScale).toBeLessThanOrEqual(0.95);
+  expect(reverseScale).toBeGreaterThan(completeScale + 0.025);
+  expect(initial.mode).toBe("view-timeline");
+  expect(initial.bandPosition).not.toBe("sticky");
+  expect(initial.bandPosition).not.toBe("fixed");
   expect(reverse.overflow).toBeLessThanOrEqual(1);
 
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.reload();
-  await page.locator(".site-footer").scrollIntoViewIfNeeded();
-  await expect(page.locator(".site-footer__wordmark")).toHaveAttribute(
-    "data-scroll-zoom-motion",
-    "static",
-  );
+  await positionBandAtViewportRatio(0.95);
   const reducedStart = await readMotion();
-  await page.mouse.wheel(0, 400);
-  await page.waitForTimeout(300);
+  await positionBandAtViewportRatio(-0.05);
+  await page.waitForTimeout(80);
   const reducedAfter = await readMotion();
   expect(
     Math.abs(
       scaleFromTransform(reducedAfter.transform) - scaleFromTransform(reducedStart.transform),
     ),
   ).toBeLessThan(0.002);
-  expect(scaleFromTransform(reducedStart.transform)).toBeCloseTo(1, 2);
-  const reducedRunwayHeight = await page
-    .locator(".site-footer__wordmark-runway")
-    .evaluate((runway) => runway.getBoundingClientRect().height);
-  expect(reducedRunwayHeight).toBeLessThan(450);
+  expect(scaleFromTransform(reducedStart.transform)).toBeCloseTo(0.96, 2);
+  const reducedBandHeight = await page
+    .locator(".site-footer__wordmark-band")
+    .evaluate((band) => band.getBoundingClientRect().height);
+  expect(reducedBandHeight).toBeLessThan(500);
 
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.reload();
-  await positionAtProgress(0);
-  await expect(page.locator(".site-footer__wordmark")).toHaveAttribute(
-    "data-scroll-zoom-motion",
-    "motion",
-  );
-  await page.waitForTimeout(300);
+  await positionBandAtViewportRatio(0.95);
+  await page.waitForTimeout(80);
   const mobileStart = await readMotion();
-  await positionAtProgress(1);
-  await page.waitForTimeout(350);
+  await positionBandAtViewportRatio(-0.05);
+  await page.waitForTimeout(80);
   const mobileComplete = await readMotion();
-  expect(scaleFromTransform(mobileComplete.transform)).toBeGreaterThan(
-    scaleFromTransform(mobileStart.transform) + 0.4,
+  expect(scaleFromTransform(mobileComplete.transform)).toBeLessThan(
+    scaleFromTransform(mobileStart.transform) - 0.06,
   );
-  expect(scaleFromTransform(mobileComplete.transform)).toBeLessThanOrEqual(1.001);
+  expect(scaleFromTransform(mobileComplete.transform)).toBeGreaterThanOrEqual(0.915);
   expect(mobileComplete.overflow).toBeLessThanOrEqual(1);
 });
 

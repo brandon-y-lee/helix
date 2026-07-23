@@ -31,7 +31,9 @@ type CartContextValue = {
   subtotal: number;
   cartDrawerOpen: boolean;
   loading: boolean;
+  hasLoadedCart: boolean;
   error: string | null;
+  retryable: boolean;
   refresh: () => Promise<void>;
   add: (item: AddInput, quantity?: number) => Promise<boolean>;
   setQuantity: (key: string, quantity: number) => Promise<boolean>;
@@ -44,7 +46,16 @@ type CartContextValue = {
 
 const CartContext = createContext<CartContextValue | null>(null);
 
-const EMPTY_CART: CartState = { lines: [], count: 0, subtotal: 0, currency: "USD" };
+class CartRequestError extends Error {
+  constructor(
+    message: string,
+    readonly retryable: boolean,
+    readonly code: string | null,
+  ) {
+    super(message);
+    this.name = "CartRequestError";
+  }
+}
 
 function optimisticKey(slug: string, variantId: string): string {
   return `optimistic:${slug}:${variantId}`;
@@ -53,35 +64,58 @@ function optimisticKey(slug: string, variantId: string): string {
 async function readResponse(response: Response): Promise<CartState> {
   const data = await response.json().catch(() => null);
   if (!response.ok) {
-    const message =
-      data && typeof data.error === "string"
-        ? data.error
+    const error = data?.error;
+    const message = typeof error === "string"
+      ? error
+      : error && typeof error.message === "string"
+        ? error.message
         : "Cart is temporarily unavailable.";
-    throw new Error(message);
+    throw new CartRequestError(
+      message,
+      Boolean(error && typeof error === "object" && error.retryable === true),
+      error && typeof error === "object" && typeof error.code === "string"
+        ? error.code
+        : null,
+    );
   }
   return data as CartState;
+}
+
+function clientError(error: unknown, fallback: string) {
+  return {
+    message: error instanceof Error ? error.message : fallback,
+    retryable:
+      error instanceof CartRequestError ? error.retryable : true,
+  };
 }
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [lines, setLines] = useState<CartLine[]>([]);
   const [loading, setLoading] = useState(true);
+  const [hasLoadedCart, setHasLoadedCart] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [retryable, setRetryable] = useState(false);
   const [cartDrawerOpen, setCartDrawerOpen] = useState(false);
   const cartDrawerReturnFocusRef = useRef<() => void>(() => {});
 
   const applyState = useCallback((cart: CartState) => {
     setLines(cart.lines);
+    setHasLoadedCart(true);
+    setError(null);
+    setRetryable(false);
   }, []);
 
   const refresh = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setRetryable(false);
     try {
       const response = await fetch("/api/cart", { cache: "no-store" });
       applyState(await readResponse(response));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Cart is temporarily unavailable.");
-      applyState(EMPTY_CART);
+      const failure = clientError(err, "Cart is temporarily unavailable.");
+      setError(failure.message);
+      setRetryable(failure.retryable);
     } finally {
       setLoading(false);
     }
@@ -100,12 +134,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, [refresh]);
 
   const rollback = useCallback((previous: CartLine[], err: unknown) => {
+    const failure = clientError(err, "Cart update failed.");
     setLines(previous);
-    setError(err instanceof Error ? err.message : "Cart update failed.");
+    setError(failure.message);
+    setRetryable(failure.retryable);
   }, []);
 
   const add = useCallback(async (item: AddInput, quantity = 1) => {
     setError(null);
+    setRetryable(false);
     const previous = lines;
     const key = optimisticKey(item.slug, item.variantId);
     setLines((prev) => {
@@ -147,6 +184,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const setQuantity = useCallback(async (key: string, quantity: number) => {
     setError(null);
+    setRetryable(false);
     const previous = lines;
     setLines((prev) =>
       quantity <= 0
@@ -174,6 +212,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const remove = useCallback(async (key: string) => {
     setError(null);
+    setRetryable(false);
     const previous = lines;
     setLines((prev) => prev.filter((line) => line.key !== key));
     try {
@@ -192,6 +231,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const clear = useCallback(async () => {
     setError(null);
+    setRetryable(false);
     const previous = lines;
     setLines([]);
     try {
@@ -230,7 +270,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
       subtotal,
       cartDrawerOpen,
       loading,
+      hasLoadedCart,
       error,
+      retryable,
       refresh,
       add,
       setQuantity,
@@ -244,7 +286,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
     lines,
     cartDrawerOpen,
     loading,
+    hasLoadedCart,
     error,
+    retryable,
     refresh,
     add,
     setQuantity,

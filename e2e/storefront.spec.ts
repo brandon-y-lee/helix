@@ -204,10 +204,13 @@ test("PDP sticky purchase bar aligns to the content shell and clears the lower e
     await page.evaluate(() => window.scrollTo(0, 0));
 
     const sticky = page.locator(".pdp-sticky-purchase");
-    await expect(page.locator(".pdp-endorsements")).toHaveCount(0);
+    await expect(page.locator(".pdp-endorsements")).toBeVisible();
     await expect(
       page.getByRole("heading", { name: "Endorsed by familiar faces" }),
-    ).toHaveCount(0);
+    ).toBeVisible();
+    await expect(page.locator(".pdp-endorsements__item")).toHaveCount(4);
+    await expect(page.locator(".pdp-endorsements__item img")).toHaveCount(4);
+    await expect(page.locator(".pdp-endorsements")).not.toContainText(/quote|review/i);
     await page.locator(".pdp__actions").scrollIntoViewIfNeeded();
     await expect(sticky).toHaveAttribute("data-visible", "false");
     await expect(sticky).toHaveAttribute("aria-hidden", "true");
@@ -266,6 +269,132 @@ test("PDP sticky purchase bar aligns to the content shell and clears the lower e
     await expect(sticky).toHaveAttribute("data-visible", "false");
     await expect(sticky).toHaveAttribute("aria-hidden", "true");
   }
+});
+
+test("PDP familiar faces rail uses finite local media and boundary-aware controls", async ({
+  page,
+}) => {
+  const consoleErrors: string[] = [];
+  const pageErrors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") consoleErrors.push(message.text());
+  });
+  page.on("pageerror", (error) => {
+    pageErrors.push(error.message);
+  });
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/products/cleanse-01-calming-gel-cleanser");
+
+  const section = page.locator(".pdp-endorsements");
+  const rail = section.getByRole("list", {
+    name: "Familiar faces editorial images",
+  });
+  await section.scrollIntoViewIfNeeded();
+  await expect(section).toBeVisible();
+  await expect(section.locator("li")).toHaveCount(4);
+
+  const imageSources = await section.locator("img").evaluateAll((images) =>
+    images.map((image) => (image as HTMLImageElement).currentSrc),
+  );
+  await expect
+    .poll(() =>
+      section.locator("img").evaluateAll((images) =>
+        images.every(
+          (image) =>
+            (image as HTMLImageElement).complete &&
+            (image as HTMLImageElement).naturalWidth > 0,
+        ),
+      ),
+    )
+    .toBe(true);
+  const pageOrigin = new URL(page.url()).origin;
+  expect(imageSources).toHaveLength(4);
+  expect(imageSources.every((source) => new URL(source).origin === pageOrigin))
+    .toBe(true);
+  expect(imageSources.every((source) => decodeURIComponent(source).includes("/media/home/")))
+    .toBe(true);
+  await expect(
+    section.getByRole("button", { name: "Previous endorsement images" }),
+  ).toHaveCount(0);
+  await expect(
+    section.getByRole("button", { name: "Next endorsement images" }),
+  ).toBeVisible();
+
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.reload();
+  await section.scrollIntoViewIfNeeded();
+
+  const next = section.getByRole("button", { name: "Next endorsement images" });
+  await expect(next).toBeVisible();
+
+  for (let attempt = 0; attempt < 5 && (await next.count()) > 0; attempt += 1) {
+    await next.click();
+    await page.waitForTimeout(100);
+  }
+
+  await expect(next).toHaveCount(0);
+  await expect(
+    section.getByRole("button", { name: "Previous endorsement images" }),
+  ).toBeVisible();
+
+  const beforeKeyboardScroll = await rail.evaluate((element) => element.scrollLeft);
+  expect(beforeKeyboardScroll).toBeGreaterThan(0);
+  await rail.focus();
+  await page.keyboard.press("ArrowLeft");
+  await expect
+    .poll(() => rail.evaluate((element) => element.scrollLeft))
+    .toBeLessThan(beforeKeyboardScroll);
+  expect(consoleErrors).toEqual([]);
+  expect(pageErrors).toEqual([]);
+});
+
+test("cart outage remains retryable and never reports an unknown cart as empty", async ({
+  page,
+}) => {
+  let available = false;
+  await page.route("**/api/cart", async (route) => {
+    if (!available) {
+      await route.fulfill({
+        status: 503,
+        contentType: "application/json",
+        headers: {
+          "Cache-Control": "private, no-store",
+          "Retry-After": "5",
+        },
+        body: JSON.stringify({
+          error: {
+            code: "CART_SERVICE_UNAVAILABLE",
+            message: "Your cart is temporarily unavailable.",
+            retryable: true,
+          },
+        }),
+      });
+      return;
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        lines: [],
+        count: 0,
+        subtotal: 0,
+        currency: "USD",
+      }),
+    });
+  });
+
+  await page.goto("/cart");
+  await expect(page.getByText("Your cart is temporarily unavailable.")).toBeVisible();
+  await expect(page.getByText("Your cart is empty.")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /CART \(—\)/ })).toBeVisible();
+
+  available = true;
+  await page.getByRole("button", { name: "Try again" }).click();
+  await expect(page.getByText("Your cart is empty.")).toBeVisible();
+  await expect(page.getByRole("button", { name: /CART \(0\)/ })).toBeVisible();
 });
 
 test("product detail purchase accordions sit beneath add to cart", async ({

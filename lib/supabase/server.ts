@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
+import { createSupabaseFetch } from "@/lib/supabase/network";
 
 function requiredEnv(name: string): string {
   const value = process.env[name];
@@ -14,6 +15,9 @@ export async function createSupabaseServerClient() {
     requiredEnv("NEXT_PUBLIC_SUPABASE_URL"),
     requiredEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
     {
+      global: {
+        fetch: createSupabaseFetch(),
+      },
       cookies: {
         getAll() {
           return cookieStore.getAll();

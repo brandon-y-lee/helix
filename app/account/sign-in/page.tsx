@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { SignInForm } from "@/components/account/AccountForms";
 import { safeReturnTo } from "@/lib/auth/redirect";
-import { getCurrentUser } from "@/lib/auth/session";
+import { getCurrentUserForPublicPage } from "@/lib/auth/session";
 
 export const metadata: Metadata = {
   title: "Sign in | Mei Pelle",
@@ -20,7 +20,7 @@ export default async function SignInPage({
 }) {
   const params = await searchParams;
   const next = safeReturnTo(params.next);
-  const user = await getCurrentUser();
+  const user = await getCurrentUserForPublicPage();
   if (user) redirect(next);
 
   return (

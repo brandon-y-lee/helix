@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
+import { AccountUnavailable } from "@/components/account/AccountUnavailable";
 import { ProfileForm, SignOutButton } from "@/components/account/AccountForms";
 import { PrivateFeedbackForm } from "@/components/account/PrivateFeedbackForm";
 import { getProfile } from "@/lib/auth/profile";
@@ -8,6 +10,10 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { getOrdersForCurrentUser } from "@/lib/orders/server";
 import { getRewardsSummaryForCurrentUser } from "@/lib/rewards/server";
 import { formatPrice } from "@/lib/products";
+import {
+  isSupabaseNetworkError,
+  logSupabaseUnavailable,
+} from "@/lib/supabase/network";
 
 export const metadata: Metadata = {
   title: "Account | Mei Pelle",
@@ -16,14 +22,44 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function AccountPage() {
-  const user = await getCurrentUser();
+  const requestHeaders = await headers();
+  const requestId = requestHeaders.get("x-request-id");
+  const startedAt = Date.now();
+  let user;
+
+  try {
+    user = await getCurrentUser();
+  } catch (error) {
+    if (!isSupabaseNetworkError(error)) throw error;
+    logSupabaseUnavailable(error, {
+      operation: "account.identity",
+      route: "/account",
+      runtime: "nodejs",
+      requestId,
+      elapsedMs: Date.now() - startedAt,
+    });
+    return <AccountUnavailable />;
+  }
+
   if (!user) redirect("/account/sign-in?next=%2Faccount");
 
-  const [profile, orders, rewards] = await Promise.all([
+  const accountData = await Promise.all([
     getProfile(user),
-    getOrdersForCurrentUser().catch(() => []),
-    getRewardsSummaryForCurrentUser().catch(() => null),
-  ]);
+    getOrdersForCurrentUser(),
+    getRewardsSummaryForCurrentUser(),
+  ]).catch((error: unknown) => {
+    if (!isSupabaseNetworkError(error)) throw error;
+    logSupabaseUnavailable(error, {
+      operation: "account.dashboard",
+      route: "/account",
+      runtime: "nodejs",
+      requestId,
+      elapsedMs: Date.now() - startedAt,
+    });
+    return null;
+  });
+  if (!accountData) return <AccountUnavailable />;
+  const [profile, orders, rewards] = accountData;
   const verified = Boolean(user.email_confirmed_at);
 
   return (

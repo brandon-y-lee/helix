@@ -4,19 +4,10 @@ import {
   removeCartItem,
   setCartItemQuantity,
 } from "@/lib/cart/server";
-import { CartError } from "@/lib/cart/types";
+import { cartErrorResponse } from "@/lib/cart/http";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
-
-function errorResponse(error: unknown) {
-  const message =
-    error instanceof CartError
-      ? error.message
-      : "Cart is temporarily unavailable. Try again in a moment.";
-  const status = error instanceof CartError ? 400 : 500;
-  return NextResponse.json({ error: message }, { status });
-}
 
 async function readBody(request: Request): Promise<Record<string, unknown>> {
   try {
@@ -28,6 +19,7 @@ async function readBody(request: Request): Promise<Record<string, unknown>> {
 }
 
 export async function POST(request: Request) {
+  const startedAt = Date.now();
   try {
     const body = await readBody(request);
     const slug = typeof body.slug === "string" ? body.slug : "";
@@ -36,11 +28,17 @@ export async function POST(request: Request) {
 
     return NextResponse.json(await addCartItem({ slug, variantId, quantity }));
   } catch (error) {
-    return errorResponse(error);
+    return cartErrorResponse({
+      error,
+      request,
+      route: "/api/cart/items",
+      startedAt,
+    });
   }
 }
 
 export async function PATCH(request: Request) {
+  const startedAt = Date.now();
   try {
     const body = await readBody(request);
     const lineId = typeof body.lineId === "string" ? body.lineId : "";
@@ -48,17 +46,28 @@ export async function PATCH(request: Request) {
 
     return NextResponse.json(await setCartItemQuantity(lineId, quantity));
   } catch (error) {
-    return errorResponse(error);
+    return cartErrorResponse({
+      error,
+      request,
+      route: "/api/cart/items",
+      startedAt,
+    });
   }
 }
 
 export async function DELETE(request: Request) {
+  const startedAt = Date.now();
   try {
     const body = await readBody(request);
     const lineId = typeof body.lineId === "string" ? body.lineId : "";
 
     return NextResponse.json(await removeCartItem(lineId));
   } catch (error) {
-    return errorResponse(error);
+    return cartErrorResponse({
+      error,
+      request,
+      route: "/api/cart/items",
+      startedAt,
+    });
   }
 }

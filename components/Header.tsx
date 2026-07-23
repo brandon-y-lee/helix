@@ -70,6 +70,8 @@ function resolveHeaderNavState({
 export function Header() {
   const {
     count,
+    hasLoadedCart,
+    error: cartError,
     cartDrawerOpen,
     openCartDrawer,
     closeCartDrawer,
@@ -233,9 +235,15 @@ export function Header() {
             aria-haspopup="dialog"
             aria-expanded={cartDrawerOpen}
           >
-            CART ({count})
+            CART ({hasLoadedCart ? count : "—"})
             <span className="sr-only">
-              {count > 0 ? `, ${count} items` : ", empty"}
+              {hasLoadedCart
+                ? count > 0
+                  ? `, ${count} items`
+                  : ", empty"
+                : cartError
+                  ? ", temporarily unavailable"
+                  : ", loading"}
             </span>
           </button>
         </nav>

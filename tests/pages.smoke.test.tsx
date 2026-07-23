@@ -13,6 +13,7 @@ vi.mock("@/lib/catalog-cache", () => {
 
 vi.mock("@/lib/auth/session", () => ({
   getCurrentUser: vi.fn(async () => null),
+  getCurrentUserForPublicPage: vi.fn(async () => null),
 }));
 
 import HomePage from "@/app/page";

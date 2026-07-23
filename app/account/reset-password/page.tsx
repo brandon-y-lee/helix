@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ResetPasswordForm } from "@/components/account/AccountForms";
-import { getCurrentUser } from "@/lib/auth/session";
+import { getCurrentUserForPublicPage } from "@/lib/auth/session";
 
 export const metadata: Metadata = {
   title: "Set new password | Mei Pelle",
 };
 
 export default async function ResetPasswordPage() {
-  const user = await getCurrentUser();
+  const user = await getCurrentUserForPublicPage();
 
   return (
     <div className="container account-shell">

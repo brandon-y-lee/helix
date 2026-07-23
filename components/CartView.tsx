@@ -36,7 +36,19 @@ export function CartView({
   mode?: "page" | "drawer";
   onContinue?: () => void;
 }) {
-  const { lines, subtotal, count, loading, error, setQuantity, remove, clear } = useCart();
+  const {
+    lines,
+    subtotal,
+    count,
+    loading,
+    hasLoadedCart,
+    error,
+    retryable,
+    refresh,
+    setQuantity,
+    remove,
+    clear,
+  } = useCart();
   const isDrawer = mode === "drawer";
   const pathname = usePathname();
   const [pendingCartRoute, setPendingCartRoute] = useState(false);
@@ -60,7 +72,7 @@ export function CartView({
     setPendingCartRoute(true);
   }
 
-  if (loading && lines.length === 0) {
+  if (loading && !hasLoadedCart && lines.length === 0) {
     return (
       <div className="empty-state">
         <p>Loading cart.</p>
@@ -68,10 +80,42 @@ export function CartView({
     );
   }
 
+  if (!hasLoadedCart && error && lines.length === 0) {
+    return (
+      <div className="empty-state" role="status">
+        <p className="form-status form-status--error">{error}</p>
+        {retryable && (
+          <button
+            type="button"
+            className="btn btn--editorial-rounded"
+            onClick={() => void refresh()}
+            disabled={loading}
+          >
+            {loading ? "Trying again" : "Try again"}
+          </button>
+        )}
+      </div>
+    );
+  }
+
   if (lines.length === 0) {
     return (
       <div className="empty-state">
-        {error && <p className="form-status form-status--error">{error}</p>}
+        {error && (
+          <>
+            <p className="form-status form-status--error">{error}</p>
+            {retryable && (
+              <button
+                type="button"
+                className="btn btn--editorial-rounded"
+                onClick={() => void refresh()}
+                disabled={loading}
+              >
+                {loading ? "Trying again" : "Try again"}
+              </button>
+            )}
+          </>
+        )}
         <p>Your cart is empty.</p>
         {isDrawer && onContinue ? (
           <button type="button" className="btn btn--editorial-rounded" onClick={onContinue}>
@@ -95,7 +139,21 @@ export function CartView({
             Clear cart
           </button>
         </div>
-        {error && <p className="form-status form-status--error">{error}</p>}
+        {error && (
+          <div className="cart-unavailable" role="status">
+            <p className="form-status form-status--error">{error}</p>
+            {retryable && (
+              <button
+                type="button"
+                className="link-button"
+                onClick={() => void refresh()}
+                disabled={loading}
+              >
+                {loading ? "Trying again" : "Try again"}
+              </button>
+            )}
+          </div>
+        )}
         <ul className="cart-items" aria-label="Cart items">
           {lines.map((line) => {
             const media: ProductMedia | null = line.placeholderMedia
