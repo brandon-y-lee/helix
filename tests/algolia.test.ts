@@ -30,6 +30,7 @@ import {
 } from "@/lib/algolia/server";
 import {
   applyCatalogWebhookEvent,
+  validateCatalogWebhookPayload,
   verifyWebhookSecret,
 } from "@/lib/algolia/sync";
 import { runSearchBackfill } from "@/lib/algolia/backfill";
@@ -110,6 +111,8 @@ const sourceRow: CatalogProductSource = {
       media_kind: "placeholder",
       url: null,
       alt: "Northpoint product",
+      width: null,
+      height: null,
       role: "search",
       sort_order: 0,
       palette_id: "northpoint-search",
@@ -166,8 +169,37 @@ describe("buildAlgoliaRecord", () => {
       paletteId: "northpoint-search",
       palette: { start: "#e3ddea", end: "#c2b5d6" },
     });
+    expect(r.imageMedia).toBeNull();
     expect(JSON.stringify(r)).not.toContain("shopify");
-    expect(JSON.stringify(r)).not.toContain("/storage/v1/object/public/");
+  });
+
+  it("maps canonical image media into a search-safe image payload", () => {
+    const r = buildAlgoliaRecord({
+      ...sourceRow,
+      product_media: [
+        {
+          media_kind: "image",
+          url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/mei-pelle-catalog/products/northpoint/primary/hash.webp",
+          alt: "Northpoint serum",
+          width: 1200,
+          height: 1650,
+          role: "search",
+          sort_order: 0,
+          palette_id: null,
+          placeholder_palette: null,
+        },
+      ],
+    });
+
+    expect(r.imageMedia).toEqual({
+      kind: "image",
+      url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/mei-pelle-catalog/products/northpoint/primary/hash.webp",
+      alt: "Northpoint serum",
+      width: 1200,
+      height: 1650,
+      role: "search",
+    });
+    expect(r.placeholderMedia).toBeNull();
   });
 
   it("flags availability/waitlist and badge from status", () => {
@@ -235,6 +267,66 @@ describe("verifyWebhookSecret", () => {
   it("rejects everything when no secret is configured", () => {
     delete process.env.SUPABASE_CATALOG_WEBHOOK_SECRET;
     expect(verifyWebhookSecret("anything")).toBe(false);
+  });
+});
+
+describe("validateCatalogWebhookPayload", () => {
+  it("accepts product, variant, and media events with the required row shape", () => {
+    expect(() =>
+      validateCatalogWebhookPayload({
+        schema: "public",
+        type: "UPDATE",
+        table: "product_media",
+        record: { id: "m-2", product_id: sourceRow.id },
+        old_record: { id: "m-1", product_id: sourceRow.id },
+      }),
+    ).not.toThrow();
+  });
+
+  it("rejects unsupported schemas, tables, and event types", () => {
+    expect(() =>
+      validateCatalogWebhookPayload({
+        schema: "auth",
+        type: "INSERT",
+        table: "products",
+        record: { id: sourceRow.id },
+      }),
+    ).toThrow(/unsupported schema/);
+    expect(() =>
+      validateCatalogWebhookPayload({
+        schema: "public",
+        type: "INSERT",
+        table: "orders",
+        record: { id: "order-1" },
+      }),
+    ).toThrow(/unsupported table/);
+    expect(() =>
+      validateCatalogWebhookPayload({
+        schema: "public",
+        type: "UPSERT",
+        table: "products",
+        record: { id: sourceRow.id },
+      }),
+    ).toThrow(/unsupported event type/);
+  });
+
+  it("requires old_record for updates and deletes", () => {
+    expect(() =>
+      validateCatalogWebhookPayload({
+        schema: "public",
+        type: "UPDATE",
+        table: "products",
+        record: { id: sourceRow.id },
+      }),
+    ).toThrow(/UPDATE requires record and old_record/);
+    expect(() =>
+      validateCatalogWebhookPayload({
+        schema: "public",
+        type: "DELETE",
+        table: "products",
+        record: null,
+      }),
+    ).toThrow(/DELETE requires old_record/);
   });
 });
 
@@ -310,6 +402,22 @@ describe("applyCatalogWebhookEvent", () => {
       type: "INSERT",
       table: "product_variants",
       record: { id: "v-1", product_id: sourceRow.id },
+    });
+
+    expect(mockedFetch).toHaveBeenCalledWith(sourceRow.id);
+    expect(mockedUpsert).toHaveBeenCalledWith(built);
+    expect(outcome).toMatchObject({ action: "upsert", objectID: sourceRow.id });
+  });
+
+  it("rebuilds the parent product on a media change", async () => {
+    const built = buildAlgoliaRecord(sourceRow);
+    mockedFetch.mockResolvedValue(built);
+
+    const outcome = await applyCatalogWebhookEvent({
+      type: "UPDATE",
+      table: "product_media",
+      record: { id: "m-1", product_id: sourceRow.id },
+      old_record: { id: "m-1", product_id: sourceRow.id },
     });
 
     expect(mockedFetch).toHaveBeenCalledWith(sourceRow.id);
@@ -412,7 +520,9 @@ describe("catalog cache invalidation", () => {
         table: "product_variants",
         objectID: sourceRow.id,
         slug: sourceRow.slug,
+        oldSlug: "old-northpoint-serum",
         collection: sourceRow.collection,
+        oldCollection: "Old Core",
       },
     );
 
@@ -422,8 +532,10 @@ describe("catalog cache invalidation", () => {
         "products",
         `product:${sourceRow.slug}`,
         "collection:the-core",
+        "collection:old-core",
       ]),
     );
     expect(targets.paths).toContain(`/products/${sourceRow.slug}`);
+    expect(targets.paths).toContain("/products/old-northpoint-serum");
   });
 });

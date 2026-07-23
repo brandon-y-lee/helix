@@ -11,6 +11,8 @@ import { NextResponse } from "next/server";
 import { revalidatePath, revalidateTag } from "next/cache";
 import {
   applyCatalogWebhookEvent,
+  CatalogWebhookValidationError,
+  validateCatalogWebhookPayload,
   verifyWebhookSecret,
   WEBHOOK_SECRET_HEADER,
   type CatalogWebhookPayload,
@@ -25,10 +27,11 @@ export const maxDuration = 30;
 function invalidateCatalog(
   payload: CatalogWebhookPayload,
   outcome?: Awaited<ReturnType<typeof applyCatalogWebhookEvent>>,
-): void {
+): ReturnType<typeof getCatalogInvalidationTargets> {
   const targets = getCatalogInvalidationTargets(payload, outcome);
   for (const tag of targets.tags) revalidateTag(tag);
   for (const path of targets.paths) revalidatePath(path);
+  return targets;
 }
 
 export async function POST(request: Request): Promise<NextResponse> {
@@ -36,6 +39,11 @@ export async function POST(request: Request): Promise<NextResponse> {
   //    so unauthorized callers get a uniform 401 and learn nothing.
   if (!verifyWebhookSecret(request.headers.get(WEBHOOK_SECRET_HEADER))) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+
+  const contentLength = Number(request.headers.get("content-length") ?? 0);
+  if (Number.isFinite(contentLength) && contentLength > 64_000) {
+    return NextResponse.json({ error: "payload too large" }, { status: 413 });
   }
 
   // 2) Parse payload.
@@ -46,30 +54,48 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: "invalid JSON body" }, { status: 400 });
   }
 
-  if (!payload || typeof payload.table !== "string" || typeof payload.type !== "string") {
+  try {
+    validateCatalogWebhookPayload(payload);
+  } catch (err) {
+    const message =
+      err instanceof CatalogWebhookValidationError
+        ? err.message
+        : "invalid webhook payload";
     return NextResponse.json(
-      { error: "missing required fields: type, table" },
+      { error: message },
       { status: 400 },
     );
   }
 
   // 3) Apply the change to Algolia.
+  let outcome: Awaited<ReturnType<typeof applyCatalogWebhookEvent>>;
   try {
-    const outcome = await applyCatalogWebhookEvent(payload);
-    invalidateCatalog(payload, outcome);
-    return NextResponse.json({ ok: true, ...outcome });
+    outcome = await applyCatalogWebhookEvent(payload);
   } catch (err) {
     // Canonical Supabase data changed even if Algolia is temporarily down.
     // Invalidate page data so PDP/collection reads do not stay stale.
-    invalidateCatalog(payload);
+    try {
+      invalidateCatalog(payload);
+    } catch (cacheError) {
+      const cacheMessage =
+        cacheError instanceof Error ? cacheError.message : "unknown cache error";
+      console.error("[catalog-search-sync] cache invalidation failed after sync error:", cacheMessage);
+    }
     // Developer-facing message without leaking secrets/keys.
     const message = err instanceof Error ? err.message : "unknown sync error";
     console.error("[catalog-search-sync] sync failed:", message);
     return NextResponse.json({ error: "sync failed", message }, { status: 502 });
   }
-}
 
-// A bare GET is handy for a liveness check; it intentionally does no work.
-export async function GET(): Promise<NextResponse> {
-  return NextResponse.json({ ok: true, endpoint: "catalog-search-sync" });
+  try {
+    const cache = invalidateCatalog(payload, outcome);
+    return NextResponse.json({ ok: true, ...outcome, cache });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "unknown cache error";
+    console.error("[catalog-search-sync] cache invalidation failed:", message);
+    return NextResponse.json(
+      { error: "cache invalidation failed", message, ...outcome },
+      { status: 502 },
+    );
+  }
 }

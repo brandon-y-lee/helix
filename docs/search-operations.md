@@ -37,10 +37,11 @@ for deployed recovery and expects `x-webhook-secret`.
 
 ## Supabase Webhooks
 
-In **Supabase Dashboard > Database > Webhooks**, create two HTTP webhooks:
+In **Supabase Dashboard > Database > Webhooks**, create three HTTP webhooks:
 
 1. Table `products`, events `INSERT`, `UPDATE`, `DELETE`.
 2. Table `product_variants`, events `INSERT`, `UPDATE`, `DELETE`.
+3. Table `product_media`, events `INSERT`, `UPDATE`, `DELETE`.
 
 Use this endpoint:
 
@@ -60,10 +61,17 @@ Supabase/Algolia resources; do not point a production database at ephemeral
 preview URLs. Supabase cannot call localhost, so local webhook testing requires
 an approved HTTPS tunnel.
 
-Product changes rebuild or delete that product record. Variant changes rebuild
-the parent product. The same request invalidates Next catalog, product, and
-collection cache tags and affected routes. Retries are idempotent because the
-Supabase product UUID is the Algolia `objectID`.
+Product changes rebuild or delete that product record. Variant and media
+changes rebuild the parent product, so a media-row delete never deletes the
+product search object by itself. The same request invalidates Next catalog,
+product, and collection cache tags and affected routes. Retries are idempotent
+because the Supabase product UUID is the Algolia `objectID`.
+
+The webhook receiver is POST-only, rejects non-`public` schemas and unrelated
+tables, and expects `record` for inserts, `record` plus `old_record` for
+updates, and `old_record` for deletes. Supabase webhook credentials must be
+stored outside source control; use the server environment for the receiver
+secret and Vault or Dashboard-managed webhook headers for the sender copy.
 
 ## Caching
 

@@ -42,6 +42,10 @@ function cartPlaceholderMedia(
   };
 }
 
+function cartImageUrl(media: ProductMedia | null | undefined) {
+  return media?.kind === "image" ? media.url : null;
+}
+
 function isBuyableVariant(variant: Variant | undefined): variant is Variant {
   return Boolean(
     variant?.available &&
@@ -358,7 +362,7 @@ export function ProductCard({
       variantLabel: selectedVariant.label,
       price: selectedVariant.price,
       swatch: product.swatch,
-      imageUrl: null,
+      imageUrl: cartImageUrl(media),
       imageAlt: media?.alt ?? null,
       placeholderMedia: cartPlaceholderMedia(media),
     });

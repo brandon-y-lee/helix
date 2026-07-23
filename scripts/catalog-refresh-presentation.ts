@@ -13,14 +13,22 @@ import { productRoutineForSlug } from "../lib/catalog/product-routine";
 config({ path: resolve(process.cwd(), ".env.local"), quiet: true });
 
 type RefreshReport = {
+  dryRun: boolean;
+  overwriteMedia: boolean;
   productsRead: number;
   productsUpdated: number;
   mediaRowsAdded: number;
   mediaRowsArchived: number;
+  mediaRowsPreserved: number;
   palettesCreated: number;
   skipped: string[];
   failed: number;
-  backupPath: string;
+  backupPath: string | null;
+};
+
+type RefreshOptions = {
+  apply: boolean;
+  overwriteMedia: boolean;
 };
 
 type ProductRow = {
@@ -145,16 +153,18 @@ async function replaceMediaRows(productRows: ProductRow[]): Promise<{
   added: number;
   archived: number;
   palettes: number;
+  preserved: number;
 }> {
   const productIds = productRows.map((product) => product.id);
-  const { data: removed, error: deleteError } = await supabase
+  const { data: existing, error: existingError } = await supabase
     .from("product_media")
-    .delete()
+    .select("id, product_id, role, sort_order, media_kind")
     .in("product_id", productIds)
-    .select("id");
+    .order("product_id", { ascending: true })
+    .order("sort_order", { ascending: true });
 
-  if (deleteError) {
-    throw new Error(`[presentation-refresh] Failed to replace product media: ${deleteError.message}`);
+  if (existingError) {
+    throw new Error(`[presentation-refresh] Failed to inspect product media: ${existingError.message}`);
   }
 
   const bySlug = new Map(productRows.map((row) => [row.slug, row]));
@@ -183,17 +193,39 @@ async function replaceMediaRows(productRows: ProductRow[]): Promise<{
     });
   });
 
-  if (rows.length === 0) {
-    return { added: 0, archived: removed?.length ?? 0, palettes: 0 };
+  const existingRows = (existing ?? []) as Array<{
+    id: string;
+    product_id: string;
+    role: string;
+    sort_order: number;
+    media_kind: string;
+  }>;
+  const existingKeys = new Set(
+    existingRows.map(
+      (row) => `${row.product_id}:${row.role}:${row.sort_order}`,
+    ),
+  );
+  const rowsToInsert = rows.filter(
+    (row) => !existingKeys.has(`${row.product_id}:${row.role}:${row.sort_order}`),
+  );
+
+  if (rowsToInsert.length === 0) {
+    return {
+      added: 0,
+      archived: 0,
+      palettes: 0,
+      preserved: existingRows.length,
+    };
   }
 
-  const { error } = await supabase.from("product_media").insert(rows);
+  const { error } = await supabase.from("product_media").insert(rowsToInsert);
   if (error) throw new Error(`[presentation-refresh] Failed to insert placeholder media: ${error.message}`);
 
   return {
-    added: rows.length,
-    archived: removed?.length ?? 0,
-    palettes: new Set(rows.map((row) => row.palette_id)).size,
+    added: rowsToInsert.length,
+    archived: 0,
+    palettes: new Set(rowsToInsert.map((row) => row.palette_id)).size,
+    preserved: existingRows.length,
   };
 }
 
@@ -259,17 +291,102 @@ async function updateProducts(productRows: ProductRow[]): Promise<{
   return { updated, skipped };
 }
 
-async function run(): Promise<RefreshReport> {
-  const productRows = await readActiveProducts();
-  const backupPath = await backupPresentationData(productRows.map((product) => product.id));
-  const productUpdate = await updateProducts(productRows);
+async function overwriteMediaRows(productRows: ProductRow[]): Promise<{
+  added: number;
+  archived: number;
+  palettes: number;
+  preserved: number;
+}> {
+  const productIds = productRows.map((product) => product.id);
+  const { data: removed, error: deleteError } = await supabase
+    .from("product_media")
+    .delete()
+    .in("product_id", productIds)
+    .select("id");
+
+  if (deleteError) {
+    throw new Error(`[presentation-refresh] Failed to replace product media: ${deleteError.message}`);
+  }
+
   const mediaUpdate = await replaceMediaRows(productRows);
+  return {
+    ...mediaUpdate,
+    archived: removed?.length ?? 0,
+    preserved: 0,
+  };
+}
+
+async function planMediaRows(productRows: ProductRow[]): Promise<{
+  added: number;
+  archived: number;
+  palettes: number;
+  preserved: number;
+}> {
+  const productIds = productRows.map((product) => product.id);
+  const { data: existing, error } = await supabase
+    .from("product_media")
+    .select("id, product_id, role, sort_order")
+    .in("product_id", productIds);
+
+  if (error) throw new Error(`[presentation-refresh] Failed to inspect product media: ${error.message}`);
+
+  const existingRows = (existing ?? []) as Array<{
+    id: string;
+    product_id: string;
+    role: string;
+    sort_order: number;
+  }>;
+  const existingKeys = new Set(
+    existingRows.map(
+      (row) => `${row.product_id}:${row.role}:${row.sort_order}`,
+    ),
+  );
+  const bySlug = new Map(productRows.map((row) => [row.slug, row]));
+  const plannedRows = meiPellePresentationCatalog.flatMap((product) => {
+    const row = bySlug.get(product.slug);
+    if (!row) return [];
+    return presentationMediaForProduct(product).map((media) => ({
+      product_id: row.id,
+      role: media.role,
+      sort_order: media.sortOrder,
+      palette_id: media.paletteId,
+    }));
+  });
+
+  const missingRows = plannedRows.filter(
+    (row) => !existingKeys.has(`${row.product_id}:${row.role}:${row.sort_order}`),
+  );
 
   return {
+    added: missingRows.length,
+    archived: 0,
+    palettes: new Set(missingRows.map((row) => row.palette_id)).size,
+    preserved: existingRows.length,
+  };
+}
+
+async function run(options: RefreshOptions): Promise<RefreshReport> {
+  const productRows = await readActiveProducts();
+  const backupPath = options.apply
+    ? await backupPresentationData(productRows.map((product) => product.id))
+    : null;
+  const productUpdate = options.apply
+    ? await updateProducts(productRows)
+    : { updated: productRows.length, skipped: [] };
+  const mediaUpdate = options.apply
+    ? options.overwriteMedia
+      ? await overwriteMediaRows(productRows)
+      : await replaceMediaRows(productRows)
+    : await planMediaRows(productRows);
+
+  return {
+    dryRun: !options.apply,
+    overwriteMedia: options.overwriteMedia,
     productsRead: productRows.length,
     productsUpdated: productUpdate.updated,
     mediaRowsAdded: mediaUpdate.added,
     mediaRowsArchived: mediaUpdate.archived,
+    mediaRowsPreserved: mediaUpdate.preserved,
     palettesCreated: mediaUpdate.palettes,
     skipped: productUpdate.skipped,
     failed: 0,
@@ -277,8 +394,15 @@ async function run(): Promise<RefreshReport> {
   };
 }
 
+function parseArgs(argv: string[]): RefreshOptions {
+  return {
+    apply: argv.includes("--apply"),
+    overwriteMedia: argv.includes("--overwrite-media"),
+  };
+}
+
 try {
-  const report = await run();
+  const report = await run(parseArgs(process.argv.slice(2)));
   console.log(JSON.stringify({ ok: true, ...report }, null, 2));
 } catch (error) {
   console.error(

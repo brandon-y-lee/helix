@@ -84,7 +84,12 @@ test("add to cart updates the count and persists across reload", async ({
   // Cart page shows the line item, then clear empties it.
   await page.goto("/cart");
   await expect(page.getByText("CLEANSE")).toBeVisible();
-  await expect(page.locator('[data-media-kind="placeholder"]').first()).toBeVisible();
+  const cartThumb = page.locator(".cart-item__thumb").first();
+  await expect(cartThumb).toHaveAttribute("data-media-kind", "image");
+  await expect(cartThumb.locator("img")).toHaveAttribute(
+    "src",
+    /cleanse-01-calming-gel-cleanser/,
+  );
   await page.getByRole("button", { name: "Clear cart" }).click();
   await expect(page.getByText(/your cart is empty/i)).toBeVisible();
 });

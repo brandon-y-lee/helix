@@ -22,7 +22,7 @@ const SOURCE_SELECT =
   "published_at, updated_at, made_for, good_for, texture, key_ingredients, " +
   "ingredients, concerns, routine_step, usage_time, search_keywords, " +
   "product_variants ( variant_key, label, price_cents, position, sort_order, available, inventory_status ), " +
-  "product_media ( media_kind, url, alt, role, sort_order, palette_id, placeholder_palette )";
+  "product_media ( media_kind, url, alt, width, height, role, sort_order, palette_id, placeholder_palette )";
 
 /** All products as Algolia records, in featured (position) order. */
 export async function fetchAllSearchRecords(): Promise<AlgoliaProductRecord[]> {
@@ -39,7 +39,9 @@ export async function fetchAllSearchRecords(): Promise<AlgoliaProductRecord[]> {
     );
   }
 
-  return (data as unknown as CatalogProductSource[]).map(buildAlgoliaRecord);
+  return (data as unknown as CatalogProductSource[])
+    .filter((row) => row.catalog_status === "active")
+    .map(buildAlgoliaRecord);
 }
 
 /** One product as an Algolia record, or null if it no longer exists. */
@@ -60,5 +62,8 @@ export async function fetchSearchRecordById(
   }
 
   if (!data) return null;
-  return buildAlgoliaRecord(data as unknown as CatalogProductSource);
+  const row = data as unknown as CatalogProductSource;
+  if (row.catalog_status !== "active") return null;
+  if (row.published_at && Date.parse(row.published_at) > Date.now()) return null;
+  return buildAlgoliaRecord(row);
 }

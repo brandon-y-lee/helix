@@ -13,6 +13,8 @@ export const WEBHOOK_SECRET_HEADER = "x-webhook-secret";
 const PRODUCTS_TABLE = "products";
 const VARIANTS_TABLE = "product_variants";
 const MEDIA_TABLE = "product_media";
+const ALLOWED_TABLES = [PRODUCTS_TABLE, VARIANTS_TABLE, MEDIA_TABLE] as const;
+const ALLOWED_EVENTS = ["INSERT", "UPDATE", "DELETE"] as const;
 
 export type WebhookEventType = "INSERT" | "UPDATE" | "DELETE";
 
@@ -29,9 +31,18 @@ export type SyncOutcome = {
   table: string;
   objectID?: string;
   slug?: string;
+  oldSlug?: string;
   collection?: string;
+  oldCollection?: string;
   reason?: string;
 };
+
+export class CatalogWebhookValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "CatalogWebhookValidationError";
+  }
+}
 
 /**
  * Constant-time comparison of the provided secret against the configured one.
@@ -50,6 +61,42 @@ export function verifyWebhookSecret(provided: string | null | undefined): boolea
 
 function asId(value: unknown): string | undefined {
   return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+export function validateCatalogWebhookPayload(
+  payload: unknown,
+): asserts payload is CatalogWebhookPayload {
+  if (!isRecord(payload)) {
+    throw new CatalogWebhookValidationError("payload must be an object");
+  }
+  if (payload.schema !== undefined && payload.schema !== "public") {
+    throw new CatalogWebhookValidationError("unsupported schema");
+  }
+  if (
+    typeof payload.type !== "string" ||
+    !(ALLOWED_EVENTS as readonly string[]).includes(payload.type)
+  ) {
+    throw new CatalogWebhookValidationError("unsupported event type");
+  }
+  if (
+    typeof payload.table !== "string" ||
+    !(ALLOWED_TABLES as readonly string[]).includes(payload.table)
+  ) {
+    throw new CatalogWebhookValidationError("unsupported table");
+  }
+  if (payload.type === "INSERT" && !isRecord(payload.record)) {
+    throw new CatalogWebhookValidationError("INSERT requires record");
+  }
+  if (payload.type === "UPDATE" && (!isRecord(payload.record) || !isRecord(payload.old_record))) {
+    throw new CatalogWebhookValidationError("UPDATE requires record and old_record");
+  }
+  if (payload.type === "DELETE" && !isRecord(payload.old_record)) {
+    throw new CatalogWebhookValidationError("DELETE requires old_record");
+  }
 }
 
 /**
@@ -75,7 +122,9 @@ export async function applyCatalogWebhookEvent(
         table,
         objectID: id,
         slug: asId(old_record?.slug),
+        oldSlug: asId(old_record?.slug),
         collection: asId(old_record?.collection),
+        oldCollection: asId(old_record?.collection),
       };
     }
 
@@ -85,7 +134,16 @@ export async function applyCatalogWebhookEvent(
     const built = await fetchSearchRecordById(id);
     if (!built) {
       await deleteSearchRecord(id);
-      return { action: "delete", table, objectID: id, reason: "product no longer public" };
+      return {
+        action: "delete",
+        table,
+        objectID: id,
+        slug: asId(record?.slug) ?? asId(old_record?.slug),
+        oldSlug: asId(old_record?.slug),
+        collection: asId(record?.collection) ?? asId(old_record?.collection),
+        oldCollection: asId(old_record?.collection),
+        reason: "product no longer public",
+      };
     }
 
     await upsertSearchRecord(built);
@@ -94,7 +152,9 @@ export async function applyCatalogWebhookEvent(
       table,
       objectID: id,
       slug: built.slug,
+      oldSlug: asId(old_record?.slug),
       collection: built.collection,
+      oldCollection: asId(old_record?.collection),
     };
   }
 

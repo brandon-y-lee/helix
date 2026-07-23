@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ProductDetail } from "@/components/ProductDetail";
@@ -180,6 +180,76 @@ describe("ProductDetail purchase accordions", () => {
     ).toHaveAttribute("href", "#full-ingredients");
     expect(document.getElementById("full-ingredients")).toHaveTextContent(
       "Water, Niacinamide, PDRN, Peptides",
+    );
+  });
+
+  it("keeps lower editorial panels finite across buttons, keyboard, and horizontal wheel", async () => {
+    const user = userEvent.setup();
+    render(<ProductDetail product={makeProduct()} />);
+
+    const group = screen.getByRole("group", { name: "What it does" });
+    const previous = within(group).getByRole("button", {
+      name: "Previous What it does",
+    });
+    const next = within(group).getByRole("button", {
+      name: "Next What it does",
+    });
+    const position = screen.getByLabelText("What it does item position");
+
+    expect(position).toHaveTextContent("01 / 03");
+    expect(previous).toBeDisabled();
+
+    await user.click(next);
+    expect(position).toHaveTextContent("02 / 03");
+    expect(previous).not.toBeDisabled();
+
+    group.focus();
+    await user.keyboard("{ArrowRight}{ArrowRight}");
+    expect(position).toHaveTextContent("03 / 03");
+    expect(next).toBeDisabled();
+
+    const viewport = group.querySelector(".pdp-panel-sequence__viewport");
+    expect(viewport).toBeInstanceOf(HTMLElement);
+    fireEvent.wheel(viewport as HTMLElement, { deltaX: 96, deltaY: 0 });
+    expect(position).toHaveTextContent("03 / 03");
+
+    await new Promise((resolve) => window.setTimeout(resolve, 280));
+    fireEvent.wheel(viewport as HTMLElement, { deltaX: -96, deltaY: 0 });
+    expect(position).toHaveTextContent("02 / 03");
+  });
+
+  it("passes canonical image media into cart adds when available", async () => {
+    const user = userEvent.setup();
+    const cartMedia = {
+      kind: "image" as const,
+      url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/mei-pelle-catalog/products/treat-03-pdrn-5-ampoule/primary/hash.webp",
+      alt: "TREAT PDRN ampoule",
+      width: 1400,
+      height: 1867,
+      role: "cart" as const,
+      sortOrder: 5,
+      paletteId: null,
+      palette: null,
+    };
+    render(
+      <ProductDetail
+        product={makeProduct({
+          media: [cartMedia],
+          cardMedia: cartMedia,
+          cartMedia,
+          detailMedia: cartMedia,
+        })}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /Add to cart/ }));
+
+    expect(cartMock.add).toHaveBeenCalledWith(
+      expect.objectContaining({
+        imageUrl: cartMedia.url,
+        imageAlt: cartMedia.alt,
+        placeholderMedia: null,
+      }),
     );
   });
 

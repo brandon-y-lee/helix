@@ -29,7 +29,19 @@ export function SearchResultCard({
   const colors: [string, string] = hit.placeholderMedia
     ? [hit.placeholderMedia.palette.start, hit.placeholderMedia.palette.end]
     : hit.swatch;
-  const media: ProductMedia | null = hit.placeholderMedia
+  const media: ProductMedia | null = hit.imageMedia
+    ? {
+        kind: "image",
+        url: hit.imageMedia.url,
+        alt: hit.imageMedia.alt,
+        width: hit.imageMedia.width,
+        height: hit.imageMedia.height,
+        role: "search",
+        sortOrder: 0,
+        paletteId: null,
+        palette: null,
+      }
+    : hit.placeholderMedia
     ? {
         kind: "placeholder",
         url: null,

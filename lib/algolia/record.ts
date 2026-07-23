@@ -30,6 +30,8 @@ export type CatalogMediaSource = {
   media_kind: string | null;
   url: string | null;
   alt: string;
+  width: number | null;
+  height: number | null;
   role: string;
   sort_order: number;
   palette_id: string | null;
@@ -139,6 +141,16 @@ export type AlgoliaProductRecord = {
         };
       }
     | null;
+  imageMedia:
+    | {
+        kind: "image";
+        url: string;
+        alt: string;
+        width: number | null;
+        height: number | null;
+        role: string;
+      }
+    | null;
   cardMedia: {
     kind: "gradient";
     colors: [string, string];
@@ -186,6 +198,35 @@ function placeholderFromMedia(
   };
 }
 
+function imageFromMedia(
+  media: CatalogMediaSource | undefined,
+): AlgoliaProductRecord["imageMedia"] {
+  if (!media || media.media_kind !== "image" || !media.url) return null;
+  return {
+    kind: "image",
+    url: media.url,
+    alt: media.alt,
+    width: media.width ?? null,
+    height: media.height ?? null,
+    role: media.role,
+  };
+}
+
+function mediaRoleRank(role: string): number {
+  switch (role) {
+    case "search":
+      return 0;
+    case "card_default":
+    case "card":
+      return 1;
+    case "detail":
+    case "hero":
+      return 2;
+    default:
+      return 3;
+  }
+}
+
 function toRoutineGroup(value: string | null): "core" | "beyond_core" | null {
   return value === "core" || value === "beyond_core" ? value : null;
 }
@@ -211,10 +252,12 @@ export function buildAlgoliaRecord(
   const media = (row.product_media ?? [])
     .slice()
     .sort((a, b) => {
-      const roleA = a.role === "search" ? -2 : a.role === "card_default" || a.role === "card" ? -1 : 1;
-      const roleB = b.role === "search" ? -2 : b.role === "card_default" || b.role === "card" ? -1 : 1;
-      return roleA - roleB || a.sort_order - b.sort_order;
-    })[0];
+      return mediaRoleRank(a.role) - mediaRoleRank(b.role) || a.sort_order - b.sort_order;
+    });
+  const imageMedia = media.find(
+    (item) => item.media_kind === "image" && Boolean(item.url),
+  );
+  const placeholderMedia = media.find((item) => item.media_kind === "placeholder");
   const swatch: [string, string] = [row.swatch_from, row.swatch_to];
   const displayName = row.display_name ?? row.name;
   const formalTitle = row.formal_title ?? row.name;
@@ -284,7 +327,8 @@ export function buildAlgoliaRecord(
     concerns,
     ingredients,
     swatch,
-    placeholderMedia: placeholderFromMedia(media, swatch),
+    placeholderMedia: placeholderFromMedia(placeholderMedia, swatch),
+    imageMedia: imageFromMedia(imageMedia),
     cardMedia: {
       kind: "gradient",
       colors: swatch,

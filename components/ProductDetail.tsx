@@ -1,6 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+  type WheelEvent as ReactWheelEvent,
+} from "react";
 import Link from "next/link";
 import { AfterpayMessaging } from "@/components/AfterpayMessaging";
 import { useCart } from "@/components/CartProvider";
@@ -49,6 +59,12 @@ function cartPlaceholderMedia(
 
 type PurchaseAccordionId = "does" | "use" | "ingredients";
 
+type PdpSequenceItem = {
+  kicker: string;
+  title: string;
+  body: string;
+};
+
 function compactDescription(value: string) {
   const sentences = value
     .split(/(?<=[.!?])\s+/)
@@ -87,6 +103,192 @@ function splitCopy(value: string) {
     .filter(Boolean);
 }
 
+function galleryRoleRank(role: ProductMedia["role"]) {
+  if (role === "detail" || role === "hero") return 0;
+  if (role === "gallery") return 1;
+  if (role === "card_default" || role === "card") return 2;
+  return 3;
+}
+
+function cartImageUrl(media: ProductMedia | null | undefined) {
+  return media?.kind === "image" ? media.url : null;
+}
+
+function formatSequencePosition(index: number, total: number) {
+  const width = Math.max(2, String(total).length);
+  return `${String(index + 1).padStart(width, "0")} / ${String(total).padStart(width, "0")}`;
+}
+
+function PdpEditorialPair({
+  headingId,
+  eyebrow,
+  heading,
+  summary,
+  className = "",
+  children,
+}: {
+  headingId: string;
+  eyebrow: string;
+  heading: string;
+  summary?: string;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <section
+      className={`pdp-editorial-pair ${className}`.trim()}
+      aria-labelledby={headingId}
+    >
+      <div className="pdp-editorial-pair__panel pdp-editorial-pair__panel--headline">
+        <p className="eyebrow">{eyebrow}</p>
+        <h2 id={headingId}>{heading}</h2>
+        {summary && <p>{summary}</p>}
+      </div>
+      <div className="pdp-editorial-pair__panel pdp-editorial-pair__panel--content">
+        {children}
+      </div>
+    </section>
+  );
+}
+
+function PdpPanelSequence({
+  label,
+  items,
+}: {
+  label: string;
+  items: PdpSequenceItem[];
+}) {
+  const [active, setActive] = useState(0);
+  const pointerStartRef = useRef<{ x: number; y: number; pointerId: number } | null>(null);
+  const lastWheelAtRef = useRef(Number.NEGATIVE_INFINITY);
+  const lastIndex = Math.max(items.length - 1, 0);
+  const canPrevious = active > 0;
+  const canNext = active < lastIndex;
+
+  useEffect(() => {
+    setActive((current) => Math.min(current, lastIndex));
+  }, [lastIndex]);
+
+  function go(delta: -1 | 1) {
+    setActive((current) => Math.min(Math.max(current + delta, 0), lastIndex));
+  }
+
+  function handleKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      go(-1);
+    }
+    if (event.key === "ArrowRight") {
+      event.preventDefault();
+      go(1);
+    }
+  }
+
+  function handlePointerDown(event: ReactPointerEvent<HTMLDivElement>) {
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    pointerStartRef.current = {
+      x: event.clientX,
+      y: event.clientY,
+      pointerId: event.pointerId,
+    };
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+  }
+
+  function handlePointerUp(event: ReactPointerEvent<HTMLDivElement>) {
+    const start = pointerStartRef.current;
+    pointerStartRef.current = null;
+    if (!start || start.pointerId !== event.pointerId) return;
+
+    const deltaX = event.clientX - start.x;
+    const deltaY = event.clientY - start.y;
+    if (Math.abs(deltaX) < 36 || Math.abs(deltaX) <= Math.abs(deltaY) * 1.2) {
+      return;
+    }
+    go(deltaX < 0 ? 1 : -1);
+  }
+
+  function handleWheel(event: ReactWheelEvent<HTMLDivElement>) {
+    if (Math.abs(event.deltaX) <= Math.abs(event.deltaY) || Math.abs(event.deltaX) < 10) {
+      return;
+    }
+    event.preventDefault();
+    const now = window.performance.now();
+    if (now - lastWheelAtRef.current < 260) return;
+    lastWheelAtRef.current = now;
+    go(event.deltaX > 0 ? 1 : -1);
+  }
+
+  if (items.length === 0) return null;
+
+  return (
+    <div
+      className="pdp-panel-sequence"
+      role="group"
+      aria-label={label}
+      tabIndex={0}
+      data-can-previous={canPrevious}
+      data-can-next={canNext}
+      data-preview-direction={canNext ? "next" : canPrevious ? "previous" : "none"}
+      onKeyDown={handleKeyDown}
+    >
+      <div className="pdp-panel-sequence__bar">
+        <span
+          className="pdp-panel-sequence__count"
+          aria-label={`${label} item position`}
+          aria-live="polite"
+        >
+          {formatSequencePosition(active, items.length)}
+        </span>
+        <span className="pdp-panel-sequence__controls">
+          <button
+            type="button"
+            aria-label={`Previous ${label}`}
+            disabled={!canPrevious}
+            onClick={() => go(-1)}
+          >
+            &larr;
+          </button>
+          <button
+            type="button"
+            aria-label={`Next ${label}`}
+            disabled={!canNext}
+            onClick={() => go(1)}
+          >
+            &rarr;
+          </button>
+        </span>
+      </div>
+      <div
+        className="pdp-panel-sequence__viewport"
+        onPointerDown={handlePointerDown}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={() => {
+          pointerStartRef.current = null;
+        }}
+        onWheel={handleWheel}
+      >
+        <div
+          className="pdp-panel-sequence__track"
+          style={{ "--pdp-sequence-offset": `${active * -100}%` } as CSSProperties}
+        >
+          {items.map((item, index) => (
+            <article
+              key={`${item.kicker}-${item.title}`}
+              className="pdp-panel-sequence__item"
+              data-active={index === active}
+              aria-hidden={index !== active}
+            >
+              <span>{item.kicker}</span>
+              <h3>{item.title}</h3>
+              <p>{item.body}</p>
+            </article>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ProductSignalGrid({
   product,
   routineLabel,
@@ -107,8 +309,13 @@ function ProductSignalGrid({
   if (signals.length === 0) return null;
 
   return (
-    <section className="pdp-section pdp-section--signals" aria-labelledby="pdp-signals-heading">
-      <h2 id="pdp-signals-heading">QUICK SIGNALS</h2>
+    <PdpEditorialPair
+      headingId="pdp-signals-heading"
+      eyebrow="Read"
+      heading="QUICK SIGNALS"
+      summary={`${product.displayName} at a glance, from use timing to finish.`}
+      className="pdp-editorial-pair--signals"
+    >
       <dl className="product-signal-grid">
         {signals.map((signal) => (
           <div key={signal.label} className="product-signal-grid__item">
@@ -117,7 +324,7 @@ function ProductSignalGrid({
           </div>
         ))}
       </dl>
-    </section>
+    </PdpEditorialPair>
   );
 }
 
@@ -293,8 +500,19 @@ export function ProductDetail({
 }) {
   const { add } = useCart();
   const fallbackPanels = fallbackGalleryPanels(product.swatch);
-  const gallery = product.media.filter((media) =>
-    ["detail", "gallery", "card_default"].includes(media.role),
+  const gallery = useMemo(
+    () =>
+      product.media
+        .filter((media) =>
+          ["detail", "gallery", "hero", "card_default"].includes(media.role),
+        )
+        .slice()
+        .sort(
+          (a, b) =>
+            galleryRoleRank(a.role) - galleryRoleRank(b.role) ||
+            a.sortOrder - b.sortOrder,
+        ),
+    [product.media],
   );
   const panelCount = gallery.length || fallbackPanels.length;
   const [activePanel, setActivePanel] = useState(0);
@@ -351,6 +569,24 @@ export function ProductDetail({
     { label: "Good for", value: product.goodFor },
     { label: "Skin", value: product.skinTypes.join(", ") },
   ].filter((item): item is { label: string; value: string } => Boolean(item.value));
+  const whatItDoesItems = content.whatItDoes.map((goal, index) => ({
+    kicker: `Signal ${String(index + 1).padStart(2, "0")}`,
+    title: goal,
+    body:
+      product.benefits[index] ??
+      product.formulaNotes[index] ??
+      leadDescription,
+  }));
+  const howToUseItems = howToUse.map((step, index) => ({
+    kicker: `Step ${String(index + 1).padStart(2, "0")}`,
+    title: index === 0 ? "Start here" : `Then ${String(index + 1).padStart(2, "0")}`,
+    body: step,
+  }));
+  const ingredientItems = content.ingredientCards.map((ingredient) => ({
+    kicker: ingredient.label,
+    title: ingredient.name,
+    body: ingredient.copy,
+  }));
   const stickyVisible = !heroCtaVisible && !bottomVisible;
 
   useEffect(() => {
@@ -387,7 +623,7 @@ export function ProductDetail({
       variantLabel: variant.label,
       price: variant.price,
       swatch: product.swatch,
-      imageUrl: null,
+      imageUrl: cartImageUrl(media),
       imageAlt: media?.alt ?? null,
       placeholderMedia: cartPlaceholderMedia(media),
     });
@@ -694,52 +930,61 @@ export function ProductDetail({
       <section className="pdp-sections" aria-label={`${product.displayName} details`}>
         <ProductSignalGrid product={product} routineLabel={routineLabel} />
 
-        <section className="pdp-section pdp-section--does" aria-labelledby="pdp-does-heading">
-          <h2 id="pdp-does-heading">WHAT IT DOES</h2>
-          <ul className="pdp-goals">
-            {content.whatItDoes.map((goal) => (
-              <li key={goal}>{goal}</li>
-            ))}
-          </ul>
-        </section>
+        <PdpEditorialPair
+          headingId="pdp-does-heading"
+          eyebrow="Performance"
+          heading="WHAT IT DOES"
+          summary="A finite read of the product's core cosmetic signals."
+          className="pdp-editorial-pair--does"
+        >
+          <PdpPanelSequence label="What it does" items={whatItDoesItems} />
+        </PdpEditorialPair>
 
-        <section className="pdp-section pdp-section--use" aria-labelledby="pdp-use-heading">
-          <h2 id="pdp-use-heading">HOW TO USE</h2>
-          <ol className="pdp-use-steps">
-            {howToUse.map((step) => (
-              <li key={step}>{step}</li>
-            ))}
-          </ol>
-        </section>
+        <PdpEditorialPair
+          headingId="pdp-use-heading"
+          eyebrow="Application"
+          heading="HOW TO USE"
+          summary="Step through the application order without leaving the product context."
+          className="pdp-editorial-pair--use"
+        >
+          <PdpPanelSequence label="How to use" items={howToUseItems} />
+        </PdpEditorialPair>
 
-        <section className="pdp-section pdp-section--inside" aria-labelledby="pdp-inside-heading">
-          <h2 id="pdp-inside-heading">WHAT&apos;S INSIDE</h2>
+        <PdpEditorialPair
+          headingId="pdp-inside-heading"
+          eyebrow="Formula"
+          heading="WHAT&apos;S INSIDE"
+          summary="Ingredient notes stay close to the full INCI disclosure below."
+          className="pdp-editorial-pair--inside"
+        >
           {content.ingredientCards.length > 0 ? (
-            <div className="ingredient-card-row">
-              {content.ingredientCards.map((ingredient) => (
-                <article key={ingredient.name} className="ingredient-card">
-                  <span>{ingredient.label}</span>
-                  <h3>{ingredient.name}</h3>
-                  <p>{ingredient.copy}</p>
-                </article>
-              ))}
-            </div>
+            <PdpPanelSequence label="What's inside" items={ingredientItems} />
           ) : (
             <p>Ingredient notes are not available for this product yet.</p>
           )}
-        </section>
+        </PdpEditorialPair>
 
-        <section className="pdp-section pdp-section--ingredients" aria-labelledby="full-ingredients-heading">
-          <h2 id="full-ingredients-heading">INGREDIENTS</h2>
+        <PdpEditorialPair
+          headingId="full-ingredients-heading"
+          eyebrow="Disclosure"
+          heading="INGREDIENTS"
+          summary="The full ingredient list is kept separate from editorial ingredient notes."
+          className="pdp-editorial-pair--ingredients"
+        >
           <details id="full-ingredients" className="full-ingredients">
             <summary>Full ingredients</summary>
             <p>{fullIngredientsText}</p>
           </details>
-        </section>
+        </PdpEditorialPair>
 
         {details.length > 0 && (
-          <section className="pdp-section" aria-labelledby="product-details">
-            <h2 id="product-details">DETAILS</h2>
+          <PdpEditorialPair
+            headingId="product-details"
+            eyebrow="Specs"
+            heading="DETAILS"
+            summary="Server-backed product facts and routine placement."
+            className="pdp-editorial-pair--details"
+          >
             <dl className="meta-grid">
               {details.map((m) => (
                 <div key={m.label} className="meta-grid__item">
@@ -760,7 +1005,7 @@ export function ProductDetail({
                 </details>
               </div>
             )}
-          </section>
+          </PdpEditorialPair>
         )}
       </section>
 

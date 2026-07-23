@@ -16,6 +16,7 @@
     "test": "vitest run",
     "e2e": "playwright test",
     "catalog:import:leaders": "tsx scripts/catalog-import-leaders.ts",
+    "catalog:media:sync-core": "tsx scripts/catalog-sync-core-media.ts",
     "catalog:refresh:presentation": "tsx scripts/catalog-refresh-presentation.ts",
     "catalog:verify": "tsx scripts/db/verify-supabase-data.ts",
     "db:audit": "tsx scripts/db/audit-supabase-data.ts",
