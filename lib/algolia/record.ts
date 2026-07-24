@@ -27,6 +27,7 @@ export type CatalogVariantSource = {
 };
 
 export type CatalogMediaSource = {
+  media_type: string | null;
   media_kind: string | null;
   url: string | null;
   alt: string;
@@ -201,7 +202,14 @@ function placeholderFromMedia(
 function imageFromMedia(
   media: CatalogMediaSource | undefined,
 ): AlgoliaProductRecord["imageMedia"] {
-  if (!media || media.media_kind !== "image" || !media.url) return null;
+  if (
+    !media ||
+    media.media_kind !== "image" ||
+    media.media_type === "video" ||
+    !media.url
+  ) {
+    return null;
+  }
   return {
     kind: "image",
     url: media.url,
@@ -226,6 +234,14 @@ function mediaRoleRank(role: string): number {
       return 3;
   }
 }
+
+const INDEXED_IMAGE_ROLES = new Set([
+  "search",
+  "card_default",
+  "card",
+  "detail",
+  "hero",
+]);
 
 function toRoutineGroup(value: string | null): "core" | "beyond_core" | null {
   return value === "core" || value === "beyond_core" ? value : null;
@@ -255,7 +271,11 @@ export function buildAlgoliaRecord(
       return mediaRoleRank(a.role) - mediaRoleRank(b.role) || a.sort_order - b.sort_order;
     });
   const imageMedia = media.find(
-    (item) => item.media_kind === "image" && Boolean(item.url),
+    (item) =>
+      item.media_kind === "image" &&
+      item.media_type !== "video" &&
+      INDEXED_IMAGE_ROLES.has(item.role) &&
+      Boolean(item.url),
   );
   const placeholderMedia = media.find((item) => item.media_kind === "placeholder");
   const swatch: [string, string] = [row.swatch_from, row.swatch_to];

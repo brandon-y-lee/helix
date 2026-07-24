@@ -55,7 +55,19 @@ test("product detail loads by slug and variant selection updates state", async (
   await expect(page.getByRole("button", { name: /WHAT IT DOES/ })).toBeVisible();
   await expect(page.getByRole("button", { name: /HOW TO USE/ })).toBeVisible();
   await expect(page.getByRole("button", { name: /KEY INGREDIENTS/ })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "QUICK SIGNALS" })).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "TREAT routine video", exact: true }),
+  ).toBeAttached();
+  await expect(
+    page.getByRole("heading", {
+      name: "A lightweight PDRN SERUM for HYDRATION, smoother-looking texture, and a steadier GLOW.",
+    }),
+  ).toBeAttached();
+  await expect(
+    page.getByRole("group", { name: "TREAT outcomes" }),
+  ).toBeAttached();
+  await expect(page.getByRole("heading", { name: "QUICK SIGNALS" })).toHaveCount(0);
+  await expect(page.getByText("Endorsed by familiar faces")).toHaveCount(0);
   await expect(
     page.getByRole("heading", { name: "INGREDIENTS", exact: true }),
   ).toBeVisible();
@@ -65,6 +77,96 @@ test("product detail loads by slug and variant selection updates state", async (
   await thirtyMl.click();
   await expect(thirtyMl).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator(".pdp__price")).toHaveText("$25.00");
+});
+
+test("Core PDP editorial modules keep product-specific media, order, and interaction", async ({
+  page,
+}) => {
+  const products = [
+    {
+      slug: "cleanse-01-calming-gel-cleanser",
+      name: "CLEANSE",
+      outcomeHeading: "YOUR DAILY CLEANSER THAT:",
+    },
+    {
+      slug: "treat-03-pdrn-5-ampoule",
+      name: "TREAT",
+      outcomeHeading: "YOUR DAILY TREATMENT THAT:",
+    },
+    {
+      slug: "seal-05-green-collagen-cream",
+      name: "SEAL",
+      outcomeHeading: "YOUR DAILY CREAM THAT:",
+    },
+  ] as const;
+
+  for (const product of products) {
+    await page.goto(`/products/${product.slug}`);
+
+    const routine = page.getByRole("region", {
+      name: `${product.name} routine video`,
+      exact: true,
+    });
+    const foreground = routine.locator(".pdp-routine-video__foreground");
+    const background = routine.locator(".pdp-routine-video__background");
+    const profile = page.locator(".pdp-profile-split");
+    const outcome = page.locator(".pdp-outcome-split");
+
+    await expect(routine).toBeAttached();
+    await expect(profile).toBeAttached();
+    await expect(
+      page.getByRole("heading", { name: product.outcomeHeading }),
+    ).toBeAttached();
+    await expect(foreground).toHaveAttribute("controls", "");
+    await expect(foreground).not.toHaveAttribute("autoplay", "");
+    await expect(foreground).toHaveAttribute("preload", "metadata");
+    await expect(foreground).toHaveAttribute("src", new RegExp(product.slug));
+    await expect(foreground).toHaveAttribute("poster", new RegExp(product.slug));
+    await expect(background).toHaveAttribute("muted", "");
+    await expect(background).toHaveAttribute("aria-hidden", "true");
+    await expect(
+      profile.locator("img"),
+    ).toHaveAttribute("src", new RegExp(product.slug));
+
+    const order = await page.evaluate(() => {
+      const routineNode = document.querySelector(".pdp-routine-video");
+      const profileNode = document.querySelector(".pdp-profile-split");
+      const outcomeNode = document.querySelector(".pdp-outcome-split");
+      if (!routineNode || !profileNode || !outcomeNode) return null;
+      return (
+        Boolean(
+          routineNode.compareDocumentPosition(profileNode) &
+            Node.DOCUMENT_POSITION_FOLLOWING,
+        ) &&
+        Boolean(
+          profileNode.compareDocumentPosition(outcomeNode) &
+            Node.DOCUMENT_POSITION_FOLLOWING,
+        )
+      );
+    });
+    expect(order).toBe(true);
+  }
+
+  const options = page.getByRole("group", { name: "SEAL outcomes" });
+  const first = options.getByRole("button").nth(0);
+  const second = options.getByRole("button").nth(1);
+  const third = options.getByRole("button").nth(2);
+  await expect(first).toHaveAttribute("aria-pressed", "true");
+
+  await third.hover();
+  await expect(third).toHaveAttribute("aria-pressed", "true");
+  await page.mouse.move(0, 0);
+  await expect(third).toHaveAttribute("aria-pressed", "true");
+
+  await second.click();
+  await expect(second).toHaveAttribute("aria-pressed", "true");
+  await second.focus();
+  await page.keyboard.press("ArrowUp");
+  await expect(first).toHaveAttribute("aria-pressed", "true");
+  await expect(first).toBeFocused();
+  await page.keyboard.press("ArrowUp");
+  await expect(first).toHaveAttribute("aria-pressed", "true");
+  await expect(first).toBeFocused();
 });
 
 test("add to cart updates the count and persists across reload", async ({
@@ -209,18 +311,19 @@ test("PDP sticky purchase bar aligns to the content shell and clears the lower e
     await page.evaluate(() => window.scrollTo(0, 0));
 
     const sticky = page.locator(".pdp-sticky-purchase");
-    await expect(page.locator(".pdp-endorsements")).toBeVisible();
     await expect(
-      page.getByRole("heading", { name: "Endorsed by familiar faces" }),
-    ).toBeVisible();
-    await expect(page.locator(".pdp-endorsements__item")).toHaveCount(4);
-    await expect(page.locator(".pdp-endorsements__item img")).toHaveCount(4);
-    await expect(page.locator(".pdp-endorsements")).not.toContainText(/quote|review/i);
+      page.getByRole("region", { name: "TREAT routine video", exact: true }),
+    ).toBeAttached();
     await page.locator(".pdp__actions").scrollIntoViewIfNeeded();
     await expect(sticky).toHaveAttribute("data-visible", "false");
     await expect(sticky).toHaveAttribute("aria-hidden", "true");
 
-    await page.locator(".pdp-sections").scrollIntoViewIfNeeded();
+    await page.locator(".pdp-profile-split").scrollIntoViewIfNeeded();
+    await expect(sticky).toHaveAttribute("data-visible", "false");
+    await page.locator(".pdp-outcome-split").scrollIntoViewIfNeeded();
+    await expect(sticky).toHaveAttribute("data-visible", "false");
+
+    await page.locator(".pdp-editorial-pair--use").scrollIntoViewIfNeeded();
     await expect(sticky).toHaveAttribute("data-visible", "true");
     await expect(sticky).toHaveAttribute("aria-hidden", "false");
     await page.waitForTimeout(300);
@@ -289,7 +392,7 @@ test("PDP familiar faces rail uses finite local media and boundary-aware control
   });
 
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/products/cleanse-01-calming-gel-cleanser");
+  await page.goto("/products/refine-02-pore-treatment-pads");
 
   const section = page.locator(".pdp-endorsements");
   const rail = section.getByRole("list", {

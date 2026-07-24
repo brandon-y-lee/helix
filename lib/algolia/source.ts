@@ -22,7 +22,7 @@ const SOURCE_SELECT =
   "published_at, updated_at, made_for, good_for, texture, key_ingredients, " +
   "ingredients, concerns, routine_step, usage_time, search_keywords, " +
   "product_variants ( variant_key, label, price_cents, position, sort_order, available, inventory_status ), " +
-  "product_media ( media_kind, url, alt, width, height, role, sort_order, palette_id, placeholder_palette )";
+  "product_media ( media_type, media_kind, url, alt, width, height, role, sort_order, palette_id, placeholder_palette )";
 
 /** All products as Algolia records, in featured (position) order. */
 export async function fetchAllSearchRecords(): Promise<AlgoliaProductRecord[]> {

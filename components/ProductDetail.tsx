@@ -16,6 +16,9 @@ import { AfterpayMessaging } from "@/components/AfterpayMessaging";
 import { useCart } from "@/components/CartProvider";
 import { ProductEndorsementRail } from "@/components/ProductEndorsementRail";
 import { ProductImage } from "@/components/ProductImage";
+import { PdpOutcomeSplit } from "@/components/PdpOutcomeSplit";
+import { PdpProfileSplit } from "@/components/PdpProfileSplit";
+import { PdpRoutineVideo } from "@/components/PdpRoutineVideo";
 import { WaitlistButton } from "@/components/WaitlistButton";
 import {
   getProductPdpContent,
@@ -31,6 +34,7 @@ import {
   reviewSummary,
   type ProductReviews,
 } from "@/lib/catalog/product-reviews";
+import { getCorePdpPresentation } from "@/lib/content/core-pdp";
 import { formatPrice, type Product, type ProductMedia } from "@/lib/products";
 import type { CartPlaceholderMedia } from "@/lib/cart/types";
 import { productEndorsementMedia } from "@/lib/content/product-endorsements";
@@ -504,6 +508,7 @@ export function ProductDetail({
     () =>
       product.media
         .filter((media) =>
+          media.kind !== "video" &&
           ["detail", "gallery", "hero", "card_default"].includes(media.role),
         )
         .slice()
@@ -524,8 +529,12 @@ export function ProductDetail({
     useState<PurchaseAccordionId | null>(null);
   const [heroCtaVisible, setHeroCtaVisible] = useState(true);
   const [bottomVisible, setBottomVisible] = useState(false);
+  const [editorialModuleVisible, setEditorialModuleVisible] = useState(false);
   const purchaseCtaRef = useRef<HTMLDivElement>(null);
   const bottomSentinelRef = useRef<HTMLSpanElement>(null);
+  const routineVideoRef = useRef<HTMLElement>(null);
+  const profileSplitRef = useRef<HTMLElement>(null);
+  const outcomeSplitRef = useRef<HTMLElement>(null);
 
   const variant =
     product.variants.find((v) => v.id === variantId) ?? product.variants[0];
@@ -587,7 +596,34 @@ export function ProductDetail({
     title: ingredient.name,
     body: ingredient.copy,
   }));
-  const stickyVisible = !heroCtaVisible && !bottomVisible;
+  const corePresentation = getCorePdpPresentation(product.slug);
+  const routineVideo =
+    product.media.find(
+      (media) =>
+        media.role === "routine_video" &&
+        media.kind === "video" &&
+        Boolean(media.url),
+    ) ?? null;
+  const routinePoster =
+    product.media.find(
+      (media) =>
+        media.role === "routine_video_poster" &&
+        media.kind === "image" &&
+        Boolean(media.url),
+    ) ?? null;
+  const profileMedia =
+    product.media.find(
+      (media) =>
+        media.role === "profile_editorial" &&
+        media.kind === "image" &&
+        Boolean(media.url),
+    ) ?? null;
+  const coreProfileReady = Boolean(corePresentation && profileMedia);
+  const coreVideoReady = Boolean(
+    corePresentation && routineVideo && routinePoster,
+  );
+  const stickyVisible =
+    !heroCtaVisible && !bottomVisible && !editorialModuleVisible;
 
   useEffect(() => {
     const cta = purchaseCtaRef.current;
@@ -610,6 +646,37 @@ export function ProductDetail({
       bottomObserver.disconnect();
     };
   }, []);
+
+  useEffect(() => {
+    const targets = [
+      routineVideoRef.current,
+      profileSplitRef.current,
+      outcomeSplitRef.current,
+    ].filter((target): target is HTMLElement => Boolean(target));
+
+    setEditorialModuleVisible(false);
+    if (targets.length === 0 || !("IntersectionObserver" in window)) return;
+
+    const visibleTargets = new Map<Element, boolean>();
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          visibleTargets.set(entry.target, entry.isIntersecting);
+        }
+        setEditorialModuleVisible(
+          Array.from(visibleTargets.values()).some(Boolean),
+        );
+      },
+      { threshold: 0.01 },
+    );
+
+    for (const target of targets) {
+      visibleTargets.set(target, false);
+      observer.observe(target);
+    }
+
+    return () => observer.disconnect();
+  }, [coreProfileReady, coreVideoReady]);
 
   async function handleAdd() {
     if (!variant || !isAvailable || pending) return;
@@ -861,7 +928,19 @@ export function ProductDetail({
         </div>
       </div>
 
-      <ProductEndorsementRail items={productEndorsementMedia} />
+      {corePresentation ? (
+        routineVideo && routinePoster ? (
+          <PdpRoutineVideo
+            rootRef={routineVideoRef}
+            productName={product.displayName}
+            overlay={corePresentation.routineOverlay}
+            video={routineVideo}
+            poster={routinePoster}
+          />
+        ) : null
+      ) : (
+        <ProductEndorsementRail items={productEndorsementMedia} />
+      )}
 
       <div
         className="pdp-sticky-purchase"
@@ -928,7 +1007,23 @@ export function ProductDetail({
       </div>
 
       <section className="pdp-sections" aria-label={`${product.displayName} details`}>
-        <ProductSignalGrid product={product} routineLabel={routineLabel} />
+        {corePresentation && profileMedia && coreProfileReady ? (
+          <>
+            <PdpProfileSplit
+              rootRef={profileSplitRef}
+              product={product}
+              presentation={corePresentation}
+              media={profileMedia}
+            />
+            <PdpOutcomeSplit
+              rootRef={outcomeSplitRef}
+              productName={product.displayName}
+              presentation={corePresentation}
+            />
+          </>
+        ) : corePresentation ? null : (
+          <ProductSignalGrid product={product} routineLabel={routineLabel} />
+        )}
 
         <PdpEditorialPair
           headingId="pdp-does-heading"

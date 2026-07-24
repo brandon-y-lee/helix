@@ -139,4 +139,39 @@ describe("catalog search sync route", () => {
     expect(revalidateTagMock).toHaveBeenCalledWith("catalog");
     expect(revalidatePathMock).toHaveBeenCalledWith("/products/treat-03-pdrn-5-ampoule");
   });
+
+  it("invalidates only the PDP for editorial media roles", async () => {
+    applyMock.mockResolvedValue({
+      action: "noop",
+      table: "product_media",
+      objectID: "f6091deb-1177-45ad-b506-1f0427fa4abe",
+      slug: "treat-03-pdrn-5-ampoule",
+      collection: "The Core",
+      reason: "PDP-only media role is not indexed",
+    });
+
+    const response = await POST(
+      request({
+        schema: "public",
+        type: "INSERT",
+        table: "product_media",
+        record: {
+          id: "media-editorial",
+          product_id: "f6091deb-1177-45ad-b506-1f0427fa4abe",
+          role: "routine_video",
+        },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(revalidateTagMock).toHaveBeenCalledWith(
+      "product:treat-03-pdrn-5-ampoule",
+    );
+    expect(revalidatePathMock).toHaveBeenCalledWith(
+      "/products/treat-03-pdrn-5-ampoule",
+    );
+    expect(revalidateTagMock).not.toHaveBeenCalledWith("catalog");
+    expect(revalidateTagMock).not.toHaveBeenCalledWith("products");
+    expect(revalidatePathMock).not.toHaveBeenCalledWith("/products");
+  });
 });

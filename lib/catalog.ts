@@ -97,6 +97,7 @@ type VariantRow = {
 };
 
 type MediaRow = {
+  media_type: string | null;
   media_kind: string | null;
   url: string | null;
   alt: string;
@@ -118,7 +119,7 @@ const PRODUCT_SELECT_BASE =
   "routine_order, usage_time, seo_title, seo_description, search_keywords, created_at, " +
   "product_variants ( variant_key, label, price_cents, compare_at_price_cents, sku, " +
   "available, inventory_status, option_values, volume, pack_count, position, sort_order ), " +
-  "product_media ( media_kind, url, alt, width, height, role, sort_order, palette_id, placeholder_palette )";
+  "product_media ( media_type, media_kind, url, alt, width, height, role, sort_order, palette_id, placeholder_palette )";
 
 const PRODUCT_ROUTINE_SELECT =
   "routine_group, routine_group_label, routine_step_number, routine_step_name, " +
@@ -217,7 +218,12 @@ function mapRow(row: ProductRow): Product {
     .slice()
     .sort((a, b) => a.sort_order - b.sort_order)
     .map((m) => ({
-      kind: m.media_kind === "placeholder" ? "placeholder" : "image",
+      kind:
+        m.media_kind === "placeholder"
+          ? "placeholder"
+          : m.media_type === "video"
+            ? "video"
+            : "image",
       url: m.url,
       alt: m.alt,
       width: m.width ?? null,
@@ -231,25 +237,42 @@ function mapRow(row: ProductRow): Product {
           : null,
     }));
 
+  const presentationMedia = media.filter(
+    (item) =>
+      item.kind !== "video" &&
+      [
+        "card_default",
+        "card",
+        "card_hover",
+        "detail",
+        "hero",
+        "gallery",
+        "cart",
+        "search",
+      ].includes(item.role),
+  );
   const cardMedia =
-    media.find((m) => m.role === "card_default") ??
-    media.find((m) => m.role === "card") ??
-    media[0] ??
+    presentationMedia.find((m) => m.role === "card_default") ??
+    presentationMedia.find((m) => m.role === "card") ??
+    presentationMedia.find((m) => m.role === "detail") ??
+    presentationMedia.find((m) => m.role === "hero") ??
     null;
   const cardHoverMedia =
-    media.find((m) => m.role === "card_hover") ?? cardMedia ?? null;
+    presentationMedia.find((m) => m.role === "card_hover") ?? cardMedia ?? null;
   const heroMedia =
-    media.find((m) => m.role === "detail") ??
-    media.find((m) => m.role === "hero") ??
+    presentationMedia.find((m) => m.role === "detail") ??
+    presentationMedia.find((m) => m.role === "hero") ??
     cardMedia ??
-    media[0] ??
     null;
   const detailMedia =
-    media.find((m) => m.role === "detail") ?? heroMedia ?? cardMedia ?? null;
+    presentationMedia.find((m) => m.role === "detail") ??
+    heroMedia ??
+    cardMedia ??
+    null;
   const cartMedia =
-    media.find((m) => m.role === "cart") ?? cardMedia ?? media[0] ?? null;
+    presentationMedia.find((m) => m.role === "cart") ?? cardMedia ?? null;
   const searchMedia =
-    media.find((m) => m.role === "search") ?? cardMedia ?? media[0] ?? null;
+    presentationMedia.find((m) => m.role === "search") ?? cardMedia ?? null;
   const displayName = row.display_name ?? row.name;
   const formalTitle = row.formal_title ?? row.name;
   const cardTagline = row.card_tagline ?? row.tagline;
@@ -338,6 +361,9 @@ function ProductMediaRoleFromRow(role: string): ProductMedia["role"] {
     case "card_hover":
     case "cart":
     case "search":
+    case "routine_video":
+    case "routine_video_poster":
+    case "profile_editorial":
       return role;
     default:
       return "gallery";

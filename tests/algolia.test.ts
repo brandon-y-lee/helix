@@ -108,6 +108,7 @@ const sourceRow: CatalogProductSource = {
   ],
   product_media: [
     {
+      media_type: "image",
       media_kind: "placeholder",
       url: null,
       alt: "Northpoint product",
@@ -178,6 +179,7 @@ describe("buildAlgoliaRecord", () => {
       ...sourceRow,
       product_media: [
         {
+          media_type: "image",
           media_kind: "image",
           url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/mei-pelle-catalog/products/northpoint/primary/hash.webp",
           alt: "Northpoint serum",
@@ -200,6 +202,43 @@ describe("buildAlgoliaRecord", () => {
       role: "search",
     });
     expect(r.placeholderMedia).toBeNull();
+  });
+
+  it("never promotes PDP-only video or profile media into search", () => {
+    const searchImage = {
+      media_type: "image",
+      media_kind: "image",
+      url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/mei-pelle-catalog/products/northpoint/search.webp",
+      alt: "Northpoint serum",
+      width: 1200,
+      height: 1650,
+      role: "search",
+      sort_order: 6,
+      palette_id: null,
+      placeholder_palette: null,
+    };
+    const r = buildAlgoliaRecord({
+      ...sourceRow,
+      product_media: [
+        {
+          ...searchImage,
+          media_type: "video",
+          url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/mei-pelle-catalog/products/northpoint/routine/video.mp4",
+          role: "routine_video",
+          sort_order: -10,
+        },
+        {
+          ...searchImage,
+          url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/mei-pelle-catalog/products/northpoint/profile.webp",
+          role: "profile_editorial",
+          sort_order: -9,
+        },
+        searchImage,
+      ],
+    });
+
+    expect(r.imageMedia?.url).toBe(searchImage.url);
+    expect(r.imageMedia?.role).toBe("search");
   });
 
   it("flags availability/waitlist and badge from status", () => {
@@ -425,6 +464,30 @@ describe("applyCatalogWebhookEvent", () => {
     expect(outcome).toMatchObject({ action: "upsert", objectID: sourceRow.id });
   });
 
+  it("resolves but does not reindex PDP-only editorial media", async () => {
+    const built = buildAlgoliaRecord(sourceRow);
+    mockedFetch.mockResolvedValue(built);
+
+    const outcome = await applyCatalogWebhookEvent({
+      type: "INSERT",
+      table: "product_media",
+      record: {
+        id: "m-editorial",
+        product_id: sourceRow.id,
+        role: "routine_video",
+      },
+    });
+
+    expect(mockedFetch).toHaveBeenCalledWith(sourceRow.id);
+    expect(mockedUpsert).not.toHaveBeenCalled();
+    expect(mockedDelete).not.toHaveBeenCalled();
+    expect(outcome).toMatchObject({
+      action: "noop",
+      slug: sourceRow.slug,
+      reason: "PDP-only media role is not indexed",
+    });
+  });
+
   it("removes the parent record if a variant change finds no parent", async () => {
     mockedFetch.mockResolvedValue(null); // parent gone (cascade delete)
 
@@ -537,5 +600,34 @@ describe("catalog cache invalidation", () => {
     );
     expect(targets.paths).toContain(`/products/${sourceRow.slug}`);
     expect(targets.paths).toContain("/products/old-northpoint-serum");
+  });
+
+  it("limits PDP-only media invalidation to the affected product", () => {
+    const targets = getCatalogInvalidationTargets(
+      {
+        type: "UPDATE",
+        table: "product_media",
+        record: {
+          product_id: sourceRow.id,
+          role: "profile_editorial",
+        },
+        old_record: {
+          product_id: sourceRow.id,
+          role: "profile_editorial",
+        },
+      },
+      {
+        action: "noop",
+        table: "product_media",
+        objectID: sourceRow.id,
+        slug: sourceRow.slug,
+        collection: sourceRow.collection,
+      },
+    );
+
+    expect(targets).toEqual({
+      tags: [`product:${sourceRow.slug}`],
+      paths: [`/products/${sourceRow.slug}`],
+    });
   });
 });

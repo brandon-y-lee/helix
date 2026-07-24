@@ -1,8 +1,9 @@
 // Supabase → Algolia catalog search sync webhook.
 //
 // Configure a Supabase Database Webhook (Dashboard → Database → Webhooks) on
-// the `products` and `product_variants` tables (INSERT/UPDATE/DELETE) pointing
-// at this route, with an HTTP header `x-webhook-secret: <SUPABASE_CATALOG_WEBHOOK_SECRET>`.
+// the `products`, `product_variants`, and `product_media` tables
+// (INSERT/UPDATE/DELETE) pointing at this route, with an HTTP header
+// `x-webhook-secret: <SUPABASE_CATALOG_WEBHOOK_SECRET>`.
 // On each change we rebuild the affected product's record from Supabase (the
 // source of truth) and upsert/delete it in Algolia. This is the NORMAL,
 // automatic sync path — no manual script runs are required after setup.

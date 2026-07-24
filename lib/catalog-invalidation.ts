@@ -1,6 +1,7 @@
-import type {
-  CatalogWebhookPayload,
-  SyncOutcome,
+import {
+  mediaEventOnlyAffectsPdp,
+  type CatalogWebhookPayload,
+  type SyncOutcome,
 } from "@/lib/algolia/sync";
 import { collectionCacheTag } from "@/lib/catalog-cache";
 
@@ -17,8 +18,11 @@ export function getCatalogInvalidationTargets(
   payload: CatalogWebhookPayload,
   outcome?: SyncOutcome,
 ): CatalogInvalidationTargets {
-  const tags = new Set(["catalog", "products", "collections"]);
-  const paths = new Set(["/", "/products"]);
+  const pdpOnlyMedia = mediaEventOnlyAffectsPdp(payload);
+  const tags = new Set<string>(
+    pdpOnlyMedia ? [] : ["catalog", "products", "collections"],
+  );
+  const paths = new Set<string>(pdpOnlyMedia ? [] : ["/", "/products"]);
   const source = payload.record ?? payload.old_record;
   const slug = outcome?.slug ?? asText(source?.slug);
   const oldSlug = outcome?.oldSlug ?? asText(payload.old_record?.slug);
@@ -34,8 +38,8 @@ export function getCatalogInvalidationTargets(
     tags.add(`product:${oldSlug}`);
     paths.add(`/products/${oldSlug}`);
   }
-  if (collection) tags.add(collectionCacheTag(collection));
-  if (oldCollection && oldCollection !== collection) {
+  if (!pdpOnlyMedia && collection) tags.add(collectionCacheTag(collection));
+  if (!pdpOnlyMedia && oldCollection && oldCollection !== collection) {
     tags.add(collectionCacheTag(oldCollection));
   }
   if (payload.table === "products") paths.add("/sitemap.xml");

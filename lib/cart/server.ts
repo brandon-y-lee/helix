@@ -44,6 +44,7 @@ type ProductRow = {
 };
 
 type MediaRow = {
+  media_type: string | null;
   media_kind: string | null;
   url: string | null;
   alt: string;
@@ -232,6 +233,19 @@ function mapLine(row: CartItemRow): CartLine {
     product?.swatch_to ?? "#9c9488",
   ];
   const media = product?.product_media
+    ?.filter(
+      (item) =>
+        item.media_type !== "video" &&
+        [
+          "cart",
+          "card_default",
+          "card",
+          "detail",
+          "hero",
+          "gallery",
+          "search",
+        ].includes(item.role),
+    )
     ?.slice()
     .sort((a, b) => {
       const roleA = a.role === "cart" ? -2 : a.role === "card_default" || a.role === "card" ? -1 : 1;
@@ -305,7 +319,7 @@ async function readCart(cartId: string): Promise<CartState> {
   const { data, error } = await admin
     .from("cart_items")
     .select(
-      "id, product_id, variant_key, quantity, products ( id, slug, name, display_name, collection, status, catalog_status, swatch_from, swatch_to, product_variants ( variant_key, label, price_cents, position, sku, available, inventory_status ), product_media ( media_kind, url, alt, role, sort_order, palette_id, placeholder_palette ) )",
+      "id, product_id, variant_key, quantity, products ( id, slug, name, display_name, collection, status, catalog_status, swatch_from, swatch_to, product_variants ( variant_key, label, price_cents, position, sku, available, inventory_status ), product_media ( media_type, media_kind, url, alt, role, sort_order, palette_id, placeholder_palette ) )",
     )
     .eq("cart_id", cartId)
     .order("created_at", { ascending: true });
@@ -326,7 +340,7 @@ async function readCheckoutCart(cartId: string): Promise<Omit<CheckoutCartSnapsh
   const { data, error } = await admin
     .from("cart_items")
     .select(
-      "id, product_id, variant_key, quantity, products ( id, slug, name, display_name, collection, status, catalog_status, swatch_from, swatch_to, product_variants ( variant_key, label, price_cents, position, sku, available, inventory_status ), product_media ( media_kind, url, alt, role, sort_order, palette_id, placeholder_palette ) )",
+      "id, product_id, variant_key, quantity, products ( id, slug, name, display_name, collection, status, catalog_status, swatch_from, swatch_to, product_variants ( variant_key, label, price_cents, position, sku, available, inventory_status ), product_media ( media_type, media_kind, url, alt, role, sort_order, palette_id, placeholder_palette ) )",
     )
     .eq("cart_id", cartId)
     .order("created_at", { ascending: true });
@@ -350,7 +364,7 @@ async function getCatalogProduct(slug: string, variantKey: string): Promise<{
   const { data, error } = await admin
     .from("products")
     .select(
-      "id, slug, name, display_name, collection, status, catalog_status, swatch_from, swatch_to, product_variants!inner ( variant_key, label, price_cents, position, sku, available, inventory_status ), product_media ( media_kind, url, alt, role, sort_order, palette_id, placeholder_palette )",
+      "id, slug, name, display_name, collection, status, catalog_status, swatch_from, swatch_to, product_variants!inner ( variant_key, label, price_cents, position, sku, available, inventory_status ), product_media ( media_type, media_kind, url, alt, role, sort_order, palette_id, placeholder_palette )",
     )
     .eq("slug", slug)
     .eq("catalog_status", "active")

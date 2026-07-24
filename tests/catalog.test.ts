@@ -172,6 +172,56 @@ describe("catalog data access (Supabase-backed)", () => {
     expect(products[0].status).toBe("available");
   });
 
+  it("maps editorial media without promoting it into utility image roles", async () => {
+    mockedGetClient.mockReturnValue(
+      makeClient({
+        data: [
+          {
+            ...sampleRow,
+            product_media: [
+              {
+                media_type: "video",
+                media_kind: "image",
+                url: "https://example.supabase.co/routine.mp4",
+                alt: "Routine video",
+                width: 720,
+                height: 1280,
+                role: "routine_video",
+                sort_order: -2,
+              },
+              {
+                media_type: "image",
+                media_kind: "image",
+                url: "https://example.supabase.co/profile.webp",
+                alt: "Profile image",
+                width: 1122,
+                height: 1402,
+                role: "profile_editorial",
+                sort_order: -1,
+              },
+              {
+                ...sampleRow.product_media[0],
+                media_type: "image",
+                media_kind: "image",
+              },
+            ],
+          },
+        ],
+        error: null,
+      }),
+    );
+
+    const [product] = await getProducts();
+
+    expect(
+      product.media.find((media) => media.role === "routine_video")?.kind,
+    ).toBe("video");
+    expect(product.cardMedia?.role).toBe("card");
+    expect(product.heroMedia?.role).toBe("card");
+    expect(product.cartMedia?.role).toBe("card");
+    expect(product.searchMedia?.role).toBe("card");
+  });
+
   it("getProducts returns [] for a reachable but empty catalog", async () => {
     mockedGetClient.mockReturnValue(makeClient({ data: [], error: null }));
     expect(await getProducts()).toEqual([]);

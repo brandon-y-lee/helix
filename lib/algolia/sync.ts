@@ -15,6 +15,11 @@ const VARIANTS_TABLE = "product_variants";
 const MEDIA_TABLE = "product_media";
 const ALLOWED_TABLES = [PRODUCTS_TABLE, VARIANTS_TABLE, MEDIA_TABLE] as const;
 const ALLOWED_EVENTS = ["INSERT", "UPDATE", "DELETE"] as const;
+const EDITORIAL_MEDIA_ROLES = new Set([
+  "routine_video",
+  "routine_video_poster",
+  "profile_editorial",
+]);
 
 export type WebhookEventType = "INSERT" | "UPDATE" | "DELETE";
 
@@ -61,6 +66,21 @@ export function verifyWebhookSecret(provided: string | null | undefined): boolea
 
 function asId(value: unknown): string | undefined {
   return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
+function asRole(value: unknown): string | undefined {
+  return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
+export function mediaEventOnlyAffectsPdp(
+  payload: Pick<CatalogWebhookPayload, "table" | "record" | "old_record">,
+): boolean {
+  if (payload.table !== MEDIA_TABLE) return false;
+  const roles = [
+    asRole(payload.record?.role),
+    asRole(payload.old_record?.role),
+  ].filter((role): role is string => Boolean(role));
+  return roles.length > 0 && roles.every((role) => EDITORIAL_MEDIA_ROLES.has(role));
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -169,6 +189,17 @@ export async function applyCatalogWebhookEvent(
       // Parent product is gone (likely a cascade delete) — drop its record.
       await deleteSearchRecord(productId);
       return { action: "delete", table, objectID: productId, reason: "parent missing" };
+    }
+
+    if (table === MEDIA_TABLE && mediaEventOnlyAffectsPdp(payload)) {
+      return {
+        action: "noop",
+        table,
+        objectID: productId,
+        slug: built.slug,
+        collection: built.collection,
+        reason: "PDP-only media role is not indexed",
+      };
     }
 
     await upsertSearchRecord(built);

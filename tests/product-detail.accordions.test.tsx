@@ -32,6 +32,41 @@ vi.mock("@/components/AfterpayMessaging", () => ({
 }));
 
 function makeProduct(overrides: Partial<Product> = {}): Product {
+  const editorialMedia: Product["media"] = [
+    {
+      kind: "video",
+      url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/mei-pelle-catalog/products/treat/routine/video.mp4",
+      alt: "TREAT routine application video.",
+      width: 720,
+      height: 1280,
+      role: "routine_video",
+      sortOrder: 20,
+      paletteId: null,
+      palette: null,
+    },
+    {
+      kind: "image",
+      url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/mei-pelle-catalog/products/treat/routine/poster.webp",
+      alt: "TREAT routine video poster showing skincare application.",
+      width: 720,
+      height: 1280,
+      role: "routine_video_poster",
+      sortOrder: 21,
+      paletteId: null,
+      palette: null,
+    },
+    {
+      kind: "image",
+      url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/mei-pelle-catalog/products/treat/profile/profile.webp",
+      alt: "TREAT bottle with wood-grain cap on a warm neutral backdrop.",
+      width: 1122,
+      height: 1402,
+      role: "profile_editorial",
+      sortOrder: 22,
+      paletteId: null,
+      palette: null,
+    },
+  ];
   const base: Product = {
     id: "33333333-3333-4333-8333-333333333333",
     slug: "treat-03-pdrn-5-ampoule",
@@ -85,7 +120,7 @@ function makeProduct(overrides: Partial<Product> = {}): Product {
       },
     ],
     swatch: ["#edf4f5", "#87a3aa"],
-    media: [],
+    media: editorialMedia,
     cardMedia: null,
     cardHoverMedia: null,
     heroMedia: null,
@@ -95,19 +130,19 @@ function makeProduct(overrides: Partial<Product> = {}): Product {
     status: "available",
     catalogStatus: "active",
     madeFor: "Dull-looking skin",
-    goodFor: "Daily glow",
-    texture: "Watery serum",
+    goodFor: "Dullness, dehydration, uneven-looking texture",
+    texture: "Lightweight concentrated serum",
     keyIngredients: ["PDRN", "Niacinamide", "Peptides"],
     ingredients: "Water, Niacinamide, PDRN, Peptides",
     productDetails: {},
     cautions: [],
-    finish: "Fresh glow",
+    finish: "Clean, hydrated, non-sticky",
     volume: "15 mL",
     skinTypes: ["All skin types"],
     concerns: ["Dullness", "Texture"],
     routineStep: "Treat",
     routineOrder: 3,
-    usageTime: ["AM", "PM"],
+    usageTime: ["Morning", "Night"],
     seoTitle: null,
     seoDescription: null,
     searchKeywords: [],
@@ -133,15 +168,24 @@ describe("ProductDetail purchase accordions", () => {
     const does = screen.getByRole("button", { name: /WHAT IT DOES/ });
     const use = screen.getByRole("button", { name: /HOW TO USE/ });
     const ingredients = screen.getByRole("button", { name: /KEY INGREDIENTS/ });
-    const signals = screen.getByRole("heading", { name: "QUICK SIGNALS" });
+    const profile = screen.getByRole("heading", {
+      name: "A lightweight PDRN SERUM for HYDRATION, smoother-looking texture, and a steadier GLOW.",
+    });
+    const outcomes = screen.getByRole("heading", {
+      name: "YOUR DAILY TREATMENT THAT:",
+    });
     const fullIngredients = screen.getByRole("heading", { name: "INGREDIENTS" });
     const details = screen.getByRole("heading", { name: "DETAILS" });
 
     expect(before(add, does)).toBe(true);
     expect(before(does, use)).toBe(true);
     expect(before(use, ingredients)).toBe(true);
-    expect(before(ingredients, signals)).toBe(true);
+    expect(before(ingredients, profile)).toBe(true);
+    expect(before(profile, outcomes)).toBe(true);
     expect(before(fullIngredients, details)).toBe(true);
+    expect(
+      screen.queryByRole("heading", { name: "QUICK SIGNALS" }),
+    ).not.toBeInTheDocument();
   });
 
   it("uses a single-open collapsible accordion group", async () => {
@@ -350,6 +394,107 @@ describe("ProductDetail purchase accordions", () => {
 
     expect(
       screen.queryByTestId("afterpay-messaging-boundary"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("renders canonical Core profile facts, routine media, and persistent outcomes", async () => {
+    const user = userEvent.setup();
+    render(<ProductDetail product={makeProduct()} />);
+
+    const profile = screen.getByRole("region", {
+      name: "A lightweight PDRN SERUM for HYDRATION, smoother-looking texture, and a steadier GLOW.",
+    });
+    expect(
+      within(profile).getByText("Dullness, dehydration, uneven-looking texture"),
+    ).toBeInTheDocument();
+    expect(
+      within(profile).getByText("Lightweight concentrated serum"),
+    ).toBeInTheDocument();
+    expect(
+      within(profile).getByText(
+        "All skin types • Morning and night • Step 02 of The Core",
+      ),
+    ).toBeInTheDocument();
+
+    const play = screen.getByRole("button", {
+      name: "Play TREAT routine video",
+    });
+    expect(play).toBeInTheDocument();
+    const foreground = document.querySelector(
+      ".pdp-routine-video__foreground",
+    );
+    expect(foreground).toHaveAttribute("controls");
+    expect(foreground).toHaveAttribute("preload", "metadata");
+    expect(foreground).not.toHaveAttribute("autoplay");
+    expect(foreground).not.toHaveAttribute("loop");
+
+    const hydrates = screen.getByRole("button", { name: "hydrates" });
+    const smooths = screen.getByRole("button", { name: "smooths" });
+    expect(hydrates).toHaveAttribute("aria-pressed", "true");
+    expect(smooths).toHaveAttribute("aria-pressed", "false");
+
+    fireEvent.pointerEnter(smooths);
+    fireEvent.pointerLeave(
+      screen.getByRole("group", { name: "TREAT outcomes" }),
+    );
+    expect(smooths).toHaveAttribute("aria-pressed", "true");
+
+    smooths.focus();
+    await user.keyboard("{ArrowDown}");
+    expect(
+      screen.getByRole("button", { name: "wakes up the finish" }),
+    ).toHaveAttribute("aria-pressed", "true");
+
+    await user.keyboard("{ArrowDown}");
+    expect(
+      screen.getByRole("button", { name: "wakes up the finish" }),
+    ).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("preserves Quick Signals and the current evidence module beyond the Core", () => {
+    render(
+      <ProductDetail
+        product={makeProduct({
+          slug: "refine-02-pore-treatment-pads",
+          displayName: "REFINE",
+          name: "REFINE",
+          routineGroup: "beyond_core",
+          routineGroupLabel: "Beyond The Core",
+          routineStepNumber: null,
+          routineStepName: null,
+          routineDisplayLabel: "Beyond The Core",
+          media: [],
+        })}
+      />,
+    );
+
+    expect(
+      screen.getByRole("heading", { name: "QUICK SIGNALS" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /Endorsed by familiar faces/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", {
+        name: "YOUR DAILY TREATMENT THAT:",
+      }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("fails closed without empty Core editorial media shells", () => {
+    render(<ProductDetail product={makeProduct({ media: [] })} />);
+
+    expect(
+      screen.queryByLabelText("TREAT routine video"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: /PDRN SERUM/ }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: /Endorsed by familiar faces/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "QUICK SIGNALS" }),
     ).not.toBeInTheDocument();
   });
 });

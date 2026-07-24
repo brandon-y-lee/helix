@@ -34,7 +34,10 @@ export type ProductMediaRole =
   | "card_default"
   | "card_hover"
   | "cart"
-  | "search";
+  | "search"
+  | "routine_video"
+  | "routine_video_poster"
+  | "profile_editorial";
 
 export type PlaceholderPalette = {
   start: string;
@@ -46,7 +49,7 @@ export type PlaceholderPalette = {
 };
 
 export type ProductMedia = {
-  kind: "image" | "placeholder";
+  kind: "image" | "video" | "placeholder";
   url: string | null;
   alt: string;
   width: number | null;
