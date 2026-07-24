@@ -69,7 +69,16 @@ test("product detail loads by slug and variant selection updates state", async (
   await expect(page.getByRole("heading", { name: "QUICK SIGNALS" })).toHaveCount(0);
   await expect(page.getByText("Endorsed by familiar faces")).toHaveCount(0);
   await expect(
-    page.getByRole("heading", { name: "INGREDIENTS", exact: true }),
+    page.getByRole("heading", { name: "APPLICATION", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "what’s inside", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", {
+      name: "FULL INGREDIENTS LIST",
+      exact: true,
+    }),
   ).toBeVisible();
   await expect(page.getByRole("heading", { name: "EARLY READS" })).toBeVisible();
 
@@ -111,12 +120,37 @@ test("Core PDP editorial modules keep product-specific media, order, and interac
     const background = routine.locator(".pdp-routine-video__background");
     const profile = page.locator(".pdp-profile-split");
     const outcome = page.locator(".pdp-outcome-split");
+    const application = page.locator(".pdp-application");
+    const ingredients = page.locator(".pdp-ingredients");
 
     await expect(routine).toBeAttached();
     await expect(profile).toBeAttached();
     await expect(
       page.getByRole("heading", { name: product.outcomeHeading }),
     ).toBeAttached();
+    await expect(application).toBeAttached();
+    await expect(ingredients).toBeAttached();
+    await expect(
+      application.getByRole("button", {
+        name: "Show application step 1 of 3",
+      }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await expect(
+      application.getByRole("button", {
+        name: /Show application step \d of 3/,
+      }),
+    ).toHaveCount(3);
+    await expect(
+      application.getByRole("button", {
+        name: "Show next application step",
+      }),
+    ).toHaveCount(1);
+    await expect(
+      application.getByRole("button", { name: /previous/i }),
+    ).toHaveCount(0);
+    await expect(
+      ingredients.locator("img, [role='status']"),
+    ).toHaveCount(1);
     await expect(foreground).toHaveAttribute("controls", "");
     await expect(foreground).not.toHaveAttribute("autoplay", "");
     await expect(foreground).toHaveAttribute("preload", "metadata");
@@ -132,7 +166,17 @@ test("Core PDP editorial modules keep product-specific media, order, and interac
       const routineNode = document.querySelector(".pdp-routine-video");
       const profileNode = document.querySelector(".pdp-profile-split");
       const outcomeNode = document.querySelector(".pdp-outcome-split");
-      if (!routineNode || !profileNode || !outcomeNode) return null;
+      const applicationNode = document.querySelector(".pdp-application");
+      const ingredientsNode = document.querySelector(".pdp-ingredients");
+      if (
+        !routineNode ||
+        !profileNode ||
+        !outcomeNode ||
+        !applicationNode ||
+        !ingredientsNode
+      ) {
+        return null;
+      }
       return (
         Boolean(
           routineNode.compareDocumentPosition(profileNode) &
@@ -140,6 +184,14 @@ test("Core PDP editorial modules keep product-specific media, order, and interac
         ) &&
         Boolean(
           profileNode.compareDocumentPosition(outcomeNode) &
+            Node.DOCUMENT_POSITION_FOLLOWING,
+        ) &&
+        Boolean(
+          outcomeNode.compareDocumentPosition(applicationNode) &
+            Node.DOCUMENT_POSITION_FOLLOWING,
+        ) &&
+        Boolean(
+          applicationNode.compareDocumentPosition(ingredientsNode) &
             Node.DOCUMENT_POSITION_FOLLOWING,
         )
       );
@@ -167,6 +219,48 @@ test("Core PDP editorial modules keep product-specific media, order, and interac
   await page.keyboard.press("ArrowUp");
   await expect(first).toHaveAttribute("aria-pressed", "true");
   await expect(first).toBeFocused();
+
+  const application = page.locator(".pdp-application");
+  const nextApplication = application.getByRole("button", {
+    name: "Show next application step",
+  });
+  const applicationSwatches = application.getByRole("button", {
+    name: /Show application step \d of 3/,
+  });
+  await nextApplication.click();
+  await expect(applicationSwatches.nth(1)).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await nextApplication.click();
+  await expect(applicationSwatches.nth(2)).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await nextApplication.click();
+  await expect(applicationSwatches.nth(0)).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+
+  await page.goto("/products/treat-03-pdrn-5-ampoule");
+  const texture = page.getByTestId("pdp-ingredients-media");
+  const disclosure = texture.getByRole("button", {
+    name: "FULL INGREDIENTS LIST",
+    exact: true,
+  });
+  await texture.evaluate((node) => {
+    node.setAttribute("data-mount-marker", "stable");
+  });
+  await disclosure.click();
+  await expect(disclosure).toHaveAttribute("aria-expanded", "true");
+  await expect(
+    page.getByRole("button", { name: "Close full ingredients list" }),
+  ).toBeFocused();
+  await expect(texture).toHaveAttribute("data-mount-marker", "stable");
+  await page.keyboard.press("Escape");
+  await expect(disclosure).toHaveAttribute("aria-expanded", "false");
+  await expect(disclosure).toBeFocused();
 });
 
 test("add to cart updates the count and persists across reload", async ({
@@ -323,7 +417,7 @@ test("PDP sticky purchase bar aligns to the content shell and clears the lower e
     await page.locator(".pdp-outcome-split").scrollIntoViewIfNeeded();
     await expect(sticky).toHaveAttribute("data-visible", "false");
 
-    await page.locator(".pdp-editorial-pair--use").scrollIntoViewIfNeeded();
+    await page.locator(".pdp-editorial-pair--details").scrollIntoViewIfNeeded();
     await expect(sticky).toHaveAttribute("data-visible", "true");
     await expect(sticky).toHaveAttribute("aria-hidden", "false");
     await page.waitForTimeout(300);
@@ -393,6 +487,8 @@ test("PDP familiar faces rail uses finite local media and boundary-aware control
 
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/products/refine-02-pore-treatment-pads");
+  await expect(page.locator(".pdp-application")).toHaveCount(0);
+  await expect(page.locator(".pdp-ingredients")).toHaveCount(0);
 
   const section = page.locator(".pdp-endorsements");
   const rail = section.getByRole("list", {
@@ -516,8 +612,17 @@ test("product detail purchase accordions sit beneath add to cart", async ({
     const use = document.querySelector("#pdp-accordion-use-trigger");
     const ingredients = document.querySelector("#pdp-accordion-ingredients-trigger");
     const details = document.querySelector("#product-details");
-    const fullIngredients = document.querySelector("#full-ingredients");
-    if (!add || !does || !use || !ingredients || !details || !fullIngredients) {
+    const application = document.querySelector(".pdp-application");
+    const ingredientStory = document.querySelector(".pdp-ingredients");
+    if (
+      !add ||
+      !does ||
+      !use ||
+      !ingredients ||
+      !details ||
+      !application ||
+      !ingredientStory
+    ) {
       return null;
     }
     const before = (a: Element, b: Element) =>
@@ -527,7 +632,8 @@ test("product detail purchase accordions sit beneath add to cart", async ({
       doesBeforeUse: before(does, use),
       useBeforeIngredients: before(use, ingredients),
       ingredientsBeforeDetails: before(ingredients, details),
-      fullIngredientsBeforeDetails: before(fullIngredients, details),
+      applicationBeforeIngredientStory: before(application, ingredientStory),
+      ingredientStoryBeforeDetails: before(ingredientStory, details),
     };
   });
   expect(order).toEqual({
@@ -535,7 +641,8 @@ test("product detail purchase accordions sit beneath add to cart", async ({
     doesBeforeUse: true,
     useBeforeIngredients: true,
     ingredientsBeforeDetails: true,
-    fullIngredientsBeforeDetails: true,
+    applicationBeforeIngredientStory: true,
+    ingredientStoryBeforeDetails: true,
   });
 
   const does = page.getByRole("button", { name: /WHAT IT DOES/ });
@@ -556,9 +663,11 @@ test("product detail purchase accordions sit beneath add to cart", async ({
   await ingredients.click();
   await expect(use).toHaveAttribute("aria-expanded", "false");
   await expect(ingredients).toHaveAttribute("aria-expanded", "true");
-  await page.getByRole("link", { name: "View full ingredients" }).click();
-  await expect(page).toHaveURL(/#full-ingredients$/);
-  await expect(page.locator("#full-ingredients")).toBeInViewport();
+  await page.getByRole("link", { name: "Explore ingredients" }).click();
+  await expect(page).toHaveURL(
+    /#pdp-ingredients-treat-03-pdrn-5-ampoule$/,
+  );
+  await expect(page.locator(".pdp-ingredients")).toBeInViewport();
   await expect(page.locator("#product-details")).toBeAttached();
 });
 

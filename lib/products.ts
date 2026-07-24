@@ -37,7 +37,8 @@ export type ProductMediaRole =
   | "search"
   | "routine_video"
   | "routine_video_poster"
-  | "profile_editorial";
+  | "profile_editorial"
+  | "ingredients_texture";
 
 export type PlaceholderPalette = {
   start: string;

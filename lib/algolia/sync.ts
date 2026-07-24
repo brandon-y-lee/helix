@@ -19,6 +19,7 @@ const EDITORIAL_MEDIA_ROLES = new Set([
   "routine_video",
   "routine_video_poster",
   "profile_editorial",
+  "ingredients_texture",
 ]);
 
 export type WebhookEventType = "INSERT" | "UPDATE" | "DELETE";

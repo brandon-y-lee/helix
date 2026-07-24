@@ -66,6 +66,17 @@ function makeProduct(overrides: Partial<Product> = {}): Product {
       paletteId: null,
       palette: null,
     },
+    {
+      kind: "image",
+      url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/mei-pelle-catalog/products/treat/ingredients-texture/texture.webp",
+      alt: "Golden TREAT serum formula texture with suspended air bubbles.",
+      width: 1254,
+      height: 1254,
+      role: "ingredients_texture",
+      sortOrder: 23,
+      paletteId: null,
+      palette: null,
+    },
   ];
   const base: Product = {
     id: "33333333-3333-4333-8333-333333333333",
@@ -174,7 +185,9 @@ describe("ProductDetail purchase accordions", () => {
     const outcomes = screen.getByRole("heading", {
       name: "YOUR DAILY TREATMENT THAT:",
     });
-    const fullIngredients = screen.getByRole("heading", { name: "INGREDIENTS" });
+    const application = screen.getByRole("heading", { name: "APPLICATION" });
+    const inside = screen.getByRole("heading", { name: "what’s inside" });
+    const doesPanel = document.getElementById("pdp-does-heading");
     const details = screen.getByRole("heading", { name: "DETAILS" });
 
     expect(before(add, does)).toBe(true);
@@ -182,7 +195,14 @@ describe("ProductDetail purchase accordions", () => {
     expect(before(use, ingredients)).toBe(true);
     expect(before(ingredients, profile)).toBe(true);
     expect(before(profile, outcomes)).toBe(true);
-    expect(before(fullIngredients, details)).toBe(true);
+    expect(before(outcomes, application)).toBe(true);
+    expect(before(application, inside)).toBe(true);
+    expect(doesPanel).toBeInstanceOf(HTMLElement);
+    expect(before(inside, doesPanel as HTMLElement)).toBe(true);
+    expect(before(doesPanel as HTMLElement, details)).toBe(true);
+    expect(
+      screen.queryByRole("heading", { name: "INGREDIENTS" }),
+    ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("heading", { name: "QUICK SIGNALS" }),
     ).not.toBeInTheDocument();
@@ -212,7 +232,7 @@ describe("ProductDetail purchase accordions", () => {
     expect(usePanel).toHaveAttribute("data-open", "false");
   });
 
-  it("links key ingredients to the lower full ingredients section", async () => {
+  it("links Core key ingredients to the structured ingredient module", async () => {
     const user = userEvent.setup();
     render(<ProductDetail product={makeProduct()} />);
 
@@ -220,11 +240,15 @@ describe("ProductDetail purchase accordions", () => {
 
     expect(screen.getByText("PDRN")).toBeInTheDocument();
     expect(
-      screen.getByRole("link", { name: "View full ingredients" }),
-    ).toHaveAttribute("href", "#full-ingredients");
-    expect(document.getElementById("full-ingredients")).toHaveTextContent(
-      "Water, Niacinamide, PDRN, Peptides",
+      screen.getByRole("link", { name: "Explore ingredients" }),
+    ).toHaveAttribute(
+      "href",
+      "#pdp-ingredients-treat-03-pdrn-5-ampoule",
     );
+    expect(document.getElementById("full-ingredients")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "FULL INGREDIENTS LIST" }),
+    ).toBeInTheDocument();
   });
 
   it("keeps lower editorial panels finite across buttons, keyboard, and horizontal wheel", async () => {
@@ -301,7 +325,13 @@ describe("ProductDetail purchase accordions", () => {
     const user = userEvent.setup();
     render(
       <ProductDetail
-        product={makeProduct({ keyIngredients: [], ingredients: null })}
+        product={makeProduct({
+          keyIngredients: [],
+          ingredients: null,
+          productDetails: {
+            sourceFullInci: "Full INCI unavailable in public product copy.",
+          },
+        })}
       />,
     );
 
@@ -310,9 +340,10 @@ describe("ProductDetail purchase accordions", () => {
     expect(
       screen.getByText(/key ingredient notes are not available/i),
     ).toBeInTheDocument();
-    expect(document.getElementById("full-ingredients")).toHaveTextContent(
-      /checked on product packaging/i,
-    );
+    expect(
+      screen.queryByRole("button", { name: "FULL INGREDIENTS LIST" }),
+    ).not.toBeInTheDocument();
+    expect(document.getElementById("full-ingredients")).not.toBeInTheDocument();
   });
 
   it("renders the product-specific response meter without verified-buyer claims", () => {

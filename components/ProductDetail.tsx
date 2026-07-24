@@ -16,6 +16,8 @@ import { AfterpayMessaging } from "@/components/AfterpayMessaging";
 import { useCart } from "@/components/CartProvider";
 import { ProductEndorsementRail } from "@/components/ProductEndorsementRail";
 import { ProductImage } from "@/components/ProductImage";
+import { PdpApplicationCarousel } from "@/components/PdpApplicationCarousel";
+import { PdpIngredientsSplit } from "@/components/PdpIngredientsSplit";
 import { PdpOutcomeSplit } from "@/components/PdpOutcomeSplit";
 import { PdpProfileSplit } from "@/components/PdpProfileSplit";
 import { PdpRoutineVideo } from "@/components/PdpRoutineVideo";
@@ -24,6 +26,7 @@ import {
   getProductPdpContent,
   type ProductPdpContent,
 } from "@/lib/catalog/product-content";
+import { resolveFullInci } from "@/lib/catalog/product-ingredients";
 import {
   routineDisplayLabelForProduct,
   routineGroupLabelForProduct,
@@ -535,6 +538,8 @@ export function ProductDetail({
   const routineVideoRef = useRef<HTMLElement>(null);
   const profileSplitRef = useRef<HTMLElement>(null);
   const outcomeSplitRef = useRef<HTMLElement>(null);
+  const applicationRef = useRef<HTMLElement>(null);
+  const ingredientsRef = useRef<HTMLElement>(null);
 
   const variant =
     product.variants.find((v) => v.id === variantId) ?? product.variants[0];
@@ -557,9 +562,9 @@ export function ProductDetail({
   const howToUse = content.howToUseSteps.length
     ? content.howToUseSteps
     : splitCopy(product.editorialHowToUse || product.howToUse);
+  const resolvedFullInci = resolveFullInci(product);
   const fullIngredientsText =
-    product.ingredients ||
-    product.productDetails.sourceFullInci ||
+    resolvedFullInci?.text ||
     "The current full ingredient list should be checked on product packaging or the approved product source.";
   const details = [
     { label: "Routine placement", value: routineLabel },
@@ -618,6 +623,13 @@ export function ProductDetail({
         media.kind === "image" &&
         Boolean(media.url),
     ) ?? null;
+  const ingredientsTextureMedia =
+    product.media.find(
+      (media) =>
+        media.role === "ingredients_texture" &&
+        media.kind === "image" &&
+        Boolean(media.url),
+    ) ?? null;
   const coreProfileReady = Boolean(corePresentation && profileMedia);
   const coreVideoReady = Boolean(
     corePresentation && routineVideo && routinePoster,
@@ -652,6 +664,8 @@ export function ProductDetail({
       routineVideoRef.current,
       profileSplitRef.current,
       outcomeSplitRef.current,
+      applicationRef.current,
+      ingredientsRef.current,
     ].filter((target): target is HTMLElement => Boolean(target));
 
     setEditorialModuleVisible(false);
@@ -676,7 +690,7 @@ export function ProductDetail({
     }
 
     return () => observer.disconnect();
-  }, [coreProfileReady, coreVideoReady]);
+  }, [coreProfileReady, coreVideoReady, content.ingredientStory]);
 
   async function handleAdd() {
     if (!variant || !isAvailable || pending) return;
@@ -916,10 +930,16 @@ export function ProductDetail({
                     </p>
                   )}
                   <a
-                    href="#full-ingredients"
+                    href={
+                      corePresentation && content.ingredientStory
+                        ? `#pdp-ingredients-${product.slug}`
+                        : "#full-ingredients"
+                    }
                     tabIndex={openAccordion === "ingredients" ? undefined : -1}
                   >
-                    View full ingredients
+                    {corePresentation && content.ingredientStory
+                      ? "Explore ingredients"
+                      : "View full ingredients"}
                   </a>
                 </div>
               </div>
@@ -1020,6 +1040,22 @@ export function ProductDetail({
               productName={product.displayName}
               presentation={corePresentation}
             />
+            <PdpApplicationCarousel
+              rootRef={applicationRef}
+              productName={product.displayName}
+              steps={corePresentation.applicationSteps}
+            />
+            {content.ingredientStory && (
+              <PdpIngredientsSplit
+                rootRef={ingredientsRef}
+                productSlug={product.slug}
+                productName={product.displayName}
+                story={content.ingredientStory}
+                media={ingredientsTextureMedia}
+                fullInci={resolvedFullInci}
+                mediaPosition={corePresentation.ingredientsMediaPosition}
+              />
+            )}
           </>
         ) : corePresentation ? null : (
           <ProductSignalGrid product={product} routineLabel={routineLabel} />
@@ -1035,42 +1071,46 @@ export function ProductDetail({
           <PdpPanelSequence label="What it does" items={whatItDoesItems} />
         </PdpEditorialPair>
 
-        <PdpEditorialPair
-          headingId="pdp-use-heading"
-          eyebrow="Application"
-          heading="HOW TO USE"
-          summary="Step through the application order without leaving the product context."
-          className="pdp-editorial-pair--use"
-        >
-          <PdpPanelSequence label="How to use" items={howToUseItems} />
-        </PdpEditorialPair>
+        {!corePresentation && (
+          <>
+            <PdpEditorialPair
+              headingId="pdp-use-heading"
+              eyebrow="Application"
+              heading="HOW TO USE"
+              summary="Step through the application order without leaving the product context."
+              className="pdp-editorial-pair--use"
+            >
+              <PdpPanelSequence label="How to use" items={howToUseItems} />
+            </PdpEditorialPair>
 
-        <PdpEditorialPair
-          headingId="pdp-inside-heading"
-          eyebrow="Formula"
-          heading="WHAT&apos;S INSIDE"
-          summary="Ingredient notes stay close to the full INCI disclosure below."
-          className="pdp-editorial-pair--inside"
-        >
-          {content.ingredientCards.length > 0 ? (
-            <PdpPanelSequence label="What's inside" items={ingredientItems} />
-          ) : (
-            <p>Ingredient notes are not available for this product yet.</p>
-          )}
-        </PdpEditorialPair>
+            <PdpEditorialPair
+              headingId="pdp-inside-heading"
+              eyebrow="Formula"
+              heading="WHAT&apos;S INSIDE"
+              summary="Ingredient notes stay close to the full INCI disclosure below."
+              className="pdp-editorial-pair--inside"
+            >
+              {content.ingredientCards.length > 0 ? (
+                <PdpPanelSequence label="What's inside" items={ingredientItems} />
+              ) : (
+                <p>Ingredient notes are not available for this product yet.</p>
+              )}
+            </PdpEditorialPair>
 
-        <PdpEditorialPair
-          headingId="full-ingredients-heading"
-          eyebrow="Disclosure"
-          heading="INGREDIENTS"
-          summary="The full ingredient list is kept separate from editorial ingredient notes."
-          className="pdp-editorial-pair--ingredients"
-        >
-          <details id="full-ingredients" className="full-ingredients">
-            <summary>Full ingredients</summary>
-            <p>{fullIngredientsText}</p>
-          </details>
-        </PdpEditorialPair>
+            <PdpEditorialPair
+              headingId="full-ingredients-heading"
+              eyebrow="Disclosure"
+              heading="INGREDIENTS"
+              summary="The full ingredient list is kept separate from editorial ingredient notes."
+              className="pdp-editorial-pair--ingredients"
+            >
+              <details id="full-ingredients" className="full-ingredients">
+                <summary>Full ingredients</summary>
+                <p>{fullIngredientsText}</p>
+              </details>
+            </PdpEditorialPair>
+          </>
+        )}
 
         {details.length > 0 && (
           <PdpEditorialPair
