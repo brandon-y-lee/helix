@@ -200,6 +200,16 @@ describe("catalog data access (Supabase-backed)", () => {
                 sort_order: -1,
               },
               {
+                media_type: "image",
+                media_kind: "image",
+                url: "https://example.supabase.co/ingredients-texture.webp",
+                alt: "Formula texture",
+                width: 1254,
+                height: 1254,
+                role: "ingredients_texture",
+                sort_order: 0,
+              },
+              {
                 ...sampleRow.product_media[0],
                 media_type: "image",
                 media_kind: "image",
@@ -216,6 +226,14 @@ describe("catalog data access (Supabase-backed)", () => {
     expect(
       product.media.find((media) => media.role === "routine_video")?.kind,
     ).toBe("video");
+    expect(
+      product.media.find((media) => media.role === "ingredients_texture"),
+    ).toEqual(
+      expect.objectContaining({
+        kind: "image",
+        url: "https://example.supabase.co/ingredients-texture.webp",
+      }),
+    );
     expect(product.cardMedia?.role).toBe("card");
     expect(product.heroMedia?.role).toBe("card");
     expect(product.cartMedia?.role).toBe("card");

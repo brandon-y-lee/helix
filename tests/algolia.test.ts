@@ -204,7 +204,7 @@ describe("buildAlgoliaRecord", () => {
     expect(r.placeholderMedia).toBeNull();
   });
 
-  it("never promotes PDP-only video or profile media into search", () => {
+  it("never promotes PDP-only editorial media into search", () => {
     const searchImage = {
       media_type: "image",
       media_kind: "image",
@@ -232,6 +232,12 @@ describe("buildAlgoliaRecord", () => {
           url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/mei-pelle-catalog/products/northpoint/profile.webp",
           role: "profile_editorial",
           sort_order: -9,
+        },
+        {
+          ...searchImage,
+          url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/mei-pelle-catalog/products/northpoint/ingredients-texture.webp",
+          role: "ingredients_texture",
+          sort_order: -8,
         },
         searchImage,
       ],
@@ -464,7 +470,9 @@ describe("applyCatalogWebhookEvent", () => {
     expect(outcome).toMatchObject({ action: "upsert", objectID: sourceRow.id });
   });
 
-  it("resolves but does not reindex PDP-only editorial media", async () => {
+  it.each(["routine_video", "ingredients_texture"])(
+    "resolves but does not reindex PDP-only editorial media role %s",
+    async (role) => {
     const built = buildAlgoliaRecord(sourceRow);
     mockedFetch.mockResolvedValue(built);
 
@@ -474,7 +482,7 @@ describe("applyCatalogWebhookEvent", () => {
       record: {
         id: "m-editorial",
         product_id: sourceRow.id,
-        role: "routine_video",
+        role,
       },
     });
 
@@ -486,7 +494,8 @@ describe("applyCatalogWebhookEvent", () => {
       slug: sourceRow.slug,
       reason: "PDP-only media role is not indexed",
     });
-  });
+    },
+  );
 
   it("removes the parent record if a variant change finds no parent", async () => {
     mockedFetch.mockResolvedValue(null); // parent gone (cascade delete)
@@ -609,11 +618,11 @@ describe("catalog cache invalidation", () => {
         table: "product_media",
         record: {
           product_id: sourceRow.id,
-          role: "profile_editorial",
+          role: "ingredients_texture",
         },
         old_record: {
           product_id: sourceRow.id,
-          role: "profile_editorial",
+          role: "ingredients_texture",
         },
       },
       {

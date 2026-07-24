@@ -25,8 +25,9 @@ Verified against repository code and the linked non-production Supabase project
   `mei-pelle-catalog` Supabase Storage bucket. `product_media` records provide
   role, type, URL, dimensions, alt text, and ordering to the catalog query.
 - **Client-interaction layer:** `ProductDetail` owns variant, accordion,
-  gallery, sticky-purchase, and add-to-cart state. `PdpRoutineVideo` and
-  `PdpOutcomeSplit` own only their local media/selection interactions.
+  gallery, sticky-purchase, and add-to-cart state. `PdpRoutineVideo`,
+  `PdpOutcomeSplit`, `PdpApplicationCarousel`, and `PdpIngredientsSplit` own
+  only their local media/selection/disclosure interactions.
 
 The route currently emits metadata through `generateMetadata`, but no Product
 JSON-LD or other product structured-data generator exists in the inspected
@@ -51,7 +52,7 @@ flowchart TD
   L --> M["ProductDetailPage server component"]
   M --> N["ProductDetail client boundary"]
   N --> O["Hero, purchase, accordions, deeper panels"]
-  N --> P["Core media/profile/outcome islands"]
+  N --> P["Core video/profile/outcome/application/ingredient modules"]
   N --> Q["Discovery, review fixture, sticky purchase"]
   N --> R["CartProvider -> /api/cart/items"]
 ```
@@ -98,15 +99,17 @@ In the table:
 | `skin_types` | `products.skin_types` | `PRODUCT_SELECT`; array mapped directly | Core FYI and details | Product page / `product:<slug>` | No | Yes | Supplier import can overwrite |
 | `usage_time` | `products.usage_time` | `PRODUCT_SELECT`; array mapped directly | Core FYI, Beyond Quick Signals, details | Product page / `product:<slug>` | Keyword input | Yes | Supplier import can overwrite |
 | Benefits | `products.benefits` | `PRODUCT_SELECT`; array mapped directly | Supporting body for lower "What it does" sequence | Product page / `product:<slug>` | No | Yes | Supplier import can overwrite |
-| Ingredients | `products.ingredients`; fallback `product_details.sourceFullInci` only when first-class value is empty | `PRODUCT_SELECT`; `mapRow`; fallback resolved in `ProductDetail` | Full ingredients module | Product page / `product:<slug>` | Split into search ingredient terms | Yes | Supplier import can overwrite both locations |
+| Ingredients | `products.ingredients`; compatibility fallback `product_details.sourceFullInci` only when first-class value is empty and the fallback has the shape of a complete list | `PRODUCT_SELECT`; `mapRow`; `resolveFullInci()` rejects unavailable markers, packaging directions, highlights, and short fragments | Core in-place full ingredients disclosure and legacy Beyond disclosure | Product page / `product:<slug>` | Split into search ingredient terms | Yes | Supplier import can overwrite both locations |
 | Key ingredients | `products.key_ingredients` | `PRODUCT_SELECT`; array mapped directly | Purchase accordion and lower ingredient content fallback | Product page / `product:<slug>` | Yes: terms/keywords | Yes | Supplier import can overwrite |
-| How to use | `editorial_how_to_use`, fallback `how_to_use`; repository steps may take display precedence | `mapRow` chooses editorial DB copy, then `ProductDetail` prefers non-empty `productPdpContentBySlug.howToUseSteps` | Purchase accordion and lower use sequence | Product page / `product:<slug>` | Not displayed in record | Yes | Import/presentation refresh write DB fields; repository content can override visible steps |
+| How to use | `editorial_how_to_use`, fallback `how_to_use`; repository steps may take display precedence | `mapRow` chooses editorial DB copy; verified three-step Core presentation is stored in `corePdpPresentationBySlug`; Beyond lower sequences use `productPdpContentBySlug.howToUseSteps` | Purchase accordion, Core application carousel, and Beyond lower use sequence | Product page / `product:<slug>` | Not displayed in record | Yes | Import/presentation refresh write DB fields; repository presentation can override visible step composition |
 | SEO | `products.seo_title`, `seo_description` | `PRODUCT_SELECT`; mapped directly; route fallbacks described above | `generateMetadata` | Product page / `product:<slug>` | No | Yes | Import and presentation refresh |
 | Media | `product_media` joined rows plus Storage URLs | `PRODUCT_SELECT`; `mapRow` maps kind/type/role and uses explicit presentation-role fallbacks | Gallery, hero/card/cart/search media, Core video/profile | Product page / `product:<slug>` | Only approved image roles | Yes | Import, presentation refresh, core-media sync, and Core PDP media sync |
 | Discovery products | `products`, ordered by `routine_sort`, then sort/position | `getDiscoveryProducts`; full `PRODUCT_SELECT`; domain sort repeated before limit | `ProductDiscoveryRail` | One hour; `catalog`, `products`, `collections`, `product:<excluded-slug>` | Not read from Algolia | Yes | Same catalog writers |
 | Reviews | `lib/catalog/product-reviews.ts` fixture | `getProductReviews(slug)` default prop in `ProductDetail` | `ProductReviewsSection` | Bundled repository code, outside catalog tags | No | No | Repository-only fixture |
 | Core profile title | `lib/content/core-pdp.ts` | `getCorePdpPresentation(slug)` | `PdpProfileSplit` | Bundled repository code | No | No | Repository-only presentation |
 | Core outcome labels/hues | `lib/content/core-pdp.ts` | `getCorePdpPresentation(slug)` | `PdpOutcomeSplit` | Bundled repository code | No | No | Repository-only presentation |
+| Core application steps/hues | Verified directions composed in `lib/content/core-pdp.ts` | `getCorePdpPresentation(slug)` | `PdpApplicationCarousel` | Bundled repository code | No | No | Repository-only presentation |
+| Core ingredient story | Supplier-aligned highlights in `lib/catalog/product-content.ts` | `getProductPdpContent(slug)` | `PdpIngredientsSplit` summary state | Bundled repository code | No | No | Repository-only presentation |
 
 ### Duplicated and compatibility fields
 
@@ -136,7 +139,7 @@ Explicitly named user source
   -> canonical product_media row
   -> PRODUCT_SELECT join
   -> mapRow role/type mapping
-  -> PdpRoutineVideo / PdpProfileSplit / ProductImage
+  -> PdpRoutineVideo / PdpProfileSplit / PdpIngredientsSplit / ProductImage
   -> product-specific cache/path revalidation
 ```
 
@@ -154,16 +157,19 @@ metadata, `media_kind`, placeholder palette metadata, and timestamps. It has:
 - no public write policy
 - an `updated_at` trigger
 
-Migration `20260724075058_core_pdp_editorial_media.sql` adds the three editorial
+Migration `20260724075058_core_pdp_editorial_media.sql` adds the first three editorial
 roles. Follow-up migration
 `20260724091004_tighten_core_pdp_editorial_media.sql` makes intrinsic
 dimensions non-null for those roles and enforces one canonical row per product
-and dedicated role:
+and dedicated role. The local, unapplied migration
+`20260724100802_add_ingredients_texture_media_role.sql` adds
+`ingredients_texture`, requires it to be a concrete image with dimensions, and
+adds a one-row-per-product partial unique index:
 
 - `routine_video` requires `media_type = 'video'`
-- `routine_video_poster` and `profile_editorial` require
+- `routine_video_poster`, `profile_editorial`, and `ingredients_texture` require
   `media_type = 'image'`
-- all three require concrete `media_kind = 'image'`, a non-empty URL, and
+- all four require concrete `media_kind = 'image'`, a non-empty URL, and
   positive dimensions
 
 `media_kind = 'image'` currently means "concrete stored asset" rather than
@@ -185,6 +191,7 @@ terminology is a known ambiguity.
 | `routine_video` | Foreground and synchronized blurred-background video | Never |
 | `routine_video_poster` | Paused foreground poster and blurred poster fallback | Never |
 | `profile_editorial` | Core product-profile right panel | Never |
+| `ingredients_texture` | Core formula-texture image in the ingredient split | Never |
 
 `lib/catalog.ts`, `lib/cart/server.ts`, and `lib/algolia/record.ts` each use an
 explicit allowlist so the new roles cannot win merely through a lower
@@ -223,12 +230,15 @@ assets at new paths rather than overwrite CDN-cached bytes; see
 | CLEANSE video | `11445f51b162d579d71c2767a5c66bcdafbe419e1bc644ec0c5508cc6bc86a10` at `products/cleanse-01-calming-gel-cleanser/routine/<hash>.mp4` |
 | CLEANSE poster | `645ef158ba34d19ee56e755e595d7101b875c28d8ee3ae90fbf271c8f4c8a1c9` at `products/cleanse-01-calming-gel-cleanser/routine/<hash>.webp` |
 | CLEANSE profile | `4608d57d7ee6905436841330e4564bbecd156449c1b3f966bc093464e0c04838` at `products/cleanse-01-calming-gel-cleanser/profile/<hash>.webp` |
+| CLEANSE ingredient texture | `823eeecca862cd4486b54d6020eccb8c033506970377d8a22fa590ac42279189` at `products/cleanse-01-calming-gel-cleanser/ingredients-texture/<hash>.webp` |
 | TREAT video | `53d8fe1459545df281be847bf5e529e510c56628325f0796b89c45abde367578` at `products/treat-03-pdrn-5-ampoule/routine/<hash>.mp4` |
 | TREAT poster | `5c70d8d414087b4a73332af3012c039816c5731ca1072f4fcb5962216ecfc95a` at `products/treat-03-pdrn-5-ampoule/routine/<hash>.webp` |
 | TREAT profile | `36c9cf8396fa5ae455d6f43c1439141737d6c27323002997bd675ff789307f72` at `products/treat-03-pdrn-5-ampoule/profile/<hash>.webp` |
+| TREAT ingredient texture | `0f22a937ec1a96fe4d715a332a14c3136b6e1fb5b8fd2d3833421e5626c7f424` at `products/treat-03-pdrn-5-ampoule/ingredients-texture/<hash>.webp` |
 | SEAL video | `a0da3538cce18a4fe5e693f2a43d831635ced4e966dddb6c67c853f2c488db56` at `products/seal-05-green-collagen-cream/routine/<hash>.mp4` |
 | SEAL poster | `bed952d83845a0379d4143e0e253c627c5711571fca91ee8412e8e580bf795d5` at `products/seal-05-green-collagen-cream/routine/<hash>.webp` |
 | SEAL profile | `540b1c0ed218a6e81a99f925fb3972252c1e357ea7a3592e9e80008bbf263c4e` at `products/seal-05-green-collagen-cream/profile/<hash>.webp` |
+| SEAL ingredient texture | `73ea87cb38df7d48d35b479dbebda47de9851250eeefd49ae3b6c08251412d88` at `products/seal-05-green-collagen-cream/ingredients-texture/<hash>.webp` |
 
 `scripts/catalog-sync-core-pdp-media.ts` is dry-run by default. On apply it:
 
@@ -240,9 +250,13 @@ assets at new paths rather than overwrite CDN-cached bytes; see
 6. upserts on `(product_id, role, sort_order)`
 7. re-reads and verifies all planned rows
 
-The verified apply added nine objects and nine rows. Each Core product moved
+The earlier verified apply added nine objects and nine rows. Each Core product moved
 from seven to ten media rows. A second apply uploaded zero objects and verified
-the same nine rows, demonstrating idempotent object/row behavior.
+the same nine rows, demonstrating idempotent object/row behavior. The three
+ingredient-texture derivatives are prepared as true WebP files and included in
+the same sync plan, but their migration, Storage objects, and media rows were
+deliberately not applied from this isolated branch while shared media work was
+concurrent.
 
 ## Cache and revalidation
 
@@ -320,8 +334,8 @@ Supabase products + variants + product_media
 - **Full reconciliation:** protected `/api/admin/search-reindex` and
   `scripts/search-backfill.ts` rebuild the complete active index.
 - **Editorial media:** the parent is resolved for cache targeting, but
-  `routine_video`, `routine_video_poster`, and `profile_editorial` return a
-  no-op before any Algolia write.
+  `routine_video`, `routine_video_poster`, `profile_editorial`, and
+  `ingredients_texture` return a no-op before any Algolia write.
 
 `scripts/search-verify-core-pdp-media.ts` rebuilt the expected canonical record
 and compared it with the live non-production Algolia record. All three passed.
@@ -364,8 +378,9 @@ Selected Product + variant in ProductDetail
 
 | File | Runtime role | Classification |
 | --- | --- | --- |
-| `lib/content/core-pdp.ts` | Core profile title tokens, video overlay, outcome headings/labels, hue states, focal positions; profile rows derive from `Product` | Presentation-only and intentional |
-| `lib/catalog/product-content.ts` | Slug-keyed lower-module labels, ingredient cards, and how-to steps | Runtime presentation content with duplicated product-fact risk |
+| `lib/content/core-pdp.ts` | Core profile tokens, video overlay, outcome labels/hues, verified three-step application composition, future application-media basenames, and focal positions | Presentation-only and intentional |
+| `lib/catalog/product-content.ts` | Slug-keyed lower-module labels plus structured, supplier-aligned Core ingredient stories | Runtime presentation content with duplicated product-fact risk |
+| `lib/catalog/product-ingredients.ts` | Strict full-INCI precedence and compatibility validation | Canonical-field resolver; contains no ingredient list |
 | `lib/catalog/product-routine.ts` | Routine metadata fallback and label/sort helpers | Temporary compatibility; Supabase fields take precedence |
 | `lib/catalog/product-reviews.ts` | Slug-keyed early response cards | Repository fixture, not canonical customer review data |
 | `lib/content/product-endorsements.ts` | Local endorsement media still used on Beyond The Core PDPs | Presentation-only; removed from Core composition |
@@ -390,12 +405,21 @@ or intentionally avoid that writer before making durable direct edits.
 | `FYI` | Composed from `skin_types`, `usage_time`, `routine_step_number`, and `routine_group_label` |
 | Outcome heading/labels | Grammatical presentation labels in `lib/content/core-pdp.ts`; canonical `benefits` is unchanged |
 | Outcome hue slides | Three decorative color configurations per Core slug in `lib/content/core-pdp.ts` |
+| Application steps and hue states | Verified direction composition, stable step IDs, and future media basenames in `lib/content/core-pdp.ts` |
+| Ingredient story | Structured highlights in `lib/catalog/product-content.ts`, validated against supplier provenance |
+| Ingredient texture | Supabase Storage URL from role `ingredients_texture`; exact user basename maps one image to each Core product |
+| Full INCI | `resolveFullInci()`: `products.ingredients`, then a validated complete `product_details.sourceFullInci`, then no content |
 
 Core modules fail closed as a connected presentation:
 
 - video renders only with both a valid video and poster row
 - profile and outcome render only with the Core presentation and a valid
   profile image row
+- application and ingredient story follow outcome only for Core; missing
+  ingredient media reports temporary unavailability instead of substituting
+  another image
+- the full-list button is omitted when no verified list resolves; this is the
+  current CLEANSE and SEAL state
 - no empty frame is shown
 - Beyond The Core retains the endorsement rail and Quick Signals
 
@@ -411,6 +435,17 @@ semantic label is paired with an `aria-hidden` filled duplicate. Transform and
 clip-path transitions use 1.5 seconds. Reduced motion reduces both to 0.001
 seconds.
 
+The application component renders three persistent copy and visual layers,
+selects step 01 by default, and exposes three `aria-pressed` swatches plus one
+cyclic right-arrow control. It has no interval or autoplay path. Incoming copy
+translates from `(24px, 24px)` while outgoing copy translates to
+`(-24px, -24px)` over 560 ms; reduced motion shortens animations to 1 ms.
+
+The ingredient component keeps the image node mounted while the left panel
+crossfades between story and disclosure states over 220 ms. Only TREAT
+currently resolves a complete full INCI. The close button and Escape return
+focus to the outlined image-panel trigger.
+
 ## Failure behavior
 
 | Failure | Current behavior |
@@ -422,6 +457,8 @@ seconds.
 | Video Storage/decode failure | Poster remains, status announces temporary unavailability, and Retry reloads both video elements |
 | Unsupported video/decode path | Poster-backed unavailable state remains visible, fallback text is present in the video element, and Retry never substitutes another asset |
 | Profile Storage response fails after a valid row loaded | Next Image reports the asset failure; there is not yet a dedicated profile retry UI |
+| Missing ingredient-texture row | The Core story remains available and the image panel announces temporary media unavailability |
+| Missing or unverified full INCI | The `FULL INGREDIENTS LIST` button is omitted; no empty or fabricated disclosure is exposed |
 | Stale catalog cache | Time-based refresh occurs within one hour, or sooner through tag/path invalidation |
 | Webhook auth/validation failure | Receiver returns 401/400/413 and performs no mutation |
 | Algolia write failure | Receiver attempts catalog invalidation, logs safe error text, and returns retryable 502 |

@@ -20,6 +20,7 @@ export const CORE_PDP_MEDIA_ROLES = [
   "routine_video",
   "routine_video_poster",
   "profile_editorial",
+  "ingredients_texture",
 ] as const;
 
 type CorePdpMediaRole = (typeof CORE_PDP_MEDIA_ROLES)[number];
@@ -76,6 +77,18 @@ export const CORE_PDP_MEDIA_ASSETS: readonly CorePdpMediaAsset[] = [
     durationSeconds: null,
   },
   {
+    slug: "cleanse-01-calming-gel-cleanser",
+    filename: "cleanse-pdp-ingredients-texture-01.webp",
+    role: "ingredients_texture",
+    mediaType: "image",
+    contentType: "image/webp",
+    alt: "Clear CLEANSE gel formula texture with fine bubbles on a pale background.",
+    width: 1254,
+    height: 1254,
+    sortOrder: 23,
+    durationSeconds: null,
+  },
+  {
     slug: "treat-03-pdrn-5-ampoule",
     filename: "treat-pdp-routine-source.mp4",
     role: "routine_video",
@@ -112,6 +125,18 @@ export const CORE_PDP_MEDIA_ASSETS: readonly CorePdpMediaAsset[] = [
     durationSeconds: null,
   },
   {
+    slug: "treat-03-pdrn-5-ampoule",
+    filename: "treat-pdp-ingredients-texture-01.webp",
+    role: "ingredients_texture",
+    mediaType: "image",
+    contentType: "image/webp",
+    alt: "Golden TREAT serum formula texture with suspended air bubbles.",
+    width: 1254,
+    height: 1254,
+    sortOrder: 23,
+    durationSeconds: null,
+  },
+  {
     slug: "seal-05-green-collagen-cream",
     filename: "seal-pdp-routine-source.mp4",
     role: "routine_video",
@@ -145,6 +170,18 @@ export const CORE_PDP_MEDIA_ASSETS: readonly CorePdpMediaAsset[] = [
     width: 1086,
     height: 1448,
     sortOrder: 22,
+    durationSeconds: null,
+  },
+  {
+    slug: "seal-05-green-collagen-cream",
+    filename: "seal-pdp-ingredients-texture-01.webp",
+    role: "ingredients_texture",
+    mediaType: "image",
+    contentType: "image/webp",
+    alt: "White SEAL cream formula stretching into a soft peak.",
+    width: 1201,
+    height: 1310,
+    sortOrder: 23,
     durationSeconds: null,
   },
 ] as const;
@@ -281,7 +318,9 @@ function assertMp4(buffer: Buffer, filename: string) {
 }
 
 function storageDirectory(role: CorePdpMediaRole): string {
-  return role === "profile_editorial" ? "profile" : "routine";
+  if (role === "profile_editorial") return "profile";
+  if (role === "ingredients_texture") return "ingredients-texture";
+  return "routine";
 }
 
 export function storagePathForCorePdpAsset(
