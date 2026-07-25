@@ -10,9 +10,9 @@ export type HomeCoreDescriptionKey = "cleanse" | "treat" | "seal";
 export const homeCoreDescriptions = {
   default: "Simple by design. For all skin types.",
   items: {
-    cleanse: "cleanse the surface",
-    treat: "apply the treatment layer",
-    seal: "finish with moisture and barrier support",
+    cleanse: "Start with a gentle deep-cleansing that doesn't strip or dehydrate the barrier.",
+    treat: "Apply the treatment layer for glass-skin texture and to target signs of aging.",
+    seal: "Finish with moisture and barrier support for lasting hydration and to lock in results.",
   },
 } as const satisfies {
   default: string;

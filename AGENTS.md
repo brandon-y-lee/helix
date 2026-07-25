@@ -71,8 +71,6 @@ Mei Pelle should feel editorial, modern, visually led, sparse, confident, ingred
 
 Use Marcellus selectively for display and wordmark treatment. Use Manrope for functional UI and body text.
 
-Keep PDRN language cosmetic and appearance-focused. Keep peptide claims sequence- and formulation-specific. Do not imply topical plant-derived collagen becomes human dermal collagen. Avoid fear-based “clean” language. Treat sustainability as an ambition unless verified facts support stronger claims.
-
 Public support, legal, order, rewards, and service-status content must be complete and factual. Do not publish fake contact details, unsupported service levels, or placeholder policies.
 
 ## 5. Reference Boundaries
