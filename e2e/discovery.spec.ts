@@ -1633,22 +1633,105 @@ test("Core Three product card navigates to a product detail page", async ({ page
   await expect(page.getByRole("heading", { level: 1, name: "CLEANSE" })).toBeVisible();
 });
 
-test("PDP discovery rail renders Core-first related products and navigates", async ({
+test("PDP reviews precede the shared three-product discovery carousel", async ({
   page,
 }) => {
+  await page.setViewportSize({ width: 1024, height: 768 });
   await page.goto("/products/treat-03-pdrn-5-ampoule");
+
+  const reviews = page.locator(".pdp-reviews");
+  const discovery = page.locator(".pdp-discovery");
+  const carousel = discovery.locator(".home-beyond-carousel");
+  const cards = discovery.locator(".home-beyond-carousel__card");
+
+  await expect(reviews).toBeVisible();
+  await expect(discovery).toBeVisible();
+  await expect(reviews.getByText("AVERAGE RATING")).toBeVisible();
+  await expect(reviews.locator(".review-row")).toHaveCount(2);
+  await expect(
+    reviews.getByRole("button", { name: "SHOW MORE" }),
+  ).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "EARLY READS" })).toHaveCount(
+    0,
+  );
   await expect(
     page.getByRole("heading", { name: "BUILD AROUND THIS STEP" }),
-  ).toBeVisible();
+  ).toHaveCount(0);
+  await expect(
+    page.getByText(
+      "Core products first, then the focused additions beyond it.",
+    ),
+  ).toHaveCount(0);
+  await expect(cards).toHaveCount(3);
 
-  const related = page.locator(".pdp-discovery-card strong").first();
-  const name = (await related.textContent())?.trim() ?? "";
-  expect(name.length).toBeGreaterThan(0);
-  await expect(page.locator(".pdp-discovery-card__routine").first()).toHaveText(
-    /The Core|Beyond The Core/,
+  const structure = await page.evaluate(() => {
+    const reviewsNode = document.querySelector(".pdp-reviews");
+    const discoveryNode = document.querySelector(".pdp-discovery");
+    const slugs = Array.from(
+      document.querySelectorAll(
+        ".pdp-discovery [data-product-card-slug]",
+      ),
+    ).map((card) => card.getAttribute("data-product-card-slug"));
+    const sectionOrder = Array.from(
+      document.querySelectorAll(".pdp-reviews, .pdp-discovery"),
+    ).map((section) => section.className);
+
+    return {
+      sectionOrder,
+      slugs,
+      pageOverflow:
+        document.documentElement.scrollWidth -
+        document.documentElement.clientWidth,
+      reviewsTop: reviewsNode?.getBoundingClientRect().top ?? 0,
+      discoveryTop: discoveryNode?.getBoundingClientRect().top ?? 0,
+    };
+  });
+
+  expect(structure.sectionOrder).toEqual(["pdp-reviews", "pdp-discovery"]);
+  expect(structure.reviewsTop).toBeLessThan(structure.discoveryTop);
+  expect(new Set(structure.slugs).size).toBe(3);
+  expect(structure.slugs).not.toContain("treat-03-pdrn-5-ampoule");
+  expect(structure.pageOverflow).toBeLessThanOrEqual(0);
+
+  await expect(carousel).toHaveAttribute("data-carousel-ready", "true");
+  await expect(carousel).toHaveAttribute("data-active-index", "0");
+  await expect(carousel).toHaveAttribute("data-can-scroll-prev", "false");
+  await expect(carousel).toHaveAttribute("data-can-scroll-next", "true");
+  await expect(
+    discovery.getByRole("button", { name: "Previous product" }),
+  ).toHaveCount(0);
+
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await expect(discovery.locator(".home-beyond-carousel__track")).toHaveCSS(
+    "transition-duration",
+    "0s",
   );
-  await related.click();
+  await page.emulateMedia({ reducedMotion: "no-preference" });
 
-  await expect(page).toHaveURL(/\/products\/[\w-]+$/);
+  await discovery.getByRole("button", { name: "Next product" }).click();
+  await expect(carousel).toHaveAttribute("data-active-index", "1");
+  await expect(carousel).toHaveAttribute("data-can-scroll-prev", "true");
+  await expect(carousel).toHaveAttribute("data-can-scroll-next", "false");
+  await expect(
+    discovery.getByRole("button", { name: "Next product" }),
+  ).toHaveCount(0);
+
+  await page.waitForTimeout(280);
+  await discovery.getByRole("button", { name: "Previous product" }).click();
+  await expect(carousel).toHaveAttribute("data-active-index", "0");
+  await expect(carousel).toHaveAttribute("data-can-scroll-prev", "false");
+
+  const firstLink = cards.first().locator(".product-card__link");
+  const name =
+    (await firstLink.locator(".product-card__name").textContent())?.trim() ?? "";
+  const href = await firstLink.getAttribute("href");
+  expect(name.length).toBeGreaterThan(0);
+  expect(href).toMatch(/^\/products\/[\w-]+$/);
+  await Promise.all([
+    page.waitForURL((url) => url.pathname === href),
+    firstLink.click(),
+  ]);
+
+  await expect(page).toHaveURL(new RegExp(`${href}$`));
   await expect(page.getByRole("heading", { level: 1, name })).toBeVisible();
 });

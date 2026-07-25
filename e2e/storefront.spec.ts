@@ -80,7 +80,11 @@ test("product detail loads by slug and variant selection updates state", async (
       exact: true,
     }),
   ).toBeVisible();
-  await expect(page.getByRole("heading", { name: "EARLY READS" })).toBeVisible();
+  const reviews = page.getByRole("region", {
+    name: "TREAT customer reviews",
+  });
+  await expect(reviews.getByText("AVERAGE RATING")).toBeVisible();
+  await expect(reviews.locator(".review-row")).toHaveCount(2);
 
   const thirtyMl = page.getByRole("button", { name: "30 mL", exact: true });
   await thirtyMl.click();
@@ -417,7 +421,11 @@ test("PDP sticky purchase bar aligns to the content shell and clears the lower e
     await page.locator(".pdp-outcome-split").scrollIntoViewIfNeeded();
     await expect(sticky).toHaveAttribute("data-visible", "false");
 
-    await page.locator(".pdp-editorial-pair--details").scrollIntoViewIfNeeded();
+    await page.locator(".pdp-ingredients").evaluate((section) => {
+      const sectionBottom =
+        window.scrollY + section.getBoundingClientRect().bottom;
+      window.scrollTo(0, sectionBottom + 24);
+    });
     await expect(sticky).toHaveAttribute("data-visible", "true");
     await expect(sticky).toHaveAttribute("aria-hidden", "false");
     await page.waitForTimeout(300);
@@ -468,6 +476,9 @@ test("PDP sticky purchase bar aligns to the content shell and clears the lower e
     await expect(sticky.locator(".pdp-payment-message")).toHaveCount(0);
 
     await page.locator(".pdp-bottom-sentinel").scrollIntoViewIfNeeded();
+    await expect(sticky).toHaveAttribute("data-visible", "false");
+    await expect(sticky).toHaveAttribute("aria-hidden", "true");
+    await page.locator(".pdp-discovery").scrollIntoViewIfNeeded();
     await expect(sticky).toHaveAttribute("data-visible", "false");
     await expect(sticky).toHaveAttribute("aria-hidden", "true");
   }

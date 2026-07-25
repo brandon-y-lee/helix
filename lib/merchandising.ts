@@ -16,3 +16,29 @@ export function newArrivals(products: Product[], limit = 3): Product[] {
 export function availableNow(products: Product[], limit = 4): Product[] {
   return products.filter((p) => p.status === "available").slice(0, limit);
 }
+
+export const PDP_DISCOVERY_PRODUCT_LIMIT = 3;
+
+/**
+ * Keeps the catalog's recommendation order while removing the current product
+ * and any duplicate slugs before applying the PDP display limit.
+ */
+export function selectPdpDiscoveryProducts(
+  products: readonly Product[],
+  currentSlug: string,
+  limit = PDP_DISCOVERY_PRODUCT_LIMIT,
+): Product[] {
+  if (limit <= 0) return [];
+
+  const seen = new Set([currentSlug]);
+  const selected: Product[] = [];
+
+  for (const product of products) {
+    if (seen.has(product.slug)) continue;
+    seen.add(product.slug);
+    selected.push(product);
+    if (selected.length === limit) break;
+  }
+
+  return selected;
+}

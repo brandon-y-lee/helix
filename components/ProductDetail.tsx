@@ -11,11 +11,11 @@ import {
   type ReactNode,
   type WheelEvent as ReactWheelEvent,
 } from "react";
-import Link from "next/link";
 import { AfterpayMessaging } from "@/components/AfterpayMessaging";
 import { useCart } from "@/components/CartProvider";
 import { ProductEndorsementRail } from "@/components/ProductEndorsementRail";
 import { ProductImage } from "@/components/ProductImage";
+import { ProductReviewsSection } from "@/components/ProductReviewsSection";
 import { PdpApplicationCarousel } from "@/components/PdpApplicationCarousel";
 import { PdpCoreRoutineSection } from "@/components/PdpCoreRoutineSection";
 import { PdpIngredientsSplit } from "@/components/PdpIngredientsSplit";
@@ -31,11 +31,9 @@ import { resolveFullInci } from "@/lib/catalog/product-ingredients";
 import {
   routineDisplayLabelForProduct,
   routineGroupLabelForProduct,
-  routineSortForProduct,
 } from "@/lib/catalog/product-routine";
 import {
   getProductReviews,
-  reviewSummary,
   type ProductReviews,
 } from "@/lib/catalog/product-reviews";
 import { getCorePdpPresentation } from "@/lib/content/core-pdp";
@@ -99,14 +97,6 @@ function availabilityLabel(
   if (variant.inventoryStatus === "out_of_stock") return "Out of stock";
   if (variant.inventoryStatus === "low_stock") return "Low stock";
   return "Available";
-}
-
-function productPriceLabel(product: Product) {
-  const prices = product.variants.map((variant) => variant.price);
-  if (prices.length === 0) return "—";
-  const min = Math.min(...prices);
-  const max = Math.max(...prices);
-  return min === max ? formatPrice(min) : `From ${formatPrice(min)}`;
 }
 
 function splitCopy(value: string) {
@@ -341,173 +331,14 @@ function ProductSignalGrid({
   );
 }
 
-function ReviewResponseMeter({
-  reviews,
-}: {
-  reviews: ProductReviews;
-}) {
-  const values = reviews.reviews.map((review) => review.meterValue);
-  const value = values.length
-    ? Math.round(values.reduce((sum, item) => sum + item, 0) / values.length)
-    : 0;
-
-  return (
-    <div className="review-meter">
-      <p>{reviews.meter.question}</p>
-      <div className="review-meter__track">
-        <span>{reviews.meter.lowLabel}</span>
-        <meter min={0} max={100} value={value} aria-label={`${reviews.meter.question}: ${value} out of 100`} />
-        <span>{reviews.meter.highLabel}</span>
-      </div>
-    </div>
-  );
-}
-
-function ProductReviewsSection({
-  product,
-  reviews,
-}: {
-  product: Product;
-  reviews: ProductReviews;
-}) {
-  if (reviews.reviews.length === 0) return null;
-  const summary = reviewSummary(reviews.reviews);
-
-  return (
-    <section className="pdp-reviews" aria-labelledby="pdp-reviews-heading">
-      <div className="section-head">
-        <p className="eyebrow">Routine responses</p>
-        <h2 id="pdp-reviews-heading">EARLY READS</h2>
-        <p>
-          Original Mei Pelle response cards for {product.displayName}; public
-          review intake is not open yet.
-        </p>
-      </div>
-      <div className="pdp-reviews__summary">
-        <strong>{summary.average.toFixed(1)}</strong>
-        <span>{summary.count} response cards</span>
-      </div>
-      <ReviewResponseMeter reviews={reviews} />
-      <div className="pdp-reviews__grid">
-        {reviews.reviews.map((review) => (
-          <article key={review.id} className="review-card">
-            <div className="review-card__head">
-              <span aria-hidden="true">{review.initials}</span>
-              <div>
-                <h3>{review.title}</h3>
-                <p>
-                  {review.firstName} · {review.ageRange} · {review.skinType}
-                </p>
-              </div>
-            </div>
-            <p className="review-card__rating" aria-label={`${review.rating} out of 5 stars`}>
-              {"★".repeat(review.rating)}
-              {"☆".repeat(5 - review.rating)}
-            </p>
-            <p>{review.body}</p>
-            <dl className="review-card__meta">
-              <div>
-                <dt>Concern</dt>
-                <dd>{review.primaryConcern}</dd>
-              </div>
-              <div>
-                <dt>Routine</dt>
-                <dd>{review.routineContext}</dd>
-              </div>
-              <div>
-                <dt>Favorite</dt>
-                <dd>{review.favoriteFeatures.join(", ")}</dd>
-              </div>
-              <div>
-                <dt>Date</dt>
-                <dd>{review.date}</dd>
-              </div>
-            </dl>
-          </article>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function ProductDiscoveryRail({
-  current,
-  products,
-}: {
-  current: Product;
-  products: Product[];
-}) {
-  const railRef = useRef<HTMLUListElement>(null);
-  const sorted = useMemo(
-    () =>
-      products
-        .filter((product) => product.slug !== current.slug)
-        .slice()
-        .sort((a, b) => routineSortForProduct(a) - routineSortForProduct(b)),
-    [current.slug, products],
-  );
-
-  if (sorted.length === 0) return null;
-
-  function scroll(direction: "previous" | "next") {
-    railRef.current?.scrollBy({
-      left: direction === "previous" ? -360 : 360,
-      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
-        ? "auto"
-        : "smooth",
-    });
-  }
-
-  return (
-    <section className="pdp-discovery" aria-labelledby="pdp-discovery-heading">
-      <div className="section-head">
-        <p className="eyebrow">Discovery</p>
-        <h2 id="pdp-discovery-heading">BUILD AROUND THIS STEP</h2>
-        <p>Core products first, then the focused additions beyond it.</p>
-      </div>
-      <div className="pdp-discovery__controls" aria-label="Product rail controls">
-        <button type="button" onClick={() => scroll("previous")} aria-label="Previous products">
-          ←
-        </button>
-        <button type="button" onClick={() => scroll("next")} aria-label="Next products">
-          →
-        </button>
-      </div>
-      <ul ref={railRef} className="pdp-discovery__rail">
-        {sorted.map((product) => (
-          <li key={product.slug} className="pdp-discovery-card">
-            <Link href={`/products/${product.slug}`}>
-              <ProductImage
-                media={product.cardMedia}
-                swatch={product.swatch}
-                className="pdp-discovery-card__media"
-                imageClassName="pdp-discovery-card__img"
-                sizes="(max-width: 720px) 70vw, 280px"
-              />
-              <span className="pdp-discovery-card__routine">
-                {routineDisplayLabelForProduct(product)}
-              </span>
-              <strong>{product.displayName}</strong>
-              <small>{product.cardTagline}</small>
-              <em>{productPriceLabel(product)}</em>
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
 export function ProductDetail({
   product,
-  related = [],
   coreRoutine = [],
   content = getProductPdpContent(product.slug),
   reviews = getProductReviews(product.slug),
   stripePublishableKey = null,
 }: {
   product: Product;
-  related?: Product[];
   coreRoutine?: CoreRoutineProduct[];
   content?: ProductPdpContent;
   reviews?: ProductReviews;
@@ -654,26 +485,7 @@ export function ProductDetail({
     const cta = purchaseCtaRef.current;
     const bottom = bottomSentinelRef.current;
     if (!cta || !bottom || !("IntersectionObserver" in window)) return;
-
-    const ctaObserver = new IntersectionObserver(
-      ([entry]) => setHeroCtaVisible(Boolean(entry?.isIntersecting)),
-      { threshold: 0.08 },
-    );
-    const bottomObserver = new IntersectionObserver(
-      ([entry]) => setBottomVisible(Boolean(entry?.isIntersecting)),
-      { rootMargin: "0px 0px -12% 0px", threshold: 0.01 },
-    );
-
-    ctaObserver.observe(cta);
-    bottomObserver.observe(bottom);
-    return () => {
-      ctaObserver.disconnect();
-      bottomObserver.disconnect();
-    };
-  }, []);
-
-  useEffect(() => {
-    const targets = [
+    const editorialTargets = [
       routineVideoRef.current,
       profileSplitRef.current,
       outcomeSplitRef.current,
@@ -681,33 +493,41 @@ export function ProductDetail({
       ingredientsRef.current,
     ].filter((target): target is HTMLElement => Boolean(target));
 
-    setEditorialModuleVisible(false);
-    if (targets.length === 0 || !("IntersectionObserver" in window)) return;
-
-    const visibleTargets = new Map<Element, boolean>();
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          visibleTargets.set(entry.target, entry.isIntersecting);
-        }
-        setEditorialModuleVisible(
-          Array.from(visibleTargets.values()).some(Boolean),
-        );
-      },
-      { threshold: 0.01 },
+    const ctaObserver = new IntersectionObserver(
+      ([entry]) => setHeroCtaVisible(Boolean(entry?.isIntersecting)),
+      { threshold: 0.08 },
     );
+    let frame = 0;
+    const updateScrollVisibility = () => {
+      frame = 0;
+      setBottomVisible(
+        bottom.getBoundingClientRect().top <= window.innerHeight * 0.88,
+      );
+      setEditorialModuleVisible(
+        editorialTargets.some((target) => {
+          const rect = target.getBoundingClientRect();
+          return rect.bottom > 0 && rect.top < window.innerHeight;
+        }),
+      );
+    };
+    const scheduleScrollVisibilityUpdate = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(updateScrollVisibility);
+    };
 
-    for (const target of targets) {
-      visibleTargets.set(target, false);
-      observer.observe(target);
-    }
-
-    return () => observer.disconnect();
-  }, [
-    coreProfileReady,
-    coreVideoReady,
-    content.ingredientStory,
-  ]);
+    ctaObserver.observe(cta);
+    updateScrollVisibility();
+    window.addEventListener("scroll", scheduleScrollVisibilityUpdate, {
+      passive: true,
+    });
+    window.addEventListener("resize", scheduleScrollVisibilityUpdate);
+    return () => {
+      ctaObserver.disconnect();
+      if (frame) window.cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", scheduleScrollVisibilityUpdate);
+      window.removeEventListener("resize", scheduleScrollVisibilityUpdate);
+    };
+  }, [coreProfileReady, coreVideoReady, content.ingredientStory]);
 
   useEffect(() => {
     const target = coreRoutineRef.current;
@@ -1182,9 +1002,13 @@ export function ProductDetail({
         )}
       </section>
 
-      <ProductDiscoveryRail current={product} products={related} />
       <span ref={bottomSentinelRef} className="pdp-bottom-sentinel" aria-hidden="true" />
-      <ProductReviewsSection product={product} reviews={reviews} />
+      <ProductReviewsSection
+        key={product.slug}
+        productName={product.displayName}
+        productSlug={product.slug}
+        reviews={reviews}
+      />
     </>
   );
 }

@@ -512,6 +512,25 @@ describe("ProductDetail purchase accordions", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("renders rating-focused review rows without the marketing heading", () => {
+    render(<ProductDetail product={makeProduct()} />);
+
+    const reviewSection = screen.getByRole("region", {
+      name: "TREAT customer reviews",
+    });
+    expect(within(reviewSection).getByText("4.5")).toBeInTheDocument();
+    expect(
+      within(reviewSection).getByText("AVERAGE RATING"),
+    ).toBeInTheDocument();
+    expect(reviewSection.querySelectorAll(".review-row")).toHaveLength(2);
+    expect(
+      screen.queryByRole("heading", { name: "EARLY READS" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/public review intake is not open yet/i),
+    ).not.toBeInTheDocument();
+  });
+
   it("fails closed without empty Core editorial media shells", () => {
     render(<ProductDetail product={makeProduct({ media: [] })} />);
 

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ProductDetail } from "@/components/ProductDetail";
+import { ProductDiscoveryCarousel } from "@/components/ProductDiscoveryCarousel";
 import {
   getCachedCoreRoutineProducts,
   getCachedDiscoveryProducts,
@@ -58,13 +59,18 @@ export default async function ProductDetailPage({
   const related = await relatedPromise;
 
   return (
-    <div className="container">
-      <ProductDetail
-        product={product}
-        related={related}
-        coreRoutine={coreRoutine}
-        stripePublishableKey={stripeMessagingPublishableKey()}
+    <>
+      <div className="container">
+        <ProductDetail
+          product={product}
+          coreRoutine={coreRoutine}
+          stripePublishableKey={stripeMessagingPublishableKey()}
+        />
+      </div>
+      <ProductDiscoveryCarousel
+        currentSlug={product.slug}
+        products={related}
       />
-    </div>
+    </>
   );
 }
