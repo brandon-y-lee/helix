@@ -10,7 +10,11 @@ vi.mock("@/lib/supabase", () => ({
   SupabaseConfigError: class SupabaseConfigError extends Error {},
 }));
 
-import { getProducts, getProduct } from "@/lib/catalog";
+import {
+  getCoreRoutineProducts,
+  getProducts,
+  getProduct,
+} from "@/lib/catalog";
 
 const mockedGetClient = getSupabaseClient as unknown as Mock;
 
@@ -23,6 +27,7 @@ function makeClient(result: QueryResult) {
     select: () => builder,
     order: () => builder,
     eq: () => builder,
+    limit: () => builder,
     maybeSingle: () => Promise.resolve(result),
     then: (resolve: (value: QueryResult) => unknown) => resolve(result),
   };
@@ -210,6 +215,16 @@ describe("catalog data access (Supabase-backed)", () => {
                 sort_order: 0,
               },
               {
+                media_type: "image",
+                media_kind: "image",
+                url: "https://example.supabase.co/core-routine-texture.webp",
+                alt: "Core routine texture",
+                width: 1024,
+                height: 1024,
+                role: "core_routine_texture",
+                sort_order: 1,
+              },
+              {
                 ...sampleRow.product_media[0],
                 media_type: "image",
                 media_kind: "image",
@@ -232,6 +247,14 @@ describe("catalog data access (Supabase-backed)", () => {
       expect.objectContaining({
         kind: "image",
         url: "https://example.supabase.co/ingredients-texture.webp",
+      }),
+    );
+    expect(
+      product.media.find((media) => media.role === "core_routine_texture"),
+    ).toEqual(
+      expect.objectContaining({
+        kind: "image",
+        url: "https://example.supabase.co/core-routine-texture.webp",
       }),
     );
     expect(product.cardMedia?.role).toBe("card");
@@ -274,6 +297,93 @@ describe("catalog data access (Supabase-backed)", () => {
       makeClient({ data: null, error: { message: "connection refused" } }),
     );
     await expect(getProduct("x")).rejects.toThrow(/Failed to load product "x"/);
+  });
+
+  it("loads exactly the three ordered Core products with dedicated texture media", async () => {
+    const coreRows = [
+      {
+        id: "cleanse-id",
+        slug: "cleanse-01-calming-gel-cleanser",
+        name: "CLEANSE",
+        display_name: "CLEANSE",
+        formal_title: "CLEANSE 01 Calming Gel Cleanser",
+        product_type: "Gel cleanser",
+        routine_step_number: 1,
+        routine_step_name: "Cleanse",
+        routine_sort: 10,
+        swatch_from: "#d9e2dc",
+        swatch_to: "#a7bcb0",
+      },
+      {
+        id: "treat-id",
+        slug: "treat-03-pdrn-5-ampoule",
+        name: "TREAT",
+        display_name: "TREAT",
+        formal_title: "TREAT 03 PDRN Ampoule",
+        product_type: "Treatment serum",
+        routine_step_number: 2,
+        routine_step_name: "Treat",
+        routine_sort: 20,
+        swatch_from: "#e4c175",
+        swatch_to: "#a7772f",
+      },
+      {
+        id: "seal-id",
+        slug: "seal-05-green-collagen-cream",
+        name: "SEAL",
+        display_name: "SEAL",
+        formal_title: "SEAL 05 Green Collagen Cream",
+        product_type: "Barrier cream",
+        routine_step_number: 3,
+        routine_step_name: "Seal",
+        routine_sort: 30,
+        swatch_from: "#e7e1d7",
+        swatch_to: "#b8aa92",
+      },
+    ].map((row) => ({
+      ...row,
+      product_media: [
+        {
+          media_type: "image",
+          media_kind: "image",
+          url: `https://example.supabase.co/${row.slug}.webp`,
+          alt: `${row.display_name} texture`,
+          width: 1024,
+          height: 1024,
+          role: "core_routine_texture",
+          sort_order: 24,
+          palette_id: null,
+          placeholder_palette: null,
+        },
+      ],
+    }));
+    mockedGetClient.mockReturnValue(
+      makeClient({ data: coreRows, error: null }),
+    );
+
+    const products = await getCoreRoutineProducts();
+
+    expect(products.map((product) => product.displayName)).toEqual([
+      "CLEANSE",
+      "TREAT",
+      "SEAL",
+    ]);
+    expect(products.map((product) => product.routineStepNumber)).toEqual([
+      1, 2, 3,
+    ]);
+    expect(
+      products.every(
+        (product) => product.textureMedia.role === "core_routine_texture",
+      ),
+    ).toBe(true);
+  });
+
+  it("fails closed when the Core routine is incomplete", async () => {
+    mockedGetClient.mockReturnValue(makeClient({ data: [], error: null }));
+
+    await expect(getCoreRoutineProducts()).rejects.toThrow(
+      /expected active CLEANSE, TREAT, and SEAL sequence/,
+    );
   });
 });
 

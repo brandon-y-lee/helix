@@ -21,6 +21,7 @@ export const CORE_PDP_MEDIA_ROLES = [
   "routine_video_poster",
   "profile_editorial",
   "ingredients_texture",
+  "core_routine_texture",
 ] as const;
 
 type CorePdpMediaRole = (typeof CORE_PDP_MEDIA_ROLES)[number];
@@ -89,6 +90,18 @@ export const CORE_PDP_MEDIA_ASSETS: readonly CorePdpMediaAsset[] = [
     durationSeconds: null,
   },
   {
+    slug: "cleanse-01-calming-gel-cleanser",
+    filename: "cleanse-pdp-core-routine-texture-01.webp",
+    role: "core_routine_texture",
+    mediaType: "image",
+    contentType: "image/webp",
+    alt: "Clear CLEANSE gel droplet with fine bubbles.",
+    width: 1024,
+    height: 1024,
+    sortOrder: 24,
+    durationSeconds: null,
+  },
+  {
     slug: "treat-03-pdrn-5-ampoule",
     filename: "treat-pdp-routine-source.mp4",
     role: "routine_video",
@@ -137,6 +150,18 @@ export const CORE_PDP_MEDIA_ASSETS: readonly CorePdpMediaAsset[] = [
     durationSeconds: null,
   },
   {
+    slug: "treat-03-pdrn-5-ampoule",
+    filename: "treat-pdp-core-routine-texture-01.webp",
+    role: "core_routine_texture",
+    mediaType: "image",
+    contentType: "image/webp",
+    alt: "Golden TREAT serum droplet on a warm tonal field.",
+    width: 1024,
+    height: 1024,
+    sortOrder: 24,
+    durationSeconds: null,
+  },
+  {
     slug: "seal-05-green-collagen-cream",
     filename: "seal-pdp-routine-source.mp4",
     role: "routine_video",
@@ -182,6 +207,18 @@ export const CORE_PDP_MEDIA_ASSETS: readonly CorePdpMediaAsset[] = [
     width: 1201,
     height: 1310,
     sortOrder: 23,
+    durationSeconds: null,
+  },
+  {
+    slug: "seal-05-green-collagen-cream",
+    filename: "seal-pdp-core-routine-texture-01.webp",
+    role: "core_routine_texture",
+    mediaType: "image",
+    contentType: "image/webp",
+    alt: "White SEAL cream swatch with a soft glossy finish.",
+    width: 600,
+    height: 600,
+    sortOrder: 24,
     durationSeconds: null,
   },
 ] as const;
@@ -262,8 +299,11 @@ export type CorePdpMediaSyncReport = {
     publicUrl: string;
   }>;
   objectsUploaded: number;
+  objectsPlanned: number;
   objectsVerified: number;
   rowsSubmitted: number;
+  rowsPlanned: number;
+  rowsUnchanged: number;
   rowsVerified: number;
 };
 
@@ -320,6 +360,7 @@ function assertMp4(buffer: Buffer, filename: string) {
 function storageDirectory(role: CorePdpMediaRole): string {
   if (role === "profile_editorial") return "profile";
   if (role === "ingredients_texture") return "ingredients-texture";
+  if (role === "core_routine_texture") return "core-routine-texture";
   return "routine";
 }
 
@@ -630,6 +671,24 @@ function verifyRows(
   return plannedRows.length;
 }
 
+function rowMatchesPlan(row: MediaRow, planned: PlannedRow): boolean {
+  return (
+    row.product_id === planned.product_id &&
+    row.media_type === planned.media_type &&
+    row.media_kind === planned.media_kind &&
+    row.url === planned.url &&
+    row.alt === planned.alt &&
+    row.width === planned.width &&
+    row.height === planned.height &&
+    row.role === planned.role &&
+    row.sort_order === planned.sort_order &&
+    row.palette_id === planned.palette_id &&
+    Object.keys(row.placeholder_palette ?? {}).length === 0 &&
+    row.original_source_url === planned.original_source_url &&
+    row.source_filename === planned.source_filename
+  );
+}
+
 export async function runCorePdpMediaSync({
   apply = false,
   assetDirectory = DEFAULT_ASSET_DIR,
@@ -652,6 +711,19 @@ export async function runCorePdpMediaSync({
     products,
     beforeRows,
   );
+  const slugs = [...new Set(CORE_PDP_MEDIA_ASSETS.map((asset) => asset.slug))];
+  const storageListing = await readStorageListing(supabase, slugs);
+  const storageNames = new Set(storageListing.map((object) => object.name));
+  const assetsToUpload = assets.filter(
+    (asset) => !storageNames.has(asset.storagePath),
+  );
+  const rowsToSubmit = plannedRows.filter((planned) => {
+    const existing = beforeRows.find(
+      (row) =>
+        row.product_id === planned.product_id && row.role === planned.role,
+    );
+    return !existing || !rowMatchesPlan(existing, planned);
+  });
   const report: CorePdpMediaSyncReport = {
     ok: true,
     dryRun: !apply,
@@ -672,34 +744,41 @@ export async function runCorePdpMediaSync({
       publicUrl: asset.publicUrl,
     })),
     objectsUploaded: 0,
+    objectsPlanned: assetsToUpload.length,
     objectsVerified: 0,
     rowsSubmitted: 0,
+    rowsPlanned: rowsToSubmit.length,
+    rowsUnchanged: plannedRows.length - rowsToSubmit.length,
     rowsVerified: 0,
   };
 
   if (!apply) return report;
 
-  const storageListing = await readStorageListing(
-    supabase,
-    [...new Set(CORE_PDP_MEDIA_ASSETS.map((asset) => asset.slug))],
-  );
-  report.backupPath = await writeBackup(beforeRows, storageListing);
+  if (assetsToUpload.length > 0 || rowsToSubmit.length > 0) {
+    report.backupPath = await writeBackup(beforeRows, storageListing);
+  }
 
   for (const asset of assets) {
-    const result = await uploadAsset(supabase, asset);
-    if (result === "uploaded") report.objectsUploaded += 1;
+    if (assetsToUpload.includes(asset)) {
+      const result = await uploadAsset(supabase, asset);
+      if (result === "uploaded") report.objectsUploaded += 1;
+    } else {
+      await verifyPublicAsset(asset);
+    }
     report.objectsVerified += 1;
   }
 
-  const { error } = await supabase.from("product_media").upsert(plannedRows, {
-    onConflict: "product_id,role,sort_order",
-  });
-  if (error) {
-    throw new Error(
-      `[core-pdp-media-sync] Failed to upsert media rows: ${error.message}`,
-    );
+  if (rowsToSubmit.length > 0) {
+    const { error } = await supabase.from("product_media").upsert(rowsToSubmit, {
+      onConflict: "product_id,role,sort_order",
+    });
+    if (error) {
+      throw new Error(
+        `[core-pdp-media-sync] Failed to upsert media rows: ${error.message}`,
+      );
+    }
+    report.rowsSubmitted = rowsToSubmit.length;
   }
-  report.rowsSubmitted = plannedRows.length;
 
   const afterRows = await readMediaRows(supabase, productIds);
   report.rowsVerified = verifyRows(afterRows, plannedRows);

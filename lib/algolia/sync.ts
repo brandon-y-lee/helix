@@ -20,6 +20,7 @@ const EDITORIAL_MEDIA_ROLES = new Set([
   "routine_video_poster",
   "profile_editorial",
   "ingredients_texture",
+  "core_routine_texture",
 ]);
 
 export type WebhookEventType = "INSERT" | "UPDATE" | "DELETE";
@@ -40,6 +41,8 @@ export type SyncOutcome = {
   oldSlug?: string;
   collection?: string;
   oldCollection?: string;
+  routineGroup?: string;
+  oldRoutineGroup?: string;
   reason?: string;
 };
 
@@ -146,6 +149,8 @@ export async function applyCatalogWebhookEvent(
         oldSlug: asId(old_record?.slug),
         collection: asId(old_record?.collection),
         oldCollection: asId(old_record?.collection),
+        routineGroup: asId(old_record?.routine_group),
+        oldRoutineGroup: asId(old_record?.routine_group),
       };
     }
 
@@ -163,6 +168,9 @@ export async function applyCatalogWebhookEvent(
         oldSlug: asId(old_record?.slug),
         collection: asId(record?.collection) ?? asId(old_record?.collection),
         oldCollection: asId(old_record?.collection),
+        routineGroup:
+          asId(record?.routine_group) ?? asId(old_record?.routine_group),
+        oldRoutineGroup: asId(old_record?.routine_group),
         reason: "product no longer public",
       };
     }
@@ -176,6 +184,8 @@ export async function applyCatalogWebhookEvent(
       oldSlug: asId(old_record?.slug),
       collection: built.collection,
       oldCollection: asId(old_record?.collection),
+      routineGroup: built.routineGroup ?? undefined,
+      oldRoutineGroup: asId(old_record?.routine_group),
     };
   }
 
@@ -199,6 +209,7 @@ export async function applyCatalogWebhookEvent(
         objectID: productId,
         slug: built.slug,
         collection: built.collection,
+        routineGroup: built.routineGroup ?? undefined,
         reason: "PDP-only media role is not indexed",
       };
     }
@@ -210,6 +221,7 @@ export async function applyCatalogWebhookEvent(
       objectID: productId,
       slug: built.slug,
       collection: built.collection,
+      routineGroup: built.routineGroup ?? undefined,
     };
   }
 

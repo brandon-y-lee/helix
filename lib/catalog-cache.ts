@@ -1,13 +1,20 @@
 import { unstable_cache } from "next/cache";
 import {
+  getCoreRoutineProducts,
   getDiscoveryProducts,
   getProduct,
   getProducts,
   getRelatedProducts,
 } from "@/lib/catalog";
-import type { Product } from "@/lib/products";
+import type { CoreRoutineProduct, Product } from "@/lib/products";
 
 export const CATALOG_CACHE_REVALIDATE_SECONDS = 60 * 60;
+export const CORE_ROUTINE_CACHE_TAG = "catalog:core-routine";
+export const CORE_ROUTINE_PRODUCT_SLUGS = [
+  "cleanse-01-calming-gel-cleanser",
+  "treat-03-pdrn-5-ampoule",
+  "seal-05-green-collagen-cream",
+] as const;
 
 export function collectionCacheTag(collection: string): string {
   const slug = collection
@@ -25,6 +32,24 @@ const readCachedProducts = unstable_cache(getProducts, ["catalog-products-v5"], 
 
 export function getCachedProducts(): Promise<Product[]> {
   return readCachedProducts();
+}
+
+const readCachedCoreRoutineProducts = unstable_cache(
+  getCoreRoutineProducts,
+  ["catalog-core-routine-v1"],
+  {
+    revalidate: CATALOG_CACHE_REVALIDATE_SECONDS,
+    tags: [
+      "catalog",
+      "products",
+      CORE_ROUTINE_CACHE_TAG,
+      ...CORE_ROUTINE_PRODUCT_SLUGS.map((slug) => `product:${slug}`),
+    ],
+  },
+);
+
+export function getCachedCoreRoutineProducts(): Promise<CoreRoutineProduct[]> {
+  return readCachedCoreRoutineProducts();
 }
 
 export function getCachedProduct(slug: string): Promise<Product | undefined> {

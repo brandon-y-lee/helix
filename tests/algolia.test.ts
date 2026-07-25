@@ -239,6 +239,12 @@ describe("buildAlgoliaRecord", () => {
           role: "ingredients_texture",
           sort_order: -8,
         },
+        {
+          ...searchImage,
+          url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/mei-pelle-catalog/products/northpoint/core-routine-texture.webp",
+          role: "core_routine_texture",
+          sort_order: -7,
+        },
         searchImage,
       ],
     });
@@ -470,7 +476,11 @@ describe("applyCatalogWebhookEvent", () => {
     expect(outcome).toMatchObject({ action: "upsert", objectID: sourceRow.id });
   });
 
-  it.each(["routine_video", "ingredients_texture"])(
+  it.each([
+    "routine_video",
+    "ingredients_texture",
+    "core_routine_texture",
+  ])(
     "resolves but does not reindex PDP-only editorial media role %s",
     async (role) => {
     const built = buildAlgoliaRecord(sourceRow);
@@ -638,5 +648,81 @@ describe("catalog cache invalidation", () => {
       tags: [`product:${sourceRow.slug}`],
       paths: [`/products/${sourceRow.slug}`],
     });
+  });
+
+  it("invalidates the shared routine cache and all three Core PDPs for its texture role", () => {
+    const targets = getCatalogInvalidationTargets(
+      {
+        type: "UPDATE",
+        table: "product_media",
+        record: {
+          product_id: sourceRow.id,
+          role: "core_routine_texture",
+        },
+        old_record: {
+          product_id: sourceRow.id,
+          role: "core_routine_texture",
+        },
+      },
+      {
+        action: "noop",
+        table: "product_media",
+        objectID: sourceRow.id,
+        slug: sourceRow.slug,
+        routineGroup: "core",
+      },
+    );
+
+    expect(targets.tags).toEqual(
+      expect.arrayContaining([
+        "catalog:core-routine",
+        "product:cleanse-01-calming-gel-cleanser",
+        "product:treat-03-pdrn-5-ampoule",
+        "product:seal-05-green-collagen-cream",
+      ]),
+    );
+    expect(targets.paths).toEqual(
+      expect.arrayContaining([
+        "/products/cleanse-01-calming-gel-cleanser",
+        "/products/treat-03-pdrn-5-ampoule",
+        "/products/seal-05-green-collagen-cream",
+      ]),
+    );
+    expect(targets.tags).not.toContain("catalog");
+    expect(targets.paths).not.toContain("/products");
+  });
+
+  it("invalidates all three Core PDPs when shared product metadata changes", () => {
+    const targets = getCatalogInvalidationTargets(
+      {
+        type: "UPDATE",
+        table: "products",
+        record: {
+          id: sourceRow.id,
+          slug: sourceRow.slug,
+          routine_group: "core",
+        },
+        old_record: {
+          id: sourceRow.id,
+          slug: sourceRow.slug,
+          routine_group: "core",
+        },
+      },
+      {
+        action: "upsert",
+        table: "products",
+        objectID: sourceRow.id,
+        slug: sourceRow.slug,
+        routineGroup: "core",
+        oldRoutineGroup: "core",
+      },
+    );
+
+    expect(targets.tags).toContain("catalog:core-routine");
+    expect(targets.paths).toContain(
+      "/products/cleanse-01-calming-gel-cleanser",
+    );
+    expect(targets.paths).toContain("/products/treat-03-pdrn-5-ampoule");
+    expect(targets.paths).toContain("/products/seal-05-green-collagen-cream");
   });
 });

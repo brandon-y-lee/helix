@@ -158,12 +158,14 @@ describe("Core PDP presentation contract", () => {
         "routine_video_poster",
         "profile_editorial",
         "ingredients_texture",
+        "core_routine_texture",
       ]);
       expect(assets.map((asset) => asset.filename)).toEqual([
         `${entry.prefix}-pdp-routine-source.mp4`,
         `${entry.prefix}-pdp-routine-poster.webp`,
         `${entry.prefix}-pdp-profile-01.webp`,
         `${entry.prefix}-pdp-ingredients-texture-01.webp`,
+        `${entry.prefix}-pdp-core-routine-texture-01.webp`,
       ]);
       expect(
         assets.every((asset) =>
@@ -176,6 +178,11 @@ describe("Core PDP presentation contract", () => {
         storagePathForCorePdpAsset(assets[3], "checksum"),
       ).toBe(
         `products/${entry.slug}/ingredients-texture/checksum.webp`,
+      );
+      expect(
+        storagePathForCorePdpAsset(assets[4], "checksum"),
+      ).toBe(
+        `products/${entry.slug}/core-routine-texture/checksum.webp`,
       );
     },
   );

@@ -38,7 +38,8 @@ export type ProductMediaRole =
   | "routine_video"
   | "routine_video_poster"
   | "profile_editorial"
-  | "ingredients_texture";
+  | "ingredients_texture"
+  | "core_routine_texture";
 
 export type PlaceholderPalette = {
   start: string;
@@ -59,6 +60,19 @@ export type ProductMedia = {
   sortOrder: number;
   paletteId: string | null;
   palette: PlaceholderPalette | null;
+};
+
+export type CoreRoutineProduct = {
+  id: string;
+  slug: string;
+  displayName: string;
+  formalTitle: string;
+  productType: string;
+  routineStepNumber: number;
+  routineStepName: string;
+  routineSort: number;
+  swatch: [string, string];
+  textureMedia: ProductMedia;
 };
 
 export type Product = {

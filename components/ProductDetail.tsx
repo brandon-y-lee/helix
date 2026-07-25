@@ -17,6 +17,7 @@ import { useCart } from "@/components/CartProvider";
 import { ProductEndorsementRail } from "@/components/ProductEndorsementRail";
 import { ProductImage } from "@/components/ProductImage";
 import { PdpApplicationCarousel } from "@/components/PdpApplicationCarousel";
+import { PdpCoreRoutineSection } from "@/components/PdpCoreRoutineSection";
 import { PdpIngredientsSplit } from "@/components/PdpIngredientsSplit";
 import { PdpOutcomeSplit } from "@/components/PdpOutcomeSplit";
 import { PdpProfileSplit } from "@/components/PdpProfileSplit";
@@ -38,7 +39,12 @@ import {
   type ProductReviews,
 } from "@/lib/catalog/product-reviews";
 import { getCorePdpPresentation } from "@/lib/content/core-pdp";
-import { formatPrice, type Product, type ProductMedia } from "@/lib/products";
+import {
+  formatPrice,
+  type CoreRoutineProduct,
+  type Product,
+  type ProductMedia,
+} from "@/lib/products";
 import type { CartPlaceholderMedia } from "@/lib/cart/types";
 import { productEndorsementMedia } from "@/lib/content/product-endorsements";
 
@@ -495,12 +501,14 @@ function ProductDiscoveryRail({
 export function ProductDetail({
   product,
   related = [],
+  coreRoutine = [],
   content = getProductPdpContent(product.slug),
   reviews = getProductReviews(product.slug),
   stripePublishableKey = null,
 }: {
   product: Product;
   related?: Product[];
+  coreRoutine?: CoreRoutineProduct[];
   content?: ProductPdpContent;
   reviews?: ProductReviews;
   stripePublishableKey?: string | null;
@@ -533,6 +541,7 @@ export function ProductDetail({
   const [heroCtaVisible, setHeroCtaVisible] = useState(true);
   const [bottomVisible, setBottomVisible] = useState(false);
   const [editorialModuleVisible, setEditorialModuleVisible] = useState(false);
+  const [coreRoutineVisible, setCoreRoutineVisible] = useState(false);
   const purchaseCtaRef = useRef<HTMLDivElement>(null);
   const bottomSentinelRef = useRef<HTMLSpanElement>(null);
   const routineVideoRef = useRef<HTMLElement>(null);
@@ -540,6 +549,7 @@ export function ProductDetail({
   const outcomeSplitRef = useRef<HTMLElement>(null);
   const applicationRef = useRef<HTMLElement>(null);
   const ingredientsRef = useRef<HTMLElement>(null);
+  const coreRoutineRef = useRef<HTMLElement>(null);
 
   const variant =
     product.variants.find((v) => v.id === variantId) ?? product.variants[0];
@@ -635,7 +645,10 @@ export function ProductDetail({
     corePresentation && routineVideo && routinePoster,
   );
   const stickyVisible =
-    !heroCtaVisible && !bottomVisible && !editorialModuleVisible;
+    !heroCtaVisible &&
+    !bottomVisible &&
+    !editorialModuleVisible &&
+    !coreRoutineVisible;
 
   useEffect(() => {
     const cta = purchaseCtaRef.current;
@@ -690,7 +703,24 @@ export function ProductDetail({
     }
 
     return () => observer.disconnect();
-  }, [coreProfileReady, coreVideoReady, content.ingredientStory]);
+  }, [
+    coreProfileReady,
+    coreVideoReady,
+    content.ingredientStory,
+  ]);
+
+  useEffect(() => {
+    const target = coreRoutineRef.current;
+    setCoreRoutineVisible(false);
+    if (!target || !("IntersectionObserver" in window)) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => setCoreRoutineVisible(Boolean(entry?.isIntersecting)),
+      { rootMargin: "-40% 0px -40% 0px", threshold: 0 },
+    );
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [coreRoutine.length, product.slug]);
 
   async function handleAdd() {
     if (!variant || !isAvailable || pending) return;
@@ -1141,6 +1171,14 @@ export function ProductDetail({
               </div>
             )}
           </PdpEditorialPair>
+        )}
+
+        {product.routineGroup === "core" && coreRoutine.length === 3 && (
+          <PdpCoreRoutineSection
+            rootRef={coreRoutineRef}
+            products={coreRoutine}
+            currentSlug={product.slug}
+          />
         )}
       </section>
 

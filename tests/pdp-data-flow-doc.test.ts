@@ -38,10 +38,12 @@ describe("PDP data-flow report", () => {
       "PdpOutcomeSplit",
       "PdpApplicationCarousel",
       "PdpIngredientsSplit",
+      "PdpCoreRoutineSection",
       "routine_video",
       "routine_video_poster",
       "profile_editorial",
       "ingredients_texture",
+      "core_routine_texture",
     ]) {
       expect(report).toContain(runtimeReference);
     }

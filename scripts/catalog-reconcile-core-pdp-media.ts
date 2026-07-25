@@ -14,6 +14,7 @@ const EDITORIAL_ROLES = [
   "routine_video_poster",
   "profile_editorial",
   "ingredients_texture",
+  "core_routine_texture",
 ] as const;
 
 type MediaRow = {

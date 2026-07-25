@@ -174,4 +174,42 @@ describe("catalog search sync route", () => {
     expect(revalidateTagMock).not.toHaveBeenCalledWith("products");
     expect(revalidatePathMock).not.toHaveBeenCalledWith("/products");
   });
+
+  it("invalidates the routine tag and every Core PDP for routine texture media", async () => {
+    applyMock.mockResolvedValue({
+      action: "noop",
+      table: "product_media",
+      objectID: "f6091deb-1177-45ad-b506-1f0427fa4abe",
+      slug: "treat-03-pdrn-5-ampoule",
+      routineGroup: "core",
+      reason: "PDP-only media role is not indexed",
+    });
+
+    const response = await POST(
+      request({
+        schema: "public",
+        type: "INSERT",
+        table: "product_media",
+        record: {
+          id: "media-core-routine",
+          product_id: "f6091deb-1177-45ad-b506-1f0427fa4abe",
+          role: "core_routine_texture",
+        },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(revalidateTagMock).toHaveBeenCalledWith("catalog:core-routine");
+    expect(revalidatePathMock).toHaveBeenCalledWith(
+      "/products/cleanse-01-calming-gel-cleanser",
+    );
+    expect(revalidatePathMock).toHaveBeenCalledWith(
+      "/products/treat-03-pdrn-5-ampoule",
+    );
+    expect(revalidatePathMock).toHaveBeenCalledWith(
+      "/products/seal-05-green-collagen-cream",
+    );
+    expect(revalidateTagMock).not.toHaveBeenCalledWith("catalog");
+    expect(revalidatePathMock).not.toHaveBeenCalledWith("/products");
+  });
 });

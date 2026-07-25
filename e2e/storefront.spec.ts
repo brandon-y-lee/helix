@@ -473,6 +473,60 @@ test("PDP sticky purchase bar aligns to the content shell and clears the lower e
   }
 });
 
+test("Core PDPs render the complete routine in canonical sequence", async ({
+  page,
+}) => {
+  const coreProducts = [
+    {
+      slug: "cleanse-01-calming-gel-cleanser",
+      step: "01",
+      name: "CLEANSE",
+    },
+    {
+      slug: "treat-03-pdrn-5-ampoule",
+      step: "02",
+      name: "TREAT",
+    },
+    {
+      slug: "seal-05-green-collagen-cream",
+      step: "03",
+      name: "SEAL",
+    },
+  ];
+
+  for (const product of coreProducts) {
+    await page.goto(`/products/${product.slug}`);
+
+    const routine = page.getByRole("region", {
+      name: "The Mei Pelle CORE for clearer, healthier skin.",
+    });
+    await expect(routine).toBeVisible();
+    await expect(routine).toHaveAttribute("data-active-step", product.step);
+    await expect(
+      routine.getByRole("radio", {
+        name: `Show step ${Number(product.step)}, ${product.name}`,
+      }),
+    ).toHaveAttribute("aria-checked", "true");
+    await expect(routine.locator("img")).toHaveCount(3);
+    await expect(routine.locator(".pdp-core-routine__visual img")).toHaveCount(0);
+
+    const followsDetails = await page.evaluate(() => {
+      const details = document.querySelector(".pdp-editorial-pair--details");
+      const routineSection = document.querySelector(".pdp-core-routine");
+      return Boolean(
+        details &&
+          routineSection &&
+          details.compareDocumentPosition(routineSection) &
+            Node.DOCUMENT_POSITION_FOLLOWING,
+      );
+    });
+    expect(followsDetails).toBe(true);
+  }
+
+  await page.goto("/products/refine-02-pore-treatment-pads");
+  await expect(page.locator(".pdp-core-routine")).toHaveCount(0);
+});
+
 test("PDP familiar faces rail uses finite local media and boundary-aware controls", async ({
   page,
 }) => {

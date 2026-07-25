@@ -110,6 +110,7 @@ In the table:
 | Core outcome labels/hues | `lib/content/core-pdp.ts` | `getCorePdpPresentation(slug)` | `PdpOutcomeSplit` | Bundled repository code | No | No | Repository-only presentation |
 | Core application steps/hues | Verified directions composed in `lib/content/core-pdp.ts` | `getCorePdpPresentation(slug)` | `PdpApplicationCarousel` | Bundled repository code | No | No | Repository-only presentation |
 | Core ingredient story | Supplier-aligned highlights in `lib/catalog/product-content.ts` | `getProductPdpContent(slug)` | `PdpIngredientsSplit` summary state | Bundled repository code | No | No | Repository-only presentation |
+| Core routine module | Active `routine_group = core` rows plus one `core_routine_texture` media row per product | `getCoreRoutineProducts()` requires exactly CLEANSE, TREAT, and SEAL in three-step Core order; System product numbers remain 01/03/05 | `PdpCoreRoutineSection` after DETAILS on Core PDPs | One hour; `catalog:core-routine` plus all three product tags | No; dedicated media is explicitly excluded | Yes | Core PDP media sync owns the texture rows |
 
 ### Duplicated and compatibility fields
 
@@ -139,7 +140,8 @@ Explicitly named user source
   -> canonical product_media row
   -> PRODUCT_SELECT join
   -> mapRow role/type mapping
-  -> PdpRoutineVideo / PdpProfileSplit / PdpIngredientsSplit / ProductImage
+  -> PdpRoutineVideo / PdpProfileSplit / PdpIngredientsSplit /
+     PdpCoreRoutineSection / ProductImage
   -> product-specific cache/path revalidation
 ```
 
@@ -192,6 +194,7 @@ terminology is a known ambiguity.
 | `routine_video_poster` | Paused foreground poster and blurred poster fallback | Never |
 | `profile_editorial` | Core product-profile right panel | Never |
 | `ingredients_texture` | Core formula-texture image in the ingredient split | Never |
+| `core_routine_texture` | Interactive three-step Core routine texture state | Never |
 
 `lib/catalog.ts`, `lib/cart/server.ts`, and `lib/algolia/record.ts` each use an
 explicit allowlist so the new roles cannot win merely through a lower
@@ -239,24 +242,33 @@ assets at new paths rather than overwrite CDN-cached bytes; see
 | SEAL poster | `bed952d83845a0379d4143e0e253c627c5711571fca91ee8412e8e580bf795d5` at `products/seal-05-green-collagen-cream/routine/<hash>.webp` |
 | SEAL profile | `540b1c0ed218a6e81a99f925fb3972252c1e357ea7a3592e9e80008bbf263c4e` at `products/seal-05-green-collagen-cream/profile/<hash>.webp` |
 | SEAL ingredient texture | `73ea87cb38df7d48d35b479dbebda47de9851250eeefd49ae3b6c08251412d88` at `products/seal-05-green-collagen-cream/ingredients-texture/<hash>.webp` |
+| CLEANSE Core routine texture | `91b8b6ca613de06eadaf78a55a9e399518d5d23a3bbb04f60bf7f9ccea04bd53` at `products/cleanse-01-calming-gel-cleanser/core-routine-texture/<hash>.webp` |
+| TREAT Core routine texture | `737d7617f514569d918e49b091631da888af9c46cb7b46deed117d14519e5011` at `products/treat-03-pdrn-5-ampoule/core-routine-texture/<hash>.webp` |
+| SEAL Core routine texture | `e5e0f6b7d8f4404bf98e61e377450169edcc45d68fd5f04b761bd2bdad312631` at `products/seal-05-green-collagen-cream/core-routine-texture/<hash>.webp` |
+
+The supplied CLEANSE routine texture was explicitly named
+`cleanse-pdp-routine-texture-01.webp`; it was mapped by its CLEANSE product
+prefix and normalized to the required canonical
+`cleanse-pdp-core-routine-texture-01.webp` basename. CLEANSE and TREAT carried
+PNG payloads despite their source extensions and were converted to true WebP.
+The supplied SEAL file was already a valid WebP and its bytes were retained.
 
 `scripts/catalog-sync-core-pdp-media.ts` is dry-run by default. On apply it:
 
 1. refuses any Supabase host other than the fixed non-production project
 2. validates every required basename and payload
-3. backs up affected media rows and current object listings
-4. uploads only missing content-addressed objects through the Storage API
-5. downloads the public response and verifies content type and SHA-256 checksum
-6. upserts on `(product_id, role, sort_order)`
-7. re-reads and verifies all planned rows
+3. calculates missing objects and changed rows before any mutation
+4. backs up affected media rows and current object listings only when writes are planned
+5. uploads only missing content-addressed objects through the Storage API
+6. downloads the public response and verifies content type and SHA-256 checksum
+7. upserts only changed rows on `(product_id, role, sort_order)`
+8. re-reads and verifies all planned rows
 
-The earlier verified apply added nine objects and nine rows. Each Core product moved
-from seven to ten media rows. A second apply uploaded zero objects and verified
-the same nine rows, demonstrating idempotent object/row behavior. The three
-ingredient-texture derivatives are prepared as true WebP files and included in
-the same sync plan, but their migration, Storage objects, and media rows were
-deliberately not applied from this isolated branch while shared media work was
-concurrent.
+The complete sync controls 15 dedicated PDP assets across the three Core
+products. Phase A added the three ingredient textures; Phase B added the three
+Core routine textures. Each Core product now has 12 media rows. A second Phase B
+apply reports zero planned object uploads and zero submitted rows while still
+verifying all 15 public objects and rows.
 
 ## Cache and revalidation
 
@@ -270,6 +282,7 @@ concurrent.
 | One product | `catalog-product-v5`, slug | `catalog`, `products`, `product:<slug>` |
 | Related products | `catalog-related-v5`, collection, excluded slug, limit | global tags, `collection:<slug>`, `product:<excluded-slug>` |
 | Discovery | `catalog-discovery-v2`, excluded slug, limit | global tags and `product:<excluded-slug>` |
+| Core routine | `catalog-core-routine-v1` | `catalog`, `products`, `catalog:core-routine`, and all three Core product tags |
 
 ### Webhook receiver
 
@@ -287,8 +300,10 @@ Normal product/variant/listing-media changes invalidate global catalog/listing
 tags, `/`, `/products`, affected PDP paths, relevant collections, and the
 sitemap for product events.
 
-Editorial-only media events invalidate only `product:<slug>` and
-`/products/<slug>`. They do not evict unrelated listing caches.
+Editorial-only media events do not evict listing caches. The shared
+`core_routine_texture` role invalidates `catalog:core-routine` and all three
+Core PDP tags and paths; other editorial roles invalidate only the affected
+product tag and PDP path.
 
 ### Verified automatic-delivery status
 
@@ -300,10 +315,10 @@ Therefore automatic webhook delivery is **not active** and must not be claimed.
 `scripts/catalog-reconcile-core-pdp-media.ts` is the missed-webhook recovery
 path. It is dry-run by default, requires the fixed project ref, requires HTTPS
 except for localhost, locks a remote receiver to `NEXT_PUBLIC_SITE_URL`, signs
-the existing receiver request, and sends current rows. The 2026-07-24
-non-production recovery sent all nine editorial media events to the local
-receiver: all returned 200, parent slugs resolved, affected PDP cache/path
-targets were returned, and all Algolia actions were deliberate no-ops.
+the existing receiver request, and sends current rows. The non-production dry
+run resolves the current editorial rows, but apply is intentionally blocked
+until a stable deployed receiver is configured; localhost was not treated as
+proof of permanent cache delivery.
 
 Provisioning a database webhook against the stable deployed receiver remains an
 external deployment action. The secret belongs in provider/deployment secret
@@ -334,8 +349,9 @@ Supabase products + variants + product_media
 - **Full reconciliation:** protected `/api/admin/search-reindex` and
   `scripts/search-backfill.ts` rebuild the complete active index.
 - **Editorial media:** the parent is resolved for cache targeting, but
-  `routine_video`, `routine_video_poster`, `profile_editorial`, and
-  `ingredients_texture` return a no-op before any Algolia write.
+  `routine_video`, `routine_video_poster`, `profile_editorial`,
+  `ingredients_texture`, and `core_routine_texture` return a no-op before any
+  Algolia write.
 
 `scripts/search-verify-core-pdp-media.ts` rebuilt the expected canonical record
 and compared it with the live non-production Algolia record. All three passed.
@@ -408,6 +424,9 @@ or intentionally avoid that writer before making durable direct edits.
 | Application steps and hue states | Verified direction composition, stable step IDs, and future media basenames in `lib/content/core-pdp.ts` |
 | Ingredient story | Structured highlights in `lib/catalog/product-content.ts`, validated against supplier provenance |
 | Ingredient texture | Supabase Storage URL from role `ingredients_texture`; exact user basename maps one image to each Core product |
+| Core routine selector | Exactly three active Core product rows ordered by canonical routine metadata |
+| Core routine textures | Supabase Storage URLs from role `core_routine_texture`; one explicit canonical basename per Core product |
+| Core routine hues | Each product's canonical `swatch_from` and `swatch_to` values |
 | Full INCI | `resolveFullInci()`: `products.ingredients`, then a validated complete `product_details.sourceFullInci`, then no content |
 
 Core modules fail closed as a connected presentation:
@@ -420,6 +439,8 @@ Core modules fail closed as a connected presentation:
   another image
 - the full-list button is omitted when no verified list resolves; this is the
   current CLEANSE and SEAL state
+- the routine module renders only when the dedicated query returns exactly
+  CLEANSE, TREAT, and SEAL with complete metadata and media
 - no empty frame is shown
 - Beyond The Core retains the endorsement rail and Quick Signals
 
@@ -446,6 +467,13 @@ crossfades between story and disclosure states over 220 ms. Only TREAT
 currently resolves a complete full INCI. The close button and Escape return
 focus to the outlined image-panel trigger.
 
+The Core routine component starts on the current PDP product and keeps all
+three texture states mounted. Hover, focus, click/touch, Arrow keys, Home, and
+End select a persistent state without navigation or autoplay. Copy and texture
+layers transition directionally over 640 ms; reduced motion shortens them to
+1 ms. The right texture field is decorative, while the bottom control is a
+keyboard-operable radio group.
+
 ## Failure behavior
 
 | Failure | Current behavior |
@@ -458,6 +486,7 @@ focus to the outlined image-panel trigger.
 | Unsupported video/decode path | Poster-backed unavailable state remains visible, fallback text is present in the video element, and Retry never substitutes another asset |
 | Profile Storage response fails after a valid row loaded | Next Image reports the asset failure; there is not yet a dedicated profile retry UI |
 | Missing ingredient-texture row | The Core story remains available and the image panel announces temporary media unavailability |
+| Missing or incomplete Core routine query | The shared routine module is omitted and the rest of the PDP remains available |
 | Missing or unverified full INCI | The `FULL INGREDIENTS LIST` button is omitted; no empty or fabricated disclosure is exposed |
 | Stale catalog cache | Time-based refresh occurs within one hour, or sooner through tag/path invalidation |
 | Webhook auth/validation failure | Receiver returns 401/400/413 and performs no mutation |
