@@ -5008,10 +5008,12 @@ main:focus {
   color: var(--ink-soft);
 }
 
-.pdp-bottom-sentinel {
+.pdp-video-start-boundary {
   display: block;
-  width: 1px;
-  height: 1px;
+  width: 100%;
+  height: 2px;
+  margin-bottom: -2px;
+  pointer-events: none;
 }
 
 .pdp-sticky-purchase {

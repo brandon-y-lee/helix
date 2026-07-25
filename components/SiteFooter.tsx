@@ -11,7 +11,12 @@ export function SiteFooter() {
   const year = new Date().getFullYear();
 
   return (
-    <footer className="site-footer" aria-labelledby="site-footer-heading">
+    <footer
+      id="site-footer"
+      className="site-footer"
+      data-site-footer
+      aria-labelledby="site-footer-heading"
+    >
       <div className="site-footer__inner">
         <FooterWordmark />
 

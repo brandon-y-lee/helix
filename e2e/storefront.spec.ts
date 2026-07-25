@@ -23,6 +23,27 @@ async function expectStickyPurchaseInViewport(sticky: Locator) {
   await expect(sticky.locator(".btn")).toBeEnabled();
 }
 
+async function expectStickyMatchesPageBoundaries(sticky: Locator) {
+  await expect
+    .poll(() =>
+      sticky.evaluate((bar) => {
+        const videoStart = document.querySelector("[data-pdp-video-start]");
+        const footer = document.querySelector("#site-footer");
+        if (!videoStart || !footer) return false;
+
+        const footerRect = footer.getBoundingClientRect();
+        const expectedVisible =
+          videoStart.getBoundingClientRect().top <= 0 &&
+          !(footerRect.top < window.innerHeight && footerRect.bottom > 0);
+        return (
+          bar.getAttribute("data-visible") === String(expectedVisible) &&
+          bar.getAttribute("aria-hidden") === String(!expectedVisible)
+        );
+      }),
+    )
+    .toBe(true);
+}
+
 // Storefront parity v1 coverage. Data comes from the seeded dev Supabase
 // catalog (verified reachable + seeded by global-setup, so these fail fast if
 // Supabase is misconfigured rather than hanging).
@@ -75,7 +96,11 @@ test("product detail loads by slug and variant selection updates state", async (
     page.getByRole("heading", { level: 1, name: "TREAT" }),
   ).toBeVisible();
   // Purchase support accordions and lower factual sections are present.
-  await expect(page.getByRole("button", { name: /WHAT IT DOES/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /WHAT IT DOES/ })).toHaveCount(0);
+  await expect(page.locator("#pdp-accordion-does-trigger")).toHaveCount(0);
+  await expect(page.locator("#pdp-accordion-does-panel")).toHaveCount(0);
+  await expect(page.locator("#pdp-does-heading")).toHaveCount(0);
+  await expect(page.locator(".pdp-editorial-pair--does")).toHaveCount(0);
   await expect(page.getByRole("button", { name: /HOW TO USE/ })).toBeVisible();
   await expect(page.getByRole("button", { name: /KEY INGREDIENTS/ })).toBeVisible();
   await expect(
@@ -420,7 +445,7 @@ test("view cart closes immediately when already on the cart route", async ({
   await expect(page.getByText("CLEANSE").first()).toBeVisible();
 });
 
-test("PDP sticky purchase bar aligns to the content shell and clears the lower endpoint", async ({
+test("PDP sticky purchase bar stays within the video-to-footer bounds", async ({
   page,
 }) => {
   for (const viewport of [
@@ -432,25 +457,32 @@ test("PDP sticky purchase bar aligns to the content shell and clears the lower e
     await page.evaluate(() => window.scrollTo(0, 0));
 
     const sticky = page.locator(".pdp-sticky-purchase");
+    const videoStart = page.locator("[data-pdp-video-start]");
+    const footer = page.locator("#site-footer");
     await expect(
       page.getByRole("region", { name: "TREAT routine video", exact: true }),
     ).toBeAttached();
-    await page.locator(".pdp__actions").scrollIntoViewIfNeeded();
+    await expect(videoStart).toHaveCount(1);
+    await expect(footer).toHaveCount(1);
+    await expect(page.locator("[data-pdp-purchase-end]")).toHaveCount(0);
     await expect(sticky).toHaveAttribute("data-visible", "false");
     await expect(sticky).toHaveAttribute("aria-hidden", "true");
 
-    await page.locator(".pdp-profile-split").scrollIntoViewIfNeeded();
-    await expect(sticky).toHaveAttribute("data-visible", "false");
-    await page.locator(".pdp-outcome-split").scrollIntoViewIfNeeded();
+    await videoStart.evaluate((marker) => {
+      const markerTop = window.scrollY + marker.getBoundingClientRect().top;
+      window.scrollTo(0, Math.max(0, markerTop - 1));
+    });
     await expect(sticky).toHaveAttribute("data-visible", "false");
 
-    await page.locator(".pdp-ingredients").evaluate((section) => {
-      const sectionBottom =
-        window.scrollY + section.getBoundingClientRect().bottom;
-      window.scrollTo(0, sectionBottom + 24);
+    await videoStart.evaluate((marker) => {
+      const markerTop = window.scrollY + marker.getBoundingClientRect().top;
+      window.scrollTo(0, markerTop + 1);
     });
     await expectStickyPurchaseInViewport(sticky);
-    await page.waitForTimeout(300);
+    if (viewport.width === 1440) {
+      await page.reload();
+      await expectStickyPurchaseInViewport(sticky);
+    }
 
     const geometry = await page.evaluate(() => {
       const shell = document.querySelector<HTMLElement>(".pdp");
@@ -497,15 +529,61 @@ test("PDP sticky purchase bar aligns to the content shell and clears the lower e
     await expect(sticky.locator(".btn")).toBeVisible();
     await expect(sticky.locator(".pdp-payment-message")).toHaveCount(0);
 
+    for (const selector of [
+      ".pdp-routine-video",
+      ".pdp-profile-split",
+      ".pdp-outcome-split",
+      ".pdp-application",
+      ".pdp-ingredients",
+      "#product-details",
+      ".pdp-core-routine",
+      ".pdp-reviews",
+      ".pdp-discovery",
+    ]) {
+      const section = page.locator(selector);
+      if (await section.count()) {
+        await section.scrollIntoViewIfNeeded();
+        await expectStickyPurchaseInViewport(sticky);
+      }
+    }
+
+    const showMoreReviews = page.getByRole("button", { name: /show more/i });
+    if (await showMoreReviews.count()) {
+      await showMoreReviews.click();
+      await expectStickyPurchaseInViewport(sticky);
+    }
+
     await page.locator(".pdp-reviews").scrollIntoViewIfNeeded();
     await expectStickyPurchaseInViewport(sticky);
     await page.locator(".pdp-discovery").scrollIntoViewIfNeeded();
     await expectStickyPurchaseInViewport(sticky);
 
-    await page.locator("[data-pdp-purchase-end]").scrollIntoViewIfNeeded();
+    await footer.evaluate((siteFooter) => {
+      const footerTop =
+        window.scrollY + siteFooter.getBoundingClientRect().top;
+      window.scrollTo(0, footerTop - window.innerHeight - 1);
+    });
+    await expectStickyPurchaseInViewport(sticky);
+
+    await footer.evaluate((siteFooter) => {
+      const footerTop =
+        window.scrollY + siteFooter.getBoundingClientRect().top;
+      window.scrollTo(0, footerTop - window.innerHeight + 1);
+    });
     await expect(sticky).toHaveAttribute("data-visible", "false");
     await expect(sticky).toHaveAttribute("aria-hidden", "true");
-    await page.locator(".site-footer").scrollIntoViewIfNeeded();
+
+    await footer.evaluate((siteFooter) => {
+      const footerTop =
+        window.scrollY + siteFooter.getBoundingClientRect().top;
+      window.scrollTo(0, footerTop - window.innerHeight - 1);
+    });
+    await expectStickyPurchaseInViewport(sticky);
+
+    await videoStart.evaluate((marker) => {
+      const markerTop = window.scrollY + marker.getBoundingClientRect().top;
+      window.scrollTo(0, Math.max(0, markerTop - 1));
+    });
     await expect(sticky).toHaveAttribute("data-visible", "false");
     await expect(sticky).toHaveAttribute("aria-hidden", "true");
   }
@@ -533,8 +611,35 @@ test("PDP sticky purchase bar aligns to the content shell and clears the lower e
     ),
   ).toHaveText("200 mL");
 
-  await page.locator(".pdp-reviews").scrollIntoViewIfNeeded();
+  await page.locator("[data-pdp-video-start]").evaluate((marker) => {
+    const markerTop = window.scrollY + marker.getBoundingClientRect().top;
+    window.scrollTo(0, markerTop + 1);
+  });
   await expectStickyPurchaseInViewport(routedSticky);
+
+  await page.locator("#site-footer").evaluate((footer) => {
+    const footerTop = window.scrollY + footer.getBoundingClientRect().top;
+    window.scrollTo(0, footerTop - window.innerHeight + 1);
+  });
+  await expect(routedSticky).toHaveAttribute("data-visible", "false");
+
+  await page.goBack();
+  await expect(page).toHaveURL(/\/products\/treat-03-pdrn-5-ampoule$/);
+  await expect(
+    page.locator(".pdp-sticky-purchase__identity strong"),
+  ).toHaveText("TREAT");
+  await expectStickyMatchesPageBoundaries(
+    page.locator(".pdp-sticky-purchase"),
+  );
+
+  await page.goForward();
+  await expect(page).toHaveURL(
+    /\/products\/cleanse-01-calming-gel-cleanser$/,
+  );
+  await expect(
+    page.locator(".pdp-sticky-purchase__identity strong"),
+  ).toHaveText("CLEANSE");
+  await expectStickyMatchesPageBoundaries(routedSticky);
 });
 
 test("Core PDPs render the complete routine in canonical sequence", async ({
@@ -726,7 +831,6 @@ test("product detail purchase accordions sit beneath add to cart", async ({
 
   const order = await page.evaluate(() => {
     const add = document.querySelector(".pdp__actions .btn");
-    const does = document.querySelector("#pdp-accordion-does-trigger");
     const use = document.querySelector("#pdp-accordion-use-trigger");
     const ingredients = document.querySelector("#pdp-accordion-ingredients-trigger");
     const details = document.querySelector("#product-details");
@@ -734,7 +838,6 @@ test("product detail purchase accordions sit beneath add to cart", async ({
     const ingredientStory = document.querySelector(".pdp-ingredients");
     if (
       !add ||
-      !does ||
       !use ||
       !ingredients ||
       !details ||
@@ -746,8 +849,7 @@ test("product detail purchase accordions sit beneath add to cart", async ({
     const before = (a: Element, b: Element) =>
       Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
     return {
-      addBeforeDoes: before(add, does),
-      doesBeforeUse: before(does, use),
+      addBeforeUse: before(add, use),
       useBeforeIngredients: before(use, ingredients),
       ingredientsBeforeDetails: before(ingredients, details),
       applicationBeforeIngredientStory: before(application, ingredientStory),
@@ -755,27 +857,17 @@ test("product detail purchase accordions sit beneath add to cart", async ({
     };
   });
   expect(order).toEqual({
-    addBeforeDoes: true,
-    doesBeforeUse: true,
+    addBeforeUse: true,
     useBeforeIngredients: true,
     ingredientsBeforeDetails: true,
     applicationBeforeIngredientStory: true,
     ingredientStoryBeforeDetails: true,
   });
 
-  const does = page.getByRole("button", { name: /WHAT IT DOES/ });
   const use = page.getByRole("button", { name: /HOW TO USE/ });
   const ingredients = page.getByRole("button", { name: /KEY INGREDIENTS/ });
 
-  await does.click();
-  await expect(does).toHaveAttribute("aria-expanded", "true");
-  await expect(page.locator("#pdp-accordion-does-panel")).toHaveAttribute(
-    "data-open",
-    "true",
-  );
-
   await use.click();
-  await expect(does).toHaveAttribute("aria-expanded", "false");
   await expect(use).toHaveAttribute("aria-expanded", "true");
 
   await ingredients.click();

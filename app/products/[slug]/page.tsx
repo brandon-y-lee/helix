@@ -72,12 +72,6 @@ export default async function ProductDetailPage({
         currentSlug={product.slug}
         products={related}
       />
-      <span
-        id="pdp-purchase-end"
-        className="pdp-bottom-sentinel"
-        data-pdp-purchase-end
-        aria-hidden="true"
-      />
     </>
   );
 }

@@ -2,6 +2,7 @@
 
 import {
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -68,7 +69,7 @@ function cartPlaceholderMedia(
   };
 }
 
-type PurchaseAccordionId = "does" | "use" | "ingredients";
+type PurchaseAccordionId = "use" | "ingredients";
 
 type PdpSequenceItem = {
   kicker: string;
@@ -369,17 +370,9 @@ export function ProductDetail({
   const [addError, setAddError] = useState("");
   const [openAccordion, setOpenAccordion] =
     useState<PurchaseAccordionId | null>(null);
-  const [heroCtaVisible, setHeroCtaVisible] = useState(true);
-  const [bottomVisible, setBottomVisible] = useState(false);
-  const [editorialModuleVisible, setEditorialModuleVisible] = useState(false);
-  const [coreRoutineVisible, setCoreRoutineVisible] = useState(false);
-  const purchaseCtaRef = useRef<HTMLDivElement>(null);
-  const routineVideoRef = useRef<HTMLElement>(null);
-  const profileSplitRef = useRef<HTMLElement>(null);
-  const outcomeSplitRef = useRef<HTMLElement>(null);
-  const applicationRef = useRef<HTMLElement>(null);
-  const ingredientsRef = useRef<HTMLElement>(null);
-  const coreRoutineRef = useRef<HTMLElement>(null);
+  const [hasPassedVideoStart, setHasPassedVideoStart] = useState(false);
+  const [footerEnteringViewport, setFooterEnteringViewport] = useState(false);
+  const videoStartRef = useRef<HTMLSpanElement>(null);
 
   const variant =
     product.variants.find((v) => v.id === variantId) ?? product.variants[0];
@@ -423,14 +416,6 @@ export function ProductDetail({
     { label: "Good for", value: product.goodFor },
     { label: "Skin", value: product.skinTypes.join(", ") },
   ].filter((item): item is { label: string; value: string } => Boolean(item.value));
-  const whatItDoesItems = content.whatItDoes.map((goal, index) => ({
-    kicker: `Signal ${String(index + 1).padStart(2, "0")}`,
-    title: goal,
-    body:
-      product.benefits[index] ??
-      product.formulaNotes[index] ??
-      leadDescription,
-  }));
   const howToUseItems = howToUse.map((step, index) => ({
     kicker: `Step ${String(index + 1).padStart(2, "0")}`,
     title: index === 0 ? "Start here" : `Then ${String(index + 1).padStart(2, "0")}`,
@@ -471,106 +456,53 @@ export function ProductDetail({
         Boolean(media.url),
     ) ?? null;
   const coreProfileReady = Boolean(corePresentation && profileMedia);
-  const coreVideoReady = Boolean(
-    corePresentation && routineVideo && routinePoster,
-  );
-  const stickyVisible =
-    !heroCtaVisible &&
-    !bottomVisible &&
-    !editorialModuleVisible &&
-    !coreRoutineVisible;
+  const stickyVisible = hasPassedVideoStart && !footerEnteringViewport;
 
-  useEffect(() => {
-    const cta = purchaseCtaRef.current;
-    const bottom = document.querySelector<HTMLElement>(
-      "[data-pdp-purchase-end]",
-    );
-    setHeroCtaVisible(true);
-    setBottomVisible(false);
-    if (!cta || !bottom || !("IntersectionObserver" in window)) return;
+  useLayoutEffect(() => {
+    const videoStart = videoStartRef.current;
+    const footer = document.getElementById("site-footer");
 
-    const ctaObserver = new IntersectionObserver(
-      ([entry]) => setHeroCtaVisible(Boolean(entry?.isIntersecting)),
-      { threshold: 0.08 },
-    );
-    const bottomObserver = new IntersectionObserver(
-      ([entry]) => {
-        // Keep the endpoint active after it scrolls above the viewport so the
-        // purchase bar cannot reappear over the footer.
-        setBottomVisible(
-          Boolean(
-            entry?.isIntersecting ||
-              (entry && entry.boundingClientRect.top < 0),
-          ),
-        );
-      },
-      { rootMargin: "0px 0px -12% 0px", threshold: 0 },
-    );
+    setHasPassedVideoStart(false);
+    setFooterEnteringViewport(false);
+    if (!videoStart || !footer) return;
 
-    ctaObserver.observe(cta);
-    bottomObserver.observe(bottom);
+    const updateInitialBoundaries = () => {
+      const videoStartRect = videoStart.getBoundingClientRect();
+      const footerRect = footer.getBoundingClientRect();
+      setHasPassedVideoStart(videoStartRect.top <= 0);
+      setFooterEnteringViewport(
+        footerRect.top < window.innerHeight && footerRect.bottom > 0,
+      );
+    };
+
+    updateInitialBoundaries();
+    let frame = 0;
+    const scheduleBoundaryUpdate = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        updateInitialBoundaries();
+      });
+    };
+
+    window.addEventListener("scroll", scheduleBoundaryUpdate, {
+      passive: true,
+    });
+    window.addEventListener("resize", scheduleBoundaryUpdate);
+    const resizeObserver =
+      "ResizeObserver" in window
+        ? new ResizeObserver(scheduleBoundaryUpdate)
+        : null;
+    resizeObserver?.observe(document.body);
+    resizeObserver?.observe(footer);
+
     return () => {
-      ctaObserver.disconnect();
-      bottomObserver.disconnect();
+      window.removeEventListener("scroll", scheduleBoundaryUpdate);
+      window.removeEventListener("resize", scheduleBoundaryUpdate);
+      resizeObserver?.disconnect();
+      if (frame) window.cancelAnimationFrame(frame);
     };
   }, [product.slug]);
-
-  useEffect(() => {
-    const editorialTargets = [
-      routineVideoRef.current,
-      profileSplitRef.current,
-      outcomeSplitRef.current,
-      applicationRef.current,
-      ingredientsRef.current,
-    ].filter((target): target is HTMLElement => Boolean(target));
-
-    setEditorialModuleVisible(false);
-    if (
-      editorialTargets.length === 0 ||
-      !("IntersectionObserver" in window)
-    ) {
-      return;
-    }
-
-    const visibleTargets = new Map<Element, boolean>();
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          visibleTargets.set(entry.target, entry.isIntersecting);
-        }
-        setEditorialModuleVisible(
-          editorialTargets.some((target) => visibleTargets.get(target)),
-        );
-      },
-      { threshold: 0 },
-    );
-
-    for (const target of editorialTargets) {
-      visibleTargets.set(target, false);
-      observer.observe(target);
-    }
-    return () => {
-      observer.disconnect();
-    };
-  }, [
-    coreProfileReady,
-    coreVideoReady,
-    content.ingredientStory,
-    product.slug,
-  ]);
-
-  useEffect(() => {
-    const target = coreRoutineRef.current;
-    setCoreRoutineVisible(false);
-    if (!target || !("IntersectionObserver" in window)) return;
-
-    const observer = new IntersectionObserver(
-      ([entry]) => setCoreRoutineVisible(Boolean(entry?.isIntersecting)),
-      { rootMargin: "-40% 0px -40% 0px", threshold: 0 },
-    );
-    observer.observe(target);
-    return () => observer.disconnect();
-  }, [coreRoutine.length, product.slug]);
 
   async function handleAdd() {
     if (!variant || !isAvailable || pending) return;
@@ -678,7 +610,7 @@ export function ProductDetail({
             {availability}
           </p>
 
-          <div ref={purchaseCtaRef} className="pdp__actions">
+          <div className="pdp__actions">
             {isAvailable && variant ? (
               <button
                 type="button"
@@ -704,38 +636,6 @@ export function ProductDetail({
           </p>
 
           <div className="pdp-accordions" aria-label={`${product.displayName} purchase details`}>
-            <section className="pdp-accordion">
-              <h2 className="pdp-accordion__heading">
-                <button
-                  type="button"
-                  className="pdp-accordion__trigger"
-                  id="pdp-accordion-does-trigger"
-                  aria-expanded={openAccordion === "does"}
-                  aria-controls="pdp-accordion-does-panel"
-                  onClick={() => toggleAccordion("does")}
-                >
-                  <span>WHAT IT DOES</span>
-                  <span aria-hidden="true">{openAccordion === "does" ? "-" : "+"}</span>
-                </button>
-              </h2>
-              <div
-                id="pdp-accordion-does-panel"
-                className="pdp-accordion__panel"
-                data-open={openAccordion === "does"}
-                role="region"
-                aria-labelledby="pdp-accordion-does-trigger"
-                aria-hidden={openAccordion !== "does"}
-              >
-                <div className="pdp-accordion__content">
-                  <ul>
-                    {content.whatItDoes.map((benefit) => (
-                      <li key={benefit}>{benefit}</li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            </section>
-
             <section className="pdp-accordion">
               <h2 className="pdp-accordion__heading">
                 <button
@@ -828,10 +728,16 @@ export function ProductDetail({
         </div>
       </div>
 
+      <span
+        ref={videoStartRef}
+        className="pdp-video-start-boundary"
+        data-pdp-video-start
+        aria-hidden="true"
+      />
+
       {corePresentation ? (
         routineVideo && routinePoster ? (
           <PdpRoutineVideo
-            rootRef={routineVideoRef}
             productName={product.displayName}
             overlay={corePresentation.routineOverlay}
             video={routineVideo}
@@ -910,24 +816,20 @@ export function ProductDetail({
         {corePresentation && profileMedia && coreProfileReady ? (
           <>
             <PdpProfileSplit
-              rootRef={profileSplitRef}
               product={product}
               presentation={corePresentation}
               media={profileMedia}
             />
             <PdpOutcomeSplit
-              rootRef={outcomeSplitRef}
               productName={product.displayName}
               presentation={corePresentation}
             />
             <PdpApplicationCarousel
-              rootRef={applicationRef}
               productName={product.displayName}
               steps={corePresentation.applicationSteps}
             />
             {content.ingredientStory && (
               <PdpIngredientsSplit
-                rootRef={ingredientsRef}
                 productSlug={product.slug}
                 productName={product.displayName}
                 story={content.ingredientStory}
@@ -940,16 +842,6 @@ export function ProductDetail({
         ) : corePresentation ? null : (
           <ProductSignalGrid product={product} routineLabel={routineLabel} />
         )}
-
-        <PdpEditorialPair
-          headingId="pdp-does-heading"
-          eyebrow="Performance"
-          heading="WHAT IT DOES"
-          summary="A finite read of the product's core cosmetic signals."
-          className="pdp-editorial-pair--does"
-        >
-          <PdpPanelSequence label="What it does" items={whatItDoesItems} />
-        </PdpEditorialPair>
 
         {!corePresentation && (
           <>
@@ -1025,7 +917,6 @@ export function ProductDetail({
 
         {product.routineGroup === "core" && coreRoutine.length === 3 && (
           <PdpCoreRoutineSection
-            rootRef={coreRoutineRef}
             products={coreRoutine}
             currentSlug={product.slug}
           />

@@ -176,7 +176,6 @@ describe("ProductDetail purchase accordions", () => {
     render(<ProductDetail product={makeProduct()} />);
 
     const add = screen.getByRole("button", { name: /Add to cart/ });
-    const does = screen.getByRole("button", { name: /WHAT IT DOES/ });
     const use = screen.getByRole("button", { name: /HOW TO USE/ });
     const ingredients = screen.getByRole("button", { name: /KEY INGREDIENTS/ });
     const profile = screen.getByRole("heading", {
@@ -187,19 +186,22 @@ describe("ProductDetail purchase accordions", () => {
     });
     const application = screen.getByRole("heading", { name: "APPLICATION" });
     const inside = screen.getByRole("heading", { name: "what’s inside" });
-    const doesPanel = document.getElementById("pdp-does-heading");
     const details = screen.getByRole("heading", { name: "DETAILS" });
 
-    expect(before(add, does)).toBe(true);
-    expect(before(does, use)).toBe(true);
+    expect(before(add, use)).toBe(true);
     expect(before(use, ingredients)).toBe(true);
     expect(before(ingredients, profile)).toBe(true);
     expect(before(profile, outcomes)).toBe(true);
     expect(before(outcomes, application)).toBe(true);
     expect(before(application, inside)).toBe(true);
-    expect(doesPanel).toBeInstanceOf(HTMLElement);
-    expect(before(inside, doesPanel as HTMLElement)).toBe(true);
-    expect(before(doesPanel as HTMLElement, details)).toBe(true);
+    expect(before(inside, details)).toBe(true);
+    expect(
+      screen.queryByRole("button", { name: /WHAT IT DOES/ }),
+    ).not.toBeInTheDocument();
+    expect(document.getElementById("pdp-accordion-does-trigger")).toBeNull();
+    expect(document.getElementById("pdp-accordion-does-panel")).toBeNull();
+    expect(document.getElementById("pdp-does-heading")).toBeNull();
+    expect(document.querySelector(".pdp-editorial-pair--does")).toBeNull();
     expect(
       screen.queryByRole("heading", { name: "INGREDIENTS" }),
     ).not.toBeInTheDocument();
@@ -212,24 +214,26 @@ describe("ProductDetail purchase accordions", () => {
     const user = userEvent.setup();
     render(<ProductDetail product={makeProduct()} />);
 
-    const does = screen.getByRole("button", { name: /WHAT IT DOES/ });
     const use = screen.getByRole("button", { name: /HOW TO USE/ });
-    const doesPanel = document.getElementById("pdp-accordion-does-panel");
+    const ingredients = screen.getByRole("button", { name: /KEY INGREDIENTS/ });
     const usePanel = document.getElementById("pdp-accordion-use-panel");
-
-    await user.click(does);
-    expect(does).toHaveAttribute("aria-expanded", "true");
-    expect(doesPanel).toHaveAttribute("data-open", "true");
+    const ingredientsPanel = document.getElementById(
+      "pdp-accordion-ingredients-panel",
+    );
 
     await user.click(use);
-    expect(does).toHaveAttribute("aria-expanded", "false");
-    expect(doesPanel).toHaveAttribute("data-open", "false");
     expect(use).toHaveAttribute("aria-expanded", "true");
     expect(usePanel).toHaveAttribute("data-open", "true");
 
-    await user.click(use);
+    await user.click(ingredients);
     expect(use).toHaveAttribute("aria-expanded", "false");
     expect(usePanel).toHaveAttribute("data-open", "false");
+    expect(ingredients).toHaveAttribute("aria-expanded", "true");
+    expect(ingredientsPanel).toHaveAttribute("data-open", "true");
+
+    await user.click(ingredients);
+    expect(ingredients).toHaveAttribute("aria-expanded", "false");
+    expect(ingredientsPanel).toHaveAttribute("data-open", "false");
   });
 
   it("links Core key ingredients to the structured ingredient module", async () => {
@@ -253,16 +257,33 @@ describe("ProductDetail purchase accordions", () => {
 
   it("keeps lower editorial panels finite across buttons, keyboard, and horizontal wheel", async () => {
     const user = userEvent.setup();
-    render(<ProductDetail product={makeProduct()} />);
+    render(
+      <ProductDetail
+        product={makeProduct({
+          slug: "refine-02-pore-treatment-pads",
+          routineGroup: "beyond_core",
+          routineGroupLabel: "Beyond the Core",
+        })}
+        content={{
+          whatItDoes: [],
+          howToUseSteps: [
+            "Swipe one pad over clean, dry skin.",
+            "Build frequency only as skin allows.",
+            "Follow with hydration and daytime SPF.",
+          ],
+          ingredientCards: [],
+        }}
+      />,
+    );
 
-    const group = screen.getByRole("group", { name: "What it does" });
+    const group = screen.getByRole("group", { name: "How to use" });
     const previous = within(group).getByRole("button", {
-      name: "Previous What it does",
+      name: "Previous How to use",
     });
     const next = within(group).getByRole("button", {
-      name: "Next What it does",
+      name: "Next How to use",
     });
-    const position = screen.getByLabelText("What it does item position");
+    const position = screen.getByLabelText("How to use item position");
 
     expect(position).toHaveTextContent("01 / 03");
     expect(previous).toBeDisabled();
