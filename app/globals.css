@@ -5370,6 +5370,18 @@ main:focus {
   height: 100%;
 }
 
+.product-card__surface[data-product-card-media-layout="full-bleed"]
+  .product-card__image:not(.product-card__image--asset)
+  .product-card__img {
+  padding: 0;
+}
+
+.product-card__surface[data-product-card-media-layout="full-bleed"]
+  .product-card__image[data-media-kind="image"]:not(.product-card__image--asset)
+  .product-card__img {
+  object-fit: cover;
+}
+
 .product-card__img--asset {
   object-fit: contain;
   object-position: var(--product-card-image-object-position, 50% 50%);

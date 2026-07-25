@@ -35,6 +35,88 @@ async function expectVisiblePhasedDescription(locator: Locator, expectedText: st
   await expect(locator).not.toHaveAttribute("data-phase", "hidden");
 }
 
+async function expectFullBleedProductCards(region: Locator) {
+  const cards = region.locator(".product-card");
+  const count = await cards.count();
+  expect(count).toBeGreaterThan(0);
+  await expect(region.locator("[data-product-card-media-layout='full-bleed']"))
+    .toHaveCount(count);
+
+  const state = await cards.evaluateAll((nodes) =>
+    nodes.map((card) => {
+      const surface = card.querySelector<HTMLElement>(
+        "[data-product-card-media-layout='full-bleed']",
+      );
+      const surfaceRect = surface?.getBoundingClientRect();
+      const layers = Array.from(
+        card.querySelectorAll<HTMLElement>(".product-card__image"),
+      ).map((layer) => {
+        const image = layer.querySelector<HTMLElement>(".product-card__img");
+        const layerRect = layer.getBoundingClientRect();
+        const imageRect = image?.getBoundingClientRect();
+        const imageStyle = image ? getComputedStyle(image) : null;
+        return {
+          kind: layer.getAttribute("data-media-kind"),
+          layerInset: surfaceRect
+            ? Math.max(
+                Math.abs(layerRect.left - surfaceRect.left),
+                Math.abs(layerRect.top - surfaceRect.top),
+                Math.abs(layerRect.right - surfaceRect.right),
+                Math.abs(layerRect.bottom - surfaceRect.bottom),
+              )
+            : Number.POSITIVE_INFINITY,
+          imageInset: imageRect
+            ? Math.max(
+                Math.abs(imageRect.left - layerRect.left),
+                Math.abs(imageRect.top - layerRect.top),
+                Math.abs(imageRect.right - layerRect.right),
+                Math.abs(imageRect.bottom - layerRect.bottom),
+              )
+            : Number.POSITIVE_INFINITY,
+          objectFit: imageStyle?.objectFit ?? "",
+          paddingBottom: imageStyle?.paddingBottom ?? "",
+          paddingLeft: imageStyle?.paddingLeft ?? "",
+          paddingRight: imageStyle?.paddingRight ?? "",
+          paddingTop: imageStyle?.paddingTop ?? "",
+        };
+      });
+      return {
+        height: surfaceRect?.height ?? 0,
+        href: card.querySelector<HTMLAnchorElement>(".product-card__link")?.href ?? "",
+        layers,
+        quickBuyLabel:
+          card
+            .querySelector<HTMLButtonElement>(".product-card__quick-trigger")
+            ?.getAttribute("aria-label") ?? "",
+        width: surfaceRect?.width ?? 0,
+      };
+    }),
+  );
+
+  for (const card of state) {
+    expect(card.width).toBeGreaterThan(0);
+    expect(card.height).toBeGreaterThan(0);
+    expect(card.href).toContain("/products/");
+    expect(card.quickBuyLabel).toMatch(/^Open quick buy for /);
+    expect(card.layers.length).toBeGreaterThan(0);
+    for (const layer of card.layers) {
+      expect(layer.layerInset).toBeLessThanOrEqual(2);
+      expect(layer.imageInset).toBeLessThanOrEqual(1);
+      expect([
+        layer.paddingTop,
+        layer.paddingRight,
+        layer.paddingBottom,
+        layer.paddingLeft,
+      ]).toEqual(["0px", "0px", "0px", "0px"]);
+      if (layer.kind === "image") {
+        expect(layer.objectFit).toBe("cover");
+      }
+    }
+  }
+
+  return state.flatMap((card) => card.layers.map((layer) => layer.kind));
+}
+
 test("homepage Core Three ladder renders", async ({ page }) => {
   await page.goto("/");
 
@@ -503,6 +585,43 @@ test("homepage Core images and Beyond carousel use finite responsive navigation"
   await expect(mobileCarousel).toHaveAttribute("data-can-scroll-prev", "false");
   await expect(mobileCarousel).toHaveAttribute("data-can-scroll-next", "true");
   await expect(mobileBeyond.getByRole("button", { name: "Next product" })).toBeVisible();
+});
+
+test("shared product cards keep media full-bleed across discovery surfaces", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+
+  const coreKinds = await expectFullBleedProductCards(
+    page.getByRole("region", { name: "The Core", exact: true }),
+  );
+  const beyondKinds = await expectFullBleedProductCards(
+    page.getByRole("region", { name: "Beyond The Core", exact: true }),
+  );
+
+  await page.goto("/products");
+  const shopKinds = await expectFullBleedProductCards(
+    page.locator("main"),
+  );
+
+  await page.goto("/products/treat-03-pdrn-5-ampoule");
+  const discovery = page.getByRole("region", {
+    name: "Recommended products",
+    exact: true,
+  });
+  await discovery.scrollIntoViewIfNeeded();
+  const discoveryKinds = await expectFullBleedProductCards(discovery);
+
+  const affectedKinds = [...beyondKinds, ...shopKinds, ...discoveryKinds];
+  expect(coreKinds).toContain("image");
+  expect(affectedKinds).toContain("image");
+  expect(affectedKinds).toContain("placeholder");
+
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  );
+  expect(overflow).toBeLessThanOrEqual(1);
 });
 
 test("homepage ingredient cards navigate to matching System ingredient anchors", async ({ page }) => {

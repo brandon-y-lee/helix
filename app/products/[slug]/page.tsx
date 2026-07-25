@@ -62,6 +62,7 @@ export default async function ProductDetailPage({
     <>
       <div className="container">
         <ProductDetail
+          key={product.slug}
           product={product}
           coreRoutine={coreRoutine}
           stripePublishableKey={stripeMessagingPublishableKey()}
@@ -70,6 +71,12 @@ export default async function ProductDetailPage({
       <ProductDiscoveryCarousel
         currentSlug={product.slug}
         products={related}
+      />
+      <span
+        id="pdp-purchase-end"
+        className="pdp-bottom-sentinel"
+        data-pdp-purchase-end
+        aria-hidden="true"
       />
     </>
   );

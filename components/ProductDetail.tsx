@@ -374,7 +374,6 @@ export function ProductDetail({
   const [editorialModuleVisible, setEditorialModuleVisible] = useState(false);
   const [coreRoutineVisible, setCoreRoutineVisible] = useState(false);
   const purchaseCtaRef = useRef<HTMLDivElement>(null);
-  const bottomSentinelRef = useRef<HTMLSpanElement>(null);
   const routineVideoRef = useRef<HTMLElement>(null);
   const profileSplitRef = useRef<HTMLElement>(null);
   const outcomeSplitRef = useRef<HTMLElement>(null);
@@ -483,8 +482,40 @@ export function ProductDetail({
 
   useEffect(() => {
     const cta = purchaseCtaRef.current;
-    const bottom = bottomSentinelRef.current;
+    const bottom = document.querySelector<HTMLElement>(
+      "[data-pdp-purchase-end]",
+    );
+    setHeroCtaVisible(true);
+    setBottomVisible(false);
     if (!cta || !bottom || !("IntersectionObserver" in window)) return;
+
+    const ctaObserver = new IntersectionObserver(
+      ([entry]) => setHeroCtaVisible(Boolean(entry?.isIntersecting)),
+      { threshold: 0.08 },
+    );
+    const bottomObserver = new IntersectionObserver(
+      ([entry]) => {
+        // Keep the endpoint active after it scrolls above the viewport so the
+        // purchase bar cannot reappear over the footer.
+        setBottomVisible(
+          Boolean(
+            entry?.isIntersecting ||
+              (entry && entry.boundingClientRect.top < 0),
+          ),
+        );
+      },
+      { rootMargin: "0px 0px -12% 0px", threshold: 0 },
+    );
+
+    ctaObserver.observe(cta);
+    bottomObserver.observe(bottom);
+    return () => {
+      ctaObserver.disconnect();
+      bottomObserver.disconnect();
+    };
+  }, [product.slug]);
+
+  useEffect(() => {
     const editorialTargets = [
       routineVideoRef.current,
       profileSplitRef.current,
@@ -493,41 +524,40 @@ export function ProductDetail({
       ingredientsRef.current,
     ].filter((target): target is HTMLElement => Boolean(target));
 
-    const ctaObserver = new IntersectionObserver(
-      ([entry]) => setHeroCtaVisible(Boolean(entry?.isIntersecting)),
-      { threshold: 0.08 },
-    );
-    let frame = 0;
-    const updateScrollVisibility = () => {
-      frame = 0;
-      setBottomVisible(
-        bottom.getBoundingClientRect().top <= window.innerHeight * 0.88,
-      );
-      setEditorialModuleVisible(
-        editorialTargets.some((target) => {
-          const rect = target.getBoundingClientRect();
-          return rect.bottom > 0 && rect.top < window.innerHeight;
-        }),
-      );
-    };
-    const scheduleScrollVisibilityUpdate = () => {
-      if (frame) return;
-      frame = window.requestAnimationFrame(updateScrollVisibility);
-    };
+    setEditorialModuleVisible(false);
+    if (
+      editorialTargets.length === 0 ||
+      !("IntersectionObserver" in window)
+    ) {
+      return;
+    }
 
-    ctaObserver.observe(cta);
-    updateScrollVisibility();
-    window.addEventListener("scroll", scheduleScrollVisibilityUpdate, {
-      passive: true,
-    });
-    window.addEventListener("resize", scheduleScrollVisibilityUpdate);
+    const visibleTargets = new Map<Element, boolean>();
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          visibleTargets.set(entry.target, entry.isIntersecting);
+        }
+        setEditorialModuleVisible(
+          editorialTargets.some((target) => visibleTargets.get(target)),
+        );
+      },
+      { threshold: 0 },
+    );
+
+    for (const target of editorialTargets) {
+      visibleTargets.set(target, false);
+      observer.observe(target);
+    }
     return () => {
-      ctaObserver.disconnect();
-      if (frame) window.cancelAnimationFrame(frame);
-      window.removeEventListener("scroll", scheduleScrollVisibilityUpdate);
-      window.removeEventListener("resize", scheduleScrollVisibilityUpdate);
+      observer.disconnect();
     };
-  }, [coreProfileReady, coreVideoReady, content.ingredientStory]);
+  }, [
+    coreProfileReady,
+    coreVideoReady,
+    content.ingredientStory,
+    product.slug,
+  ]);
 
   useEffect(() => {
     const target = coreRoutineRef.current;
@@ -1002,7 +1032,6 @@ export function ProductDetail({
         )}
       </section>
 
-      <span ref={bottomSentinelRef} className="pdp-bottom-sentinel" aria-hidden="true" />
       <ProductReviewsSection
         key={product.slug}
         productName={product.displayName}

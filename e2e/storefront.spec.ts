@@ -1,4 +1,27 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Locator } from "@playwright/test";
+
+async function expectStickyPurchaseInViewport(sticky: Locator) {
+  await expect(sticky).toHaveAttribute("data-visible", "true");
+  await expect(sticky).toHaveAttribute("aria-hidden", "false");
+  await expect
+    .poll(() =>
+      sticky.evaluate((bar) => {
+        const rect = bar.getBoundingClientRect();
+        const style = getComputedStyle(bar);
+        return (
+          rect.top >= -1 &&
+          rect.bottom <= window.innerHeight + 1 &&
+          rect.width > 0 &&
+          rect.height > 0 &&
+          style.visibility !== "hidden" &&
+          Number.parseFloat(style.opacity) > 0.99
+        );
+      }),
+    )
+    .toBe(true);
+  await expect(sticky.locator(".btn")).toBeVisible();
+  await expect(sticky.locator(".btn")).toBeEnabled();
+}
 
 // Storefront parity v1 coverage. Data comes from the seeded dev Supabase
 // catalog (verified reachable + seeded by global-setup, so these fail fast if
@@ -426,8 +449,7 @@ test("PDP sticky purchase bar aligns to the content shell and clears the lower e
         window.scrollY + section.getBoundingClientRect().bottom;
       window.scrollTo(0, sectionBottom + 24);
     });
-    await expect(sticky).toHaveAttribute("data-visible", "true");
-    await expect(sticky).toHaveAttribute("aria-hidden", "false");
+    await expectStickyPurchaseInViewport(sticky);
     await page.waitForTimeout(300);
 
     const geometry = await page.evaluate(() => {
@@ -475,13 +497,44 @@ test("PDP sticky purchase bar aligns to the content shell and clears the lower e
     await expect(sticky.locator(".btn")).toBeVisible();
     await expect(sticky.locator(".pdp-payment-message")).toHaveCount(0);
 
-    await page.locator(".pdp-bottom-sentinel").scrollIntoViewIfNeeded();
+    await page.locator(".pdp-reviews").scrollIntoViewIfNeeded();
+    await expectStickyPurchaseInViewport(sticky);
+    await page.locator(".pdp-discovery").scrollIntoViewIfNeeded();
+    await expectStickyPurchaseInViewport(sticky);
+
+    await page.locator("[data-pdp-purchase-end]").scrollIntoViewIfNeeded();
     await expect(sticky).toHaveAttribute("data-visible", "false");
     await expect(sticky).toHaveAttribute("aria-hidden", "true");
-    await page.locator(".pdp-discovery").scrollIntoViewIfNeeded();
+    await page.locator(".site-footer").scrollIntoViewIfNeeded();
     await expect(sticky).toHaveAttribute("data-visible", "false");
     await expect(sticky).toHaveAttribute("aria-hidden", "true");
   }
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/products/treat-03-pdrn-5-ampoule");
+  const discovery = page.getByRole("region", {
+    name: "Recommended products",
+    exact: true,
+  });
+  await discovery.scrollIntoViewIfNeeded();
+  await discovery.getByRole("link", { name: "CLEANSE", exact: true }).click();
+  await expect(page).toHaveURL(
+    /\/products\/cleanse-01-calming-gel-cleanser$/,
+  );
+
+  const routedSticky = page.locator(".pdp-sticky-purchase");
+  await expect(routedSticky).toHaveAttribute("data-visible", "false");
+  await expect(
+    routedSticky.locator(".pdp-sticky-purchase__identity strong"),
+  ).toHaveText("CLEANSE");
+  await expect(
+    routedSticky.locator(
+      ".pdp-sticky-purchase__variants button[aria-pressed='true']",
+    ),
+  ).toHaveText("200 mL");
+
+  await page.locator(".pdp-reviews").scrollIntoViewIfNeeded();
+  await expectStickyPurchaseInViewport(routedSticky);
 });
 
 test("Core PDPs render the complete routine in canonical sequence", async ({

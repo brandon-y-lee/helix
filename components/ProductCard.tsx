@@ -393,6 +393,7 @@ export function ProductCard({
       <div
         ref={surfaceRef}
         className="product-card__surface"
+        data-product-card-media-layout="full-bleed"
         data-visual-state={visualState}
         onPointerEnter={handlePointerEnter}
         onPointerLeave={handlePointerLeave}
