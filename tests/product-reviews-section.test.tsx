@@ -43,7 +43,13 @@ function makeReviews(count: number): ProductReviews {
 }
 
 function visibleRows() {
-  return document.querySelectorAll(".review-row");
+  return document.querySelectorAll("[data-review-row]");
+}
+
+function dividerStates() {
+  return Array.from(visibleRows()).map((row) =>
+    row.getAttribute("data-review-divider"),
+  );
 }
 
 describe("ProductReviewsSection", () => {
@@ -60,20 +66,33 @@ describe("ProductReviewsSection", () => {
     expect(INITIAL_VISIBLE_REVIEW_COUNT).toBe(2);
     expect(REVIEW_VISIBLE_INCREMENT).toBe(5);
     expect(visibleRows()).toHaveLength(2);
+    expect(dividerStates()).toEqual(["true", "false"]);
     expect(screen.getByText("4.5")).toBeInTheDocument();
     expect(screen.getByText("Based on 14 reviews.")).toBeInTheDocument();
 
     const showMore = screen.getByRole("button", { name: "SHOW MORE" });
     await user.click(showMore);
     expect(visibleRows()).toHaveLength(7);
+    expect(dividerStates()).toEqual([
+      "true",
+      "true",
+      "true",
+      "true",
+      "true",
+      "true",
+      "false",
+    ]);
     expect(screen.getByText("Review title 1")).toBeInTheDocument();
     expect(screen.getByText("Review title 7")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "SHOW MORE" }));
     expect(visibleRows()).toHaveLength(12);
+    expect(dividerStates().at(-1)).toBe("false");
 
     await user.click(screen.getByRole("button", { name: "SHOW MORE" }));
     expect(visibleRows()).toHaveLength(14);
+    expect(dividerStates().filter((state) => state === "true")).toHaveLength(13);
+    expect(dividerStates().at(-1)).toBe("false");
     expect(
       screen.queryByRole("button", { name: "SHOW MORE" }),
     ).not.toBeInTheDocument();

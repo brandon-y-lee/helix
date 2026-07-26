@@ -109,6 +109,84 @@ async function panelRowGeometry(row: Locator) {
   });
 }
 
+async function productCardGeometry(collection: Locator) {
+  const cards =
+    (await collection.getAttribute("data-product-card")) !== null
+      ? collection
+      : collection.locator("[data-product-card]");
+
+  return cards.evaluateAll((cards) =>
+    cards.map((card) => {
+      const surface = card.querySelector<HTMLElement>(
+        "[data-product-card-media]",
+      );
+      const surfaceRect = surface?.getBoundingClientRect();
+      const surfaceStyle = surface ? getComputedStyle(surface) : null;
+      const layers = Array.from(
+        card.querySelectorAll<HTMLElement>(".product-card__image"),
+      ).map((layer) => {
+        const rect = layer.getBoundingClientRect();
+        const style = getComputedStyle(layer);
+
+        return {
+          borderWidths: [
+            style.borderTopWidth,
+            style.borderRightWidth,
+            style.borderBottomWidth,
+            style.borderLeftWidth,
+          ],
+          edgeDelta: surfaceRect
+            ? Math.max(
+                Math.abs(rect.left - surfaceRect.left),
+                Math.abs(rect.top - surfaceRect.top),
+                Math.abs(rect.right - surfaceRect.right),
+                Math.abs(rect.bottom - surfaceRect.bottom),
+              )
+            : Number.POSITIVE_INFINITY,
+        };
+      });
+
+      return {
+        borderWidths: surfaceStyle
+          ? [
+              surfaceStyle.borderTopWidth,
+              surfaceStyle.borderRightWidth,
+              surfaceStyle.borderBottomWidth,
+              surfaceStyle.borderLeftWidth,
+            ]
+          : [],
+        outlineStyle: surfaceStyle?.outlineStyle ?? "",
+        overflow: surfaceStyle?.overflow ?? "",
+        pseudoContent: surface
+          ? [
+              getComputedStyle(surface, "::before").content,
+              getComputedStyle(surface, "::after").content,
+            ]
+          : [],
+        slug: card.getAttribute("data-product-card-slug"),
+        layers,
+      };
+    }),
+  );
+}
+
+function expectBorderlessCardGeometry(
+  cards: Awaited<ReturnType<typeof productCardGeometry>>,
+) {
+  expect(cards.length).toBeGreaterThan(0);
+  for (const card of cards) {
+    expect(card.borderWidths).toEqual(["0px", "0px", "0px", "0px"]);
+    expect(card.outlineStyle).toBe("none");
+    expect(card.overflow).toBe("hidden");
+    expect(card.pseudoContent).toEqual(["none", "none"]);
+    expect(card.layers.length).toBeGreaterThan(0);
+    for (const layer of card.layers) {
+      expect(layer.borderWidths).toEqual(["0px", "0px", "0px", "0px"]);
+      expect(layer.edgeDelta).toBeLessThanOrEqual(0.5);
+    }
+  }
+}
+
 test("home storefront shells stay fluid across supported viewports", async ({
   page,
 }) => {
@@ -406,4 +484,203 @@ test("interactive PDP panels preserve their geometry after state changes", async
     ),
   ).toBeLessThanOrEqual(GEOMETRY_TOLERANCE);
   await expectNoHorizontalPageOverflow(page);
+});
+
+test("product collections share desktop spacing and borderless card media", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+
+  const core = page.locator('[data-product-collection="core"]');
+  const beyond = page.locator('[data-product-collection="beyond"]');
+  const coreGap = await core.locator(".product-grid").evaluate((element) =>
+    Number.parseFloat(getComputedStyle(element).columnGap),
+  );
+  const beyondGap = await beyond
+    .locator(".home-beyond-carousel__track")
+    .evaluate((element) =>
+      Number.parseFloat(getComputedStyle(element).columnGap),
+    );
+
+  expect(Math.abs(coreGap - beyondGap)).toBeLessThanOrEqual(
+    GEOMETRY_TOLERANCE,
+  );
+  expectBorderlessCardGeometry(await productCardGeometry(core));
+  expectBorderlessCardGeometry(await productCardGeometry(beyond));
+
+  const treatCard = core.locator(
+    '[data-product-card-slug="treat-03-pdrn-5-ampoule"]',
+  );
+  await treatCard.locator(".product-card__link").hover();
+  expectBorderlessCardGeometry(await productCardGeometry(treatCard));
+  await treatCard.locator(".product-card__link").focus();
+  await expect(treatCard.locator(".product-card__link")).toHaveCSS(
+    "outline-style",
+    "solid",
+  );
+  await expect(treatCard.locator(".product-card__link")).toHaveCSS(
+    "outline-width",
+    "2px",
+  );
+
+  await page.goto("/products");
+  const shop = page.locator('[data-product-collection="shop"]');
+  expectBorderlessCardGeometry(await productCardGeometry(shop));
+
+  await page.goto("/products/cleanse-01-calming-gel-cleanser");
+  const discovery = page.locator('[data-product-collection="discovery"]');
+  const discoveryGap = await discovery
+    .locator(".home-beyond-carousel__track")
+    .evaluate((element) =>
+      Number.parseFloat(getComputedStyle(element).columnGap),
+    );
+  expect(Math.abs(coreGap - discoveryGap)).toBeLessThanOrEqual(
+    GEOMETRY_TOLERANCE,
+  );
+  expectBorderlessCardGeometry(await productCardGeometry(discovery));
+
+  await page.setViewportSize({ width: 1024, height: 768 });
+  const discoveryCarousel = discovery.locator(".home-beyond-carousel");
+  await discovery.getByRole("button", { name: "Next product" }).click();
+  await expect(discoveryCarousel).toHaveAttribute("data-active-index", "1");
+  await page.waitForTimeout(280);
+  expectBorderlessCardGeometry(await productCardGeometry(discovery));
+
+  const translatedTreat = discovery.locator(
+    '[data-product-card-slug="treat-03-pdrn-5-ampoule"]',
+  );
+  expectBorderlessCardGeometry(await productCardGeometry(translatedTreat));
+  await expectNoHorizontalPageOverflow(page);
+});
+
+test("mobile product carousels keep their partial-card cue without page overflow", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+
+  const beyond = page.locator('[data-product-collection="beyond"]');
+  const geometry = await beyond.evaluate((section) => {
+    const viewport = section.querySelector<HTMLElement>(
+      ".home-beyond-carousel__viewport",
+    );
+    const cards = Array.from(
+      section.querySelectorAll<HTMLElement>(
+        ".home-beyond-carousel__card",
+      ),
+    );
+    const viewportRect = viewport?.getBoundingClientRect();
+    const cardRects = cards.map((card) => card.getBoundingClientRect());
+
+    return {
+      firstFullyVisible:
+        Boolean(viewportRect) &&
+        cardRects[0].right <= (viewportRect?.right ?? 0) + 1,
+      secondIsPartial:
+        Boolean(viewportRect) &&
+        cardRects[1].left < (viewportRect?.right ?? 0) &&
+        cardRects[1].right > (viewportRect?.right ?? 0),
+    };
+  });
+
+  expect(geometry.firstFullyVisible).toBe(true);
+  expect(geometry.secondIsPartial).toBe(true);
+  expectBorderlessCardGeometry(await productCardGeometry(beyond));
+  await expectNoHorizontalPageOverflow(page);
+
+  await page.goto("/products/cleanse-01-calming-gel-cleanser");
+  const discovery = page.locator('[data-product-collection="discovery"]');
+  expectBorderlessCardGeometry(await productCardGeometry(discovery));
+  await expectNoHorizontalPageOverflow(page);
+});
+
+test("PDP reviews use one intentional divider hierarchy and panel-aligned inset", async ({
+  page,
+}) => {
+  await page.goto(CORE_PDP_PATH);
+
+  for (const width of [390, 1440, 1920]) {
+    await page.setViewportSize({
+      width,
+      height: width === 390 ? 844 : 1080,
+    });
+
+    const geometry = await page.evaluate(() => {
+      const reviews = document.querySelector<HTMLElement>(
+        "[data-review-section]",
+      );
+      const header = reviews?.querySelector<HTMLElement>(
+        "[data-review-header]",
+      );
+      const list = reviews?.querySelector<HTMLElement>("[data-review-list]");
+      const rows = Array.from(
+        reviews?.querySelectorAll<HTMLElement>("[data-review-row]") ?? [],
+      );
+      const core = document.querySelector<HTMLElement>(
+        '[data-pdp-panel-row="core-routine"]',
+      );
+      const coreHeading = core?.querySelector<HTMLElement>(
+        ".pdp-core-routine__heading",
+      );
+      const discovery = document.querySelector<HTMLElement>(
+        '[data-product-collection="discovery"]',
+      );
+      const reviewRect = reviews?.getBoundingClientRect();
+      const headerRect = header?.getBoundingClientRect();
+      const coreRect = core?.getBoundingClientRect();
+      const coreHeadingRect = coreHeading?.getBoundingClientRect();
+      const reviewStyle = reviews ? getComputedStyle(reviews) : null;
+      const discoveryStyle = discovery ? getComputedStyle(discovery) : null;
+
+      return {
+        coreInset:
+          coreRect && coreHeadingRect
+            ? coreHeadingRect.left - coreRect.left
+            : -1,
+        discoveryBorders: discoveryStyle
+          ? [
+              discoveryStyle.borderTopWidth,
+              discoveryStyle.borderRightWidth,
+              discoveryStyle.borderBottomWidth,
+              discoveryStyle.borderLeftWidth,
+            ]
+          : [],
+        headerBottom: header ? getComputedStyle(header).borderBottomWidth : "",
+        listTop: list ? getComputedStyle(list).borderTopWidth : "",
+        reviewBorders: reviewStyle
+          ? [
+              reviewStyle.borderTopWidth,
+              reviewStyle.borderRightWidth,
+              reviewStyle.borderBottomWidth,
+              reviewStyle.borderLeftWidth,
+            ]
+          : [],
+        reviewInset:
+          reviewRect && headerRect ? headerRect.left - reviewRect.left : -1,
+        rowBottoms: rows.map(
+          (row) => getComputedStyle(row).borderBottomWidth,
+        ),
+        rowDividerStates: rows.map((row) =>
+          row.getAttribute("data-review-divider"),
+        ),
+      };
+    });
+
+    expect(
+      Math.abs(geometry.reviewInset - geometry.coreInset),
+    ).toBeLessThanOrEqual(GEOMETRY_TOLERANCE);
+    expect(geometry.reviewBorders).toEqual(["0px", "0px", "0px", "0px"]);
+    expect(geometry.discoveryBorders).toEqual([
+      "0px",
+      "0px",
+      "0px",
+      "0px",
+    ]);
+    expect(geometry.headerBottom).toBe("1px");
+    expect(geometry.listTop).toBe("0px");
+    expect(geometry.rowBottoms).toEqual(["1px", "0px"]);
+    expect(geometry.rowDividerStates).toEqual(["true", "false"]);
+    await expectNoHorizontalPageOverflow(page);
+  }
 });

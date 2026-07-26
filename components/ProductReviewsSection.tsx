@@ -90,7 +90,13 @@ function ReviewResponseMeter({ reviews }: { reviews: ProductReviews }) {
   );
 }
 
-function ReviewRow({ review }: { review: ProductReviewFixture }) {
+function ReviewRow({
+  review,
+  hasDivider,
+}: {
+  review: ProductReviewFixture;
+  hasDivider: boolean;
+}) {
   const reviewerFacts = [
     { label: "Age", value: review.ageRange },
     { label: "Skin type", value: review.skinType },
@@ -102,7 +108,12 @@ function ReviewRow({ review }: { review: ProductReviewFixture }) {
   ].filter((item) => item.value.trim().length > 0);
 
   return (
-    <article className="review-row" data-review-id={review.id}>
+    <article
+      className="review-row"
+      data-review-row
+      data-review-id={review.id}
+      data-review-divider={hasDivider}
+    >
       <div className="review-row__reviewer">
         <div className="review-row__identity">
           {review.initials && (
@@ -180,12 +191,16 @@ export function ProductReviewsSection({
   const hasMore = visibleCount < reviews.reviews.length;
 
   return (
-    <section className="pdp-reviews" aria-labelledby="pdp-reviews-heading">
+    <section
+      className="pdp-reviews"
+      aria-labelledby="pdp-reviews-heading"
+      data-review-section
+    >
       <h2 id="pdp-reviews-heading" className="sr-only">
         {productName} customer reviews
       </h2>
 
-      <div className="pdp-reviews__overview">
+      <div className="pdp-reviews__overview" data-review-header>
         <div className="pdp-reviews__rating-summary">
           <strong>{summary.count > 0 ? summary.average.toFixed(1) : "—"}</strong>
           <StarRating
@@ -207,10 +222,15 @@ export function ProductReviewsSection({
           <div
             id={reviewListId}
             className="pdp-reviews__list"
+            data-review-list
             data-visible-count={visibleReviews.length}
           >
-            {visibleReviews.map((review) => (
-              <ReviewRow key={review.id} review={review} />
+            {visibleReviews.map((review, index) => (
+              <ReviewRow
+                key={review.id}
+                review={review}
+                hasDivider={index < visibleReviews.length - 1}
+              />
             ))}
           </div>
 

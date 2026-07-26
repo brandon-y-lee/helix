@@ -145,6 +145,7 @@ export function ShopBrowser({
       <section
         className="storefront-shell shop-grid-shell"
         data-layout-shell="storefront"
+        data-product-collection="shop"
         style={{ paddingTop: "24px" }}
       >
         {visible.length === 0 ? (

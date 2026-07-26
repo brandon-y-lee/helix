@@ -27,6 +27,7 @@ export function ProductDiscoveryCarousel({
       className="storefront-carousel-shell pdp-discovery"
       aria-label="Recommended products"
       data-layout-shell="carousel"
+      data-product-collection="discovery"
       data-product-count={recommendations.length}
       data-product-limit={PDP_DISCOVERY_PRODUCT_LIMIT}
     >

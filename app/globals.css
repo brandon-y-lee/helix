@@ -18,6 +18,7 @@
   --page-gutter: 24px;
   --storefront-gutter: max(16px, 2.25vw);
   --reading-width: 66ch;
+  --product-card-gap: clamp(18px, 2.4vw, 34px);
   --pdp-panel-gap: var(--storefront-gutter);
   --pdp-panel-gap-mobile: 8px;
   --pdp-panel-radius: 12px;
@@ -684,7 +685,7 @@ main[data-header-layout="overlay"] {
   padding: 0;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 28px;
+  gap: var(--product-card-gap);
 }
 
 .product-card {
@@ -2839,7 +2840,7 @@ main:focus {
 
 .product-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: clamp(18px, 2.4vw, 34px);
+  gap: var(--product-card-gap);
 }
 
 .product-card {
@@ -4767,15 +4768,18 @@ main:focus {
 
 .pdp-reviews {
   margin-top: clamp(56px, 8vw, 104px);
-  padding-top: clamp(28px, 4vw, 46px);
-  border-top: 1px solid var(--line);
+  padding:
+    clamp(28px, 4vw, 46px)
+    var(--pdp-panel-padding)
+    0;
+  border: 0;
 }
 
 .pdp-discovery {
   position: relative;
   margin: clamp(48px, 7vw, 88px) auto 0;
   padding-top: clamp(28px, 4vw, 46px);
-  border-top: 1px solid var(--line);
+  border: 0;
 }
 
 .pdp-reviews__overview {
@@ -4889,8 +4893,8 @@ main:focus {
 }
 
 .pdp-reviews__list {
-  margin-top: clamp(18px, 3vw, 32px);
-  border-top: 1px solid var(--line);
+  margin-top: 0;
+  border: 0;
 }
 
 .review-row {
@@ -4899,6 +4903,10 @@ main:focus {
   grid-template-columns: minmax(180px, 0.38fr) minmax(0, 1fr);
   gap: clamp(28px, 6vw, 96px);
   padding: clamp(28px, 4vw, 48px) 0;
+  border-bottom: 0;
+}
+
+.review-row[data-review-divider="true"] {
   border-bottom: 1px solid var(--line);
 }
 
@@ -5043,7 +5051,7 @@ main:focus {
 
 .pdp-reviews__empty {
   padding: clamp(28px, 4vw, 44px) 0;
-  border-bottom: 1px solid var(--line);
+  border: 0;
   color: var(--ink-soft);
 }
 
@@ -5374,7 +5382,7 @@ main:focus {
   aspect-ratio: 4 / 5;
   min-height: 340px;
   overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--line) 76%, transparent);
+  border: 0;
   border-radius: var(--radius);
   background: var(--surface-muted);
   isolation: isolate;
@@ -8703,7 +8711,7 @@ main:focus {
 }
 
 .home-beyond-carousel {
-  --home-beyond-gap: clamp(12px, 1.45vw, 20px);
+  --home-beyond-gap: var(--product-card-gap);
   --home-beyond-visible: 3;
   --home-beyond-control-inset: clamp(20px, 2.5vw, 40px);
   position: relative;

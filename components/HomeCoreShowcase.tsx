@@ -59,6 +59,7 @@ export function HomeCoreShowcase({ products }: { products: Product[] }) {
       className="storefront-shell home-section home-section--core"
       aria-labelledby="core-three-heading"
       data-layout-shell="storefront"
+      data-product-collection="core"
     >
       <div className="home-section__intro home-section__intro--core">
         <p className="hero__eyebrow">The Core</p>

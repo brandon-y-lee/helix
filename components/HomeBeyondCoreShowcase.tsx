@@ -36,6 +36,7 @@ export function HomeBeyondCoreShowcase({
       <div
         className="storefront-carousel-shell home-beyond-shell"
         data-layout-shell="carousel"
+        data-product-collection="beyond"
       >
         <div className="home-section__intro home-section__intro--wide">
           <p className="hero__eyebrow">Beyond The Core</p>

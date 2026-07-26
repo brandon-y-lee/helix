@@ -389,6 +389,7 @@ export function ProductCard({
   return (
     <li
       className={["product-card", className].filter(Boolean).join(" ")}
+      data-product-card
       data-product-card-slug={product.slug}
       data-quick-buy-open={isQuickBuyOpen}
       data-visual-state={visualState}
@@ -397,6 +398,7 @@ export function ProductCard({
       <div
         ref={surfaceRef}
         className="product-card__surface"
+        data-product-card-media
         data-product-card-media-layout="full-bleed"
         data-visual-state={visualState}
         onPointerEnter={handlePointerEnter}
