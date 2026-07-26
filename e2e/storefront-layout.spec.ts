@@ -1,6 +1,11 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
 const TREAT_PATH = "/products/treat-03-pdrn-5-ampoule";
+const CORE_PDP_PATHS = [
+  "/products/cleanse-01-calming-gel-cleanser",
+  TREAT_PATH,
+  "/products/seal-05-green-collagen-cream",
+] as const;
 
 async function expectNoHorizontalOverflow(page: Page) {
   await expect
@@ -104,4 +109,120 @@ test("PDP panel breakpoint changes once at the 820px boundary", async ({
   await page.setViewportSize({ width: 821, height: 900 });
   await expectGridColumns(profile, 2);
   await expectNoHorizontalOverflow(page);
+});
+
+test("Core PDP hero media is finite, borderless, and aligned to storefront spacing", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1512, height: 982 });
+
+  for (const path of CORE_PDP_PATHS) {
+    await page.goto(path);
+    await expect(page.locator(".pdp__thumb")).toHaveCount(3);
+    await expectNoHorizontalOverflow(page);
+  }
+
+  await page.goto(TREAT_PATH);
+  const geometry = await page.evaluate(() => {
+    const header = document.querySelector(".site-header")?.getBoundingClientRect();
+    const pdp = document.querySelector(".pdp")?.getBoundingClientRect();
+    const media = document.querySelector(".pdp__media")?.getBoundingClientRect();
+    const video = document
+      .querySelector(".pdp-routine-video")
+      ?.getBoundingClientRect();
+    const sections = document
+      .querySelector(".pdp-sections")
+      ?.getBoundingClientRect();
+    const reviews = document
+      .querySelector("[data-review-section]")
+      ?.getBoundingClientRect();
+    const discovery = document
+      .querySelector('[data-product-collection="discovery"]')
+      ?.getBoundingClientRect();
+    const footer = document
+      .querySelector("[data-site-footer]")
+      ?.getBoundingClientRect();
+
+    if (
+      !header ||
+      !pdp ||
+      !media ||
+      !video ||
+      !sections ||
+      !reviews ||
+      !discovery ||
+      !footer
+    ) {
+      throw new Error("PDP geometry targets are unavailable.");
+    }
+
+    const gutter = pdp.left;
+    return {
+      gutter,
+      headerToMedia: media.top - header.bottom,
+      videoTop: video.top,
+      reviewTopGap: reviews.top - sections.bottom,
+      reviewBottomGap: discovery.top - reviews.bottom,
+      discoveryFooterGap: footer.top - discovery.bottom,
+      viewportHeight: window.innerHeight,
+    };
+  });
+
+  expect(Math.abs(geometry.headerToMedia - geometry.gutter)).toBeLessThanOrEqual(
+    1,
+  );
+  expect(
+    Math.abs(geometry.videoTop - geometry.viewportHeight),
+  ).toBeLessThanOrEqual(1);
+  expect(Math.abs(geometry.reviewTopGap - geometry.gutter)).toBeLessThanOrEqual(
+    1,
+  );
+  expect(
+    Math.abs(geometry.reviewBottomGap - geometry.gutter),
+  ).toBeLessThanOrEqual(1);
+  expect(
+    Math.abs(geometry.discoveryFooterGap - geometry.gutter),
+  ).toBeLessThanOrEqual(1);
+
+  const media = page.locator(".pdp__media");
+  const activeThumb = page.locator('.pdp__thumb[aria-pressed="true"]');
+  const inactiveThumb = page.locator('.pdp__thumb[aria-pressed="false"]').first();
+  const thumbImage = activeThumb.locator(".pdp__thumb-image");
+
+  for (const target of [media, activeThumb, thumbImage]) {
+    await expect
+      .poll(() =>
+        target.evaluate((element) => {
+          const style = getComputedStyle(element);
+          return [
+            style.borderTopWidth,
+            style.borderRightWidth,
+            style.borderBottomWidth,
+            style.borderLeftWidth,
+          ];
+        }),
+      )
+      .toEqual(["0px", "0px", "0px", "0px"]);
+  }
+
+  const inactiveOpacity = Number(
+    await inactiveThumb.evaluate((element) => getComputedStyle(element).opacity),
+  );
+  await inactiveThumb.hover();
+  await expect
+    .poll(() =>
+      inactiveThumb.evaluate((element) =>
+        Number(getComputedStyle(element).opacity),
+      ),
+    )
+    .toBeGreaterThan(inactiveOpacity);
+
+  await activeThumb.focus();
+  await expect
+    .poll(() =>
+      activeThumb.evaluate((element) =>
+        Number.parseFloat(getComputedStyle(element).outlineWidth),
+      ),
+    )
+    .toBeGreaterThanOrEqual(2);
 });

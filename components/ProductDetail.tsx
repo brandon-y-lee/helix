@@ -114,6 +114,59 @@ function galleryRoleRank(role: ProductMedia["role"]) {
   return 3;
 }
 
+function normalizedMediaUrl(url: string) {
+  try {
+    const base = "https://mei-pelle.invalid";
+    const parsed = new URL(url, base);
+    const origin = parsed.origin === base ? "" : parsed.origin.toLowerCase();
+    const pathname = parsed.pathname.replace(/\/{2,}/g, "/").replace(/\/$/, "");
+    return `${origin}${pathname}`;
+  } catch {
+    return url.split(/[?#]/, 1)[0].replace(/\/{2,}/g, "/").replace(/\/$/, "");
+  }
+}
+
+function galleryMediaIdentity(media: ProductMedia) {
+  if (media.url) {
+    return `${media.kind}:${normalizedMediaUrl(media.url)}`;
+  }
+
+  const palette = media.palette;
+  return [
+    media.kind,
+    media.paletteId ?? "",
+    palette?.start ?? "",
+    palette?.end ?? "",
+    palette?.accent ?? "",
+    palette?.surface ?? "",
+    palette?.ink ?? "",
+    palette?.highlight ?? "",
+  ].join(":");
+}
+
+function selectGalleryMedia(media: ProductMedia[]) {
+  const identities = new Set<string>();
+
+  return media
+    .filter(
+      (item) =>
+        item.kind !== "video" &&
+        ["detail", "gallery", "hero", "card_default"].includes(item.role),
+    )
+    .slice()
+    .sort(
+      (a, b) =>
+        galleryRoleRank(a.role) - galleryRoleRank(b.role) ||
+        a.sortOrder - b.sortOrder,
+    )
+    .filter((item) => {
+      const identity = galleryMediaIdentity(item);
+      if (identities.has(identity)) return false;
+      identities.add(identity);
+      return true;
+    });
+}
+
 function cartImageUrl(media: ProductMedia | null | undefined) {
   return media?.kind === "image" ? media.url : null;
 }
@@ -358,18 +411,7 @@ export function ProductDetail({
   const { add } = useCart();
   const fallbackPanels = fallbackGalleryPanels(product.swatch);
   const gallery = useMemo(
-    () =>
-      product.media
-        .filter((media) =>
-          media.kind !== "video" &&
-          ["detail", "gallery", "hero", "card_default"].includes(media.role),
-        )
-        .slice()
-        .sort(
-          (a, b) =>
-            galleryRoleRank(a.role) - galleryRoleRank(b.role) ||
-            a.sortOrder - b.sortOrder,
-        ),
+    () => selectGalleryMedia(product.media),
     [product.media],
   );
   const panelCount = gallery.length || fallbackPanels.length;
@@ -575,6 +617,7 @@ export function ProductDetail({
                   className="pdp__thumb-image"
                   imageClassName="pdp__thumb-img"
                   sizes="96px"
+                  priority={i === 0}
                 />
               </button>
             ))}

@@ -21,6 +21,8 @@
   --product-card-gap: clamp(18px, 2.4vw, 34px);
   --pdp-panel-gap: var(--storefront-gutter);
   --pdp-panel-gap-mobile: 8px;
+  --pdp-gallery-gap: 12px;
+  --pdp-thumbnail-size: clamp(64px, 5.25vw, 80px);
   --pdp-panel-radius: 12px;
   --pdp-panel-padding: clamp(20px, 2.25vw, 32px);
   --pdp-panel-padding-dense: clamp(18px, 1.9vw, 28px);
@@ -776,13 +778,13 @@ main[data-header-layout="overlay"] {
   top: 96px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--pdp-gallery-gap);
 }
 
 .pdp__media {
   aspect-ratio: 4 / 5;
   border-radius: var(--radius);
-  border: 1px solid var(--line);
+  border: 0;
 }
 
 .pdp__thumbs {
@@ -795,16 +797,32 @@ main[data-header-layout="overlay"] {
   position: relative;
   aspect-ratio: 1 / 1;
   border-radius: 10px;
-  border: 1px solid var(--line);
+  border: 0;
   overflow: hidden;
   padding: 0;
   cursor: pointer;
   background: var(--surface);
+  opacity: 0.58;
+  transform: scale(0.94);
+  transition:
+    opacity var(--motion-fast) ease,
+    transform var(--motion-fast) ease;
 }
 
 .pdp__thumb[aria-pressed="true"] {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 1px var(--accent);
+  box-shadow: none;
+  opacity: 1;
+  transform: scale(1);
+}
+
+.pdp__thumb:hover {
+  opacity: 0.82;
+  transform: scale(0.97);
+}
+
+.pdp__thumb[aria-pressed="true"]:hover {
+  opacity: 1;
+  transform: scale(1);
 }
 
 .pdp__badge {
@@ -2915,17 +2933,18 @@ main:focus {
 .pdp {
   grid-template-columns: minmax(0, 1.15fr) minmax(360px, 0.9fr);
   gap: clamp(28px, 4vw, 56px);
-  padding-top: clamp(20px, 3vw, 42px);
+  padding-top: var(--storefront-gutter);
 }
 
 .pdp__gallery {
   position: sticky;
-  top: 92px;
+  top: calc(var(--site-header-height) + var(--storefront-gutter));
 }
 
 .pdp__media {
   aspect-ratio: 7 / 8;
   border-radius: var(--radius);
+  border: 0;
   background: var(--surface-muted);
 }
 
@@ -2934,16 +2953,20 @@ main:focus {
 }
 
 .pdp__thumbs {
-  grid-template-columns: repeat(auto-fit, minmax(64px, 1fr));
+  grid-template-columns: repeat(auto-fit, var(--pdp-thumbnail-size));
+  justify-content: start;
 }
 
 .pdp__thumb {
   border-radius: var(--radius);
+  border: 0;
 }
 
 .pdp__thumb-image {
   width: 100%;
   height: 100%;
+  border: 0;
+  border-radius: inherit;
   background: var(--surface-muted);
 }
 
@@ -2962,7 +2985,7 @@ main:focus {
 
 .pdp__description {
   color: var(--ink);
-  max-width: 42ch;
+  max-width: 50ch;
   margin-top: 14px;
   font-size: 0.98rem;
   line-height: 1.5;
@@ -2971,7 +2994,7 @@ main:focus {
 .pdp__purchase {
   align-self: start;
   position: sticky;
-  top: 92px;
+  top: calc(var(--site-header-height) + var(--storefront-gutter));
   display: grid;
   gap: 0;
 }
@@ -3143,7 +3166,7 @@ main:focus {
   isolation: isolate;
   width: 100%;
   aspect-ratio: 16 / 9;
-  margin-top: clamp(52px, 7vw, 92px);
+  margin-top: var(--storefront-gutter);
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: var(--pdp-panel-radius);
@@ -4767,7 +4790,7 @@ main:focus {
 }
 
 .pdp-reviews {
-  margin-top: clamp(56px, 8vw, 104px);
+  margin-top: var(--storefront-gutter);
   padding:
     clamp(28px, 4vw, 46px)
     var(--pdp-panel-padding)
@@ -4777,9 +4800,21 @@ main:focus {
 
 .pdp-discovery {
   position: relative;
-  margin: clamp(48px, 7vw, 88px) auto 0;
+  margin: var(--storefront-gutter) auto;
   padding-top: clamp(28px, 4vw, 46px);
   border: 0;
+}
+
+@media (min-width: 861px) {
+  .pdp__media {
+    height: calc(
+      100svh - var(--site-header-height) -
+        (2 * var(--storefront-gutter)) - var(--pdp-gallery-gap) -
+        var(--pdp-thumbnail-size)
+    );
+    min-height: 0;
+    aspect-ratio: auto;
+  }
 }
 
 .pdp-reviews__overview {
@@ -7201,6 +7236,10 @@ main:focus {
     position: static;
   }
 
+  .pdp__thumbs {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
   .pdp-section,
   .pdp-editorial-pair {
     grid-template-columns: 1fr;
@@ -7429,6 +7468,10 @@ main:focus {
   .pdp__gallery,
   .pdp__purchase {
     position: static;
+  }
+
+  .pdp__thumbs {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
   .pdp__media {

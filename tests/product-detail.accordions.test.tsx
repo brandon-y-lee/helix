@@ -342,6 +342,71 @@ describe("ProductDetail purchase accordions", () => {
     );
   });
 
+  it("deduplicates gallery roles by normalized asset identity", () => {
+    const sharedAsset =
+      "https://ERASOGMSQPGIIROVUBJH.supabase.co/storage/v1/object/public/mei-pelle-catalog/products/treat/primary/hash.webp";
+    const media: Product["media"] = [
+      {
+        kind: "image",
+        url: `${sharedAsset}?width=1400`,
+        alt: "TREAT detail",
+        width: 1400,
+        height: 1867,
+        role: "detail",
+        sortOrder: 4,
+        paletteId: null,
+        palette: null,
+      },
+      {
+        kind: "placeholder",
+        url: null,
+        alt: "TREAT gallery surface one",
+        width: null,
+        height: null,
+        role: "gallery",
+        sortOrder: 2,
+        paletteId: "gallery-one",
+        palette: { start: "#edf4f5", end: "#87a3aa" },
+      },
+      {
+        kind: "placeholder",
+        url: null,
+        alt: "TREAT gallery surface two",
+        width: null,
+        height: null,
+        role: "gallery",
+        sortOrder: 3,
+        paletteId: "gallery-two",
+        palette: { start: "#87a3aa", end: "#edf4f5" },
+      },
+      {
+        kind: "image",
+        url: `${sharedAsset}#card`,
+        alt: "TREAT card",
+        width: 1400,
+        height: 1867,
+        role: "card_default",
+        sortOrder: 0,
+        paletteId: null,
+        palette: null,
+      },
+    ];
+
+    render(<ProductDetail product={makeProduct({ media })} />);
+
+    expect(
+      within(screen.getByRole("group", { name: "Product hue views" })).getAllByRole(
+        "button",
+      ),
+    ).toHaveLength(3);
+    expect(
+      screen.getByRole("button", { name: "View hue 1 of 3" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(
+      screen.queryByRole("button", { name: "View hue 4 of 4" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("fails honestly when key ingredients or full INCI are unavailable", async () => {
     const user = userEvent.setup();
     render(
