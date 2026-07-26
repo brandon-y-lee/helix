@@ -59,7 +59,7 @@ async function readPanelGeometry(
   });
 }
 
-test("System and About hero panels reuse the Shop hero shell geometry", async ({
+test("System and About keep their shared editorial frame inside the fluid Shop shell", async ({
   page,
 }) => {
   for (const viewport of [
@@ -72,16 +72,21 @@ test("System and About hero panels reuse the Shop hero shell geometry", async ({
     const method = await readPanelGeometry(page, "/system", ".method-hero");
     const about = await readPanelGeometry(page, "/about", ".about-hero");
 
+    expect(method.panel).not.toBeNull();
+    expect(about.panel).not.toBeNull();
+    expectCloseTo(method.panel?.x ?? 0, about.panel?.x ?? 0);
+    expectCloseTo(method.panel?.right ?? 0, about.panel?.right ?? 0);
+    expectCloseTo(method.panel?.top ?? 0, about.panel?.top ?? 0);
+    expect(method.panel?.borderRadius).toBe(about.panel?.borderRadius);
+
     for (const target of [method, about]) {
       expect(target.panel).not.toBeNull();
       expect(shop.panel).not.toBeNull();
       expect(target.header).not.toBeNull();
       expect(target.hueField).not.toBeNull();
 
-      expectCloseTo(target.panel?.x ?? 0, shop.panel?.x ?? 0);
-      expectCloseTo(target.panel?.right ?? 0, shop.panel?.right ?? 0);
-      expectCloseTo(target.panel?.top ?? 0, shop.panel?.top ?? 0);
-      expect(target.panel?.borderRadius).toBe(shop.panel?.borderRadius);
+      expect(target.panel?.x ?? 0).toBeGreaterThanOrEqual((shop.panel?.x ?? 0) - 1);
+      expect(target.panel?.right ?? 0).toBeLessThanOrEqual((shop.panel?.right ?? 0) + 1);
       expect(target.panel?.borderRadius ?? 0).toBeGreaterThan(0);
       expect(target.panel?.top ?? 0).toBeGreaterThanOrEqual(
         (target.header?.bottom ?? 0) - 1,

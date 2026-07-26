@@ -135,7 +135,7 @@ function ReviewRow({ review }: { review: ProductReviewFixture }) {
           )}
         </div>
         <h3>{review.title}</h3>
-        <p>{review.body}</p>
+        <p className="storefront-reading">{review.body}</p>
         {reviewDetails.length > 0 && (
           <dl className="review-row__details">
             {reviewDetails.map((item) => (

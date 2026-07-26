@@ -16,6 +16,8 @@
   --site-header-height: 64px;
   --drawer-w: min(520px, 100vw);
   --page-gutter: 24px;
+  --storefront-gutter: max(16px, 2.25vw);
+  --reading-width: 66ch;
   --shadow: 0 1px 2px rgba(17, 19, 18, 0.05), 0 18px 48px rgba(17, 19, 18, 0.12);
   --motion-fast: 140ms;
   --motion-panel: 240ms;
@@ -99,6 +101,20 @@ main[data-header-layout="overlay"] {
   max-width: var(--maxw);
   margin: 0 auto;
   padding: 0 var(--page-gutter);
+}
+
+.storefront-shell,
+.storefront-carousel-shell {
+  width: 100%;
+  max-width: none;
+  margin-inline: auto;
+  padding-inline: var(--storefront-gutter);
+  box-sizing: border-box;
+}
+
+.storefront-reading {
+  width: 100%;
+  max-width: var(--reading-width);
 }
 
 /* ---------- Header ---------- */
@@ -187,7 +203,7 @@ main[data-header-layout="overlay"] {
   margin-top: 0;
   padding:
     0
-    var(--page-gutter)
+    0
     clamp(20px, 2vw, 32px);
   color: var(--ink);
   background: var(--bg);
@@ -196,7 +212,7 @@ main[data-header-layout="overlay"] {
 
 .site-footer__inner {
   width: 100%;
-  max-width: 1840px;
+  max-width: none;
   margin: 0 auto;
 }
 
@@ -1794,9 +1810,8 @@ main:focus {
 
 .site-header__bar {
   width: 100%;
-  max-width: calc(var(--maxw) + 80px);
+  max-width: none;
   margin: 0 auto;
-  padding: 0 32px;
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
@@ -2425,7 +2440,6 @@ main:focus {
 
 @media (max-width: 920px) {
   .site-header__bar {
-    padding: 0 20px;
     grid-template-columns: 1fr auto 1fr;
   }
 
@@ -2868,7 +2882,6 @@ main:focus {
 }
 
 .shop-toolbar {
-  max-width: var(--maxw);
   padding-top: 20px;
 }
 
@@ -4733,9 +4746,8 @@ main:focus {
 
 .pdp-discovery {
   position: relative;
-  width: min(100%, 1800px);
   margin: clamp(48px, 7vw, 88px) auto 0;
-  padding: clamp(28px, 4vw, 46px) var(--page-gutter) 0;
+  padding-top: clamp(28px, 4vw, 46px);
   border-top: 1px solid var(--line);
 }
 
@@ -5021,10 +5033,7 @@ main:focus {
   left: 50%;
   bottom: 0;
   z-index: 45;
-  width: min(
-    calc(100% - (2 * var(--page-gutter))),
-    calc(var(--maxw) - (2 * var(--page-gutter)))
-  );
+  width: calc(100% - (2 * var(--storefront-gutter)));
   display: grid;
   grid-template-columns: minmax(250px, 1fr) minmax(150px, 0.7fr) minmax(270px, 0.9fr);
   gap: clamp(20px, 2.6vw, 38px);
@@ -7541,7 +7550,7 @@ main:focus {
   }
 
   .pdp-discovery {
-    padding-inline: clamp(16px, 5vw, 24px);
+    padding-inline: var(--storefront-gutter);
   }
 
   .review-meter__track {
@@ -7558,7 +7567,7 @@ main:focus {
     left: 50%;
     right: auto;
     bottom: 0;
-    width: calc(100% - (2 * var(--page-gutter)));
+    width: calc(100% - (2 * var(--storefront-gutter)));
     max-width: none;
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 10px 12px;
@@ -8561,9 +8570,7 @@ main:focus {
 }
 
 .home-beyond-shell {
-  width: min(100%, 1800px);
   margin: 0 auto;
-  padding-inline: var(--page-gutter);
 }
 
 .home-beyond-carousel {
@@ -8806,10 +8813,7 @@ main:focus {
 .home-three-principles-panel {
   --home-principles-panel-block: clamp(96px, 8.2vw, 156px);
   --home-principles-title-block: clamp(24px, 3.2vw, 52px);
-  --home-principles-panel-inline: max(
-    var(--page-gutter),
-    calc(((100vw - var(--maxw)) / 2) + var(--page-gutter))
-  );
+  --home-principles-panel-inline: var(--storefront-gutter);
   position: relative;
   display: grid;
   align-items: stretch;
@@ -9479,7 +9483,7 @@ main:focus {
   }
 
   .home-beyond-shell {
-    padding-inline: clamp(16px, 5vw, 24px);
+    padding-inline: var(--storefront-gutter);
   }
 
   .home-beyond-carousel {

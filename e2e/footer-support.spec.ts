@@ -254,7 +254,10 @@ test("global footer uses a flat responsive composition with newsletter-first ord
       expect(theme.layout.newsletterBeforeNavigation).toBe(true);
       expect(theme.layout.supportCount).toBe(0);
       expect(theme.layout.wordmarkCount).toBe(1);
-      expect(theme.layout.wordmarkFrame?.width).toBeCloseTo(theme.layout.inner?.width ?? 0, 0);
+      expect(theme.layout.wordmarkFrame?.width).toBeCloseTo(
+        theme.layout.wordmarkBand?.width ?? 0,
+        0,
+      );
       expect(theme.layout.wordmarkRunwayCount).toBe(0);
       expect(theme.layout.wordmarkStageCount).toBe(0);
       expect(theme.layout.wordmarkBand?.height ?? Number.POSITIVE_INFINITY)

@@ -78,6 +78,7 @@ type ProductCardProps = {
   product: Product;
   className?: string;
   defaultImage?: ProductCardImageOverride;
+  imageSizes?: string;
   quickBuyOpen?: boolean;
   previewKey?: string;
   style?: CSSProperties;
@@ -101,6 +102,7 @@ export function ProductCard({
   product,
   className,
   defaultImage,
+  imageSizes,
   quickBuyOpen,
   previewKey,
   style,
@@ -159,7 +161,9 @@ export function ProductCard({
   const priceLabel = `${hasRange ? "From " : ""}${formatPrice(startingPrice)}`;
   const displayName = product.displayName;
   const cardImageSizes =
-    defaultImage?.sizes ?? "(max-width: 720px) 92vw, (max-width: 1180px) 33vw, 420px";
+    defaultImage?.sizes ??
+    imageSizes ??
+    "(max-width: 1020px) 48vw, 33vw";
   const defaultImageStyle = defaultImage
     ? ({
         "--product-card-image-object-position":

@@ -196,7 +196,10 @@ export function Header() {
       <a href="#content" className="skip-link">
         Skip to main content
       </a>
-      <div className="site-header__bar">
+      <div
+        className="storefront-shell site-header__bar"
+        data-layout-shell="storefront"
+      >
         <button
           ref={menuTriggerRef}
           type="button"

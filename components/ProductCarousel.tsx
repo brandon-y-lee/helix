@@ -613,6 +613,7 @@ function ProductCarouselTrack({
           key={product.slug}
           product={product}
           className="home-beyond-carousel__card"
+          imageSizes="(max-width: 720px) 88vw, (max-width: 1199px) 48vw, 33vw"
           quickBuyOpen={openQuickBuyProductId === product.id}
           previewKey={previewKeyBySlug?.[product.slug]}
           onPreviewChange={onPreviewChange}

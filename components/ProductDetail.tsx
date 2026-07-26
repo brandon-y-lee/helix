@@ -575,7 +575,7 @@ export function ProductDetail({
           <p className="pdp__collection">{routineLabel}</p>
           <h1>{product.displayName}</h1>
           <p className="pdp__tagline">{product.cardTagline}</p>
-          <p className="pdp__description">{leadDescription}</p>
+          <p className="pdp__description storefront-reading">{leadDescription}</p>
           <p className="pdp__price">
             {variant ? formatPrice(variant.price) : "—"}
           </p>
@@ -750,6 +750,7 @@ export function ProductDetail({
 
       <div
         className="pdp-sticky-purchase"
+        data-layout-shell="storefront-fixed"
         data-visible={stickyVisible}
         aria-hidden={!stickyVisible}
       >

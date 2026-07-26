@@ -19,14 +19,22 @@ export default async function ProductsPage({
 
   return (
     <>
-      <section className="container shop-hero" aria-labelledby="shop-heading">
+      <section
+        className="storefront-shell shop-hero"
+        aria-labelledby="shop-heading"
+        data-layout-shell="storefront"
+      >
         <div className="shop-hero__surface">
           <p>THE CORE / BEYOND THE CORE</p>
           <h1 id="shop-heading">RAISE YOUR BASELINE.</h1>
         </div>
       </section>
       {isEmpty ? (
-        <section className="container" style={{ paddingTop: "32px" }}>
+        <section
+          className="storefront-shell"
+          data-layout-shell="storefront"
+          style={{ paddingTop: "32px" }}
+        >
           <p style={{ color: "var(--ink-soft)" }}>
             No products are available right now.
           </p>

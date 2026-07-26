@@ -33,7 +33,10 @@ export function HomeBeyondCoreShowcase({
       className="home-section home-section--beyond"
       aria-labelledby="beyond-heading"
     >
-      <div className="home-beyond-shell">
+      <div
+        className="storefront-carousel-shell home-beyond-shell"
+        data-layout-shell="carousel"
+      >
         <div className="home-section__intro home-section__intro--wide">
           <p className="hero__eyebrow">Beyond The Core</p>
           <h2 id="beyond-heading" className="sr-only">

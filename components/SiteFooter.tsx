@@ -17,12 +17,15 @@ export function SiteFooter() {
       data-site-footer
       aria-labelledby="site-footer-heading"
     >
-      <div className="site-footer__inner">
+      <div
+        className="storefront-shell site-footer__inner"
+        data-layout-shell="storefront"
+      >
         <FooterWordmark />
 
         <div className="site-footer__primary">
           <section
-            className="site-footer__updates"
+            className="site-footer__updates storefront-reading"
             aria-labelledby="site-footer-updates-heading"
           >
             <p className="eyebrow">{footerUpdateModule.eyebrow}</p>

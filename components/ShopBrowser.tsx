@@ -92,7 +92,10 @@ export function ShopBrowser({
 
   return (
     <>
-      <div className="container shop-toolbar">
+      <div
+        className="storefront-shell shop-toolbar"
+        data-layout-shell="storefront"
+      >
         <div
           className="filter-chips"
           role="group"
@@ -139,7 +142,11 @@ export function ShopBrowser({
         </div>
       </div>
 
-      <section className="container" style={{ paddingTop: "24px" }}>
+      <section
+        className="storefront-shell shop-grid-shell"
+        data-layout-shell="storefront"
+        style={{ paddingTop: "24px" }}
+      >
         {visible.length === 0 ? (
           <p style={{ color: "var(--ink-soft)" }}>
             No products match this collection.

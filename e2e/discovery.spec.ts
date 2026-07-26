@@ -1538,6 +1538,9 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
       whyZoomMotion: whyZoom?.getAttribute("data-scroll-zoom-motion") ?? "",
       whyImageTransform: whyImage ? getComputedStyle(whyImage).transform : "",
       pageGutter: getComputedStyle(document.documentElement).getPropertyValue("--page-gutter").trim(),
+      storefrontGutter: whyPrinciples
+        ? getComputedStyle(whyPrinciples).paddingLeft
+        : "",
       plugSectionBox: box(plugSection),
       plugMediaBox: box(plugMedia),
       plugPanelBox: box(plugPanel),
@@ -1600,9 +1603,10 @@ test("homepage core narrative uses taller why and asymmetric plug video sections
   expect(mobilePrincipleButtonGaps).toEqual([0, 0]);
   expect(mobile.whyVisualOverlayCount).toBe(0);
   expect(Number.parseFloat(mobile.pageGutter)).toBe(18);
-  expect(Math.abs((mobile.whyTitleBox?.left ?? 0) - Number.parseFloat(mobile.pageGutter)))
+  expect(Number.parseFloat(mobile.storefrontGutter)).toBe(16);
+  expect(Math.abs((mobile.whyTitleBox?.left ?? 0) - Number.parseFloat(mobile.storefrontGutter)))
     .toBeLessThanOrEqual(1);
-  expect(Math.abs((mobile.whyListBox?.left ?? 0) - Number.parseFloat(mobile.pageGutter)))
+  expect(Math.abs((mobile.whyListBox?.left ?? 0) - Number.parseFloat(mobile.storefrontGutter)))
     .toBeLessThanOrEqual(1);
   expect(mobile.whyTitleBox?.top ?? 0).toBeGreaterThanOrEqual(mobile.whyPrinciplesBox?.top ?? 0);
   expect(mobile.whyTitleBox?.bottom ?? 0).toBeLessThan(mobile.principleDescriptionBox?.top ?? 0);
@@ -1793,7 +1797,11 @@ test("PDP reviews precede the shared three-product discovery carousel", async ({
     ).map((card) => card.getAttribute("data-product-card-slug"));
     const sectionOrder = Array.from(
       document.querySelectorAll(".pdp-reviews, .pdp-discovery"),
-    ).map((section) => section.className);
+    ).map((section) =>
+      section.classList.contains("pdp-reviews")
+        ? "pdp-reviews"
+        : "pdp-discovery",
+    );
 
     return {
       sectionOrder,

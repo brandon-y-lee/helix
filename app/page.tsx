@@ -148,8 +148,11 @@ export default async function HomePage() {
       <HomeBeyondCoreShowcase products={beyondCoreProducts} />
 
       <section className="home-band home-section" aria-labelledby="ingredients-heading">
-        <div className="container home-split home-split--ingredients">
-          <div>
+        <div
+          className="storefront-shell home-split home-split--ingredients"
+          data-layout-shell="storefront"
+        >
+          <div className="storefront-reading">
             <h2 id="ingredients-heading">Know what you are using.</h2>
             <p>
               Learn how our formulas nourish your skin--instantly, and years down the line. <br />

@@ -24,7 +24,7 @@ const CORE_CARD_IMAGES_BY_SLUG = {
     height: 1650,
     objectPosition: "50% 54%",
     presentation: "full-frame",
-    sizes: "(max-width: 720px) 92vw, (max-width: 1180px) 33vw, 420px",
+    sizes: "(max-width: 900px) 92vw, 33vw",
   },
   "treat-03-pdrn-5-ampoule": {
     src: "/media/home/treat-core-card.webp",
@@ -33,7 +33,7 @@ const CORE_CARD_IMAGES_BY_SLUG = {
     height: 1867,
     objectPosition: "50% 54%",
     presentation: "full-frame",
-    sizes: "(max-width: 720px) 92vw, (max-width: 1180px) 33vw, 420px",
+    sizes: "(max-width: 900px) 92vw, 33vw",
   },
   "seal-05-green-collagen-cream": {
     src: "/media/home/seal-core-card.webp",
@@ -42,7 +42,7 @@ const CORE_CARD_IMAGES_BY_SLUG = {
     height: 1867,
     objectPosition: "50% 57%",
     presentation: "full-frame",
-    sizes: "(max-width: 720px) 92vw, (max-width: 1180px) 33vw, 420px",
+    sizes: "(max-width: 900px) 92vw, 33vw",
   },
 } as const satisfies Readonly<Record<string, ProductCardImageOverride>>;
 
@@ -56,8 +56,9 @@ export function HomeCoreShowcase({ products }: { products: Product[] }) {
   return (
     <section
       id="core-three"
-      className="container home-section home-section--core"
+      className="storefront-shell home-section home-section--core"
       aria-labelledby="core-three-heading"
+      data-layout-shell="storefront"
     >
       <div className="home-section__intro home-section__intro--core">
         <p className="hero__eyebrow">The Core</p>

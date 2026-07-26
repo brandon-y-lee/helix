@@ -60,7 +60,7 @@ export default async function ProductDetailPage({
 
   return (
     <>
-      <div className="container">
+      <div className="storefront-shell" data-layout-shell="storefront">
         <ProductDetail
           key={product.slug}
           product={product}
