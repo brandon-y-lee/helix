@@ -29,8 +29,14 @@ export function PdpProfileSplit({
       ref={rootRef}
       className="pdp-profile-split"
       aria-labelledby="pdp-profile-heading"
+      data-pdp-panel-row="profile"
+      data-pdp-panel-mode="independent"
     >
-      <div className="pdp-profile-split__content">
+      <div
+        className="pdp-profile-split__content"
+        data-pdp-panel
+        data-pdp-panel-kind="copy"
+      >
         <h2 id="pdp-profile-heading" aria-label={profileTitle}>
           {presentation.profileTitle.map((token, index) =>
             token.emphasis ? (
@@ -49,12 +55,16 @@ export function PdpProfileSplit({
           ))}
         </dl>
       </div>
-      <div className="pdp-profile-split__media">
+      <div
+        className="pdp-profile-split__media"
+        data-pdp-panel
+        data-pdp-panel-kind="media"
+      >
         <Image
           src={media.url}
           alt={media.alt}
           fill
-          sizes="(max-width: 860px) 100vw, 50vw"
+          sizes="(max-width: 820px) 100vw, 50vw"
           style={{ objectPosition: presentation.profileMediaPosition }}
         />
       </div>

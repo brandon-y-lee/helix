@@ -96,6 +96,10 @@ export function PdpRoutineVideo({
       ref={rootRef}
       className="pdp-routine-video"
       aria-label={`${productName} routine video`}
+      data-pdp-panel-row="routine-video"
+      data-pdp-panel-mode="single"
+      data-pdp-panel
+      data-pdp-panel-kind="media"
       data-activated={activated}
       data-error={error}
     >

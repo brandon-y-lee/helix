@@ -10,6 +10,7 @@ const VIEWPORTS = [
 
 const CORE_PDP_PATH = "/products/treat-03-pdrn-5-ampoule";
 const GEOMETRY_TOLERANCE = 1.5;
+const PDP_PANEL_VIEWPORTS = [390, 768, 820, 821, 1024, 1440, 1920, 2560];
 
 type ShellGeometry = {
   clientWidth: number;
@@ -75,6 +76,37 @@ async function gridColumnCount(grid: Locator) {
   return grid.evaluate((element) =>
     getComputedStyle(element).gridTemplateColumns.split(" ").filter(Boolean).length,
   );
+}
+
+async function panelRowGeometry(row: Locator) {
+  return row.evaluate((element) => {
+    const style = getComputedStyle(element);
+    const panels = Array.from(
+      element.querySelectorAll<HTMLElement>(":scope > [data-pdp-panel]"),
+    ).map((panel) => {
+      const rect = panel.getBoundingClientRect();
+      const panelStyle = getComputedStyle(panel);
+
+      return {
+        height: rect.height,
+        left: rect.left,
+        overflow: panelStyle.overflow,
+        radius: Number.parseFloat(panelStyle.borderTopLeftRadius),
+        top: rect.top,
+        width: rect.width,
+      };
+    });
+    const rect = element.getBoundingClientRect();
+
+    return {
+      columnGap: Number.parseFloat(style.columnGap),
+      height: rect.height,
+      overflow: style.overflow,
+      radius: Number.parseFloat(style.borderTopLeftRadius),
+      rowGap: Number.parseFloat(style.rowGap),
+      panels,
+    };
+  });
 }
 
 test("home storefront shells stay fluid across supported viewports", async ({
@@ -222,4 +254,156 @@ test("Core PDP modules, discovery, and sticky purchase use the fluid frame", asy
     await expect(page.locator(".pdp-discovery__carousel")).toBeAttached();
     await expectNoHorizontalPageOverflow(page);
   }
+});
+
+test("Core PDP panel rows keep their responsive geometry and connected exception", async ({
+  page,
+}) => {
+  for (const width of PDP_PANEL_VIEWPORTS) {
+    await page.setViewportSize({ width, height: width <= 820 ? 900 : 1080 });
+    await page.goto(CORE_PDP_PATH);
+
+    const sequence = page.locator("[data-pdp-panel-sequence]");
+    const sequenceGap = await sequence.evaluate((element) =>
+      Number.parseFloat(getComputedStyle(element).rowGap),
+    );
+    const expectedGap = width <= 820 ? 8 : Math.max(16, width * 0.0225);
+    const heroGeometry = await page.locator(".pdp").evaluate((element) => {
+      const style = getComputedStyle(element);
+
+      return {
+        gap: Number.parseFloat(style.columnGap),
+        radius: Number.parseFloat(style.borderTopLeftRadius),
+      };
+    });
+    const expectedHeroGap = Math.min(56, Math.max(28, width * 0.04));
+
+    expect(Math.abs(sequenceGap - expectedGap)).toBeLessThanOrEqual(
+      GEOMETRY_TOLERANCE,
+    );
+    expect(Math.abs(heroGeometry.gap - expectedHeroGap)).toBeLessThanOrEqual(
+      GEOMETRY_TOLERANCE,
+    );
+    expect(heroGeometry.radius).toBe(0);
+    await expect(page.locator(".pdp")).not.toHaveAttribute(
+      "data-pdp-panel-row",
+    );
+
+    for (const rowName of [
+      "profile",
+      "application",
+      "ingredients",
+      "core-routine",
+    ]) {
+      const row = page.locator(`[data-pdp-panel-row="${rowName}"]`);
+      const geometry = await panelRowGeometry(row);
+
+      expect(geometry.panels).toHaveLength(2);
+      expect(
+        Math.abs(
+          (width <= 820 ? geometry.rowGap : geometry.columnGap) - expectedGap,
+        ),
+      ).toBeLessThanOrEqual(GEOMETRY_TOLERANCE);
+
+      for (const panel of geometry.panels) {
+        expect(Math.abs(panel.radius - 12)).toBeLessThanOrEqual(
+          GEOMETRY_TOLERANCE,
+        );
+      }
+
+      const [first, second] = geometry.panels;
+      if (width <= 820) {
+        expect(Math.abs(first.left - second.left)).toBeLessThanOrEqual(
+          GEOMETRY_TOLERANCE,
+        );
+        expect(Math.abs(first.width - second.width)).toBeLessThanOrEqual(
+          GEOMETRY_TOLERANCE,
+        );
+        expect(Math.abs(second.top - (first.top + first.height) - 8)).toBeLessThanOrEqual(
+          GEOMETRY_TOLERANCE,
+        );
+        expect(first.height).toBeGreaterThan(100);
+        if (rowName === "profile") {
+          expect(Math.abs(first.height - second.height)).toBeGreaterThan(10);
+        }
+      } else {
+        expect(Math.abs(first.width - second.width)).toBeLessThanOrEqual(
+          GEOMETRY_TOLERANCE,
+        );
+        expect(Math.abs(first.height - second.height)).toBeLessThanOrEqual(
+          GEOMETRY_TOLERANCE,
+        );
+        expect(
+          Math.abs(second.left - (first.left + first.width) - expectedGap),
+        ).toBeLessThanOrEqual(GEOMETRY_TOLERANCE);
+      }
+
+      const mediaPanel = row.locator(
+        ':scope > [data-pdp-panel-kind="media"]',
+      );
+      await expect(mediaPanel).toHaveCSS("overflow", "hidden");
+    }
+
+    const outcome = await panelRowGeometry(
+      page.locator('[data-pdp-panel-row="outcome"]'),
+    );
+    const [outcomeFirst, outcomeSecond] = outcome.panels;
+
+    expect(outcome.panels).toHaveLength(2);
+    expect(Math.abs(outcome.radius - 12)).toBeLessThanOrEqual(
+      GEOMETRY_TOLERANCE,
+    );
+    expect(outcome.overflow).toBe("hidden");
+    expect(
+      Math.abs(
+        width <= 820
+          ? outcomeSecond.top - (outcomeFirst.top + outcomeFirst.height)
+          : outcomeSecond.left - (outcomeFirst.left + outcomeFirst.width),
+      ),
+    ).toBeLessThanOrEqual(GEOMETRY_TOLERANCE);
+    if (width > 820) {
+      expect(
+        Math.abs(outcomeFirst.height - outcomeSecond.height),
+      ).toBeLessThanOrEqual(GEOMETRY_TOLERANCE);
+    }
+
+    await expectNoHorizontalPageOverflow(page);
+  }
+});
+
+test("interactive PDP panels preserve their geometry after state changes", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 820, height: 900 });
+  await page.goto(CORE_PDP_PATH);
+
+  const application = page.locator('[data-pdp-panel-row="application"]');
+  const activeStep = application.locator(
+    '.pdp-application__step[data-state="active"]',
+  );
+  const initialCopy = await activeStep.textContent();
+  await application.getByRole("button", {
+    name: "Show next application step",
+  }).click();
+  await expect(activeStep).not.toHaveText(initialCopy ?? "");
+
+  const ingredients = page.locator('[data-pdp-panel-row="ingredients"]');
+  await ingredients.getByRole("button", {
+    name: "FULL INGREDIENTS LIST",
+  }).click();
+  await expect(
+    ingredients.locator('.pdp-ingredients__full[data-state="active"]'),
+  ).toBeVisible();
+
+  const ingredientsGeometry = await panelRowGeometry(ingredients);
+  expect(ingredientsGeometry.panels[0].height).toBeGreaterThan(200);
+  expect(
+    Math.abs(
+      ingredientsGeometry.panels[1].top -
+        (ingredientsGeometry.panels[0].top +
+          ingredientsGeometry.panels[0].height) -
+        8,
+    ),
+  ).toBeLessThanOrEqual(GEOMETRY_TOLERANCE);
+  await expectNoHorizontalPageOverflow(page);
 });

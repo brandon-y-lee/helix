@@ -44,8 +44,15 @@ export function PdpOutcomeSplit({
       ref={rootRef}
       className="pdp-outcome-split"
       aria-labelledby="pdp-outcome-heading"
+      data-pdp-panel-row="outcome"
+      data-pdp-panel-mode="connected"
     >
-      <div className="pdp-outcome-split__viewport" aria-hidden="true">
+      <div
+        className="pdp-outcome-split__viewport"
+        aria-hidden="true"
+        data-pdp-panel
+        data-pdp-panel-kind="media"
+      >
         <div
           className="pdp-outcome-split__track"
           style={{ "--pdp-outcome-index": active } as CSSProperties}
@@ -70,7 +77,11 @@ export function PdpOutcomeSplit({
         </div>
       </div>
 
-      <div className="pdp-outcome-split__content">
+      <div
+        className="pdp-outcome-split__content"
+        data-pdp-panel
+        data-pdp-panel-kind="copy"
+      >
         <p className="pdp-outcome-split__product">{productName}</p>
         <h2 id="pdp-outcome-heading">{presentation.outcomeHeading}</h2>
         <div

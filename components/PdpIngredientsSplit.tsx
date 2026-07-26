@@ -65,8 +65,14 @@ export function PdpIngredientsSplit({
       id={`pdp-ingredients-${productSlug}`}
       className="pdp-ingredients"
       aria-label={`${productName} ingredients`}
+      data-pdp-panel-row="ingredients"
+      data-pdp-panel-mode="independent"
     >
-      <div className="pdp-ingredients__content">
+      <div
+        className="pdp-ingredients__content"
+        data-pdp-panel
+        data-pdp-panel-kind="copy"
+      >
         <div
           id={disclosureId}
           className="pdp-ingredients__content-stack"
@@ -131,6 +137,8 @@ export function PdpIngredientsSplit({
       <div
         className="pdp-ingredients__media"
         data-testid="pdp-ingredients-media"
+        data-pdp-panel
+        data-pdp-panel-kind="media"
       >
         {fullInci && (
           <button

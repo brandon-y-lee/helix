@@ -64,8 +64,14 @@ export function PdpApplicationCarousel({
       ref={rootRef}
       className="pdp-application"
       aria-labelledby="pdp-application-heading"
+      data-pdp-panel-row="application"
+      data-pdp-panel-mode="independent"
     >
-      <div className="pdp-application__content">
+      <div
+        className="pdp-application__content"
+        data-pdp-panel
+        data-pdp-panel-kind="copy"
+      >
         <div
           className="pdp-application__swatches"
           role="group"
@@ -128,7 +134,12 @@ export function PdpApplicationCarousel({
         </p>
       </div>
 
-      <div className="pdp-application__visual" aria-hidden="true">
+      <div
+        className="pdp-application__visual"
+        aria-hidden="true"
+        data-pdp-panel
+        data-pdp-panel-kind="media"
+      >
         {steps.map((step, index) => (
           <div
             key={step.id}

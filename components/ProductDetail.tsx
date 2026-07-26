@@ -142,13 +142,23 @@ function PdpEditorialPair({
     <section
       className={`pdp-editorial-pair ${className}`.trim()}
       aria-labelledby={headingId}
+      data-pdp-panel-row="editorial"
+      data-pdp-panel-mode="independent"
     >
-      <div className="pdp-editorial-pair__panel pdp-editorial-pair__panel--headline">
+      <div
+        className="pdp-editorial-pair__panel pdp-editorial-pair__panel--headline"
+        data-pdp-panel
+        data-pdp-panel-kind="copy"
+      >
         <p className="eyebrow">{eyebrow}</p>
         <h2 id={headingId}>{heading}</h2>
         {summary && <p>{summary}</p>}
       </div>
-      <div className="pdp-editorial-pair__panel pdp-editorial-pair__panel--content">
+      <div
+        className="pdp-editorial-pair__panel pdp-editorial-pair__panel--content"
+        data-pdp-panel
+        data-pdp-panel-kind="copy"
+      >
         {children}
       </div>
     </section>
@@ -813,7 +823,11 @@ export function ProductDetail({
         </div>
       </div>
 
-      <section className="pdp-sections" aria-label={`${product.displayName} details`}>
+      <section
+        className="pdp-sections"
+        aria-label={`${product.displayName} details`}
+        data-pdp-panel-sequence
+      >
         {corePresentation && profileMedia && coreProfileReady ? (
           <>
             <PdpProfileSplit

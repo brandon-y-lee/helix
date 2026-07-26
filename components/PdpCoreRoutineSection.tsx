@@ -107,8 +107,14 @@ export function PdpCoreRoutineSection({
         products[activeIndex].routineStepNumber,
       )}
       data-direction={direction}
+      data-pdp-panel-row="core-routine"
+      data-pdp-panel-mode="independent"
     >
-      <div className="pdp-core-routine__content">
+      <div
+        className="pdp-core-routine__content"
+        data-pdp-panel
+        data-pdp-panel-kind="copy"
+      >
         <div className="pdp-core-routine__heading">
           <p className="eyebrow">The Core</p>
           <h2 id="pdp-core-routine-heading">
@@ -187,7 +193,12 @@ export function PdpCoreRoutineSection({
         </div>
       </div>
 
-      <div className="pdp-core-routine__visual" aria-hidden="true">
+      <div
+        className="pdp-core-routine__visual"
+        aria-hidden="true"
+        data-pdp-panel
+        data-pdp-panel-kind="media"
+      >
         {products.map((product, index) => {
           const state =
             index === activeIndex
