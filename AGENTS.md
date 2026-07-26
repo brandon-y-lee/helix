@@ -1,47 +1,41 @@
 # Mei Pelle — Codex Agent Rules
 
-Mei Pelle is an original, production-quality prestige men’s skincare ecommerce platform. Build durable software that can deploy cleanly to Vercel, serve real customers safely, and fail honestly when an external service is unavailable.
-
-The application may use verified non-production databases, sandboxes, and test credentials during implementation. That must not lower engineering quality or cause public copy to describe Mei Pelle as a demo, prototype, test store, or development platform.
+Mei Pelle is a production-quality prestige men’s skincare ecommerce platform for Vercel. Build durable software that serves real customers safely and fails honestly when dependencies are unavailable.
 
 Customer-facing name: `Mei Pelle`  
 Customer-facing wordmark: `MEI PELLE`
 
-Stable technical identifiers such as `mei-pelle` may remain where renaming would risk database, cookie, cache, URL, package, webhook, storage, deployment, or integration compatibility.
+Stable technical identifiers such as `mei-pelle` may remain when renaming risks compatibility. Verified non-production services and test credentials do not justify describing Mei Pelle publicly as a demo, prototype, or development store. Task prompts are scoped product deltas. This file contains durable project-wide rules, not an invitation to redesign adjacent systems or automate every possible check.
 
-Task prompts are scoped product deltas. This file contains durable operating rules and high-risk platform contracts.
-
-## 1. Source-of-Truth Order
+## 1. Instruction Priority
 
 Follow, in order:
 
 1. The current user request and explicit acceptance criteria.
 2. The most specific applicable `AGENTS.md`.
 3. This root `AGENTS.md`.
-4. Current repository code, tests, migrations, and maintained documentation.
-5. Verified linked non-production services and official provider documentation.
-6. Historical prompts and third-party references only as supporting context.
+4. Current code, tests, migrations, and maintained documentation.
+5. Verified non-production services and official provider documentation.
+6. Historical prompts and third-party references as supporting context only.
 
-Do not assume an earlier prompt completed correctly. Inspect the current repository and reproduce the present behavior before editing. Report material conflicts rather than silently preserving stale requirements.
+Inspect the current repository instead of assuming an earlier task completed correctly. Report material conflicts rather than silently preserving stale requirements.
 
-## 2. Production Execution Standard
+## 2. Smallest Complete Change
 
-For every task:
-
-- Provide a concise plan, then continue without waiting for confirmation.
-- Ask a question only when a missing decision would materially affect architecture, security, claims, irreversible data work, external cost, or product direction.
-- Implement a complete vertical slice; do not stop at scaffolding, mock UI, disconnected schema, TODOs, or placeholder copy.
+- Implement the smallest complete change that satisfies the request.
+- Treat scope as a constraint. Do not fix or redesign unrelated code merely because an improvement is possible.
 - Fix the root ownership layer rather than adding route-by-route patches.
 - Preserve established behavior unless the task explicitly changes it.
-- Keep scope disciplined and avoid unrelated redesigns, refactors, and dependencies.
-- Use existing project conventions before creating parallel systems.
-- Treat loading, empty, error, retry, cancellation, and recovery as part of the feature.
-- Never fake success, silently substitute data, or present unavailable functionality as operational.
-- Never claim a test, command, migration, browser check, or remote mutation passed unless it actually did.
+- Prefer deleting, consolidating, or extending existing code over creating a parallel system.
+- Add an abstraction only when the current task needs it and it removes net complexity for concrete current uses or isolates a genuinely high-risk boundary.
+- Do not add dependencies, services, wrappers, page-object hierarchies, custom DSLs, generalized infrastructure, or speculative extensibility when the current stack can solve the requirement simply.
+- Implement only relevant, reachable loading, empty, error, retry, cancellation, and recovery states. Do not build hypothetical future states.
+- Ask a question only when a missing decision materially affects architecture, security, claims, irreversible data work, external cost, or product direction.
+- Never fake success, silently substitute data, or claim an unrun check passed.
 
-Production quality includes security, accessibility, data integrity, performance, observability, responsive behavior, maintainability, and safe recovery—not only polished visuals.
+“Production quality” means an appropriately scoped implementation with correct security, accessibility, data integrity, reliability, performance, and recovery—not maximal code, abstraction, or test count.
 
-## 3. Required Preflight
+## 3. Proportional Preflight
 
 Before editing, run:
 
@@ -54,289 +48,166 @@ git log --oneline --max-count=10
 git worktree list
 ```
 
-Also:
+Then:
 
-- Read all applicable `AGENTS.md` files from the repository root to the target path.
-- Confirm the primary checkout, current branch, and active worktrees.
-- Preserve all uncommitted user work.
-- Inspect `package.json`, scripts, framework versions, environment documentation, relevant migrations, recent commits, and relevant tests.
-- Run the application and reproduce relevant UI behavior before changing it.
-- Verify current remote state before database, search-index, payment-provider, or catalog mutation.
+- Read applicable `AGENTS.md` files from the root to the target path.
+- Preserve uncommitted user work.
+- Inspect the owning implementation, direct callers, existing tests, and relevant scripts.
+- Reproduce current runtime or UI behavior when the task changes it.
+- Consult provider documentation only for version-specific, uncertain, or security-sensitive behavior.
+- Verify remote state only before a database, search-index, payment, catalog, or other remote mutation.
 
-Never reset, discard, overwrite, or blindly stash unrelated work.
+Do not start the full application, contact external services, perform broad repository archaeology, or run the full matrix for a documentation-only or narrowly local task without evidence it is needed. Never reset, discard, overwrite, or blindly stash unrelated work.
 
-## 4. Brand, Content, and Claims
+## 4. Testing and Verification
 
-Mei Pelle should feel editorial, modern, visually led, sparse, confident, ingredient-literate, and masculine without tactical or hyper-macho styling. It is influenced by South Korean formulation discipline and Los Angeles self-invention.
+Testing should maximize confidence per unit of maintenance cost. A larger suite is not inherently safer.
 
-Use Marcellus selectively for display and wordmark treatment. Use Manrope for functional UI and body text.
+### Choose the test before writing it
 
-Public support, legal, order, rewards, and service-status content must be complete and factual. Do not publish fake contact details, unsupported service levels, or placeholder policies.
+For every behavior change, determine:
 
-## 5. Reference Boundaries
+1. The externally observable behavior that changed.
+2. The plausible regression a test would catch.
+3. The existing test nearest to owning that behavior.
+4. The lowest reliable test layer.
+5. Whether existing coverage can be updated or consolidated instead of expanded.
 
-### Rhode
+“No new automated test” is valid when existing coverage already catches the regression and focused manual verification is sufficient. Do not add tests merely to make a change appear production-grade.
 
-Rhode may be studied for structural UX: editorial proportions, navigation, drawers, collections, product cards, PDP hierarchy, campaign media, support-page rhythm, and responsive interaction.
+### Test-layer ownership
 
-Do not copy Rhode’s assets, footage, branding, exact copy, source code, exact CSS, proprietary typography, campaign identity, or full trade dress.
+- **Unit:** pure logic, policies, calculations, sequencing, formatting, content selection, and mapping.
+- **Component:** local UI state, keyboard/focus behavior, loading/error rendering, and component accessibility.
+- **Route/integration:** handlers, authorization, validation, persistence, RLS-facing behavior, webhooks, and provider adapters.
+- **Playwright E2E:** critical multi-boundary customer journeys and behavior that truly requires a browser, navigation, scrolling, history, cross-route focus restoration, or touch/hover differences.
+- **Visual snapshots:** a few critical appearance contracts, only when deterministic infrastructure already exists.
 
-### Leaders Cosmetics
+Do not duplicate the same contract at multiple layers without a distinct failure mode.
 
-Leaders may inform verified supplier facts and supplier-aligned operational details: ingredients, percentages, directions, cautions, formats, sizes, prices, variants, provenance, shipping, returns, and related policies.
+### Test-writing rules
 
-Customer-facing naming, descriptions, merchandising, rewards language, palette, and presentation must remain Mei Pelle. Do not import supplier reviews, ratings, testimonials, loyalty branding, customer imagery, before-and-after imagery, or transient campaign copy. Do not hotlink supplier or Shopify media at runtime.
+- Update the nearest existing test before creating a new spec or suite.
+- Use one representative route, product, or record unless the defect is data-specific.
+- Use representative desktop (`1440 × 900`) and mobile (`390 × 844`) viewports. Add another width only for a documented breakpoint risk.
+- Do not create route × viewport, product × viewport, state × browser, or similar Cartesian matrices.
+- Do not turn every acceptance criterion or browser observation into a permanent assertion.
+- Do not reimplement CSS formulas or use functional E2E tests as handwritten visual-regression engines.
+- Avoid exact pixel, RGB, font, spacing, transform, animation-progress, and broad `getComputedStyle` assertions in functional E2E.
+- Avoid historical negative assertions about old copy, selectors, or layouts unless they protect a current security, privacy, legal, claims, accessibility, or commerce contract.
+- Prefer roles, labels, visible outcomes, URLs, and stable public state over private classes or DOM structure.
+- Do not use fixed sleeps. Wait for the actual state, event, network boundary, or web-first assertion.
+- Keep tests focused and readable. A test approaching roughly 150 lines needs clear browser-level justification and should usually be simplified or moved down a layer.
+- Remove or consolidate obsolete coverage when behavior changes instead of accumulating historical expectations.
+- Preserve high-risk payment, authorization, data-integrity, idempotency, and recovery coverage at the lowest reliable layer.
 
-For Stripe, Supabase, Algolia, Trustpilot, Vercel, Next.js, and other integrations, use current official documentation for security-sensitive or provider-specific behavior.
+### Browser inspection is not test generation
 
-## 6. Durable Product, System, and Policy Contracts
+For meaningful UI work, inspect the changed surface at desktop and mobile. Check only affected modalities and states, such as keyboard, pointer, touch, overlays, navigation, reduced motion, zoom, or overflow. Manual inspection does **not** require an automated assertion for every inspected detail.
 
-Verify these against the repository before changing them. Do not duplicate canonical product facts into static runtime fallbacks.
+### Proportional validation
 
-Current customer-facing product names:
+- Run focused tests while developing.
+- Before committing, run the smallest complete set covering the changed ownership layer and critical integration boundary.
+- Run the full unit suite, Playwright suite, production build, database checks, or provider smoke tests only when the change can affect them or CI requires them.
+- A documentation-only `AGENTS.md` change normally requires diff review and available Markdown validation, not the application suite.
+- Report external blockers exactly and never report a blocked check as passed.
 
-- `CLEANSE`
-- `REFINE`
-- `TREAT`
-- `FRAME`
-- `SEAL`
-- `LIFT`
+## 5. Brand, References, and Product Contracts
 
-Current System order:
+Mei Pelle should feel editorial, modern, visually led, sparse, confident, ingredient-literate, and masculine without tactical or hyper-macho styling. Use Marcellus selectively for display and wordmark treatment; use Manrope for functional UI and body text.
 
-- `01 CLEANSE`
-- `02 REFINE`
-- `03 TREAT`
-- `04 FRAME`
-- `05 SEAL`
-- `06 PROTECT`
-- `07 LIFT`
+Public support, legal, order, rewards, and service-status content must be factual. Do not publish fake contact details, placeholder policies, unsupported service levels, or unverified claims.
 
-Core-three routine:
+Rhode may inform structural UX, but do not copy its assets, footage, branding, exact copy, source code, exact CSS, proprietary typography, campaign identity, or full trade dress.
 
-- `CLEANSE` — cleanser
-- `TREAT` — treatment serum
-- `SEAL` — barrier cream
+Leaders Cosmetics may inform verified supplier facts and operational details. Customer-facing naming, merchandising, palette, and presentation remain Mei Pelle. Do not import supplier reviews, ratings, testimonials, loyalty branding, customer imagery, before-and-after imagery, transient campaign copy, or runtime supplier media.
 
-Customer-facing product-suite terminology is `The System` / `System` / `SYSTEM`, not `The Method` / `Method` / `METHOD`. The canonical route is `/system`; `/method` is legacy compatibility only and should redirect or alias to `/system` without becoming duplicate indexable content.
+Durable contracts:
 
-`PROTECT` is an editorial System step, not a commerce product, unless a future task explicitly creates a verified catalog item. Do not fabricate a product, variant, price, inventory record, PDP, cart action, or Algolia record for it.
+- Products: `CLEANSE`, `REFINE`, `TREAT`, `FRAME`, `SEAL`, `LIFT`.
+- System order: `01 CLEANSE`, `02 REFINE`, `03 TREAT`, `04 FRAME`, `05 SEAL`, `06 PROTECT`, `07 LIFT`.
+- Core: `CLEANSE` → `TREAT` → `SEAL`.
+- Customer-facing terminology is `The System` / `System` / `SYSTEM`; `/system` is canonical and `/method` is compatibility only.
+- `PROTECT` is editorial, not merchandise, unless a future task creates a verified catalog item.
+- The free-standard-shipping threshold is `$50.00`, stored as `5000` cents in one shared server-safe policy source.
 
-Legacy technical identifiers such as `reset`, `recode`, `method`, old migration filenames, hidden search aliases, and compatibility anchors may remain only when changing them would risk migrations, redirects, linked data, tests, or integration compatibility. They must not remain as canonical customer-facing product names, visible product-suite terminology, or active canonical routes.
+Legacy technical identifiers may remain only for compatibility; they must not remain canonical customer-facing names or routes. Keep transient copy, exact layouts, hero geometry, and one-off merchandising decisions in the implementation, current prompt, or focused product documentation. Automate only durable behavior that warrants regression protection.
 
-The canonical free-standard-shipping threshold is `$50.00`, represented as `5000` integer cents. Use one shared server-safe policy source.
+## 6. Architecture and Data Authority
 
-Keep rapidly changing campaign copy, page composition, hero geometry, and merchandising decisions in the repository, tests, focused documentation, or current task prompt—not in this file.
+- Use the installed Next.js conventions and deploy to Vercel.
+- Supabase is canonical for catalog and application data. Approved non-production project: `erasogmsqpgiirovubjh`.
+- Algolia powers interactive search; it is not the canonical PDP source.
+- Public catalog reads follow the repository’s cache and revalidation architecture. Customer-specific data must never be publicly cached.
+- Do not introduce a static runtime product fallback. Fixtures are for tests, seeds, imports, and controlled tooling only.
+- Product media must be project-controlled.
+- Prefer server components and server-side data for initial rendering. Add client components only where interaction requires them; do not make whole routes dynamic for small islands.
 
-## 7. Platform Architecture and Data Authority
+## 7. Authentication, Commerce, and Security
 
-- Framework: Next.js using the installed repository version and conventions.
-- Deployment target: Vercel.
-- Supabase is canonical for catalog and application data.
-- Linked non-production Supabase project reference: `erasogmsqpgiirovubjh`.
-- Algolia powers interactive search and is not the canonical PDP source.
-- Public catalog reads use the repository’s Next/Vercel caching and revalidation architecture.
-- Account, session, profile, cart, order, payment, rewards, referral, feedback, and other customer-specific data must never be publicly cached.
-- Do not introduce a static runtime product fallback catalog.
-- Static fixtures are for tests, seeds, imports, and controlled tooling only.
-- Product media must be project-controlled; do not add runtime supplier-media dependencies.
+Preserve the established Supabase SSR/cookie authentication and server-backed cart architecture. Keep browser and server clients separate and authorize protected data server-side. Never trust browser-submitted prices, totals, discounts, balances, availability, ownership, user IDs, order state, referral eligibility, or payment state.
 
-Prefer server components and server-side data access for initial rendering. Add client components only where interaction requires them. Avoid making whole routes dynamic for small interactive islands.
+Stripe remains sandbox/test only until explicit live-mode approval. Reject live keys, objects, and webhook events outside an approved live environment. Use server-authoritative cart and pricing data, integer minor units, immutable order snapshots, raw-body webhook verification, and idempotent event handling that tolerates retries and out-of-order delivery. Do not store card data, expose secrets, finalize solely from a redirect, clear carts, award rewards, or claim payment before server verification. Missing configuration must produce an honest unavailable state. Live payments, fulfillment, and customer communications require separate approval.
 
-Before adding infrastructure or dependencies, inspect whether the current stack already solves the need. New dependencies require a clear production benefit and acceptable maintenance cost.
+Orders, addresses, payment references, support messages, feedback, and fulfillment state are private. Enforce strict RLS and ownership checks, preserve historical order facts, and avoid logging PII or raw provider payloads.
 
-## 8. Authentication, Cart, Checkout, Orders, and Rewards
+Rewards and referrals require an immutable auditable ledger, transactional/idempotent changes, protection against concurrent overspending, and trusted server-side writes. Trustpilot reviews must never earn incentives. A private first-party feedback program may be rewarded only when clearly separate from public reviews and independent of sentiment.
 
-Preserve the established Supabase SSR/cookie authentication and server-backed cart architecture. Keep browser and server clients separate. Authorize protected data server-side.
+Apply least privilege, server-side validation, CSRF/origin protection, safe redirects, bounded abuse controls where supported, retry-safe webhooks, and auditable state. Fail closed when authorization, security, or provider checks fail. Keep secrets out of source, logs, browser bundles, screenshots, and errors. Privacy and legal content must describe actual behavior.
 
-Never trust browser-submitted prices, totals, discounts, rewards balances, availability, ownership, user IDs, order status, referral eligibility, or payment state. Resolve canonical values server-side.
-
-### Payments
-
-Any payment implementation must be production-designed but remain Stripe sandbox/test only until separate explicit live-mode approval.
-
-- Reject live keys, live objects, and live webhook events in non-live environments.
-- Never expose provider secrets or store payment-card data.
-- Use server-authoritative cart, pricing, discount, and shipping data.
-- Create immutable order and order-item snapshots using integer minor units.
-- Verify webhook signatures against the raw request body.
-- Process payment events idempotently and tolerate retries or out-of-order delivery.
-- Do not use a success redirect as the sole source of payment finalization.
-- Do not clear carts, award rewards, or claim payment before server verification.
-- Missing provider configuration must produce an honest unavailable state, not a crash or fake completion.
-- Live payments, real fulfillment, and live customer communications require separate approval and launch review.
-
-### Orders and customer data
-
-Orders, addresses, payment references, support messages, feedback, and fulfillment state are private. Enforce strict RLS and server-side ownership checks. Preserve historical order facts independently of future catalog changes. Avoid logging PII or raw provider payloads.
-
-### Rewards and referrals
-
-When rewards or referrals are present:
-
-- Use an immutable, auditable ledger rather than a mutable profile balance as the sole source of truth.
-- Award, reserve, capture, release, and reverse value transactionally and idempotently.
-- Prevent concurrent overspending and duplicate business events.
-- Keep writes behind trusted server boundaries.
-- Trustpilot reviews must never earn points, discounts, gifts, or other incentives.
-- A private first-party feedback program may be rewarded only when clearly separate from public reviews and independent of sentiment.
-
-## 9. Supabase, RLS, and Remote Data Safety
+## 8. Supabase and Remote-Mutation Safety
 
 Use only the verified non-production project. Never modify production data.
 
-Before remote mutation, run:
+Before mutation:
 
 ```bash
 pnpm dlx supabase projects list
 pnpm dlx supabase migration list
+pnpm dlx supabase db push --dry-run
 ```
 
-Confirm:
+Confirm project `erasogmsqpgiirovubjh`. Inspect schema and migration history; prefer additive changes; review RLS, grants, foreign keys, indexes, functions, triggers, and safe `search_path`; apply only understood changes; verify the resulting schema; run available database linting; regenerate types.
 
-```text
-erasogmsqpgiirovubjh
-```
+Every exposed application table requires appropriate RLS; public catalog writes are forbidden; privileged credentials remain server-only; security-definer functions require a fixed safe `search_path` and narrow grants. Never reset the linked database, weaken RLS, truncate broadly, delete real users or catalog history, force migration history, run destructive drops without explicit approval, or expose privileged credentials. Back up affected non-production data before bulk transformations. Prefer archiving over hard deletion and reconcile Supabase, cache state, and Algolia after bulk catalog changes.
 
-For migrations:
+## 9. UI, Accessibility, Reliability, and Performance
 
-1. Inspect the current schema and migration history.
-2. Prefer additive, non-destructive changes.
-3. Read every pending migration.
-4. Review RLS, grants, foreign keys, indexes, functions, triggers, and `search_path` safety.
-5. Run `pnpm dlx supabase db push --dry-run`.
-6. Apply only understood non-production changes.
-7. Verify migration history and resulting schema.
-8. Run linked database linting when available.
-9. Regenerate database types using the repository command.
+Own shared behavior in shared components or the application shell. Use semantic HTML and native controls; avoid nested interactive elements. Preserve affected focus trapping/restoration, Escape handling, body-scroll locking, keyboard and touch operation, reduced motion, visible focus, and truthful loading/error states.
 
-Never reset the linked database, weaken RLS, truncate broadly, delete real users or catalog history, run destructive drops without explicit approval, manipulate migration history merely to force a push, or expose secrets.
+Target WCAG 2.2 AA. Prevent layout shift and horizontal overflow, keep client bundles proportional, avoid N+1 queries and duplicate requests, preserve cache boundaries, and handle relevant provider latency or outage states honestly.
 
-Every exposed application table requires appropriate RLS. Public catalog writes are forbidden. Customers may access only their own protected data. Service-role and privileged credentials remain server-only. Security-definer functions require a fixed safe `search_path`, narrow grants, and explicit validation.
+## 10. Skills, Review Loops, Git, and Integration
 
-Prefer archiving over hard deletion. Back up relevant non-production data before bulk transformation. After bulk catalog changes, reconcile Supabase, cache state, and Algolia so stale records are removed.
+Skills and subagents are optional workflows; they do not expand the user’s request or override this file.
 
-## 10. Security, Privacy, and Reliability
+- Invoke a skill only when its trigger matches.
+- Do not start recursive improvement, repeated review/fix, or open-ended orchestration for an ordinary scoped task.
+- Any iterative workflow needs a finite objective and explicit stop condition. Report unrelated findings instead of automatically fixing them.
+- Review agents may suggest coverage, but every proposed test must satisfy the layer and non-duplication rules above.
+- Use subagents or worktrees only when parallelism clearly reduces risk or time; keep workstreams narrow and non-overlapping.
 
-Apply least privilege and server-side validation at every boundary.
+Preserve uncommitted user work, review the final diff for scope drift and unnecessary complexity, and commit only completed task-related work. Do not push unless requested. Do not amend, reset, force-push, or rewrite unrelated history. Remove completed temporary worktrees.
 
-- Authenticate and authorize every protected mutation.
-- Use framework-appropriate CSRF/origin protection.
-- Use idempotency for repeated external-service and money/value operations.
-- Bound abuse-prone endpoints where the current architecture supports it.
-- Reject open redirects and unsafe destinations.
-- Keep secrets out of source, logs, browser bundles, screenshots, and error messages.
-- Document environment variables in `.env.example` without values.
-- Do not fail open when a security check or provider call fails.
-- Make webhook and background processing retry-safe.
-- Preserve auditable state for orders, payments, rewards, referrals, refunds, and privileged corrections.
+## 11. Definition of Done and Reporting
 
-Privacy and legal content must describe actual data flows and providers. Do not claim capabilities, certifications, compliance guarantees, or data practices that are not implemented and verified.
+A task is complete when the requested behavior is implemented with the smallest reasonable diff; affected security, privacy, data, accessibility, and recovery boundaries are preserved; the lowest appropriate test layer is used; obsolete coverage is consolidated where relevant; the complete relevant validation set passes or exact blockers are documented; remote changes are verified in the approved non-production environment; and the final diff contains no secrets, debug output, temporary files, placeholder copy, or unrelated changes.
 
-## 11. UI, Accessibility, and Performance
+For meaningful tasks, report concisely:
 
-Own shared behavior in shared components or the application shell. Avoid duplicate listeners, state machines, and route-level patches.
-
-For meaningful UI work, handle default, loading, empty, error, success, disabled, pointer, keyboard-focus-visible, touch, overlay, route-transition, reduced-motion, and responsive states where relevant.
-
-Use semantic HTML and native controls. Avoid nested interactive elements. Preserve focus trapping and restoration, Escape handling, body-scroll locking, and keyboard operation. Ensure touch behavior does not depend on hover.
-
-Target WCAG 2.2 AA: logical headings, one meaningful H1, visible focus, labels and errors, live announcements, sufficient contrast, touch targets, reduced motion, 200% zoom, and no information conveyed by color alone.
-
-Build for Vercel and production traffic:
-
-- preserve caching correctness and server/client boundaries
-- never publicly cache customer data
-- avoid N+1 queries and duplicate external requests
-- keep client bundles proportional to the interaction
-- optimize and lazy-load media where appropriate
-- prevent layout shift and horizontal overflow
-- handle provider latency and unavailable states explicitly
-- keep builds reproducible without optional external credentials
-- avoid runtime requests to supplier storefronts
-
-## 12. Browser Inspection and Testing
-
-Use Codex Chrome for meaningful visual or interaction work.
-
-At minimum inspect:
-
-- desktop around `1440 × 900`
-- mobile around `390 × 844`
-
-Also inspect wide desktop, tablet, or additional mobile widths when the change affects wide composition, breakpoints, navigation, forms, sticky elements, tables, or checkout.
-
-Verify the current issue before the change and the result after it. Check keyboard, pointer, touch, route transitions, back/forward behavior, overlays, reduced motion, zoom, overflow, console errors, hydration warnings, failed requests, and exposed regression surfaces.
-
-Inspect `package.json` and use the repository’s actual scripts. Run focused tests while developing, then the complete relevant suite before committing. When available:
-
-```bash
-pnpm run lint
-pnpm run typecheck
-pnpm run test
-pnpm run build
-pnpm exec playwright test --reporter=list --timeout=30000 --workers=1
-```
-
-For database, catalog, search, payment, or provider work, also run the relevant migration, lint, type-generation, reconciliation, sandbox-sync, RLS, security, and opt-in sandbox smoke commands.
-
-Tests must use deterministic non-production data and must not depend on production users, live payments, real email delivery, real Trustpilot activity, or production Algolia records. Test authorization, idempotency, boundary values, duplicate events, cancellation, retries, and failure recovery for high-risk features.
-
-If an external blocker prevents one check, continue independent work, report the exact blocker, and do not report the blocked check as passed.
-
-## 13. Git, Subagents, and Integration
-
-The primary Codex session owns integration into `main`.
-
-- Confirm the primary checkout is on `main` before final integration.
-- Preserve uncommitted user work.
-- Review every final diff.
-- Commit only completed, verified work.
-- Do not push remotely unless explicitly requested.
-- Do not amend, reset, force-push, or rewrite unrelated history.
-
-Codex may use focused subagents, branches, and temporary worktrees when parallelism reduces risk or time. Keep workstreams narrow, avoid concurrent edits to shared files, require focused commits, and let the primary session own shared migrations, generated types, package scripts, conflict resolution, final browser verification, and final tests. Remove completed temporary worktrees.
-
-## 14. Definition of Done
-
-A task is complete only when:
-
-- the starting state and root cause were verified
-- the requested behavior is fully implemented
-- shared behavior is owned at the correct layer
-- data authority, security, and privacy boundaries are preserved
-- relevant loading, failure, responsive, keyboard, touch, reduced-motion, and recovery states are handled
-- customer-facing content is complete and truthful
-- remote changes were safely verified and applied only to the approved non-production environment
-- relevant tests, build, and browser verification passed, or exact blockers are documented
-- the final diff contains no secrets, debug output, temporary files, placeholder copy, or unrelated changes
-- verified work is committed to `main`
-- temporary worktrees are removed
-
-## 15. Completion Report
-
-For meaningful tasks, report:
-
-- verified starting state or root cause
-- implemented behavior and key decisions
+- starting state or root cause
+- behavior implemented and key decisions
 - files changed
-- migrations and non-production data changes, including whether applied
-- Supabase, Algolia, cache, Stripe, or other provider results when relevant
-- commands run and exact outcomes
-- routes, browsers, and viewports inspected
-- accessibility and interaction checks
-- screenshots or generated media paths when relevant
-- skipped checks, external blockers, and remaining launch dependencies
-- subagents and worktrees used
-- final commit hash
-- local run command
+- test impact, including tests updated, added, consolidated, or intentionally not added and why
+- commands and exact outcomes
+- relevant routes, browsers, and viewports inspected
+- remote changes, skipped checks, and blockers
+- skills, subagents, and worktrees used
+- final commit hash and local run command
 
-Keep the report factual and concise. Do not restate the full task prompt.
+Do not restate the full prompt.
 
-## 16. Maintaining This File
+## 12. Maintaining This File
 
-Keep `AGENTS.md` high-level and durable. It should contain production engineering standards, security and data-safety rules, architecture and source-of-truth contracts, brand and claims boundaries, high-risk commerce rules, and verification expectations.
-
-Do not add rapidly changing campaign copy, exact page layouts, one-off merchandising decisions, temporary feature specifications, or exhaustive acceptance criteria. Store those in the implementation, tests, focused documentation, or the current task prompt.
-
-Edit this file only when the user explicitly requests an instruction update or a durable project-wide contract intentionally changes.
+Keep `AGENTS.md` short, accurate, and durable—a map of project rules, not an implementation manual. Add rules only after a repeated failure pattern or deliberate project-wide contract change. Put task-specific acceptance criteria, transient layouts/copy, and detailed workflows in the current prompt or focused documentation. Edit this file only when the user explicitly requests it or a durable contract intentionally changes.
