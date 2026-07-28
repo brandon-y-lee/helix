@@ -4024,6 +4024,10 @@ main:focus {
   background: var(--pdp-outcome-surface);
 }
 
+.pdp-outcome-split__slide > img {
+  object-fit: cover;
+}
+
 .pdp-outcome-split__shape,
 .pdp-outcome-split__line {
   position: absolute;

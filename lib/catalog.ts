@@ -382,6 +382,7 @@ function ProductMediaRoleFromRow(role: string): ProductMedia["role"] {
     case "profile_editorial":
     case "ingredients_texture":
     case "core_routine_texture":
+    case "pdp_outcome":
       return role;
     default:
       return "gallery";

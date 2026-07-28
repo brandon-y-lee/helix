@@ -46,8 +46,8 @@ export function getCatalogInvalidationTargets(
     outcome?.oldRoutineGroup ?? asText(payload.old_record?.routine_group);
   const affectsCoreRoutine =
     isCoreRoutineTextureEvent(payload) ||
-    routineGroup === "core" ||
-    oldRoutineGroup === "core";
+    (payload.table === "products" &&
+      (routineGroup === "core" || oldRoutineGroup === "core"));
 
   if (slug) {
     tags.add(`product:${slug}`);

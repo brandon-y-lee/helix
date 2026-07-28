@@ -911,6 +911,7 @@ export function ProductDetail({
             <PdpOutcomeSplit
               productName={product.displayName}
               presentation={corePresentation}
+              productMedia={product.media}
             />
             <PdpApplicationCarousel
               productName={product.displayName}

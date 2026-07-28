@@ -158,7 +158,7 @@ describe("catalog search sync route", () => {
         record: {
           id: "media-editorial",
           product_id: "f6091deb-1177-45ad-b506-1f0427fa4abe",
-          role: "ingredients_texture",
+          role: "pdp_outcome",
         },
       }),
     );

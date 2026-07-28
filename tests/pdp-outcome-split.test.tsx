@@ -1,0 +1,136 @@
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
+import {
+  orderedPdpOutcomeMedia,
+  PdpOutcomeSplit,
+} from "@/components/PdpOutcomeSplit";
+import { corePdpPresentationBySlug } from "@/lib/content/core-pdp";
+import type { ProductMedia } from "@/lib/products";
+
+const presentation =
+  corePdpPresentationBySlug["cleanse-01-calming-gel-cleanser"];
+
+function outcomeMedia(sortOrder: number): ProductMedia {
+  return {
+    kind: "image",
+    url: `https://example.supabase.co/outcome-${sortOrder}.webp`,
+    alt: `CLEANSE outcome visual ${sortOrder}`,
+    width: 1200,
+    height: 1300,
+    role: "pdp_outcome",
+    sortOrder,
+    paletteId: null,
+    palette: null,
+  };
+}
+
+function activeSlide(container: HTMLElement): HTMLElement {
+  const slide = container.querySelector<HTMLElement>(
+    '[data-pdp-outcome-state][data-active="true"]',
+  );
+  if (!slide) throw new Error("Missing active outcome slide");
+  return slide;
+}
+
+describe("PdpOutcomeSplit", () => {
+  it("orders shared-role media numerically without promoting utility media", () => {
+    const utilityMedia: ProductMedia = {
+      ...outcomeMedia(0),
+      role: "card",
+      url: "https://example.supabase.co/card.webp",
+    };
+
+    expect(
+      orderedPdpOutcomeMedia([
+        outcomeMedia(3),
+        utilityMedia,
+        outcomeMedia(1),
+        outcomeMedia(2),
+      ]).map((media) => media.sortOrder),
+    ).toEqual([1, 2, 3]);
+  });
+
+  it("maps orders 1, 2, and 3 to states 0, 1, and 2 for click, hover, and keyboard", () => {
+    const { container } = render(
+      <PdpOutcomeSplit
+        productName="CLEANSE"
+        presentation={presentation}
+        productMedia={[outcomeMedia(3), outcomeMedia(1), outcomeMedia(2)]}
+      />,
+    );
+    const controls = screen.getAllByRole("button");
+
+    expect(activeSlide(container)).toHaveAttribute("data-pdp-outcome-state", "1");
+    expect(activeSlide(container).querySelector("img")).toHaveAttribute(
+      "alt",
+      "CLEANSE outcome visual 1",
+    );
+
+    fireEvent.pointerEnter(controls[1]);
+    expect(activeSlide(container)).toHaveAttribute("data-pdp-outcome-state", "2");
+    expect(activeSlide(container).querySelector("img")).toHaveAttribute(
+      "alt",
+      "CLEANSE outcome visual 2",
+    );
+
+    fireEvent.click(controls[2]);
+    expect(activeSlide(container)).toHaveAttribute("data-pdp-outcome-state", "3");
+    expect(activeSlide(container).querySelector("img")).toHaveAttribute(
+      "alt",
+      "CLEANSE outcome visual 3",
+    );
+
+    fireEvent.keyDown(controls[2], { key: "Home" });
+    expect(activeSlide(container)).toHaveAttribute("data-pdp-outcome-state", "1");
+  });
+
+  it("does not use visible labels to select media", () => {
+    const relabeled = {
+      ...presentation,
+      outcomeOptions: [
+        { ...presentation.outcomeOptions[0], label: "future copy 1" },
+        { ...presentation.outcomeOptions[1], label: "future copy 2" },
+        { ...presentation.outcomeOptions[2], label: "future copy 3" },
+      ] as const,
+    };
+    const { container } = render(
+      <PdpOutcomeSplit
+        productName="CLEANSE"
+        presentation={relabeled}
+        productMedia={[outcomeMedia(2), outcomeMedia(1), outcomeMedia(3)]}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "future copy 2" }));
+    expect(activeSlide(container).querySelector("img")).toHaveAttribute(
+      "alt",
+      "CLEANSE outcome visual 2",
+    );
+  });
+
+  it("keeps the corresponding hue fallback for a missing position", () => {
+    const { container } = render(
+      <PdpOutcomeSplit
+        productName="CLEANSE"
+        presentation={presentation}
+        productMedia={[outcomeMedia(3), outcomeMedia(1)]}
+      />,
+    );
+
+    const second = container.querySelector<HTMLElement>(
+      '[data-pdp-outcome-state="2"]',
+    );
+    const third = container.querySelector<HTMLElement>(
+      '[data-pdp-outcome-state="3"]',
+    );
+
+    expect(second).toHaveAttribute("data-has-media", "false");
+    expect(second?.querySelector("img")).toBeNull();
+    expect(second?.querySelector(".pdp-outcome-split__shape--one")).not.toBeNull();
+    expect(third).toHaveAttribute("data-has-media", "true");
+    expect(third?.querySelector("img")).toHaveAttribute(
+      "alt",
+      "CLEANSE outcome visual 3",
+    );
+  });
+});

@@ -480,6 +480,7 @@ describe("applyCatalogWebhookEvent", () => {
     "routine_video",
     "ingredients_texture",
     "core_routine_texture",
+    "pdp_outcome",
   ])(
     "resolves but does not reindex PDP-only editorial media role %s",
     async (role) => {
@@ -724,5 +725,34 @@ describe("catalog cache invalidation", () => {
     );
     expect(targets.paths).toContain("/products/treat-03-pdrn-5-ampoule");
     expect(targets.paths).toContain("/products/seal-05-green-collagen-cream");
+  });
+
+  it("invalidates only the owning PDP for outcome media on a Core product", () => {
+    const targets = getCatalogInvalidationTargets(
+      {
+        type: "UPDATE",
+        table: "product_media",
+        record: {
+          product_id: sourceRow.id,
+          role: "pdp_outcome",
+        },
+        old_record: {
+          product_id: sourceRow.id,
+          role: "pdp_outcome",
+        },
+      },
+      {
+        action: "noop",
+        table: "product_media",
+        objectID: sourceRow.id,
+        slug: sourceRow.slug,
+        routineGroup: "core",
+      },
+    );
+
+    expect(targets).toEqual({
+      tags: [`product:${sourceRow.slug}`],
+      paths: [`/products/${sourceRow.slug}`],
+    });
   });
 });

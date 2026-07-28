@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import {
   useRef,
   useState,
@@ -8,18 +9,34 @@ import {
   type Ref,
 } from "react";
 import type { CorePdpPresentation } from "@/lib/content/core-pdp";
+import type { ProductMedia } from "@/lib/products";
+
+export function orderedPdpOutcomeMedia(
+  productMedia: readonly ProductMedia[],
+): ProductMedia[] {
+  return productMedia
+    .filter(
+      (item) =>
+        item.role === "pdp_outcome" && item.kind === "image" && Boolean(item.url),
+    )
+    .slice()
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+}
 
 export function PdpOutcomeSplit({
   productName,
   presentation,
+  productMedia,
   rootRef,
 }: {
   productName: string;
   presentation: CorePdpPresentation;
+  productMedia: readonly ProductMedia[];
   rootRef?: Ref<HTMLElement>;
 }) {
   const [active, setActive] = useState(0);
   const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const outcomeMedia = orderedPdpOutcomeMedia(productMedia);
 
   function moveSelection(event: KeyboardEvent<HTMLButtonElement>, index: number) {
     const last = presentation.outcomeOptions.length - 1;
@@ -46,34 +63,57 @@ export function PdpOutcomeSplit({
       aria-labelledby="pdp-outcome-heading"
       data-pdp-panel-row="outcome"
       data-pdp-panel-mode="connected"
+      data-pdp-outcome-split
     >
       <div
         className="pdp-outcome-split__viewport"
         aria-hidden="true"
         data-pdp-panel
         data-pdp-panel-kind="media"
+        data-pdp-outcome-media
       >
         <div
           className="pdp-outcome-split__track"
           style={{ "--pdp-outcome-index": active } as CSSProperties}
         >
-          {presentation.outcomeOptions.map((option) => (
-            <div
-              key={option.label}
-              className="pdp-outcome-split__slide"
-              style={
-                {
-                  "--pdp-outcome-surface": option.surface,
-                  "--pdp-outcome-accent": option.accent,
-                  "--pdp-outcome-detail": option.detail,
-                } as CSSProperties
-              }
-            >
-              <span className="pdp-outcome-split__shape pdp-outcome-split__shape--one" />
-              <span className="pdp-outcome-split__shape pdp-outcome-split__shape--two" />
-              <span className="pdp-outcome-split__line" />
-            </div>
-          ))}
+          {presentation.outcomeOptions.map((option, index) => {
+            const media = outcomeMedia.find(
+              (item) => item.sortOrder === index + 1,
+            );
+
+            return (
+              <div
+                key={`outcome-${index + 1}`}
+                className="pdp-outcome-split__slide"
+                style={
+                  {
+                    "--pdp-outcome-surface": option.surface,
+                    "--pdp-outcome-accent": option.accent,
+                    "--pdp-outcome-detail": option.detail,
+                  } as CSSProperties
+                }
+                data-pdp-outcome-state={index + 1}
+                data-active={active === index ? "true" : "false"}
+                data-has-media={media ? "true" : "false"}
+              >
+                {media?.url ? (
+                  <Image
+                    src={media.url}
+                    alt={media.alt}
+                    fill
+                    sizes="(max-width: 820px) 100vw, 50vw"
+                    loading="lazy"
+                  />
+                ) : (
+                  <>
+                    <span className="pdp-outcome-split__shape pdp-outcome-split__shape--one" />
+                    <span className="pdp-outcome-split__shape pdp-outcome-split__shape--two" />
+                    <span className="pdp-outcome-split__line" />
+                  </>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -91,7 +131,7 @@ export function PdpOutcomeSplit({
         >
           {presentation.outcomeOptions.map((option, index) => (
             <button
-              key={option.label}
+              key={`outcome-control-${index + 1}`}
               ref={(node) => {
                 optionRefs.current[index] = node;
               }}
