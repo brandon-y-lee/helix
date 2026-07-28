@@ -116,7 +116,6 @@ export function PdpCoreRoutineSection({
         data-pdp-panel-kind="copy"
       >
         <div className="pdp-core-routine__heading">
-          <p className="eyebrow">The Core</p>
           <h2 id="pdp-core-routine-heading">
             The Mei Pelle CORE for clearer, healthier skin.
           </h2>
@@ -131,34 +130,29 @@ export function PdpCoreRoutineSection({
                 : index === outgoingIndex
                   ? "outgoing"
                   : "inactive";
-            const style: CoreRoutineStyle = {
-              "--core-from": product.swatch[0],
-              "--core-to": product.swatch[1],
-            };
             return (
               <div
                 key={product.slug}
                 className="pdp-core-routine__callout-state"
                 data-state={state}
                 aria-hidden={state !== "active"}
-                style={style}
               >
-                <span className="pdp-core-routine__miniature">
+                <span className="pdp-core-routine__annotation">
+                  <strong>{product.displayName}</strong>
+                  <span
+                    className="pdp-core-routine__connector"
+                    aria-hidden="true"
+                  />
+                  <small>{product.productType}</small>
+                </span>
+                <span className="pdp-core-routine__texture">
                   <Image
                     src={product.textureMedia.url!}
                     alt={product.textureMedia.alt}
                     fill
-                    sizes="(max-width: 640px) 104px, 156px"
+                    sizes="(max-width: 640px) 68vw, 320px"
                     loading="eager"
                   />
-                </span>
-                <span className="pdp-core-routine__callout-copy">
-                  <span>
-                    Step {sequenceLabel(product.routineStepNumber)} ·{" "}
-                    {product.routineStepName}
-                  </span>
-                  <strong>{product.displayName}</strong>
-                  <small>{product.productType}</small>
                 </span>
               </div>
             );
