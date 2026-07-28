@@ -2,22 +2,16 @@
 
 import Image from "next/image";
 import {
-  useEffect,
-  useRef,
-  useState,
   type CSSProperties,
-  type KeyboardEvent,
   type Ref,
 } from "react";
+import { useCoreRoutineSelection } from "@/components/useCoreRoutineSelection";
 import type { CoreRoutineProduct } from "@/lib/products";
 
 type CoreRoutineStyle = CSSProperties & {
   "--core-from": string;
   "--core-to": string;
 };
-
-const TRANSITION_DURATION_MS = 640;
-const REDUCED_TRANSITION_DURATION_MS = 20;
 
 function sequenceLabel(stepNumber: number) {
   return String(stepNumber).padStart(2, "0");
@@ -32,23 +26,17 @@ export function PdpCoreRoutineSection({
   currentSlug: string;
   rootRef?: Ref<HTMLElement>;
 }) {
-  const initialIndex = Math.max(
-    products.findIndex((product) => product.slug === currentSlug),
-    0,
-  );
-  const [activeIndex, setActiveIndex] = useState(initialIndex);
-  const [outgoingIndex, setOutgoingIndex] = useState<number | null>(null);
-  const [direction, setDirection] = useState<"forward" | "backward">("forward");
-  const buttonRefs = useRef<Array<HTMLButtonElement | null>>([]);
-  const transitionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (transitionTimeoutRef.current) {
-        clearTimeout(transitionTimeoutRef.current);
-      }
-    };
-  }, []);
+  const {
+    activeIndex,
+    direction,
+    handleKeyDown,
+    outgoingIndex,
+    select,
+    setButtonRef,
+  } = useCoreRoutineSelection({
+    currentSlug,
+    slugs: products.map((product) => product.slug),
+  });
 
   if (
     products.length !== 3 ||
@@ -59,43 +47,6 @@ export function PdpCoreRoutineSection({
     )
   ) {
     return null;
-  }
-
-  function select(index: number) {
-    if (index === activeIndex) return;
-    if (transitionTimeoutRef.current) {
-      clearTimeout(transitionTimeoutRef.current);
-    }
-    setDirection(index > activeIndex ? "forward" : "backward");
-    setOutgoingIndex(activeIndex);
-    setActiveIndex(index);
-    const transitionDuration =
-      typeof window !== "undefined" &&
-      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
-        ? REDUCED_TRANSITION_DURATION_MS
-        : TRANSITION_DURATION_MS;
-    transitionTimeoutRef.current = setTimeout(() => {
-      setOutgoingIndex(null);
-      transitionTimeoutRef.current = null;
-    }, transitionDuration);
-  }
-
-  function handleKeyDown(event: KeyboardEvent<HTMLButtonElement>, index: number) {
-    let nextIndex: number | null = null;
-    if (event.key === "ArrowRight" || event.key === "ArrowDown") {
-      nextIndex = (index + 1) % products.length;
-    } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
-      nextIndex = (index - 1 + products.length) % products.length;
-    } else if (event.key === "Home") {
-      nextIndex = 0;
-    } else if (event.key === "End") {
-      nextIndex = products.length - 1;
-    }
-
-    if (nextIndex === null) return;
-    event.preventDefault();
-    select(nextIndex);
-    buttonRefs.current[nextIndex]?.focus();
   }
 
   return (
@@ -168,7 +119,7 @@ export function PdpCoreRoutineSection({
             <button
               key={product.slug}
               ref={(node) => {
-                buttonRefs.current[index] = node;
+                setButtonRef(index, node);
               }}
               type="button"
               role="radio"

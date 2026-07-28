@@ -180,6 +180,91 @@ beforeEach(() => {
 });
 
 describe("ProductDetail purchase accordions", () => {
+  it("replaces Core Details in place and preserves the later Core routine", () => {
+    const coreProducts = [
+      makeProduct({
+        id: "cleanse-id",
+        slug: "cleanse-01-calming-gel-cleanser",
+        displayName: "CLEANSE",
+        productType: "Gel cleanser",
+        routineStepNumber: 1,
+        routineStepName: "Cleanse",
+        routineSort: 10,
+      }),
+      makeProduct(),
+      makeProduct({
+        id: "seal-id",
+        slug: "seal-05-green-collagen-cream",
+        displayName: "SEAL",
+        productType: "Cream",
+        routineStepNumber: 3,
+        routineStepName: "Seal",
+        routineSort: 30,
+      }),
+    ];
+    const coreRoutine = coreProducts.map((item, index) => ({
+      id: item.id,
+      slug: item.slug,
+      displayName: item.displayName,
+      formalTitle: item.formalTitle,
+      productType: item.productType ?? "",
+      routineStepNumber: index + 1,
+      routineStepName: item.routineStepName ?? item.displayName,
+      routineSort: (index + 1) * 10,
+      swatch: item.swatch,
+      textureMedia: {
+        kind: "image" as const,
+        url: `https://example.com/${item.slug}.webp`,
+        alt: `${item.displayName} texture`,
+        width: 800,
+        height: 800,
+        role: "core_routine_texture" as const,
+        sortOrder: 24,
+        paletteId: null,
+        palette: null,
+      },
+    }));
+    const { container } = render(
+      <ProductDetail
+        product={coreProducts[1]}
+        coreProducts={coreProducts}
+        coreRoutine={coreRoutine}
+      />,
+    );
+
+    const ingredients = screen.getByRole("heading", { name: "what’s inside" });
+    const detailsRoutine = container.querySelector(
+      "[data-pdp-details-routine]",
+    );
+    const laterRoutine = screen.getByRole("heading", {
+      name: "The Mei Pelle CORE for clearer, healthier skin.",
+    });
+
+    expect(detailsRoutine).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "DETAILS" })).toBeNull();
+    expect(before(ingredients, detailsRoutine as Element)).toBe(true);
+    expect(before(detailsRoutine as Element, laterRoutine)).toBe(true);
+    expect(container.querySelectorAll("[data-pdp-details-routine]")).toHaveLength(
+      1,
+    );
+  });
+
+  it("retains static Details for a non-Core PDP", () => {
+    const { container } = render(
+      <ProductDetail
+        product={makeProduct({
+          slug: "refine-02-pore-treatment-pads",
+          displayName: "REFINE",
+          routineGroup: "beyond_core",
+          routineGroupLabel: "Beyond The Core",
+        })}
+      />,
+    );
+
+    expect(screen.getByRole("heading", { name: "DETAILS" })).toBeInTheDocument();
+    expect(container.querySelector("[data-pdp-details-routine]")).toBeNull();
+  });
+
   it("renders accordions directly after the add-to-cart action", () => {
     render(<ProductDetail product={makeProduct()} />);
 

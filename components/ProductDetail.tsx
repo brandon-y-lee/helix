@@ -17,6 +17,7 @@ import { ProductEndorsementRail } from "@/components/ProductEndorsementRail";
 import { ProductImage } from "@/components/ProductImage";
 import { ProductReviewsSection } from "@/components/ProductReviewsSection";
 import { PdpApplicationCarousel } from "@/components/PdpApplicationCarousel";
+import { PdpCoreDetailsRoutine } from "@/components/PdpCoreDetailsRoutine";
 import { PdpCoreRoutineSection } from "@/components/PdpCoreRoutineSection";
 import { PdpIngredientsSplit } from "@/components/PdpIngredientsSplit";
 import { PdpOutcomeSplit } from "@/components/PdpOutcomeSplit";
@@ -398,12 +399,14 @@ function ProductSignalGrid({
 
 export function ProductDetail({
   product,
+  coreProducts = [],
   coreRoutine = [],
   content = getProductPdpContent(product.slug),
   reviews = getProductReviews(product.slug),
   stripePublishableKey = null,
 }: {
   product: Product;
+  coreProducts?: Product[];
   coreRoutine?: CoreRoutineProduct[];
   content?: ProductPdpContent;
   reviews?: ProductReviews;
@@ -969,7 +972,13 @@ export function ProductDetail({
           </>
         )}
 
-        {details.length > 0 && (
+        {corePresentation && coreProducts.length === 3 ? (
+          <PdpCoreDetailsRoutine
+            key={product.slug}
+            products={coreProducts}
+            currentSlug={product.slug}
+          />
+        ) : details.length > 0 ? (
           <PdpEditorialPair
             headingId="product-details"
             eyebrow="Specs"
@@ -998,7 +1007,7 @@ export function ProductDetail({
               </div>
             )}
           </PdpEditorialPair>
-        )}
+        ) : null}
 
         {product.routineGroup === "core" && coreRoutine.length === 3 && (
           <PdpCoreRoutineSection

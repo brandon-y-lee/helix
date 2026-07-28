@@ -9,7 +9,7 @@ import {
   getCachedProducts,
 } from "@/lib/catalog-cache";
 import { stripeMessagingPublishableKey } from "@/lib/checkout/config";
-import type { CoreRoutineProduct } from "@/lib/products";
+import type { CoreRoutineProduct, Product } from "@/lib/products";
 
 export async function generateStaticParams() {
   const products = await getCachedProducts();
@@ -45,14 +45,30 @@ export default async function ProductDetailPage({
 
   const relatedPromise = getCachedDiscoveryProducts(product.slug);
   let coreRoutine: CoreRoutineProduct[] = [];
+  let coreProducts: Product[] = [];
   if (product.routineGroup === "core") {
-    try {
-      coreRoutine = await getCachedCoreRoutineProducts();
-    } catch (error) {
+    const [routineResult, productsResult] = await Promise.allSettled([
+      getCachedCoreRoutineProducts(),
+      getCachedProducts(),
+    ]);
+    if (routineResult.status === "fulfilled") {
+      coreRoutine = routineResult.value;
+    } else {
       console.error(
-        error instanceof Error
-          ? error.message
+        routineResult.reason instanceof Error
+          ? routineResult.reason.message
           : "[catalog] Core routine unavailable.",
+      );
+    }
+    if (productsResult.status === "fulfilled") {
+      coreProducts = productsResult.value.filter(
+        (candidate) => candidate.routineGroup === "core",
+      );
+    } else {
+      console.error(
+        productsResult.reason instanceof Error
+          ? productsResult.reason.message
+          : "[catalog] Core product details unavailable.",
       );
     }
   }
@@ -64,6 +80,7 @@ export default async function ProductDetailPage({
         <ProductDetail
           key={product.slug}
           product={product}
+          coreProducts={coreProducts}
           coreRoutine={coreRoutine}
           stripePublishableKey={stripeMessagingPublishableKey()}
         />
