@@ -61,6 +61,7 @@ describe("PdpCoreRoutineSection", () => {
         name: "The Mei Pelle CORE for clearer, healthier skin.",
       }),
     ).toBeInTheDocument();
+    expect(screen.queryByText("The Core")).not.toBeInTheDocument();
     expect(screen.getByText("Your morning and evening essentials.")).toBeInTheDocument();
     expect(
       screen.getByRole("radio", { name: "Show step 2, TREAT" }),
@@ -76,6 +77,11 @@ describe("PdpCoreRoutineSection", () => {
       container.querySelectorAll(".pdp-core-routine__visual img"),
     ).toHaveLength(0);
     expect(container.querySelectorAll(".pdp-core-routine img")).toHaveLength(3);
+    expect(
+      container.querySelector(
+        '.pdp-core-routine__callout-state[data-state="active"] .pdp-core-routine__annotation',
+      ),
+    ).toHaveTextContent("TREATTreatment serum");
     expect(container.querySelectorAll("a")).toHaveLength(0);
   });
 
