@@ -12,7 +12,7 @@ import {
 } from "react";
 import type { CartLine, CartState } from "@/lib/cart/types";
 
-type AddInput = Pick<
+export type CartAddInput = Pick<
   CartLine,
   | "slug"
   | "name"
@@ -35,7 +35,7 @@ type CartContextValue = {
   error: string | null;
   retryable: boolean;
   refresh: () => Promise<void>;
-  add: (item: AddInput, quantity?: number) => Promise<boolean>;
+  add: (item: CartAddInput, quantity?: number) => Promise<boolean>;
   setQuantity: (key: string, quantity: number) => Promise<boolean>;
   remove: (key: string) => Promise<boolean>;
   clear: () => Promise<boolean>;
@@ -140,7 +140,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setRetryable(failure.retryable);
   }, []);
 
-  const add = useCallback(async (item: AddInput, quantity = 1) => {
+  const add = useCallback(async (item: CartAddInput, quantity = 1) => {
     setError(null);
     setRetryable(false);
     const previous = lines;

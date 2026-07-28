@@ -1,4 +1,10 @@
-import { render, screen, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ProductDetail } from "@/components/ProductDetail";
@@ -6,6 +12,7 @@ import type { Product } from "@/lib/products";
 
 const cartMock = vi.hoisted(() => ({
   add: vi.fn(),
+  openCartDrawer: vi.fn(),
 }));
 
 vi.mock("@/components/CartProvider", () => ({
@@ -169,13 +176,14 @@ function before(a: Element, b: Element) {
 beforeEach(() => {
   cartMock.add.mockReset();
   cartMock.add.mockResolvedValue(true);
+  cartMock.openCartDrawer.mockReset();
 });
 
 describe("ProductDetail purchase accordions", () => {
   it("renders accordions directly after the add-to-cart action", () => {
     render(<ProductDetail product={makeProduct()} />);
 
-    const add = screen.getByRole("button", { name: /Add to cart/ });
+    const add = screen.getByRole("button", { name: "BUY TREAT - $25.00" });
     const use = screen.getByRole("button", { name: /HOW TO USE/ });
     const ingredients = screen.getByRole("button", { name: /KEY INGREDIENTS/ });
     const profile = screen.getByRole("heading", {
@@ -254,7 +262,10 @@ describe("ProductDetail purchase accordions", () => {
       />,
     );
 
-    await user.click(screen.getByRole("button", { name: /Add to cart/ }));
+    const buyButton = screen.getByRole("button", {
+      name: "BUY TREAT - $25.00",
+    });
+    await user.click(buyButton);
 
     expect(cartMock.add).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -263,6 +274,30 @@ describe("ProductDetail purchase accordions", () => {
         placeholderMedia: null,
       }),
     );
+    expect(cartMock.openCartDrawer).toHaveBeenCalledTimes(1);
+
+    buyButton.blur();
+    cartMock.openCartDrawer.mock.calls[0][0]();
+    expect(buyButton).toHaveFocus();
+  });
+
+  it("keeps the drawer closed and restores the buy button after a failed add", async () => {
+    const user = userEvent.setup();
+    cartMock.add.mockResolvedValue(false);
+    render(<ProductDetail product={makeProduct()} />);
+
+    const buyButton = screen.getByRole("button", {
+      name: "BUY TREAT - $25.00",
+    });
+    await user.click(buyButton);
+
+    expect(
+      await screen.findByText(
+        "Cart is temporarily unavailable. Try again in a moment.",
+      ),
+    ).toBeInTheDocument();
+    expect(cartMock.openCartDrawer).not.toHaveBeenCalled();
+    expect(buyButton).toBeEnabled();
   });
 
   it("deduplicates gallery roles by normalized asset identity", () => {
@@ -351,8 +386,9 @@ describe("ProductDetail purchase accordions", () => {
 
     const initialMessage = screen.getByTestId("afterpay-messaging-boundary");
     const initialAdd = screen.getByRole("button", {
-      name: "Add to cart — $25.00",
+      name: "BUY TREAT - $25.00",
     });
+    expect(initialAdd).not.toHaveTextContent(/[–—]/);
     expect(initialMessage).toHaveAttribute("data-amount", "2500");
     expect(initialMessage).toHaveAttribute("data-currency", "USD");
     expect(before(initialAdd, initialMessage)).toBe(true);
@@ -368,13 +404,29 @@ describe("ProductDetail purchase accordions", () => {
       "4200",
     );
     expect(
-      screen.getByRole("button", { name: "Add to cart — $42.00" }),
+      screen.getByRole("button", { name: "BUY TREAT - $42.00" }),
     ).toBeInTheDocument();
     expect(
       document.querySelector(
         ".pdp-sticky-purchase__variants button[aria-pressed='true']",
       ),
     ).toHaveTextContent("30 mL");
+
+    const stickyBuy = document.querySelector<HTMLButtonElement>(
+      "[data-sticky-pdp-buy-button]",
+    );
+    expect(stickyBuy).toHaveTextContent("BUY TREAT - $42.00");
+    fireEvent.click(stickyBuy as HTMLButtonElement);
+
+    await waitFor(() => expect(cartMock.add).toHaveBeenCalledTimes(1));
+    expect(cartMock.add).toHaveBeenCalledWith(
+      expect.objectContaining({
+        variantId: "30ml",
+        variantLabel: "30 mL",
+        price: 4200,
+      }),
+    );
+    expect(cartMock.openCartDrawer).toHaveBeenCalledTimes(1);
   });
 
   it("fails closed without empty Core editorial media shells", () => {

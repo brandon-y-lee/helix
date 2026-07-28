@@ -1,18 +1,27 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 
 const CLEANSE_PATH = "/products/cleanse-01-calming-gel-cleanser";
 const TREAT_PATH = "/products/treat-03-pdrn-5-ampoule";
 
-async function addCleanse(page: Page) {
+async function addCleanse(page: Page): Promise<Locator> {
   await page.goto(CLEANSE_PATH);
   await expect(
     page.getByRole("button", { name: /CART \(0\)/ }),
   ).toBeVisible();
-  await page.getByRole("button", { name: /Add to cart/ }).click();
-  await expect(page.getByText("Added to cart")).toBeVisible();
+  const buyButton = page.locator("[data-pdp-buy-button]");
+  await expect(buyButton).toHaveText("BUY CLEANSE - $22.00");
+  await buyButton.click();
+  const drawer = page.getByRole("dialog", { name: "Cart" });
+  await expect(drawer).toBeVisible();
+  await expect(
+    drawer
+      .getByRole("list", { name: "Cart items" })
+      .getByText("CLEANSE", { exact: true }),
+  ).toBeVisible();
   await expect(
     page.getByRole("button", { name: /CART \(1\)/ }),
   ).toBeVisible();
+  return drawer;
 }
 
 test("shop renders seeded products and combines filtering with sorting", async ({
@@ -71,7 +80,8 @@ test("PDP resolves canonical data and exposes an available variant", async ({
 test("PDP add-to-cart persists across reload and reaches the cart page", async ({
   page,
 }) => {
-  await addCleanse(page);
+  const drawer = await addCleanse(page);
+  await drawer.getByRole("button", { name: "Close" }).click();
   await page.reload();
   await expect(
     page.getByRole("button", { name: /CART \(1\)/ }),
@@ -104,11 +114,14 @@ test("mobile quick buy opens the cart drawer and restores focus on Escape", asyn
   await quickBuy.click();
 
   const finalBuy = card.getByRole("button", {
-    name: /Buy CLEANSE .+ for \$\d+\.\d{2}/,
+    name: "BUY CLEANSE - $22.00",
   });
+  await expect(finalBuy).toHaveText("BUY CLEANSE - $22.00");
+  const standardCardUrl = page.url();
   await finalBuy.click();
   const drawer = page.getByRole("dialog", { name: "Cart" });
   await expect(drawer).toBeVisible();
+  await expect(page).toHaveURL(standardCardUrl);
   await expect(
     page.getByRole("button", { name: /CART \(1\)/ }),
   ).toBeVisible();
@@ -116,16 +129,43 @@ test("mobile quick buy opens the cart drawer and restores focus on Escape", asyn
   await page.keyboard.press("Escape");
   await expect(drawer).toHaveCount(0);
   await expect(finalBuy).toBeFocused();
+
+  await page.goto("/");
+  const carousel = page.getByRole("region", {
+    name: "Beyond The Core products",
+  });
+  const carouselCard = carousel.locator(
+    '[data-product-card-slug="refine-02-pore-treatment-pads"]',
+  );
+  await carouselCard
+    .getByRole("button", { name: "Open quick buy for REFINE" })
+    .click();
+  const carouselBuy = carouselCard.getByRole("button", {
+    name: "BUY REFINE - $17.00",
+  });
+  await carouselBuy.press("Enter");
+
+  await expect(drawer).toBeVisible();
+  await expect(page).toHaveURL("/");
+  await expect(
+    drawer
+      .getByRole("list", { name: "Cart items" })
+      .getByText("CLEANSE", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    drawer
+      .getByRole("list", { name: "Cart items" })
+      .getByText("REFINE", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /CART \(2\)/ }),
+  ).toBeVisible();
 });
 
 test("cart drawer navigation closes the overlay and preserves browser history", async ({
   page,
 }) => {
-  await addCleanse(page);
-
-  await page.getByRole("button", { name: /CART \(1\)/ }).click();
-  const drawer = page.getByRole("dialog", { name: "Cart" });
-  await expect(drawer).toBeVisible();
+  const drawer = await addCleanse(page);
   await drawer.getByRole("link", { name: "View cart" }).click();
 
   await expect(page).toHaveURL(/\/cart$/);
@@ -151,6 +191,19 @@ test("PDP sticky purchase appears after routine video and hides at the footer", 
   });
   await expect(sticky).toHaveAttribute("data-visible", "true");
   await expect(sticky).toHaveAttribute("aria-hidden", "false");
+  const stickyBuy = sticky.locator("[data-sticky-pdp-buy-button]");
+  await expect(stickyBuy).toHaveText("BUY TREAT - $25.00");
+  await stickyBuy.click();
+
+  const drawer = page.getByRole("dialog", { name: "Cart" });
+  await expect(drawer).toBeVisible();
+  await expect(
+    drawer
+      .getByRole("list", { name: "Cart items" })
+      .getByText("TREAT", { exact: true }),
+  ).toBeVisible();
+  await drawer.getByRole("button", { name: "Close" }).click();
+  await expect(stickyBuy).toBeFocused();
 
   await page.locator("#site-footer").scrollIntoViewIfNeeded();
   await expect(sticky).toHaveAttribute("data-visible", "false");

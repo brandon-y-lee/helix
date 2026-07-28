@@ -13,7 +13,6 @@ import {
   type WheelEvent as ReactWheelEvent,
 } from "react";
 import { AfterpayMessaging } from "@/components/AfterpayMessaging";
-import { useCart } from "@/components/CartProvider";
 import { ProductEndorsementRail } from "@/components/ProductEndorsementRail";
 import { ProductImage } from "@/components/ProductImage";
 import { ProductReviewsSection } from "@/components/ProductReviewsSection";
@@ -23,6 +22,7 @@ import { PdpIngredientsSplit } from "@/components/PdpIngredientsSplit";
 import { PdpOutcomeSplit } from "@/components/PdpOutcomeSplit";
 import { PdpProfileSplit } from "@/components/PdpProfileSplit";
 import { PdpRoutineVideo } from "@/components/PdpRoutineVideo";
+import { useProductPurchase } from "@/components/useProductPurchase";
 import { WaitlistButton } from "@/components/WaitlistButton";
 import {
   getProductPdpContent,
@@ -39,6 +39,7 @@ import {
 } from "@/lib/catalog/product-reviews";
 import { getCorePdpPresentation } from "@/lib/content/core-pdp";
 import {
+  formatBuyLabel,
   formatPrice,
   type CoreRoutineProduct,
   type Product,
@@ -408,7 +409,11 @@ export function ProductDetail({
   reviews?: ProductReviews;
   stripePublishableKey?: string | null;
 }) {
-  const { add } = useCart();
+  const {
+    error: addError,
+    pending,
+    purchase,
+  } = useProductPurchase();
   const fallbackPanels = fallbackGalleryPanels(product.swatch);
   const gallery = useMemo(
     () => selectGalleryMedia(product.media),
@@ -418,13 +423,14 @@ export function ProductDetail({
   const [activePanel, setActivePanel] = useState(0);
   const [variantId, setVariantId] = useState(product.variants[0]?.id);
   const [added, setAdded] = useState(false);
-  const [pending, setPending] = useState(false);
-  const [addError, setAddError] = useState("");
   const [openAccordion, setOpenAccordion] =
     useState<PurchaseAccordionId | null>(null);
   const [hasPassedVideoStart, setHasPassedVideoStart] = useState(false);
   const [footerEnteringViewport, setFooterEnteringViewport] = useState(false);
   const videoStartRef = useRef<HTMLSpanElement>(null);
+  const mainBuyButtonRef = useRef<HTMLButtonElement>(null);
+  const stickyBuyButtonRef = useRef<HTMLButtonElement>(null);
+  const addedTimeoutRef = useRef<number | null>(null);
 
   const variant =
     product.variants.find((v) => v.id === variantId) ?? product.variants[0];
@@ -443,6 +449,9 @@ export function ProductDetail({
     product.editorialDescription || product.description || product.cardTagline,
   );
   const availability = availabilityLabel(product, variant);
+  const buyLabel = variant
+    ? formatBuyLabel(product.displayName, variant.price)
+    : "";
   const keyIngredients = product.keyIngredients.slice(0, 5);
   const howToUse = content.howToUseSteps.length
     ? content.howToUseSteps
@@ -510,6 +519,15 @@ export function ProductDetail({
   const coreProfileReady = Boolean(corePresentation && profileMedia);
   const stickyVisible = hasPassedVideoStart && !footerEnteringViewport;
 
+  useEffect(
+    () => () => {
+      if (addedTimeoutRef.current) {
+        window.clearTimeout(addedTimeoutRef.current);
+      }
+    },
+    [],
+  );
+
   useLayoutEffect(() => {
     const videoStart = videoStartRef.current;
     const footer = document.getElementById("site-footer");
@@ -556,28 +574,33 @@ export function ProductDetail({
     };
   }, [product.slug]);
 
-  async function handleAdd() {
+  async function handleAdd(returnFocus: () => void) {
     if (!variant || !isAvailable || pending) return;
-    setPending(true);
-    setAddError("");
+    setAdded(false);
     const media = product.cartMedia ?? product.cardMedia;
-    const ok = await add({
-      slug: product.slug,
-      name: product.displayName,
-      variantId: variant.id,
-      variantLabel: variant.label,
-      price: variant.price,
-      swatch: product.swatch,
-      imageUrl: cartImageUrl(media),
-      imageAlt: media?.alt ?? null,
-      placeholderMedia: cartPlaceholderMedia(media),
+    const ok = await purchase({
+      item: {
+        slug: product.slug,
+        name: product.displayName,
+        variantId: variant.id,
+        variantLabel: variant.label,
+        price: variant.price,
+        swatch: product.swatch,
+        imageUrl: cartImageUrl(media),
+        imageAlt: media?.alt ?? null,
+        placeholderMedia: cartPlaceholderMedia(media),
+      },
+      returnFocus,
     });
-    setPending(false);
     if (ok) {
       setAdded(true);
-      window.setTimeout(() => setAdded(false), 2200);
-    } else {
-      setAddError("Cart is temporarily unavailable. Try again in a moment.");
+      if (addedTimeoutRef.current) {
+        window.clearTimeout(addedTimeoutRef.current);
+      }
+      addedTimeoutRef.current = window.setTimeout(() => {
+        setAdded(false);
+        addedTimeoutRef.current = null;
+      }, 2200);
     }
   }
 
@@ -628,7 +651,7 @@ export function ProductDetail({
           <p className="pdp__collection">{routineLabel}</p>
           <h1>{product.displayName}</h1>
           <p className="pdp__tagline">{product.cardTagline}</p>
-          <p className="pdp__description storefront-reading">{leadDescription}</p>
+          <p className="pdp__description">{leadDescription}</p>
           <p className="pdp__price">
             {variant ? formatPrice(variant.price) : "—"}
           </p>
@@ -666,12 +689,16 @@ export function ProductDetail({
           <div className="pdp__actions">
             {isAvailable && variant ? (
               <button
+                ref={mainBuyButtonRef}
                 type="button"
                 className="btn"
-                onClick={() => void handleAdd()}
+                data-pdp-buy-button
+                onClick={() =>
+                  void handleAdd(() => mainBuyButtonRef.current?.focus())
+                }
                 disabled={pending}
               >
-                {pending ? "Adding" : `Add to cart — ${formatPrice(variant.price)}`}
+                {pending ? "Adding" : buyLabel}
               </button>
             ) : (
               <WaitlistButton className="btn" label="Join the waitlist" />
@@ -843,18 +870,18 @@ export function ProductDetail({
           <span>{variant ? formatPrice(variant.price) : "—"}</span>
           {isAvailable && variant ? (
             <button
+              ref={stickyBuyButtonRef}
               type="button"
               className="btn"
-              onClick={() => void handleAdd()}
+              data-sticky-pdp-buy-button
+              onClick={() =>
+                void handleAdd(() => stickyBuyButtonRef.current?.focus())
+              }
               disabled={pending}
               tabIndex={stickyVisible ? undefined : -1}
-              aria-label={`Add ${product.displayName} to cart — ${formatPrice(variant.price)}`}
+              aria-label={buyLabel}
             >
-              {pending
-                ? "Adding"
-                : added
-                  ? "Added"
-                  : `Add — ${formatPrice(variant.price)}`}
+              {pending ? "Adding" : buyLabel}
             </button>
           ) : (
             <WaitlistButton

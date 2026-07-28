@@ -155,3 +155,7 @@ export function formatPrice(cents: number): string {
     currency: "USD",
   }).format(cents / 100);
 }
+
+export function formatBuyLabel(productName: string, cents: number): string {
+  return `BUY ${productName} - ${formatPrice(cents)}`;
+}

@@ -111,6 +111,43 @@ test("PDP panel breakpoint changes once at the 820px boundary", async ({
   await expectNoHorizontalOverflow(page);
 });
 
+test("PDP description grows with the purchase column on wide screens", async ({
+  page,
+}) => {
+  async function measureDescription() {
+    return page.evaluate(() => {
+      const purchase = document.querySelector(".pdp__purchase");
+      const description = document.querySelector(".pdp__description");
+      if (!purchase || !description) {
+        throw new Error("PDP purchase content is unavailable.");
+      }
+
+      return {
+        descriptionWidth: description.getBoundingClientRect().width,
+        maxWidth: getComputedStyle(description).maxWidth,
+        overflows: description.scrollWidth > description.clientWidth,
+        purchaseWidth: purchase.getBoundingClientRect().width,
+      };
+    });
+  }
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(TREAT_PATH);
+  const desktop = await measureDescription();
+  expect(desktop.maxWidth).toBe("none");
+  expect(desktop.descriptionWidth).toBeLessThanOrEqual(desktop.purchaseWidth);
+  expect(desktop.overflows).toBe(false);
+
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  const wide = await measureDescription();
+  expect(wide.descriptionWidth).toBeGreaterThan(desktop.descriptionWidth);
+  expect(wide.descriptionWidth).toBeLessThanOrEqual(wide.purchaseWidth);
+  expect(wide.overflows).toBe(false);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expectNoHorizontalOverflow(page);
+});
+
 test("Core PDP hero media is finite, borderless, and aligned to storefront spacing", async ({
   page,
 }) => {

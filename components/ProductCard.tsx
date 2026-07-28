@@ -15,8 +15,10 @@ import {
 } from "react";
 import { useCart } from "@/components/CartProvider";
 import { ProductImage } from "@/components/ProductImage";
+import { useProductPurchase } from "@/components/useProductPurchase";
 import { routineDisplayLabelForProduct } from "@/lib/catalog/product-routine";
 import {
+  formatBuyLabel,
   formatPrice,
   type Product,
   type ProductMedia,
@@ -110,7 +112,13 @@ export function ProductCard({
   onQuickBuyOpen,
   onQuickBuyClose,
 }: ProductCardProps) {
-  const { add, cartDrawerOpen, openCartDrawer } = useCart();
+  const { cartDrawerOpen } = useCart();
+  const {
+    clearError,
+    error: addError,
+    pending,
+    purchase,
+  } = useProductPurchase();
   const panelBaseId = useId();
   const panelId = `${panelBaseId}-quick-buy`;
   const surfaceRef = useRef<HTMLDivElement>(null);
@@ -126,8 +134,6 @@ export function ProductCard({
   const controlled = quickBuyOpen !== undefined;
   const [localQuickBuyOpen, setLocalQuickBuyOpen] = useState(false);
   const [added, setAdded] = useState(false);
-  const [pending, setPending] = useState(false);
-  const [addError, setAddError] = useState("");
   const [pointerInside, setPointerInside] = useState(false);
   const [keyboardFocusVisibleWithin, setKeyboardFocusVisibleWithin] =
     useState(false);
@@ -247,7 +253,7 @@ export function ProductCard({
   }, [pointerInside]);
 
   function openQuickBuy() {
-    setAddError("");
+    clearError();
     setAdded(false);
     if (controlled) {
       onQuickBuyOpen?.();
@@ -356,24 +362,23 @@ export function ProductCard({
 
   async function handleFinalBuy() {
     if (!canBuy || !selectedVariant || pending) return;
-    setPending(true);
-    setAddError("");
     const media = product.cartMedia ?? product.cardMedia;
-    const ok = await add({
-      slug: product.slug,
-      name: displayName,
-      variantId: selectedVariant.id,
-      variantLabel: selectedVariant.label,
-      price: selectedVariant.price,
-      swatch: product.swatch,
-      imageUrl: cartImageUrl(media),
-      imageAlt: media?.alt ?? null,
-      placeholderMedia: cartPlaceholderMedia(media),
+    const ok = await purchase({
+      item: {
+        slug: product.slug,
+        name: displayName,
+        variantId: selectedVariant.id,
+        variantLabel: selectedVariant.label,
+        price: selectedVariant.price,
+        swatch: product.swatch,
+        imageUrl: cartImageUrl(media),
+        imageAlt: media?.alt ?? null,
+        placeholderMedia: cartPlaceholderMedia(media),
+      },
+      returnFocus: () => finalButtonRef.current?.focus(),
     });
-    setPending(false);
     if (ok) {
       setAdded(true);
-      openCartDrawer(() => finalButtonRef.current?.focus());
       if (addedTimeoutRef.current) {
         window.clearTimeout(addedTimeoutRef.current);
       }
@@ -381,8 +386,6 @@ export function ProductCard({
         setAdded(false);
         addedTimeoutRef.current = null;
       }, 2200);
-    } else {
-      setAddError("Cart is temporarily unavailable.");
     }
   }
 
@@ -553,19 +556,20 @@ export function ProductCard({
               ref={finalButtonRef}
               type="button"
               className="product-card__quick-final"
+              data-product-card-buy
               onClick={() => void handleFinalBuy()}
               disabled={!canBuy || pending}
               tabIndex={isQuickBuyOpen ? undefined : -1}
               aria-label={
-                selectedVariant
-                  ? `Buy ${displayName} ${selectedVariant.label} for ${formatPrice(selectedVariant.price)}`
+                selectedVariant && canBuy
+                  ? formatBuyLabel(displayName, selectedVariant.price)
                   : `Buy ${displayName}`
               }
             >
               {pending
                 ? "ADDING"
                 : selectedVariant && canBuy
-                  ? `BUY ${displayName} — ${formatPrice(selectedVariant.price)}`
+                  ? formatBuyLabel(displayName, selectedVariant.price)
                   : "UNAVAILABLE"}
             </button>
             <Link

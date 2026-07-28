@@ -124,7 +124,7 @@ describe("ProductCard quick buy", () => {
     expect(cardSurface()).toHaveAttribute("data-visual-state", "quick-buy");
     expect(
       screen.getByRole("button", {
-        name: "Buy CLEANSE 50 ml for $20.00",
+        name: "BUY CLEANSE - $20.00",
       }),
     ).toBeInTheDocument();
   });
@@ -137,8 +137,10 @@ describe("ProductCard quick buy", () => {
       screen.getByRole("button", { name: "Open quick buy for CLEANSE" }),
     );
     const finalButton = screen.getByRole("button", {
-      name: "Buy CLEANSE 50 ml for $20.00",
+      name: "BUY CLEANSE - $20.00",
     });
+    expect(finalButton).toHaveTextContent("BUY CLEANSE - $20.00");
+    expect(finalButton).not.toHaveTextContent(/[–—]/);
     await user.click(finalButton);
 
     await waitFor(() => expect(cartMock.add).toHaveBeenCalledTimes(1));
@@ -181,7 +183,7 @@ describe("ProductCard quick buy", () => {
     expect(surface).toHaveAttribute("data-visual-state", "preview");
     expect(
       screen.queryByRole("button", {
-        name: "Buy CLEANSE 50 ml for $20.00",
+        name: "BUY CLEANSE - $20.00",
       }),
     ).not.toBeInTheDocument();
 
@@ -289,7 +291,7 @@ describe("ProductCard quick buy", () => {
     await waitFor(() =>
       expect(
         screen.queryByRole("button", {
-          name: "Buy CLEANSE 50 ml for $20.00",
+          name: "BUY CLEANSE - $20.00",
         }),
       ).not.toBeInTheDocument(),
     );
@@ -304,7 +306,7 @@ describe("ProductCard quick buy", () => {
 
     expect(
       screen.getByRole("button", {
-        name: "Buy CLEANSE 50 ml for $20.00",
+        name: "BUY CLEANSE - $20.00",
       }),
     ).toBeInTheDocument();
   });
@@ -335,7 +337,7 @@ describe("ProductCard quick buy", () => {
     await user.click(screen.getByRole("radio", { name: "100 ml $32.00" }));
     await user.click(
       screen.getByRole("button", {
-        name: "Buy CLEANSE 100 ml for $32.00",
+        name: "BUY CLEANSE - $32.00",
       }),
     );
 
@@ -357,17 +359,52 @@ describe("ProductCard quick buy", () => {
     );
     await user.click(
       screen.getByRole("button", {
-        name: "Buy CLEANSE 50 ml for $20.00",
+        name: "BUY CLEANSE - $20.00",
       }),
     );
 
-    expect(await screen.findByText("Cart is temporarily unavailable.")).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        "Cart is temporarily unavailable. Try again in a moment.",
+      ),
+    ).toBeInTheDocument();
     expect(cartMock.openCartDrawer).not.toHaveBeenCalled();
     expect(
       screen.getByRole("button", {
-        name: "Buy CLEANSE 50 ml for $20.00",
+        name: "BUY CLEANSE - $20.00",
       }),
     ).toBeInTheDocument();
+  });
+
+  it("guards a pending purchase against duplicate activation", async () => {
+    let resolveAdd: ((value: boolean) => void) | undefined;
+    cartMock.add.mockImplementation(
+      () =>
+        new Promise<boolean>((resolve) => {
+          resolveAdd = resolve;
+        }),
+    );
+    render(<ProductCard product={makeProduct()} />);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Open quick buy for CLEANSE" }),
+    );
+    const finalButton = screen.getByRole("button", {
+      name: "BUY CLEANSE - $20.00",
+    });
+    fireEvent.click(finalButton);
+    fireEvent.click(finalButton);
+
+    expect(cartMock.add).toHaveBeenCalledTimes(1);
+    expect(finalButton).toBeDisabled();
+
+    await act(async () => {
+      resolveAdd?.(true);
+    });
+
+    await waitFor(() =>
+      expect(cartMock.openCartDrawer).toHaveBeenCalledTimes(1),
+    );
   });
 });
 
@@ -397,7 +434,7 @@ describe("ProductGrid quick buy coordination", () => {
     );
     expect(
       within(cards[0]).getByRole("button", {
-        name: "Buy CLEANSE 50 ml for $20.00",
+        name: "BUY CLEANSE - $20.00",
       }),
     ).toBeInTheDocument();
 
@@ -409,12 +446,12 @@ describe("ProductGrid quick buy coordination", () => {
 
     expect(
       within(cards[0]).queryByRole("button", {
-        name: "Buy CLEANSE 50 ml for $20.00",
+        name: "BUY CLEANSE - $20.00",
       }),
     ).not.toBeInTheDocument();
     expect(
       within(cards[1]).getByRole("button", {
-        name: "Buy LIFT 50 ml for $20.00",
+        name: "BUY LIFT - $20.00",
       }),
     ).toBeInTheDocument();
   });
