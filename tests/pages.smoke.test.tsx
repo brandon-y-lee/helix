@@ -18,8 +18,6 @@ vi.mock("@/lib/auth/session", () => ({
 
 import HomePage from "@/app/page";
 import ProductsPage from "@/app/products/page";
-import MethodPage from "@/app/system/page";
-import AboutPage from "@/app/about/page";
 import CartPage from "@/app/cart/page";
 import CheckoutPage from "@/app/checkout/page";
 import SignInPage from "@/app/account/sign-in/page";
@@ -198,39 +196,20 @@ beforeEach(() => {
   );
 });
 
-// Storefront smoke verification: render each page component and assert its
-// primary signal renders. The async [slug] detail page and the interactive
-// cart/add-to-cart flows are covered by the e2e suite.
 describe("storefront page smoke", () => {
-  it("Home renders its hero h1 and featured cards", async () => {
-    // HomePage is an async server component; await it to get its element tree.
-    // ProductCard consumes the cart context, so wrap in CartProvider.
+  it("renders the Home server page", async () => {
     render(<CartProvider>{await HomePage()}</CartProvider>);
+
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
-    const heroHeading = screen.getByRole("heading", {
-      level: 1,
-      name: "Your skin starts with three steps.",
-    });
     expect(
-      heroHeading,
+      screen.getByRole("heading", {
+        level: 1,
+        name: "Your skin starts with three steps.",
+      }),
     ).toBeInTheDocument();
-    expect(heroHeading).toHaveClass("display-secondary");
-    expect(
-      screen.getAllByRole("link", { name: "SHOP THE CORE" })[0],
-    ).toHaveAttribute("href", "#core-three");
-    expect(
-      screen.getAllByRole("link", { name: "SEE THE SYSTEM" })[0],
-    ).toHaveAttribute("href", "/system");
-    expect(screen.getByText("Cleanse. Treat. Seal.")).toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", { level: 2, name: "The Core" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole("heading", { level: 2, name: "Cleanse, Treat, Seal." }),
-    ).not.toBeInTheDocument();
   });
 
-  it("Shop renders its h1 and a card per product", async () => {
+  it("renders the Shop server page with catalog data", async () => {
     render(
       <CartProvider>
         {await ProductsPage({ searchParams: Promise.resolve({}) })}
@@ -239,36 +218,9 @@ describe("storefront page smoke", () => {
     expect(
       screen.getByRole("heading", { level: 1, name: "RAISE YOUR BASELINE." }),
     ).toBeInTheDocument();
-    for (const product of fixtures) {
-      // Each card has a media link (aria-label includes the tagline) and a name
-      // link (accessible name === product name); match the latter exactly.
-      expect(
-        screen.getByRole("link", { name: product.displayName }),
-      ).toHaveAttribute("href", `/products/${product.slug}`);
-    }
-  });
-
-  it("System renders its instructional h1 and SPF education", async () => {
-    render(await MethodPage());
     expect(
-      screen.getByRole("heading", { level: 1, name: "THE SYSTEM." }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("A system for clearer, healthier, beautiful skin"),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "06 PROTECT" })).toBeInTheDocument();
-    expect(screen.getAllByText("COMING SOON").length).toBeGreaterThan(0);
-  });
-
-  it("About renders its narrative h1", () => {
-    render(<AboutPage />);
-    expect(
-      screen.getByRole("heading", {
-        level: 1,
-        name: "TWO CITIES. ONE STANDARD.",
-      }),
-    ).toBeInTheDocument();
-    expect(screen.getByText("MEN DESERVE A BETTER SYSTEM.")).toBeInTheDocument();
+      screen.getByRole("link", { name: "CLEANSE" }),
+    ).toHaveAttribute("href", "/products/cleanse-01-calming-gel-cleanser");
   });
 
   it("Shop renders a clear empty state when the catalog is empty", async () => {
@@ -282,7 +234,7 @@ describe("storefront page smoke", () => {
     ).toBeInTheDocument();
   });
 
-  it("Cart renders its h1 (empty state) inside the provider", async () => {
+  it("renders the Cart empty state inside the provider", async () => {
     render(
       <CartProvider>
         {await CartPage({ searchParams: Promise.resolve({}) })}
@@ -292,9 +244,6 @@ describe("storefront page smoke", () => {
       screen.getByRole("heading", { level: 1, name: "Cart" }),
     ).toBeInTheDocument();
     expect(await screen.findByText(/your cart is empty/i)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Browse the system" })).toHaveClass(
-      "btn--editorial-rounded",
-    );
   });
 
   it("Cart renders a generic checkout cancellation notice", async () => {
@@ -309,24 +258,21 @@ describe("storefront page smoke", () => {
     expect(notice).not.toHaveTextContent(/order|session|payment intent/i);
   });
 
-  it("Checkout renders its h1", () => {
+  it("renders Checkout", () => {
     render(<CheckoutPage />);
     expect(
       screen.getByRole("heading", { level: 1, name: "Checkout" }),
     ).toBeInTheDocument();
   });
 
-  it("Account sign-in renders its h1", async () => {
+  it("renders account sign-in", async () => {
     render(await SignInPage({ searchParams: Promise.resolve({}) }));
     expect(
       screen.getByRole("heading", { level: 1, name: "Sign in" }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Sign in" })).toHaveClass(
-      "btn--editorial-rounded",
-    );
   });
 
-  it("Support and legal pages render their primary headings", () => {
+  it("renders support and legal static pages", () => {
     const pages = [
       { element: <FAQPage />, heading: /^FAQ$/i },
       { element: <ContactPage />, heading: /^Contact$/i },

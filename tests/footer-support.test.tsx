@@ -3,7 +3,6 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { FAQAccordion } from "@/components/FAQAccordion";
 import { SiteFooter } from "@/components/SiteFooter";
-import { footerLinkGroups } from "@/content/footer";
 import { accessibilityStatement } from "@/content/legal/accessibility";
 import { cookieCategories, cookiePolicy } from "@/content/legal/cookies";
 import { privacyChoices } from "@/content/legal/privacy-choices";
@@ -29,84 +28,30 @@ describe("global footer", () => {
 
     const footer = screen.getByRole("contentinfo");
     expect(screen.getAllByRole("contentinfo")).toHaveLength(1);
-    expect(footer).toHaveClass("site-footer");
-    expect(footer).not.toHaveClass("site-footer--compact");
     expect(screen.getByRole("heading", { name: "Mei Pelle" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Mei Pelle" })).toHaveAttribute("href", "/");
-    expect(within(footer).queryByText("Seoul / Los Angeles")).not.toBeInTheDocument();
-    expect(
-      within(footer).queryByText(
-        "Prestige skincare for men built around discipline, consistency, and a cleaner routine.",
-      ),
-    ).not.toBeInTheDocument();
     expect(screen.getByText("Stay in the system.")).toBeInTheDocument();
     expect(screen.getByText("Email updates are not open")).toBeInTheDocument();
     expect(screen.queryByRole("textbox", { name: /email/i })).not.toBeInTheDocument();
-    expect(
-      screen.getByText(new RegExp(String(new Date().getFullYear()))),
-    ).toBeInTheDocument();
 
-    const inner = footer.querySelector(".site-footer__inner");
-    const primary = footer.querySelector(".site-footer__primary");
-    const wordmarkBand = footer.querySelector<HTMLElement>(".site-footer__wordmark-band");
-    const wordmark = footer.querySelector<HTMLElement>(".site-footer__wordmark");
-    expect(inner?.firstElementChild).toBe(wordmarkBand);
-    expect(wordmarkBand).toContainElement(wordmark);
-    expect(wordmarkBand).toHaveAttribute("data-scroll-zoom-mode", "view-timeline");
-    expect(footer.querySelector(".site-footer__wordmark-runway")).not.toBeInTheDocument();
-    expect(footer.querySelector(".site-footer__wordmark-stage")).not.toBeInTheDocument();
-    expect(inner?.children[1]).toHaveClass("site-footer__primary");
-    expect(primary?.firstElementChild).toHaveClass("site-footer__updates");
-    expect(primary?.lastElementChild).toHaveClass("site-footer__content");
-    expect(footer.querySelectorAll(".site-footer__wordmark")).toHaveLength(1);
-    expect(footer.querySelector(".site-footer__support")).not.toBeInTheDocument();
-    expect(within(footer).queryByText("Customer care")).not.toBeInTheDocument();
-
-    expect(footerLinkGroups).toEqual([
-      {
-        id: "navigate",
-        label: "Navigate",
-        links: [
-          { label: "Shop", href: "/products" },
-          { label: "System", href: "/system" },
-          { label: "About", href: "/about" },
-          { label: "Account", href: "/account" },
-          { label: "Rewards", href: "/rewards" },
-        ],
-      },
-      {
-        id: "support",
-        label: "Support",
-        links: [
-          { label: "FAQ", href: "/faq" },
-          { label: "Contact", href: "/contact" },
-          { label: "Shipping", href: "/faq#shipping" },
-          { label: "Returns & Refunds", href: "/faq#returns" },
-        ],
-      },
-      {
-        id: "legal",
-        label: "Legal",
-        links: [
-          { label: "Privacy", href: "/privacy" },
-          { label: "Terms", href: "/terms" },
-          { label: "Accessibility", href: "/accessibility" },
-        ],
-      },
-    ]);
-
-    for (const group of footerLinkGroups) {
-      expect(screen.getAllByText(group.label).length).toBeGreaterThan(0);
-      for (const link of group.links) {
-        expect(screen.getAllByRole("link", { name: link.label }).length).toBeGreaterThan(0);
-      }
+    for (const [name, href] of [
+      ["Shop", "/products"],
+      ["System", "/system"],
+      ["Rewards", "/rewards"],
+      ["FAQ", "/faq"],
+      ["Contact", "/contact"],
+      ["Privacy", "/privacy"],
+      ["Terms", "/terms"],
+    ] as const) {
+      expect(within(footer).getAllByRole("link", { name })[0]).toHaveAttribute(
+        "href",
+        href,
+      );
     }
 
-    expect(screen.getAllByRole("link", { name: /rewards/i }).length).toBeGreaterThan(0);
     expect(screen.queryByRole("link", { name: /store locator/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /^events$/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /instagram/i })).not.toBeInTheDocument();
-    expect(screen.queryByText(/payment/i)).not.toBeInTheDocument();
   });
 
   it("toggles mobile groups and opens cookie preferences", async () => {

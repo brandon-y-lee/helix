@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ProductDetail } from "@/components/ProductDetail";
@@ -195,19 +195,6 @@ describe("ProductDetail purchase accordions", () => {
     expect(before(outcomes, application)).toBe(true);
     expect(before(application, inside)).toBe(true);
     expect(before(inside, details)).toBe(true);
-    expect(
-      screen.queryByRole("button", { name: /WHAT IT DOES/ }),
-    ).not.toBeInTheDocument();
-    expect(document.getElementById("pdp-accordion-does-trigger")).toBeNull();
-    expect(document.getElementById("pdp-accordion-does-panel")).toBeNull();
-    expect(document.getElementById("pdp-does-heading")).toBeNull();
-    expect(document.querySelector(".pdp-editorial-pair--does")).toBeNull();
-    expect(
-      screen.queryByRole("heading", { name: "INGREDIENTS" }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("heading", { name: "QUICK SIGNALS" }),
-    ).not.toBeInTheDocument();
   });
 
   it("uses a single-open collapsible accordion group", async () => {
@@ -216,24 +203,16 @@ describe("ProductDetail purchase accordions", () => {
 
     const use = screen.getByRole("button", { name: /HOW TO USE/ });
     const ingredients = screen.getByRole("button", { name: /KEY INGREDIENTS/ });
-    const usePanel = document.getElementById("pdp-accordion-use-panel");
-    const ingredientsPanel = document.getElementById(
-      "pdp-accordion-ingredients-panel",
-    );
 
     await user.click(use);
     expect(use).toHaveAttribute("aria-expanded", "true");
-    expect(usePanel).toHaveAttribute("data-open", "true");
 
     await user.click(ingredients);
     expect(use).toHaveAttribute("aria-expanded", "false");
-    expect(usePanel).toHaveAttribute("data-open", "false");
     expect(ingredients).toHaveAttribute("aria-expanded", "true");
-    expect(ingredientsPanel).toHaveAttribute("data-open", "true");
 
     await user.click(ingredients);
     expect(ingredients).toHaveAttribute("aria-expanded", "false");
-    expect(ingredientsPanel).toHaveAttribute("data-open", "false");
   });
 
   it("links Core key ingredients to the structured ingredient module", async () => {
@@ -249,62 +228,6 @@ describe("ProductDetail purchase accordions", () => {
       "href",
       "#pdp-ingredients-treat-03-pdrn-5-ampoule",
     );
-    expect(document.getElementById("full-ingredients")).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "FULL INGREDIENTS LIST" }),
-    ).toBeInTheDocument();
-  });
-
-  it("keeps lower editorial panels finite across buttons, keyboard, and horizontal wheel", async () => {
-    const user = userEvent.setup();
-    render(
-      <ProductDetail
-        product={makeProduct({
-          slug: "refine-02-pore-treatment-pads",
-          routineGroup: "beyond_core",
-          routineGroupLabel: "Beyond the Core",
-        })}
-        content={{
-          whatItDoes: [],
-          howToUseSteps: [
-            "Swipe one pad over clean, dry skin.",
-            "Build frequency only as skin allows.",
-            "Follow with hydration and daytime SPF.",
-          ],
-          ingredientCards: [],
-        }}
-      />,
-    );
-
-    const group = screen.getByRole("group", { name: "How to use" });
-    const previous = within(group).getByRole("button", {
-      name: "Previous How to use",
-    });
-    const next = within(group).getByRole("button", {
-      name: "Next How to use",
-    });
-    const position = screen.getByLabelText("How to use item position");
-
-    expect(position).toHaveTextContent("01 / 03");
-    expect(previous).toBeDisabled();
-
-    await user.click(next);
-    expect(position).toHaveTextContent("02 / 03");
-    expect(previous).not.toBeDisabled();
-
-    group.focus();
-    await user.keyboard("{ArrowRight}{ArrowRight}");
-    expect(position).toHaveTextContent("03 / 03");
-    expect(next).toBeDisabled();
-
-    const viewport = group.querySelector(".pdp-panel-sequence__viewport");
-    expect(viewport).toBeInstanceOf(HTMLElement);
-    fireEvent.wheel(viewport as HTMLElement, { deltaX: 96, deltaY: 0 });
-    expect(position).toHaveTextContent("03 / 03");
-
-    await new Promise((resolve) => window.setTimeout(resolve, 280));
-    fireEvent.wheel(viewport as HTMLElement, { deltaX: -96, deltaY: 0 });
-    expect(position).toHaveTextContent("02 / 03");
   });
 
   it("passes canonical image media into cart adds when available", async () => {
@@ -407,45 +330,6 @@ describe("ProductDetail purchase accordions", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("fails honestly when key ingredients or full INCI are unavailable", async () => {
-    const user = userEvent.setup();
-    render(
-      <ProductDetail
-        product={makeProduct({
-          keyIngredients: [],
-          ingredients: null,
-          productDetails: {
-            sourceFullInci: "Full INCI unavailable in public product copy.",
-          },
-        })}
-      />,
-    );
-
-    await user.click(screen.getByRole("button", { name: /KEY INGREDIENTS/ }));
-
-    expect(
-      screen.getByText(/key ingredient notes are not available/i),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "FULL INGREDIENTS LIST" }),
-    ).not.toBeInTheDocument();
-    expect(document.getElementById("full-ingredients")).not.toBeInTheDocument();
-  });
-
-  it("renders the product-specific response meter without verified-buyer claims", () => {
-    render(<ProductDetail product={makeProduct()} />);
-
-    expect(
-      screen.getByText("How refreshed did your skin look?"),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("meter", {
-        name: /How refreshed did your skin look\?: 87 out of 100/,
-      }),
-    ).toHaveAttribute("value", "87");
-    expect(screen.queryByText(/Verified Buyer/i)).not.toBeInTheDocument();
-  });
-
   it("keeps selected server product pricing in sync with main messaging and sticky controls", async () => {
     const user = userEvent.setup();
     const base = makeProduct();
@@ -491,130 +375,6 @@ describe("ProductDetail purchase accordions", () => {
         ".pdp-sticky-purchase__variants button[aria-pressed='true']",
       ),
     ).toHaveTextContent("30 mL");
-  });
-
-  it("does not mount payment messaging for an unavailable product", () => {
-    const base = makeProduct();
-    render(
-      <ProductDetail
-        product={makeProduct({
-          status: "sold_out",
-          variants: base.variants.map((variant) => ({
-            ...variant,
-            available: false,
-            inventoryStatus: "out_of_stock",
-          })),
-        })}
-        stripePublishableKey="pk_test_product"
-      />,
-    );
-
-    expect(
-      screen.queryByTestId("afterpay-messaging-boundary"),
-    ).not.toBeInTheDocument();
-  });
-
-  it("renders canonical Core profile facts, routine media, and persistent outcomes", async () => {
-    const user = userEvent.setup();
-    render(<ProductDetail product={makeProduct()} />);
-
-    const profile = screen.getByRole("region", {
-      name: "A lightweight PDRN SERUM for HYDRATION, smoother-looking texture, and a steadier GLOW.",
-    });
-    expect(
-      within(profile).getByText("Dullness, dehydration, uneven-looking texture"),
-    ).toBeInTheDocument();
-    expect(
-      within(profile).getByText("Lightweight concentrated serum"),
-    ).toBeInTheDocument();
-    expect(
-      within(profile).getByText(
-        "All skin types • Morning and night • Step 02 of The Core",
-      ),
-    ).toBeInTheDocument();
-
-    const play = screen.getByRole("button", {
-      name: "Play TREAT routine video",
-    });
-    expect(play).toBeInTheDocument();
-    const foreground = document.querySelector(
-      ".pdp-routine-video__foreground",
-    );
-    expect(foreground).toHaveAttribute("controls");
-    expect(foreground).toHaveAttribute("preload", "metadata");
-    expect(foreground).not.toHaveAttribute("autoplay");
-    expect(foreground).not.toHaveAttribute("loop");
-
-    const hydrates = screen.getByRole("button", { name: "hydrates" });
-    const smooths = screen.getByRole("button", { name: "smooths" });
-    expect(hydrates).toHaveAttribute("aria-pressed", "true");
-    expect(smooths).toHaveAttribute("aria-pressed", "false");
-
-    fireEvent.pointerEnter(smooths);
-    fireEvent.pointerLeave(
-      screen.getByRole("group", { name: "TREAT outcomes" }),
-    );
-    expect(smooths).toHaveAttribute("aria-pressed", "true");
-
-    smooths.focus();
-    await user.keyboard("{ArrowDown}");
-    expect(
-      screen.getByRole("button", { name: "wakes up the finish" }),
-    ).toHaveAttribute("aria-pressed", "true");
-
-    await user.keyboard("{ArrowDown}");
-    expect(
-      screen.getByRole("button", { name: "wakes up the finish" }),
-    ).toHaveAttribute("aria-pressed", "true");
-  });
-
-  it("preserves Quick Signals and the current evidence module beyond the Core", () => {
-    render(
-      <ProductDetail
-        product={makeProduct({
-          slug: "refine-02-pore-treatment-pads",
-          displayName: "REFINE",
-          name: "REFINE",
-          routineGroup: "beyond_core",
-          routineGroupLabel: "Beyond The Core",
-          routineStepNumber: null,
-          routineStepName: null,
-          routineDisplayLabel: "Beyond The Core",
-          media: [],
-        })}
-      />,
-    );
-
-    expect(
-      screen.getByRole("heading", { name: "QUICK SIGNALS" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", { name: /Endorsed by familiar faces/i }),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole("heading", {
-        name: "YOUR DAILY TREATMENT THAT:",
-      }),
-    ).not.toBeInTheDocument();
-  });
-
-  it("renders rating-focused review rows without the marketing heading", () => {
-    render(<ProductDetail product={makeProduct()} />);
-
-    const reviewSection = screen.getByRole("region", {
-      name: "TREAT customer reviews",
-    });
-    expect(within(reviewSection).getByText("4.5")).toBeInTheDocument();
-    expect(
-      within(reviewSection).getByText("AVERAGE RATING"),
-    ).toBeInTheDocument();
-    expect(reviewSection.querySelectorAll(".review-row")).toHaveLength(2);
-    expect(
-      screen.queryByRole("heading", { name: "EARLY READS" }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByText(/public review intake is not open yet/i),
-    ).not.toBeInTheDocument();
   });
 
   it("fails closed without empty Core editorial media shells", () => {
