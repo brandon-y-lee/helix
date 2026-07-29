@@ -2,7 +2,6 @@ import type {
   PdpProfileTitleToken,
   ProductPdpContent,
 } from "@/lib/catalog/product-content";
-import type { Product } from "@/lib/products";
 
 export type CorePdpStep = "cleanse" | "treat" | "seal";
 
@@ -99,7 +98,18 @@ export const CORE_PDP_DESIGN_TOKENS = {
   },
 } as const satisfies Record<CorePdpStep, CorePdpDesignTokens>;
 
-export function corePdpStepForProduct(product: Product): CorePdpStep | null {
+type CoreStepProduct = {
+  routineGroup?: "core" | "beyond_core" | null;
+  routineStepName?: string | null;
+};
+
+type CorePresentationProduct = CoreStepProduct & {
+  pdpContent?: ProductPdpContent | null;
+};
+
+export function corePdpStepForProduct(
+  product: CoreStepProduct,
+): CorePdpStep | null {
   if (product.routineGroup !== "core") return null;
   switch (product.routineStepName?.toLowerCase()) {
     case "cleanse":
@@ -114,7 +124,7 @@ export function corePdpStepForProduct(product: Product): CorePdpStep | null {
 }
 
 export function getCorePdpPresentation(
-  product: Product,
+  product: CorePresentationProduct,
   content: ProductPdpContent | null = product.pdpContent ?? null,
 ): CorePdpPresentation | null {
   const step = corePdpStepForProduct(product);
@@ -167,7 +177,18 @@ function sentenceCaseList(items: string[]): string {
     .join(" and ");
 }
 
-export function corePdpProfileRows(product: Product) {
+export function corePdpProfileRows(
+  product: {
+    finish: string | null;
+    goodFor: string | null;
+    routineDisplayLabel?: string | null;
+    routineGroupLabel?: string | null;
+    routineStepNumber?: number | null;
+    skinTypes: string[];
+    texture: string | null;
+    usageTime: string[];
+  },
+) {
   const step =
     product.routineStepNumber && product.routineGroupLabel
       ? `Step ${String(product.routineStepNumber).padStart(2, "0")} of ${product.routineGroupLabel}`

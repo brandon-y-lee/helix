@@ -6,7 +6,17 @@ import {
   type Ref,
 } from "react";
 import { useCoreRoutineSelection } from "@/components/useCoreRoutineSelection";
-import type { CoreRoutineProduct } from "@/lib/products";
+import type { CoreRoutineSummary } from "@/lib/catalog/models";
+
+type CoreRoutinePresentation = Pick<
+  CoreRoutineSummary,
+  | "displayName"
+  | "productType"
+  | "routineStepNumber"
+  | "slug"
+  | "swatch"
+  | "textureMedia"
+>;
 
 type CoreRoutineStyle = CSSProperties & {
   "--core-from": string;
@@ -22,7 +32,7 @@ export function PdpCoreRoutineSection({
   currentSlug,
   rootRef,
 }: {
-  products: CoreRoutineProduct[];
+  products: CoreRoutinePresentation[];
   currentSlug: string;
   rootRef?: Ref<HTMLElement>;
 }) {

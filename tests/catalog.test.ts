@@ -11,9 +11,7 @@ vi.mock("@/lib/supabase", () => ({
 }));
 
 import {
-  getCoreRoutineProducts,
   getProducts,
-  getProduct,
 } from "@/lib/catalog";
 
 const mockedGetClient = getSupabaseClient as unknown as Mock;
@@ -316,113 +314,6 @@ describe("catalog data access (Supabase-backed)", () => {
     await expect(getProducts()).rejects.toThrow(/Failed to load products/);
   });
 
-  it("getProduct maps a single row by slug", async () => {
-    mockedGetClient.mockReturnValue(makeClient({ data: sampleRow, error: null }));
-
-    const product = await getProduct("northpoint-renewal-serum");
-
-    expect(product?.name).toBe("Northpoint Renewal Serum");
-    expect(product?.variants.length).toBeGreaterThan(0);
-  });
-
-  it("getProduct returns undefined when no row matches", async () => {
-    mockedGetClient.mockReturnValue(makeClient({ data: null, error: null }));
-    expect(await getProduct("does-not-exist")).toBeUndefined();
-  });
-
-  it("getProduct throws a clear error when the query fails", async () => {
-    mockedGetClient.mockReturnValue(
-      makeClient({ data: null, error: { message: "connection refused" } }),
-    );
-    await expect(getProduct("x")).rejects.toThrow(/Failed to load product "x"/);
-  });
-
-  it("loads exactly the three ordered Core products with dedicated texture media", async () => {
-    const coreRows = [
-      {
-        id: "cleanse-id",
-        slug: "cleanse-01-calming-gel-cleanser",
-        name: "CLEANSE",
-        display_name: "CLEANSE",
-        formal_title: "CLEANSE 01 Calming Gel Cleanser",
-        product_type: "Gel cleanser",
-        routine_step_number: 1,
-        routine_step_name: "Cleanse",
-        routine_sort: 10,
-        swatch_from: "#d9e2dc",
-        swatch_to: "#a7bcb0",
-      },
-      {
-        id: "treat-id",
-        slug: "treat-03-pdrn-5-ampoule",
-        name: "TREAT",
-        display_name: "TREAT",
-        formal_title: "TREAT 03 PDRN Ampoule",
-        product_type: "Treatment serum",
-        routine_step_number: 2,
-        routine_step_name: "Treat",
-        routine_sort: 20,
-        swatch_from: "#e4c175",
-        swatch_to: "#a7772f",
-      },
-      {
-        id: "seal-id",
-        slug: "seal-05-green-collagen-cream",
-        name: "SEAL",
-        display_name: "SEAL",
-        formal_title: "SEAL 05 Green Collagen Cream",
-        product_type: "Barrier cream",
-        routine_step_number: 3,
-        routine_step_name: "Seal",
-        routine_sort: 30,
-        swatch_from: "#e7e1d7",
-        swatch_to: "#b8aa92",
-      },
-    ].map((row) => ({
-      ...row,
-      product_media: [
-        {
-          media_type: "image",
-          media_kind: "image",
-          url: `https://example.supabase.co/${row.slug}.webp`,
-          alt: `${row.display_name} texture`,
-          width: 1024,
-          height: 1024,
-          role: "core_routine_texture",
-          sort_order: 24,
-          palette_id: null,
-          placeholder_palette: null,
-        },
-      ],
-    }));
-    mockedGetClient.mockReturnValue(
-      makeClient({ data: coreRows, error: null }),
-    );
-
-    const products = await getCoreRoutineProducts();
-
-    expect(products.map((product) => product.displayName)).toEqual([
-      "CLEANSE",
-      "TREAT",
-      "SEAL",
-    ]);
-    expect(products.map((product) => product.routineStepNumber)).toEqual([
-      1, 2, 3,
-    ]);
-    expect(
-      products.every(
-        (product) => product.textureMedia.role === "core_routine_texture",
-      ),
-    ).toBe(true);
-  });
-
-  it("fails closed when the Core routine is incomplete", async () => {
-    mockedGetClient.mockReturnValue(makeClient({ data: [], error: null }));
-
-    await expect(getCoreRoutineProducts()).rejects.toThrow(
-      /expected active CLEANSE, TREAT, and SEAL sequence/,
-    );
-  });
 });
 
 describe("Supabase config validation (fail fast)", () => {

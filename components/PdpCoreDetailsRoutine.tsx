@@ -4,20 +4,51 @@ import { useMemo, useRef, type CSSProperties } from "react";
 import { useCoreRoutineSelection } from "@/components/useCoreRoutineSelection";
 import { useProductPurchase } from "@/components/useProductPurchase";
 import type { CartPlaceholderMedia } from "@/lib/cart/types";
+import type { ProductPdpContent } from "@/lib/catalog/product-content";
 import { corePdpStepForProduct } from "@/lib/content/core-pdp";
+import type { CoreRoutineSummary } from "@/lib/catalog/models";
 import { PDP_CORE_DETAILS_PRESENTATIONS } from "@/lib/content/pdp-core-details";
 import {
   firstPurchasableVariant,
   productPurchaseCta,
-  type Product,
   type ProductMedia,
-  type Variant,
 } from "@/lib/products";
 
 type PlaceholderStyle = CSSProperties & {
   "--details-start": string;
   "--details-end": string;
   "--details-glow": string;
+};
+
+type CoreDetailsVariant = {
+  id: string;
+  label: string;
+  price: number;
+  available: boolean;
+  inventoryStatus: "in_stock" | "low_stock" | "out_of_stock" | "unavailable";
+};
+
+type CoreDetailsProduct = Pick<
+  CoreRoutineSummary,
+  | "benefits"
+  | "cardMedia"
+  | "cardTagline"
+  | "cartMedia"
+  | "description"
+  | "displayName"
+  | "finish"
+  | "goodFor"
+  | "keyIngredients"
+  | "slug"
+  | "status"
+  | "swatch"
+  | "texture"
+> & {
+  routineGroup?: "core" | "beyond_core" | null;
+  routineStepName?: string | null;
+  pdpContent?: ProductPdpContent | null;
+  productType: string | null;
+  variants: CoreDetailsVariant[];
 };
 
 function cartPlaceholderMedia(
@@ -46,7 +77,7 @@ export function PdpCoreDetailsRoutine({
   products,
   currentSlug,
 }: {
-  products: Product[];
+  products: CoreDetailsProduct[];
   currentSlug: string;
 }) {
   const orderedSteps = useMemo(
@@ -80,7 +111,10 @@ export function PdpCoreDetailsRoutine({
     return null;
   }
 
-  async function buy(product: Product, variant: Variant) {
+  async function buy(
+    product: CoreDetailsProduct,
+    variant: CoreDetailsVariant,
+  ) {
     const media = product.cartMedia ?? product.cardMedia;
     await purchase({
       item: {

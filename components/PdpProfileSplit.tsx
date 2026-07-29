@@ -4,7 +4,8 @@ import {
   corePdpProfileRows,
   type CorePdpPresentation,
 } from "@/lib/content/core-pdp";
-import type { Product, ProductMedia } from "@/lib/products";
+import type { PdpProduct } from "@/lib/catalog/models";
+import type { ProductMedia } from "@/lib/products";
 
 export function PdpProfileSplit({
   product,
@@ -12,7 +13,7 @@ export function PdpProfileSplit({
   media,
   rootRef,
 }: {
-  product: Product;
+  product: PdpProduct;
   presentation: CorePdpPresentation;
   media: ProductMedia;
   rootRef?: Ref<HTMLElement>;

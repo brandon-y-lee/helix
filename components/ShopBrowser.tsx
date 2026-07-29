@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { ProductGrid } from "@/components/ProductGrid";
 import { routineGroupLabelForProduct } from "@/lib/catalog/product-routine";
-import type { Product } from "@/lib/products";
+import type { ProductCard } from "@/lib/catalog/models";
 
 type SortKey =
   | "featured"
@@ -24,11 +24,11 @@ const SORTS: ReadonlyArray<{ value: SortKey; label: string }> = [
 
 const ALL = "All";
 
-function minPrice(p: Product): number {
+function minPrice(p: ProductCard): number {
   return p.variants.length ? Math.min(...p.variants.map((v) => v.price)) : 0;
 }
 
-function groupLabel(product: Product) {
+function groupLabel(product: ProductCard) {
   return routineGroupLabelForProduct(product);
 }
 
@@ -36,7 +36,7 @@ export function ShopBrowser({
   products,
   initialCollection,
 }: {
-  products: Product[];
+  products: ProductCard[];
   initialCollection?: string;
 }) {
   // Commerce groups in the catalog's featured order.
@@ -69,10 +69,10 @@ export function ShopBrowser({
     const sorted = [...filtered];
     switch (sort) {
       case "name-asc":
-        sorted.sort((a, b) => a.name.localeCompare(b.name));
+        sorted.sort((a, b) => a.displayName.localeCompare(b.displayName));
         break;
       case "name-desc":
-        sorted.sort((a, b) => b.name.localeCompare(a.name));
+        sorted.sort((a, b) => b.displayName.localeCompare(a.displayName));
         break;
       case "price-asc":
         sorted.sort((a, b) => minPrice(a) - minPrice(b));

@@ -16,7 +16,7 @@ import {
   type WheelEvent,
 } from "react";
 import { ProductCard } from "@/components/ProductCard";
-import type { Product } from "@/lib/products";
+import type { ProductCard as ProductCardModel } from "@/lib/catalog/models";
 
 const DRAG_START_THRESHOLD = 8;
 const DRAG_COMMIT_THRESHOLD = 44;
@@ -46,7 +46,7 @@ type CarouselMetrics = {
 };
 
 type ProductCarouselProps = {
-  products: readonly Product[];
+  products: readonly ProductCardModel[];
   ariaLabel: string;
   announcementContext?: string;
   className?: string;
@@ -581,7 +581,7 @@ function ProductCarouselTrack({
 }: {
   id: string;
   motionDirection: Direction | null;
-  products: readonly Product[];
+  products: readonly ProductCardModel[];
   onPreviewChange?: (key: string | null) => void;
   previewKeyBySlug?: Readonly<Record<string, string | undefined>>;
   trackStyle: CarouselTrackStyle;

@@ -5,7 +5,7 @@ import {
   ProductCard,
   type ProductCardImageOverride,
 } from "@/components/ProductCard";
-import type { Product } from "@/lib/products";
+import type { ProductCard as ProductCardModel } from "@/lib/catalog/models";
 
 export function ProductGrid({
   products,
@@ -14,7 +14,7 @@ export function ProductGrid({
   previewKeyBySlug,
   onPreviewChange,
 }: {
-  products: Product[];
+  products: ProductCardModel[];
   className?: string;
   defaultImageBySlug?: Readonly<Record<string, ProductCardImageOverride | undefined>>;
   previewKeyBySlug?: Readonly<Record<string, string | undefined>>;

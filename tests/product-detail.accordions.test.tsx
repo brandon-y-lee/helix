@@ -8,7 +8,12 @@ import {
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ProductDetail } from "@/components/ProductDetail";
-import type { Product } from "@/lib/products";
+import type {
+  CoreRoutineSummary,
+  OfferAvailability,
+  PdpProduct,
+} from "@/lib/catalog/models";
+import type { Product, Variant } from "@/lib/products";
 
 const cartMock = vi.hoisted(() => ({
   add: vi.fn(),
@@ -38,7 +43,11 @@ vi.mock("@/components/AfterpayMessaging", () => ({
     ) : null,
 }));
 
-function makeProduct(overrides: Partial<Product> = {}): Product {
+type ProductOverrides = Omit<Partial<Product>, "variants"> & {
+  variants?: Array<Variant | OfferAvailability>;
+};
+
+function makeProduct(overrides: ProductOverrides = {}): PdpProduct {
   const editorialMedia: Product["media"] = [
     {
       kind: "video",
@@ -216,7 +225,7 @@ function makeProduct(overrides: Partial<Product> = {}): Product {
     },
     createdAt: "2026-06-14T00:00:00.000Z",
   };
-  return { ...base, ...overrides };
+  return { ...base, ...overrides } as unknown as PdpProduct;
 }
 
 function before(a: Element, b: Element) {
@@ -231,7 +240,7 @@ beforeEach(() => {
 
 describe("ProductDetail purchase accordions", () => {
   it("replaces Core Details in place and preserves the later Core routine", () => {
-    const coreProducts = [
+    const coreDetailProducts = [
       makeProduct({
         id: "cleanse-id",
         slug: "cleanse-01-calming-gel-cleanser",
@@ -252,16 +261,29 @@ describe("ProductDetail purchase accordions", () => {
         routineSort: 30,
       }),
     ];
-    const coreRoutine = coreProducts.map((item, index) => ({
+    const coreProducts: CoreRoutineSummary[] = coreDetailProducts.map((item, index) => ({
       id: item.id,
       slug: item.slug,
       displayName: item.displayName,
-      formalTitle: item.formalTitle,
+      formalTitle: `${item.displayName} formal title`,
       productType: item.productType ?? "",
+      cardTagline: item.cardTagline,
+      description: item.description,
+      benefits: [],
+      goodFor: item.goodFor,
+      texture: item.texture,
+      finish: item.finish,
+      keyIngredients: item.keyIngredients,
+      pdpContent: item.pdpContent ?? null,
+      status: item.status,
+      routineGroup: "core",
       routineStepNumber: index + 1,
-      routineStepName: item.routineStepName ?? item.displayName,
+      routineStepName: item.displayName,
       routineSort: (index + 1) * 10,
       swatch: item.swatch,
+      cardMedia: item.cardMedia,
+      cartMedia: item.cartMedia,
+      variants: item.variants,
       textureMedia: {
         kind: "image" as const,
         url: `https://example.com/${item.slug}.webp`,
@@ -276,9 +298,8 @@ describe("ProductDetail purchase accordions", () => {
     }));
     const { container } = render(
       <ProductDetail
-        product={coreProducts[1]}
+        product={coreDetailProducts[1]}
         coreProducts={coreProducts}
-        coreRoutine={coreRoutine}
       />,
     );
 

@@ -1,21 +1,38 @@
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import {
-  getCoreRoutineProducts,
-  getDiscoveryProductSlugs,
-  getProduct,
   getProducts,
-  getRelatedProductSlugs,
   resolveProductPresentationMedia,
 } from "@/lib/catalog";
-import type {
-  CoreRoutineProduct,
-  Product,
-  ProductMedia,
-} from "@/lib/products";
+import {
+  getCoreRoutineContentSummaries,
+  getDiscoveryProductCardContents,
+  getIngredientIndexProducts,
+  getPdpProductContent,
+  getProductCardContents,
+  getProductMetadata,
+  getProductOffer,
+  getProductOffers,
+  getProductRoutes,
+} from "@/lib/catalog/storefront";
+import {
+  CORE_ROUTINE_PRODUCT_SLUGS,
+  type CoreRoutineContentSummary,
+  type CoreRoutineSummary,
+  type IngredientIndexProduct,
+  type PdpProduct,
+  type PdpProductContent,
+  type ProductCard,
+  type ProductCardContent,
+  type ProductMetadata,
+  type ProductOffer,
+  type ProductRoute,
+} from "@/lib/catalog/models";
+import { PDP_DISCOVERY_PRODUCT_LIMIT } from "@/lib/merchandising";
+import type { Product, ProductMedia } from "@/lib/products";
 
-// Event tags are the primary freshness mechanism. These durations are bounded
-// fallbacks for missed delivery: editorial is stable, offers are not.
+// Tags are the primary freshness mechanism. Durations bound staleness if a
+// delivery is missed, with volatile commerce state isolated from editorial.
 export const PRODUCT_CONTENT_REVALIDATE_SECONDS = 24 * 60 * 60;
 export const PRODUCT_OFFER_REVALIDATE_SECONDS = 60;
 export const PRODUCT_CARD_REVALIDATE_SECONDS = 60 * 60;
@@ -30,12 +47,7 @@ export const PRODUCT_OFFER_COLLECTION_CACHE_TAG = "catalog-product-offer";
 export const PRODUCT_CARD_COLLECTION_CACHE_TAG = "catalog-product-card";
 export const CORE_ROUTINE_CACHE_TAG = "catalog-core-routine";
 export const DISCOVERY_CACHE_TAG = "catalog-discovery";
-
-export const CORE_ROUTINE_PRODUCT_SLUGS = [
-  "cleanse-01-calming-gel-cleanser",
-  "treat-03-pdrn-5-ampoule",
-  "seal-05-green-collagen-cream",
-] as const;
+export { CORE_ROUTINE_PRODUCT_SLUGS } from "@/lib/catalog/models";
 
 const CARD_MEDIA_ROLES = new Set<ProductMedia["role"]>([
   "card",
@@ -44,13 +56,17 @@ const CARD_MEDIA_ROLES = new Set<ProductMedia["role"]>([
   "search",
 ]);
 
-type OfferKey = "currency" | "variants" | "status" | "catalogStatus";
-type CardKey =
+type LegacyOfferKey =
+  | "currency"
+  | "variants"
+  | "status"
+  | "catalogStatus";
+type LegacyCardKey =
   | "cardTagline"
   | "badge"
   | "featuredRank"
   | "sortOrder";
-type DerivedMediaKey =
+type LegacyMediaKey =
   | "media"
   | "cardMedia"
   | "cardHoverMedia"
@@ -59,27 +75,24 @@ type DerivedMediaKey =
   | "cartMedia"
   | "searchMedia";
 
-export type CachedProductContent = Omit<
+type LegacyProductContent = Omit<
   Product,
-  OfferKey | CardKey | DerivedMediaKey
+  LegacyOfferKey | LegacyCardKey | LegacyMediaKey
 > & {
   media: ProductMedia[];
 };
 
-export type CachedProductOffer = Pick<
+type LegacyProductOffer = Pick<
   Product,
   "id" | "slug" | "currency" | "variants" | "status" | "catalogStatus"
 >;
 
-type CachedProductCard = Pick<
+type LegacyProductCard = Pick<
   Product,
-  "id" | "slug" | CardKey
+  "id" | "slug" | LegacyCardKey
 > & {
   media: ProductMedia[];
 };
-
-const requestProducts = cache(getProducts);
-const requestProduct = cache(getProduct);
 
 export function productContentCacheTag(productKey: string): string {
   return `catalog-product-content:${productKey}`;
@@ -111,7 +124,7 @@ function withoutKeys<T extends object, K extends keyof T>(
   return copy as Omit<T, K>;
 }
 
-function toProductContent(product: Product): CachedProductContent {
+function toLegacyContent(product: Product): LegacyProductContent {
   const content = withoutKeys(product, [
     "currency",
     "variants",
@@ -129,14 +142,13 @@ function toProductContent(product: Product): CachedProductContent {
     "cartMedia",
     "searchMedia",
   ] as const);
-
   return {
     ...content,
     media: product.media.filter((media) => !CARD_MEDIA_ROLES.has(media.role)),
   };
 }
 
-function toProductOffer(product: Product): CachedProductOffer {
+function toLegacyOffer(product: Product): LegacyProductOffer {
   return {
     id: product.id,
     slug: product.slug,
@@ -147,7 +159,7 @@ function toProductOffer(product: Product): CachedProductOffer {
   };
 }
 
-function toProductCard(product: Product): CachedProductCard {
+function toLegacyCard(product: Product): LegacyProductCard {
   return {
     id: product.id,
     slug: product.slug,
@@ -159,10 +171,10 @@ function toProductCard(product: Product): CachedProductCard {
   };
 }
 
-function composeProduct(
-  content: CachedProductContent,
-  offer: CachedProductOffer,
-  card: CachedProductCard,
+function composeLegacyProduct(
+  content: LegacyProductContent,
+  offer: LegacyProductOffer,
+  card: LegacyProductCard,
 ): Product {
   if (
     content.id !== offer.id ||
@@ -171,49 +183,26 @@ function composeProduct(
     content.slug !== card.slug
   ) {
     throw new Error(
-      `[catalog-cache] Cannot compose mismatched product cache fragments for "${content.slug}".`,
+      `[catalog-cache] Cannot compose mismatched legacy product fragments for "${content.slug}".`,
     );
   }
-
   const media = [...content.media, ...card.media].sort(
     (a, b) => a.sortOrder - b.sortOrder,
   );
-
   return {
     ...content,
-    cardTagline: card.cardTagline,
-    badge: card.badge,
-    featuredRank: card.featuredRank,
-    sortOrder: card.sortOrder,
-    currency: offer.currency,
-    variants: offer.variants,
-    status: offer.status,
-    catalogStatus: offer.catalogStatus,
+    ...offer,
+    ...card,
     media,
     ...resolveProductPresentationMedia(media),
   };
 }
 
-function composeProductList(
-  contents: readonly CachedProductContent[],
-  offers: readonly CachedProductOffer[],
-  cards: readonly CachedProductCard[],
-): Product[] {
-  const contentsBySlug = new Map(
-    contents.map((content) => [content.slug, content]),
-  );
-  const offersBySlug = new Map(offers.map((offer) => [offer.slug, offer]));
+const requestLegacyProducts = cache(getProducts);
 
-  return cards.flatMap((card) => {
-    const content = contentsBySlug.get(card.slug);
-    const offer = offersBySlug.get(card.slug);
-    return content && offer ? [composeProduct(content, offer, card)] : [];
-  });
-}
-
-const readCachedProductContents = unstable_cache(
-  async () => (await requestProducts()).map(toProductContent),
-  ["catalog-products-content-v1"],
+const readCachedLegacyContents = unstable_cache(
+  async () => (await requestLegacyProducts()).map(toLegacyContent),
+  ["catalog-products-content-v2"],
   {
     revalidate: PRODUCT_CONTENT_REVALIDATE_SECONDS,
     tags: [
@@ -223,9 +212,9 @@ const readCachedProductContents = unstable_cache(
   },
 );
 
-const readCachedProductOffers = unstable_cache(
-  async () => (await requestProducts()).map(toProductOffer),
-  ["catalog-products-offer-v1"],
+const readCachedLegacyOffers = unstable_cache(
+  async () => (await requestLegacyProducts()).map(toLegacyOffer),
+  ["catalog-products-offer-v2"],
   {
     revalidate: PRODUCT_OFFER_REVALIDATE_SECONDS,
     tags: [
@@ -235,9 +224,9 @@ const readCachedProductOffers = unstable_cache(
   },
 );
 
-const readCachedProductCards = unstable_cache(
-  async () => (await requestProducts()).map(toProductCard),
-  ["catalog-products-card-v1"],
+const readCachedLegacyCards = unstable_cache(
+  async () => (await requestLegacyProducts()).map(toLegacyCard),
+  ["catalog-products-card-v2"],
   {
     revalidate: PRODUCT_CARD_REVALIDATE_SECONDS,
     tags: [
@@ -247,18 +236,146 @@ const readCachedProductCards = unstable_cache(
   },
 );
 
+// `/system` still needs the complete editorial shape. Even there, the cached
+// stable, offer, and card fragments retain independent freshness policies.
 export async function getCachedProducts(): Promise<Product[]> {
   const [contents, offers, cards] = await Promise.all([
-    readCachedProductContents(),
-    readCachedProductOffers(),
-    readCachedProductCards(),
+    readCachedLegacyContents(),
+    readCachedLegacyOffers(),
+    readCachedLegacyCards(),
   ]);
-  return composeProductList(contents, offers, cards);
+  const contentBySlug = new Map(contents.map((item) => [item.slug, item]));
+  const offerBySlug = new Map(offers.map((item) => [item.slug, item]));
+  return cards.flatMap((card) => {
+    const content = contentBySlug.get(card.slug);
+    const offer = offerBySlug.get(card.slug);
+    return content && offer ? [composeLegacyProduct(content, offer, card)] : [];
+  });
 }
 
-const readCachedCoreRoutineProducts = unstable_cache(
-  getCoreRoutineProducts,
-  ["catalog-core-routine-v2"],
+const readCachedProductOffers = unstable_cache(
+  getProductOffers,
+  ["catalog-purpose-offers-v1"],
+  {
+    revalidate: PRODUCT_OFFER_REVALIDATE_SECONDS,
+    tags: [
+      CATALOG_PRODUCTS_CACHE_TAG,
+      PRODUCT_OFFER_COLLECTION_CACHE_TAG,
+    ],
+  },
+);
+
+function offerMap(offers: readonly ProductOffer[]) {
+  return new Map(offers.map((offer) => [offer.slug, offer]));
+}
+
+function composeCard(
+  content: ProductCardContent,
+  offer: ProductOffer,
+): ProductCard {
+  if (content.id !== offer.id || content.slug !== offer.slug) {
+    throw new Error(
+      `[catalog-cache] Cannot compose mismatched card and offer for "${content.slug}".`,
+    );
+  }
+  return {
+    ...content,
+    status: offer.status,
+    variants: offer.variants,
+  };
+}
+
+function composePdp(
+  content: PdpProductContent,
+  offer: ProductOffer,
+): PdpProduct {
+  if (content.id !== offer.id || content.slug !== offer.slug) {
+    throw new Error(
+      `[catalog-cache] Cannot compose mismatched PDP and offer for "${content.slug}".`,
+    );
+  }
+  return {
+    ...content,
+    currency: offer.currency,
+    status: offer.status,
+    variants: offer.variants,
+  };
+}
+
+function composeCore(
+  content: CoreRoutineContentSummary,
+  offer: ProductOffer,
+): CoreRoutineSummary {
+  if (content.id !== offer.id || content.slug !== offer.slug) {
+    throw new Error(
+      `[catalog-cache] Cannot compose mismatched Core summary and offer for "${content.slug}".`,
+    );
+  }
+  return {
+    ...content,
+    status: offer.status,
+    variants: offer.variants,
+  };
+}
+
+const readCachedProductCardContents = unstable_cache(
+  getProductCardContents,
+  ["catalog-product-cards-v2"],
+  {
+    revalidate: PRODUCT_CARD_REVALIDATE_SECONDS,
+    tags: [
+      CATALOG_PRODUCTS_CACHE_TAG,
+      PRODUCT_CARD_COLLECTION_CACHE_TAG,
+    ],
+  },
+);
+
+export async function getCachedProductCards(): Promise<ProductCard[]> {
+  const [contents, offers] = await Promise.all([
+    readCachedProductCardContents(),
+    readCachedProductOffers(),
+  ]);
+  const offersBySlug = offerMap(offers);
+  return contents.flatMap((content) => {
+    const offer = offersBySlug.get(content.slug);
+    return offer ? [composeCard(content, offer)] : [];
+  });
+}
+
+const readCachedProductRoutes = unstable_cache(
+  getProductRoutes,
+  ["catalog-product-routes-v2"],
+  {
+    revalidate: COLLECTION_REVALIDATE_SECONDS,
+    tags: [CATALOG_PRODUCTS_CACHE_TAG],
+  },
+);
+
+export function getCachedProductRoutes(): Promise<ProductRoute[]> {
+  return readCachedProductRoutes();
+}
+
+const readCachedIngredientIndexProducts = unstable_cache(
+  getIngredientIndexProducts,
+  ["catalog-ingredient-index-products-v2"],
+  {
+    revalidate: PRODUCT_CONTENT_REVALIDATE_SECONDS,
+    tags: [
+      CATALOG_PRODUCTS_CACHE_TAG,
+      PRODUCT_CONTENT_COLLECTION_CACHE_TAG,
+    ],
+  },
+);
+
+export function getCachedIngredientIndexProducts(): Promise<
+  IngredientIndexProduct[]
+> {
+  return readCachedIngredientIndexProducts();
+}
+
+const readCachedCoreRoutineContents = unstable_cache(
+  getCoreRoutineContentSummaries,
+  ["catalog-core-routine-content-v3"],
   {
     revalidate: CORE_ROUTINE_REVALIDATE_SECONDS,
     tags: [
@@ -268,19 +385,50 @@ const readCachedCoreRoutineProducts = unstable_cache(
   },
 );
 
-export function getCachedCoreRoutineProducts(): Promise<CoreRoutineProduct[]> {
-  return readCachedCoreRoutineProducts();
+export async function getCachedCoreRoutineSummaries(): Promise<
+  CoreRoutineSummary[]
+> {
+  const [contents, offers] = await Promise.all([
+    readCachedCoreRoutineContents(),
+    readCachedProductOffers(),
+  ]);
+  const offersBySlug = offerMap(offers);
+  return contents.flatMap((content) => {
+    const offer = offersBySlug.get(content.slug);
+    return offer ? [composeCore(content, offer)] : [];
+  });
 }
 
-export function getCachedProductContent(
+export async function getCachedPdpProduct(
   slug: string,
-): Promise<CachedProductContent | undefined> {
+): Promise<PdpProduct | undefined> {
+  const [content, offer] = await Promise.all([
+    unstable_cache(
+      () => getPdpProductContent(slug),
+      ["catalog-pdp-content-v2", slug],
+      {
+        revalidate: PRODUCT_CONTENT_REVALIDATE_SECONDS,
+        tags: [productContentCacheTag(slug)],
+      },
+    )(),
+    unstable_cache(
+      () => getProductOffer(slug),
+      ["catalog-pdp-offer-v2", slug],
+      {
+        revalidate: PRODUCT_OFFER_REVALIDATE_SECONDS,
+        tags: [productOfferCacheTag(slug)],
+      },
+    )(),
+  ]);
+  return content && offer ? composePdp(content, offer) : undefined;
+}
+
+export function getCachedProductMetadata(
+  slug: string,
+): Promise<ProductMetadata | undefined> {
   return unstable_cache(
-    async () => {
-      const product = await requestProduct(slug);
-      return product ? toProductContent(product) : undefined;
-    },
-    ["catalog-product-content-v1", slug],
+    () => getProductMetadata(slug),
+    ["catalog-product-metadata-v2", slug],
     {
       revalidate: PRODUCT_CONTENT_REVALIDATE_SECONDS,
       tags: [productContentCacheTag(slug)],
@@ -288,101 +436,28 @@ export function getCachedProductContent(
   )();
 }
 
-export function getCachedProductOffer(
-  slug: string,
-): Promise<CachedProductOffer | undefined> {
-  return unstable_cache(
-    async () => {
-      const product = await requestProduct(slug);
-      return product ? toProductOffer(product) : undefined;
-    },
-    ["catalog-product-offer-v1", slug],
-    {
-      revalidate: PRODUCT_OFFER_REVALIDATE_SECONDS,
-      tags: [productOfferCacheTag(slug)],
-    },
-  )();
-}
-
-function getCachedProductCard(
-  slug: string,
-): Promise<CachedProductCard | undefined> {
-  return unstable_cache(
-    async () => {
-      const product = await requestProduct(slug);
-      return product ? toProductCard(product) : undefined;
-    },
-    ["catalog-product-card-v1", slug],
-    {
-      revalidate: PRODUCT_CARD_REVALIDATE_SECONDS,
-      tags: [productCardCacheTag(slug)],
-    },
-  )();
-}
-
-export async function getCachedProduct(
-  slug: string,
-): Promise<Product | undefined> {
-  const [content, offer, card] = await Promise.all([
-    getCachedProductContent(slug),
-    getCachedProductOffer(slug),
-    getCachedProductCard(slug),
-  ]);
-  return content && offer && card
-    ? composeProduct(content, offer, card)
-    : undefined;
-}
-
-export async function getCachedRelatedProducts(
-  collection: string,
+export async function getCachedDiscoveryProductCards(
   excludeSlug: string,
-  limit = 4,
-): Promise<Product[]> {
-  const readMembership = unstable_cache(
-    () => getRelatedProductSlugs(collection, excludeSlug, limit),
-    ["catalog-related-membership-v1", collection, excludeSlug, String(limit)],
-    {
-      revalidate: COLLECTION_REVALIDATE_SECONDS,
-      tags: [
-        CATALOG_PRODUCTS_CACHE_TAG,
-        collectionCacheTag(collection),
-      ],
-    },
-  );
-  const [slugs, products] = await Promise.all([
-    readMembership(),
-    getCachedProducts(),
+  limit = PDP_DISCOVERY_PRODUCT_LIMIT,
+): Promise<ProductCard[]> {
+  const [contents, offers] = await Promise.all([
+    unstable_cache(
+      () => getDiscoveryProductCardContents(excludeSlug, limit),
+      ["catalog-discovery-cards-v4", excludeSlug, String(limit)],
+      {
+        revalidate: DISCOVERY_REVALIDATE_SECONDS,
+        tags: [
+          CATALOG_PRODUCTS_CACHE_TAG,
+          DISCOVERY_CACHE_TAG,
+          PRODUCT_CARD_COLLECTION_CACHE_TAG,
+        ],
+      },
+    )(),
+    readCachedProductOffers(),
   ]);
-  const productsBySlug = new Map(
-    products.map((product) => [product.slug, product]),
-  );
-  return slugs.flatMap((slug) => {
-    const product = productsBySlug.get(slug);
-    return product ? [product] : [];
-  });
-}
-
-export async function getCachedDiscoveryProducts(
-  excludeSlug: string,
-  limit = 6,
-): Promise<Product[]> {
-  const readMembership = unstable_cache(
-    () => getDiscoveryProductSlugs(excludeSlug, limit),
-    ["catalog-discovery-membership-v1", excludeSlug, String(limit)],
-    {
-      revalidate: DISCOVERY_REVALIDATE_SECONDS,
-      tags: [CATALOG_PRODUCTS_CACHE_TAG, DISCOVERY_CACHE_TAG],
-    },
-  );
-  const [slugs, products] = await Promise.all([
-    readMembership(),
-    getCachedProducts(),
-  ]);
-  const productsBySlug = new Map(
-    products.map((product) => [product.slug, product]),
-  );
-  return slugs.flatMap((slug) => {
-    const product = productsBySlug.get(slug);
-    return product ? [product] : [];
+  const offersBySlug = offerMap(offers);
+  return contents.flatMap((content) => {
+    const offer = offersBySlug.get(content.slug);
+    return offer ? [composeCard(content, offer)] : [];
   });
 }

@@ -257,6 +257,14 @@ export type IngredientIndexCard = {
   }>;
 };
 
+export type IngredientIndexSource = {
+  slug: string;
+  displayName: string;
+  keyIngredients: string[];
+  ingredients: string | null;
+  formulaNotes: string[];
+};
+
 export function ingredientAnchorId(cardId: string) {
   return `system-ingredient-${cardId}`;
 }
@@ -624,7 +632,7 @@ export function routineProductsForGroup(
   );
 }
 
-function productSearchText(product: Product): string {
+function productSearchText(product: IngredientIndexSource): string {
   return [
     product.keyIngredients.join(" "),
     product.ingredients ?? "",
@@ -633,15 +641,17 @@ function productSearchText(product: Product): string {
 }
 
 function productsForIngredient(
-  products: Product[],
+  products: IngredientIndexSource[],
   definition: IngredientDefinition,
-): Product[] {
+): IngredientIndexSource[] {
   return products.filter((product) =>
     definition.match.some((pattern) => pattern.test(productSearchText(product))),
   );
 }
 
-export function buildIngredientIndex(products: Product[]): IngredientIndexCard[] {
+export function buildIngredientIndex(
+  products: IngredientIndexSource[],
+): IngredientIndexCard[] {
   return INGREDIENT_DEFINITIONS.map((definition) => {
     const containingProducts = productsForIngredient(products, definition);
     if (containingProducts.length === 0) return null;

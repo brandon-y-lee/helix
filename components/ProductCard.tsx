@@ -17,18 +17,20 @@ import { useCart } from "@/components/CartProvider";
 import { ProductImage } from "@/components/ProductImage";
 import { useProductPurchase } from "@/components/useProductPurchase";
 import { routineDisplayLabelForProduct } from "@/lib/catalog/product-routine";
+import type {
+  OfferAvailability,
+  ProductCard as ProductCardModel,
+} from "@/lib/catalog/models";
 import {
   firstPurchasableVariant,
   formatPrice,
   isVariantPurchasable,
   productPurchaseCta,
-  type Product,
   type ProductMedia,
-  type Variant,
 } from "@/lib/products";
 import type { CartPlaceholderMedia } from "@/lib/cart/types";
 
-function minPrice(product: Product): number {
+function minPrice(product: ProductCardModel): number {
   return product.variants.length
     ? Math.min(...product.variants.map((variant) => variant.price))
     : 0;
@@ -50,14 +52,20 @@ function cartImageUrl(media: ProductMedia | null | undefined) {
   return media?.kind === "image" ? media.url : null;
 }
 
-function variantSizeLabel(variant: Variant | null | undefined, product: Product) {
+function variantSizeLabel(
+  variant: OfferAvailability | null | undefined,
+  product: ProductCardModel,
+) {
   if (variant?.volume) return variant.volume;
   if (variant?.packCount) return `${variant.packCount} pack`;
   if (variant?.label) return variant.label;
   return product.volume ?? null;
 }
 
-function detailRows(product: Product, variant: Variant | null | undefined) {
+function detailRows(
+  product: ProductCardModel,
+  variant: OfferAvailability | null | undefined,
+) {
   const routine = routineDisplayLabelForProduct(product);
 
   return [
@@ -71,7 +79,7 @@ function detailRows(product: Product, variant: Variant | null | undefined) {
 }
 
 type ProductCardProps = {
-  product: Product;
+  product: ProductCardModel;
   className?: string;
   defaultImage?: ProductCardImageOverride;
   imageSizes?: string;

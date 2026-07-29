@@ -1,4 +1,4 @@
-import type { Product } from "@/lib/products";
+import type { PdpProduct } from "@/lib/catalog/models";
 
 export type ResolvedFullInci = {
   text: string;
@@ -31,7 +31,9 @@ function isCompleteCompatibilityInci(value: string): boolean {
  * `sourceFullInci` remains a compatibility fallback for already-linked catalog
  * records and is accepted only when it has the shape of a complete list.
  */
-export function resolveFullInci(product: Product): ResolvedFullInci | null {
+export function resolveFullInci(
+  product: Pick<PdpProduct, "ingredients" | "productDetails">,
+): ResolvedFullInci | null {
   const canonical = normalizeInci(product.ingredients);
   if (canonical) {
     return {

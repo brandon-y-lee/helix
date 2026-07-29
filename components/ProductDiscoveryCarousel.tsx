@@ -6,14 +6,14 @@ import {
   selectPdpDiscoveryProducts,
   PDP_DISCOVERY_PRODUCT_LIMIT,
 } from "@/lib/merchandising";
-import type { Product } from "@/lib/products";
+import type { ProductCard } from "@/lib/catalog/models";
 
 export function ProductDiscoveryCarousel({
   currentSlug,
   products,
 }: {
   currentSlug: string;
-  products: readonly Product[];
+  products: readonly ProductCard[];
 }) {
   const recommendations = useMemo(
     () => selectPdpDiscoveryProducts(products, currentSlug),

@@ -3,10 +3,10 @@ import {
   PDP_DISCOVERY_PRODUCT_LIMIT,
   selectPdpDiscoveryProducts,
 } from "@/lib/merchandising";
-import type { Product } from "@/lib/products";
+import type { ProductCard } from "@/lib/catalog/models";
 
-function product(slug: string): Product {
-  return { id: slug, slug } as Product;
+function product(slug: string): ProductCard {
+  return { id: slug, slug } as ProductCard;
 }
 
 describe("selectPdpDiscoveryProducts", () => {

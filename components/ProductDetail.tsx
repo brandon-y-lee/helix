@@ -35,11 +35,13 @@ import {
   type ProductReviews,
 } from "@/lib/catalog/product-reviews";
 import { getCorePdpPresentation } from "@/lib/content/core-pdp";
+import type {
+  CoreRoutineSummary,
+  PdpProduct,
+} from "@/lib/catalog/models";
 import {
   formatPrice,
   productPurchaseCta,
-  type CoreRoutineProduct,
-  type Product,
   type ProductMedia,
 } from "@/lib/products";
 import type { CartPlaceholderMedia } from "@/lib/cart/types";
@@ -411,7 +413,7 @@ function ProductSignalGrid({
   product,
   routineLabel,
 }: {
-  product: Product;
+  product: PdpProduct;
   routineLabel: string;
 }) {
   const signals = [
@@ -449,14 +451,12 @@ function ProductSignalGrid({
 export function ProductDetail({
   product,
   coreProducts = [],
-  coreRoutine = [],
   content = product.pdpContent ?? null,
   reviews = getProductReviews(product.slug),
   stripePublishableKey = null,
 }: {
-  product: Product;
-  coreProducts?: Product[];
-  coreRoutine?: CoreRoutineProduct[];
+  product: PdpProduct;
+  coreProducts?: CoreRoutineSummary[];
   content?: ProductPdpContent | null;
   reviews?: ProductReviews;
   stripePublishableKey?: string | null;
@@ -492,12 +492,12 @@ export function ProductDetail({
   const routineLabel = routineDisplayLabelForProduct(product);
   const routineGroupLabel = routineGroupLabelForProduct(product);
   const leadDescription = compactDescription(
-    product.editorialDescription || product.description || product.cardTagline,
+    product.description || product.cardTagline,
   );
   const keyIngredients = product.keyIngredients.slice(0, 5);
   const howToUse =
     content?.howToUseSteps ??
-    splitCopy(product.editorialHowToUse || product.howToUse);
+    splitCopy(product.howToUse);
   const resolvedFullInci = resolveFullInci(product);
   const fullIngredientsText =
     resolvedFullInci?.text ||
@@ -1062,9 +1062,9 @@ export function ProductDetail({
           </PdpEditorialPair>
         ) : null}
 
-        {product.routineGroup === "core" && coreRoutine.length === 3 && (
+        {product.routineGroup === "core" && coreProducts.length === 3 && (
           <PdpCoreRoutineSection
-            products={coreRoutine}
+            products={coreProducts}
             currentSlug={product.slug}
           />
         )}

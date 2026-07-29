@@ -2,15 +2,21 @@ import { render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 
 vi.mock("@/lib/catalog-cache", () => ({
-  getCachedProducts: vi.fn(),
+  getCachedProductCards: vi.fn(),
+  getCachedIngredientIndexProducts: vi.fn(),
 }));
 
 import HomePage from "@/app/page";
 import { CartProvider } from "@/components/CartProvider";
-import { getCachedProducts } from "@/lib/catalog-cache";
+import {
+  getCachedIngredientIndexProducts,
+  getCachedProductCards,
+} from "@/lib/catalog-cache";
 import type { Product } from "@/lib/products";
 
-const mockedGetProducts = getCachedProducts as unknown as Mock;
+const mockedGetProducts = getCachedProductCards as unknown as Mock;
+const mockedGetIngredientProducts =
+  getCachedIngredientIndexProducts as unknown as Mock;
 
 const ingredientsBySlug: Record<string, string[]> = {
   "treat-03-pdrn-5-ampoule": [
@@ -127,6 +133,8 @@ function productDestinations(section: HTMLElement) {
 beforeEach(() => {
   mockedGetProducts.mockReset();
   mockedGetProducts.mockResolvedValue(fixtures);
+  mockedGetIngredientProducts.mockReset();
+  mockedGetIngredientProducts.mockResolvedValue(fixtures);
   vi.stubGlobal(
     "fetch",
     vi.fn(async () =>

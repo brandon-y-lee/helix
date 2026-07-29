@@ -1,7 +1,6 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { PdpCoreRoutineSection } from "@/components/PdpCoreRoutineSection";
-import type { CoreRoutineProduct } from "@/lib/products";
 
 const productRows: Array<
   [string, string, string, string, number, number, string, string]
@@ -11,7 +10,7 @@ const productRows: Array<
   ["seal", "SEAL", "Seal", "Barrier cream", 3, 30, "#e7e1d7", "#b8aa92"],
 ];
 
-const products: CoreRoutineProduct[] = productRows.map(
+const products = productRows.map(
   ([
     slug,
     displayName,
@@ -32,12 +31,12 @@ const products: CoreRoutineProduct[] = productRows.map(
     routineSort,
     swatch: [swatchFrom, swatchTo] as [string, string],
     textureMedia: {
-      kind: "image",
+      kind: "image" as const,
       url: `https://example.supabase.co/${slug}.webp`,
       alt: `${displayName} texture`,
       width: 1024,
       height: 1024,
-      role: "core_routine_texture",
+      role: "core_routine_texture" as const,
       sortOrder: 24,
       paletteId: null,
       palette: null,

@@ -15,10 +15,14 @@ vi.mock("@/components/CartProvider", () => ({
 
 import { ProductCard } from "@/components/ProductCard";
 import { ProductGrid } from "@/components/ProductGrid";
-import type { Product, Variant } from "@/lib/products";
+import type {
+  OfferAvailability,
+  ProductCard as ProductCardModel,
+} from "@/lib/catalog/models";
+import type { Variant } from "@/lib/products";
 
-function makeVariant(overrides: Partial<Variant> = {}): Variant {
-  return {
+function makeVariant(overrides: Partial<Variant> = {}): OfferAvailability {
+  const variant: Variant = {
     id: "50ml",
     label: "50 ml",
     price: 2000,
@@ -32,63 +36,45 @@ function makeVariant(overrides: Partial<Variant> = {}): Variant {
     sortOrder: 0,
     ...overrides,
   };
+  return {
+    productId: "11111111-1111-4111-8111-111111111111",
+    productSlug: "cleanse-01-calming-gel-cleanser",
+    productStatus: "available",
+    id: variant.id,
+    label: variant.label,
+    price: variant.price,
+    available: variant.available,
+    inventoryStatus: variant.inventoryStatus,
+    volume: variant.volume,
+    packCount: variant.packCount,
+    sortOrder: variant.sortOrder,
+  };
 }
 
-function makeProduct(overrides: Partial<Product> = {}): Product {
+function makeProduct(
+  overrides: Partial<ProductCardModel> = {},
+): ProductCardModel {
   const displayName = overrides.displayName ?? "CLEANSE";
-  const base: Product = {
+  const base: ProductCardModel = {
     id: "11111111-1111-4111-8111-111111111111",
     slug: "cleanse-01-calming-gel-cleanser",
     displayName,
-    formalTitle: `${displayName} 01 Calming Gel Cleanser`,
-    name: displayName,
-    tagline: "Fresh, balanced skin",
     cardTagline: "Fresh, balanced skin",
     collection: "The System",
-    actionName: null,
-    routineNumber: "01",
-    subtitle: "Fresh, balanced skin",
-    descriptor: "A short descriptor.",
+    routineGroup: "core",
+    routineGroupLabel: "The Core",
+    routineDisplayLabel: "01 — The Core",
+    routineSort: 10,
     productType: "Gel cleanser",
-    badge: null,
-    currency: "USD",
-    featuredRank: 0,
     sortOrder: 0,
-    blurb: "A short descriptor.",
-    description: "Description.",
-    editorialDescription: "Description.",
-    benefits: [],
-    howToUse: "",
-    editorialHowToUse: "",
-    formulaNotes: [],
     variants: [makeVariant()],
     swatch: ["#f8f4ec", "#b4aea2"],
-    media: [],
     cardMedia: null,
     cardHoverMedia: null,
-    heroMedia: null,
-    detailMedia: null,
     cartMedia: null,
-    searchMedia: null,
     status: "available",
-    catalogStatus: "active",
-    madeFor: "All skin types",
-    goodFor: "Everyday",
-    texture: "Light gel",
-    keyIngredients: [],
-    ingredients: null,
-    productDetails: {},
-    cautions: [],
-    finish: null,
     volume: "50 ml",
-    skinTypes: [],
-    concerns: [],
-    routineStep: "Cleanse",
-    routineOrder: 1,
     usageTime: ["AM", "PM"],
-    seoTitle: null,
-    seoDescription: null,
-    searchKeywords: [],
     createdAt: "2026-06-14T00:00:00.000Z",
   };
   return { ...base, ...overrides };
@@ -450,8 +436,6 @@ describe("ProductGrid quick buy coordination", () => {
             id: "22222222-2222-4222-8222-222222222222",
             slug: "lift-02-daily-face-cream",
             displayName: "LIFT",
-            formalTitle: "LIFT 02 Daily Face Cream",
-            name: "LIFT",
           }),
         ]}
       />,

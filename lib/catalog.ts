@@ -14,7 +14,6 @@ import {
 import type {
   CatalogStatus,
   CommerceRoutineGroup,
-  CoreRoutineProduct,
   Product,
   ProductMedia,
   ProductStatus,
@@ -115,21 +114,6 @@ type MediaRow = {
   sort_order: number;
   palette_id: string | null;
   placeholder_palette: Record<string, string> | null;
-};
-
-type CoreRoutineRow = {
-  id: string;
-  slug: string;
-  display_name: string | null;
-  formal_title: string | null;
-  name: string;
-  product_type: string | null;
-  routine_step_number: number | null;
-  routine_step_name: string | null;
-  routine_sort: number | null;
-  swatch_from: string;
-  swatch_to: string;
-  product_media: MediaRow[] | null;
 };
 
 const PRODUCT_SELECT_BASE =
@@ -426,97 +410,6 @@ function ProductMediaRoleFromRow(role: string): ProductMedia["role"] {
     default:
       return "gallery";
   }
-}
-
-const CORE_ROUTINE_SELECT =
-  "id, slug, name, display_name, formal_title, product_type, routine_step_number, " +
-  "routine_step_name, routine_sort, swatch_from, swatch_to, " +
-  "product_media!inner ( media_type, media_kind, url, alt, width, height, role, sort_order, palette_id, placeholder_palette )";
-
-function mapCoreRoutineRow(row: CoreRoutineRow): CoreRoutineProduct {
-  const mediaRows = (row.product_media ?? []).filter(
-    (media) => media.role === "core_routine_texture",
-  );
-  const media = mediaRows[0];
-  if (
-    mediaRows.length !== 1 ||
-    !media ||
-    media.media_type !== "image" ||
-    media.media_kind !== "image" ||
-    !media.url ||
-    !media.alt.trim() ||
-    !media.width ||
-    !media.height ||
-    !row.routine_step_number ||
-    !row.routine_step_name ||
-    row.routine_sort === null ||
-    !isHex(row.swatch_from) ||
-    !isHex(row.swatch_to)
-  ) {
-    throw new Error(
-      `[catalog] Core routine unavailable: "${row.slug}" is missing canonical routine metadata or texture media.`,
-    );
-  }
-
-  return {
-    id: row.id,
-    slug: row.slug,
-    displayName: row.display_name ?? row.name,
-    formalTitle: row.formal_title ?? row.name,
-    productType: row.product_type ?? row.name,
-    routineStepNumber: row.routine_step_number,
-    routineStepName: row.routine_step_name,
-    routineSort: row.routine_sort,
-    swatch: [row.swatch_from, row.swatch_to],
-    textureMedia: {
-      kind: "image",
-      url: media.url,
-      alt: media.alt,
-      width: media.width,
-      height: media.height,
-      role: "core_routine_texture",
-      sortOrder: media.sort_order,
-      paletteId: media.palette_id ?? null,
-      palette: null,
-    },
-  };
-}
-
-export async function getCoreRoutineProducts(): Promise<CoreRoutineProduct[]> {
-  const supabase = getSupabaseClient();
-  const { data, error } = await supabase
-    .from("products")
-    .select(CORE_ROUTINE_SELECT)
-    .eq("catalog_status", "active")
-    .eq("routine_group", "core")
-    .eq("product_media.role", "core_routine_texture")
-    .order("routine_sort", { ascending: true, nullsFirst: false })
-    .limit(4);
-
-  if (error) {
-    throw new Error(
-      `[catalog] Failed to load the Core routine from Supabase: ${error.message}.`,
-    );
-  }
-
-  const products = ((data ?? []) as unknown as CoreRoutineRow[]).map(
-    mapCoreRoutineRow,
-  );
-  const steps = products.map((product) => product.routineStepNumber);
-  const names = products.map((product) => product.displayName.toUpperCase());
-  const uniqueSlugs = new Set(products.map((product) => product.slug));
-  if (
-    products.length !== 3 ||
-    uniqueSlugs.size !== 3 ||
-    steps.join(",") !== "1,2,3" ||
-    names.join(",") !== "CLEANSE,TREAT,SEAL"
-  ) {
-    throw new Error(
-      `[catalog] Core routine unavailable: expected active CLEANSE, TREAT, and SEAL sequence with dedicated texture media.`,
-    );
-  }
-
-  return products;
 }
 
 export async function getProducts(): Promise<Product[]> {

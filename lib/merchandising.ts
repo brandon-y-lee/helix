@@ -3,6 +3,7 @@
 // Products arrive pre-ordered by featured `position` from the catalog layer;
 // selectors preserve or derive order from existing fields only.
 
+import type { ProductCard } from "@/lib/catalog/models";
 import type { Product } from "@/lib/products";
 
 /** Newest N by createdAt (descending). Stable for equal timestamps. */
@@ -24,14 +25,14 @@ export const PDP_DISCOVERY_PRODUCT_LIMIT = 3;
  * and any duplicate slugs before applying the PDP display limit.
  */
 export function selectPdpDiscoveryProducts(
-  products: readonly Product[],
+  products: readonly ProductCard[],
   currentSlug: string,
   limit = PDP_DISCOVERY_PRODUCT_LIMIT,
-): Product[] {
+): ProductCard[] {
   if (limit <= 0) return [];
 
   const seen = new Set([currentSlug]);
-  const selected: Product[] = [];
+  const selected: ProductCard[] = [];
 
   for (const product of products) {
     if (seen.has(product.slug)) continue;

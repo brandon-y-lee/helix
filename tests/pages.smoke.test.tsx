@@ -6,8 +6,8 @@ import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
 vi.mock("@/lib/catalog-cache", () => {
   return {
     getCachedProducts: vi.fn(),
-    getCachedProduct: vi.fn(),
-    getCachedRelatedProducts: vi.fn(),
+    getCachedProductCards: vi.fn(),
+    getCachedIngredientIndexProducts: vi.fn(),
   };
 });
 
@@ -30,10 +30,17 @@ import PrivacyChoicesPage from "@/app/privacy-choices/page";
 import PrivacyPage from "@/app/privacy/page";
 import TermsPage from "@/app/terms/page";
 import { CartProvider } from "@/components/CartProvider";
-import { getCachedProducts } from "@/lib/catalog-cache";
+import {
+  getCachedIngredientIndexProducts,
+  getCachedProductCards,
+  getCachedProducts,
+} from "@/lib/catalog-cache";
 import type { Product } from "@/lib/products";
 
 const mockedGetProducts = getCachedProducts as unknown as Mock;
+const mockedGetProductCards = getCachedProductCards as unknown as Mock;
+const mockedGetIngredientProducts =
+  getCachedIngredientIndexProducts as unknown as Mock;
 
 function makeProduct(overrides: Partial<Product> & Pick<Product, "slug" | "name">): Product {
   const base: Product = {
@@ -185,6 +192,10 @@ const fixtures: Product[] = [
 beforeEach(() => {
   mockedGetProducts.mockReset();
   mockedGetProducts.mockResolvedValue(fixtures);
+  mockedGetProductCards.mockReset();
+  mockedGetProductCards.mockResolvedValue(fixtures);
+  mockedGetIngredientProducts.mockReset();
+  mockedGetIngredientProducts.mockResolvedValue(fixtures);
   vi.stubGlobal(
     "fetch",
     vi.fn(async () =>
@@ -224,7 +235,7 @@ describe("storefront page smoke", () => {
   });
 
   it("Shop renders a clear empty state when the catalog is empty", async () => {
-    mockedGetProducts.mockResolvedValue([]);
+    mockedGetProductCards.mockResolvedValue([]);
     render(await ProductsPage({ searchParams: Promise.resolve({}) }));
     expect(
       screen.getByRole("heading", { level: 1, name: "RAISE YOUR BASELINE." }),

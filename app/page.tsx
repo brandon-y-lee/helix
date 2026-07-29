@@ -7,7 +7,11 @@ import { HomeHeroVideo } from "@/components/HomeHeroVideo";
 import { HomePlugVideo } from "@/components/HomePlugVideo";
 import { HomePrinciplesPortrait } from "@/components/HomePrinciplesPortrait";
 import { HomeThreePrinciples } from "@/components/HomeThreePrinciples";
-import { getCachedProducts } from "@/lib/catalog-cache";
+import {
+  getCachedIngredientIndexProducts,
+  getCachedProductCards,
+} from "@/lib/catalog-cache";
+import type { ProductCard } from "@/lib/catalog/models";
 import { homeThreePrinciples } from "@/lib/content/home";
 import {
   buildIngredientIndex,
@@ -15,7 +19,6 @@ import {
   type IngredientIndexCard,
   type MethodProductSlug,
 } from "@/lib/content/system";
-import type { Product } from "@/lib/products";
 
 export const metadata: Metadata = {
   title: "Mei Pelle | Men's Skincare",
@@ -42,9 +45,9 @@ const INGREDIENT_LINK_LABELS: Record<string, string> = {
 };
 
 function productsForSlugs(
-  productsBySlug: ReadonlyMap<string, Product>,
+  productsBySlug: ReadonlyMap<string, ProductCard>,
   slugs: readonly MethodProductSlug[],
-): Product[] {
+): ProductCard[] {
   return slugs.flatMap((slug) => {
     const product = productsBySlug.get(slug);
     return product ? [product] : [];
@@ -56,17 +59,13 @@ function ingredientPreviewLabel(card: IngredientIndexCard) {
 }
 
 export default async function HomePage() {
-  const products = await getCachedProducts();
+  const [products, ingredientProducts] = await Promise.all([
+    getCachedProductCards(),
+    getCachedIngredientIndexProducts(),
+  ]);
   const productsBySlug = new Map(products.map((product) => [product.slug, product]));
   const coreProducts = productsForSlugs(productsBySlug, CORE_PRODUCT_SLUGS);
-  const methodProducts = productsForSlugs(
-    productsBySlug,
-    [
-      ...CORE_PRODUCT_SLUGS,
-      ...BEYOND_CORE_PRODUCT_SLUGS,
-    ],
-  );
-  const ingredientCards = buildIngredientIndex(methodProducts).slice(0, 3);
+  const ingredientCards = buildIngredientIndex(ingredientProducts).slice(0, 3);
   const beyondCoreProducts = productsForSlugs(
     productsBySlug,
     BEYOND_CORE_PRODUCT_SLUGS,

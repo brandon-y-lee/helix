@@ -7,7 +7,7 @@ import {
   homeBeyondCoreDescriptions,
   type HomeBeyondCoreDescriptionKey,
 } from "@/lib/content/home";
-import type { Product } from "@/lib/products";
+import type { ProductCard } from "@/lib/catalog/models";
 
 const BEYOND_DESCRIPTION_KEY_BY_SLUG: Readonly<
   Record<string, HomeBeyondCoreDescriptionKey | undefined>
@@ -20,7 +20,7 @@ const BEYOND_DESCRIPTION_KEY_BY_SLUG: Readonly<
 export function HomeBeyondCoreShowcase({
   products = [],
 }: {
-  products?: readonly Product[];
+  products?: readonly ProductCard[];
 }) {
   const [activeDescriptionKey, setActiveDescriptionKey] =
     useState<HomeBeyondCoreDescriptionKey | null>(null);

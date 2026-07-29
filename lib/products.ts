@@ -66,19 +66,6 @@ export type ProductMedia = {
   palette: PlaceholderPalette | null;
 };
 
-export type CoreRoutineProduct = {
-  id: string;
-  slug: string;
-  displayName: string;
-  formalTitle: string;
-  productType: string;
-  routineStepNumber: number;
-  routineStepName: string;
-  routineSort: number;
-  swatch: [string, string];
-  textureMedia: ProductMedia;
-};
-
 export type Product = {
   id: string;
   slug: string;
@@ -168,10 +155,22 @@ export function formatBuyLabel(productName: string, cents: number): string {
 
 export const OUT_OF_STOCK_CTA_LABEL = "OUT OF STOCK";
 
-export function isVariantPurchasable(
-  product: Product,
-  variant: Variant | null | undefined,
-): variant is Variant {
+type PurchaseOffer = {
+  available: boolean;
+  inventoryStatus: Variant["inventoryStatus"];
+  price: number;
+};
+
+type PurchaseProduct<TOffer extends PurchaseOffer> = {
+  displayName: string;
+  status: ProductStatus;
+  variants: readonly TOffer[];
+};
+
+export function isVariantPurchasable<TOffer extends PurchaseOffer>(
+  product: Pick<PurchaseProduct<TOffer>, "status">,
+  variant: TOffer | null | undefined,
+): variant is TOffer {
   return Boolean(
     product.status === "available" &&
       variant?.available &&
@@ -180,7 +179,9 @@ export function isVariantPurchasable(
   );
 }
 
-export function firstPurchasableVariant(product: Product): Variant | null {
+export function firstPurchasableVariant<TOffer extends PurchaseOffer>(
+  product: PurchaseProduct<TOffer>,
+): TOffer | null {
   return (
     product.variants.find((variant) =>
       isVariantPurchasable(product, variant),
@@ -188,9 +189,9 @@ export function firstPurchasableVariant(product: Product): Variant | null {
   );
 }
 
-export function productPurchaseCta(
-  product: Product,
-  variant: Variant | null | undefined,
+export function productPurchaseCta<TOffer extends PurchaseOffer>(
+  product: PurchaseProduct<TOffer>,
+  variant: TOffer | null | undefined,
 ) {
   const purchasable = isVariantPurchasable(product, variant);
   return {

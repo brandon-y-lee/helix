@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { getCachedProducts } from "@/lib/catalog-cache";
+import { getCachedProductRoutes } from "@/lib/catalog-cache";
 
 const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
@@ -21,7 +21,7 @@ const staticRoutes = [
 ];
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const products = await getCachedProducts().catch(() => []);
+  const products = await getCachedProductRoutes().catch(() => []);
   const now = new Date();
 
   return [

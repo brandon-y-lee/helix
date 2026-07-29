@@ -8,7 +8,7 @@ import {
   homeCoreDescriptions,
   type HomeCoreDescriptionKey,
 } from "@/lib/content/home";
-import type { Product } from "@/lib/products";
+import type { ProductCard } from "@/lib/catalog/models";
 
 const CORE_DESCRIPTION_KEY_BY_SLUG = {
   "cleanse-01-calming-gel-cleanser": "cleanse",
@@ -46,7 +46,7 @@ const CORE_CARD_IMAGES_BY_SLUG = {
   },
 } as const satisfies Readonly<Record<string, ProductCardImageOverride>>;
 
-export function HomeCoreShowcase({ products }: { products: Product[] }) {
+export function HomeCoreShowcase({ products }: { products: ProductCard[] }) {
   const [activeDescriptionKey, setActiveDescriptionKey] =
     useState<HomeCoreDescriptionKey | null>(null);
   const description = activeDescriptionKey
