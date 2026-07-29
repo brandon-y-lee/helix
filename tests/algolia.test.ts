@@ -592,7 +592,7 @@ describe("runSearchBackfill", () => {
 });
 
 describe("catalog cache invalidation", () => {
-  it("targets global, product, and collection caches after a rebuild", () => {
+  it("targets only offer caches for variant changes", () => {
     const targets = getCatalogInvalidationTargets(
       {
         type: "UPDATE",
@@ -612,15 +612,90 @@ describe("catalog cache invalidation", () => {
 
     expect(targets.tags).toEqual(
       expect.arrayContaining([
-        "catalog",
-        "products",
-        `product:${sourceRow.slug}`,
-        "collection:the-core",
-        "collection:old-core",
+        `catalog-product-offer:${sourceRow.slug}`,
+        "catalog-product-offer:old-northpoint-serum",
+        "catalog-product-offer",
       ]),
+    );
+    expect(targets.tags).not.toContain(
+      `catalog-product-content:${sourceRow.slug}`,
+    );
+    expect(targets.tags).not.toContain(
+      `catalog-product-card:${sourceRow.slug}`,
     );
     expect(targets.paths).toContain(`/products/${sourceRow.slug}`);
     expect(targets.paths).toContain("/products/old-northpoint-serum");
+  });
+
+  it("invalidates collection and discovery membership when a product moves", () => {
+    const targets = getCatalogInvalidationTargets(
+      {
+        type: "UPDATE",
+        table: "products",
+        record: {
+          id: sourceRow.id,
+          slug: sourceRow.slug,
+          collection: "Beyond The Core",
+        },
+        old_record: {
+          id: sourceRow.id,
+          slug: sourceRow.slug,
+          collection: "The Core",
+        },
+      },
+      {
+        action: "upsert",
+        table: "products",
+        objectID: sourceRow.id,
+        slug: sourceRow.slug,
+        collection: "Beyond The Core",
+        oldCollection: "The Core",
+      },
+    );
+
+    expect(targets.tags).toEqual(
+      expect.arrayContaining([
+        "catalog-products",
+        "catalog-discovery",
+        "collection:beyond-the-core",
+        "collection:the-core",
+      ]),
+    );
+  });
+
+  it("keeps an offer-only product status update out of editorial caches", () => {
+    const targets = getCatalogInvalidationTargets(
+      {
+        type: "UPDATE",
+        table: "products",
+        record: {
+          id: sourceRow.id,
+          slug: sourceRow.slug,
+          status: "sold_out",
+          updated_at: "2026-07-29T10:01:00.000Z",
+        },
+        old_record: {
+          id: sourceRow.id,
+          slug: sourceRow.slug,
+          status: "available",
+          updated_at: "2026-07-29T10:00:00.000Z",
+        },
+      },
+      {
+        action: "upsert",
+        table: "products",
+        objectID: sourceRow.id,
+        slug: sourceRow.slug,
+      },
+    );
+
+    expect(targets.tags).toEqual([
+      `catalog-product-offer:${sourceRow.slug}`,
+      "catalog-product-offer",
+    ]);
+    expect(targets.tags).not.toContain(
+      `catalog-product-content:${sourceRow.slug}`,
+    );
   });
 
   it("limits PDP-only media invalidation to the affected product", () => {
@@ -647,7 +722,10 @@ describe("catalog cache invalidation", () => {
     );
 
     expect(targets).toEqual({
-      tags: [`product:${sourceRow.slug}`],
+      tags: [
+        `catalog-product-content:${sourceRow.slug}`,
+        "catalog-product-content",
+      ],
       paths: [`/products/${sourceRow.slug}`],
     });
   });
@@ -677,10 +755,9 @@ describe("catalog cache invalidation", () => {
 
     expect(targets.tags).toEqual(
       expect.arrayContaining([
-        "catalog:core-routine",
-        "product:cleanse-01-calming-gel-cleanser",
-        "product:treat-03-pdrn-5-ampoule",
-        "product:seal-05-green-collagen-cream",
+        "catalog-core-routine",
+        `catalog-product-content:${sourceRow.slug}`,
+        "catalog-product-content",
       ]),
     );
     expect(targets.paths).toEqual(
@@ -690,7 +767,7 @@ describe("catalog cache invalidation", () => {
         "/products/seal-05-green-collagen-cream",
       ]),
     );
-    expect(targets.tags).not.toContain("catalog");
+    expect(targets.tags).not.toContain("catalog-product-card");
     expect(targets.paths).not.toContain("/products");
   });
 
@@ -720,7 +797,7 @@ describe("catalog cache invalidation", () => {
       },
     );
 
-    expect(targets.tags).toContain("catalog:core-routine");
+    expect(targets.tags).toContain("catalog-core-routine");
     expect(targets.paths).toContain(
       "/products/cleanse-01-calming-gel-cleanser",
     );
@@ -752,7 +829,10 @@ describe("catalog cache invalidation", () => {
     );
 
     expect(targets).toEqual({
-      tags: [`product:${sourceRow.slug}`],
+      tags: [
+        `catalog-product-content:${sourceRow.slug}`,
+        "catalog-product-content",
+      ],
       paths: [`/products/${sourceRow.slug}`],
     });
   });

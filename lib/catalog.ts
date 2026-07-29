@@ -221,6 +221,68 @@ function toPalette(
   };
 }
 
+export function resolveProductPresentationMedia(
+  media: readonly ProductMedia[],
+): Pick<
+  Product,
+  | "cardMedia"
+  | "cardHoverMedia"
+  | "heroMedia"
+  | "detailMedia"
+  | "cartMedia"
+  | "searchMedia"
+> {
+  const presentationMedia = media.filter(
+    (item) =>
+      item.kind !== "video" &&
+      [
+        "card_default",
+        "card",
+        "card_hover",
+        "detail",
+        "hero",
+        "gallery",
+        "cart",
+        "search",
+      ].includes(item.role),
+  );
+  const cardMedia =
+    presentationMedia.find((item) => item.role === "card_default") ??
+    presentationMedia.find((item) => item.role === "card") ??
+    presentationMedia.find((item) => item.role === "detail") ??
+    presentationMedia.find((item) => item.role === "hero") ??
+    null;
+  const cardHoverMedia =
+    presentationMedia.find((item) => item.role === "card_hover") ??
+    cardMedia ??
+    null;
+  const heroMedia =
+    presentationMedia.find((item) => item.role === "detail") ??
+    presentationMedia.find((item) => item.role === "hero") ??
+    cardMedia ??
+    null;
+  const detailMedia =
+    presentationMedia.find((item) => item.role === "detail") ??
+    heroMedia ??
+    cardMedia ??
+    null;
+
+  return {
+    cardMedia,
+    cardHoverMedia,
+    heroMedia,
+    detailMedia,
+    cartMedia:
+      presentationMedia.find((item) => item.role === "cart") ??
+      cardMedia ??
+      null,
+    searchMedia:
+      presentationMedia.find((item) => item.role === "search") ??
+      cardMedia ??
+      null,
+  };
+}
+
 function mapRow(row: ProductRow): Product {
   const swatch: [string, string] = [row.swatch_from, row.swatch_to];
   const variants: Variant[] = (row.product_variants ?? [])
@@ -263,42 +325,7 @@ function mapRow(row: ProductRow): Product {
           : null,
     }));
 
-  const presentationMedia = media.filter(
-    (item) =>
-      item.kind !== "video" &&
-      [
-        "card_default",
-        "card",
-        "card_hover",
-        "detail",
-        "hero",
-        "gallery",
-        "cart",
-        "search",
-      ].includes(item.role),
-  );
-  const cardMedia =
-    presentationMedia.find((m) => m.role === "card_default") ??
-    presentationMedia.find((m) => m.role === "card") ??
-    presentationMedia.find((m) => m.role === "detail") ??
-    presentationMedia.find((m) => m.role === "hero") ??
-    null;
-  const cardHoverMedia =
-    presentationMedia.find((m) => m.role === "card_hover") ?? cardMedia ?? null;
-  const heroMedia =
-    presentationMedia.find((m) => m.role === "detail") ??
-    presentationMedia.find((m) => m.role === "hero") ??
-    cardMedia ??
-    null;
-  const detailMedia =
-    presentationMedia.find((m) => m.role === "detail") ??
-    heroMedia ??
-    cardMedia ??
-    null;
-  const cartMedia =
-    presentationMedia.find((m) => m.role === "cart") ?? cardMedia ?? null;
-  const searchMedia =
-    presentationMedia.find((m) => m.role === "search") ?? cardMedia ?? null;
+  const presentation = resolveProductPresentationMedia(media);
   const displayName = row.display_name ?? row.name;
   const formalTitle = row.formal_title ?? row.name;
   const cardTagline = row.card_tagline ?? row.tagline;
@@ -345,12 +372,7 @@ function mapRow(row: ProductRow): Product {
     variants,
     swatch,
     media,
-    cardMedia,
-    cardHoverMedia,
-    heroMedia,
-    detailMedia,
-    cartMedia,
-    searchMedia,
+    ...presentation,
     status: toStatus(row.status),
     catalogStatus: toCatalogStatus(row.catalog_status),
     madeFor: row.made_for,
@@ -560,6 +582,113 @@ export async function getProduct(slug: string): Promise<Product | undefined> {
   return mapRow(data as unknown as ProductRow);
 }
 
+export async function getRelatedProductSlugs(
+  collection: string,
+  excludeSlug: string,
+  limit = 4,
+): Promise<string[]> {
+  const supabase = getSupabaseClient();
+  const { data: current, error: currentError } = await supabase
+    .from("products")
+    .select("id")
+    .eq("slug", excludeSlug)
+    .maybeSingle();
+
+  if (currentError) {
+    throw new Error(
+      `[catalog] Failed to load related products for "${excludeSlug}": ${currentError.message}.`,
+    );
+  }
+
+  if (current?.id) {
+    const { data, error } = await supabase
+      .from("product_relationships")
+      .select(
+        "sort_order, related_product:products!product_relationships_related_product_id_fkey ( slug )",
+      )
+      .eq("product_id", current.id)
+      .eq("relationship_type", "complete_the_routine")
+      .order("sort_order", { ascending: true })
+      .limit(limit);
+
+    if (error) {
+      throw new Error(
+        `[catalog] Failed to load routine relationships for "${excludeSlug}": ${error.message}.`,
+      );
+    }
+
+    const relatedSlugs = (data as unknown as ProductRelationshipSlugRow[])
+      .map((row) => firstProductSlug(row.related_product))
+      .filter((slug): slug is string => Boolean(slug));
+    if (relatedSlugs.length > 0) return relatedSlugs;
+  }
+
+  const { data, error } = await supabase
+    .from("products")
+    .select("slug")
+    .eq("collection", collection)
+    .neq("slug", excludeSlug)
+    .order("sort_order", { ascending: true, nullsFirst: false })
+    .order("position", { ascending: true })
+    .limit(limit);
+
+  if (error) {
+    throw new Error(
+      `[catalog] Failed to load related products for "${collection}": ${error.message}.`,
+    );
+  }
+
+  return ((data ?? []) as ProductSlugRow[]).map((row) => row.slug);
+}
+
+export async function getDiscoveryProductSlugs(
+  excludeSlug: string,
+  limit = 6,
+): Promise<string[]> {
+  const supabase = getSupabaseClient();
+  const select =
+    "slug, display_name, name, routine_sort, sort_order, position";
+
+  const result = await supabase
+    .from("products")
+    .select(select)
+    .neq("slug", excludeSlug)
+    .order("routine_sort", { ascending: true, nullsFirst: false })
+    .order("sort_order", { ascending: true, nullsFirst: false })
+    .order("position", { ascending: true })
+    .limit(limit);
+  let rows: unknown = result.data;
+  let error = result.error;
+
+  if (error && isMissingRoutineColumn(error)) {
+    const legacyResult = await supabase
+      .from("products")
+      .select("slug, display_name, name, sort_order, position")
+      .neq("slug", excludeSlug)
+      .order("sort_order", { ascending: true, nullsFirst: false })
+      .order("position", { ascending: true })
+      .limit(limit);
+    rows = legacyResult.data;
+    error = legacyResult.error;
+  }
+
+  if (error) {
+    throw new Error(
+      `[catalog] Failed to load discovery products for "${excludeSlug}": ${error.message}.`,
+    );
+  }
+
+  return ((rows ?? []) as DiscoveryMembershipRow[])
+    .sort(
+      (a, b) =>
+        (a.routine_sort ?? a.sort_order ?? a.position ?? 0) -
+          (b.routine_sort ?? b.sort_order ?? b.position ?? 0) ||
+        (a.display_name ?? a.name).localeCompare(b.display_name ?? b.name),
+    )
+    .slice(0, limit)
+    .map((row) => row.slug);
+}
+
 /**
  * Products in the same collection, excluding the current one — the "complete
  * the routine" rail on the PDP. Returns up to `limit` products.
@@ -707,7 +836,31 @@ type ProductRelationshipRow = {
   related_product: ProductRow | ProductRow[] | null;
 };
 
+type ProductSlugRow = {
+  slug: string;
+};
+
+type DiscoveryMembershipRow = ProductSlugRow & {
+  display_name: string | null;
+  name: string;
+  routine_sort?: number | null;
+  sort_order: number | null;
+  position: number | null;
+};
+
+type ProductRelationshipSlugRow = {
+  sort_order: number;
+  related_product: ProductSlugRow | ProductSlugRow[] | null;
+};
+
 function firstProduct(value: ProductRow | ProductRow[] | null): ProductRow | null {
   if (Array.isArray(value)) return value[0] ?? null;
   return value;
+}
+
+function firstProductSlug(
+  value: ProductSlugRow | ProductSlugRow[] | null,
+): string | null {
+  if (Array.isArray(value)) return value[0]?.slug ?? null;
+  return value?.slug ?? null;
 }

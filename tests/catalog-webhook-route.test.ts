@@ -94,10 +94,12 @@ describe("catalog search sync route", () => {
         record: {
           id: "media-2",
           product_id: "f6091deb-1177-45ad-b506-1f0427fa4abe",
+          role: "card_default",
         },
         old_record: {
           id: "media-1",
           product_id: "f6091deb-1177-45ad-b506-1f0427fa4abe",
+          role: "card_default",
         },
       }),
     );
@@ -106,10 +108,13 @@ describe("catalog search sync route", () => {
     expect(response.status).toBe(200);
     expect(body.ok).toBe(true);
     expect(applyMock).toHaveBeenCalledOnce();
-    expect(revalidateTagMock).toHaveBeenCalledWith("catalog");
-    expect(revalidateTagMock).toHaveBeenCalledWith("products");
-    expect(revalidateTagMock).toHaveBeenCalledWith("product:treat-03-pdrn-5-ampoule");
-    expect(revalidateTagMock).toHaveBeenCalledWith("collection:the-core");
+    expect(revalidateTagMock).toHaveBeenCalledWith("catalog-product-card");
+    expect(revalidateTagMock).toHaveBeenCalledWith(
+      "catalog-product-card:treat-03-pdrn-5-ampoule",
+    );
+    expect(revalidateTagMock).not.toHaveBeenCalledWith(
+      "catalog-product-content:treat-03-pdrn-5-ampoule",
+    );
     expect(revalidatePathMock).toHaveBeenCalledWith("/products");
     expect(revalidatePathMock).toHaveBeenCalledWith("/products/treat-03-pdrn-5-ampoule");
   });
@@ -136,7 +141,9 @@ describe("catalog search sync route", () => {
     );
 
     expect(response.status).toBe(502);
-    expect(revalidateTagMock).toHaveBeenCalledWith("catalog");
+    expect(revalidateTagMock).toHaveBeenCalledWith(
+      "catalog-product-content:treat-03-pdrn-5-ampoule",
+    );
     expect(revalidatePathMock).toHaveBeenCalledWith("/products/treat-03-pdrn-5-ampoule");
   });
 
@@ -165,13 +172,18 @@ describe("catalog search sync route", () => {
 
     expect(response.status).toBe(200);
     expect(revalidateTagMock).toHaveBeenCalledWith(
-      "product:treat-03-pdrn-5-ampoule",
+      "catalog-product-content:treat-03-pdrn-5-ampoule",
     );
+    expect(revalidateTagMock).toHaveBeenCalledWith("catalog-product-content");
     expect(revalidatePathMock).toHaveBeenCalledWith(
       "/products/treat-03-pdrn-5-ampoule",
     );
-    expect(revalidateTagMock).not.toHaveBeenCalledWith("catalog");
-    expect(revalidateTagMock).not.toHaveBeenCalledWith("products");
+    expect(revalidateTagMock).not.toHaveBeenCalledWith(
+      "catalog-product-card:treat-03-pdrn-5-ampoule",
+    );
+    expect(revalidateTagMock).not.toHaveBeenCalledWith(
+      "catalog-product-offer:treat-03-pdrn-5-ampoule",
+    );
     expect(revalidatePathMock).not.toHaveBeenCalledWith("/products");
   });
 
@@ -199,7 +211,7 @@ describe("catalog search sync route", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(revalidateTagMock).toHaveBeenCalledWith("catalog:core-routine");
+    expect(revalidateTagMock).toHaveBeenCalledWith("catalog-core-routine");
     expect(revalidatePathMock).toHaveBeenCalledWith(
       "/products/cleanse-01-calming-gel-cleanser",
     );
@@ -209,7 +221,47 @@ describe("catalog search sync route", () => {
     expect(revalidatePathMock).toHaveBeenCalledWith(
       "/products/seal-05-green-collagen-cream",
     );
-    expect(revalidateTagMock).not.toHaveBeenCalledWith("catalog");
+    expect(revalidateTagMock).not.toHaveBeenCalledWith("catalog-product-card");
     expect(revalidatePathMock).not.toHaveBeenCalledWith("/products");
+  });
+
+  it("invalidates offer state without invalidating editorial content", async () => {
+    applyMock.mockResolvedValue({
+      action: "upsert",
+      table: "product_variants",
+      objectID: "f6091deb-1177-45ad-b506-1f0427fa4abe",
+      slug: "treat-03-pdrn-5-ampoule",
+      collection: "The Core",
+    });
+
+    const response = await POST(
+      request({
+        schema: "public",
+        type: "UPDATE",
+        table: "product_variants",
+        record: {
+          product_id: "f6091deb-1177-45ad-b506-1f0427fa4abe",
+          price_cents: 2600,
+          available: true,
+        },
+        old_record: {
+          product_id: "f6091deb-1177-45ad-b506-1f0427fa4abe",
+          price_cents: 2500,
+          available: true,
+        },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(revalidateTagMock).toHaveBeenCalledWith(
+      "catalog-product-offer:treat-03-pdrn-5-ampoule",
+    );
+    expect(revalidateTagMock).toHaveBeenCalledWith("catalog-product-offer");
+    expect(revalidateTagMock).not.toHaveBeenCalledWith(
+      "catalog-product-content:treat-03-pdrn-5-ampoule",
+    );
+    expect(revalidateTagMock).not.toHaveBeenCalledWith(
+      "catalog-product-card:treat-03-pdrn-5-ampoule",
+    );
   });
 });

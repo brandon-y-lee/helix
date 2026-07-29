@@ -6,6 +6,7 @@ import {
   getCachedCoreRoutineProducts,
   getCachedDiscoveryProducts,
   getCachedProduct,
+  getCachedProductContent,
   getCachedProducts,
 } from "@/lib/catalog-cache";
 import { stripeMessagingPublishableKey } from "@/lib/checkout/config";
@@ -22,12 +23,12 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const product = await getCachedProduct(slug);
+  const product = await getCachedProductContent(slug);
   return {
     title: product
       ? product.seoTitle ?? `${product.formalTitle} | Mei Pelle`
       : "Product | Mei Pelle",
-    description: product?.seoDescription ?? product?.cardTagline,
+    description: product?.seoDescription ?? product?.tagline,
   };
 }
 
