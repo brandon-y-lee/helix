@@ -302,6 +302,34 @@ describe("PdpCoreDetailsRoutine", () => {
     ).toBeInTheDocument();
   });
 
+  it("disables the exact active product CTA when no variant is purchasable", () => {
+    const unavailableProducts = products.map((product) =>
+      product.slug === "seal-05-green-collagen-cream"
+        ? {
+            ...product,
+            variants: product.variants.map((variant) => ({
+              ...variant,
+              inventoryStatus: "out_of_stock" as const,
+            })),
+          }
+        : product,
+    );
+    const { container } = render(
+      <PdpCoreDetailsRoutine
+        products={unavailableProducts}
+        currentSlug="seal-05-green-collagen-cream"
+      />,
+    );
+    const buy = activeState(container).getByRole("button", {
+      name: "OUT OF STOCK",
+    });
+
+    expect(buy).toBeDisabled();
+    fireEvent.click(buy);
+    expect(cartMock.add).not.toHaveBeenCalled();
+    expect(cartMock.openCartDrawer).not.toHaveBeenCalled();
+  });
+
   it("retires the outgoing layer at the shared reduced-motion duration", () => {
     vi.useFakeTimers();
     vi.stubGlobal(

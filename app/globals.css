@@ -776,9 +776,12 @@ main[data-header-layout="overlay"] {
 .pdp__gallery {
   position: sticky;
   top: 96px;
-  display: flex;
-  flex-direction: column;
-  gap: var(--pdp-gallery-gap);
+}
+
+.pdp__media-frame {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius);
 }
 
 .pdp__media {
@@ -788,41 +791,38 @@ main[data-header-layout="overlay"] {
 }
 
 .pdp__thumbs {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
+  position: absolute;
+  left: clamp(16px, 2.25vw, 32px);
+  bottom: clamp(16px, 2.25vw, 32px);
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
 }
 
 .pdp__thumb {
   position: relative;
-  aspect-ratio: 1 / 1;
-  border-radius: 10px;
+  width: clamp(52px, 4vw, 60px);
+  aspect-ratio: 4 / 3;
+  border-radius: var(--radius);
   border: 0;
   overflow: hidden;
   padding: 0;
   cursor: pointer;
   background: var(--surface);
-  opacity: 0.58;
-  transform: scale(0.94);
-  transition:
-    opacity var(--motion-fast) ease,
-    transform var(--motion-fast) ease;
+  opacity: 0.5;
+  transition: opacity var(--motion-fast) ease;
 }
 
 .pdp__thumb[aria-pressed="true"] {
   box-shadow: none;
   opacity: 1;
-  transform: scale(1);
 }
 
-.pdp__thumb:hover {
-  opacity: 0.82;
-  transform: scale(0.97);
-}
-
+.pdp__thumb:hover,
+.pdp__thumb:focus-visible,
 .pdp__thumb[aria-pressed="true"]:hover {
   opacity: 1;
-  transform: scale(1);
 }
 
 .pdp__badge {
@@ -2941,6 +2941,10 @@ main:focus {
   top: calc(var(--site-header-height) + var(--storefront-gutter));
 }
 
+.pdp__media-frame {
+  border-radius: var(--radius);
+}
+
 .pdp__media {
   aspect-ratio: 7 / 8;
   border-radius: var(--radius);
@@ -2950,11 +2954,6 @@ main:focus {
 
 .pdp__img {
   padding: clamp(22px, 4vw, 58px);
-}
-
-.pdp__thumbs {
-  grid-template-columns: repeat(auto-fit, var(--pdp-thumbnail-size));
-  justify-content: start;
 }
 
 .pdp__thumb {
@@ -2972,6 +2971,25 @@ main:focus {
 
 .pdp__thumb-img {
   padding: 10%;
+}
+
+.pdp__media[data-media-kind="video"] .pdp__img,
+.pdp__thumb-image[data-media-kind="video"] .pdp__thumb-img {
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  object-fit: cover;
+}
+
+.pdp__thumb-play {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--surface);
+  font-size: 0.72rem;
+  text-shadow: 0 1px 4px rgba(17, 19, 18, 0.72);
+  pointer-events: none;
 }
 
 .pdp__media[data-media-kind="image"] .pdp__img,
@@ -3047,12 +3065,6 @@ main:focus {
 
 .pdp__price {
   margin-top: 16px;
-}
-
-.pdp__availability {
-  margin-top: 12px;
-  color: var(--ink-soft);
-  font-size: 0.84rem;
 }
 
 .pdp-accordions {
@@ -3420,8 +3432,7 @@ main:focus {
   text-transform: uppercase;
 }
 
-.pdp-details-routine__buy,
-.pdp-details-routine__unavailable {
+.pdp-details-routine__buy {
   min-height: 44px;
   display: inline-flex;
   align-items: center;
@@ -3460,7 +3471,7 @@ main:focus {
 }
 
 .pdp-details-routine__buy:disabled {
-  cursor: wait;
+  cursor: not-allowed;
   opacity: 0.62;
 }
 
@@ -5865,8 +5876,8 @@ main:focus {
 }
 
 .product-card__button:disabled {
-  cursor: progress;
-  opacity: 0.72;
+  cursor: not-allowed;
+  opacity: 0.58;
 }
 
 .product-card[data-visual-state="preview"] .product-card__image--hover,
@@ -7548,7 +7559,22 @@ main:focus {
   }
 
   .pdp__thumbs {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    right: 12px;
+    bottom: 12px;
+    left: 12px;
+    flex-direction: row;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 2px;
+    scrollbar-width: none;
+  }
+
+  .pdp__thumbs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .pdp__thumb {
+    flex: 0 0 clamp(52px, 16vw, 64px);
   }
 
   .pdp-section,
@@ -7602,8 +7628,7 @@ main:focus {
     max-width: 12ch;
   }
 
-  .pdp-details-routine__buy,
-  .pdp-details-routine__unavailable {
+  .pdp-details-routine__buy {
     width: max-content;
     max-width: 100%;
   }
@@ -7807,10 +7832,6 @@ main:focus {
     position: static;
   }
 
-  .pdp__thumbs {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-
   .pdp__media {
     aspect-ratio: 4 / 5;
   }
@@ -7918,10 +7939,6 @@ main:focus {
 
   .sort-control select {
     max-width: 174px;
-  }
-
-  .pdp__thumbs {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
   .pdp-panel-sequence__viewport {

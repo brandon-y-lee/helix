@@ -160,3 +160,39 @@ export function formatPrice(cents: number): string {
 export function formatBuyLabel(productName: string, cents: number): string {
   return `BUY ${productName} - ${formatPrice(cents)}`;
 }
+
+export const OUT_OF_STOCK_CTA_LABEL = "OUT OF STOCK";
+
+export function isVariantPurchasable(
+  product: Product,
+  variant: Variant | null | undefined,
+): variant is Variant {
+  return Boolean(
+    product.status === "available" &&
+      variant?.available &&
+      variant.inventoryStatus !== "out_of_stock" &&
+      variant.inventoryStatus !== "unavailable",
+  );
+}
+
+export function firstPurchasableVariant(product: Product): Variant | null {
+  return (
+    product.variants.find((variant) =>
+      isVariantPurchasable(product, variant),
+    ) ?? null
+  );
+}
+
+export function productPurchaseCta(
+  product: Product,
+  variant: Variant | null | undefined,
+) {
+  const purchasable = isVariantPurchasable(product, variant);
+  return {
+    label: purchasable
+      ? formatBuyLabel(product.displayName, variant.price)
+      : OUT_OF_STOCK_CTA_LABEL,
+    purchasable,
+    variant: variant ?? null,
+  };
+}

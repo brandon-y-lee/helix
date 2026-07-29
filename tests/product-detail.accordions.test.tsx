@@ -438,16 +438,150 @@ describe("ProductDetail purchase accordions", () => {
     render(<ProductDetail product={makeProduct({ media })} />);
 
     expect(
-      within(screen.getByRole("group", { name: "Product hue views" })).getAllByRole(
-        "button",
-      ),
+      within(
+        screen.getByRole("group", { name: "Product media views" }),
+      ).getAllByRole("button"),
     ).toHaveLength(3);
     expect(
-      screen.getByRole("button", { name: "View hue 1 of 3" }),
+      screen.getByRole("button", {
+        name: "View TREAT detail, media 1 of 3",
+      }),
     ).toHaveAttribute("aria-pressed", "true");
     expect(
-      screen.queryByRole("button", { name: "View hue 4 of 4" }),
+      screen.queryByRole("button", { name: /media 4 of 4/ }),
     ).not.toBeInTheDocument();
+  });
+
+  it("keeps the media rail in-panel and uses persistent hover plus keyboard selection", async () => {
+    const user = userEvent.setup();
+    const media: Product["media"] = [
+      {
+        kind: "image",
+        url: "https://example.com/detail.webp",
+        alt: "TREAT bottle view",
+        width: 1200,
+        height: 1500,
+        role: "detail",
+        sortOrder: 0,
+        paletteId: null,
+        palette: null,
+      },
+      {
+        kind: "image",
+        url: "https://example.com/gallery.webp",
+        alt: "TREAT texture view",
+        width: 1200,
+        height: 1500,
+        role: "gallery",
+        sortOrder: 1,
+        paletteId: null,
+        palette: null,
+      },
+      {
+        kind: "video",
+        url: "https://example.com/gallery.mp4",
+        alt: "TREAT application video",
+        width: 720,
+        height: 1280,
+        role: "gallery",
+        sortOrder: 2,
+        paletteId: null,
+        palette: null,
+      },
+    ];
+    const { container, rerender } = render(
+      <ProductDetail product={makeProduct({ media })} />,
+    );
+    const frame = container.querySelector("[data-pdp-main-media]");
+    const rail = container.querySelector("[data-pdp-media-rail]");
+    const texture = screen.getByRole("button", {
+      name: "View TREAT texture view, media 2 of 3",
+    });
+
+    expect(frame).toContainElement(rail as HTMLElement);
+    expect(frame?.querySelector(".pdp__media img")).toHaveAttribute(
+      "alt",
+      "TREAT bottle view",
+    );
+
+    fireEvent.pointerEnter(texture, { pointerType: "mouse" });
+    fireEvent.pointerLeave(texture, { pointerType: "mouse" });
+    expect(texture).toHaveAttribute("aria-pressed", "true");
+    expect(frame?.querySelector(".pdp__media img")).toHaveAttribute(
+      "alt",
+      "TREAT texture view",
+    );
+
+    const video = screen.getByRole("button", {
+      name: "View TREAT application video, media 3 of 3",
+    });
+    video.focus();
+    await user.keyboard("{Enter}");
+    expect(video).toHaveAttribute("aria-pressed", "true");
+    expect(frame?.querySelector("video[controls]")).toHaveAccessibleName(
+      "TREAT application video",
+    );
+
+    rerender(
+      <ProductDetail
+        product={makeProduct({
+          slug: "treat-route-reset",
+          media,
+        })}
+      />,
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", {
+          name: "View TREAT bottle view, media 1 of 3",
+        }),
+      ).toHaveAttribute("aria-pressed", "true"),
+    );
+  });
+
+  it("uses the selected variant for main and sticky out-of-stock CTAs", () => {
+    const base = makeProduct();
+    const unavailableVariant = {
+      ...base.variants[0],
+      id: "30ml",
+      label: "30 mL",
+      price: 4200,
+      available: true,
+      inventoryStatus: "out_of_stock" as const,
+      volume: "30 mL",
+      optionValues: { size: "30 mL" },
+      sortOrder: 1,
+    };
+    const { container } = render(
+      <ProductDetail
+        product={makeProduct({
+          variants: [...base.variants, unavailableVariant],
+        })}
+      />,
+    );
+
+    expect(container.querySelector(".pdp__availability")).toBeNull();
+    fireEvent.click(
+      container.querySelectorAll<HTMLButtonElement>(
+        ".variant-options .variant-option",
+      )[1],
+    );
+
+    const mainBuy = container.querySelector<HTMLButtonElement>(
+      "[data-pdp-buy-button]",
+    );
+    const stickyBuy = container.querySelector<HTMLButtonElement>(
+      "[data-sticky-pdp-buy-button]",
+    );
+    expect(mainBuy).toHaveTextContent("OUT OF STOCK");
+    expect(mainBuy).toBeDisabled();
+    expect(stickyBuy).toHaveTextContent("OUT OF STOCK");
+    expect(stickyBuy).toBeDisabled();
+
+    fireEvent.click(mainBuy as HTMLButtonElement);
+    fireEvent.click(stickyBuy as HTMLButtonElement);
+    expect(cartMock.add).not.toHaveBeenCalled();
+    expect(cartMock.openCartDrawer).not.toHaveBeenCalled();
   });
 
   it("keeps selected server product pricing in sync with main messaging and sticky controls", async () => {

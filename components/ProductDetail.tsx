@@ -24,7 +24,6 @@ import { PdpOutcomeSplit } from "@/components/PdpOutcomeSplit";
 import { PdpProfileSplit } from "@/components/PdpProfileSplit";
 import { PdpRoutineVideo } from "@/components/PdpRoutineVideo";
 import { useProductPurchase } from "@/components/useProductPurchase";
-import { WaitlistButton } from "@/components/WaitlistButton";
 import {
   getProductPdpContent,
   type ProductPdpContent,
@@ -40,8 +39,8 @@ import {
 } from "@/lib/catalog/product-reviews";
 import { getCorePdpPresentation } from "@/lib/content/core-pdp";
 import {
-  formatBuyLabel,
   formatPrice,
+  productPurchaseCta,
   type CoreRoutineProduct,
   type Product,
   type ProductMedia,
@@ -88,20 +87,6 @@ function compactDescription(value: string) {
   return (sentences.length ? sentences.slice(0, 2).join(" ") : value).trim();
 }
 
-function availabilityLabel(
-  product: Product,
-  variant: Product["variants"][number] | undefined,
-) {
-  if (product.status === "coming_soon") return "Coming soon";
-  if (product.status === "sold_out") return "Sold out";
-  if (!variant?.available || variant.inventoryStatus === "unavailable") {
-    return "Unavailable";
-  }
-  if (variant.inventoryStatus === "out_of_stock") return "Out of stock";
-  if (variant.inventoryStatus === "low_stock") return "Low stock";
-  return "Available";
-}
-
 function splitCopy(value: string) {
   return value
     .split(/[.;]\s+/)
@@ -146,13 +131,26 @@ function galleryMediaIdentity(media: ProductMedia) {
   ].join(":");
 }
 
+function fallbackGalleryMedia(productName: string, sortOrder: number) {
+  return {
+    kind: "placeholder",
+    url: null,
+    alt: `${productName} product hue`,
+    width: null,
+    height: null,
+    role: "gallery",
+    sortOrder,
+    paletteId: null,
+    palette: null,
+  } satisfies ProductMedia;
+}
+
 function selectGalleryMedia(media: ProductMedia[]) {
   const identities = new Set<string>();
 
   return media
     .filter(
       (item) =>
-        item.kind !== "video" &&
         ["detail", "gallery", "hero", "card_default"].includes(item.role),
     )
     .slice()
@@ -167,6 +165,60 @@ function selectGalleryMedia(media: ProductMedia[]) {
       identities.add(identity);
       return true;
     });
+}
+
+type PdpGalleryMediaProps = {
+  media: ProductMedia | null | undefined;
+  swatch: [string, string];
+  className: string;
+  mediaClassName: string;
+  sizes: string;
+  priority?: boolean;
+  thumbnail?: boolean;
+};
+
+function PdpGalleryMedia({
+  media,
+  swatch,
+  className,
+  mediaClassName,
+  sizes,
+  priority = false,
+  thumbnail = false,
+}: PdpGalleryMediaProps) {
+  if (media?.kind === "video" && media.url) {
+    return (
+      <span className={className} data-media-kind="video">
+        <video
+          src={media.url}
+          className={mediaClassName}
+          aria-label={thumbnail ? undefined : media.alt}
+          aria-hidden={thumbnail || undefined}
+          controls={!thumbnail}
+          muted={thumbnail}
+          playsInline
+          preload={thumbnail ? "none" : "metadata"}
+          tabIndex={thumbnail ? -1 : undefined}
+        />
+        {thumbnail && (
+          <span className="pdp__thumb-play" aria-hidden="true">
+            ▶
+          </span>
+        )}
+      </span>
+    );
+  }
+
+  return (
+    <ProductImage
+      media={media}
+      swatch={swatch}
+      className={className}
+      imageClassName={mediaClassName}
+      sizes={sizes}
+      priority={priority}
+    />
+  );
 }
 
 function cartImageUrl(media: ProductMedia | null | undefined) {
@@ -437,13 +489,7 @@ export function ProductDetail({
 
   const variant =
     product.variants.find((v) => v.id === variantId) ?? product.variants[0];
-  const isAvailable =
-    product.status === "available" &&
-    Boolean(
-      variant?.available &&
-        variant.inventoryStatus !== "out_of_stock" &&
-        variant.inventoryStatus !== "unavailable",
-    );
+  const purchaseCta = productPurchaseCta(product, variant);
   const activeMedia = gallery[activePanel] ?? product.detailMedia;
   const activeSwatch = fallbackPanels[activePanel % fallbackPanels.length];
   const routineLabel = routineDisplayLabelForProduct(product);
@@ -451,10 +497,6 @@ export function ProductDetail({
   const leadDescription = compactDescription(
     product.editorialDescription || product.description || product.cardTagline,
   );
-  const availability = availabilityLabel(product, variant);
-  const buyLabel = variant
-    ? formatBuyLabel(product.displayName, variant.price)
-    : "";
   const keyIngredients = product.keyIngredients.slice(0, 5);
   const howToUse = content.howToUseSteps.length
     ? content.howToUseSteps
@@ -468,7 +510,6 @@ export function ProductDetail({
     { label: "Routine group", value: routineGroupLabel },
     { label: "Product type", value: product.productType },
     { label: "Use cadence", value: product.usageTime.join(" / ") },
-    { label: "Availability", value: availability },
     { label: "Texture", value: product.texture },
     { label: "Finish", value: product.finish },
     { label: "Size", value: variant?.volume ?? product.volume },
@@ -531,6 +572,11 @@ export function ProductDetail({
     [],
   );
 
+  useEffect(() => {
+    setActivePanel(0);
+    setVariantId(product.variants[0]?.id);
+  }, [product.slug, product.variants]);
+
   useLayoutEffect(() => {
     const videoStart = videoStartRef.current;
     const footer = document.getElementById("site-footer");
@@ -578,7 +624,7 @@ export function ProductDetail({
   }, [product.slug]);
 
   async function handleAdd(returnFocus: () => void) {
-    if (!variant || !isAvailable || pending) return;
+    if (!variant || !purchaseCta.purchasable || pending) return;
     setAdded(false);
     const media = product.cartMedia ?? product.cardMedia;
     const ok = await purchase({
@@ -615,38 +661,58 @@ export function ProductDetail({
     <>
       <div className="pdp">
         <div className="pdp__gallery">
-          <ProductImage
-            media={activeMedia}
-            swatch={activeSwatch}
-            className="pdp__media"
-            imageClassName="pdp__img"
-            sizes="(max-width: 860px) 92vw, 56vw"
-            priority
-          />
-          <div
-            className="pdp__thumbs"
-            role="group"
-            aria-label="Product hue views"
-          >
-            {Array.from({ length: panelCount }).map((_, i) => (
-              <button
-                key={i}
-                type="button"
-                className="pdp__thumb"
-                aria-pressed={i === activePanel}
-                aria-label={`View hue ${i + 1} of ${panelCount}`}
-                onClick={() => setActivePanel(i)}
-              >
-                <ProductImage
-                  media={gallery[i] ?? null}
-                  swatch={fallbackPanels[i % fallbackPanels.length]}
-                  className="pdp__thumb-image"
-                  imageClassName="pdp__thumb-img"
-                  sizes="96px"
-                  priority={i === 0}
-                />
-              </button>
-            ))}
+          <div className="pdp__media-frame" data-pdp-main-media>
+            <PdpGalleryMedia
+              key={galleryMediaIdentity(
+                activeMedia ??
+                  fallbackGalleryMedia(product.displayName, activePanel),
+              )}
+              media={activeMedia}
+              swatch={activeSwatch}
+              className="pdp__media"
+              mediaClassName="pdp__img"
+              sizes="(max-width: 860px) 92vw, 56vw"
+              priority
+            />
+            <div
+              className="pdp__thumbs"
+              role="group"
+              aria-label="Product media views"
+              data-pdp-media-rail
+            >
+              {Array.from({ length: panelCount }).map((_, i) => {
+                const media = gallery[i] ?? null;
+                const description =
+                  media?.alt.trim() || `${product.displayName} product hue`;
+                const mediaKey = galleryMediaIdentity(
+                  media ?? fallbackGalleryMedia(product.displayName, i),
+                );
+                return (
+                  <button
+                    key={`${mediaKey}:${i}`}
+                    type="button"
+                    className="pdp__thumb"
+                    aria-pressed={i === activePanel}
+                    aria-label={`View ${description}, media ${i + 1} of ${panelCount}`}
+                    data-pdp-media-thumbnail
+                    onClick={() => setActivePanel(i)}
+                    onPointerEnter={(event) => {
+                      if (event.pointerType !== "touch") setActivePanel(i);
+                    }}
+                  >
+                    <PdpGalleryMedia
+                      media={media}
+                      swatch={fallbackPanels[i % fallbackPanels.length]}
+                      className="pdp__thumb-image"
+                      mediaClassName="pdp__thumb-img"
+                      sizes="64px"
+                      priority={i === 0}
+                      thumbnail
+                    />
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
 
@@ -685,29 +751,23 @@ export function ProductDetail({
             </>
           )}
 
-          <p className="pdp__availability" role="status">
-            {availability}
-          </p>
-
           <div className="pdp__actions">
-            {isAvailable && variant ? (
-              <button
-                ref={mainBuyButtonRef}
-                type="button"
-                className="btn"
-                data-pdp-buy-button
-                onClick={() =>
-                  void handleAdd(() => mainBuyButtonRef.current?.focus())
-                }
-                disabled={pending}
-              >
-                {pending ? "Adding" : buyLabel}
-              </button>
-            ) : (
-              <WaitlistButton className="btn" label="Join the waitlist" />
-            )}
+            <button
+              ref={mainBuyButtonRef}
+              type="button"
+              className="btn"
+              data-pdp-buy-button
+              onClick={() =>
+                void handleAdd(() => mainBuyButtonRef.current?.focus())
+              }
+              disabled={!purchaseCta.purchasable || pending}
+            >
+              {pending && purchaseCta.purchasable
+                ? "Adding"
+                : purchaseCta.label}
+            </button>
           </div>
-          {isAvailable && variant && (
+          {purchaseCta.purchasable && variant && (
             <AfterpayMessaging
               amount={variant.price}
               currency={product.currency}
@@ -871,28 +931,22 @@ export function ProductDetail({
         </div>
         <div className="pdp-sticky-purchase__action">
           <span>{variant ? formatPrice(variant.price) : "—"}</span>
-          {isAvailable && variant ? (
-            <button
-              ref={stickyBuyButtonRef}
-              type="button"
-              className="btn"
-              data-sticky-pdp-buy-button
-              onClick={() =>
-                void handleAdd(() => stickyBuyButtonRef.current?.focus())
-              }
-              disabled={pending}
-              tabIndex={stickyVisible ? undefined : -1}
-              aria-label={buyLabel}
-            >
-              {pending ? "Adding" : buyLabel}
-            </button>
-          ) : (
-            <WaitlistButton
-              className="btn"
-              label="Join the waitlist"
-              tabIndex={stickyVisible ? undefined : -1}
-            />
-          )}
+          <button
+            ref={stickyBuyButtonRef}
+            type="button"
+            className="btn"
+            data-sticky-pdp-buy-button
+            onClick={() =>
+              void handleAdd(() => stickyBuyButtonRef.current?.focus())
+            }
+            disabled={!purchaseCta.purchasable || pending}
+            tabIndex={stickyVisible ? undefined : -1}
+            aria-label={purchaseCta.label}
+          >
+            {pending && purchaseCta.purchasable
+              ? "Adding"
+              : purchaseCta.label}
+          </button>
         </div>
       </div>
 

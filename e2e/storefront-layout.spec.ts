@@ -95,6 +95,28 @@ test("PDP panels split on desktop, stack on mobile, and preserve review dividers
     page.locator('[data-pdp-panel-row="profile"]'),
     1,
   );
+  const mobileFrame = page.locator("[data-pdp-main-media]");
+  const mobileRail = page.locator("[data-pdp-media-rail]");
+  await expect
+    .poll(() =>
+      mobileRail.evaluate((element) => getComputedStyle(element).flexDirection),
+    )
+    .toBe("row");
+  const [mobileFrameBox, mobileRailBox] = await Promise.all([
+    mobileFrame.boundingBox(),
+    mobileRail.boundingBox(),
+  ]);
+  if (!mobileFrameBox || !mobileRailBox) {
+    throw new Error("Mobile PDP media geometry is unavailable.");
+  }
+  expect(mobileRailBox.x).toBeGreaterThanOrEqual(mobileFrameBox.x);
+  expect(mobileRailBox.y).toBeGreaterThanOrEqual(mobileFrameBox.y);
+  expect(mobileRailBox.x + mobileRailBox.width).toBeLessThanOrEqual(
+    mobileFrameBox.x + mobileFrameBox.width,
+  );
+  expect(mobileRailBox.y + mobileRailBox.height).toBeLessThanOrEqual(
+    mobileFrameBox.y + mobileFrameBox.height,
+  );
   await expectNoHorizontalOverflow(page);
 });
 
@@ -222,6 +244,8 @@ test("Core PDP hero media is finite, borderless, and aligned to storefront spaci
   ).toBeLessThanOrEqual(1);
 
   const media = page.locator(".pdp__media");
+  const mediaFrame = page.locator("[data-pdp-main-media]");
+  const mediaRail = page.locator("[data-pdp-media-rail]");
   const activeThumb = page.locator('.pdp__thumb[aria-pressed="true"]');
   const inactiveThumb = page.locator('.pdp__thumb[aria-pressed="false"]').first();
   const thumbImage = activeThumb.locator(".pdp__thumb-image");
@@ -242,9 +266,31 @@ test("Core PDP hero media is finite, borderless, and aligned to storefront spaci
       .toEqual(["0px", "0px", "0px", "0px"]);
   }
 
+  await expect
+    .poll(() =>
+      mediaRail.evaluate((element) => getComputedStyle(element).flexDirection),
+    )
+    .toBe("column");
+  const [frameBox, railBox] = await Promise.all([
+    mediaFrame.boundingBox(),
+    mediaRail.boundingBox(),
+  ]);
+  if (!frameBox || !railBox) {
+    throw new Error("Desktop PDP media geometry is unavailable.");
+  }
+  expect(railBox.x).toBeGreaterThanOrEqual(frameBox.x);
+  expect(railBox.y).toBeGreaterThanOrEqual(frameBox.y);
+  expect(railBox.x + railBox.width).toBeLessThanOrEqual(
+    frameBox.x + frameBox.width,
+  );
+  expect(railBox.y + railBox.height).toBeLessThanOrEqual(
+    frameBox.y + frameBox.height,
+  );
+
   const inactiveOpacity = Number(
     await inactiveThumb.evaluate((element) => getComputedStyle(element).opacity),
   );
+  expect(inactiveOpacity).toBe(0.5);
   await inactiveThumb.hover();
   await expect
     .poll(() =>
@@ -252,12 +298,22 @@ test("Core PDP hero media is finite, borderless, and aligned to storefront spaci
         Number(getComputedStyle(element).opacity),
       ),
     )
-    .toBeGreaterThan(inactiveOpacity);
+    .toBe(1);
+  await expect(inactiveThumb).toHaveAttribute("aria-pressed", "true");
+  await page.mouse.move(1000, 80);
+  await expect(inactiveThumb).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator(".pdp__media")).toHaveAttribute(
+    "data-media-kind",
+    "placeholder",
+  );
 
-  await activeThumb.focus();
+  const firstThumb = page.locator("[data-pdp-media-thumbnail]").first();
+  await firstThumb.focus();
+  await firstThumb.press("Enter");
+  await expect(firstThumb).toHaveAttribute("aria-pressed", "true");
   await expect
     .poll(() =>
-      activeThumb.evaluate((element) =>
+      firstThumb.evaluate((element) =>
         Number.parseFloat(getComputedStyle(element).outlineWidth),
       ),
     )

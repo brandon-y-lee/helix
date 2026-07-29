@@ -18,8 +18,10 @@ import { ProductImage } from "@/components/ProductImage";
 import { useProductPurchase } from "@/components/useProductPurchase";
 import { routineDisplayLabelForProduct } from "@/lib/catalog/product-routine";
 import {
-  formatBuyLabel,
+  firstPurchasableVariant,
   formatPrice,
+  isVariantPurchasable,
+  productPurchaseCta,
   type Product,
   type ProductMedia,
   type Variant,
@@ -46,14 +48,6 @@ function cartPlaceholderMedia(
 
 function cartImageUrl(media: ProductMedia | null | undefined) {
   return media?.kind === "image" ? media.url : null;
-}
-
-function isBuyableVariant(variant: Variant | undefined): variant is Variant {
-  return Boolean(
-    variant?.available &&
-      variant.inventoryStatus !== "out_of_stock" &&
-      variant.inventoryStatus !== "unavailable",
-  );
 }
 
 function variantSizeLabel(variant: Variant | null | undefined, product: Product) {
@@ -140,19 +134,16 @@ export function ProductCard({
   const keyboardFocusVisibleWithinRef = useRef(false);
   const lastInputWasKeyboardRef = useRef(false);
   const [selectedVariantId, setSelectedVariantId] = useState(
-    product.variants.find(isBuyableVariant)?.id ?? product.variants[0]?.id ?? "",
+    firstPurchasableVariant(product)?.id ?? product.variants[0]?.id ?? "",
   );
 
   const href = `/products/${product.slug}`;
   const availableVariants = useMemo(
     () =>
-      product.variants.filter(
-        (variant) =>
-          variant.available &&
-          variant.inventoryStatus !== "out_of_stock" &&
-          variant.inventoryStatus !== "unavailable",
+      product.variants.filter((variant) =>
+        isVariantPurchasable(product, variant),
       ),
-    [product.variants],
+    [product],
   );
   const selectedVariant =
     product.variants.find((variant) => variant.id === selectedVariantId) ??
@@ -160,8 +151,8 @@ export function ProductCard({
     product.variants[0] ??
     null;
   const isQuickBuyOpen = controlled ? quickBuyOpen : localQuickBuyOpen;
-  const canBuy =
-    product.status === "available" && isBuyableVariant(selectedVariant);
+  const purchaseCta = productPurchaseCta(product, selectedVariant);
+  const canBuy = purchaseCta.purchasable;
   const startingPrice = minPrice(product);
   const hasRange = product.variants.length > 1;
   const priceLabel = `${hasRange ? "From " : ""}${formatPrice(startingPrice)}`;
@@ -191,11 +182,11 @@ export function ProductCard({
     const current = product.variants.find(
       (variant) => variant.id === selectedVariantId,
     );
-    if (isBuyableVariant(current)) return;
+    if (isVariantPurchasable(product, current)) return;
     setSelectedVariantId(
       availableVariants[0]?.id ?? product.variants[0]?.id ?? "",
     );
-  }, [availableVariants, isQuickBuyOpen, product.variants, selectedVariantId]);
+  }, [availableVariants, isQuickBuyOpen, product, selectedVariantId]);
 
   useEffect(() => {
     function rememberKeyboard() {
@@ -467,14 +458,15 @@ export function ProductCard({
             type="button"
             className="product-card__button product-card__quick-trigger"
             onClick={openQuickBuy}
-            aria-label={`Open quick buy for ${displayName}`}
+            aria-label={
+              canBuy ? `Open quick buy for ${displayName}` : purchaseCta.label
+            }
             aria-expanded={isQuickBuyOpen}
             aria-controls={panelId}
+            disabled={!canBuy}
             tabIndex={isQuickBuyOpen ? -1 : undefined}
           >
-            {product.status === "available"
-              ? `${hasRange ? "CHOOSE" : "BUY"} ${displayName}`
-              : "VIEW DETAILS"}
+            {purchaseCta.label}
           </button>
         </div>
 
@@ -526,7 +518,7 @@ export function ProductCard({
               <legend>Size</legend>
               <div className="product-card__quick-options">
                 {product.variants.map((variant) => {
-                  const buyable = isBuyableVariant(variant);
+                  const buyable = isVariantPurchasable(product, variant);
                   return (
                     <label
                       key={variant.id}
@@ -561,16 +553,12 @@ export function ProductCard({
               disabled={!canBuy || pending}
               tabIndex={isQuickBuyOpen ? undefined : -1}
               aria-label={
-                selectedVariant && canBuy
-                  ? formatBuyLabel(displayName, selectedVariant.price)
-                  : `Buy ${displayName}`
+                pending && canBuy ? "ADDING" : purchaseCta.label
               }
             >
               {pending
                 ? "ADDING"
-                : selectedVariant && canBuy
-                  ? formatBuyLabel(displayName, selectedVariant.price)
-                  : "UNAVAILABLE"}
+                : purchaseCta.label}
             </button>
             <Link
               href={href}

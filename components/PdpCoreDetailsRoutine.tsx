@@ -6,7 +6,8 @@ import { useProductPurchase } from "@/components/useProductPurchase";
 import type { CartPlaceholderMedia } from "@/lib/cart/types";
 import { PDP_CORE_DETAILS_PRESENTATIONS } from "@/lib/content/pdp-core-details";
 import {
-  formatBuyLabel,
+  firstPurchasableVariant,
+  productPurchaseCta,
   type Product,
   type ProductMedia,
   type Variant,
@@ -28,18 +29,6 @@ function cartPlaceholderMedia(
     paletteId: media.paletteId,
     palette: media.palette,
   };
-}
-
-function purchasableVariant(product: Product): Variant | null {
-  if (product.status !== "available") return null;
-  return (
-    product.variants.find(
-      (variant) =>
-        variant.available &&
-        variant.inventoryStatus !== "out_of_stock" &&
-        variant.inventoryStatus !== "unavailable",
-    ) ?? null
-  );
 }
 
 function stateFor(
@@ -151,7 +140,9 @@ export function PdpCoreDetailsRoutine({
       >
         <div className="pdp-details-routine__states" aria-live="polite">
           {orderedSteps.map(({ presentation, product }, index) => {
-            const variant = purchasableVariant(product);
+            const variant =
+              firstPurchasableVariant(product) ?? product.variants[0] ?? null;
+            const purchaseCta = productPurchaseCta(product, variant);
             const state = stateFor(index, activeIndex, outgoingIndex);
             const benefits = product.benefits.filter(Boolean).slice(0, 3);
             const ingredients = product.keyIngredients
@@ -175,25 +166,31 @@ export function PdpCoreDetailsRoutine({
                     <h2>{product.displayName}</h2>
                     <p>{product.productType}</p>
                   </div>
-                  {variant ? (
-                    <button
-                      ref={state === "active" ? buyButtonRef : undefined}
-                      type="button"
-                      className="pdp-details-routine__buy"
-                      data-pdp-details-buy
-                      disabled={pending || state !== "active"}
-                      tabIndex={state === "active" ? 0 : -1}
-                      onClick={() => void buy(product, variant)}
-                    >
-                      {pending && state === "active"
-                        ? "ADDING"
-                        : formatBuyLabel(product.displayName, variant.price)}
-                    </button>
-                  ) : (
-                    <span className="pdp-details-routine__unavailable">
-                      UNAVAILABLE
-                    </span>
-                  )}
+                  <button
+                    ref={state === "active" ? buyButtonRef : undefined}
+                    type="button"
+                    className="pdp-details-routine__buy"
+                    data-pdp-details-buy
+                    disabled={
+                      !purchaseCta.purchasable ||
+                      pending ||
+                      state !== "active"
+                    }
+                    tabIndex={
+                      state === "active" && purchaseCta.purchasable ? 0 : -1
+                    }
+                    onClick={() => {
+                      if (variant && purchaseCta.purchasable) {
+                        void buy(product, variant);
+                      }
+                    }}
+                  >
+                    {pending &&
+                    state === "active" &&
+                    purchaseCta.purchasable
+                      ? "ADDING"
+                      : purchaseCta.label}
+                  </button>
                 </header>
 
                 <dl className="pdp-details-routine__fields">

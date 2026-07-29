@@ -30,6 +30,11 @@ test("shop renders seeded products and combines filtering with sorting", async (
   await page.goto("/products");
   await expect(page.locator(".product-count")).toHaveText("6 products");
   await expect(page.locator(".product-card")).toHaveCount(6);
+  await expect(
+    page
+      .locator('[data-product-card-slug="cleanse-01-calming-gel-cleanser"]')
+      .locator(".product-card__quick-trigger"),
+  ).toHaveText("BUY CLEANSE - $22.00");
 
   const filters = page.getByRole("group", {
     name: "Filter by collection",
@@ -58,6 +63,10 @@ test("PDP resolves canonical data and exposes an available variant", async ({
   await expect(
     page.getByRole("heading", { level: 1, name: "TREAT" }),
   ).toBeVisible();
+  await expect(page.locator(".pdp__availability")).toHaveCount(0);
+  await expect(page.locator("[data-pdp-buy-button]")).toHaveText(
+    "BUY TREAT - $25.00",
+  );
 
   const variant = page.getByRole("button", {
     name: "30 mL",

@@ -114,9 +114,11 @@ describe("ProductCard quick buy", () => {
     const user = userEvent.setup();
     render(<ProductCard product={makeProduct()} />);
 
-    await user.click(
-      screen.getByRole("button", { name: "Open quick buy for CLEANSE" }),
-    );
+    const trigger = screen.getByRole("button", {
+      name: "Open quick buy for CLEANSE",
+    });
+    expect(trigger).toHaveTextContent("BUY CLEANSE - $20.00");
+    await user.click(trigger);
     fireEvent.mouseLeave(screen.getByRole("listitem"));
 
     expect(cartMock.add).not.toHaveBeenCalled();
@@ -124,9 +126,38 @@ describe("ProductCard quick buy", () => {
     expect(cardSurface()).toHaveAttribute("data-visual-state", "quick-buy");
     expect(
       screen.getByRole("button", {
-        name: "BUY CLEANSE - $20.00",
-      }),
+      name: "BUY CLEANSE - $20.00",
+    }),
     ).toBeInTheDocument();
+  });
+
+  it("fails closed with standardized out-of-stock card controls", () => {
+    const product = makeProduct({
+      variants: [
+        makeVariant({
+          available: true,
+          inventoryStatus: "out_of_stock",
+        }),
+      ],
+    });
+    const { rerender } = render(<ProductCard product={product} />);
+    const trigger = screen.getByRole("button", { name: "OUT OF STOCK" });
+
+    expect(trigger).toHaveTextContent("OUT OF STOCK");
+    expect(trigger).toBeDisabled();
+    fireEvent.click(trigger);
+    expect(cartMock.add).not.toHaveBeenCalled();
+    expect(cartMock.openCartDrawer).not.toHaveBeenCalled();
+
+    rerender(<ProductCard product={product} quickBuyOpen />);
+    const final = document.querySelector<HTMLButtonElement>(
+      "[data-product-card-buy]",
+    );
+    expect(final).toHaveTextContent("OUT OF STOCK");
+    expect(final).toBeDisabled();
+    fireEvent.click(final as HTMLButtonElement);
+    expect(cartMock.add).not.toHaveBeenCalled();
+    expect(cartMock.openCartDrawer).not.toHaveBeenCalled();
   });
 
   it("adds from the final buy button and opens the cart drawer", async () => {
