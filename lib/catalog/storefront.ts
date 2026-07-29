@@ -465,6 +465,7 @@ export function mapPdpProductRow(row: PdpProductRow): PdpProductContent {
     routineGroup: toRoutineGroup(row.routine_group),
     routineGroupLabel: row.routine_group_label ?? null,
     routineStepNumber: row.routine_step_number ?? null,
+    routineStepName: row.routine_step_name ?? null,
     routineDisplayLabel: row.routine_display_label ?? null,
     productType: row.product_type ?? row.collection,
     description,

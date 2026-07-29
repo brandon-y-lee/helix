@@ -155,7 +155,7 @@ describe("catalog cache domains", () => {
       status: "available",
       variants: [{ price: 2500 }],
     });
-    expect(registration("catalog-pdp-content-v2").options).toEqual({
+    expect(registration("catalog-pdp-content-v3").options).toEqual({
       revalidate: PRODUCT_CONTENT_REVALIDATE_SECONDS,
       tags: [productContentCacheTag(slug)],
     });

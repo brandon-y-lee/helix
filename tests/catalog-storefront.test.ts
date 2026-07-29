@@ -224,6 +224,7 @@ describe("storefront catalog projections", () => {
       description: "Approved editorial description.",
       howToUse: "Apply after CLEANSE.",
       keyIngredients: ["PDRN", "Niacinamide"],
+      routineStepName: "Treat",
     });
     expect(product?.media.map((item) => item.role)).toContain("pdp_outcome");
     expect(product?.media.map((item) => item.role)).toContain("pdp_application");

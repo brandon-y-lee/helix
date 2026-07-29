@@ -67,6 +67,7 @@ export type PdpProductContent = {
   routineGroup: CommerceRoutineGroup | null;
   routineGroupLabel: string | null;
   routineStepNumber: number | null;
+  routineStepName: string | null;
   routineDisplayLabel: string | null;
   productType: string | null;
   description: string;

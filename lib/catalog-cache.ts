@@ -405,7 +405,7 @@ export async function getCachedPdpProduct(
   const [content, offer] = await Promise.all([
     unstable_cache(
       () => getPdpProductContent(slug),
-      ["catalog-pdp-content-v2", slug],
+      ["catalog-pdp-content-v3", slug],
       {
         revalidate: PRODUCT_CONTENT_REVALIDATE_SECONDS,
         tags: [productContentCacheTag(slug)],
