@@ -73,8 +73,13 @@ describe("PdpOutcomeSplit", () => {
     const { container } = render(
       <PdpOutcomeSplit
         productName="CLEANSE"
-        presentation={presentation}
-        productMedia={[outcomeMedia(3), outcomeMedia(1), outcomeMedia(2)]}
+        heading={presentation.outcomeHeading}
+        options={presentation.outcomeOptions}
+        media={orderedPdpOutcomeMedia([
+          outcomeMedia(3),
+          outcomeMedia(1),
+          outcomeMedia(2),
+        ])}
       />,
     );
     const controls = screen.getAllByRole("button");
@@ -115,8 +120,13 @@ describe("PdpOutcomeSplit", () => {
     const { container } = render(
       <PdpOutcomeSplit
         productName="CLEANSE"
-        presentation={relabeled}
-        productMedia={[outcomeMedia(2), outcomeMedia(1), outcomeMedia(3)]}
+        heading={relabeled.outcomeHeading}
+        options={relabeled.outcomeOptions}
+        media={orderedPdpOutcomeMedia([
+          outcomeMedia(2),
+          outcomeMedia(1),
+          outcomeMedia(3),
+        ])}
       />,
     );
 
@@ -131,8 +141,12 @@ describe("PdpOutcomeSplit", () => {
     const { container } = render(
       <PdpOutcomeSplit
         productName="CLEANSE"
-        presentation={presentation}
-        productMedia={[outcomeMedia(3), outcomeMedia(1)]}
+        heading={presentation.outcomeHeading}
+        options={presentation.outcomeOptions}
+        media={orderedPdpOutcomeMedia([
+          outcomeMedia(3),
+          outcomeMedia(1),
+        ])}
       />,
     );
 

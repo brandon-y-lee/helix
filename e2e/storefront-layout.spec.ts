@@ -280,7 +280,7 @@ test("Core PDP hero media is finite, borderless, and aligned to storefront spaci
   const mediaFrame = page.locator("[data-pdp-main-media]");
   const mediaRail = page.locator("[data-pdp-media-rail]");
   const activeThumb = page.locator('.pdp__thumb[aria-pressed="true"]');
-  const inactiveThumb = page.locator('.pdp__thumb[aria-pressed="false"]').first();
+  const inactiveThumb = page.locator("[data-pdp-media-thumbnail]").nth(1);
   const thumbImage = activeThumb.locator(".pdp__thumb-image");
 
   for (const target of [media, activeThumb, thumbImage]) {

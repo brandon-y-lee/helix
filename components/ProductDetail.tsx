@@ -1,30 +1,35 @@
-"use client";
-
-import {
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-  type CSSProperties,
-  type KeyboardEvent as ReactKeyboardEvent,
-  type PointerEvent as ReactPointerEvent,
-  type ReactNode,
-  type WheelEvent as ReactWheelEvent,
-} from "react";
-import { AfterpayMessaging } from "@/components/AfterpayMessaging";
+import type { ReactNode } from "react";
 import { ProductEndorsementRail } from "@/components/ProductEndorsementRail";
-import { ProductImage } from "@/components/ProductImage";
 import { ProductReviewsSection } from "@/components/ProductReviewsSection";
 import { PdpApplicationCarousel } from "@/components/PdpApplicationCarousel";
 import { PdpCoreDetailsRoutine } from "@/components/PdpCoreDetailsRoutine";
 import { PdpCoreRoutineSection } from "@/components/PdpCoreRoutineSection";
+import { PdpGalleryIsland } from "@/components/PdpGalleryIsland";
 import { PdpIngredientsSplit } from "@/components/PdpIngredientsSplit";
 import { PdpOutcomeSplit } from "@/components/PdpOutcomeSplit";
+import {
+  PdpPanelSequence,
+  type PdpSequenceItem,
+} from "@/components/PdpPanelSequence";
 import { PdpProfileSplit } from "@/components/PdpProfileSplit";
+import { PdpPurchaseAccordions } from "@/components/PdpPurchaseAccordions";
+import { PdpPurchaseIsland } from "@/components/PdpPurchaseIsland";
 import { PdpRoutineVideo } from "@/components/PdpRoutineVideo";
-import { useProductPurchase } from "@/components/useProductPurchase";
-import type { ProductPdpContent } from "@/lib/catalog/product-content";
+import {
+  applicationIslandProps,
+  coreDetailsIslandItems,
+  galleryIslandProps,
+  outcomeIslandProps,
+  purchaseAccordionProps,
+  purchaseIslandProps,
+} from "@/components/ProductDetail.adapters";
+import {
+  type ProductPdpContent,
+} from "@/lib/catalog/product-content";
+import type {
+  CoreRoutineSummary,
+  PdpProduct,
+} from "@/lib/catalog/models";
 import { resolveFullInci } from "@/lib/catalog/product-ingredients";
 import {
   routineDisplayLabelForProduct,
@@ -35,47 +40,7 @@ import {
   type ProductReviews,
 } from "@/lib/catalog/product-reviews";
 import { getCorePdpPresentation } from "@/lib/content/core-pdp";
-import type {
-  CoreRoutineSummary,
-  PdpProduct,
-} from "@/lib/catalog/models";
-import {
-  formatPrice,
-  productPurchaseCta,
-  type ProductMedia,
-} from "@/lib/products";
-import type { CartPlaceholderMedia } from "@/lib/cart/types";
 import { productEndorsementMedia } from "@/lib/content/product-endorsements";
-
-function fallbackGalleryPanels(swatch: [string, string]): Array<[string, string]> {
-  const [a, b] = swatch;
-  return [
-    [a, b],
-    [b, a],
-    [a, a],
-    [b, b],
-  ];
-}
-
-function cartPlaceholderMedia(
-  media: ProductMedia | null | undefined,
-): CartPlaceholderMedia {
-  if (media?.kind !== "placeholder" || !media.palette) return null;
-  return {
-    kind: "placeholder",
-    alt: media.alt,
-    paletteId: media.paletteId,
-    palette: media.palette,
-  };
-}
-
-type PurchaseAccordionId = "use" | "ingredients";
-
-type PdpSequenceItem = {
-  kicker: string;
-  title: string;
-  body: string;
-};
 
 function compactDescription(value: string) {
   const sentences = value
@@ -91,142 +56,6 @@ function splitCopy(value: string) {
     .split(/[.;]\s+/)
     .map((item) => item.trim().replace(/[.;]$/, ""))
     .filter(Boolean);
-}
-
-function galleryRoleRank(role: ProductMedia["role"]) {
-  if (role === "detail" || role === "hero") return 0;
-  if (role === "gallery") return 1;
-  if (role === "card_default" || role === "card") return 2;
-  return 3;
-}
-
-function normalizedMediaUrl(url: string) {
-  try {
-    const base = "https://mei-pelle.invalid";
-    const parsed = new URL(url, base);
-    const origin = parsed.origin === base ? "" : parsed.origin.toLowerCase();
-    const pathname = parsed.pathname.replace(/\/{2,}/g, "/").replace(/\/$/, "");
-    return `${origin}${pathname}`;
-  } catch {
-    return url.split(/[?#]/, 1)[0].replace(/\/{2,}/g, "/").replace(/\/$/, "");
-  }
-}
-
-function galleryMediaIdentity(media: ProductMedia) {
-  if (media.url) {
-    return `${media.kind}:${normalizedMediaUrl(media.url)}`;
-  }
-
-  const palette = media.palette;
-  return [
-    media.kind,
-    media.paletteId ?? "",
-    palette?.start ?? "",
-    palette?.end ?? "",
-    palette?.accent ?? "",
-    palette?.surface ?? "",
-    palette?.ink ?? "",
-    palette?.highlight ?? "",
-  ].join(":");
-}
-
-function fallbackGalleryMedia(productName: string, sortOrder: number) {
-  return {
-    kind: "placeholder",
-    url: null,
-    alt: `${productName} product hue`,
-    width: null,
-    height: null,
-    role: "gallery",
-    sortOrder,
-    paletteId: null,
-    palette: null,
-  } satisfies ProductMedia;
-}
-
-function selectGalleryMedia(media: ProductMedia[]) {
-  const identities = new Set<string>();
-
-  return media
-    .filter(
-      (item) =>
-        ["detail", "gallery", "hero", "card_default"].includes(item.role),
-    )
-    .slice()
-    .sort(
-      (a, b) =>
-        galleryRoleRank(a.role) - galleryRoleRank(b.role) ||
-        a.sortOrder - b.sortOrder,
-    )
-    .filter((item) => {
-      const identity = galleryMediaIdentity(item);
-      if (identities.has(identity)) return false;
-      identities.add(identity);
-      return true;
-    });
-}
-
-type PdpGalleryMediaProps = {
-  media: ProductMedia | null | undefined;
-  swatch: [string, string];
-  className: string;
-  mediaClassName: string;
-  sizes: string;
-  priority?: boolean;
-  thumbnail?: boolean;
-};
-
-function PdpGalleryMedia({
-  media,
-  swatch,
-  className,
-  mediaClassName,
-  sizes,
-  priority = false,
-  thumbnail = false,
-}: PdpGalleryMediaProps) {
-  if (media?.kind === "video" && media.url) {
-    return (
-      <span className={className} data-media-kind="video">
-        <video
-          src={media.url}
-          className={mediaClassName}
-          aria-label={thumbnail ? undefined : media.alt}
-          aria-hidden={thumbnail || undefined}
-          controls={!thumbnail}
-          muted={thumbnail}
-          playsInline
-          preload={thumbnail ? "none" : "metadata"}
-          tabIndex={thumbnail ? -1 : undefined}
-        />
-        {thumbnail && (
-          <span className="pdp__thumb-play" aria-hidden="true">
-            ▶
-          </span>
-        )}
-      </span>
-    );
-  }
-
-  return (
-    <ProductImage
-      media={media}
-      swatch={swatch}
-      className={className}
-      imageClassName={mediaClassName}
-      sizes={sizes}
-      priority={priority}
-    />
-  );
-}
-
-function cartImageUrl(media: ProductMedia | null | undefined) {
-  return media?.kind === "image" ? media.url : null;
-}
-
-function formatSequencePosition(index: number, total: number) {
-  const width = Math.max(2, String(total).length);
-  return `${String(index + 1).padStart(width, "0")} / ${String(total).padStart(width, "0")}`;
 }
 
 function PdpEditorialPair({
@@ -268,144 +97,6 @@ function PdpEditorialPair({
         {children}
       </div>
     </section>
-  );
-}
-
-function PdpPanelSequence({
-  label,
-  items,
-}: {
-  label: string;
-  items: PdpSequenceItem[];
-}) {
-  const [active, setActive] = useState(0);
-  const pointerStartRef = useRef<{ x: number; y: number; pointerId: number } | null>(null);
-  const lastWheelAtRef = useRef(Number.NEGATIVE_INFINITY);
-  const lastIndex = Math.max(items.length - 1, 0);
-  const canPrevious = active > 0;
-  const canNext = active < lastIndex;
-
-  useEffect(() => {
-    setActive((current) => Math.min(current, lastIndex));
-  }, [lastIndex]);
-
-  function go(delta: -1 | 1) {
-    setActive((current) => Math.min(Math.max(current + delta, 0), lastIndex));
-  }
-
-  function handleKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
-    if (event.key === "ArrowLeft") {
-      event.preventDefault();
-      go(-1);
-    }
-    if (event.key === "ArrowRight") {
-      event.preventDefault();
-      go(1);
-    }
-  }
-
-  function handlePointerDown(event: ReactPointerEvent<HTMLDivElement>) {
-    if (event.pointerType === "mouse" && event.button !== 0) return;
-    pointerStartRef.current = {
-      x: event.clientX,
-      y: event.clientY,
-      pointerId: event.pointerId,
-    };
-    event.currentTarget.setPointerCapture?.(event.pointerId);
-  }
-
-  function handlePointerUp(event: ReactPointerEvent<HTMLDivElement>) {
-    const start = pointerStartRef.current;
-    pointerStartRef.current = null;
-    if (!start || start.pointerId !== event.pointerId) return;
-
-    const deltaX = event.clientX - start.x;
-    const deltaY = event.clientY - start.y;
-    if (Math.abs(deltaX) < 36 || Math.abs(deltaX) <= Math.abs(deltaY) * 1.2) {
-      return;
-    }
-    go(deltaX < 0 ? 1 : -1);
-  }
-
-  function handleWheel(event: ReactWheelEvent<HTMLDivElement>) {
-    if (Math.abs(event.deltaX) <= Math.abs(event.deltaY) || Math.abs(event.deltaX) < 10) {
-      return;
-    }
-    event.preventDefault();
-    const now = window.performance.now();
-    if (now - lastWheelAtRef.current < 260) return;
-    lastWheelAtRef.current = now;
-    go(event.deltaX > 0 ? 1 : -1);
-  }
-
-  if (items.length === 0) return null;
-
-  return (
-    <div
-      className="pdp-panel-sequence"
-      role="group"
-      aria-label={label}
-      tabIndex={0}
-      data-can-previous={canPrevious}
-      data-can-next={canNext}
-      data-preview-direction={canNext ? "next" : canPrevious ? "previous" : "none"}
-      onKeyDown={handleKeyDown}
-    >
-      <div className="pdp-panel-sequence__bar">
-        <span
-          className="pdp-panel-sequence__count"
-          aria-label={`${label} item position`}
-          aria-live="polite"
-        >
-          {formatSequencePosition(active, items.length)}
-        </span>
-        <span className="pdp-panel-sequence__controls">
-          <button
-            type="button"
-            aria-label={`Previous ${label}`}
-            disabled={!canPrevious}
-            onClick={() => go(-1)}
-          >
-            &larr;
-          </button>
-          <button
-            type="button"
-            aria-label={`Next ${label}`}
-            disabled={!canNext}
-            onClick={() => go(1)}
-          >
-            &rarr;
-          </button>
-        </span>
-      </div>
-      <div
-        className="pdp-panel-sequence__viewport"
-        onPointerDown={handlePointerDown}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={() => {
-          pointerStartRef.current = null;
-        }}
-        onWheel={handleWheel}
-      >
-        <div
-          className="pdp-panel-sequence__track"
-          style={{ "--pdp-sequence-offset": `${active * -100}%` } as CSSProperties}
-        >
-          {items.map((item, index) => (
-            <article
-              key={`${item.kicker}-${item.title}`}
-              className="pdp-panel-sequence__item"
-              data-active={index === active}
-              aria-hidden={index !== active}
-            >
-              <span>{item.kicker}</span>
-              <h3>{item.title}</h3>
-              <p>{item.body}</p>
-            </article>
-          ))}
-        </div>
-      </div>
-    </div>
   );
 }
 
@@ -461,40 +152,11 @@ export function ProductDetail({
   reviews?: ProductReviews;
   stripePublishableKey?: string | null;
 }) {
-  const {
-    error: addError,
-    pending,
-    purchase,
-  } = useProductPurchase();
-  const fallbackPanels = fallbackGalleryPanels(product.swatch);
-  const gallery = useMemo(
-    () => selectGalleryMedia(product.media),
-    [product.media],
-  );
-  const panelCount = gallery.length || fallbackPanels.length;
-  const [activePanel, setActivePanel] = useState(0);
-  const [variantId, setVariantId] = useState(product.variants[0]?.id);
-  const [added, setAdded] = useState(false);
-  const [openAccordion, setOpenAccordion] =
-    useState<PurchaseAccordionId | null>(null);
-  const [hasPassedVideoStart, setHasPassedVideoStart] = useState(false);
-  const [footerEnteringViewport, setFooterEnteringViewport] = useState(false);
-  const videoStartRef = useRef<HTMLSpanElement>(null);
-  const mainBuyButtonRef = useRef<HTMLButtonElement>(null);
-  const stickyBuyButtonRef = useRef<HTMLButtonElement>(null);
-  const addedTimeoutRef = useRef<number | null>(null);
-
-  const variant =
-    product.variants.find((v) => v.id === variantId) ?? product.variants[0];
-  const purchaseCta = productPurchaseCta(product, variant);
-  const activeMedia = gallery[activePanel] ?? product.detailMedia;
-  const activeSwatch = fallbackPanels[activePanel % fallbackPanels.length];
   const routineLabel = routineDisplayLabelForProduct(product);
   const routineGroupLabel = routineGroupLabelForProduct(product);
   const leadDescription = compactDescription(
     product.description || product.cardTagline,
   );
-  const keyIngredients = product.keyIngredients.slice(0, 5);
   const howToUse =
     content?.howToUseSteps ??
     splitCopy(product.howToUse);
@@ -502,6 +164,7 @@ export function ProductDetail({
   const fullIngredientsText =
     resolvedFullInci?.text ||
     "The current full ingredient list should be checked on product packaging or the approved product source.";
+  const initialVariant = product.variants[0];
   const details = [
     { label: "Routine placement", value: routineLabel },
     { label: "Routine group", value: routineGroupLabel },
@@ -509,25 +172,32 @@ export function ProductDetail({
     { label: "Use cadence", value: product.usageTime.join(" / ") },
     { label: "Texture", value: product.texture },
     { label: "Finish", value: product.finish },
-    { label: "Size", value: variant?.volume ?? product.volume },
+    { label: "Size", value: initialVariant?.volume ?? product.volume },
     {
       label: "Pack count",
-      value: variant?.packCount ? String(variant.packCount) : "",
+      value: initialVariant?.packCount ? String(initialVariant.packCount) : "",
     },
     { label: "Made for", value: product.madeFor },
     { label: "Good for", value: product.goodFor },
     { label: "Skin", value: product.skinTypes.join(", ") },
-  ].filter((item): item is { label: string; value: string } => Boolean(item.value));
-  const howToUseItems = howToUse.map((step, index) => ({
+  ].filter((item): item is { label: string; value: string } =>
+    Boolean(item.value),
+  );
+  const howToUseItems: PdpSequenceItem[] = howToUse.map((step, index) => ({
     kicker: `Step ${String(index + 1).padStart(2, "0")}`,
-    title: index === 0 ? "Start here" : `Then ${String(index + 1).padStart(2, "0")}`,
+    title:
+      index === 0
+        ? "Start here"
+        : `Then ${String(index + 1).padStart(2, "0")}`,
     body: step,
   }));
-  const ingredientItems = (content?.ingredientCards ?? []).map((ingredient) => ({
-    kicker: ingredient.label,
-    title: ingredient.name,
-    body: ingredient.copy,
-  }));
+  const ingredientItems: PdpSequenceItem[] = (content?.ingredientCards ?? []).map(
+    (ingredient) => ({
+      kicker: ingredient.label,
+      title: ingredient.name,
+      body: ingredient.copy,
+    }),
+  );
   const corePresentation = getCorePdpPresentation(product, content);
   const routineVideo =
     product.media.find(
@@ -558,318 +228,45 @@ export function ProductDetail({
         Boolean(media.url),
     ) ?? null;
   const coreProfileReady = Boolean(corePresentation && profileMedia);
-  const stickyVisible = hasPassedVideoStart && !footerEnteringViewport;
-
-  useEffect(
-    () => () => {
-      if (addedTimeoutRef.current) {
-        window.clearTimeout(addedTimeoutRef.current);
-      }
-    },
-    [],
+  const galleryProps = galleryIslandProps(product);
+  const purchaseProps = purchaseIslandProps(
+    product,
+    routineLabel,
+    stripePublishableKey,
   );
-
-  useEffect(() => {
-    setActivePanel(0);
-    setVariantId(product.variants[0]?.id);
-  }, [product.slug, product.variants]);
-
-  useLayoutEffect(() => {
-    const videoStart = videoStartRef.current;
-    const footer = document.getElementById("site-footer");
-
-    setHasPassedVideoStart(false);
-    setFooterEnteringViewport(false);
-    if (!videoStart || !footer) return;
-
-    const updateInitialBoundaries = () => {
-      const videoStartRect = videoStart.getBoundingClientRect();
-      const footerRect = footer.getBoundingClientRect();
-      setHasPassedVideoStart(videoStartRect.top <= 0);
-      setFooterEnteringViewport(
-        footerRect.top < window.innerHeight && footerRect.bottom > 0,
-      );
-    };
-
-    updateInitialBoundaries();
-    let frame = 0;
-    const scheduleBoundaryUpdate = () => {
-      if (frame) return;
-      frame = window.requestAnimationFrame(() => {
-        frame = 0;
-        updateInitialBoundaries();
-      });
-    };
-
-    window.addEventListener("scroll", scheduleBoundaryUpdate, {
-      passive: true,
-    });
-    window.addEventListener("resize", scheduleBoundaryUpdate);
-    const resizeObserver =
-      "ResizeObserver" in window
-        ? new ResizeObserver(scheduleBoundaryUpdate)
-        : null;
-    resizeObserver?.observe(document.body);
-    resizeObserver?.observe(footer);
-
-    return () => {
-      window.removeEventListener("scroll", scheduleBoundaryUpdate);
-      window.removeEventListener("resize", scheduleBoundaryUpdate);
-      resizeObserver?.disconnect();
-      if (frame) window.cancelAnimationFrame(frame);
-    };
-  }, [product.slug]);
-
-  async function handleAdd(returnFocus: () => void) {
-    if (!variant || !purchaseCta.purchasable || pending) return;
-    setAdded(false);
-    const media = product.cartMedia ?? product.cardMedia;
-    const ok = await purchase({
-      item: {
-        slug: product.slug,
-        name: product.displayName,
-        variantId: variant.id,
-        variantLabel: variant.label,
-        price: variant.price,
-        swatch: product.swatch,
-        imageUrl: cartImageUrl(media),
-        imageAlt: media?.alt ?? null,
-        placeholderMedia: cartPlaceholderMedia(media),
-      },
-      returnFocus,
-    });
-    if (ok) {
-      setAdded(true);
-      if (addedTimeoutRef.current) {
-        window.clearTimeout(addedTimeoutRef.current);
-      }
-      addedTimeoutRef.current = window.setTimeout(() => {
-        setAdded(false);
-        addedTimeoutRef.current = null;
-      }, 2200);
-    }
-  }
-
-  function toggleAccordion(id: PurchaseAccordionId) {
-    setOpenAccordion((current) => (current === id ? null : id));
-  }
+  const accordionProps = purchaseAccordionProps(
+    product,
+    content,
+    howToUse,
+    corePresentation,
+  );
+  const coreDetailsItems = coreDetailsIslandItems(coreProducts);
 
   return (
     <>
       <div className="pdp" data-pdp-primary-section>
-        <div className="pdp__gallery">
-          <div className="pdp__media-frame" data-pdp-main-media>
-            <PdpGalleryMedia
-              key={galleryMediaIdentity(
-                activeMedia ??
-                  fallbackGalleryMedia(product.displayName, activePanel),
-              )}
-              media={activeMedia}
-              swatch={activeSwatch}
-              className="pdp__media"
-              mediaClassName="pdp__img"
-              sizes="(max-width: 860px) 92vw, 56vw"
-              priority
+        <PdpGalleryIsland
+          key={`gallery:${product.slug}`}
+          {...galleryProps}
+        />
+        <PdpPurchaseIsland
+          key={`purchase:${product.slug}`}
+          {...purchaseProps}
+          accordions={
+            <PdpPurchaseAccordions
+              key={`accordions:${product.slug}`}
+              {...accordionProps}
             />
-            <div
-              className="pdp__thumbs"
-              role="group"
-              aria-label="Product media views"
-              data-pdp-media-rail
-            >
-              {Array.from({ length: panelCount }).map((_, i) => {
-                const media = gallery[i] ?? null;
-                const description =
-                  media?.alt.trim() || `${product.displayName} product hue`;
-                const mediaKey = galleryMediaIdentity(
-                  media ?? fallbackGalleryMedia(product.displayName, i),
-                );
-                return (
-                  <button
-                    key={`${mediaKey}:${i}`}
-                    type="button"
-                    className="pdp__thumb"
-                    aria-pressed={i === activePanel}
-                    aria-label={`View ${description}, media ${i + 1} of ${panelCount}`}
-                    data-pdp-media-thumbnail
-                    onClick={() => setActivePanel(i)}
-                    onPointerEnter={(event) => {
-                      if (event.pointerType !== "touch") setActivePanel(i);
-                    }}
-                  >
-                    <PdpGalleryMedia
-                      media={media}
-                      swatch={fallbackPanels[i % fallbackPanels.length]}
-                      className="pdp__thumb-image"
-                      mediaClassName="pdp__thumb-img"
-                      sizes="64px"
-                      priority={i === 0}
-                      thumbnail
-                    />
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-
-        <div className="pdp__purchase">
+          }
+        >
           <p className="pdp__collection">{routineLabel}</p>
           <h1>{product.displayName}</h1>
           <p className="pdp__tagline">{product.cardTagline}</p>
           <p className="pdp__description">{leadDescription}</p>
-          <p className="pdp__price">
-            {variant ? formatPrice(variant.price) : "—"}
-          </p>
-
-          {product.variants.length > 0 && (
-            <>
-              <span className="field-label" id="size-label">
-                Size
-              </span>
-              <div
-                className="variant-options"
-                role="group"
-                aria-labelledby="size-label"
-              >
-                {product.variants.map((v) => (
-                  <button
-                    key={v.id}
-                    type="button"
-                    className="variant-option"
-                    aria-pressed={v.id === variantId}
-                    disabled={!v.available}
-                    onClick={() => setVariantId(v.id)}
-                  >
-                    {v.label}
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-
-          <div className="pdp__actions">
-            <button
-              ref={mainBuyButtonRef}
-              type="button"
-              className="btn"
-              data-pdp-buy-button
-              onClick={() =>
-                void handleAdd(() => mainBuyButtonRef.current?.focus())
-              }
-              disabled={!purchaseCta.purchasable || pending}
-            >
-              {pending && purchaseCta.purchasable
-                ? "Adding"
-                : purchaseCta.label}
-            </button>
-          </div>
-          {purchaseCta.purchasable && variant && (
-            <AfterpayMessaging
-              amount={variant.price}
-              currency={product.currency}
-              publishableKey={stripePublishableKey}
-            />
-          )}
-          <p className="add-feedback" role="status" aria-live="polite">
-            {added ? "Added to cart" : addError}
-          </p>
-
-          <div className="pdp-accordions" aria-label={`${product.displayName} purchase details`}>
-            <section className="pdp-accordion">
-              <h2 className="pdp-accordion__heading">
-                <button
-                  type="button"
-                  className="pdp-accordion__trigger"
-                  id="pdp-accordion-use-trigger"
-                  aria-expanded={openAccordion === "use"}
-                  aria-controls="pdp-accordion-use-panel"
-                  onClick={() => toggleAccordion("use")}
-                >
-                  <span>HOW TO USE</span>
-                  <span aria-hidden="true">{openAccordion === "use" ? "-" : "+"}</span>
-                </button>
-              </h2>
-              <div
-                id="pdp-accordion-use-panel"
-                className="pdp-accordion__panel"
-                data-open={openAccordion === "use"}
-                role="region"
-                aria-labelledby="pdp-accordion-use-trigger"
-                aria-hidden={openAccordion !== "use"}
-              >
-                <div className="pdp-accordion__content">
-                  <ol>
-                    {howToUse.map((step) => (
-                      <li key={step}>{step}</li>
-                    ))}
-                  </ol>
-                  {product.cautions.length > 0 && (
-                    <p className="pdp-accordion__note">
-                      Check cautions before use.
-                    </p>
-                  )}
-                </div>
-              </div>
-            </section>
-
-            <section className="pdp-accordion">
-              <h2 className="pdp-accordion__heading">
-                <button
-                  type="button"
-                  className="pdp-accordion__trigger"
-                  id="pdp-accordion-ingredients-trigger"
-                  aria-expanded={openAccordion === "ingredients"}
-                  aria-controls="pdp-accordion-ingredients-panel"
-                  onClick={() => toggleAccordion("ingredients")}
-                >
-                  <span>KEY INGREDIENTS</span>
-                  <span aria-hidden="true">
-                    {openAccordion === "ingredients" ? "-" : "+"}
-                  </span>
-                </button>
-              </h2>
-              <div
-                id="pdp-accordion-ingredients-panel"
-                className="pdp-accordion__panel"
-                data-open={openAccordion === "ingredients"}
-                role="region"
-                aria-labelledby="pdp-accordion-ingredients-trigger"
-                aria-hidden={openAccordion !== "ingredients"}
-              >
-                <div className="pdp-accordion__content">
-                  {keyIngredients.length > 0 ? (
-                    <ul className="pdp-key-ingredients">
-                      {keyIngredients.map((ingredient) => (
-                        <li key={ingredient}>{ingredient}</li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p>
-                      Key ingredient notes are not available for this product yet.
-                    </p>
-                  )}
-                  <a
-                    href={
-                      corePresentation && content?.ingredientStory
-                        ? `#pdp-ingredients-${product.slug}`
-                        : "#full-ingredients"
-                    }
-                    tabIndex={openAccordion === "ingredients" ? undefined : -1}
-                  >
-                    {corePresentation && content?.ingredientStory
-                      ? "Explore ingredients"
-                      : "View full ingredients"}
-                  </a>
-                </div>
-              </div>
-            </section>
-          </div>
-        </div>
+        </PdpPurchaseIsland>
       </div>
 
       <span
-        ref={videoStartRef}
         className="pdp-video-start-boundary"
         data-pdp-video-start
         aria-hidden="true"
@@ -878,6 +275,7 @@ export function ProductDetail({
       {corePresentation ? (
         routineVideo && routinePoster ? (
           <PdpRoutineVideo
+            key={`routine-video:${product.slug}`}
             productName={product.displayName}
             overlay={corePresentation.routineOverlay}
             video={routineVideo}
@@ -887,65 +285,6 @@ export function ProductDetail({
       ) : (
         <ProductEndorsementRail items={productEndorsementMedia} />
       )}
-
-      <div
-        className="pdp-sticky-purchase"
-        data-layout-shell="storefront-fixed"
-        data-visible={stickyVisible}
-        aria-hidden={!stickyVisible}
-      >
-        <div className="pdp-sticky-purchase__identity">
-          <ProductImage
-            media={product.cartMedia ?? product.cardMedia}
-            swatch={product.swatch}
-            className="pdp-sticky-purchase__media"
-            imageClassName="pdp-sticky-purchase__image"
-            sizes="64px"
-          />
-          <span className="pdp-sticky-purchase__identity-copy">
-            <span>{routineLabel}</span>
-            <strong title={product.displayName}>{product.displayName}</strong>
-            <small>{product.productType}</small>
-          </span>
-        </div>
-        <div
-          className="pdp-sticky-purchase__variants"
-          role="group"
-          aria-label={`${product.displayName} sticky size options`}
-        >
-          {product.variants.map((option) => (
-            <button
-              key={option.id}
-              type="button"
-              aria-pressed={option.id === variantId}
-              disabled={!option.available}
-              tabIndex={stickyVisible ? undefined : -1}
-              onClick={() => setVariantId(option.id)}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
-        <div className="pdp-sticky-purchase__action">
-          <span>{variant ? formatPrice(variant.price) : "—"}</span>
-          <button
-            ref={stickyBuyButtonRef}
-            type="button"
-            className="btn"
-            data-sticky-pdp-buy-button
-            onClick={() =>
-              void handleAdd(() => stickyBuyButtonRef.current?.focus())
-            }
-            disabled={!purchaseCta.purchasable || pending}
-            tabIndex={stickyVisible ? undefined : -1}
-            aria-label={purchaseCta.label}
-          >
-            {pending && purchaseCta.purchasable
-              ? "Adding"
-              : purchaseCta.label}
-          </button>
-        </div>
-      </div>
 
       <section
         className="pdp-sections"
@@ -960,17 +299,16 @@ export function ProductDetail({
               media={profileMedia}
             />
             <PdpOutcomeSplit
-              productName={product.displayName}
-              presentation={corePresentation}
-              productMedia={product.media}
+              key={`outcomes:${product.slug}`}
+              {...outcomeIslandProps(product, corePresentation)}
             />
             <PdpApplicationCarousel
-              productName={product.displayName}
-              steps={corePresentation.applicationSteps}
-              productMedia={product.media}
+              key={`application:${product.slug}`}
+              {...applicationIslandProps(product, corePresentation)}
             />
             {content?.ingredientStory && (
               <PdpIngredientsSplit
+                key={`ingredients:${product.slug}`}
                 productSlug={product.slug}
                 productName={product.displayName}
                 story={content.ingredientStory}
@@ -981,7 +319,10 @@ export function ProductDetail({
             )}
           </>
         ) : corePresentation ? null : (
-          <ProductSignalGrid product={product} routineLabel={routineLabel} />
+          <ProductSignalGrid
+            product={product}
+            routineLabel={routineLabel}
+          />
         )}
 
         {!corePresentation && (
@@ -993,7 +334,11 @@ export function ProductDetail({
               summary="Step through the application order without leaving the product context."
               className="pdp-editorial-pair--use"
             >
-              <PdpPanelSequence label="How to use" items={howToUseItems} />
+              <PdpPanelSequence
+                key={`how-to-use:${product.slug}`}
+                label="How to use"
+                items={howToUseItems}
+              />
             </PdpEditorialPair>
 
             <PdpEditorialPair
@@ -1003,8 +348,12 @@ export function ProductDetail({
               summary="Ingredient notes stay close to the full INCI disclosure below."
               className="pdp-editorial-pair--inside"
             >
-              {(content?.ingredientCards?.length ?? 0) > 0 ? (
-                <PdpPanelSequence label="What's inside" items={ingredientItems} />
+              {ingredientItems.length > 0 ? (
+                <PdpPanelSequence
+                  key={`inside:${product.slug}`}
+                  label="What's inside"
+                  items={ingredientItems}
+                />
               ) : (
                 <p>Ingredient notes are not available for this product yet.</p>
               )}
@@ -1025,10 +374,10 @@ export function ProductDetail({
           </>
         )}
 
-        {corePresentation && coreProducts.length === 3 ? (
+        {corePresentation && coreDetailsItems.length === 3 ? (
           <PdpCoreDetailsRoutine
-            key={product.slug}
-            products={coreProducts}
+            key={`details:${product.slug}`}
+            items={coreDetailsItems}
             currentSlug={product.slug}
           />
         ) : details.length > 0 ? (
@@ -1040,10 +389,10 @@ export function ProductDetail({
             className="pdp-editorial-pair--details"
           >
             <dl className="meta-grid">
-              {details.map((m) => (
-                <div key={m.label} className="meta-grid__item">
-                  <dt>{m.label}</dt>
-                  <dd>{m.value}</dd>
+              {details.map((item) => (
+                <div key={item.label} className="meta-grid__item">
+                  <dt>{item.label}</dt>
+                  <dd>{item.value}</dd>
                 </div>
               ))}
             </dl>
@@ -1064,6 +413,7 @@ export function ProductDetail({
 
         {product.routineGroup === "core" && coreProducts.length === 3 && (
           <PdpCoreRoutineSection
+            key={`core-routine:${product.slug}`}
             products={coreProducts}
             currentSlug={product.slug}
           />
@@ -1071,7 +421,7 @@ export function ProductDetail({
       </section>
 
       <ProductReviewsSection
-        key={product.slug}
+        key={`reviews:${product.slug}`}
         productName={product.displayName}
         productSlug={product.slug}
         reviews={reviews}

@@ -65,7 +65,7 @@ describe("PdpApplicationCarousel", () => {
       <PdpApplicationCarousel
         productName="CLEANSE"
         steps={steps}
-        productMedia={[]}
+        media={[]}
       />,
     );
 
@@ -91,7 +91,7 @@ describe("PdpApplicationCarousel", () => {
       <PdpApplicationCarousel
         productName="CLEANSE"
         steps={steps}
-        productMedia={productMedia}
+        media={orderedPdpApplicationMedia(productMedia)}
       />,
     );
     const next = screen.getByRole("button", {
@@ -141,7 +141,7 @@ describe("PdpApplicationCarousel", () => {
       <PdpApplicationCarousel
         productName="CLEANSE"
         steps={steps}
-        productMedia={productMedia}
+        media={orderedPdpApplicationMedia(productMedia)}
       />,
     );
 
@@ -186,7 +186,7 @@ describe("PdpApplicationCarousel", () => {
       <PdpApplicationCarousel
         productName="CLEANSE"
         steps={relabeledSteps}
-        productMedia={productMedia}
+        media={orderedPdpApplicationMedia(productMedia)}
       />,
     );
 
@@ -210,7 +210,10 @@ describe("PdpApplicationCarousel", () => {
       <PdpApplicationCarousel
         productName="CLEANSE"
         steps={steps}
-        productMedia={[applicationMedia(1), applicationMedia(3)]}
+        media={orderedPdpApplicationMedia([
+          applicationMedia(1),
+          applicationMedia(3),
+        ])}
       />,
     );
 

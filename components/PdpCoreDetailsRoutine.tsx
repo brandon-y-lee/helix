@@ -1,18 +1,9 @@
 "use client";
 
-import { useMemo, useRef, type CSSProperties } from "react";
+import { useRef, type CSSProperties } from "react";
 import { useCoreRoutineSelection } from "@/components/useCoreRoutineSelection";
 import { useProductPurchase } from "@/components/useProductPurchase";
-import type { CartPlaceholderMedia } from "@/lib/cart/types";
-import type { ProductPdpContent } from "@/lib/catalog/product-content";
-import { corePdpStepForProduct } from "@/lib/content/core-pdp";
-import type { CoreRoutineSummary } from "@/lib/catalog/models";
-import { PDP_CORE_DETAILS_PRESENTATIONS } from "@/lib/content/pdp-core-details";
-import {
-  firstPurchasableVariant,
-  productPurchaseCta,
-  type ProductMedia,
-} from "@/lib/products";
+import type { CartAddInput } from "@/components/CartProvider";
 
 type PlaceholderStyle = CSSProperties & {
   "--details-start": string;
@@ -20,48 +11,33 @@ type PlaceholderStyle = CSSProperties & {
   "--details-glow": string;
 };
 
-type CoreDetailsVariant = {
-  id: string;
-  label: string;
-  price: number;
-  available: boolean;
-  inventoryStatus: "in_stock" | "low_stock" | "out_of_stock" | "unavailable";
-};
-
-type CoreDetailsProduct = Pick<
-  CoreRoutineSummary,
-  | "benefits"
-  | "cardMedia"
-  | "cardTagline"
-  | "cartMedia"
-  | "description"
-  | "displayName"
-  | "finish"
-  | "goodFor"
-  | "keyIngredients"
-  | "slug"
-  | "status"
-  | "swatch"
-  | "texture"
-> & {
-  routineGroup?: "core" | "beyond_core" | null;
-  routineStepName?: string | null;
-  pdpContent?: ProductPdpContent | null;
+export type PdpCoreDetailsItem = {
+  slug: string;
+  displayName: string;
   productType: string | null;
-  variants: CoreDetailsVariant[];
-};
-
-function cartPlaceholderMedia(
-  media: ProductMedia | null | undefined,
-): CartPlaceholderMedia {
-  if (media?.kind !== "placeholder" || !media.palette) return null;
-  return {
-    kind: "placeholder",
-    alt: media.alt,
-    paletteId: media.paletteId,
-    palette: media.palette,
+  benefits: string[];
+  goodFor: string | null;
+  cardTagline: string;
+  finish: string | null;
+  texture: string | null;
+  description: string;
+  keyIngredients: string[];
+  presentation: {
+    step: string;
+    routineFit: string;
+    placeholder: {
+      start: string;
+      end: string;
+      glow: string;
+      replacementKey: string;
+    };
   };
-}
+  purchase: {
+    label: string;
+    purchasable: boolean;
+    item: CartAddInput | null;
+  };
+};
 
 function stateFor(
   index: number,
@@ -74,25 +50,13 @@ function stateFor(
 }
 
 export function PdpCoreDetailsRoutine({
-  products,
+  items,
   currentSlug,
 }: {
-  products: CoreDetailsProduct[];
+  items: PdpCoreDetailsItem[];
   currentSlug: string;
 }) {
-  const orderedSteps = useMemo(
-    () =>
-      PDP_CORE_DETAILS_PRESENTATIONS.flatMap((presentation) => {
-        const product = products.find(
-          (candidate) =>
-            corePdpStepForProduct(candidate) === presentation.step &&
-            Boolean(candidate.pdpContent?.routineGuidance),
-        );
-        return product ? [{ presentation, product }] : [];
-      }),
-    [products],
-  );
-  const slugs = orderedSteps.map(({ product }) => product.slug);
+  const slugs = items.map((item) => item.slug);
   const {
     activeIndex,
     direction,
@@ -104,30 +68,13 @@ export function PdpCoreDetailsRoutine({
   const { error, pending, purchase } = useProductPurchase();
   const buyButtonRef = useRef<HTMLButtonElement>(null);
 
-  if (
-    orderedSteps.length !== PDP_CORE_DETAILS_PRESENTATIONS.length ||
-    !orderedSteps.some(({ product }) => product.slug === currentSlug)
-  ) {
+  if (items.length !== 3 || !items.some((item) => item.slug === currentSlug)) {
     return null;
   }
 
-  async function buy(
-    product: CoreDetailsProduct,
-    variant: CoreDetailsVariant,
-  ) {
-    const media = product.cartMedia ?? product.cardMedia;
+  async function buy(item: CartAddInput) {
     await purchase({
-      item: {
-        slug: product.slug,
-        name: product.displayName,
-        variantId: variant.id,
-        variantLabel: variant.label,
-        price: variant.price,
-        swatch: product.swatch,
-        imageUrl: media?.kind === "image" ? media.url : null,
-        imageAlt: media?.alt ?? null,
-        placeholderMedia: cartPlaceholderMedia(media),
-      },
+      item,
       returnFocus: () => buyButtonRef.current?.focus(),
     });
   }
@@ -148,19 +95,19 @@ export function PdpCoreDetailsRoutine({
         data-pdp-panel
         data-pdp-panel-kind="media"
       >
-        {orderedSteps.map(({ presentation, product }, index) => {
+        {items.map((item, index) => {
           const state = stateFor(index, activeIndex, outgoingIndex);
           const style: PlaceholderStyle = {
-            "--details-start": presentation.placeholder.start,
-            "--details-end": presentation.placeholder.end,
-            "--details-glow": presentation.placeholder.glow,
+            "--details-start": item.presentation.placeholder.start,
+            "--details-end": item.presentation.placeholder.end,
+            "--details-glow": item.presentation.placeholder.glow,
           };
           return (
             <div
-              key={product.slug}
+              key={item.slug}
               className="pdp-details-routine__media-state"
               data-media-replacement-key={
-                presentation.placeholder.replacementKey
+                item.presentation.placeholder.replacementKey
               }
               data-state={state}
               style={style}
@@ -176,32 +123,27 @@ export function PdpCoreDetailsRoutine({
         data-pdp-panel-kind="copy"
       >
         <div className="pdp-details-routine__states" aria-live="polite">
-          {orderedSteps.map(({ product }, index) => {
-            const variant =
-              firstPurchasableVariant(product) ?? product.variants[0] ?? null;
-            const purchaseCta = productPurchaseCta(product, variant);
+          {items.map((item, index) => {
             const state = stateFor(index, activeIndex, outgoingIndex);
-            const benefits = product.benefits.filter(Boolean).slice(0, 3);
-            const ingredients = product.keyIngredients
-              .filter(Boolean)
-              .slice(0, 5);
+            const benefits = item.benefits.filter(Boolean).slice(0, 3);
+            const ingredients = item.keyIngredients.filter(Boolean).slice(0, 5);
             const effect =
-              product.finish ||
-              product.texture ||
-              product.cardTagline ||
-              product.description;
+              item.finish ||
+              item.texture ||
+              item.cardTagline ||
+              item.description;
 
             return (
               <article
-                key={product.slug}
+                key={item.slug}
                 className="pdp-details-routine__state"
                 data-state={state}
                 aria-hidden={state !== "active"}
               >
                 <header className="pdp-details-routine__header">
                   <div>
-                    <h2>{product.displayName}</h2>
-                    <p>{product.productType}</p>
+                    <h2>{item.displayName}</h2>
+                    <p>{item.productType}</p>
                   </div>
                   <button
                     ref={state === "active" ? buyButtonRef : undefined}
@@ -209,24 +151,24 @@ export function PdpCoreDetailsRoutine({
                     className="pdp-details-routine__buy"
                     data-pdp-details-buy
                     disabled={
-                      !purchaseCta.purchasable ||
+                      !item.purchase.purchasable ||
                       pending ||
                       state !== "active"
                     }
                     tabIndex={
-                      state === "active" && purchaseCta.purchasable ? 0 : -1
+                      state === "active" && item.purchase.purchasable ? 0 : -1
                     }
                     onClick={() => {
-                      if (variant && purchaseCta.purchasable) {
-                        void buy(product, variant);
+                      if (item.purchase.item && item.purchase.purchasable) {
+                        void buy(item.purchase.item);
                       }
                     }}
                   >
                     {pending &&
                     state === "active" &&
-                    purchaseCta.purchasable
+                    item.purchase.purchasable
                       ? "ADDING"
-                      : purchaseCta.label}
+                      : item.purchase.label}
                   </button>
                 </header>
 
@@ -241,13 +183,13 @@ export function PdpCoreDetailsRoutine({
                           ))}
                         </ul>
                       ) : (
-                        benefits[0] || product.goodFor || product.cardTagline
+                        benefits[0] || item.goodFor || item.cardTagline
                       )}
                     </dd>
                   </div>
                   <div data-pdp-details-field="routine">
                     <dt>WHERE IT FITS IN YOUR ROUTINE</dt>
-                    <dd>{product.pdpContent?.routineGuidance}</dd>
+                    <dd>{item.presentation.routineFit}</dd>
                   </div>
                   <div data-pdp-details-field="effect">
                     <dt>THE EFFECT</dt>
@@ -272,26 +214,24 @@ export function PdpCoreDetailsRoutine({
           role="radiogroup"
           aria-label="Core details product"
         >
-          {orderedSteps.map(({ presentation, product }, index) => {
-            return (
-              <button
-                key={product.slug}
-                ref={(node) => setButtonRef(index, node)}
-                type="button"
-                role="radio"
-                aria-checked={index === activeIndex}
-                aria-label={`Show ${presentation.step}, ${product.displayName}`}
-                tabIndex={index === activeIndex ? 0 : -1}
-                data-pdp-details-step={presentation.step}
-                onClick={() => select(index)}
-                onFocus={() => select(index)}
-                onPointerEnter={() => select(index)}
-                onKeyDown={(event) => handleKeyDown(event, index)}
-              >
-                {product.displayName}
-              </button>
-            );
-          })}
+          {items.map((item, index) => (
+            <button
+              key={item.slug}
+              ref={(node) => setButtonRef(index, node)}
+              type="button"
+              role="radio"
+              aria-checked={index === activeIndex}
+              aria-label={`Show ${item.presentation.step}, ${item.displayName}`}
+              tabIndex={index === activeIndex ? 0 : -1}
+              data-pdp-details-step={item.presentation.step}
+              onClick={() => select(index)}
+              onFocus={() => select(index)}
+              onPointerEnter={() => select(index)}
+              onKeyDown={(event) => handleKeyDown(event, index)}
+            >
+              {item.displayName}
+            </button>
+          ))}
         </div>
         {error && (
           <p className="pdp-details-routine__error" role="status">

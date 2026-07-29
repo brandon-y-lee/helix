@@ -59,6 +59,16 @@ test("shop renders seeded products and combines filtering with sorting", async (
 test("PDP resolves canonical data and exposes an available variant", async ({
   page,
 }) => {
+  const clientErrors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") clientErrors.push(message.text());
+  });
+  page.on("pageerror", (error) => clientErrors.push(error.message));
+
+  const serverResponse = await page.request.get(TREAT_PATH);
+  expect(serverResponse.ok()).toBe(true);
+  expect(await serverResponse.text()).toContain("<h1>TREAT</h1>");
+
   await page.goto(TREAT_PATH);
   await expect(
     page.getByRole("heading", { level: 1, name: "TREAT" }),
@@ -84,6 +94,48 @@ test("PDP resolves canonical data and exposes an available variant", async ({
   await expect(
     page.getByRole("region", { name: "TREAT customer reviews" }),
   ).toBeVisible();
+
+  await page
+    .getByRole("button", {
+      name: "View TREAT gallery placeholder surface one, media 2 of 3",
+    })
+    .click();
+  await page.getByRole("button", { name: "smooths", exact: true }).click();
+  await page
+    .getByRole("button", {
+      name: "Show application step 2 of 3",
+      exact: true,
+    })
+    .click();
+  await page
+    .getByRole("button", { name: "HOW TO USE", exact: true })
+    .click();
+
+  await page
+    .getByRole("region", { name: "Recommended products" })
+    .getByRole("link", { name: "CLEANSE", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { level: 1, name: "CLEANSE" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", {
+      name: "View CLEANSE calming gel cleanser, media 1 of 3",
+    }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await expect(
+    page.getByRole("button", { name: "HOW TO USE", exact: true }),
+  ).toHaveAttribute("aria-expanded", "false");
+  await expect(
+    page.getByRole("button", { name: "cleanses", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await expect(
+    page.getByRole("button", {
+      name: "Show application step 1 of 3",
+      exact: true,
+    }),
+  ).toHaveAttribute("aria-pressed", "true");
+  expect(clientErrors).toEqual([]);
 });
 
 test("PDP add-to-cart persists across reload and reaches the cart page", async ({

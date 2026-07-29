@@ -9,6 +9,7 @@ import {
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PdpCoreDetailsRoutine } from "@/components/PdpCoreDetailsRoutine";
+import { coreDetailsIslandItems } from "@/components/ProductDetail.adapters";
 import type { Product } from "@/lib/products";
 
 const cartMock = vi.hoisted(() => ({
@@ -176,7 +177,7 @@ describe("PdpCoreDetailsRoutine", () => {
   ])("defaults %s to %s", (currentSlug, displayName) => {
     const { container } = render(
       <PdpCoreDetailsRoutine
-        products={products}
+        items={coreDetailsIslandItems(products)}
         currentSlug={currentSlug}
       />,
     );
@@ -194,7 +195,7 @@ describe("PdpCoreDetailsRoutine", () => {
   it("keeps pointer selection persistent and updates every product field together", () => {
     const { container } = render(
       <PdpCoreDetailsRoutine
-        products={products}
+        items={coreDetailsIslandItems(products)}
         currentSlug="cleanse-01-calming-gel-cleanser"
       />,
     );
@@ -235,7 +236,7 @@ describe("PdpCoreDetailsRoutine", () => {
     vi.useFakeTimers();
     const { container, rerender } = render(
       <PdpCoreDetailsRoutine
-        products={products}
+        items={coreDetailsIslandItems(products)}
         currentSlug="cleanse-01-calming-gel-cleanser"
       />,
     );
@@ -256,7 +257,7 @@ describe("PdpCoreDetailsRoutine", () => {
 
     rerender(
       <PdpCoreDetailsRoutine
-        products={products}
+        items={coreDetailsIslandItems(products)}
         currentSlug="treat-03-pdrn-5-ampoule"
       />,
     );
@@ -275,7 +276,7 @@ describe("PdpCoreDetailsRoutine", () => {
     );
     const { container } = render(
       <PdpCoreDetailsRoutine
-        products={products}
+        items={coreDetailsIslandItems(products)}
         currentSlug="cleanse-01-calming-gel-cleanser"
       />,
     );
@@ -331,7 +332,7 @@ describe("PdpCoreDetailsRoutine", () => {
     );
     const { container } = render(
       <PdpCoreDetailsRoutine
-        products={unavailableProducts}
+        items={coreDetailsIslandItems(unavailableProducts)}
         currentSlug="seal-05-green-collagen-cream"
       />,
     );
@@ -362,7 +363,7 @@ describe("PdpCoreDetailsRoutine", () => {
     );
     const { container } = render(
       <PdpCoreDetailsRoutine
-        products={products}
+        items={coreDetailsIslandItems(products)}
         currentSlug="cleanse-01-calming-gel-cleanser"
       />,
     );

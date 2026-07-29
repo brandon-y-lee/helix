@@ -2,13 +2,14 @@
 
 import Image from "next/image";
 import {
+  useEffect,
   useRef,
   useState,
   type CSSProperties,
   type KeyboardEvent,
   type Ref,
 } from "react";
-import type { CorePdpPresentation } from "@/lib/content/core-pdp";
+import type { CorePdpOutcomeOption } from "@/lib/content/core-pdp";
 import type { ProductMedia } from "@/lib/products";
 
 export function orderedPdpOutcomeMedia(
@@ -25,21 +26,30 @@ export function orderedPdpOutcomeMedia(
 
 export function PdpOutcomeSplit({
   productName,
-  presentation,
-  productMedia,
+  heading,
+  options,
+  media,
   rootRef,
 }: {
   productName: string;
-  presentation: CorePdpPresentation;
-  productMedia: readonly ProductMedia[];
+  heading: string;
+  options: readonly [
+    CorePdpOutcomeOption,
+    CorePdpOutcomeOption,
+    CorePdpOutcomeOption,
+  ];
+  media: readonly ProductMedia[];
   rootRef?: Ref<HTMLElement>;
 }) {
   const [active, setActive] = useState(0);
   const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
-  const outcomeMedia = orderedPdpOutcomeMedia(productMedia);
+
+  useEffect(() => {
+    setActive(0);
+  }, [productName]);
 
   function moveSelection(event: KeyboardEvent<HTMLButtonElement>, index: number) {
-    const last = presentation.outcomeOptions.length - 1;
+    const last = options.length - 1;
     let next: number | null = null;
     if (event.key === "ArrowDown" || event.key === "ArrowRight") {
       next = Math.min(index + 1, last);
@@ -76,8 +86,8 @@ export function PdpOutcomeSplit({
           className="pdp-outcome-split__track"
           style={{ "--pdp-outcome-index": active } as CSSProperties}
         >
-          {presentation.outcomeOptions.map((option, index) => {
-            const media = outcomeMedia.find(
+          {options.map((option, index) => {
+            const itemMedia = media.find(
               (item) => item.sortOrder === index + 1,
             );
 
@@ -94,12 +104,12 @@ export function PdpOutcomeSplit({
                 }
                 data-pdp-outcome-state={index + 1}
                 data-active={active === index ? "true" : "false"}
-                data-has-media={media ? "true" : "false"}
+                data-has-media={itemMedia ? "true" : "false"}
               >
-                {media?.url ? (
+                {itemMedia?.url ? (
                   <Image
-                    src={media.url}
-                    alt={media.alt}
+                    src={itemMedia.url}
+                    alt={itemMedia.alt}
                     fill
                     sizes="(max-width: 820px) 100vw, 50vw"
                     loading="lazy"
@@ -123,13 +133,13 @@ export function PdpOutcomeSplit({
         data-pdp-panel-kind="copy"
       >
         <p className="pdp-outcome-split__product">{productName}</p>
-        <h2 id="pdp-outcome-heading">{presentation.outcomeHeading}</h2>
+        <h2 id="pdp-outcome-heading">{heading}</h2>
         <div
           className="pdp-outcome-split__options"
           role="group"
           aria-label={`${productName} outcomes`}
         >
-          {presentation.outcomeOptions.map((option, index) => (
+          {options.map((option, index) => (
             <button
               key={`outcome-control-${index + 1}`}
               ref={(node) => {
@@ -153,7 +163,7 @@ export function PdpOutcomeSplit({
           ))}
         </div>
         <p className="sr-only" aria-live="polite">
-          Selected outcome: {presentation.outcomeOptions[active].label}
+          Selected outcome: {options[active].label}
         </p>
       </div>
     </section>

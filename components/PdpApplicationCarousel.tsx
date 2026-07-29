@@ -30,7 +30,7 @@ export function orderedPdpApplicationMedia(
 export function PdpApplicationCarousel({
   productName,
   steps,
-  productMedia,
+  media,
   rootRef,
 }: {
   productName: string;
@@ -39,13 +39,12 @@ export function PdpApplicationCarousel({
     CorePdpApplicationStep,
     CorePdpApplicationStep,
   ];
-  productMedia: readonly ProductMedia[];
+  media: readonly ProductMedia[];
   rootRef?: Ref<HTMLElement>;
 }) {
   const [active, setActive] = useState(0);
   const [outgoing, setOutgoing] = useState<number | null>(null);
   const timerRef = useRef<number | null>(null);
-  const applicationMedia = orderedPdpApplicationMedia(productMedia);
 
   useEffect(() => {
     setActive(0);
@@ -162,7 +161,7 @@ export function PdpApplicationCarousel({
         data-pdp-application-media
       >
         {steps.map((step, index) => {
-          const media = applicationMedia.find(
+          const itemMedia = media.find(
             (item) => item.sortOrder === index + 1,
           );
 
@@ -178,7 +177,7 @@ export function PdpApplicationCarousel({
                     : "inactive"
               }
               data-pdp-application-state={index + 1}
-              data-has-media={Boolean(media)}
+              data-has-media={Boolean(itemMedia)}
               style={
                 {
                   "--pdp-application-surface": step.surface,
@@ -187,9 +186,9 @@ export function PdpApplicationCarousel({
                 } as CSSProperties
               }
             >
-              {media?.url ? (
+              {itemMedia?.url ? (
                 <Image
-                  src={media.url}
+                  src={itemMedia.url}
                   alt=""
                   fill
                   sizes="(max-width: 820px) 100vw, 50vw"
