@@ -1,9 +1,7 @@
-export type PdpCoreDetailsStep = "cleanse" | "treat" | "seal";
+import type { CorePdpStep } from "@/lib/content/core-pdp";
 
 export type PdpCoreDetailsPresentation = {
-  step: PdpCoreDetailsStep;
-  slug: string;
-  routineFit: string;
+  step: CorePdpStep;
   placeholder: {
     start: string;
     end: string;
@@ -15,9 +13,6 @@ export type PdpCoreDetailsPresentation = {
 export const PDP_CORE_DETAILS_PRESENTATIONS = [
   {
     step: "cleanse",
-    slug: "cleanse-01-calming-gel-cleanser",
-    routineFit:
-      "Use first, then follow with TREAT and SEAL. In the morning, finish with SPF.",
     placeholder: {
       start: "#d8e4de",
       end: "#81998d",
@@ -27,9 +22,6 @@ export const PDP_CORE_DETAILS_PRESENTATIONS = [
   },
   {
     step: "treat",
-    slug: "treat-03-pdrn-5-ampoule",
-    routineFit:
-      "Use after CLEANSE and before SEAL. In the morning, finish with SPF.",
     placeholder: {
       start: "#e7d8b7",
       end: "#b38c55",
@@ -39,9 +31,6 @@ export const PDP_CORE_DETAILS_PRESENTATIONS = [
   },
   {
     step: "seal",
-    slug: "seal-05-green-collagen-cream",
-    routineFit:
-      "Use after TREAT as the final Mei Pelle step. In the morning, follow with SPF.",
     placeholder: {
       start: "#d7dfd0",
       end: "#718166",

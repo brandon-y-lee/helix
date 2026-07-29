@@ -1,0 +1,1495 @@
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[]
+
+export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.5"
+  }
+  public: {
+    Tables: {
+      cart_items: {
+        Row: {
+          cart_id: string
+          created_at: string
+          id: string
+          product_id: string
+          quantity: number
+          updated_at: string
+          variant_key: string
+        }
+        Insert: {
+          cart_id: string
+          created_at?: string
+          id?: string
+          product_id: string
+          quantity: number
+          updated_at?: string
+          variant_key: string
+        }
+        Update: {
+          cart_id?: string
+          created_at?: string
+          id?: string
+          product_id?: string
+          quantity?: number
+          updated_at?: string
+          variant_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cart_items_cart_id_fkey"
+            columns: ["cart_id"]
+            isOneToOne: false
+            referencedRelation: "carts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cart_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      carts: {
+        Row: {
+          created_at: string
+          currency: string
+          expires_at: string | null
+          guest_token_hash: string | null
+          id: string
+          status: Database["public"]["Enums"]["cart_status"]
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          currency?: string
+          expires_at?: string | null
+          guest_token_hash?: string | null
+          id?: string
+          status?: Database["public"]["Enums"]["cart_status"]
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          currency?: string
+          expires_at?: string | null
+          guest_token_hash?: string | null
+          id?: string
+          status?: Database["public"]["Enums"]["cart_status"]
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      collections: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          slug: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          slug: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          slug?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      loyalty_accounts: {
+        Row: {
+          created_at: string
+          lifetime_points: number
+          points_balance: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          lifetime_points?: number
+          points_balance?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          lifetime_points?: number
+          points_balance?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      loyalty_ledger_entries: {
+        Row: {
+          created_at: string
+          description: string
+          entry_type: Database["public"]["Enums"]["loyalty_ledger_entry_type"]
+          id: string
+          metadata: Json
+          order_id: string | null
+          points: number
+          source_key: string
+          status: Database["public"]["Enums"]["loyalty_ledger_status"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          entry_type: Database["public"]["Enums"]["loyalty_ledger_entry_type"]
+          id?: string
+          metadata?: Json
+          order_id?: string | null
+          points: number
+          source_key: string
+          status?: Database["public"]["Enums"]["loyalty_ledger_status"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          entry_type?: Database["public"]["Enums"]["loyalty_ledger_entry_type"]
+          id?: string
+          metadata?: Json
+          order_id?: string | null
+          points?: number
+          source_key?: string
+          status?: Database["public"]["Enums"]["loyalty_ledger_status"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loyalty_ledger_entries_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      loyalty_redemptions: {
+        Row: {
+          amount_cents: number
+          created_at: string
+          id: string
+          order_id: string | null
+          points: number
+          source_key: string
+          status: Database["public"]["Enums"]["loyalty_redemption_status"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount_cents: number
+          created_at?: string
+          id?: string
+          order_id?: string | null
+          points: number
+          source_key: string
+          status?: Database["public"]["Enums"]["loyalty_redemption_status"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount_cents?: number
+          created_at?: string
+          id?: string
+          order_id?: string | null
+          points?: number
+          source_key?: string
+          status?: Database["public"]["Enums"]["loyalty_redemption_status"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loyalty_redemptions_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      order_items: {
+        Row: {
+          created_at: string
+          id: string
+          line_subtotal_cents: number
+          order_id: string
+          product_id: string | null
+          product_name: string
+          product_slug: string
+          product_snapshot: Json
+          quantity: number
+          unit_price_cents: number
+          variant_key: string
+          variant_label: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          line_subtotal_cents: number
+          order_id: string
+          product_id?: string | null
+          product_name: string
+          product_slug: string
+          product_snapshot?: Json
+          quantity: number
+          unit_price_cents: number
+          variant_key: string
+          variant_label: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          line_subtotal_cents?: number
+          order_id?: string
+          product_id?: string | null
+          product_name?: string
+          product_slug?: string
+          product_snapshot?: Json
+          quantity?: number
+          unit_price_cents?: number
+          variant_key?: string
+          variant_label?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orders: {
+        Row: {
+          billing_address: Json
+          cancelled_at: string | null
+          cart_id: string | null
+          checkout_environment: Database["public"]["Enums"]["checkout_environment"]
+          created_at: string
+          currency: string
+          customer_email: string | null
+          discount_cents: number
+          id: string
+          idempotency_key: string
+          merchandise_subtotal_cents: number
+          metadata: Json
+          order_number: string
+          paid_at: string | null
+          referral_code: string | null
+          refunded_at: string | null
+          reward_discount_cents: number
+          reward_points_earned: number
+          reward_points_redeemed: number
+          shipping_address: Json
+          shipping_cents: number
+          shipping_name: string | null
+          status: Database["public"]["Enums"]["order_status"]
+          stripe_checkout_session_id: string | null
+          stripe_customer_id: string | null
+          stripe_payment_intent_id: string | null
+          tax_cents: number
+          total_cents: number
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          billing_address?: Json
+          cancelled_at?: string | null
+          cart_id?: string | null
+          checkout_environment?: Database["public"]["Enums"]["checkout_environment"]
+          created_at?: string
+          currency?: string
+          customer_email?: string | null
+          discount_cents?: number
+          id?: string
+          idempotency_key: string
+          merchandise_subtotal_cents: number
+          metadata?: Json
+          order_number: string
+          paid_at?: string | null
+          referral_code?: string | null
+          refunded_at?: string | null
+          reward_discount_cents?: number
+          reward_points_earned?: number
+          reward_points_redeemed?: number
+          shipping_address?: Json
+          shipping_cents?: number
+          shipping_name?: string | null
+          status?: Database["public"]["Enums"]["order_status"]
+          stripe_checkout_session_id?: string | null
+          stripe_customer_id?: string | null
+          stripe_payment_intent_id?: string | null
+          tax_cents?: number
+          total_cents: number
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          billing_address?: Json
+          cancelled_at?: string | null
+          cart_id?: string | null
+          checkout_environment?: Database["public"]["Enums"]["checkout_environment"]
+          created_at?: string
+          currency?: string
+          customer_email?: string | null
+          discount_cents?: number
+          id?: string
+          idempotency_key?: string
+          merchandise_subtotal_cents?: number
+          metadata?: Json
+          order_number?: string
+          paid_at?: string | null
+          referral_code?: string | null
+          refunded_at?: string | null
+          reward_discount_cents?: number
+          reward_points_earned?: number
+          reward_points_redeemed?: number
+          shipping_address?: Json
+          shipping_cents?: number
+          shipping_name?: string | null
+          status?: Database["public"]["Enums"]["order_status"]
+          stripe_checkout_session_id?: string | null
+          stripe_customer_id?: string | null
+          stripe_payment_intent_id?: string | null
+          tax_cents?: number
+          total_cents?: number
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_cart_id_fkey"
+            columns: ["cart_id"]
+            isOneToOne: false
+            referencedRelation: "carts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_attempts: {
+        Row: {
+          amount_cents: number
+          checkout_environment: Database["public"]["Enums"]["checkout_environment"]
+          created_at: string
+          currency: string
+          id: string
+          idempotency_key: string
+          last_error: string | null
+          metadata: Json
+          order_id: string
+          provider: string
+          raw_status: string | null
+          status: Database["public"]["Enums"]["payment_attempt_status"]
+          stripe_checkout_session_id: string | null
+          stripe_payment_intent_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount_cents: number
+          checkout_environment?: Database["public"]["Enums"]["checkout_environment"]
+          created_at?: string
+          currency?: string
+          id?: string
+          idempotency_key: string
+          last_error?: string | null
+          metadata?: Json
+          order_id: string
+          provider?: string
+          raw_status?: string | null
+          status?: Database["public"]["Enums"]["payment_attempt_status"]
+          stripe_checkout_session_id?: string | null
+          stripe_payment_intent_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount_cents?: number
+          checkout_environment?: Database["public"]["Enums"]["checkout_environment"]
+          created_at?: string
+          currency?: string
+          id?: string
+          idempotency_key?: string
+          last_error?: string | null
+          metadata?: Json
+          order_id?: string
+          provider?: string
+          raw_status?: string | null
+          status?: Database["public"]["Enums"]["payment_attempt_status"]
+          stripe_checkout_session_id?: string | null
+          stripe_payment_intent_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_attempts_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      private_feedback: {
+        Row: {
+          comments: string | null
+          created_at: string
+          id: string
+          order_id: string
+          points_awarded: number
+          rating: number | null
+          status: Database["public"]["Enums"]["private_feedback_status"]
+          submitted_at: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          comments?: string | null
+          created_at?: string
+          id?: string
+          order_id: string
+          points_awarded?: number
+          rating?: number | null
+          status?: Database["public"]["Enums"]["private_feedback_status"]
+          submitted_at?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          comments?: string | null
+          created_at?: string
+          id?: string
+          order_id?: string
+          points_awarded?: number
+          rating?: number | null
+          status?: Database["public"]["Enums"]["private_feedback_status"]
+          submitted_at?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "private_feedback_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: true
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_media: {
+        Row: {
+          alt: string
+          created_at: string
+          height: number | null
+          id: string
+          media_kind: string
+          media_type: string
+          original_source_url: string | null
+          palette_id: string | null
+          placeholder_palette: Json
+          product_id: string
+          role: string
+          sort_order: number
+          source_filename: string | null
+          updated_at: string
+          url: string | null
+          variant_id: string | null
+          width: number | null
+        }
+        Insert: {
+          alt: string
+          created_at?: string
+          height?: number | null
+          id?: string
+          media_kind?: string
+          media_type?: string
+          original_source_url?: string | null
+          palette_id?: string | null
+          placeholder_palette?: Json
+          product_id: string
+          role?: string
+          sort_order?: number
+          source_filename?: string | null
+          updated_at?: string
+          url?: string | null
+          variant_id?: string | null
+          width?: number | null
+        }
+        Update: {
+          alt?: string
+          created_at?: string
+          height?: number | null
+          id?: string
+          media_kind?: string
+          media_type?: string
+          original_source_url?: string | null
+          palette_id?: string | null
+          placeholder_palette?: Json
+          product_id?: string
+          role?: string
+          sort_order?: number
+          source_filename?: string | null
+          updated_at?: string
+          url?: string | null
+          variant_id?: string | null
+          width?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_media_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_media_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_pdp_content: {
+        Row: {
+          application_steps: string[] | null
+          created_at: string
+          how_to_use_steps: string[] | null
+          ingredient_cards: Json | null
+          ingredient_story: Json | null
+          outcome_heading: string | null
+          outcome_labels: string[] | null
+          product_id: string
+          profile_title_tokens: Json | null
+          routine_guidance: string | null
+          routine_overlay: string | null
+          schema_version: number
+          updated_at: string
+        }
+        Insert: {
+          application_steps?: string[] | null
+          created_at?: string
+          how_to_use_steps?: string[] | null
+          ingredient_cards?: Json | null
+          ingredient_story?: Json | null
+          outcome_heading?: string | null
+          outcome_labels?: string[] | null
+          product_id: string
+          profile_title_tokens?: Json | null
+          routine_guidance?: string | null
+          routine_overlay?: string | null
+          schema_version?: number
+          updated_at?: string
+        }
+        Update: {
+          application_steps?: string[] | null
+          created_at?: string
+          how_to_use_steps?: string[] | null
+          ingredient_cards?: Json | null
+          ingredient_story?: Json | null
+          outcome_heading?: string | null
+          outcome_labels?: string[] | null
+          product_id?: string
+          profile_title_tokens?: Json | null
+          routine_guidance?: string | null
+          routine_overlay?: string | null
+          schema_version?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_pdp_content_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: true
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_relationships: {
+        Row: {
+          created_at: string
+          product_id: string
+          related_product_id: string
+          relationship_type: string
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          product_id: string
+          related_product_id: string
+          relationship_type?: string
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
+          product_id?: string
+          related_product_id?: string
+          relationship_type?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_relationships_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_relationships_related_product_id_fkey"
+            columns: ["related_product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_sources: {
+        Row: {
+          created_at: string
+          formulation_version_notes: string | null
+          original_source_price_cents: number | null
+          product_id: string
+          raw_source: Json
+          source_content_hash: string | null
+          source_inspected_at: string
+          supplier: string
+          supplier_handle: string
+          supplier_product_id: string | null
+          supplier_title: string
+          supplier_url: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          formulation_version_notes?: string | null
+          original_source_price_cents?: number | null
+          product_id: string
+          raw_source?: Json
+          source_content_hash?: string | null
+          source_inspected_at: string
+          supplier: string
+          supplier_handle: string
+          supplier_product_id?: string | null
+          supplier_title: string
+          supplier_url: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          formulation_version_notes?: string | null
+          original_source_price_cents?: number | null
+          product_id?: string
+          raw_source?: Json
+          source_content_hash?: string | null
+          source_inspected_at?: string
+          supplier?: string
+          supplier_handle?: string
+          supplier_product_id?: string | null
+          supplier_title?: string
+          supplier_url?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_sources_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: true
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_variants: {
+        Row: {
+          available: boolean
+          compare_at_price_cents: number | null
+          id: string
+          inventory_status: string
+          label: string
+          option_values: Json
+          pack_count: number | null
+          position: number
+          price_cents: number
+          product_id: string
+          sku: string | null
+          sort_order: number | null
+          supplier_variant_id: string | null
+          updated_at: string
+          variant_key: string
+          volume: string | null
+        }
+        Insert: {
+          available?: boolean
+          compare_at_price_cents?: number | null
+          id?: string
+          inventory_status?: string
+          label: string
+          option_values?: Json
+          pack_count?: number | null
+          position?: number
+          price_cents: number
+          product_id: string
+          sku?: string | null
+          sort_order?: number | null
+          supplier_variant_id?: string | null
+          updated_at?: string
+          variant_key: string
+          volume?: string | null
+        }
+        Update: {
+          available?: boolean
+          compare_at_price_cents?: number | null
+          id?: string
+          inventory_status?: string
+          label?: string
+          option_values?: Json
+          pack_count?: number | null
+          position?: number
+          price_cents?: number
+          product_id?: string
+          sku?: string | null
+          sort_order?: number | null
+          supplier_variant_id?: string | null
+          updated_at?: string
+          variant_key?: string
+          volume?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_variants_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      products: {
+        Row: {
+          action_name: string | null
+          badge: string | null
+          benefits: string[]
+          blurb: string
+          card_tagline: string | null
+          catalog_status: string
+          cautions: string[]
+          collection: string
+          concerns: string[]
+          created_at: string
+          currency: string
+          description: string
+          descriptor: string | null
+          display_name: string | null
+          editorial_description: string | null
+          editorial_how_to_use: string | null
+          featured_rank: number | null
+          finish: string | null
+          formal_title: string | null
+          formula_notes: string[]
+          good_for: string | null
+          how_to_use: string
+          id: string
+          ingredients: string | null
+          key_ingredients: string[]
+          legacy_routine_display_label: string | null
+          legacy_routine_group_label: string | null
+          made_for: string | null
+          name: string
+          position: number
+          product_details: Json
+          product_type: string | null
+          published_at: string
+          routine_display_label: string | null
+          routine_group: string | null
+          routine_group_label: string | null
+          routine_number: string | null
+          routine_order: number | null
+          routine_sort: number | null
+          routine_step: string | null
+          routine_step_name: string | null
+          routine_step_number: number | null
+          search_keywords: string[]
+          seo_description: string | null
+          seo_title: string | null
+          skin_types: string[]
+          slug: string
+          sort_order: number | null
+          status: string
+          subtitle: string | null
+          swatch_from: string
+          swatch_to: string
+          tagline: string
+          texture: string | null
+          updated_at: string
+          usage_time: string[]
+          volume: string | null
+        }
+        Insert: {
+          action_name?: string | null
+          badge?: string | null
+          benefits?: string[]
+          blurb: string
+          card_tagline?: string | null
+          catalog_status?: string
+          cautions?: string[]
+          collection: string
+          concerns?: string[]
+          created_at?: string
+          currency?: string
+          description: string
+          descriptor?: string | null
+          display_name?: string | null
+          editorial_description?: string | null
+          editorial_how_to_use?: string | null
+          featured_rank?: number | null
+          finish?: string | null
+          formal_title?: string | null
+          formula_notes?: string[]
+          good_for?: string | null
+          how_to_use: string
+          id?: string
+          ingredients?: string | null
+          key_ingredients?: string[]
+          legacy_routine_display_label?: string | null
+          legacy_routine_group_label?: string | null
+          made_for?: string | null
+          name: string
+          position?: number
+          product_details?: Json
+          product_type?: string | null
+          published_at?: string
+          routine_display_label?: string | null
+          routine_group?: string | null
+          routine_group_label?: string | null
+          routine_number?: string | null
+          routine_order?: number | null
+          routine_sort?: number | null
+          routine_step?: string | null
+          routine_step_name?: string | null
+          routine_step_number?: number | null
+          search_keywords?: string[]
+          seo_description?: string | null
+          seo_title?: string | null
+          skin_types?: string[]
+          slug: string
+          sort_order?: number | null
+          status?: string
+          subtitle?: string | null
+          swatch_from: string
+          swatch_to: string
+          tagline: string
+          texture?: string | null
+          updated_at?: string
+          usage_time?: string[]
+          volume?: string | null
+        }
+        Update: {
+          action_name?: string | null
+          badge?: string | null
+          benefits?: string[]
+          blurb?: string
+          card_tagline?: string | null
+          catalog_status?: string
+          cautions?: string[]
+          collection?: string
+          concerns?: string[]
+          created_at?: string
+          currency?: string
+          description?: string
+          descriptor?: string | null
+          display_name?: string | null
+          editorial_description?: string | null
+          editorial_how_to_use?: string | null
+          featured_rank?: number | null
+          finish?: string | null
+          formal_title?: string | null
+          formula_notes?: string[]
+          good_for?: string | null
+          how_to_use?: string
+          id?: string
+          ingredients?: string | null
+          key_ingredients?: string[]
+          legacy_routine_display_label?: string | null
+          legacy_routine_group_label?: string | null
+          made_for?: string | null
+          name?: string
+          position?: number
+          product_details?: Json
+          product_type?: string | null
+          published_at?: string
+          routine_display_label?: string | null
+          routine_group?: string | null
+          routine_group_label?: string | null
+          routine_number?: string | null
+          routine_order?: number | null
+          routine_sort?: number | null
+          routine_step?: string | null
+          routine_step_name?: string | null
+          routine_step_number?: number | null
+          search_keywords?: string[]
+          seo_description?: string | null
+          seo_title?: string | null
+          skin_types?: string[]
+          slug?: string
+          sort_order?: number | null
+          status?: string
+          subtitle?: string | null
+          swatch_from?: string
+          swatch_to?: string
+          tagline?: string
+          texture?: string | null
+          updated_at?: string
+          usage_time?: string[]
+          volume?: string | null
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          first_name: string | null
+          last_name: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          first_name?: string | null
+          last_name?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          first_name?: string | null
+          last_name?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      referral_attributions: {
+        Row: {
+          created_at: string
+          id: string
+          order_id: string | null
+          qualified_at: string | null
+          referee_user_id: string | null
+          referral_code_id: string
+          referrer_user_id: string
+          source_key: string
+          status: Database["public"]["Enums"]["referral_status"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          order_id?: string | null
+          qualified_at?: string | null
+          referee_user_id?: string | null
+          referral_code_id: string
+          referrer_user_id: string
+          source_key: string
+          status?: Database["public"]["Enums"]["referral_status"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          order_id?: string | null
+          qualified_at?: string | null
+          referee_user_id?: string | null
+          referral_code_id?: string
+          referrer_user_id?: string
+          source_key?: string
+          status?: Database["public"]["Enums"]["referral_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referral_attributions_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referral_attributions_referral_code_id_fkey"
+            columns: ["referral_code_id"]
+            isOneToOne: false
+            referencedRelation: "referral_codes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      referral_codes: {
+        Row: {
+          active: boolean
+          code: string
+          created_at: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          active?: boolean
+          code: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          active?: boolean
+          code?: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      referral_rewards: {
+        Row: {
+          consumed_at: string | null
+          consumed_order_id: string | null
+          created_at: string
+          discount_percent: number
+          id: string
+          minimum_subtotal_cents: number
+          referral_attribution_id: string
+          source_key: string
+          status: Database["public"]["Enums"]["referral_reward_status"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          consumed_at?: string | null
+          consumed_order_id?: string | null
+          created_at?: string
+          discount_percent?: number
+          id?: string
+          minimum_subtotal_cents?: number
+          referral_attribution_id: string
+          source_key: string
+          status?: Database["public"]["Enums"]["referral_reward_status"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          consumed_at?: string | null
+          consumed_order_id?: string | null
+          created_at?: string
+          discount_percent?: number
+          id?: string
+          minimum_subtotal_cents?: number
+          referral_attribution_id?: string
+          source_key?: string
+          status?: Database["public"]["Enums"]["referral_reward_status"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referral_rewards_consumed_order_id_fkey"
+            columns: ["consumed_order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referral_rewards_referral_attribution_id_fkey"
+            columns: ["referral_attribution_id"]
+            isOneToOne: false
+            referencedRelation: "referral_attributions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stripe_customers: {
+        Row: {
+          checkout_environment: Database["public"]["Enums"]["checkout_environment"]
+          created_at: string
+          email: string | null
+          id: string
+          stripe_customer_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          checkout_environment?: Database["public"]["Enums"]["checkout_environment"]
+          created_at?: string
+          email?: string | null
+          id?: string
+          stripe_customer_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          checkout_environment?: Database["public"]["Enums"]["checkout_environment"]
+          created_at?: string
+          email?: string | null
+          id?: string
+          stripe_customer_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      stripe_webhook_events: {
+        Row: {
+          checkout_environment: Database["public"]["Enums"]["checkout_environment"]
+          created_at: string
+          livemode: boolean
+          payload: Json
+          processed_at: string | null
+          processing_error: string | null
+          stripe_event_id: string
+          type: string
+        }
+        Insert: {
+          checkout_environment?: Database["public"]["Enums"]["checkout_environment"]
+          created_at?: string
+          livemode?: boolean
+          payload: Json
+          processed_at?: string | null
+          processing_error?: string | null
+          stripe_event_id: string
+          type: string
+        }
+        Update: {
+          checkout_environment?: Database["public"]["Enums"]["checkout_environment"]
+          created_at?: string
+          livemode?: boolean
+          payload?: Json
+          processed_at?: string | null
+          processing_error?: string | null
+          stripe_event_id?: string
+          type?: string
+        }
+        Relationships: []
+      }
+      trustpilot_invitation_attempts: {
+        Row: {
+          blocked_reason: string
+          created_at: string
+          id: string
+          metadata: Json
+          order_id: string | null
+          status: Database["public"]["Enums"]["trustpilot_invitation_status"]
+          user_id: string | null
+        }
+        Insert: {
+          blocked_reason?: string
+          created_at?: string
+          id?: string
+          metadata?: Json
+          order_id?: string | null
+          status?: Database["public"]["Enums"]["trustpilot_invitation_status"]
+          user_id?: string | null
+        }
+        Update: {
+          blocked_reason?: string
+          created_at?: string
+          id?: string
+          metadata?: Json
+          order_id?: string | null
+          status?: Database["public"]["Enums"]["trustpilot_invitation_status"]
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trustpilot_invitation_attempts_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      award_loyalty_points: {
+        Args: {
+          p_description: string
+          p_entry_type: Database["public"]["Enums"]["loyalty_ledger_entry_type"]
+          p_metadata?: Json
+          p_order_id?: string
+          p_points: number
+          p_source_key: string
+          p_user_id: string
+        }
+        Returns: string
+      }
+      ensure_loyalty_account: {
+        Args: { p_user_id: string }
+        Returns: undefined
+      }
+      merge_guest_cart: {
+        Args: { p_guest_token_hash: string }
+        Returns: string
+      }
+      redeem_loyalty_points: {
+        Args: {
+          p_amount_cents: number
+          p_description: string
+          p_order_id?: string
+          p_points: number
+          p_source_key: string
+          p_user_id: string
+        }
+        Returns: string
+      }
+    }
+    Enums: {
+      cart_status: "active" | "merged" | "abandoned"
+      checkout_environment: "sandbox"
+      loyalty_ledger_entry_type:
+        | "welcome"
+        | "purchase_earn"
+        | "purchase_refund"
+        | "redemption_reserved"
+        | "redemption_captured"
+        | "redemption_released"
+        | "redemption_reversal"
+        | "referral_entitlement_issued"
+        | "referral_entitlement_reserved"
+        | "referral_entitlement_consumed"
+        | "referral_entitlement_released"
+        | "private_feedback"
+        | "manual_adjustment"
+      loyalty_ledger_status: "pending" | "posted" | "void"
+      loyalty_redemption_status: "pending" | "applied" | "void" | "reversed"
+      order_status:
+        | "draft"
+        | "pending_payment"
+        | "paid"
+        | "payment_failed"
+        | "cancelled"
+        | "refunded"
+      payment_attempt_status:
+        | "requires_payment"
+        | "processing"
+        | "paid"
+        | "failed"
+        | "cancelled"
+        | "refunded"
+      private_feedback_status: "available" | "submitted" | "rewarded" | "void"
+      referral_reward_status: "available" | "reserved" | "consumed" | "void"
+      referral_status: "pending" | "qualified" | "rewarded" | "void"
+      trustpilot_invitation_status: "blocked_private_feedback_only"
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
+}
+
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+
+export type Tables<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      Row: infer R
+    }
+    ? R
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
+      }
+      ? R
+      : never
+    : never
+
+export type TablesInsert<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Insert: infer I
+    }
+    ? I
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I
+      }
+      ? I
+      : never
+    : never
+
+export type TablesUpdate<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Update: infer U
+    }
+    ? U
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U
+      }
+      ? U
+      : never
+    : never
+
+export type Enums<
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never = never,
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
+
+export type CompositeTypes<
+  PublicCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never,
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never
+
+export const Constants = {
+  public: {
+    Enums: {
+      cart_status: ["active", "merged", "abandoned"],
+      checkout_environment: ["sandbox"],
+      loyalty_ledger_entry_type: [
+        "welcome",
+        "purchase_earn",
+        "purchase_refund",
+        "redemption_reserved",
+        "redemption_captured",
+        "redemption_released",
+        "redemption_reversal",
+        "referral_entitlement_issued",
+        "referral_entitlement_reserved",
+        "referral_entitlement_consumed",
+        "referral_entitlement_released",
+        "private_feedback",
+        "manual_adjustment",
+      ],
+      loyalty_ledger_status: ["pending", "posted", "void"],
+      loyalty_redemption_status: ["pending", "applied", "void", "reversed"],
+      order_status: [
+        "draft",
+        "pending_payment",
+        "paid",
+        "payment_failed",
+        "cancelled",
+        "refunded",
+      ],
+      payment_attempt_status: [
+        "requires_payment",
+        "processing",
+        "paid",
+        "failed",
+        "cancelled",
+        "refunded",
+      ],
+      private_feedback_status: ["available", "submitted", "rewarded", "void"],
+      referral_reward_status: ["available", "reserved", "consumed", "void"],
+      referral_status: ["pending", "qualified", "rewarded", "void"],
+      trustpilot_invitation_status: ["blocked_private_feedback_only"],
+    },
+  },
+} as const

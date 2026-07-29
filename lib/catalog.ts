@@ -7,7 +7,10 @@
 // explicit empty state.
 
 import { getSupabaseClient } from "@/lib/supabase";
-import { productRoutineForSlug } from "@/lib/catalog/product-routine";
+import {
+  normalizeProductPdpContent,
+  type ProductPdpContentRow,
+} from "@/lib/catalog/product-content";
 import type {
   CatalogStatus,
   CommerceRoutineGroup,
@@ -78,6 +81,10 @@ type ProductRow = {
   seo_description: string | null;
   search_keywords: string[] | null;
   created_at: string;
+  product_pdp_content:
+    | ProductPdpContentRow
+    | ProductPdpContentRow[]
+    | null;
   product_variants: VariantRow[] | null;
   product_media: MediaRow[] | null;
 };
@@ -133,6 +140,9 @@ const PRODUCT_SELECT_BASE =
   "catalog_status, made_for, good_for, texture, key_ingredients, ingredients, " +
   "product_details, cautions, finish, volume, skin_types, concerns, routine_step, " +
   "routine_order, usage_time, seo_title, seo_description, search_keywords, created_at, " +
+  "product_pdp_content ( schema_version, profile_title_tokens, routine_overlay, " +
+  "outcome_heading, outcome_labels, how_to_use_steps, application_steps, " +
+  "ingredient_cards, ingredient_story, routine_guidance ), " +
   "product_variants ( variant_key, label, price_cents, compare_at_price_cents, sku, " +
   "available, inventory_status, option_values, volume, pack_count, position, sort_order ), " +
   "product_media ( media_type, media_kind, url, alt, width, height, role, sort_order, palette_id, placeholder_palette )";
@@ -294,7 +304,10 @@ function mapRow(row: ProductRow): Product {
   const cardTagline = row.card_tagline ?? row.tagline;
   const editorialDescription = row.editorial_description ?? row.description;
   const editorialHowToUse = row.editorial_how_to_use ?? row.how_to_use;
-  const routine = productRoutineForSlug(row.slug);
+  const pdpContent = normalizeProductPdpContent(
+    firstPdpContent(row.product_pdp_content),
+    row.slug,
+  );
 
   return {
     id: row.id,
@@ -307,19 +320,14 @@ function mapRow(row: ProductRow): Product {
     collection: row.collection,
     actionName: row.action_name ?? null,
     routineNumber: row.routine_number ?? null,
-    routineGroup: toCommerceRoutineGroup(
-      row.routine_group ?? routine?.routineGroup ?? null,
-    ),
-    routineGroupLabel: row.routine_group_label ?? routine?.routineGroupLabel ?? null,
-    routineStepNumber: row.routine_step_number ?? routine?.routineStepNumber ?? null,
-    routineStepName: row.routine_step_name ?? routine?.routineStepName ?? null,
-    routineDisplayLabel:
-      row.routine_display_label ?? routine?.routineDisplayLabel ?? null,
-    routineSort: row.routine_sort ?? routine?.routineSort ?? null,
-    legacyRoutineGroupLabel:
-      row.legacy_routine_group_label ?? routine?.legacyRoutineGroupLabel ?? null,
-    legacyRoutineDisplayLabel:
-      row.legacy_routine_display_label ?? routine?.legacyRoutineDisplayLabel ?? null,
+    routineGroup: toCommerceRoutineGroup(row.routine_group ?? null),
+    routineGroupLabel: row.routine_group_label ?? null,
+    routineStepNumber: row.routine_step_number ?? null,
+    routineStepName: row.routine_step_name ?? null,
+    routineDisplayLabel: row.routine_display_label ?? null,
+    routineSort: row.routine_sort ?? null,
+    legacyRoutineGroupLabel: row.legacy_routine_group_label ?? null,
+    legacyRoutineDisplayLabel: row.legacy_routine_display_label ?? null,
     subtitle: row.subtitle ?? row.tagline,
     descriptor: row.descriptor ?? editorialDescription,
     productType: row.product_type ?? row.collection,
@@ -362,8 +370,16 @@ function mapRow(row: ProductRow): Product {
     seoTitle: row.seo_title,
     seoDescription: row.seo_description,
     searchKeywords: row.search_keywords ?? [],
+    pdpContent,
     createdAt: row.created_at,
   };
+}
+
+function firstPdpContent(
+  value: ProductPdpContentRow | ProductPdpContentRow[] | null,
+): ProductPdpContentRow | null {
+  if (Array.isArray(value)) return value[0] ?? null;
+  return value;
 }
 
 function ProductMediaRoleFromRow(role: string): ProductMedia["role"] {

@@ -1,9 +1,10 @@
+import type {
+  PdpProfileTitleToken,
+  ProductPdpContent,
+} from "@/lib/catalog/product-content";
 import type { Product } from "@/lib/products";
 
-export type CorePdpTitleToken = {
-  text: string;
-  emphasis?: boolean;
-};
+export type CorePdpStep = "cleanse" | "treat" | "seal";
 
 export type CorePdpOutcomeOption = {
   label: string;
@@ -21,7 +22,7 @@ export type CorePdpApplicationStep = {
 };
 
 export type CorePdpPresentation = {
-  profileTitle: readonly CorePdpTitleToken[];
+  profileTitle: readonly PdpProfileTitleToken[];
   profileMediaPosition: string;
   routineOverlay: string;
   outcomeHeading: string;
@@ -38,187 +39,126 @@ export type CorePdpPresentation = {
   ingredientsMediaPosition: string;
 };
 
-export const corePdpPresentationBySlug = {
-  "cleanse-01-calming-gel-cleanser": {
-    profileTitle: [
-      { text: "A daily " },
-      { text: "GEL CLEANSER", emphasis: true },
-      { text: " for a clean, " },
-      { text: "BALANCED", emphasis: true },
-      { text: " start." },
-    ],
-    profileMediaPosition: "50% 54%",
-    routineOverlay: "See how CLEANSE works in your skin routine.",
-    outcomeHeading: "YOUR DAILY CLEANSER THAT:",
-    outcomeOptions: [
-      {
-        label: "cleanses",
-        surface: "#c6d2cc",
-        accent: "#899b91",
-        detail: "#e5ded2",
-      },
-      {
-        label: "balances",
-        surface: "#adb8aa",
-        accent: "#d5c7b7",
-        detail: "#65766c",
-      },
-      {
-        label: "preps",
-        surface: "#d3cbc0",
-        accent: "#8b9e9a",
-        detail: "#ece7df",
-      },
-    ],
-    applicationSteps: [
-      {
-        id: "01",
-        copy: "Morning and evening, wet your face and hands, then dispense a small amount.",
-        surface: "#d8ddd7",
-        accent: "#97aa9b",
-        detail: "#eef0ea",
-      },
-      {
-        id: "02",
-        copy: "Massage over damp skin in light circles until the gel forms a soft lather. Rinse thoroughly and pat dry.",
-        surface: "#c0cbc5",
-        accent: "#789085",
-        detail: "#d9d0c0",
-      },
-      {
-        id: "03",
-        copy: "Follow with TREAT, then SEAL. In the morning, finish with SPF.",
-        surface: "#e4ded3",
-        accent: "#93aaa7",
-        detail: "#bbc7bc",
-      },
-    ],
-    ingredientsMediaPosition: "50% 50%",
-  },
-  "treat-03-pdrn-5-ampoule": {
-    profileTitle: [
-      { text: "A lightweight " },
-      { text: "PDRN SERUM", emphasis: true },
-      { text: " for " },
-      { text: "HYDRATION", emphasis: true },
-      { text: ", smoother-looking texture, and a steadier " },
-      { text: "GLOW", emphasis: true },
-      { text: "." },
-    ],
-    profileMediaPosition: "50% 51%",
-    routineOverlay: "See how TREAT works in your skin routine.",
-    outcomeHeading: "YOUR DAILY TREATMENT THAT:",
-    outcomeOptions: [
-      {
-        label: "hydrates",
-        surface: "#c5d3d0",
-        accent: "#839a9c",
-        detail: "#eadbd4",
-      },
-      {
-        label: "smooths",
-        surface: "#d8bbb2",
-        accent: "#9caeaa",
-        detail: "#f0e5dd",
-      },
-      {
-        label: "wakes up the finish",
-        surface: "#a9b8c7",
-        accent: "#d1b7aa",
-        detail: "#e7ece8",
-      },
-    ],
-    applicationSteps: [
-      {
-        id: "01",
-        copy: "After CLEANSE—and toner or essence, if used—apply 2–3 drops across face and neck.",
-        surface: "#dce5e2",
-        accent: "#829c9a",
-        detail: "#f0d8cf",
-      },
-      {
-        id: "02",
-        copy: "Press into skin for 30–60 seconds, letting the lightweight serum settle before the next layer.",
-        surface: "#d7c2bb",
-        accent: "#b6867d",
-        detail: "#e4edf0",
-      },
-      {
-        id: "03",
-        copy: "Follow with SEAL. In the morning, finish with SPF.",
-        surface: "#c5d3df",
-        accent: "#758ea3",
-        detail: "#ead9c9",
-      },
-    ],
-    ingredientsMediaPosition: "50% 50%",
-  },
-  "seal-05-green-collagen-cream": {
-    profileTitle: [
-      { text: "A " },
-      { text: "CUSHIONING CREAM", emphasis: true },
-      { text: " that holds " },
-      { text: "HYDRATION", emphasis: true },
-      { text: " close with a clean, " },
-      { text: "COMPOSED", emphasis: true },
-      { text: " finish." },
-    ],
-    profileMediaPosition: "50% 52%",
-    routineOverlay: "See how SEAL works in your skin routine.",
-    outcomeHeading: "YOUR DAILY CREAM THAT:",
-    outcomeOptions: [
-      {
-        label: "cushions",
-        surface: "#abb7a3",
-        accent: "#d0b99e",
-        detail: "#e8e4dc",
-      },
-      {
-        label: "comforts",
-        surface: "#d1bca7",
-        accent: "#83958a",
-        detail: "#efe8df",
-      },
-      {
-        label: "holds hydration",
-        surface: "#b5c1c3",
-        accent: "#9aa58e",
-        detail: "#ded1bf",
-      },
-    ],
-    applicationSteps: [
-      {
-        id: "01",
-        copy: "After TREAT, smooth a small amount over face and neck.",
-        surface: "#d6dccf",
-        accent: "#91a187",
-        detail: "#eee6d9",
-      },
-      {
-        id: "02",
-        copy: "Press into skin, giving extra attention to areas that feel dry or tight.",
-        surface: "#c7d0bd",
-        accent: "#798f79",
-        detail: "#e5d2be",
-      },
-      {
-        id: "03",
-        copy: "Use as the final Mei Pelle step at night. In the morning, follow with SPF.",
-        surface: "#d9cec0",
-        accent: "#a9876a",
-        detail: "#b7c4c2",
-      },
-    ],
-    ingredientsMediaPosition: "50% 50%",
-  },
-} as const satisfies Record<string, CorePdpPresentation>;
+type CorePdpDesignTokens = {
+  profileMediaPosition: string;
+  outcomeOptions: readonly [
+    Omit<CorePdpOutcomeOption, "label">,
+    Omit<CorePdpOutcomeOption, "label">,
+    Omit<CorePdpOutcomeOption, "label">,
+  ];
+  applicationSteps: readonly [
+    Omit<CorePdpApplicationStep, "id" | "copy">,
+    Omit<CorePdpApplicationStep, "id" | "copy">,
+    Omit<CorePdpApplicationStep, "id" | "copy">,
+  ];
+  ingredientsMediaPosition: string;
+};
 
-export type CorePdpSlug = keyof typeof corePdpPresentationBySlug;
+export const CORE_PDP_DESIGN_TOKENS = {
+  cleanse: {
+    profileMediaPosition: "50% 54%",
+    outcomeOptions: [
+      { surface: "#c6d2cc", accent: "#899b91", detail: "#e5ded2" },
+      { surface: "#adb8aa", accent: "#d5c7b7", detail: "#65766c" },
+      { surface: "#d3cbc0", accent: "#8b9e9a", detail: "#ece7df" },
+    ],
+    applicationSteps: [
+      { surface: "#d8ddd7", accent: "#97aa9b", detail: "#eef0ea" },
+      { surface: "#c0cbc5", accent: "#789085", detail: "#d9d0c0" },
+      { surface: "#e4ded3", accent: "#93aaa7", detail: "#bbc7bc" },
+    ],
+    ingredientsMediaPosition: "50% 50%",
+  },
+  treat: {
+    profileMediaPosition: "50% 51%",
+    outcomeOptions: [
+      { surface: "#c5d3d0", accent: "#839a9c", detail: "#eadbd4" },
+      { surface: "#d8bbb2", accent: "#9caeaa", detail: "#f0e5dd" },
+      { surface: "#a9b8c7", accent: "#d1b7aa", detail: "#e7ece8" },
+    ],
+    applicationSteps: [
+      { surface: "#dce5e2", accent: "#829c9a", detail: "#f0d8cf" },
+      { surface: "#d7c2bb", accent: "#b6867d", detail: "#e4edf0" },
+      { surface: "#c5d3df", accent: "#758ea3", detail: "#ead9c9" },
+    ],
+    ingredientsMediaPosition: "50% 50%",
+  },
+  seal: {
+    profileMediaPosition: "50% 52%",
+    outcomeOptions: [
+      { surface: "#abb7a3", accent: "#d0b99e", detail: "#e8e4dc" },
+      { surface: "#d1bca7", accent: "#83958a", detail: "#efe8df" },
+      { surface: "#b5c1c3", accent: "#9aa58e", detail: "#ded1bf" },
+    ],
+    applicationSteps: [
+      { surface: "#d6dccf", accent: "#91a187", detail: "#eee6d9" },
+      { surface: "#c7d0bd", accent: "#798f79", detail: "#e5d2be" },
+      { surface: "#d9cec0", accent: "#a9876a", detail: "#b7c4c2" },
+    ],
+    ingredientsMediaPosition: "50% 50%",
+  },
+} as const satisfies Record<CorePdpStep, CorePdpDesignTokens>;
+
+export function corePdpStepForProduct(product: Product): CorePdpStep | null {
+  if (product.routineGroup !== "core") return null;
+  switch (product.routineStepName?.toLowerCase()) {
+    case "cleanse":
+      return "cleanse";
+    case "treat":
+      return "treat";
+    case "seal":
+      return "seal";
+    default:
+      return null;
+  }
+}
 
 export function getCorePdpPresentation(
-  slug: string,
+  product: Product,
+  content: ProductPdpContent | null = product.pdpContent ?? null,
 ): CorePdpPresentation | null {
-  return corePdpPresentationBySlug[slug as CorePdpSlug] ?? null;
+  const step = corePdpStepForProduct(product);
+  if (
+    !step ||
+    !content?.profileTitleTokens ||
+    !content.routineOverlay ||
+    !content.outcomeHeading ||
+    !content.outcomeLabels ||
+    !content.applicationSteps ||
+    content.applicationSteps.length !== 3
+  ) {
+    return null;
+  }
+
+  const tokens = CORE_PDP_DESIGN_TOKENS[step];
+  const ids = ["01", "02", "03"] as const;
+  const outcomeOptions = tokens.outcomeOptions.map((option, index) => ({
+    ...option,
+    label: content.outcomeLabels![index],
+  })) as [
+    CorePdpOutcomeOption,
+    CorePdpOutcomeOption,
+    CorePdpOutcomeOption,
+  ];
+  const applicationSteps = tokens.applicationSteps.map((option, index) => ({
+    ...option,
+    id: ids[index],
+    copy: content.applicationSteps![index],
+  })) as [
+    CorePdpApplicationStep,
+    CorePdpApplicationStep,
+    CorePdpApplicationStep,
+  ];
+
+  return {
+    profileTitle: content.profileTitleTokens,
+    profileMediaPosition: tokens.profileMediaPosition,
+    routineOverlay: content.routineOverlay,
+    outcomeHeading: content.outcomeHeading,
+    outcomeOptions,
+    applicationSteps,
+    ingredientsMediaPosition: tokens.ingredientsMediaPosition,
+  };
 }
 
 function sentenceCaseList(items: string[]): string {

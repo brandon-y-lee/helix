@@ -4,11 +4,30 @@ import {
   orderedPdpOutcomeMedia,
   PdpOutcomeSplit,
 } from "@/components/PdpOutcomeSplit";
-import { corePdpPresentationBySlug } from "@/lib/content/core-pdp";
+import {
+  CORE_PDP_DESIGN_TOKENS,
+  type CorePdpPresentation,
+} from "@/lib/content/core-pdp";
 import type { ProductMedia } from "@/lib/products";
 
-const presentation =
-  corePdpPresentationBySlug["cleanse-01-calming-gel-cleanser"];
+const design = CORE_PDP_DESIGN_TOKENS.cleanse;
+const presentation: CorePdpPresentation = {
+  profileTitle: [{ text: "CLEANSE" }],
+  profileMediaPosition: design.profileMediaPosition,
+  routineOverlay: "Routine video.",
+  outcomeHeading: "YOUR DAILY CLEANSER THAT:",
+  outcomeOptions: [
+    { ...design.outcomeOptions[0], label: "cleanses" },
+    { ...design.outcomeOptions[1], label: "balances" },
+    { ...design.outcomeOptions[2], label: "preps" },
+  ],
+  applicationSteps: [
+    { ...design.applicationSteps[0], id: "01", copy: "Application 1" },
+    { ...design.applicationSteps[1], id: "02", copy: "Application 2" },
+    { ...design.applicationSteps[2], id: "03", copy: "Application 3" },
+  ],
+  ingredientsMediaPosition: design.ingredientsMediaPosition,
+};
 
 function outcomeMedia(sortOrder: number): ProductMedia {
   return {

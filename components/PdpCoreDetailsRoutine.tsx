@@ -4,6 +4,7 @@ import { useMemo, useRef, type CSSProperties } from "react";
 import { useCoreRoutineSelection } from "@/components/useCoreRoutineSelection";
 import { useProductPurchase } from "@/components/useProductPurchase";
 import type { CartPlaceholderMedia } from "@/lib/cart/types";
+import { corePdpStepForProduct } from "@/lib/content/core-pdp";
 import { PDP_CORE_DETAILS_PRESENTATIONS } from "@/lib/content/pdp-core-details";
 import {
   firstPurchasableVariant,
@@ -52,7 +53,9 @@ export function PdpCoreDetailsRoutine({
     () =>
       PDP_CORE_DETAILS_PRESENTATIONS.flatMap((presentation) => {
         const product = products.find(
-          (candidate) => candidate.slug === presentation.slug,
+          (candidate) =>
+            corePdpStepForProduct(candidate) === presentation.step &&
+            Boolean(candidate.pdpContent?.routineGuidance),
         );
         return product ? [{ presentation, product }] : [];
       }),
@@ -72,7 +75,7 @@ export function PdpCoreDetailsRoutine({
 
   if (
     orderedSteps.length !== PDP_CORE_DETAILS_PRESENTATIONS.length ||
-    !PDP_CORE_DETAILS_PRESENTATIONS.some((item) => item.slug === currentSlug)
+    !orderedSteps.some(({ product }) => product.slug === currentSlug)
   ) {
     return null;
   }
@@ -139,7 +142,7 @@ export function PdpCoreDetailsRoutine({
         data-pdp-panel-kind="copy"
       >
         <div className="pdp-details-routine__states" aria-live="polite">
-          {orderedSteps.map(({ presentation, product }, index) => {
+          {orderedSteps.map(({ product }, index) => {
             const variant =
               firstPurchasableVariant(product) ?? product.variants[0] ?? null;
             const purchaseCta = productPurchaseCta(product, variant);
@@ -210,7 +213,7 @@ export function PdpCoreDetailsRoutine({
                   </div>
                   <div data-pdp-details-field="routine">
                     <dt>WHERE IT FITS IN YOUR ROUTINE</dt>
-                    <dd>{presentation.routineFit}</dd>
+                    <dd>{product.pdpContent?.routineGuidance}</dd>
                   </div>
                   <div data-pdp-details-field="effect">
                     <dt>THE EFFECT</dt>

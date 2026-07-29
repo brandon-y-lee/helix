@@ -81,6 +81,21 @@ In the table:
 - "Direct edit" means a privileged operator can edit the verified
   non-production row; browser roles remain read-only under RLS.
 
+### PDP content authority
+
+| Field | Previous Supabase source | Previous TypeScript source | Previous precedence | Final canonical owner | Migration/backfill |
+| --- | --- | --- | --- | --- | --- |
+| Titles, subtitles, descriptions, merchandising copy | First-class `products` columns | Generic rendering only | Supabase with documented same-row fallbacks | Existing `products` columns | None; populated values preserved |
+| Structured how-to steps | `editorial_how_to_use` / `how_to_use` paragraphs | `productPdpContentBySlug.howToUseSteps` | TypeScript steps replaced the paragraph when the slug matched | `product_pdp_content.how_to_use_steps`; existing paragraph remains its Supabase fallback | Six approved step arrays |
+| Core profile and routine-video copy | None | `corePdpPresentationBySlug` | TypeScript only | `product_pdp_content.profile_title_tokens` and `routine_overlay` | CLEANSE, TREAT, SEAL |
+| Outcomes | `products.benefits` supplied supporting facts | Slug-keyed heading and labels; hues in the same object | TypeScript heading/labels | Heading and labels in `product_pdp_content`; step-keyed hues remain TypeScript design tokens | CLEANSE, TREAT, SEAL |
+| Application instructions | `editorial_how_to_use` / `how_to_use` paragraphs | `corePdpPresentationBySlug.applicationSteps` | TypeScript carousel steps | `product_pdp_content.application_steps`; hues remain TypeScript design tokens | CLEANSE, TREAT, SEAL |
+| Ingredient cards and narrative | `products.key_ingredients` and full INCI | `productPdpContentBySlug` cards/story | TypeScript structured copy | `product_pdp_content.ingredient_cards` and `ingredient_story` | Cards for six products; stories for the three Core products |
+| Routine placement | First-class `products.routine_*` columns | `productRoutinePresentationBySlug` | Supabase when populated, otherwise slug fallback | Existing `products.routine_*` columns | None; slug fallback removed |
+| Details/routine guidance | None | `PDP_CORE_DETAILS_PRESENTATIONS.routineFit` | TypeScript only | `product_pdp_content.routine_guidance` | CLEANSE, TREAT, SEAL |
+| Product media associations | `product_media` | Role-aware layout configuration | Supabase associations | Existing `product_media` table | None |
+| Placeholder reviews | None | `lib/catalog/product-reviews.ts` | TypeScript fixture | TypeScript fixture, intentionally unchanged | Excluded |
+
 | Field | Database/source location | Query and mapping precedence | Runtime consumer | Cache and tag | Algolia | Direct edit | Repository writer risk |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | Display name | `products.display_name`, fallback `name` | `PRODUCT_SELECT`; `mapRow`: `display_name ?? name` | PDP H1, sticky bar, cart payload, reviews/discovery labels | Product page / `product:<slug>` | Yes: `title`, `displayName` | Yes | `catalog:import:leaders` and `catalog:refresh:presentation` can overwrite |
@@ -92,7 +107,7 @@ In the table:
 | Currency | `products.currency` exists | Selected, but `mapRow` currently normalizes every value to `USD` | Hero formatting, Afterpay, cart/checkout | Product page / `product:<slug>` | Hard-coded `USD` | Yes, but non-USD is ignored | Import can overwrite |
 | Variants | `product_variants` joined rows | `PRODUCT_SELECT`; `mapRow` maps key, label, price, SKU, options, volume, pack count, ordering | Variant controls, availability, cart add | Product page / `product:<slug>` | Names/count/price/availability | Yes | Supplier import can overwrite |
 | Availability | `products.status`, `catalog_status`; variant `available`, `inventory_status` | `mapRow` validates enums; `ProductDetail` requires active available product and usable variant | Status text, disabled/waitlist/add paths | Product page / `product:<slug>` | Yes | Yes | Supplier import can overwrite |
-| Routine fields | First-class `routine_group`, labels, step, display label, sort | `PRODUCT_SELECT`; database value first, then `productRoutineForSlug()` compatibility fallback | Collection label, sticky bar, discovery order, Core classification and FYI | Product page / `product:<slug>`; discovery also `catalog`/`products`/`collections` | Yes | Yes | Presentation refresh writes all current routine fields |
+| Routine fields | First-class `routine_group`, labels, step, display label, sort | `PRODUCT_SELECT`; mapped directly, with generic same-row label/sort fallbacks only | Collection label, sticky bar, discovery order, Core classification and FYI | Product page / `product:<slug>`; discovery also `catalog`/`products`/`collections` | Yes | Yes | Catalog import preserves populated first-class routine fields |
 | `good_for` | `products.good_for` | `PRODUCT_SELECT`; direct `mapRow` | Core profile and Beyond Quick Signals | Product page / `product:<slug>` | Yes and keyword input | Yes | Supplier import derives it from concerns |
 | `texture` | `products.texture` | `PRODUCT_SELECT`; direct `mapRow` | Core `FEELS LIKE`, Beyond Quick Signals, details | Product page / `product:<slug>` | Yes and keyword input | Yes | Supplier import can overwrite |
 | `finish` | `products.finish` | `PRODUCT_SELECT`; direct `mapRow` | Core `FINISH`, Beyond Quick Signals, details | Product page / `product:<slug>` | No | Yes | Supplier import can overwrite |
@@ -101,15 +116,13 @@ In the table:
 | Benefits | `products.benefits` | `PRODUCT_SELECT`; array mapped directly | Supporting body for lower "What it does" sequence | Product page / `product:<slug>` | No | Yes | Supplier import can overwrite |
 | Ingredients | `products.ingredients`; compatibility fallback `product_details.sourceFullInci` only when first-class value is empty and the fallback has the shape of a complete list | `PRODUCT_SELECT`; `mapRow`; `resolveFullInci()` rejects unavailable markers, packaging directions, highlights, and short fragments | Core in-place full ingredients disclosure and legacy Beyond disclosure | Product page / `product:<slug>` | Split into search ingredient terms | Yes | Supplier import can overwrite both locations |
 | Key ingredients | `products.key_ingredients` | `PRODUCT_SELECT`; array mapped directly | Purchase accordion and lower ingredient content fallback | Product page / `product:<slug>` | Yes: terms/keywords | Yes | Supplier import can overwrite |
-| How to use | `editorial_how_to_use`, fallback `how_to_use`; repository steps may take display precedence | `mapRow` chooses editorial DB copy; verified three-step Core presentation is stored in `corePdpPresentationBySlug`; Beyond lower sequences use `productPdpContentBySlug.howToUseSteps` | Purchase accordion, Core application carousel, and Beyond lower use sequence | Product page / `product:<slug>` | Not displayed in record | Yes | Import/presentation refresh write DB fields; repository presentation can override visible step composition |
+| How to use | `editorial_how_to_use`, fallback `how_to_use`; structured `product_pdp_content.how_to_use_steps` and `application_steps` | `mapRow` normalizes the product row and validates the joined one-to-one PDP row; structured arrays remain distinct from intentionally empty arrays | Purchase accordion, Core application carousel, and Beyond lower use sequence | Product page / `product:<slug>` | Not displayed in record | Yes | Import/presentation refresh write paragraph fields; structured steps remain independently canonical |
 | SEO | `products.seo_title`, `seo_description` | `PRODUCT_SELECT`; mapped directly; route fallbacks described above | `generateMetadata` | Product page / `product:<slug>` | No | Yes | Import and presentation refresh |
 | Media | `product_media` joined rows plus Storage URLs | `PRODUCT_SELECT`; `mapRow` maps kind/type/role and uses explicit presentation-role fallbacks | Gallery, hero/card/cart/search media, Core video/profile | Product page / `product:<slug>` | Only approved image roles | Yes | Import, presentation refresh, core-media sync, and Core PDP media sync |
 | Discovery products | `products`, ordered by `routine_sort`, then sort/position | `getDiscoveryProducts`; full `PRODUCT_SELECT`; domain sort repeated before limit | `ProductDiscoveryRail` | One hour; `catalog`, `products`, `collections`, `product:<excluded-slug>` | Not read from Algolia | Yes | Same catalog writers |
 | Reviews | `lib/catalog/product-reviews.ts` fixture | `getProductReviews(slug)` default prop in `ProductDetail` | `ProductReviewsSection` | Bundled repository code, outside catalog tags | No | No | Repository-only fixture |
-| Core profile title | `lib/content/core-pdp.ts` | `getCorePdpPresentation(slug)` | `PdpProfileSplit` | Bundled repository code | No | No | Repository-only presentation |
-| Core outcome labels/hues | `lib/content/core-pdp.ts` | `getCorePdpPresentation(slug)` | `PdpOutcomeSplit` | Bundled repository code | No | No | Repository-only presentation |
-| Core application steps/hues | Verified directions composed in `lib/content/core-pdp.ts` | `getCorePdpPresentation(slug)` | `PdpApplicationCarousel` | Bundled repository code | No | No | Repository-only presentation |
-| Core ingredient story | Supplier-aligned highlights in `lib/catalog/product-content.ts` | `getProductPdpContent(slug)` | `PdpIngredientsSplit` summary state | Bundled repository code | No | No | Repository-only presentation |
+| Structured PDP editorial content | `product_pdp_content` one-to-one product row | `normalizeProductPdpContent()` validates schema version 1; no slug fallback | Profile title, video overlay, outcome copy, application, ingredient cards/story, details routine guidance | Product page / `product:<slug>` through the joined catalog read | No | Yes | Additive migration backfills six rows; browser roles are read-only |
+| Core outcome/application hues and media focal positions | Stable Core-step tokens in `lib/content/core-pdp.ts` | Supabase copy is combined with step-keyed visual tokens only when required content validates | `PdpProfileSplit`, `PdpOutcomeSplit`, `PdpApplicationCarousel`, `PdpIngredientsSplit` | Bundled design configuration | No | No | Repository-only non-content presentation |
 | Core routine module | Active `routine_group = core` rows plus one `core_routine_texture` media row per product | `getCoreRoutineProducts()` requires exactly CLEANSE, TREAT, and SEAL in three-step Core order; System product numbers remain 01/03/05 | `PdpCoreRoutineSection` after DETAILS on Core PDPs | One hour; `catalog:core-routine` plus all three product tags | No; dedicated media is explicitly excluded | Yes | Core PDP media sync owns the texture rows |
 
 ### Duplicated and compatibility fields
@@ -123,11 +136,10 @@ In the table:
   `how_to_use`/`editorial_how_to_use` are intentional precedence pairs.
 - `legacy_routine_*` remains in the domain for compatibility but is not used by
   the new Core profile.
-- `lib/catalog/product-routine.ts` is a compatibility fallback when new routine
-  columns are absent or null. Database values win.
-- `lib/catalog/product-content.ts` duplicates some how-to and benefit-like
-  display facts. Its explicit step arrays currently win over database how-to
-  text in the accordion and lower sequence.
+- `lib/catalog/product-routine.ts` contains generic label and sort helpers only.
+  It does not infer product-specific values from slugs.
+- `lib/catalog/product-content.ts` contains schema-versioned runtime validation
+  and normalization only. It contains no product-specific copy.
 
 ## Media flow
 
@@ -394,10 +406,10 @@ Selected Product + variant in ProductDetail
 
 | File | Runtime role | Classification |
 | --- | --- | --- |
-| `lib/content/core-pdp.ts` | Core profile tokens, video overlay, outcome labels/hues, verified three-step application composition, future application-media basenames, and focal positions | Presentation-only and intentional |
-| `lib/catalog/product-content.ts` | Slug-keyed lower-module labels plus structured, supplier-aligned Core ingredient stories | Runtime presentation content with duplicated product-fact risk |
+| `lib/content/core-pdp.ts` | Stable Core-step identifiers, outcome/application hues, and focal positions; combines them with validated Supabase copy | Presentation-only and intentional |
+| `lib/catalog/product-content.ts` | Schema-versioned validation and normalization for `product_pdp_content` | Canonical accessor; contains no product-specific copy |
 | `lib/catalog/product-ingredients.ts` | Strict full-INCI precedence and compatibility validation | Canonical-field resolver; contains no ingredient list |
-| `lib/catalog/product-routine.ts` | Routine metadata fallback and label/sort helpers | Temporary compatibility; Supabase fields take precedence |
+| `lib/catalog/product-routine.ts` | Generic routine label/sort helpers over the mapped product row | Presentation helper; contains no product-specific map |
 | `lib/catalog/product-reviews.ts` | Slug-keyed early response cards | Repository fixture, not canonical customer review data |
 | `lib/content/product-endorsements.ts` | Local endorsement media still used on Beyond The Core PDPs | Presentation-only; removed from Core composition |
 | `data/catalog/mei-pelle-presentation.ts` | Input to `catalog:refresh:presentation` | Operational writer, not a runtime fallback |
@@ -511,9 +523,9 @@ remaining accessibility dependency before caption compliance can be claimed.
 2. **Resolve Storage listing exposure.** The Supabase advisor reports a broad
    public-bucket listing policy. Public object reads are required, but public
    listing should be narrowed separately without disrupting delivery URLs.
-3. **Consolidate duplicated facts.** Retire `product_details` fact duplicates
-   and decide whether slug-keyed how-to/benefit content should move to
-   first-class canonical fields or remain explicitly editorial.
+3. **Consolidate legacy fact duplicates.** Retire `product_details` copies after
+   all first-class product fields and source INCI behavior have a separate
+   migration plan.
 4. **Make writer authority explicit.** Import and presentation-refresh scripts
    can overwrite direct database edits. Add operator documentation or
    field-level ownership checks before broader catalog editing.

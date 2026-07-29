@@ -164,6 +164,56 @@ function makeProduct(overrides: Partial<Product> = {}): Product {
     seoTitle: null,
     seoDescription: null,
     searchKeywords: [],
+    pdpContent: {
+      schemaVersion: 1,
+      profileTitleTokens: [
+        { text: "A lightweight " },
+        { text: "PDRN SERUM", emphasis: true },
+        { text: " for " },
+        { text: "HYDRATION", emphasis: true },
+        { text: ", smoother-looking texture, and a steadier " },
+        { text: "GLOW", emphasis: true },
+        { text: "." },
+      ],
+      routineOverlay: "See how TREAT works in your skin routine.",
+      outcomeHeading: "YOUR DAILY TREATMENT THAT:",
+      outcomeLabels: ["hydrates", "smooths", "wakes up the finish"],
+      howToUseSteps: [
+        "After cleansing and toner or essence, apply 2-3 drops.",
+        "Press into skin for 30-60 seconds.",
+        "Follow with moisturizer.",
+        "Use SPF in daytime. Use morning and night.",
+      ],
+      applicationSteps: [
+        "After CLEANSE—and toner or essence, if used—apply 2–3 drops across face and neck.",
+        "Press into skin for 30–60 seconds, letting the lightweight serum settle before the next layer.",
+        "Follow with SEAL. In the morning, finish with SPF.",
+      ],
+      ingredientCards: [
+        {
+          name: "PDRN",
+          label: "Hydration support",
+          copy: "A catalog-owned ingredient narrative.",
+        },
+      ],
+      ingredientStory: {
+        heading: "what’s inside",
+        intro: "Catalog-owned ingredient intro.",
+        highlights: [
+          {
+            name: "PDRN / SODIUM DNA 50,000 PPM",
+            description: "a conditioning ingredient",
+          },
+          {
+            name: "NIACINAMIDE",
+            description: "a form of vitamin B3",
+          },
+        ],
+        supportingIngredients: "also made with TREHALOSE",
+      },
+      routineGuidance:
+        "Use after CLEANSE and before SEAL. In the morning, finish with SPF.",
+    },
     createdAt: "2026-06-14T00:00:00.000Z",
   };
   return { ...base, ...overrides };
@@ -548,6 +598,56 @@ describe("ProductDetail purchase accordions", () => {
         }),
       ).toHaveAttribute("aria-pressed", "true"),
     );
+  });
+
+  it("does not retain another product's canonical PDP content after rerender", () => {
+    const treat = makeProduct();
+    const { rerender } = render(<ProductDetail product={treat} />);
+
+    expect(
+      screen.getByRole("heading", {
+        name: "A lightweight PDRN SERUM for HYDRATION, smoother-looking texture, and a steadier GLOW.",
+      }),
+    ).toBeInTheDocument();
+
+    rerender(
+      <ProductDetail
+        product={makeProduct({
+          slug: "cleanse-01-calming-gel-cleanser",
+          displayName: "CLEANSE",
+          routineStepNumber: 1,
+          routineStepName: "Cleanse",
+          routineSort: 10,
+          pdpContent: {
+            ...treat.pdpContent!,
+            profileTitleTokens: [
+              { text: "A daily " },
+              { text: "GEL CLEANSER", emphasis: true },
+              { text: " for a clean start." },
+            ],
+            routineOverlay: "See how CLEANSE works in your skin routine.",
+            outcomeHeading: "YOUR DAILY CLEANSER THAT:",
+            outcomeLabels: ["cleanses", "balances", "preps"],
+            applicationSteps: [
+              "Wet face and hands.",
+              "Massage and rinse.",
+              "Follow with TREAT and SEAL.",
+            ],
+          },
+        })}
+      />,
+    );
+
+    expect(
+      screen.getByRole("heading", {
+        name: "A daily GEL CLEANSER for a clean start.",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", {
+        name: /A lightweight PDRN SERUM/,
+      }),
+    ).toBeNull();
   });
 
   it("uses the selected variant for main and sticky out-of-stock CTAs", () => {

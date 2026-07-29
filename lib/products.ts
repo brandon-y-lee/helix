@@ -3,6 +3,8 @@
 // The catalog data itself lives in Supabase (see lib/catalog.ts and the
 // "catalog"/"seed_catalog" migrations) — there is no static product list here.
 
+import type { ProductPdpContent } from "@/lib/catalog/product-content";
+
 export type Variant = {
   id: string;
   label: string;
@@ -147,6 +149,8 @@ export type Product = {
   seoTitle: string | null;
   seoDescription: string | null;
   searchKeywords: string[];
+  /** Validated product-specific PDP editorial content from Supabase. */
+  pdpContent?: ProductPdpContent | null;
   /** ISO timestamp; used for the "Newest first" sort. */
   createdAt: string;
 };

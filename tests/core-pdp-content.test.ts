@@ -3,10 +3,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
-  corePdpPresentationBySlug,
+  getCorePdpPresentation,
   corePdpProfileRows,
 } from "@/lib/content/core-pdp";
-import { getProductPdpContent } from "@/lib/catalog/product-content";
+import { normalizeProductPdpContent } from "@/lib/catalog/product-content";
 import type { Product } from "@/lib/products";
 import {
   CORE_PDP_MEDIA_ASSETS,
@@ -32,6 +32,7 @@ const cases = [
     texture: "Clean, fresh, non-stripping",
     finish: "Balanced, not tight",
     step: 1,
+    stepName: "Cleanse",
   },
   {
     slug: "treat-03-pdrn-5-ampoule",
@@ -51,6 +52,7 @@ const cases = [
     texture: "Lightweight concentrated serum",
     finish: "Clean, hydrated, non-sticky",
     step: 2,
+    stepName: "Treat",
   },
   {
     slug: "seal-05-green-collagen-cream",
@@ -70,6 +72,7 @@ const cases = [
     texture: "Cushioned, controlled",
     finish: "Composed, not overloaded",
     step: 3,
+    stepName: "Seal",
   },
 ] as const;
 
@@ -87,40 +90,64 @@ describe("Core PDP presentation contract", () => {
   it.each(cases)(
     "keeps exact product-specific copy and derives profile facts for $slug",
     (entry) => {
-      const presentation =
-        corePdpPresentationBySlug[
-          entry.slug as keyof typeof corePdpPresentationBySlug
-        ];
+      const content = normalizeProductPdpContent(
+        {
+          schema_version: 1,
+          profile_title_tokens: [{ text: entry.title }],
+          routine_overlay: entry.overlay,
+          outcome_heading: entry.heading,
+          outcome_labels: [...entry.options],
+          how_to_use_steps: [...entry.application],
+          application_steps: [...entry.application],
+          ingredient_cards: [],
+          ingredient_story: {
+            heading: "what’s inside",
+            intro: "Ingredient story.",
+            highlights: entry.ingredientNames.map((name) => ({
+              name,
+              description: `${name} description`,
+            })),
+            supportingIngredients: "Supporting ingredients.",
+          },
+          routine_guidance: `${entry.stepName} routine guidance.`,
+        },
+        entry.slug,
+      );
       const product = {
+        slug: entry.slug,
+        routineGroup: "core",
         goodFor: entry.goodFor,
         texture: entry.texture,
         finish: entry.finish,
         skinTypes: ["All skin types"],
         usageTime: ["Morning", "Night"],
         routineStepNumber: entry.step,
+        routineStepName: entry.stepName,
         routineGroupLabel: "The Core",
         routineDisplayLabel: `${String(entry.step).padStart(2, "0")} - The Core`,
         legacyRoutineDisplayLabel: "05 - The System",
+        pdpContent: content,
       } as Product;
+      const presentation = getCorePdpPresentation(product, content);
 
-      expect(presentation.profileTitle.map((token) => token.text).join("")).toBe(
+      expect(presentation?.profileTitle.map((token) => token.text).join("")).toBe(
         entry.title,
       );
-      expect(presentation.routineOverlay).toBe(entry.overlay);
-      expect(presentation.outcomeHeading).toBe(entry.heading);
-      expect(presentation.outcomeOptions.map((option) => option.label)).toEqual(
+      expect(presentation?.routineOverlay).toBe(entry.overlay);
+      expect(presentation?.outcomeHeading).toBe(entry.heading);
+      expect(presentation?.outcomeOptions.map((option) => option.label)).toEqual(
         entry.options,
       );
-      expect(presentation.applicationSteps.map((step) => step.copy)).toEqual(
+      expect(presentation?.applicationSteps.map((step) => step.copy)).toEqual(
         entry.application,
       );
-      expect(presentation.applicationSteps.map((step) => step.id)).toEqual([
+      expect(presentation?.applicationSteps.map((step) => step.id)).toEqual([
         "01",
         "02",
         "03",
       ]);
       expect(
-        getProductPdpContent(entry.slug).ingredientStory?.highlights.map(
+        content?.ingredientStory?.highlights.map(
           (highlight) => highlight.name,
         ),
       ).toEqual(entry.ingredientNames);

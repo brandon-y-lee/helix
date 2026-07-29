@@ -1,3 +1,8 @@
+export type PdpProfileTitleToken = {
+  text: string;
+  emphasis?: boolean;
+};
+
 export type PdpIngredientCard = {
   name: string;
   label: string;
@@ -20,264 +25,197 @@ export type PdpIngredientStory = {
 };
 
 export type ProductPdpContent = {
-  whatItDoes: string[];
-  howToUseSteps: string[];
-  ingredientCards: PdpIngredientCard[];
-  ingredientStory?: PdpIngredientStory;
+  schemaVersion: 1;
+  profileTitleTokens: PdpProfileTitleToken[] | null;
+  routineOverlay: string | null;
+  outcomeHeading: string | null;
+  outcomeLabels: [string, string, string] | null;
+  howToUseSteps: string[] | null;
+  applicationSteps: string[] | null;
+  ingredientCards: PdpIngredientCard[] | null;
+  ingredientStory: PdpIngredientStory | null;
+  routineGuidance: string | null;
 };
 
-export const productPdpContentBySlug = {
-  "cleanse-01-calming-gel-cleanser": {
-    whatItDoes: ["CLEAR", "BALANCE", "PREP"],
-    howToUseSteps: [
-      "Massage onto damp skin morning or night.",
-      "Rinse thoroughly without chasing a tight finish.",
-      "Follow with TREAT or the next step your routine needs.",
-    ],
-    ingredientCards: [
-      {
-        name: "Multi-biotics complex",
-        label: "Routine-friendly cleanse",
-        copy: "Supports a balanced cleansing step that keeps the routine easy to repeat.",
-      },
-      {
-        name: "6-Type Cica Complex",
-        label: "Calm-looking skin support",
-        copy: "A centella-led system used for a composed, comfortable-looking finish after rinsing.",
-      },
-      {
-        name: "LHA",
-        label: "Surface polish",
-        copy: "A gentle-feeling supporting ingredient used here for a cleaner-looking surface.",
-      },
-      {
-        name: "Green tea + centella notes",
-        label: "Fresh finish",
-        copy: "Plant-based cosmetic support for a clean, non-stripped first step.",
-      },
-    ],
-    ingredientStory: {
-      heading: "what’s inside",
-      intro:
-        "Get to know the ingredients that help the first step feel clean, calm, and comfortable.",
-      highlights: [
-        {
-          name: "6-TYPE CICA COMPLEX",
-          description:
-            "a centella-focused blend used to help skin feel soothed and balanced while you cleanse",
-        },
-        {
-          name: "LHA",
-          description:
-            "a lipophilic hydroxy acid used to help lift surface buildup and refine the feel of texture",
-        },
-      ],
-      supportingIngredients:
-        "also made with MULTI-BIOTICS COMPLEX, GREEN TEA",
-    },
-  },
-  "treat-03-pdrn-5-ampoule": {
-    whatItDoes: ["HYDRATE", "SMOOTH", "WAKE UP THE FINISH"],
-    howToUseSteps: [
-      "After cleansing and toner or essence, apply 2-3 drops.",
-      "Press into skin for 30-60 seconds.",
-      "Follow with moisturizer.",
-      "Use SPF in daytime. Use morning and night.",
-    ],
-    ingredientCards: [
-      {
-        name: "PDRN / Sodium DNA — 50,000 ppm",
-        label: "High-focus conditioning signal",
-        copy: "A concentrated cosmetic ingredient used here for hydration support, smoother-looking texture, and a more vital-looking finish.",
-      },
-      {
-        name: "Niacinamide",
-        label: "Tone + radiance support",
-        copy: "A routine staple for a more even-looking tone and refined radiance.",
-      },
-      {
-        name: "Trehalose + humectant base",
-        label: "Water-binding comfort",
-        copy: "Helps keep the serum comfortable, hydrated, and easy to layer.",
-      },
-      {
-        name: "Peptide complex",
-        label: "Resilient-looking skin",
-        copy: "A multi-peptide blend used for smoother, more conditioned-looking skin.",
-      },
-      {
-        name: "Adenosine",
-        label: "Fine-line appearance support",
-        copy: "A K-beauty familiar used here for a smoother-looking finish.",
-      },
-    ],
-    ingredientStory: {
-      heading: "what’s inside",
-      intro:
-        "Get to know the ingredients behind lightweight hydration and a smoother, more awake-looking finish.",
-      highlights: [
-        {
-          name: "PDRN / SODIUM DNA 50,000 PPM",
-          description:
-            "a concentrated conditioning ingredient used to support hydrated, smoother-looking skin",
-        },
-        {
-          name: "NIACINAMIDE",
-          description:
-            "a form of vitamin B3 that helps refine the look of uneven tone and support visible radiance",
-        },
-      ],
-      supportingIngredients:
-        "also made with TREHALOSE, PEPTIDE COMPLEX, ADENOSINE",
-    },
-  },
-  "seal-05-green-collagen-cream": {
-    whatItDoes: ["CUSHION", "COMFORT", "HOLD"],
-    howToUseSteps: [
-      "Smooth over face and neck as the final Mei Pelle step at night.",
-      "Use before SPF in the morning.",
-      "Layer over TREAT when skin wants added comfort.",
-    ],
-    ingredientCards: [
-      {
-        name: "Green collagen complex",
-        label: "Cushioned cosmetic feel",
-        copy: "Used for a plush skin feel and hydrated-looking finish; it does not become human dermal collagen.",
-      },
-      {
-        name: "Sodium hyaluronate",
-        label: "Hydration support",
-        copy: "A humectant used to help the cream leave skin feeling comfortable.",
-      },
-      {
-        name: "Panthenol",
-        label: "Comfort support",
-        copy: "A familiar conditioning ingredient for a calmer-feeling final layer.",
-      },
-      {
-        name: "Niacinamide",
-        label: "Tone + finish support",
-        copy: "Supports a more even-looking, composed finish in a daily moisturizer.",
-      },
-    ],
-    ingredientStory: {
-      heading: "what’s inside",
-      intro:
-        "Get to know the ingredients that help hold hydration close and keep the final layer comfortable.",
-      highlights: [
-        {
-          name: "GREEN COLLAGEN COMPLEX",
-          description:
-            "a moisture-focused complex used to help skin feel cushioned and look smoother",
-        },
-        {
-          name: "PANTHENOL",
-          description:
-            "a form of provitamin B5 that helps skin feel calm and comfortable",
-        },
-      ],
-      supportingIngredients:
-        "also made with SODIUM HYALURONATE, NIACINAMIDE",
-    },
-  },
-  "refine-02-pore-treatment-pads": {
-    whatItDoes: ["SMOOTH", "CLARIFY", "CONTROL"],
-    howToUseSteps: [
-      "Swipe one pad over clean, dry skin.",
-      "Start a few times weekly, then build only as skin allows.",
-      "Follow with hydration and use SPF in daytime.",
-    ],
-    ingredientCards: [
-      {
-        name: "Panthenol + betaine",
-        label: "Comfort-first base",
-        copy: "Helps keep a deliberate texture step from feeling overly stripped.",
-      },
-      {
-        name: "Sodium hyaluronate",
-        label: "Hydration support",
-        copy: "Adds water-binding support so the finish stays more comfortable.",
-      },
-      {
-        name: "Plum + marine extracts",
-        label: "Conditioning support",
-        copy: "A botanical and marine complex used for a fresher-looking surface.",
-      },
-      {
-        name: "Dual-sided pad format",
-        label: "Controlled application",
-        copy: "A measured delivery format that keeps this beyond-core step intentional.",
-      },
-    ],
-  },
-  "frame-04-pdrn-eye-cream": {
-    whatItDoes: ["FOCUS", "WAKE", "SHARPEN"],
-    howToUseSteps: [
-      "Tap a small amount around the orbital area with your ring finger.",
-      "Keep product away from the lash line to avoid migration.",
-      "Use before moisturizer when the eye area needs a focused step.",
-    ],
-    ingredientCards: [
-      {
-        name: "Sodium DNA",
-        label: "Eye-area conditioning",
-        copy: "A cosmetic conditioning ingredient used here for a smoother-looking eye area.",
-      },
-      {
-        name: "Niacinamide",
-        label: "Brighter-looking frame",
-        copy: "Supports a cleaner, more even-looking finish around the eye area.",
-      },
-      {
-        name: "Panthenol + allantoin",
-        label: "Comfort support",
-        copy: "Helps keep the targeted step comfortable for repeat use.",
-      },
-      {
-        name: "Peptide eye blend",
-        label: "Conditioned-looking contour",
-        copy: "A focused blend used for a smoother, more rested-looking impression.",
-      },
-    ],
-  },
-  "lift-06-pdrn-mask-system": {
-    whatItDoes: ["REFRESH", "INTENSIFY", "RETURN"],
-    howToUseSteps: [
-      "Apply to clean skin for the product-supported wear time.",
-      "Remove the sheet and press in remaining essence.",
-      "Return to The Core instead of adding another daily requirement.",
-    ],
-    ingredientCards: [
-      {
-        name: "Sodium DNA — 5,000 ppm",
-        label: "Weekly conditioning signal",
-        copy: "A cosmetic conditioning ingredient used for a hydrated, smoother-looking finish.",
-      },
-      {
-        name: "Niacinamide",
-        label: "Radiance support",
-        copy: "Supports a more even-looking tone after the weekly treatment moment.",
-      },
-      {
-        name: "Hydrolyzed collagen",
-        label: "Cushioned sheet experience",
-        copy: "A cosmetic ingredient used for skin feel and hydration support, not dermal collagen replacement.",
-      },
-      {
-        name: "Adenosine + allantoin",
-        label: "Smooth comfort",
-        copy: "Helps the intensive feel composed while supporting a smoother-looking finish.",
-      },
-    ],
-  },
-} as const satisfies Record<string, ProductPdpContent>;
+type ProductPdpContentDatabaseRow =
+  Database["public"]["Tables"]["product_pdp_content"]["Row"];
 
-export function getProductPdpContent(slug: string): ProductPdpContent {
-  return (
-    productPdpContentBySlug[slug as keyof typeof productPdpContentBySlug] ?? {
-      whatItDoes: ["SUPPORT", "COMPOSE", "REPEAT"],
-      howToUseSteps: ["Use as directed with the rest of your Mei Pelle routine."],
-      ingredientCards: [],
-    }
+export type ProductPdpContentRow = Pick<
+  ProductPdpContentDatabaseRow,
+  | "schema_version"
+  | "profile_title_tokens"
+  | "routine_overlay"
+  | "outcome_heading"
+  | "outcome_labels"
+  | "how_to_use_steps"
+  | "application_steps"
+  | "ingredient_cards"
+  | "ingredient_story"
+  | "routine_guidance"
+>;
+
+function invalid(slug: string, field: string): never {
+  throw new Error(
+    `[catalog] Invalid PDP content for "${slug}": ${field} has an unsupported shape.`,
   );
 }
+
+function nullableText(
+  value: unknown,
+  slug: string,
+  field: string,
+): string | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value !== "string") invalid(slug, field);
+  return value;
+}
+
+function nullableTextArray(
+  value: unknown,
+  slug: string,
+  field: string,
+): string[] | null {
+  if (value === null || value === undefined) return null;
+  if (
+    !Array.isArray(value) ||
+    value.some((item) => typeof item !== "string")
+  ) {
+    invalid(slug, field);
+  }
+  return [...value];
+}
+
+function profileTitleTokens(
+  value: unknown,
+  slug: string,
+): PdpProfileTitleToken[] | null {
+  if (value === null || value === undefined) return null;
+  if (!Array.isArray(value)) invalid(slug, "profile_title_tokens");
+
+  return value.map((item) => {
+    if (
+      !item ||
+      typeof item !== "object" ||
+      typeof (item as { text?: unknown }).text !== "string" ||
+      ("emphasis" in item &&
+        typeof (item as { emphasis?: unknown }).emphasis !== "boolean")
+    ) {
+      invalid(slug, "profile_title_tokens");
+    }
+    const token = item as { text: string; emphasis?: boolean };
+    return token.emphasis
+      ? { text: token.text, emphasis: true }
+      : { text: token.text };
+  });
+}
+
+function ingredientCards(
+  value: unknown,
+  slug: string,
+): PdpIngredientCard[] | null {
+  if (value === null || value === undefined) return null;
+  if (!Array.isArray(value)) invalid(slug, "ingredient_cards");
+
+  return value.map((item) => {
+    if (
+      !item ||
+      typeof item !== "object" ||
+      typeof (item as { name?: unknown }).name !== "string" ||
+      typeof (item as { label?: unknown }).label !== "string" ||
+      typeof (item as { copy?: unknown }).copy !== "string"
+    ) {
+      invalid(slug, "ingredient_cards");
+    }
+    const card = item as PdpIngredientCard;
+    return { name: card.name, label: card.label, copy: card.copy };
+  });
+}
+
+function ingredientStory(
+  value: unknown,
+  slug: string,
+): PdpIngredientStory | null {
+  if (value === null || value === undefined) return null;
+  if (!value || typeof value !== "object") invalid(slug, "ingredient_story");
+
+  const story = value as {
+    heading?: unknown;
+    intro?: unknown;
+    highlights?: unknown;
+    supportingIngredients?: unknown;
+  };
+  if (
+    typeof story.heading !== "string" ||
+    typeof story.intro !== "string" ||
+    typeof story.supportingIngredients !== "string" ||
+    !Array.isArray(story.highlights) ||
+    story.highlights.length !== 2
+  ) {
+    invalid(slug, "ingredient_story");
+  }
+
+  const highlights = story.highlights.map((item) => {
+    if (
+      !item ||
+      typeof item !== "object" ||
+      typeof (item as { name?: unknown }).name !== "string" ||
+      typeof (item as { description?: unknown }).description !== "string"
+    ) {
+      invalid(slug, "ingredient_story");
+    }
+    return {
+      name: (item as { name: string }).name,
+      description: (item as { description: string }).description,
+    };
+  }) as [PdpIngredientHighlight, PdpIngredientHighlight];
+
+  return {
+    heading: story.heading,
+    intro: story.intro,
+    highlights,
+    supportingIngredients: story.supportingIngredients,
+  };
+}
+
+export function normalizeProductPdpContent(
+  row: ProductPdpContentRow | null | undefined,
+  slug: string,
+): ProductPdpContent | null {
+  if (!row) return null;
+  if (row.schema_version !== 1) invalid(slug, "schema_version");
+
+  const outcomeLabels = nullableTextArray(
+    row.outcome_labels,
+    slug,
+    "outcome_labels",
+  );
+  if (outcomeLabels !== null && outcomeLabels.length !== 3) {
+    invalid(slug, "outcome_labels");
+  }
+
+  return {
+    schemaVersion: 1,
+    profileTitleTokens: profileTitleTokens(row.profile_title_tokens, slug),
+    routineOverlay: nullableText(row.routine_overlay, slug, "routine_overlay"),
+    outcomeHeading: nullableText(row.outcome_heading, slug, "outcome_heading"),
+    outcomeLabels: outcomeLabels as [string, string, string] | null,
+    howToUseSteps: nullableTextArray(
+      row.how_to_use_steps,
+      slug,
+      "how_to_use_steps",
+    ),
+    applicationSteps: nullableTextArray(
+      row.application_steps,
+      slug,
+      "application_steps",
+    ),
+    ingredientCards: ingredientCards(row.ingredient_cards, slug),
+    ingredientStory: ingredientStory(row.ingredient_story, slug),
+    routineGuidance: nullableText(
+      row.routine_guidance,
+      slug,
+      "routine_guidance",
+    ),
+  };
+}
+import type { Database } from "@/lib/database.types";

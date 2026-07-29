@@ -7,7 +7,6 @@ import {
   leadersMeiPelleCatalog,
   type LeadersCatalogProduct,
 } from "../data/catalog/leaders-mei-pelle-source";
-import { productRoutineForSlug } from "../lib/catalog/product-routine";
 
 config({ path: resolve(process.cwd(), ".env.local"), quiet: true });
 
@@ -163,11 +162,7 @@ async function findExistingVariantId(productId: string, variantKey: string): Pro
 async function upsertCollections(products: readonly LeadersCatalogProduct[]): Promise<number> {
   const names = [
     ...new Set(
-      products.map(
-        (product) =>
-          productRoutineForSlug(product.slug)?.routineGroupLabel ??
-          product.collection,
-      ),
+      products.map((product) => product.collection),
     ),
   ];
   const rows = names.map((name, index) => ({
@@ -193,26 +188,13 @@ async function upsertProduct(product: LeadersCatalogProduct, productId: string) 
   const createdAt = new Date(
     Date.parse(product.source.sourceInspectedAt) + product.sortOrder * 1000,
   ).toISOString();
-  const routine = productRoutineForSlug(product.slug);
-
   const row = {
     id: productId,
     slug: product.slug,
     name: product.title,
     tagline: product.subtitle,
-    collection: routine?.routineGroupLabel ?? product.collection,
+    collection: product.collection,
     action_name: product.actionName,
-    routine_number: routine?.routineStepNumber
-      ? String(routine.routineStepNumber).padStart(2, "0")
-      : null,
-    routine_group: routine?.routineGroup ?? null,
-    routine_group_label: routine?.routineGroupLabel ?? null,
-    routine_step_number: routine?.routineStepNumber ?? null,
-    routine_step_name: routine?.routineStepName ?? null,
-    routine_display_label: routine?.routineDisplayLabel ?? null,
-    routine_sort: routine?.routineSort ?? null,
-    legacy_routine_group_label: routine?.legacyRoutineGroupLabel ?? null,
-    legacy_routine_display_label: routine?.legacyRoutineDisplayLabel ?? null,
     subtitle: product.subtitle,
     descriptor: product.descriptor,
     product_type: product.productType,
@@ -239,7 +221,6 @@ async function upsertProduct(product: LeadersCatalogProduct, productId: string) 
     volume: product.volume,
     skin_types: product.skinTypes,
     concerns: product.concerns,
-    routine_step: routine?.routineStepName ?? null,
     routine_order: product.routineOrder,
     usage_time: product.usageTime,
     seo_title: product.seoTitle,
@@ -347,11 +328,7 @@ async function upsertSource(product: LeadersCatalogProduct, productId: string) {
 async function upsertRelationships(productIds: Map<string, string>): Promise<number> {
   const products = leadersMeiPelleCatalog
     .slice()
-    .sort(
-      (a, b) =>
-        (productRoutineForSlug(a.slug)?.routineSort ?? a.routineOrder) -
-        (productRoutineForSlug(b.slug)?.routineSort ?? b.routineOrder),
-    );
+    .sort((a, b) => a.routineOrder - b.routineOrder);
 
   const rows = products.flatMap((product) => {
     const productId = productIds.get(product.slug);
@@ -360,10 +337,9 @@ async function upsertRelationships(productIds: Map<string, string>): Promise<num
     const related = products
       .filter((candidate) => candidate.slug !== product.slug)
       .sort((a, b) => {
-        const productSort =
-          productRoutineForSlug(product.slug)?.routineSort ?? product.routineOrder;
-        const aSort = productRoutineForSlug(a.slug)?.routineSort ?? a.routineOrder;
-        const bSort = productRoutineForSlug(b.slug)?.routineSort ?? b.routineOrder;
+        const productSort = product.routineOrder;
+        const aSort = a.routineOrder;
+        const bSort = b.routineOrder;
         const aAfter = aSort > productSort ? 0 : 1;
         const bAfter = bSort > productSort ? 0 : 1;
         return aAfter - bAfter || aSort - bSort;

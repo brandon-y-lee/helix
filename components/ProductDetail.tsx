@@ -24,10 +24,7 @@ import { PdpOutcomeSplit } from "@/components/PdpOutcomeSplit";
 import { PdpProfileSplit } from "@/components/PdpProfileSplit";
 import { PdpRoutineVideo } from "@/components/PdpRoutineVideo";
 import { useProductPurchase } from "@/components/useProductPurchase";
-import {
-  getProductPdpContent,
-  type ProductPdpContent,
-} from "@/lib/catalog/product-content";
+import type { ProductPdpContent } from "@/lib/catalog/product-content";
 import { resolveFullInci } from "@/lib/catalog/product-ingredients";
 import {
   routineDisplayLabelForProduct,
@@ -453,14 +450,14 @@ export function ProductDetail({
   product,
   coreProducts = [],
   coreRoutine = [],
-  content = getProductPdpContent(product.slug),
+  content = product.pdpContent ?? null,
   reviews = getProductReviews(product.slug),
   stripePublishableKey = null,
 }: {
   product: Product;
   coreProducts?: Product[];
   coreRoutine?: CoreRoutineProduct[];
-  content?: ProductPdpContent;
+  content?: ProductPdpContent | null;
   reviews?: ProductReviews;
   stripePublishableKey?: string | null;
 }) {
@@ -498,9 +495,9 @@ export function ProductDetail({
     product.editorialDescription || product.description || product.cardTagline,
   );
   const keyIngredients = product.keyIngredients.slice(0, 5);
-  const howToUse = content.howToUseSteps.length
-    ? content.howToUseSteps
-    : splitCopy(product.editorialHowToUse || product.howToUse);
+  const howToUse =
+    content?.howToUseSteps ??
+    splitCopy(product.editorialHowToUse || product.howToUse);
   const resolvedFullInci = resolveFullInci(product);
   const fullIngredientsText =
     resolvedFullInci?.text ||
@@ -526,12 +523,12 @@ export function ProductDetail({
     title: index === 0 ? "Start here" : `Then ${String(index + 1).padStart(2, "0")}`,
     body: step,
   }));
-  const ingredientItems = content.ingredientCards.map((ingredient) => ({
+  const ingredientItems = (content?.ingredientCards ?? []).map((ingredient) => ({
     kicker: ingredient.label,
     title: ingredient.name,
     body: ingredient.copy,
   }));
-  const corePresentation = getCorePdpPresentation(product.slug);
+  const corePresentation = getCorePdpPresentation(product, content);
   const routineVideo =
     product.media.find(
       (media) =>
@@ -854,13 +851,13 @@ export function ProductDetail({
                   )}
                   <a
                     href={
-                      corePresentation && content.ingredientStory
+                      corePresentation && content?.ingredientStory
                         ? `#pdp-ingredients-${product.slug}`
                         : "#full-ingredients"
                     }
                     tabIndex={openAccordion === "ingredients" ? undefined : -1}
                   >
-                    {corePresentation && content.ingredientStory
+                    {corePresentation && content?.ingredientStory
                       ? "Explore ingredients"
                       : "View full ingredients"}
                   </a>
@@ -972,7 +969,7 @@ export function ProductDetail({
               steps={corePresentation.applicationSteps}
               productMedia={product.media}
             />
-            {content.ingredientStory && (
+            {content?.ingredientStory && (
               <PdpIngredientsSplit
                 productSlug={product.slug}
                 productName={product.displayName}
@@ -1006,7 +1003,7 @@ export function ProductDetail({
               summary="Ingredient notes stay close to the full INCI disclosure below."
               className="pdp-editorial-pair--inside"
             >
-              {content.ingredientCards.length > 0 ? (
+              {(content?.ingredientCards?.length ?? 0) > 0 ? (
                 <PdpPanelSequence label="What's inside" items={ingredientItems} />
               ) : (
                 <p>Ingredient notes are not available for this product yet.</p>

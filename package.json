@@ -26,6 +26,7 @@
     "db:audit": "tsx scripts/db/audit-supabase-data.ts",
     "db:cleanup:dry-run": "tsx scripts/db/cleanup-supabase-data.ts --dry-run",
     "db:cleanup:apply": "tsx scripts/db/cleanup-supabase-data.ts --apply",
+    "db:types": "pnpm dlx supabase gen types --linked --schema public > lib/database.types.ts",
     "db:verify": "tsx scripts/db/verify-supabase-data.ts",
     "search:backfill": "tsx scripts/search-backfill.ts",
     "search:verify-core-pdp-media": "tsx scripts/search-verify-core-pdp-media.ts",

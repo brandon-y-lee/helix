@@ -131,6 +131,18 @@ function makeCoreProduct(
     seoTitle: null,
     seoDescription: null,
     searchKeywords: [],
+    pdpContent: {
+      schemaVersion: 1,
+      profileTitleTokens: null,
+      routineOverlay: null,
+      outcomeHeading: null,
+      outcomeLabels: null,
+      howToUseSteps: null,
+      applicationSteps: null,
+      ingredientCards: null,
+      ingredientStory: null,
+      routineGuidance: `${displayName} catalog routine guidance`,
+    },
     createdAt: "2026-06-14T00:00:00.000Z",
   };
 }
@@ -198,6 +210,9 @@ describe("PdpCoreDetailsRoutine", () => {
     expect(activeState(container).getByText("Cream")).toBeInTheDocument();
     expect(
       activeState(container).getByText("Composed, not overloaded"),
+    ).toBeInTheDocument();
+    expect(
+      activeState(container).getByText("SEAL catalog routine guidance"),
     ).toBeInTheDocument();
     expect(
       activeState(container).getByText(

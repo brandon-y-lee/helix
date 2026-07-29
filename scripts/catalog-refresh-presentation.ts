@@ -8,7 +8,6 @@ import {
   meiPellePresentationCatalog,
   presentationMediaForProduct,
 } from "../data/catalog/mei-pelle-presentation";
-import { productRoutineForSlug } from "../lib/catalog/product-routine";
 
 config({ path: resolve(process.cwd(), ".env.local"), quiet: true });
 
@@ -244,8 +243,6 @@ async function updateProducts(productRows: ProductRow[]): Promise<{
       continue;
     }
 
-    const routine = productRoutineForSlug(product.slug);
-
     const { error } = await supabase
       .from("products")
       .update({
@@ -261,14 +258,6 @@ async function updateProducts(productRows: ProductRow[]): Promise<{
         action_name: product.displayName,
         routine_number: product.routineNumber,
         routine_step: product.routineStep,
-        routine_group: routine?.routineGroup ?? null,
-        routine_group_label: routine?.routineGroupLabel ?? null,
-        routine_step_number: routine?.routineStepNumber ?? null,
-        routine_step_name: routine?.routineStepName ?? null,
-        routine_display_label: routine?.routineDisplayLabel ?? null,
-        routine_sort: routine?.routineSort ?? null,
-        legacy_routine_group_label: routine?.legacyRoutineGroupLabel ?? null,
-        legacy_routine_display_label: routine?.legacyRoutineDisplayLabel ?? null,
         product_type: product.productType,
         collection: product.collection,
         badge: null,
