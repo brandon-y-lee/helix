@@ -659,7 +659,7 @@ export function ProductDetail({
 
   return (
     <>
-      <div className="pdp">
+      <div className="pdp" data-pdp-primary-section>
         <div className="pdp__gallery">
           <div className="pdp__media-frame" data-pdp-main-media>
             <PdpGalleryMedia
@@ -970,6 +970,7 @@ export function ProductDetail({
             <PdpApplicationCarousel
               productName={product.displayName}
               steps={corePresentation.applicationSteps}
+              productMedia={product.media}
             />
             {content.ingredientStory && (
               <PdpIngredientsSplit

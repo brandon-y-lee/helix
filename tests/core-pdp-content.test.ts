@@ -120,13 +120,6 @@ describe("Core PDP presentation contract", () => {
         "03",
       ]);
       expect(
-        presentation.applicationSteps.map((step) => step.futureMediaFilename),
-      ).toEqual([
-        `${entry.prefix}-pdp-application-01.webp`,
-        `${entry.prefix}-pdp-application-02.webp`,
-        `${entry.prefix}-pdp-application-03.webp`,
-      ]);
-      expect(
         getProductPdpContent(entry.slug).ingredientStory?.highlights.map(
           (highlight) => highlight.name,
         ),

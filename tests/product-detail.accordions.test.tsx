@@ -433,6 +433,17 @@ describe("ProductDetail purchase accordions", () => {
         paletteId: null,
         palette: null,
       },
+      {
+        kind: "image",
+        url: "https://example.com/application.png",
+        alt: "TREAT application visual",
+        width: 1122,
+        height: 1402,
+        role: "pdp_application",
+        sortOrder: 1,
+        paletteId: null,
+        palette: null,
+      },
     ];
 
     render(<ProductDetail product={makeProduct({ media })} />);

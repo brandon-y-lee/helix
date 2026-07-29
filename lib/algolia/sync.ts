@@ -22,6 +22,7 @@ const EDITORIAL_MEDIA_ROLES = new Set([
   "ingredients_texture",
   "core_routine_texture",
   "pdp_outcome",
+  "pdp_application",
 ]);
 
 export type WebhookEventType = "INSERT" | "UPDATE" | "DELETE";

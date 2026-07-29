@@ -36,8 +36,8 @@ describe("PdpOutcomeSplit", () => {
   it("orders shared-role media numerically without promoting utility media", () => {
     const utilityMedia: ProductMedia = {
       ...outcomeMedia(0),
-      role: "card",
-      url: "https://example.supabase.co/card.webp",
+      role: "pdp_application",
+      url: "https://example.supabase.co/application.png",
     };
 
     expect(

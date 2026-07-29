@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import {
   useEffect,
   useRef,
@@ -8,12 +9,28 @@ import {
   type Ref,
 } from "react";
 import type { CorePdpApplicationStep } from "@/lib/content/core-pdp";
+import type { ProductMedia } from "@/lib/products";
 
 const TRANSITION_DURATION_MS = 560;
+
+export function orderedPdpApplicationMedia(
+  productMedia: readonly ProductMedia[],
+): ProductMedia[] {
+  return productMedia
+    .filter(
+      (item) =>
+        item.role === "pdp_application" &&
+        item.kind === "image" &&
+        Boolean(item.url),
+    )
+    .slice()
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+}
 
 export function PdpApplicationCarousel({
   productName,
   steps,
+  productMedia,
   rootRef,
 }: {
   productName: string;
@@ -22,11 +39,13 @@ export function PdpApplicationCarousel({
     CorePdpApplicationStep,
     CorePdpApplicationStep,
   ];
+  productMedia: readonly ProductMedia[];
   rootRef?: Ref<HTMLElement>;
 }) {
   const [active, setActive] = useState(0);
   const [outgoing, setOutgoing] = useState<number | null>(null);
   const timerRef = useRef<number | null>(null);
+  const applicationMedia = orderedPdpApplicationMedia(productMedia);
 
   useEffect(() => {
     setActive(0);
@@ -66,6 +85,7 @@ export function PdpApplicationCarousel({
       aria-labelledby="pdp-application-heading"
       data-pdp-panel-row="application"
       data-pdp-panel-mode="independent"
+      data-pdp-application
     >
       <div
         className="pdp-application__content"
@@ -139,32 +159,52 @@ export function PdpApplicationCarousel({
         aria-hidden="true"
         data-pdp-panel
         data-pdp-panel-kind="media"
+        data-pdp-application-media
       >
-        {steps.map((step, index) => (
-          <div
-            key={step.id}
-            className="pdp-application__visual-state"
-            data-state={
-              active === index
-                ? "active"
-                : outgoing === index
-                  ? "outgoing"
-                  : "inactive"
-            }
-            data-future-media={step.futureMediaFilename}
-            style={
-              {
-                "--pdp-application-surface": step.surface,
-                "--pdp-application-accent": step.accent,
-                "--pdp-application-detail": step.detail,
-              } as CSSProperties
-            }
-          >
-            <span className="pdp-application__shape pdp-application__shape--one" />
-            <span className="pdp-application__shape pdp-application__shape--two" />
-            <span className="pdp-application__shape pdp-application__shape--three" />
-          </div>
-        ))}
+        {steps.map((step, index) => {
+          const media = applicationMedia.find(
+            (item) => item.sortOrder === index + 1,
+          );
+
+          return (
+            <div
+              key={step.id}
+              className="pdp-application__visual-state"
+              data-state={
+                active === index
+                  ? "active"
+                  : outgoing === index
+                    ? "outgoing"
+                    : "inactive"
+              }
+              data-pdp-application-state={index + 1}
+              data-has-media={Boolean(media)}
+              style={
+                {
+                  "--pdp-application-surface": step.surface,
+                  "--pdp-application-accent": step.accent,
+                  "--pdp-application-detail": step.detail,
+                } as CSSProperties
+              }
+            >
+              {media?.url ? (
+                <Image
+                  src={media.url}
+                  alt=""
+                  fill
+                  sizes="(max-width: 820px) 100vw, 50vw"
+                  className="pdp-application__image"
+                />
+              ) : (
+                <>
+                  <span className="pdp-application__shape pdp-application__shape--one" />
+                  <span className="pdp-application__shape pdp-application__shape--two" />
+                  <span className="pdp-application__shape pdp-application__shape--three" />
+                </>
+              )}
+            </div>
+          );
+        })}
       </div>
     </section>
   );

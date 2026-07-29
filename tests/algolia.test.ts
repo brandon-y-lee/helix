@@ -481,6 +481,7 @@ describe("applyCatalogWebhookEvent", () => {
     "ingredients_texture",
     "core_routine_texture",
     "pdp_outcome",
+    "pdp_application",
   ])(
     "resolves but does not reindex PDP-only editorial media role %s",
     async (role) => {

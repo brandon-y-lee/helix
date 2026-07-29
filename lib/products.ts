@@ -40,7 +40,8 @@ export type ProductMediaRole =
   | "profile_editorial"
   | "ingredients_texture"
   | "core_routine_texture"
-  | "pdp_outcome";
+  | "pdp_outcome"
+  | "pdp_application";
 
 export type PlaceholderPalette = {
   start: string;

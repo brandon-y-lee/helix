@@ -235,6 +235,16 @@ describe("catalog data access (Supabase-backed)", () => {
                 sort_order: 2,
               },
               {
+                media_type: "image",
+                media_kind: "image",
+                url: "https://example.supabase.co/application-01.png",
+                alt: "Application visual one",
+                width: 1122,
+                height: 1402,
+                role: "pdp_application",
+                sort_order: 1,
+              },
+              {
                 ...sampleRow.product_media[0],
                 media_type: "image",
                 media_kind: "image",
@@ -274,6 +284,15 @@ describe("catalog data access (Supabase-backed)", () => {
         kind: "image",
         url: "https://example.supabase.co/outcome-02.webp",
         sortOrder: 2,
+      }),
+    );
+    expect(
+      product.media.find((media) => media.role === "pdp_application"),
+    ).toEqual(
+      expect.objectContaining({
+        kind: "image",
+        url: "https://example.supabase.co/application-01.png",
+        sortOrder: 1,
       }),
     );
     expect(product.cardMedia?.role).toBe("card");

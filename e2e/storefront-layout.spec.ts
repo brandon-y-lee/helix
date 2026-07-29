@@ -182,66 +182,99 @@ test("Core PDP hero media is finite, borderless, and aligned to storefront spaci
   }
 
   await page.goto(TREAT_PATH);
-  const geometry = await page.evaluate(() => {
-    const header = document.querySelector(".site-header")?.getBoundingClientRect();
-    const pdp = document.querySelector(".pdp")?.getBoundingClientRect();
-    const media = document.querySelector(".pdp__media")?.getBoundingClientRect();
-    const video = document
-      .querySelector(".pdp-routine-video")
-      ?.getBoundingClientRect();
-    const sections = document
-      .querySelector(".pdp-sections")
-      ?.getBoundingClientRect();
-    const reviews = document
-      .querySelector("[data-review-section]")
-      ?.getBoundingClientRect();
-    const discovery = document
-      .querySelector('[data-product-collection="discovery"]')
-      ?.getBoundingClientRect();
-    const footer = document
-      .querySelector("[data-site-footer]")
-      ?.getBoundingClientRect();
+  for (const viewport of [
+    { width: 1440, height: 900 },
+    { width: 1512, height: 982 },
+  ]) {
+    await page.setViewportSize(viewport);
+    const geometry = await page.evaluate(() => {
+      const header = document
+        .querySelector(".site-header")
+        ?.getBoundingClientRect();
+      const pdpElement = document.querySelector(
+        "[data-pdp-primary-section]",
+      );
+      const pdp = pdpElement?.getBoundingClientRect();
+      const media = document
+        .querySelector("[data-pdp-main-media]")
+        ?.getBoundingClientRect();
+      const purchase = document
+        .querySelector(".pdp__purchase")
+        ?.getBoundingClientRect();
+      const video = document
+        .querySelector(".pdp-routine-video")
+        ?.getBoundingClientRect();
+      const sections = document
+        .querySelector(".pdp-sections")
+        ?.getBoundingClientRect();
+      const reviews = document
+        .querySelector("[data-review-section]")
+        ?.getBoundingClientRect();
+      const discovery = document
+        .querySelector('[data-product-collection="discovery"]')
+        ?.getBoundingClientRect();
+      const footer = document
+        .querySelector("[data-site-footer]")
+        ?.getBoundingClientRect();
 
-    if (
-      !header ||
-      !pdp ||
-      !media ||
-      !video ||
-      !sections ||
-      !reviews ||
-      !discovery ||
-      !footer
-    ) {
-      throw new Error("PDP geometry targets are unavailable.");
-    }
+      if (
+        !header ||
+        !pdp ||
+        !media ||
+        !purchase ||
+        !video ||
+        !sections ||
+        !reviews ||
+        !discovery ||
+        !footer
+      ) {
+        throw new Error("PDP geometry targets are unavailable.");
+      }
 
-    const gutter = pdp.left;
-    return {
-      gutter,
-      headerToMedia: media.top - header.bottom,
-      videoTop: video.top,
-      reviewTopGap: reviews.top - sections.bottom,
-      reviewBottomGap: discovery.top - reviews.bottom,
-      discoveryFooterGap: footer.top - discovery.bottom,
-      viewportHeight: window.innerHeight,
-    };
-  });
+      const gutter = pdp.left;
+      return {
+        gutter,
+        headerToMedia: media.top - header.bottom,
+        mediaBottom: media.bottom,
+        expectedSectionBottom: window.innerHeight - gutter,
+        mediaHeight: media.height,
+        purchaseHeight: purchase.height,
+        videoTop: video.top,
+        reviewTopGap: reviews.top - sections.bottom,
+        reviewBottomGap: discovery.top - reviews.bottom,
+        discoveryFooterGap: footer.top - discovery.bottom,
+        viewportHeight: window.innerHeight,
+        hasInternalOverflow:
+          (pdpElement?.scrollHeight ?? 0) >
+            (pdpElement?.clientHeight ?? 0) + 1 ||
+          media.height > pdp.height + 1,
+      };
+    });
 
-  expect(Math.abs(geometry.headerToMedia - geometry.gutter)).toBeLessThanOrEqual(
-    1,
-  );
-  expect(
-    Math.abs(geometry.videoTop - geometry.viewportHeight),
-  ).toBeLessThanOrEqual(1);
-  expect(Math.abs(geometry.reviewTopGap - geometry.gutter)).toBeLessThanOrEqual(
-    1,
-  );
-  expect(
-    Math.abs(geometry.reviewBottomGap - geometry.gutter),
-  ).toBeLessThanOrEqual(1);
-  expect(
-    Math.abs(geometry.discoveryFooterGap - geometry.gutter),
-  ).toBeLessThanOrEqual(1);
+    expect(
+      Math.abs(geometry.headerToMedia - geometry.gutter),
+    ).toBeLessThanOrEqual(1);
+    expect(
+      Math.abs(geometry.mediaBottom - geometry.expectedSectionBottom),
+    ).toBeLessThanOrEqual(1);
+    expect(
+      Math.abs(geometry.mediaHeight - geometry.purchaseHeight),
+    ).toBeLessThanOrEqual(1);
+    expect(
+      Math.abs(geometry.videoTop - geometry.viewportHeight),
+    ).toBeLessThanOrEqual(1);
+    expect(
+      Math.abs(geometry.reviewTopGap - geometry.gutter),
+    ).toBeLessThanOrEqual(1);
+    expect(
+      Math.abs(geometry.reviewBottomGap - geometry.gutter),
+    ).toBeLessThanOrEqual(1);
+    expect(
+      Math.abs(geometry.discoveryFooterGap - geometry.gutter),
+    ).toBeLessThanOrEqual(1);
+    expect(geometry.hasInternalOverflow).toBe(false);
+    await expectNoHorizontalOverflow(page);
+  }
 
   const media = page.locator(".pdp__media");
   const mediaFrame = page.locator("[data-pdp-main-media]");
