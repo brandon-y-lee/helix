@@ -322,7 +322,7 @@ describe("verifyWebhookSecret", () => {
 });
 
 describe("validateCatalogWebhookPayload", () => {
-  it("accepts product, variant, and media events with the required row shape", () => {
+  it("accepts catalog authority events with the required row shape", () => {
     expect(() =>
       validateCatalogWebhookPayload({
         schema: "public",
@@ -330,6 +330,15 @@ describe("validateCatalogWebhookPayload", () => {
         table: "product_media",
         record: { id: "m-2", product_id: sourceRow.id },
         old_record: { id: "m-1", product_id: sourceRow.id },
+      }),
+    ).not.toThrow();
+    expect(() =>
+      validateCatalogWebhookPayload({
+        schema: "public",
+        type: "UPDATE",
+        table: "product_pdp_content",
+        record: { product_id: sourceRow.id, schema_version: 1 },
+        old_record: { product_id: sourceRow.id, schema_version: 1 },
       }),
     ).not.toThrow();
   });
@@ -509,6 +518,28 @@ describe("applyCatalogWebhookEvent", () => {
     },
   );
 
+  it("resolves PDP content updates without reindexing Algolia", async () => {
+    const built = buildAlgoliaRecord(sourceRow);
+    mockedFetch.mockResolvedValue(built);
+
+    const outcome = await applyCatalogWebhookEvent({
+      type: "UPDATE",
+      table: "product_pdp_content",
+      record: { product_id: sourceRow.id, schema_version: 1 },
+      old_record: { product_id: sourceRow.id, schema_version: 1 },
+    });
+
+    expect(mockedFetch).toHaveBeenCalledWith(sourceRow.id);
+    expect(mockedUpsert).not.toHaveBeenCalled();
+    expect(mockedDelete).not.toHaveBeenCalled();
+    expect(outcome).toMatchObject({
+      action: "noop",
+      slug: sourceRow.slug,
+      routineGroup: sourceRow.routine_group,
+      reason: "PDP content is not indexed",
+    });
+  });
+
   it("removes the parent record if a variant change finds no parent", async () => {
     mockedFetch.mockResolvedValue(null); // parent gone (cascade delete)
 
@@ -592,6 +623,38 @@ describe("runSearchBackfill", () => {
 });
 
 describe("catalog cache invalidation", () => {
+  it("targets stable content and Core routine caches for PDP content changes", () => {
+    const targets = getCatalogInvalidationTargets(
+      {
+        type: "UPDATE",
+        table: "product_pdp_content",
+        record: { product_id: sourceRow.id, schema_version: 1 },
+        old_record: { product_id: sourceRow.id, schema_version: 1 },
+      },
+      {
+        action: "noop",
+        table: "product_pdp_content",
+        objectID: sourceRow.id,
+        slug: sourceRow.slug,
+        routineGroup: "core",
+      },
+    );
+
+    expect(targets.tags).toEqual(
+      expect.arrayContaining([
+        `catalog-product-content:${sourceRow.slug}`,
+        "catalog-product-content",
+        "catalog-core-routine",
+      ]),
+    );
+    expect(targets.tags).not.toContain(
+      `catalog-product-offer:${sourceRow.slug}`,
+    );
+    expect(targets.tags).not.toContain(
+      `catalog-product-card:${sourceRow.slug}`,
+    );
+  });
+
   it("targets only offer caches for variant changes", () => {
     const targets = getCatalogInvalidationTargets(
       {

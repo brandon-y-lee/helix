@@ -166,6 +166,8 @@ export function getCatalogInvalidationTargets(
   } else if (payload.table === "product_media") {
     invalidateCard = mediaAffectsCard(payload);
     invalidateContent = mediaAffectsContent(payload);
+  } else if (payload.table === "product_pdp_content") {
+    invalidateContent = true;
   } else if (payload.table === "products") {
     const changedFields = changedProductFields(payload);
     const broadProductChange =
@@ -240,6 +242,8 @@ export function getCatalogInvalidationTargets(
 
   const affectsCoreRoutine =
     isCoreRoutineTextureEvent(payload) ||
+    (payload.table === "product_pdp_content" &&
+      (routineGroup === "core" || oldRoutineGroup === "core")) ||
     (payload.table === "products" &&
       invalidateContent &&
       (routineGroup === "core" || oldRoutineGroup === "core"));

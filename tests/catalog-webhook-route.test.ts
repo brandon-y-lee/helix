@@ -264,4 +264,40 @@ describe("catalog search sync route", () => {
       "catalog-product-card:treat-03-pdrn-5-ampoule",
     );
   });
+
+  it("keeps PDP content updates on the shared webhook without indexing them", async () => {
+    applyMock.mockResolvedValue({
+      action: "noop",
+      table: "product_pdp_content",
+      objectID: "f6091deb-1177-45ad-b506-1f0427fa4abe",
+      slug: "treat-03-pdrn-5-ampoule",
+      routineGroup: "core",
+      reason: "PDP content is not indexed",
+    });
+
+    const response = await POST(
+      request({
+        schema: "public",
+        type: "UPDATE",
+        table: "product_pdp_content",
+        record: {
+          product_id: "f6091deb-1177-45ad-b506-1f0427fa4abe",
+          schema_version: 1,
+        },
+        old_record: {
+          product_id: "f6091deb-1177-45ad-b506-1f0427fa4abe",
+          schema_version: 1,
+        },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(revalidateTagMock).toHaveBeenCalledWith(
+      "catalog-product-content:treat-03-pdrn-5-ampoule",
+    );
+    expect(revalidateTagMock).toHaveBeenCalledWith("catalog-core-routine");
+    expect(revalidateTagMock).not.toHaveBeenCalledWith(
+      "catalog-product-offer:treat-03-pdrn-5-ampoule",
+    );
+  });
 });

@@ -13,7 +13,13 @@ export const WEBHOOK_SECRET_HEADER = "x-webhook-secret";
 const PRODUCTS_TABLE = "products";
 const VARIANTS_TABLE = "product_variants";
 const MEDIA_TABLE = "product_media";
-const ALLOWED_TABLES = [PRODUCTS_TABLE, VARIANTS_TABLE, MEDIA_TABLE] as const;
+const PDP_CONTENT_TABLE = "product_pdp_content";
+const ALLOWED_TABLES = [
+  PRODUCTS_TABLE,
+  VARIANTS_TABLE,
+  MEDIA_TABLE,
+  PDP_CONTENT_TABLE,
+] as const;
 const ALLOWED_EVENTS = ["INSERT", "UPDATE", "DELETE"] as const;
 const EDITORIAL_MEDIA_ROLES = new Set([
   "routine_video",
@@ -224,6 +230,28 @@ export async function applyCatalogWebhookEvent(
       slug: built.slug,
       collection: built.collection,
       routineGroup: built.routineGroup ?? undefined,
+    };
+  }
+
+  if (table === PDP_CONTENT_TABLE) {
+    const productId = asId(record?.product_id) ?? asId(old_record?.product_id);
+    if (!productId) {
+      return {
+        action: "noop",
+        table,
+        reason: "PDP content event without product_id",
+      };
+    }
+
+    const built = await fetchSearchRecordById(productId);
+    return {
+      action: "noop",
+      table,
+      objectID: productId,
+      slug: built?.slug,
+      collection: built?.collection,
+      routineGroup: built?.routineGroup ?? undefined,
+      reason: "PDP content is not indexed",
     };
   }
 
