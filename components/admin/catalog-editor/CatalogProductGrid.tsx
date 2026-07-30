@@ -12,19 +12,19 @@ import {
 import styles from "./CatalogEditor.module.css";
 
 function formatMoneyRange(product: CatalogProductListItem): string {
-  if (product.minimum_price_cents === null) return "Not reported";
+  if (product.minimumPriceCents === null) return "Not reported";
   const formatter = new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
   });
-  const minimum = formatter.format(product.minimum_price_cents / 100);
+  const minimum = formatter.format(product.minimumPriceCents / 100);
   if (
-    product.maximum_price_cents === null ||
-    product.maximum_price_cents === product.minimum_price_cents
+    product.maximumPriceCents === null ||
+    product.maximumPriceCents === product.minimumPriceCents
   ) {
     return minimum;
   }
-  return `${minimum}–${formatter.format(product.maximum_price_cents / 100)}`;
+  return `${minimum}–${formatter.format(product.maximumPriceCents / 100)}`;
 }
 
 function formatTimestamp(value: string | null): string {
@@ -56,9 +56,9 @@ export default function CatalogProductGrid() {
         signal,
       );
       setProducts((current) =>
-        cursor ? [...current, ...result.products] : result.products,
+        cursor ? [...current, ...result.items] : result.items,
       );
-      setNextCursor(result.next_cursor);
+      setNextCursor(result.nextCursor);
     },
     [draft, publication, routine, search],
   );
@@ -216,12 +216,12 @@ export default function CatalogProductGrid() {
                 key={product.id}
               >
                 <div className={styles.cardMedia}>
-                  {product.primary_media?.url ? (
+                  {product.primaryMedia?.url ? (
                     // The protected API supplies project-controlled media URLs.
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={product.primary_media.url}
-                      alt={product.primary_media.alt}
+                      src={product.primaryMedia.url}
+                      alt={product.primaryMedia.alt}
                     />
                   ) : (
                     <span aria-label="No product image">MEI PELLE</span>
@@ -229,31 +229,31 @@ export default function CatalogProductGrid() {
                 </div>
                 <div className={styles.cardBody}>
                   <div>
-                    <h2 className={styles.cardTitle}>{product.display_name}</h2>
+                    <h2 className={styles.cardTitle}>{product.displayName}</h2>
                     <span className={styles.muted}>/{product.slug}</span>
                   </div>
                   <div className={styles.pillRow}>
                     <span className={styles.pill}>
-                      {product.routine_group ?? "Unclassified"}
+                      {product.routineGroup ?? "Unclassified"}
                     </span>
                     <span className={styles.pill}>
-                      {product.product_status}
+                      {product.productStatus}
                     </span>
-                    {product.draft_status ? (
-                      <span className={styles.pill}>{product.draft_status}</span>
+                    {product.activeDraft ? (
+                      <span className={styles.pill}>{product.activeDraft.status}</span>
                     ) : null}
                   </div>
                   <dl className={styles.cardMeta}>
                     <dt>Publication</dt>
-                    <dd>{product.catalog_status}</dd>
+                    <dd>{product.catalogStatus}</dd>
                     <dt>Variants</dt>
-                    <dd>{product.variant_count ?? "Not reported"}</dd>
+                    <dd>{product.variantCount}</dd>
                     <dt>Price</dt>
                     <dd>{formatMoneyRange(product)}</dd>
                     <dt>Canonical update</dt>
-                    <dd>{formatTimestamp(product.updated_at)}</dd>
+                    <dd>{formatTimestamp(product.updatedAt)}</dd>
                     <dt>Draft update</dt>
-                    <dd>{formatTimestamp(product.draft_updated_at)}</dd>
+                    <dd>{formatTimestamp(product.activeDraft?.updatedAt ?? null)}</dd>
                   </dl>
                 </div>
               </Link>

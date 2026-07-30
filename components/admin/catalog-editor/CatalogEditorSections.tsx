@@ -7,14 +7,16 @@ import {
   CatalogIngredientHighlight,
   CatalogMediaFields,
   CatalogRelationshipFields,
+  CatalogTable,
   CatalogValidationIssue,
   CatalogVariantFields,
 } from "@/lib/admin/catalog-editor/client";
+import { getCatalogEditorFieldPolicy } from "@/lib/catalog/field-ownership";
 import { StringListEditor, TextField } from "./CatalogFieldControls";
 import styles from "./CatalogEditor.module.css";
 
 export const CATALOG_SECTIONS: Array<{
-  key: keyof CatalogDraftDocument;
+  key: CatalogTable;
   label: string;
 }> = [
   { key: "products", label: "Products" },
@@ -25,7 +27,7 @@ export const CATALOG_SECTIONS: Array<{
 ];
 
 export function catalogFieldId(
-  table: keyof CatalogDraftDocument,
+  table: CatalogTable,
   field: string,
   rowId?: string,
 ) {
@@ -37,7 +39,7 @@ export function catalogFieldId(
 
 function issueFor(
   issues: CatalogValidationIssue[],
-  table: keyof CatalogDraftDocument,
+  table: CatalogTable,
   field: string,
   rowId?: string,
 ) {
@@ -47,6 +49,10 @@ function issueFor(
       issue.field === field &&
       (!rowId || issue.row_id === rowId),
   )?.message;
+}
+
+function fieldReadOnly(table: CatalogTable, field: string) {
+  return getCatalogEditorFieldPolicy(table, field)?.editable !== true;
 }
 
 interface CatalogEditorSectionsProps {
@@ -67,23 +73,23 @@ export default function CatalogEditorSections({
   onUpload,
   uploading,
 }: CatalogEditorSectionsProps) {
-  const product = document.products;
-  const pdp = document.product_pdp_content;
+  const product = document.product;
+  const pdp = document.productPdpContent;
 
   function updateProduct<K extends keyof typeof product>(
     field: K,
     value: (typeof product)[K],
   ) {
-    onChange({ ...document, products: { ...product, [field]: value } });
+    onChange({ ...document, product: { ...product, [field]: value } });
   }
 
   function updatePdp(
-    changes: Partial<NonNullable<CatalogDraftDocument["product_pdp_content"]>>,
+    changes: Partial<NonNullable<CatalogDraftDocument["productPdpContent"]>>,
   ) {
     if (!pdp) return;
     onChange({
       ...document,
-      product_pdp_content: { ...pdp, ...changes },
+      productPdpContent: { ...pdp, ...changes },
     });
   }
 
@@ -93,7 +99,7 @@ export default function CatalogEditorSections({
   ) {
     onChange({
       ...document,
-      product_variants: document.product_variants.map((variant) =>
+      variants: document.variants.map((variant) =>
         variant.id === id ? { ...variant, ...changes } : variant,
       ),
     });
@@ -102,7 +108,7 @@ export default function CatalogEditorSections({
   function updateMedia(id: string, changes: Partial<CatalogMediaFields>) {
     onChange({
       ...document,
-      product_media: document.product_media.map((media) =>
+      media: document.media.map((media) =>
         media.id === id ? { ...media, ...changes } : media,
       ),
     });
@@ -110,12 +116,12 @@ export default function CatalogEditorSections({
 
   function moveMedia(index: number, direction: -1 | 1) {
     const target = index + direction;
-    if (target < 0 || target >= document.product_media.length) return;
-    const media = [...document.product_media];
+    if (target < 0 || target >= document.media.length) return;
+    const media = [...document.media];
     [media[index], media[target]] = [media[target], media[index]];
     onChange({
       ...document,
-      product_media: media.map((item, sortOrder) => ({
+      media: media.map((item, sortOrder) => ({
         ...item,
         sort_order: sortOrder,
       })),
@@ -125,20 +131,23 @@ export default function CatalogEditorSections({
   function removeMedia(id: string) {
     onChange({
       ...document,
-      product_media: document.product_media
+      media: document.media
         .filter((media) => media.id !== id)
         .map((media, index) => ({ ...media, sort_order: index })),
     });
   }
 
   function updateRelationship(
-    id: string,
+    identity: string,
     changes: Partial<CatalogRelationshipFields>,
   ) {
     onChange({
       ...document,
-      product_relationships: document.product_relationships.map((relationship) =>
-        relationship.id === id ? { ...relationship, ...changes } : relationship,
+      relationships: document.relationships.map((relationship) =>
+        `${relationship.related_product_id}:${relationship.relationship_type}` ===
+        identity
+          ? { ...relationship, ...changes }
+          : relationship,
       ),
     });
   }
@@ -161,6 +170,7 @@ export default function CatalogEditorSections({
               value={product.display_name}
               onChange={(value) => updateProduct("display_name", value)}
               error={issueFor(issues, "products", "display_name")}
+              readOnly={fieldReadOnly("products", "display_name")}
             />
             <TextField
               id={catalogFieldId("products", "slug")}
@@ -168,6 +178,7 @@ export default function CatalogEditorSections({
               value={product.slug}
               onChange={(value) => updateProduct("slug", value)}
               error={issueFor(issues, "products", "slug")}
+              readOnly={fieldReadOnly("products", "slug")}
             />
             <div className={styles.fullWidth}>
               <TextField
@@ -175,6 +186,7 @@ export default function CatalogEditorSections({
                 label="Card tagline"
                 value={product.card_tagline}
                 onChange={(value) => updateProduct("card_tagline", value)}
+                readOnly={fieldReadOnly("products", "card_tagline")}
               />
             </div>
             <div className={styles.fullWidth}>
@@ -187,6 +199,10 @@ export default function CatalogEditorSections({
                 }
                 multiline
                 error={issueFor(issues, "products", "editorial_description")}
+                readOnly={fieldReadOnly(
+                  "products",
+                  "editorial_description",
+                )}
               />
             </div>
             <div className={styles.fullWidth}>
@@ -198,6 +214,10 @@ export default function CatalogEditorSections({
                   updateProduct("editorial_how_to_use", value)
                 }
                 multiline
+                readOnly={fieldReadOnly(
+                  "products",
+                  "editorial_how_to_use",
+                )}
               />
             </div>
             {(
@@ -215,6 +235,7 @@ export default function CatalogEditorSections({
                 label={label}
                 value={product[field]}
                 onChange={(value) => updateProduct(field, value)}
+                readOnly={fieldReadOnly("products", field)}
               />
             ))}
             <StringListEditor
@@ -223,24 +244,28 @@ export default function CatalogEditorSections({
               values={product.benefits}
               onChange={(values) => updateProduct("benefits", values)}
               error={issueFor(issues, "products", "benefits")}
+              readOnly={fieldReadOnly("products", "benefits")}
             />
             <StringListEditor
               id={catalogFieldId("products", "key_ingredients")}
               label="Key ingredients"
               values={product.key_ingredients}
               onChange={(values) => updateProduct("key_ingredients", values)}
+              readOnly={fieldReadOnly("products", "key_ingredients")}
             />
             <StringListEditor
               id={catalogFieldId("products", "cautions")}
               label="Cautions"
               values={product.cautions}
               onChange={(values) => updateProduct("cautions", values)}
+              readOnly={fieldReadOnly("products", "cautions")}
             />
             <StringListEditor
               id={catalogFieldId("products", "skin_types")}
               label="Skin types"
               values={product.skin_types}
               onChange={(values) => updateProduct("skin_types", values)}
+              readOnly={fieldReadOnly("products", "skin_types")}
             />
             <label className={styles.field}>
               <span className={styles.fieldLabel}>Routine classification</span>
@@ -248,16 +273,20 @@ export default function CatalogEditorSections({
                 className={styles.select}
                 id={catalogFieldId("products", "routine_group")}
                 value={product.routine_group ?? ""}
+                disabled={fieldReadOnly("products", "routine_group")}
                 onChange={(event) =>
                   updateProduct(
                     "routine_group",
-                    (event.target.value || null) as "core" | "beyond" | null,
+                    (event.target.value || null) as
+                      | "core"
+                      | "beyond_core"
+                      | null,
                   )
                 }
               >
                 <option value="">Unclassified</option>
                 <option value="core">Core</option>
-                <option value="beyond">Beyond</option>
+                <option value="beyond_core">Beyond</option>
               </select>
             </label>
             <TextField
@@ -265,6 +294,7 @@ export default function CatalogEditorSections({
               label="Routine step name"
               value={product.routine_step_name}
               onChange={(value) => updateProduct("routine_step_name", value)}
+              readOnly={fieldReadOnly("products", "routine_step_name")}
             />
             <TextField
               id={catalogFieldId("products", "routine_display_label")}
@@ -273,6 +303,10 @@ export default function CatalogEditorSections({
               onChange={(value) =>
                 updateProduct("routine_display_label", value)
               }
+              readOnly={fieldReadOnly(
+                "products",
+                "routine_display_label",
+              )}
             />
             <label className={styles.field}>
               <span className={styles.fieldLabel}>Routine step number</span>
@@ -282,6 +316,10 @@ export default function CatalogEditorSections({
                 type="number"
                 min="0"
                 value={product.routine_step_number ?? ""}
+                disabled={fieldReadOnly(
+                  "products",
+                  "routine_step_number",
+                )}
                 onChange={(event) =>
                   updateProduct(
                     "routine_step_number",
@@ -298,6 +336,7 @@ export default function CatalogEditorSections({
                 type="number"
                 min="0"
                 value={product.routine_sort ?? ""}
+                disabled={fieldReadOnly("products", "routine_sort")}
                 onChange={(event) =>
                   updateProduct(
                     "routine_sort",
@@ -311,6 +350,7 @@ export default function CatalogEditorSections({
               label="SEO title"
               value={product.seo_title}
               onChange={(value) => updateProduct("seo_title", value)}
+              readOnly={fieldReadOnly("products", "seo_title")}
             />
             <TextField
               id={catalogFieldId("products", "seo_description")}
@@ -318,6 +358,7 @@ export default function CatalogEditorSections({
               value={product.seo_description}
               onChange={(value) => updateProduct("seo_description", value)}
               multiline
+              readOnly={fieldReadOnly("products", "seo_description")}
             />
             <label className={styles.field}>
               <span className={styles.fieldLabel}>Publication state</span>
@@ -325,6 +366,7 @@ export default function CatalogEditorSections({
                 className={styles.select}
                 id={catalogFieldId("products", "catalog_status")}
                 value={product.catalog_status}
+                disabled={fieldReadOnly("products", "catalog_status")}
                 onChange={(event) =>
                   updateProduct("catalog_status", event.target.value)
                 }
@@ -340,6 +382,7 @@ export default function CatalogEditorSections({
                 className={styles.select}
                 id={catalogFieldId("products", "status")}
                 value={product.status}
+                disabled={fieldReadOnly("products", "status")}
                 onChange={(event) =>
                   updateProduct("status", event.target.value)
                 }
@@ -351,28 +394,33 @@ export default function CatalogEditorSections({
             </label>
           </div>
 
-          {product.source_fields ? (
-            <section className={styles.sourceFields}>
-              <h3>Source fields — read only</h3>
-              <p className={styles.help}>
-                These supplier compatibility fields are lower precedence and do
-                not control the storefront.
-              </p>
-              <div className={styles.fieldGrid}>
-                {Object.entries(product.source_fields).map(([field, value]) => (
-                  <TextField
-                    id={`source-${field}`}
-                    key={field}
-                    label={field.replaceAll("_", " ")}
-                    value={value}
-                    onChange={() => undefined}
-                    multiline={field === "description" || field === "how_to_use"}
-                    readOnly
-                  />
-                ))}
-              </div>
-            </section>
-          ) : null}
+          <section className={styles.sourceFields}>
+            <h3>Source fields — read only</h3>
+            <p className={styles.help}>
+              Supplier-owned compatibility fields remain visible for context.
+              Editorial fields above take precedence on the storefront.
+            </p>
+            <div className={styles.fieldGrid}>
+              {(
+                [
+                  ["name", "Supplier name"],
+                  ["tagline", "Supplier tagline"],
+                  ["description", "Supplier description"],
+                  ["how_to_use", "Supplier directions"],
+                ] as const
+              ).map(([field, label]) => (
+                <TextField
+                  id={`source-${field}`}
+                  key={field}
+                  label={label}
+                  value={product[field]}
+                  onChange={() => undefined}
+                  multiline={field === "description" || field === "how_to_use"}
+                  readOnly={fieldReadOnly("products", field)}
+                />
+              ))}
+            </div>
+          </section>
         </div>
       </details>
 
@@ -406,8 +454,15 @@ export default function CatalogEditorSections({
               <StringListEditor
                 id={catalogFieldId("product_pdp_content", "outcome_labels")}
                 label="Outcome states"
-                values={pdp.outcome_labels}
-                onChange={(values) => updatePdp({ outcome_labels: values })}
+                values={pdp.outcome_labels ?? []}
+                onChange={(values) =>
+                  updatePdp({
+                    outcome_labels:
+                      values.length === 3
+                        ? (values as [string, string, string])
+                        : null,
+                  })
+                }
                 minimum={3}
                 maximum={3}
                 error={issueFor(
@@ -419,18 +474,18 @@ export default function CatalogEditorSections({
               <StringListEditor
                 id={catalogFieldId("product_pdp_content", "how_to_use_steps")}
                 label="How-to steps"
-                values={pdp.how_to_use_steps}
+                values={pdp.how_to_use_steps ?? []}
                 onChange={(values) => updatePdp({ how_to_use_steps: values })}
               />
               <StringListEditor
                 id={catalogFieldId("product_pdp_content", "application_steps")}
                 label="Application states"
-                values={pdp.application_steps}
+                values={pdp.application_steps ?? []}
                 onChange={(values) => updatePdp({ application_steps: values })}
               />
               <fieldset className={styles.repeater}>
                 <legend className={styles.legend}>Profile title tokens</legend>
-                {pdp.profile_title_tokens.map((token, index) => (
+                {(pdp.profile_title_tokens ?? []).map((token, index) => (
                   <div className={styles.repeaterItem} key={`token-${index}`}>
                     <div className={styles.inlineFields}>
                     <TextField
@@ -439,7 +494,9 @@ export default function CatalogEditorSections({
                       value={token.text}
                       onChange={(value) =>
                         updatePdp({
-                          profile_title_tokens: pdp.profile_title_tokens.map(
+                          profile_title_tokens: (
+                            pdp.profile_title_tokens ?? []
+                          ).map(
                             (current, currentIndex) =>
                               currentIndex === index
                                 ? { ...current, text: value }
@@ -455,7 +512,9 @@ export default function CatalogEditorSections({
                         value={token.emphasis ? "true" : "false"}
                         onChange={(event) =>
                           updatePdp({
-                            profile_title_tokens: pdp.profile_title_tokens.map(
+                            profile_title_tokens: (
+                              pdp.profile_title_tokens ?? []
+                            ).map(
                               (current, currentIndex) =>
                                 currentIndex === index
                                   ? {
@@ -478,7 +537,7 @@ export default function CatalogEditorSections({
                       onClick={() =>
                         updatePdp({
                           profile_title_tokens:
-                            pdp.profile_title_tokens.filter(
+                            (pdp.profile_title_tokens ?? []).filter(
                               (_, currentIndex) => currentIndex !== index,
                             ),
                         })
@@ -494,7 +553,7 @@ export default function CatalogEditorSections({
                   onClick={() =>
                     updatePdp({
                       profile_title_tokens: [
-                        ...pdp.profile_title_tokens,
+                        ...(pdp.profile_title_tokens ?? []),
                         { text: "", emphasis: false },
                       ],
                     })
@@ -504,7 +563,7 @@ export default function CatalogEditorSections({
                 </button>
               </fieldset>
               <IngredientCardsEditor
-                cards={pdp.ingredient_cards}
+                cards={pdp.ingredient_cards ?? []}
                 onChange={(ingredient_cards) => updatePdp({ ingredient_cards })}
               />
               {pdp.ingredient_story ? (
@@ -547,6 +606,20 @@ export default function CatalogEditorSections({
                         },
                       })
                     }
+                  />
+                  <TextField
+                    id="ingredient-story-supporting"
+                    label="Supporting ingredients"
+                    value={pdp.ingredient_story.supportingIngredients}
+                    onChange={(supportingIngredients) =>
+                      updatePdp({
+                        ingredient_story: {
+                          ...pdp.ingredient_story!,
+                          supportingIngredients,
+                        },
+                      })
+                    }
+                    multiline
                   />
                 </fieldset>
               ) : null}
@@ -594,7 +667,7 @@ export default function CatalogEditorSections({
                 </tr>
               </thead>
               <tbody>
-                {document.product_variants.map((variant) => (
+                {document.variants.map((variant) => (
                   <tr key={variant.id}>
                     <td>
                       <input
@@ -606,6 +679,10 @@ export default function CatalogEditorSections({
                           variant.id,
                         )}
                         value={variant.label}
+                        disabled={fieldReadOnly(
+                          "product_variants",
+                          "label",
+                        )}
                         onChange={(event) =>
                           updateVariant(variant.id, {
                             label: event.target.value,
@@ -623,6 +700,7 @@ export default function CatalogEditorSections({
                           variant.id,
                         )}
                         value={variant.sku ?? ""}
+                        disabled={fieldReadOnly("product_variants", "sku")}
                         onChange={(event) =>
                           updateVariant(variant.id, { sku: event.target.value })
                         }
@@ -653,6 +731,10 @@ export default function CatalogEditorSections({
                           variant.id,
                         )}
                         inputMode="decimal"
+                        disabled={fieldReadOnly(
+                          "product_variants",
+                          "price_cents",
+                        )}
                         value={(variant.price_cents / 100).toFixed(2)}
                         onChange={(event) => {
                           if (!event.target.value.trim()) {
@@ -688,6 +770,10 @@ export default function CatalogEditorSections({
                         aria-label={`${variant.label} sellable`}
                         type="checkbox"
                         checked={variant.available}
+                        disabled={fieldReadOnly(
+                          "product_variants",
+                          "available",
+                        )}
                         onChange={(event) =>
                           updateVariant(variant.id, {
                             available: event.target.checked,
@@ -700,6 +786,10 @@ export default function CatalogEditorSections({
                         aria-label={`${variant.label} inventory status`}
                         className={styles.select}
                         value={variant.inventory_status}
+                        disabled={fieldReadOnly(
+                          "product_variants",
+                          "inventory_status",
+                        )}
                         onChange={(event) =>
                           updateVariant(variant.id, {
                             inventory_status: event.target.value,
@@ -707,8 +797,9 @@ export default function CatalogEditorSections({
                         }
                       >
                         <option value="in_stock">In stock</option>
+                        <option value="low_stock">Low stock</option>
                         <option value="out_of_stock">Out of stock</option>
-                        <option value="preorder">Preorder</option>
+                        <option value="unavailable">Unavailable</option>
                       </select>
                     </td>
                     <td>
@@ -717,6 +808,10 @@ export default function CatalogEditorSections({
                         className={styles.input}
                         type="number"
                         value={variant.sort_order ?? 0}
+                        disabled={fieldReadOnly(
+                          "product_variants",
+                          "sort_order",
+                        )}
                         onChange={(event) =>
                           updateVariant(variant.id, {
                             sort_order: Number(event.target.value),
@@ -743,7 +838,7 @@ export default function CatalogEditorSections({
         <div className={styles.sectionBody}>
           <MediaUploadControl onUpload={onUpload} uploading={uploading} />
           <div className={styles.mediaGrid}>
-            {document.product_media.map((media, index) => (
+            {document.media.map((media, index) => (
               <article className={styles.mediaCard} key={media.id}>
                 <div className={styles.mediaPreview}>
                   {media.url && media.media_type === "video" ? (
@@ -761,6 +856,7 @@ export default function CatalogEditorSections({
                   label="Role"
                   value={media.role}
                   onChange={(role) => updateMedia(media.id, { role })}
+                  readOnly={fieldReadOnly("product_media", "role")}
                   error={issueFor(
                     issues,
                     "product_media",
@@ -773,12 +869,16 @@ export default function CatalogEditorSections({
                   label="Alt text"
                   value={media.alt}
                   onChange={(alt) => updateMedia(media.id, { alt })}
+                  readOnly={fieldReadOnly("product_media", "alt")}
                 />
                 <div className={styles.actionRow}>
                   <button
                     className={`${styles.button} ${styles.buttonSecondary}`}
                     type="button"
-                    disabled={index === 0}
+                    disabled={
+                      fieldReadOnly("product_media", "sort_order") ||
+                      index === 0
+                    }
                     onClick={() => moveMedia(index, -1)}
                   >
                     Move earlier
@@ -786,7 +886,10 @@ export default function CatalogEditorSections({
                   <button
                     className={`${styles.button} ${styles.buttonSecondary}`}
                     type="button"
-                    disabled={index === document.product_media.length - 1}
+                    disabled={
+                      fieldReadOnly("product_media", "sort_order") ||
+                      index === document.media.length - 1
+                    }
                     onClick={() => moveMedia(index, 1)}
                   >
                     Move later
@@ -794,6 +897,7 @@ export default function CatalogEditorSections({
                   <button
                     className={`${styles.button} ${styles.buttonDanger}`}
                     type="button"
+                    disabled={fieldReadOnly("product_media", "role")}
                     onClick={() => removeMedia(media.id)}
                   >
                     Remove
@@ -819,36 +923,38 @@ export default function CatalogEditorSections({
         </summary>
         <div className={styles.sectionBody}>
           <div className={styles.repeater}>
-              {document.product_relationships.length === 0 ? (
+              {document.relationships.length === 0 ? (
                 <p className={styles.help}>
                   No product relationships are configured.
                 </p>
               ) : null}
-              {document.product_relationships.map((relationship) => (
-                <div className={styles.inlineFields} key={relationship.id}>
+              {document.relationships.map((relationship) => {
+                const identity = `${relationship.related_product_id}:${relationship.relationship_type}`;
+                return (
+                <div className={styles.inlineFields} key={identity}>
                   <TextField
                     id={catalogFieldId(
                       "product_relationships",
                       "related_product_id",
-                      relationship.id,
+                      identity,
                     )}
                     label="Related product"
                     value={relationship.related_product_id}
                     onChange={(related_product_id) =>
-                      updateRelationship(relationship.id, {
+                      updateRelationship(identity, {
                         related_product_id,
                       })
                     }
-                    help={
-                      relationship.related_product
-                        ? `Current product: ${relationship.related_product.display_name}`
-                        : "Use the stable catalog product ID."
-                    }
+                    help="Use the stable catalog product ID."
+                    readOnly={fieldReadOnly(
+                      "product_relationships",
+                      "related_product_id",
+                    )}
                     error={issueFor(
                       issues,
                       "product_relationships",
                       "related_product_id",
-                      relationship.id,
+                      identity,
                     )}
                   />
                   <label className={styles.field}>
@@ -856,8 +962,12 @@ export default function CatalogEditorSections({
                     <select
                       className={styles.select}
                       value={relationship.relationship_type}
+                      disabled={fieldReadOnly(
+                        "product_relationships",
+                        "relationship_type",
+                      )}
                       onChange={(event) =>
-                        updateRelationship(relationship.id, {
+                        updateRelationship(identity, {
                           relationship_type: event.target.value,
                         })
                       }
@@ -875,8 +985,12 @@ export default function CatalogEditorSections({
                       className={styles.input}
                       type="number"
                       value={relationship.sort_order}
+                      disabled={fieldReadOnly(
+                        "product_relationships",
+                        "sort_order",
+                      )}
                       onChange={(event) =>
-                        updateRelationship(relationship.id, {
+                        updateRelationship(identity, {
                           sort_order: Number(event.target.value),
                         })
                       }
@@ -888,9 +1002,11 @@ export default function CatalogEditorSections({
                     onClick={() =>
                       onChange({
                         ...document,
-                        product_relationships:
-                          document.product_relationships.filter(
-                            (current) => current.id !== relationship.id,
+                        relationships:
+                          document.relationships.filter(
+                            (current) =>
+                              `${current.related_product_id}:${current.relationship_type}` !==
+                              identity,
                           ),
                       })
                     }
@@ -898,20 +1014,20 @@ export default function CatalogEditorSections({
                     Remove relationship
                   </button>
                 </div>
-              ))}
+                );
+              })}
               <button
                 className={`${styles.button} ${styles.buttonSecondary}`}
                 type="button"
                 onClick={() =>
                   onChange({
                     ...document,
-                    product_relationships: [
-                      ...document.product_relationships,
+                    relationships: [
+                      ...document.relationships,
                       {
-                        id: crypto.randomUUID(),
-                        related_product_id: "",
+                        related_product_id: crypto.randomUUID(),
                         relationship_type: "related",
-                        sort_order: document.product_relationships.length,
+                        sort_order: document.relationships.length,
                       },
                     ],
                   })
@@ -1028,15 +1144,27 @@ function IngredientCardsEditor({
             }
           />
           <TextField
-            id={`ingredient-card-${index}-description`}
-            label="Description"
-            value={card.description}
-            onChange={(description) =>
+            id={`ingredient-card-${index}-label`}
+            label="Label"
+            value={card.label}
+            onChange={(label) =>
               onChange(
                 cards.map((current, currentIndex) =>
                   currentIndex === index
-                    ? { ...current, description }
+                    ? { ...current, label }
                     : current,
+                ),
+              )
+            }
+          />
+          <TextField
+            id={`ingredient-card-${index}-copy`}
+            label="Description"
+            value={card.copy}
+            onChange={(copy) =>
+              onChange(
+                cards.map((current, currentIndex) =>
+                  currentIndex === index ? { ...current, copy } : current,
                 ),
               )
             }
@@ -1056,7 +1184,9 @@ function IngredientCardsEditor({
       <button
         className={`${styles.button} ${styles.buttonSecondary}`}
         type="button"
-        onClick={() => onChange([...cards, { name: "", description: "" }])}
+        onClick={() =>
+          onChange([...cards, { name: "", label: "", copy: "" }])
+        }
       >
         Add ingredient card
       </button>
@@ -1068,8 +1198,16 @@ function IngredientHighlightsEditor({
   highlights,
   onChange,
 }: {
-  highlights: CatalogIngredientHighlight[];
-  onChange: (highlights: CatalogIngredientHighlight[]) => void;
+  highlights: readonly [
+    CatalogIngredientHighlight,
+    CatalogIngredientHighlight,
+  ];
+  onChange: (
+    highlights: [
+      CatalogIngredientHighlight,
+      CatalogIngredientHighlight,
+    ],
+  ) => void;
 }) {
   return (
     <fieldset className={styles.repeater}>
@@ -1079,12 +1217,15 @@ function IngredientHighlightsEditor({
           <TextField
             id={`highlight-${index}-title`}
             label={`Highlight ${index + 1}`}
-            value={highlight.title}
-            onChange={(title) =>
+            value={highlight.name}
+            onChange={(name) =>
               onChange(
                 highlights.map((current, currentIndex) =>
-                  currentIndex === index ? { ...current, title } : current,
-                ),
+                  currentIndex === index ? { ...current, name } : current,
+                ) as [
+                  CatalogIngredientHighlight,
+                  CatalogIngredientHighlight,
+                ],
               )
             }
           />
@@ -1098,7 +1239,10 @@ function IngredientHighlightsEditor({
                   currentIndex === index
                     ? { ...current, description }
                     : current,
-                ),
+                ) as [
+                  CatalogIngredientHighlight,
+                  CatalogIngredientHighlight,
+                ],
               )
             }
             multiline

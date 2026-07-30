@@ -1,4 +1,10 @@
 import type { Database, Json } from "@/lib/database.types";
+import type { AdminCapability } from "@/lib/admin/capabilities";
+import type {
+  PdpIngredientCard,
+  PdpIngredientStory,
+  PdpProfileTitleToken,
+} from "@/lib/catalog/product-content";
 
 type ProductRow = Database["public"]["Tables"]["products"]["Row"];
 type ProductVariantRow =
@@ -17,10 +23,23 @@ export type EditableProductFields = Omit<
   "id" | "created_at" | "updated_at" | "published_at"
 >;
 
-export type EditableProductPdpContentFields = Omit<
+type GeneratedProductPdpContentFields = Omit<
   ProductPdpContentRow,
   "product_id" | "created_at" | "updated_at"
 >;
+
+export type EditableProductPdpContentFields = Omit<
+  GeneratedProductPdpContentFields,
+  | "ingredient_cards"
+  | "ingredient_story"
+  | "outcome_labels"
+  | "profile_title_tokens"
+> & {
+  ingredient_cards: PdpIngredientCard[] | null;
+  ingredient_story: PdpIngredientStory | null;
+  outcome_labels: [string, string, string] | null;
+  profile_title_tokens: PdpProfileTitleToken[] | null;
+};
 
 export type EditableProductVariant = Omit<
   ProductVariantRow,
@@ -156,6 +175,13 @@ export type CatalogGridRow = {
   routineSort: number | null;
   publishedAt: string;
   updatedAt: string;
+  primaryMedia: {
+    url: string | null;
+    alt: string;
+  } | null;
+  variantCount: number;
+  minimumPriceCents: number | null;
+  maximumPriceCents: number | null;
   activeDraft: {
     id: string;
     status: CatalogDraftStatus;
@@ -164,6 +190,13 @@ export type CatalogGridRow = {
     updatedBy: string;
   } | null;
   latestRevision: number;
+};
+
+export type CatalogEditorResponse = {
+  canonical: ProductEditorDocumentV1;
+  draft: CatalogDraftRecord | null;
+  latestRevision: number;
+  permissions: Partial<Record<AdminCapability, boolean>>;
 };
 
 export type CatalogAuditMetadata = Record<string, Json | undefined>;

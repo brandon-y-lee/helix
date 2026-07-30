@@ -6,17 +6,17 @@ import { CartProvider } from "@/components/CartProvider";
 import { Header } from "@/components/Header";
 import { SiteFooter } from "@/components/SiteFooter";
 import { StorefrontMain } from "@/components/StorefrontMain";
+import { applicationRouteMode } from "@/lib/admin/routes";
 
 export function ApplicationChrome({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const isAdminRoute =
-    pathname === "/admin" || pathname.startsWith("/admin/");
+  const mode = applicationRouteMode(pathname);
 
-  if (isAdminRoute) return children;
+  if (mode === "standard-admin") return children;
 
   return (
-    <CartProvider>
-      <Header />
+    <CartProvider disabled={mode === "catalog-preview"}>
+      <Header commerceDisabled={mode === "catalog-preview"} />
       <StorefrontMain>{children}</StorefrontMain>
       <SiteFooter />
     </CartProvider>

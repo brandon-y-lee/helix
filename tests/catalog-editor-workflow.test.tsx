@@ -8,6 +8,7 @@ import {
 } from "@/lib/admin/catalog-editor/client";
 import {
   catalogDraft,
+  DRAFT_ID,
   editorResponse,
 } from "./fixtures/catalog-editor";
 
@@ -30,6 +31,7 @@ describe("CatalogEditor draft workflow", () => {
     vi.mocked(catalogEditorApi.getEditor).mockResolvedValue(editorResponse());
     vi.mocked(catalogEditorApi.saveDraft).mockImplementation(
       async (_draftId, _version, document) => ({
+        ok: true as const,
         draft: { ...catalogDraft, version: 5, document },
       }),
     );
@@ -55,8 +57,11 @@ describe("CatalogEditor draft workflow", () => {
 
     vi.mocked(catalogEditorApi.saveDraft).mockRejectedValueOnce(
       new CatalogVersionConflictError("Another edit was saved.", {
-        ...catalogDraft,
+        id: catalogDraft.id,
         version: 9,
+        status: "draft",
+        updatedAt: catalogDraft.updated_at,
+        updatedBy: catalogDraft.updated_by,
       }),
     );
     fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
@@ -64,10 +69,10 @@ describe("CatalogEditor draft workflow", () => {
     expect(await screen.findByText("Newer draft detected")).toBeVisible();
     expect(screen.getByLabelText("Display name")).toHaveValue("LOCAL CLEANSE");
     expect(catalogEditorApi.saveDraft).toHaveBeenCalledWith(
-      "draft-cleanse",
+      DRAFT_ID,
       4,
       expect.objectContaining({
-        products: expect.objectContaining({ display_name: "LOCAL CLEANSE" }),
+        product: expect.objectContaining({ display_name: "LOCAL CLEANSE" }),
       }),
     );
     expect(screen.getByRole("button", { name: "Reload latest" })).toBeVisible();
@@ -84,7 +89,7 @@ describe("CatalogEditor draft workflow", () => {
     fireEvent.click(screen.getByRole("button", { name: "Preview" }));
     await waitFor(() =>
       expect(open).toHaveBeenCalledWith(
-        "/admin/catalog/preview/draft-cleanse",
+        `/admin/catalog/preview/${DRAFT_ID}`,
         "_blank",
         "noopener,noreferrer",
       ),
@@ -98,13 +103,23 @@ describe("CatalogEditor draft workflow", () => {
     vi.mocked(catalogEditorApi.publishDraft).mockResolvedValue({
       draft: { ...catalogDraft, status: "published", version: 6 },
       revision: {
-        id: "revision-4",
-        revision: 4,
-        created_at: "2026-07-22T12:00:00.000Z",
-        created_by: "admin",
-        summary: "Catalog update",
+        id: "123e4567-e89b-42d3-a456-426614174099",
+        product_id: catalogDraft.product_id,
+        revision_number: 4,
+        schema_version: 1,
+        document: catalogDraft.document,
+        source_draft_id: catalogDraft.id,
+        published_at: "2026-07-22T12:00:00.000Z",
+        published_by: catalogDraft.updated_by,
       },
-      changed_tables: ["products"],
+      ok: true,
+      changedTables: {
+        products: true,
+        productPdpContent: false,
+        variants: false,
+        media: false,
+        relationships: false,
+      },
     });
     render(<CatalogEditor productId="product-cleanse" />);
     await screen.findByRole("heading", { name: "CLEANSE" });
@@ -120,7 +135,7 @@ describe("CatalogEditor draft workflow", () => {
     fireEvent.click(screen.getByRole("button", { name: "Confirm publish" }));
     await waitFor(() =>
       expect(catalogEditorApi.publishDraft).toHaveBeenCalledWith(
-        "draft-cleanse",
+        DRAFT_ID,
         6,
       ),
     );

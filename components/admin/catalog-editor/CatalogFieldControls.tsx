@@ -72,6 +72,7 @@ interface StringListEditorProps {
   error?: string;
   minimum?: number;
   maximum?: number;
+  readOnly?: boolean;
 }
 
 export function StringListEditor({
@@ -82,6 +83,7 @@ export function StringListEditor({
   error,
   minimum = 0,
   maximum,
+  readOnly = false,
 }: StringListEditorProps) {
   function update(index: number, value: string) {
     onChange(values.map((current, currentIndex) => (currentIndex === index ? value : current)));
@@ -101,11 +103,12 @@ export function StringListEditor({
             label={`${label} ${index + 1}`}
             value={value}
             onChange={(next) => update(index, next)}
+            readOnly={readOnly}
           />
           <button
             className={`${styles.button} ${styles.buttonDanger}`}
             type="button"
-            disabled={values.length <= minimum}
+            disabled={readOnly || values.length <= minimum}
             onClick={() => remove(index)}
           >
             Remove
@@ -116,7 +119,9 @@ export function StringListEditor({
       <button
         className={`${styles.button} ${styles.buttonSecondary}`}
         type="button"
-        disabled={maximum !== undefined && values.length >= maximum}
+        disabled={
+          readOnly || (maximum !== undefined && values.length >= maximum)
+        }
         onClick={() => onChange([...values, ""])}
       >
         Add {label.toLowerCase()}

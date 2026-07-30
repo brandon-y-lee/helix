@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CatalogAdminError } from "@/lib/admin/catalog/errors";
-import { requireAdminCapability } from "@/lib/admin/catalog/capabilities";
+import { requireAdminCapability } from "@/lib/admin/capabilities";
 import { stageCatalogMedia } from "@/lib/admin/catalog/media";
 import { publishCatalogDraft } from "@/lib/admin/catalog/service";
 import { POST as uploadMedia } from "@/app/api/admin/catalog/media/upload/route";
 import { POST as publishDraft } from "@/app/api/admin/catalog/drafts/[draftId]/publish/route";
 
-vi.mock("@/lib/admin/catalog/capabilities", () => ({
+vi.mock("@/lib/admin/capabilities", () => ({
   requireAdminCapability: vi.fn(),
 }));
 vi.mock("@/lib/admin/catalog/media", () => ({

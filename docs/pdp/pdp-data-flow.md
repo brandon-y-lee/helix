@@ -1,7 +1,7 @@
 # Mei Pelle PDP data flow
 
 Verified against repository code and the linked non-production Supabase project
-`erasogmsqpgiirovubjh` on 2026-07-24.
+`erasogmsqpgiirovubjh` on 2026-07-29.
 
 ## Executive summary
 
@@ -9,25 +9,27 @@ Verified against repository code and the linked non-production Supabase project
   `public.product_variants`, `public.product_media`, and relationship tables are
   authoritative for the public catalog. There is no static runtime product
   fallback.
-- **Runtime source:** `app/products/[slug]/page.tsx` reads one cached product and
-  a cached discovery set through `lib/catalog-cache.ts`; `lib/catalog.ts`
-  queries Supabase with the anon client under catalog RLS and maps rows into the
-  `Product` domain type.
-- **Cache layer:** Next `unstable_cache` stores catalog reads for one hour and
-  attaches global, listing, collection, and product-specific tags. The
-  authenticated catalog webhook receiver revalidates tags and paths.
+- **Runtime source:** `app/products/[slug]/page.tsx` composes narrow cached PDP
+  content and offer projections through `lib/catalog-cache.ts`;
+  `lib/catalog/storefront.ts` queries Supabase with the anon client under
+  catalog RLS. Discovery, metadata, routes, cards, ingredient index, and Core
+  routine use their own purpose-specific projections.
+- **Cache layer:** Next `unstable_cache` separates stable content (24 hours),
+  offers (60 seconds), and card/discovery membership (one hour), with granular
+  domain and product tags. The authenticated catalog webhook receiver
+  revalidates affected tags and paths.
 - **Search layer:** Algolia is a derived product-discovery index built from a
   separate Supabase source query. It is not read by the PDP.
-- **Presentation-content layer:** focused repository files provide layout copy,
-  interaction labels, review fixtures, and compatibility fallbacks. They do
-  not replace price, variants, inventory, profile facts, or canonical media.
+- **Presentation-content layer:** focused repository files provide layout
+  structure, design tokens, interaction labels, and placeholder review
+  fixtures. They do not replace product-specific Supabase content, price,
+  variants, inventory, profile facts, or canonical media.
 - **Media layer:** public product media is stored in the project-controlled
   `mei-pelle-catalog` Supabase Storage bucket. `product_media` records provide
   role, type, URL, dimensions, alt text, and ordering to the catalog query.
-- **Client-interaction layer:** `ProductDetail` owns variant, accordion,
-  gallery, sticky-purchase, and add-to-cart state. `PdpRoutineVideo`,
-  `PdpOutcomeSplit`, `PdpApplicationCarousel`, and `PdpIngredientsSplit` own
-  only their local media/selection/disclosure interactions.
+- **Rendering layer:** `ProductDetail` is a Server Component shell. Gallery,
+  shared purchase controls, accordions, routine media, outcomes, application,
+  ingredients, Core details, reviews, and discovery are focused client islands.
 
 The route currently emits metadata through `generateMetadata`, but no Product
 JSON-LD or other product structured-data generator exists in the inspected
@@ -38,35 +40,36 @@ route or shared components.
 ```mermaid
 flowchart TD
   A["Request /products/:slug"] --> B["app/products/[slug]/page.tsx"]
-  B --> C["getCachedProduct(slug)"]
-  B --> D["getCachedDiscoveryProducts(slug)"]
-  C --> E["Next unstable_cache: catalog-product-v5"]
-  D --> F["Next unstable_cache: catalog-discovery-v2"]
-  E --> G["lib/catalog.getProduct"]
-  F --> H["lib/catalog.getDiscoveryProducts"]
-  G --> I["Supabase anon client + catalog RLS"]
-  H --> I
-  I --> J["products + product_variants + product_media"]
-  J --> K["lib/catalog.mapRow"]
-  K --> L["Product domain object"]
-  L --> M["ProductDetailPage server component"]
-  M --> N["ProductDetail client boundary"]
-  N --> O["Hero, purchase, accordions, deeper panels"]
-  N --> P["Core video/profile/outcome/application/ingredient modules"]
-  N --> Q["Discovery, review fixture, sticky purchase"]
-  N --> R["CartProvider -> /api/cart/items"]
+  B --> C["getCachedPdpProduct(slug)"]
+  B --> D["getCachedDiscoveryProductCards(slug)"]
+  C --> E["Stable PDP content cache: 24h"]
+  C --> F["Offer cache: 60s"]
+  D --> G["Discovery/card cache: 1h"]
+  D --> F
+  E --> H["lib/catalog/storefront purpose queries"]
+  F --> H
+  G --> H
+  H --> I["Supabase anon client + catalog RLS"]
+  I --> J["Narrow products / variants / media / PDP content selects"]
+  J --> K["PdpProduct + ProductCard projections"]
+  K --> L["ProductDetailPage Server Component"]
+  L --> M["ProductDetail Server Component shell"]
+  M --> N["Focused gallery and purchase islands"]
+  M --> O["Focused media, outcome, application, ingredient, Core islands"]
+  M --> P["Placeholder review and discovery islands"]
+  N --> Q["CartProvider -> authoritative /api/cart/items"]
 ```
 
 ### Route details
 
-- `generateStaticParams()` calls `getCachedProducts()` and emits every catalog
-  slug available at generation time.
-- `generateMetadata()` calls `getCachedProduct(slug)` and uses
+- `generateStaticParams()` calls `getCachedProductRoutes()` and emits only the
+  route projection available at generation time.
+- `generateMetadata()` calls `getCachedProductMetadata(slug)` and uses
   `seoTitle ?? formalTitle` plus `seoDescription ?? cardTagline`.
 - The page calls `notFound()` only when the canonical product query returns no
   row. Query/configuration errors are not converted into a false 404.
-- `getCachedDiscoveryProducts()` runs independently after the primary product
-  is resolved.
+- `getCachedDiscoveryProductCards()` runs independently after the primary
+  product is resolved; Core summaries are fetched only for Core PDPs.
 - `stripeMessagingPublishableKey()` provides only the public key passed to
   `AfterpayMessaging`; it does not affect catalog resolution.
 
@@ -74,10 +77,11 @@ flowchart TD
 
 In the table:
 
-- `PRODUCT_SELECT` is the joined query string in `lib/catalog.ts`.
+- `PDP_PRODUCT_SELECT` is the focused content query in
+  `lib/catalog/storefront.ts`; offer fields use `PRODUCT_OFFER_SELECT`.
 - `SOURCE_SELECT` is the Algolia source query in `lib/algolia/source.ts`.
-- Product page cache means one-hour revalidation with tags `catalog`,
-  `products`, and `product:<slug>`.
+- Product page content and offer cache independently with product-specific
+  content/offer tags.
 - "Direct edit" means a privileged operator can edit the verified
   non-production row; browser roles remain read-only under RLS.
 
@@ -286,15 +290,22 @@ verifying all 15 public objects and rows.
 
 ### Time-based cache
 
-`CATALOG_CACHE_REVALIDATE_SECONDS` is 3,600 seconds.
+Public catalog cache domains have independent fallback lifetimes so an offer
+change does not evict stable editorial content:
 
-| Read | Cache key | Tags |
-| --- | --- | --- |
-| All products | `catalog-products-v5` | `catalog`, `products`, `collections` |
-| One product | `catalog-product-v5`, slug | `catalog`, `products`, `product:<slug>` |
-| Related products | `catalog-related-v5`, collection, excluded slug, limit | global tags, `collection:<slug>`, `product:<excluded-slug>` |
-| Discovery | `catalog-discovery-v2`, excluded slug, limit | global tags and `product:<excluded-slug>` |
-| Core routine | `catalog-core-routine-v1` | `catalog`, `products`, `catalog:core-routine`, and all three Core product tags |
+| Domain | Fallback lifetime | Representative tag |
+| --- | ---: | --- |
+| PDP/editorial content and metadata | 86,400 seconds | `catalog-product-content:<slug>` |
+| Offers, variants, and availability | 60 seconds | `catalog-product-offer:<slug>` |
+| Product cards | 3,600 seconds | `catalog-product-card:<slug>` |
+| Discovery and collection membership | 3,600 seconds | `catalog-discovery`, `collection:<slug>` |
+| Core routine content | 86,400 seconds | `catalog-core-routine` |
+
+PDP, product-card, metadata, route, ingredient-index, discovery, and Core reads
+use purpose-specific Supabase projections. The PDP composes cached content and
+offer fragments after verifying that their product identities match. `/system`
+is the remaining compatibility consumer of the broad editorial `Product`
+shape, but its stable, offer, and card fragments still have separate policies.
 
 ### Webhook receiver
 
@@ -502,7 +513,7 @@ keyboard-operable radio group.
 | Missing ingredient-texture row | The Core story remains available and the image panel announces temporary media unavailability |
 | Missing or incomplete Core routine query | The shared routine module is omitted and the rest of the PDP remains available |
 | Missing or unverified full INCI | The `FULL INGREDIENTS LIST` button is omitted; no empty or fabricated disclosure is exposed |
-| Stale catalog cache | Time-based refresh occurs within one hour, or sooner through tag/path invalidation |
+| Stale catalog cache | Offers refresh within 60 seconds; stable PDP content refreshes within 24 hours; either can refresh sooner through granular tag/path invalidation |
 | Webhook auth/validation failure | Receiver returns 401/400/413 and performs no mutation |
 | Algolia write failure | Receiver attempts catalog invalidation, logs safe error text, and returns retryable 502 |
 | Cache invalidation failure | Receiver returns retryable 502 with the search outcome |
@@ -518,10 +529,11 @@ remaining accessibility dependency before caption compliance can be claimed.
 
 ## Risks and recommendations
 
-1. **Provision automatic database webhooks after deployment.** Configure
-   INSERT/UPDATE/DELETE delivery for all three catalog tables against the stable
-   authenticated route, verify provider logs, and retain the reconciliation
-   command as recovery.
+1. **Provision automatic database webhooks after deployment.** Use the
+   plan-first provisioning workflow for `products`, `product_variants`,
+   `product_media`, and `product_pdp_content` against a stable authenticated
+   receiver, verify provider state, and retain the reconciliation command as
+   recovery.
 2. **Resolve Storage listing exposure.** The Supabase advisor reports a broad
    public-bucket listing policy. Public object reads are required, but public
    listing should be narrowed separately without disrupting delivery URLs.
@@ -540,17 +552,17 @@ remaining accessibility dependency before caption compliance can be claimed.
 7. **Keep catalog selection allowlists synchronized.** PDP, cart, and Algolia
    each correctly exclude editorial roles from utility images, but every new
    role must be reviewed in all three places.
-8. **Reduce the broad client boundary.** `ProductDetail` predated this work as a
-   client component, which pulls static profile/deeper content into the client
-   graph. A future server/client decomposition could keep only gallery,
-   accordion, cart, video, outcome, and sticky behavior interactive.
+8. **Keep PDP islands focused.** `ProductDetail` is a Server Component shell.
+   Gallery, purchase, accordion, media, outcome, application, Core, review, and
+   discovery interactions remain isolated client boundaries and should receive
+   only the serializable props they need.
 9. **Add product structured data.** Metadata exists, but the route currently
    emits no Product JSON-LD.
 10. **Improve profile-media recovery.** A valid row with an unavailable object
     does not have the video module's explicit retry treatment.
-11. **Regenerate types when a generated database type workflow is introduced.**
-    This repository currently has no generated database types file or type
-    generation command; these migrations changed constraints and indexes only.
+11. **Regenerate types after schema changes.** `pnpm run db:types` generates
+    `lib/database.types.ts` from the linked approved project; compare the
+    generated output before committing it.
 12. **Complete the caption audit.** Verify each audio track with a human
     transcript or confirm it is non-speech before launch.
 

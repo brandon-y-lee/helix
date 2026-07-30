@@ -3,13 +3,12 @@ import { redirect } from "next/navigation";
 import { ProductDetail } from "@/components/ProductDetail";
 import { CatalogPreviewToolbar } from "@/components/admin/CatalogPreviewToolbar";
 import { authRedirectParam } from "@/lib/auth/redirect";
-import { getCurrentSession } from "@/lib/auth/session";
-import { authorizeCatalogPreview } from "@/lib/catalog-editor/authorization";
 import {
-  CATALOG_DRAFT_ID_PATTERN,
-  loadCatalogDraftPreview,
-  type CatalogDraftLoadFailure,
-} from "@/lib/catalog-editor/draft-loader";
+  ADMIN_CAPABILITIES,
+  checkAdminCapability,
+} from "@/lib/admin/capabilities";
+import { CatalogAdminError } from "@/lib/admin/catalog/errors";
+import { getCatalogDraftForPreview } from "@/lib/admin/catalog/service";
 import { loadCatalogPreviewBase } from "@/lib/catalog-editor/preview-data";
 import {
   CatalogPreviewProjectionError,
@@ -17,6 +16,15 @@ import {
 } from "@/lib/catalog-editor/preview-projection";
 import { PREVIEW_COMMERCE_DISABLED_LABEL } from "@/lib/catalog-editor/preview-commerce";
 import { getProductReviews } from "@/lib/catalog/product-reviews";
+
+const CATALOG_DRAFT_ID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+type CatalogDraftLoadFailure =
+  | "backend_unavailable"
+  | "draft_not_found"
+  | "permission_revoked"
+  | "validation_error";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -52,23 +60,11 @@ function PreviewState({
 
 function draftFailureCopy(reason: CatalogDraftLoadFailure) {
   switch (reason) {
-    case "draft_discarded":
-      return {
-        title: "Draft discarded",
-        message:
-          "This saved draft was discarded and can no longer be rendered as an unpublished product.",
-      };
     case "draft_not_found":
       return {
         title: "Draft not found",
         message:
           "This draft does not exist, or it is no longer available to preview.",
-      };
-    case "draft_published":
-      return {
-        title: "Draft already published",
-        message:
-          "This draft has already been published. Return to the editor to open the canonical PDP.",
       };
     case "permission_revoked":
       return {
@@ -100,12 +96,12 @@ function documentProductName(value: unknown) {
     return "Catalog product";
   }
   const candidate = product as {
-    displayName?: unknown;
+    display_name?: unknown;
     name?: unknown;
   };
-  return typeof candidate.displayName === "string" &&
-    candidate.displayName.trim()
-    ? candidate.displayName
+  return typeof candidate.display_name === "string" &&
+    candidate.display_name.trim()
+    ? candidate.display_name
     : typeof candidate.name === "string" && candidate.name.trim()
       ? candidate.name
       : "Catalog product";
@@ -148,11 +144,13 @@ export default async function CatalogDraftPreviewPage({
   }
 
   const previewPath = `/admin/catalog/preview/${draftId}`;
-  const authorization = await authorizeCatalogPreview();
-  if (authorization.status === "anonymous") {
+  const authorization = await checkAdminCapability(
+    ADMIN_CAPABILITIES.catalogRead,
+  );
+  if (authorization.status === "unauthenticated") {
     redirect(authRedirectParam(previewPath));
   }
-  if (authorization.status === "denied") {
+  if (authorization.status === "forbidden") {
     return (
       <PreviewState
         title="Catalog access required"
@@ -169,34 +167,30 @@ export default async function CatalogDraftPreviewPage({
     );
   }
 
-  let accessToken: string | null = null;
+  let record;
   try {
-    accessToken = (await getCurrentSession())?.access_token ?? null;
-  } catch {
+    record = await getCatalogDraftForPreview(draftId);
+  } catch (error) {
+    const failure =
+      error instanceof CatalogAdminError && error.status === 404
+        ? "draft_not_found"
+        : "backend_unavailable";
     return (
-      <PreviewState
-        title="Authentication unavailable"
-        message="Your protected editor session could not be read."
-      />
+      <PreviewState {...draftFailureCopy(failure)} />
     );
   }
 
-  const result = await loadCatalogDraftPreview({ draftId, accessToken });
-  if (!result.ok) {
-    return <PreviewState {...draftFailureCopy(result.reason)} />;
-  }
-
-  const { record } = result;
   const productName = documentProductName(record.document);
-  const publishedSlug =
-    record.publishedSlug ?? documentSlug(record.document);
-  const toolbar = (linkSlug: string | null = record.publishedSlug) => (
+  const publishedSlug = documentSlug(record.document);
+  const toolbar = (linkSlug: string | null = publishedSlug) => (
     <CatalogPreviewToolbar
       productName={productName}
       status={record.status}
       version={record.version}
-      lastSavedLabel={savedAtLabel(record.lastSavedAt)}
-      editorPath={record.editorPath}
+      lastSavedLabel={savedAtLabel(record.updated_at)}
+      editorPath={`/admin/catalog/products/${encodeURIComponent(
+        record.product_id,
+      )}`}
       publishedPath={
         linkSlug
           ? `/products/${encodeURIComponent(linkSlug)}`
@@ -309,7 +303,7 @@ export default async function CatalogDraftPreviewPage({
       )}
       <div className="storefront-shell" data-layout-shell="storefront">
         <ProductDetail
-          key={`${record.draftId}:${record.version}`}
+          key={`${record.id}:${record.version}`}
           product={preview.product}
           coreProducts={preview.coreProducts}
           reviews={getProductReviews(base.product.slug)}

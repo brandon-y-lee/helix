@@ -89,7 +89,13 @@ function clientError(error: unknown, fallback: string) {
   };
 }
 
-export function CartProvider({ children }: { children: ReactNode }) {
+export function CartProvider({
+  children,
+  disabled = false,
+}: {
+  children: ReactNode;
+  disabled?: boolean;
+}) {
   const [lines, setLines] = useState<CartLine[]>([]);
   const [loading, setLoading] = useState(true);
   const [hasLoadedCart, setHasLoadedCart] = useState(false);
@@ -106,6 +112,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const refresh = useCallback(async () => {
+    if (disabled) {
+      setLines([]);
+      setHasLoadedCart(true);
+      setLoading(false);
+      setError(null);
+      setRetryable(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     setRetryable(false);
@@ -119,19 +133,20 @@ export function CartProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, [applyState]);
+  }, [applyState, disabled]);
 
   useEffect(() => {
     void refresh();
   }, [refresh]);
 
   useEffect(() => {
+    if (disabled) return;
     function onFocus() {
       void refresh();
     }
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
-  }, [refresh]);
+  }, [disabled, refresh]);
 
   const rollback = useCallback((previous: CartLine[], err: unknown) => {
     const failure = clientError(err, "Cart update failed.");
@@ -141,6 +156,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const add = useCallback(async (item: CartAddInput, quantity = 1) => {
+    if (disabled) return false;
     setError(null);
     setRetryable(false);
     const previous = lines;
@@ -180,9 +196,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
       rollback(previous, err);
       return false;
     }
-  }, [applyState, lines, rollback]);
+  }, [applyState, disabled, lines, rollback]);
 
   const setQuantity = useCallback(async (key: string, quantity: number) => {
+    if (disabled) return false;
     setError(null);
     setRetryable(false);
     const previous = lines;
@@ -208,9 +225,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
       rollback(previous, err);
       return false;
     }
-  }, [applyState, lines, rollback]);
+  }, [applyState, disabled, lines, rollback]);
 
   const remove = useCallback(async (key: string) => {
+    if (disabled) return false;
     setError(null);
     setRetryable(false);
     const previous = lines;
@@ -227,9 +245,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
       rollback(previous, err);
       return false;
     }
-  }, [applyState, lines, rollback]);
+  }, [applyState, disabled, lines, rollback]);
 
   const clear = useCallback(async () => {
+    if (disabled) return false;
     setError(null);
     setRetryable(false);
     const previous = lines;
@@ -242,12 +261,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
       rollback(previous, err);
       return false;
     }
-  }, [applyState, lines, rollback]);
+  }, [applyState, disabled, lines, rollback]);
 
   const openCartDrawer = useCallback((returnFocus?: () => void) => {
+    if (disabled) return;
     cartDrawerReturnFocusRef.current = returnFocus ?? (() => {});
     setCartDrawerOpen(true);
-  }, []);
+  }, [disabled]);
 
   const closeCartDrawer = useCallback(() => {
     setCartDrawerOpen(false);

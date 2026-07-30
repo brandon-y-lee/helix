@@ -50,6 +50,46 @@ function CartStateProbe() {
   );
 }
 
+function DisabledCartProbe() {
+  const {
+    add,
+    cartDrawerOpen,
+    count,
+    hasLoadedCart,
+    openCartDrawer,
+  } = useCart();
+  return (
+    <>
+      <output>
+        {hasLoadedCart
+          ? `disabled:${count}:${String(cartDrawerOpen)}`
+          : "disabled:loading"}
+      </output>
+      <button
+        type="button"
+        onClick={() =>
+          void add({
+            slug: "cleanse-01-calming-gel-cleanser",
+            name: "CLEANSE",
+            variantId: "variant-1",
+            variantLabel: "200 mL",
+            price: 2200,
+            swatch: ["#ffffff", "#dddddd"],
+            imageUrl: null,
+            imageAlt: null,
+            placeholderMedia: null,
+          })
+        }
+      >
+        Add preview item
+      </button>
+      <button type="button" onClick={() => openCartDrawer()}>
+        Open preview cart
+      </button>
+    </>
+  );
+}
+
 afterEach(() => {
   vi.unstubAllGlobals();
 });
@@ -131,5 +171,23 @@ describe("cart client outage recovery", () => {
     expect(screen.getByText("unknown")).toBeInTheDocument();
     expect(screen.queryByText("Your cart is empty.")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
+  });
+
+  it("performs no reads, mutations, or drawer changes when commerce is disabled", async () => {
+    const fetchMock = vi.fn<typeof fetch>();
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <CartProvider disabled>
+        <DisabledCartProbe />
+      </CartProvider>,
+    );
+
+    expect(await screen.findByText("disabled:0:false")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Add preview item" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open preview cart" }));
+
+    expect(screen.getByText("disabled:0:false")).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

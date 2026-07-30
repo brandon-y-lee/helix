@@ -27,8 +27,8 @@ describe("CatalogProductGrid", () => {
     let resolveFirst:
       | ((
           value: {
-            products: Array<typeof catalogProduct>;
-            next_cursor: string;
+            items: Array<typeof catalogProduct>;
+            nextCursor: string;
           },
         ) => void)
       | undefined;
@@ -41,20 +41,23 @@ describe("CatalogProductGrid", () => {
     render(<CatalogProductGrid />);
     expect(screen.getByRole("heading", { name: "Loading catalog" })).toBeVisible();
 
-    resolveFirst?.({ products: [catalogProduct], next_cursor: "cursor-2" });
+    resolveFirst?.({ items: [catalogProduct], nextCursor: "cursor-2" });
     expect(
       await screen.findByRole("link", { name: /CLEANSE/ }),
-    ).toHaveAttribute("href", "/admin/catalog/products/product-cleanse");
+    ).toHaveAttribute(
+      "href",
+      `/admin/catalog/products/${catalogProduct.id}`,
+    );
     expect(screen.getByText("$22.00")).toBeVisible();
 
     listProducts.mockResolvedValueOnce({
-      products: [{ ...catalogProduct, id: "product-seal", display_name: "SEAL" }],
-      next_cursor: null,
+      items: [{ ...catalogProduct, id: "product-seal", displayName: "SEAL" }],
+      nextCursor: null,
     });
     fireEvent.click(screen.getByRole("button", { name: "Load more" }));
     expect(await screen.findByText("SEAL")).toBeVisible();
 
-    listProducts.mockResolvedValueOnce({ products: [], next_cursor: null });
+    listProducts.mockResolvedValueOnce({ items: [], nextCursor: null });
     fireEvent.change(screen.getByLabelText("Classification"), {
       target: { value: "beyond" },
     });
@@ -75,15 +78,15 @@ describe("CatalogProductGrid", () => {
       await screen.findByRole("heading", { name: "Catalog unavailable" }),
     ).toBeVisible();
     listProducts.mockResolvedValueOnce({
-      products: [catalogProduct],
-      next_cursor: null,
+      items: [catalogProduct],
+      nextCursor: null,
     });
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     expect(await screen.findByText("CLEANSE")).toBeVisible();
 
     listProducts.mockResolvedValueOnce({
-      products: [catalogProduct],
-      next_cursor: null,
+      items: [catalogProduct],
+      nextCursor: null,
     });
     fireEvent.change(screen.getByLabelText("Search name or slug"), {
       target: { value: " cleanse " },

@@ -12,6 +12,7 @@ import {
   isSupabaseNetworkError,
   logSupabaseUnavailable,
 } from "@/lib/supabase/network";
+import { ADMIN_ROUTE_REQUEST_HEADER } from "@/lib/admin/routes";
 
 type CookieToSet = {
   name: string;
@@ -37,6 +38,22 @@ type MiddlewareDependencies = {
   createClient?: (cookies: CookieAdapter) => SessionClient;
   now?: () => number;
 };
+
+function forwardedRequestHeaders(request: NextRequest) {
+  const headers = new Headers(request.headers);
+  if (
+    request.nextUrl.pathname === "/admin" ||
+    request.nextUrl.pathname.startsWith("/admin/")
+  ) {
+    headers.set(
+      ADMIN_ROUTE_REQUEST_HEADER,
+      `${request.nextUrl.pathname}${request.nextUrl.search}`,
+    );
+  } else {
+    headers.delete(ADMIN_ROUTE_REQUEST_HEADER);
+  }
+  return headers;
+}
 
 function requiredEnv(name: string): string {
   const value = process.env[name];
@@ -66,7 +83,7 @@ function createDefaultClient(cookies: CookieAdapter): SessionClient {
 }
 
 function publicDegradedResponse(request: NextRequest) {
-  const requestHeaders = new Headers(request.headers);
+  const requestHeaders = forwardedRequestHeaders(request);
   requestHeaders.set(AUTH_DEGRADED_REQUEST_HEADER, "1");
   return NextResponse.next({
     request: {
@@ -78,7 +95,7 @@ function publicDegradedResponse(request: NextRequest) {
 function nextResponse(request: NextRequest) {
   return NextResponse.next({
     request: {
-      headers: new Headers(request.headers),
+      headers: forwardedRequestHeaders(request),
     },
   });
 }

@@ -61,7 +61,7 @@ describe("CatalogEditor sections", () => {
     const user = userEvent.setup();
     vi.mocked(catalogEditorApi.uploadMedia).mockResolvedValue({
       media: {
-        ...catalogDocument.product_media[0],
+        ...catalogDocument.media[0],
         id: "uploaded-media",
         url: "https://example.test/upload.webp",
         alt: "",
@@ -120,10 +120,10 @@ describe("CatalogEditor sections", () => {
   it("validates duplicate SKUs and invalid prices at the editable boundary", async () => {
     const duplicateDocument = {
       ...catalogDocument,
-      product_variants: [
-        catalogDocument.product_variants[0],
+      variants: [
+        catalogDocument.variants[0],
         {
-          ...catalogDocument.product_variants[0],
+          ...catalogDocument.variants[0],
           id: "variant-duplicate",
           label: "Travel",
         },
@@ -134,6 +134,7 @@ describe("CatalogEditor sections", () => {
       draft: { ...catalogDraft, document: duplicateDocument },
     });
     vi.mocked(catalogEditorApi.saveDraft).mockResolvedValue({
+      ok: true,
       draft: { ...catalogDraft, version: 5, document: duplicateDocument },
     });
     vi.mocked(catalogEditorApi.validateDraft).mockResolvedValue({

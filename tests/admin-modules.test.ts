@@ -63,7 +63,7 @@ describe("admin module registry", () => {
         "Maintain catalog merchandising, editorial content, and publishing state.",
       requiredCapability: ADMIN_CAPABILITIES.catalogRead,
       navigationOrder: 10,
-      status: "unavailable",
+      status: "active",
     });
   });
 });

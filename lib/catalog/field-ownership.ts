@@ -43,11 +43,11 @@ const EDITOR_METADATA: Record<
     requiresPublishCapability: true,
   },
   commerce: {
-    editable: false,
+    editable: true,
     readOnlySource: false,
     derived: false,
     commerceSensitive: true,
-    requiresPublishCapability: false,
+    requiresPublishCapability: true,
   },
   system: {
     editable: false,
@@ -184,7 +184,6 @@ export const CATALOG_FIELD_OWNERSHIP: readonly CatalogFieldOwnership[] = [
     "price_cents",
     "compare_at_price_cents",
     "sku",
-    "supplier_variant_id",
     "available",
     "inventory_status",
     "option_values",
@@ -196,10 +195,17 @@ export const CATALOG_FIELD_OWNERSHIP: readonly CatalogFieldOwnership[] = [
     default: "write",
     overwriteEditorial: "write",
   }),
+  ...fields("product_variants", "supplier", [
+    "supplier_variant_id",
+  ], {
+    default: "write",
+    overwriteEditorial: "write",
+  }),
   ...fields("product_variants", "system", [
     "id",
     "product_id",
     "updated_at",
+    "archived_at",
   ], {
     default: "insert-only",
     overwriteEditorial: "insert-only",
@@ -228,7 +234,6 @@ export const CATALOG_FIELD_OWNERSHIP: readonly CatalogFieldOwnership[] = [
     overwriteEditorial: "insert-only",
   }),
   ...fields("product_media", "editorial", [
-    "product_id",
     "variant_id",
     "media_type",
     "media_kind",
@@ -240,6 +245,7 @@ export const CATALOG_FIELD_OWNERSHIP: readonly CatalogFieldOwnership[] = [
     "sort_order",
     "palette_id",
     "placeholder_palette",
+    "pendingUpload",
   ], {
     default: "insert-only",
     overwriteEditorial: "write",
@@ -253,8 +259,10 @@ export const CATALOG_FIELD_OWNERSHIP: readonly CatalogFieldOwnership[] = [
   }),
   ...fields("product_media", "system", [
     "id",
+    "product_id",
     "created_at",
     "updated_at",
+    "archived_at",
   ], {
     default: "insert-only",
     overwriteEditorial: "insert-only",
@@ -272,12 +280,18 @@ export const CATALOG_FIELD_OWNERSHIP: readonly CatalogFieldOwnership[] = [
     default: "never",
     overwriteEditorial: "never",
   }),
-  ...fields("product_relationships", "system", [
-    "product_id",
+  ...fields("product_relationships", "editorial", [
     "related_product_id",
     "relationship_type",
     "sort_order",
+  ], {
+    default: "preserve",
+    overwriteEditorial: "preserve",
+  }),
+  ...fields("product_relationships", "system", [
+    "product_id",
     "created_at",
+    "archived_at",
   ], {
     default: "preserve",
     overwriteEditorial: "preserve",
@@ -313,6 +327,10 @@ export function getCatalogFieldOwnership(
     (entry) =>
       entry.table === table && (entry.field === field || entry.field === "*"),
   );
+}
+
+export function getCatalogEditorFieldPolicy(table: string, field: string) {
+  return getCatalogFieldOwnership(table, field)?.editor;
 }
 
 export type CatalogPrecedenceResolution<T> = {

@@ -1,13 +1,20 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import { headers } from "next/headers";
 import "./admin.css";
 import { AdminAccessState } from "@/components/admin/shell/AdminAccessState";
-import { AdminShell } from "@/components/admin/shell/AdminShell";
+import { AdminRouteShell } from "@/components/admin/shell/AdminRouteShell";
 import {
   ADMIN_CAPABILITIES,
-  requireAdminCapability,
+  checkAdminCapability,
 } from "@/lib/admin/capabilities";
+import { authRedirectParam } from "@/lib/auth/redirect";
 import { getAdminModules } from "@/lib/admin/modules";
+import {
+  ADMIN_ROUTE_REQUEST_HEADER,
+  adminReturnPath,
+} from "@/lib/admin/routes";
+import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {
   title: {
@@ -27,9 +34,16 @@ export default async function AdminLayout({
 }: {
   children: ReactNode;
 }) {
-  const access = await requireAdminCapability(ADMIN_CAPABILITIES.access, {
-    returnTo: "/admin",
-  });
+  const access = await checkAdminCapability(ADMIN_CAPABILITIES.access);
+
+  if (access.status === "unauthenticated") {
+    const requestHeaders = await headers();
+    redirect(
+      authRedirectParam(
+        adminReturnPath(requestHeaders.get(ADMIN_ROUTE_REQUEST_HEADER)),
+      ),
+    );
+  }
 
   if (access.status === "forbidden") {
     return <AdminAccessState state="forbidden" />;
@@ -40,11 +54,11 @@ export default async function AdminLayout({
   }
 
   return (
-    <AdminShell
+    <AdminRouteShell
       accountLabel={access.principal.email ?? "Authenticated account"}
       modules={getAdminModules()}
     >
       {children}
-    </AdminShell>
+    </AdminRouteShell>
   );
 }

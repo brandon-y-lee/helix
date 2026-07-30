@@ -1,13 +1,15 @@
 import "server-only";
 
 import { resolveProductPresentationMedia } from "@/lib/catalog";
+import { assertValidProductEditorDocument } from "@/lib/admin/catalog/validation";
 import {
-  PRODUCT_EDITOR_DOCUMENT_SCHEMA_VERSION,
+  PRODUCT_EDITOR_SCHEMA_VERSION,
+  type EditableProductFields,
+  type EditableProductMedia,
+  type EditableProductPdpContentFields,
+  type EditableProductVariant,
   type ProductEditorDocumentV1,
-  type ProductEditorMediaV1,
-  type ProductEditorProductV1,
-  type ProductEditorVariantV1,
-} from "@/lib/catalog-editor/contracts";
+} from "@/lib/admin/catalog/types";
 import type {
   CatalogPreviewBase,
 } from "@/lib/catalog-editor/preview-data";
@@ -101,8 +103,8 @@ function stringValue(value: unknown, field: string, allowNull = false) {
 }
 
 function optionalText(
-  product: ProductEditorProductV1,
-  field: keyof ProductEditorProductV1,
+  product: EditableProductFields,
+  field: keyof EditableProductFields,
   fallback: string | null,
 ) {
   if (product[field] === undefined) return fallback;
@@ -110,11 +112,11 @@ function optionalText(
 }
 
 function optionalStringArray(
-  product: ProductEditorProductV1,
-  field: keyof ProductEditorProductV1,
+  product: EditableProductFields,
+  field: keyof EditableProductFields,
   fallback: string[],
-) {
-  const value = product[field];
+): string[] {
+  const value: unknown = product[field];
   if (value === undefined) return fallback;
   if (
     value === null ||
@@ -123,7 +125,7 @@ function optionalStringArray(
   ) {
     invalid(`product.${String(field)} must be a list of text values.`);
   }
-  return [...value];
+  return value as string[];
 }
 
 function validHex(value: unknown): value is string {
@@ -131,40 +133,34 @@ function validHex(value: unknown): value is string {
 }
 
 function optionalSwatch(
-  product: ProductEditorProductV1,
+  product: EditableProductFields,
   fallback: [string, string],
 ): [string, string] {
-  if (product.swatch === undefined || product.swatch === null) return fallback;
-  if (
-    !Array.isArray(product.swatch) ||
-    product.swatch.length !== 2 ||
-    !validHex(product.swatch[0]) ||
-    !validHex(product.swatch[1])
-  ) {
-    invalid("product.swatch must contain two six-digit hex colors.");
+  if (!validHex(product.swatch_from) || !validHex(product.swatch_to)) {
+    return fallback;
   }
-  return [product.swatch[0], product.swatch[1]];
+  return [product.swatch_from, product.swatch_to];
 }
 
 function optionalProductDetails(
-  product: ProductEditorProductV1,
+  product: EditableProductFields,
   fallback: Record<string, string>,
 ) {
-  if (product.productDetails === undefined) return fallback;
+  if (product.product_details === undefined) return fallback;
   if (
-    product.productDetails === null ||
-    !isRecord(product.productDetails) ||
-    Object.values(product.productDetails).some(
+    product.product_details === null ||
+    !isRecord(product.product_details) ||
+    Object.values(product.product_details).some(
       (value) => typeof value !== "string",
     )
   ) {
-    invalid("product.productDetails must contain text values.");
+    invalid("product.product_details must contain text values.");
   }
-  return { ...product.productDetails } as Record<string, string>;
+  return { ...product.product_details } as Record<string, string>;
 }
 
 function toPdpContent(
-  value: ProductPdpContent | null,
+  value: EditableProductPdpContentFields | null,
   slug: string,
 ): ProductPdpContent | null {
   if (value === null) return null;
@@ -173,16 +169,16 @@ function toPdpContent(
   try {
     return normalizeProductPdpContent(
       {
-        schema_version: value.schemaVersion,
-        profile_title_tokens: value.profileTitleTokens,
-        routine_overlay: value.routineOverlay,
-        outcome_heading: value.outcomeHeading,
-        outcome_labels: value.outcomeLabels,
-        how_to_use_steps: value.howToUseSteps,
-        application_steps: value.applicationSteps,
-        ingredient_cards: value.ingredientCards,
-        ingredient_story: value.ingredientStory,
-        routine_guidance: value.routineGuidance,
+        schema_version: value.schema_version,
+        profile_title_tokens: value.profile_title_tokens,
+        routine_overlay: value.routine_overlay,
+        outcome_heading: value.outcome_heading,
+        outcome_labels: value.outcome_labels,
+        how_to_use_steps: value.how_to_use_steps,
+        application_steps: value.application_steps,
+        ingredient_cards: value.ingredient_cards,
+        ingredient_story: value.ingredient_story,
+        routine_guidance: value.routine_guidance,
       } as ProductPdpContentRow,
       slug,
     );
@@ -236,7 +232,7 @@ function approvedStorageUrl(
 }
 
 function safeMedia(
-  items: ProductEditorMediaV1[],
+  items: EditableProductMedia[],
   swatch: [string, string],
   approvedMediaOrigin: string | undefined,
 ) {
@@ -245,47 +241,53 @@ function safeMedia(
 
   items
     .slice()
-    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .sort((a, b) => a.sort_order - b.sort_order)
     .forEach((item) => {
+      const kind = item.media_kind as "image" | "video" | "placeholder";
       if (
         !item ||
-        !["image", "video", "placeholder"].includes(item.kind) ||
-        !MEDIA_ROLES.includes(item.role) ||
-        !Number.isSafeInteger(item.sortOrder) ||
+        !["image", "video", "placeholder"].includes(kind) ||
+        !MEDIA_ROLES.includes(item.role as ProductMediaRole) ||
+        !Number.isSafeInteger(item.sort_order) ||
         typeof item.alt !== "string"
       ) {
         rejected += 1;
         return;
       }
 
-      if (item.kind === "placeholder") {
+      if (kind === "placeholder") {
         media.push({
           kind: "placeholder",
           url: null,
           alt: item.alt,
           width: null,
           height: null,
-          role: item.role,
-          sortOrder: item.sortOrder,
+          role: item.role as ProductMediaRole,
+          sortOrder: item.sort_order,
           paletteId:
-            typeof item.paletteId === "string" ? item.paletteId : null,
-          palette: safePalette(item.palette, swatch),
+            typeof item.palette_id === "string" ? item.palette_id : null,
+          palette: safePalette(
+            isRecord(item.placeholder_palette)
+              ? (item.placeholder_palette as PlaceholderPalette)
+              : null,
+            swatch,
+          ),
         });
         return;
       }
 
       if (
         typeof item.url !== "string" ||
-        !approvedStorageUrl(item.url, item.kind, approvedMediaOrigin) ||
-        (item.kind === "video" && item.role !== "routine_video") ||
-        (item.kind === "image" && item.role === "routine_video")
+        !approvedStorageUrl(item.url, kind, approvedMediaOrigin) ||
+        (kind === "video" && item.role !== "routine_video") ||
+        (kind === "image" && item.role === "routine_video")
       ) {
         rejected += 1;
         return;
       }
 
       media.push({
-        kind: item.kind,
+        kind,
         url: item.url,
         alt: item.alt,
         width:
@@ -296,8 +298,8 @@ function safeMedia(
           Number.isSafeInteger(item.height) && Number(item.height) > 0
             ? Number(item.height)
             : null,
-        role: item.role,
-        sortOrder: item.sortOrder,
+        role: item.role as ProductMediaRole,
+        sortOrder: item.sort_order,
         paletteId: null,
         palette: null,
       });
@@ -307,7 +309,7 @@ function safeMedia(
 }
 
 function safeVariants(
-  items: ProductEditorVariantV1[],
+  items: EditableProductVariant[],
   product: Pick<PdpProduct, "id" | "slug" | "status">,
 ): OfferAvailability[] {
   if (!Array.isArray(items)) invalid("variants must be a list.");
@@ -315,7 +317,10 @@ function safeVariants(
 
   return items
     .slice()
-    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .sort(
+      (a, b) =>
+        (a.sort_order ?? a.position) - (b.sort_order ?? b.position),
+    )
     .map((item, index) => {
       if (
         !item ||
@@ -324,20 +329,22 @@ function safeVariants(
         ids.has(item.id) ||
         typeof item.label !== "string" ||
         !item.label.trim() ||
-        !Number.isSafeInteger(item.price) ||
-        item.price < 0 ||
+        !Number.isSafeInteger(item.price_cents) ||
+        item.price_cents < 0 ||
         typeof item.available !== "boolean" ||
-        !INVENTORY_STATUSES.includes(item.inventoryStatus) ||
-        !Number.isSafeInteger(item.sortOrder)
+        !INVENTORY_STATUSES.includes(
+          item.inventory_status as (typeof INVENTORY_STATUSES)[number],
+        ) ||
+        !Number.isSafeInteger(item.sort_order ?? item.position)
       ) {
         invalid(`variants[${index}] has an unsupported shape.`);
       }
       if (
-        item.packCount !== undefined &&
-        item.packCount !== null &&
-        (!Number.isSafeInteger(item.packCount) || item.packCount < 1)
+        item.pack_count !== undefined &&
+        item.pack_count !== null &&
+        (!Number.isSafeInteger(item.pack_count) || item.pack_count < 1)
       ) {
-        invalid(`variants[${index}].packCount must be a positive integer.`);
+        invalid(`variants[${index}].pack_count must be a positive integer.`);
       }
       ids.add(item.id);
       return {
@@ -346,22 +353,26 @@ function safeVariants(
         productStatus: product.status,
         id: item.id,
         label: item.label,
-        price: item.price,
+        price: item.price_cents,
         available: item.available,
-        inventoryStatus: item.inventoryStatus,
+        inventoryStatus:
+          item.inventory_status as OfferAvailability["inventoryStatus"],
         volume:
           item.volume === undefined || item.volume === null
             ? null
             : stringValue(item.volume, `variants[${index}].volume`),
-        packCount: item.packCount ?? null,
-        sortOrder: item.sortOrder,
+        packCount: item.pack_count ?? null,
+        sortOrder: item.sort_order ?? item.position,
       };
     });
 }
 
-function validateDocument(value: unknown): ProductEditorDocumentV1 {
+function validateDocument(
+  value: unknown,
+  approvedMediaOrigin?: string,
+): ProductEditorDocumentV1 {
   if (!isRecord(value)) invalid("The saved draft document is not an object.");
-  if (value.schemaVersion !== PRODUCT_EDITOR_DOCUMENT_SCHEMA_VERSION) {
+  if (value.schemaVersion !== PRODUCT_EDITOR_SCHEMA_VERSION) {
     throw new CatalogPreviewProjectionError(
       "unsupported_schema",
       `Draft schema version ${String(value.schemaVersion)} is not supported.`,
@@ -378,13 +389,25 @@ function validateDocument(value: unknown): ProductEditorDocumentV1 {
   ) {
     invalid("The saved draft document is incomplete.");
   }
-  return value as unknown as ProductEditorDocumentV1;
+  try {
+    return assertValidProductEditorDocument(value, {
+      ...process.env,
+      NEXT_PUBLIC_SUPABASE_URL:
+        approvedMediaOrigin ?? process.env.NEXT_PUBLIC_SUPABASE_URL,
+    });
+  } catch (error) {
+    invalid(
+      error instanceof Error
+        ? error.message
+        : "The saved draft document failed validation.",
+    );
+  }
 }
 
 function projectCoreProducts(
   baseProducts: CoreRoutineSummary[],
   product: PdpProduct,
-  draftProduct: ProductEditorProductV1,
+  draftProduct: EditableProductFields,
 ) {
   return baseProducts.map((item) => {
     if (item.id !== product.id) return item;
@@ -402,7 +425,7 @@ function projectCoreProducts(
       slug: product.slug,
       displayName: product.displayName,
       formalTitle:
-        optionalText(draftProduct, "formalTitle", item.formalTitle) ??
+        optionalText(draftProduct, "formal_title", item.formalTitle) ??
         item.formalTitle,
       productType: product.productType ?? item.productType,
       cardTagline: product.cardTagline,
@@ -435,7 +458,10 @@ export function projectCatalogDraftPreview(
   base: CatalogPreviewBase,
   options: ProjectionOptions = {},
 ): CatalogPreviewProjection {
-  const document = validateDocument(rawDocument);
+  const document = validateDocument(
+    rawDocument,
+    options.approvedMediaOrigin,
+  );
   if (document.productId !== base.product.id) {
     throw new CatalogPreviewProjectionError(
       "product_unavailable",
@@ -452,35 +478,35 @@ export function projectCatalogDraftPreview(
   }
 
   const status =
-    draft.status === undefined || draft.status === null
+    draft.status === null
       ? base.product.status
-      : PRODUCT_STATUSES.includes(draft.status)
-        ? draft.status
+      : PRODUCT_STATUSES.includes(draft.status as ProductStatus)
+        ? (draft.status as ProductStatus)
         : invalid("product.status is invalid.");
   const displayName =
     optionalText(
       draft,
-      "displayName",
+      "display_name",
       optionalText(draft, "name", base.product.displayName),
     ) ?? "";
   if (!displayName.trim()) invalid("product.displayName cannot be empty.");
   const cardTagline =
     optionalText(
       draft,
-      "cardTagline",
+      "card_tagline",
       optionalText(draft, "tagline", base.product.cardTagline),
     ) ?? "";
   const description =
     optionalText(
       draft,
-      "editorialDescription",
+      "editorial_description",
       optionalText(draft, "description", base.product.description),
     ) ?? "";
   const howToUse =
     optionalText(
       draft,
-      "editorialHowToUse",
-      optionalText(draft, "howToUse", base.product.howToUse),
+      "editorial_how_to_use",
+      optionalText(draft, "how_to_use", base.product.howToUse),
     ) ?? "";
   const swatch = optionalSwatch(draft, base.product.swatch);
   const { media, rejected } = safeMedia(
@@ -500,35 +526,35 @@ export function projectCatalogDraftPreview(
       base.product.collection,
     routineNumber: optionalText(
       draft,
-      "routineNumber",
+      "routine_number",
       base.product.routineNumber,
     ),
     routineGroup:
-      draft.routineGroup === undefined
-        ? base.product.routineGroup
-        : draft.routineGroup,
+      draft.routine_group === "core" || draft.routine_group === "beyond_core"
+        ? draft.routine_group
+        : null,
     routineGroupLabel: optionalText(
       draft,
-      "routineGroupLabel",
+      "routine_group_label",
       base.product.routineGroupLabel,
     ),
     routineStepNumber:
-      draft.routineStepNumber === undefined
+      draft.routine_step_number === undefined
         ? base.product.routineStepNumber
-        : draft.routineStepNumber,
+        : draft.routine_step_number,
     routineStepName: optionalText(
       draft,
-      "routineStepName",
+      "routine_step_name",
       base.product.routineStepName,
     ),
     routineDisplayLabel: optionalText(
       draft,
-      "routineDisplayLabel",
+      "routine_display_label",
       base.product.routineDisplayLabel,
     ),
     productType: optionalText(
       draft,
-      "productType",
+      "product_type",
       base.product.productType,
     ),
     description,
@@ -538,12 +564,12 @@ export function projectCatalogDraftPreview(
     cardMedia: presentationMedia.cardMedia,
     detailMedia: presentationMedia.detailMedia,
     cartMedia: presentationMedia.cartMedia,
-    madeFor: optionalText(draft, "madeFor", base.product.madeFor),
-    goodFor: optionalText(draft, "goodFor", base.product.goodFor),
+    madeFor: optionalText(draft, "made_for", base.product.madeFor),
+    goodFor: optionalText(draft, "good_for", base.product.goodFor),
     texture: optionalText(draft, "texture", base.product.texture),
     keyIngredients: optionalStringArray(
       draft,
-      "keyIngredients",
+      "key_ingredients",
       base.product.keyIngredients,
     ),
     ingredients: optionalText(
@@ -564,12 +590,12 @@ export function projectCatalogDraftPreview(
     volume: optionalText(draft, "volume", base.product.volume),
     skinTypes: optionalStringArray(
       draft,
-      "skinTypes",
+      "skin_types",
       base.product.skinTypes,
     ),
     usageTime: optionalStringArray(
       draft,
-      "usageTime",
+      "usage_time",
       base.product.usageTime,
     ),
     pdpContent: toPdpContent(document.productPdpContent, draft.slug),

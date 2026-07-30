@@ -1,34 +1,25 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-
-vi.mock("next/navigation", () => ({
-  redirect: vi.fn((location: string) => {
-    throw new Error(`NEXT_REDIRECT:${location}`);
-  }),
-}));
-
-import { redirect } from "next/navigation";
+import { describe, expect, it } from "vitest";
 import {
   ADMIN_CAPABILITIES,
   checkAdminCapability,
   requireAdminCapability,
-  type AdminCapabilityAdapter,
-  type AdminPrincipal,
 } from "@/lib/admin/capabilities";
 
-const principal: AdminPrincipal = {
+const identity = {
   id: "11111111-1111-4111-8111-111111111111",
   email: "operator@example.com",
 };
 
-function adapter(result: boolean): AdminCapabilityAdapter {
+function membership(
+  role: "admin" | "catalog_publisher" | "catalog_editor",
+  active = true,
+) {
   return {
-    hasCapability: vi.fn(async () => result),
+    user_id: identity.id,
+    role,
+    active,
   };
 }
-
-beforeEach(() => {
-  vi.mocked(redirect).mockClear();
-});
 
 describe("admin capability enforcement", () => {
   it("publishes the durable admin capability identifiers", () => {
@@ -41,64 +32,65 @@ describe("admin capability enforcement", () => {
     ]);
   });
 
-  it("allows a verified principal only when the server adapter grants access", async () => {
-    const capabilityAdapter = adapter(true);
-    const result = await checkAdminCapability(ADMIN_CAPABILITIES.access, {
-      getPrincipal: vi.fn(async () => principal),
-      adapter: capabilityAdapter,
-    });
-
-    expect(result).toEqual({ status: "allowed", principal });
-    expect(capabilityAdapter.hasCapability).toHaveBeenCalledWith(
-      principal,
-      "admin.access",
-    );
-  });
-
-  it("returns forbidden for an authenticated principal without permission", async () => {
+  it("allows only a verified active membership with the capability", async () => {
     await expect(
       checkAdminCapability(ADMIN_CAPABILITIES.access, {
-        getPrincipal: vi.fn(async () => principal),
-        adapter: adapter(false),
+        getIdentity: async () => identity,
+        getMembership: async () => membership("catalog_editor"),
       }),
-    ).resolves.toEqual({ status: "forbidden", principal });
+    ).resolves.toMatchObject({
+      status: "allowed",
+      principal: identity,
+      access: {
+        userId: identity.id,
+        role: "catalog_editor",
+      },
+    });
   });
 
-  it("fails closed when identity or authorization cannot be determined", async () => {
+  it("returns forbidden for inactive or insufficient memberships", async () => {
     await expect(
       checkAdminCapability(ADMIN_CAPABILITIES.access, {
-        getPrincipal: vi.fn(async () => {
+        getIdentity: async () => identity,
+        getMembership: async () => membership("catalog_editor", false),
+      }),
+    ).resolves.toEqual({ status: "forbidden", principal: identity });
+
+    await expect(
+      checkAdminCapability(ADMIN_CAPABILITIES.catalogPublish, {
+        getIdentity: async () => identity,
+        getMembership: async () => membership("catalog_editor"),
+      }),
+    ).resolves.toEqual({ status: "forbidden", principal: identity });
+  });
+
+  it("fails closed when identity or membership cannot be determined", async () => {
+    await expect(
+      checkAdminCapability(ADMIN_CAPABILITIES.access, {
+        getIdentity: async () => {
           throw new Error("Auth unavailable");
-        }),
+        },
       }),
     ).resolves.toEqual({ status: "unavailable", principal: null });
 
     await expect(
       checkAdminCapability(ADMIN_CAPABILITIES.access, {
-        getPrincipal: vi.fn(async () => principal),
-        adapter: {
-          async hasCapability() {
-            throw new Error("Role store unavailable");
-          },
+        getIdentity: async () => identity,
+        getMembership: async () => {
+          throw new Error("Role store unavailable");
         },
       }),
-    ).resolves.toEqual({ status: "unavailable", principal });
+    ).resolves.toEqual({ status: "unavailable", principal: identity });
   });
 
-  it("redirects unauthenticated requests through the safe sign-in flow", async () => {
+  it("throws a typed authentication failure for protected APIs", async () => {
     await expect(
       requireAdminCapability(ADMIN_CAPABILITIES.access, {
-        returnTo: "/admin",
-        dependencies: {
-          getPrincipal: vi.fn(async () => null),
-        },
+        getIdentity: async () => null,
       }),
-    ).rejects.toThrow(
-      "NEXT_REDIRECT:/account/sign-in?next=%2Fadmin",
-    );
-
-    expect(redirect).toHaveBeenCalledWith(
-      "/account/sign-in?next=%2Fadmin",
-    );
+    ).rejects.toMatchObject({
+      code: "authentication_required",
+      status: 401,
+    });
   });
 });

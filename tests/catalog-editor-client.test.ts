@@ -3,7 +3,11 @@ import {
   CatalogVersionConflictError,
   catalogEditorApi,
 } from "@/lib/admin/catalog-editor/client";
-import { catalogDocument } from "./fixtures/catalog-editor";
+import {
+  catalogDocument,
+  catalogDraft,
+  catalogProduct,
+} from "./fixtures/catalog-editor";
 
 function response(data: unknown, status = 200): Response {
   return {
@@ -11,25 +15,6 @@ function response(data: unknown, status = 200): Response {
     status,
     json: vi.fn(async () => data),
   } as unknown as Response;
-}
-
-function wireDocument() {
-  const { source_fields: _sourceFields, ...product } = catalogDocument.products;
-  return {
-    schemaVersion: catalogDocument.schemaVersion,
-    productId: catalogDocument.productId,
-    product: {
-      ...product,
-      name: catalogDocument.products.source_fields?.name,
-      tagline: catalogDocument.products.source_fields?.tagline,
-      description: catalogDocument.products.source_fields?.description,
-      how_to_use: catalogDocument.products.source_fields?.how_to_use,
-    },
-    productPdpContent: catalogDocument.product_pdp_content,
-    variants: catalogDocument.product_variants,
-    media: catalogDocument.product_media,
-    relationships: catalogDocument.product_relationships,
-  };
 }
 
 afterEach(() => {
@@ -41,19 +26,7 @@ describe("catalogEditorApi", () => {
     const fetchMock = vi.fn().mockResolvedValue(
       response({
         items: [
-          {
-            id: "product-cleanse",
-            slug: "cleanse",
-            displayName: "CLEANSE",
-            catalogStatus: "active",
-            productStatus: "available",
-            routineGroup: "core",
-            updatedAt: "2026-07-20T12:00:00.000Z",
-            activeDraft: {
-              status: "draft",
-              updatedAt: "2026-07-21T12:00:00.000Z",
-            },
-          },
+          catalogProduct,
         ],
         nextCursor: "next",
       }),
@@ -70,19 +43,19 @@ describe("catalogEditorApi", () => {
       "/api/admin/catalog/products?query=cleanse&catalogStatus=active&routineGroup=core&draftStatus=draft&sort=name_asc",
       expect.objectContaining({ credentials: "same-origin", cache: "no-store" }),
     );
-    expect(result.products[0]).toMatchObject({
-      display_name: "CLEANSE",
-      draft_status: "draft",
-      variant_count: null,
+    expect(result.items[0]).toMatchObject({
+      displayName: "CLEANSE",
+      activeDraft: { status: "draft" },
+      variantCount: 1,
     });
   });
 
-  it("adapts the editor document while marking supplier fields read only", async () => {
+  it("uses the canonical backend editor contract without a compatibility document", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue(
         response({
-          canonical: wireDocument(),
+          canonical: catalogDocument,
           draft: null,
           latestRevision: 3,
           permissions: { "catalog.edit": true, "catalog.publish": true },
@@ -91,25 +64,18 @@ describe("catalogEditorApi", () => {
     );
 
     const result = await catalogEditorApi.getEditor("product-cleanse");
-    expect(result.product.products.source_fields).toMatchObject({
-      name: "Supplier Cleanser",
-      description: "Supplier description",
-    });
-    expect(result.product.product_variants[0].price_cents).toBe(2200);
-    expect(result.permissions.publish).toBe(true);
+    expect(result.canonical.product.name).toBe("Supplier Cleanser");
+    expect(result.canonical.variants[0].price_cents).toBe(2200);
+    expect(result.permissions["catalog.publish"]).toBe(true);
   });
 
   it("sends expectedVersion and the backend wire document without UI-only fields", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       response({
         draft: {
-          id: "draft-cleanse",
-          product_id: "product-cleanse",
-          status: "draft",
-          base_revision: 3,
+          ...catalogDraft,
           version: 5,
-          updated_at: "2026-07-21T12:00:00.000Z",
-          document: wireDocument(),
+          document: catalogDocument,
         },
       }),
     );
@@ -120,7 +86,7 @@ describe("catalogEditorApi", () => {
     const body = JSON.parse(String(request.body));
     expect(body.expectedVersion).toBe(4);
     expect(body.document.product.display_name).toBe("CLEANSE");
-    expect(body.document.product.source_fields).toBeUndefined();
+    expect(body.document.product.name).toBe("Supplier Cleanser");
     expect(body.document.variants[0].price_cents).toBe(2200);
   });
 
@@ -133,18 +99,28 @@ describe("catalogEditorApi", () => {
             error: {
               code: "version_conflict",
               message: "The catalog operation could not be completed.",
-              details: { stored: { version: 9 } },
+              details: {
+                stored: {
+                  version: 9,
+                  status: "draft",
+                  updatedAt: "2026-07-22T12:00:00.000Z",
+                  updatedBy: "123e4567-e89b-42d3-a456-426614174005",
+                },
+              },
             },
           },
           409,
         ),
       )
-      .mockResolvedValueOnce(response({ media: catalogDocument.product_media[0] }, 201));
+      .mockResolvedValueOnce(response({ media: catalogDocument.media[0] }, 201));
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(
       catalogEditorApi.saveDraft("draft-cleanse", 4, catalogDocument),
-    ).rejects.toBeInstanceOf(CatalogVersionConflictError);
+    ).rejects.toMatchObject({
+      name: "CatalogVersionConflictError",
+      latestDraft: { version: 9, status: "draft" },
+    });
     const file = new File(["image"], "asset.webp", { type: "image/webp" });
     await catalogEditorApi.uploadMedia(file, "product-cleanse", {
       role: "gallery",

@@ -9,15 +9,19 @@ vi.mock("@/lib/admin/capabilities", () => ({
     catalogPublish: "catalog.publish",
     catalogDelivery: "catalog.delivery",
   },
-  requireAdminCapability: vi.fn(),
+  checkAdminCapability: vi.fn(),
 }));
 
 vi.mock("@/lib/admin/modules", () => ({
   getAdminModules: vi.fn(),
 }));
 
-vi.mock("@/components/admin/shell/AdminShell", () => ({
-  AdminShell: ({
+vi.mock("next/headers", () => ({
+  headers: vi.fn(async () => new Headers()),
+}));
+
+vi.mock("@/components/admin/shell/AdminRouteShell", () => ({
+  AdminRouteShell: ({
     accountLabel,
     children,
   }: {
@@ -41,14 +45,14 @@ import AdminError from "@/app/admin/error";
 import AdminLayout, { metadata } from "@/app/admin/layout";
 import AdminLoading from "@/app/admin/loading";
 import AdminPage from "@/app/admin/page";
-import { requireAdminCapability } from "@/lib/admin/capabilities";
+import { checkAdminCapability } from "@/lib/admin/capabilities";
 import { getAdminModules } from "@/lib/admin/modules";
 
-const mockedRequireCapability = requireAdminCapability as unknown as Mock;
+const mockedCheckCapability = checkAdminCapability as unknown as Mock;
 const mockedGetModules = getAdminModules as unknown as Mock;
 
 beforeEach(() => {
-  mockedRequireCapability.mockReset();
+  mockedCheckCapability.mockReset();
   mockedGetModules.mockReset();
   mockedGetModules.mockReturnValue([]);
 });
@@ -62,19 +66,23 @@ describe("admin route hierarchy", () => {
   });
 
   it("checks admin.access server-side before rendering the shell", async () => {
-    mockedRequireCapability.mockResolvedValue({
+    mockedCheckCapability.mockResolvedValue({
       status: "allowed",
       principal: {
         id: "11111111-1111-4111-8111-111111111111",
         email: "operator@example.com",
       },
+      access: {
+        userId: "11111111-1111-4111-8111-111111111111",
+        email: "operator@example.com",
+        role: "admin",
+        capabilities: ["admin.access"],
+      },
     });
 
     render(await AdminLayout({ children: <p>Protected content</p> }));
 
-    expect(mockedRequireCapability).toHaveBeenCalledWith("admin.access", {
-      returnTo: "/admin",
-    });
+    expect(mockedCheckCapability).toHaveBeenCalledWith("admin.access");
     expect(screen.getByTestId("admin-shell")).toHaveTextContent(
       "Protected content",
     );
@@ -83,7 +91,7 @@ describe("admin route hierarchy", () => {
   it.each(["forbidden", "unavailable"] as const)(
     "renders the truthful %s state instead of the shell",
     async (status) => {
-      mockedRequireCapability.mockResolvedValue({
+      mockedCheckCapability.mockResolvedValue({
         status,
         principal:
           status === "forbidden"

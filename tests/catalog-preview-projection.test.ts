@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ProductEditorDocumentV1 } from "@/lib/catalog-editor/contracts";
+import type { ProductEditorDocumentV1 } from "@/lib/admin/catalog/types";
 import {
   CatalogPreviewProjectionError,
   projectCatalogDraftPreview,
@@ -9,6 +9,7 @@ import type {
   CoreRoutineSummary,
   PdpProduct,
 } from "@/lib/catalog/models";
+import { catalogDocument } from "./fixtures/catalog-editor";
 
 const productId = "33333333-3333-4333-8333-333333333333";
 const canonicalSlug = "cleanse-01-calming-gel-cleanser";
@@ -110,71 +111,53 @@ function base(): CatalogPreviewBase {
 }
 
 function document(): ProductEditorDocumentV1 {
-  return {
-    schemaVersion: 1,
-    productId,
-    product: {
-      slug: canonicalSlug,
-      name: "Raw draft name",
-      displayName: "DRAFT CLEANSE",
-      tagline: "Raw draft tagline",
-      cardTagline: "Draft card tagline",
-      description: "Raw draft description",
-      editorialDescription: "Draft editorial description",
-      howToUse: "Raw draft use",
-      editorialHowToUse: "Draft editorial use",
-      benefits: ["Draft benefit"],
-    },
-    productPdpContent: {
-      schemaVersion: 1,
-      profileTitleTokens: [{ text: "Draft profile" }],
-      routineOverlay: "Draft routine overlay",
-      outcomeHeading: null,
-      outcomeLabels: null,
-      howToUseSteps: ["Draft step"],
-      applicationSteps: null,
-      ingredientCards: null,
-      ingredientStory: null,
-      routineGuidance: "Draft Core guidance",
-    },
-    variants: [
-      {
-        id: "draft-100ml",
-        label: "Draft 100 mL",
-        price: 9900,
-        available: true,
-        inventoryStatus: "in_stock",
-        volume: "100 mL",
-        packCount: null,
-        sortOrder: 0,
-      },
-    ],
-    media: [
-      {
-        kind: "image",
-        url: approvedImage,
-        alt: "Saved draft CLEANSE product",
-        width: 1200,
-        height: 1500,
-        role: "detail",
-        sortOrder: 0,
-        paletteId: null,
-        palette: null,
-      },
-      {
-        kind: "image",
-        url: "https://unapproved.example/draft.webp",
-        alt: "Unapproved image",
-        width: 1200,
-        height: 1500,
-        role: "gallery",
-        sortOrder: 1,
-        paletteId: null,
-        palette: null,
-      },
-    ],
-    relationships: [],
+  const draft = structuredClone(catalogDocument);
+  draft.productId = productId;
+  draft.product.slug = canonicalSlug;
+  draft.product.name = "Raw draft name";
+  draft.product.display_name = "CLEANSE";
+  draft.product.tagline = "Raw draft tagline";
+  draft.product.card_tagline = "Draft card tagline";
+  draft.product.description = "Raw draft description";
+  draft.product.editorial_description = "Draft editorial description";
+  draft.product.how_to_use = "Raw draft use";
+  draft.product.editorial_how_to_use = "Draft editorial use";
+  draft.product.benefits = ["Draft benefit"];
+  draft.productPdpContent = {
+    schema_version: 1,
+    profile_title_tokens: [{ text: "Draft profile" }],
+    routine_overlay: "Draft routine overlay",
+    outcome_heading: null,
+    outcome_labels: null,
+    how_to_use_steps: ["Draft step"],
+    application_steps: null,
+    ingredient_cards: null,
+    ingredient_story: null,
+    routine_guidance: "Draft Core guidance",
   };
+  draft.variants = [
+    {
+      ...draft.variants[0],
+      id: "55555555-5555-4555-8555-555555555555",
+      label: "Draft 100 mL",
+      price_cents: 9900,
+      volume: "100 mL",
+    },
+  ];
+  draft.media = [
+    {
+      ...draft.media[0],
+      id: "66666666-6666-4666-8666-666666666666",
+      url: approvedImage,
+      alt: "Saved draft CLEANSE product",
+      width: 1200,
+      height: 1500,
+      role: "detail",
+      sort_order: 0,
+    },
+  ];
+  draft.relationships = [];
+  return draft;
 }
 
 describe("catalog draft PDP projection", () => {
@@ -186,11 +169,13 @@ describe("catalog draft PDP projection", () => {
     });
 
     expect(preview.product).toMatchObject({
-      displayName: "DRAFT CLEANSE",
+      displayName: "CLEANSE",
       cardTagline: "Draft card tagline",
       description: "Draft editorial description",
       howToUse: "Draft editorial use",
-      variants: [{ id: "draft-100ml", price: 9900 }],
+      variants: [
+        { id: "55555555-5555-4555-8555-555555555555", price: 9900 },
+      ],
       pdpContent: {
         routineOverlay: "Draft routine overlay",
         routineGuidance: "Draft Core guidance",
@@ -198,42 +183,32 @@ describe("catalog draft PDP projection", () => {
     });
     expect(preview.product.media).toHaveLength(1);
     expect(preview.product.detailMedia?.url).toBe(approvedImage);
-    expect(preview.warnings).toEqual([
-      "1 draft media item was omitted because the source, role, or type was not approved.",
-    ]);
+    expect(preview.warnings).toEqual([]);
     expect(preview.coreProducts[0]).toMatchObject({
-      displayName: "DRAFT CLEANSE",
+      displayName: "CLEANSE",
       benefits: ["Draft benefit"],
-      variants: [{ id: "draft-100ml", price: 9900 }],
+      variants: [
+        { id: "55555555-5555-4555-8555-555555555555", price: 9900 },
+      ],
       pdpContent: { routineGuidance: "Draft Core guidance" },
     });
     expect(canonical).toEqual(original);
   });
 
-  it("omits external and unsupported media without crashing the preview", () => {
+  it("fails closed for external draft media", () => {
     const draft = document();
     draft.media = [
       {
         ...draft.media[0],
         url: "javascript:alert(1)",
       },
-      {
-        ...draft.media[0],
-        kind: "video",
-        role: "detail",
-        url: `${storageOrigin}/storage/v1/object/public/mei-pelle-catalog/products/cleanse/draft.mp4`,
-      },
     ];
 
-    const preview = projectCatalogDraftPreview(draft, base(), {
-      approvedMediaOrigin: storageOrigin,
-    });
-
-    expect(preview.product.media).toEqual([]);
-    expect(preview.warnings).toEqual([
-      "2 draft media items were omitted because the source, role, or type was not approved.",
-      "Draft media is unavailable; layout placeholders are shown.",
-    ]);
+    expect(() =>
+      projectCatalogDraftPreview(draft, base(), {
+        approvedMediaOrigin: storageOrigin,
+      }),
+    ).toThrow(CatalogPreviewProjectionError);
   });
 
   it("fails honestly for unsupported document schema versions", () => {

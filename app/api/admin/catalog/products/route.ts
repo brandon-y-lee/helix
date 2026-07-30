@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireAdminCapability } from "@/lib/admin/catalog/capabilities";
+import { requireAdminCapability } from "@/lib/admin/capabilities";
 import { runCatalogRoute } from "@/lib/admin/catalog/request";
 import { listCatalogProducts } from "@/lib/admin/catalog/service";
 

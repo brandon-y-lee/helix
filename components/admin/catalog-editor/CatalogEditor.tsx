@@ -11,6 +11,7 @@ import {
 import {
   CatalogDraft,
   CatalogDraftDocument,
+  CatalogConflictSnapshot,
   CatalogDiffEntry,
   CatalogPublishResult,
   CatalogRevision,
@@ -27,14 +28,14 @@ import styles from "./CatalogEditor.module.css";
 
 function localIssues(document: CatalogDraftDocument): CatalogValidationIssue[] {
   const issues: CatalogValidationIssue[] = [];
-  if (!(document.products.display_name ?? "").trim()) {
+  if (!(document.product.display_name ?? "").trim()) {
     issues.push({
       table: "products",
       field: "display_name",
       message: "Display name is required.",
     });
   }
-  if (!document.products.slug.trim()) {
+  if (!document.product.slug.trim()) {
     issues.push({
       table: "products",
       field: "slug",
@@ -43,7 +44,7 @@ function localIssues(document: CatalogDraftDocument): CatalogValidationIssue[] {
   }
 
   const skuOwners = new Map<string, string>();
-  for (const variant of document.product_variants) {
+  for (const variant of document.variants) {
     if (!variant.label.trim()) {
       issues.push({
         table: "product_variants",
@@ -81,20 +82,20 @@ function localIssues(document: CatalogDraftDocument): CatalogValidationIssue[] {
   }
 
   const relationshipKeys = new Set<string>();
-  for (const relationship of document.product_relationships) {
+  for (const relationship of document.relationships) {
     const key = `${relationship.related_product_id}:${relationship.relationship_type}`;
     if (relationship.related_product_id === document.productId) {
       issues.push({
         table: "product_relationships",
         field: "related_product_id",
-        row_id: relationship.id,
+        row_id: key,
         message: "A product cannot relate to itself.",
       });
     } else if (relationshipKeys.has(key)) {
       issues.push({
         table: "product_relationships",
         field: "related_product_id",
-        row_id: relationship.id,
+        row_id: key,
         message: "This relationship is duplicated.",
       });
     } else {
@@ -121,12 +122,18 @@ function documentDiff(
   const diff: CatalogValidationResult["diff"] = {};
   const affected: CatalogValidationResult["affected_tables"] = [];
   const objectTables = [
-    "products",
-    "product_pdp_content",
-  ] as const;
-  for (const table of objectTables) {
-    const previous = before[table] ?? {};
-    const next = after[table] ?? {};
+    {
+      table: "products" as const,
+      previous: before.product,
+      next: after.product,
+    },
+    {
+      table: "product_pdp_content" as const,
+      previous: before.productPdpContent ?? {},
+      next: after.productPdpContent ?? {},
+    },
+  ];
+  for (const { table, previous, next } of objectTables) {
     const entries: CatalogDiffEntry[] = [];
     for (const field of new Set([
       ...Object.keys(previous),
@@ -143,17 +150,30 @@ function documentDiff(
       affected.push(table);
     }
   }
-  for (const table of [
-    "product_variants",
-    "product_media",
-    "product_relationships",
-  ] as const) {
-    if (JSON.stringify(before[table]) !== JSON.stringify(after[table])) {
+  const collectionTables = [
+    {
+      table: "product_variants" as const,
+      previous: before.variants,
+      next: after.variants,
+    },
+    {
+      table: "product_media" as const,
+      previous: before.media,
+      next: after.media,
+    },
+    {
+      table: "product_relationships" as const,
+      previous: before.relationships,
+      next: after.relationships,
+    },
+  ];
+  for (const { table, previous, next } of collectionTables) {
+    if (JSON.stringify(previous) !== JSON.stringify(next)) {
       diff[table] = [
         {
           field: "records",
-          before: `${before[table].length} records`,
-          after: `${after[table].length} records`,
+          before: `${previous.length} records`,
+          after: `${next.length} records`,
         },
       ];
       affected.push(table);
@@ -177,7 +197,7 @@ export default function CatalogEditor({ productId }: { productId: string }) {
   const [validation, setValidation] =
     useState<CatalogValidationResult | null>(null);
   const [conflict, setConflict] = useState<{
-    latestDraft: CatalogDraft | null;
+    latestDraft: CatalogConflictSnapshot | null;
   } | null>(null);
   const [revisions, setRevisions] = useState<CatalogRevision[] | null>(null);
   const [status, setStatus] = useState("");
@@ -208,12 +228,12 @@ export default function CatalogEditor({ productId }: { productId: string }) {
     catalogEditorApi
       .getEditor(productId, controller.signal)
       .then((response) => {
-        const initial = response.draft?.document ?? response.product;
+        const initial = response.draft?.document ?? response.canonical;
         setDocument(initial);
         setSavedDocument(initial);
-        setCanonicalDocument(response.product);
+        setCanonicalDocument(response.canonical);
         setDraft(response.draft);
-        setCanPublish(response.permissions.publish);
+        setCanPublish(Boolean(response.permissions["catalog.publish"]));
       })
       .catch((loadError: unknown) => {
         if (loadError instanceof DOMException && loadError.name === "AbortError") {
@@ -324,16 +344,16 @@ export default function CatalogEditor({ productId }: { productId: string }) {
       const current = activeDocument.current;
       const response = await catalogEditorApi.uploadMedia(file, productId, {
         ...metadata,
-        sortOrder: current?.product_media.length ?? 0,
+        sortOrder: current?.media.length ?? 0,
       });
       if (!current) return;
       const next = {
         ...current,
-        product_media: [
-          ...current.product_media,
+        media: [
+          ...current.media,
           {
             ...response.media,
-            sort_order: current.product_media.length,
+            sort_order: current.media.length,
           },
         ],
       };
@@ -381,11 +401,11 @@ export default function CatalogEditor({ productId }: { productId: string }) {
           <Link href="/admin/catalog">← Catalog</Link>
           <p className={styles.eyebrow}>Unified product editor</p>
           <h1 className={styles.title}>
-            {document.products.display_name ||
-              document.products.source_fields?.name ||
-              document.products.slug}
+            {document.product.display_name ||
+              document.product.name ||
+              document.product.slug}
           </h1>
-          <p className={styles.lede}>/{document.products.slug}</p>
+          <p className={styles.lede}>/{document.product.slug}</p>
         </div>
         <div className={styles.statusRow} aria-label="Draft state">
           <span className={styles.pill}>{draft?.status ?? "No draft"}</span>
@@ -500,8 +520,9 @@ export default function CatalogEditor({ productId }: { productId: string }) {
                 onClick={() =>
                   runAction("revisions", async () => {
                     if (!draft) return;
-                    const response = await catalogEditorApi.listRevisions(draft.id);
-                    setRevisions(response.revisions);
+                    const response =
+                      await catalogEditorApi.listRevisions(draft.id);
+                    setRevisions(response.items);
                   })
                 }
               >
@@ -564,7 +585,8 @@ export default function CatalogEditor({ productId }: { productId: string }) {
                   onClick={() =>
                     runAction("reload", async () => {
                       const response = await catalogEditorApi.getEditor(productId);
-                      const latest = response.draft?.document ?? response.product;
+                      const latest =
+                        response.draft?.document ?? response.canonical;
                       setDraft(response.draft);
                       setDocument(latest);
                       setSavedDocument(latest);
@@ -656,7 +678,9 @@ export default function CatalogEditor({ productId }: { productId: string }) {
                       setPublishReviewOpen(false);
                       setValidation(null);
                       setIssues([]);
-                      setStatus(`Published revision ${result.revision.revision}.`);
+                      setStatus(
+                        `Published revision ${result.revision.revision_number}.`,
+                      );
                     })
                   }
                 >
@@ -678,7 +702,9 @@ export default function CatalogEditor({ productId }: { productId: string }) {
 
           {publishResult ? (
             <section className={styles.notice} aria-live="polite">
-              <h2>Revision {publishResult.revision.revision} published</h2>
+              <h2>
+                Revision {publishResult.revision.revision_number} published
+              </h2>
               <p>
                 The canonical revision is saved. Downstream delivery is shown
                 only when confirmed by the backend response.
@@ -704,9 +730,8 @@ export default function CatalogEditor({ productId }: { productId: string }) {
                   {revisions.map((revision) => (
                     <li key={revision.id}>
                       <span>
-                        Revision {revision.revision} ·{" "}
-                        {new Date(revision.created_at).toLocaleString()}
-                        {revision.summary ? ` · ${revision.summary}` : ""}
+                        Revision {revision.revision_number} ·{" "}
+                        {new Date(revision.published_at).toLocaleString()}
                       </span>
                       <button
                         className={`${styles.button} ${styles.buttonSecondary}`}
@@ -722,7 +747,7 @@ export default function CatalogEditor({ productId }: { productId: string }) {
                             setValidation(null);
                             setIssues([]);
                             setStatus(
-                              `Revision ${revision.revision} restored as draft version ${response.draft.version}.`,
+                              `Revision ${revision.revision_number} restored as draft version ${response.draft.version}.`,
                             );
                           })
                         }

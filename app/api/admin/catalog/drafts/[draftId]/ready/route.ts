@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireAdminCapability } from "@/lib/admin/catalog/capabilities";
+import { requireAdminCapability } from "@/lib/admin/capabilities";
 import {
   assertSameOrigin,
   readCatalogJson,

@@ -13,7 +13,11 @@ vi.mock("@/app/account/actions", () => ({
 }));
 
 vi.mock("@/components/Header", () => ({
-  Header: () => <div>Storefront customer navigation</div>,
+  Header: ({ commerceDisabled }: { commerceDisabled?: boolean }) => (
+    <div data-commerce-disabled={String(Boolean(commerceDisabled))}>
+      Storefront customer navigation
+    </div>
+  ),
 }));
 
 vi.mock("@/components/SiteFooter", () => ({
@@ -21,8 +25,16 @@ vi.mock("@/components/SiteFooter", () => ({
 }));
 
 vi.mock("@/components/CartProvider", () => ({
-  CartProvider: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="cart-provider">{children}</div>
+  CartProvider: ({
+    children,
+    disabled,
+  }: {
+    children: React.ReactNode;
+    disabled?: boolean;
+  }) => (
+    <div data-testid="cart-provider" data-disabled={String(Boolean(disabled))}>
+      {children}
+    </div>
   ),
 }));
 
@@ -36,6 +48,7 @@ import { ApplicationChrome } from "@/components/ApplicationChrome";
 import { AdminNavigation } from "@/components/admin/shell/AdminNavigation";
 import { AdminShell } from "@/components/admin/shell/AdminShell";
 import type { AdminModule } from "@/lib/admin/modules";
+import { adminReturnPath } from "@/lib/admin/routes";
 
 const modules: AdminModule[] = [
   {
@@ -54,6 +67,17 @@ beforeEach(() => {
 });
 
 describe("admin shell navigation", () => {
+  it("keeps only same-origin admin return paths", () => {
+    expect(
+      adminReturnPath(
+        "/admin/catalog/preview/123e4567-e89b-42d3-a456-426614174004",
+      ),
+    ).toBe(
+      "/admin/catalog/preview/123e4567-e89b-42d3-a456-426614174004",
+    );
+    expect(adminReturnPath("https://attacker.example/admin")).toBe("/admin");
+  });
+
   it("keeps desktop navigation keyboard reachable", async () => {
     const user = userEvent.setup();
     render(
@@ -98,7 +122,7 @@ describe("admin shell navigation", () => {
     expect(menuButton).toHaveFocus();
   });
 
-  it("removes storefront customer chrome from every admin route", () => {
+  it("removes storefront customer chrome from standard admin routes", () => {
     pathname = "/admin/catalog";
     render(
       <ApplicationChrome>
@@ -110,5 +134,26 @@ describe("admin shell navigation", () => {
     expect(screen.queryByText("Storefront customer navigation")).toBeNull();
     expect(screen.queryByText("Storefront customer footer")).toBeNull();
     expect(screen.queryByTestId("cart-provider")).toBeNull();
+  });
+
+  it("renders draft previews in storefront chrome with commerce disabled", () => {
+    pathname =
+      "/admin/catalog/preview/123e4567-e89b-42d3-a456-426614174004";
+    render(
+      <ApplicationChrome>
+        <div>Draft product detail</div>
+      </ApplicationChrome>,
+    );
+
+    expect(screen.getByText("Draft product detail")).toBeInTheDocument();
+    expect(screen.getByText("Storefront customer navigation")).toHaveAttribute(
+      "data-commerce-disabled",
+      "true",
+    );
+    expect(screen.getByTestId("cart-provider")).toHaveAttribute(
+      "data-disabled",
+      "true",
+    );
+    expect(screen.getByText("Storefront customer footer")).toBeInTheDocument();
   });
 });

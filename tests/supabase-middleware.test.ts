@@ -31,6 +31,22 @@ describe("Supabase middleware ownership", () => {
     expect(createClient).not.toHaveBeenCalled();
   });
 
+  it("forwards the exact admin path through a trusted request header", async () => {
+    const response = await updateSupabaseSession(
+      request(
+        "/admin/catalog/preview/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa?mode=inspect",
+      ),
+    );
+
+    expect(
+      response.headers.get(
+        "x-middleware-request-x-mei-pelle-admin-route",
+      ),
+    ).toBe(
+      "/admin/catalog/preview/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa?mode=inspect",
+    );
+  });
+
   it("keeps public account routes available and preserves cookies on outage", async () => {
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
     const response = await updateSupabaseSession(

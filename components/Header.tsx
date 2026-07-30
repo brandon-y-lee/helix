@@ -67,7 +67,11 @@ function resolveHeaderNavState({
   return deltaY > 0 ? "hidden" : "revealed";
 }
 
-export function Header() {
+export function Header({
+  commerceDisabled = false,
+}: {
+  commerceDisabled?: boolean;
+}) {
   const {
     count,
     hasLoadedCart,
@@ -80,10 +84,8 @@ export function Header() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const pathname = usePathname();
-  const catalogPreview =
-    pathname?.startsWith("/admin/catalog/preview/") ?? false;
   const overlayOpen =
-    searchOpen || (!catalogPreview && cartDrawerOpen) || menuOpen;
+    searchOpen || (!commerceDisabled && cartDrawerOpen) || menuOpen;
   const [navState, setNavState] = useState<HeaderNavState>("top");
   const [headerTheme, setHeaderTheme] = useState<HeaderTheme>("dark");
   const navStateRef = useRef<HeaderNavState>("top");
@@ -127,10 +129,10 @@ export function Header() {
   }, [setNavStateIfChanged]);
 
   useEffect(() => {
-    if (catalogPreview && cartDrawerOpen) {
+    if (commerceDisabled && cartDrawerOpen) {
       closeCartDrawer();
     }
-  }, [catalogPreview, cartDrawerOpen, closeCartDrawer]);
+  }, [commerceDisabled, cartDrawerOpen, closeCartDrawer]);
 
   useEffect(() => {
     overlayOpenRef.current = overlayOpen;
@@ -244,20 +246,22 @@ export function Header() {
             type="button"
             className="cart-link"
             onClick={() => {
-              if (!catalogPreview) openCartDrawer(returnFocusToCart);
+              if (!commerceDisabled) openCartDrawer(returnFocusToCart);
             }}
             aria-haspopup="dialog"
-            aria-expanded={catalogPreview ? false : cartDrawerOpen}
+            aria-expanded={commerceDisabled ? false : cartDrawerOpen}
             aria-label={
-              catalogPreview ? "Cart unavailable in draft preview" : undefined
+              commerceDisabled
+                ? "Cart unavailable in draft preview"
+                : undefined
             }
-            disabled={catalogPreview}
+            disabled={commerceDisabled}
           >
-            {catalogPreview
+            {commerceDisabled
               ? "CART (PREVIEW)"
               : `CART (${hasLoadedCart ? count : "—"})`}
             <span className="sr-only">
-              {catalogPreview
+              {commerceDisabled
                 ? ", purchasing disabled"
                 : hasLoadedCart
                 ? count > 0
@@ -296,7 +300,7 @@ export function Header() {
         onClose={closeSearch}
         returnFocus={returnFocusToSearch}
       />
-      {!catalogPreview && (
+      {!commerceDisabled && (
         <CartDrawer
           open={cartDrawerOpen}
           onClose={closeCartDrawer}

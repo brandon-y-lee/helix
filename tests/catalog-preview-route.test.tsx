@@ -5,7 +5,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const routeMocks = vi.hoisted(() => ({
   authorize: vi.fn(),
-  getSession: vi.fn(),
   loadDraft: vi.fn(),
   loadBase: vi.fn(),
   project: vi.fn(),
@@ -15,17 +14,13 @@ const routeMocks = vi.hoisted(() => ({
 vi.mock("next/navigation", () => ({
   redirect: routeMocks.redirect,
 }));
-vi.mock("@/lib/auth/session", () => ({
-  getCurrentSession: routeMocks.getSession,
+vi.mock("@/lib/admin/capabilities", () => ({
+  ADMIN_CAPABILITIES: { catalogRead: "catalog.read" },
+  checkAdminCapability: routeMocks.authorize,
 }));
-vi.mock("@/lib/catalog-editor/authorization", () => ({
-  authorizeCatalogPreview: routeMocks.authorize,
+vi.mock("@/lib/admin/catalog/service", () => ({
+  getCatalogDraftForPreview: routeMocks.loadDraft,
 }));
-vi.mock("@/lib/catalog-editor/draft-loader", async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import("@/lib/catalog-editor/draft-loader")>();
-  return { ...actual, loadCatalogDraftPreview: routeMocks.loadDraft };
-});
 vi.mock("@/lib/catalog-editor/preview-data", () => ({
   loadCatalogPreviewBase: routeMocks.loadBase,
 }));
@@ -62,15 +57,17 @@ const draftId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 
 function draftRecord(status = "draft") {
   return {
-    draftId,
+    id: draftId,
+    product_id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
     status,
     version: 3,
-    lastSavedAt: "2026-07-29T18:30:00.000Z",
-    editorPath: `/admin/catalog/${draftId}`,
-    publishedSlug: "cleanse-01-calming-gel-cleanser",
+    updated_at: "2026-07-29T18:30:00.000Z",
     document: {
       schemaVersion: 1,
-      product: { displayName: "DRAFT CLEANSE", slug: "cleanse-draft" },
+      product: {
+        display_name: "DRAFT CLEANSE",
+        slug: "cleanse-01-calming-gel-cleanser",
+      },
     },
   };
 }
@@ -78,14 +75,11 @@ function draftRecord(status = "draft") {
 beforeEach(() => {
   vi.clearAllMocks();
   routeMocks.authorize.mockResolvedValue({
-    status: "authorized",
-    claims: { sub: "admin-id" },
+    status: "allowed",
+    principal: { id: "admin-id", email: null },
+    access: {},
   });
-  routeMocks.getSession.mockResolvedValue({ access_token: "token" });
-  routeMocks.loadDraft.mockResolvedValue({
-    ok: true,
-    record: draftRecord(),
-  });
+  routeMocks.loadDraft.mockResolvedValue(draftRecord());
   routeMocks.loadBase.mockResolvedValue({ product: {}, coreProducts: [] });
   routeMocks.project.mockReturnValue({
     product: {},
@@ -120,12 +114,14 @@ describe("catalog draft preview route", () => {
     );
     expect(previewSource).not.toContain("@/lib/catalog-cache");
     expect(previewSource).not.toMatch(/algolia/i);
+    expect(previewSource).not.toContain("CATALOG_EDITOR_BACKEND_URL");
+    expect(previewSource).not.toContain("loadCatalogDraftPreview");
     expect(publicSource).not.toContain("@/lib/catalog-editor");
     expect(publicSource).toContain("getCachedPdpProduct");
   });
 
   it("redirects an anonymous request before reading the draft", async () => {
-    routeMocks.authorize.mockResolvedValue({ status: "anonymous" });
+    routeMocks.authorize.mockResolvedValue({ status: "unauthenticated" });
 
     await expect(
       CatalogDraftPreviewPage({
@@ -156,10 +152,7 @@ describe("catalog draft preview route", () => {
     ["discarded", "Draft discarded"],
     ["published", "Draft already published"],
   ])("identifies a %s draft without rendering the PDP", async (status, title) => {
-    routeMocks.loadDraft.mockResolvedValue({
-      ok: true,
-      record: draftRecord(status),
-    });
+    routeMocks.loadDraft.mockResolvedValue(draftRecord(status));
 
     render(
       await CatalogDraftPreviewPage({
@@ -171,11 +164,8 @@ describe("catalog draft preview route", () => {
     expect(screen.queryByTestId("real-pdp")).not.toBeInTheDocument();
   });
 
-  it("does not substitute a public PDP when the backend is unavailable", async () => {
-    routeMocks.loadDraft.mockResolvedValue({
-      ok: false,
-      reason: "backend_unavailable",
-    });
+  it("does not substitute a public PDP when the database is unavailable", async () => {
+    routeMocks.loadDraft.mockRejectedValue(new Error("Database unavailable"));
 
     render(
       await CatalogDraftPreviewPage({

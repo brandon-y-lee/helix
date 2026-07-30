@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { CatalogAdminError } from "@/lib/admin/catalog/errors";
-import { requireAdminCapability } from "@/lib/admin/catalog/capabilities";
+import { requireAdminCapability } from "@/lib/admin/capabilities";
 import { stageCatalogMedia } from "@/lib/admin/catalog/media";
 import {
   assertMediaRequestSize,

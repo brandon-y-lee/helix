@@ -14,8 +14,10 @@ import {
   assertValidProductEditorDocument,
   validateProductEditorDocument,
 } from "@/lib/admin/catalog/validation";
+import { validateCatalogEditorOwnership } from "@/lib/admin/catalog/ownership";
 import type {
   CatalogDraftRecord,
+  CatalogEditorResponse,
   CatalogGridRow,
   CatalogPublishSuccess,
   CatalogRevisionRecord,
@@ -23,7 +25,7 @@ import type {
   ProductEditorDocumentV1,
   CatalogValidationIssue,
 } from "@/lib/admin/catalog/types";
-import type { CatalogAdminAccess } from "@/lib/admin/catalog/capabilities";
+import type { CatalogAdminAccess } from "@/lib/admin/capabilities";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -63,6 +65,35 @@ function throwDatabaseError(error: { message: string; code?: string } | null): n
     notFound ? "The requested catalog record was not found." : "The catalog operation failed.",
     notFound ? 404 : 503,
   );
+}
+
+async function readCanonicalDocument(
+  productId: string,
+): Promise<ProductEditorDocumentV1> {
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin.rpc("get_catalog_editor_document", {
+    p_product_id: productId,
+  });
+  if (error) throwDatabaseError(error);
+  if (!data) {
+    throw new CatalogAdminError("product_not_found", "Product not found.", 404);
+  }
+  return assertValidProductEditorDocument(data);
+}
+
+function assertCatalogEditorOwnership(
+  document: ProductEditorDocumentV1,
+  canonical: ProductEditorDocumentV1,
+) {
+  const issues = validateCatalogEditorOwnership(document, canonical);
+  if (issues.length > 0) {
+    throw new CatalogAdminError(
+      "field_ownership_violation",
+      "The draft changes fields that are read only in the catalog editor.",
+      422,
+      { issues },
+    );
+  }
 }
 
 async function pendingMediaValidationIssues(
@@ -163,6 +194,51 @@ export async function listCatalogProducts(url: URL): Promise<{
     );
   }
 
+  const catalogStatus = url.searchParams.get("catalogStatus");
+  if (
+    catalogStatus &&
+    !["active", "archived", "draft"].includes(catalogStatus)
+  ) {
+    throw new CatalogAdminError(
+      "invalid_catalog_status",
+      "Unsupported catalog publication filter.",
+      400,
+    );
+  }
+  const routineFilter = url.searchParams.get("routineGroup");
+  if (routineFilter && !["core", "beyond"].includes(routineFilter)) {
+    throw new CatalogAdminError(
+      "invalid_routine_group",
+      "Unsupported routine classification filter.",
+      400,
+    );
+  }
+  const draftFilter = url.searchParams.get("draftStatus");
+  if (draftFilter && !["draft", "ready", "none"].includes(draftFilter)) {
+    throw new CatalogAdminError(
+      "invalid_draft_status",
+      "Unsupported draft status filter.",
+      400,
+    );
+  }
+
+  let filteredDrafts: Array<{
+    id: string;
+    product_id: string;
+    status: string;
+    version: number;
+    updated_at: string;
+    updated_by: string;
+  }> | null = null;
+  if (draftFilter) {
+    const { data, error } = await admin
+      .from("product_content_drafts")
+      .select("id, product_id, status, version, updated_at, updated_by")
+      .in("status", ["draft", "ready"]);
+    if (error) throwDatabaseError(error);
+    filteredDrafts = data ?? [];
+  }
+
   let query = admin
     .from("products")
     .select(
@@ -173,11 +249,30 @@ export async function listCatalogProducts(url: URL): Promise<{
       `slug.ilike.%${queryText}%,name.ilike.%${queryText}%,display_name.ilike.%${queryText}%`,
     );
   }
-
-  const catalogStatus = url.searchParams.get("catalogStatus");
   if (catalogStatus) query = query.eq("catalog_status", catalogStatus);
-  const routineGroup = url.searchParams.get("routineGroup");
-  if (routineGroup) query = query.eq("routine_group", routineGroup);
+  if (routineFilter) {
+    query = query.eq(
+      "routine_group",
+      routineFilter === "beyond" ? "beyond_core" : routineFilter,
+    );
+  }
+  if (draftFilter && filteredDrafts) {
+    const productIds = filteredDrafts
+      .filter(
+        (draft) =>
+          draftFilter === "none" || draft.status === draftFilter,
+      )
+      .map((draft) => draft.product_id);
+    if (draftFilter === "none") {
+      if (productIds.length > 0) {
+        query = query.not("id", "in", `(${productIds.join(",")})`);
+      }
+    } else if (productIds.length === 0) {
+      return { items: [], nextCursor: null };
+    } else {
+      query = query.in("id", productIds);
+    }
+  }
 
   if (sort === "name_asc") {
     query = query.order("name", { ascending: true }).order("id");
@@ -209,28 +304,51 @@ export async function listCatalogProducts(url: URL): Promise<{
   const visible = page.slice(0, limit);
   const productIds = visible.map((product) => product.id);
 
-  const [draftResult, revisionResult] = productIds.length
+  const [draftResult, revisionResult, variantResult, mediaResult] = productIds.length
     ? await Promise.all([
-        admin
-          .from("product_content_drafts")
-          .select("id, product_id, status, version, updated_at, updated_by")
-          .in("product_id", productIds)
-          .in("status", ["draft", "ready"]),
+        filteredDrafts
+          ? Promise.resolve({ data: filteredDrafts, error: null })
+          : admin
+              .from("product_content_drafts")
+              .select("id, product_id, status, version, updated_at, updated_by")
+              .in("product_id", productIds)
+              .in("status", ["draft", "ready"]),
         admin
           .from("catalog_product_revisions")
           .select("product_id, revision_number")
           .in("product_id", productIds)
           .order("revision_number", { ascending: false }),
+        admin
+          .from("product_variants")
+          .select("product_id, price_cents")
+          .in("product_id", productIds)
+          .is("archived_at", null),
+        admin
+          .from("product_media")
+          .select(
+            "product_id, url, alt, role, sort_order, media_type, media_kind",
+          )
+          .in("product_id", productIds)
+          .is("archived_at", null)
+          .eq("media_type", "image")
+          .in("role", ["card_default", "card", "detail", "hero"])
+          .order("sort_order", { ascending: true }),
       ])
     : [
+        { data: [], error: null },
+        { data: [], error: null },
         { data: [], error: null },
         { data: [], error: null },
       ];
   if (draftResult.error) throwDatabaseError(draftResult.error);
   if (revisionResult.error) throwDatabaseError(revisionResult.error);
+  if (variantResult.error) throwDatabaseError(variantResult.error);
+  if (mediaResult.error) throwDatabaseError(mediaResult.error);
 
   const drafts = new Map(
-    (draftResult.data ?? []).map((draft) => [draft.product_id, draft]),
+    (draftResult.data ?? [])
+      .filter((draft) => productIds.includes(draft.product_id))
+      .map((draft) => [draft.product_id, draft]),
   );
   const revisions = new Map<string, number>();
   for (const revision of revisionResult.data ?? []) {
@@ -238,10 +356,58 @@ export async function listCatalogProducts(url: URL): Promise<{
       revisions.set(revision.product_id, revision.revision_number);
     }
   }
+  const offerSummaries = new Map<
+    string,
+    { count: number; minimum: number; maximum: number }
+  >();
+  for (const variant of variantResult.data ?? []) {
+    const summary = offerSummaries.get(variant.product_id);
+    if (!summary) {
+      offerSummaries.set(variant.product_id, {
+        count: 1,
+        minimum: variant.price_cents,
+        maximum: variant.price_cents,
+      });
+      continue;
+    }
+    summary.count += 1;
+    summary.minimum = Math.min(summary.minimum, variant.price_cents);
+    summary.maximum = Math.max(summary.maximum, variant.price_cents);
+  }
+  const mediaRoleRank = new Map([
+    ["card_default", 0],
+    ["card", 1],
+    ["detail", 2],
+    ["hero", 3],
+  ]);
+  const primaryMedia = new Map<
+    string,
+    { url: string | null; alt: string; rank: number; sortOrder: number }
+  >();
+  for (const media of mediaResult.data ?? []) {
+    if (media.media_kind !== "image" || !media.url) continue;
+    const candidate = {
+      url: media.url,
+      alt: media.alt,
+      rank: mediaRoleRank.get(media.role) ?? 99,
+      sortOrder: media.sort_order,
+    };
+    const current = primaryMedia.get(media.product_id);
+    if (
+      !current ||
+      candidate.rank < current.rank ||
+      (candidate.rank === current.rank &&
+        candidate.sortOrder < current.sortOrder)
+    ) {
+      primaryMedia.set(media.product_id, candidate);
+    }
+  }
 
   return {
     items: visible.map((product) => {
       const draft = drafts.get(product.id);
+      const offers = offerSummaries.get(product.id);
+      const media = primaryMedia.get(product.id);
       return {
         id: product.id,
         slug: product.slug,
@@ -253,6 +419,10 @@ export async function listCatalogProducts(url: URL): Promise<{
         routineSort: product.routine_sort,
         publishedAt: product.published_at,
         updatedAt: product.updated_at,
+        primaryMedia: media ? { url: media.url, alt: media.alt } : null,
+        variantCount: offers?.count ?? 0,
+        minimumPriceCents: offers?.minimum ?? null,
+        maximumPriceCents: offers?.maximum ?? null,
         activeDraft: draft
           ? {
               id: draft.id,
@@ -275,15 +445,10 @@ export async function listCatalogProducts(url: URL): Promise<{
 export async function getCatalogEditor(
   productId: string,
   access: CatalogAdminAccess,
-): Promise<{
-  canonical: ProductEditorDocumentV1;
-  draft: CatalogDraftRecord | null;
-  latestRevision: number;
-  permissions: Record<string, boolean>;
-}> {
+): Promise<CatalogEditorResponse> {
   const admin = createSupabaseAdminClient();
-  const [documentResult, draftResult, revisionResult] = await Promise.all([
-    admin.rpc("get_catalog_editor_document", { p_product_id: productId }),
+  const [canonical, draftResult, revisionResult] = await Promise.all([
+    readCanonicalDocument(productId),
     admin
       .from("product_content_drafts")
       .select("*")
@@ -298,14 +463,9 @@ export async function getCatalogEditor(
       .limit(1)
       .maybeSingle(),
   ]);
-  if (documentResult.error) throwDatabaseError(documentResult.error);
-  if (!documentResult.data) {
-    throw new CatalogAdminError("product_not_found", "Product not found.", 404);
-  }
   if (draftResult.error) throwDatabaseError(draftResult.error);
   if (revisionResult.error) throwDatabaseError(revisionResult.error);
 
-  const canonical = assertValidProductEditorDocument(documentResult.data);
   return {
     canonical,
     draft: (draftResult.data as CatalogDraftRecord | null) ?? null,
@@ -339,6 +499,8 @@ export async function saveCatalogDraft(input: {
   actorId: string;
 }): Promise<{ ok: true; draft: CatalogDraftRecord }> {
   const document = assertProductEditorDocumentStructure(input.document);
+  const canonical = await readCanonicalDocument(document.productId);
+  assertCatalogEditorOwnership(document, canonical);
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin.rpc("save_catalog_product_draft", {
     p_draft_id: input.draftId,
@@ -367,6 +529,12 @@ async function readDraft(draftId: string): Promise<CatalogDraftRecord> {
   return data as CatalogDraftRecord;
 }
 
+export async function getCatalogDraftForPreview(
+  draftId: string,
+): Promise<CatalogDraftRecord> {
+  return readDraft(draftId);
+}
+
 export async function transitionCatalogDraft(input: {
   draftId: string;
   expectedVersion: number;
@@ -380,6 +548,10 @@ export async function transitionCatalogDraft(input: {
     validationErrors = result.document
       ? [
           ...result.issues,
+          ...validateCatalogEditorOwnership(
+            result.document,
+            await readCanonicalDocument(result.document.productId),
+          ),
           ...(await pendingMediaValidationIssues(result.document)),
         ]
       : result.issues;
@@ -403,13 +575,17 @@ export async function publishCatalogDraft(input: {
 }): Promise<CatalogPublishSuccess> {
   const draft = await readDraft(input.draftId);
   const document = assertValidProductEditorDocument(draft.document);
-  const mediaIssues = await pendingMediaValidationIssues(document);
-  if (mediaIssues.length > 0) {
+  const [canonical, mediaIssues] = await Promise.all([
+    readCanonicalDocument(document.productId),
+    pendingMediaValidationIssues(document),
+  ]);
+  const ownershipIssues = validateCatalogEditorOwnership(document, canonical);
+  if (mediaIssues.length > 0 || ownershipIssues.length > 0) {
     throw new CatalogAdminError(
       "validation_failed",
-      "The product editor document has unverified media.",
+      "The product editor document failed publication validation.",
       422,
-      { issues: mediaIssues },
+      { issues: [...ownershipIssues, ...mediaIssues] },
     );
   }
   const admin = createSupabaseAdminClient();

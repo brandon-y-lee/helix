@@ -1,3 +1,23 @@
+import type {
+  CatalogDraftRecord,
+  CatalogEditorResponse,
+  CatalogGridRow,
+  CatalogPublishSuccess,
+  CatalogRevisionRecord,
+  CatalogRpcConflict,
+  CatalogValidationIssue as CatalogBackendValidationIssue,
+  EditableProductMedia,
+  EditableProductPdpContentFields,
+  EditableProductRelationship,
+  EditableProductVariant,
+  EditableProductFields,
+  ProductEditorDocumentV1,
+} from "@/lib/admin/catalog/types";
+import type {
+  PdpIngredientCard,
+  PdpIngredientHighlight,
+} from "@/lib/catalog/product-content";
+
 export type CatalogPublicationFilter =
   | "all"
   | "active"
@@ -12,237 +32,47 @@ export type CatalogTable =
   | "product_media"
   | "product_relationships";
 
-export interface CatalogMediaSummary {
-  url: string | null;
-  alt: string;
-}
-
-export interface CatalogProductListItem {
-  id: string;
-  slug: string;
-  display_name: string;
-  routine_group: "core" | "beyond" | null;
-  product_status: string;
-  catalog_status: string;
-  variant_count: number | null;
-  minimum_price_cents: number | null;
-  maximum_price_cents: number | null;
-  draft_status: string | null;
-  updated_at: string;
-  draft_updated_at: string | null;
-  primary_media: CatalogMediaSummary | null;
-}
-
-export interface CatalogProductListResponse {
-  products: CatalogProductListItem[];
-  next_cursor: string | null;
-}
-
-export interface CatalogSourceFields {
-  name?: string | null;
-  tagline?: string | null;
-  description?: string | null;
-  how_to_use?: string | null;
-}
-
-export interface CatalogProductFields {
-  [key: string]: unknown;
-  slug: string;
-  display_name: string | null;
-  card_tagline: string | null;
-  editorial_description: string | null;
-  editorial_how_to_use: string | null;
-  made_for: string | null;
-  good_for: string | null;
-  texture: string | null;
-  finish: string | null;
-  volume: string | null;
-  key_ingredients: string[];
-  benefits: string[];
-  cautions: string[];
-  skin_types: string[];
-  usage_time: string[];
-  routine_group: "core" | "beyond" | null;
-  routine_step_number: number | null;
-  routine_step_name: string | null;
-  routine_display_label: string | null;
-  routine_sort: number | null;
-  seo_title: string | null;
-  seo_description: string | null;
-  status: string;
-  catalog_status: string;
-  source_fields?: CatalogSourceFields;
-}
-
-export interface CatalogProfileTitleToken {
-  text: string;
-  emphasis?: boolean;
-}
-
-export interface CatalogIngredientCard {
-  name: string;
-  description: string;
-}
-
-export interface CatalogIngredientHighlight {
-  title: string;
-  description: string;
-}
-
-export interface CatalogPdpContentFields {
-  [key: string]: unknown;
-  profile_title_tokens: CatalogProfileTitleToken[];
-  routine_overlay: string | null;
-  outcome_heading: string | null;
-  outcome_labels: string[];
-  how_to_use_steps: string[];
-  application_steps: string[];
-  ingredient_cards: CatalogIngredientCard[];
-  ingredient_story: {
-    heading: string;
-    intro: string;
-    highlights: CatalogIngredientHighlight[];
-    supporting_ingredients: string[];
-  } | null;
-  routine_guidance: string | null;
-}
-
-export interface CatalogVariantFields {
-  [key: string]: unknown;
-  id: string;
-  variant_key: string;
-  label: string;
-  sku: string | null;
-  price_cents: number;
-  available: boolean;
-  inventory_status: string;
-  volume: string | null;
-  pack_count: number | null;
-  sort_order: number | null;
-}
-
-export interface CatalogMediaFields {
-  [key: string]: unknown;
-  id: string;
-  url: string | null;
-  media_type: string;
-  media_kind: string | null;
-  role: string;
-  alt: string;
-  width: number | null;
-  height: number | null;
-  sort_order: number;
-}
-
-export interface CatalogRelationshipFields {
-  [key: string]: unknown;
-  id: string;
-  related_product_id: string;
-  relationship_type: string;
-  sort_order: number;
-  related_product?: {
-    display_name: string;
-    slug: string;
-  };
-}
-
-export interface CatalogDraftDocument {
-  schemaVersion: number;
-  productId: string;
-  products: CatalogProductFields;
-  product_pdp_content: CatalogPdpContentFields | null;
-  product_variants: CatalogVariantFields[];
-  product_media: CatalogMediaFields[];
-  product_relationships: CatalogRelationshipFields[];
-}
-
-export interface CatalogDraft {
-  id: string;
-  product_id: string;
-  status: "draft" | "ready" | "published" | "discarded";
-  base_revision: number | null;
-  version: number;
-  updated_at: string;
-  document: CatalogDraftDocument;
-  validation_errors?: WireValidationIssue[];
-}
-
-export interface CatalogPermissions {
-  publish: boolean;
-}
-
-export interface CatalogEditorResponse {
-  product: CatalogDraftDocument;
-  draft: CatalogDraft | null;
-  latest_revision: number;
-  permissions: CatalogPermissions;
-}
-
-export interface CatalogValidationIssue {
-  table: CatalogTable;
-  field: string;
-  message: string;
-  row_id?: string;
-}
-
-export interface CatalogDiffEntry {
-  field: string;
-  before: unknown;
-  after: unknown;
-}
-
-export interface CatalogValidationResult {
-  valid: boolean;
-  issues: CatalogValidationIssue[];
-  diff: Partial<Record<CatalogTable, CatalogDiffEntry[]>>;
-  affected_tables: CatalogTable[];
-  draft: CatalogDraft;
-}
-
-export interface CatalogRevision {
-  id: string;
-  revision: number;
-  created_at: string;
-  created_by: string | null;
-  summary: string | null;
-}
-
-export interface CatalogPublishResult {
-  draft: CatalogDraft;
-  revision: CatalogRevision;
-  changed_tables: CatalogTable[];
+export type CatalogDraftDocument = ProductEditorDocumentV1;
+export type CatalogDraft = CatalogDraftRecord;
+export type CatalogRevision = CatalogRevisionRecord;
+export type CatalogPublishResult = CatalogPublishSuccess & {
   delivery?: {
     cache?: "confirmed" | "pending" | "failed";
     algolia?: "confirmed" | "pending" | "failed";
   };
-}
+};
+export type CatalogProductListItem = CatalogGridRow;
+export type CatalogConflictSnapshot = NonNullable<CatalogRpcConflict["stored"]>;
+export type CatalogProductFields = EditableProductFields;
+export type CatalogPdpContentFields = EditableProductPdpContentFields;
+export type CatalogVariantFields = EditableProductVariant;
+export type CatalogMediaFields = EditableProductMedia;
+export type CatalogRelationshipFields = EditableProductRelationship;
+export type CatalogIngredientCard = PdpIngredientCard;
+export type CatalogIngredientHighlight = PdpIngredientHighlight;
+export type { CatalogEditorResponse };
 
-interface WireDocument {
-  schemaVersion: number;
-  productId: string;
-  product: CatalogProductFields;
-  productPdpContent: CatalogPdpContentFields | null;
-  variants: CatalogVariantFields[];
-  media: CatalogMediaFields[];
-  relationships: CatalogRelationshipFields[];
-}
-
-interface WireValidationIssue {
-  path: string;
-  code: string;
+export type CatalogEditorIssue = {
+  table: CatalogTable;
+  field: string;
   message: string;
-}
+  row_id?: string;
+};
+export type CatalogValidationIssue = CatalogEditorIssue;
 
-interface WireDraft extends Omit<CatalogDraft, "document"> {
-  document: WireDocument;
-}
+export type CatalogDiffEntry = {
+  field: string;
+  before: unknown;
+  after: unknown;
+};
 
-interface WireRevision {
-  id: string;
-  revision_number: number;
-  published_at: string;
-  published_by: string | null;
-}
+export type CatalogValidationResult = {
+  valid: boolean;
+  issues: CatalogEditorIssue[];
+  diff: Partial<Record<CatalogTable, CatalogDiffEntry[]>>;
+  affected_tables: CatalogTable[];
+  draft: CatalogDraftRecord;
+};
 
 export class CatalogApiError extends Error {
   status: number;
@@ -257,11 +87,11 @@ export class CatalogApiError extends Error {
 }
 
 export class CatalogVersionConflictError extends CatalogApiError {
-  latestDraft: CatalogDraft | null;
+  latestDraft: CatalogConflictSnapshot | null;
 
   constructor(
     message: string,
-    latestDraft: CatalogDraft | null,
+    latestDraft: CatalogConflictSnapshot | null,
     details?: unknown,
   ) {
     super(message, 409, details);
@@ -270,71 +100,29 @@ export class CatalogVersionConflictError extends CatalogApiError {
   }
 }
 
-function fromWireDocument(document: WireDocument): CatalogDraftDocument {
-  return {
-    schemaVersion: document.schemaVersion,
-    productId: document.productId,
-    products: {
-      ...document.product,
-      source_fields: {
-        name:
-          typeof document.product.name === "string"
-            ? document.product.name
-            : null,
-        tagline:
-          typeof document.product.tagline === "string"
-            ? document.product.tagline
-            : null,
-        description:
-          typeof document.product.description === "string"
-            ? document.product.description
-            : null,
-        how_to_use:
-          typeof document.product.how_to_use === "string"
-            ? document.product.how_to_use
-            : null,
-      },
-    },
-    product_pdp_content: document.productPdpContent,
-    product_variants: document.variants,
-    product_media: document.media,
-    product_relationships: document.relationships,
-  };
-}
-
-function toWireDocument(document: CatalogDraftDocument): WireDocument {
-  const product = { ...document.products };
-  delete product.source_fields;
-  return {
-    schemaVersion: document.schemaVersion,
-    productId: document.productId,
-    product: product as CatalogProductFields,
-    productPdpContent: document.product_pdp_content,
-    variants: document.product_variants,
-    media: document.product_media,
-    relationships: document.product_relationships,
-  };
-}
-
-function fromWireDraft(draft: WireDraft): CatalogDraft {
-  return {
-    ...draft,
-    document: fromWireDocument(draft.document),
-  };
-}
-
-function fromWireRevision(revision: WireRevision): CatalogRevision {
-  return {
-    id: revision.id,
-    revision: revision.revision_number,
-    created_at: revision.published_at,
-    created_by: revision.published_by,
-    summary: null,
-  };
+function conflictSnapshot(value: unknown): CatalogConflictSnapshot | null {
+  if (!value || typeof value !== "object" || !("stored" in value)) return null;
+  const stored = value.stored;
+  if (
+    !stored ||
+    typeof stored !== "object" ||
+    !("version" in stored) ||
+    !Number.isSafeInteger(stored.version) ||
+    !("status" in stored) ||
+    !["draft", "ready", "published", "discarded"].includes(
+      String(stored.status),
+    ) ||
+    !("updatedAt" in stored) ||
+    typeof stored.updatedAt !== "string" ||
+    !("updatedBy" in stored) ||
+    typeof stored.updatedBy !== "string"
+  ) {
+    return null;
+  }
+  return stored as CatalogConflictSnapshot;
 }
 
 function tableForPath(segment: string): CatalogTable {
-  if (segment === "product") return "products";
   if (segment === "productPdpContent") return "product_pdp_content";
   if (segment === "variants") return "product_variants";
   if (segment === "media") return "product_media";
@@ -342,31 +130,35 @@ function tableForPath(segment: string): CatalogTable {
   return "products";
 }
 
-function fromWireIssue(
-  issue: WireValidationIssue,
-  document: CatalogDraftDocument,
-): CatalogValidationIssue {
+function editorIssue(
+  issue: CatalogBackendValidationIssue,
+  document: ProductEditorDocumentV1,
+): CatalogEditorIssue {
   const parts = issue.path.split(".");
   const table = tableForPath(parts[0] ?? "");
   const index = Number(parts[1]);
-  const isCollection = [
-    "product_variants",
-    "product_media",
-    "product_relationships",
-  ].includes(table);
   const collection =
     table === "product_variants"
-      ? document.product_variants
+      ? document.variants
       : table === "product_media"
-        ? document.product_media
+        ? document.media
         : table === "product_relationships"
-          ? document.product_relationships
+          ? document.relationships
           : [];
+  const row = Number.isInteger(index) ? collection[index] : undefined;
+  const rowId =
+    row && "id" in row
+      ? row.id
+      : row && "related_product_id" in row
+        ? `${row.related_product_id}:${row.relationship_type}`
+        : undefined;
   return {
     table,
-    field: isCollection ? (parts[2] ?? parts[1] ?? "section") : (parts[1] ?? "section"),
-    row_id:
-      isCollection && Number.isInteger(index) ? collection[index]?.id : undefined,
+    field:
+      collection.length > 0
+        ? (parts[2] ?? parts[1] ?? "section")
+        : (parts[1] ?? "section"),
+    row_id: rowId,
     message: issue.message,
   };
 }
@@ -423,7 +215,7 @@ async function requestJson<T>(
     if (response.status === 409) {
       throw new CatalogVersionConflictError(
         message,
-        null,
+        conflictSnapshot(errorPayload?.details),
         errorPayload?.details ?? data,
       );
     }
@@ -459,180 +251,97 @@ function catalogProductsQuery(params: {
   return `?${query.toString()}`;
 }
 
-function normalizeListResponse(data: {
-  items: Array<{
-    id: string;
-    slug: string;
-    displayName: string;
-    catalogStatus: string;
-    productStatus: string;
-    routineGroup: string | null;
-    updatedAt: string;
-    activeDraft: {
-      status: string;
-      updatedAt: string;
-    } | null;
-    variantCount?: number;
-    minimumPriceCents?: number | null;
-    maximumPriceCents?: number | null;
-    primaryMedia?: CatalogMediaSummary | null;
-  }>;
-  nextCursor: string | null;
-}): CatalogProductListResponse {
-  return {
-    products: data.items.map((item) => ({
-      id: item.id,
-      slug: item.slug,
-      display_name: item.displayName,
-      routine_group:
-        item.routineGroup === "core" || item.routineGroup === "beyond"
-          ? item.routineGroup
-          : null,
-      product_status: item.productStatus,
-      catalog_status: item.catalogStatus,
-      variant_count: item.variantCount ?? null,
-      minimum_price_cents: item.minimumPriceCents ?? null,
-      maximum_price_cents: item.maximumPriceCents ?? null,
-      draft_status: item.activeDraft?.status ?? null,
-      updated_at: item.updatedAt,
-      draft_updated_at: item.activeDraft?.updatedAt ?? null,
-      primary_media: item.primaryMedia ?? null,
-    })),
-    next_cursor: data.nextCursor,
-  };
-}
-
-async function saveWireDraft(
+async function saveDraft(
   draftId: string,
   version: number,
-  document: CatalogDraftDocument,
+  document: ProductEditorDocumentV1,
 ) {
-  const response = await requestJson<{ draft: WireDraft }>(
+  return requestJson<{ ok: true; draft: CatalogDraftRecord }>(
     `/api/admin/catalog/drafts/${encodeURIComponent(draftId)}`,
     {
       method: "PATCH",
-      body: JSON.stringify({
-        expectedVersion: version,
-        document: toWireDocument(document),
-      }),
+      body: JSON.stringify({ expectedVersion: version, document }),
     },
   );
-  return { draft: fromWireDraft(response.draft) };
 }
 
 export const catalogEditorApi = {
-  async listProducts(
+  listProducts(
     params: Parameters<typeof catalogProductsQuery>[0],
     signal?: AbortSignal,
   ) {
-    const data = await requestJson<Parameters<typeof normalizeListResponse>[0]>(
+    return requestJson<{ items: CatalogGridRow[]; nextCursor: string | null }>(
       `/api/admin/catalog/products${catalogProductsQuery(params)}`,
       {},
       signal,
     );
-    const normalized = normalizeListResponse(data);
-    if (!params.draft || params.draft === "all") return normalized;
-    return {
-      ...normalized,
-      products: normalized.products.filter((product) => {
-        if (params.draft === "none") return product.draft_status === null;
-        return product.draft_status === params.draft;
-      }),
-    };
   },
 
-  async getEditor(productId: string, signal?: AbortSignal) {
-    const data = await requestJson<{
-      canonical: WireDocument;
-      draft: WireDraft | null;
-      latestRevision: number;
-      permissions: Record<string, boolean>;
-    }>(
+  getEditor(productId: string, signal?: AbortSignal) {
+    return requestJson<CatalogEditorResponse>(
       `/api/admin/catalog/products/${encodeURIComponent(productId)}/editor`,
       {},
       signal,
     );
-    return {
-      product: fromWireDocument(data.canonical),
-      draft: data.draft ? fromWireDraft(data.draft) : null,
-      latest_revision: data.latestRevision,
-      permissions: { publish: Boolean(data.permissions["catalog.publish"]) },
-    } satisfies CatalogEditorResponse;
   },
 
-  async createDraft(productId: string, document: CatalogDraftDocument) {
-    const created = await requestJson<{ draft: WireDraft }>(
-      `/api/admin/catalog/products/${encodeURIComponent(productId)}/drafts`,
-      { method: "POST" },
-    );
-    return saveWireDraft(created.draft.id, created.draft.version, document);
+  async createDraft(productId: string, document: ProductEditorDocumentV1) {
+    const created = await requestJson<{
+      created: boolean;
+      draft: CatalogDraftRecord;
+    }>(`/api/admin/catalog/products/${encodeURIComponent(productId)}/drafts`, {
+      method: "POST",
+    });
+    return saveDraft(created.draft.id, created.draft.version, document);
   },
 
-  saveDraft: saveWireDraft,
+  saveDraft,
 
   async validateDraft(
     draftId: string,
     version: number,
   ): Promise<CatalogValidationResult> {
-    const response = await requestJson<{ draft: WireDraft }>(
-      `/api/admin/catalog/drafts/${encodeURIComponent(draftId)}/validate`,
-      {
-        method: "POST",
-        body: JSON.stringify({ expectedVersion: version }),
-      },
-    );
-    const draft = fromWireDraft(response.draft);
-    const issues = (response.draft.validation_errors ?? []).map((issue) =>
-      fromWireIssue(issue, draft.document),
+    const response = await requestJson<{
+      ok: true;
+      draft: CatalogDraftRecord;
+    }>(`/api/admin/catalog/drafts/${encodeURIComponent(draftId)}/validate`, {
+      method: "POST",
+      body: JSON.stringify({ expectedVersion: version }),
+    });
+    const issues = response.draft.validation_errors.map((issue) =>
+      editorIssue(issue, response.draft.document),
     );
     return {
       valid: issues.length === 0,
       issues,
       diff: {},
       affected_tables: [],
-      draft,
-    } satisfies CatalogValidationResult;
+      draft: response.draft,
+    };
   },
 
   async markReady(draftId: string, version: number) {
-    const response = await requestJson<{ draft: WireDraft }>(
+    return requestJson<{ ok: true; draft: CatalogDraftRecord }>(
       `/api/admin/catalog/drafts/${encodeURIComponent(draftId)}/ready`,
       {
         method: "POST",
         body: JSON.stringify({ expectedVersion: version }),
       },
     );
-    return { draft: fromWireDraft(response.draft) };
   },
 
-  async publishDraft(draftId: string, version: number) {
-    const response = await requestJson<{
-      draft: WireDraft;
-      revision: WireRevision;
-      changedTables: Record<string, boolean>;
-    }>(`/api/admin/catalog/drafts/${encodeURIComponent(draftId)}/publish`, {
-      method: "POST",
-      body: JSON.stringify({ expectedVersion: version }),
-    });
-    const tableMap: Record<string, CatalogTable> = {
-      products: "products",
-      productPdpContent: "product_pdp_content",
-      variants: "product_variants",
-      media: "product_media",
-      relationships: "product_relationships",
-    };
-    return {
-      draft: fromWireDraft(response.draft),
-      revision: fromWireRevision(response.revision),
-      changed_tables: Object.entries(response.changedTables)
-        .filter(([, changed]) => changed)
-        .map(([table]) => tableMap[table])
-        .filter((table): table is CatalogTable => Boolean(table)),
-    } satisfies CatalogPublishResult;
+  publishDraft(draftId: string, version: number) {
+    return requestJson<CatalogPublishResult>(
+      `/api/admin/catalog/drafts/${encodeURIComponent(draftId)}/publish`,
+      {
+        method: "POST",
+        body: JSON.stringify({ expectedVersion: version }),
+      },
+    );
   },
 
   async discardDraft(draftId: string, version: number) {
-    await requestJson<{ draft: WireDraft }>(
+    await requestJson<{ ok: true; draft: CatalogDraftRecord }>(
       `/api/admin/catalog/drafts/${encodeURIComponent(draftId)}/discard`,
       {
         method: "POST",
@@ -643,18 +352,16 @@ export const catalogEditorApi = {
   },
 
   async listRevisions(draftId: string) {
-    const response = await requestJson<{ items: WireRevision[] }>(
+    return requestJson<{ items: CatalogRevisionRecord[] }>(
       `/api/admin/catalog/drafts/${encodeURIComponent(draftId)}/revisions`,
     );
-    return { revisions: response.items.map(fromWireRevision) };
   },
 
-  async restoreRevision(revisionId: string) {
-    const response = await requestJson<{ draft: WireDraft }>(
+  restoreRevision(revisionId: string) {
+    return requestJson<{ ok: true; draft: CatalogDraftRecord }>(
       `/api/admin/catalog/revisions/${encodeURIComponent(revisionId)}/restore`,
       { method: "POST" },
     );
-    return { draft: fromWireDraft(response.draft) };
   },
 
   uploadMedia(
@@ -674,7 +381,7 @@ export const catalogEditorApi = {
     form.set("alt", metadata.alt);
     form.set("sortOrder", String(metadata.sortOrder));
     form.set("variantId", metadata.variantId ?? "");
-    return requestJson<{ media: CatalogMediaFields }>(
+    return requestJson<{ media: EditableProductMedia }>(
       "/api/admin/catalog/media/upload",
       { method: "POST", body: form },
     );

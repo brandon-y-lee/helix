@@ -56,7 +56,7 @@ beforeEach(() => {
 
 describe("Header draft preview commerce", () => {
   it("keeps the cart control visible but prevents the drawer from opening", () => {
-    render(<Header />);
+    render(<Header commerceDisabled />);
     const cart = screen.getByRole("button", {
       name: "Cart unavailable in draft preview",
     });

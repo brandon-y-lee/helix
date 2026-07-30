@@ -148,10 +148,13 @@ They do not print full product documents, secrets, or provider response bodies.
 
 ## Caching
 
-Collection and PDP reads use Next Data Cache with a one-hour fallback revalidate
-and on-demand webhook invalidation. Redis/Upstash is intentionally deferred:
-the shared Vercel cache already prevents repeat Supabase reads for this catalog,
-and there is no PII or mutable session data in the cached documents.
+Public catalog reads use the Next Data Cache with separate stable-content,
+offer, card, discovery, collection, and Core-routine domains. Offer data has a
+60-second fallback lifetime; stable PDP/Core content uses 24 hours; cards,
+discovery membership, and collections use one hour. The shared webhook targets
+the affected granular tags and paths. Redis/Upstash is intentionally deferred:
+the Vercel cache already prevents repeat Supabase reads for this catalog, and
+no PII or mutable session data enters these public cache entries.
 
 No Supabase schema change is required. Collections remain the existing
 `products.collection` field; no collection/category relationship tables exist

@@ -16,12 +16,14 @@ it is not a product-data fallback.
 | `products` | `display_name`, `formal_title`, `card_tagline`, `editorial_description`, `editorial_how_to_use`, benefits/signals/badge, `formula_notes`, search/SEO presentation | Presentation refresh; optional recovery from Leaders source | Editorial | Preserve existing values | Update only exact changed fields |
 | `products` | `currency` and sellable status | Leaders import | Commerce | Update | Same as default |
 | `products` | ID, slug, publication/catalog status, collection/routine classification, ordering/rank, swatches, timestamps | Migrations/controlled catalog operations | System | Insert only; never rewrite existing values | Still insert only |
-| `product_variants` | price, availability, inventory status, SKU/source variant ID, options and size | Leaders import | Commerce | Upsert by product and variant key | Same as default |
+| `product_variants` | variant key, label, price, availability, inventory status, SKU, options and size | Leaders import / published editor | Commerce | Upsert by product and variant key | Same as default |
+| `product_variants` | `supplier_variant_id` | Leaders import | Supplier | Upsert by product and variant key | Same as default |
 | `product_sources` | supplier identifiers, inspected timestamp/hash, raw verified source | Leaders import | Supplier | Upsert | Same as default |
 | `product_media` | associations, roles, order, alt text and presentation palette | Dedicated media syncs; presentation seed; optional Leaders recovery | Editorial | New-product seed only; preserve existing associations | Targeted Leaders upsert or explicitly requested presentation replacement |
 | `product_media` | original supplier URL and filename | Leaders import | Supplier | Stored with a new association only | Updated with the explicitly overwritten association |
 | `product_pdp_content` | structured PDP copy and steps | Published editor/migrations | Editorial | Never | Never; supplier and presentation scripts do not write it |
-| `collections`, `product_relationships` | durable grouping and relationship rows | Migrations/controlled catalog operations | System | Preserve | Preserve |
+| `product_relationships` | related product, relationship type, and ordering | Published editor / controlled catalog operations | Editorial | Preserve | Preserve |
+| `collections` | durable grouping rows | Migrations/controlled catalog operations | System | Preserve | Preserve |
 | Algolia records, cache entries and search documents | all projected fields | Search backfill/webhook and cache invalidation | Derived | Never | Never |
 
 The Leaders import no longer updates collections, routine relationships,
@@ -99,6 +101,14 @@ so controlled diagnostics and tests can detect fallback use without production
 logging. `resolveHowToUseSteps` does the same for structured steps. Writers do
 not synchronize precedence pairs; supplier updates to legacy/source fields
 therefore do not replace a populated canonical editorial value.
+
+The protected catalog editor uses this same manifest in both layers:
+
+- React controls read the browser-safe `editor` metadata.
+- The server compares every saved, validated, and published document with the
+  current canonical aggregate and rejects changed supplier/system fields,
+  unknown fields, and supplier provenance on newly added rows.
+- UI treatment is advisory; the server check remains authoritative.
 
 Placeholder reviews in `lib/catalog/product-reviews.ts` are outside this
 contract and are not read or written by catalog scripts.
