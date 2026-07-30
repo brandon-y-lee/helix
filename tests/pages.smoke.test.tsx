@@ -303,10 +303,10 @@ describe("storefront page smoke", () => {
     }
   });
 
-  it("Admin renders its h1", () => {
+  it("Admin renders its registered-module overview", () => {
     render(<AdminPage />);
     expect(
-      screen.getByRole("heading", { level: 1, name: "Admin" }),
+      screen.getByRole("heading", { level: 1, name: "Admin overview" }),
     ).toBeInTheDocument();
   });
 });

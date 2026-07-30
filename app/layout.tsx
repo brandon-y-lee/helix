@@ -2,10 +2,7 @@ import type { Metadata } from "next";
 import { Manrope, Marcellus } from "next/font/google";
 import type { ReactNode } from "react";
 import "./globals.css";
-import { CartProvider } from "@/components/CartProvider";
-import { Header } from "@/components/Header";
-import { SiteFooter } from "@/components/SiteFooter";
-import { StorefrontMain } from "@/components/StorefrontMain";
+import { ApplicationChrome } from "@/components/ApplicationChrome";
 
 const manrope = Manrope({
   subsets: ["latin"],
@@ -30,13 +27,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className={`${manrope.variable} ${marcellus.variable}`}>
       <body>
-        <CartProvider>
-          <Header />
-          <StorefrontMain>
-            {children}
-          </StorefrontMain>
-          <SiteFooter />
-        </CartProvider>
+        <ApplicationChrome>{children}</ApplicationChrome>
       </body>
     </html>
   );
