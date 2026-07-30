@@ -1,25 +1,25 @@
 type RoutineProduct = {
-  collection: string;
-  routineDisplayLabel?: string | null;
-  routineGroupLabel?: string | null;
-  routineNumber?: string | null;
-  routineOrder?: number | null;
-  routineSort?: number | null;
-  routineStep?: string | null;
-  sortOrder?: number;
+  routineGroup: "core" | "beyond_core";
+  routineStepNumber: number | null;
+  routineSort: number;
 };
 
 export function routineDisplayLabelForProduct(product: RoutineProduct): string {
-  const fallback = [product.routineNumber, product.routineStep]
-    .filter(Boolean)
-    .join(" · ");
-  return (product.routineDisplayLabel ?? fallback) || product.collection;
+  if (product.routineGroup === "beyond_core") return "Beyond The Core";
+  if (!product.routineStepNumber) return "The Core";
+  return `${String(product.routineStepNumber).padStart(2, "0")} — The Core`;
+}
+
+export function routineGroupLabel(
+  group: RoutineProduct["routineGroup"],
+): "The Core" | "Beyond The Core" {
+  return group === "core" ? "The Core" : "Beyond The Core";
 }
 
 export function routineGroupLabelForProduct(product: RoutineProduct): string {
-  return product.routineGroupLabel ?? product.collection;
+  return routineGroupLabel(product.routineGroup);
 }
 
 export function routineSortForProduct(product: RoutineProduct): number {
-  return product.routineSort ?? product.routineOrder ?? product.sortOrder ?? 0;
+  return product.routineSort;
 }

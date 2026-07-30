@@ -1,6 +1,6 @@
 // Deterministic merchandising selectors for discovery surfaces. These are pure
 // functions over the Supabase catalog — no schema changes, no CMS, no Algolia.
-// Products arrive pre-ordered by featured `position` from the catalog layer;
+// Products arrive pre-ordered by canonical `sort_order` from the catalog layer;
 // selectors preserve or derive order from existing fields only.
 
 import type { ProductCard } from "@/lib/catalog/models";

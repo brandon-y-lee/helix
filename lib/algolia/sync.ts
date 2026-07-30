@@ -47,8 +47,6 @@ export type SyncOutcome = {
   objectID?: string;
   slug?: string;
   oldSlug?: string;
-  collection?: string;
-  oldCollection?: string;
   routineGroup?: string;
   oldRoutineGroup?: string;
   reason?: string;
@@ -155,8 +153,6 @@ export async function applyCatalogWebhookEvent(
         objectID: id,
         slug: asId(old_record?.slug),
         oldSlug: asId(old_record?.slug),
-        collection: asId(old_record?.collection),
-        oldCollection: asId(old_record?.collection),
         routineGroup: asId(old_record?.routine_group),
         oldRoutineGroup: asId(old_record?.routine_group),
       };
@@ -174,8 +170,6 @@ export async function applyCatalogWebhookEvent(
         objectID: id,
         slug: asId(record?.slug) ?? asId(old_record?.slug),
         oldSlug: asId(old_record?.slug),
-        collection: asId(record?.collection) ?? asId(old_record?.collection),
-        oldCollection: asId(old_record?.collection),
         routineGroup:
           asId(record?.routine_group) ?? asId(old_record?.routine_group),
         oldRoutineGroup: asId(old_record?.routine_group),
@@ -190,9 +184,7 @@ export async function applyCatalogWebhookEvent(
       objectID: id,
       slug: built.slug,
       oldSlug: asId(old_record?.slug),
-      collection: built.collection,
-      oldCollection: asId(old_record?.collection),
-      routineGroup: built.routineGroup ?? undefined,
+      routineGroup: built.routineGroup,
       oldRoutineGroup: asId(old_record?.routine_group),
     };
   }
@@ -216,8 +208,7 @@ export async function applyCatalogWebhookEvent(
         table,
         objectID: productId,
         slug: built.slug,
-        collection: built.collection,
-        routineGroup: built.routineGroup ?? undefined,
+        routineGroup: built.routineGroup,
         reason: "PDP-only media role is not indexed",
       };
     }
@@ -228,8 +219,7 @@ export async function applyCatalogWebhookEvent(
       table,
       objectID: productId,
       slug: built.slug,
-      collection: built.collection,
-      routineGroup: built.routineGroup ?? undefined,
+      routineGroup: built.routineGroup,
     };
   }
 
@@ -249,8 +239,7 @@ export async function applyCatalogWebhookEvent(
       table,
       objectID: productId,
       slug: built?.slug,
-      collection: built?.collection,
-      routineGroup: built?.routineGroup ?? undefined,
+      routineGroup: built?.routineGroup,
       reason: "PDP content is not indexed",
     };
   }

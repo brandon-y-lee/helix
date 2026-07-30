@@ -61,25 +61,26 @@ function makeProduct(slug: string, overrides: Partial<Product> = {}): Product {
     slug,
     displayName,
     formalTitle: `${displayName} ${routineNumber ?? ""}`,
-    name: displayName,
-    tagline: "Tagline",
     cardTagline: "Short product line",
-    collection: "THE SYSTEM",
-    actionName: displayName,
-    routineNumber,
-    subtitle: "Subtitle",
-    descriptor: "Descriptor",
+    routineGroup: ["CLEANSE", "TREAT", "SEAL"].includes(displayName)
+      ? "core"
+      : "beyond_core",
+    routineStepNumber: ["CLEANSE", "TREAT", "SEAL"].includes(displayName)
+      ? ({ CLEANSE: 1, TREAT: 2, SEAL: 3 } as const)[
+          displayName as "CLEANSE" | "TREAT" | "SEAL"
+        ]
+      : null,
+    routineStepName: ["CLEANSE", "TREAT", "SEAL"].includes(displayName)
+      ? displayName
+      : null,
+    routineSort: Number(routineNumber ?? 0) * 10,
     productType: "Treatment",
     badge: null,
     currency: "USD",
-    featuredRank: 0,
     sortOrder: Number(routineNumber ?? 0),
-    blurb: "Short product line",
     description: "A product description.",
-    editorialDescription: "A product description.",
     benefits: [],
     howToUse: "Use as directed.",
-    editorialHowToUse: "Use as directed.",
     formulaNotes: [],
     variants: [
       {
@@ -111,14 +112,11 @@ function makeProduct(slug: string, overrides: Partial<Product> = {}): Product {
     texture: "Light",
     keyIngredients,
     ingredients: keyIngredients.join(", ") || null,
-    productDetails: {},
     cautions: [],
     finish: null,
     volume: "50 mL",
     skinTypes: [],
     concerns: [],
-    routineStep: "Treatment",
-    routineOrder: Number(routineNumber ?? 0),
     usageTime: slug.includes("lift") ? ["Weekly", "PM"] : ["AM", "PM"],
     seoTitle: null,
     seoDescription: null,
@@ -177,10 +175,11 @@ describe("System content architecture", () => {
       7: ["cleanse", "refine", "treat", "frame", "seal", "protect", "lift"],
     } as const;
     const metadataBefore = methodFixtures.map(
-      ({ slug, routineNumber, routineOrder }) => ({
+      ({ slug, routineGroup, routineStepNumber, routineSort }) => ({
         slug,
-        routineNumber,
-        routineOrder,
+        routineGroup,
+        routineStepNumber,
+        routineSort,
       }),
     );
 
@@ -203,10 +202,11 @@ describe("System content architecture", () => {
     }
 
     expect(
-      methodFixtures.map(({ slug, routineNumber, routineOrder }) => ({
+      methodFixtures.map(({ slug, routineGroup, routineStepNumber, routineSort }) => ({
         slug,
-        routineNumber,
-        routineOrder,
+        routineGroup,
+        routineStepNumber,
+        routineSort,
       })),
     ).toEqual(metadataBefore);
   });

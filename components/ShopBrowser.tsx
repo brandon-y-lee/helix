@@ -65,7 +65,7 @@ export function ShopBrowser({
         ? products
         : products.filter((p) => groupLabel(p) === collection);
 
-    // `products` arrives pre-ordered by featured position from Supabase.
+    // `products` arrives in canonical catalog sort order from Supabase.
     const sorted = [...filtered];
     switch (sort) {
       case "name-asc":

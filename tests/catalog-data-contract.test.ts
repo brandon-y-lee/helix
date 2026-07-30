@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  CANONICAL_COLLECTIONS,
   CANONICAL_COMMERCE_PRODUCTS,
   EXPECTED_COMPLETE_THE_ROUTINE_RELATIONSHIPS,
   LEGACY_SEED_PRODUCT_SLUGS,
@@ -31,10 +30,20 @@ describe("canonical catalog data contract", () => {
     }
   });
 
-  it("defines collection and relationship invariants used by audit scripts", () => {
-    expect(CANONICAL_COLLECTIONS.map((collection) => collection.slug)).toEqual([
-      "the-core",
-      "beyond-the-core",
+  it("defines canonical routine and relationship invariants used by audit scripts", () => {
+    expect(
+      CANONICAL_COMMERCE_PRODUCTS.map((product) => [
+        product.routineGroup,
+        product.routineStepNumber,
+        product.routineSort,
+      ]),
+    ).toEqual([
+      ["core", 1, 10],
+      ["core", 2, 20],
+      ["core", 3, 30],
+      ["beyond_core", null, 110],
+      ["beyond_core", null, 120],
+      ["beyond_core", null, 130],
     ]);
     expect(EXPECTED_COMPLETE_THE_ROUTINE_RELATIONSHIPS).toBe(30);
   });

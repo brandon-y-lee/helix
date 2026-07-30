@@ -33,30 +33,23 @@ function makeClient(result: QueryResult) {
 }
 
 const sampleRow = {
+  id: "11111111-1111-4111-8111-111111111111",
   slug: "northpoint-renewal-serum",
-  name: "Northpoint Renewal Serum",
-  tagline: "Overnight resurfacing concentrate",
-  collection: "Treat",
-  action_name: "NORTHPOINT",
-  routine_number: "02",
+  display_name: "NORTHPOINT",
+  formal_title: "NORTHPOINT 02 Renewal Serum",
+  card_tagline: "Overnight resurfacing concentrate",
   routine_group: "core",
-  routine_group_label: "The Core",
   routine_step_number: 2,
   routine_step_name: "Treat",
-  routine_display_label: "02 — The Core",
   routine_sort: 20,
-  subtitle: "Overnight resurfacing concentrate",
-  descriptor: "A nightly serum that refines tone.",
   product_type: "Serum",
   badge: null,
   currency: "USD",
-  featured_rank: 2,
   sort_order: 2,
-  position: 2,
-  blurb: "A nightly serum that refines tone.",
-  description: "Long description.",
+  editorial_description: "Long description.",
   benefits: ["Refines tone", "Softens fine lines"],
-  how_to_use: "Apply at night.",
+  editorial_how_to_use: "Apply at night.",
+  formula_notes: [],
   swatch_from: "#e3ddea",
   swatch_to: "#c2b5d6",
   status: "available",
@@ -66,20 +59,17 @@ const sampleRow = {
   texture: "Silky serum",
   key_ingredients: ["Niacinamide"],
   ingredients: "Water, Niacinamide",
-  product_details: { volume: "30 ml" },
   cautions: [],
   finish: "Soft",
   volume: "30 ml",
   skin_types: ["Combination"],
   concerns: ["Texture"],
-  routine_step: "Treat",
-  routine_order: 3,
   usage_time: ["PM"],
   seo_title: "Northpoint Renewal Serum | Mei Pelle",
   seo_description: "Overnight resurfacing concentrate",
   search_keywords: ["serum"],
   created_at: "2026-06-14T00:00:00.000Z",
-  // Intentionally out of order to verify sort-by-position.
+  // Intentionally out of order to verify canonical variant sorting.
   product_variants: [
     {
       variant_key: "50ml",
@@ -92,7 +82,6 @@ const sampleRow = {
       option_values: { size: "50 ml" },
       volume: "50 ml",
       pack_count: null,
-      position: 1,
       sort_order: 1,
     },
     {
@@ -106,12 +95,12 @@ const sampleRow = {
       option_values: { size: "30 ml" },
       volume: "30 ml",
       pack_count: null,
-      position: 0,
       sort_order: 0,
     },
   ],
   product_media: [
     {
+      media_type: "image",
       url: "https://example.supabase.co/storage/v1/object/public/mei-pelle-catalog/products/northpoint/card.jpg",
       alt: "Northpoint product",
       width: 1000,
@@ -127,7 +116,7 @@ beforeEach(() => {
 });
 
 describe("catalog data access (Supabase-backed)", () => {
-  it("getProducts maps rows and orders variants by position", async () => {
+  it("getProducts maps canonical rows and orders variants by sort order", async () => {
     mockedGetClient.mockReturnValue(makeClient({ data: [sampleRow], error: null }));
 
     const products = await getProducts();
@@ -155,12 +144,9 @@ describe("catalog data access (Supabase-backed)", () => {
     expect(products[0].texture).toBe("Silky serum");
     expect(products[0].cardMedia?.role).toBe("card");
     expect(products[0].routineGroup).toBe("core");
-    expect(products[0].routineGroupLabel).toBe("The Core");
     expect(products[0].routineStepNumber).toBe(2);
     expect(products[0].routineStepName).toBe("Treat");
-    expect(products[0].routineDisplayLabel).toBe("02 — The Core");
     expect(products[0].routineSort).toBe(20);
-    expect(products[0].routineOrder).toBe(3);
     expect(products[0].createdAt).toBe("2026-06-14T00:00:00.000Z");
   });
 
@@ -184,7 +170,6 @@ describe("catalog data access (Supabase-backed)", () => {
             product_media: [
               {
                 media_type: "video",
-                media_kind: "image",
                 url: "https://example.supabase.co/routine.mp4",
                 alt: "Routine video",
                 width: 720,
@@ -194,7 +179,6 @@ describe("catalog data access (Supabase-backed)", () => {
               },
               {
                 media_type: "image",
-                media_kind: "image",
                 url: "https://example.supabase.co/profile.webp",
                 alt: "Profile image",
                 width: 1122,
@@ -204,7 +188,6 @@ describe("catalog data access (Supabase-backed)", () => {
               },
               {
                 media_type: "image",
-                media_kind: "image",
                 url: "https://example.supabase.co/ingredients-texture.webp",
                 alt: "Formula texture",
                 width: 1254,
@@ -214,7 +197,6 @@ describe("catalog data access (Supabase-backed)", () => {
               },
               {
                 media_type: "image",
-                media_kind: "image",
                 url: "https://example.supabase.co/core-routine-texture.webp",
                 alt: "Core routine texture",
                 width: 1024,
@@ -224,7 +206,6 @@ describe("catalog data access (Supabase-backed)", () => {
               },
               {
                 media_type: "image",
-                media_kind: "image",
                 url: "https://example.supabase.co/outcome-02.webp",
                 alt: "Outcome visual two",
                 width: 1254,
@@ -234,7 +215,6 @@ describe("catalog data access (Supabase-backed)", () => {
               },
               {
                 media_type: "image",
-                media_kind: "image",
                 url: "https://example.supabase.co/application-01.png",
                 alt: "Application visual one",
                 width: 1122,
@@ -245,7 +225,6 @@ describe("catalog data access (Supabase-backed)", () => {
               {
                 ...sampleRow.product_media[0],
                 media_type: "image",
-                media_kind: "image",
               },
             ],
           },
@@ -311,7 +290,9 @@ describe("catalog data access (Supabase-backed)", () => {
         error: { message: 'relation "public.products" does not exist' },
       }),
     );
-    await expect(getProducts()).rejects.toThrow(/Failed to load products/);
+    await expect(getProducts()).rejects.toThrow(
+      /Failed to load canonical System products/,
+    );
   });
 
 });

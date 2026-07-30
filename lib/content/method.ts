@@ -609,7 +609,12 @@ export function formulaFocus(product: Product): string[] {
 }
 
 export function methodProductNumber(product: Product): string {
-  return METHOD_PRODUCT_NUMBERS[product.slug as MethodProductSlug] ?? product.routineNumber ?? "--";
+  return (
+    METHOD_PRODUCT_NUMBERS[product.slug as MethodProductSlug] ??
+    (product.routineStepNumber
+      ? String(product.routineStepNumber).padStart(2, "0")
+      : "--")
+  );
 }
 
 export function methodProductNavLabel(product: Product): string {

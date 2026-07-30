@@ -7,6 +7,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { CartError, type CartLine, type CartState } from "@/lib/cart/types";
 import { normalizeCartQuantity } from "@/lib/cart/validation";
+import { routineGroupLabel } from "@/lib/catalog/product-routine";
 
 export const GUEST_CART_COOKIE = "mei_pelle_guest_cart";
 const MAX_LINE_QUANTITY = 99;
@@ -23,7 +24,6 @@ type VariantRow = {
   variant_key: string;
   label: string;
   price_cents: number;
-  position: number;
   sku: string | null;
   available: boolean;
   inventory_status: "in_stock" | "low_stock" | "out_of_stock" | "unavailable";
@@ -32,9 +32,9 @@ type VariantRow = {
 type ProductRow = {
   id: string;
   slug: string;
-  name: string;
-  display_name: string | null;
-  collection: string;
+  display_name: string;
+  formal_title: string;
+  routine_group: "core" | "beyond_core";
   status: string;
   catalog_status: string;
   swatch_from: string;
@@ -44,8 +44,7 @@ type ProductRow = {
 };
 
 type MediaRow = {
-  media_type: string | null;
-  media_kind: string | null;
+  media_type: string;
   url: string | null;
   alt: string;
   role: string;
@@ -198,7 +197,7 @@ function isHex(value: unknown): value is string {
 }
 
 function placeholderMedia(media: MediaRow | undefined, swatch: [string, string]) {
-  if (!media || media.media_kind !== "placeholder") return null;
+  if (!media || media.media_type !== "image" || media.url) return null;
   const palette = media.placeholder_palette ?? {};
   return {
     kind: "placeholder" as const,
@@ -269,13 +268,13 @@ function mapLine(row: CartItemRow): CartLine {
   return {
     key: row.id,
     slug: product?.slug ?? "",
-    name: product?.display_name ?? product?.name ?? "Unavailable product",
-    collection: product?.collection ?? "",
+    name: product?.display_name ?? "Unavailable product",
+    collection: product ? routineGroupLabel(product.routine_group) : "",
     variantId: row.variant_key,
     variantLabel: variant?.label ?? row.variant_key,
     price,
     swatch,
-    imageUrl: media?.media_kind === "image" ? media.url : null,
+    imageUrl: media?.media_type === "image" ? media.url : null,
     imageAlt: media?.alt ?? null,
     placeholderMedia: placeholderMedia(media, swatch),
     quantity: row.quantity,
@@ -293,14 +292,14 @@ function mapCheckoutLine(row: CartItemRow): CheckoutCartLine {
   return {
     ...line,
     productId: row.product_id,
-    productName: product?.name ?? line.name,
+    productName: product?.formal_title ?? line.name,
     variantSku: variant?.sku ?? null,
     productSnapshot: {
       productId: row.product_id,
       slug: product?.slug ?? line.slug,
-      displayName: product?.display_name ?? product?.name ?? line.name,
-      productName: product?.name ?? line.name,
-      collection: product?.collection ?? line.collection,
+      displayName: product?.display_name ?? line.name,
+      productName: product?.formal_title ?? line.name,
+      collection: product ? routineGroupLabel(product.routine_group) : line.collection,
       variantKey: row.variant_key,
       variantLabel: variant?.label ?? line.variantLabel,
       variantSku: variant?.sku ?? null,
@@ -319,7 +318,7 @@ async function readCart(cartId: string): Promise<CartState> {
   const { data, error } = await admin
     .from("cart_items")
     .select(
-      "id, product_id, variant_key, quantity, products ( id, slug, name, display_name, collection, status, catalog_status, swatch_from, swatch_to, product_variants ( variant_key, label, price_cents, position, sku, available, inventory_status ), product_media ( media_type, media_kind, url, alt, role, sort_order, palette_id, placeholder_palette ) )",
+      "id, product_id, variant_key, quantity, products ( id, slug, display_name, formal_title, routine_group, status, catalog_status, swatch_from, swatch_to, product_variants ( variant_key, label, price_cents, sort_order, sku, available, inventory_status ), product_media ( media_type, url, alt, role, sort_order, palette_id, placeholder_palette ) )",
     )
     .eq("cart_id", cartId)
     .order("created_at", { ascending: true });
@@ -340,7 +339,7 @@ async function readCheckoutCart(cartId: string): Promise<Omit<CheckoutCartSnapsh
   const { data, error } = await admin
     .from("cart_items")
     .select(
-      "id, product_id, variant_key, quantity, products ( id, slug, name, display_name, collection, status, catalog_status, swatch_from, swatch_to, product_variants ( variant_key, label, price_cents, position, sku, available, inventory_status ), product_media ( media_type, media_kind, url, alt, role, sort_order, palette_id, placeholder_palette ) )",
+      "id, product_id, variant_key, quantity, products ( id, slug, display_name, formal_title, routine_group, status, catalog_status, swatch_from, swatch_to, product_variants ( variant_key, label, price_cents, sort_order, sku, available, inventory_status ), product_media ( media_type, url, alt, role, sort_order, palette_id, placeholder_palette ) )",
     )
     .eq("cart_id", cartId)
     .order("created_at", { ascending: true });
@@ -364,7 +363,7 @@ async function getCatalogProduct(slug: string, variantKey: string): Promise<{
   const { data, error } = await admin
     .from("products")
     .select(
-      "id, slug, name, display_name, collection, status, catalog_status, swatch_from, swatch_to, product_variants!inner ( variant_key, label, price_cents, position, sku, available, inventory_status ), product_media ( media_type, media_kind, url, alt, role, sort_order, palette_id, placeholder_palette )",
+      "id, slug, display_name, formal_title, routine_group, status, catalog_status, swatch_from, swatch_to, product_variants!inner ( variant_key, label, price_cents, sort_order, sku, available, inventory_status ), product_media ( media_type, url, alt, role, sort_order, palette_id, placeholder_palette )",
     )
     .eq("slug", slug)
     .eq("catalog_status", "active")

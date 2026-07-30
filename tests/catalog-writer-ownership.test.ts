@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   CATALOG_FIELD_OWNERSHIP,
   getCatalogFieldOwnership,
-  resolveCatalogPrecedence,
+  PHASE_TWO_PRODUCT_DROP_COLUMNS,
 } from "@/lib/catalog/field-ownership";
 import { parseImportArgs } from "@/scripts/catalog-import-leaders";
 import { parseRefreshArgs } from "@/scripts/catalog-refresh-presentation";
@@ -17,8 +17,8 @@ import {
 const existingProduct = {
   id: "product-id",
   slug: "cleanse-01-calming-gel-cleanser",
-  name: "Old supplier title",
-  description: "Old supplier description",
+  texture: "Old supplier texture",
+  ingredients: "Water, Glycerin",
   status: "available",
   display_name: "CLEANSE",
   card_tagline: "Editor-owned card line",
@@ -34,8 +34,8 @@ function supplierPlan(overwriteEditorial: boolean) {
     insert: {
       id: existingProduct.id,
       slug: existingProduct.slug,
-      name: "New supplier title",
-      description: "New supplier description",
+      texture: "New supplier texture",
+      ingredients: "Water, Glycerin, Panthenol",
       status: "sold_out",
       ...(overwriteEditorial
         ? {
@@ -47,8 +47,8 @@ function supplierPlan(overwriteEditorial: boolean) {
         : {}),
     },
     source: {
-      name: "New supplier title",
-      description: "New supplier description",
+      texture: "New supplier texture",
+      ingredients: "Water, Glycerin, Panthenol",
     },
     commerce: {
       status: "sold_out",
@@ -72,7 +72,7 @@ describe("catalog field ownership", () => {
         requiresPublishCapability: true,
       },
     });
-    expect(getCatalogFieldOwnership("products", "description")).toMatchObject({
+    expect(getCatalogFieldOwnership("products", "texture")).toMatchObject({
       owner: "supplier",
       editor: {
         editable: false,
@@ -112,31 +112,12 @@ describe("catalog field ownership", () => {
     ).toBe(true);
   });
 
-  it("makes canonical-versus-fallback resolution observable without logging", () => {
+  it("does not register Phase 2 product columns as writer-owned fields", () => {
     expect(
-      resolveCatalogPrecedence({
-        canonicalField: "products.display_name",
-        canonicalValue: "CLEANSE",
-        fallbackField: "products.name",
-        fallbackValue: "Supplier cleanser",
-      }),
-    ).toEqual({
-      value: "CLEANSE",
-      sourceField: "products.display_name",
-      usedFallback: false,
-    });
-    expect(
-      resolveCatalogPrecedence({
-        canonicalField: "products.display_name",
-        canonicalValue: null,
-        fallbackField: "products.name",
-        fallbackValue: "Supplier cleanser",
-      }),
-    ).toEqual({
-      value: "Supplier cleanser",
-      sourceField: "products.name",
-      usedFallback: true,
-    });
+      PHASE_TWO_PRODUCT_DROP_COLUMNS.every(
+        (field) => getCatalogFieldOwnership("products", field) === undefined,
+      ),
+    ).toBe(true);
   });
 });
 
@@ -145,8 +126,8 @@ describe("supplier catalog writer", () => {
     const plan = supplierPlan(false);
 
     expect(plan.update).toEqual({
-      name: "New supplier title",
-      description: "New supplier description",
+      texture: "New supplier texture",
+      ingredients: "Water, Glycerin, Panthenol",
       status: "sold_out",
     });
     expect(plan.editorialFieldsSkipped).toEqual([
@@ -162,8 +143,8 @@ describe("supplier catalog writer", () => {
     const plan = supplierPlan(true);
 
     expect(plan.update).toMatchObject({
-      name: "New supplier title",
-      description: "New supplier description",
+      texture: "New supplier texture",
+      ingredients: "Water, Glycerin, Panthenol",
       status: "sold_out",
       display_name: "SUPPLIER DISPLAY",
       card_tagline: "Supplier card line",

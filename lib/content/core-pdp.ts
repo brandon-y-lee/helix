@@ -2,6 +2,7 @@ import type {
   PdpProfileTitleToken,
   ProductPdpContent,
 } from "@/lib/catalog/product-content";
+import { routineGroupLabelForProduct } from "@/lib/catalog/product-routine";
 
 export type CorePdpStep = "cleanse" | "treat" | "seal";
 
@@ -181,18 +182,17 @@ export function corePdpProfileRows(
   product: {
     finish: string | null;
     goodFor: string | null;
-    routineDisplayLabel?: string | null;
-    routineGroupLabel?: string | null;
-    routineStepNumber?: number | null;
+    routineGroup: "core" | "beyond_core";
+    routineStepNumber: number | null;
+    routineSort: number;
     skinTypes: string[];
     texture: string | null;
     usageTime: string[];
   },
 ) {
-  const step =
-    product.routineStepNumber && product.routineGroupLabel
-      ? `Step ${String(product.routineStepNumber).padStart(2, "0")} of ${product.routineGroupLabel}`
-      : product.routineDisplayLabel;
+  const step = product.routineStepNumber
+    ? `Step ${String(product.routineStepNumber).padStart(2, "0")} of ${routineGroupLabelForProduct(product)}`
+    : routineGroupLabelForProduct(product);
   const fyi = [
     product.skinTypes.join(", "),
     sentenceCaseList(product.usageTime),

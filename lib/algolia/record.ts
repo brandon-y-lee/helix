@@ -1,35 +1,22 @@
-// Shared Algolia record shape + pure builder.
-//
-// This module is import-safe on both the server (webhook/reindex write path)
-// and the client (search path): it has no secrets and no Algolia client. It
-// defines the storefront-safe document we index and the deterministic mapping
-// from a Supabase catalog row to that document.
+// Storefront-safe Algolia record and deterministic canonical mapper.
 
 import type { ProductStatus } from "@/lib/products";
 import { statusLabel } from "@/components/productStatus";
-import { canonicalCatalogValue } from "@/lib/catalog/field-ownership";
+import { routineGroupLabel } from "@/lib/catalog/product-routine";
 
-/** Default index name when ALGOLIA_INDEX_NAME / NEXT_PUBLIC_ALGOLIA_INDEX_NAME is unset. */
 export const DEFAULT_INDEX_NAME = "mei_pelle_products";
 
-/**
- * Raw catalog row used to build a search document. Mirrors the Supabase
- * `products` row (including `id`, which the storefront `Product` type omits)
- * plus its joined variants. Only storefront-safe fields are present.
- */
 export type CatalogVariantSource = {
   variant_key: string;
   label: string;
   price_cents: number;
-  position: number;
-  sort_order: number | null;
+  sort_order: number;
   available: boolean;
   inventory_status: string;
 };
 
 export type CatalogMediaSource = {
-  media_type: string | null;
-  media_kind: string | null;
+  media_type: string;
   url: string | null;
   alt: string;
   width: number | null;
@@ -43,78 +30,49 @@ export type CatalogMediaSource = {
 export type CatalogProductSource = {
   id: string;
   slug: string;
-  name: string;
-  display_name: string | null;
-  formal_title: string | null;
-  tagline: string;
-  card_tagline: string | null;
-  collection: string;
-  action_name: string | null;
-  routine_number: string | null;
-  routine_group: string | null;
-  routine_group_label: string | null;
-  routine_step_number: number | null;
-  routine_step_name: string | null;
-  routine_display_label: string | null;
-  routine_sort: number | null;
-  subtitle: string | null;
-  descriptor: string | null;
-  product_type: string | null;
+  display_name: string;
+  formal_title: string;
+  card_tagline: string;
+  product_type: string;
   badge: string | null;
   catalog_status: string;
-  blurb: string;
-  description: string;
-  editorial_description: string | null;
-  editorial_how_to_use: string | null;
+  editorial_description: string;
   status: string;
   swatch_from: string;
   swatch_to: string;
-  position: number | null;
-  featured_rank: number | null;
-  sort_order: number | null;
+  sort_order: number;
   created_at: string;
   made_for: string | null;
   good_for: string | null;
   texture: string | null;
-  key_ingredients: string[] | null;
+  key_ingredients: string[];
   ingredients: string | null;
-  concerns: string[] | null;
-  routine_step: string | null;
-  usage_time: string[] | null;
-  search_keywords: string[] | null;
+  concerns: string[];
+  usage_time: string[];
+  search_keywords: string[];
+  routine_group: string;
+  routine_step_number: number | null;
+  routine_step_name: string | null;
+  routine_sort: number;
   published_at: string | null;
   updated_at: string | null;
   product_variants: CatalogVariantSource[] | null;
   product_media: CatalogMediaSource[] | null;
 };
 
-/**
- * The Algolia record. objectID is the product's stable uuid so deletes and
- * upserts are idempotent regardless of slug/name changes. Variant detail is
- * summarized into the parent record so a single product-level result carries
- * everything the result card and relevance need.
- */
 export type AlgoliaProductRecord = {
   objectID: string;
   productId: string;
   slug: string;
-  title: string;
   displayName: string;
   formalTitle: string;
   cardTagline: string;
   editorialDescription: string;
-  subtitle: string;
-  descriptor: string;
-  collection: string;
-  collections: string[];
-  category: string;
   productType: string;
-  routineGroup: "core" | "beyond_core" | null;
-  routineGroupLabel: string | null;
+  routineGroup: "core" | "beyond_core";
   routineStepNumber: number | null;
   routineStepName: string | null;
-  routineDisplayLabel: string | null;
-  routineSort: number | null;
+  routineSort: number;
   badge: string | null;
   status: ProductStatus;
   priceMin: number;
@@ -158,7 +116,6 @@ export type AlgoliaProductRecord = {
     colors: [string, string];
   };
   sortOrder: number;
-  featuredRank: number;
   createdAt: string;
   publishedAt: string | null;
   updatedAt: string | null;
@@ -167,12 +124,23 @@ export type AlgoliaProductRecord = {
   texture: string | null;
 };
 
-const VALID_STATUSES: ProductStatus[] = ["available", "coming_soon", "sold_out"];
+const VALID_STATUSES: ProductStatus[] = [
+  "available",
+  "coming_soon",
+  "sold_out",
+];
 
 function toStatus(value: string): ProductStatus {
   return (VALID_STATUSES as string[]).includes(value)
     ? (value as ProductStatus)
     : "available";
+}
+
+function toRoutineGroup(
+  value: string,
+): AlgoliaProductRecord["routineGroup"] {
+  if (value === "core" || value === "beyond_core") return value;
+  throw new Error(`[search-sync] Unsupported routine group "${value}".`);
 }
 
 function isHex(value: unknown): value is string {
@@ -183,12 +151,12 @@ function placeholderFromMedia(
   media: CatalogMediaSource | undefined,
   swatch: [string, string],
 ): AlgoliaProductRecord["placeholderMedia"] {
-  if (!media || media.media_kind !== "placeholder") return null;
+  if (!media || media.media_type !== "image" || media.url) return null;
   const palette = media.placeholder_palette ?? {};
   return {
     kind: "placeholder",
     alt: media.alt,
-    paletteId: media.palette_id ?? null,
+    paletteId: media.palette_id,
     palette: {
       start: isHex(palette.start) ? palette.start : swatch[0],
       end: isHex(palette.end) ? palette.end : swatch[1],
@@ -203,20 +171,13 @@ function placeholderFromMedia(
 function imageFromMedia(
   media: CatalogMediaSource | undefined,
 ): AlgoliaProductRecord["imageMedia"] {
-  if (
-    !media ||
-    media.media_kind !== "image" ||
-    media.media_type === "video" ||
-    !media.url
-  ) {
-    return null;
-  }
+  if (!media || media.media_type !== "image" || !media.url) return null;
   return {
     kind: "image",
     url: media.url,
     alt: media.alt,
-    width: media.width ?? null,
-    height: media.height ?? null,
+    width: media.width,
+    height: media.height,
     role: media.role,
   };
 }
@@ -244,21 +205,13 @@ const INDEXED_IMAGE_ROLES = new Set([
   "hero",
 ]);
 
-function toRoutineGroup(value: string | null): "core" | "beyond_core" | null {
-  return value === "core" || value === "beyond_core" ? value : null;
-}
-
-/** Deterministic Supabase-row → Algolia-record mapping. Pure; no I/O. */
 export function buildAlgoliaRecord(
   row: CatalogProductSource,
 ): AlgoliaProductRecord {
   const variants = (row.product_variants ?? [])
     .slice()
-    .sort((a, b) => (a.sort_order ?? a.position) - (b.sort_order ?? b.position));
-
-  const prices = variants.map((v) => v.price_cents);
-  const priceMin = prices.length ? Math.min(...prices) : 0;
-  const priceMax = prices.length ? Math.max(...prices) : 0;
+    .sort((a, b) => a.sort_order - b.sort_order);
+  const prices = variants.map((variant) => variant.price_cents);
   const status = toStatus(row.status);
   const availableVariants = variants.filter(
     (variant) =>
@@ -268,62 +221,40 @@ export function buildAlgoliaRecord(
   );
   const media = (row.product_media ?? [])
     .slice()
-    .sort((a, b) => {
-      return mediaRoleRank(a.role) - mediaRoleRank(b.role) || a.sort_order - b.sort_order;
-    });
+    .sort(
+      (a, b) =>
+        mediaRoleRank(a.role) - mediaRoleRank(b.role) ||
+        a.sort_order - b.sort_order,
+    );
   const imageMedia = media.find(
     (item) =>
-      item.media_kind === "image" &&
-      item.media_type !== "video" &&
-      INDEXED_IMAGE_ROLES.has(item.role) &&
-      Boolean(item.url),
+      item.media_type === "image" &&
+      Boolean(item.url) &&
+      INDEXED_IMAGE_ROLES.has(item.role),
   );
-  const placeholderMedia = media.find((item) => item.media_kind === "placeholder");
+  const placeholderMedia = media.find(
+    (item) => item.media_type === "image" && !item.url,
+  );
   const swatch: [string, string] = [row.swatch_from, row.swatch_to];
-  const displayName = canonicalCatalogValue(
-    "products.display_name",
-    row.display_name,
-    "products.name",
-    row.name,
-  );
-  const formalTitle = canonicalCatalogValue(
-    "products.formal_title",
-    row.formal_title,
-    "products.name",
-    row.name,
-  );
-  const cardTagline = canonicalCatalogValue(
-    "products.card_tagline",
-    row.card_tagline,
-    "products.tagline",
-    row.tagline,
-  );
-  const editorialDescription = canonicalCatalogValue(
-    "products.editorial_description",
-    row.editorial_description,
-    "products.description",
-    row.description ?? row.blurb,
-  );
   const routineGroup = toRoutineGroup(row.routine_group);
-  const routineGroupLabel = row.routine_group_label ?? null;
-  const routineDisplayLabel = row.routine_display_label ?? routineGroupLabel;
   const concerns = row.concerns ?? [];
   const ingredients = [
     ...(row.key_ingredients ?? []),
-    ...(row.ingredients ? row.ingredients.split(",").map((item) => item.trim()).filter(Boolean) : []),
+    ...(row.ingredients
+      ? row.ingredients
+          .split(",")
+          .map((item) => item.trim())
+          .filter(Boolean)
+      : []),
   ];
-
-  // Keyword bag for relevance: only storefront-safe descriptive fields.
   const keywords = [
-    routineGroupLabel,
-    routineDisplayLabel,
-    row.action_name,
+    routineGroupLabel(routineGroup),
     row.routine_step_name,
     row.product_type,
-    displayName,
-    formalTitle,
-    cardTagline,
-    editorialDescription,
+    row.display_name,
+    row.formal_title,
+    row.card_tagline,
+    row.editorial_description,
     row.made_for,
     row.good_for,
     row.texture,
@@ -331,39 +262,34 @@ export function buildAlgoliaRecord(
     ...concerns,
     ...(row.key_ingredients ?? []),
     ...(row.search_keywords ?? []),
-    ...variants.map((v) => v.label),
-  ].filter((v): v is string => Boolean(v && v.trim()));
+    ...variants.map((variant) => variant.label),
+  ].filter((value): value is string => Boolean(value?.trim()));
 
   return {
     objectID: row.id,
     productId: row.id,
     slug: row.slug,
-    title: displayName,
-    displayName,
-    formalTitle,
-    cardTagline,
-    editorialDescription,
-    subtitle: row.subtitle ?? cardTagline,
-    descriptor: row.descriptor ?? editorialDescription,
-    collection: routineGroupLabel ?? row.collection,
-    collections: [routineGroupLabel ?? row.collection],
-    category: routineGroupLabel ?? row.collection,
-    productType: row.product_type ?? row.collection,
+    displayName: row.display_name,
+    formalTitle: row.formal_title,
+    cardTagline: row.card_tagline,
+    editorialDescription: row.editorial_description,
+    productType: row.product_type,
     routineGroup,
-    routineGroupLabel,
     routineStepNumber: row.routine_step_number,
     routineStepName: row.routine_step_name,
-    routineDisplayLabel,
     routineSort: row.routine_sort,
     badge: statusLabel(status) ?? row.badge,
     status,
-    priceMin,
-    priceMax,
+    priceMin: prices.length ? Math.min(...prices) : 0,
+    priceMax: prices.length ? Math.max(...prices) : 0,
     currency: "USD",
-    available: row.catalog_status === "active" && status === "available" && availableVariants.length > 0,
+    available:
+      row.catalog_status === "active" &&
+      status === "available" &&
+      availableVariants.length > 0,
     waitlist: status === "coming_soon",
     variantCount: variants.length,
-    variantNames: variants.map((v) => v.label),
+    variantNames: variants.map((variant) => variant.label),
     keywords,
     concerns,
     ingredients,
@@ -374,9 +300,7 @@ export function buildAlgoliaRecord(
       kind: "gradient",
       colors: swatch,
     },
-    sortOrder: row.routine_sort ?? row.sort_order ?? row.position ?? 0,
-    featuredRank:
-      row.routine_sort ?? row.featured_rank ?? row.sort_order ?? row.position ?? 0,
+    sortOrder: row.routine_sort,
     createdAt: row.created_at,
     publishedAt: row.published_at,
     updatedAt: row.updated_at,
@@ -386,12 +310,6 @@ export function buildAlgoliaRecord(
   };
 }
 
-/**
- * Index settings applied during (re)index. Tuned for product discovery:
- * title/subtitle weigh highest, descriptor and keywords broaden recall, and
- * featuredRank drives custom ranking so merchandising order is preserved on
- * ties. Kept here (not in the write client) so it is unit-testable.
- */
 export type IndexSettings = {
   searchableAttributes: string[];
   attributesForFaceting: string[];
@@ -402,28 +320,24 @@ export type IndexSettings = {
 export const INDEX_SETTINGS: IndexSettings = {
   searchableAttributes: [
     "displayName",
-    "title",
     "formalTitle",
     "cardTagline",
-    "subtitle",
-    "collection",
-    "collections",
     "productType",
-    "descriptor",
     "editorialDescription",
     "unordered(keywords)",
     "unordered(variantNames)",
   ],
   attributesForFaceting: [
-    "filterOnly(collection)",
-    "filterOnly(collections)",
     "filterOnly(productType)",
     "filterOnly(routineGroup)",
-    "filterOnly(routineGroupLabel)",
     "filterOnly(concerns)",
     "filterOnly(available)",
     "status",
   ],
-  customRanking: ["asc(featuredRank)", "asc(sortOrder)", "asc(title)"],
-  attributesToHighlight: ["title", "displayName", "descriptor"],
+  customRanking: ["asc(sortOrder)", "asc(displayName)"],
+  attributesToHighlight: [
+    "displayName",
+    "cardTagline",
+    "editorialDescription",
+  ],
 };

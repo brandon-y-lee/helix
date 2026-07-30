@@ -83,7 +83,7 @@ describe("catalog search sync route", () => {
       table: "product_media",
       objectID: "f6091deb-1177-45ad-b506-1f0427fa4abe",
       slug: "treat-03-pdrn-5-ampoule",
-      collection: "The Core",
+      routineGroup: "core",
     });
 
     const response = await POST(
@@ -130,12 +130,12 @@ describe("catalog search sync route", () => {
         record: {
           id: "f6091deb-1177-45ad-b506-1f0427fa4abe",
           slug: "treat-03-pdrn-5-ampoule",
-          collection: "The Core",
+          routine_group: "core",
         },
         old_record: {
           id: "f6091deb-1177-45ad-b506-1f0427fa4abe",
           slug: "treat-03-pdrn-5-ampoule",
-          collection: "The Core",
+          routine_group: "core",
         },
       }),
     );
@@ -153,7 +153,7 @@ describe("catalog search sync route", () => {
       table: "product_media",
       objectID: "f6091deb-1177-45ad-b506-1f0427fa4abe",
       slug: "treat-03-pdrn-5-ampoule",
-      collection: "The Core",
+      routineGroup: "core",
       reason: "PDP-only media role is not indexed",
     });
 
@@ -231,7 +231,7 @@ describe("catalog search sync route", () => {
       table: "product_variants",
       objectID: "f6091deb-1177-45ad-b506-1f0427fa4abe",
       slug: "treat-03-pdrn-5-ampoule",
-      collection: "The Core",
+      routineGroup: "core",
     });
 
     const response = await POST(

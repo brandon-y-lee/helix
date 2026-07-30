@@ -4,65 +4,52 @@ import {
   routineGroupLabelForProduct,
   routineSortForProduct,
 } from "@/lib/catalog/product-routine";
-import type { Product } from "@/lib/products";
+type RoutineProduct = Parameters<typeof routineDisplayLabelForProduct>[0];
 
-function product(overrides: Partial<Product> = {}): Product {
+function product(overrides: Partial<RoutineProduct> = {}): RoutineProduct {
   return {
-    slug: "cleanse-01-calming-gel-cleanser",
-    collection: "The Core",
-    routineNumber: "01",
-    routineStep: "Cleanse",
-    routineDisplayLabel: "01 — Catalog Core",
-    routineGroupLabel: "Catalog Core",
+    routineGroup: "core",
+    routineStepNumber: 1,
     routineSort: 17,
-    routineOrder: 1,
-    sortOrder: 2,
     ...overrides,
-  } as Product;
+  };
 }
 
 describe("commerce routine presentation", () => {
-  it("uses populated Supabase routine fields without slug overrides", () => {
+  it("derives labels from canonical Supabase routine fields", () => {
     const catalogProduct = product();
 
     expect(routineDisplayLabelForProduct(catalogProduct)).toBe(
-      "01 — Catalog Core",
+      "01 — The Core",
     );
-    expect(routineGroupLabelForProduct(catalogProduct)).toBe("Catalog Core");
+    expect(routineGroupLabelForProduct(catalogProduct)).toBe("The Core");
     expect(routineSortForProduct(catalogProduct)).toBe(17);
   });
 
-  it("falls back only to other fields on the same Supabase product row", () => {
+  it("renders Beyond The Core without a synthetic step", () => {
     const catalogProduct = product({
-      slug: "unknown-product",
-      routineDisplayLabel: null,
-      routineGroupLabel: null,
-      routineSort: null,
-    });
-
-    expect(routineDisplayLabelForProduct(catalogProduct)).toBe("01 · Cleanse");
-    expect(routineGroupLabelForProduct(catalogProduct)).toBe("The Core");
-    expect(routineSortForProduct(catalogProduct)).toBe(1);
-  });
-
-  it("does not infer product-specific routine content from a known slug", () => {
-    const catalogProduct = product({
-      routineNumber: null,
-      routineStep: null,
-      routineDisplayLabel: null,
-      routineGroupLabel: null,
-      routineSort: null,
-      routineOrder: null,
-      collection: "Catalog collection",
-      sortOrder: 41,
+      routineGroup: "beyond_core",
+      routineStepNumber: null,
+      routineSort: 110,
     });
 
     expect(routineDisplayLabelForProduct(catalogProduct)).toBe(
-      "Catalog collection",
+      "Beyond The Core",
     );
     expect(routineGroupLabelForProduct(catalogProduct)).toBe(
-      "Catalog collection",
+      "Beyond The Core",
     );
+    expect(routineSortForProduct(catalogProduct)).toBe(110);
+  });
+
+  it("does not invent a numbered label for an incomplete Core row", () => {
+    const catalogProduct = product({
+      routineStepNumber: null,
+      routineSort: 41,
+    });
+
+    expect(routineDisplayLabelForProduct(catalogProduct)).toBe("The Core");
+    expect(routineGroupLabelForProduct(catalogProduct)).toBe("The Core");
     expect(routineSortForProduct(catalogProduct)).toBe(41);
   });
 });

@@ -41,7 +41,7 @@ export type HowToUseStepResolution = {
   steps: string[];
   source:
     | "product_pdp_content.how_to_use_steps"
-    | "products.editorial_how_to_use/products.how_to_use";
+    | "products.editorial_how_to_use";
   usedParagraphFallback: boolean;
 };
 
@@ -62,7 +62,7 @@ export function resolveHowToUseSteps(
       .split(/[.;]\s+/)
       .map((item) => item.trim().replace(/[.;]$/, ""))
       .filter(Boolean),
-    source: "products.editorial_how_to_use/products.how_to_use",
+    source: "products.editorial_how_to_use",
     usedParagraphFallback: true,
   };
 }

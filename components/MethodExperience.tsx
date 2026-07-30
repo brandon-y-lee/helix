@@ -144,7 +144,7 @@ function ProductStep({
           </article>
           <article>
             <h3>HOW</h3>
-            <p>{product.editorialHowToUse || product.howToUse}</p>
+            <p>{product.howToUse}</p>
           </article>
           <article>
             <h3>FORMULA FOCUS</h3>
@@ -496,7 +496,7 @@ export function MethodExperience({
         meta:
           step.kind === "protect"
             ? PROTECT_STEP.status
-            : step.product?.routineStep ?? undefined,
+            : step.product?.routineStepName ?? undefined,
         position: step.canonicalPosition,
       })),
       { id: "system-ingredients", label: "Index", meta: "Ingredients" },

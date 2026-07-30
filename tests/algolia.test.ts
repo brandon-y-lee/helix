@@ -45,34 +45,20 @@ const mockedReindex = reindexAllSearchRecords as unknown as Mock;
 const sourceRow: CatalogProductSource = {
   id: "11111111-1111-1111-1111-111111111111",
   slug: "northpoint-renewal-serum",
-  name: "Northpoint Renewal Serum",
   display_name: "NORTHPOINT",
   formal_title: "NORTHPOINT 03 Renewal Serum",
-  tagline: "Overnight resurfacing concentrate",
   card_tagline: "Smoother-looking tone",
-  collection: "The Core",
-  action_name: "NORTHPOINT",
-  routine_number: "02",
   routine_group: "core",
-  routine_group_label: "The Core",
   routine_step_number: 2,
   routine_step_name: "Treat",
-  routine_display_label: "02 — The Core",
   routine_sort: 20,
-  subtitle: "Overnight resurfacing concentrate",
-  descriptor: "A nightly serum that refines tone.",
   product_type: "Serum",
   badge: "Night step",
   catalog_status: "active",
-  blurb: "A nightly serum that refines tone.",
-  description: "Long description.",
   editorial_description: "A nightly serum for smoother-looking tone.",
-  editorial_how_to_use: "Apply at night.",
   status: "available",
   swatch_from: "#e3ddea",
   swatch_to: "#c2b5d6",
-  position: 2,
-  featured_rank: 2,
   sort_order: 2,
   created_at: "2026-06-14T00:00:00.000Z",
   published_at: "2026-06-14T00:00:00.000Z",
@@ -83,7 +69,6 @@ const sourceRow: CatalogProductSource = {
   key_ingredients: ["Niacinamide"],
   ingredients: "Water, Niacinamide",
   concerns: ["Texture"],
-  routine_step: "Treat",
   usage_time: ["PM"],
   search_keywords: ["serum"],
   product_variants: [
@@ -91,7 +76,6 @@ const sourceRow: CatalogProductSource = {
       variant_key: "50ml",
       label: "50 ml",
       price_cents: 7800,
-      position: 1,
       sort_order: 1,
       available: true,
       inventory_status: "in_stock",
@@ -100,7 +84,6 @@ const sourceRow: CatalogProductSource = {
       variant_key: "30ml",
       label: "30 ml",
       price_cents: 5400,
-      position: 0,
       sort_order: 0,
       available: true,
       inventory_status: "in_stock",
@@ -109,7 +92,6 @@ const sourceRow: CatalogProductSource = {
   product_media: [
     {
       media_type: "image",
-      media_kind: "placeholder",
       url: null,
       alt: "Northpoint product",
       width: null,
@@ -133,36 +115,31 @@ describe("buildAlgoliaRecord", () => {
     expect(r.objectID).toBe(sourceRow.id);
     expect(r.productId).toBe(sourceRow.id);
     expect(r.slug).toBe("northpoint-renewal-serum");
-    expect(r.title).toBe("NORTHPOINT");
     expect(r.displayName).toBe("NORTHPOINT");
     expect(r.formalTitle).toBe("NORTHPOINT 03 Renewal Serum");
-    expect(r.subtitle).toBe("Overnight resurfacing concentrate");
     expect(r.cardTagline).toBe("Smoother-looking tone");
-    expect(r.descriptor).toBe("A nightly serum that refines tone.");
-    expect(r.collection).toBe("The Core");
-    expect(r.category).toBe("The Core");
+    expect(r.editorialDescription).toBe(
+      "A nightly serum for smoother-looking tone.",
+    );
     expect(r.routineGroup).toBe("core");
-    expect(r.routineGroupLabel).toBe("The Core");
     expect(r.routineStepNumber).toBe(2);
     expect(r.routineStepName).toBe("Treat");
-    expect(r.routineDisplayLabel).toBe("02 — The Core");
     expect(r.routineSort).toBe(20);
     expect(r.productType).toBe("Serum");
     expect(r.currency).toBe("USD");
     // Price range derived from variants (min/max in cents).
     expect(r.priceMin).toBe(5400);
     expect(r.priceMax).toBe(7800);
-    // Variants summarized in catalog (position) order.
+    // Variants summarized in canonical sort order.
     expect(r.variantCount).toBe(2);
     expect(r.variantNames).toEqual(["30 ml", "50 ml"]);
     expect(r.available).toBe(true);
     expect(r.waitlist).toBe(false);
     expect(r.badge).toBe("Night step");
-    expect(r.featuredRank).toBe(20);
     expect(r.sortOrder).toBe(20);
     // Keywords pull from safe descriptive fields + variant labels.
     expect(r.keywords).toContain("The Core");
-    expect(r.keywords).toContain("02 — The Core");
+    expect(r.keywords).toContain("Treat");
     expect(r.keywords).toContain("Silky serum");
     expect(r.keywords).toContain("30 ml");
     expect(r.placeholderMedia).toMatchObject({
@@ -180,7 +157,6 @@ describe("buildAlgoliaRecord", () => {
       product_media: [
         {
           media_type: "image",
-          media_kind: "image",
           url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/mei-pelle-catalog/products/northpoint/primary/hash.webp",
           alt: "Northpoint serum",
           width: 1200,
@@ -207,7 +183,6 @@ describe("buildAlgoliaRecord", () => {
   it("never promotes PDP-only editorial media into search", () => {
     const searchImage = {
       media_type: "image",
-      media_kind: "image",
       url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/mei-pelle-catalog/products/northpoint/search.webp",
       alt: "Northpoint serum",
       width: 1200,
@@ -279,13 +254,13 @@ describe("buildAlgoliaRecord", () => {
   });
 
   it("exposes index settings driven by existing fields only", () => {
-    expect(INDEX_SETTINGS.searchableAttributes).toContain("title");
-    expect(INDEX_SETTINGS.customRanking).toContain("asc(featuredRank)");
+    expect(INDEX_SETTINGS.searchableAttributes).toContain("displayName");
+    expect(INDEX_SETTINGS.customRanking).toContain("asc(sortOrder)");
     expect(INDEX_SETTINGS.attributesForFaceting).toContain(
       "filterOnly(routineGroup)",
     );
     expect(INDEX_SETTINGS.attributesForFaceting).toContain(
-      "filterOnly(routineGroupLabel)",
+      "filterOnly(productType)",
     );
     expect(INDEX_SETTINGS.attributesForFaceting).not.toContain(
       "filterOnly(routineStep)",
@@ -683,8 +658,8 @@ describe("catalog cache invalidation", () => {
         objectID: sourceRow.id,
         slug: sourceRow.slug,
         oldSlug: "old-northpoint-serum",
-        collection: sourceRow.collection,
-        oldCollection: "Old Core",
+        routineGroup: sourceRow.routine_group,
+        oldRoutineGroup: "core",
       },
     );
 
@@ -705,7 +680,7 @@ describe("catalog cache invalidation", () => {
     expect(targets.paths).toContain("/products/old-northpoint-serum");
   });
 
-  it("invalidates collection and discovery membership when a product moves", () => {
+  it("invalidates derived collection and discovery membership when a product moves", () => {
     const targets = getCatalogInvalidationTargets(
       {
         type: "UPDATE",
@@ -713,12 +688,12 @@ describe("catalog cache invalidation", () => {
         record: {
           id: sourceRow.id,
           slug: sourceRow.slug,
-          collection: "Beyond The Core",
+          routine_group: "beyond_core",
         },
         old_record: {
           id: sourceRow.id,
           slug: sourceRow.slug,
-          collection: "The Core",
+          routine_group: "core",
         },
       },
       {
@@ -726,8 +701,8 @@ describe("catalog cache invalidation", () => {
         table: "products",
         objectID: sourceRow.id,
         slug: sourceRow.slug,
-        collection: "Beyond The Core",
-        oldCollection: "The Core",
+        routineGroup: "beyond_core",
+        oldRoutineGroup: "core",
       },
     );
 
@@ -795,7 +770,7 @@ describe("catalog cache invalidation", () => {
         table: "product_media",
         objectID: sourceRow.id,
         slug: sourceRow.slug,
-        collection: sourceRow.collection,
+        routineGroup: sourceRow.routine_group,
       },
     );
 

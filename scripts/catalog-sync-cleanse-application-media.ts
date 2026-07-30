@@ -64,7 +64,6 @@ type MediaRow = {
   product_id: string;
   variant_id: string | null;
   media_type: string;
-  media_kind: string;
   url: string | null;
   alt: string;
   width: number | null;
@@ -90,7 +89,6 @@ export type PlannedApplicationRow = {
   product_id: string;
   variant_id: null;
   media_type: "image";
-  media_kind: "image";
   url: string;
   alt: string;
   width: number;
@@ -277,7 +275,7 @@ async function readApplicationRows(
   const { data, error } = await supabase
     .from("product_media")
     .select(
-      "id, product_id, variant_id, media_type, media_kind, url, alt, width, height, role, sort_order, palette_id, placeholder_palette, original_source_url, source_filename, updated_at",
+      "id, product_id, variant_id, media_type, url, alt, width, height, role, sort_order, palette_id, placeholder_palette, original_source_url, source_filename, updated_at",
     )
     .eq("product_id", productId)
     .eq("role", APPLICATION_MEDIA_ROLE)
@@ -326,7 +324,6 @@ export function planApplicationRows(
       product_id: productId,
       variant_id: null,
       media_type: "image",
-      media_kind: "image",
       url: asset.publicUrl,
       alt: asset.alt,
       width: asset.width,
@@ -348,7 +345,6 @@ function rowMatchesPlan(
     row.product_id === planned.product_id &&
     row.variant_id === null &&
     row.media_type === "image" &&
-    row.media_kind === "image" &&
     row.url === planned.url &&
     row.alt === planned.alt &&
     row.width === planned.width &&

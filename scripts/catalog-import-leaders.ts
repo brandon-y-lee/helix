@@ -11,6 +11,7 @@ import {
   leadersMeiPelleCatalog,
   type LeadersCatalogProduct,
 } from "../data/catalog/leaders-mei-pelle-source";
+import { meiPellePresentationCatalog } from "../data/catalog/mei-pelle-presentation";
 import {
   PRODUCT_COMMERCE_FIELDS,
   PRODUCT_EDITORIAL_FIELDS,
@@ -135,18 +136,9 @@ function fallbackContentType(filename: string): string {
 
 function sourceProductValues(product: LeadersCatalogProduct): CatalogRow {
   return {
-    name: product.title,
-    tagline: product.subtitle,
-    subtitle: product.subtitle,
-    descriptor: product.descriptor,
-    blurb: product.blurb,
-    description: product.description,
-    how_to_use: product.howToUse,
-    product_type: product.productType,
     texture: product.texture,
     key_ingredients: product.keyIngredients,
     ingredients: product.ingredients,
-    product_details: product.productDetails,
     cautions: product.cautions,
     finish: product.finish,
     volume: product.volume,
@@ -168,6 +160,7 @@ function editorialProductValues(product: LeadersCatalogProduct): CatalogRow {
     display_name: product.actionName,
     formal_title: product.title,
     card_tagline: product.subtitle,
+    product_type: product.productType,
     editorial_description: product.description,
     editorial_how_to_use: product.howToUse,
     benefits: product.benefits,
@@ -184,8 +177,23 @@ function editorialProductValues(product: LeadersCatalogProduct): CatalogRow {
 function insertProductValues(
   product: LeadersCatalogProduct,
   productId: string,
-  overwriteEditorial: boolean,
 ): CatalogRow {
+  const presentation = meiPellePresentationCatalog.find(
+    (candidate) => candidate.slug === product.slug,
+  );
+  if (!presentation) {
+    throw new Error(
+      `[catalog-import] Missing canonical presentation for ${product.slug}.`,
+    );
+  }
+  const routineGroup =
+    presentation.collection === "The Core" ? "core" : "beyond_core";
+  const routineStepNumber = presentation.routineNumber
+    ? Number(presentation.routineNumber)
+    : null;
+  const beyondIndex = meiPellePresentationCatalog
+    .filter((candidate) => candidate.collection === "Beyond The Core")
+    .findIndex((candidate) => candidate.slug === product.slug);
   const createdAt = new Date(
     Date.parse(product.source.sourceInspectedAt) + product.sortOrder * 1000,
   ).toISOString();
@@ -193,21 +201,21 @@ function insertProductValues(
     id: productId,
     slug: product.slug,
     catalog_status: product.catalogStatus,
-    action_name: product.actionName,
-    collection: product.collection,
-    position: product.sortOrder,
     sort_order: product.sortOrder,
-    featured_rank: product.featuredRank,
-    routine_number: product.routineNumber,
-    routine_step: product.routineStep,
-    routine_order: product.routineOrder,
+    routine_group: routineGroup,
+    routine_step_number: routineStepNumber,
+    routine_step_name: presentation.routineStep,
+    routine_sort:
+      routineGroup === "core"
+        ? (routineStepNumber ?? 0) * 10
+        : 100 + (beyondIndex + 1) * 10,
     swatch_from: product.swatchFrom,
     swatch_to: product.swatchTo,
     created_at: createdAt,
     published_at: product.catalogStatus === "active" ? createdAt : null,
     ...sourceProductValues(product),
     ...commerceProductValues(product),
-    ...(overwriteEditorial ? editorialProductValues(product) : {}),
+    ...editorialProductValues(product),
   };
 }
 
@@ -344,7 +352,6 @@ async function upsertVariants(
       variant_key: variant.key,
       label: variant.label,
       price_cents: variant.priceCents,
-      position: variant.sortOrder,
       sku: variant.sku,
       supplier_variant_id: variant.supplierVariantId,
       option_values: variant.optionValues,
@@ -377,7 +384,6 @@ async function upsertMedia(
   const rows = uploaded.map((media) => ({
     product_id: productId,
     media_type: "image",
-    media_kind: "image",
     url: media.publicUrl,
     alt: media.alt,
     width: media.width,
@@ -415,6 +421,26 @@ async function upsertSource(
       original_source_price_cents: product.source.originalSourcePriceCents,
       formulation_version_notes: product.source.formulationVersionNotes,
       raw_source: {
+        catalogProduct: {
+          name: product.title,
+          tagline: product.subtitle,
+          subtitle: product.subtitle,
+          descriptor: product.descriptor,
+          blurb: product.blurb,
+          description: product.description,
+          howToUse: product.howToUse,
+          productType: product.productType,
+          texture: product.texture,
+          keyIngredients: product.keyIngredients,
+          ingredients: product.ingredients,
+          productDetails: product.productDetails,
+          cautions: product.cautions,
+          finish: product.finish,
+          volume: product.volume,
+          skinTypes: product.skinTypes,
+          concerns: product.concerns,
+          usageTime: product.usageTime,
+        },
         selectionReason: product.selectionReason,
         source: product.source,
         media: product.media.map(
@@ -507,11 +533,7 @@ export async function runCatalogImport(
       const plan = planSupplierProductWrite({
         slug: product.slug,
         existing,
-        insert: insertProductValues(
-          product,
-          productId,
-          options.overwriteEditorial,
-        ),
+        insert: insertProductValues(product, productId),
         source: sourceProductValues(product),
         commerce: commerceProductValues(product),
         editorial: editorialProductValues(product),

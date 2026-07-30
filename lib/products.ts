@@ -32,7 +32,6 @@ export type ProductMediaRole =
   | "hero"
   | "gallery"
   | "detail"
-  | "campaign"
   | "card_default"
   | "card_hover"
   | "cart"
@@ -73,37 +72,21 @@ export type Product = {
   displayName: string;
   /** Formal catalog title, e.g. CLEANSE 01 Calming Gel Cleanser. */
   formalTitle: string;
-  name: string;
-  tagline: string;
   cardTagline: string;
-  collection: string;
-  actionName: string | null;
-  routineNumber: string | null;
-  routineGroup?: CommerceRoutineGroup | null;
-  routineGroupLabel?: string | null;
-  routineStepNumber?: number | null;
-  routineStepName?: string | null;
-  routineDisplayLabel?: string | null;
-  routineSort?: number | null;
-  legacyRoutineGroupLabel?: string | null;
-  legacyRoutineDisplayLabel?: string | null;
-  subtitle: string | null;
-  descriptor: string | null;
-  productType: string | null;
+  productType: string;
+  routineGroup: CommerceRoutineGroup;
+  routineStepNumber: number | null;
+  routineStepName: string | null;
+  routineSort: number;
   badge: string | null;
   currency: "USD";
-  featuredRank: number | null;
   sortOrder: number;
-  /** Short marketing blurb shown on cards. */
-  blurb: string;
   /** Longer description shown on the detail page. */
   description: string;
-  editorialDescription: string;
   /** Key benefits / "what it does" bullets. */
   benefits: string[];
   /** How-to-use guidance. */
   howToUse: string;
-  editorialHowToUse: string;
   formulaNotes: string[];
   variants: Variant[];
   /** Decorative gradient stops used in place of product photography. */
@@ -124,14 +107,11 @@ export type Product = {
   texture: string | null;
   keyIngredients: string[];
   ingredients: string | null;
-  productDetails: Record<string, string>;
   cautions: string[];
   finish: string | null;
   volume: string | null;
   skinTypes: string[];
   concerns: string[];
-  routineStep: string | null;
-  routineOrder: number | null;
   usageTime: string[];
   seoTitle: string | null;
   seoDescription: string | null;

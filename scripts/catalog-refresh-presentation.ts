@@ -43,14 +43,12 @@ type MediaRow = {
   product_id: string;
   role: string;
   sort_order: number;
-  media_kind: string;
 };
 
 type PlannedMediaRow = {
   id: string;
   product_id: string;
   media_type: "image";
-  media_kind: "placeholder";
   url: null;
   alt: string;
   width: null;
@@ -185,7 +183,7 @@ async function readMediaRows(
   if (productIds.length === 0) return [];
   const { data, error } = await supabase
     .from("product_media")
-    .select("id, product_id, role, sort_order, media_kind")
+    .select("id, product_id, role, sort_order")
     .in("product_id", [...productIds])
     .order("product_id", { ascending: true })
     .order("sort_order", { ascending: true });
@@ -210,7 +208,6 @@ function plannedMediaRows(productRows: readonly ProductRow[]): PlannedMediaRow[]
         ),
         product_id: row.id,
         media_type: "image" as const,
-        media_kind: "placeholder" as const,
         url: null,
         alt: media.alt,
         width: null,
@@ -281,7 +278,7 @@ async function backupPresentationData(
     supabase
       .from("products")
       .select(
-        "id, slug, name, display_name, formal_title, tagline, subtitle, descriptor, card_tagline, editorial_description, editorial_how_to_use, product_type, collection, routine_number, routine_step, routine_group, routine_group_label, routine_step_number, routine_step_name, routine_display_label, routine_sort, legacy_routine_group_label, legacy_routine_display_label, blurb, description, how_to_use, swatch_from, swatch_to, featured_rank, sort_order, search_keywords, formula_notes, seo_title, seo_description, updated_at",
+        "id, slug, display_name, formal_title, card_tagline, editorial_description, editorial_how_to_use, product_type, routine_group, routine_step_number, routine_step_name, routine_sort, swatch_from, swatch_to, sort_order, search_keywords, formula_notes, seo_title, seo_description, updated_at",
       )
       .in("id", productIds),
     supabase
@@ -293,7 +290,7 @@ async function backupPresentationData(
     supabase
       .from("product_media")
       .select(
-        "id, product_id, media_type, media_kind, url, alt, width, height, role, sort_order, palette_id, placeholder_palette, original_source_url, source_filename, updated_at",
+        "id, product_id, media_type, url, alt, width, height, role, sort_order, palette_id, placeholder_palette, original_source_url, source_filename, updated_at",
       )
       .in("product_id", productIds),
     supabase

@@ -88,7 +88,7 @@ describe("Supabase PDP content authority", () => {
       resolveHowToUseSteps(null, "Apply first. Follow with SEAL."),
     ).toEqual({
       steps: ["Apply first", "Follow with SEAL"],
-      source: "products.editorial_how_to_use/products.how_to_use",
+      source: "products.editorial_how_to_use",
       usedParagraphFallback: true,
     });
   });

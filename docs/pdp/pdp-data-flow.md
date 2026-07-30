@@ -1,7 +1,8 @@
 # Mei Pelle PDP data flow
 
 Verified against repository code and the linked non-production Supabase project
-`erasogmsqpgiirovubjh` on 2026-07-29.
+`erasogmsqpgiirovubjh` on 2026-07-30, including Phase 1 catalog
+canonicalization.
 
 ## Executive summary
 
@@ -102,44 +103,42 @@ In the table:
 
 | Field | Database/source location | Query and mapping precedence | Runtime consumer | Cache and tag | Algolia | Direct edit | Repository writer risk |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| Display name | `products.display_name`, fallback `name` | `PRODUCT_SELECT`; `resolveCatalogPrecedence` reports the selected source | PDP H1, sticky bar, cart payload, reviews/discovery labels | Product page / `product:<slug>` | Yes: `title`, `displayName` | Yes | Preserved by default; presentation recovery requires `--overwrite-editorial` |
-| Formal title | `products.formal_title`, fallback `name` | `PRODUCT_SELECT`; `resolveCatalogPrecedence` reports the selected source | Metadata title fallback | Product page / `product:<slug>` | Yes | Yes | Preserved by default; presentation recovery requires `--overwrite-editorial` |
-| Subtitle | `products.subtitle`, fallback `tagline` | `PRODUCT_SELECT`; `mapRow` fallback | Domain value; not a dedicated current PDP block | Product page / `product:<slug>` | Yes | Read-only source | Supplier import |
-| Card tagline | `products.card_tagline`, fallback `tagline` | `PRODUCT_SELECT`; canonical value before source fallback | Hero tagline, metadata description fallback, discovery | Product page / `product:<slug>` | Yes | Yes | Preserved by default; explicit editorial recovery only |
-| Description | `editorial_description`, fallback `description` | `PRODUCT_SELECT`; canonical value before source fallback; `ProductDetail.compactDescription` | Hero description and deeper fallback copy | Product page / `product:<slug>` | Yes | Yes | Source fallback may update; canonical value is preserved by default |
-| Price | `product_variants.price_cents` | Joined by `PRODUCT_SELECT`; variants sorted by `sort_order ?? position`; client selects one variant | Hero price, add button, sticky bar, Afterpay amount | Product page / `product:<slug>` | Yes: min/max derived from variants | Yes | Supplier import can overwrite |
+| Display name | `products.display_name` | Canonical purpose-specific projection; no legacy fallback | PDP H1, sticky bar, cart snapshot, reviews/discovery labels | Stable content / `catalog-product-content:<slug>` | Yes: `title`, `displayName` | Yes | Preserved by default; presentation recovery requires `--overwrite-editorial` |
+| Formal title | `products.formal_title` | Canonical purpose-specific projection; no legacy fallback | Metadata title fallback | Stable content / `catalog-product-content:<slug>` | Yes | Yes | Preserved by default; presentation recovery requires `--overwrite-editorial` |
+| Card tagline | `products.card_tagline` | Canonical purpose-specific projection; no legacy fallback | Hero tagline, metadata description fallback, discovery | Content/card domains with product tags | Yes | Yes | Preserved by default; explicit editorial recovery only |
+| Description | `editorial_description` | Canonical purpose-specific projection; no legacy fallback | Hero description and deeper fallback copy | Stable content / `catalog-product-content:<slug>` | Yes | Yes | Canonical editorial value is preserved by default |
+| Price | `product_variants.price_cents` | Narrow offer projection; variants sorted by `sort_order`; client selects one variant | Hero price, add button, sticky bar, Afterpay amount | Offer cache, 60 seconds / `catalog-product-offer:<slug>` | Yes: min/max derived from variants | Yes | Supplier import can overwrite |
 | Currency | `products.currency` exists | Selected, but `mapRow` currently normalizes every value to `USD` | Hero formatting, Afterpay, cart/checkout | Product page / `product:<slug>` | Hard-coded `USD` | Yes, but non-USD is ignored | Import can overwrite |
 | Variants | `product_variants` joined rows | `PRODUCT_SELECT`; `mapRow` maps key, label, price, SKU, options, volume, pack count, ordering | Variant controls, availability, cart add | Product page / `product:<slug>` | Names/count/price/availability | Yes | Supplier import can overwrite |
 | Availability | `products.status`, `catalog_status`; variant `available`, `inventory_status` | `mapRow` validates enums; `ProductDetail` requires active available product and usable variant | Status text, disabled/waitlist/add paths | Product page / `product:<slug>` | Yes | Yes | Supplier import updates sellable/inventory state but preserves publication status |
-| Routine fields | First-class `routine_group`, labels, step, display label, sort | `PRODUCT_SELECT`; mapped directly, with generic same-row label/sort fallbacks only | Collection label, sticky bar, discovery order, Core classification and FYI | Product page / `product:<slug>`; discovery also `catalog`/`products`/`collections` | Yes | Yes | Catalog import preserves populated first-class routine fields |
+| Routine fields | `routine_group`, `routine_step_number`, `routine_step_name`, `routine_sort` | Narrow projections; display/group labels derive from these fields | Group label, sticky bar, discovery order, Core classification and FYI | Stable content/card/Core domains and granular tags | Yes | Yes | Catalog import preserves canonical routine fields |
 | `good_for` | `products.good_for` | `PRODUCT_SELECT`; direct `mapRow` | Core profile and Beyond Quick Signals | Product page / `product:<slug>` | Yes and keyword input | Yes | Preserved by default; supplier recovery requires `--overwrite-editorial` |
 | `texture` | `products.texture` | `PRODUCT_SELECT`; direct `mapRow` | Core `FEELS LIKE`, Beyond Quick Signals, details | Product page / `product:<slug>` | Yes and keyword input | Yes | Supplier import can overwrite |
 | `finish` | `products.finish` | `PRODUCT_SELECT`; direct `mapRow` | Core `FINISH`, Beyond Quick Signals, details | Product page / `product:<slug>` | No | Yes | Supplier import can overwrite |
 | `skin_types` | `products.skin_types` | `PRODUCT_SELECT`; array mapped directly | Core FYI and details | Product page / `product:<slug>` | No | Yes | Supplier import can overwrite |
 | `usage_time` | `products.usage_time` | `PRODUCT_SELECT`; array mapped directly | Core FYI, Beyond Quick Signals, details | Product page / `product:<slug>` | Keyword input | Yes | Supplier import can overwrite |
 | Benefits | `products.benefits` | `PRODUCT_SELECT`; array mapped directly | Supporting body for lower "What it does" sequence | Product page / `product:<slug>` | No | Yes | Preserved by default; supplier recovery requires `--overwrite-editorial` |
-| Ingredients | `products.ingredients`; compatibility fallback `product_details.sourceFullInci` only when first-class value is empty and the fallback has the shape of a complete list | `PRODUCT_SELECT`; `mapRow`; `resolveFullInci()` rejects unavailable markers, packaging directions, highlights, and short fragments | Core in-place full ingredients disclosure and legacy Beyond disclosure | Product page / `product:<slug>` | Split into search ingredient terms | Yes | Supplier import can overwrite both locations |
+| Ingredients | `products.ingredients` | Canonical PDP projection; no JSON or TypeScript fallback | Core in-place full ingredients disclosure and Beyond disclosure | Stable content / `catalog-product-content:<slug>` | Split into search ingredient terms | Yes | Supplier import writes the canonical field and preserves source provenance separately |
 | Key ingredients | `products.key_ingredients` | `PRODUCT_SELECT`; array mapped directly | Purchase accordion and lower ingredient content fallback | Product page / `product:<slug>` | Yes: terms/keywords | Yes | Supplier import can overwrite |
-| How to use | `editorial_how_to_use`, fallback `how_to_use`; structured `product_pdp_content.how_to_use_steps` and `application_steps` | Canonical paragraph before source fallback; `resolveHowToUseSteps` reports structured-versus-paragraph selection and preserves intentionally empty arrays | Purchase accordion, Core application carousel, and Beyond lower use sequence | Product page / `product:<slug>` | Not displayed in record | Yes | Source paragraph may update; canonical paragraph and structured steps are preserved by default |
+| How to use | `editorial_how_to_use`; structured `product_pdp_content.how_to_use_steps` and `application_steps` | Structured content is used when present; otherwise the canonical editorial paragraph is parsed. Intentional empty arrays remain empty | Purchase accordion, Core application carousel, and Beyond lower use sequence | Stable content / `catalog-product-content:<slug>` | Not displayed in record | Yes | Canonical paragraph and structured steps are preserved by default |
 | SEO | `products.seo_title`, `seo_description` | `PRODUCT_SELECT`; mapped directly; route fallbacks described above | `generateMetadata` | Product page / `product:<slug>` | No | Yes | Presentation seed or explicit editorial recovery only |
-| Media | `product_media` joined rows plus Storage URLs | `PRODUCT_SELECT`; `mapRow` maps kind/type/role and uses explicit presentation-role fallbacks | Gallery, hero/card/cart/search media, Core video/profile | Product page / `product:<slug>` | Only approved image roles | Yes | Dedicated media syncs; import/refresh preserve existing associations unless explicitly confirmed |
-| Discovery products | `products`, ordered by `routine_sort`, then sort/position | `getDiscoveryProducts`; full `PRODUCT_SELECT`; domain sort repeated before limit | `ProductDiscoveryRail` | One hour; `catalog`, `products`, `collections`, `product:<excluded-slug>` | Not read from Algolia | Yes | Same catalog writers |
+| Media | `product_media` plus Storage URLs | Role-filtered purpose projections map `media_type`, URL/palette payload, role, and order | Gallery, hero/card/cart/search media, Core video/profile | Content/card domains with role-aware invalidation | Only approved image roles | Yes | Dedicated media syncs; import/refresh preserve existing associations unless explicitly confirmed |
+| Discovery products | narrow card projection plus `product_relationships` membership | Fetches only the three displayed cards, excluding the current product | `ProductDiscoveryRail` | One hour; discovery/card/product tags | Not read from Algolia | Yes | Same catalog writers |
 | Reviews | `lib/catalog/product-reviews.ts` fixture | `getProductReviews(slug)` default prop in `ProductDetail` | `ProductReviewsSection` | Bundled repository code, outside catalog tags | No | No | Repository-only fixture |
 | Structured PDP editorial content | `product_pdp_content` one-to-one product row | `normalizeProductPdpContent()` validates schema version 1; no slug fallback | Profile title, video overlay, outcome copy, application, ingredient cards/story, details routine guidance | Product page / `product:<slug>` through the joined catalog read | No | Yes | Additive migration backfills six rows; browser roles are read-only |
 | Core outcome/application hues and media focal positions | Stable Core-step tokens in `lib/content/core-pdp.ts` | Supabase copy is combined with step-keyed visual tokens only when required content validates | `PdpProfileSplit`, `PdpOutcomeSplit`, `PdpApplicationCarousel`, `PdpIngredientsSplit` | Bundled design configuration | No | No | Repository-only non-content presentation |
 | Core routine module | Active `routine_group = core` rows plus one `core_routine_texture` media row per product | `getCoreRoutineProducts()` requires exactly CLEANSE, TREAT, and SEAL in three-step Core order; System product numbers remain 01/03/05 | `PdpCoreRoutineSection` after DETAILS on Core PDPs | One hour; `catalog:core-routine` plus all three product tags | No; dedicated media is explicitly excluded | Yes | Core PDP media sync owns the texture rows |
 
-### Duplicated and compatibility fields
+### Phase 1 compatibility boundary
 
-- `product_details` is an older JSON compatibility bag. It can repeat first-class
-  facts such as volume or source INCI. The current mapper preserves the whole
-  object, while visible code prefers first-class columns except for the
-  `sourceFullInci` fallback.
-- `name`/`display_name`, `tagline`/`card_tagline`,
-  `description`/`editorial_description`, and
-  `how_to_use`/`editorial_how_to_use` are intentional precedence pairs.
-- `legacy_routine_*` remains in the domain for compatibility but is not used by
-  the new Core profile.
+- Public runtime and current writers no longer select, map, or serialize
+  `product_details`, the legacy precedence shadows, or superseded routine
+  labels/order fields.
+- Verified `sourceFullInci` values are backfilled into `products.ingredients`
+  before `product_details` is retired. The full original source-shaped product
+  object is retained once in `product_sources.raw_source.catalogProduct`.
+- V1 draft/revision JSON remains accepted only through a deterministic V1→V2
+  adapter; it is not a storefront fallback.
 - `lib/catalog/product-routine.ts` contains generic label and sort helpers only.
   It does not infer product-specific values from slugs.
 - `lib/catalog/product-content.ts` contains schema-versioned runtime validation
@@ -165,11 +164,13 @@ Explicitly named user source
 
 `public.product_media` contains product and optional variant foreign keys,
 `media_type`, nullable URL, alt text, dimensions, role, sort order, source
-metadata, `media_kind`, placeholder palette metadata, and timestamps. It has:
+metadata, placeholder palette metadata, and timestamps. The still-present
+`media_kind` column is ignored and scheduled for Phase 2 removal. It has:
 
 - unique `(product_id, role, sort_order)`
 - partial unique `(product_id, role)` for dedicated Core PDP editorial roles
-- product/sort, role, kind/role, and optional variant indexes
+- product/sort, role, a legacy kind/role index scheduled for removal, and an
+  optional variant index
 - RLS allowing anon/authenticated reads only through an active, published parent
   product
 - no public write policy
@@ -187,12 +188,12 @@ adds a one-row-per-product partial unique index:
 - `routine_video` requires `media_type = 'video'`
 - `routine_video_poster`, `profile_editorial`, and `ingredients_texture` require
   `media_type = 'image'`
-- all four require concrete `media_kind = 'image'`, a non-empty URL, and
-  positive dimensions
+- all four require the canonical `media_type`, a non-empty URL, and positive
+  dimensions
 
-`media_kind = 'image'` currently means "concrete stored asset" rather than
-literal image MIME type; `media_type` distinguishes image from video. This
-terminology is a known ambiguity.
+Phase 1 replaces payload constraints so concrete versus placeholder state is
+derived from URL and `placeholder_palette`; `media_type` alone distinguishes
+image from video.
 
 ### Media roles and consumers
 
@@ -439,20 +440,20 @@ or intentionally avoid that writer before making durable direct edits.
 | Routine video | Supabase Storage URL from the product's canonical `product_media` row with role `routine_video` |
 | Routine poster | Supabase Storage URL from role `routine_video_poster` |
 | Profile image | Supabase Storage URL from role `profile_editorial`; only the explicit `-01` basename was ingested |
-| Profile title | Tokenized merchandising copy in `lib/content/core-pdp.ts` |
+| Profile title | `product_pdp_content.profile_title_tokens`; TypeScript supplies layout only |
 | `GOOD FOR` | `Product.goodFor` mapped from `products.good_for` |
 | `FEELS LIKE` | `Product.texture` mapped from `products.texture` |
 | `FINISH` | `Product.finish` mapped from `products.finish` |
 | `FYI` | Composed from `skin_types`, `usage_time`, `routine_step_number`, and `routine_group_label` |
-| Outcome heading/labels | Grammatical presentation labels in `lib/content/core-pdp.ts`; canonical `benefits` is unchanged |
+| Outcome heading/labels | `product_pdp_content.outcome_heading` and `outcome_labels`; canonical `benefits` is unchanged |
 | Outcome hue slides | Three decorative color configurations per Core slug in `lib/content/core-pdp.ts` |
-| Application steps and hue states | Verified direction composition, stable step IDs, and future media basenames in `lib/content/core-pdp.ts` |
-| Ingredient story | Structured highlights in `lib/catalog/product-content.ts`, validated against supplier provenance |
+| Application steps and hue states | Instructions from `product_pdp_content.application_steps`; stable visual step IDs and hues in TypeScript |
+| Ingredient story | Structured `product_pdp_content.ingredient_story`, runtime-validated without a static product fallback |
 | Ingredient texture | Supabase Storage URL from role `ingredients_texture`; exact user basename maps one image to each Core product |
 | Core routine selector | Exactly three active Core product rows ordered by canonical routine metadata |
 | Core routine textures | Supabase Storage URLs from role `core_routine_texture`; one explicit canonical basename per Core product |
 | Core routine hues | Each product's canonical `swatch_from` and `swatch_to` values |
-| Full INCI | `resolveFullInci()`: `products.ingredients`, then a validated complete `product_details.sourceFullInci`, then no content |
+| Full INCI | `products.ingredients` only |
 
 Core modules fail closed as a connected presentation:
 
@@ -462,8 +463,7 @@ Core modules fail closed as a connected presentation:
 - application and ingredient story follow outcome only for Core; missing
   ingredient media reports temporary unavailability instead of substituting
   another image
-- the full-list button is omitted when no verified list resolves; this is the
-  current CLEANSE and SEAL state
+- the full-list button is omitted when no verified canonical list resolves
 - the routine module renders only when the dedicated query returns exactly
   CLEANSE, TREAT, and SEAL with complete metadata and media
 - no empty frame is shown
@@ -488,9 +488,8 @@ translates from `(24px, 24px)` while outgoing copy translates to
 `(-24px, -24px)` over 560 ms; reduced motion shortens animations to 1 ms.
 
 The ingredient component keeps the image node mounted while the left panel
-crossfades between story and disclosure states over 220 ms. Only TREAT
-currently resolves a complete full INCI. The close button and Escape return
-focus to the outlined image-panel trigger.
+crossfades between story and disclosure states over 220 ms. The close button
+and Escape return focus to the outlined image-panel trigger.
 
 The Core routine component starts on the current PDP product and keeps all
 three texture states mounted. Hover, focus, click/touch, Arrow keys, Home, and
@@ -537,15 +536,14 @@ remaining accessibility dependency before caption compliance can be claimed.
 2. **Resolve Storage listing exposure.** The Supabase advisor reports a broad
    public-bucket listing policy. Public object reads are required, but public
    listing should be narrowed separately without disrupting delivery URLs.
-3. **Consolidate legacy fact duplicates.** Retire `product_details` copies after
-   all first-class product fields and source INCI behavior have a separate
-   migration plan.
+3. **Execute Phase 2 only after Phase 1 verification.** Follow
+   `docs/catalog/catalog-schema-cleanup.md` to remove the audited duplicate
+   columns and `collections` table without `CASCADE`.
 4. **Keep writer authority explicit.** The shared field-ownership manifest,
    default dry runs, and dedicated editorial confirmation must remain in place
    as editor capabilities expand.
-5. **Clarify `media_kind`.** A future additive schema change could distinguish
-   concrete asset storage from literal image/video type without encoding video
-   rows as `media_kind = 'image'`.
+5. **Remove `media_kind` in Phase 2.** Phase 1 already makes payload validation
+   independent of it; the legacy index and column remain only for rollback.
 6. **Add duration/poster relationships if media grows.** The current table has
    no video duration column or explicit poster foreign key; the role pair is
    resolved by product.

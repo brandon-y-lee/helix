@@ -12,18 +12,16 @@ it is not a product-data fallback.
 
 | Table | Field or field group | Current writer | Intended owner | Default supplier import | Explicit editorial overwrite |
 | --- | --- | --- | --- | --- | --- |
-| `products` | `name`, `tagline`, `subtitle`, `descriptor`, `blurb`, `description`, `how_to_use`, verified supplier facts and ingredient/use attributes | Leaders import | Supplier | Update existing source values | Same as default |
-| `products` | `display_name`, `formal_title`, `card_tagline`, `editorial_description`, `editorial_how_to_use`, benefits/signals/badge, `formula_notes`, search/SEO presentation | Presentation refresh; optional recovery from Leaders source | Editorial | Preserve existing values | Update only exact changed fields |
+| `products` | `display_name`, `formal_title`, `card_tagline`, `editorial_description`, `editorial_how_to_use`, benefits/signals/badge, product facts, `formula_notes`, search/SEO presentation | Presentation refresh; optional recovery from Leaders source; published editor | Editorial | Preserve existing values | Update only exact changed fields |
 | `products` | `currency` and sellable status | Leaders import | Commerce | Update | Same as default |
-| `products` | ID, slug, publication/catalog status, collection/routine classification, ordering/rank, swatches, timestamps | Migrations/controlled catalog operations | System | Insert only; never rewrite existing values | Still insert only |
+| `products` | ID, slug, publication/catalog status, canonical routine classification/order, merchandising order, swatches, timestamps | Migrations/controlled catalog operations | System | Insert only; never rewrite existing values | Still insert only |
 | `product_variants` | variant key, label, price, availability, inventory status, SKU, options and size | Leaders import / published editor | Commerce | Upsert by product and variant key | Same as default |
 | `product_variants` | `supplier_variant_id` | Leaders import | Supplier | Upsert by product and variant key | Same as default |
-| `product_sources` | supplier identifiers, inspected timestamp/hash, raw verified source | Leaders import | Supplier | Upsert | Same as default |
+| `product_sources` | supplier identifiers, inspected timestamp/hash, raw verified source and preserved catalog-source snapshot | Leaders import / Phase 1 migration | Supplier | Upsert | Same as default |
 | `product_media` | associations, roles, order, alt text and presentation palette | Dedicated media syncs; presentation seed; optional Leaders recovery | Editorial | New-product seed only; preserve existing associations | Targeted Leaders upsert or explicitly requested presentation replacement |
 | `product_media` | original supplier URL and filename | Leaders import | Supplier | Stored with a new association only | Updated with the explicitly overwritten association |
 | `product_pdp_content` | structured PDP copy and steps | Published editor/migrations | Editorial | Never | Never; supplier and presentation scripts do not write it |
 | `product_relationships` | related product, relationship type, and ordering | Published editor / controlled catalog operations | Editorial | Preserve | Preserve |
-| `collections` | durable grouping rows | Migrations/controlled catalog operations | System | Preserve | Preserve |
 | Algolia records, cache entries and search documents | all projected fields | Search backfill/webhook and cache invalidation | Derived | Never | Never |
 
 The Leaders import no longer updates collections, routine relationships,
@@ -83,31 +81,33 @@ The separate derived search writer also supports
 `pnpm run search:backfill -- --dry-run`; canonical import and presentation
 scripts never invoke it directly.
 
-## Legacy Precedence
+## Canonical-only runtime
 
-The editor-facing canonical fields remain the high-precedence fields:
+Runtime and editor writers use one field per visible concept:
 
 ```text
-display_name            -> name fallback
-formal_title            -> name fallback
-card_tagline            -> tagline fallback
-editorial_description   -> description fallback
-editorial_how_to_use    -> how_to_use fallback
-structured how-to steps -> parsed paragraph fallback
+display_name
+formal_title
+card_tagline
+editorial_description
+editorial_how_to_use
+product_pdp_content.how_to_use_steps
+products.ingredients
+routine_group + routine_step_number + routine_step_name + routine_sort
 ```
 
-`resolveCatalogPrecedence` returns both the selected value and its source field,
-so controlled diagnostics and tests can detect fallback use without production
-logging. `resolveHowToUseSteps` does the same for structured steps. Writers do
-not synchronize precedence pairs; supplier updates to legacy/source fields
-therefore do not replace a populated canonical editorial value.
+There is no storefront fallback to the legacy product shadows or
+`product_details`. Supplier facts that should not own storefront presentation
+remain in `product_sources.raw_source`; they do not silently replace editorial
+values. See `docs/catalog/catalog-schema-cleanup.md` for the audited evidence
+and exact removal order.
 
 The protected catalog editor uses this same manifest in both layers:
 
 - React controls read the browser-safe `editor` metadata.
-- The server compares every saved, validated, and published document with the
-  current canonical aggregate and rejects changed supplier/system fields,
-  unknown fields, and supplier provenance on newly added rows.
+- The server compares every saved, validated, and published V2 document with
+  the current canonical aggregate and rejects changed system fields, retired
+  or unknown fields, and supplier provenance on newly added rows.
 - UI treatment is advisory; the server check remains authoritative.
 
 Placeholder reviews in `lib/catalog/product-reviews.ts` are outside this

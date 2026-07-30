@@ -61,7 +61,6 @@ type MediaRow = {
   id: string;
   product_id: string;
   media_type: string;
-  media_kind: string;
   url: string | null;
   alt: string;
   width: number | null;
@@ -97,7 +96,6 @@ type InspectedAsset = CoreMediaAsset & {
 type PlannedRow = {
   product_id: string;
   media_type: "image";
-  media_kind: "image";
   url: string;
   alt: string;
   width: number;
@@ -286,7 +284,7 @@ async function readMediaRows(
   const { data, error } = await supabase
     .from("product_media")
     .select(
-      "id, product_id, media_type, media_kind, url, alt, width, height, role, sort_order, palette_id, placeholder_palette, original_source_url, source_filename, updated_at",
+      "id, product_id, media_type, url, alt, width, height, role, sort_order, palette_id, placeholder_palette, original_source_url, source_filename, updated_at",
     )
     .in("product_id", productIds)
     .order("product_id", { ascending: true })
@@ -375,7 +373,6 @@ function plannedRowsForAsset(
     return {
       product_id: product.id,
       media_type: "image",
-      media_kind: "image",
       url: asset.publicUrl,
       alt: asset.alt,
       width: asset.width,
@@ -395,7 +392,6 @@ function summarizeMediaRow(row: MediaRow) {
     id: row.id,
     role: row.role,
     sortOrder: row.sort_order,
-    mediaKind: row.media_kind,
     url: row.url,
     alt: row.alt,
     width: row.width,
@@ -409,7 +405,6 @@ function summarizePlannedRow(row: PlannedRow) {
   return {
     role: row.role,
     sortOrder: row.sort_order,
-    mediaKind: row.media_kind,
     url: row.url,
     alt: row.alt,
     width: row.width,

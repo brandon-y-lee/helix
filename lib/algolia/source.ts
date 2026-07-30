@@ -14,24 +14,21 @@ import {
 // Includes `id` (the Algolia objectID) alongside every storefront-safe field
 // the record builder needs.
 const SOURCE_SELECT =
-  "id, slug, name, display_name, formal_title, tagline, card_tagline, collection, " +
-  "action_name, routine_number, routine_group, routine_group_label, routine_step_number, " +
-  "routine_step_name, routine_display_label, routine_sort, subtitle, descriptor, product_type, badge, " +
-  "catalog_status, blurb, description, editorial_description, editorial_how_to_use, " +
-  "status, swatch_from, swatch_to, position, featured_rank, sort_order, created_at, " +
+  "id, slug, display_name, formal_title, card_tagline, product_type, badge, " +
+  "routine_group, routine_step_number, routine_step_name, routine_sort, " +
+  "catalog_status, editorial_description, status, swatch_from, swatch_to, sort_order, created_at, " +
   "published_at, updated_at, made_for, good_for, texture, key_ingredients, " +
-  "ingredients, concerns, routine_step, usage_time, search_keywords, " +
-  "product_variants ( variant_key, label, price_cents, position, sort_order, available, inventory_status ), " +
-  "product_media ( media_type, media_kind, url, alt, width, height, role, sort_order, palette_id, placeholder_palette )";
+  "ingredients, concerns, usage_time, search_keywords, " +
+  "product_variants ( variant_key, label, price_cents, sort_order, available, inventory_status ), " +
+  "product_media ( media_type, url, alt, width, height, role, sort_order, palette_id, placeholder_palette )";
 
-/** All products as Algolia records, in featured (position) order. */
+/** All products as Algolia records, in canonical merchandising order. */
 export async function fetchAllSearchRecords(): Promise<AlgoliaProductRecord[]> {
   const supabase = getSupabaseClient();
   const { data, error } = await supabase
     .from("products")
     .select(SOURCE_SELECT)
-    .order("sort_order", { ascending: true, nullsFirst: false })
-    .order("position", { ascending: true });
+    .order("sort_order", { ascending: true });
 
   if (error) {
     throw new Error(

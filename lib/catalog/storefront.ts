@@ -2,7 +2,6 @@ import {
   normalizeProductPdpContent,
   type ProductPdpContentRow,
 } from "@/lib/catalog/product-content";
-import { canonicalCatalogValue } from "@/lib/catalog/field-ownership";
 import {
   CORE_ROUTINE_PRODUCT_SLUGS,
   type CoreRoutineContentSummary,
@@ -30,13 +29,11 @@ type VariantRow = {
   inventory_status: string;
   volume: string | null;
   pack_count: number | null;
-  position: number;
-  sort_order: number | null;
+  sort_order: number;
 };
 
 type MediaRow = {
-  media_type: string | null;
-  media_kind: string | null;
+  media_type: string;
   url: string | null;
   alt: string;
   width: number | null;
@@ -48,27 +45,21 @@ type MediaRow = {
 };
 
 type RoutineRow = {
-  routine_group?: string | null;
-  routine_group_label?: string | null;
-  routine_step_number?: number | null;
-  routine_step_name?: string | null;
-  routine_display_label?: string | null;
-  routine_sort?: number | null;
+  routine_group: string;
+  routine_step_number: number | null;
+  routine_step_name: string | null;
+  routine_sort: number;
 };
 
 type ProductCardRow = RoutineRow & {
   id: string;
   slug: string;
-  name: string;
-  display_name: string | null;
-  tagline: string;
-  card_tagline: string | null;
-  collection: string;
-  product_type: string | null;
+  display_name: string;
+  card_tagline: string;
+  product_type: string;
   volume: string | null;
   usage_time: string[] | null;
-  sort_order: number | null;
-  position: number | null;
+  sort_order: number;
   created_at: string;
   swatch_from: string;
   swatch_to: string;
@@ -78,17 +69,11 @@ type ProductCardRow = RoutineRow & {
 type PdpProductRow = RoutineRow & {
   id: string;
   slug: string;
-  name: string;
-  display_name: string | null;
-  tagline: string;
-  card_tagline: string | null;
-  collection: string;
-  routine_number: string | null;
-  product_type: string | null;
-  description: string;
-  editorial_description: string | null;
-  how_to_use: string;
-  editorial_how_to_use: string | null;
+  display_name: string;
+  card_tagline: string;
+  product_type: string;
+  editorial_description: string;
+  editorial_how_to_use: string;
   swatch_from: string;
   swatch_to: string;
   made_for: string | null;
@@ -96,7 +81,6 @@ type PdpProductRow = RoutineRow & {
   texture: string | null;
   key_ingredients: string[] | null;
   ingredients: string | null;
-  product_details: Record<string, string> | null;
   cautions: string[] | null;
   finish: string | null;
   volume: string | null;
@@ -112,14 +96,11 @@ type PdpProductRow = RoutineRow & {
 type CoreRoutineRow = {
   id: string;
   slug: string;
-  name: string;
-  display_name: string | null;
-  formal_title: string | null;
-  product_type: string | null;
-  card_tagline: string | null;
-  tagline: string;
-  description: string;
-  editorial_description: string | null;
+  display_name: string;
+  formal_title: string;
+  product_type: string;
+  card_tagline: string;
+  editorial_description: string;
   benefits: string[] | null;
   good_for: string | null;
   texture: string | null;
@@ -147,29 +128,26 @@ type ProductOfferRow = {
 
 type ProductMetadataRow = {
   slug: string;
-  name: string;
-  formal_title: string | null;
-  tagline: string;
-  card_tagline: string | null;
+  formal_title: string;
+  card_tagline: string;
   seo_title: string | null;
   seo_description: string | null;
 };
 
 type IngredientIndexRow = {
   slug: string;
-  name: string;
-  display_name: string | null;
+  display_name: string;
   key_ingredients: string[] | null;
   ingredients: string | null;
   formula_notes: string[] | null;
 };
 
 const OFFER_SELECT =
-  "variant_key, label, price_cents, available, inventory_status, volume, pack_count, position, sort_order";
+  "variant_key, label, price_cents, available, inventory_status, volume, pack_count, sort_order";
 const MEDIA_SELECT =
-  "media_type, media_kind, url, alt, width, height, role, sort_order, palette_id, placeholder_palette";
+  "media_type, url, alt, width, height, role, sort_order, palette_id, placeholder_palette";
 const ROUTINE_SELECT =
-  "routine_group, routine_group_label, routine_step_number, routine_step_name, routine_display_label, routine_sort";
+  "routine_group, routine_step_number, routine_step_name, routine_sort";
 const PDP_CONTENT_SELECT =
   "schema_version, profile_title_tokens, routine_overlay, outcome_heading, outcome_labels, " +
   "how_to_use_steps, application_steps, ingredient_cards, ingredient_story, routine_guidance";
@@ -207,32 +185,21 @@ const CORE_MEDIA_ROLES = [
   "core_routine_texture",
 ] as const;
 
-const PRODUCT_CARD_SELECT_BASE =
-  "id, slug, name, display_name, tagline, card_tagline, collection, product_type, " +
-  "volume, usage_time, sort_order, position, created_at, swatch_from, swatch_to, " +
+export const PRODUCT_CARD_SELECT =
+  "id, slug, display_name, card_tagline, product_type, " +
+  `${ROUTINE_SELECT}, volume, usage_time, sort_order, created_at, swatch_from, swatch_to, ` +
   `product_media ( ${MEDIA_SELECT} )`;
 
-export const PRODUCT_CARD_SELECT = PRODUCT_CARD_SELECT_BASE.replace(
-  "volume, usage_time",
-  `${ROUTINE_SELECT}, volume, usage_time`,
-);
-
-const PDP_PRODUCT_SELECT_BASE =
-  "id, slug, name, display_name, tagline, card_tagline, collection, " +
-  "routine_number, product_type, description, editorial_description, how_to_use, " +
-  "editorial_how_to_use, swatch_from, swatch_to, made_for, good_for, texture, " +
-  "key_ingredients, ingredients, product_details, cautions, finish, volume, skin_types, " +
-  "usage_time, " +
+export const PDP_PRODUCT_SELECT =
+  "id, slug, display_name, card_tagline, product_type, " +
+  `${ROUTINE_SELECT}, editorial_description, editorial_how_to_use, ` +
+  "swatch_from, swatch_to, made_for, good_for, texture, " +
+  "key_ingredients, ingredients, cautions, finish, volume, skin_types, usage_time, " +
   `product_pdp_content ( ${PDP_CONTENT_SELECT} ), product_media ( ${MEDIA_SELECT} )`;
 
-export const PDP_PRODUCT_SELECT = PDP_PRODUCT_SELECT_BASE.replace(
-  "product_type, description",
-  `${ROUTINE_SELECT}, product_type, description`,
-);
-
 export const CORE_ROUTINE_SUMMARY_SELECT =
-  "id, slug, name, display_name, formal_title, product_type, card_tagline, tagline, " +
-  "description, editorial_description, benefits, good_for, texture, finish, key_ingredients, " +
+  "id, slug, display_name, formal_title, product_type, card_tagline, " +
+  "editorial_description, benefits, good_for, texture, finish, key_ingredients, " +
   "routine_step_number, routine_step_name, routine_sort, swatch_from, swatch_to, " +
   `product_pdp_content ( ${PDP_CONTENT_SELECT} ), product_media!inner ( ${MEDIA_SELECT} )`;
 
@@ -240,12 +207,12 @@ export const PRODUCT_OFFER_SELECT =
   `id, slug, currency, status, product_variants ( ${OFFER_SELECT} )`;
 
 export const PRODUCT_METADATA_SELECT =
-  "slug, name, formal_title, tagline, card_tagline, seo_title, seo_description";
+  "slug, formal_title, card_tagline, seo_title, seo_description";
 
 export const PRODUCT_ROUTE_SELECT = "slug";
 
 export const INGREDIENT_INDEX_SELECT =
-  "slug, name, display_name, key_ingredients, ingredients, formula_notes";
+  "slug, display_name, key_ingredients, ingredients, formula_notes";
 
 const VALID_STATUSES: ProductStatus[] = ["available", "coming_soon", "sold_out"];
 const VALID_INVENTORY_STATUSES = [
@@ -269,18 +236,9 @@ function toInventoryStatus(
     : "in_stock";
 }
 
-function toRoutineGroup(value: string | null | undefined): CommerceRoutineGroup | null {
-  return value === "core" || value === "beyond_core" ? value : null;
-}
-
-function isMissingRoutineColumn(error: { message?: string } | null | undefined) {
-  const message = error?.message?.toLowerCase() ?? "";
-  return (
-    message.includes("routine_group") ||
-    message.includes("routine_step_number") ||
-    message.includes("routine_display_label") ||
-    message.includes("routine_sort")
-  );
+function toRoutineGroup(value: string): CommerceRoutineGroup {
+  if (value === "core" || value === "beyond_core") return value;
+  throw new Error(`[catalog] Unsupported canonical routine group "${value}".`);
 }
 
 function isHex(value: unknown): value is string {
@@ -333,11 +291,11 @@ function mapMedia(
     .sort((a, b) => a.sort_order - b.sort_order)
     .map((row) => ({
       kind:
-        row.media_kind === "placeholder"
-          ? "placeholder"
-          : row.media_type === "video"
-            ? "video"
-            : "image",
+        row.media_type === "video"
+          ? "video"
+          : row.url
+            ? "image"
+            : "placeholder",
       url: row.url,
       alt: row.alt,
       width: row.width ?? null,
@@ -346,7 +304,7 @@ function mapMedia(
       sortOrder: row.sort_order,
       paletteId: row.palette_id ?? null,
       palette:
-        row.media_kind === "placeholder"
+        row.media_type === "image" && !row.url
           ? toPalette(row.placeholder_palette, swatch)
           : null,
     }));
@@ -389,7 +347,7 @@ function mapOffers(
   const productStatus = toStatus(product.status);
   return (rows ?? [])
     .slice()
-    .sort((a, b) => (a.sort_order ?? a.position) - (b.sort_order ?? b.position))
+    .sort((a, b) => a.sort_order - b.sort_order)
     .map((row) => ({
       productId: product.id,
       productSlug: product.slug,
@@ -401,7 +359,7 @@ function mapOffers(
       inventoryStatus: toInventoryStatus(row.inventory_status),
       volume: row.volume ?? null,
       packCount: row.pack_count ?? null,
-      sortOrder: row.sort_order ?? row.position,
+      sortOrder: row.sort_order,
     }));
 }
 
@@ -429,27 +387,15 @@ export function mapProductCardRow(row: ProductCardRow): ProductCardContent {
   return {
     id: row.id,
     slug: row.slug,
-    displayName: canonicalCatalogValue(
-      "products.display_name",
-      row.display_name,
-      "products.name",
-      row.name,
-    ),
-    cardTagline: canonicalCatalogValue(
-      "products.card_tagline",
-      row.card_tagline,
-      "products.tagline",
-      row.tagline,
-    ),
-    collection: row.collection,
-    productType: row.product_type ?? row.collection,
+    displayName: row.display_name,
+    cardTagline: row.card_tagline,
+    productType: row.product_type,
     volume: row.volume,
     usageTime: row.usage_time ?? [],
     routineGroup: toRoutineGroup(row.routine_group),
-    routineGroupLabel: row.routine_group_label ?? null,
-    routineDisplayLabel: row.routine_display_label ?? null,
-    routineSort: row.routine_sort ?? null,
-    sortOrder: row.sort_order ?? row.position ?? 0,
+    routineStepNumber: row.routine_step_number,
+    routineSort: row.routine_sort,
+    sortOrder: row.sort_order,
     createdAt: row.created_at,
     swatch,
     cardMedia,
@@ -464,43 +410,18 @@ export function mapPdpProductRow(row: PdpProductRow): PdpProductContent {
   const swatch: [string, string] = [row.swatch_from, row.swatch_to];
   const media = mapMedia(row.product_media, swatch);
   const cardMedia = selectCardMedia(media);
-  const description = canonicalCatalogValue(
-    "products.editorial_description",
-    row.editorial_description,
-    "products.description",
-    row.description,
-  );
-  const howToUse = canonicalCatalogValue(
-    "products.editorial_how_to_use",
-    row.editorial_how_to_use,
-    "products.how_to_use",
-    row.how_to_use,
-  );
   return {
     id: row.id,
     slug: row.slug,
-    displayName: canonicalCatalogValue(
-      "products.display_name",
-      row.display_name,
-      "products.name",
-      row.name,
-    ),
-    cardTagline: canonicalCatalogValue(
-      "products.card_tagline",
-      row.card_tagline,
-      "products.tagline",
-      row.tagline,
-    ),
-    collection: row.collection,
-    routineNumber: row.routine_number ?? null,
+    displayName: row.display_name,
+    cardTagline: row.card_tagline,
     routineGroup: toRoutineGroup(row.routine_group),
-    routineGroupLabel: row.routine_group_label ?? null,
-    routineStepNumber: row.routine_step_number ?? null,
-    routineStepName: row.routine_step_name ?? null,
-    routineDisplayLabel: row.routine_display_label ?? null,
-    productType: row.product_type ?? row.collection,
-    description,
-    howToUse,
+    routineStepNumber: row.routine_step_number,
+    routineStepName: row.routine_step_name,
+    routineSort: row.routine_sort,
+    productType: row.product_type,
+    description: row.editorial_description,
+    howToUse: row.editorial_how_to_use,
     swatch,
     media,
     cardMedia,
@@ -511,7 +432,6 @@ export function mapPdpProductRow(row: PdpProductRow): PdpProductContent {
     texture: row.texture,
     keyIngredients: row.key_ingredients ?? [],
     ingredients: row.ingredients,
-    productDetails: row.product_details ?? {},
     cautions: row.cautions ?? [],
     finish: row.finish,
     volume: row.volume,
@@ -555,31 +475,11 @@ export function mapCoreRoutineRow(
   return {
     id: row.id,
     slug: row.slug,
-    displayName: canonicalCatalogValue(
-      "products.display_name",
-      row.display_name,
-      "products.name",
-      row.name,
-    ),
-    formalTitle: canonicalCatalogValue(
-      "products.formal_title",
-      row.formal_title,
-      "products.name",
-      row.name,
-    ),
-    productType: row.product_type ?? row.name,
-    cardTagline: canonicalCatalogValue(
-      "products.card_tagline",
-      row.card_tagline,
-      "products.tagline",
-      row.tagline,
-    ),
-    description: canonicalCatalogValue(
-      "products.editorial_description",
-      row.editorial_description,
-      "products.description",
-      row.description,
-    ),
+    displayName: row.display_name,
+    formalTitle: row.formal_title,
+    productType: row.product_type,
+    cardTagline: row.card_tagline,
+    description: row.editorial_description,
     benefits: row.benefits ?? [],
     goodFor: row.good_for,
     texture: row.texture,
@@ -631,43 +531,23 @@ function withOfferOrdering<
     ) => T;
   },
 >(query: T): T {
-  return query
-    .order("sort_order", {
-      referencedTable: "product_variants",
-      ascending: true,
-      nullsFirst: false,
-    })
-    .order("position", {
-      referencedTable: "product_variants",
-      ascending: true,
-    });
+  return query.order("sort_order", {
+    referencedTable: "product_variants",
+    ascending: true,
+  });
 }
 
 export async function getProductCardContents(): Promise<
   ProductCardContent[]
 > {
   const supabase = getSupabaseClient();
-  let query = supabase
+  const query = supabase
     .from("products")
     .select(PRODUCT_CARD_SELECT)
     .eq("catalog_status", "active")
     .in("product_media.role", [...CARD_MEDIA_ROLES])
-    .order("sort_order", { ascending: true, nullsFirst: false })
-    .order("position", { ascending: true });
-  let { data, error } = await withMediaOrdering(query);
-
-  if (error && isMissingRoutineColumn(error)) {
-    query = supabase
-      .from("products")
-      .select(PRODUCT_CARD_SELECT_BASE)
-      .eq("catalog_status", "active")
-      .in("product_media.role", [...CARD_MEDIA_ROLES])
-      .order("sort_order", { ascending: true, nullsFirst: false })
-      .order("position", { ascending: true });
-    const legacy = await withMediaOrdering(query);
-    data = legacy.data;
-    error = legacy.error;
-  }
+    .order("sort_order", { ascending: true });
+  const { data, error } = await withMediaOrdering(query);
 
   if (error) {
     throw new Error(
@@ -682,25 +562,13 @@ export async function getPdpProductContent(
   slug: string,
 ): Promise<PdpProductContent | undefined> {
   const supabase = getSupabaseClient();
-  let query = supabase
+  const query = supabase
     .from("products")
     .select(PDP_PRODUCT_SELECT)
     .eq("slug", slug)
     .eq("catalog_status", "active")
     .in("product_media.role", [...PDP_MEDIA_ROLES]);
-  let { data, error } = await withMediaOrdering(query).maybeSingle();
-
-  if (error && isMissingRoutineColumn(error)) {
-    query = supabase
-      .from("products")
-      .select(PDP_PRODUCT_SELECT_BASE)
-      .eq("slug", slug)
-      .eq("catalog_status", "active")
-      .in("product_media.role", [...PDP_MEDIA_ROLES]);
-    const legacy = await withMediaOrdering(query).maybeSingle();
-    data = legacy.data;
-    error = legacy.error;
-  }
+  const { data, error } = await withMediaOrdering(query).maybeSingle();
 
   if (error) {
     throw new Error(
@@ -716,8 +584,7 @@ export async function getProductOffers(): Promise<ProductOffer[]> {
     .from("products")
     .select(PRODUCT_OFFER_SELECT)
     .eq("catalog_status", "active")
-    .order("sort_order", { ascending: true, nullsFirst: false })
-    .order("position", { ascending: true });
+    .order("sort_order", { ascending: true });
   const { data, error } = await withOfferOrdering(query);
 
   if (error) {
@@ -771,18 +638,8 @@ export async function getProductMetadata(
   const row = data as unknown as ProductMetadataRow;
   return {
     slug: row.slug,
-    formalTitle: canonicalCatalogValue(
-      "products.formal_title",
-      row.formal_title,
-      "products.name",
-      row.name,
-    ),
-    cardTagline: canonicalCatalogValue(
-      "products.card_tagline",
-      row.card_tagline,
-      "products.tagline",
-      row.tagline,
-    ),
+    formalTitle: row.formal_title,
+    cardTagline: row.card_tagline,
     seoTitle: row.seo_title,
     seoDescription: row.seo_description,
   };
@@ -793,8 +650,7 @@ export async function getProductRoutes(): Promise<ProductRoute[]> {
     .from("products")
     .select(PRODUCT_ROUTE_SELECT)
     .eq("catalog_status", "active")
-    .order("sort_order", { ascending: true, nullsFirst: false })
-    .order("position", { ascending: true });
+    .order("sort_order", { ascending: true });
 
   if (error) {
     throw new Error(
@@ -810,32 +666,16 @@ export async function getDiscoveryProductCardContents(
   limit = PDP_DISCOVERY_PRODUCT_LIMIT,
 ): Promise<ProductCardContent[]> {
   const supabase = getSupabaseClient();
-  let query = supabase
+  const query = supabase
     .from("products")
     .select(PRODUCT_CARD_SELECT)
     .eq("catalog_status", "active")
     .neq("slug", excludeSlug)
     .in("product_media.role", [...CARD_MEDIA_ROLES])
-    .order("routine_sort", { ascending: true, nullsFirst: false })
-    .order("sort_order", { ascending: true, nullsFirst: false })
-    .order("position", { ascending: true })
+    .order("routine_sort", { ascending: true })
+    .order("sort_order", { ascending: true })
     .limit(limit);
-  let { data, error } = await withMediaOrdering(query);
-
-  if (error && isMissingRoutineColumn(error)) {
-    query = supabase
-      .from("products")
-      .select(PRODUCT_CARD_SELECT_BASE)
-      .eq("catalog_status", "active")
-      .neq("slug", excludeSlug)
-      .in("product_media.role", [...CARD_MEDIA_ROLES])
-      .order("sort_order", { ascending: true, nullsFirst: false })
-      .order("position", { ascending: true })
-      .limit(limit);
-    const legacy = await withMediaOrdering(query);
-    data = legacy.data;
-    error = legacy.error;
-  }
+  const { data, error } = await withMediaOrdering(query);
 
   if (error) {
     throw new Error(
@@ -847,7 +687,7 @@ export async function getDiscoveryProductCardContents(
     .map(mapProductCardRow)
     .sort(
       (a, b) =>
-        (a.routineSort ?? a.sortOrder) - (b.routineSort ?? b.sortOrder) ||
+        a.routineSort - b.routineSort ||
         a.displayName.localeCompare(b.displayName),
     )
     .slice(0, limit);
@@ -899,8 +739,7 @@ export async function getIngredientIndexProducts(): Promise<
     .from("products")
     .select(INGREDIENT_INDEX_SELECT)
     .eq("catalog_status", "active")
-    .order("sort_order", { ascending: true, nullsFirst: false })
-    .order("position", { ascending: true });
+    .order("sort_order", { ascending: true });
 
   if (error) {
     throw new Error(
@@ -910,12 +749,7 @@ export async function getIngredientIndexProducts(): Promise<
 
   return ((data ?? []) as unknown as IngredientIndexRow[]).map((row) => ({
     slug: row.slug,
-    displayName: canonicalCatalogValue(
-      "products.display_name",
-      row.display_name,
-      "products.name",
-      row.name,
-    ),
+    displayName: row.display_name,
     keyIngredients: row.key_ingredients ?? [],
     ingredients: row.ingredients,
     formulaNotes: row.formula_notes ?? [],

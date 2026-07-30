@@ -38,25 +38,26 @@ function makeProduct(
     slug,
     displayName,
     formalTitle: `${displayName} System Product`,
-    name: displayName,
-    tagline: `${displayName} tagline`,
     cardTagline: `${displayName} card tagline`,
-    collection: "THE SYSTEM",
-    actionName: displayName,
-    routineNumber: String(routineOrder).padStart(2, "0"),
-    subtitle: `${displayName} subtitle`,
-    descriptor: `${displayName} descriptor`,
+    routineGroup: ["CLEANSE", "TREAT", "SEAL"].includes(displayName)
+      ? "core"
+      : "beyond_core",
+    routineStepNumber: ["CLEANSE", "TREAT", "SEAL"].includes(displayName)
+      ? ({ CLEANSE: 1, TREAT: 2, SEAL: 3 } as const)[
+          displayName as "CLEANSE" | "TREAT" | "SEAL"
+        ]
+      : null,
+    routineStepName: ["CLEANSE", "TREAT", "SEAL"].includes(displayName)
+      ? displayName
+      : null,
+    routineSort: routineOrder * 10,
     productType: "Treatment",
     badge: null,
     currency: "USD",
-    featuredRank: routineOrder,
     sortOrder: routineOrder,
-    blurb: `${displayName} blurb`,
     description: `${displayName} description`,
-    editorialDescription: `${displayName} description`,
     benefits: [],
     howToUse: "Use as directed.",
-    editorialHowToUse: "Use as directed.",
     formulaNotes: [],
     variants: [
       {
@@ -88,14 +89,11 @@ function makeProduct(
     texture: "Light",
     keyIngredients,
     ingredients: keyIngredients.join(", ") || null,
-    productDetails: {},
     cautions: [],
     finish: null,
     volume: "50 mL",
     skinTypes: [],
     concerns: [],
-    routineStep: "Routine",
-    routineOrder,
     usageTime: ["AM", "PM"],
     seoTitle: null,
     seoDescription: null,

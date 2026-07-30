@@ -30,39 +30,32 @@ const PRODUCT_OFFER_FIELDS = new Set([
 const PRODUCT_CARD_ONLY_FIELDS = new Set([
   "card_tagline",
   "badge",
-  "featured_rank",
   "sort_order",
-  "position",
 ]);
 const PRODUCT_CARD_SHARED_FIELDS = new Set([
   "slug",
-  "name",
   "display_name",
   "formal_title",
-  "tagline",
-  "collection",
+  "product_type",
   "swatch_from",
   "swatch_to",
 ]);
 const PRODUCT_MEMBERSHIP_FIELDS = new Set([
   "catalog_status",
-  "collection",
+  "routine_group",
   "slug",
 ]);
 const PRODUCT_DISCOVERY_FIELDS = new Set([
   "catalog_status",
-  "collection",
   "routine_group",
   "routine_sort",
   "sort_order",
-  "position",
   "slug",
 ]);
 const PRODUCT_COLLECTION_FIELDS = new Set([
   "catalog_status",
-  "collection",
+  "routine_group",
   "sort_order",
-  "position",
   "slug",
 ]);
 const PRODUCT_IGNORED_FIELDS = new Set(["updated_at"]);
@@ -142,9 +135,6 @@ export function getCatalogInvalidationTargets(
   const source = payload.record ?? payload.old_record;
   const slug = outcome?.slug ?? asText(source?.slug);
   const oldSlug = outcome?.oldSlug ?? asText(payload.old_record?.slug);
-  const collection = outcome?.collection ?? asText(source?.collection);
-  const oldCollection =
-    outcome?.oldCollection ?? asText(payload.old_record?.collection);
   const routineGroup =
     outcome?.routineGroup ?? asText(source?.routine_group);
   const oldRoutineGroup =
@@ -229,15 +219,15 @@ export function getCatalogInvalidationTargets(
   }
   if (invalidateDiscovery) tags.add(DISCOVERY_CACHE_TAG);
 
-  if (invalidateCollection && collection) {
-    tags.add(collectionCacheTag(collection));
+  if (invalidateCollection && routineGroup) {
+    tags.add(collectionCacheTag(routineGroup));
   }
   if (
     invalidateCollection &&
-    oldCollection &&
-    oldCollection !== collection
+    oldRoutineGroup &&
+    oldRoutineGroup !== routineGroup
   ) {
-    tags.add(collectionCacheTag(oldCollection));
+    tags.add(collectionCacheTag(oldRoutineGroup));
   }
 
   const affectsCoreRoutine =

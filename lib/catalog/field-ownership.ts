@@ -81,18 +81,9 @@ function fields(
 }
 
 export const PRODUCT_SUPPLIER_FIELDS = [
-  "name",
-  "tagline",
-  "subtitle",
-  "descriptor",
-  "blurb",
-  "description",
-  "how_to_use",
-  "product_type",
   "texture",
   "key_ingredients",
   "ingredients",
-  "product_details",
   "cautions",
   "finish",
   "volume",
@@ -105,6 +96,7 @@ export const PRODUCT_EDITORIAL_FIELDS = [
   "display_name",
   "formal_title",
   "card_tagline",
+  "product_type",
   "editorial_description",
   "editorial_how_to_use",
   "benefits",
@@ -126,22 +118,11 @@ export const PRODUCT_SYSTEM_FIELDS = [
   "id",
   "slug",
   "catalog_status",
-  "action_name",
-  "collection",
-  "position",
   "sort_order",
-  "featured_rank",
-  "routine_number",
-  "routine_step",
-  "routine_order",
   "routine_group",
-  "routine_group_label",
   "routine_step_number",
   "routine_step_name",
-  "routine_display_label",
   "routine_sort",
-  "legacy_routine_group_label",
-  "legacy_routine_display_label",
   "swatch_from",
   "swatch_to",
   "created_at",
@@ -189,7 +170,6 @@ export const CATALOG_FIELD_OWNERSHIP: readonly CatalogFieldOwnership[] = [
     "option_values",
     "volume",
     "pack_count",
-    "position",
     "sort_order",
   ], {
     default: "write",
@@ -236,7 +216,6 @@ export const CATALOG_FIELD_OWNERSHIP: readonly CatalogFieldOwnership[] = [
   ...fields("product_media", "editorial", [
     "variant_id",
     "media_type",
-    "media_kind",
     "url",
     "alt",
     "width",
@@ -296,19 +275,6 @@ export const CATALOG_FIELD_OWNERSHIP: readonly CatalogFieldOwnership[] = [
     default: "preserve",
     overwriteEditorial: "preserve",
   }),
-  ...fields("collections", "system", [
-    "id",
-    "slug",
-    "name",
-    "description",
-    "sort_order",
-    "is_active",
-    "created_at",
-    "updated_at",
-  ], {
-    default: "preserve",
-    overwriteEditorial: "preserve",
-  }),
   ...fields("algolia_products", "derived", ["*"], {
     default: "never",
     overwriteEditorial: "never",
@@ -333,53 +299,27 @@ export function getCatalogEditorFieldPolicy(table: string, field: string) {
   return getCatalogFieldOwnership(table, field)?.editor;
 }
 
-export type CatalogPrecedenceResolution<T> = {
-  value: T;
-  sourceField: string;
-  usedFallback: boolean;
-};
+export const PHASE_TWO_PRODUCT_DROP_COLUMNS = [
+  "name",
+  "tagline",
+  "collection",
+  "blurb",
+  "description",
+  "how_to_use",
+  "position",
+  "action_name",
+  "routine_number",
+  "subtitle",
+  "descriptor",
+  "featured_rank",
+  "product_details",
+  "routine_step",
+  "routine_order",
+  "routine_group_label",
+  "routine_display_label",
+  "legacy_routine_group_label",
+  "legacy_routine_display_label",
+] as const;
 
-/**
- * Resolves a canonical editor-owned value before its legacy/source fallback.
- * The returned source metadata makes compatibility fallback use observable to
- * tests and controlled diagnostics without adding production log noise.
- */
-export function resolveCatalogPrecedence<T>({
-  canonicalField,
-  canonicalValue,
-  fallbackField,
-  fallbackValue,
-}: {
-  canonicalField: string;
-  canonicalValue: T | null | undefined;
-  fallbackField: string;
-  fallbackValue: T;
-}): CatalogPrecedenceResolution<T> {
-  if (canonicalValue !== null && canonicalValue !== undefined) {
-    return {
-      value: canonicalValue,
-      sourceField: canonicalField,
-      usedFallback: false,
-    };
-  }
-
-  return {
-    value: fallbackValue,
-    sourceField: fallbackField,
-    usedFallback: true,
-  };
-}
-
-export function canonicalCatalogValue<T>(
-  canonicalField: string,
-  canonicalValue: T | null | undefined,
-  fallbackField: string,
-  fallbackValue: T,
-): T {
-  return resolveCatalogPrecedence({
-    canonicalField,
-    canonicalValue,
-    fallbackField,
-    fallbackValue,
-  }).value;
-}
+export const PHASE_TWO_VARIANT_DROP_COLUMNS = ["position"] as const;
+export const PHASE_TWO_MEDIA_DROP_COLUMNS = ["media_kind"] as const;

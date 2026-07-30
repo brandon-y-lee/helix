@@ -7,7 +7,6 @@ import {
   corePdpProfileRows,
 } from "@/lib/content/core-pdp";
 import { normalizeProductPdpContent } from "@/lib/catalog/product-content";
-import type { Product } from "@/lib/products";
 import {
   CORE_PDP_MEDIA_ASSETS,
   inspectCorePdpAsset,
@@ -115,7 +114,7 @@ describe("Core PDP presentation contract", () => {
       );
       const product = {
         slug: entry.slug,
-        routineGroup: "core",
+        routineGroup: "core" as const,
         goodFor: entry.goodFor,
         texture: entry.texture,
         finish: entry.finish,
@@ -123,11 +122,9 @@ describe("Core PDP presentation contract", () => {
         usageTime: ["Morning", "Night"],
         routineStepNumber: entry.step,
         routineStepName: entry.stepName,
-        routineGroupLabel: "The Core",
-        routineDisplayLabel: `${String(entry.step).padStart(2, "0")} - The Core`,
-        legacyRoutineDisplayLabel: "05 - The System",
+        routineSort: entry.step * 10,
         pdpContent: content,
-      } as Product;
+      };
       const presentation = getCorePdpPresentation(product, content);
 
       expect(presentation?.profileTitle.map((token) => token.text).join("")).toBe(
