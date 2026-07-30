@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_memberships: {
+        Row: {
+          active: boolean
+          created_at: string
+          created_by: string | null
+          role: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          created_by?: string | null
+          role: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          created_by?: string | null
+          role?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       cart_items: {
         Row: {
           cart_id: string
@@ -91,6 +118,109 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: []
+      }
+      catalog_editor_audit_log: {
+        Row: {
+          action: string
+          actor_id: string | null
+          created_at: string
+          draft_id: string | null
+          id: string
+          metadata: Json
+          product_id: string | null
+          revision_id: string | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          created_at?: string
+          draft_id?: string | null
+          id?: string
+          metadata?: Json
+          product_id?: string | null
+          revision_id?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          created_at?: string
+          draft_id?: string | null
+          id?: string
+          metadata?: Json
+          product_id?: string | null
+          revision_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalog_editor_audit_log_draft_id_fkey"
+            columns: ["draft_id"]
+            isOneToOne: false
+            referencedRelation: "product_content_drafts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_editor_audit_log_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_editor_audit_log_revision_id_fkey"
+            columns: ["revision_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_product_revisions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      catalog_product_revisions: {
+        Row: {
+          document: Json
+          id: string
+          product_id: string
+          published_at: string
+          published_by: string | null
+          revision_number: number
+          schema_version: number
+          source_draft_id: string | null
+        }
+        Insert: {
+          document: Json
+          id?: string
+          product_id: string
+          published_at?: string
+          published_by?: string | null
+          revision_number: number
+          schema_version?: number
+          source_draft_id?: string | null
+        }
+        Update: {
+          document?: Json
+          id?: string
+          product_id?: string
+          published_at?: string
+          published_by?: string | null
+          revision_number?: number
+          schema_version?: number
+          source_draft_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalog_product_revisions_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_product_revisions_source_draft_id_fkey"
+            columns: ["source_draft_id"]
+            isOneToOne: false
+            referencedRelation: "product_content_drafts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       collections: {
         Row: {
@@ -516,9 +646,72 @@ export type Database = {
           },
         ]
       }
+      product_content_drafts: {
+        Row: {
+          base_revision: number
+          created_at: string
+          created_by: string
+          discarded_at: string | null
+          document: Json
+          id: string
+          product_id: string
+          published_at: string | null
+          ready_at: string | null
+          schema_version: number
+          status: string
+          updated_at: string
+          updated_by: string
+          validation_errors: Json
+          version: number
+        }
+        Insert: {
+          base_revision?: number
+          created_at?: string
+          created_by: string
+          discarded_at?: string | null
+          document: Json
+          id?: string
+          product_id: string
+          published_at?: string | null
+          ready_at?: string | null
+          schema_version?: number
+          status?: string
+          updated_at?: string
+          updated_by: string
+          validation_errors?: Json
+          version?: number
+        }
+        Update: {
+          base_revision?: number
+          created_at?: string
+          created_by?: string
+          discarded_at?: string | null
+          document?: Json
+          id?: string
+          product_id?: string
+          published_at?: string | null
+          ready_at?: string | null
+          schema_version?: number
+          status?: string
+          updated_at?: string
+          updated_by?: string
+          validation_errors?: Json
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_content_drafts_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_media: {
         Row: {
           alt: string
+          archived_at: string | null
           created_at: string
           height: number | null
           id: string
@@ -538,6 +731,7 @@ export type Database = {
         }
         Insert: {
           alt: string
+          archived_at?: string | null
           created_at?: string
           height?: number | null
           id?: string
@@ -557,6 +751,7 @@ export type Database = {
         }
         Update: {
           alt?: string
+          archived_at?: string | null
           created_at?: string
           height?: number | null
           id?: string
@@ -649,6 +844,7 @@ export type Database = {
       }
       product_relationships: {
         Row: {
+          archived_at: string | null
           created_at: string
           product_id: string
           related_product_id: string
@@ -656,6 +852,7 @@ export type Database = {
           sort_order: number
         }
         Insert: {
+          archived_at?: string | null
           created_at?: string
           product_id: string
           related_product_id: string
@@ -663,6 +860,7 @@ export type Database = {
           sort_order?: number
         }
         Update: {
+          archived_at?: string | null
           created_at?: string
           product_id?: string
           related_product_id?: string
@@ -744,6 +942,7 @@ export type Database = {
       }
       product_variants: {
         Row: {
+          archived_at: string | null
           available: boolean
           compare_at_price_cents: number | null
           id: string
@@ -762,6 +961,7 @@ export type Database = {
           volume: string | null
         }
         Insert: {
+          archived_at?: string | null
           available?: boolean
           compare_at_price_cents?: number | null
           id?: string
@@ -780,6 +980,7 @@ export type Database = {
           volume?: string | null
         }
         Update: {
+          archived_at?: string | null
           available?: boolean
           compare_at_price_cents?: number | null
           id?: string
@@ -1267,13 +1468,33 @@ export type Database = {
         }
         Returns: string
       }
+      bootstrap_catalog_admin_membership: {
+        Args: { p_role: string; p_user_id: string }
+        Returns: Json
+      }
+      create_catalog_product_draft: {
+        Args: { p_actor_id: string; p_product_id: string }
+        Returns: Json
+      }
       ensure_loyalty_account: {
         Args: { p_user_id: string }
         Returns: undefined
       }
+      get_catalog_editor_document: {
+        Args: { p_product_id: string }
+        Returns: Json
+      }
       merge_guest_cart: {
         Args: { p_guest_token_hash: string }
         Returns: string
+      }
+      publish_catalog_product_draft: {
+        Args: {
+          p_actor_id: string
+          p_draft_id: string
+          p_expected_version: number
+        }
+        Returns: Json
       }
       redeem_loyalty_points: {
         Args: {
@@ -1285,6 +1506,29 @@ export type Database = {
           p_user_id: string
         }
         Returns: string
+      }
+      restore_catalog_product_revision: {
+        Args: { p_actor_id: string; p_revision_id: string }
+        Returns: Json
+      }
+      save_catalog_product_draft: {
+        Args: {
+          p_actor_id: string
+          p_document: Json
+          p_draft_id: string
+          p_expected_version: number
+        }
+        Returns: Json
+      }
+      transition_catalog_product_draft: {
+        Args: {
+          p_action: string
+          p_actor_id: string
+          p_draft_id: string
+          p_expected_version: number
+          p_validation_errors: Json
+        }
+        Returns: Json
       }
     }
     Enums: {

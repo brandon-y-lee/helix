@@ -23,6 +23,7 @@
     "catalog:media:reconcile-core-pdp": "tsx scripts/catalog-reconcile-core-pdp-media.ts",
     "catalog:refresh:presentation": "tsx scripts/catalog-refresh-presentation.ts",
     "catalog:verify": "tsx scripts/db/verify-supabase-data.ts",
+    "admin:bootstrap": "tsx scripts/admin-bootstrap.ts",
     "db:audit": "tsx scripts/db/audit-supabase-data.ts",
     "db:cleanup:dry-run": "tsx scripts/db/cleanup-supabase-data.ts --dry-run",
     "db:cleanup:apply": "tsx scripts/db/cleanup-supabase-data.ts --apply",
