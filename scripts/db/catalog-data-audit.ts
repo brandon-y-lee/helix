@@ -1,6 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
-  CANONICAL_COLLECTIONS,
   CANONICAL_COMMERCE_PRODUCTS,
   EXPECTED_COMPLETE_THE_ROUTINE_RELATIONSHIPS,
   LEGACY_SEED_PRODUCT_SLUGS,
@@ -11,19 +10,12 @@ import { exactCount } from "./supabase-ops";
 type ProductRow = {
   id: string;
   slug: string;
-  name: string;
-  display_name: string | null;
+  display_name: string;
   catalog_status: string;
-  collection: string | null;
   routine_group: string | null;
-  routine_display_label: string | null;
-};
-
-type CollectionRow = {
-  id: string;
-  slug: string;
-  name: string;
-  is_active: boolean;
+  routine_step_number: number | null;
+  routine_step_name: string | null;
+  routine_sort: number | null;
 };
 
 type ProductVariantRow = {
@@ -54,8 +46,10 @@ export type CatalogAudit = {
   activeCanonicalProducts: Array<{
     slug: string;
     activeCount: number;
-    routineDisplayLabel: string | null;
     routineGroup: string | null;
+    routineStepNumber: number | null;
+    routineStepName: string | null;
+    routineSort: number | null;
   }>;
   unexpectedActiveProducts: ProductRow[];
   protectActiveProductCount: number;
@@ -63,8 +57,6 @@ export type CatalogAudit = {
   duplicateProductSlugs: Array<{ slug: string; count: number }>;
   duplicateVariantKeys: Array<{ productId: string; variantKey: string; count: number }>;
   duplicateVariantSkus: Array<{ sku: string; count: number }>;
-  activeCollections: Array<{ slug: string; name: string }>;
-  duplicateCollectionSlugs: Array<{ slug: string; count: number }>;
   completeTheRoutineCount: number;
   duplicateRelationships: Array<{
     productId: string;
@@ -104,7 +96,6 @@ const PUBLIC_TABLES = [
   "product_media",
   "product_relationships",
   "product_sources",
-  "collections",
   "profiles",
   "carts",
   "cart_items",
@@ -179,12 +170,7 @@ export async function buildCatalogAudit(supabase: SupabaseClient): Promise<Catal
   const products = await selectAll<ProductRow>(
     supabase,
     "products",
-    "id, slug, name, display_name, catalog_status, collection, routine_group, routine_display_label",
-  );
-  const collections = await selectAll<CollectionRow>(
-    supabase,
-    "collections",
-    "id, slug, name, is_active",
+    "id, slug, display_name, catalog_status, routine_group, routine_step_number, routine_step_name, routine_sort",
   );
   const variants = await selectAll<ProductVariantRow>(
     supabase,
@@ -210,7 +196,7 @@ export async function buildCatalogAudit(supabase: SupabaseClient): Promise<Catal
     .map((product) => ({
       id: product.id,
       slug: product.slug,
-      name: product.name,
+      name: product.display_name,
       catalogStatus: product.catalog_status,
     }));
   const cleanupProductIds = cleanupCandidates.map((candidate) => candidate.id);
@@ -231,23 +217,23 @@ export async function buildCatalogAudit(supabase: SupabaseClient): Promise<Catal
       return {
         slug,
         activeCount: active.length,
-        routineDisplayLabel: active[0]?.routine_display_label ?? null,
         routineGroup: active[0]?.routine_group ?? null,
+        routineStepNumber: active[0]?.routine_step_number ?? null,
+        routineStepName: active[0]?.routine_step_name ?? null,
+        routineSort: active[0]?.routine_sort ?? null,
       };
     }),
     unexpectedActiveProducts: products.filter(
       (product) => product.catalog_status === "active" && !canonicalSlugSet.has(product.slug),
     ),
     protectActiveProductCount: products.filter((product) => {
-      const searchable = `${product.slug} ${product.name} ${product.display_name ?? ""}`.toLowerCase();
+      const searchable = `${product.slug} ${product.display_name}`.toLowerCase();
       return product.catalog_status === "active" && searchable.includes("protect");
     }).length,
     legacyActiveProductCount: products.filter(
       (product) =>
         product.catalog_status === "active" &&
-        (["RESET", "RECODE"].includes(product.name) ||
-          String(product.display_name ?? "").match(/^(RESET|RECODE)$/) ||
-          String(product.collection ?? "").toLowerCase().includes("method")),
+        /^(RESET|RECODE)$/.test(product.display_name),
     ).length,
     duplicateProductSlugs: countBy(products, (product) => product.slug).map(({ key, count }) => ({
       slug: key,
@@ -271,13 +257,6 @@ export async function buildCatalogAudit(supabase: SupabaseClient): Promise<Catal
       sku: key,
       count,
     })),
-    activeCollections: collections
-      .filter((collection) => collection.is_active)
-      .sort((a, b) => a.slug.localeCompare(b.slug))
-      .map((collection) => ({ slug: collection.slug, name: collection.name })),
-    duplicateCollectionSlugs: countBy(collections, (collection) => collection.slug).map(
-      ({ key, count }) => ({ slug: key, count }),
-    ),
     completeTheRoutineCount: relationships.filter(
       (relationship) =>
         relationship.relationship_type === "complete_the_routine" &&
@@ -368,17 +347,20 @@ export async function buildCleanupPlan(
 
 export function assertCatalogAudit(audit: CatalogAudit): void {
   const failures: string[] = [];
-  const expectedCollectionSlugs = new Set(CANONICAL_COLLECTIONS.map((collection) => collection.slug));
-  const activeCollectionSlugs = new Set(audit.activeCollections.map((collection) => collection.slug));
 
-  for (const product of audit.activeCanonicalProducts) {
+  for (const [index, product] of audit.activeCanonicalProducts.entries()) {
+    const expected = CANONICAL_COMMERCE_PRODUCTS[index];
     if (product.activeCount !== 1) {
       failures.push(`Expected exactly one active product for ${product.slug}, got ${product.activeCount}.`);
     }
-  }
-  for (const collectionSlug of expectedCollectionSlugs) {
-    if (!activeCollectionSlugs.has(collectionSlug)) {
-      failures.push(`Expected active collection ${collectionSlug}.`);
+    if (
+      expected &&
+      (product.routineGroup !== expected.routineGroup ||
+        product.routineStepNumber !== expected.routineStepNumber ||
+        product.routineStepName !== expected.routineStepName ||
+        product.routineSort !== expected.routineSort)
+    ) {
+      failures.push(`Canonical routine fields do not match the manifest for ${product.slug}.`);
     }
   }
   if (audit.unexpectedActiveProducts.length > 0) {
@@ -403,9 +385,6 @@ export function assertCatalogAudit(audit: CatalogAudit): void {
   if (audit.duplicateVariantSkus.length > 0) {
     failures.push("Found duplicate non-null product variant SKUs.");
   }
-  if (audit.duplicateCollectionSlugs.length > 0) {
-    failures.push("Found duplicate collection slugs.");
-  }
   if (audit.duplicateRelationships.length > 0) {
     failures.push("Found duplicate product relationship natural keys.");
   }
@@ -426,7 +405,9 @@ export function assertCatalogAudit(audit: CatalogAudit): void {
 async function getCleanupCandidates(supabase: SupabaseClient): Promise<ProductRow[]> {
   const { data, error } = await supabase
     .from("products")
-    .select("id, slug, name, display_name, catalog_status, collection, routine_group, routine_display_label")
+    .select(
+      "id, slug, display_name, catalog_status, routine_group, routine_step_number, routine_step_name, routine_sort",
+    )
     .in("slug", [...LEGACY_SEED_PRODUCT_SLUGS])
     .order("slug");
 

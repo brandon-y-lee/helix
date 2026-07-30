@@ -715,7 +715,7 @@ export type Database = {
           created_at: string
           height: number | null
           id: string
-          media_kind: string
+          media_kind: string | null
           media_type: string
           original_source_url: string | null
           palette_id: string | null
@@ -735,7 +735,7 @@ export type Database = {
           created_at?: string
           height?: number | null
           id?: string
-          media_kind?: string
+          media_kind?: string | null
           media_type?: string
           original_source_url?: string | null
           palette_id?: string | null
@@ -755,7 +755,7 @@ export type Database = {
           created_at?: string
           height?: number | null
           id?: string
-          media_kind?: string
+          media_kind?: string | null
           media_type?: string
           original_source_url?: string | null
           palette_id?: string | null
@@ -950,11 +950,11 @@ export type Database = {
           label: string
           option_values: Json
           pack_count: number | null
-          position: number
+          position: number | null
           price_cents: number
           product_id: string
           sku: string | null
-          sort_order: number | null
+          sort_order: number
           supplier_variant_id: string | null
           updated_at: string
           variant_key: string
@@ -969,11 +969,11 @@ export type Database = {
           label: string
           option_values?: Json
           pack_count?: number | null
-          position?: number
+          position?: number | null
           price_cents: number
           product_id: string
           sku?: string | null
-          sort_order?: number | null
+          sort_order: number
           supplier_variant_id?: string | null
           updated_at?: string
           variant_key: string
@@ -988,11 +988,11 @@ export type Database = {
           label?: string
           option_values?: Json
           pack_count?: number | null
-          position?: number
+          position?: number | null
           price_cents?: number
           product_id?: string
           sku?: string | null
-          sort_order?: number | null
+          sort_order?: number
           supplier_variant_id?: string | null
           updated_at?: string
           variant_key?: string
@@ -1013,42 +1013,42 @@ export type Database = {
           action_name: string | null
           badge: string | null
           benefits: string[]
-          blurb: string
-          card_tagline: string | null
+          blurb: string | null
+          card_tagline: string
           catalog_status: string
           cautions: string[]
-          collection: string
+          collection: string | null
           concerns: string[]
           created_at: string
           currency: string
-          description: string
+          description: string | null
           descriptor: string | null
-          display_name: string | null
-          editorial_description: string | null
-          editorial_how_to_use: string | null
+          display_name: string
+          editorial_description: string
+          editorial_how_to_use: string
           featured_rank: number | null
           finish: string | null
-          formal_title: string | null
+          formal_title: string
           formula_notes: string[]
           good_for: string | null
-          how_to_use: string
+          how_to_use: string | null
           id: string
           ingredients: string | null
           key_ingredients: string[]
           legacy_routine_display_label: string | null
           legacy_routine_group_label: string | null
           made_for: string | null
-          name: string
-          position: number
+          name: string | null
+          position: number | null
           product_details: Json
-          product_type: string | null
+          product_type: string
           published_at: string
           routine_display_label: string | null
-          routine_group: string | null
+          routine_group: string
           routine_group_label: string | null
           routine_number: string | null
           routine_order: number | null
-          routine_sort: number | null
+          routine_sort: number
           routine_step: string | null
           routine_step_name: string | null
           routine_step_number: number | null
@@ -1057,12 +1057,12 @@ export type Database = {
           seo_title: string | null
           skin_types: string[]
           slug: string
-          sort_order: number | null
+          sort_order: number
           status: string
           subtitle: string | null
           swatch_from: string
           swatch_to: string
-          tagline: string
+          tagline: string | null
           texture: string | null
           updated_at: string
           usage_time: string[]
@@ -1072,42 +1072,42 @@ export type Database = {
           action_name?: string | null
           badge?: string | null
           benefits?: string[]
-          blurb: string
-          card_tagline?: string | null
+          blurb?: string | null
+          card_tagline: string
           catalog_status?: string
           cautions?: string[]
-          collection: string
+          collection?: string | null
           concerns?: string[]
           created_at?: string
           currency?: string
-          description: string
+          description?: string | null
           descriptor?: string | null
-          display_name?: string | null
-          editorial_description?: string | null
-          editorial_how_to_use?: string | null
+          display_name: string
+          editorial_description: string
+          editorial_how_to_use: string
           featured_rank?: number | null
           finish?: string | null
-          formal_title?: string | null
+          formal_title: string
           formula_notes?: string[]
           good_for?: string | null
-          how_to_use: string
+          how_to_use?: string | null
           id?: string
           ingredients?: string | null
           key_ingredients?: string[]
           legacy_routine_display_label?: string | null
           legacy_routine_group_label?: string | null
           made_for?: string | null
-          name: string
-          position?: number
+          name?: string | null
+          position?: number | null
           product_details?: Json
-          product_type?: string | null
+          product_type: string
           published_at?: string
           routine_display_label?: string | null
-          routine_group?: string | null
+          routine_group: string
           routine_group_label?: string | null
           routine_number?: string | null
           routine_order?: number | null
-          routine_sort?: number | null
+          routine_sort: number
           routine_step?: string | null
           routine_step_name?: string | null
           routine_step_number?: number | null
@@ -1116,12 +1116,12 @@ export type Database = {
           seo_title?: string | null
           skin_types?: string[]
           slug: string
-          sort_order?: number | null
+          sort_order: number
           status?: string
           subtitle?: string | null
           swatch_from: string
           swatch_to: string
-          tagline: string
+          tagline?: string | null
           texture?: string | null
           updated_at?: string
           usage_time?: string[]
@@ -1131,42 +1131,42 @@ export type Database = {
           action_name?: string | null
           badge?: string | null
           benefits?: string[]
-          blurb?: string
-          card_tagline?: string | null
+          blurb?: string | null
+          card_tagline?: string
           catalog_status?: string
           cautions?: string[]
-          collection?: string
+          collection?: string | null
           concerns?: string[]
           created_at?: string
           currency?: string
-          description?: string
+          description?: string | null
           descriptor?: string | null
-          display_name?: string | null
-          editorial_description?: string | null
-          editorial_how_to_use?: string | null
+          display_name?: string
+          editorial_description?: string
+          editorial_how_to_use?: string
           featured_rank?: number | null
           finish?: string | null
-          formal_title?: string | null
+          formal_title?: string
           formula_notes?: string[]
           good_for?: string | null
-          how_to_use?: string
+          how_to_use?: string | null
           id?: string
           ingredients?: string | null
           key_ingredients?: string[]
           legacy_routine_display_label?: string | null
           legacy_routine_group_label?: string | null
           made_for?: string | null
-          name?: string
-          position?: number
+          name?: string | null
+          position?: number | null
           product_details?: Json
-          product_type?: string | null
+          product_type?: string
           published_at?: string
           routine_display_label?: string | null
-          routine_group?: string | null
+          routine_group?: string
           routine_group_label?: string | null
           routine_number?: string | null
           routine_order?: number | null
-          routine_sort?: number | null
+          routine_sort?: number
           routine_step?: string | null
           routine_step_name?: string | null
           routine_step_number?: number | null
@@ -1175,12 +1175,12 @@ export type Database = {
           seo_title?: string | null
           skin_types?: string[]
           slug?: string
-          sort_order?: number | null
+          sort_order?: number
           status?: string
           subtitle?: string | null
           swatch_from?: string
           swatch_to?: string
-          tagline?: string
+          tagline?: string | null
           texture?: string | null
           updated_at?: string
           usage_time?: string[]

@@ -9,7 +9,6 @@ async function run(): Promise<void> {
     ok: true,
     generatedAt: audit.generatedAt,
     activeCanonicalProducts: audit.activeCanonicalProducts,
-    activeCollections: audit.activeCollections,
     completeTheRoutineCount: audit.completeTheRoutineCount,
     tableCounts: audit.tableCounts,
   });

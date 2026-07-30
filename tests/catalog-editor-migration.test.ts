@@ -16,6 +16,20 @@ const bootstrapMigration = readFileSync(
   ),
   "utf8",
 );
+const canonicalMigration = readFileSync(
+  resolve(
+    process.cwd(),
+    "supabase/migrations/20260730110308_catalog_canonicalization_phase_one.sql",
+  ),
+  "utf8",
+);
+const canonicalLintMigration = readFileSync(
+  resolve(
+    process.cwd(),
+    "supabase/migrations/20260730113500_catalog_editor_v2_lint.sql",
+  ),
+  "utf8",
+);
 
 describe("catalog editor database boundary", () => {
   it("keeps editor tables browser-inaccessible and history append-only", () => {
@@ -56,23 +70,58 @@ describe("catalog editor database boundary", () => {
   });
 
   it("publishes normalized tables before one immutable revision", () => {
-    const revision = migration.indexOf(
+    const revision = canonicalMigration.indexOf(
       "insert into public.catalog_product_revisions",
     );
-    expect(migration.indexOf("update public.products p")).toBeLessThan(revision);
-    expect(
-      migration.indexOf("insert into public.product_pdp_content"),
-    ).toBeLessThan(revision);
-    expect(
-      migration.indexOf("update public.product_variants v"),
-    ).toBeLessThan(revision);
-    expect(migration.indexOf("update public.product_media m")).toBeLessThan(
+    expect(canonicalMigration.indexOf("update public.products p")).toBeLessThan(
       revision,
     );
     expect(
-      migration.indexOf("update public.product_relationships r"),
+      canonicalMigration.indexOf("insert into public.product_pdp_content"),
     ).toBeLessThan(revision);
-    expect(migration).not.toMatch(/\breviews?\b/i);
+    expect(
+      canonicalMigration.indexOf("update public.product_variants v"),
+    ).toBeLessThan(revision);
+    expect(
+      canonicalMigration.indexOf("update public.product_media m"),
+    ).toBeLessThan(revision);
+    expect(
+      canonicalMigration.indexOf("update public.product_relationships r"),
+    ).toBeLessThan(revision);
+    expect(canonicalMigration).not.toMatch(/\breviews?\b/i);
+  });
+
+  it("replaces the editor boundary with V2 without dropping catalog columns", () => {
+    expect(canonicalMigration).toContain(
+      "private.catalog_editor_document_v2",
+    );
+    expect(canonicalMigration).toContain(
+      "private.catalog_editor_upgrade_v1_to_v2",
+    );
+    expect(canonicalMigration).toContain("'schemaVersion', 2");
+    expect(canonicalMigration).not.toMatch(
+      /alter table public\.[a-z_]+\s+drop column/i,
+    );
+    expect(canonicalMigration).not.toMatch(/\bcascade\b/i);
+    expect(canonicalMigration).toContain(
+      "alter column schema_version set default 2",
+    );
+    expect(canonicalMigration).toContain(
+      "drop constraint if exists product_media_editorial_role_type_check",
+    );
+    const canonicalMediaConstraint = canonicalMigration.slice(
+      canonicalMigration.indexOf(
+        "add constraint product_media_editorial_role_type_check",
+      ),
+      canonicalMigration.indexOf(
+        "add constraint product_media_canonical_payload_check",
+      ),
+    );
+    expect(canonicalMediaConstraint).not.toContain("media_kind");
+    expect(canonicalLintMigration).toContain(
+      "private.catalog_editor_upgrade_v1_to_v2(jsonb) stable",
+    );
+    expect(canonicalLintMigration).not.toMatch(/\bdrop\s+(table|column)\b/i);
   });
 
   it("bootstraps verified memberships and audit records atomically", () => {
