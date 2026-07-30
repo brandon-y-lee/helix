@@ -303,7 +303,7 @@ verifying all 15 public objects and rows.
 - requires `x-webhook-secret` and uses constant-time comparison
 - caps declared request size at 64,000 bytes
 - accepts only public-schema INSERT/UPDATE/DELETE events for `products`,
-  `product_variants`, and `product_media`
+  `product_variants`, `product_media`, and `product_pdp_content`
 - re-fetches the current canonical parent before deciding the Algolia action
 - invalidates catalog tags and routes after processing
 - still attempts cache invalidation and returns a retryable 502 if Algolia fails
@@ -320,8 +320,9 @@ product tag and PDP path.
 ### Verified automatic-delivery status
 
 The remote non-production schema has no Database Webhook or HTTP trigger on
-`products`, `product_variants`, or `product_media`; only normal timestamp
-triggers were present. No stable deployed receiver endpoint was available.
+`products`, `product_variants`, `product_media`, or `product_pdp_content`; only
+normal timestamp triggers were present. Database Webhooks were not enabled, and
+no stable deployed receiver endpoint was available.
 Therefore automatic webhook delivery is **not active** and must not be claimed.
 
 `scripts/catalog-reconcile-core-pdp-media.ts` is the missed-webhook recovery
@@ -333,8 +334,9 @@ until a stable deployed receiver is configured; localhost was not treated as
 proof of permanent cache delivery.
 
 Provisioning a database webhook against the stable deployed receiver remains an
-external deployment action. The secret belongs in provider/deployment secret
-storage, never in SQL.
+external deployment action. The source-controlled provisioning command injects
+the secret from the operator environment and never records its value in source
+or command output.
 
 ## Algolia flow
 
