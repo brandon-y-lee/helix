@@ -7,6 +7,7 @@
 
 import type { ProductStatus } from "@/lib/products";
 import { statusLabel } from "@/components/productStatus";
+import { canonicalCatalogValue } from "@/lib/catalog/field-ownership";
 
 /** Default index name when ALGOLIA_INDEX_NAME / NEXT_PUBLIC_ALGOLIA_INDEX_NAME is unset. */
 export const DEFAULT_INDEX_NAME = "mei_pelle_products";
@@ -279,10 +280,30 @@ export function buildAlgoliaRecord(
   );
   const placeholderMedia = media.find((item) => item.media_kind === "placeholder");
   const swatch: [string, string] = [row.swatch_from, row.swatch_to];
-  const displayName = row.display_name ?? row.name;
-  const formalTitle = row.formal_title ?? row.name;
-  const cardTagline = row.card_tagline ?? row.tagline;
-  const editorialDescription = row.editorial_description ?? row.description ?? row.blurb;
+  const displayName = canonicalCatalogValue(
+    "products.display_name",
+    row.display_name,
+    "products.name",
+    row.name,
+  );
+  const formalTitle = canonicalCatalogValue(
+    "products.formal_title",
+    row.formal_title,
+    "products.name",
+    row.name,
+  );
+  const cardTagline = canonicalCatalogValue(
+    "products.card_tagline",
+    row.card_tagline,
+    "products.tagline",
+    row.tagline,
+  );
+  const editorialDescription = canonicalCatalogValue(
+    "products.editorial_description",
+    row.editorial_description,
+    "products.description",
+    row.description ?? row.blurb,
+  );
   const routineGroup = toRoutineGroup(row.routine_group);
   const routineGroupLabel = row.routine_group_label ?? null;
   const routineDisplayLabel = row.routine_display_label ?? routineGroupLabel;

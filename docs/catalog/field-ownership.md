@@ -1,0 +1,104 @@
+# Catalog Field Ownership
+
+`lib/catalog/field-ownership.ts` is the reusable ownership contract for catalog
+writers and editor integrations. It is data-only, has no React dependency, and
+exposes the editor annotations needed to identify editable, read-only source,
+derived, commerce-sensitive, and publish-capability fields.
+
+Supabase remains the canonical runtime catalog. This manifest governs writers;
+it is not a product-data fallback.
+
+## Writer Matrix
+
+| Table | Field or field group | Current writer | Intended owner | Default supplier import | Explicit editorial overwrite |
+| --- | --- | --- | --- | --- | --- |
+| `products` | `name`, `tagline`, `subtitle`, `descriptor`, `blurb`, `description`, `how_to_use`, verified supplier facts and ingredient/use attributes | Leaders import | Supplier | Update existing source values | Same as default |
+| `products` | `display_name`, `formal_title`, `card_tagline`, `editorial_description`, `editorial_how_to_use`, benefits/signals/badge, `formula_notes`, search/SEO presentation | Presentation refresh; optional recovery from Leaders source | Editorial | Preserve existing values | Update only exact changed fields |
+| `products` | `currency` and sellable status | Leaders import | Commerce | Update | Same as default |
+| `products` | ID, slug, publication/catalog status, collection/routine classification, ordering/rank, swatches, timestamps | Migrations/controlled catalog operations | System | Insert only; never rewrite existing values | Still insert only |
+| `product_variants` | price, availability, inventory status, SKU/source variant ID, options and size | Leaders import | Commerce | Upsert by product and variant key | Same as default |
+| `product_sources` | supplier identifiers, inspected timestamp/hash, raw verified source | Leaders import | Supplier | Upsert | Same as default |
+| `product_media` | associations, roles, order, alt text and presentation palette | Dedicated media syncs; presentation seed; optional Leaders recovery | Editorial | New-product seed only; preserve existing associations | Targeted Leaders upsert or explicitly requested presentation replacement |
+| `product_media` | original supplier URL and filename | Leaders import | Supplier | Stored with a new association only | Updated with the explicitly overwritten association |
+| `product_pdp_content` | structured PDP copy and steps | Published editor/migrations | Editorial | Never | Never; supplier and presentation scripts do not write it |
+| `collections`, `product_relationships` | durable grouping and relationship rows | Migrations/controlled catalog operations | System | Preserve | Preserve |
+| Algolia records, cache entries and search documents | all projected fields | Search backfill/webhook and cache invalidation | Derived | Never | Never |
+
+The Leaders import no longer updates collections, routine relationships,
+publication state, or derived outputs. `--archive-missing` is a separate,
+explicit catalog-lifecycle operation and is not implied by applying the import.
+
+## Command Safeguards
+
+Both broad canonical writers are dry-run by default:
+
+```bash
+pnpm run catalog:import:leaders
+pnpm run catalog:refresh:presentation
+```
+
+Apply safe source/commerce updates or seed missing presentation fields:
+
+```bash
+pnpm run catalog:import:leaders -- --apply
+pnpm run catalog:refresh:presentation -- --apply
+```
+
+An editorial recovery must use the dedicated flag:
+
+```bash
+pnpm run catalog:import:leaders -- --apply --overwrite-editorial
+pnpm run catalog:refresh:presentation -- --apply --overwrite-editorial
+```
+
+Interactive terminals print every product and field, then require the exact
+phrase `OVERWRITE EDITORIAL`. Non-interactive jobs must add the separate
+`--confirm-editorial-overwrite` flag:
+
+```bash
+pnpm run catalog:refresh:presentation -- \
+  --apply \
+  --overwrite-editorial \
+  --confirm-editorial-overwrite
+```
+
+`--overwrite-media` additionally requires `--overwrite-editorial`. `--force`
+does not enable either behavior.
+
+Dry-run reports contain only slugs, field names and row counts:
+
+- products matched and missing
+- planned product inserts and updates
+- source/commerce fields updated
+- editorial fields seeded, skipped, or explicitly overwritten
+- variants and media affected
+- archive candidates and errors
+
+They do not print secrets or full product content, upload files, update rows,
+replace media, write backups, reindex Algolia, or invalidate caches.
+
+The separate derived search writer also supports
+`pnpm run search:backfill -- --dry-run`; canonical import and presentation
+scripts never invoke it directly.
+
+## Legacy Precedence
+
+The editor-facing canonical fields remain the high-precedence fields:
+
+```text
+display_name            -> name fallback
+formal_title            -> name fallback
+card_tagline            -> tagline fallback
+editorial_description   -> description fallback
+editorial_how_to_use    -> how_to_use fallback
+structured how-to steps -> parsed paragraph fallback
+```
+
+`resolveCatalogPrecedence` returns both the selected value and its source field,
+so controlled diagnostics and tests can detect fallback use without production
+logging. `resolveHowToUseSteps` does the same for structured steps. Writers do
+not synchronize precedence pairs; supplier updates to legacy/source fields
+therefore do not replace a populated canonical editorial value.
+
+Placeholder reviews in `lib/catalog/product-reviews.ts` are outside this
+contract and are not read or written by catalog scripts.

@@ -606,6 +606,21 @@ describe("runSearchBackfill", () => {
     expect(mockedReindex).toHaveBeenCalledWith([record]);
   });
 
+  it("reports the complete derived projection without writing during dry run", async () => {
+    const record = buildAlgoliaRecord(sourceRow);
+    mockedFetchAll.mockResolvedValue([record]);
+
+    await expect(runSearchBackfill({ apply: false })).resolves.toMatchObject({
+      dryRun: true,
+      read: 1,
+      transformed: 1,
+      upserted: 0,
+      skipped: 1,
+      verified: 0,
+    });
+    expect(mockedReindex).not.toHaveBeenCalled();
+  });
+
   it("refuses to silently replace the index from an empty catalog", async () => {
     mockedFetchAll.mockResolvedValue([]);
 

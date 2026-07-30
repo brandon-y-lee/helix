@@ -2,6 +2,7 @@ import {
   normalizeProductPdpContent,
   type ProductPdpContentRow,
 } from "@/lib/catalog/product-content";
+import { canonicalCatalogValue } from "@/lib/catalog/field-ownership";
 import {
   CORE_ROUTINE_PRODUCT_SLUGS,
   type CoreRoutineContentSummary,
@@ -428,8 +429,18 @@ export function mapProductCardRow(row: ProductCardRow): ProductCardContent {
   return {
     id: row.id,
     slug: row.slug,
-    displayName: row.display_name ?? row.name,
-    cardTagline: row.card_tagline ?? row.tagline,
+    displayName: canonicalCatalogValue(
+      "products.display_name",
+      row.display_name,
+      "products.name",
+      row.name,
+    ),
+    cardTagline: canonicalCatalogValue(
+      "products.card_tagline",
+      row.card_tagline,
+      "products.tagline",
+      row.tagline,
+    ),
     collection: row.collection,
     productType: row.product_type ?? row.collection,
     volume: row.volume,
@@ -453,13 +464,33 @@ export function mapPdpProductRow(row: PdpProductRow): PdpProductContent {
   const swatch: [string, string] = [row.swatch_from, row.swatch_to];
   const media = mapMedia(row.product_media, swatch);
   const cardMedia = selectCardMedia(media);
-  const description = row.editorial_description ?? row.description;
-  const howToUse = row.editorial_how_to_use ?? row.how_to_use;
+  const description = canonicalCatalogValue(
+    "products.editorial_description",
+    row.editorial_description,
+    "products.description",
+    row.description,
+  );
+  const howToUse = canonicalCatalogValue(
+    "products.editorial_how_to_use",
+    row.editorial_how_to_use,
+    "products.how_to_use",
+    row.how_to_use,
+  );
   return {
     id: row.id,
     slug: row.slug,
-    displayName: row.display_name ?? row.name,
-    cardTagline: row.card_tagline ?? row.tagline,
+    displayName: canonicalCatalogValue(
+      "products.display_name",
+      row.display_name,
+      "products.name",
+      row.name,
+    ),
+    cardTagline: canonicalCatalogValue(
+      "products.card_tagline",
+      row.card_tagline,
+      "products.tagline",
+      row.tagline,
+    ),
     collection: row.collection,
     routineNumber: row.routine_number ?? null,
     routineGroup: toRoutineGroup(row.routine_group),
@@ -524,11 +555,31 @@ export function mapCoreRoutineRow(
   return {
     id: row.id,
     slug: row.slug,
-    displayName: row.display_name ?? row.name,
-    formalTitle: row.formal_title ?? row.name,
+    displayName: canonicalCatalogValue(
+      "products.display_name",
+      row.display_name,
+      "products.name",
+      row.name,
+    ),
+    formalTitle: canonicalCatalogValue(
+      "products.formal_title",
+      row.formal_title,
+      "products.name",
+      row.name,
+    ),
     productType: row.product_type ?? row.name,
-    cardTagline: row.card_tagline ?? row.tagline,
-    description: row.editorial_description ?? row.description,
+    cardTagline: canonicalCatalogValue(
+      "products.card_tagline",
+      row.card_tagline,
+      "products.tagline",
+      row.tagline,
+    ),
+    description: canonicalCatalogValue(
+      "products.editorial_description",
+      row.editorial_description,
+      "products.description",
+      row.description,
+    ),
     benefits: row.benefits ?? [],
     goodFor: row.good_for,
     texture: row.texture,
@@ -720,8 +771,18 @@ export async function getProductMetadata(
   const row = data as unknown as ProductMetadataRow;
   return {
     slug: row.slug,
-    formalTitle: row.formal_title ?? row.name,
-    cardTagline: row.card_tagline ?? row.tagline,
+    formalTitle: canonicalCatalogValue(
+      "products.formal_title",
+      row.formal_title,
+      "products.name",
+      row.name,
+    ),
+    cardTagline: canonicalCatalogValue(
+      "products.card_tagline",
+      row.card_tagline,
+      "products.tagline",
+      row.tagline,
+    ),
     seoTitle: row.seo_title,
     seoDescription: row.seo_description,
   };
@@ -849,7 +910,12 @@ export async function getIngredientIndexProducts(): Promise<
 
   return ((data ?? []) as unknown as IngredientIndexRow[]).map((row) => ({
     slug: row.slug,
-    displayName: row.display_name ?? row.name,
+    displayName: canonicalCatalogValue(
+      "products.display_name",
+      row.display_name,
+      "products.name",
+      row.name,
+    ),
     keyIngredients: row.key_ingredients ?? [],
     ingredients: row.ingredients,
     formulaNotes: row.formula_notes ?? [],

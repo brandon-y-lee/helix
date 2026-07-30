@@ -10,6 +10,8 @@ pnpm run db:cleanup:dry-run
 pnpm run db:cleanup:apply
 pnpm run db:verify
 pnpm run catalog:verify
+pnpm run catalog:import:leaders
+pnpm run catalog:refresh:presentation
 pnpm run search:reindex
 ```
 
@@ -34,6 +36,10 @@ Use catalog sync/import scripts for:
 - catalog media/source refreshes
 - idempotent upserts by slug, SKU, and other natural keys
 - archiving products no longer canonical
+
+The Leaders import and presentation refresh are dry-run by default. Their
+field-level ownership and explicit editorial overwrite procedure are documented
+in [`docs/catalog/field-ownership.md`](../catalog/field-ownership.md).
 
 Use audit/verify scripts for:
 

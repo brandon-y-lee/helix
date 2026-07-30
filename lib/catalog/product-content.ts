@@ -37,6 +37,36 @@ export type ProductPdpContent = {
   routineGuidance: string | null;
 };
 
+export type HowToUseStepResolution = {
+  steps: string[];
+  source:
+    | "product_pdp_content.how_to_use_steps"
+    | "products.editorial_how_to_use/products.how_to_use";
+  usedParagraphFallback: boolean;
+};
+
+export function resolveHowToUseSteps(
+  structuredSteps: readonly string[] | null | undefined,
+  paragraph: string,
+): HowToUseStepResolution {
+  if (structuredSteps !== null && structuredSteps !== undefined) {
+    return {
+      steps: [...structuredSteps],
+      source: "product_pdp_content.how_to_use_steps",
+      usedParagraphFallback: false,
+    };
+  }
+
+  return {
+    steps: paragraph
+      .split(/[.;]\s+/)
+      .map((item) => item.trim().replace(/[.;]$/, ""))
+      .filter(Boolean),
+    source: "products.editorial_how_to_use/products.how_to_use",
+    usedParagraphFallback: true,
+  };
+}
+
 type ProductPdpContentDatabaseRow =
   Database["public"]["Tables"]["product_pdp_content"]["Row"];
 

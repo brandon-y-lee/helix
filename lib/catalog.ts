@@ -7,6 +7,7 @@
 // explicit empty state.
 
 import { getSupabaseClient } from "@/lib/supabase";
+import { canonicalCatalogValue } from "@/lib/catalog/field-ownership";
 import {
   normalizeProductPdpContent,
   type ProductPdpContentRow,
@@ -310,11 +311,36 @@ function mapRow(row: ProductRow): Product {
     }));
 
   const presentation = resolveProductPresentationMedia(media);
-  const displayName = row.display_name ?? row.name;
-  const formalTitle = row.formal_title ?? row.name;
-  const cardTagline = row.card_tagline ?? row.tagline;
-  const editorialDescription = row.editorial_description ?? row.description;
-  const editorialHowToUse = row.editorial_how_to_use ?? row.how_to_use;
+  const displayName = canonicalCatalogValue(
+    "products.display_name",
+    row.display_name,
+    "products.name",
+    row.name,
+  );
+  const formalTitle = canonicalCatalogValue(
+    "products.formal_title",
+    row.formal_title,
+    "products.name",
+    row.name,
+  );
+  const cardTagline = canonicalCatalogValue(
+    "products.card_tagline",
+    row.card_tagline,
+    "products.tagline",
+    row.tagline,
+  );
+  const editorialDescription = canonicalCatalogValue(
+    "products.editorial_description",
+    row.editorial_description,
+    "products.description",
+    row.description,
+  );
+  const editorialHowToUse = canonicalCatalogValue(
+    "products.editorial_how_to_use",
+    row.editorial_how_to_use,
+    "products.how_to_use",
+    row.how_to_use,
+  );
   const pdpContent = normalizeProductPdpContent(
     firstPdpContent(row.product_pdp_content),
     row.slug,
@@ -576,7 +602,19 @@ export async function getDiscoveryProductSlugs(
       (a, b) =>
         (a.routine_sort ?? a.sort_order ?? a.position ?? 0) -
           (b.routine_sort ?? b.sort_order ?? b.position ?? 0) ||
-        (a.display_name ?? a.name).localeCompare(b.display_name ?? b.name),
+        canonicalCatalogValue(
+          "products.display_name",
+          a.display_name,
+          "products.name",
+          a.name,
+        ).localeCompare(
+          canonicalCatalogValue(
+            "products.display_name",
+            b.display_name,
+            "products.name",
+            b.name,
+          ),
+        ),
     )
     .slice(0, limit)
     .map((row) => row.slug);

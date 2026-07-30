@@ -27,11 +27,14 @@ Production backfills additionally require `ALLOW_PRODUCTION_SEARCH_REINDEX=true`
 Run only against the intended development/preview project:
 
 ```bash
+SEARCH_BACKFILL_ENVIRONMENT=development pnpm run search:backfill -- --dry-run
 SEARCH_BACKFILL_ENVIRONMENT=development pnpm run search:backfill
 ```
 
-The command refuses an empty Supabase catalog, waits for Algolia operations,
-and verifies that the final Algolia record count matches the submitted count.
+The dry run reads and transforms every canonical record but does not replace
+the Algolia index. Apply refuses an empty Supabase catalog, waits for Algolia
+operations, and verifies that the final Algolia record count matches the
+submitted count.
 The protected `POST /api/admin/search-reindex` route provides the same behavior
 for deployed recovery and expects `x-webhook-secret`.
 

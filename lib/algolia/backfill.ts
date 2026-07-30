@@ -7,6 +7,7 @@ import {
 export type SearchBackfillEnvironment = "development" | "preview" | "production";
 
 export type SearchBackfillReport = {
+  dryRun: boolean;
   environment: SearchBackfillEnvironment;
   indexName: string | null;
   read: number;
@@ -48,9 +49,14 @@ function getBackfillEnvironment(): SearchBackfillEnvironment {
   return value;
 }
 
-export async function runSearchBackfill(): Promise<SearchBackfillReport> {
+export async function runSearchBackfill({
+  apply = true,
+}: {
+  apply?: boolean;
+} = {}): Promise<SearchBackfillReport> {
   const environment = getBackfillEnvironment();
   const report: SearchBackfillReport = {
+    dryRun: !apply,
     environment,
     indexName: null,
     read: 0,
@@ -72,6 +78,11 @@ export async function runSearchBackfill(): Promise<SearchBackfillReport> {
         "Supabase returned an empty catalog; refusing to replace the Algolia " +
           "index with zero records.",
       );
+    }
+
+    if (!apply) {
+      report.skipped = records.length;
+      return report;
     }
 
     const result = await reindexAllSearchRecords(records);

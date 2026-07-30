@@ -1,30 +1,71 @@
 import { createHash } from "node:crypto";
 import { extname, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import { config } from "dotenv";
-import { createClient } from "@supabase/supabase-js";
+import {
+  createClient,
+  type SupabaseClient,
+} from "@supabase/supabase-js";
 import WebSocket from "ws";
 import {
   leadersMeiPelleCatalog,
   type LeadersCatalogProduct,
 } from "../data/catalog/leaders-mei-pelle-source";
+import {
+  PRODUCT_COMMERCE_FIELDS,
+  PRODUCT_EDITORIAL_FIELDS,
+  PRODUCT_SUPPLIER_FIELDS,
+} from "../lib/catalog/field-ownership";
+import { EXPECTED_SUPABASE_PROJECT_REF } from "./catalog/canonical-catalog-manifest";
+import {
+  executeCatalogProductWritePlans,
+  planSupplierProductWrite,
+  requireEditorialOverwriteConfirmation,
+  type CatalogProductWritePlan,
+  type CatalogRow,
+  type EditorialOverwriteTarget,
+} from "./catalog/catalog-writer-policy";
 
 config({ path: resolve(process.cwd(), ".env.local"), quiet: true });
 
 const BUCKET = "mei-pelle-catalog";
 const STORAGE_PREFIX = "products";
 
+export type ImportOptions = {
+  apply: boolean;
+  overwriteEditorial: boolean;
+  confirmedEditorialOverwrite: boolean;
+  archiveMissing: boolean;
+};
+
+type ExistingProductRow = CatalogRow & {
+  id: string;
+  slug: string;
+};
+
 type ImportReport = {
-  read: number;
-  productsUpserted: number;
-  variantsUpserted: number;
-  collectionsUpserted: number;
-  mediaUploaded: number;
-  mediaRowsUpserted: number;
-  sourcesUpserted: number;
-  relationshipsUpserted: number;
-  archivedProducts: number;
-  skipped: number;
-  failed: number;
+  ok: true;
+  dryRun: boolean;
+  overwriteEditorial: boolean;
+  productsMatched: number;
+  rowsInserted: number;
+  productRowsUpdated: number;
+  sourceOwnedFieldsUpdated: Array<{ slug: string; fields: string[] }>;
+  commerceFieldsUpdated: Array<{ slug: string; fields: string[] }>;
+  editorialFieldsSeeded: Array<{ slug: string; fields: string[] }>;
+  editorialFieldsSkipped: Array<{ slug: string; fields: string[] }>;
+  editorialFieldsWouldOverwrite: Array<{ slug: string; fields: string[] }>;
+  variantsAffected: Array<{ slug: string; rows: number }>;
+  mediaAffected: Array<{
+    slug: string;
+    rowsInserted: number;
+    rowsOverwritten: number;
+    rowsSkipped: number;
+  }>;
+  sourcesAffected: number;
+  archiveCandidates: string[];
+  productsArchived: number;
+  errors: string[];
 };
 
 function requiredEnv(name: string): string {
@@ -33,10 +74,20 @@ function requiredEnv(name: string): string {
   return value;
 }
 
-const supabase = createClient(
-  requiredEnv("NEXT_PUBLIC_SUPABASE_URL"),
-  requiredEnv("SUPABASE_SERVICE_ROLE_KEY"),
-  {
+function verifyProjectRef(urlValue: string): void {
+  const url = new URL(urlValue);
+  const projectRef = url.hostname.split(".")[0];
+  if (projectRef !== EXPECTED_SUPABASE_PROJECT_REF) {
+    throw new Error(
+      `[catalog-import] Refusing Supabase project "${projectRef}"; expected "${EXPECTED_SUPABASE_PROJECT_REF}".`,
+    );
+  }
+}
+
+function createSupabaseAdminClient(): SupabaseClient {
+  const url = requiredEnv("NEXT_PUBLIC_SUPABASE_URL");
+  verifyProjectRef(url);
+  return createClient(url, requiredEnv("SUPABASE_SERVICE_ROLE_KEY"), {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
@@ -44,11 +95,13 @@ const supabase = createClient(
     realtime: {
       transport: WebSocket as unknown as typeof globalThis.WebSocket,
     },
-  },
-);
+  });
+}
 
 function deterministicUuid(seed: string): string {
-  const bytes = Buffer.from(createHash("sha256").update(seed).digest().subarray(0, 16));
+  const bytes = Buffer.from(
+    createHash("sha256").update(seed).digest().subarray(0, 16),
+  );
   bytes[6] = (bytes[6] & 0x0f) | 0x40;
   bytes[8] = (bytes[8] & 0x3f) | 0x80;
   const hex = bytes.toString("hex");
@@ -80,13 +133,90 @@ function fallbackContentType(filename: string): string {
   }
 }
 
-async function ensureBucket() {
+function sourceProductValues(product: LeadersCatalogProduct): CatalogRow {
+  return {
+    name: product.title,
+    tagline: product.subtitle,
+    subtitle: product.subtitle,
+    descriptor: product.descriptor,
+    blurb: product.blurb,
+    description: product.description,
+    how_to_use: product.howToUse,
+    product_type: product.productType,
+    texture: product.texture,
+    key_ingredients: product.keyIngredients,
+    ingredients: product.ingredients,
+    product_details: product.productDetails,
+    cautions: product.cautions,
+    finish: product.finish,
+    volume: product.volume,
+    skin_types: product.skinTypes,
+    concerns: product.concerns,
+    usage_time: product.usageTime,
+  };
+}
+
+function commerceProductValues(product: LeadersCatalogProduct): CatalogRow {
+  return {
+    currency: product.currency,
+    status: product.status,
+  };
+}
+
+function editorialProductValues(product: LeadersCatalogProduct): CatalogRow {
+  return {
+    display_name: product.actionName,
+    formal_title: product.title,
+    card_tagline: product.subtitle,
+    editorial_description: product.description,
+    editorial_how_to_use: product.howToUse,
+    benefits: product.benefits,
+    made_for: product.skinTypes.join(", "),
+    good_for: product.concerns.slice(0, 3).join(", "),
+    badge: product.badge,
+    formula_notes: [product.source.formulationVersionNotes],
+    search_keywords: product.searchKeywords,
+    seo_title: product.seoTitle,
+    seo_description: product.seoDescription,
+  };
+}
+
+function insertProductValues(
+  product: LeadersCatalogProduct,
+  productId: string,
+  overwriteEditorial: boolean,
+): CatalogRow {
+  const createdAt = new Date(
+    Date.parse(product.source.sourceInspectedAt) + product.sortOrder * 1000,
+  ).toISOString();
+  return {
+    id: productId,
+    slug: product.slug,
+    catalog_status: product.catalogStatus,
+    action_name: product.actionName,
+    collection: product.collection,
+    position: product.sortOrder,
+    sort_order: product.sortOrder,
+    featured_rank: product.featuredRank,
+    routine_number: product.routineNumber,
+    routine_step: product.routineStep,
+    routine_order: product.routineOrder,
+    swatch_from: product.swatchFrom,
+    swatch_to: product.swatchTo,
+    created_at: createdAt,
+    published_at: product.catalogStatus === "active" ? createdAt : null,
+    ...sourceProductValues(product),
+    ...commerceProductValues(product),
+    ...(overwriteEditorial ? editorialProductValues(product) : {}),
+  };
+}
+
+async function ensureBucket(supabase: SupabaseClient): Promise<void> {
   const { error } = await supabase.storage.updateBucket(BUCKET, {
     public: true,
     fileSizeLimit: "5242880",
     allowedMimeTypes: ["image/jpeg", "image/png", "image/webp"],
   });
-
   if (!error) return;
 
   const { error: createError } = await supabase.storage.createBucket(BUCKET, {
@@ -94,17 +224,21 @@ async function ensureBucket() {
     fileSizeLimit: "5242880",
     allowedMimeTypes: ["image/jpeg", "image/png", "image/webp"],
   });
-
   if (createError && !/already exists/i.test(createError.message)) {
-    throw new Error(`[catalog-import] Failed to prepare storage bucket: ${createError.message}`);
+    throw new Error(
+      `[catalog-import] Failed to prepare storage bucket: ${createError.message}`,
+    );
   }
 }
 
-async function uploadMedia(product: LeadersCatalogProduct, media: LeadersCatalogProduct["media"][number]) {
+async function uploadMedia(
+  supabase: SupabaseClient,
+  product: LeadersCatalogProduct,
+  media: LeadersCatalogProduct["media"][number],
+) {
   const filename = safeFilename(media.sourceFilename);
   const path = `${STORAGE_PREFIX}/${product.slug}/${String(media.sortOrder).padStart(2, "0")}-${media.role}-${filename}`;
   const response = await fetch(media.sourceUrl);
-
   if (!response.ok) {
     throw new Error(
       `[catalog-import] Failed to download ${media.sourceUrl}: ${response.status} ${response.statusText}`,
@@ -115,42 +249,55 @@ async function uploadMedia(product: LeadersCatalogProduct, media: LeadersCatalog
     response.headers.get("content-type")?.split(";")[0] ??
     fallbackContentType(media.sourceFilename);
   const body = Buffer.from(await response.arrayBuffer());
-
   const { error } = await supabase.storage.from(BUCKET).upload(path, body, {
     cacheControl: "31536000",
     contentType,
     upsert: true,
   });
-
   if (error) {
     throw new Error(`[catalog-import] Failed to upload ${path}: ${error.message}`);
   }
 
   const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
-  return { ...media, storagePath: path, publicUrl: data.publicUrl };
+  return { ...media, publicUrl: data.publicUrl };
 }
 
-async function findExistingProductId(slug: string, legacySlugs: readonly string[] = []): Promise<string | null> {
-  const slugs = [slug, ...legacySlugs];
+async function findExistingProduct(
+  supabase: SupabaseClient,
+  product: LeadersCatalogProduct,
+): Promise<ExistingProductRow | null> {
+  const fields = [
+    "id",
+    "slug",
+    ...PRODUCT_SUPPLIER_FIELDS,
+    ...PRODUCT_COMMERCE_FIELDS,
+    ...PRODUCT_EDITORIAL_FIELDS,
+  ];
   const { data, error } = await supabase
     .from("products")
-    .select("id")
-    .in("slug", slugs)
-    .limit(1);
-
-  if (error) throw new Error(`[catalog-import] Failed to inspect product ${slug}: ${error.message}`);
-  const row = (data ?? [])[0];
-  return typeof row?.id === "string" ? row.id : null;
+    .select(fields.join(", "))
+    .in("slug", [product.slug, ...(product.legacySlugs ?? [])])
+    .limit(1)
+    .maybeSingle();
+  if (error) {
+    throw new Error(
+      `[catalog-import] Failed to inspect product ${product.slug}: ${error.message}`,
+    );
+  }
+  return data ? (data as unknown as ExistingProductRow) : null;
 }
 
-async function findExistingVariantId(productId: string, variantKey: string): Promise<string | null> {
+async function findExistingVariantId(
+  supabase: SupabaseClient,
+  productId: string,
+  variantKey: string,
+): Promise<string | null> {
   const { data, error } = await supabase
     .from("product_variants")
     .select("id")
     .eq("product_id", productId)
     .eq("variant_key", variantKey)
     .maybeSingle();
-
   if (error) {
     throw new Error(
       `[catalog-import] Failed to inspect variant ${productId}/${variantKey}: ${error.message}`,
@@ -159,91 +306,40 @@ async function findExistingVariantId(productId: string, variantKey: string): Pro
   return typeof data?.id === "string" ? data.id : null;
 }
 
-async function upsertCollections(products: readonly LeadersCatalogProduct[]): Promise<number> {
-  const names = [
-    ...new Set(
-      products.map((product) => product.collection),
-    ),
-  ];
-  const rows = names.map((name, index) => ({
-    slug: slugify(name),
-    name,
-    description:
-      name === "The Core"
-        ? "The core Mei Pelle routine."
-        : "Targeted steps beyond the daily core.",
-    sort_order: index,
-    is_active: true,
-  }));
-
-  const { error } = await supabase.from("collections").upsert(rows, {
-    onConflict: "slug",
-  });
-
-  if (error) throw new Error(`[catalog-import] Failed to upsert collections: ${error.message}`);
-  return rows.length;
+async function readExistingMediaKeys(
+  supabase: SupabaseClient,
+  productId: string,
+): Promise<Set<string>> {
+  const { data, error } = await supabase
+    .from("product_media")
+    .select("role, sort_order")
+    .eq("product_id", productId);
+  if (error) {
+    throw new Error(
+      `[catalog-import] Failed to inspect media for ${productId}: ${error.message}`,
+    );
+  }
+  return new Set(
+    (data ?? []).map((row) => `${String(row.role)}:${String(row.sort_order)}`),
+  );
 }
 
-async function upsertProduct(product: LeadersCatalogProduct, productId: string) {
-  const createdAt = new Date(
-    Date.parse(product.source.sourceInspectedAt) + product.sortOrder * 1000,
-  ).toISOString();
-  const row = {
-    id: productId,
-    slug: product.slug,
-    name: product.title,
-    tagline: product.subtitle,
-    collection: product.collection,
-    action_name: product.actionName,
-    subtitle: product.subtitle,
-    descriptor: product.descriptor,
-    product_type: product.productType,
-    catalog_status: product.catalogStatus,
-    badge: product.badge,
-    currency: product.currency,
-    featured_rank: product.featuredRank,
-    sort_order: product.sortOrder,
-    blurb: product.blurb,
-    description: product.description,
-    benefits: product.benefits,
-    how_to_use: product.howToUse,
-    swatch_from: product.swatchFrom,
-    swatch_to: product.swatchTo,
-    status: product.status,
-    made_for: product.skinTypes.join(", "),
-    good_for: product.concerns.slice(0, 3).join(", "),
-    texture: product.texture,
-    key_ingredients: product.keyIngredients,
-    ingredients: product.ingredients,
-    product_details: product.productDetails,
-    cautions: product.cautions,
-    finish: product.finish,
-    volume: product.volume,
-    skin_types: product.skinTypes,
-    concerns: product.concerns,
-    routine_order: product.routineOrder,
-    usage_time: product.usageTime,
-    seo_title: product.seoTitle,
-    seo_description: product.seoDescription,
-    search_keywords: product.searchKeywords,
-    position: product.sortOrder,
-    created_at: createdAt,
-    published_at: product.catalogStatus === "active" ? createdAt : null,
-  };
-
-  const { error } = await supabase.from("products").upsert(row, {
-    onConflict: "slug",
-  });
-
-  if (error) throw new Error(`[catalog-import] Failed to upsert ${product.slug}: ${error.message}`);
-}
-
-async function upsertVariants(product: LeadersCatalogProduct, productId: string): Promise<number> {
+async function upsertVariants(
+  supabase: SupabaseClient,
+  product: LeadersCatalogProduct,
+  productId: string,
+): Promise<void> {
   const rows = await Promise.all(
     product.variants.map(async (variant) => ({
       id:
-        (await findExistingVariantId(productId, variant.key)) ??
-        deterministicUuid(`mei-pelle:variant:${product.slug}:${variant.key}`),
+        (await findExistingVariantId(
+          supabase,
+          productId,
+          variant.key,
+        )) ??
+        deterministicUuid(
+          `mei-pelle:variant:${product.slug}:${variant.key}`,
+        ),
       product_id: productId,
       variant_key: variant.key,
       label: variant.label,
@@ -260,23 +356,28 @@ async function upsertVariants(product: LeadersCatalogProduct, productId: string)
       sort_order: variant.sortOrder,
     })),
   );
-
   const { error } = await supabase.from("product_variants").upsert(rows, {
     onConflict: "product_id,variant_key",
   });
-
-  if (error) throw new Error(`[catalog-import] Failed to upsert variants for ${product.slug}: ${error.message}`);
-  return rows.length;
+  if (error) {
+    throw new Error(
+      `[catalog-import] Failed to upsert variants for ${product.slug}: ${error.message}`,
+    );
+  }
 }
 
 async function upsertMedia(
+  supabase: SupabaseClient,
   product: LeadersCatalogProduct,
   productId: string,
-): Promise<{ uploaded: number; rows: number }> {
-  const uploaded = await Promise.all(product.media.map((media) => uploadMedia(product, media)));
+): Promise<void> {
+  const uploaded = await Promise.all(
+    product.media.map((media) => uploadMedia(supabase, product, media)),
+  );
   const rows = uploaded.map((media) => ({
     product_id: productId,
     media_type: "image",
+    media_kind: "image",
     url: media.publicUrl,
     alt: media.alt,
     width: media.width,
@@ -286,16 +387,21 @@ async function upsertMedia(
     original_source_url: media.sourceUrl,
     source_filename: media.sourceFilename,
   }));
-
   const { error } = await supabase.from("product_media").upsert(rows, {
     onConflict: "product_id,role,sort_order",
   });
-
-  if (error) throw new Error(`[catalog-import] Failed to upsert media for ${product.slug}: ${error.message}`);
-  return { uploaded: uploaded.length, rows: rows.length };
+  if (error) {
+    throw new Error(
+      `[catalog-import] Failed to upsert media for ${product.slug}: ${error.message}`,
+    );
+  }
 }
 
-async function upsertSource(product: LeadersCatalogProduct, productId: string) {
+async function upsertSource(
+  supabase: SupabaseClient,
+  product: LeadersCatalogProduct,
+  productId: string,
+): Promise<void> {
   const { error } = await supabase.from("product_sources").upsert(
     {
       product_id: productId,
@@ -311,145 +417,260 @@ async function upsertSource(product: LeadersCatalogProduct, productId: string) {
       raw_source: {
         selectionReason: product.selectionReason,
         source: product.source,
-        media: product.media.map(({ sourceUrl, sourceFilename, role, sortOrder }) => ({
-          sourceUrl,
-          sourceFilename,
-          role,
-          sortOrder,
-        })),
+        media: product.media.map(
+          ({ sourceUrl, sourceFilename, role, sortOrder }) => ({
+            sourceUrl,
+            sourceFilename,
+            role,
+            sortOrder,
+          }),
+        ),
       },
     },
     { onConflict: "product_id" },
   );
-
-  if (error) throw new Error(`[catalog-import] Failed to upsert source for ${product.slug}: ${error.message}`);
+  if (error) {
+    throw new Error(
+      `[catalog-import] Failed to upsert source for ${product.slug}: ${error.message}`,
+    );
+  }
 }
 
-async function upsertRelationships(productIds: Map<string, string>): Promise<number> {
-  const products = leadersMeiPelleCatalog
-    .slice()
-    .sort((a, b) => a.routineOrder - b.routineOrder);
-
-  const rows = products.flatMap((product) => {
-    const productId = productIds.get(product.slug);
-    if (!productId) return [];
-
-    const related = products
-      .filter((candidate) => candidate.slug !== product.slug)
-      .sort((a, b) => {
-        const productSort = product.routineOrder;
-        const aSort = a.routineOrder;
-        const bSort = b.routineOrder;
-        const aAfter = aSort > productSort ? 0 : 1;
-        const bAfter = bSort > productSort ? 0 : 1;
-        return aAfter - bAfter || aSort - bSort;
-      })
-      .slice(0, 5);
-
-    return related.map((candidate, index) => ({
-      product_id: productId,
-      related_product_id: productIds.get(candidate.slug),
-      relationship_type: "complete_the_routine",
-      sort_order: index,
-    }));
-  }).filter((row): row is {
-    product_id: string;
-    related_product_id: string;
-    relationship_type: "complete_the_routine";
-    sort_order: number;
-  } => Boolean(row.related_product_id));
-
-  const { error } = await supabase.from("product_relationships").upsert(rows, {
-    onConflict: "product_id,related_product_id,relationship_type",
-  });
-
-  if (error) throw new Error(`[catalog-import] Failed to upsert routine relationships: ${error.message}`);
-  return rows.length;
-}
-
-async function archiveOldProducts(selectedSlugs: string[]): Promise<number> {
+async function readArchiveCandidates(
+  supabase: SupabaseClient,
+): Promise<Array<{ id: string; slug: string }>> {
+  const selectedSlugs = new Set(
+    leadersMeiPelleCatalog.map((product) => product.slug),
+  );
   const { data, error } = await supabase
     .from("products")
     .select("id, slug")
     .eq("catalog_status", "active");
-
-  if (error) throw new Error(`[catalog-import] Failed to inspect active products: ${error.message}`);
-
-  const ids = (data ?? [])
-    .filter((row) => typeof row.id === "string" && !selectedSlugs.includes(String(row.slug)))
-    .map((row) => row.id as string);
-
-  if (ids.length === 0) return 0;
-
-  const { error: updateError } = await supabase
-    .from("products")
-    .update({ catalog_status: "archived" })
-    .in("id", ids);
-
-  if (updateError) throw new Error(`[catalog-import] Failed to archive old products: ${updateError.message}`);
-  return ids.length;
+  if (error) {
+    throw new Error(
+      `[catalog-import] Failed to inspect active products: ${error.message}`,
+    );
+  }
+  return (data ?? []).filter(
+    (row): row is { id: string; slug: string } =>
+      typeof row.id === "string" &&
+      typeof row.slug === "string" &&
+      !selectedSlugs.has(row.slug),
+  );
 }
 
-async function run(): Promise<ImportReport> {
-  const report: ImportReport = {
-    read: leadersMeiPelleCatalog.length,
-    productsUpserted: 0,
-    variantsUpserted: 0,
-    collectionsUpserted: 0,
-    mediaUploaded: 0,
-    mediaRowsUpserted: 0,
-    sourcesUpserted: 0,
-    relationshipsUpserted: 0,
-    archivedProducts: 0,
-    skipped: 0,
-    failed: 0,
+function overwriteTargets(
+  plans: readonly CatalogProductWritePlan[],
+  mediaAffected: ImportReport["mediaAffected"],
+): EditorialOverwriteTarget[] {
+  return plans.flatMap((plan) => {
+    const mediaRows =
+      mediaAffected.find(
+        (media) => media.slug === plan.slug,
+      )?.rowsOverwritten ?? 0;
+    if (plan.editorialFieldsToOverwrite.length === 0 && mediaRows === 0) {
+      return [];
+    }
+    return [{
+      slug: plan.slug,
+      fields: plan.editorialFieldsToOverwrite,
+      mediaRows,
+    }];
+  });
+}
+
+export function parseImportArgs(argv: string[]): ImportOptions {
+  const apply = argv.includes("--apply") && !argv.includes("--dry-run");
+  return {
+    apply,
+    overwriteEditorial: argv.includes("--overwrite-editorial"),
+    confirmedEditorialOverwrite: argv.includes(
+      "--confirm-editorial-overwrite",
+    ),
+    archiveMissing: argv.includes("--archive-missing"),
   };
+}
 
-  await ensureBucket();
-  report.collectionsUpserted = await upsertCollections(leadersMeiPelleCatalog);
-
-  const productIds = new Map<string, string>();
-  for (const product of leadersMeiPelleCatalog) {
-    const productId =
-      (await findExistingProductId(product.slug, product.legacySlugs)) ??
-      deterministicUuid(`mei-pelle:product:${product.slug}`);
-
-    await upsertProduct(product, productId);
-    report.productsUpserted += 1;
-    productIds.set(product.slug, productId);
-
-    report.variantsUpserted += await upsertVariants(product, productId);
-
-    const media = await upsertMedia(product, productId);
-    report.mediaUploaded += media.uploaded;
-    report.mediaRowsUpserted += media.rows;
-
-    await upsertSource(product, productId);
-    report.sourcesUpserted += 1;
-  }
-
-  report.relationshipsUpserted = await upsertRelationships(productIds);
-  report.archivedProducts = await archiveOldProducts(
-    leadersMeiPelleCatalog.map((product) => product.slug),
+export async function runCatalogImport(
+  options: ImportOptions,
+): Promise<ImportReport> {
+  const supabase = createSupabaseAdminClient();
+  const productStates = await Promise.all(
+    leadersMeiPelleCatalog.map(async (product) => {
+      const existing = await findExistingProduct(supabase, product);
+      const productId =
+        existing?.id ??
+        deterministicUuid(`mei-pelle:product:${product.slug}`);
+      const existingMediaKeys = existing
+        ? await readExistingMediaKeys(supabase, productId)
+        : new Set<string>();
+      const plan = planSupplierProductWrite({
+        slug: product.slug,
+        existing,
+        insert: insertProductValues(
+          product,
+          productId,
+          options.overwriteEditorial,
+        ),
+        source: sourceProductValues(product),
+        commerce: commerceProductValues(product),
+        editorial: editorialProductValues(product),
+        overwriteEditorial: options.overwriteEditorial,
+      });
+      return { product, productId, plan, existingMediaKeys };
+    }),
+  );
+  const plans = productStates.map(({ plan }) => plan);
+  const archiveCandidates = await readArchiveCandidates(supabase);
+  const mediaAffected: ImportReport["mediaAffected"] = productStates.map(
+    ({ product, plan, existingMediaKeys }) => {
+      const rowsOverwritten =
+        !plan.insert && options.overwriteEditorial
+          ? product.media.filter((media) =>
+              existingMediaKeys.has(`${media.role}:${media.sortOrder}`),
+            ).length
+          : 0;
+      const rowsInserted =
+        plan.insert || options.overwriteEditorial
+          ? product.media.length - rowsOverwritten
+          : 0;
+      return {
+        slug: product.slug,
+        rowsInserted,
+        rowsOverwritten,
+        rowsSkipped:
+          plan.insert || options.overwriteEditorial ? 0 : product.media.length,
+      };
+    },
   );
 
+  await requireEditorialOverwriteConfirmation({
+    apply: options.apply,
+    overwriteEditorial: options.overwriteEditorial,
+    confirmedNonInteractive: options.confirmedEditorialOverwrite,
+    targets: overwriteTargets(plans, mediaAffected),
+  });
+
+  const report: ImportReport = {
+    ok: true,
+    dryRun: !options.apply,
+    overwriteEditorial: options.overwriteEditorial,
+    productsMatched: leadersMeiPelleCatalog.length,
+    rowsInserted: plans.filter((plan) => plan.insert).length,
+    productRowsUpdated: plans.filter(
+      (plan) => Object.keys(plan.update).length > 0,
+    ).length,
+    sourceOwnedFieldsUpdated: plans.map((plan) => ({
+      slug: plan.slug,
+      fields: plan.sourceOwnedFieldsUpdated,
+    })),
+    commerceFieldsUpdated: plans.map((plan) => ({
+      slug: plan.slug,
+      fields: plan.commerceFieldsUpdated,
+    })),
+    editorialFieldsSeeded: plans.map((plan) => ({
+      slug: plan.slug,
+      fields: plan.editorialFieldsSeeded,
+    })),
+    editorialFieldsSkipped: plans.map((plan) => ({
+      slug: plan.slug,
+      fields: plan.editorialFieldsSkipped,
+    })),
+    editorialFieldsWouldOverwrite: plans.map((plan) => ({
+      slug: plan.slug,
+      fields: plan.editorialFieldsToOverwrite,
+    })),
+    variantsAffected: productStates.map(({ product }) => ({
+      slug: product.slug,
+      rows: product.variants.length,
+    })),
+    mediaAffected,
+    sourcesAffected: productStates.length,
+    archiveCandidates: archiveCandidates.map((product) => product.slug),
+    productsArchived:
+      options.apply && options.archiveMissing ? archiveCandidates.length : 0,
+    errors: [],
+  };
+  if (!options.apply) return report;
+
+  await executeCatalogProductWritePlans({
+    apply: true,
+    plans,
+    insert: async (row) => {
+      const { error } = await supabase.from("products").insert(row);
+      if (error) {
+        throw new Error(
+          `[catalog-import] Failed to insert product: ${error.message}`,
+        );
+      }
+    },
+    update: async (id, row) => {
+      const { error } = await supabase
+        .from("products")
+        .update(row)
+        .eq("id", id);
+      if (error) {
+        throw new Error(
+          `[catalog-import] Failed to update product ${id}: ${error.message}`,
+        );
+      }
+    },
+  });
+
+  const writesMedia = mediaAffected.some(
+    (media) => media.rowsInserted > 0 || media.rowsOverwritten > 0,
+  );
+  if (writesMedia) await ensureBucket(supabase);
+  for (const state of productStates) {
+    await upsertVariants(supabase, state.product, state.productId);
+    await upsertSource(supabase, state.product, state.productId);
+    const media = mediaAffected.find(
+      (entry) => entry.slug === state.product.slug,
+    );
+    if (
+      media &&
+      (media.rowsInserted > 0 || media.rowsOverwritten > 0)
+    ) {
+      await upsertMedia(supabase, state.product, state.productId);
+    }
+  }
+
+  if (options.archiveMissing && archiveCandidates.length > 0) {
+    const { error } = await supabase
+      .from("products")
+      .update({ catalog_status: "archived" })
+      .in("id", archiveCandidates.map((product) => product.id));
+    if (error) {
+      throw new Error(
+        `[catalog-import] Failed to archive missing products: ${error.message}`,
+      );
+    }
+  }
   return report;
 }
 
-try {
-  const report = await run();
-  console.log(JSON.stringify({ ok: true, ...report }, null, 2));
-} catch (error) {
-  console.error(
-    JSON.stringify(
-      {
-        ok: false,
-        error: error instanceof Error ? error.message : "Unknown catalog import error",
-        failed: 1,
-      },
-      null,
-      2,
-    ),
-  );
-  process.exitCode = 1;
+if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
+  runCatalogImport(parseImportArgs(process.argv.slice(2)))
+    .then((report) => console.log(JSON.stringify(report, null, 2)))
+    .catch((error) => {
+      console.error(
+        JSON.stringify(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : "Unknown catalog import error",
+            errors: [
+              error instanceof Error
+                ? error.message
+                : "Unknown catalog import error",
+            ],
+          },
+          null,
+          2,
+        ),
+      );
+      process.exitCode = 1;
+    });
 }

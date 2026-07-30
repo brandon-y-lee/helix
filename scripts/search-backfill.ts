@@ -8,7 +8,9 @@ const { runSearchBackfill, SearchBackfillError } = await import(
 );
 
 try {
-  const report = await runSearchBackfill();
+  const report = await runSearchBackfill({
+    apply: !process.argv.slice(2).includes("--dry-run"),
+  });
   console.log(JSON.stringify({ ok: true, ...report }, null, 2));
 } catch (error) {
   if (error instanceof SearchBackfillError) {

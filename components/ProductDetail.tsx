@@ -24,6 +24,7 @@ import {
   purchaseIslandProps,
 } from "@/components/ProductDetail.adapters";
 import {
+  resolveHowToUseSteps,
   type ProductPdpContent,
 } from "@/lib/catalog/product-content";
 import type {
@@ -49,13 +50,6 @@ function compactDescription(value: string) {
     .filter(Boolean);
 
   return (sentences.length ? sentences.slice(0, 2).join(" ") : value).trim();
-}
-
-function splitCopy(value: string) {
-  return value
-    .split(/[.;]\s+/)
-    .map((item) => item.trim().replace(/[.;]$/, ""))
-    .filter(Boolean);
 }
 
 function PdpEditorialPair({
@@ -157,9 +151,10 @@ export function ProductDetail({
   const leadDescription = compactDescription(
     product.description || product.cardTagline,
   );
-  const howToUse =
-    content?.howToUseSteps ??
-    splitCopy(product.howToUse);
+  const howToUse = resolveHowToUseSteps(
+    content?.howToUseSteps,
+    product.howToUse,
+  ).steps;
   const resolvedFullInci = resolveFullInci(product);
   const fullIngredientsText =
     resolvedFullInci?.text ||

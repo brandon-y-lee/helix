@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import {
   normalizeProductPdpContent,
+  resolveHowToUseSteps,
   type ProductPdpContentRow,
 } from "@/lib/catalog/product-content";
 
@@ -73,6 +74,23 @@ describe("Supabase PDP content authority", () => {
     expect(content?.howToUseSteps).toEqual([]);
     expect(content?.applicationSteps).toEqual([]);
     expect(content?.ingredientCards).toEqual([]);
+  });
+
+  it("uses structured steps before the parsed paragraph compatibility fallback", () => {
+    expect(
+      resolveHowToUseSteps(["Structured first.", "Structured second."], "Legacy paragraph."),
+    ).toEqual({
+      steps: ["Structured first.", "Structured second."],
+      source: "product_pdp_content.how_to_use_steps",
+      usedParagraphFallback: false,
+    });
+    expect(
+      resolveHowToUseSteps(null, "Apply first. Follow with SEAL."),
+    ).toEqual({
+      steps: ["Apply first", "Follow with SEAL"],
+      source: "products.editorial_how_to_use/products.how_to_use",
+      usedParagraphFallback: true,
+    });
   });
 
   it.each([
