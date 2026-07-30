@@ -346,6 +346,27 @@ describe("PdpCoreDetailsRoutine", () => {
     expect(cartMock.openCartDrawer).not.toHaveBeenCalled();
   });
 
+  it("removes every Core cart payload in draft preview mode", () => {
+    const items = coreDetailsIslandItems(products, true);
+    expect(items.every((item) => item.purchase.item === null)).toBe(true);
+    expect(items.every((item) => !item.purchase.purchasable)).toBe(true);
+
+    const { container } = render(
+      <PdpCoreDetailsRoutine
+        items={items}
+        currentSlug="cleanse-01-calming-gel-cleanser"
+      />,
+    );
+    const buy = activeState(container).getByRole("button", {
+      name: "Preview — purchasing disabled",
+    });
+
+    expect(buy).toBeDisabled();
+    fireEvent.click(buy);
+    expect(cartMock.add).not.toHaveBeenCalled();
+    expect(cartMock.openCartDrawer).not.toHaveBeenCalled();
+  });
+
   it("retires the outgoing layer at the shared reduced-motion duration", () => {
     vi.useFakeTimers();
     vi.stubGlobal(

@@ -80,7 +80,10 @@ export function Header() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const pathname = usePathname();
-  const overlayOpen = searchOpen || cartDrawerOpen || menuOpen;
+  const catalogPreview =
+    pathname?.startsWith("/admin/catalog/preview/") ?? false;
+  const overlayOpen =
+    searchOpen || (!catalogPreview && cartDrawerOpen) || menuOpen;
   const [navState, setNavState] = useState<HeaderNavState>("top");
   const [headerTheme, setHeaderTheme] = useState<HeaderTheme>("dark");
   const navStateRef = useRef<HeaderNavState>("top");
@@ -122,6 +125,12 @@ export function Header() {
       setNavStateIfChanged("revealed");
     }
   }, [setNavStateIfChanged]);
+
+  useEffect(() => {
+    if (catalogPreview && cartDrawerOpen) {
+      closeCartDrawer();
+    }
+  }, [catalogPreview, cartDrawerOpen, closeCartDrawer]);
 
   useEffect(() => {
     overlayOpenRef.current = overlayOpen;
@@ -234,13 +243,23 @@ export function Header() {
             ref={cartTriggerRef}
             type="button"
             className="cart-link"
-            onClick={() => openCartDrawer(returnFocusToCart)}
+            onClick={() => {
+              if (!catalogPreview) openCartDrawer(returnFocusToCart);
+            }}
             aria-haspopup="dialog"
-            aria-expanded={cartDrawerOpen}
+            aria-expanded={catalogPreview ? false : cartDrawerOpen}
+            aria-label={
+              catalogPreview ? "Cart unavailable in draft preview" : undefined
+            }
+            disabled={catalogPreview}
           >
-            CART ({hasLoadedCart ? count : "—"})
+            {catalogPreview
+              ? "CART (PREVIEW)"
+              : `CART (${hasLoadedCart ? count : "—"})`}
             <span className="sr-only">
-              {hasLoadedCart
+              {catalogPreview
+                ? ", purchasing disabled"
+                : hasLoadedCart
                 ? count > 0
                   ? `, ${count} items`
                   : ", empty"
@@ -277,11 +296,13 @@ export function Header() {
         onClose={closeSearch}
         returnFocus={returnFocusToSearch}
       />
-      <CartDrawer
-        open={cartDrawerOpen}
-        onClose={closeCartDrawer}
-        returnFocus={returnFocusAfterCartDrawerClose}
-      />
+      {!catalogPreview && (
+        <CartDrawer
+          open={cartDrawerOpen}
+          onClose={closeCartDrawer}
+          returnFocus={returnFocusAfterCartDrawerClose}
+        />
+      )}
     </header>
   );
 }

@@ -716,6 +716,35 @@ describe("ProductDetail purchase accordions", () => {
     expect(cartMock.openCartDrawer).not.toHaveBeenCalled();
   });
 
+  it("keeps preview purchase layouts visible without allowing cart mutations", () => {
+    const { container } = render(
+      <ProductDetail
+        product={makeProduct()}
+        commerceDisabled
+        stripePublishableKey="pk_test_product"
+      />,
+    );
+    const mainBuy = container.querySelector<HTMLButtonElement>(
+      "[data-pdp-buy-button]",
+    );
+    const stickyBuy = container.querySelector<HTMLButtonElement>(
+      "[data-sticky-pdp-buy-button]",
+    );
+
+    expect(mainBuy).toHaveTextContent("Preview — purchasing disabled");
+    expect(mainBuy).toBeDisabled();
+    expect(stickyBuy).toHaveTextContent("Preview — purchasing disabled");
+    expect(stickyBuy).toBeDisabled();
+    expect(
+      screen.queryByTestId("afterpay-messaging-boundary"),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(mainBuy as HTMLButtonElement);
+    fireEvent.click(stickyBuy as HTMLButtonElement);
+    expect(cartMock.add).not.toHaveBeenCalled();
+    expect(cartMock.openCartDrawer).not.toHaveBeenCalled();
+  });
+
   it("keeps selected server product pricing in sync with main messaging and sticky controls", async () => {
     const user = userEvent.setup();
     const base = makeProduct();

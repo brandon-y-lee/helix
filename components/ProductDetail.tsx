@@ -139,12 +139,14 @@ export function ProductDetail({
   content = product.pdpContent ?? null,
   reviews = getProductReviews(product.slug),
   stripePublishableKey = null,
+  commerceDisabled = false,
 }: {
   product: PdpProduct;
   coreProducts?: CoreRoutineSummary[];
   content?: ProductPdpContent | null;
   reviews?: ProductReviews;
   stripePublishableKey?: string | null;
+  commerceDisabled?: boolean;
 }) {
   const routineLabel = routineDisplayLabelForProduct(product);
   const routineGroupLabel = routineGroupLabelForProduct(product);
@@ -228,6 +230,7 @@ export function ProductDetail({
     product,
     routineLabel,
     stripePublishableKey,
+    commerceDisabled,
   );
   const accordionProps = purchaseAccordionProps(
     product,
@@ -235,7 +238,10 @@ export function ProductDetail({
     howToUse,
     corePresentation,
   );
-  const coreDetailsItems = coreDetailsIslandItems(coreProducts);
+  const coreDetailsItems = coreDetailsIslandItems(
+    coreProducts,
+    commerceDisabled,
+  );
 
   return (
     <>

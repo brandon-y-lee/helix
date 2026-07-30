@@ -12,6 +12,7 @@ import { ProductImage } from "@/components/ProductImage";
 import { useProductPurchase } from "@/components/useProductPurchase";
 import type { CartAddInput } from "@/components/CartProvider";
 import { formatPrice, type ProductMedia } from "@/lib/products";
+import { PREVIEW_COMMERCE_DISABLED_LABEL } from "@/lib/catalog-editor/preview-commerce";
 
 export type PdpPurchaseVariant = {
   id: string;
@@ -39,6 +40,7 @@ export type PdpPurchaseIslandProps = {
   stickyMedia: ProductMedia | null;
   stripePublishableKey: string | null;
   variants: PdpPurchaseVariant[];
+  commerceDisabled?: boolean;
 };
 
 export function PdpPurchaseIsland({
@@ -53,6 +55,7 @@ export function PdpPurchaseIsland({
   stickyMedia,
   stripePublishableKey,
   variants,
+  commerceDisabled = false,
 }: PdpPurchaseIslandProps) {
   const {
     error: addError,
@@ -72,7 +75,7 @@ export function PdpPurchaseIsland({
   const addedTimeoutRef = useRef<number | null>(null);
   const variant =
     variants.find((option) => option.id === variantId) ?? variants[0];
-  const cta = variant
+  const productCta = variant
     ? {
         label: variant.purchaseLabel,
         purchasable: variant.purchasable,
@@ -81,6 +84,12 @@ export function PdpPurchaseIsland({
         label: "OUT OF STOCK",
         purchasable: false,
       };
+  const cta = commerceDisabled
+    ? {
+        label: PREVIEW_COMMERCE_DISABLED_LABEL,
+        purchasable: false,
+      }
+    : productCta;
   const stickyVisible = hasPassedVideoStart && !footerEnteringViewport;
 
   useEffect(
@@ -146,7 +155,7 @@ export function PdpPurchaseIsland({
   }, [productKey]);
 
   async function handleAdd(returnFocus: () => void) {
-    if (!variant || !cta.purchasable || pending) return;
+    if (commerceDisabled || !variant || !cta.purchasable || pending) return;
     setAdded(false);
     const ok = await purchase({
       item: {
@@ -217,7 +226,7 @@ export function PdpPurchaseIsland({
             {pending && cta.purchasable ? "Adding" : cta.label}
           </button>
         </div>
-        {cta.purchasable && variant && (
+        {!commerceDisabled && cta.purchasable && variant && (
           <AfterpayMessaging
             amount={variant.price}
             currency={currency}

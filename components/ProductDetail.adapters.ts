@@ -22,6 +22,7 @@ import {
   type ProductMedia,
   type ProductStatus,
 } from "@/lib/products";
+import { PREVIEW_COMMERCE_DISABLED_LABEL } from "@/lib/catalog-editor/preview-commerce";
 
 type CoreDetailsSource = {
   benefits: string[];
@@ -214,6 +215,7 @@ export function purchaseIslandProps(
   product: PdpProduct,
   routineLabel: string,
   stripePublishableKey: string | null,
+  commerceDisabled = false,
 ): PdpPurchaseData {
   const media = product.cartMedia ?? product.cardMedia;
   const variants: PdpPurchaseVariant[] = product.variants.map((variant) => {
@@ -245,6 +247,7 @@ export function purchaseIslandProps(
     stickyMedia: media,
     stripePublishableKey,
     variants,
+    commerceDisabled,
   };
 }
 
@@ -296,6 +299,7 @@ export function applicationIslandProps(
 
 export function coreDetailsIslandItems(
   products: CoreDetailsSource[],
+  commerceDisabled = false,
 ): PdpCoreDetailsItem[] {
   return PDP_CORE_DETAILS_PRESENTATIONS.flatMap((presentation) => {
     const product = products.find(
@@ -326,9 +330,14 @@ export function coreDetailsIslandItems(
           placeholder: presentation.placeholder,
         },
         purchase: {
-          label: cta.label,
-          purchasable: cta.purchasable,
-          item: variant ? cartItemFor(product, variant) : null,
+          label: commerceDisabled
+            ? PREVIEW_COMMERCE_DISABLED_LABEL
+            : cta.label,
+          purchasable: commerceDisabled ? false : cta.purchasable,
+          item:
+            commerceDisabled || !variant
+              ? null
+              : cartItemFor(product, variant),
         },
       },
     ];
