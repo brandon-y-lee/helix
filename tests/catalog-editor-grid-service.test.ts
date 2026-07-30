@@ -76,7 +76,6 @@ describe("catalog editor product grid service", () => {
       {
         id: productId,
         slug: "cleanse-01-calming-gel-cleanser",
-        name: "Supplier Cleanser",
         display_name: "CLEANSE",
         formal_title: "CLEANSE 01 Calming Gel Cleanser",
         catalog_status: "active",
@@ -113,7 +112,6 @@ describe("catalog editor product grid service", () => {
         role: "detail",
         sort_order: 0,
         media_type: "image",
-        media_kind: "image",
       },
       {
         product_id: productId,
@@ -122,7 +120,6 @@ describe("catalog editor product grid service", () => {
         role: "card_default",
         sort_order: 4,
         media_type: "image",
-        media_kind: "image",
       },
     ]);
     const queries = {
@@ -160,13 +157,13 @@ describe("catalog editor product grid service", () => {
     ]);
     expect(products.calls.find((call) => call.method === "select")?.args[0])
       .toBe(
-        "id, slug, name, display_name, formal_title, catalog_status, status, routine_group, routine_sort, published_at, updated_at",
+        "id, slug, display_name, formal_title, catalog_status, status, routine_group, routine_sort, published_at, updated_at",
       );
     expect(variants.calls.find((call) => call.method === "select")?.args[0])
       .toBe("product_id, price_cents");
     expect(media.calls.find((call) => call.method === "select")?.args[0])
       .toBe(
-        "product_id, url, alt, role, sort_order, media_type, media_kind",
+        "product_id, url, alt, role, sort_order, media_type",
       );
   });
 });

@@ -173,6 +173,20 @@ export default function CatalogEditorSections({
               readOnly={fieldReadOnly("products", "display_name")}
             />
             <TextField
+              id={catalogFieldId("products", "formal_title")}
+              label="Formal title"
+              value={product.formal_title}
+              onChange={(value) => updateProduct("formal_title", value)}
+              readOnly={fieldReadOnly("products", "formal_title")}
+            />
+            <TextField
+              id={catalogFieldId("products", "product_type")}
+              label="Product type"
+              value={product.product_type}
+              onChange={(value) => updateProduct("product_type", value)}
+              readOnly={fieldReadOnly("products", "product_type")}
+            />
+            <TextField
               id={catalogFieldId("products", "slug")}
               label="Slug"
               value={product.slug}
@@ -272,19 +286,17 @@ export default function CatalogEditorSections({
               <select
                 className={styles.select}
                 id={catalogFieldId("products", "routine_group")}
-                value={product.routine_group ?? ""}
+                value={product.routine_group}
                 disabled={fieldReadOnly("products", "routine_group")}
                 onChange={(event) =>
                   updateProduct(
                     "routine_group",
-                    (event.target.value || null) as
+                    event.target.value as
                       | "core"
-                      | "beyond_core"
-                      | null,
+                      | "beyond_core",
                   )
                 }
               >
-                <option value="">Unclassified</option>
                 <option value="core">Core</option>
                 <option value="beyond_core">Beyond</option>
               </select>
@@ -292,21 +304,9 @@ export default function CatalogEditorSections({
             <TextField
               id={catalogFieldId("products", "routine_step_name")}
               label="Routine step name"
-              value={product.routine_step_name}
+              value={product.routine_step_name ?? ""}
               onChange={(value) => updateProduct("routine_step_name", value)}
               readOnly={fieldReadOnly("products", "routine_step_name")}
-            />
-            <TextField
-              id={catalogFieldId("products", "routine_display_label")}
-              label="Routine display label"
-              value={product.routine_display_label}
-              onChange={(value) =>
-                updateProduct("routine_display_label", value)
-              }
-              readOnly={fieldReadOnly(
-                "products",
-                "routine_display_label",
-              )}
             />
             <label className={styles.field}>
               <span className={styles.fieldLabel}>Routine step number</span>
@@ -335,12 +335,12 @@ export default function CatalogEditorSections({
                 id={catalogFieldId("products", "routine_sort")}
                 type="number"
                 min="0"
-                value={product.routine_sort ?? ""}
+                value={product.routine_sort}
                 disabled={fieldReadOnly("products", "routine_sort")}
                 onChange={(event) =>
                   updateProduct(
                     "routine_sort",
-                    event.target.value ? Number(event.target.value) : null,
+                    Number(event.target.value),
                   )
                 }
               />
@@ -394,33 +394,6 @@ export default function CatalogEditorSections({
             </label>
           </div>
 
-          <section className={styles.sourceFields}>
-            <h3>Source fields — read only</h3>
-            <p className={styles.help}>
-              Supplier-owned compatibility fields remain visible for context.
-              Editorial fields above take precedence on the storefront.
-            </p>
-            <div className={styles.fieldGrid}>
-              {(
-                [
-                  ["name", "Supplier name"],
-                  ["tagline", "Supplier tagline"],
-                  ["description", "Supplier description"],
-                  ["how_to_use", "Supplier directions"],
-                ] as const
-              ).map(([field, label]) => (
-                <TextField
-                  id={`source-${field}`}
-                  key={field}
-                  label={label}
-                  value={product[field]}
-                  onChange={() => undefined}
-                  multiline={field === "description" || field === "how_to_use"}
-                  readOnly={fieldReadOnly("products", field)}
-                />
-              ))}
-            </div>
-          </section>
         </div>
       </details>
 
@@ -1070,7 +1043,6 @@ function MediaUploadControl({
               "hero",
               "gallery",
               "detail",
-              "campaign",
               "card_default",
               "card_hover",
               "cart",

@@ -72,7 +72,6 @@ describe("catalog editor protected routes", () => {
       id: "123e4567-e89b-42d3-a456-426614174002",
       variant_id: null,
       media_type: "image",
-      media_kind: "image",
       url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/mei-pelle-catalog/products/refine/drafts/hash.webp",
       alt: "Product texture",
       width: 1200,

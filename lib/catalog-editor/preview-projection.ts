@@ -8,7 +8,7 @@ import {
   type EditableProductMedia,
   type EditableProductPdpContentFields,
   type EditableProductVariant,
-  type ProductEditorDocumentV1,
+  type ProductEditorDocumentV2,
 } from "@/lib/admin/catalog/types";
 import type {
   CatalogPreviewBase,
@@ -49,7 +49,6 @@ const MEDIA_ROLES: ProductMediaRole[] = [
   "hero",
   "gallery",
   "detail",
-  "campaign",
   "card_default",
   "card_hover",
   "cart",
@@ -142,23 +141,6 @@ function optionalSwatch(
   return [product.swatch_from, product.swatch_to];
 }
 
-function optionalProductDetails(
-  product: EditableProductFields,
-  fallback: Record<string, string>,
-) {
-  if (product.product_details === undefined) return fallback;
-  if (
-    product.product_details === null ||
-    !isRecord(product.product_details) ||
-    Object.values(product.product_details).some(
-      (value) => typeof value !== "string",
-    )
-  ) {
-    invalid("product.product_details must contain text values.");
-  }
-  return { ...product.product_details } as Record<string, string>;
-}
-
 function toPdpContent(
   value: EditableProductPdpContentFields | null,
   slug: string,
@@ -243,7 +225,12 @@ function safeMedia(
     .slice()
     .sort((a, b) => a.sort_order - b.sort_order)
     .forEach((item) => {
-      const kind = item.media_kind as "image" | "video" | "placeholder";
+      const kind =
+        item.media_type === "video"
+          ? "video"
+          : item.url
+            ? "image"
+            : "placeholder";
       if (
         !item ||
         !["image", "video", "placeholder"].includes(kind) ||
@@ -317,10 +304,7 @@ function safeVariants(
 
   return items
     .slice()
-    .sort(
-      (a, b) =>
-        (a.sort_order ?? a.position) - (b.sort_order ?? b.position),
-    )
+    .sort((a, b) => a.sort_order - b.sort_order)
     .map((item, index) => {
       if (
         !item ||
@@ -335,7 +319,7 @@ function safeVariants(
         !INVENTORY_STATUSES.includes(
           item.inventory_status as (typeof INVENTORY_STATUSES)[number],
         ) ||
-        !Number.isSafeInteger(item.sort_order ?? item.position)
+        !Number.isSafeInteger(item.sort_order)
       ) {
         invalid(`variants[${index}] has an unsupported shape.`);
       }
@@ -362,7 +346,7 @@ function safeVariants(
             ? null
             : stringValue(item.volume, `variants[${index}].volume`),
         packCount: item.pack_count ?? null,
-        sortOrder: item.sort_order ?? item.position,
+        sortOrder: item.sort_order,
       };
     });
 }
@@ -370,7 +354,7 @@ function safeVariants(
 function validateDocument(
   value: unknown,
   approvedMediaOrigin?: string,
-): ProductEditorDocumentV1 {
+): ProductEditorDocumentV2 {
   if (!isRecord(value)) invalid("The saved draft document is not an object.");
   if (value.schemaVersion !== PRODUCT_EDITOR_SCHEMA_VERSION) {
     throw new CatalogPreviewProjectionError(
@@ -483,31 +467,11 @@ export function projectCatalogDraftPreview(
       : PRODUCT_STATUSES.includes(draft.status as ProductStatus)
         ? (draft.status as ProductStatus)
         : invalid("product.status is invalid.");
-  const displayName =
-    optionalText(
-      draft,
-      "display_name",
-      optionalText(draft, "name", base.product.displayName),
-    ) ?? "";
+  const displayName = draft.display_name;
   if (!displayName.trim()) invalid("product.displayName cannot be empty.");
-  const cardTagline =
-    optionalText(
-      draft,
-      "card_tagline",
-      optionalText(draft, "tagline", base.product.cardTagline),
-    ) ?? "";
-  const description =
-    optionalText(
-      draft,
-      "editorial_description",
-      optionalText(draft, "description", base.product.description),
-    ) ?? "";
-  const howToUse =
-    optionalText(
-      draft,
-      "editorial_how_to_use",
-      optionalText(draft, "how_to_use", base.product.howToUse),
-    ) ?? "";
+  const cardTagline = draft.card_tagline;
+  const description = draft.editorial_description;
+  const howToUse = draft.editorial_how_to_use;
   const swatch = optionalSwatch(draft, base.product.swatch);
   const { media, rejected } = safeMedia(
     document.media,
@@ -521,42 +485,18 @@ export function projectCatalogDraftPreview(
     slug: draft.slug,
     displayName,
     cardTagline,
-    collection:
-      optionalText(draft, "collection", base.product.collection) ??
-      base.product.collection,
-    routineNumber: optionalText(
-      draft,
-      "routine_number",
-      base.product.routineNumber,
-    ),
     routineGroup:
       draft.routine_group === "core" || draft.routine_group === "beyond_core"
         ? draft.routine_group
-        : null,
-    routineGroupLabel: optionalText(
-      draft,
-      "routine_group_label",
-      base.product.routineGroupLabel,
-    ),
-    routineStepNumber:
-      draft.routine_step_number === undefined
-        ? base.product.routineStepNumber
-        : draft.routine_step_number,
+        : invalid("product.routine_group is invalid."),
+    routineStepNumber: draft.routine_step_number,
     routineStepName: optionalText(
       draft,
       "routine_step_name",
       base.product.routineStepName,
     ),
-    routineDisplayLabel: optionalText(
-      draft,
-      "routine_display_label",
-      base.product.routineDisplayLabel,
-    ),
-    productType: optionalText(
-      draft,
-      "product_type",
-      base.product.productType,
-    ),
+    routineSort: draft.routine_sort,
+    productType: draft.product_type,
     description,
     howToUse,
     swatch,
@@ -576,10 +516,6 @@ export function projectCatalogDraftPreview(
       draft,
       "ingredients",
       base.product.ingredients,
-    ),
-    productDetails: optionalProductDetails(
-      draft,
-      base.product.productDetails,
     ),
     cautions: optionalStringArray(
       draft,

@@ -27,7 +27,7 @@ describe("CatalogEditor sections", () => {
     vi.mocked(catalogEditorApi.uploadMedia).mockReset();
   });
 
-  it("groups canonical fields by table and keeps shadow source fields read only", async () => {
+  it("groups canonical fields by table without exposing retired supplier shadows", async () => {
     const user = userEvent.setup();
     render(<CatalogEditor productId="product-cleanse" />);
 
@@ -42,9 +42,10 @@ describe("CatalogEditor sections", () => {
       expect(screen.getByText(table)).toBeVisible();
     }
 
-    expect(screen.getByDisplayValue("Supplier Cleanser")).toHaveAttribute(
-      "readonly",
-    );
+    expect(screen.queryByDisplayValue("Supplier Cleanser")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("option", { name: "campaign" }),
+    ).not.toBeInTheDocument();
     expect(screen.getByLabelText("Display name")).not.toHaveAttribute("readonly");
 
     const navigation = screen.getByRole("navigation", {

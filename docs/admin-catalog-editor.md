@@ -24,7 +24,7 @@ access to memberships, drafts, revisions, and audit records.
 
 ## Editing and publication
 
-The editor loads one canonical `ProductEditorDocumentV1` aggregate and at most
+The editor loads one canonical `ProductEditorDocumentV2` aggregate and at most
 one active draft. It saves with an expected version, so stale concurrent writes
 return a conflict without replacing local browser edits. Save accepts
 incomplete work; Validate and Ready report structural, field-ownership, and
@@ -32,11 +32,17 @@ staged-media issues. Publish requires `catalog.publish` and performs the
 canonical table writes, immutable revision, audit event, and draft transition
 in one database transaction.
 
-Supplier/source fields are visible where useful but read only. The shared
-field-ownership manifest drives the UI and the server comparison; changing a
-read-only or unknown field is rejected even if a custom client bypasses the UI.
-Price, availability, and inventory remain integer/server-authoritative commerce
-fields. Cart and checkout continue to re-read canonical commerce data.
+Supplier provenance remains in `product_sources` and is intentionally absent
+from the editable wire document. The shared field-ownership manifest drives
+the UI and server comparison; changing a read-only, retired, or unknown field
+is rejected even if a custom client bypasses the UI. Price, availability, and
+inventory remain integer/server-authoritative commerce fields. Cart and
+checkout continue to re-read canonical commerce data.
+
+V1 draft/revision documents are compatibility input only. The server upgrades
+them deterministically to V2 on load or restore, rejects conflicting full-INCI
+values and unsupported campaign media, and creates a new V2 draft without
+rewriting immutable revision history. New drafts and revisions are V2.
 
 Preview is dynamic, no-store, and noindex. It renders the draft through the
 storefront PDP composition without the standard admin sidebar. Header cart,
@@ -47,6 +53,9 @@ Publishing updates only Supabase. Search and cache delivery stays on the
 existing signed webhook route. Until the four managed Database Webhooks are
 provisioned against a stable non-production deployment, automatic delivery is
 not active and the editor must not report it as confirmed.
+
+The canonical fields and exact Phase 2 removal plan are documented in
+`docs/catalog/catalog-schema-cleanup.md`.
 
 ## Membership bootstrap
 

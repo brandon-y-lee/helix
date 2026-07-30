@@ -264,6 +264,13 @@ export default function CatalogEditor({ productId }: { productId: string }) {
   const saveCurrent = useCallback(async () => {
     const current = activeDocument.current;
     if (!current) throw new Error("There is no catalog document to save.");
+    if (
+      draft &&
+      savedDocument &&
+      JSON.stringify(current) === JSON.stringify(savedDocument)
+    ) {
+      return draft;
+    }
     try {
       const response = draft
         ? await catalogEditorApi.saveDraft(draft.id, draft.version, current)
@@ -283,7 +290,7 @@ export default function CatalogEditor({ productId }: { productId: string }) {
       }
       throw saveError;
     }
-  }, [draft, productId]);
+  }, [draft, productId, savedDocument]);
 
   async function runAction(name: string, action: () => Promise<void>) {
     setBusy(name);
@@ -401,9 +408,7 @@ export default function CatalogEditor({ productId }: { productId: string }) {
           <Link href="/admin/catalog">← Catalog</Link>
           <p className={styles.eyebrow}>Unified product editor</p>
           <h1 className={styles.title}>
-            {document.product.display_name ||
-              document.product.name ||
-              document.product.slug}
+            {document.product.display_name || document.product.slug}
           </h1>
           <p className={styles.lede}>/{document.product.slug}</p>
         </div>

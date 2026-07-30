@@ -3,7 +3,7 @@ import {
 } from "@/lib/catalog/field-ownership";
 import type {
   CatalogValidationIssue,
-  ProductEditorDocumentV1,
+  ProductEditorDocumentV2,
 } from "@/lib/admin/catalog/types";
 
 type EditorTable =
@@ -124,8 +124,8 @@ function validateCollectionOwnership({
 }
 
 export function validateCatalogEditorOwnership(
-  candidate: ProductEditorDocumentV1,
-  canonical: ProductEditorDocumentV1,
+  candidate: ProductEditorDocumentV2,
+  canonical: ProductEditorDocumentV2,
 ): CatalogValidationIssue[] {
   const issues: CatalogValidationIssue[] = [];
   if (candidate.productId !== canonical.productId) {

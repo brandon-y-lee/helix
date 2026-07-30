@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ProductEditorDocumentV1 } from "@/lib/admin/catalog/types";
+import type { ProductEditorDocumentV2 } from "@/lib/admin/catalog/types";
 import {
   CatalogPreviewProjectionError,
   projectCatalogDraftPreview,
@@ -22,13 +22,10 @@ function canonicalProduct(): PdpProduct {
     slug: canonicalSlug,
     displayName: "CLEANSE",
     cardTagline: "Canonical tagline",
-    collection: "The Core",
-    routineNumber: "01",
     routineGroup: "core",
-    routineGroupLabel: "The Core",
     routineStepNumber: 1,
     routineStepName: "Cleanse",
-    routineDisplayLabel: "01 — The Core",
+    routineSort: 10,
     productType: "Gel cleanser",
     description: "Canonical description",
     howToUse: "Canonical use",
@@ -42,7 +39,6 @@ function canonicalProduct(): PdpProduct {
     texture: "Gel",
     keyIngredients: ["LHA"],
     ingredients: "Water",
-    productDetails: {},
     cautions: [],
     finish: "Clean",
     volume: "100 mL",
@@ -110,17 +106,13 @@ function base(): CatalogPreviewBase {
   return { product, coreProducts: [coreProduct] };
 }
 
-function document(): ProductEditorDocumentV1 {
+function document(): ProductEditorDocumentV2 {
   const draft = structuredClone(catalogDocument);
   draft.productId = productId;
   draft.product.slug = canonicalSlug;
-  draft.product.name = "Raw draft name";
   draft.product.display_name = "CLEANSE";
-  draft.product.tagline = "Raw draft tagline";
   draft.product.card_tagline = "Draft card tagline";
-  draft.product.description = "Raw draft description";
   draft.product.editorial_description = "Draft editorial description";
-  draft.product.how_to_use = "Raw draft use";
   draft.product.editorial_how_to_use = "Draft editorial use";
   draft.product.benefits = ["Draft benefit"];
   draft.productPdpContent = {
@@ -212,7 +204,7 @@ describe("catalog draft PDP projection", () => {
   });
 
   it("fails honestly for unsupported document schema versions", () => {
-    const draft = { ...document(), schemaVersion: 2 };
+    const draft = { ...document(), schemaVersion: 99 };
 
     try {
       projectCatalogDraftPreview(draft, base(), {

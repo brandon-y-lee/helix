@@ -18,20 +18,15 @@ describe("catalog editor field ownership", () => {
     expect(validateCatalogEditorOwnership(candidate, canonical)).toEqual([]);
   });
 
-  it("rejects supplier and system field changes", () => {
+  it("rejects supplier provenance and system field changes", () => {
     const canonical = cloneDocument();
     const candidate = cloneDocument();
-    candidate.product.description = "Attempted supplier overwrite.";
     candidate.product.slug = "attempted-slug-change";
     candidate.variants[0].supplier_variant_id = "supplier-variant";
     candidate.media[0].source_filename = "untrusted-source.webp";
 
     expect(validateCatalogEditorOwnership(candidate, canonical)).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({
-          path: "product.description",
-          code: "field_read_only",
-        }),
         expect.objectContaining({
           path: "product.slug",
           code: "field_read_only",

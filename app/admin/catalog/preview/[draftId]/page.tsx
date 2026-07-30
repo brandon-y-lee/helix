@@ -95,16 +95,11 @@ function documentProductName(value: unknown) {
   if (!product || typeof product !== "object" || Array.isArray(product)) {
     return "Catalog product";
   }
-  const candidate = product as {
-    display_name?: unknown;
-    name?: unknown;
-  };
+  const candidate = product as { display_name?: unknown };
   return typeof candidate.display_name === "string" &&
     candidate.display_name.trim()
     ? candidate.display_name
-    : typeof candidate.name === "string" && candidate.name.trim()
-      ? candidate.name
-      : "Catalog product";
+    : "Catalog product";
 }
 
 function documentSlug(value: unknown) {

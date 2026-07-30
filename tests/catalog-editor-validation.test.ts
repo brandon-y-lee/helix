@@ -3,100 +3,24 @@ import {
   assertValidProductEditorDocument,
   validateProductEditorDocument,
 } from "@/lib/admin/catalog/validation";
-import type { ProductEditorDocumentV1 } from "@/lib/admin/catalog/types";
+import type { ProductEditorDocumentV2 } from "@/lib/admin/catalog/types";
+import { catalogDocument } from "./fixtures/catalog-editor";
 
-const PRODUCT_ID = "123e4567-e89b-42d3-a456-426614174000";
-const VARIANT_ID = "123e4567-e89b-42d3-a456-426614174001";
+const PRODUCT_ID = catalogDocument.productId;
+const VARIANT_ID = catalogDocument.variants[0].id;
 const MEDIA_ID = "123e4567-e89b-42d3-a456-426614174002";
 const ACTOR_ID = "123e4567-e89b-42d3-a456-426614174003";
 
-function validDocument(): ProductEditorDocumentV1 {
-  return {
-    schemaVersion: 1,
-    productId: PRODUCT_ID,
-    product: {
-      action_name: null,
-      badge: null,
-      benefits: [],
-      blurb: "Focused daily care.",
-      card_tagline: null,
-      catalog_status: "active",
-      cautions: [],
-      collection: "Beyond The Core",
-      concerns: [],
-      currency: "USD",
-      description: "A focused product description.",
-      descriptor: null,
-      display_name: "REFINE",
-      editorial_description: null,
-      editorial_how_to_use: null,
-      featured_rank: null,
-      finish: null,
-      formal_title: null,
-      formula_notes: [],
-      good_for: null,
-      how_to_use: "Use as directed.",
-      ingredients: null,
-      key_ingredients: [],
-      legacy_routine_display_label: null,
-      legacy_routine_group_label: null,
-      made_for: null,
-      name: "REFINE",
-      position: 1,
-      product_details: {},
-      product_type: null,
-      routine_display_label: null,
-      routine_group: "beyond_core",
-      routine_group_label: null,
-      routine_number: null,
-      routine_order: null,
-      routine_sort: null,
-      routine_step: null,
-      routine_step_name: null,
-      routine_step_number: null,
-      search_keywords: [],
-      seo_description: null,
-      seo_title: null,
-      skin_types: [],
-      slug: "refine-02-pore-treatment-pads",
-      sort_order: null,
-      status: "available",
-      subtitle: null,
-      swatch_from: "#ffffff",
-      swatch_to: "#eeeeee",
-      tagline: "Measured surface care.",
-      texture: null,
-      usage_time: [],
-      volume: null,
-    },
-    productPdpContent: null,
-    variants: [
-      {
-        id: VARIANT_ID,
-        available: true,
-        compare_at_price_cents: null,
-        inventory_status: "in_stock",
-        label: "Single",
-        option_values: { size: "Single" },
-        pack_count: 1,
-        position: 0,
-        price_cents: 3200,
-        sku: null,
-        sort_order: 0,
-        supplier_variant_id: null,
-        variant_key: "single",
-        volume: null,
-      },
-    ],
-    media: [],
-    relationships: [],
-  };
+function validDocument(): ProductEditorDocumentV2 {
+  const document = structuredClone(catalogDocument);
+  document.media = [];
+  return document;
 }
 
 describe("product editor document validation", () => {
   it("accepts the normalized versioned aggregate", () => {
     expect(assertValidProductEditorDocument(validDocument())).toMatchObject({
-      schemaVersion: 1,
+      schemaVersion: 2,
       productId: PRODUCT_ID,
     });
   });
@@ -144,8 +68,7 @@ describe("product editor document validation", () => {
       id: MEDIA_ID,
       variant_id: VARIANT_ID,
       media_type: "image",
-      media_kind: "image",
-      url: `https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/mei-pelle-catalog/products/refine-02-pore-treatment-pads/drafts/${sha256}.webp`,
+      url: `https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/mei-pelle-catalog/products/cleanse-01-calming-gel-cleanser/drafts/${sha256}.webp`,
       alt: "REFINE product texture",
       width: 1200,
       height: 1600,
@@ -157,7 +80,7 @@ describe("product editor document validation", () => {
       source_filename: "source.webp",
       pendingUpload: {
         bucket: "mei-pelle-catalog",
-        path: `products/refine-02-pore-treatment-pads/drafts/${sha256}.webp`,
+        path: `products/cleanse-01-calming-gel-cleanser/drafts/${sha256}.webp`,
         sha256,
         mimeType: "image/webp",
         sizeBytes: 2048,

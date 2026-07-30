@@ -2,7 +2,7 @@ import { normalizeProductPdpContent } from "@/lib/catalog/product-content";
 import { CatalogAdminError } from "@/lib/admin/catalog/errors";
 import type {
   CatalogValidationIssue,
-  ProductEditorDocumentV1,
+  ProductEditorDocumentV2,
 } from "@/lib/admin/catalog/types";
 
 const UUID_PATTERN =
@@ -25,13 +25,11 @@ const RELATIONSHIP_TYPES = [
   "routine_next",
 ] as const;
 const MEDIA_TYPES = ["image", "video"] as const;
-const MEDIA_KINDS = ["image", "video", "placeholder"] as const;
 const MEDIA_ROLES = [
   "card",
   "hero",
   "gallery",
   "detail",
-  "campaign",
   "card_default",
   "card_hover",
   "cart",
@@ -115,15 +113,15 @@ function validateProduct(
   issues: CatalogValidationIssue[],
 ): void {
   const requiredText = [
-    "blurb",
-    "collection",
-    "description",
-    "how_to_use",
-    "name",
+    "card_tagline",
+    "display_name",
+    "editorial_description",
+    "editorial_how_to_use",
+    "formal_title",
+    "product_type",
     "slug",
     "swatch_from",
     "swatch_to",
-    "tagline",
   ] as const;
   for (const field of requiredText) {
     if (typeof product[field] !== "string" || !product[field].trim()) {
@@ -167,29 +165,14 @@ function validateProduct(
   }
 
   const nullableText = [
-    "action_name",
     "badge",
-    "card_tagline",
-    "descriptor",
-    "display_name",
-    "editorial_description",
-    "editorial_how_to_use",
     "finish",
-    "formal_title",
     "good_for",
     "ingredients",
-    "legacy_routine_display_label",
-    "legacy_routine_group_label",
     "made_for",
-    "product_type",
-    "routine_display_label",
-    "routine_group_label",
-    "routine_number",
-    "routine_step",
     "routine_step_name",
     "seo_description",
     "seo_title",
-    "subtitle",
     "texture",
     "volume",
   ] as const;
@@ -205,11 +188,7 @@ function validateProduct(
   }
 
   const nullableIntegers = [
-    "featured_rank",
-    "routine_order",
-    "routine_sort",
     "routine_step_number",
-    "sort_order",
   ] as const;
   for (const field of nullableIntegers) {
     if (!isNullableInteger(product[field])) {
@@ -222,12 +201,13 @@ function validateProduct(
     }
   }
 
-  if (!isInteger(product.position, 0)) {
+  for (const field of ["sort_order", "routine_sort"] as const) {
+    if (isInteger(product[field], 0)) continue;
     issue(
       issues,
-      "product.position",
+      `product.${field}`,
       "invalid_integer",
-      "position must be a non-negative integer.",
+      `${field} must be a non-negative integer.`,
     );
   }
   if (product.currency !== "USD") {
@@ -254,23 +234,12 @@ function validateProduct(
       "Unsupported catalog publication status.",
     );
   }
-  if (
-    product.routine_group !== null &&
-    !oneOf(product.routine_group, ROUTINE_GROUPS)
-  ) {
+  if (!oneOf(product.routine_group, ROUTINE_GROUPS)) {
     issue(
       issues,
       "product.routine_group",
       "invalid_routine_group",
       "Unsupported routine group.",
-    );
-  }
-  if (!isStringRecord(product.product_details)) {
-    issue(
-      issues,
-      "product.product_details",
-      "invalid_object",
-      "product_details must contain string values.",
     );
   }
   if (
@@ -297,7 +266,7 @@ function validateProduct(
   }
 
   if (product.routine_group === "core") {
-    const name = String(product.display_name ?? product.name).toUpperCase();
+    const name = String(product.display_name).toUpperCase();
     if (!["CLEANSE", "TREAT", "SEAL"].includes(name)) {
       issue(
         issues,
@@ -314,6 +283,28 @@ function validateProduct(
         "Core products require a positive routine step number.",
       );
     }
+    if (
+      typeof product.routine_step_name !== "string" ||
+      !product.routine_step_name.trim()
+    ) {
+      issue(
+        issues,
+        "product.routine_step_name",
+        "invalid_core_step",
+        "Core products require a routine step name.",
+      );
+    }
+  } else if (
+    product.routine_group === "beyond_core" &&
+    (product.routine_step_number !== null ||
+      product.routine_step_name !== null)
+  ) {
+    issue(
+      issues,
+      "product.routine_step_number",
+      "invalid_beyond_step",
+      "Beyond The Core products cannot claim a Core step.",
+    );
   }
 }
 
@@ -373,12 +364,12 @@ function validateVariants(
         "Compare-at price must be null or whole, non-negative cents.",
       );
     }
-    if (!isInteger(entry.position, 0) || !isNullableInteger(entry.sort_order, 0)) {
+    if (!isInteger(entry.sort_order, 0)) {
       issue(
         issues,
-        path,
+        `${path}.sort_order`,
         "invalid_order",
-        "Variant position and sort order must be non-negative integers.",
+        "Variant sort order must be a non-negative integer.",
       );
     }
     if (
@@ -480,14 +471,6 @@ function validateMedia(
         "Unsupported media type.",
       );
     }
-    if (!oneOf(entry.media_kind, MEDIA_KINDS)) {
-      issue(
-        issues,
-        `${path}.media_kind`,
-        "invalid_media_kind",
-        "Unsupported media kind.",
-      );
-    }
     if (!oneOf(entry.role, MEDIA_ROLES)) {
       issue(issues, `${path}.role`, "invalid_role", "Unsupported media role.");
     }
@@ -545,14 +528,28 @@ function validateMedia(
       );
     }
     if (
-      entry.media_kind !== "placeholder" &&
+      entry.media_type === "video" &&
       (typeof entry.url !== "string" || !entry.url)
     ) {
       issue(
         issues,
         `${path}.url`,
         "required",
-        "Image and video media require a URL.",
+        "Video media requires a URL.",
+      );
+    }
+    if (
+      entry.media_type === "image" &&
+      entry.url === null &&
+      (!isRecord(entry.placeholder_palette) ||
+        typeof entry.placeholder_palette.start !== "string" ||
+        typeof entry.placeholder_palette.end !== "string")
+    ) {
+      issue(
+        issues,
+        `${path}.placeholder_palette`,
+        "required",
+        "Placeholder images require a start and end palette.",
       );
     }
     if (entry.pendingUpload !== undefined) {
@@ -660,7 +657,7 @@ export function validateProductEditorDocument(
   input: unknown,
   env: NodeJS.ProcessEnv = process.env,
 ): {
-  document: ProductEditorDocumentV1 | null;
+  document: ProductEditorDocumentV2 | null;
   issues: CatalogValidationIssue[];
 } {
   const issues: CatalogValidationIssue[] = [];
@@ -684,12 +681,12 @@ export function validateProductEditorDocument(
       "Reviews and ratings are not part of the product editor document.",
     );
   }
-  if (input.schemaVersion !== 1) {
+  if (input.schemaVersion !== 2) {
     issue(
       issues,
       "schemaVersion",
       "unsupported_schema",
-      "Only product editor schema version 1 is supported.",
+      "Only product editor schema version 2 is supported.",
     );
   }
   if (typeof input.productId !== "string" || !UUID_PATTERN.test(input.productId)) {
@@ -761,14 +758,14 @@ export function validateProductEditorDocument(
   }
 
   return {
-    document: issues.length === 0 ? (input as ProductEditorDocumentV1) : null,
+    document: issues.length === 0 ? (input as ProductEditorDocumentV2) : null,
     issues,
   };
 }
 
 export function assertProductEditorDocumentStructure(
   input: unknown,
-): ProductEditorDocumentV1 {
+): ProductEditorDocumentV2 {
   const issues: CatalogValidationIssue[] = [];
   if (!isRecord(input)) {
     throw new CatalogAdminError(
@@ -777,12 +774,12 @@ export function assertProductEditorDocumentStructure(
       422,
     );
   }
-  if (input.schemaVersion !== 1) {
+  if (input.schemaVersion !== 2) {
     issue(
       issues,
       "schemaVersion",
       "unsupported_schema",
-      "Only product editor schema version 1 is supported.",
+      "Only product editor schema version 2 is supported.",
     );
   }
   if (typeof input.productId !== "string" || !UUID_PATTERN.test(input.productId)) {
@@ -828,13 +825,13 @@ export function assertProductEditorDocumentStructure(
       { issues },
     );
   }
-  return input as ProductEditorDocumentV1;
+  return input as ProductEditorDocumentV2;
 }
 
 export function assertValidProductEditorDocument(
   input: unknown,
   env: NodeJS.ProcessEnv = process.env,
-): ProductEditorDocumentV1 {
+): ProductEditorDocumentV2 {
   const result = validateProductEditorDocument(input, env);
   if (!result.document) {
     throw new CatalogAdminError(

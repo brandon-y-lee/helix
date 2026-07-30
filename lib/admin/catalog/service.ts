@@ -15,6 +15,7 @@ import {
   validateProductEditorDocument,
 } from "@/lib/admin/catalog/validation";
 import { validateCatalogEditorOwnership } from "@/lib/admin/catalog/ownership";
+import { upgradeProductEditorDocument } from "@/lib/admin/catalog/document-version";
 import type {
   CatalogDraftRecord,
   CatalogEditorResponse,
@@ -22,12 +23,18 @@ import type {
   CatalogPublishSuccess,
   CatalogRevisionRecord,
   CatalogRpcConflict,
-  ProductEditorDocumentV1,
+  ProductEditorDocumentV2,
+  StoredProductEditorDocument,
   CatalogValidationIssue,
 } from "@/lib/admin/catalog/types";
 import type { CatalogAdminAccess } from "@/lib/admin/capabilities";
 
 type JsonRecord = Record<string, unknown>;
+
+const CATALOG_DRAFT_RECORD_SELECT =
+  "id, product_id, schema_version, base_revision, version, document, status, validation_errors, created_by, updated_by, created_at, updated_at, ready_at, published_at, discarded_at" as const;
+const CATALOG_REVISION_RECORD_SELECT =
+  "id, product_id, revision_number, schema_version, document, source_draft_id, published_by, published_at" as const;
 
 function isRecord(value: unknown): value is JsonRecord {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -35,7 +42,7 @@ function isRecord(value: unknown): value is JsonRecord {
 
 function assertRpcResult<T extends JsonRecord>(
   data: unknown,
-  callerDocument?: ProductEditorDocumentV1,
+  callerDocument?: ProductEditorDocumentV2,
 ): T {
   if (!isRecord(data)) {
     throw new CatalogAdminError(
@@ -69,7 +76,7 @@ function throwDatabaseError(error: { message: string; code?: string } | null): n
 
 async function readCanonicalDocument(
   productId: string,
-): Promise<ProductEditorDocumentV1> {
+): Promise<ProductEditorDocumentV2> {
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin.rpc("get_catalog_editor_document", {
     p_product_id: productId,
@@ -82,8 +89,8 @@ async function readCanonicalDocument(
 }
 
 function assertCatalogEditorOwnership(
-  document: ProductEditorDocumentV1,
-  canonical: ProductEditorDocumentV1,
+  document: ProductEditorDocumentV2,
+  canonical: ProductEditorDocumentV2,
 ) {
   const issues = validateCatalogEditorOwnership(document, canonical);
   if (issues.length > 0) {
@@ -97,7 +104,7 @@ function assertCatalogEditorOwnership(
 }
 
 async function pendingMediaValidationIssues(
-  document: ProductEditorDocumentV1,
+  document: ProductEditorDocumentV2,
 ): Promise<CatalogValidationIssue[]> {
   const pending = document.media
     .map((media, index) => ({ media, index }))
@@ -242,11 +249,11 @@ export async function listCatalogProducts(url: URL): Promise<{
   let query = admin
     .from("products")
     .select(
-      "id, slug, name, display_name, formal_title, catalog_status, status, routine_group, routine_sort, published_at, updated_at",
+      "id, slug, display_name, formal_title, catalog_status, status, routine_group, routine_sort, published_at, updated_at",
     );
   if (queryText) {
     query = query.or(
-      `slug.ilike.%${queryText}%,name.ilike.%${queryText}%,display_name.ilike.%${queryText}%`,
+      `slug.ilike.%${queryText}%,display_name.ilike.%${queryText}%,formal_title.ilike.%${queryText}%`,
     );
   }
   if (catalogStatus) query = query.eq("catalog_status", catalogStatus);
@@ -275,7 +282,7 @@ export async function listCatalogProducts(url: URL): Promise<{
   }
 
   if (sort === "name_asc") {
-    query = query.order("name", { ascending: true }).order("id");
+    query = query.order("display_name", { ascending: true }).order("id");
   } else if (sort === "published_desc") {
     query = query.order("published_at", { ascending: false }).order("id");
   } else if (sort === "routine_asc") {
@@ -291,9 +298,8 @@ export async function listCatalogProducts(url: URL): Promise<{
   const page = (data ?? []) as Array<{
     id: string;
     slug: string;
-    name: string;
-    display_name: string | null;
-    formal_title: string | null;
+    display_name: string;
+    formal_title: string;
     catalog_status: string;
     status: string;
     routine_group: string | null;
@@ -326,7 +332,7 @@ export async function listCatalogProducts(url: URL): Promise<{
         admin
           .from("product_media")
           .select(
-            "product_id, url, alt, role, sort_order, media_type, media_kind",
+            "product_id, url, alt, role, sort_order, media_type",
           )
           .in("product_id", productIds)
           .is("archived_at", null)
@@ -385,7 +391,7 @@ export async function listCatalogProducts(url: URL): Promise<{
     { url: string | null; alt: string; rank: number; sortOrder: number }
   >();
   for (const media of mediaResult.data ?? []) {
-    if (media.media_kind !== "image" || !media.url) continue;
+    if (media.media_type !== "image" || !media.url) continue;
     const candidate = {
       url: media.url,
       alt: media.alt,
@@ -411,8 +417,8 @@ export async function listCatalogProducts(url: URL): Promise<{
       return {
         id: product.id,
         slug: product.slug,
-        displayName: product.display_name ?? product.name,
-        formalTitle: product.formal_title ?? product.name,
+        displayName: product.display_name,
+        formalTitle: product.formal_title,
         catalogStatus: product.catalog_status,
         productStatus: product.status,
         routineGroup: product.routine_group,
@@ -451,7 +457,7 @@ export async function getCatalogEditor(
     readCanonicalDocument(productId),
     admin
       .from("product_content_drafts")
-      .select("*")
+      .select(CATALOG_DRAFT_RECORD_SELECT)
       .eq("product_id", productId)
       .in("status", ["draft", "ready"])
       .maybeSingle(),
@@ -466,14 +472,36 @@ export async function getCatalogEditor(
   if (draftResult.error) throwDatabaseError(draftResult.error);
   if (revisionResult.error) throwDatabaseError(revisionResult.error);
 
+  const draft = draftResult.data
+    ? normalizeDraftRecord(draftResult.data)
+    : null;
+
   return {
     canonical,
-    draft: (draftResult.data as CatalogDraftRecord | null) ?? null,
+    draft,
     latestRevision: revisionResult.data?.revision_number ?? 0,
     permissions: Object.fromEntries(
       access.capabilities.map((capability) => [capability, true]),
     ),
   };
+}
+
+function normalizeDraftRecord(data: unknown): CatalogDraftRecord {
+  if (!isRecord(data) || !isRecord(data.document)) {
+    throw new CatalogAdminError(
+      "invalid_catalog_response",
+      "The catalog database returned an invalid draft.",
+      503,
+    );
+  }
+  const upgraded = upgradeProductEditorDocument(
+    data.document as unknown as StoredProductEditorDocument,
+  );
+  return {
+    ...data,
+    schema_version: 2,
+    document: assertValidProductEditorDocument(upgraded),
+  } as CatalogDraftRecord;
 }
 
 export async function createCatalogDraft(
@@ -486,10 +514,14 @@ export async function createCatalogDraft(
     p_actor_id: actorId,
   });
   if (error) throwDatabaseError(error);
-  return assertRpcResult<{
+  const result = assertRpcResult<{
     created: boolean;
-    draft: CatalogDraftRecord;
+    draft: unknown;
   }>(data);
+  return {
+    created: result.created,
+    draft: normalizeDraftRecord(result.draft),
+  };
 }
 
 export async function saveCatalogDraft(input: {
@@ -519,14 +551,14 @@ async function readDraft(draftId: string): Promise<CatalogDraftRecord> {
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin
     .from("product_content_drafts")
-    .select("*")
+    .select(CATALOG_DRAFT_RECORD_SELECT)
     .eq("id", draftId)
     .maybeSingle();
   if (error) throwDatabaseError(error);
   if (!data) {
     throw new CatalogAdminError("draft_not_found", "Draft not found.", 404);
   }
-  return data as CatalogDraftRecord;
+  return normalizeDraftRecord(data);
 }
 
 export async function getCatalogDraftForPreview(
@@ -605,7 +637,7 @@ export async function listCatalogRevisions(
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin
     .from("catalog_product_revisions")
-    .select("*")
+    .select(CATALOG_REVISION_RECORD_SELECT)
     .eq("product_id", draft.product_id)
     .order("revision_number", { ascending: false });
   if (error) throwDatabaseError(error);

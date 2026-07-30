@@ -11,7 +11,7 @@ import type {
   EditableProductRelationship,
   EditableProductVariant,
   EditableProductFields,
-  ProductEditorDocumentV1,
+  ProductEditorDocumentV2,
 } from "@/lib/admin/catalog/types";
 import type {
   PdpIngredientCard,
@@ -32,7 +32,7 @@ export type CatalogTable =
   | "product_media"
   | "product_relationships";
 
-export type CatalogDraftDocument = ProductEditorDocumentV1;
+export type CatalogDraftDocument = ProductEditorDocumentV2;
 export type CatalogDraft = CatalogDraftRecord;
 export type CatalogRevision = CatalogRevisionRecord;
 export type CatalogPublishResult = CatalogPublishSuccess & {
@@ -132,7 +132,7 @@ function tableForPath(segment: string): CatalogTable {
 
 function editorIssue(
   issue: CatalogBackendValidationIssue,
-  document: ProductEditorDocumentV1,
+  document: ProductEditorDocumentV2,
 ): CatalogEditorIssue {
   const parts = issue.path.split(".");
   const table = tableForPath(parts[0] ?? "");
@@ -254,7 +254,7 @@ function catalogProductsQuery(params: {
 async function saveDraft(
   draftId: string,
   version: number,
-  document: ProductEditorDocumentV1,
+  document: ProductEditorDocumentV2,
 ) {
   return requestJson<{ ok: true; draft: CatalogDraftRecord }>(
     `/api/admin/catalog/drafts/${encodeURIComponent(draftId)}`,
@@ -285,7 +285,7 @@ export const catalogEditorApi = {
     );
   },
 
-  async createDraft(productId: string, document: ProductEditorDocumentV1) {
+  async createDraft(productId: string, document: ProductEditorDocumentV2) {
     const created = await requestJson<{
       created: boolean;
       draft: CatalogDraftRecord;

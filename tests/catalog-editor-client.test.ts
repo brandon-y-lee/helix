@@ -64,7 +64,7 @@ describe("catalogEditorApi", () => {
     );
 
     const result = await catalogEditorApi.getEditor("product-cleanse");
-    expect(result.canonical.product.name).toBe("Supplier Cleanser");
+    expect(result.canonical.product.display_name).toBe("CLEANSE");
     expect(result.canonical.variants[0].price_cents).toBe(2200);
     expect(result.permissions["catalog.publish"]).toBe(true);
   });
@@ -86,7 +86,7 @@ describe("catalogEditorApi", () => {
     const body = JSON.parse(String(request.body));
     expect(body.expectedVersion).toBe(4);
     expect(body.document.product.display_name).toBe("CLEANSE");
-    expect(body.document.product.name).toBe("Supplier Cleanser");
+    expect(body.document.product).not.toHaveProperty("name");
     expect(body.document.variants[0].price_cents).toBe(2200);
   });
 

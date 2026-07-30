@@ -16,12 +16,77 @@ type ProductPdpContentRow =
 type ProductRelationshipRow =
   Database["public"]["Tables"]["product_relationships"]["Row"];
 
-export const PRODUCT_EDITOR_SCHEMA_VERSION = 1 as const;
+export const PRODUCT_EDITOR_SCHEMA_VERSION = 2 as const;
+
+type EditableProductFieldSelection = Pick<
+  ProductRow,
+  | "slug"
+  | "display_name"
+  | "formal_title"
+  | "card_tagline"
+  | "product_type"
+  | "catalog_status"
+  | "badge"
+  | "currency"
+  | "sort_order"
+  | "editorial_description"
+  | "benefits"
+  | "editorial_how_to_use"
+  | "formula_notes"
+  | "swatch_from"
+  | "swatch_to"
+  | "status"
+  | "made_for"
+  | "good_for"
+  | "texture"
+  | "key_ingredients"
+  | "ingredients"
+  | "cautions"
+  | "finish"
+  | "volume"
+  | "skin_types"
+  | "concerns"
+  | "usage_time"
+  | "seo_title"
+  | "seo_description"
+  | "search_keywords"
+  | "routine_group"
+  | "routine_step_number"
+  | "routine_step_name"
+  | "routine_sort"
+>;
+
+type RequiredEditableProductFields = {
+  slug: string;
+  display_name: string;
+  formal_title: string;
+  card_tagline: string;
+  product_type: string;
+  catalog_status: string;
+  currency: string;
+  sort_order: number;
+  editorial_description: string;
+  benefits: string[];
+  editorial_how_to_use: string;
+  formula_notes: string[];
+  swatch_from: string;
+  swatch_to: string;
+  status: string;
+  key_ingredients: string[];
+  cautions: string[];
+  skin_types: string[];
+  concerns: string[];
+  usage_time: string[];
+  search_keywords: string[];
+  routine_group: string;
+  routine_sort: number;
+};
 
 export type EditableProductFields = Omit<
-  ProductRow,
-  "id" | "created_at" | "updated_at" | "published_at"
->;
+  EditableProductFieldSelection,
+  keyof RequiredEditableProductFields
+> &
+  RequiredEditableProductFields;
 
 type GeneratedProductPdpContentFields = Omit<
   ProductPdpContentRow,
@@ -43,8 +108,14 @@ export type EditableProductPdpContentFields = Omit<
 
 export type EditableProductVariant = Omit<
   ProductVariantRow,
-  "product_id" | "updated_at" | "archived_at"
->;
+  | "product_id"
+  | "position"
+  | "sort_order"
+  | "updated_at"
+  | "archived_at"
+> & {
+  sort_order: number;
+};
 
 export type DraftMediaUpload = {
   bucket: "mei-pelle-catalog";
@@ -57,7 +128,11 @@ export type DraftMediaUpload = {
 
 export type EditableProductMedia = Omit<
   ProductMediaRow,
-  "product_id" | "created_at" | "updated_at" | "archived_at"
+  | "product_id"
+  | "media_kind"
+  | "created_at"
+  | "updated_at"
+  | "archived_at"
 > & {
   pendingUpload?: DraftMediaUpload;
 };
@@ -68,6 +143,16 @@ export type EditableProductRelationship = Omit<
 >;
 
 export type ProductEditorDocumentV1 = {
+  schemaVersion: 1;
+  productId: string;
+  product: Record<string, unknown>;
+  productPdpContent: unknown;
+  variants: Array<Record<string, unknown>>;
+  media: Array<Record<string, unknown>>;
+  relationships: Array<Record<string, unknown>>;
+};
+
+export type ProductEditorDocumentV2 = {
   schemaVersion: typeof PRODUCT_EDITOR_SCHEMA_VERSION;
   productId: string;
   product: EditableProductFields;
@@ -76,6 +161,10 @@ export type ProductEditorDocumentV1 = {
   media: EditableProductMedia[];
   relationships: EditableProductRelationship[];
 };
+
+export type StoredProductEditorDocument =
+  | ProductEditorDocumentV1
+  | ProductEditorDocumentV2;
 
 export type CatalogDraftStatus =
   | "draft"
@@ -95,7 +184,7 @@ export type CatalogDraftRecord = {
   schema_version: number;
   base_revision: number;
   version: number;
-  document: ProductEditorDocumentV1;
+  document: ProductEditorDocumentV2;
   status: CatalogDraftStatus;
   validation_errors: CatalogValidationIssue[];
   created_by: string;
@@ -112,7 +201,7 @@ export type CatalogRevisionRecord = {
   product_id: string;
   revision_number: number;
   schema_version: number;
-  document: ProductEditorDocumentV1;
+  document: StoredProductEditorDocument;
   source_draft_id: string | null;
   published_by: string | null;
   published_at: string;
@@ -193,7 +282,7 @@ export type CatalogGridRow = {
 };
 
 export type CatalogEditorResponse = {
-  canonical: ProductEditorDocumentV1;
+  canonical: ProductEditorDocumentV2;
   draft: CatalogDraftRecord | null;
   latestRevision: number;
   permissions: Partial<Record<AdminCapability, boolean>>;

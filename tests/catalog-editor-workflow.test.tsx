@@ -83,8 +83,11 @@ describe("CatalogEditor draft workflow", () => {
 
   it("saves before opening the isolated draft preview", async () => {
     const open = vi.spyOn(window, "open").mockImplementation(() => null);
+    const user = userEvent.setup();
     render(<CatalogEditor productId="product-cleanse" />);
     await screen.findByRole("heading", { name: "CLEANSE" });
+    await user.clear(screen.getByLabelText("Display name"));
+    await user.type(screen.getByLabelText("Display name"), "CLEANSE+");
 
     fireEvent.click(screen.getByRole("button", { name: "Preview" }));
     await waitFor(() =>
@@ -141,6 +144,54 @@ describe("CatalogEditor draft workflow", () => {
     );
     expect(await screen.findByText("Revision 4 published")).toBeVisible();
     expect(screen.getByText(/not reported/)).toBeVisible();
+  });
+
+  it("preserves ready status when publish review has no unsaved changes", async () => {
+    const readyDocument = {
+      ...catalogDraft.document,
+      product: {
+        ...catalogDraft.document.product,
+        display_name: "CLEANSE+",
+      },
+    };
+    vi.mocked(catalogEditorApi.validateDraft).mockResolvedValue({
+      valid: true,
+      issues: [],
+      affected_tables: ["products"],
+      draft: {
+        ...catalogDraft,
+        status: "ready",
+        version: 6,
+        document: readyDocument,
+      },
+      diff: {
+        products: [
+          { field: "display_name", before: "CLEANSE", after: "CLEANSE+" },
+        ],
+      },
+    });
+    vi.mocked(catalogEditorApi.markReady).mockResolvedValue({
+      ok: true,
+      draft: {
+        ...catalogDraft,
+        status: "ready",
+        version: 7,
+        document: readyDocument,
+      },
+    });
+    render(<CatalogEditor productId="product-cleanse" />);
+    await screen.findByRole("heading", { name: "CLEANSE" });
+    fireEvent.change(screen.getByLabelText("Display name"), {
+      target: { value: "CLEANSE+" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Mark ready" }));
+    expect(await screen.findByText("Draft marked ready.")).toBeVisible();
+    expect(catalogEditorApi.saveDraft).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole("button", { name: "Review publish" }));
+    expect(await screen.findByText("Confirm publication")).toBeVisible();
+    expect(catalogEditorApi.saveDraft).toHaveBeenCalledTimes(1);
   });
 
   it("does not expose an active publish command without catalog.publish", async () => {
