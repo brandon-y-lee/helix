@@ -21,12 +21,17 @@ This manifest is not a runtime product fallback. It exists so scripts and tests 
 
 PROTECT is editorial-only and must not be inserted as an active commerce product unless a future task explicitly creates a verified catalog item.
 
-## Active Collections
+## Routine classifications
 
-- `the-core`
-- `beyond-the-core`
+The storefront groups products by the canonical `products.routine_group`
+values:
 
-Legacy collections may remain inactive for compatibility or history, but they must not appear as active storefront collections unless a future task explicitly changes the merchandising model.
+- `core`
+- `beyond_core`
+
+Display labels and collection-shaped cache tags are derived from that
+classification. There is no standalone `collections` table in the final
+catalog schema.
 
 ## Relationship Contract
 
@@ -55,7 +60,7 @@ If any of these slugs ever has cart/order references, do not hard-delete it.
 
 1. Add verified source facts to the controlled catalog source or a reviewed migration.
 2. Upsert by stable slug and variant natural keys.
-3. Add collection/routine metadata deliberately.
+3. Add canonical routine classification and ordering deliberately.
 4. Update `scripts/catalog/canonical-catalog-manifest.ts` if the active commerce set changes.
 5. Run `pnpm run db:verify`.
 6. Run `pnpm run search:reindex`.

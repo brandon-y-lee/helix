@@ -96,11 +96,11 @@ products.ingredients
 routine_group + routine_step_number + routine_step_name + routine_sort
 ```
 
-There is no storefront fallback to the legacy product shadows or
-`product_details`. Supplier facts that should not own storefront presentation
-remain in `product_sources.raw_source`; they do not silently replace editorial
-values. See `docs/catalog/catalog-schema-cleanup.md` for the audited evidence
-and exact removal order.
+The legacy product shadows and `product_details` no longer exist in the final
+schema. Supplier facts that should not own storefront presentation remain in
+`product_sources.raw_source`; they do not silently replace editorial values.
+See `docs/catalog/catalog-schema-cleanup.md` for the audit evidence and applied
+removal.
 
 The protected catalog editor uses this same manifest in both layers:
 

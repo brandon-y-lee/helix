@@ -39,10 +39,12 @@ is rejected even if a custom client bypasses the UI. Price, availability, and
 inventory remain integer/server-authoritative commerce fields. Cart and
 checkout continue to re-read canonical commerce data.
 
-V1 draft/revision documents are compatibility input only. The server upgrades
-them deterministically to V2 on load or restore, rejects conflicting full-INCI
-values and unsupported campaign media, and creates a new V2 draft without
-rewriting immutable revision history. New drafts and revisions are V2.
+Active drafts and all new drafts/revisions are V2. The application rejects a
+noncanonical active draft instead of carrying a runtime compatibility shim.
+The database retains a narrow V1-to-V2 adapter only for restoring immutable
+historical V1 revisions; restore rejects conflicting full-INCI values and the
+retired campaign media role, creates a new V2 draft, and never rewrites the
+source revision. Discarded V1 drafts remain audit history.
 
 Preview is dynamic, no-store, and noindex. It renders the draft through the
 storefront PDP composition without the standard admin sidebar. Header cart,
@@ -50,11 +52,11 @@ PDP purchase controls, drawer mutations, Afterpay purchase behavior, and
 purchase analytics are disabled. Public PDP routes never read draft tables.
 
 Publishing updates only Supabase. Search and cache delivery stays on the
-existing signed webhook route. Until the four managed Database Webhooks are
-provisioned against a stable non-production deployment, automatic delivery is
-not active and the editor must not report it as confirmed.
+existing signed webhook route. The four managed Database Webhooks target the
+stable non-production deployment and continue covering products, variants,
+media, and PDP content.
 
-The canonical fields and exact Phase 2 removal plan are documented in
+The canonical fields and completed Phase 2 removal are documented in
 `docs/catalog/catalog-schema-cleanup.md`.
 
 ## Membership bootstrap

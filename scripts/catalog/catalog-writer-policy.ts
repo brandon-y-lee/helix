@@ -96,7 +96,7 @@ export function planSupplierProductWrite({
     "supplier",
     "commerce",
     "system",
-    ...(overwriteEditorial ? (["editorial"] as const) : []),
+    "editorial",
   ]);
 
   if (!existing) {
@@ -107,12 +107,8 @@ export function planSupplierProductWrite({
       update: {},
       sourceOwnedFieldsUpdated: Object.keys(source),
       commerceFieldsUpdated: Object.keys(commerce),
-      editorialFieldsSeeded: overwriteEditorial
-        ? Object.keys(editorial)
-        : [],
-      editorialFieldsSkipped: overwriteEditorial
-        ? []
-        : Object.keys(editorial),
+      editorialFieldsSeeded: Object.keys(editorial),
+      editorialFieldsSkipped: [],
       editorialFieldsToOverwrite: [],
     };
   }

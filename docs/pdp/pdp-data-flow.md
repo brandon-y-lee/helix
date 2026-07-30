@@ -1,8 +1,8 @@
 # Mei Pelle PDP data flow
 
 Verified against repository code and the linked non-production Supabase project
-`erasogmsqpgiirovubjh` on 2026-07-30, including Phase 1 catalog
-canonicalization.
+`erasogmsqpgiirovubjh` on 2026-07-30, including the completed Phase 2 catalog
+schema prune.
 
 ## Executive summary
 
@@ -129,16 +129,17 @@ In the table:
 | Core outcome/application hues and media focal positions | Stable Core-step tokens in `lib/content/core-pdp.ts` | Supabase copy is combined with step-keyed visual tokens only when required content validates | `PdpProfileSplit`, `PdpOutcomeSplit`, `PdpApplicationCarousel`, `PdpIngredientsSplit` | Bundled design configuration | No | No | Repository-only non-content presentation |
 | Core routine module | Active `routine_group = core` rows plus one `core_routine_texture` media row per product | `getCoreRoutineProducts()` requires exactly CLEANSE, TREAT, and SEAL in three-step Core order; System product numbers remain 01/03/05 | `PdpCoreRoutineSection` after DETAILS on Core PDPs | One hour; `catalog:core-routine` plus all three product tags | No; dedicated media is explicitly excluded | Yes | Core PDP media sync owns the texture rows |
 
-### Phase 1 compatibility boundary
+### Final compatibility boundary
 
 - Public runtime and current writers no longer select, map, or serialize
   `product_details`, the legacy precedence shadows, or superseded routine
-  labels/order fields.
+  labels/order fields. Those columns have been removed from the final schema.
 - Verified `sourceFullInci` values are backfilled into `products.ingredients`
-  before `product_details` is retired. The full original source-shaped product
-  object is retained once in `product_sources.raw_source.catalogProduct`.
-- V1 draft/revision JSON remains accepted only through a deterministic V1→V2
-  adapter; it is not a storefront fallback.
+  and the full original source-shaped product object remains retained once in
+  `product_sources.raw_source.catalogProduct`.
+- Active drafts and all new revisions must be V2. Only immutable historical V1
+  revisions pass through the retained database V1→V2 restoration adapter; no
+  storefront or active-draft compatibility fallback remains.
 - `lib/catalog/product-routine.ts` contains generic label and sort helpers only.
   It does not infer product-specific values from slugs.
 - `lib/catalog/product-content.ts` contains schema-versioned runtime validation
@@ -164,24 +165,23 @@ Explicitly named user source
 
 `public.product_media` contains product and optional variant foreign keys,
 `media_type`, nullable URL, alt text, dimensions, role, sort order, source
-metadata, placeholder palette metadata, and timestamps. The still-present
-`media_kind` column is ignored and scheduled for Phase 2 removal. It has:
+metadata, placeholder palette metadata, and timestamps. The redundant
+`media_kind` column and unused `campaign` role were removed in Phase 2. It has:
 
 - unique `(product_id, role, sort_order)`
 - partial unique `(product_id, role)` for dedicated Core PDP editorial roles
-- product/sort, role, a legacy kind/role index scheduled for removal, and an
-  optional variant index
+- product/sort, role/sort, and an optional variant index
 - RLS allowing anon/authenticated reads only through an active, published parent
   product
 - no public write policy
 - an `updated_at` trigger
 
-Migration `20260724075058_core_pdp_editorial_media.sql` adds the first three editorial
+Migration `20260724075058_core_pdp_editorial_media.sql` added the first three editorial
 roles. Follow-up migration
 `20260724091004_tighten_core_pdp_editorial_media.sql` makes intrinsic
 dimensions non-null for those roles and enforces one canonical row per product
-and dedicated role. The local, unapplied migration
-`20260724100802_add_ingredients_texture_media_role.sql` adds
+and dedicated role. Migration
+`20260724100802_add_ingredients_texture_media_role.sql` added
 `ingredients_texture`, requires it to be a concrete image with dimensions, and
 adds a one-row-per-product partial unique index:
 
@@ -191,9 +191,8 @@ adds a one-row-per-product partial unique index:
 - all four require the canonical `media_type`, a non-empty URL, and positive
   dimensions
 
-Phase 1 replaces payload constraints so concrete versus placeholder state is
-derived from URL and `placeholder_palette`; `media_type` alone distinguishes
-image from video.
+Concrete versus placeholder state is derived from URL and
+`placeholder_palette`; `media_type` alone distinguishes image from video.
 
 ### Media roles and consumers
 
@@ -206,7 +205,6 @@ image from video.
 | `gallery` | PDP gallery item | Gallery only |
 | `cart` | Cart thumbnail override | Cart only |
 | `search` | Algolia/search thumbnail override | Search only |
-| `campaign` | Accepted legacy/editorial role; no current PDP primary consumer | No |
 | `routine_video` | Foreground and synchronized blurred-background video | Never |
 | `routine_video_poster` | Paused foreground poster and blurred poster fallback | Never |
 | `profile_editorial` | Core product-profile right panel | Never |
@@ -528,40 +526,34 @@ remaining accessibility dependency before caption compliance can be claimed.
 
 ## Risks and recommendations
 
-1. **Provision automatic database webhooks after deployment.** Use the
-   plan-first provisioning workflow for `products`, `product_variants`,
-   `product_media`, and `product_pdp_content` against a stable authenticated
-   receiver, verify provider state, and retain the reconciliation command as
-   recovery.
+1. **Keep automatic database webhooks reconciled.** The four managed hooks for
+   `products`, `product_variants`, `product_media`, and `product_pdp_content`
+   target the stable authenticated receiver. Retain the plan/verify commands as
+   drift detection and recovery.
 2. **Resolve Storage listing exposure.** The Supabase advisor reports a broad
    public-bucket listing policy. Public object reads are required, but public
    listing should be narrowed separately without disrupting delivery URLs.
-3. **Execute Phase 2 only after Phase 1 verification.** Follow
-   `docs/catalog/catalog-schema-cleanup.md` to remove the audited duplicate
-   columns and `collections` table without `CASCADE`.
-4. **Keep writer authority explicit.** The shared field-ownership manifest,
+3. **Keep writer authority explicit.** The shared field-ownership manifest,
    default dry runs, and dedicated editorial confirmation must remain in place
    as editor capabilities expand.
-5. **Remove `media_kind` in Phase 2.** Phase 1 already makes payload validation
-   independent of it; the legacy index and column remain only for rollback.
-6. **Add duration/poster relationships if media grows.** The current table has
+4. **Add duration/poster relationships if media grows.** The current table has
    no video duration column or explicit poster foreign key; the role pair is
    resolved by product.
-7. **Keep catalog selection allowlists synchronized.** PDP, cart, and Algolia
+5. **Keep catalog selection allowlists synchronized.** PDP, cart, and Algolia
    each correctly exclude editorial roles from utility images, but every new
    role must be reviewed in all three places.
-8. **Keep PDP islands focused.** `ProductDetail` is a Server Component shell.
+6. **Keep PDP islands focused.** `ProductDetail` is a Server Component shell.
    Gallery, purchase, accordion, media, outcome, application, Core, review, and
    discovery interactions remain isolated client boundaries and should receive
    only the serializable props they need.
-9. **Add product structured data.** Metadata exists, but the route currently
+7. **Add product structured data.** Metadata exists, but the route currently
    emits no Product JSON-LD.
-10. **Improve profile-media recovery.** A valid row with an unavailable object
+8. **Improve profile-media recovery.** A valid row with an unavailable object
     does not have the video module's explicit retry treatment.
-11. **Regenerate types after schema changes.** `pnpm run db:types` generates
+9. **Regenerate types after schema changes.** `pnpm run db:types` generates
     `lib/database.types.ts` from the linked approved project; compare the
     generated output before committing it.
-12. **Complete the caption audit.** Verify each audio track with a human
+10. **Complete the caption audit.** Verify each audio track with a human
     transcript or confirm it is non-speech before launch.
 
 ## Operational commands

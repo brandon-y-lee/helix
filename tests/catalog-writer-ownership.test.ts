@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from "vitest";
 import {
   CATALOG_FIELD_OWNERSHIP,
   getCatalogFieldOwnership,
-  PHASE_TWO_PRODUCT_DROP_COLUMNS,
 } from "@/lib/catalog/field-ownership";
 import { parseImportArgs } from "@/scripts/catalog-import-leaders";
 import { parseRefreshArgs } from "@/scripts/catalog-refresh-presentation";
@@ -111,17 +110,35 @@ describe("catalog field ownership", () => {
       ),
     ).toBe(true);
   });
-
-  it("does not register Phase 2 product columns as writer-owned fields", () => {
-    expect(
-      PHASE_TWO_PRODUCT_DROP_COLUMNS.every(
-        (field) => getCatalogFieldOwnership("products", field) === undefined,
-      ),
-    ).toBe(true);
-  });
 });
 
 describe("supplier catalog writer", () => {
+  it("seeds editorial fields for a new product without treating them as an overwrite", () => {
+    const plan = planSupplierProductWrite({
+      slug: "new-product",
+      existing: null,
+      insert: {
+        id: "new-product-id",
+        slug: "new-product",
+        texture: "Gel",
+        status: "available",
+        display_name: "NEW",
+      },
+      source: { texture: "Gel" },
+      commerce: { status: "available" },
+      editorial: { display_name: "NEW" },
+      overwriteEditorial: false,
+    });
+
+    expect(plan.insert).toMatchObject({
+      id: "new-product-id",
+      display_name: "NEW",
+    });
+    expect(plan.editorialFieldsSeeded).toEqual(["display_name"]);
+    expect(plan.editorialFieldsSkipped).toEqual([]);
+    expect(plan.editorialFieldsToOverwrite).toEqual([]);
+  });
+
   it("updates source and commerce fields without replacing populated editorial fields", () => {
     const plan = supplierPlan(false);
 

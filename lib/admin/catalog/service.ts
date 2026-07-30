@@ -15,7 +15,6 @@ import {
   validateProductEditorDocument,
 } from "@/lib/admin/catalog/validation";
 import { validateCatalogEditorOwnership } from "@/lib/admin/catalog/ownership";
-import { upgradeProductEditorDocument } from "@/lib/admin/catalog/document-version";
 import type {
   CatalogDraftRecord,
   CatalogEditorResponse,
@@ -24,7 +23,6 @@ import type {
   CatalogRevisionRecord,
   CatalogRpcConflict,
   ProductEditorDocumentV2,
-  StoredProductEditorDocument,
   CatalogValidationIssue,
 } from "@/lib/admin/catalog/types";
 import type { CatalogAdminAccess } from "@/lib/admin/capabilities";
@@ -487,20 +485,21 @@ export async function getCatalogEditor(
 }
 
 function normalizeDraftRecord(data: unknown): CatalogDraftRecord {
-  if (!isRecord(data) || !isRecord(data.document)) {
+  if (
+    !isRecord(data) ||
+    data.schema_version !== 2 ||
+    !isRecord(data.document)
+  ) {
     throw new CatalogAdminError(
       "invalid_catalog_response",
-      "The catalog database returned an invalid draft.",
+      "The catalog database returned a noncanonical draft.",
       503,
     );
   }
-  const upgraded = upgradeProductEditorDocument(
-    data.document as unknown as StoredProductEditorDocument,
-  );
   return {
     ...data,
     schema_version: 2,
-    document: assertValidProductEditorDocument(upgraded),
+    document: assertValidProductEditorDocument(data.document),
   } as CatalogDraftRecord;
 }
 

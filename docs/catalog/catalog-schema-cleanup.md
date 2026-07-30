@@ -1,9 +1,10 @@
 # Catalog Schema Cleanup
 
-Status: Phase 1 implementation, audited against approved non-production project
-`erasogmsqpgiirovubjh` on 2026-07-30. Phase 1 is additive and compatibility
-preserving: it does not drop a table or column, change a product UUID, or
-rewrite an immutable revision.
+Status: Phase 2 complete against approved non-production project
+`erasogmsqpgiirovubjh` on 2026-07-30. Migration
+`20260730125644_prune_legacy_catalog_schema.sql` removed only the audited
+legacy schema after the Phase 1 application was deployed and verified. No
+product UUID or immutable revision was changed.
 
 ## Decision summary
 
@@ -25,8 +26,8 @@ Supabase remains the catalog authority. The final product model separates:
 The final routine model is only `routine_group`, `routine_step_number`,
 `routine_step_name`, and `routine_sort`. Labels such as “The Core” are derived
 at presentation boundaries. `sort_order` remains the general merchandising
-order. The standalone `collections` table has no foreign-key or runtime
-catalog dependency and is scheduled for removal in Phase 2.
+order. Routine-group presentation is derived from canonical product fields;
+the unreferenced standalone `collections` table was removed in Phase 2.
 
 Consumer codes used below:
 
@@ -47,51 +48,51 @@ variants. Counts that change in Phase 1 are called out explicitly.
 
 ## `products` inventory and disposition
 
-Phase 1 makes the canonical required fields non-null, makes the original
-required shadow fields nullable, and stops all active readers and writers from
-using Phase 2 candidates.
+This table preserves the pre-prune audit evidence. Phase 1 made canonical
+fields required and stopped active readers/writers from using the candidates;
+Phase 2 removed every row marked for removal.
 
 | Column | Type; pre-Phase-1 null/default | Count | Consumers / duplication evidence | Disposition |
 | --- | --- | ---: | --- | --- |
 | `id` | uuid; NN; `gen_random_uuid()` | 6/6 | SF ED AL CA CO IM DB; PK and referenced by every child table | keep |
 | `slug` | text; NN | 6/6 | SF ED AL CA CO IM; unique route/search identity | keep |
-| `name` | text; NN→nullable | 6/6 | Equals `display_name` for 6/6; removed from runtime/editor/import writes | drop directly in Phase 2 |
-| `tagline` | text; NN→nullable | 6/6 | Equals `card_tagline` for 6/6 | drop directly in Phase 2 |
-| `collection` | text; NN→nullable | 6/2 | Duplicates `routine_group`; labels are derived | drop directly in Phase 2 |
-| `blurb` | text; NN→nullable | 6/6 | Equals `card_tagline` for 6/6 | drop directly in Phase 2 |
-| `description` | text; NN→nullable | 6/6 | Equals `editorial_description` for 6/6 | drop directly in Phase 2 |
+| `name` | text; NN→nullable | 6/6 | Equals `display_name` for 6/6; removed from runtime/editor/import writes | removed in Phase 2 |
+| `tagline` | text; NN→nullable | 6/6 | Equals `card_tagline` for 6/6 | removed in Phase 2 |
+| `collection` | text; NN→nullable | 6/2 | Duplicates `routine_group`; labels are derived | removed in Phase 2 |
+| `blurb` | text; NN→nullable | 6/6 | Equals `card_tagline` for 6/6 | removed in Phase 2 |
+| `description` | text; NN→nullable | 6/6 | Equals `editorial_description` for 6/6 | removed in Phase 2 |
 | `benefits` | text[]; NN; `{}` | 6/6 | SF ED AL IM | keep |
-| `how_to_use` | text; NN→nullable | 6/6 | Equals `editorial_how_to_use` for 6/6 | drop directly in Phase 2 |
+| `how_to_use` | text; NN→nullable | 6/6 | Equals `editorial_how_to_use` for 6/6 | removed in Phase 2 |
 | `swatch_from` | text; NN | 6/6 | SF ED IM, visual token | keep |
 | `swatch_to` | text; NN | 6/6 | SF ED IM, visual token | keep |
-| `position` | integer; NN→nullable; `0` | 6/6 | Equals `sort_order`; removed from queries and writers | drop directly in Phase 2 |
+| `position` | integer; NN→nullable; `0` | 6/6 | Equals `sort_order`; removed from queries and writers | removed in Phase 2 |
 | `created_at` | timestamptz; NN; `now()` | 6/6 | DB | keep |
 | `status` | text; NN; `available` | 6/1 | SF ED AL CA CO IM; product-level sellable status | keep |
 | `made_for` | text; nullable | 6/6 | SF ED AL IM; not equivalent to skin types | keep |
 | `good_for` | text; nullable | 6/6 | SF ED AL IM; concise benefit statement, not `concerns` | keep |
 | `texture` | text; nullable | 6/6 | SF ED AL IM | keep |
-| `action_name` | text; nullable | 6/6 | Equals `display_name`; no canonical consumer | drop directly in Phase 2 |
-| `routine_number` | text; nullable | 3/3 | Padded duplicate of `routine_step_number` | drop directly in Phase 2 |
-| `subtitle` | text; nullable | 6/6 | Equals `card_tagline` | drop directly in Phase 2 |
-| `descriptor` | text; nullable | 6/6 | Equals `editorial_description` | drop directly in Phase 2 |
+| `action_name` | text; nullable | 6/6 | Equals `display_name`; no canonical consumer | removed in Phase 2 |
+| `routine_number` | text; nullable | 3/3 | Padded duplicate of `routine_step_number` | removed in Phase 2 |
+| `subtitle` | text; nullable | 6/6 | Equals `card_tagline` | removed in Phase 2 |
+| `descriptor` | text; nullable | 6/6 | Equals `editorial_description` | removed in Phase 2 |
 | `product_type` | text; nullable→NN | 6/6 | SF ED AL IM | keep |
 | `catalog_status` | text; NN; `active` | 6/1 | SF ED AL CA CO IM DB; publication lifecycle | keep |
 | `badge` | text; nullable | 0/0 | SF ED AL IM; valid optional merchandising field | keep |
 | `currency` | text; NN; `USD` | 6/1 | SF ED AL CO IM; constrained to USD | keep |
-| `featured_rank` | integer; nullable | 6/6 | Equals current `sort_order`; removed from query ordering | drop directly in Phase 2 |
+| `featured_rank` | integer; nullable | 6/6 | Equals current `sort_order`; removed from query ordering | removed in Phase 2 |
 | `sort_order` | integer; nullable→NN | 6/6 | SF ED AL IM; general merchandising order | keep |
 | `published_at` | timestamptz; NN; `now()` | 6/6 | SF ED AL CA DB | keep |
 | `updated_at` | timestamptz; NN; `now()` | 6/6 | SF ED AL CA DB; trigger maintained | keep |
 | `key_ingredients` | text[]; NN; `{}` | 6/6 | SF ED AL IM | keep |
 | `ingredients` | text; nullable | 4/4 | SF ED IM; only canonical full INCI; legacy “unavailable” notices are not data | keep |
-| `product_details` | jsonb; NN; `{}` | 6/6 | Legacy mixed bag; all source facts are snapshotted in `product_sources.raw_source.catalogProduct` | migrate then drop in Phase 2 |
+| `product_details` | jsonb; NN; `{}` | 6/6 | Legacy mixed bag; all source facts are snapshotted in `product_sources.raw_source.catalogProduct` | removed in Phase 2 after snapshot verification |
 | `cautions` | text[]; NN; `{}` | 6/1 | SF ED IM | keep |
 | `finish` | text; nullable | 6/6 | SF ED AL IM | keep |
 | `volume` | text; nullable | 6/6 | SF ED AL IM; product display volume | defer relationship with variant `volume` |
 | `skin_types` | text[]; NN; `{}` | 6/1 | SF ED AL IM | keep |
 | `concerns` | text[]; NN; `{}` | 6/6 | SF ED AL IM; GIN indexed | keep |
-| `routine_step` | text; nullable | 3/3 | Equals `routine_step_name` | drop directly in Phase 2 |
-| `routine_order` | integer; nullable | 6/6 | Superseded by `routine_sort` | drop directly in Phase 2 |
+| `routine_step` | text; nullable | 3/3 | Equals `routine_step_name` | removed in Phase 2 |
+| `routine_order` | integer; nullable | 6/6 | Superseded by `routine_sort` | removed in Phase 2 |
 | `usage_time` | text[]; NN; `{}` | 6/4 | SF ED AL IM | keep |
 | `seo_title` | text; nullable | 6/6 | SF ED AL IM; metadata projection | keep |
 | `seo_description` | text; nullable | 6/6 | SF ED AL IM; metadata projection | keep |
@@ -103,13 +104,13 @@ using Phase 2 candidates.
 | `editorial_how_to_use` | text; nullable→NN | 6/6 | SF ED AL IM; canonical prose instructions | keep |
 | `formula_notes` | text[]; NN; `{}` | 6/6 | SF ED IM | keep |
 | `routine_group` | text; nullable→NN | 6/2 | SF ED AL CA IM; `core` or `beyond_core` | keep |
-| `routine_group_label` | text; nullable | 6/2 | Derivable from `routine_group` | drop directly in Phase 2 |
+| `routine_group_label` | text; nullable | 6/2 | Derivable from `routine_group` | removed in Phase 2 |
 | `routine_step_number` | integer; nullable | 3/3 | SF ED AL IM; Core-only sequence 1–3 | keep |
 | `routine_step_name` | text; nullable | 3/3 | SF ED AL IM; Core-only Cleanse/Treat/Seal | keep |
-| `routine_display_label` | text; nullable | 6/4 | Derivable from canonical routine fields | drop directly in Phase 2 |
+| `routine_display_label` | text; nullable | 6/4 | Derivable from canonical routine fields | removed in Phase 2 |
 | `routine_sort` | integer; nullable→NN | 6/6 | SF ED AL IM; 10/20/30 and 110/120/130 | keep |
-| `legacy_routine_group_label` | text; nullable | 6/2 | Explicit legacy duplicate | drop directly in Phase 2 |
-| `legacy_routine_display_label` | text; nullable | 6/6 | Explicit legacy duplicate | drop directly in Phase 2 |
+| `legacy_routine_group_label` | text; nullable | 6/2 | Explicit legacy duplicate | removed in Phase 2 |
+| `legacy_routine_display_label` | text; nullable | 6/6 | Explicit legacy duplicate | removed in Phase 2 |
 
 ### `product_details` JSON inventory
 
@@ -143,7 +144,7 @@ blank instead of turning unavailable notices into fabricated full INCI.
 | `variant_key` | text; NN | 6/6 | active natural key; SF ED AL CO IM — keep |
 | `label` | text; NN | 6/6 | SF ED AL CO IM — keep |
 | `price_cents` | integer; NN | 6/6 | authoritative integer price; SF ED AL CO IM — keep |
-| `position` | integer; NN→nullable; `0` | 6/1 | equals `sort_order`; no reader/writer after Phase 1 — drop in Phase 2 |
+| `position` | integer; NN→nullable; `0` | 6/1 | equals `sort_order`; no reader/writer after Phase 1 — removed in Phase 2 |
 | `sku` | text; nullable | 3/3 | unique when present; ED CO IM — keep |
 | `supplier_variant_id` | text; nullable | 6/6 | supplier identity; ED IM PR — keep |
 | `option_values` | jsonb; NN; `{}` | 6/6 | SF ED CO IM — keep |
@@ -174,15 +175,14 @@ blank instead of turning unavailable notices into fabricated full INCI.
 | `source_filename` | text; nullable | 33/24 | operational reconciliation used by media sync scripts — keep |
 | `created_at` | timestamptz; NN; now | 63/6 | DB — keep |
 | `updated_at` | timestamptz; NN; now | 63/6 | trigger/webhook freshness — keep |
-| `media_kind` | text; NN→nullable; `image` | 63/2 | duplicates URL/palette payload state, not actual image/video type — drop in Phase 2 |
+| `media_kind` | text; NN→nullable; `image` | 63/2 | duplicates URL/palette payload state, not actual image/video type — removed in Phase 2 |
 | `palette_id` | text; nullable | 30/30 | placeholder identity — keep |
 | `placeholder_palette` | jsonb; NN; `{}` | 63/28 | placeholder payload; SF ED IM — keep |
 | `archived_at` | timestamptz; nullable | 0/0 | lifecycle/history — keep |
 
-Phase 1 replaces payload and editorial-role checks with checks based only on
-`media_type`, `url`, dimensions, and `placeholder_palette`. The obsolete
-`campaign` role has no rows or writer and will be removed from the role check
-in Phase 2.
+Payload and editorial-role checks now use only `media_type`, `url`,
+dimensions, and `placeholder_palette`. Phase 2 also removed the unused
+`campaign` value from the role constraint.
 
 ### `product_pdp_content` (6 rows)
 
@@ -218,14 +218,13 @@ existing snapshot.
 
 ### `collections` (4 rows)
 
-The table contains `id`, `slug`, `name`, nullable `description`, `sort_order`,
-`is_active`, `created_at`, and `updated_at`; all are populated, and each has
-four distinct values except `is_active` (two) and timestamps. It has a PK,
-unique slug, public-active read policy, and updated-at trigger, but no product
-FK and no current application, editor, import, Algolia, cache, or commerce
-reader. Two rows are active canonical-era labels and two are inactive legacy
-rows. Routine group presentation now derives these labels. Drop the entire
-table in Phase 2 after removing its policy and trigger.
+The removed table contained `id`, `slug`, `name`, nullable `description`,
+`sort_order`, `is_active`, `created_at`, and `updated_at`. It had a PK, unique
+slug, public-active read policy, and updated-at trigger, but no product FK and
+no current application, editor, import, Algolia, cache, or commerce reader.
+Two rows were active canonical-era labels and two were inactive legacy rows.
+Routine group presentation derives these labels. Phase 2 explicitly removed
+the policy and trigger before dropping the table.
 
 ### Drafts, revisions, and audit
 
@@ -254,27 +253,27 @@ unchanged.
 
 - RLS is enabled on all audited public tables. Anonymous/authenticated users
   have SELECT-only policies for active products, variants, media, PDP content,
-  relationships, and collections. Sources, drafts, revisions, and audit rows
+  and relationships. Sources, drafts, revisions, and audit rows
   have no browser policy or browser grant.
 - Product, variant, media, and PDP changes retain their existing Database
   Webhook triggers to the shared signed delivery route. Cache invalidation is
   still attempted when conditional Algolia sync fails.
-- Updated-at triggers remain on products, variants, media, PDP content,
-  sources, and collections. Revision and audit tables retain append-only
+- Updated-at triggers remain on products, variants, media, PDP content, and
+  sources. Revision and audit tables retain append-only
   rejection triggers.
 - No catalog view exists.
 - Public editor RPCs are service-role-only security-definer functions with an
   empty search path. Phase 1 replaces get/create/save/restore/publish with V2
   implementations and leaves transition semantics intact.
-- `private.catalog_editor_document_v1(uuid)` remains only as an inert
-  compatibility function until Phase 2; the public loader no longer calls it.
+- `private.catalog_editor_document_v1(uuid)` was removed in Phase 2.
   `private.catalog_editor_upgrade_v1_to_v2(jsonb)` is retained long-term
   because immutable V1 revision documents may need restoration.
-- Phase 2 must replace/drop indexes containing retired fields:
-  `products_catalog_status_sort_idx`, `products_routine_order_idx`,
-  `products_routine_sort_idx`, `product_variants_active_product_idx`, and
-  `product_media_kind_role_idx`. Canonical PK, unique, GIN, offer,
-  relationship, editor-history, and media-role indexes remain.
+- Phase 2 removed `products_routine_order_idx` and
+  `product_media_kind_role_idx`; it rebuilt
+  `products_catalog_status_sort_idx`, `products_routine_sort_idx`, and
+  `product_variants_active_product_idx` from canonical fields. Canonical PK,
+  unique, GIN, offer, relationship, editor-history, and media-role indexes
+  remain.
 
 ## Runtime, editor, and writer changes
 
@@ -295,7 +294,9 @@ unchanged.
 The editor wire contract is `ProductEditorDocumentV2`. Retired fields do not
 appear in controls, API documents, validation, diffs, preview props, or publish
 SQL. Unknown/custom-client keys and retired keys are rejected server-side.
-V1 documents are upgraded deterministically:
+Historical V1 revisions are upgraded deterministically inside
+`restore_catalog_product_revision`; the current application accepts only V2
+active drafts. The retained database adapter:
 
 - canonical values win; a blank canonical value may use its exact V1 shadow;
 - `sourceFullInci` may fill blank `ingredients`, but conflicting values abort;
@@ -305,8 +306,9 @@ V1 documents are upgraded deterministically:
 - meaningful canonical fields are preserved, while retired shadows disappear.
 
 Restoring a V1 revision creates a new V2 draft and does not rewrite the
-revision. Optimistic draft versions and base-revision conflicts remain
-enforced.
+revision. Discarded V1 drafts remain audit history and are not loaded as
+editable documents. Optimistic draft versions and base-revision conflicts
+remain enforced.
 
 Leaders import now writes canonical product fields, canonical variant
 `sort_order`, canonical media payloads, and supplier facts in
@@ -334,36 +336,49 @@ Follow-up migration `20260730113500_catalog_editor_v2_lint.sql` marks the
 deterministic V1 adapter `STABLE`, matching PostgreSQL's volatility
 classification for the JSON/text normalization expressions it calls.
 
-Rollback is application-first: redeploy the pre-Phase-1 commit, whose legacy
-columns remain populated because Phase 1 drops none. The source snapshot is a
-safe additive fact and need not be reversed.
-If the V2 functions themselves must be rolled back, reapply their immediately
-preceding definitions from the prior migrations; do not delete V2 drafts or
-published revisions. Do not roll back after Phase 2 without a separately
-reviewed restore migration and backup.
+Phase 1 alone supported an application-first rollback because its legacy
+columns remained populated. After Phase 2, rollback requires the reviewed
+operator backup and a new forward restore migration; never edit migration
+history, rewrite immutable revisions, or redeploy an application that selects
+the removed fields.
 
-## Exact Phase 2 removal plan
+## Phase 2 result
 
-In one reviewed migration, after backing up the affected non-production
-schema/data and verifying no active V1 draft:
+Migration `20260730125644_prune_legacy_catalog_schema.sql`:
 
-1. Drop the `collections` public policy, updated-at trigger, then table.
-2. Drop `product_media_kind_role_idx`; remove `campaign` from the canonical
-   role check; drop `product_media.media_kind`.
-3. Recreate `product_variants_active_product_idx` using
-   `(product_id, sort_order)` only; drop `product_variants.position`.
-4. Drop `products_routine_order_idx`; recreate
+1. Aborts unless canonical product fields and variant order are complete,
+   source snapshots exist, media is canonical, active drafts are V2, V2
+   documents contain no retired keys, expected dependencies exist, and the
+   publish function remains service-role-only.
+2. Removes the `collections` public policy and updated-at trigger, then drops
+   the unreferenced table.
+3. Removes `product_media_kind_role_idx`, the unused `campaign` role value,
+   and `product_media.media_kind`.
+4. Rebuilds `product_variants_active_product_idx` from
+   `(product_id, sort_order)` and removes `product_variants.position`.
+5. Removes `products_routine_order_idx`; rebuilds
    `products_catalog_status_sort_idx` as `(catalog_status, sort_order)` and
-   `products_routine_sort_idx` as `(routine_sort, sort_order)`; drop
-   `private.catalog_editor_document_v1(uuid)`.
-5. Drop these `products` columns, with no `CASCADE`:
-   `name`, `tagline`, `collection`, `blurb`, `description`, `how_to_use`,
-   `position`, `action_name`, `routine_number`, `subtitle`, `descriptor`,
-   `featured_rank`, `product_details`, `routine_step`, `routine_order`,
-   `routine_group_label`, `routine_display_label`,
+   `products_routine_sort_idx` as `(routine_sort, sort_order)`.
+6. Removes `private.catalog_editor_document_v1(uuid)` and these `products`
+   columns: `name`, `tagline`, `collection`, `blurb`, `description`,
+   `how_to_use`, `position`, `action_name`, `routine_number`, `subtitle`,
+   `descriptor`, `featured_rank`, `product_details`, `routine_step`,
+   `routine_order`, `routine_group_label`, `routine_display_label`,
    `legacy_routine_group_label`, and `legacy_routine_display_label`.
-6. Regenerate database types, run the contract search/tests, and verify the
-   editor, webhook, Algolia, storefront, cart, and checkout paths.
+7. Rebuilds the V2 document aggregate from final table shapes and reasserts
+   the publish function's fixed search path and service-role-only execution.
+
+The migration uses explicit schema-qualified drops and no cascading drop.
+Generated database types and the explicit editor contract now expose only the
+final schema.
+
+Post-migration verification saved and previewed a TREAT V2 draft, published it
+as revision 3, restored revision 2 into a new V2 draft, and published the exact
+restored document as revision 4. The final canonical document hash matches
+revision 2; all four revisions are V2 and contain no retired keys. The project
+now has eight historical draft rows, four immutable revision rows, and zero
+active drafts. The pre-migration row counts for products, variants, media, PDP
+content, relationships, and sources remain unchanged.
 
 Deferred, not Phase 2: deciding whether product- and variant-level `volume`
 should be normalized, and whether currently unused `product_media.variant_id`
@@ -404,15 +419,30 @@ left join public.product_sources s on s.product_id = p.id
 where s.product_id is null
    or not (s.raw_source ? 'catalogProduct');
 
-select p.slug
-from public.products p
-where nullif(btrim(p.ingredients), '') is not null
-  and nullif(btrim(p.product_details ->> 'sourceFullInci'), '') is not null
-  and regexp_replace(p.ingredients, '\s+', ' ', 'g')
-      <> regexp_replace(p.product_details ->> 'sourceFullInci', '\s+', ' ', 'g');
+select table_name, column_name
+from information_schema.columns
+where table_schema = 'public'
+  and (
+    (table_name = 'products' and column_name in (
+      'name', 'tagline', 'collection', 'blurb', 'description', 'how_to_use',
+      'position', 'action_name', 'routine_number', 'subtitle', 'descriptor',
+      'featured_rank', 'product_details', 'routine_step', 'routine_order',
+      'routine_group_label', 'routine_display_label',
+      'legacy_routine_group_label', 'legacy_routine_display_label'
+    ))
+    or (table_name = 'product_variants' and column_name = 'position')
+    or (table_name = 'product_media' and column_name = 'media_kind')
+  );
 
-select count(*) filter (where sort_order is null) as missing_sort,
-       count(*) filter (where sort_order is distinct from position) as mismatch
+select to_regclass('public.collections') as removed_collections,
+       to_regprocedure(
+         'private.catalog_editor_document_v1(uuid)'
+       ) as removed_v1_builder,
+       to_regprocedure(
+         'private.catalog_editor_upgrade_v1_to_v2(jsonb)'
+       ) as retained_v1_revision_adapter;
+
+select count(*) filter (where sort_order is null) as missing_sort
 from public.product_variants;
 
 select media_type,

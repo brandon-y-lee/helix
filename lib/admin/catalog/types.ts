@@ -109,7 +109,6 @@ export type EditableProductPdpContentFields = Omit<
 export type EditableProductVariant = Omit<
   ProductVariantRow,
   | "product_id"
-  | "position"
   | "sort_order"
   | "updated_at"
   | "archived_at"
@@ -129,7 +128,6 @@ export type DraftMediaUpload = {
 export type EditableProductMedia = Omit<
   ProductMediaRow,
   | "product_id"
-  | "media_kind"
   | "created_at"
   | "updated_at"
   | "archived_at"
@@ -142,16 +140,6 @@ export type EditableProductRelationship = Omit<
   "product_id" | "created_at" | "archived_at"
 >;
 
-export type ProductEditorDocumentV1 = {
-  schemaVersion: 1;
-  productId: string;
-  product: Record<string, unknown>;
-  productPdpContent: unknown;
-  variants: Array<Record<string, unknown>>;
-  media: Array<Record<string, unknown>>;
-  relationships: Array<Record<string, unknown>>;
-};
-
 export type ProductEditorDocumentV2 = {
   schemaVersion: typeof PRODUCT_EDITOR_SCHEMA_VERSION;
   productId: string;
@@ -161,10 +149,6 @@ export type ProductEditorDocumentV2 = {
   media: EditableProductMedia[];
   relationships: EditableProductRelationship[];
 };
-
-export type StoredProductEditorDocument =
-  | ProductEditorDocumentV1
-  | ProductEditorDocumentV2;
 
 export type CatalogDraftStatus =
   | "draft"
@@ -201,7 +185,7 @@ export type CatalogRevisionRecord = {
   product_id: string;
   revision_number: number;
   schema_version: number;
-  document: StoredProductEditorDocument;
+  document: unknown;
   source_draft_id: string | null;
   published_by: string | null;
   published_at: string;

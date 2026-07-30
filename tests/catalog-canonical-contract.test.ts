@@ -1,11 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import {
-  PHASE_TWO_MEDIA_DROP_COLUMNS,
-  PHASE_TWO_PRODUCT_DROP_COLUMNS,
-  PHASE_TWO_VARIANT_DROP_COLUMNS,
-} from "@/lib/catalog/field-ownership";
 
 const ROOT = process.cwd();
 
@@ -23,9 +18,18 @@ const QUERY_AND_MAPPER_FILES = [
   "scripts/db/catalog-data-audit.ts",
 ] as const;
 
-const UNIQUE_LEGACY_FIELDS = [
+const RETIRED_PRODUCT_COLUMNS = [
+  "name",
+  "tagline",
+  "collection",
+  "blurb",
+  "description",
+  "how_to_use",
+  "position",
   "action_name",
   "routine_number",
+  "subtitle",
+  "descriptor",
   "featured_rank",
   "product_details",
   "routine_step",
@@ -35,6 +39,23 @@ const UNIQUE_LEGACY_FIELDS = [
   "legacy_routine_group_label",
   "legacy_routine_display_label",
 ] as const;
+const RETIRED_VARIANT_COLUMNS = ["position"] as const;
+const RETIRED_MEDIA_COLUMNS = ["media_kind"] as const;
+
+const UNIQUE_RETIRED_FIELDS = RETIRED_PRODUCT_COLUMNS.filter(
+  (field) =>
+    ![
+      "name",
+      "tagline",
+      "collection",
+      "blurb",
+      "description",
+      "how_to_use",
+      "position",
+      "subtitle",
+      "descriptor",
+    ].includes(field),
+);
 
 describe("canonical catalog source contract", () => {
   it("keeps runtime queries and mappers free of unambiguous Phase 2 fields", () => {
@@ -44,8 +65,8 @@ describe("canonical catalog source contract", () => {
         /\.select\(\s*["']\*["']\s*\)/,
       );
       for (const field of [
-        ...UNIQUE_LEGACY_FIELDS,
-        ...PHASE_TWO_MEDIA_DROP_COLUMNS,
+        ...UNIQUE_RETIRED_FIELDS,
+        ...RETIRED_MEDIA_COLUMNS,
       ]) {
         expect(contents, `${path} references ${field}`).not.toMatch(
           new RegExp(`\\b${field}\\b`),
@@ -60,7 +81,7 @@ describe("canonical catalog source contract", () => {
       source("lib/catalog/models.ts"),
     ].join("\n");
 
-    for (const field of PHASE_TWO_PRODUCT_DROP_COLUMNS.filter(
+    for (const field of RETIRED_PRODUCT_COLUMNS.filter(
       (candidate) => candidate !== "description",
     )) {
       expect(modelSource, `domain model exposes ${field}`).not.toMatch(
@@ -83,9 +104,9 @@ describe("canonical catalog source contract", () => {
     ].join("\n");
 
     for (const field of [
-      ...PHASE_TWO_PRODUCT_DROP_COLUMNS,
-      ...PHASE_TWO_VARIANT_DROP_COLUMNS,
-      ...PHASE_TWO_MEDIA_DROP_COLUMNS,
+      ...RETIRED_PRODUCT_COLUMNS,
+      ...RETIRED_VARIANT_COLUMNS,
+      ...RETIRED_MEDIA_COLUMNS,
     ]) {
       expect(writerSections, `import payload writes ${field}`).not.toMatch(
         new RegExp(`(?:^|\\n)\\s*${field}\\s*:`, "m"),

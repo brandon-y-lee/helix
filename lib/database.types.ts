@@ -222,39 +222,6 @@ export type Database = {
           },
         ]
       }
-      collections: {
-        Row: {
-          created_at: string
-          description: string | null
-          id: string
-          is_active: boolean
-          name: string
-          slug: string
-          sort_order: number
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          description?: string | null
-          id?: string
-          is_active?: boolean
-          name: string
-          slug: string
-          sort_order?: number
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          description?: string | null
-          id?: string
-          is_active?: boolean
-          name?: string
-          slug?: string
-          sort_order?: number
-          updated_at?: string
-        }
-        Relationships: []
-      }
       loyalty_accounts: {
         Row: {
           created_at: string
@@ -715,7 +682,6 @@ export type Database = {
           created_at: string
           height: number | null
           id: string
-          media_kind: string | null
           media_type: string
           original_source_url: string | null
           palette_id: string | null
@@ -735,7 +701,6 @@ export type Database = {
           created_at?: string
           height?: number | null
           id?: string
-          media_kind?: string | null
           media_type?: string
           original_source_url?: string | null
           palette_id?: string | null
@@ -755,7 +720,6 @@ export type Database = {
           created_at?: string
           height?: number | null
           id?: string
-          media_kind?: string | null
           media_type?: string
           original_source_url?: string | null
           palette_id?: string | null
@@ -950,7 +914,6 @@ export type Database = {
           label: string
           option_values: Json
           pack_count: number | null
-          position: number | null
           price_cents: number
           product_id: string
           sku: string | null
@@ -969,7 +932,6 @@ export type Database = {
           label: string
           option_values?: Json
           pack_count?: number | null
-          position?: number | null
           price_cents: number
           product_id: string
           sku?: string | null
@@ -988,7 +950,6 @@ export type Database = {
           label?: string
           option_values?: Json
           pack_count?: number | null
-          position?: number | null
           price_cents?: number
           product_id?: string
           sku?: string | null
@@ -1010,46 +971,29 @@ export type Database = {
       }
       products: {
         Row: {
-          action_name: string | null
           badge: string | null
           benefits: string[]
-          blurb: string | null
           card_tagline: string
           catalog_status: string
           cautions: string[]
-          collection: string | null
           concerns: string[]
           created_at: string
           currency: string
-          description: string | null
-          descriptor: string | null
           display_name: string
           editorial_description: string
           editorial_how_to_use: string
-          featured_rank: number | null
           finish: string | null
           formal_title: string
           formula_notes: string[]
           good_for: string | null
-          how_to_use: string | null
           id: string
           ingredients: string | null
           key_ingredients: string[]
-          legacy_routine_display_label: string | null
-          legacy_routine_group_label: string | null
           made_for: string | null
-          name: string | null
-          position: number | null
-          product_details: Json
           product_type: string
           published_at: string
-          routine_display_label: string | null
           routine_group: string
-          routine_group_label: string | null
-          routine_number: string | null
-          routine_order: number | null
           routine_sort: number
-          routine_step: string | null
           routine_step_name: string | null
           routine_step_number: number | null
           search_keywords: string[]
@@ -1059,56 +1003,37 @@ export type Database = {
           slug: string
           sort_order: number
           status: string
-          subtitle: string | null
           swatch_from: string
           swatch_to: string
-          tagline: string | null
           texture: string | null
           updated_at: string
           usage_time: string[]
           volume: string | null
         }
         Insert: {
-          action_name?: string | null
           badge?: string | null
           benefits?: string[]
-          blurb?: string | null
           card_tagline: string
           catalog_status?: string
           cautions?: string[]
-          collection?: string | null
           concerns?: string[]
           created_at?: string
           currency?: string
-          description?: string | null
-          descriptor?: string | null
           display_name: string
           editorial_description: string
           editorial_how_to_use: string
-          featured_rank?: number | null
           finish?: string | null
           formal_title: string
           formula_notes?: string[]
           good_for?: string | null
-          how_to_use?: string | null
           id?: string
           ingredients?: string | null
           key_ingredients?: string[]
-          legacy_routine_display_label?: string | null
-          legacy_routine_group_label?: string | null
           made_for?: string | null
-          name?: string | null
-          position?: number | null
-          product_details?: Json
           product_type: string
           published_at?: string
-          routine_display_label?: string | null
           routine_group: string
-          routine_group_label?: string | null
-          routine_number?: string | null
-          routine_order?: number | null
           routine_sort: number
-          routine_step?: string | null
           routine_step_name?: string | null
           routine_step_number?: number | null
           search_keywords?: string[]
@@ -1118,56 +1043,37 @@ export type Database = {
           slug: string
           sort_order: number
           status?: string
-          subtitle?: string | null
           swatch_from: string
           swatch_to: string
-          tagline?: string | null
           texture?: string | null
           updated_at?: string
           usage_time?: string[]
           volume?: string | null
         }
         Update: {
-          action_name?: string | null
           badge?: string | null
           benefits?: string[]
-          blurb?: string | null
           card_tagline?: string
           catalog_status?: string
           cautions?: string[]
-          collection?: string | null
           concerns?: string[]
           created_at?: string
           currency?: string
-          description?: string | null
-          descriptor?: string | null
           display_name?: string
           editorial_description?: string
           editorial_how_to_use?: string
-          featured_rank?: number | null
           finish?: string | null
           formal_title?: string
           formula_notes?: string[]
           good_for?: string | null
-          how_to_use?: string | null
           id?: string
           ingredients?: string | null
           key_ingredients?: string[]
-          legacy_routine_display_label?: string | null
-          legacy_routine_group_label?: string | null
           made_for?: string | null
-          name?: string | null
-          position?: number | null
-          product_details?: Json
           product_type?: string
           published_at?: string
-          routine_display_label?: string | null
           routine_group?: string
-          routine_group_label?: string | null
-          routine_number?: string | null
-          routine_order?: number | null
           routine_sort?: number
-          routine_step?: string | null
           routine_step_name?: string | null
           routine_step_number?: number | null
           search_keywords?: string[]
@@ -1177,10 +1083,8 @@ export type Database = {
           slug?: string
           sort_order?: number
           status?: string
-          subtitle?: string | null
           swatch_from?: string
           swatch_to?: string
-          tagline?: string | null
           texture?: string | null
           updated_at?: string
           usage_time?: string[]

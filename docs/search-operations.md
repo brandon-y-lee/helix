@@ -101,11 +101,10 @@ configuration. The secret is present only in the authenticated request and
 database trigger arguments; reports contain header names and match results,
 never header values or provider response bodies that could echo SQL.
 
-The approved project was inspected read-only on 2026-07-29. It had no Database
-Webhook triggers, `pg_net` was not enabled, and
-`supabase_functions.http_request` was unavailable. Only the ordinary
-`updated_at` triggers existed on the four catalog tables. No remote apply was
-performed as part of the provisioning implementation.
+The approved project was verified on 2026-07-30 with the four managed Database
+Webhook triggers enabled on the canonical catalog tables. Use `plan` and
+`verify` to detect provider-state drift; do not represent provider-owned
+webhook configuration in an application migration.
 
 Use a stable, non-production Vercel deployment URL. Do not use an ephemeral
 preview URL that will disappear, and do not point a production database at a
@@ -156,6 +155,6 @@ the affected granular tags and paths. Redis/Upstash is intentionally deferred:
 the Vercel cache already prevents repeat Supabase reads for this catalog, and
 no PII or mutable session data enters these public cache entries.
 
-No Supabase schema change is required. Collections remain the existing
-`products.collection` field; no collection/category relationship tables exist
-in the current development schema.
+Collection-shaped cache domains and tags are derived from canonical
+`products.routine_group`; there is no `products.collection` column or
+collection/category relationship table in the final catalog schema.

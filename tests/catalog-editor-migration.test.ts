@@ -30,6 +30,13 @@ const canonicalLintMigration = readFileSync(
   ),
   "utf8",
 );
+const phaseTwoMigration = readFileSync(
+  resolve(
+    process.cwd(),
+    "supabase/migrations/20260730125644_prune_legacy_catalog_schema.sql",
+  ),
+  "utf8",
+);
 
 describe("catalog editor database boundary", () => {
   it("keeps editor tables browser-inaccessible and history append-only", () => {
@@ -122,6 +129,85 @@ describe("catalog editor database boundary", () => {
       "private.catalog_editor_upgrade_v1_to_v2(jsonb) stable",
     );
     expect(canonicalLintMigration).not.toMatch(/\bdrop\s+(table|column)\b/i);
+  });
+
+  it("prunes only the audited catalog schema after canonical preconditions", () => {
+    expect(phaseTwoMigration).toContain(
+      "raise exception 'Phase 2 requires complete canonical product fields'",
+    );
+    expect(phaseTwoMigration).toContain(
+      "raise exception 'Phase 2 cannot run with an active V1 catalog draft'",
+    );
+    expect(phaseTwoMigration).toContain(
+      "not (s.raw_source ? 'catalogProduct')",
+    );
+    expect(phaseTwoMigration).toContain(
+      "drop function private.catalog_editor_document_v1(uuid)",
+    );
+    expect(phaseTwoMigration).not.toMatch(/\bcascade\b/i);
+
+    for (const column of [
+      "name",
+      "tagline",
+      "collection",
+      "blurb",
+      "description",
+      "how_to_use",
+      "position",
+      "action_name",
+      "routine_number",
+      "subtitle",
+      "descriptor",
+      "featured_rank",
+      "product_details",
+      "routine_step",
+      "routine_order",
+      "routine_group_label",
+      "routine_display_label",
+      "legacy_routine_group_label",
+      "legacy_routine_display_label",
+    ]) {
+      expect(phaseTwoMigration).toContain(`drop column ${column}`);
+    }
+
+    expect(phaseTwoMigration).toContain(
+      "drop column media_kind",
+    );
+    expect(phaseTwoMigration).toContain(
+      "create index product_variants_active_product_idx",
+    );
+    expect(phaseTwoMigration).toContain(
+      "create index products_catalog_status_sort_idx",
+    );
+    expect(phaseTwoMigration).toContain(
+      "create index products_routine_sort_idx",
+    );
+  });
+
+  it("keeps historical restore while making current editor documents schema-only", () => {
+    expect(canonicalMigration).toContain(
+      "private.catalog_editor_upgrade_v1_to_v2",
+    );
+    expect(phaseTwoMigration).not.toContain(
+      "drop function private.catalog_editor_upgrade_v1_to_v2",
+    );
+    const v2Builder = phaseTwoMigration.slice(
+      phaseTwoMigration.indexOf(
+        "create or replace function private.catalog_editor_document_v2",
+      ),
+      phaseTwoMigration.indexOf(
+        "revoke all on function private.catalog_editor_document_v2",
+      ),
+    );
+    expect(v2Builder).not.toContain("media_kind");
+    expect(v2Builder).not.toContain("'position'");
+    expect(phaseTwoMigration).toContain(
+      "alter function public.publish_catalog_product_draft",
+    );
+    expect(phaseTwoMigration).toContain("set search_path = ''");
+    expect(phaseTwoMigration).toContain(
+      "to service_role",
+    );
   });
 
   it("bootstraps verified memberships and audit records atomically", () => {

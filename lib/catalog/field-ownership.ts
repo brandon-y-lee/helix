@@ -298,28 +298,3 @@ export function getCatalogFieldOwnership(
 export function getCatalogEditorFieldPolicy(table: string, field: string) {
   return getCatalogFieldOwnership(table, field)?.editor;
 }
-
-export const PHASE_TWO_PRODUCT_DROP_COLUMNS = [
-  "name",
-  "tagline",
-  "collection",
-  "blurb",
-  "description",
-  "how_to_use",
-  "position",
-  "action_name",
-  "routine_number",
-  "subtitle",
-  "descriptor",
-  "featured_rank",
-  "product_details",
-  "routine_step",
-  "routine_order",
-  "routine_group_label",
-  "routine_display_label",
-  "legacy_routine_group_label",
-  "legacy_routine_display_label",
-] as const;
-
-export const PHASE_TWO_VARIANT_DROP_COLUMNS = ["position"] as const;
-export const PHASE_TWO_MEDIA_DROP_COLUMNS = ["media_kind"] as const;
