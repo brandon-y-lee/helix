@@ -4,6 +4,9 @@
 // "catalog"/"seed_catalog" migrations) — there is no static product list here.
 
 import type { ProductPdpContent } from "@/lib/catalog/product-content";
+import type { ProductMediaRole } from "@/lib/catalog/media-roles";
+
+export type { ProductMediaRole } from "@/lib/catalog/media-roles";
 
 export type Variant = {
   id: string;
@@ -26,23 +29,6 @@ export type ProductStatus = "available" | "coming_soon" | "sold_out";
 export type CatalogStatus = "active" | "draft" | "archived";
 
 export type CommerceRoutineGroup = "core" | "beyond_core";
-
-export type ProductMediaRole =
-  | "card"
-  | "hero"
-  | "gallery"
-  | "detail"
-  | "card_default"
-  | "card_hover"
-  | "cart"
-  | "search"
-  | "routine_video"
-  | "routine_video_poster"
-  | "profile_editorial"
-  | "ingredients_texture"
-  | "core_routine_texture"
-  | "pdp_outcome"
-  | "pdp_application";
 
 export type PlaceholderPalette = {
   start: string;

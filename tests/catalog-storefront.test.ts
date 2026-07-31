@@ -223,6 +223,9 @@ describe("storefront catalog projections", () => {
     expect(calls.find((call) => call.method === "in")?.args[1]).toContain(
       "profile_editorial",
     );
+    expect(calls.find((call) => call.method === "in")?.args[1]).not.toContain(
+      "core_routine_editorial",
+    );
   });
 
   it("queries exactly CLEANSE, TREAT, and SEAL for the ordered Core summaries", async () => {
@@ -237,6 +240,7 @@ describe("storefront catalog projections", () => {
         product_media: [
           media("card_default"),
           media("core_routine_texture", 24),
+          ...(index === 1 ? [media("core_routine_editorial", 1)] : []),
         ],
       }),
     );
@@ -249,6 +253,11 @@ describe("storefront catalog projections", () => {
       CORE_ROUTINE_PRODUCT_SLUGS,
     );
     expect(summaries.every((item) => item.textureMedia.role === "core_routine_texture")).toBe(true);
+    expect(summaries.map((item) => item.editorialMedia?.role ?? null)).toEqual([
+      null,
+      "core_routine_editorial",
+      null,
+    ]);
     expect(calls).toContainEqual({
       method: "in",
       args: ["slug", [...CORE_ROUTINE_PRODUCT_SLUGS]],
@@ -256,6 +265,21 @@ describe("storefront catalog projections", () => {
     expect(calls).toContainEqual({
       method: "limit",
       args: [3],
+    });
+    expect(calls).toContainEqual({
+      method: "in",
+      args: [
+        "product_media.role",
+        [
+          "card_default",
+          "card",
+          "detail",
+          "hero",
+          "cart",
+          "core_routine_texture",
+          "core_routine_editorial",
+        ],
+      ],
     });
   });
 

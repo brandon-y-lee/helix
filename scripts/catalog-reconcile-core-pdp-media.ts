@@ -15,6 +15,7 @@ const EDITORIAL_ROLES = [
   "profile_editorial",
   "ingredients_texture",
   "core_routine_texture",
+  "core_routine_editorial",
   "pdp_outcome",
   "pdp_application",
 ] as const;

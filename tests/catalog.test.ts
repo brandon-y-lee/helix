@@ -206,6 +206,15 @@ describe("catalog data access (Supabase-backed)", () => {
               },
               {
                 media_type: "image",
+                url: "https://example.supabase.co/core-routine-editorial.webp",
+                alt: "Core routine editorial",
+                width: 1200,
+                height: 1500,
+                role: "core_routine_editorial",
+                sort_order: 1,
+              },
+              {
+                media_type: "image",
                 url: "https://example.supabase.co/outcome-02.webp",
                 alt: "Outcome visual two",
                 width: 1254,
@@ -252,6 +261,14 @@ describe("catalog data access (Supabase-backed)", () => {
       expect.objectContaining({
         kind: "image",
         url: "https://example.supabase.co/core-routine-texture.webp",
+      }),
+    );
+    expect(
+      product.media.find((media) => media.role === "core_routine_editorial"),
+    ).toEqual(
+      expect.objectContaining({
+        kind: "image",
+        url: "https://example.supabase.co/core-routine-editorial.webp",
       }),
     );
     expect(

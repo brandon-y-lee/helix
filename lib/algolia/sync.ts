@@ -27,6 +27,7 @@ const EDITORIAL_MEDIA_ROLES = new Set([
   "profile_editorial",
   "ingredients_texture",
   "core_routine_texture",
+  "core_routine_editorial",
   "pdp_outcome",
   "pdp_application",
 ]);

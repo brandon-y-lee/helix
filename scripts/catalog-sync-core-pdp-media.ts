@@ -22,6 +22,7 @@ export const CORE_PDP_MEDIA_ROLES = [
   "profile_editorial",
   "ingredients_texture",
   "core_routine_texture",
+  "core_routine_editorial",
 ] as const;
 
 type CorePdpMediaRole = (typeof CORE_PDP_MEDIA_ROLES)[number];
@@ -34,10 +35,11 @@ export type CorePdpMediaAsset = {
   mediaType: CorePdpMediaType;
   contentType: "image/webp" | "video/mp4";
   alt: string;
-  width: number;
-  height: number;
+  width: number | null;
+  height: number | null;
   sortOrder: number;
   durationSeconds: number | null;
+  optionalSource?: boolean;
 };
 
 export const CORE_PDP_MEDIA_ASSETS: readonly CorePdpMediaAsset[] = [
@@ -102,6 +104,19 @@ export const CORE_PDP_MEDIA_ASSETS: readonly CorePdpMediaAsset[] = [
     durationSeconds: null,
   },
   {
+    slug: "cleanse-01-calming-gel-cleanser",
+    filename: "cleanse-pdp-core-routine-editorial-01.webp",
+    role: "core_routine_editorial",
+    mediaType: "image",
+    contentType: "image/webp",
+    alt: "CLEANSE supporting routine editorial image.",
+    width: null,
+    height: null,
+    sortOrder: 1,
+    durationSeconds: null,
+    optionalSource: true,
+  },
+  {
     slug: "treat-03-pdrn-5-ampoule",
     filename: "treat-pdp-routine-source.mp4",
     role: "routine_video",
@@ -160,6 +175,19 @@ export const CORE_PDP_MEDIA_ASSETS: readonly CorePdpMediaAsset[] = [
     height: 1024,
     sortOrder: 24,
     durationSeconds: null,
+  },
+  {
+    slug: "treat-03-pdrn-5-ampoule",
+    filename: "treat-pdp-core-routine-editorial-01.webp",
+    role: "core_routine_editorial",
+    mediaType: "image",
+    contentType: "image/webp",
+    alt: "TREAT supporting routine editorial image.",
+    width: null,
+    height: null,
+    sortOrder: 1,
+    durationSeconds: null,
+    optionalSource: true,
   },
   {
     slug: "seal-05-green-collagen-cream",
@@ -221,12 +249,26 @@ export const CORE_PDP_MEDIA_ASSETS: readonly CorePdpMediaAsset[] = [
     sortOrder: 24,
     durationSeconds: null,
   },
+  {
+    slug: "seal-05-green-collagen-cream",
+    filename: "seal-pdp-core-routine-editorial-01.webp",
+    role: "core_routine_editorial",
+    mediaType: "image",
+    contentType: "image/webp",
+    alt: "SEAL supporting routine editorial image.",
+    width: null,
+    height: null,
+    sortOrder: 1,
+    durationSeconds: null,
+    optionalSource: true,
+  },
 ] as const;
 
 type ProductRow = {
   id: string;
   slug: string;
   display_name: string | null;
+  routine_group: string;
 };
 
 type MediaRow = {
@@ -254,7 +296,9 @@ type StorageObjectRow = {
   updated_at: string | null;
 };
 
-type InspectedAsset = CorePdpMediaAsset & {
+type InspectedAsset = Omit<CorePdpMediaAsset, "width" | "height"> & {
+  width: number;
+  height: number;
   absolutePath: string;
   sha256: string;
   storagePath: string;
@@ -296,6 +340,8 @@ export type CorePdpMediaSyncReport = {
     storagePath: string;
     publicUrl: string;
   }>;
+  missingInputs: string[];
+  retainedCanonicalInputs: string[];
   objectsUploaded: number;
   objectsPlanned: number;
   objectsVerified: number;
@@ -304,6 +350,15 @@ export type CorePdpMediaSyncReport = {
   rowsUnchanged: number;
   rowsVerified: number;
 };
+
+export class MissingCorePdpMediaSourceError extends Error {
+  constructor(path: string) {
+    super(
+      `[core-pdp-media-sync] Cannot read required source "${path}": file not found`,
+    );
+    this.name = "MissingCorePdpMediaSourceError";
+  }
+}
 
 function requiredEnv(name: string): string {
   const value = process.env[name];
@@ -359,7 +414,30 @@ function storageDirectory(role: CorePdpMediaRole): string {
   if (role === "profile_editorial") return "profile";
   if (role === "ingredients_texture") return "ingredients-texture";
   if (role === "core_routine_texture") return "core-routine-texture";
+  if (role === "core_routine_editorial") return "core-routine-editorial";
   return "routine";
+}
+
+const CORE_PRODUCT_PREFIXES: Record<string, string> = {
+  "cleanse-01-calming-gel-cleanser": "cleanse",
+  "treat-03-pdrn-5-ampoule": "treat",
+  "seal-05-green-collagen-cream": "seal",
+};
+
+export function assertCorePdpAssetFilename(asset: CorePdpMediaAsset): void {
+  if (asset.role !== "core_routine_editorial") return;
+  const match = asset.filename.match(
+    /^(cleanse|treat|seal)-pdp-core-routine-editorial-(\d{2})[.]webp$/,
+  );
+  if (
+    !match ||
+    match[1] !== CORE_PRODUCT_PREFIXES[asset.slug] ||
+    match[2] !== "01"
+  ) {
+    throw new Error(
+      `[core-pdp-media-sync] Invalid Core routine editorial basename "${asset.filename}" for ${asset.slug}.`,
+    );
+  }
 }
 
 export function storagePathForCorePdpAsset(
@@ -379,11 +457,22 @@ export async function inspectCorePdpAsset(
   asset: CorePdpMediaAsset,
   assetDirectory = DEFAULT_ASSET_DIR,
 ): Promise<InspectedAsset> {
+  assertCorePdpAssetFilename(asset);
   const absolutePath = resolve(assetDirectory, asset.filename);
+  let width = asset.width;
+  let height = asset.height;
   let bytes: Buffer;
   try {
     bytes = await readFile(absolutePath);
   } catch (error) {
+    if (
+      error &&
+      typeof error === "object" &&
+      "code" in error &&
+      error.code === "ENOENT"
+    ) {
+      throw new MissingCorePdpMediaSourceError(absolutePath);
+    }
     const detail = error instanceof Error ? error.message : "unknown read error";
     throw new Error(
       `[core-pdp-media-sync] Cannot read required source "${absolutePath}": ${detail}`,
@@ -395,20 +484,30 @@ export async function inspectCorePdpAsset(
   } else {
     const dimensions = readWebpDimensions(bytes);
     if (
-      dimensions.width !== asset.width ||
-      dimensions.height !== asset.height
+      (asset.width !== null && dimensions.width !== asset.width) ||
+      (asset.height !== null && dimensions.height !== asset.height)
     ) {
       throw new Error(
         `[core-pdp-media-sync] ${asset.filename} is ${dimensions.width}x${dimensions.height}; ` +
-          `expected ${asset.width}x${asset.height}.`,
+          `expected ${asset.width ?? "measured"}x${asset.height ?? "measured"}.`,
       );
     }
+    width = dimensions.width;
+    height = dimensions.height;
+  }
+
+  if (!width || !height || width <= 0 || height <= 0) {
+    throw new Error(
+      `[core-pdp-media-sync] ${asset.filename} is missing positive intrinsic dimensions.`,
+    );
   }
 
   const checksum = sha256(bytes);
   const storagePath = storagePathForCorePdpAsset(asset, checksum);
   return {
     ...asset,
+    width,
+    height,
     absolutePath,
     sha256: checksum,
     storagePath,
@@ -420,13 +519,45 @@ export async function inspectCorePdpAsset(
   };
 }
 
+export async function inspectConfiguredCorePdpAssets(
+  assetDirectory = DEFAULT_ASSET_DIR,
+  configuredAssets: readonly CorePdpMediaAsset[] = CORE_PDP_MEDIA_ASSETS,
+  satisfiedInputs: ReadonlySet<string> = new Set(),
+): Promise<{
+  assets: InspectedAsset[];
+  missingInputs: string[];
+  retainedCanonicalInputs: string[];
+}> {
+  const assets: InspectedAsset[] = [];
+  const missingInputs: string[] = [];
+  const retainedCanonicalInputs: string[] = [];
+  for (const asset of configuredAssets) {
+    try {
+      assets.push(await inspectCorePdpAsset(asset, assetDirectory));
+    } catch (error) {
+      if (error instanceof MissingCorePdpMediaSourceError) {
+        if (satisfiedInputs.has(`${asset.slug}:${asset.role}`)) {
+          retainedCanonicalInputs.push(asset.filename);
+          continue;
+        }
+        if (asset.optionalSource) {
+          missingInputs.push(asset.filename);
+          continue;
+        }
+      }
+      throw error;
+    }
+  }
+  return { assets, missingInputs, retainedCanonicalInputs };
+}
+
 async function readProducts(
   supabase: SupabaseClient,
 ): Promise<Map<string, ProductRow>> {
   const slugs = [...new Set(CORE_PDP_MEDIA_ASSETS.map((asset) => asset.slug))];
   const { data, error } = await supabase
     .from("products")
-    .select("id, slug, display_name")
+    .select("id, slug, display_name, routine_group")
     .in("slug", slugs);
 
   if (error) {
@@ -444,6 +575,16 @@ async function readProducts(
       );
     }
   }
+  for (const asset of CORE_PDP_MEDIA_ASSETS) {
+    if (
+      asset.role === "core_routine_editorial" &&
+      products.get(asset.slug)?.routine_group !== "core"
+    ) {
+      throw new Error(
+        `[core-pdp-media-sync] ${asset.slug} is not eligible for Core routine editorial media.`,
+      );
+    }
+  }
   return products;
 }
 
@@ -457,6 +598,7 @@ async function readMediaRows(
       "id, product_id, media_type, url, alt, width, height, role, sort_order, palette_id, placeholder_palette, original_source_url, source_filename, updated_at",
     )
     .in("product_id", productIds)
+    .is("archived_at", null)
     .order("product_id", { ascending: true })
     .order("sort_order", { ascending: true });
 
@@ -572,7 +714,10 @@ function plannedRowsForAssets(
       width: asset.width,
       height: asset.height,
       role: asset.role,
-      sort_order: existing[0]?.sort_order ?? asset.sortOrder,
+      sort_order:
+        asset.role === "core_routine_editorial"
+          ? 1
+          : existing[0]?.sort_order ?? asset.sortOrder,
       palette_id: null,
       placeholder_palette: {},
       original_source_url: null,
@@ -684,6 +829,44 @@ function rowMatchesPlan(row: MediaRow, planned: PlannedRow): boolean {
   );
 }
 
+async function upsertChangedMediaRows(
+  supabase: SupabaseClient,
+  plannedRows: PlannedRow[],
+  existingRows: MediaRow[],
+): Promise<number> {
+  for (const planned of plannedRows) {
+    const existing = existingRows.find(
+      (row) =>
+        row.product_id === planned.product_id && row.role === planned.role,
+    );
+    if (existing) {
+      const { data, error } = await supabase
+        .from("product_media")
+        .update(planned)
+        .eq("id", existing.id)
+        .is("archived_at", null)
+        .select("id")
+        .maybeSingle();
+      if (error || !data) {
+        throw new Error(
+          `[core-pdp-media-sync] Failed to update ${planned.role} (${planned.product_id}): ${
+            error?.message ?? "active row not found"
+          }`,
+        );
+      }
+      continue;
+    }
+
+    const { error } = await supabase.from("product_media").insert(planned);
+    if (error) {
+      throw new Error(
+        `[core-pdp-media-sync] Failed to insert ${planned.role} (${planned.product_id}): ${error.message}`,
+      );
+    }
+  }
+  return plannedRows.length;
+}
+
 export async function runCorePdpMediaSync({
   apply = false,
   assetDirectory = DEFAULT_ASSET_DIR,
@@ -693,14 +876,24 @@ export async function runCorePdpMediaSync({
 } = {}): Promise<CorePdpMediaSyncReport> {
   verifyProjectRef();
   const supabase = createSupabaseAdminClient();
-  const assets = await Promise.all(
-    CORE_PDP_MEDIA_ASSETS.map((asset) =>
-      inspectCorePdpAsset(asset, assetDirectory),
-    ),
-  );
   const products = await readProducts(supabase);
   const productIds = [...products.values()].map((product) => product.id);
   const beforeRows = await readMediaRows(supabase, productIds);
+  const slugsByProductId = new Map(
+    [...products.values()].map((product) => [product.id, product.slug]),
+  );
+  const satisfiedInputs = new Set(
+    beforeRows
+      .map(
+        (row) => `${slugsByProductId.get(row.product_id) ?? ""}:${row.role}`,
+      ),
+  );
+  const { assets, missingInputs, retainedCanonicalInputs } =
+    await inspectConfiguredCorePdpAssets(
+      assetDirectory,
+      CORE_PDP_MEDIA_ASSETS,
+      satisfiedInputs,
+    );
   const plannedRows = plannedRowsForAssets(
     assets,
     products,
@@ -738,6 +931,8 @@ export async function runCorePdpMediaSync({
       storagePath: asset.storagePath,
       publicUrl: asset.publicUrl,
     })),
+    missingInputs,
+    retainedCanonicalInputs,
     objectsUploaded: 0,
     objectsPlanned: assetsToUpload.length,
     objectsVerified: 0,
@@ -764,15 +959,11 @@ export async function runCorePdpMediaSync({
   }
 
   if (rowsToSubmit.length > 0) {
-    const { error } = await supabase.from("product_media").upsert(rowsToSubmit, {
-      onConflict: "product_id,role,sort_order",
-    });
-    if (error) {
-      throw new Error(
-        `[core-pdp-media-sync] Failed to upsert media rows: ${error.message}`,
-      );
-    }
-    report.rowsSubmitted = rowsToSubmit.length;
+    report.rowsSubmitted = await upsertChangedMediaRows(
+      supabase,
+      rowsToSubmit,
+      beforeRows,
+    );
   }
 
   const afterRows = await readMediaRows(supabase, productIds);

@@ -277,6 +277,7 @@ describe("ProductDetail purchase accordions", () => {
         paletteId: null,
         palette: null,
       },
+      editorialMedia: null,
     }));
     const { container } = render(
       <ProductDetail

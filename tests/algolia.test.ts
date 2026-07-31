@@ -220,6 +220,12 @@ describe("buildAlgoliaRecord", () => {
           role: "core_routine_texture",
           sort_order: -7,
         },
+        {
+          ...searchImage,
+          url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/mei-pelle-catalog/products/northpoint/core-routine-editorial.webp",
+          role: "core_routine_editorial",
+          sort_order: -8,
+        },
         searchImage,
       ],
     });
@@ -464,6 +470,7 @@ describe("applyCatalogWebhookEvent", () => {
     "routine_video",
     "ingredients_texture",
     "core_routine_texture",
+    "core_routine_editorial",
     "pdp_outcome",
     "pdp_application",
   ])(
@@ -783,18 +790,20 @@ describe("catalog cache invalidation", () => {
     });
   });
 
-  it("invalidates the shared routine cache and all three Core PDPs for its texture role", () => {
+  it.each(["core_routine_texture", "core_routine_editorial"])(
+    "invalidates the shared routine cache and all three Core PDPs for %s",
+    (role) => {
     const targets = getCatalogInvalidationTargets(
       {
         type: "UPDATE",
         table: "product_media",
         record: {
           product_id: sourceRow.id,
-          role: "core_routine_texture",
+          role,
         },
         old_record: {
           product_id: sourceRow.id,
-          role: "core_routine_texture",
+          role,
         },
       },
       {
@@ -822,7 +831,8 @@ describe("catalog cache invalidation", () => {
     );
     expect(targets.tags).not.toContain("catalog-product-card");
     expect(targets.paths).not.toContain("/products");
-  });
+    },
+  );
 
   it("invalidates all three Core PDPs when shared product metadata changes", () => {
     const targets = getCatalogInvalidationTargets(

@@ -37,6 +37,13 @@ const phaseTwoMigration = readFileSync(
   ),
   "utf8",
 );
+const coreRoutineEditorialMigration = readFileSync(
+  resolve(
+    process.cwd(),
+    "supabase/migrations/20260731104919_add_core_routine_editorial_media_role.sql",
+  ),
+  "utf8",
+);
 
 describe("catalog editor database boundary", () => {
   it("keeps editor tables browser-inaccessible and history append-only", () => {
@@ -225,5 +232,34 @@ describe("catalog editor database boundary", () => {
       "from public, anon, authenticated;\ngrant execute",
     );
     expect(bootstrapMigration).toContain("to service_role");
+  });
+
+  it("constrains Core routine editorial media at the database boundary", () => {
+    expect(coreRoutineEditorialMigration).toContain(
+      "'core_routine_editorial'",
+    );
+    expect(coreRoutineEditorialMigration).toContain(
+      "product_media_core_routine_editorial_shape_check",
+    );
+    expect(coreRoutineEditorialMigration).toContain(
+      "media_type = 'image'",
+    );
+    expect(coreRoutineEditorialMigration).toContain("variant_id is null");
+    expect(coreRoutineEditorialMigration).toContain("sort_order = 1");
+    expect(coreRoutineEditorialMigration).toContain(
+      "product_media_core_routine_editorial_role_unique",
+    );
+    expect(coreRoutineEditorialMigration).toContain(
+      "where role = 'core_routine_editorial'\n    and archived_at is null",
+    );
+    expect(coreRoutineEditorialMigration).toContain(
+      "p.routine_group = 'core'",
+    );
+    expect(coreRoutineEditorialMigration).toContain(
+      "security definer\nset search_path = ''",
+    );
+    expect(coreRoutineEditorialMigration).not.toMatch(
+      /update public[.]product_media/i,
+    );
   });
 });

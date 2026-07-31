@@ -183,6 +183,7 @@ const CORE_MEDIA_ROLES = [
   "hero",
   "cart",
   "core_routine_texture",
+  "core_routine_editorial",
 ] as const;
 
 export const PRODUCT_CARD_SELECT =
@@ -274,6 +275,7 @@ function mediaRole(role: string): ProductMedia["role"] {
     case "profile_editorial":
     case "ingredients_texture":
     case "core_routine_texture":
+    case "core_routine_editorial":
     case "pdp_outcome":
     case "pdp_application":
       return role;
@@ -452,7 +454,11 @@ export function mapCoreRoutineRow(
   const textureRows = media.filter(
     (item) => item.role === "core_routine_texture",
   );
+  const editorialRows = media.filter(
+    (item) => item.role === "core_routine_editorial",
+  );
   const textureMedia = textureRows[0];
+  const editorialMedia = editorialRows[0] ?? null;
   if (
     textureRows.length !== 1 ||
     !textureMedia ||
@@ -461,6 +467,13 @@ export function mapCoreRoutineRow(
     !textureMedia.alt.trim() ||
     !textureMedia.width ||
     !textureMedia.height ||
+    editorialRows.length > 1 ||
+    (editorialMedia !== null &&
+      (editorialMedia.kind !== "image" ||
+        !editorialMedia.url ||
+        !editorialMedia.alt.trim() ||
+        !editorialMedia.width ||
+        !editorialMedia.height)) ||
     !row.routine_step_number ||
     !row.routine_step_name ||
     row.routine_sort === null ||
@@ -491,6 +504,7 @@ export function mapCoreRoutineRow(
     routineSort: row.routine_sort,
     swatch,
     textureMedia,
+    editorialMedia,
     cardMedia,
     cartMedia: selectCartMedia(media, cardMedia),
     pdpContent: normalizeProductPdpContent(

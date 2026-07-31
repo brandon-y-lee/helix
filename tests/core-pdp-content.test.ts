@@ -9,6 +9,7 @@ import {
 import { normalizeProductPdpContent } from "@/lib/catalog/product-content";
 import {
   CORE_PDP_MEDIA_ASSETS,
+  inspectConfiguredCorePdpAssets,
   inspectCorePdpAsset,
   storagePathForCorePdpAsset,
 } from "@/scripts/catalog-sync-core-pdp-media";
@@ -176,6 +177,7 @@ describe("Core PDP presentation contract", () => {
         "profile_editorial",
         "ingredients_texture",
         "core_routine_texture",
+        "core_routine_editorial",
       ]);
       expect(assets.map((asset) => asset.filename)).toEqual([
         `${entry.prefix}-pdp-routine-source.mp4`,
@@ -183,6 +185,7 @@ describe("Core PDP presentation contract", () => {
         `${entry.prefix}-pdp-profile-01.webp`,
         `${entry.prefix}-pdp-ingredients-texture-01.webp`,
         `${entry.prefix}-pdp-core-routine-texture-01.webp`,
+        `${entry.prefix}-pdp-core-routine-editorial-01.webp`,
       ]);
       expect(
         assets.every((asset) =>
@@ -201,8 +204,38 @@ describe("Core PDP presentation contract", () => {
       ).toBe(
         `products/${entry.slug}/core-routine-texture/checksum.webp`,
       );
+      expect(
+        storagePathForCorePdpAsset(assets[5], "checksum"),
+      ).toBe(
+        `products/${entry.slug}/core-routine-editorial/checksum.webp`,
+      );
     },
   );
+
+  it("reports the three future editorial inputs deterministically when absent", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "mei-pelle-pdp-editorial-"));
+    temporaryDirectories.push(directory);
+    const editorialAssets = CORE_PDP_MEDIA_ASSETS.filter(
+      (asset) => asset.role === "core_routine_editorial",
+    );
+
+    const first = await inspectConfiguredCorePdpAssets(
+      directory,
+      editorialAssets,
+    );
+    const second = await inspectConfiguredCorePdpAssets(
+      directory,
+      editorialAssets,
+    );
+
+    expect(first).toEqual(second);
+    expect(first.assets).toEqual([]);
+    expect(first.missingInputs).toEqual([
+      "cleanse-pdp-core-routine-editorial-01.webp",
+      "treat-pdp-core-routine-editorial-01.webp",
+      "seal-pdp-core-routine-editorial-01.webp",
+    ]);
+  });
 
   it("fails clearly for a missing required source", async () => {
     const directory = await mkdtemp(join(tmpdir(), "mei-pelle-pdp-missing-"));

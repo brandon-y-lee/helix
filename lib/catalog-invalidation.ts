@@ -104,10 +104,12 @@ function includesAny(
   return [...values].some((value) => candidates.has(value));
 }
 
-function isCoreRoutineTextureEvent(payload: CatalogWebhookPayload): boolean {
+function isCoreRoutineMediaEvent(payload: CatalogWebhookPayload): boolean {
   if (payload.table !== "product_media") return false;
   return [payload.record?.role, payload.old_record?.role].some(
-    (role) => role === "core_routine_texture",
+    (role) =>
+      role === "core_routine_texture" ||
+      role === "core_routine_editorial",
   );
 }
 
@@ -231,7 +233,7 @@ export function getCatalogInvalidationTargets(
   }
 
   const affectsCoreRoutine =
-    isCoreRoutineTextureEvent(payload) ||
+    isCoreRoutineMediaEvent(payload) ||
     (payload.table === "product_pdp_content" &&
       (routineGroup === "core" || oldRoutineGroup === "core")) ||
     (payload.table === "products" &&
@@ -244,7 +246,7 @@ export function getCatalogInvalidationTargets(
     }
   }
 
-  if (mediaEventOnlyAffectsPdp(payload) && !isCoreRoutineTextureEvent(payload)) {
+  if (mediaEventOnlyAffectsPdp(payload) && !isCoreRoutineMediaEvent(payload)) {
     paths.delete("/");
     paths.delete("/system");
   }

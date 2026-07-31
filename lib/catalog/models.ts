@@ -107,6 +107,7 @@ export type CoreRoutineContentSummary = {
   routineSort: number;
   swatch: [string, string];
   textureMedia: ProductMedia;
+  editorialMedia: ProductMedia | null;
   cardMedia: ProductMedia | null;
   cartMedia: ProductMedia | null;
   pdpContent: ProductPdpContent | null;

@@ -187,7 +187,9 @@ describe("catalog search sync route", () => {
     expect(revalidatePathMock).not.toHaveBeenCalledWith("/products");
   });
 
-  it("invalidates the routine tag and every Core PDP for routine texture media", async () => {
+  it.each(["core_routine_texture", "core_routine_editorial"])(
+    "invalidates the routine tag and every Core PDP for shared role %s",
+    async (role) => {
     applyMock.mockResolvedValue({
       action: "noop",
       table: "product_media",
@@ -205,7 +207,7 @@ describe("catalog search sync route", () => {
         record: {
           id: "media-core-routine",
           product_id: "f6091deb-1177-45ad-b506-1f0427fa4abe",
-          role: "core_routine_texture",
+          role,
         },
       }),
     );
@@ -223,7 +225,8 @@ describe("catalog search sync route", () => {
     );
     expect(revalidateTagMock).not.toHaveBeenCalledWith("catalog-product-card");
     expect(revalidatePathMock).not.toHaveBeenCalledWith("/products");
-  });
+    },
+  );
 
   it("invalidates offer state without invalidating editorial content", async () => {
     applyMock.mockResolvedValue({

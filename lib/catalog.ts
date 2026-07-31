@@ -233,6 +233,7 @@ function mediaRole(role: string): ProductMedia["role"] {
     case "profile_editorial":
     case "ingredients_texture":
     case "core_routine_texture":
+    case "core_routine_editorial":
     case "pdp_outcome":
     case "pdp_application":
       return role;
