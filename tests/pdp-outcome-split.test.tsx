@@ -108,6 +108,29 @@ describe("PdpOutcomeSplit", () => {
     expect(activeSlide(container)).toHaveAttribute("data-pdp-outcome-state", "1");
   });
 
+  it("keeps one accessible label and hides both painted text layers", () => {
+    const { container } = render(
+      <PdpOutcomeSplit
+        productName="CLEANSE"
+        heading={presentation.outcomeHeading}
+        options={presentation.outcomeOptions}
+        media={[]}
+      />,
+    );
+
+    const controls = screen.getAllByRole("button");
+    expect(controls[0]).toHaveAccessibleName("cleanses");
+    expect(controls[0].querySelectorAll(":scope > .sr-only")).toHaveLength(1);
+
+    const paintedLabel = controls[0].querySelector(".pdp-ink-option__label");
+    expect(paintedLabel).toHaveAttribute("aria-hidden", "true");
+    expect(
+      paintedLabel?.querySelectorAll(
+        ".pdp-ink-option__outline, .pdp-ink-option__fill",
+      ),
+    ).toHaveLength(2);
+  });
+
   it("does not use visible labels to select media", () => {
     const relabeled = {
       ...presentation,

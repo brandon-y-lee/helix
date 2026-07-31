@@ -4321,13 +4321,28 @@ main:focus {
 }
 
 .pdp-ink-option__fill {
+  --pdp-ink-overflow-top: 0px;
+  --pdp-ink-overflow-bottom: 0px;
   color: var(--ink);
-  clip-path: inset(100% 0 0);
+  clip-path: inset(
+    calc(100% + var(--pdp-ink-overflow-bottom))
+    0
+    calc(-1 * var(--pdp-ink-overflow-bottom))
+  );
   transition: clip-path 1500ms cubic-bezier(0.66, 0, 0.18, 1);
+  will-change: clip-path;
+}
+
+.pdp-ink-option__fill[data-pdp-ink-measuring="true"] {
+  transition: none;
 }
 
 .pdp-ink-option[aria-pressed="true"] .pdp-ink-option__fill {
-  clip-path: inset(0 0 0);
+  clip-path: inset(
+    calc(-1 * var(--pdp-ink-overflow-top))
+    0
+    calc(-1 * var(--pdp-ink-overflow-bottom))
+  );
 }
 
 .pdp-application,
@@ -4847,7 +4862,6 @@ main:focus {
   .pdp-details-routine__buy,
   .pdp-details-routine__steps button,
   .pdp-outcome-split__track,
-  .pdp-ink-option__fill,
   .pdp-application__swatch span,
   .pdp-application__next,
   .pdp-ingredients__story,
@@ -4855,6 +4869,10 @@ main:focus {
   .pdp-ingredients__disclosure-trigger,
   .pdp-ingredients__close {
     transition-duration: 1ms;
+  }
+
+  .pdp-ink-option__fill {
+    transition: none;
   }
 
   .pdp-routine-video__play:hover {

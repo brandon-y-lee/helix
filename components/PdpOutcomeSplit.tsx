@@ -3,6 +3,7 @@
 import Image from "next/image";
 import {
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type CSSProperties,
@@ -43,10 +44,94 @@ export function PdpOutcomeSplit({
 }) {
   const [active, setActive] = useState(0);
   const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const fillRefs = useRef<Array<HTMLSpanElement | null>>([]);
 
   useEffect(() => {
     setActive(0);
   }, [productName]);
+
+  useLayoutEffect(() => {
+    let frame = 0;
+    let transitionFrame = 0;
+    let disposed = false;
+
+    function measureInkOverflow() {
+      const measurements = fillRefs.current.flatMap((fill) => {
+        if (!fill?.isConnected) return [];
+
+        const box = fill.getBoundingClientRect();
+        const range = document.createRange();
+        range.selectNodeContents(fill);
+        if (typeof range.getClientRects !== "function") {
+          range.detach();
+          return [];
+        }
+        const fragments = Array.from(range.getClientRects());
+        range.detach();
+        if (fragments.length === 0) return [];
+
+        return [{
+          fill,
+          top: Math.max(0, box.top - Math.min(...fragments.map((rect) => rect.top))),
+          bottom: Math.max(
+            0,
+            Math.max(...fragments.map((rect) => rect.bottom)) - box.bottom,
+          ),
+        }];
+      });
+
+      for (const measurement of measurements) {
+        measurement.fill.dataset.pdpInkMeasuring = "true";
+        measurement.fill.style.setProperty(
+          "--pdp-ink-overflow-top",
+          `${measurement.top}px`,
+        );
+        measurement.fill.style.setProperty(
+          "--pdp-ink-overflow-bottom",
+          `${measurement.bottom}px`,
+        );
+        measurement.fill.dataset.pdpInkMeasured = "true";
+      }
+
+      cancelAnimationFrame(transitionFrame);
+      transitionFrame = requestAnimationFrame(() => {
+        for (const measurement of measurements) {
+          delete measurement.fill.dataset.pdpInkMeasuring;
+        }
+      });
+    }
+
+    function scheduleMeasurement() {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        if (!disposed) measureInkOverflow();
+      });
+    }
+
+    measureInkOverflow();
+
+    const observer =
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver(scheduleMeasurement);
+    for (const fill of fillRefs.current) {
+      if (fill) observer?.observe(fill);
+    }
+
+    const fonts = document.fonts;
+    void fonts?.ready.then(scheduleMeasurement);
+    fonts?.addEventListener("loadingdone", scheduleMeasurement);
+    window.addEventListener("resize", scheduleMeasurement);
+
+    return () => {
+      disposed = true;
+      cancelAnimationFrame(frame);
+      cancelAnimationFrame(transitionFrame);
+      observer?.disconnect();
+      fonts?.removeEventListener("loadingdone", scheduleMeasurement);
+      window.removeEventListener("resize", scheduleMeasurement);
+    };
+  }, [options]);
 
   function moveSelection(event: KeyboardEvent<HTMLButtonElement>, index: number) {
     const last = options.length - 1;
@@ -153,9 +238,15 @@ export function PdpOutcomeSplit({
               onPointerEnter={() => setActive(index)}
               onKeyDown={(event) => moveSelection(event, index)}
             >
-              <span className="pdp-ink-option__label">
+              <span className="sr-only">{option.label}</span>
+              <span className="pdp-ink-option__label" aria-hidden="true">
                 <span className="pdp-ink-option__outline">{option.label}</span>
-                <span className="pdp-ink-option__fill" aria-hidden="true">
+                <span
+                  ref={(node) => {
+                    fillRefs.current[index] = node;
+                  }}
+                  className="pdp-ink-option__fill"
+                >
                   {option.label}
                 </span>
               </span>
