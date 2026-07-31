@@ -135,6 +135,9 @@ test("PDP resolves canonical data and exposes an available variant", async ({
       exact: true,
     }),
   ).toHaveAttribute("aria-pressed", "true");
+  await expect(
+    page.locator("[data-pdp-application-thumbnail] img"),
+  ).toHaveCount(3);
   expect(clientErrors).toEqual([]);
 });
 

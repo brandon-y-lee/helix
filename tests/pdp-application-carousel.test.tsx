@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   orderedPdpApplicationMedia,
+  PDP_APPLICATION_TRANSITION_DURATION_MS,
   PdpApplicationCarousel,
 } from "@/components/PdpApplicationCarousel";
 import type { CorePdpApplicationStep } from "@/lib/content/core-pdp";
@@ -57,10 +58,27 @@ const productMedia = [
 
 afterEach(() => {
   vi.useRealTimers();
+  vi.unstubAllGlobals();
 });
 
+function mockReducedMotion(matches: boolean) {
+  vi.stubGlobal(
+    "matchMedia",
+    vi.fn((query: string) => ({
+      matches,
+      media: query,
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  );
+}
+
 describe("PdpApplicationCarousel", () => {
-  it("renders all reserved copy states with step 01 selected by default", () => {
+  it("keeps an eyebrow inside every reserved state and exposes only the active copy", () => {
     const { container } = render(
       <PdpApplicationCarousel
         productName="CLEANSE"
@@ -76,6 +94,35 @@ describe("PdpApplicationCarousel", () => {
     expect(
       container.querySelectorAll(".pdp-application__visual-state"),
     ).toHaveLength(3);
+    expect(
+      container.querySelector(
+        ".pdp-application__copy > .pdp-application__eyebrow",
+      ),
+    ).toBeNull();
+    const copyStates = container.querySelectorAll(".pdp-application__step");
+    expect(copyStates).toHaveLength(3);
+    for (const state of copyStates) {
+      expect(
+        state.querySelector(":scope > .pdp-application__eyebrow"),
+      ).toHaveTextContent("APPLICATION");
+      expect(
+        state.querySelector(".pdp-application__step-body > span"),
+      ).not.toBeNull();
+      expect(
+        state.querySelector(".pdp-application__step-body > p"),
+      ).not.toBeNull();
+    }
+    expect(
+      screen.getAllByRole("heading", { name: "APPLICATION" }),
+    ).toHaveLength(1);
+    const section = container.querySelector("[data-pdp-application]");
+    expect(section).toHaveAttribute(
+      "data-transition-duration",
+      String(PDP_APPLICATION_TRANSITION_DURATION_MS),
+    );
+    expect(section).toHaveStyle({
+      "--pdp-application-transition-duration": "900ms",
+    });
     const firstState = container.querySelector(
       '[data-pdp-application-state="1"]',
     );
@@ -86,7 +133,7 @@ describe("PdpApplicationCarousel", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("selects swatches and cycles one right arrow from 01 through 03", () => {
+  it("selects real image previews and keeps copy and main media on the same step", () => {
     const { container } = render(
       <PdpApplicationCarousel
         productName="CLEANSE"
@@ -97,6 +144,17 @@ describe("PdpApplicationCarousel", () => {
     const next = screen.getByRole("button", {
       name: "Show next application step",
     });
+
+    for (const order of [1, 2, 3]) {
+      const thumbnail = container.querySelector(
+        `[data-pdp-application-thumbnail="${order}"]`,
+      );
+      expect(thumbnail).toHaveAttribute("data-has-media", "true");
+      expect(thumbnail?.querySelector("img")).toHaveAttribute(
+        "src",
+        expect.stringContaining(`application-${order}.png`),
+      );
+    }
 
     fireEvent.click(
       screen.getByRole("button", { name: "Show application step 2 of 3" }),
@@ -111,6 +169,14 @@ describe("PdpApplicationCarousel", () => {
         '[data-pdp-application-state="2"]',
       ),
     ).toHaveAttribute("data-state", "active");
+    expect(
+      container.querySelector(
+        '[data-pdp-application-state="2"] [data-pdp-application-main-image="2"]',
+      ),
+    ).toHaveAttribute(
+      "src",
+      expect.stringContaining("application-2.png"),
+    );
 
     fireEvent.click(
       screen.getByRole("button", { name: "Show application step 3 of 3" }),
@@ -135,8 +201,9 @@ describe("PdpApplicationCarousel", () => {
     ).toHaveAttribute("aria-hidden", "false");
   });
 
-  it("does not autoplay and keeps an active visual during transitions", () => {
+  it("does not autoplay and retires synchronized outgoing layers after 900ms", () => {
     vi.useFakeTimers();
+    mockReducedMotion(false);
     const { container } = render(
       <PdpApplicationCarousel
         productName="CLEANSE"
@@ -165,13 +232,32 @@ describe("PdpApplicationCarousel", () => {
         '.pdp-application__visual-state[data-state="outgoing"]',
       ),
     ).toHaveLength(1);
+    expect(
+      container.querySelectorAll(
+        '.pdp-application__step[data-state="outgoing"]',
+      ),
+    ).toHaveLength(1);
 
     act(() => {
-      vi.advanceTimersByTime(560);
+      vi.advanceTimersByTime(899);
     });
     expect(
       container.querySelectorAll(
         '.pdp-application__visual-state[data-state="outgoing"]',
+      ),
+    ).toHaveLength(1);
+
+    act(() => {
+      vi.advanceTimersByTime(1);
+    });
+    expect(
+      container.querySelectorAll(
+        '.pdp-application__visual-state[data-state="outgoing"]',
+      ),
+    ).toHaveLength(0);
+    expect(
+      container.querySelectorAll(
+        '.pdp-application__step[data-state="outgoing"]',
       ),
     ).toHaveLength(0);
   });
@@ -227,5 +313,73 @@ describe("PdpApplicationCarousel", () => {
       second?.querySelector(".pdp-application__shape--one"),
     ).not.toBeNull();
     expect(third).toHaveAttribute("data-has-media", "true");
+    const secondThumbnail = container.querySelector(
+      '[data-pdp-application-thumbnail="2"]',
+    );
+    expect(secondThumbnail).toHaveAttribute("data-has-media", "false");
+    expect(
+      secondThumbnail?.querySelector(".pdp-application__swatch-fallback"),
+    ).not.toBeNull();
+    expect(secondThumbnail?.querySelector("img")).toBeNull();
+  });
+
+  it("resolves rapid input to the latest matching copy and image", () => {
+    vi.useFakeTimers();
+    mockReducedMotion(false);
+    const { container } = render(
+      <PdpApplicationCarousel
+        productName="CLEANSE"
+        steps={steps}
+        media={productMedia}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Show application step 2 of 3" }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Show application step 3 of 3" }),
+    );
+
+    expect(
+      screen.getByText("Third application step.").closest("article"),
+    ).toHaveAttribute("data-state", "active");
+    expect(
+      container.querySelector(
+        '[data-pdp-application-state="3"] [data-pdp-application-main-image="3"]',
+      ),
+    ).toHaveAttribute(
+      "src",
+      expect.stringContaining("application-3.png"),
+    );
+    expect(
+      screen.getByRole("button", { name: "Show application step 3 of 3" }),
+    ).toHaveAttribute("aria-pressed", "true");
+
+    act(() => vi.advanceTimersByTime(900));
+    expect(
+      container.querySelectorAll('[data-state="outgoing"]'),
+    ).toHaveLength(0);
+  });
+
+  it("retires outgoing copy and media immediately for reduced motion", () => {
+    vi.useFakeTimers();
+    mockReducedMotion(true);
+    const { container } = render(
+      <PdpApplicationCarousel
+        productName="CLEANSE"
+        steps={steps}
+        media={productMedia}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Show application step 2 of 3" }),
+    );
+    act(() => vi.advanceTimersByTime(1));
+
+    expect(
+      container.querySelectorAll('[data-state="outgoing"]'),
+    ).toHaveLength(0);
   });
 });

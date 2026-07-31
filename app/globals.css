@@ -4384,43 +4384,45 @@ main:focus {
 
 .pdp-application__swatches {
   grid-column: 1 / -1;
-  display: flex;
-  gap: 10px;
-  align-items: center;
+  width: min(100%, 560px);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(8px, 1.2vw, 16px);
 }
 
 .pdp-application__swatch {
-  width: 46px;
-  height: 46px;
-  display: grid;
-  place-items: center;
-  border: 1px solid transparent;
-  border-radius: 50%;
-  padding: 5px;
-  background: transparent;
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border: 0;
+  border-radius: var(--pdp-panel-radius);
+  padding: 0;
+  background: var(--pdp-application-swatch);
   cursor: pointer;
+  opacity: 0.58;
+  transition: opacity var(--pdp-application-transition-duration)
+    cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.pdp-application__swatch span {
+.pdp-application__swatch-image,
+.pdp-application__swatch-fallback {
   width: 100%;
   height: 100%;
   display: block;
-  border: 1px solid color-mix(in srgb, var(--ink) 28%, transparent);
-  border-radius: 50%;
+}
+
+.pdp-application__swatch-image {
+  object-fit: cover;
+  transform: scale(1.01);
+}
+
+.pdp-application__swatch-fallback {
   background: var(--pdp-application-swatch);
-  opacity: 0.62;
-  transition:
-    opacity 200ms ease,
-    transform 200ms ease;
 }
 
 .pdp-application__swatch[aria-pressed="true"] {
-  border-color: var(--ink);
-}
-
-.pdp-application__swatch[aria-pressed="true"] span {
   opacity: 1;
-  transform: scale(0.82);
 }
 
 .pdp-application__swatch:focus-visible,
@@ -4440,7 +4442,7 @@ main:focus {
 }
 
 .pdp-application__eyebrow {
-  margin: 0 0 28px;
+  margin: 0;
   font-family: var(--font);
   font-size: 0.72rem;
   font-weight: 800;
@@ -4456,15 +4458,22 @@ main:focus {
   grid-area: 1 / 1;
   min-width: 0;
   display: grid;
-  grid-template-columns: 58px minmax(0, 1fr);
-  gap: 18px;
-  align-items: start;
+  grid-template-rows: auto auto;
+  gap: 28px;
+  align-content: end;
   visibility: hidden;
   opacity: 0;
   pointer-events: none;
 }
 
-.pdp-application__step > span {
+.pdp-application__step-body {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.pdp-application__step-body > span {
   padding-top: 0.44em;
   color: var(--ink-soft);
   font-size: 0.88rem;
@@ -4482,15 +4491,17 @@ main:focus {
   z-index: 2;
   visibility: visible;
   pointer-events: auto;
-  animation: pdp-application-copy-in 560ms cubic-bezier(0.22, 1, 0.36, 1)
-    both;
+  animation: pdp-application-copy-in
+    var(--pdp-application-transition-duration)
+    cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .pdp-application__step[data-state="outgoing"] {
   z-index: 1;
   visibility: visible;
-  animation: pdp-application-copy-out 560ms cubic-bezier(0.22, 1, 0.36, 1)
-    both;
+  animation: pdp-application-copy-out
+    var(--pdp-application-transition-duration)
+    cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .pdp-application__next {
@@ -4545,15 +4556,17 @@ main:focus {
 .pdp-application__visual-state[data-state="active"] {
   z-index: 2;
   visibility: visible;
-  animation: pdp-application-visual-in 560ms cubic-bezier(0.22, 1, 0.36, 1)
-    both;
+  animation: pdp-application-visual-in
+    var(--pdp-application-transition-duration)
+    cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .pdp-application__visual-state[data-state="outgoing"] {
   z-index: 1;
   visibility: visible;
-  animation: pdp-application-visual-out 560ms cubic-bezier(0.22, 1, 0.36, 1)
-    both;
+  animation: pdp-application-visual-out
+    var(--pdp-application-transition-duration)
+    cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .pdp-application__shape {
@@ -4862,7 +4875,7 @@ main:focus {
   .pdp-details-routine__buy,
   .pdp-details-routine__steps button,
   .pdp-outcome-split__track,
-  .pdp-application__swatch span,
+  .pdp-application__swatch,
   .pdp-application__next,
   .pdp-ingredients__story,
   .pdp-ingredients__full,
@@ -8252,7 +8265,7 @@ main:focus {
     gap: 18px;
   }
 
-  .pdp-application__step {
+  .pdp-application__step-body {
     grid-template-columns: 44px minmax(0, 1fr);
     gap: 12px;
   }

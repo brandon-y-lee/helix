@@ -11,7 +11,8 @@ import {
 import type { CorePdpApplicationStep } from "@/lib/content/core-pdp";
 import type { ProductMedia } from "@/lib/products";
 
-const TRANSITION_DURATION_MS = 560;
+export const PDP_APPLICATION_TRANSITION_DURATION_MS = 900;
+const REDUCED_MOTION_DURATION_MS = 1;
 
 export function orderedPdpApplicationMedia(
   productMedia: readonly ProductMedia[],
@@ -44,9 +45,16 @@ export function PdpApplicationCarousel({
 }) {
   const [active, setActive] = useState(0);
   const [outgoing, setOutgoing] = useState<number | null>(null);
+  const activeRef = useRef(0);
   const timerRef = useRef<number | null>(null);
+  const applicationMedia = orderedPdpApplicationMedia(media);
 
   useEffect(() => {
+    if (timerRef.current !== null) {
+      window.clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    activeRef.current = 0;
     setActive(0);
     setOutgoing(null);
   }, [productName]);
@@ -61,30 +69,42 @@ export function PdpApplicationCarousel({
   );
 
   function selectStep(next: number) {
-    if (next === active) return;
+    const current = activeRef.current;
+    if (next === current) return;
     if (timerRef.current !== null) {
       window.clearTimeout(timerRef.current);
     }
-    setOutgoing(active);
+    activeRef.current = next;
+    setOutgoing(current);
     setActive(next);
+    const duration = window.matchMedia?.("(prefers-reduced-motion: reduce)")
+      .matches
+      ? REDUCED_MOTION_DURATION_MS
+      : PDP_APPLICATION_TRANSITION_DURATION_MS;
     timerRef.current = window.setTimeout(() => {
       setOutgoing(null);
       timerRef.current = null;
-    }, TRANSITION_DURATION_MS);
+    }, duration);
   }
 
   function showNext() {
-    selectStep((active + 1) % steps.length);
+    selectStep((activeRef.current + 1) % steps.length);
   }
 
   return (
     <section
       ref={rootRef}
       className="pdp-application"
-      aria-labelledby="pdp-application-heading"
+      aria-label={`${productName} application`}
+      data-transition-duration={PDP_APPLICATION_TRANSITION_DURATION_MS}
       data-pdp-panel-row="application"
       data-pdp-panel-mode="independent"
       data-pdp-application
+      style={
+        {
+          "--pdp-application-transition-duration": `${PDP_APPLICATION_TRANSITION_DURATION_MS}ms`,
+        } as CSSProperties
+      }
     >
       <div
         className="pdp-application__content"
@@ -96,28 +116,47 @@ export function PdpApplicationCarousel({
           role="group"
           aria-label={`${productName} application steps`}
         >
-          {steps.map((step, index) => (
-            <button
-              key={step.id}
-              type="button"
-              className="pdp-application__swatch"
-              style={{ "--pdp-application-swatch": step.surface } as CSSProperties}
-              aria-label={`Show application step ${index + 1} of ${steps.length}`}
-              aria-pressed={active === index}
-              onClick={() => selectStep(index)}
-            >
-              <span aria-hidden="true" />
-            </button>
-          ))}
+          {steps.map((step, index) => {
+            const itemMedia = applicationMedia.find(
+              (item) => item.sortOrder === index + 1,
+            );
+
+            return (
+              <button
+                key={step.id}
+                type="button"
+                className="pdp-application__swatch"
+                style={
+                  {
+                    "--pdp-application-swatch": step.surface,
+                  } as CSSProperties
+                }
+                aria-label={`Show application step ${index + 1} of ${steps.length}`}
+                aria-pressed={active === index}
+                data-pdp-application-thumbnail={index + 1}
+                data-has-media={Boolean(itemMedia)}
+                onClick={() => selectStep(index)}
+              >
+                {itemMedia?.url ? (
+                  <Image
+                    src={itemMedia.url}
+                    alt={itemMedia.alt}
+                    fill
+                    sizes="(max-width: 820px) 30vw, 13vw"
+                    className="pdp-application__swatch-image"
+                  />
+                ) : (
+                  <span
+                    className="pdp-application__swatch-fallback"
+                    aria-hidden="true"
+                  />
+                )}
+              </button>
+            );
+          })}
         </div>
 
         <div className="pdp-application__copy">
-          <h2
-            id="pdp-application-heading"
-            className="pdp-application__eyebrow"
-          >
-            APPLICATION
-          </h2>
           <div className="pdp-application__copy-stack">
             {steps.map((step, index) => (
               <article
@@ -133,8 +172,11 @@ export function PdpApplicationCarousel({
                 aria-hidden={active !== index}
                 inert={active !== index}
               >
-                <span>({step.id})</span>
-                <p>{step.copy}</p>
+                <h2 className="pdp-application__eyebrow">APPLICATION</h2>
+                <div className="pdp-application__step-body">
+                  <span>({step.id})</span>
+                  <p>{step.copy}</p>
+                </div>
               </article>
             ))}
           </div>
@@ -161,7 +203,7 @@ export function PdpApplicationCarousel({
         data-pdp-application-media
       >
         {steps.map((step, index) => {
-          const itemMedia = media.find(
+          const itemMedia = applicationMedia.find(
             (item) => item.sortOrder === index + 1,
           );
 
@@ -193,6 +235,7 @@ export function PdpApplicationCarousel({
                   fill
                   sizes="(max-width: 820px) 100vw, 50vw"
                   className="pdp-application__image"
+                  data-pdp-application-main-image={index + 1}
                 />
               ) : (
                 <>

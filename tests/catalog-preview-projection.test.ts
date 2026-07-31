@@ -16,6 +16,10 @@ const canonicalSlug = "cleanse-01-calming-gel-cleanser";
 const storageOrigin = "https://erasogmsqpgiirovubjh.supabase.co";
 const approvedImage = `${storageOrigin}/storage/v1/object/public/mei-pelle-catalog/products/cleanse/drafts/hero.webp`;
 const approvedEditorialImage = `${storageOrigin}/storage/v1/object/public/mei-pelle-catalog/products/cleanse/drafts/core-routine-editorial.webp`;
+const approvedApplicationImages = [1, 2, 3].map(
+  (position) =>
+    `${storageOrigin}/storage/v1/object/public/mei-pelle-catalog/products/cleanse/drafts/application-${position}.webp`,
+);
 
 function canonicalProduct(): PdpProduct {
   return {
@@ -223,6 +227,36 @@ describe("catalog draft PDP projection", () => {
       url: approvedEditorialImage,
       alt: "Draft CLEANSE routine editorial",
     });
+  });
+
+  it("projects staged application images in canonical numeric order", () => {
+    const draft = document();
+    draft.media.push(
+      ...approvedApplicationImages.map((url, index) => ({
+        ...draft.media[0],
+        id: `88888888-8888-4888-8888-88888888888${index}`,
+        variant_id: null,
+        media_type: "image" as const,
+        url,
+        alt: `Draft CLEANSE application visual ${index + 1}`,
+        width: 1122,
+        height: 1402,
+        role: "pdp_application" as const,
+        sort_order: index + 1,
+      })),
+    );
+
+    const preview = projectCatalogDraftPreview(draft, base(), {
+      approvedMediaOrigin: storageOrigin,
+    });
+    const applicationMedia = preview.product.media.filter(
+      (item) => item.role === "pdp_application",
+    );
+
+    expect(applicationMedia.map((item) => item.sortOrder)).toEqual([1, 2, 3]);
+    expect(applicationMedia.map((item) => item.url)).toEqual(
+      approvedApplicationImages,
+    );
   });
 
   it("fails closed for external draft media", () => {
