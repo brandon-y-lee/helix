@@ -260,10 +260,25 @@ describe("storefront page smoke", () => {
   });
 
   it("renders account sign-in", async () => {
-    render(await SignInPage({ searchParams: Promise.resolve({}) }));
+    const { container } = render(
+      await SignInPage({
+        searchParams: Promise.resolve({ next: "/rewards" }),
+      }),
+    );
+
     expect(
       screen.getByRole("heading", { level: 1, name: "Sign in" }),
     ).toBeInTheDocument();
+    expect(container.querySelector(".account-shell")).toBeInTheDocument();
+    expect(container.querySelector('input[name="next"]')).toHaveValue(
+      "/rewards",
+    );
+    expect(
+      screen.getByRole("link", { name: "Forgot password" }),
+    ).toHaveAttribute("href", "/account/forgot-password");
+    expect(
+      screen.getByRole("link", { name: "Create account" }),
+    ).toHaveAttribute("href", "/account/sign-up");
   });
 
   it("renders support and legal static pages", () => {

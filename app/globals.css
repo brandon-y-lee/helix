@@ -2377,10 +2377,13 @@ main:focus {
 }
 
 .account-shell {
-  min-height: 68svh;
+  --account-shell-padding: clamp(32px, 6svh, 72px);
+
+  min-height: calc(100svh - var(--site-header-height));
   display: grid;
-  place-items: start center;
-  padding-top: clamp(48px, 8vw, 92px);
+  place-items: center;
+  padding-top: var(--account-shell-padding);
+  padding-bottom: max(var(--account-shell-padding), env(safe-area-inset-bottom));
 }
 
 .account-panel {

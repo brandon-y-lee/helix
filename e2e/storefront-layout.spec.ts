@@ -32,6 +32,86 @@ async function expectGridColumns(grid: Locator, count: number) {
     .toBe(count);
 }
 
+async function measureAuthLayout(page: Page) {
+  return page.evaluate(() => {
+    const header = document.querySelector(".site-header");
+    const shell = document.querySelector(".account-shell");
+    const panel = document.querySelector(".account-panel");
+    const footer = document.querySelector("[data-site-footer]");
+
+    if (!header || !shell || !panel || !footer) {
+      throw new Error("Sign-in layout geometry is unavailable.");
+    }
+
+    const headerBox = header.getBoundingClientRect();
+    const shellBox = shell.getBoundingClientRect();
+    const panelBox = panel.getBoundingClientRect();
+    const footerBox = footer.getBoundingClientRect();
+
+    return {
+      availableHeight: window.innerHeight - headerBox.height,
+      footerTop: footerBox.top,
+      headerBottom: headerBox.bottom,
+      horizontalOverflow:
+        document.documentElement.scrollWidth -
+        document.documentElement.clientWidth,
+      panelBottom: panelBox.bottom,
+      panelTop: panelBox.top,
+      shellBottom: shellBox.bottom,
+      shellHeight: shellBox.height,
+      shellTop: shellBox.top,
+      viewportHeight: window.innerHeight,
+    };
+  });
+}
+
+test("sign-in shell fills the viewport before the footer and grows with feedback", async ({
+  page,
+}) => {
+  for (const viewport of [
+    { width: 1440, height: 900 },
+    { width: 390, height: 844 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await page.goto("/account/sign-in?next=%2Frewards");
+
+    const layout = await measureAuthLayout(page);
+    expect(layout.shellTop).toBeCloseTo(layout.headerBottom, 0);
+    expect(layout.shellHeight).toBeGreaterThanOrEqual(
+      layout.availableHeight - 1,
+    );
+    expect(layout.footerTop).toBeGreaterThanOrEqual(
+      layout.viewportHeight - 1,
+    );
+    expect(layout.panelTop).toBeGreaterThanOrEqual(layout.shellTop);
+    expect(layout.panelBottom).toBeLessThanOrEqual(layout.shellBottom);
+    expect(layout.horizontalOverflow).toBeLessThanOrEqual(1);
+    await expect(page.locator('input[name="next"]')).toHaveValue("/rewards");
+    await expect(
+      page.getByRole("link", { name: "Forgot password" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Create account" }),
+    ).toBeVisible();
+  }
+
+  await page.setViewportSize({ width: 720, height: 600 });
+  await page.goto("/account/sign-in?error=invalid-link");
+  await expect(page.getByRole("alert")).toBeVisible();
+
+  const expandedLayout = await measureAuthLayout(page);
+  expect(expandedLayout.shellHeight).toBeGreaterThan(
+    expandedLayout.availableHeight,
+  );
+  expect(expandedLayout.footerTop).toBeGreaterThanOrEqual(
+    expandedLayout.viewportHeight,
+  );
+  expect(expandedLayout.panelBottom).toBeLessThanOrEqual(
+    expandedLayout.shellBottom,
+  );
+  expect(expandedLayout.horizontalOverflow).toBeLessThanOrEqual(1);
+});
+
 test("homepage product layout switches between desktop and mobile modes", async ({
   page,
 }) => {
