@@ -133,6 +133,66 @@ test("PDP panel breakpoint changes once at the 820px boundary", async ({
   await expectNoHorizontalOverflow(page);
 });
 
+test("Core PDP preserves routine controls and uses the storefront gutter after video", async ({
+  page,
+}) => {
+  async function measureCoreBoundary() {
+    return page.evaluate(() => {
+      const pdp = document.querySelector("[data-pdp-primary-section]");
+      const video = document.querySelector('[data-pdp-panel-row="routine-video"]');
+      const profile = document.querySelector('[data-pdp-panel-row="profile"]');
+      const steps = document.querySelector(".pdp-core-routine__steps");
+      const connector = document.querySelector(
+        ".pdp-core-routine__connector",
+      );
+      const selector = document.querySelector(
+        '.pdp-core-routine__steps [role="radio"] > span',
+      );
+      if (!pdp || !video || !profile || !steps || !connector || !selector) {
+        throw new Error("Core PDP spacing targets are unavailable.");
+      }
+
+      return {
+        annotationBorder: getComputedStyle(connector).borderTopWidth,
+        gap:
+          profile.getBoundingClientRect().top -
+          video.getBoundingClientRect().bottom,
+        gutter: pdp.getBoundingClientRect().left,
+        selectorBorder: getComputedStyle(selector).borderTopWidth,
+        selectorDivider: getComputedStyle(steps).borderTopWidth,
+      };
+    });
+  }
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(TREAT_PATH);
+  const desktop = await measureCoreBoundary();
+  expect(Math.abs(desktop.gap - desktop.gutter)).toBeLessThanOrEqual(1);
+  expect(desktop.selectorDivider).toBe("0px");
+  expect(desktop.annotationBorder).toBe("1px");
+  expect(desktop.selectorBorder).toBe("1px");
+
+  const activeSelector = page.locator(
+    '.pdp-core-routine__steps [role="radio"][aria-checked="true"]',
+  );
+  await activeSelector.focus();
+  await expect
+    .poll(() =>
+      activeSelector.locator(":scope > span").evaluate((element) =>
+        Number.parseFloat(getComputedStyle(element).outlineWidth),
+      ),
+    )
+    .toBeGreaterThanOrEqual(2);
+  await expectNoHorizontalOverflow(page);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.reload();
+  const mobile = await measureCoreBoundary();
+  expect(Math.abs(mobile.gap - mobile.gutter)).toBeLessThanOrEqual(1);
+  expect(mobile.selectorDivider).toBe("0px");
+  await expectNoHorizontalOverflow(page);
+});
+
 test("PDP description grows with the purchase column on wide screens", async ({
   page,
 }) => {

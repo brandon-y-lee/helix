@@ -3496,6 +3496,10 @@ main:focus {
   gap: var(--pdp-panel-gap);
 }
 
+.pdp-routine-video + .pdp-sections {
+  margin-top: var(--storefront-gutter);
+}
+
 .pdp-details-routine {
   min-height: clamp(680px, 50vw, 960px);
   display: grid;
@@ -3898,7 +3902,6 @@ main:focus {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
   padding-top: 18px;
-  border-top: 1px solid var(--line);
 }
 
 .pdp-core-routine__steps button {
