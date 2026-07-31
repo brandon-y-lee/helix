@@ -11,6 +11,7 @@ import type { CoreRoutineSummary } from "@/lib/catalog/models";
 type CoreRoutinePresentation = Pick<
   CoreRoutineSummary,
   | "displayName"
+  | "editorialMedia"
   | "productType"
   | "routineStepNumber"
   | "slug"
@@ -170,8 +171,18 @@ export function PdpCoreRoutineSection({
               key={product.slug}
               className="pdp-core-routine__visual-state"
               data-state={state}
+              data-media={product.editorialMedia ? "editorial" : "fallback"}
               style={style}
-            />
+            >
+              {product.editorialMedia?.url ? (
+                <Image
+                  src={product.editorialMedia.url}
+                  alt=""
+                  fill
+                  sizes="(max-width: 760px) calc(100vw - 24px), 50vw"
+                />
+              ) : null}
+            </div>
           );
         })}
       </div>

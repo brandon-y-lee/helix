@@ -4,6 +4,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { CatalogAdminError } from "@/lib/admin/catalog/errors";
 import type { EditableProductMedia } from "@/lib/admin/catalog/types";
+import { isProductMediaRole } from "@/lib/catalog/media-roles";
 
 export const CATALOG_MEDIA_BUCKET = "mei-pelle-catalog";
 export const CATALOG_MEDIA_MAX_BYTES = 16 * 1024 * 1024;
@@ -14,24 +15,6 @@ const MIME_CONFIG = {
   "image/webp": { extension: "webp", mediaType: "image" },
   "video/mp4": { extension: "mp4", mediaType: "video" },
 } as const;
-
-const MEDIA_ROLES = new Set([
-  "card",
-  "hero",
-  "gallery",
-  "detail",
-  "card_default",
-  "card_hover",
-  "cart",
-  "search",
-  "routine_video",
-  "routine_video_poster",
-  "profile_editorial",
-  "ingredients_texture",
-  "core_routine_texture",
-  "pdp_outcome",
-  "pdp_application",
-]);
 
 type SupportedMimeType = keyof typeof MIME_CONFIG;
 
@@ -172,7 +155,7 @@ export async function stageCatalogMedia(input: {
       413,
     );
   }
-  if (!MEDIA_ROLES.has(input.role)) {
+  if (!isProductMediaRole(input.role)) {
     throw new CatalogAdminError(
       "invalid_media_role",
       "Unsupported product media role.",
@@ -197,7 +180,7 @@ export async function stageCatalogMedia(input: {
   const admin = createSupabaseAdminClient();
   const { data: product, error: productError } = await admin
     .from("products")
-    .select("id, slug")
+    .select("id, slug, routine_group")
     .eq("id", input.productId)
     .maybeSingle();
   if (productError) {
@@ -209,6 +192,27 @@ export async function stageCatalogMedia(input: {
   }
   if (!product) {
     throw new CatalogAdminError("product_not_found", "Product not found.", 404);
+  }
+
+  if (input.role === "core_routine_editorial") {
+    if (product.routine_group !== "core") {
+      throw new CatalogAdminError(
+        "invalid_media_role",
+        "Core routine editorial media is available only for Core products.",
+        422,
+      );
+    }
+    if (
+      MIME_CONFIG[input.file.type].mediaType !== "image" ||
+      input.sortOrder !== 1 ||
+      input.variantId !== null
+    ) {
+      throw new CatalogAdminError(
+        "invalid_media_role",
+        "Core routine editorial media requires an image, sort order 1, and no variant.",
+        422,
+      );
+    }
   }
 
   if (input.variantId) {

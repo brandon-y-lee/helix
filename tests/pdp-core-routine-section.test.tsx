@@ -41,6 +41,17 @@ const products = productRows.map(
       paletteId: null,
       palette: null,
     },
+    editorialMedia: {
+      kind: "image" as const,
+      url: `https://example.supabase.co/${slug}-editorial.webp`,
+      alt: `${displayName} editorial`,
+      width: 1200,
+      height: 1500,
+      role: "core_routine_editorial" as const,
+      sortOrder: 1,
+      paletteId: null,
+      palette: null,
+    },
   }),
 );
 
@@ -74,8 +85,16 @@ describe("PdpCoreRoutineSection", () => {
     ).toHaveLength(3);
     expect(
       container.querySelectorAll(".pdp-core-routine__visual img"),
-    ).toHaveLength(0);
-    expect(container.querySelectorAll(".pdp-core-routine img")).toHaveLength(3);
+    ).toHaveLength(3);
+    expect(container.querySelectorAll(".pdp-core-routine img")).toHaveLength(6);
+    expect(
+      container.querySelector(
+        '.pdp-core-routine__visual-state[data-state="active"] img',
+      ),
+    ).toHaveAttribute(
+      "src",
+      expect.stringContaining("treat-editorial.webp"),
+    );
     expect(
       container.querySelector(
         '.pdp-core-routine__callout-state[data-state="active"] .pdp-core-routine__annotation',
@@ -98,6 +117,19 @@ describe("PdpCoreRoutineSection", () => {
       "data-direction",
       "forward",
     );
+    expect(
+      container.querySelector(
+        '.pdp-core-routine__callout-state[data-state="active"] img',
+      ),
+    ).toHaveAttribute("src", expect.stringContaining("treat.webp"));
+    expect(
+      container.querySelector(
+        '.pdp-core-routine__visual-state[data-state="active"] img',
+      ),
+    ).toHaveAttribute(
+      "src",
+      expect.stringContaining("treat-editorial.webp"),
+    );
 
     fireEvent.focus(third);
     expect(third).toHaveAttribute("aria-checked", "true");
@@ -112,6 +144,42 @@ describe("PdpCoreRoutineSection", () => {
 
     fireEvent.click(third);
     expect(third).toHaveAttribute("aria-checked", "true");
+  });
+
+  it("uses the selected product hue when only that editorial image is missing", () => {
+    const productsWithMissingTreatEditorial = products.map((product) =>
+      product.slug === "treat"
+        ? { ...product, editorialMedia: null }
+        : product,
+    );
+    const { container } = render(
+      <PdpCoreRoutineSection
+        products={productsWithMissingTreatEditorial}
+        currentSlug="treat"
+      />,
+    );
+
+    const activeVisual = container.querySelector<HTMLElement>(
+      '.pdp-core-routine__visual-state[data-state="active"]',
+    );
+    expect(activeVisual).toHaveAttribute("data-media", "fallback");
+    expect(activeVisual).toHaveStyle({
+      "--core-from": "#e4c175",
+      "--core-to": "#a7772f",
+    });
+    expect(activeVisual?.querySelector("img")).toBeNull();
+
+    fireEvent.click(
+      screen.getByRole("radio", { name: "Show step 3, SEAL" }),
+    );
+    expect(
+      container.querySelector(
+        '.pdp-core-routine__visual-state[data-state="active"] img',
+      ),
+    ).toHaveAttribute(
+      "src",
+      expect.stringContaining("seal-editorial.webp"),
+    );
   });
 
   it("does not autoplay and retires only the outgoing transition layer", () => {

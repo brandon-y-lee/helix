@@ -4002,6 +4002,10 @@ main:focus {
   content: "";
 }
 
+.pdp-core-routine__visual-state > img {
+  object-fit: cover;
+}
+
 .pdp-core-routine__visual-state[data-state="active"] {
   z-index: 2;
   opacity: 1;

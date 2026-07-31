@@ -15,6 +15,7 @@ const productId = "33333333-3333-4333-8333-333333333333";
 const canonicalSlug = "cleanse-01-calming-gel-cleanser";
 const storageOrigin = "https://erasogmsqpgiirovubjh.supabase.co";
 const approvedImage = `${storageOrigin}/storage/v1/object/public/mei-pelle-catalog/products/cleanse/drafts/hero.webp`;
+const approvedEditorialImage = `${storageOrigin}/storage/v1/object/public/mei-pelle-catalog/products/cleanse/drafts/core-routine-editorial.webp`;
 
 function canonicalProduct(): PdpProduct {
   return {
@@ -97,6 +98,13 @@ function base(): CatalogPreviewBase {
     routineSort: 10,
     swatch: product.swatch,
     textureMedia,
+    editorialMedia: {
+      ...textureMedia,
+      url: `${storageOrigin}/storage/v1/object/public/mei-pelle-catalog/products/cleanse/core/editorial.webp`,
+      alt: "Canonical CLEANSE editorial",
+      role: "core_routine_editorial",
+      sortOrder: 1,
+    },
     cardMedia: null,
     cartMedia: null,
     pdpContent: null,
@@ -183,8 +191,38 @@ describe("catalog draft PDP projection", () => {
         { id: "55555555-5555-4555-8555-555555555555", price: 9900 },
       ],
       pdpContent: { routineGuidance: "Draft Core guidance" },
+      editorialMedia: null,
     });
     expect(canonical).toEqual(original);
+  });
+
+  it("projects staged Core editorial media while preserving the left texture", () => {
+    const draft = document();
+    draft.media.push({
+      ...draft.media[0],
+      id: "77777777-7777-4777-8777-777777777777",
+      variant_id: null,
+      media_type: "image",
+      url: approvedEditorialImage,
+      alt: "Draft CLEANSE routine editorial",
+      width: 1400,
+      height: 1600,
+      role: "core_routine_editorial",
+      sort_order: 1,
+    });
+
+    const preview = projectCatalogDraftPreview(draft, base(), {
+      approvedMediaOrigin: storageOrigin,
+    });
+
+    expect(preview.coreProducts[0].textureMedia.role).toBe(
+      "core_routine_texture",
+    );
+    expect(preview.coreProducts[0].editorialMedia).toMatchObject({
+      role: "core_routine_editorial",
+      url: approvedEditorialImage,
+      alt: "Draft CLEANSE routine editorial",
+    });
   });
 
   it("fails closed for external draft media", () => {

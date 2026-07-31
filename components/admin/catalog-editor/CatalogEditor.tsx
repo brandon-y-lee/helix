@@ -20,6 +20,7 @@ import {
   CatalogVersionConflictError,
   catalogEditorApi,
 } from "@/lib/admin/catalog-editor/client";
+import type { ProductMediaRole } from "@/lib/catalog/media-roles";
 import CatalogEditorSections, {
   CATALOG_SECTIONS,
   catalogFieldId,
@@ -345,22 +346,31 @@ export default function CatalogEditor({ productId }: { productId: string }) {
 
   async function uploadMedia(
     file: File,
-    metadata: { role: string; alt: string; variantId?: string | null },
+    metadata: {
+      role: ProductMediaRole;
+      alt: string;
+      variantId?: string | null;
+      sortOrder?: number;
+      replaceRole?: boolean;
+    },
   ) {
     await runAction("upload", async () => {
       const current = activeDocument.current;
       const response = await catalogEditorApi.uploadMedia(file, productId, {
         ...metadata,
-        sortOrder: current?.media.length ?? 0,
+        sortOrder: metadata.sortOrder ?? current?.media.length ?? 0,
       });
       if (!current) return;
+      const retainedMedia = metadata.replaceRole
+        ? current.media.filter((media) => media.role !== metadata.role)
+        : current.media;
       const next = {
         ...current,
         media: [
-          ...current.media,
+          ...retainedMedia,
           {
             ...response.media,
-            sort_order: current.media.length,
+            sort_order: metadata.sortOrder ?? retainedMedia.length,
           },
         ],
       };

@@ -93,9 +93,9 @@ describe("CatalogEditor sections", () => {
     const altInput = container.querySelector<HTMLInputElement>(
       "#media-upload-alt",
     );
-    const fileInput = container.querySelector<HTMLInputElement>(
-      'input[type="file"]',
-    );
+    const fileInput = screen.getByLabelText(
+      "Choose media file",
+    ) as HTMLInputElement;
     expect(altInput).toHaveAccessibleName("Media alt text");
     expect(fileInput).toHaveAccessibleName("Choose media file");
     await user.type(altInput!, "New CLEANSE media");
@@ -115,6 +115,70 @@ describe("CatalogEditor sections", () => {
       screen.getByText(
         "Media uploaded. Save the draft to retain this association.",
       ),
+    ).toBeVisible();
+  });
+
+  it("renders distinct fixed Core routine media slots", async () => {
+    const user = userEvent.setup();
+    vi.mocked(catalogEditorApi.uploadMedia).mockResolvedValue({
+      media: {
+        ...catalogDocument.media[0],
+        id: "uploaded-core-editorial",
+        url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/mei-pelle-catalog/products/cleanse/drafts/editorial.webp",
+        alt: "CLEANSE supporting routine editorial",
+        role: "core_routine_editorial",
+        sort_order: 1,
+        variant_id: null,
+      },
+    });
+    const { container } = render(
+      <CatalogEditor productId="product-cleanse" />,
+    );
+    await screen.findByRole("heading", { name: "CLEANSE" });
+
+    expect(screen.getByText("Core Routine Texture")).toBeVisible();
+    expect(screen.getByText("Core Routine Editorial Image")).toBeVisible();
+    expect(
+      screen.getByText(
+        "Ingredient/texture swatch used inside the left routine panel.",
+      ),
+    ).toBeVisible();
+    expect(
+      screen.getByText(
+        "Large supporting image used by the shared interactive Core routine section across all Core PDPs.",
+      ),
+    ).toBeVisible();
+    expect(
+      screen.queryByRole("option", { name: "core routine editorial" }),
+    ).not.toBeInTheDocument();
+
+    const altInput = container.querySelector<HTMLInputElement>(
+      "#core-routine-media-core_routine_editorial-alt",
+    );
+    const fileInput = screen.getByLabelText(
+      "Add Core Routine Editorial Image",
+    ) as HTMLInputElement;
+    await user.type(altInput!, "CLEANSE supporting routine editorial");
+    const file = new File(["image"], "editorial.webp", {
+      type: "image/webp",
+    });
+    await user.upload(fileInput, file);
+
+    await waitFor(() =>
+      expect(catalogEditorApi.uploadMedia).toHaveBeenCalledWith(
+        file,
+        "product-cleanse",
+        {
+          alt: "CLEANSE supporting routine editorial",
+          replaceRole: true,
+          role: "core_routine_editorial",
+          sortOrder: 1,
+          variantId: null,
+        },
+      ),
+    );
+    expect(
+      screen.getByLabelText("Replace Core Routine Editorial Image"),
     ).toBeVisible();
   });
 

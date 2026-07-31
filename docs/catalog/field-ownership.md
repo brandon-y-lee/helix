@@ -24,6 +24,12 @@ it is not a product-data fallback.
 | `product_relationships` | related product, relationship type, and ordering | Published editor / controlled catalog operations | Editorial | Preserve | Preserve |
 | Algolia records, cache entries and search documents | all projected fields | Search backfill/webhook and cache invalidation | Derived | Never | Never |
 
+The browser-safe role manifest in `lib/catalog/media-roles.ts` defines the two
+dedicated Core routine slots. Both remain editorial-owned. The editor fixes
+their roles instead of exposing them as arbitrary row values; the
+`core_routine_editorial` shape and Core eligibility are also enforced by the
+trusted server validation and database boundary.
+
 The Leaders import no longer updates collections, routine relationships,
 publication state, or derived outputs. `--archive-missing` is a separate,
 explicit catalog-lifecycle operation and is not implied by applying the import.

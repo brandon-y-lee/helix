@@ -12,6 +12,7 @@ declare
   v_product_id uuid;
   v_updated_before timestamptz;
   v_document_before jsonb;
+  v_document_with_editorial jsonb;
   v_draft_result jsonb;
   v_draft_id uuid;
   v_result jsonb;
@@ -64,6 +65,7 @@ begin
   select id, updated_at
   into v_product_id, v_updated_before
   from public.products
+  where routine_group = 'core'
   order by created_at
   limit 1;
 
@@ -72,6 +74,34 @@ begin
   end if;
 
   v_document_before := public.get_catalog_editor_document(v_product_id);
+  v_document_with_editorial := jsonb_set(
+    v_document_before,
+    '{media}',
+    coalesce(
+      (
+        select jsonb_agg(media_item)
+        from jsonb_array_elements(v_document_before -> 'media') media_item
+        where media_item ->> 'role' <> 'core_routine_editorial'
+      ),
+      '[]'::jsonb
+    ) || jsonb_build_array(
+      jsonb_build_object(
+        'id', gen_random_uuid(),
+        'variant_id', null,
+        'media_type', 'image',
+        'url', 'https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/mei-pelle-catalog/products/integration/core-routine-editorial.webp',
+        'alt', 'Integration Core routine editorial',
+        'width', 1200,
+        'height', 1500,
+        'role', 'core_routine_editorial',
+        'sort_order', 1,
+        'palette_id', null,
+        'placeholder_palette', '{}'::jsonb,
+        'original_source_url', null,
+        'source_filename', 'integration-core-routine-editorial.webp'
+      )
+    )
+  );
   v_draft_result := public.create_catalog_product_draft(
     v_product_id,
     v_actor_id
@@ -163,7 +193,7 @@ begin
   v_result := public.save_catalog_product_draft(
     v_draft_id,
     3,
-    v_document_before,
+    v_document_with_editorial,
     v_actor_id
   );
   if v_result #>> '{draft,version}' <> '4' then
@@ -193,13 +223,19 @@ begin
     'products', false,
     'productPdpContent', false,
     'variants', false,
-    'media', false,
+    'media', true,
     'relationships', false
   ) then
-    raise exception 'unchanged canonical tables were reported as changed';
+    raise exception 'changed canonical tables were reported incorrectly';
   end if;
   if (v_result #> '{revision,document}') ? 'reviews' then
     raise exception 'revision unexpectedly contains review data';
+  end if;
+  if not jsonb_path_exists(
+    v_result #> '{revision,document,media}',
+    '$[*] ? (@.role == "core_routine_editorial")'
+  ) then
+    raise exception 'published revision lost Core routine editorial media';
   end if;
 
   v_revision_id := (v_result #>> '{revision,id}')::uuid;
@@ -263,6 +299,12 @@ begin
   );
   if (v_result ->> 'ok')::boolean is not true then
     raise exception 'published revision did not restore into a new draft';
+  end if;
+  if not jsonb_path_exists(
+    v_result #> '{draft,document,media}',
+    '$[*] ? (@.role == "core_routine_editorial")'
+  ) then
+    raise exception 'revision restore lost Core routine editorial media';
   end if;
 
   if has_table_privilege(

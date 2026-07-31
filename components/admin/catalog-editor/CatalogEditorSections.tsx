@@ -12,6 +12,12 @@ import {
   CatalogVariantFields,
 } from "@/lib/admin/catalog-editor/client";
 import { getCatalogEditorFieldPolicy } from "@/lib/catalog/field-ownership";
+import {
+  CORE_ROUTINE_MEDIA_SLOTS,
+  isCoreRoutineMediaRole,
+  PRODUCT_MEDIA_ROLES,
+  type ProductMediaRole,
+} from "@/lib/catalog/media-roles";
 import { StringListEditor, TextField } from "./CatalogFieldControls";
 import styles from "./CatalogEditor.module.css";
 
@@ -61,7 +67,13 @@ interface CatalogEditorSectionsProps {
   onChange: (document: CatalogDraftDocument) => void;
   onUpload: (
     file: File,
-    metadata: { role: string; alt: string; variantId?: string | null },
+    metadata: {
+      role: ProductMediaRole;
+      alt: string;
+      variantId?: string | null;
+      sortOrder?: number;
+      replaceRole?: boolean;
+    },
   ) => Promise<void>;
   uploading: boolean;
 }
@@ -115,25 +127,43 @@ export default function CatalogEditorSections({
   }
 
   function moveMedia(index: number, direction: -1 | 1) {
+    const reorderable = document.media.filter(
+      (media) => !isCoreRoutineMediaRole(media.role),
+    );
     const target = index + direction;
-    if (target < 0 || target >= document.media.length) return;
-    const media = [...document.media];
-    [media[index], media[target]] = [media[target], media[index]];
+    if (target < 0 || target >= reorderable.length) return;
+    [reorderable[index], reorderable[target]] = [
+      reorderable[target],
+      reorderable[index],
+    ];
     onChange({
       ...document,
-      media: media.map((item, sortOrder) => ({
-        ...item,
-        sort_order: sortOrder,
-      })),
+      media: [
+        ...reorderable.map((item, sortOrder) => ({
+          ...item,
+          sort_order: sortOrder,
+        })),
+        ...document.media.filter((media) =>
+          isCoreRoutineMediaRole(media.role),
+        ),
+      ],
     });
   }
 
   function removeMedia(id: string) {
+    const remaining = document.media.filter((media) => media.id !== id);
+    const reorderable = remaining.filter(
+      (media) => !isCoreRoutineMediaRole(media.role),
+    );
     onChange({
       ...document,
-      media: document.media
-        .filter((media) => media.id !== id)
-        .map((media, index) => ({ ...media, sort_order: index })),
+      media: [
+        ...reorderable.map((media, sortOrder) => ({
+          ...media,
+          sort_order: sortOrder,
+        })),
+        ...remaining.filter((media) => isCoreRoutineMediaRole(media.role)),
+      ],
     });
   }
 
@@ -809,75 +839,96 @@ export default function CatalogEditorSections({
           </span>
         </summary>
         <div className={styles.sectionBody}>
+          {product.routine_group === "core" ? (
+            <fieldset className={styles.repeater}>
+              <legend className={styles.legend}>Core routine media</legend>
+              <div className={styles.mediaGrid}>
+                {CORE_ROUTINE_MEDIA_SLOTS.map((slot) => (
+                  <CoreRoutineMediaSlotControl
+                    key={slot.role}
+                    slot={slot}
+                    media={document.media.find(
+                      (item) => item.role === slot.role,
+                    )}
+                    onUpdate={updateMedia}
+                    onUpload={onUpload}
+                    uploading={uploading}
+                  />
+                ))}
+              </div>
+            </fieldset>
+          ) : null}
           <MediaUploadControl onUpload={onUpload} uploading={uploading} />
           <div className={styles.mediaGrid}>
-            {document.media.map((media, index) => (
-              <article className={styles.mediaCard} key={media.id}>
-                <div className={styles.mediaPreview}>
-                  {media.url && media.media_type === "video" ? (
-                    <video src={media.url} muted aria-label={media.alt} />
-                  ) : media.url ? (
-                    // The protected API supplies project-controlled media URLs.
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={media.url} alt={media.alt} />
-                  ) : (
-                    <span>Media unavailable</span>
-                  )}
-                </div>
-                <TextField
-                  id={catalogFieldId("product_media", "role", media.id)}
-                  label="Role"
-                  value={media.role}
-                  onChange={(role) => updateMedia(media.id, { role })}
-                  readOnly={fieldReadOnly("product_media", "role")}
-                  error={issueFor(
-                    issues,
-                    "product_media",
-                    "role",
-                    media.id,
-                  )}
-                />
-                <TextField
-                  id={catalogFieldId("product_media", "alt", media.id)}
-                  label="Alt text"
-                  value={media.alt}
-                  onChange={(alt) => updateMedia(media.id, { alt })}
-                  readOnly={fieldReadOnly("product_media", "alt")}
-                />
-                <div className={styles.actionRow}>
-                  <button
-                    className={`${styles.button} ${styles.buttonSecondary}`}
-                    type="button"
-                    disabled={
-                      fieldReadOnly("product_media", "sort_order") ||
-                      index === 0
-                    }
-                    onClick={() => moveMedia(index, -1)}
-                  >
-                    Move earlier
-                  </button>
-                  <button
-                    className={`${styles.button} ${styles.buttonSecondary}`}
-                    type="button"
-                    disabled={
-                      fieldReadOnly("product_media", "sort_order") ||
-                      index === document.media.length - 1
-                    }
-                    onClick={() => moveMedia(index, 1)}
-                  >
-                    Move later
-                  </button>
-                  <button
-                    className={`${styles.button} ${styles.buttonDanger}`}
-                    type="button"
-                    disabled={fieldReadOnly("product_media", "role")}
-                    onClick={() => removeMedia(media.id)}
-                  >
-                    Remove
-                  </button>
-                </div>
-              </article>
-            ))}
+            {document.media
+              .filter((media) => !isCoreRoutineMediaRole(media.role))
+              .map((media, index, mediaItems) => (
+                <article className={styles.mediaCard} key={media.id}>
+                  <div className={styles.mediaPreview}>
+                    {media.url && media.media_type === "video" ? (
+                      <video src={media.url} muted aria-label={media.alt} />
+                    ) : media.url ? (
+                      // The protected API supplies project-controlled media URLs.
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={media.url} alt={media.alt} />
+                    ) : (
+                      <span>Media unavailable</span>
+                    )}
+                  </div>
+                  <TextField
+                    id={catalogFieldId("product_media", "role", media.id)}
+                    label="Role"
+                    value={media.role}
+                    onChange={(role) => updateMedia(media.id, { role })}
+                    readOnly={fieldReadOnly("product_media", "role")}
+                    error={issueFor(
+                      issues,
+                      "product_media",
+                      "role",
+                      media.id,
+                    )}
+                  />
+                  <TextField
+                    id={catalogFieldId("product_media", "alt", media.id)}
+                    label="Alt text"
+                    value={media.alt}
+                    onChange={(alt) => updateMedia(media.id, { alt })}
+                    readOnly={fieldReadOnly("product_media", "alt")}
+                  />
+                  <div className={styles.actionRow}>
+                    <button
+                      className={`${styles.button} ${styles.buttonSecondary}`}
+                      type="button"
+                      disabled={
+                        fieldReadOnly("product_media", "sort_order") ||
+                        index === 0
+                      }
+                      onClick={() => moveMedia(index, -1)}
+                    >
+                      Move earlier
+                    </button>
+                    <button
+                      className={`${styles.button} ${styles.buttonSecondary}`}
+                      type="button"
+                      disabled={
+                        fieldReadOnly("product_media", "sort_order") ||
+                        index === mediaItems.length - 1
+                      }
+                      onClick={() => moveMedia(index, 1)}
+                    >
+                      Move later
+                    </button>
+                    <button
+                      className={`${styles.button} ${styles.buttonDanger}`}
+                      type="button"
+                      disabled={fieldReadOnly("product_media", "role")}
+                      onClick={() => removeMedia(media.id)}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </article>
+              ))}
           </div>
         </div>
       </details>
@@ -1015,17 +1066,96 @@ export default function CatalogEditorSections({
   );
 }
 
+function CoreRoutineMediaSlotControl({
+  slot,
+  media,
+  onUpdate,
+  onUpload,
+  uploading,
+}: {
+  slot: (typeof CORE_ROUTINE_MEDIA_SLOTS)[number];
+  media: CatalogMediaFields | undefined;
+  onUpdate: (id: string, changes: Partial<CatalogMediaFields>) => void;
+  onUpload: CatalogEditorSectionsProps["onUpload"];
+  uploading: boolean;
+}) {
+  const [replacementAlt, setReplacementAlt] = useState("");
+  const alt = media?.alt ?? replacementAlt;
+  const sortOrder =
+    slot.role === "core_routine_editorial"
+      ? 1
+      : media?.sort_order ?? slot.defaultSortOrder;
+
+  return (
+    <article className={styles.mediaCard}>
+      <div className={styles.mediaPreview}>
+        {media?.url ? (
+          // The protected API supplies project-controlled media URLs.
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={media.url} alt={media.alt} />
+        ) : (
+          <span>No image assigned</span>
+        )}
+      </div>
+      <div>
+        <strong>{slot.label}</strong>
+        <p className={styles.help}>{slot.helperText}</p>
+      </div>
+      <TextField
+        id={`core-routine-media-${slot.role}-alt`}
+        label="Alt text"
+        value={alt}
+        onChange={(value) => {
+          if (media) onUpdate(media.id, { alt: value });
+          else setReplacementAlt(value);
+        }}
+        help={`Role: ${slot.role}. Sort order: ${sortOrder}. No variant association.`}
+      />
+      <label className={styles.field}>
+        <span className={styles.fieldLabel}>
+          {media ? `Replace ${slot.label}` : `Add ${slot.label}`}
+        </span>
+        <input
+          className={styles.input}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          disabled={uploading || !alt.trim()}
+          onChange={async (event: ChangeEvent<HTMLInputElement>) => {
+            const file = event.target.files?.[0];
+            if (file) {
+              await onUpload(file, {
+                role: slot.role,
+                alt: alt.trim(),
+                variantId: null,
+                sortOrder,
+                replaceRole: true,
+              });
+            }
+            event.target.value = "";
+          }}
+        />
+      </label>
+    </article>
+  );
+}
+
 function MediaUploadControl({
   onUpload,
   uploading,
 }: {
   onUpload: (
     file: File,
-    metadata: { role: string; alt: string; variantId?: string | null },
+    metadata: {
+      role: ProductMediaRole;
+      alt: string;
+      variantId?: string | null;
+      sortOrder?: number;
+      replaceRole?: boolean;
+    },
   ) => Promise<void>;
   uploading: boolean;
 }) {
-  const [role, setRole] = useState("gallery");
+  const [role, setRole] = useState<ProductMediaRole>("gallery");
   const [alt, setAlt] = useState("");
   return (
     <fieldset className={styles.repeater}>
@@ -1036,25 +1166,13 @@ function MediaUploadControl({
           <select
             className={styles.select}
             value={role}
-            onChange={(event) => setRole(event.target.value)}
+            onChange={(event) =>
+              setRole(event.target.value as ProductMediaRole)
+            }
           >
-            {[
-              "card",
-              "hero",
-              "gallery",
-              "detail",
-              "card_default",
-              "card_hover",
-              "cart",
-              "search",
-              "routine_video",
-              "routine_video_poster",
-              "profile_editorial",
-              "ingredients_texture",
-              "core_routine_texture",
-              "pdp_outcome",
-              "pdp_application",
-            ].map((value) => (
+            {PRODUCT_MEDIA_ROLES.filter(
+              (value) => !isCoreRoutineMediaRole(value),
+            ).map((value) => (
               <option value={value} key={value}>
                 {value.replaceAll("_", " ")}
               </option>

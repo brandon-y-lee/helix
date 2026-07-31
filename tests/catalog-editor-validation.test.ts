@@ -10,11 +10,36 @@ const PRODUCT_ID = catalogDocument.productId;
 const VARIANT_ID = catalogDocument.variants[0].id;
 const MEDIA_ID = "123e4567-e89b-42d3-a456-426614174002";
 const ACTOR_ID = "123e4567-e89b-42d3-a456-426614174003";
+const APPROVED_ENV = {
+  NODE_ENV: "test",
+  NEXT_PUBLIC_SUPABASE_URL: "https://erasogmsqpgiirovubjh.supabase.co",
+} as NodeJS.ProcessEnv;
 
 function validDocument(): ProductEditorDocumentV2 {
   const document = structuredClone(catalogDocument);
   document.media = [];
   return document;
+}
+
+function coreRoutineEditorialMedia(
+  overrides: Partial<ProductEditorDocumentV2["media"][number]> = {},
+): ProductEditorDocumentV2["media"][number] {
+  return {
+    id: MEDIA_ID,
+    variant_id: null,
+    media_type: "image",
+    url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/mei-pelle-catalog/products/cleanse-01-calming-gel-cleanser/drafts/editorial.webp",
+    alt: "CLEANSE Core routine editorial",
+    width: 1400,
+    height: 1600,
+    role: "core_routine_editorial",
+    sort_order: 1,
+    palette_id: null,
+    placeholder_palette: {},
+    original_source_url: null,
+    source_filename: "cleanse-pdp-core-routine-editorial-01.webp",
+    ...overrides,
+  };
 }
 
 describe("product editor document validation", () => {
@@ -106,6 +131,55 @@ describe("product editor document validation", () => {
     ).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ code: "unsafe_media_origin" }),
+      ]),
+    );
+  });
+
+  it("accepts one fixed Core routine editorial image", () => {
+    const document = validDocument();
+    document.media = [coreRoutineEditorialMedia()];
+
+    expect(validateProductEditorDocument(document, APPROVED_ENV).issues).toEqual(
+      [],
+    );
+  });
+
+  it("rejects duplicate, variant-linked, and non-Core editorial media", () => {
+    const document = validDocument();
+    document.product.routine_group = "beyond_core";
+    document.media = [
+      coreRoutineEditorialMedia({ variant_id: VARIANT_ID }),
+      coreRoutineEditorialMedia({
+        id: "123e4567-e89b-42d3-a456-426614174004",
+      }),
+    ];
+
+    expect(validateProductEditorDocument(document, APPROVED_ENV).issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: "core_product_required" }),
+        expect.objectContaining({ code: "variant_forbidden" }),
+        expect.objectContaining({ code: "duplicate_core_routine_editorial" }),
+      ]),
+    );
+  });
+
+  it("rejects an editorial role with the wrong shape or Storage origin", () => {
+    const document = validDocument();
+    document.media = [
+      coreRoutineEditorialMedia({
+        media_type: "video",
+        url: "https://untrusted.example/editorial.mp4",
+        width: null,
+        sort_order: 2,
+      }),
+    ];
+
+    expect(validateProductEditorDocument(document, APPROVED_ENV).issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: "image_required" }),
+        expect.objectContaining({ code: "fixed_order" }),
+        expect.objectContaining({ code: "dimensions_required" }),
+        expect.objectContaining({ code: "approved_storage_required" }),
       ]),
     );
   });

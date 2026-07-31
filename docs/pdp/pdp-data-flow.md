@@ -127,7 +127,7 @@ In the table:
 | Reviews | `lib/catalog/product-reviews.ts` fixture | `getProductReviews(slug)` default prop in `ProductDetail` | `ProductReviewsSection` | Bundled repository code, outside catalog tags | No | No | Repository-only fixture |
 | Structured PDP editorial content | `product_pdp_content` one-to-one product row | `normalizeProductPdpContent()` validates schema version 1; no slug fallback | Profile title, video overlay, outcome copy, application, ingredient cards/story, details routine guidance | Product page / `product:<slug>` through the joined catalog read | No | Yes | Additive migration backfills six rows; browser roles are read-only |
 | Core outcome/application hues and media focal positions | Stable Core-step tokens in `lib/content/core-pdp.ts` | Supabase copy is combined with step-keyed visual tokens only when required content validates | `PdpProfileSplit`, `PdpOutcomeSplit`, `PdpApplicationCarousel`, `PdpIngredientsSplit` | Bundled design configuration | No | No | Repository-only non-content presentation |
-| Core routine module | Active `routine_group = core` rows plus one `core_routine_texture` media row per product | `getCoreRoutineProducts()` requires exactly CLEANSE, TREAT, and SEAL in three-step Core order; System product numbers remain 01/03/05 | `PdpCoreRoutineSection` after DETAILS on Core PDPs | One hour; `catalog:core-routine` plus all three product tags | No; dedicated media is explicitly excluded | Yes | Core PDP media sync owns the texture rows |
+| Core routine module | Active `routine_group = core` rows plus one `core_routine_texture` and optional `core_routine_editorial` media row per product | `getCoreRoutineProducts()` requires exactly CLEANSE, TREAT, and SEAL in three-step Core order; System product numbers remain 01/03/05 | `PdpCoreRoutineSection` after DETAILS on Core PDPs | One hour; `catalog:core-routine` plus all three product tags | No; dedicated media is explicitly excluded | Yes | Core PDP media sync owns both dedicated roles |
 
 ### Final compatibility boundary
 
@@ -210,6 +210,7 @@ Concrete versus placeholder state is derived from URL and
 | `profile_editorial` | Core product-profile right panel | Never |
 | `ingredients_texture` | Core formula-texture image in the ingredient split | Never |
 | `core_routine_texture` | Interactive three-step Core routine texture state | Never |
+| `core_routine_editorial` | Optional large image in the shared Core routine visual panel | Never |
 
 `lib/catalog.ts`, `lib/cart/server.ts`, and `lib/algolia/record.ts` each use an
 explicit allowlist so the new roles cannot win merely through a lower
@@ -260,6 +261,9 @@ assets at new paths rather than overwrite CDN-cached bytes; see
 | CLEANSE Core routine texture | `91b8b6ca613de06eadaf78a55a9e399518d5d23a3bbb04f60bf7f9ccea04bd53` at `products/cleanse-01-calming-gel-cleanser/core-routine-texture/<hash>.webp` |
 | TREAT Core routine texture | `737d7617f514569d918e49b091631da888af9c46cb7b46deed117d14519e5011` at `products/treat-03-pdrn-5-ampoule/core-routine-texture/<hash>.webp` |
 | SEAL Core routine texture | `e5e0f6b7d8f4404bf98e61e377450169edcc45d68fd5f04b761bd2bdad312631` at `products/seal-05-green-collagen-cream/core-routine-texture/<hash>.webp` |
+| CLEANSE Core routine editorial | Pending `cleanse-pdp-core-routine-editorial-01.webp` at `products/cleanse-01-calming-gel-cleanser/core-routine-editorial/<hash>.webp` |
+| TREAT Core routine editorial | Pending `treat-pdp-core-routine-editorial-01.webp` at `products/treat-03-pdrn-5-ampoule/core-routine-editorial/<hash>.webp` |
+| SEAL Core routine editorial | Pending `seal-pdp-core-routine-editorial-01.webp` at `products/seal-05-green-collagen-cream/core-routine-editorial/<hash>.webp` |
 
 The supplied CLEANSE routine texture was explicitly named
 `cleanse-pdp-routine-texture-01.webp`; it was mapped by its CLEANSE product
@@ -271,19 +275,19 @@ The supplied SEAL file was already a valid WebP and its bytes were retained.
 `scripts/catalog-sync-core-pdp-media.ts` is dry-run by default. On apply it:
 
 1. refuses any Supabase host other than the fixed non-production project
-2. validates every required basename and payload
+2. validates every present basename and payload; the three not-yet-supplied Core routine editorial inputs are reported as missing without becoming writes
 3. calculates missing objects and changed rows before any mutation
 4. backs up affected media rows and current object listings only when writes are planned
 5. uploads only missing content-addressed objects through the Storage API
 6. downloads the public response and verifies content type and SHA-256 checksum
-7. upserts only changed rows on `(product_id, role, sort_order)`
+7. updates or inserts only changed active rows on the canonical `(product_id, role)` identity
 8. re-reads and verifies all planned rows
 
-The complete sync controls 15 dedicated PDP assets across the three Core
-products. Phase A added the three ingredient textures; Phase B added the three
-Core routine textures. Each Core product now has 12 media rows. A second Phase B
-apply reports zero planned object uploads and zero submitted rows while still
-verifying all 15 public objects and rows.
+The sync controls 15 existing dedicated PDP assets and recognizes three future
+Core routine editorial inputs across the three Core products. No editorial
+asset or canonical association is created until a validated source is supplied
+and the operator explicitly uses `--apply`. Repeated dry runs produce the same
+missing-input plan, and repeated applies submit only changed rows.
 
 ## Cache and revalidation
 
@@ -323,9 +327,10 @@ tags, `/`, `/products`, affected PDP paths, relevant collections, and the
 sitemap for product events.
 
 Editorial-only media events do not evict listing caches. The shared
-`core_routine_texture` role invalidates `catalog:core-routine` and all three
-Core PDP tags and paths; other editorial roles invalidate only the affected
-product tag and PDP path.
+`core_routine_texture` and `core_routine_editorial` invalidate
+`catalog:core-routine` and all three Core PDP tags and paths; other editorial
+roles invalidate only the affected product tag and PDP path. Both roles resolve
+the parent product and skip Algolia writes.
 
 ### Verified automatic-delivery status
 
@@ -374,8 +379,8 @@ Supabase products + variants + product_media
   `scripts/search-backfill.ts` rebuild the complete active index.
 - **Editorial media:** the parent is resolved for cache targeting, but
   `routine_video`, `routine_video_poster`, `profile_editorial`,
-  `ingredients_texture`, and `core_routine_texture` return a no-op before any
-  Algolia write.
+  `ingredients_texture`, `core_routine_texture`, and
+  `core_routine_editorial` return a no-op before any Algolia write.
 
 `scripts/search-verify-core-pdp-media.ts` rebuilt the expected canonical record
 and compared it with the live non-production Algolia record. All three passed.
@@ -450,6 +455,7 @@ or intentionally avoid that writer before making durable direct edits.
 | Ingredient texture | Supabase Storage URL from role `ingredients_texture`; exact user basename maps one image to each Core product |
 | Core routine selector | Exactly three active Core product rows ordered by canonical routine metadata |
 | Core routine textures | Supabase Storage URLs from role `core_routine_texture`; one explicit canonical basename per Core product |
+| Core routine editorial images | Optional Supabase Storage URLs from role `core_routine_editorial`; when absent, the matching product's canonical swatch hue remains visible |
 | Core routine hues | Each product's canonical `swatch_from` and `swatch_to` values |
 | Full INCI | `products.ingredients` only |
 

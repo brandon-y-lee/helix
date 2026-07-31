@@ -5,6 +5,7 @@ import type {
   CatalogValidationIssue,
   ProductEditorDocumentV2,
 } from "@/lib/admin/catalog/types";
+import { isCoreRoutineMediaRole } from "@/lib/catalog/media-roles";
 
 type EditorTable =
   | "products"
@@ -67,6 +68,25 @@ function validateObjectOwnership({
 }): CatalogValidationIssue[] {
   const issues: CatalogValidationIssue[] = [];
   for (const [field, value] of Object.entries(candidate)) {
+    if (
+      table === "product_media" &&
+      field === "role" &&
+      canonical &&
+      typeof value === "string" &&
+      typeof canonical.role === "string" &&
+      value !== canonical.role &&
+      (isCoreRoutineMediaRole(value) ||
+        isCoreRoutineMediaRole(canonical.role))
+    ) {
+      issues.push(
+        ownershipIssue(
+          `${path}.role`,
+          "field_read_only",
+          "Dedicated Core routine media roles cannot be reassigned.",
+        ),
+      );
+      continue;
+    }
     const ownership = getCatalogFieldOwnership(table, field);
     if (!ownership) {
       issues.push(

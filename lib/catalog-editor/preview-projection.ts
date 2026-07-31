@@ -29,6 +29,7 @@ import type {
   ProductMediaRole,
   ProductStatus,
 } from "@/lib/products";
+import { PRODUCT_MEDIA_ROLES } from "@/lib/catalog/media-roles";
 
 const PRODUCT_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const UUID_PATTERN =
@@ -44,23 +45,7 @@ const INVENTORY_STATUSES = [
   "out_of_stock",
   "unavailable",
 ] as const;
-const MEDIA_ROLES: ProductMediaRole[] = [
-  "card",
-  "hero",
-  "gallery",
-  "detail",
-  "card_default",
-  "card_hover",
-  "cart",
-  "search",
-  "routine_video",
-  "routine_video_poster",
-  "profile_editorial",
-  "ingredients_texture",
-  "core_routine_texture",
-  "pdp_outcome",
-  "pdp_application",
-];
+const MEDIA_ROLES: readonly ProductMediaRole[] = PRODUCT_MEDIA_ROLES;
 const IMAGE_EXTENSIONS = /\.(?:avif|gif|jpe?g|png|webp)$/i;
 const VIDEO_EXTENSIONS = /\.(?:mov|mp4|webm)$/i;
 
@@ -403,6 +388,13 @@ function projectCoreProducts(
           media.kind === "image" &&
           Boolean(media.url),
       ) ?? item.textureMedia;
+    const editorialMedia =
+      product.media.find(
+        (media) =>
+          media.role === "core_routine_editorial" &&
+          media.kind === "image" &&
+          Boolean(media.url),
+      ) ?? null;
 
     return {
       ...item,
@@ -428,6 +420,7 @@ function projectCoreProducts(
       routineStepName: product.routineStepName ?? item.routineStepName,
       swatch: product.swatch,
       textureMedia,
+      editorialMedia,
       cardMedia: product.cardMedia,
       cartMedia: product.cartMedia,
       pdpContent: product.pdpContent,

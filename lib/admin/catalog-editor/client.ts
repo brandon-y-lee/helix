@@ -17,6 +17,7 @@ import type {
   PdpIngredientCard,
   PdpIngredientHighlight,
 } from "@/lib/catalog/product-content";
+import type { ProductMediaRole } from "@/lib/catalog/media-roles";
 
 export type CatalogPublicationFilter =
   | "all"
@@ -368,7 +369,7 @@ export const catalogEditorApi = {
     file: File,
     productId: string,
     metadata: {
-      role: string;
+      role: ProductMediaRole;
       alt: string;
       sortOrder: number;
       variantId?: string | null;

@@ -4,6 +4,7 @@ import type {
   CatalogValidationIssue,
   ProductEditorDocumentV2,
 } from "@/lib/admin/catalog/types";
+import { PRODUCT_MEDIA_ROLES } from "@/lib/catalog/media-roles";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -25,23 +26,6 @@ const RELATIONSHIP_TYPES = [
   "routine_next",
 ] as const;
 const MEDIA_TYPES = ["image", "video"] as const;
-const MEDIA_ROLES = [
-  "card",
-  "hero",
-  "gallery",
-  "detail",
-  "card_default",
-  "card_hover",
-  "cart",
-  "search",
-  "routine_video",
-  "routine_video_poster",
-  "profile_editorial",
-  "ingredients_texture",
-  "core_routine_texture",
-  "pdp_outcome",
-  "pdp_application",
-] as const;
 const UPLOAD_MIME_TYPES = [
   "image/jpeg",
   "image/png",
@@ -441,15 +425,39 @@ function allowedMediaOrigin(
   }
 }
 
+function approvedCatalogStorageUrl(
+  value: unknown,
+  env: NodeJS.ProcessEnv,
+): boolean {
+  if (typeof value !== "string" || !env.NEXT_PUBLIC_SUPABASE_URL) return false;
+  try {
+    const url = new URL(value);
+    const projectUrl = new URL(env.NEXT_PUBLIC_SUPABASE_URL);
+    const productMediaPrefix =
+      "/storage/v1/object/public/mei-pelle-catalog/products/";
+    return (
+      url.origin === projectUrl.origin &&
+      url.pathname.startsWith(productMediaPrefix) &&
+      url.pathname.length > productMediaPrefix.length &&
+      !url.search &&
+      !url.hash
+    );
+  } catch {
+    return false;
+  }
+}
+
 function validateMedia(
   media: unknown[],
   productSlug: string,
+  routineGroup: unknown,
   variantIds: Set<string>,
   issues: CatalogValidationIssue[],
   env: NodeJS.ProcessEnv,
 ): void {
   const ids = new Set<string>();
   const placements = new Set<string>();
+  let coreRoutineEditorialCount = 0;
   media.forEach((entry, index) => {
     const path = `media.${index}`;
     if (!isRecord(entry)) {
@@ -471,7 +479,7 @@ function validateMedia(
         "Unsupported media type.",
       );
     }
-    if (!oneOf(entry.role, MEDIA_ROLES)) {
+    if (!oneOf(entry.role, PRODUCT_MEDIA_ROLES)) {
       issue(issues, `${path}.role`, "invalid_role", "Unsupported media role.");
     }
     if (!isInteger(entry.sort_order, 0)) {
@@ -597,7 +605,82 @@ function validateMedia(
         );
       }
     }
+
+    if (entry.role === "core_routine_editorial") {
+      coreRoutineEditorialCount += 1;
+      if (routineGroup !== "core") {
+        issue(
+          issues,
+          `${path}.role`,
+          "core_product_required",
+          "Core routine editorial media is available only for Core products.",
+        );
+      }
+      if (entry.media_type !== "image") {
+        issue(
+          issues,
+          `${path}.media_type`,
+          "image_required",
+          "Core routine editorial media must be an image.",
+        );
+      }
+      if (entry.variant_id !== null) {
+        issue(
+          issues,
+          `${path}.variant_id`,
+          "variant_forbidden",
+          "Core routine editorial media cannot be assigned to a variant.",
+        );
+      }
+      if (entry.sort_order !== 1) {
+        issue(
+          issues,
+          `${path}.sort_order`,
+          "fixed_order",
+          "Core routine editorial media must use sort order 1.",
+        );
+      }
+      if (
+        !isInteger(entry.width, 1) ||
+        !isInteger(entry.height, 1)
+      ) {
+        issue(
+          issues,
+          path,
+          "dimensions_required",
+          "Core routine editorial media requires positive intrinsic dimensions.",
+        );
+      }
+      if (!approvedCatalogStorageUrl(entry.url, env)) {
+        issue(
+          issues,
+          `${path}.url`,
+          "approved_storage_required",
+          "Core routine editorial media must use the approved catalog Storage origin.",
+        );
+      }
+      if (
+        isRecord(entry.pendingUpload) &&
+        typeof entry.pendingUpload.mimeType === "string" &&
+        !entry.pendingUpload.mimeType.startsWith("image/")
+      ) {
+        issue(
+          issues,
+          `${path}.pendingUpload.mimeType`,
+          "image_required",
+          "Core routine editorial uploads must be images.",
+        );
+      }
+    }
   });
+  if (coreRoutineEditorialCount > 1) {
+    issue(
+      issues,
+      "media",
+      "duplicate_core_routine_editorial",
+      "A product can have only one Core routine editorial image.",
+    );
+  }
 }
 
 function validateRelationships(
@@ -721,8 +804,17 @@ export function validateProductEditorDocument(
     isRecord(input.product) && typeof input.product.slug === "string"
       ? input.product.slug
       : "";
+  const routineGroup =
+    isRecord(input.product) ? input.product.routine_group : undefined;
   if (Array.isArray(input.media)) {
-    validateMedia(input.media, productSlug, variantIds, issues, env);
+    validateMedia(
+      input.media,
+      productSlug,
+      routineGroup,
+      variantIds,
+      issues,
+      env,
+    );
   }
   if (Array.isArray(input.relationships)) {
     validateRelationships(input.relationships, productId, issues);

@@ -79,4 +79,19 @@ describe("catalog editor field ownership", () => {
       }),
     );
   });
+
+  it("keeps existing dedicated Core routine media roles fixed", () => {
+    const canonical = cloneDocument();
+    canonical.media[0].role = "core_routine_editorial";
+    canonical.media[0].sort_order = 1;
+    const candidate = structuredClone(canonical);
+    candidate.media[0].role = "gallery";
+
+    expect(validateCatalogEditorOwnership(candidate, canonical)).toContainEqual(
+      expect.objectContaining({
+        path: "media.0.role",
+        code: "field_read_only",
+      }),
+    );
+  });
 });

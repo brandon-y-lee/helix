@@ -51,6 +51,23 @@ storefront PDP composition without the standard admin sidebar. Header cart,
 PDP purchase controls, drawer mutations, Afterpay purchase behavior, and
 purchase analytics are disabled. Public PDP routes never read draft tables.
 
+### Core routine media
+
+Core products expose two dedicated image slots instead of offering these roles
+in the free-form media-role menu. `Core Routine Texture` owns the ingredient
+swatch in the left routine panel. `Core Routine Editorial Image` owns the large
+supporting image shared across CLEANSE, TREAT, and SEAL PDPs. The editorial role
+is image-only, has no variant, uses fixed sort order `1`, requires positive
+intrinsic dimensions, alt text, and the approved catalog Storage origin, and is
+limited to one active association.
+
+Replacement uploads use immutable draft paths and change only the draft
+document until Publish. Draft preview projects the staged editorial image into
+the right routine panel while preserving the texture slot. When no editorial
+association exists, that product retains its own canonical hue; public PDPs
+remain canonical-only. Validation is repeated in the server upload and publish
+paths, and database constraints guard direct publication attempts.
+
 Publishing updates only Supabase. Search and cache delivery stays on the
 existing signed webhook route. The four managed Database Webhooks target the
 stable non-production deployment and continue covering products, variants,
