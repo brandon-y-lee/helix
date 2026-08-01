@@ -34,7 +34,7 @@ Consumer codes used below:
 | Code | Consumer |
 | --- | --- |
 | SF | Storefront projections, metadata, PDP, cards, `/products`, `/system`, Core and discovery |
-| ED | Admin aggregate, V2 draft/validation/diff/publish, and preview |
+| ED | Admin aggregate, V3 draft/validation/diff/publish, and preview |
 | AL | Algolia source/record/sync |
 | CA | Cache projections, tags, and signed webhook invalidation |
 | CO | Authoritative cart/checkout validation or immutable order snapshot input |
@@ -291,12 +291,12 @@ availability directly from Supabase; historical cart/order snapshot labels
 are derived at the server boundary. Cache lifetimes and granular tags are
 unchanged.
 
-The editor wire contract is `ProductEditorDocumentV2`. Retired fields do not
+The editor wire contract is `ProductEditorDocumentV3`. Retired fields do not
 appear in controls, API documents, validation, diffs, preview props, or publish
 SQL. Unknown/custom-client keys and retired keys are rejected server-side.
-Historical V1 revisions are upgraded deterministically inside
-`restore_catalog_product_revision`; the current application accepts only V2
-active drafts. The retained database adapter:
+Historical V1/V2 revisions are upgraded deterministically inside
+`restore_catalog_product_revision`; the current application accepts only V3
+active drafts. The retained database adapters:
 
 - canonical values win; a blank canonical value may use its exact V1 shadow;
 - `sourceFullInci` may fill blank `ingredients`, but conflicting values abort;
@@ -305,10 +305,17 @@ active drafts. The retained database adapter:
 - the unsupported legacy `campaign` role aborts;
 - meaningful canonical fields are preserved, while retired shadows disappear.
 
-Restoring a V1 revision creates a new V2 draft and does not rewrite the
-revision. Discarded V1 drafts remain audit history and are not loaded as
+Restoring a V1 or V2 revision creates a new V3 draft and does not rewrite the
+revision. Discarded older drafts remain audit history and are not loaded as
 editable documents. Optimistic draft versions and base-revision conflicts
 remain enforced.
+
+Complete field coverage was added after Phase 2 by migrations
+`20260801052736_catalog_editor_v3_complete_field_coverage.sql` and
+`20260801054856_catalog_editor_v3_upgrade_volatility.sql`. The V3 aggregate
+retains every final normalized row field plus `product_sources`, while
+workflow/revision/audit rows remain separate read-only metadata. Only active
+V1/V2 drafts were upgraded; immutable historical revisions were untouched.
 
 Leaders import now writes canonical product fields, canonical variant
 `sort_order`, canonical media payloads, and supplier facts in

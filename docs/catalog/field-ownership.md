@@ -1,9 +1,11 @@
 # Catalog Field Ownership
 
-`lib/catalog/field-ownership.ts` is the reusable ownership contract for catalog
-writers and editor integrations. It is data-only, has no React dependency, and
-exposes the editor annotations needed to identify editable, read-only source,
-derived, commerce-sensitive, and publish-capability fields.
+`lib/catalog/field-ownership.ts` is the complete ownership and editor metadata
+contract for catalog writers and editor integrations. It is data-only, has no
+React dependency, and is compile-time checked against generated Supabase row
+types. Every current normalized product and system-history column has explicit
+visibility, input, role, validation, diff, preview, publish, import, and
+read-only metadata.
 
 Supabase remains the canonical runtime catalog. This manifest governs writers;
 it is not a product-data fallback.
@@ -13,11 +15,13 @@ it is not a product-data fallback.
 | Table | Field or field group | Current writer | Intended owner | Default supplier import | Explicit editorial overwrite |
 | --- | --- | --- | --- | --- | --- |
 | `products` | `display_name`, `formal_title`, `card_tagline`, `editorial_description`, `editorial_how_to_use`, benefits/signals/badge, product facts, `formula_notes`, search/SEO presentation | Presentation refresh; optional recovery from Leaders source; published editor | Editorial | Preserve existing values | Update only exact changed fields |
-| `products` | `currency` and sellable status | Leaders import | Commerce | Update | Same as default |
-| `products` | ID, slug, publication/catalog status, canonical routine classification/order, merchandising order, swatches, timestamps | Migrations/controlled catalog operations | System | Insert only; never rewrite existing values | Still insert only |
+| `products` | sellable status | Leaders import / admin editor | Commerce | Update | Same as default |
+| `products` | catalog status, canonical routine classification/order, merchandising order, and swatches | Admin editor / controlled catalog operations | System | Insert only; never rewrite existing values | Still insert only |
+| `products` | ID, slug, USD currency, and timestamps | Database/architecture | System | Insert only | Immutable in editor |
 | `product_variants` | variant key, label, price, availability, inventory status, SKU, options and size | Leaders import / published editor | Commerce | Upsert by product and variant key | Same as default |
 | `product_variants` | `supplier_variant_id` | Leaders import | Supplier | Upsert by product and variant key | Same as default |
-| `product_sources` | supplier identifiers, inspected timestamp/hash, raw verified source and preserved catalog-source snapshot | Leaders import / Phase 1 migration | Supplier | Upsert | Same as default |
+| `product_sources` | title, URL, original source price, and formulation notes | Leaders import / admin editor | Supplier | Upsert | Same as default |
+| `product_sources` | supplier/provider identity, inspected timestamp/hash, raw verified source, and timestamps | Leaders import / database | Supplier/system | Upsert | Immutable in editor |
 | `product_media` | associations, roles, order, alt text and presentation palette | Dedicated media syncs; presentation seed; optional Leaders recovery | Editorial | New-product seed only; preserve existing associations | Targeted Leaders upsert or explicitly requested presentation replacement |
 | `product_media` | original supplier URL and filename | Leaders import | Supplier | Stored with a new association only | Updated with the explicitly overwritten association |
 | `product_pdp_content` | structured PDP copy and steps | Published editor/migrations | Editorial | Never | Never; supplier and presentation scripts do not write it |
@@ -110,11 +114,23 @@ removal.
 
 The protected catalog editor uses this same manifest in both layers:
 
-- React controls read the browser-safe `editor` metadata.
-- The server compares every saved, validated, and published V2 document with
-  the current canonical aggregate and rejects changed system fields, retired
-  or unknown fields, and supplier provenance on newly added rows.
+- React controls and read-only System Metadata displays read the role-aware
+  `editor` metadata.
+- The server compares every saved, validated, and published V3 document with
+  the current canonical aggregate and rejects unauthorized, immutable,
+  retired, or unknown fields.
+- `catalog_editor` and `catalog_publisher` may edit normal editorial, PDP,
+  media-association, and relationship fields. `admin` additionally owns all
+  semantically mutable supplier, source, commerce, and classification fields.
+- Provider IDs, hashes, raw snapshots, identities, timestamps, revisions,
+  audit events, Algolia projections, and cache entries have no edit path.
 - UI treatment is advisory; the server check remains authoritative.
+
+Admin edits do not change canonical writer ownership. Supplier-owned values
+retain `supplierImport.default = write` and display an overwrite warning, so
+future import dry runs continue to report exactly what the supplier writer
+would replace. Editorial fields remain preserve-by-default unless the explicit
+overwrite recovery flags are supplied.
 
 Placeholder reviews in `lib/catalog/product-reviews.ts` are outside this
 contract and are not read or written by catalog scripts.

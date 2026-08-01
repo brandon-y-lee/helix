@@ -33,6 +33,23 @@ Display labels and collection-shaped cache tags are derived from that
 classification. There is no standalone `collections` table in the final
 catalog schema.
 
+## Catalog Editor Contract
+
+The protected admin editor uses `ProductEditorDocumentV3`, a complete typed
+aggregate of `products`, `product_pdp_content`, active `product_variants`,
+active `product_media`, active `product_relationships`, and the optional
+`product_sources` row. `lib/catalog/field-ownership.ts` is the canonical field
+matrix. Draft, revision, and audit rows appear separately as read-only System
+Metadata; Algolia and Next.js cache records are derived and never editable.
+
+Normal editorial/PDP/media-association/relationship changes are available to
+catalog editors. Variants, supplier facts, safe source corrections, catalog
+state, routine classification/order, and swatches require `admin`. UUIDs,
+parent foreign keys, timestamps, provider identity, hashes, raw source,
+revision/audit fields, slug, and USD currency remain visible but immutable.
+Publishing is a service-role-only atomic RPC with membership-role,
+optimistic-version, and base-revision checks.
+
 ## Relationship Contract
 
 For `complete_the_routine`, the current active shape is:
