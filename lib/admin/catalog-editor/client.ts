@@ -6,12 +6,13 @@ import type {
   CatalogRevisionRecord,
   CatalogRpcConflict,
   CatalogValidationIssue as CatalogBackendValidationIssue,
-  EditableProductMedia,
-  EditableProductPdpContentFields,
-  EditableProductRelationship,
-  EditableProductVariant,
-  EditableProductFields,
-  ProductEditorDocumentV2,
+  CatalogProductFields as CatalogProductFieldsContract,
+  CatalogProductMedia,
+  CatalogProductPdpContentFields,
+  CatalogProductRelationship,
+  CatalogProductSource,
+  CatalogProductVariant,
+  ProductEditorDocumentV3,
 } from "@/lib/admin/catalog/types";
 import type {
   PdpIngredientCard,
@@ -31,9 +32,10 @@ export type CatalogTable =
   | "product_pdp_content"
   | "product_variants"
   | "product_media"
-  | "product_relationships";
+  | "product_relationships"
+  | "product_sources";
 
-export type CatalogDraftDocument = ProductEditorDocumentV2;
+export type CatalogDraftDocument = ProductEditorDocumentV3;
 export type CatalogDraft = CatalogDraftRecord;
 export type CatalogRevision = CatalogRevisionRecord;
 export type CatalogPublishResult = CatalogPublishSuccess & {
@@ -44,11 +46,12 @@ export type CatalogPublishResult = CatalogPublishSuccess & {
 };
 export type CatalogProductListItem = CatalogGridRow;
 export type CatalogConflictSnapshot = NonNullable<CatalogRpcConflict["stored"]>;
-export type CatalogProductFields = EditableProductFields;
-export type CatalogPdpContentFields = EditableProductPdpContentFields;
-export type CatalogVariantFields = EditableProductVariant;
-export type CatalogMediaFields = EditableProductMedia;
-export type CatalogRelationshipFields = EditableProductRelationship;
+export type CatalogProductFields = CatalogProductFieldsContract;
+export type CatalogPdpContentFields = CatalogProductPdpContentFields;
+export type CatalogVariantFields = CatalogProductVariant;
+export type CatalogMediaFields = CatalogProductMedia;
+export type CatalogRelationshipFields = CatalogProductRelationship;
+export type CatalogSourceFields = CatalogProductSource;
 export type CatalogIngredientCard = PdpIngredientCard;
 export type CatalogIngredientHighlight = PdpIngredientHighlight;
 export type { CatalogEditorResponse };
@@ -65,6 +68,8 @@ export type CatalogDiffEntry = {
   field: string;
   before: unknown;
   after: unknown;
+  disruptive?: boolean;
+  adminOnly?: boolean;
 };
 
 export type CatalogValidationResult = {
@@ -128,12 +133,13 @@ function tableForPath(segment: string): CatalogTable {
   if (segment === "variants") return "product_variants";
   if (segment === "media") return "product_media";
   if (segment === "relationships") return "product_relationships";
+  if (segment === "productSource") return "product_sources";
   return "products";
 }
 
 function editorIssue(
   issue: CatalogBackendValidationIssue,
-  document: ProductEditorDocumentV2,
+  document: ProductEditorDocumentV3,
 ): CatalogEditorIssue {
   const parts = issue.path.split(".");
   const table = tableForPath(parts[0] ?? "");
@@ -255,7 +261,7 @@ function catalogProductsQuery(params: {
 async function saveDraft(
   draftId: string,
   version: number,
-  document: ProductEditorDocumentV2,
+  document: ProductEditorDocumentV3,
 ) {
   return requestJson<{ ok: true; draft: CatalogDraftRecord }>(
     `/api/admin/catalog/drafts/${encodeURIComponent(draftId)}`,
@@ -286,7 +292,7 @@ export const catalogEditorApi = {
     );
   },
 
-  async createDraft(productId: string, document: ProductEditorDocumentV2) {
+  async createDraft(productId: string, document: ProductEditorDocumentV3) {
     const created = await requestJson<{
       created: boolean;
       draft: CatalogDraftRecord;
@@ -382,7 +388,7 @@ export const catalogEditorApi = {
     form.set("alt", metadata.alt);
     form.set("sortOrder", String(metadata.sortOrder));
     form.set("variantId", metadata.variantId ?? "");
-    return requestJson<{ media: EditableProductMedia }>(
+    return requestJson<{ media: CatalogProductMedia }>(
       "/api/admin/catalog/media/upload",
       { method: "POST", body: form },
     );

@@ -1,17 +1,27 @@
 "use client";
 
-import { ChangeEvent, useState } from "react";
-import {
+import { useEffect, useState, type ChangeEvent } from "react";
+import type {
   CatalogDraftDocument,
   CatalogIngredientCard,
   CatalogIngredientHighlight,
   CatalogMediaFields,
   CatalogRelationshipFields,
+  CatalogSourceFields,
   CatalogTable,
   CatalogValidationIssue,
   CatalogVariantFields,
 } from "@/lib/admin/catalog-editor/client";
-import { getCatalogEditorFieldPolicy } from "@/lib/catalog/field-ownership";
+import type { CatalogEditorResponse } from "@/lib/admin/catalog/types";
+import type { PdpIngredientStory } from "@/lib/catalog/product-content";
+import {
+  canCatalogRoleEditField,
+  catalogFieldsForTable,
+  getCatalogFieldOwnership,
+  type CatalogEditorRole,
+  type CatalogEditorTable,
+  type CatalogFieldOwnership,
+} from "@/lib/catalog/field-ownership";
 import {
   CORE_ROUTINE_MEDIA_SLOTS,
   isCoreRoutineMediaRole,
@@ -21,19 +31,20 @@ import {
 import { StringListEditor, TextField } from "./CatalogFieldControls";
 import styles from "./CatalogEditor.module.css";
 
-export const CATALOG_SECTIONS: Array<{
-  key: CatalogTable;
-  label: string;
-}> = [
+type SectionKey = CatalogTable | "system_metadata";
+
+export const CATALOG_SECTIONS: Array<{ key: SectionKey; label: string }> = [
   { key: "products", label: "Products" },
   { key: "product_pdp_content", label: "PDP content" },
   { key: "product_variants", label: "Variants" },
   { key: "product_media", label: "Media" },
   { key: "product_relationships", label: "Relationships" },
+  { key: "product_sources", label: "Sources" },
+  { key: "system_metadata", label: "System Metadata" },
 ];
 
 export function catalogFieldId(
-  table: CatalogTable,
+  table: SectionKey,
   field: string,
   rowId?: string,
 ) {
@@ -57,13 +68,452 @@ function issueFor(
   )?.message;
 }
 
-function fieldReadOnly(table: CatalogTable, field: string) {
-  return getCatalogEditorFieldPolicy(table, field)?.editable !== true;
+function FieldContext({ metadata }: { metadata: CatalogFieldOwnership }) {
+  return (
+    <span className={styles.fieldContext}>
+      <span>{metadata.owner}</span>
+      {metadata.importWarning ? <span>{metadata.importWarning}</span> : null}
+      {metadata.readOnlyReason ? <span>{metadata.readOnlyReason}</span> : null}
+    </span>
+  );
+}
+
+function formatReadOnly(value: unknown, metadata: CatalogFieldOwnership) {
+  if (value === null || value === undefined || value === "") return "Not set";
+  if (metadata.inputKind === "date-time" && typeof value === "string") {
+    return new Date(value).toLocaleString();
+  }
+  if (metadata.inputKind === "money" && typeof value === "number") {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+    }).format(value / 100);
+  }
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  if (typeof value === "object") return JSON.stringify(value, null, 2);
+  return String(value);
+}
+
+const PALETTE_FIELDS = [
+  "start",
+  "end",
+  "accent",
+  "surface",
+  "ink",
+  "highlight",
+] as const;
+
+function PlaceholderPaletteEditor({
+  id,
+  value,
+  onChange,
+}: {
+  id: string;
+  value: unknown;
+  onChange: (value: Record<string, string>) => void;
+}) {
+  const palette =
+    value && typeof value === "object" && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : {};
+  return (
+    <fieldset className={styles.paletteEditor}>
+      <legend>Placeholder palette</legend>
+      {PALETTE_FIELDS.map((field) => {
+        const current = typeof palette[field] === "string" ? palette[field] : "";
+        const color = /^#[0-9a-f]{6}$/i.test(current) ? current : "#000000";
+        return (
+          <label className={styles.paletteControl} key={field} htmlFor={`${id}-${field}`}>
+            <span>{field}</span>
+            <input
+              type="color"
+              aria-label={`${field} palette swatch`}
+              value={color}
+              onChange={(event) =>
+                onChange({
+                  ...Object.fromEntries(
+                    Object.entries(palette).filter(
+                      (entry): entry is [string, string] => typeof entry[1] === "string",
+                    ),
+                  ),
+                  [field]: event.target.value,
+                })
+              }
+            />
+            <input
+              className={styles.input}
+              id={`${id}-${field}`}
+              value={current}
+              placeholder="Not set"
+              onChange={(event) => {
+                const next = Object.fromEntries(
+                  Object.entries(palette).filter(
+                    (entry): entry is [string, string] => typeof entry[1] === "string",
+                  ),
+                );
+                if (event.target.value) next[field] = event.target.value;
+                else delete next[field];
+                onChange(next);
+              }}
+            />
+          </label>
+        );
+      })}
+    </fieldset>
+  );
+}
+
+function NumericField({
+  id,
+  metadata,
+  value,
+  onChange,
+  error,
+}: {
+  id: string;
+  metadata: CatalogFieldOwnership;
+  value: unknown;
+  onChange: (value: number | null) => void;
+  error?: string;
+}) {
+  const displayValue =
+    metadata.inputKind === "money" && typeof value === "number"
+      ? String(value / 100)
+      : typeof value === "number"
+        ? String(value)
+        : "";
+  const [draft, setDraft] = useState(displayValue);
+  useEffect(() => setDraft(displayValue), [displayValue]);
+
+  return (
+    <label className={styles.field} htmlFor={id}>
+      <span className={styles.fieldLabel}>{metadata.label}</span>
+      <input
+        className={styles.input}
+        id={id}
+        type="number"
+        aria-label={metadata.label}
+        min="0"
+        step={metadata.inputKind === "money" ? "0.01" : "1"}
+        value={draft}
+        onChange={(event) => setDraft(event.target.value)}
+        onBlur={() => {
+          if (!draft) {
+            if (metadata.nullable) onChange(null);
+            else setDraft(displayValue);
+            return;
+          }
+          const parsed = Number(draft);
+          if (!Number.isFinite(parsed)) {
+            setDraft(displayValue);
+            return;
+          }
+          onChange(
+            metadata.inputKind === "money"
+              ? Math.round(parsed * 100)
+              : Math.trunc(parsed),
+          );
+        }}
+      />
+      <FieldContext metadata={metadata} />
+      {error ? <span className={styles.fieldError}>{error}</span> : null}
+    </label>
+  );
+}
+
+function JsonField({
+  id,
+  metadata,
+  value,
+  readOnly,
+  onChange,
+  error,
+}: {
+  id: string;
+  metadata: CatalogFieldOwnership;
+  value: unknown;
+  readOnly: boolean;
+  onChange: (value: unknown) => void;
+  error?: string;
+}) {
+  const serialized = JSON.stringify(value, null, 2);
+  const [draft, setDraft] = useState(serialized);
+  const [parseError, setParseError] = useState<string | null>(null);
+
+  useEffect(() => setDraft(serialized), [serialized]);
+
+  if (readOnly) {
+    return (
+      <ReadOnlyField id={id} metadata={metadata} value={value} />
+    );
+  }
+
+  return (
+    <div className={styles.field}>
+      <label className={styles.fieldLabel} htmlFor={id}>
+        {metadata.label}
+      </label>
+      <textarea
+        className={styles.codeTextarea}
+        id={id}
+        value={draft}
+        aria-invalid={Boolean(parseError || error)}
+        onChange={(event) => setDraft(event.target.value)}
+        onBlur={() => {
+          try {
+            const parsed = JSON.parse(draft);
+            setParseError(null);
+            onChange(parsed);
+          } catch {
+            setParseError("Enter valid JSON before saving this field.");
+          }
+        }}
+      />
+      <FieldContext metadata={metadata} />
+      {parseError || error ? (
+        <span className={styles.fieldError}>{parseError ?? error}</span>
+      ) : null}
+    </div>
+  );
+}
+
+function ReadOnlyField({
+  id,
+  metadata,
+  value,
+}: {
+  id: string;
+  metadata: CatalogFieldOwnership;
+  value: unknown;
+}) {
+  const formatted = formatReadOnly(value, metadata);
+  return (
+    <div className={styles.field} id={id}>
+      <span className={styles.fieldLabel}>{metadata.label}</span>
+      <output className={styles.readOnlyValue}>
+        {metadata.inputKind === "json" ? <pre>{formatted}</pre> : formatted}
+      </output>
+      <FieldContext metadata={metadata} />
+    </div>
+  );
+}
+
+function MetadataField({
+  table,
+  field,
+  value,
+  role,
+  onChange,
+  issues,
+  rowId,
+  forceReadOnly = false,
+  selectOptions,
+}: {
+  table: CatalogTable;
+  field: string;
+  value: unknown;
+  role: CatalogEditorRole;
+  onChange: (value: unknown) => void;
+  issues: CatalogValidationIssue[];
+  rowId?: string;
+  forceReadOnly?: boolean;
+  selectOptions?: Array<{ label: string; value: string }>;
+}) {
+  const metadata = getCatalogFieldOwnership(table, field);
+  if (!metadata) return null;
+  const id = catalogFieldId(table, field, rowId);
+  const readOnly = forceReadOnly || !canCatalogRoleEditField(role, table, field);
+  const error = issueFor(issues, table, field, rowId);
+
+  if (readOnly) {
+    return <ReadOnlyField id={id} metadata={metadata} value={value} />;
+  }
+  if (metadata.inputKind === "json") {
+    return (
+      <JsonField
+        id={id}
+        metadata={metadata}
+        value={value}
+        readOnly={false}
+        onChange={onChange}
+        error={error}
+      />
+    );
+  }
+  if (metadata.inputKind === "string-list") {
+    return (
+      <div className={styles.metadataField}>
+        <StringListEditor
+          id={id}
+          label={metadata.label}
+          values={Array.isArray(value) ? (value as string[]) : []}
+          onChange={onChange}
+          error={error}
+        />
+        <FieldContext metadata={metadata} />
+        {metadata.nullable && value !== null ? (
+          <button
+            className={`${styles.button} ${styles.buttonSecondary}`}
+            type="button"
+            onClick={() => onChange(null)}
+          >
+            Clear to null
+          </button>
+        ) : null}
+      </div>
+    );
+  }
+  if (metadata.inputKind === "boolean") {
+    return (
+      <label className={styles.checkboxField} htmlFor={id}>
+        <input
+          id={id}
+          type="checkbox"
+          aria-label={metadata.label}
+          checked={value === true}
+          onChange={(event) => onChange(event.target.checked)}
+        />
+        <span>
+          <strong>{metadata.label}</strong>
+          <FieldContext metadata={metadata} />
+        </span>
+      </label>
+    );
+  }
+  if (metadata.inputKind === "select" || selectOptions) {
+    const options =
+      selectOptions ??
+      (metadata.options ?? []).map((option) => ({
+        label: option.replaceAll("_", " "),
+        value: option,
+      }));
+    return (
+      <label className={styles.field} htmlFor={id}>
+        <span className={styles.fieldLabel}>{metadata.label}</span>
+        <select
+          className={styles.select}
+          id={id}
+          aria-label={metadata.label}
+          value={typeof value === "string" ? value : ""}
+          onChange={(event) => onChange(event.target.value || null)}
+        >
+          {metadata.nullable ? <option value="">Not assigned</option> : null}
+          {options.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        <FieldContext metadata={metadata} />
+        {error ? <span className={styles.fieldError}>{error}</span> : null}
+      </label>
+    );
+  }
+  if (metadata.inputKind === "color") {
+    const color = typeof value === "string" ? value : "#000000";
+    return (
+      <div className={styles.field}>
+        <label className={styles.fieldLabel} htmlFor={`${id}-color`}>
+          {metadata.label}
+        </label>
+        <div className={styles.colorControl}>
+          <input
+            id={`${id}-color`}
+            type="color"
+            value={/^#[0-9a-f]{6}$/i.test(color) ? color : "#000000"}
+            onChange={(event) => onChange(event.target.value)}
+          />
+          <input
+            className={styles.input}
+            id={id}
+            aria-label={`${metadata.label} raw value`}
+            value={color}
+            onChange={(event) => onChange(event.target.value)}
+          />
+        </div>
+        <FieldContext metadata={metadata} />
+      </div>
+    );
+  }
+  if (
+    metadata.inputKind === "number" ||
+    metadata.inputKind === "money"
+  ) {
+    return (
+      <NumericField
+        id={id}
+        metadata={metadata}
+        value={value}
+        onChange={onChange}
+        error={error}
+      />
+    );
+  }
+
+  return (
+    <div className={styles.metadataField}>
+      <TextField
+        id={id}
+        label={metadata.label}
+        value={typeof value === "string" ? value : null}
+        onChange={(next) => onChange(metadata.nullable && !next ? null : next)}
+        error={error}
+        multiline={metadata.inputKind === "textarea"}
+      />
+      <FieldContext metadata={metadata} />
+    </div>
+  );
+}
+
+function FieldGroup({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <fieldset className={styles.fieldGroup}>
+      <legend>{title}</legend>
+      <p className={styles.help}>{description}</p>
+      <div className={styles.fieldGrid}>{children}</div>
+    </fieldset>
+  );
+}
+
+function TableSection({
+  table,
+  children,
+  open = true,
+}: {
+  table: SectionKey;
+  children: React.ReactNode;
+  open?: boolean;
+}) {
+  return (
+    <details className={styles.section} id={`section-${table}`} open={open}>
+      <summary className={styles.summary}>
+        <span>
+          <span className={styles.tableLabel}>
+            {table === "system_metadata" ? "Read only" : "Table"}
+          </span>
+          <br />
+          {table === "system_metadata" ? "System Metadata" : table}
+        </span>
+      </summary>
+      <div className={styles.sectionBody}>{children}</div>
+    </details>
+  );
 }
 
 interface CatalogEditorSectionsProps {
   document: CatalogDraftDocument;
+  role: CatalogEditorRole;
   issues: CatalogValidationIssue[];
+  relationshipTargets: CatalogEditorResponse["relationshipTargets"];
+  systemMetadata: CatalogEditorResponse["systemMetadata"];
   onChange: (document: CatalogDraftDocument) => void;
   onUpload: (
     file: File,
@@ -78,1043 +528,558 @@ interface CatalogEditorSectionsProps {
   uploading: boolean;
 }
 
-export default function CatalogEditorSections({
-  document,
-  issues,
-  onChange,
-  onUpload,
-  uploading,
-}: CatalogEditorSectionsProps) {
-  const product = document.product;
-  const pdp = document.productPdpContent;
+export default function CatalogEditorSections(props: CatalogEditorSectionsProps) {
+  const { document, role, issues, onChange } = props;
+  const productRecord = document.product as unknown as Record<string, unknown>;
 
-  function updateProduct<K extends keyof typeof product>(
-    field: K,
-    value: (typeof product)[K],
-  ) {
-    onChange({ ...document, product: { ...product, [field]: value } });
-  }
-
-  function updatePdp(
-    changes: Partial<NonNullable<CatalogDraftDocument["productPdpContent"]>>,
-  ) {
-    if (!pdp) return;
+  function updateProduct(field: string, value: unknown) {
     onChange({
       ...document,
-      productPdpContent: { ...pdp, ...changes },
+      product: { ...document.product, [field]: value },
     });
   }
 
-  function updateVariant(
-    id: string,
-    changes: Partial<CatalogVariantFields>,
-  ) {
-    onChange({
-      ...document,
-      variants: document.variants.map((variant) =>
-        variant.id === id ? { ...variant, ...changes } : variant,
-      ),
-    });
-  }
-
-  function updateMedia(id: string, changes: Partial<CatalogMediaFields>) {
-    onChange({
-      ...document,
-      media: document.media.map((media) =>
-        media.id === id ? { ...media, ...changes } : media,
-      ),
-    });
-  }
-
-  function moveMedia(index: number, direction: -1 | 1) {
-    const reorderable = document.media.filter(
-      (media) => !isCoreRoutineMediaRole(media.role),
-    );
-    const target = index + direction;
-    if (target < 0 || target >= reorderable.length) return;
-    [reorderable[index], reorderable[target]] = [
-      reorderable[target],
-      reorderable[index],
-    ];
-    onChange({
-      ...document,
-      media: [
-        ...reorderable.map((item, sortOrder) => ({
-          ...item,
-          sort_order: sortOrder,
-        })),
-        ...document.media.filter((media) =>
-          isCoreRoutineMediaRole(media.role),
-        ),
-      ],
-    });
-  }
-
-  function removeMedia(id: string) {
-    const remaining = document.media.filter((media) => media.id !== id);
-    const reorderable = remaining.filter(
-      (media) => !isCoreRoutineMediaRole(media.role),
-    );
-    onChange({
-      ...document,
-      media: [
-        ...reorderable.map((media, sortOrder) => ({
-          ...media,
-          sort_order: sortOrder,
-        })),
-        ...remaining.filter((media) => isCoreRoutineMediaRole(media.role)),
-      ],
-    });
-  }
-
-  function updateRelationship(
-    identity: string,
-    changes: Partial<CatalogRelationshipFields>,
-  ) {
-    onChange({
-      ...document,
-      relationships: document.relationships.map((relationship) =>
-        `${relationship.related_product_id}:${relationship.relationship_type}` ===
-        identity
-          ? { ...relationship, ...changes }
-          : relationship,
-      ),
-    });
-  }
+  const productFields = catalogFieldsForTable("products");
+  const normalProductFields = productFields.filter(
+    (field) => field.editor.editableBy.includes("catalog_editor"),
+  );
+  const advancedProductFields = productFields.filter(
+    (field) =>
+      field.editor.editableBy.length === 1 &&
+      field.editor.editableBy[0] === "admin",
+  );
+  const immutableProductFields = productFields.filter(
+    (field) => field.editor.editableBy.length === 0,
+  );
 
   return (
     <>
-      <details className={styles.section} id="section-products" open>
-        <summary className={styles.summary}>
-          <span>
-            <span className={styles.tableLabel}>Table</span>
-            <br />
-            products
-          </span>
-        </summary>
-        <div className={styles.sectionBody}>
-          <div className={styles.fieldGrid}>
-            <TextField
-              id={catalogFieldId("products", "display_name")}
-              label="Display name"
-              value={product.display_name}
-              onChange={(value) => updateProduct("display_name", value)}
-              error={issueFor(issues, "products", "display_name")}
-              readOnly={fieldReadOnly("products", "display_name")}
+      <TableSection table="products">
+        <FieldGroup
+          title="Editorial"
+          description="Canonical presentation fields used by the storefront."
+        >
+          {normalProductFields.map((metadata) => (
+            <MetadataField
+              key={metadata.field}
+              table="products"
+              field={metadata.field}
+              value={productRecord[metadata.field]}
+              role={role}
+              onChange={(value) => updateProduct(metadata.field, value)}
+              issues={issues}
             />
-            <TextField
-              id={catalogFieldId("products", "formal_title")}
-              label="Formal title"
-              value={product.formal_title}
-              onChange={(value) => updateProduct("formal_title", value)}
-              readOnly={fieldReadOnly("products", "formal_title")}
+          ))}
+        </FieldGroup>
+        <FieldGroup
+          title="Advanced administrator"
+          description="Supplier, commerce, and system-classification changes are admin-only and appear in the publish review."
+        >
+          {advancedProductFields.map((metadata) => (
+            <MetadataField
+              key={metadata.field}
+              table="products"
+              field={metadata.field}
+              value={productRecord[metadata.field]}
+              role={role}
+              onChange={(value) => updateProduct(metadata.field, value)}
+              issues={issues}
             />
-            <TextField
-              id={catalogFieldId("products", "product_type")}
-              label="Product type"
-              value={product.product_type}
-              onChange={(value) => updateProduct("product_type", value)}
-              readOnly={fieldReadOnly("products", "product_type")}
+          ))}
+        </FieldGroup>
+        <FieldGroup
+          title="Metadata"
+          description="Identity, timestamps, and architecture-constrained values remain visible and read only."
+        >
+          {immutableProductFields.map((metadata) => (
+            <MetadataField
+              key={metadata.field}
+              table="products"
+              field={metadata.field}
+              value={productRecord[metadata.field]}
+              role={role}
+              onChange={() => undefined}
+              issues={issues}
             />
-            <TextField
-              id={catalogFieldId("products", "slug")}
-              label="Slug"
-              value={product.slug}
-              onChange={(value) => updateProduct("slug", value)}
-              error={issueFor(issues, "products", "slug")}
-              readOnly={fieldReadOnly("products", "slug")}
-            />
-            <div className={styles.fullWidth}>
-              <TextField
-                id={catalogFieldId("products", "card_tagline")}
-                label="Card tagline"
-                value={product.card_tagline}
-                onChange={(value) => updateProduct("card_tagline", value)}
-                readOnly={fieldReadOnly("products", "card_tagline")}
-              />
-            </div>
-            <div className={styles.fullWidth}>
-              <TextField
-                id={catalogFieldId("products", "editorial_description")}
-                label="Editorial description"
-                value={product.editorial_description}
-                onChange={(value) =>
-                  updateProduct("editorial_description", value)
-                }
-                multiline
-                error={issueFor(issues, "products", "editorial_description")}
-                readOnly={fieldReadOnly(
-                  "products",
-                  "editorial_description",
-                )}
-              />
-            </div>
-            <div className={styles.fullWidth}>
-              <TextField
-                id={catalogFieldId("products", "editorial_how_to_use")}
-                label="Editorial how to use"
-                value={product.editorial_how_to_use}
-                onChange={(value) =>
-                  updateProduct("editorial_how_to_use", value)
-                }
-                multiline
-                readOnly={fieldReadOnly(
-                  "products",
-                  "editorial_how_to_use",
-                )}
-              />
-            </div>
-            {(
-              [
-                ["made_for", "Made for"],
-                ["good_for", "Good for"],
-                ["texture", "Texture"],
-                ["finish", "Finish"],
-                ["volume", "Volume"],
-              ] as const
-            ).map(([field, label]) => (
-              <TextField
-                id={catalogFieldId("products", field)}
-                key={field}
-                label={label}
-                value={product[field]}
-                onChange={(value) => updateProduct(field, value)}
-                readOnly={fieldReadOnly("products", field)}
-              />
-            ))}
-            <StringListEditor
-              id={catalogFieldId("products", "benefits")}
-              label="Benefits"
-              values={product.benefits}
-              onChange={(values) => updateProduct("benefits", values)}
-              error={issueFor(issues, "products", "benefits")}
-              readOnly={fieldReadOnly("products", "benefits")}
-            />
-            <StringListEditor
-              id={catalogFieldId("products", "key_ingredients")}
-              label="Key ingredients"
-              values={product.key_ingredients}
-              onChange={(values) => updateProduct("key_ingredients", values)}
-              readOnly={fieldReadOnly("products", "key_ingredients")}
-            />
-            <StringListEditor
-              id={catalogFieldId("products", "cautions")}
-              label="Cautions"
-              values={product.cautions}
-              onChange={(values) => updateProduct("cautions", values)}
-              readOnly={fieldReadOnly("products", "cautions")}
-            />
-            <StringListEditor
-              id={catalogFieldId("products", "skin_types")}
-              label="Skin types"
-              values={product.skin_types}
-              onChange={(values) => updateProduct("skin_types", values)}
-              readOnly={fieldReadOnly("products", "skin_types")}
-            />
-            <label className={styles.field}>
-              <span className={styles.fieldLabel}>Routine classification</span>
-              <select
-                className={styles.select}
-                id={catalogFieldId("products", "routine_group")}
-                value={product.routine_group}
-                disabled={fieldReadOnly("products", "routine_group")}
-                onChange={(event) =>
-                  updateProduct(
-                    "routine_group",
-                    event.target.value as
-                      | "core"
-                      | "beyond_core",
-                  )
-                }
-              >
-                <option value="core">Core</option>
-                <option value="beyond_core">Beyond</option>
-              </select>
-            </label>
-            <TextField
-              id={catalogFieldId("products", "routine_step_name")}
-              label="Routine step name"
-              value={product.routine_step_name ?? ""}
-              onChange={(value) => updateProduct("routine_step_name", value)}
-              readOnly={fieldReadOnly("products", "routine_step_name")}
-            />
-            <label className={styles.field}>
-              <span className={styles.fieldLabel}>Routine step number</span>
-              <input
-                className={styles.input}
-                id={catalogFieldId("products", "routine_step_number")}
-                type="number"
-                min="0"
-                value={product.routine_step_number ?? ""}
-                disabled={fieldReadOnly(
-                  "products",
-                  "routine_step_number",
-                )}
-                onChange={(event) =>
-                  updateProduct(
-                    "routine_step_number",
-                    event.target.value ? Number(event.target.value) : null,
-                  )
-                }
-              />
-            </label>
-            <label className={styles.field}>
-              <span className={styles.fieldLabel}>Routine sort order</span>
-              <input
-                className={styles.input}
-                id={catalogFieldId("products", "routine_sort")}
-                type="number"
-                min="0"
-                value={product.routine_sort}
-                disabled={fieldReadOnly("products", "routine_sort")}
-                onChange={(event) =>
-                  updateProduct(
-                    "routine_sort",
-                    Number(event.target.value),
-                  )
-                }
-              />
-            </label>
-            <TextField
-              id={catalogFieldId("products", "seo_title")}
-              label="SEO title"
-              value={product.seo_title}
-              onChange={(value) => updateProduct("seo_title", value)}
-              readOnly={fieldReadOnly("products", "seo_title")}
-            />
-            <TextField
-              id={catalogFieldId("products", "seo_description")}
-              label="SEO description"
-              value={product.seo_description}
-              onChange={(value) => updateProduct("seo_description", value)}
-              multiline
-              readOnly={fieldReadOnly("products", "seo_description")}
-            />
-            <label className={styles.field}>
-              <span className={styles.fieldLabel}>Publication state</span>
-              <select
-                className={styles.select}
-                id={catalogFieldId("products", "catalog_status")}
-                value={product.catalog_status}
-                disabled={fieldReadOnly("products", "catalog_status")}
-                onChange={(event) =>
-                  updateProduct("catalog_status", event.target.value)
-                }
-              >
-                <option value="draft">Draft</option>
-                <option value="active">Active / published</option>
-                <option value="archived">Archived</option>
-              </select>
-            </label>
-            <label className={styles.field}>
-              <span className={styles.fieldLabel}>Product availability</span>
-              <select
-                className={styles.select}
-                id={catalogFieldId("products", "status")}
-                value={product.status}
-                disabled={fieldReadOnly("products", "status")}
-                onChange={(event) =>
-                  updateProduct("status", event.target.value)
-                }
-              >
-                <option value="available">Available</option>
-                <option value="coming_soon">Coming soon</option>
-                <option value="sold_out">Sold out</option>
-              </select>
-            </label>
-          </div>
+          ))}
+        </FieldGroup>
+      </TableSection>
 
-        </div>
-      </details>
-
-      <details className={styles.section} id="section-product_pdp_content" open>
-        <summary className={styles.summary}>
-          <span>
-            <span className={styles.tableLabel}>Table</span>
-            <br />
-            product_pdp_content
-          </span>
-        </summary>
-        <div className={styles.sectionBody}>
-          {!pdp ? (
-            <p className={styles.help}>
-              No structured PDP content record is attached to this product.
-            </p>
-          ) : (
-            <div className={styles.stack}>
-              <TextField
-                id={catalogFieldId("product_pdp_content", "routine_overlay")}
-                label="Routine overlay"
-                value={pdp.routine_overlay}
-                onChange={(value) => updatePdp({ routine_overlay: value })}
-              />
-              <TextField
-                id={catalogFieldId("product_pdp_content", "outcome_heading")}
-                label="Outcome heading"
-                value={pdp.outcome_heading}
-                onChange={(value) => updatePdp({ outcome_heading: value })}
-              />
-              <StringListEditor
-                id={catalogFieldId("product_pdp_content", "outcome_labels")}
-                label="Outcome states"
-                values={pdp.outcome_labels ?? []}
-                onChange={(values) =>
-                  updatePdp({
-                    outcome_labels:
-                      values.length === 3
-                        ? (values as [string, string, string])
-                        : null,
-                  })
-                }
-                minimum={3}
-                maximum={3}
-                error={issueFor(
-                  issues,
-                  "product_pdp_content",
-                  "outcome_labels",
-                )}
-              />
-              <StringListEditor
-                id={catalogFieldId("product_pdp_content", "how_to_use_steps")}
-                label="How-to steps"
-                values={pdp.how_to_use_steps ?? []}
-                onChange={(values) => updatePdp({ how_to_use_steps: values })}
-              />
-              <StringListEditor
-                id={catalogFieldId("product_pdp_content", "application_steps")}
-                label="Application states"
-                values={pdp.application_steps ?? []}
-                onChange={(values) => updatePdp({ application_steps: values })}
-              />
-              <fieldset className={styles.repeater}>
-                <legend className={styles.legend}>Profile title tokens</legend>
-                {(pdp.profile_title_tokens ?? []).map((token, index) => (
-                  <div className={styles.repeaterItem} key={`token-${index}`}>
-                    <div className={styles.inlineFields}>
-                    <TextField
-                      id={`profile-token-${index}`}
-                      label={`Token ${index + 1}`}
-                      value={token.text}
-                      onChange={(value) =>
-                        updatePdp({
-                          profile_title_tokens: (
-                            pdp.profile_title_tokens ?? []
-                          ).map(
-                            (current, currentIndex) =>
-                              currentIndex === index
-                                ? { ...current, text: value }
-                                : current,
-                          ),
-                        })
-                      }
-                    />
-                    <label className={styles.field}>
-                      <span className={styles.fieldLabel}>Emphasis</span>
-                      <select
-                        className={styles.select}
-                        value={token.emphasis ? "true" : "false"}
-                        onChange={(event) =>
-                          updatePdp({
-                            profile_title_tokens: (
-                              pdp.profile_title_tokens ?? []
-                            ).map(
-                              (current, currentIndex) =>
-                                currentIndex === index
-                                  ? {
-                                      ...current,
-                                      emphasis: event.target.value === "true",
-                                    }
-                                  : current,
-                            ),
-                          })
-                        }
-                      >
-                        <option value="false">Normal</option>
-                        <option value="true">Emphasized</option>
-                      </select>
-                    </label>
-                    </div>
-                    <button
-                      className={`${styles.button} ${styles.buttonDanger}`}
-                      type="button"
-                      onClick={() =>
-                        updatePdp({
-                          profile_title_tokens:
-                            (pdp.profile_title_tokens ?? []).filter(
-                              (_, currentIndex) => currentIndex !== index,
-                            ),
-                        })
-                      }
-                    >
-                      Remove token
-                    </button>
-                  </div>
-                ))}
-                <button
-                  className={`${styles.button} ${styles.buttonSecondary}`}
-                  type="button"
-                  onClick={() =>
-                    updatePdp({
-                      profile_title_tokens: [
-                        ...(pdp.profile_title_tokens ?? []),
-                        { text: "", emphasis: false },
-                      ],
-                    })
-                  }
-                >
-                  Add profile token
-                </button>
-              </fieldset>
-              <IngredientCardsEditor
-                cards={pdp.ingredient_cards ?? []}
-                onChange={(ingredient_cards) => updatePdp({ ingredient_cards })}
-              />
-              {pdp.ingredient_story ? (
-                <fieldset className={styles.repeater}>
-                  <legend className={styles.legend}>Ingredient story</legend>
-                  <TextField
-                    id="ingredient-story-heading"
-                    label="Heading"
-                    value={pdp.ingredient_story.heading}
-                    onChange={(heading) =>
-                      updatePdp({
-                        ingredient_story: {
-                          ...pdp.ingredient_story!,
-                          heading,
-                        },
-                      })
-                    }
-                  />
-                  <TextField
-                    id="ingredient-story-intro"
-                    label="Introduction"
-                    value={pdp.ingredient_story.intro}
-                    onChange={(intro) =>
-                      updatePdp({
-                        ingredient_story: {
-                          ...pdp.ingredient_story!,
-                          intro,
-                        },
-                      })
-                    }
-                    multiline
-                  />
-                  <IngredientHighlightsEditor
-                    highlights={pdp.ingredient_story.highlights}
-                    onChange={(highlights) =>
-                      updatePdp({
-                        ingredient_story: {
-                          ...pdp.ingredient_story!,
-                          highlights,
-                        },
-                      })
-                    }
-                  />
-                  <TextField
-                    id="ingredient-story-supporting"
-                    label="Supporting ingredients"
-                    value={pdp.ingredient_story.supportingIngredients}
-                    onChange={(supportingIngredients) =>
-                      updatePdp({
-                        ingredient_story: {
-                          ...pdp.ingredient_story!,
-                          supportingIngredients,
-                        },
-                      })
-                    }
-                    multiline
-                  />
-                </fieldset>
-              ) : null}
-              <TextField
-                id={catalogFieldId("product_pdp_content", "routine_guidance")}
-                label="Routine guidance"
-                value={pdp.routine_guidance}
-                onChange={(value) => updatePdp({ routine_guidance: value })}
-                multiline
-              />
-            </div>
-          )}
-        </div>
-      </details>
-
-      <details className={styles.section} id="section-product_variants" open>
-        <summary className={styles.summary}>
-          <span>
-            <span className={styles.tableLabel}>Table</span>
-            <br />
-            product_variants
-          </span>
-        </summary>
-        <div className={styles.sectionBody}>
-          <p className={styles.help} id="variant-table-help">
-            This table scrolls horizontally at narrow widths. Prices are entered
-            in dollars and saved as integer cents.
-          </p>
-          <div
-            className={styles.tableScroller}
-            role="region"
-            aria-label="Product variants"
-            aria-describedby="variant-table-help"
-            tabIndex={0}
-          >
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th>Title</th>
-                  <th>SKU</th>
-                  <th>Price</th>
-                  <th>Sellable</th>
-                  <th>Stock state</th>
-                  <th>Order</th>
-                </tr>
-              </thead>
-              <tbody>
-                {document.variants.map((variant) => (
-                  <tr key={variant.id}>
-                    <td>
-                      <input
-                        aria-label={`${variant.label} title`}
-                        className={styles.input}
-                        id={catalogFieldId(
-                          "product_variants",
-                          "label",
-                          variant.id,
-                        )}
-                        value={variant.label}
-                        disabled={fieldReadOnly(
-                          "product_variants",
-                          "label",
-                        )}
-                        onChange={(event) =>
-                          updateVariant(variant.id, {
-                            label: event.target.value,
-                          })
-                        }
-                      />
-                    </td>
-                    <td>
-                      <input
-                        aria-label={`${variant.label} SKU`}
-                        className={styles.input}
-                        id={catalogFieldId(
-                          "product_variants",
-                          "sku",
-                          variant.id,
-                        )}
-                        value={variant.sku ?? ""}
-                        disabled={fieldReadOnly("product_variants", "sku")}
-                        onChange={(event) =>
-                          updateVariant(variant.id, { sku: event.target.value })
-                        }
-                      />
-                      {issueFor(
-                        issues,
-                        "product_variants",
-                        "sku",
-                        variant.id,
-                      ) ? (
-                        <p className={styles.fieldError}>
-                          {issueFor(
-                            issues,
-                            "product_variants",
-                            "sku",
-                            variant.id,
-                          )}
-                        </p>
-                      ) : null}
-                    </td>
-                    <td>
-                      <input
-                        aria-label={`${variant.label} price in dollars`}
-                        className={styles.input}
-                        id={catalogFieldId(
-                          "product_variants",
-                          "price_cents",
-                          variant.id,
-                        )}
-                        inputMode="decimal"
-                        disabled={fieldReadOnly(
-                          "product_variants",
-                          "price_cents",
-                        )}
-                        value={(variant.price_cents / 100).toFixed(2)}
-                        onChange={(event) => {
-                          if (!event.target.value.trim()) {
-                            updateVariant(variant.id, { price_cents: -1 });
-                            return;
-                          }
-                          const dollars = Number(event.target.value);
-                          updateVariant(variant.id, {
-                            price_cents: Number.isFinite(dollars)
-                              ? Math.round(dollars * 100)
-                              : -1,
-                          });
-                        }}
-                      />
-                      {issueFor(
-                        issues,
-                        "product_variants",
-                        "price_cents",
-                        variant.id,
-                      ) ? (
-                        <p className={styles.fieldError}>
-                          {issueFor(
-                            issues,
-                            "product_variants",
-                            "price_cents",
-                            variant.id,
-                          )}
-                        </p>
-                      ) : null}
-                    </td>
-                    <td>
-                      <input
-                        aria-label={`${variant.label} sellable`}
-                        type="checkbox"
-                        checked={variant.available}
-                        disabled={fieldReadOnly(
-                          "product_variants",
-                          "available",
-                        )}
-                        onChange={(event) =>
-                          updateVariant(variant.id, {
-                            available: event.target.checked,
-                          })
-                        }
-                      />
-                    </td>
-                    <td>
-                      <select
-                        aria-label={`${variant.label} inventory status`}
-                        className={styles.select}
-                        value={variant.inventory_status}
-                        disabled={fieldReadOnly(
-                          "product_variants",
-                          "inventory_status",
-                        )}
-                        onChange={(event) =>
-                          updateVariant(variant.id, {
-                            inventory_status: event.target.value,
-                          })
-                        }
-                      >
-                        <option value="in_stock">In stock</option>
-                        <option value="low_stock">Low stock</option>
-                        <option value="out_of_stock">Out of stock</option>
-                        <option value="unavailable">Unavailable</option>
-                      </select>
-                    </td>
-                    <td>
-                      <input
-                        aria-label={`${variant.label} sort order`}
-                        className={styles.input}
-                        type="number"
-                        value={variant.sort_order ?? 0}
-                        disabled={fieldReadOnly(
-                          "product_variants",
-                          "sort_order",
-                        )}
-                        onChange={(event) =>
-                          updateVariant(variant.id, {
-                            sort_order: Number(event.target.value),
-                          })
-                        }
-                      />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </details>
-
-      <details className={styles.section} id="section-product_media" open>
-        <summary className={styles.summary}>
-          <span>
-            <span className={styles.tableLabel}>Table</span>
-            <br />
-            product_media
-          </span>
-        </summary>
-        <div className={styles.sectionBody}>
-          {product.routine_group === "core" ? (
-            <fieldset className={styles.repeater}>
-              <legend className={styles.legend}>Core routine media</legend>
-              <div className={styles.mediaGrid}>
-                {CORE_ROUTINE_MEDIA_SLOTS.map((slot) => (
-                  <CoreRoutineMediaSlotControl
-                    key={slot.role}
-                    slot={slot}
-                    media={document.media.find(
-                      (item) => item.role === slot.role,
-                    )}
-                    onUpdate={updateMedia}
-                    onUpload={onUpload}
-                    uploading={uploading}
-                  />
-                ))}
-              </div>
-            </fieldset>
-          ) : null}
-          <MediaUploadControl onUpload={onUpload} uploading={uploading} />
-          <div className={styles.mediaGrid}>
-            {document.media
-              .filter((media) => !isCoreRoutineMediaRole(media.role))
-              .map((media, index, mediaItems) => (
-                <article className={styles.mediaCard} key={media.id}>
-                  <div className={styles.mediaPreview}>
-                    {media.url && media.media_type === "video" ? (
-                      <video src={media.url} muted aria-label={media.alt} />
-                    ) : media.url ? (
-                      // The protected API supplies project-controlled media URLs.
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={media.url} alt={media.alt} />
-                    ) : (
-                      <span>Media unavailable</span>
-                    )}
-                  </div>
-                  <TextField
-                    id={catalogFieldId("product_media", "role", media.id)}
-                    label="Role"
-                    value={media.role}
-                    onChange={(role) => updateMedia(media.id, { role })}
-                    readOnly={fieldReadOnly("product_media", "role")}
-                    error={issueFor(
-                      issues,
-                      "product_media",
-                      "role",
-                      media.id,
-                    )}
-                  />
-                  <TextField
-                    id={catalogFieldId("product_media", "alt", media.id)}
-                    label="Alt text"
-                    value={media.alt}
-                    onChange={(alt) => updateMedia(media.id, { alt })}
-                    readOnly={fieldReadOnly("product_media", "alt")}
-                  />
-                  <div className={styles.actionRow}>
-                    <button
-                      className={`${styles.button} ${styles.buttonSecondary}`}
-                      type="button"
-                      disabled={
-                        fieldReadOnly("product_media", "sort_order") ||
-                        index === 0
-                      }
-                      onClick={() => moveMedia(index, -1)}
-                    >
-                      Move earlier
-                    </button>
-                    <button
-                      className={`${styles.button} ${styles.buttonSecondary}`}
-                      type="button"
-                      disabled={
-                        fieldReadOnly("product_media", "sort_order") ||
-                        index === mediaItems.length - 1
-                      }
-                      onClick={() => moveMedia(index, 1)}
-                    >
-                      Move later
-                    </button>
-                    <button
-                      className={`${styles.button} ${styles.buttonDanger}`}
-                      type="button"
-                      disabled={fieldReadOnly("product_media", "role")}
-                      onClick={() => removeMedia(media.id)}
-                    >
-                      Remove
-                    </button>
-                  </div>
-                </article>
-              ))}
-          </div>
-        </div>
-      </details>
-
-      <details
-        className={styles.section}
-        id="section-product_relationships"
-        open
-      >
-        <summary className={styles.summary}>
-          <span>
-            <span className={styles.tableLabel}>Table</span>
-            <br />
-            product_relationships
-          </span>
-        </summary>
-        <div className={styles.sectionBody}>
-          <div className={styles.repeater}>
-              {document.relationships.length === 0 ? (
-                <p className={styles.help}>
-                  No product relationships are configured.
-                </p>
-              ) : null}
-              {document.relationships.map((relationship) => {
-                const identity = `${relationship.related_product_id}:${relationship.relationship_type}`;
-                return (
-                <div className={styles.inlineFields} key={identity}>
-                  <TextField
-                    id={catalogFieldId(
-                      "product_relationships",
-                      "related_product_id",
-                      identity,
-                    )}
-                    label="Related product"
-                    value={relationship.related_product_id}
-                    onChange={(related_product_id) =>
-                      updateRelationship(identity, {
-                        related_product_id,
-                      })
-                    }
-                    help="Use the stable catalog product ID."
-                    readOnly={fieldReadOnly(
-                      "product_relationships",
-                      "related_product_id",
-                    )}
-                    error={issueFor(
-                      issues,
-                      "product_relationships",
-                      "related_product_id",
-                      identity,
-                    )}
-                  />
-                  <label className={styles.field}>
-                    <span className={styles.fieldLabel}>Relationship type</span>
-                    <select
-                      className={styles.select}
-                      value={relationship.relationship_type}
-                      disabled={fieldReadOnly(
-                        "product_relationships",
-                        "relationship_type",
-                      )}
-                      onChange={(event) =>
-                        updateRelationship(identity, {
-                          relationship_type: event.target.value,
-                        })
-                      }
-                    >
-                      <option value="complete_the_routine">
-                        Complete the routine
-                      </option>
-                      <option value="related">Related</option>
-                      <option value="routine_next">Routine next</option>
-                    </select>
-                  </label>
-                  <label className={styles.field}>
-                    <span className={styles.fieldLabel}>Sort order</span>
-                    <input
-                      className={styles.input}
-                      type="number"
-                      value={relationship.sort_order}
-                      disabled={fieldReadOnly(
-                        "product_relationships",
-                        "sort_order",
-                      )}
-                      onChange={(event) =>
-                        updateRelationship(identity, {
-                          sort_order: Number(event.target.value),
-                        })
-                      }
-                    />
-                  </label>
-                  <button
-                    className={`${styles.button} ${styles.buttonDanger}`}
-                    type="button"
-                    onClick={() =>
-                      onChange({
-                        ...document,
-                        relationships:
-                          document.relationships.filter(
-                            (current) =>
-                              `${current.related_product_id}:${current.relationship_type}` !==
-                              identity,
-                          ),
-                      })
-                    }
-                  >
-                    Remove relationship
-                  </button>
-                </div>
-                );
-              })}
-              <button
-                className={`${styles.button} ${styles.buttonSecondary}`}
-                type="button"
-                onClick={() =>
-                  onChange({
-                    ...document,
-                    relationships: [
-                      ...document.relationships,
-                      {
-                        related_product_id: crypto.randomUUID(),
-                        relationship_type: "related",
-                        sort_order: document.relationships.length,
-                      },
-                    ],
-                  })
-                }
-              >
-                Add relationship
-              </button>
-            </div>
-        </div>
-      </details>
+      <PdpSection {...props} />
+      <VariantsSection {...props} />
+      <MediaSection {...props} />
+      <RelationshipsSection {...props} />
+      <SourceSection {...props} />
+      <SystemMetadataSection metadata={props.systemMetadata} />
     </>
   );
 }
 
-function CoreRoutineMediaSlotControl({
-  slot,
-  media,
-  onUpdate,
-  onUpload,
-  uploading,
-}: {
+function PdpSection({ document, role, issues, onChange }: CatalogEditorSectionsProps) {
+  const pdp = document.productPdpContent;
+  if (!pdp) {
+    return (
+      <TableSection table="product_pdp_content">
+        <p className={styles.help}>No PDP content row exists for this product.</p>
+      </TableSection>
+    );
+  }
+  const record = pdp as unknown as Record<string, unknown>;
+  const update = (field: string, value: unknown) =>
+    onChange({
+      ...document,
+      productPdpContent: { ...pdp, [field]: value },
+    });
+  const structured = new Set([
+    "profile_title_tokens",
+    "ingredient_cards",
+    "ingredient_story",
+  ]);
+  return (
+    <TableSection table="product_pdp_content">
+      <div className={styles.fieldGrid}>
+        {catalogFieldsForTable("product_pdp_content")
+          .filter((field) => !structured.has(field.field))
+          .map((metadata) => (
+            <MetadataField
+              key={metadata.field}
+              table="product_pdp_content"
+              field={metadata.field}
+              value={record[metadata.field]}
+              role={role}
+              onChange={(value) => update(metadata.field, value)}
+              issues={issues}
+            />
+          ))}
+      </div>
+      <ProfileTokensEditor
+        tokens={pdp.profile_title_tokens ?? []}
+        readOnly={!canCatalogRoleEditField(role, "product_pdp_content", "profile_title_tokens")}
+        onChange={(value) => update("profile_title_tokens", value)}
+      />
+      <IngredientCardsEditor
+        cards={pdp.ingredient_cards ?? []}
+        readOnly={!canCatalogRoleEditField(role, "product_pdp_content", "ingredient_cards")}
+        onChange={(value) => update("ingredient_cards", value)}
+      />
+      <IngredientStoryEditor
+        story={pdp.ingredient_story}
+        readOnly={!canCatalogRoleEditField(role, "product_pdp_content", "ingredient_story")}
+        onChange={(value) => update("ingredient_story", value)}
+      />
+    </TableSection>
+  );
+}
+
+function VariantsSection({ document, role, issues, onChange }: CatalogEditorSectionsProps) {
+  const canEdit = role === "admin";
+  const fields = catalogFieldsForTable("product_variants");
+  const update = (id: string, field: string, value: unknown) =>
+    onChange({
+      ...document,
+      variants: document.variants.map((variant) =>
+        variant.id === id ? { ...variant, [field]: value } : variant,
+      ),
+    });
+  const move = (index: number, direction: -1 | 1) => {
+    const target = index + direction;
+    if (!canEdit || target < 0 || target >= document.variants.length) return;
+    const variants = [...document.variants];
+    [variants[index], variants[target]] = [variants[target], variants[index]];
+    onChange({
+      ...document,
+      variants: variants.map((variant, sort_order) => ({ ...variant, sort_order })),
+    });
+  };
+  return (
+    <TableSection table="product_variants">
+      <p className={styles.help}>
+        Prices are edited in dollars and stored as integer cents. Variant lifecycle and commerce fields require an admin.
+      </p>
+      <div className={styles.stack}>
+        {document.variants.map((variant, index) => {
+          const record = variant as unknown as Record<string, unknown>;
+          return (
+            <article className={styles.recordCard} key={variant.id}>
+              <div className={styles.recordHeader}>
+                <strong>{variant.label || `Variant ${index + 1}`}</strong>
+                <div className={styles.actionRow}>
+                  <button className={`${styles.button} ${styles.buttonSecondary}`} type="button" disabled={!canEdit || index === 0} onClick={() => move(index, -1)}>Move earlier</button>
+                  <button className={`${styles.button} ${styles.buttonSecondary}`} type="button" disabled={!canEdit || index === document.variants.length - 1} onClick={() => move(index, 1)}>Move later</button>
+                  <button className={`${styles.button} ${styles.buttonDanger}`} type="button" disabled={!canEdit} onClick={() => onChange({ ...document, variants: document.variants.filter((item) => item.id !== variant.id) })}>Archive variant</button>
+                </div>
+              </div>
+              <div className={styles.fieldGrid}>
+                {fields.map((metadata) => (
+                  <MetadataField
+                    key={metadata.field}
+                    table="product_variants"
+                    field={metadata.field}
+                    value={record[metadata.field]}
+                    role={role}
+                    onChange={(value) => update(variant.id, metadata.field, value)}
+                    issues={issues}
+                    rowId={variant.id}
+                  />
+                ))}
+              </div>
+            </article>
+          );
+        })}
+      </div>
+      <button
+        className={`${styles.button} ${styles.buttonSecondary}`}
+        type="button"
+        disabled={!canEdit}
+        onClick={() => {
+          const now = new Date().toISOString();
+          const variant: CatalogVariantFields = {
+            id: crypto.randomUUID(),
+            product_id: document.productId,
+            variant_key: `variant-${document.variants.length + 1}`,
+            label: "",
+            price_cents: 0,
+            sku: null,
+            supplier_variant_id: null,
+            option_values: {},
+            compare_at_price_cents: null,
+            available: false,
+            inventory_status: "unavailable",
+            volume: null,
+            pack_count: null,
+            sort_order: document.variants.length,
+            updated_at: now,
+            archived_at: null,
+          };
+          onChange({ ...document, variants: [...document.variants, variant] });
+        }}
+      >
+        Add variant
+      </button>
+    </TableSection>
+  );
+}
+
+function MediaSection(props: CatalogEditorSectionsProps) {
+  const { document, role, issues, onChange, onUpload, uploading } = props;
+  const fields = catalogFieldsForTable("product_media");
+  const variantOptions = document.variants.map((variant) => ({
+    label: variant.label || variant.variant_key,
+    value: variant.id,
+  }));
+  const update = (id: string, field: string, value: unknown) =>
+    onChange({
+      ...document,
+      media: document.media.map((media) =>
+        media.id === id ? { ...media, [field]: value } : media,
+      ),
+    });
+  const move = (index: number, direction: -1 | 1) => {
+    const target = index + direction;
+    if (target < 0 || target >= document.media.length) return;
+    const media = [...document.media];
+    [media[index], media[target]] = [media[target], media[index]];
+    onChange({
+      ...document,
+      media: media.map((item, sort_order) => ({ ...item, sort_order })),
+    });
+  };
+  return (
+    <TableSection table="product_media">
+      {document.product.routine_group === "core" ? (
+        <fieldset className={styles.fieldGroup}>
+          <legend>Core routine media</legend>
+          <div className={styles.mediaGrid}>
+            {CORE_ROUTINE_MEDIA_SLOTS.map((slot) => (
+              <CoreRoutineUpload
+                key={slot.role}
+                slot={slot}
+                media={document.media.find((item) => item.role === slot.role)}
+                onUpload={onUpload}
+                uploading={uploading}
+              />
+            ))}
+          </div>
+        </fieldset>
+      ) : null}
+      <MediaUploadControl
+        variants={variantOptions}
+        onUpload={onUpload}
+        uploading={uploading}
+      />
+      <div className={styles.stack}>
+        {document.media.map((media, index) => {
+          const record = media as unknown as Record<string, unknown>;
+          return (
+            <article className={styles.recordCard} key={media.id}>
+              <div className={styles.recordHeader}>
+                <div className={styles.mediaIdentity}>
+                  <MediaPreview media={media} />
+                  <strong>{media.role} #{media.sort_order}</strong>
+                </div>
+                <div className={styles.actionRow}>
+                  <button
+                    className={`${styles.button} ${styles.buttonSecondary}`}
+                    type="button"
+                    aria-label={`Move ${media.alt || media.role} earlier`}
+                    disabled={index === 0}
+                    onClick={() => move(index, -1)}
+                  >
+                    Move earlier
+                  </button>
+                  <button
+                    className={`${styles.button} ${styles.buttonSecondary}`}
+                    type="button"
+                    aria-label={`Move ${media.alt || media.role} later`}
+                    disabled={index === document.media.length - 1}
+                    onClick={() => move(index, 1)}
+                  >
+                    Move later
+                  </button>
+                  <button
+                    className={`${styles.button} ${styles.buttonDanger}`}
+                    type="button"
+                    disabled={!canCatalogRoleEditField(role, "product_media", "role")}
+                    onClick={() => {
+                      if (
+                        ["card", "cart", "detail"].includes(media.role) &&
+                        !window.confirm(
+                          "Archive this primary media association? Review the replacement media before publishing.",
+                        )
+                      ) {
+                        return;
+                      }
+                      onChange({
+                        ...document,
+                        media: document.media.filter((item) => item.id !== media.id),
+                      });
+                    }}
+                  >
+                    Archive association
+                  </button>
+                </div>
+              </div>
+              <div className={styles.fieldGrid}>
+                {fields.map((metadata) =>
+                  metadata.field === "placeholder_palette" &&
+                  canCatalogRoleEditField(role, "product_media", metadata.field) ? (
+                    <PlaceholderPaletteEditor
+                      key={metadata.field}
+                      id={catalogFieldId("product_media", metadata.field, media.id)}
+                      value={record[metadata.field]}
+                      onChange={(value) => update(media.id, metadata.field, value)}
+                    />
+                  ) : (
+                    <MetadataField
+                      key={metadata.field}
+                      table="product_media"
+                      field={metadata.field}
+                      value={record[metadata.field]}
+                      role={role}
+                      onChange={(value) => update(media.id, metadata.field, value)}
+                      issues={issues}
+                      rowId={media.id}
+                      forceReadOnly={metadata.field === "role" && isCoreRoutineMediaRole(media.role)}
+                      selectOptions={
+                        metadata.field === "role"
+                          ? PRODUCT_MEDIA_ROLES.filter(
+                              (item) => !isCoreRoutineMediaRole(item),
+                            ).map((item) => ({
+                              label: item.replaceAll("_", " "),
+                              value: item,
+                            }))
+                          : metadata.field === "variant_id"
+                            ? variantOptions
+                            : undefined
+                      }
+                    />
+                  ),
+                )}
+              </div>
+              <span className={styles.help}>Record {index + 1} of {document.media.length}</span>
+            </article>
+          );
+        })}
+      </div>
+    </TableSection>
+  );
+}
+
+function RelationshipsSection({ document, role, issues, relationshipTargets, onChange }: CatalogEditorSectionsProps) {
+  const fields = catalogFieldsForTable("product_relationships");
+  const targets = relationshipTargets.map((target) => ({
+    label: `${target.displayName} (/${target.slug})`,
+    value: target.id,
+  }));
+  const identity = (relationship: CatalogRelationshipFields) =>
+    `${relationship.related_product_id}:${relationship.relationship_type}`;
+  const update = (currentIdentity: string, field: string, value: unknown) =>
+    onChange({
+      ...document,
+      relationships: document.relationships.map((relationship) =>
+        identity(relationship) === currentIdentity
+          ? { ...relationship, [field]: value }
+          : relationship,
+      ),
+    });
+  return (
+    <TableSection table="product_relationships">
+      <div className={styles.stack}>
+        {document.relationships.map((relationship) => {
+          const rowId = identity(relationship);
+          const record = relationship as unknown as Record<string, unknown>;
+          return (
+            <article className={styles.recordCard} key={rowId}>
+              <div className={styles.fieldGrid}>
+                {fields.map((metadata) => (
+                  <MetadataField
+                    key={metadata.field}
+                    table="product_relationships"
+                    field={metadata.field}
+                    value={record[metadata.field]}
+                    role={role}
+                    onChange={(value) => update(rowId, metadata.field, value)}
+                    issues={issues}
+                    rowId={rowId}
+                    selectOptions={metadata.field === "related_product_id" ? targets : undefined}
+                  />
+                ))}
+              </div>
+              <button className={`${styles.button} ${styles.buttonDanger}`} type="button" disabled={!canCatalogRoleEditField(role, "product_relationships", "related_product_id")} onClick={() => onChange({ ...document, relationships: document.relationships.filter((item) => identity(item) !== rowId) })}>Remove relationship</button>
+            </article>
+          );
+        })}
+      </div>
+      <button
+        className={`${styles.button} ${styles.buttonSecondary}`}
+        type="button"
+        disabled={!canCatalogRoleEditField(role, "product_relationships", "related_product_id") || targets.length === 0}
+        onClick={() => {
+          const relationship: CatalogRelationshipFields = {
+            product_id: document.productId,
+            related_product_id: targets[0]?.value ?? "",
+            relationship_type: "related",
+            sort_order: document.relationships.length,
+            created_at: new Date().toISOString(),
+            archived_at: null,
+          };
+          onChange({ ...document, relationships: [...document.relationships, relationship] });
+        }}
+      >
+        Add relationship
+      </button>
+    </TableSection>
+  );
+}
+
+function SourceSection({ document, role, issues, onChange }: CatalogEditorSectionsProps) {
+  const source = document.productSource;
+  if (!source) {
+    return (
+      <TableSection table="product_sources">
+        <p className={styles.help}>No supplier provenance record exists for this product.</p>
+      </TableSection>
+    );
+  }
+  const record = source as unknown as Record<string, unknown>;
+  const update = (field: string, value: unknown) =>
+    onChange({
+      ...document,
+      productSource: { ...source, [field]: value } as CatalogSourceFields,
+    });
+  return (
+    <TableSection table="product_sources">
+      <p className={styles.help}>
+        Safe source corrections require an admin. Reconciliation identifiers, hashes, inspection state, and raw snapshots remain immutable.
+      </p>
+      <div className={styles.fieldGrid}>
+        {catalogFieldsForTable("product_sources").map((metadata) => (
+          <MetadataField
+            key={metadata.field}
+            table="product_sources"
+            field={metadata.field}
+            value={record[metadata.field]}
+            role={role}
+            onChange={(value) => update(metadata.field, value)}
+            issues={issues}
+          />
+        ))}
+      </div>
+    </TableSection>
+  );
+}
+
+function SystemMetadataSection({ metadata }: { metadata: CatalogEditorResponse["systemMetadata"] }) {
+  return (
+    <TableSection table="system_metadata" open={false}>
+      <p className={styles.help}>
+        Workflow, revision, and audit records are displayed for inspection only. They are not part of the editable product document.
+      </p>
+      <MetadataRows table="product_content_drafts" rows={metadata.drafts} />
+      <MetadataRows table="catalog_product_revisions" rows={metadata.revisions} />
+      <MetadataRows table="catalog_editor_audit_log" rows={metadata.audit} />
+    </TableSection>
+  );
+}
+
+function MetadataRows({ table, rows }: { table: CatalogEditorTable; rows: Array<Record<string, unknown>> }) {
+  const fields = catalogFieldsForTable(table);
+  return (
+    <section className={styles.metadataRows}>
+      <h3>{table}</h3>
+      {rows.length === 0 ? <p className={styles.help}>No records.</p> : null}
+      {rows.map((row, index) => (
+        <details className={styles.metadataRecord} key={String(row.id ?? index)}>
+          <summary>{String(row.id ?? `Record ${index + 1}`)}</summary>
+          <div className={styles.fieldGrid}>
+            {fields.map((field) => (
+              <ReadOnlyField
+                key={field.field}
+                id={catalogFieldId("system_metadata", `${table}-${field.field}`, String(row.id ?? index))}
+                metadata={field}
+                value={row[field.field]}
+              />
+            ))}
+          </div>
+        </details>
+      ))}
+    </section>
+  );
+}
+
+function MediaPreview({ media }: { media: CatalogMediaFields }) {
+  return (
+    <div className={styles.mediaPreview}>
+      {media.url && media.media_type === "video" ? (
+        <video src={media.url} muted aria-label={media.alt} />
+      ) : media.url ? (
+        // The protected API supplies project-controlled media URLs.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={media.url} alt={media.alt} />
+      ) : (
+        <span>Media unavailable</span>
+      )}
+    </div>
+  );
+}
+
+function CoreRoutineUpload({ slot, media, onUpload, uploading }: {
   slot: (typeof CORE_ROUTINE_MEDIA_SLOTS)[number];
   media: CatalogMediaFields | undefined;
-  onUpdate: (id: string, changes: Partial<CatalogMediaFields>) => void;
   onUpload: CatalogEditorSectionsProps["onUpload"];
   uploading: boolean;
 }) {
-  const [replacementAlt, setReplacementAlt] = useState("");
-  const alt = media?.alt ?? replacementAlt;
-  const sortOrder =
-    slot.role === "core_routine_editorial"
-      ? 1
-      : media?.sort_order ?? slot.defaultSortOrder;
-
+  const [alt, setAlt] = useState(media?.alt ?? "");
+  useEffect(() => setAlt(media?.alt ?? ""), [media?.alt]);
+  const sortOrder = slot.role === "core_routine_editorial" ? 1 : slot.defaultSortOrder;
   return (
     <article className={styles.mediaCard}>
-      <div className={styles.mediaPreview}>
-        {media?.url ? (
-          // The protected API supplies project-controlled media URLs.
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={media.url} alt={media.alt} />
-        ) : (
-          <span>No image assigned</span>
-        )}
-      </div>
-      <div>
-        <strong>{slot.label}</strong>
-        <p className={styles.help}>{slot.helperText}</p>
-      </div>
-      <TextField
-        id={`core-routine-media-${slot.role}-alt`}
-        label="Alt text"
-        value={alt}
-        onChange={(value) => {
-          if (media) onUpdate(media.id, { alt: value });
-          else setReplacementAlt(value);
-        }}
-        help={`Role: ${slot.role}. Sort order: ${sortOrder}. No variant association.`}
-      />
+      {media ? <MediaPreview media={media} /> : <div className={styles.mediaPreview}>No image assigned</div>}
+      <strong>{slot.label}</strong>
+      <p className={styles.help}>{slot.helperText}</p>
+      <TextField id={`core-routine-media-${slot.role}-alt`} label="Alt text" value={alt} onChange={setAlt} />
       <label className={styles.field}>
-        <span className={styles.fieldLabel}>
-          {media ? `Replace ${slot.label}` : `Add ${slot.label}`}
-        </span>
+        <span className={styles.fieldLabel}>{media ? `Replace ${slot.label}` : `Add ${slot.label}`}</span>
         <input
           className={styles.input}
           type="file"
@@ -1122,15 +1087,7 @@ function CoreRoutineMediaSlotControl({
           disabled={uploading || !alt.trim()}
           onChange={async (event: ChangeEvent<HTMLInputElement>) => {
             const file = event.target.files?.[0];
-            if (file) {
-              await onUpload(file, {
-                role: slot.role,
-                alt: alt.trim(),
-                variantId: null,
-                sortOrder,
-                replaceRole: true,
-              });
-            }
+            if (file) await onUpload(file, { role: slot.role, alt: alt.trim(), variantId: null, sortOrder, replaceRole: true });
             event.target.value = "";
           }}
         />
@@ -1139,206 +1096,108 @@ function CoreRoutineMediaSlotControl({
   );
 }
 
-function MediaUploadControl({
-  onUpload,
-  uploading,
-}: {
-  onUpload: (
-    file: File,
-    metadata: {
-      role: ProductMediaRole;
-      alt: string;
-      variantId?: string | null;
-      sortOrder?: number;
-      replaceRole?: boolean;
-    },
-  ) => Promise<void>;
+function MediaUploadControl({ variants, onUpload, uploading }: {
+  variants: Array<{ label: string; value: string }>;
+  onUpload: CatalogEditorSectionsProps["onUpload"];
   uploading: boolean;
 }) {
   const [role, setRole] = useState<ProductMediaRole>("gallery");
   const [alt, setAlt] = useState("");
+  const [variantId, setVariantId] = useState("");
   return (
-    <fieldset className={styles.repeater}>
-      <legend className={styles.legend}>Upload media</legend>
+    <fieldset className={styles.fieldGroup}>
+      <legend>Upload media</legend>
       <div className={styles.inlineFields}>
         <label className={styles.field}>
           <span className={styles.fieldLabel}>Media role</span>
-          <select
-            className={styles.select}
-            value={role}
-            onChange={(event) =>
-              setRole(event.target.value as ProductMediaRole)
-            }
-          >
-            {PRODUCT_MEDIA_ROLES.filter(
-              (value) => !isCoreRoutineMediaRole(value),
-            ).map((value) => (
-              <option value={value} key={value}>
-                {value.replaceAll("_", " ")}
-              </option>
-            ))}
+          <select className={styles.select} value={role} onChange={(event) => setRole(event.target.value as ProductMediaRole)}>
+            {PRODUCT_MEDIA_ROLES.filter((value) => !isCoreRoutineMediaRole(value)).map((value) => <option value={value} key={value}>{value.replaceAll("_", " ")}</option>)}
           </select>
         </label>
-        <TextField
-          id="media-upload-alt"
-          label="Media alt text"
-          value={alt}
-          onChange={setAlt}
-          help="Describe the media without deriving meaning from its filename."
-        />
+        <label className={styles.field}>
+          <span className={styles.fieldLabel}>Variant association</span>
+          <select className={styles.select} value={variantId} onChange={(event) => setVariantId(event.target.value)}>
+            <option value="">All variants</option>
+            {variants.map((variant) => <option value={variant.value} key={variant.value}>{variant.label}</option>)}
+          </select>
+        </label>
+        <TextField id="media-upload-alt" label="Media alt text" value={alt} onChange={setAlt} />
         <label className={styles.field}>
           <span className={styles.fieldLabel}>Choose media file</span>
-          <input
-            className={styles.input}
-            type="file"
-            accept="image/jpeg,image/png,image/webp,video/mp4"
-            disabled={uploading || !alt.trim()}
-            onChange={async (event: ChangeEvent<HTMLInputElement>) => {
-              const file = event.target.files?.[0];
-              if (file) await onUpload(file, { role, alt: alt.trim() });
-              event.target.value = "";
-            }}
-          />
+          <input className={styles.input} type="file" accept="image/jpeg,image/png,image/webp,video/mp4" disabled={uploading || !alt.trim()} onChange={async (event) => {
+            const file = event.target.files?.[0];
+            if (file) await onUpload(file, { role, alt: alt.trim(), variantId: variantId || null });
+            event.target.value = "";
+          }} />
         </label>
       </div>
-      <span className={styles.help}>
-        Uploads use the protected admin endpoint and remain draft-scoped until
-        publication.
-      </span>
     </fieldset>
   );
 }
 
-function IngredientCardsEditor({
-  cards,
-  onChange,
-}: {
+function ProfileTokensEditor({ tokens, readOnly, onChange }: {
+  tokens: Array<{ text: string; emphasis?: boolean }>;
+  readOnly: boolean;
+  onChange: (tokens: Array<{ text: string; emphasis?: boolean }>) => void;
+}) {
+  return (
+    <fieldset className={styles.fieldGroup}>
+      <legend>Profile title tokens</legend>
+      {tokens.map((token, index) => (
+        <div className={styles.inlineFields} key={`profile-token-${index}`}>
+          <TextField id={`profile-token-${index}-text`} label={`Token ${index + 1}`} value={token.text} readOnly={readOnly} onChange={(text) => onChange(tokens.map((item, current) => current === index ? { ...item, text } : item))} />
+          <label className={styles.checkboxField}><input type="checkbox" checked={token.emphasis === true} disabled={readOnly} onChange={(event) => onChange(tokens.map((item, current) => current === index ? { ...item, emphasis: event.target.checked } : item))} /><span><strong>Emphasis</strong></span></label>
+          <button className={`${styles.button} ${styles.buttonDanger}`} type="button" disabled={readOnly} onClick={() => onChange(tokens.filter((_, current) => current !== index))}>Remove token</button>
+        </div>
+      ))}
+      <button className={`${styles.button} ${styles.buttonSecondary}`} type="button" disabled={readOnly} onClick={() => onChange([...tokens, { text: "" }])}>Add token</button>
+    </fieldset>
+  );
+}
+
+function IngredientCardsEditor({ cards, readOnly, onChange }: {
   cards: CatalogIngredientCard[];
+  readOnly: boolean;
   onChange: (cards: CatalogIngredientCard[]) => void;
 }) {
   return (
-    <fieldset className={styles.repeater}>
-      <legend className={styles.legend}>Ingredient cards</legend>
+    <fieldset className={styles.fieldGroup}>
+      <legend>Ingredient cards</legend>
       {cards.map((card, index) => (
         <div className={styles.repeaterItem} key={`ingredient-card-${index}`}>
-          <TextField
-            id={`ingredient-card-${index}-name`}
-            label={`Ingredient ${index + 1}`}
-            value={card.name}
-            onChange={(name) =>
-              onChange(
-                cards.map((current, currentIndex) =>
-                  currentIndex === index ? { ...current, name } : current,
-                ),
-              )
-            }
-          />
-          <TextField
-            id={`ingredient-card-${index}-label`}
-            label="Label"
-            value={card.label}
-            onChange={(label) =>
-              onChange(
-                cards.map((current, currentIndex) =>
-                  currentIndex === index
-                    ? { ...current, label }
-                    : current,
-                ),
-              )
-            }
-          />
-          <TextField
-            id={`ingredient-card-${index}-copy`}
-            label="Description"
-            value={card.copy}
-            onChange={(copy) =>
-              onChange(
-                cards.map((current, currentIndex) =>
-                  currentIndex === index ? { ...current, copy } : current,
-                ),
-              )
-            }
-            multiline
-          />
-          <button
-            className={`${styles.button} ${styles.buttonDanger}`}
-            type="button"
-            onClick={() =>
-              onChange(cards.filter((_, currentIndex) => currentIndex !== index))
-            }
-          >
-            Remove ingredient card
-          </button>
+          {(["name", "label", "copy"] as const).map((field) => (
+            <TextField key={field} id={`ingredient-card-${index}-${field}`} label={field === "copy" ? "Description" : field} value={card[field]} readOnly={readOnly} multiline={field === "copy"} onChange={(value) => onChange(cards.map((item, current) => current === index ? { ...item, [field]: value } : item))} />
+          ))}
+          <button className={`${styles.button} ${styles.buttonDanger}`} type="button" disabled={readOnly} onClick={() => onChange(cards.filter((_, current) => current !== index))}>Remove ingredient card</button>
         </div>
       ))}
-      <button
-        className={`${styles.button} ${styles.buttonSecondary}`}
-        type="button"
-        onClick={() =>
-          onChange([...cards, { name: "", label: "", copy: "" }])
-        }
-      >
-        Add ingredient card
-      </button>
+      <button className={`${styles.button} ${styles.buttonSecondary}`} type="button" disabled={readOnly} onClick={() => onChange([...cards, { name: "", label: "", copy: "" }])}>Add ingredient card</button>
     </fieldset>
   );
 }
 
-function IngredientHighlightsEditor({
-  highlights,
-  onChange,
-}: {
-  highlights: readonly [
-    CatalogIngredientHighlight,
-    CatalogIngredientHighlight,
-  ];
-  onChange: (
-    highlights: [
-      CatalogIngredientHighlight,
-      CatalogIngredientHighlight,
-    ],
-  ) => void;
+function IngredientStoryEditor({ story, readOnly, onChange }: {
+  story: PdpIngredientStory | null;
+  readOnly: boolean;
+  onChange: (story: PdpIngredientStory) => void;
 }) {
+  if (!story) return <p className={styles.help}>No ingredient story is configured.</p>;
+  const updateHighlight = (index: number, field: "name" | "description", value: string) =>
+    onChange({ ...story, highlights: story.highlights.map((item, current) => current === index ? { ...item, [field]: value } : item) as [CatalogIngredientHighlight, CatalogIngredientHighlight] });
   return (
-    <fieldset className={styles.repeater}>
-      <legend className={styles.legend}>Ingredient highlights</legend>
-      {highlights.map((highlight, index) => (
-        <div className={styles.repeaterItem} key={`highlight-${index}`}>
-          <TextField
-            id={`highlight-${index}-title`}
-            label={`Highlight ${index + 1}`}
-            value={highlight.name}
-            onChange={(name) =>
-              onChange(
-                highlights.map((current, currentIndex) =>
-                  currentIndex === index ? { ...current, name } : current,
-                ) as [
-                  CatalogIngredientHighlight,
-                  CatalogIngredientHighlight,
-                ],
-              )
-            }
-          />
-          <TextField
-            id={`highlight-${index}-description`}
-            label="Description"
-            value={highlight.description}
-            onChange={(description) =>
-              onChange(
-                highlights.map((current, currentIndex) =>
-                  currentIndex === index
-                    ? { ...current, description }
-                    : current,
-                ) as [
-                  CatalogIngredientHighlight,
-                  CatalogIngredientHighlight,
-                ],
-              )
-            }
-            multiline
-          />
-        </div>
-      ))}
+    <fieldset className={styles.fieldGroup}>
+      <legend>Ingredient story</legend>
+      <div className={styles.fieldGrid}>
+        <TextField id="ingredient-story-heading" label="Heading" value={story.heading} readOnly={readOnly} onChange={(heading) => onChange({ ...story, heading })} />
+        <TextField id="ingredient-story-intro" label="Introduction" value={story.intro} readOnly={readOnly} multiline onChange={(intro) => onChange({ ...story, intro })} />
+        {story.highlights.map((highlight, index) => (
+          <div className={styles.repeaterItem} key={`ingredient-highlight-${index}`}>
+            <TextField id={`ingredient-highlight-${index}-name`} label={`Highlight ${index + 1}`} value={highlight.name} readOnly={readOnly} onChange={(value) => updateHighlight(index, "name", value)} />
+            <TextField id={`ingredient-highlight-${index}-description`} label="Description" value={highlight.description} readOnly={readOnly} multiline onChange={(value) => updateHighlight(index, "description", value)} />
+          </div>
+        ))}
+        <TextField id="ingredient-story-supporting" label="Supporting ingredients" value={story.supportingIngredients} readOnly={readOnly} multiline onChange={(supportingIngredients) => onChange({ ...story, supportingIngredients })} />
+      </div>
     </fieldset>
   );
 }

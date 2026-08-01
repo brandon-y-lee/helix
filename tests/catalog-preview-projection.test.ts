@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ProductEditorDocumentV2 } from "@/lib/admin/catalog/types";
+import type { ProductEditorDocumentV3 } from "@/lib/admin/catalog/types";
 import {
   CatalogPreviewProjectionError,
   projectCatalogDraftPreview,
@@ -119,9 +119,10 @@ function base(): CatalogPreviewBase {
   return { product, coreProducts: [coreProduct] };
 }
 
-function document(): ProductEditorDocumentV2 {
+function document(): ProductEditorDocumentV3 {
   const draft = structuredClone(catalogDocument);
   draft.productId = productId;
+  draft.product.id = productId;
   draft.product.slug = canonicalSlug;
   draft.product.display_name = "CLEANSE";
   draft.product.card_tagline = "Draft card tagline";
@@ -129,6 +130,7 @@ function document(): ProductEditorDocumentV2 {
   draft.product.editorial_how_to_use = "Draft editorial use";
   draft.product.benefits = ["Draft benefit"];
   draft.productPdpContent = {
+    product_id: productId,
     schema_version: 1,
     profile_title_tokens: [{ text: "Draft profile" }],
     routine_overlay: "Draft routine overlay",
@@ -139,11 +141,14 @@ function document(): ProductEditorDocumentV2 {
     ingredient_cards: null,
     ingredient_story: null,
     routine_guidance: "Draft Core guidance",
+    created_at: draft.product.created_at,
+    updated_at: draft.product.updated_at,
   };
   draft.variants = [
     {
       ...draft.variants[0],
       id: "55555555-5555-4555-8555-555555555555",
+      product_id: productId,
       label: "Draft 100 mL",
       price_cents: 9900,
       volume: "100 mL",
@@ -153,6 +158,7 @@ function document(): ProductEditorDocumentV2 {
     {
       ...draft.media[0],
       id: "66666666-6666-4666-8666-666666666666",
+      product_id: productId,
       url: approvedImage,
       alt: "Saved draft CLEANSE product",
       width: 1200,
@@ -162,6 +168,7 @@ function document(): ProductEditorDocumentV2 {
     },
   ];
   draft.relationships = [];
+  if (draft.productSource) draft.productSource.product_id = productId;
   return draft;
 }
 

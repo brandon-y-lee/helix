@@ -28,6 +28,7 @@ export async function POST(
         draftId,
         expectedVersion: requireExpectedVersion(body.expectedVersion),
         actorId: access.userId,
+        role: access.role,
       }),
     );
   });

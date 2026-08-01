@@ -123,6 +123,49 @@ function savedAtLabel(value: string) {
   }).format(new Date(value))} UTC`;
 }
 
+function PreviewMetadata({
+  document,
+}: {
+  document: Awaited<ReturnType<typeof getCatalogDraftForPreview>>["document"];
+}) {
+  const product = document.product;
+  const list = (values: string[]) => values.length > 0 ? values.join(", ") : "Not set";
+  const values = [
+    ["Slug", product.slug],
+    ["Formal title", product.formal_title],
+    ["SEO title", product.seo_title ?? "Not set"],
+    ["SEO description", product.seo_description ?? "Not set"],
+    ["Badge", product.badge ?? "Not set"],
+    ["Catalog status", product.catalog_status],
+    ["Product status", product.status],
+    ["Currency", product.currency],
+    ["Routine group", product.routine_group],
+    ["Routine step", product.routine_step_number === null
+      ? "Not set"
+      : `${product.routine_step_number} · ${product.routine_step_name ?? "Unnamed"}`],
+    ["Routine order", String(product.routine_sort)],
+    ["Storefront order", String(product.sort_order)],
+    ["Benefits", list(product.benefits)],
+    ["Formula notes", list(product.formula_notes)],
+    ["Concerns", list(product.concerns)],
+    ["Search keywords", list(product.search_keywords)],
+  ] as const;
+
+  return (
+    <aside className="catalog-preview-metadata" aria-labelledby="preview-metadata-title">
+      <h2 id="preview-metadata-title">Preview metadata</h2>
+      <dl>
+        {values.map(([label, value]) => (
+          <div key={label}>
+            <dt>{label}</dt>
+            <dd>{value}</dd>
+          </div>
+        ))}
+      </dl>
+    </aside>
+  );
+}
+
 export default async function CatalogDraftPreviewPage({
   params,
 }: {
@@ -286,6 +329,7 @@ export default async function CatalogDraftPreviewPage({
       <p className="catalog-preview-commerce-notice" role="status">
         {PREVIEW_COMMERCE_DISABLED_LABEL}
       </p>
+      <PreviewMetadata document={record.document} />
       {preview.warnings.length > 0 && (
         <aside
           className="catalog-preview-warning"

@@ -11,6 +11,7 @@ export const MEDIA_ID = "123e4567-e89b-42d3-a456-426614174002";
 export const SECOND_MEDIA_ID = "123e4567-e89b-42d3-a456-426614174003";
 export const DRAFT_ID = "123e4567-e89b-42d3-a456-426614174004";
 export const ACTOR_ID = "123e4567-e89b-42d3-a456-426614174005";
+const TIMESTAMP = "2026-07-20T12:00:00.000Z";
 
 export const catalogProduct: CatalogProductListItem = {
   id: PRODUCT_ID,
@@ -38,7 +39,7 @@ export const catalogProduct: CatalogProductListItem = {
 };
 
 export const catalogDocument: CatalogDraftDocument = {
-  schemaVersion: 2,
+  schemaVersion: 3,
   productId: PRODUCT_ID,
   product: {
     badge: null,
@@ -47,6 +48,7 @@ export const catalogDocument: CatalogDraftDocument = {
     catalog_status: "active",
     cautions: [],
     concerns: [],
+    created_at: TIMESTAMP,
     currency: "USD",
     display_name: "CLEANSE",
     editorial_description: "A daily gel cleanser.",
@@ -55,10 +57,12 @@ export const catalogDocument: CatalogDraftDocument = {
     formal_title: "CLEANSE 01 Calming Gel Cleanser",
     formula_notes: [],
     good_for: "All skin types",
+    id: PRODUCT_ID,
     ingredients: null,
     key_ingredients: ["Panthenol"],
     made_for: "Daily cleansing",
     product_type: "Gel cleanser",
+    published_at: TIMESTAMP,
     routine_group: "core",
     routine_sort: 1,
     routine_step_name: "Cleanse",
@@ -73,10 +77,12 @@ export const catalogDocument: CatalogDraftDocument = {
     swatch_from: "#dce8df",
     swatch_to: "#82978a",
     texture: "Gel",
+    updated_at: TIMESTAMP,
     usage_time: ["AM", "PM"],
     volume: "200 mL",
   },
   productPdpContent: {
+    product_id: PRODUCT_ID,
     schema_version: 1,
     profile_title_tokens: [
       { text: "A daily " },
@@ -104,10 +110,13 @@ export const catalogDocument: CatalogDraftDocument = {
       supportingIngredients: "Glycerin",
     },
     routine_guidance: "Use before TREAT and SEAL.",
+    created_at: TIMESTAMP,
+    updated_at: TIMESTAMP,
   },
   variants: [
     {
       id: VARIANT_ID,
+      product_id: PRODUCT_ID,
       variant_key: "200ml",
       label: "200 mL",
       sku: "MP-CLEANSE-200",
@@ -120,11 +129,14 @@ export const catalogDocument: CatalogDraftDocument = {
       pack_count: 1,
       sort_order: 0,
       supplier_variant_id: null,
+      updated_at: TIMESTAMP,
+      archived_at: null,
     },
   ],
   media: [
     {
       id: MEDIA_ID,
+      product_id: PRODUCT_ID,
       variant_id: null,
       url: "https://example.test/cleanse.webp",
       media_type: "image",
@@ -137,9 +149,13 @@ export const catalogDocument: CatalogDraftDocument = {
       placeholder_palette: {},
       original_source_url: null,
       source_filename: null,
+      created_at: TIMESTAMP,
+      updated_at: TIMESTAMP,
+      archived_at: null,
     },
     {
       id: SECOND_MEDIA_ID,
+      product_id: PRODUCT_ID,
       variant_id: null,
       url: "https://example.test/cleanse-detail.webp",
       media_type: "image",
@@ -152,15 +168,33 @@ export const catalogDocument: CatalogDraftDocument = {
       placeholder_palette: {},
       original_source_url: null,
       source_filename: null,
+      created_at: TIMESTAMP,
+      updated_at: TIMESTAMP,
+      archived_at: null,
     },
   ],
   relationships: [],
+  productSource: {
+    product_id: PRODUCT_ID,
+    supplier: "leaders",
+    supplier_title: "Supplier Cleanser",
+    supplier_url: "https://example.test/products/cleanser",
+    supplier_handle: "supplier-cleanser",
+    supplier_product_id: "supplier-product-1",
+    source_inspected_at: TIMESTAMP,
+    source_content_hash: "a".repeat(64),
+    original_source_price_cents: 2200,
+    formulation_version_notes: null,
+    raw_source: { source: "leaders" },
+    created_at: TIMESTAMP,
+    updated_at: TIMESTAMP,
+  },
 };
 
 export const catalogDraft: CatalogDraft = {
   id: DRAFT_ID,
   product_id: PRODUCT_ID,
-  schema_version: 2,
+  schema_version: 3,
   status: "draft",
   base_revision: 3,
   version: 4,
@@ -180,10 +214,23 @@ export function editorResponse(publish = true): CatalogEditorResponse {
     canonical: catalogDocument,
     draft: catalogDraft,
     latestRevision: 3,
+    role: publish ? "admin" : "catalog_editor",
     permissions: {
       "catalog.read": true,
       "catalog.edit": true,
       "catalog.publish": publish,
+    },
+    relationshipTargets: [
+      {
+        id: "123e4567-e89b-42d3-a456-426614174099",
+        displayName: "TREAT",
+        slug: "treat-03-pdrn-5-ampoule",
+      },
+    ],
+    systemMetadata: {
+      drafts: [],
+      revisions: [],
+      audit: [],
     },
   };
 }

@@ -1097,6 +1097,47 @@ main[data-header-layout="overlay"] {
   text-align: center;
 }
 
+.catalog-preview-metadata {
+  padding: 16px var(--storefront-gutter) 18px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.catalog-preview-metadata h2 {
+  margin: 0 0 12px;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.catalog-preview-metadata dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
+  gap: 10px 24px;
+  margin: 0;
+}
+
+.catalog-preview-metadata dl div {
+  min-width: 0;
+}
+
+.catalog-preview-metadata dt,
+.catalog-preview-metadata dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.catalog-preview-metadata dt {
+  color: var(--ink-soft);
+  font-size: 0.66rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.catalog-preview-metadata dd {
+  margin-top: 2px;
+  font-size: 0.76rem;
+}
+
 .catalog-preview-warning p {
   margin: 0;
 }

@@ -1395,6 +1395,8 @@ export type Database = {
       publish_catalog_product_draft: {
         Args: {
           p_actor_id: string
+          p_actor_role: string
+          p_change_audit: Json
           p_draft_id: string
           p_expected_version: number
         }
@@ -1418,6 +1420,7 @@ export type Database = {
       save_catalog_product_draft: {
         Args: {
           p_actor_id: string
+          p_actor_role: string
           p_document: Json
           p_draft_id: string
           p_expected_version: number

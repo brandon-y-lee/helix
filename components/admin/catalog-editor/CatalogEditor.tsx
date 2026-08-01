@@ -12,7 +12,6 @@ import {
   CatalogDraft,
   CatalogDraftDocument,
   CatalogConflictSnapshot,
-  CatalogDiffEntry,
   CatalogPublishResult,
   CatalogRevision,
   CatalogValidationIssue,
@@ -20,6 +19,9 @@ import {
   CatalogVersionConflictError,
   catalogEditorApi,
 } from "@/lib/admin/catalog-editor/client";
+import type { CatalogEditorResponse } from "@/lib/admin/catalog/types";
+import { catalogDocumentDiff } from "@/lib/admin/catalog/diff";
+import type { CatalogEditorRole } from "@/lib/catalog/field-ownership";
 import type { ProductMediaRole } from "@/lib/catalog/media-roles";
 import CatalogEditorSections, {
   CATALOG_SECTIONS,
@@ -55,21 +57,14 @@ function localIssues(document: CatalogDraftDocument): CatalogValidationIssue[] {
       });
     }
     const sku = (variant.sku ?? "").trim().toLocaleLowerCase();
-    if (!sku) {
-      issues.push({
-        table: "product_variants",
-        field: "sku",
-        row_id: variant.id,
-        message: "SKU is required.",
-      });
-    } else if (skuOwners.has(sku)) {
+    if (sku && skuOwners.has(sku)) {
       issues.push({
         table: "product_variants",
         field: "sku",
         row_id: variant.id,
         message: "SKU must be unique within this product.",
       });
-    } else {
+    } else if (sku) {
       skuOwners.set(sku, variant.id);
     }
     if (!Number.isInteger(variant.price_cents) || variant.price_cents < 0) {
@@ -120,67 +115,8 @@ function documentDiff(
   before: CatalogDraftDocument,
   after: CatalogDraftDocument,
 ): Pick<CatalogValidationResult, "diff" | "affected_tables"> {
-  const diff: CatalogValidationResult["diff"] = {};
-  const affected: CatalogValidationResult["affected_tables"] = [];
-  const objectTables = [
-    {
-      table: "products" as const,
-      previous: before.product,
-      next: after.product,
-    },
-    {
-      table: "product_pdp_content" as const,
-      previous: before.productPdpContent ?? {},
-      next: after.productPdpContent ?? {},
-    },
-  ];
-  for (const { table, previous, next } of objectTables) {
-    const entries: CatalogDiffEntry[] = [];
-    for (const field of new Set([
-      ...Object.keys(previous),
-      ...Object.keys(next),
-    ])) {
-      const previousValue = (previous as Record<string, unknown>)[field];
-      const nextValue = (next as Record<string, unknown>)[field];
-      if (JSON.stringify(previousValue) !== JSON.stringify(nextValue)) {
-        entries.push({ field, before: previousValue, after: nextValue });
-      }
-    }
-    if (entries.length > 0) {
-      diff[table] = entries;
-      affected.push(table);
-    }
-  }
-  const collectionTables = [
-    {
-      table: "product_variants" as const,
-      previous: before.variants,
-      next: after.variants,
-    },
-    {
-      table: "product_media" as const,
-      previous: before.media,
-      next: after.media,
-    },
-    {
-      table: "product_relationships" as const,
-      previous: before.relationships,
-      next: after.relationships,
-    },
-  ];
-  for (const { table, previous, next } of collectionTables) {
-    if (JSON.stringify(previous) !== JSON.stringify(next)) {
-      diff[table] = [
-        {
-          field: "records",
-          before: `${previous.length} records`,
-          after: `${next.length} records`,
-        },
-      ];
-      affected.push(table);
-    }
-  }
-  return { diff, affected_tables: affected };
+  const result = catalogDocumentDiff(before, after);
+  return { diff: result.diff, affected_tables: result.affectedTables };
 }
 
 export default function CatalogEditor({ productId }: { productId: string }) {
@@ -190,6 +126,13 @@ export default function CatalogEditor({ productId }: { productId: string }) {
   const [canonicalDocument, setCanonicalDocument] =
     useState<CatalogDraftDocument | null>(null);
   const [draft, setDraft] = useState<CatalogDraft | null>(null);
+  const [role, setRole] = useState<CatalogEditorRole>("catalog_editor");
+  const [relationshipTargets, setRelationshipTargets] = useState<
+    CatalogEditorResponse["relationshipTargets"]
+  >([]);
+  const [systemMetadata, setSystemMetadata] = useState<
+    CatalogEditorResponse["systemMetadata"]
+  >({ drafts: [], revisions: [], audit: [] });
   const [canPublish, setCanPublish] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
@@ -205,6 +148,7 @@ export default function CatalogEditor({ productId }: { productId: string }) {
   const [publishResult, setPublishResult] =
     useState<CatalogPublishResult | null>(null);
   const [publishReviewOpen, setPublishReviewOpen] = useState(false);
+  const [disruptiveAcknowledged, setDisruptiveAcknowledged] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
   const activeDocument = useRef<CatalogDraftDocument | null>(null);
 
@@ -234,6 +178,9 @@ export default function CatalogEditor({ productId }: { productId: string }) {
         setSavedDocument(initial);
         setCanonicalDocument(response.canonical);
         setDraft(response.draft);
+        setRole(response.role);
+        setRelationshipTargets(response.relationshipTargets);
+        setSystemMetadata(response.systemMetadata);
         setCanPublish(Boolean(response.permissions["catalog.publish"]));
       })
       .catch((loadError: unknown) => {
@@ -370,6 +317,10 @@ export default function CatalogEditor({ productId }: { productId: string }) {
           ...retainedMedia,
           {
             ...response.media,
+            product_id: current.productId,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            archived_at: null,
             sort_order: metadata.sortOrder ?? retainedMedia.length,
           },
         ],
@@ -516,8 +467,9 @@ export default function CatalogEditor({ productId }: { productId: string }) {
                         return;
                       }
                       setValidation(checked.result);
-                    setPublishReviewOpen(true);
-                    setStatus("Review the validated changes before publishing.");
+                      setDisruptiveAcknowledged(false);
+                      setPublishReviewOpen(true);
+                      setStatus("Review the validated changes before publishing.");
                     })
                   }
                 >
@@ -605,6 +557,9 @@ export default function CatalogEditor({ productId }: { productId: string }) {
                       setDraft(response.draft);
                       setDocument(latest);
                       setSavedDocument(latest);
+                      setRole(response.role);
+                      setRelationshipTargets(response.relationshipTargets);
+                      setSystemMetadata(response.systemMetadata);
                       setConflict(null);
                       setError(null);
                       setStatus(
@@ -674,10 +629,41 @@ export default function CatalogEditor({ productId }: { productId: string }) {
                 </div>
               ))}
               <div className={styles.actionRow}>
+                {validation.affected_tables.some((table) =>
+                  (validation.diff[table] ?? []).some(
+                    (entry) => entry.disruptive,
+                  ),
+                ) ? (
+                  <label className={styles.checkboxField}>
+                    <input
+                      type="checkbox"
+                      checked={disruptiveAcknowledged}
+                      onChange={(event) =>
+                        setDisruptiveAcknowledged(event.target.checked)
+                      }
+                    />
+                    <span>
+                      <strong>Acknowledge disruptive changes</strong>
+                      <span className={styles.help}>
+                        Review classification, publication, variant, or media
+                        lifecycle changes before publishing.
+                      </span>
+                    </span>
+                  </label>
+                ) : null}
                 <button
                   className={styles.button}
                   type="button"
-                  disabled={Boolean(busy) || !draft}
+                  disabled={
+                    Boolean(busy) ||
+                    !draft ||
+                    (validation.affected_tables.some((table) =>
+                      (validation.diff[table] ?? []).some(
+                        (entry) => entry.disruptive,
+                      ),
+                    ) &&
+                      !disruptiveAcknowledged)
+                  }
                   onClick={() =>
                     runAction("publish", async () => {
                       if (!draft) return;
@@ -685,11 +671,15 @@ export default function CatalogEditor({ productId }: { productId: string }) {
                         draft.id,
                         draft.version,
                       );
-                      setDraft(result.draft);
-                      setSavedDocument(result.draft.document);
-                      setDocument(result.draft.document);
                       setPublishResult(result);
-                      setCanonicalDocument(result.draft.document);
+                      const refreshed = await catalogEditorApi.getEditor(productId);
+                      setDraft(refreshed.draft);
+                      setCanonicalDocument(refreshed.canonical);
+                      setSavedDocument(refreshed.canonical);
+                      setDocument(refreshed.canonical);
+                      setRole(refreshed.role);
+                      setRelationshipTargets(refreshed.relationshipTargets);
+                      setSystemMetadata(refreshed.systemMetadata);
                       setPublishReviewOpen(false);
                       setValidation(null);
                       setIssues([]);
@@ -778,7 +768,10 @@ export default function CatalogEditor({ productId }: { productId: string }) {
 
           <CatalogEditorSections
             document={document}
+            role={role}
             issues={issues}
+            relationshipTargets={relationshipTargets}
+            systemMetadata={systemMetadata}
             onChange={(nextDocument) => {
               setDocument(nextDocument);
               activeDocument.current = nextDocument;

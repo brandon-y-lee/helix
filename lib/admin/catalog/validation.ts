@@ -2,9 +2,14 @@ import { normalizeProductPdpContent } from "@/lib/catalog/product-content";
 import { CatalogAdminError } from "@/lib/admin/catalog/errors";
 import type {
   CatalogValidationIssue,
-  ProductEditorDocumentV2,
+  ProductEditorDocumentV3,
 } from "@/lib/admin/catalog/types";
+import { PRODUCT_EDITOR_SCHEMA_VERSION } from "@/lib/admin/catalog/types";
 import { PRODUCT_MEDIA_ROLES } from "@/lib/catalog/media-roles";
+import {
+  catalogFieldsForTable,
+  type CatalogEditorTable,
+} from "@/lib/catalog/field-ownership";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -92,10 +97,53 @@ function oneOf<T extends readonly string[]>(
   return typeof value === "string" && values.includes(value as T[number]);
 }
 
+function validateRecordShape(
+  table: CatalogEditorTable,
+  path: string,
+  value: RecordValue,
+  issues: CatalogValidationIssue[],
+  allowedExtras: readonly string[] = [],
+) {
+  const expected = new Set(catalogFieldsForTable(table).map((field) => field.field));
+  for (const field of expected) {
+    if (!(field in value)) {
+      issue(
+        issues,
+        `${path}.${field}`,
+        "missing_field",
+        `${table}.${field} is required by the current editor contract.`,
+      );
+    }
+  }
+  for (const field of Object.keys(value)) {
+    if (!expected.has(field) && !allowedExtras.includes(field)) {
+      issue(
+        issues,
+        `${path}.${field}`,
+        "unknown_field",
+        `${table}.${field} is not part of the current editor contract.`,
+      );
+    }
+  }
+}
+
+function isTimestamp(value: unknown): value is string {
+  return typeof value === "string" && Number.isFinite(Date.parse(value));
+}
+
 function validateProduct(
   product: RecordValue,
   issues: CatalogValidationIssue[],
 ): void {
+  validateRecordShape("products", "product", product, issues);
+  if (typeof product.id !== "string" || !UUID_PATTERN.test(product.id)) {
+    issue(issues, "product.id", "invalid_uuid", "Product row id must be a UUID.");
+  }
+  for (const field of ["created_at", "published_at", "updated_at"] as const) {
+    if (!isTimestamp(product[field])) {
+      issue(issues, `product.${field}`, "invalid_timestamp", `${field} must be an ISO timestamp.`);
+    }
+  }
   const requiredText = [
     "card_tagline",
     "display_name",
@@ -305,6 +353,16 @@ function validateVariants(
       issue(issues, path, "invalid_type", "Variant must be an object.");
       return;
     }
+    validateRecordShape("product_variants", path, entry, issues);
+    if (entry.product_id !== productId) {
+      issue(issues, `${path}.product_id`, "product_mismatch", "Variant must belong to this product document.");
+    }
+    if (!isTimestamp(entry.updated_at)) {
+      issue(issues, `${path}.updated_at`, "invalid_timestamp", "Variant updated_at must be an ISO timestamp.");
+    }
+    if (entry.archived_at !== null) {
+      issue(issues, `${path}.archived_at`, "active_row_required", "Archived variants are represented by removing the active association.");
+    }
     if (typeof entry.id !== "string" || !UUID_PATTERN.test(entry.id)) {
       issue(issues, `${path}.id`, "invalid_uuid", "Variant id must be a UUID.");
     } else if (ids.has(entry.id)) {
@@ -449,6 +507,7 @@ function approvedCatalogStorageUrl(
 
 function validateMedia(
   media: unknown[],
+  productId: string,
   productSlug: string,
   routineGroup: unknown,
   variantIds: Set<string>,
@@ -463,6 +522,18 @@ function validateMedia(
     if (!isRecord(entry)) {
       issue(issues, path, "invalid_type", "Media item must be an object.");
       return;
+    }
+    validateRecordShape("product_media", path, entry, issues, ["pendingUpload"]);
+    if (entry.product_id !== productId) {
+      issue(issues, `${path}.product_id`, "product_mismatch", "Media must belong to this product document.");
+    }
+    for (const field of ["created_at", "updated_at"] as const) {
+      if (!isTimestamp(entry[field])) {
+        issue(issues, `${path}.${field}`, "invalid_timestamp", `Media ${field} must be an ISO timestamp.`);
+      }
+    }
+    if (entry.archived_at !== null) {
+      issue(issues, `${path}.archived_at`, "active_row_required", "Archived media is represented by removing the active association.");
     }
     if (typeof entry.id !== "string" || !UUID_PATTERN.test(entry.id)) {
       issue(issues, `${path}.id`, "invalid_uuid", "Media id must be a UUID.");
@@ -695,6 +766,16 @@ function validateRelationships(
       issue(issues, path, "invalid_type", "Relationship must be an object.");
       return;
     }
+    validateRecordShape("product_relationships", path, entry, issues);
+    if (entry.product_id !== productId) {
+      issue(issues, `${path}.product_id`, "product_mismatch", "Relationship must belong to this product document.");
+    }
+    if (!isTimestamp(entry.created_at)) {
+      issue(issues, `${path}.created_at`, "invalid_timestamp", "Relationship created_at must be an ISO timestamp.");
+    }
+    if (entry.archived_at !== null) {
+      issue(issues, `${path}.archived_at`, "active_row_required", "Archived relationships are represented by removing the active association.");
+    }
     if (
       typeof entry.related_product_id !== "string" ||
       !UUID_PATTERN.test(entry.related_product_id) ||
@@ -736,11 +817,43 @@ function validateRelationships(
   });
 }
 
+function validateProductSource(
+  source: RecordValue,
+  productId: string,
+  issues: CatalogValidationIssue[],
+) {
+  validateRecordShape("product_sources", "productSource", source, issues);
+  if (source.product_id !== productId) {
+    issue(issues, "productSource.product_id", "product_mismatch", "Product source must belong to this product document.");
+  }
+  for (const field of ["supplier", "supplier_title", "supplier_url", "supplier_handle"] as const) {
+    if (typeof source[field] !== "string" || !source[field].trim()) {
+      issue(issues, `productSource.${field}`, "required", `${field} must be non-empty text.`);
+    }
+  }
+  for (const field of ["supplier_product_id", "source_content_hash", "formulation_version_notes"] as const) {
+    if (!isNullableString(source[field])) {
+      issue(issues, `productSource.${field}`, "invalid_type", `${field} must be text or null.`);
+    }
+  }
+  if (!isNullableInteger(source.original_source_price_cents, 0)) {
+    issue(issues, "productSource.original_source_price_cents", "invalid_price", "Original source price must be null or whole non-negative cents.");
+  }
+  if (!isRecord(source.raw_source)) {
+    issue(issues, "productSource.raw_source", "invalid_object", "Raw source must be an object.");
+  }
+  for (const field of ["source_inspected_at", "created_at", "updated_at"] as const) {
+    if (!isTimestamp(source[field])) {
+      issue(issues, `productSource.${field}`, "invalid_timestamp", `${field} must be an ISO timestamp.`);
+    }
+  }
+}
+
 export function validateProductEditorDocument(
   input: unknown,
   env: NodeJS.ProcessEnv = process.env,
 ): {
-  document: ProductEditorDocumentV2 | null;
+  document: ProductEditorDocumentV3 | null;
   issues: CatalogValidationIssue[];
 } {
   const issues: CatalogValidationIssue[] = [];
@@ -764,12 +877,12 @@ export function validateProductEditorDocument(
       "Reviews and ratings are not part of the product editor document.",
     );
   }
-  if (input.schemaVersion !== 2) {
+  if (input.schemaVersion !== PRODUCT_EDITOR_SCHEMA_VERSION) {
     issue(
       issues,
       "schemaVersion",
       "unsupported_schema",
-      "Only product editor schema version 2 is supported.",
+      `Only product editor schema version ${PRODUCT_EDITOR_SCHEMA_VERSION} is supported.`,
     );
   }
   if (typeof input.productId !== "string" || !UUID_PATTERN.test(input.productId)) {
@@ -809,6 +922,7 @@ export function validateProductEditorDocument(
   if (Array.isArray(input.media)) {
     validateMedia(
       input.media,
+      productId,
       productSlug,
       routineGroup,
       variantIds,
@@ -820,6 +934,14 @@ export function validateProductEditorDocument(
     validateRelationships(input.relationships, productId, issues);
   }
 
+  if (input.productSource !== null) {
+    if (!isRecord(input.productSource)) {
+      issue(issues, "productSource", "invalid_type", "Product source must be an object or null.");
+    } else {
+      validateProductSource(input.productSource, productId, issues);
+    }
+  }
+
   if (input.productPdpContent !== null) {
     if (!isRecord(input.productPdpContent)) {
       issue(
@@ -829,6 +951,23 @@ export function validateProductEditorDocument(
         "PDP content must be an object or null.",
       );
     } else {
+      validateRecordShape(
+        "product_pdp_content",
+        "productPdpContent",
+        input.productPdpContent,
+        issues,
+      );
+      if (input.productPdpContent.product_id !== productId) {
+        issue(issues, "productPdpContent.product_id", "product_mismatch", "PDP content must belong to this product document.");
+      }
+      if (input.productPdpContent.schema_version !== 1) {
+        issue(issues, "productPdpContent.schema_version", "unsupported_schema", "Only PDP content schema version 1 is supported.");
+      }
+      for (const field of ["created_at", "updated_at"] as const) {
+        if (!isTimestamp(input.productPdpContent[field])) {
+          issue(issues, `productPdpContent.${field}`, "invalid_timestamp", `${field} must be an ISO timestamp.`);
+        }
+      }
       try {
         normalizeProductPdpContent(
           input.productPdpContent as Parameters<
@@ -850,14 +989,14 @@ export function validateProductEditorDocument(
   }
 
   return {
-    document: issues.length === 0 ? (input as ProductEditorDocumentV2) : null,
+    document: issues.length === 0 ? (input as ProductEditorDocumentV3) : null,
     issues,
   };
 }
 
 export function assertProductEditorDocumentStructure(
   input: unknown,
-): ProductEditorDocumentV2 {
+): ProductEditorDocumentV3 {
   const issues: CatalogValidationIssue[] = [];
   if (!isRecord(input)) {
     throw new CatalogAdminError(
@@ -866,12 +1005,12 @@ export function assertProductEditorDocumentStructure(
       422,
     );
   }
-  if (input.schemaVersion !== 2) {
+  if (input.schemaVersion !== PRODUCT_EDITOR_SCHEMA_VERSION) {
     issue(
       issues,
       "schemaVersion",
       "unsupported_schema",
-      "Only product editor schema version 2 is supported.",
+      `Only product editor schema version ${PRODUCT_EDITOR_SCHEMA_VERSION} is supported.`,
     );
   }
   if (typeof input.productId !== "string" || !UUID_PATTERN.test(input.productId)) {
@@ -901,6 +1040,9 @@ export function assertProductEditorDocumentStructure(
       );
     }
   }
+  if (input.productSource !== null && !isRecord(input.productSource)) {
+    issue(issues, "productSource", "invalid_type", "Product source must be an object or null.");
+  }
   if (containsReviewData(input)) {
     issue(
       issues,
@@ -917,13 +1059,13 @@ export function assertProductEditorDocumentStructure(
       { issues },
     );
   }
-  return input as ProductEditorDocumentV2;
+  return input as ProductEditorDocumentV3;
 }
 
 export function assertValidProductEditorDocument(
   input: unknown,
   env: NodeJS.ProcessEnv = process.env,
-): ProductEditorDocumentV2 {
+): ProductEditorDocumentV3 {
   const result = validateProductEditorDocument(input, env);
   if (!result.document) {
     throw new CatalogAdminError(

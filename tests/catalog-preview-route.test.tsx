@@ -52,6 +52,7 @@ import CatalogDraftPreviewPage, {
   metadata,
   revalidate,
 } from "@/app/admin/catalog/preview/[draftId]/page";
+import { catalogDocument } from "./fixtures/catalog-editor";
 
 const draftId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 
@@ -62,13 +63,7 @@ function draftRecord(status = "draft") {
     status,
     version: 3,
     updated_at: "2026-07-29T18:30:00.000Z",
-    document: {
-      schemaVersion: 1,
-      product: {
-        display_name: "DRAFT CLEANSE",
-        slug: "cleanse-01-calming-gel-cleanser",
-      },
-    },
+    document: structuredClone(catalogDocument),
   };
 }
 
@@ -142,6 +137,10 @@ describe("catalog draft preview route", () => {
 
     expect(screen.getByTestId("preview-toolbar")).toHaveTextContent("draft");
     expect(screen.getByText("Preview — purchasing disabled")).toBeVisible();
+    expect(
+      screen.getByRole("heading", { name: "Preview metadata" }),
+    ).toBeVisible();
+    expect(screen.getByText("CLEANSE 01 Calming Gel Cleanser")).toBeVisible();
     expect(screen.getByTestId("real-pdp")).toHaveAttribute(
       "data-commerce-disabled",
       "true",

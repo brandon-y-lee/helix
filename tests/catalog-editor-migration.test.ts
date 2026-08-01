@@ -44,6 +44,20 @@ const coreRoutineEditorialMigration = readFileSync(
   ),
   "utf8",
 );
+const completeFieldCoverageMigration = readFileSync(
+  resolve(
+    process.cwd(),
+    "supabase/migrations/20260801052736_catalog_editor_v3_complete_field_coverage.sql",
+  ),
+  "utf8",
+);
+const completeFieldCoverageLintMigration = readFileSync(
+  resolve(
+    process.cwd(),
+    "supabase/migrations/20260801054856_catalog_editor_v3_upgrade_volatility.sql",
+  ),
+  "utf8",
+);
 
 describe("catalog editor database boundary", () => {
   it("keeps editor tables browser-inaccessible and history append-only", () => {
@@ -260,6 +274,63 @@ describe("catalog editor database boundary", () => {
     );
     expect(coreRoutineEditorialMigration).not.toMatch(
       /update public[.]product_media/i,
+    );
+  });
+
+  it("upgrades active V1 and V2 drafts to complete V3 aggregates without rewriting revisions", () => {
+    expect(completeFieldCoverageMigration).toContain(
+      "private.catalog_editor_upgrade_v2_to_v3",
+    );
+    expect(completeFieldCoverageMigration).toContain(
+      "private.catalog_editor_upgrade_v1_to_v2(p_document)",
+    );
+    expect(completeFieldCoverageMigration).toContain(
+      "where status in ('draft', 'ready')",
+    );
+    expect(completeFieldCoverageMigration).not.toMatch(
+      /update public\.catalog_product_revisions\s+set/i,
+    );
+    expect(completeFieldCoverageMigration).toContain(
+      "'productSource', v_current -> 'productSource'",
+    );
+    expect(completeFieldCoverageMigration).toContain(
+      "v_document := private.catalog_editor_upgrade_to_v3(v_revision.document)",
+    );
+  });
+
+  it("publishes the complete normalized aggregate atomically with server role checks", () => {
+    const revision = completeFieldCoverageMigration.indexOf(
+      "insert into public.catalog_product_revisions",
+    );
+    for (const statement of [
+      "update public.products p",
+      "insert into public.product_pdp_content",
+      "insert into public.product_variants",
+      "insert into public.product_media",
+      "insert into public.product_relationships",
+      "update public.product_sources s",
+    ]) {
+      expect(completeFieldCoverageMigration.indexOf(statement), statement).toBeGreaterThan(-1);
+      expect(completeFieldCoverageMigration.indexOf(statement), statement).toBeLessThan(revision);
+    }
+    expect(completeFieldCoverageMigration).toContain(
+      "from public.admin_memberships",
+    );
+    expect(completeFieldCoverageMigration).toContain(
+      "p_actor_role <> 'admin'",
+    );
+    expect(completeFieldCoverageMigration).toContain(
+      "'advancedChanges', p_change_audit",
+    );
+    expect(completeFieldCoverageMigration).toContain(
+      "security definer\nset search_path = ''",
+    );
+    expect(completeFieldCoverageMigration).toContain("to service_role");
+    expect(completeFieldCoverageLintMigration).toContain(
+      "catalog_editor_upgrade_v2_to_v3(jsonb) volatile",
+    );
+    expect(completeFieldCoverageLintMigration).toContain(
+      "catalog_editor_upgrade_to_v3(jsonb) volatile",
     );
   });
 });

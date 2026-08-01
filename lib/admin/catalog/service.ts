@@ -22,10 +22,13 @@ import type {
   CatalogPublishSuccess,
   CatalogRevisionRecord,
   CatalogRpcConflict,
-  ProductEditorDocumentV2,
+  ProductEditorDocumentV3,
   CatalogValidationIssue,
 } from "@/lib/admin/catalog/types";
+import { PRODUCT_EDITOR_SCHEMA_VERSION } from "@/lib/admin/catalog/types";
 import type { CatalogAdminAccess } from "@/lib/admin/capabilities";
+import { catalogDocumentDiff } from "@/lib/admin/catalog/diff";
+import type { CatalogEditorRole } from "@/lib/catalog/field-ownership";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -40,7 +43,7 @@ function isRecord(value: unknown): value is JsonRecord {
 
 function assertRpcResult<T extends JsonRecord>(
   data: unknown,
-  callerDocument?: ProductEditorDocumentV2,
+  callerDocument?: ProductEditorDocumentV3,
 ): T {
   if (!isRecord(data)) {
     throw new CatalogAdminError(
@@ -74,7 +77,7 @@ function throwDatabaseError(error: { message: string; code?: string } | null): n
 
 async function readCanonicalDocument(
   productId: string,
-): Promise<ProductEditorDocumentV2> {
+): Promise<ProductEditorDocumentV3> {
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin.rpc("get_catalog_editor_document", {
     p_product_id: productId,
@@ -86,11 +89,35 @@ async function readCanonicalDocument(
   return assertValidProductEditorDocument(data);
 }
 
+async function relationshipValidationIssues(
+  document: ProductEditorDocumentV3,
+): Promise<CatalogValidationIssue[]> {
+  const relatedIds = [...new Set(document.relationships.map((item) => item.related_product_id))];
+  if (relatedIds.length === 0) return [];
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin
+    .from("products")
+    .select("id")
+    .in("id", relatedIds);
+  if (error) throwDatabaseError(error);
+  const existing = new Set((data ?? []).map((product) => product.id));
+  return document.relationships.flatMap((relationship, index) =>
+    existing.has(relationship.related_product_id)
+      ? []
+      : [{
+          path: `relationships.${index}.related_product_id`,
+          code: "related_product_not_found",
+          message: "Related product must reference an existing catalog product.",
+        }],
+  );
+}
+
 function assertCatalogEditorOwnership(
-  document: ProductEditorDocumentV2,
-  canonical: ProductEditorDocumentV2,
+  document: ProductEditorDocumentV3,
+  canonical: ProductEditorDocumentV3,
+  role: CatalogEditorRole,
 ) {
-  const issues = validateCatalogEditorOwnership(document, canonical);
+  const issues = validateCatalogEditorOwnership(document, canonical, role);
   if (issues.length > 0) {
     throw new CatalogAdminError(
       "field_ownership_violation",
@@ -102,7 +129,7 @@ function assertCatalogEditorOwnership(
 }
 
 async function pendingMediaValidationIssues(
-  document: ProductEditorDocumentV2,
+  document: ProductEditorDocumentV3,
 ): Promise<CatalogValidationIssue[]> {
   const pending = document.media
     .map((media, index) => ({ media, index }))
@@ -451,7 +478,14 @@ export async function getCatalogEditor(
   access: CatalogAdminAccess,
 ): Promise<CatalogEditorResponse> {
   const admin = createSupabaseAdminClient();
-  const [canonical, draftResult, revisionResult] = await Promise.all([
+  const [
+    canonical,
+    draftResult,
+    revisionHistoryResult,
+    draftHistoryResult,
+    auditResult,
+    relationshipTargetsResult,
+  ] = await Promise.all([
     readCanonicalDocument(productId),
     admin
       .from("product_content_drafts")
@@ -461,14 +495,33 @@ export async function getCatalogEditor(
       .maybeSingle(),
     admin
       .from("catalog_product_revisions")
-      .select("revision_number")
+      .select(CATALOG_REVISION_RECORD_SELECT)
       .eq("product_id", productId)
       .order("revision_number", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
+      .limit(100),
+    admin
+      .from("product_content_drafts")
+      .select(CATALOG_DRAFT_RECORD_SELECT)
+      .eq("product_id", productId)
+      .order("updated_at", { ascending: false })
+      .limit(100),
+    admin
+      .from("catalog_editor_audit_log")
+      .select("id, action, actor_id, product_id, draft_id, revision_id, metadata, created_at")
+      .eq("product_id", productId)
+      .order("created_at", { ascending: false })
+      .limit(100),
+    admin
+      .from("products")
+      .select("id, display_name, slug")
+      .neq("id", productId)
+      .order("display_name"),
   ]);
   if (draftResult.error) throwDatabaseError(draftResult.error);
-  if (revisionResult.error) throwDatabaseError(revisionResult.error);
+  if (revisionHistoryResult.error) throwDatabaseError(revisionHistoryResult.error);
+  if (draftHistoryResult.error) throwDatabaseError(draftHistoryResult.error);
+  if (auditResult.error) throwDatabaseError(auditResult.error);
+  if (relationshipTargetsResult.error) throwDatabaseError(relationshipTargetsResult.error);
 
   const draft = draftResult.data
     ? normalizeDraftRecord(draftResult.data)
@@ -477,17 +530,28 @@ export async function getCatalogEditor(
   return {
     canonical,
     draft,
-    latestRevision: revisionResult.data?.revision_number ?? 0,
+    latestRevision: revisionHistoryResult.data?.[0]?.revision_number ?? 0,
+    role: access.role,
     permissions: Object.fromEntries(
       access.capabilities.map((capability) => [capability, true]),
     ),
+    relationshipTargets: (relationshipTargetsResult.data ?? []).map((product) => ({
+      id: product.id,
+      displayName: product.display_name,
+      slug: product.slug,
+    })),
+    systemMetadata: {
+      drafts: draftHistoryResult.data ?? [],
+      revisions: revisionHistoryResult.data ?? [],
+      audit: auditResult.data ?? [],
+    },
   };
 }
 
 function normalizeDraftRecord(data: unknown): CatalogDraftRecord {
   if (
     !isRecord(data) ||
-    data.schema_version !== 2 ||
+    data.schema_version !== PRODUCT_EDITOR_SCHEMA_VERSION ||
     !isRecord(data.document)
   ) {
     throw new CatalogAdminError(
@@ -498,7 +562,7 @@ function normalizeDraftRecord(data: unknown): CatalogDraftRecord {
   }
   return {
     ...data,
-    schema_version: 2,
+    schema_version: PRODUCT_EDITOR_SCHEMA_VERSION,
     document: assertValidProductEditorDocument(data.document),
   } as CatalogDraftRecord;
 }
@@ -528,16 +592,18 @@ export async function saveCatalogDraft(input: {
   expectedVersion: number;
   document: unknown;
   actorId: string;
+  role: CatalogEditorRole;
 }): Promise<{ ok: true; draft: CatalogDraftRecord }> {
   const document = assertProductEditorDocumentStructure(input.document);
   const canonical = await readCanonicalDocument(document.productId);
-  assertCatalogEditorOwnership(document, canonical);
+  assertCatalogEditorOwnership(document, canonical, input.role);
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin.rpc("save_catalog_product_draft", {
     p_draft_id: input.draftId,
     p_expected_version: input.expectedVersion,
     p_document: document,
     p_actor_id: input.actorId,
+    p_actor_role: input.role,
   });
   if (error) throwDatabaseError(error);
   return assertRpcResult<{ ok: true; draft: CatalogDraftRecord }>(
@@ -571,6 +637,7 @@ export async function transitionCatalogDraft(input: {
   expectedVersion: number;
   action: "discard" | "ready" | "validate";
   actorId: string;
+  role: CatalogEditorRole;
 }): Promise<{ ok: true; draft: CatalogDraftRecord }> {
   const draft = await readDraft(input.draftId);
   let validationErrors: CatalogValidationIssue[] = [];
@@ -582,8 +649,10 @@ export async function transitionCatalogDraft(input: {
           ...validateCatalogEditorOwnership(
             result.document,
             await readCanonicalDocument(result.document.productId),
+            input.role,
           ),
           ...(await pendingMediaValidationIssues(result.document)),
+          ...(await relationshipValidationIssues(result.document)),
         ]
       : result.issues;
   }
@@ -603,27 +672,40 @@ export async function publishCatalogDraft(input: {
   draftId: string;
   expectedVersion: number;
   actorId: string;
+  role: CatalogEditorRole;
 }): Promise<CatalogPublishSuccess> {
   const draft = await readDraft(input.draftId);
   const document = assertValidProductEditorDocument(draft.document);
-  const [canonical, mediaIssues] = await Promise.all([
+  const [canonical, mediaIssues, relationshipIssues] = await Promise.all([
     readCanonicalDocument(document.productId),
     pendingMediaValidationIssues(document),
+    relationshipValidationIssues(document),
   ]);
-  const ownershipIssues = validateCatalogEditorOwnership(document, canonical);
-  if (mediaIssues.length > 0 || ownershipIssues.length > 0) {
+  const ownershipIssues = validateCatalogEditorOwnership(
+    document,
+    canonical,
+    input.role,
+  );
+  if (
+    mediaIssues.length > 0 ||
+    relationshipIssues.length > 0 ||
+    ownershipIssues.length > 0
+  ) {
     throw new CatalogAdminError(
       "validation_failed",
       "The product editor document failed publication validation.",
       422,
-      { issues: [...ownershipIssues, ...mediaIssues] },
+      { issues: [...ownershipIssues, ...mediaIssues, ...relationshipIssues] },
     );
   }
   const admin = createSupabaseAdminClient();
+  const changeAudit = catalogDocumentDiff(canonical, document).advancedChanges;
   const { data, error } = await admin.rpc("publish_catalog_product_draft", {
     p_draft_id: input.draftId,
     p_expected_version: input.expectedVersion,
     p_actor_id: input.actorId,
+    p_actor_role: input.role,
+    p_change_audit: changeAudit,
   });
   if (error) throwDatabaseError(error);
   return assertRpcResult<CatalogPublishSuccess>(data);

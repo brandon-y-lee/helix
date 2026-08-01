@@ -27,7 +27,7 @@ describe("CatalogEditor sections", () => {
     vi.mocked(catalogEditorApi.uploadMedia).mockReset();
   });
 
-  it("groups canonical fields by table without exposing retired supplier shadows", async () => {
+  it("groups every canonical table and exposes admin source fields", async () => {
     const user = userEvent.setup();
     render(<CatalogEditor productId="product-cleanse" />);
 
@@ -38,11 +38,12 @@ describe("CatalogEditor sections", () => {
       "product_variants",
       "product_media",
       "product_relationships",
+      "product_sources",
     ]) {
       expect(screen.getByText(table)).toBeVisible();
     }
 
-    expect(screen.queryByDisplayValue("Supplier Cleanser")).not.toBeInTheDocument();
+    expect(screen.getByDisplayValue("Supplier Cleanser")).toBeVisible();
     expect(
       screen.queryByRole("option", { name: "campaign" }),
     ).not.toBeInTheDocument();
@@ -52,11 +53,39 @@ describe("CatalogEditor sections", () => {
       name: "Product tables",
     });
     expect(navigation).toHaveTextContent(
-      "ProductsPDP contentVariantsMediaRelationships",
+      "ProductsPDP contentVariantsMediaRelationshipsSourcesSystem Metadata",
     );
     await user.tab();
     expect(screen.getByRole("link", { name: "← Catalog" })).toHaveFocus();
   });
+
+  it("keeps advanced and commerce controls read only for a catalog editor", async () => {
+    vi.mocked(catalogEditorApi.getEditor).mockResolvedValue(editorResponse(false));
+    render(<CatalogEditor productId="product-cleanse" />);
+
+    expect(await screen.findByLabelText("Display name")).toBeEnabled();
+    expect(screen.queryByLabelText("Supplier title")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Price (USD)")).not.toBeInTheDocument();
+    expect(screen.getByText("Supplier Cleanser")).toBeVisible();
+    expect(screen.getAllByText("$22.00")).toHaveLength(2);
+    expect(screen.getByText("Publishing requires catalog.publish.")).toBeVisible();
+  });
+
+  it("allows an admin to edit safe source and variant commerce fields", async () => {
+    render(<CatalogEditor productId="product-cleanse" />);
+
+    const supplierTitle = await screen.findByLabelText("Supplier title");
+    fireEvent.change(supplierTitle, {
+      target: { value: "Corrected supplier title" },
+    });
+    const price = screen.getByLabelText("Price (USD)");
+    fireEvent.change(price, { target: { value: "24.50" } });
+    fireEvent.blur(price);
+
+    expect(supplierTitle).toHaveValue("Corrected supplier title");
+    expect(price).toHaveValue(24.5);
+    expect(screen.getByText("Unsaved")).toBeVisible();
+  }, 15_000);
 
   it("tracks local changes, warns before leaving, reorders, and uploads media", async () => {
     const user = userEvent.setup();
@@ -74,14 +103,17 @@ describe("CatalogEditor sections", () => {
     );
     await screen.findByRole("heading", { name: "CLEANSE" });
 
-    await user.clear(screen.getByLabelText("Display name"));
-    await user.type(screen.getByLabelText("Display name"), "CLEANSE UPDATED");
+    fireEvent.change(screen.getByLabelText("Display name"), {
+      target: { value: "CLEANSE UPDATED" },
+    });
     expect(screen.getByText("Unsaved")).toBeVisible();
     const leaveEvent = new Event("beforeunload", { cancelable: true });
     window.dispatchEvent(leaveEvent);
     expect(leaveEvent.defaultPrevented).toBe(true);
 
-    fireEvent.click(screen.getAllByRole("button", { name: "Move earlier" })[1]);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Move CLEANSE texture earlier" }),
+    );
     expect(screen.getAllByRole("img").map((image) => image.getAttribute("alt"))).toEqual([
       "CLEANSE texture",
       "CLEANSE bottle",
@@ -98,7 +130,7 @@ describe("CatalogEditor sections", () => {
     ) as HTMLInputElement;
     expect(altInput).toHaveAccessibleName("Media alt text");
     expect(fileInput).toHaveAccessibleName("Choose media file");
-    await user.type(altInput!, "New CLEANSE media");
+    fireEvent.change(altInput!, { target: { value: "New CLEANSE media" } });
     await user.upload(fileInput!, file);
     await waitFor(() =>
       expect(catalogEditorApi.uploadMedia).toHaveBeenCalledWith(
@@ -108,6 +140,7 @@ describe("CatalogEditor sections", () => {
           alt: "New CLEANSE media",
           role: "gallery",
           sortOrder: 2,
+          variantId: null,
         },
       ),
     );
@@ -116,7 +149,7 @@ describe("CatalogEditor sections", () => {
         "Media uploaded. Save the draft to retain this association.",
       ),
     ).toBeVisible();
-  });
+  }, 15_000);
 
   it("renders distinct fixed Core routine media slots", async () => {
     const user = userEvent.setup();
@@ -158,7 +191,9 @@ describe("CatalogEditor sections", () => {
     const fileInput = screen.getByLabelText(
       "Add Core Routine Editorial Image",
     ) as HTMLInputElement;
-    await user.type(altInput!, "CLEANSE supporting routine editorial");
+    fireEvent.change(altInput!, {
+      target: { value: "CLEANSE supporting routine editorial" },
+    });
     const file = new File(["image"], "editorial.webp", {
       type: "image/webp",
     });

@@ -15,7 +15,7 @@ describe("catalog editor field ownership", () => {
     candidate.variants[0].price_cents = 2400;
     candidate.productPdpContent!.routine_guidance = "Updated guidance.";
 
-    expect(validateCatalogEditorOwnership(candidate, canonical)).toEqual([]);
+    expect(validateCatalogEditorOwnership(candidate, canonical, "admin")).toEqual([]);
   });
 
   it("rejects supplier provenance and system field changes", () => {
@@ -25,7 +25,7 @@ describe("catalog editor field ownership", () => {
     candidate.variants[0].supplier_variant_id = "supplier-variant";
     candidate.media[0].source_filename = "untrusted-source.webp";
 
-    expect(validateCatalogEditorOwnership(candidate, canonical)).toEqual(
+    expect(validateCatalogEditorOwnership(candidate, canonical, "catalog_editor")).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           path: "product.slug",
@@ -43,7 +43,7 @@ describe("catalog editor field ownership", () => {
     );
   });
 
-  it("permits required identities for new rows but not supplier provenance", () => {
+  it("rejects new commerce rows for ordinary catalog editors", () => {
     const canonical = cloneDocument();
     const candidate = cloneDocument();
     candidate.variants.push({
@@ -53,13 +53,23 @@ describe("catalog editor field ownership", () => {
       supplier_variant_id: "forged-supplier-id",
     });
 
-    const issues = validateCatalogEditorOwnership(candidate, canonical);
-    expect(issues).toEqual([
-      expect.objectContaining({
-        path: "variants.1.supplier_variant_id",
-        code: "field_read_only",
-      }),
-    ]);
+    const issues = validateCatalogEditorOwnership(
+      candidate,
+      canonical,
+      "catalog_editor",
+    );
+    expect(issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          path: "variants.1.price_cents",
+          code: "field_read_only",
+        }),
+        expect.objectContaining({
+          path: "variants.1.supplier_variant_id",
+          code: "field_read_only",
+        }),
+      ]),
+    );
     expect(issues).not.toEqual(
       expect.arrayContaining([
         expect.objectContaining({ path: "variants.1.id" }),
@@ -72,7 +82,9 @@ describe("catalog editor field ownership", () => {
     const candidate = cloneDocument();
     Object.assign(candidate.product, { unsupported_field: true });
 
-    expect(validateCatalogEditorOwnership(candidate, canonical)).toContainEqual(
+    expect(
+      validateCatalogEditorOwnership(candidate, canonical, "admin"),
+    ).toContainEqual(
       expect.objectContaining({
         path: "product.unsupported_field",
         code: "field_ownership_undefined",
@@ -87,7 +99,9 @@ describe("catalog editor field ownership", () => {
     const candidate = structuredClone(canonical);
     candidate.media[0].role = "gallery";
 
-    expect(validateCatalogEditorOwnership(candidate, canonical)).toContainEqual(
+    expect(
+      validateCatalogEditorOwnership(candidate, canonical, "admin"),
+    ).toContainEqual(
       expect.objectContaining({
         path: "media.0.role",
         code: "field_read_only",

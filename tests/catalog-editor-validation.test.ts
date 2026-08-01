@@ -3,7 +3,7 @@ import {
   assertValidProductEditorDocument,
   validateProductEditorDocument,
 } from "@/lib/admin/catalog/validation";
-import type { ProductEditorDocumentV2 } from "@/lib/admin/catalog/types";
+import type { ProductEditorDocumentV3 } from "@/lib/admin/catalog/types";
 import { catalogDocument } from "./fixtures/catalog-editor";
 
 const PRODUCT_ID = catalogDocument.productId;
@@ -15,17 +15,18 @@ const APPROVED_ENV = {
   NEXT_PUBLIC_SUPABASE_URL: "https://erasogmsqpgiirovubjh.supabase.co",
 } as NodeJS.ProcessEnv;
 
-function validDocument(): ProductEditorDocumentV2 {
+function validDocument(): ProductEditorDocumentV3 {
   const document = structuredClone(catalogDocument);
   document.media = [];
   return document;
 }
 
 function coreRoutineEditorialMedia(
-  overrides: Partial<ProductEditorDocumentV2["media"][number]> = {},
-): ProductEditorDocumentV2["media"][number] {
+  overrides: Partial<ProductEditorDocumentV3["media"][number]> = {},
+): ProductEditorDocumentV3["media"][number] {
   return {
     id: MEDIA_ID,
+    product_id: PRODUCT_ID,
     variant_id: null,
     media_type: "image",
     url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/mei-pelle-catalog/products/cleanse-01-calming-gel-cleanser/drafts/editorial.webp",
@@ -38,6 +39,9 @@ function coreRoutineEditorialMedia(
     placeholder_palette: {},
     original_source_url: null,
     source_filename: "cleanse-pdp-core-routine-editorial-01.webp",
+    created_at: "2026-07-20T12:00:00.000Z",
+    updated_at: "2026-07-20T12:00:00.000Z",
+    archived_at: null,
     ...overrides,
   };
 }
@@ -45,7 +49,7 @@ function coreRoutineEditorialMedia(
 describe("product editor document validation", () => {
   it("accepts the normalized versioned aggregate", () => {
     expect(assertValidProductEditorDocument(validDocument())).toMatchObject({
-      schemaVersion: 2,
+      schemaVersion: 3,
       productId: PRODUCT_ID,
     });
   });
@@ -91,6 +95,7 @@ describe("product editor document validation", () => {
     const sha256 = "a".repeat(64);
     document.media.push({
       id: MEDIA_ID,
+      product_id: PRODUCT_ID,
       variant_id: VARIANT_ID,
       media_type: "image",
       url: `https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/mei-pelle-catalog/products/cleanse-01-calming-gel-cleanser/drafts/${sha256}.webp`,
@@ -103,6 +108,9 @@ describe("product editor document validation", () => {
       placeholder_palette: {},
       original_source_url: null,
       source_filename: "source.webp",
+      created_at: "2026-07-20T12:00:00.000Z",
+      updated_at: "2026-07-20T12:00:00.000Z",
+      archived_at: null,
       pendingUpload: {
         bucket: "mei-pelle-catalog",
         path: `products/cleanse-01-calming-gel-cleanser/drafts/${sha256}.webp`,

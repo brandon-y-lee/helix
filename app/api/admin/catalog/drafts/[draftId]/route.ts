@@ -30,6 +30,7 @@ export async function PATCH(
       expectedVersion: requireExpectedVersion(body.expectedVersion),
       document: body.document,
       actorId: access.userId,
+      role: access.role,
     });
     return NextResponse.json(result);
   });

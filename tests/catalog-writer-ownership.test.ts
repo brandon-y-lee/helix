@@ -74,9 +74,11 @@ describe("catalog field ownership", () => {
     expect(getCatalogFieldOwnership("products", "texture")).toMatchObject({
       owner: "supplier",
       editor: {
-        editable: false,
-        readOnlySource: true,
+        editable: true,
+        editableBy: ["admin"],
+        readOnlySource: false,
       },
+      importWarning: expect.stringContaining("supplier import"),
     });
     expect(
       getCatalogFieldOwnership("product_variants", "price_cents"),

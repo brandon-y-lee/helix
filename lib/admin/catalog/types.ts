@@ -15,8 +15,16 @@ type ProductPdpContentRow =
   Database["public"]["Tables"]["product_pdp_content"]["Row"];
 type ProductRelationshipRow =
   Database["public"]["Tables"]["product_relationships"]["Row"];
+type ProductSourceRow =
+  Database["public"]["Tables"]["product_sources"]["Row"];
+type ProductDraftRow =
+  Database["public"]["Tables"]["product_content_drafts"]["Row"];
+type ProductRevisionRow =
+  Database["public"]["Tables"]["catalog_product_revisions"]["Row"];
+type CatalogAuditRow =
+  Database["public"]["Tables"]["catalog_editor_audit_log"]["Row"];
 
-export const PRODUCT_EDITOR_SCHEMA_VERSION = 2 as const;
+export const PRODUCT_EDITOR_SCHEMA_VERSION = 3 as const;
 
 type EditableProductFieldSelection = Pick<
   ProductRow,
@@ -141,13 +149,48 @@ export type EditableProductRelationship = Omit<
 >;
 
 export type ProductEditorDocumentV2 = {
-  schemaVersion: typeof PRODUCT_EDITOR_SCHEMA_VERSION;
+  schemaVersion: 2;
   productId: string;
   product: EditableProductFields;
   productPdpContent: EditableProductPdpContentFields | null;
   variants: EditableProductVariant[];
   media: EditableProductMedia[];
   relationships: EditableProductRelationship[];
+};
+
+export type CatalogProductFields = ProductRow;
+
+export type CatalogProductPdpContentFields = Omit<
+  ProductPdpContentRow,
+  | "ingredient_cards"
+  | "ingredient_story"
+  | "outcome_labels"
+  | "profile_title_tokens"
+> & {
+  ingredient_cards: PdpIngredientCard[] | null;
+  ingredient_story: PdpIngredientStory | null;
+  outcome_labels: [string, string, string] | null;
+  profile_title_tokens: PdpProfileTitleToken[] | null;
+};
+
+export type CatalogProductVariant = ProductVariantRow;
+
+export type CatalogProductMedia = ProductMediaRow & {
+  pendingUpload?: DraftMediaUpload;
+};
+
+export type CatalogProductRelationship = ProductRelationshipRow;
+export type CatalogProductSource = ProductSourceRow;
+
+export type ProductEditorDocumentV3 = {
+  schemaVersion: typeof PRODUCT_EDITOR_SCHEMA_VERSION;
+  productId: string;
+  product: CatalogProductFields;
+  productPdpContent: CatalogProductPdpContentFields | null;
+  variants: CatalogProductVariant[];
+  media: CatalogProductMedia[];
+  relationships: CatalogProductRelationship[];
+  productSource: CatalogProductSource | null;
 };
 
 export type CatalogDraftStatus =
@@ -168,7 +211,7 @@ export type CatalogDraftRecord = {
   schema_version: number;
   base_revision: number;
   version: number;
-  document: ProductEditorDocumentV2;
+  document: ProductEditorDocumentV3;
   status: CatalogDraftStatus;
   validation_errors: CatalogValidationIssue[];
   created_by: string;
@@ -218,6 +261,7 @@ export type CatalogChangedTables = {
   variants: boolean;
   media: boolean;
   relationships: boolean;
+  productSource: boolean;
 };
 
 export type CatalogPublishSuccess = {
@@ -266,10 +310,21 @@ export type CatalogGridRow = {
 };
 
 export type CatalogEditorResponse = {
-  canonical: ProductEditorDocumentV2;
+  canonical: ProductEditorDocumentV3;
   draft: CatalogDraftRecord | null;
   latestRevision: number;
+  role: "admin" | "catalog_publisher" | "catalog_editor";
   permissions: Partial<Record<AdminCapability, boolean>>;
+  relationshipTargets: Array<{
+    id: string;
+    displayName: string;
+    slug: string;
+  }>;
+  systemMetadata: {
+    drafts: ProductDraftRow[];
+    revisions: ProductRevisionRow[];
+    audit: CatalogAuditRow[];
+  };
 };
 
 export type CatalogAuditMetadata = Record<string, Json | undefined>;

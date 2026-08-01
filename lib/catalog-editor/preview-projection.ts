@@ -4,11 +4,11 @@ import { resolveProductPresentationMedia } from "@/lib/catalog";
 import { assertValidProductEditorDocument } from "@/lib/admin/catalog/validation";
 import {
   PRODUCT_EDITOR_SCHEMA_VERSION,
-  type EditableProductFields,
-  type EditableProductMedia,
-  type EditableProductPdpContentFields,
-  type EditableProductVariant,
-  type ProductEditorDocumentV2,
+  type CatalogProductFields,
+  type CatalogProductMedia,
+  type CatalogProductPdpContentFields,
+  type CatalogProductVariant,
+  type ProductEditorDocumentV3,
 } from "@/lib/admin/catalog/types";
 import type {
   CatalogPreviewBase,
@@ -87,8 +87,8 @@ function stringValue(value: unknown, field: string, allowNull = false) {
 }
 
 function optionalText(
-  product: EditableProductFields,
-  field: keyof EditableProductFields,
+  product: CatalogProductFields,
+  field: keyof CatalogProductFields,
   fallback: string | null,
 ) {
   if (product[field] === undefined) return fallback;
@@ -96,8 +96,8 @@ function optionalText(
 }
 
 function optionalStringArray(
-  product: EditableProductFields,
-  field: keyof EditableProductFields,
+  product: CatalogProductFields,
+  field: keyof CatalogProductFields,
   fallback: string[],
 ): string[] {
   const value: unknown = product[field];
@@ -117,7 +117,7 @@ function validHex(value: unknown): value is string {
 }
 
 function optionalSwatch(
-  product: EditableProductFields,
+  product: CatalogProductFields,
   fallback: [string, string],
 ): [string, string] {
   if (!validHex(product.swatch_from) || !validHex(product.swatch_to)) {
@@ -127,7 +127,7 @@ function optionalSwatch(
 }
 
 function toPdpContent(
-  value: EditableProductPdpContentFields | null,
+  value: CatalogProductPdpContentFields | null,
   slug: string,
 ): ProductPdpContent | null {
   if (value === null) return null;
@@ -199,7 +199,7 @@ function approvedStorageUrl(
 }
 
 function safeMedia(
-  items: EditableProductMedia[],
+  items: CatalogProductMedia[],
   swatch: [string, string],
   approvedMediaOrigin: string | undefined,
 ) {
@@ -281,7 +281,7 @@ function safeMedia(
 }
 
 function safeVariants(
-  items: EditableProductVariant[],
+  items: CatalogProductVariant[],
   product: Pick<PdpProduct, "id" | "slug" | "status">,
 ): OfferAvailability[] {
   if (!Array.isArray(items)) invalid("variants must be a list.");
@@ -339,7 +339,7 @@ function safeVariants(
 function validateDocument(
   value: unknown,
   approvedMediaOrigin?: string,
-): ProductEditorDocumentV2 {
+): ProductEditorDocumentV3 {
   if (!isRecord(value)) invalid("The saved draft document is not an object.");
   if (value.schemaVersion !== PRODUCT_EDITOR_SCHEMA_VERSION) {
     throw new CatalogPreviewProjectionError(
@@ -376,7 +376,7 @@ function validateDocument(
 function projectCoreProducts(
   baseProducts: CoreRoutineSummary[],
   product: PdpProduct,
-  draftProduct: EditableProductFields,
+  draftProduct: CatalogProductFields,
 ) {
   return baseProducts.map((item) => {
     if (item.id !== product.id) return item;

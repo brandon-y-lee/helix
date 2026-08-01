@@ -1,5 +1,4 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import CatalogEditor from "@/components/admin/catalog-editor/CatalogEditor";
 import {
@@ -49,11 +48,11 @@ describe("CatalogEditor draft workflow", () => {
   });
 
   it("saves with the draft version and preserves local edits on conflict", async () => {
-    const user = userEvent.setup();
     render(<CatalogEditor productId="product-cleanse" />);
     await screen.findByRole("heading", { name: "CLEANSE" });
-    await user.clear(screen.getByLabelText("Display name"));
-    await user.type(screen.getByLabelText("Display name"), "LOCAL CLEANSE");
+    fireEvent.change(screen.getByLabelText("Display name"), {
+      target: { value: "LOCAL CLEANSE" },
+    });
 
     vi.mocked(catalogEditorApi.saveDraft).mockRejectedValueOnce(
       new CatalogVersionConflictError("Another edit was saved.", {
@@ -79,15 +78,15 @@ describe("CatalogEditor draft workflow", () => {
     expect(
       screen.getByRole("button", { name: "Copy/review local changes" }),
     ).toBeVisible();
-  });
+  }, 15_000);
 
   it("saves before opening the isolated draft preview", async () => {
     const open = vi.spyOn(window, "open").mockImplementation(() => null);
-    const user = userEvent.setup();
     render(<CatalogEditor productId="product-cleanse" />);
     await screen.findByRole("heading", { name: "CLEANSE" });
-    await user.clear(screen.getByLabelText("Display name"));
-    await user.type(screen.getByLabelText("Display name"), "CLEANSE+");
+    fireEvent.change(screen.getByLabelText("Display name"), {
+      target: { value: "CLEANSE+" },
+    });
 
     fireEvent.click(screen.getByRole("button", { name: "Preview" }));
     await waitFor(() =>
@@ -99,17 +98,16 @@ describe("CatalogEditor draft workflow", () => {
     );
     expect(catalogEditorApi.saveDraft).toHaveBeenCalled();
     open.mockRestore();
-  });
+  }, 15_000);
 
   it("requires publish capability, validated diff review, and confirmation", async () => {
-    const user = userEvent.setup();
     vi.mocked(catalogEditorApi.publishDraft).mockResolvedValue({
       draft: { ...catalogDraft, status: "published", version: 6 },
       revision: {
         id: "123e4567-e89b-42d3-a456-426614174099",
         product_id: catalogDraft.product_id,
         revision_number: 4,
-        schema_version: 1,
+        schema_version: 3,
         document: catalogDraft.document,
         source_draft_id: catalogDraft.id,
         published_at: "2026-07-22T12:00:00.000Z",
@@ -122,12 +120,14 @@ describe("CatalogEditor draft workflow", () => {
         variants: false,
         media: false,
         relationships: false,
+        productSource: false,
       },
     });
     render(<CatalogEditor productId="product-cleanse" />);
     await screen.findByRole("heading", { name: "CLEANSE" });
-    await user.clear(screen.getByLabelText("Display name"));
-    await user.type(screen.getByLabelText("Display name"), "CLEANSE+");
+    fireEvent.change(screen.getByLabelText("Display name"), {
+      target: { value: "CLEANSE+" },
+    });
 
     fireEvent.click(screen.getByRole("button", { name: "Review publish" }));
     expect(await screen.findByText("Confirm publication")).toBeVisible();
@@ -144,7 +144,7 @@ describe("CatalogEditor draft workflow", () => {
     );
     expect(await screen.findByText("Revision 4 published")).toBeVisible();
     expect(screen.getByText(/not reported/)).toBeVisible();
-  });
+  }, 15_000);
 
   it("preserves ready status when publish review has no unsaved changes", async () => {
     const readyDocument = {

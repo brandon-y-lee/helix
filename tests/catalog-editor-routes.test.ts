@@ -123,6 +123,7 @@ describe("catalog editor protected routes", () => {
         variants: false,
         media: false,
         relationships: false,
+        productSource: false,
       },
     });
 
@@ -147,6 +148,7 @@ describe("catalog editor protected routes", () => {
       draftId: "draft-1",
       expectedVersion: 7,
       actorId: USER_ID,
+      role: "catalog_publisher",
     });
   });
 });

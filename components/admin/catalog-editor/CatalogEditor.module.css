@@ -339,6 +339,193 @@ details[open] > .summary::after {
   background: #efefeb;
 }
 
+.fieldGroup {
+  display: grid;
+  gap: 14px;
+  margin: 0 0 24px;
+  border: 1px solid var(--catalog-line);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.fieldGroup > legend {
+  padding: 0 8px;
+  font-weight: 750;
+}
+
+.metadataField {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.fieldContext {
+  display: grid;
+  gap: 3px;
+  color: var(--catalog-muted);
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
+
+.fieldContext > span:first-child {
+  width: max-content;
+  border: 1px solid var(--catalog-line);
+  border-radius: 999px;
+  padding: 2px 7px;
+  color: var(--catalog-ink);
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.readOnlyValue {
+  display: block;
+  min-height: 44px;
+  overflow-wrap: anywhere;
+  border: 1px solid var(--catalog-line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: #555852;
+  background: #efefeb;
+  white-space: pre-wrap;
+}
+
+.readOnlyValue pre {
+  max-height: 240px;
+  margin: 0;
+  overflow: auto;
+  font: 0.72rem/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space: pre-wrap;
+}
+
+.codeTextarea {
+  width: 100%;
+  min-height: 180px;
+  border: 1px solid #8c8e87;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font: 0.78rem/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+  resize: vertical;
+}
+
+.checkboxField {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-height: 44px;
+  border: 1px solid var(--catalog-line);
+  border-radius: 8px;
+  padding: 11px 12px;
+}
+
+.checkboxField input {
+  width: 18px;
+  height: 18px;
+  margin: 2px 0 0;
+}
+
+.checkboxField > span {
+  display: grid;
+  gap: 5px;
+}
+
+.colorControl {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  gap: 8px;
+}
+
+.paletteEditor {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--catalog-line);
+  border-radius: 8px;
+}
+
+.paletteEditor legend {
+  padding: 0 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.paletteControl {
+  display: grid;
+  grid-template-columns: minmax(60px, auto) 36px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  font-size: 0.72rem;
+}
+
+.paletteControl input[type="color"] {
+  width: 36px;
+  height: 32px;
+  padding: 2px;
+}
+
+.colorControl input[type="color"] {
+  width: 48px;
+  height: 44px;
+  border: 1px solid #8c8e87;
+  border-radius: 8px;
+  padding: 3px;
+  background: #fff;
+}
+
+.recordCard {
+  display: grid;
+  gap: 16px;
+  border: 1px solid var(--catalog-line);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.recordHeader,
+.mediaIdentity {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.mediaIdentity {
+  justify-content: flex-start;
+}
+
+.mediaIdentity .mediaPreview {
+  width: 96px;
+  height: 96px;
+}
+
+.metadataRows {
+  margin-top: 24px;
+}
+
+.metadataRows h3 {
+  font-size: 1rem;
+}
+
+.metadataRecord {
+  margin-top: 10px;
+  border: 1px solid var(--catalog-line);
+  border-radius: 8px;
+}
+
+.metadataRecord > summary {
+  cursor: pointer;
+  overflow-wrap: anywhere;
+  padding: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.75rem;
+}
+
+.metadataRecord > .fieldGrid {
+  border-top: 1px solid var(--catalog-line);
+  padding: 14px;
+}
+
 .repeater,
 .stack {
   display: grid;

@@ -1,9 +1,11 @@
 import {
+  canCatalogRoleEditField,
   getCatalogFieldOwnership,
+  type CatalogEditorRole,
 } from "@/lib/catalog/field-ownership";
 import type {
   CatalogValidationIssue,
-  ProductEditorDocumentV2,
+  ProductEditorDocumentV3,
 } from "@/lib/admin/catalog/types";
 import { isCoreRoutineMediaRole } from "@/lib/catalog/media-roles";
 
@@ -12,16 +14,43 @@ type EditorTable =
   | "product_pdp_content"
   | "product_variants"
   | "product_media"
-  | "product_relationships";
+  | "product_relationships"
+  | "product_sources";
 
 type JsonObject = Record<string, unknown>;
 
 const NEW_ROW_SYSTEM_FIELDS: Readonly<Record<EditorTable, ReadonlySet<string>>> = {
   products: new Set(),
-  product_pdp_content: new Set(["schema_version"]),
-  product_variants: new Set(["id"]),
-  product_media: new Set(["id"]),
-  product_relationships: new Set(),
+  product_pdp_content: new Set([
+    "product_id",
+    "schema_version",
+    "created_at",
+    "updated_at",
+  ]),
+  product_variants: new Set([
+    "id",
+    "product_id",
+    "updated_at",
+    "archived_at",
+  ]),
+  product_media: new Set([
+    "id",
+    "product_id",
+    "created_at",
+    "updated_at",
+    "archived_at",
+    "media_type",
+    "url",
+    "width",
+    "height",
+    "source_filename",
+  ]),
+  product_relationships: new Set([
+    "product_id",
+    "created_at",
+    "archived_at",
+  ]),
+  product_sources: new Set(),
 };
 
 function isObject(value: unknown): value is JsonObject {
@@ -60,11 +89,13 @@ function validateObjectOwnership({
   path,
   candidate,
   canonical,
+  role,
 }: {
   table: EditorTable;
   path: string;
   candidate: JsonObject;
   canonical?: JsonObject;
+  role: CatalogEditorRole;
 }): CatalogValidationIssue[] {
   const issues: CatalogValidationIssue[] = [];
   for (const [field, value] of Object.entries(candidate)) {
@@ -99,7 +130,7 @@ function validateObjectOwnership({
       continue;
     }
     const changedReadOnlyField =
-      !ownership.editor.editable &&
+      !canCatalogRoleEditField(role, table, field) &&
       (canonical
         ? !valuesEqual(value, canonical[field])
         : value !== null && !NEW_ROW_SYSTEM_FIELDS[table].has(field));
@@ -108,7 +139,7 @@ function validateObjectOwnership({
         ownershipIssue(
           `${path}.${field}`,
           "field_read_only",
-          `${table}.${field} is ${ownership.owner}-owned and read only in the catalog editor.`,
+          `${table}.${field} cannot be changed by the ${role} role.`,
         ),
       );
     }
@@ -121,31 +152,62 @@ function validateCollectionOwnership({
   path,
   candidate,
   canonical,
+  role,
 }: {
   table: EditorTable;
   path: string;
   candidate: JsonObject[];
   canonical: JsonObject[];
+  role: CatalogEditorRole;
 }) {
+  const identity = (row: JsonObject) =>
+    typeof row.id === "string"
+      ? row.id
+      : table === "product_relationships" &&
+          typeof row.related_product_id === "string" &&
+          typeof row.relationship_type === "string"
+        ? `${row.related_product_id}:${row.relationship_type}`
+        : null;
   const canonicalById = new Map(
     canonical
-      .filter((row) => typeof row.id === "string")
-      .map((row) => [row.id as string, row]),
+      .map((row) => [identity(row), row] as const)
+      .filter((entry): entry is [string, JsonObject] => Boolean(entry[0])),
   );
-  return candidate.flatMap((row, index) =>
+  const candidateIdentities = new Set(
+    candidate.map(identity).filter((value): value is string => Boolean(value)),
+  );
+  const issues = candidate.flatMap((row, index) =>
     validateObjectOwnership({
       table,
       path: `${path}.${index}`,
       candidate: row,
-      canonical:
-        typeof row.id === "string" ? canonicalById.get(row.id) : undefined,
+      canonical: canonicalById.get(identity(row) ?? ""),
+      role,
     }),
   );
+  if (
+    table === "product_variants" &&
+    role !== "admin" &&
+    canonical.some((row) => {
+      const rowIdentity = identity(row);
+      return rowIdentity !== null && !candidateIdentities.has(rowIdentity);
+    })
+  ) {
+    issues.push(
+      ownershipIssue(
+        path,
+        "field_read_only",
+        "Only an admin can archive product variants.",
+      ),
+    );
+  }
+  return issues;
 }
 
 export function validateCatalogEditorOwnership(
-  candidate: ProductEditorDocumentV2,
-  canonical: ProductEditorDocumentV2,
+  candidate: ProductEditorDocumentV3,
+  canonical: ProductEditorDocumentV3,
+  role: CatalogEditorRole,
 ): CatalogValidationIssue[] {
   const issues: CatalogValidationIssue[] = [];
   if (candidate.productId !== canonical.productId) {
@@ -164,6 +226,7 @@ export function validateCatalogEditorOwnership(
       path: "product",
       candidate: candidate.product as JsonObject,
       canonical: canonical.product as JsonObject,
+      role,
     }),
   );
 
@@ -175,6 +238,7 @@ export function validateCatalogEditorOwnership(
         candidate: candidate.productPdpContent as JsonObject,
         canonical:
           (canonical.productPdpContent as JsonObject | null) ?? undefined,
+        role,
       }),
     );
   }
@@ -185,20 +249,43 @@ export function validateCatalogEditorOwnership(
       path: "variants",
       candidate: candidate.variants as JsonObject[],
       canonical: canonical.variants as JsonObject[],
+      role,
     }),
     ...validateCollectionOwnership({
       table: "product_media",
       path: "media",
       candidate: candidate.media as JsonObject[],
       canonical: canonical.media as JsonObject[],
+      role,
     }),
     ...validateCollectionOwnership({
       table: "product_relationships",
       path: "relationships",
       candidate: candidate.relationships as JsonObject[],
       canonical: canonical.relationships as JsonObject[],
+      role,
     }),
   );
+
+  if (candidate.productSource) {
+    issues.push(
+      ...validateObjectOwnership({
+        table: "product_sources",
+        path: "productSource",
+        candidate: candidate.productSource as JsonObject,
+        canonical: (canonical.productSource as JsonObject | null) ?? undefined,
+        role,
+      }),
+    );
+  } else if (canonical.productSource) {
+    issues.push(
+      ownershipIssue(
+        "productSource",
+        "field_read_only",
+        "Supplier provenance records cannot be removed in the catalog editor.",
+      ),
+    );
+  }
 
   return issues;
 }
