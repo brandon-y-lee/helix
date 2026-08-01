@@ -97,7 +97,12 @@ test("sign-in shell fills the viewport before the footer and grows with feedback
 
   await page.setViewportSize({ width: 720, height: 600 });
   await page.goto("/account/sign-in?error=invalid-link");
-  await expect(page.getByRole("alert")).toBeVisible();
+  await expect(
+    page.getByText(
+      "This sign-in link is invalid. Request a new one and try again.",
+      { exact: true },
+    ),
+  ).toBeVisible();
 
   const expandedLayout = await measureAuthLayout(page);
   expect(expandedLayout.shellHeight).toBeGreaterThan(
