@@ -21,6 +21,10 @@ const approvedApplicationImages = [1, 2, 3].map(
   (position) =>
     `${storageOrigin}/storage/v1/object/public/mei-pelle-catalog/products/cleanse/drafts/application-${position}.webp`,
 );
+const approvedOutcomeImages = [1, 2, 3].map(
+  (position) =>
+    `${storageOrigin}/storage/v1/object/public/mei-pelle-catalog/products/treat/outcomes/outcome-${position}.webp`,
+);
 
 function canonicalProduct(): PdpProduct {
   return {
@@ -295,6 +299,34 @@ describe("catalog draft PDP projection", () => {
     expect(applicationMedia.map((item) => item.url)).toEqual(
       approvedApplicationImages,
     );
+  });
+
+  it("projects staged outcome images in canonical numeric order", () => {
+    const draft = document();
+    draft.media.push(
+      ...[3, 1, 2].map((position) => ({
+        ...draft.media[0],
+        id: `77777777-7777-4777-8777-77777777777${position}`,
+        variant_id: null,
+        media_type: "image" as const,
+        url: approvedOutcomeImages[position - 1],
+        alt: `Draft TREAT outcome visual ${position}`,
+        width: 1200,
+        height: 1400,
+        role: "pdp_outcome" as const,
+        sort_order: position,
+      })),
+    );
+
+    const preview = projectCatalogDraftPreview(draft, base(), {
+      approvedMediaOrigin: storageOrigin,
+    });
+    const outcomeMedia = preview.product.media.filter(
+      (item) => item.role === "pdp_outcome",
+    );
+
+    expect(outcomeMedia.map((item) => item.sortOrder)).toEqual([1, 2, 3]);
+    expect(outcomeMedia.map((item) => item.url)).toEqual(approvedOutcomeImages);
   });
 
   it("fails closed for external draft media", () => {

@@ -250,6 +250,42 @@ describe("CatalogEditor sections", () => {
     ).toBeVisible();
   });
 
+  it("shows ordered outcome associations and their canonical provenance", async () => {
+    const outcomeDocument = structuredClone(catalogDocument);
+    outcomeDocument.media.push(
+      ...[1, 2, 3].map((position) => ({
+        ...catalogDocument.media[0],
+        id: `223e4567-e89b-42d3-a456-42661417400${position}`,
+        role: "pdp_outcome" as const,
+        sort_order: position,
+        source_filename: `cleanse-pdp-outcomes-0${position}.webp`,
+        url: `https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/mei-pelle-catalog/products/cleanse/outcomes/outcome-${position}.webp`,
+        alt: `CLEANSE outcome visual ${position}`,
+      })),
+    );
+    vi.mocked(catalogEditorApi.getEditor).mockResolvedValue({
+      ...editorResponse(),
+      canonical: outcomeDocument,
+      draft: { ...catalogDraft, document: outcomeDocument },
+    });
+
+    const { container } = render(
+      <CatalogEditor productId="product-cleanse" />,
+    );
+    await screen.findByRole("heading", { name: "CLEANSE" });
+    toggleDisclosure(container, "section-product_media");
+    toggleDisclosure(container, "group-media-records");
+
+    for (const position of [1, 2, 3]) {
+      expect(screen.getByText(`pdp_outcome #${position}`)).toBeVisible();
+      expect(
+        container.querySelector(
+          `#product_media-223e4567-e89b-42d3-a456-42661417400${position}-source_filename`,
+        ),
+      ).toHaveTextContent(`cleanse-pdp-outcomes-0${position}.webp`);
+    }
+  });
+
   it("validates duplicate SKUs and invalid prices at the editable boundary", async () => {
     const duplicateDocument = {
       ...catalogDocument,

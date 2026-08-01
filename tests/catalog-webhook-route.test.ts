@@ -147,7 +147,7 @@ describe("catalog search sync route", () => {
     expect(revalidatePathMock).toHaveBeenCalledWith("/products/treat-03-pdrn-5-ampoule");
   });
 
-  it.each(["pdp_application", "gallery"])(
+  it.each(["pdp_application", "pdp_outcome", "gallery"])(
     "invalidates only the PDP for role %s",
     async (role) => {
       applyMock.mockResolvedValue({

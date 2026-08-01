@@ -205,6 +205,8 @@ Concrete versus placeholder state is derived from URL and
 | `gallery` | PDP gallery item | Gallery only |
 | `cart` | Cart thumbnail override | Cart only |
 | `search` | Algolia/search thumbnail override | Search only |
+| `pdp_application` | Three ordered Core PDP application states | Never |
+| `pdp_outcome` | Three ordered Core PDP outcome states | Never |
 | `routine_video` | Foreground and synchronized blurred-background video | Never |
 | `routine_video_poster` | Paused foreground poster and blurred poster fallback | Never |
 | `profile_editorial` | Core product-profile right panel | Never |
@@ -288,6 +290,34 @@ Core routine editorial inputs across the three Core products. No editorial
 asset or canonical association is created until a validated source is supplied
 and the operator explicitly uses `--apply`. Repeated dry runs produce the same
 missing-input plan, and repeated applies submit only changed rows.
+
+### Outcome media preparation and delivery
+
+Outcome images use one shared runtime role, `pdp_outcome`, with numeric
+`sort_order` values 1 through 3. Product association comes from the canonical
+source basename (`cleanse-pdp-outcomes-01.webp` or
+`treat-pdp-outcomes-01.webp`), never from outcome-label wording, file arrival
+order, or runtime filename parsing. The storefront consumes the ordered
+`product_media` rows directly and retains its existing geometric fallback when
+no qualifying rows exist.
+
+The supplied TREAT files were PNG payloads despite their `.webp` extensions.
+They were decoded and converted losslessly to true WebP without cropping,
+stretching, upscaling, recoloring, or introducing orientation metadata. The
+sync stores the canonical source basenames in `source_filename`, uploads new
+bytes to immutable content-addressed paths under
+`products/<slug>/outcomes/<sha256>.webp`, and uses `upsert: false`. Existing
+CLEANSE object bytes, URLs, row identities, dimensions, alt text, and ordering
+remain unchanged; only their legacy `outcome-0N.webp` provenance names are
+normalized to `cleanse-pdp-outcomes-0N.webp`.
+
+`scripts/catalog-sync-outcome-media.ts` is dry-run by default. It requires
+exactly three validated inputs for each controlled product, rejects missing,
+duplicate, unexpected, malformed, or wrong-dimension assets before writes,
+backs up changed rows/object listings outside the repository, verifies public
+content type and downloaded SHA-256 after upload, and re-reads all six active
+associations after apply. A repeated apply is expected to report zero uploads
+and zero row mutations.
 
 ## Cache and revalidation
 
@@ -572,6 +602,14 @@ pnpm run catalog:media:sync-core-pdp -- --dry-run \
 # Verified non-production apply.
 pnpm run catalog:media:sync-core-pdp -- --apply \
   --asset-dir /private/tmp/mei-pelle-media-prep
+
+# CLEANSE and TREAT outcome media (dry-run is the default).
+pnpm run catalog:media:sync-outcomes -- --dry-run \
+  --asset-dir /private/tmp/mei-pelle-outcome-media
+
+# Verified non-production outcome apply.
+pnpm run catalog:media:sync-outcomes -- --apply \
+  --asset-dir /private/tmp/mei-pelle-outcome-media
 
 # Missed-webhook recovery.
 pnpm run catalog:media:reconcile-core-pdp -- --dry-run \

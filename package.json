@@ -19,7 +19,7 @@
     "catalog:media:sync-core": "tsx scripts/catalog-sync-core-media.ts",
     "catalog:media:sync-core-pdp": "tsx scripts/catalog-sync-core-pdp-media.ts",
     "catalog:media:sync-core-gallery": "tsx scripts/catalog-sync-core-pdp-media.ts --roles gallery",
-    "catalog:media:sync-cleanse-outcomes": "tsx scripts/catalog-sync-cleanse-outcome-media.ts",
+    "catalog:media:sync-outcomes": "tsx scripts/catalog-sync-outcome-media.ts",
     "catalog:media:sync-cleanse-application": "tsx scripts/catalog-sync-cleanse-application-media.ts",
     "catalog:media:reconcile-core-pdp": "tsx scripts/catalog-reconcile-core-pdp-media.ts",
     "catalog:refresh:presentation": "tsx scripts/catalog-refresh-presentation.ts",
