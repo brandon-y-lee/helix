@@ -9,6 +9,8 @@ import {
 import { normalizeProductPdpContent } from "@/lib/catalog/product-content";
 import {
   CORE_PDP_MEDIA_ASSETS,
+  assertCorePdpAssetFilename,
+  galleryPlaceholderArchiveIds,
   inspectConfiguredCorePdpAssets,
   inspectCorePdpAsset,
   storagePathForCorePdpAsset,
@@ -178,6 +180,7 @@ describe("Core PDP presentation contract", () => {
         "ingredients_texture",
         "core_routine_texture",
         "core_routine_editorial",
+        "gallery",
       ]);
       expect(assets.map((asset) => asset.filename)).toEqual([
         `${entry.prefix}-pdp-routine-source.mp4`,
@@ -186,6 +189,7 @@ describe("Core PDP presentation contract", () => {
         `${entry.prefix}-pdp-ingredients-texture-01.webp`,
         `${entry.prefix}-pdp-core-routine-texture-01.webp`,
         `${entry.prefix}-pdp-core-routine-editorial-01.webp`,
+        `${entry.prefix}-pdp-gallery-02.webp`,
       ]);
       expect(
         assets.every((asset) =>
@@ -209,8 +213,117 @@ describe("Core PDP presentation contract", () => {
       ).toBe(
         `products/${entry.slug}/core-routine-editorial/checksum.webp`,
       );
+      expect(
+        storagePathForCorePdpAsset(assets[6], "checksum"),
+      ).toBe(`products/${entry.slug}/gallery/checksum.webp`);
     },
   );
+
+  it("accepts only the exact product gallery basename and 02 suffix", () => {
+    const gallery = CORE_PDP_MEDIA_ASSETS.find(
+      (asset) =>
+        asset.slug === "cleanse-01-calming-gel-cleanser" &&
+        asset.role === "gallery",
+    );
+    expect(gallery).toBeDefined();
+    expect(() => assertCorePdpAssetFilename(gallery!)).not.toThrow();
+    expect(() =>
+      assertCorePdpAssetFilename({
+        ...gallery!,
+        filename: "cleanse-pdp-gallery-01.webp",
+      }),
+    ).toThrow(/expected "cleanse-pdp-gallery-02.webp"/);
+    expect(() =>
+      assertCorePdpAssetFilename({
+        ...gallery!,
+        filename: "treat-pdp-gallery-02.webp",
+      }),
+    ).toThrow(/Invalid gallery basename/);
+  });
+
+  it("replaces one palette placeholder and archives only obsolete placeholders", () => {
+    const productId = "product-cleanse";
+    const publicUrl =
+      "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/mei-pelle-catalog/products/cleanse/gallery/hash.webp";
+    const placeholder = (id: string, sortOrder: number) => ({
+      id,
+      product_id: productId,
+      media_type: "image",
+      url: null,
+      width: null,
+      height: null,
+      role: "gallery",
+      sort_order: sortOrder,
+      palette_id: `cleanse-gallery-${sortOrder}`,
+      placeholder_palette: { start: "#ffffff", end: "#000000" },
+      original_source_url: null,
+      source_filename: null,
+    });
+
+    expect(
+      galleryPlaceholderArchiveIds(
+        [placeholder("gallery-2", 2), placeholder("gallery-3", 3)],
+        productId,
+        2,
+        publicUrl,
+      ),
+    ).toEqual(["gallery-3"]);
+
+    expect(
+      galleryPlaceholderArchiveIds(
+        [
+          {
+            ...placeholder("gallery-2", 2),
+            url: publicUrl,
+            width: 1440,
+            height: 1800,
+            palette_id: null,
+            placeholder_palette: {},
+            source_filename: "cleanse-pdp-gallery-02.webp",
+          },
+        ],
+        productId,
+        2,
+        publicUrl,
+      ),
+    ).toEqual([]);
+  });
+
+  it("refuses intentional gallery media and duplicate canonical assets", () => {
+    const productId = "product-cleanse";
+    const publicUrl = "https://example.test/gallery/hash.webp";
+    const intentional = {
+      id: "gallery-3",
+      product_id: productId,
+      media_type: "image",
+      url: "https://example.test/gallery/other.webp",
+      width: 1440,
+      height: 1800,
+      role: "gallery",
+      sort_order: 3,
+      palette_id: null,
+      placeholder_palette: {},
+      original_source_url: null,
+      source_filename: "intentional.webp",
+    };
+
+    expect(() =>
+      galleryPlaceholderArchiveIds(
+        [intentional],
+        productId,
+        2,
+        publicUrl,
+      ),
+    ).toThrow(/intentional gallery media/);
+    expect(() =>
+      galleryPlaceholderArchiveIds(
+        [{ ...intentional, role: "card_default", url: publicUrl }],
+        productId,
+        2,
+        publicUrl,
+      ),
+    ).toThrow(/already belongs to card_default/);
+  });
 
   it("reports the three future editorial inputs deterministically when absent", async () => {
     const directory = await mkdtemp(join(tmpdir(), "mei-pelle-pdp-editorial-"));

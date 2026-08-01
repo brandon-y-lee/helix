@@ -216,6 +216,9 @@ describe("storefront catalog projections", () => {
     });
     expect(product?.media.map((item) => item.role)).toContain("pdp_outcome");
     expect(product?.media.map((item) => item.role)).toContain("pdp_application");
+    expect(product?.media.map((item) => item.role)).toContain("gallery");
+    expect(product?.cardMedia?.role).toBe("card_default");
+    expect(product?.cartMedia?.role).toBe("cart");
     expect(product).not.toHaveProperty("variants");
     expect(product?.pdpContent?.howToUseSteps).toEqual([
       "Apply after CLEANSE.",

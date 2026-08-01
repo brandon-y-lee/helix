@@ -147,45 +147,50 @@ describe("catalog search sync route", () => {
     expect(revalidatePathMock).toHaveBeenCalledWith("/products/treat-03-pdrn-5-ampoule");
   });
 
-  it("invalidates only the PDP for editorial media roles", async () => {
-    applyMock.mockResolvedValue({
-      action: "noop",
-      table: "product_media",
-      objectID: "f6091deb-1177-45ad-b506-1f0427fa4abe",
-      slug: "treat-03-pdrn-5-ampoule",
-      routineGroup: "core",
-      reason: "PDP-only media role is not indexed",
-    });
-
-    const response = await POST(
-      request({
-        schema: "public",
-        type: "INSERT",
+  it.each(["pdp_application", "gallery"])(
+    "invalidates only the PDP for role %s",
+    async (role) => {
+      applyMock.mockResolvedValue({
+        action: "noop",
         table: "product_media",
-        record: {
-          id: "media-editorial",
-          product_id: "f6091deb-1177-45ad-b506-1f0427fa4abe",
-          role: "pdp_application",
-        },
-      }),
-    );
+        objectID: "f6091deb-1177-45ad-b506-1f0427fa4abe",
+        slug: "treat-03-pdrn-5-ampoule",
+        routineGroup: "core",
+        reason: "PDP-only media role is not indexed",
+      });
 
-    expect(response.status).toBe(200);
-    expect(revalidateTagMock).toHaveBeenCalledWith(
-      "catalog-product-content:treat-03-pdrn-5-ampoule",
-    );
-    expect(revalidateTagMock).toHaveBeenCalledWith("catalog-product-content");
-    expect(revalidatePathMock).toHaveBeenCalledWith(
-      "/products/treat-03-pdrn-5-ampoule",
-    );
-    expect(revalidateTagMock).not.toHaveBeenCalledWith(
-      "catalog-product-card:treat-03-pdrn-5-ampoule",
-    );
-    expect(revalidateTagMock).not.toHaveBeenCalledWith(
-      "catalog-product-offer:treat-03-pdrn-5-ampoule",
-    );
-    expect(revalidatePathMock).not.toHaveBeenCalledWith("/products");
-  });
+      const response = await POST(
+        request({
+          schema: "public",
+          type: "INSERT",
+          table: "product_media",
+          record: {
+            id: "media-editorial",
+            product_id: "f6091deb-1177-45ad-b506-1f0427fa4abe",
+            role,
+          },
+        }),
+      );
+
+      expect(response.status).toBe(200);
+      expect(revalidateTagMock).toHaveBeenCalledWith(
+        "catalog-product-content:treat-03-pdrn-5-ampoule",
+      );
+      expect(revalidateTagMock).toHaveBeenCalledWith(
+        "catalog-product-content",
+      );
+      expect(revalidatePathMock).toHaveBeenCalledWith(
+        "/products/treat-03-pdrn-5-ampoule",
+      );
+      expect(revalidateTagMock).not.toHaveBeenCalledWith(
+        "catalog-product-card:treat-03-pdrn-5-ampoule",
+      );
+      expect(revalidateTagMock).not.toHaveBeenCalledWith(
+        "catalog-product-offer:treat-03-pdrn-5-ampoule",
+      );
+      expect(revalidatePathMock).not.toHaveBeenCalledWith("/products");
+    },
+  );
 
   it.each(["core_routine_texture", "core_routine_editorial"])(
     "invalidates the routine tag and every Core PDP for shared role %s",

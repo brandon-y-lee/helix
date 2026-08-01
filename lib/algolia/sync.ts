@@ -21,7 +21,8 @@ const ALLOWED_TABLES = [
   PDP_CONTENT_TABLE,
 ] as const;
 const ALLOWED_EVENTS = ["INSERT", "UPDATE", "DELETE"] as const;
-const EDITORIAL_MEDIA_ROLES = new Set([
+const PDP_ONLY_MEDIA_ROLES = new Set([
+  "gallery",
   "routine_video",
   "routine_video_poster",
   "profile_editorial",
@@ -91,7 +92,7 @@ export function mediaEventOnlyAffectsPdp(
     asRole(payload.record?.role),
     asRole(payload.old_record?.role),
   ].filter((role): role is string => Boolean(role));
-  return roles.length > 0 && roles.every((role) => EDITORIAL_MEDIA_ROLES.has(role));
+  return roles.length > 0 && roles.every((role) => PDP_ONLY_MEDIA_ROLES.has(role));
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

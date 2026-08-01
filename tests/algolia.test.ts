@@ -180,7 +180,7 @@ describe("buildAlgoliaRecord", () => {
     expect(r.placeholderMedia).toBeNull();
   });
 
-  it("never promotes PDP-only editorial media into search", () => {
+  it("never promotes PDP-only media into search", () => {
     const searchImage = {
       media_type: "image",
       url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/mei-pelle-catalog/products/northpoint/search.webp",
@@ -195,6 +195,12 @@ describe("buildAlgoliaRecord", () => {
     const r = buildAlgoliaRecord({
       ...sourceRow,
       product_media: [
+        {
+          ...searchImage,
+          url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/mei-pelle-catalog/products/northpoint/gallery.webp",
+          role: "gallery",
+          sort_order: -10,
+        },
         {
           ...searchImage,
           media_type: "video",
@@ -467,6 +473,7 @@ describe("applyCatalogWebhookEvent", () => {
   });
 
   it.each([
+    "gallery",
     "routine_video",
     "ingredients_texture",
     "core_routine_texture",
@@ -474,7 +481,7 @@ describe("applyCatalogWebhookEvent", () => {
     "pdp_outcome",
     "pdp_application",
   ])(
-    "resolves but does not reindex PDP-only editorial media role %s",
+    "resolves but does not reindex PDP-only media role %s",
     async (role) => {
     const built = buildAlgoliaRecord(sourceRow);
     mockedFetch.mockResolvedValue(built);

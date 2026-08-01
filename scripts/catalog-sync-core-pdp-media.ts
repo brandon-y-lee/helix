@@ -17,6 +17,7 @@ const DEFAULT_ASSET_DIR = "/private/tmp/mei-pelle-media-prep";
 const MAX_VIDEO_BYTES = 16 * 1024 * 1024;
 
 export const CORE_PDP_MEDIA_ROLES = [
+  "gallery",
   "routine_video",
   "routine_video_poster",
   "profile_editorial",
@@ -117,6 +118,18 @@ export const CORE_PDP_MEDIA_ASSETS: readonly CorePdpMediaAsset[] = [
     optionalSource: true,
   },
   {
+    slug: "cleanse-01-calming-gel-cleanser",
+    filename: "cleanse-pdp-gallery-02.webp",
+    role: "gallery",
+    mediaType: "image",
+    contentType: "image/webp",
+    alt: "Close portrait for CLEANSE with damp dark hair.",
+    width: 1440,
+    height: 1800,
+    sortOrder: 2,
+    durationSeconds: null,
+  },
+  {
     slug: "treat-03-pdrn-5-ampoule",
     filename: "treat-pdp-routine-source.mp4",
     role: "routine_video",
@@ -190,6 +203,18 @@ export const CORE_PDP_MEDIA_ASSETS: readonly CorePdpMediaAsset[] = [
     optionalSource: true,
   },
   {
+    slug: "treat-03-pdrn-5-ampoule",
+    filename: "treat-pdp-gallery-02.webp",
+    role: "gallery",
+    mediaType: "image",
+    contentType: "image/webp",
+    alt: "Portrait for TREAT with blond-streaked hair on pale blue.",
+    width: 1440,
+    height: 1920,
+    sortOrder: 2,
+    durationSeconds: null,
+  },
+  {
     slug: "seal-05-green-collagen-cream",
     filename: "seal-pdp-routine-source.mp4",
     role: "routine_video",
@@ -261,6 +286,18 @@ export const CORE_PDP_MEDIA_ASSETS: readonly CorePdpMediaAsset[] = [
     sortOrder: 1,
     durationSeconds: null,
     optionalSource: true,
+  },
+  {
+    slug: "seal-05-green-collagen-cream",
+    filename: "seal-pdp-gallery-02.webp",
+    role: "gallery",
+    mediaType: "image",
+    contentType: "image/webp",
+    alt: "Portrait for SEAL with slicked-back dark hair.",
+    width: 1122,
+    height: 1402,
+    sortOrder: 2,
+    durationSeconds: null,
   },
 ] as const;
 
@@ -349,6 +386,8 @@ export type CorePdpMediaSyncReport = {
   rowsPlanned: number;
   rowsUnchanged: number;
   rowsVerified: number;
+  galleryPlaceholdersPlanned: number;
+  galleryPlaceholdersArchived: number;
 };
 
 export class MissingCorePdpMediaSourceError extends Error {
@@ -411,6 +450,7 @@ function assertMp4(buffer: Buffer, filename: string) {
 }
 
 function storageDirectory(role: CorePdpMediaRole): string {
+  if (role === "gallery") return "gallery";
   if (role === "profile_editorial") return "profile";
   if (role === "ingredients_texture") return "ingredients-texture";
   if (role === "core_routine_texture") return "core-routine-texture";
@@ -425,17 +465,15 @@ const CORE_PRODUCT_PREFIXES: Record<string, string> = {
 };
 
 export function assertCorePdpAssetFilename(asset: CorePdpMediaAsset): void {
-  if (asset.role !== "core_routine_editorial") return;
-  const match = asset.filename.match(
-    /^(cleanse|treat|seal)-pdp-core-routine-editorial-(\d{2})[.]webp$/,
-  );
-  if (
-    !match ||
-    match[1] !== CORE_PRODUCT_PREFIXES[asset.slug] ||
-    match[2] !== "01"
-  ) {
+  const expected =
+    asset.role === "gallery"
+      ? `${CORE_PRODUCT_PREFIXES[asset.slug]}-pdp-gallery-02.webp`
+      : asset.role === "core_routine_editorial"
+        ? `${CORE_PRODUCT_PREFIXES[asset.slug]}-pdp-core-routine-editorial-01.webp`
+        : null;
+  if (expected && asset.filename !== expected) {
     throw new Error(
-      `[core-pdp-media-sync] Invalid Core routine editorial basename "${asset.filename}" for ${asset.slug}.`,
+      `[core-pdp-media-sync] Invalid ${asset.role} basename "${asset.filename}" for ${asset.slug}; expected "${expected}".`,
     );
   }
 }
@@ -553,8 +591,9 @@ export async function inspectConfiguredCorePdpAssets(
 
 async function readProducts(
   supabase: SupabaseClient,
+  configuredAssets: readonly CorePdpMediaAsset[],
 ): Promise<Map<string, ProductRow>> {
-  const slugs = [...new Set(CORE_PDP_MEDIA_ASSETS.map((asset) => asset.slug))];
+  const slugs = [...new Set(configuredAssets.map((asset) => asset.slug))];
   const { data, error } = await supabase
     .from("products")
     .select("id, slug, display_name, routine_group")
@@ -575,13 +614,13 @@ async function readProducts(
       );
     }
   }
-  for (const asset of CORE_PDP_MEDIA_ASSETS) {
+  for (const asset of configuredAssets) {
     if (
-      asset.role === "core_routine_editorial" &&
+      (asset.role === "core_routine_editorial" || asset.role === "gallery") &&
       products.get(asset.slug)?.routine_group !== "core"
     ) {
       throw new Error(
-        `[core-pdp-media-sync] ${asset.slug} is not eligible for Core routine editorial media.`,
+        `[core-pdp-media-sync] ${asset.slug} is not eligible for Core ${asset.role} media.`,
       );
     }
   }
@@ -686,6 +725,80 @@ async function verifyPublicAsset(asset: InspectedAsset): Promise<void> {
   }
 }
 
+export type GalleryPlanMediaRow = Pick<
+  MediaRow,
+  | "id"
+  | "product_id"
+  | "media_type"
+  | "url"
+  | "width"
+  | "height"
+  | "role"
+  | "sort_order"
+  | "palette_id"
+  | "placeholder_palette"
+  | "original_source_url"
+  | "source_filename"
+>;
+
+function isPaletteGalleryPlaceholder(row: GalleryPlanMediaRow): boolean {
+  return (
+    row.role === "gallery" &&
+    row.media_type === "image" &&
+    row.url === null &&
+    row.width === null &&
+    row.height === null &&
+    Boolean(row.palette_id) &&
+    Object.keys(row.placeholder_palette ?? {}).length > 0 &&
+    row.original_source_url === null &&
+    row.source_filename === null
+  );
+}
+
+export function galleryPlaceholderArchiveIds(
+  existingRows: readonly GalleryPlanMediaRow[],
+  productId: string,
+  sortOrder: number,
+  publicUrl: string,
+): string[] {
+  const productRows = existingRows.filter(
+    (row) => row.product_id === productId,
+  );
+  const duplicateAsset = productRows.find(
+    (row) =>
+      row.url === publicUrl &&
+      !(row.role === "gallery" && row.sort_order === sortOrder),
+  );
+  if (duplicateAsset) {
+    throw new Error(
+      `[core-pdp-media-sync] Gallery asset already belongs to ${duplicateAsset.role}:${duplicateAsset.sort_order} (${productId}).`,
+    );
+  }
+
+  const galleryRows = productRows.filter((row) => row.role === "gallery");
+  const target = galleryRows.find((row) => row.sort_order === sortOrder);
+  if (
+    target &&
+    target.url !== publicUrl &&
+    !isPaletteGalleryPlaceholder(target)
+  ) {
+    throw new Error(
+      `[core-pdp-media-sync] Refusing to replace non-placeholder gallery media at order ${sortOrder} (${productId}).`,
+    );
+  }
+
+  const obsoleteRows = galleryRows.filter((row) => row.id !== target?.id);
+  const conflicting = obsoleteRows.find(
+    (row) => !isPaletteGalleryPlaceholder(row),
+  );
+  if (conflicting) {
+    throw new Error(
+      `[core-pdp-media-sync] ${productId} has intentional gallery media at order ${conflicting.sort_order}; reconcile before sync.`,
+    );
+  }
+  return obsoleteRows.map((row) => row.id);
+}
+
 function plannedRowsForAssets(
   assets: InspectedAsset[],
   products: Map<string, ProductRow>,
@@ -700,7 +813,7 @@ function plannedRowsForAssets(
     const existing = existingRows.filter(
       (row) => row.product_id === product.id && row.role === asset.role,
     );
-    if (existing.length > 1) {
+    if (asset.role !== "gallery" && existing.length > 1) {
       throw new Error(
         `[core-pdp-media-sync] ${asset.slug} has ${existing.length} ${asset.role} rows; reconcile duplicates first.`,
       );
@@ -715,7 +828,9 @@ function plannedRowsForAssets(
       height: asset.height,
       role: asset.role,
       sort_order:
-        asset.role === "core_routine_editorial"
+        asset.role === "gallery"
+          ? asset.sortOrder
+          : asset.role === "core_routine_editorial"
           ? 1
           : existing[0]?.sort_order ?? asset.sortOrder,
       palette_id: null,
@@ -785,6 +900,17 @@ function verifyRows(
   plannedRows: PlannedRow[],
 ): number {
   for (const planned of plannedRows) {
+    if (
+      planned.role === "gallery" &&
+      rows.filter(
+        (row) =>
+          row.product_id === planned.product_id && row.role === "gallery",
+      ).length !== 1
+    ) {
+      throw new Error(
+        `[core-pdp-media-sync] Expected exactly one active gallery row (${planned.product_id}).`,
+      );
+    }
     const matches = rows.filter(
       (row) =>
         row.product_id === planned.product_id &&
@@ -797,13 +923,7 @@ function verifyRows(
       );
     }
     const [row] = matches;
-    if (
-      row.url !== planned.url ||
-      row.media_type !== planned.media_type ||
-      row.width !== planned.width ||
-      row.height !== planned.height ||
-      row.alt !== planned.alt
-    ) {
+    if (!rowMatchesPlan(row, planned)) {
       throw new Error(
         `[core-pdp-media-sync] Verification mismatch for ${planned.role} (${planned.product_id}).`,
       );
@@ -837,7 +957,9 @@ async function upsertChangedMediaRows(
   for (const planned of plannedRows) {
     const existing = existingRows.find(
       (row) =>
-        row.product_id === planned.product_id && row.role === planned.role,
+        row.product_id === planned.product_id &&
+        row.role === planned.role &&
+        row.sort_order === planned.sort_order,
     );
     if (existing) {
       const { data, error } = await supabase
@@ -867,16 +989,45 @@ async function upsertChangedMediaRows(
   return plannedRows.length;
 }
 
+async function archiveGalleryPlaceholders(
+  supabase: SupabaseClient,
+  ids: string[],
+): Promise<number> {
+  if (ids.length === 0) return 0;
+  const { data, error } = await supabase
+    .from("product_media")
+    .update({ archived_at: new Date().toISOString() })
+    .in("id", ids)
+    .is("archived_at", null)
+    .select("id");
+  if (error || data?.length !== ids.length) {
+    throw new Error(
+      `[core-pdp-media-sync] Failed to archive ${ids.length} obsolete gallery placeholders: ${
+        error?.message ?? `updated ${data?.length ?? 0}`
+      }`,
+    );
+  }
+  return data.length;
+}
+
 export async function runCorePdpMediaSync({
   apply = false,
   assetDirectory = DEFAULT_ASSET_DIR,
+  roles,
 }: {
   apply?: boolean;
   assetDirectory?: string;
+  roles?: readonly CorePdpMediaRole[];
 } = {}): Promise<CorePdpMediaSyncReport> {
   verifyProjectRef();
   const supabase = createSupabaseAdminClient();
-  const products = await readProducts(supabase);
+  const configuredAssets = roles?.length
+    ? CORE_PDP_MEDIA_ASSETS.filter((asset) => roles.includes(asset.role))
+    : CORE_PDP_MEDIA_ASSETS;
+  if (configuredAssets.length === 0) {
+    throw new Error("[core-pdp-media-sync] No media assets match --roles.");
+  }
+  const products = await readProducts(supabase, configuredAssets);
   const productIds = [...products.values()].map((product) => product.id);
   const beforeRows = await readMediaRows(supabase, productIds);
   const slugsByProductId = new Map(
@@ -884,6 +1035,7 @@ export async function runCorePdpMediaSync({
   );
   const satisfiedInputs = new Set(
     beforeRows
+      .filter((row) => Boolean(row.url))
       .map(
         (row) => `${slugsByProductId.get(row.product_id) ?? ""}:${row.role}`,
       ),
@@ -891,7 +1043,7 @@ export async function runCorePdpMediaSync({
   const { assets, missingInputs, retainedCanonicalInputs } =
     await inspectConfiguredCorePdpAssets(
       assetDirectory,
-      CORE_PDP_MEDIA_ASSETS,
+      configuredAssets,
       satisfiedInputs,
     );
   const plannedRows = plannedRowsForAssets(
@@ -899,7 +1051,27 @@ export async function runCorePdpMediaSync({
     products,
     beforeRows,
   );
-  const slugs = [...new Set(CORE_PDP_MEDIA_ASSETS.map((asset) => asset.slug))];
+  const galleryPlaceholderIds = [
+    ...new Set(
+      assets
+        .filter((asset) => asset.role === "gallery")
+        .flatMap((asset) => {
+          const product = products.get(asset.slug);
+          if (!product) {
+            throw new Error(
+              `[core-pdp-media-sync] Missing product ${asset.slug}.`,
+            );
+          }
+          return galleryPlaceholderArchiveIds(
+            beforeRows,
+            product.id,
+            asset.sortOrder,
+            asset.publicUrl,
+          );
+        }),
+    ),
+  ];
+  const slugs = [...new Set(configuredAssets.map((asset) => asset.slug))];
   const storageListing = await readStorageListing(supabase, slugs);
   const storageNames = new Set(storageListing.map((object) => object.name));
   const assetsToUpload = assets.filter(
@@ -908,7 +1080,9 @@ export async function runCorePdpMediaSync({
   const rowsToSubmit = plannedRows.filter((planned) => {
     const existing = beforeRows.find(
       (row) =>
-        row.product_id === planned.product_id && row.role === planned.role,
+        row.product_id === planned.product_id &&
+        row.role === planned.role &&
+        row.sort_order === planned.sort_order,
     );
     return !existing || !rowMatchesPlan(existing, planned);
   });
@@ -940,11 +1114,17 @@ export async function runCorePdpMediaSync({
     rowsPlanned: rowsToSubmit.length,
     rowsUnchanged: plannedRows.length - rowsToSubmit.length,
     rowsVerified: 0,
+    galleryPlaceholdersPlanned: galleryPlaceholderIds.length,
+    galleryPlaceholdersArchived: 0,
   };
 
   if (!apply) return report;
 
-  if (assetsToUpload.length > 0 || rowsToSubmit.length > 0) {
+  if (
+    assetsToUpload.length > 0 ||
+    rowsToSubmit.length > 0 ||
+    galleryPlaceholderIds.length > 0
+  ) {
     report.backupPath = await writeBackup(beforeRows, storageListing);
   }
 
@@ -965,6 +1145,10 @@ export async function runCorePdpMediaSync({
       beforeRows,
     );
   }
+  report.galleryPlaceholdersArchived = await archiveGalleryPlaceholders(
+    supabase,
+    galleryPlaceholderIds,
+  );
 
   const afterRows = await readMediaRows(supabase, productIds);
   report.rowsVerified = verifyRows(afterRows, plannedRows);
@@ -979,7 +1163,18 @@ function parseArgs(argv: string[]) {
     assetDirIndex >= 0 && argv[assetDirIndex + 1]
       ? resolve(argv[assetDirIndex + 1])
       : DEFAULT_ASSET_DIR;
-  return { apply: apply && !dryRun, assetDirectory };
+  const rolesIndex = argv.indexOf("--roles");
+  const roleValues =
+    rolesIndex >= 0 && argv[rolesIndex + 1]
+      ? argv[rolesIndex + 1].split(",").filter(Boolean)
+      : [];
+  const roles = roleValues.map((role) => {
+    if (!(CORE_PDP_MEDIA_ROLES as readonly string[]).includes(role)) {
+      throw new Error(`[core-pdp-media-sync] Unsupported media role "${role}".`);
+    }
+    return role as CorePdpMediaRole;
+  });
+  return { apply: apply && !dryRun, assetDirectory, roles };
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {

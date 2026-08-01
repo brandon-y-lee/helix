@@ -95,11 +95,17 @@ test("PDP resolves canonical data and exposes an available variant", async ({
     page.getByRole("region", { name: "TREAT customer reviews" }),
   ).toBeVisible();
 
-  await page
-    .getByRole("button", {
-      name: "View TREAT gallery placeholder surface one, media 2 of 3",
-    })
-    .click();
+  const treatGallery = page.getByRole("button", {
+    name: "View Portrait for TREAT with blond-streaked hair on pale blue., media 2 of 2",
+  });
+  await treatGallery.click();
+  await expect(treatGallery).toHaveAttribute("aria-pressed", "true");
+  await expect(
+    page.locator("[data-pdp-main-media] > .pdp__media img"),
+  ).toHaveAttribute(
+    "src",
+    /products%2Ftreat-03-pdrn-5-ampoule%2Fgallery%2F7c7f2e93463b453438d75657583898dd0af6ff674f0c562d0d6a1aad3e4c96f3\.webp/,
+  );
   await page.getByRole("button", { name: "smooths", exact: true }).click();
   await page
     .getByRole("button", {
@@ -120,7 +126,7 @@ test("PDP resolves canonical data and exposes an available variant", async ({
   ).toBeVisible();
   await expect(
     page.getByRole("button", {
-      name: "View CLEANSE calming gel cleanser, media 1 of 3",
+      name: "View CLEANSE calming gel cleanser, media 1 of 2",
     }),
   ).toHaveAttribute("aria-pressed", "true");
   await expect(

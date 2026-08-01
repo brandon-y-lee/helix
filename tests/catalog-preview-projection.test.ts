@@ -16,6 +16,7 @@ const canonicalSlug = "cleanse-01-calming-gel-cleanser";
 const storageOrigin = "https://erasogmsqpgiirovubjh.supabase.co";
 const approvedImage = `${storageOrigin}/storage/v1/object/public/mei-pelle-catalog/products/cleanse/drafts/hero.webp`;
 const approvedEditorialImage = `${storageOrigin}/storage/v1/object/public/mei-pelle-catalog/products/cleanse/drafts/core-routine-editorial.webp`;
+const approvedGalleryImage = `${storageOrigin}/storage/v1/object/public/mei-pelle-catalog/products/cleanse/drafts/gallery-02.webp`;
 const approvedApplicationImages = [1, 2, 3].map(
   (position) =>
     `${storageOrigin}/storage/v1/object/public/mei-pelle-catalog/products/cleanse/drafts/application-${position}.webp`,
@@ -226,6 +227,36 @@ describe("catalog draft PDP projection", () => {
       role: "core_routine_editorial",
       url: approvedEditorialImage,
       alt: "Draft CLEANSE routine editorial",
+    });
+  });
+
+  it("projects a staged gallery image after the primary detail media", () => {
+    const draft = document();
+    draft.media.push({
+      ...draft.media[0],
+      id: "99999999-9999-4999-8999-999999999999",
+      variant_id: null,
+      media_type: "image",
+      url: approvedGalleryImage,
+      alt: "CLEANSE secondary gallery portrait",
+      width: 1440,
+      height: 1800,
+      role: "gallery",
+      sort_order: 2,
+    });
+
+    const preview = projectCatalogDraftPreview(draft, base(), {
+      approvedMediaOrigin: storageOrigin,
+    });
+
+    expect(preview.product.media.map((item) => item.role)).toEqual([
+      "detail",
+      "gallery",
+    ]);
+    expect(preview.product.media[1]).toMatchObject({
+      url: approvedGalleryImage,
+      alt: "CLEANSE secondary gallery portrait",
+      sortOrder: 2,
     });
   });
 
