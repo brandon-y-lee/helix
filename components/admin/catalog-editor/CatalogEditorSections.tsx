@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ChangeEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import type {
   CatalogDraftDocument,
   CatalogIngredientCard,
@@ -13,6 +13,10 @@ import type {
   CatalogVariantFields,
 } from "@/lib/admin/catalog-editor/client";
 import type { CatalogEditorResponse } from "@/lib/admin/catalog/types";
+import type {
+  CatalogDocumentDiffEntry,
+  CatalogDocumentTable,
+} from "@/lib/admin/catalog/diff";
 import type { PdpIngredientStory } from "@/lib/catalog/product-content";
 import {
   canCatalogRoleEditField,
@@ -66,6 +70,59 @@ function issueFor(
       issue.field === field &&
       (!rowId || issue.row_id === rowId),
   )?.message;
+}
+
+function changedFieldName(field: string) {
+  return field.includes(".") ? field.split(".").at(-1) ?? field : field;
+}
+
+function changedCount(
+  changes: CatalogEditorSectionsProps["changes"],
+  table: CatalogDocumentTable,
+  fields?: readonly string[],
+) {
+  const entries = changes?.[table] ?? [];
+  if (!fields) return entries.length;
+  const fieldSet = new Set(fields);
+  return entries.filter((entry) => fieldSet.has(changedFieldName(entry.field)))
+    .length;
+}
+
+function errorCount(
+  issues: CatalogValidationIssue[],
+  table: CatalogTable,
+  fields?: readonly string[],
+) {
+  const tableIssues = issues.filter((issue) => issue.table === table);
+  if (!fields) return tableIssues.length;
+  const fieldSet = new Set(fields);
+  return tableIssues.filter((issue) => fieldSet.has(issue.field)).length;
+}
+
+export function catalogGroupIdForField(table: CatalogTable, field: string) {
+  if (table === "products") {
+    const metadata = getCatalogFieldOwnership(table, field);
+    if (!metadata || metadata.editor.editableBy.length === 0) {
+      return "group-products-metadata";
+    }
+    if (
+      metadata.editor.editableBy.length === 1 &&
+      metadata.editor.editableBy[0] === "admin"
+    ) {
+      return "group-products-advanced";
+    }
+    return "group-products-editorial";
+  }
+  if (table === "product_pdp_content") {
+    if (field === "profile_title_tokens") return "group-pdp-profile-tokens";
+    if (field === "ingredient_cards") return "group-pdp-ingredient-cards";
+    if (field === "ingredient_story") return "group-pdp-ingredient-story";
+    return "group-pdp-content";
+  }
+  if (table === "product_variants") return "group-variant-records";
+  if (table === "product_media") return "group-media-records";
+  if (table === "product_relationships") return "group-relationship-records";
+  return "group-source-fields";
 }
 
 function FieldContext({ metadata }: { metadata: CatalogFieldOwnership }) {
@@ -466,41 +523,91 @@ function MetadataField({
 }
 
 function FieldGroup({
+  id,
   title,
   description,
   children,
+  changed = 0,
+  errors = 0,
+  countLabel,
+  readOnly = false,
 }: {
+  id: string;
   title: string;
-  description: string;
+  description?: string;
   children: React.ReactNode;
+  changed?: number;
+  errors?: number;
+  countLabel?: string;
+  readOnly?: boolean;
 }) {
+  const [open, setOpen] = useState(false);
   return (
-    <fieldset className={styles.fieldGroup}>
-      <legend>{title}</legend>
-      <p className={styles.help}>{description}</p>
-      <div className={styles.fieldGrid}>{children}</div>
-    </fieldset>
+    <details
+      className={styles.fieldGroup}
+      id={id}
+      open={open}
+      data-editor-disclosure="group"
+      onToggle={(event) => setOpen(event.currentTarget.open)}
+    >
+      <summary className={styles.groupSummary} aria-expanded={open}>
+        <span className={styles.summaryTitle}>{title}</span>
+        <span className={styles.summaryMeta}>
+          {countLabel ? <span>{countLabel}</span> : null}
+          {changed > 0 ? <span>{changed} changed</span> : null}
+          {errors > 0 ? <span className={styles.errorBadge}>{errors} errors</span> : null}
+          {readOnly ? <span>Read only</span> : null}
+        </span>
+      </summary>
+      <div className={styles.fieldGroupBody}>
+        {description ? <p className={styles.help}>{description}</p> : null}
+        {children}
+      </div>
+    </details>
   );
 }
 
 function TableSection({
   table,
   children,
-  open = true,
+  countLabel,
+  changed = 0,
+  errors = 0,
+  readOnly = false,
 }: {
   table: SectionKey;
   children: React.ReactNode;
-  open?: boolean;
+  countLabel: string;
+  changed?: number;
+  errors?: number;
+  readOnly?: boolean;
 }) {
+  const [open, setOpen] = useState(false);
+  const label =
+    table === "system_metadata"
+      ? "System Metadata"
+      : CATALOG_SECTIONS.find((section) => section.key === table)?.label ?? table;
   return (
-    <details className={styles.section} id={`section-${table}`} open={open}>
-      <summary className={styles.summary}>
-        <span>
+    <details
+      className={styles.section}
+      id={`section-${table}`}
+      open={open}
+      data-editor-disclosure="table"
+      onToggle={(event) => setOpen(event.currentTarget.open)}
+    >
+      <summary className={styles.summary} aria-expanded={open}>
+        <span className={styles.summaryHeading}>
           <span className={styles.tableLabel}>
             {table === "system_metadata" ? "Read only" : "Table"}
           </span>
-          <br />
-          {table === "system_metadata" ? "System Metadata" : table}
+          <span>{table === "system_metadata" ? label : table}</span>
+        </span>
+        <span className={styles.summaryMeta}>
+          <span>{countLabel}</span>
+          {changed > 0 ? <span>{changed} changed</span> : null}
+          {errors > 0 ? <span className={styles.errorBadge}>{errors} errors</span> : null}
+          {changed > 0 ? <span>Dirty</span> : null}
+          {readOnly ? <span>Read only</span> : null}
         </span>
       </summary>
       <div className={styles.sectionBody}>{children}</div>
@@ -514,6 +621,9 @@ interface CatalogEditorSectionsProps {
   issues: CatalogValidationIssue[];
   relationshipTargets: CatalogEditorResponse["relationshipTargets"];
   systemMetadata: CatalogEditorResponse["systemMetadata"];
+  changes: Partial<
+    Record<CatalogDocumentTable, CatalogDocumentDiffEntry[]>
+  >;
   onChange: (document: CatalogDraftDocument) => void;
   onUpload: (
     file: File,
@@ -530,6 +640,7 @@ interface CatalogEditorSectionsProps {
 
 export default function CatalogEditorSections(props: CatalogEditorSectionsProps) {
   const { document, role, issues, onChange } = props;
+  const sectionsRef = useRef<HTMLDivElement>(null);
   const productRecord = document.product as unknown as Record<string, unknown>;
 
   function updateProduct(field: string, value: unknown) {
@@ -552,56 +663,119 @@ export default function CatalogEditorSections(props: CatalogEditorSectionsProps)
     (field) => field.editor.editableBy.length === 0,
   );
 
+  const toggleAll = (open: boolean) => {
+    sectionsRef.current
+      ?.querySelectorAll<HTMLDetailsElement>("details[data-editor-disclosure]")
+      .forEach((details) => {
+        details.open = open;
+      });
+  };
+
   return (
-    <>
-      <TableSection table="products">
+    <div className={styles.sections} ref={sectionsRef}>
+      <div className={styles.disclosureControls} aria-label="Section display">
+        <button
+          className={`${styles.button} ${styles.buttonSecondary}`}
+          type="button"
+          onClick={() => toggleAll(true)}
+        >
+          Expand all
+        </button>
+        <button
+          className={`${styles.button} ${styles.buttonSecondary}`}
+          type="button"
+          onClick={() => toggleAll(false)}
+        >
+          Collapse all
+        </button>
+      </div>
+      <TableSection
+        table="products"
+        countLabel={`${productFields.length} fields`}
+        changed={changedCount(props.changes, "products")}
+        errors={errorCount(issues, "products")}
+      >
         <FieldGroup
+          id="group-products-editorial"
           title="Editorial"
           description="Canonical presentation fields used by the storefront."
+          countLabel={`${normalProductFields.length} fields`}
+          changed={changedCount(
+            props.changes,
+            "products",
+            normalProductFields.map((field) => field.field),
+          )}
+          errors={errorCount(
+            issues,
+            "products",
+            normalProductFields.map((field) => field.field),
+          )}
         >
-          {normalProductFields.map((metadata) => (
-            <MetadataField
-              key={metadata.field}
-              table="products"
-              field={metadata.field}
-              value={productRecord[metadata.field]}
-              role={role}
-              onChange={(value) => updateProduct(metadata.field, value)}
-              issues={issues}
-            />
-          ))}
+          <div className={styles.fieldGrid}>
+            {normalProductFields.map((metadata) => (
+              <MetadataField
+                key={metadata.field}
+                table="products"
+                field={metadata.field}
+                value={productRecord[metadata.field]}
+                role={role}
+                onChange={(value) => updateProduct(metadata.field, value)}
+                issues={issues}
+              />
+            ))}
+          </div>
         </FieldGroup>
         <FieldGroup
+          id="group-products-advanced"
           title="Advanced administrator"
           description="Supplier, commerce, and system-classification changes are admin-only and appear in the publish review."
+          countLabel={`${advancedProductFields.length} fields`}
+          changed={changedCount(
+            props.changes,
+            "products",
+            advancedProductFields.map((field) => field.field),
+          )}
+          errors={errorCount(
+            issues,
+            "products",
+            advancedProductFields.map((field) => field.field),
+          )}
+          readOnly={role !== "admin"}
         >
-          {advancedProductFields.map((metadata) => (
-            <MetadataField
-              key={metadata.field}
-              table="products"
-              field={metadata.field}
-              value={productRecord[metadata.field]}
-              role={role}
-              onChange={(value) => updateProduct(metadata.field, value)}
-              issues={issues}
-            />
-          ))}
+          <div className={styles.fieldGrid}>
+            {advancedProductFields.map((metadata) => (
+              <MetadataField
+                key={metadata.field}
+                table="products"
+                field={metadata.field}
+                value={productRecord[metadata.field]}
+                role={role}
+                onChange={(value) => updateProduct(metadata.field, value)}
+                issues={issues}
+              />
+            ))}
+          </div>
         </FieldGroup>
         <FieldGroup
+          id="group-products-metadata"
           title="Metadata"
           description="Identity, timestamps, and architecture-constrained values remain visible and read only."
+          countLabel={`${immutableProductFields.length} fields`}
+          readOnly
         >
-          {immutableProductFields.map((metadata) => (
-            <MetadataField
-              key={metadata.field}
-              table="products"
-              field={metadata.field}
-              value={productRecord[metadata.field]}
-              role={role}
-              onChange={() => undefined}
-              issues={issues}
-            />
-          ))}
+          <div className={styles.fieldGrid}>
+            {immutableProductFields.map((metadata) => (
+              <MetadataField
+                key={metadata.field}
+                table="products"
+                field={metadata.field}
+                value={productRecord[metadata.field]}
+                role={role}
+                onChange={() => undefined}
+                issues={issues}
+              />
+            ))}
+          </div>
         </FieldGroup>
       </TableSection>
 
@@ -611,15 +785,25 @@ export default function CatalogEditorSections(props: CatalogEditorSectionsProps)
       <RelationshipsSection {...props} />
       <SourceSection {...props} />
       <SystemMetadataSection metadata={props.systemMetadata} />
-    </>
+    </div>
   );
 }
 
-function PdpSection({ document, role, issues, onChange }: CatalogEditorSectionsProps) {
+function PdpSection({
+  document,
+  role,
+  issues,
+  changes,
+  onChange,
+}: CatalogEditorSectionsProps) {
   const pdp = document.productPdpContent;
   if (!pdp) {
     return (
-      <TableSection table="product_pdp_content">
+      <TableSection
+        table="product_pdp_content"
+        countLabel="0 rows"
+        errors={errorCount(issues, "product_pdp_content")}
+      >
         <p className={styles.help}>No PDP content row exists for this product.</p>
       </TableSection>
     );
@@ -635,12 +819,35 @@ function PdpSection({ document, role, issues, onChange }: CatalogEditorSectionsP
     "ingredient_cards",
     "ingredient_story",
   ]);
+  const contentFields = catalogFieldsForTable("product_pdp_content").filter(
+    (field) => !structured.has(field.field),
+  );
+  const tableChanges = changedCount(changes, "product_pdp_content");
   return (
-    <TableSection table="product_pdp_content">
-      <div className={styles.fieldGrid}>
-        {catalogFieldsForTable("product_pdp_content")
-          .filter((field) => !structured.has(field.field))
-          .map((metadata) => (
+    <TableSection
+      table="product_pdp_content"
+      countLabel={`${catalogFieldsForTable("product_pdp_content").length} fields`}
+      changed={tableChanges}
+      errors={errorCount(issues, "product_pdp_content")}
+    >
+      <FieldGroup
+        id="group-pdp-content"
+        title="Content fields"
+        description="Storefront PDP copy and structured presentation values."
+        countLabel={`${contentFields.length} fields`}
+        changed={changedCount(
+          changes,
+          "product_pdp_content",
+          contentFields.map((field) => field.field),
+        )}
+        errors={errorCount(
+          issues,
+          "product_pdp_content",
+          contentFields.map((field) => field.field),
+        )}
+      >
+        <div className={styles.fieldGrid}>
+          {contentFields.map((metadata) => (
             <MetadataField
               key={metadata.field}
               table="product_pdp_content"
@@ -651,27 +858,40 @@ function PdpSection({ document, role, issues, onChange }: CatalogEditorSectionsP
               issues={issues}
             />
           ))}
-      </div>
+        </div>
+      </FieldGroup>
       <ProfileTokensEditor
         tokens={pdp.profile_title_tokens ?? []}
         readOnly={!canCatalogRoleEditField(role, "product_pdp_content", "profile_title_tokens")}
         onChange={(value) => update("profile_title_tokens", value)}
+        changed={changedCount(changes, "product_pdp_content", ["profile_title_tokens"])}
+        errors={errorCount(issues, "product_pdp_content", ["profile_title_tokens"])}
       />
       <IngredientCardsEditor
         cards={pdp.ingredient_cards ?? []}
         readOnly={!canCatalogRoleEditField(role, "product_pdp_content", "ingredient_cards")}
         onChange={(value) => update("ingredient_cards", value)}
+        changed={changedCount(changes, "product_pdp_content", ["ingredient_cards"])}
+        errors={errorCount(issues, "product_pdp_content", ["ingredient_cards"])}
       />
       <IngredientStoryEditor
         story={pdp.ingredient_story}
         readOnly={!canCatalogRoleEditField(role, "product_pdp_content", "ingredient_story")}
         onChange={(value) => update("ingredient_story", value)}
+        changed={changedCount(changes, "product_pdp_content", ["ingredient_story"])}
+        errors={errorCount(issues, "product_pdp_content", ["ingredient_story"])}
       />
     </TableSection>
   );
 }
 
-function VariantsSection({ document, role, issues, onChange }: CatalogEditorSectionsProps) {
+function VariantsSection({
+  document,
+  role,
+  issues,
+  changes,
+  onChange,
+}: CatalogEditorSectionsProps) {
   const canEdit = role === "admin";
   const fields = catalogFieldsForTable("product_variants");
   const update = (id: string, field: string, value: unknown) =>
@@ -692,12 +912,23 @@ function VariantsSection({ document, role, issues, onChange }: CatalogEditorSect
     });
   };
   return (
-    <TableSection table="product_variants">
-      <p className={styles.help}>
-        Prices are edited in dollars and stored as integer cents. Variant lifecycle and commerce fields require an admin.
-      </p>
-      <div className={styles.stack}>
-        {document.variants.map((variant, index) => {
+    <TableSection
+      table="product_variants"
+      countLabel={`${document.variants.length} ${document.variants.length === 1 ? "row" : "rows"}`}
+      changed={changedCount(changes, "product_variants")}
+      errors={errorCount(issues, "product_variants")}
+    >
+      <FieldGroup
+        id="group-variant-records"
+        title="Variant records"
+        description="Prices are edited in dollars and stored as integer cents. Variant lifecycle and commerce fields require an admin."
+        countLabel={`${document.variants.length} ${document.variants.length === 1 ? "row" : "rows"}`}
+        changed={changedCount(changes, "product_variants")}
+        errors={errorCount(issues, "product_variants")}
+        readOnly={!canEdit}
+      >
+        <div className={styles.stack}>
+          {document.variants.map((variant, index) => {
           const record = variant as unknown as Record<string, unknown>;
           return (
             <article className={styles.recordCard} key={variant.id}>
@@ -725,43 +956,44 @@ function VariantsSection({ document, role, issues, onChange }: CatalogEditorSect
               </div>
             </article>
           );
-        })}
-      </div>
-      <button
-        className={`${styles.button} ${styles.buttonSecondary}`}
-        type="button"
-        disabled={!canEdit}
-        onClick={() => {
-          const now = new Date().toISOString();
-          const variant: CatalogVariantFields = {
-            id: crypto.randomUUID(),
-            product_id: document.productId,
-            variant_key: `variant-${document.variants.length + 1}`,
-            label: "",
-            price_cents: 0,
-            sku: null,
-            supplier_variant_id: null,
-            option_values: {},
-            compare_at_price_cents: null,
-            available: false,
-            inventory_status: "unavailable",
-            volume: null,
-            pack_count: null,
-            sort_order: document.variants.length,
-            updated_at: now,
-            archived_at: null,
-          };
-          onChange({ ...document, variants: [...document.variants, variant] });
-        }}
-      >
-        Add variant
-      </button>
+          })}
+        </div>
+        <button
+          className={`${styles.button} ${styles.buttonSecondary}`}
+          type="button"
+          disabled={!canEdit}
+          onClick={() => {
+            const now = new Date().toISOString();
+            const variant: CatalogVariantFields = {
+              id: crypto.randomUUID(),
+              product_id: document.productId,
+              variant_key: `variant-${document.variants.length + 1}`,
+              label: "",
+              price_cents: 0,
+              sku: null,
+              supplier_variant_id: null,
+              option_values: {},
+              compare_at_price_cents: null,
+              available: false,
+              inventory_status: "unavailable",
+              volume: null,
+              pack_count: null,
+              sort_order: document.variants.length,
+              updated_at: now,
+              archived_at: null,
+            };
+            onChange({ ...document, variants: [...document.variants, variant] });
+          }}
+        >
+          Add variant
+        </button>
+      </FieldGroup>
     </TableSection>
   );
 }
 
 function MediaSection(props: CatalogEditorSectionsProps) {
-  const { document, role, issues, onChange, onUpload, uploading } = props;
+  const { document, role, issues, changes, onChange, onUpload, uploading } = props;
   const fields = catalogFieldsForTable("product_media");
   const variantOptions = document.variants.map((variant) => ({
     label: variant.label || variant.variant_key,
@@ -785,10 +1017,19 @@ function MediaSection(props: CatalogEditorSectionsProps) {
     });
   };
   return (
-    <TableSection table="product_media">
+    <TableSection
+      table="product_media"
+      countLabel={`${document.media.length} ${document.media.length === 1 ? "row" : "rows"}`}
+      changed={changedCount(changes, "product_media")}
+      errors={errorCount(issues, "product_media")}
+    >
       {document.product.routine_group === "core" ? (
-        <fieldset className={styles.fieldGroup}>
-          <legend>Core routine media</legend>
+        <FieldGroup
+          id="group-core-routine-media"
+          title="Core routine media"
+          description="Fixed media slots used by the shared Core routine experience."
+          countLabel={`${CORE_ROUTINE_MEDIA_SLOTS.length} slots`}
+        >
           <div className={styles.mediaGrid}>
             {CORE_ROUTINE_MEDIA_SLOTS.map((slot) => (
               <CoreRoutineUpload
@@ -800,15 +1041,23 @@ function MediaSection(props: CatalogEditorSectionsProps) {
               />
             ))}
           </div>
-        </fieldset>
+        </FieldGroup>
       ) : null}
       <MediaUploadControl
         variants={variantOptions}
         onUpload={onUpload}
         uploading={uploading}
       />
-      <div className={styles.stack}>
-        {document.media.map((media, index) => {
+      <FieldGroup
+        id="group-media-records"
+        title="Media records"
+        description="Edit associations, roles, ordering, alt text, and supported presentation metadata."
+        countLabel={`${document.media.length} ${document.media.length === 1 ? "row" : "rows"}`}
+        changed={changedCount(changes, "product_media")}
+        errors={errorCount(issues, "product_media")}
+      >
+        <div className={styles.stack}>
+          {document.media.map((media, index) => {
           const record = media as unknown as Record<string, unknown>;
           return (
             <article className={styles.recordCard} key={media.id}>
@@ -899,13 +1148,14 @@ function MediaSection(props: CatalogEditorSectionsProps) {
               <span className={styles.help}>Record {index + 1} of {document.media.length}</span>
             </article>
           );
-        })}
-      </div>
+          })}
+        </div>
+      </FieldGroup>
     </TableSection>
   );
 }
 
-function RelationshipsSection({ document, role, issues, relationshipTargets, onChange }: CatalogEditorSectionsProps) {
+function RelationshipsSection({ document, role, issues, changes, relationshipTargets, onChange }: CatalogEditorSectionsProps) {
   const fields = catalogFieldsForTable("product_relationships");
   const targets = relationshipTargets.map((target) => ({
     label: `${target.displayName} (/${target.slug})`,
@@ -923,9 +1173,22 @@ function RelationshipsSection({ document, role, issues, relationshipTargets, onC
       ),
     });
   return (
-    <TableSection table="product_relationships">
-      <div className={styles.stack}>
-        {document.relationships.map((relationship) => {
+    <TableSection
+      table="product_relationships"
+      countLabel={`${document.relationships.length} ${document.relationships.length === 1 ? "row" : "rows"}`}
+      changed={changedCount(changes, "product_relationships")}
+      errors={errorCount(issues, "product_relationships")}
+    >
+      <FieldGroup
+        id="group-relationship-records"
+        title="Relationship records"
+        description="Related products and routine ordering used by storefront recommendations."
+        countLabel={`${document.relationships.length} ${document.relationships.length === 1 ? "row" : "rows"}`}
+        changed={changedCount(changes, "product_relationships")}
+        errors={errorCount(issues, "product_relationships")}
+      >
+        <div className={styles.stack}>
+          {document.relationships.map((relationship) => {
           const rowId = identity(relationship);
           const record = relationship as unknown as Record<string, unknown>;
           return (
@@ -948,35 +1211,36 @@ function RelationshipsSection({ document, role, issues, relationshipTargets, onC
               <button className={`${styles.button} ${styles.buttonDanger}`} type="button" disabled={!canCatalogRoleEditField(role, "product_relationships", "related_product_id")} onClick={() => onChange({ ...document, relationships: document.relationships.filter((item) => identity(item) !== rowId) })}>Remove relationship</button>
             </article>
           );
-        })}
-      </div>
-      <button
-        className={`${styles.button} ${styles.buttonSecondary}`}
-        type="button"
-        disabled={!canCatalogRoleEditField(role, "product_relationships", "related_product_id") || targets.length === 0}
-        onClick={() => {
-          const relationship: CatalogRelationshipFields = {
-            product_id: document.productId,
-            related_product_id: targets[0]?.value ?? "",
-            relationship_type: "related",
-            sort_order: document.relationships.length,
-            created_at: new Date().toISOString(),
-            archived_at: null,
-          };
-          onChange({ ...document, relationships: [...document.relationships, relationship] });
-        }}
-      >
-        Add relationship
-      </button>
+          })}
+        </div>
+        <button
+          className={`${styles.button} ${styles.buttonSecondary}`}
+          type="button"
+          disabled={!canCatalogRoleEditField(role, "product_relationships", "related_product_id") || targets.length === 0}
+          onClick={() => {
+            const relationship: CatalogRelationshipFields = {
+              product_id: document.productId,
+              related_product_id: targets[0]?.value ?? "",
+              relationship_type: "related",
+              sort_order: document.relationships.length,
+              created_at: new Date().toISOString(),
+              archived_at: null,
+            };
+            onChange({ ...document, relationships: [...document.relationships, relationship] });
+          }}
+        >
+          Add relationship
+        </button>
+      </FieldGroup>
     </TableSection>
   );
 }
 
-function SourceSection({ document, role, issues, onChange }: CatalogEditorSectionsProps) {
+function SourceSection({ document, role, issues, changes, onChange }: CatalogEditorSectionsProps) {
   const source = document.productSource;
   if (!source) {
     return (
-      <TableSection table="product_sources">
+      <TableSection table="product_sources" countLabel="0 rows">
         <p className={styles.help}>No supplier provenance record exists for this product.</p>
       </TableSection>
     );
@@ -988,12 +1252,22 @@ function SourceSection({ document, role, issues, onChange }: CatalogEditorSectio
       productSource: { ...source, [field]: value } as CatalogSourceFields,
     });
   return (
-    <TableSection table="product_sources">
-      <p className={styles.help}>
-        Safe source corrections require an admin. Reconciliation identifiers, hashes, inspection state, and raw snapshots remain immutable.
-      </p>
-      <div className={styles.fieldGrid}>
-        {catalogFieldsForTable("product_sources").map((metadata) => (
+    <TableSection
+      table="product_sources"
+      countLabel={`${catalogFieldsForTable("product_sources").length} fields`}
+      changed={changedCount(changes, "product_sources")}
+      errors={errorCount(issues, "product_sources")}
+    >
+      <FieldGroup
+        id="group-source-fields"
+        title="Source fields"
+        description="Safe source corrections require an admin. Reconciliation identifiers, hashes, inspection state, and raw snapshots remain immutable."
+        countLabel={`${catalogFieldsForTable("product_sources").length} fields`}
+        changed={changedCount(changes, "product_sources")}
+        errors={errorCount(issues, "product_sources")}
+      >
+        <div className={styles.fieldGrid}>
+          {catalogFieldsForTable("product_sources").map((metadata) => (
           <MetadataField
             key={metadata.field}
             table="product_sources"
@@ -1003,15 +1277,21 @@ function SourceSection({ document, role, issues, onChange }: CatalogEditorSectio
             onChange={(value) => update(metadata.field, value)}
             issues={issues}
           />
-        ))}
-      </div>
+          ))}
+        </div>
+      </FieldGroup>
     </TableSection>
   );
 }
 
 function SystemMetadataSection({ metadata }: { metadata: CatalogEditorResponse["systemMetadata"] }) {
+  const recordCount = metadata.drafts.length + metadata.revisions.length + metadata.audit.length;
   return (
-    <TableSection table="system_metadata" open={false}>
+    <TableSection
+      table="system_metadata"
+      countLabel={`${recordCount} ${recordCount === 1 ? "record" : "records"}`}
+      readOnly
+    >
       <p className={styles.help}>
         Workflow, revision, and audit records are displayed for inspection only. They are not part of the editable product document.
       </p>
@@ -1025,8 +1305,12 @@ function SystemMetadataSection({ metadata }: { metadata: CatalogEditorResponse["
 function MetadataRows({ table, rows }: { table: CatalogEditorTable; rows: Array<Record<string, unknown>> }) {
   const fields = catalogFieldsForTable(table);
   return (
-    <section className={styles.metadataRows}>
-      <h3>{table}</h3>
+    <FieldGroup
+      id={`group-system-${table.replaceAll("_", "-")}`}
+      title={table}
+      countLabel={`${rows.length} ${rows.length === 1 ? "record" : "records"}`}
+      readOnly
+    >
       {rows.length === 0 ? <p className={styles.help}>No records.</p> : null}
       {rows.map((row, index) => (
         <details className={styles.metadataRecord} key={String(row.id ?? index)}>
@@ -1043,7 +1327,7 @@ function MetadataRows({ table, rows }: { table: CatalogEditorTable; rows: Array<
           </div>
         </details>
       ))}
-    </section>
+    </FieldGroup>
   );
 }
 
@@ -1105,8 +1389,11 @@ function MediaUploadControl({ variants, onUpload, uploading }: {
   const [alt, setAlt] = useState("");
   const [variantId, setVariantId] = useState("");
   return (
-    <fieldset className={styles.fieldGroup}>
-      <legend>Upload media</legend>
+    <FieldGroup
+      id="group-media-upload"
+      title="Upload media"
+      description="Stage a project-controlled image or video association in the current draft."
+    >
       <div className={styles.inlineFields}>
         <label className={styles.field}>
           <span className={styles.fieldLabel}>Media role</span>
@@ -1131,18 +1418,26 @@ function MediaUploadControl({ variants, onUpload, uploading }: {
           }} />
         </label>
       </div>
-    </fieldset>
+    </FieldGroup>
   );
 }
 
-function ProfileTokensEditor({ tokens, readOnly, onChange }: {
+function ProfileTokensEditor({ tokens, readOnly, onChange, changed, errors }: {
   tokens: Array<{ text: string; emphasis?: boolean }>;
   readOnly: boolean;
   onChange: (tokens: Array<{ text: string; emphasis?: boolean }>) => void;
+  changed: number;
+  errors: number;
 }) {
   return (
-    <fieldset className={styles.fieldGroup}>
-      <legend>Profile title tokens</legend>
+    <FieldGroup
+      id="group-pdp-profile-tokens"
+      title="Profile title tokens"
+      countLabel={`${tokens.length} ${tokens.length === 1 ? "token" : "tokens"}`}
+      changed={changed}
+      errors={errors}
+      readOnly={readOnly}
+    >
       {tokens.map((token, index) => (
         <div className={styles.inlineFields} key={`profile-token-${index}`}>
           <TextField id={`profile-token-${index}-text`} label={`Token ${index + 1}`} value={token.text} readOnly={readOnly} onChange={(text) => onChange(tokens.map((item, current) => current === index ? { ...item, text } : item))} />
@@ -1151,18 +1446,26 @@ function ProfileTokensEditor({ tokens, readOnly, onChange }: {
         </div>
       ))}
       <button className={`${styles.button} ${styles.buttonSecondary}`} type="button" disabled={readOnly} onClick={() => onChange([...tokens, { text: "" }])}>Add token</button>
-    </fieldset>
+    </FieldGroup>
   );
 }
 
-function IngredientCardsEditor({ cards, readOnly, onChange }: {
+function IngredientCardsEditor({ cards, readOnly, onChange, changed, errors }: {
   cards: CatalogIngredientCard[];
   readOnly: boolean;
   onChange: (cards: CatalogIngredientCard[]) => void;
+  changed: number;
+  errors: number;
 }) {
   return (
-    <fieldset className={styles.fieldGroup}>
-      <legend>Ingredient cards</legend>
+    <FieldGroup
+      id="group-pdp-ingredient-cards"
+      title="Ingredient cards"
+      countLabel={`${cards.length} ${cards.length === 1 ? "card" : "cards"}`}
+      changed={changed}
+      errors={errors}
+      readOnly={readOnly}
+    >
       {cards.map((card, index) => (
         <div className={styles.repeaterItem} key={`ingredient-card-${index}`}>
           {(["name", "label", "copy"] as const).map((field) => (
@@ -1172,21 +1475,29 @@ function IngredientCardsEditor({ cards, readOnly, onChange }: {
         </div>
       ))}
       <button className={`${styles.button} ${styles.buttonSecondary}`} type="button" disabled={readOnly} onClick={() => onChange([...cards, { name: "", label: "", copy: "" }])}>Add ingredient card</button>
-    </fieldset>
+    </FieldGroup>
   );
 }
 
-function IngredientStoryEditor({ story, readOnly, onChange }: {
+function IngredientStoryEditor({ story, readOnly, onChange, changed, errors }: {
   story: PdpIngredientStory | null;
   readOnly: boolean;
   onChange: (story: PdpIngredientStory) => void;
+  changed: number;
+  errors: number;
 }) {
   if (!story) return <p className={styles.help}>No ingredient story is configured.</p>;
   const updateHighlight = (index: number, field: "name" | "description", value: string) =>
     onChange({ ...story, highlights: story.highlights.map((item, current) => current === index ? { ...item, [field]: value } : item) as [CatalogIngredientHighlight, CatalogIngredientHighlight] });
   return (
-    <fieldset className={styles.fieldGroup}>
-      <legend>Ingredient story</legend>
+    <FieldGroup
+      id="group-pdp-ingredient-story"
+      title="Ingredient story"
+      countLabel={`${story.highlights.length} highlights`}
+      changed={changed}
+      errors={errors}
+      readOnly={readOnly}
+    >
       <div className={styles.fieldGrid}>
         <TextField id="ingredient-story-heading" label="Heading" value={story.heading} readOnly={readOnly} onChange={(heading) => onChange({ ...story, heading })} />
         <TextField id="ingredient-story-intro" label="Introduction" value={story.intro} readOnly={readOnly} multiline onChange={(intro) => onChange({ ...story, intro })} />
@@ -1198,6 +1509,6 @@ function IngredientStoryEditor({ story, readOnly, onChange }: {
         ))}
         <TextField id="ingredient-story-supporting" label="Supporting ingredients" value={story.supportingIngredients} readOnly={readOnly} multiline onChange={(supportingIngredients) => onChange({ ...story, supportingIngredients })} />
       </div>
-    </fieldset>
+    </FieldGroup>
   );
 }

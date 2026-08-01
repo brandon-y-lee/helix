@@ -1,11 +1,19 @@
 "use client";
 
-import { useCallback, useRef, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { usePathname } from "next/navigation";
 import { signOutAction } from "@/app/account/actions";
 import { AdminNavigation } from "@/components/admin/shell/AdminNavigation";
 import { Sheet } from "@/components/Sheet";
 import type { AdminModule } from "@/lib/admin/modules";
+
+const ADMIN_SIDEBAR_PREFERENCE = "mei-pelle-admin-sidebar-collapsed";
 
 function currentViewLabel(
   pathname: string,
@@ -22,21 +30,42 @@ function currentViewLabel(
 function AdminAccount({
   accountLabel,
   compact = false,
+  collapsed = false,
 }: {
   accountLabel: string;
   compact?: boolean;
+  collapsed?: boolean;
 }) {
   return (
     <div
-      className={`admin-account${compact ? " admin-account--compact" : ""}`}
+      className={`admin-account${compact ? " admin-account--compact" : ""}${collapsed ? " admin-account--collapsed" : ""}`}
     >
-      <div className="admin-account__identity">
-        <span className="admin-account__label">Signed in</span>
-        <span className="admin-account__value">{accountLabel}</span>
+      <div
+        className="admin-account__identity"
+        aria-label={collapsed ? `Signed in as ${accountLabel}` : undefined}
+        title={collapsed ? accountLabel : undefined}
+      >
+        {collapsed ? (
+          <span className="admin-account__monogram" aria-hidden="true">
+            AC
+          </span>
+        ) : (
+          <>
+            <span className="admin-account__label">Signed in</span>
+            <span className="admin-account__value">{accountLabel}</span>
+          </>
+        )}
       </div>
       <form action={signOutAction}>
-        <button type="submit" className="admin-account__signout">
-          Sign out
+        <button
+          type="submit"
+          className="admin-account__signout"
+          aria-label={collapsed ? "Sign out" : undefined}
+          title={collapsed ? "Sign out" : undefined}
+        >
+          <span aria-hidden={collapsed || undefined}>
+            {collapsed ? "OUT" : "Sign out"}
+          </span>
         </button>
       </form>
     </div>
@@ -54,6 +83,7 @@ export function AdminShell({
 }) {
   const pathname = usePathname();
   const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const closeMobileNavigation = useCallback(
     () => setMobileNavigationOpen(false),
@@ -65,19 +95,64 @@ export function AdminShell({
   );
   const currentView = currentViewLabel(pathname, modules);
 
+  useEffect(() => {
+    setSidebarCollapsed(
+      window.localStorage.getItem(ADMIN_SIDEBAR_PREFERENCE) === "true",
+    );
+  }, []);
+
+  const toggleSidebar = useCallback(() => {
+    setSidebarCollapsed((collapsed) => {
+      const next = !collapsed;
+      window.localStorage.setItem(ADMIN_SIDEBAR_PREFERENCE, String(next));
+      return next;
+    });
+  }, []);
+
   return (
-    <div className="admin-shell">
+    <div
+      className="admin-shell"
+      data-sidebar-collapsed={sidebarCollapsed || undefined}
+    >
       <a className="admin-skip-link" href="#admin-content">
         Skip to admin content
       </a>
 
       <aside className="admin-sidebar">
         <div className="admin-brand">
-          <span className="admin-brand__wordmark">MEI PELLE</span>
-          <span className="admin-brand__label">ADMIN</span>
+          <span
+            className="admin-brand__wordmark"
+            aria-label={sidebarCollapsed ? "Mei Pelle Admin" : undefined}
+            title={sidebarCollapsed ? "Mei Pelle Admin" : undefined}
+          >
+            <span aria-hidden={sidebarCollapsed || undefined}>
+              {sidebarCollapsed ? "MP" : "MEI PELLE"}
+            </span>
+          </span>
+          {sidebarCollapsed ? null : (
+            <span className="admin-brand__label">ADMIN</span>
+          )}
         </div>
-        <AdminNavigation pathname={pathname} modules={modules} />
-        <AdminAccount accountLabel={accountLabel} />
+        <button
+          type="button"
+          className="admin-sidebar__toggle"
+          aria-label={`${sidebarCollapsed ? "Expand" : "Collapse"} admin sidebar`}
+          aria-pressed={sidebarCollapsed}
+          title={`${sidebarCollapsed ? "Expand" : "Collapse"} admin sidebar`}
+          onClick={toggleSidebar}
+        >
+          <span aria-hidden="true">{sidebarCollapsed ? ">>" : "<<"}</span>
+          {sidebarCollapsed ? null : <span>Collapse</span>}
+        </button>
+        <AdminNavigation
+          pathname={pathname}
+          modules={modules}
+          collapsed={sidebarCollapsed}
+        />
+        <AdminAccount
+          accountLabel={accountLabel}
+          collapsed={sidebarCollapsed}
+        />
       </aside>
 
       <div className="admin-workspace">

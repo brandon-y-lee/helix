@@ -20,6 +20,20 @@ vi.mock("@/lib/admin/catalog-editor/client", async (importOriginal) => {
   };
 });
 
+function disclosure(container: HTMLElement, id: string) {
+  const element = container.querySelector<HTMLDetailsElement>(`#${id}`);
+  if (!element) throw new Error(`Missing disclosure #${id}`);
+  return element;
+}
+
+function toggleDisclosure(container: HTMLElement, id: string) {
+  const element = disclosure(container, id);
+  const summary = element.querySelector<HTMLElement>(":scope > summary");
+  if (!summary) throw new Error(`Missing summary for #${id}`);
+  fireEvent.click(summary);
+  return element;
+}
+
 describe("CatalogEditor sections", () => {
   beforeEach(() => {
     vi.mocked(catalogEditorApi.getEditor).mockReset();
@@ -29,7 +43,7 @@ describe("CatalogEditor sections", () => {
 
   it("groups every canonical table and exposes admin source fields", async () => {
     const user = userEvent.setup();
-    render(<CatalogEditor productId="product-cleanse" />);
+    const { container } = render(<CatalogEditor productId="product-cleanse" />);
 
     expect(await screen.findByRole("heading", { name: "CLEANSE" })).toBeVisible();
     for (const table of [
@@ -43,6 +57,18 @@ describe("CatalogEditor sections", () => {
       expect(screen.getByText(table)).toBeVisible();
     }
 
+    for (const section of container.querySelectorAll<HTMLDetailsElement>(
+      'details[data-editor-disclosure="table"]',
+    )) {
+      expect(section.open).toBe(false);
+      expect(section.querySelector(":scope > summary")).toHaveAttribute(
+        "aria-expanded",
+        "false",
+      );
+    }
+
+    toggleDisclosure(container, "section-product_sources");
+    toggleDisclosure(container, "group-source-fields");
     expect(screen.getByDisplayValue("Supplier Cleanser")).toBeVisible();
     expect(
       screen.queryByRole("option", { name: "campaign" }),
@@ -61,11 +87,16 @@ describe("CatalogEditor sections", () => {
 
   it("keeps advanced and commerce controls read only for a catalog editor", async () => {
     vi.mocked(catalogEditorApi.getEditor).mockResolvedValue(editorResponse(false));
-    render(<CatalogEditor productId="product-cleanse" />);
+    const { container } = render(<CatalogEditor productId="product-cleanse" />);
 
-    expect(await screen.findByLabelText("Display name")).toBeEnabled();
+    await screen.findByRole("heading", { name: "CLEANSE" });
+    toggleDisclosure(container, "section-products");
+    toggleDisclosure(container, "group-products-editorial");
+    expect(screen.getByLabelText("Display name")).toBeEnabled();
     expect(screen.queryByLabelText("Supplier title")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Price (USD)")).not.toBeInTheDocument();
+    toggleDisclosure(container, "section-product_sources");
+    toggleDisclosure(container, "group-source-fields");
     expect(screen.getByText("Supplier Cleanser")).toBeVisible();
     expect(screen.getAllByText("$22.00")).toHaveLength(2);
     expect(screen.getByText("Publishing requires catalog.publish.")).toBeVisible();
@@ -169,6 +200,8 @@ describe("CatalogEditor sections", () => {
     );
     await screen.findByRole("heading", { name: "CLEANSE" });
 
+    toggleDisclosure(container, "section-product_media");
+    toggleDisclosure(container, "group-core-routine-media");
     expect(screen.getByText("Core Routine Texture")).toBeVisible();
     expect(screen.getByText("Core Routine Editorial Image")).toBeVisible();
     expect(
@@ -244,7 +277,7 @@ describe("CatalogEditor sections", () => {
       affected_tables: [],
       draft: { ...catalogDraft, version: 6, document: duplicateDocument },
     });
-    render(<CatalogEditor productId="product-cleanse" />);
+    const { container } = render(<CatalogEditor productId="product-cleanse" />);
     await screen.findByRole("heading", { name: "CLEANSE" });
 
     fireEvent.click(screen.getByRole("button", { name: "Validate" }));
@@ -252,5 +285,50 @@ describe("CatalogEditor sections", () => {
       await screen.findByText("SKU must be unique within this product."),
     ).toBeVisible();
     expect(screen.getByRole("alert", { name: "" })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(disclosure(container, "section-product_variants").open).toBe(true);
+      expect(disclosure(container, "group-variant-records").open).toBe(true);
+      expect(
+        container.querySelector("#product_variants-variant-duplicate-sku"),
+      ).toHaveFocus();
+    });
   });
+
+  it("preserves edits across disclosures and supports expand and collapse all", async () => {
+    const { container } = render(<CatalogEditor productId="product-cleanse" />);
+    await screen.findByRole("heading", { name: "CLEANSE" });
+
+    const productsLink = screen.getByRole("link", { name: "Products" });
+    fireEvent.click(productsLink);
+    await waitFor(() =>
+      expect(disclosure(container, "section-products").open).toBe(true),
+    );
+    toggleDisclosure(container, "group-products-editorial");
+    fireEvent.change(screen.getByLabelText("Display name"), {
+      target: { value: "CLEANSE DENSE" },
+    });
+    toggleDisclosure(container, "group-products-editorial");
+    expect(screen.getByLabelText("Display name")).not.toBeVisible();
+    expect(screen.getAllByText("1 changed").length).toBeGreaterThanOrEqual(2);
+    toggleDisclosure(container, "group-products-editorial");
+    expect(screen.getByLabelText("Display name")).toHaveValue("CLEANSE DENSE");
+
+    fireEvent.click(screen.getByRole("button", { name: "Expand all" }));
+    await waitFor(() => {
+      for (const details of container.querySelectorAll<HTMLDetailsElement>(
+        "details[data-editor-disclosure]",
+      )) {
+        expect(details.open).toBe(true);
+      }
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Collapse all" }));
+    await waitFor(() => {
+      for (const details of container.querySelectorAll<HTMLDetailsElement>(
+        "details[data-editor-disclosure]",
+      )) {
+        expect(details.open).toBe(false);
+      }
+    });
+    expect(screen.getByLabelText("Display name")).not.toBeVisible();
+  }, 15_000);
 });

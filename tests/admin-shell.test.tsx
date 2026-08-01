@@ -64,6 +64,7 @@ const modules: AdminModule[] = [
 
 beforeEach(() => {
   pathname = "/admin";
+  window.localStorage.clear();
 });
 
 describe("admin shell navigation", () => {
@@ -120,6 +121,71 @@ describe("admin shell navigation", () => {
 
     expect(screen.queryByRole("dialog", { name: "Admin menu" })).toBeNull();
     expect(menuButton).toHaveFocus();
+  });
+
+  it("collapses the desktop sidebar and restores the browser preference", async () => {
+    const user = userEvent.setup();
+    const activeModules = [{ ...modules[0], status: "active" as const }];
+    const first = render(
+      <AdminShell accountLabel="operator@example.com" modules={activeModules}>
+        <h1>Admin overview</h1>
+      </AdminShell>,
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Collapse admin sidebar" }),
+    );
+    expect(first.container.querySelector(".admin-shell")).toHaveAttribute(
+      "data-sidebar-collapsed",
+      "true",
+    );
+    expect(window.localStorage.getItem("mei-pelle-admin-sidebar-collapsed")).toBe(
+      "true",
+    );
+    expect(screen.getByRole("link", { name: "Overview" })).toBeVisible();
+    expect(
+      screen.getByRole("link", { name: "Catalog Editor" }),
+    ).toBeVisible();
+    expect(screen.getByRole("button", { name: "Sign out" })).toBeVisible();
+
+    first.unmount();
+    const restored = render(
+      <AdminShell accountLabel="operator@example.com" modules={activeModules}>
+        <h1>Admin overview</h1>
+      </AdminShell>,
+    );
+    await waitFor(() =>
+      expect(restored.container.querySelector(".admin-shell")).toHaveAttribute(
+        "data-sidebar-collapsed",
+        "true",
+      ),
+    );
+  });
+
+  it("keeps the collapsed current route identifiable and keyboard togglable", async () => {
+    pathname = "/admin/catalog/products/product-cleanse";
+    window.localStorage.setItem("mei-pelle-admin-sidebar-collapsed", "true");
+    const user = userEvent.setup();
+    const { container } = render(
+      <AdminShell
+        accountLabel="operator@example.com"
+        modules={[{ ...modules[0], status: "active" }]}
+      >
+        <h1>Product editor</h1>
+      </AdminShell>,
+    );
+
+    const toggle = await screen.findByRole("button", {
+      name: "Expand admin sidebar",
+    });
+    expect(
+      screen.getByRole("link", { name: "Catalog Editor" }),
+    ).toHaveAttribute("aria-current", "page");
+    toggle.focus();
+    await user.keyboard("{Enter}");
+    expect(container.querySelector(".admin-shell")).not.toHaveAttribute(
+      "data-sidebar-collapsed",
+    );
   });
 
   it("removes storefront customer chrome from standard admin routes", () => {

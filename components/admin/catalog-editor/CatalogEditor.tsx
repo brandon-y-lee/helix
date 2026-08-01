@@ -26,6 +26,7 @@ import type { ProductMediaRole } from "@/lib/catalog/media-roles";
 import CatalogEditorSections, {
   CATALOG_SECTIONS,
   catalogFieldId,
+  catalogGroupIdForField,
 } from "./CatalogEditorSections";
 import styles from "./CatalogEditor.module.css";
 
@@ -150,6 +151,7 @@ export default function CatalogEditor({ productId }: { productId: string }) {
   const [publishReviewOpen, setPublishReviewOpen] = useState(false);
   const [disruptiveAcknowledged, setDisruptiveAcknowledged] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
+  const [activeSection, setActiveSection] = useState<string | null>(null);
   const activeDocument = useRef<CatalogDraftDocument | null>(null);
 
   const dirty = useMemo(
@@ -160,6 +162,46 @@ export default function CatalogEditor({ productId }: { productId: string }) {
           JSON.stringify(document) !== JSON.stringify(savedDocument),
       ),
     [document, savedDocument],
+  );
+  const changes = useMemo(
+    () =>
+      document && savedDocument
+        ? catalogDocumentDiff(savedDocument, document)
+        : { diff: {}, affectedTables: [], advancedChanges: [] },
+    [document, savedDocument],
+  );
+
+  const revealTarget = useCallback((selector: string, focus = true) => {
+    const target = window.document.querySelector<HTMLElement>(selector);
+    if (!target) return;
+    if (target instanceof HTMLDetailsElement) target.open = true;
+    let parent = target.parentElement;
+    while (parent) {
+      if (parent instanceof HTMLDetailsElement) parent.open = true;
+      parent = parent.parentElement;
+    }
+    window.requestAnimationFrame(() => {
+      target.scrollIntoView?.({ block: "center", behavior: "smooth" });
+      if (focus) target.focus({ preventScroll: true });
+    });
+  }, []);
+
+  const revealSection = useCallback(
+    (key: string, focus = true) => {
+      setActiveSection(key);
+      revealTarget(`#section-${key}`, false);
+      window.requestAnimationFrame(() => {
+        const section = window.document.querySelector<HTMLDetailsElement>(
+          `#section-${key}`,
+        );
+        section?.querySelector<HTMLElement>(":scope > summary")?.focus({
+          preventScroll: true,
+        });
+        if (!focus) return;
+        section?.scrollIntoView?.({ block: "start", behavior: "smooth" });
+      });
+    },
+    [revealTarget],
   );
 
   useEffect(() => {
@@ -208,6 +250,43 @@ export default function CatalogEditor({ productId }: { productId: string }) {
     window.addEventListener("beforeunload", warnBeforeLeave);
     return () => window.removeEventListener("beforeunload", warnBeforeLeave);
   }, [dirty]);
+
+  useEffect(() => {
+    if (!document) return;
+    const section = window.location.hash.replace("#section-", "");
+    if (CATALOG_SECTIONS.some((candidate) => candidate.key === section)) {
+      revealSection(section, false);
+    }
+  }, [document, revealSection]);
+
+  useEffect(() => {
+    issues.forEach((issue, index) => {
+      const group = catalogGroupIdForField(issue.table, issue.field);
+      window.document.querySelector<HTMLDetailsElement>(`#${group}`)?.setAttribute(
+        "open",
+        "",
+      );
+      revealTarget(issueTarget(issue), index === 0);
+    });
+  }, [issues, revealTarget]);
+
+  useEffect(() => {
+    if (!conflict) return;
+    changes.affectedTables.forEach((table) => {
+      const section = window.document.querySelector<HTMLDetailsElement>(
+        `#section-${table}`,
+      );
+      if (!section) return;
+      section.open = true;
+      section
+        .querySelectorAll<HTMLDetailsElement>(
+          'details[data-editor-disclosure="group"]',
+        )
+        .forEach((group) => {
+          group.open = true;
+        });
+    });
+  }, [changes.affectedTables, conflict]);
 
   const saveCurrent = useCallback(async () => {
     const current = activeDocument.current;
@@ -388,14 +467,27 @@ export default function CatalogEditor({ productId }: { productId: string }) {
       <div className={styles.editorLayout}>
         <nav className={styles.sectionNav} aria-label="Product tables">
           {CATALOG_SECTIONS.map((section) => (
-            <a href={`#section-${section.key}`} key={section.key}>
+            <a
+              href={`#section-${section.key}`}
+              key={section.key}
+              aria-current={activeSection === section.key ? "location" : undefined}
+              onClick={(event) => {
+                event.preventDefault();
+                window.history.pushState(null, "", `#section-${section.key}`);
+                revealSection(section.key);
+              }}
+            >
               {section.label}
             </a>
           ))}
         </nav>
 
         <div className={styles.editorMain}>
-          <section className={styles.commandBar} aria-label="Draft commands">
+          <section
+            className={styles.commandBar}
+            aria-label="Draft commands"
+            aria-busy={Boolean(busy)}
+          >
             <div className={styles.actionRow}>
               <button
                 className={styles.button}
@@ -596,7 +688,20 @@ export default function CatalogEditor({ productId }: { productId: string }) {
               <ul>
                 {issues.map((issue, index) => (
                   <li key={`${issue.table}-${issue.field}-${issue.row_id}-${index}`}>
-                    <a href={issueTarget(issue)}>
+                    <a
+                      href={issueTarget(issue)}
+                      onClick={(event) => {
+                        event.preventDefault();
+                        const group = catalogGroupIdForField(
+                          issue.table,
+                          issue.field,
+                        );
+                        window.document.querySelector<HTMLDetailsElement>(
+                          `#${group}`,
+                        )?.setAttribute("open", "");
+                        revealTarget(issueTarget(issue));
+                      }}
+                    >
                       {issue.table}: {issue.message}
                     </a>
                   </li>
@@ -767,11 +872,13 @@ export default function CatalogEditor({ productId }: { productId: string }) {
           ) : null}
 
           <CatalogEditorSections
+            key={productId}
             document={document}
             role={role}
             issues={issues}
             relationshipTargets={relationshipTargets}
             systemMetadata={systemMetadata}
+            changes={changes.diff}
             onChange={(nextDocument) => {
               setDocument(nextDocument);
               activeDocument.current = nextDocument;
