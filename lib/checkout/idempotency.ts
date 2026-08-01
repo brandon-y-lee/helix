@@ -90,6 +90,21 @@ export function stripeCheckoutIdempotencyKey(
   return `stripe-session:${orderId}:replace:${sha256(previousSessionId).slice(0, 24)}`;
 }
 
+export function stripeCheckoutIdempotencyKeyForOrder(
+  orderId: string,
+  previousSessionId: string | null,
+  recordedKey: unknown,
+): string {
+  if (
+    !previousSessionId &&
+    typeof recordedKey === "string" &&
+    recordedKey.startsWith(`stripe-session:${orderId}:`)
+  ) {
+    return recordedKey;
+  }
+  return stripeCheckoutIdempotencyKey(orderId, previousSessionId);
+}
+
 export function checkoutSessionDisposition(
   session: CheckoutSessionState,
   nowSeconds = Math.floor(Date.now() / 1000),

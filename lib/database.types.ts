@@ -405,7 +405,10 @@ export type Database = {
           billing_address: Json
           cancelled_at: string | null
           cart_id: string | null
+          checkout_attempt_started_at: string | null
+          checkout_attempt_token: string | null
           checkout_environment: Database["public"]["Enums"]["checkout_environment"]
+          checkout_generation: string | null
           created_at: string
           currency: string
           customer_email: string | null
@@ -437,7 +440,10 @@ export type Database = {
           billing_address?: Json
           cancelled_at?: string | null
           cart_id?: string | null
+          checkout_attempt_started_at?: string | null
+          checkout_attempt_token?: string | null
           checkout_environment?: Database["public"]["Enums"]["checkout_environment"]
+          checkout_generation?: string | null
           created_at?: string
           currency?: string
           customer_email?: string | null
@@ -469,7 +475,10 @@ export type Database = {
           billing_address?: Json
           cancelled_at?: string | null
           cart_id?: string | null
+          checkout_attempt_started_at?: string | null
+          checkout_attempt_token?: string | null
           checkout_environment?: Database["public"]["Enums"]["checkout_environment"]
+          checkout_generation?: string | null
           created_at?: string
           currency?: string
           customer_email?: string | null
@@ -1363,6 +1372,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      attach_checkout_session: {
+        Args: {
+          p_attempt_token: string
+          p_customer_id: string
+          p_order_id: string
+          p_session_id: string
+          p_stripe_idempotency_key: string
+        }
+        Returns: boolean
+      }
       award_loyalty_points: {
         Args: {
           p_description: string
@@ -1378,6 +1397,10 @@ export type Database = {
       bootstrap_catalog_admin_membership: {
         Args: { p_role: string; p_user_id: string }
         Returns: Json
+      }
+      cancel_checkout_order_without_session: {
+        Args: { p_order_id: string; p_reason: string }
+        Returns: boolean
       }
       cart_add_item_delta: {
         Args: {
@@ -1403,6 +1426,7 @@ export type Database = {
           quantity: number
         }[]
       }
+      claim_checkout_attempt: { Args: { p_order_id: string }; Returns: string }
       cleanup_expired_guest_carts: {
         Args: { p_apply: boolean; p_limit: number }
         Returns: {
@@ -1419,6 +1443,85 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: undefined
       }
+      expire_checkout_order_from_stripe: {
+        Args: { p_order_id: string; p_reason: string; p_session_id: string }
+        Returns: boolean
+      }
+      fail_checkout_attempt: {
+        Args: {
+          p_attempt_token: string
+          p_order_id: string
+          p_reason: string
+          p_release_rewards: boolean
+        }
+        Returns: boolean
+      }
+      fail_checkout_order_from_stripe:
+        | { Args: { p_order_id: string; p_reason: string }; Returns: boolean }
+        | {
+            Args: { p_order_id: string; p_reason: string; p_session_id: string }
+            Returns: boolean
+          }
+      finalize_paid_checkout_order: {
+        Args: {
+          p_billing_address: Json
+          p_customer_email: string
+          p_customer_id: string
+          p_discount_cents: number
+          p_order_id: string
+          p_payment_intent_id: string
+          p_payment_method_type: string
+          p_payment_raw_status: string
+          p_reward_points_earned: number
+          p_session_id: string
+          p_shipping_address: Json
+          p_shipping_cents: number
+          p_shipping_name: string
+          p_tax_cents: number
+          p_total_cents: number
+        }
+        Returns: {
+          billing_address: Json
+          cancelled_at: string | null
+          cart_id: string | null
+          checkout_attempt_started_at: string | null
+          checkout_attempt_token: string | null
+          checkout_environment: Database["public"]["Enums"]["checkout_environment"]
+          checkout_generation: string | null
+          created_at: string
+          currency: string
+          customer_email: string | null
+          discount_cents: number
+          id: string
+          idempotency_key: string
+          merchandise_subtotal_cents: number
+          metadata: Json
+          order_number: string
+          paid_at: string | null
+          referral_code: string | null
+          refunded_at: string | null
+          reward_discount_cents: number
+          reward_points_earned: number
+          reward_points_redeemed: number
+          shipping_address: Json
+          shipping_cents: number
+          shipping_name: string | null
+          status: Database["public"]["Enums"]["order_status"]
+          stripe_checkout_session_id: string | null
+          stripe_customer_id: string | null
+          stripe_payment_intent_id: string | null
+          tax_cents: number
+          total_cents: number
+          updated_at: string
+          user_id: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "orders"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       get_catalog_editor_document: {
         Args: { p_product_id: string }
         Returns: Json
@@ -1426,6 +1529,16 @@ export type Database = {
       merge_guest_cart: {
         Args: { p_guest_token_hash: string; p_user_id: string }
         Returns: string
+      }
+      prepare_checkout_attempt: {
+        Args: {
+          p_attempt_token: string
+          p_detach_session: boolean
+          p_expected_session_id: string
+          p_order_id: string
+          p_stripe_idempotency_key: string
+        }
+        Returns: boolean
       }
       publish_catalog_product_draft: {
         Args: {
@@ -1447,6 +1560,10 @@ export type Database = {
           p_user_id: string
         }
         Returns: string
+      }
+      release_checkout_attempt: {
+        Args: { p_attempt_token: string; p_order_id: string }
+        Returns: boolean
       }
       release_loyalty_redemptions_for_order: {
         Args: { p_order_id: string; p_reason: string; p_user_id: string }
@@ -1475,7 +1592,10 @@ export type Database = {
           billing_address: Json
           cancelled_at: string | null
           cart_id: string | null
+          checkout_attempt_started_at: string | null
+          checkout_attempt_token: string | null
           checkout_environment: Database["public"]["Enums"]["checkout_environment"]
+          checkout_generation: string | null
           created_at: string
           currency: string
           customer_email: string | null
@@ -1534,7 +1654,10 @@ export type Database = {
           billing_address: Json
           cancelled_at: string | null
           cart_id: string | null
+          checkout_attempt_started_at: string | null
+          checkout_attempt_token: string | null
           checkout_environment: Database["public"]["Enums"]["checkout_environment"]
+          checkout_generation: string | null
           created_at: string
           currency: string
           customer_email: string | null
@@ -1587,6 +1710,10 @@ export type Database = {
       restore_catalog_product_revision: {
         Args: { p_actor_id: string; p_revision_id: string }
         Returns: Json
+      }
+      retire_checkout_generation: {
+        Args: { p_order_id: string }
+        Returns: boolean
       }
       save_catalog_product_draft: {
         Args: {

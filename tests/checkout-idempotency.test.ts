@@ -4,6 +4,7 @@ import {
   checkoutOrderIdempotencyKey,
   checkoutSessionDisposition,
   stripeCheckoutIdempotencyKey,
+  stripeCheckoutIdempotencyKeyForOrder,
   type CheckoutFingerprintInput,
 } from "@/lib/checkout/idempotency";
 
@@ -92,6 +93,21 @@ describe("checkout idempotency", () => {
     expect(stripeCheckoutIdempotencyKey("order-1", "cs_old")).not.toBe(
       stripeCheckoutIdempotencyKey("order-1"),
     );
+  });
+
+  it("replays a recorded replacement key after an ambiguous creation result", () => {
+    const replacementKey = stripeCheckoutIdempotencyKey("order-1", "cs_old");
+
+    expect(
+      stripeCheckoutIdempotencyKeyForOrder("order-1", null, replacementKey),
+    ).toBe(replacementKey);
+    expect(
+      stripeCheckoutIdempotencyKeyForOrder(
+        "order-1",
+        null,
+        "stripe-session:another-order:initial",
+      ),
+    ).toBe(stripeCheckoutIdempotencyKey("order-1"));
   });
 
   it("reuses only an open, unexpired session with a usable URL", () => {

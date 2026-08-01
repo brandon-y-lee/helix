@@ -2,13 +2,31 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(33);
+select plan(55);
 
 select has_column(
   'public',
   'carts',
   'checkout_generation',
   'carts carry a server-owned checkout generation'
+);
+select has_column(
+  'public',
+  'orders',
+  'checkout_generation',
+  'orders retain the cart generation they purchased'
+);
+select has_column(
+  'public',
+  'orders',
+  'checkout_attempt_token',
+  'orders carry an exclusive checkout-attempt token'
+);
+select has_column(
+  'public',
+  'orders',
+  'checkout_attempt_started_at',
+  'checkout-attempt leases have a bounded start time'
 );
 
 select has_function(
@@ -71,6 +89,72 @@ select has_function(
   array['uuid', 'uuid', 'text'],
   'reward release is transactional'
 );
+select has_function(
+  'public',
+  'claim_checkout_attempt',
+  array['uuid'],
+  'checkout attempts are claimed atomically'
+);
+select has_function(
+  'public',
+  'release_checkout_attempt',
+  array['uuid', 'uuid'],
+  'checkout attempt leases are owner-released'
+);
+select has_function(
+  'public',
+  'fail_checkout_attempt',
+  array['uuid', 'uuid', 'text', 'boolean'],
+  'checkout attempt failure is a compare-and-set transaction'
+);
+select has_function(
+  'public',
+  'fail_checkout_order_from_stripe',
+  array['uuid', 'text'],
+  'trusted Stripe failures are transactional'
+);
+select has_function(
+  'public',
+  'prepare_checkout_attempt',
+  array['uuid', 'uuid', 'text', 'boolean', 'text'],
+  'checkout preparation is guarded by its attempt lease and expected session'
+);
+select has_function(
+  'public',
+  'attach_checkout_session',
+  array['uuid', 'uuid', 'text', 'text', 'text'],
+  'Stripe sessions attach through the checkout attempt lease'
+);
+select has_function(
+  'public',
+  'fail_checkout_order_from_stripe',
+  array['uuid', 'text', 'text'],
+  'Stripe failure transitions identify the exact session'
+);
+select has_function(
+  'public',
+  'expire_checkout_order_from_stripe',
+  array['uuid', 'text', 'text'],
+  'Stripe expiration transitions identify the exact session'
+);
+select has_function(
+  'public',
+  'cancel_checkout_order_without_session',
+  array['uuid', 'text'],
+  'no-session checkout cancellation is transactional'
+);
+select has_function(
+  'public',
+  'finalize_paid_checkout_order',
+  array['uuid', 'text', 'text', 'integer', 'integer', 'integer', 'integer', 'text', 'text', 'integer', 'text', 'jsonb', 'jsonb', 'text', 'text'],
+  'paid checkout finalization identifies the exact session'
+);
+select has_function(
+  'public',
+  'retire_checkout_generation',
+  array['uuid'],
+  'cancelled checkout generations can be retired safely'
+);
 
 select function_privs_are(
   'public',
@@ -120,6 +204,70 @@ select function_privs_are(
   'authenticated',
   array[]::text[],
   'browser sessions cannot validate and reserve checkout snapshots'
+);
+select function_privs_are(
+  'public',
+  'claim_checkout_attempt',
+  array['uuid'],
+  'authenticated',
+  array[]::text[],
+  'browser sessions cannot claim checkout attempt leases'
+);
+select function_privs_are(
+  'public',
+  'fail_checkout_attempt',
+  array['uuid', 'uuid', 'text', 'boolean'],
+  'authenticated',
+  array[]::text[],
+  'browser sessions cannot compensate checkout attempts'
+);
+select function_privs_are(
+  'public',
+  'prepare_checkout_attempt',
+  array['uuid', 'uuid', 'text', 'boolean', 'text'],
+  'authenticated',
+  array[]::text[],
+  'browser sessions cannot prepare checkout attempts'
+);
+select function_privs_are(
+  'public',
+  'attach_checkout_session',
+  array['uuid', 'uuid', 'text', 'text', 'text'],
+  'authenticated',
+  array[]::text[],
+  'browser sessions cannot attach Stripe sessions'
+);
+select function_privs_are(
+  'public',
+  'fail_checkout_order_from_stripe',
+  array['uuid', 'text', 'text'],
+  'authenticated',
+  array[]::text[],
+  'browser sessions cannot fail Stripe checkout sessions'
+);
+select function_privs_are(
+  'public',
+  'expire_checkout_order_from_stripe',
+  array['uuid', 'text', 'text'],
+  'authenticated',
+  array[]::text[],
+  'browser sessions cannot expire Stripe checkout sessions'
+);
+select function_privs_are(
+  'public',
+  'cancel_checkout_order_without_session',
+  array['uuid', 'text'],
+  'authenticated',
+  array[]::text[],
+  'browser sessions cannot cancel unattached checkout orders'
+);
+select function_privs_are(
+  'public',
+  'finalize_paid_checkout_order',
+  array['uuid', 'text', 'text', 'integer', 'integer', 'integer', 'integer', 'text', 'text', 'integer', 'text', 'jsonb', 'jsonb', 'text', 'text'],
+  'authenticated',
+  array[]::text[],
+  'browser sessions cannot finalize paid checkout orders'
 );
 
 select ok(
