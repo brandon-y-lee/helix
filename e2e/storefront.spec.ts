@@ -101,7 +101,9 @@ test("PDP resolves canonical data and exposes an available variant", async ({
   await treatGallery.click();
   await expect(treatGallery).toHaveAttribute("aria-pressed", "true");
   await expect(
-    page.locator("[data-pdp-main-media] > .pdp__media img"),
+    page.locator(
+      '[data-pdp-main-media] [data-pdp-gallery-state="2"][data-state="active"] img',
+    ),
   ).toHaveAttribute(
     "src",
     /products%2Ftreat-03-pdrn-5-ampoule%2Fgallery%2F7c7f2e93463b453438d75657583898dd0af6ff674f0c562d0d6a1aad3e4c96f3\.webp/,

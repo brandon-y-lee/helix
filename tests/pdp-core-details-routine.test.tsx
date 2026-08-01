@@ -10,6 +10,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PdpCoreDetailsRoutine } from "@/components/PdpCoreDetailsRoutine";
 import { coreDetailsIslandItems } from "@/components/ProductDetail.adapters";
+import { PDP_SLIDE_DURATION_MS } from "@/components/usePdpSlideTransition";
 import type { Product } from "@/lib/products";
 
 const cartMock = vi.hoisted(() => ({
@@ -212,6 +213,14 @@ describe("PdpCoreDetailsRoutine", () => {
         '[data-media-replacement-key="pdp-details-seal"][data-state="active"]',
       ),
     ).toBeInTheDocument();
+    expect(
+      container.querySelector(".pdp-details-routine"),
+    ).toHaveAttribute("data-direction", "forward");
+    expect(
+      container.querySelector(
+        ".pdp-details-routine__steps [data-pdp-slide-layer]",
+      ),
+    ).toBeNull();
   });
 
   it("supports focus, arrow keys, route resets, and rapid transition cleanup", async () => {
@@ -230,7 +239,7 @@ describe("PdpCoreDetailsRoutine", () => {
     expect(seal).toHaveAttribute("aria-checked", "true");
     fireEvent.click(treat);
     fireEvent.click(seal);
-    act(() => vi.advanceTimersByTime(640));
+    act(() => vi.advanceTimersByTime(PDP_SLIDE_DURATION_MS));
     expect(
       container.querySelectorAll(
         '.pdp-details-routine__state[data-state="outgoing"]',
@@ -372,12 +381,14 @@ describe("PdpCoreDetailsRoutine", () => {
     );
 
     fireEvent.click(screen.getByRole("radio", { name: "Show treat, TREAT" }));
-    act(() => vi.advanceTimersByTime(20));
-
     expect(
       container.querySelectorAll(
         '.pdp-details-routine__state[data-state="outgoing"]',
       ),
     ).toHaveLength(0);
+    expect(container.querySelector(".pdp-details-routine")).toHaveAttribute(
+      "data-pdp-slide-transitioning",
+      "false",
+    );
   });
 });

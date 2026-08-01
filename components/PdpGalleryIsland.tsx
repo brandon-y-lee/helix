@@ -2,10 +2,15 @@
 
 import {
   useEffect,
-  useState,
+  useRef,
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { ProductImage } from "@/components/ProductImage";
+import {
+  PDP_SLIDE_DURATION_MS,
+  PDP_SLIDE_STYLE,
+  usePdpSlideTransition,
+} from "@/components/usePdpSlideTransition";
 import type { ProductMedia } from "@/lib/products";
 
 export type PdpGalleryItem = {
@@ -29,6 +34,7 @@ type PdpGalleryMediaProps = {
   sizes: string;
   priority?: boolean;
   thumbnail?: boolean;
+  videoRef?: (node: HTMLVideoElement | null) => void;
 };
 
 function PdpGalleryMedia({
@@ -39,11 +45,13 @@ function PdpGalleryMedia({
   sizes,
   priority = false,
   thumbnail = false,
+  videoRef,
 }: PdpGalleryMediaProps) {
   if (media?.kind === "video" && media.url) {
     return (
       <span className={className} data-media-kind="video">
         <video
+          ref={videoRef}
           src={media.url}
           className={mediaClassName}
           aria-label={thumbnail ? undefined : media.alt}
@@ -80,35 +88,93 @@ export function PdpGalleryIsland({
   detailMedia,
   items,
 }: PdpGalleryIslandProps) {
-  const [activePanel, setActivePanel] = useState(0);
+  const {
+    activeIndex: activePanel,
+    direction,
+    isTransitioning,
+    outgoingIndex,
+    select,
+  } = usePdpSlideTransition({
+    initialIndex: 0,
+    itemCount: items.length,
+    resetKey: `${productKey}:${items.map((item) => item.id).join("|")}`,
+  });
+  const videoRefs = useRef(new Map<string, HTMLVideoElement>());
   const activeItem = items[activePanel] ?? items[0];
-  const activeMedia = activeItem?.media ?? detailMedia;
 
   useEffect(() => {
-    setActivePanel(0);
+    const videos = videoRefs.current;
+    for (const video of videos.values()) video.pause();
+    return () => {
+      for (const video of videos.values()) video.pause();
+    };
   }, [productKey]);
+
+  function selectPanel(index: number) {
+    if (index === activePanel) return;
+    const activeVideo = activeItem
+      ? videoRefs.current.get(activeItem.id)
+      : undefined;
+    activeVideo?.pause();
+    select(index);
+  }
 
   function selectFromPointer(
     event: ReactPointerEvent<HTMLButtonElement>,
     index: number,
   ) {
-    if (event.pointerType !== "touch") setActivePanel(index);
+    if (event.pointerType !== "touch") selectPanel(index);
   }
 
   return (
     <div className="pdp__gallery">
-      <div className="pdp__media-frame" data-pdp-main-media>
-        {activeItem && (
-          <PdpGalleryMedia
-            key={`${productKey}:${activeItem.id}`}
-            media={activeMedia}
-            swatch={activeItem.swatch}
-            className="pdp__media"
-            mediaClassName="pdp__img"
-            sizes="(max-width: 860px) 92vw, 56vw"
-            priority
-          />
-        )}
+      <div
+        className="pdp__media-frame"
+        data-direction={direction}
+        data-pdp-main-media
+        data-pdp-slide-transitioning={isTransitioning}
+        data-slide-direction={direction}
+        data-transition-duration={PDP_SLIDE_DURATION_MS}
+        style={PDP_SLIDE_STYLE}
+      >
+        <div className="pdp__media-viewport" data-pdp-slide-viewport>
+          {items.map((item, index) => {
+            const state =
+              index === activePanel
+                ? "active"
+                : index === outgoingIndex
+                  ? "outgoing"
+                  : "inactive";
+            if (state === "inactive") return null;
+            const media = item.media ?? detailMedia;
+
+            return (
+              <div
+                key={`${productKey}:${item.id}`}
+                className={`pdp__media-layer${state === "active" ? " pdp__media" : ""}`}
+                aria-hidden={state !== "active"}
+                data-media-kind={media?.kind ?? "placeholder"}
+                data-pdp-gallery-state={index + 1}
+                data-pdp-slide-layer
+                data-state={state}
+                inert={state !== "active"}
+              >
+                <PdpGalleryMedia
+                  media={media}
+                  swatch={item.swatch}
+                  className="pdp__media-content"
+                  mediaClassName="pdp__img"
+                  sizes="(max-width: 860px) 92vw, 56vw"
+                  priority={index === 0}
+                  videoRef={(node) => {
+                    if (node) videoRefs.current.set(item.id, node);
+                    else videoRefs.current.delete(item.id);
+                  }}
+                />
+              </div>
+            );
+          })}
+        </div>
         <div
           className="pdp__thumbs"
           role="group"
@@ -123,7 +189,7 @@ export function PdpGalleryIsland({
               aria-pressed={index === activePanel}
               aria-label={`View ${item.description}, media ${index + 1} of ${items.length}`}
               data-pdp-media-thumbnail
-              onClick={() => setActivePanel(index)}
+              onClick={() => selectPanel(index)}
               onPointerEnter={(event) => selectFromPointer(event, index)}
             >
               <PdpGalleryMedia

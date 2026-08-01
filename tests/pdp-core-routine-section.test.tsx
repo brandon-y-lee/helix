@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { PdpCoreRoutineSection } from "@/components/PdpCoreRoutineSection";
+import { PDP_SLIDE_DURATION_MS } from "@/components/usePdpSlideTransition";
 
 const productRows: Array<
   [string, string, string, string, number, number, string, string]
@@ -101,6 +102,14 @@ describe("PdpCoreRoutineSection", () => {
       ),
     ).toHaveTextContent("TREATTreatment serum");
     expect(container.querySelectorAll("a")).toHaveLength(0);
+    expect(
+      container.querySelectorAll("[data-pdp-slide-viewport]"),
+    ).toHaveLength(2);
+    expect(
+      container.querySelector(
+        ".pdp-core-routine__steps [data-pdp-slide-layer]",
+      ),
+    ).toBeNull();
   });
 
   it("persists hover, focus, click, and keyboard selections with direction", () => {
@@ -205,7 +214,7 @@ describe("PdpCoreRoutineSection", () => {
     ).toHaveLength(1);
 
     act(() => {
-      vi.advanceTimersByTime(640);
+      vi.advanceTimersByTime(PDP_SLIDE_DURATION_MS);
     });
     expect(
       container.querySelectorAll(
@@ -241,14 +250,14 @@ describe("PdpCoreRoutineSection", () => {
     fireEvent.click(
       screen.getByRole("radio", { name: "Show step 2, TREAT" }),
     );
-    act(() => {
-      vi.advanceTimersByTime(20);
-    });
-
     expect(
       container.querySelectorAll(
         '.pdp-core-routine__visual-state[data-state="outgoing"]',
       ),
     ).toHaveLength(0);
+    expect(container.querySelector(".pdp-core-routine")).toHaveAttribute(
+      "data-pdp-slide-transitioning",
+      "false",
+    );
   });
 });

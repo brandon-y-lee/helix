@@ -322,7 +322,12 @@ test("Core PDP hero media is finite, borderless, and aligned to storefront spaci
 
   for (const path of CORE_PDP_PATHS) {
     await page.goto(path);
-    await expect(page.locator(".pdp__thumb")).toHaveCount(3);
+    const mediaCount = await page.locator(".pdp__thumb").count();
+    expect(mediaCount).toBeGreaterThanOrEqual(1);
+    expect(mediaCount).toBeLessThanOrEqual(2);
+    await expect(
+      page.locator('.pdp__thumb [data-media-kind="placeholder"]'),
+    ).toHaveCount(0);
     await expectNoHorizontalOverflow(page);
   }
 
@@ -425,7 +430,6 @@ test("Core PDP hero media is finite, borderless, and aligned to storefront spaci
   const mediaFrame = page.locator("[data-pdp-main-media]");
   const mediaRail = page.locator("[data-pdp-media-rail]");
   const activeThumb = page.locator('.pdp__thumb[aria-pressed="true"]');
-  const inactiveThumb = page.locator("[data-pdp-media-thumbnail]").nth(1);
   const thumbImage = activeThumb.locator(".pdp__thumb-image");
 
   for (const target of [media, activeThumb, thumbImage]) {
@@ -465,22 +469,7 @@ test("Core PDP hero media is finite, borderless, and aligned to storefront spaci
     frameBox.y + frameBox.height,
   );
 
-  const inactiveOpacity = Number(
-    await inactiveThumb.evaluate((element) => getComputedStyle(element).opacity),
-  );
-  expect(inactiveOpacity).toBe(0.5);
-  await inactiveThumb.hover();
-  await expect
-    .poll(() =>
-      inactiveThumb.evaluate((element) =>
-        Number(getComputedStyle(element).opacity),
-      ),
-    )
-    .toBe(1);
-  await expect(inactiveThumb).toHaveAttribute("aria-pressed", "true");
-  await page.mouse.move(1000, 80);
-  await expect(inactiveThumb).toHaveAttribute("aria-pressed", "true");
-  await expect(page.locator(".pdp__media")).toHaveAttribute(
+  await expect(page.locator(".pdp__media")).not.toHaveAttribute(
     "data-media-kind",
     "placeholder",
   );
@@ -496,4 +485,105 @@ test("Core PDP hero media is finite, borderless, and aligned to storefront spaci
       ),
     )
     .toBeGreaterThanOrEqual(2);
+});
+
+test("PDP slide layers share directional transform motion without moving controls", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(TREAT_PATH);
+
+  const application = page.locator("[data-pdp-application]");
+  await application.scrollIntoViewIfNeeded();
+  const next = application.getByRole("button", {
+    name: "Show next application step",
+  });
+  const before = await application.evaluate((section) => {
+    const control = section.querySelector(".pdp-application__next");
+    if (!control) throw new Error("Application control is unavailable.");
+    const controlBox = control.getBoundingClientRect();
+    return {
+      controlX: controlBox.x,
+      controlY: controlBox.y,
+      height: section.getBoundingClientRect().height,
+    };
+  });
+
+  await application
+    .getByRole("button", { name: "Show application step 2 of 3" })
+    .click();
+  await expect(application).toHaveAttribute("data-direction", "forward");
+  await expect(application).toHaveAttribute(
+    "data-pdp-slide-transitioning",
+    "true",
+  );
+
+  const motion = await application.evaluate((section) => {
+    const activeCopy = section.querySelector(
+      '.pdp-application__step[data-state="active"]',
+    );
+    const activeMedia = section.querySelector(
+      '.pdp-application__visual-state[data-state="active"]',
+    );
+    const outgoingCopy = section.querySelector(
+      '.pdp-application__step[data-state="outgoing"]',
+    );
+    if (!activeCopy || !activeMedia || !outgoingCopy) {
+      throw new Error("Application transition layers are unavailable.");
+    }
+    const effect = activeMedia.getAnimations()[0]?.effect as
+      | KeyframeEffect
+      | undefined;
+    return {
+      copyDuration: getComputedStyle(activeCopy).animationDuration,
+      copyName: getComputedStyle(activeCopy).animationName,
+      mediaDuration: getComputedStyle(activeMedia).animationDuration,
+      mediaName: getComputedStyle(activeMedia).animationName,
+      outgoingName: getComputedStyle(outgoingCopy).animationName,
+      keyframes: effect?.getKeyframes(),
+    };
+  });
+
+  expect(motion.copyDuration).toBe("0.8s");
+  expect(motion.mediaDuration).toBe(motion.copyDuration);
+  expect(motion.copyName).toBe("pdp-slide-forward-in");
+  expect(motion.mediaName).toBe(motion.copyName);
+  expect(motion.outgoingName).toBe("pdp-slide-forward-out");
+  expect(motion.keyframes?.every((frame) => "transform" in frame)).toBe(true);
+  expect(motion.keyframes?.some((frame) => "opacity" in frame)).toBe(false);
+
+  const during = await application.evaluate((section) => {
+    const control = section.querySelector(".pdp-application__next");
+    if (!control) throw new Error("Application control is unavailable.");
+    const controlBox = control.getBoundingClientRect();
+    return {
+      controlX: controlBox.x,
+      controlY: controlBox.y,
+      height: section.getBoundingClientRect().height,
+    };
+  });
+  expect(during.controlX).toBeCloseTo(before.controlX, 0);
+  expect(during.controlY).toBeCloseTo(before.controlY, 0);
+  expect(during.height).toBeCloseTo(before.height, 0);
+
+  await application
+    .getByRole("button", { name: "Show application step 1 of 3" })
+    .click();
+  await expect(application).toHaveAttribute("data-direction", "backward");
+  await expect(application).toHaveAttribute(
+    "data-pdp-slide-transitioning",
+    "false",
+    { timeout: 1_200 },
+  );
+  await expectNoHorizontalOverflow(page);
+
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await application
+    .getByRole("button", { name: "Show application step 2 of 3" })
+    .click();
+  await expect(application).toHaveAttribute(
+    "data-pdp-slide-transitioning",
+    "false",
+  );
+  await expect(next).toBeVisible();
 });

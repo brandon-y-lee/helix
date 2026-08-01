@@ -53,18 +53,6 @@ type CoreDetailsOffer = {
   price: number;
 };
 
-function fallbackGalleryPanels(
-  swatch: [string, string],
-): Array<[string, string]> {
-  const [a, b] = swatch;
-  return [
-    [a, b],
-    [b, a],
-    [a, a],
-    [b, b],
-  ];
-}
-
 function galleryRoleRank(role: ProductMedia["role"]) {
   if (role === "detail" || role === "hero") return 0;
   if (role === "gallery") return 1;
@@ -102,23 +90,39 @@ function galleryMediaIdentity(media: ProductMedia) {
   ].join(":");
 }
 
-function fallbackGalleryIdentity(productName: string, sortOrder: number) {
-  return `placeholder:${productName}:${sortOrder}`;
+function isCanonicalGalleryMedia(
+  media: ProductMedia | null | undefined,
+): media is ProductMedia {
+  return Boolean(
+    media?.url && (media.kind === "image" || media.kind === "video"),
+  );
 }
 
-function selectGalleryMedia(media: ProductMedia[]) {
+function selectGalleryMedia(product: PdpProduct) {
   const identities = new Set<string>();
-
-  return media
-    .filter((item) =>
-      ["detail", "gallery", "hero", "card_default"].includes(item.role),
+  const primary = isCanonicalGalleryMedia(product.detailMedia)
+    ? product.detailMedia
+    : product.media
+        .filter(
+          (item) =>
+            isCanonicalGalleryMedia(item) &&
+            ["detail", "hero", "card_default", "card"].includes(item.role),
+        )
+        .slice()
+        .sort(
+          (a, b) =>
+            galleryRoleRank(a.role) - galleryRoleRank(b.role) ||
+            a.sortOrder - b.sortOrder,
+        )[0];
+  const gallery = product.media
+    .filter(
+      (item) => item.role === "gallery" && isCanonicalGalleryMedia(item),
     )
     .slice()
-    .sort(
-      (a, b) =>
-        galleryRoleRank(a.role) - galleryRoleRank(b.role) ||
-        a.sortOrder - b.sortOrder,
-    )
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+
+  return [primary, ...gallery]
+    .filter(isCanonicalGalleryMedia)
     .filter((item) => {
       const identity = galleryMediaIdentity(item);
       if (identities.has(identity)) return false;
@@ -180,24 +184,13 @@ function selectRoleMedia(
 export function galleryIslandProps(
   product: PdpProduct,
 ): PdpGalleryIslandProps {
-  const fallbackPanels = fallbackGalleryPanels(product.swatch);
-  const gallery = selectGalleryMedia(product.media);
-  const items = (
-    gallery.length
-      ? gallery.map((media, index) => ({
-          id: `${galleryMediaIdentity(media)}:${index}`,
-          description:
-            media.alt.trim() || `${product.displayName} product hue`,
-          media,
-          swatch: fallbackPanels[index % fallbackPanels.length],
-        }))
-      : fallbackPanels.map((swatch, index) => ({
-          id: fallbackGalleryIdentity(product.displayName, index),
-          description: `${product.displayName} product hue`,
-          media: null,
-          swatch,
-        }))
-  );
+  const gallery = selectGalleryMedia(product);
+  const items = gallery.map((media, index) => ({
+    id: `${galleryMediaIdentity(media)}:${index}`,
+    description: media.alt.trim() || `${product.displayName} product media`,
+    media,
+    swatch: product.swatch,
+  }));
 
   return {
     productKey: product.slug,

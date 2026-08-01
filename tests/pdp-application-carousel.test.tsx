@@ -2,9 +2,12 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   orderedPdpApplicationMedia,
-  PDP_APPLICATION_TRANSITION_DURATION_MS,
   PdpApplicationCarousel,
 } from "@/components/PdpApplicationCarousel";
+import {
+  PDP_SLIDE_DURATION_MS,
+  PDP_SLIDE_EASING,
+} from "@/components/usePdpSlideTransition";
 import type { CorePdpApplicationStep } from "@/lib/content/core-pdp";
 import type { ProductMedia } from "@/lib/products";
 
@@ -118,10 +121,11 @@ describe("PdpApplicationCarousel", () => {
     const section = container.querySelector("[data-pdp-application]");
     expect(section).toHaveAttribute(
       "data-transition-duration",
-      String(PDP_APPLICATION_TRANSITION_DURATION_MS),
+      String(PDP_SLIDE_DURATION_MS),
     );
     expect(section).toHaveStyle({
-      "--pdp-application-transition-duration": "900ms",
+      "--pdp-slide-duration": "800ms",
+      "--pdp-slide-easing": PDP_SLIDE_EASING,
     });
     const firstState = container.querySelector(
       '[data-pdp-application-state="1"]',
@@ -131,6 +135,17 @@ describe("PdpApplicationCarousel", () => {
     expect(
       screen.queryByRole("button", { name: /previous/i }),
     ).not.toBeInTheDocument();
+    expect(
+      container.querySelectorAll("[data-pdp-slide-layer]"),
+    ).toHaveLength(6);
+    expect(
+      container.querySelector(
+        "[data-pdp-application-thumbnail][data-pdp-slide-layer]",
+      ),
+    ).toBeNull();
+    expect(
+      container.querySelector(".pdp-application__next[data-pdp-slide-layer]"),
+    ).toBeNull();
   });
 
   it("selects real image previews and keeps copy and main media on the same step", () => {
@@ -189,6 +204,10 @@ describe("PdpApplicationCarousel", () => {
     expect(
       screen.getByText("First application step.").closest("article"),
     ).toHaveAttribute("aria-hidden", "false");
+    expect(container.querySelector("[data-pdp-application]")).toHaveAttribute(
+      "data-direction",
+      "forward",
+    );
     fireEvent.click(next);
     expect(
       screen
@@ -201,7 +220,7 @@ describe("PdpApplicationCarousel", () => {
     ).toHaveAttribute("aria-hidden", "false");
   });
 
-  it("does not autoplay and retires synchronized outgoing layers after 900ms", () => {
+  it("retires synchronized outgoing layers after the shared 800ms duration", () => {
     vi.useFakeTimers();
     mockReducedMotion(false);
     const { container } = render(
@@ -239,7 +258,7 @@ describe("PdpApplicationCarousel", () => {
     ).toHaveLength(1);
 
     act(() => {
-      vi.advanceTimersByTime(899);
+      vi.advanceTimersByTime(PDP_SLIDE_DURATION_MS - 1);
     });
     expect(
       container.querySelectorAll(
@@ -356,7 +375,7 @@ describe("PdpApplicationCarousel", () => {
       screen.getByRole("button", { name: "Show application step 3 of 3" }),
     ).toHaveAttribute("aria-pressed", "true");
 
-    act(() => vi.advanceTimersByTime(900));
+    act(() => vi.advanceTimersByTime(PDP_SLIDE_DURATION_MS));
     expect(
       container.querySelectorAll('[data-state="outgoing"]'),
     ).toHaveLength(0);
@@ -376,10 +395,60 @@ describe("PdpApplicationCarousel", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "Show application step 2 of 3" }),
     );
-    act(() => vi.advanceTimersByTime(1));
 
     expect(
       container.querySelectorAll('[data-state="outgoing"]'),
     ).toHaveLength(0);
+    expect(container.querySelector("[data-pdp-application]")).toHaveAttribute(
+      "data-pdp-slide-transitioning",
+      "false",
+    );
+  });
+
+  it("reverses direct backward selection and keeps cyclic arrows forward", () => {
+    const { container } = render(
+      <PdpApplicationCarousel
+        productName="CLEANSE"
+        steps={steps}
+        media={productMedia}
+      />,
+    );
+    const section = container.querySelector("[data-pdp-application]");
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Show application step 3 of 3" }),
+    );
+    expect(section).toHaveAttribute("data-direction", "forward");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Show application step 1 of 3" }),
+    );
+    expect(section).toHaveAttribute("data-direction", "backward");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Show application step 3 of 3" }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Show next application step" }),
+    );
+    expect(section).toHaveAttribute("data-direction", "forward");
+  });
+
+  it("advances from the latest active index during repeated arrow input", () => {
+    const { container } = render(
+      <PdpApplicationCarousel
+        productName="CLEANSE"
+        steps={steps}
+        media={productMedia}
+      />,
+    );
+    const next = screen.getByRole("button", {
+      name: "Show next application step",
+    });
+
+    fireEvent.click(next);
+    fireEvent.click(next);
+
+    expect(
+      container.querySelector('[data-pdp-application-state="3"]'),
+    ).toHaveAttribute("data-state", "active");
   });
 });

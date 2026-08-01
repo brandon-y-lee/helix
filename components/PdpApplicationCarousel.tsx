@@ -2,17 +2,16 @@
 
 import Image from "next/image";
 import {
-  useEffect,
-  useRef,
-  useState,
   type CSSProperties,
   type Ref,
 } from "react";
+import {
+  PDP_SLIDE_DURATION_MS,
+  PDP_SLIDE_STYLE,
+  usePdpSlideTransition,
+} from "@/components/usePdpSlideTransition";
 import type { CorePdpApplicationStep } from "@/lib/content/core-pdp";
 import type { ProductMedia } from "@/lib/products";
-
-export const PDP_APPLICATION_TRANSITION_DURATION_MS = 900;
-const REDUCED_MOTION_DURATION_MS = 1;
 
 export function orderedPdpApplicationMedia(
   productMedia: readonly ProductMedia[],
@@ -43,52 +42,22 @@ export function PdpApplicationCarousel({
   media: readonly ProductMedia[];
   rootRef?: Ref<HTMLElement>;
 }) {
-  const [active, setActive] = useState(0);
-  const [outgoing, setOutgoing] = useState<number | null>(null);
-  const activeRef = useRef(0);
-  const timerRef = useRef<number | null>(null);
   const applicationMedia = orderedPdpApplicationMedia(media);
-
-  useEffect(() => {
-    if (timerRef.current !== null) {
-      window.clearTimeout(timerRef.current);
-      timerRef.current = null;
-    }
-    activeRef.current = 0;
-    setActive(0);
-    setOutgoing(null);
-  }, [productName]);
-
-  useEffect(
-    () => () => {
-      if (timerRef.current !== null) {
-        window.clearTimeout(timerRef.current);
-      }
-    },
-    [],
-  );
-
-  function selectStep(next: number) {
-    const current = activeRef.current;
-    if (next === current) return;
-    if (timerRef.current !== null) {
-      window.clearTimeout(timerRef.current);
-    }
-    activeRef.current = next;
-    setOutgoing(current);
-    setActive(next);
-    const duration = window.matchMedia?.("(prefers-reduced-motion: reduce)")
-      .matches
-      ? REDUCED_MOTION_DURATION_MS
-      : PDP_APPLICATION_TRANSITION_DURATION_MS;
-    timerRef.current = window.setTimeout(() => {
-      setOutgoing(null);
-      timerRef.current = null;
-    }, duration);
-  }
+  const {
+    activeIndex: active,
+    advance,
+    direction,
+    isTransitioning,
+    outgoingIndex: outgoing,
+    select: selectStep,
+  } = usePdpSlideTransition({
+    initialIndex: 0,
+    itemCount: steps.length,
+    resetKey: productName,
+  });
 
   function showNext() {
-    selectStep((activeRef.current + 1) % steps.length);
+    advance(1, "forward");
   }
 
   return (
@@ -96,15 +65,14 @@ export function PdpApplicationCarousel({
       ref={rootRef}
       className="pdp-application"
       aria-label={`${productName} application`}
-      data-transition-duration={PDP_APPLICATION_TRANSITION_DURATION_MS}
+      data-direction={direction}
+      data-pdp-slide-transitioning={isTransitioning}
+      data-slide-direction={direction}
+      data-transition-duration={PDP_SLIDE_DURATION_MS}
       data-pdp-panel-row="application"
       data-pdp-panel-mode="independent"
       data-pdp-application
-      style={
-        {
-          "--pdp-application-transition-duration": `${PDP_APPLICATION_TRANSITION_DURATION_MS}ms`,
-        } as CSSProperties
-      }
+      style={PDP_SLIDE_STYLE}
     >
       <div
         className="pdp-application__content"
@@ -157,11 +125,15 @@ export function PdpApplicationCarousel({
         </div>
 
         <div className="pdp-application__copy">
-          <div className="pdp-application__copy-stack">
+          <div
+            className="pdp-application__copy-stack"
+            data-pdp-slide-viewport
+          >
             {steps.map((step, index) => (
               <article
                 key={step.id}
                 className="pdp-application__step"
+                data-pdp-slide-layer
                 data-state={
                   active === index
                     ? "active"
@@ -201,6 +173,7 @@ export function PdpApplicationCarousel({
         data-pdp-panel
         data-pdp-panel-kind="media"
         data-pdp-application-media
+        data-pdp-slide-viewport
       >
         {steps.map((step, index) => {
           const itemMedia = applicationMedia.find(
@@ -211,6 +184,7 @@ export function PdpApplicationCarousel({
             <div
               key={step.id}
               className="pdp-application__visual-state"
+              data-pdp-slide-layer
               data-state={
                 active === index
                   ? "active"

@@ -2,6 +2,10 @@
 
 import { useRef, type CSSProperties } from "react";
 import { useCoreRoutineSelection } from "@/components/useCoreRoutineSelection";
+import {
+  PDP_SLIDE_DURATION_MS,
+  PDP_SLIDE_STYLE,
+} from "@/components/usePdpSlideTransition";
 import { useProductPurchase } from "@/components/useProductPurchase";
 import type { CartAddInput } from "@/components/CartProvider";
 
@@ -61,6 +65,7 @@ export function PdpCoreDetailsRoutine({
     activeIndex,
     direction,
     handleKeyDown,
+    isTransitioning,
     outgoingIndex,
     select,
     setButtonRef,
@@ -84,9 +89,13 @@ export function PdpCoreDetailsRoutine({
       className="pdp-details-routine"
       aria-label="Core product details"
       data-direction={direction}
+      data-pdp-slide-transitioning={isTransitioning}
+      data-slide-direction={direction}
+      data-transition-duration={PDP_SLIDE_DURATION_MS}
       data-pdp-details-routine
       data-pdp-panel-row="details-routine"
       data-pdp-panel-mode="independent"
+      style={PDP_SLIDE_STYLE}
     >
       <div
         className="pdp-details-routine__media"
@@ -94,6 +103,7 @@ export function PdpCoreDetailsRoutine({
         data-pdp-details-media
         data-pdp-panel
         data-pdp-panel-kind="media"
+        data-pdp-slide-viewport
       >
         {items.map((item, index) => {
           const state = stateFor(index, activeIndex, outgoingIndex);
@@ -106,6 +116,7 @@ export function PdpCoreDetailsRoutine({
             <div
               key={item.slug}
               className="pdp-details-routine__media-state"
+              data-pdp-slide-layer
               data-media-replacement-key={
                 item.presentation.placeholder.replacementKey
               }
@@ -122,7 +133,11 @@ export function PdpCoreDetailsRoutine({
         data-pdp-panel
         data-pdp-panel-kind="copy"
       >
-        <div className="pdp-details-routine__states" aria-live="polite">
+        <div
+          className="pdp-details-routine__states"
+          aria-live="polite"
+          data-pdp-slide-viewport
+        >
           {items.map((item, index) => {
             const state = stateFor(index, activeIndex, outgoingIndex);
             const benefits = item.benefits.filter(Boolean).slice(0, 3);
@@ -137,6 +152,7 @@ export function PdpCoreDetailsRoutine({
               <article
                 key={item.slug}
                 className="pdp-details-routine__state"
+                data-pdp-slide-layer
                 data-state={state}
                 aria-hidden={state !== "active"}
               >

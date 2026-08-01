@@ -441,7 +441,7 @@ describe("ProductDetail purchase accordions", () => {
     expect(buyButton).toBeEnabled();
   });
 
-  it("deduplicates gallery roles by normalized asset identity", () => {
+  it("keeps one canonical primary and removes synthetic gallery hues", () => {
     const sharedAsset =
       "https://ERASOGMSQPGIIROVUBJH.supabase.co/storage/v1/object/public/mei-pelle-catalog/products/treat/primary/hash.webp";
     const media: Product["media"] = [
@@ -508,18 +508,61 @@ describe("ProductDetail purchase accordions", () => {
       within(
         screen.getByRole("group", { name: "Product media views" }),
       ).getAllByRole("button"),
-    ).toHaveLength(3);
+    ).toHaveLength(1);
     expect(
       screen.getByRole("button", {
-        name: "View TREAT detail, media 1 of 3",
+        name: "View TREAT detail, media 1 of 1",
       }),
     ).toHaveAttribute("aria-pressed", "true");
     expect(
-      screen.queryByRole("button", { name: /media 4 of 4/ }),
+      screen.queryByRole("button", { name: /gallery surface/i }),
     ).not.toBeInTheDocument();
   });
 
+  it("renders a primary and canonical gallery asset as exactly two items", () => {
+    const media: Product["media"] = [
+      {
+        kind: "image",
+        url: "https://example.com/detail.webp",
+        alt: "TREAT bottle view",
+        width: 1200,
+        height: 1500,
+        role: "detail",
+        sortOrder: 0,
+        paletteId: null,
+        palette: null,
+      },
+      {
+        kind: "image",
+        url: "https://example.com/gallery.webp",
+        alt: "TREAT editorial view",
+        width: 1200,
+        height: 1500,
+        role: "gallery",
+        sortOrder: 1,
+        paletteId: null,
+        palette: null,
+      },
+    ];
+
+    render(<ProductDetail product={makeProduct({ media })} />);
+
+    expect(
+      within(
+        screen.getByRole("group", { name: "Product media views" }),
+      ).getAllByRole("button"),
+    ).toHaveLength(2);
+    expect(
+      screen.getByRole("button", {
+        name: "View TREAT editorial view, media 2 of 2",
+      }),
+    ).toBeInTheDocument();
+  });
+
   it("keeps the media rail in-panel and uses persistent hover plus keyboard selection", async () => {
+    const pause = vi
+      .spyOn(HTMLMediaElement.prototype, "pause")
+      .mockImplementation(() => undefined);
     const user = userEvent.setup();
     const media: Product["media"] = [
       {
@@ -588,6 +631,12 @@ describe("ProductDetail purchase accordions", () => {
     expect(frame?.querySelector("video[controls]")).toHaveAccessibleName(
       "TREAT application video",
     );
+    expect(frame).toHaveAttribute("data-direction", "forward");
+    expect(frame?.querySelectorAll(".pdp__media")).toHaveLength(1);
+
+    fireEvent.click(texture);
+    expect(pause).toHaveBeenCalledTimes(1);
+    expect(frame).toHaveAttribute("data-direction", "backward");
 
     rerender(
       <ProductDetail
@@ -604,6 +653,7 @@ describe("ProductDetail purchase accordions", () => {
         }),
       ).toHaveAttribute("aria-pressed", "true"),
     );
+    pause.mockRestore();
   });
 
   it("does not retain another product's canonical PDP content after rerender", () => {

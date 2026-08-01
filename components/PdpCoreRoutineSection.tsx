@@ -6,6 +6,10 @@ import {
   type Ref,
 } from "react";
 import { useCoreRoutineSelection } from "@/components/useCoreRoutineSelection";
+import {
+  PDP_SLIDE_DURATION_MS,
+  PDP_SLIDE_STYLE,
+} from "@/components/usePdpSlideTransition";
 import type { CoreRoutineSummary } from "@/lib/catalog/models";
 
 type CoreRoutinePresentation = Pick<
@@ -41,6 +45,7 @@ export function PdpCoreRoutineSection({
     activeIndex,
     direction,
     handleKeyDown,
+    isTransitioning,
     outgoingIndex,
     select,
     setButtonRef,
@@ -69,8 +74,12 @@ export function PdpCoreRoutineSection({
         products[activeIndex].routineStepNumber,
       )}
       data-direction={direction}
+      data-pdp-slide-transitioning={isTransitioning}
+      data-slide-direction={direction}
+      data-transition-duration={PDP_SLIDE_DURATION_MS}
       data-pdp-panel-row="core-routine"
       data-pdp-panel-mode="independent"
+      style={PDP_SLIDE_STYLE}
     >
       <div
         className="pdp-core-routine__content"
@@ -84,7 +93,11 @@ export function PdpCoreRoutineSection({
           <p>Your morning and evening essentials.</p>
         </div>
 
-        <div className="pdp-core-routine__callout" aria-live="polite">
+        <div
+          className="pdp-core-routine__callout"
+          aria-live="polite"
+          data-pdp-slide-viewport
+        >
           {products.map((product, index) => {
             const state =
               index === activeIndex
@@ -96,6 +109,7 @@ export function PdpCoreRoutineSection({
               <div
                 key={product.slug}
                 className="pdp-core-routine__callout-state"
+                data-pdp-slide-layer
                 data-state={state}
                 aria-hidden={state !== "active"}
               >
@@ -154,6 +168,7 @@ export function PdpCoreRoutineSection({
         aria-hidden="true"
         data-pdp-panel
         data-pdp-panel-kind="media"
+        data-pdp-slide-viewport
       >
         {products.map((product, index) => {
           const state =
@@ -170,6 +185,7 @@ export function PdpCoreRoutineSection({
             <div
               key={product.slug}
               className="pdp-core-routine__visual-state"
+              data-pdp-slide-layer
               data-state={state}
               data-media={product.editorialMedia ? "editorial" : "fallback"}
               style={style}
