@@ -32,13 +32,16 @@
     "db:audit": "tsx scripts/db/audit-supabase-data.ts",
     "db:cleanup:dry-run": "tsx scripts/db/cleanup-supabase-data.ts --dry-run",
     "db:cleanup:apply": "tsx scripts/db/cleanup-supabase-data.ts --apply",
+    "db:carts:cleanup:dry-run": "tsx scripts/db/cleanup-expired-carts.ts --dry-run",
+    "db:carts:cleanup:apply": "tsx scripts/db/cleanup-expired-carts.ts --apply",
     "db:types": "pnpm dlx supabase gen types --linked --schema public > lib/database.types.ts",
     "db:verify": "tsx scripts/db/verify-supabase-data.ts",
     "search:backfill": "tsx scripts/search-backfill.ts",
     "search:verify-core-pdp-media": "tsx scripts/search-verify-core-pdp-media.ts",
     "search:reindex": "pnpm run search:backfill",
     "stripe:sync:sandbox": "tsx scripts/stripe-sync-sandbox.ts",
-    "test:stripe:sandbox": "pnpm run test -- tests/checkout-config.test.ts tests/rewards-rules.test.ts"
+    "test:stripe:sandbox": "pnpm run test -- tests/checkout-config.test.ts tests/rewards-rules.test.ts",
+    "test:cart:concurrency": "tsx scripts/test-cart-concurrency.ts"
   },
   "dependencies": {
     "@stripe/react-stripe-js": "^6.8.0",

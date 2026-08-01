@@ -88,6 +88,7 @@ export type Database = {
       }
       carts: {
         Row: {
+          checkout_generation: string
           created_at: string
           currency: string
           expires_at: string | null
@@ -98,6 +99,7 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          checkout_generation?: string
           created_at?: string
           currency?: string
           expires_at?: string | null
@@ -108,6 +110,7 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          checkout_generation?: string
           created_at?: string
           currency?: string
           expires_at?: string | null
@@ -1376,6 +1379,38 @@ export type Database = {
         Args: { p_role: string; p_user_id: string }
         Returns: Json
       }
+      cart_add_item_delta: {
+        Args: {
+          p_cart_id: string
+          p_product_id: string
+          p_quantity_delta: number
+          p_variant_key: string
+        }
+        Returns: {
+          line_id: string
+          quantity: number
+        }[]
+      }
+      cart_clear_items: { Args: { p_cart_id: string }; Returns: number }
+      cart_remove_item: {
+        Args: { p_cart_id: string; p_line_id: string }
+        Returns: boolean
+      }
+      cart_set_item_quantity: {
+        Args: { p_cart_id: string; p_line_id: string; p_quantity: number }
+        Returns: {
+          line_id: string
+          quantity: number
+        }[]
+      }
+      cleanup_expired_guest_carts: {
+        Args: { p_apply: boolean; p_limit: number }
+        Returns: {
+          deleted_count: number
+          matched_count: number
+        }[]
+      }
+      clear_paid_order_cart: { Args: { p_order_id: string }; Returns: number }
       create_catalog_product_draft: {
         Args: { p_actor_id: string; p_product_id: string }
         Returns: Json
@@ -1389,7 +1424,7 @@ export type Database = {
         Returns: Json
       }
       merge_guest_cart: {
-        Args: { p_guest_token_hash: string }
+        Args: { p_guest_token_hash: string; p_user_id: string }
         Returns: string
       }
       publish_catalog_product_draft: {
@@ -1412,6 +1447,142 @@ export type Database = {
           p_user_id: string
         }
         Returns: string
+      }
+      release_loyalty_redemptions_for_order: {
+        Args: { p_order_id: string; p_reason: string; p_user_id: string }
+        Returns: number
+      }
+      reserve_checkout_order_snapshot: {
+        Args: {
+          p_cart_id: string
+          p_checkout_environment: string
+          p_currency: string
+          p_customer_email: string
+          p_discount_cents: number
+          p_idempotency_key: string
+          p_items: Json
+          p_merchandise_subtotal_cents: number
+          p_metadata: Json
+          p_referral_code: string
+          p_reward_discount_cents: number
+          p_reward_points_redeemed: number
+          p_shipping_cents: number
+          p_tax_cents: number
+          p_total_cents: number
+          p_user_id: string
+        }
+        Returns: {
+          billing_address: Json
+          cancelled_at: string | null
+          cart_id: string | null
+          checkout_environment: Database["public"]["Enums"]["checkout_environment"]
+          created_at: string
+          currency: string
+          customer_email: string | null
+          discount_cents: number
+          id: string
+          idempotency_key: string
+          merchandise_subtotal_cents: number
+          metadata: Json
+          order_number: string
+          paid_at: string | null
+          referral_code: string | null
+          refunded_at: string | null
+          reward_discount_cents: number
+          reward_points_earned: number
+          reward_points_redeemed: number
+          shipping_address: Json
+          shipping_cents: number
+          shipping_name: string | null
+          status: Database["public"]["Enums"]["order_status"]
+          stripe_checkout_session_id: string | null
+          stripe_customer_id: string | null
+          stripe_payment_intent_id: string | null
+          tax_cents: number
+          total_cents: number
+          updated_at: string
+          user_id: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "orders"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      reserve_checkout_order_snapshot_v2: {
+        Args: {
+          p_cart_id: string
+          p_checkout_environment: string
+          p_checkout_generation: string
+          p_currency: string
+          p_customer_email: string
+          p_discount_cents: number
+          p_idempotency_key: string
+          p_items: Json
+          p_merchandise_subtotal_cents: number
+          p_metadata: Json
+          p_referral_code: string
+          p_reward_discount_cents: number
+          p_reward_points_redeemed: number
+          p_shipping_cents: number
+          p_tax_cents: number
+          p_total_cents: number
+          p_user_id: string
+        }
+        Returns: {
+          billing_address: Json
+          cancelled_at: string | null
+          cart_id: string | null
+          checkout_environment: Database["public"]["Enums"]["checkout_environment"]
+          created_at: string
+          currency: string
+          customer_email: string | null
+          discount_cents: number
+          id: string
+          idempotency_key: string
+          merchandise_subtotal_cents: number
+          metadata: Json
+          order_number: string
+          paid_at: string | null
+          referral_code: string | null
+          refunded_at: string | null
+          reward_discount_cents: number
+          reward_points_earned: number
+          reward_points_redeemed: number
+          shipping_address: Json
+          shipping_cents: number
+          shipping_name: string | null
+          status: Database["public"]["Enums"]["order_status"]
+          stripe_checkout_session_id: string | null
+          stripe_customer_id: string | null
+          stripe_payment_intent_id: string | null
+          tax_cents: number
+          total_cents: number
+          updated_at: string
+          user_id: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "orders"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      resolve_active_cart: {
+        Args: {
+          p_create: boolean
+          p_guest_token_hash: string
+          p_user_id: string
+        }
+        Returns: {
+          cart_id: string
+          expired: boolean
+          expires_at: string
+          guest_token_hash: string
+          status: Database["public"]["Enums"]["cart_status"]
+          user_id: string
+        }[]
       }
       restore_catalog_product_revision: {
         Args: { p_actor_id: string; p_revision_id: string }

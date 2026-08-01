@@ -4,13 +4,11 @@ import { createHash, randomBytes } from "node:crypto";
 import { cookies } from "next/headers";
 import { getCurrentIdentity } from "@/lib/auth/session";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { CartError, type CartLine, type CartState } from "@/lib/cart/types";
 import { normalizeCartQuantity } from "@/lib/cart/validation";
 import { routineGroupLabel } from "@/lib/catalog/product-routine";
 
 export const GUEST_CART_COOKIE = "mei_pelle_guest_cart";
-const MAX_LINE_QUANTITY = 99;
 const GUEST_CART_DAYS = 60;
 
 type CartRow = {
@@ -18,6 +16,14 @@ type CartRow = {
   user_id: string | null;
   guest_token_hash: string | null;
   status: "active" | "merged" | "abandoned";
+};
+
+type ResolvedCartRow = {
+  cart_id: string | null;
+  user_id: string | null;
+  guest_token_hash: string | null;
+  status: "active" | "merged" | "abandoned";
+  expired: boolean;
 };
 
 type VariantRow = {
@@ -72,6 +78,7 @@ export type CheckoutCartLine = CartLine & {
 
 export type CheckoutCartSnapshot = {
   cartId: string;
+  checkoutGeneration: string;
   userId: string | null;
   userEmail: string | null;
   lines: CheckoutCartLine[];
@@ -111,6 +118,12 @@ async function getGuestToken(create: boolean): Promise<string | null> {
   if (!create) return null;
 
   const token = newGuestToken();
+  await setGuestToken(token);
+  return token;
+}
+
+async function setGuestToken(token: string): Promise<void> {
+  const cookieStore = await cookies();
   cookieStore.set(GUEST_CART_COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
@@ -118,7 +131,6 @@ async function getGuestToken(create: boolean): Promise<string | null> {
     path: "/",
     maxAge: GUEST_CART_DAYS * 24 * 60 * 60,
   });
-  return token;
 }
 
 async function clearGuestToken(): Promise<void> {
@@ -134,57 +146,73 @@ async function clearGuestToken(): Promise<void> {
 
 async function getOrCreateActiveCart(create: boolean): Promise<CartRow | null> {
   const userId = await getUserId();
+  const admin = createSupabaseAdminClient();
 
   if (userId) {
-    const admin = createSupabaseAdminClient();
-    const { data, error } = await admin
-      .from("carts")
-      .select("id, user_id, guest_token_hash, status")
-      .eq("user_id", userId)
-      .eq("status", "active")
-      .maybeSingle();
-
-    if (error) throw new Error(`[cart] Failed to load user cart: ${error.message}`);
-    if (data || !create) return data as CartRow | null;
-
-    const { data: inserted, error: insertError } = await admin
-      .from("carts")
-      .insert({ user_id: userId, status: "active" })
-      .select("id, user_id, guest_token_hash, status")
-      .single();
-
-    if (insertError) throw new Error(`[cart] Failed to create user cart: ${insertError.message}`);
-    return inserted as CartRow;
+    const { data, error } = await admin.rpc("resolve_active_cart", {
+      p_user_id: userId,
+      p_guest_token_hash: null,
+      p_create: create,
+    });
+    if (error) throw new Error(`[cart] Failed to resolve user cart: ${error.message}`);
+    const resolved = (data as ResolvedCartRow[] | null)?.[0] ?? null;
+    return resolved?.cart_id
+      ? {
+          id: resolved.cart_id,
+          user_id: resolved.user_id,
+          guest_token_hash: resolved.guest_token_hash,
+          status: resolved.status,
+        }
+      : null;
   }
 
   const token = await getGuestToken(create);
   if (!token) return null;
   const tokenHash = hashGuestToken(token);
-  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin.rpc("resolve_active_cart", {
+    p_user_id: null,
+    p_guest_token_hash: tokenHash,
+    p_create: create,
+  });
+  if (error) throw new Error(`[cart] Failed to resolve guest cart: ${error.message}`);
+  const resolved = (data as ResolvedCartRow[] | null)?.[0] ?? null;
 
-  const { data, error } = await admin
-    .from("carts")
-    .select("id, user_id, guest_token_hash, status")
-    .eq("guest_token_hash", tokenHash)
-    .eq("status", "active")
-    .maybeSingle();
+  if (resolved?.expired) {
+    await clearGuestToken();
+    if (!create) return null;
 
-  if (error) throw new Error(`[cart] Failed to load guest cart: ${error.message}`);
-  if (data || !create) return data as CartRow | null;
+    const replacementToken = newGuestToken();
+    await setGuestToken(replacementToken);
+    const { data: replacementData, error: replacementError } = await admin.rpc(
+      "resolve_active_cart",
+      {
+        p_user_id: null,
+        p_guest_token_hash: hashGuestToken(replacementToken),
+        p_create: true,
+      },
+    );
+    if (replacementError) {
+      throw new Error(`[cart] Failed to replace expired guest cart: ${replacementError.message}`);
+    }
+    const replacement =
+      (replacementData as ResolvedCartRow[] | null)?.[0] ?? null;
+    if (!replacement?.cart_id) return null;
+    return {
+      id: replacement.cart_id,
+      user_id: replacement.user_id,
+      guest_token_hash: replacement.guest_token_hash,
+      status: replacement.status,
+    };
+  }
 
-  const expiresAt = new Date(Date.now() + GUEST_CART_DAYS * 24 * 60 * 60 * 1000).toISOString();
-  const { data: inserted, error: insertError } = await admin
-    .from("carts")
-    .insert({
-      guest_token_hash: tokenHash,
-      status: "active",
-      expires_at: expiresAt,
-    })
-    .select("id, user_id, guest_token_hash, status")
-    .single();
-
-  if (insertError) throw new Error(`[cart] Failed to create guest cart: ${insertError.message}`);
-  return inserted as CartRow;
+  return resolved?.cart_id
+    ? {
+        id: resolved.cart_id,
+        user_id: resolved.user_id,
+        guest_token_hash: resolved.guest_token_hash,
+        status: resolved.status,
+      }
+    : null;
 }
 
 function firstProduct(value: ProductRow | ProductRow[] | null): ProductRow | null {
@@ -334,7 +362,9 @@ async function readCart(cartId: string): Promise<CartState> {
   };
 }
 
-async function readCheckoutCart(cartId: string): Promise<Omit<CheckoutCartSnapshot, "cartId" | "userId" | "userEmail">> {
+async function readCheckoutCart(
+  cartId: string,
+): Promise<Omit<CheckoutCartSnapshot, "cartId" | "checkoutGeneration" | "userId" | "userEmail">> {
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin
     .from("cart_items")
@@ -401,9 +431,22 @@ export async function getCheckoutCartSnapshot(): Promise<CheckoutCartSnapshot> {
   const [cart, identity] = await Promise.all([getOrCreateActiveCart(false), getUserIdentity()]);
   if (!cart) throw new CartError("cart_unavailable", "Add an available item before checkout.");
 
-  const snapshot = await readCheckoutCart(cart.id);
+  const admin = createSupabaseAdminClient();
+  const [snapshot, generationResult] = await Promise.all([
+    readCheckoutCart(cart.id),
+    admin
+      .from("carts")
+      .select("checkout_generation")
+      .eq("id", cart.id)
+      .single(),
+  ]);
+  if (generationResult.error) {
+    throw new Error(`[cart] Failed to read checkout generation: ${generationResult.error.message}`);
+  }
+
   return {
     cartId: cart.id,
+    checkoutGeneration: generationResult.data.checkout_generation,
     userId: identity.userId,
     userEmail: identity.email,
     ...snapshot,
@@ -432,32 +475,13 @@ export async function addCartItem(input: {
   if (!cart) throw new CartError("cart_unavailable", "Cart is unavailable.");
 
   const admin = createSupabaseAdminClient();
-  const { data: existing, error: existingError } = await admin
-    .from("cart_items")
-    .select("id, quantity")
-    .eq("cart_id", cart.id)
-    .eq("product_id", product.id)
-    .eq("variant_key", variant.variant_key)
-    .maybeSingle();
-
-  if (existingError) throw new Error(`[cart] Failed to inspect cart line: ${existingError.message}`);
-
-  if (existing) {
-    const nextQuantity = Math.min(MAX_LINE_QUANTITY, Number(existing.quantity) + quantity);
-    const { error } = await admin
-      .from("cart_items")
-      .update({ quantity: nextQuantity })
-      .eq("id", existing.id);
-    if (error) throw new Error(`[cart] Failed to update cart line: ${error.message}`);
-  } else {
-    const { error } = await admin.from("cart_items").insert({
-      cart_id: cart.id,
-      product_id: product.id,
-      variant_key: variant.variant_key,
-      quantity,
-    });
-    if (error) throw new Error(`[cart] Failed to add cart line: ${error.message}`);
-  }
+  const { error } = await admin.rpc("cart_add_item_delta", {
+    p_cart_id: cart.id,
+    p_product_id: product.id,
+    p_variant_key: variant.variant_key,
+    p_quantity_delta: quantity,
+  });
+  if (error) throw new Error(`[cart] Failed to add cart line: ${error.message}`);
 
   return readCart(cart.id);
 }
@@ -471,11 +495,11 @@ export async function setCartItemQuantity(lineId: string, quantity: number): Pro
   if (!cart) return emptyCart();
 
   const admin = createSupabaseAdminClient();
-  const { error } = await admin
-    .from("cart_items")
-    .update({ quantity: nextQuantity })
-    .eq("id", lineId)
-    .eq("cart_id", cart.id);
+  const { error } = await admin.rpc("cart_set_item_quantity", {
+    p_cart_id: cart.id,
+    p_line_id: lineId,
+    p_quantity: nextQuantity,
+  });
 
   if (error) throw new Error(`[cart] Failed to set cart quantity: ${error.message}`);
   return readCart(cart.id);
@@ -487,11 +511,10 @@ export async function removeCartItem(lineId: string): Promise<CartState> {
   if (!cart) return emptyCart();
 
   const admin = createSupabaseAdminClient();
-  const { error } = await admin
-    .from("cart_items")
-    .delete()
-    .eq("id", lineId)
-    .eq("cart_id", cart.id);
+  const { error } = await admin.rpc("cart_remove_item", {
+    p_cart_id: cart.id,
+    p_line_id: lineId,
+  });
 
   if (error) throw new Error(`[cart] Failed to remove cart line: ${error.message}`);
   return readCart(cart.id);
@@ -502,7 +525,7 @@ export async function clearCart(): Promise<CartState> {
   if (!cart) return emptyCart();
 
   const admin = createSupabaseAdminClient();
-  const { error } = await admin.from("cart_items").delete().eq("cart_id", cart.id);
+  const { error } = await admin.rpc("cart_clear_items", { p_cart_id: cart.id });
   if (error) throw new Error(`[cart] Failed to clear cart: ${error.message}`);
   return emptyCart();
 }
@@ -515,8 +538,9 @@ export async function mergeGuestCartIntoCurrentUser(): Promise<void> {
   const identity = await getCurrentIdentity();
   if (!identity) return;
 
-  const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.rpc("merge_guest_cart", {
+  const admin = createSupabaseAdminClient();
+  const { error } = await admin.rpc("merge_guest_cart", {
+    p_user_id: identity.id,
     p_guest_token_hash: hashGuestToken(token),
   });
   if (error) throw new Error(`[cart] Failed to merge guest cart: ${error.message}`);
