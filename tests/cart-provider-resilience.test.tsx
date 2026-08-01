@@ -1,7 +1,8 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { CartProvider, useCart } from "@/components/CartProvider";
+import { CartProvider, useCartDrawer } from "@/components/CartProvider";
 import { CartView } from "@/components/CartView";
+import { useCart, useCartMutations } from "@/components/useCart";
 import type { CartState } from "@/lib/cart/types";
 
 const knownCart: CartState = {
@@ -53,11 +54,12 @@ function CartStateProbe() {
 function DisabledCartProbe() {
   const {
     add,
+  } = useCartMutations();
+  const {
     cartDrawerOpen,
-    count,
-    hasLoadedCart,
     openCartDrawer,
-  } = useCart();
+  } = useCartDrawer();
+  const { count, hasLoadedCart } = useCart();
   return (
     <>
       <output>
@@ -127,6 +129,7 @@ describe("cart client outage recovery", () => {
     );
 
     expect(await screen.findByText("known:2")).toBeInTheDocument();
+    expect(cartRequests).toBe(1);
     fireEvent.click(screen.getByRole("button", { name: "Refresh cart" }));
     expect(
       await screen.findByText("Your cart is temporarily unavailable."),

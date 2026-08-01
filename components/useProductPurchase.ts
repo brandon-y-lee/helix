@@ -1,21 +1,25 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
-import {
-  useCart,
-  type CartAddInput,
-} from "@/components/CartProvider";
+import { useCallback } from "react";
+import { useCartDrawer } from "@/components/CartProvider";
+import { useCartMutations } from "@/components/useCart";
+import { cartErrorMessage } from "@/lib/cart/client";
+import type { CartAddInput } from "@/lib/cart/types";
 
 const PURCHASE_ERROR =
   "Cart is temporarily unavailable. Try again in a moment.";
 
 export function useProductPurchase() {
-  const { add, openCartDrawer } = useCart();
-  const inFlightRef = useRef(false);
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState("");
+  const { openCartDrawer } = useCartDrawer();
+  const {
+    add,
+    addError,
+    addPending,
+    isAdding,
+    resetErrors,
+  } = useCartMutations();
 
-  const clearError = useCallback(() => setError(""), []);
+  const clearError = useCallback(() => resetErrors(), [resetErrors]);
 
   const purchase = useCallback(
     async ({
@@ -27,39 +31,25 @@ export function useProductPurchase() {
       quantity?: number;
       returnFocus?: () => void;
     }) => {
-      if (inFlightRef.current) return false;
-
-      inFlightRef.current = true;
-      setPending(true);
-      setError("");
-
-      try {
-        const added =
-          quantity === undefined
-            ? await add(item)
-            : await add(item, quantity);
-        if (!added) {
-          setError(PURCHASE_ERROR);
-          return false;
-        }
-
-        openCartDrawer(returnFocus);
-        return true;
-      } catch {
-        setError(PURCHASE_ERROR);
+      if (isAdding(item)) return false;
+      const added =
+        quantity === undefined
+          ? await add(item)
+          : await add(item, quantity);
+      if (!added) {
         return false;
-      } finally {
-        inFlightRef.current = false;
-        setPending(false);
       }
+
+      openCartDrawer(returnFocus);
+      return true;
     },
-    [add, openCartDrawer],
+    [add, isAdding, openCartDrawer],
   );
 
   return {
     clearError,
-    error,
-    pending,
+    error: addError ? cartErrorMessage(addError, PURCHASE_ERROR) : "",
+    pending: addPending,
     purchase,
   };
 }

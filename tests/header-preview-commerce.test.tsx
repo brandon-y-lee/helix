@@ -23,15 +23,15 @@ vi.mock("next/link", () => ({
   ),
 }));
 vi.mock("@/components/CartProvider", () => ({
-  useCart: () => ({
-    count: 2,
-    hasLoadedCart: true,
-    error: null,
+  useCartDrawer: () => ({
     cartDrawerOpen: false,
     openCartDrawer: headerMocks.openCartDrawer,
     closeCartDrawer: headerMocks.closeCartDrawer,
     returnFocusAfterCartDrawerClose: vi.fn(),
   }),
+}));
+vi.mock("@/components/useCart", () => ({
+  useCartCount: () => ({ count: 2, hasLoadedCart: true, error: null }),
 }));
 vi.mock("@/components/CartDrawer", () => ({
   CartDrawer: ({ open }: { open: boolean }) => (

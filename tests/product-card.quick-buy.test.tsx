@@ -7,11 +7,42 @@ const cartMock = vi.hoisted(() => ({
   add: vi.fn(),
   openCartDrawer: vi.fn(),
   cartDrawerOpen: false,
+  resetErrors: vi.fn(),
 }));
 
 vi.mock("@/components/CartProvider", () => ({
-  useCart: () => cartMock,
+  useCartDrawer: () => cartMock,
 }));
+vi.mock("@/components/useCart", async () => {
+  const { useState } = await import("react");
+  return {
+    useCartMutations: () => {
+      const [addError, setAddError] = useState<Error | null>(null);
+      const [addPending, setAddPending] = useState(false);
+      return {
+        add: async (...args: Parameters<typeof cartMock.add>) => {
+          setAddError(null);
+          setAddPending(true);
+          const added = await cartMock.add(...args);
+          if (!added) {
+            setAddError(new Error(
+              "Cart is temporarily unavailable. Try again in a moment.",
+            ));
+          }
+          setAddPending(false);
+          return added;
+        },
+        addError,
+        addPending,
+        isAdding: () => addPending,
+        resetErrors: () => {
+          cartMock.resetErrors();
+          setAddError(null);
+        },
+      };
+    },
+  };
+});
 
 import { ProductCard } from "@/components/ProductCard";
 import { ProductGrid } from "@/components/ProductGrid";
@@ -82,6 +113,7 @@ beforeEach(() => {
   cartMock.add.mockReset();
   cartMock.add.mockResolvedValue(true);
   cartMock.openCartDrawer.mockReset();
+  cartMock.resetErrors.mockReset();
   cartMock.cartDrawerOpen = false;
 });
 

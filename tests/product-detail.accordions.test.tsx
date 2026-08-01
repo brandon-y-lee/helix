@@ -18,11 +18,44 @@ import type { Product, Variant } from "@/lib/products";
 const cartMock = vi.hoisted(() => ({
   add: vi.fn(),
   openCartDrawer: vi.fn(),
+  resetErrors: vi.fn(),
 }));
 
 vi.mock("@/components/CartProvider", () => ({
-  useCart: () => cartMock,
+  useCartDrawer: () => ({
+    openCartDrawer: cartMock.openCartDrawer,
+  }),
 }));
+vi.mock("@/components/useCart", async () => {
+  const { useState } = await import("react");
+  return {
+    useCartMutations: () => {
+      const [addError, setAddError] = useState<Error | null>(null);
+      const [addPending, setAddPending] = useState(false);
+      return {
+        add: async (...args: Parameters<typeof cartMock.add>) => {
+          setAddError(null);
+          setAddPending(true);
+          const added = await cartMock.add(...args);
+          if (!added) {
+            setAddError(new Error(
+              "Cart is temporarily unavailable. Try again in a moment.",
+            ));
+          }
+          setAddPending(false);
+          return added;
+        },
+        addError,
+        addPending,
+        isAdding: () => addPending,
+        resetErrors: () => {
+          cartMock.resetErrors();
+          setAddError(null);
+        },
+      };
+    },
+  };
+});
 
 vi.mock("@/components/AfterpayMessaging", () => ({
   AfterpayMessaging: ({

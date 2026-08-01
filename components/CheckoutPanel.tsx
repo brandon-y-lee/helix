@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { useCartMutations } from "@/components/useCart";
 import { SANDBOX_CHECKOUT_NOTICE } from "@/lib/checkout/config";
+import { cartErrorMessage } from "@/lib/cart/client";
 import { formatPrice } from "@/lib/products";
 
 type RewardTierSummary = {
@@ -40,8 +42,12 @@ export function CheckoutPanel({
 }) {
   const [rewardSummary, setRewardSummary] = useState<RewardsSummaryResponse | null>(null);
   const [selectedReward, setSelectedReward] = useState("none");
-  const [pending, setPending] = useState(false);
-  const [status, setStatus] = useState<string | null>(null);
+  const {
+    checkoutPending: pending,
+    checkoutError,
+    resetErrors,
+    startCheckout: createCheckout,
+  } = useCartMutations();
   const tiers = useMemo(
     () => (rewardSummary?.affordableTiers ?? []).filter(isRewardTier),
     [rewardSummary],
@@ -66,34 +72,11 @@ export function CheckoutPanel({
 
   async function startCheckout() {
     if (pending || disabled) return;
-    setPending(true);
-    setStatus(null);
-
-    try {
-      const response = await fetch("/api/checkout/sessions", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          rewardTierId: selectedReward === "none" ? null : selectedReward,
-        }),
-      });
-      const data = await response.json().catch(() => null);
-      if (!response.ok || !data || typeof data.url !== "string") {
-        throw new Error(
-          data && typeof data.error === "string"
-            ? data.error
-            : "Sandbox checkout is temporarily unavailable.",
-        );
-      }
-      window.location.assign(data.url);
-    } catch (error) {
-      setStatus(
-        error instanceof Error
-          ? error.message
-          : "Sandbox checkout is temporarily unavailable.",
-      );
-      setPending(false);
-    }
+    resetErrors();
+    const session = await createCheckout(
+      selectedReward === "none" ? null : selectedReward,
+    );
+    if (session) window.location.assign(session.url);
   }
 
   return (
@@ -152,9 +135,12 @@ export function CheckoutPanel({
         )}
       </div>
 
-      {status && (
+      {checkoutError && (
         <p className="form-status form-status--error" role="status">
-          {status}
+          {cartErrorMessage(
+            checkoutError,
+            "Sandbox checkout is temporarily unavailable.",
+          )}
         </p>
       )}
 

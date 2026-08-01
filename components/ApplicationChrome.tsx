@@ -15,7 +15,7 @@ export function ApplicationChrome({ children }: { children: ReactNode }) {
   if (mode === "standard-admin") return children;
 
   return (
-    <CartProvider disabled={mode === "catalog-preview"}>
+    <CartProvider key={mode} disabled={mode === "catalog-preview"}>
       <Header commerceDisabled={mode === "catalog-preview"} />
       <StorefrontMain>{children}</StorefrontMain>
       <SiteFooter />

@@ -25,6 +25,19 @@ export type CartLine = {
   lineSubtotal: number;
 };
 
+export type CartAddInput = Pick<
+  CartLine,
+  | "slug"
+  | "name"
+  | "variantId"
+  | "variantLabel"
+  | "price"
+  | "swatch"
+  | "imageUrl"
+  | "imageAlt"
+  | "placeholderMedia"
+>;
+
 export type CartState = {
   lines: CartLine[];
   count: number;

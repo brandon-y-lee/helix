@@ -5,7 +5,7 @@ import type {
   PdpPurchaseVariant,
 } from "@/components/PdpPurchaseIsland";
 import type { PdpCoreDetailsItem } from "@/components/PdpCoreDetailsRoutine";
-import type { CartAddInput } from "@/components/CartProvider";
+import type { CartAddInput } from "@/lib/cart/types";
 import type { ProductPdpContent } from "@/lib/catalog/product-content";
 import type {
   PdpProduct,

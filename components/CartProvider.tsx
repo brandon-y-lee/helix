@@ -1,6 +1,12 @@
 "use client";
 
 import {
+  QueryClient,
+  QueryClientProvider,
+  useQueryClient,
+} from "@tanstack/react-query";
+import { usePathname } from "next/navigation";
+import {
   createContext,
   useCallback,
   useContext,
@@ -10,258 +16,90 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { CartLine, CartState } from "@/lib/cart/types";
+import {
+  CART_QUERY_KEY,
+  EMPTY_CART,
+} from "@/lib/cart/client";
+import {
+  CART_IDENTITY_CHANGED_COOKIE,
+  broadcastCartChanged,
+  getCartChangeChannel,
+  isCartChangeMessage,
+  releaseCartChangeChannel,
+} from "@/lib/cart/sync";
 
-export type CartAddInput = Pick<
-  CartLine,
-  | "slug"
-  | "name"
-  | "variantId"
-  | "variantLabel"
-  | "price"
-  | "swatch"
-  | "imageUrl"
-  | "imageAlt"
-  | "placeholderMedia"
->;
-
-type CartContextValue = {
-  lines: CartLine[];
-  count: number;
-  subtotal: number;
+type CartDrawerContextValue = {
   cartDrawerOpen: boolean;
-  loading: boolean;
-  hasLoadedCart: boolean;
-  error: string | null;
-  retryable: boolean;
-  refresh: () => Promise<void>;
-  add: (item: CartAddInput, quantity?: number) => Promise<boolean>;
-  setQuantity: (key: string, quantity: number) => Promise<boolean>;
-  remove: (key: string) => Promise<boolean>;
-  clear: () => Promise<boolean>;
   openCartDrawer: (returnFocus?: () => void) => void;
   closeCartDrawer: () => void;
   returnFocusAfterCartDrawerClose: () => void;
 };
 
-const CartContext = createContext<CartContextValue | null>(null);
+const CartDrawerContext = createContext<CartDrawerContextValue | null>(null);
+const CartRuntimeContext = createContext({
+  commerceEnabled: true,
+  identityVersion: 0,
+});
 
-class CartRequestError extends Error {
-  constructor(
-    message: string,
-    readonly retryable: boolean,
-    readonly code: string | null,
-  ) {
-    super(message);
-    this.name = "CartRequestError";
-  }
+function hasIdentityChangeSignal(): boolean {
+  return document.cookie
+    .split(";")
+    .some((part) => part.trim().startsWith(`${CART_IDENTITY_CHANGED_COOKIE}=`));
 }
 
-function optimisticKey(slug: string, variantId: string): string {
-  return `optimistic:${slug}:${variantId}`;
+function clearIdentityChangeSignal(): void {
+  const secure = window.location.protocol === "https:" ? "; Secure" : "";
+  document.cookie = `${CART_IDENTITY_CHANGED_COOKIE}=; Max-Age=0; Path=/; SameSite=Lax${secure}`;
 }
 
-async function readResponse(response: Response): Promise<CartState> {
-  const data = await response.json().catch(() => null);
-  if (!response.ok) {
-    const error = data?.error;
-    const message = typeof error === "string"
-      ? error
-      : error && typeof error.message === "string"
-        ? error.message
-        : "Cart is temporarily unavailable.";
-    throw new CartRequestError(
-      message,
-      Boolean(error && typeof error === "object" && error.retryable === true),
-      error && typeof error === "object" && typeof error.code === "string"
-        ? error.code
-        : null,
-    );
-  }
-  return data as CartState;
-}
-
-function clientError(error: unknown, fallback: string) {
-  return {
-    message: error instanceof Error ? error.message : fallback,
-    retryable:
-      error instanceof CartRequestError ? error.retryable : true,
-  };
-}
-
-export function CartProvider({
-  children,
-  disabled = false,
+function CartSyncBoundary({
+  disabled,
+  onIdentityChanged,
 }: {
-  children: ReactNode;
-  disabled?: boolean;
+  disabled: boolean;
+  onIdentityChanged: () => void;
 }) {
-  const [lines, setLines] = useState<CartLine[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [hasLoadedCart, setHasLoadedCart] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [retryable, setRetryable] = useState(false);
-  const [cartDrawerOpen, setCartDrawerOpen] = useState(false);
-  const cartDrawerReturnFocusRef = useRef<() => void>(() => {});
-
-  const applyState = useCallback((cart: CartState) => {
-    setLines(cart.lines);
-    setHasLoadedCart(true);
-    setError(null);
-    setRetryable(false);
-  }, []);
-
-  const refresh = useCallback(async () => {
-    if (disabled) {
-      setLines([]);
-      setHasLoadedCart(true);
-      setLoading(false);
-      setError(null);
-      setRetryable(false);
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    setRetryable(false);
-    try {
-      const response = await fetch("/api/cart", { cache: "no-store" });
-      applyState(await readResponse(response));
-    } catch (err) {
-      const failure = clientError(err, "Cart is temporarily unavailable.");
-      setError(failure.message);
-      setRetryable(failure.retryable);
-    } finally {
-      setLoading(false);
-    }
-  }, [applyState, disabled]);
-
-  useEffect(() => {
-    void refresh();
-  }, [refresh]);
+  const pathname = usePathname();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     if (disabled) return;
-    function onFocus() {
-      void refresh();
-    }
-    window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
-  }, [disabled, refresh]);
+    const channel = getCartChangeChannel();
+    if (!channel) return;
+    const onMessage = (event: MessageEvent<unknown>) => {
+      if (!isCartChangeMessage(event.data)) return;
+      void queryClient.invalidateQueries({ queryKey: CART_QUERY_KEY });
+    };
+    channel.addEventListener("message", onMessage);
+    return () => {
+      channel.removeEventListener("message", onMessage);
+      releaseCartChangeChannel(channel);
+    };
+  }, [disabled, queryClient]);
 
-  const rollback = useCallback((previous: CartLine[], err: unknown) => {
-    const failure = clientError(err, "Cart update failed.");
-    setLines(previous);
-    setError(failure.message);
-    setRetryable(failure.retryable);
-  }, []);
+  useEffect(() => {
+    if (disabled || !hasIdentityChangeSignal()) return;
+    clearIdentityChangeSignal();
+    void (async () => {
+      await queryClient.cancelQueries({ queryKey: CART_QUERY_KEY });
+      queryClient.removeQueries({ queryKey: CART_QUERY_KEY });
+      broadcastCartChanged();
+      onIdentityChanged();
+    })();
+  }, [disabled, onIdentityChanged, pathname, queryClient]);
 
-  const add = useCallback(async (item: CartAddInput, quantity = 1) => {
-    if (disabled) return false;
-    setError(null);
-    setRetryable(false);
-    const previous = lines;
-    const key = optimisticKey(item.slug, item.variantId);
-    setLines((prev) => {
-      const existing = prev.find((line) => line.slug === item.slug && line.variantId === item.variantId);
-      if (existing) {
-        return prev.map((line) =>
-          line.key === existing.key
-            ? { ...line, quantity: line.quantity + quantity, lineSubtotal: line.price * (line.quantity + quantity) }
-            : line,
-        );
-      }
-      return [
-        ...prev,
-        {
-          ...item,
-          key,
-          collection: "",
-          quantity,
-          available: true,
-          warning: null,
-          lineSubtotal: item.price * quantity,
-        },
-      ];
-    });
+  return null;
+}
 
-    try {
-      const response = await fetch("/api/cart/items", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ slug: item.slug, variantId: item.variantId, quantity }),
-      });
-      applyState(await readResponse(response));
-      return true;
-    } catch (err) {
-      rollback(previous, err);
-      return false;
-    }
-  }, [applyState, disabled, lines, rollback]);
-
-  const setQuantity = useCallback(async (key: string, quantity: number) => {
-    if (disabled) return false;
-    setError(null);
-    setRetryable(false);
-    const previous = lines;
-    setLines((prev) =>
-      quantity <= 0
-        ? prev.filter((line) => line.key !== key)
-        : prev.map((line) =>
-            line.key === key
-              ? { ...line, quantity, lineSubtotal: line.available ? line.price * quantity : 0 }
-              : line,
-          ),
-    );
-
-    try {
-      const response = await fetch("/api/cart/items", {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ lineId: key, quantity }),
-      });
-      applyState(await readResponse(response));
-      return true;
-    } catch (err) {
-      rollback(previous, err);
-      return false;
-    }
-  }, [applyState, disabled, lines, rollback]);
-
-  const remove = useCallback(async (key: string) => {
-    if (disabled) return false;
-    setError(null);
-    setRetryable(false);
-    const previous = lines;
-    setLines((prev) => prev.filter((line) => line.key !== key));
-    try {
-      const response = await fetch("/api/cart/items", {
-        method: "DELETE",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ lineId: key }),
-      });
-      applyState(await readResponse(response));
-      return true;
-    } catch (err) {
-      rollback(previous, err);
-      return false;
-    }
-  }, [applyState, disabled, lines, rollback]);
-
-  const clear = useCallback(async () => {
-    if (disabled) return false;
-    setError(null);
-    setRetryable(false);
-    const previous = lines;
-    setLines([]);
-    try {
-      const response = await fetch("/api/cart", { method: "DELETE" });
-      applyState(await readResponse(response));
-      return true;
-    } catch (err) {
-      rollback(previous, err);
-      return false;
-    }
-  }, [applyState, disabled, lines, rollback]);
+function CartDrawerProvider({
+  children,
+  disabled,
+}: {
+  children: ReactNode;
+  disabled: boolean;
+}) {
+  const [cartDrawerOpen, setCartDrawerOpen] = useState(false);
+  const cartDrawerReturnFocusRef = useRef<() => void>(() => {});
 
   const openCartDrawer = useCallback((returnFocus?: () => void) => {
     if (disabled) return;
@@ -278,54 +116,77 @@ export function CartProvider({
     cartDrawerReturnFocusRef.current = () => {};
   }, []);
 
-  const value = useMemo<CartContextValue>(() => {
-    const count = lines.reduce((sum, line) => sum + line.quantity, 0);
-    const subtotal = lines.reduce(
-      (sum, line) => sum + line.lineSubtotal,
-      0,
-    );
-    return {
-      lines,
-      count,
-      subtotal,
-      cartDrawerOpen,
-      loading,
-      hasLoadedCart,
-      error,
-      retryable,
-      refresh,
-      add,
-      setQuantity,
-      remove,
-      clear,
-      openCartDrawer,
-      closeCartDrawer,
-      returnFocusAfterCartDrawerClose,
-    };
-  }, [
-    lines,
+  const value = useMemo<CartDrawerContextValue>(() => ({
     cartDrawerOpen,
-    loading,
-    hasLoadedCart,
-    error,
-    retryable,
-    refresh,
-    add,
-    setQuantity,
-    remove,
-    clear,
     openCartDrawer,
     closeCartDrawer,
     returnFocusAfterCartDrawerClose,
+  }), [
+    cartDrawerOpen,
+    closeCartDrawer,
+    openCartDrawer,
+    returnFocusAfterCartDrawerClose,
   ]);
 
-  return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
+  return (
+    <CartDrawerContext.Provider value={value}>
+      {children}
+    </CartDrawerContext.Provider>
+  );
 }
 
-export function useCart(): CartContextValue {
-  const ctx = useContext(CartContext);
-  if (!ctx) {
-    throw new Error("useCart must be used within a CartProvider");
+export function CartProvider({
+  children,
+  disabled = false,
+}: {
+  children: ReactNode;
+  disabled?: boolean;
+}) {
+  const [identityVersion, setIdentityVersion] = useState(0);
+  const handleIdentityChanged = useCallback(() => {
+    setIdentityVersion((version) => version + 1);
+  }, []);
+  const [queryClient] = useState(() => {
+    const client = new QueryClient({
+      defaultOptions: {
+        queries: {
+          staleTime: 0,
+          gcTime: 5 * 60 * 1000,
+          refetchOnWindowFocus: true,
+          refetchOnReconnect: true,
+          retry: false,
+        },
+      },
+    });
+    if (disabled) client.setQueryData(CART_QUERY_KEY, EMPTY_CART);
+    return client;
+  });
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <CartRuntimeContext.Provider
+        value={{ commerceEnabled: !disabled, identityVersion }}
+      >
+        <CartDrawerProvider disabled={disabled}>
+          <CartSyncBoundary
+            disabled={disabled}
+            onIdentityChanged={handleIdentityChanged}
+          />
+          {children}
+        </CartDrawerProvider>
+      </CartRuntimeContext.Provider>
+    </QueryClientProvider>
+  );
+}
+
+export function useCartDrawer(): CartDrawerContextValue {
+  const context = useContext(CartDrawerContext);
+  if (!context) {
+    throw new Error("useCartDrawer must be used within a CartProvider");
   }
-  return ctx;
+  return context;
+}
+
+export function useCartCommerceEnabled(): boolean {
+  return useContext(CartRuntimeContext).commerceEnabled;
 }

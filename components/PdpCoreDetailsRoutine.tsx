@@ -7,7 +7,7 @@ import {
   PDP_SLIDE_STYLE,
 } from "@/components/usePdpSlideTransition";
 import { useProductPurchase } from "@/components/useProductPurchase";
-import type { CartAddInput } from "@/components/CartProvider";
+import type { CartAddInput } from "@/lib/cart/types";
 
 type PlaceholderStyle = CSSProperties & {
   "--details-start": string;

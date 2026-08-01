@@ -13,7 +13,7 @@ import {
   type KeyboardEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import { useCart } from "@/components/CartProvider";
+import { useCartDrawer } from "@/components/CartProvider";
 import { ProductImage } from "@/components/ProductImage";
 import { useProductPurchase } from "@/components/useProductPurchase";
 import { routineDisplayLabelForProduct } from "@/lib/catalog/product-routine";
@@ -114,7 +114,7 @@ export function ProductCard({
   onQuickBuyOpen,
   onQuickBuyClose,
 }: ProductCardProps) {
-  const { cartDrawerOpen } = useCart();
+  const { cartDrawerOpen } = useCartDrawer();
   const {
     clearError,
     error: addError,

@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { mergeGuestCartIntoCurrentUser } from "@/lib/cart/server";
+import { markCartIdentityChanged } from "@/lib/cart/auth-sync";
 import { signUpErrorMessage } from "@/lib/auth/errors";
 import { safeReturnTo } from "@/lib/auth/redirect";
 import {
@@ -78,6 +79,7 @@ export async function signInAction(
   }
 
   await mergeGuestCartIntoCurrentUser();
+  await markCartIdentityChanged();
   redirect(next);
 }
 
@@ -122,6 +124,7 @@ export async function signUpAction(
 
   if (data.session) {
     await mergeGuestCartIntoCurrentUser();
+    await markCartIdentityChanged();
     redirect("/account");
   }
 
@@ -244,5 +247,6 @@ export async function updateProfileAction(
 export async function signOutAction() {
   const supabase = await createSupabaseServerClient();
   await supabase.auth.signOut();
+  await markCartIdentityChanged();
   redirect("/account/sign-in");
 }

@@ -8,7 +8,7 @@ import {
   type MouseEvent,
 } from "react";
 import { CheckoutPanel } from "@/components/CheckoutPanel";
-import { useCart } from "@/components/CartProvider";
+import { useCart, useCartMutations } from "@/components/useCart";
 import { ProductImage } from "@/components/ProductImage";
 import {
   formatFreeShippingThreshold,
@@ -42,19 +42,34 @@ export function CartView({
     count,
     loading,
     hasLoadedCart,
-    error,
-    retryable,
+    error: queryError,
+    retryable: queryRetryable,
     refresh,
+  } = useCart();
+  const {
     setQuantity,
     remove,
     clear,
-  } = useCart();
+    isLinePending,
+    isClearing,
+    isMutating,
+    error: mutationError,
+    retryable: mutationRetryable,
+    resetErrors,
+  } = useCartMutations();
+  const error = mutationError ?? queryError;
+  const retryable = mutationError ? mutationRetryable : queryRetryable;
   const isDrawer = mode === "drawer";
   const pathname = usePathname();
   const [pendingCartRoute, setPendingCartRoute] = useState(false);
   const freeShippingQualified = qualifiesForFreeStandardShipping(subtotal);
   const freeShippingRemaining = remainingForFreeStandardShipping(subtotal);
-  const checkoutDisabled = loading || lines.some((line) => !line.available || line.quantity <= 0);
+  const checkoutDisabled = loading || isMutating || lines.some((line) => !line.available || line.quantity <= 0);
+
+  async function retryCart() {
+    resetErrors();
+    await refresh();
+  }
 
   useEffect(() => {
     if (!isDrawer || !pendingCartRoute || pathname !== "/cart") return;
@@ -88,7 +103,7 @@ export function CartView({
           <button
             type="button"
             className="btn btn--editorial-rounded"
-            onClick={() => void refresh()}
+            onClick={() => void retryCart()}
             disabled={loading}
           >
             {loading ? "Trying again" : "Try again"}
@@ -108,7 +123,7 @@ export function CartView({
               <button
                 type="button"
                 className="btn btn--editorial-rounded"
-                onClick={() => void refresh()}
+                onClick={() => void retryCart()}
                 disabled={loading}
               >
                 {loading ? "Trying again" : "Try again"}
@@ -135,7 +150,13 @@ export function CartView({
       <div>
         <div className="cart-items__head">
           <span>{count} {count === 1 ? "item" : "items"}</span>
-          <button type="button" className="link-button" onClick={() => void clear()}>
+          <button
+            type="button"
+            className="link-button"
+            onClick={() => void clear()}
+            disabled={isClearing || isMutating}
+            aria-busy={isClearing || undefined}
+          >
             Clear cart
           </button>
         </div>
@@ -146,7 +167,7 @@ export function CartView({
               <button
                 type="button"
                 className="link-button"
-                onClick={() => void refresh()}
+                onClick={() => void retryCart()}
                 disabled={loading}
               >
                 {loading ? "Trying again" : "Try again"}
@@ -183,7 +204,11 @@ export function CartView({
                 : null;
 
             return (
-              <li key={line.key} className="cart-item">
+              <li
+                key={line.key}
+                className="cart-item"
+                aria-busy={isLinePending(line.key) || undefined}
+              >
                 <ProductImage
                   media={media}
                   swatch={line.swatch}
@@ -204,6 +229,7 @@ export function CartView({
                       type="button"
                       aria-label={`Decrease ${line.name} quantity`}
                       onClick={() => void setQuantity(line.key, line.quantity - 1)}
+                      disabled={isLinePending(line.key)}
                     >
                       &minus;
                     </button>
@@ -212,6 +238,7 @@ export function CartView({
                       type="button"
                       aria-label={`Increase ${line.name} quantity`}
                       onClick={() => void setQuantity(line.key, line.quantity + 1)}
+                      disabled={isLinePending(line.key)}
                     >
                       +
                     </button>
@@ -223,6 +250,7 @@ export function CartView({
                     type="button"
                     className="link-button"
                     onClick={() => void remove(line.key)}
+                    disabled={isLinePending(line.key)}
                   >
                     Remove
                   </button>

@@ -4,7 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CartDrawer } from "@/components/CartDrawer";
-import { useCart } from "@/components/CartProvider";
+import { useCartDrawer } from "@/components/CartProvider";
+import { useCartCount } from "@/components/useCart";
 import { SearchOverlay } from "@/components/SearchOverlay";
 import { Sheet } from "@/components/Sheet";
 
@@ -72,15 +73,13 @@ export function Header({
 }: {
   commerceDisabled?: boolean;
 }) {
+  const { count, hasLoadedCart, error: cartError } = useCartCount();
   const {
-    count,
-    hasLoadedCart,
-    error: cartError,
     cartDrawerOpen,
     openCartDrawer,
     closeCartDrawer,
     returnFocusAfterCartDrawerClose,
-  } = useCart();
+  } = useCartDrawer();
   const [searchOpen, setSearchOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const pathname = usePathname();

@@ -10,7 +10,7 @@ import {
 import { AfterpayMessaging } from "@/components/AfterpayMessaging";
 import { ProductImage } from "@/components/ProductImage";
 import { useProductPurchase } from "@/components/useProductPurchase";
-import type { CartAddInput } from "@/components/CartProvider";
+import type { CartAddInput } from "@/lib/cart/types";
 import { formatPrice, type ProductMedia } from "@/lib/products";
 import { PREVIEW_COMMERCE_DISABLED_LABEL } from "@/lib/catalog-editor/preview-commerce";
 

@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { mergeGuestCartIntoCurrentUser } from "@/lib/cart/server";
+import { markCartIdentityChanged } from "@/lib/cart/auth-sync";
 import { safeReturnTo } from "@/lib/auth/redirect";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -22,6 +23,7 @@ export async function GET(request: NextRequest) {
   }
 
   await mergeGuestCartIntoCurrentUser();
+  await markCartIdentityChanged();
 
   return NextResponse.redirect(new URL(next, request.url));
 }

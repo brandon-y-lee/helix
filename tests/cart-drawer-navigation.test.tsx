@@ -13,10 +13,20 @@ const cartMock = vi.hoisted(() => ({
   subtotal: 2200,
   count: 1,
   loading: false,
+  hasLoadedCart: true,
   error: null as string | null,
+  retryable: false,
+  refresh: vi.fn(),
   setQuantity: vi.fn(),
   remove: vi.fn(),
   clear: vi.fn(),
+  isLinePending: vi.fn(() => false),
+  isClearing: false,
+  isMutating: false,
+  resetErrors: vi.fn(),
+  checkoutPending: false,
+  checkoutError: null,
+  startCheckout: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({
@@ -43,8 +53,9 @@ vi.mock("next/link", () => ({
   ),
 }));
 
-vi.mock("@/components/CartProvider", () => ({
+vi.mock("@/components/useCart", () => ({
   useCart: () => cartMock,
+  useCartMutations: () => cartMock,
 }));
 
 import { CartView } from "@/components/CartView";
@@ -77,6 +88,9 @@ beforeEach(() => {
   cartMock.setQuantity.mockReset();
   cartMock.remove.mockReset();
   cartMock.clear.mockReset();
+  cartMock.refresh.mockReset();
+  cartMock.resetErrors.mockReset();
+  cartMock.startCheckout.mockReset();
 });
 
 describe("CartView drawer navigation", () => {
