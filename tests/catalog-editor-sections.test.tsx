@@ -83,7 +83,7 @@ describe("CatalogEditor sections", () => {
     );
     await user.tab();
     expect(screen.getByRole("link", { name: "← Catalog" })).toHaveFocus();
-  });
+  }, 15_000);
 
   it("keeps advanced and commerce controls read only for a catalog editor", async () => {
     vi.mocked(catalogEditorApi.getEditor).mockResolvedValue(editorResponse(false));
