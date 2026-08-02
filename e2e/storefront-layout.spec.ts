@@ -426,7 +426,7 @@ test("Core PDP hero media is finite, borderless, and aligned to storefront spaci
     await expectNoHorizontalOverflow(page);
   }
 
-  const media = page.locator(".pdp__media");
+  const media = page.locator('.pdp__media[data-state="active"]');
   const mediaFrame = page.locator("[data-pdp-main-media]");
   const mediaRail = page.locator("[data-pdp-media-rail]");
   const activeThumb = page.locator('.pdp__thumb[aria-pressed="true"]');
@@ -469,7 +469,7 @@ test("Core PDP hero media is finite, borderless, and aligned to storefront spaci
     frameBox.y + frameBox.height,
   );
 
-  await expect(page.locator(".pdp__media")).not.toHaveAttribute(
+  await expect(media).not.toHaveAttribute(
     "data-media-kind",
     "placeholder",
   );

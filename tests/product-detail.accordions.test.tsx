@@ -637,23 +637,43 @@ describe("ProductDetail purchase accordions", () => {
     );
     const frame = container.querySelector("[data-pdp-main-media]");
     const rail = container.querySelector("[data-pdp-media-rail]");
+    const track = container.querySelector("[data-pdp-gallery-track]");
+    const slides = Array.from(
+      container.querySelectorAll("[data-pdp-gallery-slide]"),
+    );
+    const imageNodes = slides
+      .map((slide) => slide.querySelector("img"))
+      .filter((image): image is HTMLImageElement => image !== null);
+    const imageSources = imageNodes.map((image) => image.src);
     const texture = screen.getByRole("button", {
       name: "View TREAT texture view, media 2 of 3",
     });
 
     expect(frame).toContainElement(rail as HTMLElement);
-    expect(frame?.querySelector(".pdp__media img")).toHaveAttribute(
+    expect(slides).toHaveLength(3);
+    expect(slides.every((slide) => slide.classList.contains("pdp__media"))).toBe(
+      true,
+    );
+    expect(slides[0]?.querySelector("img")).toHaveAttribute(
       "alt",
       "TREAT bottle view",
     );
+    expect(track).toHaveStyle({ transform: "translate3d(0%, 0, 0)" });
 
     fireEvent.pointerEnter(texture, { pointerType: "mouse" });
     fireEvent.pointerLeave(texture, { pointerType: "mouse" });
     expect(texture).toHaveAttribute("aria-pressed", "true");
-    expect(frame?.querySelector(".pdp__media img")).toHaveAttribute(
+    expect(slides[1]?.querySelector("img")).toHaveAttribute(
       "alt",
       "TREAT texture view",
     );
+    expect(track).toHaveStyle({ transform: "translate3d(-100%, 0, 0)" });
+    expect(
+      slides
+        .map((slide) => slide.querySelector("img"))
+        .filter((image): image is HTMLImageElement => image !== null),
+    ).toEqual(imageNodes);
+    expect(imageNodes.map((image) => image.src)).toEqual(imageSources);
 
     const video = screen.getByRole("button", {
       name: "View TREAT application video, media 3 of 3",
@@ -665,11 +685,13 @@ describe("ProductDetail purchase accordions", () => {
       "TREAT application video",
     );
     expect(frame).toHaveAttribute("data-direction", "forward");
-    expect(frame?.querySelectorAll(".pdp__media")).toHaveLength(1);
+    expect(track).toHaveStyle({ transform: "translate3d(-200%, 0, 0)" });
 
+    const pauseCount = pause.mock.calls.length;
     fireEvent.click(texture);
-    expect(pause).toHaveBeenCalledTimes(1);
+    expect(pause).toHaveBeenCalledTimes(pauseCount + 1);
     expect(frame).toHaveAttribute("data-direction", "backward");
+    expect(track).toHaveStyle({ transform: "translate3d(-100%, 0, 0)" });
 
     rerender(
       <ProductDetail
