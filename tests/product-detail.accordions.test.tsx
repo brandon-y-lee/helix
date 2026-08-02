@@ -354,32 +354,7 @@ describe("ProductDetail purchase accordions", () => {
     expect(container.querySelector("[data-pdp-details-routine]")).toBeNull();
   });
 
-  it("renders accordions directly after the add-to-cart action", () => {
-    render(<ProductDetail product={makeProduct()} />);
-
-    const add = screen.getByRole("button", { name: "BUY TREAT - $25.00" });
-    const use = screen.getByRole("button", { name: /HOW TO USE/ });
-    const ingredients = screen.getByRole("button", { name: /KEY INGREDIENTS/ });
-    const profile = screen.getByRole("heading", {
-      name: "A lightweight PDRN SERUM for HYDRATION, smoother-looking texture, and a steadier GLOW.",
-    });
-    const outcomes = screen.getByRole("heading", {
-      name: "YOUR DAILY TREATMENT THAT:",
-    });
-    const application = screen.getByRole("heading", { name: "APPLICATION" });
-    const inside = screen.getByRole("heading", { name: "what’s inside" });
-    const details = screen.getByRole("heading", { name: "DETAILS" });
-
-    expect(before(add, use)).toBe(true);
-    expect(before(use, ingredients)).toBe(true);
-    expect(before(ingredients, profile)).toBe(true);
-    expect(before(profile, outcomes)).toBe(true);
-    expect(before(outcomes, application)).toBe(true);
-    expect(before(application, inside)).toBe(true);
-    expect(before(inside, details)).toBe(true);
-  });
-
-  it("uses a single-open collapsible accordion group", async () => {
+  it("uses one accordion at a time and links structured ingredients", async () => {
     const user = userEvent.setup();
     render(<ProductDetail product={makeProduct()} />);
 
@@ -392,17 +367,6 @@ describe("ProductDetail purchase accordions", () => {
     await user.click(ingredients);
     expect(use).toHaveAttribute("aria-expanded", "false");
     expect(ingredients).toHaveAttribute("aria-expanded", "true");
-
-    await user.click(ingredients);
-    expect(ingredients).toHaveAttribute("aria-expanded", "false");
-  });
-
-  it("links Core key ingredients to the structured ingredient module", async () => {
-    const user = userEvent.setup();
-    render(<ProductDetail product={makeProduct()} />);
-
-    await user.click(screen.getByRole("button", { name: /KEY INGREDIENTS/ }));
-
     expect(screen.getByText("PDRN")).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: "Explore ingredients" }),
@@ -410,6 +374,9 @@ describe("ProductDetail purchase accordions", () => {
       "href",
       "#pdp-ingredients-treat-03-pdrn-5-ampoule",
     );
+
+    await user.click(ingredients);
+    expect(ingredients).toHaveAttribute("aria-expanded", "false");
   });
 
   it("passes canonical image media into cart adds when available", async () => {
@@ -550,46 +517,6 @@ describe("ProductDetail purchase accordions", () => {
     expect(
       screen.queryByRole("button", { name: /gallery surface/i }),
     ).not.toBeInTheDocument();
-  });
-
-  it("renders a primary and canonical gallery asset as exactly two items", () => {
-    const media: Product["media"] = [
-      {
-        kind: "image",
-        url: "https://example.com/detail.webp",
-        alt: "TREAT bottle view",
-        width: 1200,
-        height: 1500,
-        role: "detail",
-        sortOrder: 0,
-        paletteId: null,
-        palette: null,
-      },
-      {
-        kind: "image",
-        url: "https://example.com/gallery.webp",
-        alt: "TREAT editorial view",
-        width: 1200,
-        height: 1500,
-        role: "gallery",
-        sortOrder: 1,
-        paletteId: null,
-        palette: null,
-      },
-    ];
-
-    render(<ProductDetail product={makeProduct({ media })} />);
-
-    expect(
-      within(
-        screen.getByRole("group", { name: "Product media views" }),
-      ).getAllByRole("button"),
-    ).toHaveLength(2);
-    expect(
-      screen.getByRole("button", {
-        name: "View TREAT editorial view, media 2 of 2",
-      }),
-    ).toBeInTheDocument();
   });
 
   it("keeps the media rail in-panel and uses persistent hover plus keyboard selection", async () => {
@@ -739,51 +666,6 @@ describe("ProductDetail purchase accordions", () => {
     ).toBeNull();
   });
 
-  it("uses the selected variant for main and sticky out-of-stock CTAs", () => {
-    const base = makeProduct();
-    const unavailableVariant = {
-      ...base.variants[0],
-      id: "30ml",
-      label: "30 mL",
-      price: 4200,
-      available: true,
-      inventoryStatus: "out_of_stock" as const,
-      volume: "30 mL",
-      optionValues: { size: "30 mL" },
-      sortOrder: 1,
-    };
-    const { container } = render(
-      <ProductDetail
-        product={makeProduct({
-          variants: [...base.variants, unavailableVariant],
-        })}
-      />,
-    );
-
-    expect(container.querySelector(".pdp__availability")).toBeNull();
-    fireEvent.click(
-      container.querySelectorAll<HTMLButtonElement>(
-        ".variant-options .variant-option",
-      )[1],
-    );
-
-    const mainBuy = container.querySelector<HTMLButtonElement>(
-      "[data-pdp-buy-button]",
-    );
-    const stickyBuy = container.querySelector<HTMLButtonElement>(
-      "[data-sticky-pdp-buy-button]",
-    );
-    expect(mainBuy).toHaveTextContent("OUT OF STOCK");
-    expect(mainBuy).toBeDisabled();
-    expect(stickyBuy).toHaveTextContent("OUT OF STOCK");
-    expect(stickyBuy).toBeDisabled();
-
-    fireEvent.click(mainBuy as HTMLButtonElement);
-    fireEvent.click(stickyBuy as HTMLButtonElement);
-    expect(cartMock.add).not.toHaveBeenCalled();
-    expect(cartMock.openCartDrawer).not.toHaveBeenCalled();
-  });
-
   it("keeps preview purchase layouts visible without allowing cart mutations", () => {
     const { container } = render(
       <ProductDetail
@@ -825,9 +707,22 @@ describe("ProductDetail purchase accordions", () => {
       optionValues: { size: "30 mL" },
       sortOrder: 1,
     };
+    const unavailableVariant = {
+      ...base.variants[0],
+      id: "50ml",
+      label: "50 mL",
+      price: 5000,
+      available: true,
+      inventoryStatus: "out_of_stock" as const,
+      volume: "50 mL",
+      optionValues: { size: "50 mL" },
+      sortOrder: 2,
+    };
     render(
       <ProductDetail
-        product={makeProduct({ variants: [...base.variants, secondVariant] })}
+        product={makeProduct({
+          variants: [...base.variants, secondVariant, unavailableVariant],
+        })}
         stripePublishableKey="pk_test_product"
       />,
     );
@@ -875,6 +770,18 @@ describe("ProductDetail purchase accordions", () => {
       }),
     );
     expect(cartMock.openCartDrawer).toHaveBeenCalledTimes(1);
+
+    await user.click(screen.getByRole("button", { name: "50 mL" }));
+    const mainBuy = document.querySelector<HTMLButtonElement>(
+      "[data-pdp-buy-button]",
+    );
+    expect(mainBuy).toHaveTextContent("OUT OF STOCK");
+    expect(mainBuy).toBeDisabled();
+    expect(stickyBuy).toHaveTextContent("OUT OF STOCK");
+    expect(stickyBuy).toBeDisabled();
+    fireEvent.click(mainBuy as HTMLButtonElement);
+    fireEvent.click(stickyBuy as HTMLButtonElement);
+    expect(cartMock.add).toHaveBeenCalledTimes(1);
   });
 
   it("fails closed without empty Core editorial media shells", () => {

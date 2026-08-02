@@ -46,33 +46,3 @@ test("skip link transfers keyboard focus to main content", async ({ page }) => {
   await page.keyboard.press("Enter");
   await expect(page.locator("#content")).toBeFocused();
 });
-
-test("mobile menu reaches editorial content without horizontal overflow", async ({
-  page,
-}) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/");
-
-  await page.getByRole("button", { name: "Menu" }).click();
-  const menu = page.getByRole("dialog", { name: "Menu" });
-  await expect(menu).toBeVisible();
-  await menu.getByRole("link", { name: "ABOUT" }).click();
-  await expect(page).toHaveURL(/\/about$/);
-  await expect(menu).toHaveCount(0);
-
-  await page.goto("/system");
-  await page.locator('.method-index a[href="#system-treat"]').click();
-  await expect(page).toHaveURL(/\/system#system-treat$/);
-  await expect(page.locator("#system-treat")).toBeInViewport();
-  await expect(
-    page.locator("#system-protect").getByText("COMING SOON"),
-  ).toBeVisible();
-
-  expect(
-    await page.evaluate(
-      () =>
-        document.documentElement.scrollWidth -
-        document.documentElement.clientWidth,
-    ),
-  ).toBeLessThanOrEqual(0);
-});

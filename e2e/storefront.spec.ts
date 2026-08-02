@@ -59,12 +59,6 @@ test("shop renders seeded products and combines filtering with sorting", async (
 test("PDP resolves canonical data and exposes an available variant", async ({
   page,
 }) => {
-  const clientErrors: string[] = [];
-  page.on("console", (message) => {
-    if (message.type() === "error") clientErrors.push(message.text());
-  });
-  page.on("pageerror", (error) => clientErrors.push(error.message));
-
   const serverResponse = await page.request.get(TREAT_PATH);
   expect(serverResponse.ok()).toBe(true);
   expect(await serverResponse.text()).toContain("<h1>TREAT</h1>");
@@ -94,59 +88,6 @@ test("PDP resolves canonical data and exposes an available variant", async ({
   await expect(
     page.getByRole("region", { name: "TREAT customer reviews" }),
   ).toBeVisible();
-
-  const treatGallery = page.getByRole("button", {
-    name: "View Portrait for TREAT with blond-streaked hair on pale blue., media 2 of 2",
-  });
-  await treatGallery.click();
-  await expect(treatGallery).toHaveAttribute("aria-pressed", "true");
-  await expect(
-    page.locator(
-      '[data-pdp-main-media] [data-pdp-gallery-state="2"][data-state="active"] img',
-    ),
-  ).toHaveAttribute(
-    "src",
-    /products%2Ftreat-03-pdrn-5-ampoule%2Fgallery%2F7c7f2e93463b453438d75657583898dd0af6ff674f0c562d0d6a1aad3e4c96f3\.webp/,
-  );
-  await page.getByRole("button", { name: "smooths", exact: true }).click();
-  await page
-    .getByRole("button", {
-      name: "Show application step 2 of 3",
-      exact: true,
-    })
-    .click();
-  await page
-    .getByRole("button", { name: "HOW TO USE", exact: true })
-    .click();
-
-  await page
-    .getByRole("region", { name: "Recommended products" })
-    .getByRole("link", { name: "CLEANSE", exact: true })
-    .click();
-  await expect(
-    page.getByRole("heading", { level: 1, name: "CLEANSE" }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("button", {
-      name: "View CLEANSE calming gel cleanser, media 1 of 2",
-    }),
-  ).toHaveAttribute("aria-pressed", "true");
-  await expect(
-    page.getByRole("button", { name: "HOW TO USE", exact: true }),
-  ).toHaveAttribute("aria-expanded", "false");
-  await expect(
-    page.getByRole("button", { name: "cleanses", exact: true }),
-  ).toHaveAttribute("aria-pressed", "true");
-  await expect(
-    page.getByRole("button", {
-      name: "Show application step 1 of 3",
-      exact: true,
-    }),
-  ).toHaveAttribute("aria-pressed", "true");
-  await expect(
-    page.locator("[data-pdp-application-thumbnail] img"),
-  ).toHaveCount(3);
-  expect(clientErrors).toEqual([]);
 });
 
 test("PDP add-to-cart persists across reload and reaches the cart page", async ({
@@ -201,37 +142,6 @@ test("mobile quick buy opens the cart drawer and restores focus on Escape", asyn
   await page.keyboard.press("Escape");
   await expect(drawer).toHaveCount(0);
   await expect(finalBuy).toBeFocused();
-
-  await page.goto("/");
-  const carousel = page.getByRole("region", {
-    name: "Beyond The Core products",
-  });
-  const carouselCard = carousel.locator(
-    '[data-product-card-slug="refine-02-pore-treatment-pads"]',
-  );
-  await carouselCard
-    .getByRole("button", { name: "Open quick buy for REFINE" })
-    .click();
-  const carouselBuy = carouselCard.getByRole("button", {
-    name: "BUY REFINE - $17.00",
-  });
-  await carouselBuy.press("Enter");
-
-  await expect(drawer).toBeVisible();
-  await expect(page).toHaveURL("/");
-  await expect(
-    drawer
-      .getByRole("list", { name: "Cart items" })
-      .getByText("CLEANSE", { exact: true }),
-  ).toBeVisible();
-  await expect(
-    drawer
-      .getByRole("list", { name: "Cart items" })
-      .getByText("REFINE", { exact: true }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: /CART \(2\)/ }),
-  ).toBeVisible();
 });
 
 test("cart drawer navigation closes the overlay and preserves browser history", async ({

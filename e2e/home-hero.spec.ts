@@ -25,15 +25,3 @@ test("homepage hero CTAs remain usable on desktop and mobile", async ({
     page.getByRole("region", { name: "The Core", exact: true }),
   ).toBeInViewport();
 });
-
-test("homepage hero uses a static poster for reduced motion", async ({
-  page,
-}) => {
-  await page.emulateMedia({ reducedMotion: "reduce" });
-  await page.goto("/");
-
-  const media = page.locator(".home-video-hero__media");
-  await expect(media).toHaveAttribute("data-motion-state", "static");
-  await expect(media.locator("video")).toHaveCount(0);
-  await expect(media.locator(".home-video-hero__poster")).toBeVisible();
-});

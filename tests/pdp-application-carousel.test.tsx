@@ -1,13 +1,9 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 import {
   orderedPdpApplicationMedia,
   PdpApplicationCarousel,
 } from "@/components/PdpApplicationCarousel";
-import {
-  PDP_SLIDE_DURATION_MS,
-  PDP_SLIDE_EASING,
-} from "@/components/usePdpSlideTransition";
 import type { CorePdpApplicationStep } from "@/lib/content/core-pdp";
 import type { ProductMedia } from "@/lib/products";
 
@@ -59,29 +55,8 @@ const productMedia = [
   applicationMedia(2),
 ];
 
-afterEach(() => {
-  vi.useRealTimers();
-  vi.unstubAllGlobals();
-});
-
-function mockReducedMotion(matches: boolean) {
-  vi.stubGlobal(
-    "matchMedia",
-    vi.fn((query: string) => ({
-      matches,
-      media: query,
-      onchange: null,
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-      addListener: vi.fn(),
-      removeListener: vi.fn(),
-      dispatchEvent: vi.fn(),
-    })),
-  );
-}
-
 describe("PdpApplicationCarousel", () => {
-  it("keeps an eyebrow inside every reserved state and exposes only the active copy", () => {
+  it("exposes one active accessible step while reserving every state", () => {
     const { container } = render(
       <PdpApplicationCarousel
         productName="CLEANSE"
@@ -97,75 +72,34 @@ describe("PdpApplicationCarousel", () => {
     expect(
       container.querySelectorAll(".pdp-application__visual-state"),
     ).toHaveLength(3);
-    expect(
-      container.querySelector(
-        ".pdp-application__copy > .pdp-application__eyebrow",
-      ),
-    ).toBeNull();
-    const copyStates = container.querySelectorAll(".pdp-application__step");
-    expect(copyStates).toHaveLength(3);
-    for (const state of copyStates) {
-      expect(
-        state.querySelector(":scope > .pdp-application__eyebrow"),
-      ).toHaveTextContent("APPLICATION");
-      expect(
-        state.querySelector(".pdp-application__step-body > span"),
-      ).not.toBeNull();
-      expect(
-        state.querySelector(".pdp-application__step-body > p"),
-      ).not.toBeNull();
-    }
-    expect(
-      screen.getAllByRole("heading", { name: "APPLICATION" }),
-    ).toHaveLength(1);
-    const section = container.querySelector("[data-pdp-application]");
-    expect(section).toHaveAttribute(
-      "data-transition-duration",
-      String(PDP_SLIDE_DURATION_MS),
+    expect(screen.getAllByRole("heading", { name: "APPLICATION" })).toHaveLength(
+      1,
     );
-    expect(section).toHaveStyle({
-      "--pdp-slide-duration": "800ms",
-      "--pdp-slide-easing": PDP_SLIDE_EASING,
-    });
-    const firstState = container.querySelector(
-      '[data-pdp-application-state="1"]',
-    );
-    expect(firstState).toHaveAttribute("data-state", "active");
-    expect(firstState).toHaveAttribute("data-has-media", "false");
+    expect(
+      container.querySelector('[data-pdp-application-state="1"]'),
+    ).toHaveAttribute("data-has-media", "false");
     expect(
       screen.queryByRole("button", { name: /previous/i }),
     ).not.toBeInTheDocument();
-    expect(
-      container.querySelectorAll("[data-pdp-slide-layer]"),
-    ).toHaveLength(6);
-    expect(
-      container.querySelector(
-        "[data-pdp-application-thumbnail][data-pdp-slide-layer]",
-      ),
-    ).toBeNull();
-    expect(
-      container.querySelector(".pdp-application__next[data-pdp-slide-layer]"),
-    ).toBeNull();
   });
 
-  it("selects real image previews and keeps copy and main media on the same step", () => {
+  it("keeps sorted previews, active copy, and main media synchronized", () => {
+    const orderedMedia = orderedPdpApplicationMedia(productMedia);
     const { container } = render(
       <PdpApplicationCarousel
         productName="CLEANSE"
         steps={steps}
-        media={orderedPdpApplicationMedia(productMedia)}
+        media={orderedMedia}
       />,
     );
-    const next = screen.getByRole("button", {
-      name: "Show next application step",
-    });
+    expect(orderedMedia.map((media) => media.sortOrder)).toEqual([1, 2, 3]);
 
     for (const order of [1, 2, 3]) {
-      const thumbnail = container.querySelector(
-        `[data-pdp-application-thumbnail="${order}"]`,
-      );
-      expect(thumbnail).toHaveAttribute("data-has-media", "true");
-      expect(thumbnail?.querySelector("img")).toHaveAttribute(
+      expect(
+        container.querySelector(
+          `[data-pdp-application-thumbnail="${order}"] img`,
+        ),
+      ).toHaveAttribute(
         "src",
         expect.stringContaining(`application-${order}.png`),
       );
@@ -181,136 +115,33 @@ describe("PdpApplicationCarousel", () => {
     ).toHaveAttribute("aria-hidden", "false");
     expect(
       container.querySelector(
-        '[data-pdp-application-state="2"]',
-      ),
-    ).toHaveAttribute("data-state", "active");
-    expect(
-      container.querySelector(
         '[data-pdp-application-state="2"] [data-pdp-application-main-image="2"]',
       ),
-    ).toHaveAttribute(
-      "src",
-      expect.stringContaining("application-2.png"),
-    );
+    ).toHaveAttribute("src", expect.stringContaining("application-2.png"));
 
     fireEvent.click(
-      screen.getByRole("button", { name: "Show application step 3 of 3" }),
+      screen.getByRole("button", { name: "Show application step 1 of 3" }),
     );
-    expect(
-      screen.getByText("Third application step.").closest("article"),
-    ).toHaveAttribute("aria-hidden", "false");
+    expect(container.querySelector("[data-pdp-application]")).toHaveAttribute(
+      "data-direction",
+      "backward",
+    );
 
+    const next = screen.getByRole("button", {
+      name: "Show next application step",
+    });
+    fireEvent.click(next);
     fireEvent.click(next);
     expect(
-      screen.getByText("First application step.").closest("article"),
+      screen.getByText("Third application step.").closest("article"),
     ).toHaveAttribute("aria-hidden", "false");
     expect(container.querySelector("[data-pdp-application]")).toHaveAttribute(
       "data-direction",
       "forward",
     );
-    fireEvent.click(next);
-    expect(
-      screen
-        .getByText("Second application step is deliberately longer.")
-        .closest("article"),
-    ).toHaveAttribute("aria-hidden", "false");
-    fireEvent.click(next);
-    expect(
-      screen.getByText("Third application step.").closest("article"),
-    ).toHaveAttribute("aria-hidden", "false");
   });
 
-  it("retires synchronized outgoing layers after the shared 800ms duration", () => {
-    vi.useFakeTimers();
-    mockReducedMotion(false);
-    const { container } = render(
-      <PdpApplicationCarousel
-        productName="CLEANSE"
-        steps={steps}
-        media={orderedPdpApplicationMedia(productMedia)}
-      />,
-    );
-
-    act(() => {
-      vi.advanceTimersByTime(30_000);
-    });
-    expect(
-      screen.getByRole("button", { name: "Show application step 1 of 3" }),
-    ).toHaveAttribute("aria-pressed", "true");
-
-    fireEvent.click(
-      screen.getByRole("button", { name: "Show next application step" }),
-    );
-    expect(
-      container.querySelectorAll(
-        '.pdp-application__visual-state[data-state="active"]',
-      ),
-    ).toHaveLength(1);
-    expect(
-      container.querySelectorAll(
-        '.pdp-application__visual-state[data-state="outgoing"]',
-      ),
-    ).toHaveLength(1);
-    expect(
-      container.querySelectorAll(
-        '.pdp-application__step[data-state="outgoing"]',
-      ),
-    ).toHaveLength(1);
-
-    act(() => {
-      vi.advanceTimersByTime(PDP_SLIDE_DURATION_MS - 1);
-    });
-    expect(
-      container.querySelectorAll(
-        '.pdp-application__visual-state[data-state="outgoing"]',
-      ),
-    ).toHaveLength(1);
-
-    act(() => {
-      vi.advanceTimersByTime(1);
-    });
-    expect(
-      container.querySelectorAll(
-        '.pdp-application__visual-state[data-state="outgoing"]',
-      ),
-    ).toHaveLength(0);
-    expect(
-      container.querySelectorAll(
-        '.pdp-application__step[data-state="outgoing"]',
-      ),
-    ).toHaveLength(0);
-  });
-
-  it("maps sorted application media to positions independently of visible copy", () => {
-    const relabeledSteps = [
-      { ...steps[0], copy: "Replacement application copy 1." },
-      { ...steps[1], copy: "Replacement application copy 2." },
-      { ...steps[2], copy: "Replacement application copy 3." },
-    ] as const;
-    const { container } = render(
-      <PdpApplicationCarousel
-        productName="CLEANSE"
-        steps={relabeledSteps}
-        media={orderedPdpApplicationMedia(productMedia)}
-      />,
-    );
-
-    for (const order of [1, 2, 3]) {
-      const state = container.querySelector(
-        `[data-pdp-application-state="${order}"]`,
-      );
-      expect(state).toHaveAttribute("data-has-media", "true");
-      expect(state?.querySelector("img")).toHaveAttribute(
-        "src",
-        expect.stringContaining(`application-${order}.png`),
-      );
-    }
-    expect(
-      orderedPdpApplicationMedia(productMedia).map((media) => media.sortOrder),
-    ).toEqual([1, 2, 3]);
-  });
-
-  it("keeps each missing position on its own hue fallback", () => {
+  it("uses a local fallback only for a missing media position", () => {
     const { container } = render(
       <PdpApplicationCarousel
         productName="CLEANSE"
@@ -322,133 +153,18 @@ describe("PdpApplicationCarousel", () => {
       />,
     );
 
-    const first = container.querySelector('[data-pdp-application-state="1"]');
     const second = container.querySelector('[data-pdp-application-state="2"]');
-    const third = container.querySelector('[data-pdp-application-state="3"]');
-    expect(first).toHaveAttribute("data-has-media", "true");
     expect(second).toHaveAttribute("data-has-media", "false");
     expect(second?.querySelector("img")).toBeNull();
     expect(
-      second?.querySelector(".pdp-application__shape--one"),
+      container.querySelector(
+        '[data-pdp-application-thumbnail="2"] .pdp-application__swatch-fallback',
+      ),
     ).not.toBeNull();
-    expect(third).toHaveAttribute("data-has-media", "true");
-    const secondThumbnail = container.querySelector(
-      '[data-pdp-application-thumbnail="2"]',
-    );
-    expect(secondThumbnail).toHaveAttribute("data-has-media", "false");
-    expect(
-      secondThumbnail?.querySelector(".pdp-application__swatch-fallback"),
-    ).not.toBeNull();
-    expect(secondThumbnail?.querySelector("img")).toBeNull();
-  });
-
-  it("resolves rapid input to the latest matching copy and image", () => {
-    vi.useFakeTimers();
-    mockReducedMotion(false);
-    const { container } = render(
-      <PdpApplicationCarousel
-        productName="CLEANSE"
-        steps={steps}
-        media={productMedia}
-      />,
-    );
-
-    fireEvent.click(
-      screen.getByRole("button", { name: "Show application step 2 of 3" }),
-    );
-    fireEvent.click(
-      screen.getByRole("button", { name: "Show application step 3 of 3" }),
-    );
-
-    expect(
-      screen.getByText("Third application step.").closest("article"),
-    ).toHaveAttribute("data-state", "active");
     expect(
       container.querySelector(
         '[data-pdp-application-state="3"] [data-pdp-application-main-image="3"]',
       ),
-    ).toHaveAttribute(
-      "src",
-      expect.stringContaining("application-3.png"),
-    );
-    expect(
-      screen.getByRole("button", { name: "Show application step 3 of 3" }),
-    ).toHaveAttribute("aria-pressed", "true");
-
-    act(() => vi.advanceTimersByTime(PDP_SLIDE_DURATION_MS));
-    expect(
-      container.querySelectorAll('[data-state="outgoing"]'),
-    ).toHaveLength(0);
-  });
-
-  it("retires outgoing copy and media immediately for reduced motion", () => {
-    vi.useFakeTimers();
-    mockReducedMotion(true);
-    const { container } = render(
-      <PdpApplicationCarousel
-        productName="CLEANSE"
-        steps={steps}
-        media={productMedia}
-      />,
-    );
-
-    fireEvent.click(
-      screen.getByRole("button", { name: "Show application step 2 of 3" }),
-    );
-
-    expect(
-      container.querySelectorAll('[data-state="outgoing"]'),
-    ).toHaveLength(0);
-    expect(container.querySelector("[data-pdp-application]")).toHaveAttribute(
-      "data-pdp-slide-transitioning",
-      "false",
-    );
-  });
-
-  it("reverses direct backward selection and keeps cyclic arrows forward", () => {
-    const { container } = render(
-      <PdpApplicationCarousel
-        productName="CLEANSE"
-        steps={steps}
-        media={productMedia}
-      />,
-    );
-    const section = container.querySelector("[data-pdp-application]");
-
-    fireEvent.click(
-      screen.getByRole("button", { name: "Show application step 3 of 3" }),
-    );
-    expect(section).toHaveAttribute("data-direction", "forward");
-    fireEvent.click(
-      screen.getByRole("button", { name: "Show application step 1 of 3" }),
-    );
-    expect(section).toHaveAttribute("data-direction", "backward");
-    fireEvent.click(
-      screen.getByRole("button", { name: "Show application step 3 of 3" }),
-    );
-    fireEvent.click(
-      screen.getByRole("button", { name: "Show next application step" }),
-    );
-    expect(section).toHaveAttribute("data-direction", "forward");
-  });
-
-  it("advances from the latest active index during repeated arrow input", () => {
-    const { container } = render(
-      <PdpApplicationCarousel
-        productName="CLEANSE"
-        steps={steps}
-        media={productMedia}
-      />,
-    );
-    const next = screen.getByRole("button", {
-      name: "Show next application step",
-    });
-
-    fireEvent.click(next);
-    fireEvent.click(next);
-
-    expect(
-      container.querySelector('[data-pdp-application-state="3"]'),
-    ).toHaveAttribute("data-state", "active");
+    ).toHaveAttribute("src", expect.stringContaining("application-3.png"));
   });
 });

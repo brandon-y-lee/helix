@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { CatalogDraftDocument } from "@/lib/admin/catalog-editor/client";
 import CatalogEditor from "@/components/admin/catalog-editor/CatalogEditor";
 import {
   CatalogVersionConflictError,
@@ -21,6 +22,42 @@ vi.mock("@/lib/admin/catalog-editor/client", async (importOriginal) => {
     ),
   };
 });
+
+vi.mock(
+  "@/components/admin/catalog-editor/CatalogEditorSections",
+  async (importOriginal) => {
+    const original =
+      await importOriginal<
+        typeof import("@/components/admin/catalog-editor/CatalogEditorSections")
+      >();
+    return {
+      ...original,
+      default: ({
+        document,
+        onChange,
+      }: {
+        document: CatalogDraftDocument;
+        onChange: (document: CatalogDraftDocument) => void;
+      }) => (
+        <label>
+          Display name
+          <input
+            value={document.product.display_name}
+            onChange={(event) =>
+              onChange({
+                ...document,
+                product: {
+                  ...document.product,
+                  display_name: event.target.value,
+                },
+              })
+            }
+          />
+        </label>
+      ),
+    };
+  },
+);
 
 describe("CatalogEditor draft workflow", () => {
   beforeEach(() => {
@@ -53,6 +90,9 @@ describe("CatalogEditor draft workflow", () => {
     fireEvent.change(screen.getByLabelText("Display name"), {
       target: { value: "LOCAL CLEANSE" },
     });
+    const leaveEvent = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(leaveEvent);
+    expect(leaveEvent.defaultPrevented).toBe(true);
 
     vi.mocked(catalogEditorApi.saveDraft).mockRejectedValueOnce(
       new CatalogVersionConflictError("Another edit was saved.", {
@@ -78,7 +118,7 @@ describe("CatalogEditor draft workflow", () => {
     expect(
       screen.getByRole("button", { name: "Copy/review local changes" }),
     ).toBeVisible();
-  }, 15_000);
+  });
 
   it("saves before opening the isolated draft preview", async () => {
     const open = vi.spyOn(window, "open").mockImplementation(() => null);
@@ -98,7 +138,7 @@ describe("CatalogEditor draft workflow", () => {
     );
     expect(catalogEditorApi.saveDraft).toHaveBeenCalled();
     open.mockRestore();
-  }, 15_000);
+  });
 
   it("requires publish capability, validated diff review, and confirmation", async () => {
     vi.mocked(catalogEditorApi.publishDraft).mockResolvedValue({
@@ -144,7 +184,7 @@ describe("CatalogEditor draft workflow", () => {
     );
     expect(await screen.findByText("Revision 4 published")).toBeVisible();
     expect(screen.getByText(/not reported/)).toBeVisible();
-  }, 15_000);
+  });
 
   it("preserves ready status when publish review has no unsaved changes", async () => {
     const readyDocument = {

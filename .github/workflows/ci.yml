@@ -45,19 +45,15 @@ jobs:
       - name: Unit tests
         run: pnpm test
 
-      # Gate 5: production build.
-      - name: Build
-        run: pnpm build
-
-      # Gate 6: end-to-end tests. Playwright's webServer reuses the build output.
+      # Gate 5: end-to-end tests against one production build.
       - name: Install Playwright browsers
         run: pnpm exec playwright install --with-deps chromium
 
-      - name: E2E tests
+      - name: Production build and E2E tests
         run: pnpm e2e
 
       - name: Upload Playwright report
-        if: ${{ !cancelled() }}
+        if: ${{ failure() }}
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report

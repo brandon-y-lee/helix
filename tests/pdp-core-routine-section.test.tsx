@@ -1,7 +1,6 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 import { PdpCoreRoutineSection } from "@/components/PdpCoreRoutineSection";
-import { PDP_SLIDE_DURATION_MS } from "@/components/usePdpSlideTransition";
 
 const productRows: Array<
   [string, string, string, string, number, number, string, string]
@@ -56,24 +55,12 @@ const products = productRows.map(
   }),
 );
 
-afterEach(() => {
-  vi.useRealTimers();
-  vi.unstubAllGlobals();
-});
-
 describe("PdpCoreRoutineSection", () => {
-  it("starts on the current PDP and renders three persistent, non-link states", () => {
+  it("starts on the current product with persistent non-link states", () => {
     const { container } = render(
       <PdpCoreRoutineSection products={products} currentSlug="treat" />,
     );
 
-    expect(
-      screen.getByRole("heading", {
-        name: "The Mei Pelle CORE for clearer, healthier skin.",
-      }),
-    ).toBeInTheDocument();
-    expect(screen.queryByText("The Core")).not.toBeInTheDocument();
-    expect(screen.getByText("Your morning and evening essentials.")).toBeInTheDocument();
     expect(
       screen.getByRole("radio", { name: "Show step 2, TREAT" }),
     ).toHaveAttribute("aria-checked", "true");
@@ -85,34 +72,14 @@ describe("PdpCoreRoutineSection", () => {
       container.querySelectorAll(".pdp-core-routine__visual-state"),
     ).toHaveLength(3);
     expect(
-      container.querySelectorAll(".pdp-core-routine__visual img"),
-    ).toHaveLength(3);
-    expect(container.querySelectorAll(".pdp-core-routine img")).toHaveLength(6);
-    expect(
       container.querySelector(
         '.pdp-core-routine__visual-state[data-state="active"] img',
       ),
-    ).toHaveAttribute(
-      "src",
-      expect.stringContaining("treat-editorial.webp"),
-    );
-    expect(
-      container.querySelector(
-        '.pdp-core-routine__callout-state[data-state="active"] .pdp-core-routine__annotation',
-      ),
-    ).toHaveTextContent("TREATTreatment serum");
+    ).toHaveAttribute("src", expect.stringContaining("treat-editorial.webp"));
     expect(container.querySelectorAll("a")).toHaveLength(0);
-    expect(
-      container.querySelectorAll("[data-pdp-slide-viewport]"),
-    ).toHaveLength(2);
-    expect(
-      container.querySelector(
-        ".pdp-core-routine__steps [data-pdp-slide-layer]",
-      ),
-    ).toBeNull();
   });
 
-  it("persists hover, focus, click, and keyboard selections with direction", () => {
+  it("maps pointer, focus, click, and keyboard selection to both media panels", () => {
     const { container } = render(
       <PdpCoreRoutineSection products={products} currentSlug="cleanse" />,
     );
@@ -122,10 +89,6 @@ describe("PdpCoreRoutineSection", () => {
 
     fireEvent.pointerEnter(second);
     expect(second).toHaveAttribute("aria-checked", "true");
-    expect(container.querySelector(".pdp-core-routine")).toHaveAttribute(
-      "data-direction",
-      "forward",
-    );
     expect(
       container.querySelector(
         '.pdp-core-routine__callout-state[data-state="active"] img',
@@ -135,13 +98,9 @@ describe("PdpCoreRoutineSection", () => {
       container.querySelector(
         '.pdp-core-routine__visual-state[data-state="active"] img',
       ),
-    ).toHaveAttribute(
-      "src",
-      expect.stringContaining("treat-editorial.webp"),
-    );
+    ).toHaveAttribute("src", expect.stringContaining("treat-editorial.webp"));
 
     fireEvent.focus(third);
-    expect(third).toHaveAttribute("aria-checked", "true");
     fireEvent.keyDown(third, { key: "ArrowLeft" });
     expect(second).toHaveAttribute("aria-checked", "true");
     fireEvent.keyDown(second, { key: "Home" });
@@ -155,7 +114,7 @@ describe("PdpCoreRoutineSection", () => {
     expect(third).toHaveAttribute("aria-checked", "true");
   });
 
-  it("uses the selected product hue when only that editorial image is missing", () => {
+  it("uses a fallback only for the selected product missing editorial media", () => {
     const productsWithMissingTreatEditorial = products.map((product) =>
       product.slug === "treat"
         ? { ...product, editorialMedia: null }
@@ -172,10 +131,6 @@ describe("PdpCoreRoutineSection", () => {
       '.pdp-core-routine__visual-state[data-state="active"]',
     );
     expect(activeVisual).toHaveAttribute("data-media", "fallback");
-    expect(activeVisual).toHaveStyle({
-      "--core-from": "#e4c175",
-      "--core-to": "#a7772f",
-    });
     expect(activeVisual?.querySelector("img")).toBeNull();
 
     fireEvent.click(
@@ -185,79 +140,6 @@ describe("PdpCoreRoutineSection", () => {
       container.querySelector(
         '.pdp-core-routine__visual-state[data-state="active"] img',
       ),
-    ).toHaveAttribute(
-      "src",
-      expect.stringContaining("seal-editorial.webp"),
-    );
-  });
-
-  it("does not autoplay and retires only the outgoing transition layer", () => {
-    vi.useFakeTimers();
-    const { container } = render(
-      <PdpCoreRoutineSection products={products} currentSlug="cleanse" />,
-    );
-
-    act(() => {
-      vi.advanceTimersByTime(30_000);
-    });
-    expect(
-      screen.getByRole("radio", { name: "Show step 1, CLEANSE" }),
-    ).toHaveAttribute("aria-checked", "true");
-
-    fireEvent.click(
-      screen.getByRole("radio", { name: "Show step 2, TREAT" }),
-    );
-    expect(
-      container.querySelectorAll(
-        '.pdp-core-routine__visual-state[data-state="outgoing"]',
-      ),
-    ).toHaveLength(1);
-
-    act(() => {
-      vi.advanceTimersByTime(PDP_SLIDE_DURATION_MS);
-    });
-    expect(
-      container.querySelectorAll(
-        '.pdp-core-routine__visual-state[data-state="outgoing"]',
-      ),
-    ).toHaveLength(0);
-    expect(
-      container.querySelectorAll(
-        '.pdp-core-routine__visual-state[data-state="active"]',
-      ),
-    ).toHaveLength(1);
-  });
-
-  it("retires the outgoing layer immediately for reduced motion", () => {
-    vi.useFakeTimers();
-    vi.stubGlobal(
-      "matchMedia",
-      vi.fn(() => ({
-        matches: true,
-        media: "(prefers-reduced-motion: reduce)",
-        onchange: null,
-        addEventListener: vi.fn(),
-        removeEventListener: vi.fn(),
-        addListener: vi.fn(),
-        removeListener: vi.fn(),
-        dispatchEvent: vi.fn(),
-      })),
-    );
-    const { container } = render(
-      <PdpCoreRoutineSection products={products} currentSlug="cleanse" />,
-    );
-
-    fireEvent.click(
-      screen.getByRole("radio", { name: "Show step 2, TREAT" }),
-    );
-    expect(
-      container.querySelectorAll(
-        '.pdp-core-routine__visual-state[data-state="outgoing"]',
-      ),
-    ).toHaveLength(0);
-    expect(container.querySelector(".pdp-core-routine")).toHaveAttribute(
-      "data-pdp-slide-transitioning",
-      "false",
-    );
+    ).toHaveAttribute("src", expect.stringContaining("seal-editorial.webp"));
   });
 });

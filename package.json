@@ -40,7 +40,6 @@
     "search:verify-core-pdp-media": "tsx scripts/search-verify-core-pdp-media.ts",
     "search:reindex": "pnpm run search:backfill",
     "stripe:sync:sandbox": "tsx scripts/stripe-sync-sandbox.ts",
-    "test:stripe:sandbox": "pnpm run test -- tests/checkout-config.test.ts tests/rewards-rules.test.ts",
     "test:cart:concurrency": "tsx scripts/test-cart-concurrency.ts"
   },
   "dependencies": {

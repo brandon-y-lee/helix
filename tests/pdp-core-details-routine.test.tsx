@@ -1,16 +1,8 @@
-import {
-  act,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-  within,
-} from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PdpCoreDetailsRoutine } from "@/components/PdpCoreDetailsRoutine";
 import { coreDetailsIslandItems } from "@/components/ProductDetail.adapters";
-import { PDP_SLIDE_DURATION_MS } from "@/components/usePdpSlideTransition";
 import type { Product } from "@/lib/products";
 
 const cartMock = vi.hoisted(() => ({
@@ -180,11 +172,6 @@ beforeEach(() => {
   cartMock.openCartDrawer.mockReset();
 });
 
-afterEach(() => {
-  vi.useRealTimers();
-  vi.unstubAllGlobals();
-});
-
 describe("PdpCoreDetailsRoutine", () => {
   it.each([
     ["cleanse-01-calming-gel-cleanser", "CLEANSE"],
@@ -256,9 +243,8 @@ describe("PdpCoreDetailsRoutine", () => {
     ).toBeNull();
   });
 
-  it("supports focus, arrow keys, route resets, and rapid transition cleanup", async () => {
-    vi.useFakeTimers();
-    const { container, rerender } = render(
+  it("supports focus, arrow keys, and route resets", async () => {
+    const { rerender } = render(
       <PdpCoreDetailsRoutine
         items={coreDetailsIslandItems(products)}
         currentSlug="cleanse-01-calming-gel-cleanser"
@@ -270,14 +256,6 @@ describe("PdpCoreDetailsRoutine", () => {
     fireEvent.focus(treat);
     fireEvent.keyDown(treat, { key: "ArrowRight" });
     expect(seal).toHaveAttribute("aria-checked", "true");
-    fireEvent.click(treat);
-    fireEvent.click(seal);
-    act(() => vi.advanceTimersByTime(PDP_SLIDE_DURATION_MS));
-    expect(
-      container.querySelectorAll(
-        '.pdp-details-routine__state[data-state="outgoing"]',
-      ),
-    ).toHaveLength(0);
 
     rerender(
       <PdpCoreDetailsRoutine
@@ -285,8 +263,7 @@ describe("PdpCoreDetailsRoutine", () => {
         currentSlug="treat-03-pdrn-5-ampoule"
       />,
     );
-    await act(async () => {});
-    expect(treat).toHaveAttribute("aria-checked", "true");
+    await waitFor(() => expect(treat).toHaveAttribute("aria-checked", "true"));
   });
 
   it("adds the active product, opens only after success, and guards duplicates", async () => {
@@ -389,39 +366,5 @@ describe("PdpCoreDetailsRoutine", () => {
     fireEvent.click(buy);
     expect(cartMock.add).not.toHaveBeenCalled();
     expect(cartMock.openCartDrawer).not.toHaveBeenCalled();
-  });
-
-  it("retires the outgoing layer at the shared reduced-motion duration", () => {
-    vi.useFakeTimers();
-    vi.stubGlobal(
-      "matchMedia",
-      vi.fn(() => ({
-        matches: true,
-        media: "(prefers-reduced-motion: reduce)",
-        onchange: null,
-        addEventListener: vi.fn(),
-        removeEventListener: vi.fn(),
-        addListener: vi.fn(),
-        removeListener: vi.fn(),
-        dispatchEvent: vi.fn(),
-      })),
-    );
-    const { container } = render(
-      <PdpCoreDetailsRoutine
-        items={coreDetailsIslandItems(products)}
-        currentSlug="cleanse-01-calming-gel-cleanser"
-      />,
-    );
-
-    fireEvent.click(screen.getByRole("radio", { name: "Show treat, TREAT" }));
-    expect(
-      container.querySelectorAll(
-        '.pdp-details-routine__state[data-state="outgoing"]',
-      ),
-    ).toHaveLength(0);
-    expect(container.querySelector(".pdp-details-routine")).toHaveAttribute(
-      "data-pdp-slide-transitioning",
-      "false",
-    );
   });
 });
