@@ -2,6 +2,7 @@
 
 import { CartView } from "@/components/CartView";
 import { Sheet } from "@/components/Sheet";
+import { PDP_SLIDE_STYLE } from "@/components/usePdpSlideTransition";
 
 export function CartDrawer({
   open,
@@ -22,6 +23,10 @@ export function CartDrawer({
       onClose={onClose}
       returnFocus={returnFocus}
       className="cart-sheet"
+      overlayClassName="cart-sheet-overlay"
+      overlayStyle={PDP_SLIDE_STYLE}
+      panelStyle={PDP_SLIDE_STYLE}
+      animatePresence
     >
       <CartView mode="drawer" onContinue={onClose} />
     </Sheet>

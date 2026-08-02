@@ -88,6 +88,26 @@ test("PDP resolves canonical data and exposes an available variant", async ({
   await expect(
     page.getByRole("region", { name: "TREAT customer reviews" }),
   ).toBeVisible();
+
+  const portraitView = page.getByRole("button", {
+    name: "View Portrait for TREAT with blond-streaked hair on pale blue., media 2 of 2",
+  });
+  await portraitView.click();
+  await expect(portraitView).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator('[data-pdp-gallery-state="2"]')).toHaveAttribute(
+    "data-state",
+    "active",
+  );
+
+  const productView = page.getByRole("button", {
+    name: "View TREAT PDRN ampoule, media 1 of 2",
+  });
+  await productView.click();
+  await expect(productView).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator('[data-pdp-gallery-state="1"]')).toHaveAttribute(
+    "data-state",
+    "active",
+  );
 });
 
 test("PDP add-to-cart persists across reload and reaches the cart page", async ({
@@ -134,14 +154,33 @@ test("mobile quick buy opens the cart drawer and restores focus on Escape", asyn
   await finalBuy.click();
   const drawer = page.getByRole("dialog", { name: "Cart" });
   await expect(drawer).toBeVisible();
+  const drawerOverlay = page.locator(".cart-sheet-overlay");
+  const drawerPanel = page.locator(".cart-sheet");
+  await expect(drawerOverlay).toHaveAttribute("data-state", "open");
+  await expect(drawerPanel).toHaveAttribute("data-state", "open");
   await expect(page).toHaveURL(standardCardUrl);
   await expect(
     page.getByRole("button", { name: /CART \(1\)/ }),
   ).toBeVisible();
 
   await page.keyboard.press("Escape");
+  await expect(drawerOverlay).toHaveAttribute("data-state", "closed");
+  await expect(drawerPanel).toHaveAttribute("data-state", "closed");
+  await drawerPanel.evaluate((panel) => panel.getAnimations()[0]?.finish());
   await expect(drawer).toHaveCount(0);
   await expect(finalBuy).toBeFocused();
+
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const cartTrigger = page.getByRole("button", { name: /CART \(1\)/ });
+  await cartTrigger.click();
+  await expect(drawer).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(drawer).toHaveCount(0);
+  await expect(page.locator(".cart-sheet-overlay")).toHaveCount(0);
+  await expect
+    .poll(() => page.evaluate(() => document.body.style.overflow))
+    .not.toBe("hidden");
+  await expect(cartTrigger).toBeFocused();
 });
 
 test("cart drawer navigation closes the overlay and preserves browser history", async ({
