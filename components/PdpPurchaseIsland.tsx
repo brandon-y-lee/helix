@@ -90,6 +90,12 @@ export function PdpPurchaseIsland({
         purchasable: false,
       }
     : productCta;
+  const stickyPrice =
+    variant && cta.purchasable ? formatPrice(variant.price) : null;
+  const stickyLabelPrefix =
+    stickyPrice && cta.label.endsWith(stickyPrice)
+      ? cta.label.slice(0, -stickyPrice.length)
+      : null;
   const stickyVisible = hasPassedVideoStart && !footerEnteringViewport;
 
   useEffect(
@@ -245,40 +251,41 @@ export function PdpPurchaseIsland({
         data-visible={stickyVisible}
         aria-hidden={!stickyVisible}
       >
-        <div className="pdp-sticky-purchase__identity">
-          <ProductImage
-            media={stickyMedia}
-            swatch={cartItem.swatch}
-            className="pdp-sticky-purchase__media"
-            imageClassName="pdp-sticky-purchase__image"
-            sizes="64px"
-          />
-          <span className="pdp-sticky-purchase__identity-copy">
-            <span>{routineLabel}</span>
-            <strong title={productName}>{productName}</strong>
-            <small>{productType}</small>
-          </span>
-        </div>
-        <div
-          className="pdp-sticky-purchase__variants"
-          role="group"
-          aria-label={`${productName} sticky size options`}
-        >
-          {variants.map((option) => (
-            <button
-              key={option.id}
-              type="button"
-              aria-pressed={option.id === variant?.id}
-              disabled={!option.available}
-              tabIndex={stickyVisible ? undefined : -1}
-              onClick={() => setVariantId(option.id)}
-            >
-              {option.label}
-            </button>
-          ))}
+        <div className="pdp-sticky-purchase__content">
+          <div className="pdp-sticky-purchase__identity">
+            <ProductImage
+              media={stickyMedia}
+              swatch={cartItem.swatch}
+              className="pdp-sticky-purchase__media"
+              imageClassName="pdp-sticky-purchase__image"
+              sizes="64px"
+            />
+            <span className="pdp-sticky-purchase__identity-copy">
+              <span>{routineLabel}</span>
+              <strong title={productName}>{productName}</strong>
+              <small>{productType}</small>
+            </span>
+          </div>
+          <div
+            className="pdp-sticky-purchase__variants"
+            role="group"
+            aria-label={`${productName} sticky size options`}
+          >
+            {variants.map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                aria-pressed={option.id === variant?.id}
+                disabled={!option.available}
+                tabIndex={stickyVisible ? undefined : -1}
+                onClick={() => setVariantId(option.id)}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
         </div>
         <div className="pdp-sticky-purchase__action">
-          <span>{variant ? formatPrice(variant.price) : "—"}</span>
           <button
             ref={stickyBuyButtonRef}
             type="button"
@@ -291,7 +298,18 @@ export function PdpPurchaseIsland({
             tabIndex={stickyVisible ? undefined : -1}
             aria-label={cta.label}
           >
-            {pending && cta.purchasable ? "Adding" : cta.label}
+            {pending && cta.purchasable ? (
+              "Adding"
+            ) : stickyLabelPrefix && stickyPrice ? (
+              <>
+                {stickyLabelPrefix}
+                <strong className="pdp-sticky-purchase__cta-price">
+                  {stickyPrice}
+                </strong>
+              </>
+            ) : (
+              cta.label
+            )}
           </button>
         </div>
       </div>

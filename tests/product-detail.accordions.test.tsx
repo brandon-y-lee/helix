@@ -886,6 +886,9 @@ describe("ProductDetail purchase accordions", () => {
       "[data-sticky-pdp-buy-button]",
     );
     expect(stickyBuy).toHaveTextContent("BUY TREAT - $42.00");
+    expect(
+      stickyBuy?.querySelector(".pdp-sticky-purchase__cta-price"),
+    ).toHaveTextContent("$42.00");
     fireEvent.click(stickyBuy as HTMLButtonElement);
 
     await waitFor(() => expect(cartMock.add).toHaveBeenCalledTimes(1));

@@ -5561,10 +5561,10 @@ main:focus {
   bottom: 0;
   z-index: 45;
   width: calc(100% - (2 * var(--storefront-gutter)));
-  display: grid;
-  grid-template-columns: minmax(250px, 1fr) minmax(150px, 0.7fr) minmax(270px, 0.9fr);
+  display: flex;
   gap: clamp(20px, 2.6vw, 38px);
   align-items: center;
+  justify-content: space-between;
   padding:
     14px
     clamp(18px, 2.4vw, 32px)
@@ -5595,8 +5595,17 @@ main:focus {
     visibility 0s;
 }
 
+.pdp-sticky-purchase__content {
+  min-width: 0;
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  gap: clamp(16px, 2vw, 30px);
+}
+
 .pdp-sticky-purchase__identity {
   min-width: 0;
+  flex: 0 1 clamp(250px, 30vw, 440px);
   display: grid;
   grid-template-columns: 58px minmax(0, 1fr);
   gap: 14px;
@@ -5646,9 +5655,10 @@ main:focus {
 
 .pdp-sticky-purchase__variants {
   min-width: 0;
+  flex: 0 1 auto;
   display: flex;
   flex-wrap: wrap;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 8px;
 }
 
@@ -5680,24 +5690,45 @@ main:focus {
 
 .pdp-sticky-purchase__action {
   min-width: 0;
-  display: grid;
-  grid-template-columns: auto minmax(190px, 1fr);
-  gap: 12px;
-  align-items: center;
-}
-
-.pdp-sticky-purchase__action > span {
-  color: var(--ink);
-  font-size: 0.82rem;
-  font-weight: 800;
-  white-space: nowrap;
+  flex: 0 1 clamp(300px, 25vw, 420px);
 }
 
 .pdp-sticky-purchase .btn {
   width: 100%;
   min-width: 0;
   min-height: 50px;
+  border-radius: calc(var(--radius) + 4px);
   padding-inline: 20px;
+  transition:
+    color 300ms ease,
+    background-color 300ms ease,
+    border-color 300ms ease,
+    opacity 300ms ease,
+    transform 300ms var(--ease-out);
+}
+
+.pdp-sticky-purchase__cta-price {
+  font-weight: 800;
+}
+
+@media (hover: hover) {
+  .pdp-sticky-purchase .btn:not(:disabled):hover {
+    border-color: var(--accent);
+    background: var(--surface);
+    color: var(--accent);
+    opacity: 1;
+    transform: translateY(-1px);
+  }
+}
+
+.pdp-sticky-purchase .btn:not(:disabled):active {
+  background: var(--accent);
+  color: var(--accent-ink);
+  transform: translateY(0);
+}
+
+.pdp-sticky-purchase .btn:disabled {
+  transform: none;
 }
 
 .pdp-endorsements {
@@ -7426,8 +7457,14 @@ main:focus {
   .pdp-reviews__more button,
   .pdp-accordion__panel,
   .pdp-panel-sequence__track,
-  .pdp-sticky-purchase {
+  .pdp-sticky-purchase,
+  .pdp-sticky-purchase .btn {
     transition: none;
+  }
+
+  .pdp-sticky-purchase .btn:not(:disabled):hover,
+  .pdp-sticky-purchase .btn:not(:disabled):active {
+    transform: none;
   }
 
   .product-card__img--asset,
@@ -7917,17 +7954,17 @@ main:focus {
   }
 
   .pdp-sticky-purchase {
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 12px 18px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
   }
 
-  .pdp-sticky-purchase__variants {
-    justify-content: flex-end;
+  .pdp-sticky-purchase__content {
+    gap: 18px;
   }
 
   .pdp-sticky-purchase__action {
-    grid-column: 1 / -1;
-    grid-template-columns: auto minmax(0, 1fr);
+    width: 100%;
   }
 
   .pdp-endorsements__rail {
@@ -8006,17 +8043,17 @@ main:focus {
   }
 
   .pdp-sticky-purchase {
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 12px 18px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
   }
 
-  .pdp-sticky-purchase__variants {
-    justify-content: flex-end;
+  .pdp-sticky-purchase__content {
+    gap: 18px;
   }
 
   .pdp-sticky-purchase__action {
-    grid-column: 1 / -1;
-    grid-template-columns: auto minmax(0, 1fr);
+    width: 100%;
   }
 
   .pdp-endorsements__rail {
@@ -8250,13 +8287,17 @@ main:focus {
     bottom: 0;
     width: calc(100% - (2 * var(--storefront-gutter)));
     max-width: none;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 10px 12px;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
     padding:
       10px
       10px
       max(10px, env(safe-area-inset-bottom));
     border-radius: 14px 14px 0 0;
+  }
+
+  .pdp-sticky-purchase__content {
+    gap: 12px;
   }
 
   .pdp-sticky-purchase__identity {
@@ -8289,11 +8330,7 @@ main:focus {
   }
 
   .pdp-sticky-purchase__action {
-    gap: 10px;
-  }
-
-  .pdp-sticky-purchase__action > span {
-    font-size: 0.74rem;
+    grid-column: 1 / -1;
   }
 
   .pdp-sticky-purchase .btn {
