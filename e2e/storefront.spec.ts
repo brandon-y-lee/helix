@@ -195,6 +195,9 @@ test("mobile quick buy opens the cart drawer and restores focus on Escape", asyn
   await expect(drawerOverlay).toHaveAttribute("data-state", "open");
   await expect(drawerPanel).toHaveAttribute("data-state", "open");
   await expect(drawerPanel).toHaveAttribute("data-motion-state", "open");
+  await expect(drawerPanel).toHaveCount(1);
+  await expect(card).toHaveAttribute("data-quick-buy-open", "false");
+  await expect(card.locator(".product-card__quick-buy")).toBeHidden();
   await expect(page).toHaveURL(standardCardUrl);
   await expect(
     page.getByRole("button", { name: /CART \(1\)/ }),
@@ -205,7 +208,7 @@ test("mobile quick buy opens the cart drawer and restores focus on Escape", asyn
   await expect(drawerPanel).toHaveAttribute("data-state", "closed");
   await expect(drawerPanel).toHaveAttribute("data-motion-state", "closed");
   await finishDrawerExit(page);
-  await expect(finalBuy).toBeFocused();
+  await expect(quickBuy).toBeFocused();
 
   await page.emulateMedia({ reducedMotion: "reduce" });
   const cartTrigger = page.getByRole("button", { name: /CART \(1\)/ });

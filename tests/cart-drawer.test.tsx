@@ -10,18 +10,24 @@ vi.mock("@/components/CartView", () => ({
   CartView: () => <div>Cart contents</div>,
 }));
 
-let animationFrames: FrameRequestCallback[];
+let animationFrames: Map<number, FrameRequestCallback>;
+let nextAnimationFrameId: number;
 
 beforeEach(() => {
-  animationFrames = [];
+  animationFrames = new Map();
+  nextAnimationFrameId = 0;
   vi.stubGlobal(
     "requestAnimationFrame",
     vi.fn((callback: FrameRequestCallback) => {
-      animationFrames.push(callback);
-      return animationFrames.length;
+      const frameId = ++nextAnimationFrameId;
+      animationFrames.set(frameId, callback);
+      return frameId;
     }),
   );
-  vi.stubGlobal("cancelAnimationFrame", vi.fn());
+  vi.stubGlobal(
+    "cancelAnimationFrame",
+    vi.fn((frameId: number) => animationFrames.delete(frameId)),
+  );
 });
 
 afterEach(() => {
@@ -34,9 +40,18 @@ afterEach(() => {
 });
 
 function advanceEntryFrame() {
-  const callback = animationFrames.shift();
+  const nextFrame = animationFrames.entries().next().value as
+    | [number, FrameRequestCallback]
+    | undefined;
+  const callback = nextFrame?.[1];
   expect(callback).toBeTypeOf("function");
+  if (nextFrame) animationFrames.delete(nextFrame[0]);
   act(() => callback?.(0));
+}
+
+function finishEntry() {
+  advanceEntryFrame();
+  advanceEntryFrame();
 }
 
 function finishTransformTransition(element: Element) {
@@ -84,6 +99,11 @@ describe("CartDrawer motion", () => {
 
     advanceEntryFrame();
 
+    expect(dialog).toHaveAttribute("data-motion-state", "starting");
+    expect(panel).toHaveAttribute("data-motion-state", "starting");
+
+    advanceEntryFrame();
+
     expect(dialog).toHaveAttribute("data-motion-state", "open");
     expect(panel).toHaveAttribute("data-motion-state", "open");
   });
@@ -93,7 +113,7 @@ describe("CartDrawer motion", () => {
     const { rerender } = render(
       <Drawer open onClose={() => {}} returnFocus={returnFocus} />,
     );
-    advanceEntryFrame();
+    finishEntry();
 
     rerender(
       <Drawer open={false} onClose={() => {}} returnFocus={returnFocus} />,
@@ -136,6 +156,23 @@ describe("CartDrawer motion", () => {
 
     expect(document.querySelector(".cart-sheet-overlay")).toBeNull();
     expect(document.body).not.toHaveStyle({ overflow: "hidden" });
+    expect(animationFrames.size).toBe(0);
+  });
+
+  it("cancels entry when closed between staging frames", () => {
+    const { rerender } = render(<Drawer open onClose={() => {}} />);
+    advanceEntryFrame();
+
+    expect(screen.getByRole("dialog", { name: "Cart" })).toHaveAttribute(
+      "data-motion-state",
+      "starting",
+    );
+    expect(animationFrames.size).toBe(1);
+
+    rerender(<Drawer open={false} onClose={() => {}} />);
+
+    expect(document.querySelector(".cart-sheet-overlay")).toBeNull();
+    expect(animationFrames.size).toBe(0);
   });
 
   it("restores existing body styles only after the exit transition", () => {
@@ -145,7 +182,7 @@ describe("CartDrawer motion", () => {
       window.innerWidth - 16,
     );
     const { rerender } = render(<Drawer open onClose={() => {}} />);
-    advanceEntryFrame();
+    finishEntry();
 
     expect(document.body).toHaveStyle({
       overflow: "hidden",

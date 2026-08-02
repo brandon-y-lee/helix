@@ -178,11 +178,13 @@ describe("ProductCard quick buy", () => {
 
   it("adds from the final buy button and opens the cart drawer", async () => {
     const user = userEvent.setup();
-    render(<ProductCard product={makeProduct()} />);
+    const product = makeProduct();
+    const { rerender } = render(<ProductCard product={product} />);
 
-    await user.click(
-      screen.getByRole("button", { name: "Open quick buy for CLEANSE" }),
-    );
+    const trigger = screen.getByRole("button", {
+      name: "Open quick buy for CLEANSE",
+    });
+    await user.click(trigger);
     const finalButton = screen.getByRole("button", {
       name: "BUY CLEANSE - $20.00",
     });
@@ -204,9 +206,23 @@ describe("ProductCard quick buy", () => {
     });
     expect(cartMock.openCartDrawer).toHaveBeenCalledTimes(1);
 
-    finalButton.blur();
+    act(() => {
+      cartMock.cartDrawerOpen = true;
+      rerender(<ProductCard product={product} />);
+    });
+
+    expect(screen.getByRole("listitem")).toHaveAttribute(
+      "data-quick-buy-open",
+      "false",
+    );
+    expect(document.querySelector(".product-card__quick-buy")).not.toBeVisible();
+    expect(
+      screen.queryByRole("button", { name: "BUY CLEANSE - $20.00" }),
+    ).not.toBeInTheDocument();
+
+    trigger.blur();
     act(() => cartMock.openCartDrawer.mock.calls[0][0]());
-    expect(finalButton).toHaveFocus();
+    expect(trigger).toHaveFocus();
   });
 
   it("derives preview from live pointer state after pointer close", async () => {
@@ -325,10 +341,9 @@ describe("ProductCard quick buy", () => {
     expect(surface).toHaveAttribute("data-visual-state", "default");
   });
 
-  it("uses Escape for inline close unless the cart drawer is already open", async () => {
+  it("uses Escape to close the inline panel", async () => {
     const user = userEvent.setup();
-    const product = makeProduct();
-    const { unmount } = render(<ProductCard product={product} />);
+    render(<ProductCard product={makeProduct()} />);
 
     await user.click(
       screen.getByRole("button", { name: "Open quick buy for CLEANSE" }),
@@ -342,20 +357,6 @@ describe("ProductCard quick buy", () => {
         }),
       ).not.toBeInTheDocument(),
     );
-
-    unmount();
-    cartMock.cartDrawerOpen = true;
-    render(<ProductCard product={product} />);
-    await user.click(
-      screen.getByRole("button", { name: "Open quick buy for CLEANSE" }),
-    );
-    await user.keyboard("{Escape}");
-
-    expect(
-      screen.getByRole("button", {
-        name: "BUY CLEANSE - $20.00",
-      }),
-    ).toBeInTheDocument();
   });
 
   it("lets shoppers choose a variant before the final buy", async () => {

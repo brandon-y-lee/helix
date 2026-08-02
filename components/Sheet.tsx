@@ -108,9 +108,11 @@ export function Sheet({
     motionStateRef.current = "starting";
     setMotionState("starting");
 
-    const entryFrame = window.requestAnimationFrame(() => {
-      motionStateRef.current = "open";
-      setMotionState("open");
+    let entryFrame = window.requestAnimationFrame(() => {
+      entryFrame = window.requestAnimationFrame(() => {
+        motionStateRef.current = "open";
+        setMotionState("open");
+      });
     });
 
     return () => window.cancelAnimationFrame(entryFrame);

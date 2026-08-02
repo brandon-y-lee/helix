@@ -6126,6 +6126,10 @@ main:focus {
   backdrop-filter: blur(18px);
 }
 
+.product-card__quick-buy[hidden] {
+  display: none;
+}
+
 .product-card__quick-buy[data-open="true"] {
   opacity: 1;
   pointer-events: auto;

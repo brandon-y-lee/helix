@@ -125,7 +125,6 @@ export function ProductCard({
   const panelId = `${panelBaseId}-quick-buy`;
   const surfaceRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const finalButtonRef = useRef<HTMLButtonElement>(null);
   const addedTimeoutRef = useRef<number | null>(null);
   const pointerPreviewTimeoutRef = useRef<number | null>(null);
   const closePointerRef = useRef<{
@@ -159,6 +158,7 @@ export function ProductCard({
     product.variants[0] ??
     null;
   const isQuickBuyOpen = controlled ? quickBuyOpen : localQuickBuyOpen;
+  const isQuickBuyInteractive = isQuickBuyOpen && !cartDrawerOpen;
   const purchaseCta = productPurchaseCta(product, selectedVariant);
   const canBuy = purchaseCta.purchasable;
   const startingPrice = minPrice(product);
@@ -175,7 +175,7 @@ export function ProductCard({
           defaultImage.objectPosition ?? "50% 50%",
       } as CSSProperties)
     : undefined;
-  const visualState = isQuickBuyOpen
+  const visualState = isQuickBuyInteractive
     ? "quick-buy"
     : pointerInside || keyboardFocusVisibleWithin
       ? "preview"
@@ -195,6 +195,15 @@ export function ProductCard({
       availableVariants[0]?.id ?? product.variants[0]?.id ?? "",
     );
   }, [availableVariants, isQuickBuyOpen, product, selectedVariantId]);
+
+  useEffect(() => {
+    if (!cartDrawerOpen || !isQuickBuyOpen) return;
+    if (controlled) {
+      onQuickBuyClose?.();
+    } else {
+      setLocalQuickBuyOpen(false);
+    }
+  }, [cartDrawerOpen, controlled, isQuickBuyOpen, onQuickBuyClose]);
 
   useEffect(() => {
     function rememberKeyboard() {
@@ -252,6 +261,7 @@ export function ProductCard({
   }, [pointerInside]);
 
   function openQuickBuy() {
+    if (cartDrawerOpen) return;
     clearError();
     setAdded(false);
     if (controlled) {
@@ -374,7 +384,7 @@ export function ProductCard({
         imageAlt: media?.alt ?? null,
         placeholderMedia: cartPlaceholderMedia(media),
       },
-      returnFocus: () => finalButtonRef.current?.focus(),
+      returnFocus: () => triggerRef.current?.focus(),
     });
     if (ok) {
       setAdded(true);
@@ -469,10 +479,10 @@ export function ProductCard({
             aria-label={
               canBuy ? `Open quick buy for ${displayName}` : purchaseCta.label
             }
-            aria-expanded={isQuickBuyOpen}
+            aria-expanded={isQuickBuyInteractive}
             aria-controls={panelId}
             disabled={!canBuy}
-            tabIndex={isQuickBuyOpen ? -1 : undefined}
+            tabIndex={isQuickBuyInteractive ? -1 : undefined}
           >
             {purchaseCta.label}
           </button>
@@ -481,9 +491,10 @@ export function ProductCard({
         <section
           id={panelId}
           className="product-card__quick-buy"
-          data-open={isQuickBuyOpen}
-          aria-hidden={!isQuickBuyOpen}
+          data-open={isQuickBuyInteractive}
+          aria-hidden={!isQuickBuyInteractive}
           aria-labelledby={`${panelId}-title`}
+          hidden={cartDrawerOpen}
         >
           <button
             type="button"
@@ -492,7 +503,7 @@ export function ProductCard({
             onTouchStart={handleCloseTouchStart}
             onClick={handleCloseClick}
             aria-label={`Close quick buy for ${displayName}`}
-            tabIndex={isQuickBuyOpen ? undefined : -1}
+            tabIndex={isQuickBuyInteractive ? undefined : -1}
           >
             <span aria-hidden="true" />
           </button>
@@ -540,7 +551,7 @@ export function ProductCard({
                         checked={selectedVariant?.id === variant.id}
                         disabled={!buyable}
                         onChange={() => setSelectedVariantId(variant.id)}
-                        tabIndex={isQuickBuyOpen ? undefined : -1}
+                        tabIndex={isQuickBuyInteractive ? undefined : -1}
                       />
                       <span>{variant.label}</span>
                       <small>{formatPrice(variant.price)}</small>
@@ -553,13 +564,12 @@ export function ProductCard({
 
           <div className="product-card__quick-footer">
             <button
-              ref={finalButtonRef}
               type="button"
               className="product-card__quick-final"
               data-product-card-buy
               onClick={() => void handleFinalBuy()}
               disabled={!canBuy || pending}
-              tabIndex={isQuickBuyOpen ? undefined : -1}
+              tabIndex={isQuickBuyInteractive ? undefined : -1}
               aria-label={
                 pending && canBuy ? "ADDING" : purchaseCta.label
               }
@@ -571,7 +581,7 @@ export function ProductCard({
             <Link
               href={href}
               className="product-card__quick-link"
-              tabIndex={isQuickBuyOpen ? undefined : -1}
+              tabIndex={isQuickBuyInteractive ? undefined : -1}
             >
               Full details
             </Link>
