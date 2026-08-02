@@ -271,6 +271,10 @@ test("mobile quick buy opens the cart drawer and restores focus on Escape", asyn
   ).toBeLessThanOrEqual(1);
   await page.keyboard.press("Escape");
   await expect(drawer).toHaveCount(0);
+  await expect(page.locator(".cart-sheet-overlay")).toHaveCount(0);
+  await expect
+    .poll(() => page.evaluate(() => document.body.style.overflow))
+    .not.toBe("hidden");
   await expect(cartTrigger).toBeFocused();
 });
 

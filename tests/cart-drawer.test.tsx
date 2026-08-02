@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { CartDrawer } from "@/components/CartDrawer";
 import {
   PDP_SLIDE_DURATION_MS,
@@ -19,6 +19,10 @@ vi.mock("@/components/CartView", () => ({
     </a>
   ),
 }));
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 function Drawer({
   open,
@@ -89,6 +93,20 @@ describe("CartDrawer motion", () => {
     expect(document.querySelector(".cart-sheet-overlay")).toBeNull();
     expect(document.body).not.toHaveStyle({ overflow: "hidden" });
     expect(returnFocus).toHaveBeenCalledTimes(2);
+  });
+
+  it("unmounts without waiting for an animation when reduced motion is active", () => {
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn().mockReturnValue({ matches: true }),
+    );
+    const { rerender } = render(<Drawer open onClose={() => {}} />);
+
+    expect(document.body).toHaveStyle({ overflow: "hidden" });
+    rerender(<Drawer open={false} onClose={() => {}} />);
+
+    expect(document.querySelector(".cart-sheet-overlay")).toBeNull();
+    expect(document.body).not.toHaveStyle({ overflow: "hidden" });
   });
 
   it("uses the same close callback for the button, overlay, Escape, and navigation", () => {

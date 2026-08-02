@@ -62,6 +62,19 @@ export function Sheet({
   }, [open]);
 
   useEffect(() => {
+    if (
+      !animatePresence ||
+      open ||
+      !present ||
+      !window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+    ) {
+      return;
+    }
+
+    setPresent(false);
+  }, [animatePresence, open, present]);
+
+  useEffect(() => {
     if (!open) return;
 
     const panel = panelRef.current;
