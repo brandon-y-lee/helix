@@ -3185,14 +3185,18 @@ main:focus {
   isolation: isolate;
 }
 
-.pdp__media-layer {
-  position: absolute;
-  inset: 0;
-  display: block;
+.pdp__media-track {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  transition: transform var(--pdp-slide-duration) var(--pdp-slide-easing);
+}
+
+.pdp__media-slide {
+  flex: 0 0 100%;
+  min-width: 0;
+  height: 100%;
   overflow: hidden;
-  border: 0;
-  border-radius: inherit;
-  background: var(--surface-muted);
 }
 
 .pdp__media-content {
@@ -4777,6 +4781,10 @@ main:focus {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .pdp__media-track {
+    transition: none;
+  }
+
   .pdp-routine-video__background,
   .pdp-routine-video__play,
   .pdp-core-routine__steps button,

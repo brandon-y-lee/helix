@@ -92,7 +92,6 @@ export function PdpGalleryIsland({
     activeIndex: activePanel,
     direction,
     isTransitioning,
-    outgoingIndex,
     select,
   } = usePdpSlideTransition({
     initialIndex: 0,
@@ -138,42 +137,44 @@ export function PdpGalleryIsland({
         style={PDP_SLIDE_STYLE}
       >
         <div className="pdp__media-viewport" data-pdp-slide-viewport>
-          {items.map((item, index) => {
-            const state =
-              index === activePanel
-                ? "active"
-                : index === outgoingIndex
-                  ? "outgoing"
-                  : "inactive";
-            if (state === "inactive") return null;
-            const media = item.media ?? detailMedia;
+          <div
+            className="pdp__media-track"
+            data-pdp-gallery-track
+            style={{
+              transform: `translate3d(${-activePanel * 100}%, 0, 0)`,
+            }}
+          >
+            {items.map((item, index) => {
+              const active = index === activePanel;
+              const media = item.media ?? detailMedia;
 
-            return (
-              <div
-                key={`${productKey}:${item.id}`}
-                className={`pdp__media-layer${state === "active" ? " pdp__media" : ""}`}
-                aria-hidden={state !== "active"}
-                data-media-kind={media?.kind ?? "placeholder"}
-                data-pdp-gallery-state={index + 1}
-                data-pdp-slide-layer
-                data-state={state}
-                inert={state !== "active"}
-              >
-                <PdpGalleryMedia
-                  media={media}
-                  swatch={item.swatch}
-                  className="pdp__media-content"
-                  mediaClassName="pdp__img"
-                  sizes="(max-width: 860px) 92vw, 56vw"
-                  priority={index === 0}
-                  videoRef={(node) => {
-                    if (node) videoRefs.current.set(item.id, node);
-                    else videoRefs.current.delete(item.id);
-                  }}
-                />
-              </div>
-            );
-          })}
+              return (
+                <div
+                  key={`${productKey}:${item.id}`}
+                  className="pdp__media pdp__media-slide"
+                  aria-hidden={!active}
+                  data-media-kind={media?.kind ?? "placeholder"}
+                  data-pdp-gallery-slide
+                  data-pdp-gallery-state={index + 1}
+                  data-state={active ? "active" : "inactive"}
+                  inert={!active}
+                >
+                  <PdpGalleryMedia
+                    media={media}
+                    swatch={item.swatch}
+                    className="pdp__media-content"
+                    mediaClassName="pdp__img"
+                    sizes="(max-width: 860px) 92vw, 56vw"
+                    priority={index === 0}
+                    videoRef={(node) => {
+                      if (node) videoRefs.current.set(item.id, node);
+                      else videoRefs.current.delete(item.id);
+                    }}
+                  />
+                </div>
+              );
+            })}
+          </div>
         </div>
         <div
           className="pdp__thumbs"
