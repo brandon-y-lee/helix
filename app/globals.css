@@ -5671,14 +5671,6 @@ main:focus {
     visibility 0s;
 }
 
-.pdp-sticky-purchase__content {
-  min-width: 0;
-  flex: 1 1 auto;
-  display: flex;
-  align-items: center;
-  gap: clamp(16px, 2vw, 30px);
-}
-
 .pdp-sticky-purchase__identity {
   min-width: 0;
   flex: 0 1 clamp(250px, 30vw, 440px);
@@ -5729,36 +5721,6 @@ main:focus {
   white-space: nowrap;
 }
 
-.pdp-sticky-purchase__variants {
-  min-width: 0;
-  flex: 0 1 auto;
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-start;
-  gap: 8px;
-}
-
-.pdp-sticky-purchase__variants button {
-  min-width: 58px;
-  min-height: 40px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  padding: 7px 11px;
-  background: var(--bg);
-  color: var(--ink);
-  font: inherit;
-  font-size: 0.72rem;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.pdp-sticky-purchase__variants button[aria-pressed="true"] {
-  border-color: var(--accent);
-  background: var(--accent);
-  color: var(--accent-ink);
-}
-
-.pdp-sticky-purchase__variants button:focus-visible,
 .pdp-sticky-purchase .btn:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 3px;
@@ -5773,7 +5735,7 @@ main:focus {
   width: 100%;
   min-width: 0;
   min-height: 50px;
-  border-radius: calc(var(--radius) + 4px);
+  border-radius: var(--radius-editorial-button);
   padding-inline: 20px;
   transition:
     color 300ms ease,
@@ -8035,10 +7997,6 @@ main:focus {
     gap: 12px;
   }
 
-  .pdp-sticky-purchase__content {
-    gap: 18px;
-  }
-
   .pdp-sticky-purchase__action {
     width: 100%;
   }
@@ -8122,10 +8080,6 @@ main:focus {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     gap: 12px;
-  }
-
-  .pdp-sticky-purchase__content {
-    gap: 18px;
   }
 
   .pdp-sticky-purchase__action {
@@ -8372,10 +8326,6 @@ main:focus {
     border-radius: 14px 14px 0 0;
   }
 
-  .pdp-sticky-purchase__content {
-    gap: 12px;
-  }
-
   .pdp-sticky-purchase__identity {
     grid-template-columns: 46px minmax(0, 1fr);
     gap: 10px;
@@ -8392,17 +8342,6 @@ main:focus {
 
   .pdp-sticky-purchase__identity-copy strong {
     font-size: 1rem;
-  }
-
-  .pdp-sticky-purchase__variants {
-    gap: 5px;
-  }
-
-  .pdp-sticky-purchase__variants button {
-    min-width: 52px;
-    min-height: 36px;
-    padding: 5px 8px;
-    font-size: 0.65rem;
   }
 
   .pdp-sticky-purchase__action {

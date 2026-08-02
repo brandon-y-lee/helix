@@ -717,7 +717,7 @@ describe("ProductDetail purchase accordions", () => {
     expect(cartMock.openCartDrawer).not.toHaveBeenCalled();
   });
 
-  it("keeps selected server product pricing in sync with main messaging and sticky controls", async () => {
+  it("keeps selected server product pricing in sync with main messaging and the sticky CTA", async () => {
     const user = userEvent.setup();
     const base = makeProduct();
     const secondVariant = {
@@ -771,12 +771,6 @@ describe("ProductDetail purchase accordions", () => {
     expect(
       screen.getByRole("button", { name: "BUY TREAT - $42.00" }),
     ).toBeInTheDocument();
-    expect(
-      document.querySelector(
-        ".pdp-sticky-purchase__variants button[aria-pressed='true']",
-      ),
-    ).toHaveTextContent("30 mL");
-
     const stickyBuy = document.querySelector<HTMLButtonElement>(
       "[data-sticky-pdp-buy-button]",
     );

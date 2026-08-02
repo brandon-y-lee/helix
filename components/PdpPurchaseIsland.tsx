@@ -251,39 +251,19 @@ export function PdpPurchaseIsland({
         data-visible={stickyVisible}
         aria-hidden={!stickyVisible}
       >
-        <div className="pdp-sticky-purchase__content">
-          <div className="pdp-sticky-purchase__identity">
-            <ProductImage
-              media={stickyMedia}
-              swatch={cartItem.swatch}
-              className="pdp-sticky-purchase__media"
-              imageClassName="pdp-sticky-purchase__image"
-              sizes="64px"
-            />
-            <span className="pdp-sticky-purchase__identity-copy">
-              <span>{routineLabel}</span>
-              <strong title={productName}>{productName}</strong>
-              <small>{productType}</small>
-            </span>
-          </div>
-          <div
-            className="pdp-sticky-purchase__variants"
-            role="group"
-            aria-label={`${productName} sticky size options`}
-          >
-            {variants.map((option) => (
-              <button
-                key={option.id}
-                type="button"
-                aria-pressed={option.id === variant?.id}
-                disabled={!option.available}
-                tabIndex={stickyVisible ? undefined : -1}
-                onClick={() => setVariantId(option.id)}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
+        <div className="pdp-sticky-purchase__identity">
+          <ProductImage
+            media={stickyMedia}
+            swatch={cartItem.swatch}
+            className="pdp-sticky-purchase__media"
+            imageClassName="pdp-sticky-purchase__image"
+            sizes="64px"
+          />
+          <span className="pdp-sticky-purchase__identity-copy">
+            <span>{routineLabel}</span>
+            <strong title={productName}>{productName}</strong>
+            <small>{productType}</small>
+          </span>
         </div>
         <div className="pdp-sticky-purchase__action">
           <button
