@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useCartMutations } from "@/components/useCart";
-import { SANDBOX_CHECKOUT_NOTICE } from "@/lib/checkout/config";
 import { cartErrorMessage } from "@/lib/cart/client";
 import { formatPrice } from "@/lib/products";
 
@@ -81,8 +80,6 @@ export function CheckoutPanel({
 
   return (
     <div className="checkout-panel" aria-label="Sandbox checkout">
-      <p className="checkout-panel__notice">{SANDBOX_CHECKOUT_NOTICE}</p>
-
       <div className="checkout-panel__rewards">
         {rewardSummary?.authenticated ? (
           <>

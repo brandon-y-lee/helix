@@ -146,6 +146,10 @@ main[data-header-layout="overlay"] {
   will-change: transform;
 }
 
+body[data-sheet-scroll-lock] .site-header {
+  padding-right: var(--sheet-scrollbar-width, 0px);
+}
+
 .site-header__bar {
   display: flex;
   align-items: center;
@@ -2334,33 +2338,29 @@ main:focus {
   inset: 0;
   background: var(--overlay);
   backdrop-filter: blur(3px);
+  opacity: 0;
   pointer-events: none;
+  transition: opacity var(--pdp-slide-duration) var(--pdp-slide-easing);
 }
 
-.cart-sheet-overlay[data-state="open"]::before {
-  animation: cart-sheet-backdrop-in var(--pdp-slide-duration)
-    var(--pdp-slide-easing) both;
+.cart-sheet-overlay[data-motion-state="open"]::before {
+  opacity: 1;
 }
 
 .cart-sheet-overlay[data-state="closed"] {
   pointer-events: none;
 }
 
-.cart-sheet-overlay[data-state="closed"]::before {
-  animation: cart-sheet-backdrop-out var(--pdp-slide-duration)
-    var(--pdp-slide-easing) both;
+.cart-sheet {
+  position: relative;
+  transform: translate3d(100%, 0, 0);
+  animation: none;
+  transition: transform var(--pdp-slide-duration) var(--pdp-slide-easing);
+  will-change: transform;
 }
 
-.cart-sheet[data-state="open"] {
-  position: relative;
-  animation: cart-sheet-right-in var(--pdp-slide-duration)
-    var(--pdp-slide-easing) both;
-}
-
-.cart-sheet[data-state="closed"] {
-  position: relative;
-  animation: cart-sheet-right-out var(--pdp-slide-duration)
-    var(--pdp-slide-easing) both;
+.cart-sheet[data-motion-state="open"] {
+  transform: translate3d(0, 0, 0);
 }
 
 .sheet__head {
@@ -2705,36 +2705,6 @@ main:focus {
   }
 }
 
-@keyframes cart-sheet-backdrop-in {
-  from {
-    opacity: 0;
-  }
-}
-
-@keyframes cart-sheet-backdrop-out {
-  to {
-    opacity: 0;
-  }
-}
-
-@keyframes cart-sheet-right-in {
-  from {
-    transform: translate3d(100%, 0, 0);
-  }
-  to {
-    transform: translate3d(0, 0, 0);
-  }
-}
-
-@keyframes cart-sheet-right-out {
-  from {
-    transform: translate3d(0, 0, 0);
-  }
-  to {
-    transform: translate3d(100%, 0, 0);
-  }
-}
-
 @keyframes sheet-right-in {
   from {
     transform: translateX(100%);
@@ -3055,9 +3025,9 @@ main:focus {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .cart-sheet-overlay[data-state]::before,
-  .cart-sheet[data-state] {
-    animation-duration: 1ms;
+  .cart-sheet-overlay[data-motion-state]::before,
+  .cart-sheet[data-motion-state] {
+    transition-duration: 1ms;
   }
 
   .site-header {

@@ -1,12 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import {
-  useEffect,
-  useState,
-  type MouseEvent,
-} from "react";
 import { CheckoutPanel } from "@/components/CheckoutPanel";
 import { useCart, useCartMutations } from "@/components/useCart";
 import { ProductImage } from "@/components/ProductImage";
@@ -16,18 +10,6 @@ import {
   remainingForFreeStandardShipping,
 } from "@/content/support/policy";
 import { formatPrice, type ProductMedia } from "@/lib/products";
-
-function isPlainSameTabClick(event: MouseEvent<HTMLAnchorElement>) {
-  return (
-    !event.defaultPrevented &&
-    event.button === 0 &&
-    !event.metaKey &&
-    !event.ctrlKey &&
-    !event.shiftKey &&
-    !event.altKey &&
-    event.currentTarget.target !== "_blank"
-  );
-}
 
 export function CartView({
   mode = "page",
@@ -60,8 +42,6 @@ export function CartView({
   const error = mutationError ?? queryError;
   const retryable = mutationError ? mutationRetryable : queryRetryable;
   const isDrawer = mode === "drawer";
-  const pathname = usePathname();
-  const [pendingCartRoute, setPendingCartRoute] = useState(false);
   const freeShippingQualified = qualifiesForFreeStandardShipping(subtotal);
   const freeShippingRemaining = remainingForFreeStandardShipping(subtotal);
   const checkoutDisabled = loading || isMutating || lines.some((line) => !line.available || line.quantity <= 0);
@@ -69,22 +49,6 @@ export function CartView({
   async function retryCart() {
     resetErrors();
     await refresh();
-  }
-
-  useEffect(() => {
-    if (!isDrawer || !pendingCartRoute || pathname !== "/cart") return;
-    setPendingCartRoute(false);
-    onContinue?.();
-  }, [isDrawer, onContinue, pathname, pendingCartRoute]);
-
-  function handleViewCartClick(event: MouseEvent<HTMLAnchorElement>) {
-    if (!isDrawer || !isPlainSameTabClick(event)) return;
-    if (pathname === "/cart") {
-      event.preventDefault();
-      onContinue?.();
-      return;
-    }
-    setPendingCartRoute(true);
   }
 
   if (loading && !hasLoadedCart && lines.length === 0) {
@@ -276,18 +240,10 @@ export function CartView({
           </span>
         </div>
         <CheckoutPanel disabled={checkoutDisabled} subtotal={subtotal} />
-        <Link
-          href="/cart"
-          className="btn btn--ghost btn--editorial-rounded"
-          onClick={handleViewCartClick}
-          aria-busy={pendingCartRoute || undefined}
-        >
-          View cart
-        </Link>
         <p className="cart-summary__note">
           {freeShippingQualified
-            ? "Your cart meets the free standard shipping threshold. Hosted Stripe Checkout runs in sandbox mode only."
-            : `${formatPrice(freeShippingRemaining)} away from the free standard shipping threshold. Hosted Stripe Checkout runs in sandbox mode only.`}
+            ? "Your cart meets the free standard shipping threshold."
+            : `${formatPrice(freeShippingRemaining)} away from the free standard shipping threshold.`}
         </p>
       </aside>
     </div>

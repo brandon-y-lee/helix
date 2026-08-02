@@ -130,6 +130,18 @@ describe("cart client outage recovery", () => {
 
     expect(await screen.findByText("known:2")).toBeInTheDocument();
     expect(cartRequests).toBe(1);
+    expect(
+      screen.getByText("$6.00 away from the free standard shipping threshold."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Sandbox checkout $44.00" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("SANDBOX CHECKOUT - NO REAL CHARGE OR FULFILLMENT"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "View cart" }),
+    ).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Refresh cart" }));
     expect(
       await screen.findByText("Your cart is temporarily unavailable."),

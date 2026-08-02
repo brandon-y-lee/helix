@@ -3,16 +3,43 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 const CLEANSE_PATH = "/products/cleanse-01-calming-gel-cleanser";
 const TREAT_PATH = "/products/treat-03-pdrn-5-ampoule";
 
-async function addCleanse(page: Page): Promise<Locator> {
+type HorizontalGeometry = { x: number; width: number };
+
+async function storefrontGeometry(page: Page): Promise<HorizontalGeometry> {
+  return page.locator(".site-header__bar").evaluate((element) => {
+    const { x, width } = element.getBoundingClientRect();
+    return { x, width };
+  });
+}
+
+async function finishDrawerExit(page: Page) {
+  const overlay = page.locator(".cart-sheet-overlay");
+  const panel = page.locator(".cart-sheet");
+  await panel.evaluate((element) => {
+    element.dispatchEvent(
+      new TransitionEvent("transitionend", {
+        bubbles: true,
+        propertyName: "transform",
+      }),
+    );
+  });
+  await expect(overlay).toHaveCount(0);
+}
+
+async function addCleanse(
+  page: Page,
+): Promise<{ drawer: Locator; geometryBeforeOpen: HorizontalGeometry }> {
   await page.goto(CLEANSE_PATH);
   await expect(
     page.getByRole("button", { name: /CART \(0\)/ }),
   ).toBeVisible();
+  const geometryBeforeOpen = await storefrontGeometry(page);
   const buyButton = page.locator("[data-pdp-buy-button]");
   await expect(buyButton).toHaveText("BUY CLEANSE - $22.00");
   await buyButton.click();
   const drawer = page.getByRole("dialog", { name: "Cart" });
   await expect(drawer).toBeVisible();
+  await expect(drawer).toHaveAttribute("data-motion-state", "open");
   await expect(
     drawer
       .getByRole("list", { name: "Cart items" })
@@ -21,7 +48,7 @@ async function addCleanse(page: Page): Promise<Locator> {
   await expect(
     page.getByRole("button", { name: /CART \(1\)/ }),
   ).toBeVisible();
-  return drawer;
+  return { drawer, geometryBeforeOpen };
 }
 
 test("shop renders seeded products and combines filtering with sorting", async ({
@@ -113,8 +140,17 @@ test("PDP resolves canonical data and exposes an available variant", async ({
 test("PDP add-to-cart persists across reload and reaches the cart page", async ({
   page,
 }) => {
-  const drawer = await addCleanse(page);
+  const { drawer, geometryBeforeOpen } = await addCleanse(page);
+  const drawerOverlay = page.locator(".cart-sheet-overlay");
+  expect(await storefrontGeometry(page)).toEqual(geometryBeforeOpen);
   await drawer.getByRole("button", { name: "Close" }).click();
+  await expect(drawerOverlay).toHaveAttribute("data-motion-state", "closed");
+  expect(await storefrontGeometry(page)).toEqual(geometryBeforeOpen);
+  await finishDrawerExit(page);
+  await expect
+    .poll(() => page.evaluate(() => document.body.style.overflow))
+    .not.toBe("hidden");
+  expect(await storefrontGeometry(page)).toEqual(geometryBeforeOpen);
   await page.reload();
   await expect(
     page.getByRole("button", { name: /CART \(1\)/ }),
@@ -158,6 +194,7 @@ test("mobile quick buy opens the cart drawer and restores focus on Escape", asyn
   const drawerPanel = page.locator(".cart-sheet");
   await expect(drawerOverlay).toHaveAttribute("data-state", "open");
   await expect(drawerPanel).toHaveAttribute("data-state", "open");
+  await expect(drawerPanel).toHaveAttribute("data-motion-state", "open");
   await expect(page).toHaveURL(standardCardUrl);
   await expect(
     page.getByRole("button", { name: /CART \(1\)/ }),
@@ -166,8 +203,8 @@ test("mobile quick buy opens the cart drawer and restores focus on Escape", asyn
   await page.keyboard.press("Escape");
   await expect(drawerOverlay).toHaveAttribute("data-state", "closed");
   await expect(drawerPanel).toHaveAttribute("data-state", "closed");
-  await drawerPanel.evaluate((panel) => panel.getAnimations()[0]?.finish());
-  await expect(drawer).toHaveCount(0);
+  await expect(drawerPanel).toHaveAttribute("data-motion-state", "closed");
+  await finishDrawerExit(page);
   await expect(finalBuy).toBeFocused();
 
   await page.emulateMedia({ reducedMotion: "reduce" });
@@ -181,22 +218,6 @@ test("mobile quick buy opens the cart drawer and restores focus on Escape", asyn
     .poll(() => page.evaluate(() => document.body.style.overflow))
     .not.toBe("hidden");
   await expect(cartTrigger).toBeFocused();
-});
-
-test("cart drawer navigation closes the overlay and preserves browser history", async ({
-  page,
-}) => {
-  const drawer = await addCleanse(page);
-  await drawer.getByRole("link", { name: "View cart" }).click();
-
-  await expect(page).toHaveURL(/\/cart$/);
-  await expect(drawer).toHaveCount(0);
-  await expect(page.getByText("CLEANSE").first()).toBeVisible();
-
-  await page.goBack();
-  await expect(page).toHaveURL(
-    /\/products\/cleanse-01-calming-gel-cleanser$/,
-  );
 });
 
 test("PDP sticky purchase appears after routine video and hides at the footer", async ({
