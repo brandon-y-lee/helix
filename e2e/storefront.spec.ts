@@ -193,12 +193,33 @@ test("mobile quick buy opens the cart drawer and restores focus on Escape", asyn
   await finalBuy.click();
   const drawer = page.getByRole("dialog", { name: "Cart" });
   await expect(drawer).toBeVisible();
+  const drawerOverlay = page.locator(".cart-sheet-overlay");
+  const drawerPanel = page.locator(".cart-sheet");
+  await expect(drawerOverlay).toHaveAttribute("data-state", "open");
+  await expect(drawerPanel).toHaveAttribute("data-state", "open");
+  expect(
+    await drawerPanel.evaluate((panel) => {
+      const animation = panel.getAnimations()[0];
+      return {
+        duration: animation?.effect?.getTiming().duration,
+        easing: getComputedStyle(panel).animationTimingFunction,
+        name: getComputedStyle(panel).animationName,
+      };
+    }),
+  ).toEqual({
+    duration: 800,
+    easing: "cubic-bezier(0.66, 0, 0.18, 1)",
+    name: "cart-sheet-right-in",
+  });
   await expect(page).toHaveURL(standardCardUrl);
   await expect(
     page.getByRole("button", { name: /CART \(1\)/ }),
   ).toBeVisible();
 
   await page.keyboard.press("Escape");
+  await expect(drawerOverlay).toHaveAttribute("data-state", "closed");
+  await expect(drawerPanel).toHaveAttribute("data-state", "closed");
+  await drawerPanel.evaluate((panel) => panel.getAnimations()[0]?.finish());
   await expect(drawer).toHaveCount(0);
   await expect(finalBuy).toBeFocused();
 
@@ -232,6 +253,25 @@ test("mobile quick buy opens the cart drawer and restores focus on Escape", asyn
   await expect(
     page.getByRole("button", { name: /CART \(2\)/ }),
   ).toBeVisible();
+
+  await drawer.getByRole("button", { name: "Close" }).click();
+  await page.locator(".cart-sheet").evaluate((panel) => {
+    panel.getAnimations()[0]?.finish();
+  });
+  await expect(drawer).toHaveCount(0);
+
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const cartTrigger = page.getByRole("button", { name: /CART \(2\)/ });
+  await cartTrigger.click();
+  await expect(drawer).toBeVisible();
+  expect(
+    await page.locator(".cart-sheet").evaluate(
+      (panel) => parseFloat(getComputedStyle(panel).animationDuration) * 1_000,
+    ),
+  ).toBeLessThanOrEqual(1);
+  await page.keyboard.press("Escape");
+  await expect(drawer).toHaveCount(0);
+  await expect(cartTrigger).toBeFocused();
 });
 
 test("cart drawer navigation closes the overlay and preserves browser history", async ({
