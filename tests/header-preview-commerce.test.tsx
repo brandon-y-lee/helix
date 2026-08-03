@@ -55,9 +55,8 @@ beforeEach(() => {
 });
 
 describe("Header draft preview commerce", () => {
-  it("uses the light top theme on the homepage's first render", () => {
-    headerMocks.pathname = "/";
-    render(<Header />);
+  it("renders the theme selected by the application chrome", () => {
+    render(<Header theme="light" />);
 
     expect(document.querySelector(".site-header")).toHaveAttribute(
       "data-header-theme",
@@ -66,7 +65,7 @@ describe("Header draft preview commerce", () => {
   });
 
   it("keeps the cart control visible but prevents the drawer from opening", () => {
-    render(<Header commerceDisabled />);
+    render(<Header commerceDisabled theme="dark" />);
     const cart = screen.getByRole("button", {
       name: "Cart unavailable in draft preview",
     });
@@ -79,7 +78,7 @@ describe("Header draft preview commerce", () => {
 
   it("does not change public header cart behavior", () => {
     headerMocks.pathname = "/products/cleanse-01-calming-gel-cleanser";
-    render(<Header />);
+    render(<Header theme="dark" />);
     const cart = screen.getByRole("button", { name: /CART \(2\)/ });
 
     expect(cart).toBeEnabled();

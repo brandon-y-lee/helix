@@ -41,11 +41,12 @@ function mockIntersectionObserver() {
 
 afterEach(() => {
   notifyIntersection = null;
+  vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
 
 describe("HomeFinalVideo", () => {
-  it("defers its muted looping mp4 until the section enters the viewport", async () => {
+  it("defers its muted looping video sources until the section enters the viewport", async () => {
     mockReducedMotion(false);
     mockIntersectionObserver();
 
@@ -70,7 +71,7 @@ describe("HomeFinalVideo", () => {
 
     const mediaShell = container.querySelector(".home-final-media");
     const video = container.querySelector("video");
-    const source = container.querySelector("source");
+    const sources = Array.from(container.querySelectorAll("source"));
 
     expect(mediaShell).toHaveAttribute("data-motion-state", "pending");
     expect(mediaShell).toHaveAttribute("data-video-ready", "false");
@@ -78,11 +79,17 @@ describe("HomeFinalVideo", () => {
     expect(video).toHaveAttribute("preload", "none");
     expect(video).toHaveAttribute("aria-hidden", "true");
     expect(video).not.toHaveAttribute("controls");
-    expect(source).toHaveAttribute(
+    expect(sources).toHaveLength(2);
+    expect(sources[0]).toHaveAttribute(
+      "src",
+      "/media/home/final-cta-loop.webm?v=8de3ea79725b",
+    );
+    expect(sources[0]).toHaveAttribute("type", "video/webm");
+    expect(sources[1]).toHaveAttribute(
       "src",
       "/media/home/final-cta-loop.mp4?v=0fc8a75fd1c4",
     );
-    expect(source).toHaveAttribute("type", "video/mp4");
+    expect(sources[1]).toHaveAttribute("type", "video/mp4");
     expect(video?.autoplay).toBe(true);
     expect(video?.loop).toBe(true);
     expect(video?.muted).toBe(true);
@@ -116,10 +123,41 @@ describe("HomeFinalVideo", () => {
     );
   });
 
-  it("falls back to the poster when video loading fails", async () => {
+  it("retries playback after a transient rejection when the section re-enters view", async () => {
     mockReducedMotion(false);
+    mockIntersectionObserver();
+    const play = vi
+      .spyOn(HTMLMediaElement.prototype, "play")
+      .mockRejectedValueOnce(new Error("Playback was temporarily unavailable"))
+      .mockResolvedValue(undefined);
 
     const { container } = render(<HomeFinalVideo />);
+
+    act(() => notifyIntersection?.(true));
+    await waitFor(() => expect(play).toHaveBeenCalledTimes(1));
+    expect(container.querySelector(".home-final-media")).toHaveAttribute(
+      "data-motion-state",
+      "pending",
+    );
+
+    act(() => notifyIntersection?.(false));
+    act(() => notifyIntersection?.(true));
+    await waitFor(() => expect(play).toHaveBeenCalledTimes(2));
+
+    fireEvent.playing(container.querySelector("video") as HTMLVideoElement);
+    expect(container.querySelector(".home-final-media")).toHaveAttribute(
+      "data-motion-state",
+      "motion",
+    );
+  });
+
+  it("falls back to the poster when video loading fails", async () => {
+    mockReducedMotion(false);
+    mockIntersectionObserver();
+
+    const { container } = render(<HomeFinalVideo />);
+
+    act(() => notifyIntersection?.(true));
 
     await waitFor(() => {
       expect(container.querySelector("video")).toBeInTheDocument();

@@ -62,6 +62,10 @@ export default defineConfig({
       name: "chromium",
       use: { ...devices["Desktop Chrome"] },
     },
+    {
+      name: "webkit",
+      use: { ...devices["Desktop Safari"] },
+    },
   ],
   // Build and start the production server so e2e hits real routes.
   // Bounded timeout so a server that never becomes ready fails fast.

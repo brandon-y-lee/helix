@@ -32,12 +32,20 @@ describe("FooterWordmark", () => {
     });
     vi.stubGlobal("cancelAnimationFrame", vi.fn());
     vi.stubGlobal("innerHeight", 800);
+    vi.spyOn(window, "getComputedStyle").mockReturnValue({
+      getPropertyValue: (property: string) =>
+        ({
+          "--site-footer-wordmark-start-scale": "1.05",
+          "--site-footer-wordmark-end-scale": "0.92",
+          "--site-footer-wordmark-static-scale": "0.96",
+          "--site-footer-wordmark-cover": "62%",
+        })[property] ?? "",
+    } as CSSStyleDeclaration);
 
     const { container } = render(<FooterWordmark />);
     const band = container.querySelector(
       ".site-footer__wordmark-band",
     ) as HTMLDivElement;
-    const heading = container.querySelector("h2") as HTMLHeadingElement;
     let top = 900;
 
     vi.spyOn(band, "getBoundingClientRect").mockImplementation(
@@ -57,14 +65,14 @@ describe("FooterWordmark", () => {
 
     act(() => frames.shift()?.(0));
     const entryScale = Number(
-      heading.style.getPropertyValue("--site-footer-wordmark-scale"),
+      band.style.getPropertyValue("--site-footer-wordmark-scale"),
     );
 
     top = -300;
     fireEvent.scroll(window);
     act(() => frames.shift()?.(16));
     const coveredScale = Number(
-      heading.style.getPropertyValue("--site-footer-wordmark-scale"),
+      band.style.getPropertyValue("--site-footer-wordmark-scale"),
     );
 
     expect(band).toHaveAttribute("data-scroll-zoom-mode", "javascript");

@@ -19,6 +19,7 @@ function mockReducedMotion(matches: boolean) {
 }
 
 afterEach(() => {
+  vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
 

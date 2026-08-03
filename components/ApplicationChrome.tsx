@@ -14,10 +14,17 @@ export function ApplicationChrome({ children }: { children: ReactNode }) {
 
   if (mode === "standard-admin") return children;
 
+  const isHomepage = pathname === "/";
+
   return (
     <CartProvider key={mode} disabled={mode === "catalog-preview"}>
-      <Header commerceDisabled={mode === "catalog-preview"} />
-      <StorefrontMain>{children}</StorefrontMain>
+      <Header
+        commerceDisabled={mode === "catalog-preview"}
+        theme={isHomepage ? "light" : "dark"}
+      />
+      <StorefrontMain headerLayout={isHomepage ? "overlay" : "reserved"}>
+        {children}
+      </StorefrontMain>
       <SiteFooter />
     </CartProvider>
   );

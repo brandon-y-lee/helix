@@ -21,14 +21,86 @@ type HomeBackgroundVideoProps = {
 
 type HomeVideoState = "pending" | "motion" | "static" | "failed";
 
-function isJsdomRuntime() {
-  return typeof navigator !== "undefined" && navigator.userAgent.includes("jsdom");
-}
-
 function pauseVideo(video: HTMLVideoElement | null) {
-  if (video && !isJsdomRuntime()) {
+  if (video) {
     video.pause();
   }
+}
+
+function useDocumentVisibility() {
+  const [visible, setVisible] = useState(true);
+
+  useEffect(() => {
+    const syncVisibility = () => {
+      setVisible(document.visibilityState !== "hidden");
+    };
+
+    syncVisibility();
+    document.addEventListener("visibilitychange", syncVisibility);
+    return () => document.removeEventListener("visibilitychange", syncVisibility);
+  }, []);
+
+  return visible;
+}
+
+function useReducedMotionPreference() {
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(true);
+
+  useEffect(() => {
+    if (typeof window.matchMedia !== "function") {
+      setPrefersReducedMotion(false);
+      return;
+    }
+
+    const motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const syncMotionPreference = () => {
+      setPrefersReducedMotion(motionQuery.matches);
+    };
+
+    syncMotionPreference();
+    motionQuery.addEventListener("change", syncMotionPreference);
+    return () => motionQuery.removeEventListener("change", syncMotionPreference);
+  }, []);
+
+  return prefersReducedMotion;
+}
+
+function observeViewport(
+  element: HTMLElement,
+  onVisibilityChange: (isVisible: boolean) => void,
+) {
+  if (typeof IntersectionObserver === "function") {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        onVisibilityChange(entries.some((entry) => entry.isIntersecting));
+      },
+      { rootMargin: "0px", threshold: 0 },
+    );
+
+    observer.observe(element);
+    return () => observer.disconnect();
+  }
+
+  let frameId: number | null = null;
+  const updateVisibility = () => {
+    frameId = null;
+    const rect = element.getBoundingClientRect();
+    onVisibilityChange(rect.bottom > 0 && rect.top < window.innerHeight);
+  };
+  const scheduleVisibilityUpdate = () => {
+    if (frameId !== null) return;
+    frameId = window.requestAnimationFrame(updateVisibility);
+  };
+
+  updateVisibility();
+  window.addEventListener("scroll", scheduleVisibilityUpdate, { passive: true });
+  window.addEventListener("resize", scheduleVisibilityUpdate);
+
+  return () => {
+    window.removeEventListener("scroll", scheduleVisibilityUpdate);
+    window.removeEventListener("resize", scheduleVisibilityUpdate);
+    if (frameId !== null) window.cancelAnimationFrame(frameId);
+  };
 }
 
 export function HomeBackgroundVideo({
@@ -43,11 +115,12 @@ export function HomeBackgroundVideo({
 }: HomeBackgroundVideoProps) {
   const frameRef = useRef<HTMLDivElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const [allowMotion, setAllowMotion] = useState(false);
   const [hasEnteredViewport, setHasEnteredViewport] = useState(eager);
   const [isNearViewport, setIsNearViewport] = useState(eager);
   const [isPlaying, setIsPlaying] = useState(false);
   const [hasFailed, setHasFailed] = useState(false);
+  const documentVisible = useDocumentVisibility();
+  const allowMotion = !useReducedMotionPreference();
 
   const setVideoElement = useCallback((video: HTMLVideoElement | null) => {
     videoRef.current = video;
@@ -60,59 +133,25 @@ export function HomeBackgroundVideo({
   }, []);
 
   useEffect(() => {
-    if (typeof window.matchMedia !== "function") {
-      setAllowMotion(true);
-      return;
+    setHasFailed(false);
+    setIsPlaying(false);
+
+    if (!allowMotion) {
+      setIsNearViewport(false);
+      pauseVideo(videoRef.current);
+    } else if (eager) {
+      setIsNearViewport(true);
     }
-
-    const motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const syncMotionPreference = () => {
-      const nextAllowMotion = !motionQuery.matches;
-
-      setAllowMotion(nextAllowMotion);
-      setHasFailed(false);
-      setIsPlaying(false);
-
-      if (!nextAllowMotion) {
-        setIsNearViewport(false);
-        pauseVideo(videoRef.current);
-      } else if (eager) {
-        setIsNearViewport(true);
-      }
-    };
-
-    syncMotionPreference();
-    motionQuery.addEventListener("change", syncMotionPreference);
-
-    return () => {
-      motionQuery.removeEventListener("change", syncMotionPreference);
-    };
-  }, [eager]);
+  }, [allowMotion, eager]);
 
   useEffect(() => {
     const frame = frameRef.current;
     if (!allowMotion || eager || !frame) return;
 
-    if (typeof IntersectionObserver === "undefined") {
-      setHasEnteredViewport(true);
-      setIsNearViewport(true);
-      return;
-    }
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const nextIsNearViewport = entries.some((entry) => entry.isIntersecting);
-
-        setIsNearViewport(nextIsNearViewport);
-        if (nextIsNearViewport) {
-          setHasEnteredViewport(true);
-        }
-      },
-      { rootMargin: "0px", threshold: 0 },
-    );
-
-    observer.observe(frame);
-    return () => observer.disconnect();
+    return observeViewport(frame, (nextIsNearViewport) => {
+      setIsNearViewport(nextIsNearViewport);
+      if (nextIsNearViewport) setHasEnteredViewport(true);
+    });
   }, [allowMotion, eager]);
 
   const shouldRenderVideo = allowMotion && (eager || hasEnteredViewport);
@@ -121,13 +160,9 @@ export function HomeBackgroundVideo({
     const video = videoRef.current;
     if (!video) return;
 
-    if (!allowMotion || !isNearViewport || hasFailed) {
+    if (!allowMotion || !documentVisible || !isNearViewport || hasFailed) {
       pauseVideo(video);
       setIsPlaying(false);
-      return;
-    }
-
-    if (isJsdomRuntime()) {
       return;
     }
 
@@ -138,20 +173,24 @@ export function HomeBackgroundVideo({
       if (playResult && typeof playResult.catch === "function") {
         playResult.catch(() => {
           if (!cancelled) {
-            setHasFailed(true);
             setIsPlaying(false);
           }
         });
       }
     } catch {
-      setHasFailed(true);
       setIsPlaying(false);
     }
 
     return () => {
       cancelled = true;
     };
-  }, [allowMotion, hasFailed, isNearViewport, shouldRenderVideo]);
+  }, [
+    allowMotion,
+    documentVisible,
+    hasFailed,
+    isNearViewport,
+    shouldRenderVideo,
+  ]);
 
   const motionState: HomeVideoState = !allowMotion
     ? "static"

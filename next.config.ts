@@ -1,19 +1,27 @@
 import type { NextConfig } from "next";
 
+const DAYS_PER_YEAR = 365;
+const ONE_YEAR_SECONDS = 60 * 60 * 24 * DAYS_PER_YEAR;
+const IMMUTABLE_MEDIA_CACHE_CONTROL =
+  `public, max-age=${ONE_YEAR_SECONDS}, immutable`;
+const HOME_VIDEO_PATHS = [
+  "/media/home/mei-pelle-hero.webm",
+  "/media/home/mei-pelle-hero.mp4",
+  "/media/home/plug-and-play-loop.webm",
+  "/media/home/plug-and-play-loop.mp4",
+  "/media/home/final-cta-loop.webm",
+  "/media/home/final-cta-loop.mp4",
+] as const;
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   async headers() {
-    return [
-      "/media/home/mei-pelle-hero.webm",
-      "/media/home/mei-pelle-hero.mp4",
-      "/media/home/plug-and-play-loop.mp4",
-      "/media/home/final-cta-loop.mp4",
-    ].map((source) => ({
+    return HOME_VIDEO_PATHS.map((source) => ({
       source,
       headers: [
         {
           key: "Cache-Control",
-          value: "public, max-age=31536000, immutable",
+          value: IMMUTABLE_MEDIA_CACHE_CONTROL,
         },
       ],
     }));

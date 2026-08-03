@@ -3,41 +3,74 @@
 import Link from "next/link";
 import { useEffect, useRef } from "react";
 
-const START_SCALE = 1.05;
-const END_SCALE = 0.92;
-const STATIC_SCALE = 0.96;
+const PERCENTAGE_BASE = 100;
 
 function clampProgress(value: number) {
   return Math.min(1, Math.max(0, value));
 }
 
+function readCssNumber(styles: CSSStyleDeclaration, property: `--${string}`) {
+  const value = Number.parseFloat(styles.getPropertyValue(property));
+  return Number.isFinite(value) ? value : null;
+}
+
 export function FooterWordmark() {
   const bandRef = useRef<HTMLDivElement | null>(null);
-  const headingRef = useRef<HTMLHeadingElement | null>(null);
 
   useEffect(() => {
     const band = bandRef.current;
-    const heading = headingRef.current;
-    if (!band || !heading) return;
+    if (!band) return;
+
+    const styles = window.getComputedStyle(band);
+    const startScale = readCssNumber(
+      styles,
+      "--site-footer-wordmark-start-scale",
+    );
+    const endScale = readCssNumber(
+      styles,
+      "--site-footer-wordmark-end-scale",
+    );
+    const staticScale = readCssNumber(
+      styles,
+      "--site-footer-wordmark-static-scale",
+    );
+    const coverPercent = readCssNumber(
+      styles,
+      "--site-footer-wordmark-cover",
+    );
+
+    if (
+      startScale === null ||
+      endScale === null ||
+      staticScale === null ||
+      coverPercent === null ||
+      coverPercent <= 0
+    ) {
+      band.dataset.scrollZoomMode = "static";
+      return;
+    }
 
     const supportsNativeTimeline =
       typeof CSS !== "undefined" &&
       typeof CSS.supports === "function" &&
       CSS.supports("animation-timeline: view()") &&
-      CSS.supports("animation-range: entry 0% cover 62%");
+      CSS.supports(
+        `animation-range: entry 0% cover ${coverPercent}%`,
+      );
 
     if (supportsNativeTimeline) {
       band.dataset.scrollZoomMode = "view-timeline";
       return;
     }
 
-    const motionQuery = typeof window.matchMedia === "function"
-      ? window.matchMedia("(prefers-reduced-motion: reduce)")
-      : null;
+    const motionQuery =
+      typeof window.matchMedia === "function"
+        ? window.matchMedia("(prefers-reduced-motion: reduce)")
+        : null;
     let frameId: number | null = null;
 
     const setScale = (scale: number) => {
-      heading.style.setProperty("--site-footer-wordmark-scale", scale.toFixed(4));
+      band.style.setProperty("--site-footer-wordmark-scale", scale.toFixed(4));
     };
 
     const updateScale = () => {
@@ -45,14 +78,15 @@ export function FooterWordmark() {
 
       if (motionQuery?.matches) {
         band.dataset.scrollZoomMode = "static";
-        setScale(STATIC_SCALE);
+        setScale(staticScale);
         return;
       }
 
       const rect = band.getBoundingClientRect();
-      const distance = Math.max(1, window.innerHeight + rect.height * 0.62);
+      const coverRatio = coverPercent / PERCENTAGE_BASE;
+      const distance = Math.max(1, window.innerHeight + rect.height * coverRatio);
       const progress = clampProgress((window.innerHeight - rect.top) / distance);
-      const scale = START_SCALE + (END_SCALE - START_SCALE) * progress;
+      const scale = startScale + (endScale - startScale) * progress;
 
       band.dataset.scrollZoomMode = "javascript";
       setScale(scale);
@@ -60,12 +94,6 @@ export function FooterWordmark() {
 
     const scheduleScale = () => {
       if (frameId !== null) return;
-
-      if (typeof window.requestAnimationFrame !== "function") {
-        updateScale();
-        return;
-      }
-
       frameId = window.requestAnimationFrame(updateScale);
     };
 
@@ -92,7 +120,7 @@ export function FooterWordmark() {
       data-scroll-zoom-mode="pending"
     >
       <div className="site-footer__wordmark">
-        <h2 ref={headingRef} id="site-footer-heading">
+        <h2 id="site-footer-heading">
           <Link href="/">Mei Pelle</Link>
         </h2>
       </div>
