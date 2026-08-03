@@ -1,4 +1,4 @@
-import { fireEvent, render, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { HomeFinalVideo } from "@/components/HomeFinalVideo";
 
@@ -18,18 +18,51 @@ function mockReducedMotion(matches: boolean) {
   );
 }
 
+let notifyIntersection: ((isIntersecting: boolean) => void) | null = null;
+
+function mockIntersectionObserver() {
+  vi.stubGlobal(
+    "IntersectionObserver",
+    class {
+      constructor(callback: IntersectionObserverCallback) {
+        notifyIntersection = (isIntersecting) => {
+          callback(
+            [{ isIntersecting } as IntersectionObserverEntry],
+            this as unknown as IntersectionObserver,
+          );
+        };
+      }
+
+      observe() {}
+      disconnect() {}
+    },
+  );
+}
+
 afterEach(() => {
+  notifyIntersection = null;
   vi.unstubAllGlobals();
 });
 
 describe("HomeFinalVideo", () => {
-  it("mounts a muted looping mp4 when motion is allowed", async () => {
+  it("defers its muted looping mp4 until the section enters the viewport", async () => {
     mockReducedMotion(false);
+    mockIntersectionObserver();
 
     const { container } = render(<HomeFinalVideo />);
 
     expect(container.querySelector(".home-final-media__poster")?.getAttribute("src"))
       .toContain("final-cta-poster.webp");
+
+    await waitFor(() => {
+      expect(container.querySelector(".home-final-media")).toHaveAttribute(
+        "data-motion-state",
+        "pending",
+      );
+    });
+    expect(container.querySelector("video")).not.toBeInTheDocument();
+
+    act(() => notifyIntersection?.(true));
 
     await waitFor(() => {
       expect(container.querySelector("video")).toBeInTheDocument();
@@ -42,18 +75,27 @@ describe("HomeFinalVideo", () => {
     expect(mediaShell).toHaveAttribute("data-motion-state", "pending");
     expect(mediaShell).toHaveAttribute("data-video-ready", "false");
     expect(video).toHaveAttribute("poster", "/media/home/final-cta-poster.webp");
-    expect(video).toHaveAttribute("preload", "metadata");
+    expect(video).toHaveAttribute("preload", "none");
     expect(video).toHaveAttribute("aria-hidden", "true");
     expect(video).not.toHaveAttribute("controls");
-    expect(source).toHaveAttribute("src", "/media/home/final-cta-loop.mp4");
+    expect(source).toHaveAttribute(
+      "src",
+      "/media/home/final-cta-loop.mp4?v=0fc8a75fd1c4",
+    );
     expect(source).toHaveAttribute("type", "video/mp4");
     expect(video?.autoplay).toBe(true);
     expect(video?.loop).toBe(true);
     expect(video?.muted).toBe(true);
+    expect(video?.defaultMuted).toBe(true);
     expect(video?.playsInline).toBe(true);
     expect(video?.controls).toBe(false);
 
     fireEvent.loadedData(video as HTMLVideoElement);
+
+    expect(mediaShell).toHaveAttribute("data-motion-state", "pending");
+    expect(mediaShell).toHaveAttribute("data-video-ready", "false");
+
+    fireEvent.playing(video as HTMLVideoElement);
 
     await waitFor(() => {
       expect(mediaShell).toHaveAttribute("data-motion-state", "motion");

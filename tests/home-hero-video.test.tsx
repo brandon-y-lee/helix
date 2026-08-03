@@ -47,22 +47,41 @@ describe("HomeHeroVideo", () => {
     expect(video).toHaveAttribute("aria-hidden", "true");
     expect(video).not.toHaveAttribute("controls");
     expect(sources).toHaveLength(2);
-    expect(sources[0]).toHaveAttribute("src", "/media/home/mei-pelle-hero.webm");
+    expect(sources[0]).toHaveAttribute(
+      "src",
+      "/media/home/mei-pelle-hero.webm?v=469b5c0022c8",
+    );
     expect(sources[0]).toHaveAttribute("type", "video/webm");
-    expect(sources[1]).toHaveAttribute("src", "/media/home/mei-pelle-hero.mp4");
+    expect(sources[1]).toHaveAttribute(
+      "src",
+      "/media/home/mei-pelle-hero.mp4?v=7048d1daaa75",
+    );
     expect(sources[1]).toHaveAttribute("type", "video/mp4");
 
     expect(video?.autoplay).toBe(true);
     expect(video?.loop).toBe(true);
     expect(video?.muted).toBe(true);
+    expect(video?.defaultMuted).toBe(true);
     expect(video?.playsInline).toBe(true);
     expect(video?.controls).toBe(false);
 
     fireEvent.loadedData(video as HTMLVideoElement);
 
+    expect(mediaShell).toHaveAttribute("data-motion-state", "pending");
+    expect(mediaShell).toHaveAttribute("data-video-ready", "false");
+
+    fireEvent.playing(video as HTMLVideoElement);
+
     await waitFor(() => {
       expect(mediaShell).toHaveAttribute("data-motion-state", "motion");
       expect(mediaShell).toHaveAttribute("data-video-ready", "true");
+    });
+
+    fireEvent.waiting(video as HTMLVideoElement);
+
+    await waitFor(() => {
+      expect(mediaShell).toHaveAttribute("data-motion-state", "pending");
+      expect(mediaShell).toHaveAttribute("data-video-ready", "false");
     });
   });
 

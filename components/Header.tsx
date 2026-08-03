@@ -24,18 +24,6 @@ function getScrollY() {
   return Math.max(0, window.scrollY || window.pageYOffset || 0);
 }
 
-function readHeaderTheme(): HeaderTheme {
-  if (typeof document === "undefined") {
-    return "dark";
-  }
-
-  const themedSurface = document.querySelector<HTMLElement>(
-    "main [data-header-theme]",
-  );
-
-  return themedSurface?.dataset.headerTheme === "light" ? "light" : "dark";
-}
-
 function resolveHeaderNavState({
   currentState,
   overlayOpen,
@@ -86,7 +74,7 @@ export function Header({
   const overlayOpen =
     searchOpen || (!commerceDisabled && cartDrawerOpen) || menuOpen;
   const [navState, setNavState] = useState<HeaderNavState>("top");
-  const [headerTheme, setHeaderTheme] = useState<HeaderTheme>("dark");
+  const headerTheme: HeaderTheme = pathname === "/" ? "light" : "dark";
   const navStateRef = useRef<HeaderNavState>("top");
   const lastScrollYRef = useRef(0);
   const frameRef = useRef<number | null>(null);
@@ -135,7 +123,6 @@ export function Header({
 
   useEffect(() => {
     overlayOpenRef.current = overlayOpen;
-    setHeaderTheme(readHeaderTheme());
 
     const scrollY = getScrollY();
     lastScrollYRef.current = scrollY;

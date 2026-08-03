@@ -2,6 +2,22 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  async headers() {
+    return [
+      "/media/home/mei-pelle-hero.webm",
+      "/media/home/mei-pelle-hero.mp4",
+      "/media/home/plug-and-play-loop.mp4",
+      "/media/home/final-cta-loop.mp4",
+    ].map((source) => ({
+      source,
+      headers: [
+        {
+          key: "Cache-Control",
+          value: "public, max-age=31536000, immutable",
+        },
+      ],
+    }));
+  },
   async redirects() {
     return [
       {

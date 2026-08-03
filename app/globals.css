@@ -408,12 +408,12 @@ body[data-sheet-scroll-lock] .site-header {
   line-height: 0.86;
   text-align: center;
   text-transform: none;
-  transform: scale(0.96);
+  transform: scale(var(--site-footer-wordmark-scale, 0.96));
   transform-origin: 50% 50%;
   white-space: nowrap;
 }
 
-@supports (animation-timeline: view()) {
+@supports (animation-timeline: view()) and (animation-range: entry 0% cover 62%) {
   .site-footer__wordmark h2 {
     animation-name: site-footer-wordmark-shrink;
     animation-duration: 1ms;

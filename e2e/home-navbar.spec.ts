@@ -6,6 +6,11 @@ test("global navbar follows scroll direction and returns to its top state", asyn
   await page.goto("/");
   const header = page.locator(".site-header");
   await expect(header).toHaveAttribute("data-nav-state", "top");
+  await expect(header).toHaveAttribute("data-header-theme", "light");
+  await expect(page.locator("main")).toHaveAttribute(
+    "data-header-layout",
+    "overlay",
+  );
 
   await page.evaluate(() => window.scrollTo(0, 600));
   await expect(header).toHaveAttribute("data-nav-state", "hidden");

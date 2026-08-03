@@ -55,6 +55,16 @@ beforeEach(() => {
 });
 
 describe("Header draft preview commerce", () => {
+  it("uses the light top theme on the homepage's first render", () => {
+    headerMocks.pathname = "/";
+    render(<Header />);
+
+    expect(document.querySelector(".site-header")).toHaveAttribute(
+      "data-header-theme",
+      "light",
+    );
+  });
+
   it("keeps the cart control visible but prevents the drawer from opening", () => {
     render(<Header commerceDisabled />);
     const cart = screen.getByRole("button", {
