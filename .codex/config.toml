@@ -1,2 +1,7 @@
+sandbox_mode = "workspace-write"
+web_search = "live"
 [mcp_servers.supabase]
 url = "https://mcp.supabase.com/mcp?project_ref=erasogmsqpgiirovubjh&features=docs%2Cdatabase%2Cdebugging%2Cdevelopment%2Cstorage%2Cfunctions"
+
+[sandbox_workspace_write]
+network_access = true

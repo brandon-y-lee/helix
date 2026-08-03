@@ -446,7 +446,6 @@ export default function CatalogEditor({ productId }: { productId: string }) {
       <header className={styles.editorHeader}>
         <div>
           <Link href="/admin/catalog">← Catalog</Link>
-          <p className={styles.eyebrow}>Unified product editor</p>
           <h1 className={styles.title}>
             {document.product.display_name || document.product.slug}
           </h1>
