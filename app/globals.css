@@ -2361,7 +2361,6 @@ main:focus {
 .cart-sheet {
   position: relative;
   animation: none;
-  will-change: transform;
 }
 
 .sheet__head {

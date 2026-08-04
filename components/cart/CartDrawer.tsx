@@ -4,14 +4,11 @@ import { CartView } from "@/components/cart/CartView";
 import { useCartDrawer } from "@/components/cart/CartProvider";
 import { Sheet } from "@/components/overlays/Sheet";
 import type { SheetMotionTransition } from "@/components/overlays/Sheet";
-import {
-  PDP_SLIDE_DURATION_MS,
-  PDP_SLIDE_EASING_VALUES,
-} from "@/components/product-detail/usePdpSlideTransition";
 
 export const CART_SHEET_MOTION: SheetMotionTransition = {
-  duration: PDP_SLIDE_DURATION_MS / 1000,
-  ease: [...PDP_SLIDE_EASING_VALUES],
+  duration: 0.3,
+  ease: [0.42, 0, 0.58, 1],
+  backdropDuration: 0.14,
 };
 
 export function CartDrawerHost() {
@@ -51,6 +48,7 @@ export function CartDrawer({
       className="cart-sheet"
       overlayClassName="cart-sheet-overlay"
       motionTransition={CART_SHEET_MOTION}
+      persistent
     >
       <CartView mode="drawer" onContinue={onClose} />
     </Sheet>

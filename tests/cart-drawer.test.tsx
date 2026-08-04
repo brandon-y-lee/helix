@@ -4,10 +4,6 @@ import {
   CART_SHEET_MOTION,
   CartDrawer,
 } from "@/components/cart/CartDrawer";
-import {
-  PDP_SLIDE_DURATION_MS,
-  PDP_SLIDE_EASING,
-} from "@/components/product-detail/usePdpSlideTransition";
 
 const motionPreference = vi.hoisted(() => ({ reduced: false }));
 
@@ -52,29 +48,39 @@ function Drawer({
 }
 
 describe("CartDrawer motion", () => {
-  it("mounts one Motion drawer with the shared PDP timing", () => {
+  it("keeps one closed Motion drawer mounted and opens the same node", async () => {
+    const focus = vi.spyOn(HTMLElement.prototype, "focus");
     const { rerender } = render(<Drawer open={false} onClose={() => {}} />);
 
-    expect(document.querySelector(".cart-sheet-overlay")).toBeNull();
-    expect(screen.queryByRole("dialog", { name: "Cart" })).toBeNull();
-
-    rerender(<Drawer open onClose={() => {}} />);
-
-    const overlay = screen.getByRole("dialog", { name: "Cart" });
+    const overlay = document.querySelector(".cart-sheet-overlay");
     const panel = document.querySelector(".cart-sheet");
     expect(overlay).toHaveAttribute("data-motion-sheet");
-    expect(overlay).toHaveAttribute("data-state", "open");
-    expect(panel).toHaveAttribute("data-state", "open");
+    expect(overlay).toHaveAttribute("data-state", "closed");
+    expect(overlay).toHaveAttribute("aria-hidden", "true");
+    expect(overlay).toHaveAttribute("inert");
+    expect(panel).toHaveAttribute("data-state", "closed");
     expect(panel).toHaveStyle({
       transform: "translate3d(100%, 0, 0)",
     });
+    expect(screen.queryByRole("dialog", { name: "Cart" })).toBeNull();
+    expect(document.body).not.toHaveStyle({ overflow: "hidden" });
+
+    rerender(<Drawer open onClose={() => {}} />);
+
+    expect(screen.getByRole("dialog", { name: "Cart" })).toBe(overlay);
+    expect(document.querySelector(".cart-sheet")).toBe(panel);
+    expect(overlay).toHaveAttribute("data-state", "open");
+    expect(panel).toHaveAttribute("data-state", "open");
     expect(document.querySelectorAll(".cart-sheet")).toHaveLength(1);
     expect(document.body).toHaveStyle({ overflow: "hidden" });
-    expect(CART_SHEET_MOTION).toEqual({
-      duration: PDP_SLIDE_DURATION_MS / 1000,
-      ease: [0.66, 0, 0.18, 1],
+    await waitFor(() => {
+      expect(focus).toHaveBeenCalledWith({ preventScroll: true });
     });
-    expect(PDP_SLIDE_EASING).toBe("cubic-bezier(0.66, 0, 0.18, 1)");
+    expect(CART_SHEET_MOTION).toEqual({
+      duration: 0.3,
+      ease: [0.42, 0, 0.58, 1],
+      backdropDuration: 0.14,
+    });
   });
 
   it("keeps the drawer through exit and reverses a rapid reopen", async () => {
@@ -108,9 +114,11 @@ describe("CartDrawer motion", () => {
       <Drawer open={false} onClose={() => {}} returnFocus={returnFocus} />,
     );
     await waitFor(() => {
-      expect(document.querySelector(".cart-sheet-overlay")).toBeNull();
+      expect(overlay).toHaveAttribute("data-state", "closed");
+      expect(document.querySelector(".cart-sheet-overlay")).toBe(overlay);
+      expect(document.querySelector(".cart-sheet")).toBe(panel);
+      expect(document.body).not.toHaveStyle({ overflow: "hidden" });
     });
-    expect(document.body).not.toHaveStyle({ overflow: "hidden" });
     expect(returnFocus).toHaveBeenCalledTimes(1);
   });
 
@@ -139,7 +147,10 @@ describe("CartDrawer motion", () => {
     });
 
     await waitFor(() => {
-      expect(document.querySelector(".cart-sheet-overlay")).toBeNull();
+      expect(document.querySelector(".cart-sheet-overlay")).toHaveAttribute(
+        "data-state",
+        "closed",
+      );
       expect(document.body).toHaveStyle({
         overflow: "auto",
         paddingRight: "4px",
@@ -159,7 +170,10 @@ describe("CartDrawer motion", () => {
     rerender(<Drawer open={false} onClose={() => {}} />);
 
     await waitFor(() => {
-      expect(document.querySelector(".cart-sheet-overlay")).toBeNull();
+      expect(document.querySelector(".cart-sheet-overlay")).toHaveAttribute(
+        "data-state",
+        "closed",
+      );
       expect(document.body).not.toHaveStyle({ overflow: "hidden" });
     });
   });

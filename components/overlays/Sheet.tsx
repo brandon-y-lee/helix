@@ -88,6 +88,8 @@ function focusableIn(container: HTMLElement): HTMLElement[] {
 }
 
 type SheetLayerProps = {
+  open: boolean;
+  persistent: boolean;
   side: SheetSide;
   title: string;
   titleId: string;
@@ -102,12 +104,15 @@ type SheetLayerProps = {
   panelStyle?: CSSProperties;
   panelRef: React.RefObject<HTMLDivElement | null>;
   motionTransition?: SheetMotionTransition;
+  onMotionComplete?: () => void;
 };
 
 function SheetLayer(props: SheetLayerProps) {
   const isPresent = useIsPresent();
   const shouldReduceMotion = useReducedMotion();
   const {
+    open,
+    persistent,
     side,
     title,
     titleId,
@@ -122,6 +127,7 @@ function SheetLayer(props: SheetLayerProps) {
     panelStyle,
     panelRef,
     motionTransition,
+    onMotionComplete,
   } = props;
   const animated = motionTransition !== undefined;
   const duration = shouldReduceMotion
@@ -131,7 +137,13 @@ function SheetLayer(props: SheetLayerProps) {
     ? 0.01
     : (motionTransition?.backdropDuration ?? motionTransition?.duration);
   const closedTransform = `translate3d(${side === "right" ? "100%" : "-100%"}, 0, 0)`;
-  const state = !animated || isPresent ? "open" : "closed";
+  const state = persistent
+    ? open
+      ? "open"
+      : "closed"
+    : !animated || isPresent
+      ? "open"
+      : "closed";
   const backdropVariants = motionTransition
     ? { closed: { opacity: 0 }, open: { opacity: 1 } }
     : undefined;
@@ -163,9 +175,9 @@ function SheetLayer(props: SheetLayerProps) {
           className="sheet__backdrop"
           aria-hidden="true"
           variants={backdropVariants}
-          initial="closed"
-          animate="open"
-          exit="closed"
+          initial={persistent ? false : "closed"}
+          animate={persistent ? state : "open"}
+          exit={persistent ? undefined : "closed"}
           transition={{
             type: "tween",
             duration: backdropDuration,
@@ -179,9 +191,9 @@ function SheetLayer(props: SheetLayerProps) {
         ref={panelRef}
         style={panelStyle}
         variants={panelVariants}
-        initial={motionTransition ? "closed" : undefined}
-        animate={motionTransition ? "open" : undefined}
-        exit={motionTransition ? "closed" : undefined}
+        initial={motionTransition ? (persistent ? false : "closed") : undefined}
+        animate={motionTransition ? (persistent ? state : "open") : undefined}
+        exit={motionTransition && !persistent ? "closed" : undefined}
         transition={
           motionTransition
             ? {
@@ -191,6 +203,7 @@ function SheetLayer(props: SheetLayerProps) {
               }
             : undefined
         }
+        onAnimationComplete={persistent ? onMotionComplete : undefined}
       >
         <div className="sheet__head">
           <div>
@@ -228,6 +241,7 @@ export function Sheet({
   overlayStyle,
   panelStyle,
   motionTransition,
+  persistent = false,
 }: {
   open: boolean;
   side?: SheetSide;
@@ -242,6 +256,7 @@ export function Sheet({
   overlayStyle?: CSSProperties;
   panelStyle?: CSSProperties;
   motionTransition?: SheetMotionTransition;
+  persistent?: boolean;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const releaseScrollLockRef = useRef<(() => void) | null>(null);
@@ -251,11 +266,18 @@ export function Sheet({
   const titleId = `${id}-sheet-title`;
   const descriptionId = `${id}-sheet-description`;
   const animated = motionTransition !== undefined;
+  const keepMounted = persistent && animated;
 
   const releaseScrollLock = useCallback(() => {
     releaseScrollLockRef.current?.();
     releaseScrollLockRef.current = null;
   }, []);
+
+  const completeAnimatedClose = useCallback(() => {
+    if (openRef.current || releaseScrollLockRef.current === null) return;
+    releaseScrollLock();
+    returnFocus();
+  }, [releaseScrollLock, returnFocus]);
 
   useEffect(() => {
     if (!open) return;
@@ -266,7 +288,7 @@ export function Sheet({
     const focusTimeout = window.setTimeout(() => {
       if (panel?.contains(document.activeElement)) return;
       const first = panel ? focusableIn(panel)[0] : null;
-      first?.focus();
+      first?.focus({ preventScroll: true });
     }, 0);
 
     function onKeyDown(e: KeyboardEvent) {
@@ -310,6 +332,8 @@ export function Sheet({
   useEffect(() => () => releaseScrollLock(), [releaseScrollLock]);
 
   const layerProps: SheetLayerProps = {
+    open,
+    persistent: keepMounted,
     side,
     title,
     titleId,
@@ -324,6 +348,7 @@ export function Sheet({
     panelStyle,
     panelRef,
     motionTransition,
+    onMotionComplete: completeAnimatedClose,
   };
 
   if (typeof document === "undefined") return null;
@@ -331,14 +356,10 @@ export function Sheet({
   return createPortal(
     <LazyMotion features={domAnimation} strict>
       <MotionConfig reducedMotion="user">
-        {animated ? (
-          <AnimatePresence
-            onExitComplete={() => {
-              if (openRef.current) return;
-              releaseScrollLock();
-              returnFocus();
-            }}
-          >
+        {keepMounted ? (
+          <SheetLayer {...layerProps} />
+        ) : animated ? (
+          <AnimatePresence onExitComplete={completeAnimatedClose}>
             {open && <SheetLayer key={id} {...layerProps} />}
           </AnimatePresence>
         ) : (
