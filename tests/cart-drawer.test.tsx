@@ -65,7 +65,9 @@ describe("CartDrawer motion", () => {
     expect(overlay).toHaveAttribute("data-motion-sheet");
     expect(overlay).toHaveAttribute("data-state", "open");
     expect(panel).toHaveAttribute("data-state", "open");
-    expect(panel).toHaveStyle({ transform: "translateX(100%)" });
+    expect(panel).toHaveStyle({
+      transform: "translate3d(100%, 0, 0)",
+    });
     expect(document.querySelectorAll(".cart-sheet")).toHaveLength(1);
     expect(document.body).toHaveStyle({ overflow: "hidden" });
     expect(CART_SHEET_MOTION).toEqual({

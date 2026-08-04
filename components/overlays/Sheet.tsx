@@ -130,13 +130,16 @@ function SheetLayer(props: SheetLayerProps) {
   const backdropDuration = shouldReduceMotion
     ? 0.01
     : (motionTransition?.backdropDuration ?? motionTransition?.duration);
-  const closedX = side === "right" ? "100%" : "-100%";
+  const closedTransform = `translate3d(${side === "right" ? "100%" : "-100%"}, 0, 0)`;
   const state = !animated || isPresent ? "open" : "closed";
   const backdropVariants = motionTransition
     ? { closed: { opacity: 0 }, open: { opacity: 1 } }
     : undefined;
   const panelVariants = motionTransition
-    ? { closed: { x: closedX }, open: { x: 0 } }
+    ? {
+        closed: { transform: closedTransform },
+        open: { transform: "translate3d(0%, 0, 0)" },
+      }
     : undefined;
 
   return (

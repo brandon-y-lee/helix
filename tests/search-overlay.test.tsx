@@ -40,7 +40,7 @@ describe("SearchOverlay", () => {
     );
 
     expect(document.querySelector(".search-sheet")).toHaveStyle({
-      transform: "translateX(100%)",
+      transform: "translate3d(100%, 0, 0)",
     });
   });
 
