@@ -285,12 +285,21 @@ describe("ProductCard quick buy", () => {
     );
 
     const surface = cardSurface();
+    const productLink = screen.getByRole("link", { name: "CLEANSE" });
     const trigger = screen.getByRole("button", {
       name: "Open quick buy for CLEANSE",
     });
 
+    expect(trigger).toHaveAttribute("tabindex", "-1");
     act(() => {
       fireEvent.keyDown(window, { key: "Tab" });
+      productLink.focus();
+      fireEvent.focusIn(productLink);
+    });
+    expect(surface).toHaveAttribute("data-visual-state", "preview");
+    expect(trigger).not.toHaveAttribute("tabindex");
+
+    act(() => {
       trigger.focus();
       fireEvent.focusIn(trigger);
     });

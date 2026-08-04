@@ -3,6 +3,14 @@
 import Image from "next/image";
 import Link from "next/link";
 import {
+  domAnimation,
+  LazyMotion,
+  MotionConfig,
+  useReducedMotion,
+  type Variants,
+} from "motion/react";
+import * as m from "motion/react-m";
+import {
   useEffect,
   useId,
   useMemo,
@@ -27,6 +35,16 @@ import {
   isVariantPurchasable,
   productPurchaseCta,
 } from "@/lib/products";
+
+type ProductCardCtaMotionState = "rest" | "preview" | "quick-buy";
+
+const PRODUCT_CARD_CTA_VARIANTS: Variants = {
+  rest: { "--product-card-cta-translate-y": "150%" },
+  preview: { "--product-card-cta-translate-y": "0%" },
+  "quick-buy": { "--product-card-cta-translate-y": "150%" },
+};
+
+const PRODUCT_CARD_CTA_EASE = [0.76, 0, 0.24, 1] as const;
 
 function minPrice(product: ProductCardModel): number {
   return product.variants.length
@@ -96,6 +114,7 @@ export function ProductCard({
   onQuickBuyOpen,
   onQuickBuyClose,
 }: ProductCardProps) {
+  const shouldReduceMotion = useReducedMotion();
   const {
     clearError,
     error: addError,
@@ -160,6 +179,8 @@ export function ProductCard({
     : pointerInside || keyboardFocusVisibleWithin
       ? "preview"
       : "default";
+  const ctaMotionState: ProductCardCtaMotionState =
+    visualState === "default" ? "rest" : visualState;
   const rows = useMemo(
     () => detailRows(product, selectedVariant),
     [product, selectedVariant],
@@ -439,23 +460,42 @@ export function ProductCard({
           </span>
         </Link>
 
-        <div className="product-card__cta" aria-hidden={false}>
-          <button
-            ref={triggerRef}
-            type="button"
-            className="product-card__button product-card__quick-trigger"
-            onClick={openQuickBuy}
-            aria-label={
-              canBuy ? `Open quick buy for ${displayName}` : purchaseCta.label
-            }
-            aria-expanded={isQuickBuyOpen}
-            aria-controls={panelId}
-            disabled={!canBuy}
-            tabIndex={isQuickBuyOpen ? -1 : undefined}
-          >
-            {purchaseCta.label}
-          </button>
-        </div>
+        <LazyMotion features={domAnimation} strict>
+          <MotionConfig reducedMotion="user">
+            <m.div
+              className="product-card__cta"
+              data-motion-state={ctaMotionState}
+              variants={PRODUCT_CARD_CTA_VARIANTS}
+              initial={false}
+              animate={ctaMotionState}
+              transition={{
+                type: "tween",
+                duration: shouldReduceMotion ? 0 : 0.7,
+                ease: PRODUCT_CARD_CTA_EASE,
+              }}
+            >
+              <button
+                ref={triggerRef}
+                type="button"
+                className="product-card__button product-card__quick-trigger"
+                onClick={openQuickBuy}
+                aria-label={
+                  canBuy
+                    ? `Open quick buy for ${displayName}`
+                    : purchaseCta.label
+                }
+                aria-expanded={isQuickBuyOpen}
+                aria-controls={panelId}
+                disabled={!canBuy}
+                tabIndex={
+                  isQuickBuyOpen || visualState === "default" ? -1 : undefined
+                }
+              >
+                {purchaseCta.label}
+              </button>
+            </m.div>
+          </MotionConfig>
+        </LazyMotion>
 
         <section
           id={panelId}

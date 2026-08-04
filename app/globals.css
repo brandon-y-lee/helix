@@ -701,12 +701,6 @@ body[data-sheet-scroll-lock] .site-header {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  transition: transform 0.18s ease, box-shadow 0.18s ease;
-}
-
-.product-card:hover {
-  transform: translateY(-3px);
-  box-shadow: var(--shadow);
 }
 
 .product-card__media-link {
@@ -3152,10 +3146,6 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   background: transparent;
   border-color: color-mix(in srgb, var(--line) 72%, transparent);
   box-shadow: none;
-}
-
-.product-card:hover {
-  transform: translateY(-2px);
 }
 
 .product-card__media {
@@ -5919,12 +5909,6 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   box-shadow: none;
 }
 
-.product-card[data-visual-state="preview"],
-.product-card[data-visual-state="quick-buy"] {
-  transform: translateY(-2px);
-  box-shadow: none;
-}
-
 .product-card__surface {
   position: relative;
   aspect-ratio: 4 / 5;
@@ -5974,6 +5958,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   .product-card__image[data-media-kind="image"]:not(.product-card__image--asset)
   .product-card__img {
   object-fit: cover;
+  object-position: 50% 50%;
 }
 
 .product-card__img--asset {
@@ -6047,9 +6032,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   bottom: clamp(14px, 2vw, 20px);
   z-index: 4;
   margin: 0;
-  opacity: 0;
-  transform: translateY(8px);
-  transition: opacity var(--motion-fast) ease, transform var(--motion-fast) ease;
+  transform: translateY(var(--product-card-cta-translate-y, 150%));
 }
 
 .product-card__button {
@@ -6106,15 +6089,8 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   opacity: 0;
 }
 
-.product-card[data-visual-state="preview"] .product-card__cta {
-  opacity: 1;
-  transform: translateY(0);
-}
-
 .product-card[data-visual-state="quick-buy"] .product-card__cta {
-  opacity: 0;
   pointer-events: none;
-  transform: translateY(8px);
 }
 
 .product-card__quick-buy {
@@ -7465,7 +7441,6 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 
 @media (hover: none) {
   .product-card__cta {
-    opacity: 1;
     transform: translateY(0);
   }
 

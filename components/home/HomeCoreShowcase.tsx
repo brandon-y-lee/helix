@@ -18,7 +18,7 @@ const CORE_DESCRIPTION_KEY_BY_SLUG = {
 
 const CORE_CARD_IMAGES_BY_SLUG = {
   "cleanse-01-calming-gel-cleanser": {
-    src: "/media/home/cleanse-core-card.webp",
+    src: "/media/home/cleanse-product-card-default-01.webp",
     alt: "CLEANSE product bottle.",
     width: 1200,
     height: 1650,
@@ -27,7 +27,7 @@ const CORE_CARD_IMAGES_BY_SLUG = {
     sizes: "(max-width: 900px) 92vw, 33vw",
   },
   "treat-03-pdrn-5-ampoule": {
-    src: "/media/home/treat-core-card.webp",
+    src: "/media/home/treat-product-card-default-01.webp",
     alt: "TREAT product bottle.",
     width: 1400,
     height: 1867,
@@ -36,7 +36,7 @@ const CORE_CARD_IMAGES_BY_SLUG = {
     sizes: "(max-width: 900px) 92vw, 33vw",
   },
   "seal-05-green-collagen-cream": {
-    src: "/media/home/seal-core-card.webp",
+    src: "/media/home/seal-product-card-default-01.webp",
     alt: "SEAL product jar.",
     width: 1400,
     height: 1867,
