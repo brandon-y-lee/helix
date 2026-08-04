@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { EditorialHueField } from "@/components/EditorialHueField";
-import { MethodExperience } from "@/components/MethodExperience";
+import { EditorialHueField } from "@/components/content/EditorialHueField";
+import { MethodExperience } from "@/components/system/MethodExperience";
 import {
   buildIngredientIndex,
   getMethodProductState,

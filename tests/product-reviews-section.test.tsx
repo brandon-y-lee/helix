@@ -5,7 +5,7 @@ import {
   INITIAL_VISIBLE_REVIEW_COUNT,
   ProductReviewsSection,
   REVIEW_VISIBLE_INCREMENT,
-} from "@/components/ProductReviewsSection";
+} from "@/components/product-detail/ProductReviewsSection";
 import type {
   ProductReviewFixture,
   ProductReviews,

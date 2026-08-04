@@ -12,7 +12,7 @@ vi.mock("@/lib/auth/session", () => ({
 import SignInPage from "@/app/account/sign-in/page";
 import CartPage from "@/app/cart/page";
 import ProductsPage from "@/app/products/page";
-import { CartProvider } from "@/components/CartProvider";
+import { CartProvider } from "@/components/cart/CartProvider";
 
 beforeEach(() => {
   vi.stubGlobal(

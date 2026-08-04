@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   orderedPdpApplicationMedia,
   PdpApplicationCarousel,
-} from "@/components/PdpApplicationCarousel";
+} from "@/components/product-detail/PdpApplicationCarousel";
 import type { CorePdpApplicationStep } from "@/lib/content/core-pdp";
 import type { ProductMedia } from "@/lib/products";
 

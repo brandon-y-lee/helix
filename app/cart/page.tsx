@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import { CartView } from "@/components/CartView";
-import { CheckoutCancellationCleanup } from "@/components/CheckoutCancellationCleanup";
+import { CartView } from "@/components/cart/CartView";
+import { CheckoutCancellationCleanup } from "@/components/cart/CheckoutCancellationCleanup";
 import { isCheckoutCancelledSearchParams } from "@/lib/orders/checkout-cancel";
 
 export const metadata: Metadata = {

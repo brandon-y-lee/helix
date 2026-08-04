@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { CookiePreferencesDialog } from "@/components/CookiePreferencesDialog";
-import { LegalDocumentLayout } from "@/components/LegalDocumentLayout";
+import { CookiePreferencesDialog } from "@/components/privacy/CookiePreferencesDialog";
+import { LegalDocumentLayout } from "@/components/content/LegalDocumentLayout";
 import { privacyChoices } from "@/content/legal/privacy-choices";
 
 const siteUrl = new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000");

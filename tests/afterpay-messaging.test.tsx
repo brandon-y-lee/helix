@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   AfterpayMessaging,
   afterpayMessagingOptions,
-} from "@/components/AfterpayMessaging";
+} from "@/components/product-detail/AfterpayMessaging";
 
 const stripeMocks = vi.hoisted(() => ({
   loadStripe: vi.fn(),

@@ -22,7 +22,7 @@ vi.mock("next/link", () => ({
     </a>
   ),
 }));
-vi.mock("@/components/CartProvider", () => ({
+vi.mock("@/components/cart/CartProvider", () => ({
   useCartDrawer: () => ({
     cartDrawerOpen: false,
     openCartDrawer: headerMocks.openCartDrawer,
@@ -30,22 +30,22 @@ vi.mock("@/components/CartProvider", () => ({
     returnFocusAfterCartDrawerClose: vi.fn(),
   }),
 }));
-vi.mock("@/components/useCart", () => ({
+vi.mock("@/components/cart/useCart", () => ({
   useCartCount: () => ({ count: 2, hasLoadedCart: true, error: null }),
 }));
-vi.mock("@/components/CartDrawer", () => ({
+vi.mock("@/components/cart/CartDrawer", () => ({
   CartDrawer: ({ open }: { open: boolean }) => (
     <div data-testid="cart-drawer-state">{String(open)}</div>
   ),
 }));
-vi.mock("@/components/SearchOverlay", () => ({
+vi.mock("@/components/search/SearchOverlay", () => ({
   SearchOverlay: () => null,
 }));
-vi.mock("@/components/Sheet", () => ({
+vi.mock("@/components/overlays/Sheet", () => ({
   Sheet: ({ children }: { children: ReactNode }) => <>{children}</>,
 }));
 
-import { Header } from "@/components/Header";
+import { Header } from "@/components/shell/Header";
 
 beforeEach(() => {
   headerMocks.pathname =

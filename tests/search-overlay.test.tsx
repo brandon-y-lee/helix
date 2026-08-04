@@ -3,13 +3,13 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("@/components/SearchView", () => ({
+vi.mock("@/components/search/SearchView", () => ({
   SearchView: ({ autoFocus }: { autoFocus?: boolean }) => (
     <input aria-label="Search products" autoFocus={autoFocus} />
   ),
 }));
 
-import { SearchOverlay } from "@/components/SearchOverlay";
+import { SearchOverlay } from "@/components/search/SearchOverlay";
 
 function Harness() {
   const [open, setOpen] = useState(false);

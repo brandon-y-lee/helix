@@ -1,6 +1,6 @@
 import { act, fireEvent, render } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { FooterWordmark } from "@/components/FooterWordmark";
+import { FooterWordmark } from "@/components/shell/FooterWordmark";
 
 afterEach(() => {
   vi.restoreAllMocks();

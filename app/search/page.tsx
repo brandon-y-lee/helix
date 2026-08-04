@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { SearchView } from "@/components/SearchView";
+import { SearchView } from "@/components/search/SearchView";
 
 export const metadata: Metadata = {
   title: "Search | Mei Pelle",

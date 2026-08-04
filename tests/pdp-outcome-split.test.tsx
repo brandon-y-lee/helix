@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   orderedPdpOutcomeMedia,
   PdpOutcomeSplit,
-} from "@/components/PdpOutcomeSplit";
+} from "@/components/product-detail/PdpOutcomeSplit";
 import {
   CORE_PDP_DESIGN_TOKENS,
   type CorePdpPresentation,

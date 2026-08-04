@@ -7,7 +7,7 @@ vi.mock("@/lib/catalog-cache", () => ({
 }));
 
 import HomePage from "@/app/page";
-import { CartProvider } from "@/components/CartProvider";
+import { CartProvider } from "@/components/cart/CartProvider";
 import {
   getCachedIngredientIndexProducts,
   getCachedProductCards,

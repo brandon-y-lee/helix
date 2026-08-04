@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
-import { PdpIngredientsSplit } from "@/components/PdpIngredientsSplit";
+import { PdpIngredientsSplit } from "@/components/product-detail/PdpIngredientsSplit";
 import type { PdpIngredientStory } from "@/lib/catalog/product-content";
 import type { ProductMedia } from "@/lib/products";
 

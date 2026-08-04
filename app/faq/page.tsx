@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { FAQAccordion } from "@/components/FAQAccordion";
+import { FAQAccordion } from "@/components/content/FAQAccordion";
 import { faqCategories } from "@/content/support/faq";
 
 const siteUrl = new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000");

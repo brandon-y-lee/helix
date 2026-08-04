@@ -1,8 +1,8 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { PdpCoreDetailsRoutine } from "@/components/PdpCoreDetailsRoutine";
-import { coreDetailsIslandItems } from "@/components/ProductDetail.adapters";
+import { PdpCoreDetailsRoutine } from "@/components/product-detail/PdpCoreDetailsRoutine";
+import { coreDetailsIslandItems } from "@/components/product-detail/ProductDetail.adapters";
 import type { Product } from "@/lib/products";
 
 const cartMock = vi.hoisted(() => ({
@@ -11,12 +11,12 @@ const cartMock = vi.hoisted(() => ({
   resetErrors: vi.fn(),
 }));
 
-vi.mock("@/components/CartProvider", () => ({
+vi.mock("@/components/cart/CartProvider", () => ({
   useCartDrawer: () => ({
     openCartDrawer: cartMock.openCartDrawer,
   }),
 }));
-vi.mock("@/components/useCart", async () => {
+vi.mock("@/components/cart/useCart", async () => {
   const { useState } = await import("react");
   return {
     useCartMutations: () => {

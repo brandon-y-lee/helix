@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { LegalDocumentLayout } from "@/components/LegalDocumentLayout";
+import { LegalDocumentLayout } from "@/components/content/LegalDocumentLayout";
 import { cookieCategories, cookiePolicy } from "@/content/legal/cookies";
 
 const siteUrl = new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000");

@@ -1,7 +1,7 @@
 // Storefront-safe Algolia record and deterministic canonical mapper.
 
 import type { ProductStatus } from "@/lib/products";
-import { statusLabel } from "@/components/productStatus";
+import { statusLabel } from "@/lib/catalog/product-status";
 import { routineGroupLabel } from "@/lib/catalog/product-routine";
 
 export const DEFAULT_INDEX_NAME = "mei_pelle_products";

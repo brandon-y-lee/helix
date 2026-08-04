@@ -28,7 +28,7 @@ import {
   type ProductOffer,
   type ProductRoute,
 } from "@/lib/catalog/models";
-import { PDP_DISCOVERY_PRODUCT_LIMIT } from "@/lib/merchandising";
+import { PDP_DISCOVERY_PRODUCT_LIMIT } from "@/lib/catalog/discovery";
 import { routineGroupLabel } from "@/lib/catalog/product-routine";
 import type { Product, ProductMedia } from "@/lib/products";
 

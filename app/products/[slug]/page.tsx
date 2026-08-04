@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { ProductDetail } from "@/components/ProductDetail";
-import { ProductDiscoveryCarousel } from "@/components/ProductDiscoveryCarousel";
+import { ProductDetail } from "@/components/product-detail/ProductDetail";
+import { ProductCarousel } from "@/components/product/ProductCarousel";
 import {
   getCachedCoreRoutineSummaries,
   getCachedDiscoveryProductCards,
@@ -11,6 +11,7 @@ import {
 } from "@/lib/catalog-cache";
 import { stripeMessagingPublishableKey } from "@/lib/checkout/config";
 import type { CoreRoutineSummary } from "@/lib/catalog/models";
+import { PDP_DISCOVERY_PRODUCT_LIMIT } from "@/lib/catalog/discovery";
 
 export async function generateStaticParams() {
   const products = await getCachedProductRoutes();
@@ -69,10 +70,23 @@ export default async function ProductDetailPage({
           stripePublishableKey={stripeMessagingPublishableKey()}
         />
       </div>
-      <ProductDiscoveryCarousel
-        currentSlug={product.slug}
-        products={related}
-      />
+      {related.length > 0 && (
+        <section
+          className="storefront-carousel-shell pdp-discovery"
+          aria-label="Recommended products"
+          data-layout-shell="carousel"
+          data-product-collection="discovery"
+          data-product-count={related.length}
+          data-product-limit={PDP_DISCOVERY_PRODUCT_LIMIT}
+        >
+          <ProductCarousel
+            products={related}
+            ariaLabel="Recommended product carousel"
+            announcementContext="the recommended products"
+            className="pdp-discovery__carousel"
+          />
+        </section>
+      )}
     </>
   );
 }

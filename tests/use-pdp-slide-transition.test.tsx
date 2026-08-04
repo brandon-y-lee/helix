@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   PDP_SLIDE_DURATION_MS,
   usePdpSlideTransition,
-} from "@/components/usePdpSlideTransition";
+} from "@/components/product-detail/usePdpSlideTransition";
 
 function mockReducedMotion(matches: () => boolean) {
   vi.stubGlobal(

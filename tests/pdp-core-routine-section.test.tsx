@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { PdpCoreRoutineSection } from "@/components/PdpCoreRoutineSection";
+import { PdpCoreRoutineSection } from "@/components/product-detail/PdpCoreRoutineSection";
 
 const productRows: Array<
   [string, string, string, string, number, number, string, string]

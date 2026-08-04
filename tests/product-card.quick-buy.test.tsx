@@ -10,10 +10,10 @@ const cartMock = vi.hoisted(() => ({
   resetErrors: vi.fn(),
 }));
 
-vi.mock("@/components/CartProvider", () => ({
+vi.mock("@/components/cart/CartProvider", () => ({
   useCartDrawer: () => cartMock,
 }));
-vi.mock("@/components/useCart", async () => {
+vi.mock("@/components/cart/useCart", async () => {
   const { useState } = await import("react");
   return {
     useCartMutations: () => {
@@ -44,8 +44,8 @@ vi.mock("@/components/useCart", async () => {
   };
 });
 
-import { ProductCard } from "@/components/ProductCard";
-import { ProductGrid } from "@/components/ProductGrid";
+import { ProductCard } from "@/components/product/ProductCard";
+import { ProductGrid } from "@/components/product/ProductGrid";
 import type {
   OfferAvailability,
   ProductCard as ProductCardModel,

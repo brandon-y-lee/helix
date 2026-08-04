@@ -1,8 +1,8 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { CartProvider, useCartDrawer } from "@/components/CartProvider";
-import { useCart, useCartMutations } from "@/components/useCart";
-import { useProductPurchase } from "@/components/useProductPurchase";
+import { CartProvider, useCartDrawer } from "@/components/cart/CartProvider";
+import { useCart, useCartMutations } from "@/components/cart/useCart";
+import { useProductPurchase } from "@/components/cart/useProductPurchase";
 import { CART_IDENTITY_CHANGED_COOKIE } from "@/lib/cart/sync";
 import type { CartAddInput, CartState } from "@/lib/cart/types";
 

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { EditorialHueField } from "@/components/EditorialHueField";
+import { EditorialHueField } from "@/components/content/EditorialHueField";
 import {
   ABOUT_CLOSING,
   ABOUT_HERO,

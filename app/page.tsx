@@ -1,12 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { HomeBeyondCoreShowcase } from "@/components/HomeBeyondCoreShowcase";
-import { HomeCoreShowcase } from "@/components/HomeCoreShowcase";
-import { HomeFinalVideo } from "@/components/HomeFinalVideo";
-import { HomeHeroVideo } from "@/components/HomeHeroVideo";
-import { HomePlugVideo } from "@/components/HomePlugVideo";
-import { HomePrinciplesPortrait } from "@/components/HomePrinciplesPortrait";
-import { HomeThreePrinciples } from "@/components/HomeThreePrinciples";
+import { HomeBeyondCoreShowcase } from "@/components/home/HomeBeyondCoreShowcase";
+import { HomeBackgroundVideo } from "@/components/home/HomeBackgroundVideo";
+import { HomeCoreShowcase } from "@/components/home/HomeCoreShowcase";
+import { HomePrinciplesPortrait } from "@/components/home/HomePrinciplesPortrait";
+import { HomeThreePrinciples } from "@/components/home/HomeThreePrinciples";
 import {
   getCachedIngredientIndexProducts,
   getCachedProductCards,
@@ -78,7 +76,7 @@ export default async function HomePage() {
         data-header-theme="light"
         aria-labelledby="home-hero-heading"
       >
-        <HomeHeroVideo />
+        <HomeBackgroundVideo placement="hero" />
         <div className="home-video-hero__scrim" aria-hidden="true" />
         <div className="home-video-hero__content">
           <div>
@@ -119,7 +117,7 @@ export default async function HomePage() {
       <section className="home-section home-section--core-support" aria-labelledby="plug-play-heading">
         <div className="home-plug-split">
           <div className="home-plug-media">
-            <HomePlugVideo />
+            <HomeBackgroundVideo placement="plug" />
             <p className="home-plug-media__caption">
               For skin that is clearer, more hydrated, and less tired.
             </p>
@@ -182,7 +180,7 @@ export default async function HomePage() {
       </section>
 
       <section className="home-section home-section--final" aria-labelledby="final-heading">
-        <HomeFinalVideo />
+        <HomeBackgroundVideo placement="final" />
         <div className="home-final">
           <h2 id="final-heading" className="display-secondary home-final__title">
             It’s time to invest in your skin

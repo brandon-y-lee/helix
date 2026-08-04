@@ -1,8 +1,8 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { CartProvider, useCartDrawer } from "@/components/CartProvider";
-import { CartView } from "@/components/CartView";
-import { useCart, useCartMutations } from "@/components/useCart";
+import { CartProvider, useCartDrawer } from "@/components/cart/CartProvider";
+import { CartView } from "@/components/cart/CartView";
+import { useCart, useCartMutations } from "@/components/cart/useCart";
 import type { CartState } from "@/lib/cart/types";
 
 const knownCart: CartState = {

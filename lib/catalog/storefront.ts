@@ -18,7 +18,7 @@ import {
   type ProductMedia,
   type ProductStatus,
 } from "@/lib/products";
-import { PDP_DISCOVERY_PRODUCT_LIMIT } from "@/lib/merchandising";
+import { PDP_DISCOVERY_PRODUCT_LIMIT } from "@/lib/catalog/discovery";
 import { getSupabaseClient } from "@/lib/supabase";
 
 type VariantRow = {

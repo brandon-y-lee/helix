@@ -1,8 +1,8 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
-import { FAQAccordion } from "@/components/FAQAccordion";
-import { SiteFooter } from "@/components/SiteFooter";
+import { FAQAccordion } from "@/components/content/FAQAccordion";
+import { SiteFooter } from "@/components/shell/SiteFooter";
 import { accessibilityStatement } from "@/content/legal/accessibility";
 import { cookieCategories, cookiePolicy } from "@/content/legal/cookies";
 import { privacyChoices } from "@/content/legal/privacy-choices";
@@ -59,10 +59,11 @@ describe("global footer", () => {
     render(<SiteFooter />);
 
     const mobileGroups = screen.getByLabelText("Footer links");
-    const navigate = within(mobileGroups).getByRole("button", { name: /navigate/i });
-    expect(navigate).toHaveAttribute("aria-expanded", "false");
+    const navigate = within(mobileGroups).getByText("Navigate");
+    const navigateDetails = navigate.closest("details");
+    expect(navigateDetails).not.toHaveAttribute("open");
     await user.click(navigate);
-    expect(navigate).toHaveAttribute("aria-expanded", "true");
+    expect(navigateDetails).toHaveAttribute("open");
     expect(within(mobileGroups).getByRole("link", { name: "Shop" })).toHaveAttribute(
       "href",
       "/products",

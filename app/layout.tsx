@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Manrope, Marcellus } from "next/font/google";
 import type { ReactNode } from "react";
 import "./globals.css";
-import { ApplicationChrome } from "@/components/ApplicationChrome";
+import { ApplicationChrome } from "@/components/shell/ApplicationChrome";
 
 const manrope = Manrope({
   subsets: ["latin"],

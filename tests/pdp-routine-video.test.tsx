@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { PdpRoutineVideo } from "@/components/PdpRoutineVideo";
+import { PdpRoutineVideo } from "@/components/product-detail/PdpRoutineVideo";
 import type { ProductMedia } from "@/lib/products";
 
 const video: ProductMedia = {

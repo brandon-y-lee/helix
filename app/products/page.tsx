@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { ShopBrowser } from "@/components/ShopBrowser";
+import { ShopBrowser } from "@/components/product/ShopBrowser";
 import { getCachedProductCards } from "@/lib/catalog-cache";
 
 export const metadata: Metadata = {

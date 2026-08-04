@@ -1,12 +1,12 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { CartDrawer } from "@/components/CartDrawer";
+import { CartDrawer } from "@/components/cart/CartDrawer";
 import {
   PDP_SLIDE_DURATION_MS,
   PDP_SLIDE_EASING,
-} from "@/components/usePdpSlideTransition";
+} from "@/components/product-detail/usePdpSlideTransition";
 
-vi.mock("@/components/CartView", () => ({
+vi.mock("@/components/cart/CartView", () => ({
   CartView: () => <div>Cart contents</div>,
 }));
 

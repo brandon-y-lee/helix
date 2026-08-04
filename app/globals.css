@@ -320,10 +320,6 @@ body[data-sheet-scroll-lock] .site-header {
   gap: 9px;
 }
 
-.site-footer__accordion ul[hidden] {
-  display: none;
-}
-
 .site-footer__nav a,
 .site-footer__accordion a,
 .site-footer__utility a,
@@ -9033,6 +9029,20 @@ main:focus {
     justify-content: space-between;
     color: var(--ink-soft);
     cursor: pointer;
+    list-style: none;
+  }
+
+  .site-footer__accordion-trigger::-webkit-details-marker {
+    display: none;
+  }
+
+  .site-footer__accordion-trigger::after {
+    content: "+";
+    font-size: 1rem;
+  }
+
+  .site-footer__accordion[open] > .site-footer__accordion-trigger::after {
+    content: "−";
   }
 
   .site-footer__accordion ul {

@@ -7,7 +7,7 @@ import {
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ProductDetail } from "@/components/ProductDetail";
+import { ProductDetail } from "@/components/product-detail/ProductDetail";
 import type {
   CoreRoutineSummary,
   OfferAvailability,
@@ -21,12 +21,12 @@ const cartMock = vi.hoisted(() => ({
   resetErrors: vi.fn(),
 }));
 
-vi.mock("@/components/CartProvider", () => ({
+vi.mock("@/components/cart/CartProvider", () => ({
   useCartDrawer: () => ({
     openCartDrawer: cartMock.openCartDrawer,
   }),
 }));
-vi.mock("@/components/useCart", async () => {
+vi.mock("@/components/cart/useCart", async () => {
   const { useState } = await import("react");
   return {
     useCartMutations: () => {
@@ -57,7 +57,7 @@ vi.mock("@/components/useCart", async () => {
   };
 });
 
-vi.mock("@/components/AfterpayMessaging", () => ({
+vi.mock("@/components/product-detail/AfterpayMessaging", () => ({
   AfterpayMessaging: ({
     amount,
     currency,

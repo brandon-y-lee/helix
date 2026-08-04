@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { LegalDocumentLayout } from "@/components/LegalDocumentLayout";
+import { LegalDocumentLayout } from "@/components/content/LegalDocumentLayout";
 import { accessibilityStatement } from "@/content/legal/accessibility";
 
 const siteUrl = new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000");

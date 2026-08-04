@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { ProductDetail } from "@/components/ProductDetail";
+import { ProductDetail } from "@/components/product-detail/ProductDetail";
 import { CatalogPreviewToolbar } from "@/components/admin/CatalogPreviewToolbar";
 import { authRedirectParam } from "@/lib/auth/redirect";
 import {

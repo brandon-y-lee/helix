@@ -23,7 +23,7 @@ export type Variant = {
   sortOrder: number;
 };
 
-/** Availability state driving badges and the buy/waitlist CTA. */
+/** Availability state driving badges and purchase controls. */
 export type ProductStatus = "available" | "coming_soon" | "sold_out";
 
 export type CatalogStatus = "active" | "draft" | "archived";

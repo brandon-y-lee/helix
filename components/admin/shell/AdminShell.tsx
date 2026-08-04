@@ -10,7 +10,7 @@ import {
 import { usePathname } from "next/navigation";
 import { signOutAction } from "@/app/account/actions";
 import { AdminNavigation } from "@/components/admin/shell/AdminNavigation";
-import { Sheet } from "@/components/Sheet";
+import { Sheet } from "@/components/overlays/Sheet";
 import type { AdminModule } from "@/lib/admin/modules";
 
 const ADMIN_SIDEBAR_PREFERENCE = "mei-pelle-admin-sidebar-collapsed";

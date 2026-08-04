@@ -31,7 +31,7 @@ vi.mock("@/lib/catalog-editor/preview-projection", async (importOriginal) => {
     >();
   return { ...actual, projectCatalogDraftPreview: routeMocks.project };
 });
-vi.mock("@/components/ProductDetail", () => ({
+vi.mock("@/components/product-detail/ProductDetail", () => ({
   ProductDetail: ({
     commerceDisabled,
   }: {

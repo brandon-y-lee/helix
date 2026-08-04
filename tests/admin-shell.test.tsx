@@ -12,7 +12,7 @@ vi.mock("@/app/account/actions", () => ({
   signOutAction: vi.fn(),
 }));
 
-vi.mock("@/components/Header", () => ({
+vi.mock("@/components/shell/Header", () => ({
   Header: ({ commerceDisabled }: { commerceDisabled?: boolean }) => (
     <div data-commerce-disabled={String(Boolean(commerceDisabled))}>
       Storefront customer navigation
@@ -20,11 +20,11 @@ vi.mock("@/components/Header", () => ({
   ),
 }));
 
-vi.mock("@/components/SiteFooter", () => ({
+vi.mock("@/components/shell/SiteFooter", () => ({
   SiteFooter: () => <div>Storefront customer footer</div>,
 }));
 
-vi.mock("@/components/CartProvider", () => ({
+vi.mock("@/components/cart/CartProvider", () => ({
   CartProvider: ({
     children,
     disabled,
@@ -38,13 +38,7 @@ vi.mock("@/components/CartProvider", () => ({
   ),
 }));
 
-vi.mock("@/components/StorefrontMain", () => ({
-  StorefrontMain: ({ children }: { children: React.ReactNode }) => (
-    <main>{children}</main>
-  ),
-}));
-
-import { ApplicationChrome } from "@/components/ApplicationChrome";
+import { ApplicationChrome } from "@/components/shell/ApplicationChrome";
 import { AdminNavigation } from "@/components/admin/shell/AdminNavigation";
 import { AdminShell } from "@/components/admin/shell/AdminShell";
 import type { AdminModule } from "@/lib/admin/modules";
@@ -211,7 +205,10 @@ describe("admin shell navigation", () => {
       </ApplicationChrome>,
     );
 
-    expect(screen.getByText("Draft product detail")).toBeInTheDocument();
+    expect(screen.getByText("Draft product detail").closest("main")).toHaveAttribute(
+      "data-header-layout",
+      "reserved",
+    );
     expect(screen.getByText("Storefront customer navigation")).toHaveAttribute(
       "data-commerce-disabled",
       "true",
@@ -221,5 +218,19 @@ describe("admin shell navigation", () => {
       "true",
     );
     expect(screen.getByText("Storefront customer footer")).toBeInTheDocument();
+  });
+
+  it("lets the homepage header overlay its main content", () => {
+    pathname = "/";
+    render(
+      <ApplicationChrome>
+        <div>Homepage content</div>
+      </ApplicationChrome>,
+    );
+
+    expect(screen.getByText("Homepage content").closest("main")).toHaveAttribute(
+      "data-header-layout",
+      "overlay",
+    );
   });
 });
