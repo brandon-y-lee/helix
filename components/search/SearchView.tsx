@@ -34,7 +34,7 @@ export function SearchView({
   const suggestionsId = useId();
 
   useEffect(() => {
-    if (autoFocus) inputRef.current?.focus();
+    if (autoFocus) inputRef.current?.focus({ preventScroll: true });
   }, [autoFocus]);
 
   const term = query.trim();

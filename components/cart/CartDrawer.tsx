@@ -2,8 +2,10 @@
 
 import { CartView } from "@/components/cart/CartView";
 import { useCartDrawer } from "@/components/cart/CartProvider";
-import { Sheet } from "@/components/overlays/Sheet";
-import { PDP_SLIDE_STYLE } from "@/components/product-detail/usePdpSlideTransition";
+import {
+  PERSISTENT_SHEET_MOTION_TRANSITION,
+  Sheet,
+} from "@/components/overlays/Sheet";
 
 export function CartDrawerHost() {
   const {
@@ -41,8 +43,7 @@ export function CartDrawer({
       returnFocus={returnFocus}
       className="cart-sheet"
       overlayClassName="cart-sheet-overlay"
-      overlayStyle={PDP_SLIDE_STYLE}
-      panelStyle={PDP_SLIDE_STYLE}
+      motionTransition={PERSISTENT_SHEET_MOTION_TRANSITION}
       persistent
     >
       <CartView mode="drawer" onContinue={onClose} />

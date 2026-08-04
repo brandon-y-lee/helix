@@ -1,7 +1,10 @@
 "use client";
 
 import { SearchView } from "@/components/search/SearchView";
-import { Sheet } from "@/components/overlays/Sheet";
+import {
+  PERSISTENT_SHEET_MOTION_TRANSITION,
+  Sheet,
+} from "@/components/overlays/Sheet";
 
 /**
  * Accessible search modal. Escape and backdrop click close it; focus moves
@@ -27,8 +30,10 @@ export function SearchOverlay({
       onClose={onClose}
       returnFocus={returnFocus}
       className="search-sheet"
+      motionTransition={PERSISTENT_SHEET_MOTION_TRANSITION}
+      persistent
     >
-      <SearchView autoFocus onResultClick={onClose} />
+      <SearchView autoFocus={open} onResultClick={onClose} />
     </Sheet>
   );
 }

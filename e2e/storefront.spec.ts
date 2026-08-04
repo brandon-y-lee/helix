@@ -14,17 +14,10 @@ async function storefrontGeometry(page: Page): Promise<HorizontalGeometry> {
 
 async function finishDrawerExit(page: Page) {
   const overlay = page.locator(".cart-sheet-overlay");
-  const panel = page.locator(".cart-sheet");
-  await panel.evaluate((element) => {
-    element.dispatchEvent(
-      new TransitionEvent("transitionend", {
-        bubbles: true,
-        propertyName: "transform",
-      }),
-    );
-  });
+  await expect(overlay).toHaveCount(1);
   await expect(overlay).toHaveAttribute("data-state", "closed");
-  await expect(overlay).toBeHidden();
+  await expect(overlay).toHaveAttribute("aria-hidden", "true");
+  await expect(overlay).toHaveAttribute("inert", "");
 }
 
 async function addCleanse(
@@ -34,6 +27,11 @@ async function addCleanse(
   await expect(
     page.getByRole("button", { name: /CART \(0\)/ }),
   ).toBeVisible();
+  const drawerOverlay = page.locator(".cart-sheet-overlay");
+  const drawerPanel = page.locator(".cart-sheet");
+  await expect(drawerOverlay).toHaveAttribute("data-state", "closed");
+  await expect(drawerPanel).toHaveAttribute("data-state", "closed");
+  await expect(drawerPanel).toHaveCount(1);
   const geometryBeforeOpen = await storefrontGeometry(page);
   const buyButton = page.locator("[data-pdp-buy-button]");
   await expect(buyButton).toHaveText("BUY CLEANSE - $22.00");
@@ -41,7 +39,13 @@ async function addCleanse(
   const drawer = page.getByRole("dialog", { name: "Cart" });
   await expect(drawer).toBeVisible();
   await expect(drawer).toHaveAttribute("data-state", "open");
-  await expect(page.locator(".cart-sheet")).toHaveCount(1);
+  await expect(drawerPanel).toHaveCount(1);
+  expect(
+    await page.evaluate(() => ({
+      scrollX: window.scrollX,
+      visualOffsetLeft: window.visualViewport?.offsetLeft ?? 0,
+    })),
+  ).toEqual({ scrollX: 0, visualOffsetLeft: 0 });
   await expect(
     drawer
       .getByRole("list", { name: "Cart items" })
@@ -190,6 +194,11 @@ test("mobile quick buy opens the cart drawer and restores focus on Escape", asyn
     name: "BUY CLEANSE - $22.00",
   });
   await expect(finalBuy).toHaveText("BUY CLEANSE - $22.00");
+  await finalBuy.scrollIntoViewIfNeeded();
+  const viewportOriginBeforeCart = await page.evaluate(() => ({
+    scrollX: window.scrollX,
+    visualOffsetLeft: window.visualViewport?.offsetLeft ?? 0,
+  }));
   const standardCardUrl = page.url();
   await finalBuy.click();
   const drawer = page.getByRole("dialog", { name: "Cart" });
@@ -199,6 +208,12 @@ test("mobile quick buy opens the cart drawer and restores focus on Escape", asyn
   await expect(drawerOverlay).toHaveAttribute("data-state", "open");
   await expect(drawerPanel).toHaveAttribute("data-state", "open");
   await expect(drawerPanel).toHaveCount(1);
+  expect(
+    await page.evaluate(() => ({
+      scrollX: window.scrollX,
+      visualOffsetLeft: window.visualViewport?.offsetLeft ?? 0,
+    })),
+  ).toEqual(viewportOriginBeforeCart);
   await expect(card).toHaveAttribute("data-quick-buy-open", "false");
   await expect(card.locator(".product-card__quick-buy")).toHaveAttribute(
     "data-open",
@@ -210,8 +225,7 @@ test("mobile quick buy opens the cart drawer and restores focus on Escape", asyn
   ).toBeVisible();
 
   await page.keyboard.press("Escape");
-  await expect(drawerOverlay).toHaveAttribute("data-state", "closed");
-  await expect(drawerPanel).toHaveAttribute("data-state", "closed");
+  await expect(drawer).toHaveCount(0);
   await finishDrawerExit(page);
   await expect(quickBuy).toBeFocused();
 
@@ -221,11 +235,7 @@ test("mobile quick buy opens the cart drawer and restores focus on Escape", asyn
   await expect(drawer).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(drawer).toHaveCount(0);
-  await expect(page.locator(".cart-sheet-overlay")).toHaveAttribute(
-    "data-state",
-    "closed",
-  );
-  await expect(page.locator(".cart-sheet-overlay")).toBeHidden();
+  await finishDrawerExit(page);
   await expect
     .poll(() => page.evaluate(() => document.body.style.overflow))
     .not.toBe("hidden");
