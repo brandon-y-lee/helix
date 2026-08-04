@@ -36,7 +36,7 @@ export const faqCategories: FAQCategory[] = [
         question: "What products are in the current system?",
         answer:
           "The current catalog centers on CLEANSE, REFINE, TREAT, FRAME, SEAL, and LIFT. PROTECT appears in the System as a sunscreen step that is not currently offered for purchase.",
-        links: [{ label: "Shop the system", href: "/products" }],
+        links: [{ label: "Shop the system", href: "/collections/shop" }],
       },
       {
         id: "choose-products",

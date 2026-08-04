@@ -1,8 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { ProductGrid } from "@/components/product/ProductGrid";
-import { routineGroupLabelForProduct } from "@/lib/catalog/product-routine";
+import {
+  SHOP_COLLECTIONS,
+  type ShopCollectionSlug,
+} from "@/lib/catalog/collection-routes";
 import type { ProductCard } from "@/lib/catalog/models";
 
 type SortKey =
@@ -22,51 +26,22 @@ const SORTS: ReadonlyArray<{ value: SortKey; label: string }> = [
   { value: "newest", label: "Newest first" },
 ];
 
-const ALL = "All";
-
 function minPrice(p: ProductCard): number {
   return p.variants.length ? Math.min(...p.variants.map((v) => v.price)) : 0;
 }
 
-function groupLabel(product: ProductCard) {
-  return routineGroupLabelForProduct(product);
-}
-
 export function ShopBrowser({
   products,
-  initialCollection,
+  activeCollection,
 }: {
   products: ProductCard[];
-  initialCollection?: string;
+  activeCollection: ShopCollectionSlug;
 }) {
-  // Commerce groups in the catalog's featured order.
-  const collections = useMemo(() => {
-    const seen: string[] = [];
-    for (const p of products) {
-      const label = groupLabel(p);
-      if (!seen.includes(label)) seen.push(label);
-    }
-    return seen;
-  }, [products]);
-
-  // Honor a ?collection= deep-link from the homepage, but only if it names a
-  // real collection; otherwise fall back to "All".
-  const startCollection =
-    initialCollection && collections.includes(initialCollection)
-      ? initialCollection
-      : ALL;
-
-  const [collection, setCollection] = useState<string>(startCollection);
   const [sort, setSort] = useState<SortKey>("featured");
 
   const visible = useMemo(() => {
-    const filtered =
-      collection === ALL
-        ? products
-        : products.filter((p) => groupLabel(p) === collection);
-
     // `products` arrives in canonical catalog sort order from Supabase.
-    const sorted = [...filtered];
+    const sorted = [...products];
     switch (sort) {
       case "name-asc":
         sorted.sort((a, b) => a.displayName.localeCompare(b.displayName));
@@ -88,7 +63,7 @@ export function ShopBrowser({
         break;
     }
     return sorted;
-  }, [products, collection, sort]);
+  }, [products, sort]);
 
   return (
     <>
@@ -96,31 +71,22 @@ export function ShopBrowser({
         className="storefront-shell shop-toolbar"
         data-layout-shell="storefront"
       >
-        <div
-          className="filter-chips"
-          role="group"
-          aria-label="Filter by collection"
-        >
-          <button
-            type="button"
-            className="chip"
-            aria-pressed={collection === ALL}
-            onClick={() => setCollection(ALL)}
-          >
-            {ALL}
-          </button>
-          {collections.map((c) => (
-            <button
-              key={c}
-              type="button"
-              className="chip"
-              aria-pressed={collection === c}
-              onClick={() => setCollection(c)}
-            >
-              {c}
-            </button>
-          ))}
-        </div>
+        <nav className="filter-chips" aria-label="Shop collections">
+          <div className="filter-chips__track">
+            {SHOP_COLLECTIONS.map((collection) => (
+              <Link
+                key={collection.slug}
+                href={`/collections/${collection.slug}`}
+                className="chip"
+                aria-current={
+                  activeCollection === collection.slug ? "page" : undefined
+                }
+              >
+                {collection.label}
+              </Link>
+            ))}
+          </div>
+        </nav>
 
         <div className="shop-toolbar__right">
           <span className="product-count" aria-live="polite">
@@ -145,12 +111,12 @@ export function ShopBrowser({
       <section
         className="storefront-shell shop-grid-shell"
         data-layout-shell="storefront"
-        data-product-collection="shop"
+        data-product-collection={activeCollection}
         style={{ paddingTop: "24px" }}
       >
         {visible.length === 0 ? (
           <p style={{ color: "var(--ink-soft)" }}>
-            No products match this collection.
+            No products are available in this collection right now.
           </p>
         ) : (
           <ProductGrid products={visible} />

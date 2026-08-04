@@ -34,6 +34,16 @@ const nextConfig: NextConfig = {
         permanent: true,
       },
       {
+        source: "/collections",
+        destination: "/collections/shop",
+        permanent: true,
+      },
+      {
+        source: "/products",
+        destination: "/collections/shop",
+        permanent: true,
+      },
+      {
         source: "/products/reset-01-calming-gel-cleanser",
         destination: "/products/cleanse-01-calming-gel-cleanser",
         permanent: true,

@@ -16,7 +16,7 @@ export default function NotFound() {
           We couldn&rsquo;t find that page or product. It may have moved or never
           existed.
         </p>
-        <Link href="/products" className="btn">
+        <Link href="/collections/shop" className="btn">
           Browse the collection
         </Link>
       </div>

@@ -101,7 +101,7 @@ export function CartView({
             Continue shopping
           </button>
         ) : (
-          <Link href="/products" className="btn btn--editorial-rounded">
+          <Link href="/collections/shop" className="btn btn--editorial-rounded">
             Browse the system
           </Link>
         )}

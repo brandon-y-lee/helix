@@ -35,7 +35,7 @@ describe("global footer", () => {
     expect(screen.queryByRole("textbox", { name: /email/i })).not.toBeInTheDocument();
 
     for (const [name, href] of [
-      ["Shop", "/products"],
+      ["Shop", "/collections/shop"],
       ["System", "/system"],
       ["Rewards", "/rewards"],
       ["FAQ", "/faq"],
@@ -66,7 +66,7 @@ describe("global footer", () => {
     expect(navigateDetails).toHaveAttribute("open");
     expect(within(mobileGroups).getByRole("link", { name: "Shop" })).toHaveAttribute(
       "href",
-      "/products",
+      "/collections/shop",
     );
 
     await user.click(screen.getByRole("button", { name: "Cookie Preferences" }));

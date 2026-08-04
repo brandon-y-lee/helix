@@ -23,7 +23,7 @@ export const footerLinkGroups: FooterLinkGroup[] = [
     id: "navigate",
     label: "Navigate",
     links: [
-      { label: "Shop", href: "/products" },
+      { label: "Shop", href: "/collections/shop" },
       { label: "System", href: "/system" },
       { label: "About", href: "/about" },
       { label: "Account", href: "/account" },

@@ -60,7 +60,7 @@ async function addCleanse(
 test("shop renders seeded products and combines filtering with sorting", async ({
   page,
 }) => {
-  await page.goto("/products");
+  await page.goto("/collections/shop");
   await expect(page.locator(".product-count")).toHaveText("6 products");
   await expect(page.locator(".product-card")).toHaveCount(6);
   await expect(
@@ -69,15 +69,16 @@ test("shop renders seeded products and combines filtering with sorting", async (
       .locator(".product-card__quick-trigger"),
   ).toHaveText("BUY CLEANSE - $22.00");
 
-  const filters = page.getByRole("group", {
-    name: "Filter by collection",
+  const filters = page.getByRole("navigation", {
+    name: "Shop collections",
   });
-  const core = filters.getByRole("button", {
-    name: "The Core",
+  const core = filters.getByRole("link", {
+    name: "Core",
     exact: true,
   });
   await core.click();
-  await expect(core).toHaveAttribute("aria-pressed", "true");
+  await expect(page).toHaveURL(/\/collections\/core$/);
+  await expect(core).toHaveAttribute("aria-current", "page");
   await expect(page.locator(".product-count")).toHaveText("3 products");
   await expect(
     page.getByRole("link", { name: "REFINE", exact: true }),
@@ -87,6 +88,19 @@ test("shop renders seeded products and combines filtering with sorting", async (
   await expect(page.locator(".product-card__name").first()).toHaveText(
     "TREAT",
   );
+
+  const beyond = filters.getByRole("link", {
+    name: "Beyond the Core",
+    exact: true,
+  });
+  await beyond.click();
+  await expect(page).toHaveURL(/\/collections\/beyond-the-core$/);
+  await expect(beyond).toHaveAttribute("aria-current", "page");
+  await expect(page.getByLabel("Sort products")).toHaveValue("featured");
+  await expect(page.locator(".product-count")).toHaveText("3 products");
+  await expect(
+    page.getByRole("link", { name: "CLEANSE", exact: true }),
+  ).toHaveCount(0);
 });
 
 test("PDP resolves canonical data and exposes an available variant", async ({
@@ -175,7 +189,7 @@ test("mobile quick buy opens the cart drawer and restores focus on Escape", asyn
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/products");
+  await page.goto("/collections/shop");
   await expect(
     page.getByRole("button", { name: /CART \(0\)/ }),
   ).toBeVisible();
@@ -317,6 +331,16 @@ test("unknown product slug returns the storefront not-found response", async ({
   page,
 }) => {
   const response = await page.goto("/products/does-not-exist");
+  expect(response?.status()).toBe(404);
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Not found" }),
+  ).toBeVisible();
+});
+
+test("unknown collection slug returns the storefront not-found response", async ({
+  page,
+}) => {
+  const response = await page.goto("/collections/does-not-exist");
   expect(response?.status()).toBe(404);
   await expect(
     page.getByRole("heading", { level: 1, name: "Not found" }),

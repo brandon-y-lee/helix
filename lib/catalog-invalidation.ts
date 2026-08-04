@@ -16,11 +16,16 @@ import {
   PRODUCT_CONTENT_COLLECTION_CACHE_TAG,
   PRODUCT_OFFER_COLLECTION_CACHE_TAG,
 } from "@/lib/catalog-cache";
+import { SHOP_COLLECTION_PATHS } from "@/lib/catalog/collection-routes";
 
 export type CatalogInvalidationTargets = {
   tags: string[];
   paths: string[];
 };
+
+function addShopCollectionPaths(paths: Set<string>) {
+  for (const path of SHOP_COLLECTION_PATHS) paths.add(path);
+}
 
 const PRODUCT_OFFER_FIELDS = new Set([
   "status",
@@ -205,18 +210,18 @@ export function getCatalogInvalidationTargets(
   if (invalidateOffer) {
     tags.add(PRODUCT_OFFER_COLLECTION_CACHE_TAG);
     paths.add("/");
-    paths.add("/products");
+    addShopCollectionPaths(paths);
     paths.add("/system");
   }
   if (invalidateCard) {
     tags.add(PRODUCT_CARD_COLLECTION_CACHE_TAG);
     paths.add("/");
-    paths.add("/products");
+    addShopCollectionPaths(paths);
   }
   if (invalidateMembership) {
     tags.add(CATALOG_PRODUCTS_CACHE_TAG);
     paths.add("/");
-    paths.add("/products");
+    addShopCollectionPaths(paths);
     paths.add("/sitemap.xml");
   }
   if (invalidateDiscovery) tags.add(DISCOVERY_CACHE_TAG);
