@@ -132,6 +132,12 @@ function SheetLayer(props: SheetLayerProps) {
     : (motionTransition?.backdropDuration ?? motionTransition?.duration);
   const closedX = side === "right" ? "100%" : "-100%";
   const state = !animated || isPresent ? "open" : "closed";
+  const backdropVariants = motionTransition
+    ? { closed: { opacity: 0 }, open: { opacity: 1 } }
+    : undefined;
+  const panelVariants = motionTransition
+    ? { closed: { x: closedX }, open: { x: 0 } }
+    : undefined;
 
   return (
     <m.div
@@ -153,9 +159,10 @@ function SheetLayer(props: SheetLayerProps) {
         <m.div
           className="sheet__backdrop"
           aria-hidden="true"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
+          variants={backdropVariants}
+          initial="closed"
+          animate="open"
+          exit="closed"
           transition={{
             type: "tween",
             duration: backdropDuration,
@@ -168,9 +175,10 @@ function SheetLayer(props: SheetLayerProps) {
         data-state={state}
         ref={panelRef}
         style={panelStyle}
-        initial={motionTransition ? { x: closedX } : undefined}
-        animate={motionTransition ? { x: 0 } : undefined}
-        exit={motionTransition ? { x: closedX } : undefined}
+        variants={panelVariants}
+        initial={motionTransition ? "closed" : undefined}
+        animate={motionTransition ? "open" : undefined}
+        exit={motionTransition ? "closed" : undefined}
         transition={
           motionTransition
             ? {
@@ -322,7 +330,6 @@ export function Sheet({
       <MotionConfig reducedMotion="user">
         {animated ? (
           <AnimatePresence
-            initial={false}
             onExitComplete={() => {
               if (openRef.current) return;
               releaseScrollLock();

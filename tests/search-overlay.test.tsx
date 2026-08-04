@@ -30,6 +30,20 @@ function Harness() {
 }
 
 describe("SearchOverlay", () => {
+  it("starts from the offscreen Motion entry state when initially open", () => {
+    render(
+      <SearchOverlay
+        open
+        onClose={() => {}}
+        returnFocus={() => {}}
+      />,
+    );
+
+    expect(document.querySelector(".search-sheet")).toHaveStyle({
+      transform: "translateX(100%)",
+    });
+  });
+
   it("is a named modal drawer and Escape restores trigger focus", async () => {
     const user = userEvent.setup();
     render(<Harness />);
