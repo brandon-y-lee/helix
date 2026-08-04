@@ -15,6 +15,7 @@ import {
   type RefObject,
   type WheelEvent,
 } from "react";
+import { useCartDrawer } from "@/components/cart/CartProvider";
 import { ProductCard } from "@/components/product/ProductCard";
 import type { ProductCard as ProductCardModel } from "@/lib/catalog/models";
 
@@ -587,18 +588,26 @@ function ProductCarouselTrack({
   trackStyle: CarouselTrackStyle;
   trackRef: RefObject<HTMLUListElement | null>;
 }) {
+  const { cartDrawerOpen } = useCartDrawer();
   const [openQuickBuyProductId, setOpenQuickBuyProductId] = useState<
     string | null
   >(null);
+  const visibleQuickBuyProductId = cartDrawerOpen
+    ? null
+    : openQuickBuyProductId;
 
   useEffect(() => {
+    if (cartDrawerOpen) {
+      setOpenQuickBuyProductId(null);
+      return;
+    }
     if (
       openQuickBuyProductId &&
       !products.some((product) => product.id === openQuickBuyProductId)
     ) {
       setOpenQuickBuyProductId(null);
     }
-  }, [openQuickBuyProductId, products]);
+  }, [cartDrawerOpen, openQuickBuyProductId, products]);
 
   return (
     <ul
@@ -614,7 +623,7 @@ function ProductCarouselTrack({
           product={product}
           className="home-beyond-carousel__card"
           imageSizes="(max-width: 720px) 88vw, (max-width: 1199px) 48vw, 33vw"
-          quickBuyOpen={openQuickBuyProductId === product.id}
+          quickBuyOpen={visibleQuickBuyProductId === product.id}
           previewKey={previewKeyBySlug?.[product.slug]}
           onPreviewChange={onPreviewChange}
           onQuickBuyOpen={() => setOpenQuickBuyProductId(product.id)}

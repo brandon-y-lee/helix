@@ -24,6 +24,10 @@ vi.mock("@/components/shell/SiteFooter", () => ({
   SiteFooter: () => <div>Storefront customer footer</div>,
 }));
 
+vi.mock("@/components/cart/CartDrawer", () => ({
+  CartDrawerHost: () => null,
+}));
+
 vi.mock("@/components/cart/CartProvider", () => ({
   CartProvider: ({
     children,

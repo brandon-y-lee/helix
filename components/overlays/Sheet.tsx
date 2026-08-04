@@ -1,16 +1,58 @@
 "use client";
 
 import {
+  useCallback,
   useEffect,
+  useId,
   useRef,
-  useState,
   type CSSProperties,
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
 
 type SheetSide = "left" | "right";
-type SheetMotionState = "starting" | "open" | "closed";
+
+function lockBodyScroll(): () => void {
+  const body = document.body;
+  const previousOverflow = body.style.overflow;
+  const previousPaddingRight = body.style.paddingRight;
+  const previousScrollbarWidth = body.style.getPropertyValue(
+    "--sheet-scrollbar-width",
+  );
+  const hadScrollLockAttribute = body.hasAttribute("data-sheet-scroll-lock");
+  const scrollbarWidth =
+    window.innerWidth - document.documentElement.clientWidth;
+
+  if (scrollbarWidth > 0) {
+    const computedPaddingRight = Number.parseFloat(
+      window.getComputedStyle(body).paddingRight,
+    );
+    body.style.paddingRight = `${
+      (Number.isFinite(computedPaddingRight) ? computedPaddingRight : 0) +
+      scrollbarWidth
+    }px`;
+    body.style.setProperty("--sheet-scrollbar-width", `${scrollbarWidth}px`);
+  }
+
+  body.setAttribute("data-sheet-scroll-lock", "");
+  body.style.overflow = "hidden";
+
+  return () => {
+    body.style.overflow = previousOverflow;
+    body.style.paddingRight = previousPaddingRight;
+    if (previousScrollbarWidth) {
+      body.style.setProperty(
+        "--sheet-scrollbar-width",
+        previousScrollbarWidth,
+      );
+    } else {
+      body.style.removeProperty("--sheet-scrollbar-width");
+    }
+    if (!hadScrollLockAttribute) {
+      body.removeAttribute("data-sheet-scroll-lock");
+    }
+  };
+}
 
 function focusableIn(container: HTMLElement): HTMLElement[] {
   return Array.from(
@@ -36,7 +78,7 @@ export function Sheet({
   overlayClassName = "",
   overlayStyle,
   panelStyle,
-  animatePresence = false,
+  persistent = false,
 }: {
   open: boolean;
   side?: SheetSide;
@@ -50,76 +92,24 @@ export function Sheet({
   overlayClassName?: string;
   overlayStyle?: CSSProperties;
   panelStyle?: CSSProperties;
-  animatePresence?: boolean;
+  persistent?: boolean;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
-  const [present, setPresent] = useState(open);
-  const presentRef = useRef(open);
-  const [motionState, setMotionState] = useState<SheetMotionState>(
-    open && animatePresence ? "starting" : open ? "open" : "closed",
-  );
-  const motionStateRef = useRef<SheetMotionState>(
-    open && animatePresence ? "starting" : open ? "open" : "closed",
-  );
-  const titleId = `${side}-sheet-title`;
-  const descriptionId = `${side}-sheet-description`;
-  const shouldRender = open || (animatePresence && present);
+  const releaseScrollLockRef = useRef<(() => void) | null>(null);
+  const id = useId();
+  const titleId = `${id}-sheet-title`;
+  const descriptionId = `${id}-sheet-description`;
+  const shouldRender = persistent || open;
 
-  useEffect(() => {
-    if (!animatePresence) {
-      presentRef.current = open;
-      setPresent(open);
-      motionStateRef.current = open ? "open" : "closed";
-      setMotionState(open ? "open" : "closed");
-      return;
-    }
-
-    const reducedMotion =
-      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
-
-    if (!open) {
-      const previousMotionState = motionStateRef.current;
-      motionStateRef.current = "closed";
-      setMotionState("closed");
-
-      if (reducedMotion || previousMotionState === "starting") {
-        presentRef.current = false;
-        setPresent(false);
-      }
-      return;
-    }
-
-    if (reducedMotion) {
-      presentRef.current = true;
-      setPresent(true);
-      motionStateRef.current = "open";
-      setMotionState("open");
-      return;
-    }
-
-    if (presentRef.current && motionStateRef.current === "closed") {
-      motionStateRef.current = "open";
-      setMotionState("open");
-      return;
-    }
-
-    presentRef.current = true;
-    setPresent(true);
-    motionStateRef.current = "starting";
-    setMotionState("starting");
-
-    let entryFrame = window.requestAnimationFrame(() => {
-      entryFrame = window.requestAnimationFrame(() => {
-        motionStateRef.current = "open";
-        setMotionState("open");
-      });
-    });
-
-    return () => window.cancelAnimationFrame(entryFrame);
-  }, [animatePresence, open]);
+  const releaseScrollLock = useCallback(() => {
+    releaseScrollLockRef.current?.();
+    releaseScrollLockRef.current = null;
+  }, []);
 
   useEffect(() => {
     if (!open) return;
+
+    releaseScrollLockRef.current ??= lockBodyScroll();
 
     const panel = panelRef.current;
     const focusTimeout = window.setTimeout(() => {
@@ -160,63 +150,21 @@ export function Sheet({
       window.clearTimeout(focusTimeout);
       document.removeEventListener("keydown", onKeyDown);
       returnFocus();
+      const reducedMotion =
+        window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ??
+        false;
+      if (!persistent || reducedMotion) releaseScrollLock();
     };
-  }, [open, onClose, returnFocus]);
+  }, [open, onClose, persistent, releaseScrollLock, returnFocus]);
 
-  useEffect(() => {
-    if (!shouldRender) return;
-
-    const prevOverflow = document.body.style.overflow;
-    const prevPaddingRight = document.body.style.paddingRight;
-    const prevScrollbarWidth = document.body.style.getPropertyValue(
-      "--sheet-scrollbar-width",
-    );
-    const hadScrollLockAttribute = document.body.hasAttribute(
-      "data-sheet-scroll-lock",
-    );
-    const scrollbarWidth =
-      window.innerWidth - document.documentElement.clientWidth;
-
-    if (scrollbarWidth > 0) {
-      const computedPaddingRight = Number.parseFloat(
-        window.getComputedStyle(document.body).paddingRight,
-      );
-      document.body.style.paddingRight = `${
-        (Number.isFinite(computedPaddingRight) ? computedPaddingRight : 0) +
-        scrollbarWidth
-      }px`;
-      document.body.style.setProperty(
-        "--sheet-scrollbar-width",
-        `${scrollbarWidth}px`,
-      );
-    }
-    document.body.setAttribute("data-sheet-scroll-lock", "");
-    document.body.style.overflow = "hidden";
-
-    return () => {
-      document.body.style.overflow = prevOverflow;
-      document.body.style.paddingRight = prevPaddingRight;
-      if (prevScrollbarWidth) {
-        document.body.style.setProperty(
-          "--sheet-scrollbar-width",
-          prevScrollbarWidth,
-        );
-      } else {
-        document.body.style.removeProperty("--sheet-scrollbar-width");
-      }
-      if (!hadScrollLockAttribute) {
-        document.body.removeAttribute("data-sheet-scroll-lock");
-      }
-    };
-  }, [shouldRender]);
+  useEffect(() => () => releaseScrollLock(), [releaseScrollLock]);
 
   if (!shouldRender) return null;
 
-  return createPortal(
+  const sheet = (
     <div
       className={`sheet sheet--${side} ${overlayClassName}`}
       data-state={open ? "open" : "closed"}
-      data-motion-state={motionState}
       role="dialog"
       aria-modal="true"
       aria-hidden={open ? undefined : true}
@@ -231,18 +179,16 @@ export function Sheet({
       <div
         className={`sheet__panel ${className}`}
         data-state={open ? "open" : "closed"}
-        data-motion-state={motionState}
         ref={panelRef}
         style={panelStyle}
         onTransitionEnd={(event) => {
           if (
-            animatePresence &&
+            persistent &&
             !open &&
             event.target === event.currentTarget &&
             event.propertyName === "transform"
           ) {
-            presentRef.current = false;
-            setPresent(false);
+            releaseScrollLock();
           }
         }}
       >
@@ -264,7 +210,8 @@ export function Sheet({
         </div>
         {children}
       </div>
-    </div>,
-    document.body,
+    </div>
   );
+
+  return persistent ? sheet : createPortal(sheet, document.body);
 }

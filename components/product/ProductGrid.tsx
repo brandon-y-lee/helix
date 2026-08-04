@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useCartDrawer } from "@/components/cart/CartProvider";
 import {
   ProductCard,
   type ProductCardImageOverride,
@@ -20,18 +21,26 @@ export function ProductGrid({
   previewKeyBySlug?: Readonly<Record<string, string | undefined>>;
   onPreviewChange?: (key: string | null) => void;
 }) {
+  const { cartDrawerOpen } = useCartDrawer();
   const [openQuickBuyProductId, setOpenQuickBuyProductId] = useState<
     string | null
   >(null);
+  const visibleQuickBuyProductId = cartDrawerOpen
+    ? null
+    : openQuickBuyProductId;
 
   useEffect(() => {
+    if (cartDrawerOpen) {
+      setOpenQuickBuyProductId(null);
+      return;
+    }
     if (
       openQuickBuyProductId &&
       !products.some((product) => product.id === openQuickBuyProductId)
     ) {
       setOpenQuickBuyProductId(null);
     }
-  }, [openQuickBuyProductId, products]);
+  }, [cartDrawerOpen, openQuickBuyProductId, products]);
 
   return (
     <ul className={className}>
@@ -40,7 +49,7 @@ export function ProductGrid({
           key={product.slug}
           product={product}
           defaultImage={defaultImageBySlug?.[product.slug]}
-          quickBuyOpen={openQuickBuyProductId === product.id}
+          quickBuyOpen={visibleQuickBuyProductId === product.id}
           previewKey={previewKeyBySlug?.[product.slug]}
           onPreviewChange={onPreviewChange}
           onQuickBuyOpen={() => setOpenQuickBuyProductId(product.id)}

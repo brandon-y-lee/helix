@@ -2332,6 +2332,9 @@ main:focus {
   background: transparent;
   backdrop-filter: none;
   animation: none;
+  visibility: hidden;
+  pointer-events: none;
+  transition: visibility 0s linear var(--pdp-slide-duration);
 }
 
 .cart-sheet-overlay::before {
@@ -2345,12 +2348,14 @@ main:focus {
   transition: opacity var(--pdp-slide-duration) var(--pdp-slide-easing);
 }
 
-.cart-sheet-overlay[data-motion-state="open"]::before {
-  opacity: 1;
+.cart-sheet-overlay[data-state="open"] {
+  visibility: visible;
+  pointer-events: auto;
+  transition-delay: 0s;
 }
 
-.cart-sheet-overlay[data-state="closed"] {
-  pointer-events: none;
+.cart-sheet-overlay[data-state="open"]::before {
+  opacity: 1;
 }
 
 .cart-sheet {
@@ -2361,7 +2366,7 @@ main:focus {
   will-change: transform;
 }
 
-.cart-sheet[data-motion-state="open"] {
+.cart-sheet[data-state="open"] {
   transform: translate3d(0, 0, 0);
 }
 
@@ -3027,8 +3032,16 @@ main:focus {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .cart-sheet-overlay[data-motion-state]::before,
-  .cart-sheet[data-motion-state] {
+  .cart-sheet-overlay {
+    transition-delay: 1ms;
+  }
+
+  .cart-sheet-overlay[data-state="open"] {
+    transition-delay: 0s;
+  }
+
+  .cart-sheet-overlay::before,
+  .cart-sheet {
     transition-duration: 1ms;
   }
 

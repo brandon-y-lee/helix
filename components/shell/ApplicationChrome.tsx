@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
+import { CartDrawerHost } from "@/components/cart/CartDrawer";
 import { CartProvider } from "@/components/cart/CartProvider";
 import { Header } from "@/components/shell/Header";
 import { SiteFooter } from "@/components/shell/SiteFooter";
@@ -29,6 +30,7 @@ export function ApplicationChrome({ children }: { children: ReactNode }) {
         {children}
       </main>
       <SiteFooter />
+      {mode !== "catalog-preview" && <CartDrawerHost />}
     </CartProvider>
   );
 }
