@@ -23,7 +23,8 @@ async function finishDrawerExit(page: Page) {
       }),
     );
   });
-  await expect(overlay).toHaveCount(0);
+  await expect(overlay).toHaveAttribute("data-state", "closed");
+  await expect(overlay).toBeHidden();
 }
 
 async function addCleanse(
@@ -39,7 +40,8 @@ async function addCleanse(
   await buyButton.click();
   const drawer = page.getByRole("dialog", { name: "Cart" });
   await expect(drawer).toBeVisible();
-  await expect(drawer).toHaveAttribute("data-motion-state", "open");
+  await expect(drawer).toHaveAttribute("data-state", "open");
+  await expect(page.locator(".cart-sheet")).toHaveCount(1);
   await expect(
     drawer
       .getByRole("list", { name: "Cart items" })
@@ -144,7 +146,7 @@ test("PDP add-to-cart persists across reload and reaches the cart page", async (
   const drawerOverlay = page.locator(".cart-sheet-overlay");
   expect(await storefrontGeometry(page)).toEqual(geometryBeforeOpen);
   await drawer.getByRole("button", { name: "Close" }).click();
-  await expect(drawerOverlay).toHaveAttribute("data-motion-state", "closed");
+  await expect(drawerOverlay).toHaveAttribute("data-state", "closed");
   expect(await storefrontGeometry(page)).toEqual(geometryBeforeOpen);
   await finishDrawerExit(page);
   await expect
@@ -160,7 +162,9 @@ test("PDP add-to-cart persists across reload and reaches the cart page", async (
   await expect(page.getByText("CLEANSE").first()).toBeVisible();
   await expect(page.getByRole("list", { name: "Cart items" })).toBeVisible();
   await page.getByRole("button", { name: "Clear cart" }).click();
-  await expect(page.getByText(/your cart is empty/i)).toBeVisible();
+  await expect(
+    page.locator("#content").getByText(/your cart is empty/i),
+  ).toBeVisible();
 });
 
 test("mobile quick buy opens the cart drawer and restores focus on Escape", async ({
@@ -194,9 +198,12 @@ test("mobile quick buy opens the cart drawer and restores focus on Escape", asyn
   const drawerPanel = page.locator(".cart-sheet");
   await expect(drawerOverlay).toHaveAttribute("data-state", "open");
   await expect(drawerPanel).toHaveAttribute("data-state", "open");
-  await expect(drawerPanel).toHaveAttribute("data-motion-state", "open");
   await expect(drawerPanel).toHaveCount(1);
   await expect(card).toHaveAttribute("data-quick-buy-open", "false");
+  await expect(card.locator(".product-card__quick-buy")).toHaveAttribute(
+    "data-open",
+    "false",
+  );
   await expect(card.locator(".product-card__quick-buy")).toBeHidden();
   await expect(page).toHaveURL(standardCardUrl);
   await expect(
@@ -206,7 +213,6 @@ test("mobile quick buy opens the cart drawer and restores focus on Escape", asyn
   await page.keyboard.press("Escape");
   await expect(drawerOverlay).toHaveAttribute("data-state", "closed");
   await expect(drawerPanel).toHaveAttribute("data-state", "closed");
-  await expect(drawerPanel).toHaveAttribute("data-motion-state", "closed");
   await finishDrawerExit(page);
   await expect(quickBuy).toBeFocused();
 
@@ -216,7 +222,11 @@ test("mobile quick buy opens the cart drawer and restores focus on Escape", asyn
   await expect(drawer).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(drawer).toHaveCount(0);
-  await expect(page.locator(".cart-sheet-overlay")).toHaveCount(0);
+  await expect(page.locator(".cart-sheet-overlay")).toHaveAttribute(
+    "data-state",
+    "closed",
+  );
+  await expect(page.locator(".cart-sheet-overlay")).toBeHidden();
   await expect
     .poll(() => page.evaluate(() => document.body.style.overflow))
     .not.toBe("hidden");

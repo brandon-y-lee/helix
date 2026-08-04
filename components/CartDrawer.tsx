@@ -1,8 +1,25 @@
 "use client";
 
 import { CartView } from "@/components/CartView";
+import { useCartDrawer } from "@/components/CartProvider";
 import { Sheet } from "@/components/Sheet";
 import { PDP_SLIDE_STYLE } from "@/components/usePdpSlideTransition";
+
+export function CartDrawerHost() {
+  const {
+    cartDrawerOpen,
+    closeCartDrawer,
+    returnFocusAfterCartDrawerClose,
+  } = useCartDrawer();
+
+  return (
+    <CartDrawer
+      open={cartDrawerOpen}
+      onClose={closeCartDrawer}
+      returnFocus={returnFocusAfterCartDrawerClose}
+    />
+  );
+}
 
 export function CartDrawer({
   open,
@@ -26,7 +43,7 @@ export function CartDrawer({
       overlayClassName="cart-sheet-overlay"
       overlayStyle={PDP_SLIDE_STYLE}
       panelStyle={PDP_SLIDE_STYLE}
-      animatePresence
+      persistent
     >
       <CartView mode="drawer" onContinue={onClose} />
     </Sheet>

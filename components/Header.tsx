@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CartDrawer } from "@/components/CartDrawer";
 import { useCartDrawer } from "@/components/CartProvider";
 import { useCartCount } from "@/components/useCart";
 import { SearchOverlay } from "@/components/SearchOverlay";
@@ -68,7 +67,6 @@ export function Header({
     cartDrawerOpen,
     openCartDrawer,
     closeCartDrawer,
-    returnFocusAfterCartDrawerClose,
   } = useCartDrawer();
   const [searchOpen, setSearchOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -287,13 +285,6 @@ export function Header({
         onClose={closeSearch}
         returnFocus={returnFocusToSearch}
       />
-      {!commerceDisabled && (
-        <CartDrawer
-          open={cartDrawerOpen}
-          onClose={closeCartDrawer}
-          returnFocus={returnFocusAfterCartDrawerClose}
-        />
-      )}
     </header>
   );
 }
