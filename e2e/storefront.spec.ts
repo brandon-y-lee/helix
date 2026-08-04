@@ -14,17 +14,7 @@ async function storefrontGeometry(page: Page): Promise<HorizontalGeometry> {
 
 async function finishDrawerExit(page: Page) {
   const overlay = page.locator(".cart-sheet-overlay");
-  const panel = page.locator(".cart-sheet");
-  await panel.evaluate((element) => {
-    element.dispatchEvent(
-      new TransitionEvent("transitionend", {
-        bubbles: true,
-        propertyName: "transform",
-      }),
-    );
-  });
-  await expect(overlay).toHaveAttribute("data-state", "closed");
-  await expect(overlay).toBeHidden();
+  await expect(overlay).toHaveCount(0);
 }
 
 async function addCleanse(
@@ -210,8 +200,7 @@ test("mobile quick buy opens the cart drawer and restores focus on Escape", asyn
   ).toBeVisible();
 
   await page.keyboard.press("Escape");
-  await expect(drawerOverlay).toHaveAttribute("data-state", "closed");
-  await expect(drawerPanel).toHaveAttribute("data-state", "closed");
+  await expect(drawer).toHaveCount(0);
   await finishDrawerExit(page);
   await expect(quickBuy).toBeFocused();
 
@@ -221,11 +210,7 @@ test("mobile quick buy opens the cart drawer and restores focus on Escape", asyn
   await expect(drawer).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(drawer).toHaveCount(0);
-  await expect(page.locator(".cart-sheet-overlay")).toHaveAttribute(
-    "data-state",
-    "closed",
-  );
-  await expect(page.locator(".cart-sheet-overlay")).toBeHidden();
+  await expect(page.locator(".cart-sheet-overlay")).toHaveCount(0);
   await expect
     .poll(() => page.evaluate(() => document.body.style.overflow))
     .not.toBe("hidden");

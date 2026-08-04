@@ -1,6 +1,15 @@
 "use client";
 
 import {
+  AnimatePresence,
+  domAnimation,
+  LazyMotion,
+  MotionConfig,
+  useIsPresent,
+  useReducedMotion,
+} from "motion/react";
+import * as m from "motion/react-m";
+import {
   useCallback,
   useEffect,
   useId,
@@ -11,6 +20,19 @@ import {
 import { createPortal } from "react-dom";
 
 type SheetSide = "left" | "right";
+type SheetEase = [number, number, number, number];
+
+export type SheetMotionTransition = {
+  duration: number;
+  ease: SheetEase;
+  backdropDuration?: number;
+};
+
+export const DEFAULT_SHEET_MOTION_TRANSITION: SheetMotionTransition = {
+  duration: 0.24,
+  ease: [0.22, 1, 0.36, 1],
+  backdropDuration: 0.14,
+};
 
 function lockBodyScroll(): () => void {
   const body = document.body;
@@ -65,6 +87,122 @@ function focusableIn(container: HTMLElement): HTMLElement[] {
   });
 }
 
+type SheetLayerProps = {
+  side: SheetSide;
+  title: string;
+  titleId: string;
+  eyebrow?: string;
+  description?: string;
+  descriptionId: string;
+  onClose: () => void;
+  children: ReactNode;
+  className: string;
+  overlayClassName: string;
+  overlayStyle?: CSSProperties;
+  panelStyle?: CSSProperties;
+  panelRef: React.RefObject<HTMLDivElement | null>;
+  motionTransition?: SheetMotionTransition;
+};
+
+function SheetLayer(props: SheetLayerProps) {
+  const isPresent = useIsPresent();
+  const shouldReduceMotion = useReducedMotion();
+  const {
+    side,
+    title,
+    titleId,
+    eyebrow,
+    description,
+    descriptionId,
+    onClose,
+    children,
+    className,
+    overlayClassName,
+    overlayStyle,
+    panelStyle,
+    panelRef,
+    motionTransition,
+  } = props;
+  const animated = motionTransition !== undefined;
+  const duration = shouldReduceMotion
+    ? 0.01
+    : motionTransition?.duration;
+  const backdropDuration = shouldReduceMotion
+    ? 0.01
+    : (motionTransition?.backdropDuration ?? motionTransition?.duration);
+  const closedX = side === "right" ? "100%" : "-100%";
+  const state = !animated || isPresent ? "open" : "closed";
+
+  return (
+    <m.div
+      className={`sheet sheet--${side} ${overlayClassName}`}
+      data-motion-sheet={animated ? "" : undefined}
+      data-state={state}
+      role="dialog"
+      aria-modal="true"
+      aria-hidden={state === "open" ? undefined : true}
+      inert={state === "open" ? undefined : true}
+      aria-labelledby={titleId}
+      aria-describedby={description ? descriptionId : undefined}
+      style={overlayStyle}
+      onMouseDown={(event) => {
+        if (state === "open" && event.target === event.currentTarget) onClose();
+      }}
+    >
+      {motionTransition && (
+        <m.div
+          className="sheet__backdrop"
+          aria-hidden="true"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{
+            type: "tween",
+            duration: backdropDuration,
+            ease: motionTransition.ease,
+          }}
+        />
+      )}
+      <m.div
+        className={`sheet__panel ${className}`}
+        data-state={state}
+        ref={panelRef}
+        style={panelStyle}
+        initial={motionTransition ? { x: closedX } : undefined}
+        animate={motionTransition ? { x: 0 } : undefined}
+        exit={motionTransition ? { x: closedX } : undefined}
+        transition={
+          motionTransition
+            ? {
+                type: "tween",
+                duration,
+                ease: motionTransition.ease,
+              }
+            : undefined
+        }
+      >
+        <div className="sheet__head">
+          <div>
+            {eyebrow && <p className="eyebrow sheet__eyebrow">{eyebrow}</p>}
+            <h2 className="sheet__title" id={titleId}>
+              {title}
+            </h2>
+            {description && (
+              <p className="sr-only" id={descriptionId}>
+                {description}
+              </p>
+            )}
+          </div>
+          <button type="button" className="sheet__close" onClick={onClose}>
+            Close
+          </button>
+        </div>
+        {children}
+      </m.div>
+    </m.div>
+  );
+}
+
 export function Sheet({
   open,
   side = "right",
@@ -78,7 +216,7 @@ export function Sheet({
   overlayClassName = "",
   overlayStyle,
   panelStyle,
-  persistent = false,
+  motionTransition,
 }: {
   open: boolean;
   side?: SheetSide;
@@ -92,14 +230,16 @@ export function Sheet({
   overlayClassName?: string;
   overlayStyle?: CSSProperties;
   panelStyle?: CSSProperties;
-  persistent?: boolean;
+  motionTransition?: SheetMotionTransition;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const releaseScrollLockRef = useRef<(() => void) | null>(null);
+  const openRef = useRef(open);
+  openRef.current = open;
   const id = useId();
   const titleId = `${id}-sheet-title`;
   const descriptionId = `${id}-sheet-description`;
-  const shouldRender = persistent || open;
+  const animated = motionTransition !== undefined;
 
   const releaseScrollLock = useCallback(() => {
     releaseScrollLockRef.current?.();
@@ -149,69 +289,53 @@ export function Sheet({
     return () => {
       window.clearTimeout(focusTimeout);
       document.removeEventListener("keydown", onKeyDown);
-      returnFocus();
-      const reducedMotion =
-        window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ??
-        false;
-      if (!persistent || reducedMotion) releaseScrollLock();
+      if (!animated) {
+        releaseScrollLock();
+        returnFocus();
+      }
     };
-  }, [open, onClose, persistent, releaseScrollLock, returnFocus]);
+  }, [animated, open, onClose, releaseScrollLock, returnFocus]);
 
   useEffect(() => () => releaseScrollLock(), [releaseScrollLock]);
 
-  if (!shouldRender) return null;
+  const layerProps: SheetLayerProps = {
+    side,
+    title,
+    titleId,
+    eyebrow,
+    description,
+    descriptionId,
+    onClose,
+    children,
+    className,
+    overlayClassName,
+    overlayStyle,
+    panelStyle,
+    panelRef,
+    motionTransition,
+  };
 
-  const sheet = (
-    <div
-      className={`sheet sheet--${side} ${overlayClassName}`}
-      data-state={open ? "open" : "closed"}
-      role="dialog"
-      aria-modal="true"
-      aria-hidden={open ? undefined : true}
-      inert={open ? undefined : true}
-      aria-labelledby={titleId}
-      aria-describedby={description ? descriptionId : undefined}
-      style={overlayStyle}
-      onMouseDown={(event) => {
-        if (open && event.target === event.currentTarget) onClose();
-      }}
-    >
-      <div
-        className={`sheet__panel ${className}`}
-        data-state={open ? "open" : "closed"}
-        ref={panelRef}
-        style={panelStyle}
-        onTransitionEnd={(event) => {
-          if (
-            persistent &&
-            !open &&
-            event.target === event.currentTarget &&
-            event.propertyName === "transform"
-          ) {
-            releaseScrollLock();
-          }
-        }}
-      >
-        <div className="sheet__head">
-          <div>
-            {eyebrow && <p className="eyebrow sheet__eyebrow">{eyebrow}</p>}
-            <h2 className="sheet__title" id={titleId}>
-              {title}
-            </h2>
-            {description && (
-              <p className="sr-only" id={descriptionId}>
-                {description}
-              </p>
-            )}
-          </div>
-          <button type="button" className="sheet__close" onClick={onClose}>
-            Close
-          </button>
-        </div>
-        {children}
-      </div>
-    </div>
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
+    <LazyMotion features={domAnimation} strict>
+      <MotionConfig reducedMotion="user">
+        {animated ? (
+          <AnimatePresence
+            initial={false}
+            onExitComplete={() => {
+              if (openRef.current) return;
+              releaseScrollLock();
+              returnFocus();
+            }}
+          >
+            {open && <SheetLayer key={id} {...layerProps} />}
+          </AnimatePresence>
+        ) : (
+          open && <SheetLayer {...layerProps} />
+        )}
+      </MotionConfig>
+    </LazyMotion>,
+    document.body,
   );
-
-  return persistent ? sheet : createPortal(sheet, document.body);
 }

@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -42,9 +42,16 @@ describe("SearchOverlay", () => {
     );
     expect(screen.getByLabelText("Search products")).toHaveFocus();
 
-    await user.keyboard("{Escape}");
+    fireEvent.keyDown(document, { key: "Escape" });
     expect(screen.queryByRole("dialog", { name: "Search" })).not.toBeInTheDocument();
-    expect(trigger).toHaveFocus();
+    expect(document.querySelector(".search-sheet")).toHaveAttribute(
+      "data-state",
+      "closed",
+    );
+    await waitFor(() => {
+      expect(document.querySelector(".search-sheet")).toBeNull();
+      expect(trigger).toHaveFocus();
+    });
   });
 
   it("traps focus and closes when its backdrop is pressed", async () => {
@@ -64,5 +71,8 @@ describe("SearchOverlay", () => {
 
     await user.pointer({ keys: "[MouseLeft]", target: dialog });
     expect(screen.queryByRole("dialog", { name: "Search" })).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(document.querySelector(".search-sheet")).toBeNull();
+    });
   });
 });

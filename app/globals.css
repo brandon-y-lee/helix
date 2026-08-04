@@ -2309,6 +2309,24 @@ main:focus {
   justify-content: flex-start;
 }
 
+.sheet[data-motion-sheet] {
+  background: transparent;
+  backdrop-filter: none;
+  animation: none;
+}
+
+.sheet[data-motion-sheet][data-state="closed"] {
+  pointer-events: none;
+}
+
+.sheet__backdrop {
+  position: absolute;
+  inset: 0;
+  background: var(--overlay);
+  backdrop-filter: blur(3px);
+  pointer-events: none;
+}
+
 .sheet__panel {
   width: var(--drawer-w);
   height: 100dvh;
@@ -2328,46 +2346,22 @@ main:focus {
   border-left: 1px solid var(--line);
 }
 
+.sheet[data-motion-sheet] .sheet__panel {
+  position: relative;
+  z-index: 1;
+  animation: none;
+}
+
 .cart-sheet-overlay {
   background: transparent;
   backdrop-filter: none;
   animation: none;
-  visibility: hidden;
-  pointer-events: none;
-  transition: visibility 0s linear var(--pdp-slide-duration);
-}
-
-.cart-sheet-overlay::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: var(--overlay);
-  backdrop-filter: blur(3px);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity var(--pdp-slide-duration) var(--pdp-slide-easing);
-}
-
-.cart-sheet-overlay[data-state="open"] {
-  visibility: visible;
-  pointer-events: auto;
-  transition-delay: 0s;
-}
-
-.cart-sheet-overlay[data-state="open"]::before {
-  opacity: 1;
 }
 
 .cart-sheet {
   position: relative;
-  transform: translate3d(100%, 0, 0);
   animation: none;
-  transition: transform var(--pdp-slide-duration) var(--pdp-slide-easing);
   will-change: transform;
-}
-
-.cart-sheet[data-state="open"] {
-  transform: translate3d(0, 0, 0);
 }
 
 .sheet__head {
@@ -3032,19 +3026,6 @@ main:focus {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .cart-sheet-overlay {
-    transition-delay: 1ms;
-  }
-
-  .cart-sheet-overlay[data-state="open"] {
-    transition-delay: 0s;
-  }
-
-  .cart-sheet-overlay::before,
-  .cart-sheet {
-    transition-duration: 1ms;
-  }
-
   .site-header {
     transition:
       background-color 1ms linear,
