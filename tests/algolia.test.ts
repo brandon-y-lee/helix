@@ -35,6 +35,7 @@ import {
 } from "@/lib/algolia/sync";
 import { runSearchBackfill } from "@/lib/algolia/backfill";
 import { getCatalogInvalidationTargets } from "@/lib/catalog-invalidation";
+import { SHOP_COLLECTION_PATHS } from "@/lib/catalog/collection-routes";
 
 const mockedFetch = fetchSearchRecordById as unknown as Mock;
 const mockedUpsert = upsertSearchRecord as unknown as Mock;
@@ -837,7 +838,9 @@ describe("catalog cache invalidation", () => {
       ]),
     );
     expect(targets.tags).not.toContain("catalog-product-card");
-    expect(targets.paths).not.toContain("/products");
+    for (const path of SHOP_COLLECTION_PATHS) {
+      expect(targets.paths).not.toContain(path);
+    }
     },
   );
 

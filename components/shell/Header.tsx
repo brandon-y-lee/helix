@@ -203,7 +203,7 @@ export function Header({
           Menu
         </button>
         <nav className="site-nav site-nav--left" aria-label="Primary">
-          <Link href="/products" aria-current={current("/products")}>SHOP</Link>
+          <Link href="/collections/shop" aria-current={current("/collections/shop")}>SHOP</Link>
           <Link href="/system" aria-current={current("/system")}>SYSTEM</Link>
           <Link href="/about" aria-current={current("/about")}>ABOUT</Link>
         </nav>
@@ -267,7 +267,7 @@ export function Header({
         className="mobile-nav-sheet"
       >
         <nav className="mobile-nav" aria-label="Mobile primary">
-          <Link href="/products" onClick={closeMenu} aria-current={current("/products")}>SHOP</Link>
+          <Link href="/collections/shop" onClick={closeMenu} aria-current={current("/collections/shop")}>SHOP</Link>
           <Link href="/system" onClick={closeMenu} aria-current={current("/system")}>SYSTEM</Link>
           <Link href="/about" onClick={closeMenu} aria-current={current("/about")}>ABOUT</Link>
           <button type="button" onClick={() => { closeMenu(); setSearchOpen(true); }}>

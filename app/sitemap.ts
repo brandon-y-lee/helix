@@ -1,11 +1,12 @@
 import type { MetadataRoute } from "next";
 import { getCachedProductRoutes } from "@/lib/catalog-cache";
+import { SHOP_COLLECTION_PATHS } from "@/lib/catalog/collection-routes";
 
 const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
 const staticRoutes = [
   "/",
-  "/products",
+  ...SHOP_COLLECTION_PATHS,
   "/system",
   "/about",
   "/cart",

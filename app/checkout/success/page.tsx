@@ -115,7 +115,7 @@ export default async function CheckoutSuccessPage({
         <Link href="/account" className="btn btn--editorial-rounded">
           Account
         </Link>
-        <Link href="/products" className="btn btn--ghost btn--editorial-rounded">
+        <Link href="/collections/shop" className="btn btn--ghost btn--editorial-rounded">
           Continue shopping
         </Link>
       </div>

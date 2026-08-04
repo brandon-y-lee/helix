@@ -6,7 +6,7 @@ import { useProductPurchase } from "@/components/cart/useProductPurchase";
 import { CART_IDENTITY_CHANGED_COOKIE } from "@/lib/cart/sync";
 import type { CartAddInput, CartState } from "@/lib/cart/types";
 
-const routeState = vi.hoisted(() => ({ pathname: "/products" }));
+const routeState = vi.hoisted(() => ({ pathname: "/collections/shop" }));
 
 vi.mock("next/navigation", () => ({
   usePathname: () => routeState.pathname,
@@ -106,7 +106,7 @@ function MutationProbe() {
 }
 
 beforeEach(() => {
-  routeState.pathname = "/products";
+  routeState.pathname = "/collections/shop";
   document.cookie = `${CART_IDENTITY_CHANGED_COOKIE}=; Max-Age=0; Path=/`;
   vi.unstubAllGlobals();
 });

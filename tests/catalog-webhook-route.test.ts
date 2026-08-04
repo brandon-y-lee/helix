@@ -5,6 +5,7 @@ import {
   verifyWebhookSecret,
 } from "@/lib/algolia/sync";
 import { POST } from "@/app/api/webhooks/supabase/catalog-search-sync/route";
+import { SHOP_COLLECTION_PATHS } from "@/lib/catalog/collection-routes";
 
 vi.mock("next/cache", async (importOriginal) => {
   const actual = await importOriginal<typeof import("next/cache")>();
@@ -115,7 +116,9 @@ describe("catalog search sync route", () => {
     expect(revalidateTagMock).not.toHaveBeenCalledWith(
       "catalog-product-content:treat-03-pdrn-5-ampoule",
     );
-    expect(revalidatePathMock).toHaveBeenCalledWith("/products");
+    for (const path of SHOP_COLLECTION_PATHS) {
+      expect(revalidatePathMock).toHaveBeenCalledWith(path);
+    }
     expect(revalidatePathMock).toHaveBeenCalledWith("/products/treat-03-pdrn-5-ampoule");
   });
 
@@ -188,7 +191,9 @@ describe("catalog search sync route", () => {
       expect(revalidateTagMock).not.toHaveBeenCalledWith(
         "catalog-product-offer:treat-03-pdrn-5-ampoule",
       );
-      expect(revalidatePathMock).not.toHaveBeenCalledWith("/products");
+      for (const path of SHOP_COLLECTION_PATHS) {
+        expect(revalidatePathMock).not.toHaveBeenCalledWith(path);
+      }
     },
   );
 
@@ -229,7 +234,9 @@ describe("catalog search sync route", () => {
       "/products/seal-05-green-collagen-cream",
     );
     expect(revalidateTagMock).not.toHaveBeenCalledWith("catalog-product-card");
-    expect(revalidatePathMock).not.toHaveBeenCalledWith("/products");
+    for (const path of SHOP_COLLECTION_PATHS) {
+      expect(revalidatePathMock).not.toHaveBeenCalledWith(path);
+    }
     },
   );
 

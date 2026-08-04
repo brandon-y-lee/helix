@@ -571,7 +571,7 @@ export function MethodExperience({
           <p className="eyebrow">Build deliberately</p>
           <h2 id="method-cta-heading">CLEAR STEPS. NO WASTED MOTION.</h2>
           <div className="hero__actions">
-            <Link href="/products" className="btn btn--editorial-rounded">
+            <Link href="/collections/shop" className="btn btn--editorial-rounded">
               Build the system
             </Link>
             <Link href="/about" className="btn btn--ghost btn--editorial-rounded">

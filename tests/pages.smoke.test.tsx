@@ -11,7 +11,9 @@ vi.mock("@/lib/auth/session", () => ({
 
 import SignInPage from "@/app/account/sign-in/page";
 import CartPage from "@/app/cart/page";
-import ProductsPage from "@/app/products/page";
+import CollectionPage, {
+  generateMetadata as generateCollectionMetadata,
+} from "@/app/collections/[collection]/page";
 import { CartProvider } from "@/components/cart/CartProvider";
 
 beforeEach(() => {
@@ -28,12 +30,30 @@ beforeEach(() => {
 
 describe("storefront route states", () => {
   it("renders a clear Shop empty state", async () => {
-    render(await ProductsPage({ searchParams: Promise.resolve({}) }));
+    render(
+      await CollectionPage({
+        params: Promise.resolve({ collection: "shop" }),
+      }),
+    );
 
     expect(
-      screen.getByRole("heading", { level: 1, name: "RAISE YOUR BASELINE." }),
+      screen.getByRole("heading", { level: 1, name: "raise your baseline" }),
     ).toBeInTheDocument();
-    expect(screen.getByText(/no products are available/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole("navigation", { name: "Shop collections" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Shop All" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(
+      screen.getByText(/no products are available in this collection/i),
+    ).toBeInTheDocument();
+    expect(
+      await generateCollectionMetadata({
+        params: Promise.resolve({ collection: "shop" }),
+      }),
+    ).toEqual({ title: "Shop All | Mei Pelle" });
   });
 
   it("renders the Cart empty state inside its provider", async () => {

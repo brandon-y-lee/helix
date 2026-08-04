@@ -57,7 +57,7 @@ export default async function SystemPage() {
           <h1 id="system-heading">THE SYSTEM.</h1>
           <p>A system for clearer, healthier, beautiful skin</p>
           <div className="hero__actions">
-            <Link href="/products" className="btn btn--editorial-rounded">
+            <Link href="/collections/shop" className="btn btn--editorial-rounded">
               Start the system
             </Link>
             <Link href="#system-routine" className="btn btn--ghost btn--editorial-rounded">

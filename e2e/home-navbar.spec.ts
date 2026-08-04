@@ -47,7 +47,7 @@ test("client navigation updates declarative header presentation", async ({
     .getByRole("navigation", { name: "Primary" })
     .getByRole("link", { name: "SHOP" })
     .click();
-  await expect(page).toHaveURL(/\/products$/);
+  await expect(page).toHaveURL(/\/collections\/shop$/);
   await expect(overlaySurface).toHaveCount(0);
   await expect(page.locator(".site-header")).toHaveAttribute(
     "data-nav-state",

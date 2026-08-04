@@ -35,13 +35,23 @@ describe("legacy route redirects", () => {
     expect(navigation.permanentRedirect).toHaveBeenCalledWith(destination);
   });
 
-  it("keeps canonical product and System redirects in Next config", async () => {
+  it("keeps canonical collection, product, and System redirects in Next config", async () => {
     const redirects = await nextConfig.redirects?.();
     expect(redirects).toEqual(
       expect.arrayContaining([
         {
           source: "/method",
           destination: "/system",
+          permanent: true,
+        },
+        {
+          source: "/collections",
+          destination: "/collections/shop",
+          permanent: true,
+        },
+        {
+          source: "/products",
+          destination: "/collections/shop",
           permanent: true,
         },
         {

@@ -15,7 +15,7 @@ export async function GET(
 ): Promise<NextResponse> {
   const { code } = await params;
   const normalized = normalizeReferralCode(code);
-  const url = new URL("/products", request.url);
+  const url = new URL("/collections/shop", request.url);
 
   if (!normalized || normalized.length < 6) {
     url.searchParams.set("referral", "invalid");

@@ -4,7 +4,7 @@ export const ABOUT_HERO = {
   body:
     "Mei Pelle brings South Korean formulation discipline together with Los Angeles self-invention: an edited skincare system built for men who expect more from how they look, feel, and move through the world.",
   primaryCta: { label: "Discover the system", href: "/system" },
-  secondaryCta: { label: "Shop the system", href: "/products" },
+  secondaryCta: { label: "Shop the system", href: "/collections/shop" },
 };
 
 export const ABOUT_OPENING = [
@@ -113,7 +113,7 @@ export const ABOUT_CLOSING = {
   body:
     "Potential is not a promise made by a product. It is the result of standards repeated.",
   primaryCta: { label: "Learn the system", href: "/system" },
-  secondaryCta: { label: "Shop Mei Pelle", href: "/products" },
+  secondaryCta: { label: "Shop Mei Pelle", href: "/collections/shop" },
 };
 
 export const FORBIDDEN_ABOUT_PATTERNS = [
