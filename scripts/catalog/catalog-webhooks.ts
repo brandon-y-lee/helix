@@ -1,4 +1,4 @@
-import { EXPECTED_SUPABASE_PROJECT_REF } from "./canonical-catalog-manifest";
+import { EXPECTED_SUPABASE_PROJECT_REF } from "../../lib/catalog/canonical-catalog";
 
 export const CATALOG_WEBHOOK_PATH =
   "/api/webhooks/supabase/catalog-search-sync" as const;

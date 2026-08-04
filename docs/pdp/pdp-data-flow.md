@@ -274,22 +274,9 @@ prefix and normalized to the required canonical
 PNG payloads despite their source extensions and were converted to true WebP.
 The supplied SEAL file was already a valid WebP and its bytes were retained.
 
-`scripts/catalog-sync-core-pdp-media.ts` is dry-run by default. On apply it:
-
-1. refuses any Supabase host other than the fixed non-production project
-2. validates every present basename and payload; the three not-yet-supplied Core routine editorial inputs are reported as missing without becoming writes
-3. calculates missing objects and changed rows before any mutation
-4. backs up affected media rows and current object listings only when writes are planned
-5. uploads only missing content-addressed objects through the Storage API
-6. downloads the public response and verifies content type and SHA-256 checksum
-7. updates or inserts only changed active rows on the canonical `(product_id, role)` identity
-8. re-reads and verifies all planned rows
-
-The sync controls 15 existing dedicated PDP assets and recognizes three future
-Core routine editorial inputs across the three Core products. No editorial
-asset or canonical association is created until a validated source is supplied
-and the operator explicitly uses `--apply`. Repeated dry runs produce the same
-missing-input plan, and repeated applies submit only changed rows.
+The one-off Core PDP media migration was removed after its canonical Storage
+objects and `product_media` rows were verified. Future media changes use the
+protected catalog editor or a reviewed one-time migration.
 
 ### Outcome media preparation and delivery
 
@@ -311,13 +298,9 @@ CLEANSE object bytes, URLs, row identities, dimensions, alt text, and ordering
 remain unchanged; only their legacy `outcome-0N.webp` provenance names are
 normalized to `cleanse-pdp-outcomes-0N.webp`.
 
-`scripts/catalog-sync-outcome-media.ts` is dry-run by default. It requires
-exactly three validated inputs for each controlled product, rejects missing,
-duplicate, unexpected, malformed, or wrong-dimension assets before writes,
-backs up changed rows/object listings outside the repository, verifies public
-content type and downloaded SHA-256 after upload, and re-reads all six active
-associations after apply. A repeated apply is expected to report zero uploads
-and zero row mutations.
+The outcome-media ingestion script was removed after all six canonical
+associations were verified. Runtime authority remains Supabase Storage and
+`product_media`.
 
 ## Cache and revalidation
 
@@ -370,18 +353,11 @@ normal timestamp triggers were present. Database Webhooks were not enabled, and
 no stable deployed receiver endpoint was available.
 Therefore automatic webhook delivery is **not active** and must not be claimed.
 
-`scripts/catalog-reconcile-core-pdp-media.ts` is the missed-webhook recovery
-path. It is dry-run by default, requires the fixed project ref, requires HTTPS
-except for localhost, locks a remote receiver to `NEXT_PUBLIC_SITE_URL`, signs
-the existing receiver request, and sends current rows. The non-production dry
-run resolves the current editorial rows, but apply is intentionally blocked
-until a stable deployed receiver is configured; localhost was not treated as
-proof of permanent cache delivery.
-
 Provisioning a database webhook against the stable deployed receiver remains an
 external deployment action. The source-controlled provisioning command injects
 the secret from the operator environment and never records its value in source
-or command output.
+or command output. A complete missed-event recovery uses the generic
+`search:reindex` flow rather than replaying product-media rows.
 
 ## Algolia flow
 
@@ -412,10 +388,9 @@ Supabase products + variants + product_media
   `ingredients_texture`, `core_routine_texture`, and
   `core_routine_editorial` return a no-op before any Algolia write.
 
-`scripts/search-verify-core-pdp-media.ts` rebuilt the expected canonical record
-and compared it with the live non-production Algolia record. All three passed.
-The established search image URLs remained unchanged; no video, poster, or
-profile URL became a search thumbnail.
+The initial Core-media delivery was checked against live non-production Algolia
+records. All three passed: the established search image URLs remained unchanged
+and no video, poster or profile URL became a search thumbnail.
 
 Algolia is not the PDP source because the product route never imports an
 Algolia client. A search outage can degrade search while a cached or reachable
@@ -459,12 +434,6 @@ Selected Product + variant in ProductDetail
 | `lib/catalog/product-routine.ts` | Generic routine label/sort helpers over the mapped product row | Presentation helper; contains no product-specific map |
 | `lib/catalog/product-reviews.ts` | Slug-keyed early response cards | Repository fixture, not canonical customer review data |
 | `lib/content/product-endorsements.ts` | Local endorsement media still used on Beyond The Core PDPs | Presentation-only; removed from Core composition |
-| `data/catalog/mei-pelle-presentation.ts` | Input to `catalog:refresh:presentation` | Operational writer, not a runtime fallback |
-| `data/catalog/leaders-mei-pelle-source.ts` | Supplier-aligned import input | Seed/import source, not a runtime fallback |
-
-The local source datasets can overwrite direct Supabase edits when their
-respective apply commands run. Operators must update the intended writer source
-or intentionally avoid that writer before making durable direct edits.
 
 ## New modules from this task
 
@@ -592,33 +561,7 @@ remaining accessibility dependency before caption compliance can be claimed.
 10. **Complete the caption audit.** Verify each audio track with a human
     transcript or confirm it is non-speech before launch.
 
-## Operational commands
-
-```bash
-# Dry-run is the default.
-pnpm run catalog:media:sync-core-pdp -- --dry-run \
-  --asset-dir /private/tmp/mei-pelle-media-prep
-
-# Verified non-production apply.
-pnpm run catalog:media:sync-core-pdp -- --apply \
-  --asset-dir /private/tmp/mei-pelle-media-prep
-
-# CLEANSE and TREAT outcome media (dry-run is the default).
-pnpm run catalog:media:sync-outcomes -- --dry-run \
-  --asset-dir /private/tmp/mei-pelle-outcome-media
-
-# Verified non-production outcome apply.
-pnpm run catalog:media:sync-outcomes -- --apply \
-  --asset-dir /private/tmp/mei-pelle-outcome-media
-
-# Missed-webhook recovery.
-pnpm run catalog:media:reconcile-core-pdp -- --dry-run \
-  --endpoint http://127.0.0.1:3010/api/webhooks/supabase/catalog-search-sync
-
-# Verify editorial media did not alter live search imagery.
-pnpm run search:verify-core-pdp-media
-```
-
-Raw source videos are not committed. Prepared derivatives and catalog backups
-remain outside the repository; Supabase Storage and `product_media` are the
-runtime delivery authorities.
+Raw source videos are not committed. Supabase Storage and `product_media` are
+the runtime delivery authorities. Use the protected editor for associations and
+the generic webhook verification or `search:reindex` flow for derived-state
+recovery.

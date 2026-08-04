@@ -4,8 +4,8 @@
 
 This audit covers the customer-facing rename from `RESET` to `CLEANSE`, `RECODE`
 to `TREAT`, and `The Method` to `The System`. Supabase remains the canonical
-catalog source; Algolia remains a derived search index; repository catalog data
-is used for imports, presentation refreshes, tests, and operational tooling.
+catalog source and Algolia remains a derived search index. The repository no
+longer contains broad catalog import or presentation-refresh tooling.
 
 ## Canonical Customer-Facing Values
 
@@ -43,14 +43,9 @@ The migration `202606290002_lift_intensive_copy.sql` removes visible lower-case
 `reset` language from LIFT merchandising copy by changing it to weekly
 `intensive` language.
 
-`data/catalog/mei-pelle-presentation.ts` is the local presentation refresh
-source. It now uses canonical slugs and visible names so
-`pnpm run catalog:refresh:presentation` cannot reintroduce old visible product
-identities.
-
-`data/catalog/leaders-mei-pelle-source.ts` is the supplier-backed import source.
-It now uses canonical slugs and names, with `legacySlugs` for the two renamed
-products so imports preserve existing product UUIDs.
+The temporary presentation and supplier import datasets used during the rename
+were removed after the canonical rows and migrations were verified. Ongoing
+catalog changes use the protected editor or reviewed migrations.
 
 Algolia records are derived by `lib/algolia/record.ts` from Supabase rows.
 `objectID` remains the stable Supabase product UUID, so slug/name changes update

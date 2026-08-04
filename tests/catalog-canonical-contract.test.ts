@@ -15,7 +15,6 @@ const QUERY_AND_MAPPER_FILES = [
   "lib/algolia/record.ts",
   "lib/cart/server.ts",
   "lib/admin/catalog/service.ts",
-  "scripts/db/catalog-data-audit.ts",
 ] as const;
 
 const RETIRED_PRODUCT_COLUMNS = [
@@ -39,7 +38,6 @@ const RETIRED_PRODUCT_COLUMNS = [
   "legacy_routine_group_label",
   "legacy_routine_display_label",
 ] as const;
-const RETIRED_VARIANT_COLUMNS = ["position"] as const;
 const RETIRED_MEDIA_COLUMNS = ["media_kind"] as const;
 
 const UNIQUE_RETIRED_FIELDS = RETIRED_PRODUCT_COLUMNS.filter(
@@ -90,27 +88,4 @@ describe("canonical catalog source contract", () => {
     }
   });
 
-  it("keeps import write payloads free of Phase 2 product, variant, and media keys", () => {
-    const importer = source("scripts/catalog-import-leaders.ts");
-    const writerSections = [
-      importer.slice(
-        importer.indexOf("function sourceProductValues"),
-        importer.indexOf("async function ensureBucket"),
-      ),
-      importer.slice(
-        importer.indexOf("async function upsertVariants"),
-        importer.indexOf("async function upsertSource"),
-      ),
-    ].join("\n");
-
-    for (const field of [
-      ...RETIRED_PRODUCT_COLUMNS,
-      ...RETIRED_VARIANT_COLUMNS,
-      ...RETIRED_MEDIA_COLUMNS,
-    ]) {
-      expect(writerSections, `import payload writes ${field}`).not.toMatch(
-        new RegExp(`(?:^|\\n)\\s*${field}\\s*:`, "m"),
-      );
-    }
-  });
 });

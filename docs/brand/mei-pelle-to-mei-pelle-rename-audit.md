@@ -29,9 +29,8 @@ The following remain intentionally hyphenated or underscored:
 - Supabase storage bucket: `mei-pelle-catalog`
 - guest cart cookie: `mei_pelle_guest_cart`
 - Algolia index examples: `mei_pelle_products`
-- catalog source filenames such as `leaders-mei-pelle-source.ts`
 - migration filenames and historical migration comments
-- deterministic UUID seeds and backup paths used by scripts
+- historical deterministic UUID seeds and backup paths recorded in migrations
 - media asset URLs such as `/media/home/mei-pelle-hero.mp4`
 - referral hash salt `:mei-pelle-referral`
 

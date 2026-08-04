@@ -51,45 +51,6 @@ export const CANONICAL_COMMERCE_PRODUCTS = [
   },
 ] as const;
 
-// Original development-only seed catalog superseded by the Leaders-backed,
-// current Mei Pelle catalog. These are cleanup candidates only when archived
-// and unreferenced by protected historical/customer tables.
-export const LEGACY_SEED_PRODUCT_SLUGS = [
-  "groundwork-gel-cleanser",
-  "meridian-daily-moisturizer",
-  "northpoint-renewal-serum",
-  "summit-mineral-spf",
-  "lowtide-recovery-cream",
-  "clearview-eye-concentrate",
-] as const;
-
-export const PROTECTED_CLEANUP_REFERENCE_TABLES = [
-  "public.cart_items",
-  "public.order_items",
-] as const;
-
-export const PROTECTED_DATABASE_TABLES = [
-  "auth.users",
-  "public.profiles",
-  "public.carts",
-  "public.cart_items",
-  "public.orders",
-  "public.order_items",
-  "public.payment_attempts",
-  "public.stripe_customers",
-  "public.stripe_webhook_events",
-  "public.loyalty_accounts",
-  "public.loyalty_ledger_entries",
-  "public.loyalty_redemptions",
-  "public.referral_codes",
-  "public.referral_attributions",
-  "public.referral_rewards",
-  "public.private_feedback",
-  "public.trustpilot_invitation_attempts",
-] as const;
-
 export const EXPECTED_COMPLETE_THE_ROUTINE_RELATIONSHIPS =
-  CANONICAL_COMMERCE_PRODUCTS.length * (CANONICAL_COMMERCE_PRODUCTS.length - 1);
-
-export const CATALOG_CLEANUP_RUN_KEY =
-  "20260714_dedupe_legacy_seed_catalog_products" as const;
+  CANONICAL_COMMERCE_PRODUCTS.length *
+  (CANONICAL_COMMERCE_PRODUCTS.length - 1);

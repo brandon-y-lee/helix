@@ -1,12 +1,13 @@
 # Catalog Data Contract
 
-Source file for audit tooling:
+Source file for read-only verification and tests:
 
 ```text
-scripts/catalog/canonical-catalog-manifest.ts
+lib/catalog/canonical-catalog.ts
 ```
 
-This manifest is not a runtime product fallback. It exists so scripts and tests can detect duplicate/outdated Supabase rows and verify the current commerce catalog contract.
+This manifest is not a runtime product fallback. It exists so verification and
+tests can check the current commerce catalog contract.
 
 ## Active Commerce Products
 
@@ -60,25 +61,12 @@ For `complete_the_routine`, the current active shape is:
 
 No relationship should involve inactive old product IDs or PROTECT as commerce.
 
-## Legacy Seed Cleanup Targets
-
-The original development seed catalog rows are cleanup candidates only when archived and unreferenced by protected tables:
-
-- `groundwork-gel-cleanser`
-- `meridian-daily-moisturizer`
-- `northpoint-renewal-serum`
-- `summit-mineral-spf`
-- `lowtide-recovery-cream`
-- `clearview-eye-concentrate`
-
-If any of these slugs ever has cart/order references, do not hard-delete it.
-
 ## Adding a Product
 
-1. Add verified source facts to the controlled catalog source or a reviewed migration.
-2. Upsert by stable slug and variant natural keys.
+1. Add verified source facts through the protected editor or a reviewed migration.
+2. Preserve stable slugs and variant natural keys.
 3. Add canonical routine classification and ordering deliberately.
-4. Update `scripts/catalog/canonical-catalog-manifest.ts` if the active commerce set changes.
+4. Update `lib/catalog/canonical-catalog.ts` if the active commerce set changes.
 5. Run `pnpm run db:verify`.
 6. Run `pnpm run search:reindex`.
 
@@ -87,5 +75,6 @@ If any of these slugs ever has cart/order references, do not hard-delete it.
 1. Archive first with `catalog_status = 'archived'`.
 2. Check cart/order/history references.
 3. Leave historical snapshots untouched.
-4. Hard-delete only if the row is proven seed/generated, archived, backed up, and unreferenced by protected tables.
+4. Use a reviewed one-time migration for any approved hard deletion; do not add
+   a reusable cleanup script.
 5. Reindex search after cleanup.

@@ -1,5 +1,9 @@
 # Supabase Table Sanity Report - 2026-07-14
 
+> Historical record: the one-off cleanup and fallback-backup scripts named in
+> this report were removed after the completed cleanup. The commands below
+> document what ran on 2026-07-14; they are not current operational commands.
+
 ## Executive Summary
 
 Verified project: `erasogmsqpgiirovubjh` (`mei-pelle`, `ACTIVE_HEALTHY`, linked).

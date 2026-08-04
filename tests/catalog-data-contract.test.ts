@@ -2,10 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   CANONICAL_COMMERCE_PRODUCTS,
   EXPECTED_COMPLETE_THE_ROUTINE_RELATIONSHIPS,
-  LEGACY_SEED_PRODUCT_SLUGS,
-  PROTECTED_CLEANUP_REFERENCE_TABLES,
-  PROTECTED_DATABASE_TABLES,
-} from "@/scripts/catalog/canonical-catalog-manifest";
+} from "@/lib/catalog/canonical-catalog";
+import {
+  assertExpectedProjectRef,
+  projectRefFromSupabaseUrl,
+} from "@/scripts/db/supabase-ops";
 
 describe("canonical catalog data contract", () => {
   it("defines exactly the six active commerce products and keeps PROTECT editorial-only", () => {
@@ -22,15 +23,7 @@ describe("canonical catalog data contract", () => {
     ).toBe(false);
   });
 
-  it("keeps cleanup targets separate from canonical active products", () => {
-    const canonical = new Set<string>(CANONICAL_COMMERCE_PRODUCTS.map((product) => product.slug));
-    expect(LEGACY_SEED_PRODUCT_SLUGS).toHaveLength(6);
-    for (const slug of LEGACY_SEED_PRODUCT_SLUGS) {
-      expect(canonical.has(slug)).toBe(false);
-    }
-  });
-
-  it("defines canonical routine and relationship invariants used by audit scripts", () => {
+  it("defines canonical routine and relationship invariants used by verification", () => {
     expect(
       CANONICAL_COMMERCE_PRODUCTS.map((product) => [
         product.routineGroup,
@@ -47,15 +40,43 @@ describe("canonical catalog data contract", () => {
     ]);
     expect(EXPECTED_COMPLETE_THE_ROUTINE_RELATIONSHIPS).toBe(30);
   });
+});
 
-  it("makes protected customer/history tables explicit for cleanup tooling", () => {
-    expect(PROTECTED_CLEANUP_REFERENCE_TABLES).toEqual([
-      "public.cart_items",
-      "public.order_items",
-    ]);
-    expect(PROTECTED_DATABASE_TABLES).toContain("auth.users");
-    expect(PROTECTED_DATABASE_TABLES).toContain("public.orders");
-    expect(PROTECTED_DATABASE_TABLES).toContain("public.loyalty_ledger_entries");
-    expect(PROTECTED_DATABASE_TABLES).toContain("public.stripe_webhook_events");
+describe("Supabase operations safety", () => {
+  it("accepts only the approved non-production project without an override", () => {
+    const originalUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const originalOverride = process.env.ALLOW_NON_CANONICAL_SUPABASE_REF;
+
+    try {
+      process.env.NEXT_PUBLIC_SUPABASE_URL =
+        "https://erasogmsqpgiirovubjh.supabase.co";
+      expect(assertExpectedProjectRef).not.toThrow();
+
+      process.env.NEXT_PUBLIC_SUPABASE_URL =
+        "https://production-project.supabase.co";
+      process.env.ALLOW_NON_CANONICAL_SUPABASE_REF = "true";
+      expect(assertExpectedProjectRef).toThrow(
+        /Expected approved non-production project/,
+      );
+    } finally {
+      if (originalUrl === undefined) {
+        delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+      } else {
+        process.env.NEXT_PUBLIC_SUPABASE_URL = originalUrl;
+      }
+      if (originalOverride === undefined) {
+        delete process.env.ALLOW_NON_CANONICAL_SUPABASE_REF;
+      } else {
+        process.env.ALLOW_NON_CANONICAL_SUPABASE_REF = originalOverride;
+      }
+    }
+  });
+
+  it("rejects non-Supabase and malformed URLs", () => {
+    expect(
+      projectRefFromSupabaseUrl("https://erasogmsqpgiirovubjh.supabase.co"),
+    ).toBe("erasogmsqpgiirovubjh");
+    expect(projectRefFromSupabaseUrl("https://example.com")).toBeNull();
+    expect(projectRefFromSupabaseUrl("not a URL")).toBeNull();
   });
 });

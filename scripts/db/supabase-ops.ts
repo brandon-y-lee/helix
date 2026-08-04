@@ -2,7 +2,7 @@ import { resolve } from "node:path";
 import { config } from "dotenv";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import WebSocket from "ws";
-import { EXPECTED_SUPABASE_PROJECT_REF } from "../catalog/canonical-catalog-manifest";
+import { EXPECTED_SUPABASE_PROJECT_REF } from "../../lib/catalog/canonical-catalog";
 
 config({ path: resolve(process.cwd(), ".env.local"), quiet: true });
 
@@ -25,13 +25,10 @@ export function projectRefFromSupabaseUrl(url: string): string | null {
 export function assertExpectedProjectRef(): void {
   const url = requiredEnv("NEXT_PUBLIC_SUPABASE_URL");
   const projectRef = projectRefFromSupabaseUrl(url);
-  const override = process.env.ALLOW_NON_CANONICAL_SUPABASE_REF === "true";
-
-  if (projectRef !== EXPECTED_SUPABASE_PROJECT_REF && !override) {
+  if (projectRef !== EXPECTED_SUPABASE_PROJECT_REF) {
     throw new Error(
       `Refusing database operation for project ref "${projectRef ?? "unknown"}". ` +
-        `Expected "${EXPECTED_SUPABASE_PROJECT_REF}". Set ` +
-        `ALLOW_NON_CANONICAL_SUPABASE_REF=true only for an intentional local/non-production override.`,
+        `Expected approved non-production project "${EXPECTED_SUPABASE_PROJECT_REF}".`,
     );
   }
 }
@@ -60,16 +57,4 @@ export function parseFlag(name: string): boolean {
 
 export function printJson(value: unknown): void {
   console.log(JSON.stringify(value, null, 2));
-}
-
-export async function exactCount(
-  supabase: SupabaseClient,
-  table: string,
-): Promise<number> {
-  const { count, error } = await supabase
-    .from(table)
-    .select("*", { count: "exact", head: true });
-
-  if (error) throw new Error(`[db-audit] Failed to count ${table}: ${error.message}`);
-  return count ?? 0;
 }
