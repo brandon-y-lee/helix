@@ -2312,6 +2312,7 @@ main:focus {
 .sheet[data-motion-sheet] {
   background: transparent;
   backdrop-filter: none;
+  overflow: clip;
   animation: none;
 }
 

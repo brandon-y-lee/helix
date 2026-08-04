@@ -2,14 +2,10 @@
 
 import { CartView } from "@/components/cart/CartView";
 import { useCartDrawer } from "@/components/cart/CartProvider";
-import { Sheet } from "@/components/overlays/Sheet";
-import type { SheetMotionTransition } from "@/components/overlays/Sheet";
-
-export const CART_SHEET_MOTION: SheetMotionTransition = {
-  duration: 0.3,
-  ease: [0.42, 0, 0.58, 1],
-  backdropDuration: 0.14,
-};
+import {
+  PERSISTENT_SHEET_MOTION_TRANSITION,
+  Sheet,
+} from "@/components/overlays/Sheet";
 
 export function CartDrawerHost() {
   const {
@@ -47,7 +43,7 @@ export function CartDrawer({
       returnFocus={returnFocus}
       className="cart-sheet"
       overlayClassName="cart-sheet-overlay"
-      motionTransition={CART_SHEET_MOTION}
+      motionTransition={PERSISTENT_SHEET_MOTION_TRANSITION}
       persistent
     >
       <CartView mode="drawer" onContinue={onClose} />

@@ -28,9 +28,9 @@ export type SheetMotionTransition = {
   backdropDuration?: number;
 };
 
-export const DEFAULT_SHEET_MOTION_TRANSITION: SheetMotionTransition = {
-  duration: 0.24,
-  ease: [0.22, 1, 0.36, 1],
+export const PERSISTENT_SHEET_MOTION_TRANSITION: SheetMotionTransition = {
+  duration: 0.3,
+  ease: [0.42, 0, 0.58, 1],
   backdropDuration: 0.14,
 };
 

@@ -85,20 +85,66 @@ test("search reports a clear no-results state", async ({ page }) => {
 test("header search manages initial focus and restores its trigger on Escape", async ({
   page,
 }) => {
+  await mockAlgolia(page);
   await page.goto("/");
 
   const trigger = page
     .getByRole("navigation", { name: "Utilities" })
     .getByRole("button", { name: "SEARCH" });
+  const panel = page.locator(".search-sheet");
+  const overlay = panel.locator("..");
+  await expect(panel).toHaveCount(1);
+  await expect(panel).toHaveAttribute("data-state", "closed");
+  await expect(overlay).toHaveAttribute("data-state", "closed");
+  await expect(overlay).toHaveAttribute("aria-hidden", "true");
+  await expect(overlay).toHaveAttribute("inert", "");
+  const viewportOriginBeforeOpen = await page.evaluate(() => ({
+    scrollX: window.scrollX,
+    visualOffsetLeft: window.visualViewport?.offsetLeft ?? 0,
+  }));
+
   await trigger.click();
   const dialog = page.getByRole("dialog", { name: "Search" });
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByLabel("Search products")).toBeFocused();
+  await expect(dialog).toHaveAttribute("data-state", "open");
+  await expect(panel).toHaveCount(1);
+  const input = dialog.getByLabel("Search products");
+  await expect(input).toBeFocused();
+  expect(
+    await page.evaluate(() => ({
+      scrollX: window.scrollX,
+      visualOffsetLeft: window.visualViewport?.offsetLeft ?? 0,
+    })),
+  ).toEqual(viewportOriginBeforeOpen);
   await expect(
     dialog.getByRole("heading", { name: "Popular searches" }),
   ).toBeVisible();
+  await input.fill("serum");
+  await expect(dialog.getByText(/1 result for/i)).toBeVisible();
 
   await page.keyboard.press("Escape");
   await expect(dialog).toHaveCount(0);
+  await expect(panel).toHaveAttribute("data-state", "closed");
+  await expect(overlay).toHaveAttribute("data-state", "closed");
+  await expect(overlay).toHaveAttribute("aria-hidden", "true");
+  await expect(overlay).toHaveAttribute("inert", "");
+  await expect
+    .poll(() => page.evaluate(() => document.body.style.overflow))
+    .not.toBe("hidden");
+  await expect(trigger).toBeFocused();
+
+  await trigger.click();
+  await expect(dialog).toBeVisible();
+  await expect(input).toHaveValue("serum");
+  await expect(input).toBeFocused();
+  await expect(dialog.getByText(/1 result for/i)).toBeVisible();
+
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(overlay).toHaveAttribute("data-state", "closed");
+  await expect
+    .poll(() => page.evaluate(() => document.body.style.overflow))
+    .not.toBe("hidden");
   await expect(trigger).toBeFocused();
 });

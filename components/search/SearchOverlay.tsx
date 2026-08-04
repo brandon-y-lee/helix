@@ -2,7 +2,7 @@
 
 import { SearchView } from "@/components/search/SearchView";
 import {
-  DEFAULT_SHEET_MOTION_TRANSITION,
+  PERSISTENT_SHEET_MOTION_TRANSITION,
   Sheet,
 } from "@/components/overlays/Sheet";
 
@@ -30,9 +30,10 @@ export function SearchOverlay({
       onClose={onClose}
       returnFocus={returnFocus}
       className="search-sheet"
-      motionTransition={DEFAULT_SHEET_MOTION_TRANSITION}
+      motionTransition={PERSISTENT_SHEET_MOTION_TRANSITION}
+      persistent
     >
-      <SearchView autoFocus onResultClick={onClose} />
+      <SearchView autoFocus={open} onResultClick={onClose} />
     </Sheet>
   );
 }

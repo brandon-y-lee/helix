@@ -1,15 +1,36 @@
 import { useRef, useState } from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { PERSISTENT_SHEET_MOTION_TRANSITION } from "@/components/overlays/Sheet";
+import { SearchOverlay } from "@/components/search/SearchOverlay";
 
-vi.mock("@/components/search/SearchView", () => ({
-  SearchView: ({ autoFocus }: { autoFocus?: boolean }) => (
-    <input aria-label="Search products" autoFocus={autoFocus} />
-  ),
+const motionPreference = vi.hoisted(() => ({ reduced: false }));
+
+vi.mock("motion/react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("motion/react")>();
+  return {
+    ...actual,
+    useReducedMotion: () => motionPreference.reduced,
+  };
+});
+
+vi.mock("@/components/search/useProductSearch", () => ({
+  useProductSearch: () => ({
+    status: "idle",
+    result: null,
+    errorMessage: null,
+  }),
 }));
 
-import { SearchOverlay } from "@/components/search/SearchOverlay";
+afterEach(() => {
+  document.body.style.overflow = "";
+  document.body.style.paddingRight = "";
+  document.body.style.removeProperty("--sheet-scrollbar-width");
+  document.body.removeAttribute("data-sheet-scroll-lock");
+  motionPreference.reduced = false;
+  vi.restoreAllMocks();
+});
 
 function Harness() {
   const [open, setOpen] = useState(false);
@@ -30,41 +51,72 @@ function Harness() {
 }
 
 describe("SearchOverlay", () => {
-  it("starts from the offscreen Motion entry state when initially open", () => {
-    render(
-      <SearchOverlay
-        open
-        onClose={() => {}}
-        returnFocus={() => {}}
-      />,
-    );
+  it("keeps one closed Motion drawer mounted and opens the same node", async () => {
+    const user = userEvent.setup();
+    const focus = vi.spyOn(HTMLElement.prototype, "focus");
+    render(<Harness />);
 
-    expect(document.querySelector(".search-sheet")).toHaveStyle({
+    const panel = document.querySelector(".search-sheet");
+    const overlay = panel?.parentElement;
+    expect(overlay).toHaveAttribute("data-motion-sheet");
+    expect(overlay).toHaveAttribute("data-state", "closed");
+    expect(overlay).toHaveAttribute("aria-hidden", "true");
+    expect(overlay).toHaveAttribute("inert");
+    expect(panel).toHaveAttribute("data-state", "closed");
+    expect(panel).toHaveStyle({
       transform: "translate3d(100%, 0, 0)",
+    });
+    expect(screen.queryByRole("dialog", { name: "Search" })).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Search" }));
+
+    expect(screen.getByRole("dialog", { name: "Search" })).toBe(overlay);
+    expect(document.querySelector(".search-sheet")).toBe(panel);
+    expect(overlay).toHaveAttribute("data-state", "open");
+    expect(overlay).toHaveAttribute("aria-modal", "true");
+    expect(panel).toHaveAttribute("data-state", "open");
+    expect(document.querySelectorAll(".search-sheet")).toHaveLength(1);
+    expect(document.body).toHaveStyle({ overflow: "hidden" });
+    await waitFor(() => {
+      expect(screen.getByLabelText("Search products")).toHaveFocus();
+      expect(focus).toHaveBeenCalledWith({ preventScroll: true });
+    });
+    expect(PERSISTENT_SHEET_MOTION_TRANSITION).toEqual({
+      duration: 0.3,
+      ease: [0.42, 0, 0.58, 1],
+      backdropDuration: 0.14,
     });
   });
 
-  it("is a named modal drawer and Escape restores trigger focus", async () => {
+  it("preserves the query and restores trigger focus after reduced-motion close", async () => {
+    motionPreference.reduced = true;
     const user = userEvent.setup();
     render(<Harness />);
     const trigger = screen.getByRole("button", { name: "Search" });
 
     await user.click(trigger);
-    expect(screen.getByRole("dialog", { name: "Search" })).toHaveAttribute(
-      "aria-modal",
-      "true",
-    );
-    expect(screen.getByLabelText("Search products")).toHaveFocus();
+    const input = screen.getByLabelText("Search products");
+    const panel = document.querySelector(".search-sheet");
+    const overlay = panel?.parentElement;
+    await user.type(input, "serum");
 
     fireEvent.keyDown(document, { key: "Escape" });
-    expect(screen.queryByRole("dialog", { name: "Search" })).not.toBeInTheDocument();
-    expect(document.querySelector(".search-sheet")).toHaveAttribute(
-      "data-state",
-      "closed",
-    );
+    expect(screen.queryByRole("dialog", { name: "Search" })).toBeNull();
+    expect(overlay).toHaveAttribute("data-state", "closed");
+    expect(overlay).toHaveAttribute("aria-hidden", "true");
+    expect(overlay).toHaveAttribute("inert");
+    expect(document.querySelector(".search-sheet")).toBe(panel);
+
     await waitFor(() => {
-      expect(document.querySelector(".search-sheet")).toBeNull();
+      expect(document.body).not.toHaveStyle({ overflow: "hidden" });
       expect(trigger).toHaveFocus();
+    });
+
+    await user.click(trigger);
+    expect(document.querySelector(".search-sheet")).toBe(panel);
+    expect(screen.getByLabelText("Search products")).toHaveValue("serum");
+    await waitFor(() => {
+      expect(screen.getByLabelText("Search products")).toHaveFocus();
     });
   });
 
@@ -75,18 +127,23 @@ describe("SearchOverlay", () => {
 
     const dialog = screen.getByRole("dialog", { name: "Search" });
     const close = screen.getByRole("button", { name: "Close" });
-    const input = screen.getByLabelText("Search products");
-    expect(input).toHaveFocus();
+    const lastSuggestion = screen.getByRole("button", {
+      name: "Daily protection",
+    });
+    lastSuggestion.focus();
 
     await user.tab();
     expect(close).toHaveFocus();
     await user.tab({ shift: true });
-    expect(input).toHaveFocus();
+    expect(lastSuggestion).toHaveFocus();
 
     await user.pointer({ keys: "[MouseLeft]", target: dialog });
-    expect(screen.queryByRole("dialog", { name: "Search" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "Search" })).toBeNull();
     await waitFor(() => {
-      expect(document.querySelector(".search-sheet")).toBeNull();
+      expect(dialog).toHaveAttribute("data-state", "closed");
+      expect(dialog).toHaveAttribute("aria-hidden", "true");
+      expect(document.querySelectorAll(".search-sheet")).toHaveLength(1);
+      expect(document.body).not.toHaveStyle({ overflow: "hidden" });
     });
   });
 });

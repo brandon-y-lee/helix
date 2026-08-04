@@ -1,9 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import {
-  CART_SHEET_MOTION,
-  CartDrawer,
-} from "@/components/cart/CartDrawer";
+import { CartDrawer } from "@/components/cart/CartDrawer";
+import { PERSISTENT_SHEET_MOTION_TRANSITION } from "@/components/overlays/Sheet";
 
 const motionPreference = vi.hoisted(() => ({ reduced: false }));
 
@@ -76,7 +74,7 @@ describe("CartDrawer motion", () => {
     await waitFor(() => {
       expect(focus).toHaveBeenCalledWith({ preventScroll: true });
     });
-    expect(CART_SHEET_MOTION).toEqual({
+    expect(PERSISTENT_SHEET_MOTION_TRANSITION).toEqual({
       duration: 0.3,
       ease: [0.42, 0, 0.58, 1],
       backdropDuration: 0.14,
