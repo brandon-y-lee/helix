@@ -25,10 +25,12 @@ export function useProductPurchase() {
     async ({
       item,
       quantity,
+      beforeDrawerOpen,
       returnFocus,
     }: {
       item: CartAddInput;
       quantity?: number;
+      beforeDrawerOpen?: () => void;
       returnFocus?: () => void;
     }) => {
       if (isAdding(item)) return false;
@@ -40,6 +42,7 @@ export function useProductPurchase() {
         return false;
       }
 
+      beforeDrawerOpen?.();
       openCartDrawer(returnFocus);
       return true;
     },

@@ -13,7 +13,6 @@ import {
   type KeyboardEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import { useCartDrawer } from "@/components/CartProvider";
 import { ProductImage } from "@/components/ProductImage";
 import { useProductPurchase } from "@/components/useProductPurchase";
 import { routineDisplayLabelForProduct } from "@/lib/catalog/product-routine";
@@ -114,7 +113,6 @@ export function ProductCard({
   onQuickBuyOpen,
   onQuickBuyClose,
 }: ProductCardProps) {
-  const { cartDrawerOpen } = useCartDrawer();
   const {
     clearError,
     error: addError,
@@ -125,7 +123,6 @@ export function ProductCard({
   const panelId = `${panelBaseId}-quick-buy`;
   const surfaceRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const finalButtonRef = useRef<HTMLButtonElement>(null);
   const addedTimeoutRef = useRef<number | null>(null);
   const pointerPreviewTimeoutRef = useRef<number | null>(null);
   const closePointerRef = useRef<{
@@ -331,7 +328,7 @@ export function ProductCard({
 
   function handlePanelKeyDown(event: KeyboardEvent<HTMLElement>) {
     lastInputWasKeyboardRef.current = true;
-    if (event.key !== "Escape" || !isQuickBuyOpen || cartDrawerOpen) return;
+    if (event.key !== "Escape" || !isQuickBuyOpen) return;
     event.preventDefault();
     event.stopPropagation();
     closeQuickBuy();
@@ -374,7 +371,8 @@ export function ProductCard({
         imageAlt: media?.alt ?? null,
         placeholderMedia: cartPlaceholderMedia(media),
       },
-      returnFocus: () => finalButtonRef.current?.focus(),
+      beforeDrawerOpen: () => closeQuickBuy({ focusTrigger: false }),
+      returnFocus: () => triggerRef.current?.focus(),
     });
     if (ok) {
       setAdded(true);
@@ -553,7 +551,6 @@ export function ProductCard({
 
           <div className="product-card__quick-footer">
             <button
-              ref={finalButtonRef}
               type="button"
               className="product-card__quick-final"
               data-product-card-buy

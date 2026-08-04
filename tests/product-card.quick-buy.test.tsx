@@ -180,9 +180,10 @@ describe("ProductCard quick buy", () => {
     const user = userEvent.setup();
     render(<ProductCard product={makeProduct()} />);
 
-    await user.click(
-      screen.getByRole("button", { name: "Open quick buy for CLEANSE" }),
-    );
+    const trigger = screen.getByRole("button", {
+      name: "Open quick buy for CLEANSE",
+    });
+    await user.click(trigger);
     const finalButton = screen.getByRole("button", {
       name: "BUY CLEANSE - $20.00",
     });
@@ -203,10 +204,13 @@ describe("ProductCard quick buy", () => {
       placeholderMedia: null,
     });
     expect(cartMock.openCartDrawer).toHaveBeenCalledTimes(1);
+    expect(
+      screen.queryByRole("button", { name: "BUY CLEANSE - $20.00" }),
+    ).toBeNull();
 
-    finalButton.blur();
+    trigger.blur();
     act(() => cartMock.openCartDrawer.mock.calls[0][0]());
-    expect(finalButton).toHaveFocus();
+    expect(trigger).toHaveFocus();
   });
 
   it("derives preview from live pointer state after pointer close", async () => {
@@ -325,10 +329,9 @@ describe("ProductCard quick buy", () => {
     expect(surface).toHaveAttribute("data-visual-state", "default");
   });
 
-  it("uses Escape for inline close unless the cart drawer is already open", async () => {
+  it("uses Escape to close the inline panel", async () => {
     const user = userEvent.setup();
-    const product = makeProduct();
-    const { unmount } = render(<ProductCard product={product} />);
+    render(<ProductCard product={makeProduct()} />);
 
     await user.click(
       screen.getByRole("button", { name: "Open quick buy for CLEANSE" }),
@@ -342,20 +345,6 @@ describe("ProductCard quick buy", () => {
         }),
       ).not.toBeInTheDocument(),
     );
-
-    unmount();
-    cartMock.cartDrawerOpen = true;
-    render(<ProductCard product={product} />);
-    await user.click(
-      screen.getByRole("button", { name: "Open quick buy for CLEANSE" }),
-    );
-    await user.keyboard("{Escape}");
-
-    expect(
-      screen.getByRole("button", {
-        name: "BUY CLEANSE - $20.00",
-      }),
-    ).toBeInTheDocument();
   });
 
   it("lets shoppers choose a variant before the final buy", async () => {
@@ -456,20 +445,17 @@ describe("ProductCard quick buy", () => {
 });
 
 describe("ProductGrid quick buy coordination", () => {
-  it("keeps only one product panel open", async () => {
+  it("keeps one product panel open and clears it when the cart opens", async () => {
     const user = userEvent.setup();
-    render(
-      <ProductGrid
-        products={[
-          makeProduct(),
-          makeProduct({
-            id: "22222222-2222-4222-8222-222222222222",
-            slug: "lift-02-daily-face-cream",
-            displayName: "LIFT",
-          }),
-        ]}
-      />,
-    );
+    const products = [
+      makeProduct(),
+      makeProduct({
+        id: "22222222-2222-4222-8222-222222222222",
+        slug: "lift-02-daily-face-cream",
+        displayName: "LIFT",
+      }),
+    ];
+    const view = render(<ProductGrid products={products} />);
 
     const cards = screen.getAllByRole("listitem");
     await user.click(
@@ -499,5 +485,21 @@ describe("ProductGrid quick buy coordination", () => {
         name: "BUY LIFT - $20.00",
       }),
     ).toBeInTheDocument();
+
+    cartMock.cartDrawerOpen = true;
+    view.rerender(<ProductGrid products={products} />);
+    expect(
+      within(cards[1]).queryByRole("button", {
+        name: "BUY LIFT - $20.00",
+      }),
+    ).toBeNull();
+
+    cartMock.cartDrawerOpen = false;
+    view.rerender(<ProductGrid products={products} />);
+    expect(
+      within(cards[1]).queryByRole("button", {
+        name: "BUY LIFT - $20.00",
+      }),
+    ).toBeNull();
   });
 });

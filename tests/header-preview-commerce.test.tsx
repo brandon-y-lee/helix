@@ -33,11 +33,6 @@ vi.mock("@/components/CartProvider", () => ({
 vi.mock("@/components/useCart", () => ({
   useCartCount: () => ({ count: 2, hasLoadedCart: true, error: null }),
 }));
-vi.mock("@/components/CartDrawer", () => ({
-  CartDrawer: ({ open }: { open: boolean }) => (
-    <div data-testid="cart-drawer-state">{String(open)}</div>
-  ),
-}));
 vi.mock("@/components/SearchOverlay", () => ({
   SearchOverlay: () => null,
 }));
@@ -62,7 +57,6 @@ describe("Header draft preview commerce", () => {
     });
 
     expect(cart).toBeDisabled();
-    expect(screen.queryByTestId("cart-drawer-state")).not.toBeInTheDocument();
     fireEvent.click(cart);
     expect(headerMocks.openCartDrawer).not.toHaveBeenCalled();
   });

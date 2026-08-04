@@ -1,5 +1,5 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { CartDrawer } from "@/components/CartDrawer";
 import {
   PDP_SLIDE_DURATION_MS,
@@ -10,20 +10,6 @@ vi.mock("@/components/CartView", () => ({
   CartView: () => <div>Cart contents</div>,
 }));
 
-let animationFrames: FrameRequestCallback[];
-
-beforeEach(() => {
-  animationFrames = [];
-  vi.stubGlobal(
-    "requestAnimationFrame",
-    vi.fn((callback: FrameRequestCallback) => {
-      animationFrames.push(callback);
-      return animationFrames.length;
-    }),
-  );
-  vi.stubGlobal("cancelAnimationFrame", vi.fn());
-});
-
 afterEach(() => {
   document.body.style.overflow = "";
   document.body.style.paddingRight = "";
@@ -32,12 +18,6 @@ afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
-
-function advanceEntryFrame() {
-  const callback = animationFrames.shift();
-  expect(callback).toBeTypeOf("function");
-  act(() => callback?.(0));
-}
 
 function finishTransformTransition(element: Element) {
   const event = new Event("transitionend", { bubbles: true });
@@ -64,78 +44,65 @@ function Drawer({
 }
 
 describe("CartDrawer motion", () => {
-  it("stages entry before opening with the shared PDP slide timing", () => {
-    render(<Drawer open onClose={() => {}} />);
+  it("keeps one closed drawer mounted before opening with shared PDP timing", () => {
+    const requestAnimationFrame = vi.spyOn(window, "requestAnimationFrame");
+    const { rerender } = render(<Drawer open={false} onClose={() => {}} />);
 
-    const dialog = screen.getByRole("dialog", { name: "Cart" });
-    const panel = dialog.querySelector(".cart-sheet");
-
-    expect(dialog).toHaveAttribute("data-state", "open");
-    expect(dialog).toHaveAttribute("data-motion-state", "starting");
-    expect(dialog).toHaveStyle({
-      "--pdp-slide-duration": `${PDP_SLIDE_DURATION_MS}ms`,
-      "--pdp-slide-easing": PDP_SLIDE_EASING,
-    });
-    expect(panel).toHaveAttribute("data-motion-state", "starting");
+    const overlay = document.querySelector(".cart-sheet-overlay");
+    const panel = document.querySelector(".cart-sheet");
+    expect(overlay).toHaveAttribute("data-state", "closed");
+    expect(overlay).toHaveAttribute("aria-hidden", "true");
+    expect(overlay).toHaveAttribute("inert");
+    expect(panel).toHaveAttribute("data-state", "closed");
     expect(panel).toHaveStyle({
       "--pdp-slide-duration": `${PDP_SLIDE_DURATION_MS}ms`,
       "--pdp-slide-easing": PDP_SLIDE_EASING,
     });
+    expect(screen.queryByRole("dialog", { name: "Cart" })).toBeNull();
 
-    advanceEntryFrame();
+    rerender(<Drawer open onClose={() => {}} />);
 
-    expect(dialog).toHaveAttribute("data-motion-state", "open");
-    expect(panel).toHaveAttribute("data-motion-state", "open");
+    expect(screen.getByRole("dialog", { name: "Cart" })).toBe(overlay);
+    expect(document.querySelector(".cart-sheet")).toBe(panel);
+    expect(overlay).toHaveAttribute("data-state", "open");
+    expect(panel).toHaveAttribute("data-state", "open");
+    expect(document.querySelectorAll(".cart-sheet")).toHaveLength(1);
+    expect(document.body).toHaveStyle({ overflow: "hidden" });
+    expect(requestAnimationFrame).not.toHaveBeenCalled();
   });
 
-  it("stays present through exit and ignores stale completion after reopening", () => {
+  it("keeps the persistent drawer through exit and ignores stale completion", () => {
     const returnFocus = vi.fn();
     const { rerender } = render(
       <Drawer open onClose={() => {}} returnFocus={returnFocus} />,
     );
-    advanceEntryFrame();
+    const overlay = document.querySelector(".cart-sheet-overlay");
+    const panel = document.querySelector(".cart-sheet");
 
     rerender(
       <Drawer open={false} onClose={() => {}} returnFocus={returnFocus} />,
     );
-    const closingDialog = document.querySelector(".cart-sheet-overlay");
-    const closingPanel = document.querySelector(".cart-sheet");
-    expect(closingDialog).toHaveAttribute("data-state", "closed");
-    expect(closingDialog).toHaveAttribute("data-motion-state", "closed");
-    expect(closingPanel).toHaveAttribute("data-motion-state", "closed");
+    expect(overlay).toHaveAttribute("data-state", "closed");
+    expect(panel).toHaveAttribute("data-state", "closed");
     expect(document.body).toHaveStyle({ overflow: "hidden" });
     expect(returnFocus).toHaveBeenCalledTimes(1);
 
     rerender(
       <Drawer open onClose={() => {}} returnFocus={returnFocus} />,
     );
-    expect(closingPanel).toHaveAttribute("data-motion-state", "open");
-    finishTransformTransition(closingPanel!);
-    expect(screen.getByRole("dialog", { name: "Cart" })).toHaveAttribute(
-      "data-state",
-      "open",
-    );
+    finishTransformTransition(panel!);
+    expect(overlay).toHaveAttribute("data-state", "open");
+    expect(document.body).toHaveStyle({ overflow: "hidden" });
+    expect(document.querySelectorAll(".cart-sheet")).toHaveLength(1);
 
     rerender(
       <Drawer open={false} onClose={() => {}} returnFocus={returnFocus} />,
     );
-    finishTransformTransition(document.querySelector(".cart-sheet")!);
-    expect(document.querySelector(".cart-sheet-overlay")).toBeNull();
+    finishTransformTransition(panel!);
+    expect(overlay).toHaveAttribute("data-state", "closed");
+    expect(overlay).toHaveAttribute("aria-hidden", "true");
     expect(document.body).not.toHaveStyle({ overflow: "hidden" });
     expect(returnFocus).toHaveBeenCalledTimes(2);
-  });
-
-  it("does not leave presence behind when closed before entry starts", () => {
-    const { rerender } = render(<Drawer open onClose={() => {}} />);
-
-    expect(screen.getByRole("dialog", { name: "Cart" })).toHaveAttribute(
-      "data-motion-state",
-      "starting",
-    );
-    rerender(<Drawer open={false} onClose={() => {}} />);
-
-    expect(document.querySelector(".cart-sheet-overlay")).toBeNull();
-    expect(document.body).not.toHaveStyle({ overflow: "hidden" });
   });
 
   it("restores existing body styles only after the exit transition", () => {
@@ -145,7 +112,6 @@ describe("CartDrawer motion", () => {
       window.innerWidth - 16,
     );
     const { rerender } = render(<Drawer open onClose={() => {}} />);
-    advanceEntryFrame();
 
     expect(document.body).toHaveStyle({
       overflow: "hidden",
@@ -173,21 +139,17 @@ describe("CartDrawer motion", () => {
     );
   });
 
-  it("unmounts without waiting for a transition when reduced motion is active", () => {
-    vi.stubGlobal(
-      "matchMedia",
-      vi.fn().mockReturnValue({ matches: true }),
-    );
+  it("releases scroll lock immediately when reduced motion is active", () => {
+    vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({ matches: true }));
     const { rerender } = render(<Drawer open onClose={() => {}} />);
 
-    expect(screen.getByRole("dialog", { name: "Cart" })).toHaveAttribute(
-      "data-motion-state",
-      "open",
-    );
     expect(document.body).toHaveStyle({ overflow: "hidden" });
     rerender(<Drawer open={false} onClose={() => {}} />);
 
-    expect(document.querySelector(".cart-sheet-overlay")).toBeNull();
+    expect(document.querySelector(".cart-sheet-overlay")).toHaveAttribute(
+      "data-state",
+      "closed",
+    );
     expect(document.body).not.toHaveStyle({ overflow: "hidden" });
   });
 
