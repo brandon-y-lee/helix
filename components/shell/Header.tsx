@@ -9,7 +9,6 @@ import { SearchOverlay } from "@/components/search/SearchOverlay";
 import { Sheet } from "@/components/overlays/Sheet";
 
 type HeaderNavState = "top" | "revealed" | "hidden";
-export type HeaderTheme = "dark" | "light";
 
 const TOP_EDGE_Y = 8;
 const HIDE_AFTER_Y = 96;
@@ -57,10 +56,8 @@ function resolveHeaderNavState({
 
 export function Header({
   commerceDisabled = false,
-  theme,
 }: {
   commerceDisabled?: boolean;
-  theme: HeaderTheme;
 }) {
   const { count, hasLoadedCart, error: cartError } = useCartCount();
   const {
@@ -184,7 +181,6 @@ export function Header({
   return (
     <header
       className="site-header"
-      data-header-theme={theme}
       data-nav-state={renderedNavState}
       data-overlay-open={overlayOpen ? "true" : "false"}
       onFocusCapture={revealForFocus}

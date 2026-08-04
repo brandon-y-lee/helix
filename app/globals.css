@@ -82,11 +82,11 @@ main {
   flex: 1;
 }
 
-main[data-header-layout="reserved"] {
+main[data-storefront-main] {
   padding-top: var(--site-header-height);
 }
 
-main[data-header-layout="overlay"] {
+main[data-storefront-main]:has(> [data-header-layout="overlay"]) {
   padding-top: 0;
 }
 
@@ -2151,23 +2151,44 @@ main:focus {
   -webkit-backdrop-filter: none;
 }
 
-.site-header[data-nav-state="top"][data-header-theme="light"] {
+body:has(main[data-storefront-main] > [data-header-theme="light"])
+  .site-header[data-nav-state="top"] {
   color: #fbfaf6;
 }
 
-.site-header[data-nav-state="top"][data-header-theme="light"] .brand,
-.site-header[data-nav-state="top"][data-header-theme="light"] .site-nav a,
-.site-header[data-nav-state="top"][data-header-theme="light"] .site-nav__search,
-.site-header[data-nav-state="top"][data-header-theme="light"] .cart-link,
-.site-header[data-nav-state="top"][data-header-theme="light"] .mobile-menu-trigger {
+body:has(main[data-storefront-main] > [data-header-theme="light"])
+  .site-header[data-nav-state="top"]
+  .brand,
+body:has(main[data-storefront-main] > [data-header-theme="light"])
+  .site-header[data-nav-state="top"]
+  .site-nav
+  a,
+body:has(main[data-storefront-main] > [data-header-theme="light"])
+  .site-header[data-nav-state="top"]
+  .site-nav__search,
+body:has(main[data-storefront-main] > [data-header-theme="light"])
+  .site-header[data-nav-state="top"]
+  .cart-link,
+body:has(main[data-storefront-main] > [data-header-theme="light"])
+  .site-header[data-nav-state="top"]
+  .mobile-menu-trigger {
   color: #fbfaf6;
   text-shadow: 0 1px 14px rgba(8, 10, 9, 0.38);
 }
 
-.site-header[data-nav-state="top"][data-header-theme="light"] .site-nav a:hover,
-.site-header[data-nav-state="top"][data-header-theme="light"] .site-nav__search:hover,
-.site-header[data-nav-state="top"][data-header-theme="light"] .cart-link:hover,
-.site-header[data-nav-state="top"][data-header-theme="light"] .mobile-menu-trigger:hover {
+body:has(main[data-storefront-main] > [data-header-theme="light"])
+  .site-header[data-nav-state="top"]
+  .site-nav
+  a:hover,
+body:has(main[data-storefront-main] > [data-header-theme="light"])
+  .site-header[data-nav-state="top"]
+  .site-nav__search:hover,
+body:has(main[data-storefront-main] > [data-header-theme="light"])
+  .site-header[data-nav-state="top"]
+  .cart-link:hover,
+body:has(main[data-storefront-main] > [data-header-theme="light"])
+  .site-header[data-nav-state="top"]
+  .mobile-menu-trigger:hover {
   color: #fffdf8;
 }
 

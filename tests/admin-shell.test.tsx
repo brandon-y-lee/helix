@@ -210,8 +210,7 @@ describe("admin shell navigation", () => {
     );
 
     expect(screen.getByText("Draft product detail").closest("main")).toHaveAttribute(
-      "data-header-layout",
-      "reserved",
+      "data-storefront-main",
     );
     expect(screen.getByText("Storefront customer navigation")).toHaveAttribute(
       "data-commerce-disabled",
@@ -224,17 +223,21 @@ describe("admin shell navigation", () => {
     expect(screen.getByText("Storefront customer footer")).toBeInTheDocument();
   });
 
-  it("lets the homepage header overlay its main content", () => {
+  it("preserves declarative header presentation from storefront content", () => {
     pathname = "/";
     render(
       <ApplicationChrome>
-        <div>Homepage content</div>
+        <div data-header-layout="overlay" data-header-theme="light">
+          Homepage content
+        </div>
       </ApplicationChrome>,
     );
 
-    expect(screen.getByText("Homepage content").closest("main")).toHaveAttribute(
-      "data-header-layout",
-      "overlay",
+    const homepageContent = screen.getByText("Homepage content");
+    expect(homepageContent.closest("main")).toHaveAttribute(
+      "data-storefront-main",
     );
+    expect(homepageContent).toHaveAttribute("data-header-layout", "overlay");
+    expect(homepageContent).toHaveAttribute("data-header-theme", "light");
   });
 });

@@ -73,6 +73,7 @@ export default async function HomePage() {
     <>
       <section
         className="home-video-hero"
+        data-header-layout="overlay"
         data-header-theme="light"
         aria-labelledby="home-hero-heading"
       >

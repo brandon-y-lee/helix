@@ -14,18 +14,13 @@ export function ApplicationChrome({ children }: { children: ReactNode }) {
 
   if (mode === "standard-admin") return children;
 
-  const isHomepage = pathname === "/";
-
   return (
     <CartProvider key={mode} disabled={mode === "catalog-preview"}>
-      <Header
-        commerceDisabled={mode === "catalog-preview"}
-        theme={isHomepage ? "light" : "dark"}
-      />
+      <Header commerceDisabled={mode === "catalog-preview"} />
       <main
         id="content"
         tabIndex={-1}
-        data-header-layout={isHomepage ? "overlay" : "reserved"}
+        data-storefront-main=""
       >
         {children}
       </main>
