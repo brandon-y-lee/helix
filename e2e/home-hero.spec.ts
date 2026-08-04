@@ -63,7 +63,7 @@ test("homepage videos play when visible and defer offscreen media", async ({
   await expect(page.locator("video")).toHaveCount(2);
 
   const finalSection = page.getByRole("region", {
-    name: "It’s time to invest in your skin",
+    name: "Invest in your skin.",
   });
   await finalSection.scrollIntoViewIfNeeded();
   await expect(finalSection.locator("[data-motion-state]")).toHaveAttribute(

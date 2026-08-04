@@ -184,7 +184,7 @@ export default async function HomePage() {
         <HomeBackgroundVideo placement="final" />
         <div className="home-final">
           <h2 id="final-heading" className="display-secondary home-final__title">
-            It’s time to invest in your skin
+            Invest in your skin.
           </h2>
           <p className="home-final__copy">
             Three steps, one order, repeatable morning or night.
