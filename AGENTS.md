@@ -63,6 +63,11 @@ Own shared behavior in shared components or the application shell. Use semantic 
 
 Target WCAG 2.2 AA. Prevent layout shift and horizontal overflow, keep client bundles proportional, avoid N+1 queries and duplicate requests, preserve cache boundaries, and handle relevant provider latency or outage states honestly.
 
+### Local UI validation
+
+- Start development servers in the Codex integrated terminal, using a local environment action when configured.
+- Open local routes with `@Browser`; do not use `@Chrome` or the user’s existing Chrome tabs unless explicitly requested.
+
 ## 8. Git and Integration
 
 Preserve uncommitted user work, review the final diff for scope drift and unnecessary complexity, and commit only completed task-related work. Do not push unless requested. Do not amend, reset, force-push, or rewrite unrelated history. Remove completed temporary worktrees.
