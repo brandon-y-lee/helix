@@ -1,6 +1,6 @@
 # Mei Pelle Data Practices Inventory
 
-Date: 2026-06-25
+Date: 2026-08-05
 
 This inventory reflects the repository implementation at inspection time. It is
 not a final public legal review.
@@ -21,7 +21,7 @@ not a final public legal review.
 | Payments/checkout | Stripe Checkout Session ID, PaymentIntent ID, sandbox payment status, order number, totals, tax/shipping amounts | Sandbox payment simulation and order finalization | Cart checkout route, Stripe webhook, success fallback | Supabase order/payment tables; Stripe sandbox | Retained as auditable sandbox transaction history | Yes for sandbox checkout | User action starts Checkout | Account users can view own orders; admin deletion/reconciliation unresolved | No card data exposed or stored by Mei Pelle | Active sandbox only |
 | Shipping/orders/returns | Sandbox shipping/billing snapshots, customer email from Stripe, item snapshots, refund status | Sandbox order confirmation, history, refund/rewards reconciliation | Stripe Checkout and webhooks | Supabase orders/order_items/payment_attempts | Retained as auditable sandbox history | Yes for sandbox checkout | User action starts Checkout | Account users can view own orders; guest confirmation is narrowly scoped | Confirmation pages show limited order details | Active sandbox only |
 | Rewards/referrals/private feedback | Loyalty balance, ledger entries, referral codes, referral attribution, private feedback rating/comments, reward status | Earn/redeem points, referrals, and private first-party feedback rewards | Account, rewards, checkout, webhook, private-feedback route | Supabase loyalty/referral/private_feedback tables | Retained as auditable rewards history | No | Account action and eligible paid sandbox order | Users can read own rewards state; direct writes are server-only | Own account/rewards UI only | Active |
-| Trustpilot invitations | None sent from sandbox orders | Future neutral invitation boundary | Server provider boundary | No live Trustpilot API call in sandbox | Not applicable | No | Not active | Not applicable | Not exposed | Not configured |
+| Trustpilot invitations | None | Not implemented | Not implemented | None | Not applicable | No | Not active | Not applicable | Not exposed | Not active |
 | File uploads | None | Not available | Not implemented | None | Not applicable | No | Not applicable | Not applicable | None | Not implemented |
 | CAPTCHA | None found | Not applicable | Not implemented | None | Not applicable | No | Not applicable | Not applicable | None | Not active |
 | Web fonts | IP/device request metadata may be processed by font provider | Font delivery | Browser font requests | Google Fonts | Provider-defined; not specified in repo | Functional presentation | Launch/legal review needed | Provider controls | Browser requests fonts | Active |

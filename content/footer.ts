@@ -1,4 +1,4 @@
-export type FooterLink = {
+type FooterLink = {
   label: string;
   href: string;
   description?: string;
@@ -49,14 +49,4 @@ export const footerLinkGroups: FooterLinkGroup[] = [
       { label: "Accessibility", href: "/accessibility" },
     ],
   },
-];
-
-export const footerOmittedRoutes = [
-  "Store locator",
-  "Events",
-  "Impact",
-  "Careers",
-  "Press",
-  "Payment methods",
-  "Social profiles",
 ];

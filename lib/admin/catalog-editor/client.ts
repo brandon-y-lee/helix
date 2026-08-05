@@ -6,9 +6,7 @@ import type {
   CatalogRevisionRecord,
   CatalogRpcConflict,
   CatalogValidationIssue as CatalogBackendValidationIssue,
-  CatalogProductFields as CatalogProductFieldsContract,
   CatalogProductMedia,
-  CatalogProductPdpContentFields,
   CatalogProductRelationship,
   CatalogProductSource,
   CatalogProductVariant,
@@ -46,8 +44,6 @@ export type CatalogPublishResult = CatalogPublishSuccess & {
 };
 export type CatalogProductListItem = CatalogGridRow;
 export type CatalogConflictSnapshot = NonNullable<CatalogRpcConflict["stored"]>;
-export type CatalogProductFields = CatalogProductFieldsContract;
-export type CatalogPdpContentFields = CatalogProductPdpContentFields;
 export type CatalogVariantFields = CatalogProductVariant;
 export type CatalogMediaFields = CatalogProductMedia;
 export type CatalogRelationshipFields = CatalogProductRelationship;
@@ -64,7 +60,7 @@ export type CatalogEditorIssue = {
 };
 export type CatalogValidationIssue = CatalogEditorIssue;
 
-export type CatalogDiffEntry = {
+type CatalogDiffEntry = {
   field: string;
   before: unknown;
   after: unknown;
@@ -80,7 +76,7 @@ export type CatalogValidationResult = {
   draft: CatalogDraftRecord;
 };
 
-export class CatalogApiError extends Error {
+class CatalogApiError extends Error {
   status: number;
   details: unknown;
 

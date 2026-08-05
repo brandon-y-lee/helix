@@ -21,7 +21,6 @@ import type {
   CatalogGridRow,
   CatalogPublishSuccess,
   CatalogRevisionRecord,
-  CatalogRpcConflict,
   ProductEditorDocumentV3,
   CatalogValidationIssue,
 } from "@/lib/admin/catalog/types";
@@ -737,5 +736,3 @@ export async function restoreCatalogRevision(
   if (error) throwDatabaseError(error);
   return assertRpcResult<{ ok: true; draft: CatalogDraftRecord }>(data);
 }
-
-export type { CatalogRpcConflict };

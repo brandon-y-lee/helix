@@ -4,8 +4,8 @@ import type {
   CatalogGridSort,
 } from "@/lib/admin/catalog/types";
 
-export const CATALOG_GRID_DEFAULT_LIMIT = 25;
-export const CATALOG_GRID_MAX_LIMIT = 100;
+const CATALOG_GRID_DEFAULT_LIMIT = 25;
+const CATALOG_GRID_MAX_LIMIT = 100;
 
 export function parseCatalogGridLimit(value: string | null): number {
   if (value === null) return CATALOG_GRID_DEFAULT_LIMIT;

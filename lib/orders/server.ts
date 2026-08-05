@@ -52,7 +52,7 @@ import { getStripeClient } from "@/lib/stripe/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { REFERRAL_COOKIE } from "@/lib/referrals/constants";
 
-export const CHECKOUT_SCHEMA_VERSION = "checkout_v1";
+const CHECKOUT_SCHEMA_VERSION = "checkout_v1";
 
 type OrderStatus = "pending_payment" | "paid" | "payment_failed" | "cancelled" | "refunded";
 
@@ -91,7 +91,7 @@ type OrderRow = {
   refunded_at: string | null;
 };
 
-export type OrderItemSnapshot = {
+type OrderItemSnapshot = {
   id: string;
   product_slug: string;
   product_name: string;
@@ -127,7 +127,7 @@ type CreateCheckoutResult = {
   url: string;
 };
 
-export class CheckoutError extends Error {
+class CheckoutError extends Error {
   code:
     | "empty_cart"
     | "unavailable_cart"
@@ -1248,7 +1248,7 @@ async function finalizePaidOrderSideEffects(order: OrderRow): Promise<void> {
   revalidatePath("/rewards");
 }
 
-export async function finalizePaidStripeSession(
+async function finalizePaidStripeSession(
   session: Stripe.Checkout.Session,
 ): Promise<OrderRow | null> {
   assertSandboxStripeObject(session);
@@ -1317,13 +1317,6 @@ export async function finalizePaidStripeSession(
 
   await finalizePaidOrderSideEffects(paidOrder);
   return paidOrder;
-}
-
-export async function cancelPendingOrder(orderId: string | null, reason = "checkout cancellation"): Promise<void> {
-  if (!orderId) return;
-  const order = await loadOrderById(orderId);
-  if (!order) return;
-  await cancelLoadedPendingOrder(order, reason);
 }
 
 async function cancelStripeCheckoutOrder(
@@ -1432,7 +1425,7 @@ export async function cancelPendingCheckoutFromCookie(
   }
 }
 
-export async function expireStripeSession(session: Stripe.Checkout.Session): Promise<void> {
+async function expireStripeSession(session: Stripe.Checkout.Session): Promise<void> {
   assertSandboxStripeObject(session);
   const order = await loadOrderBySession(session.id);
   if (!order || !orderCanBeCancelled(order)) return;
@@ -1448,7 +1441,7 @@ export async function expireStripeSession(session: Stripe.Checkout.Session): Pro
   }
 }
 
-export async function failStripeSession(
+async function failStripeSession(
   session: Stripe.Checkout.Session,
   reason = "Stripe Checkout payment failed",
 ): Promise<void> {
@@ -1718,19 +1711,6 @@ export async function getOrderConfirmationBySession(
     order: finalized,
     items,
     webhookPending: finalized.status !== "paid",
-  };
-}
-
-export async function getOrderConfirmationByOrderId(
-  orderId: string,
-): Promise<OrderConfirmation | null> {
-  const order = await loadOrderById(orderId);
-  if (!order) return null;
-  return {
-    notice: SANDBOX_CHECKOUT_NOTICE,
-    order,
-    items: await loadOrderItems(order.id),
-    webhookPending: order.status !== "paid",
   };
 }
 

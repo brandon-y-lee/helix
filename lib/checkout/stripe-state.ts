@@ -1,7 +1,7 @@
 import type Stripe from "stripe";
 
-export const STRIPE_WEBHOOK_PROCESSING_PREFIX = "processing:";
-export const STRIPE_WEBHOOK_CLAIM_TIMEOUT_MS = 5 * 60 * 1000;
+const STRIPE_WEBHOOK_PROCESSING_PREFIX = "processing:";
+const STRIPE_WEBHOOK_CLAIM_TIMEOUT_MS = 5 * 60 * 1000;
 
 export function checkoutSessionIsPaid(
   session: Pick<Stripe.Checkout.Session, "payment_status">,

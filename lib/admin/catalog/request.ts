@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { CatalogAdminError } from "@/lib/admin/catalog/errors";
 
-export const CATALOG_JSON_BODY_LIMIT = 2 * 1024 * 1024;
-export const CATALOG_MEDIA_BODY_LIMIT = 17 * 1024 * 1024;
+const CATALOG_JSON_BODY_LIMIT = 2 * 1024 * 1024;
+const CATALOG_MEDIA_BODY_LIMIT = 17 * 1024 * 1024;
 
 function parseOrigin(value: string | null): string | null {
   if (!value) return null;
@@ -88,7 +88,7 @@ export function requireExpectedVersion(value: unknown): number {
   return value as number;
 }
 
-export function catalogErrorResponse(error: unknown): NextResponse {
+function catalogErrorResponse(error: unknown): NextResponse {
   if (error instanceof CatalogAdminError) {
     return NextResponse.json(
       {

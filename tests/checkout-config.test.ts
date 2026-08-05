@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   CheckoutConfigError,
-  checkoutAvailability,
   readCheckoutConfig,
   assertSandboxStripeObject,
   stripeMessagingPublishableKey,
@@ -22,10 +21,10 @@ describe("sandbox checkout config", () => {
     expect(config.enabled).toBe(true);
   });
 
-  it("reports unavailable when checkout is disabled", () => {
-    const availability = checkoutAvailability({ ...baseEnv, CHECKOUT_ENABLED: "false" });
-    expect(availability.enabled).toBe(false);
-    expect(availability.reasons[0]).toMatch(/not enabled/i);
+  it("rejects checkout when it is disabled", () => {
+    expect(() =>
+      readCheckoutConfig({ ...baseEnv, CHECKOUT_ENABLED: "false" }),
+    ).toThrow(CheckoutConfigError);
   });
 
   it("rejects live keys and live objects", () => {

@@ -24,7 +24,7 @@ const NETWORK_MESSAGE_PATTERNS = [
   /\btimeout\b/i,
 ];
 
-export const SUPABASE_REQUEST_TIMEOUT_MS = 4_500;
+const SUPABASE_REQUEST_TIMEOUT_MS = 4_500;
 
 type ErrorRecord = {
   name: string;

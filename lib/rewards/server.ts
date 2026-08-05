@@ -35,7 +35,7 @@ export type RewardsSummary = {
   }>;
 };
 
-export async function ensureCurrentUserRewards(): Promise<{
+async function ensureCurrentUserRewards(): Promise<{
   userId: string | null;
   emailConfirmed: boolean;
 }> {

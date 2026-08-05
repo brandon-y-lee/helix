@@ -1,7 +1,7 @@
 import type { AdminCapability } from "@/lib/admin/capabilities";
 import { ADMIN_CAPABILITIES } from "@/lib/admin/capabilities";
 
-export type AdminModuleStatus = "active" | "unavailable";
+type AdminModuleStatus = "active" | "unavailable";
 
 export type AdminModule = {
   id: string;

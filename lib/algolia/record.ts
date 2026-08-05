@@ -4,9 +4,7 @@ import type { ProductStatus } from "@/lib/products";
 import { statusLabel } from "@/lib/catalog/product-status";
 import { routineGroupLabel } from "@/lib/catalog/product-routine";
 
-export const DEFAULT_INDEX_NAME = "mei_pelle_products";
-
-export type CatalogVariantSource = {
+type CatalogVariantSource = {
   variant_key: string;
   label: string;
   price_cents: number;
@@ -15,7 +13,7 @@ export type CatalogVariantSource = {
   inventory_status: string;
 };
 
-export type CatalogMediaSource = {
+type CatalogMediaSource = {
   media_type: string;
   url: string | null;
   alt: string;

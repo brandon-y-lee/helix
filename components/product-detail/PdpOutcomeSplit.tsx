@@ -13,18 +13,6 @@ import {
 import type { CorePdpOutcomeOption } from "@/lib/content/core-pdp";
 import type { ProductMedia } from "@/lib/products";
 
-export function orderedPdpOutcomeMedia(
-  productMedia: readonly ProductMedia[],
-): ProductMedia[] {
-  return productMedia
-    .filter(
-      (item) =>
-        item.role === "pdp_outcome" && item.kind === "image" && Boolean(item.url),
-    )
-    .slice()
-    .sort((a, b) => a.sortOrder - b.sortOrder);
-}
-
 export function PdpOutcomeSplit({
   productName,
   heading,

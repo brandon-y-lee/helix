@@ -1,4 +1,4 @@
-import type { Database, Json } from "@/lib/database.types";
+import type { Database } from "@/lib/database.types";
 import type { AdminCapability } from "@/lib/admin/capabilities";
 import type {
   PdpIngredientCard,
@@ -26,105 +26,7 @@ type CatalogAuditRow =
 
 export const PRODUCT_EDITOR_SCHEMA_VERSION = 3 as const;
 
-type EditableProductFieldSelection = Pick<
-  ProductRow,
-  | "slug"
-  | "display_name"
-  | "formal_title"
-  | "card_tagline"
-  | "product_type"
-  | "catalog_status"
-  | "badge"
-  | "currency"
-  | "sort_order"
-  | "editorial_description"
-  | "benefits"
-  | "editorial_how_to_use"
-  | "formula_notes"
-  | "swatch_from"
-  | "swatch_to"
-  | "status"
-  | "made_for"
-  | "good_for"
-  | "texture"
-  | "key_ingredients"
-  | "ingredients"
-  | "cautions"
-  | "finish"
-  | "volume"
-  | "skin_types"
-  | "concerns"
-  | "usage_time"
-  | "seo_title"
-  | "seo_description"
-  | "search_keywords"
-  | "routine_group"
-  | "routine_step_number"
-  | "routine_step_name"
-  | "routine_sort"
->;
-
-type RequiredEditableProductFields = {
-  slug: string;
-  display_name: string;
-  formal_title: string;
-  card_tagline: string;
-  product_type: string;
-  catalog_status: string;
-  currency: string;
-  sort_order: number;
-  editorial_description: string;
-  benefits: string[];
-  editorial_how_to_use: string;
-  formula_notes: string[];
-  swatch_from: string;
-  swatch_to: string;
-  status: string;
-  key_ingredients: string[];
-  cautions: string[];
-  skin_types: string[];
-  concerns: string[];
-  usage_time: string[];
-  search_keywords: string[];
-  routine_group: string;
-  routine_sort: number;
-};
-
-export type EditableProductFields = Omit<
-  EditableProductFieldSelection,
-  keyof RequiredEditableProductFields
-> &
-  RequiredEditableProductFields;
-
-type GeneratedProductPdpContentFields = Omit<
-  ProductPdpContentRow,
-  "product_id" | "created_at" | "updated_at"
->;
-
-export type EditableProductPdpContentFields = Omit<
-  GeneratedProductPdpContentFields,
-  | "ingredient_cards"
-  | "ingredient_story"
-  | "outcome_labels"
-  | "profile_title_tokens"
-> & {
-  ingredient_cards: PdpIngredientCard[] | null;
-  ingredient_story: PdpIngredientStory | null;
-  outcome_labels: [string, string, string] | null;
-  profile_title_tokens: PdpProfileTitleToken[] | null;
-};
-
-export type EditableProductVariant = Omit<
-  ProductVariantRow,
-  | "product_id"
-  | "sort_order"
-  | "updated_at"
-  | "archived_at"
-> & {
-  sort_order: number;
-};
-
-export type DraftMediaUpload = {
+type DraftMediaUpload = {
   bucket: "mei-pelle-catalog";
   path: string;
   sha256: string;
@@ -141,21 +43,6 @@ export type EditableProductMedia = Omit<
   | "archived_at"
 > & {
   pendingUpload?: DraftMediaUpload;
-};
-
-export type EditableProductRelationship = Omit<
-  ProductRelationshipRow,
-  "product_id" | "created_at" | "archived_at"
->;
-
-export type ProductEditorDocumentV2 = {
-  schemaVersion: 2;
-  productId: string;
-  product: EditableProductFields;
-  productPdpContent: EditableProductPdpContentFields | null;
-  variants: EditableProductVariant[];
-  media: EditableProductMedia[];
-  relationships: EditableProductRelationship[];
 };
 
 export type CatalogProductFields = ProductRow;
@@ -193,7 +80,7 @@ export type ProductEditorDocumentV3 = {
   productSource: CatalogProductSource | null;
 };
 
-export type CatalogDraftStatus =
+type CatalogDraftStatus =
   | "draft"
   | "ready"
   | "published"
@@ -255,7 +142,7 @@ export type CatalogRpcConflict = {
   validationErrors?: CatalogValidationIssue[];
 };
 
-export type CatalogChangedTables = {
+type CatalogChangedTables = {
   products: boolean;
   productPdpContent: boolean;
   variants: boolean;
@@ -326,5 +213,3 @@ export type CatalogEditorResponse = {
     audit: CatalogAuditRow[];
   };
 };
-
-export type CatalogAuditMetadata = Record<string, Json | undefined>;

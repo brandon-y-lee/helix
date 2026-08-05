@@ -115,15 +115,3 @@ export const ABOUT_CLOSING = {
   primaryCta: { label: "Learn the system", href: "/system" },
   secondaryCta: { label: "Shop Mei Pelle", href: "/collections/shop" },
 };
-
-export const FORBIDDEN_ABOUT_PATTERNS = [
-  "founder",
-  "advisor",
-  "advisory board",
-  "certified sustainable",
-  "dermatologist developed",
-  "clinical partner",
-  "carbon neutral",
-  "zero waste",
-  "reef safe",
-] as const;

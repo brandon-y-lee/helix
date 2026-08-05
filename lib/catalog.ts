@@ -18,8 +18,7 @@ import type {
   Variant,
 } from "@/lib/products";
 
-export { formatPrice } from "@/lib/products";
-export type { Product, ProductStatus, Variant } from "@/lib/products";
+export type { Product } from "@/lib/products";
 
 type ProductRow = {
   id: string;
@@ -92,7 +91,7 @@ type MediaRow = {
   placeholder_palette: Record<string, string> | null;
 };
 
-export const PRODUCT_SELECT =
+const PRODUCT_SELECT =
   "id, slug, display_name, formal_title, card_tagline, product_type, badge, currency, " +
   "sort_order, editorial_description, benefits, editorial_how_to_use, formula_notes, " +
   "swatch_from, swatch_to, status, catalog_status, made_for, good_for, texture, " +
@@ -249,7 +248,7 @@ function firstPdpContent(
   return value;
 }
 
-export function mapProductRow(row: ProductRow): Product {
+function mapProductRow(row: ProductRow): Product {
   const swatch: [string, string] = [row.swatch_from, row.swatch_to];
   const variants: Variant[] = (row.product_variants ?? [])
     .slice()

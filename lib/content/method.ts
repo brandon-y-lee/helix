@@ -11,15 +11,6 @@ export const METHOD_PRODUCT_SLUGS = [
 
 export type MethodProductSlug = (typeof METHOD_PRODUCT_SLUGS)[number];
 
-export const METHOD_PRODUCT_NUMBERS: Record<MethodProductSlug, string> = {
-  "cleanse-01-calming-gel-cleanser": "01",
-  "refine-02-pore-treatment-pads": "02",
-  "treat-03-pdrn-5-ampoule": "03",
-  "frame-04-pdrn-eye-cream": "04",
-  "seal-05-green-collagen-cream": "05",
-  "lift-06-pdrn-mask-system": "07",
-};
-
 export type RoutineStepCount = 3 | 4 | 5 | 6 | 7;
 
 export const ROUTINE_STEP_COUNTS = [
@@ -65,7 +56,7 @@ export const ROUTINE_PRESET_COPY: Record<
   },
 };
 
-export type MethodStepId =
+type MethodStepId =
   | "cleanse"
   | "refine"
   | "treat"
@@ -171,7 +162,7 @@ export type MethodStepCopy = {
   why: string;
 };
 
-export const METHOD_STEP_COPY: Record<MethodProductSlug, MethodStepCopy> = {
+const METHOD_STEP_COPY: Record<MethodProductSlug, MethodStepCopy> = {
   "cleanse-01-calming-gel-cleanser": {
     what:
       "A low-pH gel cleanser for sunscreen, oil, sweat, and surface buildup.",
@@ -275,7 +266,7 @@ export function normalizeRoutineStepCount(value: number | string): RoutineStepCo
   return Math.min(7, Math.max(3, roundedValue)) as RoutineStepCount;
 }
 
-export function formatRoutineDisplayNumber(index: number): string {
+function formatRoutineDisplayNumber(index: number): string {
   return String(index + 1).padStart(2, "0");
 }
 
@@ -307,10 +298,6 @@ export function deriveMethodRoutineSteps(
         ...(product ? { product } : {}),
       };
     });
-}
-
-export function selectedMethodStepIds(selectedCount: RoutineStepCount | number | string) {
-  return deriveMethodRoutineSteps([], selectedCount).map((step) => step.id);
 }
 
 export function routineTimingEntriesForGroup(
@@ -380,7 +367,7 @@ export function activeProductSlugsForSteps(steps: DerivedMethodStep[]): Set<stri
   );
 }
 
-export type RoutineEntry =
+type RoutineEntry =
   | { kind: "product"; slug: MethodProductSlug; note?: string }
   | { kind: "protect"; id: "protect"; label: string; note: string };
 
@@ -606,35 +593,6 @@ export function isAvailableProduct(product: Product): boolean {
 
 export function formulaFocus(product: Product): string[] {
   return product.keyIngredients.filter(Boolean);
-}
-
-export function methodProductNumber(product: Product): string {
-  return (
-    METHOD_PRODUCT_NUMBERS[product.slug as MethodProductSlug] ??
-    (product.routineStepNumber
-      ? String(product.routineStepNumber).padStart(2, "0")
-      : "--")
-  );
-}
-
-export function methodProductNavLabel(product: Product): string {
-  return `${methodProductNumber(product)} ${product.displayName}`;
-}
-
-export function routineProductsForGroup(
-  entries: RoutineEntry[],
-  products: Product[],
-): Array<RoutineEntry & { product?: Product; number: string }> {
-  const bySlug = new Map(products.map((product) => [product.slug, product]));
-  return entries.map((entry) =>
-    entry.kind === "product"
-      ? {
-          ...entry,
-          product: bySlug.get(entry.slug),
-          number: METHOD_PRODUCT_NUMBERS[entry.slug],
-        }
-      : { ...entry, number: PROTECT_STEP.number },
-  );
 }
 
 function productSearchText(product: IngredientIndexSource): string {

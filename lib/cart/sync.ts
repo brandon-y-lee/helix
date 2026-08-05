@@ -1,4 +1,4 @@
-export const CART_CHANGE_CHANNEL = "mei-pelle-cart";
+const CART_CHANGE_CHANNEL = "mei-pelle-cart";
 export const CART_IDENTITY_CHANGED_COOKIE = "mei_pelle_cart_identity_changed";
 
 export type CartChangeMessage = { type: "cart-changed" };

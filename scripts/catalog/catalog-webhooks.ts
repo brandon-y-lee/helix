@@ -1,9 +1,9 @@
 import { EXPECTED_SUPABASE_PROJECT_REF } from "../../lib/catalog/canonical-catalog";
 
-export const CATALOG_WEBHOOK_PATH =
+const CATALOG_WEBHOOK_PATH =
   "/api/webhooks/supabase/catalog-search-sync" as const;
-export const CATALOG_WEBHOOK_HEADER = "x-webhook-secret" as const;
-export const CATALOG_WEBHOOK_TIMEOUT_MS = 5_000;
+const CATALOG_WEBHOOK_HEADER = "x-webhook-secret" as const;
+const CATALOG_WEBHOOK_TIMEOUT_MS = 5_000;
 export const CATALOG_WEBHOOK_TABLES = [
   "products",
   "product_variants",
