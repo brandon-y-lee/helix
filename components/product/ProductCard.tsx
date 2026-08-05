@@ -37,6 +37,39 @@ import {
 } from "@/lib/products";
 
 type ProductCardCtaMotionState = "rest" | "preview" | "quick-buy";
+type ProductCardVisualState = "default" | "preview" | "quick-buy";
+
+const PRODUCT_CARD_DEFAULT_MEDIA_VARIANTS: Variants = {
+  default: { opacity: 1, scale: 1 },
+  preview: { opacity: 0, scale: 1.015 },
+  "quick-buy": { opacity: 0, scale: 1.015 },
+};
+
+const PRODUCT_CARD_HOVER_MEDIA_VARIANTS: Variants = {
+  default: { opacity: 0, scale: 1.025 },
+  preview: { opacity: 1, scale: 1 },
+  "quick-buy": { opacity: 1, scale: 1 },
+};
+
+const PRODUCT_CARD_META_VARIANTS: Variants = {
+  default: {
+    "--product-card-meta-opacity": 1,
+    "--product-card-meta-translate-y": "0px",
+  },
+  preview: {
+    "--product-card-meta-opacity": 0,
+    "--product-card-meta-translate-y": "6px",
+  },
+  "quick-buy": {
+    "--product-card-meta-opacity": 0,
+    "--product-card-meta-translate-y": "6px",
+  },
+};
+
+const PRODUCT_CARD_META_INITIAL_STYLE = {
+  "--product-card-meta-opacity": 1,
+  "--product-card-meta-translate-y": "0px",
+} as CSSProperties;
 
 const PRODUCT_CARD_CTA_VARIANTS: Variants = {
   rest: { "--product-card-cta-translate-y": "150%" },
@@ -174,7 +207,7 @@ export function ProductCard({
           defaultImage.objectPosition ?? "50% 50%",
       } as CSSProperties)
     : undefined;
-  const visualState = isQuickBuyOpen
+  const visualState: ProductCardVisualState = isQuickBuyOpen
     ? "quick-buy"
     : pointerInside || keyboardFocusVisibleWithin
       ? "preview"
@@ -397,71 +430,111 @@ export function ProductCard({
       data-visual-state={visualState}
       style={style}
     >
-      <div
-        ref={surfaceRef}
-        className="product-card__surface"
-        data-product-card-media
-        data-product-card-media-layout="full-bleed"
-        data-visual-state={visualState}
-        onPointerEnter={handlePointerEnter}
-        onPointerLeave={handlePointerLeave}
-        onPointerDownCapture={handlePointerDownCapture}
-        onFocusCapture={handleFocusCapture}
-        onBlurCapture={handleBlurCapture}
-        onKeyDown={handlePanelKeyDown}
-      >
-        {defaultImage ? (
-          <span
-            className="product-card__image product-card__image--asset"
-            data-media-kind="image"
-            data-product-card-default-image="true"
-            data-product-card-image-presentation={
-              defaultImage.presentation ?? "cutout"
-            }
-            style={defaultImageStyle}
+      <LazyMotion features={domAnimation} strict>
+        <MotionConfig reducedMotion="user">
+          <div
+            ref={surfaceRef}
+            className="product-card__surface"
+            data-product-card-media
+            data-product-card-media-layout="full-bleed"
+            data-visual-state={visualState}
+            onPointerEnter={handlePointerEnter}
+            onPointerLeave={handlePointerLeave}
+            onPointerDownCapture={handlePointerDownCapture}
+            onFocusCapture={handleFocusCapture}
+            onBlurCapture={handleBlurCapture}
+            onKeyDown={handlePanelKeyDown}
           >
-            <Image
-              src={defaultImage.src}
-              alt={defaultImage.alt}
-              width={defaultImage.width}
-              height={defaultImage.height}
-              sizes={cardImageSizes}
-              priority={defaultImage.priority}
-              className="product-card__img product-card__img--asset"
-            />
-          </span>
-        ) : (
-          <ProductImage
-            media={product.cardMedia}
-            swatch={product.swatch}
-            className="product-card__image"
-            imageClassName="product-card__img"
-            sizes={cardImageSizes}
-          />
-        )}
-        <ProductImage
-          media={product.cardHoverMedia}
-          swatch={product.swatch}
-          className="product-card__image product-card__image--hover"
-          imageClassName="product-card__img"
-          sizes={cardImageSizes}
-        />
+            <m.div
+              className="product-card__motion-layer product-card__motion-layer--default"
+              data-motion-state={visualState}
+              variants={PRODUCT_CARD_DEFAULT_MEDIA_VARIANTS}
+              initial={false}
+              animate={visualState}
+              transition={{
+                type: "tween",
+                duration: shouldReduceMotion ? 0 : 0.7,
+                ease: PRODUCT_CARD_CTA_EASE,
+              }}
+            >
+              {defaultImage ? (
+                <span
+                  className="product-card__image product-card__image--asset"
+                  data-media-kind="image"
+                  data-product-card-default-image="true"
+                  data-product-card-image-presentation={
+                    defaultImage.presentation ?? "cutout"
+                  }
+                  style={defaultImageStyle}
+                >
+                  <Image
+                    src={defaultImage.src}
+                    alt={defaultImage.alt}
+                    width={defaultImage.width}
+                    height={defaultImage.height}
+                    sizes={cardImageSizes}
+                    priority={defaultImage.priority}
+                    className="product-card__img product-card__img--asset"
+                  />
+                </span>
+              ) : (
+                <ProductImage
+                  media={product.cardMedia}
+                  swatch={product.swatch}
+                  className="product-card__image"
+                  imageClassName="product-card__img"
+                  sizes={cardImageSizes}
+                />
+              )}
+            </m.div>
+            <m.div
+              className="product-card__motion-layer product-card__motion-layer--hover"
+              data-motion-state={visualState}
+              variants={PRODUCT_CARD_HOVER_MEDIA_VARIANTS}
+              initial={false}
+              animate={visualState}
+              transition={{
+                type: "tween",
+                duration: shouldReduceMotion ? 0 : 0.7,
+                ease: PRODUCT_CARD_CTA_EASE,
+              }}
+            >
+              <ProductImage
+                media={product.cardHoverMedia}
+                swatch={product.swatch}
+                className="product-card__image product-card__image--hover"
+                imageClassName="product-card__img"
+                sizes={cardImageSizes}
+              />
+            </m.div>
 
-        <Link
-          href={href}
-          className="product-card__link"
-          aria-label={displayName}
-          draggable={false}
-        >
-          <span className="product-card__name">{displayName}</span>
-          <span className="product-card__meta">
-            <span className="product-card__tagline">{product.cardTagline}</span>
-            <span className="product-card__price">{priceLabel}</span>
-          </span>
-        </Link>
+            <Link
+              href={href}
+              className="product-card__link"
+              aria-label={displayName}
+              draggable={false}
+            >
+              <span className="product-card__name">{displayName}</span>
+              <m.span
+                className="product-card__meta"
+                data-motion-state={visualState}
+                style={PRODUCT_CARD_META_INITIAL_STYLE}
+                variants={PRODUCT_CARD_META_VARIANTS}
+                initial={false}
+                animate={visualState}
+                transition={{
+                  type: "tween",
+                  duration: shouldReduceMotion ? 0 : 0.2,
+                  ease: "easeOut",
+                }}
+              >
+                <span className="product-card__tagline">
+                  {product.cardTagline}
+                </span>
+                <span className="product-card__price">{priceLabel}</span>
+              </m.span>
+            </Link>
 
-        <LazyMotion features={domAnimation} strict>
-          <MotionConfig reducedMotion="user">
             <m.div
               className="product-card__cta"
               data-motion-state={ctaMotionState}
@@ -494,108 +567,106 @@ export function ProductCard({
                 {purchaseCta.label}
               </button>
             </m.div>
-          </MotionConfig>
-        </LazyMotion>
 
-        <section
-          id={panelId}
-          className="product-card__quick-buy"
-          data-open={isQuickBuyOpen}
-          aria-hidden={!isQuickBuyOpen}
-          aria-labelledby={`${panelId}-title`}
-        >
-          <button
-            type="button"
-            className="product-card__quick-close"
-            onPointerDown={handleClosePointerDown}
-            onTouchStart={handleCloseTouchStart}
-            onClick={handleCloseClick}
-            aria-label={`Close quick buy for ${displayName}`}
-            tabIndex={isQuickBuyOpen ? undefined : -1}
-          >
-            <span aria-hidden="true" />
-          </button>
-          <div className="product-card__quick-head">
-            <ProductImage
-              media={product.cartMedia ?? product.cardMedia}
-              swatch={product.swatch}
-              className="product-card__quick-thumb"
-              imageClassName="product-card__quick-thumb-img"
-              sizes="72px"
-            />
-            <div>
-              <h3 id={`${panelId}-title`}>{displayName}</h3>
-              {product.productType && <p>{product.productType}</p>}
-            </div>
-          </div>
-
-          {rows.length > 0 && (
-            <dl className="product-card__quick-details">
-              {rows.map((row) => (
-                <div key={row.label} className="product-card__quick-row">
-                  <dt>{row.label}</dt>
-                  <dd>{row.value}</dd>
+            <section
+              id={panelId}
+              className="product-card__quick-buy"
+              data-open={isQuickBuyOpen}
+              aria-hidden={!isQuickBuyOpen}
+              aria-labelledby={`${panelId}-title`}
+            >
+              <button
+                type="button"
+                className="product-card__quick-close"
+                onPointerDown={handleClosePointerDown}
+                onTouchStart={handleCloseTouchStart}
+                onClick={handleCloseClick}
+                aria-label={`Close quick buy for ${displayName}`}
+                tabIndex={isQuickBuyOpen ? undefined : -1}
+              >
+                <span aria-hidden="true" />
+              </button>
+              <div className="product-card__quick-head">
+                <ProductImage
+                  media={product.cartMedia ?? product.cardMedia}
+                  swatch={product.swatch}
+                  className="product-card__quick-thumb"
+                  imageClassName="product-card__quick-thumb-img"
+                  sizes="72px"
+                />
+                <div>
+                  <h3 id={`${panelId}-title`}>{displayName}</h3>
+                  {product.productType && <p>{product.productType}</p>}
                 </div>
-              ))}
-            </dl>
-          )}
-
-          {product.variants.length > 1 && (
-            <fieldset className="product-card__quick-variants">
-              <legend>Size</legend>
-              <div className="product-card__quick-options">
-                {product.variants.map((variant) => {
-                  const buyable = isVariantPurchasable(product, variant);
-                  return (
-                    <label
-                      key={variant.id}
-                      className="product-card__quick-option"
-                      data-disabled={!buyable}
-                    >
-                      <input
-                        type="radio"
-                        name={`${panelId}-variant`}
-                        value={variant.id}
-                        checked={selectedVariant?.id === variant.id}
-                        disabled={!buyable}
-                        onChange={() => setSelectedVariantId(variant.id)}
-                        tabIndex={isQuickBuyOpen ? undefined : -1}
-                      />
-                      <span>{variant.label}</span>
-                      <small>{formatPrice(variant.price)}</small>
-                    </label>
-                  );
-                })}
               </div>
-            </fieldset>
-          )}
 
-          <div className="product-card__quick-footer">
-            <button
-              type="button"
-              className="product-card__quick-final"
-              data-product-card-buy
-              onClick={() => void handleFinalBuy()}
-              disabled={!canBuy || pending}
-              tabIndex={isQuickBuyOpen ? undefined : -1}
-              aria-label={
-                pending && canBuy ? "ADDING" : purchaseCta.label
-              }
-            >
-              {pending
-                ? "ADDING"
-                : purchaseCta.label}
-            </button>
-            <Link
-              href={href}
-              className="product-card__quick-link"
-              tabIndex={isQuickBuyOpen ? undefined : -1}
-            >
-              Full details
-            </Link>
+              {rows.length > 0 && (
+                <dl className="product-card__quick-details">
+                  {rows.map((row) => (
+                    <div key={row.label} className="product-card__quick-row">
+                      <dt>{row.label}</dt>
+                      <dd>{row.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              )}
+
+              {product.variants.length > 1 && (
+                <fieldset className="product-card__quick-variants">
+                  <legend>Size</legend>
+                  <div className="product-card__quick-options">
+                    {product.variants.map((variant) => {
+                      const buyable = isVariantPurchasable(product, variant);
+                      return (
+                        <label
+                          key={variant.id}
+                          className="product-card__quick-option"
+                          data-disabled={!buyable}
+                        >
+                          <input
+                            type="radio"
+                            name={`${panelId}-variant`}
+                            value={variant.id}
+                            checked={selectedVariant?.id === variant.id}
+                            disabled={!buyable}
+                            onChange={() => setSelectedVariantId(variant.id)}
+                            tabIndex={isQuickBuyOpen ? undefined : -1}
+                          />
+                          <span>{variant.label}</span>
+                          <small>{formatPrice(variant.price)}</small>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </fieldset>
+              )}
+
+              <div className="product-card__quick-footer">
+                <button
+                  type="button"
+                  className="product-card__quick-final"
+                  data-product-card-buy
+                  onClick={() => void handleFinalBuy()}
+                  disabled={!canBuy || pending}
+                  tabIndex={isQuickBuyOpen ? undefined : -1}
+                  aria-label={
+                    pending && canBuy ? "ADDING" : purchaseCta.label
+                  }
+                >
+                  {pending ? "ADDING" : purchaseCta.label}
+                </button>
+                <Link
+                  href={href}
+                  className="product-card__quick-link"
+                  tabIndex={isQuickBuyOpen ? undefined : -1}
+                >
+                  Full details
+                </Link>
+              </div>
+            </section>
           </div>
-        </section>
-      </div>
+        </MotionConfig>
+      </LazyMotion>
       <span className="sr-only" role="status" aria-live="polite">
         {added ? `${displayName} added to cart` : addError}
       </span>
