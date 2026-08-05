@@ -2832,6 +2832,10 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
     padding: 0 var(--page-gutter);
   }
 
+  .storefront-page-frame > :where(:last-child) {
+    padding-bottom: max(clamp(32px, 6svh, 72px), env(safe-area-inset-bottom));
+  }
+
   .site-header__bar {
     height: 62px;
   }

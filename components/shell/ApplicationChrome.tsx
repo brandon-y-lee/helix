@@ -11,6 +11,10 @@ import { applicationRouteMode } from "@/lib/admin/routes";
 export function ApplicationChrome({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const mode = applicationRouteMode(pathname);
+  const frameStorefrontPage =
+    mode === "storefront" &&
+    pathname !== "/" &&
+    !pathname.startsWith("/products/");
 
   if (mode === "standard-admin") return children;
 
@@ -22,7 +26,13 @@ export function ApplicationChrome({ children }: { children: ReactNode }) {
         tabIndex={-1}
         data-storefront-main=""
       >
-        {children}
+        {frameStorefrontPage ? (
+          <div className="storefront-page-frame" data-viewport-page="">
+            {children}
+          </div>
+        ) : (
+          children
+        )}
       </main>
       <SiteFooter />
       {mode !== "catalog-preview" && <CartDrawerHost />}
