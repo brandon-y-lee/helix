@@ -310,6 +310,10 @@ body[data-sheet-scroll-lock] .site-header {
   gap: clamp(22px, 4vw, 56px);
 }
 
+.site-footer__nav > section {
+  text-align: center;
+}
+
 .site-footer__nav h3,
 .site-footer__accordion-trigger {
   color: var(--ink-soft);
