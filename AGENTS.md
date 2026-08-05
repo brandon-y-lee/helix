@@ -186,9 +186,19 @@ Skills and subagents are optional workflows; they do not expand the user’s req
 - Do not start recursive improvement, repeated review/fix, or open-ended orchestration for an ordinary scoped task.
 - Any iterative workflow needs a finite objective and explicit stop condition. Report unrelated findings instead of automatically fixing them.
 - Review agents may suggest coverage, but every proposed test must satisfy the layer and non-duplication rules above.
-- Use subagents or worktrees only when parallelism clearly reduces risk or time; keep workstreams narrow and non-overlapping.
+- Use subagents only when parallelism clearly reduces risk or time; keep workstreams narrow and non-overlapping.
 
 Preserve uncommitted user work, review the final diff for scope drift and unnecessary complexity, and commit only completed task-related work. Do not push unless requested. Do not amend, reset, force-push, or rewrite unrelated history. Remove completed temporary worktrees.
+
+### Codex task branches
+
+- `main` is the production branch. `dev` is the staging and integration branch; task work never merges directly to `main`.
+- Start every Codex task in a managed worktree from the current local `dev` head. Before editing, run `scripts/git/codex-task.sh start <slug>`; it refuses dirty or non-detached worktrees and creates `codex/<slug>` from the latest local `dev` commit.
+- Work and commit only on the task branch. If `dev` advances, merge `dev` into the task branch and rerun all affected verification.
+- Only after the task is complete and the relevant checks pass, run `scripts/git/codex-task.sh merge`. The command fast-forwards `dev` in a temporary integration worktree, then detaches the task worktree and deletes the merged task branch.
+- Never merge incomplete, unverified, dirty, or conflicted work. Keep `dev` free from long-lived checkout so the guarded merge can acquire it. Do not push `dev` or promote `dev` to `main` unless the user explicitly requests it.
+
+See `docs/git-workflow.md` for the full operator workflow and recovery steps.
 
 ## 11. Definition of Done and Reporting
 
