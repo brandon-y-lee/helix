@@ -11,16 +11,25 @@ task is complete and its relevant verification passes.
 
 ## Start a Codex task
 
-In the Codex worktree picker, select `dev` as the starting branch. Codex creates
-managed worktrees in detached HEAD mode. Before editing, run:
+New Codex threads may start in either an app-managed Worktree or the shared Local
+checkout. Before editing, run:
 
 ```bash
 scripts/git/codex-task.sh start <slug>
 ```
 
-The command requires a clean, detached worktree, moves it to the current local
-`dev` head, and creates `codex/<slug>`. This check prevents a task from quietly
-starting on `main`, a stale detached commit, or another feature branch.
+The command requires a clean checkout and creates `codex/<slug>` from the current
+local `dev` head:
+
+- In an app-managed Worktree, it moves that detached worktree to `dev` and creates
+  the task branch in place.
+- In the shared Local checkout, it leaves the shared files available to other
+  threads, parks a clean shared `dev` checkout in detached mode, and creates a
+  separate temporary task worktree. The command prints `Task worktree: <path>`;
+  Codex must use that path for every subsequent edit, command, test, and commit.
+
+This prevents Local threads from refusing the workflow or sharing one mutable
+checkout while concurrent tasks are running.
 
 Use a lowercase, filesystem-safe slug such as `cart-error-state`. Do not commit
 directly on `dev` or `main`.
@@ -35,10 +44,18 @@ git merge dev
 ```
 
 If that merge changes the task branch, resolve any conflicts and rerun the
-affected checks. After the task is complete, clean, and verified, integrate it:
+affected checks. After an app-managed Worktree task is complete, clean, and
+verified, integrate it from that worktree:
 
 ```bash
 scripts/git/codex-task.sh merge
+```
+
+For a Local task, use the exact command printed by `start` and run it from the
+shared checkout:
+
+```bash
+scripts/git/codex-task.sh merge <task-worktree>
 ```
 
 The merge command enforces these conditions:
@@ -50,9 +67,10 @@ The merge command enforces these conditions:
 - the integration is a fast-forward, so the verified task commit is exactly the
   commit installed on `dev`.
 
-On success, it removes the temporary integration worktree, detaches the Codex
-worktree at the new `dev` head, and deletes the merged task branch. Codex-managed
-worktree cleanup remains the desktop app's responsibility.
+On success, it removes the temporary integration worktree, detaches the task at
+the new `dev` head, and deletes the merged task branch. It also removes task
+worktrees created for Local threads. Codex-managed worktree cleanup remains the
+desktop app's responsibility.
 
 If another task is integrating, or a long-lived checkout currently owns `dev`,
 the command exits without changing `dev`. Wait for the other integration to

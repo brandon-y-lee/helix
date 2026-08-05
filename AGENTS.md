@@ -75,9 +75,9 @@ Preserve uncommitted user work, review the final diff for scope drift and unnece
 ### Codex task branches
 
 - `main` is the production branch. `dev` is the staging and integration branch; task work never merges directly to `main`.
-- Start every Codex task in a managed worktree from the current local `dev` head. Before editing, run `scripts/git/codex-task.sh start <slug>`; it refuses dirty or non-detached worktrees and creates `codex/<slug>` from the latest local `dev` commit.
+- Before editing, run `scripts/git/codex-task.sh start <slug>` from a clean checkout. In an app-managed Worktree it creates `codex/<slug>` in place; in the shared Local checkout it creates a separate temporary task worktree from the latest local `dev` commit. If it prints `Task worktree: <path>`, use that path as the working directory for every subsequent edit, command, test, and commit in the task.
 - Work and commit only on the task branch. If `dev` advances, merge `dev` into the task branch and rerun all affected verification.
-- Only after the task is complete and the relevant checks pass, run `scripts/git/codex-task.sh merge`. The command fast-forwards `dev` in a temporary integration worktree, then detaches the task worktree and deletes the merged task branch.
+- Only after the task is complete and the relevant checks pass, run the merge command printed by `start`: `scripts/git/codex-task.sh merge` inside an app-managed Worktree, or `scripts/git/codex-task.sh merge <task-worktree>` from the shared checkout for a Local task. The command fast-forwards `dev`, detaches and deletes the merged task branch, and removes helper-created task worktrees.
 - Never merge incomplete, unverified, dirty, or conflicted work. Keep `dev` free from long-lived checkout so the guarded merge can acquire it. Do not push `dev` or promote `dev` to `main` unless the user explicitly requests it.
 
 See `docs/git-workflow.md` for the full operator workflow and recovery steps.
