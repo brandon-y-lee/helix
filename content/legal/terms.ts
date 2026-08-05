@@ -73,7 +73,7 @@ export const termsOfService: LegalDocument = {
       title: "Third-Party Services",
       body: [
         "The site uses providers such as Supabase, Stripe, Algolia, Vercel/Next.js, and Google Fonts. Those services may process technical information needed to operate the site.",
-        "Trustpilot is a future neutral invitation boundary only in the current codebase. Sandbox orders do not send real Trustpilot invitations.",
+        "Trustpilot invitations are not implemented in the current codebase. Sandbox orders do not send real Trustpilot invitations.",
         "Third-party services have their own terms and privacy practices. Mei Pelle is not responsible for services it does not control.",
       ],
     },

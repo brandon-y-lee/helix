@@ -23,7 +23,7 @@ export type PdpPurchaseVariant = {
   purchasable: boolean;
 };
 
-export type PdpPurchaseCartBase = Pick<
+type PdpPurchaseCartBase = Pick<
   CartAddInput,
   "slug" | "name" | "swatch" | "imageUrl" | "imageAlt" | "placeholderMedia"
 >;

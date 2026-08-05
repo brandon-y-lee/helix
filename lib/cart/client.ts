@@ -19,7 +19,7 @@ type CartErrorEnvelope = {
   };
 };
 
-export class CartApiError extends Error {
+class CartApiError extends Error {
   constructor(
     message: string,
     readonly code: string | null,
@@ -104,7 +104,7 @@ function cartRequest(input: RequestInfo | URL, init: RequestInit = {}) {
   );
 }
 
-export function getCart(signal?: AbortSignal): Promise<CartState> {
+function getCart(signal?: AbortSignal): Promise<CartState> {
   return cartRequest("/api/cart", { signal });
 }
 

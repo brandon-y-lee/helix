@@ -5,7 +5,7 @@
 import { algoliasearch, type Algoliasearch } from "algoliasearch";
 import { INDEX_SETTINGS, type AlgoliaProductRecord } from "@/lib/algolia/record";
 
-export class AlgoliaConfigError extends Error {
+class AlgoliaConfigError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "AlgoliaConfigError";

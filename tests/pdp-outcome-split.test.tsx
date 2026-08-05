@@ -1,9 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import {
-  orderedPdpOutcomeMedia,
-  PdpOutcomeSplit,
-} from "@/components/product-detail/PdpOutcomeSplit";
+import { PdpOutcomeSplit } from "@/components/product-detail/PdpOutcomeSplit";
 import {
   CORE_PDP_DESIGN_TOKENS,
   type CorePdpPresentation,
@@ -52,34 +49,17 @@ function activeSlide(container: HTMLElement): HTMLElement {
 }
 
 describe("PdpOutcomeSplit", () => {
-  it("orders shared-role media numerically without promoting utility media", () => {
-    const utilityMedia: ProductMedia = {
-      ...outcomeMedia(0),
-      role: "pdp_application",
-      url: "https://example.supabase.co/application.png",
-    };
-
-    expect(
-      orderedPdpOutcomeMedia([
-        outcomeMedia(3),
-        utilityMedia,
-        outcomeMedia(1),
-        outcomeMedia(2),
-      ]).map((media) => media.sortOrder),
-    ).toEqual([1, 2, 3]);
-  });
-
   it("maps orders 1, 2, and 3 to states 0, 1, and 2 for click, hover, and keyboard", () => {
     const { container } = render(
       <PdpOutcomeSplit
         productName="CLEANSE"
         heading={presentation.outcomeHeading}
         options={presentation.outcomeOptions}
-        media={orderedPdpOutcomeMedia([
+        media={[
           outcomeMedia(3),
           outcomeMedia(1),
           outcomeMedia(2),
-        ])}
+        ]}
       />,
     );
     const controls = screen.getAllByRole("button");
@@ -109,7 +89,7 @@ describe("PdpOutcomeSplit", () => {
   });
 
   it("keeps one accessible label and hides both painted text layers", () => {
-    const { container } = render(
+    render(
       <PdpOutcomeSplit
         productName="CLEANSE"
         heading={presentation.outcomeHeading}
@@ -145,11 +125,11 @@ describe("PdpOutcomeSplit", () => {
         productName="CLEANSE"
         heading={relabeled.outcomeHeading}
         options={relabeled.outcomeOptions}
-        media={orderedPdpOutcomeMedia([
+        media={[
           outcomeMedia(2),
           outcomeMedia(1),
           outcomeMedia(3),
-        ])}
+        ]}
       />,
     );
 
@@ -166,10 +146,10 @@ describe("PdpOutcomeSplit", () => {
         productName="CLEANSE"
         heading={presentation.outcomeHeading}
         options={presentation.outcomeOptions}
-        media={orderedPdpOutcomeMedia([
+        media={[
           outcomeMedia(3),
           outcomeMedia(1),
-        ])}
+        ]}
       />,
     );
 

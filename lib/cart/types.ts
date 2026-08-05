@@ -1,6 +1,6 @@
 import type { PlaceholderPalette } from "@/lib/products";
 
-export type CartPlaceholderMedia = {
+type CartPlaceholderMedia = {
   kind: "placeholder";
   alt: string;
   paletteId: string | null;

@@ -5,12 +5,12 @@ import type {
 } from "@/lib/admin/catalog-editor/client";
 import type { CatalogEditorResponse } from "@/lib/admin/catalog/types";
 
-export const PRODUCT_ID = "123e4567-e89b-42d3-a456-426614174000";
-export const VARIANT_ID = "123e4567-e89b-42d3-a456-426614174001";
-export const MEDIA_ID = "123e4567-e89b-42d3-a456-426614174002";
-export const SECOND_MEDIA_ID = "123e4567-e89b-42d3-a456-426614174003";
+const PRODUCT_ID = "123e4567-e89b-42d3-a456-426614174000";
+const VARIANT_ID = "123e4567-e89b-42d3-a456-426614174001";
+const MEDIA_ID = "123e4567-e89b-42d3-a456-426614174002";
+const SECOND_MEDIA_ID = "123e4567-e89b-42d3-a456-426614174003";
 export const DRAFT_ID = "123e4567-e89b-42d3-a456-426614174004";
-export const ACTOR_ID = "123e4567-e89b-42d3-a456-426614174005";
+const ACTOR_ID = "123e4567-e89b-42d3-a456-426614174005";
 const TIMESTAMP = "2026-07-20T12:00:00.000Z";
 
 export const catalogProduct: CatalogProductListItem = {

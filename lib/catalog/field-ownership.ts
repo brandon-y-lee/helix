@@ -1,6 +1,6 @@
 import type { Database } from "@/lib/database.types";
 
-export type CatalogFieldOwner =
+type CatalogFieldOwner =
   | "supplier"
   | "editorial"
   | "commerce"
@@ -11,8 +11,8 @@ export type CatalogEditorRole =
   | "catalog_editor"
   | "catalog_publisher"
   | "admin";
-export type CatalogWriterBehavior = "write" | "insert-only" | "preserve" | "never";
-export type CatalogInputKind =
+type CatalogWriterBehavior = "write" | "insert-only" | "preserve" | "never";
+type CatalogInputKind =
   | "boolean"
   | "color"
   | "date-time"
@@ -172,67 +172,6 @@ function fields<T extends keyof TableRows>(
 const IMMUTABLE_IDENTITY = "Database identity is immutable.";
 const IMMUTABLE_TIMESTAMP = "Database-managed timestamp is read only.";
 const IMPORT_WARNING = "A future supplier import may overwrite this field.";
-
-export const PRODUCT_EDITORIAL_FIELDS = [
-  "display_name",
-  "formal_title",
-  "card_tagline",
-  "product_type",
-  "editorial_description",
-  "editorial_how_to_use",
-  "benefits",
-  "made_for",
-  "good_for",
-  "badge",
-  "formula_notes",
-  "search_keywords",
-  "seo_title",
-  "seo_description",
-] as const satisfies readonly (keyof TableRows["products"])[];
-
-export const PRODUCT_SUPPLIER_FIELDS = [
-  "texture",
-  "key_ingredients",
-  "ingredients",
-  "cautions",
-  "finish",
-  "volume",
-  "skin_types",
-  "concerns",
-  "usage_time",
-] as const satisfies readonly (keyof TableRows["products"])[];
-
-export const PRODUCT_COMMERCE_FIELDS = ["currency", "status"] as const satisfies readonly (
-  keyof TableRows["products"]
-)[];
-
-export const PRODUCT_SYSTEM_FIELDS = [
-  "id",
-  "slug",
-  "catalog_status",
-  "sort_order",
-  "routine_group",
-  "routine_step_number",
-  "routine_step_name",
-  "routine_sort",
-  "swatch_from",
-  "swatch_to",
-  "created_at",
-  "published_at",
-  "updated_at",
-] as const satisfies readonly (keyof TableRows["products"])[];
-
-export const PRODUCT_PDP_EDITORIAL_FIELDS = [
-  "profile_title_tokens",
-  "routine_overlay",
-  "outcome_heading",
-  "outcome_labels",
-  "how_to_use_steps",
-  "application_steps",
-  "ingredient_cards",
-  "ingredient_story",
-  "routine_guidance",
-] as const satisfies readonly (keyof TableRows["product_pdp_content"])[];
 
 export const CATALOG_FIELD_OWNERSHIP: readonly CatalogFieldOwnership[] = [
   ...fields("products", "system", NO_ROLES, [
@@ -491,7 +430,7 @@ export function getCatalogFieldOwnership(
   );
 }
 
-export function getCatalogEditorFieldPolicy(table: string, field: string) {
+function getCatalogEditorFieldPolicy(table: string, field: string) {
   return getCatalogFieldOwnership(table, field)?.editor;
 }
 

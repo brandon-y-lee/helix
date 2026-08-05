@@ -186,33 +186,33 @@ const CORE_MEDIA_ROLES = [
   "core_routine_editorial",
 ] as const;
 
-export const PRODUCT_CARD_SELECT =
+const PRODUCT_CARD_SELECT =
   "id, slug, display_name, card_tagline, product_type, " +
   `${ROUTINE_SELECT}, volume, usage_time, sort_order, created_at, swatch_from, swatch_to, ` +
   `product_media ( ${MEDIA_SELECT} )`;
 
-export const PDP_PRODUCT_SELECT =
+const PDP_PRODUCT_SELECT =
   "id, slug, display_name, card_tagline, product_type, " +
   `${ROUTINE_SELECT}, editorial_description, editorial_how_to_use, ` +
   "swatch_from, swatch_to, made_for, good_for, texture, " +
   "key_ingredients, ingredients, cautions, finish, volume, skin_types, usage_time, " +
   `product_pdp_content ( ${PDP_CONTENT_SELECT} ), product_media ( ${MEDIA_SELECT} )`;
 
-export const CORE_ROUTINE_SUMMARY_SELECT =
+const CORE_ROUTINE_SUMMARY_SELECT =
   "id, slug, display_name, formal_title, product_type, card_tagline, " +
   "editorial_description, benefits, good_for, texture, finish, key_ingredients, " +
   "routine_step_number, routine_step_name, routine_sort, swatch_from, swatch_to, " +
   `product_pdp_content ( ${PDP_CONTENT_SELECT} ), product_media!inner ( ${MEDIA_SELECT} )`;
 
-export const PRODUCT_OFFER_SELECT =
+const PRODUCT_OFFER_SELECT =
   `id, slug, currency, status, product_variants ( ${OFFER_SELECT} )`;
 
-export const PRODUCT_METADATA_SELECT =
+const PRODUCT_METADATA_SELECT =
   "slug, formal_title, card_tagline, seo_title, seo_description";
 
-export const PRODUCT_ROUTE_SELECT = "slug";
+const PRODUCT_ROUTE_SELECT = "slug";
 
-export const INGREDIENT_INDEX_SELECT =
+const INGREDIENT_INDEX_SELECT =
   "slug, display_name, key_ingredients, ingredients, formula_notes";
 
 const VALID_STATUSES: ProductStatus[] = ["available", "coming_soon", "sold_out"];
@@ -372,7 +372,7 @@ function firstPdpContent(
   return value;
 }
 
-export function mapProductOfferRow(row: ProductOfferRow): ProductOffer {
+function mapProductOfferRow(row: ProductOfferRow): ProductOffer {
   return {
     id: row.id,
     slug: row.slug,
@@ -382,7 +382,7 @@ export function mapProductOfferRow(row: ProductOfferRow): ProductOffer {
   };
 }
 
-export function mapProductCardRow(row: ProductCardRow): ProductCardContent {
+function mapProductCardRow(row: ProductCardRow): ProductCardContent {
   const swatch: [string, string] = [row.swatch_from, row.swatch_to];
   const media = mapMedia(row.product_media, swatch);
   const cardMedia = selectCardMedia(media);
@@ -408,7 +408,7 @@ export function mapProductCardRow(row: ProductCardRow): ProductCardContent {
   };
 }
 
-export function mapPdpProductRow(row: PdpProductRow): PdpProductContent {
+function mapPdpProductRow(row: PdpProductRow): PdpProductContent {
   const swatch: [string, string] = [row.swatch_from, row.swatch_to];
   const media = mapMedia(row.product_media, swatch);
   const cardMedia = selectCardMedia(media);
@@ -446,7 +446,7 @@ export function mapPdpProductRow(row: PdpProductRow): PdpProductContent {
   };
 }
 
-export function mapCoreRoutineRow(
+function mapCoreRoutineRow(
   row: CoreRoutineRow,
 ): CoreRoutineContentSummary {
   const swatch: [string, string] = [row.swatch_from, row.swatch_to];

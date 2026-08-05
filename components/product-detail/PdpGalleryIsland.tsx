@@ -13,7 +13,7 @@ import {
 } from "@/components/product-detail/usePdpSlideTransition";
 import type { ProductMedia } from "@/lib/products";
 
-export type PdpGalleryItem = {
+type PdpGalleryItem = {
   id: string;
   description: string;
   media: ProductMedia | null;

@@ -17,12 +17,6 @@ export type CheckoutConfig = {
   };
 };
 
-export type CheckoutAvailability = {
-  enabled: boolean;
-  environment: typeof CHECKOUT_ENVIRONMENT;
-  reasons: string[];
-};
-
 export class CheckoutConfigError extends Error {
   code: "checkout_disabled" | "checkout_misconfigured" | "live_mode_blocked";
 
@@ -49,7 +43,7 @@ export function isLiveStripeSecretKey(value: unknown): boolean {
   return typeof value === "string" && /^sk_live_/i.test(value);
 }
 
-export function isLiveStripePublishableKey(value: unknown): boolean {
+function isLiveStripePublishableKey(value: unknown): boolean {
   return typeof value === "string" && /^pk_live_/i.test(value);
 }
 
@@ -57,7 +51,7 @@ export function isTestStripeSecretKey(value: unknown): boolean {
   return typeof value === "string" && /^sk_test_/i.test(value);
 }
 
-export function isTestStripePublishableKey(value: unknown): boolean {
+function isTestStripePublishableKey(value: unknown): boolean {
   return typeof value === "string" && /^pk_test_/i.test(value);
 }
 
@@ -130,23 +124,6 @@ export function readCheckoutConfig(env: NodeJS.ProcessEnv = process.env): Checko
       referral15: readEnv(env, "STRIPE_REFERRAL_15_COUPON_ID") ?? null,
     },
   };
-}
-
-export function checkoutAvailability(env: NodeJS.ProcessEnv = process.env): CheckoutAvailability {
-  try {
-    readCheckoutConfig(env);
-    return { enabled: true, environment: CHECKOUT_ENVIRONMENT, reasons: [] };
-  } catch (error) {
-    const message =
-      error instanceof CheckoutConfigError
-        ? error.message
-        : "Sandbox checkout is temporarily unavailable.";
-    return {
-      enabled: false,
-      environment: CHECKOUT_ENVIRONMENT,
-      reasons: [message],
-    };
-  }
 }
 
 export function stripeMessagingPublishableKey(

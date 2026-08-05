@@ -1,7 +1,6 @@
 type RoutineProduct = {
   routineGroup: "core" | "beyond_core";
   routineStepNumber: number | null;
-  routineSort: number;
 };
 
 export function routineDisplayLabelForProduct(product: RoutineProduct): string {
@@ -18,8 +17,4 @@ export function routineGroupLabel(
 
 export function routineGroupLabelForProduct(product: RoutineProduct): string {
   return routineGroupLabel(product.routineGroup);
-}
-
-export function routineSortForProduct(product: RoutineProduct): number {
-  return product.routineSort;
 }

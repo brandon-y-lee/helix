@@ -23,7 +23,7 @@ async function requestHasAuthCookie(): Promise<boolean> {
   return hasSupabaseAuthCookie(cookieStore.getAll());
 }
 
-export const getCurrentClaims = cache(async (): Promise<VerifiedAuthClaims | null> => {
+const getCurrentClaims = cache(async (): Promise<VerifiedAuthClaims | null> => {
   if (!(await requestHasAuthCookie())) return null;
 
   const supabase = await createSupabaseServerClient();
@@ -80,13 +80,3 @@ export const getCurrentUserForPublicPage = cache(async () => {
     throw error;
   }
 });
-
-export async function getCurrentSession() {
-  if (!(await requestHasAuthCookie())) return null;
-
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  return session;
-}

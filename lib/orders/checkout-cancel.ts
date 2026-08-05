@@ -1,8 +1,8 @@
 export const CHECKOUT_CANCEL_COOKIE = "mei_pelle_pending_checkout";
 export const CHECKOUT_CANCEL_COOKIE_PATH = "/cart";
 export const CHECKOUT_CANCEL_COOKIE_MAX_AGE_SECONDS = 30 * 60;
-export const CHECKOUT_CANCEL_QUERY_KEY = "checkout";
-export const CHECKOUT_CANCEL_QUERY_VALUE = "cancelled";
+const CHECKOUT_CANCEL_QUERY_KEY = "checkout";
+const CHECKOUT_CANCEL_QUERY_VALUE = "cancelled";
 export const CHECKOUT_CANCELLED_CART_PATH =
   `/cart?${CHECKOUT_CANCEL_QUERY_KEY}=${CHECKOUT_CANCEL_QUERY_VALUE}`;
 

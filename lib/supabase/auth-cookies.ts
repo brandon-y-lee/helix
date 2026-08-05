@@ -7,7 +7,7 @@ export const AUTH_DEGRADED_REQUEST_HEADER = "x-mei-pelle-auth-degraded";
 
 const SUPABASE_AUTH_COOKIE = /^sb-[a-z0-9]+-auth-token(?:\.\d+)?$/i;
 
-export function isSupabaseAuthCookieName(name: string): boolean {
+function isSupabaseAuthCookieName(name: string): boolean {
   return SUPABASE_AUTH_COOKIE.test(name);
 }
 

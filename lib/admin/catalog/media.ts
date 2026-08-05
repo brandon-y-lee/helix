@@ -7,7 +7,7 @@ import type { EditableProductMedia } from "@/lib/admin/catalog/types";
 import { isProductMediaRole } from "@/lib/catalog/media-roles";
 
 export const CATALOG_MEDIA_BUCKET = "mei-pelle-catalog";
-export const CATALOG_MEDIA_MAX_BYTES = 16 * 1024 * 1024;
+const CATALOG_MEDIA_MAX_BYTES = 16 * 1024 * 1024;
 
 const MIME_CONFIG = {
   "image/jpeg": { extension: "jpg", mediaType: "image" },
@@ -120,7 +120,7 @@ function webpDimensions(bytes: Buffer): {
   return null;
 }
 
-export function mediaDimensions(
+function mediaDimensions(
   bytes: Buffer,
   mimeType: SupportedMimeType,
 ): { width: number; height: number } | null {

@@ -44,7 +44,7 @@ function sha256(value: string): string {
   return createHash("sha256").update(value).digest("hex");
 }
 
-export function checkoutFingerprint(input: CheckoutFingerprintInput): string {
+function checkoutFingerprint(input: CheckoutFingerprintInput): string {
   const lines = input.lines
     .map((line) => ({
       productId: line.productId,
@@ -82,7 +82,7 @@ export function checkoutOrderIdempotencyKey(
   return `checkout:${input.environment}:${checkoutFingerprint(input)}`;
 }
 
-export function stripeCheckoutIdempotencyKey(
+function stripeCheckoutIdempotencyKey(
   orderId: string,
   previousSessionId?: string | null,
 ): string {

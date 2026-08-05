@@ -7,7 +7,7 @@ import {
   type SearchResult,
 } from "@/lib/algolia/search-client";
 
-export type SearchStatus =
+type SearchStatus =
   | "idle" // empty query
   | "loading"
   | "success"

@@ -5,8 +5,8 @@ import {
   logSupabaseUnavailable,
 } from "@/lib/supabase/network";
 
-export const CART_SERVICE_UNAVAILABLE_CODE = "CART_SERVICE_UNAVAILABLE";
-export const CART_SERVICE_UNAVAILABLE_MESSAGE =
+const CART_SERVICE_UNAVAILABLE_CODE = "CART_SERVICE_UNAVAILABLE";
+const CART_SERVICE_UNAVAILABLE_MESSAGE =
   "Your cart is temporarily unavailable.";
 
 function requestId(request: Request): string {

@@ -1,9 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  checkoutFingerprint,
   checkoutOrderIdempotencyKey,
   checkoutSessionDisposition,
-  stripeCheckoutIdempotencyKey,
   stripeCheckoutIdempotencyKeyForOrder,
   type CheckoutFingerprintInput,
 } from "@/lib/checkout/idempotency";
@@ -49,7 +47,6 @@ describe("checkout idempotency", () => {
       lines: [...baseSnapshot.lines].reverse(),
     };
 
-    expect(checkoutFingerprint(reversed)).toBe(checkoutFingerprint(baseSnapshot));
     expect(checkoutOrderIdempotencyKey(reversed)).toBe(
       checkoutOrderIdempotencyKey(baseSnapshot),
     );
@@ -64,19 +61,19 @@ describe("checkout idempotency", () => {
     ["referral", { referralCode: "FRIEND20", discountCents: 500 }],
     ["customer email", { customerEmail: "new-address@example.test" }],
   ])("changes when the canonical %s input changes", (_label, change) => {
-    expect(checkoutFingerprint({ ...baseSnapshot, ...change })).not.toBe(
-      checkoutFingerprint(baseSnapshot),
+    expect(checkoutOrderIdempotencyKey({ ...baseSnapshot, ...change })).not.toBe(
+      checkoutOrderIdempotencyKey(baseSnapshot),
     );
   });
 
   it("normalizes customer email before hashing", () => {
     expect(
-      checkoutFingerprint({
+      checkoutOrderIdempotencyKey({
         ...baseSnapshot,
         customerEmail: "  CUSTOMER@Example.Test  ",
       }),
     ).toBe(
-      checkoutFingerprint({
+      checkoutOrderIdempotencyKey({
         ...baseSnapshot,
         customerEmail: "customer@example.test",
       }),
@@ -84,19 +81,23 @@ describe("checkout idempotency", () => {
   });
 
   it("uses stable Stripe keys for initial creation and a specific replacement", () => {
-    expect(stripeCheckoutIdempotencyKey("order-1")).toBe(
-      stripeCheckoutIdempotencyKey("order-1"),
+    expect(stripeCheckoutIdempotencyKeyForOrder("order-1", null, null)).toBe(
+      stripeCheckoutIdempotencyKeyForOrder("order-1", null, null),
     );
-    expect(stripeCheckoutIdempotencyKey("order-1", "cs_old")).toBe(
-      stripeCheckoutIdempotencyKey("order-1", "cs_old"),
+    expect(stripeCheckoutIdempotencyKeyForOrder("order-1", "cs_old", null)).toBe(
+      stripeCheckoutIdempotencyKeyForOrder("order-1", "cs_old", null),
     );
-    expect(stripeCheckoutIdempotencyKey("order-1", "cs_old")).not.toBe(
-      stripeCheckoutIdempotencyKey("order-1"),
+    expect(stripeCheckoutIdempotencyKeyForOrder("order-1", "cs_old", null)).not.toBe(
+      stripeCheckoutIdempotencyKeyForOrder("order-1", null, null),
     );
   });
 
   it("replays a recorded replacement key after an ambiguous creation result", () => {
-    const replacementKey = stripeCheckoutIdempotencyKey("order-1", "cs_old");
+    const replacementKey = stripeCheckoutIdempotencyKeyForOrder(
+      "order-1",
+      "cs_old",
+      null,
+    );
 
     expect(
       stripeCheckoutIdempotencyKeyForOrder("order-1", null, replacementKey),
@@ -107,7 +108,7 @@ describe("checkout idempotency", () => {
         null,
         "stripe-session:another-order:initial",
       ),
-    ).toBe(stripeCheckoutIdempotencyKey("order-1"));
+    ).toBe(stripeCheckoutIdempotencyKeyForOrder("order-1", null, null));
   });
 
   it("reuses only an open, unexpired session with a usable URL", () => {

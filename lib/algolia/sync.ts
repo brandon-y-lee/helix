@@ -33,7 +33,7 @@ const PDP_ONLY_MEDIA_ROLES = new Set([
   "pdp_application",
 ]);
 
-export type WebhookEventType = "INSERT" | "UPDATE" | "DELETE";
+type WebhookEventType = "INSERT" | "UPDATE" | "DELETE";
 
 export type CatalogWebhookPayload = {
   type: WebhookEventType;

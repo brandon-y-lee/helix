@@ -1,4 +1,4 @@
-export type ProductResponseMeter = {
+type ProductResponseMeter = {
   question: string;
   lowLabel: string;
   highLabel: string;
@@ -70,7 +70,7 @@ const sharedReviews = {
 };
 
 // Original Mei Pelle placeholder fixtures for non-production review-section QA.
-export const productReviewFixturesBySlug = {
+const productReviewFixturesBySlug = {
   "cleanse-01-calming-gel-cleanser": {
     meter: meters["cleanse-01-calming-gel-cleanser"],
     reviews: [

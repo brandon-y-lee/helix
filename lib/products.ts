@@ -115,11 +115,11 @@ export function formatPrice(cents: number): string {
   }).format(cents / 100);
 }
 
-export function formatBuyLabel(productName: string, cents: number): string {
+function formatBuyLabel(productName: string, cents: number): string {
   return `BUY ${productName} - ${formatPrice(cents)}`;
 }
 
-export const OUT_OF_STOCK_CTA_LABEL = "OUT OF STOCK";
+const OUT_OF_STOCK_CTA_LABEL = "OUT OF STOCK";
 
 type PurchaseOffer = {
   available: boolean;
