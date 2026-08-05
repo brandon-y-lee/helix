@@ -220,7 +220,23 @@ describe("admin shell navigation", () => {
       "data-disabled",
       "true",
     );
+    expect(
+      screen.getByText("Draft product detail").closest("[data-viewport-page]"),
+    ).toBeNull();
     expect(screen.getByText("Storefront customer footer")).toBeInTheDocument();
+  });
+
+  it("frames standard storefront pages to fill the viewport", () => {
+    pathname = "/search";
+    render(
+      <ApplicationChrome>
+        <div>Search page content</div>
+      </ApplicationChrome>,
+    );
+
+    expect(
+      screen.getByText("Search page content").closest("[data-viewport-page]"),
+    ).toHaveClass("storefront-page-frame");
   });
 
   it("preserves declarative header presentation from storefront content", () => {
@@ -239,5 +255,19 @@ describe("admin shell navigation", () => {
     );
     expect(homepageContent).toHaveAttribute("data-header-layout", "overlay");
     expect(homepageContent).toHaveAttribute("data-header-theme", "light");
+    expect(homepageContent.closest("[data-viewport-page]")).toBeNull();
+  });
+
+  it("leaves product detail pages outside the viewport frame", () => {
+    pathname = "/products/treat-03-pdrn-5-ampoule";
+    render(
+      <ApplicationChrome>
+        <div>Product detail content</div>
+      </ApplicationChrome>,
+    );
+
+    expect(
+      screen.getByText("Product detail content").closest("[data-viewport-page]"),
+    ).toBeNull();
   });
 });
