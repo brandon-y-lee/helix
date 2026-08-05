@@ -538,7 +538,9 @@ body[data-sheet-scroll-lock] .site-header {
 .pdp__thumb:focus-visible,
 .pdp-panel-sequence:focus-visible,
 .pdp-panel-sequence__controls button:focus-visible,
-.sort-control select:focus-visible,
+.sort-control__trigger:focus-visible,
+.sort-menu__close:focus-visible,
+.sort-menu__option:focus-visible,
 .link-button:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
@@ -581,7 +583,7 @@ body[data-sheet-scroll-lock] .site-header {
 .shop-toolbar {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 16px;
+  gap: 28px;
   padding-top: 28px;
 }
 
@@ -600,24 +602,37 @@ body[data-sheet-scroll-lock] .site-header {
   justify-content: center;
   width: max-content;
   min-width: 100%;
-  gap: 8px;
+  gap: 10px;
   padding: 2px;
 }
 
 .chip {
   flex: 0 0 auto;
-  border: 1px solid var(--line);
-  background: var(--surface);
-  color: var(--ink-soft);
+  min-height: 40px;
+  border: 1px solid color-mix(in srgb, var(--ink) 70%, transparent);
+  background: transparent;
+  color: var(--ink);
   border-radius: 999px;
-  padding: 7px 16px;
-  font-size: 0.86rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 18px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
   cursor: pointer;
-  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+  transition:
+    border-color var(--motion-fast) ease,
+    background-color var(--motion-fast) ease,
+    color var(--motion-fast) ease;
 }
 
 .chip:hover {
-  color: var(--ink);
+  border-color: var(--ink);
+  background: color-mix(in srgb, var(--surface) 58%, transparent);
 }
 
 .chip[aria-current="page"] {
@@ -626,27 +641,181 @@ body[data-sheet-scroll-lock] .site-header {
   color: var(--accent-ink);
 }
 
-.shop-toolbar__right {
+.shop-toolbar__utility {
   display: flex;
   align-items: center;
-  justify-self: end;
+  justify-content: space-between;
+  width: 100%;
   gap: 18px;
 }
 
 .product-count {
   color: var(--ink-soft);
   font-size: 0.88rem;
+  line-height: 1;
+  white-space: nowrap;
 }
 
-.sort-control select {
-  border: 1px solid var(--line);
-  background: var(--surface);
+.sort-control {
+  position: relative;
+}
+
+.sort-control[data-open="true"] {
+  z-index: 42;
+}
+
+.sort-control__trigger {
+  min-height: 32px;
+  border: 0;
+  background: transparent;
   color: var(--ink);
-  border-radius: 999px;
-  padding: 8px 16px;
-  font-size: 0.86rem;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 0;
   font-family: inherit;
+  font-size: 0.9rem;
+  line-height: 1;
   cursor: pointer;
+}
+
+.sort-control__label {
+  color: var(--ink-soft);
+}
+
+.sort-control__value {
+  font-weight: 650;
+  text-transform: lowercase;
+}
+
+.sort-control__caret {
+  width: 0;
+  height: 0;
+  margin-left: 2px;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid currentColor;
+  opacity: 0.62;
+  transform: rotate(0deg);
+  transition: transform var(--motion-fast) ease;
+}
+
+.sort-control[data-open="true"] .sort-control__caret {
+  transform: rotate(180deg);
+}
+
+.sort-menu__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: 0;
+  background: rgba(17, 19, 18, 0.34);
+  padding: 0;
+  cursor: default;
+}
+
+.sort-menu__panel {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  z-index: 41;
+  width: min(
+    375px,
+    calc(100vw - var(--storefront-gutter) - var(--storefront-gutter))
+  );
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  box-shadow: 0 20px 60px rgba(17, 19, 18, 0.16);
+  padding: 46px 12px 12px;
+  color: var(--ink);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  transform-origin: top left;
+  will-change: opacity, transform;
+}
+
+.sort-menu__close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--ink-soft);
+  color: var(--surface);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  cursor: pointer;
+}
+
+.sort-menu__close span {
+  width: 10px;
+  height: 1px;
+  background: currentColor;
+}
+
+.sort-menu__options {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.sort-menu__options li + li {
+  margin-top: 2px;
+}
+
+.sort-menu__option {
+  width: 100%;
+  min-height: 45px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink-soft);
+  display: flex;
+  align-items: center;
+  padding: 12px 15px;
+  font-family: inherit;
+  font-size: 0.84rem;
+  font-weight: 600;
+  line-height: 1.25;
+  text-align: left;
+  text-transform: lowercase;
+  cursor: pointer;
+  transition:
+    background-color var(--motion-fast) ease,
+    color var(--motion-fast) ease;
+}
+
+.sort-menu__option:hover {
+  color: var(--ink);
+  background: color-mix(in srgb, var(--surface) 52%, transparent);
+}
+
+.sort-menu__option[aria-pressed="true"] {
+  color: var(--ink);
+  background: color-mix(in srgb, var(--surface) 82%, transparent);
+}
+
+.shop-grid-transition {
+  width: 100%;
+  will-change: opacity, transform;
+}
+
+.shop-grid-shell {
+  position: relative;
+}
+
+.shop-grid-empty {
+  color: var(--ink-soft);
 }
 
 .shop-hero {
@@ -1495,6 +1664,18 @@ body[data-sheet-scroll-lock] .site-header {
 @media (max-width: 620px) {
   .filter-chips__track {
     justify-content: flex-start;
+  }
+
+  .chip {
+    min-height: 38px;
+    padding-inline: 15px;
+    font-size: 0.7rem;
+  }
+
+  .sort-menu__panel {
+    width: calc(
+      100vw - var(--storefront-gutter) - var(--storefront-gutter)
+    );
   }
 }
 
@@ -8083,15 +8264,6 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 
   .product-card__surface {
     min-height: 360px;
-  }
-
-  .shop-toolbar__right {
-    width: 100%;
-    justify-content: space-between;
-  }
-
-  .sort-control select {
-    max-width: 174px;
   }
 
   .pdp-panel-sequence__viewport {
