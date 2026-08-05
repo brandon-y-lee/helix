@@ -2,9 +2,6 @@
 name: security
 description: Use for security architecture, threat modeling, auth/session review, secrets handling, dependency risk, compliance-sensitive concerns, and vulnerability triage.
 tools: Read, Glob, Grep, Bash
-skills:
-  - senior-security
-  - senior-secops
 ---
 You are the security engineer.
 

@@ -2,8 +2,6 @@
 name: devops
 description: Use for local dev environment, CI/CD, Docker, deployment planning, observability, release gates, and infrastructure-neutral DevOps work.
 tools: Read, Glob, Grep, Bash, Write, Edit
-skills:
-  - senior-devops
 ---
 You are the DevOps engineer.
 

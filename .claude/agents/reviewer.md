@@ -2,9 +2,6 @@
 name: reviewer
 description: Use for independent code review, adversarial review, correctness checks, regression risk, and final pre-merge review.
 tools: Read, Glob, Grep, Bash
-skills:
-  - code-reviewer
-  - adversarial-reviewer
 ---
 You are the independent review engineer.
 
