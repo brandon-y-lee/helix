@@ -10232,7 +10232,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   }
 }
 
-/* ---------- Action button bloom ---------- */
+/* ---------- Action button fill ---------- */
 :is(
   .btn,
   .home-video-hero__cta,
@@ -10243,15 +10243,15 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   :where(.pdp-reviews__more button),
   :where(.pdp-routine-video__error button)
 ) {
-  --button-bloom-fill: var(--surface);
-  --button-bloom-text: var(--accent);
-  --button-bloom-border: var(--accent);
+  --button-fill: var(--surface);
+  --button-fill-text: var(--accent);
+  --button-fill-border: var(--accent);
   position: relative;
   isolation: isolate;
   overflow: hidden;
   transition:
-    border-color var(--motion-panel) var(--ease-out),
-    color var(--motion-panel) var(--ease-out),
+    border-color var(--motion-fast) ease,
+    color var(--motion-fast) ease,
     opacity var(--motion-fast) ease,
     transform var(--motion-fast) ease;
 }
@@ -10268,22 +10268,18 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 )::before {
   content: "";
   position: absolute;
-  top: 50%;
-  left: 50%;
+  inset: 0;
   z-index: -1;
-  width: 150%;
-  aspect-ratio: 1;
-  border-radius: 50%;
-  background: var(--button-bloom-fill);
+  border-radius: inherit;
+  background: var(--button-fill);
+  opacity: 0;
   pointer-events: none;
-  transform: translate(-50%, -50%) scale(0);
-  transform-origin: center;
-  transition: transform var(--motion-panel) var(--ease-out);
+  transition: opacity var(--motion-fast) ease;
 }
 
 .btn--ghost {
-  --button-bloom-fill: var(--accent);
-  --button-bloom-text: var(--accent-ink);
+  --button-fill: var(--accent);
+  --button-fill-text: var(--accent-ink);
 }
 
 :is(
@@ -10291,33 +10287,33 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   .home-video-hero__secondary,
   .home-final__cta--primary
 ) {
-  --button-bloom-fill: #fbfaf6;
-  --button-bloom-text: #111312;
-  --button-bloom-border: #fbfaf6;
+  --button-fill: #fbfaf6;
+  --button-fill-text: #111312;
+  --button-fill-border: #fbfaf6;
 }
 
 .product-card__button {
-  --button-bloom-fill: var(--ink);
-  --button-bloom-text: var(--surface);
-  --button-bloom-border: var(--ink);
+  --button-fill: var(--ink);
+  --button-fill-text: var(--surface);
+  --button-fill-border: var(--ink);
 }
 
 .product-card__quick-final {
-  --button-bloom-fill: var(--bg);
-  --button-bloom-text: var(--ink);
-  --button-bloom-border: var(--ink);
+  --button-fill: var(--bg);
+  --button-fill-text: var(--ink);
+  --button-fill-border: var(--ink);
 }
 
 .pdp-reviews__more button {
-  --button-bloom-fill: var(--ink);
-  --button-bloom-text: var(--surface);
-  --button-bloom-border: var(--ink);
+  --button-fill: var(--ink);
+  --button-fill-text: var(--surface);
+  --button-fill-border: var(--ink);
 }
 
 .pdp-routine-video__error button {
-  --button-bloom-fill: var(--ink);
-  --button-bloom-text: var(--surface);
-  --button-bloom-border: rgba(255, 255, 255, 0.8);
+  --button-fill: var(--ink);
+  --button-fill-text: var(--surface);
+  --button-fill-border: rgba(255, 255, 255, 0.8);
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -10331,8 +10327,8 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
     :where(.pdp-reviews__more button),
     :where(.pdp-routine-video__error button)
   ):not(:disabled):hover {
-    border-color: var(--button-bloom-border);
-    color: var(--button-bloom-text);
+    border-color: var(--button-fill-border);
+    color: var(--button-fill-text);
     opacity: 1;
   }
 
@@ -10346,7 +10342,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
     :where(.pdp-reviews__more button),
     :where(.pdp-routine-video__error button)
   ):not(:disabled):hover::before {
-    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
   }
 }
 
