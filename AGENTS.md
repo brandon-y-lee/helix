@@ -85,7 +85,7 @@ The user approves shared understanding, the specification, and the ticket breakd
 ### Branch safety
 
 - `main` is production; `dev` is staging and integration. Ticket and planning work enters `dev` through PRs and never merges directly to `main`.
-- Before a repository edit, start an isolated worktree with `scripts/git/codex-task.sh start <issue-number>-<slug>` or `scripts/git/codex-task.sh start plan-<slug>`. The trivial fast path uses `trivial-<slug>`.
+- Before a repository edit, start an isolated worktree with `scripts/git/codex-task.sh start <issue-number>-<slug>` or `scripts/git/codex-task.sh start plan-<slug>`. Urgent work uses `<issue-number>-urgent-<slug>`; the trivial fast path uses `trivial-<slug>`.
 - Use the printed task worktree for every subsequent edit, command, test, and commit. Before review and push, run the printed `prepare` command.
 - If `dev` advances, merge it into the task branch and repeat affected verification and `code-review`.
 - After the PR is merged into `dev`, use `scripts/git/codex-task.sh cleanup [task-worktree]`. The helper verifies the merged PR before deleting local task state.

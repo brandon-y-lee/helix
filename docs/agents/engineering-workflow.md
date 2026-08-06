@@ -65,7 +65,7 @@ Cancelled or superseded issues retain their history: comment with the reason and
 ## Fast paths
 
 - **Trivial non-behavioral work** may skip GitHub planning artifacts. It still uses `codex/trivial-<slug>`, proportional verification, `code-review`, a PR into `dev`, and CI.
-- **Urgent production or security fixes** may skip exploration, specification, and decomposition. Create one abbreviated GitHub ticket, then use the normal ticket branch, review, PR, and CI gates. Record deferred context immediately afterward.
+- **Urgent production or security fixes** may skip exploration, specification, and decomposition. Create one abbreviated GitHub ticket, use `codex/<ticket>-urgent-<slug>`, and commit with only the `Refs #<ticket>` footer. The normal review, PR, and CI gates still apply. Record deferred context immediately afterward.
 
 ## Release boundary
 
@@ -75,4 +75,4 @@ Ticket PRs target `dev` and may merge autonomously after their gates pass. `dev 
 
 Issues, labels, sub-issues, dependencies, assignees, and PRs are the single workflow state system; no GitHub Project is required. `dev` requires PRs and CI without a human-approval count. `main` requires PRs, CI, and one human approval. Both branches reject force-push and deletion.
 
-Use `pnpm github:workflow:plan` to audit drift. `apply` is a separately approved remote mutation and requires exact repository and local-`dev` confirmations.
+Use `pnpm github:workflow:plan` to audit drift. Before the initial remote `dev` creation, run the complete CI-equivalent gate at the audited local `dev` commit. `apply` is a separately approved remote mutation and requires exact repository, local-`dev`, and CI-verified SHA confirmations.

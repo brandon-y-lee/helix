@@ -7,6 +7,7 @@ This document owns branch, worktree, PR, integration, and release mechanics. The
 - `main` is the default and production branch.
 - `dev` is the staging and integration branch.
 - `codex/<issue-number>-<slug>` implements one approved ticket.
+- `codex/<issue-number>-urgent-<slug>` is the abbreviated production/security path without a parent spec.
 - `codex/plan-<slug>` carries domain documentation resolved during planning.
 - `codex/trivial-<slug>` is the bounded non-behavioral fast path.
 
@@ -18,6 +19,7 @@ Run from a clean checkout before the first repository edit:
 
 ```bash
 scripts/git/codex-task.sh start <issue-number>-<slug>
+scripts/git/codex-task.sh start <issue-number>-urgent-<slug>
 scripts/git/codex-task.sh start plan-<slug>
 scripts/git/codex-task.sh start trivial-<slug>
 ```
@@ -27,7 +29,7 @@ The helper creates the task from local `dev` and records `refs/codex/review-base
 - In the shared Local checkout, it creates a temporary worktree and prints its path. Use that path for every task command.
 - In an app-managed Worktree, it creates the branch in place.
 
-The command fails on dirty state, a missing local `dev`, an existing task branch or review-base ref, or a slug outside the three workflow classes.
+The command fails on dirty state, a missing local `dev`, an existing task branch or review-base ref, or a slug outside the workflow classes.
 
 ## Prepare for review and PR
 
@@ -38,6 +40,8 @@ Refs #<ticket-number>
 Spec #<parent-spec-number>
 ```
 
+An urgent branch uses only `Refs #<ticket-number>` because its abbreviated ticket intentionally has no parent spec.
+
 From the shared checkout, pass the temporary task path printed by `start`; an app-managed Worktree omits it:
 
 ```bash
@@ -45,7 +49,7 @@ scripts/git/codex-task.sh prepare <task-worktree>
 scripts/git/codex-task.sh prepare
 ```
 
-`prepare` requires clean state, commits ahead of `dev`, current `dev` ancestry, the recorded review base, and the ticket/spec footers for numbered branches. It never merges or pushes.
+`prepare` requires clean state, commits ahead of `dev`, current `dev` ancestry, the recorded review base, and the applicable traceability footers. It never merges or pushes.
 
 Run `code-review dev`. Resolve every confirmed actionable finding or obtain an explicit human acceptance; P0/P1 findings always block. If fixes add commits, rerun affected checks and review.
 
@@ -60,7 +64,7 @@ scripts/git/codex-task.sh cleanup <task-worktree>
 scripts/git/codex-task.sh cleanup
 ```
 
-The helper queries the PR through `gh`, requires the merged base to be `dev`, deletes the recorded review-base ref and local task branch, and removes helper-created Local worktrees. It leaves the remote branch to GitHub's delete-on-merge setting.
+The helper queries the PR through `gh`, requires the merged base to be `dev`, and verifies that the merged PR head is the current task commit. It then deletes the recorded review-base ref and local task branch and removes helper-created Local worktrees. It leaves the remote branch to GitHub's delete-on-merge setting.
 
 Before cleanup, the merging agent comments on the ticket with the PR, squash commit, verification, and `code-review` outcome; closes the ticket; and advances the parent spec state. The parent spec closes after every child ticket PR is integrated into `dev`.
 
@@ -94,12 +98,13 @@ The repository configuration tool is read-only by default:
 pnpm github:workflow:plan
 ```
 
-After reviewing that output, apply requires the exact repository and audited local `dev` SHA:
+Before the first remote `dev` creation, run the complete gate from `.github/workflows/ci.yml` against one clean local `dev` commit: frozen install, lint, typecheck, unit tests, and production-build Playwright tests. After reviewing the plan, apply requires that same SHA as both the audited source and the explicit CI attestation:
 
 ```bash
 pnpm github:workflow:apply -- \
   --confirm-repo brandon-y-lee/mei-pelle \
-  --confirm-dev-sha <audited-dev-sha>
+  --confirm-dev-sha <audited-dev-sha> \
+  --confirm-ci-sha <same-CI-verified-sha>
 ```
 
-The tool fails closed on missing authentication, the wrong repository, stale or divergent branch ancestry, unavailable repository facts, or insufficient collaborators for the required human production approval. Apply remains a separately approved remote mutation.
+The tool pushes the captured commit rather than the mutable branch name and rechecks remote `main`/`dev` immediately before that push. It fails closed on missing authentication, the wrong repository, stale or divergent branch ancestry, unavailable repository or issue-API facts, insufficient collaborators for the required human production approval, or mismatched confirmations. Apply remains a separately approved remote mutation.

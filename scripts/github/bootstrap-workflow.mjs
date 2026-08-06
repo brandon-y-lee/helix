@@ -58,10 +58,10 @@ function runGit(args, options = {}) {
 function parseArgs(argv) {
   const [mode, ...rest] = argv;
   if (mode !== "plan" && mode !== "apply") {
-    fail("usage: bootstrap-workflow.mjs <plan|apply> --repo <owner/repo> [--confirm-repo <owner/repo> --confirm-dev-sha <sha>]");
+    fail("usage: bootstrap-workflow.mjs <plan|apply> --repo <owner/repo> [--confirm-repo <owner/repo> --confirm-dev-sha <sha> --confirm-ci-sha <sha>]");
   }
 
-  const parsed = { mode, repo: "", confirmRepo: "", confirmDevSha: "" };
+  const parsed = { mode, repo: "", confirmRepo: "", confirmDevSha: "", confirmCiSha: "" };
   for (let index = 0; index < rest.length; index += 1) {
     const flag = rest[index];
     const value = rest[index + 1];
@@ -69,6 +69,7 @@ function parseArgs(argv) {
     if (flag === "--repo") parsed.repo = value;
     else if (flag === "--confirm-repo") parsed.confirmRepo = value;
     else if (flag === "--confirm-dev-sha") parsed.confirmDevSha = value;
+    else if (flag === "--confirm-ci-sha") parsed.confirmCiSha = value;
     else fail(`unknown option '${flag}'`);
     index += 1;
   }
@@ -164,22 +165,23 @@ function protectionMatches(observed, desired) {
   const contexts = observed.required_status_checks?.contexts ?? [];
   return (
     observed.required_status_checks?.strict === desired.required_status_checks.strict &&
+    contexts.length === desired.required_status_checks.contexts.length &&
     desired.required_status_checks.contexts.every((context) => contexts.includes(context)) &&
     enabled(observed.enforce_admins) === desired.enforce_admins &&
     observed.required_pull_request_reviews?.dismiss_stale_reviews ===
       desired.required_pull_request_reviews.dismiss_stale_reviews &&
+    observed.required_pull_request_reviews?.require_code_owner_reviews ===
+      desired.required_pull_request_reviews.require_code_owner_reviews &&
     observed.required_pull_request_reviews?.required_approving_review_count ===
       desired.required_pull_request_reviews.required_approving_review_count &&
+    observed.required_pull_request_reviews?.require_last_push_approval ===
+      desired.required_pull_request_reviews.require_last_push_approval &&
     enabled(observed.required_linear_history) === desired.required_linear_history &&
     enabled(observed.allow_force_pushes) === desired.allow_force_pushes &&
     enabled(observed.allow_deletions) === desired.allow_deletions &&
     enabled(observed.required_conversation_resolution) ===
       desired.required_conversation_resolution
   );
-}
-
-function addAction(actions, description, apply) {
-  actions.push({ description, apply });
 }
 
 function collectPlan(repo) {
@@ -201,6 +203,21 @@ function collectPlan(repo) {
     throw new Error(`default branch must remain 'main', found '${repository.defaultBranchRef?.name ?? "unknown"}'`);
   }
   if (!repository.hasIssuesEnabled) throw new Error("GitHub Issues must be enabled");
+
+  const issueCapability = runGh(
+    [
+      "api",
+      `repos/${repo}/issues?state=all&per_page=1`,
+      "-H",
+      `X-GitHub-Api-Version: ${API_VERSION}`,
+    ],
+    { allowFailure: true },
+  );
+  if (issueCapability.status !== 0) {
+    throw new Error(
+      `issue API capability could not be verified: ${(issueCapability.stderr || issueCapability.stdout).trim()}`,
+    );
+  }
 
   const localDevSha = runGit(["rev-parse", "dev"]).stdout.trim();
   const remoteBranches = readRemoteBranches();
@@ -232,19 +249,22 @@ function collectPlan(repo) {
       observed.color.toLowerCase() !== label.color.toLowerCase() ||
       (observed.description ?? "") !== label.description
     ) {
-      addAction(actions, `${observed ? "update" : "create"} label ${label.name}`, () => {
-        runGh([
-          "label",
-          "create",
-          label.name,
-          "--repo",
-          repo,
-          "--color",
-          label.color,
-          "--description",
-          label.description,
-          "--force",
-        ]);
+      actions.push({
+        description: `${observed ? "update" : "create"} label ${label.name}`,
+        apply: () => {
+          runGh([
+            "label",
+            "create",
+            label.name,
+            "--repo",
+            repo,
+            "--color",
+            label.color,
+            "--description",
+            label.description,
+            "--force",
+          ]);
+        },
       });
     }
   }
@@ -255,36 +275,51 @@ function collectPlan(repo) {
     repository.rebaseMergeAllowed === false &&
     repository.deleteBranchOnMerge === true;
   if (!repositorySettingsMatch) {
-    addAction(actions, "update repository merge settings", () => {
-      runGh(
-        [
-          "api",
-          "--method",
-          "PATCH",
-          `repos/${repo}`,
-          "-H",
-          `X-GitHub-Api-Version: ${API_VERSION}`,
-          "--input",
-          "-",
-        ],
-        {
-          input: JSON.stringify({
-            allow_merge_commit: true,
-            allow_squash_merge: true,
-            allow_rebase_merge: false,
-            delete_branch_on_merge: true,
-          }),
-        },
-      );
+    actions.push({
+      description: "update repository merge settings",
+      apply: () => {
+        runGh(
+          [
+            "api",
+            "--method",
+            "PATCH",
+            `repos/${repo}`,
+            "-H",
+            `X-GitHub-Api-Version: ${API_VERSION}`,
+            "--input",
+            "-",
+          ],
+          {
+            input: JSON.stringify({
+              allow_merge_commit: true,
+              allow_squash_merge: true,
+              allow_rebase_merge: false,
+              delete_branch_on_merge: true,
+            }),
+          },
+        );
+      },
     });
   }
 
   if (remoteDevSha !== localDevSha) {
-    addAction(
-      actions,
-      `${remoteDevSha ? "update" : "create"} remote dev at ${localDevSha}`,
-      () => runGit(["push", "origin", "dev:refs/heads/dev"]),
-    );
+    actions.push({
+      description: `${remoteDevSha ? "update" : "create"} remote dev at ${localDevSha}`,
+      apply: () => {
+        const currentRemoteBranches = readRemoteBranches();
+        const currentRemoteMainSha = currentRemoteBranches.get("main");
+        const currentRemoteDevSha = currentRemoteBranches.get("dev");
+        if (currentRemoteMainSha !== remoteMainSha || currentRemoteDevSha !== remoteDevSha) {
+          throw new Error("remote main or dev changed after planning; rerun plan and apply");
+        }
+        if (!isAncestor(currentRemoteMainSha, localDevSha)) {
+          throw new Error(
+            `confirmed dev ${localDevSha} no longer contains remote main ${currentRemoteMainSha}`,
+          );
+        }
+        runGit(["push", "origin", `${localDevSha}:refs/heads/dev`]);
+      },
+    });
   }
 
   const collaborators = parseJson(
@@ -305,20 +340,23 @@ function collectPlan(repo) {
     const desired = desiredProtection(branch);
     const observed = readProtection(repo, branch);
     if (!protectionMatches(observed, desired)) {
-      addAction(actions, `protect ${branch}`, () => {
-        runGh(
-          [
-            "api",
-            "--method",
-            "PUT",
-            `repos/${repo}/branches/${branch}/protection`,
-            "-H",
-            `X-GitHub-Api-Version: ${API_VERSION}`,
-            "--input",
-            "-",
-          ],
-          { input: JSON.stringify(desired) },
-        );
+      actions.push({
+        description: `protect ${branch}`,
+        apply: () => {
+          runGh(
+            [
+              "api",
+              "--method",
+              "PUT",
+              `repos/${repo}/branches/${branch}/protection`,
+              "-H",
+              `X-GitHub-Api-Version: ${API_VERSION}`,
+              "--input",
+              "-",
+            ],
+            { input: JSON.stringify(desired) },
+          );
+        },
       });
     }
   }
@@ -346,6 +384,9 @@ function main() {
 
   if (options.confirmDevSha !== plan.localDevSha) {
     fail(`apply requires --confirm-dev-sha ${plan.localDevSha}`);
+  }
+  if (options.confirmCiSha !== plan.localDevSha) {
+    fail(`apply requires --confirm-ci-sha ${plan.localDevSha}`);
   }
 
   try {

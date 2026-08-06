@@ -56,7 +56,11 @@ classify_slug() {
           fail "slug must start with an issue number, 'plan-', or 'trivial-'"
           ;;
       esac
-      task_kind=ticket
+      ticket_suffix=${task_slug#*-}
+      case "$ticket_suffix" in
+        urgent-?*) task_kind=urgent ;;
+        *) task_kind=ticket ;;
+      esac
       ;;
     *) fail "slug must start with an issue number, 'plan-', or 'trivial-'" ;;
   esac
@@ -197,15 +201,19 @@ prepare_task() {
 
   review_base=$(git -C "$task_repository" rev-parse dev)
   recorded_base=$(git -C "$task_repository" rev-parse "$task_review_ref")
-  if [ "$task_kind" = ticket ]; then
+  if [ "$task_kind" = ticket ] || [ "$task_kind" = urgent ]; then
     commit_messages=$(git -C "$task_repository" log --format=%B dev..HEAD)
     printf '%s\n' "$commit_messages" | grep -Eq "^Refs #${ticket_number}[[:space:]]*$" ||
       fail "ticket commits must include a 'Refs #$ticket_number' footer"
-    spec_number=$(printf '%s\n' "$commit_messages" |
-      sed -n 's/^Spec #\([0-9][0-9]*\)[[:space:]]*$/\1/p' |
-      tail -n 1)
-    [ -n "$spec_number" ] || fail "ticket commits must include a 'Spec #<number>' footer"
-    printf 'Traceability: Refs #%s; Spec #%s\n' "$ticket_number" "$spec_number"
+    if [ "$task_kind" = urgent ]; then
+      printf 'Urgent fast path: Refs #%s; no parent spec\n' "$ticket_number"
+    else
+      spec_number=$(printf '%s\n' "$commit_messages" |
+        sed -n 's/^Spec #\([0-9][0-9]*\)[[:space:]]*$/\1/p' |
+        tail -n 1)
+      [ -n "$spec_number" ] || fail "ticket commits must include a 'Spec #<number>' footer"
+      printf 'Traceability: Refs #%s; Spec #%s\n' "$ticket_number" "$spec_number"
+    fi
   fi
 
   printf 'Recorded start base: %s\n' "$recorded_base"
@@ -228,8 +236,8 @@ cleanup_task() {
       --head "$task_branch" \
       --base dev \
       --limit 1 \
-      --json state,baseRefName,mergedAt \
-      --jq '.[0] | [.state, .baseRefName, .mergedAt] | @tsv' 2>/dev/null
+      --json state,baseRefName,mergedAt,headRefOid \
+      --jq '.[0] | [.state, .baseRefName, .mergedAt, .headRefOid] | @tsv' 2>/dev/null
   ) || fail "could not verify a GitHub PR for '$task_branch'"
 
   tab=$(printf '\t')
@@ -240,9 +248,13 @@ cleanup_task() {
   pr_state=${1:-}
   pr_base=${2:-}
   pr_merged_at=${3:-}
+  pr_head=${4:-}
   if [ "$pr_state" != MERGED ] || [ "$pr_base" != dev ] || [ -z "$pr_merged_at" ]; then
     fail "PR must be merged into dev before cleanup"
   fi
+  task_head=$(git -C "$task_repository" rev-parse HEAD)
+  [ "$pr_head" = "$task_head" ] ||
+    fail "merged PR head does not match current task commit"
 
   if [ "$generated_task_worktree" -eq 1 ] && [ "$invocation_root" = "$task_repository" ]; then
     fail "clean up this Local task from the shared checkout: scripts/git/codex-task.sh cleanup $task_repository"
