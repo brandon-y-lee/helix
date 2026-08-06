@@ -1,88 +1,105 @@
 # Git workflow
 
-Mei Pelle uses two long-lived branches:
+This document owns branch, worktree, PR, integration, and release mechanics. The delivery lifecycle that selects and authorizes work lives in [`docs/agents/engineering-workflow.md`](./agents/engineering-workflow.md).
 
-- `main` is the production branch.
+## Branch topology
+
+- `main` is the default and production branch.
 - `dev` is the staging and integration branch.
+- `codex/<issue-number>-<slug>` implements one approved ticket.
+- `codex/plan-<slug>` carries domain documentation resolved during planning.
+- `codex/trivial-<slug>` is the bounded non-behavioral fast path.
 
-Every Codex task starts from the current local `dev` commit, runs on a short-lived
-`codex/<slug>` branch in an isolated worktree, and returns to `dev` only after the
-task is complete and its relevant verification passes.
+All short-lived branches target `dev` through a PR. Ticket PRs squash-merge; the human-approved `dev → main` promotion uses a regular merge commit. Force-pushes and direct task merges to long-lived branches are outside the workflow.
 
-## Start a Codex task
+## Start an isolated task
 
-New Codex threads may start in either an app-managed Worktree or the shared Local
-checkout. Before editing, run:
+Run from a clean checkout before the first repository edit:
 
 ```bash
-scripts/git/codex-task.sh start <slug>
+scripts/git/codex-task.sh start <issue-number>-<slug>
+scripts/git/codex-task.sh start plan-<slug>
+scripts/git/codex-task.sh start trivial-<slug>
 ```
 
-The command requires a clean checkout and creates `codex/<slug>` from the current
-local `dev` head:
+The helper creates the task from local `dev` and records `refs/codex/review-base/<slug>`.
 
-- In an app-managed Worktree, it moves that detached worktree to `dev` and creates
-  the task branch in place.
-- In the shared Local checkout, it leaves the shared files available to other
-  threads, parks a clean shared `dev` checkout in detached mode, and creates a
-  separate temporary task worktree. The command prints `Task worktree: <path>`;
-  Codex must use that path for every subsequent edit, command, test, and commit.
+- In the shared Local checkout, it creates a temporary worktree and prints its path. Use that path for every task command.
+- In an app-managed Worktree, it creates the branch in place.
 
-This prevents Local threads from refusing the workflow or sharing one mutable
-checkout while concurrent tasks are running.
+The command fails on dirty state, a missing local `dev`, an existing task branch or review-base ref, or a slug outside the three workflow classes.
 
-Use a lowercase, filesystem-safe slug such as `cart-error-state`. Do not commit
-directly on `dev` or `main`.
+## Prepare for review and PR
 
-## Complete and integrate a task
+Commit the implementation before `code-review`; the review compares committed changes against `dev`. Ticket commits include both footers:
 
-Commit only task-related changes. Run the smallest complete verification set for
-the affected behavior. Then make sure the task contains the latest `dev`:
+```text
+Refs #<ticket-number>
+Spec #<parent-spec-number>
+```
+
+From the shared checkout, pass the temporary task path printed by `start`; an app-managed Worktree omits it:
+
+```bash
+scripts/git/codex-task.sh prepare <task-worktree>
+scripts/git/codex-task.sh prepare
+```
+
+`prepare` requires clean state, commits ahead of `dev`, current `dev` ancestry, the recorded review base, and the ticket/spec footers for numbered branches. It never merges or pushes.
+
+Run `code-review dev`. Resolve every confirmed actionable finding or obtain an explicit human acceptance; P0/P1 findings always block. If fixes add commits, rerun affected checks and review.
+
+After review passes, push the branch and open a ready PR targeting `dev`. The PR body follows `.github/PULL_REQUEST_TEMPLATE.md`. GitHub CI is the executable merge gate. An approved ticket authorizes the implementing agent to squash-merge after CI passes.
+
+## Clean up after merge
+
+After GitHub reports the PR merged into `dev`, run:
+
+```bash
+scripts/git/codex-task.sh cleanup <task-worktree>
+scripts/git/codex-task.sh cleanup
+```
+
+The helper queries the PR through `gh`, requires the merged base to be `dev`, deletes the recorded review-base ref and local task branch, and removes helper-created Local worktrees. It leaves the remote branch to GitHub's delete-on-merge setting.
+
+Before cleanup, the merging agent comments on the ticket with the PR, squash commit, verification, and `code-review` outcome; closes the ticket; and advances the parent spec state. The parent spec closes after every child ticket PR is integrated into `dev`.
+
+## Concurrent tickets and an advancing dev
+
+Only open, unblocked, unassigned `type:ticket` issues on the frontier are claimable. Independent tickets may run concurrently, but PRs integrate sequentially. When `dev` advances:
 
 ```bash
 git merge dev
 ```
 
-If that merge changes the task branch, resolve any conflicts and rerun the
-affected checks. After an app-managed Worktree task is complete, clean, and
-verified, integrate it from that worktree:
+Resolve conflicts, repeat affected verification and `code-review`, then rerun `prepare`. Preserve the merge in the task branch; the final PR still squash-merges to one ticket commit.
+
+## Staging and production
+
+Each merge into `dev` receives CI and the staging deployment configured for that branch. Production promotion requires:
+
+1. the complete intended spec set integrated into `dev`;
+2. full CI-equivalent verification and staging inspection;
+3. a `dev → main` PR;
+4. green required checks; and
+5. at least one human approval.
+
+Merge the promotion with a regular merge commit. Production authority, live-mode changes, and destructive remote operations remain human-controlled.
+
+## GitHub bootstrap
+
+The repository configuration tool is read-only by default:
 
 ```bash
-scripts/git/codex-task.sh merge
+pnpm github:workflow:plan
 ```
 
-For a Local task, use the exact command printed by `start` and run it from the
-shared checkout:
+After reviewing that output, apply requires the exact repository and audited local `dev` SHA:
 
 ```bash
-scripts/git/codex-task.sh merge <task-worktree>
+pnpm github:workflow:apply -- \
+  --confirm-repo brandon-y-lee/mei-pelle \
+  --confirm-dev-sha <audited-dev-sha>
 ```
 
-The merge command enforces these conditions:
-
-- the current branch is named `codex/*`;
-- the worktree is clean and contains commits ahead of `dev`;
-- the current `dev` commit is an ancestor of the task;
-- `dev` can be checked out in a temporary integration worktree; and
-- the integration is a fast-forward, so the verified task commit is exactly the
-  commit installed on `dev`.
-
-On success, it removes the temporary integration worktree, detaches the task at
-the new `dev` head, and deletes the merged task branch. It also removes task
-worktrees created for Local threads. Codex-managed worktree cleanup remains the
-desktop app's responsibility.
-
-If another task is integrating, or a long-lived checkout currently owns `dev`,
-the command exits without changing `dev`. Wait for the other integration to
-finish or switch that checkout away from `dev`, then retry. If `dev` advanced,
-merge it into the task branch and reverify before retrying.
-
-## CI, staging, and production
-
-CI runs for pushes and pull requests targeting either `dev` or `main`. Pushing is
-not automatic: local task integration advances only the local `dev` branch.
-
-Push `dev` only when explicitly requested and use its Vercel preview deployment as
-the staging environment. Promote `dev` to `main` through an explicit reviewed
-pull request after staging and CI pass. Never merge a task branch directly to
-`main`, force-push either long-lived branch, or promote unverified work.
+The tool fails closed on missing authentication, the wrong repository, stale or divergent branch ancestry, unavailable repository facts, or insufficient collaborators for the required human production approval. Apply remains a separately approved remote mutation.

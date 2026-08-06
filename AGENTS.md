@@ -70,17 +70,27 @@ Target WCAG 2.2 AA. Prevent layout shift and horizontal overflow, keep client bu
 
 ## 8. Git and Integration
 
-Preserve uncommitted user work, review the final diff for scope drift and unnecessary complexity, and commit only completed task-related work. Do not push unless requested. Do not amend, reset, force-push, or rewrite unrelated history. Remove completed temporary worktrees.
+Preserve uncommitted user work, review the final diff for scope drift and unnecessary complexity, and commit only completed task-related work. Preserve history: use additive commits and PRs rather than amend, reset, force-push, or unrelated rewrites.
 
-### Codex task branches
+### Canonical delivery workflow
 
-- `main` is the production branch. `dev` is the staging and integration branch; task work never merges directly to `main`.
-- Before editing, run `scripts/git/codex-task.sh start <slug>` from a clean checkout. In an app-managed Worktree it creates `codex/<slug>` in place; in the shared Local checkout it creates a separate temporary task worktree from the latest local `dev` commit. If it prints `Task worktree: <path>`, use that path as the working directory for every subsequent edit, command, test, and commit in the task.
-- Work and commit only on the task branch. If `dev` advances, merge `dev` into the task branch and rerun all affected verification.
-- Only after the task is complete and the relevant checks pass, run the merge command printed by `start`: `scripts/git/codex-task.sh merge` inside an app-managed Worktree, or `scripts/git/codex-task.sh merge <task-worktree>` from the shared checkout for a Local task. The command fast-forwards `dev`, detaches and deletes the merged task branch, and removes helper-created task worktrees.
-- Never merge incomplete, unverified, dirty, or conflicted work. Keep `dev` free from long-lived checkout so the guarded merge can acquire it. Do not push `dev` or promote `dev` to `main` unless the user explicitly requests it.
+For planned features, behavior changes, bugs, refactors, production fixes, or security fixes, read `docs/agents/engineering-workflow.md` before creating issues, branches, commits, or PRs. The canonical sequence is:
 
-See `docs/git-workflow.md` for the full operator workflow and recovery steps.
+```text
+grill-with-docs | wayfinder → to-spec → to-tickets → implement → code-review → PR → CI → dev
+```
+
+The user approves shared understanding, the specification, and the ticket breakdown. An approved implementation ticket authorizes its issue updates, branch push, PR, and merge into `dev` after review and CI pass. Production promotion from `dev` to `main` always requires explicit human approval.
+
+### Branch safety
+
+- `main` is production; `dev` is staging and integration. Ticket and planning work enters `dev` through PRs and never merges directly to `main`.
+- Before a repository edit, start an isolated worktree with `scripts/git/codex-task.sh start <issue-number>-<slug>` or `scripts/git/codex-task.sh start plan-<slug>`. The trivial fast path uses `trivial-<slug>`.
+- Use the printed task worktree for every subsequent edit, command, test, and commit. Before review and push, run the printed `prepare` command.
+- If `dev` advances, merge it into the task branch and repeat affected verification and `code-review`.
+- After the PR is merged into `dev`, use `scripts/git/codex-task.sh cleanup [task-worktree]`. The helper verifies the merged PR before deleting local task state.
+
+See `docs/git-workflow.md` for Git mechanics and recovery.
 
 ## 9. Reporting
 
@@ -111,3 +121,7 @@ The five canonical triage roles use their default label names. See `docs/agents/
 ### Domain docs
 
 This is a single-context repository with domain context at the root. See `docs/agents/domain.md`.
+
+### Engineering workflow
+
+Substantial delivery work follows the issue, review, PR, and release state machine in `docs/agents/engineering-workflow.md`.

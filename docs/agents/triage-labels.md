@@ -13,3 +13,17 @@ The skills speak in terms of five canonical triage roles. This file maps those r
 When a skill mentions a role (e.g. "apply the AFK-ready triage label"), use the corresponding label string from this table.
 
 Edit the right-hand column to match whatever vocabulary you actually use.
+
+## Delivery labels
+
+These labels add artifact type and lifecycle state without changing the five canonical triage roles.
+
+| Label | Meaning |
+| --- | --- |
+| `type:spec` | Approved delivery specification |
+| `type:ticket` | Implementable vertical slice |
+| `workflow:planned` | Approved spec decomposed into tickets |
+| `workflow:in-progress` | Claimed work in progress |
+| `workflow:review` | Implementation awaiting review or CI |
+
+Wayfinder uses `wayfinder:map`, `wayfinder:research`, `wayfinder:prototype`, `wayfinder:grilling`, and `wayfinder:task`.
