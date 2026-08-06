@@ -14,6 +14,18 @@ import { describe, expect, it } from "vitest";
 const projectRoot = process.cwd();
 const taskHelper = resolve(projectRoot, "scripts/git/codex-task.sh");
 const bootstrapTool = resolve(projectRoot, "scripts/github/bootstrap-workflow.mjs");
+const ciWorkflow = readFileSync(
+  resolve(projectRoot, ".github/workflows/ci.yml"),
+  "utf8",
+);
+
+const ciPublicRuntimeSecrets = [
+  "NEXT_PUBLIC_SUPABASE_URL",
+  "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+  "NEXT_PUBLIC_ALGOLIA_APP_ID",
+  "NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY",
+  "NEXT_PUBLIC_ALGOLIA_INDEX_NAME",
+] as const;
 
 type CommandResult = SpawnSyncReturns<string>;
 type RunOptions = {
@@ -89,6 +101,18 @@ function commitTicket(worktree: string, ticket = 123, spec?: number): void {
 function cleanupFixture(tempRoot: string): void {
   rmSync(tempRoot, { recursive: true, force: true });
 }
+
+describe("GitHub Actions CI", () => {
+  it("receives the approved public runtime configuration from repository secrets", () => {
+    for (const key of ciPublicRuntimeSecrets) {
+      expect(ciWorkflow).toContain(`${key}: \${{ secrets.${key} }}`);
+    }
+
+    expect(ciWorkflow).not.toContain("SUPABASE_SERVICE_ROLE_KEY");
+    expect(ciWorkflow).not.toContain("ALGOLIA_WRITE_API_KEY");
+    expect(ciWorkflow).not.toContain("ALGOLIA_ADMIN_API_KEY");
+  });
+});
 
 describe("Codex workflow task helper", () => {
   it("starts ticket and planning worktrees with recorded review bases", () => {
