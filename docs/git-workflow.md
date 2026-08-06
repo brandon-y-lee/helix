@@ -86,9 +86,9 @@ Each merge into `dev` receives CI and the staging deployment configured for that
 2. full CI-equivalent verification and staging inspection;
 3. a `dev → main` PR;
 4. green required checks; and
-5. at least one human approval.
+5. explicit user authorization to promote the inspected commit.
 
-Merge the promotion with a regular merge commit. Production authority, live-mode changes, and destructive remote operations remain human-controlled.
+The solo maintainer does not self-approve the PR through GitHub; branch protection requires zero approving reviews. Merge the authorized promotion with a regular merge commit. Production authority, live-mode changes, and destructive remote operations remain human-controlled.
 
 ## GitHub bootstrap
 
@@ -107,4 +107,4 @@ pnpm github:workflow:apply -- \
   --confirm-ci-sha <same-CI-verified-sha>
 ```
 
-The tool pushes the captured commit rather than the mutable branch name and rechecks remote `main`/`dev` immediately before that push. It fails closed on missing authentication, the wrong repository, stale or divergent branch ancestry, unavailable repository or issue-API facts, insufficient collaborators for the required human production approval, or mismatched confirmations. Apply remains a separately approved remote mutation.
+The tool pushes the captured commit rather than the mutable branch name and rechecks remote `main`/`dev` immediately before that push. It fails closed on missing authentication, the wrong repository, stale or divergent branch ancestry, unavailable repository or issue-API facts, or mismatched confirmations. Apply remains a separately approved remote mutation.

@@ -246,6 +246,7 @@ type FakeGithubState = {
   repo: Record<string, unknown>;
   labels: Array<{ name: string; color: string; description: string }>;
   protections: Record<string, unknown>;
+  collaborators?: Array<{ login: string; permissions: { push: boolean } }>;
   failAuth?: boolean;
   failIssues?: boolean;
   advanceDev?: boolean;
@@ -302,7 +303,7 @@ if (args[0] === "api") {
   const method = methodIndex === -1 ? "GET" : args[methodIndex + 1];
   const endpoint = args.find((arg) => arg.startsWith("repos/"));
   if (method === "GET" && endpoint?.endsWith("/collaborators?affiliation=direct")) {
-    process.stdout.write(JSON.stringify([
+    process.stdout.write(JSON.stringify(state.collaborators ?? [
       { login: "owner", permissions: { push: true } },
       { login: "reviewer", permissions: { push: true } }
     ]));
@@ -483,7 +484,7 @@ describe("GitHub workflow bootstrap", () => {
     }
   });
 
-  it("applies only missing state and becomes a no-op on the next plan", () => {
+  it("applies solo-maintainer protection and becomes a no-op on the next plan", () => {
     const { root, tempRoot, devSha } = initialiseRemoteRepository();
     try {
       const statePath = join(tempRoot, "github-state.json");
@@ -502,6 +503,7 @@ describe("GitHub workflow bootstrap", () => {
           },
           labels: [],
           protections: {},
+          collaborators: [{ login: "owner", permissions: { push: true } }],
         }),
       );
       const fakeGh = writeFakeGh(tempRoot, logPath);
@@ -524,6 +526,11 @@ describe("GitHub workflow bootstrap", () => {
       expectSuccess(applied);
       expect(applied.stdout).toContain("Applied GitHub workflow configuration.");
       expectSuccess(git(root, "ls-remote", "--exit-code", "--heads", "origin", "dev"));
+      const state = JSON.parse(readFileSync(statePath, "utf8"));
+      expect(
+        state.protections.main.required_pull_request_reviews.required_approving_review_count,
+      ).toBe(0);
+      expect(readFileSync(logPath, "utf8")).not.toContain("collaborators");
 
       writeFileSync(logPath, "");
       const plannedAgain = bootstrap(
@@ -541,7 +548,6 @@ describe("GitHub workflow bootstrap", () => {
       expect(readFileSync(logPath, "utf8")).not.toContain('"PATCH"');
       expect(readFileSync(logPath, "utf8")).not.toContain('"PUT"');
 
-      const state = JSON.parse(readFileSync(statePath, "utf8"));
       state.protections.dev.required_pull_request_reviews.require_code_owner_reviews = true;
       writeFileSync(statePath, JSON.stringify(state));
       const approvalDrift = bootstrap(
