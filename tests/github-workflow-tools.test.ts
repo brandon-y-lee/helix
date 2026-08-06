@@ -246,7 +246,6 @@ type FakeGithubState = {
   repo: Record<string, unknown>;
   labels: Array<{ name: string; color: string; description: string }>;
   protections: Record<string, unknown>;
-  collaborators?: Array<{ login: string; permissions: { push: boolean } }>;
   failAuth?: boolean;
   failIssues?: boolean;
   advanceDev?: boolean;
@@ -302,13 +301,6 @@ if (args[0] === "api") {
   const methodIndex = args.findIndex((arg) => arg === "--method" || arg === "-X");
   const method = methodIndex === -1 ? "GET" : args[methodIndex + 1];
   const endpoint = args.find((arg) => arg.startsWith("repos/"));
-  if (method === "GET" && endpoint?.endsWith("/collaborators?affiliation=direct")) {
-    process.stdout.write(JSON.stringify(state.collaborators ?? [
-      { login: "owner", permissions: { push: true } },
-      { login: "reviewer", permissions: { push: true } }
-    ]));
-    process.exit(0);
-  }
   if (method === "GET" && endpoint?.endsWith("/issues?state=all&per_page=1")) {
     if (state.failIssues) {
       process.stderr.write("gh: Forbidden (HTTP 403)\\n");
@@ -503,7 +495,6 @@ describe("GitHub workflow bootstrap", () => {
           },
           labels: [],
           protections: {},
-          collaborators: [{ login: "owner", permissions: { push: true } }],
         }),
       );
       const fakeGh = writeFakeGh(tempRoot, logPath);
