@@ -84,7 +84,11 @@ test("shop renders seeded products and combines filtering with sorting", async (
     page.getByRole("link", { name: "REFINE", exact: true }),
   ).toHaveCount(0);
 
-  await page.getByLabel("Sort products").selectOption("name-desc");
+  await page.getByRole("button", { name: "Sort: Featured" }).click();
+  await page
+    .getByRole("dialog", { name: "Sort products" })
+    .getByRole("button", { name: "Name, Z–A" })
+    .click();
   await expect(page.locator(".product-card__name").first()).toHaveText(
     "TREAT",
   );
@@ -96,7 +100,9 @@ test("shop renders seeded products and combines filtering with sorting", async (
   await beyond.click();
   await expect(page).toHaveURL(/\/collections\/beyond-the-core$/);
   await expect(beyond).toHaveAttribute("aria-current", "page");
-  await expect(page.getByLabel("Sort products")).toHaveValue("featured");
+  await expect(
+    page.getByRole("button", { name: "Sort: Featured" }),
+  ).toBeVisible();
   await expect(page.locator(".product-count")).toHaveText("3 products");
   await expect(
     page.getByRole("link", { name: "CLEANSE", exact: true }),
@@ -314,14 +320,15 @@ test("cart outage remains retryable without reporting an unknown cart as empty",
   });
 
   await page.goto("/cart");
+  const cartPage = page.locator("#content");
   await expect(
-    page.getByText("Your cart is temporarily unavailable."),
+    cartPage.getByText("Your cart is temporarily unavailable."),
   ).toBeVisible();
-  await expect(page.getByText("Your cart is empty.")).toHaveCount(0);
+  await expect(cartPage.getByText("Your cart is empty.")).toHaveCount(0);
 
   available = true;
-  await page.getByRole("button", { name: "Try again" }).click();
-  await expect(page.getByText("Your cart is empty.")).toBeVisible();
+  await cartPage.getByRole("button", { name: "Try again" }).click();
+  await expect(cartPage.getByText("Your cart is empty.")).toBeVisible();
   await expect(
     page.getByRole("button", { name: /CART \(0\)/ }),
   ).toBeVisible();
