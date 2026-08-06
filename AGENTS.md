@@ -97,3 +97,17 @@ For meaningful tasks, report concisely:
 - final commit hash and local run command
 
 Do not restate the full prompt.
+
+## Agent skills
+
+### Issue tracker
+
+Issues and specs are tracked in this repository’s GitHub Issues. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The five canonical triage roles use their default label names. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+This is a single-context repository with domain context at the root. See `docs/agents/domain.md`.
