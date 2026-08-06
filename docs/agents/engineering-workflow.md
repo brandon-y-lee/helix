@@ -41,12 +41,12 @@ An eligible ticket is open, unblocked, unassigned, `type:ticket`, and `ready-for
 1. Assign the ticket before work; replace `ready-for-agent` with `workflow:in-progress`.
 2. Start `codex/<ticket-number>-<slug>` from `dev` using the task helper.
 3. Implement with TDD at the approved seams. Run the smallest complete relevant local verification set; security, payment, data, and cross-cutting changes receive broader checks.
-4. Commit with `Refs #<ticket>` and `Spec #<parent>` footers.
+4. Commit with `Refs #<ticket>` and `Spec #<parent>` footers. The urgent fast path uses only `Refs #<ticket>`.
 5. Run the helper's `prepare`, then `code-review dev` on the committed diff.
 6. Fix and rereview every confirmed actionable finding unless the user explicitly accepts it. P0/P1 findings always block.
 7. Replace `workflow:in-progress` with `workflow:review`, push, and open a ready PR into `dev`.
 8. Let GitHub CI run the full install, lint, typecheck, unit, build, and Playwright gate.
-9. After review and CI pass, squash-merge. Comment with the PR, integrated commit, checks, and review result; close the ticket; update the parent spec; clean up the worktree.
+9. After review and CI pass, squash-merge. Comment with the PR, integrated commit, checks, and review result; close the ticket; update the parent spec when one exists; clean up the worktree.
 
 If `dev` advances before integration, merge it into the ticket branch and repeat every affected verification and review step.
 

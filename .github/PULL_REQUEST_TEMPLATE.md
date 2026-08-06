@@ -1,7 +1,8 @@
-## Ticket
+## Workflow path
 
-Refs #<!-- implementation ticket -->
-Spec #<!-- parent specification -->
+- Path: <!-- normal ticket | urgent ticket | planning | trivial -->
+- Refs: <!-- #implementation-ticket for normal/urgent; N/A for planning/trivial -->
+- Spec: <!-- #parent-spec for normal ticket; N/A for urgent/planning/trivial -->
 
 ## What changed
 
@@ -20,4 +21,4 @@ Spec #<!-- parent specification -->
 
 ## Scope and follow-up
 
-<!-- State whether scope stayed within the ticket. Link approved follow-up tickets. -->
+<!-- State whether scope stayed within the approved path. Link approved follow-up tickets. -->
