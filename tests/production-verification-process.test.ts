@@ -44,42 +44,55 @@ const PROCESS_TREE_SCRIPT = [
 
 const ORPHAN_PROCESS_SCRIPT = [
   "const { spawn } = require('node:child_process');",
-  "const { writeFileSync } = require('node:fs');",
-  "const child = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore' });",
-  "child.unref();",
-  "writeFileSync(process.argv[1], JSON.stringify({ child: child.pid }));",
+  "const intermediate = Buffer.from(process.argv[2], 'base64').toString('utf8');",
+  "spawn(process.execPath, ['-e', intermediate, process.argv[1]], { stdio: 'ignore' });",
 ].join(" ");
 
+const ORPHAN_INTERMEDIATE_SCRIPT = Buffer.from(
+  [
+    "const { spawn } = require('node:child_process');",
+    "const { writeFileSync } = require('node:fs');",
+    "const child = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore' });",
+    "child.unref();",
+    "writeFileSync(process.argv[1], JSON.stringify({ child: child.pid }));",
+  ].join(" "),
+  "utf8",
+).toString("base64");
+
 describe("Production Verification Node Adapters", () => {
-  it("starts and cleans up a complete owned process tree", async () => {
-    const cwd = await mkdtemp(resolve(tmpdir(), "mei-pelle-process-tree-"));
-    const pidFile = resolve(cwd, "pids.json");
-    const owned = await spawnOwnedProcess({
-      args: ["-e", PROCESS_TREE_SCRIPT, pidFile],
-      command: process.execPath,
-      cwd,
-      env: process.env,
-      stdio: "ignore",
-    });
+  it(
+    "starts and cleans up a complete owned process tree",
+    async () => {
+      const cwd = await mkdtemp(resolve(tmpdir(), "mei-pelle-process-tree-"));
+      const pidFile = resolve(cwd, "pids.json");
+      const owned = await spawnOwnedProcess({
+        args: ["-e", PROCESS_TREE_SCRIPT, pidFile],
+        command: process.execPath,
+        cwd,
+        env: process.env,
+        stdio: "ignore",
+      });
 
-    try {
-      await waitUntil(() => existsSync(pidFile));
-      const pids = JSON.parse(await readFile(pidFile, "utf8")) as {
-        child: number;
-        parent: number;
-      };
-      expect(processIsAlive(pids.parent)).toBe(true);
-      expect(processIsAlive(pids.child)).toBe(true);
+      try {
+        await waitUntil(() => existsSync(pidFile));
+        const pids = JSON.parse(await readFile(pidFile, "utf8")) as {
+          child: number;
+          parent: number;
+        };
+        expect(processIsAlive(pids.parent)).toBe(true);
+        expect(processIsAlive(pids.child)).toBe(true);
 
-      await owned.stop();
-      await waitUntil(
-        () => !processIsAlive(pids.parent) && !processIsAlive(pids.child),
-      );
-    } finally {
-      await owned.stop();
-      await rm(cwd, { force: true, recursive: true });
-    }
-  });
+        await owned.stop();
+        await waitUntil(
+          () => !processIsAlive(pids.parent) && !processIsAlive(pids.child),
+        );
+      } finally {
+        await owned.stop();
+        await rm(cwd, { force: true, recursive: true });
+      }
+    },
+    10_000,
+  );
 
   it("interrupts an owned command and cleans up its process tree", async () => {
     const cwd = await mkdtemp(resolve(tmpdir(), "mei-pelle-process-interrupt-"));
@@ -151,7 +164,12 @@ describe("Production Verification Node Adapters", () => {
 
       try {
         await runOwnedCommand({
-          args: ["-e", ORPHAN_PROCESS_SCRIPT, pidFile],
+          args: [
+            "-e",
+            ORPHAN_PROCESS_SCRIPT,
+            pidFile,
+            ORPHAN_INTERMEDIATE_SCRIPT,
+          ],
           command: process.execPath,
           cwd,
           env: process.env,
@@ -249,6 +267,25 @@ describe("Production Verification Node Adapters", () => {
         requestStop: async () => {
           throw new Error("graceful shutdown unavailable");
         },
+      },
+      { wait: async () => {} },
+    );
+
+    expect(forceStop).toHaveBeenCalledOnce();
+  });
+
+  it("force-stops after the grace deadline when a shutdown request hangs", async () => {
+    let running = true;
+    const forceStop = vi.fn(async () => {
+      running = false;
+    });
+
+    await stopProcessTree(
+      {
+        exited: new Promise(() => {}),
+        forceStop,
+        isRunning: () => running,
+        requestStop: () => new Promise(() => {}),
       },
       { wait: async () => {} },
     );

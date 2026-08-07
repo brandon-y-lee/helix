@@ -154,6 +154,17 @@ export class ProductionVerificationChildError extends Error {
   }
 }
 
+export class ProductionVerificationCleanupError extends Error {
+  constructor(
+    message: string,
+    readonly cleanupFailure: Error,
+    options?: ErrorOptions,
+  ) {
+    super(message, options);
+    this.name = "ProductionVerificationCleanupError";
+  }
+}
+
 function asError(error: unknown): Error {
   return error instanceof Error ? error : new Error(String(error));
 }
@@ -215,6 +226,10 @@ export async function verifyFreshProductionArtifact(
       report(phase, "passed");
       return value;
     } catch (error) {
+      if (error instanceof ProductionVerificationCleanupError) {
+        report(phase, "passed");
+        throw error;
+      }
       const cause = asError(error);
       const failure = new ProductionVerificationError(
         phase,
@@ -281,12 +296,25 @@ export async function verifyFreshProductionArtifact(
     );
     result = { baseURL, buildId: buildId!, port: port! };
   } catch (error) {
-    primaryFailure =
-      error instanceof ProductionVerificationError
-        ? error
-        : new ProductionVerificationError("preflight", asError(error).message, undefined, {
-            cause: error,
-          });
+    if (error instanceof ProductionVerificationCleanupError) {
+      primaryFailure = new ProductionVerificationError(
+        "cleanup",
+        error.message,
+        undefined,
+        { cause: error },
+      );
+      primaryFailure.cleanupFailure = error.cleanupFailure;
+    } else {
+      primaryFailure =
+        error instanceof ProductionVerificationError
+          ? error
+          : new ProductionVerificationError(
+              "preflight",
+              asError(error).message,
+              undefined,
+              { cause: error },
+            );
+    }
   } finally {
     if (lock) {
       report("cleanup", "started");

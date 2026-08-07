@@ -29,6 +29,14 @@ describe("Production Verification Commands", () => {
     expect(workflow).toContain(
       "pnpm vitest run tests/production-verification.test.ts tests/production-verification-process.test.ts",
     );
+
+    const windowsRunner = await readFile(
+      resolve(process.cwd(), "scripts/production-verification-windows.ps1"),
+      "utf8",
+    );
+    expect(windowsRunner).toContain("CREATE_SUSPENDED");
+    expect(windowsRunner).toContain("AssignProcessToJobObject");
+    expect(windowsRunner).toContain("JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE");
   });
 
   it("rejects direct Playwright use with supported-command guidance", () => {

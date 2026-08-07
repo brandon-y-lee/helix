@@ -4,6 +4,7 @@ import { open, readFile, readdir, unlink } from "node:fs/promises";
 import { resolve } from "node:path";
 import {
   ProductionVerificationChildError,
+  ProductionVerificationCleanupError,
   type ProductionVerificationChildExit,
   type ProductionVerificationDiagnostic,
   type ProductionVerificationLock,
@@ -14,6 +15,7 @@ const CHECKOUT_LOCK_NAME = ".mei-pelle-production-verification.lock";
 const CHECKOUT_LOCK_RECOVERY_PREFIX = `${CHECKOUT_LOCK_NAME}.recovery-`;
 const DEFAULT_CLEANUP_GRACE_MS = 5_000;
 const READINESS_POLL_MS = 250;
+const WINDOWS_CONTROL_TIMEOUT_MS = 2_000;
 
 export type OwnedProcess = ProductionVerificationServer & {
   pid: number;
@@ -48,14 +50,16 @@ export async function stopProcessTree(
   control: ProcessTreeControl,
   options: StopProcessTreeOptions = {},
 ): Promise<void> {
+  let gracefulRequest: Promise<void>;
   try {
-    await control.requestStop();
+    gracefulRequest = control.requestStop().catch(() => {});
   } catch {
-    // A failed graceful request must not prevent the force-stop fallback.
+    gracefulRequest = Promise.resolve();
   }
   const gracePeriod = (options.wait ?? wait)(
     options.gracePeriodMs ?? DEFAULT_CLEANUP_GRACE_MS,
   );
+  await Promise.race([gracefulRequest, gracePeriod]);
   const rootExitedDuringGrace = await Promise.race([
     control.exited.then(() => true),
     gracePeriod.then(() => false),
@@ -77,57 +81,6 @@ function childExitReason(code: number | null, signal: NodeJS.Signals | null): st
   return `exit code ${code ?? "unknown"}`;
 }
 
-function captureCommand(command: string, args: string[]): Promise<string> {
-  return new Promise((resolveOutput, rejectOutput) => {
-    const child = spawn(command, args, {
-      stdio: ["ignore", "pipe", "ignore"],
-      windowsHide: true,
-    });
-    let output = "";
-    child.stdout?.setEncoding("utf8");
-    child.stdout?.on("data", (chunk: string) => {
-      output += chunk;
-    });
-    child.once("error", rejectOutput);
-    child.once("exit", (code) => {
-      if (code === 0) resolveOutput(output);
-      else {
-        rejectOutput(
-          new Error(`${command} failed with exit code ${code ?? "unknown"}.`),
-        );
-      }
-    });
-  });
-}
-
-async function listWindowsDescendants(rootPid: number): Promise<number[]> {
-  const script = [
-    `$rootPid = ${rootPid}`,
-    "$all = @(Get-CimInstance Win32_Process | Select-Object ProcessId, ParentProcessId)",
-    "$pending = @($rootPid)",
-    "$found = @()",
-    "while ($pending.Count -gt 0) {",
-    "  $parent = $pending[0]",
-    "  if ($pending.Count -eq 1) { $pending = @() } else { $pending = @($pending[1..($pending.Count - 1)]) }",
-    "  $children = @($all | Where-Object { $_.ParentProcessId -eq $parent })",
-    "  foreach ($child in $children) { $found += [int]$child.ProcessId; $pending += [int]$child.ProcessId }",
-    "}",
-    "[Console]::Out.Write(($found -join ','))",
-  ].join("; ");
-  const output = await captureCommand("powershell.exe", [
-    "-NoLogo",
-    "-NoProfile",
-    "-NonInteractive",
-    "-Command",
-    script,
-  ]);
-  return output
-    .trim()
-    .split(",")
-    .filter((value) => /^\d+$/.test(value))
-    .map(Number);
-}
-
 function waitForSpawn(child: ChildProcess): Promise<void> {
   return new Promise((resolveSpawn, rejectSpawn) => {
     child.once("spawn", resolveSpawn);
@@ -142,31 +95,73 @@ function ignoreMissingProcess(error: unknown): void {
 
 function runTaskkill(pid: number, force: boolean): Promise<void> {
   return new Promise((resolveTaskkill, rejectTaskkill) => {
+    let settled = false;
     const args = ["/pid", String(pid), "/t"];
     if (force) args.push("/f");
     const taskkill = spawn("taskkill", args, {
       stdio: "ignore",
       windowsHide: true,
     });
-    taskkill.once("error", rejectTaskkill);
+    const timeout = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      taskkill.kill("SIGKILL");
+      rejectTaskkill(new Error("taskkill exceeded its 2-second control limit."));
+    }, WINDOWS_CONTROL_TIMEOUT_MS);
+    taskkill.once("error", (error) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      rejectTaskkill(error);
+    });
     taskkill.once("exit", (code) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
       if (code === 0 || code === 128) resolveTaskkill();
-      else rejectTaskkill(new Error(`taskkill failed with exit code ${code ?? "unknown"}.`));
+      else {
+        rejectTaskkill(
+          new Error(`taskkill failed with exit code ${code ?? "unknown"}.`),
+        );
+      }
     });
   });
+}
+
+function windowsJobPayload(input: {
+  args: string[];
+  command: string;
+}): string {
+  return Buffer.from(JSON.stringify(input), "utf8").toString("base64");
 }
 
 export async function spawnOwnedProcess(
   input: Omit<OwnedCommandInput, "label" | "signal">,
 ): Promise<OwnedProcess> {
   const windows = process.platform === "win32";
-  const child = spawn(input.command, input.args, {
-    cwd: input.cwd,
-    detached: !windows,
-    env: input.env,
-    stdio: input.stdio ?? "inherit",
-    windowsHide: true,
-  });
+  const child = spawn(
+    windows ? "powershell.exe" : input.command,
+    windows
+      ? [
+          "-NoLogo",
+          "-NoProfile",
+          "-NonInteractive",
+          "-ExecutionPolicy",
+          "Bypass",
+          "-File",
+          resolve(input.cwd, "scripts/production-verification-windows.ps1"),
+          "-Payload",
+          windowsJobPayload(input),
+        ]
+      : input.args,
+    {
+      cwd: input.cwd,
+      detached: !windows,
+      env: input.env,
+      stdio: input.stdio ?? "inherit",
+      windowsHide: true,
+    },
+  );
   const exited = new Promise<ProductionVerificationChildExit>((resolveExit) => {
     child.once("exit", (code, signal) => {
       resolveExit({ code, reason: childExitReason(code, signal), signal });
@@ -179,16 +174,8 @@ export async function spawnOwnedProcess(
 
   const pid = child.pid;
   const exitedWithoutReason = exited.then(() => undefined);
-  const knownWindowsPids = new Set([pid]);
-  const refreshWindowsTree = async () => {
-    for (const descendant of await listWindowsDescendants(pid)) {
-      knownWindowsPids.add(descendant);
-    }
-  };
   const isRunning = () => {
-    if (windows) {
-      return [...knownWindowsPids].some((ownedPid) => isProcessAlive(ownedPid));
-    }
+    if (windows) return isProcessAlive(pid);
     try {
       process.kill(-pid, 0);
       return true;
@@ -213,9 +200,20 @@ export async function spawnOwnedProcess(
         exited: exitedWithoutReason,
         forceStop: async () => {
           if (windows) {
-            await refreshWindowsTree();
-            for (const ownedPid of [...knownWindowsPids].reverse()) {
-              if (isProcessAlive(ownedPid)) await runTaskkill(ownedPid, true);
+            if (isProcessAlive(pid)) {
+              try {
+                await runTaskkill(pid, true);
+              } catch (taskkillFailure) {
+                try {
+                  process.kill(pid, "SIGKILL");
+                } catch (error) {
+                  if (isProcessAlive(pid)) {
+                    throw new Error(
+                      `Windows force-stop failed: ${(taskkillFailure as Error).message}; ${(error as Error).message}`,
+                    );
+                  }
+                }
+              }
             }
           } else if (isRunning()) {
             try {
@@ -229,10 +227,7 @@ export async function spawnOwnedProcess(
         isRunning,
         requestStop: async () => {
           if (windows) {
-            await refreshWindowsTree();
-            for (const ownedPid of [...knownWindowsPids].reverse()) {
-              if (isProcessAlive(ownedPid)) await runTaskkill(ownedPid, false);
-            }
+            if (isProcessAlive(pid)) await runTaskkill(pid, false);
           } else if (isRunning()) {
             try {
               process.kill(-pid, "SIGTERM");
@@ -283,7 +278,13 @@ export async function runOwnedCommand(input: OwnedCommandInput): Promise<void> {
     }
     throw primaryFailure;
   }
-  if (cleanupFailure) throw cleanupFailure;
+  if (cleanupFailure) {
+    throw new ProductionVerificationCleanupError(
+      `${input.label} cleanup failed: ${cleanupFailure.message}`,
+      cleanupFailure,
+      { cause: cleanupFailure },
+    );
+  }
 }
 
 function isProcessAlive(pid: number): boolean {
