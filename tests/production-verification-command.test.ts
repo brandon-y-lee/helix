@@ -16,6 +16,48 @@ describe("Production Verification Commands", () => {
     expect(packageJson.scripts["verify:production"]).toBe(
       packageJson.scripts.e2e,
     );
+    expect(
+      Object.keys(packageJson.scripts).filter((name) => name.includes("prebuilt")),
+    ).toEqual([]);
+    expect(packageJson.scripts["verify:production:ci"]).toBeUndefined();
+  });
+
+  it("keeps receipted artifact commands restricted to GitHub Actions", () => {
+    const environment = { ...process.env };
+    delete environment.CI;
+    delete environment.GITHUB_ACTIONS;
+
+    const result = spawnSync(
+      process.execPath,
+      ["--import", "tsx", "scripts/verify-production-ci.ts", "verify"],
+      {
+        cwd: process.cwd(),
+        encoding: "utf8",
+        env: environment,
+      },
+    );
+
+    expect(result.status).not.toBe(0);
+    expect(`${result.stdout}\n${result.stderr}`).toContain(
+      "Receipted production artifact commands are restricted to GitHub Actions.",
+    );
+  });
+
+  it("builds and verifies the same receipted artifact in separate Ubuntu steps", async () => {
+    const workflow = await readFile(
+      resolve(process.cwd(), ".github/workflows/ci.yml"),
+      "utf8",
+    );
+
+    expect(workflow).toContain("- name: Build receipted production artifact");
+    expect(workflow).toContain(
+      "run: pnpm tsx scripts/verify-production-ci.ts build",
+    );
+    expect(workflow).toContain("- name: Verify receipted production artifact");
+    expect(workflow).toContain(
+      "run: pnpm tsx scripts/verify-production-ci.ts verify",
+    );
+    expect(workflow).not.toContain("- name: Production build and E2E tests");
   });
 
   it("keeps a lightweight Windows lifecycle contract in CI", async () => {

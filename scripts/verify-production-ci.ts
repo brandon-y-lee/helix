@@ -1,13 +1,31 @@
 import {
+  buildReceiptedProductionArtifact,
   ProductionVerificationError,
-  verifyFreshProductionArtifact,
+  verifyReceiptedProductionArtifact,
 } from "./production-verification";
 import {
   createNodeProductionVerificationAdapters,
   readProductionVerificationEnvironment,
 } from "./production-verification-node";
 
+type CiOperation = "build" | "verify";
+
+function readOperation(argv: string[], env: NodeJS.ProcessEnv): CiOperation {
+  if (env.CI !== "true" || env.GITHUB_ACTIONS !== "true") {
+    throw new Error(
+      "Receipted production artifact commands are restricted to GitHub Actions.",
+    );
+  }
+  if (argv.length !== 1 || (argv[0] !== "build" && argv[0] !== "verify")) {
+    throw new Error(
+      "Receipted production artifact command requires exactly one operation: build or verify.",
+    );
+  }
+  return argv[0];
+}
+
 async function main(): Promise<void> {
+  const operation = readOperation(process.argv.slice(2), process.env);
   const cwd = process.cwd();
   const env = await readProductionVerificationEnvironment(cwd);
   const adapters = await createNodeProductionVerificationAdapters(cwd, env);
@@ -21,12 +39,21 @@ async function main(): Promise<void> {
   process.once("SIGTERM", onSigterm);
 
   try {
-    const result = await verifyFreshProductionArtifact(
+    if (operation === "build") {
+      const receipt = await buildReceiptedProductionArtifact(
+        { signal: controller.signal },
+        adapters,
+      );
+      console.log(`Receipted production build passed for build ${receipt.buildId}.`);
+      return;
+    }
+
+    const result = await verifyReceiptedProductionArtifact(
       { requestedPort: process.env.PORT, signal: controller.signal },
       adapters,
     );
     console.log(
-      `Production verification passed for build ${result.buildId} at ${result.baseURL}.`,
+      `Receipted production verification passed for build ${result.buildId} at ${result.baseURL}.`,
     );
   } finally {
     process.off("SIGINT", onSigint);

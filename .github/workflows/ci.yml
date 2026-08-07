@@ -73,12 +73,15 @@ jobs:
       - name: Unit tests
         run: pnpm test
 
-      # Gate 5: end-to-end tests against one production build.
+      # Gate 5: end-to-end tests against one receipted production build.
       - name: Install Playwright browsers
         run: pnpm exec playwright install --with-deps chromium
 
-      - name: Production build and E2E tests
-        run: pnpm e2e
+      - name: Build receipted production artifact
+        run: pnpm tsx scripts/verify-production-ci.ts build
+
+      - name: Verify receipted production artifact
+        run: pnpm tsx scripts/verify-production-ci.ts verify
 
       - name: Upload Playwright report
         if: ${{ failure() }}

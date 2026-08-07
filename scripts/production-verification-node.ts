@@ -1,15 +1,29 @@
-import { spawn, type ChildProcess } from "node:child_process";
+import { execFile, spawn, type ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { open, readFile, readdir, unlink, writeFile } from "node:fs/promises";
+import {
+  open,
+  readFile,
+  readdir,
+  stat,
+  unlink,
+  writeFile,
+} from "node:fs/promises";
+import { createRequire } from "node:module";
+import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
+import { promisify } from "node:util";
+import { parse } from "dotenv";
 import {
+  prepareProductionVerificationEnvironment,
   ProductionVerificationChildError,
   ProductionVerificationCleanupError,
+  type ProductionArtifactReceipt,
   type ProductionVerificationChildExit,
   type ProductionVerificationDiagnostic,
   type ProductionVerificationLock,
   type ProductionVerificationServer,
+  type ReceiptedProductionVerificationAdapters,
 } from "./production-verification";
 
 const CHECKOUT_LOCK_NAME = ".mei-pelle-production-verification.lock";
@@ -17,10 +31,12 @@ const CHECKOUT_LOCK_RECOVERY_PREFIX = `${CHECKOUT_LOCK_NAME}.recovery-`;
 const DEFAULT_CLEANUP_GRACE_MS = 5_000;
 const READINESS_POLL_MS = 250;
 const WINDOWS_CONTROL_TIMEOUT_MS = 2_000;
+const PRODUCTION_ARTIFACT_RECEIPT_PATH = ".next/mei-pelle-artifact-receipt.json";
 const WINDOWS_SUPERVISOR_PATH = resolve(
   process.cwd(),
   "scripts/production-verification-windows.ps1",
 );
+const execFileAsync = promisify(execFile);
 
 export type OwnedProcess = ProductionVerificationServer & {
   pid: number;
@@ -581,4 +597,159 @@ export function formatProductionVerificationDiagnostic(
     `expectedBuildId=${safeField(diagnostic.buildId ?? "unknown")}`,
     `childExit=${safeField(diagnostic.childExitReason ?? "none")}`,
   ].join(" ");
+}
+
+export async function readProductionVerificationEnvironment(
+  cwd: string,
+  ambient: Partial<NodeJS.ProcessEnv> = process.env,
+): Promise<NodeJS.ProcessEnv> {
+  let local: Record<string, string> = {};
+  try {
+    local = parse(await readFile(resolve(cwd, ".env.local"), "utf8"));
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
+
+  return prepareProductionVerificationEnvironment({ ambient, local });
+}
+
+function selectFreePort(host: string): Promise<number> {
+  return new Promise((resolvePort, rejectPort) => {
+    const server = createServer();
+    server.unref();
+    server.once("error", rejectPort);
+    server.listen({ host, port: 0, exclusive: true }, () => {
+      const address = server.address();
+      if (!address || typeof address === "string") {
+        server.close();
+        rejectPort(new Error("Production verification could not select a port."));
+        return;
+      }
+      server.close((error) => {
+        if (error) rejectPort(error);
+        else resolvePort(address.port);
+      });
+    });
+  });
+}
+
+function isPortAvailable(input: { host: string; port: number }): Promise<boolean> {
+  return new Promise((resolveAvailability, rejectAvailability) => {
+    const server = createServer();
+    server.unref();
+    server.once("error", (error: NodeJS.ErrnoException) => {
+      if (error.code === "EADDRINUSE") resolveAvailability(false);
+      else rejectAvailability(error);
+    });
+    server.listen({ ...input, exclusive: true }, () => {
+      server.close((error) => {
+        if (error) rejectAvailability(error);
+        else resolveAvailability(true);
+      });
+    });
+  });
+}
+
+async function readBuildArtifact(cwd: string): Promise<{
+  buildId: string;
+  modifiedAtMs: number;
+}> {
+  const buildIdPath = resolve(cwd, ".next/BUILD_ID");
+  const [contents, metadata] = await Promise.all([
+    readFile(buildIdPath, "utf8"),
+    stat(buildIdPath),
+  ]);
+  const buildId = contents.trim();
+  if (!buildId) {
+    throw new Error("Production artifact does not contain a Next.js build ID.");
+  }
+  return { buildId, modifiedAtMs: metadata.mtimeMs };
+}
+
+async function readCurrentCommitSha(cwd: string): Promise<string> {
+  const { stdout } = await execFileAsync("git", ["rev-parse", "HEAD"], {
+    cwd,
+    encoding: "utf8",
+  });
+  return String(stdout).trim();
+}
+
+export async function createNodeProductionVerificationAdapters(
+  cwd: string,
+  env: NodeJS.ProcessEnv,
+): Promise<ReceiptedProductionVerificationAdapters> {
+  const require = createRequire(import.meta.url);
+  const nextCli = require.resolve("next/dist/bin/next");
+  const playwrightCli = require.resolve("@playwright/test/cli");
+  const receiptPath = resolve(cwd, PRODUCTION_ARTIFACT_RECEIPT_PATH);
+
+  return {
+    acquireLock: () => acquireCheckoutLock({ cwd }),
+    now: Date.now,
+    report: (diagnostic) => {
+      console.log(formatProductionVerificationDiagnostic(diagnostic));
+    },
+    selectFreePort,
+    isPortAvailable,
+    build: async ({ signal }) => {
+      await runOwnedCommand({
+        args: [nextCli, "build"],
+        command: process.execPath,
+        cwd,
+        env,
+        label: "Production build",
+        signal,
+      });
+      const { buildId } = await readBuildArtifact(cwd);
+      return { buildId };
+    },
+    readArtifact: () => readBuildArtifact(cwd),
+    readCommitSha: () => readCurrentCommitSha(cwd),
+    readReceipt: async () => {
+      try {
+        const [contents, metadata] = await Promise.all([
+          readFile(receiptPath, "utf8"),
+          stat(receiptPath),
+        ]);
+        return { contents, modifiedAtMs: metadata.mtimeMs };
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+        throw error;
+      }
+    },
+    removeReceipt: async () => {
+      try {
+        await unlink(receiptPath);
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      }
+    },
+    writeReceipt: (receipt: ProductionArtifactReceipt) =>
+      writeFile(receiptPath, `${JSON.stringify(receipt)}\n`, {
+        encoding: "utf8",
+        mode: 0o600,
+      }),
+    startServer: ({ host, port }) =>
+      spawnOwnedProcess({
+        args: [nextCli, "start", "--hostname", host, "--port", String(port)],
+        command: process.execPath,
+        cwd,
+        env,
+      }),
+    waitForBuildIdentity: waitForExpectedBuild,
+    runBrowserTests: ({ baseURL, signal }) =>
+      runOwnedCommand({
+        args: [playwrightCli, "test"],
+        command: process.execPath,
+        cwd,
+        env: {
+          ...env,
+          MEI_PELLE_VERIFICATION_ADAPTER: "1",
+          MEI_PELLE_VERIFICATION_BASE_URL: baseURL,
+          PLAYWRIGHT_HTML_OPEN: "never",
+        },
+        label: "Playwright browser tests",
+        signal,
+      }),
+  };
 }

@@ -1,16 +1,19 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildReceiptedProductionArtifact,
   prepareProductionVerificationEnvironment,
   ProductionVerificationChildError,
   ProductionVerificationCleanupError,
+  ProductionVerificationError,
   verifyFreshProductionArtifact,
-  type ProductionVerificationAdapters,
+  verifyReceiptedProductionArtifact,
   type ProductionVerificationDiagnostic,
+  type ReceiptedProductionVerificationAdapters,
 } from "@/scripts/production-verification";
 
 function makeAdapters(
-  overrides: Partial<ProductionVerificationAdapters>,
-): ProductionVerificationAdapters {
+  overrides: Partial<ReceiptedProductionVerificationAdapters>,
+): ReceiptedProductionVerificationAdapters {
   const unexpected = async (): Promise<never> => {
     throw new Error("Unexpected production-verification adapter call.");
   };
@@ -20,9 +23,14 @@ function makeAdapters(
     selectFreePort: unexpected,
     isPortAvailable: unexpected,
     build: unexpected,
+    readArtifact: unexpected,
+    readCommitSha: unexpected,
+    readReceipt: unexpected,
+    removeReceipt: async () => {},
     startServer: unexpected,
     waitForBuildIdentity: unexpected,
     runBrowserTests: unexpected,
+    writeReceipt: unexpected,
     now: () => 0,
     report: () => {},
     ...overrides,
@@ -30,6 +38,229 @@ function makeAdapters(
 }
 
 describe("Production Artifact Verification", () => {
+  it("builds one CI artifact and writes its minimal receipt", async () => {
+    const commitSha = "a".repeat(40);
+    const diagnostics: ProductionVerificationDiagnostic[] = [];
+    let released = false;
+    let previousReceiptRemoved = false;
+    let writtenReceipt: unknown;
+    const adapters = makeAdapters({
+      acquireLock: async () => ({
+        release: async () => {
+          released = true;
+        },
+      }),
+      build: async () => {
+        expect(previousReceiptRemoved).toBe(true);
+        return { buildId: "ci-build-123" };
+      },
+      readCommitSha: async () => commitSha,
+      removeReceipt: async () => {
+        previousReceiptRemoved = true;
+      },
+      report: (diagnostic) => diagnostics.push(diagnostic),
+      writeReceipt: async (receipt) => {
+        writtenReceipt = receipt;
+      },
+    });
+
+    await expect(
+      buildReceiptedProductionArtifact({}, adapters),
+    ).resolves.toEqual({ buildId: "ci-build-123", commitSha });
+    expect(writtenReceipt).toEqual({ buildId: "ci-build-123", commitSha });
+    expect(Object.keys(writtenReceipt as object)).toEqual(["buildId", "commitSha"]);
+    expect(released).toBe(true);
+    expect(diagnostics.map(({ phase, status }) => ({ phase, status }))).toEqual([
+      { phase: "preflight", status: "started" },
+      { phase: "preflight", status: "passed" },
+      { phase: "production-build", status: "started" },
+      { phase: "production-build", status: "passed" },
+      { phase: "cleanup", status: "started" },
+      { phase: "cleanup", status: "passed" },
+    ]);
+  });
+
+  it("keeps a receipted build failure primary when owned cleanup also fails", async () => {
+    const diagnostics: ProductionVerificationDiagnostic[] = [];
+    const buildFailure = new ProductionVerificationChildError(
+      "Production build failed after exit code 17.",
+      "exit code 17",
+    );
+    buildFailure.cleanupFailure = new Error("Owned build tree cleanup failed.");
+    const adapters = makeAdapters({
+      build: async () => {
+        throw buildFailure;
+      },
+      report: (diagnostic) => diagnostics.push(diagnostic),
+    });
+
+    const failure = await buildReceiptedProductionArtifact({}, adapters).catch(
+      (error: unknown) => error,
+    );
+
+    expect(failure).toMatchObject({
+      childExitReason: "exit code 17",
+      message: "Production build failed after exit code 17.",
+      phase: "production-build",
+    });
+    expect((failure as ProductionVerificationError).cleanupFailure?.message).toBe(
+      "Owned build tree cleanup failed.",
+    );
+    expect(diagnostics).toContainEqual(
+      expect.objectContaining({
+        childExitReason: "exit code 17",
+        phase: "production-build",
+        status: "failed",
+      }),
+    );
+    expect(diagnostics).toContainEqual(
+      expect.objectContaining({ phase: "cleanup", status: "failed" }),
+    );
+  });
+
+  it("verifies the receipted CI artifact without rebuilding it", async () => {
+    const commitSha = "b".repeat(40);
+    let browserRuns = 0;
+    let identityProven = false;
+    let running = false;
+    const diagnostics: ProductionVerificationDiagnostic[] = [];
+    const adapters = makeAdapters({
+      selectFreePort: async () => 43_121,
+      readArtifact: async () => ({
+        buildId: "receipted-build",
+        modifiedAtMs: 100,
+      }),
+      readCommitSha: async () => commitSha,
+      readReceipt: async () => ({
+        contents: JSON.stringify({ buildId: "receipted-build", commitSha }),
+        modifiedAtMs: 101,
+      }),
+      report: (diagnostic) => diagnostics.push(diagnostic),
+      startServer: async () => {
+        running = true;
+        return {
+          exited: new Promise(() => {}),
+          stop: async () => {
+            running = false;
+          },
+        };
+      },
+      waitForBuildIdentity: async ({ buildId }) => {
+        expect(buildId).toBe("receipted-build");
+        identityProven = true;
+      },
+      runBrowserTests: async () => {
+        expect(identityProven).toBe(true);
+        browserRuns += 1;
+      },
+    });
+
+    await expect(
+      verifyReceiptedProductionArtifact({}, adapters),
+    ).resolves.toEqual({
+      baseURL: "http://127.0.0.1:43121",
+      buildId: "receipted-build",
+      port: 43_121,
+    });
+    expect(browserRuns).toBe(1);
+    expect(running).toBe(false);
+    expect(diagnostics.map(({ phase, status }) => ({ phase, status }))).toContainEqual({
+      phase: "artifact-validation",
+      status: "passed",
+    });
+  });
+
+  it.each([
+    {
+      name: "missing",
+      receipt: undefined,
+      expectedMessage: "Production artifact receipt is missing.",
+    },
+    {
+      name: "malformed",
+      receipt: { contents: "{not-json", modifiedAtMs: 101 },
+      expectedMessage: "Production artifact receipt is malformed.",
+    },
+    {
+      name: "containing unexpected fields",
+      receipt: {
+        contents: JSON.stringify({
+          buildId: "current-build",
+          commitSha: "c".repeat(40),
+          environment: "must-not-be-receipted",
+        }),
+        modifiedAtMs: 101,
+      },
+      expectedMessage: "Production artifact receipt is malformed.",
+    },
+    {
+      name: "stale",
+      receipt: {
+        contents: JSON.stringify({
+          buildId: "current-build",
+          commitSha: "c".repeat(40),
+        }),
+        modifiedAtMs: 99,
+      },
+      expectedMessage: "Production artifact receipt is stale.",
+    },
+    {
+      name: "for a substituted build",
+      receipt: {
+        contents: JSON.stringify({
+          buildId: "other-build",
+          commitSha: "c".repeat(40),
+        }),
+        modifiedAtMs: 101,
+      },
+      expectedMessage:
+        "Production artifact receipt build ID does not match the current artifact.",
+    },
+    {
+      name: "for another commit",
+      receipt: {
+        contents: JSON.stringify({
+          buildId: "current-build",
+          commitSha: "d".repeat(40),
+        }),
+        modifiedAtMs: 101,
+      },
+      expectedMessage:
+        "Production artifact receipt commit SHA does not match the current checkout.",
+    },
+  ])("rejects a $name receipt before server start", async ({
+    receipt,
+    expectedMessage,
+  }) => {
+    const diagnostics: ProductionVerificationDiagnostic[] = [];
+    let serverStarts = 0;
+    const adapters = makeAdapters({
+      selectFreePort: async () => 43_122,
+      readArtifact: async () => ({
+        buildId: "current-build",
+        modifiedAtMs: 100,
+      }),
+      readCommitSha: async () => "c".repeat(40),
+      readReceipt: async () => receipt,
+      report: (diagnostic) => diagnostics.push(diagnostic),
+      startServer: async () => {
+        serverStarts += 1;
+        throw new Error("Server must not start for an invalid receipt.");
+      },
+    });
+
+    await expect(
+      verifyReceiptedProductionArtifact({}, adapters),
+    ).rejects.toMatchObject({
+      message: expectedMessage,
+      phase: "artifact-validation",
+    });
+    expect(serverStarts).toBe(0);
+    expect(diagnostics).toContainEqual(
+      expect.objectContaining({ phase: "artifact-validation", status: "failed" }),
+    );
+  });
+
   it("prepares one environment with deterministic ownership and precedence", () => {
     const environment = prepareProductionVerificationEnvironment({
       ambient: {
