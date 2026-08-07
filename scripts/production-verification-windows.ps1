@@ -8,8 +8,11 @@ $ErrorActionPreference = "Stop"
 Add-Type -TypeDefinition @'
 using System;
 using System.ComponentModel;
+using System.Diagnostics;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Threading;
 
 public static class ProductionVerificationJob
 {
@@ -17,7 +20,8 @@ public static class ProductionVerificationJob
     private const uint STARTF_USESTDHANDLES = 0x00000100;
     private const uint JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x00002000;
     private const int JobObjectExtendedLimitInformation = 9;
-    private const uint INFINITE = 0xFFFFFFFF;
+    private const int JobObjectBasicProcessIdList = 3;
+    private const uint WAIT_OBJECT_0 = 0;
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
     private struct STARTUPINFO
@@ -114,6 +118,14 @@ public static class ProductionVerificationJob
     private static extern bool AssignProcessToJobObject(IntPtr job, IntPtr process);
 
     [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool QueryInformationJobObject(
+        IntPtr job,
+        int informationClass,
+        IntPtr information,
+        uint informationLength,
+        out uint returnLength);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
     private static extern uint ResumeThread(IntPtr thread);
 
     [DllImport("kernel32.dll", SetLastError = true)]
@@ -136,7 +148,89 @@ public static class ProductionVerificationJob
         throw new Win32Exception(Marshal.GetLastWin32Error());
     }
 
-    public static int Run(string applicationName, string commandLine, string currentDirectory)
+    private static int[] GetJobProcessIds(IntPtr job)
+    {
+        const int capacity = 4096;
+        int headerSize = sizeof(uint) * 2;
+        int bufferSize = headerSize + (IntPtr.Size * capacity);
+        IntPtr buffer = Marshal.AllocHGlobal(bufferSize);
+        try
+        {
+            uint returned;
+            if (!QueryInformationJobObject(
+                job,
+                JobObjectBasicProcessIdList,
+                buffer,
+                (uint)bufferSize,
+                out returned)) ThrowLastError();
+            int count = Marshal.ReadInt32(buffer, sizeof(uint));
+            int[] processIds = new int[count];
+            for (int index = 0; index < count; index++)
+            {
+                processIds[index] = (int)Marshal.ReadIntPtr(
+                    buffer,
+                    headerSize + (index * IntPtr.Size));
+            }
+            return processIds;
+        }
+        finally
+        {
+            Marshal.FreeHGlobal(buffer);
+        }
+    }
+
+    private static void RequestGracefulShutdown(IntPtr job)
+    {
+        foreach (int processId in GetJobProcessIds(job))
+        {
+            try
+            {
+                Process taskkill = Process.Start(new ProcessStartInfo
+                {
+                    FileName = "taskkill.exe",
+                    Arguments = "/pid " + processId + " /t",
+                    CreateNoWindow = true,
+                    UseShellExecute = false
+                });
+                if (taskkill != null && !taskkill.WaitForExit(2000)) taskkill.Kill();
+                if (taskkill != null) taskkill.Dispose();
+            }
+            catch
+            {
+                // The Node controller owns the five-second force-stop fallback.
+            }
+        }
+    }
+
+    private static void WriteExitStatus(string statusPath, uint exitCode)
+    {
+        string temporaryPath = statusPath + "." + Guid.NewGuid().ToString("N");
+        File.WriteAllText(temporaryPath, exitCode.ToString());
+        File.Move(temporaryPath, statusPath);
+    }
+
+    private static bool IsProcessAlive(int processId)
+    {
+        try
+        {
+            using (Process owner = Process.GetProcessById(processId))
+            {
+                return !owner.HasExited;
+            }
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    public static int Run(
+        string applicationName,
+        string commandLine,
+        string currentDirectory,
+        string controlPath,
+        string statusPath,
+        int ownerPid)
     {
         IntPtr job = CreateJobObject(IntPtr.Zero, null);
         if (job == IntPtr.Zero) ThrowLastError();
@@ -189,11 +283,33 @@ public static class ProductionVerificationJob
             assigned = AssignProcessToJobObject(job, process.hProcess);
             if (!assigned) ThrowLastError();
             if (ResumeThread(process.hThread) == 0xFFFFFFFF) ThrowLastError();
-            WaitForSingleObject(process.hProcess, INFINITE);
 
-            uint exitCode;
-            if (!GetExitCodeProcess(process.hProcess, out exitCode)) ThrowLastError();
-            return unchecked((int)exitCode);
+            bool targetExited = false;
+            bool gracefulRequested = false;
+            uint exitCode = 1;
+            while (true)
+            {
+                if (!targetExited &&
+                    WaitForSingleObject(process.hProcess, 50) == WAIT_OBJECT_0)
+                {
+                    if (!GetExitCodeProcess(process.hProcess, out exitCode)) ThrowLastError();
+                    WriteExitStatus(statusPath, exitCode);
+                    targetExited = true;
+                }
+
+                if (!gracefulRequested && File.Exists(controlPath))
+                {
+                    gracefulRequested = true;
+                    RequestGracefulShutdown(job);
+                }
+
+                if (gracefulRequested && GetJobProcessIds(job).Length == 0)
+                {
+                    return unchecked((int)exitCode);
+                }
+                if (!IsProcessAlive(ownerPid)) return 1;
+                Thread.Sleep(25);
+            }
         }
         finally
         {
@@ -239,6 +355,9 @@ $commandLine = ($arguments | ForEach-Object { ConvertTo-WindowsArgument ([string
 $exitCode = [ProductionVerificationJob]::Run(
   [string]$command.command,
   $commandLine,
-  (Get-Location).Path
+  (Get-Location).Path,
+  [string]$command.controlPath,
+  [string]$command.statusPath,
+  [int]$command.ownerPid
 )
 exit $exitCode

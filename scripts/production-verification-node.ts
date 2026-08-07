@@ -1,6 +1,7 @@
 import { spawn, type ChildProcess, type StdioOptions } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { open, readFile, readdir, unlink } from "node:fs/promises";
+import { open, readFile, readdir, unlink, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import {
   ProductionVerificationChildError,
@@ -131,14 +132,50 @@ function runTaskkill(pid: number, force: boolean): Promise<void> {
 function windowsJobPayload(input: {
   args: string[];
   command: string;
+  controlPath: string;
+  ownerPid: number;
+  statusPath: string;
 }): string {
   return Buffer.from(JSON.stringify(input), "utf8").toString("base64");
+}
+
+async function readWindowsTargetExit(
+  statusPath: string,
+  supervisor: ChildProcess,
+  supervisorExited: Promise<ProductionVerificationChildExit>,
+): Promise<ProductionVerificationChildExit> {
+  while (true) {
+    try {
+      const rawCode = (await readFile(statusPath, "utf8")).trim();
+      if (!/^\d+$/.test(rawCode)) {
+        throw new Error("Windows verification supervisor wrote an invalid exit status.");
+      }
+      await unlink(statusPath);
+      const code = Number(rawCode);
+      return { code, reason: childExitReason(code, null), signal: null };
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    }
+
+    if (supervisor.exitCode !== null || supervisor.signalCode !== null) {
+      return supervisorExited;
+    }
+    await wait(25);
+  }
 }
 
 export async function spawnOwnedProcess(
   input: Omit<OwnedCommandInput, "label" | "signal">,
 ): Promise<OwnedProcess> {
   const windows = process.platform === "win32";
+  const controlPath = resolve(
+    tmpdir(),
+    `mei-pelle-verification-control-${process.pid}-${randomUUID()}`,
+  );
+  const statusPath = resolve(
+    tmpdir(),
+    `mei-pelle-verification-status-${process.pid}-${randomUUID()}`,
+  );
   const child = spawn(
     windows ? "powershell.exe" : input.command,
     windows
@@ -151,7 +188,12 @@ export async function spawnOwnedProcess(
           "-File",
           resolve(input.cwd, "scripts/production-verification-windows.ps1"),
           "-Payload",
-          windowsJobPayload(input),
+          windowsJobPayload({
+            ...input,
+            controlPath,
+            ownerPid: process.pid,
+            statusPath,
+          }),
         ]
       : input.args,
     {
@@ -162,7 +204,7 @@ export async function spawnOwnedProcess(
       windowsHide: true,
     },
   );
-  const exited = new Promise<ProductionVerificationChildExit>((resolveExit) => {
+  const supervisorExited = new Promise<ProductionVerificationChildExit>((resolveExit) => {
     child.once("exit", (code, signal) => {
       resolveExit({ code, reason: childExitReason(code, signal), signal });
     });
@@ -173,7 +215,10 @@ export async function spawnOwnedProcess(
   }
 
   const pid = child.pid;
-  const exitedWithoutReason = exited.then(() => undefined);
+  const exited = windows
+    ? readWindowsTargetExit(statusPath, child, supervisorExited)
+    : supervisorExited;
+  const ownedTreeExited = supervisorExited.then(() => undefined);
   const isRunning = () => {
     if (windows) return isProcessAlive(pid);
     try {
@@ -195,48 +240,61 @@ export async function spawnOwnedProcess(
   return {
     exited,
     pid,
-    stop: () =>
-      stopProcessTree({
-        exited: exitedWithoutReason,
-        forceStop: async () => {
-          if (windows) {
-            if (isProcessAlive(pid)) {
-              try {
-                await runTaskkill(pid, true);
-              } catch (taskkillFailure) {
+    stop: async () => {
+      try {
+        await stopProcessTree({
+          exited: ownedTreeExited,
+          forceStop: async () => {
+            if (windows) {
+              if (isProcessAlive(pid)) {
                 try {
-                  process.kill(pid, "SIGKILL");
-                } catch (error) {
-                  if (isProcessAlive(pid)) {
-                    throw new Error(
-                      `Windows force-stop failed: ${(taskkillFailure as Error).message}; ${(error as Error).message}`,
-                    );
+                  await runTaskkill(pid, true);
+                } catch (taskkillFailure) {
+                  try {
+                    process.kill(pid, "SIGKILL");
+                  } catch (error) {
+                    if (isProcessAlive(pid)) {
+                      throw new Error(
+                        `Windows force-stop failed: ${(taskkillFailure as Error).message}; ${(error as Error).message}`,
+                      );
+                    }
                   }
                 }
               }
+            } else if (isRunning()) {
+              try {
+                process.kill(-pid, "SIGKILL");
+              } catch (error) {
+                ignoreMissingProcess(error);
+              }
             }
-          } else if (isRunning()) {
+            await waitForTreeExit();
+          },
+          isRunning,
+          requestStop: async () => {
+            if (windows) {
+              if (isProcessAlive(pid)) await writeFile(controlPath, "graceful\n");
+            } else if (isRunning()) {
+              try {
+                process.kill(-pid, "SIGTERM");
+              } catch (error) {
+                ignoreMissingProcess(error);
+              }
+            }
+          },
+        });
+      } finally {
+        await Promise.all(
+          [controlPath, statusPath].map(async (path) => {
             try {
-              process.kill(-pid, "SIGKILL");
+              await unlink(path);
             } catch (error) {
-              ignoreMissingProcess(error);
+              if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
             }
-          }
-          await waitForTreeExit();
-        },
-        isRunning,
-        requestStop: async () => {
-          if (windows) {
-            if (isProcessAlive(pid)) await runTaskkill(pid, false);
-          } else if (isRunning()) {
-            try {
-              process.kill(-pid, "SIGTERM");
-            } catch (error) {
-              ignoreMissingProcess(error);
-            }
-          }
-        },
-      }),
+          }),
+        );
+      }
+    },
   };
 }
 
