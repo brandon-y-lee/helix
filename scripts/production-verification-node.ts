@@ -1,6 +1,7 @@
 import { execFile, spawn, type ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import {
+  link,
   open,
   readFile,
   stat,
@@ -405,11 +406,17 @@ export async function acquireCheckoutLock(input: {
   };
 
   const writeExclusiveRecord = async (path: string): Promise<void> => {
-    const handle = await open(path, "wx");
+    const candidatePath = `${path}.candidate-${ownerPid}-${randomUUID()}`;
+    const handle = await open(candidatePath, "wx");
     try {
-      await handle.writeFile(ownerRecord);
+      try {
+        await handle.writeFile(ownerRecord);
+      } finally {
+        await handle.close();
+      }
+      await link(candidatePath, path);
     } finally {
-      await handle.close();
+      await unlink(candidatePath);
     }
   };
 
@@ -475,6 +482,9 @@ export async function acquireCheckoutLock(input: {
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "EEXIST") {
         const cleanupFailures: unknown[] = [];
+        if (!acquiredOwnerRecord) {
+          acquiredOwnerRecord = (await readRecord(lockPath)) === ownerRecord;
+        }
         if (acquiredOwnerRecord) {
           try {
             await releaseOwnerRecord();

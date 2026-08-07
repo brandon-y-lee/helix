@@ -388,6 +388,26 @@ describe("Production Verification Node Adapters", () => {
     }
   });
 
+  it("allows only one concurrent fresh-lock winner", async () => {
+    const cwd = await mkdtemp(resolve(tmpdir(), "mei-pelle-fresh-lock-race-"));
+
+    try {
+      const attempts = await Promise.allSettled(
+        Array.from({ length: 8 }, () =>
+          acquireCheckoutLock({ cwd, pid: process.pid }),
+        ),
+      );
+      const winners = attempts.filter(
+        (attempt): attempt is PromiseFulfilledResult<Awaited<ReturnType<typeof acquireCheckoutLock>>> =>
+          attempt.status === "fulfilled",
+      );
+      expect(winners).toHaveLength(1);
+      await winners[0].value.release();
+    } finally {
+      await rm(cwd, { force: true, recursive: true });
+    }
+  }, 20_000);
+
   it("allows only one concurrent stale-lock recovery winner", async () => {
     const cwd = await mkdtemp(resolve(tmpdir(), "mei-pelle-stale-lock-race-"));
     const lockPath = resolve(cwd, ".mei-pelle-production-verification.lock");
