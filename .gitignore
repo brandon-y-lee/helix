@@ -5,6 +5,7 @@ node_modules/
 # next.js
 .next/
 .mei-pelle-production-verification.lock
+.mei-pelle-production-verification.lock.recovery-*
 out/
 next-env.d.ts
 *.tsbuildinfo

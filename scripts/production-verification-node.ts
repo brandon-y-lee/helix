@@ -1,15 +1,17 @@
 import { spawn, type ChildProcess, type StdioOptions } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { open, readFile, unlink } from "node:fs/promises";
+import { open, readFile, readdir, unlink } from "node:fs/promises";
 import { resolve } from "node:path";
 import {
   ProductionVerificationChildError,
+  type ProductionVerificationChildExit,
   type ProductionVerificationDiagnostic,
   type ProductionVerificationLock,
   type ProductionVerificationServer,
 } from "./production-verification";
 
 const CHECKOUT_LOCK_NAME = ".mei-pelle-production-verification.lock";
+const CHECKOUT_LOCK_RECOVERY_PREFIX = `${CHECKOUT_LOCK_NAME}.recovery-`;
 const DEFAULT_CLEANUP_GRACE_MS = 5_000;
 const READINESS_POLL_MS = 250;
 
@@ -46,19 +48,23 @@ export async function stopProcessTree(
   control: ProcessTreeControl,
   options: StopProcessTreeOptions = {},
 ): Promise<void> {
-  await control.requestStop();
-  const exitedGracefully = await Promise.race([
-    control.exited.then(() => true),
-    (options.wait ?? wait)(
-      options.gracePeriodMs ?? DEFAULT_CLEANUP_GRACE_MS,
-    ).then(() => false),
-  ]);
-  if (
-    control.isRunning?.() === false ||
-    (exitedGracefully && control.isRunning?.() !== true)
-  ) {
-    return;
+  try {
+    await control.requestStop();
+  } catch {
+    // A failed graceful request must not prevent the force-stop fallback.
   }
+  const gracePeriod = (options.wait ?? wait)(
+    options.gracePeriodMs ?? DEFAULT_CLEANUP_GRACE_MS,
+  );
+  const rootExitedDuringGrace = await Promise.race([
+    control.exited.then(() => true),
+    gracePeriod.then(() => false),
+  ]);
+  if (control.isRunning?.() === false) return;
+  if (rootExitedDuringGrace && control.isRunning === undefined) return;
+
+  await gracePeriod;
+  if (control.isRunning?.() === false) return;
 
   await control.forceStop();
   if (control.isRunning?.() === true) {
@@ -69,6 +75,57 @@ export async function stopProcessTree(
 function childExitReason(code: number | null, signal: NodeJS.Signals | null): string {
   if (signal) return `signal ${signal}`;
   return `exit code ${code ?? "unknown"}`;
+}
+
+function captureCommand(command: string, args: string[]): Promise<string> {
+  return new Promise((resolveOutput, rejectOutput) => {
+    const child = spawn(command, args, {
+      stdio: ["ignore", "pipe", "ignore"],
+      windowsHide: true,
+    });
+    let output = "";
+    child.stdout?.setEncoding("utf8");
+    child.stdout?.on("data", (chunk: string) => {
+      output += chunk;
+    });
+    child.once("error", rejectOutput);
+    child.once("exit", (code) => {
+      if (code === 0) resolveOutput(output);
+      else {
+        rejectOutput(
+          new Error(`${command} failed with exit code ${code ?? "unknown"}.`),
+        );
+      }
+    });
+  });
+}
+
+async function listWindowsDescendants(rootPid: number): Promise<number[]> {
+  const script = [
+    `$rootPid = ${rootPid}`,
+    "$all = @(Get-CimInstance Win32_Process | Select-Object ProcessId, ParentProcessId)",
+    "$pending = @($rootPid)",
+    "$found = @()",
+    "while ($pending.Count -gt 0) {",
+    "  $parent = $pending[0]",
+    "  if ($pending.Count -eq 1) { $pending = @() } else { $pending = @($pending[1..($pending.Count - 1)]) }",
+    "  $children = @($all | Where-Object { $_.ParentProcessId -eq $parent })",
+    "  foreach ($child in $children) { $found += [int]$child.ProcessId; $pending += [int]$child.ProcessId }",
+    "}",
+    "[Console]::Out.Write(($found -join ','))",
+  ].join("; ");
+  const output = await captureCommand("powershell.exe", [
+    "-NoLogo",
+    "-NoProfile",
+    "-NonInteractive",
+    "-Command",
+    script,
+  ]);
+  return output
+    .trim()
+    .split(",")
+    .filter((value) => /^\d+$/.test(value))
+    .map(Number);
 }
 
 function waitForSpawn(child: ChildProcess): Promise<void> {
@@ -110,9 +167,9 @@ export async function spawnOwnedProcess(
     stdio: input.stdio ?? "inherit",
     windowsHide: true,
   });
-  const exited = new Promise<{ reason: string }>((resolveExit) => {
+  const exited = new Promise<ProductionVerificationChildExit>((resolveExit) => {
     child.once("exit", (code, signal) => {
-      resolveExit({ reason: childExitReason(code, signal) });
+      resolveExit({ code, reason: childExitReason(code, signal), signal });
     });
   });
   await waitForSpawn(child);
@@ -122,8 +179,16 @@ export async function spawnOwnedProcess(
 
   const pid = child.pid;
   const exitedWithoutReason = exited.then(() => undefined);
+  const knownWindowsPids = new Set([pid]);
+  const refreshWindowsTree = async () => {
+    for (const descendant of await listWindowsDescendants(pid)) {
+      knownWindowsPids.add(descendant);
+    }
+  };
   const isRunning = () => {
-    if (windows) return child.exitCode === null && child.signalCode === null;
+    if (windows) {
+      return [...knownWindowsPids].some((ownedPid) => isProcessAlive(ownedPid));
+    }
     try {
       process.kill(-pid, 0);
       return true;
@@ -147,9 +212,12 @@ export async function spawnOwnedProcess(
       stopProcessTree({
         exited: exitedWithoutReason,
         forceStop: async () => {
-          if (!isRunning()) return;
-          if (windows) await runTaskkill(pid, true);
-          else {
+          if (windows) {
+            await refreshWindowsTree();
+            for (const ownedPid of [...knownWindowsPids].reverse()) {
+              if (isProcessAlive(ownedPid)) await runTaskkill(ownedPid, true);
+            }
+          } else if (isRunning()) {
             try {
               process.kill(-pid, "SIGKILL");
             } catch (error) {
@@ -160,9 +228,12 @@ export async function spawnOwnedProcess(
         },
         isRunning,
         requestStop: async () => {
-          if (!isRunning()) return;
-          if (windows) await runTaskkill(pid, false);
-          else {
+          if (windows) {
+            await refreshWindowsTree();
+            for (const ownedPid of [...knownWindowsPids].reverse()) {
+              if (isProcessAlive(ownedPid)) await runTaskkill(ownedPid, false);
+            }
+          } else if (isRunning()) {
             try {
               process.kill(-pid, "SIGTERM");
             } catch (error) {
@@ -176,39 +247,43 @@ export async function spawnOwnedProcess(
 
 export async function runOwnedCommand(input: OwnedCommandInput): Promise<void> {
   const child = await spawnOwnedProcess(input);
-  const interrupted = abortPromise(input.signal).then(() => undefined);
+  let primaryFailure: Error | undefined;
 
   try {
-    const outcome = await Promise.race([
-      child.exited.then((exit) => ({ kind: "exit" as const, exit })),
-      interrupted.then(() => ({ kind: "abort" as const })),
-    ]);
-    if (outcome.kind === "abort") {
-      await child.stop();
-      throw new ProductionVerificationChildError(
-        `${input.label} was interrupted.`,
-        "interrupted",
-      );
-    }
-    await child.stop();
-    if (outcome.exit.reason !== "exit code 0") {
-      throw new ProductionVerificationChildError(
-        `${input.label} failed after ${outcome.exit.reason}.`,
-        outcome.exit.reason,
+    const exit = await Promise.race([child.exited, abortPromise(input.signal)]);
+    if (exit.code !== 0 || exit.signal !== null) {
+      primaryFailure = new ProductionVerificationChildError(
+        `${input.label} failed after ${exit.reason}.`,
+        exit.reason,
       );
     }
   } catch (error) {
-    if (input.signal?.aborted && child.pid) {
-      await child.stop();
+    if (input.signal?.aborted) {
       const reason = input.signal.reason;
-      throw new ProductionVerificationChildError(
+      primaryFailure = new ProductionVerificationChildError(
         reason instanceof Error ? reason.message : `${input.label} was interrupted.`,
         "interrupted",
         { cause: error },
       );
+    } else {
+      primaryFailure = error instanceof Error ? error : new Error(String(error));
     }
-    throw error;
   }
+
+  let cleanupFailure: Error | undefined;
+  try {
+    await child.stop();
+  } catch (error) {
+    cleanupFailure = error instanceof Error ? error : new Error(String(error));
+  }
+
+  if (primaryFailure) {
+    if (primaryFailure instanceof ProductionVerificationChildError) {
+      primaryFailure.cleanupFailure = cleanupFailure;
+    }
+    throw primaryFailure;
+  }
+  if (cleanupFailure) throw cleanupFailure;
 }
 
 function isProcessAlive(pid: number): boolean {
@@ -228,8 +303,56 @@ export async function acquireCheckoutLock(input: {
   const lockPath = resolve(input.cwd, CHECKOUT_LOCK_NAME);
   const ownerPid = input.pid ?? process.pid;
   const ownerRecord = `${ownerPid}:${randomUUID()}\n`;
+  let recoveryPath: string | undefined;
 
-  for (let attempt = 0; attempt < 3; attempt += 1) {
+  const releaseOwnerRecord = async () => {
+    try {
+      if ((await readFile(lockPath, "utf8")) === ownerRecord) {
+        await unlink(lockPath);
+      }
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    }
+  };
+
+  const removeRecoveryMarker = async () => {
+    if (!recoveryPath) return;
+    try {
+      await unlink(recoveryPath);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    }
+    recoveryPath = undefined;
+  };
+
+  const waitForRecoveryMarkers = async () => {
+    const deadline = Date.now() + 5_000;
+    while (Date.now() < deadline) {
+      const markers = (await readdir(input.cwd)).filter((entry) =>
+        entry.startsWith(CHECKOUT_LOCK_RECOVERY_PREFIX),
+      );
+      let liveMarkers = 0;
+      for (const marker of markers) {
+        const markerPath = resolve(input.cwd, marker);
+        try {
+          const markerOwner = (await readFile(markerPath, "utf8")).trim();
+          const ownerMatch = /^(\d+)(?::|$)/.exec(markerOwner);
+          if (ownerMatch && isProcessAlive(Number(ownerMatch[1]))) {
+            liveMarkers += 1;
+          } else {
+            await unlink(markerPath);
+          }
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+        }
+      }
+      if (liveMarkers === 0) return;
+      await wait(10);
+    }
+    throw new Error("Production verification stale-lock recovery did not settle.");
+  };
+
+  for (let attempt = 0; attempt < 20; attempt += 1) {
     try {
       const handle = await open(lockPath, "wx");
       try {
@@ -238,21 +361,36 @@ export async function acquireCheckoutLock(input: {
         await handle.close();
       }
 
+      await removeRecoveryMarker();
+      try {
+        await waitForRecoveryMarkers();
+      } catch (error) {
+        await releaseOwnerRecord();
+        throw error;
+      }
+      if ((await readFile(lockPath, "utf8")) !== ownerRecord) continue;
+
       return {
-        release: async () => {
-          let currentOwner: string;
-          try {
-            currentOwner = await readFile(lockPath, "utf8");
-          } catch (error) {
-            if ((error as NodeJS.ErrnoException).code === "ENOENT") return;
-            throw error;
-          }
-          if (currentOwner !== ownerRecord) return;
-          await unlink(lockPath);
-        },
+        release: releaseOwnerRecord,
       };
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+      if ((error as NodeJS.ErrnoException).code !== "EEXIST") {
+        await removeRecoveryMarker();
+        throw error;
+      }
+
+      if (!recoveryPath) {
+        recoveryPath = resolve(
+          input.cwd,
+          `${CHECKOUT_LOCK_RECOVERY_PREFIX}${ownerPid}-${randomUUID()}`,
+        );
+        const recoveryHandle = await open(recoveryPath, "wx");
+        try {
+          await recoveryHandle.writeFile(ownerRecord);
+        } finally {
+          await recoveryHandle.close();
+        }
+      }
 
       let existingOwner: number | undefined;
       try {
@@ -265,6 +403,7 @@ export async function acquireCheckoutLock(input: {
       }
 
       if (existingOwner !== undefined && isProcessAlive(existingOwner)) {
+        await removeRecoveryMarker();
         throw new Error(
           `Production verification is already owned by live process ${existingOwner}.`,
         );
@@ -280,6 +419,7 @@ export async function acquireCheckoutLock(input: {
     }
   }
 
+  await removeRecoveryMarker();
   throw new Error("Production verification could not acquire the checkout lock.");
 }
 

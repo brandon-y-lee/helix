@@ -42,6 +42,14 @@ const PROCESS_TREE_SCRIPT = [
   "setInterval(() => {}, 1000);",
 ].join(" ");
 
+const ORPHAN_PROCESS_SCRIPT = [
+  "const { spawn } = require('node:child_process');",
+  "const { writeFileSync } = require('node:fs');",
+  "const child = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore' });",
+  "child.unref();",
+  "writeFileSync(process.argv[1], JSON.stringify({ child: child.pid }));",
+].join(" ");
+
 describe("Production Verification Node Adapters", () => {
   it("starts and cleans up a complete owned process tree", async () => {
     const cwd = await mkdtemp(resolve(tmpdir(), "mei-pelle-process-tree-"));
@@ -135,6 +143,32 @@ describe("Production Verification Node Adapters", () => {
     });
   });
 
+  it(
+    "cleans up descendants after their root command exits",
+    async () => {
+      const cwd = await mkdtemp(resolve(tmpdir(), "mei-pelle-process-orphan-"));
+      const pidFile = resolve(cwd, "pids.json");
+
+      try {
+        await runOwnedCommand({
+          args: ["-e", ORPHAN_PROCESS_SCRIPT, pidFile],
+          command: process.execPath,
+          cwd,
+          env: process.env,
+          label: "Orphan cleanup command",
+          stdio: "ignore",
+        });
+        const { child } = JSON.parse(await readFile(pidFile, "utf8")) as {
+          child: number;
+        };
+        await waitUntil(() => !processIsAlive(child));
+      } finally {
+        await rm(cwd, { force: true, recursive: true });
+      }
+    },
+    10_000,
+  );
+
   it("requests graceful shutdown and does not force a process that exits", async () => {
     let resolveExit!: () => void;
     const exited = new Promise<void>((resolve) => {
@@ -173,6 +207,53 @@ describe("Production Verification Node Adapters", () => {
     );
 
     expect(events).toEqual(["graceful", "wait:5000", "force"]);
+  });
+
+  it("gives descendants the full grace period after their root exits", async () => {
+    const events: string[] = [];
+    let running = true;
+
+    await stopProcessTree(
+      {
+        exited: Promise.resolve(),
+        forceStop: async () => {
+          events.push("force");
+          running = false;
+        },
+        isRunning: () => running,
+        requestStop: async () => {
+          events.push("graceful");
+        },
+      },
+      {
+        wait: async (milliseconds) => {
+          events.push(`wait:${milliseconds}`);
+        },
+      },
+    );
+
+    expect(events).toEqual(["graceful", "wait:5000", "force"]);
+  });
+
+  it("force-stops a process tree when graceful shutdown cannot be requested", async () => {
+    let running = true;
+    const forceStop = vi.fn(async () => {
+      running = false;
+    });
+
+    await stopProcessTree(
+      {
+        exited: new Promise(() => {}),
+        forceStop,
+        isRunning: () => running,
+        requestStop: async () => {
+          throw new Error("graceful shutdown unavailable");
+        },
+      },
+      { wait: async () => {} },
+    );
+
+    expect(forceStop).toHaveBeenCalledOnce();
   });
 
   it("fails cleanup when a force-stopped process tree remains alive", async () => {
@@ -226,9 +307,31 @@ describe("Production Verification Node Adapters", () => {
     }
   });
 
+  it("allows only one concurrent stale-lock recovery winner", async () => {
+    const cwd = await mkdtemp(resolve(tmpdir(), "mei-pelle-stale-lock-race-"));
+    const lockPath = resolve(cwd, ".mei-pelle-production-verification.lock");
+
+    try {
+      await writeFile(lockPath, "99999999:stale\n");
+      const attempts = await Promise.allSettled(
+        Array.from({ length: 8 }, () =>
+          acquireCheckoutLock({ cwd, pid: process.pid }),
+        ),
+      );
+      const winners = attempts.filter(
+        (attempt): attempt is PromiseFulfilledResult<Awaited<ReturnType<typeof acquireCheckoutLock>>> =>
+          attempt.status === "fulfilled",
+      );
+      expect(winners).toHaveLength(1);
+      await winners[0].value.release();
+    } finally {
+      await rm(cwd, { force: true, recursive: true });
+    }
+  });
+
   it("stops readiness early when the server exits", async () => {
     const server: ProductionVerificationServer = {
-      exited: Promise.resolve({ reason: "exit code 17" }),
+      exited: Promise.resolve({ code: 17, reason: "exit code 17", signal: null }),
       stop: async () => {},
     };
 

@@ -4,7 +4,9 @@ export type ProductionVerificationServer = {
 };
 
 export type ProductionVerificationChildExit = {
+  code: number | null;
   reason: string;
+  signal: NodeJS.Signals | null;
 };
 
 export type ProductionVerificationLock = {
@@ -140,6 +142,8 @@ export class ProductionVerificationError extends Error {
 }
 
 export class ProductionVerificationChildError extends Error {
+  cleanupFailure?: Error;
+
   constructor(
     message: string,
     readonly childExitReason: string,
@@ -218,6 +222,9 @@ export async function verifyFreshProductionArtifact(
         childExitReason(error),
         { cause },
       );
+      if (error instanceof ProductionVerificationChildError) {
+        failure.cleanupFailure = error.cleanupFailure;
+      }
       report(phase, "failed", failure);
       throw failure;
     }
@@ -283,7 +290,9 @@ export async function verifyFreshProductionArtifact(
   } finally {
     if (lock) {
       report("cleanup", "started");
-      const cleanupFailures: Error[] = [];
+      const cleanupFailures: Error[] = primaryFailure?.cleanupFailure
+        ? [primaryFailure.cleanupFailure]
+        : [];
       try {
         await server?.stop();
       } catch (error) {

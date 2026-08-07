@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   prepareProductionVerificationEnvironment,
+  ProductionVerificationChildError,
   verifyFreshProductionArtifact,
   type ProductionVerificationAdapters,
   type ProductionVerificationDiagnostic,
@@ -399,6 +400,33 @@ describe("Production Artifact Verification", () => {
         phase: "cleanup",
         status: "failed",
       }),
+    );
+  });
+
+  it("keeps a child failure primary when its owned-tree cleanup also fails", async () => {
+    const diagnostics: ProductionVerificationDiagnostic[] = [];
+    const childFailure = new ProductionVerificationChildError(
+      "build child failed after exit code 9",
+      "exit code 9",
+    );
+    childFailure.cleanupFailure = new Error("build child cleanup failed");
+    const adapters = makeAdapters({
+      report: (diagnostic) => diagnostics.push(diagnostic),
+      selectFreePort: async () => 43_128,
+      build: async () => {
+        throw childFailure;
+      },
+    });
+
+    await expect(verifyFreshProductionArtifact({}, adapters)).rejects.toMatchObject({
+      cleanupFailure: expect.objectContaining({
+        message: "build child cleanup failed",
+      }),
+      message: "build child failed after exit code 9",
+      phase: "production-build",
+    });
+    expect(diagnostics).toContainEqual(
+      expect.objectContaining({ phase: "cleanup", status: "failed" }),
     );
   });
 
