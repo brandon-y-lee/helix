@@ -10,11 +10,16 @@ function descriptionKey(product: {
   displayName: string;
   systemStepName: string | null;
 }, group: "core" | "beyondCore") {
-  const key = (product.systemStepName ?? product.displayName).toLowerCase();
+  const key = product.systemStepName?.toLowerCase();
+  if (!key) {
+    throw new Error(
+      `Product "${product.displayName}" has no System Step Name for its homepage description.`,
+    );
+  }
   const descriptions = group === "core"
     ? homeCoreDescriptions.items
     : homeBeyondCoreDescriptions.items;
-  if (!key || !(key in descriptions)) {
+  if (!(key in descriptions)) {
     throw new Error(
       `Product "${product.displayName}" has no ${group} homepage description.`,
     );
@@ -72,7 +77,7 @@ test("Core and Beyond descriptions respond to pointer and keyboard discovery", a
   const beyondProducts = await renderedProducts(beyond, storefront);
   const beyondProduct = beyondProducts[0];
   if (!beyondProduct) {
-    throw new Error("The homepage did not render a Beyond the Core Product.");
+    throw new Error("The homepage did not render a Beyond The Core Product.");
   }
   const beyondDescription = beyond.locator(".home-phased-description");
   await expect(beyondDescription).toHaveText(homeBeyondCoreDescriptions.default);
@@ -99,7 +104,7 @@ test("Beyond carousel is finite and keyboard operable on mobile", async ({
   const carousel = beyond.locator(".home-beyond-carousel");
   const products = await renderedProducts(carousel, storefront);
   if (products.length === 0) {
-    throw new Error("The homepage did not render a Beyond the Core Product.");
+    throw new Error("The homepage did not render a Beyond The Core Product.");
   }
   await expect(carousel).toHaveAttribute("data-active-index", "0");
   await expect(
