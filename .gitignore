@@ -7,6 +7,7 @@ node_modules/
 .mei-pelle-production-verification.lock
 .mei-pelle-production-verification.lock.candidate-*
 .mei-pelle-production-verification.lock.recovery
+.mei-pelle-production-verification.lock.recovery.candidate-*
 .mei-pelle-production-verification.lock.recovery-*
 out/
 next-env.d.ts
