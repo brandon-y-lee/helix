@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
+import { installCartFixture } from "./cart-fixture";
 
 const CLEANSE_PATH = "/products/cleanse-01-calming-gel-cleanser";
 const TREAT_PATH = "/products/treat-03-pdrn-5-ampoule";
@@ -166,6 +167,7 @@ test("PDP resolves canonical data and exposes an available variant", async ({
 test("PDP add-to-cart persists across reload and reaches the cart page", async ({
   page,
 }) => {
+  await installCartFixture(page);
   const { drawer, geometryBeforeOpen } = await addCleanse(page);
   const drawerOverlay = page.locator(".cart-sheet-overlay");
   expect(await storefrontGeometry(page)).toEqual(geometryBeforeOpen);
@@ -194,6 +196,7 @@ test("PDP add-to-cart persists across reload and reaches the cart page", async (
 test("mobile quick buy opens the cart drawer and restores focus on Escape", async ({
   page,
 }) => {
+  await installCartFixture(page);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/collections/shop");
   await expect(
@@ -265,6 +268,7 @@ test("mobile quick buy opens the cart drawer and restores focus on Escape", asyn
 test("PDP sticky purchase appears after routine video and hides at the footer", async ({
   page,
 }) => {
+  await installCartFixture(page);
   await page.goto(TREAT_PATH);
   const sticky = page.locator(".pdp-sticky-purchase");
   await expect(sticky).toHaveAttribute("data-visible", "false");
