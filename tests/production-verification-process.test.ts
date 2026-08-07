@@ -59,6 +59,8 @@ const ORPHAN_INTERMEDIATE_SCRIPT = Buffer.from(
   "utf8",
 ).toString("base64");
 
+const lifecycleStdio = process.platform === "win32" ? "inherit" : "ignore";
+
 describe("Production Verification Node Adapters", () => {
   it(
     "starts and cleans up a complete owned process tree",
@@ -70,7 +72,7 @@ describe("Production Verification Node Adapters", () => {
         command: process.execPath,
         cwd,
         env: process.env,
-        stdio: "ignore",
+        stdio: lifecycleStdio,
       });
 
       try {
@@ -105,7 +107,7 @@ describe("Production Verification Node Adapters", () => {
       env: process.env,
       label: "Lifecycle smoke command",
       signal: controller.signal,
-      stdio: "ignore",
+      stdio: lifecycleStdio,
     });
 
     try {
@@ -148,7 +150,7 @@ describe("Production Verification Node Adapters", () => {
         cwd: process.cwd(),
         env: process.env,
         label: "Lifecycle failure command",
-        stdio: "ignore",
+        stdio: lifecycleStdio,
       }),
     ).rejects.toMatchObject({
       childExitReason: "exit code 23",
@@ -174,7 +176,7 @@ describe("Production Verification Node Adapters", () => {
           cwd,
           env: process.env,
           label: "Orphan cleanup command",
-          stdio: "ignore",
+          stdio: lifecycleStdio,
         });
         const { child } = JSON.parse(await readFile(pidFile, "utf8")) as {
           child: number;

@@ -17,6 +17,10 @@ const CHECKOUT_LOCK_RECOVERY_PREFIX = `${CHECKOUT_LOCK_NAME}.recovery-`;
 const DEFAULT_CLEANUP_GRACE_MS = 5_000;
 const READINESS_POLL_MS = 250;
 const WINDOWS_CONTROL_TIMEOUT_MS = 2_000;
+const WINDOWS_SUPERVISOR_PATH = resolve(
+  process.cwd(),
+  "scripts/production-verification-windows.ps1",
+);
 
 export type OwnedProcess = ProductionVerificationServer & {
   pid: number;
@@ -185,7 +189,7 @@ export async function spawnOwnedProcess(
           "-ExecutionPolicy",
           "Bypass",
           "-File",
-          resolve(input.cwd, "scripts/production-verification-windows.ps1"),
+          WINDOWS_SUPERVISOR_PATH,
           "-Payload",
           windowsJobPayload({
             ...input,
