@@ -6,7 +6,7 @@ import {
   type User,
 } from "@supabase/supabase-js";
 import WebSocket from "ws";
-import { EXPECTED_SUPABASE_PROJECT_REF } from "../lib/catalog/canonical-catalog";
+import { assertApprovedSupabaseProjectUrl } from "../lib/supabase/project-safety";
 
 const ROLES = new Set(["admin", "catalog_publisher", "catalog_editor"]);
 
@@ -17,12 +17,7 @@ function requiredEnv(name: string): string {
 }
 
 function verifyProjectRef(urlValue: string): void {
-  const projectRef = new URL(urlValue).hostname.split(".")[0];
-  if (projectRef !== EXPECTED_SUPABASE_PROJECT_REF) {
-    throw new Error(
-      `Refusing Supabase project "${projectRef}"; expected "${EXPECTED_SUPABASE_PROJECT_REF}".`,
-    );
-  }
+  assertApprovedSupabaseProjectUrl(urlValue);
 }
 
 function assertVerifiedUser(user: User): User {
