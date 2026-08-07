@@ -222,6 +222,25 @@ public static class ProductionVerificationJob
         PROCESS_INFORMATION process = new PROCESS_INFORMATION();
         bool processCreated = false;
         bool assigned = false;
+        Stream ownerStream = Console.OpenStandardInput();
+        ManualResetEvent ownerDisconnected = new ManualResetEvent(false);
+        Thread ownerWatcher = new Thread(() =>
+        {
+            try
+            {
+                while (ownerStream.ReadByte() != -1) { }
+            }
+            catch
+            {
+                // A broken or closed pipe is the owner-disconnected signal.
+            }
+            finally
+            {
+                ownerDisconnected.Set();
+            }
+        });
+        ownerWatcher.IsBackground = true;
+        ownerWatcher.Start();
 
         try
         {
@@ -291,10 +310,7 @@ public static class ProductionVerificationJob
                 {
                     return unchecked((int)exitCode);
                 }
-                if (WaitForSingleObject(GetStdHandle(-10), 0) == WAIT_OBJECT_0)
-                {
-                    return 1;
-                }
+                if (ownerDisconnected.WaitOne(0)) return 1;
                 Thread.Sleep(25);
             }
         }
@@ -307,6 +323,11 @@ public static class ProductionVerificationJob
             if (process.hThread != IntPtr.Zero) CloseHandle(process.hThread);
             if (process.hProcess != IntPtr.Zero) CloseHandle(process.hProcess);
             CloseHandle(job);
+            ownerStream.Dispose();
+            if (ownerWatcher.Join(1000))
+            {
+                ownerDisconnected.Dispose();
+            }
         }
     }
 }
