@@ -5,6 +5,7 @@ import { createServer } from "node:net";
 import { resolve } from "node:path";
 import { parse } from "dotenv";
 import {
+  prepareProductionVerificationEnvironment,
   verifyFreshProductionArtifact,
   type ProductionVerificationAdapters,
   type ProductionVerificationServer,
@@ -12,12 +13,6 @@ import {
 
 const IDENTITY_TIMEOUT_MS = 120_000;
 const IDENTITY_POLL_MS = 250;
-const E2E_SEARCH_ENV = {
-  NEXT_PUBLIC_ALGOLIA_APP_ID: "testappid",
-  NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY: "test-search-only-key",
-  NEXT_PUBLIC_ALGOLIA_INDEX_NAME: "mei_pelle_products",
-  SUPABASE_CATALOG_WEBHOOK_SECRET: "e2e-test-secret",
-} as const;
 
 type CommandInput = {
   args: string[];
@@ -79,13 +74,10 @@ async function readEnvironment(cwd: string): Promise<NodeJS.ProcessEnv> {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
   }
 
-  delete local.PORT;
-  return {
-    ...local,
-    ...process.env,
-    ...E2E_SEARCH_ENV,
-    NODE_ENV: process.env.NODE_ENV ?? "production",
-  };
+  return prepareProductionVerificationEnvironment({
+    ambient: process.env,
+    local,
+  });
 }
 
 function selectFreePort(host: string): Promise<number> {
