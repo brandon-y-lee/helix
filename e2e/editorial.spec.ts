@@ -1,7 +1,8 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./storefront-fixture";
 
 test("primary navigation reaches System, a live PDP, and About", async ({
   page,
+  storefront,
 }) => {
   await page.goto("/");
   const primary = page.getByRole("navigation", { name: "Primary" });
@@ -12,15 +13,17 @@ test("primary navigation reaches System, a live PDP, and About", async ({
     page.getByRole("heading", { level: 1, name: "THE SYSTEM." }),
   ).toBeVisible();
 
-  await page
-    .locator("#system-treat")
-    .getByRole("link", { name: /View TREAT/ })
-    .click();
-  await expect(page).toHaveURL(
-    /\/products\/treat-03-pdrn-5-ampoule$/,
+  const productLink = page.locator(".method-step__link").first();
+  const href = await productLink.getAttribute("href");
+  if (!href) throw new Error("The System did not render a Product path.");
+  const product = storefront.productAtPath(href);
+  await expect(productLink).toHaveAccessibleName(
+    `View ${product.displayName} product details`,
   );
+  await productLink.click();
+  await expect(page).toHaveURL(new RegExp(`${product.path}$`));
   await expect(
-    page.getByRole("heading", { level: 1, name: "TREAT" }),
+    page.getByRole("heading", { level: 1, name: product.displayName }),
   ).toBeVisible();
 
   await primary.getByRole("link", { name: "ABOUT" }).click();

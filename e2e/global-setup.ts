@@ -6,6 +6,7 @@ import {
   StorefrontBaselineError,
 } from "@/test-support/storefront-baseline";
 import { createSupabaseStorefrontCatalogAdapter } from "@/test-support/supabase-storefront-catalog";
+import { reconcileStorefrontSnapshot } from "@/test-support/storefront-reconciliation";
 import { writeStorefrontSnapshot } from "@/test-support/storefront-snapshot-artifact";
 
 const CATALOG_READ_TIMEOUT_MS = 10_000;
@@ -21,6 +22,20 @@ function sharedOutputDirectory(config: FullConfig | undefined): string {
   }
   return outputDirectories.values().next().value ??
     resolve(process.cwd(), "test-results");
+}
+
+function sharedBaseURL(config: FullConfig | undefined): string {
+  const baseURLs = new Set(
+    (config?.projects ?? []).flatMap((project) =>
+      typeof project.use.baseURL === "string" ? [project.use.baseURL] : [],
+    ),
+  );
+  if (baseURLs.size !== 1) {
+    throw new Error(
+      "e2e: Playwright projects must share one Storefront base URL for live snapshot reconciliation.",
+    );
+  }
+  return [...baseURLs][0];
 }
 
 // Playwright starts the built Storefront before this hook. Read the approved
@@ -51,21 +66,14 @@ export default async function globalSetup(
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), CATALOG_READ_TIMEOUT_MS);
 
+  let snapshot;
   try {
-    const snapshot = await createStorefrontBaseline(
+    snapshot = await createStorefrontBaseline(
       createSupabaseStorefrontCatalogAdapter({
         url,
         anonKey,
         signal: controller.signal,
       }),
-    );
-    const artifactPath = await writeStorefrontSnapshot(
-      snapshot,
-      sharedOutputDirectory(config),
-    );
-    console.log(
-      `e2e global-setup: validated ${snapshot.products.length} active Products ` +
-        `and wrote ${artifactPath}.`,
     );
   } catch (cause) {
     if (cause instanceof StorefrontBaselineError) {
@@ -80,5 +88,26 @@ export default async function globalSetup(
     throw cause;
   } finally {
     clearTimeout(timer);
+  }
+
+  try {
+    await reconcileStorefrontSnapshot(snapshot, {
+      baseURL: sharedBaseURL(config),
+    });
+    const artifactPath = await writeStorefrontSnapshot(
+      snapshot,
+      sharedOutputDirectory(config),
+    );
+    console.log(
+      `e2e global-setup: validated ${snapshot.products.length} active Products ` +
+        `and wrote ${artifactPath}.`,
+    );
+  } catch (cause) {
+    if (cause instanceof StorefrontBaselineError) {
+      throw new Error(
+        `e2e: ${cause.code === "cache-reconciliation" ? cause.message : cause.detail}`,
+      );
+    }
+    throw cause;
   }
 }

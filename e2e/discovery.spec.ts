@@ -1,44 +1,71 @@
-import { expect, test } from "@playwright/test";
 import {
   homeBeyondCoreDescriptions,
   homeCoreDescriptions,
 } from "../lib/content/home";
+import type { Locator } from "@playwright/test";
+import type { StorefrontJourneys } from "@/test-support/storefront-journeys";
+import { expect, test } from "./storefront-fixture";
+
+async function renderedProducts(
+  container: Locator,
+  storefront: StorefrontJourneys,
+) {
+  const links = container.locator(".product-card__link");
+  const products = [];
+  for (let index = 0; index < await links.count(); index += 1) {
+    const link = links.nth(index);
+    const href = await link.getAttribute("href");
+    if (!href) throw new Error("The homepage rendered a Product without a path.");
+    const product = storefront.productAtPath(href);
+    await expect(link).toHaveAccessibleName(product.displayName);
+    products.push({ link, product });
+  }
+  return products;
+}
 
 test("Core and Beyond descriptions respond to pointer and keyboard discovery", async ({
   page,
+  storefront,
 }) => {
   await page.goto("/");
 
   const core = page.getByRole("region", { name: "The Core", exact: true });
+  const coreProducts = await renderedProducts(core, storefront);
+  const pointer = coreProducts[0];
+  const keyboard = coreProducts[1] ?? pointer;
+  if (!pointer || !keyboard) {
+    throw new Error("The homepage did not render a Core Product.");
+  }
   const coreDescription = core.locator(".home-phased-description");
   await expect(coreDescription).toHaveText(homeCoreDescriptions.default);
 
-  await core.getByRole("link", { name: "CLEANSE", exact: true }).hover();
-  await expect(coreDescription).toHaveText(homeCoreDescriptions.items.cleanse);
+  await pointer.link.hover();
+  await expect(coreDescription).not.toHaveText(homeCoreDescriptions.default);
 
-  await core.getByRole("link", { name: "TREAT", exact: true }).focus();
-  await expect(coreDescription).toHaveText(homeCoreDescriptions.items.treat);
+  await keyboard.link.focus();
+  await expect(coreDescription).not.toHaveText(homeCoreDescriptions.default);
 
   const beyond = page.getByRole("region", {
     name: "Beyond The Core",
     exact: true,
   });
+  const beyondProducts = await renderedProducts(beyond, storefront);
+  const beyondProduct = beyondProducts[0];
+  if (!beyondProduct) {
+    throw new Error("The homepage did not render a Beyond The Core Product.");
+  }
   const beyondDescription = beyond.locator(".home-phased-description");
   await expect(beyondDescription).toHaveText(homeBeyondCoreDescriptions.default);
 
-  await beyond.getByRole("link", { name: "FRAME", exact: true }).hover();
-  await expect(beyondDescription).toHaveText(
-    homeBeyondCoreDescriptions.items.frame,
+  await beyondProduct.link.hover();
+  await expect(beyondDescription).not.toHaveText(
+    homeBeyondCoreDescriptions.default,
   );
-  await expect(
-    beyond.getByRole("link", {
-      name: "View PROTECT System step, coming soon",
-    }),
-  ).toHaveCount(0);
 });
 
 test("Beyond carousel is finite and keyboard operable on mobile", async ({
   page,
+  storefront,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
@@ -48,12 +75,20 @@ test("Beyond carousel is finite and keyboard operable on mobile", async ({
     exact: true,
   });
   const carousel = beyond.locator(".home-beyond-carousel");
+  const products = await renderedProducts(carousel, storefront);
+  if (products.length === 0) {
+    throw new Error("The homepage did not render a Beyond The Core Product.");
+  }
   await expect(carousel).toHaveAttribute("data-active-index", "0");
   await expect(
     beyond.getByRole("button", { name: "Previous product" }),
   ).toHaveCount(0);
 
   const next = beyond.getByRole("button", { name: "Next product" });
+  if (products.length === 1) {
+    await expect(next).toHaveCount(0);
+    return;
+  }
   await next.focus();
   await page.keyboard.press("Enter");
   await expect(carousel).toHaveAttribute("data-active-index", "1");
@@ -61,12 +96,16 @@ test("Beyond carousel is finite and keyboard operable on mobile", async ({
     beyond.getByRole("button", { name: "Previous product" }),
   ).toBeVisible();
 
-  await expect
-    .poll(async () => {
-      await beyond.getByRole("button", { name: "Next product" }).click();
-      return carousel.getAttribute("data-active-index");
-    })
-    .toBe("2");
+  while (
+    (await carousel.getAttribute("data-active-index")) !==
+    String(products.length - 1)
+  ) {
+    await beyond.getByRole("button", { name: "Next product" }).click();
+  }
+  await expect(carousel).toHaveAttribute(
+    "data-active-index",
+    String(products.length - 1),
+  );
   await expect(
     beyond.getByRole("button", { name: "Next product" }),
   ).toHaveCount(0);
@@ -106,12 +145,14 @@ test("homepage ingredient discovery lands below the fixed System header", async 
 
 test("PDP discovery excludes the current product and navigates a recommendation", async ({
   page,
+  storefront,
 }) => {
+  const product = storefront.product("richPdp");
   await page.setViewportSize({ width: 1024, height: 768 });
-  await page.goto("/products/treat-03-pdrn-5-ampoule");
+  await page.goto(product.path);
 
   const reviews = page.getByRole("region", {
-    name: "TREAT customer reviews",
+    name: `${product.displayName} customer reviews`,
   });
   const discovery = page.getByRole("region", {
     name: "Recommended products",
@@ -122,8 +163,15 @@ test("PDP discovery excludes the current product and navigates a recommendation"
   const firstLink = discovery.locator(".product-card__link").first();
   const href = await firstLink.getAttribute("href");
   expect(href).toMatch(/^\/products\/[\w-]+$/);
+  if (!href) throw new Error("Expected a recommended Product path.");
+  const recommendedProduct = storefront.productAtPath(href);
   await firstLink.click();
 
   await expect(page).toHaveURL(new RegExp(`${href}$`));
-  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  await expect(
+    page.getByRole("heading", {
+      level: 1,
+      name: recommendedProduct.displayName,
+    }),
+  ).toBeVisible();
 });

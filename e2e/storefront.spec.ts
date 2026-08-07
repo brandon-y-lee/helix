@@ -1,8 +1,8 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
+import { formatPrice } from "@/lib/products";
+import type { StorefrontPurchase } from "@/test-support/storefront-journeys";
 import { installCartFixture } from "./cart-fixture";
-
-const CLEANSE_PATH = "/products/cleanse-01-calming-gel-cleanser";
-const TREAT_PATH = "/products/treat-03-pdrn-5-ampoule";
+import { expect, test } from "./storefront-fixture";
 
 type HorizontalGeometry = { x: number; width: number };
 
@@ -21,10 +21,27 @@ async function finishDrawerExit(page: Page) {
   await expect(overlay).toHaveAttribute("inert", "");
 }
 
-async function addCleanse(
+function productCount(products: readonly unknown[]) {
+  return `${products.length} ${products.length === 1 ? "product" : "products"}`;
+}
+
+async function selectPurchaseVariant(
   page: Page,
+  purchase: StorefrontPurchase,
+) {
+  const variant = page.getByRole("button", {
+    name: purchase.variant.label,
+    exact: true,
+  });
+  await variant.click();
+  await expect(variant).toHaveAttribute("aria-pressed", "true");
+}
+
+async function addProduct(
+  page: Page,
+  purchase: StorefrontPurchase,
 ): Promise<{ drawer: Locator; geometryBeforeOpen: HorizontalGeometry }> {
-  await page.goto(CLEANSE_PATH);
+  await page.goto(purchase.product.path);
   await expect(
     page.getByRole("button", { name: /CART \(0\)/ }),
   ).toBeVisible();
@@ -34,8 +51,9 @@ async function addCleanse(
   await expect(drawerPanel).toHaveAttribute("data-state", "closed");
   await expect(drawerPanel).toHaveCount(1);
   const geometryBeforeOpen = await storefrontGeometry(page);
+  await selectPurchaseVariant(page, purchase);
   const buyButton = page.locator("[data-pdp-buy-button]");
-  await expect(buyButton).toHaveText("BUY CLEANSE - $22.00");
+  await expect(buyButton).toHaveText(purchase.buyLabel);
   await buyButton.click();
   const drawer = page.getByRole("dialog", { name: "Cart" });
   await expect(drawer).toBeVisible();
@@ -50,7 +68,7 @@ async function addCleanse(
   await expect(
     drawer
       .getByRole("list", { name: "Cart items" })
-      .getByText("CLEANSE", { exact: true }),
+      .getByText(purchase.product.displayName, { exact: true }),
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: /CART \(1\)/ }),
@@ -58,17 +76,30 @@ async function addCleanse(
   return { drawer, geometryBeforeOpen };
 }
 
-test("shop renders seeded products and combines filtering with sorting", async ({
+test("shop renders live Products and combines filtering with sorting", async ({
   page,
+  storefront,
 }) => {
+  const products = storefront.products();
+  const coreProducts = storefront.products("core");
+  const beyondProducts = storefront.products("beyondCore");
+  const purchasable = storefront.product("purchasable");
+  const purchase = storefront.purchase(purchasable);
   await page.goto("/collections/shop");
-  await expect(page.locator(".product-count")).toHaveText("6 products");
-  await expect(page.locator(".product-card")).toHaveCount(6);
+  await expect(page.locator(".product-count")).toHaveText(
+    productCount(products),
+  );
+  await expect(page.locator(".product-card")).toHaveCount(products.length);
   await expect(
     page
-      .locator('[data-product-card-slug="cleanse-01-calming-gel-cleanser"]')
+      .locator(`[data-product-card-slug="${purchasable.slug}"]`)
       .locator(".product-card__quick-trigger"),
-  ).toHaveText("BUY CLEANSE - $22.00");
+  ).toHaveText(purchase.buyLabel);
+  await expect(
+    page
+      .locator(`[data-product-card-slug="${purchasable.slug}"]`)
+      .locator(".product-card__price"),
+  ).toHaveText(storefront.cardPriceLabel(purchasable));
 
   const filters = page.getByRole("navigation", {
     name: "Shop collections",
@@ -80,9 +111,13 @@ test("shop renders seeded products and combines filtering with sorting", async (
   await core.click();
   await expect(page).toHaveURL(/\/collections\/core$/);
   await expect(core).toHaveAttribute("aria-current", "page");
-  await expect(page.locator(".product-count")).toHaveText("3 products");
+  await expect(page.locator(".product-count")).toHaveText(
+    productCount(coreProducts),
+  );
   await expect(
-    page.getByRole("link", { name: "REFINE", exact: true }),
+    page.locator(
+      `[data-product-card-slug="${storefront.product("beyondCore").slug}"]`,
+    ),
   ).toHaveCount(0);
 
   await page.getByRole("button", { name: "Sort: Featured" }).click();
@@ -90,8 +125,11 @@ test("shop renders seeded products and combines filtering with sorting", async (
     .getByRole("dialog", { name: "Sort products" })
     .getByRole("button", { name: "Name, Z–A" })
     .click();
+  const firstCoreByDescendingName = [...coreProducts].sort((a, b) =>
+    b.displayName.localeCompare(a.displayName),
+  )[0];
   await expect(page.locator(".product-card__name").first()).toHaveText(
-    "TREAT",
+    firstCoreByDescendingName.displayName,
   );
 
   const beyond = filters.getByRole("link", {
@@ -104,61 +142,79 @@ test("shop renders seeded products and combines filtering with sorting", async (
   await expect(
     page.getByRole("button", { name: "Sort: Featured" }),
   ).toBeVisible();
-  await expect(page.locator(".product-count")).toHaveText("3 products");
+  await expect(page.locator(".product-count")).toHaveText(
+    productCount(beyondProducts),
+  );
   await expect(
-    page.getByRole("link", { name: "CLEANSE", exact: true }),
+    page.locator(
+      `[data-product-card-slug="${storefront.product("core").slug}"]`,
+    ),
   ).toHaveCount(0);
 });
 
 test("PDP resolves canonical data and exposes an available variant", async ({
   page,
+  storefront,
 }) => {
-  const serverResponse = await page.request.get(TREAT_PATH);
+  const product = storefront.product("richPdp");
+  const purchase = storefront.purchase(product);
+  const gallery = storefront.gallery(product);
+  const serverResponse = await page.request.get(product.path);
   expect(serverResponse.ok()).toBe(true);
-  expect(await serverResponse.text()).toContain("<h1>TREAT</h1>");
-
-  await page.goto(TREAT_PATH);
-  await expect(
-    page.getByRole("heading", { level: 1, name: "TREAT" }),
-  ).toBeVisible();
-  await expect(page.locator(".pdp__availability")).toHaveCount(0);
-  await expect(page.locator("[data-pdp-buy-button]")).toHaveText(
-    "BUY TREAT - $25.00",
+  expect(await serverResponse.text()).toContain(
+    `<h1>${product.displayName}</h1>`,
   );
 
-  const variant = page.getByRole("button", {
-    name: "30 mL",
-    exact: true,
-  });
-  await variant.click();
-  await expect(variant).toHaveAttribute("aria-pressed", "true");
-  await expect(page.locator(".pdp__price")).toHaveText("$25.00");
+  await page.goto(product.path);
+  await expect(
+    page.getByRole("heading", { level: 1, name: product.displayName }),
+  ).toBeVisible();
+  await expect(page.locator(".pdp__availability")).toHaveCount(0);
+  await selectPurchaseVariant(page, purchase);
+  await expect(page.locator("[data-pdp-buy-button]")).toHaveText(
+    purchase.buyLabel,
+  );
+
+  await expect(page.locator(".pdp__price")).toHaveText(
+    formatPrice(purchase.variant.price),
+  );
   await expect(
     page.getByRole("region", {
-      name: "TREAT routine video",
+      name: `${product.displayName} routine video`,
       exact: true,
     }),
   ).toBeAttached();
   await expect(
-    page.getByRole("region", { name: "TREAT customer reviews" }),
+    page.getByRole("region", {
+      name: `${product.displayName} customer reviews`,
+    }),
   ).toBeVisible();
 
-  const portraitView = page.getByRole("button", {
-    name: "View Portrait for TREAT with blond-streaked hair on pale blue., media 2 of 2",
-  });
-  await portraitView.click();
-  await expect(portraitView).toHaveAttribute("aria-pressed", "true");
-  await expect(page.locator('[data-pdp-gallery-state="2"]')).toHaveAttribute(
-    "data-state",
-    "active",
+  await expect(page.locator("[data-pdp-media-thumbnail]")).toHaveCount(
+    gallery.length,
   );
-
-  const productView = page.getByRole("button", {
-    name: "View TREAT PDRN ampoule, media 1 of 2",
+  const firstMedia = gallery[0];
+  const lastMedia = gallery.at(-1);
+  if (!firstMedia || !lastMedia) {
+    throw new Error(`Rich PDP Product "${product.slug}" has no gallery media.`);
+  }
+  const lastView = page.getByRole("button", {
+    name: `View ${lastMedia.alt}, media ${lastMedia.index} of ${lastMedia.total}`,
   });
-  await productView.click();
-  await expect(productView).toHaveAttribute("aria-pressed", "true");
-  await expect(page.locator('[data-pdp-gallery-state="1"]')).toHaveAttribute(
+  await lastView.click();
+  await expect(lastView).toHaveAttribute("aria-pressed", "true");
+  await expect(
+    page.locator(`[data-pdp-gallery-state="${lastMedia.index}"]`),
+  ).toHaveAttribute("data-state", "active");
+
+  const firstView = page.getByRole("button", {
+    name: `View ${firstMedia.alt}, media ${firstMedia.index} of ${firstMedia.total}`,
+  });
+  await firstView.click();
+  await expect(firstView).toHaveAttribute("aria-pressed", "true");
+  await expect(
+    page.locator(`[data-pdp-gallery-state="${firstMedia.index}"]`),
+  ).toHaveAttribute(
     "data-state",
     "active",
   );
@@ -166,9 +222,11 @@ test("PDP resolves canonical data and exposes an available variant", async ({
 
 test("PDP add-to-cart persists across reload and reaches the cart page", async ({
   page,
+  storefront,
 }) => {
-  await installCartFixture(page);
-  const { drawer, geometryBeforeOpen } = await addCleanse(page);
+  const purchase = storefront.purchase(storefront.product("purchasable"));
+  await installCartFixture(page, storefront.snapshot.products);
+  const { drawer, geometryBeforeOpen } = await addProduct(page, purchase);
   const drawerOverlay = page.locator(".cart-sheet-overlay");
   expect(await storefrontGeometry(page)).toEqual(geometryBeforeOpen);
   await drawer.getByRole("button", { name: "Close" }).click();
@@ -185,7 +243,9 @@ test("PDP add-to-cart persists across reload and reaches the cart page", async (
   ).toBeVisible();
 
   await page.goto("/cart");
-  await expect(page.getByText("CLEANSE").first()).toBeVisible();
+  await expect(
+    page.getByText(purchase.product.displayName).first(),
+  ).toBeVisible();
   await expect(page.getByRole("list", { name: "Cart items" })).toBeVisible();
   await page.getByRole("button", { name: "Clear cart" }).click();
   await expect(
@@ -195,8 +255,10 @@ test("PDP add-to-cart persists across reload and reaches the cart page", async (
 
 test("mobile quick buy opens the cart drawer and restores focus on Escape", async ({
   page,
+  storefront,
 }) => {
-  await installCartFixture(page);
+  const purchase = storefront.purchase(storefront.product("purchasable"));
+  await installCartFixture(page, storefront.snapshot.products);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/collections/shop");
   await expect(
@@ -204,19 +266,33 @@ test("mobile quick buy opens the cart drawer and restores focus on Escape", asyn
   ).toBeVisible();
 
   const card = page
-    .locator(".product-card")
-    .filter({ hasText: "CLEANSE" })
-    .first();
+    .locator(`[data-product-card-slug="${purchase.product.slug}"]`);
   const quickBuy = card.getByRole("button", {
-    name: "Open quick buy for CLEANSE",
+    name: `Open quick buy for ${purchase.product.displayName}`,
   });
   await expect(quickBuy).toBeVisible();
   await quickBuy.click();
 
   const finalBuy = card.getByRole("button", {
-    name: "BUY CLEANSE - $22.00",
+    name: purchase.buyLabel,
   });
-  await expect(finalBuy).toHaveText("BUY CLEANSE - $22.00");
+  if (purchase.product.variants.length > 1) {
+    for (const variant of purchase.product.variants) {
+      const option = card
+        .locator(".product-card__quick-option")
+        .filter({ hasText: variant.label });
+      await expect(option.locator("span")).toHaveText(variant.label);
+      await expect(option.locator("small")).toHaveText(
+        formatPrice(variant.price),
+      );
+    }
+    await expect(
+      card.locator(
+        `input[type="radio"][value="${purchase.variant.id}"]`,
+      ),
+    ).toBeChecked();
+  }
+  await expect(finalBuy).toHaveText(purchase.buyLabel);
   await finalBuy.scrollIntoViewIfNeeded();
   const viewportOriginBeforeCart = await page.evaluate(() => ({
     scrollX: window.scrollX,
@@ -267,9 +343,12 @@ test("mobile quick buy opens the cart drawer and restores focus on Escape", asyn
 
 test("PDP sticky purchase appears after routine video and hides at the footer", async ({
   page,
+  storefront,
 }) => {
-  await installCartFixture(page);
-  await page.goto(TREAT_PATH);
+  const purchase = storefront.purchase(storefront.product("richPdp"));
+  await installCartFixture(page, storefront.snapshot.products);
+  await page.goto(purchase.product.path);
+  await selectPurchaseVariant(page, purchase);
   const sticky = page.locator(".pdp-sticky-purchase");
   await expect(sticky).toHaveAttribute("data-visible", "false");
 
@@ -280,7 +359,7 @@ test("PDP sticky purchase appears after routine video and hides at the footer", 
   await expect(sticky).toHaveAttribute("data-visible", "true");
   await expect(sticky).toHaveAttribute("aria-hidden", "false");
   const stickyBuy = sticky.locator("[data-sticky-pdp-buy-button]");
-  await expect(stickyBuy).toHaveText("BUY TREAT - $25.00");
+  await expect(stickyBuy).toHaveText(purchase.buyLabel);
   await stickyBuy.click();
 
   const drawer = page.getByRole("dialog", { name: "Cart" });
@@ -288,7 +367,7 @@ test("PDP sticky purchase appears after routine video and hides at the footer", 
   await expect(
     drawer
       .getByRole("list", { name: "Cart items" })
-      .getByText("TREAT", { exact: true }),
+      .getByText(purchase.product.displayName, { exact: true }),
   ).toBeVisible();
   await drawer.getByRole("button", { name: "Close" }).click();
   await expect(stickyBuy).toBeFocused();

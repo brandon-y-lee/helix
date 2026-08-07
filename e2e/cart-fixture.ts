@@ -1,41 +1,63 @@
 import type { Page, Route } from "@playwright/test";
 import type { CartLine, CartState } from "@/lib/cart/types";
+import type {
+  StorefrontSnapshotProduct,
+  StorefrontSnapshotVariant,
+} from "@/test-support/storefront-baseline";
 
-const PRODUCTS: Record<
-  string,
-  Pick<
-    CartLine,
-    | "name"
-    | "collection"
-    | "variantLabel"
-    | "price"
-    | "swatch"
-    | "imageUrl"
-    | "imageAlt"
-    | "placeholderMedia"
-  >
-> = {
-  "cleanse-01-calming-gel-cleanser": {
-    name: "CLEANSE",
-    collection: "The Core",
-    variantLabel: "200 mL",
-    price: 2200,
-    swatch: ["#d8d2c8", "#9c9488"],
-    imageUrl: null,
-    imageAlt: null,
-    placeholderMedia: null,
-  },
-  "treat-03-pdrn-5-ampoule": {
-    name: "TREAT",
-    collection: "The Core",
-    variantLabel: "30 mL",
-    price: 2500,
-    swatch: ["#d8d2c8", "#9c9488"],
-    imageUrl: null,
-    imageAlt: null,
-    placeholderMedia: null,
-  },
-};
+function cartProduct(
+  product: StorefrontSnapshotProduct,
+  variant: StorefrontSnapshotVariant,
+): Pick<
+  CartLine,
+  | "name"
+  | "collection"
+  | "variantLabel"
+  | "price"
+  | "swatch"
+  | "imageUrl"
+  | "imageAlt"
+  | "placeholderMedia"
+> {
+  const presentation = product.media.filter(
+    (item) => item.kind !== "video",
+  );
+  const media =
+    presentation.find((item) => item.role === "cart") ??
+    presentation.find((item) => item.role === "card_default") ??
+    presentation.find((item) => item.role === "card") ??
+    presentation.find((item) => item.role === "detail") ??
+    presentation.find((item) => item.role === "hero") ??
+    null;
+  const palette = media?.placeholderPalette;
+
+  return {
+    name: product.displayName,
+    collection:
+      product.routineGroup === "core" ? "The Core" : "Beyond The Core",
+    variantLabel: variant.label,
+    price: variant.price,
+    swatch: [...product.swatch],
+    imageUrl: media?.kind === "image" ? media.url : null,
+    imageAlt: media?.alt ?? null,
+    placeholderMedia:
+      media?.kind === "placeholder"
+        ? {
+            kind: "placeholder",
+            alt: media.alt,
+            paletteId: media.paletteId,
+            palette: {
+              start: palette?.start ?? product.swatch[0],
+              end: palette?.end ?? product.swatch[1],
+              accent: palette?.accent,
+              surface: palette?.surface,
+              ink: palette?.ink,
+              highlight: palette?.highlight,
+            },
+          }
+        : null,
+  };
+}
 
 function cartState(lines: CartLine[]): CartState {
   return {
@@ -54,7 +76,10 @@ async function fulfillCart(route: Route, cart: CartState) {
   });
 }
 
-export async function installCartFixture(page: Page): Promise<void> {
+export async function installCartFixture(
+  page: Page,
+  products: readonly StorefrontSnapshotProduct[],
+): Promise<void> {
   // PR CI intentionally has no Supabase service-role key. Keep browser cart
   // behavior deterministic without granting privileged database access to PRs.
   let lines: CartLine[] = [];
@@ -80,8 +105,13 @@ export async function installCartFixture(page: Page): Promise<void> {
         variantId?: string;
         quantity?: number;
       };
-      const product = body.slug ? PRODUCTS[body.slug] : undefined;
-      if (!product || !body.slug || !body.variantId) {
+      const snapshotProduct = body.slug
+        ? products.find((product) => product.slug === body.slug)
+        : undefined;
+      const variant = snapshotProduct?.variants.find(
+        (item) => item.id === body.variantId,
+      );
+      if (!snapshotProduct || !variant || !body.slug || !body.variantId) {
         await route.fulfill({
           status: 400,
           contentType: "application/json",
@@ -92,6 +122,7 @@ export async function installCartFixture(page: Page): Promise<void> {
 
       const quantity = body.quantity ?? 1;
       const key = `${body.slug}:${body.variantId}`;
+      const product = cartProduct(snapshotProduct, variant);
       const existing = lines.find((line) => line.key === key);
       lines = existing
         ? lines.map((line) =>
