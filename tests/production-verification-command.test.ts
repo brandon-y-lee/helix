@@ -18,6 +18,37 @@ describe("Production Verification Commands", () => {
     );
   });
 
+  it("keeps a lightweight Windows lifecycle contract in CI", async () => {
+    const workflow = await readFile(
+      resolve(process.cwd(), ".github/workflows/ci.yml"),
+      "utf8",
+    );
+
+    expect(workflow).toContain("verification-lifecycle-windows:");
+    expect(workflow).toContain("runs-on: windows-latest");
+    expect(workflow).toContain(
+      "pnpm vitest run tests/production-verification.test.ts tests/production-verification-process.test.ts",
+    );
+
+    const windowsRunner = await readFile(
+      resolve(process.cwd(), "scripts/production-verification-windows.ps1"),
+      "utf8",
+    );
+    expect(windowsRunner).toContain("CREATE_SUSPENDED");
+    expect(windowsRunner).toContain("AssignProcessToJobObject");
+    expect(windowsRunner).toContain("JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE");
+    expect(windowsRunner).toContain("ownerStream.ReadByte()");
+    expect(windowsRunner).toContain("ManualResetEvent");
+
+    const nodeAdapter = await readFile(
+      resolve(process.cwd(), "scripts/production-verification-node.ts"),
+      "utf8",
+    );
+    expect(nodeAdapter).toContain("args: input.args");
+    expect(nodeAdapter).toContain("command: input.command");
+    expect(nodeAdapter).not.toContain("windowsJobPayload({\n            ...input");
+  });
+
   it("rejects direct Playwright use with supported-command guidance", () => {
     const require = createRequire(import.meta.url);
     const playwrightCli = require.resolve("@playwright/test/cli");

@@ -1,11 +1,39 @@
 export type ProductionVerificationServer = {
+  exited: Promise<ProductionVerificationChildExit>;
   stop: () => Promise<void>;
 };
 
+export type ProductionVerificationChildExit = {
+  code: number | null;
+  reason: string;
+  signal: NodeJS.Signals | null;
+};
+
+export type ProductionVerificationLock = {
+  release: () => Promise<void>;
+};
+
+export type ProductionVerificationPhase =
+  | "preflight"
+  | "production-build"
+  | "server-start-and-identity"
+  | "browser-test"
+  | "cleanup";
+
+export type ProductionVerificationDiagnostic = {
+  phase: ProductionVerificationPhase;
+  status: "started" | "passed" | "failed";
+  elapsedMs: number;
+  port?: number;
+  buildId?: string;
+  childExitReason?: string;
+};
+
 export type ProductionVerificationAdapters = {
+  acquireLock: () => Promise<ProductionVerificationLock>;
   selectFreePort: (host: string) => Promise<number>;
   isPortAvailable: (input: { host: string; port: number }) => Promise<boolean>;
-  build: () => Promise<{ buildId: string }>;
+  build: (input: { signal?: AbortSignal }) => Promise<{ buildId: string }>;
   startServer: (input: {
     host: string;
     port: number;
@@ -13,8 +41,16 @@ export type ProductionVerificationAdapters = {
   waitForBuildIdentity: (input: {
     baseURL: string;
     buildId: string;
+    server: ProductionVerificationServer;
+    signal?: AbortSignal;
+    timeoutMs: number;
   }) => Promise<void>;
-  runBrowserTests: (input: { baseURL: string }) => Promise<void>;
+  runBrowserTests: (input: {
+    baseURL: string;
+    signal?: AbortSignal;
+  }) => Promise<void>;
+  now: () => number;
+  report: (diagnostic: ProductionVerificationDiagnostic) => void;
 };
 
 export type ProductionVerificationResult = {
@@ -24,10 +60,13 @@ export type ProductionVerificationResult = {
 };
 
 export type ProductionVerificationInput = {
+  readinessTimeoutMs?: number;
   requestedPort?: string;
+  signal?: AbortSignal;
 };
 
 const LOOPBACK_HOST = "127.0.0.1";
+const DEFAULT_READINESS_TIMEOUT_MS = 120_000;
 const LOCAL_SERVER_APPLICATION_KEYS = new Set([
   "ALGOLIA_ADMIN_API_KEY",
   "ALGOLIA_APP_ID",
@@ -88,45 +127,233 @@ export function prepareProductionVerificationEnvironment(input: {
   };
 }
 
+export class ProductionVerificationError extends Error {
+  cleanupFailure?: Error;
+
+  constructor(
+    readonly phase: ProductionVerificationPhase,
+    message: string,
+    readonly childExitReason?: string,
+    options?: ErrorOptions,
+  ) {
+    super(message, options);
+    this.name = "ProductionVerificationError";
+  }
+}
+
+export class ProductionVerificationChildError extends Error {
+  cleanupFailure?: Error;
+
+  constructor(
+    message: string,
+    readonly childExitReason: string,
+    options?: ErrorOptions,
+  ) {
+    super(message, options);
+    this.name = "ProductionVerificationChildError";
+  }
+}
+
+export class ProductionVerificationCleanupError extends Error {
+  constructor(
+    message: string,
+    readonly cleanupFailure: Error,
+    options?: ErrorOptions,
+  ) {
+    super(message, options);
+    this.name = "ProductionVerificationCleanupError";
+  }
+}
+
+function asError(error: unknown): Error {
+  return error instanceof Error ? error : new Error(String(error));
+}
+
+function childExitReason(error: unknown): string | undefined {
+  if (
+    error instanceof ProductionVerificationChildError ||
+    error instanceof ProductionVerificationError
+  ) {
+    return error.childExitReason;
+  }
+  return undefined;
+}
+
+function interruptionError(signal?: AbortSignal): Error | undefined {
+  if (!signal?.aborted) return undefined;
+  const reason = signal.reason;
+  if (reason instanceof Error) return reason;
+  if (typeof reason === "string" && reason.length > 0) return new Error(reason);
+  return new Error("Production verification was interrupted.");
+}
+
 export async function verifyFreshProductionArtifact(
   input: ProductionVerificationInput,
   adapters: ProductionVerificationAdapters,
 ): Promise<ProductionVerificationResult> {
-  const requestedPort = input.requestedPort;
-  const parsedPort = requestedPort === undefined ? undefined : Number(requestedPort);
-  if (
-    requestedPort !== undefined &&
-    (requestedPort.trim() === "" ||
-      !/^\d+$/.test(requestedPort) ||
-      !Number.isInteger(parsedPort) ||
-      parsedPort! < 1 ||
-      parsedPort! > 65_535)
-  ) {
-    throw new Error(
-      "Production verification requires PORT to be an integer from 1 through 65535.",
-    );
-  }
+  const startedAt = adapters.now();
+  let port: number | undefined;
+  let buildId: string | undefined;
+  let lock: ProductionVerificationLock | undefined;
+  let server: ProductionVerificationServer | undefined;
+  let result: ProductionVerificationResult | undefined;
+  let primaryFailure: ProductionVerificationError | undefined;
 
-  if (
-    parsedPort !== undefined &&
-    !(await adapters.isPortAvailable({ host: LOOPBACK_HOST, port: parsedPort }))
-  ) {
-    throw new Error(
-      `Production verification cannot use occupied PORT ${parsedPort}.`,
-    );
-  }
+  const report = (
+    phase: ProductionVerificationPhase,
+    status: ProductionVerificationDiagnostic["status"],
+    failure?: unknown,
+  ): void => {
+    adapters.report({
+      buildId,
+      childExitReason: childExitReason(failure),
+      elapsedMs: Math.max(0, adapters.now() - startedAt),
+      phase,
+      port,
+      status,
+    });
+  };
 
-  const port = parsedPort ?? (await adapters.selectFreePort(LOOPBACK_HOST));
-  const { buildId } = await adapters.build();
-  const baseURL = `http://${LOOPBACK_HOST}:${port}`;
-  const server = await adapters.startServer({ host: LOOPBACK_HOST, port });
+  const runPhase = async <T>(
+    phase: Exclude<ProductionVerificationPhase, "cleanup">,
+    action: () => Promise<T>,
+  ): Promise<T> => {
+    report(phase, "started");
+    try {
+      const interruption = interruptionError(input.signal);
+      if (interruption) throw interruption;
+      const value = await action();
+      report(phase, "passed");
+      return value;
+    } catch (error) {
+      if (error instanceof ProductionVerificationCleanupError) {
+        report(phase, "passed");
+        throw error;
+      }
+      const cause = asError(error);
+      const failure = new ProductionVerificationError(
+        phase,
+        cause.message,
+        childExitReason(error),
+        { cause },
+      );
+      if (error instanceof ProductionVerificationChildError) {
+        failure.cleanupFailure = error.cleanupFailure;
+      }
+      report(phase, "failed", failure);
+      throw failure;
+    }
+  };
 
   try {
-    await adapters.waitForBuildIdentity({ baseURL, buildId });
-    await adapters.runBrowserTests({ baseURL });
+    await runPhase("preflight", async () => {
+      lock = await adapters.acquireLock();
+      const requestedPort = input.requestedPort;
+      const parsedPort =
+        requestedPort === undefined ? undefined : Number(requestedPort);
+      if (
+        requestedPort !== undefined &&
+        (requestedPort.trim() === "" ||
+          !/^\d+$/.test(requestedPort) ||
+          !Number.isInteger(parsedPort) ||
+          parsedPort! < 1 ||
+          parsedPort! > 65_535)
+      ) {
+        throw new Error(
+          "Production verification requires PORT to be an integer from 1 through 65535.",
+        );
+      }
+
+      if (
+        parsedPort !== undefined &&
+        !(await adapters.isPortAvailable({ host: LOOPBACK_HOST, port: parsedPort }))
+      ) {
+        throw new Error(
+          `Production verification cannot use occupied PORT ${parsedPort}.`,
+        );
+      }
+      port = parsedPort ?? (await adapters.selectFreePort(LOOPBACK_HOST));
+    });
+
+    await runPhase("production-build", async () => {
+      ({ buildId } = await adapters.build({ signal: input.signal }));
+    });
+
+    const baseURL = `http://${LOOPBACK_HOST}:${port!}`;
+    await runPhase("server-start-and-identity", async () => {
+      server = await adapters.startServer({ host: LOOPBACK_HOST, port: port! });
+      await adapters.waitForBuildIdentity({
+        baseURL,
+        buildId: buildId!,
+        server,
+        signal: input.signal,
+        timeoutMs: input.readinessTimeoutMs ?? DEFAULT_READINESS_TIMEOUT_MS,
+      });
+    });
+
+    await runPhase("browser-test", () =>
+      adapters.runBrowserTests({ baseURL, signal: input.signal }),
+    );
+    result = { baseURL, buildId: buildId!, port: port! };
+  } catch (error) {
+    if (error instanceof ProductionVerificationCleanupError) {
+      primaryFailure = new ProductionVerificationError(
+        "cleanup",
+        error.message,
+        undefined,
+        { cause: error },
+      );
+      primaryFailure.cleanupFailure = error.cleanupFailure;
+    } else {
+      primaryFailure =
+        error instanceof ProductionVerificationError
+          ? error
+          : new ProductionVerificationError(
+              "preflight",
+              asError(error).message,
+              undefined,
+              { cause: error },
+            );
+    }
   } finally {
-    await server.stop();
+    if (lock) {
+      report("cleanup", "started");
+      const cleanupFailures: Error[] = primaryFailure?.cleanupFailure
+        ? [primaryFailure.cleanupFailure]
+        : [];
+      try {
+        await server?.stop();
+      } catch (error) {
+        cleanupFailures.push(asError(error));
+      }
+      try {
+        await lock.release();
+      } catch (error) {
+        cleanupFailures.push(asError(error));
+      }
+
+      if (cleanupFailures.length > 0) {
+        const cleanupFailure = new Error(
+          cleanupFailures.map((failure) => failure.message).join("; "),
+          { cause: cleanupFailures[0] },
+        );
+        report("cleanup", "failed", cleanupFailure);
+        if (primaryFailure) {
+          primaryFailure.cleanupFailure = cleanupFailure;
+        } else {
+          primaryFailure = new ProductionVerificationError(
+            "cleanup",
+            cleanupFailure.message,
+            childExitReason(cleanupFailure),
+            { cause: cleanupFailure },
+          );
+        }
+      } else {
+        report("cleanup", "passed");
+      }
+    }
   }
 
-  return { baseURL, buildId, port };
+  if (primaryFailure) throw primaryFailure;
+  return result!;
 }

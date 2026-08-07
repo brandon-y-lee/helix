@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   prepareProductionVerificationEnvironment,
+  ProductionVerificationChildError,
+  ProductionVerificationCleanupError,
   verifyFreshProductionArtifact,
   type ProductionVerificationAdapters,
+  type ProductionVerificationDiagnostic,
 } from "@/scripts/production-verification";
 
 function makeAdapters(
@@ -13,12 +16,15 @@ function makeAdapters(
   };
 
   return {
+    acquireLock: async () => ({ release: async () => {} }),
     selectFreePort: unexpected,
     isPortAvailable: unexpected,
     build: unexpected,
     startServer: unexpected,
     waitForBuildIdentity: unexpected,
     runBrowserTests: unexpected,
+    now: () => 0,
+    report: () => {},
     ...overrides,
   };
 }
@@ -83,6 +89,7 @@ describe("Production Artifact Verification", () => {
         expect({ host, port }).toEqual({ host: "127.0.0.1", port: 43_117 });
         running = true;
         return {
+          exited: new Promise(() => {}),
           stop: async () => {
             running = false;
           },
@@ -159,7 +166,10 @@ describe("Production Artifact Verification", () => {
         return true;
       },
       build: async () => ({ buildId: "explicit-port-build" }),
-      startServer: async () => ({ stop: async () => {} }),
+      startServer: async () => ({
+        exited: new Promise(() => {}),
+        stop: async () => {},
+      }),
       waitForBuildIdentity: async () => {},
       runBrowserTests: async () => {},
     });
@@ -183,6 +193,7 @@ describe("Production Artifact Verification", () => {
       startServer: async () => {
         running = true;
         return {
+          exited: new Promise(() => {}),
           stop: async () => {
             running = false;
           },
@@ -212,6 +223,7 @@ describe("Production Artifact Verification", () => {
       startServer: async () => {
         running = true;
         return {
+          exited: new Promise(() => {}),
           stop: async () => {
             running = false;
           },
@@ -228,4 +240,306 @@ describe("Production Artifact Verification", () => {
     ).rejects.toThrow("Playwright failed.");
     expect(running).toBe(false);
   });
+
+  it("reports each lifecycle phase with safe diagnostic context", async () => {
+    const diagnostics: ProductionVerificationDiagnostic[] = [];
+    let elapsed = 0;
+    const adapters = makeAdapters({
+      now: () => elapsed,
+      report: (diagnostic) => diagnostics.push(diagnostic),
+      selectFreePort: async () => 43_120,
+      build: async () => {
+        elapsed = 20;
+        return { buildId: "diagnostic-build" };
+      },
+      startServer: async () => ({
+        exited: new Promise(() => {}),
+        stop: async () => {
+          elapsed = 50;
+        },
+      }),
+      waitForBuildIdentity: async ({ timeoutMs }) => {
+        expect(timeoutMs).toBe(120_000);
+        elapsed = 35;
+      },
+      runBrowserTests: async () => {
+        elapsed = 45;
+      },
+    });
+
+    await verifyFreshProductionArtifact({}, adapters);
+
+    expect(diagnostics).toEqual([
+      {
+        buildId: undefined,
+        childExitReason: undefined,
+        elapsedMs: 0,
+        phase: "preflight",
+        port: undefined,
+        status: "started",
+      },
+      {
+        buildId: undefined,
+        childExitReason: undefined,
+        elapsedMs: 0,
+        phase: "preflight",
+        port: 43_120,
+        status: "passed",
+      },
+      {
+        buildId: undefined,
+        childExitReason: undefined,
+        elapsedMs: 0,
+        phase: "production-build",
+        port: 43_120,
+        status: "started",
+      },
+      {
+        buildId: "diagnostic-build",
+        childExitReason: undefined,
+        elapsedMs: 20,
+        phase: "production-build",
+        port: 43_120,
+        status: "passed",
+      },
+      {
+        buildId: "diagnostic-build",
+        childExitReason: undefined,
+        elapsedMs: 20,
+        phase: "server-start-and-identity",
+        port: 43_120,
+        status: "started",
+      },
+      {
+        buildId: "diagnostic-build",
+        childExitReason: undefined,
+        elapsedMs: 35,
+        phase: "server-start-and-identity",
+        port: 43_120,
+        status: "passed",
+      },
+      {
+        buildId: "diagnostic-build",
+        childExitReason: undefined,
+        elapsedMs: 35,
+        phase: "browser-test",
+        port: 43_120,
+        status: "started",
+      },
+      {
+        buildId: "diagnostic-build",
+        childExitReason: undefined,
+        elapsedMs: 45,
+        phase: "browser-test",
+        port: 43_120,
+        status: "passed",
+      },
+      {
+        buildId: "diagnostic-build",
+        childExitReason: undefined,
+        elapsedMs: 45,
+        phase: "cleanup",
+        port: 43_120,
+        status: "started",
+      },
+      {
+        buildId: "diagnostic-build",
+        childExitReason: undefined,
+        elapsedMs: 50,
+        phase: "cleanup",
+        port: 43_120,
+        status: "passed",
+      },
+    ]);
+  });
+
+  it("fails a successful run when cleanup fails", async () => {
+    const adapters = makeAdapters({
+      selectFreePort: async () => 43_121,
+      build: async () => ({ buildId: "cleanup-failure-build" }),
+      startServer: async () => ({
+        exited: new Promise(() => {}),
+        stop: async () => {
+          throw new Error("server tree remained alive");
+        },
+      }),
+      waitForBuildIdentity: async () => {},
+      runBrowserTests: async () => {},
+    });
+
+    await expect(verifyFreshProductionArtifact({}, adapters)).rejects.toMatchObject({
+      message: expect.stringContaining("server tree remained alive"),
+      phase: "cleanup",
+    });
+  });
+
+  it("keeps the earlier failure primary while reporting cleanup failure", async () => {
+    const diagnostics: ProductionVerificationDiagnostic[] = [];
+    const adapters = makeAdapters({
+      report: (diagnostic) => diagnostics.push(diagnostic),
+      selectFreePort: async () => 43_122,
+      build: async () => ({ buildId: "dual-failure-build" }),
+      startServer: async () => ({
+        exited: new Promise(() => {}),
+        stop: async () => {
+          throw new Error("cleanup also failed");
+        },
+      }),
+      waitForBuildIdentity: async () => {},
+      runBrowserTests: async () => {
+        throw new Error("browser failed first");
+      },
+    });
+
+    await expect(verifyFreshProductionArtifact({}, adapters)).rejects.toMatchObject({
+      cleanupFailure: expect.objectContaining({ message: "cleanup also failed" }),
+      message: expect.stringContaining("browser failed first"),
+      phase: "browser-test",
+    });
+    expect(diagnostics).toContainEqual(
+      expect.objectContaining({
+        phase: "cleanup",
+        status: "failed",
+      }),
+    );
+  });
+
+  it("keeps a child failure primary when its owned-tree cleanup also fails", async () => {
+    const diagnostics: ProductionVerificationDiagnostic[] = [];
+    const childFailure = new ProductionVerificationChildError(
+      "build child failed after exit code 9",
+      "exit code 9",
+    );
+    childFailure.cleanupFailure = new Error("build child cleanup failed");
+    const adapters = makeAdapters({
+      report: (diagnostic) => diagnostics.push(diagnostic),
+      selectFreePort: async () => 43_128,
+      build: async () => {
+        throw childFailure;
+      },
+    });
+
+    await expect(verifyFreshProductionArtifact({}, adapters)).rejects.toMatchObject({
+      cleanupFailure: expect.objectContaining({
+        message: "build child cleanup failed",
+      }),
+      message: "build child failed after exit code 9",
+      phase: "production-build",
+    });
+    expect(diagnostics).toContainEqual(
+      expect.objectContaining({ phase: "cleanup", status: "failed" }),
+    );
+  });
+
+  it("classifies cleanup-only child failures as cleanup failures", async () => {
+    const diagnostics: ProductionVerificationDiagnostic[] = [];
+    const cleanupFailure = new Error("successful child left a process alive");
+    const adapters = makeAdapters({
+      report: (diagnostic) => diagnostics.push(diagnostic),
+      selectFreePort: async () => 43_129,
+      build: async () => {
+        throw new ProductionVerificationCleanupError(
+          "Production build cleanup failed",
+          cleanupFailure,
+        );
+      },
+    });
+
+    await expect(verifyFreshProductionArtifact({}, adapters)).rejects.toMatchObject({
+      cleanupFailure: expect.objectContaining({
+        message: "successful child left a process alive",
+      }),
+      message: "Production build cleanup failed",
+      phase: "cleanup",
+    });
+    expect(diagnostics).toContainEqual(
+      expect.objectContaining({ phase: "production-build", status: "passed" }),
+    );
+    expect(diagnostics).toContainEqual(
+      expect.objectContaining({ phase: "cleanup", status: "failed" }),
+    );
+  });
+
+  it("releases the checkout lock after a production-build failure", async () => {
+    let lockHeld = false;
+    const adapters = makeAdapters({
+      acquireLock: async () => {
+        lockHeld = true;
+        return {
+          release: async () => {
+            lockHeld = false;
+          },
+        };
+      },
+      selectFreePort: async () => 43_126,
+      build: async () => {
+        throw new Error("build failed");
+      },
+    });
+
+    await expect(verifyFreshProductionArtifact({}, adapters)).rejects.toMatchObject({
+      message: "build failed",
+      phase: "production-build",
+    });
+    expect(lockHeld).toBe(false);
+  });
+
+  it.each(["SIGINT", "SIGTERM"])(
+    "cleans up the server and lock after %s interruption",
+    async (signalName) => {
+      const controller = new AbortController();
+      let lockHeld = false;
+      let serverRunning = false;
+      let browserStarted!: () => void;
+      const browserIsRunning = new Promise<void>((resolve) => {
+        browserStarted = resolve;
+      });
+      const adapters = makeAdapters({
+        acquireLock: async () => {
+          lockHeld = true;
+          return {
+            release: async () => {
+              lockHeld = false;
+            },
+          };
+        },
+        selectFreePort: async () => 43_127,
+        build: async () => ({ buildId: "interrupted-build" }),
+        startServer: async () => {
+          serverRunning = true;
+          return {
+            exited: new Promise(() => {}),
+            stop: async () => {
+              serverRunning = false;
+            },
+          };
+        },
+        waitForBuildIdentity: async () => {},
+        runBrowserTests: async ({ signal }) => {
+          browserStarted();
+          await new Promise<never>((_, reject) => {
+            signal?.addEventListener(
+              "abort",
+              () => reject(signal.reason),
+              { once: true },
+            );
+          });
+        },
+      });
+
+      const verification = verifyFreshProductionArtifact(
+        { signal: controller.signal },
+        adapters,
+      );
+      await browserIsRunning;
+      controller.abort(new Error(`Production verification interrupted by ${signalName}.`));
+
+      await expect(verification).rejects.toMatchObject({
+        message: `Production verification interrupted by ${signalName}.`,
+        phase: "browser-test",
+      });
+      expect(serverRunning).toBe(false);
+      expect(lockHeld).toBe(false);
+    },
+  );
 });
