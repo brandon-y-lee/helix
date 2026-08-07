@@ -17,6 +17,7 @@ import {
   prepareProductionVerificationEnvironment,
   ProductionVerificationChildError,
   ProductionVerificationCleanupError,
+  ProductionVerificationError,
   type ProductionArtifactReceipt,
   type ProductionVerificationChildExit,
   type ProductionVerificationDiagnostic,
@@ -487,11 +488,24 @@ export async function acquireCheckoutLock(input: {
           cleanupFailures.push(cleanupError);
         }
         if (cleanupFailures.length > 0) {
-          throw new AggregateError(
-            [error, ...cleanupFailures],
-            "Production verification lock acquisition cleanup failed.",
-            { cause: error },
+          const primaryFailure =
+            error instanceof Error ? error : new Error(String(error));
+          const cleanupFailure = new Error(
+            cleanupFailures
+              .map((failure) =>
+                failure instanceof Error ? failure.message : String(failure),
+              )
+              .join("; "),
+            { cause: cleanupFailures[0] },
           );
+          const failure = new ProductionVerificationError(
+            "preflight",
+            primaryFailure.message,
+            undefined,
+            { cause: primaryFailure },
+          );
+          failure.cleanupFailure = cleanupFailure;
+          throw failure;
         }
         throw error;
       }

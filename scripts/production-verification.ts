@@ -345,7 +345,10 @@ async function executeProductionVerification<T>(
         childExitReason(error),
         { cause },
       );
-      if (error instanceof ProductionVerificationChildError) {
+      if (
+        error instanceof ProductionVerificationChildError ||
+        error instanceof ProductionVerificationError
+      ) {
         failure.cleanupFailure = error.cleanupFailure;
       }
       report(phase, "failed", failure);
@@ -380,7 +383,7 @@ async function executeProductionVerification<T>(
             );
     }
   } finally {
-    if (lock) {
+    if (lock || primaryFailure?.cleanupFailure) {
       report("cleanup", "started");
       const cleanupFailures: Error[] = primaryFailure?.cleanupFailure
         ? [primaryFailure.cleanupFailure]
@@ -391,7 +394,7 @@ async function executeProductionVerification<T>(
         cleanupFailures.push(asError(error));
       }
       try {
-        await lock.release();
+        await lock?.release();
       } catch (error) {
         cleanupFailures.push(asError(error));
       }

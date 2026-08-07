@@ -120,6 +120,39 @@ describe("Production Artifact Verification", () => {
     );
   });
 
+  it("keeps lock acquisition failure primary while reporting its cleanup failure", async () => {
+    const diagnostics: ProductionVerificationDiagnostic[] = [];
+    const acquisitionFailure = new ProductionVerificationError(
+      "preflight",
+      "Checkout lock acquisition failed.",
+    );
+    acquisitionFailure.cleanupFailure = new Error(
+      "Partial checkout lock cleanup failed.",
+    );
+    const adapters = makeAdapters({
+      acquireLock: async () => {
+        throw acquisitionFailure;
+      },
+      report: (diagnostic) => diagnostics.push(diagnostic),
+    });
+
+    await expect(
+      buildReceiptedProductionArtifact({}, adapters),
+    ).rejects.toMatchObject({
+      cleanupFailure: expect.objectContaining({
+        message: "Partial checkout lock cleanup failed.",
+      }),
+      message: "Checkout lock acquisition failed.",
+      phase: "preflight",
+    });
+    expect(diagnostics).toContainEqual(
+      expect.objectContaining({ phase: "preflight", status: "failed" }),
+    );
+    expect(diagnostics).toContainEqual(
+      expect.objectContaining({ phase: "cleanup", status: "failed" }),
+    );
+  });
+
   it("verifies the receipted CI artifact without rebuilding it", async () => {
     const commitSha = "b".repeat(40);
     let browserRuns = 0;
