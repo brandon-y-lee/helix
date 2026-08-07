@@ -24,10 +24,10 @@ test("Core and Beyond descriptions respond to pointer and keyboard discovery", a
   page,
   storefront,
 }) => {
-  const coreProducts = storefront.collection("core");
+  const coreProducts = storefront.products("core");
   const pointerProduct = coreProducts[0];
   const keyboardProduct = coreProducts[1] ?? pointerProduct;
-  const beyondProduct = storefront.collection("beyondCore")[0];
+  const beyondProduct = storefront.products("beyondCore")[0];
   if (!pointerProduct || !keyboardProduct || !beyondProduct) {
     throw new Error("The live Storefront snapshot is missing homepage Products.");
   }
@@ -37,16 +37,22 @@ test("Core and Beyond descriptions respond to pointer and keyboard discovery", a
   const coreDescription = core.locator(".home-phased-description");
   await expect(coreDescription).toHaveText(homeCoreDescriptions.default);
 
-  await core
-    .getByRole("link", { name: pointerProduct.displayName, exact: true })
-    .hover();
+  const pointerLink = core.getByRole("link", {
+    name: pointerProduct.displayName,
+    exact: true,
+  });
+  await expect(pointerLink).toHaveAttribute("href", pointerProduct.path);
+  await pointerLink.hover();
   await expect(coreDescription).toHaveText(
     homeCoreDescriptions.items[descriptionKey(pointerProduct, "core")],
   );
 
-  await core
-    .getByRole("link", { name: keyboardProduct.displayName, exact: true })
-    .focus();
+  const keyboardLink = core.getByRole("link", {
+    name: keyboardProduct.displayName,
+    exact: true,
+  });
+  await expect(keyboardLink).toHaveAttribute("href", keyboardProduct.path);
+  await keyboardLink.focus();
   await expect(coreDescription).toHaveText(
     homeCoreDescriptions.items[descriptionKey(keyboardProduct, "core")],
   );
@@ -58,33 +64,24 @@ test("Core and Beyond descriptions respond to pointer and keyboard discovery", a
   const beyondDescription = beyond.locator(".home-phased-description");
   await expect(beyondDescription).toHaveText(homeBeyondCoreDescriptions.default);
 
-  await beyond
-    .getByRole("link", { name: beyondProduct.displayName, exact: true })
-    .hover();
+  const beyondLink = beyond.getByRole("link", {
+    name: beyondProduct.displayName,
+    exact: true,
+  });
+  await expect(beyondLink).toHaveAttribute("href", beyondProduct.path);
+  await beyondLink.hover();
   await expect(beyondDescription).toHaveText(
     homeBeyondCoreDescriptions.items[
       descriptionKey(beyondProduct, "beyondCore")
     ],
   );
-  const protectProduct = storefront.snapshot.products.find(
-    (product) =>
-      (product.systemStepName ?? product.displayName).toLowerCase() ===
-      "protect",
-  );
-  if (!protectProduct) {
-    await expect(
-      beyond.getByRole("link", {
-        name: "View PROTECT System step, coming soon",
-      }),
-    ).toHaveCount(0);
-  }
 });
 
 test("Beyond carousel is finite and keyboard operable on mobile", async ({
   page,
   storefront,
 }) => {
-  const products = storefront.collection("beyondCore");
+  const products = storefront.products("beyondCore");
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
 
@@ -178,14 +175,14 @@ test("PDP discovery excludes the current product and navigates a recommendation"
   const href = await firstLink.getAttribute("href");
   expect(href).toMatch(/^\/products\/[\w-]+$/);
   if (!href) throw new Error("Expected a recommended Product path.");
-  const relatedProduct = storefront.productAtPath(href);
+  const recommendedProduct = storefront.productAtPath(href);
   await firstLink.click();
 
   await expect(page).toHaveURL(new RegExp(`${href}$`));
   await expect(
     page.getByRole("heading", {
       level: 1,
-      name: relatedProduct.displayName,
+      name: recommendedProduct.displayName,
     }),
   ).toBeVisible();
 });

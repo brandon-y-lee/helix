@@ -80,9 +80,9 @@ test("shop renders live Products and combines filtering with sorting", async ({
   page,
   storefront,
 }) => {
-  const products = storefront.collection();
-  const coreProducts = storefront.collection("core");
-  const beyondProducts = storefront.collection("beyondCore");
+  const products = storefront.products();
+  const coreProducts = storefront.products("core");
+  const beyondProducts = storefront.products("beyondCore");
   const purchasable = storefront.product("purchasable");
   const purchase = storefront.purchase(purchasable);
   await page.goto("/collections/shop");

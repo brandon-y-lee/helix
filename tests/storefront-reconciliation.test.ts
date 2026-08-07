@@ -120,6 +120,7 @@ const snapshot = {
     purchasableProductId: core.id,
     richPdpProductId: core.id,
     searchableProductId: core.id,
+    systemNavigationProductId: core.id,
   },
 } as const satisfies StorefrontSnapshot;
 
@@ -272,6 +273,17 @@ describe("Storefront journey expectations", () => {
           paletteId: null,
           placeholderPalette: null,
         },
+        {
+          kind: "video",
+          url: "/media/gallery-motion.mp4",
+          alt: "Core motion",
+          width: null,
+          height: null,
+          role: "gallery",
+          sortOrder: 3,
+          paletteId: null,
+          placeholderPalette: null,
+        },
       ],
     });
     const liveSnapshot = {
@@ -287,6 +299,6 @@ describe("Storefront journey expectations", () => {
     expect(journeys.cardPriceLabel(multiVariantProduct)).toBe("From $12.00");
     expect(
       journeys.gallery(multiVariantProduct).map((item) => item.alt),
-    ).toEqual(["Core detail", "Core bottle"]);
+    ).toEqual(["Core detail", "Core bottle", "Core motion"]);
   });
 });

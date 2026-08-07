@@ -8,7 +8,7 @@ test("primary navigation reaches System, a live PDP, and About", async ({
   page,
   storefront,
 }) => {
-  const product = storefront.product("core");
+  const product = storefront.product("systemNavigation");
   const systemStep = product.systemStepName?.toLowerCase();
   if (!systemStep) {
     throw new Error(`Product "${product.slug}" has no System Step.`);

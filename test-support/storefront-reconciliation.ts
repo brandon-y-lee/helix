@@ -33,20 +33,6 @@ function sleep(milliseconds: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
-function productById(
-  snapshot: StorefrontSnapshot,
-  productId: string,
-): StorefrontSnapshotProduct {
-  const product = snapshot.products.find((item) => item.id === productId);
-  if (!product) {
-    throw new StorefrontBaselineError(
-      "invalid-snapshot-artifact",
-      `Journey Product "${productId}" is missing from the Storefront snapshot.`,
-    );
-  }
-  return product;
-}
-
 async function readDocument(
   baseURL: string,
   path: string,
@@ -231,23 +217,19 @@ async function currentMismatches(
     signal: AbortSignal;
   },
 ): Promise<string[]> {
+  const journeys = createStorefrontJourneys(snapshot);
   const collections = [
-    { path: "/collections/shop", products: snapshot.products },
+    { path: "/collections/shop", products: journeys.products() },
     {
       path: "/collections/core",
-      products: snapshot.products.filter(
-        (product) => product.routineGroup === "core",
-      ),
+      products: journeys.products("core"),
     },
     {
       path: "/collections/beyond-the-core",
-      products: snapshot.products.filter(
-        (product) => product.routineGroup === "beyond_core",
-      ),
+      products: journeys.products("beyondCore"),
     },
   ] as const;
   const mismatches: string[] = [];
-  const journeys = createStorefrontJourneys(snapshot);
 
   for (const collection of collections) {
     const document = await readDocument(
@@ -266,16 +248,14 @@ async function currentMismatches(
     );
   }
 
-  const richProduct = productById(
-    snapshot,
-    snapshot.journeys.richPdpProductId,
-  );
-  const purchasableProduct = productById(
-    snapshot,
-    snapshot.journeys.purchasableProductId,
-  );
+  const richProduct = journeys.product("richPdp");
+  const purchasableProduct = journeys.product("purchasable");
+  const systemNavigationProduct = journeys.product("systemNavigation");
   for (const product of new Map(
-    [richProduct, purchasableProduct].map((item) => [item.id, item]),
+    [richProduct, purchasableProduct, systemNavigationProduct].map((item) => [
+      item.id,
+      item,
+    ]),
   ).values()) {
     const document = await readDocument(
       options.baseURL,

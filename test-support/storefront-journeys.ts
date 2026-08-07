@@ -1,4 +1,4 @@
-import { formatPrice } from "@/lib/products";
+import { formatPrice, productPurchaseCta } from "@/lib/products";
 import {
   StorefrontBaselineError,
   type StorefrontSnapshot,
@@ -12,9 +12,10 @@ export type StorefrontJourney =
   | "beyondCore"
   | "purchasable"
   | "richPdp"
-  | "searchable";
+  | "searchable"
+  | "systemNavigation";
 
-export type StorefrontCollection = "shop" | "core" | "beyondCore";
+export type StorefrontRoutineGroup = "core" | "beyondCore";
 
 export type StorefrontPurchase = Readonly<{
   buyLabel: string;
@@ -35,6 +36,7 @@ const JOURNEY_KEYS = {
   purchasable: "purchasableProductId",
   richPdp: "richPdpProductId",
   searchable: "searchableProductId",
+  systemNavigation: "systemNavigationProductId",
 } as const satisfies Readonly<
   Record<StorefrontJourney, keyof StorefrontSnapshot["journeys"]>
 >;
@@ -64,20 +66,41 @@ function normalizeMediaUrl(url: string): string {
 }
 
 function galleryMedia(product: StorefrontSnapshotProduct) {
-  const presentation = product.media.filter(
-    (media) => media.kind !== "video" && Boolean(media.url),
+  const canonical = product.media.filter(
+    (media) =>
+      Boolean(media.url) &&
+      (media.kind === "image" || media.kind === "video"),
   );
+  const presentation = canonical.filter((media) => media.kind !== "video");
   const card =
     presentation.find((media) => media.role === "card_default") ??
     presentation.find((media) => media.role === "card") ??
     presentation.find((media) => media.role === "detail") ??
     presentation.find((media) => media.role === "hero") ??
     null;
-  const primary =
+  const detailMedia =
     presentation.find((media) => media.role === "detail") ??
     presentation.find((media) => media.role === "hero") ??
     card;
-  const gallery = presentation
+  const roleRank = (role: StorefrontSnapshotMedia["role"]) => {
+    if (role === "detail" || role === "hero") return 0;
+    if (role === "card_default" || role === "card") return 1;
+    return 2;
+  };
+  const primary =
+    detailMedia ??
+    canonical
+      .filter((media) =>
+        ["detail", "hero", "card_default", "card"].includes(media.role),
+      )
+      .slice()
+      .sort(
+        (a, b) =>
+          roleRank(a.role) - roleRank(b.role) ||
+          a.sortOrder - b.sortOrder,
+      )[0] ??
+    null;
+  const gallery = canonical
     .filter((media) => media.role === "gallery")
     .slice()
     .sort((a, b) => a.sortOrder - b.sortOrder);
@@ -107,11 +130,11 @@ export function createStorefrontJourneys(snapshot: StorefrontSnapshot) {
         `Storefront path "${path}" is missing from the immutable snapshot. Rerun after Catalog/cache reconciliation.`,
       );
     },
-    collection(collection: StorefrontCollection = "shop") {
-      if (collection === "shop") return snapshot.products;
-      const routineGroup = collection === "core" ? "core" : "beyond_core";
+    products(routineGroup?: StorefrontRoutineGroup) {
+      if (!routineGroup) return snapshot.products;
+      const snapshotGroup = routineGroup === "core" ? "core" : "beyond_core";
       return snapshot.products.filter(
-        (product) => product.routineGroup === routineGroup,
+        (product) => product.routineGroup === snapshotGroup,
       );
     },
     purchase(product: StorefrontSnapshotProduct): StorefrontPurchase {
@@ -125,8 +148,22 @@ export function createStorefrontJourneys(snapshot: StorefrontSnapshot) {
           `Product "${product.slug}" does not satisfy the Purchasable journey.`,
         );
       }
+      const cta = productPurchaseCta(
+        {
+          displayName: product.displayName,
+          status: product.merchandisingStatus,
+          variants: product.variants,
+        },
+        variant,
+      );
+      if (!cta.purchasable) {
+        throw new StorefrontBaselineError(
+          "invalid-snapshot-artifact",
+          `Product "${product.slug}" has a non-Purchasable snapshot offer.`,
+        );
+      }
       return Object.freeze({
-        buyLabel: `BUY ${product.displayName} - ${formatPrice(offer.price)}`,
+        buyLabel: cta.label,
         product,
         variant,
       });

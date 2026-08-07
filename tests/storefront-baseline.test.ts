@@ -136,6 +136,7 @@ describe("Storefront Baseline", () => {
       purchasableProductId: "core-first-id",
       richPdpProductId: "core-alpha-id",
       searchableProductId: "core-first-id",
+      systemNavigationProductId: "core-first-id",
     });
     expect(snapshot.products[0]?.offer?.variantId).toBe("standard");
     expect(snapshot.routineComplements).toEqual([
