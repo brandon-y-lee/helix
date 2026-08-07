@@ -1,26 +1,43 @@
-import { spawn, type ChildProcess } from "node:child_process";
+import { execFile, spawn, type ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { open, readFile, readdir, unlink, writeFile } from "node:fs/promises";
+import {
+  link,
+  open,
+  readFile,
+  stat,
+  unlink,
+  writeFile,
+} from "node:fs/promises";
+import { createRequire } from "node:module";
+import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
+import { promisify } from "node:util";
+import { parse } from "dotenv";
 import {
+  prepareProductionVerificationEnvironment,
   ProductionVerificationChildError,
   ProductionVerificationCleanupError,
+  ProductionVerificationError,
+  type ProductionArtifactReceipt,
   type ProductionVerificationChildExit,
   type ProductionVerificationDiagnostic,
   type ProductionVerificationLock,
   type ProductionVerificationServer,
+  type NodeProductionVerificationAdapters,
 } from "./production-verification";
 
 const CHECKOUT_LOCK_NAME = ".mei-pelle-production-verification.lock";
-const CHECKOUT_LOCK_RECOVERY_PREFIX = `${CHECKOUT_LOCK_NAME}.recovery-`;
+const CHECKOUT_LOCK_RECOVERY_NAME = `${CHECKOUT_LOCK_NAME}.recovery`;
 const DEFAULT_CLEANUP_GRACE_MS = 5_000;
 const READINESS_POLL_MS = 250;
 const WINDOWS_CONTROL_TIMEOUT_MS = 2_000;
+const PRODUCTION_ARTIFACT_RECEIPT_PATH = ".next/mei-pelle-artifact-receipt.json";
 const WINDOWS_SUPERVISOR_PATH = resolve(
   process.cwd(),
   "scripts/production-verification-windows.ps1",
 );
+const execFileAsync = promisify(execFile);
 
 export type OwnedProcess = ProductionVerificationServer & {
   pid: number;
@@ -369,9 +386,112 @@ export async function acquireCheckoutLock(input: {
   pid?: number;
 }): Promise<ProductionVerificationLock> {
   const lockPath = resolve(input.cwd, CHECKOUT_LOCK_NAME);
+  const recoveryPath = resolve(input.cwd, CHECKOUT_LOCK_RECOVERY_NAME);
   const ownerPid = input.pid ?? process.pid;
   const ownerRecord = `${ownerPid}:${randomUUID()}\n`;
-  let recoveryPath: string | undefined;
+  let ownsRecovery = false;
+
+  const asError = (error: unknown): Error =>
+    error instanceof Error ? error : new Error(String(error));
+
+  const attachCleanupFailures = (
+    primary: unknown,
+    cleanupFailures: unknown[],
+  ): Error => {
+    const primaryFailure = asError(primary);
+    const inheritedCleanup =
+      primary instanceof ProductionVerificationCleanupError
+        ? primary.cleanupFailure
+        : primary instanceof ProductionVerificationError
+          ? primary.cleanupFailure
+          : undefined;
+    const failures = [
+      ...(inheritedCleanup ? [inheritedCleanup] : []),
+      ...cleanupFailures.map(asError),
+    ];
+    const cleanupFailure = new Error(
+      failures.map((failure) => failure.message).join("; "),
+      { cause: failures[0] },
+    );
+    if (primary instanceof ProductionVerificationCleanupError) {
+      return new ProductionVerificationCleanupError(
+        primary.message,
+        cleanupFailure,
+        { cause: primary },
+      );
+    }
+    const failure =
+      primary instanceof ProductionVerificationError
+        ? primary
+        : new ProductionVerificationError(
+            "preflight",
+            primaryFailure.message,
+            undefined,
+            { cause: primaryFailure },
+          );
+    failure.cleanupFailure = cleanupFailure;
+    return failure;
+  };
+
+  const readRecord = async (path: string): Promise<string | undefined> => {
+    try {
+      return await readFile(path, "utf8");
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+      throw error;
+    }
+  };
+
+  const recordOwnerPid = (record: string): number | undefined => {
+    const ownerMatch = /^(\d+)(?::|$)/.exec(record.trim());
+    return ownerMatch ? Number(ownerMatch[1]) : undefined;
+  };
+
+  const writeExclusiveRecord = async (path: string): Promise<void> => {
+    const candidatePath = `${path}.candidate-${ownerPid}-${randomUUID()}`;
+    const handle = await open(candidatePath, "wx");
+    let primaryFailure: unknown;
+    try {
+      await handle.writeFile(ownerRecord);
+    } catch (error) {
+      primaryFailure = error;
+    }
+    try {
+      await handle.close();
+    } catch (cleanupError) {
+      if (primaryFailure === undefined) {
+        const failure = asError(cleanupError);
+        primaryFailure = new ProductionVerificationCleanupError(
+          `Production verification lock candidate handle cleanup failed: ${failure.message}`,
+          failure,
+          { cause: failure },
+        );
+      } else {
+        primaryFailure = attachCleanupFailures(primaryFailure, [cleanupError]);
+      }
+    }
+    if (primaryFailure === undefined) {
+      try {
+        await link(candidatePath, path);
+      } catch (error) {
+        primaryFailure = error;
+      }
+    }
+    try {
+      await unlink(candidatePath);
+    } catch (cleanupError) {
+      if (primaryFailure !== undefined) {
+        throw attachCleanupFailures(primaryFailure, [cleanupError]);
+      }
+      const failure = asError(cleanupError);
+      throw new ProductionVerificationCleanupError(
+        `Production verification lock candidate cleanup failed: ${failure.message}`,
+        failure,
+        { cause: failure },
+      );
+    }
+    if (primaryFailure !== undefined) throw primaryFailure;
+  };
 
   const releaseOwnerRecord = async () => {
     try {
@@ -383,100 +503,114 @@ export async function acquireCheckoutLock(input: {
     }
   };
 
-  const removeRecoveryMarker = async () => {
-    if (!recoveryPath) return;
+  const releaseRecovery = async () => {
+    if (!ownsRecovery) return;
     try {
-      await unlink(recoveryPath);
+      if ((await readFile(recoveryPath, "utf8")) === ownerRecord) {
+        await unlink(recoveryPath);
+      }
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     }
-    recoveryPath = undefined;
+    ownsRecovery = false;
   };
 
-  const waitForRecoveryMarkers = async () => {
-    const deadline = Date.now() + 5_000;
-    while (Date.now() < deadline) {
-      const markers = (await readdir(input.cwd)).filter((entry) =>
-        entry.startsWith(CHECKOUT_LOCK_RECOVERY_PREFIX),
-      );
-      let liveMarkers = 0;
-      for (const marker of markers) {
-        const markerPath = resolve(input.cwd, marker);
-        try {
-          const markerOwner = (await readFile(markerPath, "utf8")).trim();
-          const ownerMatch = /^(\d+)(?::|$)/.exec(markerOwner);
-          if (ownerMatch && isProcessAlive(Number(ownerMatch[1]))) {
-            liveMarkers += 1;
-          } else {
-            await unlink(markerPath);
-          }
-        } catch (error) {
-          if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  const stillOwnsRecovery = async (): Promise<boolean> => {
+    if (!ownsRecovery) return false;
+    if ((await readRecord(recoveryPath)) === ownerRecord) return true;
+    ownsRecovery = false;
+    return false;
+  };
+
+  const deadline = Date.now() + 5_000;
+  while (Date.now() < deadline) {
+    if (!ownsRecovery) {
+      const recoveryRecord = await readRecord(recoveryPath);
+      if (recoveryRecord !== undefined) {
+        const recoveryOwner = recordOwnerPid(recoveryRecord);
+        if (recoveryOwner !== undefined && isProcessAlive(recoveryOwner)) {
+          await wait(10);
+          continue;
         }
+        if ((await readRecord(recoveryPath)) === recoveryRecord) {
+          try {
+            await unlink(recoveryPath);
+          } catch (error) {
+            if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+          }
+        }
+        continue;
       }
-      if (liveMarkers === 0) return;
-      await wait(10);
     }
-    throw new Error("Production verification stale-lock recovery did not settle.");
-  };
 
-  for (let attempt = 0; attempt < 20; attempt += 1) {
+    let acquiredOwnerRecord = false;
     try {
-      const handle = await open(lockPath, "wx");
-      try {
-        await handle.writeFile(ownerRecord);
-      } finally {
-        await handle.close();
-      }
-
-      await removeRecoveryMarker();
-      try {
-        await waitForRecoveryMarkers();
-      } catch (error) {
-        await releaseOwnerRecord();
-        throw error;
-      }
-      if ((await readFile(lockPath, "utf8")) !== ownerRecord) continue;
+      await writeExclusiveRecord(lockPath);
+      acquiredOwnerRecord = true;
+      await releaseRecovery();
 
       return {
         release: releaseOwnerRecord,
       };
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "EEXIST") {
-        await removeRecoveryMarker();
+        const cleanupFailures: unknown[] = [];
+        if (!acquiredOwnerRecord) {
+          acquiredOwnerRecord = (await readRecord(lockPath)) === ownerRecord;
+        }
+        if (acquiredOwnerRecord) {
+          try {
+            await releaseOwnerRecord();
+          } catch (cleanupError) {
+            cleanupFailures.push(cleanupError);
+          }
+        }
+        try {
+          await releaseRecovery();
+        } catch (cleanupError) {
+          cleanupFailures.push(cleanupError);
+        }
+        if (cleanupFailures.length > 0) {
+          throw attachCleanupFailures(error, cleanupFailures);
+        }
         throw error;
       }
 
-      if (!recoveryPath) {
-        recoveryPath = resolve(
-          input.cwd,
-          `${CHECKOUT_LOCK_RECOVERY_PREFIX}${ownerPid}-${randomUUID()}`,
-        );
-        const recoveryHandle = await open(recoveryPath, "wx");
-        try {
-          await recoveryHandle.writeFile(ownerRecord);
-        } finally {
-          await recoveryHandle.close();
-        }
-      }
-
-      let existingOwner: number | undefined;
-      try {
-        const rawOwner = (await readFile(lockPath, "utf8")).trim();
-        const ownerMatch = /^(\d+)(?::|$)/.exec(rawOwner);
-        if (ownerMatch) existingOwner = Number(ownerMatch[1]);
-      } catch (readError) {
-        if ((readError as NodeJS.ErrnoException).code === "ENOENT") continue;
-        throw readError;
-      }
+      const existingRecord = await readRecord(lockPath);
+      if (existingRecord === undefined) continue;
+      const existingOwner = recordOwnerPid(existingRecord);
 
       if (existingOwner !== undefined && isProcessAlive(existingOwner)) {
-        await removeRecoveryMarker();
+        await releaseRecovery();
         throw new Error(
           `Production verification is already owned by live process ${existingOwner}.`,
         );
       }
 
+      if (!ownsRecovery) {
+        try {
+          await writeExclusiveRecord(recoveryPath);
+          ownsRecovery = true;
+        } catch (recoveryError) {
+          if ((recoveryError as NodeJS.ErrnoException).code !== "EEXIST") {
+            ownsRecovery =
+              (await readRecord(recoveryPath)) === ownerRecord;
+            if (ownsRecovery) {
+              try {
+                await releaseRecovery();
+              } catch (cleanupError) {
+                throw attachCleanupFailures(recoveryError, [cleanupError]);
+              }
+            }
+            throw recoveryError;
+          }
+          await wait(10);
+        }
+        continue;
+      }
+
+      if (!(await stillOwnsRecovery())) continue;
+      if ((await readRecord(lockPath)) !== existingRecord) continue;
       try {
         await unlink(lockPath);
       } catch (unlinkError) {
@@ -484,11 +618,12 @@ export async function acquireCheckoutLock(input: {
           throw unlinkError;
         }
       }
+      if (!(await stillOwnsRecovery())) continue;
     }
   }
 
-  await removeRecoveryMarker();
-  throw new Error("Production verification could not acquire the checkout lock.");
+  await releaseRecovery();
+  throw new Error("Production verification stale-lock recovery did not settle.");
 }
 
 function abortPromise(signal?: AbortSignal): Promise<never> {
@@ -581,4 +716,159 @@ export function formatProductionVerificationDiagnostic(
     `expectedBuildId=${safeField(diagnostic.buildId ?? "unknown")}`,
     `childExit=${safeField(diagnostic.childExitReason ?? "none")}`,
   ].join(" ");
+}
+
+export async function readProductionVerificationEnvironment(
+  cwd: string,
+  ambient: Partial<NodeJS.ProcessEnv> = process.env,
+): Promise<NodeJS.ProcessEnv> {
+  let local: Record<string, string> = {};
+  try {
+    local = parse(await readFile(resolve(cwd, ".env.local"), "utf8"));
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
+
+  return prepareProductionVerificationEnvironment({ ambient, local });
+}
+
+function selectFreePort(host: string): Promise<number> {
+  return new Promise((resolvePort, rejectPort) => {
+    const server = createServer();
+    server.unref();
+    server.once("error", rejectPort);
+    server.listen({ host, port: 0, exclusive: true }, () => {
+      const address = server.address();
+      if (!address || typeof address === "string") {
+        server.close();
+        rejectPort(new Error("Production verification could not select a port."));
+        return;
+      }
+      server.close((error) => {
+        if (error) rejectPort(error);
+        else resolvePort(address.port);
+      });
+    });
+  });
+}
+
+function isPortAvailable(input: { host: string; port: number }): Promise<boolean> {
+  return new Promise((resolveAvailability, rejectAvailability) => {
+    const server = createServer();
+    server.unref();
+    server.once("error", (error: NodeJS.ErrnoException) => {
+      if (error.code === "EADDRINUSE") resolveAvailability(false);
+      else rejectAvailability(error);
+    });
+    server.listen({ ...input, exclusive: true }, () => {
+      server.close((error) => {
+        if (error) rejectAvailability(error);
+        else resolveAvailability(true);
+      });
+    });
+  });
+}
+
+async function readBuildArtifact(cwd: string): Promise<{
+  buildId: string;
+  modifiedAtMs: number;
+}> {
+  const buildIdPath = resolve(cwd, ".next/BUILD_ID");
+  const [contents, metadata] = await Promise.all([
+    readFile(buildIdPath, "utf8"),
+    stat(buildIdPath),
+  ]);
+  const buildId = contents.trim();
+  if (!buildId) {
+    throw new Error("Production artifact does not contain a Next.js build ID.");
+  }
+  return { buildId, modifiedAtMs: metadata.mtimeMs };
+}
+
+async function readCurrentCommitSha(cwd: string): Promise<string> {
+  const { stdout } = await execFileAsync("git", ["rev-parse", "HEAD"], {
+    cwd,
+    encoding: "utf8",
+  });
+  return String(stdout).trim();
+}
+
+export async function createNodeProductionVerificationAdapters(
+  cwd: string,
+  env: NodeJS.ProcessEnv,
+): Promise<NodeProductionVerificationAdapters> {
+  const require = createRequire(import.meta.url);
+  const nextCli = require.resolve("next/dist/bin/next");
+  const playwrightCli = require.resolve("@playwright/test/cli");
+  const receiptPath = resolve(cwd, PRODUCTION_ARTIFACT_RECEIPT_PATH);
+
+  return {
+    acquireLock: () => acquireCheckoutLock({ cwd }),
+    now: Date.now,
+    report: (diagnostic) => {
+      console.log(formatProductionVerificationDiagnostic(diagnostic));
+    },
+    selectFreePort,
+    isPortAvailable,
+    build: async ({ signal }) => {
+      await runOwnedCommand({
+        args: [nextCli, "build"],
+        command: process.execPath,
+        cwd,
+        env,
+        label: "Production build",
+        signal,
+      });
+      const { buildId } = await readBuildArtifact(cwd);
+      return { buildId };
+    },
+    readArtifact: () => readBuildArtifact(cwd),
+    readCommitSha: () => readCurrentCommitSha(cwd),
+    readReceipt: async () => {
+      try {
+        const [contents, metadata] = await Promise.all([
+          readFile(receiptPath, "utf8"),
+          stat(receiptPath),
+        ]);
+        return { contents, modifiedAtMs: metadata.mtimeMs };
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+        throw error;
+      }
+    },
+    removeReceipt: async () => {
+      try {
+        await unlink(receiptPath);
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      }
+    },
+    writeReceipt: (receipt: ProductionArtifactReceipt) =>
+      writeFile(receiptPath, `${JSON.stringify(receipt)}\n`, {
+        encoding: "utf8",
+        mode: 0o600,
+      }),
+    startServer: ({ host, port }) =>
+      spawnOwnedProcess({
+        args: [nextCli, "start", "--hostname", host, "--port", String(port)],
+        command: process.execPath,
+        cwd,
+        env,
+      }),
+    waitForBuildIdentity: waitForExpectedBuild,
+    runBrowserTests: ({ baseURL, signal }) =>
+      runOwnedCommand({
+        args: [playwrightCli, "test"],
+        command: process.execPath,
+        cwd,
+        env: {
+          ...env,
+          MEI_PELLE_VERIFICATION_ADAPTER: "1",
+          MEI_PELLE_VERIFICATION_BASE_URL: baseURL,
+          PLAYWRIGHT_HTML_OPEN: "never",
+        },
+        label: "Playwright browser tests",
+        signal,
+      }),
+  };
 }

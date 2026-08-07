@@ -5,6 +5,7 @@ import { resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import {
   acquireCheckoutLock,
+  createNodeProductionVerificationAdapters,
   formatProductionVerificationDiagnostic,
   runOwnedCommand,
   spawnOwnedProcess,
@@ -65,6 +66,40 @@ const ORPHAN_INTERMEDIATE_SCRIPT = Buffer.from(
 const lifecycleStdio = process.platform === "win32" ? "inherit" : "ignore";
 
 describe("Production Verification Node Adapters", () => {
+  it("stores only the build ID and commit SHA in the artifact receipt", async () => {
+    const cwd = await mkdtemp(resolve(tmpdir(), "mei-pelle-artifact-receipt-"));
+    const nextDirectory = resolve(cwd, ".next");
+    const receipt = {
+      buildId: "receipt-build",
+      commitSha: "e".repeat(40),
+    };
+
+    try {
+      await mkdir(nextDirectory, { recursive: true });
+      const adapters = await createNodeProductionVerificationAdapters(cwd, {
+        NODE_ENV: "production",
+        PRIVATE_VALUE: "must-not-be-receipted",
+      });
+
+      await adapters.writeReceipt(receipt);
+      const stored = await adapters.readReceipt();
+
+      expect(stored).toBeDefined();
+      expect(JSON.parse(stored!.contents)).toEqual(receipt);
+      expect(Object.keys(JSON.parse(stored!.contents) as object)).toEqual([
+        "buildId",
+        "commitSha",
+      ]);
+      expect(stored!.contents).not.toContain("PRIVATE_VALUE");
+      expect(stored!.contents).not.toContain("must-not-be-receipted");
+
+      await adapters.removeReceipt();
+      await expect(adapters.readReceipt()).resolves.toBeUndefined();
+    } finally {
+      await rm(cwd, { force: true, recursive: true });
+    }
+  });
+
   it(
     "starts and cleans up a complete owned process tree",
     async () => {
@@ -353,6 +388,26 @@ describe("Production Verification Node Adapters", () => {
     }
   });
 
+  it("allows only one concurrent fresh-lock winner", async () => {
+    const cwd = await mkdtemp(resolve(tmpdir(), "mei-pelle-fresh-lock-race-"));
+
+    try {
+      const attempts = await Promise.allSettled(
+        Array.from({ length: 8 }, () =>
+          acquireCheckoutLock({ cwd, pid: process.pid }),
+        ),
+      );
+      const winners = attempts.filter(
+        (attempt): attempt is PromiseFulfilledResult<Awaited<ReturnType<typeof acquireCheckoutLock>>> =>
+          attempt.status === "fulfilled",
+      );
+      expect(winners).toHaveLength(1);
+      await winners[0].value.release();
+    } finally {
+      await rm(cwd, { force: true, recursive: true });
+    }
+  }, 20_000);
+
   it("allows only one concurrent stale-lock recovery winner", async () => {
     const cwd = await mkdtemp(resolve(tmpdir(), "mei-pelle-stale-lock-race-"));
     const lockPath = resolve(cwd, ".mei-pelle-production-verification.lock");
@@ -373,7 +428,7 @@ describe("Production Verification Node Adapters", () => {
     } finally {
       await rm(cwd, { force: true, recursive: true });
     }
-  });
+  }, 20_000);
 
   it("stops readiness early when the server exits", async () => {
     const server: ProductionVerificationServer = {
