@@ -5,7 +5,14 @@ import { defineConfig, devices } from "@playwright/test";
 // Port is overridable (PORT env) so e2e can run on a free port without
 // colliding with a separate `next dev` server on the default 3000.
 const PORT = Number(process.env.PORT) || 3000;
-const baseURL = `http://localhost:${PORT}`;
+const verificationAdapter = process.env.MEI_PELLE_VERIFICATION_ADAPTER === "1";
+const verificationBaseURL = process.env.MEI_PELLE_VERIFICATION_BASE_URL;
+if (verificationAdapter && !verificationBaseURL) {
+  throw new Error(
+    "Production verification did not provide MEI_PELLE_VERIFICATION_BASE_URL.",
+  );
+}
+const baseURL = verificationBaseURL ?? `http://localhost:${PORT}`;
 
 // Read .env.local so the built test server gets the same dev Supabase
 // credentials the app uses. (Mirrors e2e/global-setup's loader.)
@@ -71,13 +78,17 @@ export default defineConfig({
         ]
       : []),
   ],
-  // Build and start the production server so e2e hits real routes.
-  // Bounded timeout so a server that never becomes ready fails fast.
-  webServer: {
-    command: "pnpm build && pnpm start",
-    url: baseURL,
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-    env: { ...process.env, ...readEnvLocal(), ...E2E_SEARCH_ENV },
-  },
+  // Ticket #4 adds an adapter mode beside the legacy Playwright-owned server.
+  // Ticket #5 migrates every caller, then removes this compatibility path.
+  ...(verificationAdapter
+    ? {}
+    : {
+        webServer: {
+          command: "pnpm build && pnpm start",
+          url: baseURL,
+          reuseExistingServer: !process.env.CI,
+          timeout: 120_000,
+          env: { ...process.env, ...readEnvLocal(), ...E2E_SEARCH_ENV },
+        },
+      }),
 });
