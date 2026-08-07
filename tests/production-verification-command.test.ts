@@ -7,36 +7,8 @@ import { describe, expect, it, vi } from "vitest";
 import globalSetup from "@/e2e/global-setup";
 import { executeProductionVerificationCli } from "@/scripts/production-verification-cli";
 import { runProductionVerificationCiCommand } from "@/scripts/production-verification-ci-command";
-import type {
-  NodeProductionVerificationAdapters,
-  ProductionVerificationDiagnostic,
-} from "@/scripts/production-verification";
-
-function makeCiAdapters(
-  overrides: Partial<NodeProductionVerificationAdapters>,
-): NodeProductionVerificationAdapters {
-  const unexpected = async (): Promise<never> => {
-    throw new Error("Unexpected CI production-verification adapter call.");
-  };
-
-  return {
-    acquireLock: async () => ({ release: async () => {} }),
-    build: unexpected,
-    isPortAvailable: unexpected,
-    now: () => 0,
-    readArtifact: unexpected,
-    readCommitSha: unexpected,
-    readReceipt: unexpected,
-    removeReceipt: unexpected,
-    report: () => {},
-    runBrowserTests: unexpected,
-    selectFreePort: unexpected,
-    startServer: unexpected,
-    waitForBuildIdentity: unexpected,
-    writeReceipt: unexpected,
-    ...overrides,
-  };
-}
+import type { ProductionVerificationDiagnostic } from "@/scripts/production-verification";
+import { makeProductionVerificationAdapters as makeCiAdapters } from "@/tests/helpers/production-verification";
 
 const ciEnvironment: NodeJS.ProcessEnv = {
   ...process.env,

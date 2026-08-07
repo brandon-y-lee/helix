@@ -8,34 +8,8 @@ import {
   verifyFreshProductionArtifact,
   verifyReceiptedProductionArtifact,
   type ProductionVerificationDiagnostic,
-  type NodeProductionVerificationAdapters,
 } from "@/scripts/production-verification";
-
-function makeAdapters(
-  overrides: Partial<NodeProductionVerificationAdapters>,
-): NodeProductionVerificationAdapters {
-  const unexpected = async (): Promise<never> => {
-    throw new Error("Unexpected production-verification adapter call.");
-  };
-
-  return {
-    acquireLock: async () => ({ release: async () => {} }),
-    selectFreePort: unexpected,
-    isPortAvailable: unexpected,
-    build: unexpected,
-    readArtifact: unexpected,
-    readCommitSha: unexpected,
-    readReceipt: unexpected,
-    removeReceipt: async () => {},
-    startServer: unexpected,
-    waitForBuildIdentity: unexpected,
-    runBrowserTests: unexpected,
-    writeReceipt: unexpected,
-    now: () => 0,
-    report: () => {},
-    ...overrides,
-  };
-}
+import { makeProductionVerificationAdapters as makeAdapters } from "@/tests/helpers/production-verification";
 
 describe("Production Artifact Verification", () => {
   it("builds one CI artifact and writes its minimal receipt", async () => {
