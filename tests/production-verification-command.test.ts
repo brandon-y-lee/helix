@@ -18,6 +18,19 @@ describe("Production Verification Commands", () => {
     );
   });
 
+  it("keeps a lightweight Windows lifecycle contract in CI", async () => {
+    const workflow = await readFile(
+      resolve(process.cwd(), ".github/workflows/ci.yml"),
+      "utf8",
+    );
+
+    expect(workflow).toContain("verification-lifecycle-windows:");
+    expect(workflow).toContain("runs-on: windows-latest");
+    expect(workflow).toContain(
+      "pnpm vitest run tests/production-verification.test.ts tests/production-verification-process.test.ts",
+    );
+  });
+
   it("rejects direct Playwright use with supported-command guidance", () => {
     const require = createRequire(import.meta.url);
     const playwrightCli = require.resolve("@playwright/test/cli");

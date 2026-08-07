@@ -4,6 +4,7 @@ node_modules/
 
 # next.js
 .next/
+.mei-pelle-production-verification.lock
 out/
 next-env.d.ts
 *.tsbuildinfo
