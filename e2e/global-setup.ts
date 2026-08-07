@@ -36,7 +36,7 @@ export default async function globalSetup(): Promise<void> {
   const projectHost = new URL(url).hostname;
   if (!projectHost.startsWith(`${EXPECTED_PROJECT_REF}.`)) {
     throw new Error(
-      `e2e: refusing Supabase project "${projectHost}". Expected the verified ` +
+      "e2e: refusing unapproved Supabase project. Expected the verified " +
         `non-production project ${EXPECTED_PROJECT_REF}.`,
     );
   }
@@ -124,8 +124,8 @@ export default async function globalSetup(): Promise<void> {
   } catch (err) {
     if (err instanceof Error && err.name === "AbortError") {
       throw new Error(
-        `e2e: Supabase did not respond within 10s at ${url}. ` +
-          "Check NEXT_PUBLIC_SUPABASE_URL and network connectivity.",
+        "e2e: the approved Supabase project did not respond within 10s. " +
+          "Check the configured URL and network connectivity.",
       );
     }
     throw err;

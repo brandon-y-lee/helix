@@ -39,8 +39,10 @@ describe("Production Artifact Verification", () => {
         NEXT_PUBLIC_SUPABASE_ANON_KEY: "local-anon-key",
         NEXT_PUBLIC_SUPABASE_URL: "https://local.example.test",
         NODE_ENV: "test",
+        NODE_OPTIONS: "--inspect",
         PLAYWRIGHT_HTML_OPEN: "always",
         PORT: "4100",
+        TZ: "Pacific/Honolulu",
       },
     });
 
@@ -58,7 +60,9 @@ describe("Production Artifact Verification", () => {
     expect(environment.CI).toBe("");
     expect(environment.MEI_PELLE_VERIFICATION_ADAPTER).toBe("");
     expect(environment.MEI_PELLE_VERIFICATION_BASE_URL).toBe("");
+    expect(environment.NODE_OPTIONS).toBe("");
     expect(environment.PLAYWRIGHT_HTML_OPEN).toBe("");
+    expect(environment.TZ).toBe("");
   });
 
   it("verifies one fresh artifact and leaves no server running", async () => {

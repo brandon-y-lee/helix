@@ -70,4 +70,30 @@ describe("Production Verification Commands", () => {
       await rm(temporaryDirectory, { force: true, recursive: true });
     }
   });
+
+  it("does not disclose environment-derived URLs in Catalog errors", async () => {
+    const originalUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const originalAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://private-value.example.test";
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "test-anon-key";
+
+    try {
+      const error = await globalSetup().catch((cause: unknown) => cause);
+      expect(error).toBeInstanceOf(Error);
+      expect((error as Error).message).toContain(
+        "e2e: refusing unapproved Supabase project",
+      );
+      expect((error as Error).message).not.toContain(
+        "private-value.example.test",
+      );
+    } finally {
+      if (originalUrl === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+      else process.env.NEXT_PUBLIC_SUPABASE_URL = originalUrl;
+      if (originalAnonKey === undefined) {
+        delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      } else {
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = originalAnonKey;
+      }
+    }
+  });
 });

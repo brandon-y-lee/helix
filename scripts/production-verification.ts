@@ -28,13 +28,25 @@ export type ProductionVerificationInput = {
 };
 
 const LOOPBACK_HOST = "127.0.0.1";
-const LOCAL_PROCESS_CONTROL_KEYS = new Set([
-  "CI",
-  "MEI_PELLE_VERIFICATION_ADAPTER",
-  "MEI_PELLE_VERIFICATION_BASE_URL",
-  "NODE_ENV",
-  "PLAYWRIGHT_HTML_OPEN",
-  "PORT",
+const LOCAL_SERVER_APPLICATION_KEYS = new Set([
+  "ALGOLIA_ADMIN_API_KEY",
+  "ALGOLIA_APP_ID",
+  "ALGOLIA_INDEX_NAME",
+  "ALGOLIA_WRITE_API_KEY",
+  "ALLOW_PRODUCTION_SEARCH_REINDEX",
+  "CHECKOUT_ENABLED",
+  "CHECKOUT_MODE",
+  "SEARCH_BACKFILL_ENVIRONMENT",
+  "STRIPE_AUTOMATIC_TAX_ENABLED",
+  "STRIPE_REFERRAL_15_COUPON_ID",
+  "STRIPE_REWARD_200_COUPON_ID",
+  "STRIPE_REWARD_400_COUPON_ID",
+  "STRIPE_REWARD_600_COUPON_ID",
+  "STRIPE_SECRET_KEY",
+  "STRIPE_STANDARD_SHIPPING_RATE_ID",
+  "STRIPE_WEBHOOK_SECRET",
+  "SUPABASE_CATALOG_WEBHOOK_SECRET",
+  "SUPABASE_SERVICE_ROLE_KEY",
 ]);
 const FIXED_BROWSER_TEST_ENVIRONMENT = {
   NEXT_PUBLIC_ALGOLIA_APP_ID: "testappid",
@@ -54,13 +66,20 @@ export function prepareProductionVerificationEnvironment(input: {
   ambient: Partial<NodeJS.ProcessEnv>;
   local: Record<string, string>;
 }): NodeJS.ProcessEnv {
-  const localApplicationEnvironment = Object.fromEntries(
-    Object.entries(input.local).filter(
-      ([key]) => !LOCAL_PROCESS_CONTROL_KEYS.has(key),
-    ),
-  );
+  const localApplicationEnvironment: Record<string, string> = {};
+  const blockedLocalEnvironment: Record<string, string> = {};
+  for (const [key, value] of Object.entries(input.local)) {
+    if (key.startsWith("NEXT_PUBLIC_") || LOCAL_SERVER_APPLICATION_KEYS.has(key)) {
+      localApplicationEnvironment[key] = value;
+    } else {
+      // Next scans .env.local itself. An owned empty value prevents a rejected
+      // local process control from being reintroduced inside child processes.
+      blockedLocalEnvironment[key] = "";
+    }
+  }
 
   return {
+    ...blockedLocalEnvironment,
     ...localApplicationEnvironment,
     ...DEFAULT_PROCESS_CONTROL_ENVIRONMENT,
     ...input.ambient,
