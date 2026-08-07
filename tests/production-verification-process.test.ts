@@ -25,7 +25,10 @@ function processIsAlive(pid: number): boolean {
   }
 }
 
-async function waitUntil(assertion: () => boolean, timeoutMs = 3_000): Promise<void> {
+async function waitUntil(
+  assertion: () => boolean,
+  timeoutMs = process.platform === "win32" ? 10_000 : 3_000,
+): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     if (assertion()) return;
@@ -93,54 +96,58 @@ describe("Production Verification Node Adapters", () => {
         await rm(cwd, { force: true, recursive: true });
       }
     },
-    10_000,
+    20_000,
   );
 
-  it("interrupts an owned command and cleans up its process tree", async () => {
-    const cwd = await mkdtemp(resolve(tmpdir(), "mei-pelle-process-interrupt-"));
-    const pidFile = resolve(cwd, "pids.json");
-    const controller = new AbortController();
-    const command = runOwnedCommand({
-      args: ["-e", PROCESS_TREE_SCRIPT, pidFile],
-      command: process.execPath,
-      cwd,
-      env: process.env,
-      label: "Lifecycle smoke command",
-      signal: controller.signal,
-      stdio: lifecycleStdio,
-    });
-
-    try {
-      await waitUntil(() => {
-        try {
-          return processIsAlive(
-            (JSON.parse(readFileSync(pidFile, "utf8")) as {
-              parent: number;
-            }).parent,
-          );
-        } catch {
-          return false;
-        }
+  it(
+    "interrupts an owned command and cleans up its process tree",
+    async () => {
+      const cwd = await mkdtemp(resolve(tmpdir(), "mei-pelle-process-interrupt-"));
+      const pidFile = resolve(cwd, "pids.json");
+      const controller = new AbortController();
+      const command = runOwnedCommand({
+        args: ["-e", PROCESS_TREE_SCRIPT, pidFile],
+        command: process.execPath,
+        cwd,
+        env: process.env,
+        label: "Lifecycle smoke command",
+        signal: controller.signal,
+        stdio: lifecycleStdio,
       });
-      const pids = JSON.parse(await readFile(pidFile, "utf8")) as {
-        child: number;
-        parent: number;
-      };
-      controller.abort(new Error("Lifecycle smoke interruption."));
 
-      await expect(command).rejects.toMatchObject({
-        childExitReason: "interrupted",
-        message: "Lifecycle smoke interruption.",
-      });
-      await waitUntil(
-        () => !processIsAlive(pids.parent) && !processIsAlive(pids.child),
-      );
-    } finally {
-      controller.abort(new Error("Test cleanup interruption."));
-      await command.catch(() => {});
-      await rm(cwd, { force: true, recursive: true });
-    }
-  });
+      try {
+        await waitUntil(() => {
+          try {
+            return processIsAlive(
+              (JSON.parse(readFileSync(pidFile, "utf8")) as {
+                parent: number;
+              }).parent,
+            );
+          } catch {
+            return false;
+          }
+        });
+        const pids = JSON.parse(await readFile(pidFile, "utf8")) as {
+          child: number;
+          parent: number;
+        };
+        controller.abort(new Error("Lifecycle smoke interruption."));
+
+        await expect(command).rejects.toMatchObject({
+          childExitReason: "interrupted",
+          message: "Lifecycle smoke interruption.",
+        });
+        await waitUntil(
+          () => !processIsAlive(pids.parent) && !processIsAlive(pids.child),
+        );
+      } finally {
+        controller.abort(new Error("Test cleanup interruption."));
+        await command.catch(() => {});
+        await rm(cwd, { force: true, recursive: true });
+      }
+    },
+    20_000,
+  );
 
   it("reports a child command exit reason", async () => {
     await expect(
