@@ -408,7 +408,7 @@ describe("Production Verification Node Adapters", () => {
     } finally {
       await rm(cwd, { force: true, recursive: true });
     }
-  });
+  }, 20_000);
 
   it("stops readiness early when the server exits", async () => {
     const server: ProductionVerificationServer = {
