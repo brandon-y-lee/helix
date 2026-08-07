@@ -2,7 +2,12 @@ import { resolve } from "node:path";
 import { config } from "dotenv";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import WebSocket from "ws";
-import { EXPECTED_SUPABASE_PROJECT_REF } from "../../lib/catalog/canonical-catalog";
+import {
+  assertApprovedSupabaseProjectUrl,
+  projectRefFromSupabaseUrl,
+} from "../../lib/supabase/project-safety";
+
+export { projectRefFromSupabaseUrl };
 
 config({ path: resolve(process.cwd(), ".env.local"), quiet: true });
 
@@ -12,23 +17,14 @@ function requiredEnv(name: string): string {
   return value;
 }
 
-export function projectRefFromSupabaseUrl(url: string): string | null {
-  try {
-    const hostname = new URL(url).hostname;
-    if (!hostname.endsWith(".supabase.co")) return null;
-    return hostname.split(".")[0] ?? null;
-  } catch {
-    return null;
-  }
-}
-
 export function assertExpectedProjectRef(): void {
   const url = requiredEnv("NEXT_PUBLIC_SUPABASE_URL");
-  const projectRef = projectRefFromSupabaseUrl(url);
-  if (projectRef !== EXPECTED_SUPABASE_PROJECT_REF) {
+  try {
+    assertApprovedSupabaseProjectUrl(url);
+  } catch (cause) {
+    const detail = cause instanceof Error ? cause.message : "Unknown project.";
     throw new Error(
-      `Refusing database operation for project ref "${projectRef ?? "unknown"}". ` +
-        `Expected approved non-production project "${EXPECTED_SUPABASE_PROJECT_REF}".`,
+      `Refusing database operation. ${detail}`,
     );
   }
 }

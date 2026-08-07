@@ -1,4 +1,5 @@
-const EXPECTED_PROJECT_REF = "erasogmsqpgiirovubjh";
+import { assertApprovedSupabaseProjectUrl } from "@/lib/supabase/project-safety";
+
 const REQUIRED_PRODUCTS = [
   "cleanse-01-calming-gel-cleanser",
   "refine-02-pore-treatment-pads",
@@ -33,11 +34,12 @@ export default async function globalSetup(): Promise<void> {
     );
   }
 
-  const projectHost = new URL(url).hostname;
-  if (!projectHost.startsWith(`${EXPECTED_PROJECT_REF}.`)) {
+  try {
+    assertApprovedSupabaseProjectUrl(url);
+  } catch (cause) {
+    const detail = cause instanceof Error ? cause.message : "Invalid project URL.";
     throw new Error(
-      "e2e: refusing unapproved Supabase project. Expected the verified " +
-        `non-production project ${EXPECTED_PROJECT_REF}.`,
+      `e2e: refusing unapproved Supabase project. ${detail}`,
     );
   }
 

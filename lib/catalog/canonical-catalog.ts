@@ -1,5 +1,3 @@
-export const EXPECTED_SUPABASE_PROJECT_REF = "erasogmsqpgiirovubjh" as const;
-
 export const CANONICAL_COMMERCE_PRODUCTS = [
   {
     slug: "cleanse-01-calming-gel-cleanser",
