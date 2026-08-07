@@ -97,6 +97,31 @@ describe("Production Verification Commands", () => {
     }
   });
 
+  it("rejects an approved-project-looking URL outside Supabase", async () => {
+    const originalUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const originalAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    process.env.NEXT_PUBLIC_SUPABASE_URL =
+      "https://erasogmsqpgiirovubjh.supabase.co.evil.example";
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "test-anon-key";
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+
+    try {
+      await expect(globalSetup()).rejects.toThrow(
+        /e2e: refusing unapproved Supabase project.*hostname must exactly match/,
+      );
+      expect(fetchMock).not.toHaveBeenCalled();
+    } finally {
+      fetchMock.mockRestore();
+      if (originalUrl === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+      else process.env.NEXT_PUBLIC_SUPABASE_URL = originalUrl;
+      if (originalAnonKey === undefined) {
+        delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      } else {
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = originalAnonKey;
+      }
+    }
+  });
+
   it("does not disclose raw provider payloads in Catalog errors", async () => {
     const originalUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const originalAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;

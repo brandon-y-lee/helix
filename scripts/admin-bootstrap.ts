@@ -6,7 +6,7 @@ import {
   type User,
 } from "@supabase/supabase-js";
 import WebSocket from "ws";
-import { EXPECTED_SUPABASE_PROJECT_REF } from "../lib/catalog/canonical-catalog";
+import { assertApprovedSupabaseProjectUrl } from "../lib/supabase/project-safety";
 
 const ROLES = new Set(["admin", "catalog_publisher", "catalog_editor"]);
 
@@ -14,15 +14,6 @@ function requiredEnv(name: string): string {
   const value = process.env[name]?.trim();
   if (!value) throw new Error(`Missing required environment variable: ${name}`);
   return value;
-}
-
-function verifyProjectRef(urlValue: string): void {
-  const projectRef = new URL(urlValue).hostname.split(".")[0];
-  if (projectRef !== EXPECTED_SUPABASE_PROJECT_REF) {
-    throw new Error(
-      `Refusing Supabase project "${projectRef}"; expected "${EXPECTED_SUPABASE_PROJECT_REF}".`,
-    );
-  }
 }
 
 function assertVerifiedUser(user: User): User {
@@ -81,7 +72,7 @@ async function resolveUser(
 
 async function main() {
   const url = requiredEnv("NEXT_PUBLIC_SUPABASE_URL");
-  verifyProjectRef(url);
+  assertApprovedSupabaseProjectUrl(url);
   const role = requiredEnv("MEI_PELLE_ADMIN_ROLE");
   if (!ROLES.has(role)) {
     throw new Error(

@@ -1,4 +1,7 @@
-import { EXPECTED_SUPABASE_PROJECT_REF } from "../../lib/catalog/canonical-catalog";
+import {
+  APPROVED_SUPABASE_PROJECT_REF,
+  assertApprovedSupabaseProjectRef,
+} from "../../lib/supabase/project-safety";
 
 const CATALOG_WEBHOOK_PATH =
   "/api/webhooks/supabase/catalog-search-sync" as const;
@@ -22,7 +25,7 @@ export type CatalogWebhookTable = (typeof CATALOG_WEBHOOK_TABLES)[number];
 type Fetch = typeof fetch;
 
 export type CatalogWebhookConfig = {
-  projectRef: typeof EXPECTED_SUPABASE_PROJECT_REF;
+  projectRef: typeof APPROVED_SUPABASE_PROJECT_REF;
   targetEnvironment: "development" | "preview";
   endpoint: string;
   secret: string;
@@ -83,7 +86,7 @@ export type CatalogWebhookAction = {
 export type CatalogWebhookReport = {
   ok: boolean;
   mode: CatalogWebhookMode;
-  projectRef: typeof EXPECTED_SUPABASE_PROJECT_REF;
+  projectRef: typeof APPROVED_SUPABASE_PROJECT_REF;
   targetEnvironment: CatalogWebhookConfig["targetEnvironment"];
   endpoint: string;
   databaseWebhooksEnabled: boolean;
@@ -139,10 +142,12 @@ function requiredEnv(
 
 function readProjectAndEnvironment(env: NodeJS.ProcessEnv) {
   const projectRef = requiredEnv(env, "SUPABASE_PROJECT_REF");
-  if (projectRef !== EXPECTED_SUPABASE_PROJECT_REF) {
+  try {
+    assertApprovedSupabaseProjectRef(projectRef);
+  } catch {
     throw new Error(
       `[catalog-webhooks] Refusing Supabase project "${projectRef}". ` +
-        `Expected approved non-production project "${EXPECTED_SUPABASE_PROJECT_REF}".`,
+        `Expected approved non-production project "${APPROVED_SUPABASE_PROJECT_REF}".`,
     );
   }
 
@@ -160,7 +165,7 @@ function readProjectAndEnvironment(env: NodeJS.ProcessEnv) {
   }
 
   return {
-    projectRef: EXPECTED_SUPABASE_PROJECT_REF,
+    projectRef: APPROVED_SUPABASE_PROJECT_REF,
     targetEnvironment,
   } as const;
 }
