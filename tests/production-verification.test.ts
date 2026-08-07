@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  prepareProductionVerificationEnvironment,
   verifyFreshProductionArtifact,
   type ProductionVerificationAdapters,
 } from "@/scripts/production-verification";
@@ -23,6 +24,43 @@ function makeAdapters(
 }
 
 describe("Production Artifact Verification", () => {
+  it("prepares one environment with deterministic ownership and precedence", () => {
+    const environment = prepareProductionVerificationEnvironment({
+      ambient: {
+        NEXT_PUBLIC_SUPABASE_URL: "https://shell.example.test",
+        PORT: "4200",
+        SHELL_ONLY: "from-shell",
+      },
+      local: {
+        CI: "1",
+        MEI_PELLE_VERIFICATION_ADAPTER: "1",
+        MEI_PELLE_VERIFICATION_BASE_URL: "http://untrusted.example.test",
+        NEXT_PUBLIC_ALGOLIA_APP_ID: "local-app-id",
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: "local-anon-key",
+        NEXT_PUBLIC_SUPABASE_URL: "https://local.example.test",
+        NODE_ENV: "test",
+        PLAYWRIGHT_HTML_OPEN: "always",
+        PORT: "4100",
+      },
+    });
+
+    expect(environment).toMatchObject({
+      NEXT_PUBLIC_ALGOLIA_APP_ID: "testappid",
+      NEXT_PUBLIC_ALGOLIA_INDEX_NAME: "mei_pelle_products",
+      NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY: "test-search-only-key",
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: "local-anon-key",
+      NEXT_PUBLIC_SUPABASE_URL: "https://shell.example.test",
+      NODE_ENV: "production",
+      PORT: "4200",
+      SHELL_ONLY: "from-shell",
+      SUPABASE_CATALOG_WEBHOOK_SECRET: "e2e-test-secret",
+    });
+    expect(environment.CI).toBe("");
+    expect(environment.MEI_PELLE_VERIFICATION_ADAPTER).toBe("");
+    expect(environment.MEI_PELLE_VERIFICATION_BASE_URL).toBe("");
+    expect(environment.PLAYWRIGHT_HTML_OPEN).toBe("");
+  });
+
   it("verifies one fresh artifact and leaves no server running", async () => {
     let builds = 0;
     let browserRuns = 0;

@@ -28,6 +28,46 @@ export type ProductionVerificationInput = {
 };
 
 const LOOPBACK_HOST = "127.0.0.1";
+const LOCAL_PROCESS_CONTROL_KEYS = new Set([
+  "CI",
+  "MEI_PELLE_VERIFICATION_ADAPTER",
+  "MEI_PELLE_VERIFICATION_BASE_URL",
+  "NODE_ENV",
+  "PLAYWRIGHT_HTML_OPEN",
+  "PORT",
+]);
+const FIXED_BROWSER_TEST_ENVIRONMENT = {
+  NEXT_PUBLIC_ALGOLIA_APP_ID: "testappid",
+  NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY: "test-search-only-key",
+  NEXT_PUBLIC_ALGOLIA_INDEX_NAME: "mei_pelle_products",
+  SUPABASE_CATALOG_WEBHOOK_SECRET: "e2e-test-secret",
+} as const;
+const DEFAULT_PROCESS_CONTROL_ENVIRONMENT = {
+  CI: "",
+  MEI_PELLE_VERIFICATION_ADAPTER: "",
+  MEI_PELLE_VERIFICATION_BASE_URL: "",
+  PLAYWRIGHT_HTML_OPEN: "",
+  PORT: "",
+} as const;
+
+export function prepareProductionVerificationEnvironment(input: {
+  ambient: Partial<NodeJS.ProcessEnv>;
+  local: Record<string, string>;
+}): NodeJS.ProcessEnv {
+  const localApplicationEnvironment = Object.fromEntries(
+    Object.entries(input.local).filter(
+      ([key]) => !LOCAL_PROCESS_CONTROL_KEYS.has(key),
+    ),
+  );
+
+  return {
+    ...localApplicationEnvironment,
+    ...DEFAULT_PROCESS_CONTROL_ENVIRONMENT,
+    ...input.ambient,
+    ...FIXED_BROWSER_TEST_ENVIRONMENT,
+    NODE_ENV: input.ambient.NODE_ENV ?? "production",
+  };
+}
 
 export async function verifyFreshProductionArtifact(
   input: ProductionVerificationInput,
