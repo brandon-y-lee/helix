@@ -1,0 +1,3 @@
+# Own production artifact verification outside Playwright
+
+Production Artifact Verification is owned by a dedicated runner rather than Playwright's built-in server lifecycle. The runner builds or validates a receipted Next.js artifact, proves the running server exposes the expected build ID, owns deterministic environment and port policy, classifies lifecycle failures, and guarantees cleanup before Playwright acts only as the browser-test adapter; this additional module replaces the simpler Playwright `webServer` configuration because local and CI runs must never reuse or test an unknown server or stale artifact.
