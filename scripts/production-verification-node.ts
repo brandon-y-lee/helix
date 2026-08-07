@@ -462,8 +462,10 @@ export async function acquireCheckoutLock(input: {
       }
     }
 
+    let acquiredOwnerRecord = false;
     try {
       await writeExclusiveRecord(lockPath);
+      acquiredOwnerRecord = true;
       await releaseRecovery();
 
       return {
@@ -471,7 +473,26 @@ export async function acquireCheckoutLock(input: {
       };
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "EEXIST") {
-        await releaseRecovery();
+        const cleanupFailures: unknown[] = [];
+        if (acquiredOwnerRecord) {
+          try {
+            await releaseOwnerRecord();
+          } catch (cleanupError) {
+            cleanupFailures.push(cleanupError);
+          }
+        }
+        try {
+          await releaseRecovery();
+        } catch (cleanupError) {
+          cleanupFailures.push(cleanupError);
+        }
+        if (cleanupFailures.length > 0) {
+          throw new AggregateError(
+            [error, ...cleanupFailures],
+            "Production verification lock acquisition cleanup failed.",
+            { cause: error },
+          );
+        }
         throw error;
       }
 
