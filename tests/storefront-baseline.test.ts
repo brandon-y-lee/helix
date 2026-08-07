@@ -97,7 +97,7 @@ describe("Storefront Baseline", () => {
             id: "core-first-id",
             slug: "core-first",
             display_name: "CORE FIRST",
-            routine_sort: 10,
+            routine_sort: 40,
             sort_order: 10,
             product_media: [],
           }),
@@ -399,7 +399,7 @@ describe("Storefront Baseline", () => {
     });
 
     expect(
-      snapshot.products.filter((item) => item.routineStepNumber === 1),
+      snapshot.products.filter((item) => item.systemPosition === 1),
     ).toHaveLength(2);
     expect(snapshot.products[0]?.variants).toHaveLength(3);
     expect(snapshot.products[0]?.offer).toMatchObject({
@@ -419,7 +419,7 @@ describe("Storefront Baseline", () => {
       }),
     ).rejects.toMatchObject({
       code: "missing-journey-capability",
-      message: expect.stringContaining("Beyond The Core"),
+      message: expect.stringContaining("Beyond The Core Routine Group"),
     });
   });
 
@@ -519,6 +519,48 @@ describe("Storefront Baseline", () => {
 
     expect(error).toMatchObject({ code: "catalog-read-failed" });
     expect((error as Error).message).not.toContain("secret provider payload");
+  });
+
+  it("returns a targeted failure for malformed live-shaped Product rows", async () => {
+    const malformed = {
+      ...product(),
+      product_variants: {},
+    } as unknown as StorefrontCatalogProduct;
+
+    await expect(
+      createStorefrontBaseline({
+        readCatalog: async () => ({
+          products: [malformed],
+          routineComplements: [],
+        }),
+      }),
+    ).rejects.toMatchObject({
+      code: "invalid-catalog-shape",
+      message: expect.stringContaining("malformed public Storefront data"),
+    });
+  });
+
+  it("rejects an invalid Product Offer price with a targeted diagnostic", async () => {
+    const variant = product().product_variants?.[0];
+    expect(variant).toBeDefined();
+
+    await expect(
+      createStorefrontBaseline({
+        readCatalog: async () => ({
+          products: [
+            product({
+              product_variants: variant
+                ? [{ ...variant, price_cents: -1 }]
+                : [],
+            }),
+          ],
+          routineComplements: [],
+        }),
+      }),
+    ).rejects.toMatchObject({
+      code: "invalid-product-offer",
+      message: expect.stringContaining("invalid price"),
+    });
   });
 
   it("rejects unsupported public media roles", async () => {

@@ -197,7 +197,7 @@ describe("Playwright global Storefront baseline setup", () => {
     });
 
     await expect(globalSetup()).rejects.toThrow(
-      "e2e: The active Storefront has no Product capable of the Beyond The Core collection journey",
+      "e2e: The active Storefront has no Product capable of the Beyond The Core Routine Group journey",
     );
   });
 });

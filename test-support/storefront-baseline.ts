@@ -118,7 +118,7 @@ export type StorefrontSnapshotProduct = Readonly<{
   badge: string | null;
   currency: "USD";
   catalogStatus: CatalogStatus;
-  status: ProductStatus;
+  merchandisingStatus: ProductStatus;
   editorialDescription: string;
   swatch: readonly [string, string];
   sortOrder: number;
@@ -134,8 +134,8 @@ export type StorefrontSnapshotProduct = Readonly<{
   usageTime: readonly string[];
   searchKeywords: readonly string[];
   routineGroup: RoutineGroup;
-  routineStepNumber: number | null;
-  routineStepName: string | null;
+  systemPosition: number | null;
+  systemStepName: string | null;
   routineSort: number;
   variants: readonly StorefrontSnapshotVariant[];
   media: readonly StorefrontSnapshotMedia[];
@@ -164,9 +164,31 @@ export type StorefrontSnapshot = Readonly<{
   }>;
 }>;
 
+export type StorefrontBaselineErrorCode =
+  | "catalog-read-failed"
+  | "catalog-read-timeout"
+  | "duplicate-product-identity"
+  | "duplicate-product-path"
+  | "duplicate-product-variant"
+  | "duplicate-routine-complement"
+  | "invalid-catalog-shape"
+  | "invalid-ordering"
+  | "invalid-product"
+  | "invalid-product-media"
+  | "invalid-product-offer"
+  | "invalid-product-path"
+  | "invalid-product-variant"
+  | "invalid-routine-complement"
+  | "invalid-snapshot-artifact"
+  | "missing-journey-capability"
+  | "unsupported-catalog-status"
+  | "unsupported-currency"
+  | "unsupported-merchandising-status"
+  | "unsupported-routine-group";
+
 export class StorefrontBaselineError extends Error {
   constructor(
-    readonly code: string,
+    readonly code: StorefrontBaselineErrorCode,
     readonly detail: string,
     options?: ErrorOptions,
   ) {
@@ -276,10 +298,10 @@ function normalizeProduct(
       };
     })
     .sort((a, b) => a.sortOrder - b.sortOrder || a.id.localeCompare(b.id));
-  const status = row.status;
+  const merchandisingStatus = row.status;
   const selectedOffer = firstPurchasableVariant({
     displayName: row.display_name,
-    status,
+    status: merchandisingStatus,
     variants,
   });
   const media = (row.product_media ?? [])
@@ -321,7 +343,7 @@ function normalizeProduct(
     badge: row.badge,
     currency: "USD",
     catalogStatus: row.catalog_status,
-    status,
+    merchandisingStatus,
     editorialDescription: requireText(
       row.editorial_description,
       "editorial description",
@@ -341,8 +363,8 @@ function normalizeProduct(
     usageTime: [...row.usage_time],
     searchKeywords: [...row.search_keywords],
     routineGroup: row.routine_group,
-    routineStepNumber: row.routine_step_number,
-    routineStepName: row.routine_step_name,
+    systemPosition: row.routine_step_number,
+    systemStepName: row.routine_step_name,
     routineSort: requireOrder(row.routine_sort, "Routine ordering", slug),
     variants,
     media,
@@ -428,21 +450,9 @@ export function deserializeStorefrontSnapshot(
   return deepFreeze(value as StorefrontSnapshot);
 }
 
-export async function createStorefrontBaseline(
-  adapter: StorefrontCatalogReadAdapter,
-): Promise<StorefrontSnapshot> {
-  let catalog: StorefrontCatalogRead;
-  try {
-    catalog = await adapter.readCatalog();
-  } catch (cause) {
-    if (cause instanceof StorefrontBaselineError) throw cause;
-    throw new StorefrontBaselineError(
-      "catalog-read-failed",
-      "The approved Supabase Catalog could not be read.",
-      { cause },
-    );
-  }
-
+function buildStorefrontSnapshot(
+  catalog: StorefrontCatalogRead,
+): StorefrontSnapshot {
   const normalizedProducts = catalog.products.map(normalizeProduct);
   const productIds = new Set<string>();
   const productPaths = new Set<string>();
@@ -467,7 +477,6 @@ export async function createStorefrontBaseline(
     .filter((product) => product.catalogStatus === "active")
     .sort(
       (a, b) =>
-        a.routineSort - b.routineSort ||
         a.sortOrder - b.sortOrder ||
         a.slug.localeCompare(b.slug) ||
         a.id.localeCompare(b.id),
@@ -481,7 +490,10 @@ export async function createStorefrontBaseline(
           `Unsupported Routine Complement type "${relationship.relationship_type}".`,
         );
       }
-      if (!Number.isInteger(relationship.sort_order) || relationship.sort_order < 0) {
+      if (
+        !Number.isInteger(relationship.sort_order) ||
+        relationship.sort_order < 0
+      ) {
         throw new StorefrontBaselineError(
           "invalid-routine-complement",
           `Routine Complement "${relationship.product_id}" -> "${relationship.related_product_id}" has invalid sort order.`,
@@ -500,10 +512,26 @@ export async function createStorefrontBaseline(
         a.relatedProductId.localeCompare(b.relatedProductId),
     );
 
-  const core = requireCapability(products, "The Core collection", (product) => product.routineGroup === "core");
-  const beyond = requireCapability(products, "Beyond The Core collection", (product) => product.routineGroup === "beyond_core");
-  const purchasable = requireCapability(products, "Purchasable Product", (product) => product.offer !== null);
-  const richPdp = requireCapability(products, "rich PDP media", hasRichPdpMedia);
+  const core = requireCapability(
+    products,
+    "The Core Routine Group",
+    (product) => product.routineGroup === "core",
+  );
+  const beyond = requireCapability(
+    products,
+    "Beyond The Core Routine Group",
+    (product) => product.routineGroup === "beyond_core",
+  );
+  const purchasable = requireCapability(
+    products,
+    "Purchasable Product",
+    (product) => product.offer !== null,
+  );
+  const richPdp = requireCapability(
+    products,
+    "rich PDP media",
+    hasRichPdpMedia,
+  );
   const searchable = requireCapability(
     products,
     "searchable Product",
@@ -526,7 +554,10 @@ export async function createStorefrontBaseline(
         `Routine Complement for "${relationship.productId}" cannot reference itself.`,
       );
     }
-    if (!ids.has(relationship.productId) || !ids.has(relationship.relatedProductId)) {
+    if (
+      !ids.has(relationship.productId) ||
+      !ids.has(relationship.relatedProductId)
+    ) {
       throw new StorefrontBaselineError(
         "invalid-routine-complement",
         `Routine Complement "${relationship.productId}" -> "${relationship.relatedProductId}" must reference active Products.`,
@@ -546,4 +577,31 @@ export async function createStorefrontBaseline(
       searchableProductId: searchable.id,
     },
   });
+}
+
+export async function createStorefrontBaseline(
+  adapter: StorefrontCatalogReadAdapter,
+): Promise<StorefrontSnapshot> {
+  let catalog: StorefrontCatalogRead;
+  try {
+    catalog = await adapter.readCatalog();
+  } catch (cause) {
+    if (cause instanceof StorefrontBaselineError) throw cause;
+    throw new StorefrontBaselineError(
+      "catalog-read-failed",
+      "The approved Supabase Catalog could not be read.",
+      { cause },
+    );
+  }
+
+  try {
+    return buildStorefrontSnapshot(catalog);
+  } catch (cause) {
+    if (cause instanceof StorefrontBaselineError) throw cause;
+    throw new StorefrontBaselineError(
+      "invalid-catalog-shape",
+      "The approved Supabase Catalog returned malformed public Storefront data.",
+      { cause },
+    );
+  }
 }
