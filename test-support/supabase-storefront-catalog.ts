@@ -112,6 +112,7 @@ export function createSupabaseStorefrontCatalogAdapter({
   const baseUrl = new URL(url);
 
   return {
+    approvedMediaOrigin: baseUrl.origin,
     async readCatalog() {
       const productsUrl = new URL("/rest/v1/products", baseUrl);
       productsUrl.search = new URLSearchParams({

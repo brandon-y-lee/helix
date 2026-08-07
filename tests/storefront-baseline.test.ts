@@ -51,7 +51,7 @@ function product(
     product_media: [
       {
         media_type: "video",
-        url: "https://cdn.example.test/routine.mp4",
+        url: "/media/routine.mp4",
         alt: "Routine video",
         width: null,
         height: null,
@@ -62,7 +62,7 @@ function product(
       },
       {
         media_type: "image",
-        url: "https://cdn.example.test/routine-poster.webp",
+        url: "/media/routine-poster.webp",
         alt: "Routine video poster",
         width: 1200,
         height: 1600,
@@ -73,7 +73,7 @@ function product(
       },
       {
         media_type: "image",
-        url: "https://cdn.example.test/gallery.webp",
+        url: "/media/gallery.webp",
         alt: "Core Alpha bottle",
         width: 1200,
         height: 1600,
@@ -561,6 +561,30 @@ describe("Storefront Baseline", () => {
     ).rejects.toMatchObject({
       code: "invalid-product-variant",
       message: expect.stringContaining("available"),
+    });
+  });
+
+  it("rejects Product media outside the adapter's project-controlled origin", async () => {
+    await expect(
+      createStorefrontBaseline({
+        approvedMediaOrigin: "https://project.example.test",
+        readCatalog: async () => ({
+          products: [
+            product({
+              product_media: [
+                {
+                  ...product().product_media![0],
+                  url: "https://uncontrolled.example.test/routine.mp4",
+                },
+              ],
+            }),
+          ],
+          routineComplements: [],
+        }),
+      }),
+    ).rejects.toMatchObject({
+      code: "invalid-product-media",
+      message: expect.stringContaining("project-controlled HTTPS origin"),
     });
   });
 

@@ -83,6 +83,7 @@ export type StorefrontCatalogRead = {
 };
 
 export type StorefrontCatalogReadAdapter = {
+  approvedMediaOrigin?: string;
   readCatalog: () => Promise<StorefrontCatalogRead>;
 };
 
@@ -313,16 +314,26 @@ function optionalPalette(
   );
 }
 
-function optionalUrl(value: unknown, identity: string): string | null {
+function optionalUrl(
+  value: unknown,
+  identity: string,
+  approvedMediaOrigin: string | undefined,
+): string | null {
   if (value === null) return null;
   const url = requireText(value, "media URL", identity);
+  if (url.startsWith("/") && !url.startsWith("//")) return url;
   try {
     const parsed = new URL(url);
-    if (parsed.protocol === "https:" || parsed.protocol === "http:") return url;
+    const approvedOrigin = approvedMediaOrigin
+      ? new URL(approvedMediaOrigin).origin
+      : null;
+    if (parsed.protocol === "https:" && parsed.origin === approvedOrigin) {
+      return url;
+    }
   } catch {}
   throw new StorefrontBaselineError(
     "invalid-product-media",
-    `Product "${identity}" has an invalid public media URL.`,
+    `Product "${identity}" media must use a project-controlled HTTPS origin or same-site path.`,
   );
 }
 
@@ -352,6 +363,7 @@ function requireRoutineComplementText(
 
 function normalizeProduct(
   row: StorefrontCatalogProduct,
+  approvedMediaOrigin: string | undefined,
 ): StorefrontSnapshotProduct {
   const id = requireText(row.id, "id", row.slug || "unknown");
   const slug = requireText(row.slug, "slug", id);
@@ -458,7 +470,7 @@ function normalizeProduct(
           `Product "${slug}" has unsupported media type "${item.media_type}".`,
         );
       }
-      const url = optionalUrl(item.url, slug);
+      const url = optionalUrl(item.url, slug, approvedMediaOrigin);
       if (item.media_type === "video" && !url) {
         throw new StorefrontBaselineError(
           "invalid-product-media",
@@ -618,8 +630,11 @@ export function deserializeStorefrontSnapshot(
 
 function buildStorefrontSnapshot(
   catalog: StorefrontCatalogRead,
+  approvedMediaOrigin: string | undefined,
 ): StorefrontSnapshot {
-  const normalizedProducts = catalog.products.map(normalizeProduct);
+  const normalizedProducts = catalog.products.map((product) =>
+    normalizeProduct(product, approvedMediaOrigin),
+  );
   const productIds = new Set<string>();
   const productPaths = new Set<string>();
   for (const product of normalizedProducts) {
@@ -769,7 +784,7 @@ export async function createStorefrontBaseline(
   }
 
   try {
-    return buildStorefrontSnapshot(catalog);
+    return buildStorefrontSnapshot(catalog, adapter.approvedMediaOrigin);
   } catch (cause) {
     if (cause instanceof StorefrontBaselineError) throw cause;
     throw new StorefrontBaselineError(

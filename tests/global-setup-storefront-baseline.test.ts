@@ -60,7 +60,7 @@ function product(
     product_media: [
       {
         media_type: "video",
-        url: "https://cdn.example.test/routine.mp4",
+        url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/mei-pelle-catalog/routine.mp4",
         alt: "Routine video",
         width: null,
         height: null,
@@ -71,7 +71,7 @@ function product(
       },
       {
         media_type: "image",
-        url: "https://cdn.example.test/poster.webp",
+        url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/mei-pelle-catalog/poster.webp",
         alt: "Routine poster",
         width: 1200,
         height: 1600,
@@ -82,7 +82,7 @@ function product(
       },
       {
         media_type: "image",
-        url: "https://cdn.example.test/gallery.webp",
+        url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/mei-pelle-catalog/gallery.webp",
         alt: "Product bottle",
         width: 1200,
         height: 1600,
