@@ -39,6 +39,14 @@ describe("Production Verification Commands", () => {
     expect(windowsRunner).toContain("JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE");
     expect(windowsRunner).toContain("ownerStream.ReadByte()");
     expect(windowsRunner).toContain("ManualResetEvent");
+
+    const nodeAdapter = await readFile(
+      resolve(process.cwd(), "scripts/production-verification-node.ts"),
+      "utf8",
+    );
+    expect(nodeAdapter).toContain("args: input.args");
+    expect(nodeAdapter).toContain("command: input.command");
+    expect(nodeAdapter).not.toContain("windowsJobPayload({\n            ...input");
   });
 
   it("rejects direct Playwright use with supported-command guidance", () => {

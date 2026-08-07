@@ -192,7 +192,8 @@ export async function spawnOwnedProcess(
           WINDOWS_SUPERVISOR_PATH,
           "-Payload",
           windowsJobPayload({
-            ...input,
+            args: input.args,
+            command: input.command,
             controlPath,
             statusPath,
           }),
