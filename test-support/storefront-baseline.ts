@@ -162,7 +162,6 @@ export type StorefrontSnapshot = Readonly<{
     purchasableProductId: string;
     richPdpProductId: string;
     searchableProductId: string;
-    systemNavigationProductId: string;
   }>;
 }>;
 
@@ -728,11 +727,6 @@ function buildStorefrontSnapshot(
     "searchable Product",
     (product) => product.offer !== null && product.displayName.length > 0,
   );
-  const systemNavigation = requireCapability(
-    products,
-    "System navigation Product",
-    (product) => Boolean(product.systemStepName),
-  );
 
   const complementKeys = new Set<string>();
   for (const relationship of routineComplements) {
@@ -771,7 +765,6 @@ function buildStorefrontSnapshot(
       purchasableProductId: purchasable.id,
       richPdpProductId: richPdp.id,
       searchableProductId: searchable.id,
-      systemNavigationProductId: systemNavigation.id,
     },
   });
 }

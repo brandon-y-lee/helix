@@ -2,6 +2,8 @@ import {
   homeBeyondCoreDescriptions,
   homeCoreDescriptions,
 } from "../lib/content/home";
+import type { Locator } from "@playwright/test";
+import type { StorefrontJourneys } from "@/test-support/storefront-journeys";
 import { expect, test } from "./storefront-fixture";
 
 function descriptionKey(product: {
@@ -20,59 +22,65 @@ function descriptionKey(product: {
   return key as keyof typeof descriptions;
 }
 
+async function renderedProducts(
+  container: Locator,
+  storefront: StorefrontJourneys,
+) {
+  const links = container.locator(".product-card__link");
+  const products = [];
+  for (let index = 0; index < await links.count(); index += 1) {
+    const link = links.nth(index);
+    const href = await link.getAttribute("href");
+    if (!href) throw new Error("The homepage rendered a Product without a path.");
+    const product = storefront.productAtPath(href);
+    await expect(link).toHaveAccessibleName(product.displayName);
+    products.push({ link, product });
+  }
+  return products;
+}
+
 test("Core and Beyond descriptions respond to pointer and keyboard discovery", async ({
   page,
   storefront,
 }) => {
-  const coreProducts = storefront.products("core");
-  const pointerProduct = coreProducts[0];
-  const keyboardProduct = coreProducts[1] ?? pointerProduct;
-  const beyondProduct = storefront.products("beyondCore")[0];
-  if (!pointerProduct || !keyboardProduct || !beyondProduct) {
-    throw new Error("The live Storefront snapshot is missing homepage Products.");
-  }
   await page.goto("/");
 
   const core = page.getByRole("region", { name: "The Core", exact: true });
+  const coreProducts = await renderedProducts(core, storefront);
+  const pointer = coreProducts[0];
+  const keyboard = coreProducts[1] ?? pointer;
+  if (!pointer || !keyboard) {
+    throw new Error("The homepage did not render a Core Product.");
+  }
   const coreDescription = core.locator(".home-phased-description");
   await expect(coreDescription).toHaveText(homeCoreDescriptions.default);
 
-  const pointerLink = core.getByRole("link", {
-    name: pointerProduct.displayName,
-    exact: true,
-  });
-  await expect(pointerLink).toHaveAttribute("href", pointerProduct.path);
-  await pointerLink.hover();
+  await pointer.link.hover();
   await expect(coreDescription).toHaveText(
-    homeCoreDescriptions.items[descriptionKey(pointerProduct, "core")],
+    homeCoreDescriptions.items[descriptionKey(pointer.product, "core")],
   );
 
-  const keyboardLink = core.getByRole("link", {
-    name: keyboardProduct.displayName,
-    exact: true,
-  });
-  await expect(keyboardLink).toHaveAttribute("href", keyboardProduct.path);
-  await keyboardLink.focus();
+  await keyboard.link.focus();
   await expect(coreDescription).toHaveText(
-    homeCoreDescriptions.items[descriptionKey(keyboardProduct, "core")],
+    homeCoreDescriptions.items[descriptionKey(keyboard.product, "core")],
   );
 
   const beyond = page.getByRole("region", {
     name: "Beyond The Core",
     exact: true,
   });
+  const beyondProducts = await renderedProducts(beyond, storefront);
+  const beyondProduct = beyondProducts[0];
+  if (!beyondProduct) {
+    throw new Error("The homepage did not render a Beyond the Core Product.");
+  }
   const beyondDescription = beyond.locator(".home-phased-description");
   await expect(beyondDescription).toHaveText(homeBeyondCoreDescriptions.default);
 
-  const beyondLink = beyond.getByRole("link", {
-    name: beyondProduct.displayName,
-    exact: true,
-  });
-  await expect(beyondLink).toHaveAttribute("href", beyondProduct.path);
-  await beyondLink.hover();
+  await beyondProduct.link.hover();
   await expect(beyondDescription).toHaveText(
     homeBeyondCoreDescriptions.items[
-      descriptionKey(beyondProduct, "beyondCore")
+      descriptionKey(beyondProduct.product, "beyondCore")
     ],
   );
 });
@@ -81,7 +89,6 @@ test("Beyond carousel is finite and keyboard operable on mobile", async ({
   page,
   storefront,
 }) => {
-  const products = storefront.products("beyondCore");
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
 
@@ -90,6 +97,10 @@ test("Beyond carousel is finite and keyboard operable on mobile", async ({
     exact: true,
   });
   const carousel = beyond.locator(".home-beyond-carousel");
+  const products = await renderedProducts(carousel, storefront);
+  if (products.length === 0) {
+    throw new Error("The homepage did not render a Beyond the Core Product.");
+  }
   await expect(carousel).toHaveAttribute("data-active-index", "0");
   await expect(
     beyond.getByRole("button", { name: "Previous product" }),

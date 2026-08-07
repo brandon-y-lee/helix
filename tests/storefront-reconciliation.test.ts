@@ -120,7 +120,6 @@ const snapshot = {
     purchasableProductId: core.id,
     richPdpProductId: core.id,
     searchableProductId: core.id,
-    systemNavigationProductId: core.id,
   },
 } as const satisfies StorefrontSnapshot;
 

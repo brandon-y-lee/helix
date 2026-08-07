@@ -19,7 +19,6 @@ const snapshot = {
     purchasableProductId: "buy-id",
     richPdpProductId: "rich-id",
     searchableProductId: "search-id",
-    systemNavigationProductId: "system-id",
   },
 } as const satisfies StorefrontSnapshot;
 

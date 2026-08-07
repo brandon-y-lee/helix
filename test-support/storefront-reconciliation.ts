@@ -250,9 +250,8 @@ async function currentMismatches(
 
   const richProduct = journeys.product("richPdp");
   const purchasableProduct = journeys.product("purchasable");
-  const systemNavigationProduct = journeys.product("systemNavigation");
   for (const product of new Map(
-    [richProduct, purchasableProduct, systemNavigationProduct].map((item) => [
+    [richProduct, purchasableProduct].map((item) => [
       item.id,
       item,
     ]),

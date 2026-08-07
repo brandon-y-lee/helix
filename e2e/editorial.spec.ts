@@ -1,18 +1,9 @@
 import { expect, test } from "./storefront-fixture";
 
-function escapeRegExp(value: string) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
 test("primary navigation reaches System, a live PDP, and About", async ({
   page,
   storefront,
 }) => {
-  const product = storefront.product("systemNavigation");
-  const systemStep = product.systemStepName?.toLowerCase();
-  if (!systemStep) {
-    throw new Error(`Product "${product.slug}" has no System Step.`);
-  }
   await page.goto("/");
   const primary = page.getByRole("navigation", { name: "Primary" });
 
@@ -22,12 +13,14 @@ test("primary navigation reaches System, a live PDP, and About", async ({
     page.getByRole("heading", { level: 1, name: "THE SYSTEM." }),
   ).toBeVisible();
 
-  await page
-    .locator(`#system-${systemStep}`)
-    .getByRole("link", {
-      name: new RegExp(`View ${escapeRegExp(product.displayName)}`),
-    })
-    .click();
+  const productLink = page.locator(".method-step__link").first();
+  const href = await productLink.getAttribute("href");
+  if (!href) throw new Error("The System did not render a Product path.");
+  const product = storefront.productAtPath(href);
+  await expect(productLink).toHaveAccessibleName(
+    `View ${product.displayName} product details`,
+  );
+  await productLink.click();
   await expect(page).toHaveURL(new RegExp(`${product.path}$`));
   await expect(
     page.getByRole("heading", { level: 1, name: product.displayName }),

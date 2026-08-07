@@ -12,8 +12,7 @@ export type StorefrontJourney =
   | "beyondCore"
   | "purchasable"
   | "richPdp"
-  | "searchable"
-  | "systemNavigation";
+  | "searchable";
 
 export type StorefrontRoutineGroup = "core" | "beyondCore";
 
@@ -36,7 +35,6 @@ const JOURNEY_KEYS = {
   purchasable: "purchasableProductId",
   richPdp: "richPdpProductId",
   searchable: "searchableProductId",
-  systemNavigation: "systemNavigationProductId",
 } as const satisfies Readonly<
   Record<StorefrontJourney, keyof StorefrontSnapshot["journeys"]>
 >;
