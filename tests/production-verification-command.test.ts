@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { resolve } from "node:path";
 import { tmpdir } from "node:os";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import globalSetup from "@/e2e/global-setup";
 
 describe("Production Verification Commands", () => {
@@ -87,6 +87,37 @@ describe("Production Verification Commands", () => {
         "private-value.example.test",
       );
     } finally {
+      if (originalUrl === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+      else process.env.NEXT_PUBLIC_SUPABASE_URL = originalUrl;
+      if (originalAnonKey === undefined) {
+        delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      } else {
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = originalAnonKey;
+      }
+    }
+  });
+
+  it("does not disclose raw provider payloads in Catalog errors", async () => {
+    const originalUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const originalAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    process.env.NEXT_PUBLIC_SUPABASE_URL =
+      "https://erasogmsqpgiirovubjh.supabase.co";
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "test-anon-key";
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response("raw-private-provider-payload", { status: 500 }));
+
+    try {
+      const error = await globalSetup().catch((cause: unknown) => cause);
+      expect(error).toBeInstanceOf(Error);
+      expect((error as Error).message).toContain(
+        "e2e: catalog query failed (HTTP 500)",
+      );
+      expect((error as Error).message).not.toContain(
+        "raw-private-provider-payload",
+      );
+    } finally {
+      fetchMock.mockRestore();
       if (originalUrl === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_URL;
       else process.env.NEXT_PUBLIC_SUPABASE_URL = originalUrl;
       if (originalAnonKey === undefined) {

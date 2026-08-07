@@ -61,9 +61,8 @@ export default async function globalSetup(): Promise<void> {
     });
 
     if (!res.ok) {
-      const body = await res.text().catch(() => "");
       throw new Error(
-        `e2e: catalog query failed (HTTP ${res.status}${body ? `: ${body}` : ""}). ` +
+        `e2e: catalog query failed (HTTP ${res.status}). ` +
           `Apply the "catalog" and "seed_catalog" migrations to the dev Supabase ` +
           `project before running e2e.`,
       );
