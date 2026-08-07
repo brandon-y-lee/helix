@@ -36,10 +36,10 @@ export default async function globalSetup(): Promise<void> {
 
   try {
     assertApprovedSupabaseProjectUrl(url);
-  } catch {
+  } catch (cause) {
+    const detail = cause instanceof Error ? cause.message : "Invalid project URL.";
     throw new Error(
-      "e2e: refusing unapproved Supabase project. Expected the verified " +
-        "non-production project.",
+      `e2e: refusing unapproved Supabase project. ${detail}`,
     );
   }
 

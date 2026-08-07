@@ -107,7 +107,7 @@ describe("Production Verification Commands", () => {
 
     try {
       await expect(globalSetup()).rejects.toThrow(
-        "e2e: refusing unapproved Supabase project",
+        /e2e: refusing unapproved Supabase project.*hostname must exactly match/,
       );
       expect(fetchMock).not.toHaveBeenCalled();
     } finally {

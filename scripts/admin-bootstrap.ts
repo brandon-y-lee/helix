@@ -16,10 +16,6 @@ function requiredEnv(name: string): string {
   return value;
 }
 
-function verifyProjectRef(urlValue: string): void {
-  assertApprovedSupabaseProjectUrl(urlValue);
-}
-
 function assertVerifiedUser(user: User): User {
   if (!user.email || !user.email_confirmed_at) {
     throw new Error("The selected Supabase user must have a verified email.");
@@ -76,7 +72,7 @@ async function resolveUser(
 
 async function main() {
   const url = requiredEnv("NEXT_PUBLIC_SUPABASE_URL");
-  verifyProjectRef(url);
+  assertApprovedSupabaseProjectUrl(url);
   const role = requiredEnv("MEI_PELLE_ADMIN_ROLE");
   if (!ROLES.has(role)) {
     throw new Error(

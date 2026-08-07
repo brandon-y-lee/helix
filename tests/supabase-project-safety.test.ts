@@ -23,15 +23,19 @@ describe("approved Supabase project safety", () => {
   });
 
   it.each([
-    "not a URL",
-    "https://example.com",
-    `http://${APPROVED_SUPABASE_PROJECT_REF}.supabase.co`,
-    `https://${APPROVED_SUPABASE_PROJECT_REF}.supabase.co.evil.example`,
-  ])("rejects a malformed or non-Supabase URL: %s", (url) => {
+    ["not a URL", /valid absolute HTTPS URL/],
+    ["https://example.com", /hostname must exactly match/],
+    [
+      `http://${APPROVED_SUPABASE_PROJECT_REF}.supabase.co`,
+      /must use HTTPS/,
+    ],
+    [
+      `https://${APPROVED_SUPABASE_PROJECT_REF}.supabase.co.evil.example`,
+      /hostname must exactly match/,
+    ],
+  ])("rejects an invalid project URL with guidance: %s", (url, guidance) => {
     expect(projectRefFromSupabaseUrl(url)).toBeNull();
-    expect(() => assertApprovedSupabaseProjectUrl(url)).toThrow(
-      /Expected approved non-production project/,
-    );
+    expect(() => assertApprovedSupabaseProjectUrl(url)).toThrow(guidance);
   });
 
   it("rejects an unexpected Supabase project", () => {

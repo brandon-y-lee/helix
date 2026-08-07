@@ -1,15 +1,28 @@
 export const APPROVED_SUPABASE_PROJECT_REF =
   "erasogmsqpgiirovubjh" as const;
 
-export function projectRefFromSupabaseUrl(url: string): string | null {
+type ProjectUrlInspection =
+  | { ok: true; projectRef: string }
+  | { ok: false; reason: "invalid-url" | "insecure" | "unexpected-host" };
+
+function inspectSupabaseProjectUrl(url: string): ProjectUrlInspection {
+  let parsed: URL;
   try {
-    const parsed = new URL(url);
-    if (parsed.protocol !== "https:") return null;
-    const match = parsed.hostname.match(/^([a-z0-9-]+)\.supabase\.co$/);
-    return match?.[1] ?? null;
+    parsed = new URL(url);
   } catch {
-    return null;
+    return { ok: false, reason: "invalid-url" };
   }
+  if (parsed.protocol !== "https:") {
+    return { ok: false, reason: "insecure" };
+  }
+  const match = parsed.hostname.match(/^([a-z0-9-]+)\.supabase\.co$/);
+  if (!match) return { ok: false, reason: "unexpected-host" };
+  return { ok: true, projectRef: match[1] };
+}
+
+export function projectRefFromSupabaseUrl(url: string): string | null {
+  const inspection = inspectSupabaseProjectUrl(url);
+  return inspection.ok ? inspection.projectRef : null;
 }
 
 export function assertApprovedSupabaseProjectRef(
@@ -27,5 +40,18 @@ export function assertApprovedSupabaseProjectRef(
 export function assertApprovedSupabaseProjectUrl(
   url: string,
 ): typeof APPROVED_SUPABASE_PROJECT_REF {
-  return assertApprovedSupabaseProjectRef(projectRefFromSupabaseUrl(url));
+  const inspection = inspectSupabaseProjectUrl(url);
+  if (!inspection.ok) {
+    const guidance = {
+      "invalid-url": "Provide a valid absolute HTTPS URL.",
+      insecure: "The Supabase project URL must use HTTPS.",
+      "unexpected-host":
+        `The hostname must exactly match <project-ref>.supabase.co.`,
+    }[inspection.reason];
+    throw new Error(
+      `Refusing Supabase project URL. ${guidance} ` +
+        `Expected approved non-production project "${APPROVED_SUPABASE_PROJECT_REF}".`,
+    );
+  }
+  return assertApprovedSupabaseProjectRef(inspection.projectRef);
 }
