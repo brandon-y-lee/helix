@@ -1,4 +1,4 @@
-import { spawn, type ChildProcess, type StdioOptions } from "node:child_process";
+import { spawn, type ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { open, readFile, readdir, unlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -29,7 +29,7 @@ export type OwnedCommandInput = {
   env: NodeJS.ProcessEnv;
   label: string;
   signal?: AbortSignal;
-  stdio?: StdioOptions;
+  stdio?: "ignore" | "inherit";
 };
 
 type ProcessTreeControl = {
@@ -133,7 +133,6 @@ function windowsJobPayload(input: {
   args: string[];
   command: string;
   controlPath: string;
-  ownerPid: number;
   statusPath: string;
 }): string {
   return Buffer.from(JSON.stringify(input), "utf8").toString("base64");
@@ -191,7 +190,6 @@ export async function spawnOwnedProcess(
           windowsJobPayload({
             ...input,
             controlPath,
-            ownerPid: process.pid,
             statusPath,
           }),
         ]
@@ -200,7 +198,13 @@ export async function spawnOwnedProcess(
       cwd: input.cwd,
       detached: !windows,
       env: input.env,
-      stdio: input.stdio ?? "inherit",
+      stdio: windows
+        ? [
+            "pipe",
+            input.stdio === "ignore" ? "ignore" : "inherit",
+            input.stdio === "ignore" ? "ignore" : "inherit",
+          ]
+        : (input.stdio ?? "inherit"),
       windowsHide: true,
     },
   );

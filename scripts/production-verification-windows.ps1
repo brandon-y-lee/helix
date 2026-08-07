@@ -209,28 +209,12 @@ public static class ProductionVerificationJob
         File.Move(temporaryPath, statusPath);
     }
 
-    private static bool IsProcessAlive(int processId)
-    {
-        try
-        {
-            using (Process owner = Process.GetProcessById(processId))
-            {
-                return !owner.HasExited;
-            }
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
     public static int Run(
         string applicationName,
         string commandLine,
         string currentDirectory,
         string controlPath,
-        string statusPath,
-        int ownerPid)
+        string statusPath)
     {
         IntPtr job = CreateJobObject(IntPtr.Zero, null);
         if (job == IntPtr.Zero) ThrowLastError();
@@ -307,7 +291,10 @@ public static class ProductionVerificationJob
                 {
                     return unchecked((int)exitCode);
                 }
-                if (!IsProcessAlive(ownerPid)) return 1;
+                if (WaitForSingleObject(GetStdHandle(-10), 0) == WAIT_OBJECT_0)
+                {
+                    return 1;
+                }
                 Thread.Sleep(25);
             }
         }
@@ -357,7 +344,6 @@ $exitCode = [ProductionVerificationJob]::Run(
   $commandLine,
   (Get-Location).Path,
   [string]$command.controlPath,
-  [string]$command.statusPath,
-  [int]$command.ownerPid
+  [string]$command.statusPath
 )
 exit $exitCode
