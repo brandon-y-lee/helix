@@ -199,24 +199,154 @@ export class StorefrontBaselineError extends Error {
 
 function memberOf<const T extends readonly string[]>(
   values: T,
-  value: string,
+  value: unknown,
 ): value is T[number] {
-  return values.includes(value);
+  return typeof value === "string" && values.includes(value);
 }
 
-function requireText(value: string, field: string, identity: string): string {
-  if (value.trim()) return value;
+function requireText(value: unknown, field: string, identity: string): string {
+  if (typeof value === "string" && value.trim()) return value;
   throw new StorefrontBaselineError(
     "invalid-product",
     `Product "${identity}" requires a non-empty ${field}.`,
   );
 }
 
-function requireOrder(value: number, field: string, identity: string): number {
-  if (Number.isInteger(value) && value >= 0) return value;
+function optionalText(
+  value: unknown,
+  field: string,
+  identity: string,
+): string | null {
+  return value === null ? null : requireText(value, field, identity);
+}
+
+function requireHexColor(
+  value: unknown,
+  field: string,
+  identity: string,
+): string {
+  const color = requireText(value, field, identity);
+  if (/^#[0-9a-f]{6}$/i.test(color)) return color;
+  throw new StorefrontBaselineError(
+    "invalid-product",
+    `Product "${identity}" has invalid ${field}.`,
+  );
+}
+
+function requireTextArray(
+  value: unknown,
+  field: string,
+  identity: string,
+): string[] {
+  if (
+    Array.isArray(value) &&
+    value.every((item) => typeof item === "string" && item.trim())
+  ) {
+    return [...value];
+  }
+  throw new StorefrontBaselineError(
+    "invalid-product",
+    `Product "${identity}" requires ${field} to contain only non-empty text.`,
+  );
+}
+
+function requireTimestamp(
+  value: unknown,
+  field: string,
+  identity: string,
+): string {
+  const timestamp = requireText(value, field, identity);
+  if (Number.isFinite(Date.parse(timestamp))) return timestamp;
+  throw new StorefrontBaselineError(
+    "invalid-product",
+    `Product "${identity}" has invalid ${field}.`,
+  );
+}
+
+function optionalTimestamp(
+  value: unknown,
+  field: string,
+  identity: string,
+): string | null {
+  return value === null ? null : requireTimestamp(value, field, identity);
+}
+
+function requireOrder(value: unknown, field: string, identity: string): number {
+  if (typeof value === "number" && Number.isInteger(value) && value >= 0) {
+    return value;
+  }
   throw new StorefrontBaselineError(
     "invalid-ordering",
     `Product "${identity}" has invalid ${field} ${String(value)}.`,
+  );
+}
+
+function optionalDimension(
+  value: unknown,
+  field: string,
+  identity: string,
+): number | null {
+  if (value === null) return null;
+  if (Number.isInteger(value) && (value as number) > 0) return value as number;
+  throw new StorefrontBaselineError(
+    "invalid-product-media",
+    `Product "${identity}" has invalid media ${field}.`,
+  );
+}
+
+function optionalPalette(
+  value: unknown,
+  identity: string,
+): Record<string, string> | null {
+  if (value === null) return null;
+  if (
+    value &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    Object.values(value).every((item) => typeof item === "string")
+  ) {
+    return { ...(value as Record<string, string>) };
+  }
+  throw new StorefrontBaselineError(
+    "invalid-product-media",
+    `Product "${identity}" has an invalid placeholder palette.`,
+  );
+}
+
+function optionalUrl(value: unknown, identity: string): string | null {
+  if (value === null) return null;
+  const url = requireText(value, "media URL", identity);
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol === "https:" || parsed.protocol === "http:") return url;
+  } catch {}
+  throw new StorefrontBaselineError(
+    "invalid-product-media",
+    `Product "${identity}" has an invalid public media URL.`,
+  );
+}
+
+function optionalRows<T>(
+  value: readonly T[] | null,
+  subject: string,
+  identity: string,
+): readonly T[] {
+  if (value === null) return [];
+  if (Array.isArray(value)) return value;
+  throw new StorefrontBaselineError(
+    "invalid-catalog-shape",
+    `Product "${identity}" has malformed ${subject}.`,
+  );
+}
+
+function requireRoutineComplementText(
+  value: unknown,
+  field: string,
+): string {
+  if (typeof value === "string" && value.trim()) return value;
+  throw new StorefrontBaselineError(
+    "invalid-routine-complement",
+    `Routine Complement requires a non-empty ${field}.`,
   );
 }
 
@@ -266,7 +396,11 @@ function normalizeProduct(
   }
 
   const variantIds = new Set<string>();
-  const variants = (row.product_variants ?? [])
+  const variants = optionalRows(
+    row.product_variants,
+    "Product Variants",
+    slug,
+  )
     .map((variant) => {
       if (!memberOf(INVENTORY_STATUSES, variant.inventory_status)) {
         throw new StorefrontBaselineError(
@@ -278,6 +412,12 @@ function normalizeProduct(
         throw new StorefrontBaselineError(
           "invalid-product-offer",
           `Product "${slug}" variant "${variant.variant_key}" has invalid price.`,
+        );
+      }
+      if (typeof variant.available !== "boolean") {
+        throw new StorefrontBaselineError(
+          "invalid-product-variant",
+          `Product "${slug}" variant "${variant.variant_key}" has invalid available value.`,
         );
       }
       const variantId = requireText(variant.variant_key, "variant key", slug);
@@ -304,9 +444,9 @@ function normalizeProduct(
     status: merchandisingStatus,
     variants,
   });
-  const media = (row.product_media ?? [])
+  const media = optionalRows(row.product_media, "Product media", slug)
     .map((item) => {
-      if (!isProductMediaRole(item.role)) {
+      if (typeof item.role !== "string" || !isProductMediaRole(item.role)) {
         throw new StorefrontBaselineError(
           "invalid-product-media",
           `Product "${slug}" has unsupported media role "${item.role}".`,
@@ -318,16 +458,23 @@ function normalizeProduct(
           `Product "${slug}" has unsupported media type "${item.media_type}".`,
         );
       }
+      const url = optionalUrl(item.url, slug);
+      if (item.media_type === "video" && !url) {
+        throw new StorefrontBaselineError(
+          "invalid-product-media",
+          `Product "${slug}" video media requires a public URL.`,
+        );
+      }
       return {
-        kind: item.media_type === "video" ? "video" as const : item.url ? "image" as const : "placeholder" as const,
-        url: item.url,
+        kind: item.media_type === "video" ? "video" as const : url ? "image" as const : "placeholder" as const,
+        url,
         alt: requireText(item.alt, "media alt text", slug),
-        width: item.width,
-        height: item.height,
+        width: optionalDimension(item.width, "width", slug),
+        height: optionalDimension(item.height, "height", slug),
         role: item.role,
         sortOrder: requireOrder(item.sort_order, "media sort order", slug),
-        paletteId: item.palette_id,
-        placeholderPalette: item.placeholder_palette,
+        paletteId: optionalText(item.palette_id, "media palette id", slug),
+        placeholderPalette: optionalPalette(item.placeholder_palette, slug),
       };
     })
     .sort((a, b) => a.sortOrder - b.sortOrder || a.role.localeCompare(b.role));
@@ -340,7 +487,7 @@ function normalizeProduct(
     formalTitle: requireText(row.formal_title, "formal title", slug),
     cardTagline: requireText(row.card_tagline, "card tagline", slug),
     productType: requireText(row.product_type, "product type", slug),
-    badge: row.badge,
+    badge: optionalText(row.badge, "badge", slug),
     currency: "USD",
     catalogStatus: row.catalog_status,
     merchandisingStatus,
@@ -349,22 +496,41 @@ function normalizeProduct(
       "editorial description",
       slug,
     ),
-    swatch: [row.swatch_from, row.swatch_to],
+    swatch: [
+      requireHexColor(row.swatch_from, "swatch start", slug),
+      requireHexColor(row.swatch_to, "swatch end", slug),
+    ],
     sortOrder: requireOrder(row.sort_order, "Storefront sort order", slug),
-    createdAt: row.created_at,
-    publishedAt: row.published_at,
-    updatedAt: row.updated_at,
-    madeFor: row.made_for,
-    goodFor: row.good_for,
-    texture: row.texture,
-    keyIngredients: [...row.key_ingredients],
-    ingredients: row.ingredients,
-    concerns: [...row.concerns],
-    usageTime: [...row.usage_time],
-    searchKeywords: [...row.search_keywords],
+    createdAt: requireTimestamp(row.created_at, "created timestamp", slug),
+    publishedAt: optionalTimestamp(
+      row.published_at,
+      "published timestamp",
+      slug,
+    ),
+    updatedAt: optionalTimestamp(row.updated_at, "updated timestamp", slug),
+    madeFor: optionalText(row.made_for, "made-for text", slug),
+    goodFor: optionalText(row.good_for, "good-for text", slug),
+    texture: optionalText(row.texture, "texture", slug),
+    keyIngredients: requireTextArray(
+      row.key_ingredients,
+      "Key Ingredients",
+      slug,
+    ),
+    ingredients: optionalText(row.ingredients, "Complete INCI", slug),
+    concerns: requireTextArray(row.concerns, "concerns", slug),
+    usageTime: requireTextArray(row.usage_time, "usage time", slug),
+    searchKeywords: requireTextArray(
+      row.search_keywords,
+      "search keywords",
+      slug,
+    ),
     routineGroup: row.routine_group,
     systemPosition: row.routine_step_number,
-    systemStepName: row.routine_step_name,
+    systemStepName: optionalText(
+      row.routine_step_name,
+      "System Step Name",
+      slug,
+    ),
     routineSort: requireOrder(row.routine_sort, "Routine ordering", slug),
     variants,
     media,
@@ -484,6 +650,14 @@ function buildStorefrontSnapshot(
   const ids = new Set(products.map((product) => product.id));
   const routineComplements = catalog.routineComplements
     .map((relationship) => {
+      const productId = requireRoutineComplementText(
+        relationship.product_id,
+        "source Product identity",
+      );
+      const relatedProductId = requireRoutineComplementText(
+        relationship.related_product_id,
+        "target Product identity",
+      );
       if (relationship.relationship_type !== "complete_the_routine") {
         throw new StorefrontBaselineError(
           "invalid-routine-complement",
@@ -500,8 +674,8 @@ function buildStorefrontSnapshot(
         );
       }
       return {
-        productId: relationship.product_id,
-        relatedProductId: relationship.related_product_id,
+        productId,
+        relatedProductId,
         sortOrder: relationship.sort_order,
       };
     })

@@ -536,7 +536,31 @@ describe("Storefront Baseline", () => {
       }),
     ).rejects.toMatchObject({
       code: "invalid-catalog-shape",
-      message: expect.stringContaining("malformed public Storefront data"),
+      message: expect.stringContaining("malformed Product Variants"),
+    });
+  });
+
+  it("rejects a wrong-typed live Product Variant field before Offer selection", async () => {
+    const variant = product().product_variants?.[0];
+    expect(variant).toBeDefined();
+    const wrongTypedVariant = variant
+      ? { ...variant, available: "yes" }
+      : null;
+    const wrongTypedProduct = {
+      ...product(),
+      product_variants: wrongTypedVariant ? [wrongTypedVariant] : [],
+    } as unknown as StorefrontCatalogProduct;
+
+    await expect(
+      createStorefrontBaseline({
+        readCatalog: async () => ({
+          products: [wrongTypedProduct],
+          routineComplements: [],
+        }),
+      }),
+    ).rejects.toMatchObject({
+      code: "invalid-product-variant",
+      message: expect.stringContaining("available"),
     });
   });
 
