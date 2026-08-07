@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { signUpErrorMessage } from "@/lib/auth/errors";
 import { safeReturnTo } from "@/lib/auth/redirect";
 import { validateEmail, validatePassword } from "@/lib/auth/validation";
-import { normalizeCartQuantity, subtotal } from "@/lib/cart/validation";
+import { normalizeCartQuantity } from "@/lib/cart/validation";
 import { CartError } from "@/lib/cart/types";
 
 describe("safe auth redirects", () => {
@@ -51,14 +51,5 @@ describe("cart validation", () => {
     expect(normalizeCartQuantity(150)).toBe(99);
     expect(() => normalizeCartQuantity(0)).toThrow(CartError);
     expect(() => normalizeCartQuantity(1.5)).toThrow(CartError);
-  });
-
-  it("calculates subtotal from current available lines only", () => {
-    expect(
-      subtotal([
-        { price: 5400, quantity: 2, available: true },
-        { price: 7800, quantity: 1, available: false },
-      ]),
-    ).toBe(10800);
   });
 });

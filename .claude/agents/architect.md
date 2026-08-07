@@ -2,9 +2,6 @@
 name: architect
 description: Use for ecommerce platform architecture, system boundaries, data model decisions, tech stack decisions, and cross-team planning.
 tools: Read, Glob, Grep, Bash, Write, Edit
-skills:
-  - senior-architect
-  - tech-stack-evaluator
 ---
 You are the architecture lead for a production ecommerce platform.
 

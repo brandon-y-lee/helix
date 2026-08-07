@@ -8,7 +8,6 @@ vi.mock("@/lib/catalog-cache", () => ({
 import AboutPage from "@/app/about/page";
 import MethodPage from "@/app/system/page";
 import { getCachedProducts } from "@/lib/catalog-cache";
-import { FORBIDDEN_ABOUT_PATTERNS } from "@/lib/content/about";
 import {
   METHOD_PRODUCT_SLUGS,
   METHOD_STEP_CONFIGS,
@@ -19,9 +18,7 @@ import {
   deriveMethodRoutineSteps,
   formulaFocus,
   getMethodProductState,
-  methodProductNumber,
   routineTimingEntriesForGroup,
-  selectedMethodStepIds,
 } from "@/lib/content/system";
 import type { Product } from "@/lib/products";
 
@@ -128,6 +125,22 @@ function makeProduct(slug: string, overrides: Partial<Product> = {}): Product {
 
 const methodFixtures = METHOD_PRODUCT_SLUGS.map((slug) => makeProduct(slug));
 
+const FORBIDDEN_ABOUT_PATTERNS = [
+  "founder",
+  "advisor",
+  "advisory board",
+  "certified sustainable",
+  "dermatologist developed",
+  "clinical partner",
+  "carbon neutral",
+  "zero waste",
+  "reef safe",
+] as const;
+
+function selectedStepIds(count: number) {
+  return deriveMethodRoutineSteps([], count).map((step) => step.id);
+}
+
 beforeEach(() => {
   mockedGetProducts.mockReset();
   mockedGetProducts.mockResolvedValue(methodFixtures);
@@ -151,7 +164,6 @@ describe("System content architecture", () => {
       ["lift", 7, "product"],
     ]);
     expect(PROTECT_STEP.number).toBe("06");
-    expect(methodProductNumber(makeProduct("lift-06-pdrn-mask-system"))).toBe("07");
 
     const state = getMethodProductState(
       methodFixtures.filter(
@@ -186,7 +198,7 @@ describe("System content architecture", () => {
     for (const count of ROUTINE_STEP_COUNTS) {
       const steps = deriveMethodRoutineSteps(methodFixtures, count);
       expect(steps.map((step) => step.id)).toEqual(expectedIds[count]);
-      expect(selectedMethodStepIds(count)).toEqual(expectedIds[count]);
+      expect(selectedStepIds(count)).toEqual(expectedIds[count]);
       expect(steps.map((step) => step.displayNumber)).toEqual(
         steps.map((_, index) => String(index + 1).padStart(2, "0")),
       );
@@ -194,9 +206,9 @@ describe("System content architecture", () => {
 
     for (let index = 1; index < ROUTINE_STEP_COUNTS.length; index += 1) {
       const previous = new Set(
-        selectedMethodStepIds(ROUTINE_STEP_COUNTS[index - 1]),
+        selectedStepIds(ROUTINE_STEP_COUNTS[index - 1]),
       );
-      const next = new Set(selectedMethodStepIds(ROUTINE_STEP_COUNTS[index]));
+      const next = new Set(selectedStepIds(ROUTINE_STEP_COUNTS[index]));
       expect([...previous].every((id) => next.has(id))).toBe(true);
       expect(next.size).toBeGreaterThan(previous.size);
     }

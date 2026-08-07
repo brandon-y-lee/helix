@@ -1,8 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import {
-  CatalogVersionConflictError,
-  catalogEditorApi,
-} from "@/lib/admin/catalog-editor/client";
+import { catalogEditorApi } from "@/lib/admin/catalog-editor/client";
 import {
   catalogDocument,
   catalogDraft,

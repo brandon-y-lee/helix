@@ -30,14 +30,17 @@ describe("global footer", () => {
     expect(screen.getAllByRole("contentinfo")).toHaveLength(1);
     expect(screen.getByRole("heading", { name: "Mei Pelle" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Mei Pelle" })).toHaveAttribute("href", "/");
-    expect(screen.getByText("Stay in the system.")).toBeInTheDocument();
-    expect(screen.getByText("Email updates are not open")).toBeInTheDocument();
+    expect(screen.queryByText("Stay in the system.")).not.toBeInTheDocument();
+    expect(screen.queryByText("Email updates are not open")).not.toBeInTheDocument();
     expect(screen.queryByRole("textbox", { name: /email/i })).not.toBeInTheDocument();
 
     for (const [name, href] of [
       ["Shop", "/collections/shop"],
       ["System", "/system"],
       ["Rewards", "/rewards"],
+      ["Account overview", "/account"],
+      ["Sign in", "/account/sign-in"],
+      ["Create account", "/account/sign-up"],
       ["FAQ", "/faq"],
       ["Contact", "/contact"],
       ["Privacy", "/privacy"],
@@ -49,6 +52,59 @@ describe("global footer", () => {
       );
     }
 
+    const desktopNav = within(footer).getByRole("navigation", {
+      name: "Footer navigation",
+    });
+    const navigateGroup = within(desktopNav).getByRole("region", {
+      name: "Navigate",
+    });
+    const accountGroup = within(desktopNav).getByRole("region", {
+      name: "Account",
+    });
+    expect(within(navigateGroup).queryByRole("link", { name: "Account overview" }))
+      .not.toBeInTheDocument();
+    expect(within(navigateGroup).queryByRole("link", { name: "Rewards" }))
+      .not.toBeInTheDocument();
+    expect(within(accountGroup).getByRole("link", { name: "Account overview" }))
+      .toHaveAttribute("href", "/account");
+    expect(within(accountGroup).getByRole("link", { name: "Rewards" }))
+      .toHaveAttribute("href", "/rewards");
+
+    const serviceLinks = within(footer).getByRole("complementary", {
+      name: "Footer service links",
+    });
+    expect(
+      within(serviceLinks).getByRole("link", {
+        name: "Contact status: Public support intake pending",
+      }),
+    ).toHaveAttribute("href", "/contact");
+    expect(
+      within(serviceLinks).getByRole("link", {
+        name: "Shipping & returns: Review current policy status",
+      }),
+    ).toHaveAttribute("href", "/faq");
+
+    const reviews = within(footer).getByRole("region", {
+      name: "Customer reviews",
+    });
+    expect(within(reviews).getByText("Coming soon")).toBeInTheDocument();
+    expect(within(reviews).getByText("No public rating is published.")).toBeInTheDocument();
+
+    const social = within(footer).getByRole("region", {
+      name: "Social channels",
+    });
+    expect(within(social).getByText("Coming soon")).toBeInTheDocument();
+    expect(within(social).queryByRole("link")).not.toBeInTheDocument();
+    expect(within(social).queryByRole("button")).not.toBeInTheDocument();
+
+    const checkout = within(footer).getByRole("region", {
+      name: "Checkout methods",
+    });
+    expect(checkout).toHaveTextContent("Stripe sandbox only — no live payments");
+    expect(within(checkout).queryByRole("link")).not.toBeInTheDocument();
+    expect(within(checkout).queryByRole("button")).not.toBeInTheDocument();
+    expect(within(footer).getByText("EN · USD display only")).toBeInTheDocument();
+
     expect(screen.queryByRole("link", { name: /store locator/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /^events$/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /instagram/i })).not.toBeInTheDocument();
@@ -59,6 +115,7 @@ describe("global footer", () => {
     render(<SiteFooter />);
 
     const mobileGroups = screen.getByLabelText("Footer links");
+    expect(mobileGroups.querySelectorAll("details")).toHaveLength(4);
     const navigate = within(mobileGroups).getByText("Navigate");
     const navigateDetails = navigate.closest("details");
     expect(navigateDetails).not.toHaveAttribute("open");
@@ -68,6 +125,17 @@ describe("global footer", () => {
       "href",
       "/collections/shop",
     );
+
+    const account = within(mobileGroups).getByText("Account");
+    const accountDetails = account.closest("details");
+    expect(accountDetails).not.toHaveAttribute("open");
+    account.focus();
+    expect(account).toHaveFocus();
+    expect(account.tagName).toBe("SUMMARY");
+    await user.click(account);
+    expect(accountDetails).toHaveAttribute("open");
+    expect(within(mobileGroups).getByRole("link", { name: "Create account" }))
+      .toHaveAttribute("href", "/account/sign-up");
 
     await user.click(screen.getByRole("button", { name: "Cookie Preferences" }));
     const dialog = screen.getByRole("dialog", { name: "Cookie Preferences" });

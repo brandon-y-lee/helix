@@ -54,7 +54,7 @@ export const privacyPolicy: LegalDocument = {
       title: "Service Providers",
       body: [
         "Current providers reflected in the codebase include Supabase for authentication, profile, catalog, cart, order, reward, referral, and private-feedback data; Stripe for sandbox Checkout, payment status, and eligible product-page payment-method messaging; Algolia for product search; Vercel and Next.js for hosting and application delivery; and Google Fonts for web font delivery.",
-        "Trustpilot is documented as a future neutral invitation boundary only. Sandbox orders do not send real Trustpilot invitations, and reward points are never conditioned on Trustpilot activity.",
+        "Trustpilot invitations are not implemented in the current codebase. Sandbox orders do not send real Trustpilot invitations, and reward points are never conditioned on Trustpilot activity.",
         "Providers process information only as needed to provide their services to Mei Pelle, subject to their own terms and privacy practices.",
       ],
     },

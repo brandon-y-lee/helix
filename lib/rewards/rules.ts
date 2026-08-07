@@ -5,7 +5,7 @@ export const PURCHASE_POINTS_PER_DOLLAR = 2;
 export const REFERRAL_MINIMUM_SUBTOTAL_CENTS = 5000;
 export const REFERRAL_DISCOUNT_PERCENT = 15;
 
-export type RewardTierId = "points_200" | "points_400" | "points_600";
+type RewardTierId = "points_200" | "points_400" | "points_600";
 
 export type RewardTier = {
   id: RewardTierId;

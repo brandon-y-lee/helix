@@ -18,7 +18,7 @@ export type AdminRole = "admin" | "catalog_publisher" | "catalog_editor";
 
 const ALL_ADMIN_CAPABILITIES = Object.values(ADMIN_CAPABILITIES);
 
-export const ADMIN_ROLE_CAPABILITIES: Readonly<
+const ADMIN_ROLE_CAPABILITIES: Readonly<
   Record<AdminRole, readonly AdminCapability[]>
 > = {
   admin: ALL_ADMIN_CAPABILITIES,
@@ -36,7 +36,7 @@ type AdminMembership = {
   active: boolean;
 };
 
-export type AdminPrincipal = {
+type AdminPrincipal = {
   id: string;
   email: string | null;
 };

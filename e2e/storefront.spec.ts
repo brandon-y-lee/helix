@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
+import { installCartFixture } from "./cart-fixture";
 
 const CLEANSE_PATH = "/products/cleanse-01-calming-gel-cleanser";
 const TREAT_PATH = "/products/treat-03-pdrn-5-ampoule";
@@ -84,7 +85,11 @@ test("shop renders seeded products and combines filtering with sorting", async (
     page.getByRole("link", { name: "REFINE", exact: true }),
   ).toHaveCount(0);
 
-  await page.getByLabel("Sort products").selectOption("name-desc");
+  await page.getByRole("button", { name: "Sort: Featured" }).click();
+  await page
+    .getByRole("dialog", { name: "Sort products" })
+    .getByRole("button", { name: "Name, Z–A" })
+    .click();
   await expect(page.locator(".product-card__name").first()).toHaveText(
     "TREAT",
   );
@@ -96,7 +101,9 @@ test("shop renders seeded products and combines filtering with sorting", async (
   await beyond.click();
   await expect(page).toHaveURL(/\/collections\/beyond-the-core$/);
   await expect(beyond).toHaveAttribute("aria-current", "page");
-  await expect(page.getByLabel("Sort products")).toHaveValue("featured");
+  await expect(
+    page.getByRole("button", { name: "Sort: Featured" }),
+  ).toBeVisible();
   await expect(page.locator(".product-count")).toHaveText("3 products");
   await expect(
     page.getByRole("link", { name: "CLEANSE", exact: true }),
@@ -160,6 +167,7 @@ test("PDP resolves canonical data and exposes an available variant", async ({
 test("PDP add-to-cart persists across reload and reaches the cart page", async ({
   page,
 }) => {
+  await installCartFixture(page);
   const { drawer, geometryBeforeOpen } = await addCleanse(page);
   const drawerOverlay = page.locator(".cart-sheet-overlay");
   expect(await storefrontGeometry(page)).toEqual(geometryBeforeOpen);
@@ -188,6 +196,7 @@ test("PDP add-to-cart persists across reload and reaches the cart page", async (
 test("mobile quick buy opens the cart drawer and restores focus on Escape", async ({
   page,
 }) => {
+  await installCartFixture(page);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/collections/shop");
   await expect(
@@ -259,6 +268,7 @@ test("mobile quick buy opens the cart drawer and restores focus on Escape", asyn
 test("PDP sticky purchase appears after routine video and hides at the footer", async ({
   page,
 }) => {
+  await installCartFixture(page);
   await page.goto(TREAT_PATH);
   const sticky = page.locator(".pdp-sticky-purchase");
   await expect(sticky).toHaveAttribute("data-visible", "false");
@@ -314,14 +324,15 @@ test("cart outage remains retryable without reporting an unknown cart as empty",
   });
 
   await page.goto("/cart");
+  const cartPage = page.locator("#content");
   await expect(
-    page.getByText("Your cart is temporarily unavailable."),
+    cartPage.getByText("Your cart is temporarily unavailable."),
   ).toBeVisible();
-  await expect(page.getByText("Your cart is empty.")).toHaveCount(0);
+  await expect(cartPage.getByText("Your cart is empty.")).toHaveCount(0);
 
   available = true;
-  await page.getByRole("button", { name: "Try again" }).click();
-  await expect(page.getByText("Your cart is empty.")).toBeVisible();
+  await cartPage.getByRole("button", { name: "Try again" }).click();
+  await expect(cartPage.getByText("Your cart is empty.")).toBeVisible();
   await expect(
     page.getByRole("button", { name: /CART \(0\)/ }),
   ).toBeVisible();

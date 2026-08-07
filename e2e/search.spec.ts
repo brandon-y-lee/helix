@@ -57,7 +57,10 @@ test("Algolia result opens its canonical product detail page", async ({
   await mockAlgolia(page);
   await page.goto("/search");
 
-  await page.getByLabel("Search products").fill("serum");
+  await page
+    .locator("main")
+    .getByRole("searchbox", { name: "Search products" })
+    .fill("serum");
   await expect(page.getByText(/1 result for/i)).toBeVisible();
   const result = page.getByRole("link", { name: /TREAT/ }).first();
   await expect(result).toContainText("$25.00");
@@ -75,7 +78,10 @@ test("search reports a clear no-results state", async ({ page }) => {
   await mockAlgolia(page);
   await page.goto("/search");
 
-  await page.getByLabel("Search products").fill("zzznotathing");
+  await page
+    .locator("main")
+    .getByRole("searchbox", { name: "Search products" })
+    .fill("zzznotathing");
   await expect(page.getByText(/No products match/i)).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "Popular searches" }),

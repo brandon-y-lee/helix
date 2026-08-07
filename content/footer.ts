@@ -1,4 +1,4 @@
-export type FooterLink = {
+type FooterLink = {
   label: string;
   href: string;
   description?: string;
@@ -10,12 +10,12 @@ export type FooterLinkGroup = {
   links: FooterLink[];
 };
 
-export const footerUpdateModule = {
-  eyebrow: "Updates",
-  heading: "Stay in the system.",
-  summary: "Product releases, formula notes, and system updates.",
-  status: "Email updates are not open",
-  note: "Mei Pelle is not collecting newsletter email addresses right now.",
+export type FooterServiceCard = {
+  id: string;
+  label: string;
+  description: string;
+  href: string;
+  icon: "contact" | "shipping" | "faq";
 };
 
 export const footerLinkGroups: FooterLinkGroup[] = [
@@ -26,8 +26,6 @@ export const footerLinkGroups: FooterLinkGroup[] = [
       { label: "Shop", href: "/collections/shop" },
       { label: "System", href: "/system" },
       { label: "About", href: "/about" },
-      { label: "Account", href: "/account" },
-      { label: "Rewards", href: "/rewards" },
     ],
   },
   {
@@ -49,14 +47,62 @@ export const footerLinkGroups: FooterLinkGroup[] = [
       { label: "Accessibility", href: "/accessibility" },
     ],
   },
+  {
+    id: "account",
+    label: "Account",
+    links: [
+      { label: "Account overview", href: "/account" },
+      { label: "Sign in", href: "/account/sign-in" },
+      { label: "Create account", href: "/account/sign-up" },
+      { label: "Rewards", href: "/rewards" },
+    ],
+  },
 ];
 
-export const footerOmittedRoutes = [
-  "Store locator",
-  "Events",
-  "Impact",
-  "Careers",
-  "Press",
-  "Payment methods",
-  "Social profiles",
+export const footerServiceCards: FooterServiceCard[] = [
+  {
+    id: "contact",
+    label: "Contact status",
+    description: "Public support intake pending",
+    href: "/contact",
+    icon: "contact",
+  },
+  {
+    id: "shipping",
+    label: "Shipping & returns",
+    description: "Review current policy status",
+    href: "/faq",
+    icon: "shipping",
+  },
+  {
+    id: "faq",
+    label: "FAQ",
+    description: "Product, account, and order guidance",
+    href: "/faq",
+    icon: "faq",
+  },
 ];
+
+export const footerStatusModules = {
+  reviews: {
+    label: "Customer reviews",
+    status: "Coming soon",
+    note: "No public rating is published.",
+  },
+  social: {
+    label: "Social channels",
+    status: "Coming soon",
+    channels: [
+      { label: "Instagram", mark: "IG" },
+      { label: "Facebook", mark: "FB" },
+      { label: "TikTok", mark: "TT" },
+      { label: "Pinterest", mark: "PI" },
+    ],
+  },
+  checkout: {
+    label: "Checkout methods",
+    status: "Stripe sandbox only — no live payments",
+    methods: ["Card", "Wallet", "Bank"],
+  },
+  locale: "EN · USD display only",
+};

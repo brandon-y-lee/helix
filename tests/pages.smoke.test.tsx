@@ -9,6 +9,14 @@ vi.mock("@/lib/auth/session", () => ({
   getCurrentUserForPublicPage: vi.fn(async () => null),
 }));
 
+vi.mock("next/navigation", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("next/navigation")>();
+  return {
+    ...actual,
+    useRouter: () => ({ push: vi.fn() }),
+  };
+});
+
 import SignInPage from "@/app/account/sign-in/page";
 import CartPage from "@/app/cart/page";
 import CollectionPage, {

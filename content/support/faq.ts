@@ -5,7 +5,7 @@ import {
   supportPolicy,
 } from "@/content/support/policy";
 
-export type FAQItem = {
+type FAQItem = {
   id: string;
   question: string;
   answer: string;

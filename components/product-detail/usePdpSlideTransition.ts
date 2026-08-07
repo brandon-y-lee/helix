@@ -9,8 +9,8 @@ import {
 } from "react";
 
 export const PDP_SLIDE_DURATION_MS = 800;
-export const PDP_SLIDE_EASING_VALUES = [0.66, 0, 0.18, 1] as const;
-export const PDP_SLIDE_EASING = `cubic-bezier(${PDP_SLIDE_EASING_VALUES.join(", ")})`;
+const PDP_SLIDE_EASING_VALUES = [0.66, 0, 0.18, 1] as const;
+const PDP_SLIDE_EASING = `cubic-bezier(${PDP_SLIDE_EASING_VALUES.join(", ")})`;
 
 export type PdpSlideDirection = "forward" | "backward";
 

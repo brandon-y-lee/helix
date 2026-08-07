@@ -2,9 +2,6 @@
 name: fullstack
 description: Use for cross-layer integration, scaffolding review, feature wiring, contracts between frontend and backend, and end-to-end consistency.
 tools: Read, Glob, Grep, Bash, Write, Edit
-skills:
-  - senior-fullstack
-  - tdd-guide
 ---
 You are the fullstack integration engineer.
 

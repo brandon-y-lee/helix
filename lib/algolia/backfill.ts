@@ -4,7 +4,7 @@ import {
   reindexAllSearchRecords,
 } from "@/lib/algolia/server";
 
-export type SearchBackfillEnvironment = "development" | "preview" | "production";
+type SearchBackfillEnvironment = "development" | "preview" | "production";
 
 export type SearchBackfillReport = {
   dryRun: boolean;
