@@ -452,14 +452,30 @@ export async function acquireCheckoutLock(input: {
     const handle = await open(candidatePath, "wx");
     let primaryFailure: unknown;
     try {
-      try {
-        await handle.writeFile(ownerRecord);
-      } finally {
-        await handle.close();
-      }
-      await link(candidatePath, path);
+      await handle.writeFile(ownerRecord);
     } catch (error) {
       primaryFailure = error;
+    }
+    try {
+      await handle.close();
+    } catch (cleanupError) {
+      if (primaryFailure === undefined) {
+        const failure = asError(cleanupError);
+        primaryFailure = new ProductionVerificationCleanupError(
+          `Production verification lock candidate handle cleanup failed: ${failure.message}`,
+          failure,
+          { cause: failure },
+        );
+      } else {
+        primaryFailure = attachCleanupFailures(primaryFailure, [cleanupError]);
+      }
+    }
+    if (primaryFailure === undefined) {
+      try {
+        await link(candidatePath, path);
+      } catch (error) {
+        primaryFailure = error;
+      }
     }
     try {
       await unlink(candidatePath);
