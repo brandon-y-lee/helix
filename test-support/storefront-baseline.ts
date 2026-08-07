@@ -166,6 +166,7 @@ export type StorefrontSnapshot = Readonly<{
 }>;
 
 export type StorefrontBaselineErrorCode =
+  | "cache-reconciliation"
   | "catalog-read-failed"
   | "catalog-read-timeout"
   | "duplicate-product-identity"

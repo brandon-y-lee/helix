@@ -1,10 +1,12 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./storefront-fixture";
 
 const draftId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 
 test("draft preview is private while the public PDP remains canonical", async ({
   page,
+  storefront,
 }) => {
+  const product = storefront.product("purchasable");
   const previewResponse = await page.goto(
     `/admin/catalog/preview/${draftId}`,
   );
@@ -19,9 +21,9 @@ test("draft preview is private while the public PDP remains canonical", async ({
     page.getByRole("heading", { name: "SIGN IN" }),
   ).toBeVisible();
 
-  await page.goto("/products/cleanse-01-calming-gel-cleanser");
+  await page.goto(product.path);
   await expect(
-    page.getByRole("heading", { level: 1, name: "CLEANSE" }),
+    page.getByRole("heading", { level: 1, name: product.displayName }),
   ).toBeVisible();
   await expect(page.getByText("Draft Preview")).toHaveCount(0);
   await expect(page.getByText("Preview — purchasing disabled")).toHaveCount(0);

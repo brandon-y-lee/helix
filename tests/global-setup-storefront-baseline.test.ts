@@ -119,8 +119,35 @@ describe("Playwright global Storefront baseline setup", () => {
     const outputDirectory = await mkdtemp(
       join(tmpdir(), "mei-pelle-global-baseline-"),
     );
+    const storefrontReads: string[] = [];
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const url = String(input);
+      if (url.startsWith("http://127.0.0.1:3000")) {
+        const pathname = new URL(url).pathname;
+        storefrontReads.push(pathname);
+        const products = pathname === "/collections/core"
+          ? [["core-product", "CORE"]]
+          : pathname === "/collections/beyond-the-core"
+            ? [["beyond-product", "BEYOND"]]
+            : [["core-product", "CORE"], ["beyond-product", "BEYOND"]];
+        if (pathname.startsWith("/collections/")) {
+          return new Response(`<!doctype html><html><body>
+            <span class="product-count">${products.length} ${products.length === 1 ? "product" : "products"}</span>
+            ${products.map(([slug, name]) => `<div data-product-card-slug="${slug}"><span class="product-card__name">${name}</span><span class="product-card__price">${slug === "core-product" ? "$22.00" : "$0.00"}</span><button class="product-card__quick-trigger">${slug === "core-product" ? "BUY CORE - $22.00" : "OUT OF STOCK"}</button></div>`).join("")}
+          </body></html>`, { status: 200 });
+        }
+        if (pathname === "/products/core-product") {
+          return new Response(`<!doctype html><html><body>
+            <h1>CORE</h1>
+            <p class="pdp__price">$22.00</p>
+            <div class="variant-options"><button>Standard</button></div>
+            <button data-pdp-buy-button>BUY CORE - $22.00</button>
+            <section aria-label="CORE routine video"></section>
+            <button data-pdp-media-thumbnail aria-label="View Product bottle, media 1 of 1"></button>
+          </body></html>`, { status: 200 });
+        }
+        return new Response("Not found", { status: 404 });
+      }
       if (url.includes("product_relationships")) {
         return new Response(JSON.stringify([]), { status: 200 });
       }
@@ -146,7 +173,10 @@ describe("Playwright global Storefront baseline setup", () => {
 
     try {
       await globalSetup({
-        projects: [{ outputDir: outputDirectory }],
+        projects: [{
+          outputDir: outputDirectory,
+          use: { baseURL: "http://127.0.0.1:3000" },
+        }],
       } as unknown as FullConfig);
 
       const artifactPath = process.env[STOREFRONT_SNAPSHOT_ENV];
@@ -160,6 +190,12 @@ describe("Playwright global Storefront baseline setup", () => {
         "beyond-product",
       ]);
       expect(snapshot.journeys.richPdpProductId).toBe("core-id");
+      expect(storefrontReads).toEqual([
+        "/collections/shop",
+        "/collections/core",
+        "/collections/beyond-the-core",
+        "/products/core-product",
+      ]);
       expect(await readFile(artifactPath, "utf8")).not.toContain(
         "public-anon-key",
       );

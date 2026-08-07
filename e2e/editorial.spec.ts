@@ -1,8 +1,18 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./storefront-fixture";
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
 
 test("primary navigation reaches System, a live PDP, and About", async ({
   page,
+  storefront,
 }) => {
+  const product = storefront.product("core");
+  const systemStep = product.systemStepName?.toLowerCase();
+  if (!systemStep) {
+    throw new Error(`Product "${product.slug}" has no System Step.`);
+  }
   await page.goto("/");
   const primary = page.getByRole("navigation", { name: "Primary" });
 
@@ -13,14 +23,14 @@ test("primary navigation reaches System, a live PDP, and About", async ({
   ).toBeVisible();
 
   await page
-    .locator("#system-treat")
-    .getByRole("link", { name: /View TREAT/ })
+    .locator(`#system-${systemStep}`)
+    .getByRole("link", {
+      name: new RegExp(`View ${escapeRegExp(product.displayName)}`),
+    })
     .click();
-  await expect(page).toHaveURL(
-    /\/products\/treat-03-pdrn-5-ampoule$/,
-  );
+  await expect(page).toHaveURL(new RegExp(`${product.path}$`));
   await expect(
-    page.getByRole("heading", { level: 1, name: "TREAT" }),
+    page.getByRole("heading", { level: 1, name: product.displayName }),
   ).toBeVisible();
 
   await primary.getByRole("link", { name: "ABOUT" }).click();
