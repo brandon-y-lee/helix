@@ -69,10 +69,10 @@ Cancelled or superseded issues retain their history: comment with the reason and
 
 ## Release boundary
 
-Ticket PRs target `dev` and may merge autonomously after their gates pass. `dev → main` is a separate production promotion: inspect staging, require green CI and one human approval, and use a regular merge commit. `main` remains the default branch.
+Ticket PRs target `dev` and may merge autonomously after their gates pass. `dev → main` is a separate production promotion: inspect staging, require green CI and explicit user authorization, and use a regular merge commit. The solo maintainer does not self-review through GitHub. `main` remains the default branch.
 
 ## GitHub configuration
 
-Issues, labels, sub-issues, dependencies, assignees, and PRs are the single workflow state system; no GitHub Project is required. `dev` requires PRs and CI without a human-approval count. `main` requires PRs, CI, and one human approval. Both branches reject force-push and deletion.
+Issues, labels, sub-issues, dependencies, assignees, and PRs are the single workflow state system; no GitHub Project is required. Both `dev` and `main` require PRs and CI with zero GitHub approving reviews. Production promotion remains user-authorized in the agent workflow. Both branches reject force-push and deletion.
 
 Use `pnpm github:workflow:plan` to audit drift. Before the initial remote `dev` creation, run the complete CI-equivalent gate at the audited local `dev` commit. `apply` is a separately approved remote mutation and requires exact repository, local-`dev`, and CI-verified SHA confirmations.
