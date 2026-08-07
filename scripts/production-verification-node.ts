@@ -391,6 +391,48 @@ export async function acquireCheckoutLock(input: {
   const ownerRecord = `${ownerPid}:${randomUUID()}\n`;
   let ownsRecovery = false;
 
+  const asError = (error: unknown): Error =>
+    error instanceof Error ? error : new Error(String(error));
+
+  const attachCleanupFailures = (
+    primary: unknown,
+    cleanupFailures: unknown[],
+  ): Error => {
+    const primaryFailure = asError(primary);
+    const inheritedCleanup =
+      primary instanceof ProductionVerificationCleanupError
+        ? primary.cleanupFailure
+        : primary instanceof ProductionVerificationError
+          ? primary.cleanupFailure
+          : undefined;
+    const failures = [
+      ...(inheritedCleanup ? [inheritedCleanup] : []),
+      ...cleanupFailures.map(asError),
+    ];
+    const cleanupFailure = new Error(
+      failures.map((failure) => failure.message).join("; "),
+      { cause: failures[0] },
+    );
+    if (primary instanceof ProductionVerificationCleanupError) {
+      return new ProductionVerificationCleanupError(
+        primary.message,
+        cleanupFailure,
+        { cause: primary },
+      );
+    }
+    const failure =
+      primary instanceof ProductionVerificationError
+        ? primary
+        : new ProductionVerificationError(
+            "preflight",
+            primaryFailure.message,
+            undefined,
+            { cause: primaryFailure },
+          );
+    failure.cleanupFailure = cleanupFailure;
+    return failure;
+  };
+
   const readRecord = async (path: string): Promise<string | undefined> => {
     try {
       return await readFile(path, "utf8");
@@ -408,6 +450,7 @@ export async function acquireCheckoutLock(input: {
   const writeExclusiveRecord = async (path: string): Promise<void> => {
     const candidatePath = `${path}.candidate-${ownerPid}-${randomUUID()}`;
     const handle = await open(candidatePath, "wx");
+    let primaryFailure: unknown;
     try {
       try {
         await handle.writeFile(ownerRecord);
@@ -415,9 +458,23 @@ export async function acquireCheckoutLock(input: {
         await handle.close();
       }
       await link(candidatePath, path);
-    } finally {
-      await unlink(candidatePath);
+    } catch (error) {
+      primaryFailure = error;
     }
+    try {
+      await unlink(candidatePath);
+    } catch (cleanupError) {
+      if (primaryFailure !== undefined) {
+        throw attachCleanupFailures(primaryFailure, [cleanupError]);
+      }
+      const failure = asError(cleanupError);
+      throw new ProductionVerificationCleanupError(
+        `Production verification lock candidate cleanup failed: ${failure.message}`,
+        failure,
+        { cause: failure },
+      );
+    }
+    if (primaryFailure !== undefined) throw primaryFailure;
   };
 
   const releaseOwnerRecord = async () => {
@@ -498,24 +555,7 @@ export async function acquireCheckoutLock(input: {
           cleanupFailures.push(cleanupError);
         }
         if (cleanupFailures.length > 0) {
-          const primaryFailure =
-            error instanceof Error ? error : new Error(String(error));
-          const cleanupFailure = new Error(
-            cleanupFailures
-              .map((failure) =>
-                failure instanceof Error ? failure.message : String(failure),
-              )
-              .join("; "),
-            { cause: cleanupFailures[0] },
-          );
-          const failure = new ProductionVerificationError(
-            "preflight",
-            primaryFailure.message,
-            undefined,
-            { cause: primaryFailure },
-          );
-          failure.cleanupFailure = cleanupFailure;
-          throw failure;
+          throw attachCleanupFailures(error, cleanupFailures);
         }
         throw error;
       }
@@ -537,6 +577,15 @@ export async function acquireCheckoutLock(input: {
           ownsRecovery = true;
         } catch (recoveryError) {
           if ((recoveryError as NodeJS.ErrnoException).code !== "EEXIST") {
+            ownsRecovery =
+              (await readRecord(recoveryPath)) === ownerRecord;
+            if (ownsRecovery) {
+              try {
+                await releaseRecovery();
+              } catch (cleanupError) {
+                throw attachCleanupFailures(recoveryError, [cleanupError]);
+              }
+            }
             throw recoveryError;
           }
           await wait(10);
