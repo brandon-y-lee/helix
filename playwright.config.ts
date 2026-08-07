@@ -12,7 +12,9 @@ if (verificationAdapter && !verificationBaseURL) {
     "Production verification did not provide MEI_PELLE_VERIFICATION_BASE_URL.",
   );
 }
-const baseURL = verificationBaseURL ?? `http://localhost:${PORT}`;
+const baseURL = verificationAdapter
+  ? verificationBaseURL!
+  : `http://localhost:${PORT}`;
 
 // Read .env.local so the built test server gets the same dev Supabase
 // credentials the app uses. (Mirrors e2e/global-setup's loader.)

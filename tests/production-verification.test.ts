@@ -4,6 +4,24 @@ import {
   type ProductionVerificationAdapters,
 } from "@/scripts/production-verification";
 
+function makeAdapters(
+  overrides: Partial<ProductionVerificationAdapters>,
+): ProductionVerificationAdapters {
+  const unexpected = async (): Promise<never> => {
+    throw new Error("Unexpected production-verification adapter call.");
+  };
+
+  return {
+    selectFreePort: unexpected,
+    isPortAvailable: unexpected,
+    build: unexpected,
+    startServer: unexpected,
+    waitForBuildIdentity: unexpected,
+    runBrowserTests: unexpected,
+    ...overrides,
+  };
+}
+
 describe("Production Artifact Verification", () => {
   it("verifies one fresh artifact and leaves no server running", async () => {
     let builds = 0;
@@ -11,7 +29,7 @@ describe("Production Artifact Verification", () => {
     let running = false;
     let identityProven = false;
 
-    const adapters: ProductionVerificationAdapters = {
+    const adapters = makeAdapters({
       selectFreePort: async () => 43_117,
       isPortAvailable: async () => true,
       build: async () => {
@@ -41,7 +59,7 @@ describe("Production Artifact Verification", () => {
         expect(baseURL).toBe("http://127.0.0.1:43117");
         browserRuns += 1;
       },
-    };
+    });
 
     await expect(
       verifyFreshProductionArtifact({}, adapters),
@@ -59,25 +77,12 @@ describe("Production Artifact Verification", () => {
     "rejects invalid explicit port %j before building",
     async (requestedPort) => {
       let builds = 0;
-      const adapters: ProductionVerificationAdapters = {
-        selectFreePort: async () => {
-          throw new Error("free-port selection must not run");
-        },
-        isPortAvailable: async () => true,
+      const adapters = makeAdapters({
         build: async () => {
           builds += 1;
           return { buildId: "unexpected" };
         },
-        startServer: async () => {
-          throw new Error("server start must not run");
-        },
-        waitForBuildIdentity: async () => {
-          throw new Error("identity check must not run");
-        },
-        runBrowserTests: async () => {
-          throw new Error("browser tests must not run");
-        },
-      };
+      });
 
       await expect(
         verifyFreshProductionArtifact({ requestedPort }, adapters),
@@ -90,25 +95,13 @@ describe("Production Artifact Verification", () => {
 
   it("rejects an occupied explicit port before building", async () => {
     let builds = 0;
-    const adapters: ProductionVerificationAdapters = {
-      selectFreePort: async () => {
-        throw new Error("free-port selection must not run");
-      },
+    const adapters = makeAdapters({
       isPortAvailable: async () => false,
       build: async () => {
         builds += 1;
         return { buildId: "unexpected" };
       },
-      startServer: async () => {
-        throw new Error("server start must not run");
-      },
-      waitForBuildIdentity: async () => {
-        throw new Error("identity check must not run");
-      },
-      runBrowserTests: async () => {
-        throw new Error("browser tests must not run");
-      },
-    };
+    });
 
     await expect(
       verifyFreshProductionArtifact({ requestedPort: "3107" }, adapters),
@@ -118,10 +111,7 @@ describe("Production Artifact Verification", () => {
 
   it("uses an available explicit port without selecting another one", async () => {
     let checkedPort: number | undefined;
-    const adapters: ProductionVerificationAdapters = {
-      selectFreePort: async () => {
-        throw new Error("free-port selection must not run");
-      },
+    const adapters = makeAdapters({
       isPortAvailable: async ({ port }) => {
         checkedPort = port;
         return true;
@@ -130,7 +120,7 @@ describe("Production Artifact Verification", () => {
       startServer: async () => ({ stop: async () => {} }),
       waitForBuildIdentity: async () => {},
       runBrowserTests: async () => {},
-    };
+    });
 
     await expect(
       verifyFreshProductionArtifact({ requestedPort: "3107" }, adapters),
@@ -144,7 +134,7 @@ describe("Production Artifact Verification", () => {
   it("blocks browser tests and stops the server when build identity is wrong", async () => {
     let browserRuns = 0;
     let running = false;
-    const adapters: ProductionVerificationAdapters = {
+    const adapters = makeAdapters({
       selectFreePort: async () => 43_118,
       isPortAvailable: async () => true,
       build: async () => ({ buildId: "expected-build" }),
@@ -162,7 +152,7 @@ describe("Production Artifact Verification", () => {
       runBrowserTests: async () => {
         browserRuns += 1;
       },
-    };
+    });
 
     await expect(
       verifyFreshProductionArtifact({}, adapters),
@@ -173,7 +163,7 @@ describe("Production Artifact Verification", () => {
 
   it("stops the server after an ordinary browser-test failure", async () => {
     let running = false;
-    const adapters: ProductionVerificationAdapters = {
+    const adapters = makeAdapters({
       selectFreePort: async () => 43_119,
       isPortAvailable: async () => true,
       build: async () => ({ buildId: "browser-failure-build" }),
@@ -189,7 +179,7 @@ describe("Production Artifact Verification", () => {
       runBrowserTests: async () => {
         throw new Error("Playwright failed.");
       },
-    };
+    });
 
     await expect(
       verifyFreshProductionArtifact({}, adapters),
