@@ -14,6 +14,18 @@ import { describe, expect, it } from "vitest";
 const projectRoot = process.cwd();
 const taskHelper = resolve(projectRoot, "scripts/git/codex-task.sh");
 const bootstrapTool = resolve(projectRoot, "scripts/github/bootstrap-workflow.mjs");
+const ciWorkflow = readFileSync(
+  resolve(projectRoot, ".github/workflows/ci.yml"),
+  "utf8",
+);
+
+const ciPublicRuntimeSecrets = [
+  "NEXT_PUBLIC_SUPABASE_URL",
+  "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+  "NEXT_PUBLIC_ALGOLIA_APP_ID",
+  "NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY",
+  "NEXT_PUBLIC_ALGOLIA_INDEX_NAME",
+] as const;
 
 type CommandResult = SpawnSyncReturns<string>;
 type RunOptions = {
@@ -89,6 +101,18 @@ function commitTicket(worktree: string, ticket = 123, spec?: number): void {
 function cleanupFixture(tempRoot: string): void {
   rmSync(tempRoot, { recursive: true, force: true });
 }
+
+describe("GitHub Actions CI", () => {
+  it("receives the approved public runtime configuration from repository secrets", () => {
+    for (const key of ciPublicRuntimeSecrets) {
+      expect(ciWorkflow).toContain(`${key}: \${{ secrets.${key} }}`);
+    }
+
+    expect(ciWorkflow).not.toContain("SUPABASE_SERVICE_ROLE_KEY");
+    expect(ciWorkflow).not.toContain("ALGOLIA_WRITE_API_KEY");
+    expect(ciWorkflow).not.toContain("ALGOLIA_ADMIN_API_KEY");
+  });
+});
 
 describe("Codex workflow task helper", () => {
   it("starts ticket and planning worktrees with recorded review bases", () => {
@@ -301,13 +325,6 @@ if (args[0] === "api") {
   const methodIndex = args.findIndex((arg) => arg === "--method" || arg === "-X");
   const method = methodIndex === -1 ? "GET" : args[methodIndex + 1];
   const endpoint = args.find((arg) => arg.startsWith("repos/"));
-  if (method === "GET" && endpoint?.endsWith("/collaborators?affiliation=direct")) {
-    process.stdout.write(JSON.stringify([
-      { login: "owner", permissions: { push: true } },
-      { login: "reviewer", permissions: { push: true } }
-    ]));
-    process.exit(0);
-  }
   if (method === "GET" && endpoint?.endsWith("/issues?state=all&per_page=1")) {
     if (state.failIssues) {
       process.stderr.write("gh: Forbidden (HTTP 403)\\n");
@@ -483,7 +500,7 @@ describe("GitHub workflow bootstrap", () => {
     }
   });
 
-  it("applies only missing state and becomes a no-op on the next plan", () => {
+  it("applies solo-maintainer protection and becomes a no-op on the next plan", () => {
     const { root, tempRoot, devSha } = initialiseRemoteRepository();
     try {
       const statePath = join(tempRoot, "github-state.json");
@@ -524,6 +541,11 @@ describe("GitHub workflow bootstrap", () => {
       expectSuccess(applied);
       expect(applied.stdout).toContain("Applied GitHub workflow configuration.");
       expectSuccess(git(root, "ls-remote", "--exit-code", "--heads", "origin", "dev"));
+      const state = JSON.parse(readFileSync(statePath, "utf8"));
+      expect(
+        state.protections.main.required_pull_request_reviews.required_approving_review_count,
+      ).toBe(0);
+      expect(readFileSync(logPath, "utf8")).not.toContain("collaborators");
 
       writeFileSync(logPath, "");
       const plannedAgain = bootstrap(
@@ -541,7 +563,6 @@ describe("GitHub workflow bootstrap", () => {
       expect(readFileSync(logPath, "utf8")).not.toContain('"PATCH"');
       expect(readFileSync(logPath, "utf8")).not.toContain('"PUT"');
 
-      const state = JSON.parse(readFileSync(statePath, "utf8"));
       state.protections.dev.required_pull_request_reviews.require_code_owner_reviews = true;
       writeFileSync(statePath, JSON.stringify(state));
       const approvalDrift = bootstrap(

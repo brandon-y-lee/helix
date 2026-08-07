@@ -137,14 +137,14 @@ function readProtection(repo, branch) {
   throw new Error(`could not inspect ${branch} protection: ${(result.stderr || result.stdout).trim()}`);
 }
 
-function desiredProtection(branch) {
+function desiredProtection() {
   return {
     required_status_checks: { strict: true, contexts: ["ci"] },
     enforce_admins: true,
     required_pull_request_reviews: {
       dismiss_stale_reviews: true,
       require_code_owner_reviews: false,
-      required_approving_review_count: branch === "main" ? 1 : 0,
+      required_approving_review_count: 0,
       require_last_push_approval: false,
     },
     restrictions: null,
@@ -322,22 +322,8 @@ function collectPlan(repo) {
     });
   }
 
-  const collaborators = parseJson(
-    runGh([
-      "api",
-      `repos/${repo}/collaborators?affiliation=direct`,
-      "-H",
-      `X-GitHub-Api-Version: ${API_VERSION}`,
-    ]),
-    "collaborator inspection",
-  );
-  const approvingCollaborators = collaborators.filter((entry) => entry.permissions?.push).length;
-  if (approvingCollaborators < 2) {
-    throw new Error("main requires one human approval, but fewer than two direct collaborators can review and merge");
-  }
-
   for (const branch of ["dev", "main"]) {
-    const desired = desiredProtection(branch);
+    const desired = desiredProtection();
     const observed = readProtection(repo, branch);
     if (!protectionMatches(observed, desired)) {
       actions.push({

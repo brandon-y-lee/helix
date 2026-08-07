@@ -80,7 +80,7 @@ For planned features, behavior changes, bugs, refactors, production fixes, or se
 grill-with-docs | wayfinder → to-spec → to-tickets → implement → code-review → PR → CI → dev
 ```
 
-The user approves shared understanding, the specification, and the ticket breakdown. An approved implementation ticket authorizes its issue updates, branch push, PR, and merge into `dev` after review and CI pass. Production promotion from `dev` to `main` always requires explicit human approval.
+The user approves shared understanding, the specification, and the ticket breakdown. An approved implementation ticket authorizes its issue updates, branch push, PR, and merge into `dev` after review and CI pass. Production promotion from `dev` to `main` always requires explicit user authorization; the solo maintainer does not self-approve through GitHub.
 
 ### Branch safety
 

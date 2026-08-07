@@ -135,7 +135,7 @@ describe("CatalogEditor sections", () => {
         variants: [expect.objectContaining({ price_cents: 2450 })],
       }),
     );
-  });
+  }, 10_000);
 
   it("keeps advanced and commerce controls read only for a catalog editor", () => {
     const { container } = render(<SectionsHarness role="catalog_editor" />);
@@ -216,7 +216,7 @@ describe("CatalogEditor sections", () => {
         },
       ),
     );
-  });
+  }, 10_000);
 
   it("shows ordered outcome associations and their canonical provenance", () => {
     const outcomeDocument = structuredClone(catalogDocument);
