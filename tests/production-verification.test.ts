@@ -8,12 +8,12 @@ import {
   verifyFreshProductionArtifact,
   verifyReceiptedProductionArtifact,
   type ProductionVerificationDiagnostic,
-  type ReceiptedProductionVerificationAdapters,
+  type NodeProductionVerificationAdapters,
 } from "@/scripts/production-verification";
 
 function makeAdapters(
-  overrides: Partial<ReceiptedProductionVerificationAdapters>,
-): ReceiptedProductionVerificationAdapters {
+  overrides: Partial<NodeProductionVerificationAdapters>,
+): NodeProductionVerificationAdapters {
   const unexpected = async (): Promise<never> => {
     throw new Error("Unexpected production-verification adapter call.");
   };
@@ -112,6 +112,34 @@ describe("Production Artifact Verification", () => {
         phase: "production-build",
         status: "failed",
       }),
+    );
+    expect(diagnostics).toContainEqual(
+      expect.objectContaining({ phase: "cleanup", status: "failed" }),
+    );
+  });
+
+  it("classifies cleanup-only receipted build failures as cleanup failures", async () => {
+    const diagnostics: ProductionVerificationDiagnostic[] = [];
+    const cleanupFailure = new Error("Owned build tree remained alive.");
+    const adapters = makeAdapters({
+      build: async () => {
+        throw new ProductionVerificationCleanupError(
+          cleanupFailure.message,
+          cleanupFailure,
+        );
+      },
+      report: (diagnostic) => diagnostics.push(diagnostic),
+    });
+
+    await expect(
+      buildReceiptedProductionArtifact({}, adapters),
+    ).rejects.toMatchObject({
+      cleanupFailure,
+      message: cleanupFailure.message,
+      phase: "cleanup",
+    });
+    expect(diagnostics).toContainEqual(
+      expect.objectContaining({ phase: "production-build", status: "passed" }),
     );
     expect(diagnostics).toContainEqual(
       expect.objectContaining({ phase: "cleanup", status: "failed" }),

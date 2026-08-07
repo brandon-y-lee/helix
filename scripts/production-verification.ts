@@ -30,11 +30,10 @@ export type ProductionVerificationDiagnostic = {
   childExitReason?: string;
 };
 
-export type ProductionVerificationAdapters = {
+export type ProductionVerificationLifecycleAdapters = {
   acquireLock: () => Promise<ProductionVerificationLock>;
   selectFreePort: (host: string) => Promise<number>;
   isPortAvailable: (input: { host: string; port: number }) => Promise<boolean>;
-  build: (input: { signal?: AbortSignal }) => Promise<{ buildId: string }>;
   startServer: (input: {
     host: string;
     port: number;
@@ -54,22 +53,36 @@ export type ProductionVerificationAdapters = {
   report: (diagnostic: ProductionVerificationDiagnostic) => void;
 };
 
+export type ProductionVerificationAdapters =
+  ProductionVerificationLifecycleAdapters & {
+    build: (input: { signal?: AbortSignal }) => Promise<{ buildId: string }>;
+  };
+
 export type ProductionArtifactReceipt = {
   buildId: string;
   commitSha: string;
 };
 
+export type ProductionArtifactReceiptAdapters = {
+  readArtifact: () => Promise<{ buildId: string; modifiedAtMs: number }>;
+  readCommitSha: () => Promise<string>;
+  readReceipt: () => Promise<{
+    contents: string;
+    modifiedAtMs: number;
+  } | undefined>;
+  removeReceipt: () => Promise<void>;
+  writeReceipt: (receipt: ProductionArtifactReceipt) => Promise<void>;
+};
+
 export type ReceiptedProductionVerificationAdapters =
-  ProductionVerificationAdapters & {
-    readArtifact: () => Promise<{ buildId: string; modifiedAtMs: number }>;
-    readCommitSha: () => Promise<string>;
-    readReceipt: () => Promise<{
-      contents: string;
-      modifiedAtMs: number;
-    } | undefined>;
-    removeReceipt: () => Promise<void>;
-    writeReceipt: (receipt: ProductionArtifactReceipt) => Promise<void>;
-  };
+  ProductionVerificationLifecycleAdapters &
+    Pick<
+      ProductionArtifactReceiptAdapters,
+      "readArtifact" | "readCommitSha" | "readReceipt"
+    >;
+
+export type NodeProductionVerificationAdapters = ProductionVerificationAdapters &
+  ProductionArtifactReceiptAdapters;
 
 export type ProductionVerificationResult = {
   baseURL: string;
@@ -265,116 +278,33 @@ async function readValidatedProductionArtifact(
   return { buildId: artifact.buildId };
 }
 
-export async function buildReceiptedProductionArtifact(
+type ProductionVerificationExecution = {
+  buildId?: string;
+  port?: number;
+  server?: ProductionVerificationServer;
+};
+
+type ProductionVerificationRunAdapters = Pick<
+  ProductionVerificationLifecycleAdapters,
+  "acquireLock" | "now" | "report"
+>;
+
+async function executeProductionVerification<T>(
   input: Pick<ProductionVerificationInput, "signal">,
-  adapters: Pick<
-    ReceiptedProductionVerificationAdapters,
-    | "acquireLock"
-    | "build"
-    | "now"
-    | "readCommitSha"
-    | "removeReceipt"
-    | "report"
-    | "writeReceipt"
-  >,
-): Promise<ProductionArtifactReceipt> {
+  adapters: ProductionVerificationRunAdapters,
+  preflight: (execution: ProductionVerificationExecution) => Promise<void>,
+  operation: (
+    execution: ProductionVerificationExecution,
+    runPhase: <V>(
+      phase: Exclude<ProductionVerificationPhase, "cleanup" | "preflight">,
+      action: () => Promise<V>,
+    ) => Promise<V>,
+  ) => Promise<T>,
+): Promise<T> {
   const startedAt = adapters.now();
-  let buildId: string | undefined;
+  const execution: ProductionVerificationExecution = {};
   let lock: ProductionVerificationLock | undefined;
-  let result: ProductionArtifactReceipt | undefined;
-  let primaryFailure: ProductionVerificationError | undefined;
-  const report = (
-    phase: ProductionVerificationPhase,
-    status: ProductionVerificationDiagnostic["status"],
-    failure?: unknown,
-  ): void => {
-    adapters.report({
-      buildId,
-      childExitReason: childExitReason(failure),
-      elapsedMs: Math.max(0, adapters.now() - startedAt),
-      phase,
-      status,
-    });
-  };
-
-  try {
-    report("preflight", "started");
-    lock = await adapters.acquireLock();
-    report("preflight", "passed");
-
-    report("production-build", "started");
-    await adapters.removeReceipt();
-    ({ buildId } = await adapters.build({ signal: input.signal }));
-    const commitSha = await adapters.readCommitSha();
-    if (!isCommitSha(commitSha)) {
-      throw new Error("Production verification could not resolve the current commit SHA.");
-    }
-    result = { buildId, commitSha };
-    await adapters.writeReceipt(result);
-    report("production-build", "passed");
-  } catch (error) {
-    const phase: ProductionVerificationPhase = lock
-      ? "production-build"
-      : "preflight";
-    const cause = asError(error);
-    primaryFailure = new ProductionVerificationError(
-      phase,
-      cause.message,
-      childExitReason(error),
-      { cause },
-    );
-    if (error instanceof ProductionVerificationChildError) {
-      primaryFailure.cleanupFailure = error.cleanupFailure;
-    }
-    report(phase, "failed", primaryFailure);
-  } finally {
-    if (lock) {
-      report("cleanup", "started");
-      const cleanupFailures: Error[] = primaryFailure?.cleanupFailure
-        ? [primaryFailure.cleanupFailure]
-        : [];
-      try {
-        await lock.release();
-      } catch (error) {
-        cleanupFailures.push(asError(error));
-      }
-      if (cleanupFailures.length > 0) {
-        const cleanupFailure = new Error(
-          cleanupFailures.map((failure) => failure.message).join("; "),
-          { cause: cleanupFailures[0] },
-        );
-        report("cleanup", "failed", cleanupFailure);
-        if (primaryFailure) {
-          primaryFailure.cleanupFailure = cleanupFailure;
-        } else {
-          primaryFailure = new ProductionVerificationError(
-            "cleanup",
-            cleanupFailure.message,
-            undefined,
-            { cause: cleanupFailure },
-          );
-        }
-      } else {
-        report("cleanup", "passed");
-      }
-    }
-  }
-
-  if (primaryFailure) throw primaryFailure;
-  return result!;
-}
-
-async function verifyProductionArtifact(
-  input: ProductionVerificationInput,
-  adapters: ProductionVerificationAdapters,
-  artifactPhase: "artifact-validation" | "production-build",
-): Promise<ProductionVerificationResult> {
-  const startedAt = adapters.now();
-  let port: number | undefined;
-  let buildId: string | undefined;
-  let lock: ProductionVerificationLock | undefined;
-  let server: ProductionVerificationServer | undefined;
-  let result: ProductionVerificationResult | undefined;
+  let result: T | undefined;
   let primaryFailure: ProductionVerificationError | undefined;
 
   const report = (
@@ -383,11 +313,11 @@ async function verifyProductionArtifact(
     failure?: unknown,
   ): void => {
     adapters.report({
-      buildId,
+      buildId: execution.buildId,
       childExitReason: childExitReason(failure),
       elapsedMs: Math.max(0, adapters.now() - startedAt),
       phase,
-      port,
+      port: execution.port,
       status,
     });
   };
@@ -426,53 +356,9 @@ async function verifyProductionArtifact(
   try {
     await runPhase("preflight", async () => {
       lock = await adapters.acquireLock();
-      const requestedPort = input.requestedPort;
-      const parsedPort =
-        requestedPort === undefined ? undefined : Number(requestedPort);
-      if (
-        requestedPort !== undefined &&
-        (requestedPort.trim() === "" ||
-          !/^\d+$/.test(requestedPort) ||
-          !Number.isInteger(parsedPort) ||
-          parsedPort! < 1 ||
-          parsedPort! > 65_535)
-      ) {
-        throw new Error(
-          "Production verification requires PORT to be an integer from 1 through 65535.",
-        );
-      }
-
-      if (
-        parsedPort !== undefined &&
-        !(await adapters.isPortAvailable({ host: LOOPBACK_HOST, port: parsedPort }))
-      ) {
-        throw new Error(
-          `Production verification cannot use occupied PORT ${parsedPort}.`,
-        );
-      }
-      port = parsedPort ?? (await adapters.selectFreePort(LOOPBACK_HOST));
+      await preflight(execution);
     });
-
-    await runPhase(artifactPhase, async () => {
-      ({ buildId } = await adapters.build({ signal: input.signal }));
-    });
-
-    const baseURL = `http://${LOOPBACK_HOST}:${port!}`;
-    await runPhase("server-start-and-identity", async () => {
-      server = await adapters.startServer({ host: LOOPBACK_HOST, port: port! });
-      await adapters.waitForBuildIdentity({
-        baseURL,
-        buildId: buildId!,
-        server,
-        signal: input.signal,
-        timeoutMs: input.readinessTimeoutMs ?? DEFAULT_READINESS_TIMEOUT_MS,
-      });
-    });
-
-    await runPhase("browser-test", () =>
-      adapters.runBrowserTests({ baseURL, signal: input.signal }),
-    );
-    result = { baseURL, buildId: buildId!, port: port! };
+    result = await operation(execution, runPhase);
   } catch (error) {
     if (error instanceof ProductionVerificationCleanupError) {
       primaryFailure = new ProductionVerificationError(
@@ -500,7 +386,7 @@ async function verifyProductionArtifact(
         ? [primaryFailure.cleanupFailure]
         : [];
       try {
-        await server?.stop();
+        await execution.server?.stop();
       } catch (error) {
         cleanupFailures.push(asError(error));
       }
@@ -536,11 +422,113 @@ async function verifyProductionArtifact(
   return result!;
 }
 
+export function buildReceiptedProductionArtifact(
+  input: Pick<ProductionVerificationInput, "signal">,
+  adapters: Pick<
+    ProductionVerificationAdapters,
+    "acquireLock" | "build" | "now" | "report"
+  > &
+    Pick<
+      ProductionArtifactReceiptAdapters,
+      "readCommitSha" | "removeReceipt" | "writeReceipt"
+    >,
+): Promise<ProductionArtifactReceipt> {
+  return executeProductionVerification(
+    input,
+    adapters,
+    async () => {},
+    (execution, runPhase) =>
+      runPhase("production-build", async () => {
+        await adapters.removeReceipt();
+        const { buildId } = await adapters.build({ signal: input.signal });
+        execution.buildId = buildId;
+        const commitSha = await adapters.readCommitSha();
+        if (!isCommitSha(commitSha)) {
+          throw new Error(
+            "Production verification could not resolve the current commit SHA.",
+          );
+        }
+        const receipt = { buildId, commitSha };
+        await adapters.writeReceipt(receipt);
+        return receipt;
+      }),
+  );
+}
+
+async function verifyProductionArtifact(
+  input: ProductionVerificationInput,
+  adapters: ProductionVerificationLifecycleAdapters,
+  artifactPhase: "artifact-validation" | "production-build",
+  prepareArtifact: () => Promise<{ buildId: string }>,
+): Promise<ProductionVerificationResult> {
+  return executeProductionVerification(
+    input,
+    adapters,
+    async (execution) => {
+      const requestedPort = input.requestedPort;
+      const parsedPort =
+        requestedPort === undefined ? undefined : Number(requestedPort);
+      if (
+        requestedPort !== undefined &&
+        (requestedPort.trim() === "" ||
+          !/^\d+$/.test(requestedPort) ||
+          !Number.isInteger(parsedPort) ||
+          parsedPort! < 1 ||
+          parsedPort! > 65_535)
+      ) {
+        throw new Error(
+          "Production verification requires PORT to be an integer from 1 through 65535.",
+        );
+      }
+      if (
+        parsedPort !== undefined &&
+        !(await adapters.isPortAvailable({ host: LOOPBACK_HOST, port: parsedPort }))
+      ) {
+        throw new Error(
+          `Production verification cannot use occupied PORT ${parsedPort}.`,
+        );
+      }
+      execution.port =
+        parsedPort ?? (await adapters.selectFreePort(LOOPBACK_HOST));
+    },
+    async (execution, runPhase) => {
+      await runPhase(artifactPhase, async () => {
+        const artifact = await prepareArtifact();
+        execution.buildId = artifact.buildId;
+      });
+      const baseURL = `http://${LOOPBACK_HOST}:${execution.port!}`;
+      await runPhase("server-start-and-identity", async () => {
+        execution.server = await adapters.startServer({
+          host: LOOPBACK_HOST,
+          port: execution.port!,
+        });
+        await adapters.waitForBuildIdentity({
+          baseURL,
+          buildId: execution.buildId!,
+          server: execution.server,
+          signal: input.signal,
+          timeoutMs: input.readinessTimeoutMs ?? DEFAULT_READINESS_TIMEOUT_MS,
+        });
+      });
+      await runPhase("browser-test", () =>
+        adapters.runBrowserTests({ baseURL, signal: input.signal }),
+      );
+      return {
+        baseURL,
+        buildId: execution.buildId!,
+        port: execution.port!,
+      };
+    },
+  );
+}
+
 export function verifyFreshProductionArtifact(
   input: ProductionVerificationInput,
   adapters: ProductionVerificationAdapters,
 ): Promise<ProductionVerificationResult> {
-  return verifyProductionArtifact(input, adapters, "production-build");
+  return verifyProductionArtifact(input, adapters, "production-build", () =>
+    adapters.build({ signal: input.signal }),
+  );
 }
 
 export function verifyReceiptedProductionArtifact(
@@ -549,10 +537,8 @@ export function verifyReceiptedProductionArtifact(
 ): Promise<ProductionVerificationResult> {
   return verifyProductionArtifact(
     input,
-    {
-      ...adapters,
-      build: () => readValidatedProductionArtifact(adapters),
-    },
+    adapters,
     "artifact-validation",
+    () => readValidatedProductionArtifact(adapters),
   );
 }

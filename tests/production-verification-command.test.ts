@@ -5,6 +5,52 @@ import { resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { describe, expect, it, vi } from "vitest";
 import globalSetup from "@/e2e/global-setup";
+import { executeProductionVerificationCli } from "@/scripts/production-verification-cli";
+import { runProductionVerificationCiCommand } from "@/scripts/production-verification-ci-command";
+import type {
+  NodeProductionVerificationAdapters,
+  ProductionVerificationDiagnostic,
+} from "@/scripts/production-verification";
+
+function makeCiAdapters(
+  overrides: Partial<NodeProductionVerificationAdapters>,
+): NodeProductionVerificationAdapters {
+  const unexpected = async (): Promise<never> => {
+    throw new Error("Unexpected CI production-verification adapter call.");
+  };
+
+  return {
+    acquireLock: async () => ({ release: async () => {} }),
+    build: unexpected,
+    isPortAvailable: unexpected,
+    now: () => 0,
+    readArtifact: unexpected,
+    readCommitSha: unexpected,
+    readReceipt: unexpected,
+    removeReceipt: unexpected,
+    report: () => {},
+    runBrowserTests: unexpected,
+    selectFreePort: unexpected,
+    startServer: unexpected,
+    waitForBuildIdentity: unexpected,
+    writeReceipt: unexpected,
+    ...overrides,
+  };
+}
+
+const ciEnvironment: NodeJS.ProcessEnv = {
+  ...process.env,
+  CI: "true",
+  GITHUB_ACTIONS: "true",
+};
+
+function quietCliRuntime(errors: string[]) {
+  return {
+    error: (message: string) => errors.push(message),
+    off: () => {},
+    once: () => {},
+  };
+}
 
 describe("Production Verification Commands", () => {
   it("routes both supported commands through the same trusted runner", async () => {
@@ -58,6 +104,135 @@ describe("Production Verification Commands", () => {
       "run: pnpm tsx scripts/verify-production-ci.ts verify",
     );
     expect(workflow).not.toContain("- name: Production build and E2E tests");
+  });
+
+  it("returns success for a valid receipt through the CI command", async () => {
+    const commitSha = "f".repeat(40);
+    const diagnostics: ProductionVerificationDiagnostic[] = [];
+    const errors: string[] = [];
+    const output: string[] = [];
+    let stopped = false;
+    const adapters = makeCiAdapters({
+      readArtifact: async () => ({
+        buildId: "command-build",
+        modifiedAtMs: 100,
+      }),
+      readCommitSha: async () => commitSha,
+      readReceipt: async () => ({
+        contents: JSON.stringify({ buildId: "command-build", commitSha }),
+        modifiedAtMs: 101,
+      }),
+      report: (diagnostic) => diagnostics.push(diagnostic),
+      runBrowserTests: async () => {},
+      selectFreePort: async () => 43_123,
+      startServer: async () => ({
+        exited: new Promise(() => {}),
+        stop: async () => {
+          stopped = true;
+        },
+      }),
+      waitForBuildIdentity: async () => {},
+    });
+
+    const exitCode = await executeProductionVerificationCli(
+      (signal) =>
+        runProductionVerificationCiCommand({
+          adapters,
+          argv: ["verify"],
+          cwd: process.cwd(),
+          env: ciEnvironment,
+          log: (message) => output.push(message),
+          signal,
+        }),
+      quietCliRuntime(errors),
+    );
+
+    expect(exitCode).toBe(0);
+    expect(errors).toEqual([]);
+    expect(output).toEqual([
+      "Receipted production verification passed for build command-build at http://127.0.0.1:43123.",
+    ]);
+    expect(stopped).toBe(true);
+    expect(diagnostics).toContainEqual(
+      expect.objectContaining({ phase: "artifact-validation", status: "passed" }),
+    );
+  });
+
+  it.each([
+    ["missing", undefined, "Production artifact receipt is missing."],
+    [
+      "malformed",
+      { contents: "{not-json", modifiedAtMs: 101 },
+      "Production artifact receipt is malformed.",
+    ],
+    [
+      "stale",
+      {
+        contents: JSON.stringify({
+          buildId: "command-build",
+          commitSha: "a".repeat(40),
+        }),
+        modifiedAtMs: 99,
+      },
+      "Production artifact receipt is stale.",
+    ],
+    [
+      "for a substituted build",
+      {
+        contents: JSON.stringify({
+          buildId: "other-build",
+          commitSha: "a".repeat(40),
+        }),
+        modifiedAtMs: 101,
+      },
+      "Production artifact receipt build ID does not match the current artifact.",
+    ],
+    [
+      "for another commit",
+      {
+        contents: JSON.stringify({
+          buildId: "command-build",
+          commitSha: "b".repeat(40),
+        }),
+        modifiedAtMs: 101,
+      },
+      "Production artifact receipt commit SHA does not match the current checkout.",
+    ],
+  ])("returns failure for a %s receipt through the CI command", async (
+    _name,
+    receipt,
+    expectedMessage,
+  ) => {
+    const diagnostics: ProductionVerificationDiagnostic[] = [];
+    const errors: string[] = [];
+    const adapters = makeCiAdapters({
+      readArtifact: async () => ({
+        buildId: "command-build",
+        modifiedAtMs: 100,
+      }),
+      readCommitSha: async () => "a".repeat(40),
+      readReceipt: async () => receipt,
+      report: (diagnostic) => diagnostics.push(diagnostic),
+      selectFreePort: async () => 43_124,
+    });
+
+    const exitCode = await executeProductionVerificationCli(
+      (signal) =>
+        runProductionVerificationCiCommand({
+          adapters,
+          argv: ["verify"],
+          cwd: process.cwd(),
+          env: ciEnvironment,
+          signal,
+        }),
+      quietCliRuntime(errors),
+    );
+
+    expect(exitCode).toBe(1);
+    expect(errors).toContain(expectedMessage);
+    expect(diagnostics).toContainEqual(
+      expect.objectContaining({ phase: "artifact-validation", status: "failed" }),
+    );
   });
 
   it("keeps a lightweight Windows lifecycle contract in CI", async () => {

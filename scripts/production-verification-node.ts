@@ -23,7 +23,7 @@ import {
   type ProductionVerificationDiagnostic,
   type ProductionVerificationLock,
   type ProductionVerificationServer,
-  type ReceiptedProductionVerificationAdapters,
+  type NodeProductionVerificationAdapters,
 } from "./production-verification";
 
 const CHECKOUT_LOCK_NAME = ".mei-pelle-production-verification.lock";
@@ -677,7 +677,7 @@ async function readCurrentCommitSha(cwd: string): Promise<string> {
 export async function createNodeProductionVerificationAdapters(
   cwd: string,
   env: NodeJS.ProcessEnv,
-): Promise<ReceiptedProductionVerificationAdapters> {
+): Promise<NodeProductionVerificationAdapters> {
   const require = createRequire(import.meta.url);
   const nextCli = require.resolve("next/dist/bin/next");
   const playwrightCli = require.resolve("@playwright/test/cli");

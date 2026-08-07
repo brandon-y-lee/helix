@@ -1,45 +1,19 @@
-import {
-  ProductionVerificationError,
-  verifyFreshProductionArtifact,
-} from "./production-verification";
+import { verifyFreshProductionArtifact } from "./production-verification";
+import { runProductionVerificationCli } from "./production-verification-cli";
 import {
   createNodeProductionVerificationAdapters,
   readProductionVerificationEnvironment,
 } from "./production-verification-node";
 
-async function main(): Promise<void> {
+runProductionVerificationCli(async (signal) => {
   const cwd = process.cwd();
   const env = await readProductionVerificationEnvironment(cwd);
   const adapters = await createNodeProductionVerificationAdapters(cwd, env);
-  const controller = new AbortController();
-  const interrupt = (signal: NodeJS.Signals) => {
-    controller.abort(new Error(`Production verification interrupted by ${signal}.`));
-  };
-  const onSigint = () => interrupt("SIGINT");
-  const onSigterm = () => interrupt("SIGTERM");
-  process.once("SIGINT", onSigint);
-  process.once("SIGTERM", onSigterm);
-
-  try {
-    const result = await verifyFreshProductionArtifact(
-      { requestedPort: process.env.PORT, signal: controller.signal },
-      adapters,
-    );
-    console.log(
-      `Production verification passed for build ${result.buildId} at ${result.baseURL}.`,
-    );
-  } finally {
-    process.off("SIGINT", onSigint);
-    process.off("SIGTERM", onSigterm);
-  }
-}
-
-main().catch((error: unknown) => {
-  console.error(
-    error instanceof Error ? error.message : "Production verification failed.",
+  const result = await verifyFreshProductionArtifact(
+    { requestedPort: process.env.PORT, signal },
+    adapters,
   );
-  if (error instanceof ProductionVerificationError && error.cleanupFailure) {
-    console.error(`Cleanup also failed: ${error.cleanupFailure.message}`);
-  }
-  process.exitCode = 1;
+  console.log(
+    `Production verification passed for build ${result.buildId} at ${result.baseURL}.`,
+  );
 });
