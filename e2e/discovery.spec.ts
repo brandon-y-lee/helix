@@ -221,7 +221,15 @@ test("Three Principles selection uses only a persistent 700ms label fade", async
 
   await expect(mission).toHaveAttribute("aria-pressed", "true");
   await expect(mission).toHaveCSS("transition-property", "opacity");
-  await page.waitForTimeout(100);
+  await expect
+    .poll(() =>
+      Promise.all(
+        principles.map((principle) =>
+          principle.evaluate((element) => getComputedStyle(element).opacity),
+        ),
+      ),
+    )
+    .toEqual(["1", "0.75", "0.75"]);
   const initialPresentation = await Promise.all(
     principles.map(principlePresentation),
   );
@@ -253,6 +261,7 @@ test("Three Principles selection uses only a persistent 700ms label fade", async
 
   await sustainability.click();
   await expect(sustainability).toHaveAttribute("aria-pressed", "true");
+  await page.mouse.move(0, 0);
 
   await mission.focus();
   await expect(mission).toHaveAttribute("aria-pressed", "true");
@@ -261,10 +270,13 @@ test("Three Principles selection uses only a persistent 700ms label fade", async
   await expect(sustainability).toHaveAttribute("aria-pressed", "true");
   await page.keyboard.press("Home");
   await expect(mission).toBeFocused();
+  await expect(mission).toHaveAttribute("aria-pressed", "true");
   await page.keyboard.press("End");
   await expect(sustainability).toBeFocused();
+  await expect(sustainability).toHaveAttribute("aria-pressed", "true");
   await page.keyboard.press("ArrowRight");
   await expect(mission).toBeFocused();
+  await expect(mission).toHaveAttribute("aria-pressed", "true");
   await page.keyboard.press("ArrowRight");
   await expect(innovation).toBeFocused();
   await expect(innovation).toHaveAttribute("aria-pressed", "true");
