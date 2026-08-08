@@ -44,6 +44,46 @@ function FieldError({ id, message }: { id: string; message?: string }) {
   );
 }
 
+function AccessField({
+  autoComplete,
+  error,
+  id,
+  label,
+  minLength,
+  name,
+  type,
+}: {
+  autoComplete: string;
+  error?: string;
+  id: string;
+  label: string;
+  minLength?: number;
+  name: string;
+  type: "email" | "password";
+}) {
+  const errorId = `${id}-error`;
+
+  return (
+    <div className="form-field">
+      <label className="sr-only" htmlFor={id}>
+        {label}
+      </label>
+      <input
+        id={id}
+        name={name}
+        type={type}
+        placeholder={label}
+        autoComplete={autoComplete}
+        minLength={minLength}
+        required
+        aria-invalid={Boolean(error)}
+        aria-describedby={error ? errorId : undefined}
+      />
+      <FieldError id={errorId} message={error} />
+    </div>
+  );
+}
+
 function PasswordField({
   id,
   name,
@@ -99,24 +139,21 @@ export function SignInForm({ next, error }: { next: string; error?: string }) {
     <form action={formAction} className="account-form">
       <input type="hidden" name="next" value={next} />
       <StatusMessage state={state} />
-      <div className="form-field">
-        <label htmlFor="sign-in-email">Email</label>
-        <input
-          id="sign-in-email"
-          name="email"
-          type="email"
-          autoComplete="email"
-          required
-          aria-invalid={Boolean(emailError)}
-          aria-describedby={emailError ? "sign-in-email-error" : undefined}
-        />
-        <FieldError id="sign-in-email-error" message={emailError} />
-      </div>
-      <PasswordField
+      <AccessField
+        id="sign-in-email"
+        name="email"
+        type="email"
+        label="Email"
+        autoComplete="email"
+        error={emailError}
+      />
+      <AccessField
         id="sign-in-password"
         name="password"
+        type="password"
         label="Password"
         autoComplete="current-password"
+        minLength={8}
         error={passwordError}
       />
       <SubmitButton>Sign in</SubmitButton>

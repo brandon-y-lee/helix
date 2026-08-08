@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { AccountAccessLayout } from "@/components/account/AccountAccessLayout";
 import { SignInForm } from "@/components/account/AccountForms";
 import { safeReturnTo } from "@/lib/auth/redirect";
 import { getCurrentUserForPublicPage } from "@/lib/auth/session";
@@ -24,12 +25,11 @@ export default async function SignInPage({
   if (user) redirect(next);
 
   return (
-    <div className="container account-shell">
-      <section className="account-panel">
-        <p className="eyebrow">Account</p>
-        <h1>Sign in</h1>
-        <SignInForm next={next} error={params.error ? LINK_ERRORS[params.error] : undefined} />
-      </section>
-    </div>
+    <AccountAccessLayout heading="Sign in">
+      <SignInForm
+        next={next}
+        error={params.error ? LINK_ERRORS[params.error] : undefined}
+      />
+    </AccountAccessLayout>
   );
 }

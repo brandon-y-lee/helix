@@ -18,13 +18,16 @@ vi.mock("next/navigation", async (importOriginal) => {
 });
 
 import SignInPage from "@/app/account/sign-in/page";
+import ResetPasswordPage from "@/app/account/reset-password/page";
 import CartPage from "@/app/cart/page";
 import CollectionPage, {
   generateMetadata as generateCollectionMetadata,
 } from "@/app/collections/[collection]/page";
 import { CartProvider } from "@/components/cart/CartProvider";
+import { getCurrentUserForPublicPage } from "@/lib/auth/session";
 
 beforeEach(() => {
+  vi.mocked(getCurrentUserForPublicPage).mockResolvedValue(null);
   vi.stubGlobal(
     "fetch",
     vi.fn(async () =>
@@ -91,16 +94,56 @@ describe("storefront route states", () => {
     expect(notice).not.toHaveTextContent(/order|session|payment intent/i);
   });
 
-  it("wires the safe sign-in return path and recovery links", async () => {
+  it("renders the sign-in access experience without changing its auth contract", async () => {
     const { container } = render(
       await SignInPage({
-        searchParams: Promise.resolve({ next: "/rewards" }),
+        searchParams: Promise.resolve({
+          next: "/rewards",
+          error: "expired-link",
+        }),
       }),
     );
 
     expect(
       screen.getByRole("heading", { level: 1, name: "Sign in" }),
     ).toBeVisible();
+    expect(screen.queryByText("Account")).not.toBeInTheDocument();
+
+    const globalError = screen.getByRole("alert");
+    expect(globalError).toHaveTextContent(
+      "This sign-in link expired. Request a new one and try again.",
+    );
+
+    const email = screen.getByLabelText("Email");
+    expect(email).toHaveAttribute("type", "email");
+    expect(email).toHaveAttribute("placeholder", "Email");
+    expect(email).toHaveAttribute("autocomplete", "email");
+    expect(email).toBeRequired();
+    expect(email).toHaveAttribute("aria-invalid", "false");
+
+    const password = screen.getByLabelText("Password");
+    expect(password).toHaveAttribute("type", "password");
+    expect(password).toHaveAttribute("placeholder", "Password");
+    expect(password).toHaveAttribute("autocomplete", "current-password");
+    expect(password).toBeRequired();
+    expect(password).toHaveAttribute("aria-invalid", "false");
+    expect(
+      screen.queryByRole("button", { name: /show password/i }),
+    ).not.toBeInTheDocument();
+
+    const decorativeMessage = screen.getByText("Your skin. Your system.");
+    expect(decorativeMessage.closest('[aria-hidden="true"]')).not.toBeNull();
+    expect(
+      screen
+        .getByRole("heading", { level: 1, name: "Sign in" })
+        .compareDocumentPosition(decorativeMessage) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      globalError.compareDocumentPosition(email) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+
     expect(container.querySelector('input[name="next"]')).toHaveValue(
       "/rewards",
     );
@@ -111,6 +154,31 @@ describe("storefront route states", () => {
     expect(screen.getByRole("link", { name: "Create account" })).toHaveAttribute(
       "href",
       "/account/sign-up",
+    );
+  });
+
+  it("keeps reset-password visibility controls outside the access-page change", async () => {
+    vi.mocked(getCurrentUserForPublicPage).mockResolvedValue({
+      id: "account-holder",
+    } as NonNullable<
+      Awaited<ReturnType<typeof getCurrentUserForPublicPage>>
+    >);
+
+    render(await ResetPasswordPage());
+
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Set new password" }),
+    ).toBeVisible();
+    expect(
+      screen.getAllByRole("button", { name: "Show password" }),
+    ).toHaveLength(2);
+    expect(screen.getByLabelText("New password")).toHaveAttribute(
+      "type",
+      "password",
+    );
+    expect(screen.getByLabelText("Confirm password")).toHaveAttribute(
+      "type",
+      "password",
     );
   });
 });
