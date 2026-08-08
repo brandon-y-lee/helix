@@ -157,7 +157,9 @@ function requireDefaultBranchCoordinator(sha) {
   }
 }
 
-function requireSoleWriteCoordinator(sha) {
+function requireExactWorkflowWriteAuthorities(sha) {
+  const scheduledBrowserVerification =
+    ".github/workflows/scheduled-browser-verification.yml";
   const trustedWriters = new Map([
     [".github/workflows/dev-integration.yml", { actions: "write", contents: "write", issues: "write", "pull-requests": "write" }],
     [".github/workflows/spec-lifecycle.yml", { actions: "read", contents: "write", "id-token": "write", issues: "write", "pull-requests": "write" }],
@@ -210,6 +212,29 @@ function requireSoleWriteCoordinator(sha) {
         if (job && typeof job === "object" && !Array.isArray(job) && "permissions" in job) {
           throw new Error(
             `trusted writer workflow '${path}' job '${jobName}' must inherit the audited workflow permissions at ${sha}`,
+          );
+        }
+      }
+      continue;
+    }
+    if (path === scheduledBrowserVerification) {
+      const permissions = workflow.permissions;
+      if (
+        !permissions ||
+        typeof permissions !== "object" ||
+        Array.isArray(permissions) ||
+        Object.keys(permissions).sort().join(",") !== "contents,issues" ||
+        permissions.contents !== "read" ||
+        permissions.issues !== "write"
+      ) {
+        throw new Error(
+          `scheduled browser verification must grant only contents: read and issues: write at ${sha}`,
+        );
+      }
+      for (const [jobName, job] of Object.entries(jobs)) {
+        if (job && typeof job === "object" && !Array.isArray(job) && "permissions" in job) {
+          throw new Error(
+            `scheduled browser verification job '${jobName}' must inherit the audited workflow permissions at ${sha}`,
           );
         }
       }
@@ -477,7 +502,7 @@ function collectPlan(repo) {
   }
 
   const localDevSha = runGit(["rev-parse", "dev"]).stdout.trim();
-  requireSoleWriteCoordinator(localDevSha);
+  requireExactWorkflowWriteAuthorities(localDevSha);
   const remoteBranches = readRemoteBranches();
   const remoteMainSha = remoteBranches.get("main");
   if (!remoteMainSha) throw new Error("remote branch 'main' does not exist");

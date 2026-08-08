@@ -1,0 +1,84 @@
+name: Verification System Browser Evidence
+
+on:
+  pull_request:
+    branches: [dev, main]
+    paths:
+      - ".github/workflows/**"
+      - "scripts/github/**"
+      - "scripts/affected-browser-verification*"
+      - "scripts/browser-verification-plan*"
+      - "scripts/production-verification*"
+      - "scripts/verify-affected*"
+      - "scripts/verify-production*"
+      - "tests/affected-browser-verification*"
+      - "tests/integration-workflow*"
+      - "tests/production-verification*"
+      - "tests/scheduled-*"
+      - "tests/verification-orchestrator*"
+      - "e2e/**"
+      - "playwright-global-setup.ts"
+      - "test-support/**"
+      - ".nvmrc"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "playwright.config.ts"
+      - "tsconfig.json"
+
+permissions:
+  contents: read
+
+jobs:
+  complete-browser-evidence:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      NEXT_PUBLIC_ALGOLIA_APP_ID: ${{ secrets.NEXT_PUBLIC_ALGOLIA_APP_ID }}
+      NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY: ${{ secrets.NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY }}
+      NEXT_PUBLIC_ALGOLIA_INDEX_NAME: ${{ secrets.NEXT_PUBLIC_ALGOLIA_INDEX_NAME }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Chromium and WebKit
+        run: pnpm exec playwright install chromium webkit
+
+      - name: Verify affected browser behavior
+        run: pnpm verify:affected -- --base "origin/${{ github.base_ref }}"
+
+      - name: Upload successful browser report
+        if: ${{ success() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: verification-system-browser-${{ github.run_id }}
+          path: playwright-report/
+          retention-days: 30
+          if-no-files-found: ignore
+
+      - name: Upload failed browser diagnostics
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: verification-system-browser-failure-${{ github.run_id }}
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 90
+          if-no-files-found: ignore

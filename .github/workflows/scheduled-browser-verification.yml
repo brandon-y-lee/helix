@@ -1,0 +1,96 @@
+name: Scheduled Browser Verification
+
+on:
+  schedule:
+    - cron: "17 7 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: scheduled-browser-verification
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  complete-webkit:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      NEXT_PUBLIC_ALGOLIA_APP_ID: ${{ secrets.NEXT_PUBLIC_ALGOLIA_APP_ID }}
+      NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY: ${{ secrets.NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY }}
+      NEXT_PUBLIC_ALGOLIA_INDEX_NAME: ${{ secrets.NEXT_PUBLIC_ALGOLIA_INDEX_NAME }}
+    steps:
+      - name: Checkout failure recorder
+        uses: actions/checkout@v4
+        with:
+          ref: dev
+          fetch-depth: 1
+          persist-credentials: false
+          sparse-checkout: |
+            package.json
+            scripts/browser-verification-plan.ts
+            scripts/github/record-scheduled-verification-setup-failure.mjs
+            scripts/github/scheduled-verification-issue.mjs
+            scripts/github/scheduled-verification-runtime.mjs
+
+      - name: Checkout current dev
+        uses: actions/checkout@v4
+        with:
+          ref: dev
+          fetch-depth: 0
+          persist-credentials: false
+          sparse-checkout: ""
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install WebKit
+        run: pnpm exec playwright install webkit
+
+      - name: Run complete scheduled WebKit verification
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SCHEDULED_VERIFICATION_REPOSITORY: ${{ github.repository }}
+          SCHEDULED_VERIFICATION_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: pnpm verify:scheduled -- --lane webkit
+
+      - name: Reconcile unresolved scheduled failure
+        if: ${{ failure() && env.SCHEDULED_VERIFICATION_ISSUE_RECONCILED != '1' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SCHEDULED_VERIFICATION_REPOSITORY: ${{ github.repository }}
+          SCHEDULED_VERIFICATION_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: node scripts/github/record-scheduled-verification-setup-failure.mjs
+
+      - name: Upload successful browser report
+        if: ${{ success() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: scheduled-webkit-report-${{ github.run_id }}
+          path: playwright-report/
+          retention-days: 30
+          if-no-files-found: ignore
+
+      - name: Upload failed browser diagnostics
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: scheduled-webkit-failure-${{ github.run_id }}
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 90
+          if-no-files-found: ignore
