@@ -17,6 +17,7 @@
     "e2e": "tsx scripts/verify-production.ts",
     "verify:production": "tsx scripts/verify-production.ts",
     "verify:product-media": "tsx scripts/verify-product-media.ts",
+    "integration:dev": "tsx scripts/github/run-integration-coordinator.ts",
     "github:workflow:plan": "node scripts/github/bootstrap-workflow.mjs plan --repo brandon-y-lee/mei-pelle",
     "github:workflow:apply": "node scripts/github/bootstrap-workflow.mjs apply --repo brandon-y-lee/mei-pelle",
     "catalog:webhooks:plan": "tsx scripts/catalog-webhooks.ts plan",
@@ -62,7 +63,8 @@
     "jsdom": "26.1.0",
     "tsx": "^4.22.4",
     "typescript": "5.8.3",
-    "vitest": "3.2.6"
+    "vitest": "3.2.6",
+    "yaml": "^2.8.2"
   },
   "pnpm": {
     "overrides": {

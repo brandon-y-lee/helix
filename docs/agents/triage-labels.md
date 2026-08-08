@@ -25,5 +25,10 @@ These labels add artifact type and lifecycle state without changing the five can
 | `workflow:planned` | Approved spec decomposed into tickets |
 | `workflow:in-progress` | Claimed work in progress |
 | `workflow:review` | Implementation awaiting review or CI |
+| `workflow:integration-queued` | Ready `dev` pull request awaiting the Integration Slot |
+| `workflow:integration-active` | Current frozen Integration Slot owner |
+| `workflow:urgent` | Human-approved active production or security urgency |
+
+Automation may add the queued and active labels. Only the user may approve `workflow:urgent`; an agent or workflow must not infer it.
 
 Wayfinder uses `wayfinder:map`, `wayfinder:research`, `wayfinder:prototype`, `wayfinder:grilling`, and `wayfinder:task`.
