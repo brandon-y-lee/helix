@@ -195,10 +195,43 @@ jobs:
           VERIFICATION_BROWSER_RESULT_PATH: ${{ github.workspace }}/candidate/test-results/verification-browser-result.json
         run: sudo -E -H -u verifier-candidate env "PATH=$VERIFICATION_CANDIDATE_PATH" pnpm --dir trusted exec tsx scripts/verify-production-ci.ts verify --selection routine-chromium
 
+      - name: Freeze browser evidence for retention
+        if: ${{ always() && inputs.gate == 'complete-behavioral' }}
+        run: |
+          set +e
+          sudo pkill -KILL -u verifier-candidate
+          pkill_status=$?
+          set -e
+          if [[ "$pkill_status" -ne 0 && "$pkill_status" -ne 1 ]]; then
+            exit "$pkill_status"
+          fi
+          sudo chown root:root -- candidate
+          sudo chmod a+rX -- candidate
+          sudo chmod a-w -- candidate
+          sudo -u verifier-candidate test ! -w candidate
+          sudo -u verifier-candidate test -r candidate/package.json
+          sudo install -d -o root -g root -m 0755 -- "$RUNNER_TEMP/verification-browser-evidence"
+          for evidence_path in candidate/playwright-report candidate/test-results; do
+            if [[ -e "$evidence_path" ]]; then
+              symlink_path="$(sudo find "$evidence_path" -type l -print -quit)" || {
+                echo "Browser evidence traversal failed closed for $evidence_path." >&2
+                exit 1
+              }
+              if [[ -n "$symlink_path" ]]; then
+                echo "Browser evidence cannot contain symbolic links: $symlink_path" >&2
+                exit 1
+              fi
+              sudo cp -a -- "$evidence_path" "$RUNNER_TEMP/verification-browser-evidence/"
+            fi
+          done
+          sudo chown -R root:root -- "$RUNNER_TEMP/verification-browser-evidence"
+          sudo chmod -R a+rX -- "$RUNNER_TEMP/verification-browser-evidence"
+          sudo chmod -R a-w -- "$RUNNER_TEMP/verification-browser-evidence"
+
       - name: Require structured browser telemetry
         if: ${{ inputs.gate == 'complete-behavioral' }}
         env:
-          PLAYWRIGHT_JSON_OUTPUT_FILE: ${{ github.workspace }}/candidate/test-results/playwright-telemetry.json
+          PLAYWRIGHT_JSON_OUTPUT_FILE: ${{ runner.temp }}/verification-browser-evidence/test-results/playwright-telemetry.json
         run: test -s "$PLAYWRIGHT_JSON_OUTPUT_FILE"
 
       - name: Record Catalog fingerprint after verification with trusted code
@@ -219,7 +252,7 @@ jobs:
           CATALOG_FINGERPRINT_AFTER: ${{ steps.catalog-after.outputs.fingerprint }}
           CATALOG_FINGERPRINT_BEFORE: ${{ steps.catalog-before.outputs.fingerprint }}
           VERIFICATION_BROWSER_VERSION: ${{ steps.browser-version.outputs.version }}
-          VERIFICATION_BROWSER_RESULT_PATH: ${{ github.workspace }}/candidate/test-results/verification-browser-result.json
+          VERIFICATION_BROWSER_RESULT_PATH: ${{ runner.temp }}/verification-browser-evidence/test-results/verification-browser-result.json
           VERIFICATION_EVIDENCE_PATH: ${{ runner.temp }}/verification-evidence/execution.json
         run: |
           git -C candidate diff --exit-code
@@ -242,8 +275,8 @@ jobs:
         with:
           name: integration-playwright-success-${{ inputs.pr_number }}-${{ inputs.nonce }}
           path: |
-            candidate/playwright-report/
-            candidate/test-results/playwright-telemetry.json
+            ${{ runner.temp }}/verification-browser-evidence/playwright-report/
+            ${{ runner.temp }}/verification-browser-evidence/test-results/playwright-telemetry.json
           retention-days: 30
           if-no-files-found: error
 
@@ -253,9 +286,8 @@ jobs:
         with:
           name: integration-playwright-failure-${{ inputs.pr_number }}-${{ inputs.nonce }}
           path: |
-            candidate/playwright-report/
-            candidate/test-results/
-            candidate/test-results/playwright-telemetry.json
+            ${{ runner.temp }}/verification-browser-evidence/playwright-report/
+            ${{ runner.temp }}/verification-browser-evidence/test-results/
           retention-days: 90
           if-no-files-found: ignore
 

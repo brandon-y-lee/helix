@@ -11,6 +11,10 @@ const verification = readFileSync(
   resolve(projectRoot, ".github/workflows/dev-integration-verification.yml"),
   "utf8",
 );
+const receiptCommand = readFileSync(
+  resolve(projectRoot, "scripts/github/verification-receipt-command.ts"),
+  "utf8",
+);
 const ci = readFileSync(resolve(projectRoot, ".github/workflows/ci.yml"), "utf8");
 const windowsLifecycle = readFileSync(
   resolve(projectRoot, ".github/workflows/verification-lifecycle-windows.yml"),
@@ -195,6 +199,55 @@ describe("dev Integration Line workflows", () => {
     expect(verification).toContain("verification:catalog-fingerprint");
     expect(verification).toContain(
       "scripts/verify-production-ci.ts verify --selection routine-chromium",
+    );
+    expect(receiptCommand).not.toContain('from "@playwright/test"');
+    expect(receiptCommand).toContain('candidateRequire.resolve("@playwright/test")');
+    expect(verification).toContain("Freeze browser evidence for retention");
+    expect(verification).toContain(
+      "if: ${{ always() && inputs.gate == 'complete-behavioral' }}",
+    );
+    expect(verification).toContain("sudo pkill -KILL -u verifier-candidate");
+    expect(verification).toContain("sudo chown root:root -- candidate");
+    expect(verification).toContain("sudo chmod a-w -- candidate");
+    expect(verification).toContain(
+      "for evidence_path in candidate/playwright-report candidate/test-results; do",
+    );
+    expect(verification).toContain(
+      'symlink_path="$(sudo find "$evidence_path" -type l -print -quit)" || {',
+    );
+    expect(verification).toContain(
+      'echo "Browser evidence traversal failed closed for $evidence_path." >&2',
+    );
+    expect(verification).toContain('if [[ -n "$symlink_path" ]]; then');
+    expect(verification).toContain(
+      'echo "Browser evidence cannot contain symbolic links: $symlink_path" >&2',
+    );
+    expect(verification).not.toContain('test -z "$(find "$evidence_path"');
+    expect(verification).toContain(
+      'sudo cp -a -- "$evidence_path" "$RUNNER_TEMP/verification-browser-evidence/"',
+    );
+    expect(verification).toContain(
+      "sudo chown -R root:root -- \"$RUNNER_TEMP/verification-browser-evidence\"",
+    );
+    expect(verification).toContain(
+      "sudo chmod -R a-w -- \"$RUNNER_TEMP/verification-browser-evidence\"",
+    );
+    expect(verification).toContain(
+      "${{ runner.temp }}/verification-browser-evidence/test-results/verification-browser-result.json",
+    );
+    expect(verification).toContain(
+      "${{ runner.temp }}/verification-browser-evidence/playwright-report/",
+    );
+    expect(verification).not.toContain("path: |\n            candidate/playwright-report/");
+    const freezeEvidence = verification.indexOf("Freeze browser evidence for retention");
+    expect(freezeEvidence).toBeGreaterThan(
+      verification.indexOf("Verify receipted production artifact with the trusted runner"),
+    );
+    expect(freezeEvidence).toBeLessThan(
+      verification.indexOf("Record exact Chromium version"),
+    );
+    expect(freezeEvidence).toBeLessThan(
+      verification.indexOf("Upload successful browser report and telemetry"),
     );
     expect(verification).toContain("uses: actions/attest@v4");
     expect(verification).toContain("predicate-type:");

@@ -4,7 +4,6 @@ import { resolve } from "node:path";
 import { createRequire } from "node:module";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
-import { chromium } from "@playwright/test";
 
 import { BROWSER_VERIFICATION_PLAN } from "../browser-verification-plan";
 import {
@@ -76,16 +75,14 @@ async function readChromiumVersion(environment: NodeJS.ProcessEnv): Promise<stri
   if (environment.VERIFICATION_BROWSER_VERSION?.trim()) {
     return environment.VERIFICATION_BROWSER_VERSION.trim();
   }
-  let executablePath = chromium.executablePath();
-  if (environment.VERIFICATION_BROWSER_CWD) {
-    const candidateRequire = createRequire(
-      resolve(environment.VERIFICATION_BROWSER_CWD, "package.json"),
-    );
-    const candidatePlaywright = await import(
-      pathToFileURL(candidateRequire.resolve("@playwright/test")).href
-    ) as { chromium: typeof chromium };
-    executablePath = candidatePlaywright.chromium.executablePath();
-  }
+  const candidateRequire = createRequire(resolve(
+    environment.VERIFICATION_BROWSER_CWD ?? process.cwd(),
+    "package.json",
+  ));
+  const candidatePlaywright = await import(
+    pathToFileURL(candidateRequire.resolve("@playwright/test")).href
+  ) as { chromium: { executablePath(): string } };
+  const executablePath = candidatePlaywright.chromium.executablePath();
   const { stdout } = await execFileAsync(executablePath, ["--version"], {
     encoding: "utf8",
   });
