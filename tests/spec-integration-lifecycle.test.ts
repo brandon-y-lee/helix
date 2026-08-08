@@ -470,6 +470,20 @@ describe("future spec integration lifecycle", () => {
     expect(ready).toEqual({ outcome: "spec-ready", specNumber: 60, pullRequestNumber: 200 });
     expect(pullRequests.get(200)?.draft).toBe(false);
     expect(issues.get(60)?.state).toBe("open");
+
+    const readyBody = pullRequests.get(200)?.body;
+    const duplicate = await runSpecLifecycle(
+      {
+        kind: "integrate-child",
+        specNumber: 60,
+        specSlug: "catalog-refresh",
+        childNumber: 61,
+        pullRequestNumber: 101,
+      },
+      adapters,
+    );
+    expect(duplicate).toMatchObject({ outcome: "child-integrated", finalDraft: false });
+    expect(pullRequests.get(200)).toMatchObject({ draft: false, body: readyBody });
   });
 
   it("rolls back the issue claim and ticket branch when startup evidence cannot be recorded", async () => {

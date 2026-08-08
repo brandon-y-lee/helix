@@ -170,7 +170,7 @@ export type SpecLifecycleReport =
       childNumber: number;
       mergeSha: string;
       finalPullRequest: number;
-      finalDraft: true;
+      finalDraft: boolean;
     }
   | {
       outcome: "spec-ready";
@@ -506,9 +506,11 @@ export async function runSpecLifecycle(
       } catch (error) {
         finalPullRequest = await adapters.pullRequests.find(branch, "dev");
         if (!finalPullRequest) throw error;
-        await adapters.pullRequests.update(finalPullRequest.number, { body, draft: true });
+        if (finalPullRequest.draft) {
+          await adapters.pullRequests.update(finalPullRequest.number, { body, draft: true });
+        }
       }
-    } else {
+    } else if (finalPullRequest.draft) {
       await adapters.pullRequests.update(finalPullRequest.number, { body, draft: true });
     }
     return {
@@ -517,7 +519,7 @@ export async function runSpecLifecycle(
       childNumber: command.childNumber,
       mergeSha,
       finalPullRequest: finalPullRequest.number,
-      finalDraft: true,
+      finalDraft: finalPullRequest.draft,
     };
   }
   if (command.kind === "ready-spec") {

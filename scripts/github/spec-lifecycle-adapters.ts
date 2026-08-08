@@ -47,22 +47,51 @@ export async function assertTrustedActionsContext(
   repository: string,
   commands: SpecCommandAdapter = systemCommands,
   environment: Record<string, string | undefined> = process.env,
+  requestIdentityToken: (url: string, bearer: string) => Promise<string> = async (url, bearer) => {
+    const response = await fetch(url, { headers: { Authorization: `Bearer ${bearer}` } });
+    if (!response.ok) throw new Error(`Actions identity endpoint failed with HTTP ${response.status}`);
+    const payload = await response.json() as { value?: string };
+    if (!payload.value) throw new Error("Actions identity endpoint omitted its token");
+    return payload.value;
+  },
 ): Promise<void> {
   const runId = environment.GITHUB_RUN_ID;
+  const identityUrlValue = environment.ACTIONS_ID_TOKEN_REQUEST_URL;
+  const identityBearer = environment.ACTIONS_ID_TOKEN_REQUEST_TOKEN;
   if (
     environment.GITHUB_ACTIONS !== "true" ||
     environment.GITHUB_REPOSITORY !== repository ||
     !environment.GH_TOKEN ||
+    !identityUrlValue ||
+    !identityBearer ||
     !/^\d+$/.test(runId ?? "")
   ) {
     throw new Error("spec lifecycle mutations require the trusted GitHub Actions orchestrator");
   }
-  const identity = parseJson<{ login?: string }>(
-    (await commands.run("gh", ["api", "user"])).stdout,
-    "GitHub token identity",
-  );
-  if (identity.login !== "github-actions[bot]") {
-    throw new Error("spec lifecycle token is not the GitHub Actions Integration identity");
+  const identityUrl = new URL(identityUrlValue);
+  if (identityUrl.protocol !== "https:" || identityUrl.hostname !== "pipelines.actions.githubusercontent.com") {
+    throw new Error("Actions identity endpoint is not the trusted GitHub issuer");
+  }
+  const audience = `https://github.com/${repository}/spec-lifecycle`;
+  identityUrl.searchParams.set("audience", audience);
+  const identityToken = await requestIdentityToken(identityUrl.toString(), identityBearer);
+  const encodedClaims = identityToken.split(".")[1];
+  if (!encodedClaims) throw new Error("Actions identity endpoint returned an invalid token");
+  const claims = parseJson<{
+    aud?: string;
+    repository?: string;
+    event_name?: string;
+    ref?: string;
+    workflow_ref?: string;
+  }>(Buffer.from(encodedClaims, "base64url").toString("utf8"), "Actions identity claims");
+  if (
+    claims.aud !== audience ||
+    claims.repository !== repository ||
+    claims.event_name !== "workflow_dispatch" ||
+    claims.ref !== "refs/heads/dev" ||
+    claims.workflow_ref !== `${repository}/.github/workflows/spec-lifecycle.yml@refs/heads/dev`
+  ) {
+    throw new Error("Actions identity is not bound to the audited Spec Lifecycle Orchestrator on dev");
   }
   const run = parseJson<{
     name?: string;

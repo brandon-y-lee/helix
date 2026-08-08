@@ -159,8 +159,8 @@ function requireDefaultBranchCoordinator(sha) {
 
 function requireSoleWriteCoordinator(sha) {
   const trustedWriters = new Map([
-    [".github/workflows/dev-integration.yml", ["actions", "contents", "issues", "pull-requests"]],
-    [".github/workflows/spec-lifecycle.yml", ["contents", "issues", "pull-requests"]],
+    [".github/workflows/dev-integration.yml", { actions: "write", contents: "write", issues: "write", "pull-requests": "write" }],
+    [".github/workflows/spec-lifecycle.yml", { actions: "read", contents: "write", "id-token": "write", issues: "write", "pull-requests": "write" }],
   ]);
   const workflows = runGit([
     "ls-tree",
@@ -199,11 +199,11 @@ function requireSoleWriteCoordinator(sha) {
         throw new Error(`trusted writer workflow '${path}' must declare an explicit permission map at ${sha}`);
       }
       if (
-        Object.keys(permissions).length !== required.length ||
-        required.some((permission) => permissions[permission] !== "write")
+        Object.keys(permissions).length !== Object.keys(required).length ||
+        Object.entries(required).some(([permission, access]) => permissions[permission] !== access)
       ) {
         throw new Error(
-          `trusted writer workflow '${path}' must grant only ${required.join(", ")}: write at ${sha}`,
+          `trusted writer workflow '${path}' does not match its exact least-privilege permission map at ${sha}`,
         );
       }
       for (const [jobName, job] of Object.entries(jobs)) {

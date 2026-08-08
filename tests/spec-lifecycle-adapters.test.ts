@@ -9,19 +9,29 @@ import { runSpecLifecycle } from "@/scripts/github/spec-integration-lifecycle";
 import { desiredSpecRuleset } from "@/scripts/github/spec-ruleset.mjs";
 
 describe("spec lifecycle production adapters", () => {
-  it("binds mutation authority to an observable dispatched Actions run and bot token", async () => {
+  it("binds mutation authority to OIDC claims and an observable dispatched Actions run", async () => {
+    const audience = "https://github.com/brandon-y-lee/mei-pelle/spec-lifecycle";
     const environment = {
       GITHUB_ACTIONS: "true",
       GITHUB_REPOSITORY: "brandon-y-lee/mei-pelle",
       GITHUB_RUN_ID: "12345",
       GH_TOKEN: "redacted",
+      ACTIONS_ID_TOKEN_REQUEST_URL: "https://pipelines.actions.githubusercontent.com/example/token",
+      ACTIONS_ID_TOKEN_REQUEST_TOKEN: "actions-bearer",
     };
-    let login = "github-actions[bot]";
+    let workflowRef = "brandon-y-lee/mei-pelle/.github/workflows/spec-lifecycle.yml@refs/heads/dev";
+    const requestIdentityToken = async () => {
+      const claims = {
+        aud: audience,
+        repository: "brandon-y-lee/mei-pelle",
+        event_name: "workflow_dispatch",
+        ref: "refs/heads/dev",
+        workflow_ref: workflowRef,
+      };
+      return `header.${Buffer.from(JSON.stringify(claims)).toString("base64url")}.signature`;
+    };
     const commands: SpecCommandAdapter = {
-      async run(_command, args) {
-        if (args.join(" ") === "api user") {
-          return { status: 0, stderr: "", stdout: JSON.stringify({ login }) };
-        }
+      async run() {
         return {
           status: 0,
           stderr: "",
@@ -35,12 +45,12 @@ describe("spec lifecycle production adapters", () => {
       },
     };
     await expect(
-      assertTrustedActionsContext("brandon-y-lee/mei-pelle", commands, environment),
+      assertTrustedActionsContext("brandon-y-lee/mei-pelle", commands, environment, requestIdentityToken),
     ).resolves.toBeUndefined();
-    login = "human-maintainer";
+    workflowRef = "brandon-y-lee/mei-pelle/.github/workflows/rogue.yml@refs/heads/dev";
     await expect(
-      assertTrustedActionsContext("brandon-y-lee/mei-pelle", commands, environment),
-    ).rejects.toThrow("not the GitHub Actions Integration identity");
+      assertTrustedActionsContext("brandon-y-lee/mei-pelle", commands, environment, requestIdentityToken),
+    ).rejects.toThrow("not bound to the audited Spec Lifecycle Orchestrator");
   });
 
   it("rejects ticket history whose merge parent is outside the current spec branch", async () => {

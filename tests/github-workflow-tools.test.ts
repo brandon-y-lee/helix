@@ -86,7 +86,7 @@ function initialiseRepository(): { root: string; tempRoot: string } {
   );
   writeFileSync(
     join(root, ".github", "workflows", "spec-lifecycle.yml"),
-    "name: spec lifecycle\npermissions:\n  contents: write\n  issues: write\n  pull-requests: write\njobs:\n  orchestrate:\n    runs-on: ubuntu-latest\n    steps: []\n",
+    "name: spec lifecycle\npermissions:\n  actions: read\n  contents: write\n  id-token: write\n  issues: write\n  pull-requests: write\njobs:\n  orchestrate:\n    runs-on: ubuntu-latest\n    steps: []\n",
   );
   expectSuccess(git(root, "add", "README.md", ".github/workflows"));
   expectSuccess(git(root, "commit", "-m", "Initial fixture"));
@@ -134,6 +134,8 @@ describe("GitHub Actions CI", () => {
     expect(specLifecycleWorkflow).toContain("group: spec-lifecycle");
     expect(specLifecycleWorkflow).toContain("cancel-in-progress: false");
     expect(specLifecycleWorkflow).toContain("contents: write");
+    expect(specLifecycleWorkflow).toContain("actions: read");
+    expect(specLifecycleWorkflow).toContain("id-token: write");
     expect(specLifecycleWorkflow).toContain("issues: write");
     expect(specLifecycleWorkflow).toContain("pull-requests: write");
     expect(specLifecycleWorkflow).toContain("ref: dev");
