@@ -6365,10 +6365,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 .product-card__button {
   width: 100%;
   min-height: 44px;
-  border: 1px solid var(--storefront-warm-gray);
   border-radius: 999px;
-  background: var(--surface);
-  color: var(--storefront-warm-gray);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -6603,10 +6600,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 .product-card__quick-final {
   width: 100%;
   min-height: 42px;
-  border: 1px solid var(--storefront-warm-gray);
   border-radius: 999px;
-  background: var(--surface);
-  color: var(--storefront-warm-gray);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -6617,6 +6611,13 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   letter-spacing: 0.08em;
   text-transform: uppercase;
   cursor: pointer;
+}
+
+.product-card__button,
+.product-card__quick-final {
+  border: 1px solid var(--storefront-warm-gray);
+  background: var(--surface);
+  color: var(--storefront-warm-gray);
 }
 
 .product-card__quick-final:disabled {
@@ -10626,12 +10627,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   --button-fill-border: #fbfaf6;
 }
 
-.product-card__button {
-  --button-fill: var(--storefront-warm-gray);
-  --button-fill-text: #fff;
-  --button-fill-border: var(--storefront-warm-gray);
-}
-
+.product-card__button,
 .product-card__quick-final {
   --button-fill: var(--storefront-warm-gray);
   --button-fill-text: #fff;
