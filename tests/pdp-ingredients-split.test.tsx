@@ -114,7 +114,7 @@ describe("PdpIngredientsSplit", () => {
     ).not.toBeInTheDocument();
     expect(
       screen.getByText(
-        "Formula texture image is temporarily unavailable for CLEANSE.",
+        "Formula texture image is unavailable for CLEANSE.",
       ),
     ).toBeInTheDocument();
   });
@@ -140,7 +140,7 @@ describe("PdpIngredientsSplit", () => {
     ).not.toBeNull();
     expect(
       screen.getByRole("status", {
-        name: `${media.alt} is temporarily unavailable.`,
+        name: `${media.alt} could not be loaded.`,
       }),
     ).toBeInTheDocument();
     expect(

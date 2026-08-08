@@ -2,10 +2,13 @@
 
 import {
   forwardRef,
-  useState,
   type ComponentPropsWithoutRef,
 } from "react";
-import { ProductPlaceholder } from "@/components/product/ProductImage";
+import {
+  ProductMediaUnavailableStatus,
+  ProductPlaceholder,
+  useProductMediaLoadFailure,
+} from "@/components/product/ProductImage";
 import type { ProductMedia } from "@/lib/products";
 
 type ProductVideoProps = Omit<
@@ -31,9 +34,10 @@ export const ProductVideo = forwardRef<HTMLVideoElement, ProductVideoProps>(
     },
     ref,
   ) {
-    const [failedUrl, setFailedUrl] = useState<string | null>(null);
     const available = media.kind === "video" && Boolean(media.url);
-    const failed = Boolean(available && failedUrl === media.url);
+    const { failed, markFailed } = useProductMediaLoadFailure(
+      available ? media.url : null,
+    );
     const ariaHidden = videoProps["aria-hidden"];
     const accessible = ariaHidden !== true && ariaHidden !== "true";
 
@@ -51,7 +55,7 @@ export const ProductVideo = forwardRef<HTMLVideoElement, ProductVideoProps>(
             className={videoClassName}
             onError={(event) => {
               onError?.(event);
-              setFailedUrl(media.url);
+              markFailed();
             }}
           />
         ) : (
@@ -63,13 +67,7 @@ export const ProductVideo = forwardRef<HTMLVideoElement, ProductVideoProps>(
         )}
         {children}
         {failed && accessible && media.alt && (
-          <span
-            className="sr-only"
-            role="status"
-            aria-label={`${media.alt} is temporarily unavailable.`}
-          >
-            {media.alt} is temporarily unavailable.
-          </span>
+          <ProductMediaUnavailableStatus description={media.alt} />
         )}
       </span>
     );

@@ -165,7 +165,7 @@ export function PdpIngredientsSplit({
           />
         ) : (
           <p role="status">
-            Formula texture image is temporarily unavailable for {productName}.
+            Formula texture image is unavailable for {productName}.
           </p>
         )}
       </div>

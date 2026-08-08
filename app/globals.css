@@ -3827,6 +3827,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 }
 
 .pdp-routine-video__poster-background,
+.pdp-routine-video__poster-foreground,
 .pdp-routine-video__background,
 .pdp-routine-video__foreground {
   position: absolute;
@@ -3837,10 +3838,23 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 
 .pdp-routine-video__poster-background {
   z-index: 0;
-  background-position: center;
-  background-size: cover;
   filter: blur(24px) brightness(0.68) saturate(0.82);
   transform: scale(1.08);
+}
+
+.pdp-routine-video__poster-background-image,
+.pdp-routine-video__poster-foreground-image {
+  object-fit: cover;
+}
+
+.pdp-routine-video__poster-foreground {
+  z-index: 2;
+  pointer-events: none;
+  transition: opacity var(--motion-panel) ease;
+}
+
+.pdp-routine-video__poster-foreground-image {
+  object-fit: contain;
 }
 
 .pdp-routine-video__background {
@@ -3860,10 +3874,15 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 }
 
 .pdp-routine-video__foreground {
-  z-index: 2;
+  z-index: 3;
   border: 0;
   background: transparent;
   object-fit: contain;
+}
+
+.pdp-routine-video[data-activated="true"]
+  .pdp-routine-video__poster-foreground {
+  opacity: 0;
 }
 
 .pdp-routine-video[data-error="true"] .pdp-routine-video__foreground {
@@ -3875,7 +3894,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 .pdp-routine-video__error {
   position: absolute;
   inset: 0;
-  z-index: 3;
+  z-index: 4;
   display: grid;
   place-content: center;
   justify-items: center;
@@ -5205,6 +5224,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   }
 
   .pdp-routine-video__background,
+  .pdp-routine-video__poster-foreground,
   .pdp-routine-video__play,
   .pdp-core-routine__steps button,
   .pdp-details-routine__buy,

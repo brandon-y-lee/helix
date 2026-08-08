@@ -51,6 +51,33 @@ export function ProductPlaceholder({
   );
 }
 
+export function useProductMediaLoadFailure(url: string | null | undefined) {
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+
+  return {
+    failed: Boolean(url && failedUrl === url),
+    markFailed: () => {
+      if (url) setFailedUrl(url);
+    },
+  };
+}
+
+export function ProductMediaUnavailableStatus({
+  description,
+}: {
+  description: string;
+}) {
+  return (
+    <span
+      className="sr-only"
+      role="status"
+      aria-label={`${description} could not be loaded.`}
+    >
+      {description} could not be loaded.
+    </span>
+  );
+}
+
 type ProductImageProps = Omit<
   ComponentPropsWithoutRef<"span">,
   "children" | "className" | "style"
@@ -84,11 +111,9 @@ export function ProductImage({
   style,
   ...wrapperProps
 }: ProductImageProps) {
-  const [failedUrl, setFailedUrl] = useState<string | null>(null);
   const placeholderColors = swatchFromMedia(media, swatch);
-  const failed = Boolean(
-    media?.kind === "image" && media.url && failedUrl === media.url,
-  );
+  const imageUrl = media?.kind === "image" ? media.url : null;
+  const { failed, markFailed } = useProductMediaLoadFailure(imageUrl);
   const mediaKind = failed ? "placeholder" : (media?.kind ?? "placeholder");
   const accessibleAlt = imageAlt ?? media?.alt ?? "";
 
@@ -111,7 +136,7 @@ export function ProductImage({
           loading={loading}
           className={imageClassName}
           style={imageStyle}
-          onError={() => setFailedUrl(media.url)}
+          onError={markFailed}
         />
       ) : fallback !== undefined ? (
         fallback
@@ -124,13 +149,7 @@ export function ProductImage({
         />
       )}
       {failed && accessibleAlt && (
-        <span
-          className="sr-only"
-          role="status"
-          aria-label={`${accessibleAlt} is temporarily unavailable.`}
-        >
-          {accessibleAlt} is temporarily unavailable.
-        </span>
+        <ProductMediaUnavailableStatus description={accessibleAlt} />
       )}
     </span>
   );

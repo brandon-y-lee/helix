@@ -68,7 +68,7 @@ describe("Storefront Product Media fallback", () => {
     });
     expect(
       screen.getByRole("status", {
-        name: "Failed Product image is temporarily unavailable.",
+        name: "Failed Product image could not be loaded.",
       }),
     ).toBeInTheDocument();
 
@@ -119,7 +119,7 @@ describe("Storefront Product Media fallback", () => {
     expect(failedPosition?.querySelector("video")).toBeNull();
     expect(
       screen.getByRole("status", {
-        name: "Failed Product video is temporarily unavailable.",
+        name: "Failed Product video could not be loaded.",
       }),
     ).toBeInTheDocument();
     expect(
