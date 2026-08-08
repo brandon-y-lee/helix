@@ -51,7 +51,7 @@ export function fingerprintCatalog(facts: unknown): Sha256Fingerprint {
   return fingerprint(facts);
 }
 
-function isReviewedNonRuntimePath(path: string): boolean {
+export function isReviewedNonRuntimePath(path: string): boolean {
   return (
     path.startsWith(".claude/") ||
     path.startsWith("docs/") ||

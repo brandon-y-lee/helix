@@ -1,6 +1,8 @@
 import { execFile } from "node:child_process";
 import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { createRequire } from "node:module";
+import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import { chromium } from "@playwright/test";
 
@@ -19,6 +21,7 @@ import {
   fingerprintCatalog,
   fingerprintConfiguration,
   fingerprintRuntimeFiles,
+  isReviewedNonRuntimePath,
   sha256Fingerprint,
 } from "./verification-fingerprints";
 
@@ -59,7 +62,17 @@ async function readChromiumVersion(environment: NodeJS.ProcessEnv): Promise<stri
   if (environment.VERIFICATION_BROWSER_VERSION?.trim()) {
     return environment.VERIFICATION_BROWSER_VERSION.trim();
   }
-  const { stdout } = await execFileAsync(chromium.executablePath(), ["--version"], {
+  let executablePath = chromium.executablePath();
+  if (environment.VERIFICATION_BROWSER_CWD) {
+    const candidateRequire = createRequire(
+      resolve(environment.VERIFICATION_BROWSER_CWD, "package.json"),
+    );
+    const candidatePlaywright = await import(
+      pathToFileURL(candidateRequire.resolve("@playwright/test")).href
+    ) as { chromium: typeof chromium };
+    executablePath = candidatePlaywright.chromium.executablePath();
+  }
+  const { stdout } = await execFileAsync(executablePath, ["--version"], {
     encoding: "utf8",
   });
   const version = stdout.trim();
@@ -290,6 +303,14 @@ export async function verifyProtectedBranchPushReceipt(input: {
     throw new Error("Protected dev push requires exactly one associated merged pull request.");
   }
   const pull = associated[0]!;
+  const changed = await execFileAsync(
+    "git",
+    ["diff", "--name-only", "--diff-filter=ACMR", baseSha, pushSha],
+    { cwd, encoding: "utf8" },
+  );
+  const changedPaths = changed.stdout.split("\n").filter(Boolean);
+  const allowIntegrationCarryForward =
+    changedPaths.length > 0 && changedPaths.every(isReviewedNonRuntimePath);
   const files = await readVersionedFiles(cwd);
   const configurationFingerprint = fingerprintConfiguration(environment);
   const runtimeSubject = canonicalizeVerificationValue({
@@ -337,7 +358,7 @@ export async function verifyProtectedBranchPushReceipt(input: {
         return receipt ? [{ id: `verified-${index + 1}`, receipt }] : [];
       });
     },
-  });
+  }, { allowIntegrationCarryForward });
   if (result.outcome !== "reused") {
     throw new Error("Protected dev push has no matching signed Verification Receipt.");
   }

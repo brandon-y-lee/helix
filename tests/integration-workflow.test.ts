@@ -75,6 +75,10 @@ describe("dev Integration Line workflows", () => {
     expect(verification).toContain("Install audited signer dependencies");
     expect(verification).toContain("--ignore-scripts");
     expect(verification).toContain("Materialize candidate as non-executable input");
+    expect(verification).toContain("Isolate candidate execution from the audited runner");
+    expect(verification).toContain("sudo -E -H -u verifier-candidate");
+    expect(verification).toContain("chmod -R a-w trusted");
+    expect(verification).toContain("Freeze the receipted artifact before browser verification");
     expect(verification).toContain("verification:catalog-fingerprint");
     expect(verification).toContain(
       "scripts/verify-production-ci.ts verify --selection routine-chromium",
@@ -88,5 +92,10 @@ describe("dev Integration Line workflows", () => {
     expect(verification).toContain("retention-days: 30");
     expect(verification).toContain("retention-days: 90");
     expect(ci).toContain("verification:receipt:protected-push");
+    expect(ci).toContain('branches: [dev, main, "codex/spec-*"]');
+    expect(ci).toContain("classify-windows-lifecycle:");
+    expect(ci).toContain("needs: classify-windows-lifecycle");
+    expect(ci).toContain("workflow_dispatch:");
+    expect(ci).toContain("schedule:");
   });
 });

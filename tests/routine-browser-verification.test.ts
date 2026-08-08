@@ -264,6 +264,17 @@ describe("Routine Browser Verification", () => {
       ...current,
       planFingerprint: `sha256:${"9".repeat(64)}`,
     }, lookup)).resolves.toEqual({ outcome: "missing", reusable: false });
+
+    await expect(findReusableProtectedPushReceipt({
+      ...current,
+      integration: {
+        baseSha: "d".repeat(40),
+        candidateSha: "e".repeat(40),
+        pullRequest: 54,
+      },
+    }, lookup, { allowIntegrationCarryForward: true })).resolves.toMatchObject({
+      outcome: "reused",
+    });
   });
 
   it("keeps retained predicates free of adapter extras and raw Catalog facts", async () => {

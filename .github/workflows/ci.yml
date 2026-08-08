@@ -4,10 +4,13 @@ permissions:
   contents: read
 
 on:
+  workflow_dispatch:
+  schedule:
+    - cron: "23 9 * * 1"
   push:
     branches: [dev, main]
   pull_request:
-    branches: [dev, main]
+    branches: [dev, main, "codex/spec-*"]
 
 # Cancel superseded runs on the same ref to save CI minutes.
 concurrency:
@@ -15,7 +18,35 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  classify-windows-lifecycle:
+    runs-on: ubuntu-latest
+    outputs:
+      relevant: ${{ steps.classify.outputs.relevant }}
+    steps:
+      - name: Checkout history for lifecycle classification
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Select relevant lifecycle changes
+        id: classify
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [[ "${{ github.event_name }}" == "schedule" || "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "relevant=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git diff --name-only --diff-filter=ACMR "$BASE_SHA" "$GITHUB_SHA" > "$RUNNER_TEMP/changed-files.txt"
+          if grep -Eq '^(\.github/workflows/|playwright\.config\.ts$|scripts/(affected-browser-verification|browser-verification-plan|github/|production-verification|verify-affected|verify-production)|tests/(affected-browser-verification|integration-|verification-orchestrator|production-verification))' "$RUNNER_TEMP/changed-files.txt"; then
+            echo "relevant=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "relevant=false" >> "$GITHUB_OUTPUT"
+          fi
+
   verification-lifecycle-windows:
+    needs: classify-windows-lifecycle
+    if: ${{ needs.classify-windows-lifecycle.outputs.relevant == 'true' }}
     runs-on: windows-latest
     timeout-minutes: 10
     steps:
@@ -38,6 +69,7 @@ jobs:
         run: pnpm vitest run tests/production-verification.test.ts tests/production-verification-process.test.ts
 
   ci:
+    if: ${{ github.event_name != 'schedule' && github.event_name != 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:

@@ -79,56 +79,88 @@ jobs:
           --dev-base "${{ inputs.dev_base }}"
           --output "$GITHUB_WORKSPACE/candidate"
 
+      - name: Isolate candidate execution from the audited runner
+        run: |
+          sudo useradd --create-home --shell /bin/bash verifier-candidate
+          sudo chown -R verifier-candidate:verifier-candidate candidate
+          chmod -R a-w trusted
+          sudo -u verifier-candidate test ! -w trusted/scripts/github/verification-receipt-command.ts
+
       - name: Install frozen candidate dependencies
-        run: pnpm --dir candidate install --frozen-lockfile
+        run: sudo -E -H -u verifier-candidate "$(command -v pnpm)" --dir candidate install --frozen-lockfile --store-dir candidate/.pnpm-store
+
+      - name: Freeze candidate dependencies and prove source integrity
+        run: |
+          sudo chown -R root:root candidate/node_modules
+          sudo chmod -R a-w candidate/node_modules
+          git -C candidate diff --exit-code
+          test -z "$(git -C candidate status --short --untracked-files=all)"
 
       - name: Lint
-        run: pnpm --dir candidate lint
+        run: sudo -E -H -u verifier-candidate "$(command -v pnpm)" --dir candidate lint
 
       - name: Typecheck
-        run: pnpm --dir candidate typecheck
+        run: sudo -E -H -u verifier-candidate "$(command -v pnpm)" --dir candidate typecheck
 
       - name: Unit tests
-        run: pnpm --dir candidate test
+        run: sudo -E -H -u verifier-candidate "$(command -v pnpm)" --dir candidate test
+
+      - name: Recheck candidate source after untrusted commands
+        run: |
+          git -C candidate diff --exit-code
+          test -z "$(git -C candidate status --short --untracked-files=all)"
 
       - name: Install Playwright browsers
         if: ${{ inputs.gate == 'complete-behavioral' }}
-        run: pnpm --dir candidate exec playwright install --with-deps chromium
+        run: |
+          sudo -E pnpm --dir trusted exec playwright install-deps chromium
+          sudo -E -H -u verifier-candidate "$(command -v pnpm)" --dir candidate exec playwright install chromium
 
       - name: Build receipted production artifact with the trusted runner
         if: ${{ inputs.gate == 'complete-behavioral' }}
-        run: pnpm --dir trusted exec tsx scripts/verify-production-ci.ts build
+        run: sudo -E -H -u verifier-candidate "$(command -v pnpm)" --dir trusted exec tsx scripts/verify-production-ci.ts build
+
+      - name: Freeze the receipted artifact before browser verification
+        if: ${{ inputs.gate == 'complete-behavioral' }}
+        run: |
+          sudo chown -R root:root candidate/.next
+          sudo chmod -R a-w candidate/.next
+          sudo -u verifier-candidate test ! -w candidate/.next/BUILD_ID
 
       - name: Record Catalog fingerprint before verification with trusted code
         if: ${{ inputs.gate == 'complete-behavioral' }}
         id: catalog-before
-        run: echo "fingerprint=$(pnpm --dir trusted --silent verification:catalog-fingerprint)" >> "$GITHUB_OUTPUT"
+        run: echo "fingerprint=$(sudo -E -H -u verifier-candidate "$(command -v pnpm)" --dir trusted --silent verification:catalog-fingerprint)" >> "$GITHUB_OUTPUT"
 
       - name: Verify receipted production artifact with the trusted runner
         if: ${{ inputs.gate == 'complete-behavioral' }}
         env:
-          PLAYWRIGHT_JSON_OUTPUT_FILE: ${{ runner.temp }}/playwright-telemetry.json
-        run: pnpm --dir trusted exec tsx scripts/verify-production-ci.ts verify --selection routine-chromium
+          PLAYWRIGHT_JSON_OUTPUT_FILE: ${{ github.workspace }}/candidate/test-results/playwright-telemetry.json
+        run: sudo -E -H -u verifier-candidate "$(command -v pnpm)" --dir trusted exec tsx scripts/verify-production-ci.ts verify --selection routine-chromium
 
       - name: Require structured browser telemetry
         if: ${{ inputs.gate == 'complete-behavioral' }}
         env:
-          PLAYWRIGHT_JSON_OUTPUT_FILE: ${{ runner.temp }}/playwright-telemetry.json
+          PLAYWRIGHT_JSON_OUTPUT_FILE: ${{ github.workspace }}/candidate/test-results/playwright-telemetry.json
         run: test -s "$PLAYWRIGHT_JSON_OUTPUT_FILE"
 
       - name: Record Catalog fingerprint after verification with trusted code
         if: ${{ inputs.gate == 'complete-behavioral' }}
         id: catalog-after
-        run: echo "fingerprint=$(pnpm --dir trusted --silent verification:catalog-fingerprint)" >> "$GITHUB_OUTPUT"
+        run: echo "fingerprint=$(sudo -E -H -u verifier-candidate "$(command -v pnpm)" --dir trusted --silent verification:catalog-fingerprint)" >> "$GITHUB_OUTPUT"
 
       - name: Record exact Chromium version
         if: ${{ inputs.gate == 'complete-behavioral' }}
         id: browser-version
-        run: pnpm --dir trusted exec tsx scripts/github/verification-receipt-command.ts browser-version
+        env:
+          VERIFICATION_BROWSER_CWD: ${{ github.workspace }}/candidate
+        run: sudo -E -H -u verifier-candidate "$(command -v pnpm)" --dir trusted exec tsx scripts/github/verification-receipt-command.ts browser-version
 
       - name: Stage unprivileged build evidence
         if: ${{ inputs.gate == 'complete-behavioral' }}
         run: |
+          git -C candidate diff --exit-code
+          test -z "$(git -C candidate status --short --untracked-files=all)"
           mkdir -p "$RUNNER_TEMP/verification-evidence"
           cp candidate/.next/BUILD_ID "$RUNNER_TEMP/verification-evidence/BUILD_ID"
 
@@ -147,7 +179,7 @@ jobs:
           name: integration-playwright-success-${{ inputs.pr_number }}-${{ inputs.nonce }}
           path: |
             candidate/playwright-report/
-            ${{ runner.temp }}/playwright-telemetry.json
+            candidate/test-results/playwright-telemetry.json
           retention-days: 30
           if-no-files-found: error
 
@@ -159,7 +191,7 @@ jobs:
           path: |
             candidate/playwright-report/
             candidate/test-results/
-            ${{ runner.temp }}/playwright-telemetry.json
+            candidate/test-results/playwright-telemetry.json
           retention-days: 90
           if-no-files-found: ignore
 

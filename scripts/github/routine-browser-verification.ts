@@ -171,6 +171,7 @@ export async function findReusableVerificationReceipt(
 export async function findReusableProtectedPushReceipt(
   current: ProtectedPushVerificationInputs,
   attestation: Pick<RoutineBrowserVerificationAdapters["attestation"], "lookup">,
+  options: { allowIntegrationCarryForward?: boolean } = {},
 ) {
   const candidates = await attestation.lookup(current.artifact.runtimeFingerprint);
   for (const candidate of candidates) {
@@ -179,6 +180,9 @@ export async function findReusableProtectedPushReceipt(
         ...current,
         artifact: { ...current.artifact, buildId: candidate.receipt.artifact.buildId },
         browsers: candidate.receipt.browsers,
+        integration: options.allowIntegrationCarryForward
+          ? candidate.receipt.integration
+          : current.integration,
       },
       { async lookup() { return [candidate]; } },
     );
