@@ -333,7 +333,7 @@ describe("ProductCard quick buy", () => {
       name: "Close quick buy for CLEANSE",
     });
     fireEvent.touchStart(close);
-    fireEvent.click(close);
+    fireEvent.touchEnd(close);
 
     expect(surface).toHaveAttribute("data-visual-state", "default");
   });

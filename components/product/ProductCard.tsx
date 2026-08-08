@@ -20,6 +20,7 @@ import {
   type FocusEvent,
   type KeyboardEvent,
   type PointerEvent as ReactPointerEvent,
+  type TouchEvent as ReactTouchEvent,
 } from "react";
 import { ProductImage } from "@/components/product/ProductImage";
 import { useProductPurchase } from "@/components/cart/useProductPurchase";
@@ -295,6 +296,23 @@ export function ProductCard({
     }
   }
 
+  function preserveViewportAfterUpdate() {
+    const scrollX = window.scrollX;
+    const scrollY = window.scrollY;
+    const restoreViewport = () => {
+      if (window.scrollX !== scrollX || window.scrollY !== scrollY) {
+        window.scrollTo(scrollX, scrollY);
+      }
+    };
+    restoreViewport();
+    window.requestAnimationFrame(restoreViewport);
+  }
+
+  function focusTriggerWithoutScrolling() {
+    triggerRef.current?.focus({ preventScroll: true });
+    preserveViewportAfterUpdate();
+  }
+
   function closeQuickBuy({
     focusTrigger = true,
     restorePointerPreview = false,
@@ -319,7 +337,7 @@ export function ProductCard({
       }
     }
     if (focusTrigger) {
-      triggerRef.current?.focus();
+      focusTriggerWithoutScrolling();
     }
   }
 
@@ -387,6 +405,11 @@ export function ProductCard({
     };
   }
 
+  function handleCloseTouchEnd(event: ReactTouchEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    closeQuickBuy({ restorePointerPreview: true });
+  }
+
   function handleCloseClick() {
     closeQuickBuy({
       restorePointerPreview: !lastInputWasKeyboardRef.current,
@@ -406,8 +429,11 @@ export function ProductCard({
         swatch: product.swatch,
         ...cartMediaSnapshot(media),
       },
-      beforeDrawerOpen: () => closeQuickBuy({ focusTrigger: false }),
-      returnFocus: () => triggerRef.current?.focus(),
+      beforeDrawerOpen: () => {
+        closeQuickBuy({ focusTrigger: false });
+        preserveViewportAfterUpdate();
+      },
+      returnFocus: focusTriggerWithoutScrolling,
     });
     if (ok) {
       setAdded(true);
@@ -580,6 +606,7 @@ export function ProductCard({
                 className="product-card__quick-close"
                 onPointerDown={handleClosePointerDown}
                 onTouchStart={handleCloseTouchStart}
+                onTouchEnd={handleCloseTouchEnd}
                 onClick={handleCloseClick}
                 aria-label={`Close quick buy for ${displayName}`}
                 tabIndex={isQuickBuyOpen ? undefined : -1}
@@ -610,6 +637,14 @@ export function ProductCard({
                   ))}
                 </dl>
               )}
+
+              <Link
+                href={href}
+                className="product-card__quick-link"
+                tabIndex={isQuickBuyOpen ? undefined : -1}
+              >
+                Full details
+              </Link>
 
               {product.variants.length > 1 && (
                 <fieldset className="product-card__quick-variants">
@@ -655,13 +690,6 @@ export function ProductCard({
                 >
                   {pending ? "ADDING" : purchaseCta.label}
                 </button>
-                <Link
-                  href={href}
-                  className="product-card__quick-link"
-                  tabIndex={isQuickBuyOpen ? undefined : -1}
-                >
-                  Full details
-                </Link>
               </div>
             </section>
           </div>
