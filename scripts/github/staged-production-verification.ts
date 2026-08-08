@@ -42,6 +42,13 @@ export type StagedProductionReceipt = {
   workflowRun: string;
 };
 
+export type StagedProductionReceiptCurrentInputs = {
+  catalogFingerprint: Sha256Fingerprint;
+  deployment: StagedProductionDeployment & { productionDomains: string[]; ready: boolean };
+  source: StagedProductionSourceIdentity;
+  workflowRun: string;
+};
+
 export type StagedProductionVerificationAdapters = {
   attestation: {
     sign(receipt: StagedProductionReceipt): Promise<{ id: string; url: string }>;
@@ -89,6 +96,63 @@ function sameSource(
   return JSON.stringify(expected) === JSON.stringify(observed);
 }
 
+function canonicalJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
+  if (value !== null && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    return `{${Object.keys(record).sort().map((key) => (
+      `${JSON.stringify(key)}:${canonicalJson(record[key])}`
+    )).join(",")}}`;
+  }
+  return JSON.stringify(value) ?? "null";
+}
+
+export function verifyPreparedStagedProductionReceipt(
+  receipt: StagedProductionReceipt,
+  current: StagedProductionReceiptCurrentInputs,
+): void {
+  const deploymentMatches =
+    current.deployment.ready &&
+    current.deployment.productionDomains.length === 0 &&
+    sameDeployment(receipt.deployment, current.deployment);
+  const sourceMatches =
+    receipt.source.candidateSha === current.source.candidateSha &&
+    canonicalJson(receipt.artifact) === canonicalJson(current.source.artifact) &&
+    canonicalJson(receipt.browsers) === canonicalJson(current.source.browsers) &&
+    receipt.planFingerprint === current.source.planFingerprint &&
+    canonicalJson(receipt.tools) === canonicalJson(current.source.tools);
+  const receiptIsCanonical =
+    receipt.predicateType === STAGED_PRODUCTION_RECEIPT_PREDICATE_TYPE &&
+    receipt.result === "passed" &&
+    receipt.deployment.productionDomainAssignment === "none" &&
+    receipt.catalog.before === current.catalogFingerprint &&
+    receipt.catalog.after === current.catalogFingerprint &&
+    /^\d+-\d+$/.test(receipt.workflowRun) && receipt.workflowRun === current.workflowRun &&
+    !Number.isNaN(Date.parse(receipt.completedAt));
+  if (!deploymentMatches || !sourceMatches || !receiptIsCanonical) {
+    throw new Error("Production Receipt does not match independently reconstructed staged inputs.");
+  }
+}
+
+export function verifySignedStagedProductionPredicate(
+  receipt: StagedProductionReceipt,
+  verifiedPredicate: unknown,
+): void {
+  if (canonicalJson(receipt) !== canonicalJson(verifiedPredicate)) {
+    throw new Error("Verified Production Receipt predicate was substituted or tampered with.");
+  }
+}
+
+function domainAssigned(deployment: StagedProductionDeployment, productionDomains: string[]) {
+  if (productionDomains.length === 0) return null;
+  return {
+    deployment,
+    diagnostics: { reason: "Production domains were assigned to the staged deployment." },
+    outcome: "domain-assigned" as const,
+    reusable: false as const,
+  };
+}
+
 export async function prepareStagedProductionVerification(
   input: { candidateSha: string; workflowRun: string },
   adapters: Omit<StagedProductionVerificationAdapters, "attestation">,
@@ -105,16 +169,8 @@ export async function prepareStagedProductionVerification(
     target: "production",
   });
   const initialDeployment = await adapters.deployment.inspect(deployment.id);
-  if (initialDeployment.productionDomains.length > 0) {
-    return {
-      deployment,
-      diagnostics: {
-        reason: "Production domains were assigned to the staged deployment.",
-      },
-      outcome: "domain-assigned" as const,
-      reusable: false as const,
-    };
-  }
+  const initialDomainFailure = domainAssigned(deployment, initialDeployment.productionDomains);
+  if (initialDomainFailure) return initialDomainFailure;
   if (!initialDeployment.ready || !sameDeployment(deployment, initialDeployment)) {
     return {
       deployment,
@@ -142,18 +198,8 @@ export async function prepareStagedProductionVerification(
   const finalSource = await adapters.source.read(deployment);
   const finalDeployment = await adapters.deployment.inspect(deployment.id);
 
-  if (
-    finalDeployment.productionDomains.length > 0
-  ) {
-    return {
-      deployment,
-      diagnostics: {
-        reason: "Production domains were assigned to the staged deployment.",
-      },
-      outcome: "domain-assigned" as const,
-      reusable: false as const,
-    };
-  }
+  const finalDomainFailure = domainAssigned(deployment, finalDeployment.productionDomains);
+  if (finalDomainFailure) return finalDomainFailure;
   if (!sameDeployment(deployment, finalDeployment)) {
     return {
       deployment,

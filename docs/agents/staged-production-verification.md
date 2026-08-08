@@ -13,7 +13,10 @@ immutable deployment in the complete Chromium and WebKit plans.
 - `dev` is the source authority for staging. The staged Production workflow
   rejects any requested source that is not the current remote `dev` commit.
 - A staged Production deployment uses Production configuration but receives no
-  Production domains. Its generated Vercel URL is the inspection target.
+  Production domains. The workflow explicitly supplies the reviewed
+  `NEXT_PUBLIC_*` values as both build and runtime overrides so the non-secret
+  configuration fingerprint describes the deployed artifact rather than the
+  runner alone. Its generated Vercel URL is the inspection target.
 - Production promotion is a later, user-authorized operation. This workflow
   never calls `vercel promote`, assigns an alias, merges `dev` to `main`, or
   rebuilds the verified deployment.
@@ -50,6 +53,18 @@ non-secret configuration, build identity, browser versions and plan, and
 Catalog Fingerprints remain unchanged and both browsers pass without retry.
 Failure, partial execution, timeout, cancellation, retry-pass, or any changed
 input leaves diagnostics but no signed reusable Production Receipt.
+
+The staged build exposes a no-store verification manifest at
+`/api/verification/artifact`. It contains only the build marker, source SHA,
+and runtime and non-secret configuration fingerprints; ordinary builds return
+404. Verification reads that manifest from the generated deployment URL and
+also requires matching Vercel source metadata. Before signing, a separate job
+checks out the same source and independently reconstructs the deployment,
+artifact, Catalog, browser, plan, and tool identities. After signing, `gh`
+cryptographically verifies the expected workflow identity and exact predicate,
+rejecting a substituted or modified receipt. The command owns a shorter
+timeout than the Actions job so timeout evidence can be written before the
+outer job limit; failure and cancellation cleanup uploads available diagnostics.
 
 ## Release boundary
 

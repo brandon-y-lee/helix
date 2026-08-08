@@ -6,6 +6,8 @@ import {
   type StagedProductionDeployment,
   type StagedProductionSourceIdentity,
   type StagedProductionVerificationAdapters,
+  verifyPreparedStagedProductionReceipt,
+  verifySignedStagedProductionPredicate,
 } from "@/scripts/github/verification-orchestrator";
 
 const candidateSha = "c".repeat(40);
@@ -116,6 +118,7 @@ describe("staged Production verification", () => {
       { candidateSha, workflowRun: "57-1" },
       controlled.adapters,
     );
+    if (result.outcome !== "passed") throw new Error("Expected a passed staged verification.");
 
     expect(controlled.browserRequests).toEqual([{
       deployment,
@@ -159,6 +162,33 @@ describe("staged Production verification", () => {
       controlled.adapters,
     )).rejects.toThrow("requires an exact candidate SHA");
     expect(deploymentCalls).toBe(0);
+  });
+
+  it("independently reconstructs every reusable receipt input and rejects substitution", async () => {
+    const result = await runStagedProductionVerification(
+      { candidateSha, workflowRun: "57-1" },
+      controlledAdapters().adapters,
+    );
+    if (result.outcome !== "passed") throw new Error("Expected a passed staged verification.");
+    const current = {
+      catalogFingerprint: `sha256:${"3".repeat(64)}` as const,
+      deployment: { ...deployment, productionDomains: [], ready: true },
+      source: sourceIdentity,
+      workflowRun: "57-1",
+    };
+
+    expect(() => verifyPreparedStagedProductionReceipt(result.receipt, current)).not.toThrow();
+    expect(() => verifyPreparedStagedProductionReceipt(result.receipt, {
+      ...current,
+      source: {
+        ...sourceIdentity,
+        artifact: { ...sourceIdentity.artifact, buildId: "substituted-build" },
+      },
+    })).toThrow("independently reconstructed");
+    expect(() => verifySignedStagedProductionPredicate(result.receipt, {
+      ...result.receipt,
+      source: { candidateSha: "d".repeat(40) },
+    })).toThrow("substituted or tampered");
   });
 
   it.each([
