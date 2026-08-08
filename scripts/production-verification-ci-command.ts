@@ -44,7 +44,7 @@ export async function runProductionVerificationCiCommand(input: {
   log?: (message: string) => void;
   requestedPort?: string;
   signal?: AbortSignal;
-}): Promise<void> {
+}) {
   const { operation, routineChromium } = readOperation(input.argv, input.env);
   const adapters =
     input.adapters ??
@@ -60,7 +60,7 @@ export async function runProductionVerificationCiCommand(input: {
       adapters,
     );
     log(`Receipted production build passed for build ${receipt.buildId}.`);
-    return;
+    return { buildId: receipt.buildId, operation: "build" as const, outcome: "passed" as const };
   }
 
   const result = await verifyReceiptedProductionArtifact(
@@ -80,4 +80,10 @@ export async function runProductionVerificationCiCommand(input: {
   log(
     `Receipted production verification passed for build ${result.buildId} at ${result.baseURL}.`,
   );
+  return {
+    buildId: result.buildId,
+    operation: "verify" as const,
+    outcome: "passed" as const,
+    retries: result.retries ?? 0,
+  };
 }

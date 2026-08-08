@@ -91,6 +91,9 @@ describe("dev Integration Line workflows", () => {
     expect(verification).toContain("uses: actions/attest@v4");
     expect(verification).toContain("predicate-type:");
     expect(verification).toContain("verification:receipt:verify");
+    expect(verification).toContain("verification-receipt-command.ts evidence");
+    expect(verification).toContain("VERIFICATION_EVIDENCE_PATH:");
+    expect(verification).toContain("VERIFICATION_BROWSER_VERSION:");
     expect(verification).toContain("PLAYWRIGHT_JSON_OUTPUT_FILE:");
     expect(verification).toContain("playwright-telemetry.json");
     expect(verification).toContain('test -s "$PLAYWRIGHT_JSON_OUTPUT_FILE"');
@@ -103,6 +106,9 @@ describe("dev Integration Line workflows", () => {
     expect(ci).toContain("classify-windows-lifecycle:");
     expect(ci).toContain("needs: classify-windows-lifecycle");
     expect(ci).toContain("node scripts/github/verification-system-paths.mjs");
+    expect(ci).toContain('relevant="$(node scripts/github/verification-system-paths.mjs');
+    expect(ci).toContain('if [[ "$relevant" != "true" && "$relevant" != "false" ]]');
+    expect(ci).not.toContain("if node scripts/github/verification-system-paths.mjs");
     expect(ci).toContain("verification-lifecycle-gate:");
     expect(ci).toContain("needs: [classify-windows-lifecycle, verification-lifecycle-windows]");
     expect(ci).toContain("WINDOWS_RESULT:");

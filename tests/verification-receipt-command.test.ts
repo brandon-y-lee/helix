@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import {
   bootstrapInitialVerificationReceipt,
   isInitialReceiptVerificationCutover,
+  writeVerificationExecutionEvidence,
   verifyVerificationReceipt,
 } from "@/scripts/github/verification-receipt-command";
 import {
@@ -42,6 +43,42 @@ const receipt: VerificationReceipt = {
 };
 
 describe("GitHub Verification Receipt lookup", () => {
+  it("records actual artifact, Catalog, browser version, and retry evidence for orchestration", async () => {
+    const directory = await mkdtemp(resolve(tmpdir(), "mei-pelle-execution-evidence-"));
+    const evidencePath = resolve(directory, "execution.json");
+    const browserResultPath = resolve(directory, "browser-result.json");
+    try {
+      await mkdir(resolve(directory, ".next"));
+      await writeFile(resolve(directory, ".next/BUILD_ID"), "build-53\n");
+      await writeFile(browserResultPath, JSON.stringify({
+        attempts: 2, buildId: "build-53", outcome: "passed",
+      }));
+      await writeVerificationExecutionEvidence({
+        cwd: directory,
+        environment: {
+          ...process.env,
+          CATALOG_FINGERPRINT_AFTER: `sha256:${"3".repeat(64)}`,
+          CATALOG_FINGERPRINT_BEFORE: `sha256:${"3".repeat(64)}`,
+          VERIFICATION_BROWSER_RESULT_PATH: browserResultPath,
+          VERIFICATION_BROWSER_VERSION: "Chromium 140",
+          VERIFICATION_EVIDENCE_PATH: evidencePath,
+        },
+      });
+
+      expect(JSON.parse(await readFile(evidencePath, "utf8"))).toMatchObject({
+        artifact: { buildId: "build-53", outcome: "passed" },
+        browser: { attempts: 2, outcome: "passed", version: "Chromium 140" },
+        catalog: {
+          after: `sha256:${"3".repeat(64)}`,
+          before: `sha256:${"3".repeat(64)}`,
+        },
+        version: 1,
+      });
+    } finally {
+      await rm(directory, { force: true, recursive: true });
+    }
+  });
+
   it("fails closed when the trusted cutover workflow cannot produce and verify a receipt", async () => {
     await expect(bootstrapInitialVerificationReceipt({
       baseSha: "b".repeat(40),

@@ -38,11 +38,15 @@ jobs:
             exit 0
           fi
           git diff --name-only --diff-filter=ACMR "$BASE_SHA" "$GITHUB_SHA" > "$RUNNER_TEMP/changed-files.txt"
-          if node scripts/github/verification-system-paths.mjs "$RUNNER_TEMP/changed-files.txt"; then
-            echo "relevant=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "relevant=false" >> "$GITHUB_OUTPUT"
+          if ! relevant="$(node scripts/github/verification-system-paths.mjs "$RUNNER_TEMP/changed-files.txt")"; then
+            echo "Lifecycle classification failed." >&2
+            exit 1
           fi
+          if [[ "$relevant" != "true" && "$relevant" != "false" ]]; then
+            echo "Lifecycle classification returned an invalid result." >&2
+            exit 1
+          fi
+          echo "relevant=$relevant" >> "$GITHUB_OUTPUT"
 
   verification-lifecycle-windows:
     needs: classify-windows-lifecycle

@@ -82,6 +82,11 @@ export type RoutineBrowserVerificationAdapters = {
   };
 };
 
+export type RoutineReceiptEvidenceAdapters = Omit<
+  RoutineBrowserVerificationAdapters,
+  "attestation"
+>;
+
 export type CurrentVerificationInputs = {
   artifact: VerificationReceipt["artifact"];
   browsers: VerificationReceipt["browsers"];
@@ -191,9 +196,9 @@ export async function findReusableProtectedPushReceipt(
   return { outcome: "missing" as const, reusable: false as const };
 }
 
-export async function runRoutineBrowserVerification(
+export async function prepareRoutineBrowserVerification(
   input: RoutineBrowserVerificationInput,
-  adapters: RoutineBrowserVerificationAdapters,
+  adapters: RoutineReceiptEvidenceAdapters,
 ) {
   validateInput(input);
   const preparedArtifact = await adapters.artifact.prepare();
@@ -250,11 +255,24 @@ export async function runRoutineBrowserVerification(
     },
     workflowRun: input.workflowRun,
   };
-  const attestation = await adapters.attestation.sign(receipt);
+  return {
+    outcome: "passed" as const,
+    receipt,
+    reusable: false as const,
+  };
+}
+
+export async function runRoutineBrowserVerification(
+  input: RoutineBrowserVerificationInput,
+  adapters: RoutineBrowserVerificationAdapters,
+) {
+  const prepared = await prepareRoutineBrowserVerification(input, adapters);
+  if (prepared.outcome !== "passed") return prepared;
+  const attestation = await adapters.attestation.sign(prepared.receipt);
   return {
     attestationId: attestation.id,
     outcome: "passed" as const,
-    receipt,
+    receipt: prepared.receipt,
     reusable: true as const,
   };
 }

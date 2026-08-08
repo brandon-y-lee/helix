@@ -144,7 +144,7 @@ describe("Production Verification Commands", () => {
   it("runs the complete first-pass Chromium plan for Routine Browser Verification", async () => {
     const commitSha = "f".repeat(40);
     let selection: unknown;
-    await runProductionVerificationCiCommand({
+    const result = await runProductionVerificationCiCommand({
       adapters: makeCiAdapters({
         readArtifact: async () => ({ buildId: "routine-build", modifiedAtMs: 100 }),
         readCommitSha: async () => commitSha,
@@ -154,6 +154,7 @@ describe("Production Verification Commands", () => {
         }),
         runBrowserTests: async (run) => {
           selection = run.selection;
+          return { retries: 0 };
         },
         selectFreePort: async () => 43_126,
         startServer: async () => ({ exited: new Promise(() => {}), stop: async () => {} }),
@@ -168,6 +169,12 @@ describe("Production Verification Commands", () => {
     expect(selection).toEqual({
       journeyIds: BROWSER_VERIFICATION_PLAN.journeys.map(({ id }) => id),
       projects: ["chromium"],
+      retries: 0,
+    });
+    expect(result).toMatchObject({
+      buildId: "routine-build",
+      operation: "verify",
+      outcome: "passed",
       retries: 0,
     });
   });

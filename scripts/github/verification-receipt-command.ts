@@ -8,14 +8,16 @@ import { chromium } from "@playwright/test";
 
 import { BROWSER_VERIFICATION_PLAN } from "../browser-verification-plan";
 import {
-  findReusableVerificationReceipt,
   findReusableProtectedPushReceipt,
-  runRoutineBrowserVerification,
   VERIFICATION_RECEIPT_PREDICATE_TYPE,
   type CurrentVerificationInputs,
   type Sha256Fingerprint,
   type VerificationReceipt,
 } from "./routine-browser-verification";
+import {
+  createRoutineReceiptOrchestrator,
+  verifySignedRoutineReceipt,
+} from "./verification-orchestrator";
 import {
   canonicalizeVerificationValue,
   fingerprintCatalog,
@@ -29,6 +31,18 @@ const execFileAsync = promisify(execFile);
 const RECEIPT_DIRECTORY = "mei-pelle-verification-receipt";
 const SUBJECT_FILE = "runtime-subject.json";
 const PREDICATE_FILE = "predicate.json";
+
+type VerificationExecutionEvidence = {
+  version: 1;
+  artifact: { buildId: string; outcome: "passed" };
+  browser: {
+    attempts: number;
+    outcome: "passed" | "failed" | "partial" | "cancelled" | "timed-out";
+    version: string;
+  };
+  catalog: { after: Sha256Fingerprint; before: Sha256Fingerprint };
+  completedAt: string;
+};
 
 function required(environment: NodeJS.ProcessEnv, key: string): string {
   const value = environment[key];
@@ -89,19 +103,82 @@ async function writeActionsOutput(environment: NodeJS.ProcessEnv, values: Record
   );
 }
 
+export async function writeVerificationExecutionEvidence(input: {
+  cwd: string;
+  environment: NodeJS.ProcessEnv;
+}) {
+  const { cwd, environment } = input;
+  const browserResult = JSON.parse(await readFile(
+    required(environment, "VERIFICATION_BROWSER_RESULT_PATH"),
+    "utf8",
+  )) as { attempts?: unknown; buildId?: unknown; outcome?: unknown };
+  const buildId = (await readFile(resolve(cwd, ".next/BUILD_ID"), "utf8")).trim();
+  if (
+    browserResult.buildId !== buildId || browserResult.outcome !== "passed" ||
+    !Number.isSafeInteger(browserResult.attempts) || Number(browserResult.attempts) < 1
+  ) {
+    throw new Error("Verification evidence requires a matching passed browser result.");
+  }
+  const evidence: VerificationExecutionEvidence = {
+    version: 1,
+    artifact: {
+      buildId,
+      outcome: "passed",
+    },
+    browser: {
+      attempts: Number(browserResult.attempts),
+      outcome: "passed",
+      version: await readChromiumVersion(environment),
+    },
+    catalog: {
+      before: requireFingerprint(
+        required(environment, "CATALOG_FINGERPRINT_BEFORE"),
+        "Catalog fingerprint before",
+      ),
+      after: requireFingerprint(
+        required(environment, "CATALOG_FINGERPRINT_AFTER"),
+        "Catalog fingerprint after",
+      ),
+    },
+    completedAt: new Date().toISOString(),
+  };
+  if (!evidence.artifact.buildId) throw new Error("Verification evidence requires a build ID.");
+  await writeFile(
+    required(environment, "VERIFICATION_EVIDENCE_PATH"),
+    canonicalizeVerificationValue(evidence),
+    { encoding: "utf8", mode: 0o600 },
+  );
+  return evidence;
+}
+
+async function readVerificationExecutionEvidence(
+  environment: NodeJS.ProcessEnv,
+): Promise<VerificationExecutionEvidence> {
+  const evidence = JSON.parse(await readFile(
+    required(environment, "VERIFICATION_EVIDENCE_PATH"),
+    "utf8",
+  )) as VerificationExecutionEvidence;
+  if (
+    evidence.version !== 1 || evidence.artifact?.outcome !== "passed" ||
+    !evidence.artifact.buildId?.trim() || !Number.isSafeInteger(evidence.browser?.attempts) ||
+    evidence.browser.attempts < 1 || !evidence.browser.version?.trim() ||
+    !evidence.completedAt?.trim()
+  ) {
+    throw new Error("Verification execution evidence is incomplete or malformed.");
+  }
+  requireFingerprint(evidence.catalog.before, "Catalog fingerprint before");
+  requireFingerprint(evidence.catalog.after, "Catalog fingerprint after");
+  return evidence;
+}
+
 export async function prepareVerificationReceipt(input: {
   cwd: string;
   environment: NodeJS.ProcessEnv;
 }) {
   const { cwd, environment } = input;
-  const catalogBefore = requireFingerprint(
-    required(environment, "CATALOG_FINGERPRINT_BEFORE"),
-    "Catalog fingerprint before",
-  );
-  const catalogAfter = requireFingerprint(
-    required(environment, "CATALOG_FINGERPRINT_AFTER"),
-    "Catalog fingerprint after",
-  );
+  const evidence = await readVerificationExecutionEvidence(environment);
+  const catalogBefore = evidence.catalog.before;
+  const catalogAfter = evidence.catalog.after;
   const catalogCurrent = environment.CATALOG_FINGERPRINT_CURRENT
     ? requireFingerprint(environment.CATALOG_FINGERPRINT_CURRENT, "current Catalog fingerprint")
     : catalogAfter;
@@ -122,51 +199,64 @@ export async function prepareVerificationReceipt(input: {
     dependencies: Record<string, string>;
     devDependencies: Record<string, string>;
   };
+  const buildId = (await readFile(resolve(cwd, ".next/BUILD_ID"), "utf8")).trim();
+  if (buildId !== evidence.artifact.buildId) {
+    throw new Error("Verification evidence does not match the staged production artifact.");
+  }
   const artifact = {
-    buildId: (await readFile(resolve(cwd, ".next/BUILD_ID"), "utf8")).trim(),
+    buildId,
     configurationFingerprint,
     runtimeFingerprint,
   };
   let catalogReads = 0;
-  const result = await runRoutineBrowserVerification(
-    {
-      baseSha: required(environment, "VERIFICATION_DEV_BASE"),
-      browserVersions: { chromium: await readChromiumVersion(environment) },
-      candidateSha: required(environment, "VERIFICATION_CANDIDATE_SHA"),
-      frameworkVersion: packageJson.dependencies.next ?? "unknown",
-      nodeVersion: process.version,
-      packageManagerVersion: packageJson.packageManager,
-      planFingerprint: fingerprintCatalog(BROWSER_VERIFICATION_PLAN),
-      playwrightVersion: packageJson.devDependencies["@playwright/test"] ?? "unknown",
-      pullRequest: Number(required(environment, "VERIFICATION_PULL_REQUEST")),
-      workflowRun: required(environment, "VERIFICATION_WORKFLOW_RUN"),
-    },
-    {
-      artifact: { async prepare() { return artifact; } },
-      attestation: {
-        async lookup() { return []; },
-        async sign(receipt) { return { id: "pending-github-attestation", receipt }; },
+  const identity = {
+    baseSha: required(environment, "VERIFICATION_DEV_BASE"),
+    browserVersions: { chromium: evidence.browser.version },
+    candidateSha: required(environment, "VERIFICATION_CANDIDATE_SHA"),
+    frameworkVersion: packageJson.dependencies.next ?? "unknown",
+    nodeVersion: process.version,
+    packageManagerVersion: packageJson.packageManager,
+    planFingerprint: fingerprintCatalog(BROWSER_VERIFICATION_PLAN),
+    playwrightVersion: packageJson.devDependencies["@playwright/test"] ?? "unknown",
+    pullRequest: Number(required(environment, "VERIFICATION_PULL_REQUEST")),
+    workflowRun: required(environment, "VERIFICATION_WORKFLOW_RUN"),
+  };
+  const orchestrator = createRoutineReceiptOrchestrator({
+    identity: { async read() { return identity; } },
+    artifact: { async prepare() { return artifact; } },
+    browser: {
+      async verify() {
+        return {
+          attempts: evidence.browser.attempts,
+          outcome: evidence.browser.outcome,
+        };
       },
-      browser: { async verify() { return { attempts: 1, outcome: "passed" }; } },
-      catalog: {
-        async fingerprint() {
-          catalogReads += 1;
-          return catalogReads === 1 ? catalogBefore : catalogAfter;
-        },
-      },
-      clock: { now: () => new Date().toISOString() },
     },
-  );
+    catalog: {
+      async fingerprint() {
+        catalogReads += 1;
+        return catalogReads === 1 ? catalogBefore : catalogAfter;
+      },
+    },
+    clock: { now: () => evidence.completedAt },
+  });
+  const result = await orchestrator.prepare({
+    number: identity.pullRequest,
+    baseSha: identity.baseSha,
+    headSha: identity.candidateSha,
+    candidateSha: identity.candidateSha,
+    gate: "complete-behavioral",
+    reasons: ["trusted execution evidence"],
+    timeoutMs: 20 * 60 * 1_000,
+    signal: new AbortController().signal,
+  });
   if (result.outcome !== "passed") {
     const reason = result.outcome === "changed-input" ? ` (${result.reason})` : "";
     throw new Error(
       `Routine Browser Verification cannot issue a receipt: ${result.outcome}${reason}.`,
     );
   }
-  const receipt = {
-    ...result.receipt,
-    catalog: { before: catalogBefore, after: catalogAfter },
-  };
+  const receipt = result.receipt;
   const directory = resolve(required(environment, "RUNNER_TEMP"), RECEIPT_DIRECTORY);
   await mkdir(directory, { recursive: true });
   const subjectPath = resolve(directory, SUBJECT_FILE);
@@ -261,7 +351,7 @@ export async function verifyVerificationReceipt(input: {
   const current = typeof input.currentInputs === "function"
     ? await input.currentInputs()
     : input.currentInputs;
-  const result = await findReusableVerificationReceipt(current, {
+  const result = await verifySignedRoutineReceipt(current, {
     async lookup() {
       return verified.flatMap(({ verificationResult }) => {
         const receipt = verificationResult?.statement?.predicate;
@@ -488,10 +578,18 @@ async function main() {
       : process.cwd();
     const result = await prepareVerificationReceipt({ cwd, environment: process.env });
     await writeActionsOutput(process.env, {
+      browser_version: result.receipt.browsers.chromium,
       predicate_path: result.predicatePath,
       runtime_fingerprint: result.runtimeFingerprint,
       subject_path: result.subjectPath,
     });
+    return;
+  }
+  if (operation === "evidence") {
+    const cwd = process.env.VERIFICATION_CANDIDATE_CWD
+      ? resolve(process.env.VERIFICATION_CANDIDATE_CWD)
+      : process.cwd();
+    await writeVerificationExecutionEvidence({ cwd, environment: process.env });
     return;
   }
   if (operation === "verify") {
@@ -516,7 +614,9 @@ async function main() {
     process.stdout.write(`Reused protected-push receipt ${result.attestationId}.\n`);
     return;
   }
-  throw new Error("Verification receipt command requires prepare, verify, browser-version, or protected-push.");
+  throw new Error(
+    "Verification receipt command requires evidence, prepare, verify, browser-version, or protected-push.",
+  );
 }
 
 if (import.meta.url === new URL(process.argv[1] ?? "", import.meta.url).href) {

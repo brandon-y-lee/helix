@@ -48,6 +48,6 @@ if (entryPath && import.meta.url === pathToFileURL(entryPath).href) {
     const changedFiles = readFileSync(changedFilesPath, "utf8")
       .split("\n")
       .filter(Boolean);
-    process.exitCode = hasVerificationSystemPath(changedFiles) ? 0 : 1;
+    process.stdout.write(`${hasVerificationSystemPath(changedFiles)}\n`);
   }
 }

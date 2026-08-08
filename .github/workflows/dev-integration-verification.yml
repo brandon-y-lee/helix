@@ -137,6 +137,7 @@ jobs:
         if: ${{ inputs.gate == 'complete-behavioral' }}
         env:
           PLAYWRIGHT_JSON_OUTPUT_FILE: ${{ github.workspace }}/candidate/test-results/playwright-telemetry.json
+          VERIFICATION_BROWSER_RESULT_PATH: ${{ github.workspace }}/candidate/test-results/verification-browser-result.json
         run: sudo -E -H -u verifier-candidate "$(command -v pnpm)" --dir trusted exec tsx scripts/verify-production-ci.ts verify --selection routine-chromium
 
       - name: Require structured browser telemetry
@@ -159,10 +160,17 @@ jobs:
 
       - name: Stage unprivileged build evidence
         if: ${{ inputs.gate == 'complete-behavioral' }}
+        env:
+          CATALOG_FINGERPRINT_AFTER: ${{ steps.catalog-after.outputs.fingerprint }}
+          CATALOG_FINGERPRINT_BEFORE: ${{ steps.catalog-before.outputs.fingerprint }}
+          VERIFICATION_BROWSER_VERSION: ${{ steps.browser-version.outputs.version }}
+          VERIFICATION_BROWSER_RESULT_PATH: ${{ github.workspace }}/candidate/test-results/verification-browser-result.json
+          VERIFICATION_EVIDENCE_PATH: ${{ runner.temp }}/verification-evidence/execution.json
         run: |
           git -C candidate diff --exit-code
           test -z "$(git -C candidate status --short --untracked-files=all)"
           mkdir -p "$RUNNER_TEMP/verification-evidence"
+          pnpm --dir trusted exec tsx scripts/github/verification-receipt-command.ts evidence
           cp candidate/.next/BUILD_ID "$RUNNER_TEMP/verification-evidence/BUILD_ID"
 
       - name: Upload stable build evidence
@@ -170,7 +178,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: integration-build-evidence-${{ inputs.pr_number }}-${{ inputs.nonce }}
-          path: ${{ runner.temp }}/verification-evidence/BUILD_ID
+          path: ${{ runner.temp }}/verification-evidence/
           retention-days: 1
 
       - name: Upload successful browser report and telemetry
@@ -220,6 +228,7 @@ jobs:
       VERIFICATION_DEV_BASE: ${{ inputs.dev_base }}
       VERIFICATION_PULL_REQUEST: ${{ inputs.pr_number }}
       VERIFICATION_WORKFLOW_RUN: ${{ github.run_id }}-${{ github.run_attempt }}
+      VERIFICATION_EVIDENCE_PATH: ${{ runner.temp }}/verification-evidence/execution.json
     steps:
       - name: Checkout audited signer from dev
         uses: actions/checkout@v4
@@ -287,6 +296,7 @@ jobs:
           ATTESTATION_BUNDLE_PATH: ${{ steps.attest.outputs.bundle-path }}
           ATTESTATION_ID: ${{ steps.attest.outputs.attestation-id }}
           CATALOG_FINGERPRINT_CURRENT: ${{ steps.catalog-current.outputs.fingerprint }}
+          VERIFICATION_BROWSER_VERSION: ${{ steps.receipt.outputs.browser_version }}
           GH_TOKEN: ${{ github.token }}
           VERIFICATION_SUBJECT_PATH: ${{ steps.receipt.outputs.subject_path }}
         run: pnpm --dir trusted verification:receipt:verify

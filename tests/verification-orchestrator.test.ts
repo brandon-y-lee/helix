@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   createRoutineReceiptVerificationAdapter,
+  createRoutineReceiptOrchestrator,
   createWorkflowVerificationAdapter,
   runIntegrationLine,
   type GitAdapter,
@@ -12,6 +13,31 @@ import {
 } from "@/scripts/github/verification-orchestrator";
 
 describe("Verification Orchestrator", () => {
+  it("owns production receipt preparation from actual adapter evidence", async () => {
+    const orchestrator = createRoutineReceiptOrchestrator({
+      identity: { async read() { return {
+        baseSha: "b".repeat(40), browserVersions: { chromium: "Chromium 140" },
+        candidateSha: "c".repeat(40), frameworkVersion: "15.5.19",
+        nodeVersion: "v24.5.0", packageManagerVersion: "pnpm@9.15.4",
+        planFingerprint: `sha256:${"4".repeat(64)}`, playwrightVersion: "1.55.1",
+        pullRequest: 53, workflowRun: "53-1",
+      }; } },
+      artifact: { async prepare() { return {
+        buildId: "build-53", configurationFingerprint: `sha256:${"2".repeat(64)}`,
+        runtimeFingerprint: `sha256:${"1".repeat(64)}`,
+      }; } },
+      browser: { async verify() { return { attempts: 2, outcome: "passed" }; } },
+      catalog: { async fingerprint() { return `sha256:${"3".repeat(64)}`; } },
+      clock: { now: () => "2026-08-08T10:00:00.000Z" },
+    });
+
+    await expect(orchestrator.prepare({
+      number: 53, baseSha: "b".repeat(40), headSha: "c".repeat(40),
+      candidateSha: "d".repeat(40), gate: "complete-behavioral", reasons: [],
+      timeoutMs: 20 * 60 * 1_000, signal: new AbortController().signal,
+    })).resolves.toEqual({ outcome: "retry-passed", reusable: false });
+  });
+
   it("owns workflow transport policy through the public verification adapter", async () => {
     const calls: string[] = [];
     const adapter = createWorkflowVerificationAdapter({

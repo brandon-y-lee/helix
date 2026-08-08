@@ -6,6 +6,7 @@ export {
   findReusableProtectedPushReceipt,
   findReusableVerificationReceipt,
   runRoutineBrowserVerification,
+  prepareRoutineBrowserVerification,
   VERIFICATION_RECEIPT_PREDICATE_TYPE,
   VERIFICATION_RETENTION_POLICY,
 } from "./routine-browser-verification";
@@ -14,15 +15,17 @@ export type {
   ProtectedPushVerificationInputs,
   RoutineBrowserVerificationAdapters,
   RoutineBrowserVerificationInput,
+  RoutineReceiptEvidenceAdapters,
   Sha256Fingerprint,
   VerificationReceipt,
 } from "./routine-browser-verification";
 import { isReviewedNonRuntimePath } from "./verification-fingerprints";
 import {
   findReusableVerificationReceipt as findReceipt,
-  runRoutineBrowserVerification as runRoutine,
+  prepareRoutineBrowserVerification as prepareRoutine,
   type RoutineBrowserVerificationAdapters as RoutineAdapters,
   type RoutineBrowserVerificationInput as RoutineInput,
+  type RoutineReceiptEvidenceAdapters as RoutineEvidenceAdapters,
 } from "./routine-browser-verification";
 
 export type WorkClass =
@@ -127,18 +130,12 @@ export function createRoutineReceiptVerificationAdapter(input: {
   catalog: RoutineAdapters["catalog"];
   clock: RoutineAdapters["clock"];
 }): VerificationAdapter {
+  const orchestrator = createRoutineReceiptOrchestrator(input);
   return {
     async verify(candidate) {
-      const identity = await input.identity.read(candidate);
-      if (
-        identity.baseSha !== candidate.baseSha ||
-        identity.candidateSha !== candidate.headSha ||
-        identity.pullRequest !== candidate.number
-      ) {
-        return { outcome: "failed" };
-      }
-      const completed = await runRoutine(identity, input);
+      const completed = await orchestrator.prepare(candidate);
       if (completed.outcome !== "passed") return { outcome: "failed" };
+      await input.attestation.sign(completed.receipt);
       const reusable = await findReceipt({
         artifact: completed.receipt.artifact,
         browsers: completed.receipt.browsers,
@@ -150,6 +147,43 @@ export function createRoutineReceiptVerificationAdapter(input: {
       return { outcome: reusable.outcome === "reused" ? "passed" : "failed" };
     },
   };
+}
+
+export function createRoutineReceiptOrchestrator(input: {
+  identity: {
+    read(candidate: Parameters<VerificationAdapter["verify"]>[0]): Promise<RoutineInput>;
+  };
+  artifact: RoutineEvidenceAdapters["artifact"];
+  browser: RoutineEvidenceAdapters["browser"];
+  catalog: RoutineEvidenceAdapters["catalog"];
+  clock: RoutineEvidenceAdapters["clock"];
+}) {
+  return {
+    async prepare(candidate: Parameters<VerificationAdapter["verify"]>[0]) {
+      const identity = await input.identity.read(candidate);
+      if (
+        identity.baseSha !== candidate.baseSha ||
+        identity.candidateSha !== candidate.headSha ||
+        identity.pullRequest !== candidate.number
+      ) {
+        return { outcome: "failed" as const, reusable: false as const };
+      }
+      return prepareRoutine(identity, input);
+    },
+    async verifySigned(
+      current: import("./routine-browser-verification").CurrentVerificationInputs,
+      attestation: Pick<RoutineAdapters["attestation"], "lookup">,
+    ) {
+      return verifySignedRoutineReceipt(current, attestation);
+    },
+  };
+}
+
+export async function verifySignedRoutineReceipt(
+  current: import("./routine-browser-verification").CurrentVerificationInputs,
+  attestation: Pick<RoutineAdapters["attestation"], "lookup">,
+) {
+  return findReceipt(current, attestation);
 }
 
 export interface MergeAdapter {
