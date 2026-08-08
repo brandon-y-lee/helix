@@ -114,26 +114,27 @@ jobs:
             /*/hostedtoolcache/node/*/x64/bin/node) ;;
             *) echo "Node executable is outside the action-managed tool cache." >&2; exit 1 ;;
           esac
-          node_runtime_bin="${node_executable%/node}"
           pnpm_runtime_root="${PNPM_HOME%/.bin}"
           test -d "$pnpm_runtime_root"
+          sudo install -d -m 0755 /opt/mei-pelle-node-runtime/bin
+          sudo install -o root -g root -m 0555 -- "$node_executable" /opt/mei-pelle-node-runtime/bin/node
           sudo install -d -m 0755 /opt/mei-pelle-pnpm-runtime
           sudo cp -a -- "$pnpm_runtime_root/." /opt/mei-pelle-pnpm-runtime/
           sudo chown -R root:root -- /opt/mei-pelle-pnpm-runtime
           sudo chmod -R a+rX -- /opt/mei-pelle-pnpm-runtime
           sudo chmod -R a-w -- /opt/mei-pelle-pnpm-runtime
           echo "/opt/mei-pelle-pnpm-runtime/.bin" >> "$GITHUB_PATH"
-          candidate_path="$node_runtime_bin:/opt/mei-pelle-pnpm-runtime/.bin:/usr/local/bin:/usr/bin:/bin"
+          candidate_path="/opt/mei-pelle-node-runtime/bin:/opt/mei-pelle-pnpm-runtime/.bin:/usr/local/bin:/usr/bin:/bin"
           echo "VERIFICATION_CANDIDATE_PATH=$candidate_path" >> "$GITHUB_ENV"
           sudo chmod o+x -- /home/runner
           sudo chown -R verifier-candidate:verifier-candidate candidate
           chmod -R a-w trusted
           test "$(stat -Lc '%u:%g' /opt/mei-pelle-pnpm-runtime/.bin/pnpm)" = 0:0
-          test "$(stat -Lc '%u:%g' "$node_executable")" = 0:0
+          test "$(stat -Lc '%u:%g' /opt/mei-pelle-node-runtime/bin/node)" = 0:0
           sudo -u verifier-candidate test -x /opt/mei-pelle-pnpm-runtime/.bin/pnpm
           sudo -u verifier-candidate test ! -w /opt/mei-pelle-pnpm-runtime/.bin/pnpm
-          sudo -u verifier-candidate test -x "$node_executable"
-          sudo -u verifier-candidate test ! -w "$node_executable"
+          sudo -u verifier-candidate test -x /opt/mei-pelle-node-runtime/bin/node
+          sudo -u verifier-candidate test ! -w /opt/mei-pelle-node-runtime/bin/node
           sudo -u verifier-candidate test -x "$GITHUB_WORKSPACE"
           sudo -u verifier-candidate test -d "$VERIFICATION_CANDIDATE_CWD"
           sudo -u verifier-candidate test ! -w trusted/scripts/github/verification-receipt-command.ts
