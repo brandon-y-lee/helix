@@ -6,6 +6,43 @@ import type { Locator } from "@playwright/test";
 import type { StorefrontJourneys } from "@/test-support/storefront-journeys";
 import { expect, test } from "./storefront-fixture";
 
+type PrinciplePresentation = {
+  borderTopColor: string;
+  color: string;
+  fontWeight: string;
+  opacity: string;
+  rightMarkerContent: string;
+  transitionDuration: string;
+  x: number;
+  width: number;
+};
+
+async function principlePresentation(
+  principle: Locator,
+): Promise<PrinciplePresentation> {
+  return principle.evaluate((element) => {
+    const style = getComputedStyle(element);
+    const bounds = element.getBoundingClientRect();
+    return {
+      borderTopColor: style.borderTopColor,
+      color: style.color,
+      fontWeight: style.fontWeight,
+      opacity: style.opacity,
+      rightMarkerContent: getComputedStyle(element, "::after").content,
+      transitionDuration: style.transitionDuration,
+      x: bounds.x,
+      width: bounds.width,
+    };
+  });
+}
+
+function transitionDurationMs(value: string): number {
+  if (value === "") return 0;
+  const firstDuration = value.split(",")[0]?.trim() ?? "0s";
+  const duration = Number.parseFloat(firstDuration);
+  return firstDuration.endsWith("ms") ? duration : duration * 1_000;
+}
+
 async function renderedProducts(
   container: Locator,
   storefront: StorefrontJourneys,
@@ -61,6 +98,103 @@ test("Core and Beyond descriptions respond to pointer and keyboard discovery", a
   await expect(beyondDescription).not.toHaveText(
     homeBeyondCoreDescriptions.default,
   );
+});
+
+test("Three Principles selection uses only a persistent 700ms label fade", async ({
+  page,
+}) => {
+  await page.goto("/");
+
+  const group = page.getByRole("group", { name: "Mei Pelle principles" });
+  const mission = group.getByRole("button", { name: "mission" });
+  const innovation = group.getByRole("button", { name: "innovation" });
+  const sustainability = group.getByRole("button", {
+    name: "sustainability",
+  });
+  const principles = [mission, innovation, sustainability];
+
+  await expect(mission).toHaveAttribute("aria-pressed", "true");
+  await expect(innovation).toHaveCSS("opacity", "0.75");
+  await expect(sustainability).toHaveCSS("opacity", "0.75");
+  await expect(mission).toHaveCSS("opacity", "1");
+
+  const initialPresentation = await Promise.all(
+    principles.map(principlePresentation),
+  );
+  expect(new Set(initialPresentation.map(({ color }) => color)).size).toBe(1);
+  expect(
+    new Set(initialPresentation.map(({ fontWeight }) => fontWeight)).size,
+  ).toBe(1);
+  expect(
+    initialPresentation.every(({ transitionDuration }) =>
+      transitionDurationMs(transitionDuration) === 700,
+    ),
+  ).toBe(true);
+  expect(
+    initialPresentation.every(
+      ({ rightMarkerContent }) => rightMarkerContent === "none",
+    ),
+  ).toBe(true);
+
+  await innovation.hover();
+  await expect(innovation).toHaveAttribute("aria-pressed", "true");
+  await expect(innovation).toHaveCSS("opacity", "1");
+  await page.mouse.move(0, 0);
+  await expect(innovation).toHaveAttribute("aria-pressed", "true");
+
+  await sustainability.click();
+  await expect(sustainability).toHaveAttribute("aria-pressed", "true");
+
+  await mission.focus();
+  await expect(mission).toHaveAttribute("aria-pressed", "true");
+  await page.keyboard.press("ArrowUp");
+  await expect(sustainability).toBeFocused();
+  await expect(sustainability).toHaveAttribute("aria-pressed", "true");
+  await page.keyboard.press("Home");
+  await expect(mission).toBeFocused();
+  await page.keyboard.press("End");
+  await expect(sustainability).toBeFocused();
+  await page.keyboard.press("ArrowRight");
+  await expect(mission).toBeFocused();
+
+  const selectedPresentation = await Promise.all(
+    principles.map(principlePresentation),
+  );
+  expect(
+    selectedPresentation.map(({ borderTopColor }) => borderTopColor),
+  ).toEqual(initialPresentation.map(({ borderTopColor }) => borderTopColor));
+  expect(selectedPresentation.map(({ x }) => x)).toEqual(
+    initialPresentation.map(({ x }) => x),
+  );
+  expect(selectedPresentation.map(({ width }) => width)).toEqual(
+    initialPresentation.map(({ width }) => width),
+  );
+});
+
+test("Three Principles selection is immediate with reduced motion", async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/");
+
+  const group = page.getByRole("group", { name: "Mei Pelle principles" });
+  const mission = group.getByRole("button", { name: "mission" });
+  const innovation = group.getByRole("button", { name: "innovation" });
+
+  await expect(mission).toHaveCSS("opacity", "1");
+  await expect(innovation).toHaveCSS("opacity", "0.75");
+  expect(
+    transitionDurationMs(
+      await innovation.evaluate(
+        (element) => getComputedStyle(element).transitionDuration,
+      ),
+    ),
+  ).toBeLessThanOrEqual(1);
+
+  await innovation.click();
+  await expect(innovation).toHaveAttribute("aria-pressed", "true");
+  await expect(innovation).toHaveCSS("opacity", "1");
+  await expect(mission).toHaveCSS("opacity", "0.75");
 });
 
 test("Beyond carousel is finite and keyboard operable on mobile", async ({

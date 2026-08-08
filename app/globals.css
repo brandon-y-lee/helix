@@ -9914,7 +9914,6 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   position: relative;
   display: flex;
   align-items: center;
-  justify-content: space-between;
   min-height: clamp(58px, 7.2vh, 74px);
   margin: 0;
   padding: 0 0 0 0;
@@ -9922,39 +9921,17 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   border-top: 1px solid color-mix(in srgb, var(--line) 92%, transparent);
   border-radius: 0;
   background: transparent;
-  color: var(--ink-soft);
+  color: var(--ink);
   cursor: pointer;
   font: inherit;
   font-size: clamp(0.8rem, 0.95vw, 0.92rem);
   font-weight: 800;
   letter-spacing: 0.12em;
   line-height: 1.2;
+  opacity: 0.75;
   text-align: left;
   text-transform: uppercase;
-  transition:
-    color var(--motion-fast) ease,
-    padding-left var(--motion-fast) var(--ease-out),
-    border-color var(--motion-fast) ease,
-    opacity var(--motion-fast) ease;
-}
-
-.home-three-principles__label::after {
-  width: 18px;
-  height: 1px;
-  content: "";
-  background: currentColor;
-  opacity: 0.48;
-  transform-origin: right center;
-  transition:
-    opacity var(--motion-fast) ease,
-    width var(--motion-fast) var(--ease-out);
-}
-
-.home-three-principles__label:hover,
-.home-three-principles__label:focus-visible,
-.home-three-principles__label[data-active="true"] {
-  border-top-color: color-mix(in srgb, var(--ink) 52%, transparent);
-  color: var(--ink);
+  transition: opacity 700ms ease;
 }
 
 .home-three-principles__label:focus-visible {
@@ -9964,12 +9941,6 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 }
 
 .home-three-principles__label[data-active="true"] {
-  padding-left: 12px;
-  font-weight: 900;
-}
-
-.home-three-principles__label[data-active="true"]::after {
-  width: 46px;
   opacity: 1;
 }
 
@@ -10077,8 +10048,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
     transform: none;
   }
 
-  .home-three-principles__label,
-  .home-three-principles__label::after {
+  .home-three-principles__label {
     transition-duration: 1ms;
   }
 
