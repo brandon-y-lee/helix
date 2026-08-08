@@ -1,9 +1,11 @@
 import { execFile, spawn, type ChildProcess } from "node:child_process";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import {
   link,
   open,
   readFile,
+  realpath,
+  rename,
   stat,
   unlink,
   writeFile,
@@ -17,15 +19,19 @@ import { parse } from "dotenv";
 import { BROWSER_VERIFICATION_PLAN } from "./browser-verification-plan";
 import {
   prepareProductionVerificationEnvironment,
+  PRODUCTION_BUILD_NON_SECRET_ENVIRONMENT_KEYS,
   ProductionVerificationChildError,
   ProductionVerificationCleanupError,
   ProductionVerificationError,
   type ProductionArtifactReceipt,
+  type ProductionBuildReuseCategory,
+  type ProductionBuildReuseInput,
   type ProductionVerificationChildExit,
   type ProductionVerificationDiagnostic,
   type ProductionVerificationLock,
   type ProductionVerificationServer,
   type NodeProductionVerificationAdapters,
+  type ReusableProductionBuildReceipt,
 } from "./production-verification";
 
 const CHECKOUT_LOCK_NAME = ".mei-pelle-production-verification.lock";
@@ -34,6 +40,8 @@ const DEFAULT_CLEANUP_GRACE_MS = 5_000;
 const READINESS_POLL_MS = 250;
 const WINDOWS_CONTROL_TIMEOUT_MS = 2_000;
 const PRODUCTION_ARTIFACT_RECEIPT_PATH = ".next/mei-pelle-artifact-receipt.json";
+const REUSABLE_PRODUCTION_BUILD_RECEIPT_PATH =
+  ".next/mei-pelle-local-build-receipt.json";
 const WINDOWS_SUPERVISOR_PATH = resolve(
   process.cwd(),
   "scripts/production-verification-windows.ps1",
@@ -798,6 +806,199 @@ async function readCurrentCommitSha(cwd: string): Promise<string> {
   return String(stdout).trim();
 }
 
+const NON_RUNTIME_BUILD_REUSE_PATHS = new Set([
+  ".env.example",
+  ".eslintrc.json",
+  ".gitignore",
+  ".mcp.json",
+  "AGENTS.md",
+  "CONTEXT-MAP.md",
+  "README.md",
+]);
+
+const NON_RUNTIME_BUILD_REUSE_PREFIXES = [".claude/", ".codex/", "docs/"];
+
+function buildReuseCategory(path: string): ProductionBuildReuseCategory | undefined {
+  if (path === "scripts/browser-verification-plan.ts") {
+    return "verification-plan";
+  }
+  if (
+    path === "package.json" ||
+    path === "pnpm-lock.yaml" ||
+    path === "package-lock.json" ||
+    path === "yarn.lock" ||
+    path === ".npmrc" ||
+    path === ".nvmrc" ||
+    path === "pnpm-workspace.yaml"
+  ) {
+    return "dependencies";
+  }
+  if (
+    path === "playwright.config.ts" ||
+    path === "playwright.config.js" ||
+    path === "next.config.ts" ||
+    path === "next.config.js" ||
+    path === "next.config.mjs" ||
+    path === "tsconfig.json" ||
+    path === "postcss.config.js" ||
+    path === "postcss.config.mjs" ||
+    path === "vercel.json"
+  ) {
+    return "browser-configuration";
+  }
+  if (
+    path === "vitest.config.ts" ||
+    path === "vitest.config.js" ||
+    path === "vitest.setup.ts" ||
+    path === "vitest.setup.js" ||
+    path.startsWith("e2e/") ||
+    path.startsWith("tests/") ||
+    path.startsWith("test-support/")
+  ) {
+    return "tests";
+  }
+  if (
+    path.startsWith("app/") ||
+    path.startsWith("components/") ||
+    path.startsWith("content/") ||
+    path.startsWith("lib/") ||
+    path.startsWith("public/") ||
+    path === "middleware.ts" ||
+    path.startsWith("scripts/production-verification") ||
+    path.startsWith("scripts/verify-production") ||
+    path === "scripts/affected-browser-verification.ts" ||
+    path === "scripts/verify-affected.ts"
+  ) {
+    return "runtime-source";
+  }
+  if (
+    NON_RUNTIME_BUILD_REUSE_PATHS.has(path) ||
+    NON_RUNTIME_BUILD_REUSE_PREFIXES.some((prefix) => path.startsWith(prefix))
+  ) {
+    return undefined;
+  }
+  return "runtime-source";
+}
+
+function digestBuildReuseValues(values: readonly string[]): string {
+  const digest = createHash("sha256");
+  for (const value of [...values].sort()) digest.update(value).update("\0");
+  return `sha256:${digest.digest("hex")}`;
+}
+
+async function readProductionBuildReuseInput(
+  cwd: string,
+  env: NodeJS.ProcessEnv,
+): Promise<ProductionBuildReuseInput> {
+  const { stdout } = await execFileAsync(
+    "git",
+    ["ls-files", "--cached", "--others", "--exclude-standard", "-z"],
+    { cwd, encoding: "utf8", maxBuffer: 10 * 1024 * 1024 },
+  );
+  const categoryValues: Record<ProductionBuildReuseCategory, string[]> = {
+    "browser-configuration": [],
+    dependencies: [],
+    environment: [],
+    "runtime-source": [],
+    tests: [],
+    "verification-plan": [],
+  };
+  const paths = String(stdout).split("\0").filter(Boolean).sort();
+  await Promise.all(
+    paths.map(async (path) => {
+      const category = buildReuseCategory(path);
+      if (!category) return;
+      let contents: Buffer | string;
+      try {
+        contents = await readFile(resolve(cwd, path));
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+        contents = "<deleted>";
+      }
+      categoryValues[category].push(
+        `${path}:${createHash("sha256").update(contents).digest("hex")}`,
+      );
+    }),
+  );
+  categoryValues.environment = Object.entries(env)
+    .filter(
+      ([key, value]) =>
+        value !== undefined &&
+        (key.startsWith("NEXT_PUBLIC_") ||
+          PRODUCTION_BUILD_NON_SECRET_ENVIRONMENT_KEYS.has(key)),
+    )
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([key, value]) => `${key}=${value}`);
+
+  return {
+    categories: {
+      "browser-configuration": digestBuildReuseValues(
+        categoryValues["browser-configuration"],
+      ),
+      dependencies: digestBuildReuseValues(categoryValues.dependencies),
+      environment: digestBuildReuseValues(categoryValues.environment),
+      "runtime-source": digestBuildReuseValues(categoryValues["runtime-source"]),
+      tests: digestBuildReuseValues(categoryValues.tests),
+      "verification-plan": digestBuildReuseValues(
+        categoryValues["verification-plan"],
+      ),
+    },
+    worktreeId: digestBuildReuseValues([await realpath(cwd)]),
+  };
+}
+
+function readPlaywrightRetryCount(report: unknown): number {
+  if (typeof report !== "object" || report === null || Array.isArray(report)) {
+    throw new Error("Playwright telemetry report is malformed.");
+  }
+  let retries = 0;
+  const visitSuite = (suite: unknown): void => {
+    if (typeof suite !== "object" || suite === null || Array.isArray(suite)) return;
+    const value = suite as {
+      specs?: Array<{ tests?: Array<{ results?: Array<{ retry?: unknown }> }> }>;
+      suites?: unknown[];
+    };
+    for (const spec of value.specs ?? []) {
+      for (const test of spec.tests ?? []) {
+        retries += (test.results ?? []).filter(
+          (result) => typeof result.retry === "number" && result.retry > 0,
+        ).length;
+      }
+    }
+    for (const child of value.suites ?? []) visitSuite(child);
+  };
+  const root = report as { suites?: unknown[] };
+  if (!Array.isArray(root.suites)) {
+    throw new Error("Playwright telemetry report is malformed.");
+  }
+  for (const suite of root.suites) visitSuite(suite);
+  return retries;
+}
+
+async function readStoredReceipt(path: string): Promise<
+  | { contents: string; modifiedAtMs: number }
+  | undefined
+> {
+  try {
+    const [contents, metadata] = await Promise.all([
+      readFile(path, "utf8"),
+      stat(path),
+    ]);
+    return { contents, modifiedAtMs: metadata.mtimeMs };
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+    throw error;
+  }
+}
+
+async function removeStoredReceipt(path: string): Promise<void> {
+  try {
+    await unlink(path);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
+}
+
 export async function createNodeProductionVerificationAdapters(
   cwd: string,
   env: NodeJS.ProcessEnv,
@@ -807,6 +1008,10 @@ export async function createNodeProductionVerificationAdapters(
   const nextCli = require.resolve("next/dist/bin/next");
   const playwrightCli = require.resolve("@playwright/test/cli");
   const receiptPath = resolve(cwd, PRODUCTION_ARTIFACT_RECEIPT_PATH);
+  const reusableReceiptPath = resolve(
+    cwd,
+    REUSABLE_PRODUCTION_BUILD_RECEIPT_PATH,
+  );
   const executeOwnedCommand = dependencies.runCommand ?? runOwnedCommand;
 
   return {
@@ -830,31 +1035,36 @@ export async function createNodeProductionVerificationAdapters(
       return { buildId };
     },
     readArtifact: () => readBuildArtifact(cwd),
+    readBuildReuseInput: () => readProductionBuildReuseInput(cwd, env),
     readCommitSha: () => readCurrentCommitSha(cwd),
-    readReceipt: async () => {
-      try {
-        const [contents, metadata] = await Promise.all([
-          readFile(receiptPath, "utf8"),
-          stat(receiptPath),
-        ]);
-        return { contents, modifiedAtMs: metadata.mtimeMs };
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
-        throw error;
-      }
-    },
-    removeReceipt: async () => {
-      try {
-        await unlink(receiptPath);
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-      }
-    },
+    readReceipt: () => readStoredReceipt(receiptPath),
+    readReusableBuildReceipt: () => readStoredReceipt(reusableReceiptPath),
+    removeReceipt: () => removeStoredReceipt(receiptPath),
+    removeReusableBuildReceipt: () => removeStoredReceipt(reusableReceiptPath),
     writeReceipt: (receipt: ProductionArtifactReceipt) =>
       writeFile(receiptPath, `${JSON.stringify(receipt)}\n`, {
         encoding: "utf8",
         mode: 0o600,
       }),
+    writeReusableBuildReceipt: async (
+      receipt: ReusableProductionBuildReceipt,
+    ) => {
+      const candidatePath = `${reusableReceiptPath}.candidate-${process.pid}-${randomUUID()}`;
+      try {
+        await writeFile(candidatePath, `${JSON.stringify(receipt)}\n`, {
+          encoding: "utf8",
+          flag: "wx",
+          mode: 0o600,
+        });
+        await rename(candidatePath, reusableReceiptPath);
+      } finally {
+        try {
+          await unlink(candidatePath);
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+        }
+      }
+    },
     startServer: ({ host, port }) =>
       spawnOwnedProcess({
         args: [nextCli, "start", "--hostname", host, "--port", String(port)],
@@ -864,10 +1074,10 @@ export async function createNodeProductionVerificationAdapters(
       }),
     waitForBuildIdentity: waitForExpectedBuild,
     runBrowserTests: async ({ baseURL, selection, signal }) => {
-      const runPlaywright = (
+      const runPlaywright = async (
         project: "chromium" | "webkit" | undefined,
         journeyIds: readonly string[] | undefined,
-      ) => {
+      ): Promise<number> => {
         const testFiles = journeyIds?.map((journeyId) => {
           const journey = BROWSER_VERIFICATION_PLAN.journeys.find(
             (candidate) => candidate.id === journeyId,
@@ -877,37 +1087,81 @@ export async function createNodeProductionVerificationAdapters(
           }
           return journey.testFile;
         });
-        return executeOwnedCommand({
-          args: [
-            playwrightCli,
-            "test",
-            ...(testFiles ?? []),
-            ...(project ? ["--project", project] : []),
-          ],
-          command: process.execPath,
-          cwd,
-          env: {
-            ...env,
-            MEI_PELLE_VERIFICATION_ADAPTER: "1",
-            MEI_PELLE_VERIFICATION_BASE_URL: baseURL,
-            MEI_PELLE_VERIFICATION_PROJECT: project ?? "",
-            PLAYWRIGHT_HTML_OPEN: "never",
-          },
-          label: `Playwright${project ? ` ${project}` : ""} browser tests`,
-          signal,
-        });
+        const reportPath = resolve(
+          tmpdir(),
+          `mei-pelle-playwright-telemetry-${process.pid}-${randomUUID()}.json`,
+        );
+        let primaryFailure: unknown;
+        let retries = 0;
+        try {
+          await executeOwnedCommand({
+            args: [
+              playwrightCli,
+              "test",
+              ...(testFiles ?? []),
+              ...(project ? ["--project", project] : []),
+              "--reporter",
+              env.CI ? "github,html,json" : "html,json",
+            ],
+            command: process.execPath,
+            cwd,
+            env: {
+              ...env,
+              MEI_PELLE_VERIFICATION_ADAPTER: "1",
+              MEI_PELLE_VERIFICATION_BASE_URL: baseURL,
+              MEI_PELLE_VERIFICATION_PROJECT: project ?? "",
+              PLAYWRIGHT_HTML_OPEN: "never",
+              PLAYWRIGHT_JSON_OUTPUT_FILE: reportPath,
+            },
+            label: `Playwright${project ? ` ${project}` : ""} browser tests`,
+            signal,
+          });
+        } catch (error) {
+          primaryFailure = error;
+        }
+        try {
+          retries = readPlaywrightRetryCount(
+            JSON.parse(await readFile(reportPath, "utf8")),
+          );
+        } catch (error) {
+          if (primaryFailure === undefined) primaryFailure = error;
+        }
+        try {
+          await unlink(reportPath);
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+            if (primaryFailure === undefined) primaryFailure = error;
+            else {
+              (primaryFailure as Error & { cleanupFailure?: Error }).cleanupFailure =
+                error instanceof Error ? error : new Error(String(error));
+            }
+          }
+        }
+        if (primaryFailure !== undefined) {
+          (primaryFailure as Error & { retryCount?: number }).retryCount = retries;
+          throw primaryFailure;
+        }
+        return retries;
       };
 
       if (!selection) {
-        await runPlaywright(undefined, undefined);
-        return;
+        return { retries: await runPlaywright(undefined, undefined) };
       }
-      if (selection.projects.includes("chromium")) {
-        await runPlaywright("chromium", selection.journeyIds);
+      let retries = 0;
+      try {
+        if (selection.projects.includes("chromium")) {
+          retries += await runPlaywright("chromium", selection.journeyIds);
+        }
+        if (selection.projects.includes("webkit")) {
+          retries += await runPlaywright("webkit", selection.webkitJourneyIds);
+        }
+      } catch (error) {
+        const observed = (error as { retryCount?: unknown }).retryCount;
+        (error as Error & { retryCount: number }).retryCount =
+          retries + (typeof observed === "number" ? observed : 0);
+        throw error;
       }
-      if (selection.projects.includes("webkit")) {
-        await runPlaywright("webkit", selection.webkitJourneyIds);
-      }
+      return { retries };
     },
   };
 }
