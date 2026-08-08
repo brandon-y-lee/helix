@@ -84,6 +84,9 @@ describe("dev Integration Line workflows", () => {
   it("uses proportional PR evidence and signs one stable Integration Slot result", () => {
     expect(ci).toContain("fetch-depth: 0");
     expect(ci).toContain("pnpm verify:affected -- --base \"origin/${{ github.base_ref }}\"");
+    expect(ci).toContain("Classify verification-system pull request");
+    expect(ci).toContain("node scripts/github/verification-system-paths.mjs");
+    expect(ci).toContain("steps.verification-system.outputs.relevant != 'true'");
     expect(ci).not.toContain("scripts/verify-production-ci.ts verify");
 
     expect(verification).toContain("id-token: write");

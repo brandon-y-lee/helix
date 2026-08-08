@@ -58,14 +58,31 @@ jobs:
       - name: Unit tests
         run: pnpm test
 
+      - name: Classify verification-system pull request
+        id: verification-system
+        if: ${{ github.event_name == 'pull_request' && !startsWith(github.base_ref, 'codex/spec-') }}
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          git diff --name-only --diff-filter=ACMR "$BASE_SHA" "$GITHUB_SHA" > "$RUNNER_TEMP/changed-files.txt"
+          if ! relevant="$(node scripts/github/verification-system-paths.mjs "$RUNNER_TEMP/changed-files.txt")"; then
+            echo "Verification-system classification failed." >&2
+            exit 1
+          fi
+          if [[ "$relevant" != "true" && "$relevant" != "false" ]]; then
+            echo "Verification-system classification returned an invalid result." >&2
+            exit 1
+          fi
+          echo "relevant=$relevant" >> "$GITHUB_OUTPUT"
+
       # Gate 5: proportional browser evidence for the pull-request merge tree.
       # The serialized Integration Slot owns the one complete clean Chromium run.
       - name: Install Playwright browsers
-        if: ${{ github.event_name == 'pull_request' && !startsWith(github.base_ref, 'codex/spec-') }}
+        if: ${{ github.event_name == 'pull_request' && !startsWith(github.base_ref, 'codex/spec-') && steps.verification-system.outputs.relevant != 'true' }}
         run: pnpm exec playwright install --with-deps chromium webkit
 
       - name: Verify affected browser journeys
-        if: ${{ github.event_name == 'pull_request' && !startsWith(github.base_ref, 'codex/spec-') }}
+        if: ${{ github.event_name == 'pull_request' && !startsWith(github.base_ref, 'codex/spec-') && steps.verification-system.outputs.relevant != 'true' }}
         run: pnpm verify:affected -- --base "origin/${{ github.base_ref }}"
 
       - name: Upload Playwright report
