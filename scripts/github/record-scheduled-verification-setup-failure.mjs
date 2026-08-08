@@ -7,6 +7,7 @@ import { createRuntimeIdentity, fingerprint } from "./scheduled-verification-run
 import {
   createOperationalVerificationIssueAdapter,
   recordScheduledVerificationFailure,
+  scheduledFailureFromClassifiedEvidence,
   scheduledVerificationIssueBody,
 } from "./scheduled-verification-issue.mjs";
 
@@ -33,6 +34,13 @@ export function scheduledSetupFailureIssueBody(failure, runUrl) {
   return scheduledVerificationIssueBody(failure, runUrl);
 }
 
+export function createScheduledFallbackFailure(input) {
+  if (!input.classifiedEvidence) return createScheduledSetupFailure(input.setup);
+  const failure = scheduledFailureFromClassifiedEvidence(input.classifiedEvidence);
+  if (!failure) throw new Error("Scheduled verification classified evidence is invalid.");
+  return failure;
+}
+
 async function main() {
   const repository = process.env.SCHEDULED_VERIFICATION_REPOSITORY;
   const runUrl = process.env.SCHEDULED_VERIFICATION_RUN_URL;
@@ -42,24 +50,33 @@ async function main() {
   }
 
   const cwd = process.cwd();
-  const [{ stdout }, packageJsonSource, planSource] = await Promise.all([
-    execFileAsync("git", ["rev-parse", "HEAD"], { cwd, encoding: "utf8" }),
-    readFile(`${cwd}/package.json`, "utf8"),
-    readFile(`${cwd}/scripts/browser-verification-plan.ts`, "utf8"),
-  ]);
-  const packageJson = JSON.parse(packageJsonSource);
-  const browserVersion = packageJson.devDependencies?.["@playwright/test"];
-  if (!browserVersion) throw new Error("The pinned Playwright version is unavailable.");
-
-  const failure = createScheduledSetupFailure({
-    browserVersion,
-    planSource,
-    runtimeIdentity: createRuntimeIdentity({
-      commitSha: String(stdout).trim(),
-      environment: process.env,
-      nodeVersion: process.version,
-    }),
-  });
+  const evidenceFile = process.env.SCHEDULED_VERIFICATION_EVIDENCE_FILE;
+  let failure;
+  if (evidenceFile) {
+    failure = createScheduledFallbackFailure({
+      classifiedEvidence: JSON.parse(await readFile(evidenceFile, "utf8")),
+    });
+  } else {
+    const [{ stdout }, packageJsonSource, planSource] = await Promise.all([
+      execFileAsync("git", ["rev-parse", "HEAD"], { cwd, encoding: "utf8" }),
+      readFile(`${cwd}/package.json`, "utf8"),
+      readFile(`${cwd}/scripts/browser-verification-plan.ts`, "utf8"),
+    ]);
+    const packageJson = JSON.parse(packageJsonSource);
+    const browserVersion = packageJson.devDependencies?.["@playwright/test"];
+    if (!browserVersion) throw new Error("The pinned Playwright version is unavailable.");
+    failure = createScheduledFallbackFailure({
+      setup: {
+        browserVersion,
+        planSource,
+        runtimeIdentity: createRuntimeIdentity({
+          commitSha: String(stdout).trim(),
+          environment: process.env,
+          nodeVersion: process.version,
+        }),
+      },
+    });
+  }
   const commands = {
     async run(args) {
       const { stdout: commandOutput } = await execFileAsync("gh", args, {
@@ -80,7 +97,7 @@ const entry = process.argv[1];
 if (entry && import.meta.url === pathToFileURL(entry).href) {
   main().catch((error) => {
     process.stderr.write(
-      `scheduled-verification-setup: ${error instanceof Error ? error.message : String(error)}\n`,
+      `scheduled-verification-fallback: ${error instanceof Error ? error.message : String(error)}\n`,
     );
     process.exitCode = 1;
   });

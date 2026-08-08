@@ -1,4 +1,7 @@
-import { recordScheduledVerificationFailure } from "./scheduled-verification-issue.mjs";
+import {
+  recordScheduledVerificationFailure,
+  scheduledFailureFromClassifiedEvidence,
+} from "./scheduled-verification-issue.mjs";
 
 export const INTEGRATION_TIMEOUT_MS = 20 * 60 * 1_000;
 
@@ -24,7 +27,7 @@ export type ScheduledVerificationIdentity = {
 };
 
 export type ScheduledVerificationFailure = {
-  kind: "browser-failed" | "catalog-unavailable" | "setup-failed";
+  kind: "browser-failed" | "catalog-unavailable" | "reconciliation-failed" | "setup-failed";
   identity: ScheduledVerificationIdentity;
   summary: string;
 };
@@ -95,14 +98,7 @@ export async function runScheduledBrowserVerification(adapters: {
   const result = await adapters.verification.verifyCompleteWebkit();
   await adapters.onEvidenceClassified?.(result);
   if (result.outcome === "failed") {
-    const failure = {
-      kind: result.failureKind,
-      identity: result.identity,
-      summary:
-        result.failureKind === "catalog-unavailable"
-          ? "Scheduled verification could not read current Catalog facts, so WebKit did not run."
-          : "Complete WebKit verification failed for current dev and Catalog facts.",
-    };
+    const failure = scheduledFailureFromClassifiedEvidence(result) as ScheduledVerificationFailure;
     const issueNumber = await recordScheduledVerificationFailure(adapters.issues, failure);
     return {
       identity: result.identity,

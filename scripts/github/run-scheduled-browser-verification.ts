@@ -1,5 +1,7 @@
 import { execFile } from "node:child_process";
-import { appendFile, readFile } from "node:fs/promises";
+import { appendFile, readFile, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 
@@ -78,6 +80,10 @@ async function main(): Promise<void> {
   };
   const browserVersion = packageJson.devDependencies?.["@playwright/test"];
   if (!browserVersion) throw new Error("The pinned Playwright version is unavailable.");
+  const evidencePath = resolve(
+    process.env.RUNNER_TEMP ?? tmpdir(),
+    "mei-pelle-scheduled-verification-evidence.json",
+  );
 
   const report = await runScheduledBrowserVerificationCommand({
     argv: process.argv.slice(2),
@@ -87,10 +93,15 @@ async function main(): Promise<void> {
       runUrl,
     }),
     log: (message) => process.stdout.write(`${message}\n`),
-    async onEvidenceClassified() {
+    async onEvidenceClassified(result) {
+      await writeFile(evidencePath, JSON.stringify(result), "utf8");
       const githubEnvironment = process.env.GITHUB_ENV;
       if (githubEnvironment) {
-        await appendFile(githubEnvironment, "SCHEDULED_VERIFICATION_RECORDED=1\n", "utf8");
+        await appendFile(
+          githubEnvironment,
+          `SCHEDULED_VERIFICATION_EVIDENCE_FILE=${evidencePath}\n`,
+          "utf8",
+        );
       }
     },
     verification: createScheduledBrowserVerificationAdapter({
@@ -119,6 +130,14 @@ async function main(): Promise<void> {
       },
     }),
   });
+  const githubEnvironment = process.env.GITHUB_ENV;
+  if (githubEnvironment) {
+    await appendFile(
+      githubEnvironment,
+      "SCHEDULED_VERIFICATION_ISSUE_RECONCILED=1\n",
+      "utf8",
+    );
+  }
   if (report.productionPromotion === "blocked") process.exitCode = 1;
 }
 

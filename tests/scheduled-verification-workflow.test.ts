@@ -8,6 +8,7 @@ import {
   type ScheduledVerificationFailure,
 } from "@/scripts/github/verification-orchestrator";
 import {
+  createScheduledFallbackFailure,
   createScheduledSetupFailure,
   scheduledSetupFailureIssueBody,
 } from "@/scripts/github/record-scheduled-verification-setup-failure.mjs";
@@ -57,7 +58,7 @@ describe("proportional scheduled verification workflow adapters", () => {
     expect(steps.some((step) => step.run === "pnpm verify:scheduled -- --lane webkit")).toBe(true);
     expect(steps).toEqual(expect.arrayContaining([
       expect.objectContaining({
-        if: "${{ failure() && env.SCHEDULED_VERIFICATION_RECORDED != '1' }}",
+        if: "${{ failure() && env.SCHEDULED_VERIFICATION_ISSUE_RECONCILED != '1' }}",
         run: "node scripts/github/record-scheduled-verification-setup-failure.mjs",
       }),
     ]));
@@ -136,11 +137,17 @@ describe("proportional scheduled verification workflow adapters", () => {
     ).toContain("mei-pelle:scheduled-webkit-state");
   });
 
-  it("deduplicates setup failures through the shared operational orchestrator", async () => {
-    const failure = createScheduledSetupFailure({
+  it("reconciles classified evidence failures through the shared operational orchestrator", async () => {
+    const setupFailure = createScheduledSetupFailure({
       browserVersion: "1.55.1",
       planSource: "plan-source",
       runtimeIdentity: "runtime-identity",
+    });
+    const failure = createScheduledFallbackFailure({
+      classifiedEvidence: {
+        identity: setupFailure.identity,
+        outcome: "passed",
+      },
     });
     const updates: unknown[] = [];
     const issueNumber = await recordScheduledVerificationFailure({
@@ -148,7 +155,7 @@ describe("proportional scheduled verification workflow adapters", () => {
         return { ...failure, number: 154 };
       },
       async create() {
-        throw new Error("an active setup failure must be reused");
+        throw new Error("an active reconciliation failure must be reused");
       },
       async update(number: number, nextFailure: ScheduledVerificationFailure) {
         updates.push({ number, failure: nextFailure });
@@ -157,6 +164,20 @@ describe("proportional scheduled verification workflow adapters", () => {
     }, failure);
 
     expect(issueNumber).toBe(154);
+    expect(failure).toMatchObject({
+      kind: "reconciliation-failed",
+      summary: "Operational issue reconciliation failed after complete WebKit verification passed.",
+    });
+    expect(createScheduledFallbackFailure({
+      classifiedEvidence: {
+        failureKind: "browser-failed",
+        identity: setupFailure.identity,
+        outcome: "failed",
+      },
+    })).toMatchObject({
+      kind: "browser-failed",
+      summary: "Complete WebKit verification failed for current dev and Catalog facts.",
+    });
     expect(updates).toEqual([{ number: 154, failure }]);
   });
 

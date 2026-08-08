@@ -11,13 +11,46 @@ function isScheduledVerificationFailure(value) {
   const identity = value.identity;
   return (
     typeof value.summary === "string" &&
-    ["browser-failed", "catalog-unavailable", "setup-failed"].includes(value.kind) &&
+    ["browser-failed", "catalog-unavailable", "reconciliation-failed", "setup-failed"].includes(value.kind) &&
     identity?.browser?.name === "webkit" &&
     typeof identity.browser.version === "string" &&
     isFingerprint(identity.catalogFingerprint) &&
     isFingerprint(identity.planFingerprint) &&
     isFingerprint(identity.runtimeFingerprint)
   );
+}
+
+export function scheduledFailureFromClassifiedEvidence(result) {
+  if (!result || typeof result !== "object" || !result.identity) return undefined;
+  const probe = {
+    kind: "reconciliation-failed",
+    identity: result.identity,
+    summary: "probe",
+  };
+  if (!isScheduledVerificationFailure(probe)) return undefined;
+  if (result.outcome === "passed") {
+    return {
+      kind: "reconciliation-failed",
+      identity: result.identity,
+      summary: "Operational issue reconciliation failed after complete WebKit verification passed.",
+    };
+  }
+  if (result.outcome !== "failed") return undefined;
+  if (result.failureKind === "catalog-unavailable") {
+    return {
+      kind: "catalog-unavailable",
+      identity: result.identity,
+      summary: "Scheduled verification could not read current Catalog facts, so WebKit did not run.",
+    };
+  }
+  if (result.failureKind === "browser-failed") {
+    return {
+      kind: "browser-failed",
+      identity: result.identity,
+      summary: "Complete WebKit verification failed for current dev and Catalog facts.",
+    };
+  }
+  return undefined;
 }
 
 export function scheduledVerificationIssueBody(failure, runUrl) {

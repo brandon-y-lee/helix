@@ -34,9 +34,13 @@ environment-validation, and command-start failures before complete WebKit
 evidence can run. A sparse first checkout makes the dependency-free recorder
 available before the full checkout. Failures before any repository code can be
 acquired remain visible as failed workflow infrastructure but cannot safely
-mutate issue state. Because setup evidence has no current Catalog snapshot,
-later clean evidence does not silently close it; the Operator must reconcile
-the nonmatching identity.
+mutate issue state. Classified browser or Catalog evidence is persisted before
+issue reconciliation; if GitHub issue mutation then fails, the fallback retries
+the same shared adapter with the factual identity. A reconciliation failure
+after clean WebKit is tracked explicitly and matching clean evidence can close
+it later. Because setup evidence has no current Catalog snapshot, later clean
+evidence does not silently close it; the Operator must reconcile the
+nonmatching identity.
 
 The workflow has `contents: read` and the narrow `issues: write` permission.
 Its cancellation-disabled concurrency group prevents overlapping scheduled
