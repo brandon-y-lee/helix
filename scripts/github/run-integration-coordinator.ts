@@ -18,7 +18,7 @@ type PullRequestFact = {
   headRefOid: string;
   isDraft: boolean;
   mergeable: string;
-  updatedAt: string;
+  createdAt: string;
   body: string;
   labels: Array<{ name: string }>;
   files: Array<{ path: string }>;
@@ -93,6 +93,17 @@ function declaredWorkClass(body: string): WorkClass {
   return "verification-system";
 }
 
+function declaredFastPathProof(body: string): string[] | undefined {
+  const declaration = body.match(/^- Fast-path proof:\s*(.+?)\s*$/m)?.[1]?.trim();
+  if (!declaration || /^n\/?a$/i.test(declaration)) return undefined;
+  const paths = declaration
+    .split(",")
+    .map((path) => path.trim().replace(/^`|`$/g, ""))
+    .filter(Boolean)
+    .sort();
+  return paths.length > 0 ? paths : undefined;
+}
+
 function isVerificationSystemPath(path: string): boolean {
   return verificationSystemPaths.some((prefix) => path.startsWith(prefix));
 }
@@ -134,15 +145,17 @@ export function toIntegrationCandidate(fact: PullRequestFact): IntegrationCandid
     number: fact.number,
     target: "dev",
     headSha: fact.headRefOid,
-    readyAt: fact.updatedAt,
+    readyAt: fact.createdAt,
     workClass,
     changedFiles,
+    fastPathProof: declaredFastPathProof(fact.body),
     riskAreas: inferRiskAreas(changedFiles),
     labels: fact.labels.map((label) => label.name),
     ready:
       fact.baseRefName === "dev" &&
       !fact.isDraft &&
       fact.mergeable !== "CONFLICTING" &&
+      !fact.labels.some((label) => label.name === "workflow:review") &&
       ciPassed(fact.statusCheckRollup),
   };
 }
@@ -160,38 +173,85 @@ function requireSha(value: string, description: string): string {
   return value;
 }
 
-async function queuedAt(
+async function readReadyTimes(
   commands: CommandAdapter,
   repository: string,
-  number: number,
-  fallback: string,
-): Promise<string> {
-  const result = await commands.run("gh", [
-    "api",
-    `repos/${repository}/issues/${number}/events?per_page=100`,
-  ]);
-  const events = parseJson<Array<{
-    event?: string;
-    created_at?: string;
-    label?: { name?: string };
-  }>>(result.stdout, `pull request #${number} events`);
-  return events
-    .filter(
-      (event) =>
-        event.event === "labeled" &&
-        event.label?.name === "workflow:integration-queued" &&
-        event.created_at,
-    )
-    .at(-1)?.created_at ?? fallback;
+  signal?: AbortSignal,
+): Promise<Map<number, string>> {
+  const [owner, name] = repository.split("/");
+  if (!owner || !name) throw new Error("repository must be owner/name");
+  const query = `
+    query($owner: String!, $name: String!) {
+      repository(owner: $owner, name: $name) {
+        pullRequests(first: 100, states: OPEN, baseRefName: "dev") {
+          nodes {
+            number
+            createdAt
+            timelineItems(
+              last: 100
+              itemTypes: [READY_FOR_REVIEW_EVENT, REOPENED_EVENT, UNLABELED_EVENT]
+            ) {
+              nodes {
+                __typename
+                ... on ReadyForReviewEvent { createdAt }
+                ... on ReopenedEvent { createdAt }
+                ... on UnlabeledEvent { createdAt label { name } }
+              }
+            }
+          }
+        }
+      }
+    }
+  `;
+  const result = await commands.run(
+    "gh",
+    ["api", "graphql", "-f", `query=${query}`, "-F", `owner=${owner}`, "-F", `name=${name}`],
+    { signal },
+  );
+  const response = parseJson<{
+    data?: {
+      repository?: {
+        pullRequests?: {
+          nodes?: Array<{
+            number: number;
+            createdAt: string;
+            timelineItems?: {
+              nodes?: Array<{
+                __typename?: string;
+                createdAt?: string;
+                label?: { name?: string };
+              }>;
+            };
+          }>;
+        };
+      };
+    };
+  }>(result.stdout, "pull request readiness timeline");
+  const readyTimes = new Map<number, string>();
+  for (const pull of response.data?.repository?.pullRequests?.nodes ?? []) {
+    const events = (pull.timelineItems?.nodes ?? [])
+      .filter(
+        (event) =>
+          event.createdAt &&
+          (event.__typename !== "UnlabeledEvent" || event.label?.name === "workflow:review"),
+      )
+      .sort((left, right) => left.createdAt!.localeCompare(right.createdAt!));
+    readyTimes.set(pull.number, events.at(-1)?.createdAt ?? pull.createdAt);
+  }
+  return readyTimes;
 }
 
 export function createRepositoryAdapter(
   repository: string,
   commands: CommandAdapter = commandAdapter,
 ): RepositoryAdapter {
-  async function read() {
-    const [dev, pulls] = await Promise.all([
-      commands.run("gh", ["api", `repos/${repository}/git/ref/heads/dev`, "--jq", ".object.sha"]),
+  async function read(signal?: AbortSignal) {
+    const [dev, pulls, readyTimes] = await Promise.all([
+      commands.run(
+        "gh",
+        ["api", `repos/${repository}/git/ref/heads/dev`, "--jq", ".object.sha"],
+        { signal },
+      ),
       commands.run("gh", [
         "pr",
         "list",
@@ -204,16 +264,15 @@ export function createRepositoryAdapter(
         "--limit",
         "100",
         "--json",
-        "number,baseRefName,headRefOid,isDraft,mergeable,updatedAt,body,labels,files,statusCheckRollup",
-      ]),
+        "number,baseRefName,headRefOid,isDraft,mergeable,createdAt,body,labels,files,statusCheckRollup",
+      ], { signal }),
+      readReadyTimes(commands, repository, signal),
     ]);
     const facts = parseJson<PullRequestFact[]>(pulls.stdout, "dev pull requests");
     const candidates = await Promise.all(
       facts.map(async (fact) => {
         const candidate = toIntegrationCandidate(fact);
-        if (candidate.labels.includes("workflow:integration-queued")) {
-          candidate.readyAt = await queuedAt(commands, repository, candidate.number, candidate.readyAt);
-        }
+        candidate.readyAt = readyTimes.get(candidate.number) ?? candidate.readyAt;
         return candidate;
       }),
     );
@@ -255,11 +314,19 @@ export function createRepositoryAdapter(
       );
       const claimed = await read();
       const active = claimed.candidates.find((entry) => entry.number === candidate.number);
-      return (
+      const valid = (
         claimed.devSha === candidate.baseSha &&
         active?.headSha === candidate.headSha &&
         active.labels.includes("workflow:integration-active")
       );
+      if (!valid) {
+        await editLabels(
+          candidate.number,
+          ["workflow:review"],
+          ["workflow:integration-active", "workflow:integration-queued"],
+        );
+      }
+      return valid;
     },
     async release(candidate, outcome) {
       await editLabels(
@@ -282,7 +349,7 @@ export function createGitAdapter(
         `repos/${repository}/pulls/${candidate.number}`,
         "--jq",
         ".merge_commit_sha",
-      ]);
+      ], { signal: candidate.signal });
       return { candidateSha: requireSha(result.stdout.trim(), "GitHub merge candidate") };
     },
   };
@@ -391,7 +458,7 @@ export function createMergeAdapter(
         `merge_method=${candidate.mergeMethod}`,
         "-f",
         `sha=${candidate.headSha}`,
-      ]);
+      ], { signal: candidate.signal });
       const merged = parseJson<{ merged?: boolean; sha?: string; message?: string }>(
         result.stdout,
         `pull request #${candidate.number} merge`,

@@ -628,6 +628,10 @@ describe("GitHub workflow bootstrap", () => {
       expect(
         state.protections.main.required_pull_request_reviews.required_approving_review_count,
       ).toBe(0);
+      expect(
+        state.rulesets[0].rules.find((rule: { type: string }) => rule.type === "required_status_checks")
+          .parameters.strict_required_status_checks_policy,
+      ).toBe(false);
       expect(readFileSync(logPath, "utf8")).not.toContain("collaborators");
 
       writeFileSync(logPath, "");

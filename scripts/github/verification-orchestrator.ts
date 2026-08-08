@@ -19,6 +19,7 @@ export type IntegrationCandidate = {
   readyAt: string;
   workClass: WorkClass;
   changedFiles: string[];
+  fastPathProof?: string[];
   riskAreas?: RiskArea[];
   labels: string[];
   ready: boolean;
@@ -36,14 +37,14 @@ export type FrozenCandidate = {
 };
 
 export interface RepositoryAdapter {
-  read(): Promise<RepositorySnapshot>;
+  read(signal?: AbortSignal): Promise<RepositorySnapshot>;
   queue(candidate: Pick<IntegrationCandidate, "number" | "headSha">): Promise<boolean>;
   claim(candidate: FrozenCandidate): Promise<boolean>;
   release(candidate: FrozenCandidate, outcome: "merged" | "review"): Promise<void>;
 }
 
 export interface GitAdapter {
-  prepare(candidate: FrozenCandidate): Promise<{ candidateSha: string }>;
+  prepare(candidate: FrozenCandidate & { signal: AbortSignal }): Promise<{ candidateSha: string }>;
 }
 
 export interface VerificationAdapter {
@@ -60,6 +61,7 @@ export interface MergeAdapter {
   merge(input: FrozenCandidate & {
     candidateSha: string;
     mergeMethod: "squash" | "merge";
+    signal: AbortSignal;
   }): Promise<{ mergeSha: string }>;
 }
 
@@ -67,12 +69,17 @@ export type IntegrationAttempt = FrozenCandidate &
   (
     | { outcome: "rejected"; reason: "trivial-path-not-proven" }
     | { outcome: "execution-failed"; stage: "git" | "verification" | "merge" }
+    | {
+        outcome: "timed-out" | "cancelled";
+        stage: "git" | "verification" | "merge";
+        candidateSha?: string;
+        gate: VerificationGate;
+        reasons: string[];
+      }
     | ({ candidateSha: string; gate: VerificationGate; reasons: string[] } &
         (
           | { outcome: "merged"; mergeSha: string; mergeMethod: "squash" | "merge" }
           | { outcome: "failed" }
-          | { outcome: "timed-out" }
-          | { outcome: "cancelled" }
           | {
               outcome: "changed-input";
               reason: "base-changed" | "head-changed" | "ownership-lost";
@@ -129,6 +136,59 @@ function planFor(candidate: IntegrationCandidate): {
     gate: "complete-behavioral",
     reasons: [`${candidate.workClass} retains the complete behavioral gate`],
   };
+}
+
+function hasExactTrivialProof(candidate: IntegrationCandidate): boolean {
+  if (candidate.workClass !== "trivial") return true;
+  const changed = [...candidate.changedFiles].sort();
+  const proof = [...(candidate.fastPathProof ?? [])].sort();
+  return (
+    changed.length > 0 &&
+    changed.every(isReviewedNonRuntimePath) &&
+    changed.length === proof.length &&
+    changed.every((path, index) => path === proof[index])
+  );
+}
+
+type SlotInterruption = { kind: "interrupted"; outcome: "timed-out" | "cancelled" };
+
+function startSlot(options: IntegrationOptions) {
+  const controller = new AbortController();
+  const timeoutMs = Math.min(options.timeoutMs ?? INTEGRATION_TIMEOUT_MS, INTEGRATION_TIMEOUT_MS);
+  let settle!: (result: SlotInterruption) => void;
+  let settled = false;
+  const interruption = new Promise<SlotInterruption>((resolve) => {
+    settle = resolve;
+  });
+  const interrupt = (outcome: SlotInterruption["outcome"], reason: unknown) => {
+    if (settled) return;
+    settled = true;
+    settle({ kind: "interrupted", outcome });
+    controller.abort(reason);
+  };
+  const timeout = setTimeout(
+    () => interrupt("timed-out", "integration slot timed out"),
+    timeoutMs,
+  );
+  const cancel = () => interrupt("cancelled", options.signal?.reason ?? "integration run cancelled");
+  if (options.signal?.aborted) cancel();
+  else options.signal?.addEventListener("abort", cancel, { once: true });
+  return {
+    signal: controller.signal,
+    timeoutMs,
+    interruption,
+    close() {
+      clearTimeout(timeout);
+      options.signal?.removeEventListener("abort", cancel);
+    },
+  };
+}
+
+async function inSlot<T>(operation: Promise<T>, interruption: Promise<SlotInterruption>) {
+  return Promise.race([
+    operation.then((value) => ({ kind: "completed" as const, value })),
+    interruption,
+  ]);
 }
 
 function isQueued(candidate: IntegrationCandidate): boolean {
@@ -203,8 +263,7 @@ export async function runIntegrationLine(
   if (!(await repository.claim(frozen))) return { outcome: "claim-lost", attempts: [] };
 
   if (
-    candidate.workClass === "trivial" &&
-    (candidate.changedFiles.length === 0 || !candidate.changedFiles.every(isReviewedNonRuntimePath))
+    candidate.workClass === "trivial" && !hasExactTrivialProof(candidate)
   ) {
     await repository.release(frozen, "review");
     return advanceAfterAttempt(adapters, options, {
@@ -214,86 +273,62 @@ export async function runIntegrationLine(
     });
   }
 
+  const { gate, reasons } = planFor(candidate);
+  const slot = startSlot(options);
+  const interrupted = async (
+    stage: "git" | "verification" | "merge",
+    result: SlotInterruption,
+    prepared?: { candidateSha: string },
+  ): Promise<IntegrationReport> => {
+    slot.close();
+    await repository.release(frozen, "review");
+    const attempt: IntegrationAttempt = {
+      ...frozen,
+      ...prepared,
+      gate,
+      reasons,
+      outcome: result.outcome,
+      stage,
+    };
+    if (result.outcome === "cancelled") {
+      return { outcome: "exhausted", attempts: [attempt] };
+    }
+    return advanceAfterAttempt(adapters, options, attempt);
+  };
+
   let prepared: { candidateSha: string };
   try {
-    prepared = await git.prepare(frozen);
+    const result = await inSlot(
+      git.prepare({ ...frozen, signal: slot.signal }),
+      slot.interruption,
+    );
+    if (result.kind === "interrupted") return interrupted("git", result);
+    prepared = result.value;
   } catch {
+    slot.close();
     return handOffExecutionFailure(adapters, options, frozen, "git");
   }
-  const { gate, reasons } = planFor(candidate);
-  const controller = new AbortController();
-  const timeoutMs = Math.min(options.timeoutMs ?? INTEGRATION_TIMEOUT_MS, INTEGRATION_TIMEOUT_MS);
-  let timeout: ReturnType<typeof setTimeout> | undefined;
-  const cancel = () => controller.abort(options.signal?.reason ?? "integration run cancelled");
-  let cancelListener: (() => void) | undefined;
-  const cancellation = new Promise<{ outcome: "cancelled" }>((resolve) => {
-    if (options.signal?.aborted) {
-      cancel();
-      resolve({ outcome: "cancelled" });
-      return;
-    }
-    cancelListener = () => {
-      cancel();
-      resolve({ outcome: "cancelled" });
-    };
-    options.signal?.addEventListener("abort", cancelListener, { once: true });
-  });
-  let verificationResult:
-    | { outcome: "passed" | "failed" }
-    | { outcome: "timed-out" }
-    | { outcome: "cancelled" };
+  let verificationResult: { outcome: "passed" | "failed" };
   try {
-    verificationResult = await Promise.race([
+    const result = await inSlot(
       verification.verify({
         ...frozen,
         ...prepared,
         gate,
         reasons,
-        timeoutMs,
-        signal: controller.signal,
+        timeoutMs: slot.timeoutMs,
+        signal: slot.signal,
       }),
-      new Promise<{ outcome: "timed-out" }>((resolve) => {
-        timeout = setTimeout(() => {
-          controller.abort("integration slot timed out");
-          resolve({ outcome: "timed-out" });
-        }, timeoutMs);
-      }),
-      cancellation,
-    ]);
+      slot.interruption,
+    );
+    if (result.kind === "interrupted") return interrupted("verification", result, prepared);
+    verificationResult = result.value;
   } catch {
-    controller.abort("verification adapter failed");
-    if (timeout) clearTimeout(timeout);
-    if (cancelListener) options.signal?.removeEventListener("abort", cancelListener);
+    slot.close();
     return handOffExecutionFailure(adapters, options, frozen, "verification");
   }
-  if (timeout) clearTimeout(timeout);
-  if (cancelListener) options.signal?.removeEventListener("abort", cancelListener);
-  if (verificationResult.outcome === "cancelled") {
-    await repository.release(frozen, "review");
-    return {
-      outcome: "exhausted",
-      attempts: [
-        {
-          ...frozen,
-          ...prepared,
-          gate,
-          reasons,
-          outcome: "cancelled",
-        },
-      ],
-    };
-  }
-  if (verificationResult.outcome === "timed-out") {
-    await repository.release(frozen, "review");
-    return advanceAfterAttempt(adapters, options, {
-      ...frozen,
-      ...prepared,
-      gate,
-      reasons,
-      outcome: "timed-out",
-    });
-  }
   if (verificationResult.outcome !== "passed") {
+    slot.close();
     await repository.release(frozen, "review");
     return advanceAfterAttempt(adapters, options, {
       ...frozen,
@@ -304,13 +339,22 @@ export async function runIntegrationLine(
     });
   }
 
-  const current = await repository.read();
+  let current: RepositorySnapshot;
+  try {
+    const result = await inSlot(repository.read(slot.signal), slot.interruption);
+    if (result.kind === "interrupted") return interrupted("merge", result, prepared);
+    current = result.value;
+  } catch {
+    slot.close();
+    return handOffExecutionFailure(adapters, options, frozen, "merge");
+  }
   const currentCandidate = current.candidates.find((entry) => entry.number === frozen.number);
   if (
     current.devSha !== frozen.baseSha ||
     currentCandidate?.headSha !== frozen.headSha ||
     !currentCandidate.labels.includes("workflow:integration-active")
   ) {
+    slot.close();
     await repository.release(frozen, "review");
     const reason =
       current.devSha !== frozen.baseSha
@@ -331,10 +375,17 @@ export async function runIntegrationLine(
   let merged: { mergeSha: string };
   const mergeMethod = candidate.workClass === "completed-spec" ? "merge" : "squash";
   try {
-    merged = await merge.merge({ ...frozen, ...prepared, mergeMethod });
+    const result = await inSlot(
+      merge.merge({ ...frozen, ...prepared, mergeMethod, signal: slot.signal }),
+      slot.interruption,
+    );
+    if (result.kind === "interrupted") return interrupted("merge", result, prepared);
+    merged = result.value;
   } catch {
+    slot.close();
     return handOffExecutionFailure(adapters, options, frozen, "merge");
   }
+  slot.close();
   await repository.release(frozen, "merged");
   return {
     outcome: "merged",

@@ -6,7 +6,7 @@ Every ready pull request targeting `dev` enters one repository-owned, non-preemp
 
 The pull-request template declares one path: `standalone ticket`, `completed spec`, `urgent ticket`, `planning`, `documentation`, or `trivial`. Missing or unknown declarations fail closed to verification-system work. Automation never creates urgency. `urgent ticket` moves ahead of normal waiting work only when the user has also approved `workflow:urgent`; it never replaces `workflow:integration-active`.
 
-Planning, documentation, and trivial work receives `fast-non-runtime` only when every changed path is reviewed as non-runtime. Uncertain trivial work returns to `workflow:review`. Security, payment, data, provider, cross-cutting, and verification-system work retains the complete behavioral gate.
+Planning and documentation work receives `fast-non-runtime` only when every changed path is reviewed as non-runtime. Trivial work additionally requires the pull request's `Fast-path proof` to list every changed path exactly; missing, partial, or extra proof returns it to `workflow:review`. Security, payment, data, provider, cross-cutting, and verification-system work retains the complete behavioral gate.
 
 ## Execution
 
@@ -14,7 +14,7 @@ Planning, documentation, and trivial work receives `fast-non-runtime` only when 
 
 The coordinator dispatches `.github/workflows/dev-integration-verification.yml` with the exact pull request, candidate head, `dev` base, gate, and correlation nonce. That separate workflow has read-only repository permission, creates a two-parent candidate from those exact commits, and runs frozen install, lint, typecheck, and unit tests. The complete behavioral gate additionally runs the existing receipted production build and Chromium verification. Fast non-runtime work does not build the Storefront, access the Catalog, or launch browser verification.
 
-The Integration Slot is bounded to 20 minutes. Failure, timeout, cancellation, adapter failure, lost ownership, or a changed candidate or base prevents merge, removes the active label, and returns the pull request to `workflow:review`. The same coordinator run advances to the next eligible queued candidate after ordinary failure, timeout, or changed inputs.
+The Integration Slot timer starts immediately after a successful claim and is bounded to 20 minutes across candidate preparation, verification, the unchanged-input check, and merge. The coordinator job has a separate 30-minute ceiling so the slot timer can abort controlled adapters and release labels before Actions terminates the job. Failure, timeout, cancellation, adapter failure, lost ownership, or a changed candidate or base prevents merge, removes the active label, and returns the pull request to `workflow:review`; review handoffs are ineligible until that label is deliberately removed after correction. The same coordinator run advances to the next eligible queued candidate after ordinary failure, timeout, or changed inputs.
 
 ## Configuration cutover
 

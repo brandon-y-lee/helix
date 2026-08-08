@@ -22,7 +22,7 @@ describe("dev Integration Line workflows", () => {
     expect(coordinator).toContain("workflow_dispatch:");
     expect(coordinator).toContain("group: dev-integration");
     expect(coordinator).toContain("cancel-in-progress: false");
-    expect(coordinator).toContain("timeout-minutes: 20");
+    expect(coordinator).toContain("timeout-minutes: 30");
     expect(coordinator).toContain("contents: write");
     expect(coordinator).toContain("pull-requests: write");
     expect(coordinator).toContain("issues: write");

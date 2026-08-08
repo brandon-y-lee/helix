@@ -235,7 +235,7 @@ function desiredIntegrationRuleset(appId) {
             { context: "ci", integration_id: appId },
             { context: "dev-integration", integration_id: appId },
           ],
-          strict_required_status_checks_policy: true,
+          strict_required_status_checks_policy: false,
           do_not_enforce_on_create: false,
         },
       },

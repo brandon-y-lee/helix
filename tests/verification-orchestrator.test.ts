@@ -698,6 +698,92 @@ describe("Verification Orchestrator", () => {
     });
   });
 
+  it("rejects trivial work whose proof does not exactly cover the changed paths", async () => {
+    let candidate: IntegrationCandidate | undefined = {
+      number: 124,
+      target: "dev",
+      headSha: "candidate-124",
+      readyAt: "2026-08-08T08:00:00.000Z",
+      workClass: "trivial",
+      changedFiles: ["README.md", "docs/operator-guide.md"],
+      fastPathProof: ["README.md"],
+      labels: ["workflow:integration-queued"],
+      ready: true,
+    };
+    const repository: RepositoryAdapter = {
+      async read() {
+        return { devSha: "dev-1", candidates: candidate ? [structuredClone(candidate)] : [] };
+      },
+      async queue() { return true; },
+      async claim() {
+        candidate!.labels = ["workflow:integration-active"];
+        return true;
+      },
+      async release() { candidate = undefined; },
+    };
+
+    const report = await runIntegrationLine({
+      repository,
+      git: { async prepare() { throw new Error("unproven work must not prepare"); } },
+      verification: { async verify() { throw new Error("unproven work must not verify"); } },
+      merge: { async merge() { throw new Error("unproven work must not merge"); } },
+    });
+
+    expect(report).toMatchObject({
+      outcome: "exhausted",
+      attempts: [{ number: 124, outcome: "rejected", reason: "trivial-path-not-proven" }],
+    });
+  });
+
+  it("starts the slot deadline at claim, including candidate preparation", async () => {
+    let candidate: IntegrationCandidate | undefined = {
+      number: 125,
+      target: "dev",
+      headSha: "candidate-125",
+      readyAt: "2026-08-08T08:00:00.000Z",
+      workClass: "standalone",
+      changedFiles: ["app/page.tsx"],
+      labels: ["workflow:integration-queued"],
+      ready: true,
+    };
+    let released = false;
+    const repository: RepositoryAdapter = {
+      async read() {
+        return { devSha: "dev-1", candidates: candidate ? [structuredClone(candidate)] : [] };
+      },
+      async queue() { return true; },
+      async claim() {
+        candidate!.labels = ["workflow:integration-active"];
+        return true;
+      },
+      async release() {
+        released = true;
+        candidate = undefined;
+      },
+    };
+
+    const report = await runIntegrationLine(
+      {
+        repository,
+        git: {
+          async prepare() {
+            await new Promise((resolve) => setTimeout(resolve, 15));
+            return { candidateSha: "merge-tree" };
+          },
+        },
+        verification: { async verify() { throw new Error("timed out work must not verify"); } },
+        merge: { async merge() { throw new Error("timed out work must not merge"); } },
+      },
+      { timeoutMs: 1 },
+    );
+
+    expect(report).toMatchObject({
+      outcome: "exhausted",
+      attempts: [{ number: 125, outcome: "timed-out", stage: "git" }],
+    });
+    expect(released).toBe(true);
+  });
+
   it("retains broader complete checks for every declared high-risk area", async () => {
     let candidate: IntegrationCandidate | undefined = {
       number: 122,
