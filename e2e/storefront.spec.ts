@@ -693,9 +693,14 @@ test.describe("touch Quick Buy", () => {
       "none",
     );
     await close.scrollIntoViewIfNeeded();
+    const closeBox = await close.boundingBox();
+    if (!closeBox) throw new Error("Touch Quick Buy close control has no box.");
     const cardUrl = page.url();
     const scrollYBeforeClose = await page.evaluate(() => window.scrollY);
-    await close.tap();
+    await page.touchscreen.tap(
+      closeBox.x + closeBox.width / 2,
+      closeBox.y + closeBox.height / 2,
+    );
 
     await expect(card).toHaveAttribute("data-quick-buy-open", "false");
     await expect(card).toHaveAttribute("data-visual-state", "default");

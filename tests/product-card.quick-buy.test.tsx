@@ -341,6 +341,53 @@ describe("ProductCard quick buy", () => {
     expect(trigger).not.toHaveFocus();
   });
 
+  it("restores the viewport captured before a touch close changes focus", () => {
+    let scrollX = 0;
+    let scrollY = 472;
+    const scrollXSpy = vi.spyOn(window, "scrollX", "get").mockImplementation(
+      () => scrollX,
+    );
+    const scrollYSpy = vi.spyOn(window, "scrollY", "get").mockImplementation(
+      () => scrollY,
+    );
+    const scrollToSpy = vi.spyOn(window, "scrollTo").mockImplementation((x, y) => {
+      scrollX = Number(x);
+      scrollY = Number(y);
+    });
+    const animationFrameSpy = vi
+      .spyOn(window, "requestAnimationFrame")
+      .mockImplementation((callback) => {
+        callback(0);
+        return 1;
+      });
+
+    try {
+      render(<ProductCard product={makeProduct()} />);
+      const surface = cardSurface();
+      fireEvent.pointerDown(surface, { pointerType: "touch" });
+      fireEvent.click(
+        screen.getByRole("button", { name: "Open quick buy for CLEANSE" }),
+      );
+      const close = screen.getByRole("button", {
+        name: "Close quick buy for CLEANSE",
+      });
+
+      scrollY = 472;
+      scrollToSpy.mockClear();
+      fireEvent.touchStart(close);
+      scrollY = 129;
+      fireEvent.click(close);
+
+      expect(scrollToSpy).toHaveBeenCalledWith(0, 472);
+      expect(scrollY).toBe(472);
+    } finally {
+      animationFrameSpy.mockRestore();
+      scrollToSpy.mockRestore();
+      scrollYSpy.mockRestore();
+      scrollXSpy.mockRestore();
+    }
+  });
+
   it("restores keyboard focus after an earlier touch close", async () => {
     render(<ProductCard product={makeProduct()} />);
 

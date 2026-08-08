@@ -74,9 +74,14 @@ const commandAdapter: CommandAdapter = {
 
 const verificationSystemPaths = [
   ".github/workflows/",
+  "playwright.config.ts",
+  "scripts/affected-browser-verification",
+  "scripts/browser-verification-plan",
   "scripts/github/",
   "scripts/production-verification",
+  "scripts/verify-affected",
   "scripts/verify-production",
+  "tests/affected-browser-verification",
   "tests/integration-",
   "tests/verification-orchestrator",
   "tests/production-verification",
