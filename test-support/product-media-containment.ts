@@ -15,6 +15,10 @@ type ContainedMedia = Readonly<{
   roles: ReadonlySet<string>;
 }>;
 
+export type ProductMediaContainmentOptions = Readonly<{
+  approvedMediaOrigin: string;
+}>;
+
 export type ProductMediaContainmentReport = Readonly<{
   containedRequests: number;
   imageRequests: number;
@@ -24,25 +28,56 @@ export type ProductMediaContainmentReport = Readonly<{
   rejectedRequests: number;
 }>;
 
-function canonicalUrl(value: string): string | null {
+type MutableContainmentReport = {
+  -readonly [Key in keyof ProductMediaContainmentReport]: number;
+};
+
+const RESPONSE_BY_KIND = {
+  image: {
+    body: TEST_IMAGE,
+    contentType: "image/png",
+    counter: "imageRequests",
+  },
+  video: {
+    body: TEST_VIDEO,
+    contentType: "video/mp4",
+    counter: "videoRequests",
+  },
+} as const;
+
+function mediaKey(value: string): string | null {
   try {
-    return new URL(value).href;
+    if (value.startsWith("/") && !value.startsWith("//")) {
+      const url = new URL(value, "https://same-site.invalid");
+      return `same-site:${url.pathname}${url.search}`;
+    }
+    const url = new URL(value);
+    url.hash = "";
+    return `absolute:${url.href}`;
   } catch {
     return null;
   }
 }
 
-function publicStorageScope(value: string): string | null {
+function approvedOrigin(value: string): string {
   try {
     const url = new URL(value);
-    const bucketPath = url.pathname.match(
-      /^\/storage\/v1\/object\/public\/[^/]+\//,
-    )?.[0];
-    return url.protocol === "https:" && bucketPath
-      ? `${url.origin}${bucketPath}`
-      : null;
+    if (url.protocol === "https:") return url.origin;
   } catch {
-    return null;
+    // Use the common diagnostic below.
+  }
+  throw new Error("Product-media containment requires one approved HTTPS origin.");
+}
+
+function isPublicStorageRequest(value: string, origin: string): boolean {
+  try {
+    const url = new URL(value);
+    return (
+      url.origin === origin &&
+      url.pathname.startsWith("/storage/v1/object/public/")
+    );
+  } catch {
+    return false;
   }
 }
 
@@ -56,32 +91,49 @@ function productMedia(
   for (const product of snapshot.products) {
     for (const media of product.media) {
       if (!media.url || media.kind === "placeholder") continue;
-      const url = canonicalUrl(media.url);
-      if (!url || !publicStorageScope(url)) continue;
-      const current = mediaByUrl.get(url);
+      const key = mediaKey(media.url);
+      if (!key) continue;
+      const current = mediaByUrl.get(key);
       if (current) {
         current.roles.add(media.role);
         continue;
       }
-      mediaByUrl.set(url, { kind: media.kind, roles: new Set([media.role]) });
+      mediaByUrl.set(key, {
+        kind: media.kind,
+        roles: new Set([media.role]),
+      });
     }
   }
   return mediaByUrl;
 }
 
 function requestedMedia(requestUrl: string): {
+  keys: readonly string[];
   optimized: boolean;
-  url: string | null;
+  sourceUrl: string | null;
 } {
   try {
     const request = new URL(requestUrl);
     if (request.pathname === "/_next/image") {
       const source = request.searchParams.get("url");
-      return { optimized: true, url: source ? canonicalUrl(source) : null };
+      const key = source ? mediaKey(source) : null;
+      return {
+        keys: key ? [key] : [],
+        optimized: true,
+        sourceUrl: source,
+      };
     }
-    return { optimized: false, url: request.href };
+    request.hash = "";
+    return {
+      keys: [
+        `absolute:${request.href}`,
+        `same-site:${request.pathname}${request.search}`,
+      ],
+      optimized: false,
+      sourceUrl: request.href,
+    };
   } catch {
-    return { optimized: false, url: null };
+    return { keys: [], optimized: false, sourceUrl: null };
   }
 }
 
@@ -89,15 +141,13 @@ function isPoster(media: ContainedMedia): boolean {
   return [...media.roles].some((role) => role.includes("poster"));
 }
 
-export function createProductMediaContainment(snapshot: StorefrontSnapshot) {
+export function createProductMediaContainment(
+  snapshot: StorefrontSnapshot,
+  options: ProductMediaContainmentOptions,
+) {
   const mediaByUrl = productMedia(snapshot);
-  const storageScopes = new Set(
-    [...mediaByUrl.keys()].flatMap((url) => {
-      const scope = publicStorageScope(url);
-      return scope ? [scope] : [];
-    }),
-  );
-  const report = {
+  const publicMediaOrigin = approvedOrigin(options.approvedMediaOrigin);
+  const report: MutableContainmentReport = {
     containedRequests: 0,
     imageRequests: 0,
     videoRequests: 0,
@@ -108,31 +158,35 @@ export function createProductMediaContainment(snapshot: StorefrontSnapshot) {
 
   async function handle(route: Route): Promise<void> {
     const request = requestedMedia(route.request().url());
-    const media = request.url ? mediaByUrl.get(request.url) : undefined;
+    const media = request.keys
+      .map((key) => mediaByUrl.get(key))
+      .find((candidate) => candidate !== undefined);
     if (media) {
+      const response = RESPONSE_BY_KIND[media.kind];
       report.containedRequests += 1;
-      report[media.kind === "image" ? "imageRequests" : "videoRequests"] += 1;
+      report[response.counter] += 1;
       if (isPoster(media)) report.posterRequests += 1;
       if (request.optimized) report.optimizedImageRequests += 1;
-      const body = media.kind === "image" ? TEST_IMAGE : TEST_VIDEO;
       await route.fulfill({
-        body,
-        contentType: media.kind === "image" ? "image/png" : "video/mp4",
+        body: response.body,
+        contentType: response.contentType,
         headers: {
           "cache-control": "no-store",
-          "content-length": String(body.length),
+          "content-length": String(response.body.length),
         },
         status: 200,
       });
       return;
     }
 
-    const scope = request.url ? publicStorageScope(request.url) : null;
-    if (scope && storageScopes.has(scope)) {
+    if (
+      request.sourceUrl &&
+      isPublicStorageRequest(request.sourceUrl, publicMediaOrigin)
+    ) {
       report.rejectedRequests += 1;
       await route.abort("blockedbyclient");
       throw new Error(
-        `Product-media request is absent from the live Storefront: ${request.url}`,
+        `Product-media request is absent from the live Storefront: ${request.sourceUrl}`,
       );
     }
 

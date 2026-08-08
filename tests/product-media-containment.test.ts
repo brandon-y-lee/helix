@@ -9,6 +9,8 @@ const mediaOrigin = "https://erasogmsqpgiirovubjh.supabase.co";
 const imageUrl = `${mediaOrigin}/storage/v1/object/public/mei-pelle-catalog/card.webp`;
 const posterUrl = `${mediaOrigin}/storage/v1/object/public/mei-pelle-catalog/poster.webp`;
 const videoUrl = `${mediaOrigin}/storage/v1/object/public/mei-pelle-catalog/routine.mp4`;
+const sameSiteImageUrl = "/media/catalog/local-product.webp";
+const approvedOriginImageUrl = `${mediaOrigin}/catalog-assets/alternate-product.webp`;
 
 const snapshot = {
   schemaVersion: 1,
@@ -78,6 +80,28 @@ const snapshot = {
           paletteId: null,
           placeholderPalette: null,
         },
+        {
+          kind: "image",
+          url: sameSiteImageUrl,
+          alt: "Same-site Product image",
+          width: 1200,
+          height: 1600,
+          role: "gallery",
+          sortOrder: 3,
+          paletteId: null,
+          placeholderPalette: null,
+        },
+        {
+          kind: "image",
+          url: approvedOriginImageUrl,
+          alt: "Approved-origin Product image",
+          width: 1200,
+          height: 1600,
+          role: "gallery",
+          sortOrder: 4,
+          paletteId: null,
+          placeholderPalette: null,
+        },
       ],
       offer: null,
     },
@@ -137,7 +161,9 @@ function pageHarness() {
 describe("routine Product-media containment", () => {
   it("contains exact live Product media while application media remains real", async () => {
     const harness = pageHarness();
-    const containment = createProductMediaContainment(snapshot);
+    const containment = createProductMediaContainment(snapshot, {
+      approvedMediaOrigin: mediaOrigin,
+    });
     await containment.install(harness.page);
 
     const optimized = await harness.dispatch(
@@ -178,12 +204,45 @@ describe("routine Product-media containment", () => {
     });
   });
 
+  it("contains same-site and approved-origin Product media from the live set", async () => {
+    const harness = pageHarness();
+    const containment = createProductMediaContainment(snapshot, {
+      approvedMediaOrigin: mediaOrigin,
+    });
+    await containment.install(harness.page);
+
+    const sameSite = await harness.dispatch(
+      `http://127.0.0.1:3000/_next/image?url=${encodeURIComponent(sameSiteImageUrl)}&w=640&q=75`,
+    );
+    expect(sameSite.fulfill).toHaveBeenCalledOnce();
+
+    const approvedOrigin = await harness.dispatch(approvedOriginImageUrl);
+    expect(approvedOrigin.fulfill).toHaveBeenCalledOnce();
+  });
+
   it("blocks an unclassified request to the approved Product-media bucket", async () => {
     const harness = pageHarness();
-    const containment = createProductMediaContainment(snapshot);
+    const containment = createProductMediaContainment(snapshot, {
+      approvedMediaOrigin: mediaOrigin,
+    });
     await containment.install(harness.page);
     const unexpectedUrl =
       `${mediaOrigin}/storage/v1/object/public/mei-pelle-catalog/unexpected.webp`;
+
+    await expect(harness.dispatch(unexpectedUrl)).rejects.toThrow(
+      `Product-media request is absent from the live Storefront: ${unexpectedUrl}`,
+    );
+    expect(containment.report().rejectedRequests).toBe(1);
+  });
+
+  it("blocks an unclassified public Storage request outside known buckets", async () => {
+    const harness = pageHarness();
+    const containment = createProductMediaContainment(snapshot, {
+      approvedMediaOrigin: mediaOrigin,
+    });
+    await containment.install(harness.page);
+    const unexpectedUrl =
+      `${mediaOrigin}/storage/v1/object/public/new-catalog/unexpected.webp`;
 
     await expect(harness.dispatch(unexpectedUrl)).rejects.toThrow(
       `Product-media request is absent from the live Storefront: ${unexpectedUrl}`,

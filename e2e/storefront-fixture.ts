@@ -34,8 +34,15 @@ export const test = base.extend<
     await reconcileStorefrontSnapshot(snapshot, { baseURL });
   }, { scope: "worker" }],
   productMediaContainment: [async ({ storefrontBaseline }, use) => {
+    const approvedMediaOrigin = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    if (!approvedMediaOrigin) {
+      throw new Error(
+        "Product-media containment requires NEXT_PUBLIC_SUPABASE_URL.",
+      );
+    }
     const containment = createProductMediaContainment(
       storefrontBaseline.snapshot,
+      { approvedMediaOrigin },
     );
     await use(containment);
     console.log(
