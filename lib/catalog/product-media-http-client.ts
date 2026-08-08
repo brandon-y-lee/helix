@@ -98,7 +98,6 @@ export function createBoundedProductMediaHttpClient(
         redirect: input.redirect,
         credentials: input.credentials,
         signal: input.signal,
-        cache: "no-store",
       });
       const headers: Record<string, string | undefined> = {};
       response.headers.forEach((value, key) => {
