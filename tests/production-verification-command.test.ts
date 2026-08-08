@@ -80,11 +80,11 @@ describe("Production Verification Commands", () => {
 
     expect(workflow).toContain("- name: Build receipted production artifact with the trusted runner");
     expect(workflow).toContain(
-      'run: sudo -E -H -u verifier-candidate "$(command -v pnpm)" --dir trusted exec tsx scripts/verify-production-ci.ts build',
+      'run: sudo -E -H -u verifier-candidate env "PATH=$VERIFICATION_CANDIDATE_PATH" pnpm --dir trusted exec tsx scripts/verify-production-ci.ts build',
     );
     expect(workflow).toContain("- name: Verify receipted production artifact with the trusted runner");
     expect(workflow).toContain(
-      'run: sudo -E -H -u verifier-candidate "$(command -v pnpm)" --dir trusted exec tsx scripts/verify-production-ci.ts verify --selection routine-chromium',
+      'run: sudo -E -H -u verifier-candidate env "PATH=$VERIFICATION_CANDIDATE_PATH" pnpm --dir trusted exec tsx scripts/verify-production-ci.ts verify --selection routine-chromium',
     );
     expect(workflow).not.toContain("- name: Production build and E2E tests");
   });
