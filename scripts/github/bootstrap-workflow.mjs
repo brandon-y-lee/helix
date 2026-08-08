@@ -146,6 +146,38 @@ function requireDefaultBranchCoordinator(sha) {
   }
 }
 
+function requireSoleWriteCoordinator(sha) {
+  const coordinator = ".github/workflows/dev-integration.yml";
+  const workflows = runGit([
+    "ls-tree",
+    "-r",
+    "--name-only",
+    sha,
+    "--",
+    ".github/workflows",
+  ]).stdout.trim().split("\n").filter((path) => /\.ya?ml$/.test(path));
+  if (!workflows.includes(coordinator)) {
+    throw new Error(`coordinator workflow is absent from audited dev ${sha}`);
+  }
+  for (const path of workflows) {
+    const contents = runGit(["show", `${sha}:${path}`]).stdout;
+    if (path === coordinator) {
+      for (const permission of ["actions", "contents", "issues", "pull-requests"]) {
+        if (!contents.includes(`  ${permission}: write`)) {
+          throw new Error(`coordinator workflow must declare ${permission}: write at ${sha}`);
+        }
+      }
+      continue;
+    }
+    if (!contents.includes("permissions:\n  contents: read")) {
+      throw new Error(`non-coordinator workflow '${path}' must declare contents: read at ${sha}`);
+    }
+    if (/^\s+(actions|contents|issues|pull-requests):\s*write\s*$/m.test(contents)) {
+      throw new Error(`non-coordinator workflow '${path}' requests write authority at ${sha}`);
+    }
+  }
+}
+
 function isAncestor(ancestor, descendant) {
   return runGit(["merge-base", "--is-ancestor", ancestor, descendant], {
     allowFailure: true,
@@ -284,6 +316,18 @@ function readIntegrationRuleset(repo) {
   );
 }
 
+function readWorkflowPermissions(repo) {
+  return parseJson(
+    runGh([
+      "api",
+      `repos/${repo}/actions/permissions/workflow`,
+      "-H",
+      `X-GitHub-Api-Version: ${API_VERSION}`,
+    ]),
+    "default Actions workflow permissions",
+  );
+}
+
 function enabled(value) {
   if (typeof value === "boolean") return value;
   return value?.enabled;
@@ -349,6 +393,7 @@ function collectPlan(repo) {
   }
 
   const localDevSha = runGit(["rev-parse", "dev"]).stdout.trim();
+  requireSoleWriteCoordinator(localDevSha);
   const remoteBranches = readRemoteBranches();
   const remoteMainSha = remoteBranches.get("main");
   if (!remoteMainSha) throw new Error("remote branch 'main' does not exist");
@@ -427,6 +472,36 @@ function collectPlan(repo) {
               allow_squash_merge: true,
               allow_rebase_merge: false,
               delete_branch_on_merge: true,
+            }),
+          },
+        );
+      },
+    });
+  }
+
+  const workflowPermissions = readWorkflowPermissions(repo);
+  if (
+    workflowPermissions.default_workflow_permissions !== "read" ||
+    workflowPermissions.can_approve_pull_request_reviews !== false
+  ) {
+    actions.push({
+      description: "set default Actions workflow permissions to read-only",
+      apply: () => {
+        runGh(
+          [
+            "api",
+            "--method",
+            "PUT",
+            `repos/${repo}/actions/permissions/workflow`,
+            "-H",
+            `X-GitHub-Api-Version: ${API_VERSION}`,
+            "--input",
+            "-",
+          ],
+          {
+            input: JSON.stringify({
+              default_workflow_permissions: "read",
+              can_approve_pull_request_reviews: false,
             }),
           },
         );

@@ -89,7 +89,7 @@ export type IntegrationAttempt = FrozenCandidate &
 
 export type IntegrationReport =
   | {
-      outcome: "merged" | "idle" | "claim-lost" | "exhausted";
+      outcome: "merged" | "idle" | "claim-lost" | "exhausted" | "handoff";
       attempts: IntegrationAttempt[];
     }
   | { outcome: "busy"; activeNumber: number; attempts: IntegrationAttempt[] };
@@ -203,28 +203,17 @@ function isApprovedUrgent(candidate: IntegrationCandidate): boolean {
   return candidate.workClass === "urgent" && candidate.labels.includes("workflow:urgent");
 }
 
-async function advanceAfterAttempt(
-  adapters: IntegrationAdapters,
-  options: IntegrationOptions,
-  attempt: IntegrationAttempt,
-): Promise<IntegrationReport> {
-  const next = await runIntegrationLine(adapters, options);
-  const attempts = [attempt, ...next.attempts];
-  if (next.outcome === "busy") return { ...next, attempts };
-  return {
-    outcome: next.outcome === "idle" ? "exhausted" : next.outcome,
-    attempts,
-  };
+function advanceAfterAttempt(attempt: IntegrationAttempt): IntegrationReport {
+  return { outcome: "handoff", attempts: [attempt] };
 }
 
 async function handOffExecutionFailure(
   adapters: IntegrationAdapters,
-  options: IntegrationOptions,
   frozen: FrozenCandidate,
   stage: "git" | "verification" | "merge",
 ): Promise<IntegrationReport> {
   await adapters.repository.release(frozen, "review");
-  return advanceAfterAttempt(adapters, options, {
+  return advanceAfterAttempt({
     ...frozen,
     outcome: "execution-failed",
     stage,
@@ -266,7 +255,7 @@ export async function runIntegrationLine(
     candidate.workClass === "trivial" && !hasExactTrivialProof(candidate)
   ) {
     await repository.release(frozen, "review");
-    return advanceAfterAttempt(adapters, options, {
+    return advanceAfterAttempt({
       ...frozen,
       outcome: "rejected",
       reason: "trivial-path-not-proven",
@@ -293,7 +282,7 @@ export async function runIntegrationLine(
     if (result.outcome === "cancelled") {
       return { outcome: "exhausted", attempts: [attempt] };
     }
-    return advanceAfterAttempt(adapters, options, attempt);
+    return advanceAfterAttempt(attempt);
   };
 
   let prepared: { candidateSha: string };
@@ -306,7 +295,7 @@ export async function runIntegrationLine(
     prepared = result.value;
   } catch {
     slot.close();
-    return handOffExecutionFailure(adapters, options, frozen, "git");
+    return handOffExecutionFailure(adapters, frozen, "git");
   }
   let verificationResult: { outcome: "passed" | "failed" };
   try {
@@ -325,12 +314,12 @@ export async function runIntegrationLine(
     verificationResult = result.value;
   } catch {
     slot.close();
-    return handOffExecutionFailure(adapters, options, frozen, "verification");
+    return handOffExecutionFailure(adapters, frozen, "verification");
   }
   if (verificationResult.outcome !== "passed") {
     slot.close();
     await repository.release(frozen, "review");
-    return advanceAfterAttempt(adapters, options, {
+    return advanceAfterAttempt({
       ...frozen,
       ...prepared,
       gate,
@@ -346,7 +335,7 @@ export async function runIntegrationLine(
     current = result.value;
   } catch {
     slot.close();
-    return handOffExecutionFailure(adapters, options, frozen, "merge");
+    return handOffExecutionFailure(adapters, frozen, "merge");
   }
   const currentCandidate = current.candidates.find((entry) => entry.number === frozen.number);
   if (
@@ -362,7 +351,7 @@ export async function runIntegrationLine(
         : currentCandidate?.headSha !== frozen.headSha
           ? "head-changed"
           : "ownership-lost";
-    return advanceAfterAttempt(adapters, options, {
+    return advanceAfterAttempt({
       ...frozen,
       ...prepared,
       gate,
@@ -383,7 +372,7 @@ export async function runIntegrationLine(
     merged = result.value;
   } catch {
     slot.close();
-    return handOffExecutionFailure(adapters, options, frozen, "merge");
+    return handOffExecutionFailure(adapters, frozen, "merge");
   }
   slot.close();
   await repository.release(frozen, "merged");

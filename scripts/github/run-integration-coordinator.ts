@@ -245,6 +245,8 @@ export function createRepositoryAdapter(
   repository: string,
   commands: CommandAdapter = commandAdapter,
 ): RepositoryAdapter {
+  let claimTail = Promise.resolve();
+
   async function read(signal?: AbortSignal) {
     const [dev, pulls, readyTimes] = await Promise.all([
       commands.run(
@@ -296,37 +298,51 @@ export function createRepositoryAdapter(
       return true;
     },
     async claim(candidate) {
-      const current = await read();
-      const match = current.candidates.find((entry) => entry.number === candidate.number);
-      if (
-        current.devSha !== candidate.baseSha ||
-        current.candidates.some((entry) => entry.labels.includes("workflow:integration-active")) ||
-        !match?.ready ||
-        match.headSha !== candidate.headSha ||
-        !match.labels.includes("workflow:integration-queued")
-      ) {
-        return false;
-      }
-      await editLabels(
-        candidate.number,
-        ["workflow:integration-active"],
-        ["workflow:integration-queued", "workflow:review"],
-      );
-      const claimed = await read();
-      const active = claimed.candidates.find((entry) => entry.number === candidate.number);
-      const valid = (
-        claimed.devSha === candidate.baseSha &&
-        active?.headSha === candidate.headSha &&
-        active.labels.includes("workflow:integration-active")
-      );
-      if (!valid) {
+      const previousClaim = claimTail;
+      let finishClaim!: () => void;
+      claimTail = new Promise<void>((resolve) => {
+        finishClaim = resolve;
+      });
+      await previousClaim;
+      try {
+        const current = await read();
+        const match = current.candidates.find((entry) => entry.number === candidate.number);
+        if (
+          current.devSha !== candidate.baseSha ||
+          current.candidates.some((entry) => entry.labels.includes("workflow:integration-active")) ||
+          !match?.ready ||
+          match.headSha !== candidate.headSha ||
+          !match.labels.includes("workflow:integration-queued")
+        ) {
+          return false;
+        }
         await editLabels(
           candidate.number,
-          ["workflow:review"],
-          ["workflow:integration-active", "workflow:integration-queued"],
+          ["workflow:integration-active"],
+          ["workflow:integration-queued", "workflow:review"],
         );
+        const claimed = await read();
+        const active = claimed.candidates.filter((entry) =>
+          entry.labels.includes("workflow:integration-active"),
+        );
+        const owner = active[0];
+        const valid = (
+          claimed.devSha === candidate.baseSha &&
+          active.length === 1 &&
+          owner?.number === candidate.number &&
+          owner.headSha === candidate.headSha
+        );
+        if (!valid) {
+          await editLabels(
+            candidate.number,
+            ["workflow:review"],
+            ["workflow:integration-active", "workflow:integration-queued"],
+          );
+        }
+        return valid;
+      } finally {
+        finishClaim();
       }
-      return valid;
     },
     async release(candidate, outcome) {
       await editLabels(
@@ -336,6 +352,21 @@ export function createRepositoryAdapter(
       );
     },
   };
+}
+
+export async function requestIntegrationHandoff(
+  repository: string,
+  commands: CommandAdapter = commandAdapter,
+): Promise<void> {
+  await commands.run("gh", [
+    "workflow",
+    "run",
+    "dev-integration.yml",
+    "--repo",
+    repository,
+    "--ref",
+    "dev",
+  ]);
 }
 
 export function createGitAdapter(
@@ -489,6 +520,9 @@ async function main(): Promise<void> {
     },
     { signal: cancellation.signal },
   );
+  if (report.outcome === "handoff") {
+    await requestIntegrationHandoff(repository);
+  }
   process.stdout.write(`${JSON.stringify(report)}\n`);
   if (report.outcome === "exhausted") process.exitCode = 1;
 }

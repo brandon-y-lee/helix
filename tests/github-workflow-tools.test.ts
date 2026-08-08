@@ -72,10 +72,13 @@ function initialiseRepository(): { root: string; tempRoot: string } {
   expectSuccess(git(root, "config", "user.email", "workflow@example.test"));
   writeFileSync(join(root, "README.md"), "fixture\n");
   mkdirSync(join(root, ".github", "workflows"), { recursive: true });
-  writeFileSync(join(root, ".github", "workflows", "dev-integration.yml"), "name: coordinator\n");
+  writeFileSync(
+    join(root, ".github", "workflows", "dev-integration.yml"),
+    "name: coordinator\npermissions:\n  actions: write\n  contents: write\n  issues: write\n  pull-requests: write\n",
+  );
   writeFileSync(
     join(root, ".github", "workflows", "dev-integration-verification.yml"),
-    "name: verification\n",
+    "name: verification\npermissions:\n  contents: read\n",
   );
   expectSuccess(git(root, "add", "README.md", ".github/workflows"));
   expectSuccess(git(root, "commit", "-m", "Initial fixture"));
@@ -306,6 +309,10 @@ type FakeGithubState = {
   protections: Record<string, unknown>;
   githubActionsAppId?: number;
   rulesets?: Array<Record<string, unknown>>;
+  workflowPermissions?: {
+    default_workflow_permissions: "read" | "write";
+    can_approve_pull_request_reviews: boolean;
+  };
   failAuth?: boolean;
   failIssues?: boolean;
   advanceDev?: boolean;
@@ -375,6 +382,13 @@ if (args[0] === "api") {
     }));
     process.exit(0);
   }
+  if (method === "GET" && endpoint?.endsWith("/actions/permissions/workflow")) {
+    process.stdout.write(JSON.stringify(state.workflowPermissions ?? {
+      default_workflow_permissions: "write",
+      can_approve_pull_request_reviews: true,
+    }));
+    process.exit(0);
+  }
   if (method === "GET" && endpoint?.endsWith("/rulesets?includes_parents=false")) {
     process.stdout.write(JSON.stringify(state.rulesets ?? []));
     process.exit(0);
@@ -413,6 +427,12 @@ if (args[0] === "api") {
     state.protections[protection] = JSON.parse(input);
     save();
     process.stdout.write(JSON.stringify(state.protections[protection]));
+    process.exit(0);
+  }
+  if (method === "PUT" && endpoint?.endsWith("/actions/permissions/workflow")) {
+    state.workflowPermissions = JSON.parse(input);
+    save();
+    process.stdout.write(JSON.stringify(state.workflowPermissions));
     process.exit(0);
   }
   if ((method === "POST" || method === "PUT") && endpoint?.includes("/rulesets")) {
@@ -513,6 +533,7 @@ describe("GitHub workflow bootstrap", () => {
       expect(planned.stdout).toContain(
         "create dev Integration Line authority ruleset for GitHub App 15368",
       );
+      expect(planned.stdout).toContain("set default Actions workflow permissions to read-only");
       expect(planned.stdout).toContain("update repository merge settings");
       expect(planned.stdout).toContain("protect dev");
       expect(planned.stdout).toContain("protect main");
@@ -632,6 +653,10 @@ describe("GitHub workflow bootstrap", () => {
         state.rulesets[0].rules.find((rule: { type: string }) => rule.type === "required_status_checks")
           .parameters.strict_required_status_checks_policy,
       ).toBe(false);
+      expect(state.workflowPermissions).toEqual({
+        default_workflow_permissions: "read",
+        can_approve_pull_request_reviews: false,
+      });
       expect(readFileSync(logPath, "utf8")).not.toContain("collaborators");
 
       writeFileSync(logPath, "");
@@ -789,7 +814,20 @@ describe("GitHub workflow bootstrap", () => {
           expectSuccess(git(root, "branch", "-f", "dev", "HEAD"));
           expectSuccess(git(root, "push", "origin", "main"));
         },
-        expected: /coordinator workflows must exist on remote main/,
+        expected: /coordinator workflow is absent from audited dev|coordinator workflows must exist on remote main/,
+      },
+      {
+        name: "non-coordinator write authority",
+        mutateRepo: (root) => {
+          writeFileSync(
+            join(root, ".github", "workflows", "rogue.yml"),
+            "name: rogue\npermissions:\n  contents: write\n",
+          );
+          expectSuccess(git(root, "add", ".github/workflows/rogue.yml"));
+          expectSuccess(git(root, "commit", "-m", "Add rogue workflow"));
+          expectSuccess(git(root, "branch", "-f", "dev", "HEAD"));
+        },
+        expected: /non-coordinator workflow '.github\/workflows\/rogue.yml' must declare contents: read|requests write authority/,
       },
     ];
 

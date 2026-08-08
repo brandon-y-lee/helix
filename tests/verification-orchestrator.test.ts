@@ -319,7 +319,7 @@ describe("Verification Orchestrator", () => {
     expect(mergeCalls).toBe(1);
   });
 
-  it("returns a failed candidate to review and immediately advances the line", async () => {
+  it("returns a failed candidate to review and hands off to a fresh coordinator run", async () => {
     let devSha = "dev-1";
     const candidates: IntegrationCandidate[] = [90, 91].map((number) => ({
       number,
@@ -361,32 +361,38 @@ describe("Verification Orchestrator", () => {
       },
     };
 
-    const report = await runIntegrationLine({
+    const adapters = {
       repository,
       git: {
         async prepare(input) {
           return { candidateSha: `merge-tree-${input.number}` };
         },
-      },
+      } satisfies GitAdapter,
       verification: {
         async verify(input) {
           return { outcome: input.number === 90 ? "failed" : "passed" };
         },
-      },
+      } satisfies VerificationAdapter,
       merge: {
         async merge() {
           devSha = "dev-2";
           return { mergeSha: devSha };
         },
-      },
-    });
+      } satisfies MergeAdapter,
+    };
+    const report = await runIntegrationLine(adapters);
 
     expect(report).toMatchObject({
+      outcome: "handoff",
+      attempts: [{ number: 90, outcome: "failed" }],
+    });
+    expect(transitions).toEqual(["90:active", "90:review"]);
+
+    const nextReport = await runIntegrationLine(adapters);
+
+    expect(nextReport).toMatchObject({
       outcome: "merged",
-      attempts: [
-        { number: 90, outcome: "failed" },
-        { number: 91, outcome: "merged", mergeSha: "dev-2" },
-      ],
+      attempts: [{ number: 91, outcome: "merged", mergeSha: "dev-2" }],
     });
     expect(transitions).toEqual([
       "90:active",
@@ -431,7 +437,7 @@ describe("Verification Orchestrator", () => {
     });
 
     expect(report).toMatchObject({
-      outcome: "exhausted",
+      outcome: "handoff",
       attempts: [{ number: 92, outcome: "failed" }],
     });
   });
@@ -486,7 +492,7 @@ describe("Verification Orchestrator", () => {
     });
 
     expect(report).toMatchObject({
-      outcome: "exhausted",
+      outcome: "handoff",
       attempts: [{ number: 100, outcome: "changed-input", reason }],
     });
     expect(released).toBe(true);
@@ -543,7 +549,7 @@ describe("Verification Orchestrator", () => {
     );
 
     expect(report).toMatchObject({
-      outcome: "exhausted",
+      outcome: "handoff",
       attempts: [{ number: 110, outcome: "timed-out" }],
     });
     expect(released).toBe(true);
@@ -687,7 +693,7 @@ describe("Verification Orchestrator", () => {
     });
 
     expect(report).toMatchObject({
-      outcome: "exhausted",
+      outcome: "handoff",
       attempts: [
         {
           number: 121,
@@ -730,7 +736,7 @@ describe("Verification Orchestrator", () => {
     });
 
     expect(report).toMatchObject({
-      outcome: "exhausted",
+      outcome: "handoff",
       attempts: [{ number: 124, outcome: "rejected", reason: "trivial-path-not-proven" }],
     });
   });
@@ -778,7 +784,7 @@ describe("Verification Orchestrator", () => {
     );
 
     expect(report).toMatchObject({
-      outcome: "exhausted",
+      outcome: "handoff",
       attempts: [{ number: 125, outcome: "timed-out", stage: "git" }],
     });
     expect(released).toBe(true);
@@ -892,7 +898,7 @@ describe("Verification Orchestrator", () => {
       });
 
       expect(report).toMatchObject({
-        outcome: "exhausted",
+        outcome: "handoff",
         attempts: [{ number: 123, outcome: "execution-failed", stage }],
       });
       expect(released).toBe(true);

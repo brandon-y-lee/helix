@@ -11,6 +11,11 @@ const verification = readFileSync(
   resolve(projectRoot, ".github/workflows/dev-integration-verification.yml"),
   "utf8",
 );
+const ci = readFileSync(resolve(projectRoot, ".github/workflows/ci.yml"), "utf8");
+const activeProductMedia = readFileSync(
+  resolve(projectRoot, ".github/workflows/active-product-media-verification.yml"),
+  "utf8",
+);
 const packageJson = JSON.parse(
   readFileSync(resolve(projectRoot, "package.json"), "utf8"),
 ) as { scripts: Record<string, string> };
@@ -46,5 +51,15 @@ describe("dev Integration Line workflows", () => {
     expect(verification).toContain("if: ${{ inputs.gate == 'complete-behavioral' }}");
     expect(verification).toContain("pnpm tsx scripts/verify-production-ci.ts build");
     expect(verification).toContain("pnpm tsx scripts/verify-production-ci.ts verify");
+  });
+
+  it("keeps every non-coordinator workflow token explicitly read-only", () => {
+    for (const workflow of [ci, activeProductMedia, verification]) {
+      expect(workflow).toContain("permissions:\n  contents: read");
+      expect(workflow).not.toContain("contents: write");
+      expect(workflow).not.toContain("actions: write");
+      expect(workflow).not.toContain("issues: write");
+      expect(workflow).not.toContain("pull-requests: write");
+    }
   });
 });

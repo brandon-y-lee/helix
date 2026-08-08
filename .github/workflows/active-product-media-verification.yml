@@ -1,5 +1,8 @@
 name: Active Product Media Verification
 
+permissions:
+  contents: read
+
 on:
   schedule:
     - cron: "0 0 * * *"
