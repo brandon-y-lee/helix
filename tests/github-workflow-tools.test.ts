@@ -78,7 +78,7 @@ function initialiseRepository(): { root: string; tempRoot: string } {
   );
   writeFileSync(
     join(root, ".github", "workflows", "dev-integration-verification.yml"),
-    "name: verification\npermissions:\n  contents: read\njobs:\n  verify:\n    runs-on: ubuntu-latest\n    steps: []\n",
+    "name: verification\npermissions:\n  artifact-metadata: write\n  attestations: write\n  contents: read\n  id-token: write\njobs:\n  verify:\n    runs-on: ubuntu-latest\n    steps: []\n",
   );
   expectSuccess(git(root, "add", "README.md", ".github/workflows"));
   expectSuccess(git(root, "commit", "-m", "Initial fixture"));
@@ -130,11 +130,10 @@ describe("GitHub Actions CI", () => {
     expect(ciWorkflow).not.toContain("ALGOLIA_ADMIN_API_KEY");
   });
 
-  it("runs production browser verification only for pull-request merge trees", () => {
+  it("runs affected browser verification only for pull-request merge trees", () => {
     for (const name of [
       "Install Playwright browsers",
-      "Build receipted production artifact",
-      "Verify receipted production artifact",
+      "Verify affected browser journeys",
     ]) {
       expect(workflowStep(name)).toContain(
         "if: ${{ github.event_name == 'pull_request' }}",
@@ -144,6 +143,10 @@ describe("GitHub Actions CI", () => {
     expect(workflowStep("Upload Playwright report")).toContain(
       "if: ${{ failure() && github.event_name == 'pull_request' }}",
     );
+    expect(workflowStep("Verify affected browser journeys")).toContain(
+      "pnpm verify:affected -- --base \"${{ github.base_ref }}\"",
+    );
+    expect(ciWorkflow).not.toContain("scripts/verify-production-ci.ts");
 
     for (const name of ["Lint", "Typecheck", "Unit tests"]) {
       expect(workflowStep(name)).not.toContain("github.event_name");
@@ -837,6 +840,19 @@ describe("GitHub workflow bootstrap", () => {
           expectSuccess(git(root, "branch", "-f", "dev", "HEAD"));
         },
         expected: /non-coordinator workflow '.github\/workflows\/rogue.yml' job 'mutate' requests write-all/,
+      },
+      {
+        name: "attestation signer authority",
+        mutateRepo: (root) => {
+          writeFileSync(
+            join(root, ".github", "workflows", "dev-integration-verification.yml"),
+            "name: verification\npermissions:\n  contents: write\njobs:\n  verify:\n    runs-on: ubuntu-latest\n    steps: []\n",
+          );
+          expectSuccess(git(root, "add", ".github/workflows/dev-integration-verification.yml"));
+          expectSuccess(git(root, "commit", "-m", "Overgrant receipt signer"));
+          expectSuccess(git(root, "branch", "-f", "dev", "HEAD"));
+        },
+        expected: /attestation signer workflow must grant only/,
       },
     ];
 

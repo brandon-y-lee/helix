@@ -7,21 +7,33 @@ import {
   createNodeProductionVerificationAdapters,
   readProductionVerificationEnvironment,
 } from "./production-verification-node";
+import { BROWSER_VERIFICATION_PLAN } from "./browser-verification-plan";
 
 type CiOperation = "build" | "verify";
 
-function readOperation(argv: string[], env: NodeJS.ProcessEnv): CiOperation {
+function readOperation(argv: string[], env: NodeJS.ProcessEnv): {
+  operation: CiOperation;
+  routineChromium: boolean;
+} {
   if (env.CI !== "true" || env.GITHUB_ACTIONS !== "true") {
     throw new Error(
       "Receipted production artifact commands are restricted to GitHub Actions.",
     );
   }
-  if (argv.length !== 1 || (argv[0] !== "build" && argv[0] !== "verify")) {
+  const routineChromium =
+    argv.length === 3 &&
+    argv[0] === "verify" &&
+    argv[1] === "--selection" &&
+    argv[2] === "routine-chromium";
+  if (
+    !routineChromium &&
+    (argv.length !== 1 || (argv[0] !== "build" && argv[0] !== "verify"))
+  ) {
     throw new Error(
       "Receipted production artifact command requires exactly one operation: build or verify.",
     );
   }
-  return argv[0];
+  return { operation: argv[0] as CiOperation, routineChromium };
 }
 
 export async function runProductionVerificationCiCommand(input: {
@@ -33,7 +45,7 @@ export async function runProductionVerificationCiCommand(input: {
   requestedPort?: string;
   signal?: AbortSignal;
 }): Promise<void> {
-  const operation = readOperation(input.argv, input.env);
+  const { operation, routineChromium } = readOperation(input.argv, input.env);
   const adapters =
     input.adapters ??
     (await createNodeProductionVerificationAdapters(
@@ -52,7 +64,17 @@ export async function runProductionVerificationCiCommand(input: {
   }
 
   const result = await verifyReceiptedProductionArtifact(
-    { requestedPort: input.requestedPort, signal: input.signal },
+    {
+      browserSelection: routineChromium
+        ? {
+            journeyIds: BROWSER_VERIFICATION_PLAN.journeys.map(({ id }) => id),
+            projects: ["chromium"],
+            retries: 0,
+          }
+        : undefined,
+      requestedPort: input.requestedPort,
+      signal: input.signal,
+    },
     adapters,
   );
   log(

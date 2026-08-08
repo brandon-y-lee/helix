@@ -147,8 +147,9 @@ function requireDefaultBranchCoordinator(sha) {
   }
 }
 
-function requireSoleWriteCoordinator(sha) {
+function requireAuditedWorkflowAuthority(sha) {
   const coordinator = ".github/workflows/dev-integration.yml";
+  const attestationSigner = ".github/workflows/dev-integration-verification.yml";
   const workflows = runGit([
     "ls-tree",
     "-r",
@@ -201,6 +202,33 @@ function requireSoleWriteCoordinator(sha) {
       continue;
     }
     const permissions = workflow.permissions;
+    if (path === attestationSigner) {
+      const required = {
+        "artifact-metadata": "write",
+        attestations: "write",
+        contents: "read",
+        "id-token": "write",
+      };
+      if (
+        !permissions ||
+        typeof permissions !== "object" ||
+        Array.isArray(permissions) ||
+        Object.keys(permissions).length !== Object.keys(required).length ||
+        Object.entries(required).some(([permission, access]) => permissions[permission] !== access)
+      ) {
+        throw new Error(
+          `attestation signer workflow must grant only artifact-metadata, attestations, id-token: write and contents: read at ${sha}`,
+        );
+      }
+      for (const [jobName, job] of Object.entries(jobs)) {
+        if (job && typeof job === "object" && !Array.isArray(job) && "permissions" in job) {
+          throw new Error(
+            `attestation signer workflow job '${jobName}' must inherit the audited workflow permissions at ${sha}`,
+          );
+        }
+      }
+      continue;
+    }
     if (
       !permissions ||
       typeof permissions !== "object" ||
@@ -462,7 +490,7 @@ function collectPlan(repo) {
   }
 
   const localDevSha = runGit(["rev-parse", "dev"]).stdout.trim();
-  requireSoleWriteCoordinator(localDevSha);
+  requireAuditedWorkflowAuthority(localDevSha);
   const remoteBranches = readRemoteBranches();
   const remoteMainSha = remoteBranches.get("main");
   if (!remoteMainSha) throw new Error("remote branch 'main' does not exist");

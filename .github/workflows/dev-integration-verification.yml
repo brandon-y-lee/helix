@@ -29,7 +29,10 @@ on:
         type: string
 
 permissions:
+  artifact-metadata: write
+  attestations: write
   contents: read
+  id-token: write
 
 jobs:
   verify-frozen-candidate:
@@ -87,15 +90,67 @@ jobs:
         if: ${{ inputs.gate == 'complete-behavioral' }}
         run: pnpm tsx scripts/verify-production-ci.ts build
 
+      - name: Record Catalog fingerprint before verification
+        if: ${{ inputs.gate == 'complete-behavioral' }}
+        id: catalog-before
+        run: echo "fingerprint=$(pnpm --silent verification:catalog-fingerprint)" >> "$GITHUB_OUTPUT"
+
       - name: Verify receipted production artifact
         if: ${{ inputs.gate == 'complete-behavioral' }}
-        run: pnpm tsx scripts/verify-production-ci.ts verify
+        run: pnpm tsx scripts/verify-production-ci.ts verify --selection routine-chromium
 
-      - name: Upload Playwright report
+      - name: Record Catalog fingerprint after verification
+        if: ${{ inputs.gate == 'complete-behavioral' }}
+        id: catalog-after
+        run: echo "fingerprint=$(pnpm --silent verification:catalog-fingerprint)" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare canonical Verification Receipt
+        if: ${{ inputs.gate == 'complete-behavioral' }}
+        id: receipt
+        env:
+          CATALOG_FINGERPRINT_AFTER: ${{ steps.catalog-after.outputs.fingerprint }}
+          CATALOG_FINGERPRINT_BEFORE: ${{ steps.catalog-before.outputs.fingerprint }}
+          VERIFICATION_CANDIDATE_SHA: ${{ inputs.candidate_head }}
+          VERIFICATION_DEV_BASE: ${{ inputs.dev_base }}
+          VERIFICATION_PULL_REQUEST: ${{ inputs.pr_number }}
+          VERIFICATION_WORKFLOW_RUN: ${{ github.run_id }}-${{ github.run_attempt }}
+        run: pnpm verification:receipt:prepare
+
+      - name: Sign Verification Receipt
+        if: ${{ inputs.gate == 'complete-behavioral' }}
+        id: attest
+        uses: actions/attest@v4
+        with:
+          subject-path: ${{ steps.receipt.outputs.subject_path }}
+          predicate-type: https://mei-pelle.com/attestations/browser-verification/v1
+          predicate-path: ${{ steps.receipt.outputs.predicate_path }}
+
+      - name: Verify signed receipt lookup and current inputs
+        if: ${{ inputs.gate == 'complete-behavioral' }}
+        env:
+          ATTESTATION_BUNDLE_PATH: ${{ steps.attest.outputs.bundle-path }}
+          ATTESTATION_ID: ${{ steps.attest.outputs.attestation-id }}
+          GH_TOKEN: ${{ github.token }}
+          VERIFICATION_CURRENT_INPUTS_PATH: ${{ steps.receipt.outputs.current_inputs_path }}
+          VERIFICATION_SUBJECT_PATH: ${{ steps.receipt.outputs.subject_path }}
+        run: pnpm verification:receipt:verify
+
+      - name: Upload successful browser report and telemetry
+        if: ${{ success() && inputs.gate == 'complete-behavioral' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-playwright-success-${{ inputs.pr_number }}-${{ inputs.nonce }}
+          path: playwright-report/
+          retention-days: 30
+          if-no-files-found: ignore
+
+      - name: Upload failed browser diagnostics
         if: ${{ failure() && inputs.gate == 'complete-behavioral' }}
         uses: actions/upload-artifact@v4
         with:
-          name: integration-playwright-report-${{ inputs.pr_number }}-${{ inputs.nonce }}
-          path: playwright-report/
+          name: integration-playwright-failure-${{ inputs.pr_number }}-${{ inputs.nonce }}
+          path: |
+            playwright-report/
+            test-results/
           retention-days: 90
           if-no-files-found: ignore

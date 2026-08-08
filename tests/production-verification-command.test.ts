@@ -9,6 +9,7 @@ import { executeProductionVerificationCli } from "@/scripts/production-verificat
 import { runProductionVerificationCiCommand } from "@/scripts/production-verification-ci-command";
 import type { ProductionVerificationDiagnostic } from "@/scripts/production-verification";
 import { makeProductionVerificationAdapters as makeCiAdapters } from "@/tests/helpers/production-verification";
+import { BROWSER_VERIFICATION_PLAN } from "@/scripts/browser-verification-plan";
 
 const ciEnvironment: NodeJS.ProcessEnv = {
   ...process.env,
@@ -61,9 +62,9 @@ describe("Production Verification Commands", () => {
     );
   });
 
-  it("builds and verifies the same receipted artifact in separate Ubuntu steps", async () => {
+  it("builds and verifies the same receipted artifact inside the Integration Slot", async () => {
     const workflow = await readFile(
-      resolve(process.cwd(), ".github/workflows/ci.yml"),
+      resolve(process.cwd(), ".github/workflows/dev-integration-verification.yml"),
       "utf8",
     );
 
@@ -73,7 +74,7 @@ describe("Production Verification Commands", () => {
     );
     expect(workflow).toContain("- name: Verify receipted production artifact");
     expect(workflow).toContain(
-      "run: pnpm tsx scripts/verify-production-ci.ts verify",
+      "run: pnpm tsx scripts/verify-production-ci.ts verify --selection routine-chromium",
     );
     expect(workflow).not.toContain("- name: Production build and E2E tests");
   });
@@ -128,6 +129,37 @@ describe("Production Verification Commands", () => {
     expect(diagnostics).toContainEqual(
       expect.objectContaining({ phase: "artifact-validation", status: "passed" }),
     );
+  });
+
+  it("runs the complete first-pass Chromium plan for Routine Browser Verification", async () => {
+    const commitSha = "f".repeat(40);
+    let selection: unknown;
+    await runProductionVerificationCiCommand({
+      adapters: makeCiAdapters({
+        readArtifact: async () => ({ buildId: "routine-build", modifiedAtMs: 100 }),
+        readCommitSha: async () => commitSha,
+        readReceipt: async () => ({
+          contents: JSON.stringify({ buildId: "routine-build", commitSha }),
+          modifiedAtMs: 101,
+        }),
+        runBrowserTests: async (run) => {
+          selection = run.selection;
+        },
+        selectFreePort: async () => 43_126,
+        startServer: async () => ({ exited: new Promise(() => {}), stop: async () => {} }),
+        waitForBuildIdentity: async () => {},
+      }),
+      argv: ["verify", "--selection", "routine-chromium"],
+      cwd: process.cwd(),
+      env: ciEnvironment,
+      log: () => {},
+    });
+
+    expect(selection).toEqual({
+      journeyIds: BROWSER_VERIFICATION_PLAN.journeys.map(({ id }) => id),
+      projects: ["chromium"],
+      retries: 0,
+    });
   });
 
   it.each([

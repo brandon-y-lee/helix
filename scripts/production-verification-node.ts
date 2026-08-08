@@ -883,6 +883,9 @@ export async function createNodeProductionVerificationAdapters(
             "test",
             ...(testFiles ?? []),
             ...(project ? ["--project", project] : []),
+            ...(selection?.retries === undefined
+              ? []
+              : ["--retries", String(selection.retries)]),
           ],
           command: process.execPath,
           cwd,

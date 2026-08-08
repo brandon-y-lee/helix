@@ -44,7 +44,7 @@ describe("dev Integration Line workflows", () => {
     expect(verification).toContain("candidate_head:");
     expect(verification).toContain("dev_base:");
     expect(verification).toContain("gate:");
-    expect(verification).toContain("permissions:\n  contents: read");
+    expect(verification).toContain("contents: read");
     expect(verification).toContain("timeout-minutes: 20");
     expect(verification).toContain("persist-credentials: false");
     expect(verification).toContain("scripts/github/prepare-integration-candidate.ts");
@@ -54,12 +54,30 @@ describe("dev Integration Line workflows", () => {
   });
 
   it("keeps every non-coordinator workflow token explicitly read-only", () => {
-    for (const workflow of [ci, activeProductMedia, verification]) {
+    for (const workflow of [ci, activeProductMedia]) {
       expect(workflow).toContain("permissions:\n  contents: read");
       expect(workflow).not.toContain("contents: write");
       expect(workflow).not.toContain("actions: write");
       expect(workflow).not.toContain("issues: write");
       expect(workflow).not.toContain("pull-requests: write");
     }
+  });
+
+  it("uses proportional PR evidence and signs one stable Integration Slot result", () => {
+    expect(ci).toContain("pnpm verify:affected -- --base \"${{ github.base_ref }}\"");
+    expect(ci).not.toContain("scripts/verify-production-ci.ts verify");
+
+    expect(verification).toContain("id-token: write");
+    expect(verification).toContain("attestations: write");
+    expect(verification).toContain("artifact-metadata: write");
+    expect(verification).toContain("verification:catalog-fingerprint");
+    expect(verification).toContain(
+      "scripts/verify-production-ci.ts verify --selection routine-chromium",
+    );
+    expect(verification).toContain("uses: actions/attest@v4");
+    expect(verification).toContain("predicate-type:");
+    expect(verification).toContain("pnpm verification:receipt:verify");
+    expect(verification).toContain("retention-days: 30");
+    expect(verification).toContain("retention-days: 90");
   });
 });
