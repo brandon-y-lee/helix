@@ -201,7 +201,10 @@ describe("dev Integration Line workflows", () => {
       "scripts/verify-production-ci.ts verify --selection routine-chromium",
     );
     expect(receiptCommand).not.toContain('from "@playwright/test"');
-    expect(receiptCommand).toContain('candidateRequire.resolve("@playwright/test")');
+    expect(receiptCommand).toContain('candidateRequire("@playwright/test")');
+    expect(receiptCommand).not.toContain(
+      'pathToFileURL(candidateRequire.resolve("@playwright/test"))',
+    );
     expect(verification).toContain("Freeze browser evidence for retention");
     expect(verification).toContain(
       "if: ${{ always() && inputs.gate == 'complete-behavioral' }}",
