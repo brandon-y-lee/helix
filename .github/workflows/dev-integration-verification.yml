@@ -92,8 +92,12 @@ jobs:
       - name: Isolate candidate execution from the audited runner
         run: |
           sudo useradd --create-home --shell /bin/bash verifier-candidate
+          sudo chmod o+x "$(dirname "$(dirname "$PNPM_HOME")")"
+          sudo chmod o+x "$(dirname "$(dirname "$(dirname "$PNPM_HOME")")")"
+          sudo chmod -R a+rX "$(dirname "$PNPM_HOME")"
           sudo chown -R verifier-candidate:verifier-candidate candidate
           chmod -R a-w trusted
+          sudo -u verifier-candidate test -x "$(command -v pnpm)"
           sudo -u verifier-candidate test ! -w trusted/scripts/github/verification-receipt-command.ts
 
       - name: Install frozen candidate dependencies

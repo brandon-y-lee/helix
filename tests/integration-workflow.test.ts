@@ -112,6 +112,16 @@ describe("dev Integration Line workflows", () => {
     expect(verification).toContain("--ignore-scripts");
     expect(verification).toContain("Materialize candidate as non-executable input");
     expect(verification).toContain("Isolate candidate execution from the audited runner");
+    expect(verification).toContain(
+      'sudo chmod o+x "$(dirname "$(dirname "$PNPM_HOME")")"',
+    );
+    expect(verification).toContain('sudo chmod -R a+rX "$(dirname "$PNPM_HOME")"');
+    expect(verification).toContain(
+      'sudo -u verifier-candidate test -x "$(command -v pnpm)"',
+    );
+    expect(verification.indexOf("Isolate candidate execution from the audited runner")).toBeLessThan(
+      verification.indexOf("Install frozen candidate dependencies"),
+    );
     expect(verification).toContain("sudo -E -H -u verifier-candidate");
     expect(verification).toContain("chmod -R a-w trusted");
     expect(verification).toContain("Freeze the receipted artifact before browser verification");
