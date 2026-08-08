@@ -72,6 +72,62 @@ function reviewPassed(body: string): boolean {
   );
 }
 
+type RulesetRule = { type?: string; parameters?: Record<string, unknown> };
+
+function requireSpecRuleset(ruleset: Record<string, unknown>): void {
+  if (ruleset.enforcement !== "active") throw new Error("protected spec branch ruleset is not active");
+  const conditions = ruleset.conditions as { ref_name?: { include?: unknown[] } } | undefined;
+  if (!conditions?.ref_name?.include?.includes("refs/heads/codex/spec-*")) {
+    throw new Error("protected spec branch ruleset does not include spec branches");
+  }
+  const rules = Array.isArray(ruleset.rules) ? ruleset.rules as RulesetRule[] : [];
+  const byType = (type: string) => rules.find((rule) => rule.type === type);
+  if (byType("update")?.parameters?.update_allows_fetch_and_merge !== false) {
+    throw new Error("protected spec branch ruleset permits unsafe updates");
+  }
+  for (const type of ["deletion", "non_fast_forward"]) {
+    if (!byType(type)) throw new Error(`protected spec branch ruleset is missing ${type}`);
+  }
+  const pullRequest = byType("pull_request")?.parameters;
+  if (
+    JSON.stringify(pullRequest?.allowed_merge_methods) !== JSON.stringify(["squash"]) ||
+    pullRequest?.required_review_thread_resolution !== true ||
+    pullRequest?.dismiss_stale_reviews_on_push !== true
+  ) {
+    throw new Error("protected spec branch pull request controls are incomplete");
+  }
+  const status = byType("required_status_checks")?.parameters;
+  const checks = Array.isArray(status?.required_status_checks)
+    ? status.required_status_checks as Array<{ context?: string; integration_id?: number }>
+    : [];
+  const expectedContexts = ["affected-browser-verification", "ci"];
+  const observedContexts = checks.map((check) => check.context).sort();
+  if (JSON.stringify(observedContexts) !== JSON.stringify(expectedContexts)) {
+    throw new Error("protected spec branch required checks are incomplete");
+  }
+  const integrationIds = new Set(checks.map((check) => check.integration_id));
+  const integrationId = checks[0]?.integration_id;
+  if (integrationIds.size !== 1 || !Number.isInteger(integrationId) || Number(integrationId) <= 0) {
+    throw new Error("protected spec branch checks are not bound to one integration identity");
+  }
+  if (
+    status?.strict_required_status_checks_policy !== false ||
+    status?.do_not_enforce_on_create !== false
+  ) {
+    throw new Error("protected spec branch status-check policy does not match the audited configuration");
+  }
+  const bypass = Array.isArray(ruleset.bypass_actors)
+    ? ruleset.bypass_actors as Array<{ actor_id?: number; actor_type?: string; bypass_mode?: string }>
+    : [];
+  if (!bypass.some((actor) =>
+    actor.actor_id === integrationId &&
+    actor.actor_type === "Integration" &&
+    actor.bypass_mode === "always"
+  )) {
+    throw new Error("protected spec branch bypass is not limited to the verification integration");
+  }
+}
+
 export function createSpecLifecycleAdapters(
   repository: string,
   commands: SpecCommandAdapter = systemCommands,
@@ -191,16 +247,7 @@ export function createSpecLifecycleAdapters(
           (await commands.run("gh", ["api", `repos/${repository}/rulesets/${summary.id}`])).stdout,
           "protected spec branch ruleset",
         );
-        const encoded = JSON.stringify(ruleset);
-        for (const required of [
-          '"enforcement":"active"',
-          '"refs/heads/codex/spec-*"',
-          '"allowed_merge_methods":["squash"]',
-          '"context":"ci"',
-          '"context":"affected-browser-verification"',
-        ]) {
-          if (!encoded.includes(required)) throw new Error(`protected spec branch ruleset is missing ${required}`);
-        }
+        requireSpecRuleset(ruleset);
         if (!input.branch.startsWith("codex/spec-")) throw new Error("invalid protected spec branch");
       },
     },
@@ -217,6 +264,7 @@ export function createSpecLifecycleAdapters(
         }
         const ref = parseJson<{ object: { sha: string } }>(result.stdout, `branch ${name}`);
         let parent: string | null = null;
+        let baseSha: string | undefined;
         const number = issueNumberFromBranch(name);
         if (number) {
           const comments = await commands.run("gh", [
@@ -233,12 +281,15 @@ export function createSpecLifecycleAdapters(
           for (const comment of [...values.comments].reverse()) {
             const match = comment.body.match(/<!-- mei-pelle-ticket-branch:v1 (\{.*\}) -->/);
             if (!match) continue;
-            const metadata = parseJson<{ branch: string; baseBranch: string }>(match[1], "ticket branch metadata");
-            if (metadata.branch === name) parent = metadata.baseBranch;
+            const metadata = parseJson<{ branch: string; baseBranch: string; baseSha?: string }>(match[1], "ticket branch metadata");
+            if (metadata.branch === name) {
+              parent = metadata.baseBranch;
+              baseSha = metadata.baseSha;
+            }
             break;
           }
         }
-        return { name, sha: ref.object.sha, parent } satisfies WorkflowBranch;
+        return { name, sha: ref.object.sha, parent, baseSha } satisfies WorkflowBranch;
       },
       async createBranch(input) {
         await commands.run("gh", [
@@ -259,6 +310,36 @@ export function createSpecLifecycleAdapters(
           "DELETE",
           `repos/${repository}/git/refs/heads/${encodeURIComponent(name)}`,
         ]);
+      },
+      async verifyFlatTicketBranch(input) {
+        const remoteTicket = `refs/remotes/origin/${input.branch}`;
+        const remoteBase = `refs/remotes/origin/${input.baseBranch}`;
+        await commands.run("git", [
+          "fetch",
+          "origin",
+          `refs/heads/${input.branch}:${remoteTicket}`,
+          `refs/heads/${input.baseBranch}:${remoteBase}`,
+        ]);
+        const observedHead = (await commands.run("git", ["rev-parse", remoteTicket])).stdout.trim();
+        const observedBase = (await commands.run("git", ["rev-parse", remoteBase])).stdout.trim();
+        if (observedHead !== input.headSha) return false;
+        for (const pair of [[input.baseSha, input.headSha], [input.baseSha, observedBase]] as const) {
+          const ancestry = await commands.run("git", ["merge-base", "--is-ancestor", pair[0], pair[1]], { allowFailure: true });
+          if (ancestry.status !== 0) return false;
+        }
+        const commits = (await commands.run("git", ["rev-list", "--parents", `${input.baseSha}..${input.headSha}`])).stdout;
+        for (const line of commits.trim().split("\n").filter(Boolean)) {
+          const [, , ...additionalParents] = line.split(/\s+/);
+          for (const parent of additionalParents) {
+            const belongsToBase = await commands.run(
+              "git",
+              ["merge-base", "--is-ancestor", parent, observedBase],
+              { allowFailure: true },
+            );
+            if (belongsToBase.status !== 0) return false;
+          }
+        }
+        return true;
       },
       async updateSpecFromDev(input) {
         const remoteSpec = `refs/remotes/origin/${input.branch}`;

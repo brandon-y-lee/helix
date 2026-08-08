@@ -40,6 +40,7 @@ describe("future spec integration lifecycle", () => {
           branches.set(input.name, { name: input.name, sha: input.fromSha, parent: input.fromBranch });
         },
         async deleteBranch() {},
+        async verifyFlatTicketBranch() { return true; },
       },
       issues: {
         async read(number) {
@@ -81,6 +82,14 @@ describe("future spec integration lifecycle", () => {
     });
     expect(calls).toEqual([
       {
+        protect: {
+          branch: "codex/spec-60-catalog-refresh",
+          directPushes: false,
+          allowedMergeMethods: ["squash"],
+          requiredChecks: ["ci", "affected-browser-verification"],
+        },
+      },
+      {
         create: {
           name: "codex/spec-60-catalog-refresh",
           fromBranch: "dev",
@@ -108,7 +117,7 @@ describe("future spec integration lifecycle", () => {
     ).rejects.toThrow("spec #50 remains on the previously executable workflow");
   });
 
-  it("removes a newly created spec branch when protection cannot be proven", async () => {
+  it("refuses to create a spec branch when protection cannot be proven", async () => {
     const branches = new Map<string, WorkflowBranch>([
       ["dev", { name: "dev", sha: "dev-1", parent: null }],
     ]);
@@ -131,7 +140,7 @@ describe("future spec integration lifecycle", () => {
         adapters,
       ),
     ).rejects.toThrow("ruleset unavailable");
-    expect(deleted).toEqual(["codex/spec-60-catalog-refresh"]);
+    expect(deleted).toEqual([]);
     expect(branches.has("codex/spec-60-catalog-refresh")).toBe(false);
   });
 
@@ -159,6 +168,7 @@ describe("future spec integration lifecycle", () => {
           branches.set(input.name, { name: input.name, sha: input.fromSha, parent: input.fromBranch });
         },
         async deleteBranch() {},
+        async verifyFlatTicketBranch() { return true; },
       },
       issues: {
         async read(number) {
@@ -267,11 +277,11 @@ describe("future spec integration lifecycle", () => {
       ],
       [
         "codex/61-foundation",
-        { name: "codex/61-foundation", sha: "child-61", parent: "codex/spec-60-catalog-refresh" },
+        { name: "codex/61-foundation", sha: "child-61", parent: "codex/spec-60-catalog-refresh", baseSha: "spec-1" },
       ],
       [
         "codex/62-dependent",
-        { name: "codex/62-dependent", sha: "child-62", parent: "codex/spec-60-catalog-refresh" },
+        { name: "codex/62-dependent", sha: "child-62", parent: "codex/spec-60-catalog-refresh", baseSha: "spec-1" },
       ],
     ]);
     const pullRequests = new Map<number, WorkflowPullRequest>([
@@ -319,6 +329,7 @@ describe("future spec integration lifecycle", () => {
         },
         async createBranch() {},
         async deleteBranch() {},
+        async verifyFlatTicketBranch() { return true; },
       },
       issues: {
         async read(number) {
@@ -379,6 +390,21 @@ describe("future spec integration lifecycle", () => {
     ).rejects.toThrow("child ticket must be in workflow:review");
     expect(merges).toEqual([]);
     issues.set(61, issue(61, { labels: ["type:ticket", "workflow:review"] }));
+
+    Object.assign(pullRequests.get(101)!, { headBranch: "codex/62-dependent" });
+    await expect(
+      runSpecLifecycle(
+        {
+          kind: "integrate-child",
+          specNumber: 60,
+          specSlug: "catalog-refresh",
+          childNumber: 61,
+          pullRequestNumber: 101,
+        },
+        adapters,
+      ),
+    ).rejects.toThrow("bound to its ticket");
+    Object.assign(pullRequests.get(101)!, { headBranch: "codex/61-foundation" });
 
     const first = await runSpecLifecycle(
       {
@@ -445,7 +471,7 @@ describe("future spec integration lifecycle", () => {
             : null;
         },
         async createBranch() {},
-        async deleteBranch(name: string) { deleted.push(name); },
+        async deleteBranch(name: string) { deleted.push(name); throw new Error("delete unavailable"); },
       },
       issues: {
         async read(number: number) { return structuredClone(number === 60 ? spec : child); },
@@ -466,7 +492,7 @@ describe("future spec integration lifecycle", () => {
         },
         adapters,
       ),
-    ).rejects.toThrow("comment unavailable");
+    ).rejects.toThrow("rollback operations also failed");
 
     expect(deleted).toEqual(["codex/61-foundation"]);
     expect(updates.at(-2)).toEqual({ number: 61, update: { assignees: [], labels: ["type:ticket", "ready-for-agent"] } });
@@ -516,6 +542,14 @@ describe("future spec integration lifecycle", () => {
     expect(owned).toEqual({ outcome: "child-reopened", specNumber: 60, childNumber: 61, pullRequestNumber: 200 });
     expect(issues.get(61)).toMatchObject({ state: "open", labels: ["type:ticket", "workflow:review"], assignees: ["agent"] });
     expect(finalPull.draft).toBe(true);
+
+    issues.set(61, issue(61, { state: "open", labels: ["type:ticket", "workflow:review"] }));
+    await expect(
+      runSpecLifecycle(
+        { kind: "combined-failure", specNumber: 60, specSlug: "catalog-refresh" },
+        adapters,
+      ),
+    ).rejects.toThrow("is not currently spec-integrated");
 
     issues.set(61, issue(61, { state: "closed", labels: ["type:ticket", "workflow:spec-integrated"] }));
     adapters.verification = {
@@ -582,6 +616,16 @@ describe("future spec integration lifecycle", () => {
     expect(cancelled.mergeCalls()).toBe(0);
     expect(cancelled.issues.get(60)).toMatchObject({ state: "closed", labels: ["type:spec", "wontfix"] });
     expect(cancelled.deleted).toEqual(["codex/spec-60-catalog-refresh"]);
+
+    const early = makeAdapters("open");
+    early.adapters.pullRequests.find = async () => null;
+    const earlyCancellation = await runSpecLifecycle(
+      { kind: "cancel-spec", specNumber: 60, specSlug: "catalog-refresh", reason: "stopped before integration", replacementIssues: [] },
+      early.adapters,
+    );
+    expect(earlyCancellation).toEqual({ outcome: "spec-cancelled", specNumber: 60, replacements: [] });
+    expect(early.issues.get(60)).toMatchObject({ state: "closed", labels: ["type:spec", "wontfix"] });
+    expect(early.deleted).toEqual(["codex/spec-60-catalog-refresh"]);
 
     const completed = makeAdapters("merged", "merge");
     const completion = await runSpecLifecycle(

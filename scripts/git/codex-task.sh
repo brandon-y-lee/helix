@@ -248,6 +248,7 @@ start_task() {
   current_branch=$(git -C "$start_repository" branch --show-current)
   if [ -n "$current_branch" ]; then
     git -C "$start_repository" update-ref -d "$review_ref"
+    git -C "$start_repository" symbolic-ref -d "$review_target_ref" >/dev/null 2>&1 || true
     fail "this linked worktree already owns branch '$current_branch'"
   fi
 

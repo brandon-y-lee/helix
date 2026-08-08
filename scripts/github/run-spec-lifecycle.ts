@@ -25,6 +25,13 @@ function parseArgs(argv: string[]): { repository: string; commandFile: string } 
 
 async function main(): Promise<void> {
   const options = parseArgs(process.argv.slice(2));
+  if (
+    process.env.GITHUB_ACTIONS !== "true" ||
+    process.env.GITHUB_REPOSITORY !== options.repository ||
+    !process.env.GH_TOKEN
+  ) {
+    throw new Error("spec lifecycle mutations require the trusted GitHub Actions orchestrator");
+  }
   const command = JSON.parse(await readFile(options.commandFile, "utf8")) as SpecLifecycleCommand;
   const report = await runSpecLifecycle(
     command,

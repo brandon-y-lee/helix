@@ -11,6 +11,7 @@ export type WorkflowBranch = {
   name: string;
   sha: string;
   parent: string | null;
+  baseSha?: string;
 };
 
 export type WorkflowPullRequest = {
@@ -42,6 +43,12 @@ export interface SpecGitAdapter {
   readBranch(name: string): Promise<WorkflowBranch | null>;
   createBranch(input: { name: string; fromBranch: string; fromSha: string }): Promise<void>;
   deleteBranch(name: string): Promise<void>;
+  verifyFlatTicketBranch(input: {
+    branch: string;
+    baseBranch: string;
+    baseSha: string;
+    headSha: string;
+  }): Promise<boolean>;
   updateSpecFromDev?(input: {
     branch: string;
     expectedSpecSha: string;
@@ -179,7 +186,7 @@ export type SpecLifecycleReport =
   | {
       outcome: "spec-cancelled";
       specNumber: number;
-      pullRequestNumber: number;
+      pullRequestNumber?: number;
       replacements: number[];
     }
   | {
@@ -206,6 +213,11 @@ function validateSlug(slug: string, kind: "spec" | "child"): void {
 function specBranch(specNumber: number, specSlug: string): string {
   validateSlug(specSlug, "spec");
   return `codex/spec-${specNumber}-${specSlug}`;
+}
+
+function ticketNumberFromBranch(branch: string): number | undefined {
+  const match = branch.match(/^codex\/(\d+)-/);
+  return match ? Number(match[1]) : undefined;
 }
 
 function finalSpecBody(
@@ -357,13 +369,25 @@ export async function runSpecLifecycle(
         `<!-- mei-pelle-ticket-branch:v1 ${JSON.stringify({ branch: childBranch, baseBranch: branch, baseSha: base.sha })} -->\nStarted from the current parent spec tip \`${base.sha}\`.`,
       );
     } catch (error) {
-      if (branchCreated) await adapters.git.deleteBranch(childBranch);
-      await adapters.issues.update(command.childNumber, {
-        assignees: child.assignees,
-        labels: child.labels,
-      });
-      if (parentAdvanced) {
-        await adapters.issues.update(command.specNumber, { labels: spec.labels });
+      const compensations = [
+        ...(branchCreated ? [adapters.git.deleteBranch(childBranch)] : []),
+        adapters.issues.update(command.childNumber, {
+          assignees: child.assignees,
+          labels: child.labels,
+        }),
+        ...(parentAdvanced
+          ? [adapters.issues.update(command.specNumber, { labels: spec.labels })]
+          : []),
+      ];
+      const results = await Promise.allSettled(compensations);
+      const rollbackErrors = results
+        .filter((result): result is PromiseRejectedResult => result.status === "rejected")
+        .map((result) => result.reason);
+      if (rollbackErrors.length > 0) {
+        throw new AggregateError(
+          [error, ...rollbackErrors],
+          "child startup failed and one or more rollback operations also failed",
+        );
       }
       throw error;
     }
@@ -390,16 +414,26 @@ export async function runSpecLifecycle(
     }
     const pullRequest = await adapters.pullRequests.read(command.pullRequestNumber);
     const ticketBranch = await adapters.git.readBranch(pullRequest.headBranch);
+    const flatBranch = ticketBranch?.baseSha
+      ? await adapters.git.verifyFlatTicketBranch({
+          branch: pullRequest.headBranch,
+          baseBranch: branch,
+          baseSha: ticketBranch.baseSha,
+          headSha: pullRequest.headSha,
+        })
+      : false;
     if (
       pullRequest.state !== "open" ||
       pullRequest.draft ||
       !pullRequest.mergeable ||
       !pullRequest.reviewPassed ||
       pullRequest.ticketNumber !== command.childNumber ||
+      ticketNumberFromBranch(pullRequest.headBranch) !== command.childNumber ||
       pullRequest.baseBranch !== branch ||
       !ticketBranch ||
       ticketBranch.parent !== branch ||
-      ticketBranch.sha !== pullRequest.headSha
+      ticketBranch.sha !== pullRequest.headSha ||
+      !flatBranch
     ) {
       throw new Error("child pull request must be reviewed, conflict-free, bound to its ticket, and use a flat branch targeting its spec branch");
     }
@@ -500,6 +534,13 @@ export async function runSpecLifecycle(
     if (responsibleChild && responsibleChild.parentNumber !== command.specNumber) {
       throw new Error(`child #${failure.responsibleChildNumber} does not belong to spec #${command.specNumber}`);
     }
+    if (
+      responsibleChild &&
+      (responsibleChild.state !== "closed" ||
+        !responsibleChild.labels.includes("workflow:spec-integrated"))
+    ) {
+      throw new Error(`child #${responsibleChild.number} is not currently spec-integrated`);
+    }
     await adapters.pullRequests.update(finalPullRequest.number, {
       draft: true,
       body: `${finalPullRequest.body}\n\n## Combined verification failure\n\n${failure.reason}`,
@@ -534,18 +575,20 @@ export async function runSpecLifecycle(
   if (command.kind === "cancel-spec") {
     if (!command.reason.trim()) throw new Error("spec cancellation requires a reason");
     const finalPullRequest = await adapters.pullRequests.find(branch, "dev");
-    if (!finalPullRequest || finalPullRequest.state !== "open") {
-      throw new Error("the open final spec pull request does not exist");
+    if (finalPullRequest && finalPullRequest.state !== "open") {
+      throw new Error("the final spec pull request must remain open before cancellation");
     }
     const replacements = [...new Set(command.replacementIssues)].sort((left, right) => left - right);
     const replacementText = replacements.length
       ? replacements.map((number) => `#${number}`).join(", ")
       : "none";
-    await adapters.pullRequests.update(finalPullRequest.number, {
-      state: "closed",
-      draft: true,
-      body: `${finalPullRequest.body}\n\n## Cancelled\n\n${command.reason}\n\nReplacement issues: ${replacementText}`,
-    });
+    if (finalPullRequest) {
+      await adapters.pullRequests.update(finalPullRequest.number, {
+        state: "closed",
+        draft: true,
+        body: `${finalPullRequest.body}\n\n## Cancelled\n\n${command.reason}\n\nReplacement issues: ${replacementText}`,
+      });
+    }
     const children = await adapters.issues.listChildren(command.specNumber);
     for (const child of children) {
       await adapters.issues.update(child.number, {
@@ -569,7 +612,7 @@ export async function runSpecLifecycle(
     return {
       outcome: "spec-cancelled",
       specNumber: command.specNumber,
-      pullRequestNumber: finalPullRequest.number,
+      pullRequestNumber: finalPullRequest?.number,
       replacements,
     };
   }
@@ -653,14 +696,16 @@ export async function runSpecLifecycle(
   if (!spec.labels.includes("workflow:planned")) {
     throw new Error(`spec #${command.specNumber} must be workflow:planned before branch creation`);
   }
+  const protection = {
+    branch,
+    directPushes: false as const,
+    allowedMergeMethods: ["squash"] as ["squash"],
+    requiredChecks: ["ci", "affected-browser-verification"] as ["ci", "affected-browser-verification"],
+  };
+  await adapters.github.protectSpecBranch(protection);
   await adapters.git.createBranch({ name: branch, fromBranch: "dev", fromSha: dev.sha });
   try {
-    await adapters.github.protectSpecBranch({
-      branch,
-      directPushes: false,
-      allowedMergeMethods: ["squash"],
-      requiredChecks: ["ci", "affected-browser-verification"],
-    });
+    await adapters.github.protectSpecBranch(protection);
   } catch (error) {
     await adapters.git.deleteBranch(branch);
     throw error;

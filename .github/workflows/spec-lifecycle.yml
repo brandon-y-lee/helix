@@ -1,0 +1,49 @@
+name: Spec Lifecycle Orchestrator
+
+on:
+  workflow_dispatch:
+    inputs:
+      command:
+        description: JSON-encoded SpecLifecycleCommand
+        required: true
+        type: string
+
+concurrency:
+  group: spec-lifecycle
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  orchestrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout trusted lifecycle implementation
+        uses: actions/checkout@v4
+        with:
+          ref: dev
+          fetch-depth: 0
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install trusted lifecycle dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run controlled spec lifecycle command
+        env:
+          COMMAND_JSON: ${{ inputs.command }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          printf '%s' "$COMMAND_JSON" > "$RUNNER_TEMP/spec-command.json"
+          pnpm github:spec:lifecycle -- --command-file "$RUNNER_TEMP/spec-command.json"

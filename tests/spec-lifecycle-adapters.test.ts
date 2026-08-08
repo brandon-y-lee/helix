@@ -7,6 +7,33 @@ import {
 import { runSpecLifecycle } from "@/scripts/github/spec-integration-lifecycle";
 
 describe("spec lifecycle production adapters", () => {
+  it("rejects ticket history whose merge parent is outside the current spec branch", async () => {
+    let rejectSibling = false;
+    const commands: SpecCommandAdapter = {
+      async run(_command, args) {
+        const joined = args.join(" ");
+        if (joined.includes("rev-parse refs/remotes/origin/codex/61-foundation")) return { status: 0, stderr: "", stdout: "child-head\n" };
+        if (joined.includes("rev-parse refs/remotes/origin/codex/spec-60-catalog-refresh")) return { status: 0, stderr: "", stdout: "spec-head\n" };
+        if (joined.includes("rev-list --parents")) return { status: 0, stderr: "", stdout: "child-head base-sha sibling-parent\n" };
+        if (joined.includes("merge-base --is-ancestor sibling-parent spec-head")) {
+          return { status: rejectSibling ? 1 : 0, stderr: rejectSibling ? "not an ancestor" : "", stdout: "" };
+        }
+        return { status: 0, stderr: "", stdout: "" };
+      },
+    };
+    const adapters = createSpecLifecycleAdapters("brandon-y-lee/mei-pelle", commands);
+    const input = {
+      branch: "codex/61-foundation",
+      baseBranch: "codex/spec-60-catalog-refresh",
+      baseSha: "base-sha",
+      headSha: "child-head",
+    };
+
+    await expect(adapters.git.verifyFlatTicketBranch(input)).resolves.toBe(true);
+    rejectSibling = true;
+    await expect(adapters.git.verifyFlatTicketBranch(input)).resolves.toBe(false);
+  });
+
   it("creates a spec branch and proves the active audited wildcard ruleset", async () => {
     const calls: Array<{ command: string; args: string[]; input?: string }> = [];
     const commands: SpecCommandAdapter = {
@@ -42,10 +69,14 @@ describe("spec lifecycle production adapters", () => {
             stderr: "",
             stdout: JSON.stringify({
               enforcement: "active",
+              bypass_actors: [{ actor_id: 15368, actor_type: "Integration", bypass_mode: "always" }],
               conditions: { ref_name: { include: ["refs/heads/codex/spec-*"] } },
               rules: [
-                { type: "pull_request", parameters: { allowed_merge_methods: ["squash"] } },
-                { type: "required_status_checks", parameters: { required_status_checks: [{ context: "ci" }, { context: "affected-browser-verification" }] } },
+                { type: "update", parameters: { update_allows_fetch_and_merge: false } },
+                { type: "deletion" },
+                { type: "non_fast_forward" },
+                { type: "pull_request", parameters: { allowed_merge_methods: ["squash"], dismiss_stale_reviews_on_push: true, required_review_thread_resolution: true } },
+                { type: "required_status_checks", parameters: { required_status_checks: [{ context: "ci", integration_id: 15368 }, { context: "affected-browser-verification", integration_id: 15368 }], strict_required_status_checks_policy: false, do_not_enforce_on_create: false } },
               ],
             }),
           };
@@ -63,6 +94,8 @@ describe("spec lifecycle production adapters", () => {
     const createIndex = calls.findIndex((call) => call.args.includes("POST") && call.args.includes("repos/brandon-y-lee/mei-pelle/git/refs"));
     const rulesetIndex = calls.findIndex((call) => call.args.includes("repos/brandon-y-lee/mei-pelle/rulesets/7"));
     expect(createIndex).toBeGreaterThan(-1);
-    expect(rulesetIndex).toBeGreaterThan(createIndex);
+    expect(rulesetIndex).toBeGreaterThan(-1);
+    expect(rulesetIndex).toBeLessThan(createIndex);
+    expect(calls.filter((call) => call.args.includes("repos/brandon-y-lee/mei-pelle/rulesets/7"))).toHaveLength(2);
   });
 });

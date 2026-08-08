@@ -36,7 +36,7 @@ The command fails on dirty state, a missing local `dev`, an existing task branch
 
 ## Prepare for review and PR
 
-Commit the implementation before `code-review`; the review compares committed changes against `dev`. Ticket commits include both footers:
+Commit the implementation before `code-review`; the review compares committed changes against the helper's declared base (`dev` for the prior workflow, or the parent spec branch for a future-spec child). Ticket commits include both footers:
 
 ```text
 Refs #<ticket-number>
@@ -52,9 +52,9 @@ scripts/git/codex-task.sh prepare <task-worktree>
 scripts/git/codex-task.sh prepare
 ```
 
-`prepare` requires clean state, commits ahead of `dev`, current `dev` ancestry, the recorded review base, and the applicable traceability footers. It never merges or pushes.
+`prepare` requires clean state, commits ahead of the declared base, current base ancestry, the recorded review base, and the applicable traceability footers. It never merges or pushes.
 
-Run `code-review dev`. Resolve every confirmed actionable finding or obtain an explicit human acceptance; P0/P1 findings always block. If fixes add commits, rerun affected checks and review.
+Run `code-review` against the base printed by `prepare`. Resolve every confirmed actionable finding or obtain an explicit human acceptance; P0/P1 findings always block. If fixes add commits, rerun affected checks and review.
 
 After review passes, push the branch and open a ready PR targeting the base printed by the helper. The PR body follows `.github/PULL_REQUEST_TEMPLATE.md`. GitHub CI is the preflight gate; the [Dev Integration Line](./agents/dev-integration.md) is the serialized verify-and-merge authority for `dev`. The future-spec lifecycle owns child integration into protected spec branches.
 
@@ -69,7 +69,7 @@ scripts/git/codex-task.sh cleanup
 
 The helper queries the PR through `gh`, requires its recorded target base, and verifies that the merged PR head is the current task commit. It then deletes the recorded review refs and local task branch and removes helper-created Local worktrees. It leaves the remote branch to GitHub's delete-on-merge setting.
 
-Before cleanup, the merging agent comments on the ticket with the PR, squash commit, verification, and `code-review` outcome; closes the ticket; and advances the parent spec state. The parent spec closes after every child ticket PR is integrated into `dev`.
+Before cleanup, the merging agent comments on the ticket with the PR, squash commit, verification, and `code-review` outcome; closes the ticket; and advances the parent spec state. In the future-spec lifecycle, a child closes as `workflow:spec-integrated` after its squash merge into the spec branch; the parent spec closes only after the final regular-merge PR enters `dev`.
 
 ## Concurrent tickets and an advancing dev
 

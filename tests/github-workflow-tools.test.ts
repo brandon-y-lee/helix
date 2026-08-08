@@ -18,6 +18,10 @@ const ciWorkflow = readFileSync(
   resolve(projectRoot, ".github/workflows/ci.yml"),
   "utf8",
 );
+const specLifecycleWorkflow = readFileSync(
+  resolve(projectRoot, ".github/workflows/spec-lifecycle.yml"),
+  "utf8",
+);
 
 const ciPublicRuntimeSecrets = [
   "NEXT_PUBLIC_SUPABASE_URL",
@@ -121,6 +125,17 @@ function cleanupFixture(tempRoot: string): void {
 }
 
 describe("GitHub Actions CI", () => {
+  it("runs spec lifecycle mutations only through the trusted serialized GitHub Actions identity", () => {
+    expect(specLifecycleWorkflow).toContain("workflow_dispatch:");
+    expect(specLifecycleWorkflow).toContain("group: spec-lifecycle");
+    expect(specLifecycleWorkflow).toContain("cancel-in-progress: false");
+    expect(specLifecycleWorkflow).toContain("contents: write");
+    expect(specLifecycleWorkflow).toContain("issues: write");
+    expect(specLifecycleWorkflow).toContain("pull-requests: write");
+    expect(specLifecycleWorkflow).toContain("ref: dev");
+    expect(specLifecycleWorkflow).toContain("GH_TOKEN: ${{ github.token }}");
+    expect(specLifecycleWorkflow).toContain("pnpm github:spec:lifecycle -- --command-file");
+  });
   it("gates spec child pull requests with fast CI and affected browser verification", () => {
     expect(ciWorkflow).toContain('branches: [dev, main, "codex/spec-*"]');
     expect(ciWorkflow).toContain("  affected-browser-verification:");
@@ -222,6 +237,26 @@ describe("Codex workflow task helper", () => {
       expect(
         git(root, "show-ref", "--verify", "--quiet", "refs/heads/codex/spec-50-browser-verification").status,
       ).not.toBe(0);
+    } finally {
+      cleanupFixture(tempRoot);
+    }
+  });
+
+  it("removes the recorded spec target when a managed worktree cannot start a task", () => {
+    const { root, tempRoot } = initialiseRepository();
+    const linked = join(tempRoot, "linked");
+    try {
+      expectSuccess(git(root, "branch", "codex/spec-45-checkout-lifecycle", "dev"));
+      expectSuccess(git(root, "worktree", "add", linked, "dev"));
+      const started = run(
+        taskHelper,
+        ["start", "123-dependent", "--spec", "45-checkout-lifecycle"],
+        linked,
+      );
+      expect(started.status).not.toBe(0);
+      expect(started.stderr).toContain("already owns branch 'dev'");
+      expect(git(root, "show-ref", "--verify", "--quiet", "refs/codex/review-base/123-dependent").status).not.toBe(0);
+      expect(git(root, "symbolic-ref", "-q", "refs/codex/review-target/123-dependent").status).not.toBe(0);
     } finally {
       cleanupFixture(tempRoot);
     }

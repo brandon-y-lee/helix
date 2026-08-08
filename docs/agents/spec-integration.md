@@ -2,7 +2,7 @@
 
 This lifecycle applies to multi-ticket specifications created after spec #50. Spec #50 and all of its children continue through the earlier executable direct-to-`dev` workflow.
 
-The public entry point is `pnpm github:spec:lifecycle -- --command-file <json>`. The JSON file contains one `SpecLifecycleCommand`; the runner validates the request and delegates all issue, branch, pull-request, review, and verification observations to the controlled GitHub/Git adapters. It prints a JSON receipt on success and fails closed when required facts cannot be observed.
+The trusted entry point is the manually dispatched `spec-lifecycle.yml` workflow with one JSON-encoded `SpecLifecycleCommand`. The workflow checks out the trusted implementation from `dev` and invokes `pnpm github:spec:lifecycle -- --command-file <json>` under the GitHub Actions Integration identity; the local runner refuses mutation outside that context. It delegates all issue, branch, pull-request, review, and verification observations to the controlled GitHub/Git adapters, prints a JSON receipt on success, and fails closed when required facts cannot be observed.
 
 ## Start and topology
 
@@ -22,4 +22,4 @@ Do not merge routine `dev` movement into the spec branch. An early update is all
 
 A combined failure is recorded on the final PR as `<!-- mei-pelle-combined-failure:v1 {"reason":"...","responsibleChildNumber":123} -->`; omit `responsibleChildNumber` when ownership is cross-ticket. The controlled verification adapter reads that evidence. A proven child owner reopens that ticket, removes `workflow:spec-integrated`, restores `workflow:review`, and makes the final PR draft. A cross-ticket failure remains owned by spec integration until evidence identifies a child.
 
-Cancellation closes the final PR without merging, records the reason and replacement issue links on the spec and children, applies `wontfix` to superseded work, and deletes the spec branch. Independently valuable remnants require newly approved standalone tickets from current `dev`; never partially merge the cancelled branch.
+Cancellation closes the final PR without merging when one exists, records the reason and replacement issue links on the spec and children, applies `wontfix` to superseded work, and deletes the spec branch. It also works before the first child creates a draft final PR. Independently valuable remnants require newly approved standalone tickets from current `dev`; never partially merge the cancelled branch.
