@@ -109,6 +109,12 @@ jobs:
             "$PNPM_HOME"/*) ;;
             *) echo "pnpm executable is outside the validated runtime home." >&2; exit 1 ;;
           esac
+          node_executable="$(command -v node)"
+          case "$node_executable" in
+            /*/hostedtoolcache/node/*/x64/bin/node) ;;
+            *) echo "Node executable is outside the action-managed tool cache." >&2; exit 1 ;;
+          esac
+          node_runtime_bin="${node_executable%/node}"
           pnpm_runtime_root="${PNPM_HOME%/.bin}"
           test -d "$pnpm_runtime_root"
           sudo install -d -m 0755 /opt/mei-pelle-pnpm-runtime
@@ -117,18 +123,24 @@ jobs:
           sudo chmod -R a+rX -- /opt/mei-pelle-pnpm-runtime
           sudo chmod -R a-w -- /opt/mei-pelle-pnpm-runtime
           echo "/opt/mei-pelle-pnpm-runtime/.bin" >> "$GITHUB_PATH"
+          candidate_path="$node_runtime_bin:/opt/mei-pelle-pnpm-runtime/.bin:/usr/local/bin:/usr/bin:/bin"
+          echo "VERIFICATION_CANDIDATE_PATH=$candidate_path" >> "$GITHUB_ENV"
           sudo chmod o+x -- /home/runner
           sudo chown -R verifier-candidate:verifier-candidate candidate
           chmod -R a-w trusted
           test "$(stat -Lc '%u:%g' /opt/mei-pelle-pnpm-runtime/.bin/pnpm)" = 0:0
+          test "$(stat -Lc '%u:%g' "$node_executable")" = 0:0
           sudo -u verifier-candidate test -x /opt/mei-pelle-pnpm-runtime/.bin/pnpm
           sudo -u verifier-candidate test ! -w /opt/mei-pelle-pnpm-runtime/.bin/pnpm
+          sudo -u verifier-candidate test -x "$node_executable"
+          sudo -u verifier-candidate test ! -w "$node_executable"
           sudo -u verifier-candidate test -x "$GITHUB_WORKSPACE"
           sudo -u verifier-candidate test -d "$VERIFICATION_CANDIDATE_CWD"
           sudo -u verifier-candidate test ! -w trusted/scripts/github/verification-receipt-command.ts
+          test "$(sudo -H -u verifier-candidate env "PATH=$candidate_path" node --version)" = "$(node --version)"
 
       - name: Install frozen candidate dependencies
-        run: sudo -E -H -u verifier-candidate "$(command -v pnpm)" --dir "$VERIFICATION_CANDIDATE_CWD" install --frozen-lockfile --store-dir "$VERIFICATION_CANDIDATE_CWD/.pnpm-store"
+        run: sudo -E -H -u verifier-candidate env "PATH=$VERIFICATION_CANDIDATE_PATH" pnpm --dir "$VERIFICATION_CANDIDATE_CWD" install --frozen-lockfile --store-dir "$VERIFICATION_CANDIDATE_CWD/.pnpm-store"
 
       - name: Freeze candidate dependencies and prove source integrity
         run: |
@@ -138,13 +150,13 @@ jobs:
           test -z "$(git -C candidate status --short --untracked-files=all)"
 
       - name: Lint
-        run: sudo -E -H -u verifier-candidate "$(command -v pnpm)" --dir "$VERIFICATION_CANDIDATE_CWD" lint
+        run: sudo -E -H -u verifier-candidate env "PATH=$VERIFICATION_CANDIDATE_PATH" pnpm --dir "$VERIFICATION_CANDIDATE_CWD" lint
 
       - name: Typecheck
-        run: sudo -E -H -u verifier-candidate "$(command -v pnpm)" --dir "$VERIFICATION_CANDIDATE_CWD" typecheck
+        run: sudo -E -H -u verifier-candidate env "PATH=$VERIFICATION_CANDIDATE_PATH" pnpm --dir "$VERIFICATION_CANDIDATE_CWD" typecheck
 
       - name: Unit tests
-        run: sudo -E -H -u verifier-candidate "$(command -v pnpm)" --dir "$VERIFICATION_CANDIDATE_CWD" test
+        run: sudo -E -H -u verifier-candidate env "PATH=$VERIFICATION_CANDIDATE_PATH" pnpm --dir "$VERIFICATION_CANDIDATE_CWD" test
 
       - name: Recheck candidate source after untrusted commands
         run: |
@@ -155,11 +167,11 @@ jobs:
         if: ${{ inputs.gate == 'complete-behavioral' }}
         run: |
           sudo -E pnpm --dir trusted exec playwright install-deps chromium
-          sudo -E -H -u verifier-candidate "$(command -v pnpm)" --dir "$VERIFICATION_CANDIDATE_CWD" exec playwright install chromium
+          sudo -E -H -u verifier-candidate env "PATH=$VERIFICATION_CANDIDATE_PATH" pnpm --dir "$VERIFICATION_CANDIDATE_CWD" exec playwright install chromium
 
       - name: Build receipted production artifact with the trusted runner
         if: ${{ inputs.gate == 'complete-behavioral' }}
-        run: sudo -E -H -u verifier-candidate "$(command -v pnpm)" --dir trusted exec tsx scripts/verify-production-ci.ts build
+        run: sudo -E -H -u verifier-candidate env "PATH=$VERIFICATION_CANDIDATE_PATH" pnpm --dir trusted exec tsx scripts/verify-production-ci.ts build
 
       - name: Freeze the receipted artifact before browser verification
         if: ${{ inputs.gate == 'complete-behavioral' }}
@@ -171,14 +183,14 @@ jobs:
       - name: Record Catalog fingerprint before verification with trusted code
         if: ${{ inputs.gate == 'complete-behavioral' }}
         id: catalog-before
-        run: echo "fingerprint=$(sudo -E -H -u verifier-candidate "$(command -v pnpm)" --dir trusted --silent verification:catalog-fingerprint)" >> "$GITHUB_OUTPUT"
+        run: echo "fingerprint=$(sudo -E -H -u verifier-candidate env "PATH=$VERIFICATION_CANDIDATE_PATH" pnpm --dir trusted --silent verification:catalog-fingerprint)" >> "$GITHUB_OUTPUT"
 
       - name: Verify receipted production artifact with the trusted runner
         if: ${{ inputs.gate == 'complete-behavioral' }}
         env:
           PLAYWRIGHT_JSON_OUTPUT_FILE: ${{ github.workspace }}/candidate/test-results/playwright-telemetry.json
           VERIFICATION_BROWSER_RESULT_PATH: ${{ github.workspace }}/candidate/test-results/verification-browser-result.json
-        run: sudo -E -H -u verifier-candidate "$(command -v pnpm)" --dir trusted exec tsx scripts/verify-production-ci.ts verify --selection routine-chromium
+        run: sudo -E -H -u verifier-candidate env "PATH=$VERIFICATION_CANDIDATE_PATH" pnpm --dir trusted exec tsx scripts/verify-production-ci.ts verify --selection routine-chromium
 
       - name: Require structured browser telemetry
         if: ${{ inputs.gate == 'complete-behavioral' }}
@@ -189,14 +201,14 @@ jobs:
       - name: Record Catalog fingerprint after verification with trusted code
         if: ${{ inputs.gate == 'complete-behavioral' }}
         id: catalog-after
-        run: echo "fingerprint=$(sudo -E -H -u verifier-candidate "$(command -v pnpm)" --dir trusted --silent verification:catalog-fingerprint)" >> "$GITHUB_OUTPUT"
+        run: echo "fingerprint=$(sudo -E -H -u verifier-candidate env "PATH=$VERIFICATION_CANDIDATE_PATH" pnpm --dir trusted --silent verification:catalog-fingerprint)" >> "$GITHUB_OUTPUT"
 
       - name: Record exact Chromium version
         if: ${{ inputs.gate == 'complete-behavioral' }}
         id: browser-version
         env:
           VERIFICATION_BROWSER_CWD: ${{ github.workspace }}/candidate
-        run: sudo -E -H -u verifier-candidate "$(command -v pnpm)" --dir trusted exec tsx scripts/github/verification-receipt-command.ts browser-version
+        run: sudo -E -H -u verifier-candidate env "PATH=$VERIFICATION_CANDIDATE_PATH" pnpm --dir trusted exec tsx scripts/github/verification-receipt-command.ts browser-version
 
       - name: Stage unprivileged build evidence
         if: ${{ inputs.gate == 'complete-behavioral' }}
