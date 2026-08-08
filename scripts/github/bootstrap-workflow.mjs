@@ -157,7 +157,7 @@ function requireDefaultBranchCoordinator(sha) {
   }
 }
 
-function requireSoleWriteCoordinator(sha) {
+function requireExactWorkflowWriteAuthorities(sha) {
   const scheduledBrowserVerification =
     ".github/workflows/scheduled-browser-verification.yml";
   const trustedWriters = new Map([
@@ -502,7 +502,7 @@ function collectPlan(repo) {
   }
 
   const localDevSha = runGit(["rev-parse", "dev"]).stdout.trim();
-  requireSoleWriteCoordinator(localDevSha);
+  requireExactWorkflowWriteAuthorities(localDevSha);
   const remoteBranches = readRemoteBranches();
   const remoteMainSha = remoteBranches.get("main");
   if (!remoteMainSha) throw new Error("remote branch 'main' does not exist");
