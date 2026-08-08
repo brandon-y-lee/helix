@@ -1,5 +1,13 @@
+import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  readdir,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
@@ -74,6 +82,10 @@ describe("Production Verification Node Adapters", () => {
       {
         runCommand: async ({ args, env }) => {
           commands.push({ args, env });
+          await writeFile(
+            env.PLAYWRIGHT_JSON_OUTPUT_FILE!,
+            JSON.stringify({ suites: [] }),
+          );
         },
       },
     );
@@ -103,6 +115,8 @@ describe("Production Verification Node Adapters", () => {
       "e2e/home-hero.spec.ts",
       "--project",
       "webkit",
+      "--reporter",
+      "html,json",
     ]);
     expect(
       commands.map(({ env }) => env.MEI_PELLE_VERIFICATION_BASE_URL),
@@ -110,6 +124,108 @@ describe("Production Verification Node Adapters", () => {
       "http://127.0.0.1:43138",
       "http://127.0.0.1:43138",
     ]);
+  });
+
+  it("reports retry executions observed by the supported browser adapter", async () => {
+    const adapters = await createNodeProductionVerificationAdapters(
+      process.cwd(),
+      { NODE_ENV: "test" },
+      {
+        runCommand: async ({ env }) => {
+          const reportPath = env.PLAYWRIGHT_JSON_OUTPUT_FILE;
+          if (!reportPath) throw new Error("Expected a JSON telemetry report path.");
+          await writeFile(
+            reportPath,
+            JSON.stringify({
+              suites: [
+                {
+                  specs: [
+                    {
+                      tests: [
+                        {
+                          results: [{ retry: 0 }, { retry: 1 }],
+                        },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            }),
+          );
+        },
+      },
+    );
+
+    await expect(
+      adapters.runBrowserTests({
+        baseURL: "http://127.0.0.1:43139",
+        selection: {
+          journeyIds: ["header-search"],
+          projects: ["chromium"],
+        },
+      }),
+    ).resolves.toEqual({ retries: 1 });
+  });
+
+  it("retains structured timing telemetry when the caller supplies an artifact path", async () => {
+    const directory = await mkdtemp(resolve(tmpdir(), "mei-pelle-retained-telemetry-"));
+    const reportPath = resolve(directory, "playwright-telemetry.json");
+    try {
+      const adapters = await createNodeProductionVerificationAdapters(
+        process.cwd(),
+        { NODE_ENV: "test", PLAYWRIGHT_JSON_OUTPUT_FILE: reportPath },
+        {
+          runCommand: async ({ env }) => {
+            expect(env.PLAYWRIGHT_JSON_OUTPUT_FILE).toBe(reportPath);
+            await writeFile(reportPath, JSON.stringify({ suites: [] }));
+          },
+        },
+      );
+
+      await adapters.runBrowserTests({ baseURL: "http://127.0.0.1:43141" });
+      await expect(readFile(reportPath, "utf8")).resolves.toContain('"suites"');
+    } finally {
+      await rm(directory, { force: true, recursive: true });
+    }
+  });
+
+  it("preserves observed retries on a failed browser pass", async () => {
+    const adapters = await createNodeProductionVerificationAdapters(
+      process.cwd(),
+      { NODE_ENV: "test" },
+      {
+        runCommand: async ({ env }) => {
+          await writeFile(
+            env.PLAYWRIGHT_JSON_OUTPUT_FILE!,
+            JSON.stringify({
+              suites: [
+                {
+                  specs: [
+                    {
+                      tests: [{ results: [{ retry: 0 }, { retry: 1 }] }],
+                    },
+                  ],
+                },
+              ],
+            }),
+          );
+          throw new Error("Playwright failed after retries.");
+        },
+      },
+    );
+
+    await expect(
+      adapters.runBrowserTests({
+        baseURL: "http://127.0.0.1:43140",
+        selection: {
+          journeyIds: ["header-search"],
+          projects: ["chromium"],
+        },
+      }),
+    ).rejects.toMatchObject({
+      message: "Playwright failed after retries.",
+      retryCount: 1,
+    });
   });
 
   it("stores only the build ID and commit SHA in the artifact receipt", async () => {
@@ -141,6 +257,134 @@ describe("Production Verification Node Adapters", () => {
 
       await adapters.removeReceipt();
       await expect(adapters.readReceipt()).resolves.toBeUndefined();
+    } finally {
+      await rm(cwd, { force: true, recursive: true });
+    }
+  });
+
+  it("publishes the worktree-scoped reusable receipt atomically", async () => {
+    const cwd = await mkdtemp(resolve(tmpdir(), "mei-pelle-local-receipt-"));
+    const nextDirectory = resolve(cwd, ".next");
+    const receipt = {
+      buildId: "local-build",
+      categories: {
+        "browser-configuration": "sha256:browser",
+        dependencies: "sha256:dependencies",
+        environment: "sha256:environment",
+        "runtime-source": "sha256:runtime",
+        tests: "sha256:tests",
+        "verification-plan": "sha256:plan",
+      },
+      version: 1 as const,
+      worktreeId: "sha256:worktree",
+    };
+
+    try {
+      await mkdir(nextDirectory, { recursive: true });
+      const adapters = await createNodeProductionVerificationAdapters(cwd, {
+        NODE_ENV: "production",
+        PRIVATE_API_SECRET: "must-not-be-receipted",
+      });
+
+      await adapters.writeReusableBuildReceipt(receipt);
+      const stored = await adapters.readReusableBuildReceipt();
+
+      expect(JSON.parse(stored!.contents)).toEqual(receipt);
+      expect(stored!.contents).not.toContain("must-not-be-receipted");
+      expect(await readdir(nextDirectory)).toEqual([
+        "mei-pelle-local-build-receipt.json",
+      ]);
+    } finally {
+      await rm(cwd, { force: true, recursive: true });
+    }
+  });
+
+  it("fingerprints every local production-build reuse input without storing secrets", async () => {
+    const cwd = await mkdtemp(resolve(tmpdir(), "mei-pelle-build-reuse-inputs-"));
+    const files = {
+      "app/page.tsx": "export default function Page() { return null; }\n",
+      "hooks/use-feature.ts": "export const enabled = true;\n",
+      "next.config.ts": "export default {};\n",
+      "package.json": '{"name":"reuse-fixture"}\n',
+      "pnpm-lock.yaml": "lockfileVersion: '9.0'\n",
+      "playwright.config.ts": "export default {};\n",
+      "scripts/browser-verification-plan.ts": "export const version = 1;\n",
+      "tests/example.test.ts": "export const testCase = true;\n",
+      "vitest.config.ts": "export default {};\n",
+    };
+
+    try {
+      for (const [path, contents] of Object.entries(files)) {
+        const destination = resolve(cwd, path);
+        await mkdir(resolve(destination, ".."), { recursive: true });
+        await writeFile(destination, contents);
+      }
+      const git = (...args: string[]) =>
+        spawnSync("git", args, { cwd, encoding: "utf8" });
+      git("init", "--quiet");
+      git("add", ".");
+
+      const nonSecretEnvironment = {
+        ALGOLIA_APP_ID: "algolia-app",
+        ALGOLIA_INDEX_NAME: "products",
+        ALLOW_PRODUCTION_SEARCH_REINDEX: "false",
+        CHECKOUT_ENABLED: "true",
+        CHECKOUT_MODE: "test",
+        CI: "",
+        NODE_ENV: "production" as const,
+        NEXT_PUBLIC_SITE_ORIGIN: "https://mei-pelle.example.test",
+        SEARCH_BACKFILL_ENVIRONMENT: "preview",
+        STRIPE_AUTOMATIC_TAX_ENABLED: "true",
+        STRIPE_REFERRAL_15_COUPON_ID: "coupon-referral",
+        STRIPE_REWARD_200_COUPON_ID: "coupon-200",
+        STRIPE_REWARD_400_COUPON_ID: "coupon-400",
+        STRIPE_REWARD_600_COUPON_ID: "coupon-600",
+        STRIPE_STANDARD_SHIPPING_RATE_ID: "shr_standard",
+        VERCEL_ENV: "preview",
+        VERCEL_URL: "mei-pelle.example.test",
+      };
+      const adapters = await createNodeProductionVerificationAdapters(cwd, {
+        ...nonSecretEnvironment,
+        PRIVATE_API_SECRET: "must-not-be-receipted",
+      });
+      const baseline = await adapters.readBuildReuseInput();
+
+      const cases = [
+        ["app/page.tsx", "runtime-source"],
+        ["hooks/use-feature.ts", "runtime-source"],
+        ["next.config.ts", "browser-configuration"],
+        ["package.json", "dependencies"],
+        ["pnpm-lock.yaml", "dependencies"],
+        ["playwright.config.ts", "browser-configuration"],
+        ["scripts/browser-verification-plan.ts", "verification-plan"],
+        ["tests/example.test.ts", "tests"],
+        ["vitest.config.ts", "tests"],
+      ] as const;
+      for (const [path, category] of cases) {
+        await writeFile(resolve(cwd, path), `${files[path]}// changed\n`);
+        const changed = await adapters.readBuildReuseInput();
+        expect(changed.categories[category]).not.toBe(
+          baseline.categories[category],
+        );
+        await writeFile(resolve(cwd, path), files[path]);
+      }
+
+      for (const key of Object.keys(nonSecretEnvironment)) {
+        const environmentChanged = await createNodeProductionVerificationAdapters(
+          cwd,
+          {
+            ...nonSecretEnvironment,
+            [key]: `${nonSecretEnvironment[key as keyof typeof nonSecretEnvironment]}-changed`,
+          PRIVATE_API_SECRET: "a-different-secret",
+          },
+        );
+        const changedInput = await environmentChanged.readBuildReuseInput();
+        expect(changedInput.categories.environment, key).not.toBe(
+          baseline.categories.environment,
+        );
+        expect(changedInput.worktreeId).toBe(baseline.worktreeId);
+      }
+      expect(JSON.stringify(baseline)).not.toContain("must-not-be-receipted");
     } finally {
       await rm(cwd, { force: true, recursive: true });
     }

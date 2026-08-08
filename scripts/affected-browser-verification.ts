@@ -6,8 +6,9 @@ import {
   type BrowserVerificationJourney,
 } from "./browser-verification-plan";
 import {
-  verifyFreshProductionArtifact,
+  verifyReusableProductionArtifact,
   type NodeProductionVerificationAdapters,
+  type ProductionVerificationDiagnostic,
 } from "./production-verification";
 
 type AffectedBrowserVerificationAdapters = NodeProductionVerificationAdapters & {
@@ -157,7 +158,7 @@ export async function runAffectedBrowserVerificationCommand(
     for (const journey of plan.journeys) {
       addSelection(
         journey,
-        plan.webkitCapabilities,
+        journey.capabilities,
         `${unmappedFile} is not mapped by Browser Verification Plan v${plan.version}; selected the complete plan.`,
       );
     }
@@ -226,24 +227,100 @@ export async function runAffectedBrowserVerificationCommand(
       input.log(`Selected ${project} / ${journey.id}: ${reason}`);
     }
   }
-  const result = await verifyFreshProductionArtifact(
-    {
-      browserSelection: {
-        journeyIds: selectedJourneys.map(({ journey }) => journey.id),
-        projects,
-        ...(requiresWebkit
-          ? {
-              webkitJourneyIds: webkitJourneys.map(
-                ({ journey }) => journey.id,
-              ),
-            }
-          : {}),
+  const diagnostics: ProductionVerificationDiagnostic[] = [];
+  const phaseDuration = (phase: ProductionVerificationDiagnostic["phase"]) => {
+    const started = diagnostics.find(
+      (diagnostic) =>
+        diagnostic.phase === phase && diagnostic.status === "started",
+    );
+    const completed = [...diagnostics].reverse().find(
+      (diagnostic) =>
+        diagnostic.phase === phase && diagnostic.status !== "started",
+    );
+    return started && completed
+      ? Math.max(0, completed.elapsedMs - started.elapsedMs)
+      : 0;
+  };
+  const telemetryBase = (retries = 0) => ({
+    browserTimeMs: phaseDuration("browser-test"),
+    buildTimeMs: phaseDuration("production-build"),
+    capabilities: Array.from(
+      new Set(selectedJourneys.flatMap(({ capabilities }) => capabilities)),
+    ),
+    journeyCount:
+      selectedJourneys.length + (requiresWebkit ? webkitJourneys.length : 0),
+    projects: [...projects],
+    retries,
+  });
+  let result;
+  try {
+    result = await verifyReusableProductionArtifact(
+      {
+        browserSelection: {
+          journeyIds: selectedJourneys.map(({ journey }) => journey.id),
+          projects,
+          ...(requiresWebkit
+            ? {
+                webkitJourneyIds: webkitJourneys.map(
+                  ({ journey }) => journey.id,
+                ),
+              }
+            : {}),
+        },
+        requestedPort: input.env.PORT,
+        signal: input.signal,
       },
-      requestedPort: input.env.PORT,
-      signal: input.signal,
-    },
-    input.adapters,
+      {
+        ...input.adapters,
+        report: (diagnostic) => {
+          diagnostics.push(diagnostic);
+          input.adapters.report(diagnostic);
+        },
+      },
+    );
+  } catch (error) {
+    const failure = [...diagnostics]
+      .reverse()
+      .find((diagnostic) => diagnostic.status === "failed");
+    const reuseStatus =
+      typeof error === "object" &&
+      error !== null &&
+      (error as { reuseStatus?: unknown }).reuseStatus === "reused"
+        ? ("reused" as const)
+        : ("new" as const);
+    const invalidationReason =
+      typeof error === "object" &&
+      error !== null &&
+      typeof (error as { invalidationReason?: unknown }).invalidationReason ===
+        "string"
+        ? (error as { invalidationReason: string }).invalidationReason
+        : `${failure?.phase ?? "preflight"} failed before reuse evaluation`;
+    const telemetry = {
+      ...telemetryBase(
+        typeof (error as { retryCount?: unknown })?.retryCount === "number"
+          ? (error as { retryCount: number }).retryCount
+          : 0,
+      ),
+      failureClassification: failure?.phase ?? "preflight",
+      outcome: "failed" as const,
+      reuseStatus,
+    };
+    input.log(
+      `Production build reuse: ${reuseStatus} (${invalidationReason}).`,
+    );
+    input.log(`[affected-verification-result] ${JSON.stringify(telemetry)}`);
+    throw error;
+  }
+  input.log(
+    `Production build reuse: ${result.reuseStatus} (${result.invalidationReason}).`,
   );
 
-  return { ...result, baseRef, fingerprint };
+  const telemetry = {
+    ...telemetryBase(result.retries),
+    outcome: "passed" as const,
+    reuseStatus: result.reuseStatus,
+  };
+  input.log(`[affected-verification-result] ${JSON.stringify(telemetry)}`);
+
+  return { ...result, baseRef, fingerprint, telemetry };
 }

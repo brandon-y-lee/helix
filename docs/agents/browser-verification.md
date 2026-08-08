@@ -104,6 +104,19 @@ Browser tests remain for behavior that needs browser layout or APIs: routing, fo
 
 Local verification defaults to affected Chromium. Focus, touch, scroll, media, sticky layout, and responsive-overlay capabilities add affected WebKit. One receipted build is reusable within an unchanged worktree; relevant source, dependency, environment, or test-configuration changes invalidate it.
 
+The supported command stores that local receipt beneath `.next` and validates
+the current worktree, artifact build ID, runtime source, dependency and
+lockfile inputs, non-secret build environment, framework and browser
+configuration, Browser Verification Plan, and browser tests before reuse. A
+missing, malformed, stale, substituted, partially written, or cross-worktree
+receipt causes a new build. Output reports `new` or `reused` with the reason,
+then emits one `[affected-verification-result]` JSON record containing build
+and browser time, selected capabilities, browser-case count, projects, observed
+retries, outcome, and reuse status. The owned lock, server identity check,
+interruption handling, failure classification, and cleanup remain the
+Production Artifact Verification lifecycle rather than a Playwright-owned
+server path.
+
 ## Receipts and result reuse
 
 The integration workflow writes a canonical JSON predicate, signs it with GitHub's custom artifact-attestation mechanism, and attaches it to the Runtime Fingerprint. The predicate records at least:
