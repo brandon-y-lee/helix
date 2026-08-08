@@ -142,6 +142,8 @@ start_spec() {
     exit 2
   }
   classify_spec_slug "$1"
+  [ "$spec_number" != 50 ] ||
+    fail "spec #50 remains on the previously executable workflow"
   spec_branch="codex/spec-$1"
   git check-ref-format --branch "$spec_branch" >/dev/null 2>&1 ||
     fail "spec slug does not produce a valid Git branch name"
@@ -174,6 +176,8 @@ start_task() {
     }
     [ "$task_kind" != urgent ] || fail "urgent tickets cannot target a spec branch"
     classify_spec_slug "$3"
+    [ "$spec_number" != 50 ] ||
+      fail "spec #50 remains on the previously executable workflow"
     spec_branch="codex/spec-$3"
     case "$spec_branch" in
       codex/spec-[0-9]*-?*) ;;

@@ -244,6 +244,12 @@ describe("future spec integration lifecycle", () => {
           labels: ["type:ticket", "workflow:in-progress"],
         },
       },
+      {
+        number: 60,
+        update: {
+          labels: ["type:spec", "workflow:in-progress"],
+        },
+      },
     ]);
   });
 
@@ -280,6 +286,9 @@ describe("future spec integration lifecycle", () => {
           draft: false,
           checks: { ci: "passed" as const, "affected-browser-verification": "passed" as const },
           body: "",
+          ticketNumber: 61,
+          reviewPassed: true,
+          mergeable: true,
         },
       ],
       [
@@ -293,6 +302,9 @@ describe("future spec integration lifecycle", () => {
           draft: false,
           checks: { ci: "passed" as const, "affected-browser-verification": "passed" as const },
           body: "",
+          ticketNumber: 62,
+          reviewPassed: true,
+          mergeable: true,
         },
       ],
     ]);
@@ -337,7 +349,7 @@ describe("future spec integration lifecycle", () => {
           return structuredClone(pullRequests.get(number)!);
         },
         async create(input) {
-          const created = { number: nextPullRequest++, state: "open" as const, headSha: "spec-1", checks: {}, ...input };
+          const created = { number: nextPullRequest++, state: "open" as const, headSha: "spec-1", checks: {}, reviewPassed: false, mergeable: true, ...input };
           pullRequests.set(created.number, created);
           return structuredClone(created);
         },
@@ -384,11 +396,12 @@ describe("future spec integration lifecycle", () => {
     expect(issues.get(60)?.state).toBe("open");
     expect(comments[0]).toContain("squash-integrated by PR #101");
     expect(pullRequests.get(200)).toMatchObject({ baseBranch: "dev", draft: true });
+    expect(pullRequests.get(200)?.body).toContain("- Path: completed spec");
     expect(pullRequests.get(200)?.body).toContain('"children":[{"number":61,"blockers":[],"integrated":true},{"number":62,"blockers":[61],"integrated":false}]');
 
     await expect(
       runSpecLifecycle(
-        { kind: "ready-spec", specNumber: 60, specSlug: "catalog-refresh", combinedReviewPassed: true },
+        { kind: "ready-spec", specNumber: 60, specSlug: "catalog-refresh" },
         adapters,
       ),
     ).rejects.toThrow("every required child must be spec-integrated");
@@ -405,17 +418,59 @@ describe("future spec integration lifecycle", () => {
     );
     await expect(
       runSpecLifecycle(
-        { kind: "ready-spec", specNumber: 60, specSlug: "catalog-refresh", combinedReviewPassed: false },
+        { kind: "ready-spec", specNumber: 60, specSlug: "catalog-refresh" },
         adapters,
       ),
     ).rejects.toThrow("combined code review must pass");
+    Object.assign(pullRequests.get(200)!, { reviewPassed: true });
     const ready = await runSpecLifecycle(
-      { kind: "ready-spec", specNumber: 60, specSlug: "catalog-refresh", combinedReviewPassed: true },
+      { kind: "ready-spec", specNumber: 60, specSlug: "catalog-refresh" },
       adapters,
     );
     expect(ready).toEqual({ outcome: "spec-ready", specNumber: 60, pullRequestNumber: 200 });
     expect(pullRequests.get(200)?.draft).toBe(false);
     expect(issues.get(60)?.state).toBe("open");
+  });
+
+  it("rolls back the issue claim and ticket branch when startup evidence cannot be recorded", async () => {
+    const child = issue(61);
+    const spec = issue(60);
+    const deleted: string[] = [];
+    const updates: Array<{ number: number; update: Partial<WorkflowIssue> }> = [];
+    const adapters = {
+      git: {
+        async readBranch(name: string) {
+          return name === "codex/spec-60-catalog-refresh"
+            ? { name, sha: "spec-1", parent: "dev" }
+            : null;
+        },
+        async createBranch() {},
+        async deleteBranch(name: string) { deleted.push(name); },
+      },
+      issues: {
+        async read(number: number) { return structuredClone(number === 60 ? spec : child); },
+        async update(number: number, update: Partial<WorkflowIssue>) { updates.push({ number, update }); },
+        async comment() { throw new Error("comment unavailable"); },
+      },
+    } as unknown as SpecLifecycleAdapters;
+
+    await expect(
+      runSpecLifecycle(
+        {
+          kind: "start-child",
+          specNumber: 60,
+          specSlug: "catalog-refresh",
+          childNumber: 61,
+          childSlug: "foundation",
+          assignee: "agent",
+        },
+        adapters,
+      ),
+    ).rejects.toThrow("comment unavailable");
+
+    expect(deleted).toEqual(["codex/61-foundation"]);
+    expect(updates.at(-2)).toEqual({ number: 61, update: { assignees: [], labels: ["type:ticket", "ready-for-agent"] } });
+    expect(updates.at(-1)).toEqual({ number: 60, update: { labels: ["type:spec", "workflow:planned"] } });
   });
 
   it("reopens an owned child failure but keeps cross-ticket failures with integration", async () => {
@@ -432,6 +487,8 @@ describe("future spec integration lifecycle", () => {
       draft: false,
       checks: {},
       body: "status",
+      reviewPassed: true,
+      mergeable: true,
     };
     const comments: string[] = [];
     const adapters = {
@@ -445,10 +502,15 @@ describe("future spec integration lifecycle", () => {
         async find() { return structuredClone(finalPull); },
         async update(_number: number, update: Partial<typeof finalPull>) { Object.assign(finalPull, update); },
       },
+      verification: {
+        async readCombinedFailure() {
+          return { reason: "checkout journey failed", responsibleChildNumber: 61 };
+        },
+      },
     } as unknown as SpecLifecycleAdapters;
 
     const owned = await runSpecLifecycle(
-      { kind: "combined-failure", specNumber: 60, specSlug: "catalog-refresh", responsibleChildNumber: 61, reason: "checkout journey failed" },
+      { kind: "combined-failure", specNumber: 60, specSlug: "catalog-refresh" },
       adapters,
     );
     expect(owned).toEqual({ outcome: "child-reopened", specNumber: 60, childNumber: 61, pullRequestNumber: 200 });
@@ -456,8 +518,13 @@ describe("future spec integration lifecycle", () => {
     expect(finalPull.draft).toBe(true);
 
     issues.set(61, issue(61, { state: "closed", labels: ["type:ticket", "workflow:spec-integrated"] }));
+    adapters.verification = {
+      async readCombinedFailure() {
+        return { reason: "combined navigation failure" };
+      },
+    };
     const crossTicket = await runSpecLifecycle(
-      { kind: "combined-failure", specNumber: 60, specSlug: "catalog-refresh", reason: "combined navigation failure" },
+      { kind: "combined-failure", specNumber: 60, specSlug: "catalog-refresh" },
       adapters,
     );
     expect(crossTicket).toEqual({ outcome: "integration-owned-failure", specNumber: 60, pullRequestNumber: 200 });
@@ -484,6 +551,8 @@ describe("future spec integration lifecycle", () => {
         body: "status",
         mergeMethod,
         mergeSha: finalState === "merged" ? "dev-2" : undefined,
+        reviewPassed: true,
+        mergeable: true,
       };
       const adapters = {
         git: { async deleteBranch(name: string) { deleted.push(name); } },

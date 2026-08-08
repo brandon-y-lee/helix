@@ -22,6 +22,9 @@ export type WorkflowPullRequest = {
   draft: boolean;
   checks: Record<string, "pending" | "passed" | "failed">;
   body: string;
+  ticketNumber?: number;
+  reviewPassed: boolean;
+  mergeable: boolean;
   mergeMethod?: "squash" | "merge";
   mergeSha?: string;
 };
@@ -68,11 +71,19 @@ export interface SpecPullRequestAdapter {
   merge(number: number, input: { expectedHeadSha: string; method: "squash" | "merge" }): Promise<{ mergeSha: string }>;
 }
 
+export interface SpecVerificationAdapter {
+  readCombinedFailure(input: {
+    specNumber: number;
+    pullRequestNumber: number;
+  }): Promise<{ reason: string; responsibleChildNumber?: number }>;
+}
+
 export type SpecLifecycleAdapters = {
   github: SpecGithubAdapter;
   git: SpecGitAdapter;
   issues: SpecIssueAdapter;
   pullRequests: SpecPullRequestAdapter;
+  verification?: SpecVerificationAdapter;
 };
 
 export type SpecLifecycleCommand =
@@ -100,14 +111,11 @@ export type SpecLifecycleCommand =
       kind: "ready-spec";
       specNumber: number;
       specSlug: string;
-      combinedReviewPassed: boolean;
     }
   | {
       kind: "combined-failure";
       specNumber: number;
       specSlug: string;
-      responsibleChildNumber?: number;
-      reason: string;
     }
   | {
       kind: "cancel-spec";
@@ -220,6 +228,15 @@ function finalSpecBody(
     )
     .join("\n");
   return [
+    "## Workflow path",
+    "",
+    "- Path: completed spec",
+    "- Base: dev",
+    "- Refs: N/A",
+    `- Spec: #${specNumber}`,
+    "- Urgency: not urgent",
+    "- Fast-path proof: N/A",
+    "",
     `## Spec #${specNumber} integration status`,
     "",
     "<!-- mei-pelle-spec-lifecycle:v1",
@@ -227,13 +244,58 @@ function finalSpecBody(
     "-->",
     "",
     checklist,
+    "",
+    "### Code-review outcome",
+    "",
+    "- Standards: pending",
+    "- Spec: pending",
   ].join("\n");
+}
+
+function labelsForState(issue: WorkflowIssue, state: string): string[] {
+  return issue.labels
+    .filter(
+      (label) =>
+        !label.startsWith("workflow:") &&
+        label !== "ready-for-agent" &&
+        label !== "wontfix",
+    )
+    .concat(state);
+}
+
+function labelsWithoutWorkflowState(issue: WorkflowIssue): string[] {
+  return issue.labels.filter(
+    (label) =>
+      !label.startsWith("workflow:") &&
+      label !== "ready-for-agent" &&
+      label !== "wontfix",
+  );
+}
+
+function validateCommand(command: SpecLifecycleCommand): void {
+  const allowedKinds = new Set<SpecLifecycleCommand["kind"]>([
+    "create-spec",
+    "start-child",
+    "integrate-child",
+    "ready-spec",
+    "combined-failure",
+    "cancel-spec",
+    "complete-spec",
+    "sync-spec",
+  ]);
+  if (!allowedKinds.has(command.kind)) throw new Error("unknown spec lifecycle command");
+  for (const [name, value] of Object.entries(command)) {
+    if (name.endsWith("Number") && (!Number.isInteger(value) || Number(value) <= 0)) {
+      throw new Error(`${name} must be a positive integer`);
+    }
+  }
 }
 
 export async function runSpecLifecycle(
   command: SpecLifecycleCommand,
   adapters: SpecLifecycleAdapters,
 ): Promise<SpecLifecycleReport> {
+  validateCommand(command);
   if (command.specNumber === 50) {
     throw new Error("spec #50 remains on the previously executable workflow");
   }
@@ -271,24 +333,38 @@ export async function runSpecLifecycle(
     if (await adapters.git.readBranch(childBranch)) {
       throw new Error(`ticket branch ${childBranch} already exists`);
     }
-    await adapters.git.createBranch({
-      name: childBranch,
-      fromBranch: branch,
-      fromSha: base.sha,
-    });
+    let parentAdvanced = false;
+    let branchCreated = false;
     try {
       await adapters.issues.update(command.childNumber, {
         assignees: [command.assignee],
-        labels: child.labels
-          .filter(
-            (label) =>
-              label !== "ready-for-agent" &&
-              !label.startsWith("workflow:"),
-          )
-          .concat("workflow:in-progress"),
+        labels: labelsForState(child, "workflow:in-progress"),
       });
+      if (spec.labels.includes("workflow:planned")) {
+        await adapters.issues.update(command.specNumber, {
+          labels: labelsForState(spec, "workflow:in-progress"),
+        });
+        parentAdvanced = true;
+      }
+      await adapters.git.createBranch({
+        name: childBranch,
+        fromBranch: branch,
+        fromSha: base.sha,
+      });
+      branchCreated = true;
+      await adapters.issues.comment(
+        command.childNumber,
+        `<!-- mei-pelle-ticket-branch:v1 ${JSON.stringify({ branch: childBranch, baseBranch: branch, baseSha: base.sha })} -->\nStarted from the current parent spec tip \`${base.sha}\`.`,
+      );
     } catch (error) {
-      await adapters.git.deleteBranch(childBranch);
+      if (branchCreated) await adapters.git.deleteBranch(childBranch);
+      await adapters.issues.update(command.childNumber, {
+        assignees: child.assignees,
+        labels: child.labels,
+      });
+      if (parentAdvanced) {
+        await adapters.issues.update(command.specNumber, { labels: spec.labels });
+      }
       throw error;
     }
     return {
@@ -317,12 +393,15 @@ export async function runSpecLifecycle(
     if (
       pullRequest.state !== "open" ||
       pullRequest.draft ||
+      !pullRequest.mergeable ||
+      !pullRequest.reviewPassed ||
+      pullRequest.ticketNumber !== command.childNumber ||
       pullRequest.baseBranch !== branch ||
       !ticketBranch ||
       ticketBranch.parent !== branch ||
       ticketBranch.sha !== pullRequest.headSha
     ) {
-      throw new Error("child pull request must be ready and use a flat ticket branch targeting its spec branch");
+      throw new Error("child pull request must be reviewed, conflict-free, bound to its ticket, and use a flat branch targeting its spec branch");
     }
     for (const check of ["ci", "affected-browser-verification"] as const) {
       if (pullRequest.checks[check] !== "passed") {
@@ -333,12 +412,9 @@ export async function runSpecLifecycle(
       expectedHeadSha: pullRequest.headSha,
       method: "squash",
     });
-    const childLabels = child.labels
-      .filter((label) => !label.startsWith("workflow:") && label !== "ready-for-agent")
-      .concat("workflow:spec-integrated");
     await adapters.issues.update(command.childNumber, {
       state: "closed",
-      labels: childLabels,
+      labels: labelsForState(child, "workflow:spec-integrated"),
     });
     await adapters.issues.comment(
       command.childNumber,
@@ -386,19 +462,18 @@ export async function runSpecLifecycle(
     ) {
       throw new Error("every required child must be spec-integrated");
     }
-    if (!command.combinedReviewPassed) throw new Error("combined code review must pass");
     const finalPullRequest = await adapters.pullRequests.find(branch, "dev");
     if (!finalPullRequest || finalPullRequest.state !== "open") {
       throw new Error("the draft final spec pull request does not exist");
     }
+    if (!finalPullRequest.reviewPassed || !finalPullRequest.mergeable) {
+      throw new Error("combined code review must pass and the final pull request must be conflict-free");
+    }
     await adapters.pullRequests.update(finalPullRequest.number, {
-      body: finalSpecBody(command.specNumber, branch, children),
       draft: false,
     });
     await adapters.issues.update(command.specNumber, {
-      labels: spec.labels
-        .filter((label) => !label.startsWith("workflow:") && label !== "ready-for-agent")
-        .concat("workflow:review"),
+      labels: labelsForState(spec, "workflow:review"),
     });
     return {
       outcome: "spec-ready",
@@ -407,32 +482,37 @@ export async function runSpecLifecycle(
     };
   }
   if (command.kind === "combined-failure") {
-    if (!command.reason.trim()) throw new Error("combined failure requires a reason");
-    const responsibleChild = command.responsibleChildNumber === undefined
-      ? undefined
-      : await adapters.issues.read(command.responsibleChildNumber);
-    if (responsibleChild && responsibleChild.parentNumber !== command.specNumber) {
-      throw new Error(`child #${command.responsibleChildNumber} does not belong to spec #${command.specNumber}`);
+    if (!adapters.verification) {
+      throw new Error("combined failure requires the controlled verification adapter");
     }
     const finalPullRequest = await adapters.pullRequests.find(branch, "dev");
     if (!finalPullRequest || finalPullRequest.state !== "open") {
       throw new Error("the final spec pull request does not exist");
     }
+    const failure = await adapters.verification.readCombinedFailure({
+      specNumber: command.specNumber,
+      pullRequestNumber: finalPullRequest.number,
+    });
+    if (!failure.reason.trim()) throw new Error("combined failure evidence requires a reason");
+    const responsibleChild = failure.responsibleChildNumber === undefined
+      ? undefined
+      : await adapters.issues.read(failure.responsibleChildNumber);
+    if (responsibleChild && responsibleChild.parentNumber !== command.specNumber) {
+      throw new Error(`child #${failure.responsibleChildNumber} does not belong to spec #${command.specNumber}`);
+    }
     await adapters.pullRequests.update(finalPullRequest.number, {
       draft: true,
-      body: `${finalPullRequest.body}\n\n## Combined verification failure\n\n${command.reason}`,
+      body: `${finalPullRequest.body}\n\n## Combined verification failure\n\n${failure.reason}`,
     });
     if (responsibleChild) {
       const child = responsibleChild;
       await adapters.issues.update(child.number, {
         state: "open",
-        labels: child.labels
-          .filter((label) => !label.startsWith("workflow:") && label !== "ready-for-agent")
-          .concat("workflow:review"),
+        labels: labelsForState(child, "workflow:review"),
       });
       await adapters.issues.comment(
         child.number,
-        `Reopened after combined verification identified this ticket as responsible: ${command.reason}`,
+        `Reopened after combined verification identified this ticket as responsible: ${failure.reason}`,
       );
       return {
         outcome: "child-reopened",
@@ -443,7 +523,7 @@ export async function runSpecLifecycle(
     }
     await adapters.issues.comment(
       command.specNumber,
-      `Combined verification failed without a proven ticket owner; ownership remains with spec integration: ${command.reason}`,
+      `Combined verification failed without a proven ticket owner; ownership remains with spec integration: ${failure.reason}`,
     );
     return {
       outcome: "integration-owned-failure",
@@ -470,9 +550,7 @@ export async function runSpecLifecycle(
     for (const child of children) {
       await adapters.issues.update(child.number, {
         state: "closed",
-        labels: child.labels
-          .filter((label) => !label.startsWith("workflow:") && label !== "ready-for-agent" && label !== "wontfix")
-          .concat("wontfix"),
+        labels: labelsForState(child, "wontfix"),
       });
       await adapters.issues.comment(
         child.number,
@@ -481,9 +559,7 @@ export async function runSpecLifecycle(
     }
     await adapters.issues.update(command.specNumber, {
       state: "closed",
-      labels: spec.labels
-        .filter((label) => !label.startsWith("workflow:") && label !== "ready-for-agent" && label !== "wontfix")
-        .concat("wontfix"),
+      labels: labelsForState(spec, "wontfix"),
     });
     await adapters.issues.comment(
       command.specNumber,
@@ -519,9 +595,7 @@ export async function runSpecLifecycle(
     }
     await adapters.issues.update(command.specNumber, {
       state: "closed",
-      labels: spec.labels.filter(
-        (label) => !label.startsWith("workflow:") && label !== "ready-for-agent",
-      ),
+      labels: labelsWithoutWorkflowState(spec),
     });
     await adapters.issues.comment(
       command.specNumber,
@@ -576,6 +650,9 @@ export async function runSpecLifecycle(
   }
   const dev = await adapters.git.readBranch("dev");
   if (!dev) throw new Error("dev branch does not exist");
+  if (!spec.labels.includes("workflow:planned")) {
+    throw new Error(`spec #${command.specNumber} must be workflow:planned before branch creation`);
+  }
   await adapters.git.createBranch({ name: branch, fromBranch: "dev", fromSha: dev.sha });
   try {
     await adapters.github.protectSpecBranch({

@@ -213,6 +213,20 @@ describe("Codex workflow task helper", () => {
     }
   });
 
+  it("keeps spec #50 on the previously executable direct-to-dev workflow", () => {
+    const { root, tempRoot } = initialiseRepository();
+    try {
+      const spec = run(taskHelper, ["spec-start", "50-browser-verification"], root);
+      expect(spec.status).not.toBe(0);
+      expect(spec.stderr).toContain("spec #50 remains on the previously executable workflow");
+      expect(
+        git(root, "show-ref", "--verify", "--quiet", "refs/heads/codex/spec-50-browser-verification").status,
+      ).not.toBe(0);
+    } finally {
+      cleanupFixture(tempRoot);
+    }
+  });
+
   it("starts ticket and planning worktrees with recorded review bases", () => {
     for (const slug of [
       "123-checkout-state",
