@@ -11,6 +11,8 @@ export const verificationSystemPathPrefixes = [
   "tsconfig.json",
   "vitest.config.ts",
   "vitest.setup.ts",
+  "e2e/",
+  "playwright-global-setup.ts",
   "scripts/affected-browser-verification",
   "scripts/browser-verification-plan",
   "scripts/github/",
@@ -24,10 +26,12 @@ export const verificationSystemPathPrefixes = [
   "tests/prepare-integration-candidate",
   "tests/production-verification",
   "tests/routine-browser-verification",
+  "tests/scheduled-",
   "tests/spec-integration-lifecycle",
   "tests/spec-lifecycle-adapters",
   "tests/spec-ruleset",
   "tests/verification-",
+  "test-support/",
 ];
 
 export function isVerificationSystemPath(path) {

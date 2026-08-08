@@ -12,6 +12,10 @@ const verification = readFileSync(
   "utf8",
 );
 const ci = readFileSync(resolve(projectRoot, ".github/workflows/ci.yml"), "utf8");
+const windowsLifecycle = readFileSync(
+  resolve(projectRoot, ".github/workflows/verification-lifecycle-windows.yml"),
+  "utf8",
+);
 const activeProductMedia = readFileSync(
   resolve(projectRoot, ".github/workflows/active-product-media-verification.yml"),
   "utf8",
@@ -103,16 +107,27 @@ describe("dev Integration Line workflows", () => {
     expect(ci).toContain("needs: [ci-core, protected-push-receipt]");
     expect(ci).toContain('RECEIPT_RESULT: ${{ needs.protected-push-receipt.result }}');
     expect(ci).toContain('branches: [dev, main, "codex/spec-*"]');
-    expect(ci).toContain("classify-windows-lifecycle:");
-    expect(ci).toContain("needs: classify-windows-lifecycle");
-    expect(ci).toContain("node scripts/github/verification-system-paths.mjs");
-    expect(ci).toContain('relevant="$(node scripts/github/verification-system-paths.mjs');
-    expect(ci).toContain('if [[ "$relevant" != "true" && "$relevant" != "false" ]]');
-    expect(ci).not.toContain("if node scripts/github/verification-system-paths.mjs");
-    expect(ci).toContain("verification-lifecycle-gate:");
-    expect(ci).toContain("needs: [classify-windows-lifecycle, verification-lifecycle-windows]");
-    expect(ci).toContain("WINDOWS_RESULT:");
-    expect(ci).toContain("workflow_dispatch:");
-    expect(ci).toContain("schedule:");
+    expect(ci).not.toContain("classify-windows-lifecycle:");
+    expect(ci).not.toContain("workflow_dispatch:");
+    expect(ci).not.toContain("schedule:");
+    expect(windowsLifecycle).toContain("classify-windows-lifecycle:");
+    expect(windowsLifecycle).toContain("needs: classify-windows-lifecycle");
+    expect(windowsLifecycle).toContain("node scripts/github/verification-system-paths.mjs");
+    expect(windowsLifecycle).toContain(
+      'relevant="$(node scripts/github/verification-system-paths.mjs',
+    );
+    expect(windowsLifecycle).toContain(
+      'if [[ "$relevant" != "true" && "$relevant" != "false" ]]',
+    );
+    expect(windowsLifecycle).not.toContain(
+      "if node scripts/github/verification-system-paths.mjs",
+    );
+    expect(windowsLifecycle).toContain("verification-lifecycle-gate:");
+    expect(windowsLifecycle).toContain(
+      "needs: [classify-windows-lifecycle, verification-lifecycle-windows]",
+    );
+    expect(windowsLifecycle).toContain("WINDOWS_RESULT:");
+    expect(windowsLifecycle).toContain("workflow_dispatch:");
+    expect(windowsLifecycle).toContain("schedule:");
   });
 });

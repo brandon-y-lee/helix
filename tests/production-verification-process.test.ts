@@ -36,7 +36,9 @@ function processIsAlive(pid: number): boolean {
 
 async function waitUntil(
   assertion: () => boolean,
-  timeoutMs = process.platform === "win32" ? 10_000 : 3_000,
+  // A cold hosted Windows runner can spend more than ten seconds compiling the
+  // PowerShell job-object supervisor before it starts the owned target.
+  timeoutMs = process.platform === "win32" ? 20_000 : 3_000,
 ): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -421,7 +423,7 @@ describe("Production Verification Node Adapters", () => {
         await rm(cwd, { force: true, recursive: true });
       }
     },
-    20_000,
+    process.platform === "win32" ? 35_000 : 20_000,
   );
 
   it(

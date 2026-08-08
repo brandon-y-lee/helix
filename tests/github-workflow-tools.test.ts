@@ -85,6 +85,10 @@ function initialiseRepository(): { root: string; tempRoot: string } {
     "name: verification\npermissions:\n  contents: read\njobs:\n  verify:\n    runs-on: ubuntu-latest\n    steps: []\n  attest-stable-result:\n    permissions:\n      artifact-metadata: write\n      attestations: write\n      contents: read\n      id-token: write\n    runs-on: ubuntu-latest\n    steps: []\n",
   );
   writeFileSync(
+    join(root, ".github", "workflows", "scheduled-browser-verification.yml"),
+    "name: scheduled\npermissions:\n  contents: read\n  issues: write\njobs:\n  verify:\n    runs-on: ubuntu-latest\n    steps: []\n",
+  );
+  writeFileSync(
     join(root, ".github", "workflows", "spec-lifecycle.yml"),
     "name: spec lifecycle\npermissions:\n  actions: read\n  contents: write\n  id-token: write\n  issues: write\n  pull-requests: write\njobs:\n  orchestrate:\n    runs-on: ubuntu-latest\n    steps: []\n",
   );
@@ -976,6 +980,21 @@ describe("GitHub workflow bootstrap", () => {
           expectSuccess(git(root, "branch", "-f", "dev", "HEAD"));
         },
         expected: /attestation signer workflow must default to contents: read/,
+      },
+      {
+        name: "scheduled workflow excess authority",
+        mutateRepo: (root) => {
+          writeFileSync(
+            join(root, ".github", "workflows", "scheduled-browser-verification.yml"),
+            "name: scheduled\npermissions:\n  actions: write\n  contents: read\n  issues: write\njobs:\n  verify:\n    runs-on: ubuntu-latest\n    steps: []\n",
+          );
+          expectSuccess(
+            git(root, "add", ".github/workflows/scheduled-browser-verification.yml"),
+          );
+          expectSuccess(git(root, "commit", "-m", "Overgrant scheduled workflow"));
+          expectSuccess(git(root, "branch", "-f", "dev", "HEAD"));
+        },
+        expected: /scheduled browser verification must grant only contents: read and issues: write/,
       },
     ];
 

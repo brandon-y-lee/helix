@@ -4,9 +4,6 @@ permissions:
   contents: read
 
 on:
-  workflow_dispatch:
-  schedule:
-    - cron: "23 9 * * 1"
   push:
     branches: [dev, main]
   pull_request:
@@ -18,83 +15,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  classify-windows-lifecycle:
-    runs-on: ubuntu-latest
-    outputs:
-      relevant: ${{ steps.classify.outputs.relevant }}
-    steps:
-      - name: Checkout history for lifecycle classification
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Select relevant lifecycle changes
-        id: classify
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-        run: |
-          if [[ "${{ github.event_name }}" == "schedule" || "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            echo "relevant=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          git diff --name-only --diff-filter=ACMR "$BASE_SHA" "$GITHUB_SHA" > "$RUNNER_TEMP/changed-files.txt"
-          if ! relevant="$(node scripts/github/verification-system-paths.mjs "$RUNNER_TEMP/changed-files.txt")"; then
-            echo "Lifecycle classification failed." >&2
-            exit 1
-          fi
-          if [[ "$relevant" != "true" && "$relevant" != "false" ]]; then
-            echo "Lifecycle classification returned an invalid result." >&2
-            exit 1
-          fi
-          echo "relevant=$relevant" >> "$GITHUB_OUTPUT"
-
-  verification-lifecycle-windows:
-    needs: classify-windows-lifecycle
-    if: ${{ needs.classify-windows-lifecycle.outputs.relevant == 'true' }}
-    runs-on: windows-latest
-    timeout-minutes: 10
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Verify lifecycle start, failure, interruption, and cleanup
-        run: pnpm vitest run tests/production-verification.test.ts tests/production-verification-process.test.ts
-
-  verification-lifecycle-gate:
-    needs: [classify-windows-lifecycle, verification-lifecycle-windows]
-    if: ${{ always() && github.event_name != 'schedule' && github.event_name != 'workflow_dispatch' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 2
-    env:
-      CLASSIFIER_RESULT: ${{ needs.classify-windows-lifecycle.result }}
-      LIFECYCLE_RELEVANT: ${{ needs.classify-windows-lifecycle.outputs.relevant }}
-      WINDOWS_RESULT: ${{ needs.verification-lifecycle-windows.result }}
-    steps:
-      - name: Require proportional Windows lifecycle evidence
-        run: |
-          if [[ "$CLASSIFIER_RESULT" != "success" ]]; then
-            echo "Lifecycle classification must succeed." >&2
-            exit 1
-          fi
-          if [[ "$LIFECYCLE_RELEVANT" == "true" && "$WINDOWS_RESULT" != "success" ]]; then
-            echo "Relevant verification-system changes require successful Windows lifecycle evidence." >&2
-            exit 1
-          fi
-
   ci-core:
-    if: ${{ github.event_name != 'schedule' && github.event_name != 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:

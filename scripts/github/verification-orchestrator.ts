@@ -1,3 +1,7 @@
+import {
+  recordScheduledVerificationFailure,
+  scheduledFailureFromClassifiedEvidence,
+} from "./scheduled-verification-issue.mjs";
 export * from "./spec-integration-lifecycle";
 
 export const INTEGRATION_TIMEOUT_MS = 20 * 60 * 1_000;
@@ -20,12 +24,14 @@ export type {
   VerificationReceipt,
 } from "./routine-browser-verification";
 import { isReviewedNonRuntimePath } from "./verification-fingerprints";
+import { isVerificationSystemPath } from "./verification-system-paths.mjs";
 import {
   findReusableVerificationReceipt as findReceipt,
   prepareRoutineBrowserVerification as prepareRoutine,
   type RoutineBrowserVerificationAdapters as RoutineAdapters,
   type RoutineBrowserVerificationInput as RoutineInput,
   type RoutineReceiptEvidenceAdapters as RoutineEvidenceAdapters,
+  type Sha256Fingerprint,
 } from "./routine-browser-verification";
 
 export type WorkClass =
@@ -39,6 +45,195 @@ export type WorkClass =
 
 export type VerificationGate = "complete-behavioral" | "fast-non-runtime";
 export type RiskArea = "security" | "payment" | "data" | "provider" | "cross-cutting";
+
+export type ScheduledVerificationIdentity = {
+  browser: { name: "webkit"; version: string };
+  catalogFingerprint: Sha256Fingerprint;
+  planFingerprint: Sha256Fingerprint;
+  runtimeFingerprint: Sha256Fingerprint;
+};
+
+export type ScheduledVerificationFailure = {
+  kind: "browser-failed" | "catalog-unavailable" | "reconciliation-failed" | "setup-failed";
+  identity: ScheduledVerificationIdentity;
+  summary: string;
+};
+
+export type ActiveOperationalVerificationIssue = ScheduledVerificationFailure & {
+  number: number;
+};
+
+export interface OperationalVerificationIssueAdapter {
+  findActive(): Promise<ActiveOperationalVerificationIssue | undefined>;
+  create(failure: ScheduledVerificationFailure): Promise<{ number: number }>;
+  update(number: number, failure: ScheduledVerificationFailure): Promise<void>;
+  close(number: number, recovery: ScheduledVerificationIdentity): Promise<void>;
+}
+
+export interface ScheduledBrowserVerificationAdapter {
+  verifyCompleteWebkit(): Promise<
+    | { identity: ScheduledVerificationIdentity; outcome: "passed" }
+    | {
+        failureKind: "browser-failed" | "catalog-unavailable";
+        identity: ScheduledVerificationIdentity;
+        outcome: "failed";
+      }
+  >;
+}
+
+export type ScheduledBrowserVerificationReport = {
+  identity: ScheduledVerificationIdentity;
+  issueNumber?: number;
+  outcome: "failed" | "passed" | "nonmatching-recovery";
+  productionPromotion: "blocked" | "unblocked";
+};
+
+function sameScheduledVerificationIdentity(
+  left: ScheduledVerificationIdentity,
+  right: ScheduledVerificationIdentity,
+): boolean {
+  return (
+    left.browser.name === right.browser.name &&
+    left.browser.version === right.browser.version &&
+    left.catalogFingerprint === right.catalogFingerprint &&
+    left.planFingerprint === right.planFingerprint &&
+    left.runtimeFingerprint === right.runtimeFingerprint
+  );
+}
+
+export function evaluateProductionPromotion(
+  active: ActiveOperationalVerificationIssue | undefined,
+  candidate: ScheduledVerificationIdentity,
+):
+  | { status: "allowed" }
+  | { status: "blocked"; issueNumber: number; reason: string } {
+  if (!active) return { status: "allowed" };
+  return {
+    issueNumber: active.number,
+    reason: sameScheduledVerificationIdentity(active.identity, candidate)
+      ? "matching scheduled WebKit failure is active"
+      : "scheduled WebKit failure has not been cleared by matching evidence",
+    status: "blocked",
+  };
+}
+
+export async function runScheduledBrowserVerification(adapters: {
+  issues: OperationalVerificationIssueAdapter;
+  onEvidenceClassified?(result: Awaited<ReturnType<ScheduledBrowserVerificationAdapter["verifyCompleteWebkit"]>>): Promise<void>;
+  verification: ScheduledBrowserVerificationAdapter;
+}): Promise<ScheduledBrowserVerificationReport> {
+  const result = await adapters.verification.verifyCompleteWebkit();
+  await adapters.onEvidenceClassified?.(result);
+  if (result.outcome === "failed") {
+    const failure = scheduledFailureFromClassifiedEvidence(result) as ScheduledVerificationFailure;
+    const issueNumber = await recordScheduledVerificationFailure(adapters.issues, failure);
+    return {
+      identity: result.identity,
+      issueNumber,
+      outcome: "failed",
+      productionPromotion: "blocked",
+    };
+  }
+
+  const active = await adapters.issues.findActive();
+  if (active && sameScheduledVerificationIdentity(active.identity, result.identity)) {
+    await adapters.issues.close(active.number, result.identity);
+    return {
+      identity: result.identity,
+      issueNumber: active.number,
+      outcome: "passed",
+      productionPromotion: "unblocked",
+    };
+  }
+  if (active) {
+    return {
+      identity: result.identity,
+      issueNumber: active.number,
+      outcome: "nonmatching-recovery",
+      productionPromotion: "blocked",
+    };
+  }
+  return {
+    identity: result.identity,
+    outcome: "passed",
+    productionPromotion: "unblocked",
+  };
+}
+
+export type WindowsLifecycleSource =
+  | "pull_request"
+  | "schedule"
+  | "workflow_dispatch";
+
+export interface WindowsLifecycleVerificationAdapter {
+  verifyLifecycle(input: { reason: string }): Promise<{ outcome: "passed" | "failed" }>;
+}
+
+export const WINDOWS_LIFECYCLE_PATH_PATTERNS = [
+  ".github/workflows/**",
+  "scripts/github/**",
+  "scripts/affected-browser-verification*",
+  "scripts/browser-verification-plan*",
+  "scripts/production-verification*",
+  "scripts/verify-affected*",
+  "scripts/verify-production*",
+  "tests/affected-browser-verification*",
+  "tests/integration-workflow*",
+  "tests/production-verification*",
+  "tests/scheduled-*",
+  "tests/verification-orchestrator*",
+  "e2e/**",
+  "playwright-global-setup.ts",
+  "test-support/**",
+  ".nvmrc",
+  "package.json",
+  "pnpm-lock.yaml",
+  "playwright.config.ts",
+  "tsconfig.json",
+] as const;
+
+function windowsLifecycleReason(input: {
+  changedFiles: readonly string[];
+  source: WindowsLifecycleSource;
+}): string | undefined {
+  if (input.source === "schedule") return "scheduled";
+  if (input.source === "workflow_dispatch") return "manually requested";
+  if (
+    input.changedFiles.some(
+      (path) =>
+        path.startsWith("scripts/production-verification") ||
+        path.startsWith("scripts/verify-production") ||
+        path.startsWith("tests/production-verification"),
+    )
+  ) {
+    return "production-verification process control changed";
+  }
+  if (
+    input.changedFiles.some((path) =>
+      [".nvmrc", "package.json", "pnpm-lock.yaml", "playwright.config.ts", "tsconfig.json"].includes(path),
+    )
+  ) {
+    return "verification dependency inputs changed";
+  }
+  if (
+    input.changedFiles.some(isVerificationSystemPath)
+  ) {
+    return "verification-system orchestration changed";
+  }
+  return undefined;
+}
+
+export async function runWindowsLifecycleVerification(
+  input: { changedFiles: readonly string[]; source: WindowsLifecycleSource },
+  adapter: WindowsLifecycleVerificationAdapter,
+): Promise<{ outcome: "passed" | "failed" | "skipped"; reason: string }> {
+  const reason = windowsLifecycleReason(input);
+  if (!reason) {
+    return { outcome: "skipped", reason: "no Windows lifecycle input changed" };
+  }
+  const result = await adapter.verifyLifecycle({ reason });
+  return { outcome: result.outcome, reason };
+}
 
 export type IntegrationCandidate = {
   number: number;
