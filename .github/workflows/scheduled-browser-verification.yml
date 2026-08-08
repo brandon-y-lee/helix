@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   complete-webkit:
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     timeout-minutes: 30
     env:
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
@@ -58,7 +58,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Install WebKit
-        run: pnpm exec playwright install --with-deps webkit
+        run: pnpm exec playwright install webkit
 
       - name: Run complete scheduled WebKit verification
         env:

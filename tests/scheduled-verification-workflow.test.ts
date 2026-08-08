@@ -46,7 +46,7 @@ describe("proportional scheduled verification workflow adapters", () => {
       "cancel-in-progress": false,
     });
     expect(scheduled.permissions).toEqual({ contents: "read", issues: "write" });
-    expect(scheduled.jobs["complete-webkit"]!["runs-on"]).toBe("ubuntu-latest");
+    expect(scheduled.jobs["complete-webkit"]!["runs-on"]).toBe("macos-latest");
     expect(steps[0]).toMatchObject({
       name: "Checkout failure recorder",
       with: expect.objectContaining({
@@ -55,7 +55,7 @@ describe("proportional scheduled verification workflow adapters", () => {
         ),
       }),
     });
-    expect(steps.some((step) => step.run === "pnpm exec playwright install --with-deps webkit")).toBe(true);
+    expect(steps.some((step) => step.run === "pnpm exec playwright install webkit")).toBe(true);
     expect(steps.some((step) => step.run === "pnpm verify:scheduled -- --lane webkit")).toBe(true);
     expect(steps).toEqual(expect.arrayContaining([
       expect.objectContaining({
@@ -96,8 +96,9 @@ describe("proportional scheduled verification workflow adapters", () => {
       paths: [...WINDOWS_LIFECYCLE_PATH_PATTERNS],
     });
     expect(browser.permissions).toEqual({ contents: "read" });
+    expect(browser.jobs["complete-browser-evidence"]!["runs-on"]).toBe("macos-latest");
     expect(steps).toEqual(expect.arrayContaining([
-      expect.objectContaining({ run: "pnpm exec playwright install --with-deps chromium webkit" }),
+      expect.objectContaining({ run: "pnpm exec playwright install chromium webkit" }),
       expect.objectContaining({ run: 'pnpm verify:affected -- --base "origin/${{ github.base_ref }}"' }),
     ]));
   });

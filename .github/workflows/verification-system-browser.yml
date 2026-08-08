@@ -30,7 +30,7 @@ permissions:
 
 jobs:
   complete-browser-evidence:
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     timeout-minutes: 30
     env:
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
@@ -58,7 +58,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Install Chromium and WebKit
-        run: pnpm exec playwright install --with-deps chromium webkit
+        run: pnpm exec playwright install chromium webkit
 
       - name: Verify affected browser behavior
         run: pnpm verify:affected -- --base "origin/${{ github.base_ref }}"

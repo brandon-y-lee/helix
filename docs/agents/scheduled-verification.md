@@ -45,7 +45,10 @@ nonmatching identity.
 The workflow has `contents: read` and the narrow `issues: write` permission.
 Its cancellation-disabled concurrency group prevents overlapping scheduled
 runs from racing to create duplicate issues. Successful browser reports remain
-30 days; failed reports, screenshots, and traces remain 90 days.
+30 days; failed reports, screenshots, and traces remain 90 days. The WebKit
+lane runs on macOS because the complete plan verifies project-controlled video
+playback and Playwright documents that media codec availability differs by host
+platform, with macOS WebKit providing the closest Safari media behavior.
 
 ## Windows lifecycle lane
 
@@ -68,6 +71,8 @@ job, so Windows evidence is not an ordinary required pull-request gate.
 path-filtered pull-request workflow. Changes to verification workflows,
 orchestration, process control, browser plans, their tests, or toolchain inputs
 run the supported affected-verification command with both Chromium and WebKit.
+That complete browser job also uses macOS so its WebKit media evidence exercises
+the project-controlled codecs rather than Linux codec availability.
 Ordinary Storefront changes do not select this workflow, and the daily WebKit
 lane remains outside universal required pull-request CI.
 
