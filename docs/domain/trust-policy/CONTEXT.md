@@ -25,7 +25,7 @@ A Customer decision about an available privacy practice or control.
 _Avoid_: Cookie Preference, Privacy Request
 
 **Privacy Request**:
-A Customer request to exercise a privacy right or ask about Mei Pelle's handling of personal information.
+A Visitor or Customer request to exercise a privacy right or ask about Mei Pelle's handling of personal information.
 _Avoid_: Privacy Choice, Support Inquiry
 
 **Cookie Preference**:
@@ -45,5 +45,5 @@ Mei Pelle's stated target and practices for making the platform usable by people
 _Avoid_: Accessibility Certification, Conformance Report
 
 **Accessibility Feedback**:
-A Customer report about an accessibility barrier or accessibility-related experience on the Mei Pelle Platform.
+A Visitor or Customer report about an accessibility barrier or accessibility-related experience on the Mei Pelle Platform.
 _Avoid_: Support Inquiry, Accessibility Audit

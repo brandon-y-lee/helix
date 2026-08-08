@@ -57,7 +57,7 @@ A Product whose Catalog Status is active. Active does not by itself imply Purcha
 _Avoid_: Available Product, Purchasable Product
 
 **Archived Product**:
-A Product whose Catalog Status is archived and is retained outside the Storefront lifecycle.
+A Product whose Catalog Status is archived and is retained in the Catalog but excluded from the Storefront.
 _Avoid_: Deleted Product, Unpublished Product
 
 **Merchandising Status**:
