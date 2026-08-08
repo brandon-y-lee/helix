@@ -37,7 +37,7 @@ export const test = base.extend<
     const approvedMediaOrigin = process.env.NEXT_PUBLIC_SUPABASE_URL;
     if (!approvedMediaOrigin) {
       throw new Error(
-        "Product-media containment requires NEXT_PUBLIC_SUPABASE_URL.",
+        "Product Media containment requires NEXT_PUBLIC_SUPABASE_URL.",
       );
     }
     const containment = createProductMediaContainment(
@@ -46,7 +46,7 @@ export const test = base.extend<
     );
     await use(containment);
     console.log(
-      `e2e Product-media containment: ${JSON.stringify(containment.report())}`,
+      `e2e Product Media containment: ${JSON.stringify(containment.report())}`,
     );
   }, { scope: "worker" }],
   productMediaContainmentPage: [async ({

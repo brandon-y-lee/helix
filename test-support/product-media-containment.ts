@@ -66,7 +66,7 @@ function approvedOrigin(value: string): string {
   } catch {
     // Use the common diagnostic below.
   }
-  throw new Error("Product-media containment requires one approved HTTPS origin.");
+  throw new Error("Product Media containment requires one approved HTTPS origin.");
 }
 
 function isPublicStorageRequest(value: string, origin: string): boolean {
@@ -186,7 +186,7 @@ export function createProductMediaContainment(
       report.rejectedRequests += 1;
       await route.abort("blockedbyclient");
       throw new Error(
-        `Product-media request is absent from the live Storefront: ${request.sourceUrl}`,
+        `Product Media request is absent from the live Storefront: ${request.sourceUrl}`,
       );
     }
 

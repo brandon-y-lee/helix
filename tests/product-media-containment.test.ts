@@ -158,8 +158,8 @@ function pageHarness() {
   };
 }
 
-describe("routine Product-media containment", () => {
-  it("contains exact live Product media while application media remains real", async () => {
+describe("routine Product Media containment", () => {
+  it("contains exact live Product Media while application media remains real", async () => {
     const harness = pageHarness();
     const containment = createProductMediaContainment(snapshot, {
       approvedMediaOrigin: mediaOrigin,
@@ -204,7 +204,7 @@ describe("routine Product-media containment", () => {
     });
   });
 
-  it("contains same-site and approved-origin Product media from the live set", async () => {
+  it("contains same-site and approved-origin Product Media listed in the Storefront snapshot", async () => {
     const harness = pageHarness();
     const containment = createProductMediaContainment(snapshot, {
       approvedMediaOrigin: mediaOrigin,
@@ -220,7 +220,7 @@ describe("routine Product-media containment", () => {
     expect(approvedOrigin.fulfill).toHaveBeenCalledOnce();
   });
 
-  it("blocks an unclassified request to the approved Product-media bucket", async () => {
+  it("blocks an unclassified request to the approved Product Media bucket", async () => {
     const harness = pageHarness();
     const containment = createProductMediaContainment(snapshot, {
       approvedMediaOrigin: mediaOrigin,
@@ -230,7 +230,7 @@ describe("routine Product-media containment", () => {
       `${mediaOrigin}/storage/v1/object/public/mei-pelle-catalog/unexpected.webp`;
 
     await expect(harness.dispatch(unexpectedUrl)).rejects.toThrow(
-      `Product-media request is absent from the live Storefront: ${unexpectedUrl}`,
+      `Product Media request is absent from the live Storefront: ${unexpectedUrl}`,
     );
     expect(containment.report().rejectedRequests).toBe(1);
   });
@@ -245,7 +245,7 @@ describe("routine Product-media containment", () => {
       `${mediaOrigin}/storage/v1/object/public/new-catalog/unexpected.webp`;
 
     await expect(harness.dispatch(unexpectedUrl)).rejects.toThrow(
-      `Product-media request is absent from the live Storefront: ${unexpectedUrl}`,
+      `Product Media request is absent from the live Storefront: ${unexpectedUrl}`,
     );
     expect(containment.report().rejectedRequests).toBe(1);
   });
