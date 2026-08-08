@@ -8,7 +8,7 @@ const NON_SECRET_RUNTIME_CONFIGURATION_KEYS = [
   "VERCEL_URL",
 ] as const;
 
-const PUBLIC_RUNTIME_CONFIGURATION_KEYS = [
+export const PUBLIC_RUNTIME_CONFIGURATION_KEYS = [
   "NEXT_PUBLIC_ALGOLIA_APP_ID",
   "NEXT_PUBLIC_ALGOLIA_INDEX_NAME",
   "NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY",
@@ -85,6 +85,18 @@ export function fingerprintConfiguration(
       keys.map((key) => [key, environment[key] ?? ""]),
     ),
   );
+}
+
+export function fingerprintPublicConfiguration(
+  environment: Partial<Record<string, string | undefined>>,
+): Sha256Fingerprint {
+  const keys = [
+    ...PUBLIC_RUNTIME_CONFIGURATION_KEYS,
+    ...Object.keys(environment).filter((key) => key.startsWith("NEXT_PUBLIC_")),
+  ]
+    .filter((key, index, values) => values.indexOf(key) === index)
+    .sort();
+  return fingerprint(Object.fromEntries(keys.map((key) => [key, environment[key] ?? ""])));
 }
 
 export function canonicalizeVerificationValue(value: unknown): string {

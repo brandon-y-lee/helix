@@ -25,6 +25,7 @@
     "verification:receipt:prepare": "tsx scripts/github/verification-receipt-command.ts prepare",
     "verification:receipt:verify": "tsx scripts/github/verification-receipt-command.ts verify",
     "verification:receipt:protected-push": "tsx scripts/github/verification-receipt-command.ts protected-push",
+    "verification:staged-production": "tsx scripts/github/staged-production-verification-command.ts",
     "github:spec:lifecycle": "tsx scripts/github/run-spec-lifecycle.ts --repo brandon-y-lee/mei-pelle",
     "github:workflow:plan": "node scripts/github/bootstrap-workflow.mjs plan --repo brandon-y-lee/mei-pelle",
     "github:workflow:apply": "node scripts/github/bootstrap-workflow.mjs apply --repo brandon-y-lee/mei-pelle",
@@ -71,6 +72,7 @@
     "jsdom": "26.1.0",
     "tsx": "^4.22.4",
     "typescript": "5.8.3",
+    "vercel": "58.9.0",
     "vitest": "3.2.6",
     "yaml": "^2.8.2"
   },

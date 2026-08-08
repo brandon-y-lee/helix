@@ -387,6 +387,7 @@ describe("Verification Orchestrator", () => {
      ["pull_request", ["scripts/github/verification-orchestrator.ts"], "verification-system orchestration changed"],
      ["pull_request", ["tests/verification-receipt-command.test.ts"], "verification-system orchestration changed"],
      ["pull_request", ["e2e/storefront.spec.ts"], "verification-system orchestration changed"],
+     ["pull_request", ["vercel.json"], "verification-system orchestration changed"],
   ] as const)(
     "runs Windows lifecycle verification for %s evidence",
     async (source, changedFiles, reason) => {

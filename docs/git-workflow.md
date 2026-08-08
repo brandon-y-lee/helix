@@ -85,7 +85,16 @@ Resolve conflicts, repeat affected verification and `code-review`, then rerun `p
 
 ## Staging and production
 
-Each merge into `dev` receives CI and the staging deployment configured for that branch. Production promotion requires:
+Vercel Git-triggered deployments are disabled in `vercel.json`; pushes do not
+create an alternative release artifact. Preview deployments are deliberate and
+disposable. `dev` remains the staging source authority. To create the
+inspection candidate, dispatch `Staged Production Verification` with the exact
+current `dev` SHA. The workflow creates one Production-configured deployment
+with `--skip-domain`, verifies complete Chromium and WebKit evidence against
+that exact generated URL, and signs a Production Receipt. See
+[`docs/agents/staged-production-verification.md`](./agents/staged-production-verification.md).
+
+Production promotion requires:
 
 1. the complete intended spec set integrated into `dev`;
 2. full CI-equivalent verification and staging inspection;
@@ -93,7 +102,7 @@ Each merge into `dev` receives CI and the staging deployment configured for that
 4. green required checks; and
 5. explicit user authorization to promote the inspected commit.
 
-The solo maintainer does not self-approve the PR through GitHub; branch protection requires zero approving reviews. Merge the authorized promotion with a regular merge commit. Production authority, live-mode changes, and destructive remote operations remain human-controlled.
+The solo maintainer does not self-approve the PR through GitHub; branch protection requires zero approving reviews. Merge the authorized promotion with a regular merge commit. Promotion must reuse the receipted staged deployment rather than rebuild it. Production authority, live-mode changes, domain assignment, and destructive remote operations remain human-controlled.
 
 ## GitHub bootstrap
 

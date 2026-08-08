@@ -1,0 +1,191 @@
+name: Staged Production Verification
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        description: Exact current dev commit to stage and verify
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: staged-production-verification
+  cancel-in-progress: false
+
+jobs:
+  verify-staged-production:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    outputs:
+      deployment-url: ${{ steps.receipt.outputs.deployment-url }}
+      runtime-fingerprint: ${{ steps.receipt.outputs.runtime-fingerprint }}
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      NEXT_PUBLIC_ALGOLIA_APP_ID: ${{ secrets.NEXT_PUBLIC_ALGOLIA_APP_ID }}
+      NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY: ${{ secrets.NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY }}
+      NEXT_PUBLIC_ALGOLIA_INDEX_NAME: ${{ secrets.NEXT_PUBLIC_ALGOLIA_INDEX_NAME }}
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
+      NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
+      SOURCE_SHA: ${{ inputs.source_sha }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+    steps:
+      - name: Checkout the exact staged source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ inputs.source_sha }}
+
+      - name: Require current dev and exact immutable source
+        run: |
+          git fetch --no-tags origin dev
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          test "$(git rev-parse origin/dev)" = "$SOURCE_SHA"
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install frozen dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Chromium and WebKit
+        run: pnpm exec playwright install chromium webkit
+
+      - name: Verify one staged Production deployment
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_FILE: ${{ runner.temp }}/staged-production/playwright-telemetry.json
+        run: |
+          mkdir -p "$RUNNER_TEMP/staged-production"
+          pnpm verification:staged-production -- \
+            --candidate-sha "$SOURCE_SHA" \
+            --evidence-path "$RUNNER_TEMP/staged-production/evidence.json" \
+            --receipt-path "$RUNNER_TEMP/staged-production/receipt.json"
+
+      - name: Expose verified receipt identity
+        id: receipt
+        run: |
+          node -e 'const r=require(process.argv[1]); process.stdout.write(`runtime-fingerprint=${r.artifact.runtimeFingerprint}\ndeployment-url=${r.deployment.url}\n`)' "$RUNNER_TEMP/staged-production/receipt.json" >> "$GITHUB_OUTPUT"
+
+      - name: Upload receipt for trusted signing
+        uses: actions/upload-artifact@v4
+        with:
+          name: staged-production-receipt-${{ github.run_id }}
+          path: ${{ runner.temp }}/staged-production/receipt.json
+          retention-days: 1
+          if-no-files-found: error
+
+      - name: Upload successful Production evidence
+        if: ${{ success() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: staged-production-success-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/staged-production/evidence.json
+            ${{ runner.temp }}/staged-production/playwright-telemetry-*.json
+            playwright-report/
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Upload failed Production diagnostics
+        if: ${{ failure() || cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: staged-production-failure-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/staged-production/
+            playwright-report/
+            test-results/
+          retention-days: 90
+          if-no-files-found: ignore
+
+  attest-production-receipt:
+    needs: verify-staged-production
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      artifact-metadata: write
+      attestations: write
+      contents: read
+      id-token: write
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      NEXT_PUBLIC_ALGOLIA_APP_ID: ${{ secrets.NEXT_PUBLIC_ALGOLIA_APP_ID }}
+      NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY: ${{ secrets.NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY }}
+      NEXT_PUBLIC_ALGOLIA_INDEX_NAME: ${{ secrets.NEXT_PUBLIC_ALGOLIA_INDEX_NAME }}
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
+      NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+    steps:
+      - name: Checkout audited receipt reconstruction code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ inputs.source_sha }}
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install frozen dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install receipt identity browsers
+        run: pnpm exec playwright install chromium webkit
+
+      - name: Download verified Production receipt
+        uses: actions/download-artifact@v4
+        with:
+          name: staged-production-receipt-${{ github.run_id }}
+          path: ${{ runner.temp }}/staged-production
+
+      - name: Independently reconstruct current staged inputs
+        run: |
+          pnpm verification:staged-production -- reconstruct-receipt \
+            --receipt-path "$RUNNER_TEMP/staged-production/receipt.json" \
+            --subject-path "$RUNNER_TEMP/staged-production/subject.json"
+
+      - name: Sign Production receipt
+        id: attest
+        uses: actions/attest@v4
+        with:
+          subject-path: ${{ runner.temp }}/staged-production/subject.json
+          predicate-type: https://mei-pelle.com/attestations/staged-production-verification/v1
+          predicate-path: ${{ runner.temp }}/staged-production/receipt.json
+
+      - name: Verify signature and reject predicate substitution
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          pnpm verification:staged-production -- verify-attestation \
+            --attestation-id "${{ steps.attest.outputs.attestation-id }}" \
+            --bundle-path "${{ steps.attest.outputs.bundle-path }}" \
+            --receipt-path "$RUNNER_TEMP/staged-production/receipt.json" \
+            --subject-path "$RUNNER_TEMP/staged-production/subject.json"
+
+      - name: Present the inspection-ready deployment
+        env:
+          ATTESTATION_URL: ${{ steps.attest.outputs.attestation-url }}
+          DEPLOYMENT_URL: ${{ needs.verify-staged-production.outputs.deployment-url }}
+        run: |
+          printf '## Verified staged Production deployment\n\n- Deployment: %s\n- Production Receipt: %s\n- Production domains assigned: no\n' "$DEPLOYMENT_URL" "$ATTESTATION_URL" >> "$GITHUB_STEP_SUMMARY"

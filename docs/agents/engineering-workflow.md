@@ -73,6 +73,11 @@ Cancelled or superseded issues retain their history: comment with the reason and
 
 Ticket PRs target `dev` and may merge autonomously after their gates pass. `dev → main` is a separate production promotion: inspect staging, require green CI and explicit user authorization, and use a regular merge commit. The solo maintainer does not self-review through GitHub. `main` remains the default branch.
 
+Staging inspection uses the domainless, receipted deployment path in
+[`staged-production-verification.md`](./staged-production-verification.md).
+Successful staging evidence does not authorize Production domains or
+promotion.
+
 ## GitHub configuration
 
 Issues, labels, sub-issues, dependencies, assignees, and PRs are the single workflow state system; no GitHub Project is required. Both `dev` and `main` require PRs and CI with zero GitHub approving reviews. Production promotion remains user-authorized in the agent workflow. Both branches reject force-push and deletion.

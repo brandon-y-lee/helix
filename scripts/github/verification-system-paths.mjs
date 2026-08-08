@@ -11,6 +11,7 @@ export const verificationSystemPathPrefixes = [
   "tsconfig.json",
   "vitest.config.ts",
   "vitest.setup.ts",
+  "vercel.json",
   "e2e/",
   "playwright-global-setup.ts",
   "scripts/affected-browser-verification",

@@ -12,6 +12,7 @@ describe("verification-system path classifier command", () => {
   it.each([
     ["app/page.tsx\n", "false\n"],
     ["tests/verification-receipt-command.test.ts\n", "true\n"],
+    ["vercel.json\n", "true\n"],
   ])("reports a successful explicit result for %s", async (paths, expected) => {
     const directory = await mkdtemp(resolve(tmpdir(), "mei-pelle-path-classifier-"));
     const changedFiles = resolve(directory, "changed-files.txt");
