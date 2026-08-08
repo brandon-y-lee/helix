@@ -1,0 +1,51 @@
+name: Dev Integration Coordinator
+
+on:
+  pull_request_target:
+    branches: [dev]
+    types: [opened, reopened, synchronize, ready_for_review, labeled, unlabeled]
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+  workflow_dispatch:
+
+concurrency:
+  group: dev-integration
+  cancel-in-progress: false
+
+permissions:
+  actions: write
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  dev-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout trusted coordinator
+        uses: actions/checkout@v4
+        with:
+          ref: dev
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install trusted coordinator dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run the Integration Line
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INTEGRATION_REPOSITORY: ${{ github.repository }}
+          INTEGRATION_RUN_NONCE: ${{ github.run_id }}-${{ github.run_attempt }}
+        run: pnpm integration:dev

@@ -4,6 +4,8 @@ import { spawnSync } from "node:child_process";
 
 const API_VERSION = "2026-03-10";
 const EXPECTED_REPOSITORY = "brandon-y-lee/mei-pelle";
+const INTEGRATION_RULESET_NAME = "dev Integration Line authority";
+const INTEGRATION_CUTOVER_CONFIRMATION = "dev-integration-authority";
 const ghBin = process.env.GH_BIN ?? "gh";
 const gitBin = process.env.GIT_BIN ?? "git";
 
@@ -18,6 +20,9 @@ const desiredLabels = [
   ["workflow:planned", "C5DEF5", "Approved and decomposed into tickets"],
   ["workflow:in-progress", "FBCA04", "Claimed work in progress"],
   ["workflow:review", "D4C5F9", "Implementation awaiting review or CI"],
+  ["workflow:integration-queued", "C5DEF5", "Ready dev pull request awaiting the Integration Slot"],
+  ["workflow:integration-active", "B60205", "Current frozen dev Integration Slot owner"],
+  ["workflow:urgent", "D93F0B", "Human-approved active production or security urgency"],
   ["wayfinder:map", "5319E7", "Wayfinder decision map"],
   ["wayfinder:research", "0052CC", "Wayfinder research ticket"],
   ["wayfinder:prototype", "B60205", "Wayfinder prototype ticket"],
@@ -58,10 +63,18 @@ function runGit(args, options = {}) {
 function parseArgs(argv) {
   const [mode, ...rest] = argv;
   if (mode !== "plan" && mode !== "apply") {
-    fail("usage: bootstrap-workflow.mjs <plan|apply> --repo <owner/repo> [--confirm-repo <owner/repo> --confirm-dev-sha <sha> --confirm-ci-sha <sha>]");
+    fail("usage: bootstrap-workflow.mjs <plan|apply> --repo <owner/repo> [--confirm-repo <owner/repo> --confirm-dev-sha <sha> --confirm-ci-sha <sha> --confirm-integration-cutover dev-integration-authority --confirm-integration-app-id <id>]");
   }
 
-  const parsed = { mode, repo: "", confirmRepo: "", confirmDevSha: "", confirmCiSha: "" };
+  const parsed = {
+    mode,
+    repo: "",
+    confirmRepo: "",
+    confirmDevSha: "",
+    confirmCiSha: "",
+    confirmIntegrationCutover: "",
+    confirmIntegrationAppId: "",
+  };
   for (let index = 0; index < rest.length; index += 1) {
     const flag = rest[index];
     const value = rest[index + 1];
@@ -70,6 +83,8 @@ function parseArgs(argv) {
     else if (flag === "--confirm-repo") parsed.confirmRepo = value;
     else if (flag === "--confirm-dev-sha") parsed.confirmDevSha = value;
     else if (flag === "--confirm-ci-sha") parsed.confirmCiSha = value;
+    else if (flag === "--confirm-integration-cutover") parsed.confirmIntegrationCutover = value;
+    else if (flag === "--confirm-integration-app-id") parsed.confirmIntegrationAppId = value;
     else fail(`unknown option '${flag}'`);
     index += 1;
   }
@@ -116,6 +131,21 @@ function requireLocalCommit(sha, label) {
   }
 }
 
+function requireDefaultBranchCoordinator(sha) {
+  const paths = [
+    ".github/workflows/dev-integration.yml",
+    ".github/workflows/dev-integration-verification.yml",
+  ];
+  if (
+    paths.some(
+      (path) =>
+        runGit(["cat-file", "-e", `${sha}:${path}`], { allowFailure: true }).status !== 0,
+    )
+  ) {
+    throw new Error("coordinator workflows must exist on remote main before cutover planning");
+  }
+}
+
 function isAncestor(ancestor, descendant) {
   return runGit(["merge-base", "--is-ancestor", ancestor, descendant], {
     allowFailure: true,
@@ -137,9 +167,9 @@ function readProtection(repo, branch) {
   throw new Error(`could not inspect ${branch} protection: ${(result.stderr || result.stdout).trim()}`);
 }
 
-function desiredProtection() {
+function desiredProtection(branch) {
   return {
-    required_status_checks: { strict: true, contexts: ["ci"] },
+    required_status_checks: { strict: branch === "main", contexts: ["ci"] },
     enforce_admins: true,
     required_pull_request_reviews: {
       dismiss_stale_reviews: true,
@@ -153,6 +183,105 @@ function desiredProtection() {
     allow_deletions: false,
     required_conversation_resolution: true,
   };
+}
+
+function readCoordinatorAppId(repo, sha) {
+  const result = parseJson(
+    runGh([
+      "api",
+      `repos/${repo}/commits/${sha}/check-runs?per_page=100`,
+      "-H",
+      `X-GitHub-Api-Version: ${API_VERSION}`,
+    ]),
+    "GitHub Actions app inspection",
+  );
+  const app = result.check_runs?.find(
+    (check) => check.name === "ci" && check.app?.slug === "github-actions",
+  )?.app;
+  if (!Number.isInteger(app?.id) || app.id <= 0) {
+    throw new Error("the GitHub Actions app identity could not be proven from the ci check");
+  }
+  return app.id;
+}
+
+function desiredIntegrationRuleset(appId) {
+  return {
+    name: INTEGRATION_RULESET_NAME,
+    target: "branch",
+    enforcement: "active",
+    bypass_actors: [
+      { actor_id: appId, actor_type: "Integration", bypass_mode: "pull_request" },
+    ],
+    conditions: { ref_name: { include: ["refs/heads/dev"], exclude: [] } },
+    rules: [
+      { type: "update", parameters: { update_allows_fetch_and_merge: false } },
+      { type: "deletion" },
+      { type: "non_fast_forward" },
+      {
+        type: "pull_request",
+        parameters: {
+          allowed_merge_methods: ["merge", "squash"],
+          dismiss_stale_reviews_on_push: true,
+          require_code_owner_review: false,
+          require_last_push_approval: false,
+          required_approving_review_count: 0,
+          required_review_thread_resolution: true,
+        },
+      },
+      {
+        type: "required_status_checks",
+        parameters: {
+          required_status_checks: [
+            { context: "ci", integration_id: appId },
+            { context: "dev-integration", integration_id: appId },
+          ],
+          strict_required_status_checks_policy: true,
+          do_not_enforce_on_create: false,
+        },
+      },
+    ],
+  };
+}
+
+function containsDesired(value, desired) {
+  if (Array.isArray(desired)) {
+    return (
+      Array.isArray(value) &&
+      value.length === desired.length &&
+      desired.every((entry, index) => containsDesired(value[index], entry))
+    );
+  }
+  if (desired && typeof desired === "object") {
+    return (
+      value &&
+      typeof value === "object" &&
+      Object.entries(desired).every(([key, entry]) => containsDesired(value[key], entry))
+    );
+  }
+  return value === desired;
+}
+
+function readIntegrationRuleset(repo) {
+  const rulesets = parseJson(
+    runGh([
+      "api",
+      `repos/${repo}/rulesets?includes_parents=false`,
+      "-H",
+      `X-GitHub-Api-Version: ${API_VERSION}`,
+    ]),
+    "repository ruleset inspection",
+  );
+  const summary = rulesets.find((ruleset) => ruleset.name === INTEGRATION_RULESET_NAME);
+  if (!summary) return null;
+  return parseJson(
+    runGh([
+      "api",
+      `repos/${repo}/rulesets/${summary.id}`,
+      "-H",
+      `X-GitHub-Api-Version: ${API_VERSION}`,
+    ]),
+    "dev Integration Line ruleset inspection",
+  );
 }
 
 function enabled(value) {
@@ -224,6 +353,7 @@ function collectPlan(repo) {
   const remoteMainSha = remoteBranches.get("main");
   if (!remoteMainSha) throw new Error("remote branch 'main' does not exist");
   requireLocalCommit(remoteMainSha, "remote main");
+  requireDefaultBranchCoordinator(remoteMainSha);
   if (!isAncestor(remoteMainSha, localDevSha)) {
     throw new Error(`local dev ${localDevSha} does not contain remote main ${remoteMainSha}`);
   }
@@ -235,6 +365,8 @@ function collectPlan(repo) {
       throw new Error(`remote dev ${remoteDevSha} is not an ancestor of local dev ${localDevSha}`);
     }
   }
+
+  const coordinatorAppId = readCoordinatorAppId(repo, remoteDevSha ?? remoteMainSha);
 
   const labels = parseJson(
     runGh(["label", "list", "--repo", repo, "--limit", "200", "--json", "name,color,description"]),
@@ -323,7 +455,7 @@ function collectPlan(repo) {
   }
 
   for (const branch of ["dev", "main"]) {
-    const desired = desiredProtection();
+    const desired = desiredProtection(branch);
     const observed = readProtection(repo, branch);
     if (!protectionMatches(observed, desired)) {
       actions.push({
@@ -347,7 +479,32 @@ function collectPlan(repo) {
     }
   }
 
-  return { actions, localDevSha };
+  const desiredRuleset = desiredIntegrationRuleset(coordinatorAppId);
+  const observedRuleset = readIntegrationRuleset(repo);
+  if (!containsDesired(observedRuleset, desiredRuleset)) {
+    actions.push({
+      description: `${observedRuleset ? "update" : "create"} dev Integration Line authority ruleset for GitHub App ${coordinatorAppId}`,
+      apply: () => {
+        runGh(
+          [
+            "api",
+            "--method",
+            observedRuleset ? "PUT" : "POST",
+            observedRuleset
+              ? `repos/${repo}/rulesets/${observedRuleset.id}`
+              : `repos/${repo}/rulesets`,
+            "-H",
+            `X-GitHub-Api-Version: ${API_VERSION}`,
+            "--input",
+            "-",
+          ],
+          { input: JSON.stringify(desiredRuleset) },
+        );
+      },
+    });
+  }
+
+  return { actions, localDevSha, coordinatorAppId };
 }
 
 function main() {
@@ -373,6 +530,12 @@ function main() {
   }
   if (options.confirmCiSha !== plan.localDevSha) {
     fail(`apply requires --confirm-ci-sha ${plan.localDevSha}`);
+  }
+  if (options.confirmIntegrationCutover !== INTEGRATION_CUTOVER_CONFIRMATION) {
+    fail(`apply requires --confirm-integration-cutover ${INTEGRATION_CUTOVER_CONFIRMATION}`);
+  }
+  if (options.confirmIntegrationAppId !== String(plan.coordinatorAppId)) {
+    fail(`apply requires --confirm-integration-app-id ${plan.coordinatorAppId}`);
   }
 
   try {

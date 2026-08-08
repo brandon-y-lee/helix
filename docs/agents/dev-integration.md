@@ -1,0 +1,36 @@
+# Dev Integration Line
+
+Every ready pull request targeting `dev` enters one repository-owned, non-preemptive Integration Line. The Verification Orchestrator in `scripts/github/verification-orchestrator.ts` owns queue selection, the atomic claim, candidate and base freezing, gate selection, verification handoff, unchanged-input comparison, merge authorization, release, and failure handoff.
+
+## Pull-request contract
+
+The pull-request template declares one path: `standalone ticket`, `completed spec`, `urgent ticket`, `planning`, `documentation`, or `trivial`. Missing or unknown declarations fail closed to verification-system work. Automation never creates urgency. `urgent ticket` moves ahead of normal waiting work only when the user has also approved `workflow:urgent`; it never replaces `workflow:integration-active`.
+
+Planning, documentation, and trivial work receives `fast-non-runtime` only when every changed path is reviewed as non-runtime. Uncertain trivial work returns to `workflow:review`. Security, payment, data, provider, cross-cutting, and verification-system work retains the complete behavioral gate.
+
+## Execution
+
+`.github/workflows/dev-integration.yml` is the only coordinator workflow. Its repository-wide `dev-integration` concurrency group has cancellation disabled. It runs trusted `dev` code with the write token, adds `workflow:integration-queued`, claims at most one `workflow:integration-active`, and never executes candidate code.
+
+The coordinator dispatches `.github/workflows/dev-integration-verification.yml` with the exact pull request, candidate head, `dev` base, gate, and correlation nonce. That separate workflow has read-only repository permission, creates a two-parent candidate from those exact commits, and runs frozen install, lint, typecheck, and unit tests. The complete behavioral gate additionally runs the existing receipted production build and Chromium verification. Fast non-runtime work does not build the Storefront, access the Catalog, or launch browser verification.
+
+The Integration Slot is bounded to 20 minutes. Failure, timeout, cancellation, adapter failure, lost ownership, or a changed candidate or base prevents merge, removes the active label, and returns the pull request to `workflow:review`. The same coordinator run advances to the next eligible queued candidate after ordinary failure, timeout, or changed inputs.
+
+## Configuration cutover
+
+`pnpm github:workflow:plan` audits the labels, classic protections, GitHub Actions integration identity, and the `dev Integration Line authority` ruleset without changing GitHub. The ruleset restricts `dev` updates to the GitHub Actions Integration through pull requests and binds `ci` and `dev-integration` to that Integration ID. `dev` does not require an up-to-date head because the coordinator freezes and verifies the exact current base; `main` remains strict.
+
+GitHub dispatches `pull_request_target` and `workflow_run` only from workflow definitions present on the default branch. Because `main` is Mei Pelle's default and Production branch, merging this implementation into `dev` does not by itself activate the coordinator. The workflow files must reach `main` through the separately inspected and explicitly authorized Production promotion before the authority ruleset is applied. Cutover planning fails closed until both coordinator workflows exist on remote `main`; never cut over a ruleset whose coordinator is absent from the default branch.
+
+Do not apply the cutover without separate explicit user approval. After reviewing a clean plan and running the complete CI-equivalent gate at the exact `dev` SHA, the approved command must include all confirmations:
+
+```bash
+pnpm github:workflow:apply -- \
+  --confirm-repo brandon-y-lee/mei-pelle \
+  --confirm-dev-sha <audited-dev-sha> \
+  --confirm-ci-sha <same-CI-verified-sha> \
+  --confirm-integration-cutover dev-integration-authority \
+  --confirm-integration-app-id <app-id-printed-by-plan>
+```
+
+The cutover is a repository mutation. It is not part of ordinary ticket integration and must never be inferred from an implementation request.
