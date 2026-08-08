@@ -201,6 +201,7 @@ test("shop presents the approved Product, collection, sheet, and footer treatmen
     name: `Open quick buy for ${purchase.product.displayName}`,
   });
   await expect(previewCta).toBeVisible();
+  await expect(previewCta).toHaveCSS("border-top-width", "0px");
   expect(await buttonVisual(previewCta)).toEqual({
     backgroundColor: PRODUCT_CARD_CREAM,
     color: PRODUCT_CARD_WARM_GRAY,
@@ -247,8 +248,9 @@ test("shop presents the approved Product, collection, sheet, and footer treatmen
   await unselectedChip.hover();
   await expect(unselectedChip).toHaveCSS(
     "background-color",
-    "rgba(103, 100, 94, 0.12)",
+    "rgb(24, 61, 52)",
   );
+  await expect(unselectedChip).toHaveCSS("color", "rgb(251, 250, 246)");
   await heading.hover();
   if (browserName === "webkit") {
     await unselectedChip.focus();
@@ -327,7 +329,7 @@ test("shop presents the approved Product, collection, sheet, and footer treatmen
   );
   await expect(page.locator(".site-footer__checkout-status")).toHaveCSS(
     "border-top-width",
-    "1px",
+    "0px",
   );
 
   await page.setViewportSize({ width: 390, height: 844 });
