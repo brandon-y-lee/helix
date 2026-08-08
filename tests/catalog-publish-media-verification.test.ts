@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { publishCatalogDraft } from "@/lib/admin/catalog/service";
+import { CatalogAdminError } from "@/lib/admin/catalog/errors";
 import type {
   CatalogPublishDependencies,
 } from "@/lib/admin/catalog/service";
@@ -99,14 +100,16 @@ const publishSuccess: CatalogPublishTransactionSuccess = {
 function dependencies(input: {
   verifyMedia: CatalogPublishDependencies["verifyMedia"];
   publishTransaction?: CatalogPublishDependencies["publishTransaction"];
+  document?: typeof readyDocument;
 }): CatalogPublishDependencies {
+  const document = input.document ?? readyDocument;
   return {
     readDraft: vi.fn(async () => ({
       ...catalogDraft,
       status: "ready" as const,
-      document: readyDocument,
+      document,
     })),
-    readCanonicalDocument: vi.fn(async () => readyDocument),
+    readCanonicalDocument: vi.fn(async () => document),
     pendingMediaValidationIssues: vi.fn(async () => []),
     relationshipValidationIssues: vi.fn(async () => []),
     verifyMedia: input.verifyMedia,
@@ -144,6 +147,53 @@ describe("catalog publish media verification", () => {
       status: 422,
       details: {
         mediaVerification: failedReport,
+      },
+    });
+    expect(publishTransaction).not.toHaveBeenCalled();
+  });
+
+  it("returns actionable issues for every media record sharing a failed URL", async () => {
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", MEDIA_ORIGIN);
+    const sharedUrl = readyDocument.media[0].url;
+    const document = {
+      ...readyDocument,
+      media: readyDocument.media.map((media) => ({ ...media, url: sharedUrl })),
+    };
+    const report: RealProductMediaVerificationReport = {
+      ...failedReport,
+      results: [{
+        ...failedReport.results[0],
+        url: `${MEDIA_ORIGIN}/storage/v1/object/public/mei-pelle-catalog/products/cleanse/sanitized.webp`,
+      }],
+      summary: {
+        ...failedReport.summary,
+        expectedRecords: 2,
+      },
+    };
+    const publishTransaction = vi.fn<
+      () => Promise<CatalogPublishTransactionSuccess>
+    >();
+
+    await expect(
+      publishCatalogDraft(
+        {
+          draftId: catalogDraft.id,
+          expectedVersion: catalogDraft.version,
+          actorId: catalogDraft.updated_by,
+          role: "catalog_publisher",
+        },
+        dependencies({
+          document,
+          verifyMedia: vi.fn(async () => report),
+          publishTransaction,
+        }),
+      ),
+    ).rejects.toMatchObject({
+      details: {
+        issues: [
+          expect.objectContaining({ path: "media.0.url" }),
+          expect.objectContaining({ path: "media.1.url" }),
+        ],
       },
     });
     expect(publishTransaction).not.toHaveBeenCalled();
@@ -203,6 +253,7 @@ describe("catalog publish media verification", () => {
     );
 
     expect(publishTransaction).toHaveBeenCalledOnce();
+    expect(verifyMedia).toHaveBeenCalledTimes(2);
     expect(result.ok).toBe(true);
     expect(result.revision).toBe(publishSuccess.revision);
     expect(result.mediaVerification).toEqual({
@@ -211,5 +262,33 @@ describe("catalog publish media verification", () => {
       message:
         "The revision was published, but its Product Media failed verification.",
     });
+  });
+
+  it("preserves the transaction authority for concurrent version conflicts", async () => {
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", MEDIA_ORIGIN);
+    const conflict = new CatalogAdminError(
+      "version_conflict",
+      "Another edit was saved before Publish.",
+      409,
+    );
+    const publishTransaction = vi.fn(async () => {
+      throw conflict;
+    });
+
+    await expect(
+      publishCatalogDraft(
+        {
+          draftId: catalogDraft.id,
+          expectedVersion: catalogDraft.version,
+          actorId: catalogDraft.updated_by,
+          role: "catalog_publisher",
+        },
+        dependencies({
+          verifyMedia: vi.fn(async () => healthyReport),
+          publishTransaction,
+        }),
+      ),
+    ).rejects.toBe(conflict);
+    expect(publishTransaction).toHaveBeenCalledOnce();
   });
 });

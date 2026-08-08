@@ -710,17 +710,10 @@ async function verifyCatalogProductMedia(
     approvedOrigin = null;
   }
   return verifyRealProductMedia({
-    expectedMedia: document.media
-      .filter(
-        (media): media is typeof media & { url: string } =>
-          media.archived_at === null &&
-          typeof media.url === "string" &&
-          media.url.length > 0,
-      )
-      .map((media) => ({
-        url: media.url,
-        mediaType: media.media_type as CatalogProductMediaType,
-      })),
+    expectedMedia: expectedCatalogMedia(document).map(({ url, mediaType }) => ({
+      url,
+      mediaType,
+    })),
     urlPolicy: {
       approvedLocations: approvedOrigin
         ? [{
@@ -733,6 +726,20 @@ async function verifyCatalogProductMedia(
     },
     httpClient: productMediaHttpClient,
   });
+}
+
+function expectedCatalogMedia(document: ProductEditorDocumentV3) {
+  return document.media.flatMap((media, index) =>
+    media.archived_at === null &&
+    typeof media.url === "string" &&
+    media.url.length > 0
+      ? [{
+          index,
+          url: media.url,
+          mediaType: media.media_type as CatalogProductMediaType,
+        }]
+      : [],
+  );
 }
 
 async function publishCatalogDraftTransaction(
@@ -787,18 +794,31 @@ export async function publishCatalogDraft(
   }
   const mediaVerification = await dependencies.verifyMedia(document);
   if (mediaVerification.summary.failures > 0) {
+    const expectedMedia = expectedCatalogMedia(document);
+    const distinctExpectedUrls = [...new Set(
+      expectedMedia.map((media) => media.url),
+    )];
     throw new CatalogAdminError(
       "validation_failed",
       "Candidate Product Media failed publication verification.",
       422,
       {
-        issues: mediaVerification.results
-          .filter((result) => result.outcome === "failed")
-          .map((result) => ({
-            path: `media.${document.media.findIndex((media) => media.url === result.url)}.url`,
+        issues: mediaVerification.results.flatMap((result, resultIndex) => {
+          if (result.outcome !== "failed") return [];
+          const expectedUrl = distinctExpectedUrls[resultIndex];
+          const affectedMedia = expectedMedia.filter(
+            (media) => media.url === expectedUrl,
+          );
+          return (affectedMedia.length > 0
+            ? affectedMedia.map((media) => `media.${media.index}.url`)
+            : ["media"]
+          ).map((path) => ({
+            path,
             code: result.failure?.code ?? "media_verification_failed",
-            message: result.failure?.message ?? "Product Media verification failed.",
-          })),
+            message:
+              result.failure?.message ?? "Product Media verification failed.",
+          }));
+        }),
         mediaVerification,
       },
     );
