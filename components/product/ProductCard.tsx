@@ -407,9 +407,12 @@ export function ProductCard({
   }
 
   function handleCloseClick() {
+    const closePointer = closePointerRef.current;
     closeQuickBuy({
+      focusTrigger: closePointer?.pointerType !== "touch",
       restorePointerPreview: !lastInputWasKeyboardRef.current,
     });
+    closePointerRef.current = null;
   }
 
   async function handleFinalBuy() {

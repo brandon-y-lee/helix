@@ -332,10 +332,41 @@ describe("ProductCard quick buy", () => {
     const close = screen.getByRole("button", {
       name: "Close quick buy for CLEANSE",
     });
+    close.focus();
     fireEvent.touchStart(close);
     fireEvent.click(close);
 
     expect(surface).toHaveAttribute("data-visual-state", "default");
+    expect(trigger).not.toHaveFocus();
+  });
+
+  it("restores keyboard focus after an earlier touch close", async () => {
+    render(<ProductCard product={makeProduct()} />);
+
+    const trigger = screen.getByRole("button", {
+      name: "Open quick buy for CLEANSE",
+    });
+    fireEvent.pointerDown(trigger, { pointerType: "touch" });
+    fireEvent.click(trigger);
+    const touchClose = screen.getByRole("button", {
+      name: "Close quick buy for CLEANSE",
+    });
+    fireEvent.touchStart(touchClose);
+    fireEvent.click(touchClose);
+
+    act(() => {
+      fireEvent.keyDown(window, { key: "Tab" });
+      trigger.focus();
+      fireEvent.focusIn(trigger);
+    });
+    fireEvent.click(trigger);
+    const keyboardClose = screen.getByRole("button", {
+      name: "Close quick buy for CLEANSE",
+    });
+    act(() => keyboardClose.focus());
+    fireEvent.click(keyboardClose);
+
+    await waitFor(() => expect(trigger).toHaveFocus());
   });
 
   it("uses Escape to close the inline panel", async () => {
