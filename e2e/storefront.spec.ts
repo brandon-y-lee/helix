@@ -46,6 +46,16 @@ async function elementGeometry(locator: Locator): Promise<ElementGeometry> {
   };
 }
 
+async function finishAnimations(locator: Locator): Promise<void> {
+  await locator.evaluate(async (element) => {
+    await Promise.all(
+      element
+        .getAnimations({ subtree: true })
+        .map((animation) => animation.finished.catch(() => undefined)),
+    );
+  });
+}
+
 async function viewportOrigin(page: Page): Promise<ViewportOrigin> {
   return page.evaluate(() => ({
     scrollX: window.scrollX,
@@ -502,13 +512,7 @@ test("Quick Buy places Product education before configuration and the final Buy 
     const fullDetails = card.getByRole("link", { name: "Full details" });
     const variants = card.locator(".product-card__quick-variants");
     const finalBuy = card.locator("[data-product-card-buy]");
-    await panel.evaluate(async (element) => {
-      await Promise.all(
-        element
-          .getAnimations({ subtree: true })
-          .map((animation) => animation.finished.catch(() => undefined)),
-      );
-    });
+    await finishAnimations(panel);
     const [panelBox, detailsBox, fullDetailsBox, finalBuyBox] = await Promise.all([
       elementGeometry(panel),
       elementGeometry(details),
@@ -587,13 +591,7 @@ test("mobile quick buy pointer close preserves the Customer's viewport and previ
   const close = card.getByRole("button", {
     name: `Close quick buy for ${product.displayName}`,
   });
-  await card.locator(".product-card__quick-buy").evaluate(async (element) => {
-    await Promise.all(
-      element
-        .getAnimations({ subtree: true })
-        .map((animation) => animation.finished.catch(() => undefined)),
-    );
-  });
+  await finishAnimations(card.locator(".product-card__quick-buy"));
   await close.scrollIntoViewIfNeeded();
   const scrollYBeforeClose = await page.evaluate(() => window.scrollY);
   await close.click();
@@ -694,13 +692,7 @@ test.describe("touch Quick Buy", () => {
       "pointer-events",
       "none",
     );
-    await card.locator(".product-card__quick-buy").evaluate(async (element) => {
-      await Promise.all(
-        element
-          .getAnimations({ subtree: true })
-          .map((animation) => animation.finished.catch(() => undefined)),
-      );
-    });
+    await finishAnimations(card.locator(".product-card__quick-buy"));
     await close.scrollIntoViewIfNeeded();
     const cardUrl = page.url();
     const scrollYBeforeClose = await page.evaluate(() => window.scrollY);
