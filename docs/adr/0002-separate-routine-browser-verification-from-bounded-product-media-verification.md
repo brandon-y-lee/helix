@@ -4,7 +4,7 @@ Routine Browser Verification remains a pull-request gate over live Storefront fa
 
 ## Consequences
 
-- The Real Product Media Verification budget is dynamic: one 32-byte response for each distinct active Product Media URL. The check rejects an unapproved origin or path, a redirect that leaves the approved origin or path, and any response that exceeds the requested range; it also requires the Catalog media type, a matching media signature, a nonzero total object size, a positive public `max-age`, and no `private` or `no-store` cache directive.
-- Real Product Media Verification is required before Publish and runs again after Publish, daily, and on manual request. A later failure alerts the operator and uses the Storefront media fallback without changing Catalog Status or other Catalog facts.
+- The Real Product Media Verification budget is dynamic: one 32-byte response for each distinct Product Media URL listed for an Active Product. The check rejects an unapproved origin or path, a redirect that leaves the approved origin or path, and any response that exceeds the requested range; it also requires the Catalog media type, a matching media signature, a nonzero total object size, a positive public `max-age`, and no `private` or `no-store` cache directive.
+- Real Product Media Verification is required before Publish and runs again after Publish, daily, and on manual request. A later failure alerts the Operator and uses the Storefront media fallback without changing Catalog Status or other Catalog facts.
 - Application-owned homepage media remains real during Routine Browser Verification. The gate does not repeat after an identical Git tree enters `dev` or `main`, and Production Artifact Verification retains the dedicated lifecycle ownership established by ADR-0001.
 - Source Product Media optimization remains separate Customer-performance work.
