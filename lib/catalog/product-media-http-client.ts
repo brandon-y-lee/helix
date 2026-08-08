@@ -1,74 +1,122 @@
 import type {
   ProductMediaHttpBody,
   ProductMediaHttpClient,
+  ProductMediaHttpRequest,
 } from "@/lib/catalog/real-product-media-verification";
 
-function boundedBody(
-  body: ReadableStream<Uint8Array>,
+function readBoundedBody(
+  stream: ReadableStream<Uint8Array>,
   maxBytes: number,
-): ProductMediaHttpBody {
-  let reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
+  signal?: AbortSignal,
+): Promise<{ bytes: Uint8Array; exceeded: boolean }> {
+  const reader = stream.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  let exceeded = false;
 
-  return {
-    async read() {
-      reader = body.getReader();
-      const chunks: Uint8Array[] = [];
-      let received = 0;
-      let exceeded = false;
+  const finalize = () => {
+    const bytes = new Uint8Array(Math.min(total, maxBytes));
+    let offset = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    return { bytes, exceeded };
+  };
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        const remaining = maxBytes - received;
-        if (value.byteLength > remaining) {
-          if (remaining > 0) chunks.push(value.slice(0, remaining));
-          received = maxBytes;
-          exceeded = true;
-          await reader.cancel();
-          break;
+  return new Promise((resolve, reject) => {
+    const onAbort = () => {
+      void reader.cancel().finally(() => reject(signal?.reason));
+    };
+    const next = async () => {
+      try {
+        while (true) {
+          const frame = await reader.read();
+          if (frame.done) break;
+          const chunk = frame.value;
+          if (!chunk) continue;
+          const remaining = maxBytes - total;
+          if (remaining <= 0) break;
+          if (chunk.byteLength > remaining) {
+            chunks.push(chunk.slice(0, remaining));
+            total += remaining;
+            exceeded = true;
+            await reader.cancel();
+            break;
+          }
+          chunks.push(chunk);
+          total += chunk.byteLength;
+          if (total >= maxBytes) {
+            const overflowFrame = await reader.read();
+            exceeded = !overflowFrame.done;
+            await reader.cancel();
+            break;
+          }
         }
-        chunks.push(value);
-        received += value.byteLength;
+        resolve(finalize());
+      } catch (cause) {
+        reject(cause);
+      } finally {
+        signal?.removeEventListener("abort", onAbort);
+        reader.releaseLock();
       }
+    };
+    signal?.addEventListener("abort", onAbort, { once: true });
+    void next();
+  });
+}
 
-      const bytes = new Uint8Array(received);
-      let offset = 0;
-      for (const chunk of chunks) {
-        bytes.set(chunk, offset);
-        offset += chunk.byteLength;
-      }
-      return { bytes, exceeded };
+function createBoundedHttpBody(
+  stream: ReadableStream<Uint8Array>,
+  maxBytes: number,
+  signal?: AbortSignal,
+): ProductMediaHttpBody {
+  let readPromise: Promise<{ bytes: Uint8Array; exceeded: boolean }> | null = null;
+  return {
+    read() {
+      readPromise ??= readBoundedBody(stream, maxBytes, signal);
+      return readPromise;
     },
     async cancel() {
-      if (reader) {
-        await reader.cancel();
-      } else if (!body.locked) {
-        await body.cancel();
+      if (readPromise) {
+        await readPromise.catch(() => undefined);
+        return;
       }
+      await stream.cancel();
     },
   };
 }
 
-export const productMediaHttpClient: ProductMediaHttpClient = {
-  async request(request) {
-    const response = await fetch(request.url, {
-      method: request.method,
-      headers: request.headers,
-      credentials: request.credentials,
-      redirect: request.redirect,
-      signal: request.signal,
-      cache: "no-store",
-    });
-    const headers: Record<string, string> = {};
-    response.headers.forEach((value, key) => {
-      headers[key] = value;
-    });
-    return {
-      status: response.status,
-      headers,
-      body: response.body
-        ? boundedBody(response.body, request.maxResponseBodyBytes)
-        : null,
-    };
-  },
-};
+export function createBoundedProductMediaHttpClient(
+  fetchImpl: typeof fetch,
+): ProductMediaHttpClient {
+  return {
+    async request(input: ProductMediaHttpRequest) {
+      const response = await fetchImpl(input.url, {
+        method: input.method,
+        headers: input.headers,
+        redirect: input.redirect,
+        credentials: input.credentials,
+        signal: input.signal,
+        cache: "no-store",
+      });
+      const headers: Record<string, string | undefined> = {};
+      response.headers.forEach((value, key) => {
+        headers[key] = value;
+      });
+      return {
+        status: response.status,
+        headers,
+        body: response.body
+          ? createBoundedHttpBody(
+              response.body,
+              input.maxResponseBodyBytes,
+              input.signal,
+            )
+          : null,
+      };
+    },
+  };
+}
+
+export const productMediaHttpClient = createBoundedProductMediaHttpClient(fetch);
