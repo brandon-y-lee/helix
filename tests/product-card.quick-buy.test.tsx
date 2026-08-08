@@ -333,7 +333,7 @@ describe("ProductCard quick buy", () => {
       name: "Close quick buy for CLEANSE",
     });
     fireEvent.touchStart(close);
-    fireEvent.touchEnd(close);
+    fireEvent.click(close);
 
     expect(surface).toHaveAttribute("data-visual-state", "default");
   });
@@ -378,6 +378,21 @@ describe("ProductCard quick buy", () => {
 
     await user.click(
       screen.getByRole("button", { name: "Open quick buy for CLEANSE" }),
+    );
+    const details = document.querySelector(".product-card__quick-details");
+    const fullDetails = screen.getByRole("link", { name: "Full details" });
+    const variants = screen.getByRole("group", { name: "Size" });
+    const finalBuy = screen.getByRole("button", {
+      name: "BUY CLEANSE - $20.00",
+    });
+    expect(
+      details?.compareDocumentPosition(fullDetails) ?? 0,
+    ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(fullDetails.compareDocumentPosition(variants)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    expect(variants.compareDocumentPosition(finalBuy)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
     );
     await user.click(screen.getByRole("radio", { name: "100 ml $32.00" }));
     await user.click(

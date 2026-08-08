@@ -20,7 +20,6 @@ import {
   type FocusEvent,
   type KeyboardEvent,
   type PointerEvent as ReactPointerEvent,
-  type TouchEvent as ReactTouchEvent,
 } from "react";
 import { ProductImage } from "@/components/product/ProductImage";
 import { useProductPurchase } from "@/components/cart/useProductPurchase";
@@ -296,9 +295,10 @@ export function ProductCard({
     }
   }
 
-  function preserveViewportAfterUpdate() {
-    const scrollX = window.scrollX;
-    const scrollY = window.scrollY;
+  function preserveViewportAfterUpdate(
+    viewport = { scrollX: window.scrollX, scrollY: window.scrollY },
+  ) {
+    const { scrollX, scrollY } = viewport;
     const restoreViewport = () => {
       if (window.scrollX !== scrollX || window.scrollY !== scrollY) {
         window.scrollTo(scrollX, scrollY);
@@ -309,8 +309,9 @@ export function ProductCard({
   }
 
   function focusTriggerWithoutScrolling() {
+    const viewport = { scrollX: window.scrollX, scrollY: window.scrollY };
     triggerRef.current?.focus({ preventScroll: true });
-    preserveViewportAfterUpdate();
+    preserveViewportAfterUpdate(viewport);
   }
 
   function closeQuickBuy({
@@ -403,11 +404,6 @@ export function ProductCard({
       clientY: 0,
       pointerType: "touch",
     };
-  }
-
-  function handleCloseTouchEnd(event: ReactTouchEvent<HTMLButtonElement>) {
-    event.preventDefault();
-    closeQuickBuy({ restorePointerPreview: true });
   }
 
   function handleCloseClick() {
@@ -606,7 +602,6 @@ export function ProductCard({
                 className="product-card__quick-close"
                 onPointerDown={handleClosePointerDown}
                 onTouchStart={handleCloseTouchStart}
-                onTouchEnd={handleCloseTouchEnd}
                 onClick={handleCloseClick}
                 aria-label={`Close quick buy for ${displayName}`}
                 tabIndex={isQuickBuyOpen ? undefined : -1}
