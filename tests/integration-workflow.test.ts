@@ -112,13 +112,21 @@ describe("dev Integration Line workflows", () => {
     expect(verification).toContain("--ignore-scripts");
     expect(verification).toContain("Materialize candidate as non-executable input");
     expect(verification).toContain("Isolate candidate execution from the audited runner");
+    expect(verification).toContain('case "$PNPM_HOME" in');
+    expect(verification).toContain('case "$pnpm_executable" in');
     expect(verification).toContain(
-      'sudo chmod o+x "$(dirname "$(dirname "$PNPM_HOME")")"',
+      'sudo cp -a -- "$pnpm_runtime_root/." /opt/mei-pelle-pnpm-runtime/',
     );
-    expect(verification).toContain('sudo chmod -R a+rX "$(dirname "$PNPM_HOME")"');
     expect(verification).toContain(
-      'sudo -u verifier-candidate test -x "$(command -v pnpm)"',
+      'sudo chmod -R a-w -- /opt/mei-pelle-pnpm-runtime',
     );
+    expect(verification).toContain(
+      'echo "/opt/mei-pelle-pnpm-runtime/.bin" >> "$GITHUB_PATH"',
+    );
+    expect(verification).toContain(
+      "sudo -u verifier-candidate test -x /opt/mei-pelle-pnpm-runtime/.bin/pnpm",
+    );
+    expect(verification).not.toContain('sudo chmod -R a+rX "$(dirname "$PNPM_HOME")"');
     expect(verification.indexOf("Isolate candidate execution from the audited runner")).toBeLessThan(
       verification.indexOf("Install frozen candidate dependencies"),
     );
