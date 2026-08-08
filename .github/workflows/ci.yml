@@ -74,17 +74,22 @@ jobs:
         run: pnpm test
 
       # Gate 5: end-to-end tests against one receipted production build.
+      # Strict branch protection tests the current PR merge tree. Protected-branch
+      # pushes retain Gates 1-4 without repeating the identical browser workload.
       - name: Install Playwright browsers
+        if: ${{ github.event_name == 'pull_request' }}
         run: pnpm exec playwright install --with-deps chromium
 
       - name: Build receipted production artifact
+        if: ${{ github.event_name == 'pull_request' }}
         run: pnpm tsx scripts/verify-production-ci.ts build
 
       - name: Verify receipted production artifact
+        if: ${{ github.event_name == 'pull_request' }}
         run: pnpm tsx scripts/verify-production-ci.ts verify
 
       - name: Upload Playwright report
-        if: ${{ failure() }}
+        if: ${{ failure() && github.event_name == 'pull_request' }}
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report

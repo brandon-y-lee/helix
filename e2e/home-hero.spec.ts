@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./storefront-fixture";
 
 test("homepage hero CTAs remain usable on desktop and mobile", async ({
   page,
