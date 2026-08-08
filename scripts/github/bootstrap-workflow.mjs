@@ -2,11 +2,17 @@
 
 import { spawnSync } from "node:child_process";
 import { parse as parseYaml } from "yaml";
+import {
+  assertDesiredSpecRuleset,
+  desiredSpecRuleset,
+  SPEC_RULESET_NAME,
+} from "./spec-ruleset.mjs";
 
 const API_VERSION = "2026-03-10";
 const EXPECTED_REPOSITORY = "brandon-y-lee/mei-pelle";
 const INTEGRATION_RULESET_NAME = "dev Integration Line authority";
 const INTEGRATION_CUTOVER_CONFIRMATION = "dev-integration-authority";
+const SPEC_BRANCH_CUTOVER_CONFIRMATION = "protected-spec-branches";
 const ghBin = process.env.GH_BIN ?? "gh";
 const gitBin = process.env.GIT_BIN ?? "git";
 
@@ -21,6 +27,7 @@ const desiredLabels = [
   ["workflow:planned", "C5DEF5", "Approved and decomposed into tickets"],
   ["workflow:in-progress", "FBCA04", "Claimed work in progress"],
   ["workflow:review", "D4C5F9", "Implementation awaiting review or CI"],
+  ["workflow:spec-integrated", "0E8A16", "Ticket integrated into its parent spec branch"],
   ["workflow:integration-queued", "C5DEF5", "Ready dev pull request awaiting the Integration Slot"],
   ["workflow:integration-active", "B60205", "Current frozen dev Integration Slot owner"],
   ["workflow:urgent", "D93F0B", "Human-approved active production or security urgency"],
@@ -64,7 +71,7 @@ function runGit(args, options = {}) {
 function parseArgs(argv) {
   const [mode, ...rest] = argv;
   if (mode !== "plan" && mode !== "apply") {
-    fail("usage: bootstrap-workflow.mjs <plan|apply> --repo <owner/repo> [--confirm-repo <owner/repo> --confirm-dev-sha <sha> --confirm-ci-sha <sha> --confirm-integration-cutover dev-integration-authority --confirm-integration-app-id <id>]");
+    fail("usage: bootstrap-workflow.mjs <plan|apply> --repo <owner/repo> [--confirm-repo <owner/repo> --confirm-dev-sha <sha> --confirm-ci-sha <sha> --confirm-integration-cutover dev-integration-authority --confirm-spec-branch-cutover protected-spec-branches --confirm-integration-app-id <id>]");
   }
 
   const parsed = {
@@ -74,6 +81,7 @@ function parseArgs(argv) {
     confirmDevSha: "",
     confirmCiSha: "",
     confirmIntegrationCutover: "",
+    confirmSpecBranchCutover: "",
     confirmIntegrationAppId: "",
   };
   for (let index = 0; index < rest.length; index += 1) {
@@ -85,6 +93,7 @@ function parseArgs(argv) {
     else if (flag === "--confirm-dev-sha") parsed.confirmDevSha = value;
     else if (flag === "--confirm-ci-sha") parsed.confirmCiSha = value;
     else if (flag === "--confirm-integration-cutover") parsed.confirmIntegrationCutover = value;
+    else if (flag === "--confirm-spec-branch-cutover") parsed.confirmSpecBranchCutover = value;
     else if (flag === "--confirm-integration-app-id") parsed.confirmIntegrationAppId = value;
     else fail(`unknown option '${flag}'`);
     index += 1;
@@ -136,6 +145,7 @@ function requireDefaultBranchCoordinator(sha) {
   const paths = [
     ".github/workflows/dev-integration.yml",
     ".github/workflows/dev-integration-verification.yml",
+    ".github/workflows/spec-lifecycle.yml",
   ];
   if (
     paths.some(
@@ -143,13 +153,16 @@ function requireDefaultBranchCoordinator(sha) {
         runGit(["cat-file", "-e", `${sha}:${path}`], { allowFailure: true }).status !== 0,
     )
   ) {
-    throw new Error("coordinator workflows must exist on remote main before cutover planning");
+    throw new Error("trusted integration workflows must exist on remote main before cutover planning");
   }
 }
 
 function requireAuditedWorkflowAuthority(sha) {
-  const coordinator = ".github/workflows/dev-integration.yml";
   const attestationSigner = ".github/workflows/dev-integration-verification.yml";
+  const trustedWriters = new Map([
+    [".github/workflows/dev-integration.yml", { actions: "write", contents: "write", issues: "write", "pull-requests": "write" }],
+    [".github/workflows/spec-lifecycle.yml", { actions: "read", contents: "write", "id-token": "write", issues: "write", "pull-requests": "write" }],
+  ]);
   const workflows = runGit([
     "ls-tree",
     "-r",
@@ -158,8 +171,10 @@ function requireAuditedWorkflowAuthority(sha) {
     "--",
     ".github/workflows",
   ]).stdout.trim().split("\n").filter((path) => /\.ya?ml$/.test(path));
-  if (!workflows.includes(coordinator)) {
-    throw new Error(`coordinator workflow is absent from audited dev ${sha}`);
+  for (const path of trustedWriters.keys()) {
+    if (!workflows.includes(path)) {
+      throw new Error(`trusted writer workflow '${path}' is absent from audited dev ${sha}`);
+    }
   }
   for (const path of workflows) {
     const contents = runGit(["show", `${sha}:${path}`]).stdout;
@@ -178,24 +193,24 @@ function requireAuditedWorkflowAuthority(sha) {
     if (!jobs || typeof jobs !== "object" || Array.isArray(jobs)) {
       throw new Error(`workflow '${path}' must declare jobs at ${sha}`);
     }
-    if (path === coordinator) {
-      const required = ["actions", "contents", "issues", "pull-requests"];
+    const required = trustedWriters.get(path);
+    if (required) {
       const permissions = workflow.permissions;
       if (!permissions || typeof permissions !== "object" || Array.isArray(permissions)) {
-        throw new Error(`coordinator workflow must declare an explicit permission map at ${sha}`);
+        throw new Error(`trusted writer workflow '${path}' must declare an explicit permission map at ${sha}`);
       }
       if (
-        Object.keys(permissions).length !== required.length ||
-        required.some((permission) => permissions[permission] !== "write")
+        Object.keys(permissions).length !== Object.keys(required).length ||
+        Object.entries(required).some(([permission, access]) => permissions[permission] !== access)
       ) {
         throw new Error(
-          `coordinator workflow must grant only ${required.join(", ")}: write at ${sha}`,
+          `trusted writer workflow '${path}' does not match its exact least-privilege permission map at ${sha}`,
         );
       }
       for (const [jobName, job] of Object.entries(jobs)) {
         if (job && typeof job === "object" && !Array.isArray(job) && "permissions" in job) {
           throw new Error(
-            `coordinator workflow job '${jobName}' must inherit the audited workflow permissions at ${sha}`,
+            `trusted writer workflow '${path}' job '${jobName}' must inherit the audited workflow permissions at ${sha}`,
           );
         }
       }
@@ -406,7 +421,7 @@ function containsDesired(value, desired) {
   return value === desired;
 }
 
-function readIntegrationRuleset(repo) {
+function readRuleset(repo, name, description) {
   const rulesets = parseJson(
     runGh([
       "api",
@@ -416,7 +431,7 @@ function readIntegrationRuleset(repo) {
     ]),
     "repository ruleset inspection",
   );
-  const summary = rulesets.find((ruleset) => ruleset.name === INTEGRATION_RULESET_NAME);
+  const summary = rulesets.find((ruleset) => ruleset.name === name);
   if (!summary) return null;
   return parseJson(
     runGh([
@@ -425,7 +440,7 @@ function readIntegrationRuleset(repo) {
       "-H",
       `X-GitHub-Api-Version: ${API_VERSION}`,
     ]),
-    "dev Integration Line ruleset inspection",
+    description,
   );
 }
 
@@ -668,7 +683,11 @@ function collectPlan(repo) {
   }
 
   const desiredRuleset = desiredIntegrationRuleset(coordinatorAppId);
-  const observedRuleset = readIntegrationRuleset(repo);
+  const observedRuleset = readRuleset(
+    repo,
+    INTEGRATION_RULESET_NAME,
+    "dev Integration Line ruleset inspection",
+  );
   if (!containsDesired(observedRuleset, desiredRuleset)) {
     actions.push({
       description: `${observedRuleset ? "update" : "create"} dev Integration Line authority ruleset for GitHub App ${coordinatorAppId}`,
@@ -687,6 +706,42 @@ function collectPlan(repo) {
             "-",
           ],
           { input: JSON.stringify(desiredRuleset) },
+        );
+      },
+    });
+  }
+
+  const desiredSpecBranchRuleset = desiredSpecRuleset(coordinatorAppId);
+  const observedSpecBranchRuleset = readRuleset(
+    repo,
+    SPEC_RULESET_NAME,
+    "spec branch ruleset inspection",
+  );
+  let specRulesetMatches = false;
+  try {
+    assertDesiredSpecRuleset(observedSpecBranchRuleset);
+    specRulesetMatches = containsDesired(observedSpecBranchRuleset, desiredSpecBranchRuleset);
+  } catch {
+    specRulesetMatches = false;
+  }
+  if (!specRulesetMatches) {
+    actions.push({
+      description: `${observedSpecBranchRuleset ? "update" : "create"} protected spec branch ruleset for GitHub App ${coordinatorAppId}`,
+      apply: () => {
+        runGh(
+          [
+            "api",
+            "--method",
+            observedSpecBranchRuleset ? "PUT" : "POST",
+            observedSpecBranchRuleset
+              ? `repos/${repo}/rulesets/${observedSpecBranchRuleset.id}`
+              : `repos/${repo}/rulesets`,
+            "-H",
+            `X-GitHub-Api-Version: ${API_VERSION}`,
+            "--input",
+            "-",
+          ],
+          { input: JSON.stringify(desiredSpecBranchRuleset) },
         );
       },
     });
@@ -721,6 +776,9 @@ function main() {
   }
   if (options.confirmIntegrationCutover !== INTEGRATION_CUTOVER_CONFIRMATION) {
     fail(`apply requires --confirm-integration-cutover ${INTEGRATION_CUTOVER_CONFIRMATION}`);
+  }
+  if (options.confirmSpecBranchCutover !== SPEC_BRANCH_CUTOVER_CONFIRMATION) {
+    fail(`apply requires --confirm-spec-branch-cutover ${SPEC_BRANCH_CUTOVER_CONFIRMATION}`);
   }
   if (options.confirmIntegrationAppId !== String(plan.coordinatorAppId)) {
     fail(`apply requires --confirm-integration-app-id ${plan.coordinatorAppId}`);
