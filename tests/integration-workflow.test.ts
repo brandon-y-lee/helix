@@ -213,8 +213,16 @@ describe("dev Integration Line workflows", () => {
       "for evidence_path in candidate/playwright-report candidate/test-results; do",
     );
     expect(verification).toContain(
-      'test -z "$(find "$evidence_path" -type l -print -quit)"',
+      'symlink_path="$(sudo find "$evidence_path" -type l -print -quit)" || {',
     );
+    expect(verification).toContain(
+      'echo "Browser evidence traversal failed closed for $evidence_path." >&2',
+    );
+    expect(verification).toContain('if [[ -n "$symlink_path" ]]; then');
+    expect(verification).toContain(
+      'echo "Browser evidence cannot contain symbolic links: $symlink_path" >&2',
+    );
+    expect(verification).not.toContain('test -z "$(find "$evidence_path"');
     expect(verification).toContain(
       'sudo cp -a -- "$evidence_path" "$RUNNER_TEMP/verification-browser-evidence/"',
     );

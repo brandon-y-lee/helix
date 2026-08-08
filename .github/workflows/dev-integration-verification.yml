@@ -213,7 +213,14 @@ jobs:
           sudo install -d -o root -g root -m 0755 -- "$RUNNER_TEMP/verification-browser-evidence"
           for evidence_path in candidate/playwright-report candidate/test-results; do
             if [[ -e "$evidence_path" ]]; then
-              test -z "$(find "$evidence_path" -type l -print -quit)"
+              symlink_path="$(sudo find "$evidence_path" -type l -print -quit)" || {
+                echo "Browser evidence traversal failed closed for $evidence_path." >&2
+                exit 1
+              }
+              if [[ -n "$symlink_path" ]]; then
+                echo "Browser evidence cannot contain symbolic links: $symlink_path" >&2
+                exit 1
+              fi
               sudo cp -a -- "$evidence_path" "$RUNNER_TEMP/verification-browser-evidence/"
             fi
           done
