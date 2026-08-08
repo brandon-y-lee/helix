@@ -172,6 +172,12 @@ describe("dev Integration Line workflows", () => {
     expect(verification).not.toContain(
       'verifier-candidate "$(command -v pnpm)"',
     );
+    expect(verification).toContain(
+      'sudo -E env "PATH=$VERIFICATION_CANDIDATE_PATH" pnpm --dir trusted exec playwright install-deps chromium',
+    );
+    expect(verification).not.toContain(
+      "sudo -E pnpm --dir trusted exec playwright install-deps chromium",
+    );
     expect(verification).not.toContain('sudo chmod -R a+rX "$(dirname "$PNPM_HOME")"');
     expect(verification.indexOf("Isolate candidate execution from the audited runner")).toBeLessThan(
       verification.indexOf("Install frozen candidate dependencies"),

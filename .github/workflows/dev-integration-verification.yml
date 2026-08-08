@@ -167,7 +167,7 @@ jobs:
       - name: Install Playwright browsers
         if: ${{ inputs.gate == 'complete-behavioral' }}
         run: |
-          sudo -E pnpm --dir trusted exec playwright install-deps chromium
+          sudo -E env "PATH=$VERIFICATION_CANDIDATE_PATH" pnpm --dir trusted exec playwright install-deps chromium
           sudo -E -H -u verifier-candidate env "PATH=$VERIFICATION_CANDIDATE_PATH" pnpm --dir "$VERIFICATION_CANDIDATE_CWD" exec playwright install chromium
 
       - name: Build receipted production artifact with the trusted runner
