@@ -149,10 +149,16 @@ describe("dev Integration Line workflows", () => {
       "/*/hostedtoolcache/node/*/x64/bin/node) ;;",
     );
     expect(verification).toContain(
-      'test "$(stat -Lc \'%u:%g\' "$node_executable")" = 0:0',
+      'sudo install -o root -g root -m 0555 -- "$node_executable" /opt/mei-pelle-node-runtime/bin/node',
     );
     expect(verification).toContain(
-      'sudo -u verifier-candidate test ! -w "$node_executable"',
+      "test \"$(stat -Lc '%u:%g' /opt/mei-pelle-node-runtime/bin/node)\" = 0:0",
+    );
+    expect(verification).toContain(
+      "sudo -u verifier-candidate test ! -w /opt/mei-pelle-node-runtime/bin/node",
+    );
+    expect(verification).toContain(
+      'candidate_path="/opt/mei-pelle-node-runtime/bin:/opt/mei-pelle-pnpm-runtime/.bin:/usr/local/bin:/usr/bin:/bin"',
     );
     expect(verification).toContain(
       'echo "VERIFICATION_CANDIDATE_PATH=$candidate_path" >> "$GITHUB_ENV"',
