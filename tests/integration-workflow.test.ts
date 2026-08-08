@@ -144,8 +144,27 @@ describe("dev Integration Line workflows", () => {
     expect(verification).toContain(
       'sudo -u verifier-candidate test -d "$VERIFICATION_CANDIDATE_CWD"',
     );
+    expect(verification).toContain('case "$node_executable" in');
     expect(verification).toContain(
-      '"$(command -v pnpm)" --dir "$VERIFICATION_CANDIDATE_CWD" install --frozen-lockfile',
+      "/*/hostedtoolcache/node/*/x64/bin/node) ;;",
+    );
+    expect(verification).toContain(
+      'test "$(stat -Lc \'%u:%g\' "$node_executable")" = 0:0',
+    );
+    expect(verification).toContain(
+      'sudo -u verifier-candidate test ! -w "$node_executable"',
+    );
+    expect(verification).toContain(
+      'echo "VERIFICATION_CANDIDATE_PATH=$candidate_path" >> "$GITHUB_ENV"',
+    );
+    expect(verification).toContain(
+      'test "$(sudo -H -u verifier-candidate env "PATH=$candidate_path" node --version)" = "$(node --version)"',
+    );
+    expect(verification).toContain(
+      'env "PATH=$VERIFICATION_CANDIDATE_PATH" pnpm --dir "$VERIFICATION_CANDIDATE_CWD" install --frozen-lockfile',
+    );
+    expect(verification).not.toContain(
+      'verifier-candidate "$(command -v pnpm)"',
     );
     expect(verification).not.toContain('sudo chmod -R a+rX "$(dirname "$PNPM_HOME")"');
     expect(verification.indexOf("Isolate candidate execution from the audited runner")).toBeLessThan(
