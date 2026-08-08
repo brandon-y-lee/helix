@@ -2,6 +2,7 @@ import {
   recordScheduledVerificationFailure,
   scheduledFailureFromClassifiedEvidence,
 } from "./scheduled-verification-issue.mjs";
+export * from "./spec-integration-lifecycle";
 
 export const INTEGRATION_TIMEOUT_MS = 20 * 60 * 1_000;
 

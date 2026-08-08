@@ -39,14 +39,16 @@ Dependencies express structural blocking. `needs-info` and `ready-for-human` exp
 An eligible ticket is open, unblocked, unassigned, `type:ticket`, and `ready-for-agent`.
 
 1. Assign the ticket before work; replace `ready-for-agent` with `workflow:in-progress`.
-2. Start `codex/<ticket-number>-<slug>` from `dev` using the task helper.
+2. Start `codex/<ticket-number>-<slug>` using the task helper. Spec #50 and standalone work start from `dev`; later multi-ticket specs start flat sibling branches from their protected `codex/spec-<spec>-<slug>` branch.
 3. Implement with TDD at the approved seams. Run the smallest complete relevant local verification set; security, payment, data, and cross-cutting changes receive broader checks.
 4. Commit with `Refs #<ticket>` and `Spec #<parent>` footers. The urgent fast path uses only `Refs #<ticket>`.
 5. Run the helper's `prepare`, then `code-review dev` on the committed diff.
 6. Fix and rereview every confirmed actionable finding unless the user explicitly accepts it. P0/P1 findings always block.
-7. Replace `workflow:in-progress` with `workflow:review`, push, and open a ready PR into `dev`.
+7. Replace `workflow:in-progress` with `workflow:review`, push, and open a ready PR into its declared base. A future-spec child targets the spec branch and requires fast CI plus Affected Browser Verification; spec #50 and standalone tickets target `dev` under the previously executable path.
 8. Let GitHub CI run the pull-request gate. A ready, green PR receives `workflow:integration-queued`; the [Dev Integration Line](./dev-integration.md) freezes one candidate and current `dev`, then runs the work-class gate in a separate read-only workflow.
 9. The coordinator alone merges an unchanged successful candidate. After GitHub reports the merge, comment with the PR, integrated commit, CI and Integration Line evidence, and review result; close the ticket; update the parent spec when one exists; clean up the worktree.
+
+Future multi-ticket specs use the lifecycle in [`spec-integration.md`](./spec-integration.md). Child PRs squash into the protected spec branch and close with `workflow:spec-integrated`; their draft final spec PR enters this Integration Line only after all children and combined review pass. Spec #50 is deliberately excluded from that lifecycle.
 
 If `dev` advances before integration, merge it into the ticket branch and repeat every affected verification and review step.
 
