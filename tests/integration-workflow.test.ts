@@ -53,11 +53,18 @@ describe("dev Integration Line workflows", () => {
     expect(verification).toContain("persist-credentials: false");
     expect(verification.match(/FROZEN_PULL_REQUEST: \$\{\{ inputs\.pr_number \}\}/g)).toHaveLength(2);
     expect(verification.match(/case "\$FROZEN_PULL_REQUEST" in/g)).toHaveLength(2);
-    expect(verification).toContain(
-      'git -C trusted fetch --no-tags origin "refs/pull/$FROZEN_PULL_REQUEST/head"',
+    const frozenHeadFetch =
+      'git -C trusted fetch --no-tags origin "refs/pull/$FROZEN_PULL_REQUEST/head"';
+    expect(verification.split(frozenHeadFetch)).toHaveLength(3);
+    const verifierJob = verification
+      .split("  verify-frozen-candidate:")[1]!
+      .split("  attest-stable-result:")[0]!;
+    expect(verifierJob.indexOf("Fetch the frozen pull-request head")).toBeLessThan(
+      verifierJob.indexOf("Prepare the exact candidate and base in an isolated worktree"),
     );
-    expect(verification.indexOf("Fetch the frozen pull-request head")).toBeLessThan(
-      verification.indexOf("Prepare the exact candidate and base in an isolated worktree"),
+    const signerJob = verification.split("  attest-stable-result:")[1]!;
+    expect(signerJob.indexOf("Fetch the frozen pull-request head")).toBeLessThan(
+      signerJob.indexOf("Materialize candidate as non-executable input"),
     );
     expect(verification).toContain("scripts/github/prepare-integration-candidate.ts");
     expect(verification).toContain("if: ${{ inputs.gate == 'complete-behavioral' }}");
