@@ -6388,6 +6388,10 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   pointer-events: none;
 }
 
+.product-card[data-visual-state="quick-buy"] .product-card__link {
+  pointer-events: none;
+}
+
 .product-card__quick-buy {
   position: absolute;
   left: clamp(10px, 1.6vw, 16px);
@@ -6633,7 +6637,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 }
 
 .product-card__quick-link {
-  justify-self: center;
+  align-self: flex-start;
   color: var(--ink-soft);
   font-size: 0.74rem;
   text-decoration: underline;
@@ -10706,6 +10710,26 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   )::before {
     transition: none;
   }
+}
+
+.home-plug-panel__cta {
+  --button-fill: transparent;
+  --button-fill-border: var(--accent);
+  background: transparent;
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .btn.home-plug-panel__cta:hover {
+    background: var(--accent);
+    color: var(--accent-ink);
+  }
+}
+
+.btn.home-plug-panel__cta:focus-visible {
+  background: var(--accent);
+  color: var(--accent-ink);
 }
 
 @media print {

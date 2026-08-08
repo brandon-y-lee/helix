@@ -27,6 +27,14 @@ const ciPublicRuntimeSecrets = [
   "NEXT_PUBLIC_ALGOLIA_INDEX_NAME",
 ] as const;
 
+function workflowStep(name: string): string {
+  const marker = `      - name: ${name}`;
+  const start = ciWorkflow.indexOf(marker);
+  expect(start, `Missing CI step: ${name}`).toBeGreaterThanOrEqual(0);
+  const nextStep = ciWorkflow.indexOf("\n      - ", start + marker.length);
+  return ciWorkflow.slice(start, nextStep < 0 ? undefined : nextStep);
+}
+
 type CommandResult = SpawnSyncReturns<string>;
 type RunOptions = {
   env?: Record<string, string | undefined>;
@@ -111,6 +119,26 @@ describe("GitHub Actions CI", () => {
     expect(ciWorkflow).not.toContain("SUPABASE_SERVICE_ROLE_KEY");
     expect(ciWorkflow).not.toContain("ALGOLIA_WRITE_API_KEY");
     expect(ciWorkflow).not.toContain("ALGOLIA_ADMIN_API_KEY");
+  });
+
+  it("runs production browser verification only for pull-request merge trees", () => {
+    for (const name of [
+      "Install Playwright browsers",
+      "Build receipted production artifact",
+      "Verify receipted production artifact",
+    ]) {
+      expect(workflowStep(name)).toContain(
+        "if: ${{ github.event_name == 'pull_request' }}",
+      );
+    }
+
+    expect(workflowStep("Upload Playwright report")).toContain(
+      "if: ${{ failure() && github.event_name == 'pull_request' }}",
+    );
+
+    for (const name of ["Lint", "Typecheck", "Unit tests"]) {
+      expect(workflowStep(name)).not.toContain("github.event_name");
+    }
   });
 });
 

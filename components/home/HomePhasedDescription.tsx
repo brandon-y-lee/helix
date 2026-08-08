@@ -10,7 +10,7 @@ import {
 } from "motion/react";
 import * as m from "motion/react-m";
 
-const TYPEWRITER_CHARACTER_DELAY = 0.016;
+const TYPEWRITER_CHARACTER_DELAY = 0.012;
 
 const TYPEWRITER_TEXT_VARIANTS: Variants = {
   hidden: { opacity: 1 },
