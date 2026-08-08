@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./storefront-fixture";
 
 test("System routine selector and anchored navigation are keyboard operable", async ({
   page,
