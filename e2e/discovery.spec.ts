@@ -220,13 +220,16 @@ test("Three Principles selection uses only a persistent 700ms label fade", async
   const principles = [mission, innovation, sustainability];
 
   await expect(mission).toHaveAttribute("aria-pressed", "true");
-  await expect(innovation).toHaveCSS("opacity", "0.75");
-  await expect(sustainability).toHaveCSS("opacity", "0.75");
-  await expect(mission).toHaveCSS("opacity", "1");
-
+  await expect(mission).toHaveCSS("transition-property", "opacity");
+  await page.waitForTimeout(100);
   const initialPresentation = await Promise.all(
     principles.map(principlePresentation),
   );
+  expect(initialPresentation.map(({ opacity }) => opacity)).toEqual([
+    "1",
+    "0.75",
+    "0.75",
+  ]);
   expect(new Set(initialPresentation.map(({ color }) => color)).size).toBe(1);
   expect(
     new Set(initialPresentation.map(({ fontWeight }) => fontWeight)).size,
