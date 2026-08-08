@@ -35,6 +35,10 @@ describe("verification fingerprints", () => {
       { contents: "export const value = 2;\n", path: "app/page.tsx" },
       { contents: "old docs\n", path: "docs/guide.md" },
     ])).not.toBe(baseline);
+    expect(fingerprintRuntimeFiles([
+      { contents: "export const value = 1;\n", path: "app/page.tsx" },
+      { contents: "runtime content\n", path: "content/guide.md" },
+    ])).not.toBe(baseline);
   });
 
   it("binds allowlisted non-secret configuration without exposing its values", () => {
@@ -50,6 +54,16 @@ describe("verification fingerprints", () => {
     expect(fingerprintConfiguration({
       NEXT_PUBLIC_ALGOLIA_APP_ID: "different-public-app-id",
       NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co",
+    })).not.toBe(fingerprint);
+    expect(fingerprintConfiguration({
+      NEXT_PUBLIC_ALGOLIA_APP_ID: "public-app-id",
+      NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co",
+      NEXT_PUBLIC_SITE_URL: "https://mei-pelle.example",
+    })).not.toBe(fingerprint);
+    expect(fingerprintConfiguration({
+      NEXT_PUBLIC_ALGOLIA_APP_ID: "public-app-id",
+      NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co",
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: "pk_test_public",
     })).not.toBe(fingerprint);
   });
 });

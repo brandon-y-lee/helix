@@ -1,18 +1,20 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  findReusableProtectedPushReceipt,
   findReusableVerificationReceipt,
   runRoutineBrowserVerification,
   type RoutineBrowserVerificationAdapters,
   type RoutineBrowserVerificationInput,
   type VerificationReceipt,
   VERIFICATION_RETENTION_POLICY,
-} from "@/scripts/github/routine-browser-verification";
+} from "@/scripts/github/verification-orchestrator";
 
 const input: RoutineBrowserVerificationInput = {
   baseSha: "b".repeat(40),
   browserVersions: { chromium: "140.0.7339.16" },
   candidateSha: "c".repeat(40),
+  frameworkVersion: "15.5.19",
   nodeVersion: "24.5.0",
   packageManagerVersion: "pnpm@9.15.4",
   planFingerprint: `sha256:${"4".repeat(64)}`,
@@ -125,6 +127,7 @@ describe("Routine Browser Verification", () => {
       planFingerprint: `sha256:${"4".repeat(64)}`,
       result: "passed",
       tools: {
+        framework: "15.5.19",
         node: "24.5.0",
         packageManager: "pnpm@9.15.4",
         playwright: "1.55.1",
@@ -227,6 +230,7 @@ describe("Routine Browser Verification", () => {
       { ...current, integration: { ...current.integration, baseSha: "d".repeat(40) } },
       { ...current, integration: { ...current.integration, pullRequest: 54 } },
       { ...current, planFingerprint: `sha256:${"9".repeat(64)}` as const },
+      { ...current, tools: { ...current.tools, framework: "other-framework" } },
       { ...current, tools: { ...current.tools, node: "other-node" } },
       { ...current, tools: { ...current.tools, packageManager: "other-package-manager" } },
       { ...current, tools: { ...current.tools, playwright: "other-playwright" } },
@@ -237,6 +241,29 @@ describe("Routine Browser Verification", () => {
         },
       })).resolves.toEqual({ outcome: "missing", reusable: false });
     }
+  });
+
+  it("reuses protected-push evidence without rerunning browsers and fails closed on changed inputs", async () => {
+    const completed = await runRoutineBrowserVerification(input, makeAdapters());
+    if (completed.outcome !== "passed") throw new Error("expected fixture receipt");
+    const { buildId: _buildId, ...artifact } = completed.receipt.artifact;
+    const current = {
+      artifact,
+      catalogFingerprint: completed.receipt.catalog.after,
+      integration: completed.receipt.integration,
+      planFingerprint: completed.receipt.planFingerprint,
+      tools: completed.receipt.tools,
+    };
+    const lookup = { async lookup() { return [{ id: "verified-53", receipt: completed.receipt }]; } };
+
+    await expect(findReusableProtectedPushReceipt(current, lookup)).resolves.toMatchObject({
+      attestationId: "verified-53",
+      outcome: "reused",
+    });
+    await expect(findReusableProtectedPushReceipt({
+      ...current,
+      planFingerprint: `sha256:${"9".repeat(64)}`,
+    }, lookup)).resolves.toEqual({ outcome: "missing", reusable: false });
   });
 
   it("keeps retained predicates free of adapter extras and raw Catalog facts", async () => {

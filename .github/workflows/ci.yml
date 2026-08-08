@@ -46,9 +46,13 @@ jobs:
       NEXT_PUBLIC_ALGOLIA_APP_ID: ${{ secrets.NEXT_PUBLIC_ALGOLIA_APP_ID }}
       NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY: ${{ secrets.NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY }}
       NEXT_PUBLIC_ALGOLIA_INDEX_NAME: ${{ secrets.NEXT_PUBLIC_ALGOLIA_INDEX_NAME }}
+      NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       # pnpm/action-setup reads the pinned version from package.json "packageManager".
       - name: Install pnpm
@@ -76,6 +80,13 @@ jobs:
       - name: Unit tests
         run: pnpm test
 
+      - name: Reuse signed Integration Slot evidence on protected dev push
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/dev' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERIFICATION_DEV_BASE: ${{ github.event.before }}
+        run: pnpm verification:receipt:protected-push
+
       # Gate 5: proportional browser evidence for the pull-request merge tree.
       # The serialized Integration Slot owns the one complete clean Chromium run.
       - name: Install Playwright browsers
@@ -84,7 +95,7 @@ jobs:
 
       - name: Verify affected browser journeys
         if: ${{ github.event_name == 'pull_request' }}
-        run: pnpm verify:affected -- --base "${{ github.base_ref }}"
+        run: pnpm verify:affected -- --base "origin/${{ github.base_ref }}"
 
       - name: Upload Playwright report
         if: ${{ failure() && github.event_name == 'pull_request' }}

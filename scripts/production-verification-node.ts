@@ -803,9 +803,7 @@ export async function createNodeProductionVerificationAdapters(
   env: NodeJS.ProcessEnv,
   dependencies: NodeProductionVerificationDependencies = {},
 ): Promise<NodeProductionVerificationAdapters> {
-  const require = createRequire(import.meta.url);
-  const nextCli = require.resolve("next/dist/bin/next");
-  const playwrightCli = require.resolve("@playwright/test/cli");
+  const candidateRequire = createRequire(resolve(cwd, "package.json"));
   const receiptPath = resolve(cwd, PRODUCTION_ARTIFACT_RECEIPT_PATH);
   const executeOwnedCommand = dependencies.runCommand ?? runOwnedCommand;
 
@@ -819,7 +817,7 @@ export async function createNodeProductionVerificationAdapters(
     isPortAvailable,
     build: async ({ signal }) => {
       await executeOwnedCommand({
-        args: [nextCli, "build"],
+        args: [candidateRequire.resolve("next/dist/bin/next"), "build"],
         command: process.execPath,
         cwd,
         env,
@@ -857,7 +855,7 @@ export async function createNodeProductionVerificationAdapters(
       }),
     startServer: ({ host, port }) =>
       spawnOwnedProcess({
-        args: [nextCli, "start", "--hostname", host, "--port", String(port)],
+        args: [candidateRequire.resolve("next/dist/bin/next"), "start", "--hostname", host, "--port", String(port)],
         command: process.execPath,
         cwd,
         env,
@@ -879,7 +877,7 @@ export async function createNodeProductionVerificationAdapters(
         });
         return executeOwnedCommand({
           args: [
-            playwrightCli,
+            candidateRequire.resolve("@playwright/test/cli"),
             "test",
             ...(testFiles ?? []),
             ...(project ? ["--project", project] : []),

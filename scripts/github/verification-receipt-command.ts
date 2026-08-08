@@ -1,5 +1,4 @@
 import { execFile } from "node:child_process";
-import { createHash } from "node:crypto";
 import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { promisify } from "node:util";
@@ -8,6 +7,7 @@ import { chromium } from "@playwright/test";
 import { BROWSER_VERIFICATION_PLAN } from "../browser-verification-plan";
 import {
   findReusableVerificationReceipt,
+  findReusableProtectedPushReceipt,
   runRoutineBrowserVerification,
   VERIFICATION_RECEIPT_PREDICATE_TYPE,
   type CurrentVerificationInputs,
@@ -19,22 +19,18 @@ import {
   fingerprintCatalog,
   fingerprintConfiguration,
   fingerprintRuntimeFiles,
+  sha256Fingerprint,
 } from "./verification-fingerprints";
 
 const execFileAsync = promisify(execFile);
 const RECEIPT_DIRECTORY = "mei-pelle-verification-receipt";
 const SUBJECT_FILE = "runtime-subject.json";
 const PREDICATE_FILE = "predicate.json";
-const CURRENT_INPUTS_FILE = "current-inputs.json";
 
 function required(environment: NodeJS.ProcessEnv, key: string): string {
   const value = environment[key];
   if (!value) throw new Error(`Verification receipt requires ${key}.`);
   return value;
-}
-
-function fingerprintContents(contents: string): Sha256Fingerprint {
-  return `sha256:${createHash("sha256").update(contents).digest("hex")}`;
 }
 
 function requireFingerprint(value: string, key: string): Sha256Fingerprint {
@@ -59,7 +55,10 @@ async function readVersionedFiles(cwd: string) {
   })));
 }
 
-async function readChromiumVersion(): Promise<string> {
+async function readChromiumVersion(environment: NodeJS.ProcessEnv): Promise<string> {
+  if (environment.VERIFICATION_BROWSER_VERSION?.trim()) {
+    return environment.VERIFICATION_BROWSER_VERSION.trim();
+  }
   const { stdout } = await execFileAsync(chromium.executablePath(), ["--version"], {
     encoding: "utf8",
   });
@@ -90,17 +89,24 @@ export async function prepareVerificationReceipt(input: {
     required(environment, "CATALOG_FINGERPRINT_AFTER"),
     "Catalog fingerprint after",
   );
+  const catalogCurrent = environment.CATALOG_FINGERPRINT_CURRENT
+    ? requireFingerprint(environment.CATALOG_FINGERPRINT_CURRENT, "current Catalog fingerprint")
+    : catalogAfter;
+  if (catalogBefore !== catalogAfter || catalogAfter !== catalogCurrent) {
+    throw new Error("Verification receipt requires one stable current Catalog fingerprint.");
+  }
   const files = await readVersionedFiles(cwd);
   const configurationFingerprint = fingerprintConfiguration(environment);
   const runtimeSubject = canonicalizeVerificationValue({
     configurationFingerprint,
     filesFingerprint: fingerprintRuntimeFiles(files),
   });
-  const runtimeFingerprint = fingerprintContents(runtimeSubject);
+  const runtimeFingerprint = sha256Fingerprint(runtimeSubject);
   const packageJson = JSON.parse(
     await readFile(resolve(cwd, "package.json"), "utf8"),
   ) as {
     packageManager: string;
+    dependencies: Record<string, string>;
     devDependencies: Record<string, string>;
   };
   const artifact = {
@@ -112,8 +118,9 @@ export async function prepareVerificationReceipt(input: {
   const result = await runRoutineBrowserVerification(
     {
       baseSha: required(environment, "VERIFICATION_DEV_BASE"),
-      browserVersions: { chromium: await readChromiumVersion() },
+      browserVersions: { chromium: await readChromiumVersion(environment) },
       candidateSha: required(environment, "VERIFICATION_CANDIDATE_SHA"),
+      frameworkVersion: packageJson.dependencies.next ?? "unknown",
       nodeVersion: process.version,
       packageManagerVersion: packageJson.packageManager,
       planFingerprint: fingerprintCatalog(BROWSER_VERIFICATION_PLAN),
@@ -151,20 +158,53 @@ export async function prepareVerificationReceipt(input: {
   await mkdir(directory, { recursive: true });
   const subjectPath = resolve(directory, SUBJECT_FILE);
   const predicatePath = resolve(directory, PREDICATE_FILE);
-  const currentInputsPath = resolve(directory, CURRENT_INPUTS_FILE);
   await Promise.all([
     writeFile(subjectPath, runtimeSubject, { encoding: "utf8", mode: 0o600 }),
     writeFile(predicatePath, canonicalizeVerificationValue(receipt), { encoding: "utf8", mode: 0o600 }),
-    writeFile(currentInputsPath, canonicalizeVerificationValue({
-      artifact: receipt.artifact,
-      browsers: receipt.browsers,
-      catalogFingerprint: receipt.catalog.after,
-      integration: receipt.integration,
-      planFingerprint: receipt.planFingerprint,
-      tools: receipt.tools,
-    }), { encoding: "utf8", mode: 0o600 }),
   ]);
-  return { currentInputsPath, predicatePath, receipt, runtimeFingerprint, subjectPath };
+  return { predicatePath, receipt, runtimeFingerprint, subjectPath };
+}
+
+export async function readCurrentVerificationInputs(input: {
+  cwd: string;
+  environment: NodeJS.ProcessEnv;
+}): Promise<CurrentVerificationInputs> {
+  const { cwd, environment } = input;
+  const files = await readVersionedFiles(cwd);
+  const configurationFingerprint = fingerprintConfiguration(environment);
+  const runtimeSubject = canonicalizeVerificationValue({
+    configurationFingerprint,
+    filesFingerprint: fingerprintRuntimeFiles(files),
+  });
+  const packageJson = JSON.parse(await readFile(resolve(cwd, "package.json"), "utf8")) as {
+    packageManager: string;
+    dependencies: Record<string, string>;
+    devDependencies: Record<string, string>;
+  };
+  return {
+    artifact: {
+      buildId: (await readFile(resolve(cwd, ".next/BUILD_ID"), "utf8")).trim(),
+      configurationFingerprint,
+      runtimeFingerprint: sha256Fingerprint(runtimeSubject),
+    },
+    browsers: { chromium: await readChromiumVersion(environment) },
+    catalogFingerprint: requireFingerprint(
+      required(environment, "CATALOG_FINGERPRINT_CURRENT"),
+      "current Catalog fingerprint",
+    ),
+    integration: {
+      baseSha: required(environment, "VERIFICATION_DEV_BASE"),
+      candidateSha: required(environment, "VERIFICATION_CANDIDATE_SHA"),
+      pullRequest: Number(required(environment, "VERIFICATION_PULL_REQUEST")),
+    },
+    planFingerprint: fingerprintCatalog(BROWSER_VERIFICATION_PLAN),
+    tools: {
+      framework: packageJson.dependencies.next ?? "unknown",
+      node: process.version,
+      packageManager: packageJson.packageManager,
+      playwright: packageJson.devDependencies["@playwright/test"] ?? "unknown",
+    },
+  };
 }
 
 type AttestationVerification = {
@@ -177,18 +217,24 @@ type VerificationCommandRunner = (
   options: { encoding: "utf8" },
 ) => Promise<{ stderr: string; stdout: string }>;
 
+async function defaultCommandRunner(
+  command: string,
+  args: string[],
+  options: { encoding: "utf8" },
+) {
+  const result = await execFileAsync(command, args, options);
+  return { stderr: String(result.stderr), stdout: String(result.stdout) };
+}
+
 export async function verifyVerificationReceipt(input: {
   attestationId: string;
   bundlePath?: string;
-  currentInputsPath: string;
+  currentInputs: CurrentVerificationInputs | (() => Promise<CurrentVerificationInputs>);
   repository: string;
   run?: VerificationCommandRunner;
   subjectPath: string;
 }) {
-  const run: VerificationCommandRunner = input.run ?? (async (command, args, options) => {
-    const result = await execFileAsync(command, args, options);
-    return { stderr: String(result.stderr), stdout: String(result.stdout) };
-  });
+  const run = input.run ?? defaultCommandRunner;
   const args = [
     "attestation", "verify", input.subjectPath,
     "--repo", input.repository,
@@ -199,9 +245,9 @@ export async function verifyVerificationReceipt(input: {
   ];
   const { stdout } = await run("gh", args, { encoding: "utf8" });
   const verified = JSON.parse(String(stdout)) as AttestationVerification[];
-  const current = JSON.parse(
-    await readFile(input.currentInputsPath, "utf8"),
-  ) as CurrentVerificationInputs;
+  const current = typeof input.currentInputs === "function"
+    ? await input.currentInputs()
+    : input.currentInputs;
   const result = await findReusableVerificationReceipt(current, {
     async lookup() {
       return verified.flatMap(({ verificationResult }) => {
@@ -216,12 +262,105 @@ export async function verifyVerificationReceipt(input: {
   return result;
 }
 
+type AssociatedPullRequest = {
+  base?: { ref?: string };
+  head?: { sha?: string };
+  merged_at?: string | null;
+  number?: number;
+};
+
+export async function verifyProtectedBranchPushReceipt(input: {
+  cwd: string;
+  environment: NodeJS.ProcessEnv;
+  run?: VerificationCommandRunner;
+}) {
+  const { cwd, environment } = input;
+  const repository = required(environment, "GITHUB_REPOSITORY");
+  const pushSha = required(environment, "GITHUB_SHA");
+  const baseSha = required(environment, "VERIFICATION_DEV_BASE");
+  const run = input.run ?? defaultCommandRunner;
+  const pullResponse = await run(
+    "gh",
+    ["api", `repos/${repository}/commits/${pushSha}/pulls`],
+    { encoding: "utf8" },
+  );
+  const associated = (JSON.parse(pullResponse.stdout) as AssociatedPullRequest[])
+    .filter((pull) => pull.base?.ref === "dev" && pull.merged_at && pull.number && pull.head?.sha);
+  if (associated.length !== 1) {
+    throw new Error("Protected dev push requires exactly one associated merged pull request.");
+  }
+  const pull = associated[0]!;
+  const files = await readVersionedFiles(cwd);
+  const configurationFingerprint = fingerprintConfiguration(environment);
+  const runtimeSubject = canonicalizeVerificationValue({
+    configurationFingerprint,
+    filesFingerprint: fingerprintRuntimeFiles(files),
+  });
+  const runtimeFingerprint = sha256Fingerprint(runtimeSubject);
+  const subjectDirectory = resolve(required(environment, "RUNNER_TEMP"), RECEIPT_DIRECTORY);
+  await mkdir(subjectDirectory, { recursive: true });
+  const subjectPath = resolve(subjectDirectory, SUBJECT_FILE);
+  await writeFile(subjectPath, runtimeSubject, { encoding: "utf8", mode: 0o600 });
+  const { stdout } = await run("gh", [
+    "attestation", "verify", subjectPath,
+    "--repo", repository,
+    "--predicate-type", VERIFICATION_RECEIPT_PREDICATE_TYPE,
+    "--signer-workflow", `${repository}/.github/workflows/dev-integration-verification.yml`,
+    "--format", "json",
+  ], { encoding: "utf8" });
+  const verified = JSON.parse(stdout) as AttestationVerification[];
+  const packageJson = JSON.parse(await readFile(resolve(cwd, "package.json"), "utf8")) as {
+    packageManager: string;
+    dependencies: Record<string, string>;
+    devDependencies: Record<string, string>;
+  };
+  const { getProducts } = await import("../../lib/catalog");
+  const result = await findReusableProtectedPushReceipt({
+    artifact: { configurationFingerprint, runtimeFingerprint },
+    catalogFingerprint: fingerprintCatalog(await getProducts()),
+    integration: {
+      baseSha,
+      candidateSha: pull.head!.sha!,
+      pullRequest: pull.number!,
+    },
+    planFingerprint: fingerprintCatalog(BROWSER_VERIFICATION_PLAN),
+    tools: {
+      framework: packageJson.dependencies.next ?? "unknown",
+      node: process.version,
+      packageManager: packageJson.packageManager,
+      playwright: packageJson.devDependencies["@playwright/test"] ?? "unknown",
+    },
+  }, {
+    async lookup() {
+      return verified.flatMap(({ verificationResult }, index) => {
+        const receipt = verificationResult?.statement?.predicate;
+        return receipt ? [{ id: `verified-${index + 1}`, receipt }] : [];
+      });
+    },
+  });
+  if (result.outcome !== "reused") {
+    throw new Error("Protected dev push has no matching signed Verification Receipt.");
+  }
+  return result;
+}
+
 async function main() {
   const operation = process.argv[2];
+  if (operation === "browser-version") {
+    const version = await readChromiumVersion(process.env);
+    if (process.env.GITHUB_OUTPUT) {
+      await writeActionsOutput(process.env, { version });
+    } else {
+      process.stdout.write(`${version}\n`);
+    }
+    return;
+  }
   if (operation === "prepare") {
-    const result = await prepareVerificationReceipt({ cwd: process.cwd(), environment: process.env });
+    const cwd = process.env.VERIFICATION_CANDIDATE_CWD
+      ? resolve(process.env.VERIFICATION_CANDIDATE_CWD)
+      : process.cwd();
+    const result = await prepareVerificationReceipt({ cwd, environment: process.env });
     await writeActionsOutput(process.env, {
-      current_inputs_path: result.currentInputsPath,
       predicate_path: result.predicatePath,
       runtime_fingerprint: result.runtimeFingerprint,
       subject_path: result.subjectPath,
@@ -229,17 +368,28 @@ async function main() {
     return;
   }
   if (operation === "verify") {
+    const cwd = process.env.VERIFICATION_CANDIDATE_CWD
+      ? resolve(process.env.VERIFICATION_CANDIDATE_CWD)
+      : process.cwd();
     const result = await verifyVerificationReceipt({
       attestationId: required(process.env, "ATTESTATION_ID"),
       bundlePath: process.env.ATTESTATION_BUNDLE_PATH,
-      currentInputsPath: required(process.env, "VERIFICATION_CURRENT_INPUTS_PATH"),
+      currentInputs: () => readCurrentVerificationInputs({ cwd, environment: process.env }),
       repository: required(process.env, "GITHUB_REPOSITORY"),
       subjectPath: required(process.env, "VERIFICATION_SUBJECT_PATH"),
     });
     process.stdout.write(`Verified reusable receipt ${result.attestationId}.\n`);
     return;
   }
-  throw new Error("Verification receipt command requires prepare or verify.");
+  if (operation === "protected-push") {
+    const result = await verifyProtectedBranchPushReceipt({
+      cwd: process.cwd(),
+      environment: process.env,
+    });
+    process.stdout.write(`Reused protected-push receipt ${result.attestationId}.\n`);
+    return;
+  }
+  throw new Error("Verification receipt command requires prepare, verify, browser-version, or protected-push.");
 }
 
 if (import.meta.url === new URL(process.argv[1] ?? "", import.meta.url).href) {

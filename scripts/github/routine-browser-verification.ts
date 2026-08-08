@@ -30,6 +30,7 @@ export type VerificationReceipt = {
   planFingerprint: Sha256Fingerprint;
   result: "passed";
   tools: {
+    framework: string;
     node: string;
     packageManager: string;
     playwright: string;
@@ -41,6 +42,7 @@ export type RoutineBrowserVerificationInput = {
   baseSha: string;
   browserVersions: { chromium: string };
   candidateSha: string;
+  frameworkVersion: string;
   nodeVersion: string;
   packageManagerVersion: string;
   planFingerprint: Sha256Fingerprint;
@@ -89,6 +91,13 @@ export type CurrentVerificationInputs = {
   tools: VerificationReceipt["tools"];
 };
 
+export type ProtectedPushVerificationInputs = Omit<
+  CurrentVerificationInputs,
+  "artifact" | "browsers"
+> & {
+  artifact: Omit<CurrentVerificationInputs["artifact"], "buildId">;
+};
+
 function requireCommitSha(value: string, label: string): void {
   if (!/^[0-9a-f]{40}$/.test(value)) {
     throw new Error(`Routine Browser Verification requires an exact ${label} SHA.`);
@@ -110,6 +119,7 @@ function validateInput(input: RoutineBrowserVerificationInput): void {
   }
   for (const [label, value] of Object.entries({
     Chromium: input.browserVersions.chromium,
+    Framework: input.frameworkVersion,
     Node: input.nodeVersion,
     "package manager": input.packageManagerVersion,
     Playwright: input.playwrightVersion,
@@ -138,6 +148,7 @@ function matchesCurrentInputs(
     receipt.integration.pullRequest === current.integration.pullRequest &&
     receipt.planFingerprint === current.planFingerprint &&
     receipt.tools.node === current.tools.node &&
+    receipt.tools.framework === current.tools.framework &&
     receipt.tools.packageManager === current.tools.packageManager &&
     receipt.tools.playwright === current.tools.playwright
   );
@@ -155,6 +166,25 @@ export async function findReusableVerificationReceipt(
     outcome: "reused" as const,
     receipt: match.receipt,
   };
+}
+
+export async function findReusableProtectedPushReceipt(
+  current: ProtectedPushVerificationInputs,
+  attestation: Pick<RoutineBrowserVerificationAdapters["attestation"], "lookup">,
+) {
+  const candidates = await attestation.lookup(current.artifact.runtimeFingerprint);
+  for (const candidate of candidates) {
+    const result = await findReusableVerificationReceipt(
+      {
+        ...current,
+        artifact: { ...current.artifact, buildId: candidate.receipt.artifact.buildId },
+        browsers: candidate.receipt.browsers,
+      },
+      { async lookup() { return [candidate]; } },
+    );
+    if (result.outcome === "reused") return result;
+  }
+  return { outcome: "missing" as const, reusable: false as const };
 }
 
 export async function runRoutineBrowserVerification(
@@ -209,6 +239,7 @@ export async function runRoutineBrowserVerification(
     planFingerprint: input.planFingerprint,
     result: "passed",
     tools: {
+      framework: input.frameworkVersion,
       node: input.nodeVersion,
       packageManager: input.packageManagerVersion,
       playwright: input.playwrightVersion,

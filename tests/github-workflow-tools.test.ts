@@ -78,7 +78,7 @@ function initialiseRepository(): { root: string; tempRoot: string } {
   );
   writeFileSync(
     join(root, ".github", "workflows", "dev-integration-verification.yml"),
-    "name: verification\npermissions:\n  artifact-metadata: write\n  attestations: write\n  contents: read\n  id-token: write\njobs:\n  verify:\n    runs-on: ubuntu-latest\n    steps: []\n",
+    "name: verification\npermissions:\n  contents: read\njobs:\n  verify:\n    runs-on: ubuntu-latest\n    steps: []\n  attest-stable-result:\n    permissions:\n      artifact-metadata: write\n      attestations: write\n      contents: read\n      id-token: write\n    runs-on: ubuntu-latest\n    steps: []\n",
   );
   expectSuccess(git(root, "add", "README.md", ".github/workflows"));
   expectSuccess(git(root, "commit", "-m", "Initial fixture"));
@@ -144,7 +144,7 @@ describe("GitHub Actions CI", () => {
       "if: ${{ failure() && github.event_name == 'pull_request' }}",
     );
     expect(workflowStep("Verify affected browser journeys")).toContain(
-      "pnpm verify:affected -- --base \"${{ github.base_ref }}\"",
+      "pnpm verify:affected -- --base \"origin/${{ github.base_ref }}\"",
     );
     expect(ciWorkflow).not.toContain("scripts/verify-production-ci.ts");
 
@@ -852,7 +852,7 @@ describe("GitHub workflow bootstrap", () => {
           expectSuccess(git(root, "commit", "-m", "Overgrant receipt signer"));
           expectSuccess(git(root, "branch", "-f", "dev", "HEAD"));
         },
-        expected: /attestation signer workflow must grant only/,
+        expected: /attestation signer workflow must default to contents: read/,
       },
     ];
 

@@ -22,6 +22,7 @@
     "verification:catalog-fingerprint": "tsx scripts/github/catalog-fingerprint-command.ts",
     "verification:receipt:prepare": "tsx scripts/github/verification-receipt-command.ts prepare",
     "verification:receipt:verify": "tsx scripts/github/verification-receipt-command.ts verify",
+    "verification:receipt:protected-push": "tsx scripts/github/verification-receipt-command.ts protected-push",
     "github:workflow:plan": "node scripts/github/bootstrap-workflow.mjs plan --repo brandon-y-lee/mei-pelle",
     "github:workflow:apply": "node scripts/github/bootstrap-workflow.mjs apply --repo brandon-y-lee/mei-pelle",
     "catalog:webhooks:plan": "tsx scripts/catalog-webhooks.ts plan",

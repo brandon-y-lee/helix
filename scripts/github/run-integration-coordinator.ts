@@ -133,12 +133,26 @@ function inferRiskAreas(paths: string[]): RiskArea[] {
   return risks;
 }
 
-function ciPassed(checks: PullRequestFact["statusCheckRollup"]): boolean {
+function checkPassed(
+  checks: PullRequestFact["statusCheckRollup"],
+  requiredName: string,
+): boolean {
   return checks.some((check) => {
     const name = check.name ?? check.context;
     const result = check.conclusion ?? check.state;
-    return name === "ci" && check.status !== "IN_PROGRESS" && result === "SUCCESS";
+    return name === requiredName && check.status !== "IN_PROGRESS" && result === "SUCCESS";
   });
+}
+
+function requiredPreflightPassed(
+  checks: PullRequestFact["statusCheckRollup"],
+  workClass: WorkClass,
+): boolean {
+  return (
+    checkPassed(checks, "ci") &&
+    (workClass !== "verification-system" ||
+      checkPassed(checks, "verification-lifecycle-windows"))
+  );
 }
 
 export function toIntegrationCandidate(fact: PullRequestFact): IntegrationCandidate {
@@ -161,7 +175,7 @@ export function toIntegrationCandidate(fact: PullRequestFact): IntegrationCandid
       !fact.isDraft &&
       fact.mergeable !== "CONFLICTING" &&
       !fact.labels.some((label) => label.name === "workflow:review") &&
-      ciPassed(fact.statusCheckRollup),
+      requiredPreflightPassed(fact.statusCheckRollup, workClass),
   };
 }
 

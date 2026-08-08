@@ -1,5 +1,21 @@
 export const INTEGRATION_TIMEOUT_MS = 20 * 60 * 1_000;
 
+export {
+  findReusableProtectedPushReceipt,
+  findReusableVerificationReceipt,
+  runRoutineBrowserVerification,
+  VERIFICATION_RECEIPT_PREDICATE_TYPE,
+  VERIFICATION_RETENTION_POLICY,
+} from "./routine-browser-verification";
+export type {
+  CurrentVerificationInputs,
+  ProtectedPushVerificationInputs,
+  RoutineBrowserVerificationAdapters,
+  RoutineBrowserVerificationInput,
+  Sha256Fingerprint,
+  VerificationReceipt,
+} from "./routine-browser-verification";
+
 export type WorkClass =
   | "completed-spec"
   | "standalone"

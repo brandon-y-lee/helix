@@ -29,120 +29,127 @@ on:
         type: string
 
 permissions:
-  artifact-metadata: write
-  attestations: write
   contents: read
-  id-token: write
 
 jobs:
   verify-frozen-candidate:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    outputs:
+      browser-version: ${{ steps.browser-version.outputs.version }}
+      catalog-after: ${{ steps.catalog-after.outputs.fingerprint }}
+      catalog-before: ${{ steps.catalog-before.outputs.fingerprint }}
     env:
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
       NEXT_PUBLIC_ALGOLIA_APP_ID: ${{ secrets.NEXT_PUBLIC_ALGOLIA_APP_ID }}
       NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY: ${{ secrets.NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY }}
       NEXT_PUBLIC_ALGOLIA_INDEX_NAME: ${{ secrets.NEXT_PUBLIC_ALGOLIA_INDEX_NAME }}
+      NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
+      VERIFICATION_CANDIDATE_CWD: ${{ github.workspace }}/candidate
     steps:
       - name: Checkout trusted verification runner
         uses: actions/checkout@v4
         with:
           ref: dev
           fetch-depth: 0
+          path: trusted
           persist-credentials: false
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
+        with:
+          package_json_file: trusted/package.json
 
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version-file: .nvmrc
+          node-version-file: trusted/.nvmrc
           cache: pnpm
+          cache-dependency-path: trusted/pnpm-lock.yaml
 
       - name: Install trusted runner dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm --dir trusted install --frozen-lockfile
 
-      - name: Prepare the exact candidate and base
+      - name: Prepare the exact candidate and base in an isolated worktree
         run: >-
-          pnpm tsx scripts/github/prepare-integration-candidate.ts
+          pnpm --dir trusted exec tsx scripts/github/prepare-integration-candidate.ts
           --candidate-head "${{ inputs.candidate_head }}"
           --dev-base "${{ inputs.dev_base }}"
+          --output "$GITHUB_WORKSPACE/candidate"
 
       - name: Install frozen candidate dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm --dir candidate install --frozen-lockfile
 
       - name: Lint
-        run: pnpm lint
+        run: pnpm --dir candidate lint
 
       - name: Typecheck
-        run: pnpm typecheck
+        run: pnpm --dir candidate typecheck
 
       - name: Unit tests
-        run: pnpm test
+        run: pnpm --dir candidate test
 
       - name: Install Playwright browsers
         if: ${{ inputs.gate == 'complete-behavioral' }}
-        run: pnpm exec playwright install --with-deps chromium
+        run: pnpm --dir candidate exec playwright install --with-deps chromium
 
-      - name: Build receipted production artifact
+      - name: Build receipted production artifact with the trusted runner
         if: ${{ inputs.gate == 'complete-behavioral' }}
-        run: pnpm tsx scripts/verify-production-ci.ts build
+        run: pnpm --dir trusted exec tsx scripts/verify-production-ci.ts build
 
-      - name: Record Catalog fingerprint before verification
+      - name: Record Catalog fingerprint before verification with trusted code
         if: ${{ inputs.gate == 'complete-behavioral' }}
         id: catalog-before
-        run: echo "fingerprint=$(pnpm --silent verification:catalog-fingerprint)" >> "$GITHUB_OUTPUT"
+        run: echo "fingerprint=$(pnpm --dir trusted --silent verification:catalog-fingerprint)" >> "$GITHUB_OUTPUT"
 
-      - name: Verify receipted production artifact
+      - name: Verify receipted production artifact with the trusted runner
         if: ${{ inputs.gate == 'complete-behavioral' }}
-        run: pnpm tsx scripts/verify-production-ci.ts verify --selection routine-chromium
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_FILE: ${{ runner.temp }}/playwright-telemetry.json
+        run: pnpm --dir trusted exec tsx scripts/verify-production-ci.ts verify --selection routine-chromium
 
-      - name: Record Catalog fingerprint after verification
+      - name: Require structured browser telemetry
+        if: ${{ inputs.gate == 'complete-behavioral' }}
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_FILE: ${{ runner.temp }}/playwright-telemetry.json
+        run: test -s "$PLAYWRIGHT_JSON_OUTPUT_FILE"
+
+      - name: Record Catalog fingerprint after verification with trusted code
         if: ${{ inputs.gate == 'complete-behavioral' }}
         id: catalog-after
-        run: echo "fingerprint=$(pnpm --silent verification:catalog-fingerprint)" >> "$GITHUB_OUTPUT"
+        run: echo "fingerprint=$(pnpm --dir trusted --silent verification:catalog-fingerprint)" >> "$GITHUB_OUTPUT"
 
-      - name: Prepare canonical Verification Receipt
+      - name: Record exact Chromium version
         if: ${{ inputs.gate == 'complete-behavioral' }}
-        id: receipt
-        env:
-          CATALOG_FINGERPRINT_AFTER: ${{ steps.catalog-after.outputs.fingerprint }}
-          CATALOG_FINGERPRINT_BEFORE: ${{ steps.catalog-before.outputs.fingerprint }}
-          VERIFICATION_CANDIDATE_SHA: ${{ inputs.candidate_head }}
-          VERIFICATION_DEV_BASE: ${{ inputs.dev_base }}
-          VERIFICATION_PULL_REQUEST: ${{ inputs.pr_number }}
-          VERIFICATION_WORKFLOW_RUN: ${{ github.run_id }}-${{ github.run_attempt }}
-        run: pnpm verification:receipt:prepare
+        id: browser-version
+        run: pnpm --dir trusted exec tsx scripts/github/verification-receipt-command.ts browser-version
 
-      - name: Sign Verification Receipt
+      - name: Stage unprivileged build evidence
         if: ${{ inputs.gate == 'complete-behavioral' }}
-        id: attest
-        uses: actions/attest@v4
+        run: |
+          mkdir -p "$RUNNER_TEMP/verification-evidence"
+          cp candidate/.next/BUILD_ID "$RUNNER_TEMP/verification-evidence/BUILD_ID"
+
+      - name: Upload stable build evidence
+        if: ${{ inputs.gate == 'complete-behavioral' }}
+        uses: actions/upload-artifact@v4
         with:
-          subject-path: ${{ steps.receipt.outputs.subject_path }}
-          predicate-type: https://mei-pelle.com/attestations/browser-verification/v1
-          predicate-path: ${{ steps.receipt.outputs.predicate_path }}
-
-      - name: Verify signed receipt lookup and current inputs
-        if: ${{ inputs.gate == 'complete-behavioral' }}
-        env:
-          ATTESTATION_BUNDLE_PATH: ${{ steps.attest.outputs.bundle-path }}
-          ATTESTATION_ID: ${{ steps.attest.outputs.attestation-id }}
-          GH_TOKEN: ${{ github.token }}
-          VERIFICATION_CURRENT_INPUTS_PATH: ${{ steps.receipt.outputs.current_inputs_path }}
-          VERIFICATION_SUBJECT_PATH: ${{ steps.receipt.outputs.subject_path }}
-        run: pnpm verification:receipt:verify
+          name: integration-build-evidence-${{ inputs.pr_number }}-${{ inputs.nonce }}
+          path: ${{ runner.temp }}/verification-evidence/BUILD_ID
+          retention-days: 1
 
       - name: Upload successful browser report and telemetry
         if: ${{ success() && inputs.gate == 'complete-behavioral' }}
         uses: actions/upload-artifact@v4
         with:
           name: integration-playwright-success-${{ inputs.pr_number }}-${{ inputs.nonce }}
-          path: playwright-report/
+          path: |
+            candidate/playwright-report/
+            ${{ runner.temp }}/playwright-telemetry.json
           retention-days: 30
-          if-no-files-found: ignore
+          if-no-files-found: error
 
       - name: Upload failed browser diagnostics
         if: ${{ failure() && inputs.gate == 'complete-behavioral' }}
@@ -150,7 +157,103 @@ jobs:
         with:
           name: integration-playwright-failure-${{ inputs.pr_number }}-${{ inputs.nonce }}
           path: |
-            playwright-report/
-            test-results/
+            candidate/playwright-report/
+            candidate/test-results/
+            ${{ runner.temp }}/playwright-telemetry.json
           retention-days: 90
           if-no-files-found: ignore
+
+  attest-stable-result:
+    if: ${{ inputs.gate == 'complete-behavioral' }}
+    needs: verify-frozen-candidate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      artifact-metadata: write
+      attestations: write
+      contents: read
+      id-token: write
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      NEXT_PUBLIC_ALGOLIA_APP_ID: ${{ secrets.NEXT_PUBLIC_ALGOLIA_APP_ID }}
+      NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY: ${{ secrets.NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY }}
+      NEXT_PUBLIC_ALGOLIA_INDEX_NAME: ${{ secrets.NEXT_PUBLIC_ALGOLIA_INDEX_NAME }}
+      NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
+      VERIFICATION_BROWSER_VERSION: ${{ needs.verify-frozen-candidate.outputs.browser-version }}
+      VERIFICATION_CANDIDATE_CWD: ${{ github.workspace }}/candidate
+      VERIFICATION_CANDIDATE_SHA: ${{ inputs.candidate_head }}
+      VERIFICATION_DEV_BASE: ${{ inputs.dev_base }}
+      VERIFICATION_PULL_REQUEST: ${{ inputs.pr_number }}
+      VERIFICATION_WORKFLOW_RUN: ${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - name: Checkout audited signer from dev
+        uses: actions/checkout@v4
+        with:
+          ref: dev
+          fetch-depth: 0
+          path: trusted
+          persist-credentials: false
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          package_json_file: trusted/package.json
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: trusted/.nvmrc
+          cache: pnpm
+          cache-dependency-path: trusted/pnpm-lock.yaml
+
+      - name: Install audited signer dependencies
+        run: pnpm --dir trusted install --frozen-lockfile --ignore-scripts
+
+      - name: Materialize candidate as non-executable input
+        run: >-
+          pnpm --dir trusted exec tsx scripts/github/prepare-integration-candidate.ts
+          --candidate-head "${{ inputs.candidate_head }}"
+          --dev-base "${{ inputs.dev_base }}"
+          --output "$GITHUB_WORKSPACE/candidate"
+
+      - name: Download unprivileged build evidence
+        uses: actions/download-artifact@v4
+        with:
+          name: integration-build-evidence-${{ inputs.pr_number }}-${{ inputs.nonce }}
+          path: ${{ runner.temp }}/verification-evidence
+
+      - name: Attach build identity without executing candidate code
+        run: |
+          mkdir -p candidate/.next
+          cp "$RUNNER_TEMP/verification-evidence/BUILD_ID" candidate/.next/BUILD_ID
+
+      - name: Re-read current Catalog with audited code
+        id: catalog-current
+        run: echo "fingerprint=$(pnpm --dir trusted --silent verification:catalog-fingerprint)" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare canonical Verification Receipt with audited code
+        id: receipt
+        env:
+          CATALOG_FINGERPRINT_AFTER: ${{ needs.verify-frozen-candidate.outputs.catalog-after }}
+          CATALOG_FINGERPRINT_BEFORE: ${{ needs.verify-frozen-candidate.outputs.catalog-before }}
+          CATALOG_FINGERPRINT_CURRENT: ${{ steps.catalog-current.outputs.fingerprint }}
+        run: pnpm --dir trusted verification:receipt:prepare
+
+      - name: Sign Verification Receipt
+        id: attest
+        uses: actions/attest@v4
+        with:
+          subject-path: ${{ steps.receipt.outputs.subject_path }}
+          predicate-type: https://mei-pelle.com/attestations/browser-verification/v1
+          predicate-path: ${{ steps.receipt.outputs.predicate_path }}
+
+      - name: Verify signature and independently reconstructed current inputs
+        env:
+          ATTESTATION_BUNDLE_PATH: ${{ steps.attest.outputs.bundle-path }}
+          ATTESTATION_ID: ${{ steps.attest.outputs.attestation-id }}
+          CATALOG_FINGERPRINT_CURRENT: ${{ steps.catalog-current.outputs.fingerprint }}
+          GH_TOKEN: ${{ github.token }}
+          VERIFICATION_SUBJECT_PATH: ${{ steps.receipt.outputs.subject_path }}
+        run: pnpm --dir trusted verification:receipt:verify

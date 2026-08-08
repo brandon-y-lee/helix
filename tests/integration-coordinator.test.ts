@@ -21,6 +21,11 @@ function pullRequestFact(overrides: Record<string, unknown> = {}) {
     files: [{ path: ".github/workflows/dev-integration.yml" }],
     statusCheckRollup: [
       { name: "ci", status: "COMPLETED", conclusion: "SUCCESS" },
+      {
+        name: "verification-lifecycle-windows",
+        status: "COMPLETED",
+        conclusion: "SUCCESS",
+      },
     ],
     ...overrides,
   };
@@ -28,7 +33,11 @@ function pullRequestFact(overrides: Record<string, unknown> = {}) {
 
 describe("GitHub Integration Coordinator adapter", () => {
   it("fails closed to verification-system work from current pull-request facts", () => {
-    const candidate = toIntegrationCandidate(pullRequestFact());
+    const candidate = toIntegrationCandidate(pullRequestFact({
+      statusCheckRollup: [
+        { name: "ci", status: "COMPLETED", conclusion: "SUCCESS" },
+      ],
+    }));
 
     expect(candidate).toEqual({
       number: 52,
@@ -37,10 +46,28 @@ describe("GitHub Integration Coordinator adapter", () => {
       readyAt: "2026-08-08T07:00:00.000Z",
       workClass: "verification-system",
       changedFiles: [".github/workflows/dev-integration.yml"],
+      fastPathProof: undefined,
       riskAreas: ["provider", "cross-cutting"],
       labels: ["workflow:integration-queued"],
-      ready: true,
+      ready: false,
     });
+  });
+
+  it("admits verification-system work only after Linux and Windows preflight pass", () => {
+    expect(toIntegrationCandidate(pullRequestFact()).ready).toBe(true);
+  });
+
+  it("keeps the existing CI-only readiness gate for non-verification work", () => {
+    const candidate = toIntegrationCandidate(pullRequestFact({
+      body: "## Workflow path\n\n- Path: standalone ticket\n- Fast-path proof: N/A\n",
+      files: [{ path: "components/product/ProductCard.tsx" }],
+      statusCheckRollup: [
+        { name: "ci", status: "COMPLETED", conclusion: "SUCCESS" },
+      ],
+    }));
+
+    expect(candidate.workClass).toBe("standalone");
+    expect(candidate.ready).toBe(true);
   });
 
   it.each([

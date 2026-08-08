@@ -62,19 +62,29 @@ describe("Production Verification Commands", () => {
     );
   });
 
+  it("resolves framework and browser executables from the candidate checkout", async () => {
+    const nodeAdapter = await readFile(
+      resolve(process.cwd(), "scripts/production-verification-node.ts"),
+      "utf8",
+    );
+    expect(nodeAdapter).toContain('candidateRequire = createRequire(resolve(cwd, "package.json"))');
+    expect(nodeAdapter).toContain('candidateRequire.resolve("next/dist/bin/next")');
+    expect(nodeAdapter).toContain('candidateRequire.resolve("@playwright/test/cli")');
+  });
+
   it("builds and verifies the same receipted artifact inside the Integration Slot", async () => {
     const workflow = await readFile(
       resolve(process.cwd(), ".github/workflows/dev-integration-verification.yml"),
       "utf8",
     );
 
-    expect(workflow).toContain("- name: Build receipted production artifact");
+    expect(workflow).toContain("- name: Build receipted production artifact with the trusted runner");
     expect(workflow).toContain(
-      "run: pnpm tsx scripts/verify-production-ci.ts build",
+      "run: pnpm --dir trusted exec tsx scripts/verify-production-ci.ts build",
     );
-    expect(workflow).toContain("- name: Verify receipted production artifact");
+    expect(workflow).toContain("- name: Verify receipted production artifact with the trusted runner");
     expect(workflow).toContain(
-      "run: pnpm tsx scripts/verify-production-ci.ts verify --selection routine-chromium",
+      "run: pnpm --dir trusted exec tsx scripts/verify-production-ci.ts verify --selection routine-chromium",
     );
     expect(workflow).not.toContain("- name: Production build and E2E tests");
   });

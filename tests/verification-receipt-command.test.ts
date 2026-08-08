@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -31,6 +31,7 @@ const receipt: VerificationReceipt = {
   planFingerprint: `sha256:${"4".repeat(64)}`,
   result: "passed",
   tools: {
+    framework: "15.5.19",
     node: "v24.5.0",
     packageManager: "pnpm@9.15.4",
     playwright: "1.55.1",
@@ -41,22 +42,21 @@ const receipt: VerificationReceipt = {
 describe("GitHub Verification Receipt lookup", () => {
   it("enforces signature identity and every current input before reuse", async () => {
     const directory = await mkdtemp(resolve(tmpdir(), "mei-pelle-receipt-command-"));
-    const currentInputsPath = resolve(directory, "current.json");
     const calls: string[][] = [];
-    await writeFile(currentInputsPath, JSON.stringify({
+    const currentInputs = {
       artifact: receipt.artifact,
       browsers: receipt.browsers,
       catalogFingerprint: receipt.catalog.after,
       integration: receipt.integration,
       planFingerprint: receipt.planFingerprint,
       tools: receipt.tools,
-    }));
+    };
 
     try {
       const result = await verifyVerificationReceipt({
         attestationId: "attestation-53",
         bundlePath: resolve(directory, "bundle.json"),
-        currentInputsPath,
+        currentInputs: async () => currentInputs,
         repository: "brandon-y-lee/mei-pelle",
         run: async (_command, args) => {
           calls.push(args);
@@ -93,20 +93,19 @@ describe("GitHub Verification Receipt lookup", () => {
 
   it("rejects a cryptographically verified predicate substituted for another candidate", async () => {
     const directory = await mkdtemp(resolve(tmpdir(), "mei-pelle-receipt-substitution-"));
-    const currentInputsPath = resolve(directory, "current.json");
-    await writeFile(currentInputsPath, JSON.stringify({
+    const currentInputs = {
       artifact: receipt.artifact,
       browsers: receipt.browsers,
       catalogFingerprint: receipt.catalog.after,
       integration: { ...receipt.integration, candidateSha: "d".repeat(40) },
       planFingerprint: receipt.planFingerprint,
       tools: receipt.tools,
-    }));
+    };
 
     try {
       await expect(verifyVerificationReceipt({
         attestationId: "attestation-53",
-        currentInputsPath,
+        currentInputs: async () => currentInputs,
         repository: "brandon-y-lee/mei-pelle",
         run: async () => ({
           stderr: "",
@@ -121,5 +120,32 @@ describe("GitHub Verification Receipt lookup", () => {
     } finally {
       await rm(directory, { force: true, recursive: true });
     }
+  });
+
+  it("reconstructs current inputs instead of trusting a receipt-derived file", async () => {
+    let reads = 0;
+    await expect(verifyVerificationReceipt({
+      attestationId: "attestation-53",
+      currentInputs: async () => {
+        reads += 1;
+        return {
+          artifact: { ...receipt.artifact, runtimeFingerprint: `sha256:${"9".repeat(64)}` },
+          browsers: receipt.browsers,
+          catalogFingerprint: receipt.catalog.after,
+          integration: receipt.integration,
+          planFingerprint: receipt.planFingerprint,
+          tools: receipt.tools,
+        };
+      },
+      repository: "brandon-y-lee/mei-pelle",
+      run: async () => ({
+        stderr: "",
+        stdout: JSON.stringify([{
+          verificationResult: { statement: { predicate: receipt } },
+        }]),
+      }) as never,
+      subjectPath: "/tmp/runtime-subject.json",
+    })).rejects.toThrow("does not match");
+    expect(reads).toBe(1);
   });
 });

@@ -49,8 +49,8 @@ describe("dev Integration Line workflows", () => {
     expect(verification).toContain("persist-credentials: false");
     expect(verification).toContain("scripts/github/prepare-integration-candidate.ts");
     expect(verification).toContain("if: ${{ inputs.gate == 'complete-behavioral' }}");
-    expect(verification).toContain("pnpm tsx scripts/verify-production-ci.ts build");
-    expect(verification).toContain("pnpm tsx scripts/verify-production-ci.ts verify");
+    expect(verification).toContain("scripts/verify-production-ci.ts build");
+    expect(verification).toContain("scripts/verify-production-ci.ts verify");
   });
 
   it("keeps every non-coordinator workflow token explicitly read-only", () => {
@@ -64,20 +64,29 @@ describe("dev Integration Line workflows", () => {
   });
 
   it("uses proportional PR evidence and signs one stable Integration Slot result", () => {
-    expect(ci).toContain("pnpm verify:affected -- --base \"${{ github.base_ref }}\"");
+    expect(ci).toContain("fetch-depth: 0");
+    expect(ci).toContain("pnpm verify:affected -- --base \"origin/${{ github.base_ref }}\"");
     expect(ci).not.toContain("scripts/verify-production-ci.ts verify");
 
     expect(verification).toContain("id-token: write");
     expect(verification).toContain("attestations: write");
     expect(verification).toContain("artifact-metadata: write");
+    expect(verification).toContain("attest-stable-result:");
+    expect(verification).toContain("Install audited signer dependencies");
+    expect(verification).toContain("--ignore-scripts");
+    expect(verification).toContain("Materialize candidate as non-executable input");
     expect(verification).toContain("verification:catalog-fingerprint");
     expect(verification).toContain(
       "scripts/verify-production-ci.ts verify --selection routine-chromium",
     );
     expect(verification).toContain("uses: actions/attest@v4");
     expect(verification).toContain("predicate-type:");
-    expect(verification).toContain("pnpm verification:receipt:verify");
+    expect(verification).toContain("verification:receipt:verify");
+    expect(verification).toContain("PLAYWRIGHT_JSON_OUTPUT_FILE:");
+    expect(verification).toContain("playwright-telemetry.json");
+    expect(verification).toContain('test -s "$PLAYWRIGHT_JSON_OUTPUT_FILE"');
     expect(verification).toContain("retention-days: 30");
     expect(verification).toContain("retention-days: 90");
+    expect(ci).toContain("verification:receipt:protected-push");
   });
 });

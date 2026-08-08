@@ -203,7 +203,7 @@ function requireAuditedWorkflowAuthority(sha) {
     }
     const permissions = workflow.permissions;
     if (path === attestationSigner) {
-      const required = {
+      const requiredSigner = {
         "artifact-metadata": "write",
         attestations: "write",
         contents: "read",
@@ -213,17 +213,33 @@ function requireAuditedWorkflowAuthority(sha) {
         !permissions ||
         typeof permissions !== "object" ||
         Array.isArray(permissions) ||
-        Object.keys(permissions).length !== Object.keys(required).length ||
-        Object.entries(required).some(([permission, access]) => permissions[permission] !== access)
+        Object.keys(permissions).length !== 1 ||
+        permissions.contents !== "read"
       ) {
         throw new Error(
-          `attestation signer workflow must grant only artifact-metadata, attestations, id-token: write and contents: read at ${sha}`,
+          `attestation signer workflow must default to contents: read at ${sha}`,
         );
       }
       for (const [jobName, job] of Object.entries(jobs)) {
-        if (job && typeof job === "object" && !Array.isArray(job) && "permissions" in job) {
+        if (!job || typeof job !== "object" || Array.isArray(job)) continue;
+        if (jobName === "attest-stable-result") {
+          const jobPermissions = job.permissions;
+          if (
+            !jobPermissions ||
+            typeof jobPermissions !== "object" ||
+            Array.isArray(jobPermissions) ||
+            Object.keys(jobPermissions).length !== Object.keys(requiredSigner).length ||
+            Object.entries(requiredSigner).some(
+              ([permission, access]) => jobPermissions[permission] !== access,
+            )
+          ) {
+            throw new Error(
+              `attestation signer job must grant only artifact-metadata, attestations, id-token: write and contents: read at ${sha}`,
+            );
+          }
+        } else if ("permissions" in job) {
           throw new Error(
-            `attestation signer workflow job '${jobName}' must inherit the audited workflow permissions at ${sha}`,
+            `unprivileged attestation workflow job '${jobName}' must inherit contents: read at ${sha}`,
           );
         }
       }
