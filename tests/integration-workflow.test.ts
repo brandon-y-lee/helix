@@ -109,6 +109,13 @@ describe("dev Integration Line workflows", () => {
     expect(verification).toContain("verification:receipt:verify");
     expect(verification).toContain("verification-receipt-command.ts evidence");
     expect(verification).toContain("VERIFICATION_EVIDENCE_PATH:");
+    const signerJobEnvironment = verification
+      .split("  attest-stable-result:")[1]!
+      .split("    steps:")[0]!;
+    expect(signerJobEnvironment).not.toContain("runner.temp");
+    expect(verification).toContain(
+      "Prepare canonical Verification Receipt with audited code\n        id: receipt\n        env:\n          VERIFICATION_EVIDENCE_PATH: ${{ runner.temp }}/verification-evidence/execution.json",
+    );
     expect(verification).toContain("VERIFICATION_BROWSER_VERSION:");
     expect(verification).toContain("PLAYWRIGHT_JSON_OUTPUT_FILE:");
     expect(verification).toContain("playwright-telemetry.json");

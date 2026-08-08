@@ -228,7 +228,6 @@ jobs:
       VERIFICATION_DEV_BASE: ${{ inputs.dev_base }}
       VERIFICATION_PULL_REQUEST: ${{ inputs.pr_number }}
       VERIFICATION_WORKFLOW_RUN: ${{ github.run_id }}-${{ github.run_attempt }}
-      VERIFICATION_EVIDENCE_PATH: ${{ runner.temp }}/verification-evidence/execution.json
     steps:
       - name: Checkout audited signer from dev
         uses: actions/checkout@v4
@@ -278,6 +277,7 @@ jobs:
       - name: Prepare canonical Verification Receipt with audited code
         id: receipt
         env:
+          VERIFICATION_EVIDENCE_PATH: ${{ runner.temp }}/verification-evidence/execution.json
           CATALOG_FINGERPRINT_AFTER: ${{ needs.verify-frozen-candidate.outputs.catalog-after }}
           CATALOG_FINGERPRINT_BEFORE: ${{ needs.verify-frozen-candidate.outputs.catalog-before }}
           CATALOG_FINGERPRINT_CURRENT: ${{ steps.catalog-current.outputs.fingerprint }}
