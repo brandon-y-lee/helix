@@ -118,6 +118,9 @@ describe("dev Integration Line workflows", () => {
       'sudo cp -a -- "$pnpm_runtime_root/." /opt/mei-pelle-pnpm-runtime/',
     );
     expect(verification).toContain(
+      "sudo chown -R root:root -- /opt/mei-pelle-pnpm-runtime",
+    );
+    expect(verification).toContain(
       'sudo chmod -R a-w -- /opt/mei-pelle-pnpm-runtime',
     );
     expect(verification).toContain(
@@ -125,6 +128,12 @@ describe("dev Integration Line workflows", () => {
     );
     expect(verification).toContain(
       "sudo -u verifier-candidate test -x /opt/mei-pelle-pnpm-runtime/.bin/pnpm",
+    );
+    expect(verification).toContain(
+      "test \"$(stat -Lc '%u:%g' /opt/mei-pelle-pnpm-runtime/.bin/pnpm)\" = 0:0",
+    );
+    expect(verification).toContain(
+      "sudo -u verifier-candidate test ! -w /opt/mei-pelle-pnpm-runtime/.bin/pnpm",
     );
     expect(verification).not.toContain('sudo chmod -R a+rX "$(dirname "$PNPM_HOME")"');
     expect(verification.indexOf("Isolate candidate execution from the audited runner")).toBeLessThan(

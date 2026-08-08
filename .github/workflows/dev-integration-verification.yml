@@ -105,12 +105,15 @@ jobs:
           test -d "$pnpm_runtime_root"
           sudo install -d -m 0755 /opt/mei-pelle-pnpm-runtime
           sudo cp -a -- "$pnpm_runtime_root/." /opt/mei-pelle-pnpm-runtime/
+          sudo chown -R root:root -- /opt/mei-pelle-pnpm-runtime
           sudo chmod -R a+rX -- /opt/mei-pelle-pnpm-runtime
           sudo chmod -R a-w -- /opt/mei-pelle-pnpm-runtime
           echo "/opt/mei-pelle-pnpm-runtime/.bin" >> "$GITHUB_PATH"
           sudo chown -R verifier-candidate:verifier-candidate candidate
           chmod -R a-w trusted
+          test "$(stat -Lc '%u:%g' /opt/mei-pelle-pnpm-runtime/.bin/pnpm)" = 0:0
           sudo -u verifier-candidate test -x /opt/mei-pelle-pnpm-runtime/.bin/pnpm
+          sudo -u verifier-candidate test ! -w /opt/mei-pelle-pnpm-runtime/.bin/pnpm
           sudo -u verifier-candidate test ! -w trusted/scripts/github/verification-receipt-command.ts
 
       - name: Install frozen candidate dependencies
