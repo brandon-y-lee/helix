@@ -19,6 +19,7 @@ import {
   type CSSProperties,
   type FocusEvent,
   type KeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { ProductImage } from "@/components/product/ProductImage";
@@ -164,7 +165,9 @@ export function ProductCard({
     clientX: number;
     clientY: number;
     pointerType: string;
+    viewport: { scrollX: number; scrollY: number };
   } | null>(null);
+  const viewportRestoreFrameRef = useRef<number | null>(null);
   const controlled = quickBuyOpen !== undefined;
   const [localQuickBuyOpen, setLocalQuickBuyOpen] = useState(false);
   const [added, setAdded] = useState(false);
@@ -254,6 +257,9 @@ export function ProductCard({
       if (pointerPreviewTimeoutRef.current) {
         window.clearTimeout(pointerPreviewTimeoutRef.current);
       }
+      if (viewportRestoreFrameRef.current) {
+        window.cancelAnimationFrame(viewportRestoreFrameRef.current);
+      }
     };
   }, []);
 
@@ -305,7 +311,13 @@ export function ProductCard({
       }
     };
     restoreViewport();
-    window.requestAnimationFrame(restoreViewport);
+    if (viewportRestoreFrameRef.current) {
+      window.cancelAnimationFrame(viewportRestoreFrameRef.current);
+    }
+    viewportRestoreFrameRef.current = window.requestAnimationFrame(() => {
+      viewportRestoreFrameRef.current = null;
+      restoreViewport();
+    });
   }
 
   function focusTriggerWithoutScrolling() {
@@ -317,6 +329,11 @@ export function ProductCard({
   function closeQuickBuy({
     focusTrigger = true,
     restorePointerPreview = false,
+    viewport,
+  }: {
+    focusTrigger?: boolean;
+    restorePointerPreview?: boolean;
+    viewport?: { scrollX: number; scrollY: number };
   } = {}) {
     if (controlled) {
       onQuickBuyClose?.();
@@ -339,6 +356,8 @@ export function ProductCard({
     }
     if (focusTrigger) {
       focusTriggerWithoutScrolling();
+    } else {
+      preserveViewportAfterUpdate(viewport);
     }
   }
 
@@ -395,6 +414,7 @@ export function ProductCard({
       clientX: event.clientX,
       clientY: event.clientY,
       pointerType: event.pointerType || "mouse",
+      viewport: { scrollX: window.scrollX, scrollY: window.scrollY },
     };
   }
 
@@ -403,13 +423,24 @@ export function ProductCard({
       clientX: 0,
       clientY: 0,
       pointerType: "touch",
+      viewport: { scrollX: window.scrollX, scrollY: window.scrollY },
     };
   }
 
-  function handleCloseClick() {
+  function handleCloseClick(event: ReactMouseEvent<HTMLButtonElement>) {
+    const closePointer = closePointerRef.current;
+    const closeWasTouch =
+      closePointer?.pointerType === "touch" && !lastInputWasKeyboardRef.current;
+    const viewport = closeWasTouch ? closePointer.viewport : undefined;
+    if (viewport) {
+      event.currentTarget.blur();
+    }
     closeQuickBuy({
+      focusTrigger: !closeWasTouch,
       restorePointerPreview: !lastInputWasKeyboardRef.current,
+      viewport,
     });
+    closePointerRef.current = null;
   }
 
   async function handleFinalBuy() {
@@ -427,7 +458,6 @@ export function ProductCard({
       },
       beforeDrawerOpen: () => {
         closeQuickBuy({ focusTrigger: false });
-        preserveViewportAfterUpdate();
       },
       returnFocus: focusTriggerWithoutScrolling,
     });

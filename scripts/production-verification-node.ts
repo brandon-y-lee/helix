@@ -14,6 +14,7 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { promisify } from "node:util";
 import { parse } from "dotenv";
+import { BROWSER_VERIFICATION_PLAN } from "./browser-verification-plan";
 import {
   prepareProductionVerificationEnvironment,
   ProductionVerificationChildError,
@@ -51,6 +52,10 @@ export type OwnedCommandInput = {
   label: string;
   signal?: AbortSignal;
   stdio?: "ignore" | "inherit";
+};
+
+type NodeProductionVerificationDependencies = {
+  runCommand?: (input: OwnedCommandInput) => Promise<void>;
 };
 
 type ProcessTreeControl = {
@@ -796,11 +801,13 @@ async function readCurrentCommitSha(cwd: string): Promise<string> {
 export async function createNodeProductionVerificationAdapters(
   cwd: string,
   env: NodeJS.ProcessEnv,
+  dependencies: NodeProductionVerificationDependencies = {},
 ): Promise<NodeProductionVerificationAdapters> {
   const require = createRequire(import.meta.url);
   const nextCli = require.resolve("next/dist/bin/next");
   const playwrightCli = require.resolve("@playwright/test/cli");
   const receiptPath = resolve(cwd, PRODUCTION_ARTIFACT_RECEIPT_PATH);
+  const executeOwnedCommand = dependencies.runCommand ?? runOwnedCommand;
 
   return {
     acquireLock: () => acquireCheckoutLock({ cwd }),
@@ -811,7 +818,7 @@ export async function createNodeProductionVerificationAdapters(
     selectFreePort,
     isPortAvailable,
     build: async ({ signal }) => {
-      await runOwnedCommand({
+      await executeOwnedCommand({
         args: [nextCli, "build"],
         command: process.execPath,
         cwd,
@@ -856,19 +863,51 @@ export async function createNodeProductionVerificationAdapters(
         env,
       }),
     waitForBuildIdentity: waitForExpectedBuild,
-    runBrowserTests: ({ baseURL, signal }) =>
-      runOwnedCommand({
-        args: [playwrightCli, "test"],
-        command: process.execPath,
-        cwd,
-        env: {
-          ...env,
-          MEI_PELLE_VERIFICATION_ADAPTER: "1",
-          MEI_PELLE_VERIFICATION_BASE_URL: baseURL,
-          PLAYWRIGHT_HTML_OPEN: "never",
-        },
-        label: "Playwright browser tests",
-        signal,
-      }),
+    runBrowserTests: async ({ baseURL, selection, signal }) => {
+      const runPlaywright = (
+        project: "chromium" | "webkit" | undefined,
+        journeyIds: readonly string[] | undefined,
+      ) => {
+        const testFiles = journeyIds?.map((journeyId) => {
+          const journey = BROWSER_VERIFICATION_PLAN.journeys.find(
+            (candidate) => candidate.id === journeyId,
+          );
+          if (!journey) {
+            throw new Error(`Unknown browser journey "${journeyId}".`);
+          }
+          return journey.testFile;
+        });
+        return executeOwnedCommand({
+          args: [
+            playwrightCli,
+            "test",
+            ...(testFiles ?? []),
+            ...(project ? ["--project", project] : []),
+          ],
+          command: process.execPath,
+          cwd,
+          env: {
+            ...env,
+            MEI_PELLE_VERIFICATION_ADAPTER: "1",
+            MEI_PELLE_VERIFICATION_BASE_URL: baseURL,
+            MEI_PELLE_VERIFICATION_PROJECT: project ?? "",
+            PLAYWRIGHT_HTML_OPEN: "never",
+          },
+          label: `Playwright${project ? ` ${project}` : ""} browser tests`,
+          signal,
+        });
+      };
+
+      if (!selection) {
+        await runPlaywright(undefined, undefined);
+        return;
+      }
+      if (selection.projects.includes("chromium")) {
+        await runPlaywright("chromium", selection.journeyIds);
+      }
+      if (selection.projects.includes("webkit")) {
+        await runPlaywright("webkit", selection.webkitJourneyIds);
+      }
+    },
   };
 }

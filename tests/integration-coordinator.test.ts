@@ -43,6 +43,23 @@ describe("GitHub Integration Coordinator adapter", () => {
     });
   });
 
+  it.each([
+    "playwright.config.ts",
+    "scripts/affected-browser-verification.ts",
+    "scripts/browser-verification-plan.ts",
+    "scripts/verify-affected.ts",
+    "tests/affected-browser-verification-command.test.ts",
+  ])("keeps affected browser verification changes on the verification-system gate: %s", (path) => {
+    const candidate = toIntegrationCandidate(
+      pullRequestFact({
+        body: "## Workflow path\n\n- Path: trivial\n- Fast-path proof: N/A\n",
+        files: [{ path }],
+      }),
+    );
+
+    expect(candidate.workClass).toBe("verification-system");
+  });
+
   it("keeps review handoffs out of the ready queue", () => {
     const candidate = toIntegrationCandidate(
       pullRequestFact({ labels: [{ name: "workflow:review" }] }),

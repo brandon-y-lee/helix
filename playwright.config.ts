@@ -1,4 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
+import { BROWSER_VERIFICATION_PLAN } from "./scripts/browser-verification-plan";
 
 const verificationAdapter = process.env.MEI_PELLE_VERIFICATION_ADAPTER === "1";
 const verificationBaseURL = process.env.MEI_PELLE_VERIFICATION_BASE_URL;
@@ -24,18 +25,15 @@ export default defineConfig({
     baseURL: verificationBaseURL,
     trace: "on-first-retry",
   },
-  projects: [
-    {
-      name: "chromium",
-      use: { ...devices["Desktop Chrome"] },
-    },
-    ...(!process.env.CI
-      ? [
-          {
-            name: "webkit",
-            use: { ...devices["Desktop Safari"] },
-          },
-        ]
-      : []),
-  ],
+  projects: BROWSER_VERIFICATION_PLAN.projects
+    .filter(
+      ({ name }) =>
+        name === "chromium" ||
+        !process.env.CI ||
+        process.env.MEI_PELLE_VERIFICATION_PROJECT === name,
+    )
+    .map(({ device, name }) => ({
+      name,
+      use: { ...devices[device] },
+    })),
 });
