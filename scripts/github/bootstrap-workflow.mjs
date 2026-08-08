@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { spawnSync } from "node:child_process";
+import { parse as parseYaml } from "yaml";
 
 const API_VERSION = "2026-03-10";
 const EXPECTED_REPOSITORY = "brandon-y-lee/mei-pelle";
@@ -161,19 +162,87 @@ function requireSoleWriteCoordinator(sha) {
   }
   for (const path of workflows) {
     const contents = runGit(["show", `${sha}:${path}`]).stdout;
+    let workflow;
+    try {
+      workflow = parseYaml(contents);
+    } catch (error) {
+      throw new Error(
+        `workflow '${path}' is not valid YAML at ${sha}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+    if (!workflow || typeof workflow !== "object" || Array.isArray(workflow)) {
+      throw new Error(`workflow '${path}' must be a YAML object at ${sha}`);
+    }
+    const jobs = workflow.jobs;
+    if (!jobs || typeof jobs !== "object" || Array.isArray(jobs)) {
+      throw new Error(`workflow '${path}' must declare jobs at ${sha}`);
+    }
     if (path === coordinator) {
-      for (const permission of ["actions", "contents", "issues", "pull-requests"]) {
-        if (!contents.includes(`  ${permission}: write`)) {
-          throw new Error(`coordinator workflow must declare ${permission}: write at ${sha}`);
+      const required = ["actions", "contents", "issues", "pull-requests"];
+      const permissions = workflow.permissions;
+      if (!permissions || typeof permissions !== "object" || Array.isArray(permissions)) {
+        throw new Error(`coordinator workflow must declare an explicit permission map at ${sha}`);
+      }
+      if (
+        Object.keys(permissions).length !== required.length ||
+        required.some((permission) => permissions[permission] !== "write")
+      ) {
+        throw new Error(
+          `coordinator workflow must grant only ${required.join(", ")}: write at ${sha}`,
+        );
+      }
+      for (const [jobName, job] of Object.entries(jobs)) {
+        if (job && typeof job === "object" && !Array.isArray(job) && "permissions" in job) {
+          throw new Error(
+            `coordinator workflow job '${jobName}' must inherit the audited workflow permissions at ${sha}`,
+          );
         }
       }
       continue;
     }
-    if (!contents.includes("permissions:\n  contents: read")) {
-      throw new Error(`non-coordinator workflow '${path}' must declare contents: read at ${sha}`);
+    const permissions = workflow.permissions;
+    if (
+      !permissions ||
+      typeof permissions !== "object" ||
+      Array.isArray(permissions) ||
+      Object.keys(permissions).length !== 1 ||
+      permissions.contents !== "read"
+    ) {
+      throw new Error(
+        `non-coordinator workflow '${path}' must grant only contents: read at ${sha}`,
+      );
     }
-    if (/^\s+(actions|contents|issues|pull-requests):\s*write\s*$/m.test(contents)) {
-      throw new Error(`non-coordinator workflow '${path}' requests write authority at ${sha}`);
+    for (const [jobName, job] of Object.entries(jobs)) {
+      if (!job || typeof job !== "object" || Array.isArray(job) || !("permissions" in job)) {
+        continue;
+      }
+      const jobPermissions = job.permissions;
+      if (jobPermissions === "write-all") {
+        throw new Error(
+          `non-coordinator workflow '${path}' job '${jobName}' requests write-all at ${sha}`,
+        );
+      }
+      if (
+        typeof jobPermissions !== "object" ||
+        Array.isArray(jobPermissions) ||
+        jobPermissions === null
+      ) {
+        throw new Error(
+          `non-coordinator workflow '${path}' job '${jobName}' has an unrecognized permission declaration at ${sha}`,
+        );
+      }
+      for (const [permission, access] of Object.entries(jobPermissions)) {
+        if (access === "write") {
+          throw new Error(
+            `non-coordinator workflow '${path}' job '${jobName}' requests ${permission}: write at ${sha}`,
+          );
+        }
+        if (access !== "read" && access !== "none") {
+          throw new Error(
+            `non-coordinator workflow '${path}' job '${jobName}' has invalid ${permission} permission at ${sha}`,
+          );
+        }
+      }
     }
   }
 }

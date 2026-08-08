@@ -74,11 +74,11 @@ function initialiseRepository(): { root: string; tempRoot: string } {
   mkdirSync(join(root, ".github", "workflows"), { recursive: true });
   writeFileSync(
     join(root, ".github", "workflows", "dev-integration.yml"),
-    "name: coordinator\npermissions:\n  actions: write\n  contents: write\n  issues: write\n  pull-requests: write\n",
+    "name: coordinator\npermissions:\n  actions: write\n  contents: write\n  issues: write\n  pull-requests: write\njobs:\n  coordinate:\n    runs-on: ubuntu-latest\n    steps: []\n",
   );
   writeFileSync(
     join(root, ".github", "workflows", "dev-integration-verification.yml"),
-    "name: verification\npermissions:\n  contents: read\n",
+    "name: verification\npermissions:\n  contents: read\njobs:\n  verify:\n    runs-on: ubuntu-latest\n    steps: []\n",
   );
   expectSuccess(git(root, "add", "README.md", ".github/workflows"));
   expectSuccess(git(root, "commit", "-m", "Initial fixture"));
@@ -821,13 +821,22 @@ describe("GitHub workflow bootstrap", () => {
         mutateRepo: (root) => {
           writeFileSync(
             join(root, ".github", "workflows", "rogue.yml"),
-            "name: rogue\npermissions:\n  contents: write\n",
+            [
+              "name: rogue",
+              "permissions: { contents: read }",
+              "jobs:",
+              "  mutate:",
+              "    permissions: write-all",
+              "    runs-on: ubuntu-latest",
+              "    steps: []",
+              "",
+            ].join("\n"),
           );
           expectSuccess(git(root, "add", ".github/workflows/rogue.yml"));
           expectSuccess(git(root, "commit", "-m", "Add rogue workflow"));
           expectSuccess(git(root, "branch", "-f", "dev", "HEAD"));
         },
-        expected: /non-coordinator workflow '.github\/workflows\/rogue.yml' must declare contents: read|requests write authority/,
+        expected: /non-coordinator workflow '.github\/workflows\/rogue.yml' job 'mutate' requests write-all/,
       },
     ];
 
