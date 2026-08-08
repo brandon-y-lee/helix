@@ -7,7 +7,7 @@ on:
   push:
     branches: [dev, main]
   pull_request:
-    branches: [dev, main]
+    branches: [dev, main, "codex/spec-*"]
 
 # Cancel superseded runs on the same ref to save CI minutes.
 concurrency:
@@ -80,15 +80,15 @@ jobs:
       # Strict branch protection tests the current PR merge tree. Protected-branch
       # pushes retain Gates 1-4 without repeating the identical browser workload.
       - name: Install Playwright browsers
-        if: ${{ github.event_name == 'pull_request' }}
+        if: ${{ github.event_name == 'pull_request' && !startsWith(github.base_ref, 'codex/spec-') }}
         run: pnpm exec playwright install --with-deps chromium
 
       - name: Build receipted production artifact
-        if: ${{ github.event_name == 'pull_request' }}
+        if: ${{ github.event_name == 'pull_request' && !startsWith(github.base_ref, 'codex/spec-') }}
         run: pnpm tsx scripts/verify-production-ci.ts build
 
       - name: Verify receipted production artifact
-        if: ${{ github.event_name == 'pull_request' }}
+        if: ${{ github.event_name == 'pull_request' && !startsWith(github.base_ref, 'codex/spec-') }}
         run: pnpm tsx scripts/verify-production-ci.ts verify
 
       - name: Upload Playwright report
@@ -98,4 +98,47 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 7
+          if-no-files-found: ignore
+
+  affected-browser-verification:
+    if: ${{ github.event_name == 'pull_request' && startsWith(github.base_ref, 'codex/spec-') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      NEXT_PUBLIC_ALGOLIA_APP_ID: ${{ secrets.NEXT_PUBLIC_ALGOLIA_APP_ID }}
+      NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY: ${{ secrets.NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY }}
+      NEXT_PUBLIC_ALGOLIA_INDEX_NAME: ${{ secrets.NEXT_PUBLIC_ALGOLIA_INDEX_NAME }}
+    steps:
+      - name: Checkout pull request merge tree
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install affected browser engines
+        run: pnpm exec playwright install --with-deps chromium webkit
+
+      - name: Run affected browser verification
+        run: pnpm verify:affected -- --base "origin/${{ github.base_ref }}"
+
+      - name: Upload affected Playwright report
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: affected-playwright-report
+          path: playwright-report/
+          retention-days: 90
           if-no-files-found: ignore

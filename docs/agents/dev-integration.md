@@ -30,6 +30,7 @@ pnpm github:workflow:apply -- \
   --confirm-dev-sha <audited-dev-sha> \
   --confirm-ci-sha <same-CI-verified-sha> \
   --confirm-integration-cutover dev-integration-authority \
+  --confirm-spec-branch-cutover protected-spec-branches \
   --confirm-integration-app-id <app-id-printed-by-plan>
 ```
 

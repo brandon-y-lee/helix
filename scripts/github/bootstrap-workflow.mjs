@@ -6,7 +6,9 @@ import { parse as parseYaml } from "yaml";
 const API_VERSION = "2026-03-10";
 const EXPECTED_REPOSITORY = "brandon-y-lee/mei-pelle";
 const INTEGRATION_RULESET_NAME = "dev Integration Line authority";
+const SPEC_RULESET_NAME = "spec branch pull request integration";
 const INTEGRATION_CUTOVER_CONFIRMATION = "dev-integration-authority";
+const SPEC_BRANCH_CUTOVER_CONFIRMATION = "protected-spec-branches";
 const ghBin = process.env.GH_BIN ?? "gh";
 const gitBin = process.env.GIT_BIN ?? "git";
 
@@ -21,6 +23,7 @@ const desiredLabels = [
   ["workflow:planned", "C5DEF5", "Approved and decomposed into tickets"],
   ["workflow:in-progress", "FBCA04", "Claimed work in progress"],
   ["workflow:review", "D4C5F9", "Implementation awaiting review or CI"],
+  ["workflow:spec-integrated", "0E8A16", "Ticket integrated into its parent spec branch"],
   ["workflow:integration-queued", "C5DEF5", "Ready dev pull request awaiting the Integration Slot"],
   ["workflow:integration-active", "B60205", "Current frozen dev Integration Slot owner"],
   ["workflow:urgent", "D93F0B", "Human-approved active production or security urgency"],
@@ -64,7 +67,7 @@ function runGit(args, options = {}) {
 function parseArgs(argv) {
   const [mode, ...rest] = argv;
   if (mode !== "plan" && mode !== "apply") {
-    fail("usage: bootstrap-workflow.mjs <plan|apply> --repo <owner/repo> [--confirm-repo <owner/repo> --confirm-dev-sha <sha> --confirm-ci-sha <sha> --confirm-integration-cutover dev-integration-authority --confirm-integration-app-id <id>]");
+    fail("usage: bootstrap-workflow.mjs <plan|apply> --repo <owner/repo> [--confirm-repo <owner/repo> --confirm-dev-sha <sha> --confirm-ci-sha <sha> --confirm-integration-cutover dev-integration-authority --confirm-spec-branch-cutover protected-spec-branches --confirm-integration-app-id <id>]");
   }
 
   const parsed = {
@@ -74,6 +77,7 @@ function parseArgs(argv) {
     confirmDevSha: "",
     confirmCiSha: "",
     confirmIntegrationCutover: "",
+    confirmSpecBranchCutover: "",
     confirmIntegrationAppId: "",
   };
   for (let index = 0; index < rest.length; index += 1) {
@@ -85,6 +89,7 @@ function parseArgs(argv) {
     else if (flag === "--confirm-dev-sha") parsed.confirmDevSha = value;
     else if (flag === "--confirm-ci-sha") parsed.confirmCiSha = value;
     else if (flag === "--confirm-integration-cutover") parsed.confirmIntegrationCutover = value;
+    else if (flag === "--confirm-spec-branch-cutover") parsed.confirmSpecBranchCutover = value;
     else if (flag === "--confirm-integration-app-id") parsed.confirmIntegrationAppId = value;
     else fail(`unknown option '${flag}'`);
     index += 1;
@@ -344,6 +349,45 @@ function desiredIntegrationRuleset(appId) {
   };
 }
 
+function desiredSpecRuleset(appId) {
+  return {
+    name: SPEC_RULESET_NAME,
+    target: "branch",
+    enforcement: "active",
+    bypass_actors: [
+      { actor_id: appId, actor_type: "Integration", bypass_mode: "always" },
+    ],
+    conditions: { ref_name: { include: ["refs/heads/codex/spec-*"], exclude: [] } },
+    rules: [
+      { type: "update", parameters: { update_allows_fetch_and_merge: false } },
+      { type: "deletion" },
+      { type: "non_fast_forward" },
+      {
+        type: "pull_request",
+        parameters: {
+          allowed_merge_methods: ["squash"],
+          dismiss_stale_reviews_on_push: true,
+          require_code_owner_review: false,
+          require_last_push_approval: false,
+          required_approving_review_count: 0,
+          required_review_thread_resolution: true,
+        },
+      },
+      {
+        type: "required_status_checks",
+        parameters: {
+          required_status_checks: [
+            { context: "ci", integration_id: appId },
+            { context: "affected-browser-verification", integration_id: appId },
+          ],
+          strict_required_status_checks_policy: true,
+          do_not_enforce_on_create: false,
+        },
+      },
+    ],
+  };
+}
+
 function containsDesired(value, desired) {
   if (Array.isArray(desired)) {
     return (
@@ -362,7 +406,7 @@ function containsDesired(value, desired) {
   return value === desired;
 }
 
-function readIntegrationRuleset(repo) {
+function readRuleset(repo, name, description) {
   const rulesets = parseJson(
     runGh([
       "api",
@@ -372,7 +416,7 @@ function readIntegrationRuleset(repo) {
     ]),
     "repository ruleset inspection",
   );
-  const summary = rulesets.find((ruleset) => ruleset.name === INTEGRATION_RULESET_NAME);
+  const summary = rulesets.find((ruleset) => ruleset.name === name);
   if (!summary) return null;
   return parseJson(
     runGh([
@@ -381,7 +425,7 @@ function readIntegrationRuleset(repo) {
       "-H",
       `X-GitHub-Api-Version: ${API_VERSION}`,
     ]),
-    "dev Integration Line ruleset inspection",
+    description,
   );
 }
 
@@ -624,7 +668,11 @@ function collectPlan(repo) {
   }
 
   const desiredRuleset = desiredIntegrationRuleset(coordinatorAppId);
-  const observedRuleset = readIntegrationRuleset(repo);
+  const observedRuleset = readRuleset(
+    repo,
+    INTEGRATION_RULESET_NAME,
+    "dev Integration Line ruleset inspection",
+  );
   if (!containsDesired(observedRuleset, desiredRuleset)) {
     actions.push({
       description: `${observedRuleset ? "update" : "create"} dev Integration Line authority ruleset for GitHub App ${coordinatorAppId}`,
@@ -643,6 +691,35 @@ function collectPlan(repo) {
             "-",
           ],
           { input: JSON.stringify(desiredRuleset) },
+        );
+      },
+    });
+  }
+
+  const desiredSpecBranchRuleset = desiredSpecRuleset(coordinatorAppId);
+  const observedSpecBranchRuleset = readRuleset(
+    repo,
+    SPEC_RULESET_NAME,
+    "spec branch ruleset inspection",
+  );
+  if (!containsDesired(observedSpecBranchRuleset, desiredSpecBranchRuleset)) {
+    actions.push({
+      description: `${observedSpecBranchRuleset ? "update" : "create"} protected spec branch ruleset for GitHub App ${coordinatorAppId}`,
+      apply: () => {
+        runGh(
+          [
+            "api",
+            "--method",
+            observedSpecBranchRuleset ? "PUT" : "POST",
+            observedSpecBranchRuleset
+              ? `repos/${repo}/rulesets/${observedSpecBranchRuleset.id}`
+              : `repos/${repo}/rulesets`,
+            "-H",
+            `X-GitHub-Api-Version: ${API_VERSION}`,
+            "--input",
+            "-",
+          ],
+          { input: JSON.stringify(desiredSpecBranchRuleset) },
         );
       },
     });
@@ -677,6 +754,9 @@ function main() {
   }
   if (options.confirmIntegrationCutover !== INTEGRATION_CUTOVER_CONFIRMATION) {
     fail(`apply requires --confirm-integration-cutover ${INTEGRATION_CUTOVER_CONFIRMATION}`);
+  }
+  if (options.confirmSpecBranchCutover !== SPEC_BRANCH_CUTOVER_CONFIRMATION) {
+    fail(`apply requires --confirm-spec-branch-cutover ${SPEC_BRANCH_CUTOVER_CONFIRMATION}`);
   }
   if (options.confirmIntegrationAppId !== String(plan.coordinatorAppId)) {
     fail(`apply requires --confirm-integration-app-id ${plan.coordinatorAppId}`);

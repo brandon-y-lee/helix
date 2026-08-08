@@ -91,8 +91,9 @@ function startTask(
   root: string,
   tempRoot: string,
   slug: string,
+  ...args: string[]
 ): { result: CommandResult; worktree?: string } {
-  const result = run(taskHelper, ["start", slug], root, {
+  const result = run(taskHelper, ["start", slug, ...args], root, {
     env: { TMPDIR: join(tempRoot, "tasks") },
   });
   const worktree = result.stdout.match(/^Task worktree: (.+)$/m)?.[1];
@@ -120,6 +121,20 @@ function cleanupFixture(tempRoot: string): void {
 }
 
 describe("GitHub Actions CI", () => {
+  it("gates spec child pull requests with fast CI and affected browser verification", () => {
+    expect(ciWorkflow).toContain('branches: [dev, main, "codex/spec-*"]');
+    expect(ciWorkflow).toContain("  affected-browser-verification:");
+    expect(ciWorkflow).toContain("startsWith(github.base_ref, 'codex/spec-')");
+    expect(ciWorkflow).toContain('pnpm verify:affected -- --base "origin/${{ github.base_ref }}"');
+    for (const name of [
+      "Install Playwright browsers",
+      "Build receipted production artifact",
+      "Verify receipted production artifact",
+    ]) {
+      expect(workflowStep(name)).toContain("!startsWith(github.base_ref, 'codex/spec-')");
+    }
+  });
+
   it("receives the approved public runtime configuration from repository secrets", () => {
     for (const key of ciPublicRuntimeSecrets) {
       expect(ciWorkflow).toContain(`${key}: \${{ secrets.${key} }}`);
@@ -137,7 +152,7 @@ describe("GitHub Actions CI", () => {
       "Verify receipted production artifact",
     ]) {
       expect(workflowStep(name)).toContain(
-        "if: ${{ github.event_name == 'pull_request' }}",
+        "github.event_name == 'pull_request'",
       );
     }
 
@@ -152,6 +167,52 @@ describe("GitHub Actions CI", () => {
 });
 
 describe("Codex workflow task helper", () => {
+  it("creates a spec integration branch from current dev and starts sibling tickets from it", () => {
+    const { root, tempRoot } = initialiseRepository();
+    try {
+      const devSha = git(root, "rev-parse", "dev").stdout.trim();
+      const spec = run(taskHelper, ["spec-start", "45-checkout-lifecycle"], root);
+      expectSuccess(spec);
+      expect(spec.stdout).toContain("Created codex/spec-45-checkout-lifecycle");
+      expect(git(root, "rev-parse", "codex/spec-45-checkout-lifecycle").stdout.trim()).toBe(
+        devSha,
+      );
+
+      const first = startTask(root, tempRoot, "123-first-slice", "--spec", "45-checkout-lifecycle");
+      const second = startTask(root, tempRoot, "124-second-slice", "--spec", "45-checkout-lifecycle");
+      expectSuccess(first.result);
+      expectSuccess(second.result);
+      expect(git(first.worktree!, "merge-base", "--is-ancestor", "codex/spec-45-checkout-lifecycle", "HEAD").status).toBe(0);
+      expect(git(second.worktree!, "merge-base", "--is-ancestor", "codex/spec-45-checkout-lifecycle", "HEAD").status).toBe(0);
+      expect(first.result.stdout).toContain("Pull request base: codex/spec-45-checkout-lifecycle");
+      expect(second.result.stdout).toContain("Pull request base: codex/spec-45-checkout-lifecycle");
+      commitTicket(first.worktree!, 123, 45);
+      const prepared = run(taskHelper, ["prepare", first.worktree!], root);
+      expectSuccess(prepared);
+      expect(prepared.stdout).toContain(
+        "Ready for code-review against codex/spec-45-checkout-lifecycle",
+      );
+      expect(prepared.stdout).toContain(
+        "open a ready PR targeting codex/spec-45-checkout-lifecycle",
+      );
+    } finally {
+      cleanupFixture(tempRoot);
+    }
+  });
+
+  it("rejects a child base that is a ticket branch instead of the parent spec branch", () => {
+    const { root, tempRoot } = initialiseRepository();
+    try {
+      expectSuccess(git(root, "branch", "codex/122-foundation", "dev"));
+      const started = startTask(root, tempRoot, "123-dependent", "--spec", "122-foundation");
+      expect(started.result.status).not.toBe(0);
+      expect(started.result.stderr).toContain("spec base must be codex/spec-<number>-<slug>");
+      expect(git(root, "show-ref", "--verify", "--quiet", "refs/heads/codex/123-dependent").status).not.toBe(0);
+    } finally {
+      cleanupFixture(tempRoot);
+    }
+  });
+
   it("starts ticket and planning worktrees with recorded review bases", () => {
     for (const slug of [
       "123-checkout-state",
@@ -439,7 +500,7 @@ if (args[0] === "api") {
     const body = JSON.parse(input);
     state.rulesets ??= [];
     if (method === "POST") {
-      body.id = 9001;
+      body.id = 9001 + state.rulesets.length;
       state.rulesets.push(body);
     } else {
       const index = state.rulesets.findIndex((entry) => String(entry.id) === rulesetId);
@@ -527,11 +588,15 @@ describe("GitHub workflow bootstrap", () => {
       expectSuccess(planned);
       expect(planned.stdout).toContain(`create remote dev at ${devSha}`);
       expect(planned.stdout).toContain("create label type:spec");
+      expect(planned.stdout).toContain("create label workflow:spec-integrated");
       expect(planned.stdout).toContain("create label workflow:integration-queued");
       expect(planned.stdout).toContain("create label workflow:integration-active");
       expect(planned.stdout).toContain("create label workflow:urgent");
       expect(planned.stdout).toContain(
         "create dev Integration Line authority ruleset for GitHub App 15368",
+      );
+      expect(planned.stdout).toContain(
+        "create protected spec branch ruleset for GitHub App 15368",
       );
       expect(planned.stdout).toContain("set default Actions workflow permissions to read-only");
       expect(planned.stdout).toContain("update repository merge settings");
@@ -639,6 +704,8 @@ describe("GitHub workflow bootstrap", () => {
         devSha,
         "--confirm-integration-cutover",
         "dev-integration-authority",
+        "--confirm-spec-branch-cutover",
+        "protected-spec-branches",
         "--confirm-integration-app-id",
         "15368",
       );
@@ -748,6 +815,8 @@ describe("GitHub workflow bootstrap", () => {
         devSha,
         "--confirm-integration-cutover",
         "dev-integration-authority",
+        "--confirm-spec-branch-cutover",
+        "protected-spec-branches",
         "--confirm-integration-app-id",
         "15368",
       );
