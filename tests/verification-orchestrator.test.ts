@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  evaluateProductionPromotion,
+  runWindowsLifecycleVerification,
+  runScheduledBrowserVerification,
   runIntegrationLine,
+  type OperationalVerificationIssueAdapter,
+  type ScheduledBrowserVerificationAdapter,
+  type ScheduledVerificationIdentity,
   type GitAdapter,
   type IntegrationCandidate,
   type MergeAdapter,
@@ -9,7 +15,236 @@ import {
   type VerificationAdapter,
 } from "@/scripts/github/verification-orchestrator";
 
+const scheduledIdentity: ScheduledVerificationIdentity = {
+  browser: { name: "webkit", version: "playwright-webkit-1.55.1" },
+  catalogFingerprint: "sha256:catalog-1",
+  planFingerprint: "sha256:plan-1",
+  runtimeFingerprint: "git:dev-1",
+};
+
 describe("Verification Orchestrator", () => {
+  it("creates one active operational issue for a failed scheduled WebKit run", async () => {
+    const created: unknown[] = [];
+    const issues: OperationalVerificationIssueAdapter = {
+      async findActive() {
+        return undefined;
+      },
+      async create(failure) {
+        created.push(failure);
+        return { number: 154 };
+      },
+      async update() {
+        throw new Error("a first failure must not update an issue");
+      },
+      async close() {
+        throw new Error("a failure must not close an issue");
+      },
+    };
+    const verification: ScheduledBrowserVerificationAdapter = {
+      async verifyCompleteWebkit() {
+        return { identity: scheduledIdentity, outcome: "failed" };
+      },
+    };
+
+    const report = await runScheduledBrowserVerification({ issues, verification });
+
+    expect(report).toEqual({
+      identity: scheduledIdentity,
+      issueNumber: 154,
+      outcome: "failed",
+      productionPromotion: "blocked",
+    });
+    expect(created).toEqual([
+      {
+        identity: scheduledIdentity,
+        summary: "Complete WebKit verification failed for current dev and Catalog facts.",
+      },
+    ]);
+  });
+
+  it("updates the active WebKit failure issue instead of creating a duplicate", async () => {
+    const updated: unknown[] = [];
+    const issues: OperationalVerificationIssueAdapter = {
+      async findActive() {
+        return {
+          identity: { ...scheduledIdentity, catalogFingerprint: "sha256:catalog-old" },
+          number: 154,
+          summary: "Earlier WebKit failure.",
+        };
+      },
+      async create() {
+        throw new Error("an active failure issue must be reused");
+      },
+      async update(number, failure) {
+        updated.push({ number, failure });
+      },
+      async close() {
+        throw new Error("a failure must not close an issue");
+      },
+    };
+
+    const report = await runScheduledBrowserVerification({
+      issues,
+      verification: {
+        async verifyCompleteWebkit() {
+          return { identity: scheduledIdentity, outcome: "failed" };
+        },
+      },
+    });
+
+    expect(report).toMatchObject({ issueNumber: 154, outcome: "failed" });
+    expect(updated).toEqual([
+      {
+        number: 154,
+        failure: {
+          identity: scheduledIdentity,
+          summary: "Complete WebKit verification failed for current dev and Catalog facts.",
+        },
+      },
+    ]);
+  });
+
+  it("closes the active failure only when a clean run matches every verification identity", async () => {
+    const closed: unknown[] = [];
+    const issues: OperationalVerificationIssueAdapter = {
+      async findActive() {
+        return { identity: scheduledIdentity, number: 154, summary: "WebKit failed." };
+      },
+      async create() {
+        throw new Error("a clean run must not create an issue");
+      },
+      async update() {
+        throw new Error("a clean run must not update a failure");
+      },
+      async close(number, recovery) {
+        closed.push({ number, recovery });
+      },
+    };
+
+    const report = await runScheduledBrowserVerification({
+      issues,
+      verification: {
+        async verifyCompleteWebkit() {
+          return { identity: structuredClone(scheduledIdentity), outcome: "passed" };
+        },
+      },
+    });
+
+    expect(report).toEqual({
+      identity: scheduledIdentity,
+      issueNumber: 154,
+      outcome: "passed",
+      productionPromotion: "unblocked",
+    });
+    expect(closed).toEqual([{ number: 154, recovery: scheduledIdentity }]);
+  });
+
+  it("keeps Production blocked when a clean run does not match the active failure", async () => {
+    const failedIdentity = {
+      ...scheduledIdentity,
+      catalogFingerprint: "sha256:catalog-failed",
+    };
+    const issues: OperationalVerificationIssueAdapter = {
+      async findActive() {
+        return { identity: failedIdentity, number: 154, summary: "WebKit failed." };
+      },
+      async create() {
+        throw new Error("a clean run must not create an issue");
+      },
+      async update() {
+        throw new Error("a clean run must not update a failure");
+      },
+      async close() {
+        throw new Error("nonmatching evidence must not clear an active failure");
+      },
+    };
+
+    const report = await runScheduledBrowserVerification({
+      issues,
+      verification: {
+        async verifyCompleteWebkit() {
+          return { identity: scheduledIdentity, outcome: "passed" };
+        },
+      },
+    });
+
+    expect(report).toEqual({
+      identity: scheduledIdentity,
+      issueNumber: 154,
+      outcome: "nonmatching-recovery",
+      productionPromotion: "blocked",
+    });
+  });
+
+  it("fails Production promotion closed while any scheduled WebKit failure is active", () => {
+    const active = {
+      identity: scheduledIdentity,
+      number: 154,
+      summary: "WebKit failed.",
+    };
+
+    expect(evaluateProductionPromotion(active, scheduledIdentity)).toEqual({
+      issueNumber: 154,
+      reason: "matching scheduled WebKit failure is active",
+      status: "blocked",
+    });
+    expect(
+      evaluateProductionPromotion(active, {
+        ...scheduledIdentity,
+        runtimeFingerprint: "git:dev-2",
+      }),
+    ).toEqual({
+      issueNumber: 154,
+      reason: "scheduled WebKit failure has not been cleared by matching evidence",
+      status: "blocked",
+    });
+    expect(evaluateProductionPromotion(undefined, scheduledIdentity)).toEqual({
+      status: "allowed",
+    });
+  });
+
+  it.each([
+    ["schedule", ["docs/operator-guide.md"], "scheduled"],
+    ["workflow_dispatch", [], "manually requested"],
+    ["pull_request", ["scripts/production-verification-node.ts"], "production-verification process control changed"],
+    ["pull_request", ["pnpm-lock.yaml"], "verification dependency inputs changed"],
+    ["pull_request", ["scripts/github/verification-orchestrator.ts"], "verification-system orchestration changed"],
+  ] as const)(
+    "runs Windows lifecycle verification for %s evidence",
+    async (source, changedFiles, reason) => {
+      const calls: unknown[] = [];
+      const report = await runWindowsLifecycleVerification(
+        { changedFiles, source },
+        {
+          async verifyLifecycle(input) {
+            calls.push(input);
+            return { outcome: "passed" };
+          },
+        },
+      );
+
+      expect(report).toEqual({ outcome: "passed", reason });
+      expect(calls).toEqual([{ reason }]);
+    },
+  );
+
+  it.each([
+    ["app/page.tsx"],
+    ["components/product/ProductCard.tsx"],
+    ["docs/operator-guide.md"],
+  ])("skips Windows lifecycle verification for ordinary %s work", async (path) => {
+    const report = await runWindowsLifecycleVerification(
+      { changedFiles: [path], source: "pull_request" },
+      {
+        async verifyLifecycle() {
+          throw new Error("ordinary work must not start Windows verification");
+        },
+      },
+    );
+
+    expect(report).toEqual({ outcome: "skipped", reason: "no Windows lifecycle input changed" });
+  });
+
   it("queues, freezes, verifies, and merges one ready dev candidate", async () => {
     const candidate: IntegrationCandidate = {
       number: 52,

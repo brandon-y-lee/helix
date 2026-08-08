@@ -149,6 +149,8 @@ function requireDefaultBranchCoordinator(sha) {
 
 function requireSoleWriteCoordinator(sha) {
   const coordinator = ".github/workflows/dev-integration.yml";
+  const scheduledBrowserVerification =
+    ".github/workflows/scheduled-browser-verification.yml";
   const workflows = runGit([
     "ls-tree",
     "-r",
@@ -195,6 +197,29 @@ function requireSoleWriteCoordinator(sha) {
         if (job && typeof job === "object" && !Array.isArray(job) && "permissions" in job) {
           throw new Error(
             `coordinator workflow job '${jobName}' must inherit the audited workflow permissions at ${sha}`,
+          );
+        }
+      }
+      continue;
+    }
+    if (path === scheduledBrowserVerification) {
+      const permissions = workflow.permissions;
+      if (
+        !permissions ||
+        typeof permissions !== "object" ||
+        Array.isArray(permissions) ||
+        Object.keys(permissions).sort().join(",") !== "contents,issues" ||
+        permissions.contents !== "read" ||
+        permissions.issues !== "write"
+      ) {
+        throw new Error(
+          `scheduled browser verification must grant only contents: read and issues: write at ${sha}`,
+        );
+      }
+      for (const [jobName, job] of Object.entries(jobs)) {
+        if (job && typeof job === "object" && !Array.isArray(job) && "permissions" in job) {
+          throw new Error(
+            `scheduled browser verification job '${jobName}' must inherit the audited workflow permissions at ${sha}`,
           );
         }
       }

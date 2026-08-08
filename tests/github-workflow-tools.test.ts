@@ -80,6 +80,10 @@ function initialiseRepository(): { root: string; tempRoot: string } {
     join(root, ".github", "workflows", "dev-integration-verification.yml"),
     "name: verification\npermissions:\n  contents: read\njobs:\n  verify:\n    runs-on: ubuntu-latest\n    steps: []\n",
   );
+  writeFileSync(
+    join(root, ".github", "workflows", "scheduled-browser-verification.yml"),
+    "name: scheduled\npermissions:\n  contents: read\n  issues: write\njobs:\n  verify:\n    runs-on: ubuntu-latest\n    steps: []\n",
+  );
   expectSuccess(git(root, "add", "README.md", ".github/workflows"));
   expectSuccess(git(root, "commit", "-m", "Initial fixture"));
   expectSuccess(git(root, "branch", "dev"));
@@ -837,6 +841,21 @@ describe("GitHub workflow bootstrap", () => {
           expectSuccess(git(root, "branch", "-f", "dev", "HEAD"));
         },
         expected: /non-coordinator workflow '.github\/workflows\/rogue.yml' job 'mutate' requests write-all/,
+      },
+      {
+        name: "scheduled workflow excess authority",
+        mutateRepo: (root) => {
+          writeFileSync(
+            join(root, ".github", "workflows", "scheduled-browser-verification.yml"),
+            "name: scheduled\npermissions:\n  actions: write\n  contents: read\n  issues: write\njobs:\n  verify:\n    runs-on: ubuntu-latest\n    steps: []\n",
+          );
+          expectSuccess(
+            git(root, "add", ".github/workflows/scheduled-browser-verification.yml"),
+          );
+          expectSuccess(git(root, "commit", "-m", "Overgrant scheduled workflow"));
+          expectSuccess(git(root, "branch", "-f", "dev", "HEAD"));
+        },
+        expected: /scheduled browser verification must grant only contents: read and issues: write/,
       },
     ];
 

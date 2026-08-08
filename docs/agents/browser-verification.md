@@ -124,6 +124,12 @@ A protected-branch push does not repeat a valid pre-merge browser result. Docume
 
 The complete WebKit plan runs daily against current `dev` and its current Catalog facts. Browser-sensitive ticket work still runs affected WebKit before integration. A scheduled WebKit failure creates or updates one tracked issue and blocks Production promotion; it does not remove code from `dev` automatically. A clean matching run clears the active failure state.
 
+The executable lane, operational issue contract, Windows classification, and
+default-branch rollout boundary are documented in
+[`scheduled-verification.md`](./scheduled-verification.md). Daily and manual
+WebKit executions delegate to `pnpm verify:scheduled -- --lane webkit`; they are
+not required pull-request gates.
+
 Catalog Publish does not start the complete browser plan. It retains pre- and post-Publish Catalog and cache reconciliation, canonical `/shop` and PDP smoke coverage, checks that expected Product Offers are Purchasable, Algolia projection checks, and bounded Real Product Media Verification. A later failure alerts the Operator and follows the existing fallback boundaries.
 
 The Windows verification-lifecycle job runs when production-verification or process-control code, their tests, or relevant dependencies change, and also on schedule or manual request. Normal Storefront and documentation changes skip it.
