@@ -4,12 +4,14 @@ import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 
 import { createRuntimeIdentity, fingerprint } from "./scheduled-verification-runtime.mjs";
+import {
+  createOperationalVerificationIssueAdapter,
+  recordScheduledVerificationFailure,
+  scheduledVerificationIssueBody,
+} from "./scheduled-verification-issue.mjs";
 
 const execFileAsync = promisify(execFile);
 const EXPECTED_REPOSITORY = "brandon-y-lee/mei-pelle";
-const ISSUE_TITLE = "Scheduled WebKit verification failure";
-const STATE_PREFIX = "<!-- mei-pelle:scheduled-webkit-state ";
-const STATE_SUFFIX = " -->";
 
 export function createScheduledSetupFailure(input) {
   return {
@@ -28,18 +30,7 @@ export function createScheduledSetupFailure(input) {
 }
 
 export function scheduledSetupFailureIssueBody(failure, runUrl) {
-  return [
-    "## Active scheduled verification failure",
-    "",
-    failure.summary,
-    "",
-    `Latest evidence: ${runUrl}`,
-    "",
-    "Production promotion remains blocked until matching clean WebKit evidence closes this issue.",
-    "This state does not revert or remove code from `dev`.",
-    "",
-    `${STATE_PREFIX}${JSON.stringify(failure)}${STATE_SUFFIX}`,
-  ].join("\n");
+  return scheduledVerificationIssueBody(failure, runUrl);
 }
 
 async function main() {
@@ -69,33 +60,20 @@ async function main() {
       nodeVersion: process.version,
     }),
   });
-  const body = scheduledSetupFailureIssueBody(failure, runUrl);
-  const { stdout: issueList } = await execFileAsync(
-    "gh",
-    [
-      "issue", "list", "--repo", repository, "--state", "open",
-      "--search", `${ISSUE_TITLE} in:title`, "--limit", "100",
-      "--json", "number,title",
-    ],
-    { cwd, encoding: "utf8", env: process.env },
+  const commands = {
+    async run(args) {
+      const { stdout: commandOutput } = await execFileAsync("gh", args, {
+        cwd,
+        encoding: "utf8",
+        env: process.env,
+      });
+      return { stdout: String(commandOutput) };
+    },
+  };
+  await recordScheduledVerificationFailure(
+    createOperationalVerificationIssueAdapter({ commands, repository, runUrl }),
+    failure,
   );
-  const active = JSON.parse(String(issueList)).filter((issue) => issue.title === ISSUE_TITLE);
-  if (active.length > 1) {
-    throw new Error("Multiple active scheduled WebKit failure issues require operator reconciliation.");
-  }
-  if (active[0]) {
-    await execFileAsync(
-      "gh",
-      ["issue", "edit", String(active[0].number), "--repo", repository, "--body", body],
-      { cwd, encoding: "utf8", env: process.env },
-    );
-  } else {
-    await execFileAsync(
-      "gh",
-      ["issue", "create", "--repo", repository, "--title", ISSUE_TITLE, "--body", body],
-      { cwd, encoding: "utf8", env: process.env },
-    );
-  }
 }
 
 const entry = process.argv[1];

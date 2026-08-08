@@ -86,6 +86,25 @@ describe("Verification Orchestrator", () => {
     }]);
   });
 
+  it("classifies browser evidence before operational issue reconciliation", async () => {
+    const events: string[] = [];
+    await expect(runScheduledBrowserVerification({
+      issues: {
+        async findActive() { events.push("issue-read"); throw new Error("GitHub unavailable"); },
+        async create() { throw new Error("must not create"); },
+        async update() {},
+        async close() {},
+      },
+      async onEvidenceClassified() { events.push("evidence-classified"); },
+      verification: {
+        async verifyCompleteWebkit() {
+          return { identity: scheduledIdentity, outcome: "passed" };
+        },
+      },
+    })).rejects.toThrow("GitHub unavailable");
+    expect(events).toEqual(["evidence-classified", "issue-read"]);
+  });
+
   it("updates the active WebKit failure issue instead of creating a duplicate", async () => {
     const updated: unknown[] = [];
     const issues: OperationalVerificationIssueAdapter = {
@@ -237,6 +256,7 @@ describe("Verification Orchestrator", () => {
     ["pull_request", ["pnpm-lock.yaml"], "verification dependency inputs changed"],
     ["pull_request", [".nvmrc"], "verification dependency inputs changed"],
     ["pull_request", ["scripts/github/verification-orchestrator.ts"], "verification-system orchestration changed"],
+    ["pull_request", ["e2e/storefront.spec.ts"], "verification-system orchestration changed"],
   ] as const)(
     "runs Windows lifecycle verification for %s evidence",
     async (source, changedFiles, reason) => {

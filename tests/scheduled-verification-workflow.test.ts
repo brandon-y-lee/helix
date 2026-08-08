@@ -5,18 +5,20 @@ import { describe, expect, it } from "vitest";
 
 import {
   WINDOWS_LIFECYCLE_PATH_PATTERNS,
+  type ScheduledVerificationFailure,
 } from "@/scripts/github/verification-orchestrator";
 import {
   createScheduledSetupFailure,
   scheduledSetupFailureIssueBody,
 } from "@/scripts/github/record-scheduled-verification-setup-failure.mjs";
 import { createRuntimeIdentity } from "@/scripts/github/scheduled-verification-runtime.mjs";
+import { recordScheduledVerificationFailure } from "@/scripts/github/scheduled-verification-issue.mjs";
 
 type Workflow = {
   concurrency?: { "cancel-in-progress"?: boolean; group?: string };
   jobs: Record<string, {
     "runs-on": string;
-    steps: Array<{ if?: string; name?: string; run?: string }>;
+    steps: Array<{ if?: string; name?: string; run?: string; with?: Record<string, unknown> }>;
   }>;
   on: Record<string, unknown>;
   permissions: Record<string, string>;
@@ -43,6 +45,14 @@ describe("proportional scheduled verification workflow adapters", () => {
     });
     expect(scheduled.permissions).toEqual({ contents: "read", issues: "write" });
     expect(scheduled.jobs["complete-webkit"]!["runs-on"]).toBe("ubuntu-latest");
+    expect(steps[0]).toMatchObject({
+      name: "Checkout failure recorder",
+      with: expect.objectContaining({
+        "sparse-checkout": expect.stringContaining(
+          "scripts/github/record-scheduled-verification-setup-failure.mjs",
+        ),
+      }),
+    });
     expect(steps.some((step) => step.run === "pnpm exec playwright install --with-deps webkit")).toBe(true);
     expect(steps.some((step) => step.run === "pnpm verify:scheduled -- --lane webkit")).toBe(true);
     expect(steps).toEqual(expect.arrayContaining([
@@ -124,6 +134,30 @@ describe("proportional scheduled verification workflow adapters", () => {
         "https://github.com/brandon-y-lee/mei-pelle/actions/runs/123",
       ),
     ).toContain("mei-pelle:scheduled-webkit-state");
+  });
+
+  it("deduplicates setup failures through the shared operational orchestrator", async () => {
+    const failure = createScheduledSetupFailure({
+      browserVersion: "1.55.1",
+      planSource: "plan-source",
+      runtimeIdentity: "runtime-identity",
+    });
+    const updates: unknown[] = [];
+    const issueNumber = await recordScheduledVerificationFailure({
+      async findActive() {
+        return { ...failure, number: 154 };
+      },
+      async create() {
+        throw new Error("an active setup failure must be reused");
+      },
+      async update(number: number, nextFailure: ScheduledVerificationFailure) {
+        updates.push({ number, failure: nextFailure });
+      },
+      async close() {},
+    }, failure);
+
+    expect(issueNumber).toBe(154);
+    expect(updates).toEqual([{ number: 154, failure }]);
   });
 
   it("keeps Windows and Product Media outside required pull-request CI", () => {

@@ -1,3 +1,5 @@
+import { recordScheduledVerificationFailure } from "./scheduled-verification-issue.mjs";
+
 export const INTEGRATION_TIMEOUT_MS = 20 * 60 * 1_000;
 
 export type WorkClass =
@@ -87,9 +89,11 @@ export function evaluateProductionPromotion(
 
 export async function runScheduledBrowserVerification(adapters: {
   issues: OperationalVerificationIssueAdapter;
+  onEvidenceClassified?(result: Awaited<ReturnType<ScheduledBrowserVerificationAdapter["verifyCompleteWebkit"]>>): Promise<void>;
   verification: ScheduledBrowserVerificationAdapter;
 }): Promise<ScheduledBrowserVerificationReport> {
   const result = await adapters.verification.verifyCompleteWebkit();
+  await adapters.onEvidenceClassified?.(result);
   if (result.outcome === "failed") {
     const failure = {
       kind: result.failureKind,
@@ -99,20 +103,10 @@ export async function runScheduledBrowserVerification(adapters: {
           ? "Scheduled verification could not read current Catalog facts, so WebKit did not run."
           : "Complete WebKit verification failed for current dev and Catalog facts.",
     };
-    const active = await adapters.issues.findActive();
-    if (active) {
-      await adapters.issues.update(active.number, failure);
-      return {
-        identity: result.identity,
-        issueNumber: active.number,
-        outcome: "failed",
-        productionPromotion: "blocked",
-      };
-    }
-    const created = await adapters.issues.create(failure);
+    const issueNumber = await recordScheduledVerificationFailure(adapters.issues, failure);
     return {
       identity: result.identity,
-      issueNumber: created.number,
+      issueNumber,
       outcome: "failed",
       productionPromotion: "blocked",
     };
@@ -165,6 +159,9 @@ export const WINDOWS_LIFECYCLE_PATH_PATTERNS = [
   "tests/production-verification*",
   "tests/scheduled-*",
   "tests/verification-orchestrator*",
+  "e2e/**",
+  "playwright-global-setup.ts",
+  "test-support/**",
   ".nvmrc",
   "package.json",
   "pnpm-lock.yaml",

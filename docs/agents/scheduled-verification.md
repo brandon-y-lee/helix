@@ -29,11 +29,14 @@ evidence leaves the issue open and Production promotion blocked for operator
 reconciliation. The lane never reverts or removes code from `dev`.
 
 Catalog-read failures state that WebKit did not run. A dependency-free,
-always-run adapter records checkout-successful setup, dependency-install,
-browser-install, environment-validation, and command-start failures before
-complete WebKit evidence can run. Because setup evidence has no current Catalog
-snapshot, later clean evidence does not silently close it; the Operator must
-reconcile the nonmatching identity.
+always-run adapter records full-checkout, dependency-install, browser-install,
+environment-validation, and command-start failures before complete WebKit
+evidence can run. A sparse first checkout makes the dependency-free recorder
+available before the full checkout. Failures before any repository code can be
+acquired remain visible as failed workflow infrastructure but cannot safely
+mutate issue state. Because setup evidence has no current Catalog snapshot,
+later clean evidence does not silently close it; the Operator must reconcile
+the nonmatching identity.
 
 The workflow has `contents: read` and the narrow `issues: write` permission.
 Its cancellation-disabled concurrency group prevents overlapping scheduled

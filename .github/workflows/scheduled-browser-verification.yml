@@ -24,12 +24,26 @@ jobs:
       NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY: ${{ secrets.NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY }}
       NEXT_PUBLIC_ALGOLIA_INDEX_NAME: ${{ secrets.NEXT_PUBLIC_ALGOLIA_INDEX_NAME }}
     steps:
+      - name: Checkout failure recorder
+        uses: actions/checkout@v4
+        with:
+          ref: dev
+          fetch-depth: 1
+          persist-credentials: false
+          sparse-checkout: |
+            package.json
+            scripts/browser-verification-plan.ts
+            scripts/github/record-scheduled-verification-setup-failure.mjs
+            scripts/github/scheduled-verification-issue.mjs
+            scripts/github/scheduled-verification-runtime.mjs
+
       - name: Checkout current dev
         uses: actions/checkout@v4
         with:
           ref: dev
           fetch-depth: 0
           persist-credentials: false
+          sparse-checkout: ""
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4

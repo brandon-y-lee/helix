@@ -87,6 +87,12 @@ async function main(): Promise<void> {
       runUrl,
     }),
     log: (message) => process.stdout.write(`${message}\n`),
+    async onEvidenceClassified() {
+      const githubEnvironment = process.env.GITHUB_ENV;
+      if (githubEnvironment) {
+        await appendFile(githubEnvironment, "SCHEDULED_VERIFICATION_RECORDED=1\n", "utf8");
+      }
+    },
     verification: createScheduledBrowserVerificationAdapter({
       browserVersion,
       readCatalogIdentity: () => readCatalogIdentity(environment),
@@ -113,13 +119,7 @@ async function main(): Promise<void> {
       },
     }),
   });
-  if (report.productionPromotion === "blocked") {
-    const githubEnvironment = process.env.GITHUB_ENV;
-    if (githubEnvironment) {
-      await appendFile(githubEnvironment, "SCHEDULED_VERIFICATION_RECORDED=1\n", "utf8");
-    }
-    process.exitCode = 1;
-  }
+  if (report.productionPromotion === "blocked") process.exitCode = 1;
 }
 
 const entry = process.argv[1];
