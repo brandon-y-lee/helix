@@ -142,4 +142,39 @@ describe("PdpCoreRoutineSection", () => {
       ),
     ).toHaveAttribute("src", expect.stringContaining("seal-editorial.webp"));
   });
+
+  it("falls back only at the Product image positions that fail", () => {
+    const { container } = render(
+      <PdpCoreRoutineSection products={products} currentSlug="treat" />,
+    );
+    const activeCallout = container.querySelector(
+      '.pdp-core-routine__callout-state[data-state="active"]',
+    );
+    const activeVisual = container.querySelector(
+      '.pdp-core-routine__visual-state[data-state="active"]',
+    );
+    const textureImage = activeCallout?.querySelector("img");
+    const editorialImage = activeVisual?.querySelector("img");
+    if (!textureImage || !editorialImage) {
+      throw new Error("Expected active routine Product images");
+    }
+
+    fireEvent.error(textureImage);
+    expect(activeCallout?.querySelector("img")).toBeNull();
+    expect(
+      activeCallout?.querySelector('[data-media-fallback="load-error"]'),
+    ).not.toBeNull();
+    expect(activeVisual?.querySelector("img")).toBe(editorialImage);
+
+    fireEvent.error(editorialImage);
+    expect(activeVisual?.querySelector("img")).toBeNull();
+    expect(
+      activeVisual?.querySelector('[data-media-fallback="load-error"]'),
+    ).not.toBeNull();
+    expect(
+      container.querySelector(
+        '.pdp-core-routine__visual-state[data-state="inactive"] img',
+      ),
+    ).not.toBeNull();
+  });
 });

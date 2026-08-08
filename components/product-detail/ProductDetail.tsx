@@ -314,6 +314,7 @@ export function ProductDetail({
                 productName={product.displayName}
                 story={content.ingredientStory}
                 media={ingredientsTextureMedia}
+                swatch={product.swatch}
                 fullInci={resolvedFullInci}
                 mediaPosition={corePresentation.ingredientsMediaPosition}
               />

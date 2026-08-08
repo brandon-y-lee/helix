@@ -41,6 +41,7 @@ describe("PdpIngredientsSplit", () => {
         productName="TREAT"
         story={story}
         media={media}
+        swatch={["#d9e2dc", "#81998d"]}
         fullInci={fullInci}
         mediaPosition="50% 50%"
       />,
@@ -78,6 +79,7 @@ describe("PdpIngredientsSplit", () => {
         productName="TREAT"
         story={story}
         media={media}
+        swatch={["#d9e2dc", "#81998d"]}
         fullInci={fullInci}
         mediaPosition="50% 50%"
       />,
@@ -101,6 +103,7 @@ describe("PdpIngredientsSplit", () => {
         productName="CLEANSE"
         story={story}
         media={null}
+        swatch={["#d9e2dc", "#81998d"]}
         fullInci={null}
         mediaPosition="50% 50%"
       />,
@@ -113,6 +116,35 @@ describe("PdpIngredientsSplit", () => {
       screen.getByText(
         "Formula texture image is temporarily unavailable for CLEANSE.",
       ),
+    ).toBeInTheDocument();
+  });
+
+  it("replaces a failed texture image without changing ingredient controls", () => {
+    render(
+      <PdpIngredientsSplit
+        productSlug="treat-03-pdrn-5-ampoule"
+        productName="TREAT"
+        story={story}
+        media={media}
+        swatch={["#d9e2dc", "#81998d"]}
+        fullInci={fullInci}
+        mediaPosition="50% 50%"
+      />,
+    );
+    const mediaNode = screen.getByTestId("pdp-ingredients-media");
+    fireEvent.error(screen.getByRole("img", { name: media.alt }));
+
+    expect(mediaNode.querySelector("img")).toBeNull();
+    expect(
+      mediaNode.querySelector('[data-media-fallback="load-error"]'),
+    ).not.toBeNull();
+    expect(
+      screen.getByRole("status", {
+        name: `${media.alt} is temporarily unavailable.`,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "FULL INGREDIENTS LIST" }),
     ).toBeInTheDocument();
   });
 });
