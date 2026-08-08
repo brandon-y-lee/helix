@@ -104,6 +104,8 @@ describe("dev Integration Line workflows", () => {
     expect(verification).toContain("retention-days: 30");
     expect(verification).toContain("retention-days: 90");
     expect(ci).toContain("verification:receipt:protected-push");
+    expect(ci).toContain("pnpm exec playwright install chromium");
+    expect(ci).not.toContain("Build current protected-push artifact");
     expect(ci).toContain("needs: [ci-core, protected-push-receipt]");
     expect(ci).toContain('RECEIPT_RESULT: ${{ needs.protected-push-receipt.result }}');
     expect(ci).toContain('branches: [dev, main, "codex/spec-*"]');

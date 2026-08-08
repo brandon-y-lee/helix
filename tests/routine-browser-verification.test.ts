@@ -246,9 +246,9 @@ describe("Routine Browser Verification", () => {
   it("reuses protected-push evidence without rerunning browsers and fails closed on changed inputs", async () => {
     const completed = await runRoutineBrowserVerification(input, makeAdapters());
     if (completed.outcome !== "passed") throw new Error("expected fixture receipt");
-    const { buildId: _buildId, ...artifact } = completed.receipt.artifact;
     const current = {
-      artifact,
+      artifact: completed.receipt.artifact,
+      browsers: completed.receipt.browsers,
       catalogFingerprint: completed.receipt.catalog.after,
       integration: completed.receipt.integration,
       planFingerprint: completed.receipt.planFingerprint,
@@ -263,6 +263,14 @@ describe("Routine Browser Verification", () => {
     await expect(findReusableProtectedPushReceipt({
       ...current,
       planFingerprint: `sha256:${"9".repeat(64)}`,
+    }, lookup)).resolves.toEqual({ outcome: "missing", reusable: false });
+    await expect(findReusableProtectedPushReceipt({
+      ...current,
+      artifact: { ...current.artifact, buildId: "different-build" },
+    }, lookup)).resolves.toEqual({ outcome: "missing", reusable: false });
+    await expect(findReusableProtectedPushReceipt({
+      ...current,
+      browsers: { chromium: "Chromium 141" },
     }, lookup)).resolves.toEqual({ outcome: "missing", reusable: false });
 
     await expect(findReusableProtectedPushReceipt({

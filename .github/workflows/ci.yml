@@ -111,8 +111,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build current protected-push artifact
-        run: pnpm build
+      - name: Install current Chromium binary for exact version matching
+        run: pnpm exec playwright install chromium
 
       - name: Require a matching signed Integration Slot receipt
         env:

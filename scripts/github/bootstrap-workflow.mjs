@@ -159,6 +159,7 @@ function requireDefaultBranchCoordinator(sha) {
 
 function requireAuditedWorkflowAuthority(sha) {
   const attestationSigner = ".github/workflows/dev-integration-verification.yml";
+  const ciWorkflow = ".github/workflows/ci.yml";
   const scheduledBrowserVerification =
     ".github/workflows/scheduled-browser-verification.yml";
   const trustedWriters = new Map([
@@ -214,6 +215,53 @@ function requireAuditedWorkflowAuthority(sha) {
           throw new Error(
             `trusted writer workflow '${path}' job '${jobName}' must inherit the audited workflow permissions at ${sha}`,
           );
+        }
+      }
+      continue;
+    }
+    if (path === ciWorkflow) {
+      const permissions = workflow.permissions;
+      if (
+        !permissions ||
+        typeof permissions !== "object" ||
+        Array.isArray(permissions) ||
+        Object.keys(permissions).length !== 1 ||
+        permissions.contents !== "read"
+      ) {
+        throw new Error(`CI workflow must default to only contents: read at ${sha}`);
+      }
+      const protectedPushJob = jobs["protected-push-receipt"];
+      const requiredProtectedPush = {
+        actions: "write",
+        attestations: "read",
+        contents: "read",
+      };
+      if (
+        !protectedPushJob ||
+        typeof protectedPushJob !== "object" ||
+        Array.isArray(protectedPushJob) ||
+        !protectedPushJob.permissions ||
+        typeof protectedPushJob.permissions !== "object" ||
+        Array.isArray(protectedPushJob.permissions) ||
+        Object.keys(protectedPushJob.permissions).length !==
+          Object.keys(requiredProtectedPush).length ||
+        Object.entries(requiredProtectedPush).some(
+          ([permission, access]) => protectedPushJob.permissions[permission] !== access,
+        )
+      ) {
+        throw new Error(
+          `CI protected-push receipt job must grant only actions: write, attestations: read, and contents: read at ${sha}`,
+        );
+      }
+      for (const [jobName, job] of Object.entries(jobs)) {
+        if (
+          jobName !== "protected-push-receipt" &&
+          job &&
+          typeof job === "object" &&
+          !Array.isArray(job) &&
+          "permissions" in job
+        ) {
+          throw new Error(`CI job '${jobName}' must inherit contents: read at ${sha}`);
         }
       }
       continue;

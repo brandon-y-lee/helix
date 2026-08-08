@@ -96,12 +96,7 @@ export type CurrentVerificationInputs = {
   tools: VerificationReceipt["tools"];
 };
 
-export type ProtectedPushVerificationInputs = Omit<
-  CurrentVerificationInputs,
-  "artifact" | "browsers"
-> & {
-  artifact: Omit<CurrentVerificationInputs["artifact"], "buildId">;
-};
+export type ProtectedPushVerificationInputs = CurrentVerificationInputs;
 
 function requireCommitSha(value: string, label: string): void {
   if (!/^[0-9a-f]{40}$/.test(value)) {
@@ -183,8 +178,6 @@ export async function findReusableProtectedPushReceipt(
     const result = await findReusableVerificationReceipt(
       {
         ...current,
-        artifact: { ...current.artifact, buildId: candidate.receipt.artifact.buildId },
-        browsers: candidate.receipt.browsers,
         integration: options.allowIntegrationCarryForward
           ? candidate.receipt.integration
           : current.integration,

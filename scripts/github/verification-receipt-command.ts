@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
+import { appendFile, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { createRequire } from "node:module";
 import { pathToFileURL } from "node:url";
@@ -372,6 +372,11 @@ type AssociatedPullRequest = {
   number?: number;
 };
 
+export interface ProtectedPushObservationAdapter {
+  artifactBuildId(receipt: VerificationReceipt): Promise<string>;
+  browserVersion(): Promise<string>;
+}
+
 const PROTECTED_PUSH_SCRIPT = "verification:receipt:protected-push";
 const PROTECTED_PUSH_COMMAND = "tsx scripts/github/verification-receipt-command.ts protected-push";
 
@@ -458,6 +463,7 @@ export async function verifyProtectedBranchPushReceipt(input: {
   bootstrap?: ReceiptCutoverBootstrapAdapter;
   cwd: string;
   environment: NodeJS.ProcessEnv;
+  observation?: ProtectedPushObservationAdapter;
   run?: VerificationCommandRunner;
 }) {
   const { cwd, environment } = input;
@@ -526,39 +532,78 @@ export async function verifyProtectedBranchPushReceipt(input: {
     "--format", "json",
   ], { encoding: "utf8" });
   const verified = JSON.parse(stdout) as AttestationVerification[];
+  const findBuildIds = async (directory: string): Promise<string[]> => {
+    const entries = await readdir(directory, { withFileTypes: true });
+    const found = await Promise.all(entries.map(async (entry) => {
+      const path = resolve(directory, entry.name);
+      if (entry.isDirectory()) return findBuildIds(path);
+      return entry.isFile() && entry.name === "BUILD_ID" ? [path] : [];
+    }));
+    return found.flat();
+  };
+  const observation = input.observation ?? {
+    async artifactBuildId(receipt: VerificationReceipt) {
+      const match = /^(\d+)-(\d+)$/.exec(receipt.workflowRun);
+      if (!match) throw new Error("Verification Receipt has an invalid workflow run identity.");
+      const artifactDirectory = resolve(subjectDirectory, `workflow-${match[1]}-${match[2]}`);
+      await mkdir(artifactDirectory, { recursive: true });
+      await run("gh", [
+        "run", "download", match[1]!,
+        "--repo", repository,
+        "--pattern", `integration-build-evidence-${receipt.integration.pullRequest}-*`,
+        "--dir", artifactDirectory,
+      ], { encoding: "utf8" });
+      const buildIds = await findBuildIds(artifactDirectory);
+      if (buildIds.length !== 1) {
+        throw new Error("Protected dev push requires exactly one receipted build identity.");
+      }
+      const buildId = (await readFile(buildIds[0]!, "utf8")).trim();
+      if (!buildId) throw new Error("Protected dev push receipted build identity is empty.");
+      return buildId;
+    },
+    async browserVersion() {
+      return readChromiumVersion(environment);
+    },
+  };
   const packageJson = JSON.parse(await readFile(resolve(cwd, "package.json"), "utf8")) as {
     packageManager: string;
     dependencies: Record<string, string>;
     devDependencies: Record<string, string>;
   };
   const { getProducts } = await import("../../lib/catalog");
-  const result = await findReusableProtectedPushReceipt({
-    artifact: { configurationFingerprint, runtimeFingerprint },
-    catalogFingerprint: fingerprintCatalog(await getProducts()),
-    integration: {
-      baseSha,
-      candidateSha: pull.head!.sha!,
-      pullRequest: pull.number!,
-    },
-    planFingerprint: fingerprintCatalog(BROWSER_VERIFICATION_PLAN),
-    tools: {
-      framework: packageJson.dependencies.next ?? "unknown",
-      node: process.version,
-      packageManager: packageJson.packageManager,
-      playwright: packageJson.devDependencies["@playwright/test"] ?? "unknown",
-    },
-  }, {
-    async lookup() {
-      return verified.flatMap(({ verificationResult }, index) => {
-        const receipt = verificationResult?.statement?.predicate;
-        return receipt ? [{ id: `verified-${index + 1}`, receipt }] : [];
-      });
-    },
-  }, { allowIntegrationCarryForward });
-  if (result.outcome !== "reused") {
-    throw new Error("Protected dev push has no matching signed Verification Receipt.");
+  const browserVersion = await observation.browserVersion();
+  const catalogFingerprint = fingerprintCatalog(await getProducts());
+  const candidates = verified.flatMap(({ verificationResult }, index) => {
+    const receipt = verificationResult?.statement?.predicate;
+    return receipt ? [{ id: `verified-${index + 1}`, receipt }] : [];
+  });
+  for (const candidate of candidates) {
+    let buildId: string;
+    try {
+      buildId = await observation.artifactBuildId(candidate.receipt);
+    } catch {
+      continue;
+    }
+    const result = await findReusableProtectedPushReceipt({
+      artifact: { buildId, configurationFingerprint, runtimeFingerprint },
+      browsers: { chromium: browserVersion },
+      catalogFingerprint,
+      integration: {
+        baseSha,
+        candidateSha: pull.head!.sha!,
+        pullRequest: pull.number!,
+      },
+      planFingerprint: fingerprintCatalog(BROWSER_VERIFICATION_PLAN),
+      tools: {
+        framework: packageJson.dependencies.next ?? "unknown",
+        node: process.version,
+        packageManager: packageJson.packageManager,
+        playwright: packageJson.devDependencies["@playwright/test"] ?? "unknown",
+      },
+    }, { async lookup() { return [candidate]; } }, { allowIntegrationCarryForward });
+    if (result.outcome === "reused") return result;
   }
-  return result;
+  throw new Error("Protected dev push has no matching signed Verification Receipt.");
 }
 
 async function main() {

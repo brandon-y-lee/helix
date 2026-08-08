@@ -77,6 +77,10 @@ function initialiseRepository(): { root: string; tempRoot: string } {
   writeFileSync(join(root, "README.md"), "fixture\n");
   mkdirSync(join(root, ".github", "workflows"), { recursive: true });
   writeFileSync(
+    join(root, ".github", "workflows", "ci.yml"),
+    "name: CI\npermissions:\n  contents: read\njobs:\n  ci-core:\n    runs-on: ubuntu-latest\n    steps: []\n  protected-push-receipt:\n    permissions:\n      actions: write\n      attestations: read\n      contents: read\n    runs-on: ubuntu-latest\n    steps: []\n",
+  );
+  writeFileSync(
     join(root, ".github", "workflows", "dev-integration.yml"),
     "name: coordinator\npermissions:\n  actions: write\n  contents: write\n  issues: write\n  pull-requests: write\njobs:\n  coordinate:\n    runs-on: ubuntu-latest\n    steps: []\n",
   );
@@ -967,6 +971,45 @@ describe("GitHub workflow bootstrap", () => {
           expectSuccess(git(root, "branch", "-f", "dev", "HEAD"));
         },
         expected: /non-coordinator workflow '.github\/workflows\/rogue.yml' job 'mutate' requests write-all/,
+      },
+      {
+        name: "CI protected-push excess authority",
+        mutateRepo: (root) => {
+          writeFileSync(
+            join(root, ".github", "workflows", "ci.yml"),
+            "name: CI\npermissions:\n  contents: read\njobs:\n  protected-push-receipt:\n    permissions:\n      actions: write\n      attestations: read\n      contents: read\n      issues: write\n    runs-on: ubuntu-latest\n    steps: []\n",
+          );
+          expectSuccess(git(root, "add", ".github/workflows/ci.yml"));
+          expectSuccess(git(root, "commit", "-m", "Overgrant protected push"));
+          expectSuccess(git(root, "branch", "-f", "dev", "HEAD"));
+        },
+        expected: /CI protected-push receipt job must grant only actions: write, attestations: read, and contents: read/,
+      },
+      {
+        name: "CI misplaced write authority",
+        mutateRepo: (root) => {
+          writeFileSync(
+            join(root, ".github", "workflows", "ci.yml"),
+            "name: CI\npermissions:\n  contents: read\njobs:\n  ci-core:\n    permissions:\n      actions: write\n      contents: read\n    runs-on: ubuntu-latest\n    steps: []\n  protected-push-receipt:\n    permissions:\n      actions: write\n      attestations: read\n      contents: read\n    runs-on: ubuntu-latest\n    steps: []\n",
+          );
+          expectSuccess(git(root, "add", ".github/workflows/ci.yml"));
+          expectSuccess(git(root, "commit", "-m", "Overgrant core CI"));
+          expectSuccess(git(root, "branch", "-f", "dev", "HEAD"));
+        },
+        expected: /CI job 'ci-core' must inherit contents: read/,
+      },
+      {
+        name: "CI top-level excess authority",
+        mutateRepo: (root) => {
+          writeFileSync(
+            join(root, ".github", "workflows", "ci.yml"),
+            "name: CI\npermissions:\n  actions: read\n  contents: read\njobs:\n  protected-push-receipt:\n    permissions:\n      actions: write\n      attestations: read\n      contents: read\n    runs-on: ubuntu-latest\n    steps: []\n",
+          );
+          expectSuccess(git(root, "add", ".github/workflows/ci.yml"));
+          expectSuccess(git(root, "commit", "-m", "Overgrant CI workflow"));
+          expectSuccess(git(root, "branch", "-f", "dev", "HEAD"));
+        },
+        expected: /CI workflow must default to only contents: read/,
       },
       {
         name: "attestation signer authority",
