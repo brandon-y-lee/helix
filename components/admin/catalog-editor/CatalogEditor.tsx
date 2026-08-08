@@ -18,6 +18,7 @@ import {
   CatalogValidationResult,
   CatalogVersionConflictError,
   catalogEditorApi,
+  catalogEditorIssuesFromError,
 } from "@/lib/admin/catalog-editor/client";
 import type { CatalogEditorResponse } from "@/lib/admin/catalog/types";
 import { catalogDocumentDiff } from "@/lib/admin/catalog/diff";
@@ -326,6 +327,10 @@ export default function CatalogEditor({ productId }: { productId: string }) {
     try {
       await action();
     } catch (actionError) {
+      const actionIssues = document
+        ? catalogEditorIssuesFromError(actionError, document)
+        : [];
+      if (actionIssues.length > 0) setIssues(actionIssues);
       setError(
         actionError instanceof Error
           ? actionError.message
@@ -788,7 +793,9 @@ export default function CatalogEditor({ productId }: { productId: string }) {
                       setValidation(null);
                       setIssues([]);
                       setStatus(
-                        `Published revision ${result.revision.revision_number}.`,
+                        result.mediaVerification.status === "warning"
+                          ? `Published revision ${result.revision.revision_number} with a Product Media warning.`
+                          : `Published revision ${result.revision.revision_number}.`,
                       );
                     })
                   }
@@ -818,6 +825,35 @@ export default function CatalogEditor({ productId }: { productId: string }) {
                 The canonical revision is saved. Downstream delivery is shown
                 only when confirmed by the backend response.
               </p>
+              {publishResult.mediaVerification.status === "warning" ? (
+                <div role="alert">
+                  <h3>Product Media warning</h3>
+                  <p>
+                    {publishResult.mediaVerification.message} The revision
+                    remains published and its Catalog facts are unchanged.
+                  </p>
+                  {publishResult.mediaVerification.report ? (
+                    <ul>
+                      {publishResult.mediaVerification.report.results
+                        .filter((result) => result.outcome === "failed")
+                        .map((result) => (
+                          <li key={result.url}>
+                            <strong>{result.url}</strong>: {result.failure?.message ??
+                              "Product Media verification failed."}
+                          </li>
+                        ))}
+                    </ul>
+                  ) : (
+                    <p>Verification details are unavailable.</p>
+                  )}
+                </div>
+              ) : (
+                <p>
+                  Product Media verified for{" "}
+                  {publishResult.mediaVerification.report.summary.distinctUrls}{" "}
+                  public URL(s).
+                </p>
+              )}
               {publishResult.delivery ? (
                 <p>
                   Cache: {publishResult.delivery.cache ?? "not reported"} ·

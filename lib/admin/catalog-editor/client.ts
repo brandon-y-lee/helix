@@ -76,7 +76,7 @@ export type CatalogValidationResult = {
   draft: CatalogDraftRecord;
 };
 
-class CatalogApiError extends Error {
+export class CatalogApiError extends Error {
   status: number;
   details: unknown;
 
@@ -164,6 +164,33 @@ function editorIssue(
     row_id: rowId,
     message: issue.message,
   };
+}
+
+export function catalogEditorIssuesFromError(
+  error: unknown,
+  document: ProductEditorDocumentV3,
+): CatalogEditorIssue[] {
+  if (!(error instanceof CatalogApiError) || !error.details ||
+      typeof error.details !== "object" || !("issues" in error.details) ||
+      !Array.isArray(error.details.issues)) {
+    return [];
+  }
+  return error.details.issues.flatMap((issue) => {
+    if (!issue || typeof issue !== "object" ||
+        !("path" in issue) || typeof issue.path !== "string" ||
+        !("code" in issue) || typeof issue.code !== "string" ||
+        !("message" in issue) || typeof issue.message !== "string") {
+      return [];
+    }
+    return [editorIssue(
+      {
+        path: issue.path,
+        code: issue.code,
+        message: issue.message,
+      },
+      document,
+    )];
+  });
 }
 
 async function requestJson<T>(

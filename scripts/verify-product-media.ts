@@ -7,11 +7,12 @@ import type { StorefrontCatalogReadAdapter } from "../test-support/storefront-ba
 import {
   verifyRealProductMedia,
   type ExpectedProductMedia,
-  type ProductMediaHttpBody,
   type ProductMediaHttpClient,
-  type ProductMediaHttpRequest,
   type RealProductMediaVerificationReport,
 } from "../lib/catalog/real-product-media-verification";
+import { createBoundedProductMediaHttpClient } from "../lib/catalog/product-media-http-client";
+
+export { createBoundedProductMediaHttpClient };
 
 const DEFAULT_MEDIA_PATH_PREFIX = "/storage/v1/object/public/mei-pelle-catalog/";
 const DEFAULT_MAX_REDIRECTS = 3;
@@ -170,143 +171,6 @@ function buildVerificationPolicy(
     maxRedirects,
     timeoutMs,
   } as const;
-}
-
-function readBoundedBody(
-  stream: ReadableStream<Uint8Array>,
-  maxBytes: number,
-  signal?: AbortSignal,
-): Promise<{ bytes: Uint8Array; exceeded: boolean }> {
-  const reader = stream.getReader();
-  const chunks: Uint8Array[] = [];
-  let total = 0;
-  let exceeded = false;
-
-  const finalize = (): { bytes: Uint8Array; exceeded: boolean } => {
-    const bytes = new Uint8Array(total > maxBytes ? maxBytes : total);
-    let offset = 0;
-    for (const chunk of chunks) {
-      bytes.set(chunk, offset);
-      offset += chunk.byteLength;
-    }
-    return { bytes, exceeded };
-  };
-
-  return new Promise((resolve, reject) => {
-    const onAbort = () => {
-      void reader.cancel().finally(() => {
-        reject(signal?.reason);
-      });
-    };
-
-    const next = async () => {
-      try {
-        while (true) {
-          const frame = await reader.read();
-          if (frame.done) break;
-
-          const chunk = frame.value;
-          if (!chunk) continue;
-
-          const remaining = maxBytes - total;
-          if (remaining <= 0) {
-            break;
-          }
-
-          if (chunk.byteLength > remaining) {
-            chunks.push(chunk.slice(0, remaining));
-            total += remaining;
-            exceeded = true;
-            await reader.cancel();
-            break;
-          }
-
-          chunks.push(chunk);
-          total += chunk.byteLength;
-          if (total >= maxBytes) {
-            const overflowFrame = await reader.read();
-            exceeded = !overflowFrame.done;
-            await reader.cancel();
-            break;
-          }
-        }
-
-        resolve(finalize());
-      } catch (cause) {
-        reject(cause);
-      } finally {
-        signal?.removeEventListener("abort", onAbort);
-        reader.releaseLock();
-      }
-    };
-
-    if (signal) {
-      signal.addEventListener("abort", onAbort, { once: true });
-    }
-
-    void next();
-  });
-}
-
-function createBoundedHttpBody(
-  stream: ReadableStream<Uint8Array>,
-  maxBytes: number,
-  signal?: AbortSignal,
-): ProductMediaHttpBody {
-  let readPromise: Promise<{ bytes: Uint8Array; exceeded: boolean }> | null = null;
-
-  return {
-    read() {
-      readPromise ??= readBoundedBody(stream, maxBytes, signal);
-      return readPromise;
-    },
-    async cancel() {
-      if (readPromise) {
-        await readPromise.catch(() => undefined);
-        return;
-      }
-      await stream.cancel();
-    },
-  };
-}
-
-export function createBoundedProductMediaHttpClient(
-  fetchImpl: typeof fetch,
-): ProductMediaHttpClient {
-  return {
-    async request(input: ProductMediaHttpRequest) {
-      const headers = Object.fromEntries(
-        Object.entries(input.headers).map(([name, value]) => [name, String(value)]),
-      ) as Record<string, string>;
-
-      const response = await fetchImpl(input.url, {
-        method: input.method,
-        headers,
-        redirect: input.redirect,
-        credentials: input.credentials,
-        signal: input.signal,
-      });
-
-      const responseHeaders: Record<string, string | undefined> = {};
-      response.headers.forEach((value, key) => {
-        responseHeaders[key] = value;
-      });
-
-      const body = response.body
-        ? createBoundedHttpBody(
-            response.body,
-            input.maxResponseBodyBytes,
-            input.signal,
-          )
-        : null;
-
-      return {
-        status: response.status,
-        headers: responseHeaders,
-        body,
-      };
-    },
-  };
 }
 
 function buildSummaryLines(report: ProductMediaVerificationCommandReport): readonly string[] {
