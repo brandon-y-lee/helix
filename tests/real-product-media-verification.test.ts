@@ -77,7 +77,7 @@ describe("Real Product Media verification", () => {
 
     const report = await verifyRealProductMedia({
       expectedMedia: [{ url: imageUrl, mediaType: "image" }],
-      urlPolicy: policy({ maxRedirects: 2, timeoutMs: 1_000 }),
+      urlPolicy: policy(),
       httpClient: { request },
     });
 
@@ -129,7 +129,7 @@ describe("Real Product Media verification", () => {
         { url: imageUrl, mediaType: "image" },
         { url: imageUrl, mediaType: "video" },
       ],
-      urlPolicy: policy({ maxRedirects: 2, timeoutMs: 1_000 }),
+      urlPolicy: policy(),
       httpClient: { request },
     });
 
@@ -162,7 +162,7 @@ describe("Real Product Media verification", () => {
 
     const report = await verifyRealProductMedia({
       expectedMedia: [{ url: credentialedUrl, mediaType: "image" }],
-      urlPolicy: policy({ maxRedirects: 2, timeoutMs: 1_000 }),
+      urlPolicy: policy(),
       httpClient: { request },
     });
 
@@ -206,7 +206,7 @@ describe("Real Product Media verification", () => {
 
     const report = await verifyRealProductMedia({
       expectedMedia: [{ url: imageUrl, mediaType: "image" }],
-      urlPolicy: policy({ maxRedirects: 1, timeoutMs: 1_000 }),
+      urlPolicy: policy({ maxRedirects: 1 }),
       httpClient: { request },
     });
 
@@ -240,7 +240,7 @@ describe("Real Product Media verification", () => {
 
     const report = await verifyRealProductMedia({
       expectedMedia: [{ url: imageUrl, mediaType: "image" }],
-      urlPolicy: policy({ maxRedirects: 0, timeoutMs: 1_000 }),
+      urlPolicy: policy({ maxRedirects: 0 }),
       httpClient: { request },
     });
 
@@ -278,7 +278,7 @@ describe("Real Product Media verification", () => {
 
     const report = await verifyRealProductMedia({
       expectedMedia: [{ url: imageUrl, mediaType: "image" }],
-      urlPolicy: policy({ maxRedirects: 0, timeoutMs: 1_000 }),
+      urlPolicy: policy({ maxRedirects: 0 }),
       httpClient: { request },
     });
 
@@ -314,7 +314,7 @@ describe("Real Product Media verification", () => {
 
     const report = await verifyRealProductMedia({
       expectedMedia: [{ url: imageUrl, mediaType: "image" }],
-      urlPolicy: policy({ maxRedirects: 0, timeoutMs: 1_000 }),
+      urlPolicy: policy({ maxRedirects: 0 }),
       httpClient: { request },
     });
 
@@ -351,7 +351,7 @@ describe("Real Product Media verification", () => {
 
     const report = await verifyRealProductMedia({
       expectedMedia: [{ url: imageUrl, mediaType: "video" }],
-      urlPolicy: policy({ maxRedirects: 0, timeoutMs: 1_000 }),
+      urlPolicy: policy({ maxRedirects: 0 }),
       httpClient: { request },
     });
 
@@ -385,7 +385,7 @@ describe("Real Product Media verification", () => {
 
     const report = await verifyRealProductMedia({
       expectedMedia: [{ url: imageUrl, mediaType: "image" }],
-      urlPolicy: policy({ maxRedirects: 0, timeoutMs: 1_000 }),
+      urlPolicy: policy({ maxRedirects: 0 }),
       httpClient: { request },
     });
 
@@ -424,7 +424,7 @@ describe("Real Product Media verification", () => {
         { url: imageUrl, mediaType: "image" },
         { url: secondUrl, mediaType: "image" },
       ],
-      urlPolicy: policy({ maxRedirects: 0, timeoutMs: 1_000 }),
+      urlPolicy: policy({ maxRedirects: 0 }),
       httpClient: { request },
     });
 
@@ -454,7 +454,7 @@ describe("Real Product Media verification", () => {
 
     const report = await verifyRealProductMedia({
       expectedMedia: [{ url: imageUrl, mediaType: "image" }],
-      urlPolicy: policy({ maxRedirects: 0, timeoutMs: 1_000 }),
+      urlPolicy: policy({ maxRedirects: 0 }),
       httpClient: { request },
     });
 
@@ -536,7 +536,7 @@ describe("Real Product Media verification", () => {
 
     const report = await verifyRealProductMedia({
       expectedMedia: [{ url: imageUrl, mediaType: "image" }],
-      urlPolicy: policy({ maxRedirects: 0, timeoutMs: 1_000 }),
+      urlPolicy: policy({ maxRedirects: 0 }),
       httpClient: { request },
     });
 
@@ -552,6 +552,33 @@ describe("Real Product Media verification", () => {
       }),
     );
   });
+
+  it.each(["+8", "8.0", "0x8"])(
+    "rejects malformed Content-Length syntax: %s",
+    async (contentLength) => {
+      const png = Uint8Array.from([
+        0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+      ]);
+      const request = vi.fn<ProductMediaHttpClient["request"]>(async () => ({
+        status: 206,
+        headers: {
+          "cache-control": "max-age=60",
+          "content-length": contentLength,
+          "content-range": "bytes 0-7/8",
+          "content-type": "image/png",
+        },
+        body: body(png),
+      }));
+
+      const report = await verifyRealProductMedia({
+        expectedMedia: [{ url: imageUrl, mediaType: "image" }],
+        urlPolicy: policy({ maxRedirects: 0 }),
+        httpClient: { request },
+      });
+
+      expect(report.results[0]?.failure?.code).toBe("malformed_range");
+    },
+  );
 
   it.each([
     ["malformed", "bytes 0-31/*"],
@@ -693,7 +720,7 @@ describe("Real Product Media verification", () => {
         { url: webpUrl, mediaType: "image" },
         { url: videoUrl, mediaType: "video" },
       ],
-      urlPolicy: policy({ maxRedirects: 0, timeoutMs: 1_000 }),
+      urlPolicy: policy({ maxRedirects: 0 }),
       httpClient: { request },
     });
 
@@ -733,7 +760,7 @@ describe("Real Product Media verification", () => {
         url,
         mediaType: "image" as const,
       })),
-      urlPolicy: policy({ maxRedirects: 0, timeoutMs: 1_000 }),
+      urlPolicy: policy({ maxRedirects: 0 }),
       httpClient: { request },
     });
 
@@ -758,7 +785,7 @@ describe("Real Product Media verification", () => {
         { url: signedUrl, mediaType: "image" },
         { url: signedUrl, mediaType: "video" },
       ],
-      urlPolicy: policy({ maxRedirects: 0, timeoutMs: 1_000 }),
+      urlPolicy: policy({ maxRedirects: 0 }),
       httpClient: { request },
     });
 
@@ -800,7 +827,7 @@ describe("Real Product Media verification", () => {
 
     const report = await verifyRealProductMedia({
       expectedMedia: [{ url: imageUrl, mediaType: "image" }],
-      urlPolicy: policy({ maxRedirects: 2, timeoutMs: 1_000 }),
+      urlPolicy: policy(),
       httpClient: { request },
     });
 
@@ -828,13 +855,53 @@ describe("Real Product Media verification", () => {
 
     const report = await verifyRealProductMedia({
       expectedMedia: [{ url: imageUrl, mediaType: "image" }],
-      urlPolicy: policy({ maxRedirects: 0, timeoutMs: 1_000 }),
+      urlPolicy: policy({ maxRedirects: 0 }),
       httpClient: { request },
     });
 
     expect(request).toHaveBeenCalledOnce();
     expect(report.results[0]?.failure?.code).toBe(
       "redirect_limit_exceeded",
+    );
+  });
+
+  it.each([Number.NaN, Number.POSITIVE_INFINITY, -1, 1.5])(
+    "rejects an invalid redirect limit before requesting: %s",
+    async (maxRedirects) => {
+      const request = vi.fn<ProductMediaHttpClient["request"]>();
+
+      const report = await verifyRealProductMedia({
+        expectedMedia: [{ url: imageUrl, mediaType: "image" }],
+        urlPolicy: policy({ maxRedirects }),
+        httpClient: { request },
+      });
+
+      expect(request).not.toHaveBeenCalled();
+      expect(report.results[0]?.failure).toEqual({
+        code: "invalid_url_policy",
+        message: "The public Product Media URL policy is invalid.",
+      });
+    },
+  );
+
+  it("classifies a malformed redirect destination as a rejected redirect", async () => {
+    const request = vi.fn<ProductMediaHttpClient["request"]>(async () => ({
+      status: 302,
+      headers: { location: "https://[malformed" },
+      body: null,
+    }));
+
+    const report = await verifyRealProductMedia({
+      expectedMedia: [{ url: imageUrl, mediaType: "image" }],
+      urlPolicy: policy({ maxRedirects: 1 }),
+      httpClient: { request },
+    });
+
+    expect(report.results[0]).toEqual(
+      expect.objectContaining({
+        status: 302,
+        failure: expect.objectContaining({ code: "redirect_rejected" }),
+      }),
     );
   });
 
@@ -861,7 +928,7 @@ describe("Real Product Media verification", () => {
 
     const report = await verifyRealProductMedia({
       expectedMedia: [{ url: imageUrl, mediaType: "image" }],
-      urlPolicy: policy({ maxRedirects: 1, timeoutMs: 1_000 }),
+      urlPolicy: policy({ maxRedirects: 1 }),
       httpClient: { request },
     });
 

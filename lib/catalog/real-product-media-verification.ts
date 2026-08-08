@@ -56,6 +56,7 @@ export type ProductMediaHttpClient = Readonly<{
 
 export type ProductMediaVerificationFailureCode =
   | "conflicting_expectations"
+  | "invalid_url_policy"
   | "initial_url_rejected"
   | "redirect_missing_location"
   | "redirect_limit_exceeded"
@@ -283,6 +284,17 @@ function isAbortError(value: unknown): boolean {
   );
 }
 
+function hasBoundedPolicyLimits(
+  policy: PublicProductMediaUrlPolicy,
+): boolean {
+  return (
+    Number.isSafeInteger(policy.maxRedirects) &&
+    policy.maxRedirects >= 0 &&
+    Number.isSafeInteger(policy.timeoutMs) &&
+    policy.timeoutMs > 0
+  );
+}
+
 function header(
   headers: Readonly<Record<string, string | undefined>>,
   name: string,
@@ -404,6 +416,16 @@ async function verifyOne(
   expected: ExpectedProductMedia,
   input: VerifyRealProductMediaInput,
 ): Promise<ProductMediaVerificationResult> {
+  if (!hasBoundedPolicyLimits(input.urlPolicy)) {
+    return failedResult(
+      expected,
+      {
+        code: "invalid_url_policy",
+        message: "The public Product Media URL policy is invalid.",
+      },
+      safeReportUrl(expected.url),
+    );
+  }
   if (!approvedPublicUrl(expected.url, input.urlPolicy)) {
     return failedResult(
       expected,
@@ -463,7 +485,16 @@ async function verifyOne(
             "The redirect left the approved public Customer Product Media policy.",
         }, expected.url, { status: response.status, redirects });
       }
-      const destination = new URL(location, currentUrl).href;
+      let destination: string;
+      try {
+        destination = new URL(location, currentUrl).href;
+      } catch {
+        return failedResult(expected, {
+          code: "redirect_rejected",
+          message:
+            "The redirect left the approved public Customer Product Media policy.",
+        }, expected.url, { status: response.status, redirects });
+      }
       if (!approvedPublicUrl(destination, input.urlPolicy)) {
         return failedResult(expected, {
           code: "redirect_rejected",
@@ -494,6 +525,17 @@ async function verifyOne(
     const expectedBytes = contentRange.end - contentRange.start + 1;
     const contentLengthValue = header(response.headers, "content-length");
     if (contentLengthValue !== undefined) {
+      if (!/^\d+$/.test(contentLengthValue)) {
+        if (response.body) await beforeTimeout(response.body.cancel());
+        return failedResult(expected, {
+          code: "malformed_range",
+          message: "The response contained an invalid byte range.",
+        }, expected.url, {
+          status: response.status,
+          totalBytes: contentRange.total,
+          redirects,
+        });
+      }
       const contentLength = Number(contentLengthValue);
       if (!Number.isSafeInteger(contentLength) || contentLength < 0) {
         if (response.body) await beforeTimeout(response.body.cancel());
