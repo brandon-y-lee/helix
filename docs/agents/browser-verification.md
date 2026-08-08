@@ -67,12 +67,14 @@ The coordinator changes the selected PR to `workflow:integration-active` and the
 
 1. records the current `dev` commit and freezes the candidate;
 2. combines the candidate with that exact `dev` state;
-3. runs the work class's applicable gate from the table above;
-4. for a browser-gated candidate, builds or validates one receipted production artifact, fingerprints the Catalog before and after the run, and creates a receipt only after a clean pass with unchanged inputs;
-5. for planning, documentation, or trivial work, skips the Storefront build, Catalog access, browser run, and receipt;
-6. confirms both candidate and `dev` remain unchanged;
-7. merges and performs issue, label, branch, and worktree completion; and
-8. releases the slot.
+3. selects the work class's applicable gate from the table above;
+4. for a browser-gated candidate, builds or validates one receipted production artifact and records the initial Catalog fingerprint;
+5. runs the applicable gate;
+6. for a browser-gated candidate, repeats the Catalog fingerprint and creates a receipt only after a clean pass with unchanged inputs;
+7. for planning, documentation, or trivial work, skips the Storefront build, Catalog access, browser run, and receipt;
+8. confirms both candidate and `dev` remain unchanged;
+9. merges and performs issue, label, branch, and worktree completion; and
+10. releases the slot.
 
 The complete operation has a 20-minute timeout. Failure, timeout, a retry-pass, a changed Catalog fingerprint, or a new candidate commit prevents the merge, releases the slot, and returns the PR to review. The next ready candidate may proceed while fixes are prepared.
 
