@@ -110,9 +110,13 @@ export async function runAffectedBrowserVerificationCommand(
   const classifiedFiles = changedFiles.map((file) => ({
     capabilities: Array.from(
       new Set(
-        plan.pathRules.flatMap((rule) =>
-          file.startsWith(rule.prefix) ? [...rule.capabilities] : [],
-        ),
+        plan.pathRules.flatMap((rule) => {
+          const matches =
+            rule.match === "exact"
+              ? file === rule.path
+              : file.startsWith(rule.path);
+          return matches ? [...rule.capabilities] : [];
+        }),
       ),
     ),
     file,
@@ -211,9 +215,10 @@ export async function runAffectedBrowserVerificationCommand(
         ),
       );
   const requiresWebkit = webkitJourneys.length > 0;
+  const projectNames = plan.projects.map(({ name }) => name);
   const projects = requiresWebkit
-    ? plan.projects
-    : ([plan.projects[0]] as const);
+    ? projectNames
+    : ([projectNames[0]] as const);
   for (const project of projects) {
     const projectJourneys =
       project === "webkit" ? webkitJourneys : selectedJourneys;

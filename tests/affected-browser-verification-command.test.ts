@@ -7,6 +7,7 @@ import {
   readAffectedBrowserVerificationChangedFiles,
   runAffectedBrowserVerificationCommand,
 } from "@/scripts/affected-browser-verification";
+import { BROWSER_VERIFICATION_PLAN } from "@/scripts/browser-verification-plan";
 import type { NodeProductionVerificationAdapters } from "@/scripts/production-verification";
 import { makeProductionVerificationAdapters } from "@/tests/helpers/production-verification";
 
@@ -39,6 +40,10 @@ describe("Affected Browser Verification command", () => {
     expect(packageJson.scripts["verify:affected"]).toBe(
       "tsx scripts/verify-affected.ts",
     );
+    expect(BROWSER_VERIFICATION_PLAN.projects).toEqual([
+      { device: "Desktop Chrome", name: "chromium" },
+      { device: "Desktop Safari", name: "webkit" },
+    ]);
   });
 
   it("compares the complete candidate worktree with the pull-request merge base", async () => {
@@ -91,7 +96,7 @@ describe("Affected Browser Verification command", () => {
       baseRef: "dev",
       buildId: "affected-build",
       fingerprint:
-        "sha256:fec535fcf27647b6183dfb7b34fd6b459f293fce9db3f9d33b444c7df9034545",
+        "sha256:e44a47aabf3ef00f15950dd0e3ac8498e7b3368e8c509319ac79a1fd9e0a774c",
     });
 
     expect(browserSelection).toEqual({
@@ -180,6 +185,36 @@ describe("Affected Browser Verification command", () => {
     });
     expect(output).toContain(
       "Selected webkit / storefront-purchase: middleware.ts is not mapped by Browser Verification Plan v1; selected the complete plan.",
+    );
+  });
+
+  it("does not classify a file whose name only extends an exact path rule", async () => {
+    const output: string[] = [];
+    let browserSelection: unknown;
+    const adapters = makeAffectedAdapters(
+      ["components/shell/Header.tsx.backup"],
+      {
+        runBrowserTests: async (input) => {
+          browserSelection = input.selection;
+        },
+      },
+    );
+
+    await runAffectedBrowserVerificationCommand({
+      adapters,
+      argv: ["--base", "dev"],
+      env: {},
+      log: (message) => output.push(message),
+    });
+
+    expect(browserSelection).toMatchObject({
+      projects: ["chromium", "webkit"],
+      webkitJourneyIds: BROWSER_VERIFICATION_PLAN.journeys.map(
+        ({ id }) => id,
+      ),
+    });
+    expect(output).toContain(
+      "Selected webkit / header-search: components/shell/Header.tsx.backup is not mapped by Browser Verification Plan v1; selected the complete plan.",
     );
   });
 
