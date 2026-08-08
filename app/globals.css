@@ -435,7 +435,6 @@ body[data-sheet-scroll-lock] .site-header {
 .site-footer__checkout-status {
   min-width: 0;
   padding-top: clamp(14px, 1.5vw, 20px);
-  border-top: 1px solid var(--line);
 }
 
 .site-footer__status-heading {
@@ -766,8 +765,9 @@ body[data-sheet-scroll-lock] .site-header {
 
 @media (hover: hover) and (pointer: fine) {
   .chip:not([aria-current="page"]):hover {
-    border-color: var(--ink);
-    background: rgba(103, 100, 94, 0.12);
+    border-color: var(--accent);
+    background: var(--accent);
+    color: var(--accent-ink);
   }
 }
 
@@ -6615,9 +6615,16 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 
 .product-card__button,
 .product-card__quick-final {
-  border: 1px solid var(--storefront-warm-gray);
   background: var(--surface);
   color: var(--storefront-warm-gray);
+}
+
+.product-card__button {
+  border: 0;
+}
+
+.product-card__quick-final {
+  border: 1px solid var(--storefront-warm-gray);
 }
 
 .product-card__quick-final:disabled {
