@@ -53,14 +53,19 @@ describe("dev Integration Line workflows", () => {
     expect(verification).toContain("scripts/verify-production-ci.ts verify");
   });
 
-  it("keeps every non-coordinator workflow token explicitly read-only", () => {
+  it("keeps candidate execution read-only and narrowly grants bootstrap dispatch", () => {
     for (const workflow of [ci, activeProductMedia]) {
       expect(workflow).toContain("permissions:\n  contents: read");
       expect(workflow).not.toContain("contents: write");
-      expect(workflow).not.toContain("actions: write");
       expect(workflow).not.toContain("issues: write");
       expect(workflow).not.toContain("pull-requests: write");
     }
+    expect(activeProductMedia).not.toContain("actions: write");
+    expect(ci).toContain("protected-push-receipt:\n    if:");
+    expect(ci).toContain(
+      "permissions:\n      actions: write\n      attestations: read\n      contents: read",
+    );
+    expect(ci.match(/actions: write/g)).toHaveLength(1);
   });
 
   it("uses proportional PR evidence and signs one stable Integration Slot result", () => {
@@ -92,9 +97,15 @@ describe("dev Integration Line workflows", () => {
     expect(verification).toContain("retention-days: 30");
     expect(verification).toContain("retention-days: 90");
     expect(ci).toContain("verification:receipt:protected-push");
+    expect(ci).toContain("needs: [ci-core, protected-push-receipt]");
+    expect(ci).toContain('RECEIPT_RESULT: ${{ needs.protected-push-receipt.result }}');
     expect(ci).toContain('branches: [dev, main, "codex/spec-*"]');
     expect(ci).toContain("classify-windows-lifecycle:");
     expect(ci).toContain("needs: classify-windows-lifecycle");
+    expect(ci).toContain("node scripts/github/verification-system-paths.mjs");
+    expect(ci).toContain("verification-lifecycle-gate:");
+    expect(ci).toContain("needs: [classify-windows-lifecycle, verification-lifecycle-windows]");
+    expect(ci).toContain("WINDOWS_RESULT:");
     expect(ci).toContain("workflow_dispatch:");
     expect(ci).toContain("schedule:");
   });

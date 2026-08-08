@@ -38,7 +38,7 @@ jobs:
             exit 0
           fi
           git diff --name-only --diff-filter=ACMR "$BASE_SHA" "$GITHUB_SHA" > "$RUNNER_TEMP/changed-files.txt"
-          if grep -Eq '^(\.github/workflows/|\.nvmrc$|package\.json$|pnpm-lock\.yaml$|pnpm-workspace\.yaml$|playwright\.config\.ts$|scripts/(affected-browser-verification|browser-verification-plan|github/|production-verification|verify-affected|verify-production)|tests/(affected-browser-verification|integration-|verification-orchestrator|production-verification))' "$RUNNER_TEMP/changed-files.txt"; then
+          if node scripts/github/verification-system-paths.mjs "$RUNNER_TEMP/changed-files.txt"; then
             echo "relevant=true" >> "$GITHUB_OUTPUT"
           else
             echo "relevant=false" >> "$GITHUB_OUTPUT"
@@ -68,7 +68,28 @@ jobs:
       - name: Verify lifecycle start, failure, interruption, and cleanup
         run: pnpm vitest run tests/production-verification.test.ts tests/production-verification-process.test.ts
 
-  ci:
+  verification-lifecycle-gate:
+    needs: [classify-windows-lifecycle, verification-lifecycle-windows]
+    if: ${{ always() && github.event_name != 'schedule' && github.event_name != 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    env:
+      CLASSIFIER_RESULT: ${{ needs.classify-windows-lifecycle.result }}
+      LIFECYCLE_RELEVANT: ${{ needs.classify-windows-lifecycle.outputs.relevant }}
+      WINDOWS_RESULT: ${{ needs.verification-lifecycle-windows.result }}
+    steps:
+      - name: Require proportional Windows lifecycle evidence
+        run: |
+          if [[ "$CLASSIFIER_RESULT" != "success" ]]; then
+            echo "Lifecycle classification must succeed." >&2
+            exit 1
+          fi
+          if [[ "$LIFECYCLE_RELEVANT" == "true" && "$WINDOWS_RESULT" != "success" ]]; then
+            echo "Relevant verification-system changes require successful Windows lifecycle evidence." >&2
+            exit 1
+          fi
+
+  ci-core:
     if: ${{ github.event_name != 'schedule' && github.event_name != 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -112,13 +133,6 @@ jobs:
       - name: Unit tests
         run: pnpm test
 
-      - name: Reuse signed Integration Slot evidence on protected dev push
-        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/dev' }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-          VERIFICATION_DEV_BASE: ${{ github.event.before }}
-        run: pnpm verification:receipt:protected-push
-
       # Gate 5: proportional browser evidence for the pull-request merge tree.
       # The serialized Integration Slot owns the one complete clean Chromium run.
       - name: Install Playwright browsers
@@ -137,6 +151,70 @@ jobs:
           path: playwright-report/
           retention-days: 90
           if-no-files-found: ignore
+
+  protected-push-receipt:
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/dev' }}
+    permissions:
+      actions: write
+      attestations: read
+      contents: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      NEXT_PUBLIC_ALGOLIA_APP_ID: ${{ secrets.NEXT_PUBLIC_ALGOLIA_APP_ID }}
+      NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY: ${{ secrets.NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY }}
+      NEXT_PUBLIC_ALGOLIA_INDEX_NAME: ${{ secrets.NEXT_PUBLIC_ALGOLIA_INDEX_NAME }}
+      NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
+    steps:
+      - name: Checkout protected dev push
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build current protected-push artifact
+        run: pnpm build
+
+      - name: Require a matching signed Integration Slot receipt
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERIFICATION_DEV_BASE: ${{ github.event.before }}
+        run: pnpm verification:receipt:protected-push
+
+  ci:
+    if: ${{ github.event_name != 'schedule' && github.event_name != 'workflow_dispatch' && always() }}
+    needs: [ci-core, protected-push-receipt]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    env:
+      CORE_RESULT: ${{ needs.ci-core.result }}
+      PROTECTED_PUSH: ${{ github.event_name == 'push' && github.ref == 'refs/heads/dev' }}
+      RECEIPT_RESULT: ${{ needs.protected-push-receipt.result }}
+    steps:
+      - name: Require CI and protected-push receipt policy
+        run: |
+          if [[ "$CORE_RESULT" != "success" ]]; then
+            echo "Core CI must succeed." >&2
+            exit 1
+          fi
+          if [[ "$PROTECTED_PUSH" == "true" && "$RECEIPT_RESULT" != "success" ]]; then
+            echo "Protected dev pushes require a matching signed receipt." >&2
+            exit 1
+          fi
 
   affected-browser-verification:
     if: ${{ github.event_name == 'pull_request' && startsWith(github.base_ref, 'codex/spec-') }}

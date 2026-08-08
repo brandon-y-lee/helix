@@ -283,18 +283,89 @@ type AssociatedPullRequest = {
 };
 
 const PROTECTED_PUSH_SCRIPT = "verification:receipt:protected-push";
+const PROTECTED_PUSH_COMMAND = "tsx scripts/github/verification-receipt-command.ts protected-push";
+
+type ReceiptCutoverInput = {
+  baseSha: string;
+  candidateSha: string;
+  pullRequest: number;
+};
+
+export interface ReceiptCutoverBootstrapAdapter {
+  issueAndVerify(input: ReceiptCutoverInput): Promise<{ outcome: "passed" | "failed" }>;
+}
+
+export async function bootstrapInitialVerificationReceipt(
+  input: ReceiptCutoverInput,
+  adapter: ReceiptCutoverBootstrapAdapter,
+): Promise<void> {
+  const result = await adapter.issueAndVerify(input);
+  if (result.outcome !== "passed") {
+    throw new Error("Trusted receipt cutover did not produce a verified receipt.");
+  }
+}
+
+function createGitHubReceiptCutoverBootstrap(input: {
+  environment: NodeJS.ProcessEnv;
+  repository: string;
+  run: VerificationCommandRunner;
+}): ReceiptCutoverBootstrapAdapter {
+  return {
+    async issueAndVerify(candidate) {
+      const nonce = `protected-push-${required(input.environment, "GITHUB_RUN_ID")}-${required(input.environment, "GITHUB_RUN_ATTEMPT")}`;
+      const title = `Integration verification #${candidate.pullRequest} ${nonce}`;
+      await input.run("gh", [
+        "workflow", "run", "dev-integration-verification.yml",
+        "--repo", input.repository,
+        "--ref", "dev",
+        "-f", `pr_number=${candidate.pullRequest}`,
+        "-f", `candidate_head=${candidate.candidateSha}`,
+        "-f", `dev_base=${candidate.baseSha}`,
+        "-f", "gate=complete-behavioral",
+        "-f", `nonce=${nonce}`,
+      ], { encoding: "utf8" });
+
+      let runId: number | undefined;
+      for (let attempt = 0; attempt < 30 && !runId; attempt += 1) {
+        const observed = await input.run("gh", [
+          "run", "list",
+          "--repo", input.repository,
+          "--workflow", "dev-integration-verification.yml",
+          "--event", "workflow_dispatch",
+          "--limit", "30",
+          "--json", "databaseId,displayTitle",
+        ], { encoding: "utf8" });
+        const runs = JSON.parse(observed.stdout) as Array<{
+          databaseId: number;
+          displayTitle: string;
+        }>;
+        runId = runs.find((run) => run.displayTitle === title)?.databaseId;
+        if (!runId) await new Promise((resolveDelay) => setTimeout(resolveDelay, 1_000));
+      }
+      if (!runId) throw new Error("Trusted receipt cutover workflow was not observable.");
+      await input.run("gh", [
+        "run", "watch", String(runId),
+        "--repo", input.repository,
+        "--exit-status",
+        "--interval", "10",
+      ], { encoding: "utf8" });
+      return { outcome: "passed" };
+    },
+  };
+}
 
 export function isInitialReceiptVerificationCutover(
   previousPackage: { scripts?: Record<string, string> },
   currentPackage: { scripts?: Record<string, string> },
 ): boolean {
   return (
-    !previousPackage.scripts?.[PROTECTED_PUSH_SCRIPT] &&
-    Boolean(currentPackage.scripts?.[PROTECTED_PUSH_SCRIPT])
+    previousPackage.scripts?.[PROTECTED_PUSH_SCRIPT] === undefined &&
+    currentPackage.scripts?.[PROTECTED_PUSH_SCRIPT] === PROTECTED_PUSH_COMMAND
   );
 }
 
 export async function verifyProtectedBranchPushReceipt(input: {
+  bootstrap?: ReceiptCutoverBootstrapAdapter;
   cwd: string;
   environment: NodeJS.ProcessEnv;
   run?: VerificationCommandRunner;
@@ -327,6 +398,17 @@ export async function verifyProtectedBranchPushReceipt(input: {
     previousPackage,
     currentPackage,
   );
+  if (initialCutover) {
+    await bootstrapInitialVerificationReceipt({
+      baseSha,
+      candidateSha: pull.head!.sha!,
+      pullRequest: pull.number!,
+    }, input.bootstrap ?? createGitHubReceiptCutoverBootstrap({
+      environment,
+      repository,
+      run,
+    }));
+  }
   const changed = await execFileAsync(
     "git",
     ["diff", "--name-only", "--diff-filter=ACMR", baseSha, pushSha],
@@ -346,21 +428,13 @@ export async function verifyProtectedBranchPushReceipt(input: {
   await mkdir(subjectDirectory, { recursive: true });
   const subjectPath = resolve(subjectDirectory, SUBJECT_FILE);
   await writeFile(subjectPath, runtimeSubject, { encoding: "utf8", mode: 0o600 });
-  let stdout: string;
-  try {
-    ({ stdout } = await run("gh", [
-      "attestation", "verify", subjectPath,
-      "--repo", repository,
-      "--predicate-type", VERIFICATION_RECEIPT_PREDICATE_TYPE,
-      "--signer-workflow", `${repository}/.github/workflows/dev-integration-verification.yml`,
-      "--format", "json",
-    ], { encoding: "utf8" }));
-  } catch (error) {
-    if (initialCutover) {
-      return { outcome: "cutover" as const, reusable: false as const };
-    }
-    throw error;
-  }
+  const { stdout } = await run("gh", [
+    "attestation", "verify", subjectPath,
+    "--repo", repository,
+    "--predicate-type", VERIFICATION_RECEIPT_PREDICATE_TYPE,
+    "--signer-workflow", `${repository}/.github/workflows/dev-integration-verification.yml`,
+    "--format", "json",
+  ], { encoding: "utf8" });
   const verified = JSON.parse(stdout) as AttestationVerification[];
   const packageJson = JSON.parse(await readFile(resolve(cwd, "package.json"), "utf8")) as {
     packageManager: string;
@@ -392,9 +466,6 @@ export async function verifyProtectedBranchPushReceipt(input: {
     },
   }, { allowIntegrationCarryForward });
   if (result.outcome !== "reused") {
-    if (initialCutover) {
-      return { outcome: "cutover" as const, reusable: false as const };
-    }
     throw new Error("Protected dev push has no matching signed Verification Receipt.");
   }
   return result;
@@ -442,13 +513,7 @@ async function main() {
       cwd: process.cwd(),
       environment: process.env,
     });
-    if (result.outcome === "cutover") {
-      process.stdout.write(
-        "Initial receipt-verification cutover accepted; dispatch the merged trusted workflow before closing the ticket.\n",
-      );
-    } else {
-      process.stdout.write(`Reused protected-push receipt ${result.attestationId}.\n`);
-    }
+    process.stdout.write(`Reused protected-push receipt ${result.attestationId}.\n`);
     return;
   }
   throw new Error("Verification receipt command requires prepare, verify, browser-version, or protected-push.");

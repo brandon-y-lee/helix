@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   createRepositoryAdapter,
+  createVerificationAdapter,
   requestIntegrationHandoff,
   toIntegrationCandidate,
   type CommandAdapter,
@@ -32,6 +33,31 @@ function pullRequestFact(overrides: Record<string, unknown> = {}) {
 }
 
 describe("GitHub Integration Coordinator adapter", () => {
+  it("routes production verification through the public orchestrator seam", async () => {
+    let seamInvoked = false;
+    const adapter = createVerificationAdapter(
+      "brandon-y-lee/mei-pelle",
+      "530-1",
+      { async run() { throw new Error("transport should remain controlled"); } },
+      () => {
+        seamInvoked = true;
+        return { async verify() { return { outcome: "passed" }; } };
+      },
+    );
+
+    await expect(adapter.verify({
+      number: 53,
+      baseSha: "b".repeat(40),
+      headSha: "c".repeat(40),
+      candidateSha: "d".repeat(40),
+      gate: "complete-behavioral",
+      reasons: ["verification-system retains the complete behavioral gate"],
+      timeoutMs: 20 * 60 * 1_000,
+      signal: new AbortController().signal,
+    })).resolves.toEqual({ outcome: "passed" });
+    expect(seamInvoked).toBe(true);
+  });
+
   it("fails closed to verification-system work from current pull-request facts", () => {
     const candidate = toIntegrationCandidate(pullRequestFact({
       statusCheckRollup: [
@@ -79,6 +105,14 @@ describe("GitHub Integration Coordinator adapter", () => {
     "scripts/browser-verification-plan.ts",
     "scripts/verify-affected.ts",
     "tests/affected-browser-verification-command.test.ts",
+    "tests/github-workflow-tools.test.ts",
+    "tests/helpers/production-verification.ts",
+    "tests/prepare-integration-candidate.test.ts",
+    "tests/routine-browser-verification.test.ts",
+    "tests/verification-fingerprints.test.ts",
+    "tests/verification-receipt-command.test.ts",
+    "tests/spec-integration-lifecycle.test.ts",
+    "tests/spec-lifecycle-adapters.test.ts",
   ])("keeps affected browser verification changes on the verification-system gate: %s", (path) => {
     const candidate = toIntegrationCandidate(
       pullRequestFact({

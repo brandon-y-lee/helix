@@ -82,6 +82,41 @@ export interface VerificationAdapter {
   }): Promise<{ outcome: "passed" | "failed" }>;
 }
 
+type VerificationRequest = Parameters<VerificationAdapter["verify"]>[0];
+
+export interface WorkflowVerificationTransport {
+  dispatch(input: VerificationRequest): Promise<void>;
+  findRun(input: VerificationRequest): Promise<number | undefined>;
+  waitForRun(input: {
+    runId: number;
+    signal: AbortSignal;
+  }): Promise<{ outcome: "passed" | "failed" }>;
+  cancelRun(input: { runId: number }): Promise<void>;
+  delay(input: { milliseconds: number; signal: AbortSignal }): Promise<void>;
+}
+
+export function createWorkflowVerificationAdapter(
+  transport: WorkflowVerificationTransport,
+): VerificationAdapter {
+  return {
+    async verify(input) {
+      await transport.dispatch(input);
+      let runId: number | undefined;
+      for (let attempt = 0; attempt < 30 && !runId; attempt += 1) {
+        runId = await transport.findRun(input);
+        if (!runId) {
+          await transport.delay({ milliseconds: 1_000, signal: input.signal });
+        }
+      }
+      if (!runId) throw new Error("dispatched integration verification run was not observable");
+
+      const result = await transport.waitForRun({ runId, signal: input.signal });
+      if (input.signal.aborted) await transport.cancelRun({ runId });
+      return result;
+    },
+  };
+}
+
 export function createRoutineReceiptVerificationAdapter(input: {
   identity: {
     read(candidate: Parameters<VerificationAdapter["verify"]>[0]): Promise<RoutineInput>;

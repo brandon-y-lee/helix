@@ -86,7 +86,7 @@ describe("future spec integration lifecycle", () => {
           branch: "codex/spec-60-catalog-refresh",
           directPushes: false,
           allowedMergeMethods: ["squash"],
-          requiredChecks: ["ci", "affected-browser-verification"],
+          requiredChecks: ["ci", "affected-browser-verification", "verification-lifecycle-gate"],
         },
       },
       {
@@ -101,7 +101,7 @@ describe("future spec integration lifecycle", () => {
           branch: "codex/spec-60-catalog-refresh",
           directPushes: false,
           allowedMergeMethods: ["squash"],
-          requiredChecks: ["ci", "affected-browser-verification"],
+          requiredChecks: ["ci", "affected-browser-verification", "verification-lifecycle-gate"],
         },
       },
     ]);
@@ -294,7 +294,11 @@ describe("future spec integration lifecycle", () => {
           baseBranch: "codex/spec-60-catalog-refresh",
           headSha: "child-61",
           draft: false,
-          checks: { ci: "passed" as const, "affected-browser-verification": "passed" as const },
+          checks: {
+            ci: "passed" as const,
+            "affected-browser-verification": "passed" as const,
+            "verification-lifecycle-gate": "passed" as const,
+          },
           body: "",
           ticketNumber: 61,
           reviewPassed: true,
@@ -310,7 +314,11 @@ describe("future spec integration lifecycle", () => {
           baseBranch: "codex/spec-60-catalog-refresh",
           headSha: "child-62",
           draft: false,
-          checks: { ci: "passed" as const, "affected-browser-verification": "passed" as const },
+          checks: {
+            ci: "passed" as const,
+            "affected-browser-verification": "passed" as const,
+            "verification-lifecycle-gate": "passed" as const,
+          },
           body: "",
           ticketNumber: 62,
           reviewPassed: true,
@@ -406,6 +414,21 @@ describe("future spec integration lifecycle", () => {
       ),
     ).rejects.toThrow("bound to its ticket");
     Object.assign(pullRequests.get(101)!, { headBranch: "codex/61-foundation" });
+
+    pullRequests.get(101)!.checks["verification-lifecycle-gate"] = "failed";
+    await expect(
+      runSpecLifecycle(
+        {
+          kind: "integrate-child",
+          specNumber: 60,
+          specSlug: "catalog-refresh",
+          childNumber: 61,
+          pullRequestNumber: 101,
+        },
+        adapters,
+      ),
+    ).rejects.toThrow("passing verification-lifecycle-gate");
+    pullRequests.get(101)!.checks["verification-lifecycle-gate"] = "passed";
 
     const first = await runSpecLifecycle(
       {

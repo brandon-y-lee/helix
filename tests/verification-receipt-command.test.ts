@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
+  bootstrapInitialVerificationReceipt,
   isInitialReceiptVerificationCutover,
   verifyVerificationReceipt,
 } from "@/scripts/github/verification-receipt-command";
@@ -41,12 +42,26 @@ const receipt: VerificationReceipt = {
 };
 
 describe("GitHub Verification Receipt lookup", () => {
+  it("fails closed when the trusted cutover workflow cannot produce and verify a receipt", async () => {
+    await expect(bootstrapInitialVerificationReceipt({
+      baseSha: "b".repeat(40),
+      candidateSha: "c".repeat(40),
+      pullRequest: 53,
+    }, {
+      async issueAndVerify() { return { outcome: "failed" }; },
+    })).rejects.toThrow("did not produce a verified receipt");
+  });
+
   it("permits exactly the one commit that introduces the protected-push receipt gate", () => {
     const command = "tsx scripts/github/verification-receipt-command.ts protected-push";
     expect(isInitialReceiptVerificationCutover(
       { scripts: {} },
       { scripts: { "verification:receipt:protected-push": command } },
     )).toBe(true);
+    expect(isInitialReceiptVerificationCutover(
+      { scripts: {} },
+      { scripts: { "verification:receipt:protected-push": "echo bypass" } },
+    )).toBe(false);
     expect(isInitialReceiptVerificationCutover(
       { scripts: { "verification:receipt:protected-push": command } },
       { scripts: { "verification:receipt:protected-push": command } },

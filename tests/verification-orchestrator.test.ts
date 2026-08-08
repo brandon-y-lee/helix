@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   createRoutineReceiptVerificationAdapter,
+  createWorkflowVerificationAdapter,
   runIntegrationLine,
   type GitAdapter,
   type IntegrationCandidate,
@@ -11,6 +12,29 @@ import {
 } from "@/scripts/github/verification-orchestrator";
 
 describe("Verification Orchestrator", () => {
+  it("owns workflow transport policy through the public verification adapter", async () => {
+    const calls: string[] = [];
+    const adapter = createWorkflowVerificationAdapter({
+      async dispatch() { calls.push("dispatch"); },
+      async findRun() { calls.push("find"); return 530; },
+      async waitForRun() { calls.push("wait"); return { outcome: "passed" }; },
+      async cancelRun() { calls.push("cancel"); },
+      async delay() { calls.push("delay"); },
+    });
+
+    await expect(adapter.verify({
+      number: 53,
+      baseSha: "b".repeat(40),
+      headSha: "c".repeat(40),
+      candidateSha: "d".repeat(40),
+      gate: "complete-behavioral",
+      reasons: ["verification-system retains the complete behavioral gate"],
+      timeoutMs: 20 * 60 * 1_000,
+      signal: new AbortController().signal,
+    })).resolves.toEqual({ outcome: "passed" });
+    expect(calls).toEqual(["dispatch", "find", "wait"]);
+  });
+
   it("does not grant the fast path to runtime-consumed Markdown", async () => {
     let observedGate: string | undefined;
     let candidate: IntegrationCandidate | undefined = {
