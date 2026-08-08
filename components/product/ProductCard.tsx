@@ -295,6 +295,25 @@ export function ProductCard({
     }
   }
 
+  function preserveViewportAfterUpdate(
+    viewport = { scrollX: window.scrollX, scrollY: window.scrollY },
+  ) {
+    const { scrollX, scrollY } = viewport;
+    const restoreViewport = () => {
+      if (window.scrollX !== scrollX || window.scrollY !== scrollY) {
+        window.scrollTo(scrollX, scrollY);
+      }
+    };
+    restoreViewport();
+    window.requestAnimationFrame(restoreViewport);
+  }
+
+  function focusTriggerWithoutScrolling() {
+    const viewport = { scrollX: window.scrollX, scrollY: window.scrollY };
+    triggerRef.current?.focus({ preventScroll: true });
+    preserveViewportAfterUpdate(viewport);
+  }
+
   function closeQuickBuy({
     focusTrigger = true,
     restorePointerPreview = false,
@@ -319,7 +338,7 @@ export function ProductCard({
       }
     }
     if (focusTrigger) {
-      triggerRef.current?.focus();
+      focusTriggerWithoutScrolling();
     }
   }
 
@@ -406,8 +425,11 @@ export function ProductCard({
         swatch: product.swatch,
         ...cartMediaSnapshot(media),
       },
-      beforeDrawerOpen: () => closeQuickBuy({ focusTrigger: false }),
-      returnFocus: () => triggerRef.current?.focus(),
+      beforeDrawerOpen: () => {
+        closeQuickBuy({ focusTrigger: false });
+        preserveViewportAfterUpdate();
+      },
+      returnFocus: focusTriggerWithoutScrolling,
     });
     if (ok) {
       setAdded(true);
@@ -611,6 +633,14 @@ export function ProductCard({
                 </dl>
               )}
 
+              <Link
+                href={href}
+                className="product-card__quick-link"
+                tabIndex={isQuickBuyOpen ? undefined : -1}
+              >
+                Full details
+              </Link>
+
               {product.variants.length > 1 && (
                 <fieldset className="product-card__quick-variants">
                   <legend>Size</legend>
@@ -655,13 +685,6 @@ export function ProductCard({
                 >
                   {pending ? "ADDING" : purchaseCta.label}
                 </button>
-                <Link
-                  href={href}
-                  className="product-card__quick-link"
-                  tabIndex={isQuickBuyOpen ? undefined : -1}
-                >
-                  Full details
-                </Link>
               </div>
             </section>
           </div>

@@ -120,7 +120,7 @@ The five canonical triage roles use their default label names. See `docs/agents/
 
 ### Domain docs
 
-This is a single-context repository with domain context at the root. See `docs/agents/domain.md`.
+Domain language is routed by `CONTEXT-MAP.md`. Read the map first and only the context glossaries relevant to the task; see `docs/agents/domain.md`.
 
 ### Engineering workflow
 

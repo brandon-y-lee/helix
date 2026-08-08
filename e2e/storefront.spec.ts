@@ -5,6 +5,12 @@ import { installCartFixture } from "./cart-fixture";
 import { expect, test } from "./storefront-fixture";
 
 type HorizontalGeometry = { x: number; width: number };
+type ElementGeometry = { bottom: number; left: number; top: number };
+type ViewportOrigin = {
+  scrollX: number;
+  scrollY: number;
+  visualOffsetLeft: number;
+};
 
 const PRODUCT_CARD_WARM_GRAY = "rgb(103, 100, 94)";
 const PRODUCT_CARD_CREAM = "rgb(255, 253, 248)";
@@ -28,6 +34,24 @@ async function storefrontGeometry(page: Page): Promise<HorizontalGeometry> {
     const { x, width } = element.getBoundingClientRect();
     return { x, width };
   });
+}
+
+async function elementGeometry(locator: Locator): Promise<ElementGeometry> {
+  const box = await locator.boundingBox();
+  expect(box).not.toBeNull();
+  return {
+    bottom: box!.y + box!.height,
+    left: box!.x,
+    top: box!.y,
+  };
+}
+
+async function viewportOrigin(page: Page): Promise<ViewportOrigin> {
+  return page.evaluate(() => ({
+    scrollX: window.scrollX,
+    scrollY: window.scrollY,
+    visualOffsetLeft: window.visualViewport?.offsetLeft ?? 0,
+  }));
 }
 
 async function finishDrawerExit(page: Page) {
@@ -441,6 +465,76 @@ test("PDP resolves canonical data and exposes an available variant", async ({
   );
 });
 
+test("Quick Buy places Product education before configuration and the final Buy action", async ({
+  page,
+  storefront,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const shopProducts = storefront.products();
+  const singleVariantProduct =
+    shopProducts.find((product) => product.variants.length === 1) ??
+    storefront.product("purchasable");
+  const multipleVariantProduct = shopProducts.find(
+    (product) => product.variants.length > 1,
+  );
+  const cases = [
+    { path: "/", product: storefront.product("core") },
+    { path: "/", product: storefront.product("beyondCore") },
+    { path: "/collections/shop", product: singleVariantProduct },
+    ...(multipleVariantProduct
+      ? [{ path: "/collections/shop", product: multipleVariantProduct }]
+      : []),
+  ];
+
+  for (const { path, product } of cases) {
+    await page.goto(path);
+    const card = page.locator(`[data-product-card-slug="${product.slug}"]`);
+    await card.hover();
+    await card
+      .getByRole("button", {
+        name: `Open quick buy for ${product.displayName}`,
+      })
+      .click();
+
+    const panel = card.locator(".product-card__quick-buy");
+    await expect(panel).toHaveAttribute("data-open", "true");
+    const details = card.locator(".product-card__quick-details");
+    const fullDetails = card.getByRole("link", { name: "Full details" });
+    const variants = card.locator(".product-card__quick-variants");
+    const finalBuy = card.locator("[data-product-card-buy]");
+    await panel.evaluate(async (element) => {
+      await Promise.all(
+        element
+          .getAnimations({ subtree: true })
+          .map((animation) => animation.finished.catch(() => undefined)),
+      );
+    });
+    const [panelBox, detailsBox, fullDetailsBox, finalBuyBox] = await Promise.all([
+      elementGeometry(panel),
+      elementGeometry(details),
+      elementGeometry(fullDetails),
+      elementGeometry(finalBuy),
+    ]);
+
+    expect(fullDetailsBox.top).toBeGreaterThanOrEqual(detailsBox.bottom);
+    expect(Math.abs(fullDetailsBox.left - detailsBox.left)).toBeLessThanOrEqual(1);
+    if ((await variants.count()) > 0) {
+      const variantsBox = await elementGeometry(variants);
+      expect(variantsBox.top).toBeGreaterThanOrEqual(fullDetailsBox.bottom);
+      expect(finalBuyBox.top).toBeGreaterThanOrEqual(variantsBox.bottom);
+    } else {
+      expect(finalBuyBox.top).toBeGreaterThanOrEqual(fullDetailsBox.bottom);
+    }
+    expect(panelBox.bottom - finalBuyBox.bottom).toBeLessThanOrEqual(26);
+
+    await card
+      .getByRole("button", {
+        name: `Close quick buy for ${product.displayName}`,
+      })
+      .click();
+  }
+});
+
 test("PDP add-to-cart persists across reload and reaches the cart page", async ({
   page,
   storefront,
@@ -472,6 +566,138 @@ test("PDP add-to-cart persists across reload and reaches the cart page", async (
   await expect(
     page.locator("#content").getByText(/your cart is empty/i),
   ).toBeVisible();
+});
+
+test("mobile quick buy pointer close preserves the Customer's viewport and preview", async ({
+  page,
+  storefront,
+}) => {
+  const products = storefront.products();
+  const product = products[Math.floor(products.length / 2)];
+  if (!product) throw new Error("The Storefront has no Product to inspect.");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/collections/shop");
+
+  const card = page.locator(`[data-product-card-slug="${product.slug}"]`);
+  const quickBuy = card.getByRole("button", {
+    name: `Open quick buy for ${product.displayName}`,
+  });
+  await quickBuy.click();
+
+  const close = card.getByRole("button", {
+    name: `Close quick buy for ${product.displayName}`,
+  });
+  await close.scrollIntoViewIfNeeded();
+  const scrollYBeforeClose = await page.evaluate(() => window.scrollY);
+  await close.click();
+
+  await expect(card).toHaveAttribute("data-quick-buy-open", "false");
+  await expect(quickBuy).toBeFocused();
+  await expect(card).toHaveAttribute("data-visual-state", "preview");
+  await page.waitForTimeout(750);
+  expect(await page.evaluate(() => window.scrollY)).toBe(scrollYBeforeClose);
+});
+
+test("mobile quick buy Escape preserves the Customer's viewport and focus preview", async ({
+  page,
+  storefront,
+}) => {
+  const product = storefront.product("purchasable");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/collections/shop");
+
+  const card = page.locator(`[data-product-card-slug="${product.slug}"]`);
+  await card.hover();
+  const quickBuy = card.getByRole("button", {
+    name: `Open quick buy for ${product.displayName}`,
+  });
+  await quickBuy.focus();
+  await page.keyboard.press("Enter");
+  const scrollYBeforeClose = await page.evaluate(() => window.scrollY);
+  await page.keyboard.press("Escape");
+
+  await expect(card).toHaveAttribute("data-quick-buy-open", "false");
+  await expect(quickBuy).toBeFocused();
+  await expect(card).toHaveAttribute("data-visual-state", "preview");
+  await page.waitForTimeout(750);
+  expect(await page.evaluate(() => window.scrollY)).toBe(scrollYBeforeClose);
+});
+
+test("opening another Product's Quick Buy preserves the viewport", async ({
+  page,
+  storefront,
+}) => {
+  const [firstProduct, secondProduct] = storefront.products();
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/collections/shop");
+
+  const firstCard = page.locator(
+    `[data-product-card-slug="${firstProduct.slug}"]`,
+  );
+  const secondCard = page.locator(
+    `[data-product-card-slug="${secondProduct.slug}"]`,
+  );
+  await firstCard.hover();
+  await firstCard
+    .getByRole("button", {
+      name: `Open quick buy for ${firstProduct.displayName}`,
+    })
+    .click();
+  await secondCard.hover();
+  const secondQuickBuy = secondCard.getByRole("button", {
+    name: `Open quick buy for ${secondProduct.displayName}`,
+  });
+  await secondQuickBuy.scrollIntoViewIfNeeded();
+  const scrollYBeforeSwitch = await page.evaluate(() => window.scrollY);
+  await secondQuickBuy.click();
+
+  await expect(firstCard).toHaveAttribute("data-quick-buy-open", "false");
+  await expect(secondCard).toHaveAttribute("data-quick-buy-open", "true");
+  await page.waitForTimeout(750);
+  expect(await page.evaluate(() => window.scrollY)).toBe(scrollYBeforeSwitch);
+});
+
+test.describe("touch Quick Buy", () => {
+  test.use({ hasTouch: true });
+
+  test("close preserves the viewport without pinning desktop preview", async ({
+    browserName,
+    page,
+    storefront,
+  }) => {
+    test.skip(
+      browserName === "webkit",
+      "Playwright WebKit resolves this transformed close control to the underlying card link; Chromium and the in-app Browser cover native touch hit-testing.",
+    );
+    const product = storefront.product("purchasable");
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/collections/shop");
+
+    const card = page.locator(`[data-product-card-slug="${product.slug}"]`);
+    await card
+      .getByRole("button", {
+        name: `Open quick buy for ${product.displayName}`,
+      })
+      .tap();
+    const close = card.getByRole("button", {
+      name: `Close quick buy for ${product.displayName}`,
+    });
+    await expect(card).toHaveAttribute("data-visual-state", "quick-buy");
+    await expect(card.locator(".product-card__link")).toHaveCSS(
+      "pointer-events",
+      "none",
+    );
+    await close.scrollIntoViewIfNeeded();
+    const cardUrl = page.url();
+    const scrollYBeforeClose = await page.evaluate(() => window.scrollY);
+    await close.tap();
+
+    await expect(card).toHaveAttribute("data-quick-buy-open", "false");
+    await expect(card).toHaveAttribute("data-visual-state", "default");
+    expect(page.url()).toBe(cardUrl);
+    await page.waitForTimeout(750);
+    expect(await page.evaluate(() => window.scrollY)).toBe(scrollYBeforeClose);
+  });
 });
 
 test("mobile quick buy opens the cart drawer and restores focus on Escape", async ({
@@ -515,10 +741,7 @@ test("mobile quick buy opens the cart drawer and restores focus on Escape", asyn
   }
   await expect(finalBuy).toHaveText(purchase.buyLabel);
   await finalBuy.scrollIntoViewIfNeeded();
-  const viewportOriginBeforeCart = await page.evaluate(() => ({
-    scrollX: window.scrollX,
-    visualOffsetLeft: window.visualViewport?.offsetLeft ?? 0,
-  }));
+  const viewportOriginBeforeCart = await viewportOrigin(page);
   const standardCardUrl = page.url();
   await finalBuy.click();
   const drawer = page.getByRole("dialog", { name: "Cart" });
@@ -528,12 +751,7 @@ test("mobile quick buy opens the cart drawer and restores focus on Escape", asyn
   await expect(drawerOverlay).toHaveAttribute("data-state", "open");
   await expect(drawerPanel).toHaveAttribute("data-state", "open");
   await expect(drawerPanel).toHaveCount(1);
-  expect(
-    await page.evaluate(() => ({
-      scrollX: window.scrollX,
-      visualOffsetLeft: window.visualViewport?.offsetLeft ?? 0,
-    })),
-  ).toEqual(viewportOriginBeforeCart);
+  expect(await viewportOrigin(page)).toEqual(viewportOriginBeforeCart);
   await expect(card).toHaveAttribute("data-quick-buy-open", "false");
   await expect(card.locator(".product-card__quick-buy")).toHaveAttribute(
     "data-open",
@@ -548,6 +766,7 @@ test("mobile quick buy opens the cart drawer and restores focus on Escape", asyn
   await expect(drawer).toHaveCount(0);
   await finishDrawerExit(page);
   await expect(quickBuy).toBeFocused();
+  expect(await viewportOrigin(page)).toEqual(viewportOriginBeforeCart);
 
   await page.emulateMedia({ reducedMotion: "reduce" });
   const cartTrigger = page.getByRole("button", { name: /CART \(1\)/ });
