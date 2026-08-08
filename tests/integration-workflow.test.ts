@@ -51,6 +51,12 @@ describe("dev Integration Line workflows", () => {
     expect(verification).toContain("contents: read");
     expect(verification).toContain("timeout-minutes: 20");
     expect(verification).toContain("persist-credentials: false");
+    expect(verification).toContain(
+      'git -C trusted fetch --no-tags origin "refs/pull/${{ inputs.pr_number }}/head"',
+    );
+    expect(verification.indexOf("Fetch the frozen pull-request head")).toBeLessThan(
+      verification.indexOf("Prepare the exact candidate and base in an isolated worktree"),
+    );
     expect(verification).toContain("scripts/github/prepare-integration-candidate.ts");
     expect(verification).toContain("if: ${{ inputs.gate == 'complete-behavioral' }}");
     expect(verification).toContain("scripts/verify-production-ci.ts build");
