@@ -135,7 +135,10 @@ export default async function HomePage() {
                 Or simply upgrade the layer your current routine is missing
                 or underperforming in.
               </p>
-              <Link href="#core-three" className="btn btn--editorial-rounded">
+              <Link
+                href="#core-three"
+                className="btn btn--editorial-rounded home-plug-panel__cta"
+              >
                 Explore The Core
               </Link>
             </div>
