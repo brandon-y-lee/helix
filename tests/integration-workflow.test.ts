@@ -72,6 +72,15 @@ describe("dev Integration Line workflows", () => {
     expect(ci.match(/actions: write/g)).toHaveLength(1);
   });
 
+  it("uses a valid public site URL when the optional repository variable is unset", () => {
+    const fallback =
+      "NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000' }}";
+    expect(ci.match(/NEXT_PUBLIC_SITE_URL:/g)).toHaveLength(3);
+    expect(verification.match(/NEXT_PUBLIC_SITE_URL:/g)).toHaveLength(2);
+    expect(ci.split(fallback)).toHaveLength(4);
+    expect(verification.split(fallback)).toHaveLength(3);
+  });
+
   it("uses proportional PR evidence and signs one stable Integration Slot result", () => {
     expect(ci).toContain("fetch-depth: 0");
     expect(ci).toContain("pnpm verify:affected -- --base \"origin/${{ github.base_ref }}\"");
