@@ -43,7 +43,12 @@ export interface SpecGitAdapter {
   readBranch(name: string): Promise<WorkflowBranch | null>;
   createBranch(input: { name: string; fromBranch: string; fromSha: string }): Promise<void>;
   deleteBranch(name: string): Promise<void>;
+  readTicketStart?(issueNumber: number, branch: string): Promise<{
+    baseBranch: string;
+    baseSha: string;
+  } | null>;
   verifyFlatTicketBranch(input: {
+    pullRequestNumber: number;
     branch: string;
     baseBranch: string;
     baseSha: string;
@@ -264,6 +269,23 @@ function finalSpecBody(
   ].join("\n");
 }
 
+function combinedFailureBody(
+  specNumber: number,
+  branch: string,
+  children: WorkflowIssue[],
+  failure: { reason: string; responsibleChildNumber?: number },
+): string {
+  return [
+    finalSpecBody(specNumber, branch, children),
+    "",
+    "## Combined verification failure",
+    "",
+    `<!-- mei-pelle-combined-failure:v1 ${JSON.stringify(failure)} -->`,
+    "",
+    failure.reason,
+  ].join("\n");
+}
+
 function labelsForState(issue: WorkflowIssue, state: string): string[] {
   return issue.labels
     .filter(
@@ -404,35 +426,38 @@ export async function runSpecLifecycle(
     const specBranchFact = await adapters.git.readBranch(branch);
     if (!specBranchFact) throw new Error(`spec branch ${branch} does not exist`);
     const child = await adapters.issues.read(command.childNumber);
+    const childAwaitingIntegration = child.state === "open" && child.labels.includes("workflow:review");
+    const childAlreadyIntegrated = child.state === "closed" && child.labels.includes("workflow:spec-integrated");
     if (
-      child.state !== "open" ||
       child.parentNumber !== command.specNumber ||
       !child.labels.includes("type:ticket") ||
-      !child.labels.includes("workflow:review")
+      (!childAwaitingIntegration && !childAlreadyIntegrated)
     ) {
-      throw new Error("child ticket must be in workflow:review and remain open in its parent spec");
+      throw new Error("child ticket must be awaiting integration or already spec-integrated in its parent spec");
     }
     const pullRequest = await adapters.pullRequests.read(command.pullRequestNumber);
     const ticketBranch = await adapters.git.readBranch(pullRequest.headBranch);
-    const flatBranch = ticketBranch?.baseSha
+    const ticketStart = adapters.git.readTicketStart
+      ? await adapters.git.readTicketStart(command.childNumber, pullRequest.headBranch)
+      : ticketBranch?.parent && ticketBranch.baseSha
+        ? { baseBranch: ticketBranch.parent, baseSha: ticketBranch.baseSha }
+        : null;
+    const flatBranch = ticketStart
       ? await adapters.git.verifyFlatTicketBranch({
+          pullRequestNumber: pullRequest.number,
           branch: pullRequest.headBranch,
           baseBranch: branch,
-          baseSha: ticketBranch.baseSha,
+          baseSha: ticketStart.baseSha,
           headSha: pullRequest.headSha,
         })
       : false;
     if (
-      pullRequest.state !== "open" ||
-      pullRequest.draft ||
-      !pullRequest.mergeable ||
+      (pullRequest.state !== "open" && pullRequest.state !== "merged") ||
       !pullRequest.reviewPassed ||
       pullRequest.ticketNumber !== command.childNumber ||
       ticketNumberFromBranch(pullRequest.headBranch) !== command.childNumber ||
       pullRequest.baseBranch !== branch ||
-      !ticketBranch ||
-      ticketBranch.parent !== branch ||
-      ticketBranch.sha !== pullRequest.headSha ||
+      ticketStart?.baseBranch !== branch ||
       !flatBranch
     ) {
       throw new Error("child pull request must be reviewed, conflict-free, bound to its ticket, and use a flat branch targeting its spec branch");
@@ -442,17 +467,28 @@ export async function runSpecLifecycle(
         throw new Error(`child pull request requires passing ${check}`);
       }
     }
-    const merged = await adapters.pullRequests.merge(command.pullRequestNumber, {
-      expectedHeadSha: pullRequest.headSha,
-      method: "squash",
-    });
+    let mergeSha: string;
+    if (pullRequest.state === "open") {
+      if (pullRequest.draft || !pullRequest.mergeable) {
+        throw new Error("child pull request must be ready and conflict-free");
+      }
+      mergeSha = (await adapters.pullRequests.merge(command.pullRequestNumber, {
+        expectedHeadSha: pullRequest.headSha,
+        method: "squash",
+      })).mergeSha;
+    } else {
+      if (pullRequest.mergeMethod !== "squash" || !pullRequest.mergeSha) {
+        throw new Error("an already merged child pull request must have used squash");
+      }
+      mergeSha = pullRequest.mergeSha;
+    }
     await adapters.issues.update(command.childNumber, {
       state: "closed",
       labels: labelsForState(child, "workflow:spec-integrated"),
     });
     await adapters.issues.comment(
       command.childNumber,
-      `Ticket #${command.childNumber} squash-integrated by PR #${command.pullRequestNumber} into \`${branch}\` at \`${merged.mergeSha}\`. Native dependencies may now use the closed \`workflow:spec-integrated\` state.`,
+      `<!-- mei-pelle-child-integrated:v1 ${JSON.stringify({ pullRequest: command.pullRequestNumber, mergeSha })} -->\nTicket #${command.childNumber} squash-integrated by PR #${command.pullRequestNumber} into \`${branch}\` at \`${mergeSha}\`. Native dependencies may now use the closed \`workflow:spec-integrated\` state.`,
     );
 
     const children = await adapters.issues.listChildren(command.specNumber);
@@ -479,7 +515,7 @@ export async function runSpecLifecycle(
       outcome: "child-integrated",
       specNumber: command.specNumber,
       childNumber: command.childNumber,
-      mergeSha: merged.mergeSha,
+      mergeSha,
       finalPullRequest: finalPullRequest.number,
       finalDraft: true,
     };
@@ -541,20 +577,26 @@ export async function runSpecLifecycle(
     ) {
       throw new Error(`child #${responsibleChild.number} is not currently spec-integrated`);
     }
-    await adapters.pullRequests.update(finalPullRequest.number, {
-      draft: true,
-      body: `${finalPullRequest.body}\n\n## Combined verification failure\n\n${failure.reason}`,
-    });
     if (responsibleChild) {
       const child = responsibleChild;
+      await adapters.issues.comment(
+        child.number,
+        `<!-- mei-pelle-child-reopened:v1 ${JSON.stringify({ pullRequest: finalPullRequest.number, reason: failure.reason })} -->\nReopened after combined verification identified this ticket as responsible: ${failure.reason}`,
+      );
+      const children = await adapters.issues.listChildren(command.specNumber);
+      const projected = children.map((entry) =>
+        entry.number === child.number
+          ? { ...entry, state: "open" as const, labels: labelsForState(entry, "workflow:review") }
+          : entry
+      );
+      await adapters.pullRequests.update(finalPullRequest.number, {
+        draft: true,
+        body: combinedFailureBody(command.specNumber, branch, projected, failure),
+      });
       await adapters.issues.update(child.number, {
         state: "open",
         labels: labelsForState(child, "workflow:review"),
       });
-      await adapters.issues.comment(
-        child.number,
-        `Reopened after combined verification identified this ticket as responsible: ${failure.reason}`,
-      );
       return {
         outcome: "child-reopened",
         specNumber: command.specNumber,
@@ -562,9 +604,14 @@ export async function runSpecLifecycle(
         pullRequestNumber: finalPullRequest.number,
       };
     }
+    const children = await adapters.issues.listChildren(command.specNumber);
+    await adapters.pullRequests.update(finalPullRequest.number, {
+      draft: true,
+      body: combinedFailureBody(command.specNumber, branch, children, failure),
+    });
     await adapters.issues.comment(
       command.specNumber,
-      `Combined verification failed without a proven ticket owner; ownership remains with spec integration: ${failure.reason}`,
+      `<!-- mei-pelle-integration-failure:v1 ${JSON.stringify({ pullRequest: finalPullRequest.number, reason: failure.reason })} -->\nCombined verification failed without a proven ticket owner; ownership remains with spec integration: ${failure.reason}`,
     );
     return {
       outcome: "integration-owned-failure",

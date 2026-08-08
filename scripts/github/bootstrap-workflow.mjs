@@ -2,11 +2,15 @@
 
 import { spawnSync } from "node:child_process";
 import { parse as parseYaml } from "yaml";
+import {
+  assertDesiredSpecRuleset,
+  desiredSpecRuleset,
+  SPEC_RULESET_NAME,
+} from "./spec-ruleset.mjs";
 
 const API_VERSION = "2026-03-10";
 const EXPECTED_REPOSITORY = "brandon-y-lee/mei-pelle";
 const INTEGRATION_RULESET_NAME = "dev Integration Line authority";
-const SPEC_RULESET_NAME = "spec branch pull request integration";
 const INTEGRATION_CUTOVER_CONFIRMATION = "dev-integration-authority";
 const SPEC_BRANCH_CUTOVER_CONFIRMATION = "protected-spec-branches";
 const ghBin = process.env.GH_BIN ?? "gh";
@@ -141,6 +145,7 @@ function requireDefaultBranchCoordinator(sha) {
   const paths = [
     ".github/workflows/dev-integration.yml",
     ".github/workflows/dev-integration-verification.yml",
+    ".github/workflows/spec-lifecycle.yml",
   ];
   if (
     paths.some(
@@ -148,12 +153,15 @@ function requireDefaultBranchCoordinator(sha) {
         runGit(["cat-file", "-e", `${sha}:${path}`], { allowFailure: true }).status !== 0,
     )
   ) {
-    throw new Error("coordinator workflows must exist on remote main before cutover planning");
+    throw new Error("trusted integration workflows must exist on remote main before cutover planning");
   }
 }
 
 function requireSoleWriteCoordinator(sha) {
-  const coordinator = ".github/workflows/dev-integration.yml";
+  const trustedWriters = new Map([
+    [".github/workflows/dev-integration.yml", ["actions", "contents", "issues", "pull-requests"]],
+    [".github/workflows/spec-lifecycle.yml", ["contents", "issues", "pull-requests"]],
+  ]);
   const workflows = runGit([
     "ls-tree",
     "-r",
@@ -162,8 +170,10 @@ function requireSoleWriteCoordinator(sha) {
     "--",
     ".github/workflows",
   ]).stdout.trim().split("\n").filter((path) => /\.ya?ml$/.test(path));
-  if (!workflows.includes(coordinator)) {
-    throw new Error(`coordinator workflow is absent from audited dev ${sha}`);
+  for (const path of trustedWriters.keys()) {
+    if (!workflows.includes(path)) {
+      throw new Error(`trusted writer workflow '${path}' is absent from audited dev ${sha}`);
+    }
   }
   for (const path of workflows) {
     const contents = runGit(["show", `${sha}:${path}`]).stdout;
@@ -182,24 +192,24 @@ function requireSoleWriteCoordinator(sha) {
     if (!jobs || typeof jobs !== "object" || Array.isArray(jobs)) {
       throw new Error(`workflow '${path}' must declare jobs at ${sha}`);
     }
-    if (path === coordinator) {
-      const required = ["actions", "contents", "issues", "pull-requests"];
+    const required = trustedWriters.get(path);
+    if (required) {
       const permissions = workflow.permissions;
       if (!permissions || typeof permissions !== "object" || Array.isArray(permissions)) {
-        throw new Error(`coordinator workflow must declare an explicit permission map at ${sha}`);
+        throw new Error(`trusted writer workflow '${path}' must declare an explicit permission map at ${sha}`);
       }
       if (
         Object.keys(permissions).length !== required.length ||
         required.some((permission) => permissions[permission] !== "write")
       ) {
         throw new Error(
-          `coordinator workflow must grant only ${required.join(", ")}: write at ${sha}`,
+          `trusted writer workflow '${path}' must grant only ${required.join(", ")}: write at ${sha}`,
         );
       }
       for (const [jobName, job] of Object.entries(jobs)) {
         if (job && typeof job === "object" && !Array.isArray(job) && "permissions" in job) {
           throw new Error(
-            `coordinator workflow job '${jobName}' must inherit the audited workflow permissions at ${sha}`,
+            `trusted writer workflow '${path}' job '${jobName}' must inherit the audited workflow permissions at ${sha}`,
           );
         }
       }
@@ -342,45 +352,6 @@ function desiredIntegrationRuleset(appId) {
             { context: "dev-integration", integration_id: appId },
           ],
           strict_required_status_checks_policy: false,
-          do_not_enforce_on_create: false,
-        },
-      },
-    ],
-  };
-}
-
-function desiredSpecRuleset(appId) {
-  return {
-    name: SPEC_RULESET_NAME,
-    target: "branch",
-    enforcement: "active",
-    bypass_actors: [
-      { actor_id: appId, actor_type: "Integration", bypass_mode: "always" },
-    ],
-    conditions: { ref_name: { include: ["refs/heads/codex/spec-*"], exclude: [] } },
-    rules: [
-      { type: "update", parameters: { update_allows_fetch_and_merge: false } },
-      { type: "deletion" },
-      { type: "non_fast_forward" },
-      {
-        type: "pull_request",
-        parameters: {
-          allowed_merge_methods: ["squash"],
-          dismiss_stale_reviews_on_push: true,
-          require_code_owner_review: false,
-          require_last_push_approval: false,
-          required_approving_review_count: 0,
-          required_review_thread_resolution: true,
-        },
-      },
-      {
-        type: "required_status_checks",
-        parameters: {
-          required_status_checks: [
-            { context: "ci", integration_id: appId },
-            { context: "affected-browser-verification", integration_id: appId },
-          ],
-          strict_required_status_checks_policy: true,
           do_not_enforce_on_create: false,
         },
       },
@@ -702,7 +673,14 @@ function collectPlan(repo) {
     SPEC_RULESET_NAME,
     "spec branch ruleset inspection",
   );
-  if (!containsDesired(observedSpecBranchRuleset, desiredSpecBranchRuleset)) {
+  let specRulesetMatches = false;
+  try {
+    assertDesiredSpecRuleset(observedSpecBranchRuleset);
+    specRulesetMatches = containsDesired(observedSpecBranchRuleset, desiredSpecBranchRuleset);
+  } catch {
+    specRulesetMatches = false;
+  }
+  if (!specRulesetMatches) {
     actions.push({
       description: `${observedSpecBranchRuleset ? "update" : "create"} protected spec branch ruleset for GitHub App ${coordinatorAppId}`,
       apply: () => {

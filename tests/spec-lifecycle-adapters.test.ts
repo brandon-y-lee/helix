@@ -1,12 +1,48 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  assertTrustedActionsContext,
   createSpecLifecycleAdapters,
   type SpecCommandAdapter,
 } from "@/scripts/github/spec-lifecycle-adapters";
 import { runSpecLifecycle } from "@/scripts/github/spec-integration-lifecycle";
+import { desiredSpecRuleset } from "@/scripts/github/spec-ruleset.mjs";
 
 describe("spec lifecycle production adapters", () => {
+  it("binds mutation authority to an observable dispatched Actions run and bot token", async () => {
+    const environment = {
+      GITHUB_ACTIONS: "true",
+      GITHUB_REPOSITORY: "brandon-y-lee/mei-pelle",
+      GITHUB_RUN_ID: "12345",
+      GH_TOKEN: "redacted",
+    };
+    let login = "github-actions[bot]";
+    const commands: SpecCommandAdapter = {
+      async run(_command, args) {
+        if (args.join(" ") === "api user") {
+          return { status: 0, stderr: "", stdout: JSON.stringify({ login }) };
+        }
+        return {
+          status: 0,
+          stderr: "",
+          stdout: JSON.stringify({
+            name: "Spec Lifecycle Orchestrator",
+            event: "workflow_dispatch",
+            head_branch: "dev",
+            repository: { full_name: "brandon-y-lee/mei-pelle" },
+          }),
+        };
+      },
+    };
+    await expect(
+      assertTrustedActionsContext("brandon-y-lee/mei-pelle", commands, environment),
+    ).resolves.toBeUndefined();
+    login = "human-maintainer";
+    await expect(
+      assertTrustedActionsContext("brandon-y-lee/mei-pelle", commands, environment),
+    ).rejects.toThrow("not the GitHub Actions Integration identity");
+  });
+
   it("rejects ticket history whose merge parent is outside the current spec branch", async () => {
     let rejectSibling = false;
     const commands: SpecCommandAdapter = {
@@ -23,6 +59,7 @@ describe("spec lifecycle production adapters", () => {
     };
     const adapters = createSpecLifecycleAdapters("brandon-y-lee/mei-pelle", commands);
     const input = {
+      pullRequestNumber: 101,
       branch: "codex/61-foundation",
       baseBranch: "codex/spec-60-catalog-refresh",
       baseSha: "base-sha",
@@ -67,18 +104,7 @@ describe("spec lifecycle production adapters", () => {
           return {
             status: 0,
             stderr: "",
-            stdout: JSON.stringify({
-              enforcement: "active",
-              bypass_actors: [{ actor_id: 15368, actor_type: "Integration", bypass_mode: "always" }],
-              conditions: { ref_name: { include: ["refs/heads/codex/spec-*"] } },
-              rules: [
-                { type: "update", parameters: { update_allows_fetch_and_merge: false } },
-                { type: "deletion" },
-                { type: "non_fast_forward" },
-                { type: "pull_request", parameters: { allowed_merge_methods: ["squash"], dismiss_stale_reviews_on_push: true, required_review_thread_resolution: true } },
-                { type: "required_status_checks", parameters: { required_status_checks: [{ context: "ci", integration_id: 15368 }, { context: "affected-browser-verification", integration_id: 15368 }], strict_required_status_checks_policy: false, do_not_enforce_on_create: false } },
-              ],
-            }),
+            stdout: JSON.stringify(desiredSpecRuleset(15368)),
           };
         }
         return { status: 0, stderr: "", stdout: "{}" };

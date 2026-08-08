@@ -6,6 +6,7 @@ import type {
   WorkflowIssue,
   WorkflowPullRequest,
 } from "./spec-integration-lifecycle";
+import { assertDesiredSpecRuleset } from "./spec-ruleset.mjs";
 
 type CommandResult = { stdout: string; stderr: string; status: number };
 
@@ -42,6 +43,46 @@ const systemCommands: SpecCommandAdapter = {
   },
 };
 
+export async function assertTrustedActionsContext(
+  repository: string,
+  commands: SpecCommandAdapter = systemCommands,
+  environment: Record<string, string | undefined> = process.env,
+): Promise<void> {
+  const runId = environment.GITHUB_RUN_ID;
+  if (
+    environment.GITHUB_ACTIONS !== "true" ||
+    environment.GITHUB_REPOSITORY !== repository ||
+    !environment.GH_TOKEN ||
+    !/^\d+$/.test(runId ?? "")
+  ) {
+    throw new Error("spec lifecycle mutations require the trusted GitHub Actions orchestrator");
+  }
+  const identity = parseJson<{ login?: string }>(
+    (await commands.run("gh", ["api", "user"])).stdout,
+    "GitHub token identity",
+  );
+  if (identity.login !== "github-actions[bot]") {
+    throw new Error("spec lifecycle token is not the GitHub Actions Integration identity");
+  }
+  const run = parseJson<{
+    name?: string;
+    event?: string;
+    head_branch?: string;
+    repository?: { full_name?: string };
+  }>(
+    (await commands.run("gh", ["api", `repos/${repository}/actions/runs/${runId}`])).stdout,
+    "spec lifecycle workflow run",
+  );
+  if (
+    run.name !== "Spec Lifecycle Orchestrator" ||
+    run.event !== "workflow_dispatch" ||
+    run.head_branch !== "dev" ||
+    run.repository?.full_name !== repository
+  ) {
+    throw new Error("current Actions run is not the audited Spec Lifecycle Orchestrator on dev");
+  }
+}
+
 function parseJson<T>(value: string, description: string): T {
   try {
     return JSON.parse(value) as T;
@@ -72,61 +113,6 @@ function reviewPassed(body: string): boolean {
   );
 }
 
-type RulesetRule = { type?: string; parameters?: Record<string, unknown> };
-
-function requireSpecRuleset(ruleset: Record<string, unknown>): void {
-  if (ruleset.enforcement !== "active") throw new Error("protected spec branch ruleset is not active");
-  const conditions = ruleset.conditions as { ref_name?: { include?: unknown[] } } | undefined;
-  if (!conditions?.ref_name?.include?.includes("refs/heads/codex/spec-*")) {
-    throw new Error("protected spec branch ruleset does not include spec branches");
-  }
-  const rules = Array.isArray(ruleset.rules) ? ruleset.rules as RulesetRule[] : [];
-  const byType = (type: string) => rules.find((rule) => rule.type === type);
-  if (byType("update")?.parameters?.update_allows_fetch_and_merge !== false) {
-    throw new Error("protected spec branch ruleset permits unsafe updates");
-  }
-  for (const type of ["deletion", "non_fast_forward"]) {
-    if (!byType(type)) throw new Error(`protected spec branch ruleset is missing ${type}`);
-  }
-  const pullRequest = byType("pull_request")?.parameters;
-  if (
-    JSON.stringify(pullRequest?.allowed_merge_methods) !== JSON.stringify(["squash"]) ||
-    pullRequest?.required_review_thread_resolution !== true ||
-    pullRequest?.dismiss_stale_reviews_on_push !== true
-  ) {
-    throw new Error("protected spec branch pull request controls are incomplete");
-  }
-  const status = byType("required_status_checks")?.parameters;
-  const checks = Array.isArray(status?.required_status_checks)
-    ? status.required_status_checks as Array<{ context?: string; integration_id?: number }>
-    : [];
-  const expectedContexts = ["affected-browser-verification", "ci"];
-  const observedContexts = checks.map((check) => check.context).sort();
-  if (JSON.stringify(observedContexts) !== JSON.stringify(expectedContexts)) {
-    throw new Error("protected spec branch required checks are incomplete");
-  }
-  const integrationIds = new Set(checks.map((check) => check.integration_id));
-  const integrationId = checks[0]?.integration_id;
-  if (integrationIds.size !== 1 || !Number.isInteger(integrationId) || Number(integrationId) <= 0) {
-    throw new Error("protected spec branch checks are not bound to one integration identity");
-  }
-  if (
-    status?.strict_required_status_checks_policy !== false ||
-    status?.do_not_enforce_on_create !== false
-  ) {
-    throw new Error("protected spec branch status-check policy does not match the audited configuration");
-  }
-  const bypass = Array.isArray(ruleset.bypass_actors)
-    ? ruleset.bypass_actors as Array<{ actor_id?: number; actor_type?: string; bypass_mode?: string }>
-    : [];
-  if (!bypass.some((actor) =>
-    actor.actor_id === integrationId &&
-    actor.actor_type === "Integration" &&
-    actor.bypass_mode === "always"
-  )) {
-    throw new Error("protected spec branch bypass is not limited to the verification integration");
-  }
-}
 
 export function createSpecLifecycleAdapters(
   repository: string,
@@ -234,6 +220,29 @@ export function createSpecLifecycleAdapters(
     };
   }
 
+  async function readTicketStart(issueNumber: number, branch: string) {
+    const comments = await commands.run("gh", [
+      "issue",
+      "view",
+      String(issueNumber),
+      "--repo",
+      repository,
+      "--comments",
+      "--json",
+      "comments",
+    ]);
+    const values = parseJson<{ comments: Array<{ body: string }> }>(comments.stdout, `issue #${issueNumber} comments`);
+    for (const comment of [...values.comments].reverse()) {
+      const match = comment.body.match(/<!-- mei-pelle-ticket-branch:v1 (\{.*\}) -->/);
+      if (!match) continue;
+      const metadata = parseJson<{ branch: string; baseBranch: string; baseSha?: string }>(match[1], "ticket branch metadata");
+      if (metadata.branch === branch && metadata.baseSha) {
+        return { baseBranch: metadata.baseBranch, baseSha: metadata.baseSha };
+      }
+    }
+    return null;
+  }
+
   return {
     github: {
       async protectSpecBranch(input) {
@@ -247,7 +256,7 @@ export function createSpecLifecycleAdapters(
           (await commands.run("gh", ["api", `repos/${repository}/rulesets/${summary.id}`])).stdout,
           "protected spec branch ruleset",
         );
-        requireSpecRuleset(ruleset);
+        assertDesiredSpecRuleset(ruleset);
         if (!input.branch.startsWith("codex/spec-")) throw new Error("invalid protected spec branch");
       },
     },
@@ -267,27 +276,9 @@ export function createSpecLifecycleAdapters(
         let baseSha: string | undefined;
         const number = issueNumberFromBranch(name);
         if (number) {
-          const comments = await commands.run("gh", [
-            "issue",
-            "view",
-            String(number),
-            "--repo",
-            repository,
-            "--comments",
-            "--json",
-            "comments",
-          ]);
-          const values = parseJson<{ comments: Array<{ body: string }> }>(comments.stdout, `issue #${number} comments`);
-          for (const comment of [...values.comments].reverse()) {
-            const match = comment.body.match(/<!-- mei-pelle-ticket-branch:v1 (\{.*\}) -->/);
-            if (!match) continue;
-            const metadata = parseJson<{ branch: string; baseBranch: string; baseSha?: string }>(match[1], "ticket branch metadata");
-            if (metadata.branch === name) {
-              parent = metadata.baseBranch;
-              baseSha = metadata.baseSha;
-            }
-            break;
-          }
+          const start = await readTicketStart(number, name);
+          parent = start?.baseBranch ?? null;
+          baseSha = start?.baseSha;
         }
         return { name, sha: ref.object.sha, parent, baseSha } satisfies WorkflowBranch;
       },
@@ -311,13 +302,14 @@ export function createSpecLifecycleAdapters(
           `repos/${repository}/git/refs/heads/${encodeURIComponent(name)}`,
         ]);
       },
+      readTicketStart,
       async verifyFlatTicketBranch(input) {
         const remoteTicket = `refs/remotes/origin/${input.branch}`;
         const remoteBase = `refs/remotes/origin/${input.baseBranch}`;
         await commands.run("git", [
           "fetch",
           "origin",
-          `refs/heads/${input.branch}:${remoteTicket}`,
+          `refs/pull/${input.pullRequestNumber}/head:${remoteTicket}`,
           `refs/heads/${input.baseBranch}:${remoteBase}`,
         ]);
         const observedHead = (await commands.run("git", ["rev-parse", remoteTicket])).stdout.trim();
@@ -393,6 +385,21 @@ export function createSpecLifecycleAdapters(
         );
       },
       async comment(number, body) {
+        const marker = body.match(/<!-- (mei-pelle-[a-z-]+:v1 \{.*\}) -->/)?.[0];
+        if (marker) {
+          const existing = await commands.run("gh", [
+            "issue",
+            "view",
+            String(number),
+            "--repo",
+            repository,
+            "--comments",
+            "--json",
+            "comments",
+          ]);
+          const comments = parseJson<{ comments: Array<{ body: string }> }>(existing.stdout, `issue #${number} comments`);
+          if (comments.comments.some((comment) => comment.body.includes(marker))) return;
+        }
         await commands.run("gh", ["issue", "comment", String(number), "--repo", repository, "--body", body]);
       },
     },

@@ -369,8 +369,9 @@ describe("future spec integration lifecycle", () => {
         },
         async merge(number, input) {
           merges.push({ number, ...input });
-          Object.assign(pullRequests.get(number)!, { state: "merged", mergeMethod: input.method });
-          return { mergeSha: `spec-after-${number}` };
+          const mergeSha = `spec-after-${number}`;
+          Object.assign(pullRequests.get(number)!, { state: "merged", mergeMethod: input.method, mergeSha });
+          return { mergeSha };
         },
       },
     };
@@ -387,7 +388,7 @@ describe("future spec integration lifecycle", () => {
         },
         adapters,
       ),
-    ).rejects.toThrow("child ticket must be in workflow:review");
+    ).rejects.toThrow("child ticket must be awaiting integration");
     expect(merges).toEqual([]);
     issues.set(61, issue(61, { labels: ["type:ticket", "workflow:review"] }));
 
@@ -424,6 +425,19 @@ describe("future spec integration lifecycle", () => {
     expect(pullRequests.get(200)).toMatchObject({ baseBranch: "dev", draft: true });
     expect(pullRequests.get(200)?.body).toContain("- Path: completed spec");
     expect(pullRequests.get(200)?.body).toContain('"children":[{"number":61,"blockers":[],"integrated":true},{"number":62,"blockers":[61],"integrated":false}]');
+
+    const recovered = await runSpecLifecycle(
+      {
+        kind: "integrate-child",
+        specNumber: 60,
+        specSlug: "catalog-refresh",
+        childNumber: 61,
+        pullRequestNumber: 101,
+      },
+      adapters,
+    );
+    expect(recovered).toMatchObject({ outcome: "child-integrated", mergeSha: "spec-after-101", finalPullRequest: 200 });
+    expect(merges).toEqual([{ number: 101, expectedHeadSha: "child-61", method: "squash" }]);
 
     await expect(
       runSpecLifecycle(
@@ -542,6 +556,8 @@ describe("future spec integration lifecycle", () => {
     expect(owned).toEqual({ outcome: "child-reopened", specNumber: 60, childNumber: 61, pullRequestNumber: 200 });
     expect(issues.get(61)).toMatchObject({ state: "open", labels: ["type:ticket", "workflow:review"], assignees: ["agent"] });
     expect(finalPull.draft).toBe(true);
+    expect(finalPull.body).toContain('"number":61,"blockers":[],"integrated":false');
+    expect(finalPull.body).toContain("mei-pelle-combined-failure:v1");
 
     issues.set(61, issue(61, { state: "open", labels: ["type:ticket", "workflow:review"] }));
     await expect(

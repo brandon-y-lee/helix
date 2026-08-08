@@ -84,6 +84,10 @@ function initialiseRepository(): { root: string; tempRoot: string } {
     join(root, ".github", "workflows", "dev-integration-verification.yml"),
     "name: verification\npermissions:\n  contents: read\njobs:\n  verify:\n    runs-on: ubuntu-latest\n    steps: []\n",
   );
+  writeFileSync(
+    join(root, ".github", "workflows", "spec-lifecycle.yml"),
+    "name: spec lifecycle\npermissions:\n  contents: write\n  issues: write\n  pull-requests: write\njobs:\n  orchestrate:\n    runs-on: ubuntu-latest\n    steps: []\n",
+  );
   expectSuccess(git(root, "add", "README.md", ".github/workflows"));
   expectSuccess(git(root, "commit", "-m", "Initial fixture"));
   expectSuccess(git(root, "branch", "dev"));
@@ -932,7 +936,7 @@ describe("GitHub workflow bootstrap", () => {
           expectSuccess(git(root, "branch", "-f", "dev", "HEAD"));
           expectSuccess(git(root, "push", "origin", "main"));
         },
-        expected: /coordinator workflow is absent from audited dev|coordinator workflows must exist on remote main/,
+        expected: /trusted writer workflow .* is absent from audited dev|trusted integration workflows must exist on remote main/,
       },
       {
         name: "non-coordinator write authority",
