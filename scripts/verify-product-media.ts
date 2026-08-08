@@ -78,6 +78,9 @@ type CommandLogger = Readonly<{
   error: (line: string) => void;
 }>;
 
+class ProductMediaConfigurationError extends Error {}
+class ProductMediaInventoryError extends Error {}
+
 function safeReportUrl(value: string): string {
   try {
     const url = new URL(value);
@@ -93,7 +96,9 @@ function safeReportUrl(value: string): string {
 function requiredEnv(env: NodeJS.ProcessEnv, name: string): string {
   const value = env[name]?.trim();
   if (!value) {
-    throw new Error(`Missing required environment variable: ${name}.`);
+    throw new ProductMediaConfigurationError(
+      `Missing required environment variable: ${name}.`,
+    );
   }
   return value;
 }
@@ -105,15 +110,15 @@ export function collectExpectedProductMedia(
 
   for (const product of catalog.products) {
     for (const candidate of product.product_media) {
-      if (!candidate || !candidate.url) continue;
-
       if (candidate.media_type !== "image" && candidate.media_type !== "video") {
-        continue;
+        throw new ProductMediaInventoryError(
+          "Active Product Media inventory contains an unsupported media type.",
+        );
       }
 
-      if (typeof candidate.url !== "string") {
-        throw new Error(
-          `[product-media-verification] ${product.slug} (${product.id}) has invalid Product Media URL metadata.`,
+      if (typeof candidate.url !== "string" || !candidate.url.trim()) {
+        throw new ProductMediaInventoryError(
+          "Active Product Media inventory contains a missing or invalid public URL.",
         );
       }
 
@@ -219,6 +224,8 @@ function readBoundedBody(
           chunks.push(chunk);
           total += chunk.byteLength;
           if (total >= maxBytes) {
+            const overflowFrame = await reader.read();
+            exceeded = !overflowFrame.done;
             await reader.cancel();
             break;
           }
@@ -331,13 +338,75 @@ function buildSummaryLines(report: ProductMediaVerificationCommandReport): reado
   ]);
 }
 
+function emitReport(
+  report: ProductMediaVerificationCommandReport,
+  mode: CommandMode | undefined,
+  logger: CommandLogger,
+): void {
+  if (mode === "json-only") {
+    logger.output(JSON.stringify(report, null, 2));
+    return;
+  }
+
+  for (const line of buildSummaryLines(report)) {
+    if (line.startsWith("- ")) logger.error(line);
+    else logger.output(line);
+  }
+  logger.output(JSON.stringify(report, null, 2));
+}
+
+function failedCommandReport(input: Readonly<{
+  generatedAt: string;
+  error: string;
+  activeProducts?: number;
+  expectedRecords?: number;
+  distinctUrls?: number;
+}>): ProductMediaVerificationCommandReport {
+  const activeProducts = input.activeProducts ?? 0;
+  const expectedRecords = input.expectedRecords ?? 0;
+  const distinctUrls = input.distinctUrls ?? 0;
+
+  return Object.freeze({
+    ok: false,
+    generatedAt: input.generatedAt,
+    catalog: Object.freeze({ activeProducts, expectedRecords, distinctUrls }),
+    verification: Object.freeze({
+      expectedRecords,
+      distinctUrls,
+      successes: 0,
+      failures: 0,
+      receivedBodyBytes: 0,
+      bodyBudgetBytes: distinctUrls * 32,
+    }),
+    failures: Object.freeze([]),
+    errors: Object.freeze([input.error]),
+  });
+}
+
 export async function runActiveProductMediaVerification(
   runtime: ProductMediaVerifierRuntime,
 ): Promise<ProductMediaVerificationCommandReport> {
   const generatedAt = new Date().toISOString();
+  let catalogLoaded = false;
+  let activeProducts = 0;
+  let expectedRecords = 0;
+  let distinctUrls = 0;
 
   try {
     const catalog = await runtime.loadCatalog();
+    catalogLoaded = true;
+    activeProducts = catalog.products.length;
+    expectedRecords = catalog.products.reduce(
+      (total, product) => total + product.product_media.length,
+      0,
+    );
+    distinctUrls = new Set(
+      catalog.products.flatMap((product) =>
+        product.product_media.flatMap((media) =>
+          typeof media.url === "string" && media.url.trim() ? [media.url] : [],
+        ),
+      ),
+    ).size;
     const expectedMedia = collectExpectedProductMedia(catalog);
     const policy = buildVerificationPolicy(
       runtime.approvedMediaOrigin,
@@ -375,24 +444,17 @@ export async function runActiveProductMediaVerification(
       errors: Object.freeze([]),
     });
   } catch (cause) {
-    return Object.freeze({
-      ok: false,
+    return failedCommandReport({
       generatedAt,
-      catalog: Object.freeze({
-        activeProducts: 0,
-        expectedRecords: 0,
-        distinctUrls: 0,
-      }),
-      verification: Object.freeze({
-        expectedRecords: 0,
-        distinctUrls: 0,
-        successes: 0,
-        failures: 0,
-        receivedBodyBytes: 0,
-        bodyBudgetBytes: 0,
-      }),
-      failures: Object.freeze([]),
-      errors: Object.freeze([cause instanceof Error ? cause.message : "Unknown failure."]),
+      activeProducts,
+      expectedRecords,
+      distinctUrls,
+      error:
+        cause instanceof ProductMediaInventoryError
+          ? cause.message
+          : !catalogLoaded
+            ? "Active Product Catalog read failed."
+            : "Active Product Media verification did not complete.",
     });
   }
 }
@@ -469,49 +531,18 @@ export async function runActiveProductMediaVerificationCli(
 
     const report = await runActiveProductMediaVerification(runtime);
 
-    if (options?.mode === "json-only") {
-      logger.output(JSON.stringify(report, null, 2));
-    } else {
-      for (const line of buildSummaryLines(report)) {
-        if (line.startsWith("- ")) {
-          logger.error(line);
-        } else {
-          logger.output(line);
-        }
-      }
-      logger.output(JSON.stringify(report, null, 2));
-    }
+    emitReport(report, options?.mode, logger);
 
     return report.ok ? 0 : 1;
   } catch (cause) {
-    const report: ProductMediaVerificationCommandReport = Object.freeze({
-      ok: false,
+    const report = failedCommandReport({
       generatedAt: new Date().toISOString(),
-      catalog: Object.freeze({ activeProducts: 0, expectedRecords: 0, distinctUrls: 0 }),
-      verification: Object.freeze({
-        expectedRecords: 0,
-        distinctUrls: 0,
-        successes: 0,
-        failures: 0,
-        receivedBodyBytes: 0,
-        bodyBudgetBytes: 0,
-      }),
-      failures: Object.freeze([]),
-      errors: Object.freeze([
-        cause instanceof Error
+      error:
+        cause instanceof ProductMediaConfigurationError
           ? cause.message
-          : "Active Product Media verification command failed.",
-      ]),
+          : "Active Product Media verification command failed before it could start.",
     });
-    if (options?.mode === "json-only") {
-      logger.output(JSON.stringify(report, null, 2));
-    } else {
-      for (const line of buildSummaryLines(report)) {
-        if (line.startsWith("- ")) logger.error(line);
-        else logger.output(line);
-      }
-      logger.output(JSON.stringify(report, null, 2));
-    }
+    emitReport(report, options?.mode, logger);
     return 1;
   }
 }

@@ -70,7 +70,7 @@ describe("Product Media Verification Command", () => {
         {
           id: "p-2",
           slug: "beta",
-          product_media: [{ media_type: "placeholder", url: "https://should-be-skipped.example" }],
+          product_media: [],
         },
       ],
     });
@@ -118,10 +118,52 @@ describe("Product Media Verification Command", () => {
     const report = await runActiveProductMediaVerification(runtime);
 
     expect(report.ok).toBe(false);
-    expect(report.errors[0]).toMatch(/Catalog read unavailable/);
+    expect(report.errors).toEqual(["Active Product Catalog read failed."]);
     expect(report.failures).toEqual([]);
     expect(report.verification.expectedRecords).toBe(0);
     expect(report.verification.distinctUrls).toBe(0);
+  });
+
+  it("rejects a split response that continues after the 32-byte budget", async () => {
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(Uint8Array.from([
+          0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+          0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52,
+          0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+          0x08, 0x06, 0x00, 0x00, 0x00, 0x1f, 0x15, 0xc4,
+        ]));
+        controller.enqueue(Uint8Array.of(0xff));
+      },
+    });
+    const report = await runActiveProductMediaVerification(
+      createRuntimeForCatalog(
+        {
+          products: [
+            {
+              id: "p-1",
+              slug: "alpha",
+              product_media: [{ media_type: "image", url: imageUrl }],
+            },
+          ],
+        },
+        async () =>
+          new Response(stream, {
+            status: 206,
+            headers: {
+              "content-type": "image/png",
+              "content-range": "bytes 0-31/64",
+              "content-length": "32",
+              "cache-control": "public, max-age=60",
+            },
+          }),
+      ),
+    );
+
+    expect(report.ok).toBe(false);
+    expect(report.failures).toEqual([
+      expect.objectContaining({ code: "excessive_response", receivedBytes: 32 }),
+    ]);
   });
 
   it("reports each failed URL and returns a failed aggregate for partial media failure", async () => {
@@ -186,7 +228,7 @@ describe("Product Media Verification Command", () => {
     expect(errors).toEqual([]);
     expect(report.ok).toBe(false);
     expect(Array.isArray(report.failures)).toBe(true);
-    expect(report.errors[0]).toContain("Catalog read unavailable");
+    expect(report.errors).toEqual(["Active Product Catalog read failed."]);
   });
 
   it("emits a human summary and machine report with a zero status on success", async () => {
@@ -221,7 +263,7 @@ describe("Product Media Verification Command", () => {
     });
   });
 
-  it("collects only image/video media records from catalog candidates", () => {
+  it("collects exact image/video media records from the Active Product inventory", () => {
     const snapshot: ProductMediaCatalogSnapshot = {
       products: [
         {
@@ -229,7 +271,6 @@ describe("Product Media Verification Command", () => {
           slug: "alpha",
           product_media: [
             { media_type: "image", url: imageUrl },
-            { media_type: "placeholder", url: null },
             { media_type: "video", url: videoUrl },
           ],
         },
@@ -248,7 +289,7 @@ describe("Product Media Verification Command", () => {
     ]);
   });
 
-  it("fails closed when image or video URL metadata is not a string", () => {
+  it("fails closed when Product Media type or URL metadata is unsupported", () => {
     expect(() =>
       collectExpectedProductMedia({
         products: [
@@ -259,7 +300,43 @@ describe("Product Media Verification Command", () => {
           },
         ],
       }),
-    ).toThrow(/invalid Product Media URL metadata/);
+    ).toThrow(/missing or invalid public URL/);
+
+    expect(() =>
+      collectExpectedProductMedia({
+        products: [
+          {
+            id: "p-1",
+            slug: "alpha",
+            product_media: [{ media_type: "placeholder", url: null }],
+          },
+        ],
+      }),
+    ).toThrow(/unsupported media type/);
+  });
+
+  it("preserves known catalog counts when inventory validation fails", async () => {
+    const report = await runActiveProductMediaVerification(
+      createRuntimeForCatalog({
+        products: [
+          {
+            id: "p-1",
+            slug: "alpha",
+            product_media: [{ media_type: "placeholder", url: null }],
+          },
+        ],
+      }),
+    );
+
+    expect(report.ok).toBe(false);
+    expect(report.catalog).toEqual({
+      activeProducts: 1,
+      expectedRecords: 1,
+      distinctUrls: 0,
+    });
+    expect(report.errors).toEqual([
+      "Active Product Media inventory contains an unsupported media type.",
+    ]);
   });
 
   it("runs daily and manually outside required pull-request gates", async () => {
