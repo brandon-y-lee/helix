@@ -12,14 +12,17 @@ export type WorkClass =
 export type VerificationGate = "complete-behavioral" | "fast-non-runtime";
 export type RiskArea = "security" | "payment" | "data" | "provider" | "cross-cutting";
 
+export type Sha256Fingerprint = `sha256:${string}`;
+
 export type ScheduledVerificationIdentity = {
   browser: { name: "webkit"; version: string };
-  catalogFingerprint: string;
-  planFingerprint: string;
-  runtimeFingerprint: string;
+  catalogFingerprint: Sha256Fingerprint;
+  planFingerprint: Sha256Fingerprint;
+  runtimeFingerprint: Sha256Fingerprint;
 };
 
 export type ScheduledVerificationFailure = {
+  kind: "browser-failed" | "catalog-unavailable" | "setup-failed";
   identity: ScheduledVerificationIdentity;
   summary: string;
 };
@@ -36,10 +39,14 @@ export interface OperationalVerificationIssueAdapter {
 }
 
 export interface ScheduledBrowserVerificationAdapter {
-  verifyCompleteWebkit(): Promise<{
-    identity: ScheduledVerificationIdentity;
-    outcome: "passed" | "failed";
-  }>;
+  verifyCompleteWebkit(): Promise<
+    | { identity: ScheduledVerificationIdentity; outcome: "passed" }
+    | {
+        failureKind: "browser-failed" | "catalog-unavailable";
+        identity: ScheduledVerificationIdentity;
+        outcome: "failed";
+      }
+  >;
 }
 
 export type ScheduledBrowserVerificationReport = {
@@ -85,8 +92,12 @@ export async function runScheduledBrowserVerification(adapters: {
   const result = await adapters.verification.verifyCompleteWebkit();
   if (result.outcome === "failed") {
     const failure = {
+      kind: result.failureKind,
       identity: result.identity,
-      summary: "Complete WebKit verification failed for current dev and Catalog facts.",
+      summary:
+        result.failureKind === "catalog-unavailable"
+          ? "Scheduled verification could not read current Catalog facts, so WebKit did not run."
+          : "Complete WebKit verification failed for current dev and Catalog facts.",
     };
     const active = await adapters.issues.findActive();
     if (active) {
@@ -141,6 +152,34 @@ export interface WindowsLifecycleVerificationAdapter {
   verifyLifecycle(input: { reason: string }): Promise<{ outcome: "passed" | "failed" }>;
 }
 
+export const WINDOWS_LIFECYCLE_PATH_PATTERNS = [
+  ".github/workflows/**",
+  "scripts/github/**",
+  "scripts/affected-browser-verification*",
+  "scripts/browser-verification-plan*",
+  "scripts/production-verification*",
+  "scripts/verify-affected*",
+  "scripts/verify-production*",
+  "tests/affected-browser-verification*",
+  "tests/integration-workflow*",
+  "tests/production-verification*",
+  "tests/scheduled-*",
+  "tests/verification-orchestrator*",
+  ".nvmrc",
+  "package.json",
+  "pnpm-lock.yaml",
+  "playwright.config.ts",
+  "tsconfig.json",
+] as const;
+
+function matchesWindowsLifecyclePath(path: string): boolean {
+  return WINDOWS_LIFECYCLE_PATH_PATTERNS.some((pattern) => {
+    if (pattern.endsWith("/**")) return path.startsWith(pattern.slice(0, -2));
+    if (pattern.endsWith("*")) return path.startsWith(pattern.slice(0, -1));
+    return path === pattern;
+  });
+}
+
 function windowsLifecycleReason(input: {
   changedFiles: readonly string[];
   source: WindowsLifecycleSource;
@@ -159,24 +198,13 @@ function windowsLifecycleReason(input: {
   }
   if (
     input.changedFiles.some((path) =>
-      ["package.json", "pnpm-lock.yaml", "playwright.config.ts", "tsconfig.json"].includes(path),
+      [".nvmrc", "package.json", "pnpm-lock.yaml", "playwright.config.ts", "tsconfig.json"].includes(path),
     )
   ) {
     return "verification dependency inputs changed";
   }
   if (
-    input.changedFiles.some(
-      (path) =>
-        path.startsWith(".github/workflows/") ||
-        path.startsWith("scripts/github/") ||
-        path.startsWith("scripts/affected-browser-verification") ||
-        path.startsWith("scripts/browser-verification-plan") ||
-        path.startsWith("scripts/verify-affected") ||
-        path.startsWith("tests/affected-browser-verification") ||
-        path.startsWith("tests/integration-workflow") ||
-        path.startsWith("tests/scheduled-") ||
-        path.startsWith("tests/verification-orchestrator"),
-    )
+    input.changedFiles.some(matchesWindowsLifecyclePath)
   ) {
     return "verification-system orchestration changed";
   }

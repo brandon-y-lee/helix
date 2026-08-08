@@ -10,6 +10,7 @@ import type {
   OperationalVerificationIssueAdapter,
   ScheduledVerificationFailure,
   ScheduledVerificationIdentity,
+  Sha256Fingerprint,
 } from "./verification-orchestrator";
 
 const OPERATIONAL_ISSUE_TITLE = "Scheduled WebKit verification failure";
@@ -20,16 +21,16 @@ type ScheduledBrowserVerificationDependencies = {
   browserVersion: string;
   readCatalogIdentity(): Promise<string>;
   readPlanIdentity(): string;
-  readRuntimeSha(): Promise<string>;
+  readRuntimeIdentity(): Promise<string>;
   verifyProduction(selection: ProductionVerificationBrowserSelection): Promise<void>;
 };
 
-function fingerprint(value: string): string {
+function fingerprint(value: string): Sha256Fingerprint {
   return `sha256:${createHash("sha256").update(value).digest("hex")}`;
 }
 
-function isFingerprint(value: unknown, prefix: "git:" | "sha256:"): value is string {
-  return typeof value === "string" && value.startsWith(prefix) && value.length > prefix.length;
+function isFingerprint(value: unknown): value is Sha256Fingerprint {
+  return typeof value === "string" && /^sha256:[0-9a-f]{64}$/.test(value);
 }
 
 function isScheduledVerificationFailure(value: unknown): value is ScheduledVerificationFailure {
@@ -38,11 +39,14 @@ function isScheduledVerificationFailure(value: unknown): value is ScheduledVerif
   const identity = failure.identity as Partial<ScheduledVerificationIdentity> | undefined;
   return (
     typeof failure.summary === "string" &&
+    (failure.kind === "browser-failed" ||
+      failure.kind === "catalog-unavailable" ||
+      failure.kind === "setup-failed") &&
     identity?.browser?.name === "webkit" &&
     typeof identity.browser.version === "string" &&
-    isFingerprint(identity.catalogFingerprint, "sha256:") &&
-    isFingerprint(identity.planFingerprint, "sha256:") &&
-    isFingerprint(identity.runtimeFingerprint, "git:")
+    isFingerprint(identity.catalogFingerprint) &&
+    isFingerprint(identity.planFingerprint) &&
+    isFingerprint(identity.runtimeFingerprint)
   );
 }
 
@@ -190,10 +194,7 @@ export function createScheduledBrowserVerificationAdapter(
 ): ScheduledBrowserVerificationAdapter {
   return {
     async verifyCompleteWebkit() {
-      const runtimeSha = await dependencies.readRuntimeSha();
-      if (!/^[0-9a-f]{40}$/i.test(runtimeSha)) {
-        throw new Error("Scheduled verification requires an exact runtime commit.");
-      }
+      const runtimeIdentity = await dependencies.readRuntimeIdentity();
       if (!dependencies.browserVersion.trim()) {
         throw new Error("Scheduled verification requires a WebKit version.");
       }
@@ -203,7 +204,7 @@ export function createScheduledBrowserVerificationAdapter(
           version: `playwright-webkit-${dependencies.browserVersion}`,
         },
         planFingerprint: fingerprint(dependencies.readPlanIdentity()),
-        runtimeFingerprint: `git:${runtimeSha}`,
+        runtimeFingerprint: fingerprint(runtimeIdentity),
       };
       let catalogIdentity: string;
       try {
@@ -214,6 +215,7 @@ export function createScheduledBrowserVerificationAdapter(
             ...baseIdentity,
             catalogFingerprint: fingerprint("catalog-unavailable"),
           },
+          failureKind: "catalog-unavailable",
           outcome: "failed",
         };
       }
@@ -232,7 +234,7 @@ export function createScheduledBrowserVerificationAdapter(
         });
         return { identity, outcome: "passed" };
       } catch {
-        return { identity, outcome: "failed" };
+        return { failureKind: "browser-failed", identity, outcome: "failed" };
       }
     },
   };

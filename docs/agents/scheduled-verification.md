@@ -16,16 +16,24 @@ pnpm verify:scheduled -- --lane webkit
 
 The command builds through Production Artifact Verification, runs every
 versioned journey in WebKit, and binds the result to the exact runtime commit,
-Browser Verification Plan fingerprint, pinned Playwright WebKit version, and a
-hash of normalized current Catalog facts. The issue state contains only these
-identities and a workflow-run link; it contains no raw Catalog data, Customer
-data, provider payload, or secret.
+non-secret runtime configuration, Node version, Browser Verification Plan
+source fingerprint, pinned Playwright WebKit version, and a hash of normalized
+current Catalog facts. The issue state contains only these identities and a
+workflow-run link; it contains no raw Catalog data, Customer data, provider
+payload, or secret.
 
 One open issue titled `Scheduled WebKit verification failure` owns the active
 failure state. A later failure updates that issue. A clean run closes it only
 when runtime, plan, browser, and Catalog identity all match. Nonmatching clean
 evidence leaves the issue open and Production promotion blocked for operator
 reconciliation. The lane never reverts or removes code from `dev`.
+
+Catalog-read failures state that WebKit did not run. A dependency-free,
+always-run adapter records checkout-successful setup, dependency-install,
+browser-install, environment-validation, and command-start failures before
+complete WebKit evidence can run. Because setup evidence has no current Catalog
+snapshot, later clean evidence does not silently close it; the Operator must
+reconcile the nonmatching identity.
 
 The workflow has `contents: read` and the narrow `issues: write` permission.
 Its cancellation-disabled concurrency group prevents overlapping scheduled
@@ -46,6 +54,15 @@ It runs `pnpm verification:lifecycle:windows` on `windows-latest` with a
 read-only token. Normal Storefront application and documentation paths do not
 select this workflow. The universal `ci` check no longer contains a Windows
 job, so Windows evidence is not an ordinary required pull-request gate.
+
+## Verification-system pull requests
+
+`.github/workflows/verification-system-browser.yml` is a read-only,
+path-filtered pull-request workflow. Changes to verification workflows,
+orchestration, process control, browser plans, their tests, or toolchain inputs
+run the supported affected-verification command with both Chromium and WebKit.
+Ordinary Storefront changes do not select this workflow, and the daily WebKit
+lane remains outside universal required pull-request CI.
 
 ## Catalog and Product Media boundary
 

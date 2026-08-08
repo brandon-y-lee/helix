@@ -17,9 +17,9 @@ import {
 
 const scheduledIdentity: ScheduledVerificationIdentity = {
   browser: { name: "webkit", version: "playwright-webkit-1.55.1" },
-  catalogFingerprint: "sha256:catalog-1",
-  planFingerprint: "sha256:plan-1",
-  runtimeFingerprint: "git:dev-1",
+  catalogFingerprint: "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  planFingerprint: "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  runtimeFingerprint: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 };
 
 describe("Verification Orchestrator", () => {
@@ -42,7 +42,7 @@ describe("Verification Orchestrator", () => {
     };
     const verification: ScheduledBrowserVerificationAdapter = {
       async verifyCompleteWebkit() {
-        return { identity: scheduledIdentity, outcome: "failed" };
+        return { failureKind: "browser-failed", identity: scheduledIdentity, outcome: "failed" };
       },
     };
 
@@ -56,10 +56,34 @@ describe("Verification Orchestrator", () => {
     });
     expect(created).toEqual([
       {
+        kind: "browser-failed",
         identity: scheduledIdentity,
         summary: "Complete WebKit verification failed for current dev and Catalog facts.",
       },
     ]);
+  });
+
+  it("reports a Catalog outage without claiming that WebKit ran", async () => {
+    const created: unknown[] = [];
+    await runScheduledBrowserVerification({
+      issues: {
+        async findActive() { return undefined; },
+        async create(failure) { created.push(failure); return { number: 154 }; },
+        async update() {},
+        async close() {},
+      },
+      verification: {
+        async verifyCompleteWebkit() {
+          return { failureKind: "catalog-unavailable", identity: scheduledIdentity, outcome: "failed" };
+        },
+      },
+    });
+
+    expect(created).toEqual([{
+      kind: "catalog-unavailable",
+      identity: scheduledIdentity,
+      summary: "Scheduled verification could not read current Catalog facts, so WebKit did not run.",
+    }]);
   });
 
   it("updates the active WebKit failure issue instead of creating a duplicate", async () => {
@@ -67,7 +91,8 @@ describe("Verification Orchestrator", () => {
     const issues: OperationalVerificationIssueAdapter = {
       async findActive() {
         return {
-          identity: { ...scheduledIdentity, catalogFingerprint: "sha256:catalog-old" },
+          identity: { ...scheduledIdentity, catalogFingerprint: "sha256:3333333333333333333333333333333333333333333333333333333333333333" },
+          kind: "browser-failed",
           number: 154,
           summary: "Earlier WebKit failure.",
         };
@@ -87,7 +112,7 @@ describe("Verification Orchestrator", () => {
       issues,
       verification: {
         async verifyCompleteWebkit() {
-          return { identity: scheduledIdentity, outcome: "failed" };
+          return { failureKind: "browser-failed", identity: scheduledIdentity, outcome: "failed" };
         },
       },
     });
@@ -97,6 +122,7 @@ describe("Verification Orchestrator", () => {
       {
         number: 154,
         failure: {
+          kind: "browser-failed",
           identity: scheduledIdentity,
           summary: "Complete WebKit verification failed for current dev and Catalog facts.",
         },
@@ -108,7 +134,7 @@ describe("Verification Orchestrator", () => {
     const closed: unknown[] = [];
     const issues: OperationalVerificationIssueAdapter = {
       async findActive() {
-        return { identity: scheduledIdentity, number: 154, summary: "WebKit failed." };
+        return { identity: scheduledIdentity, kind: "browser-failed", number: 154, summary: "WebKit failed." };
       },
       async create() {
         throw new Error("a clean run must not create an issue");
@@ -140,13 +166,13 @@ describe("Verification Orchestrator", () => {
   });
 
   it("keeps Production blocked when a clean run does not match the active failure", async () => {
-    const failedIdentity = {
+    const failedIdentity: ScheduledVerificationIdentity = {
       ...scheduledIdentity,
-      catalogFingerprint: "sha256:catalog-failed",
+      catalogFingerprint: "sha256:4444444444444444444444444444444444444444444444444444444444444444",
     };
     const issues: OperationalVerificationIssueAdapter = {
       async findActive() {
-        return { identity: failedIdentity, number: 154, summary: "WebKit failed." };
+        return { identity: failedIdentity, kind: "browser-failed", number: 154, summary: "WebKit failed." };
       },
       async create() {
         throw new Error("a clean run must not create an issue");
@@ -179,6 +205,7 @@ describe("Verification Orchestrator", () => {
   it("fails Production promotion closed while any scheduled WebKit failure is active", () => {
     const active = {
       identity: scheduledIdentity,
+      kind: "browser-failed" as const,
       number: 154,
       summary: "WebKit failed.",
     };
@@ -191,7 +218,7 @@ describe("Verification Orchestrator", () => {
     expect(
       evaluateProductionPromotion(active, {
         ...scheduledIdentity,
-        runtimeFingerprint: "git:dev-2",
+        runtimeFingerprint: "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
       }),
     ).toEqual({
       issueNumber: 154,
@@ -208,6 +235,7 @@ describe("Verification Orchestrator", () => {
     ["workflow_dispatch", [], "manually requested"],
     ["pull_request", ["scripts/production-verification-node.ts"], "production-verification process control changed"],
     ["pull_request", ["pnpm-lock.yaml"], "verification dependency inputs changed"],
+    ["pull_request", [".nvmrc"], "verification dependency inputs changed"],
     ["pull_request", ["scripts/github/verification-orchestrator.ts"], "verification-system orchestration changed"],
   ] as const)(
     "runs Windows lifecycle verification for %s evidence",

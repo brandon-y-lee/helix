@@ -1,20 +1,32 @@
-name: Scheduled Browser Verification
+name: Verification System Browser Evidence
 
 on:
-  schedule:
-    - cron: "17 7 * * *"
-  workflow_dispatch:
-
-concurrency:
-  group: scheduled-browser-verification
-  cancel-in-progress: false
+  pull_request:
+    branches: [dev, main]
+    paths:
+      - ".github/workflows/**"
+      - "scripts/github/**"
+      - "scripts/affected-browser-verification*"
+      - "scripts/browser-verification-plan*"
+      - "scripts/production-verification*"
+      - "scripts/verify-affected*"
+      - "scripts/verify-production*"
+      - "tests/affected-browser-verification*"
+      - "tests/integration-workflow*"
+      - "tests/production-verification*"
+      - "tests/scheduled-*"
+      - "tests/verification-orchestrator*"
+      - ".nvmrc"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "playwright.config.ts"
+      - "tsconfig.json"
 
 permissions:
   contents: read
-  issues: write
 
 jobs:
-  complete-webkit:
+  complete-browser-evidence:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -24,10 +36,9 @@ jobs:
       NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY: ${{ secrets.NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY }}
       NEXT_PUBLIC_ALGOLIA_INDEX_NAME: ${{ secrets.NEXT_PUBLIC_ALGOLIA_INDEX_NAME }}
     steps:
-      - name: Checkout current dev
+      - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: dev
           fetch-depth: 0
           persist-credentials: false
 
@@ -43,29 +54,17 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Install WebKit
-        run: pnpm exec playwright install --with-deps webkit
+      - name: Install Chromium and WebKit
+        run: pnpm exec playwright install --with-deps chromium webkit
 
-      - name: Run complete scheduled WebKit verification
-        env:
-          GH_TOKEN: ${{ github.token }}
-          SCHEDULED_VERIFICATION_REPOSITORY: ${{ github.repository }}
-          SCHEDULED_VERIFICATION_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: pnpm verify:scheduled -- --lane webkit
-
-      - name: Record setup failure before browser evidence
-        if: ${{ failure() && env.SCHEDULED_VERIFICATION_RECORDED != '1' }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-          SCHEDULED_VERIFICATION_REPOSITORY: ${{ github.repository }}
-          SCHEDULED_VERIFICATION_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: node scripts/github/record-scheduled-verification-setup-failure.mjs
+      - name: Verify affected browser behavior
+        run: pnpm verify:affected -- --base "origin/${{ github.base_ref }}"
 
       - name: Upload successful browser report
         if: ${{ success() }}
         uses: actions/upload-artifact@v4
         with:
-          name: scheduled-webkit-report-${{ github.run_id }}
+          name: verification-system-browser-${{ github.run_id }}
           path: playwright-report/
           retention-days: 30
           if-no-files-found: ignore
@@ -74,7 +73,7 @@ jobs:
         if: ${{ failure() }}
         uses: actions/upload-artifact@v4
         with:
-          name: scheduled-webkit-failure-${{ github.run_id }}
+          name: verification-system-browser-failure-${{ github.run_id }}
           path: |
             playwright-report/
             test-results/

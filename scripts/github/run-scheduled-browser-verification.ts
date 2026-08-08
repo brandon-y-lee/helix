@@ -1,11 +1,10 @@
 import { execFile } from "node:child_process";
-import { readFile } from "node:fs/promises";
+import { appendFile, readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 
 import { createStorefrontBaseline, serializeStorefrontSnapshot } from "../../test-support/storefront-baseline";
 import { createSupabaseStorefrontCatalogAdapter } from "../../test-support/supabase-storefront-catalog";
-import { BROWSER_VERIFICATION_PLAN } from "../browser-verification-plan";
 import {
   createNodeProductionVerificationAdapters,
   readProductionVerificationEnvironment,
@@ -17,6 +16,7 @@ import {
   runScheduledBrowserVerificationCommand,
   type ScheduledVerificationGitHubCommandAdapter,
 } from "./scheduled-browser-verification";
+import { createRuntimeIdentity } from "./scheduled-verification-runtime.mjs";
 
 const execFileAsync = promisify(execFile);
 const EXPECTED_REPOSITORY = "brandon-y-lee/mei-pelle";
@@ -69,7 +69,11 @@ async function main(): Promise<void> {
   const cwd = process.cwd();
   const environment = await readProductionVerificationEnvironment(cwd);
   const production = await createNodeProductionVerificationAdapters(cwd, environment);
-  const packageJson = JSON.parse(await readFile(`${cwd}/package.json`, "utf8")) as {
+  const [packageJsonSource, browserPlanSource] = await Promise.all([
+    readFile(`${cwd}/package.json`, "utf8"),
+    readFile(`${cwd}/scripts/browser-verification-plan.ts`, "utf8"),
+  ]);
+  const packageJson = JSON.parse(packageJsonSource) as {
     devDependencies?: Record<string, string>;
   };
   const browserVersion = packageJson.devDependencies?.["@playwright/test"];
@@ -86,13 +90,20 @@ async function main(): Promise<void> {
     verification: createScheduledBrowserVerificationAdapter({
       browserVersion,
       readCatalogIdentity: () => readCatalogIdentity(environment),
-      readPlanIdentity: () => JSON.stringify(BROWSER_VERIFICATION_PLAN),
-      async readRuntimeSha() {
+      // The versioned source is also available before dependency installation,
+      // allowing setup failures and browser runs to use the same plan identity.
+      readPlanIdentity: () => browserPlanSource,
+      async readRuntimeIdentity() {
         const { stdout } = await execFileAsync("git", ["rev-parse", "HEAD"], {
           cwd,
           encoding: "utf8",
         });
-        return String(stdout).trim();
+        const commitSha = String(stdout).trim();
+        return createRuntimeIdentity({
+          commitSha,
+          environment,
+          nodeVersion: process.version,
+        });
       },
       async verifyProduction(selection) {
         await verifyFreshProductionArtifact(
@@ -102,7 +113,13 @@ async function main(): Promise<void> {
       },
     }),
   });
-  if (report.productionPromotion === "blocked") process.exitCode = 1;
+  if (report.productionPromotion === "blocked") {
+    const githubEnvironment = process.env.GITHUB_ENV;
+    if (githubEnvironment) {
+      await appendFile(githubEnvironment, "SCHEDULED_VERIFICATION_RECORDED=1\n", "utf8");
+    }
+    process.exitCode = 1;
+  }
 }
 
 const entry = process.argv[1];

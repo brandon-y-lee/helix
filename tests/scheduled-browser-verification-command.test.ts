@@ -20,6 +20,9 @@ const completeJourneyIds = [
   "header-search",
   "storefront-purchase",
 ];
+const catalogFingerprint = "sha256:1111111111111111111111111111111111111111111111111111111111111111";
+const planFingerprint = "sha256:2222222222222222222222222222222222222222222222222222222222222222";
+const runtimeFingerprint = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
 describe("scheduled browser verification command adapter", () => {
   it("accepts only the complete WebKit lane and returns the orchestrator report", async () => {
@@ -38,10 +41,11 @@ describe("scheduled browser verification command adapter", () => {
           return {
             identity: {
               browser: { name: "webkit", version: "playwright-webkit-1.55.1" },
-              catalogFingerprint: "sha256:catalog-1",
-              planFingerprint: "sha256:plan-1",
-              runtimeFingerprint: "git:0123456789abcdef0123456789abcdef01234567",
+              catalogFingerprint,
+              planFingerprint,
+              runtimeFingerprint,
             },
+            failureKind: "browser-failed",
             outcome: "failed",
           };
         },
@@ -74,8 +78,8 @@ describe("scheduled browser verification command adapter", () => {
       readPlanIdentity() {
         return "plan-identity";
       },
-      async readRuntimeSha() {
-        return "0123456789abcdef0123456789abcdef01234567";
+      async readRuntimeIdentity() {
+        return "runtime-identity";
       },
       async verifyProduction(selection) {
         selections.push(selection);
@@ -89,7 +93,7 @@ describe("scheduled browser verification command adapter", () => {
         browser: { name: "webkit", version: "playwright-webkit-1.55.1" },
         catalogFingerprint: "sha256:8ba687ae900ffd3df31448e5eb655bd42adc19c0111b3ae5e5e19226d4a96792",
         planFingerprint: "sha256:f6b2eaa4c3b54c7bb824963dc786d5ade3fdf44336e2b53af3440353598c892b",
-        runtimeFingerprint: "git:0123456789abcdef0123456789abcdef01234567",
+        runtimeFingerprint: "sha256:2f72f913f28fdd1439ecba4b4186780b5b5bac33064847427ef882b17fdc2faa",
       },
       outcome: "passed",
     });
@@ -111,8 +115,8 @@ describe("scheduled browser verification command adapter", () => {
       readPlanIdentity() {
         return "plan-identity";
       },
-      async readRuntimeSha() {
-        return "0123456789abcdef0123456789abcdef01234567";
+      async readRuntimeIdentity() {
+        return "runtime-identity";
       },
       async verifyProduction() {
         throw new Error("controlled WebKit failure");
@@ -123,8 +127,9 @@ describe("scheduled browser verification command adapter", () => {
       identity: {
         catalogFingerprint: "sha256:8ba687ae900ffd3df31448e5eb655bd42adc19c0111b3ae5e5e19226d4a96792",
         planFingerprint: "sha256:f6b2eaa4c3b54c7bb824963dc786d5ade3fdf44336e2b53af3440353598c892b",
-        runtimeFingerprint: "git:0123456789abcdef0123456789abcdef01234567",
+        runtimeFingerprint: "sha256:2f72f913f28fdd1439ecba4b4186780b5b5bac33064847427ef882b17fdc2faa",
       },
+      failureKind: "browser-failed",
       outcome: "failed",
     });
   });
@@ -139,8 +144,8 @@ describe("scheduled browser verification command adapter", () => {
       readPlanIdentity() {
         return "plan-identity";
       },
-      async readRuntimeSha() {
-        return "0123456789abcdef0123456789abcdef01234567";
+      async readRuntimeIdentity() {
+        return "runtime-identity";
       },
       async verifyProduction() {
         verificationCalls += 1;
@@ -152,8 +157,9 @@ describe("scheduled browser verification command adapter", () => {
         browser: { name: "webkit", version: "playwright-webkit-1.55.1" },
         catalogFingerprint: "sha256:f43b26123c04ddcd8e6c6da928f7988022926fdbc2afc0939ee6c3c96c5827ad",
         planFingerprint: "sha256:f6b2eaa4c3b54c7bb824963dc786d5ade3fdf44336e2b53af3440353598c892b",
-        runtimeFingerprint: "git:0123456789abcdef0123456789abcdef01234567",
+        runtimeFingerprint: "sha256:2f72f913f28fdd1439ecba4b4186780b5b5bac33064847427ef882b17fdc2faa",
       },
+      failureKind: "catalog-unavailable",
       outcome: "failed",
     });
     expect(verificationCalls).toBe(0);
@@ -161,11 +167,12 @@ describe("scheduled browser verification command adapter", () => {
 
   it("round-trips the active failure identity without raw Catalog facts", () => {
     const failure: ScheduledVerificationFailure = {
+      kind: "browser-failed",
       identity: {
         browser: { name: "webkit", version: "playwright-webkit-1.55.1" },
-        catalogFingerprint: "sha256:catalog-1",
-        planFingerprint: "sha256:plan-1",
-        runtimeFingerprint: "git:0123456789abcdef0123456789abcdef01234567",
+        catalogFingerprint,
+        planFingerprint,
+        runtimeFingerprint,
       },
       summary: "Complete WebKit verification failed for current dev and Catalog facts.",
     };
@@ -184,11 +191,12 @@ describe("scheduled browser verification command adapter", () => {
   it("uses one exact-title GitHub issue for create, update, and matching close", async () => {
     const calls: string[][] = [];
     const failure: ScheduledVerificationFailure = {
+      kind: "browser-failed",
       identity: {
         browser: { name: "webkit", version: "playwright-webkit-1.55.1" },
-        catalogFingerprint: "sha256:catalog-1",
-        planFingerprint: "sha256:plan-1",
-        runtimeFingerprint: "git:0123456789abcdef0123456789abcdef01234567",
+        catalogFingerprint,
+        planFingerprint,
+        runtimeFingerprint,
       },
       summary: "Complete WebKit verification failed for current dev and Catalog facts.",
     };

@@ -3,11 +3,20 @@ import { resolve } from "node:path";
 import { parse } from "yaml";
 import { describe, expect, it } from "vitest";
 
+import {
+  WINDOWS_LIFECYCLE_PATH_PATTERNS,
+} from "@/scripts/github/verification-orchestrator";
+import {
+  createScheduledSetupFailure,
+  scheduledSetupFailureIssueBody,
+} from "@/scripts/github/record-scheduled-verification-setup-failure.mjs";
+import { createRuntimeIdentity } from "@/scripts/github/scheduled-verification-runtime.mjs";
+
 type Workflow = {
   concurrency?: { "cancel-in-progress"?: boolean; group?: string };
   jobs: Record<string, {
     "runs-on": string;
-    steps: Array<{ name?: string; run?: string }>;
+    steps: Array<{ if?: string; name?: string; run?: string }>;
   }>;
   on: Record<string, unknown>;
   permissions: Record<string, string>;
@@ -36,6 +45,12 @@ describe("proportional scheduled verification workflow adapters", () => {
     expect(scheduled.jobs["complete-webkit"]!["runs-on"]).toBe("ubuntu-latest");
     expect(steps.some((step) => step.run === "pnpm exec playwright install --with-deps webkit")).toBe(true);
     expect(steps.some((step) => step.run === "pnpm verify:scheduled -- --lane webkit")).toBe(true);
+    expect(steps).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        if: "${{ failure() && env.SCHEDULED_VERIFICATION_RECORDED != '1' }}",
+        run: "node scripts/github/record-scheduled-verification-setup-failure.mjs",
+      }),
+    ]));
   });
 
   it("runs Windows lifecycle evidence only for relevant pull requests, schedule, or manual dispatch", () => {
@@ -48,14 +63,7 @@ describe("proportional scheduled verification workflow adapters", () => {
     expect(windows.on.schedule).toEqual([{ cron: "41 7 * * 1" }]);
     expect(windows.on.workflow_dispatch).toBeNull();
     expect(pullRequest.branches).toEqual(["dev", "main"]);
-    expect(pullRequest.paths).toEqual(expect.arrayContaining([
-      ".github/workflows/**",
-      "scripts/github/**",
-      "scripts/production-verification*",
-      "tests/production-verification*",
-      "package.json",
-      "pnpm-lock.yaml",
-    ]));
+    expect(pullRequest.paths).toEqual([...WINDOWS_LIFECYCLE_PATH_PATTERNS]);
     expect(pullRequest.paths).not.toEqual(expect.arrayContaining(["app/**", "components/**", "docs/**"]));
     expect(windows.permissions).toEqual({ contents: "read" });
     expect(windows.jobs["verification-lifecycle-windows"]!["runs-on"]).toBe("windows-latest");
@@ -64,6 +72,58 @@ describe("proportional scheduled verification workflow adapters", () => {
         (step) => step.run === "pnpm verification:lifecycle:windows",
       ),
     ).toBe(true);
+  });
+
+  it("requires complete Chromium and WebKit evidence only for verification-system pull requests", () => {
+    const browser = workflow("verification-system-browser.yml");
+    const pullRequest = browser.on.pull_request as { branches: string[]; paths: string[] };
+    const steps = browser.jobs["complete-browser-evidence"]!.steps;
+
+    expect(pullRequest).toEqual({
+      branches: ["dev", "main"],
+      paths: [...WINDOWS_LIFECYCLE_PATH_PATTERNS],
+    });
+    expect(browser.permissions).toEqual({ contents: "read" });
+    expect(steps).toEqual(expect.arrayContaining([
+      expect.objectContaining({ run: "pnpm exec playwright install --with-deps chromium webkit" }),
+      expect.objectContaining({ run: 'pnpm verify:affected -- --base "origin/${{ github.base_ref }}"' }),
+    ]));
+  });
+
+  it("builds setup-failure state with the same versioned runtime identities", () => {
+    const runtimeIdentity = createRuntimeIdentity({
+      commitSha: "0123456789abcdef0123456789abcdef01234567",
+      environment: { NEXT_PUBLIC_SUPABASE_URL: "https://catalog.example" },
+      nodeVersion: "v24.0.0",
+    });
+    const changedRuntimeIdentity = createRuntimeIdentity({
+      commitSha: "0123456789abcdef0123456789abcdef01234567",
+      environment: { NEXT_PUBLIC_SUPABASE_URL: "https://other.example" },
+      nodeVersion: "v24.0.0",
+    });
+    const failure = createScheduledSetupFailure({
+      browserVersion: "1.55.1",
+      planSource: "plan-source",
+      runtimeIdentity,
+    });
+
+    expect(failure).toMatchObject({
+      kind: "setup-failed",
+      summary: "Scheduled verification setup failed before complete WebKit evidence could run.",
+    });
+    expect(failure.identity.runtimeFingerprint).not.toBe(
+      createScheduledSetupFailure({
+        browserVersion: "1.55.1",
+        planSource: "plan-source",
+        runtimeIdentity: changedRuntimeIdentity,
+      }).identity.runtimeFingerprint,
+    );
+    expect(
+      scheduledSetupFailureIssueBody(
+        failure,
+        "https://github.com/brandon-y-lee/mei-pelle/actions/runs/123",
+      ),
+    ).toContain("mei-pelle:scheduled-webkit-state");
   });
 
   it("keeps Windows and Product Media outside required pull-request CI", () => {
