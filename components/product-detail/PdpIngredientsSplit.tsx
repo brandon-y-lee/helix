@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import {
   useEffect,
   useId,
@@ -8,6 +7,7 @@ import {
   useState,
   type Ref,
 } from "react";
+import { ProductImage } from "@/components/product/ProductImage";
 import type { PdpIngredientStory } from "@/lib/catalog/product-content";
 import type { ResolvedFullInci } from "@/lib/catalog/product-ingredients";
 import type { ProductMedia } from "@/lib/products";
@@ -17,6 +17,7 @@ export function PdpIngredientsSplit({
   productName,
   story,
   media,
+  swatch,
   fullInci,
   mediaPosition,
   rootRef,
@@ -25,6 +26,7 @@ export function PdpIngredientsSplit({
   productName: string;
   story: PdpIngredientStory;
   media: ProductMedia | null;
+  swatch: [string, string];
   fullInci: ResolvedFullInci | null;
   mediaPosition: string;
   rootRef?: Ref<HTMLElement>;
@@ -153,17 +155,17 @@ export function PdpIngredientsSplit({
           </button>
         )}
         {media?.kind === "image" && media.url ? (
-          <Image
-            src={media.url}
-            alt={media.alt}
-            fill
+          <ProductImage
+            media={media}
+            swatch={swatch}
+            className="pdp-ingredients__media-content"
             sizes="(max-width: 760px) 100vw, 50vw"
-            style={{ objectPosition: mediaPosition }}
-            className="pdp-ingredients__image"
+            imageStyle={{ objectPosition: mediaPosition }}
+            imageClassName="pdp-ingredients__image"
           />
         ) : (
           <p role="status">
-            Formula texture image is temporarily unavailable for {productName}.
+            Formula texture image is unavailable for {productName}.
           </p>
         )}
       </div>

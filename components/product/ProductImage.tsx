@@ -1,5 +1,12 @@
+"use client";
+
 import Image from "next/image";
-import type { CSSProperties } from "react";
+import {
+  useState,
+  type ComponentPropsWithoutRef,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import type { ProductMedia } from "@/lib/products";
 
 function swatchFromMedia(
@@ -12,7 +19,7 @@ function swatchFromMedia(
   return fallback;
 }
 
-function ProductPlaceholder({
+export function ProductPlaceholder({
   colors,
   palette,
   className,
@@ -29,7 +36,7 @@ function ProductPlaceholder({
   const highlight = palette?.highlight ?? colors[0];
 
   return (
-    <div
+    <span
       aria-hidden="true"
       className={className}
       style={{
@@ -44,34 +51,95 @@ function ProductPlaceholder({
   );
 }
 
+export function useProductMediaLoadFailure(url: string | null | undefined) {
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+
+  return {
+    failed: Boolean(url && failedUrl === url),
+    markFailed: () => {
+      if (url) setFailedUrl(url);
+    },
+  };
+}
+
+export function ProductMediaUnavailableStatus({
+  description,
+}: {
+  description: string;
+}) {
+  return (
+    <span
+      className="sr-only"
+      role="status"
+      aria-label={`${description} could not be loaded.`}
+    >
+      {description} could not be loaded.
+    </span>
+  );
+}
+
+type ProductImageProps = Omit<
+  ComponentPropsWithoutRef<"span">,
+  "children" | "className" | "style"
+> & {
+  media: ProductMedia | null | undefined;
+  swatch: [string, string];
+  className?: string;
+  imageClassName?: string;
+  imageStyle?: CSSProperties;
+  imageAlt?: string;
+  imageDataAttributes?: Record<`data-${string}`, string | number>;
+  sizes: string;
+  priority?: boolean;
+  loading?: "eager" | "lazy";
+  fallback?: ReactNode;
+  style?: CSSProperties;
+};
+
 export function ProductImage({
   media,
   swatch,
   className,
   imageClassName,
+  imageStyle,
+  imageAlt,
+  imageDataAttributes,
   sizes,
   priority = false,
-}: {
-  media: ProductMedia | null | undefined;
-  swatch: [string, string];
-  className?: string;
-  imageClassName?: string;
-  sizes: string;
-  priority?: boolean;
-}) {
+  loading,
+  fallback,
+  style,
+  ...wrapperProps
+}: ProductImageProps) {
   const placeholderColors = swatchFromMedia(media, swatch);
+  const imageUrl = media?.kind === "image" ? media.url : null;
+  const { failed, markFailed } = useProductMediaLoadFailure(imageUrl);
+  const mediaKind = failed ? "placeholder" : (media?.kind ?? "placeholder");
+  const accessibleAlt = imageAlt ?? media?.alt ?? "";
 
   return (
-    <span className={className} data-media-kind={media?.kind ?? "placeholder"}>
-      {media?.kind === "image" && media.url ? (
+    <span
+      {...wrapperProps}
+      className={className}
+      style={style}
+      data-media-kind={mediaKind}
+      data-media-fallback={failed ? "load-error" : undefined}
+    >
+      {media?.kind === "image" && media.url && !failed ? (
         <Image
+          {...imageDataAttributes}
           src={media.url}
-          alt={media.alt}
+          alt={accessibleAlt}
           fill
           sizes={sizes}
           priority={priority}
+          loading={loading}
           className={imageClassName}
+          style={imageStyle}
+          onError={markFailed}
         />
+      ) : fallback !== undefined ? (
+        fallback
       ) : (
         <ProductPlaceholder
           colors={placeholderColors}
@@ -79,6 +147,9 @@ export function ProductImage({
           className={imageClassName}
           style={{ position: "absolute", inset: 0 }}
         />
+      )}
+      {failed && accessibleAlt && (
+        <ProductMediaUnavailableStatus description={accessibleAlt} />
       )}
     </span>
   );

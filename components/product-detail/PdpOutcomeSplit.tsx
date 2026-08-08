@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import {
   useEffect,
   useLayoutEffect,
@@ -10,6 +9,7 @@ import {
   type KeyboardEvent,
   type Ref,
 } from "react";
+import { ProductImage } from "@/components/product/ProductImage";
 import type { CorePdpOutcomeOption } from "@/lib/content/core-pdp";
 import type { ProductMedia } from "@/lib/products";
 
@@ -180,12 +180,19 @@ export function PdpOutcomeSplit({
                 data-has-media={itemMedia ? "true" : "false"}
               >
                 {itemMedia?.url ? (
-                  <Image
-                    src={itemMedia.url}
-                    alt={itemMedia.alt}
-                    fill
+                  <ProductImage
+                    media={itemMedia}
+                    swatch={[option.surface, option.accent]}
+                    className="pdp-outcome-split__media"
                     sizes="(max-width: 820px) 100vw, 50vw"
                     loading="lazy"
+                    fallback={
+                      <>
+                        <span className="pdp-outcome-split__shape pdp-outcome-split__shape--one" />
+                        <span className="pdp-outcome-split__shape pdp-outcome-split__shape--two" />
+                        <span className="pdp-outcome-split__line" />
+                      </>
+                    }
                   />
                 ) : (
                   <>

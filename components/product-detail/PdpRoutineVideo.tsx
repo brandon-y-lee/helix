@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, type Ref } from "react";
+import { ProductImage } from "@/components/product/ProductImage";
 import type { ProductMedia } from "@/lib/products";
 
 export function PdpRoutineVideo({
@@ -8,12 +9,14 @@ export function PdpRoutineVideo({
   overlay,
   video,
   poster,
+  swatch,
   rootRef,
 }: {
   productName: string;
   overlay: string;
   video: ProductMedia;
   poster: ProductMedia;
+  swatch: [string, string];
   rootRef?: Ref<HTMLElement>;
 }) {
   const foregroundRef = useRef<HTMLVideoElement>(null);
@@ -103,16 +106,26 @@ export function PdpRoutineVideo({
       data-activated={activated}
       data-error={error}
     >
-      <div
+      <ProductImage
+        media={poster}
+        swatch={swatch}
+        sizes="100vw"
         className="pdp-routine-video__poster-background"
-        style={{ backgroundImage: `url("${poster.url}")` }}
-        aria-hidden="true"
+        imageClassName="pdp-routine-video__poster-background-image"
+        imageAlt=""
+        aria-hidden
+      />
+      <ProductImage
+        media={poster}
+        swatch={swatch}
+        sizes="100vw"
+        className="pdp-routine-video__poster-foreground"
+        imageClassName="pdp-routine-video__poster-foreground-image"
       />
       <video
         ref={backgroundRef}
         className="pdp-routine-video__background"
         src={video.url}
-        poster={poster.url}
         preload="none"
         muted
         playsInline
@@ -126,7 +139,6 @@ export function PdpRoutineVideo({
         ref={foregroundRef}
         className="pdp-routine-video__foreground"
         src={video.url}
-        poster={poster.url}
         preload="metadata"
         playsInline
         controls
@@ -179,7 +191,7 @@ export function PdpRoutineVideo({
           role="status"
           aria-live="polite"
         >
-          <p>This routine video is temporarily unavailable.</p>
+          <p>This routine video could not be loaded.</p>
           <button type="button" onClick={handleRetry}>
             Retry
           </button>
