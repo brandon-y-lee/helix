@@ -438,7 +438,6 @@ export function ProductCard({
       },
       beforeDrawerOpen: () => {
         closeQuickBuy({ focusTrigger: false });
-        preserveViewportAfterUpdate();
       },
       returnFocus: focusTriggerWithoutScrolling,
     });
