@@ -151,6 +151,11 @@ The Windows verification-lifecycle job runs when production-verification or proc
 
 Release automation creates a Production-configured Vercel deployment without assigning Production domains. It runs complete Chromium and WebKit plans against that staged deployment, requires unchanged Catalog facts, creates a signed Production receipt, and exposes the deployment for staging inspection.
 
+The executable staging path and operator evidence contract are documented in
+[`staged-production-verification.md`](./staged-production-verification.md).
+Creating and inspecting that deployment does not authorize domain assignment,
+promotion, or a `dev` to `main` merge.
+
 After explicit user authorization, the release merges `dev` into `main`, confirms the `main` Runtime Fingerprint matches the receipt, and promotes the tested deployment without rebuilding it. A post-promotion incident restores the previous known-good deployment first, then uses an urgent ticket to reconcile the served deployment, `main`, and `dev` without rewriting Git history.
 
 ## Efficiency audit
