@@ -5,6 +5,7 @@ import type {
   PdpIngredientStory,
   PdpProfileTitleToken,
 } from "@/lib/catalog/product-content";
+import type { RealProductMediaVerificationReport } from "@/lib/catalog/real-product-media-verification";
 
 type ProductRow = Database["public"]["Tables"]["products"]["Row"];
 type ProductVariantRow =
@@ -151,11 +152,26 @@ type CatalogChangedTables = {
   productSource: boolean;
 };
 
-export type CatalogPublishSuccess = {
+export type CatalogPublishTransactionSuccess = {
   ok: true;
   draft: CatalogDraftRecord;
   revision: CatalogRevisionRecord;
   changedTables: CatalogChangedTables;
+};
+
+export type CatalogPublishMediaVerification =
+  | Readonly<{
+      status: "healthy";
+      report: RealProductMediaVerificationReport;
+    }>
+  | Readonly<{
+      status: "warning";
+      report: RealProductMediaVerificationReport | null;
+      message: string;
+    }>;
+
+export type CatalogPublishSuccess = CatalogPublishTransactionSuccess & {
+  mediaVerification: CatalogPublishMediaVerification;
 };
 
 export type CatalogGridSort =

@@ -20,6 +20,7 @@ import type {
   CatalogEditorResponse,
   CatalogGridRow,
   CatalogPublishSuccess,
+  CatalogPublishTransactionSuccess,
   CatalogRevisionRecord,
   ProductEditorDocumentV3,
   CatalogValidationIssue,
@@ -28,6 +29,12 @@ import { PRODUCT_EDITOR_SCHEMA_VERSION } from "@/lib/admin/catalog/types";
 import type { CatalogAdminAccess } from "@/lib/admin/capabilities";
 import { catalogDocumentDiff } from "@/lib/admin/catalog/diff";
 import type { CatalogEditorRole } from "@/lib/catalog/field-ownership";
+import {
+  verifyRealProductMedia,
+  type CatalogProductMediaType,
+  type RealProductMediaVerificationReport,
+} from "@/lib/catalog/real-product-media-verification";
+import { productMediaHttpClient } from "@/lib/catalog/product-media-http-client";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -667,18 +674,99 @@ export async function transitionCatalogDraft(input: {
   return assertRpcResult<{ ok: true; draft: CatalogDraftRecord }>(data);
 }
 
-export async function publishCatalogDraft(input: {
+type PublishCatalogDraftInput = {
   draftId: string;
   expectedVersion: number;
   actorId: string;
   role: CatalogEditorRole;
-}): Promise<CatalogPublishSuccess> {
-  const draft = await readDraft(input.draftId);
+};
+
+type PublishTransactionInput = PublishCatalogDraftInput & {
+  changeAudit: ReturnType<typeof catalogDocumentDiff>["advancedChanges"];
+};
+
+export type CatalogPublishDependencies = Readonly<{
+  readDraft: typeof readDraft;
+  readCanonicalDocument: typeof readCanonicalDocument;
+  pendingMediaValidationIssues: typeof pendingMediaValidationIssues;
+  relationshipValidationIssues: typeof relationshipValidationIssues;
+  verifyMedia(
+    document: ProductEditorDocumentV3,
+  ): Promise<RealProductMediaVerificationReport>;
+  publishTransaction(
+    input: PublishTransactionInput,
+  ): Promise<CatalogPublishTransactionSuccess>;
+}>;
+
+async function verifyCatalogProductMedia(
+  document: ProductEditorDocumentV3,
+): Promise<RealProductMediaVerificationReport> {
+  let approvedOrigin: string | null = null;
+  try {
+    approvedOrigin = process.env.NEXT_PUBLIC_SUPABASE_URL
+      ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).origin
+      : null;
+  } catch {
+    approvedOrigin = null;
+  }
+  return verifyRealProductMedia({
+    expectedMedia: document.media
+      .filter(
+        (media): media is typeof media & { url: string } =>
+          media.archived_at === null &&
+          typeof media.url === "string" &&
+          media.url.length > 0,
+      )
+      .map((media) => ({
+        url: media.url,
+        mediaType: media.media_type as CatalogProductMediaType,
+      })),
+    urlPolicy: {
+      approvedLocations: approvedOrigin
+        ? [{
+            origin: approvedOrigin,
+            pathPrefix: `/storage/v1/object/public/${CATALOG_MEDIA_BUCKET}/`,
+          }]
+        : [],
+      maxRedirects: 2,
+      timeoutMs: 5_000,
+    },
+    httpClient: productMediaHttpClient,
+  });
+}
+
+async function publishCatalogDraftTransaction(
+  input: PublishTransactionInput,
+): Promise<CatalogPublishTransactionSuccess> {
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin.rpc("publish_catalog_product_draft", {
+    p_draft_id: input.draftId,
+    p_expected_version: input.expectedVersion,
+    p_actor_id: input.actorId,
+    p_actor_role: input.role,
+    p_change_audit: input.changeAudit,
+  });
+  if (error) throwDatabaseError(error);
+  return assertRpcResult<CatalogPublishTransactionSuccess>(data);
+}
+
+export async function publishCatalogDraft(
+  input: PublishCatalogDraftInput,
+  dependencies: CatalogPublishDependencies = {
+    readDraft,
+    readCanonicalDocument,
+    pendingMediaValidationIssues,
+    relationshipValidationIssues,
+    verifyMedia: verifyCatalogProductMedia,
+    publishTransaction: publishCatalogDraftTransaction,
+  },
+): Promise<CatalogPublishSuccess> {
+  const draft = await dependencies.readDraft(input.draftId);
   const document = assertValidProductEditorDocument(draft.document);
   const [canonical, mediaIssues, relationshipIssues] = await Promise.all([
-    readCanonicalDocument(document.productId),
-    pendingMediaValidationIssues(document),
-    relationshipValidationIssues(document),
+    dependencies.readCanonicalDocument(document.productId),
+    dependencies.pendingMediaValidationIssues(document),
+    dependencies.relationshipValidationIssues(document),
   ]);
   const ownershipIssues = validateCatalogEditorOwnership(
     document,
@@ -697,17 +785,53 @@ export async function publishCatalogDraft(input: {
       { issues: [...ownershipIssues, ...mediaIssues, ...relationshipIssues] },
     );
   }
-  const admin = createSupabaseAdminClient();
+  const mediaVerification = await dependencies.verifyMedia(document);
+  if (mediaVerification.summary.failures > 0) {
+    throw new CatalogAdminError(
+      "validation_failed",
+      "Candidate Product Media failed publication verification.",
+      422,
+      {
+        issues: mediaVerification.results
+          .filter((result) => result.outcome === "failed")
+          .map((result) => ({
+            path: `media.${document.media.findIndex((media) => media.url === result.url)}.url`,
+            code: result.failure?.code ?? "media_verification_failed",
+            message: result.failure?.message ?? "Product Media verification failed.",
+          })),
+        mediaVerification,
+      },
+    );
+  }
   const changeAudit = catalogDocumentDiff(canonical, document).advancedChanges;
-  const { data, error } = await admin.rpc("publish_catalog_product_draft", {
-    p_draft_id: input.draftId,
-    p_expected_version: input.expectedVersion,
-    p_actor_id: input.actorId,
-    p_actor_role: input.role,
-    p_change_audit: changeAudit,
-  });
-  if (error) throwDatabaseError(error);
-  return assertRpcResult<CatalogPublishSuccess>(data);
+  const published = await dependencies.publishTransaction({ ...input, changeAudit });
+  try {
+    const publishedDocument = assertValidProductEditorDocument(
+      published.revision.document,
+    );
+    const report = await dependencies.verifyMedia(publishedDocument);
+    return {
+      ...published,
+      mediaVerification: report.summary.failures > 0
+        ? {
+            status: "warning",
+            report,
+            message:
+              "The revision was published, but its Product Media failed verification.",
+          }
+        : { status: "healthy", report },
+    };
+  } catch {
+    return {
+      ...published,
+      mediaVerification: {
+        status: "warning",
+        report: null,
+        message:
+          "The revision was published, but its Product Media could not be verified.",
+      },
+    };
+  }
 }
 
 export async function listCatalogRevisions(
