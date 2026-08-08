@@ -51,8 +51,10 @@ describe("dev Integration Line workflows", () => {
     expect(verification).toContain("contents: read");
     expect(verification).toContain("timeout-minutes: 20");
     expect(verification).toContain("persist-credentials: false");
+    expect(verification.match(/FROZEN_PULL_REQUEST: \$\{\{ inputs\.pr_number \}\}/g)).toHaveLength(2);
+    expect(verification.match(/case "\$FROZEN_PULL_REQUEST" in/g)).toHaveLength(2);
     expect(verification).toContain(
-      'git -C trusted fetch --no-tags origin "refs/pull/${{ inputs.pr_number }}/head"',
+      'git -C trusted fetch --no-tags origin "refs/pull/$FROZEN_PULL_REQUEST/head"',
     );
     expect(verification.indexOf("Fetch the frozen pull-request head")).toBeLessThan(
       verification.indexOf("Prepare the exact candidate and base in an isolated worktree"),

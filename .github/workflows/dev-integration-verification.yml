@@ -74,7 +74,13 @@ jobs:
         run: pnpm --dir trusted install --frozen-lockfile
 
       - name: Fetch the frozen pull-request head
-        run: git -C trusted fetch --no-tags origin "refs/pull/${{ inputs.pr_number }}/head"
+        env:
+          FROZEN_PULL_REQUEST: ${{ inputs.pr_number }}
+        run: |
+          case "$FROZEN_PULL_REQUEST" in
+            ''|*[!0-9]*) echo "Frozen pull-request number must contain only digits." >&2; exit 1 ;;
+          esac
+          git -C trusted fetch --no-tags origin "refs/pull/$FROZEN_PULL_REQUEST/head"
 
       - name: Prepare the exact candidate and base in an isolated worktree
         run: >-
@@ -256,7 +262,13 @@ jobs:
         run: pnpm --dir trusted install --frozen-lockfile --ignore-scripts
 
       - name: Fetch the frozen pull-request head
-        run: git -C trusted fetch --no-tags origin "refs/pull/${{ inputs.pr_number }}/head"
+        env:
+          FROZEN_PULL_REQUEST: ${{ inputs.pr_number }}
+        run: |
+          case "$FROZEN_PULL_REQUEST" in
+            ''|*[!0-9]*) echo "Frozen pull-request number must contain only digits." >&2; exit 1 ;;
+          esac
+          git -C trusted fetch --no-tags origin "refs/pull/$FROZEN_PULL_REQUEST/head"
 
       - name: Materialize candidate as non-executable input
         run: >-
