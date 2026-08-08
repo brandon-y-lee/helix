@@ -54,6 +54,10 @@ export type OwnedCommandInput = {
   stdio?: "ignore" | "inherit";
 };
 
+type NodeProductionVerificationDependencies = {
+  runCommand?: (input: OwnedCommandInput) => Promise<void>;
+};
+
 type ProcessTreeControl = {
   exited: Promise<void>;
   forceStop: () => Promise<void>;
@@ -797,11 +801,13 @@ async function readCurrentCommitSha(cwd: string): Promise<string> {
 export async function createNodeProductionVerificationAdapters(
   cwd: string,
   env: NodeJS.ProcessEnv,
+  dependencies: NodeProductionVerificationDependencies = {},
 ): Promise<NodeProductionVerificationAdapters> {
   const require = createRequire(import.meta.url);
   const nextCli = require.resolve("next/dist/bin/next");
   const playwrightCli = require.resolve("@playwright/test/cli");
   const receiptPath = resolve(cwd, PRODUCTION_ARTIFACT_RECEIPT_PATH);
+  const executeOwnedCommand = dependencies.runCommand ?? runOwnedCommand;
 
   return {
     acquireLock: () => acquireCheckoutLock({ cwd }),
@@ -812,7 +818,7 @@ export async function createNodeProductionVerificationAdapters(
     selectFreePort,
     isPortAvailable,
     build: async ({ signal }) => {
-      await runOwnedCommand({
+      await executeOwnedCommand({
         args: [nextCli, "build"],
         command: process.execPath,
         cwd,
@@ -871,7 +877,7 @@ export async function createNodeProductionVerificationAdapters(
           }
           return journey.testFile;
         });
-        return runOwnedCommand({
+        return executeOwnedCommand({
           args: [
             playwrightCli,
             "test",

@@ -78,7 +78,7 @@ export async function readAffectedBrowserVerificationChangedFiles(
         [
           "diff",
           "--name-only",
-          "--diff-filter=ACMRTUXB",
+          "--diff-filter=ACDMRTUXB",
           mergeBase,
           "--",
         ],
@@ -127,36 +127,51 @@ export async function runAffectedBrowserVerificationCommand(
       input.log(`${file} maps to ${capability}.`);
     }
   }
-  const selectedJourneyIds = new Set<string>();
-  const selections = classifiedFiles.flatMap(({ capabilities, file }) =>
-    plan.journeys.flatMap((journey) => {
-      const matchingCapabilities = capabilities.filter((capability) =>
-        journey.capabilities.some((declared) => declared === capability),
+  const selectedJourneyById = new Map<string, SelectedJourney>();
+  const selectedJourneys: SelectedJourney[] = [];
+  const addSelection = (
+    journey: BrowserVerificationJourney,
+    capabilities: readonly string[],
+    reason: string,
+  ) => {
+    const existing = selectedJourneyById.get(journey.id);
+    if (existing) {
+      existing.capabilities = Array.from(
+        new Set([...existing.capabilities, ...capabilities]),
       );
-      if (
-        selectedJourneyIds.has(journey.id) ||
-        matchingCapabilities.length === 0
-      ) {
-        return [];
+      if (!existing.reason.includes(reason)) {
+        existing.reason = `${existing.reason.replace(/\.$/, "")}; ${reason}`;
       }
-      selectedJourneyIds.add(journey.id);
-      return [
-        {
-          capabilities: matchingCapabilities,
-          journey,
-          reason: `${file} maps to ${matchingCapabilities[0]}.`,
-        },
-      ];
-    }),
-  );
-  const selectedJourneys: SelectedJourney[] = unmappedFile
-    ? plan.journeys.map((journey) => ({
-        capabilities: [...plan.webkitCapabilities],
+      return;
+    }
+    const selection = { capabilities: [...capabilities], journey, reason };
+    selectedJourneyById.set(journey.id, selection);
+    selectedJourneys.push(selection);
+  };
+
+  if (unmappedFile) {
+    for (const journey of plan.journeys) {
+      addSelection(
         journey,
-        reason: `${unmappedFile} is not mapped by Browser Verification Plan v${plan.version}; selected the complete plan.`,
-      }))
-    : selections;
-  if (!unmappedFile) {
+        plan.webkitCapabilities,
+        `${unmappedFile} is not mapped by Browser Verification Plan v${plan.version}; selected the complete plan.`,
+      );
+    }
+  } else {
+    for (const { capabilities, file } of classifiedFiles) {
+      for (const journey of plan.journeys) {
+        const matchingCapabilities = capabilities.filter((capability) =>
+          journey.capabilities.some((declared) => declared === capability),
+        );
+        if (matchingCapabilities.length > 0) {
+          addSelection(
+            journey,
+            matchingCapabilities,
+            `${file} maps to ${matchingCapabilities[0]}.`,
+          );
+        }
+      }
+    }
     const knownCapabilities = new Set<string>(
       plan.journeys.flatMap((journey) => [...journey.capabilities]),
     );
@@ -165,30 +180,23 @@ export async function runAffectedBrowserVerificationCommand(
         throw new Error(`Unknown browser capability "${capability}".`);
       }
       for (const journey of plan.journeys) {
-        if (
-          journey.capabilities.some((declared) => declared === capability) &&
-          !selectedJourneyIds.has(journey.id)
-        ) {
-          selectedJourneyIds.add(journey.id);
-          selectedJourneys.push({
-            capabilities: [capability],
+        if (journey.capabilities.some((declared) => declared === capability)) {
+          addSelection(
             journey,
-            reason: `explicit capability ${capability} was added by the caller.`,
-          });
+            [capability],
+            `explicit capability ${capability} was added by the caller.`,
+          );
         }
       }
     }
     for (const journeyId of readAddedValues(argv, "--add-journey")) {
       const journey = plan.journeys.find((candidate) => candidate.id === journeyId);
       if (!journey) throw new Error(`Unknown browser journey "${journeyId}".`);
-      if (!selectedJourneyIds.has(journey.id)) {
-        selectedJourneyIds.add(journey.id);
-        selectedJourneys.push({
-          capabilities: [...journey.capabilities],
-          journey,
-          reason: `explicit journey ${journeyId} was added by the caller.`,
-        });
-      }
+      addSelection(
+        journey,
+        journey.capabilities,
+        `explicit journey ${journeyId} was added by the caller.`,
+      );
     }
   }
 

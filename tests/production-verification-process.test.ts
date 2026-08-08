@@ -66,6 +66,52 @@ const ORPHAN_INTERMEDIATE_SCRIPT = Buffer.from(
 const lifecycleStdio = process.platform === "win32" ? "inherit" : "ignore";
 
 describe("Production Verification Node Adapters", () => {
+  it("runs selected Chromium and WebKit journeys as sequential passes", async () => {
+    const commands: Array<{ args: string[]; env: NodeJS.ProcessEnv }> = [];
+    const adapters = await createNodeProductionVerificationAdapters(
+      process.cwd(),
+      { NODE_ENV: "test" },
+      {
+        runCommand: async ({ args, env }) => {
+          commands.push({ args, env });
+        },
+      },
+    );
+
+    await adapters.runBrowserTests({
+      baseURL: "http://127.0.0.1:43138",
+      selection: {
+        journeyIds: ["header-search", "homepage-hero"],
+        projects: ["chromium", "webkit"],
+        webkitJourneyIds: ["homepage-hero"],
+      },
+    });
+
+    expect(commands).toHaveLength(2);
+    expect(commands[0]!.args).toEqual(
+      expect.arrayContaining([
+        "test",
+        "e2e/search.spec.ts",
+        "e2e/home-hero.spec.ts",
+        "--project",
+        "chromium",
+      ]),
+    );
+    expect(commands[1]!.args).toEqual([
+      commands[0]!.args[0],
+      "test",
+      "e2e/home-hero.spec.ts",
+      "--project",
+      "webkit",
+    ]);
+    expect(
+      commands.map(({ env }) => env.MEI_PELLE_VERIFICATION_BASE_URL),
+    ).toEqual([
+      "http://127.0.0.1:43138",
+      "http://127.0.0.1:43138",
+    ]);
+  });
+
   it("stores only the build ID and commit SHA in the artifact receipt", async () => {
     const cwd = await mkdtemp(resolve(tmpdir(), "mei-pelle-artifact-receipt-"));
     const nextDirectory = resolve(cwd, ".next");
