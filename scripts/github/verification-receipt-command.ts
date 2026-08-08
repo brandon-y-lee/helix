@@ -373,8 +373,35 @@ type AssociatedPullRequest = {
 };
 
 export interface ProtectedPushObservationAdapter {
-  artifactBuildId(receipt: VerificationReceipt): Promise<string>;
+  artifactBuildId(receipt: VerificationReceipt): Promise<string | null>;
   browserVersion(): Promise<string>;
+}
+
+type ProtectedPushCurrentInputs = Omit<CurrentVerificationInputs, "artifact"> & {
+  artifact: Omit<CurrentVerificationInputs["artifact"], "buildId">;
+};
+
+export async function findReusableProtectedPushReceiptWithEvidence(input: {
+  allowIntegrationCarryForward: boolean;
+  artifactBuildId(receipt: VerificationReceipt): Promise<string | null>;
+  candidates: Array<{ id: string; receipt: VerificationReceipt }>;
+  current: ProtectedPushCurrentInputs;
+}) {
+  for (const candidate of input.candidates) {
+    const observedBuildId = await input.artifactBuildId(candidate.receipt);
+    if (observedBuildId === null && !input.allowIntegrationCarryForward) continue;
+    const result = await findReusableProtectedPushReceipt({
+      ...input.current,
+      artifact: {
+        ...input.current.artifact,
+        buildId: observedBuildId ?? candidate.receipt.artifact.buildId,
+      },
+    }, { async lookup() { return [candidate]; } }, {
+      allowIntegrationCarryForward: input.allowIntegrationCarryForward,
+    });
+    if (result.outcome === "reused") return result;
+  }
+  return { outcome: "missing" as const, reusable: false as const };
 }
 
 const PROTECTED_PUSH_SCRIPT = "verification:receipt:protected-push";
@@ -545,12 +572,30 @@ export async function verifyProtectedBranchPushReceipt(input: {
     async artifactBuildId(receipt: VerificationReceipt) {
       const match = /^(\d+)-(\d+)$/.exec(receipt.workflowRun);
       if (!match) throw new Error("Verification Receipt has an invalid workflow run identity.");
+      const artifactNamePrefix =
+        `integration-build-evidence-${receipt.integration.pullRequest}-`;
+      const artifactResponse = await run("gh", [
+        "api", `repos/${repository}/actions/runs/${match[1]}/artifacts?per_page=100`,
+        "--paginate", "--slurp",
+      ], { encoding: "utf8" });
+      const artifactPages = JSON.parse(artifactResponse.stdout) as Array<{
+        artifacts: Array<{ expired: boolean; name: string }>;
+      }>;
+      const availableArtifacts = artifactPages
+        .flatMap((page) => page.artifacts)
+        .filter((artifact) => (
+          artifact.name.startsWith(artifactNamePrefix) && !artifact.expired
+        ));
+      if (availableArtifacts.length === 0) return null;
+      if (availableArtifacts.length !== 1) {
+        throw new Error("Protected dev push requires exactly one receipted build artifact.");
+      }
       const artifactDirectory = resolve(subjectDirectory, `workflow-${match[1]}-${match[2]}`);
       await mkdir(artifactDirectory, { recursive: true });
       await run("gh", [
         "run", "download", match[1]!,
         "--repo", repository,
-        "--pattern", `integration-build-evidence-${receipt.integration.pullRequest}-*`,
+        "--name", availableArtifacts[0]!.name,
         "--dir", artifactDirectory,
       ], { encoding: "utf8" });
       const buildIds = await findBuildIds(artifactDirectory);
@@ -577,15 +622,12 @@ export async function verifyProtectedBranchPushReceipt(input: {
     const receipt = verificationResult?.statement?.predicate;
     return receipt ? [{ id: `verified-${index + 1}`, receipt }] : [];
   });
-  for (const candidate of candidates) {
-    let buildId: string;
-    try {
-      buildId = await observation.artifactBuildId(candidate.receipt);
-    } catch {
-      continue;
-    }
-    const result = await findReusableProtectedPushReceipt({
-      artifact: { buildId, configurationFingerprint, runtimeFingerprint },
+  const result = await findReusableProtectedPushReceiptWithEvidence({
+    allowIntegrationCarryForward,
+    artifactBuildId: (receipt) => observation.artifactBuildId(receipt),
+    candidates,
+    current: {
+      artifact: { configurationFingerprint, runtimeFingerprint },
       browsers: { chromium: browserVersion },
       catalogFingerprint,
       integration: {
@@ -600,9 +642,9 @@ export async function verifyProtectedBranchPushReceipt(input: {
         packageManager: packageJson.packageManager,
         playwright: packageJson.devDependencies["@playwright/test"] ?? "unknown",
       },
-    }, { async lookup() { return [candidate]; } }, { allowIntegrationCarryForward });
-    if (result.outcome === "reused") return result;
-  }
+    },
+  });
+  if (result.outcome === "reused") return result;
   throw new Error("Protected dev push has no matching signed Verification Receipt.");
 }
 

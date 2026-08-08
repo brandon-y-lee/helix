@@ -5,12 +5,14 @@ import { describe, expect, it } from "vitest";
 
 import {
   bootstrapInitialVerificationReceipt,
+  findReusableProtectedPushReceiptWithEvidence,
   isInitialReceiptVerificationCutover,
   writeVerificationExecutionEvidence,
   verifyVerificationReceipt,
 } from "@/scripts/github/verification-receipt-command";
 import {
   VERIFICATION_RECEIPT_PREDICATE_TYPE,
+  type Sha256Fingerprint,
   type VerificationReceipt,
 } from "@/scripts/github/routine-browser-verification";
 
@@ -211,5 +213,135 @@ describe("GitHub Verification Receipt lookup", () => {
       subjectPath: "/tmp/runtime-subject.json",
     })).rejects.toThrow("does not match");
     expect(reads).toBe(1);
+  });
+
+  it("carries a reviewed non-runtime receipt forward when its build artifact has expired", async () => {
+    const result = await findReusableProtectedPushReceiptWithEvidence({
+      allowIntegrationCarryForward: true,
+      artifactBuildId: async () => null,
+      candidates: [{ id: "attestation-53", receipt }],
+      current: {
+        artifact: {
+          configurationFingerprint: receipt.artifact.configurationFingerprint,
+          runtimeFingerprint: receipt.artifact.runtimeFingerprint,
+        },
+        browsers: receipt.browsers,
+        catalogFingerprint: receipt.catalog.after,
+        integration: {
+          baseSha: "d".repeat(40),
+          candidateSha: "e".repeat(40),
+          pullRequest: 54,
+        },
+        planFingerprint: receipt.planFingerprint,
+        tools: receipt.tools,
+      },
+    });
+
+    expect(result).toMatchObject({
+      attestationId: "attestation-53",
+      outcome: "reused",
+    });
+  });
+
+  it("fails a fresh behavioral push when its build artifact is missing", async () => {
+    const result = await findReusableProtectedPushReceiptWithEvidence({
+      allowIntegrationCarryForward: false,
+      artifactBuildId: async () => null,
+      candidates: [{ id: "attestation-53", receipt }],
+      current: {
+        artifact: {
+          configurationFingerprint: receipt.artifact.configurationFingerprint,
+          runtimeFingerprint: receipt.artifact.runtimeFingerprint,
+        },
+        browsers: receipt.browsers,
+        catalogFingerprint: receipt.catalog.after,
+        integration: receipt.integration,
+        planFingerprint: receipt.planFingerprint,
+        tools: receipt.tools,
+      },
+    });
+
+    expect(result).toEqual({ outcome: "missing", reusable: false });
+  });
+
+  it("fails closed when build-artifact observation itself fails", async () => {
+    await expect(findReusableProtectedPushReceiptWithEvidence({
+      allowIntegrationCarryForward: true,
+      artifactBuildId: async () => {
+        throw new Error("GitHub artifact API unavailable");
+      },
+      candidates: [{ id: "attestation-53", receipt }],
+      current: {
+        artifact: {
+          configurationFingerprint: receipt.artifact.configurationFingerprint,
+          runtimeFingerprint: receipt.artifact.runtimeFingerprint,
+        },
+        browsers: receipt.browsers,
+        catalogFingerprint: receipt.catalog.after,
+        integration: receipt.integration,
+        planFingerprint: receipt.planFingerprint,
+        tools: receipt.tools,
+      },
+    })).rejects.toThrow("GitHub artifact API unavailable");
+  });
+
+  it.each([
+    ["artifact build", { artifactBuildId: "different-build" }],
+    ["runtime", { runtimeFingerprint: `sha256:${"9".repeat(64)}` }],
+    ["configuration", { configurationFingerprint: `sha256:${"9".repeat(64)}` }],
+    ["browser", { chromium: "Chromium 141" }],
+    ["Catalog", { catalogFingerprint: `sha256:${"9".repeat(64)}` }],
+    ["plan", { planFingerprint: `sha256:${"9".repeat(64)}` }],
+    ["framework", { framework: "16.0.0" }],
+    ["Node", { node: "v25.0.0" }],
+    ["package manager", { packageManager: "pnpm@10.0.0" }],
+    ["Playwright", { playwright: "1.56.0" }],
+  ])("rejects non-runtime carry-forward when the current %s identity differs", async (
+    _label,
+    mismatch,
+  ) => {
+    const artifactUnavailable = !("artifactBuildId" in mismatch);
+    const result = await findReusableProtectedPushReceiptWithEvidence({
+      allowIntegrationCarryForward: true,
+      artifactBuildId: async () => {
+        if (artifactUnavailable) return null;
+        return mismatch.artifactBuildId!;
+      },
+      candidates: [{ id: "attestation-53", receipt }],
+      current: {
+        artifact: {
+          configurationFingerprint: "configurationFingerprint" in mismatch
+            ? mismatch.configurationFingerprint as Sha256Fingerprint
+            : receipt.artifact.configurationFingerprint,
+          runtimeFingerprint: "runtimeFingerprint" in mismatch
+            ? mismatch.runtimeFingerprint as Sha256Fingerprint
+            : receipt.artifact.runtimeFingerprint,
+        },
+        browsers: {
+          chromium: "chromium" in mismatch ? mismatch.chromium! : receipt.browsers.chromium,
+        },
+        catalogFingerprint: "catalogFingerprint" in mismatch
+          ? mismatch.catalogFingerprint as Sha256Fingerprint
+          : receipt.catalog.after,
+        integration: {
+          baseSha: "d".repeat(40),
+          candidateSha: "e".repeat(40),
+          pullRequest: 54,
+        },
+        planFingerprint: "planFingerprint" in mismatch
+          ? mismatch.planFingerprint as Sha256Fingerprint
+          : receipt.planFingerprint,
+        tools: {
+          framework: "framework" in mismatch ? mismatch.framework! : receipt.tools.framework,
+          node: "node" in mismatch ? mismatch.node! : receipt.tools.node,
+          packageManager: "packageManager" in mismatch
+            ? mismatch.packageManager!
+            : receipt.tools.packageManager,
+          playwright: "playwright" in mismatch ? mismatch.playwright! : receipt.tools.playwright,
+        },
+      },
+    });
+
+    expect(result).toEqual({ outcome: "missing", reusable: false });
   });
 });

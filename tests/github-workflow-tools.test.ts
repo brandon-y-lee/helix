@@ -895,13 +895,12 @@ describe("GitHub workflow bootstrap", () => {
     }
   });
 
-  it("fails closed on authentication, repository, ancestry, and issue capability uncertainty", () => {
-    const scenarios: Array<{
-      name: string;
-      mutateState?: (state: FakeGithubState) => void;
-      mutateRepo?: (root: string) => void;
-      expected: RegExp;
-    }> = [
+  const uncertaintyScenarios: Array<{
+    name: string;
+    mutateState?: (state: FakeGithubState) => void;
+    mutateRepo?: (root: string) => void;
+    expected: RegExp;
+  }> = [
       {
         name: "authentication",
         mutateState: (state) => {
@@ -1039,44 +1038,43 @@ describe("GitHub workflow bootstrap", () => {
         },
         expected: /scheduled browser verification must grant only contents: read and issues: write/,
       },
-    ];
+  ];
 
-    for (const scenario of scenarios) {
-      const { root, tempRoot } = initialiseRemoteRepository();
-      try {
-        const statePath = join(tempRoot, "github-state.json");
-        const logPath = join(tempRoot, "github-calls.log");
-        const state: FakeGithubState = {
-          repo: {
-            nameWithOwner: "brandon-y-lee/mei-pelle",
-            defaultBranchRef: { name: "main" },
-            hasIssuesEnabled: true,
-            mergeCommitAllowed: true,
-            squashMergeAllowed: true,
-            rebaseMergeAllowed: false,
-            deleteBranchOnMerge: true,
-          },
-          labels: [],
-          protections: {},
-        };
-        scenario.mutateState?.(state);
-        scenario.mutateRepo?.(root);
-        writeFileSync(statePath, JSON.stringify(state));
-        const fakeGh = writeFakeGh(tempRoot, logPath);
-        const planned = bootstrap(
-          root,
-          fakeGh,
-          statePath,
-          logPath,
-          "plan",
-          "--repo",
-          "brandon-y-lee/mei-pelle",
-        );
-        expect(planned.status, scenario.name).not.toBe(0);
-        expect(planned.stderr).toMatch(scenario.expected);
-      } finally {
-        cleanupFixture(tempRoot);
-      }
+  it.each(uncertaintyScenarios)("fails closed on $name uncertainty", (scenario) => {
+    const { root, tempRoot } = initialiseRemoteRepository();
+    try {
+      const statePath = join(tempRoot, "github-state.json");
+      const logPath = join(tempRoot, "github-calls.log");
+      const state: FakeGithubState = {
+        repo: {
+          nameWithOwner: "brandon-y-lee/mei-pelle",
+          defaultBranchRef: { name: "main" },
+          hasIssuesEnabled: true,
+          mergeCommitAllowed: true,
+          squashMergeAllowed: true,
+          rebaseMergeAllowed: false,
+          deleteBranchOnMerge: true,
+        },
+        labels: [],
+        protections: {},
+      };
+      scenario.mutateState?.(state);
+      scenario.mutateRepo?.(root);
+      writeFileSync(statePath, JSON.stringify(state));
+      const fakeGh = writeFakeGh(tempRoot, logPath);
+      const planned = bootstrap(
+        root,
+        fakeGh,
+        statePath,
+        logPath,
+        "plan",
+        "--repo",
+        "brandon-y-lee/mei-pelle",
+      );
+      expect(planned.status, scenario.name).not.toBe(0);
+      expect(planned.stderr).toMatch(scenario.expected);
+    } finally {
+      cleanupFixture(tempRoot);
     }
   });
 });
