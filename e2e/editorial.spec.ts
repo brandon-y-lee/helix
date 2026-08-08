@@ -36,13 +36,16 @@ test("primary navigation reaches System, a live PDP, and About", async ({
   ).toBeVisible();
 });
 
-test("skip link transfers keyboard focus to main content", async ({ page }) => {
+test("skip link transfers keyboard focus to main content", async ({
+  browserName,
+  page,
+}) => {
   await page.goto("/system");
 
   const skipLink = page.getByRole("link", {
     name: "Skip to main content",
   });
-  await page.keyboard.press("Tab");
+  await page.keyboard.press(browserName === "webkit" ? "Alt+Tab" : "Tab");
   await expect(skipLink).toBeFocused();
   await expect(skipLink).toBeVisible();
 

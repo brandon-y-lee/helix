@@ -29,7 +29,7 @@ export default defineConfig({
       name: "chromium",
       use: { ...devices["Desktop Chrome"] },
     },
-    ...(!process.env.CI
+    ...(!process.env.CI || process.env.MEI_PELLE_VERIFICATION_PROJECT === "webkit"
       ? [
           {
             name: "webkit",

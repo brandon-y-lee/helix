@@ -84,6 +84,20 @@ Spec ticket PRs squash into the spec branch, leaving one commit per ticket. The 
 
 The supported runner compares a ticket branch with its PR base and maps changed files to capabilities such as Platform shell and navigation, Product Discovery, Product Search, PDP purchase, Cart, Catalog Preview, accessibility interaction, and media. Tests declare the capabilities they protect. The command prints every selected journey and its reason.
 
+Run the implemented agent interface with the intended pull-request base:
+
+```bash
+pnpm verify:affected -- --base dev
+```
+
+Callers may add evidence with repeated `--add-capability <name>` or
+`--add-journey <id>` options. The command has no exclusion option: an unknown
+option fails before the production build starts. The versioned plan lives in
+`scripts/browser-verification-plan.ts`; unmapped files and changes to the plan,
+browser tests, shared runtime, dependencies, toolchain, Production Artifact
+Verification, or integration automation select its complete Chromium and
+WebKit plan.
+
 An agent may add evidence but cannot subtract a selected journey. An unmapped path, shared runtime contract, dependency or toolchain change, test-plan change, selector-map change, production-verification change, or integration-automation change selects the complete applicable plan.
 
 Browser tests remain for behavior that needs browser layout or APIs: routing, focus, keyboard, pointer, touch, responsive layout, scrolling, media, and complete Customer journeys. Exact copy, data conversion, route inventories, simple rendering, and isolated component rules use unit, component, or contract tests. New browser coverage extends an existing Customer journey when practical and requires an explicit testing-seam reason.

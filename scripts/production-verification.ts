@@ -47,6 +47,7 @@ export type ProductionVerificationLifecycleAdapters = {
   }) => Promise<void>;
   runBrowserTests: (input: {
     baseURL: string;
+    selection?: ProductionVerificationBrowserSelection;
     signal?: AbortSignal;
   }) => Promise<void>;
   now: () => number;
@@ -91,9 +92,16 @@ export type ProductionVerificationResult = {
 };
 
 export type ProductionVerificationInput = {
+  browserSelection?: ProductionVerificationBrowserSelection;
   readinessTimeoutMs?: number;
   requestedPort?: string;
   signal?: AbortSignal;
+};
+
+export type ProductionVerificationBrowserSelection = {
+  journeyIds: readonly string[];
+  projects: readonly ("chromium" | "webkit")[];
+  webkitJourneyIds?: readonly string[];
 };
 
 const LOOPBACK_HOST = "127.0.0.1";
@@ -514,7 +522,11 @@ async function verifyProductionArtifact(
         });
       });
       await runPhase("browser-test", () =>
-        adapters.runBrowserTests({ baseURL, signal: input.signal }),
+        adapters.runBrowserTests({
+          baseURL,
+          selection: input.browserSelection,
+          signal: input.signal,
+        }),
       );
       return {
         baseURL,

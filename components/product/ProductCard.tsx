@@ -339,6 +339,8 @@ export function ProductCard({
     }
     if (focusTrigger) {
       focusTriggerWithoutScrolling();
+    } else {
+      preserveViewportAfterUpdate();
     }
   }
 
@@ -407,7 +409,9 @@ export function ProductCard({
   }
 
   function handleCloseClick() {
+    const closeWasTouch = closePointerRef.current?.pointerType === "touch";
     closeQuickBuy({
+      focusTrigger: !closeWasTouch,
       restorePointerPreview: !lastInputWasKeyboardRef.current,
     });
   }

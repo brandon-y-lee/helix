@@ -587,6 +587,13 @@ test("mobile quick buy pointer close preserves the Customer's viewport and previ
   const close = card.getByRole("button", {
     name: `Close quick buy for ${product.displayName}`,
   });
+  await card.locator(".product-card__quick-buy").evaluate(async (element) => {
+    await Promise.all(
+      element
+        .getAnimations({ subtree: true })
+        .map((animation) => animation.finished.catch(() => undefined)),
+    );
+  });
   await close.scrollIntoViewIfNeeded();
   const scrollYBeforeClose = await page.evaluate(() => window.scrollY);
   await close.click();
