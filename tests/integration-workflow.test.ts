@@ -185,6 +185,13 @@ describe("dev Integration Line workflows", () => {
     expect(verification).toContain("sudo -E -H -u verifier-candidate");
     expect(verification).toContain("chmod -R a-w trusted");
     expect(verification).toContain("Freeze the receipted artifact before browser verification");
+    expect(verification).toContain("sudo chmod -R a+rX candidate/.next");
+    expect(verification.indexOf("sudo chmod -R a+rX candidate/.next")).toBeLessThan(
+      verification.indexOf("sudo chmod -R a-w candidate/.next"),
+    );
+    expect(verification).toContain(
+      "sudo -u verifier-candidate test -r candidate/.next/mei-pelle-artifact-receipt.json",
+    );
     expect(verification).toContain("verification:catalog-fingerprint");
     expect(verification).toContain(
       "scripts/verify-production-ci.ts verify --selection routine-chromium",

@@ -178,8 +178,10 @@ jobs:
         if: ${{ inputs.gate == 'complete-behavioral' }}
         run: |
           sudo chown -R root:root candidate/.next
+          sudo chmod -R a+rX candidate/.next
           sudo chmod -R a-w candidate/.next
           sudo -u verifier-candidate test ! -w candidate/.next/BUILD_ID
+          sudo -u verifier-candidate test -r candidate/.next/mei-pelle-artifact-receipt.json
 
       - name: Record Catalog fingerprint before verification with trusted code
         if: ${{ inputs.gate == 'complete-behavioral' }}
