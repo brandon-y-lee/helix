@@ -205,6 +205,18 @@ describe("dev Integration Line workflows", () => {
     expect(receiptCommand).not.toContain(
       'pathToFileURL(candidateRequire.resolve("@playwright/test"))',
     );
+    expect(verification).toContain(
+      'browser_version="$(sudo -E -H -u verifier-candidate env -u GITHUB_OUTPUT',
+    );
+    expect(verification).toContain(
+      'if [[ ! "$browser_version" =~ ^Chromium\\ [0-9]+(\\.[0-9]+){3}$ ]]; then',
+    );
+    expect(verification).toContain(
+      'printf \'version=%s\\n\' "$browser_version" >> "$GITHUB_OUTPUT"',
+    );
+    expect(verification).not.toContain(
+      'pnpm --dir trusted exec tsx scripts/github/verification-receipt-command.ts browser-version\n',
+    );
     expect(verification).toContain("Freeze browser evidence for retention");
     expect(verification).toContain(
       "if: ${{ always() && inputs.gate == 'complete-behavioral' }}",
