@@ -1,0 +1,43 @@
+name: Active Product Media Verification
+
+on:
+  schedule:
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify active Product Media
+        run: |
+          status=0
+          report=$(pnpm verify:product-media -- --json) || status=$?
+          printf '%s\n' "$report" > active-product-media-verification.json
+          {
+            echo "### Active Product Media Verification";
+            echo "";
+            echo "```json";
+            cat active-product-media-verification.json;
+            echo "```";
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
