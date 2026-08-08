@@ -195,6 +195,17 @@ jobs:
           VERIFICATION_BROWSER_RESULT_PATH: ${{ github.workspace }}/candidate/test-results/verification-browser-result.json
         run: sudo -E -H -u verifier-candidate env "PATH=$VERIFICATION_CANDIDATE_PATH" pnpm --dir trusted exec tsx scripts/verify-production-ci.ts verify --selection routine-chromium
 
+      - name: Freeze browser evidence for retention
+        if: ${{ always() && inputs.gate == 'complete-behavioral' }}
+        run: |
+          for evidence_path in candidate/playwright-report candidate/test-results; do
+            if [[ -e "$evidence_path" ]]; then
+              sudo chown -R root:root -- "$evidence_path"
+              sudo chmod -R a+rX -- "$evidence_path"
+              sudo chmod -R a-w -- "$evidence_path"
+            fi
+          done
+
       - name: Require structured browser telemetry
         if: ${{ inputs.gate == 'complete-behavioral' }}
         env:

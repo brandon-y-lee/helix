@@ -11,6 +11,10 @@ const verification = readFileSync(
   resolve(projectRoot, ".github/workflows/dev-integration-verification.yml"),
   "utf8",
 );
+const receiptCommand = readFileSync(
+  resolve(projectRoot, "scripts/github/verification-receipt-command.ts"),
+  "utf8",
+);
 const ci = readFileSync(resolve(projectRoot, ".github/workflows/ci.yml"), "utf8");
 const windowsLifecycle = readFileSync(
   resolve(projectRoot, ".github/workflows/verification-lifecycle-windows.yml"),
@@ -195,6 +199,25 @@ describe("dev Integration Line workflows", () => {
     expect(verification).toContain("verification:catalog-fingerprint");
     expect(verification).toContain(
       "scripts/verify-production-ci.ts verify --selection routine-chromium",
+    );
+    expect(receiptCommand).not.toContain('from "@playwright/test"');
+    expect(receiptCommand).toContain('candidateRequire.resolve("@playwright/test")');
+    expect(verification).toContain("Freeze browser evidence for retention");
+    expect(verification).toContain(
+      "if: ${{ always() && inputs.gate == 'complete-behavioral' }}",
+    );
+    expect(verification).toContain(
+      "for evidence_path in candidate/playwright-report candidate/test-results; do",
+    );
+    expect(verification).toContain('sudo chown -R root:root -- "$evidence_path"');
+    expect(verification).toContain('sudo chmod -R a+rX -- "$evidence_path"');
+    expect(verification).toContain('sudo chmod -R a-w -- "$evidence_path"');
+    const freezeEvidence = verification.indexOf("Freeze browser evidence for retention");
+    expect(freezeEvidence).toBeGreaterThan(
+      verification.indexOf("Verify receipted production artifact with the trusted runner"),
+    );
+    expect(freezeEvidence).toBeLessThan(
+      verification.indexOf("Upload successful browser report and telemetry"),
     );
     expect(verification).toContain("uses: actions/attest@v4");
     expect(verification).toContain("predicate-type:");
