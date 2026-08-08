@@ -103,6 +103,7 @@ test("Core and Beyond descriptions respond to pointer and keyboard discovery", a
 test("Three Principles selection uses only a persistent 700ms label fade", async ({
   page,
 }) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
   await page.goto("/");
 
   const group = page.getByRole("group", { name: "Mei Pelle principles" });
@@ -156,6 +157,9 @@ test("Three Principles selection uses only a persistent 700ms label fade", async
   await expect(sustainability).toBeFocused();
   await page.keyboard.press("ArrowRight");
   await expect(mission).toBeFocused();
+  await page.keyboard.press("ArrowRight");
+  await expect(innovation).toBeFocused();
+  await expect(innovation).toHaveAttribute("aria-pressed", "true");
 
   const selectedPresentation = await Promise.all(
     principles.map(principlePresentation),
