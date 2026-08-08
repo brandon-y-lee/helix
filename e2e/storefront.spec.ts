@@ -694,6 +694,13 @@ test.describe("touch Quick Buy", () => {
       "pointer-events",
       "none",
     );
+    await card.locator(".product-card__quick-buy").evaluate(async (element) => {
+      await Promise.all(
+        element
+          .getAnimations({ subtree: true })
+          .map((animation) => animation.finished.catch(() => undefined)),
+      );
+    });
     await close.scrollIntoViewIfNeeded();
     const cardUrl = page.url();
     const scrollYBeforeClose = await page.evaluate(() => window.scrollY);
