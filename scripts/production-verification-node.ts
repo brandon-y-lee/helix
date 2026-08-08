@@ -19,6 +19,7 @@ import { parse } from "dotenv";
 import { BROWSER_VERIFICATION_PLAN } from "./browser-verification-plan";
 import {
   prepareProductionVerificationEnvironment,
+  PRODUCTION_BUILD_NON_SECRET_ENVIRONMENT_KEYS,
   ProductionVerificationChildError,
   ProductionVerificationCleanupError,
   ProductionVerificationError,
@@ -805,25 +806,6 @@ async function readCurrentCommitSha(cwd: string): Promise<string> {
   return String(stdout).trim();
 }
 
-const NON_SECRET_BUILD_ENVIRONMENT_KEYS = new Set([
-  "ALGOLIA_APP_ID",
-  "ALGOLIA_INDEX_NAME",
-  "ALLOW_PRODUCTION_SEARCH_REINDEX",
-  "CHECKOUT_ENABLED",
-  "CHECKOUT_MODE",
-  "CI",
-  "NODE_ENV",
-  "SEARCH_BACKFILL_ENVIRONMENT",
-  "STRIPE_AUTOMATIC_TAX_ENABLED",
-  "STRIPE_REFERRAL_15_COUPON_ID",
-  "STRIPE_REWARD_200_COUPON_ID",
-  "STRIPE_REWARD_400_COUPON_ID",
-  "STRIPE_REWARD_600_COUPON_ID",
-  "STRIPE_STANDARD_SHIPPING_RATE_ID",
-  "VERCEL_ENV",
-  "VERCEL_URL",
-]);
-
 const NON_RUNTIME_BUILD_REUSE_PATHS = new Set([
   ".env.example",
   ".eslintrc.json",
@@ -943,7 +925,7 @@ async function readProductionBuildReuseInput(
       ([key, value]) =>
         value !== undefined &&
         (key.startsWith("NEXT_PUBLIC_") ||
-          NON_SECRET_BUILD_ENVIRONMENT_KEYS.has(key)),
+          PRODUCTION_BUILD_NON_SECRET_ENVIRONMENT_KEYS.has(key)),
     )
     .sort(([left], [right]) => left.localeCompare(right))
     .map(([key, value]) => `${key}=${value}`);
