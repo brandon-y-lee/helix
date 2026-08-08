@@ -692,7 +692,6 @@ test.describe("touch Quick Buy", () => {
       "pointer-events",
       "none",
     );
-    await finishAnimations(card.locator(".product-card__quick-buy"));
     await close.scrollIntoViewIfNeeded();
     const cardUrl = page.url();
     const scrollYBeforeClose = await page.evaluate(() => window.scrollY);
