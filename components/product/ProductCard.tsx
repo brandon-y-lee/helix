@@ -340,6 +340,8 @@ export function ProductCard({
     }
     if (focusTrigger) {
       focusTriggerWithoutScrolling();
+    } else {
+      preserveViewportAfterUpdate();
     }
   }
 
