@@ -1,8 +1,9 @@
-import { expect, test, type Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
 import type { AlgoliaProductRecord } from "@/lib/algolia/record";
 import type { StorefrontSnapshotProduct } from "@/test-support/storefront-baseline";
 import { buildStorefrontSearchRecord } from "@/test-support/storefront-search-projection";
 import { loadStorefrontSnapshot } from "@/test-support/storefront-snapshot-artifact";
+import { expect, test } from "./storefront-fixture";
 
 async function loadSearchJourney(): Promise<{
   product: StorefrontSnapshotProduct;
