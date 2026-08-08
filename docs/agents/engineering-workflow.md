@@ -17,7 +17,7 @@ The user owns three planning gates: shared understanding, the specification, and
 
 ## Planning and domain documentation
 
-Start `codex/plan-<slug>` before a `grill-with-docs` session that may edit the repository. Capture only genuine product-language terms in `CONTEXT.md` and only qualifying durable decisions in ADRs. After shared understanding is confirmed, review and merge those documents into `dev` through a planning PR before `to-spec`. An empty planning branch is discarded.
+Start `codex/plan-<slug>` before a `grill-with-docs` session that may edit the repository. Capture resolved, project-specific platform domain language in the applicable `CONTEXT.md`, including customer-facing, operational, editorial, service, and governance concepts. Exclude generic technical vocabulary, specifications, and implementation decisions. Future tasks may append justified terms as the platform language develops. Record only qualifying durable decisions in ADRs. After shared understanding is confirmed, review and merge those documents into `dev` through a planning PR before `to-spec`. An empty planning branch is discarded.
 
 Wayfinder decisions use the same planning-PR rule when they change repository documentation. Close a completed map after its frontier and fog are empty and link the resulting spec.
 
