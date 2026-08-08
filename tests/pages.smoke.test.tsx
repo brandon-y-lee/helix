@@ -39,7 +39,7 @@ beforeEach(() => {
   );
 });
 
-describe("storefront route states", () => {
+describe("public route states", () => {
   it("renders a clear Shop empty state", async () => {
     render(
       await CollectionPage({
