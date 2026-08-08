@@ -37,7 +37,6 @@ export function CartDrawer({
       open={open}
       side="right"
       title="Cart"
-      eyebrow="Ritual in progress"
       description="Review and edit your cart."
       onClose={onClose}
       returnFocus={returnFocus}

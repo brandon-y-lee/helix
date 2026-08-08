@@ -6,6 +6,23 @@ import { expect, test } from "./storefront-fixture";
 
 type HorizontalGeometry = { x: number; width: number };
 
+const PRODUCT_CARD_WARM_GRAY = "rgb(103, 100, 94)";
+const PRODUCT_CARD_CREAM = "rgb(255, 253, 248)";
+
+async function buttonVisual(locator: Locator) {
+  return locator.evaluate((element) => {
+    const button = getComputedStyle(element);
+    const hoverFill = getComputedStyle(element, "::before");
+
+    return {
+      backgroundColor: button.backgroundColor,
+      color: button.color,
+      hoverFillColor: hoverFill.backgroundColor,
+      hoverFillOpacity: hoverFill.opacity,
+    };
+  });
+}
+
 async function storefrontGeometry(page: Page): Promise<HorizontalGeometry> {
   return page.locator(".site-header__bar").evaluate((element) => {
     const { x, width } = element.getBoundingClientRect();
@@ -150,6 +167,208 @@ test("shop renders live Products and combines filtering with sorting", async ({
       `[data-product-card-slug="${storefront.product("core").slug}"]`,
     ),
   ).toHaveCount(0);
+});
+
+test("shop presents the approved Product, collection, sheet, and footer treatment", async ({
+  browserName,
+  page,
+  storefront,
+}) => {
+  const purchase = storefront.purchase(storefront.product("purchasable"));
+  await installCartFixture(page, storefront.snapshot.products);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/collections/shop");
+
+  const hero = page.locator(".shop-hero__surface");
+  const heading = page.getByRole("heading", {
+    level: 1,
+    name: "raise your baseline",
+  });
+
+  const card = page.locator(
+    `[data-product-card-slug="${purchase.product.slug}"]`,
+  );
+  const name = card.locator(".product-card__name");
+  const tagline = card.locator(".product-card__tagline");
+  const price = card.locator(".product-card__price");
+  await expect(name).toHaveCSS("color", PRODUCT_CARD_WARM_GRAY);
+  await expect(tagline).toHaveCSS("color", PRODUCT_CARD_WARM_GRAY);
+  await expect(price).toHaveCSS("color", PRODUCT_CARD_WARM_GRAY);
+  await name.hover();
+  await expect(name).toHaveCSS("text-decoration-line", "none");
+
+  const previewCta = card.getByRole("button", {
+    name: `Open quick buy for ${purchase.product.displayName}`,
+  });
+  await expect(previewCta).toBeVisible();
+  expect(await buttonVisual(previewCta)).toEqual({
+    backgroundColor: PRODUCT_CARD_CREAM,
+    color: PRODUCT_CARD_WARM_GRAY,
+    hoverFillColor: PRODUCT_CARD_WARM_GRAY,
+    hoverFillOpacity: "0",
+  });
+  await previewCta.hover();
+  await expect
+    .poll(async () => (await buttonVisual(previewCta)).hoverFillOpacity)
+    .toBe("1");
+  expect(await buttonVisual(previewCta)).toMatchObject({
+    color: "rgb(255, 255, 255)",
+    hoverFillColor: PRODUCT_CARD_WARM_GRAY,
+  });
+
+  await previewCta.click();
+  const finalCta = card.locator("[data-product-card-buy]");
+  await expect(finalCta).toBeVisible();
+  await card.locator(".product-card__quick-head").hover();
+  expect(await buttonVisual(finalCta)).toEqual({
+    backgroundColor: PRODUCT_CARD_CREAM,
+    color: PRODUCT_CARD_WARM_GRAY,
+    hoverFillColor: PRODUCT_CARD_WARM_GRAY,
+    hoverFillOpacity: "0",
+  });
+  await finalCta.hover();
+  await expect
+    .poll(async () => (await buttonVisual(finalCta)).hoverFillOpacity)
+    .toBe("1");
+  expect(await buttonVisual(finalCta)).toMatchObject({
+    color: "rgb(255, 255, 255)",
+    hoverFillColor: PRODUCT_CARD_WARM_GRAY,
+  });
+
+  const filters = page.getByRole("navigation", { name: "Shop collections" });
+  const selectedChip = filters.getByRole("link", {
+    name: "Shop All",
+    exact: true,
+  });
+  const unselectedChip = filters.getByRole("link", {
+    name: "Core",
+    exact: true,
+  });
+  await unselectedChip.hover();
+  await expect(unselectedChip).toHaveCSS(
+    "background-color",
+    "rgba(103, 100, 94, 0.12)",
+  );
+  await heading.hover();
+  if (browserName === "webkit") {
+    await unselectedChip.focus();
+  } else {
+    await selectedChip.focus();
+    await page.keyboard.press("Tab");
+  }
+  await expect(unselectedChip).toBeFocused();
+  await expect(unselectedChip).toHaveCSS(
+    "background-color",
+    "rgba(103, 100, 94, 0.12)",
+  );
+  if (browserName !== "webkit") {
+    await expect(unselectedChip).toHaveCSS("outline-style", "solid");
+  }
+  await selectedChip.hover();
+  await expect(selectedChip).toHaveCSS("background-color", "rgb(24, 61, 52)");
+  await expect(selectedChip).toHaveAttribute("aria-current", "page");
+  await heading.hover();
+  if (browserName === "webkit") {
+    await selectedChip.focus();
+  } else {
+    await unselectedChip.focus();
+    await page.keyboard.press("Shift+Tab");
+  }
+  await expect(selectedChip).toBeFocused();
+  await expect(selectedChip).toHaveCSS("background-color", "rgb(24, 61, 52)");
+
+  const [heroGeometry, headingGeometry] = await Promise.all([
+    hero.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      return { bottom: rect.bottom, left: rect.left };
+    }),
+    heading.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      return {
+        bottom: rect.bottom,
+        color: getComputedStyle(element).color,
+        left: rect.left,
+        textAlign: getComputedStyle(element).textAlign,
+      };
+    }),
+  ]);
+  expect(headingGeometry.left - heroGeometry.left).toBeCloseTo(44.2, 1);
+  expect(heroGeometry.bottom - headingGeometry.bottom).toBeCloseTo(44.2, 1);
+  expect(headingGeometry).toMatchObject({
+    color: "rgb(17, 19, 18)",
+    textAlign: "left",
+  });
+
+  await page.getByRole("button", { name: "SEARCH" }).click();
+  const search = page.getByRole("dialog", { name: "Search" });
+  await expect(search).toBeVisible();
+  await expect(
+    search.getByText("Discover Mei Pelle", { exact: true }),
+  ).toHaveCount(0);
+  await search.getByRole("button", { name: "Close" }).click();
+
+  await page.getByRole("button", { name: /CART \(0\)/ }).click();
+  const cart = page.getByRole("dialog", { name: "Cart" });
+  await expect(cart).toBeVisible();
+  await expect(
+    cart.getByText("Ritual in progress", { exact: true }),
+  ).toHaveCount(0);
+  await cart.getByRole("button", { name: "Close" }).click();
+  await expect(cart).toHaveCount(0);
+  await finishDrawerExit(page);
+
+  await expect(page.locator(".site-footer__review-status")).toHaveCSS(
+    "border-top-width",
+    "0px",
+  );
+  await expect(page.locator(".site-footer__social-status")).toHaveCSS(
+    "border-top-width",
+    "0px",
+  );
+  await expect(page.locator(".site-footer__checkout-status")).toHaveCSS(
+    "border-top-width",
+    "1px",
+  );
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  const mobileHeroGeometry = await Promise.all([
+    hero.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      return { bottom: rect.bottom, left: rect.left };
+    }),
+    heading.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      return { bottom: rect.bottom, left: rect.left };
+    }),
+  ]);
+  expect(mobileHeroGeometry[1].left - mobileHeroGeometry[0].left).toBeCloseTo(
+    23,
+    1,
+  );
+  expect(mobileHeroGeometry[0].bottom - mobileHeroGeometry[1].bottom).toBeCloseTo(
+    23,
+    1,
+  );
+  await page.reload();
+  await expect(page.locator(".site-footer__accordion").first()).toHaveCSS(
+    "border-top-width",
+    "1px",
+  );
+  const mobileWidths = await page.evaluate(() => ({
+    clientWidth: document.documentElement.clientWidth,
+    footerScrollWidth:
+      document.querySelector(".site-footer")?.scrollWidth ?? 0,
+    mainScrollWidth: document.querySelector("#content")?.scrollWidth ?? 0,
+  }));
+  expect(mobileWidths).toMatchObject({
+    clientWidth: 390,
+    footerScrollWidth: 390,
+  });
+  // The desktop Safari project keeps its desktop grid layout after a live
+  // viewport resize; Chromium owns this responsive overflow assertion.
+  if (browserName !== "webkit") {
+    expect(mobileWidths.mainScrollWidth).toBe(390);
+  }
 });
 
 test("PDP resolves canonical data and exposes an available variant", async ({
