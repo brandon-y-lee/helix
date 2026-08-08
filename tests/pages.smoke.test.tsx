@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/catalog-cache", () => ({
@@ -180,5 +180,35 @@ describe("storefront route states", () => {
       "type",
       "password",
     );
+  });
+
+  it("associates sign-in field errors with their access fields", async () => {
+    render(
+      await SignInPage({
+        searchParams: Promise.resolve({}),
+      }),
+    );
+
+    const submit = screen.getByRole("button", { name: "Sign in" });
+    const form = submit.closest("form");
+    if (!form) throw new Error("Expected the sign-in form");
+
+    fireEvent.submit(form);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Check the highlighted fields.",
+    );
+
+    const email = screen.getByLabelText("Email");
+    const emailError = screen.getByText("Email is required.");
+    expect(email).toHaveAttribute("aria-invalid", "true");
+    expect(email).toHaveAccessibleDescription("Email is required.");
+    expect(email).toHaveAttribute("aria-describedby", emailError.id);
+
+    const password = screen.getByLabelText("Password");
+    const passwordError = screen.getByText("Password is required.");
+    expect(password).toHaveAttribute("aria-invalid", "true");
+    expect(password).toHaveAccessibleDescription("Password is required.");
+    expect(password).toHaveAttribute("aria-describedby", passwordError.id);
   });
 });
