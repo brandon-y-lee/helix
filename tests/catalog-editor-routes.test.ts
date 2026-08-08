@@ -125,6 +125,20 @@ describe("catalog editor protected routes", () => {
         relationships: false,
         productSource: false,
       },
+      mediaVerification: {
+        status: "healthy",
+        report: {
+          results: [],
+          summary: {
+            expectedRecords: 0,
+            distinctUrls: 0,
+            successes: 0,
+            failures: 0,
+            receivedBodyBytes: 0,
+            bodyBudgetBytes: 0,
+          },
+        },
+      },
     });
 
     const response = await publishDraft(
