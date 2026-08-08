@@ -167,4 +167,31 @@ describe("PdpApplicationCarousel", () => {
       ),
     ).toHaveAttribute("src", expect.stringContaining("application-3.png"));
   });
+
+  it("uses the corresponding local fallback when one Product image fails", () => {
+    const { container } = render(
+      <PdpApplicationCarousel
+        productName="CLEANSE"
+        steps={steps}
+        media={orderedPdpApplicationMedia(productMedia)}
+      />,
+    );
+    const failedPosition = container.querySelector<HTMLElement>(
+      '[data-pdp-application-state="2"]',
+    );
+    const failedImage = failedPosition?.querySelector("img");
+    if (!failedImage) throw new Error("Expected application Product image");
+
+    fireEvent.error(failedImage);
+
+    expect(failedPosition?.querySelector("img")).toBeNull();
+    expect(
+      failedPosition?.querySelector(".pdp-application__shape--one"),
+    ).not.toBeNull();
+    expect(
+      container.querySelector(
+        '[data-pdp-application-state="3"] [data-pdp-application-main-image="3"]',
+      ),
+    ).toHaveAttribute("src", expect.stringContaining("application-3.png"));
+  });
 });

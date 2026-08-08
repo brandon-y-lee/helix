@@ -59,6 +59,7 @@ describe("PdpRoutineVideo", () => {
         overlay="See how CLEANSE works in your skin routine."
         video={video}
         poster={poster}
+        swatch={["#d9d1c4", "#877464"]}
       />,
     );
 
@@ -76,7 +77,7 @@ describe("PdpRoutineVideo", () => {
     const background = document.querySelector(
       ".pdp-routine-video__background",
     );
-    expect(foreground).toHaveAttribute("poster", poster.url);
+    expect(foreground).not.toHaveAttribute("poster");
     expect(foreground).toHaveAttribute("controls");
     expect(foreground).toHaveAttribute("playsinline");
     expect(foreground).toHaveAttribute("preload", "metadata");
@@ -85,6 +86,7 @@ describe("PdpRoutineVideo", () => {
     expect(background).toHaveAttribute("aria-hidden", "true");
     expect(background).toHaveAttribute("tabindex", "-1");
     expect((background as HTMLVideoElement).muted).toBe(true);
+    expect(screen.getByRole("img", { name: poster.alt })).toBeInTheDocument();
   });
 
   it("activates only on request and synchronizes play, pause, seek, and rate", async () => {
@@ -95,6 +97,7 @@ describe("PdpRoutineVideo", () => {
         overlay="See how CLEANSE works in your skin routine."
         video={video}
         poster={poster}
+        swatch={["#d9d1c4", "#877464"]}
       />,
     );
     const foreground = document.querySelector(
@@ -142,6 +145,7 @@ describe("PdpRoutineVideo", () => {
         overlay="See how CLEANSE works in your skin routine."
         video={video}
         poster={poster}
+        swatch={["#d9d1c4", "#877464"]}
       />,
     );
     const foreground = document.querySelector(
@@ -150,9 +154,9 @@ describe("PdpRoutineVideo", () => {
 
     fireEvent.error(foreground);
     expect(
-      screen.getByText("This routine video is temporarily unavailable."),
+      screen.getByText("This routine video could not be loaded."),
     ).toBeInTheDocument();
-    expect(foreground).toHaveAttribute("poster", poster.url);
+    expect(foreground).not.toHaveAttribute("poster");
     expect(foreground).toHaveAttribute("src", video.url);
 
     await user.click(screen.getByRole("button", { name: "Retry" }));
@@ -160,5 +164,32 @@ describe("PdpRoutineVideo", () => {
     expect(
       screen.getByRole("button", { name: "Play CLEANSE routine video" }),
     ).toBeInTheDocument();
+  });
+
+  it("falls back only the failed routine poster position", () => {
+    render(
+      <PdpRoutineVideo
+        productName="CLEANSE"
+        overlay="See how CLEANSE works in your skin routine."
+        video={video}
+        poster={poster}
+        swatch={["#d9d1c4", "#877464"]}
+      />,
+    );
+
+    const foregroundPoster = screen.getByRole("img", { name: poster.alt });
+    const position = foregroundPoster.closest("[data-media-kind]");
+    fireEvent.error(foregroundPoster);
+
+    expect(position).toHaveAttribute("data-media-kind", "placeholder");
+    expect(position).toHaveAttribute("data-media-fallback", "load-error");
+    expect(
+      screen.getByRole("status", {
+        name: `${poster.alt} could not be loaded.`,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      document.querySelector(".pdp-routine-video__foreground"),
+    ).toHaveAttribute("src", video.url);
   });
 });

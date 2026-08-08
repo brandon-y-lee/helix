@@ -281,6 +281,7 @@ export function ProductDetail({
             overlay={corePresentation.routineOverlay}
             video={routineVideo}
             poster={routinePoster}
+            swatch={product.swatch}
           />
         ) : null
       ) : (
@@ -314,6 +315,7 @@ export function ProductDetail({
                 productName={product.displayName}
                 story={content.ingredientStory}
                 media={ingredientsTextureMedia}
+                swatch={product.swatch}
                 fullInci={resolvedFullInci}
                 mediaPosition={corePresentation.ingredientsMediaPosition}
               />

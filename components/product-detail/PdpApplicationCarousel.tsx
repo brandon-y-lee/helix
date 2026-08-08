@@ -1,10 +1,10 @@
 "use client";
 
-import Image from "next/image";
 import {
   type CSSProperties,
   type Ref,
 } from "react";
+import { ProductImage } from "@/components/product/ProductImage";
 import {
   PDP_SLIDE_DURATION_MS,
   PDP_SLIDE_STYLE,
@@ -106,12 +106,19 @@ export function PdpApplicationCarousel({
                 onClick={() => selectStep(index)}
               >
                 {itemMedia?.url ? (
-                  <Image
-                    src={itemMedia.url}
-                    alt={itemMedia.alt}
-                    fill
+                  <ProductImage
+                    media={itemMedia}
+                    swatch={[step.surface, step.accent]}
+                    className="pdp-application__swatch-media"
+                    imageClassName="pdp-application__swatch-image"
+                    imageAlt=""
                     sizes="(max-width: 820px) 30vw, 13vw"
-                    className="pdp-application__swatch-image"
+                    fallback={
+                      <span
+                        className="pdp-application__swatch-fallback"
+                        aria-hidden="true"
+                      />
+                    }
                   />
                 ) : (
                   <span
@@ -203,13 +210,23 @@ export function PdpApplicationCarousel({
               }
             >
               {itemMedia?.url ? (
-                <Image
-                  src={itemMedia.url}
-                  alt=""
-                  fill
+                <ProductImage
+                  media={itemMedia}
+                  swatch={[step.surface, step.accent]}
+                  className="pdp-application__media"
+                  imageClassName="pdp-application__image"
+                  imageAlt=""
                   sizes="(max-width: 820px) 100vw, 50vw"
-                  className="pdp-application__image"
-                  data-pdp-application-main-image={index + 1}
+                  imageDataAttributes={{
+                    "data-pdp-application-main-image": index + 1,
+                  }}
+                  fallback={
+                    <>
+                      <span className="pdp-application__shape pdp-application__shape--one" />
+                      <span className="pdp-application__shape pdp-application__shape--two" />
+                      <span className="pdp-application__shape pdp-application__shape--three" />
+                    </>
+                  }
                 />
               ) : (
                 <>
