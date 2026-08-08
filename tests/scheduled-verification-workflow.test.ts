@@ -230,6 +230,7 @@ describe("proportional scheduled verification workflow adapters", () => {
       args: [
         expect.stringMatching(/vitest[\\/]vitest\.mjs$/),
         "run",
+        "--testTimeout=20000",
         "tests/production-verification.test.ts",
         "tests/production-verification-process.test.ts",
       ],
