@@ -206,15 +206,37 @@ describe("dev Integration Line workflows", () => {
     expect(verification).toContain(
       "if: ${{ always() && inputs.gate == 'complete-behavioral' }}",
     );
+    expect(verification).toContain("sudo pkill -KILL -u verifier-candidate");
+    expect(verification).toContain("sudo chown root:root -- candidate");
+    expect(verification).toContain("sudo chmod a-w -- candidate");
     expect(verification).toContain(
       "for evidence_path in candidate/playwright-report candidate/test-results; do",
     );
-    expect(verification).toContain('sudo chown -R root:root -- "$evidence_path"');
-    expect(verification).toContain('sudo chmod -R a+rX -- "$evidence_path"');
-    expect(verification).toContain('sudo chmod -R a-w -- "$evidence_path"');
+    expect(verification).toContain(
+      'test -z "$(find "$evidence_path" -type l -print -quit)"',
+    );
+    expect(verification).toContain(
+      'sudo cp -a -- "$evidence_path" "$RUNNER_TEMP/verification-browser-evidence/"',
+    );
+    expect(verification).toContain(
+      "sudo chown -R root:root -- \"$RUNNER_TEMP/verification-browser-evidence\"",
+    );
+    expect(verification).toContain(
+      "sudo chmod -R a-w -- \"$RUNNER_TEMP/verification-browser-evidence\"",
+    );
+    expect(verification).toContain(
+      "${{ runner.temp }}/verification-browser-evidence/test-results/verification-browser-result.json",
+    );
+    expect(verification).toContain(
+      "${{ runner.temp }}/verification-browser-evidence/playwright-report/",
+    );
+    expect(verification).not.toContain("path: |\n            candidate/playwright-report/");
     const freezeEvidence = verification.indexOf("Freeze browser evidence for retention");
     expect(freezeEvidence).toBeGreaterThan(
       verification.indexOf("Verify receipted production artifact with the trusted runner"),
+    );
+    expect(freezeEvidence).toBeLessThan(
+      verification.indexOf("Record exact Chromium version"),
     );
     expect(freezeEvidence).toBeLessThan(
       verification.indexOf("Upload successful browser report and telemetry"),
