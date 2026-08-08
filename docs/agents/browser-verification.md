@@ -29,9 +29,11 @@ These are engineering terms, not Mei Pelle platform-domain language, and do not 
 
 All PRs into `dev` use the Integration Line, including fast work, so `dev` cannot change during an active verification-and-merge operation. Documentation, planning, and trivial PRs leave the slot quickly.
 
+A standalone ticket is one bounded behavior change or bug with clear acceptance criteria and no unresolved architectural or domain decisions. The user's explicit implementation request authorizes its creation and claim. An urgent ticket is narrower: delay causes active production or security harm, such as Storefront or Checkout unavailability, Customer-data exposure, a serious authorization defect, or a materially incorrect live Product Offer. The tool or agent performing the work never determines urgency.
+
 ## Spec integration
 
-A multi-ticket spec receives `codex/spec-<spec-number>-<slug>` from current `dev`. Each child keeps its own `codex/<ticket-number>-<slug>` branch and targets the spec branch. Agents never share a live work branch.
+A multi-ticket spec receives `codex/spec-<spec-number>-<slug>` from current `dev`. Branch rules reject direct pushes to every spec branch. Each child keeps its own `codex/<ticket-number>-<slug>` branch, targets the spec branch, and enters only through its required review and fast checks. Agents never share a live work branch.
 
 Independent tickets may start concurrently from the current spec branch. A structurally blocked ticket remains unclaimed until every blocker has entered the spec branch. When a blocker PR merges, automation applies `workflow:spec-integrated`, closes the blocker ticket, and native issue dependencies expose the next frontier. The newly eligible ticket starts from the updated spec branch, so it already contains its blockers.
 
@@ -49,21 +51,28 @@ Do not stack ticket branches on other ticket branches. A long sequential blocker
 
 The spec branch does not absorb every `dev` push during implementation. It updates early only for a declared dependency or an urgent change that invalidates the spec's current assumptions. The integration agent otherwise merges current `dev` after receiving the Integration Slot, resolves conflicts, runs affected checks until stable, and starts the complete gate once.
 
+After the first ticket enters the spec branch, automation opens one draft spec PR into `dev` and lists every required child and blocker. The PR remains draft while any required child lacks `workflow:spec-integrated`; after the last child closes and code review passes, the integration agent marks it ready and queues it.
+
+If combined verification exposes a ticket-specific defect, automation or the integration agent reopens that ticket, removes `workflow:spec-integrated`, returns it to `workflow:review`, and assigns the fix to its ticket owner. Dependent work that has not yet started becomes blocked again. Cross-ticket failures remain owned by the integration agent until the responsible seam is identified.
+
+A cancelled spec never enters `dev`. Record the reason and replacement links on its spec PR and issue, retain the ticket PR history, apply `wontfix` and close superseded work, then delete the spec branch. Independently valuable work returns as an explicitly approved standalone ticket implemented from current `dev`, not by merging the cancelled branch.
+
 ## Integration line
 
 A ready final PR receives `workflow:integration-queued`. The coordinator selects approved urgent PRs first in ready order, then every other candidate in ready order. An urgent candidate never cancels the active run; only the user may explicitly reorder waiting work.
+
+Because this user-owned repository cannot rely on GitHub's hosted merge queue, one repository-owned Integration Coordinator workflow is the lock authority. Its GitHub Actions concurrency group is `dev-integration`, with cancellation disabled; only its least-privilege identity may complete an authorized merge into `dev`. Action-run ordering is not queue ordering: each coordinator run reads the labels and ready timestamps again, atomically claims at most one eligible PR, and triggers another coordinator run after releasing the slot when work remains. Branch protection rejects any merge that lacks the coordinator's required check.
 
 The coordinator changes the selected PR to `workflow:integration-active` and then:
 
 1. records the current `dev` commit and freezes the candidate;
 2. combines the candidate with that exact `dev` state;
-3. builds or validates one receipted production artifact;
-4. reconciles and fingerprints the Catalog;
-5. runs the applicable gate and repeats the Catalog fingerprint;
-6. creates a receipt only after a clean pass with unchanged inputs;
-7. confirms both candidate and `dev` remain unchanged;
-8. merges and performs issue, label, branch, and worktree completion; and
-9. releases the slot.
+3. runs the work class's applicable gate from the table above;
+4. for a browser-gated candidate, builds or validates one receipted production artifact, fingerprints the Catalog before and after the run, and creates a receipt only after a clean pass with unchanged inputs;
+5. for planning, documentation, or trivial work, skips the Storefront build, Catalog access, browser run, and receipt;
+6. confirms both candidate and `dev` remain unchanged;
+7. merges and performs issue, label, branch, and worktree completion; and
+8. releases the slot.
 
 The complete operation has a 20-minute timeout. Failure, timeout, a retry-pass, a changed Catalog fingerprint, or a new candidate commit prevents the merge, releases the slot, and returns the PR to review. The next ready candidate may proceed while fixes are prepared.
 
@@ -99,7 +108,7 @@ A protected-branch push does not repeat a valid pre-merge browser result. Docume
 
 The complete WebKit plan runs daily against current `dev` and its current Catalog facts. Browser-sensitive ticket work still runs affected WebKit before integration. A scheduled WebKit failure creates or updates one tracked issue and blocks Production promotion; it does not remove code from `dev` automatically. A clean matching run clears the active failure state.
 
-Catalog Publish does not start the complete browser plan. It retains pre- and post-Publish Catalog and cache reconciliation, canonical Shop and PDP smoke coverage, Product Offer and Purchasability checks, Algolia projection checks, and bounded Real Product Media Verification. A later failure alerts the Operator and follows the existing fallback boundaries.
+Catalog Publish does not start the complete browser plan. It retains pre- and post-Publish Catalog and cache reconciliation, canonical `/shop` and PDP smoke coverage, checks that expected Product Offers are Purchasable, Algolia projection checks, and bounded Real Product Media Verification. A later failure alerts the Operator and follows the existing fallback boundaries.
 
 The Windows verification-lifecycle job runs when production-verification or process-control code, their tests, or relevant dependencies change, and also on schedule or manual request. Normal Storefront and documentation changes skip it.
 
@@ -111,7 +120,7 @@ After explicit user authorization, the release merges `dev` into `main`, confirm
 
 ## Efficiency audit
 
-For the first 30 days, record PR preflight time, Integration Line wait time, per-test duration, retries, selected capabilities, build reuse, and full-suite executions. The expected steady state is:
+For the first 30 days, record median and worst-case time from implementation completion to trustworthy integration, PR preflight time, Integration Line wait time, per-test duration, retries, browser-case executions per integrated PR, selected capabilities, build reuse, and full-suite executions. The expected steady state is:
 
 - no browser run for documentation-only work;
 - no complete browser run for trivial work;
