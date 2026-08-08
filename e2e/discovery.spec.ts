@@ -6,6 +6,29 @@ import type { Locator } from "@playwright/test";
 import type { StorefrontJourneys } from "@/test-support/storefront-journeys";
 import { expect, test } from "./storefront-fixture";
 
+const CORE_DESCRIPTION_BY_SLUG = {
+  "cleanse-01-calming-gel-cleanser": homeCoreDescriptions.items.cleanse,
+  "treat-03-pdrn-5-ampoule": homeCoreDescriptions.items.treat,
+  "seal-05-green-collagen-cream": homeCoreDescriptions.items.seal,
+} as const;
+
+const BEYOND_DESCRIPTION_BY_SLUG = {
+  "refine-02-pore-treatment-pads": homeBeyondCoreDescriptions.items.refine,
+  "frame-04-pdrn-eye-cream": homeBeyondCoreDescriptions.items.frame,
+  "lift-06-pdrn-mask-system": homeBeyondCoreDescriptions.items.lift,
+} as const;
+
+function descriptionForSlug(
+  descriptions: Readonly<Record<string, string>>,
+  slug: string,
+) {
+  const description = descriptions[slug];
+  if (!description) {
+    throw new Error(`No homepage description is defined for Product "${slug}".`);
+  }
+  return description;
+}
+
 type PrinciplePresentation = {
   borderTopColor: string;
   color: string;
@@ -60,6 +83,38 @@ async function renderedProducts(
   return products;
 }
 
+test("Explore The Core is locally outlined and inverts for discovery", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+
+  const exploreCore = page.getByRole("link", { name: "Explore The Core" });
+  const readIndex = page.getByRole("link", { name: "READ THE INDEX" });
+
+  await expect(exploreCore).toHaveCSS(
+    "background-color",
+    "rgba(0, 0, 0, 0)",
+  );
+  await expect(exploreCore).toHaveCSS("border-color", "rgb(24, 61, 52)");
+  await expect(exploreCore).toHaveCSS("color", "rgb(24, 61, 52)");
+
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await exploreCore.hover();
+  await expect(exploreCore).toHaveCSS("background-color", "rgb(24, 61, 52)");
+  await expect(exploreCore).toHaveCSS("color", "rgb(251, 250, 246)");
+
+  await page.mouse.move(0, 0);
+  await exploreCore.focus();
+  await expect(exploreCore).toHaveCSS("background-color", "rgb(24, 61, 52)");
+  await expect(exploreCore).toHaveCSS("color", "rgb(251, 250, 246)");
+  await expect(exploreCore).toHaveCSS("outline-style", "solid");
+  await expect(exploreCore).toHaveCSS("outline-width", "2px");
+
+  await expect(readIndex).toHaveCSS("border-color", "rgb(211, 206, 194)");
+  await expect(readIndex).toHaveCSS("color", "rgb(17, 19, 18)");
+});
+
 test("Core and Beyond descriptions respond to pointer and keyboard discovery", async ({
   page,
   storefront,
@@ -74,13 +129,19 @@ test("Core and Beyond descriptions respond to pointer and keyboard discovery", a
     throw new Error("The homepage did not render a Core Product.");
   }
   const coreDescription = core.locator(".home-phased-description");
+  await expect(coreDescription).toHaveAttribute("aria-live", "polite");
+  await expect(coreDescription).toHaveAttribute("aria-atomic", "true");
   await expect(coreDescription).toHaveText(homeCoreDescriptions.default);
 
   await pointer.link.hover();
-  await expect(coreDescription).not.toHaveText(homeCoreDescriptions.default);
+  await expect(coreDescription).toHaveText(
+    descriptionForSlug(CORE_DESCRIPTION_BY_SLUG, pointer.product.slug),
+  );
 
   await keyboard.link.focus();
-  await expect(coreDescription).not.toHaveText(homeCoreDescriptions.default);
+  await expect(coreDescription).toHaveText(
+    descriptionForSlug(CORE_DESCRIPTION_BY_SLUG, keyboard.product.slug),
+  );
 
   const beyond = page.getByRole("region", {
     name: "Beyond The Core",
@@ -92,17 +153,61 @@ test("Core and Beyond descriptions respond to pointer and keyboard discovery", a
     throw new Error("The homepage did not render a Beyond The Core Product.");
   }
   const beyondDescription = beyond.locator(".home-phased-description");
+  await expect(beyondDescription).toHaveAttribute("aria-live", "polite");
+  await expect(beyondDescription).toHaveAttribute("aria-atomic", "true");
   await expect(beyondDescription).toHaveText(homeBeyondCoreDescriptions.default);
 
   await beyondProduct.link.hover();
-  await expect(beyondDescription).not.toHaveText(
-    homeBeyondCoreDescriptions.default,
+  await expect(beyondDescription).toHaveText(
+    descriptionForSlug(
+      BEYOND_DESCRIPTION_BY_SLUG,
+      beyondProduct.product.slug,
+    ),
   );
+
+  const beyondKeyboardProduct = beyondProducts[1] ?? beyondProduct;
+  await beyondKeyboardProduct.link.focus();
+  await expect(beyondDescription).toHaveText(
+    descriptionForSlug(
+      BEYOND_DESCRIPTION_BY_SLUG,
+      beyondKeyboardProduct.product.slug,
+    ),
+  );
+});
+
+test("reduced motion presents Product discovery copy immediately", async ({
+  page,
+  storefront,
+}) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/");
+
+  const core = page.getByRole("region", { name: "The Core", exact: true });
+  const [coreProduct] = await renderedProducts(core, storefront);
+  if (!coreProduct) {
+    throw new Error("The homepage did not render a Core Product.");
+  }
+
+  await coreProduct.link.focus();
+  const description = core.locator(".home-phased-description");
+  await expect(description).toHaveText(
+    descriptionForSlug(CORE_DESCRIPTION_BY_SLUG, coreProduct.product.slug),
+  );
+  expect(
+    await description
+      .locator(".home-phased-description__character")
+      .evaluateAll((characters) =>
+        characters.every(
+          (character) => getComputedStyle(character).opacity === "1",
+        ),
+      ),
+  ).toBe(true);
 });
 
 test("Three Principles selection uses only a persistent 700ms label fade", async ({
   page,
 }) => {
+  await page.emulateMedia({ reducedMotion: null });
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await page.goto("/");
 

@@ -10678,6 +10678,26 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   }
 }
 
+.home-plug-panel__cta {
+  --button-fill: transparent;
+  --button-fill-border: var(--accent);
+  background: transparent;
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .btn.home-plug-panel__cta:hover {
+    background: var(--accent);
+    color: var(--accent-ink);
+  }
+}
+
+.btn.home-plug-panel__cta:focus-visible {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
 @media print {
   .site-header,
   .site-footer,
