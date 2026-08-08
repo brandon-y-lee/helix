@@ -25,10 +25,44 @@ function makeAffectedAdapters(
         stop: async () => {},
       }),
       waitForBuildIdentity: async () => {},
+      readBuildReuseInput: async () => ({
+        categories: makeBuildReuseCategories("test"),
+        worktreeId: "test-worktree",
+      }),
+      readReusableBuildReceipt: async () => undefined,
+      removeReusableBuildReceipt: async () => {},
+      writeReusableBuildReceipt: async () => {},
       ...overrides,
     }),
     readChangedFiles: async () => changedFiles,
   };
+}
+
+function makeBuildReuseCategories(suffix = "v1") {
+  return {
+    "browser-configuration": `browser-${suffix}`,
+    dependencies: `dependencies-${suffix}`,
+    environment: `environment-${suffix}`,
+    "runtime-source": `runtime-${suffix}`,
+    tests: `tests-${suffix}`,
+    "verification-plan": `plan-${suffix}`,
+  };
+}
+
+function makeReusableBuildReceipt(
+  overrides: {
+    buildId?: string;
+    worktreeId?: string;
+    extra?: Record<string, unknown>;
+  } = {},
+) {
+  return JSON.stringify({
+    version: 1,
+    buildId: overrides.buildId ?? "old-build",
+    worktreeId: overrides.worktreeId ?? "worktree-a",
+    categories: makeBuildReuseCategories(),
+    ...overrides.extra,
+  });
 }
 
 describe("Affected Browser Verification command", () => {
@@ -44,6 +78,460 @@ describe("Affected Browser Verification command", () => {
       { device: "Desktop Chrome", name: "chromium" },
       { device: "Desktop Safari", name: "webkit" },
     ]);
+  });
+
+  it("reuses one receipted production build across unchanged supported checks", async () => {
+    const output: string[] = [];
+    let builds = 0;
+    let receipt: { contents: string; modifiedAtMs: number } | undefined;
+    const adapters = {
+      ...makeAffectedAdapters(["components/search/SearchResultCard.tsx"], {
+        build: async () => {
+          builds += 1;
+          return { buildId: "reusable-build" };
+        },
+      }),
+      readArtifact: async () => ({
+        buildId: "reusable-build",
+        modifiedAtMs: 100,
+      }),
+      readBuildReuseInput: async () => ({
+        categories: makeBuildReuseCategories(),
+        worktreeId: "worktree-a",
+      }),
+      readReusableBuildReceipt: async () => receipt,
+      removeReusableBuildReceipt: async () => {
+        receipt = undefined;
+      },
+      writeReusableBuildReceipt: async (value: unknown) => {
+        receipt = { contents: JSON.stringify(value), modifiedAtMs: 101 };
+      },
+    };
+
+    const first = await runAffectedBrowserVerificationCommand({
+      adapters,
+      argv: ["--base", "dev"],
+      env: {},
+      log: (message) => output.push(message),
+    });
+    const second = await runAffectedBrowserVerificationCommand({
+      adapters,
+      argv: ["--base", "dev"],
+      env: {},
+      log: (message) => output.push(message),
+    });
+
+    expect(builds).toBe(1);
+    expect(first).toMatchObject({ reuseStatus: "new" });
+    expect(second).toMatchObject({ reuseStatus: "reused" });
+    expect(output).toContain("Production build reuse: new (no receipt).");
+    expect(output).toContain("Production build reuse: reused (inputs match).");
+  });
+
+  it.each([
+    "runtime-source",
+    "dependencies",
+    "environment",
+    "browser-configuration",
+    "verification-plan",
+    "tests",
+  ] as const)("invalidates reuse when %s changes", async (category) => {
+    const output: string[] = [];
+    let builds = 0;
+    let receipt: { contents: string; modifiedAtMs: number } | undefined;
+    const categories = makeBuildReuseCategories();
+    const adapters = {
+      ...makeAffectedAdapters(["components/search/SearchResultCard.tsx"], {
+        build: async () => {
+          builds += 1;
+          return { buildId: `build-${builds}` };
+        },
+      }),
+      readArtifact: async () => ({
+        buildId: "build-1",
+        modifiedAtMs: 100,
+      }),
+      readBuildReuseInput: async () => ({ categories, worktreeId: "worktree-a" }),
+      readReusableBuildReceipt: async () => receipt,
+      removeReusableBuildReceipt: async () => {
+        receipt = undefined;
+      },
+      writeReusableBuildReceipt: async (value: unknown) => {
+        receipt = { contents: JSON.stringify(value), modifiedAtMs: 101 };
+      },
+    };
+
+    await runAffectedBrowserVerificationCommand({
+      adapters,
+      argv: ["--base", "dev"],
+      env: {},
+      log: (message) => output.push(message),
+    });
+    categories[category] = `${category}-v2`;
+    const result = await runAffectedBrowserVerificationCommand({
+      adapters,
+      argv: ["--base", "dev"],
+      env: {},
+      log: (message) => output.push(message),
+    });
+
+    expect(builds).toBe(2);
+    expect(result).toMatchObject({
+      invalidationReason: `${category} changed`,
+      reuseStatus: "new",
+    });
+    expect(output).toContain(
+      `Production build reuse: new (${category} changed).`,
+    );
+  });
+
+  it("emits structured build and browser telemetry for a supported check", async () => {
+    const output: string[] = [];
+    let elapsed = 0;
+    const adapters = makeAffectedAdapters(
+      ["components/search/SearchResultCard.tsx"],
+      {
+        build: async () => {
+          elapsed = 120;
+          return { buildId: "telemetry-build" };
+        },
+        now: () => elapsed,
+        runBrowserTests: async () => {
+          elapsed = 175;
+          return { retries: 2 };
+        },
+        startServer: async () => ({
+          exited: new Promise(() => {}),
+          stop: async () => {
+            elapsed = 180;
+          },
+        }),
+        waitForBuildIdentity: async () => {
+          elapsed = 125;
+        },
+      },
+    );
+
+    const result = await runAffectedBrowserVerificationCommand({
+      adapters,
+      argv: ["--base", "dev"],
+      env: {},
+      log: (message) => output.push(message),
+    });
+
+    expect(result.telemetry).toEqual({
+      browserTimeMs: 50,
+      buildTimeMs: 120,
+      capabilities: ["Product Search"],
+      journeyCount: 1,
+      outcome: "passed",
+      projects: ["chromium"],
+      retries: 2,
+      reuseStatus: "new",
+    });
+    expect(output).toContain(
+      `[affected-verification-result] ${JSON.stringify(result.telemetry)}`,
+    );
+  });
+
+  it("emits structured failure telemetry without swallowing lifecycle failure", async () => {
+    const output: string[] = [];
+    let elapsed = 0;
+    let stopped = false;
+    const adapters = makeAffectedAdapters(
+      ["components/search/SearchResultCard.tsx"],
+      {
+        build: async () => {
+          elapsed = 40;
+          return { buildId: "failed-telemetry-build" };
+        },
+        now: () => elapsed,
+        runBrowserTests: async () => {
+          elapsed = 70;
+          const failure = new Error("Browser journey failed.") as Error & {
+            retryCount: number;
+          };
+          failure.retryCount = 2;
+          throw failure;
+        },
+        startServer: async () => ({
+          exited: new Promise(() => {}),
+          stop: async () => {
+            stopped = true;
+          },
+        }),
+        waitForBuildIdentity: async () => {
+          elapsed = 50;
+        },
+      },
+    );
+
+    await expect(
+      runAffectedBrowserVerificationCommand({
+        adapters,
+        argv: ["--base", "dev"],
+        env: {},
+        log: (message) => output.push(message),
+      }),
+    ).rejects.toMatchObject({
+      message: "Browser journey failed.",
+      phase: "browser-test",
+    });
+    expect(stopped).toBe(true);
+    const structured = output.find((line) =>
+      line.startsWith("[affected-verification-result] "),
+    );
+    expect(
+      JSON.parse(structured!.replace("[affected-verification-result] ", "")),
+    ).toEqual({
+      browserTimeMs: 20,
+      buildTimeMs: 40,
+      capabilities: ["Product Search"],
+      failureClassification: "browser-test",
+      journeyCount: 1,
+      outcome: "failed",
+      projects: ["chromium"],
+      retries: 2,
+      reuseStatus: "new",
+    });
+  });
+
+  it("rejects a concurrent supported check while preserving the active owner", async () => {
+    let owned = false;
+    let releaseBrowser!: () => void;
+    let markBrowserStarted!: () => void;
+    const browserStarted = new Promise<void>((resolveStarted) => {
+      markBrowserStarted = resolveStarted;
+    });
+    const browserGate = new Promise<void>((resolveBrowser) => {
+      releaseBrowser = resolveBrowser;
+    });
+    const adapters = makeAffectedAdapters(
+      ["components/search/SearchResultCard.tsx"],
+      {
+        acquireLock: async () => {
+          if (owned) {
+            throw new Error("Production verification is already owned.");
+          }
+          owned = true;
+          return {
+            release: async () => {
+              owned = false;
+            },
+          };
+        },
+        runBrowserTests: async () => {
+          markBrowserStarted();
+          await browserGate;
+        },
+      },
+    );
+
+    const active = runAffectedBrowserVerificationCommand({
+      adapters,
+      argv: ["--base", "dev"],
+      env: {},
+      log: () => {},
+    });
+    await browserStarted;
+    await expect(
+      runAffectedBrowserVerificationCommand({
+        adapters,
+        argv: ["--base", "dev"],
+        env: {},
+        log: () => {},
+      }),
+    ).rejects.toMatchObject({
+      message: "Production verification is already owned.",
+      phase: "preflight",
+    });
+    expect(owned).toBe(true);
+
+    releaseBrowser();
+    await expect(active).resolves.toMatchObject({ reuseStatus: "new" });
+    expect(owned).toBe(false);
+  });
+
+  it("removes an unusable receipt and releases ownership after interruption", async () => {
+    const controller = new AbortController();
+    let buildStarted!: () => void;
+    const started = new Promise<void>((resolveStarted) => {
+      buildStarted = resolveStarted;
+    });
+    let receiptRemoved = false;
+    let receiptWritten = false;
+    let released = false;
+    const adapters = makeAffectedAdapters(
+      ["components/search/SearchResultCard.tsx"],
+      {
+        acquireLock: async () => ({
+          release: async () => {
+            released = true;
+          },
+        }),
+        build: async ({ signal }) => {
+          buildStarted();
+          await new Promise<void>((_resolve, reject) => {
+            signal?.addEventListener("abort", () => reject(signal.reason), {
+              once: true,
+            });
+          });
+          return { buildId: "must-not-complete" };
+        },
+        removeReusableBuildReceipt: async () => {
+          receiptRemoved = true;
+        },
+        writeReusableBuildReceipt: async () => {
+          receiptWritten = true;
+        },
+      },
+    );
+    const command = runAffectedBrowserVerificationCommand({
+      adapters,
+      argv: ["--base", "dev"],
+      env: {},
+      log: () => {},
+      signal: controller.signal,
+    });
+    await started;
+    controller.abort(new Error("Verification interrupted by test."));
+
+    await expect(command).rejects.toMatchObject({
+      message: "Verification interrupted by test.",
+      phase: "production-build",
+    });
+    expect(receiptRemoved).toBe(true);
+    expect(receiptWritten).toBe(false);
+    expect(released).toBe(true);
+  });
+
+  it("rejects a build whose reuse inputs change before receipt publication", async () => {
+    let inputsChanged = false;
+    let receiptWritten = false;
+    let released = false;
+    let serverStarts = 0;
+    const categories = makeBuildReuseCategories();
+    const adapters = {
+      ...makeAffectedAdapters(["components/search/SearchResultCard.tsx"], {
+        acquireLock: async () => ({
+          release: async () => {
+            released = true;
+          },
+        }),
+        build: async () => {
+          inputsChanged = true;
+          return { buildId: "raced-build" };
+        },
+        startServer: async () => {
+          serverStarts += 1;
+          throw new Error("Server must not start for an unstable build.");
+        },
+      }),
+      readBuildReuseInput: async () => ({
+        categories: {
+          ...categories,
+          "runtime-source": inputsChanged ? "runtime-v2" : "runtime-v1",
+        },
+        worktreeId: "worktree-a",
+      }),
+      writeReusableBuildReceipt: async () => {
+        receiptWritten = true;
+      },
+    };
+
+    await expect(
+      runAffectedBrowserVerificationCommand({
+        adapters,
+        argv: ["--base", "dev"],
+        env: {},
+        log: () => {},
+      }),
+    ).rejects.toMatchObject({
+      message: "Production build inputs changed while the build was running.",
+      phase: "production-build",
+    });
+    expect(receiptWritten).toBe(false);
+    expect(serverStarts).toBe(0);
+    expect(released).toBe(true);
+  });
+
+  it.each([
+    ["malformed", "{not-json", 101, "receipt malformed"],
+    [
+      "partially written",
+      '{"version":1,"buildId":"old-build"',
+      101,
+      "receipt malformed",
+    ],
+    [
+      "receipt containing an unexpected field",
+      makeReusableBuildReceipt({
+        extra: { secret: "must-not-be-accepted" },
+      }),
+      101,
+      "receipt malformed",
+    ],
+    [
+      "stale",
+      makeReusableBuildReceipt(),
+      99,
+      "receipt stale",
+    ],
+    [
+      "substituted artifact",
+      makeReusableBuildReceipt({ buildId: "other-build" }),
+      101,
+      "artifact identity changed",
+    ],
+    [
+      "cross-worktree",
+      makeReusableBuildReceipt({ worktreeId: "worktree-b" }),
+      101,
+      "worktree identity changed",
+    ],
+  ])("fails closed and rebuilds for a %s receipt", async (
+    _name,
+    contents,
+    modifiedAtMs,
+    expectedReason,
+  ) => {
+    const output: string[] = [];
+    let builds = 0;
+    let provenBuildId: string | undefined;
+    const adapters = {
+      ...makeAffectedAdapters(["components/search/SearchResultCard.tsx"], {
+        build: async () => {
+          builds += 1;
+          return { buildId: "rebuilt-build" };
+        },
+        waitForBuildIdentity: async ({ buildId }) => {
+          provenBuildId = buildId;
+        },
+      }),
+      readArtifact: async () => ({ buildId: "old-build", modifiedAtMs: 100 }),
+      readBuildReuseInput: async () => ({
+        categories: makeBuildReuseCategories(),
+        worktreeId: "worktree-a",
+      }),
+      readReusableBuildReceipt: async () => ({ contents, modifiedAtMs }),
+    };
+
+    const result = await runAffectedBrowserVerificationCommand({
+      adapters,
+      argv: ["--base", "dev"],
+      env: {},
+      log: (message) => output.push(message),
+    });
+
+    expect(builds).toBe(1);
+    expect(provenBuildId).toBe("rebuilt-build");
+    expect(result).toMatchObject({
+      invalidationReason: expectedReason,
+      reuseStatus: "new",
+    });
+    expect(output).toContain(
+      `Production build reuse: new (${expectedReason}).`,
+    );
   });
 
   it("compares the complete candidate worktree with the pull-request merge base", async () => {
@@ -123,7 +611,7 @@ describe("Affected Browser Verification command", () => {
       },
     );
 
-    await runAffectedBrowserVerificationCommand({
+    const result = await runAffectedBrowserVerificationCommand({
       adapters,
       argv: ["--base", "dev"],
       env: {},
@@ -138,6 +626,10 @@ describe("Affected Browser Verification command", () => {
       ],
       projects: ["chromium", "webkit"],
       webkitJourneyIds: ["homepage-hero", "storefront-purchase"],
+    });
+    expect(result.telemetry).toMatchObject({
+      journeyCount: 5,
+      projects: ["chromium", "webkit"],
     });
   });
 

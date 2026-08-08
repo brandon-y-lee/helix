@@ -49,7 +49,7 @@ export type ProductionVerificationLifecycleAdapters = {
     baseURL: string;
     selection?: ProductionVerificationBrowserSelection;
     signal?: AbortSignal;
-  }) => Promise<void>;
+  }) => Promise<{ retries: number } | void>;
   now: () => number;
   report: (diagnostic: ProductionVerificationDiagnostic) => void;
 };
@@ -83,13 +83,55 @@ export type ReceiptedProductionVerificationAdapters =
     >;
 
 export type NodeProductionVerificationAdapters = ProductionVerificationAdapters &
-  ProductionArtifactReceiptAdapters;
+  ProductionArtifactReceiptAdapters &
+  ReusableProductionBuildAdapters;
+
+export const PRODUCTION_BUILD_REUSE_CATEGORIES = [
+  "runtime-source",
+  "dependencies",
+  "environment",
+  "browser-configuration",
+  "verification-plan",
+  "tests",
+] as const;
+
+export type ProductionBuildReuseCategory =
+  (typeof PRODUCTION_BUILD_REUSE_CATEGORIES)[number];
+
+export type ProductionBuildReuseInput = {
+  categories: Record<ProductionBuildReuseCategory, string>;
+  worktreeId: string;
+};
+
+export type ReusableProductionBuildReceipt = ProductionBuildReuseInput & {
+  buildId: string;
+  version: 1;
+};
+
+export type ReusableProductionBuildAdapters = {
+  readBuildReuseInput: () => Promise<ProductionBuildReuseInput>;
+  readReusableBuildReceipt: () => Promise<{
+    contents: string;
+    modifiedAtMs: number;
+  } | undefined>;
+  removeReusableBuildReceipt: () => Promise<void>;
+  writeReusableBuildReceipt: (
+    receipt: ReusableProductionBuildReceipt,
+  ) => Promise<void>;
+};
 
 export type ProductionVerificationResult = {
   baseURL: string;
   buildId: string;
   port: number;
+  retries?: number;
 };
+
+export type ReusableProductionVerificationResult =
+  ProductionVerificationResult & {
+    invalidationReason: string;
+    reuseStatus: "new" | "reused";
+  };
 
 export type ProductionVerificationInput = {
   browserSelection?: ProductionVerificationBrowserSelection;
@@ -168,6 +210,7 @@ export function prepareProductionVerificationEnvironment(input: {
 
 export class ProductionVerificationError extends Error {
   cleanupFailure?: Error;
+  retryCount?: number;
 
   constructor(
     readonly phase: ProductionVerificationPhase,
@@ -353,6 +396,8 @@ async function executeProductionVerification<T>(
         childExitReason(error),
         { cause },
       );
+      const retryCount = (error as { retryCount?: unknown }).retryCount;
+      if (typeof retryCount === "number") failure.retryCount = retryCount;
       if (
         error instanceof ProductionVerificationChildError ||
         error instanceof ProductionVerificationError
@@ -469,8 +514,13 @@ export function buildReceiptedProductionArtifact(
 async function verifyProductionArtifact(
   input: ProductionVerificationInput,
   adapters: ProductionVerificationLifecycleAdapters,
-  artifactPhase: "artifact-validation" | "production-build",
-  prepareArtifact: () => Promise<{ buildId: string }>,
+  prepareArtifact: (
+    runPhase: <T>(
+      phase: "artifact-validation" | "production-build",
+      action: () => Promise<T>,
+    ) => Promise<T>,
+    setBuildId: (buildId: string) => void,
+  ) => Promise<{ buildId: string }>,
 ): Promise<ProductionVerificationResult> {
   return executeProductionVerification(
     input,
@@ -503,10 +553,13 @@ async function verifyProductionArtifact(
         parsedPort ?? (await adapters.selectFreePort(LOOPBACK_HOST));
     },
     async (execution, runPhase) => {
-      await runPhase(artifactPhase, async () => {
-        const artifact = await prepareArtifact();
-        execution.buildId = artifact.buildId;
-      });
+      const artifact = await prepareArtifact(
+        runPhase,
+        (buildId) => {
+          execution.buildId = buildId;
+        },
+      );
+      execution.buildId = artifact.buildId;
       const baseURL = `http://${LOOPBACK_HOST}:${execution.port!}`;
       await runPhase("server-start-and-identity", async () => {
         execution.server = await adapters.startServer({
@@ -521,7 +574,7 @@ async function verifyProductionArtifact(
           timeoutMs: input.readinessTimeoutMs ?? DEFAULT_READINESS_TIMEOUT_MS,
         });
       });
-      await runPhase("browser-test", () =>
+      const browserResult = await runPhase("browser-test", () =>
         adapters.runBrowserTests({
           baseURL,
           selection: input.browserSelection,
@@ -532,6 +585,7 @@ async function verifyProductionArtifact(
         baseURL,
         buildId: execution.buildId!,
         port: execution.port!,
+        ...(browserResult ? { retries: browserResult.retries } : {}),
       };
     },
   );
@@ -541,8 +595,12 @@ export function verifyFreshProductionArtifact(
   input: ProductionVerificationInput,
   adapters: ProductionVerificationAdapters,
 ): Promise<ProductionVerificationResult> {
-  return verifyProductionArtifact(input, adapters, "production-build", () =>
-    adapters.build({ signal: input.signal }),
+  return verifyProductionArtifact(input, adapters, (runPhase, setBuildId) =>
+    runPhase("production-build", async () => {
+      const artifact = await adapters.build({ signal: input.signal });
+      setBuildId(artifact.buildId);
+      return artifact;
+    }),
   );
 }
 
@@ -553,7 +611,140 @@ export function verifyReceiptedProductionArtifact(
   return verifyProductionArtifact(
     input,
     adapters,
-    "artifact-validation",
-    () => readValidatedProductionArtifact(adapters),
+    (runPhase, setBuildId) =>
+      runPhase("artifact-validation", async () => {
+        const artifact = await readValidatedProductionArtifact(adapters);
+        setBuildId(artifact.buildId);
+        return artifact;
+      }),
   );
+}
+
+function parseReusableProductionBuildReceipt(
+  storedReceipt: { contents: string; modifiedAtMs: number },
+): ReusableProductionBuildReceipt | undefined {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(storedReceipt.contents);
+  } catch {
+    return undefined;
+  }
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    return undefined;
+  }
+  if (
+    Object.keys(parsed).sort().join(",") !==
+    "buildId,categories,version,worktreeId"
+  ) {
+    return undefined;
+  }
+  const receipt = parsed as Partial<ReusableProductionBuildReceipt>;
+  if (
+    receipt.version !== 1 ||
+    typeof receipt.buildId !== "string" ||
+    receipt.buildId.length === 0 ||
+    typeof receipt.worktreeId !== "string" ||
+    receipt.worktreeId.length === 0 ||
+    typeof receipt.categories !== "object" ||
+    receipt.categories === null
+  ) {
+    return undefined;
+  }
+  if (
+    Object.keys(receipt.categories).sort().join(",") !==
+    [...PRODUCTION_BUILD_REUSE_CATEGORIES].sort().join(",")
+  ) {
+    return undefined;
+  }
+  if (
+    PRODUCTION_BUILD_REUSE_CATEGORIES.some(
+      (category) => typeof receipt.categories![category] !== "string",
+    )
+  ) {
+    return undefined;
+  }
+  return receipt as ReusableProductionBuildReceipt;
+}
+
+function productionBuildReuseInputsMatch(
+  left: ProductionBuildReuseInput,
+  right: ProductionBuildReuseInput,
+): boolean {
+  return (
+    left.worktreeId === right.worktreeId &&
+    PRODUCTION_BUILD_REUSE_CATEGORIES.every(
+      (category) => left.categories[category] === right.categories[category],
+    )
+  );
+}
+
+export async function verifyReusableProductionArtifact(
+  input: ProductionVerificationInput,
+  adapters: NodeProductionVerificationAdapters,
+): Promise<ReusableProductionVerificationResult> {
+  let reuseStatus: ReusableProductionVerificationResult["reuseStatus"] = "new";
+  let invalidationReason = "no receipt";
+  const result = await verifyProductionArtifact(input, adapters, async (
+    runPhase,
+    setBuildId,
+  ) => {
+    const currentInput = await adapters.readBuildReuseInput();
+    const storedReceipt = await adapters.readReusableBuildReceipt();
+    const receipt = storedReceipt
+      ? parseReusableProductionBuildReceipt(storedReceipt)
+      : undefined;
+
+    if (storedReceipt && !receipt) invalidationReason = "receipt malformed";
+    if (receipt) {
+      const artifact = await adapters.readArtifact().catch(() => undefined);
+      const changedCategory = PRODUCTION_BUILD_REUSE_CATEGORIES.find(
+        (category) =>
+          receipt.categories[category] !== currentInput.categories[category],
+      );
+      if (
+        artifact &&
+        storedReceipt!.modifiedAtMs >= artifact.modifiedAtMs &&
+        receipt.buildId === artifact.buildId &&
+        receipt.worktreeId === currentInput.worktreeId &&
+        changedCategory === undefined
+      ) {
+        reuseStatus = "reused";
+        invalidationReason = "inputs match";
+        return runPhase("artifact-validation", async () => {
+          setBuildId(artifact.buildId);
+          return { buildId: artifact.buildId };
+        });
+      }
+      if (!artifact) invalidationReason = "artifact missing";
+      else if (storedReceipt!.modifiedAtMs < artifact.modifiedAtMs) {
+        invalidationReason = "receipt stale";
+      } else if (receipt.buildId !== artifact.buildId) {
+        invalidationReason = "artifact identity changed";
+      } else if (receipt.worktreeId !== currentInput.worktreeId) {
+        invalidationReason = "worktree identity changed";
+      } else if (changedCategory) {
+        invalidationReason = `${changedCategory} changed`;
+      }
+    }
+
+    return runPhase("production-build", async () => {
+      await adapters.removeReusableBuildReceipt();
+      const artifact = await adapters.build({ signal: input.signal });
+      setBuildId(artifact.buildId);
+      const completedInput = await adapters.readBuildReuseInput();
+      if (!productionBuildReuseInputsMatch(currentInput, completedInput)) {
+        throw new Error(
+          "Production build inputs changed while the build was running.",
+        );
+      }
+      await adapters.writeReusableBuildReceipt({
+        ...completedInput,
+        buildId: artifact.buildId,
+        version: 1,
+      });
+      return artifact;
+    });
+  });
+
+  return { ...result, invalidationReason, reuseStatus };
 }

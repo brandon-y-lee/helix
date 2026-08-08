@@ -1,5 +1,13 @@
+import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  readdir,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
@@ -74,6 +82,10 @@ describe("Production Verification Node Adapters", () => {
       {
         runCommand: async ({ args, env }) => {
           commands.push({ args, env });
+          await writeFile(
+            env.PLAYWRIGHT_JSON_OUTPUT_FILE!,
+            JSON.stringify({ suites: [] }),
+          );
         },
       },
     );
@@ -103,6 +115,8 @@ describe("Production Verification Node Adapters", () => {
       "e2e/home-hero.spec.ts",
       "--project",
       "webkit",
+      "--reporter",
+      "html,json",
     ]);
     expect(
       commands.map(({ env }) => env.MEI_PELLE_VERIFICATION_BASE_URL),
@@ -110,6 +124,86 @@ describe("Production Verification Node Adapters", () => {
       "http://127.0.0.1:43138",
       "http://127.0.0.1:43138",
     ]);
+  });
+
+  it("reports retry executions observed by the supported browser adapter", async () => {
+    const adapters = await createNodeProductionVerificationAdapters(
+      process.cwd(),
+      { NODE_ENV: "test" },
+      {
+        runCommand: async ({ env }) => {
+          const reportPath = env.PLAYWRIGHT_JSON_OUTPUT_FILE;
+          if (!reportPath) throw new Error("Expected a JSON telemetry report path.");
+          await writeFile(
+            reportPath,
+            JSON.stringify({
+              suites: [
+                {
+                  specs: [
+                    {
+                      tests: [
+                        {
+                          results: [{ retry: 0 }, { retry: 1 }],
+                        },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            }),
+          );
+        },
+      },
+    );
+
+    await expect(
+      adapters.runBrowserTests({
+        baseURL: "http://127.0.0.1:43139",
+        selection: {
+          journeyIds: ["header-search"],
+          projects: ["chromium"],
+        },
+      }),
+    ).resolves.toEqual({ retries: 1 });
+  });
+
+  it("preserves observed retries on a failed browser pass", async () => {
+    const adapters = await createNodeProductionVerificationAdapters(
+      process.cwd(),
+      { NODE_ENV: "test" },
+      {
+        runCommand: async ({ env }) => {
+          await writeFile(
+            env.PLAYWRIGHT_JSON_OUTPUT_FILE!,
+            JSON.stringify({
+              suites: [
+                {
+                  specs: [
+                    {
+                      tests: [{ results: [{ retry: 0 }, { retry: 1 }] }],
+                    },
+                  ],
+                },
+              ],
+            }),
+          );
+          throw new Error("Playwright failed after retries.");
+        },
+      },
+    );
+
+    await expect(
+      adapters.runBrowserTests({
+        baseURL: "http://127.0.0.1:43140",
+        selection: {
+          journeyIds: ["header-search"],
+          projects: ["chromium"],
+        },
+      }),
+    ).rejects.toMatchObject({
+      message: "Playwright failed after retries.",
+      retryCount: 1,
+    });
   });
 
   it("stores only the build ID and commit SHA in the artifact receipt", async () => {
@@ -141,6 +235,106 @@ describe("Production Verification Node Adapters", () => {
 
       await adapters.removeReceipt();
       await expect(adapters.readReceipt()).resolves.toBeUndefined();
+    } finally {
+      await rm(cwd, { force: true, recursive: true });
+    }
+  });
+
+  it("publishes the worktree-scoped reusable receipt atomically", async () => {
+    const cwd = await mkdtemp(resolve(tmpdir(), "mei-pelle-local-receipt-"));
+    const nextDirectory = resolve(cwd, ".next");
+    const receipt = {
+      buildId: "local-build",
+      categories: {
+        "browser-configuration": "sha256:browser",
+        dependencies: "sha256:dependencies",
+        environment: "sha256:environment",
+        "runtime-source": "sha256:runtime",
+        tests: "sha256:tests",
+        "verification-plan": "sha256:plan",
+      },
+      version: 1 as const,
+      worktreeId: "sha256:worktree",
+    };
+
+    try {
+      await mkdir(nextDirectory, { recursive: true });
+      const adapters = await createNodeProductionVerificationAdapters(cwd, {
+        NODE_ENV: "production",
+        PRIVATE_API_SECRET: "must-not-be-receipted",
+      });
+
+      await adapters.writeReusableBuildReceipt(receipt);
+      const stored = await adapters.readReusableBuildReceipt();
+
+      expect(JSON.parse(stored!.contents)).toEqual(receipt);
+      expect(stored!.contents).not.toContain("must-not-be-receipted");
+      expect(await readdir(nextDirectory)).toEqual([
+        "mei-pelle-local-build-receipt.json",
+      ]);
+    } finally {
+      await rm(cwd, { force: true, recursive: true });
+    }
+  });
+
+  it("fingerprints every local production-build reuse input without storing secrets", async () => {
+    const cwd = await mkdtemp(resolve(tmpdir(), "mei-pelle-build-reuse-inputs-"));
+    const files = {
+      "app/page.tsx": "export default function Page() { return null; }\n",
+      "package.json": '{"name":"reuse-fixture"}\n',
+      "playwright.config.ts": "export default {};\n",
+      "scripts/browser-verification-plan.ts": "export const version = 1;\n",
+      "tests/example.test.ts": "export const testCase = true;\n",
+    };
+
+    try {
+      for (const [path, contents] of Object.entries(files)) {
+        const destination = resolve(cwd, path);
+        await mkdir(resolve(destination, ".."), { recursive: true });
+        await writeFile(destination, contents);
+      }
+      const git = (...args: string[]) =>
+        spawnSync("git", args, { cwd, encoding: "utf8" });
+      git("init", "--quiet");
+      git("add", ".");
+
+      const adapters = await createNodeProductionVerificationAdapters(cwd, {
+        NODE_ENV: "production",
+        NEXT_PUBLIC_SITE_ORIGIN: "https://mei-pelle.example.test",
+        PRIVATE_API_SECRET: "must-not-be-receipted",
+      });
+      const baseline = await adapters.readBuildReuseInput();
+
+      const cases = [
+        ["app/page.tsx", "runtime-source"],
+        ["package.json", "dependencies"],
+        ["playwright.config.ts", "browser-configuration"],
+        ["scripts/browser-verification-plan.ts", "verification-plan"],
+        ["tests/example.test.ts", "tests"],
+      ] as const;
+      for (const [path, category] of cases) {
+        await writeFile(resolve(cwd, path), `${files[path]}// changed\n`);
+        const changed = await adapters.readBuildReuseInput();
+        expect(changed.categories[category]).not.toBe(
+          baseline.categories[category],
+        );
+        await writeFile(resolve(cwd, path), files[path]);
+      }
+
+      const environmentChanged = await createNodeProductionVerificationAdapters(
+        cwd,
+        {
+          NODE_ENV: "production",
+          NEXT_PUBLIC_SITE_ORIGIN: "https://changed.example.test",
+          PRIVATE_API_SECRET: "a-different-secret",
+        },
+      );
+      const changedInput = await environmentChanged.readBuildReuseInput();
+      expect(changedInput.categories.environment).not.toBe(
+        baseline.categories.environment,
+      );
+      expect(JSON.stringify(baseline)).not.toContain("must-not-be-receipted");
+      expect(changedInput.worktreeId).toBe(baseline.worktreeId);
     } finally {
       await rm(cwd, { force: true, recursive: true });
     }

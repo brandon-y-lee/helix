@@ -6,8 +6,9 @@ import {
   type BrowserVerificationJourney,
 } from "./browser-verification-plan";
 import {
-  verifyFreshProductionArtifact,
+  verifyReusableProductionArtifact,
   type NodeProductionVerificationAdapters,
+  type ProductionVerificationDiagnostic,
 } from "./production-verification";
 
 type AffectedBrowserVerificationAdapters = NodeProductionVerificationAdapters & {
@@ -226,24 +227,88 @@ export async function runAffectedBrowserVerificationCommand(
       input.log(`Selected ${project} / ${journey.id}: ${reason}`);
     }
   }
-  const result = await verifyFreshProductionArtifact(
-    {
-      browserSelection: {
-        journeyIds: selectedJourneys.map(({ journey }) => journey.id),
-        projects,
-        ...(requiresWebkit
-          ? {
-              webkitJourneyIds: webkitJourneys.map(
-                ({ journey }) => journey.id,
-              ),
-            }
-          : {}),
+  const diagnostics: ProductionVerificationDiagnostic[] = [];
+  const phaseDuration = (phase: ProductionVerificationDiagnostic["phase"]) => {
+    const started = diagnostics.find(
+      (diagnostic) =>
+        diagnostic.phase === phase && diagnostic.status === "started",
+    );
+    const completed = [...diagnostics].reverse().find(
+      (diagnostic) =>
+        diagnostic.phase === phase && diagnostic.status !== "started",
+    );
+    return started && completed
+      ? Math.max(0, completed.elapsedMs - started.elapsedMs)
+      : 0;
+  };
+  const telemetryBase = (retries = 0) => ({
+    browserTimeMs: phaseDuration("browser-test"),
+    buildTimeMs: phaseDuration("production-build"),
+    capabilities: Array.from(
+      new Set(selectedJourneys.flatMap(({ capabilities }) => capabilities)),
+    ),
+    journeyCount:
+      selectedJourneys.length + (requiresWebkit ? webkitJourneys.length : 0),
+    projects: [...projects],
+    retries,
+  });
+  let result;
+  try {
+    result = await verifyReusableProductionArtifact(
+      {
+        browserSelection: {
+          journeyIds: selectedJourneys.map(({ journey }) => journey.id),
+          projects,
+          ...(requiresWebkit
+            ? {
+                webkitJourneyIds: webkitJourneys.map(
+                  ({ journey }) => journey.id,
+                ),
+              }
+            : {}),
+        },
+        requestedPort: input.env.PORT,
+        signal: input.signal,
       },
-      requestedPort: input.env.PORT,
-      signal: input.signal,
-    },
-    input.adapters,
+      {
+        ...input.adapters,
+        report: (diagnostic) => {
+          diagnostics.push(diagnostic);
+          input.adapters.report(diagnostic);
+        },
+      },
+    );
+  } catch (error) {
+    const failure = [...diagnostics]
+      .reverse()
+      .find((diagnostic) => diagnostic.status === "failed");
+    const telemetry = {
+      ...telemetryBase(
+        typeof (error as { retryCount?: unknown })?.retryCount === "number"
+          ? (error as { retryCount: number }).retryCount
+          : 0,
+      ),
+      failureClassification: failure?.phase ?? "preflight",
+      outcome: "failed" as const,
+      reuseStatus: diagnostics.some(
+        (diagnostic) => diagnostic.phase === "artifact-validation",
+      )
+        ? ("reused" as const)
+        : ("new" as const),
+    };
+    input.log(`[affected-verification-result] ${JSON.stringify(telemetry)}`);
+    throw error;
+  }
+  input.log(
+    `Production build reuse: ${result.reuseStatus} (${result.invalidationReason}).`,
   );
 
-  return { ...result, baseRef, fingerprint };
+  const telemetry = {
+    ...telemetryBase(result.retries),
+    outcome: "passed" as const,
+    reuseStatus: result.reuseStatus,
+  };
+  input.log(`[affected-verification-result] ${JSON.stringify(telemetry)}`);
+
+  return { ...result, baseRef, fingerprint, telemetry };
 }
