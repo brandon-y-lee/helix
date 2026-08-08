@@ -2,7 +2,6 @@ import { execFile } from "node:child_process";
 import { appendFile, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { createRequire } from "node:module";
-import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 
 import { BROWSER_VERIFICATION_PLAN } from "../browser-verification-plan";
@@ -79,9 +78,9 @@ async function readChromiumVersion(environment: NodeJS.ProcessEnv): Promise<stri
     environment.VERIFICATION_BROWSER_CWD ?? process.cwd(),
     "package.json",
   ));
-  const candidatePlaywright = await import(
-    pathToFileURL(candidateRequire.resolve("@playwright/test")).href
-  ) as { chromium: { executablePath(): string } };
+  const candidatePlaywright = candidateRequire("@playwright/test") as {
+    chromium: { executablePath(): string };
+  };
   const executablePath = candidatePlaywright.chromium.executablePath();
   const { stdout } = await execFileAsync(executablePath, ["--version"], {
     encoding: "utf8",
