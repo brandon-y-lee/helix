@@ -337,6 +337,7 @@ describe("ProductCard quick buy", () => {
     fireEvent.click(close);
 
     expect(surface).toHaveAttribute("data-visual-state", "default");
+    expect(close).not.toHaveFocus();
     expect(trigger).not.toHaveFocus();
   });
 
@@ -365,6 +366,27 @@ describe("ProductCard quick buy", () => {
     });
     act(() => keyboardClose.focus());
     fireEvent.click(keyboardClose);
+
+    await waitFor(() => expect(trigger).toHaveFocus());
+  });
+
+  it("restores keyboard focus after a canceled touch close", async () => {
+    render(<ProductCard product={makeProduct()} />);
+
+    const trigger = screen.getByRole("button", {
+      name: "Open quick buy for CLEANSE",
+    });
+    fireEvent.click(trigger);
+    const close = screen.getByRole("button", {
+      name: "Close quick buy for CLEANSE",
+    });
+    fireEvent.touchStart(close);
+    act(() => {
+      fireEvent.keyDown(window, { key: "Tab" });
+      close.focus();
+      fireEvent.focusIn(close);
+    });
+    fireEvent.click(close);
 
     await waitFor(() => expect(trigger).toHaveFocus());
   });

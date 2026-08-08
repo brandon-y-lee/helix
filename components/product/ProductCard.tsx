@@ -19,6 +19,7 @@ import {
   type CSSProperties,
   type FocusEvent,
   type KeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { ProductImage } from "@/components/product/ProductImage";
@@ -406,10 +407,15 @@ export function ProductCard({
     };
   }
 
-  function handleCloseClick() {
+  function handleCloseClick(event: ReactMouseEvent<HTMLButtonElement>) {
     const closePointer = closePointerRef.current;
+    const closeWasTouch =
+      closePointer?.pointerType === "touch" && !lastInputWasKeyboardRef.current;
+    if (closeWasTouch) {
+      event.currentTarget.blur();
+    }
     closeQuickBuy({
-      focusTrigger: closePointer?.pointerType !== "touch",
+      focusTrigger: !closeWasTouch,
       restorePointerPreview: !lastInputWasKeyboardRef.current,
     });
     closePointerRef.current = null;
