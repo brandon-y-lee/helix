@@ -210,7 +210,9 @@ export function prepareProductionVerificationEnvironment(input: {
 
 export class ProductionVerificationError extends Error {
   cleanupFailure?: Error;
+  invalidationReason?: string;
   retryCount?: number;
+  reuseStatus?: "new" | "reused";
 
   constructor(
     readonly phase: ProductionVerificationPhase,
@@ -684,67 +686,75 @@ export async function verifyReusableProductionArtifact(
 ): Promise<ReusableProductionVerificationResult> {
   let reuseStatus: ReusableProductionVerificationResult["reuseStatus"] = "new";
   let invalidationReason = "no receipt";
-  const result = await verifyProductionArtifact(input, adapters, async (
-    runPhase,
-    setBuildId,
-  ) => {
-    const currentInput = await adapters.readBuildReuseInput();
-    const storedReceipt = await adapters.readReusableBuildReceipt();
-    const receipt = storedReceipt
-      ? parseReusableProductionBuildReceipt(storedReceipt)
-      : undefined;
+  try {
+    const result = await verifyProductionArtifact(input, adapters, async (
+      runPhase,
+      setBuildId,
+    ) => {
+      const currentInput = await adapters.readBuildReuseInput();
+      const storedReceipt = await adapters.readReusableBuildReceipt();
+      const receipt = storedReceipt
+        ? parseReusableProductionBuildReceipt(storedReceipt)
+        : undefined;
 
-    if (storedReceipt && !receipt) invalidationReason = "receipt malformed";
-    if (receipt) {
-      const artifact = await adapters.readArtifact().catch(() => undefined);
-      const changedCategory = PRODUCTION_BUILD_REUSE_CATEGORIES.find(
-        (category) =>
-          receipt.categories[category] !== currentInput.categories[category],
-      );
-      if (
-        artifact &&
-        storedReceipt!.modifiedAtMs >= artifact.modifiedAtMs &&
-        receipt.buildId === artifact.buildId &&
-        receipt.worktreeId === currentInput.worktreeId &&
-        changedCategory === undefined
-      ) {
-        reuseStatus = "reused";
-        invalidationReason = "inputs match";
-        return runPhase("artifact-validation", async () => {
-          setBuildId(artifact.buildId);
-          return { buildId: artifact.buildId };
-        });
-      }
-      if (!artifact) invalidationReason = "artifact missing";
-      else if (storedReceipt!.modifiedAtMs < artifact.modifiedAtMs) {
-        invalidationReason = "receipt stale";
-      } else if (receipt.buildId !== artifact.buildId) {
-        invalidationReason = "artifact identity changed";
-      } else if (receipt.worktreeId !== currentInput.worktreeId) {
-        invalidationReason = "worktree identity changed";
-      } else if (changedCategory) {
-        invalidationReason = `${changedCategory} changed`;
-      }
-    }
-
-    return runPhase("production-build", async () => {
-      await adapters.removeReusableBuildReceipt();
-      const artifact = await adapters.build({ signal: input.signal });
-      setBuildId(artifact.buildId);
-      const completedInput = await adapters.readBuildReuseInput();
-      if (!productionBuildReuseInputsMatch(currentInput, completedInput)) {
-        throw new Error(
-          "Production build inputs changed while the build was running.",
+      if (storedReceipt && !receipt) invalidationReason = "receipt malformed";
+      if (receipt) {
+        const artifact = await adapters.readArtifact().catch(() => undefined);
+        const changedCategory = PRODUCTION_BUILD_REUSE_CATEGORIES.find(
+          (category) =>
+            receipt.categories[category] !== currentInput.categories[category],
         );
+        if (
+          artifact &&
+          storedReceipt!.modifiedAtMs >= artifact.modifiedAtMs &&
+          receipt.buildId === artifact.buildId &&
+          receipt.worktreeId === currentInput.worktreeId &&
+          changedCategory === undefined
+        ) {
+          reuseStatus = "reused";
+          invalidationReason = "inputs match";
+          return runPhase("artifact-validation", async () => {
+            setBuildId(artifact.buildId);
+            return { buildId: artifact.buildId };
+          });
+        }
+        if (!artifact) invalidationReason = "artifact missing";
+        else if (storedReceipt!.modifiedAtMs < artifact.modifiedAtMs) {
+          invalidationReason = "receipt stale";
+        } else if (receipt.buildId !== artifact.buildId) {
+          invalidationReason = "artifact identity changed";
+        } else if (receipt.worktreeId !== currentInput.worktreeId) {
+          invalidationReason = "worktree identity changed";
+        } else if (changedCategory) {
+          invalidationReason = `${changedCategory} changed`;
+        }
       }
-      await adapters.writeReusableBuildReceipt({
-        ...completedInput,
-        buildId: artifact.buildId,
-        version: 1,
-      });
-      return artifact;
-    });
-  });
 
-  return { ...result, invalidationReason, reuseStatus };
+      return runPhase("production-build", async () => {
+        await adapters.removeReusableBuildReceipt();
+        const artifact = await adapters.build({ signal: input.signal });
+        setBuildId(artifact.buildId);
+        const completedInput = await adapters.readBuildReuseInput();
+        if (!productionBuildReuseInputsMatch(currentInput, completedInput)) {
+          throw new Error(
+            "Production build inputs changed while the build was running.",
+          );
+        }
+        await adapters.writeReusableBuildReceipt({
+          ...completedInput,
+          buildId: artifact.buildId,
+          version: 1,
+        });
+        return artifact;
+      });
+    });
+
+    return { ...result, invalidationReason, reuseStatus };
+  } catch (error) {
+    if (error instanceof ProductionVerificationError) {
+      error.invalidationReason = invalidationReason;
+      error.reuseStatus = reuseStatus;
+    }
+    throw error;
+  }
 }

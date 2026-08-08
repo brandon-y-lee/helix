@@ -158,7 +158,7 @@ export async function runAffectedBrowserVerificationCommand(
     for (const journey of plan.journeys) {
       addSelection(
         journey,
-        plan.webkitCapabilities,
+        journey.capabilities,
         `${unmappedFile} is not mapped by Browser Verification Plan v${plan.version}; selected the complete plan.`,
       );
     }
@@ -279,6 +279,19 @@ export async function runAffectedBrowserVerificationCommand(
       },
     );
   } catch (error) {
+    const reuseStatus =
+      typeof error === "object" &&
+      error !== null &&
+      (error as { reuseStatus?: unknown }).reuseStatus === "reused"
+        ? ("reused" as const)
+        : ("new" as const);
+    const invalidationReason =
+      typeof error === "object" &&
+      error !== null &&
+      typeof (error as { invalidationReason?: unknown }).invalidationReason ===
+        "string"
+        ? (error as { invalidationReason: string }).invalidationReason
+        : "verification failed before reuse evaluation";
     const failure = [...diagnostics]
       .reverse()
       .find((diagnostic) => diagnostic.status === "failed");
@@ -290,12 +303,11 @@ export async function runAffectedBrowserVerificationCommand(
       ),
       failureClassification: failure?.phase ?? "preflight",
       outcome: "failed" as const,
-      reuseStatus: diagnostics.some(
-        (diagnostic) => diagnostic.phase === "artifact-validation",
-      )
-        ? ("reused" as const)
-        : ("new" as const),
+      reuseStatus,
     };
+    input.log(
+      `Production build reuse: ${reuseStatus} (${invalidationReason}).`,
+    );
     input.log(`[affected-verification-result] ${JSON.stringify(telemetry)}`);
     throw error;
   }

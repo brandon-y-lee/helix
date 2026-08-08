@@ -278,6 +278,7 @@ describe("Affected Browser Verification command", () => {
       phase: "browser-test",
     });
     expect(stopped).toBe(true);
+    expect(output).toContain("Production build reuse: new (no receipt).");
     const structured = output.find((line) =>
       line.startsWith("[affected-verification-result] "),
     );
@@ -643,7 +644,7 @@ describe("Affected Browser Verification command", () => {
       },
     });
 
-    await runAffectedBrowserVerificationCommand({
+    const result = await runAffectedBrowserVerificationCommand({
       adapters,
       argv: ["--base", "dev"],
       env: {},
@@ -678,6 +679,22 @@ describe("Affected Browser Verification command", () => {
     expect(output).toContain(
       "Selected webkit / storefront-purchase: middleware.ts is not mapped by Browser Verification Plan v1; selected the complete plan.",
     );
+    expect(result.telemetry.capabilities).toEqual([
+      "Catalog Preview",
+      "Platform Navigation",
+      "Product Discovery",
+      "Accessibility Interaction",
+      "Focus",
+      "Media",
+      "Responsive Overlay",
+      "Scroll",
+      "Routine Navigation",
+      "Product Search",
+      "PDP Purchase",
+      "Cart",
+      "Touch",
+      "Sticky Layout",
+    ]);
   });
 
   it("does not classify a file whose name only extends an exact path rule", async () => {

@@ -281,10 +281,14 @@ describe("Production Verification Node Adapters", () => {
     const cwd = await mkdtemp(resolve(tmpdir(), "mei-pelle-build-reuse-inputs-"));
     const files = {
       "app/page.tsx": "export default function Page() { return null; }\n",
+      "hooks/use-feature.ts": "export const enabled = true;\n",
+      "next.config.ts": "export default {};\n",
       "package.json": '{"name":"reuse-fixture"}\n',
+      "pnpm-lock.yaml": "lockfileVersion: '9.0'\n",
       "playwright.config.ts": "export default {};\n",
       "scripts/browser-verification-plan.ts": "export const version = 1;\n",
       "tests/example.test.ts": "export const testCase = true;\n",
+      "vitest.config.ts": "export default {};\n",
     };
 
     try {
@@ -302,15 +306,20 @@ describe("Production Verification Node Adapters", () => {
         NODE_ENV: "production",
         NEXT_PUBLIC_SITE_ORIGIN: "https://mei-pelle.example.test",
         PRIVATE_API_SECRET: "must-not-be-receipted",
+        VERCEL_URL: "mei-pelle.example.test",
       });
       const baseline = await adapters.readBuildReuseInput();
 
       const cases = [
         ["app/page.tsx", "runtime-source"],
+        ["hooks/use-feature.ts", "runtime-source"],
+        ["next.config.ts", "browser-configuration"],
         ["package.json", "dependencies"],
+        ["pnpm-lock.yaml", "dependencies"],
         ["playwright.config.ts", "browser-configuration"],
         ["scripts/browser-verification-plan.ts", "verification-plan"],
         ["tests/example.test.ts", "tests"],
+        ["vitest.config.ts", "tests"],
       ] as const;
       for (const [path, category] of cases) {
         await writeFile(resolve(cwd, path), `${files[path]}// changed\n`);
@@ -325,8 +334,9 @@ describe("Production Verification Node Adapters", () => {
         cwd,
         {
           NODE_ENV: "production",
-          NEXT_PUBLIC_SITE_ORIGIN: "https://changed.example.test",
+          NEXT_PUBLIC_SITE_ORIGIN: "https://mei-pelle.example.test",
           PRIVATE_API_SECRET: "a-different-secret",
+          VERCEL_URL: "changed.example.test",
         },
       );
       const changedInput = await environmentChanged.readBuildReuseInput();

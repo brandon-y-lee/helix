@@ -811,7 +811,21 @@ const NON_SECRET_BUILD_ENVIRONMENT_KEYS = new Set([
   "CI",
   "NODE_ENV",
   "STRIPE_AUTOMATIC_TAX_ENABLED",
+  "VERCEL_ENV",
+  "VERCEL_URL",
 ]);
+
+const NON_RUNTIME_BUILD_REUSE_PATHS = new Set([
+  ".env.example",
+  ".eslintrc.json",
+  ".gitignore",
+  ".mcp.json",
+  "AGENTS.md",
+  "CONTEXT-MAP.md",
+  "README.md",
+]);
+
+const NON_RUNTIME_BUILD_REUSE_PREFIXES = [".claude/", ".codex/", "docs/"];
 
 function buildReuseCategory(path: string): ProductionBuildReuseCategory | undefined {
   if (path === "scripts/browser-verification-plan.ts") {
@@ -842,6 +856,10 @@ function buildReuseCategory(path: string): ProductionBuildReuseCategory | undefi
     return "browser-configuration";
   }
   if (
+    path === "vitest.config.ts" ||
+    path === "vitest.config.js" ||
+    path === "vitest.setup.ts" ||
+    path === "vitest.setup.js" ||
     path.startsWith("e2e/") ||
     path.startsWith("tests/") ||
     path.startsWith("test-support/")
@@ -862,7 +880,13 @@ function buildReuseCategory(path: string): ProductionBuildReuseCategory | undefi
   ) {
     return "runtime-source";
   }
-  return undefined;
+  if (
+    NON_RUNTIME_BUILD_REUSE_PATHS.has(path) ||
+    NON_RUNTIME_BUILD_REUSE_PREFIXES.some((prefix) => path.startsWith(prefix))
+  ) {
+    return undefined;
+  }
+  return "runtime-source";
 }
 
 function digestBuildReuseValues(values: readonly string[]): string {
@@ -960,6 +984,30 @@ function readPlaywrightRetryCount(report: unknown): number {
   return retries;
 }
 
+async function readStoredReceipt(path: string): Promise<
+  | { contents: string; modifiedAtMs: number }
+  | undefined
+> {
+  try {
+    const [contents, metadata] = await Promise.all([
+      readFile(path, "utf8"),
+      stat(path),
+    ]);
+    return { contents, modifiedAtMs: metadata.mtimeMs };
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+    throw error;
+  }
+}
+
+async function removeStoredReceipt(path: string): Promise<void> {
+  try {
+    await unlink(path);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
+}
+
 export async function createNodeProductionVerificationAdapters(
   cwd: string,
   env: NodeJS.ProcessEnv,
@@ -998,44 +1046,10 @@ export async function createNodeProductionVerificationAdapters(
     readArtifact: () => readBuildArtifact(cwd),
     readBuildReuseInput: () => readProductionBuildReuseInput(cwd, env),
     readCommitSha: () => readCurrentCommitSha(cwd),
-    readReceipt: async () => {
-      try {
-        const [contents, metadata] = await Promise.all([
-          readFile(receiptPath, "utf8"),
-          stat(receiptPath),
-        ]);
-        return { contents, modifiedAtMs: metadata.mtimeMs };
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
-        throw error;
-      }
-    },
-    readReusableBuildReceipt: async () => {
-      try {
-        const [contents, metadata] = await Promise.all([
-          readFile(reusableReceiptPath, "utf8"),
-          stat(reusableReceiptPath),
-        ]);
-        return { contents, modifiedAtMs: metadata.mtimeMs };
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
-        throw error;
-      }
-    },
-    removeReceipt: async () => {
-      try {
-        await unlink(receiptPath);
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-      }
-    },
-    removeReusableBuildReceipt: async () => {
-      try {
-        await unlink(reusableReceiptPath);
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-      }
-    },
+    readReceipt: () => readStoredReceipt(receiptPath),
+    readReusableBuildReceipt: () => readStoredReceipt(reusableReceiptPath),
+    removeReceipt: () => removeStoredReceipt(receiptPath),
+    removeReusableBuildReceipt: () => removeStoredReceipt(reusableReceiptPath),
     writeReceipt: (receipt: ProductionArtifactReceipt) =>
       writeFile(receiptPath, `${JSON.stringify(receipt)}\n`, {
         encoding: "utf8",
