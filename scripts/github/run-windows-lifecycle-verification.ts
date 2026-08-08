@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { createRequire } from "node:module";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 
@@ -8,6 +9,22 @@ import {
 } from "./verification-orchestrator";
 
 const execFileAsync = promisify(execFile);
+const require = createRequire(import.meta.url);
+
+export function windowsLifecycleVitestInvocation(): {
+  args: string[];
+  command: string;
+} {
+  return {
+    command: process.execPath,
+    args: [
+      require.resolve("vitest/vitest.mjs"),
+      "run",
+      "tests/production-verification.test.ts",
+      "tests/production-verification-process.test.ts",
+    ],
+  };
+}
 
 function readSource(value: string | undefined): WindowsLifecycleSource {
   if (value === "pull_request" || value === "schedule" || value === "workflow_dispatch") {
@@ -44,15 +61,10 @@ async function main(): Promise<void> {
     },
     {
       async verifyLifecycle() {
-        const command = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
+        const command = windowsLifecycleVitestInvocation();
         await execFileAsync(
-          command,
-          [
-            "vitest",
-            "run",
-            "tests/production-verification.test.ts",
-            "tests/production-verification-process.test.ts",
-          ],
+          command.command,
+          command.args,
           { cwd: process.cwd(), encoding: "utf8", env: process.env },
         );
         return { outcome: "passed" };

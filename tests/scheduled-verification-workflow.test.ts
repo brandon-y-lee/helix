@@ -14,6 +14,7 @@ import {
 } from "@/scripts/github/record-scheduled-verification-setup-failure.mjs";
 import { createRuntimeIdentity } from "@/scripts/github/scheduled-verification-runtime.mjs";
 import { recordScheduledVerificationFailure } from "@/scripts/github/scheduled-verification-issue.mjs";
+import { windowsLifecycleVitestInvocation } from "@/scripts/github/run-windows-lifecycle-verification";
 
 type Workflow = {
   concurrency?: { "cancel-in-progress"?: boolean; group?: string };
@@ -208,5 +209,14 @@ describe("proportional scheduled verification workflow adapters", () => {
     expect(packageJson.scripts["verification:lifecycle:windows"]).toBe(
       "tsx scripts/github/run-windows-lifecycle-verification.ts",
     );
+    expect(windowsLifecycleVitestInvocation()).toEqual({
+      command: process.execPath,
+      args: [
+        expect.stringMatching(/vitest[\\/]vitest\.mjs$/),
+        "run",
+        "tests/production-verification.test.ts",
+        "tests/production-verification-process.test.ts",
+      ],
+    });
   });
 });
