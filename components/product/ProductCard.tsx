@@ -318,6 +318,11 @@ export function ProductCard({
   function closeQuickBuy({
     focusTrigger = true,
     restorePointerPreview = false,
+    viewport,
+  }: {
+    focusTrigger?: boolean;
+    restorePointerPreview?: boolean;
+    viewport?: { scrollX: number; scrollY: number };
   } = {}) {
     if (controlled) {
       onQuickBuyClose?.();
@@ -341,7 +346,7 @@ export function ProductCard({
     if (focusTrigger) {
       focusTriggerWithoutScrolling();
     } else {
-      preserveViewportAfterUpdate();
+      preserveViewportAfterUpdate(viewport);
     }
   }
 
@@ -413,12 +418,16 @@ export function ProductCard({
     const closePointer = closePointerRef.current;
     const closeWasTouch =
       closePointer?.pointerType === "touch" && !lastInputWasKeyboardRef.current;
+    const viewport = closeWasTouch
+      ? { scrollX: window.scrollX, scrollY: window.scrollY }
+      : undefined;
     if (closeWasTouch) {
       event.currentTarget.blur();
     }
     closeQuickBuy({
       focusTrigger: !closeWasTouch,
       restorePointerPreview: !lastInputWasKeyboardRef.current,
+      viewport,
     });
     closePointerRef.current = null;
   }
