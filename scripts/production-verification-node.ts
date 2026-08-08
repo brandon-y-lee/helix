@@ -1004,9 +1004,7 @@ export async function createNodeProductionVerificationAdapters(
   env: NodeJS.ProcessEnv,
   dependencies: NodeProductionVerificationDependencies = {},
 ): Promise<NodeProductionVerificationAdapters> {
-  const require = createRequire(import.meta.url);
-  const nextCli = require.resolve("next/dist/bin/next");
-  const playwrightCli = require.resolve("@playwright/test/cli");
+  const candidateRequire = createRequire(resolve(cwd, "package.json"));
   const receiptPath = resolve(cwd, PRODUCTION_ARTIFACT_RECEIPT_PATH);
   const reusableReceiptPath = resolve(
     cwd,
@@ -1024,7 +1022,7 @@ export async function createNodeProductionVerificationAdapters(
     isPortAvailable,
     build: async ({ signal }) => {
       await executeOwnedCommand({
-        args: [nextCli, "build"],
+        args: [candidateRequire.resolve("next/dist/bin/next"), "build"],
         command: process.execPath,
         cwd,
         env,
@@ -1067,7 +1065,7 @@ export async function createNodeProductionVerificationAdapters(
     },
     startServer: ({ host, port }) =>
       spawnOwnedProcess({
-        args: [nextCli, "start", "--hostname", host, "--port", String(port)],
+        args: [candidateRequire.resolve("next/dist/bin/next"), "start", "--hostname", host, "--port", String(port)],
         command: process.execPath,
         cwd,
         env,
@@ -1087,7 +1085,8 @@ export async function createNodeProductionVerificationAdapters(
           }
           return journey.testFile;
         });
-        const reportPath = resolve(
+        const retainedReportPath = env.PLAYWRIGHT_JSON_OUTPUT_FILE?.trim();
+        const reportPath = retainedReportPath || resolve(
           tmpdir(),
           `mei-pelle-playwright-telemetry-${process.pid}-${randomUUID()}.json`,
         );
@@ -1096,10 +1095,13 @@ export async function createNodeProductionVerificationAdapters(
         try {
           await executeOwnedCommand({
             args: [
-              playwrightCli,
+              candidateRequire.resolve("@playwright/test/cli"),
               "test",
               ...(testFiles ?? []),
               ...(project ? ["--project", project] : []),
+              ...(selection?.retries === undefined
+                ? []
+                : ["--retries", String(selection.retries)]),
               "--reporter",
               env.CI ? "github,html,json" : "html,json",
             ],
@@ -1126,14 +1128,16 @@ export async function createNodeProductionVerificationAdapters(
         } catch (error) {
           if (primaryFailure === undefined) primaryFailure = error;
         }
-        try {
-          await unlink(reportPath);
-        } catch (error) {
-          if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
-            if (primaryFailure === undefined) primaryFailure = error;
-            else {
-              (primaryFailure as Error & { cleanupFailure?: Error }).cleanupFailure =
-                error instanceof Error ? error : new Error(String(error));
+        if (!retainedReportPath) {
+          try {
+            await unlink(reportPath);
+          } catch (error) {
+            if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+              if (primaryFailure === undefined) primaryFailure = error;
+              else {
+                (primaryFailure as Error & { cleanupFailure?: Error }).cleanupFailure =
+                  error instanceof Error ? error : new Error(String(error));
+              }
             }
           }
         }

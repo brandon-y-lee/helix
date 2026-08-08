@@ -20,6 +20,7 @@ export function windowsLifecycleVitestInvocation(): {
     args: [
       require.resolve("vitest/vitest.mjs"),
       "run",
+      "--testTimeout=20000",
       "tests/production-verification.test.ts",
       "tests/production-verification-process.test.ts",
     ],

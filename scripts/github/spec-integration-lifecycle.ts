@@ -35,7 +35,12 @@ export interface SpecGithubAdapter {
     branch: string;
     directPushes: false;
     allowedMergeMethods: ["squash"];
-    requiredChecks: ["ci", "affected-browser-verification"];
+    requiredChecks: [
+      "ci",
+      "affected-browser-verification",
+      "verification-system-browser-gate",
+      "verification-lifecycle-gate",
+    ];
   }): Promise<void>;
 }
 
@@ -462,7 +467,12 @@ export async function runSpecLifecycle(
     ) {
       throw new Error("child pull request must be reviewed, conflict-free, bound to its ticket, and use a flat branch targeting its spec branch");
     }
-    for (const check of ["ci", "affected-browser-verification"] as const) {
+    for (const check of [
+      "ci",
+      "affected-browser-verification",
+      "verification-system-browser-gate",
+      "verification-lifecycle-gate",
+    ] as const) {
       if (pullRequest.checks[check] !== "passed") {
         throw new Error(`child pull request requires passing ${check}`);
       }
@@ -749,7 +759,17 @@ export async function runSpecLifecycle(
     branch,
     directPushes: false as const,
     allowedMergeMethods: ["squash"] as ["squash"],
-    requiredChecks: ["ci", "affected-browser-verification"] as ["ci", "affected-browser-verification"],
+    requiredChecks: [
+      "ci",
+      "affected-browser-verification",
+      "verification-system-browser-gate",
+      "verification-lifecycle-gate",
+    ] as [
+      "ci",
+      "affected-browser-verification",
+      "verification-system-browser-gate",
+      "verification-lifecycle-gate",
+    ],
   };
   await adapters.github.protectSpecBranch(protection);
   await adapters.git.createBranch({ name: branch, fromBranch: "dev", fromSha: dev.sha });

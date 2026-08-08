@@ -52,4 +52,19 @@ describe("prepareIntegrationCandidate", () => {
     expect(git(root, "show", "HEAD:base.txt")).toBe("base");
     expect(git(root, "show", "HEAD:candidate.txt")).toBe("candidate");
   });
+
+  it("materializes the candidate in a separate worktree without replacing the trusted runner", async () => {
+    const { root, baseSha, headSha } = fixture();
+    const trustedSha = git(root, "rev-parse", "HEAD");
+    const candidatePath = join(root, "candidate-worktree");
+
+    const result = await prepareIntegrationCandidate(
+      { devBase: baseSha, candidateHead: headSha },
+      { cwd: root, outputPath: candidatePath },
+    );
+
+    expect(git(root, "rev-parse", "HEAD")).toBe(trustedSha);
+    expect(git(candidatePath, "rev-parse", "HEAD")).toBe(result.candidateSha);
+    expect(git(candidatePath, "show", "HEAD:candidate.txt")).toBe("candidate");
+  });
 });

@@ -6,6 +6,34 @@ export * from "./spec-integration-lifecycle";
 
 export const INTEGRATION_TIMEOUT_MS = 20 * 60 * 1_000;
 
+export {
+  findReusableProtectedPushReceipt,
+  findReusableVerificationReceipt,
+  runRoutineBrowserVerification,
+  prepareRoutineBrowserVerification,
+  VERIFICATION_RECEIPT_PREDICATE_TYPE,
+  VERIFICATION_RETENTION_POLICY,
+} from "./routine-browser-verification";
+export type {
+  CurrentVerificationInputs,
+  ProtectedPushVerificationInputs,
+  RoutineBrowserVerificationAdapters,
+  RoutineBrowserVerificationInput,
+  RoutineReceiptEvidenceAdapters,
+  Sha256Fingerprint,
+  VerificationReceipt,
+} from "./routine-browser-verification";
+import { isReviewedNonRuntimePath } from "./verification-fingerprints";
+import { isVerificationSystemPath } from "./verification-system-paths.mjs";
+import {
+  findReusableVerificationReceipt as findReceipt,
+  prepareRoutineBrowserVerification as prepareRoutine,
+  type RoutineBrowserVerificationAdapters as RoutineAdapters,
+  type RoutineBrowserVerificationInput as RoutineInput,
+  type RoutineReceiptEvidenceAdapters as RoutineEvidenceAdapters,
+  type Sha256Fingerprint,
+} from "./routine-browser-verification";
+
 export type WorkClass =
   | "completed-spec"
   | "standalone"
@@ -17,8 +45,6 @@ export type WorkClass =
 
 export type VerificationGate = "complete-behavioral" | "fast-non-runtime";
 export type RiskArea = "security" | "payment" | "data" | "provider" | "cross-cutting";
-
-export type Sha256Fingerprint = `sha256:${string}`;
 
 export type ScheduledVerificationIdentity = {
   browser: { name: "webkit"; version: string };
@@ -166,14 +192,6 @@ export const WINDOWS_LIFECYCLE_PATH_PATTERNS = [
   "tsconfig.json",
 ] as const;
 
-function matchesWindowsLifecyclePath(path: string): boolean {
-  return WINDOWS_LIFECYCLE_PATH_PATTERNS.some((pattern) => {
-    if (pattern.endsWith("/**")) return path.startsWith(pattern.slice(0, -2));
-    if (pattern.endsWith("*")) return path.startsWith(pattern.slice(0, -1));
-    return path === pattern;
-  });
-}
-
 function windowsLifecycleReason(input: {
   changedFiles: readonly string[];
   source: WindowsLifecycleSource;
@@ -198,7 +216,7 @@ function windowsLifecycleReason(input: {
     return "verification dependency inputs changed";
   }
   if (
-    input.changedFiles.some(matchesWindowsLifecyclePath)
+    input.changedFiles.some(isVerificationSystemPath)
   ) {
     return "verification-system orchestration changed";
   }
@@ -262,6 +280,107 @@ export interface VerificationAdapter {
   }): Promise<{ outcome: "passed" | "failed" }>;
 }
 
+type VerificationRequest = Parameters<VerificationAdapter["verify"]>[0];
+
+export interface WorkflowVerificationTransport {
+  dispatch(input: VerificationRequest): Promise<void>;
+  findRun(input: VerificationRequest): Promise<number | undefined>;
+  waitForRun(input: {
+    runId: number;
+    signal: AbortSignal;
+  }): Promise<{ outcome: "passed" | "failed" }>;
+  cancelRun(input: { runId: number }): Promise<void>;
+  delay(input: { milliseconds: number; signal: AbortSignal }): Promise<void>;
+}
+
+export function createWorkflowVerificationAdapter(
+  transport: WorkflowVerificationTransport,
+): VerificationAdapter {
+  return {
+    async verify(input) {
+      await transport.dispatch(input);
+      let runId: number | undefined;
+      for (let attempt = 0; attempt < 30 && !runId; attempt += 1) {
+        runId = await transport.findRun(input);
+        if (!runId) {
+          await transport.delay({ milliseconds: 1_000, signal: input.signal });
+        }
+      }
+      if (!runId) throw new Error("dispatched integration verification run was not observable");
+
+      const result = await transport.waitForRun({ runId, signal: input.signal });
+      if (input.signal.aborted) await transport.cancelRun({ runId });
+      return result;
+    },
+  };
+}
+
+export function createRoutineReceiptVerificationAdapter(input: {
+  identity: {
+    read(candidate: Parameters<VerificationAdapter["verify"]>[0]): Promise<RoutineInput>;
+  };
+  artifact: RoutineAdapters["artifact"];
+  attestation: RoutineAdapters["attestation"];
+  browser: RoutineAdapters["browser"];
+  catalog: RoutineAdapters["catalog"];
+  clock: RoutineAdapters["clock"];
+}): VerificationAdapter {
+  const orchestrator = createRoutineReceiptOrchestrator(input);
+  return {
+    async verify(candidate) {
+      const completed = await orchestrator.prepare(candidate);
+      if (completed.outcome !== "passed") return { outcome: "failed" };
+      await input.attestation.sign(completed.receipt);
+      const reusable = await findReceipt({
+        artifact: completed.receipt.artifact,
+        browsers: completed.receipt.browsers,
+        catalogFingerprint: completed.receipt.catalog.after,
+        integration: completed.receipt.integration,
+        planFingerprint: completed.receipt.planFingerprint,
+        tools: completed.receipt.tools,
+      }, input.attestation);
+      return { outcome: reusable.outcome === "reused" ? "passed" : "failed" };
+    },
+  };
+}
+
+export function createRoutineReceiptOrchestrator(input: {
+  identity: {
+    read(candidate: Parameters<VerificationAdapter["verify"]>[0]): Promise<RoutineInput>;
+  };
+  artifact: RoutineEvidenceAdapters["artifact"];
+  browser: RoutineEvidenceAdapters["browser"];
+  catalog: RoutineEvidenceAdapters["catalog"];
+  clock: RoutineEvidenceAdapters["clock"];
+}) {
+  return {
+    async prepare(candidate: Parameters<VerificationAdapter["verify"]>[0]) {
+      const identity = await input.identity.read(candidate);
+      if (
+        identity.baseSha !== candidate.baseSha ||
+        identity.candidateSha !== candidate.headSha ||
+        identity.pullRequest !== candidate.number
+      ) {
+        return { outcome: "failed" as const, reusable: false as const };
+      }
+      return prepareRoutine(identity, input);
+    },
+    async verifySigned(
+      current: import("./routine-browser-verification").CurrentVerificationInputs,
+      attestation: Pick<RoutineAdapters["attestation"], "lookup">,
+    ) {
+      return verifySignedRoutineReceipt(current, attestation);
+    },
+  };
+}
+
+export async function verifySignedRoutineReceipt(
+  current: import("./routine-browser-verification").CurrentVerificationInputs,
+  attestation: Pick<RoutineAdapters["attestation"], "lookup">,
+) {
+  return findReceipt(current, attestation);
+}
+
 export interface MergeAdapter {
   merge(input: FrozenCandidate & {
     candidateSha: string;
@@ -310,10 +429,6 @@ type IntegrationOptions = {
   timeoutMs?: number;
   signal?: AbortSignal;
 };
-
-function isReviewedNonRuntimePath(path: string): boolean {
-  return path.endsWith(".md") || path.startsWith("docs/");
-}
 
 function planFor(candidate: IntegrationCandidate): {
   gate: VerificationGate;

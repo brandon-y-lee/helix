@@ -30,6 +30,8 @@ export function desiredSpecRuleset(appId) {
           required_status_checks: [
             { context: "ci", integration_id: appId },
             { context: "affected-browser-verification", integration_id: appId },
+            { context: "verification-system-browser-gate", integration_id: appId },
+            { context: "verification-lifecycle-gate", integration_id: appId },
           ],
           strict_required_status_checks_policy: true,
           do_not_enforce_on_create: false,

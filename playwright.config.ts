@@ -20,7 +20,15 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
-  reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : "html",
+  reporter: process.env.CI
+    ? [
+        ["github"],
+        ["html", { open: "never" }],
+        ...(process.env.PLAYWRIGHT_JSON_OUTPUT_FILE
+          ? [["json", { outputFile: process.env.PLAYWRIGHT_JSON_OUTPUT_FILE }] as const]
+          : []),
+      ]
+    : "html",
   use: {
     baseURL: verificationBaseURL,
     trace: "on-first-retry",

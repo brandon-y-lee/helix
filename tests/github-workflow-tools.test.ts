@@ -77,12 +77,16 @@ function initialiseRepository(): { root: string; tempRoot: string } {
   writeFileSync(join(root, "README.md"), "fixture\n");
   mkdirSync(join(root, ".github", "workflows"), { recursive: true });
   writeFileSync(
+    join(root, ".github", "workflows", "ci.yml"),
+    "name: CI\npermissions:\n  contents: read\njobs:\n  ci-core:\n    runs-on: ubuntu-latest\n    steps: []\n  protected-push-receipt:\n    permissions:\n      actions: write\n      attestations: read\n      contents: read\n    runs-on: ubuntu-latest\n    steps: []\n",
+  );
+  writeFileSync(
     join(root, ".github", "workflows", "dev-integration.yml"),
     "name: coordinator\npermissions:\n  actions: write\n  contents: write\n  issues: write\n  pull-requests: write\njobs:\n  coordinate:\n    runs-on: ubuntu-latest\n    steps: []\n",
   );
   writeFileSync(
     join(root, ".github", "workflows", "dev-integration-verification.yml"),
-    "name: verification\npermissions:\n  contents: read\njobs:\n  verify:\n    runs-on: ubuntu-latest\n    steps: []\n",
+    "name: verification\npermissions:\n  contents: read\njobs:\n  verify:\n    runs-on: ubuntu-latest\n    steps: []\n  attest-stable-result:\n    permissions:\n      artifact-metadata: write\n      attestations: write\n      contents: read\n      id-token: write\n    runs-on: ubuntu-latest\n    steps: []\n",
   );
   writeFileSync(
     join(root, ".github", "workflows", "scheduled-browser-verification.yml"),
@@ -153,8 +157,7 @@ describe("GitHub Actions CI", () => {
     expect(ciWorkflow).toContain('pnpm verify:affected -- --base "origin/${{ github.base_ref }}"');
     for (const name of [
       "Install Playwright browsers",
-      "Build receipted production artifact",
-      "Verify receipted production artifact",
+      "Verify affected browser journeys",
     ]) {
       expect(workflowStep(name)).toContain("!startsWith(github.base_ref, 'codex/spec-')");
     }
@@ -170,11 +173,10 @@ describe("GitHub Actions CI", () => {
     expect(ciWorkflow).not.toContain("ALGOLIA_ADMIN_API_KEY");
   });
 
-  it("runs production browser verification only for pull-request merge trees", () => {
+  it("runs affected browser verification only for pull-request merge trees", () => {
     for (const name of [
       "Install Playwright browsers",
-      "Build receipted production artifact",
-      "Verify receipted production artifact",
+      "Verify affected browser journeys",
     ]) {
       expect(workflowStep(name)).toContain(
         "github.event_name == 'pull_request'",
@@ -184,6 +186,10 @@ describe("GitHub Actions CI", () => {
     expect(workflowStep("Upload Playwright report")).toContain(
       "if: ${{ failure() && github.event_name == 'pull_request' }}",
     );
+    expect(workflowStep("Verify affected browser journeys")).toContain(
+      "pnpm verify:affected -- --base \"origin/${{ github.base_ref }}\"",
+    );
+    expect(ciWorkflow).not.toContain("scripts/verify-production-ci.ts");
 
     for (const name of ["Lint", "Typecheck", "Unit tests"]) {
       expect(workflowStep(name)).not.toContain("github.event_name");
@@ -779,6 +785,20 @@ describe("GitHub workflow bootstrap", () => {
         state.rulesets[0].rules.find((rule: { type: string }) => rule.type === "required_status_checks")
           .parameters.strict_required_status_checks_policy,
       ).toBe(false);
+      expect(state.protections.dev.required_status_checks.contexts).toEqual([
+        "ci",
+        "verification-system-browser-gate",
+        "verification-lifecycle-gate",
+      ]);
+      expect(
+        state.rulesets[0].rules.find((rule: { type: string }) => rule.type === "required_status_checks")
+          .parameters.required_status_checks.map((check: { context: string }) => check.context),
+      ).toEqual([
+        "ci",
+        "verification-system-browser-gate",
+        "verification-lifecycle-gate",
+        "dev-integration",
+      ]);
       expect(state.workflowPermissions).toEqual({
         default_workflow_permissions: "read",
         can_approve_pull_request_reviews: false,
@@ -889,13 +909,12 @@ describe("GitHub workflow bootstrap", () => {
     }
   });
 
-  it("fails closed on authentication, repository, ancestry, and issue capability uncertainty", () => {
-    const scenarios: Array<{
-      name: string;
-      mutateState?: (state: FakeGithubState) => void;
-      mutateRepo?: (root: string) => void;
-      expected: RegExp;
-    }> = [
+  const uncertaintyScenarios: Array<{
+    name: string;
+    mutateState?: (state: FakeGithubState) => void;
+    mutateRepo?: (root: string) => void;
+    expected: RegExp;
+  }> = [
       {
         name: "authentication",
         mutateState: (state) => {
@@ -967,6 +986,58 @@ describe("GitHub workflow bootstrap", () => {
         expected: /non-coordinator workflow '.github\/workflows\/rogue.yml' job 'mutate' requests write-all/,
       },
       {
+        name: "CI protected-push excess authority",
+        mutateRepo: (root) => {
+          writeFileSync(
+            join(root, ".github", "workflows", "ci.yml"),
+            "name: CI\npermissions:\n  contents: read\njobs:\n  protected-push-receipt:\n    permissions:\n      actions: write\n      attestations: read\n      contents: read\n      issues: write\n    runs-on: ubuntu-latest\n    steps: []\n",
+          );
+          expectSuccess(git(root, "add", ".github/workflows/ci.yml"));
+          expectSuccess(git(root, "commit", "-m", "Overgrant protected push"));
+          expectSuccess(git(root, "branch", "-f", "dev", "HEAD"));
+        },
+        expected: /CI protected-push receipt job must grant only actions: write, attestations: read, and contents: read/,
+      },
+      {
+        name: "CI misplaced write authority",
+        mutateRepo: (root) => {
+          writeFileSync(
+            join(root, ".github", "workflows", "ci.yml"),
+            "name: CI\npermissions:\n  contents: read\njobs:\n  ci-core:\n    permissions:\n      actions: write\n      contents: read\n    runs-on: ubuntu-latest\n    steps: []\n  protected-push-receipt:\n    permissions:\n      actions: write\n      attestations: read\n      contents: read\n    runs-on: ubuntu-latest\n    steps: []\n",
+          );
+          expectSuccess(git(root, "add", ".github/workflows/ci.yml"));
+          expectSuccess(git(root, "commit", "-m", "Overgrant core CI"));
+          expectSuccess(git(root, "branch", "-f", "dev", "HEAD"));
+        },
+        expected: /CI job 'ci-core' must inherit contents: read/,
+      },
+      {
+        name: "CI top-level excess authority",
+        mutateRepo: (root) => {
+          writeFileSync(
+            join(root, ".github", "workflows", "ci.yml"),
+            "name: CI\npermissions:\n  actions: read\n  contents: read\njobs:\n  protected-push-receipt:\n    permissions:\n      actions: write\n      attestations: read\n      contents: read\n    runs-on: ubuntu-latest\n    steps: []\n",
+          );
+          expectSuccess(git(root, "add", ".github/workflows/ci.yml"));
+          expectSuccess(git(root, "commit", "-m", "Overgrant CI workflow"));
+          expectSuccess(git(root, "branch", "-f", "dev", "HEAD"));
+        },
+        expected: /CI workflow must default to only contents: read/,
+      },
+      {
+        name: "attestation signer authority",
+        mutateRepo: (root) => {
+          writeFileSync(
+            join(root, ".github", "workflows", "dev-integration-verification.yml"),
+            "name: verification\npermissions:\n  contents: write\njobs:\n  verify:\n    runs-on: ubuntu-latest\n    steps: []\n",
+          );
+          expectSuccess(git(root, "add", ".github/workflows/dev-integration-verification.yml"));
+          expectSuccess(git(root, "commit", "-m", "Overgrant receipt signer"));
+          expectSuccess(git(root, "branch", "-f", "dev", "HEAD"));
+        },
+        expected: /attestation signer workflow must default to contents: read/,
+      },
+      {
         name: "scheduled workflow excess authority",
         mutateRepo: (root) => {
           writeFileSync(
@@ -981,44 +1052,43 @@ describe("GitHub workflow bootstrap", () => {
         },
         expected: /scheduled browser verification must grant only contents: read and issues: write/,
       },
-    ];
+  ];
 
-    for (const scenario of scenarios) {
-      const { root, tempRoot } = initialiseRemoteRepository();
-      try {
-        const statePath = join(tempRoot, "github-state.json");
-        const logPath = join(tempRoot, "github-calls.log");
-        const state: FakeGithubState = {
-          repo: {
-            nameWithOwner: "brandon-y-lee/mei-pelle",
-            defaultBranchRef: { name: "main" },
-            hasIssuesEnabled: true,
-            mergeCommitAllowed: true,
-            squashMergeAllowed: true,
-            rebaseMergeAllowed: false,
-            deleteBranchOnMerge: true,
-          },
-          labels: [],
-          protections: {},
-        };
-        scenario.mutateState?.(state);
-        scenario.mutateRepo?.(root);
-        writeFileSync(statePath, JSON.stringify(state));
-        const fakeGh = writeFakeGh(tempRoot, logPath);
-        const planned = bootstrap(
-          root,
-          fakeGh,
-          statePath,
-          logPath,
-          "plan",
-          "--repo",
-          "brandon-y-lee/mei-pelle",
-        );
-        expect(planned.status, scenario.name).not.toBe(0);
-        expect(planned.stderr).toMatch(scenario.expected);
-      } finally {
-        cleanupFixture(tempRoot);
-      }
+  it.each(uncertaintyScenarios)("fails closed on $name uncertainty", (scenario) => {
+    const { root, tempRoot } = initialiseRemoteRepository();
+    try {
+      const statePath = join(tempRoot, "github-state.json");
+      const logPath = join(tempRoot, "github-calls.log");
+      const state: FakeGithubState = {
+        repo: {
+          nameWithOwner: "brandon-y-lee/mei-pelle",
+          defaultBranchRef: { name: "main" },
+          hasIssuesEnabled: true,
+          mergeCommitAllowed: true,
+          squashMergeAllowed: true,
+          rebaseMergeAllowed: false,
+          deleteBranchOnMerge: true,
+        },
+        labels: [],
+        protections: {},
+      };
+      scenario.mutateState?.(state);
+      scenario.mutateRepo?.(root);
+      writeFileSync(statePath, JSON.stringify(state));
+      const fakeGh = writeFakeGh(tempRoot, logPath);
+      const planned = bootstrap(
+        root,
+        fakeGh,
+        statePath,
+        logPath,
+        "plan",
+        "--repo",
+        "brandon-y-lee/mei-pelle",
+      );
+      expect(planned.status, scenario.name).not.toBe(0);
+      expect(planned.stderr).toMatch(scenario.expected);
+    } finally {
+      cleanupFixture(tempRoot);
     }
   });
 });

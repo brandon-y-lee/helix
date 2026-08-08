@@ -12,6 +12,7 @@ type FrozenGitInputs = {
 
 type PrepareOptions = {
   cwd?: string;
+  outputPath?: string;
 };
 
 async function git(cwd: string, args: string[], env?: Record<string, string>): Promise<string> {
@@ -64,11 +65,15 @@ export async function prepareIntegrationCandidate(
     },
   );
   requireCommitSha(candidateSha, "prepared candidate");
-  await git(cwd, ["checkout", "--detach", candidateSha]);
+  if (options.outputPath) {
+    await git(cwd, ["worktree", "add", "--detach", options.outputPath, candidateSha]);
+  } else {
+    await git(cwd, ["checkout", "--detach", candidateSha]);
+  }
   return { candidateSha };
 }
 
-function parseCli(argv: string[]): FrozenGitInputs {
+function parseCli(argv: string[]): FrozenGitInputs & { outputPath?: string } {
   const values = new Map<string, string>();
   for (let index = 0; index < argv.length; index += 2) {
     const flag = argv[index];
@@ -78,14 +83,16 @@ function parseCli(argv: string[]): FrozenGitInputs {
   }
   const candidateHead = values.get("--candidate-head");
   const devBase = values.get("--dev-base");
-  if (!candidateHead || !devBase || values.size !== 2) {
-    throw new Error("expected exactly --candidate-head and --dev-base");
+  const outputPath = values.get("--output");
+  if (!candidateHead || !devBase || values.size !== (outputPath ? 3 : 2)) {
+    throw new Error("expected --candidate-head, --dev-base, and optional --output");
   }
-  return { candidateHead, devBase };
+  return { candidateHead, devBase, outputPath };
 }
 
 async function main(): Promise<void> {
-  const result = await prepareIntegrationCandidate(parseCli(process.argv.slice(2)));
+  const { outputPath, ...inputs } = parseCli(process.argv.slice(2));
+  const result = await prepareIntegrationCandidate(inputs, { outputPath });
   process.stdout.write(`${JSON.stringify(result)}\n`);
 }
 

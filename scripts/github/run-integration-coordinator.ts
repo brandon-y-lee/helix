@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import { pathToFileURL } from "node:url";
 
 import {
+  createWorkflowVerificationAdapter,
   runIntegrationLine,
   type GitAdapter,
   IntegrationCandidate,
@@ -9,8 +10,10 @@ import {
   type RepositoryAdapter,
   RiskArea,
   type VerificationAdapter,
+  type WorkflowVerificationTransport,
   WorkClass,
 } from "./verification-orchestrator";
+import { isVerificationSystemPath } from "./verification-system-paths.mjs";
 
 type PullRequestFact = {
   number: number;
@@ -72,21 +75,6 @@ const commandAdapter: CommandAdapter = {
   },
 };
 
-const verificationSystemPaths = [
-  ".github/workflows/",
-  "playwright.config.ts",
-  "scripts/affected-browser-verification",
-  "scripts/browser-verification-plan",
-  "scripts/github/",
-  "scripts/production-verification",
-  "scripts/verify-affected",
-  "scripts/verify-production",
-  "tests/affected-browser-verification",
-  "tests/integration-",
-  "tests/verification-orchestrator",
-  "tests/production-verification",
-];
-
 function declaredWorkClass(body: string): WorkClass {
   const path = body.match(/^- Path:\s*(.+?)\s*$/m)?.[1]?.toLowerCase();
   if (path === "urgent ticket") return "urgent";
@@ -109,10 +97,6 @@ function declaredFastPathProof(body: string): string[] | undefined {
   return paths.length > 0 ? paths : undefined;
 }
 
-function isVerificationSystemPath(path: string): boolean {
-  return verificationSystemPaths.some((prefix) => path.startsWith(prefix));
-}
-
 function inferRiskAreas(paths: string[]): RiskArea[] {
   const risks: RiskArea[] = [];
   const joined = paths.join("\n").toLowerCase();
@@ -133,12 +117,27 @@ function inferRiskAreas(paths: string[]): RiskArea[] {
   return risks;
 }
 
-function ciPassed(checks: PullRequestFact["statusCheckRollup"]): boolean {
+function checkPassed(
+  checks: PullRequestFact["statusCheckRollup"],
+  requiredName: string,
+): boolean {
   return checks.some((check) => {
     const name = check.name ?? check.context;
     const result = check.conclusion ?? check.state;
-    return name === "ci" && check.status !== "IN_PROGRESS" && result === "SUCCESS";
+    return name === requiredName && check.status !== "IN_PROGRESS" && result === "SUCCESS";
   });
+}
+
+function requiredPreflightPassed(
+  checks: PullRequestFact["statusCheckRollup"],
+  workClass: WorkClass,
+): boolean {
+  return (
+    checkPassed(checks, "ci") &&
+    (workClass !== "verification-system" ||
+      (checkPassed(checks, "verification-system-browser-gate") &&
+        checkPassed(checks, "verification-lifecycle-windows")))
+  );
 }
 
 export function toIntegrationCandidate(fact: PullRequestFact): IntegrationCandidate {
@@ -161,7 +160,7 @@ export function toIntegrationCandidate(fact: PullRequestFact): IntegrationCandid
       !fact.isDraft &&
       fact.mergeable !== "CONFLICTING" &&
       !fact.labels.some((label) => label.name === "workflow:review") &&
-      ciPassed(fact.statusCheckRollup),
+      requiredPreflightPassed(fact.statusCheckRollup, workClass),
   };
 }
 
@@ -413,10 +412,11 @@ export function createVerificationAdapter(
   repository: string,
   nonce: string,
   commands: CommandAdapter = commandAdapter,
+  orchestrate: (transport: WorkflowVerificationTransport) => VerificationAdapter =
+    createWorkflowVerificationAdapter,
 ): VerificationAdapter {
-  return {
-    async verify(input) {
-      const title = `Integration verification #${input.number} ${nonce}`;
+  return orchestrate({
+    async dispatch(input) {
       await commands.run("gh", [
         "workflow",
         "run",
@@ -436,47 +436,48 @@ export function createVerificationAdapter(
         "-f",
         `nonce=${nonce}`,
       ]);
-
-      let runId: number | undefined;
-      for (let attempt = 0; attempt < 30 && !runId; attempt += 1) {
-        const result = await commands.run("gh", [
-          "run",
-          "list",
-          "--repo",
-          repository,
-          "--workflow",
-          "dev-integration-verification.yml",
-          "--event",
-          "workflow_dispatch",
-          "--limit",
-          "30",
-          "--json",
-          "databaseId,displayTitle",
-        ]);
-        const runs = parseJson<Array<{ databaseId: number; displayTitle: string }>>(
-          result.stdout,
-          "integration verification runs",
-        );
-        runId = runs.find((run) => run.displayTitle === title)?.databaseId;
-        if (!runId) await abortableDelay(1_000, input.signal);
-      }
-      if (!runId) throw new Error("dispatched integration verification run was not observable");
-
+    },
+    async findRun(input) {
+      const title = `Integration verification #${input.number} ${nonce}`;
+      const result = await commands.run("gh", [
+        "run",
+        "list",
+        "--repo",
+        repository,
+        "--workflow",
+        "dev-integration-verification.yml",
+        "--event",
+        "workflow_dispatch",
+        "--limit",
+        "30",
+        "--json",
+        "databaseId,displayTitle",
+      ]);
+      const runs = parseJson<Array<{ databaseId: number; displayTitle: string }>>(
+        result.stdout,
+        "integration verification runs",
+      );
+      return runs.find((run) => run.displayTitle === title)?.databaseId;
+    },
+    async waitForRun({ runId, signal }) {
       const watched = await commands.run(
         "gh",
         ["run", "watch", String(runId), "--repo", repository, "--exit-status", "--interval", "10"],
-        { allowFailure: true, signal: input.signal },
+        { allowFailure: true, signal },
       );
-      if (input.signal.aborted) {
-        await commands.run(
-          "gh",
-          ["run", "cancel", String(runId), "--repo", repository],
-          { allowFailure: true },
-        );
-      }
       return { outcome: watched.status === 0 ? "passed" : "failed" };
     },
-  };
+    async cancelRun({ runId }) {
+      await commands.run(
+        "gh",
+        ["run", "cancel", String(runId), "--repo", repository],
+        { allowFailure: true },
+      );
+    },
+    async delay({ milliseconds, signal }) {
+      await abortableDelay(milliseconds, signal);
+    },
+  });
 }
 
 export function createMergeAdapter(

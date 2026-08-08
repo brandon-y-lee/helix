@@ -1,17 +1,20 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  createRoutineReceiptVerificationAdapter,
+  createRoutineReceiptOrchestrator,
+  createWorkflowVerificationAdapter,
   evaluateProductionPromotion,
-  runWindowsLifecycleVerification,
-  runScheduledBrowserVerification,
   runIntegrationLine,
-  type OperationalVerificationIssueAdapter,
-  type ScheduledBrowserVerificationAdapter,
-  type ScheduledVerificationIdentity,
+  runScheduledBrowserVerification,
+  runWindowsLifecycleVerification,
   type GitAdapter,
   type IntegrationCandidate,
   type MergeAdapter,
+  type OperationalVerificationIssueAdapter,
   type RepositoryAdapter,
+  type ScheduledBrowserVerificationAdapter,
+  type ScheduledVerificationIdentity,
   type VerificationAdapter,
 } from "@/scripts/github/verification-orchestrator";
 
@@ -23,6 +26,151 @@ const scheduledIdentity: ScheduledVerificationIdentity = {
 };
 
 describe("Verification Orchestrator", () => {
+  it("owns production receipt preparation from actual adapter evidence", async () => {
+    const orchestrator = createRoutineReceiptOrchestrator({
+      identity: { async read() { return {
+        baseSha: "b".repeat(40), browserVersions: { chromium: "Chromium 140" },
+        candidateSha: "c".repeat(40), frameworkVersion: "15.5.19",
+        nodeVersion: "v24.5.0", packageManagerVersion: "pnpm@9.15.4",
+        planFingerprint: `sha256:${"4".repeat(64)}`, playwrightVersion: "1.55.1",
+        pullRequest: 53, workflowRun: "53-1",
+      }; } },
+      artifact: { async prepare() { return {
+        buildId: "build-53", configurationFingerprint: `sha256:${"2".repeat(64)}`,
+        runtimeFingerprint: `sha256:${"1".repeat(64)}`,
+      }; } },
+      browser: { async verify() { return { attempts: 2, outcome: "passed" }; } },
+      catalog: { async fingerprint() { return `sha256:${"3".repeat(64)}`; } },
+      clock: { now: () => "2026-08-08T10:00:00.000Z" },
+    });
+
+    await expect(orchestrator.prepare({
+      number: 53, baseSha: "b".repeat(40), headSha: "c".repeat(40),
+      candidateSha: "d".repeat(40), gate: "complete-behavioral", reasons: [],
+      timeoutMs: 20 * 60 * 1_000, signal: new AbortController().signal,
+    })).resolves.toEqual({ outcome: "retry-passed", reusable: false });
+  });
+
+  it("owns workflow transport policy through the public verification adapter", async () => {
+    const calls: string[] = [];
+    const adapter = createWorkflowVerificationAdapter({
+      async dispatch() { calls.push("dispatch"); },
+      async findRun() { calls.push("find"); return 530; },
+      async waitForRun() { calls.push("wait"); return { outcome: "passed" }; },
+      async cancelRun() { calls.push("cancel"); },
+      async delay() { calls.push("delay"); },
+    });
+
+    await expect(adapter.verify({
+      number: 53,
+      baseSha: "b".repeat(40),
+      headSha: "c".repeat(40),
+      candidateSha: "d".repeat(40),
+      gate: "complete-behavioral",
+      reasons: ["verification-system retains the complete behavioral gate"],
+      timeoutMs: 20 * 60 * 1_000,
+      signal: new AbortController().signal,
+    })).resolves.toEqual({ outcome: "passed" });
+    expect(calls).toEqual(["dispatch", "find", "wait"]);
+  });
+
+  it("does not grant the fast path to runtime-consumed Markdown", async () => {
+    let observedGate: string | undefined;
+    let candidate: IntegrationCandidate | undefined = {
+      number: 54,
+      target: "dev",
+      headSha: "a".repeat(40),
+      readyAt: "2026-08-08T08:00:00.000Z",
+      workClass: "documentation",
+      changedFiles: ["content/runtime-copy.md"],
+      labels: ["workflow:integration-queued"],
+      ready: true,
+    };
+    await runIntegrationLine({
+      repository: {
+        async read() { return { devSha: "b".repeat(40), candidates: candidate ? [candidate] : [] }; },
+        async queue() { return true; },
+        async claim() { candidate!.labels = ["workflow:integration-active"]; return true; },
+        async release() { candidate = undefined; },
+      },
+      git: { async prepare() { return { candidateSha: "c".repeat(40) }; } },
+      verification: { async verify(input) { observedGate = input.gate; return { outcome: "passed" }; } },
+      merge: { async merge() { return { mergeSha: "d".repeat(40) }; } },
+    });
+    expect(observedGate).toBe("complete-behavioral");
+  });
+  it("gates Integration Slot merge on public signed-receipt behavior across every controlled seam", async () => {
+    const candidateSha = "c".repeat(40);
+    const baseSha = "b".repeat(40);
+    let candidate: IntegrationCandidate | undefined = {
+      number: 53,
+      target: "dev",
+      headSha: candidateSha,
+      readyAt: "2026-08-08T08:00:00.000Z",
+      workClass: "verification-system",
+      changedFiles: ["scripts/github/verification-orchestrator.ts"],
+      labels: ["workflow:integration-queued"],
+      ready: true,
+    };
+    let browserCalls = 0;
+    let catalogCalls = 0;
+    let mergeCalls = 0;
+    const signedReceipts: Array<{
+      id: string;
+      receipt: import("@/scripts/github/verification-orchestrator").VerificationReceipt;
+    }> = [];
+    const repository: RepositoryAdapter = {
+      async read() { return { devSha: baseSha, candidates: candidate ? [structuredClone(candidate)] : [] }; },
+      async queue() { return true; },
+      async claim() { candidate!.labels = ["workflow:integration-active"]; return true; },
+      async release() { candidate = undefined; },
+    };
+    const report = await runIntegrationLine({
+      repository,
+      git: { async prepare() { return { candidateSha }; } },
+      verification: createRoutineReceiptVerificationAdapter({
+        identity: {
+          async read() { return {
+            baseSha,
+            browserVersions: { chromium: "Chromium 140" },
+            candidateSha,
+            frameworkVersion: "15.5.19",
+            nodeVersion: "v24.5.0",
+            packageManagerVersion: "pnpm@9.15.4",
+            planFingerprint: `sha256:${"4".repeat(64)}`,
+            playwrightVersion: "1.55.1",
+            pullRequest: 53,
+            workflowRun: "53-1",
+          }; },
+        },
+        artifact: { async prepare() { return {
+              buildId: "build-53",
+              configurationFingerprint: `sha256:${"2".repeat(64)}`,
+              runtimeFingerprint: `sha256:${"1".repeat(64)}`,
+        }; } },
+        attestation: {
+          async lookup() { return signedReceipts; },
+          async sign(receipt) {
+            const signed = { id: "signed-53", receipt };
+            signedReceipts.push(signed);
+            return signed;
+          },
+        },
+        browser: { async verify() { browserCalls += 1; return { attempts: 1, outcome: "passed" }; } },
+        catalog: { async fingerprint() { catalogCalls += 1; return `sha256:${"3".repeat(64)}`; } },
+        clock: { now: () => "2026-08-08T10:00:00.000Z" },
+      }),
+      merge: { async merge() { mergeCalls += 1; return { mergeSha: "d".repeat(40) }; } },
+    });
+
+    expect(report.outcome).toBe("merged");
+    expect({ browserCalls, catalogCalls, mergeCalls }).toEqual({
+      browserCalls: 1,
+      catalogCalls: 2,
+      mergeCalls: 1,
+    });
+  });
+
   it("creates one active operational issue for a failed scheduled WebKit run", async () => {
     const created: unknown[] = [];
     const issues: OperationalVerificationIssueAdapter = {
@@ -236,8 +384,9 @@ describe("Verification Orchestrator", () => {
     ["pull_request", ["scripts/production-verification-node.ts"], "production-verification process control changed"],
     ["pull_request", ["pnpm-lock.yaml"], "verification dependency inputs changed"],
     ["pull_request", [".nvmrc"], "verification dependency inputs changed"],
-    ["pull_request", ["scripts/github/verification-orchestrator.ts"], "verification-system orchestration changed"],
-    ["pull_request", ["e2e/storefront.spec.ts"], "verification-system orchestration changed"],
+     ["pull_request", ["scripts/github/verification-orchestrator.ts"], "verification-system orchestration changed"],
+     ["pull_request", ["tests/verification-receipt-command.test.ts"], "verification-system orchestration changed"],
+     ["pull_request", ["e2e/storefront.spec.ts"], "verification-system orchestration changed"],
   ] as const)(
     "runs Windows lifecycle verification for %s evidence",
     async (source, changedFiles, reason) => {

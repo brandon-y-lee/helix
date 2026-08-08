@@ -143,6 +143,7 @@ export type ProductionVerificationInput = {
 export type ProductionVerificationBrowserSelection = {
   journeyIds: readonly string[];
   projects: readonly ("chromium" | "webkit")[];
+  retries?: number;
   webkitJourneyIds?: readonly string[];
 };
 

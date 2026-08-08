@@ -3,9 +3,8 @@ import { resolve } from "node:path";
 import { parse } from "yaml";
 import { describe, expect, it } from "vitest";
 
-import {
-  WINDOWS_LIFECYCLE_PATH_PATTERNS,
-  type ScheduledVerificationFailure,
+import type {
+  ScheduledVerificationFailure,
 } from "@/scripts/github/verification-orchestrator";
 import {
   createScheduledFallbackFailure,
@@ -19,6 +18,9 @@ import { windowsLifecycleVitestInvocation } from "@/scripts/github/run-windows-l
 type Workflow = {
   concurrency?: { "cancel-in-progress"?: boolean; group?: string };
   jobs: Record<string, {
+    if?: string;
+    needs?: string | string[];
+    outputs?: Record<string, string>;
     "runs-on": string;
     steps: Array<{ if?: string; name?: string; run?: string; with?: Record<string, unknown> }>;
   }>;
@@ -67,40 +69,53 @@ describe("proportional scheduled verification workflow adapters", () => {
 
   it("runs Windows lifecycle evidence only for relevant pull requests, schedule, or manual dispatch", () => {
     const windows = workflow("verification-lifecycle-windows.yml");
-    const pullRequest = windows.on.pull_request as {
-      branches: string[];
-      paths: string[];
-    };
+    const pullRequest = windows.on.pull_request as { branches: string[]; paths?: string[] };
 
     expect(windows.on.schedule).toEqual([{ cron: "41 7 * * 1" }]);
     expect(windows.on.workflow_dispatch).toBeNull();
-    expect(pullRequest.branches).toEqual(["dev", "main"]);
-    expect(pullRequest.paths).toEqual([...WINDOWS_LIFECYCLE_PATH_PATTERNS]);
-    expect(pullRequest.paths).not.toEqual(expect.arrayContaining(["app/**", "components/**", "docs/**"]));
+    expect(pullRequest.branches).toEqual(["dev", "main", "codex/spec-*"]);
+    expect(pullRequest.paths).toBeUndefined();
     expect(windows.permissions).toEqual({ contents: "read" });
+    expect(windows.jobs["classify-windows-lifecycle"]!["runs-on"]).toBe("ubuntu-latest");
     expect(windows.jobs["verification-lifecycle-windows"]!["runs-on"]).toBe("windows-latest");
     expect(
       windows.jobs["verification-lifecycle-windows"]!.steps.some(
         (step) => step.run === "pnpm verification:lifecycle:windows",
       ),
     ).toBe(true);
+    expect(windows.jobs["verification-lifecycle-gate"]).toBeDefined();
   });
 
   it("requires complete Chromium and WebKit evidence only for verification-system pull requests", () => {
     const browser = workflow("verification-system-browser.yml");
-    const pullRequest = browser.on.pull_request as { branches: string[]; paths: string[] };
+    const pullRequest = browser.on.pull_request as { branches: string[]; paths?: string[] };
+    const classifier = browser.jobs["classify-verification-system"]!;
+    const evidence = browser.jobs["complete-browser-evidence"]!;
+    const gate = browser.jobs["verification-system-browser-gate"]!;
     const steps = browser.jobs["complete-browser-evidence"]!.steps;
 
-    expect(pullRequest).toEqual({
-      branches: ["dev", "main"],
-      paths: [...WINDOWS_LIFECYCLE_PATH_PATTERNS],
-    });
+    expect(pullRequest.branches).toEqual(["dev", "main", "codex/spec-*"]);
+    expect(pullRequest.paths).toBeUndefined();
     expect(browser.permissions).toEqual({ contents: "read" });
-    expect(browser.jobs["complete-browser-evidence"]!["runs-on"]).toBe("macos-latest");
+    expect(classifier.outputs?.relevant).toContain("steps.classify.outputs.relevant");
+    expect(classifier.steps.some((step) =>
+      step.run?.includes("node scripts/github/verification-system-paths.mjs")
+    )).toBe(true);
+    expect(evidence["runs-on"]).toBe("macos-latest");
+    expect(evidence.needs).toBe("classify-verification-system");
+    expect(evidence.if).toContain("outputs.relevant == 'true'");
     expect(steps).toEqual(expect.arrayContaining([
       expect.objectContaining({ run: "pnpm exec playwright install chromium webkit" }),
       expect.objectContaining({ run: 'pnpm verify:affected -- --base "origin/${{ github.base_ref }}"' }),
     ]));
+    expect(gate.needs).toEqual([
+      "classify-verification-system",
+      "complete-browser-evidence",
+    ]);
+    expect(gate.if).toContain("always()");
+    expect(gate.steps.some((step) =>
+      step.run?.includes("Relevant verification-system changes require complete browser evidence")
+    )).toBe(true);
   });
 
   it("builds setup-failure state with the same versioned runtime identities", () => {
@@ -215,6 +230,7 @@ describe("proportional scheduled verification workflow adapters", () => {
       args: [
         expect.stringMatching(/vitest[\\/]vitest\.mjs$/),
         "run",
+        "--testTimeout=20000",
         "tests/production-verification.test.ts",
         "tests/production-verification-process.test.ts",
       ],

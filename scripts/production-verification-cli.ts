@@ -7,7 +7,7 @@ type ProductionVerificationCliRuntime = {
 };
 
 export async function executeProductionVerificationCli(
-  operation: (signal: AbortSignal) => Promise<void>,
+  operation: (signal: AbortSignal) => Promise<unknown>,
   runtime: ProductionVerificationCliRuntime = {
     error: (message) => console.error(message),
     off: (event, listener) => process.off(event, listener),
@@ -41,7 +41,7 @@ export async function executeProductionVerificationCli(
 }
 
 export function runProductionVerificationCli(
-  operation: (signal: AbortSignal) => Promise<void>,
+  operation: (signal: AbortSignal) => Promise<unknown>,
 ): void {
   void executeProductionVerificationCli(operation).then((exitCode) => {
     process.exitCode = exitCode;

@@ -2,34 +2,42 @@ name: Verification System Browser Evidence
 
 on:
   pull_request:
-    branches: [dev, main]
-    paths:
-      - ".github/workflows/**"
-      - "scripts/github/**"
-      - "scripts/affected-browser-verification*"
-      - "scripts/browser-verification-plan*"
-      - "scripts/production-verification*"
-      - "scripts/verify-affected*"
-      - "scripts/verify-production*"
-      - "tests/affected-browser-verification*"
-      - "tests/integration-workflow*"
-      - "tests/production-verification*"
-      - "tests/scheduled-*"
-      - "tests/verification-orchestrator*"
-      - "e2e/**"
-      - "playwright-global-setup.ts"
-      - "test-support/**"
-      - ".nvmrc"
-      - "package.json"
-      - "pnpm-lock.yaml"
-      - "playwright.config.ts"
-      - "tsconfig.json"
+    branches: [dev, main, "codex/spec-*"]
 
 permissions:
   contents: read
 
 jobs:
+  classify-verification-system:
+    runs-on: ubuntu-latest
+    outputs:
+      relevant: ${{ steps.classify.outputs.relevant }}
+    steps:
+      - name: Checkout history for browser classification
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Select relevant verification-system changes
+        id: classify
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          git diff --name-only --diff-filter=ACMR "$BASE_SHA" "$GITHUB_SHA" > "$RUNNER_TEMP/changed-files.txt"
+          if ! relevant="$(node scripts/github/verification-system-paths.mjs "$RUNNER_TEMP/changed-files.txt")"; then
+            echo "Verification-system browser classification failed." >&2
+            exit 1
+          fi
+          if [[ "$relevant" != "true" && "$relevant" != "false" ]]; then
+            echo "Verification-system browser classification returned an invalid result." >&2
+            exit 1
+          fi
+          echo "relevant=$relevant" >> "$GITHUB_OUTPUT"
+
   complete-browser-evidence:
+    needs: classify-verification-system
+    if: ${{ needs.classify-verification-system.outputs.relevant == 'true' }}
     runs-on: macos-latest
     timeout-minutes: 30
     env:
@@ -82,3 +90,24 @@ jobs:
             test-results/
           retention-days: 90
           if-no-files-found: ignore
+
+  verification-system-browser-gate:
+    needs: [classify-verification-system, complete-browser-evidence]
+    if: ${{ always() && github.event_name == 'pull_request' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    env:
+      CLASSIFIER_RESULT: ${{ needs.classify-verification-system.result }}
+      BROWSER_RELEVANT: ${{ needs.classify-verification-system.outputs.relevant }}
+      BROWSER_RESULT: ${{ needs.complete-browser-evidence.result }}
+    steps:
+      - name: Require proportional complete browser evidence
+        run: |
+          if [[ "$CLASSIFIER_RESULT" != "success" ]]; then
+            echo "Verification-system browser classification must succeed." >&2
+            exit 1
+          fi
+          if [[ "$BROWSER_RELEVANT" == "true" && "$BROWSER_RESULT" != "success" ]]; then
+            echo "Relevant verification-system changes require complete browser evidence." >&2
+            exit 1
+          fi

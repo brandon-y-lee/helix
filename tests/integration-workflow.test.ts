@@ -12,6 +12,10 @@ const verification = readFileSync(
   "utf8",
 );
 const ci = readFileSync(resolve(projectRoot, ".github/workflows/ci.yml"), "utf8");
+const windowsLifecycle = readFileSync(
+  resolve(projectRoot, ".github/workflows/verification-lifecycle-windows.yml"),
+  "utf8",
+);
 const activeProductMedia = readFileSync(
   resolve(projectRoot, ".github/workflows/active-product-media-verification.yml"),
   "utf8",
@@ -44,22 +48,100 @@ describe("dev Integration Line workflows", () => {
     expect(verification).toContain("candidate_head:");
     expect(verification).toContain("dev_base:");
     expect(verification).toContain("gate:");
-    expect(verification).toContain("permissions:\n  contents: read");
+    expect(verification).toContain("contents: read");
     expect(verification).toContain("timeout-minutes: 20");
     expect(verification).toContain("persist-credentials: false");
     expect(verification).toContain("scripts/github/prepare-integration-candidate.ts");
     expect(verification).toContain("if: ${{ inputs.gate == 'complete-behavioral' }}");
-    expect(verification).toContain("pnpm tsx scripts/verify-production-ci.ts build");
-    expect(verification).toContain("pnpm tsx scripts/verify-production-ci.ts verify");
+    expect(verification).toContain("scripts/verify-production-ci.ts build");
+    expect(verification).toContain("scripts/verify-production-ci.ts verify");
   });
 
-  it("keeps every non-coordinator workflow token explicitly read-only", () => {
-    for (const workflow of [ci, activeProductMedia, verification]) {
+  it("keeps candidate execution read-only and narrowly grants bootstrap dispatch", () => {
+    for (const workflow of [ci, activeProductMedia]) {
       expect(workflow).toContain("permissions:\n  contents: read");
       expect(workflow).not.toContain("contents: write");
-      expect(workflow).not.toContain("actions: write");
       expect(workflow).not.toContain("issues: write");
       expect(workflow).not.toContain("pull-requests: write");
     }
+    expect(activeProductMedia).not.toContain("actions: write");
+    expect(ci).toContain("protected-push-receipt:\n    if:");
+    expect(ci).toContain(
+      "permissions:\n      actions: write\n      attestations: read\n      contents: read",
+    );
+    expect(ci.match(/actions: write/g)).toHaveLength(1);
+  });
+
+  it("uses a valid public site URL when the optional repository variable is unset", () => {
+    const fallback =
+      "NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000' }}";
+    expect(ci.match(/NEXT_PUBLIC_SITE_URL:/g)).toHaveLength(3);
+    expect(verification.match(/NEXT_PUBLIC_SITE_URL:/g)).toHaveLength(2);
+    expect(ci.split(fallback)).toHaveLength(4);
+    expect(verification.split(fallback)).toHaveLength(3);
+  });
+
+  it("uses proportional PR evidence and signs one stable Integration Slot result", () => {
+    expect(ci).toContain("fetch-depth: 0");
+    expect(ci).toContain("pnpm verify:affected -- --base \"origin/${{ github.base_ref }}\"");
+    expect(ci).toContain("Classify verification-system pull request");
+    expect(ci).toContain("node scripts/github/verification-system-paths.mjs");
+    expect(ci).toContain("steps.verification-system.outputs.relevant != 'true'");
+    expect(ci).not.toContain("scripts/verify-production-ci.ts verify");
+
+    expect(verification).toContain("id-token: write");
+    expect(verification).toContain("attestations: write");
+    expect(verification).toContain("artifact-metadata: write");
+    expect(verification).toContain("attest-stable-result:");
+    expect(verification).toContain("Install audited signer dependencies");
+    expect(verification).toContain("--ignore-scripts");
+    expect(verification).toContain("Materialize candidate as non-executable input");
+    expect(verification).toContain("Isolate candidate execution from the audited runner");
+    expect(verification).toContain("sudo -E -H -u verifier-candidate");
+    expect(verification).toContain("chmod -R a-w trusted");
+    expect(verification).toContain("Freeze the receipted artifact before browser verification");
+    expect(verification).toContain("verification:catalog-fingerprint");
+    expect(verification).toContain(
+      "scripts/verify-production-ci.ts verify --selection routine-chromium",
+    );
+    expect(verification).toContain("uses: actions/attest@v4");
+    expect(verification).toContain("predicate-type:");
+    expect(verification).toContain("verification:receipt:verify");
+    expect(verification).toContain("verification-receipt-command.ts evidence");
+    expect(verification).toContain("VERIFICATION_EVIDENCE_PATH:");
+    expect(verification).toContain("VERIFICATION_BROWSER_VERSION:");
+    expect(verification).toContain("PLAYWRIGHT_JSON_OUTPUT_FILE:");
+    expect(verification).toContain("playwright-telemetry.json");
+    expect(verification).toContain('test -s "$PLAYWRIGHT_JSON_OUTPUT_FILE"');
+    expect(verification).toContain("retention-days: 30");
+    expect(verification).toContain("retention-days: 90");
+    expect(ci).toContain("verification:receipt:protected-push");
+    expect(ci).toContain("pnpm exec playwright install chromium");
+    expect(ci).not.toContain("Build current protected-push artifact");
+    expect(ci).toContain("needs: [ci-core, protected-push-receipt]");
+    expect(ci).toContain('RECEIPT_RESULT: ${{ needs.protected-push-receipt.result }}');
+    expect(ci).toContain('branches: [dev, main, "codex/spec-*"]');
+    expect(ci).not.toContain("classify-windows-lifecycle:");
+    expect(ci).not.toContain("workflow_dispatch:");
+    expect(ci).not.toContain("schedule:");
+    expect(windowsLifecycle).toContain("classify-windows-lifecycle:");
+    expect(windowsLifecycle).toContain("needs: classify-windows-lifecycle");
+    expect(windowsLifecycle).toContain("node scripts/github/verification-system-paths.mjs");
+    expect(windowsLifecycle).toContain(
+      'relevant="$(node scripts/github/verification-system-paths.mjs',
+    );
+    expect(windowsLifecycle).toContain(
+      'if [[ "$relevant" != "true" && "$relevant" != "false" ]]',
+    );
+    expect(windowsLifecycle).not.toContain(
+      "if node scripts/github/verification-system-paths.mjs",
+    );
+    expect(windowsLifecycle).toContain("verification-lifecycle-gate:");
+    expect(windowsLifecycle).toContain(
+      "needs: [classify-windows-lifecycle, verification-lifecycle-windows]",
+    );
+    expect(windowsLifecycle).toContain("WINDOWS_RESULT:");
+    expect(windowsLifecycle).toContain("workflow_dispatch:");
+    expect(windowsLifecycle).toContain("schedule:");
   });
 });

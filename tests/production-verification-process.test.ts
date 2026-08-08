@@ -169,6 +169,28 @@ describe("Production Verification Node Adapters", () => {
     ).resolves.toEqual({ retries: 1 });
   });
 
+  it("retains structured timing telemetry when the caller supplies an artifact path", async () => {
+    const directory = await mkdtemp(resolve(tmpdir(), "mei-pelle-retained-telemetry-"));
+    const reportPath = resolve(directory, "playwright-telemetry.json");
+    try {
+      const adapters = await createNodeProductionVerificationAdapters(
+        process.cwd(),
+        { NODE_ENV: "test", PLAYWRIGHT_JSON_OUTPUT_FILE: reportPath },
+        {
+          runCommand: async ({ env }) => {
+            expect(env.PLAYWRIGHT_JSON_OUTPUT_FILE).toBe(reportPath);
+            await writeFile(reportPath, JSON.stringify({ suites: [] }));
+          },
+        },
+      );
+
+      await adapters.runBrowserTests({ baseURL: "http://127.0.0.1:43141" });
+      await expect(readFile(reportPath, "utf8")).resolves.toContain('"suites"');
+    } finally {
+      await rm(directory, { force: true, recursive: true });
+    }
+  });
+
   it("preserves observed retries on a failed browser pass", async () => {
     const adapters = await createNodeProductionVerificationAdapters(
       process.cwd(),

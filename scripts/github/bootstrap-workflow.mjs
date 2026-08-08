@@ -157,7 +157,9 @@ function requireDefaultBranchCoordinator(sha) {
   }
 }
 
-function requireExactWorkflowWriteAuthorities(sha) {
+function requireAuditedWorkflowAuthority(sha) {
+  const attestationSigner = ".github/workflows/dev-integration-verification.yml";
+  const ciWorkflow = ".github/workflows/ci.yml";
   const scheduledBrowserVerification =
     ".github/workflows/scheduled-browser-verification.yml";
   const trustedWriters = new Map([
@@ -217,6 +219,53 @@ function requireExactWorkflowWriteAuthorities(sha) {
       }
       continue;
     }
+    if (path === ciWorkflow) {
+      const permissions = workflow.permissions;
+      if (
+        !permissions ||
+        typeof permissions !== "object" ||
+        Array.isArray(permissions) ||
+        Object.keys(permissions).length !== 1 ||
+        permissions.contents !== "read"
+      ) {
+        throw new Error(`CI workflow must default to only contents: read at ${sha}`);
+      }
+      const protectedPushJob = jobs["protected-push-receipt"];
+      const requiredProtectedPush = {
+        actions: "write",
+        attestations: "read",
+        contents: "read",
+      };
+      if (
+        !protectedPushJob ||
+        typeof protectedPushJob !== "object" ||
+        Array.isArray(protectedPushJob) ||
+        !protectedPushJob.permissions ||
+        typeof protectedPushJob.permissions !== "object" ||
+        Array.isArray(protectedPushJob.permissions) ||
+        Object.keys(protectedPushJob.permissions).length !==
+          Object.keys(requiredProtectedPush).length ||
+        Object.entries(requiredProtectedPush).some(
+          ([permission, access]) => protectedPushJob.permissions[permission] !== access,
+        )
+      ) {
+        throw new Error(
+          `CI protected-push receipt job must grant only actions: write, attestations: read, and contents: read at ${sha}`,
+        );
+      }
+      for (const [jobName, job] of Object.entries(jobs)) {
+        if (
+          jobName !== "protected-push-receipt" &&
+          job &&
+          typeof job === "object" &&
+          !Array.isArray(job) &&
+          "permissions" in job
+        ) {
+          throw new Error(`CI job '${jobName}' must inherit contents: read at ${sha}`);
+        }
+      }
+      continue;
+    }
     if (path === scheduledBrowserVerification) {
       const permissions = workflow.permissions;
       if (
@@ -241,6 +290,49 @@ function requireExactWorkflowWriteAuthorities(sha) {
       continue;
     }
     const permissions = workflow.permissions;
+    if (path === attestationSigner) {
+      const requiredSigner = {
+        "artifact-metadata": "write",
+        attestations: "write",
+        contents: "read",
+        "id-token": "write",
+      };
+      if (
+        !permissions ||
+        typeof permissions !== "object" ||
+        Array.isArray(permissions) ||
+        Object.keys(permissions).length !== 1 ||
+        permissions.contents !== "read"
+      ) {
+        throw new Error(
+          `attestation signer workflow must default to contents: read at ${sha}`,
+        );
+      }
+      for (const [jobName, job] of Object.entries(jobs)) {
+        if (!job || typeof job !== "object" || Array.isArray(job)) continue;
+        if (jobName === "attest-stable-result") {
+          const jobPermissions = job.permissions;
+          if (
+            !jobPermissions ||
+            typeof jobPermissions !== "object" ||
+            Array.isArray(jobPermissions) ||
+            Object.keys(jobPermissions).length !== Object.keys(requiredSigner).length ||
+            Object.entries(requiredSigner).some(
+              ([permission, access]) => jobPermissions[permission] !== access,
+            )
+          ) {
+            throw new Error(
+              `attestation signer job must grant only artifact-metadata, attestations, id-token: write and contents: read at ${sha}`,
+            );
+          }
+        } else if ("permissions" in job) {
+          throw new Error(
+            `unprivileged attestation workflow job '${jobName}' must inherit contents: read at ${sha}`,
+          );
+        }
+      }
+      continue;
+    }
     if (
       !permissions ||
       typeof permissions !== "object" ||
@@ -310,7 +402,12 @@ function readProtection(repo, branch) {
 
 function desiredProtection(branch) {
   return {
-    required_status_checks: { strict: branch === "main", contexts: ["ci"] },
+    required_status_checks: {
+      strict: branch === "main",
+      contexts: branch === "dev"
+        ? ["ci", "verification-system-browser-gate", "verification-lifecycle-gate"]
+        : ["ci"],
+    },
     enforce_admins: true,
     required_pull_request_reviews: {
       dismiss_stale_reviews: true,
@@ -374,6 +471,8 @@ function desiredIntegrationRuleset(appId) {
         parameters: {
           required_status_checks: [
             { context: "ci", integration_id: appId },
+            { context: "verification-system-browser-gate", integration_id: appId },
+            { context: "verification-lifecycle-gate", integration_id: appId },
             { context: "dev-integration", integration_id: appId },
           ],
           strict_required_status_checks_policy: false,
@@ -502,7 +601,7 @@ function collectPlan(repo) {
   }
 
   const localDevSha = runGit(["rev-parse", "dev"]).stdout.trim();
-  requireExactWorkflowWriteAuthorities(localDevSha);
+  requireAuditedWorkflowAuthority(localDevSha);
   const remoteBranches = readRemoteBranches();
   const remoteMainSha = remoteBranches.get("main");
   if (!remoteMainSha) throw new Error("remote branch 'main' does not exist");

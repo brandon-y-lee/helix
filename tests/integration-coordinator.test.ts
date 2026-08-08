@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   createRepositoryAdapter,
+  createVerificationAdapter,
   requestIntegrationHandoff,
   toIntegrationCandidate,
   type CommandAdapter,
@@ -21,14 +22,53 @@ function pullRequestFact(overrides: Record<string, unknown> = {}) {
     files: [{ path: ".github/workflows/dev-integration.yml" }],
     statusCheckRollup: [
       { name: "ci", status: "COMPLETED", conclusion: "SUCCESS" },
+      {
+        name: "verification-lifecycle-windows",
+        status: "COMPLETED",
+        conclusion: "SUCCESS",
+      },
+      {
+        name: "verification-system-browser-gate",
+        status: "COMPLETED",
+        conclusion: "SUCCESS",
+      },
     ],
     ...overrides,
   };
 }
 
 describe("GitHub Integration Coordinator adapter", () => {
+  it("routes production verification through the public orchestrator seam", async () => {
+    let seamInvoked = false;
+    const adapter = createVerificationAdapter(
+      "brandon-y-lee/mei-pelle",
+      "530-1",
+      { async run() { throw new Error("transport should remain controlled"); } },
+      () => {
+        seamInvoked = true;
+        return { async verify() { return { outcome: "passed" }; } };
+      },
+    );
+
+    await expect(adapter.verify({
+      number: 53,
+      baseSha: "b".repeat(40),
+      headSha: "c".repeat(40),
+      candidateSha: "d".repeat(40),
+      gate: "complete-behavioral",
+      reasons: ["verification-system retains the complete behavioral gate"],
+      timeoutMs: 20 * 60 * 1_000,
+      signal: new AbortController().signal,
+    })).resolves.toEqual({ outcome: "passed" });
+    expect(seamInvoked).toBe(true);
+  });
+
   it("fails closed to verification-system work from current pull-request facts", () => {
-    const candidate = toIntegrationCandidate(pullRequestFact());
+    const candidate = toIntegrationCandidate(pullRequestFact({
+      statusCheckRollup: [
+        { name: "ci", status: "COMPLETED", conclusion: "SUCCESS" },
+      ],
+    }));
 
     expect(candidate).toEqual({
       number: 52,
@@ -37,18 +77,62 @@ describe("GitHub Integration Coordinator adapter", () => {
       readyAt: "2026-08-08T07:00:00.000Z",
       workClass: "verification-system",
       changedFiles: [".github/workflows/dev-integration.yml"],
+      fastPathProof: undefined,
       riskAreas: ["provider", "cross-cutting"],
       labels: ["workflow:integration-queued"],
-      ready: true,
+      ready: false,
     });
   });
 
+  it("admits verification-system work only after Linux, browser, and Windows preflight pass", () => {
+    expect(toIntegrationCandidate(pullRequestFact()).ready).toBe(true);
+  });
+
+  it("keeps verification-system work out of the slot until the stable browser gate passes", () => {
+    const candidate = toIntegrationCandidate(pullRequestFact({
+      statusCheckRollup: [
+        { name: "ci", status: "COMPLETED", conclusion: "SUCCESS" },
+        {
+          name: "verification-lifecycle-windows",
+          status: "COMPLETED",
+          conclusion: "SUCCESS",
+        },
+      ],
+    }));
+
+    expect(candidate.ready).toBe(false);
+  });
+
+  it("keeps the existing CI-only readiness gate for non-verification work", () => {
+    const candidate = toIntegrationCandidate(pullRequestFact({
+      body: "## Workflow path\n\n- Path: standalone ticket\n- Fast-path proof: N/A\n",
+      files: [{ path: "components/product/ProductCard.tsx" }],
+      statusCheckRollup: [
+        { name: "ci", status: "COMPLETED", conclusion: "SUCCESS" },
+      ],
+    }));
+
+    expect(candidate.workClass).toBe("standalone");
+    expect(candidate.ready).toBe(true);
+  });
+
   it.each([
+    ".nvmrc",
+    "package.json",
+    "pnpm-lock.yaml",
     "playwright.config.ts",
     "scripts/affected-browser-verification.ts",
     "scripts/browser-verification-plan.ts",
     "scripts/verify-affected.ts",
     "tests/affected-browser-verification-command.test.ts",
+    "tests/github-workflow-tools.test.ts",
+    "tests/helpers/production-verification.ts",
+    "tests/prepare-integration-candidate.test.ts",
+    "tests/routine-browser-verification.test.ts",
+    "tests/verification-fingerprints.test.ts",
+    "tests/verification-receipt-command.test.ts",
+    "tests/spec-integration-lifecycle.test.ts",
+    "tests/spec-lifecycle-adapters.test.ts",
   ])("keeps affected browser verification changes on the verification-system gate: %s", (path) => {
     const candidate = toIntegrationCandidate(
       pullRequestFact({
