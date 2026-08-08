@@ -92,6 +92,14 @@ jobs:
       - name: Isolate candidate execution from the audited runner
         run: |
           sudo useradd --create-home --shell /bin/bash verifier-candidate
+          case "$GITHUB_WORKSPACE" in
+            /home/runner/work/*/*) ;;
+            *) echo "GitHub workspace is outside the expected hosted-runner tree." >&2; exit 1 ;;
+          esac
+          case "$VERIFICATION_CANDIDATE_CWD" in
+            "$GITHUB_WORKSPACE"/candidate) ;;
+            *) echo "Candidate workspace does not match the frozen candidate path." >&2; exit 1 ;;
+          esac
           case "$PNPM_HOME" in
             /*/setup-pnpm/node_modules/.bin) ;;
             *) echo "pnpm runtime home is missing or outside the action-managed tree." >&2; exit 1 ;;
@@ -109,15 +117,18 @@ jobs:
           sudo chmod -R a+rX -- /opt/mei-pelle-pnpm-runtime
           sudo chmod -R a-w -- /opt/mei-pelle-pnpm-runtime
           echo "/opt/mei-pelle-pnpm-runtime/.bin" >> "$GITHUB_PATH"
+          sudo chmod o+x -- /home/runner
           sudo chown -R verifier-candidate:verifier-candidate candidate
           chmod -R a-w trusted
           test "$(stat -Lc '%u:%g' /opt/mei-pelle-pnpm-runtime/.bin/pnpm)" = 0:0
           sudo -u verifier-candidate test -x /opt/mei-pelle-pnpm-runtime/.bin/pnpm
           sudo -u verifier-candidate test ! -w /opt/mei-pelle-pnpm-runtime/.bin/pnpm
+          sudo -u verifier-candidate test -x "$GITHUB_WORKSPACE"
+          sudo -u verifier-candidate test -d "$VERIFICATION_CANDIDATE_CWD"
           sudo -u verifier-candidate test ! -w trusted/scripts/github/verification-receipt-command.ts
 
       - name: Install frozen candidate dependencies
-        run: sudo -E -H -u verifier-candidate "$(command -v pnpm)" --dir candidate install --frozen-lockfile --store-dir candidate/.pnpm-store
+        run: sudo -E -H -u verifier-candidate "$(command -v pnpm)" --dir "$VERIFICATION_CANDIDATE_CWD" install --frozen-lockfile --store-dir "$VERIFICATION_CANDIDATE_CWD/.pnpm-store"
 
       - name: Freeze candidate dependencies and prove source integrity
         run: |
@@ -127,13 +138,13 @@ jobs:
           test -z "$(git -C candidate status --short --untracked-files=all)"
 
       - name: Lint
-        run: sudo -E -H -u verifier-candidate "$(command -v pnpm)" --dir candidate lint
+        run: sudo -E -H -u verifier-candidate "$(command -v pnpm)" --dir "$VERIFICATION_CANDIDATE_CWD" lint
 
       - name: Typecheck
-        run: sudo -E -H -u verifier-candidate "$(command -v pnpm)" --dir candidate typecheck
+        run: sudo -E -H -u verifier-candidate "$(command -v pnpm)" --dir "$VERIFICATION_CANDIDATE_CWD" typecheck
 
       - name: Unit tests
-        run: sudo -E -H -u verifier-candidate "$(command -v pnpm)" --dir candidate test
+        run: sudo -E -H -u verifier-candidate "$(command -v pnpm)" --dir "$VERIFICATION_CANDIDATE_CWD" test
 
       - name: Recheck candidate source after untrusted commands
         run: |
@@ -144,7 +155,7 @@ jobs:
         if: ${{ inputs.gate == 'complete-behavioral' }}
         run: |
           sudo -E pnpm --dir trusted exec playwright install-deps chromium
-          sudo -E -H -u verifier-candidate "$(command -v pnpm)" --dir candidate exec playwright install chromium
+          sudo -E -H -u verifier-candidate "$(command -v pnpm)" --dir "$VERIFICATION_CANDIDATE_CWD" exec playwright install chromium
 
       - name: Build receipted production artifact with the trusted runner
         if: ${{ inputs.gate == 'complete-behavioral' }}

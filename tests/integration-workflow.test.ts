@@ -135,6 +135,18 @@ describe("dev Integration Line workflows", () => {
     expect(verification).toContain(
       "sudo -u verifier-candidate test ! -w /opt/mei-pelle-pnpm-runtime/.bin/pnpm",
     );
+    expect(verification).toContain('case "$GITHUB_WORKSPACE" in');
+    expect(verification).toContain('case "$VERIFICATION_CANDIDATE_CWD" in');
+    expect(verification).toContain("sudo chmod o+x -- /home/runner");
+    expect(verification).toContain(
+      'sudo -u verifier-candidate test -x "$GITHUB_WORKSPACE"',
+    );
+    expect(verification).toContain(
+      'sudo -u verifier-candidate test -d "$VERIFICATION_CANDIDATE_CWD"',
+    );
+    expect(verification).toContain(
+      '"$(command -v pnpm)" --dir "$VERIFICATION_CANDIDATE_CWD" install --frozen-lockfile',
+    );
     expect(verification).not.toContain('sudo chmod -R a+rX "$(dirname "$PNPM_HOME")"');
     expect(verification.indexOf("Isolate candidate execution from the audited runner")).toBeLessThan(
       verification.indexOf("Install frozen candidate dependencies"),
