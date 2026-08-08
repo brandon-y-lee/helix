@@ -27,6 +27,11 @@ function pullRequestFact(overrides: Record<string, unknown> = {}) {
         status: "COMPLETED",
         conclusion: "SUCCESS",
       },
+      {
+        name: "verification-system-browser-gate",
+        status: "COMPLETED",
+        conclusion: "SUCCESS",
+      },
     ],
     ...overrides,
   };
@@ -79,8 +84,23 @@ describe("GitHub Integration Coordinator adapter", () => {
     });
   });
 
-  it("admits verification-system work only after Linux and Windows preflight pass", () => {
+  it("admits verification-system work only after Linux, browser, and Windows preflight pass", () => {
     expect(toIntegrationCandidate(pullRequestFact()).ready).toBe(true);
+  });
+
+  it("keeps verification-system work out of the slot until the stable browser gate passes", () => {
+    const candidate = toIntegrationCandidate(pullRequestFact({
+      statusCheckRollup: [
+        { name: "ci", status: "COMPLETED", conclusion: "SUCCESS" },
+        {
+          name: "verification-lifecycle-windows",
+          status: "COMPLETED",
+          conclusion: "SUCCESS",
+        },
+      ],
+    }));
+
+    expect(candidate.ready).toBe(false);
   });
 
   it("keeps the existing CI-only readiness gate for non-verification work", () => {

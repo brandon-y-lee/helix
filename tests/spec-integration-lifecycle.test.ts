@@ -86,7 +86,12 @@ describe("future spec integration lifecycle", () => {
           branch: "codex/spec-60-catalog-refresh",
           directPushes: false,
           allowedMergeMethods: ["squash"],
-          requiredChecks: ["ci", "affected-browser-verification", "verification-lifecycle-gate"],
+          requiredChecks: [
+            "ci",
+            "affected-browser-verification",
+            "verification-system-browser-gate",
+            "verification-lifecycle-gate",
+          ],
         },
       },
       {
@@ -101,7 +106,12 @@ describe("future spec integration lifecycle", () => {
           branch: "codex/spec-60-catalog-refresh",
           directPushes: false,
           allowedMergeMethods: ["squash"],
-          requiredChecks: ["ci", "affected-browser-verification", "verification-lifecycle-gate"],
+          requiredChecks: [
+            "ci",
+            "affected-browser-verification",
+            "verification-system-browser-gate",
+            "verification-lifecycle-gate",
+          ],
         },
       },
     ]);
@@ -297,6 +307,7 @@ describe("future spec integration lifecycle", () => {
           checks: {
             ci: "passed" as const,
             "affected-browser-verification": "passed" as const,
+            "verification-system-browser-gate": "passed" as const,
             "verification-lifecycle-gate": "passed" as const,
           },
           body: "",
@@ -317,6 +328,7 @@ describe("future spec integration lifecycle", () => {
           checks: {
             ci: "passed" as const,
             "affected-browser-verification": "passed" as const,
+            "verification-system-browser-gate": "passed" as const,
             "verification-lifecycle-gate": "passed" as const,
           },
           body: "",

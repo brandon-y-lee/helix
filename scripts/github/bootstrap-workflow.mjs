@@ -402,7 +402,12 @@ function readProtection(repo, branch) {
 
 function desiredProtection(branch) {
   return {
-    required_status_checks: { strict: branch === "main", contexts: ["ci"] },
+    required_status_checks: {
+      strict: branch === "main",
+      contexts: branch === "dev"
+        ? ["ci", "verification-system-browser-gate", "verification-lifecycle-gate"]
+        : ["ci"],
+    },
     enforce_admins: true,
     required_pull_request_reviews: {
       dismiss_stale_reviews: true,
@@ -466,6 +471,8 @@ function desiredIntegrationRuleset(appId) {
         parameters: {
           required_status_checks: [
             { context: "ci", integration_id: appId },
+            { context: "verification-system-browser-gate", integration_id: appId },
+            { context: "verification-lifecycle-gate", integration_id: appId },
             { context: "dev-integration", integration_id: appId },
           ],
           strict_required_status_checks_policy: false,

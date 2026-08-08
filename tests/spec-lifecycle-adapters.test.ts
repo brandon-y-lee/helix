@@ -88,6 +88,7 @@ describe("spec lifecycle production adapters", () => {
     expect(requiredChecks).toEqual([
       { context: "ci", integration_id: 15368 },
       { context: "affected-browser-verification", integration_id: 15368 },
+      { context: "verification-system-browser-gate", integration_id: 15368 },
       { context: "verification-lifecycle-gate", integration_id: 15368 },
     ]);
     const calls: Array<{ command: string; args: string[]; input?: string }> = [];

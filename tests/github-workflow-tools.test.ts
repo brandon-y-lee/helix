@@ -785,6 +785,20 @@ describe("GitHub workflow bootstrap", () => {
         state.rulesets[0].rules.find((rule: { type: string }) => rule.type === "required_status_checks")
           .parameters.strict_required_status_checks_policy,
       ).toBe(false);
+      expect(state.protections.dev.required_status_checks.contexts).toEqual([
+        "ci",
+        "verification-system-browser-gate",
+        "verification-lifecycle-gate",
+      ]);
+      expect(
+        state.rulesets[0].rules.find((rule: { type: string }) => rule.type === "required_status_checks")
+          .parameters.required_status_checks.map((check: { context: string }) => check.context),
+      ).toEqual([
+        "ci",
+        "verification-system-browser-gate",
+        "verification-lifecycle-gate",
+        "dev-integration",
+      ]);
       expect(state.workflowPermissions).toEqual({
         default_workflow_permissions: "read",
         can_approve_pull_request_reviews: false,

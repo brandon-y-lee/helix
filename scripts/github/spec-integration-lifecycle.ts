@@ -35,7 +35,12 @@ export interface SpecGithubAdapter {
     branch: string;
     directPushes: false;
     allowedMergeMethods: ["squash"];
-    requiredChecks: ["ci", "affected-browser-verification", "verification-lifecycle-gate"];
+    requiredChecks: [
+      "ci",
+      "affected-browser-verification",
+      "verification-system-browser-gate",
+      "verification-lifecycle-gate",
+    ];
   }): Promise<void>;
 }
 
@@ -465,6 +470,7 @@ export async function runSpecLifecycle(
     for (const check of [
       "ci",
       "affected-browser-verification",
+      "verification-system-browser-gate",
       "verification-lifecycle-gate",
     ] as const) {
       if (pullRequest.checks[check] !== "passed") {
@@ -756,8 +762,14 @@ export async function runSpecLifecycle(
     requiredChecks: [
       "ci",
       "affected-browser-verification",
+      "verification-system-browser-gate",
       "verification-lifecycle-gate",
-    ] as ["ci", "affected-browser-verification", "verification-lifecycle-gate"],
+    ] as [
+      "ci",
+      "affected-browser-verification",
+      "verification-system-browser-gate",
+      "verification-lifecycle-gate",
+    ],
   };
   await adapters.github.protectSpecBranch(protection);
   await adapters.git.createBranch({ name: branch, fromBranch: "dev", fromSha: dev.sha });

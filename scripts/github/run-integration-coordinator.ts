@@ -135,7 +135,8 @@ function requiredPreflightPassed(
   return (
     checkPassed(checks, "ci") &&
     (workClass !== "verification-system" ||
-      checkPassed(checks, "verification-lifecycle-windows"))
+      (checkPassed(checks, "verification-system-browser-gate") &&
+        checkPassed(checks, "verification-lifecycle-windows")))
   );
 }
 
