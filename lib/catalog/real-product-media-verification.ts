@@ -20,15 +20,32 @@ export type ProductMediaHttpRequest = Readonly<{
   method: "GET";
   url: string;
   headers: Readonly<{ Range: "bytes=0-31" }>;
+  maxResponseBodyBytes: 32;
   credentials: "omit";
   redirect: "manual";
   signal: AbortSignal;
 }>;
 
+export type ProductMediaHttpBodyResult = Readonly<{
+  /** Bytes admitted to the verifier, never more than maxResponseBodyBytes. */
+  bytes: Uint8Array;
+  /** True when the adapter aborted additional response-body bytes. */
+  exceeded: boolean;
+}>;
+
+export type ProductMediaHttpBody = Readonly<{
+  /**
+   * The HTTP adapter must cap and abort its source before resolving this read;
+   * it must never expose or retain more than the request's body-byte maximum.
+   */
+  read(): Promise<ProductMediaHttpBodyResult>;
+  cancel(): Promise<void>;
+}>;
+
 export type ProductMediaHttpResponse = Readonly<{
   status: number;
   headers: Readonly<Record<string, string | undefined>>;
-  body: ReadableStream<Uint8Array> | null;
+  body: ProductMediaHttpBody | null;
 }>;
 
 export type ProductMediaHttpClient = Readonly<{
@@ -37,8 +54,25 @@ export type ProductMediaHttpClient = Readonly<{
   ): Promise<ProductMediaHttpResponse>;
 }>;
 
+export type ProductMediaVerificationFailureCode =
+  | "conflicting_expectations"
+  | "initial_url_rejected"
+  | "redirect_missing_location"
+  | "redirect_limit_exceeded"
+  | "redirect_rejected"
+  | "range_not_honored"
+  | "malformed_range"
+  | "excessive_response"
+  | "incomplete_response"
+  | "unsupported_media_format"
+  | "media_mismatch"
+  | "unsafe_cache_policy"
+  | "request_timeout"
+  | "request_aborted"
+  | "network_error";
+
 export type ProductMediaVerificationFailure = Readonly<{
-  code: string;
+  code: ProductMediaVerificationFailureCode;
   message: string;
 }>;
 
@@ -59,7 +93,9 @@ export type ProductMediaVerificationSummary = Readonly<{
   distinctUrls: number;
   successes: number;
   failures: number;
+  /** Response-body bytes admitted into the verifier's bounded buffer. */
   receivedBodyBytes: number;
+  /** Maximum bytes the verifier permits its HTTP adapters to admit. */
   bodyBudgetBytes: number;
 }>;
 
@@ -75,6 +111,7 @@ export type VerifyRealProductMediaInput = Readonly<{
 }>;
 
 const RANGE_HEADER = "bytes=0-31" as const;
+const RESPONSE_BODY_BUDGET_BYTES = 32 as const;
 
 type ExpectedUrl = Readonly<{
   media: ExpectedProductMedia;
@@ -118,7 +155,6 @@ function failedResult(
   });
 }
 
-const SIGNED_QUERY_PARAMETER = /^(?:token|signature|expires?|authorization|api_?key|x-amz-.+|x-goog-.+)$/i;
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 
 function isPrivateHostname(hostname: string): boolean {
@@ -160,16 +196,19 @@ function isPrivateHostname(hostname: string): boolean {
 function containsPathEscape(value: string): boolean {
   const match = /^[a-z][a-z\d+.-]*:\/\/[^/?#]*(?<path>[^?#]*)/i.exec(value);
   let path = match?.groups?.path ?? value.split(/[?#]/, 1)[0] ?? "";
-  if (/[\\]|%2f|%5c/i.test(path)) return true;
-  for (let depth = 0; depth < 2; depth += 1) {
+  for (let depth = 0; depth <= value.length; depth += 1) {
+    if (/[\\]|%2f|%5c/i.test(path)) return true;
+    if (/(?:^|\/)\.{1,2}(?:\/|$)/.test(path)) return true;
+    let decoded: string;
     try {
-      path = decodeURIComponent(path);
+      decoded = decodeURIComponent(path);
     } catch {
       return true;
     }
-    if (/(?:^|\/)\.{1,2}(?:\/|$)/.test(path)) return true;
+    if (decoded === path) return false;
+    path = decoded;
   }
-  return false;
+  return true;
 }
 
 function isKnownPrivateMediaEndpoint(pathname: string): boolean {
@@ -189,12 +228,10 @@ function approvedPublicUrl(
       url.username ||
       url.password ||
       url.hash ||
+      url.search ||
       isPrivateHostname(url.hostname) ||
       isKnownPrivateMediaEndpoint(url.pathname) ||
-      containsPathEscape(value) ||
-      [...url.searchParams.keys()].some((key) =>
-        SIGNED_QUERY_PARAMETER.test(key),
-      )
+      containsPathEscape(value)
     ) {
       return null;
     }
@@ -230,9 +267,7 @@ function safeReportUrl(value: string): string {
     const url = new URL(value);
     url.username = "";
     url.password = "";
-    for (const key of [...url.searchParams.keys()]) {
-      if (SIGNED_QUERY_PARAMETER.test(key)) url.searchParams.set(key, "[redacted]");
-    }
+    url.search = "";
     return url.href;
   } catch {
     return "[invalid Product Media URL]";
@@ -256,53 +291,6 @@ function header(
     ([key]) => key.toLowerCase() === name,
   );
   return entry?.[1];
-}
-
-async function readBody(
-  stream: ReadableStream<Uint8Array>,
-  maximumBytes: number,
-  signal: AbortSignal,
-): Promise<Readonly<{ bytes: Uint8Array; exceeded: boolean }>> {
-  const reader = stream.getReader();
-  const abort = () => {
-    void reader.cancel().catch(() => {});
-  };
-  signal.addEventListener("abort", abort, { once: true });
-  const chunks: Uint8Array[] = [];
-  let length = 0;
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      const remaining = maximumBytes - length;
-      if (value.byteLength > remaining) {
-        if (remaining > 0) chunks.push(value.subarray(0, remaining));
-        length += Math.max(remaining, 0);
-        await reader.cancel();
-        const bytes = new Uint8Array(length);
-        let offset = 0;
-        for (const chunk of chunks) {
-          bytes.set(chunk, offset);
-          offset += chunk.byteLength;
-        }
-        return { bytes, exceeded: true };
-      }
-      if (value.byteLength > 0) {
-        chunks.push(value);
-        length += value.byteLength;
-      }
-    }
-  } finally {
-    signal.removeEventListener("abort", abort);
-    reader.releaseLock();
-  }
-  const bytes = new Uint8Array(length);
-  let offset = 0;
-  for (const chunk of chunks) {
-    bytes.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  return { bytes, exceeded: false };
 }
 
 type ParsedContentRange = Readonly<{
@@ -331,68 +319,79 @@ function parseContentRange(value: string | undefined): ParsedContentRange | null
   return { start, end, total };
 }
 
-type SupportedContentType = "image/png" | "image/webp" | "video/mp4";
+type ProductMediaFormat = Readonly<{
+  contentType: "image/png" | "image/webp" | "video/mp4";
+  catalogMediaType: CatalogProductMediaType;
+  hasSignature(bytes: Uint8Array): boolean;
+}>;
+
+const PRODUCT_MEDIA_FORMATS = [
+  {
+    contentType: "image/png",
+    catalogMediaType: "image",
+    hasSignature: (bytes: Uint8Array) =>
+      bytes.byteLength >= 8 &&
+      bytes[0] === 0x89 &&
+      bytes[1] === 0x50 &&
+      bytes[2] === 0x4e &&
+      bytes[3] === 0x47 &&
+      bytes[4] === 0x0d &&
+      bytes[5] === 0x0a &&
+      bytes[6] === 0x1a &&
+      bytes[7] === 0x0a,
+  },
+  {
+    contentType: "image/webp",
+    catalogMediaType: "image",
+    hasSignature: (bytes: Uint8Array) =>
+      bytes.byteLength >= 12 &&
+      bytes[0] === 0x52 &&
+      bytes[1] === 0x49 &&
+      bytes[2] === 0x46 &&
+      bytes[3] === 0x46 &&
+      bytes[8] === 0x57 &&
+      bytes[9] === 0x45 &&
+      bytes[10] === 0x42 &&
+      bytes[11] === 0x50,
+  },
+  {
+    contentType: "video/mp4",
+    catalogMediaType: "video",
+    hasSignature: (bytes: Uint8Array) =>
+      bytes.byteLength >= 8 &&
+      bytes[4] === 0x66 &&
+      bytes[5] === 0x74 &&
+      bytes[6] === 0x79 &&
+      bytes[7] === 0x70,
+  },
+] as const satisfies readonly ProductMediaFormat[];
 
 function normalizedContentType(value: string | null): string | null {
   const normalized = value?.split(";", 1)[0]?.trim().toLowerCase();
   return normalized || null;
 }
 
-function leadingByteContentType(bytes: Uint8Array): SupportedContentType | null {
-  if (
-    bytes.byteLength >= 8 &&
-    bytes[0] === 0x89 &&
-    bytes[1] === 0x50 &&
-    bytes[2] === 0x4e &&
-    bytes[3] === 0x47 &&
-    bytes[4] === 0x0d &&
-    bytes[5] === 0x0a &&
-    bytes[6] === 0x1a &&
-    bytes[7] === 0x0a
-  ) {
-    return "image/png";
-  }
-  if (
-    bytes.byteLength >= 12 &&
-    bytes[0] === 0x52 &&
-    bytes[1] === 0x49 &&
-    bytes[2] === 0x46 &&
-    bytes[3] === 0x46 &&
-    bytes[8] === 0x57 &&
-    bytes[9] === 0x45 &&
-    bytes[10] === 0x42 &&
-    bytes[11] === 0x50
-  ) {
-    return "image/webp";
-  }
-  if (
-    bytes.byteLength >= 8 &&
-    bytes[4] === 0x66 &&
-    bytes[5] === 0x74 &&
-    bytes[6] === 0x79 &&
-    bytes[7] === 0x70
-  ) {
-    return "video/mp4";
-  }
-  return null;
-}
-
-function catalogTypeForContentType(
-  contentType: SupportedContentType,
-): CatalogProductMediaType {
-  return contentType === "video/mp4" ? "video" : "image";
+function productMediaFormat(
+  contentType: string | null,
+): ProductMediaFormat | null {
+  return (
+    PRODUCT_MEDIA_FORMATS.find(
+      (format) => format.contentType === contentType,
+    ) ?? null
+  );
 }
 
 function hasPositivePublicCacheLifetime(value: string | undefined): boolean {
   if (!value) return false;
   let maxAge: number | null = null;
   for (const rawDirective of value.split(",")) {
-    const [rawName, rawValue] = rawDirective.trim().split("=", 2);
-    const name = rawName?.toLowerCase();
+    const directive = rawDirective.trim();
+    const name = directive.split("=", 1)[0]?.trim().toLowerCase();
     if (name === "private" || name === "no-store") return false;
     if (name !== "max-age") continue;
-    const normalizedValue = rawValue?.trim().replace(/^"|"$/g, "");
-    if (!normalizedValue || !/^\d+$/.test(normalizedValue)) return false;
+    const match = /^max-age\s*=\s*(?:"(\d+)"|(\d+))$/i.exec(directive);
+    const normalizedValue = match?.[1] ?? match?.[2];
+    if (!normalizedValue) return false;
     const parsed = Number(normalizedValue);
     if (!Number.isSafeInteger(parsed) || parsed <= 0) return false;
     if (maxAge !== null && maxAge !== parsed) return false;
@@ -437,6 +436,7 @@ async function verifyOne(
         method: "GET",
         url: currentUrl,
         headers: { Range: RANGE_HEADER },
+        maxResponseBodyBytes: RESPONSE_BODY_BUDGET_BYTES,
         credentials: "omit",
         redirect: "manual",
         signal: controller.signal,
@@ -531,23 +531,30 @@ async function verifyOne(
     }
     const contentType = header(response.headers, "content-type") ?? null;
     const body = response.body
-      ? await beforeTimeout(
-          readBody(response.body, expectedBytes, controller.signal),
-        )
+      ? await beforeTimeout(response.body.read())
       : { bytes: new Uint8Array(), exceeded: false };
-    if (body.exceeded) {
+    const admittedBytes = body.bytes.subarray(
+      0,
+      Math.min(expectedBytes, RESPONSE_BODY_BUDGET_BYTES),
+    );
+    if (
+      body.exceeded ||
+      body.bytes.byteLength > expectedBytes ||
+      body.bytes.byteLength > RESPONSE_BODY_BUDGET_BYTES
+    ) {
+      if (response.body) await beforeTimeout(response.body.cancel());
       return failedResult(expected, {
         code: "excessive_response",
         message: "The response body exceeded the requested byte range.",
       }, expected.url, {
         status: response.status,
-        receivedBytes: body.bytes.byteLength,
+        receivedBytes: admittedBytes.byteLength,
         totalBytes: contentRange.total,
         contentType,
         redirects,
       });
     }
-    const bytes = body.bytes;
+    const bytes = admittedBytes;
     if (bytes.byteLength !== expectedBytes) {
       return failedResult(expected, {
         code: "incomplete_response",
@@ -561,12 +568,8 @@ async function verifyOne(
       });
     }
     const declaredContentType = normalizedContentType(contentType);
-    const supportedContentTypes = new Set<string>([
-      "image/png",
-      "image/webp",
-      "video/mp4",
-    ]);
-    if (!declaredContentType || !supportedContentTypes.has(declaredContentType)) {
+    const declaredFormat = productMediaFormat(declaredContentType);
+    if (!declaredFormat) {
       return failedResult(expected, {
         code: "unsupported_media_format",
         message: "The declared Product Media format is not supported.",
@@ -578,11 +581,11 @@ async function verifyOne(
         redirects,
       });
     }
-    const signatureContentType = leadingByteContentType(bytes);
+    const signatureFormat =
+      PRODUCT_MEDIA_FORMATS.find((format) => format.hasSignature(bytes)) ?? null;
     if (
-      signatureContentType !== declaredContentType ||
-      catalogTypeForContentType(declaredContentType as SupportedContentType) !==
-        expected.mediaType
+      signatureFormat !== declaredFormat ||
+      declaredFormat.catalogMediaType !== expected.mediaType
     ) {
       return failedResult(expected, {
         code: "media_mismatch",

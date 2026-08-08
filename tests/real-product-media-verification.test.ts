@@ -1,20 +1,62 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   verifyRealProductMedia,
+  type ProductMediaHttpBody,
   type ProductMediaHttpClient,
   type ProductMediaHttpResponse,
+  type PublicProductMediaUrlPolicy,
 } from "@/lib/catalog/real-product-media-verification";
 
 const mediaOrigin = "https://erasogmsqpgiirovubjh.supabase.co";
 const imageUrl = `${mediaOrigin}/storage/v1/object/public/mei-pelle-catalog/card.png`;
 
-function body(bytes: Uint8Array): ReadableStream<Uint8Array> {
-  return new ReadableStream({
+function body(
+  bytes: Uint8Array,
+  options: Readonly<{
+    exceeded?: boolean;
+    onCancel?: () => void;
+  }> = {},
+): ProductMediaHttpBody {
+  const stream = new ReadableStream<Uint8Array>({
     start(controller) {
       controller.enqueue(bytes);
-      controller.close();
+      if (!options.exceeded) controller.close();
     },
+    cancel: options.onCancel,
   });
+  return {
+    async read() {
+      const reader = stream.getReader();
+      try {
+        const result = await reader.read();
+        return {
+          bytes: result.value ?? new Uint8Array(),
+          exceeded: options.exceeded ?? false,
+        };
+      } finally {
+        reader.releaseLock();
+      }
+    },
+    async cancel() {
+      await stream.cancel();
+    },
+  };
+}
+
+function policy(
+  overrides: Partial<PublicProductMediaUrlPolicy> = {},
+): PublicProductMediaUrlPolicy {
+  return {
+    approvedLocations: [
+      {
+        origin: mediaOrigin,
+        pathPrefix: "/storage/v1/object/public/mei-pelle-catalog/",
+      },
+    ],
+    maxRedirects: 2,
+    timeoutMs: 1_000,
+    ...overrides,
+  };
 }
 
 describe("Real Product Media verification", () => {
@@ -35,16 +77,7 @@ describe("Real Product Media verification", () => {
 
     const report = await verifyRealProductMedia({
       expectedMedia: [{ url: imageUrl, mediaType: "image" }],
-      urlPolicy: {
-        approvedLocations: [
-          {
-            origin: mediaOrigin,
-            pathPrefix: "/storage/v1/object/public/mei-pelle-catalog/",
-          },
-        ],
-        maxRedirects: 2,
-        timeoutMs: 1_000,
-      },
+      urlPolicy: policy({ maxRedirects: 2, timeoutMs: 1_000 }),
       httpClient: { request },
     });
 
@@ -53,6 +86,7 @@ describe("Real Product Media verification", () => {
       expect.objectContaining({
         credentials: "omit",
         headers: { Range: "bytes=0-31" },
+        maxResponseBodyBytes: 32,
         method: "GET",
         redirect: "manual",
         url: imageUrl,
@@ -95,16 +129,7 @@ describe("Real Product Media verification", () => {
         { url: imageUrl, mediaType: "image" },
         { url: imageUrl, mediaType: "video" },
       ],
-      urlPolicy: {
-        approvedLocations: [
-          {
-            origin: mediaOrigin,
-            pathPrefix: "/storage/v1/object/public/mei-pelle-catalog/",
-          },
-        ],
-        maxRedirects: 2,
-        timeoutMs: 1_000,
-      },
+      urlPolicy: policy({ maxRedirects: 2, timeoutMs: 1_000 }),
       httpClient: { request },
     });
 
@@ -137,16 +162,7 @@ describe("Real Product Media verification", () => {
 
     const report = await verifyRealProductMedia({
       expectedMedia: [{ url: credentialedUrl, mediaType: "image" }],
-      urlPolicy: {
-        approvedLocations: [
-          {
-            origin: mediaOrigin,
-            pathPrefix: "/storage/v1/object/public/mei-pelle-catalog/",
-          },
-        ],
-        maxRedirects: 2,
-        timeoutMs: 1_000,
-      },
+      urlPolicy: policy({ maxRedirects: 2, timeoutMs: 1_000 }),
       httpClient: { request },
     });
 
@@ -190,16 +206,7 @@ describe("Real Product Media verification", () => {
 
     const report = await verifyRealProductMedia({
       expectedMedia: [{ url: imageUrl, mediaType: "image" }],
-      urlPolicy: {
-        approvedLocations: [
-          {
-            origin: mediaOrigin,
-            pathPrefix: "/storage/v1/object/public/mei-pelle-catalog/",
-          },
-        ],
-        maxRedirects: 1,
-        timeoutMs: 1_000,
-      },
+      urlPolicy: policy({ maxRedirects: 1, timeoutMs: 1_000 }),
       httpClient: { request },
     });
 
@@ -218,8 +225,9 @@ describe("Real Product Media verification", () => {
 
   it("aborts an ignored Range response before reading its body", async () => {
     const cancel = vi.fn();
-    const unboundedBody = new ReadableStream<Uint8Array>({
-      cancel,
+    const unboundedBody = body(new Uint8Array(), {
+      exceeded: true,
+      onCancel: cancel,
     });
     const request = vi.fn<ProductMediaHttpClient["request"]>(async () => ({
       status: 200,
@@ -232,16 +240,7 @@ describe("Real Product Media verification", () => {
 
     const report = await verifyRealProductMedia({
       expectedMedia: [{ url: imageUrl, mediaType: "image" }],
-      urlPolicy: {
-        approvedLocations: [
-          {
-            origin: mediaOrigin,
-            pathPrefix: "/storage/v1/object/public/mei-pelle-catalog/",
-          },
-        ],
-        maxRedirects: 0,
-        timeoutMs: 1_000,
-      },
+      urlPolicy: policy({ maxRedirects: 0, timeoutMs: 1_000 }),
       httpClient: { request },
     });
 
@@ -262,7 +261,10 @@ describe("Real Product Media verification", () => {
 
   it("rejects an excessive declared body before consuming it", async () => {
     const cancel = vi.fn();
-    const responseBody = new ReadableStream<Uint8Array>({ cancel });
+    const responseBody = body(new Uint8Array(), {
+      exceeded: true,
+      onCancel: cancel,
+    });
     const request = vi.fn<ProductMediaHttpClient["request"]>(async () => ({
       status: 206,
       headers: {
@@ -276,16 +278,7 @@ describe("Real Product Media verification", () => {
 
     const report = await verifyRealProductMedia({
       expectedMedia: [{ url: imageUrl, mediaType: "image" }],
-      urlPolicy: {
-        approvedLocations: [
-          {
-            origin: mediaOrigin,
-            pathPrefix: "/storage/v1/object/public/mei-pelle-catalog/",
-          },
-        ],
-        maxRedirects: 0,
-        timeoutMs: 1_000,
-      },
+      urlPolicy: policy({ maxRedirects: 0, timeoutMs: 1_000 }),
       httpClient: { request },
     });
 
@@ -303,13 +296,11 @@ describe("Real Product Media verification", () => {
     );
   });
 
-  it("caps streamed bytes at the per-URL budget and aborts an excessive body", async () => {
+  it("admits at most the per-URL byte budget and aborts an excessive body", async () => {
     const cancel = vi.fn();
-    const responseBody = new ReadableStream<Uint8Array>({
-      start(controller) {
-        controller.enqueue(new Uint8Array(64));
-      },
-      cancel,
+    const responseBody = body(new Uint8Array(32), {
+      exceeded: true,
+      onCancel: cancel,
     });
     const request = vi.fn<ProductMediaHttpClient["request"]>(async () => ({
       status: 206,
@@ -323,16 +314,7 @@ describe("Real Product Media verification", () => {
 
     const report = await verifyRealProductMedia({
       expectedMedia: [{ url: imageUrl, mediaType: "image" }],
-      urlPolicy: {
-        approvedLocations: [
-          {
-            origin: mediaOrigin,
-            pathPrefix: "/storage/v1/object/public/mei-pelle-catalog/",
-          },
-        ],
-        maxRedirects: 0,
-        timeoutMs: 1_000,
-      },
+      urlPolicy: policy({ maxRedirects: 0, timeoutMs: 1_000 }),
       httpClient: { request },
     });
 
@@ -369,16 +351,7 @@ describe("Real Product Media verification", () => {
 
     const report = await verifyRealProductMedia({
       expectedMedia: [{ url: imageUrl, mediaType: "video" }],
-      urlPolicy: {
-        approvedLocations: [
-          {
-            origin: mediaOrigin,
-            pathPrefix: "/storage/v1/object/public/mei-pelle-catalog/",
-          },
-        ],
-        maxRedirects: 0,
-        timeoutMs: 1_000,
-      },
+      urlPolicy: policy({ maxRedirects: 0, timeoutMs: 1_000 }),
       httpClient: { request },
     });
 
@@ -412,16 +385,7 @@ describe("Real Product Media verification", () => {
 
     const report = await verifyRealProductMedia({
       expectedMedia: [{ url: imageUrl, mediaType: "image" }],
-      urlPolicy: {
-        approvedLocations: [
-          {
-            origin: mediaOrigin,
-            pathPrefix: "/storage/v1/object/public/mei-pelle-catalog/",
-          },
-        ],
-        maxRedirects: 0,
-        timeoutMs: 1_000,
-      },
+      urlPolicy: policy({ maxRedirects: 0, timeoutMs: 1_000 }),
       httpClient: { request },
     });
 
@@ -460,16 +424,7 @@ describe("Real Product Media verification", () => {
         { url: imageUrl, mediaType: "image" },
         { url: secondUrl, mediaType: "image" },
       ],
-      urlPolicy: {
-        approvedLocations: [
-          {
-            origin: mediaOrigin,
-            pathPrefix: "/storage/v1/object/public/mei-pelle-catalog/",
-          },
-        ],
-        maxRedirects: 0,
-        timeoutMs: 1_000,
-      },
+      urlPolicy: policy({ maxRedirects: 0, timeoutMs: 1_000 }),
       httpClient: { request },
     });
 
@@ -499,16 +454,7 @@ describe("Real Product Media verification", () => {
 
     const report = await verifyRealProductMedia({
       expectedMedia: [{ url: imageUrl, mediaType: "image" }],
-      urlPolicy: {
-        approvedLocations: [
-          {
-            origin: mediaOrigin,
-            pathPrefix: "/storage/v1/object/public/mei-pelle-catalog/",
-          },
-        ],
-        maxRedirects: 0,
-        timeoutMs: 1_000,
-      },
+      urlPolicy: policy({ maxRedirects: 0, timeoutMs: 1_000 }),
       httpClient: { request },
     });
 
@@ -530,16 +476,7 @@ describe("Real Product Media verification", () => {
 
     const report = await verifyRealProductMedia({
       expectedMedia: [{ url: imageUrl, mediaType: "image" }],
-      urlPolicy: {
-        approvedLocations: [
-          {
-            origin: mediaOrigin,
-            pathPrefix: "/storage/v1/object/public/mei-pelle-catalog/",
-          },
-        ],
-        maxRedirects: 0,
-        timeoutMs: 10,
-      },
+      urlPolicy: policy({ maxRedirects: 0, timeoutMs: 10 }),
       httpClient: { request },
     });
 
@@ -599,16 +536,7 @@ describe("Real Product Media verification", () => {
 
     const report = await verifyRealProductMedia({
       expectedMedia: [{ url: imageUrl, mediaType: "image" }],
-      urlPolicy: {
-        approvedLocations: [
-          {
-            origin: mediaOrigin,
-            pathPrefix: "/storage/v1/object/public/mei-pelle-catalog/",
-          },
-        ],
-        maxRedirects: 0,
-        timeoutMs: 1_000,
-      },
+      urlPolicy: policy({ maxRedirects: 0, timeoutMs: 1_000 }),
       httpClient: { request },
     });
 
@@ -625,8 +553,110 @@ describe("Real Product Media verification", () => {
     );
   });
 
+  it.each([
+    ["malformed", "bytes 0-31/*"],
+    ["zero-total", "bytes 0-0/0"],
+  ])("rejects %s Content-Range metadata before reading", async (_label, contentRange) => {
+    const cancel = vi.fn();
+    const request = vi.fn<ProductMediaHttpClient["request"]>(async () => ({
+      status: 206,
+      headers: {
+        "cache-control": "max-age=60",
+        "content-range": contentRange,
+        "content-type": "image/png",
+      },
+      body: body(new Uint8Array(), { exceeded: true, onCancel: cancel }),
+    }));
+
+    const report = await verifyRealProductMedia({
+      expectedMedia: [{ url: imageUrl, mediaType: "image" }],
+      urlPolicy: policy({ maxRedirects: 0 }),
+      httpClient: { request },
+    });
+
+    expect(cancel).toHaveBeenCalledOnce();
+    expect(report.results[0]?.failure?.code).toBe("malformed_range");
+    expect(report.results[0]?.receivedBytes).toBe(0);
+  });
+
+  it("rejects a body that ends before its declared range", async () => {
+    const truncatedPng = Uint8Array.from([
+      0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a,
+    ]);
+    const request = vi.fn<ProductMediaHttpClient["request"]>(async () => ({
+      status: 206,
+      headers: {
+        "cache-control": "max-age=60",
+        "content-range": "bytes 0-7/8",
+        "content-type": "image/png",
+      },
+      body: body(truncatedPng),
+    }));
+
+    const report = await verifyRealProductMedia({
+      expectedMedia: [{ url: imageUrl, mediaType: "image" }],
+      urlPolicy: policy({ maxRedirects: 0 }),
+      httpClient: { request },
+    });
+
+    expect(report.results[0]).toEqual(
+      expect.objectContaining({
+        outcome: "failed",
+        failure: expect.objectContaining({ code: "incomplete_response" }),
+        receivedBytes: 7,
+      }),
+    );
+  });
+
+  it("rejects an unsupported declared Product Media format", async () => {
+    const jpeg = Uint8Array.from([0xff, 0xd8, 0xff, 0xe0]);
+    const request = vi.fn<ProductMediaHttpClient["request"]>(async () => ({
+      status: 206,
+      headers: {
+        "cache-control": "max-age=60",
+        "content-range": "bytes 0-3/4",
+        "content-type": "image/jpeg",
+      },
+      body: body(jpeg),
+    }));
+
+    const report = await verifyRealProductMedia({
+      expectedMedia: [{ url: imageUrl, mediaType: "image" }],
+      urlPolicy: policy({ maxRedirects: 0 }),
+      httpClient: { request },
+    });
+
+    expect(report.results[0]?.failure).toEqual({
+      code: "unsupported_media_format",
+      message: "The declared Product Media format is not supported.",
+    });
+  });
+
+  it("rejects malformed max-age syntax", async () => {
+    const png = Uint8Array.from([
+      0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+    ]);
+    const request = vi.fn<ProductMediaHttpClient["request"]>(async () => ({
+      status: 206,
+      headers: {
+        "cache-control": "public, max-age=60=malformed",
+        "content-range": "bytes 0-7/8",
+        "content-type": "image/png",
+      },
+      body: body(png),
+    }));
+
+    const report = await verifyRealProductMedia({
+      expectedMedia: [{ url: imageUrl, mediaType: "image" }],
+      urlPolicy: policy({ maxRedirects: 0 }),
+      httpClient: { request },
+    });
+
+    expect(report.results[0]?.failure?.code).toBe("unsafe_cache_policy");
+  });
+
   it("accepts WebP and MP4 signatures while deduplicating exact URLs and budgets dynamically", async () => {
-    const webpUrl = `${mediaOrigin}/storage/v1/object/public/mei-pelle-catalog/card.webp?v=1`;
+    const webpUrl = `${mediaOrigin}/storage/v1/object/public/mei-pelle-catalog/card.webp`;
     const videoUrl = `${mediaOrigin}/storage/v1/object/public/mei-pelle-catalog/routine.mp4`;
     const webp = Uint8Array.from([
       0x52, 0x49, 0x46, 0x46, 0x04, 0x00, 0x00, 0x00,
@@ -663,16 +693,7 @@ describe("Real Product Media verification", () => {
         { url: webpUrl, mediaType: "image" },
         { url: videoUrl, mediaType: "video" },
       ],
-      urlPolicy: {
-        approvedLocations: [
-          {
-            origin: mediaOrigin,
-            pathPrefix: "/storage/v1/object/public/mei-pelle-catalog/",
-          },
-        ],
-        maxRedirects: 0,
-        timeoutMs: 1_000,
-      },
+      urlPolicy: policy({ maxRedirects: 0, timeoutMs: 1_000 }),
       httpClient: { request },
     });
 
@@ -700,7 +721,9 @@ describe("Real Product Media verification", () => {
       imageUrl.replace("https:", "http:"),
       `${mediaOrigin}/storage/v1/object/sign/mei-pelle-catalog/card.png`,
       `${mediaOrigin}/storage/v1/object/public/mei-pelle-catalog/%2e%2e/private/card.png`,
+      `${mediaOrigin}/storage/v1/object/public/mei-pelle-catalog/%25252e%25252e/private.png`,
       `${imageUrl}?token=secret-token`,
+      `${imageUrl}?access_token=secret-token`,
       "not-a-url-with-secret-token",
     ];
     const request = vi.fn<ProductMediaHttpClient["request"]>();
@@ -710,16 +733,7 @@ describe("Real Product Media verification", () => {
         url,
         mediaType: "image" as const,
       })),
-      urlPolicy: {
-        approvedLocations: [
-          {
-            origin: mediaOrigin,
-            pathPrefix: "/storage/v1/object/public/mei-pelle-catalog/",
-          },
-        ],
-        maxRedirects: 0,
-        timeoutMs: 1_000,
-      },
+      urlPolicy: policy({ maxRedirects: 0, timeoutMs: 1_000 }),
       httpClient: { request },
     });
 
@@ -744,16 +758,7 @@ describe("Real Product Media verification", () => {
         { url: signedUrl, mediaType: "image" },
         { url: signedUrl, mediaType: "video" },
       ],
-      urlPolicy: {
-        approvedLocations: [
-          {
-            origin: mediaOrigin,
-            pathPrefix: "/storage/v1/object/public/mei-pelle-catalog/",
-          },
-        ],
-        maxRedirects: 0,
-        timeoutMs: 1_000,
-      },
+      urlPolicy: policy({ maxRedirects: 0, timeoutMs: 1_000 }),
       httpClient: { request },
     });
 
@@ -790,21 +795,12 @@ describe("Real Product Media verification", () => {
     const request = vi.fn<ProductMediaHttpClient["request"]>(async () => ({
       status: 302,
       headers: { location: "https://example.com/unapproved/card.png" },
-      body: new ReadableStream({ cancel }),
+      body: body(new Uint8Array(), { exceeded: true, onCancel: cancel }),
     }));
 
     const report = await verifyRealProductMedia({
       expectedMedia: [{ url: imageUrl, mediaType: "image" }],
-      urlPolicy: {
-        approvedLocations: [
-          {
-            origin: mediaOrigin,
-            pathPrefix: "/storage/v1/object/public/mei-pelle-catalog/",
-          },
-        ],
-        maxRedirects: 2,
-        timeoutMs: 1_000,
-      },
+      urlPolicy: policy({ maxRedirects: 2, timeoutMs: 1_000 }),
       httpClient: { request },
     });
 
@@ -832,16 +828,7 @@ describe("Real Product Media verification", () => {
 
     const report = await verifyRealProductMedia({
       expectedMedia: [{ url: imageUrl, mediaType: "image" }],
-      urlPolicy: {
-        approvedLocations: [
-          {
-            origin: mediaOrigin,
-            pathPrefix: "/storage/v1/object/public/mei-pelle-catalog/",
-          },
-        ],
-        maxRedirects: 0,
-        timeoutMs: 1_000,
-      },
+      urlPolicy: policy({ maxRedirects: 0, timeoutMs: 1_000 }),
       httpClient: { request },
     });
 
@@ -874,16 +861,7 @@ describe("Real Product Media verification", () => {
 
     const report = await verifyRealProductMedia({
       expectedMedia: [{ url: imageUrl, mediaType: "image" }],
-      urlPolicy: {
-        approvedLocations: [
-          {
-            origin: mediaOrigin,
-            pathPrefix: "/storage/v1/object/public/mei-pelle-catalog/",
-          },
-        ],
-        maxRedirects: 1,
-        timeoutMs: 1_000,
-      },
+      urlPolicy: policy({ maxRedirects: 1, timeoutMs: 1_000 }),
       httpClient: { request },
     });
 
