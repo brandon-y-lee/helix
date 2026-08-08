@@ -282,6 +282,18 @@ type AssociatedPullRequest = {
   number?: number;
 };
 
+const PROTECTED_PUSH_SCRIPT = "verification:receipt:protected-push";
+
+export function isInitialReceiptVerificationCutover(
+  previousPackage: { scripts?: Record<string, string> },
+  currentPackage: { scripts?: Record<string, string> },
+): boolean {
+  return (
+    !previousPackage.scripts?.[PROTECTED_PUSH_SCRIPT] &&
+    Boolean(currentPackage.scripts?.[PROTECTED_PUSH_SCRIPT])
+  );
+}
+
 export async function verifyProtectedBranchPushReceipt(input: {
   cwd: string;
   environment: NodeJS.ProcessEnv;
@@ -303,6 +315,18 @@ export async function verifyProtectedBranchPushReceipt(input: {
     throw new Error("Protected dev push requires exactly one associated merged pull request.");
   }
   const pull = associated[0]!;
+  const previousPackage = JSON.parse((await execFileAsync(
+    "git",
+    ["show", `${baseSha}:package.json`],
+    { cwd, encoding: "utf8" },
+  )).stdout) as { scripts?: Record<string, string> };
+  const currentPackage = JSON.parse(
+    await readFile(resolve(cwd, "package.json"), "utf8"),
+  ) as { scripts?: Record<string, string> };
+  const initialCutover = isInitialReceiptVerificationCutover(
+    previousPackage,
+    currentPackage,
+  );
   const changed = await execFileAsync(
     "git",
     ["diff", "--name-only", "--diff-filter=ACMR", baseSha, pushSha],
@@ -322,13 +346,21 @@ export async function verifyProtectedBranchPushReceipt(input: {
   await mkdir(subjectDirectory, { recursive: true });
   const subjectPath = resolve(subjectDirectory, SUBJECT_FILE);
   await writeFile(subjectPath, runtimeSubject, { encoding: "utf8", mode: 0o600 });
-  const { stdout } = await run("gh", [
-    "attestation", "verify", subjectPath,
-    "--repo", repository,
-    "--predicate-type", VERIFICATION_RECEIPT_PREDICATE_TYPE,
-    "--signer-workflow", `${repository}/.github/workflows/dev-integration-verification.yml`,
-    "--format", "json",
-  ], { encoding: "utf8" });
+  let stdout: string;
+  try {
+    ({ stdout } = await run("gh", [
+      "attestation", "verify", subjectPath,
+      "--repo", repository,
+      "--predicate-type", VERIFICATION_RECEIPT_PREDICATE_TYPE,
+      "--signer-workflow", `${repository}/.github/workflows/dev-integration-verification.yml`,
+      "--format", "json",
+    ], { encoding: "utf8" }));
+  } catch (error) {
+    if (initialCutover) {
+      return { outcome: "cutover" as const, reusable: false as const };
+    }
+    throw error;
+  }
   const verified = JSON.parse(stdout) as AttestationVerification[];
   const packageJson = JSON.parse(await readFile(resolve(cwd, "package.json"), "utf8")) as {
     packageManager: string;
@@ -360,6 +392,9 @@ export async function verifyProtectedBranchPushReceipt(input: {
     },
   }, { allowIntegrationCarryForward });
   if (result.outcome !== "reused") {
+    if (initialCutover) {
+      return { outcome: "cutover" as const, reusable: false as const };
+    }
     throw new Error("Protected dev push has no matching signed Verification Receipt.");
   }
   return result;
@@ -407,7 +442,13 @@ async function main() {
       cwd: process.cwd(),
       environment: process.env,
     });
-    process.stdout.write(`Reused protected-push receipt ${result.attestationId}.\n`);
+    if (result.outcome === "cutover") {
+      process.stdout.write(
+        "Initial receipt-verification cutover accepted; dispatch the merged trusted workflow before closing the ticket.\n",
+      );
+    } else {
+      process.stdout.write(`Reused protected-push receipt ${result.attestationId}.\n`);
+    }
     return;
   }
   throw new Error("Verification receipt command requires prepare, verify, browser-version, or protected-push.");

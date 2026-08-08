@@ -15,6 +15,13 @@ export type {
   Sha256Fingerprint,
   VerificationReceipt,
 } from "./routine-browser-verification";
+import { isReviewedNonRuntimePath } from "./verification-fingerprints";
+import {
+  findReusableVerificationReceipt as findReceipt,
+  runRoutineBrowserVerification as runRoutine,
+  type RoutineBrowserVerificationAdapters as RoutineAdapters,
+  type RoutineBrowserVerificationInput as RoutineInput,
+} from "./routine-browser-verification";
 
 export type WorkClass =
   | "completed-spec"
@@ -73,6 +80,41 @@ export interface VerificationAdapter {
   }): Promise<{ outcome: "passed" | "failed" }>;
 }
 
+export function createRoutineReceiptVerificationAdapter(input: {
+  identity: {
+    read(candidate: Parameters<VerificationAdapter["verify"]>[0]): Promise<RoutineInput>;
+  };
+  artifact: RoutineAdapters["artifact"];
+  attestation: RoutineAdapters["attestation"];
+  browser: RoutineAdapters["browser"];
+  catalog: RoutineAdapters["catalog"];
+  clock: RoutineAdapters["clock"];
+}): VerificationAdapter {
+  return {
+    async verify(candidate) {
+      const identity = await input.identity.read(candidate);
+      if (
+        identity.baseSha !== candidate.baseSha ||
+        identity.candidateSha !== candidate.headSha ||
+        identity.pullRequest !== candidate.number
+      ) {
+        return { outcome: "failed" };
+      }
+      const completed = await runRoutine(identity, input);
+      if (completed.outcome !== "passed") return { outcome: "failed" };
+      const reusable = await findReceipt({
+        artifact: completed.receipt.artifact,
+        browsers: completed.receipt.browsers,
+        catalogFingerprint: completed.receipt.catalog.after,
+        integration: completed.receipt.integration,
+        planFingerprint: completed.receipt.planFingerprint,
+        tools: completed.receipt.tools,
+      }, input.attestation);
+      return { outcome: reusable.outcome === "reused" ? "passed" : "failed" };
+    },
+  };
+}
+
 export interface MergeAdapter {
   merge(input: FrozenCandidate & {
     candidateSha: string;
@@ -121,10 +163,6 @@ type IntegrationOptions = {
   timeoutMs?: number;
   signal?: AbortSignal;
 };
-
-function isReviewedNonRuntimePath(path: string): boolean {
-  return path.endsWith(".md") || path.startsWith("docs/");
-}
 
 function planFor(candidate: IntegrationCandidate): {
   gate: VerificationGate;

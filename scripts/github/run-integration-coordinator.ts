@@ -73,7 +73,11 @@ const commandAdapter: CommandAdapter = {
 };
 
 const verificationSystemPaths = [
+  ".nvmrc",
   ".github/workflows/",
+  "package.json",
+  "pnpm-lock.yaml",
+  "pnpm-workspace.yaml",
   "playwright.config.ts",
   "scripts/affected-browser-verification",
   "scripts/browser-verification-plan",

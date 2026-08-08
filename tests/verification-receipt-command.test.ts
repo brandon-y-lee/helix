@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
+  isInitialReceiptVerificationCutover,
   verifyVerificationReceipt,
 } from "@/scripts/github/verification-receipt-command";
 import {
@@ -40,6 +41,17 @@ const receipt: VerificationReceipt = {
 };
 
 describe("GitHub Verification Receipt lookup", () => {
+  it("permits exactly the one commit that introduces the protected-push receipt gate", () => {
+    const command = "tsx scripts/github/verification-receipt-command.ts protected-push";
+    expect(isInitialReceiptVerificationCutover(
+      { scripts: {} },
+      { scripts: { "verification:receipt:protected-push": command } },
+    )).toBe(true);
+    expect(isInitialReceiptVerificationCutover(
+      { scripts: { "verification:receipt:protected-push": command } },
+      { scripts: { "verification:receipt:protected-push": command } },
+    )).toBe(false);
+  });
   it("enforces signature identity and every current input before reuse", async () => {
     const directory = await mkdtemp(resolve(tmpdir(), "mei-pelle-receipt-command-"));
     const calls: string[][] = [];

@@ -38,7 +38,7 @@ jobs:
             exit 0
           fi
           git diff --name-only --diff-filter=ACMR "$BASE_SHA" "$GITHUB_SHA" > "$RUNNER_TEMP/changed-files.txt"
-          if grep -Eq '^(\.github/workflows/|playwright\.config\.ts$|scripts/(affected-browser-verification|browser-verification-plan|github/|production-verification|verify-affected|verify-production)|tests/(affected-browser-verification|integration-|verification-orchestrator|production-verification))' "$RUNNER_TEMP/changed-files.txt"; then
+          if grep -Eq '^(\.github/workflows/|\.nvmrc$|package\.json$|pnpm-lock\.yaml$|pnpm-workspace\.yaml$|playwright\.config\.ts$|scripts/(affected-browser-verification|browser-verification-plan|github/|production-verification|verify-affected|verify-production)|tests/(affected-browser-verification|integration-|verification-orchestrator|production-verification))' "$RUNNER_TEMP/changed-files.txt"; then
             echo "relevant=true" >> "$GITHUB_OUTPUT"
           else
             echo "relevant=false" >> "$GITHUB_OUTPUT"

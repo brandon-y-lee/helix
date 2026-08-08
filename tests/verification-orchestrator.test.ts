@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  findReusableVerificationReceipt,
-  runRoutineBrowserVerification,
+  createRoutineReceiptVerificationAdapter,
   runIntegrationLine,
   type GitAdapter,
   type IntegrationCandidate,
@@ -12,6 +11,31 @@ import {
 } from "@/scripts/github/verification-orchestrator";
 
 describe("Verification Orchestrator", () => {
+  it("does not grant the fast path to runtime-consumed Markdown", async () => {
+    let observedGate: string | undefined;
+    let candidate: IntegrationCandidate | undefined = {
+      number: 54,
+      target: "dev",
+      headSha: "a".repeat(40),
+      readyAt: "2026-08-08T08:00:00.000Z",
+      workClass: "documentation",
+      changedFiles: ["content/runtime-copy.md"],
+      labels: ["workflow:integration-queued"],
+      ready: true,
+    };
+    await runIntegrationLine({
+      repository: {
+        async read() { return { devSha: "b".repeat(40), candidates: candidate ? [candidate] : [] }; },
+        async queue() { return true; },
+        async claim() { candidate!.labels = ["workflow:integration-active"]; return true; },
+        async release() { candidate = undefined; },
+      },
+      git: { async prepare() { return { candidateSha: "c".repeat(40) }; } },
+      verification: { async verify(input) { observedGate = input.gate; return { outcome: "passed" }; } },
+      merge: { async merge() { return { mergeSha: "d".repeat(40) }; } },
+    });
+    expect(observedGate).toBe("complete-behavioral");
+  });
   it("gates Integration Slot merge on public signed-receipt behavior across every controlled seam", async () => {
     const candidateSha = "c".repeat(40);
     const baseSha = "b".repeat(40);
@@ -28,6 +52,10 @@ describe("Verification Orchestrator", () => {
     let browserCalls = 0;
     let catalogCalls = 0;
     let mergeCalls = 0;
+    const signedReceipts: Array<{
+      id: string;
+      receipt: import("@/scripts/github/verification-orchestrator").VerificationReceipt;
+    }> = [];
     const repository: RepositoryAdapter = {
       async read() { return { devSha: baseSha, candidates: candidate ? [structuredClone(candidate)] : [] }; },
       async queue() { return true; },
@@ -37,9 +65,9 @@ describe("Verification Orchestrator", () => {
     const report = await runIntegrationLine({
       repository,
       git: { async prepare() { return { candidateSha }; } },
-      verification: {
-        async verify() {
-          const completed = await runRoutineBrowserVerification({
+      verification: createRoutineReceiptVerificationAdapter({
+        identity: {
+          async read() { return {
             baseSha,
             browserVersions: { chromium: "Chromium 140" },
             candidateSha,
@@ -50,32 +78,25 @@ describe("Verification Orchestrator", () => {
             playwrightVersion: "1.55.1",
             pullRequest: 53,
             workflowRun: "53-1",
-          }, {
-            artifact: { async prepare() { return {
+          }; },
+        },
+        artifact: { async prepare() { return {
               buildId: "build-53",
               configurationFingerprint: `sha256:${"2".repeat(64)}`,
               runtimeFingerprint: `sha256:${"1".repeat(64)}`,
-            }; } },
-            attestation: {
-              async lookup() { return []; },
-              async sign(receipt) { return { id: "signed-53", receipt }; },
-            },
-            browser: { async verify() { browserCalls += 1; return { attempts: 1, outcome: "passed" }; } },
-            catalog: { async fingerprint() { catalogCalls += 1; return `sha256:${"3".repeat(64)}`; } },
-            clock: { now: () => "2026-08-08T10:00:00.000Z" },
-          });
-          if (completed.outcome !== "passed") return { outcome: "failed" };
-          const reusable = await findReusableVerificationReceipt({
-            artifact: completed.receipt.artifact,
-            browsers: completed.receipt.browsers,
-            catalogFingerprint: completed.receipt.catalog.after,
-            integration: completed.receipt.integration,
-            planFingerprint: completed.receipt.planFingerprint,
-            tools: completed.receipt.tools,
-          }, { async lookup() { return [{ id: "signed-53", receipt: completed.receipt }]; } });
-          return { outcome: reusable.outcome === "reused" ? "passed" : "failed" };
+        }; } },
+        attestation: {
+          async lookup() { return signedReceipts; },
+          async sign(receipt) {
+            const signed = { id: "signed-53", receipt };
+            signedReceipts.push(signed);
+            return signed;
+          },
         },
-      },
+        browser: { async verify() { browserCalls += 1; return { attempts: 1, outcome: "passed" }; } },
+        catalog: { async fingerprint() { catalogCalls += 1; return `sha256:${"3".repeat(64)}`; } },
+        clock: { now: () => "2026-08-08T10:00:00.000Z" },
+      }),
       merge: { async merge() { mergeCalls += 1; return { mergeSha: "d".repeat(40) }; } },
     });
 

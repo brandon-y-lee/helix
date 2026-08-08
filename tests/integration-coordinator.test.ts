@@ -71,6 +71,9 @@ describe("GitHub Integration Coordinator adapter", () => {
   });
 
   it.each([
+    ".nvmrc",
+    "package.json",
+    "pnpm-lock.yaml",
     "playwright.config.ts",
     "scripts/affected-browser-verification.ts",
     "scripts/browser-verification-plan.ts",
