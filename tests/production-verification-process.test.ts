@@ -302,11 +302,28 @@ describe("Production Verification Node Adapters", () => {
       git("init", "--quiet");
       git("add", ".");
 
-      const adapters = await createNodeProductionVerificationAdapters(cwd, {
-        NODE_ENV: "production",
+      const nonSecretEnvironment = {
+        ALGOLIA_APP_ID: "algolia-app",
+        ALGOLIA_INDEX_NAME: "products",
+        ALLOW_PRODUCTION_SEARCH_REINDEX: "false",
+        CHECKOUT_ENABLED: "true",
+        CHECKOUT_MODE: "test",
+        CI: "",
+        NODE_ENV: "production" as const,
         NEXT_PUBLIC_SITE_ORIGIN: "https://mei-pelle.example.test",
-        PRIVATE_API_SECRET: "must-not-be-receipted",
+        SEARCH_BACKFILL_ENVIRONMENT: "preview",
+        STRIPE_AUTOMATIC_TAX_ENABLED: "true",
+        STRIPE_REFERRAL_15_COUPON_ID: "coupon-referral",
+        STRIPE_REWARD_200_COUPON_ID: "coupon-200",
+        STRIPE_REWARD_400_COUPON_ID: "coupon-400",
+        STRIPE_REWARD_600_COUPON_ID: "coupon-600",
+        STRIPE_STANDARD_SHIPPING_RATE_ID: "shr_standard",
+        VERCEL_ENV: "preview",
         VERCEL_URL: "mei-pelle.example.test",
+      };
+      const adapters = await createNodeProductionVerificationAdapters(cwd, {
+        ...nonSecretEnvironment,
+        PRIVATE_API_SECRET: "must-not-be-receipted",
       });
       const baseline = await adapters.readBuildReuseInput();
 
@@ -330,21 +347,22 @@ describe("Production Verification Node Adapters", () => {
         await writeFile(resolve(cwd, path), files[path]);
       }
 
-      const environmentChanged = await createNodeProductionVerificationAdapters(
-        cwd,
-        {
-          NODE_ENV: "production",
-          NEXT_PUBLIC_SITE_ORIGIN: "https://mei-pelle.example.test",
+      for (const key of Object.keys(nonSecretEnvironment)) {
+        const environmentChanged = await createNodeProductionVerificationAdapters(
+          cwd,
+          {
+            ...nonSecretEnvironment,
+            [key]: `${nonSecretEnvironment[key as keyof typeof nonSecretEnvironment]}-changed`,
           PRIVATE_API_SECRET: "a-different-secret",
-          VERCEL_URL: "changed.example.test",
-        },
-      );
-      const changedInput = await environmentChanged.readBuildReuseInput();
-      expect(changedInput.categories.environment).not.toBe(
-        baseline.categories.environment,
-      );
+          },
+        );
+        const changedInput = await environmentChanged.readBuildReuseInput();
+        expect(changedInput.categories.environment, key).not.toBe(
+          baseline.categories.environment,
+        );
+        expect(changedInput.worktreeId).toBe(baseline.worktreeId);
+      }
       expect(JSON.stringify(baseline)).not.toContain("must-not-be-receipted");
-      expect(changedInput.worktreeId).toBe(baseline.worktreeId);
     } finally {
       await rm(cwd, { force: true, recursive: true });
     }

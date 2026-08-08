@@ -298,6 +298,7 @@ describe("Affected Browser Verification command", () => {
   });
 
   it("rejects a concurrent supported check while preserving the active owner", async () => {
+    const rejectedOutput: string[] = [];
     let owned = false;
     let releaseBrowser!: () => void;
     let markBrowserStarted!: () => void;
@@ -340,12 +341,15 @@ describe("Affected Browser Verification command", () => {
         adapters,
         argv: ["--base", "dev"],
         env: {},
-        log: () => {},
+        log: (message) => rejectedOutput.push(message),
       }),
     ).rejects.toMatchObject({
       message: "Production verification is already owned.",
       phase: "preflight",
     });
+    expect(rejectedOutput).toContain(
+      "Production build reuse: new (preflight failed before reuse evaluation).",
+    );
     expect(owned).toBe(true);
 
     releaseBrowser();

@@ -686,6 +686,7 @@ export async function verifyReusableProductionArtifact(
 ): Promise<ReusableProductionVerificationResult> {
   let reuseStatus: ReusableProductionVerificationResult["reuseStatus"] = "new";
   let invalidationReason = "no receipt";
+  let reuseDecisionMade = false;
   try {
     const result = await verifyProductionArtifact(input, adapters, async (
       runPhase,
@@ -693,6 +694,7 @@ export async function verifyReusableProductionArtifact(
     ) => {
       const currentInput = await adapters.readBuildReuseInput();
       const storedReceipt = await adapters.readReusableBuildReceipt();
+      reuseDecisionMade = true;
       const receipt = storedReceipt
         ? parseReusableProductionBuildReceipt(storedReceipt)
         : undefined;
@@ -751,7 +753,7 @@ export async function verifyReusableProductionArtifact(
 
     return { ...result, invalidationReason, reuseStatus };
   } catch (error) {
-    if (error instanceof ProductionVerificationError) {
+    if (error instanceof ProductionVerificationError && reuseDecisionMade) {
       error.invalidationReason = invalidationReason;
       error.reuseStatus = reuseStatus;
     }

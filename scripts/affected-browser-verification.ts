@@ -279,6 +279,9 @@ export async function runAffectedBrowserVerificationCommand(
       },
     );
   } catch (error) {
+    const failure = [...diagnostics]
+      .reverse()
+      .find((diagnostic) => diagnostic.status === "failed");
     const reuseStatus =
       typeof error === "object" &&
       error !== null &&
@@ -291,10 +294,7 @@ export async function runAffectedBrowserVerificationCommand(
       typeof (error as { invalidationReason?: unknown }).invalidationReason ===
         "string"
         ? (error as { invalidationReason: string }).invalidationReason
-        : "verification failed before reuse evaluation";
-    const failure = [...diagnostics]
-      .reverse()
-      .find((diagnostic) => diagnostic.status === "failed");
+        : `${failure?.phase ?? "preflight"} failed before reuse evaluation`;
     const telemetry = {
       ...telemetryBase(
         typeof (error as { retryCount?: unknown })?.retryCount === "number"
