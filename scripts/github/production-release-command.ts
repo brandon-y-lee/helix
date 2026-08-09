@@ -208,13 +208,34 @@ export function createGitHubProductionRepositoryAdapter(input: {
       "pr", "checks", String(number), "--repo", input.repository,
       "--required", "--watch", "--fail-fast",
     ]);
+    const checked = await commands.run("gh", [
+      "pr", "checks", String(number), "--repo", input.repository,
+      "--required", "--json", "name,state,link,workflow",
+    ]);
+    const requiredChecks = parseJson<Array<{
+      link?: string;
+      name?: string;
+      state?: string;
+      workflow?: string;
+    }>>(checked.stdout, "Production pull request required checks").map((check) => ({
+      conclusion: check.state === "SUCCESS"
+        ? "success" as const
+        : check.state === "FAILURE"
+          ? "failure" as const
+          : check.state === "CANCELLED"
+            ? "cancelled" as const
+            : "pending" as const,
+      link: check.link,
+      name: check.name ?? "unnamed required check",
+      workflow: check.workflow,
+    }));
     const afterChecks = await readBranches();
     if (afterChecks.devSha !== release.expectedDevSha || afterChecks.mainSha !== release.expectedMainSha) {
       throw new Error("dev or main changed while Production checks were running.");
     }
     return {
       number,
-      requiredChecks: PRODUCTION_REQUIRED_CHECKS.map((name) => ({ conclusion: "success" as const, name })),
+      requiredChecks,
       url,
     };
   };

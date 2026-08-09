@@ -148,6 +148,14 @@ describe("Production release command adapters", () => {
             url: "https://github.com/brandon-y-lee/mei-pelle/pull/158",
           }]) };
           if (joined.startsWith("pr create")) return { stderr: "", stdout: "https://github.com/brandon-y-lee/mei-pelle/pull/158\n" };
+          if (joined.startsWith("pr checks") && joined.includes("--json")) {
+            return { stderr: "", stdout: JSON.stringify([{
+              link: "https://github.com/brandon-y-lee/mei-pelle/actions/runs/58",
+              name: "ci",
+              state: "SUCCESS",
+              workflow: "CI",
+            }]) };
+          }
           if (joined.startsWith("pr checks")) return { stderr: "", stdout: "" };
           if (joined.includes("pulls/158/merge")) return { stderr: "", stdout: JSON.stringify({ merged: true, sha: mergeSha }) };
           if (joined.includes(`git/commits/${devSha}`)) return { stderr: "", stdout: JSON.stringify({ tree: { sha: "tree-release" } }) };
@@ -164,7 +172,15 @@ describe("Production release command adapters", () => {
     await expect(adapter.prepareDevToMain({
       expectedDevSha: devSha,
       expectedMainSha: mainSha,
-    })).resolves.toMatchObject({ number: 158, requiredChecks: expect.any(Array) });
+    })).resolves.toMatchObject({
+      number: 158,
+      requiredChecks: [{
+        conclusion: "success",
+        link: "https://github.com/brandon-y-lee/mei-pelle/actions/runs/58",
+        name: "ci",
+        workflow: "CI",
+      }],
+    });
     await expect(adapter.mergeDevToMain({
       expectedDevSha: devSha,
       expectedMainSha: mainSha,

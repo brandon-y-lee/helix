@@ -24,7 +24,9 @@ export type ProductionReleaseEvidence = {
   receipt: StagedProductionReceipt;
   requiredChecks: Array<{
     conclusion: "success" | "failure" | "cancelled" | "pending";
+    link?: string;
     name: string;
+    workflow?: string;
   }>;
   signedPredicate: unknown;
 };
