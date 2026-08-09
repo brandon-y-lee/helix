@@ -5,12 +5,9 @@ export function desiredSpecRuleset(appId) {
     name: SPEC_RULESET_NAME,
     target: "branch",
     enforcement: "active",
-    bypass_actors: [
-      { actor_id: appId, actor_type: "Integration", bypass_mode: "always" },
-    ],
+    bypass_actors: [],
     conditions: { ref_name: { include: ["refs/heads/codex/spec-*"], exclude: [] } },
     rules: [
-      { type: "update", parameters: { update_allows_fetch_and_merge: false } },
       { type: "deletion" },
       { type: "non_fast_forward" },
       {

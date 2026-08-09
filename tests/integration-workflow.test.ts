@@ -60,6 +60,9 @@ describe("dev Integration Line workflows", () => {
   it("separates the trusted coordinator from read-only candidate verification", () => {
     expect(coordinator).toContain("pull_request_target:");
     expect(coordinator).toContain("workflow_run:");
+    expect(coordinator).toContain(
+      "workflows: [CI, Verification System Browser Evidence, Verification Lifecycle Windows]",
+    );
     expect(coordinator).toContain("workflow_dispatch:");
     expect(coordinator).toContain("group: dev-integration");
     expect(coordinator).toContain("cancel-in-progress: false");

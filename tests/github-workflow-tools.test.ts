@@ -22,6 +22,14 @@ const specLifecycleWorkflow = readFileSync(
   resolve(projectRoot, ".github/workflows/spec-lifecycle.yml"),
   "utf8",
 );
+const devIntegrationRunbook = readFileSync(
+  resolve(projectRoot, "docs/agents/dev-integration.md"),
+  "utf8",
+);
+const gitWorkflowRunbook = readFileSync(
+  resolve(projectRoot, "docs/git-workflow.md"),
+  "utf8",
+);
 
 const ciPublicRuntimeSecrets = [
   "NEXT_PUBLIC_SUPABASE_URL",
@@ -149,6 +157,15 @@ function cleanupFixture(tempRoot: string): void {
 }
 
 describe("GitHub Actions CI", () => {
+  it("documents the executable personal-repository cutover command and policy", () => {
+    expect(gitWorkflowRunbook).toContain("pnpm github:workflow:apply \\");
+    expect(gitWorkflowRunbook).not.toContain("pnpm github:workflow:apply -- \\");
+    expect(devIntegrationRunbook).toContain("has no bypass actor");
+    expect(devIntegrationRunbook).toContain(
+      "GitHub does not enforce it as the only merge actor",
+    );
+  });
+
   it("runs spec lifecycle mutations only through the trusted serialized GitHub Actions identity", () => {
     expect(specLifecycleWorkflow).toContain("workflow_dispatch:");
     expect(specLifecycleWorkflow).toContain("group: spec-lifecycle");
@@ -670,10 +687,10 @@ describe("GitHub workflow bootstrap", () => {
       expect(planned.stdout).toContain("create label workflow:integration-active");
       expect(planned.stdout).toContain("create label workflow:urgent");
       expect(planned.stdout).toContain(
-        "create dev Integration Line authority ruleset for GitHub App 15368",
+        "create dev pull request integration ruleset with checks from GitHub App 15368",
       );
       expect(planned.stdout).toContain(
-        "create protected spec branch ruleset for GitHub App 15368",
+        "create protected spec branch ruleset with checks from GitHub App 15368",
       );
       expect(planned.stdout).toContain("set default Actions workflow permissions to read-only");
       expect(planned.stdout).toContain("update repository merge settings");
@@ -809,8 +826,15 @@ describe("GitHub workflow bootstrap", () => {
         "ci",
         "verification-system-browser-gate",
         "verification-lifecycle-gate",
-        "dev-integration",
       ]);
+      expect(state.rulesets[0].bypass_actors).toEqual([]);
+      expect(
+        state.rulesets[0].rules.some((rule: { type: string }) => rule.type === "update"),
+      ).toBe(false);
+      expect(state.rulesets[1].bypass_actors).toEqual([]);
+      expect(
+        state.rulesets[1].rules.some((rule: { type: string }) => rule.type === "update"),
+      ).toBe(false);
       expect(state.workflowPermissions).toEqual({
         default_workflow_permissions: "read",
         can_approve_pull_request_reviews: false,

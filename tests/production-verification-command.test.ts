@@ -84,7 +84,16 @@ describe("Production Verification Commands", () => {
     );
     expect(workflow).toContain("- name: Verify receipted production artifact with the trusted runner");
     expect(workflow).toContain(
-      'sudo -E -H -u verifier-candidate env "PATH=$VERIFICATION_CANDIDATE_PATH" pnpm --dir trusted exec tsx scripts/verify-production-ci.ts verify --selection routine-chromium',
+      'sudo -E -H env "PATH=$VERIFICATION_CANDIDATE_PATH" pnpm --dir trusted exec tsx scripts/verify-production-ci.ts verify --selection routine-chromium',
+    );
+    expect(workflow).toContain("sudo useradd --create-home --shell /bin/bash verifier-server");
+    expect(workflow).toContain('VERIFICATION_SERVER_CWD=$RUNNER_TEMP/verification-server-runtime');
+    expect(workflow).toContain("sudo -u verifier-candidate test ! -r \"$VERIFICATION_SERVER_CWD\"");
+    expect(workflow).toContain("sudo -u verifier-server test -w \"$VERIFICATION_SERVER_CWD/.next\"");
+    expect(workflow).toContain("sudo chown -R root:root -- \"$RUNNER_TEMP/trusted-browser-telemetry\"");
+    expect(workflow).toContain('if [[ -e "$VERIFICATION_SERVER_CWD" ]]; then');
+    expect(workflow).toContain(
+      'if [[ -e "$RUNNER_TEMP/trusted-browser-telemetry" ]]; then',
     );
     expect(workflow).not.toContain("- name: Production build and E2E tests");
   });

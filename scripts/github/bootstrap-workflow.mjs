@@ -10,7 +10,7 @@ import {
 
 const API_VERSION = "2026-03-10";
 const EXPECTED_REPOSITORY = "brandon-y-lee/mei-pelle";
-const INTEGRATION_RULESET_NAME = "dev Integration Line authority";
+const INTEGRATION_RULESET_NAME = "dev pull request integration";
 const INTEGRATION_CUTOVER_CONFIRMATION = "dev-integration-authority";
 const SPEC_BRANCH_CUTOVER_CONFIRMATION = "protected-spec-branches";
 const ghBin = process.env.GH_BIN ?? "gh";
@@ -496,12 +496,9 @@ function desiredIntegrationRuleset(appId) {
     name: INTEGRATION_RULESET_NAME,
     target: "branch",
     enforcement: "active",
-    bypass_actors: [
-      { actor_id: appId, actor_type: "Integration", bypass_mode: "pull_request" },
-    ],
+    bypass_actors: [],
     conditions: { ref_name: { include: ["refs/heads/dev"], exclude: [] } },
     rules: [
-      { type: "update", parameters: { update_allows_fetch_and_merge: false } },
       { type: "deletion" },
       { type: "non_fast_forward" },
       {
@@ -522,7 +519,6 @@ function desiredIntegrationRuleset(appId) {
             { context: "ci", integration_id: appId },
             { context: "verification-system-browser-gate", integration_id: appId },
             { context: "verification-lifecycle-gate", integration_id: appId },
-            { context: "dev-integration", integration_id: appId },
           ],
           strict_required_status_checks_policy: false,
           do_not_enforce_on_create: false,
@@ -819,7 +815,7 @@ function collectPlan(repo) {
   );
   if (!containsDesired(observedRuleset, desiredRuleset)) {
     actions.push({
-      description: `${observedRuleset ? "update" : "create"} dev Integration Line authority ruleset for GitHub App ${coordinatorAppId}`,
+      description: `${observedRuleset ? "update" : "create"} dev pull request integration ruleset with checks from GitHub App ${coordinatorAppId}`,
       apply: () => {
         runGh(
           [
@@ -855,7 +851,7 @@ function collectPlan(repo) {
   }
   if (!specRulesetMatches) {
     actions.push({
-      description: `${observedSpecBranchRuleset ? "update" : "create"} protected spec branch ruleset for GitHub App ${coordinatorAppId}`,
+      description: `${observedSpecBranchRuleset ? "update" : "create"} protected spec branch ruleset with checks from GitHub App ${coordinatorAppId}`,
       apply: () => {
         runGh(
           [
