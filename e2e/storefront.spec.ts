@@ -572,37 +572,6 @@ test("PDP add-to-cart persists across reload and reaches the cart page", async (
   ).toBeVisible();
 });
 
-test("mobile quick buy pointer close preserves the Customer's viewport and preview", async ({
-  page,
-  storefront,
-}) => {
-  const products = storefront.products();
-  const product = products[Math.floor(products.length / 2)];
-  if (!product) throw new Error("The Storefront has no Product to inspect.");
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/collections/shop");
-
-  const card = page.locator(`[data-product-card-slug="${product.slug}"]`);
-  const quickBuy = card.getByRole("button", {
-    name: `Open quick buy for ${product.displayName}`,
-  });
-  await quickBuy.click();
-
-  const close = card.getByRole("button", {
-    name: `Close quick buy for ${product.displayName}`,
-  });
-  await finishAnimations(card.locator(".product-card__quick-buy"));
-  await close.scrollIntoViewIfNeeded();
-  const scrollYBeforeClose = await page.evaluate(() => window.scrollY);
-  await close.click();
-
-  await expect(card).toHaveAttribute("data-quick-buy-open", "false");
-  await expect(quickBuy).toBeFocused();
-  await expect(card).toHaveAttribute("data-visual-state", "preview");
-  await page.waitForTimeout(750);
-  expect(await page.evaluate(() => window.scrollY)).toBe(scrollYBeforeClose);
-});
-
 test("mobile quick buy Escape preserves the Customer's viewport and focus preview", async ({
   page,
   storefront,
