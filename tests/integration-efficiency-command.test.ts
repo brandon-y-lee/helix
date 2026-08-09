@@ -47,4 +47,25 @@ describe("trusted Integration efficiency record", () => {
       await rm(directory, { force: true, recursive: true });
     }
   });
+
+  it.each(["missing", "malformed"])(
+    "does not count a complete plan for a failed browser step with %s telemetry",
+    async (kind) => {
+      const directory = await mkdtemp(resolve(tmpdir(), "mei-pelle-efficiency-failure-"));
+      const playwrightPath = resolve(directory, "playwright.json");
+      const outputPath = resolve(directory, "trusted-result.json");
+      if (kind === "malformed") await writeFile(playwrightPath, "not-json");
+      try {
+        await expect(writeTrustedIntegrationEfficiency({
+          browserStepOutcome: "failure", outputPath, playwrightPath,
+        })).resolves.toMatchObject({
+          browserCaseExecutions: null, buildReuse: null, completePlanRuns: 0,
+          failureClassification: "failed", retries: null,
+          selectedCapabilities: [], testTimeMs: null,
+        });
+      } finally {
+        await rm(directory, { force: true, recursive: true });
+      }
+    },
+  );
 });

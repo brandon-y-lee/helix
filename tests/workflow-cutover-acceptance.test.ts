@@ -74,6 +74,54 @@ describe("complete verification workflow cutover", () => {
     const integrationAttempt = integration.attempts[0]!;
     if (integrationAttempt.outcome !== "merged") throw new Error("controlled attempt did not merge");
 
+    const activeCandidate = {
+      ...structuredClone(candidate ?? {
+        number: 70, target: "dev" as const, headSha: "active", readyAt: "2026-08-09T00:00:00Z",
+        workClass: "standalone" as const, changedFiles: ["app/page.tsx"], ready: true,
+      }),
+      number: 70, labels: ["workflow:integration-active"],
+    } as IntegrationCandidate;
+    const waitingUrgent = {
+      ...activeCandidate, number: 71, headSha: "urgent", workClass: "urgent" as const,
+      labels: ["workflow:urgent", "workflow:integration-queued"],
+    };
+    const busy = await runIntegrationLine({
+      repository: {
+        async read() { return { devSha: "dev-2", candidates: [activeCandidate, waitingUrgent] }; },
+        async queue() { return true; }, async claim() { throw new Error("must not preempt"); }, async release() {},
+      },
+      git: { async prepare() { throw new Error("must not prepare"); } },
+      verification: { async verify() { throw new Error("must not verify"); } },
+      merge: { async merge() { throw new Error("must not merge"); } },
+    });
+
+    const normal = { ...waitingUrgent, number: 72, headSha: "normal", workClass: "standalone" as const, labels: ["workflow:integration-queued"], readyAt: "2026-08-09T00:00:00Z" };
+    const urgent = { ...waitingUrgent, number: 73, readyAt: "2026-08-09T00:05:00Z" };
+    let urgentSelection = 0;
+    const priority = await runIntegrationLine({
+      repository: {
+        async read() { return { devSha: "dev-2", candidates: [normal, urgent] }; }, async queue() { return true; },
+        async claim(input) { urgentSelection = input.number; return false; }, async release() {},
+      },
+      git: { async prepare() { throw new Error("claim must fail"); } },
+      verification: { async verify() { throw new Error("claim must fail"); } },
+      merge: { async merge() { throw new Error("claim must fail"); } },
+    });
+
+    let timedCandidate: IntegrationCandidate | undefined = {
+      ...normal, number: 74, headSha: "timed", labels: ["workflow:integration-queued"],
+    };
+    const timedOut = await runIntegrationLine({
+      repository: {
+        async read() { return { devSha: "dev-2", candidates: timedCandidate ? [timedCandidate] : [] }; },
+        async queue() { return true; }, async claim() { timedCandidate!.labels = ["workflow:integration-active"]; return true; },
+        async release() { timedCandidate = undefined; transitions.push("timeout:handoff"); },
+      },
+      git: { async prepare() { return { candidateSha: "timed-tree" }; } },
+      verification: { async verify() { await new Promise((resolve) => setTimeout(resolve, 10)); return { outcome: "passed" }; } },
+      merge: { async merge() { throw new Error("timed work must not merge"); } },
+    }, { timeoutMs: 1 });
+
     const identity = {
       browser: { name: "webkit" as const, version: "WebKit 1" },
       catalogFingerprint: `sha256:${"3".repeat(64)}` as const,
@@ -115,6 +163,26 @@ describe("complete verification workflow cutover", () => {
           async find() { return null; }, async read() { throw new Error("unused"); },
           async create() { throw new Error("unused"); }, async update() {}, async merge() { throw new Error("unused"); },
         },
+      } as any,
+    );
+    const specIssues = new Map<number, any>([
+      [60, { number: 60, state: "open", labels: ["type:spec", "workflow:in-progress"], assignees: [], blockedBy: [] }],
+      [61, { number: 61, state: "open", labels: ["type:ticket", "ready-for-agent"], assignees: [], parentNumber: 60, blockedBy: [62] }],
+      [62, { number: 62, state: "closed", labels: ["type:ticket", "workflow:spec-integrated"], assignees: [], parentNumber: 60, blockedBy: [] }],
+    ]);
+    const dependency = await runSpecLifecycle(
+      { kind: "start-child", specNumber: 60, specSlug: "controlled-cutover", childNumber: 61, childSlug: "dependent", assignee: "agent" },
+      {
+        github: { async protectSpecBranch() {} },
+        git: {
+          async readBranch(name: string) { return name === "codex/spec-60-controlled-cutover" ? { name, sha: "spec-1", parent: "dev" } : null; },
+          async createBranch() { transitions.push("dependency:flat-child"); }, async deleteBranch() {}, async verifyFlatTicketBranch() { return true; },
+        },
+        issues: {
+          async read(number: number) { return structuredClone(specIssues.get(number)); }, async listChildren() { return []; },
+          async update() {}, async comment() { transitions.push("dependency:recorded"); },
+        },
+        pullRequests: { async find() { return null; }, async read() { throw new Error("unused"); }, async create() { throw new Error("unused"); }, async update() {}, async merge() { throw new Error("unused"); } },
       } as any,
     );
 
@@ -194,11 +262,11 @@ describe("complete verification workflow cutover", () => {
       "work-classification": observed([integrationAttempt.gate], [integration.outcome]),
       "affected-browser-verification": observed(["complete-behavioral"], [String(integrationAttempt.telemetry.browserCaseExecutions)]),
       "local-build-reuse": observed(["receipted-build"], [String(integrationAttempt.telemetry.buildReuse)]),
-      "integration-slot-concurrency": observed(["atomic-slot"], transitions.filter((value) => value.startsWith("slot:"))),
-      "non-preemptive-urgent-priority": observed(["non-preemptive"], [integration.outcome]),
-      "timeout-and-failure-handoff": observed(["bounded-slot"], ["failure paths covered by Integration report type"]),
+      "integration-slot-concurrency": observed(["atomic-slot"], [busy.outcome, String(busy.outcome === "busy" ? busy.activeNumber : "missing")]),
+      "non-preemptive-urgent-priority": observed(["non-preemptive", "urgent-first"], [busy.outcome, priority.outcome, String(urgentSelection)]),
+      "timeout-and-failure-handoff": observed(["bounded-slot"], [timedOut.outcome, timedOut.attempts[0]?.outcome ?? "missing"]),
       "verification-receipts": observed(["signed-receipt"], [staged.receipt.predicateType]),
-      "spec-dependencies": observed(["flat-spec"], [spec.outcome]),
+      "spec-dependencies": observed(["flat-spec", "native-blocker"], [spec.outcome, dependency.outcome]),
       "scheduled-failure-and-recovery": observed([scheduledFailure.outcome], [scheduledRecovery.outcome]),
       "staged-production-verification": observed(["chromium", "webkit"], [staged.outcome]),
       "exact-production-promotion": observed(["rebuild:false"], [promoted.outcome]),

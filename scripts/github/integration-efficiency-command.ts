@@ -56,14 +56,15 @@ export async function writeTrustedIntegrationEfficiency(input: {
   }
   const telemetry: VerificationEfficiencyTelemetry = {
     browserCaseExecutions: observed?.browserCaseExecutions ?? null,
-    buildReuse: ran ? "new" : null,
-    completePlanRuns: ran ? 1 : 0,
+    buildReuse: observed && observed.browserCaseExecutions > 0 ? "new" : null,
+    completePlanRuns: observed && observed.browserCaseExecutions > 0 ? 1 : 0,
     failureClassification:
       input.browserStepOutcome === "success"
         ? (observed?.retries ? "unstable" : "none")
         : "failed",
     retries: observed?.retries ?? null,
-    selectedCapabilities: ran ? ["complete-plan"] : [],
+    selectedCapabilities:
+      observed && observed.browserCaseExecutions > 0 ? ["complete-plan"] : [],
     testTimeMs: observed?.testTimeMs ?? null,
   };
   await writeFile(input.outputPath, `${JSON.stringify({ telemetry })}\n`, {

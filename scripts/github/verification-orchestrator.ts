@@ -458,7 +458,9 @@ export function createWorkflowVerificationAdapter(
           testTimeMs: null,
           ...result.telemetry,
           failureClassification:
-            result.outcome === "failed"
+            result.telemetry?.failureClassification === "unstable"
+              ? "unstable"
+              : result.outcome === "failed"
               ? "failed"
               : result.telemetry?.failureClassification ?? "none",
           workflowRunId: runId,

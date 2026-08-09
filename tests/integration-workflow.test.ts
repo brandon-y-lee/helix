@@ -46,6 +46,12 @@ describe("dev Integration Line workflows", () => {
     expect(verification).toContain("Create trusted compact verification efficiency result");
     expect(verification).toContain("scripts/github/integration-efficiency-command.ts");
     expect(verification).toContain("${{ runner.temp }}/integration-efficiency/verification-browser-result.json");
+    const trustedTelemetryStep = verification.split("- name: Verify receipted production artifact")[1]!
+      .split("- name: Freeze browser evidence")[0]!;
+    expect(trustedTelemetryStep.indexOf("pkill -KILL -u verifier-candidate")).toBeLessThan(
+      trustedTelemetryStep.indexOf("install -d -o verifier-candidate"),
+    );
+    expect(trustedTelemetryStep).toContain("$RUNNER_TEMP/trusted-browser-telemetry");
     expect(coordinatorCommand.indexOf("process.stdout.write")).toBeLessThan(
       coordinatorCommand.indexOf("await requestIntegrationHandoff(repository)"),
     );
@@ -270,7 +276,7 @@ describe("dev Integration Line workflows", () => {
       "sudo chmod -R a-w -- \"$RUNNER_TEMP/verification-browser-evidence\"",
     );
     expect(verification).toContain(
-      "${{ runner.temp }}/verification-browser-evidence/test-results/verification-browser-result.json",
+      "${{ runner.temp }}/trusted-browser-telemetry/verification-browser-result.json",
     );
     expect(verification).toContain(
       "${{ runner.temp }}/verification-browser-evidence/playwright-report/",

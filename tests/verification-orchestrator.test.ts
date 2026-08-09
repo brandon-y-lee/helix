@@ -156,6 +156,29 @@ describe("Verification Orchestrator", () => {
     expect(calls).toEqual(["dispatch", "find", "wait"]);
   });
 
+  it("preserves observed unstable retry-pass evidence when the receipt workflow fails", async () => {
+    const adapter = createWorkflowVerificationAdapter({
+      async dispatch() {}, async findRun() { return 531; },
+      async waitForRun() { return { outcome: "failed", telemetry: {
+        browserCaseExecutions: 10, buildReuse: "new", completePlanRuns: 1,
+        failureClassification: "unstable", retries: 1,
+        selectedCapabilities: ["complete-plan"], testTimeMs: 1_000,
+      } }; },
+      async cancelRun() {}, async delay() {},
+    });
+
+    const result = await adapter.verify({
+      number: 53, baseSha: "b".repeat(40), headSha: "c".repeat(40),
+      candidateSha: "d".repeat(40), gate: "complete-behavioral", reasons: [],
+      timeoutMs: 20 * 60 * 1_000, signal: new AbortController().signal,
+    });
+
+    expect(result).toMatchObject({
+      outcome: "failed",
+      telemetry: { failureClassification: "unstable", workflowRunId: 531 },
+    });
+  });
+
   it("does not grant the fast path to runtime-consumed Markdown", async () => {
     let observedGate: string | undefined;
     let candidate: IntegrationCandidate | undefined = {
