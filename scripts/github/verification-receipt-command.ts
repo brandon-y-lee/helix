@@ -400,12 +400,18 @@ export async function findReusableProtectedPushReceiptWithEvidence(input: {
   return { outcome: "missing" as const, reusable: false as const };
 }
 
-/**
- * A reviewed merge with no changed paths is ancestry-only, so it is the safest
- * form of non-runtime receipt carry-forward.
- */
-export function canCarryForwardProtectedPushReceipt(changedPaths: string[]): boolean {
-  return changedPaths.every(isReviewedNonRuntimePath);
+export function canCarryForwardProtectedPushReceipt(input: {
+  baseTreeSha: string;
+  changedPaths: string[];
+  pushTreeSha: string;
+}): boolean {
+  return (
+    input.baseTreeSha === input.pushTreeSha ||
+    (
+      input.changedPaths.length > 0 &&
+      input.changedPaths.every(isReviewedNonRuntimePath)
+    )
+  );
 }
 
 const PROTECTED_PUSH_SCRIPT = "verification:receipt:protected-push";
@@ -538,11 +544,24 @@ export async function verifyProtectedBranchPushReceipt(input: {
   }
   const changed = await execFileAsync(
     "git",
-    ["diff", "--name-only", "--diff-filter=ACMR", baseSha, pushSha],
+    ["diff", "--name-only", baseSha, pushSha],
     { cwd, encoding: "utf8" },
   );
   const changedPaths = changed.stdout.split("\n").filter(Boolean);
-  const allowIntegrationCarryForward = canCarryForwardProtectedPushReceipt(changedPaths);
+  const treeResult = await execFileAsync(
+    "git",
+    ["rev-parse", `${baseSha}^{tree}`, `${pushSha}^{tree}`],
+    { cwd, encoding: "utf8" },
+  );
+  const [baseTreeSha, pushTreeSha] = treeResult.stdout.split("\n").filter(Boolean);
+  if (!baseTreeSha || !pushTreeSha) {
+    throw new Error("Protected dev push could not resolve both Git tree identities.");
+  }
+  const allowIntegrationCarryForward = canCarryForwardProtectedPushReceipt({
+    baseTreeSha,
+    changedPaths,
+    pushTreeSha,
+  });
   const files = await readVersionedFiles(cwd);
   const configurationFingerprint = fingerprintConfiguration(environment);
   const runtimeSubject = canonicalizeVerificationValue({
