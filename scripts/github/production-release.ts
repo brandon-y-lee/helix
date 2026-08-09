@@ -37,6 +37,7 @@ export type ProductionPromotionAudit = {
   mergeMethod: "merge";
   mergeSha: string;
   previousDeployment: ProductionDeployment;
+  observedDeployment: ProductionDeployment;
   promotedAt: string;
   promotedDeployment: ProductionDeployment;
   rebuild: false;
@@ -59,11 +60,20 @@ export type ProductionPromotionAdapters = {
     }): Promise<ProductionReleaseEvidence | undefined>;
   };
   repository: {
+    prepareDevToMain(input: {
+      expectedDevSha: string;
+      expectedMainSha: string;
+    }): Promise<{
+      number: number;
+      requiredChecks: ProductionReleaseEvidence["requiredChecks"];
+      url: string;
+    }>;
     mergeDevToMain(input: {
       expectedDevSha: string;
       expectedMainSha: string;
       expectedRuntimeFingerprint: Sha256Fingerprint;
       method: "merge";
+      pullRequestNumber: number;
     }): Promise<{
       mainSha: string;
       mergeSha: string;
@@ -85,7 +95,7 @@ export type ProductionRollbackAdapters = {
     ): Promise<ProductionDeployment>;
   };
   reconciliation: {
-    createUrgent(input: {
+    create(input: {
       audit: ProductionPromotionAudit;
       devSha: string;
       mainSha: string;
@@ -189,16 +199,35 @@ export async function prepareProductionPromotion(
     target: releaseEvidence.receipt.deployment.target,
     url: releaseEvidence.receipt.deployment.url,
   };
+  const releasePullRequest = await adapters.repository.prepareDevToMain({
+    expectedDevSha: branches.devSha,
+    expectedMainSha: branches.mainSha,
+  });
+  if (
+    releasePullRequest.requiredChecks.length === 0 ||
+    releasePullRequest.requiredChecks.some((check) => check.conclusion !== "success")
+  ) {
+    return { outcome: "blocked" as const, reason: "Production pull request checks are not all successful" };
+  }
   const candidate = {
     attestation: releaseEvidence.attestation,
-    catalogFingerprint: releaseEvidence.receipt.catalog.after,
+    browserEvidence: releaseEvidence.receipt.browsers,
+    catalogFingerprints: releaseEvidence.receipt.catalog,
+    configurationFingerprint: releaseEvidence.receipt.artifact.configurationFingerprint,
     deployment,
     devSha: branches.devSha,
     inspectionUrl: deployment.url,
     mainSha: branches.mainSha,
-    requiredChecks: releaseEvidence.requiredChecks,
+    receipt: releaseEvidence.receipt,
+    releasePullRequest,
     runtimeFingerprint: releaseEvidence.receipt.artifact.runtimeFingerprint,
     scheduledWebkit: { identity: scheduledIdentity, status: "clear" as const },
+    source: {
+      candidateSha: releaseEvidence.receipt.source.candidateSha,
+      requiredChecks: releaseEvidence.requiredChecks,
+      workflowRun: releaseEvidence.receipt.workflowRun,
+    },
+    toolEvidence: releaseEvidence.receipt.tools,
   };
   const challenge = authorizationChallenge(candidate);
   return {
@@ -226,6 +255,7 @@ export async function runProductionPromotion(
     expectedMainSha: plan.candidate.mainSha,
     expectedRuntimeFingerprint: plan.candidate.runtimeFingerprint,
     method: "merge",
+    pullRequestNumber: plan.candidate.releasePullRequest.number,
   });
   if (merged.runtimeFingerprint !== plan.candidate.runtimeFingerprint) {
     return {
@@ -240,14 +270,6 @@ export async function runProductionPromotion(
     plan.candidate.deployment,
     { rebuild: false },
   );
-  if (!sameDeployment(observedDeployment, plan.candidate.deployment)) {
-    return {
-      observedDeployment,
-      outcome: "promotion-substituted" as const,
-      previousDeployment,
-    };
-  }
-
   const audit: ProductionPromotionAudit = {
     attestation: plan.candidate.attestation,
     devSha: plan.candidate.devSha,
@@ -255,12 +277,22 @@ export async function runProductionPromotion(
     mainSha: merged.mainSha,
     mergeMethod: "merge",
     mergeSha: merged.mergeSha,
+    observedDeployment,
     previousDeployment,
     promotedAt: adapters.clock.now(),
-    promotedDeployment: observedDeployment,
+    promotedDeployment: plan.candidate.deployment,
     rebuild: false,
     runtimeFingerprint: merged.runtimeFingerprint,
   };
+  if (!sameDeployment(observedDeployment, plan.candidate.deployment)) {
+    return {
+      audit,
+      observedDeployment,
+      outcome: "promotion-substituted" as const,
+      previousDeployment,
+    };
+  }
+
   return { audit, outcome: "promoted" as const };
 }
 
@@ -269,7 +301,7 @@ export async function runProductionRollback(
   adapters: ProductionRollbackAdapters,
 ) {
   const served = await adapters.deployment.current();
-  if (!sameDeployment(served, input.audit.promotedDeployment)) {
+  if (!sameDeployment(served, input.audit.observedDeployment)) {
     return {
       outcome: "rollback-refused" as const,
       reason: "served deployment does not match the recorded promotion",
@@ -286,7 +318,7 @@ export async function runProductionRollback(
       reason: "Vercel did not restore the recorded known-good deployment",
     };
   }
-  const issue = await adapters.reconciliation.createUrgent({
+  const issue = await adapters.reconciliation.create({
     audit: input.audit,
     devSha: input.audit.devSha,
     mainSha: input.audit.mainSha,

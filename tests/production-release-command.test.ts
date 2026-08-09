@@ -4,12 +4,35 @@ import { describe, expect, it } from "vitest";
 
 import {
   createGitHubProductionRepositoryAdapter,
+  createReconciliationAdapter,
   createVercelProductionReleaseAdapter,
 } from "@/scripts/github/production-release-command";
 
 const runtimeFingerprint = `sha256:${"1".repeat(64)}` as const;
 
 describe("Production release command adapters", () => {
+  it("creates reconciliation work without inferring user-approved urgency", async () => {
+    const calls: string[][] = [];
+    const adapter = createReconciliationAdapter({
+      commands: {
+        async run(_command, args) {
+          calls.push(args);
+          return { stderr: "", stdout: "https://github.com/brandon-y-lee/mei-pelle/issues/160\n" };
+        },
+      },
+      repository: "brandon-y-lee/mei-pelle",
+    });
+    await adapter.create({
+      audit: {} as never,
+      devSha: "d".repeat(40),
+      mainSha: "m".repeat(40),
+      reason: "Provider substitution",
+      servedDeployment: { id: "dpl_previous", url: "https://mei-pelle-previous.vercel.app" },
+    });
+    expect(calls[0]).toContain("ready-for-agent");
+    expect(calls[0]).not.toContain("workflow:urgent");
+  });
+
   it("promotes and restores exact Vercel deployments without a build command", async () => {
     const commands: Array<{ args: string[]; command: string }> = [];
     const requests: string[] = [];
@@ -118,7 +141,12 @@ describe("Production release command adapters", () => {
           const joined = args.join(" ");
           if (joined.includes("git/ref/heads/dev")) return { stderr: "", stdout: JSON.stringify({ object: { sha: devSha } }) };
           if (joined.includes("git/ref/heads/main")) return { stderr: "", stdout: JSON.stringify({ object: { sha: mainSha } }) };
-          if (joined.startsWith("pr list")) return { stderr: "", stdout: "[]" };
+          if (joined.startsWith("pr list")) return { stderr: "", stdout: JSON.stringify([{
+            headRefOid: devSha,
+            isDraft: false,
+            number: 158,
+            url: "https://github.com/brandon-y-lee/mei-pelle/pull/158",
+          }]) };
           if (joined.startsWith("pr create")) return { stderr: "", stdout: "https://github.com/brandon-y-lee/mei-pelle/pull/158\n" };
           if (joined.startsWith("pr checks")) return { stderr: "", stdout: "" };
           if (joined.includes("pulls/158/merge")) return { stderr: "", stdout: JSON.stringify({ merged: true, sha: mergeSha }) };
@@ -133,11 +161,16 @@ describe("Production release command adapters", () => {
       repository: "brandon-y-lee/mei-pelle",
     });
 
+    await expect(adapter.prepareDevToMain({
+      expectedDevSha: devSha,
+      expectedMainSha: mainSha,
+    })).resolves.toMatchObject({ number: 158, requiredChecks: expect.any(Array) });
     await expect(adapter.mergeDevToMain({
       expectedDevSha: devSha,
       expectedMainSha: mainSha,
       expectedRuntimeFingerprint: runtimeFingerprint,
       method: "merge",
+      pullRequestNumber: 158,
     })).resolves.toEqual({ mainSha: mergeSha, mergeSha, runtimeFingerprint });
 
     expect(calls).toContainEqual(expect.arrayContaining([
@@ -147,7 +180,7 @@ describe("Production release command adapters", () => {
     expect(calls).toContainEqual(expect.arrayContaining(["pr", "checks", "158", "--required", "--watch"]));
   });
 
-  it("defines separate read-only planning, authorized promotion, and rollback jobs", async () => {
+  it("defines separate preauthorization planning, authorized promotion, and rollback jobs", async () => {
     const [promotion, rollback, packageJson] = await Promise.all([
       readFile(resolve(process.cwd(), ".github/workflows/production-promotion.yml"), "utf8"),
       readFile(resolve(process.cwd(), ".github/workflows/production-rollback.yml"), "utf8"),
@@ -163,9 +196,13 @@ describe("Production release command adapters", () => {
     expect(promotion).toContain("production:release -- promote");
     expect(promotion).toContain("contents: write");
     expect(promotion).toContain("pull-requests: write");
+    expect(promotion).toContain("ATTESTATION_ID: ${{ inputs.attestation_id }}");
+    expect(promotion).not.toContain('"${{ inputs.inspection_url }}"');
     expect(promotion).not.toContain("vercel deploy");
     expect(rollback).toContain("production:release -- rollback");
     expect(rollback).toContain("issues: write");
+    expect(rollback).toContain("ROLLBACK_REASON: ${{ inputs.reason }}");
+    expect(rollback).not.toContain('"${{ inputs.reason }}"');
     expect(rollback).not.toContain("git reset");
     expect(rollback).not.toContain("force-push");
   });

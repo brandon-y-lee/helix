@@ -106,10 +106,12 @@ The solo maintainer does not self-approve the PR through GitHub; branch protecti
 
 The executable procedure is
 [`docs/agents/production-release.md`](./agents/production-release.md): run a
-read-only immutable plan, authorize that exact plan in a separate dispatch,
+preauthorization plan that creates/reuses the release PR and waits for its checks,
+authorize that exact plan in a separate dispatch,
 regular-merge its frozen `dev` head, record the prior deployment, and promote
 the receipted deployment ID. Rollback consumes that audit and restores the prior
-deployment before opening urgent reconciliation; Git history remains additive.
+deployment before opening reconciliation; urgency remains user-approved and Git
+history remains additive.
 
 ## GitHub bootstrap
 

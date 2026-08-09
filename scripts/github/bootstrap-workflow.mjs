@@ -343,7 +343,7 @@ function requireAuditedWorkflowAuthority(sha) {
       const expectedJobs = {
         plan: {
           actions: "read", attestations: "read", checks: "read",
-          contents: "read", issues: "read",
+          contents: "read", issues: "read", "pull-requests": "write",
         },
         promote: {
           actions: "read", attestations: "read", checks: "read",

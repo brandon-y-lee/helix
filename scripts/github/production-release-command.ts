@@ -170,8 +170,57 @@ export function createGitHubProductionRepositoryAdapter(input: {
     const [devSha, mainSha] = await Promise.all([readBranch("dev"), readBranch("main")]);
     return { devSha, mainSha };
   };
+  const prepareDevToMain = async (release: {
+    expectedDevSha: string;
+    expectedMainSha: string;
+  }) => {
+    const current = await readBranches();
+    if (current.devSha !== release.expectedDevSha || current.mainSha !== release.expectedMainSha) {
+      throw new Error("dev or main changed while preparing the Production pull request.");
+    }
+    const listed = await commands.run("gh", [
+      "pr", "list", "--repo", input.repository,
+      "--base", "main", "--head", "dev", "--state", "open",
+      "--json", "number,headRefOid,isDraft,url",
+    ]);
+    const open = parseJson<Array<{
+      headRefOid: string; isDraft: boolean; number: number; url: string;
+    }>>(listed.stdout, "Production pull requests");
+    if (open.length > 1) throw new Error("Multiple dev to main pull requests require reconciliation.");
+    let number: number;
+    let url: string;
+    if (open[0]) {
+      if (open[0].headRefOid !== release.expectedDevSha || open[0].isDraft) {
+        throw new Error("The existing Production pull request does not match current dev.");
+      }
+      ({ number, url } = open[0]);
+    } else {
+      const created = await commands.run("gh", [
+        "pr", "create", "--repo", input.repository,
+        "--base", "main", "--head", "dev",
+        "--title", `Promote dev ${release.expectedDevSha.slice(0, 12)} to Production`,
+        "--body", "Regular merge candidate for the exact inspected Production release. Promotion still requires separate explicit authorization.",
+      ]);
+      url = created.stdout.trim();
+      number = pullRequestNumber(url);
+    }
+    await commands.run("gh", [
+      "pr", "checks", String(number), "--repo", input.repository,
+      "--required", "--watch", "--fail-fast",
+    ]);
+    const afterChecks = await readBranches();
+    if (afterChecks.devSha !== release.expectedDevSha || afterChecks.mainSha !== release.expectedMainSha) {
+      throw new Error("dev or main changed while Production checks were running.");
+    }
+    return {
+      number,
+      requiredChecks: PRODUCTION_REQUIRED_CHECKS.map((name) => ({ conclusion: "success" as const, name })),
+      url,
+    };
+  };
   return {
     readBranches,
+    prepareDevToMain,
     async mergeDevToMain(release) {
       if (release.method !== "merge") {
         throw new Error("Production release requires a regular merge.");
@@ -187,28 +236,17 @@ export function createGitHubProductionRepositoryAdapter(input: {
       const listed = await commands.run("gh", [
         "pr", "list", "--repo", input.repository,
         "--base", "main", "--head", "dev", "--state", "open",
-        "--json", "number,headRefOid,isDraft",
+        "--json", "number,headRefOid,isDraft,url",
       ]);
-      const open = parseJson<Array<{ headRefOid: string; isDraft: boolean; number: number }>>(
+      const open = parseJson<Array<{ headRefOid: string; isDraft: boolean; number: number; url: string }>>(
         listed.stdout,
         "Production pull requests",
       );
-      if (open.length > 1) throw new Error("Multiple dev to main pull requests require reconciliation.");
-      let number: number;
-      if (open[0]) {
-        if (open[0].headRefOid !== release.expectedDevSha || open[0].isDraft) {
-          throw new Error("The existing Production pull request does not match authorized dev.");
-        }
-        number = open[0].number;
-      } else {
-        const created = await commands.run("gh", [
-          "pr", "create", "--repo", input.repository,
-          "--base", "main", "--head", "dev",
-          "--title", `Promote dev ${release.expectedDevSha.slice(0, 12)} to Production`,
-          "--body", "Regular merge for the exact inspected and explicitly authorized Production release candidate.",
-        ]);
-        number = pullRequestNumber(created.stdout);
-      }
+      if (
+        open.length !== 1 || open[0]?.number !== release.pullRequestNumber ||
+        open[0].headRefOid !== release.expectedDevSha || open[0].isDraft
+      ) throw new Error("The authorized Production pull request is no longer mergeable.");
+      const number = open[0].number;
       await commands.run("gh", [
         "pr", "checks", String(number), "--repo", input.repository,
         "--required", "--watch", "--fail-fast",
@@ -355,13 +393,13 @@ export function createProductionReleaseEvidenceAdapter(input: {
   };
 }
 
-export function createUrgentReconciliationAdapter(input: {
+export function createReconciliationAdapter(input: {
   commands?: ProductionReleaseCommandRunner;
   repository: string;
 }): ProductionRollbackAdapters["reconciliation"] {
   const commands = input.commands ?? systemCommands;
   return {
-    async createUrgent(reconciliation) {
+    async create(reconciliation) {
       const body = [
         "## Production rollback reconciliation",
         "",
@@ -375,16 +413,15 @@ export function createUrgentReconciliationAdapter(input: {
       ].join("\n");
       const result = await commands.run("gh", [
         "issue", "create", "--repo", input.repository,
-        "--title", "Urgent: reconcile Production after exact deployment rollback",
+        "--title", "Reconcile Production after exact deployment rollback",
         "--body", body,
         "--label", "type:ticket",
-        "--label", "workflow:urgent",
         "--label", "ready-for-agent",
       ]);
       const url = result.stdout.trim();
       const number = Number(url.match(/\/issues\/(\d+)\/?$/)?.[1]);
       if (!Number.isSafeInteger(number) || number <= 0) {
-        throw new Error("GitHub did not return the urgent reconciliation issue.");
+        throw new Error("GitHub did not return the reconciliation issue.");
       }
       return { number, url };
     },
@@ -473,8 +510,8 @@ function parsePromotionAudit(value: unknown): ProductionPromotionAudit {
   if (
     audit.mergeMethod !== "merge" || audit.rebuild !== false ||
     !/^[0-9a-f]{40}$/.test(audit.devSha) || !/^[0-9a-f]{40}$/.test(audit.mainSha) ||
-    !audit.previousDeployment?.id || !audit.promotedDeployment?.id ||
-    !audit.previousDeployment.url || !audit.promotedDeployment.url
+    !audit.previousDeployment?.id || !audit.promotedDeployment?.id || !audit.observedDeployment?.id ||
+    !audit.previousDeployment.url || !audit.promotedDeployment.url || !audit.observedDeployment.url
   ) {
     throw new Error("Production promotion audit does not identify an exact no-rebuild release.");
   }
@@ -500,7 +537,7 @@ export async function runProductionReleaseCommand(input: {
       reason: args["--reason"]!,
     }, {
       deployment,
-      reconciliation: createUrgentReconciliationAdapter({
+      reconciliation: createReconciliationAdapter({
         repository: requiredEnvironment(input.env, "GITHUB_REPOSITORY"),
       }),
     });
@@ -544,6 +581,10 @@ export async function runProductionReleaseCommand(input: {
     deploymentId: args["--deployment-id"]!,
   }, adapters);
   if (result.outcome !== "promoted") {
+    if ("audit" in result && result.audit) {
+      await writeJson(args["--output-path"]!, result.audit);
+      await writeSummary(input.env, "Production promotion requires rollback", result.audit);
+    }
     const reason = "reason" in result ? result.reason : result.outcome;
     throw new Error(`Production promotion failed closed: ${reason}.`);
   }

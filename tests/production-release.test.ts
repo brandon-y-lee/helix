@@ -133,6 +133,14 @@ function promotionAdapters(input: {
       },
     },
     repository: {
+      async prepareDevToMain() {
+        calls.push("prepare-production-pr");
+        return {
+          number: 158,
+          requiredChecks: evidence.requiredChecks,
+          url: "https://github.com/brandon-y-lee/mei-pelle/pull/158",
+        };
+      },
       async mergeDevToMain(release) {
         calls.push(`merge:${release.method}`);
         return { mainSha: mergeSha, mergeSha, runtimeFingerprint };
@@ -164,14 +172,26 @@ describe("Production release orchestrator", () => {
       authorization: { status: "required" },
       candidate: {
         attestation: evidence.attestation,
-        catalogFingerprint,
+        browserEvidence: evidence.receipt.browsers,
+        catalogFingerprints: evidence.receipt.catalog,
+        configurationFingerprint,
         deployment: stagedDeployment,
         devSha,
         inspectionUrl: stagedDeployment.url,
         mainSha,
-        requiredChecks: evidence.requiredChecks,
+        receipt: evidence.receipt,
+        releasePullRequest: {
+          number: 158,
+          requiredChecks: evidence.requiredChecks,
+        },
         runtimeFingerprint,
         scheduledWebkit: { status: "clear" },
+        source: {
+          candidateSha: devSha,
+          requiredChecks: evidence.requiredChecks,
+          workflowRun: "58-1",
+        },
+        toolEvidence: evidence.receipt.tools,
       },
       outcome: "authorization-required",
     });
@@ -187,6 +207,7 @@ describe("Production release orchestrator", () => {
       outcome: "authorization-refused",
     });
     expect(controlled.calls).not.toContain("merge:merge");
+    expect(controlled.calls).toContain("prepare-production-pr");
     expect(controlled.calls.every((call) => !call.startsWith("promote:"))).toBe(true);
   });
 
@@ -212,6 +233,7 @@ describe("Production release orchestrator", () => {
         mainSha: mergeSha,
         mergeMethod: "merge",
         mergeSha,
+        observedDeployment: stagedDeployment,
         previousDeployment,
         promotedDeployment: stagedDeployment,
         promotedAt: "2026-08-09T03:00:00.000Z",
@@ -285,18 +307,42 @@ describe("Production release orchestrator", () => {
     }, controlled.adapters);
     if (plan.outcome !== "authorization-required") throw new Error("Expected an authorization plan.");
 
-    await expect(runProductionPromotion({
+    const result = await runProductionPromotion({
       attestationId: evidence.attestation.id,
       authorization: plan.authorization.challenge,
       deploymentId: stagedDeployment.id,
-    }, controlled.adapters)).resolves.toMatchObject({
+    }, controlled.adapters);
+    expect(result).toMatchObject({
+      audit: {
+        observedDeployment: substituted,
+        previousDeployment,
+        promotedDeployment: stagedDeployment,
+      },
       observedDeployment: substituted,
       outcome: "promotion-substituted",
       previousDeployment,
     });
+    if (!("audit" in result) || !result.audit) throw new Error("Expected recovery audit evidence.");
+    const recoveryCalls: string[] = [];
+    await expect(runProductionRollback({ audit: result.audit, reason: "Provider substitution" }, {
+      deployment: {
+        async current() { return substituted; },
+        async restore(deployment) {
+          recoveryCalls.push(`restore:${deployment.id}`);
+          return deployment;
+        },
+      },
+      reconciliation: {
+        async create() {
+          recoveryCalls.push("create-reconciliation");
+          return { number: 160, url: "https://github.com/brandon-y-lee/mei-pelle/issues/160" };
+        },
+      },
+    })).resolves.toMatchObject({ outcome: "rolled-back", restoredDeployment: previousDeployment });
+    expect(recoveryCalls).toEqual([`restore:${previousDeployment.id}`, "create-reconciliation"]);
   });
 
-  it("restores the recorded deployment before opening urgent reconciliation", async () => {
+  it("restores the recorded deployment before opening reconciliation", async () => {
     const promotion = promotionAdapters();
     const plan = await prepareProductionPromotion({
       attestationId: evidence.attestation.id,
@@ -320,7 +366,7 @@ describe("Production release orchestrator", () => {
         },
       },
       reconciliation: {
-        async createUrgent(input) {
+        async create(input) {
           calls.push(`issue-after:${input.servedDeployment.id}`);
           expect(calls[0]).toBe(`restore:${previousDeployment.id}`);
           return { number: 159, url: "https://github.com/brandon-y-lee/mei-pelle/issues/159" };
@@ -352,6 +398,7 @@ describe("Production release orchestrator", () => {
       mainSha: mergeSha,
       mergeMethod: "merge",
       mergeSha,
+      observedDeployment: stagedDeployment,
       previousDeployment,
       promotedAt: "2026-08-09T03:00:00.000Z",
       promotedDeployment: stagedDeployment,
@@ -366,7 +413,7 @@ describe("Production release orchestrator", () => {
         async restore() { throw new Error("must not restore from mismatched audit"); },
       },
       reconciliation: {
-        async createUrgent() { throw new Error("must not create issue before restoration"); },
+        async create() { throw new Error("must not create issue before restoration"); },
       },
     };
 

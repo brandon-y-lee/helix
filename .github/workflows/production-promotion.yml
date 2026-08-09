@@ -49,6 +49,7 @@ jobs:
       checks: read
       contents: read
       issues: read
+      pull-requests: write
     env: &release-env
       GH_TOKEN: ${{ github.token }}
       NEXT_PUBLIC_ALGOLIA_APP_ID: ${{ secrets.NEXT_PUBLIC_ALGOLIA_APP_ID }}
@@ -80,13 +81,17 @@ jobs:
           STAGED_RUN_ID: ${{ inputs.staged_run_id }}
         run: gh run download "$STAGED_RUN_ID" --name "staged-production-release-evidence-$STAGED_RUN_ID" --dir "$RUNNER_TEMP/production-release"
       - name: Present immutable Production release plan
+        env:
+          ATTESTATION_ID: ${{ inputs.attestation_id }}
+          DEPLOYMENT_ID: ${{ inputs.deployment_id }}
+          INSPECTION_URL: ${{ inputs.inspection_url }}
         run: >-
           pnpm production:release -- plan
-          --attestation-id "${{ inputs.attestation_id }}"
+          --attestation-id "$ATTESTATION_ID"
           --attestation-metadata-path "$RUNNER_TEMP/production-release/attestation.json"
           --bundle-path "$RUNNER_TEMP/production-release/attestation-bundle.json"
-          --deployment-id "${{ inputs.deployment_id }}"
-          --inspection-url "${{ inputs.inspection_url }}"
+          --deployment-id "$DEPLOYMENT_ID"
+          --inspection-url "$INSPECTION_URL"
           --receipt-path "$RUNNER_TEMP/production-release/receipt.json"
           --output-path "$RUNNER_TEMP/production-release/plan.json"
 
@@ -123,14 +128,17 @@ jobs:
         run: gh run download "$STAGED_RUN_ID" --name "staged-production-release-evidence-$STAGED_RUN_ID" --dir "$RUNNER_TEMP/production-release"
       - name: Regular-merge and promote the exact authorized deployment
         env:
+          ATTESTATION_ID: ${{ inputs.attestation_id }}
+          DEPLOYMENT_ID: ${{ inputs.deployment_id }}
+          INSPECTION_URL: ${{ inputs.inspection_url }}
           PRODUCTION_AUTHORIZATION: ${{ inputs.authorization }}
         run: >-
           pnpm production:release -- promote
-          --attestation-id "${{ inputs.attestation_id }}"
+          --attestation-id "$ATTESTATION_ID"
           --attestation-metadata-path "$RUNNER_TEMP/production-release/attestation.json"
           --bundle-path "$RUNNER_TEMP/production-release/attestation-bundle.json"
-          --deployment-id "${{ inputs.deployment_id }}"
-          --inspection-url "${{ inputs.inspection_url }}"
+          --deployment-id "$DEPLOYMENT_ID"
+          --inspection-url "$INSPECTION_URL"
           --receipt-path "$RUNNER_TEMP/production-release/receipt.json"
           --output-path "$RUNNER_TEMP/production-release/audit.json"
       - name: Retain immutable promotion audit for rollback
@@ -140,3 +148,11 @@ jobs:
           path: ${{ runner.temp }}/production-release/audit.json
           retention-days: 90
           if-no-files-found: error
+      - name: Retain post-mutation recovery audit after a failed promotion
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-promotion-audit-${{ github.run_id }}
+          path: ${{ runner.temp }}/production-release/audit.json
+          retention-days: 90
+          if-no-files-found: ignore

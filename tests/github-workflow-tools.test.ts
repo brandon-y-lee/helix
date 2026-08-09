@@ -98,7 +98,7 @@ function initialiseRepository(): { root: string; tempRoot: string } {
   );
   writeFileSync(
     join(root, ".github", "workflows", "production-promotion.yml"),
-    "name: promotion\npermissions:\n  contents: read\njobs:\n  plan:\n    permissions:\n      actions: read\n      attestations: read\n      checks: read\n      contents: read\n      issues: read\n    runs-on: ubuntu-latest\n    steps: []\n  promote:\n    permissions:\n      actions: read\n      attestations: read\n      checks: read\n      contents: write\n      issues: read\n      pull-requests: write\n    runs-on: ubuntu-latest\n    steps: []\n",
+    "name: promotion\npermissions:\n  contents: read\njobs:\n  plan:\n    permissions:\n      actions: read\n      attestations: read\n      checks: read\n      contents: read\n      issues: read\n      pull-requests: write\n    runs-on: ubuntu-latest\n    steps: []\n  promote:\n    permissions:\n      actions: read\n      attestations: read\n      checks: read\n      contents: write\n      issues: read\n      pull-requests: write\n    runs-on: ubuntu-latest\n    steps: []\n",
   );
   writeFileSync(
     join(root, ".github", "workflows", "production-rollback.yml"),
@@ -1069,7 +1069,7 @@ describe("GitHub workflow bootstrap", () => {
         mutateRepo: (root) => {
           writeFileSync(
             join(root, ".github", "workflows", "production-promotion.yml"),
-            "name: promotion\npermissions:\n  contents: read\njobs:\n  plan:\n    permissions:\n      actions: write\n      attestations: read\n      checks: read\n      contents: read\n      issues: read\n    runs-on: ubuntu-latest\n    steps: []\n  promote:\n    permissions:\n      actions: read\n      attestations: read\n      checks: read\n      contents: write\n      issues: read\n      pull-requests: write\n    runs-on: ubuntu-latest\n    steps: []\n",
+            "name: promotion\npermissions:\n  contents: read\njobs:\n  plan:\n    permissions:\n      actions: write\n      attestations: read\n      checks: read\n      contents: read\n      issues: read\n      pull-requests: write\n    runs-on: ubuntu-latest\n    steps: []\n  promote:\n    permissions:\n      actions: read\n      attestations: read\n      checks: read\n      contents: write\n      issues: read\n      pull-requests: write\n    runs-on: ubuntu-latest\n    steps: []\n",
           );
           expectSuccess(git(root, "add", ".github/workflows/production-promotion.yml"));
           expectSuccess(git(root, "commit", "-m", "Overgrant Production Promotion"));

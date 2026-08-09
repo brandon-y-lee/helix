@@ -70,7 +70,7 @@ outer job limit; failure and cancellation cleanup uploads available diagnostics.
 
 ## Release boundary
 
-Inspection does not authorize promotion. Run the read-only plan and separate
+Inspection does not authorize promotion. Run the preauthorization plan and separate
 explicit authorization workflow in
 [`production-release.md`](./production-release.md). It regular-merges the exact
 inspected `dev` state into `main`, proves its Runtime Fingerprint matches this

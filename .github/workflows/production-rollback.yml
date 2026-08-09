@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       promotion_run_id:
-        description: Exact successful Production Promotion run containing the audit
+        description: Exact Production Promotion attempt containing a success or recovery audit
         required: true
         type: string
       reason:
@@ -49,7 +49,9 @@ jobs:
           PROMOTION_RUN_ID: ${{ inputs.promotion_run_id }}
         run: gh run download "$PROMOTION_RUN_ID" --name "production-promotion-audit-$PROMOTION_RUN_ID" --dir "$RUNNER_TEMP/production-rollback"
       - name: Restore known-good deployment before reconciliation
+        env:
+          ROLLBACK_REASON: ${{ inputs.reason }}
         run: >-
           pnpm production:release -- rollback
           --audit-path "$RUNNER_TEMP/production-rollback/audit.json"
-          --reason "${{ inputs.reason }}"
+          --reason "$ROLLBACK_REASON"
