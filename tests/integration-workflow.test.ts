@@ -76,13 +76,22 @@ describe("dev Integration Line workflows", () => {
     expect(coordinator).toContain("group: dev-integration");
     expect(coordinator).toContain("cancel-in-progress: false");
     expect(coordinator).toContain("timeout-minutes: 30");
-    expect(coordinator).toContain("contents: write");
-    expect(coordinator).toContain("pull-requests: write");
+    expect(coordinator).toContain("contents: read");
+    expect(coordinator).toContain("pull-requests: read");
+    expect(coordinator).not.toContain("contents: write");
+    expect(coordinator).not.toContain("pull-requests: write");
     expect(coordinator).toContain("issues: write");
     expect(coordinator).toContain("actions: write");
     expect(coordinator).toContain("ref: dev");
     expect(coordinator).toContain("persist-credentials: false");
     expect(coordinator).toContain("run: pnpm --silent integration:dev");
+    expect(coordinator).toContain("GH_TOKEN: ${{ github.token }}");
+    expect(coordinator).toContain(
+      "INTEGRATION_MERGE_TOKEN: ${{ secrets.INTEGRATION_MERGE_TOKEN }}",
+    );
+    expect(coordinator).not.toContain(
+      "GH_TOKEN: ${{ secrets.INTEGRATION_MERGE_TOKEN }}",
+    );
     expect(coordinator).not.toContain("verify-production-ci.ts");
     expect(packageJson.scripts["integration:dev"]).toBe(
       "tsx scripts/github/run-integration-coordinator.ts",

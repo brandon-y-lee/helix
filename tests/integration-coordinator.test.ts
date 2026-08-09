@@ -1,14 +1,20 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 import {
+  createMergeAdapter,
   createRepositoryAdapter,
   createVerificationAdapter,
   requestIntegrationHandoff,
+  resolveCommandEnvironment,
   toIntegrationCandidate,
   type CommandAdapter,
 } from "@/scripts/github/run-integration-coordinator";
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 function pullRequestFact(overrides: Record<string, unknown> = {}) {
   return {
@@ -40,6 +46,82 @@ function pullRequestFact(overrides: Record<string, unknown> = {}) {
 }
 
 describe("GitHub Integration Coordinator adapter", () => {
+  it("keeps the merge secret out of ordinary and merge child environments", () => {
+    const inherited = {
+      GH_TOKEN: "workflow-token",
+      INTEGRATION_MERGE_TOKEN: "merge-token",
+      PATH: "/usr/bin",
+    };
+
+    expect(resolveCommandEnvironment({}, inherited)).toEqual({
+      GH_TOKEN: "workflow-token",
+      PATH: "/usr/bin",
+    });
+    expect(resolveCommandEnvironment({ GH_TOKEN: "merge-token" }, inherited)).toEqual({
+      GH_TOKEN: "merge-token",
+      PATH: "/usr/bin",
+    });
+  });
+
+  it("uses the dedicated integration token only for the merge request", async () => {
+    vi.stubEnv("INTEGRATION_MERGE_TOKEN", "merge-token");
+    const calls: Array<{
+      args: string[];
+      environment?: Record<string, string | undefined>;
+    }> = [];
+    const commands: CommandAdapter = {
+      async run(_command, args, options) {
+        calls.push({
+          args,
+          environment: (
+            options as { environment?: Record<string, string | undefined> } | undefined
+          )?.environment,
+        });
+        return {
+          stdout: JSON.stringify({ merged: true, sha: "d".repeat(40) }),
+          stderr: "",
+          status: 0,
+        };
+      },
+    };
+
+    await expect(createMergeAdapter("owner/repo", commands).merge({
+      number: 52,
+      baseSha: "b".repeat(40),
+      headSha: "a".repeat(40),
+      candidateSha: "c".repeat(40),
+      mergeMethod: "squash",
+      signal: new AbortController().signal,
+    })).resolves.toEqual({ mergeSha: "d".repeat(40) });
+
+    expect(calls).toEqual([{
+      args: [
+        "api",
+        "--method",
+        "PUT",
+        "repos/owner/repo/pulls/52/merge",
+        "-f",
+        "merge_method=squash",
+        "-f",
+        `sha=${"a".repeat(40)}`,
+      ],
+      environment: { GH_TOKEN: "merge-token" },
+    }]);
+  });
+
+  it("fails closed before attempting a merge without the dedicated token", () => {
+    vi.stubEnv("INTEGRATION_MERGE_TOKEN", "");
+    const commands: CommandAdapter = {
+      async run() {
+        throw new Error("merge command must not run");
+      },
+    };
+
+    expect(() => createMergeAdapter("owner/repo", commands)).toThrow(
+      "INTEGRATION_MERGE_TOKEN is required",
+    );
+  });
+
   it("routes production verification through the public orchestrator seam", async () => {
     let seamInvoked = false;
     const adapter = createVerificationAdapter(

@@ -90,7 +90,7 @@ function initialiseRepository(): { root: string; tempRoot: string } {
   );
   writeFileSync(
     join(root, ".github", "workflows", "dev-integration.yml"),
-    "name: coordinator\npermissions:\n  actions: write\n  contents: write\n  issues: write\n  pull-requests: write\njobs:\n  coordinate:\n    runs-on: ubuntu-latest\n    steps: []\n",
+    "name: coordinator\npermissions:\n  actions: write\n  contents: read\n  issues: write\n  pull-requests: read\njobs:\n  coordinate:\n    runs-on: ubuntu-latest\n    steps: []\n",
   );
   writeFileSync(
     join(root, ".github", "workflows", "dev-integration-verification.yml"),
