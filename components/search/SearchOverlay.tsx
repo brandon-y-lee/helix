@@ -25,7 +25,6 @@ export function SearchOverlay({
       open={open}
       side="right"
       title="Search"
-      eyebrow="Discover Mei Pelle"
       description="Search the Mei Pelle product catalog."
       onClose={onClose}
       returnFocus={returnFocus}

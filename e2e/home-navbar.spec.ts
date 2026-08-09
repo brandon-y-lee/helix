@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./storefront-fixture";
 
 test("global navbar follows scroll direction and returns to its top state", async ({
   page,

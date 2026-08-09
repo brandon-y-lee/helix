@@ -1,16 +1,67 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
+import { formatPrice } from "@/lib/products";
+import type { StorefrontPurchase } from "@/test-support/storefront-journeys";
 import { installCartFixture } from "./cart-fixture";
-
-const CLEANSE_PATH = "/products/cleanse-01-calming-gel-cleanser";
-const TREAT_PATH = "/products/treat-03-pdrn-5-ampoule";
+import { expect, test } from "./storefront-fixture";
 
 type HorizontalGeometry = { x: number; width: number };
+type ElementGeometry = { bottom: number; left: number; top: number };
+type ViewportOrigin = {
+  scrollX: number;
+  scrollY: number;
+  visualOffsetLeft: number;
+};
+
+const PRODUCT_CARD_WARM_GRAY = "rgb(103, 100, 94)";
+const PRODUCT_CARD_CREAM = "rgb(255, 253, 248)";
+
+async function buttonVisual(locator: Locator) {
+  return locator.evaluate((element) => {
+    const button = getComputedStyle(element);
+    const hoverFill = getComputedStyle(element, "::before");
+
+    return {
+      backgroundColor: button.backgroundColor,
+      color: button.color,
+      hoverFillColor: hoverFill.backgroundColor,
+      hoverFillOpacity: hoverFill.opacity,
+    };
+  });
+}
 
 async function storefrontGeometry(page: Page): Promise<HorizontalGeometry> {
   return page.locator(".site-header__bar").evaluate((element) => {
     const { x, width } = element.getBoundingClientRect();
     return { x, width };
   });
+}
+
+async function elementGeometry(locator: Locator): Promise<ElementGeometry> {
+  const box = await locator.boundingBox();
+  expect(box).not.toBeNull();
+  return {
+    bottom: box!.y + box!.height,
+    left: box!.x,
+    top: box!.y,
+  };
+}
+
+async function finishAnimations(locator: Locator): Promise<void> {
+  await locator.evaluate(async (element) => {
+    await Promise.all(
+      element
+        .getAnimations({ subtree: true })
+        .map((animation) => animation.finished.catch(() => undefined)),
+    );
+  });
+}
+
+async function viewportOrigin(page: Page): Promise<ViewportOrigin> {
+  return page.evaluate(() => ({
+    scrollX: window.scrollX,
+    scrollY: window.scrollY,
+    visualOffsetLeft: window.visualViewport?.offsetLeft ?? 0,
+  }));
 }
 
 async function finishDrawerExit(page: Page) {
@@ -21,10 +72,27 @@ async function finishDrawerExit(page: Page) {
   await expect(overlay).toHaveAttribute("inert", "");
 }
 
-async function addCleanse(
+function productCount(products: readonly unknown[]) {
+  return `${products.length} ${products.length === 1 ? "product" : "products"}`;
+}
+
+async function selectPurchaseVariant(
   page: Page,
+  purchase: StorefrontPurchase,
+) {
+  const variant = page.getByRole("button", {
+    name: purchase.variant.label,
+    exact: true,
+  });
+  await variant.click();
+  await expect(variant).toHaveAttribute("aria-pressed", "true");
+}
+
+async function addProduct(
+  page: Page,
+  purchase: StorefrontPurchase,
 ): Promise<{ drawer: Locator; geometryBeforeOpen: HorizontalGeometry }> {
-  await page.goto(CLEANSE_PATH);
+  await page.goto(purchase.product.path);
   await expect(
     page.getByRole("button", { name: /CART \(0\)/ }),
   ).toBeVisible();
@@ -34,8 +102,9 @@ async function addCleanse(
   await expect(drawerPanel).toHaveAttribute("data-state", "closed");
   await expect(drawerPanel).toHaveCount(1);
   const geometryBeforeOpen = await storefrontGeometry(page);
+  await selectPurchaseVariant(page, purchase);
   const buyButton = page.locator("[data-pdp-buy-button]");
-  await expect(buyButton).toHaveText("BUY CLEANSE - $22.00");
+  await expect(buyButton).toHaveText(purchase.buyLabel);
   await buyButton.click();
   const drawer = page.getByRole("dialog", { name: "Cart" });
   await expect(drawer).toBeVisible();
@@ -50,7 +119,7 @@ async function addCleanse(
   await expect(
     drawer
       .getByRole("list", { name: "Cart items" })
-      .getByText("CLEANSE", { exact: true }),
+      .getByText(purchase.product.displayName, { exact: true }),
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: /CART \(1\)/ }),
@@ -58,17 +127,30 @@ async function addCleanse(
   return { drawer, geometryBeforeOpen };
 }
 
-test("shop renders seeded products and combines filtering with sorting", async ({
+test("shop renders live Products and combines filtering with sorting", async ({
   page,
+  storefront,
 }) => {
+  const products = storefront.products();
+  const coreProducts = storefront.products("core");
+  const beyondProducts = storefront.products("beyondCore");
+  const purchasable = storefront.product("purchasable");
+  const purchase = storefront.purchase(purchasable);
   await page.goto("/collections/shop");
-  await expect(page.locator(".product-count")).toHaveText("6 products");
-  await expect(page.locator(".product-card")).toHaveCount(6);
+  await expect(page.locator(".product-count")).toHaveText(
+    productCount(products),
+  );
+  await expect(page.locator(".product-card")).toHaveCount(products.length);
   await expect(
     page
-      .locator('[data-product-card-slug="cleanse-01-calming-gel-cleanser"]')
+      .locator(`[data-product-card-slug="${purchasable.slug}"]`)
       .locator(".product-card__quick-trigger"),
-  ).toHaveText("BUY CLEANSE - $22.00");
+  ).toHaveText(purchase.buyLabel);
+  await expect(
+    page
+      .locator(`[data-product-card-slug="${purchasable.slug}"]`)
+      .locator(".product-card__price"),
+  ).toHaveText(storefront.cardPriceLabel(purchasable));
 
   const filters = page.getByRole("navigation", {
     name: "Shop collections",
@@ -80,9 +162,13 @@ test("shop renders seeded products and combines filtering with sorting", async (
   await core.click();
   await expect(page).toHaveURL(/\/collections\/core$/);
   await expect(core).toHaveAttribute("aria-current", "page");
-  await expect(page.locator(".product-count")).toHaveText("3 products");
+  await expect(page.locator(".product-count")).toHaveText(
+    productCount(coreProducts),
+  );
   await expect(
-    page.getByRole("link", { name: "REFINE", exact: true }),
+    page.locator(
+      `[data-product-card-slug="${storefront.product("beyondCore").slug}"]`,
+    ),
   ).toHaveCount(0);
 
   await page.getByRole("button", { name: "Sort: Featured" }).click();
@@ -90,8 +176,11 @@ test("shop renders seeded products and combines filtering with sorting", async (
     .getByRole("dialog", { name: "Sort products" })
     .getByRole("button", { name: "Name, Z–A" })
     .click();
+  const firstCoreByDescendingName = [...coreProducts].sort((a, b) =>
+    b.displayName.localeCompare(a.displayName),
+  )[0];
   await expect(page.locator(".product-card__name").first()).toHaveText(
-    "TREAT",
+    firstCoreByDescendingName.displayName,
   );
 
   const beyond = filters.getByRole("link", {
@@ -104,71 +193,359 @@ test("shop renders seeded products and combines filtering with sorting", async (
   await expect(
     page.getByRole("button", { name: "Sort: Featured" }),
   ).toBeVisible();
-  await expect(page.locator(".product-count")).toHaveText("3 products");
+  await expect(page.locator(".product-count")).toHaveText(
+    productCount(beyondProducts),
+  );
   await expect(
-    page.getByRole("link", { name: "CLEANSE", exact: true }),
+    page.locator(
+      `[data-product-card-slug="${storefront.product("core").slug}"]`,
+    ),
   ).toHaveCount(0);
+});
+
+test("shop presents the approved Product, collection, sheet, and footer treatment", async ({
+  browserName,
+  page,
+  storefront,
+}) => {
+  const purchase = storefront.purchase(storefront.product("purchasable"));
+  await installCartFixture(page, storefront.snapshot.products);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/collections/shop");
+
+  const hero = page.locator(".shop-hero__surface");
+  const heading = page.getByRole("heading", {
+    level: 1,
+    name: "raise your baseline",
+  });
+
+  const card = page.locator(
+    `[data-product-card-slug="${purchase.product.slug}"]`,
+  );
+  const name = card.locator(".product-card__name");
+  const tagline = card.locator(".product-card__tagline");
+  const price = card.locator(".product-card__price");
+  await expect(name).toHaveCSS("color", PRODUCT_CARD_WARM_GRAY);
+  await expect(tagline).toHaveCSS("color", PRODUCT_CARD_WARM_GRAY);
+  await expect(price).toHaveCSS("color", PRODUCT_CARD_WARM_GRAY);
+  await name.hover();
+  await expect(name).toHaveCSS("text-decoration-line", "none");
+
+  const previewCta = card.getByRole("button", {
+    name: `Open quick buy for ${purchase.product.displayName}`,
+  });
+  await expect(previewCta).toBeVisible();
+  await expect(previewCta).toHaveCSS("border-top-width", "0px");
+  expect(await buttonVisual(previewCta)).toEqual({
+    backgroundColor: PRODUCT_CARD_CREAM,
+    color: PRODUCT_CARD_WARM_GRAY,
+    hoverFillColor: PRODUCT_CARD_WARM_GRAY,
+    hoverFillOpacity: "0",
+  });
+  await previewCta.hover();
+  await expect
+    .poll(async () => (await buttonVisual(previewCta)).hoverFillOpacity)
+    .toBe("1");
+  expect(await buttonVisual(previewCta)).toMatchObject({
+    color: "rgb(255, 255, 255)",
+    hoverFillColor: PRODUCT_CARD_WARM_GRAY,
+  });
+
+  await previewCta.click();
+  const finalCta = card.locator("[data-product-card-buy]");
+  await expect(finalCta).toBeVisible();
+  await card.locator(".product-card__quick-head").hover();
+  expect(await buttonVisual(finalCta)).toEqual({
+    backgroundColor: PRODUCT_CARD_CREAM,
+    color: PRODUCT_CARD_WARM_GRAY,
+    hoverFillColor: PRODUCT_CARD_WARM_GRAY,
+    hoverFillOpacity: "0",
+  });
+  await finalCta.hover();
+  await expect
+    .poll(async () => (await buttonVisual(finalCta)).hoverFillOpacity)
+    .toBe("1");
+  expect(await buttonVisual(finalCta)).toMatchObject({
+    color: "rgb(255, 255, 255)",
+    hoverFillColor: PRODUCT_CARD_WARM_GRAY,
+  });
+
+  const filters = page.getByRole("navigation", { name: "Shop collections" });
+  const selectedChip = filters.getByRole("link", {
+    name: "Shop All",
+    exact: true,
+  });
+  const unselectedChip = filters.getByRole("link", {
+    name: "Core",
+    exact: true,
+  });
+  await unselectedChip.hover();
+  await expect(unselectedChip).toHaveCSS(
+    "background-color",
+    "rgb(24, 61, 52)",
+  );
+  await expect(unselectedChip).toHaveCSS("color", "rgb(251, 250, 246)");
+  await heading.hover();
+  if (browserName === "webkit") {
+    await unselectedChip.focus();
+  } else {
+    await selectedChip.focus();
+    await page.keyboard.press("Tab");
+  }
+  await expect(unselectedChip).toBeFocused();
+  await expect(unselectedChip).toHaveCSS(
+    "background-color",
+    "rgba(103, 100, 94, 0.12)",
+  );
+  if (browserName !== "webkit") {
+    await expect(unselectedChip).toHaveCSS("outline-style", "solid");
+  }
+  await selectedChip.hover();
+  await expect(selectedChip).toHaveCSS("background-color", "rgb(24, 61, 52)");
+  await expect(selectedChip).toHaveAttribute("aria-current", "page");
+  await heading.hover();
+  if (browserName === "webkit") {
+    await selectedChip.focus();
+  } else {
+    await unselectedChip.focus();
+    await page.keyboard.press("Shift+Tab");
+  }
+  await expect(selectedChip).toBeFocused();
+  await expect(selectedChip).toHaveCSS("background-color", "rgb(24, 61, 52)");
+
+  const [heroGeometry, headingGeometry] = await Promise.all([
+    hero.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      return { bottom: rect.bottom, left: rect.left };
+    }),
+    heading.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      return {
+        bottom: rect.bottom,
+        color: getComputedStyle(element).color,
+        left: rect.left,
+        textAlign: getComputedStyle(element).textAlign,
+      };
+    }),
+  ]);
+  expect(headingGeometry.left - heroGeometry.left).toBeCloseTo(44.2, 1);
+  expect(heroGeometry.bottom - headingGeometry.bottom).toBeCloseTo(44.2, 1);
+  expect(headingGeometry).toMatchObject({
+    color: "rgb(17, 19, 18)",
+    textAlign: "left",
+  });
+
+  await page.getByRole("button", { name: "SEARCH" }).click();
+  const search = page.getByRole("dialog", { name: "Search" });
+  await expect(search).toBeVisible();
+  await expect(
+    search.getByText("Discover Mei Pelle", { exact: true }),
+  ).toHaveCount(0);
+  await search.getByRole("button", { name: "Close" }).click();
+
+  await page.getByRole("button", { name: /CART \(0\)/ }).click();
+  const cart = page.getByRole("dialog", { name: "Cart" });
+  await expect(cart).toBeVisible();
+  await expect(
+    cart.getByText("Ritual in progress", { exact: true }),
+  ).toHaveCount(0);
+  await cart.getByRole("button", { name: "Close" }).click();
+  await expect(cart).toHaveCount(0);
+  await finishDrawerExit(page);
+
+  await expect(page.locator(".site-footer__review-status")).toHaveCSS(
+    "border-top-width",
+    "0px",
+  );
+  await expect(page.locator(".site-footer__social-status")).toHaveCSS(
+    "border-top-width",
+    "0px",
+  );
+  await expect(page.locator(".site-footer__checkout-status")).toHaveCSS(
+    "border-top-width",
+    "0px",
+  );
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  const mobileHeroGeometry = await Promise.all([
+    hero.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      return { bottom: rect.bottom, left: rect.left };
+    }),
+    heading.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      return { bottom: rect.bottom, left: rect.left };
+    }),
+  ]);
+  expect(mobileHeroGeometry[1].left - mobileHeroGeometry[0].left).toBeCloseTo(
+    23,
+    1,
+  );
+  expect(mobileHeroGeometry[0].bottom - mobileHeroGeometry[1].bottom).toBeCloseTo(
+    23,
+    1,
+  );
+  await page.reload();
+  await expect(page.locator(".site-footer__accordion").first()).toHaveCSS(
+    "border-top-width",
+    "1px",
+  );
+  const mobileWidths = await page.evaluate(() => ({
+    clientWidth: document.documentElement.clientWidth,
+    footerScrollWidth:
+      document.querySelector(".site-footer")?.scrollWidth ?? 0,
+    mainScrollWidth: document.querySelector("#content")?.scrollWidth ?? 0,
+  }));
+  expect(mobileWidths).toMatchObject({
+    clientWidth: 390,
+    footerScrollWidth: 390,
+  });
+  // The desktop Safari project keeps its desktop grid layout after a live
+  // viewport resize; Chromium owns this responsive overflow assertion.
+  if (browserName !== "webkit") {
+    expect(mobileWidths.mainScrollWidth).toBe(390);
+  }
 });
 
 test("PDP resolves canonical data and exposes an available variant", async ({
   page,
+  storefront,
 }) => {
-  const serverResponse = await page.request.get(TREAT_PATH);
+  const product = storefront.product("richPdp");
+  const purchase = storefront.purchase(product);
+  const gallery = storefront.gallery(product);
+  const serverResponse = await page.request.get(product.path);
   expect(serverResponse.ok()).toBe(true);
-  expect(await serverResponse.text()).toContain("<h1>TREAT</h1>");
-
-  await page.goto(TREAT_PATH);
-  await expect(
-    page.getByRole("heading", { level: 1, name: "TREAT" }),
-  ).toBeVisible();
-  await expect(page.locator(".pdp__availability")).toHaveCount(0);
-  await expect(page.locator("[data-pdp-buy-button]")).toHaveText(
-    "BUY TREAT - $25.00",
+  expect(await serverResponse.text()).toContain(
+    `<h1>${product.displayName}</h1>`,
   );
 
-  const variant = page.getByRole("button", {
-    name: "30 mL",
-    exact: true,
-  });
-  await variant.click();
-  await expect(variant).toHaveAttribute("aria-pressed", "true");
-  await expect(page.locator(".pdp__price")).toHaveText("$25.00");
+  await page.goto(product.path);
+  await expect(
+    page.getByRole("heading", { level: 1, name: product.displayName }),
+  ).toBeVisible();
+  await expect(page.locator(".pdp__availability")).toHaveCount(0);
+  await selectPurchaseVariant(page, purchase);
+  await expect(page.locator("[data-pdp-buy-button]")).toHaveText(
+    purchase.buyLabel,
+  );
+
+  await expect(page.locator(".pdp__price")).toHaveText(
+    formatPrice(purchase.variant.price),
+  );
   await expect(
     page.getByRole("region", {
-      name: "TREAT routine video",
+      name: `${product.displayName} routine video`,
       exact: true,
     }),
   ).toBeAttached();
   await expect(
-    page.getByRole("region", { name: "TREAT customer reviews" }),
+    page.getByRole("region", {
+      name: `${product.displayName} customer reviews`,
+    }),
   ).toBeVisible();
 
-  const portraitView = page.getByRole("button", {
-    name: "View Portrait for TREAT with blond-streaked hair on pale blue., media 2 of 2",
-  });
-  await portraitView.click();
-  await expect(portraitView).toHaveAttribute("aria-pressed", "true");
-  await expect(page.locator('[data-pdp-gallery-state="2"]')).toHaveAttribute(
-    "data-state",
-    "active",
+  await expect(page.locator("[data-pdp-media-thumbnail]")).toHaveCount(
+    gallery.length,
   );
-
-  const productView = page.getByRole("button", {
-    name: "View TREAT PDRN ampoule, media 1 of 2",
+  const firstMedia = gallery[0];
+  const lastMedia = gallery.at(-1);
+  if (!firstMedia || !lastMedia) {
+    throw new Error(`Rich PDP Product "${product.slug}" has no gallery media.`);
+  }
+  const lastView = page.getByRole("button", {
+    name: `View ${lastMedia.alt}, media ${lastMedia.index} of ${lastMedia.total}`,
   });
-  await productView.click();
-  await expect(productView).toHaveAttribute("aria-pressed", "true");
-  await expect(page.locator('[data-pdp-gallery-state="1"]')).toHaveAttribute(
+  await lastView.click();
+  await expect(lastView).toHaveAttribute("aria-pressed", "true");
+  await expect(
+    page.locator(`[data-pdp-gallery-state="${lastMedia.index}"]`),
+  ).toHaveAttribute("data-state", "active");
+
+  const firstView = page.getByRole("button", {
+    name: `View ${firstMedia.alt}, media ${firstMedia.index} of ${firstMedia.total}`,
+  });
+  await firstView.click();
+  await expect(firstView).toHaveAttribute("aria-pressed", "true");
+  await expect(
+    page.locator(`[data-pdp-gallery-state="${firstMedia.index}"]`),
+  ).toHaveAttribute(
     "data-state",
     "active",
   );
 });
 
+test("Quick Buy places Product education before configuration and the final Buy action", async ({
+  page,
+  storefront,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const shopProducts = storefront.products();
+  const singleVariantProduct =
+    shopProducts.find((product) => product.variants.length === 1) ??
+    storefront.product("purchasable");
+  const multipleVariantProduct = shopProducts.find(
+    (product) => product.variants.length > 1,
+  );
+  const cases = [
+    { path: "/", product: storefront.product("core") },
+    { path: "/", product: storefront.product("beyondCore") },
+    { path: "/collections/shop", product: singleVariantProduct },
+    ...(multipleVariantProduct
+      ? [{ path: "/collections/shop", product: multipleVariantProduct }]
+      : []),
+  ];
+
+  for (const { path, product } of cases) {
+    await page.goto(path);
+    const card = page.locator(`[data-product-card-slug="${product.slug}"]`);
+    await card.hover();
+    await card
+      .getByRole("button", {
+        name: `Open quick buy for ${product.displayName}`,
+      })
+      .click();
+
+    const panel = card.locator(".product-card__quick-buy");
+    await expect(panel).toHaveAttribute("data-open", "true");
+    const details = card.locator(".product-card__quick-details");
+    const fullDetails = card.getByRole("link", { name: "Full details" });
+    const variants = card.locator(".product-card__quick-variants");
+    const finalBuy = card.locator("[data-product-card-buy]");
+    await finishAnimations(panel);
+    const [panelBox, detailsBox, fullDetailsBox, finalBuyBox] = await Promise.all([
+      elementGeometry(panel),
+      elementGeometry(details),
+      elementGeometry(fullDetails),
+      elementGeometry(finalBuy),
+    ]);
+
+    expect(fullDetailsBox.top).toBeGreaterThanOrEqual(detailsBox.bottom);
+    expect(Math.abs(fullDetailsBox.left - detailsBox.left)).toBeLessThanOrEqual(1);
+    if ((await variants.count()) > 0) {
+      const variantsBox = await elementGeometry(variants);
+      expect(variantsBox.top).toBeGreaterThanOrEqual(fullDetailsBox.bottom);
+      expect(finalBuyBox.top).toBeGreaterThanOrEqual(variantsBox.bottom);
+    } else {
+      expect(finalBuyBox.top).toBeGreaterThanOrEqual(fullDetailsBox.bottom);
+    }
+    expect(panelBox.bottom - finalBuyBox.bottom).toBeLessThanOrEqual(26);
+
+    await card
+      .getByRole("button", {
+        name: `Close quick buy for ${product.displayName}`,
+      })
+      .click();
+  }
+});
+
 test("PDP add-to-cart persists across reload and reaches the cart page", async ({
   page,
+  storefront,
 }) => {
-  await installCartFixture(page);
-  const { drawer, geometryBeforeOpen } = await addCleanse(page);
+  const purchase = storefront.purchase(storefront.product("purchasable"));
+  await installCartFixture(page, storefront.snapshot.products);
+  const { drawer, geometryBeforeOpen } = await addProduct(page, purchase);
   const drawerOverlay = page.locator(".cart-sheet-overlay");
   expect(await storefrontGeometry(page)).toEqual(geometryBeforeOpen);
   await drawer.getByRole("button", { name: "Close" }).click();
@@ -185,7 +562,9 @@ test("PDP add-to-cart persists across reload and reaches the cart page", async (
   ).toBeVisible();
 
   await page.goto("/cart");
-  await expect(page.getByText("CLEANSE").first()).toBeVisible();
+  await expect(
+    page.getByText(purchase.product.displayName).first(),
+  ).toBeVisible();
   await expect(page.getByRole("list", { name: "Cart items" })).toBeVisible();
   await page.getByRole("button", { name: "Clear cart" }).click();
   await expect(
@@ -193,10 +572,150 @@ test("PDP add-to-cart persists across reload and reaches the cart page", async (
   ).toBeVisible();
 });
 
+test("mobile quick buy pointer close preserves the Customer's viewport and preview", async ({
+  page,
+  storefront,
+}) => {
+  const products = storefront.products();
+  const product = products[Math.floor(products.length / 2)];
+  if (!product) throw new Error("The Storefront has no Product to inspect.");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/collections/shop");
+
+  const card = page.locator(`[data-product-card-slug="${product.slug}"]`);
+  const quickBuy = card.getByRole("button", {
+    name: `Open quick buy for ${product.displayName}`,
+  });
+  await quickBuy.click();
+
+  const close = card.getByRole("button", {
+    name: `Close quick buy for ${product.displayName}`,
+  });
+  await finishAnimations(card.locator(".product-card__quick-buy"));
+  await close.scrollIntoViewIfNeeded();
+  const scrollYBeforeClose = await page.evaluate(() => window.scrollY);
+  await close.click();
+
+  await expect(card).toHaveAttribute("data-quick-buy-open", "false");
+  await expect(quickBuy).toBeFocused();
+  await expect(card).toHaveAttribute("data-visual-state", "preview");
+  await page.waitForTimeout(750);
+  expect(await page.evaluate(() => window.scrollY)).toBe(scrollYBeforeClose);
+});
+
+test("mobile quick buy Escape preserves the Customer's viewport and focus preview", async ({
+  page,
+  storefront,
+}) => {
+  const product = storefront.product("purchasable");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/collections/shop");
+
+  const card = page.locator(`[data-product-card-slug="${product.slug}"]`);
+  await card.hover();
+  const quickBuy = card.getByRole("button", {
+    name: `Open quick buy for ${product.displayName}`,
+  });
+  await quickBuy.focus();
+  await page.keyboard.press("Enter");
+  const scrollYBeforeClose = await page.evaluate(() => window.scrollY);
+  await page.keyboard.press("Escape");
+
+  await expect(card).toHaveAttribute("data-quick-buy-open", "false");
+  await expect(quickBuy).toBeFocused();
+  await expect(card).toHaveAttribute("data-visual-state", "preview");
+  await page.waitForTimeout(750);
+  expect(await page.evaluate(() => window.scrollY)).toBe(scrollYBeforeClose);
+});
+
+test("opening another Product's Quick Buy preserves the viewport", async ({
+  page,
+  storefront,
+}) => {
+  const [firstProduct, secondProduct] = storefront.products();
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/collections/shop");
+
+  const firstCard = page.locator(
+    `[data-product-card-slug="${firstProduct.slug}"]`,
+  );
+  const secondCard = page.locator(
+    `[data-product-card-slug="${secondProduct.slug}"]`,
+  );
+  await firstCard.hover();
+  await firstCard
+    .getByRole("button", {
+      name: `Open quick buy for ${firstProduct.displayName}`,
+    })
+    .click();
+  await secondCard.hover();
+  const secondQuickBuy = secondCard.getByRole("button", {
+    name: `Open quick buy for ${secondProduct.displayName}`,
+  });
+  await secondQuickBuy.scrollIntoViewIfNeeded();
+  const scrollYBeforeSwitch = await page.evaluate(() => window.scrollY);
+  await secondQuickBuy.click();
+
+  await expect(firstCard).toHaveAttribute("data-quick-buy-open", "false");
+  await expect(secondCard).toHaveAttribute("data-quick-buy-open", "true");
+  await page.waitForTimeout(750);
+  expect(await page.evaluate(() => window.scrollY)).toBe(scrollYBeforeSwitch);
+});
+
+test.describe("touch Quick Buy", () => {
+  test.use({ hasTouch: true });
+
+  test("close preserves the viewport without pinning desktop preview", async ({
+    browserName,
+    page,
+    storefront,
+  }) => {
+    test.skip(
+      browserName === "webkit",
+      "Playwright WebKit resolves this transformed close control to the underlying card link; Chromium and the in-app Browser cover native touch hit-testing.",
+    );
+    const product = storefront.product("purchasable");
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/collections/shop");
+
+    const card = page.locator(`[data-product-card-slug="${product.slug}"]`);
+    await card
+      .getByRole("button", {
+        name: `Open quick buy for ${product.displayName}`,
+      })
+      .tap();
+    const close = card.getByRole("button", {
+      name: `Close quick buy for ${product.displayName}`,
+    });
+    await expect(card).toHaveAttribute("data-visual-state", "quick-buy");
+    await expect(card.locator(".product-card__link")).toHaveCSS(
+      "pointer-events",
+      "none",
+    );
+    await close.scrollIntoViewIfNeeded();
+    const closeBox = await close.boundingBox();
+    if (!closeBox) throw new Error("Touch Quick Buy close control has no box.");
+    const cardUrl = page.url();
+    const scrollYBeforeClose = await page.evaluate(() => window.scrollY);
+    await page.touchscreen.tap(
+      closeBox.x + closeBox.width / 2,
+      closeBox.y + closeBox.height / 2,
+    );
+
+    await expect(card).toHaveAttribute("data-quick-buy-open", "false");
+    await expect(card).toHaveAttribute("data-visual-state", "default");
+    expect(page.url()).toBe(cardUrl);
+    await page.waitForTimeout(750);
+    expect(await page.evaluate(() => window.scrollY)).toBe(scrollYBeforeClose);
+  });
+});
+
 test("mobile quick buy opens the cart drawer and restores focus on Escape", async ({
   page,
+  storefront,
 }) => {
-  await installCartFixture(page);
+  const purchase = storefront.purchase(storefront.product("purchasable"));
+  await installCartFixture(page, storefront.snapshot.products);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/collections/shop");
   await expect(
@@ -204,24 +723,35 @@ test("mobile quick buy opens the cart drawer and restores focus on Escape", asyn
   ).toBeVisible();
 
   const card = page
-    .locator(".product-card")
-    .filter({ hasText: "CLEANSE" })
-    .first();
+    .locator(`[data-product-card-slug="${purchase.product.slug}"]`);
   const quickBuy = card.getByRole("button", {
-    name: "Open quick buy for CLEANSE",
+    name: `Open quick buy for ${purchase.product.displayName}`,
   });
   await expect(quickBuy).toBeVisible();
   await quickBuy.click();
 
   const finalBuy = card.getByRole("button", {
-    name: "BUY CLEANSE - $22.00",
+    name: purchase.buyLabel,
   });
-  await expect(finalBuy).toHaveText("BUY CLEANSE - $22.00");
+  if (purchase.product.variants.length > 1) {
+    for (const variant of purchase.product.variants) {
+      const option = card
+        .locator(".product-card__quick-option")
+        .filter({ hasText: variant.label });
+      await expect(option.locator("span")).toHaveText(variant.label);
+      await expect(option.locator("small")).toHaveText(
+        formatPrice(variant.price),
+      );
+    }
+    await expect(
+      card.locator(
+        `input[type="radio"][value="${purchase.variant.id}"]`,
+      ),
+    ).toBeChecked();
+  }
+  await expect(finalBuy).toHaveText(purchase.buyLabel);
   await finalBuy.scrollIntoViewIfNeeded();
-  const viewportOriginBeforeCart = await page.evaluate(() => ({
-    scrollX: window.scrollX,
-    visualOffsetLeft: window.visualViewport?.offsetLeft ?? 0,
-  }));
+  const viewportOriginBeforeCart = await viewportOrigin(page);
   const standardCardUrl = page.url();
   await finalBuy.click();
   const drawer = page.getByRole("dialog", { name: "Cart" });
@@ -231,12 +761,7 @@ test("mobile quick buy opens the cart drawer and restores focus on Escape", asyn
   await expect(drawerOverlay).toHaveAttribute("data-state", "open");
   await expect(drawerPanel).toHaveAttribute("data-state", "open");
   await expect(drawerPanel).toHaveCount(1);
-  expect(
-    await page.evaluate(() => ({
-      scrollX: window.scrollX,
-      visualOffsetLeft: window.visualViewport?.offsetLeft ?? 0,
-    })),
-  ).toEqual(viewportOriginBeforeCart);
+  expect(await viewportOrigin(page)).toEqual(viewportOriginBeforeCart);
   await expect(card).toHaveAttribute("data-quick-buy-open", "false");
   await expect(card.locator(".product-card__quick-buy")).toHaveAttribute(
     "data-open",
@@ -251,6 +776,7 @@ test("mobile quick buy opens the cart drawer and restores focus on Escape", asyn
   await expect(drawer).toHaveCount(0);
   await finishDrawerExit(page);
   await expect(quickBuy).toBeFocused();
+  expect(await viewportOrigin(page)).toEqual(viewportOriginBeforeCart);
 
   await page.emulateMedia({ reducedMotion: "reduce" });
   const cartTrigger = page.getByRole("button", { name: /CART \(1\)/ });
@@ -267,9 +793,12 @@ test("mobile quick buy opens the cart drawer and restores focus on Escape", asyn
 
 test("PDP sticky purchase appears after routine video and hides at the footer", async ({
   page,
+  storefront,
 }) => {
-  await installCartFixture(page);
-  await page.goto(TREAT_PATH);
+  const purchase = storefront.purchase(storefront.product("richPdp"));
+  await installCartFixture(page, storefront.snapshot.products);
+  await page.goto(purchase.product.path);
+  await selectPurchaseVariant(page, purchase);
   const sticky = page.locator(".pdp-sticky-purchase");
   await expect(sticky).toHaveAttribute("data-visible", "false");
 
@@ -280,7 +809,7 @@ test("PDP sticky purchase appears after routine video and hides at the footer", 
   await expect(sticky).toHaveAttribute("data-visible", "true");
   await expect(sticky).toHaveAttribute("aria-hidden", "false");
   const stickyBuy = sticky.locator("[data-sticky-pdp-buy-button]");
-  await expect(stickyBuy).toHaveText("BUY TREAT - $25.00");
+  await expect(stickyBuy).toHaveText(purchase.buyLabel);
   await stickyBuy.click();
 
   const drawer = page.getByRole("dialog", { name: "Cart" });
@@ -288,7 +817,7 @@ test("PDP sticky purchase appears after routine video and hides at the footer", 
   await expect(
     drawer
       .getByRole("list", { name: "Cart items" })
-      .getByText("TREAT", { exact: true }),
+      .getByText(purchase.product.displayName, { exact: true }),
   ).toBeVisible();
   await drawer.getByRole("button", { name: "Close" }).click();
   await expect(stickyBuy).toBeFocused();

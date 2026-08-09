@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { CatalogDraftDocument } from "@/lib/admin/catalog-editor/client";
 import CatalogEditor from "@/components/admin/catalog-editor/CatalogEditor";
 import {
+  CatalogApiError,
   CatalogVersionConflictError,
   catalogEditorApi,
 } from "@/lib/admin/catalog-editor/client";
@@ -162,6 +163,20 @@ describe("CatalogEditor draft workflow", () => {
         relationships: false,
         productSource: false,
       },
+      mediaVerification: {
+        status: "healthy",
+        report: {
+          results: [],
+          summary: {
+            expectedRecords: 0,
+            distinctUrls: 0,
+            successes: 0,
+            failures: 0,
+            receivedBodyBytes: 0,
+            bodyBudgetBytes: 0,
+          },
+        },
+      },
     });
     render(<CatalogEditor productId="product-cleanse" />);
     await screen.findByRole("heading", { name: "CLEANSE" });
@@ -184,6 +199,118 @@ describe("CatalogEditor draft workflow", () => {
     );
     expect(await screen.findByText("Revision 4 published")).toBeVisible();
     expect(screen.getByText(/not reported/)).toBeVisible();
+  });
+
+  it("shows a Product Media warning without misreporting the committed revision", async () => {
+    const failedUrl = catalogDraft.document.media[0].url!;
+    vi.mocked(catalogEditorApi.publishDraft).mockResolvedValue({
+      draft: { ...catalogDraft, status: "published", version: 6 },
+      revision: {
+        id: "123e4567-e89b-42d3-a456-426614174099",
+        product_id: catalogDraft.product_id,
+        revision_number: 4,
+        schema_version: 3,
+        document: catalogDraft.document,
+        source_draft_id: catalogDraft.id,
+        published_at: "2026-07-22T12:00:00.000Z",
+        published_by: catalogDraft.updated_by,
+      },
+      ok: true,
+      changedTables: {
+        products: true,
+        productPdpContent: false,
+        variants: false,
+        media: false,
+        relationships: false,
+        productSource: false,
+      },
+      mediaVerification: {
+        status: "warning",
+        message:
+          "The revision was published, but its Product Media failed verification.",
+        report: {
+          results: [{
+            url: failedUrl,
+            expectedMediaType: "image",
+            outcome: "failed",
+            failure: {
+              code: "network_error",
+              message:
+                "The Product Media request failed before verification completed.",
+            },
+            status: null,
+            receivedBytes: 0,
+            totalBytes: null,
+            contentType: null,
+            redirects: 0,
+          }],
+          summary: {
+            expectedRecords: 1,
+            distinctUrls: 1,
+            successes: 0,
+            failures: 1,
+            receivedBodyBytes: 0,
+            bodyBudgetBytes: 32,
+          },
+        },
+      },
+    });
+    render(<CatalogEditor productId="product-cleanse" />);
+    await screen.findByRole("heading", { name: "CLEANSE" });
+    fireEvent.change(screen.getByLabelText("Display name"), {
+      target: { value: "CLEANSE+" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Review publish" }));
+    await screen.findByText("Confirm publication");
+    fireEvent.click(screen.getByRole("button", { name: "Confirm publish" }));
+
+    expect(await screen.findByText("Revision 4 published")).toBeVisible();
+    expect(screen.getByText("Product Media warning")).toBeVisible();
+    expect(
+      screen.getByText(/revision remains published/i),
+    ).toBeVisible();
+    expect(screen.getByText(failedUrl)).toBeVisible();
+    expect(
+      screen.getByText(/failed before verification completed/i),
+    ).toBeVisible();
+  });
+
+  it("shows actionable candidate Product Media failures when Publish is prevented", async () => {
+    vi.mocked(catalogEditorApi.publishDraft).mockRejectedValue(
+      new CatalogApiError(
+        "Candidate Product Media failed publication verification.",
+        422,
+        {
+          issues: [{
+            path: "media.0.url",
+            code: "network_error",
+            message:
+              "The Product Media request failed before verification completed.",
+          }],
+        },
+      ),
+    );
+    render(<CatalogEditor productId="product-cleanse" />);
+    await screen.findByRole("heading", { name: "CLEANSE" });
+    fireEvent.change(screen.getByLabelText("Display name"), {
+      target: { value: "CLEANSE+" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Review publish" }));
+    await screen.findByText("Confirm publication");
+    fireEvent.click(screen.getByRole("button", { name: "Confirm publish" }));
+
+    expect(
+      await screen.findByText(
+        "Candidate Product Media failed publication verification.",
+      ),
+    ).toBeVisible();
+    expect(screen.getByText("Validation issues")).toBeVisible();
+    expect(
+      screen.getByText(/Product Media request failed before verification completed/i),
+    ).toBeVisible();
+    expect(catalogEditorApi.getEditor).toHaveBeenCalledOnce();
   });
 
   it("preserves ready status when publish review has no unsaved changes", async () => {

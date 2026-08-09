@@ -169,4 +169,30 @@ describe("PdpOutcomeSplit", () => {
       "CLEANSE outcome visual 3",
     );
   });
+
+  it("keeps the corresponding hue fallback when one Product image fails", () => {
+    const { container } = render(
+      <PdpOutcomeSplit
+        productName="CLEANSE"
+        heading={presentation.outcomeHeading}
+        options={presentation.outcomeOptions}
+        media={[outcomeMedia(1), outcomeMedia(2), outcomeMedia(3)]}
+      />,
+    );
+    const failedPosition = container.querySelector<HTMLElement>(
+      '[data-pdp-outcome-state="2"]',
+    );
+    const failedImage = failedPosition?.querySelector("img");
+    if (!failedImage) throw new Error("Expected outcome Product image");
+
+    fireEvent.error(failedImage);
+
+    expect(failedPosition?.querySelector("img")).toBeNull();
+    expect(
+      failedPosition?.querySelector(".pdp-outcome-split__shape--one"),
+    ).not.toBeNull();
+    expect(
+      container.querySelector('[data-pdp-outcome-state="3"] img'),
+    ).toHaveAttribute("src", expect.stringContaining("outcome-3.webp"));
+  });
 });
