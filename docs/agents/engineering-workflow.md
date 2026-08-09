@@ -46,7 +46,7 @@ An eligible ticket is open, unblocked, unassigned, `type:ticket`, and `ready-for
 6. Fix and rereview every confirmed actionable finding unless the user explicitly accepts it. P0/P1 findings always block.
 7. Replace `workflow:in-progress` with `workflow:review`, push, and open a ready PR into its declared base. A future-spec child targets the spec branch and requires fast CI plus Affected Browser Verification; spec #50 and standalone tickets target `dev` under the previously executable path.
 8. Let GitHub CI run the pull-request gate. A ready, green PR receives `workflow:integration-queued`; the [Dev Integration Line](./dev-integration.md) freezes one candidate and current `dev`, then runs the work-class gate in a separate read-only workflow.
-9. The coordinator alone merges an unchanged successful candidate. After GitHub reports the merge, comment with the PR, integrated commit, CI and Integration Line evidence, and review result; close the ticket; update the parent spec when one exists; clean up the worktree.
+9. The coordinator normally merges an unchanged successful candidate. GitHub's personal-repository policy cannot make it the exclusive merge actor; an Operator may merge a green pull request only as an explicitly approved manual exception. After GitHub reports the merge, comment with the PR, integrated commit, CI and Integration Line evidence, and review result; close the ticket; update the parent spec when one exists; clean up the worktree.
 
 The first clean Integration Line record after repository cutover starts the
 30-day [verification efficiency audit](./efficiency-audit.md). Preserve its UTC
@@ -92,4 +92,4 @@ promotion.
 
 Issues, labels, sub-issues, dependencies, assignees, and PRs are the single workflow state system; no GitHub Project is required. Both `dev` and `main` require PRs and CI with zero GitHub approving reviews. Production promotion remains user-authorized in the agent workflow. Both branches reject force-push and deletion.
 
-Use `pnpm github:workflow:plan` to audit drift. Before the initial remote `dev` creation or Integration Line authority cutover, run the complete CI-equivalent gate at the audited local `dev` commit. `apply` is a separately approved remote mutation and requires exact repository, local-`dev`, CI-verified SHA, cutover phrase, and GitHub App ID confirmations. See [Dev Integration Line](./dev-integration.md).
+Use `pnpm github:workflow:plan` to audit drift. Before the initial remote `dev` creation or pull-request policy cutover, run the complete CI-equivalent gate at the audited local `dev` commit. `apply` is a separately approved remote mutation and requires exact repository, local-`dev`, CI-verified SHA, cutover phrase, and GitHub App ID confirmations. See [Dev Integration Line](./dev-integration.md).

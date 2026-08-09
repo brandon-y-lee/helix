@@ -82,9 +82,12 @@ describe("spec lifecycle production adapters", () => {
   });
 
   it("creates a spec branch and proves the active audited wildcard ruleset", async () => {
-    const requiredChecks = desiredSpecRuleset(15368).rules
+    const desiredRuleset = desiredSpecRuleset(15368);
+    const requiredChecks = desiredRuleset.rules
       .find((rule) => rule.type === "required_status_checks")
       ?.parameters?.required_status_checks;
+    expect(desiredRuleset.bypass_actors).toEqual([]);
+    expect(desiredRuleset.rules.some((rule) => rule.type === "update")).toBe(false);
     expect(requiredChecks).toEqual([
       { context: "ci", integration_id: 15368 },
       { context: "affected-browser-verification", integration_id: 15368 },

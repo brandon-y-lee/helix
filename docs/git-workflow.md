@@ -56,7 +56,7 @@ scripts/git/codex-task.sh prepare
 
 Run `code-review` against the base printed by `prepare`. Resolve every confirmed actionable finding or obtain an explicit human acceptance; P0/P1 findings always block. If fixes add commits, rerun affected checks and review.
 
-After review passes, push the branch and open a ready PR targeting the base printed by the helper. The PR body follows `.github/PULL_REQUEST_TEMPLATE.md`. GitHub CI is the preflight gate; the [Dev Integration Line](./agents/dev-integration.md) is the serialized verify-and-merge authority for `dev`. The future-spec lifecycle owns child integration into protected spec branches.
+After review passes, push the branch and open a ready PR targeting the base printed by the helper. The PR body follows `.github/PULL_REQUEST_TEMPLATE.md`. GitHub CI is the preflight gate; the [Dev Integration Line](./agents/dev-integration.md) is the canonical serialized verify-and-merge path for `dev`. On this personal repository, an Operator with write access can merge a green pull request only as an explicitly approved manual exception. The future-spec lifecycle is the canonical child-integration path for protected spec branches under the same limitation.
 
 ## Clean up after merge
 
@@ -124,7 +124,7 @@ pnpm github:workflow:plan
 Before the first remote `dev` creation, run the complete gate from `.github/workflows/ci.yml` against one clean local `dev` commit: frozen install, lint, typecheck, unit tests, and production-build Playwright tests. After reviewing the plan, apply requires that same SHA as both the audited source and the explicit CI attestation:
 
 ```bash
-pnpm github:workflow:apply -- \
+pnpm github:workflow:apply \
   --confirm-repo brandon-y-lee/mei-pelle \
   --confirm-dev-sha <audited-dev-sha> \
   --confirm-ci-sha <same-CI-verified-sha> \
@@ -133,4 +133,4 @@ pnpm github:workflow:apply -- \
   --confirm-integration-app-id <app-id-printed-by-plan>
 ```
 
-The tool pushes the captured commit rather than the mutable branch name and rechecks remote `main`/`dev` immediately before that push. It also proves the GitHub Actions Integration from the existing `ci` check before planning the `dev` authority ruleset. It fails closed on missing authentication, the wrong repository, stale or divergent branch ancestry, unavailable repository, issue, check, or ruleset facts, or mismatched confirmations. Apply remains a separately approved remote mutation.
+The tool pushes the captured commit rather than the mutable branch name and rechecks remote `main`/`dev` immediately before that push. It also proves the GitHub Actions Integration from the existing `ci` check before planning the `dev` pull-request ruleset. The App identity pins required-check sources; it is not a bypass actor on this personal repository. The ruleset protects pull-request integration but does not make the Integration Coordinator the exclusive merge actor. The tool fails closed on missing authentication, the wrong repository, stale or divergent branch ancestry, unavailable repository, issue, check, or ruleset facts, or mismatched confirmations. Apply remains a separately approved remote mutation.
