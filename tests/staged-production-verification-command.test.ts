@@ -79,7 +79,10 @@ describe("staged Production verification command", () => {
       fetch: async (url) => {
         requests.push(String(url));
         return new Response(JSON.stringify({
-          alias: [],
+          alias: [
+            "mei-pelle-staged-57.vercel.app",
+            "mei-pelle-git-dev-brand.vercel.app",
+          ],
           id: "dpl_staged_57",
           meta: { githubCommitSha: "c".repeat(40) },
           readyState: "READY",

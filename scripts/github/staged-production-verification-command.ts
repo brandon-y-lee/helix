@@ -110,7 +110,7 @@ function interrupted(signal: AbortSignal): Promise<never> {
   });
 }
 
-function parseDeployment(payload: VercelDeploymentResponse) {
+function parseDeployment(payload: VercelDeploymentResponse, productionSiteHostname: string) {
   if (
     typeof payload.id !== "string" ||
     typeof payload.url !== "string" ||
@@ -121,11 +121,15 @@ function parseDeployment(payload: VercelDeploymentResponse) {
   if (payload.alias !== undefined && !Array.isArray(payload.alias)) {
     throw new Error("Vercel returned malformed deployment alias evidence.");
   }
-  const productionDomains = (payload.alias ?? []).map((alias) => {
+  const aliases = (payload.alias ?? []).map((alias) => {
     if (typeof alias !== "string") {
       throw new Error("Vercel returned malformed deployment alias evidence.");
     }
     return alias;
+  });
+  const productionDomains = aliases.filter((alias) => {
+    const hostname = alias.toLowerCase();
+    return hostname === productionSiteHostname || !hostname.endsWith(".vercel.app");
   });
   const metadata = payload.meta;
   if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
@@ -158,6 +162,8 @@ export function createVercelStagedDeploymentAdapter(input: {
   const teamId = requireEnvironment(input.env, "VERCEL_ORG_ID");
   requireEnvironment(input.env, "VERCEL_PROJECT_ID");
   const token = requireEnvironment(input.env, "VERCEL_TOKEN");
+  requireProductionSiteUrl(input.env);
+  const productionSiteHostname = new URL(input.env.NEXT_PUBLIC_SITE_URL!.trim()).hostname.toLowerCase();
 
   const expectedSources = new Map<string, string>();
   const inspectExact = async (idOrUrl: string, expectedSha?: string) => {
@@ -172,7 +178,10 @@ export function createVercelStagedDeploymentAdapter(input: {
     if (!response.ok) {
       throw new Error(`Vercel deployment inspection failed with status ${response.status}.`);
     }
-    const deployment = parseDeployment(await response.json() as VercelDeploymentResponse);
+    const deployment = parseDeployment(
+      await response.json() as VercelDeploymentResponse,
+      productionSiteHostname,
+    );
     const requiredSha = expectedSha ?? expectedSources.get(deployment.id) ?? input.expectedSourceSha;
     if (!requiredSha || deployment.candidateSha !== requiredSha) {
       throw new Error("Vercel deployment source metadata does not match the requested candidate.");
