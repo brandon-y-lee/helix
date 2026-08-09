@@ -51,6 +51,7 @@ describe("spec lifecycle production adapters", () => {
     for (const untrustedUrl of [
       "http://results-receiver.actions.githubusercontent.com/example/token",
       "https://actions.githubusercontent.com.example.com/example/token",
+      "https://artifactcache.actions.githubusercontent.com/example/token",
       "https://github.com/example/token",
     ]) {
       await expect(

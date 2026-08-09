@@ -10,6 +10,11 @@ import { assertDesiredSpecRuleset } from "./spec-ruleset.mjs";
 
 type CommandResult = { stdout: string; stderr: string; status: number };
 
+const trustedActionsIdentityHosts = new Set([
+  "pipelines.actions.githubusercontent.com",
+  "results-receiver.actions.githubusercontent.com",
+]);
+
 export interface SpecCommandAdapter {
   run(
     command: string,
@@ -71,7 +76,7 @@ export async function assertTrustedActionsContext(
   const identityUrl = new URL(identityUrlValue);
   if (
     identityUrl.protocol !== "https:" ||
-    !identityUrl.hostname.endsWith(".actions.githubusercontent.com")
+    !trustedActionsIdentityHosts.has(identityUrl.hostname)
   ) {
     throw new Error("Actions identity endpoint is not the trusted GitHub issuer");
   }
