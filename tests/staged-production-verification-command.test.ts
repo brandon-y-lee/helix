@@ -8,7 +8,10 @@ import {
   requireProductionSiteUrl,
   verifyStagedProductionAttestation,
 } from "@/scripts/github/staged-production-verification-command";
-import { STAGED_PRODUCTION_RECEIPT_PREDICATE_TYPE } from "@/scripts/github/staged-production-verification";
+import {
+  prepareStagedProductionVerification,
+  STAGED_PRODUCTION_RECEIPT_PREDICATE_TYPE,
+} from "@/scripts/github/staged-production-verification";
 
 describe("staged Production verification command", () => {
   it.each([
@@ -66,6 +69,10 @@ describe("staged Production verification command", () => {
   it("uses Vercel's domainless Production contract and records the immutable deployment identity", async () => {
     const commands: Array<{ args: string[]; command: string }> = [];
     const requests: string[] = [];
+    let aliases = [
+      "mei-pelle-staged-57.vercel.app",
+      "mei-pelle-git-dev-brand.vercel.app",
+    ];
     const adapter = createVercelStagedDeploymentAdapter({
       cwd: "/tmp/mei-pelle-candidate",
       env: {
@@ -79,7 +86,7 @@ describe("staged Production verification command", () => {
       fetch: async (url) => {
         requests.push(String(url));
         return new Response(JSON.stringify({
-          alias: [],
+          alias: aliases,
           id: "dpl_staged_57",
           meta: { githubCommitSha: "c".repeat(40) },
           readyState: "READY",
@@ -136,6 +143,31 @@ describe("staged Production verification command", () => {
       productionDomains: [],
       ready: true,
     });
+
+    for (const productionDomain of ["mei-pelle.vercel.app", "shop.mei-pelle.com"]) {
+      aliases = [productionDomain];
+      let browserRequests = 0;
+      const result = await prepareStagedProductionVerification(
+        { candidateSha: "c".repeat(40), workflowRun: "57-domain-assigned" },
+        {
+          browser: {
+            async verify() {
+              browserRequests += 1;
+              return { attempts: { chromium: 1, webkit: 1 }, outcome: "passed" };
+            },
+          },
+          catalog: { fingerprint: async () => `sha256:${"4".repeat(64)}` },
+          clock: { now: () => "2026-08-08T22:30:00.000Z" },
+          deployment: adapter,
+          source: { read: async () => {
+            throw new Error("source evidence must not run after domain assignment");
+          } },
+        },
+      );
+
+      expect(result).toMatchObject({ outcome: "domain-assigned" });
+      expect(browserRequests).toBe(0);
+    }
   });
 
   it("cryptographically verifies the exact prepared predicate and rejects tampering", async () => {

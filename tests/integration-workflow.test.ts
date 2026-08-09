@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { parse } from "yaml";
 
 const projectRoot = process.cwd();
 const coordinator = readFileSync(
@@ -33,6 +34,14 @@ const packageJson = JSON.parse(
 ) as { scripts: Record<string, string> };
 
 describe("dev Integration Line workflows", () => {
+  it("publishes a nonce-bearing verification run title for coordinator correlation", () => {
+    const parsed = parse(verification) as { "run-name"?: string };
+
+    expect(parsed["run-name"]).toBe(
+      "Integration verification #${{ inputs.pr_number }} ${{ inputs.nonce }}",
+    );
+  });
+
   it("retains structured Integration Line efficiency records for the 30-day audit", () => {
     expect(coordinator).toContain(
       'pnpm --silent integration:dev | tee "$RUNNER_TEMP/integration-efficiency.json"',
