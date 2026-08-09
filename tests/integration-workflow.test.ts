@@ -43,6 +43,9 @@ describe("dev Integration Line workflows", () => {
     expect(coordinator).toContain("if-no-files-found: error");
     expect(verification).toContain("name: integration-verification-efficiency-${{ github.run_id }}");
     expect(verification).toContain("verification-browser-result.json");
+    expect(verification).toContain("Create trusted compact verification efficiency result");
+    expect(verification).toContain("scripts/github/integration-efficiency-command.ts");
+    expect(verification).toContain("${{ runner.temp }}/integration-efficiency/verification-browser-result.json");
     expect(coordinatorCommand.indexOf("process.stdout.write")).toBeLessThan(
       coordinatorCommand.indexOf("await requestIntegrationHandoff(repository)"),
     );

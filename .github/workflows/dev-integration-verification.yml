@@ -190,6 +190,7 @@ jobs:
 
       - name: Verify receipted production artifact with the trusted runner
         if: ${{ inputs.gate == 'complete-behavioral' }}
+        id: browser-verify
         env:
           PLAYWRIGHT_JSON_OUTPUT_FILE: ${{ github.workspace }}/candidate/test-results/playwright-telemetry.json
           VERIFICATION_BROWSER_RESULT_PATH: ${{ github.workspace }}/candidate/test-results/verification-browser-result.json
@@ -227,6 +228,16 @@ jobs:
           sudo chown -R root:root -- "$RUNNER_TEMP/verification-browser-evidence"
           sudo chmod -R a+rX -- "$RUNNER_TEMP/verification-browser-evidence"
           sudo chmod -R a-w -- "$RUNNER_TEMP/verification-browser-evidence"
+
+      - name: Create trusted compact verification efficiency result
+        if: ${{ always() && inputs.gate == 'complete-behavioral' }}
+        env:
+          INTEGRATION_BROWSER_STEP_OUTCOME: ${{ steps.browser-verify.outcome }}
+          INTEGRATION_EFFICIENCY_OUTPUT_PATH: ${{ runner.temp }}/integration-efficiency/verification-browser-result.json
+          PLAYWRIGHT_JSON_OUTPUT_FILE: ${{ runner.temp }}/verification-browser-evidence/test-results/playwright-telemetry.json
+        run: |
+          mkdir -p "$RUNNER_TEMP/integration-efficiency"
+          pnpm --dir trusted exec tsx scripts/github/integration-efficiency-command.ts
 
       - name: Require structured browser telemetry
         if: ${{ inputs.gate == 'complete-behavioral' }}
@@ -302,9 +313,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: integration-verification-efficiency-${{ github.run_id }}
-          path: ${{ runner.temp }}/verification-browser-evidence/test-results/verification-browser-result.json
+          path: ${{ runner.temp }}/integration-efficiency/verification-browser-result.json
           retention-days: 30
-          if-no-files-found: ignore
+          if-no-files-found: error
 
   attest-stable-result:
     if: ${{ inputs.gate == 'complete-behavioral' }}

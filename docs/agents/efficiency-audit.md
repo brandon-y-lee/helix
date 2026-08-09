@@ -22,6 +22,9 @@ the clock and does not make the proposed ADRs accepted.
   duration, retries, and browser-case executions. Join them to the Integration
   Slot record by pull request and its recorded `workflowRunId`. Successful evidence remains 30
   days and failed evidence remains 90 days.
+  A trusted post-verification step counts actual Playwright result executions
+  and sums their result durations into the compact record. If the browser step
+  never ran, candidate-created files are ignored and those fields remain null.
 - Each supported affected check emits one `[affected-verification-result]` JSON
   record with selected capabilities, build reuse, browser-case executions,
   projects, retries, build and test duration, outcome, and failure

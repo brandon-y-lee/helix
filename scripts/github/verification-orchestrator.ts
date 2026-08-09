@@ -453,12 +453,15 @@ export function createWorkflowVerificationAdapter(
           browserCaseExecutions: null,
           buildReuse: input.gate === "fast-non-runtime" ? "not-applicable" : null,
           completePlanRuns: 0,
-          failureClassification: result.outcome === "passed" ? "none" : "failed",
           retries: null,
           selectedCapabilities: [],
           testTimeMs: null,
-          workflowRunId: runId,
           ...result.telemetry,
+          failureClassification:
+            result.outcome === "failed"
+              ? "failed"
+              : result.telemetry?.failureClassification ?? "none",
+          workflowRunId: runId,
         },
       };
     },
@@ -733,14 +736,14 @@ async function handOffExecutionFailure(
   adapters: IntegrationAdapters,
   frozen: FrozenCandidate,
   stage: "git" | "verification" | "merge",
-  telemetry: IntegrationEfficiencyTelemetry,
+  telemetry: () => IntegrationEfficiencyTelemetry,
 ): Promise<IntegrationReport> {
   await adapters.repository.release(frozen, "review");
   return advanceAfterAttempt({
     ...frozen,
     outcome: "execution-failed",
     stage,
-    telemetry,
+    telemetry: telemetry(),
   });
 }
 
@@ -839,7 +842,7 @@ export async function runIntegrationLine(
       adapters,
       frozen,
       "git",
-      telemetryFor("failed", clock.now()),
+      () => telemetryFor("failed", clock.now()),
     );
   }
   let verificationResult: Awaited<ReturnType<VerificationAdapter["verify"]>>;
@@ -859,12 +862,11 @@ export async function runIntegrationLine(
     verificationResult = result.value;
   } catch {
     slot.close();
-    const completedAt = clock.now();
     return handOffExecutionFailure(
       adapters,
       frozen,
       "verification",
-      telemetryFor("failed", completedAt),
+      () => telemetryFor("failed", clock.now()),
     );
   }
   if (verificationResult.outcome !== "passed") {
@@ -895,7 +897,7 @@ export async function runIntegrationLine(
       adapters,
       frozen,
       "merge",
-      telemetryFor("failed", clock.now(), verificationResult.telemetry),
+      () => telemetryFor("failed", clock.now(), verificationResult.telemetry),
     );
   }
   const currentCandidate = current.candidates.find((entry) => entry.number === frozen.number);
@@ -938,7 +940,7 @@ export async function runIntegrationLine(
       adapters,
       frozen,
       "merge",
-      telemetryFor("failed", clock.now(), verificationResult.telemetry),
+      () => telemetryFor("failed", clock.now(), verificationResult.telemetry),
     );
   }
   slot.close();

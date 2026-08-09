@@ -2,14 +2,12 @@ import { runProductionVerificationCiCommand } from "./production-verification-ci
 import { runProductionVerificationCli } from "./production-verification-cli";
 import { resolve } from "node:path";
 import { writeFile } from "node:fs/promises";
-import { BROWSER_VERIFICATION_PLAN } from "./browser-verification-plan";
 
 const candidateCwd = process.env.VERIFICATION_CANDIDATE_CWD
   ? resolve(process.env.VERIFICATION_CANDIDATE_CWD)
   : process.cwd();
 
 runProductionVerificationCli(async (signal) => {
-  const startedAt = Date.now();
   const resultPath = process.env.VERIFICATION_BROWSER_RESULT_PATH;
   const argv = process.argv.slice(2);
   try {
@@ -27,15 +25,6 @@ runProductionVerificationCli(async (signal) => {
         attempts: result.retries + 1,
         buildId: result.buildId,
         outcome: result.outcome,
-        telemetry: {
-          browserCaseExecutions: BROWSER_VERIFICATION_PLAN.journeys.length,
-          buildReuse: "new",
-          completePlanRuns: 1,
-          failureClassification: result.retries > 0 ? "unstable" : "none",
-          retries: result.retries,
-          selectedCapabilities: ["complete-plan"],
-          testTimeMs: Date.now() - startedAt,
-        },
       }),
       { encoding: "utf8", mode: 0o600 },
     );
@@ -47,17 +36,8 @@ runProductionVerificationCli(async (signal) => {
       await writeFile(
         resultPath,
         JSON.stringify({
+          attempts: retryCount === null ? null : retryCount + 1,
           outcome: "failed",
-          telemetry: {
-            browserCaseExecutions:
-              retryCount === null ? null : BROWSER_VERIFICATION_PLAN.journeys.length,
-            buildReuse: retryCount === null ? null : "new",
-            completePlanRuns: retryCount === null ? 0 : 1,
-            failureClassification: "failed",
-            retries: retryCount,
-            selectedCapabilities: retryCount === null ? [] : ["complete-plan"],
-            testTimeMs: retryCount === null ? null : Date.now() - startedAt,
-          },
         }),
         { encoding: "utf8", mode: 0o600 },
       );

@@ -95,6 +95,7 @@ describe("GitHub Integration Coordinator adapter", () => {
                 retries: 1,
                 selectedCapabilities: ["complete-plan"],
                 testTimeMs: 5_000,
+                workflowRunId: 999,
               },
             }),
           );

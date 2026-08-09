@@ -1413,4 +1413,41 @@ describe("Verification Orchestrator", () => {
       expect(released).toBe(true);
     },
   );
+
+  it("ends execution-failure latency after the review-label release completes", async () => {
+    let candidate: IntegrationCandidate | undefined = {
+      number: 126,
+      target: "dev",
+      headSha: "candidate-126",
+      readyAt: "1970-01-01T00:00:00.000Z",
+      queuedAt: "1970-01-01T00:00:00.000Z",
+      implementationCompletedAt: "1970-01-01T00:00:00.000Z",
+      workClass: "standalone",
+      changedFiles: ["app/page.tsx"],
+      labels: ["workflow:integration-queued"],
+      ready: true,
+    };
+    const repository: RepositoryAdapter = {
+      async read() { return { devSha: "dev-1", candidates: candidate ? [candidate] : [] }; },
+      async queue() { return true; },
+      async claim() { return true; },
+      async release() { candidate = undefined; },
+    };
+    const times = [1_000, 5_000];
+
+    const report = await runIntegrationLine({
+      repository,
+      git: { async prepare() { throw new Error("controlled Git failure"); } },
+      verification: { async verify() { throw new Error("must not verify"); } },
+      merge: { async merge() { throw new Error("must not merge"); } },
+    }, { clock: { now: () => times.shift()! } });
+
+    expect(report).toMatchObject({
+      attempts: [{ telemetry: {
+        implementationToIntegrationMs: 5_000,
+        integrationTimeMs: 4_000,
+      } }],
+      outcome: "handoff",
+    });
+  });
 });

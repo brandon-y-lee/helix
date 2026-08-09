@@ -188,13 +188,20 @@ function parseVerificationEfficiency(value: string): VerificationEfficiencyTelem
     value,
     "integration verification efficiency artifact",
   ).telemetry;
+  const nonnegative = (input: unknown) =>
+    input === null || (typeof input === "number" && Number.isFinite(input) && input >= 0);
   if (
     !parsed ||
     !Array.isArray(parsed.selectedCapabilities) ||
-    typeof parsed.completePlanRuns !== "number" ||
-    !(parsed.browserCaseExecutions === null || typeof parsed.browserCaseExecutions === "number") ||
-    !(parsed.retries === null || typeof parsed.retries === "number") ||
-    !(parsed.testTimeMs === null || typeof parsed.testTimeMs === "number")
+    !parsed.selectedCapabilities.every((capability) => typeof capability === "string") ||
+    !Number.isInteger(parsed.completePlanRuns) || parsed.completePlanRuns < 0 ||
+    !nonnegative(parsed.browserCaseExecutions) ||
+    !nonnegative(parsed.retries) ||
+    !nonnegative(parsed.testTimeMs) ||
+    ![null, "new", "reused", "not-applicable"].includes(parsed.buildReuse) ||
+    !["none", "failed", "changed", "timed-out", "cancelled", "unstable"].includes(
+      parsed.failureClassification ?? "none",
+    )
   ) {
     throw new Error("integration verification efficiency artifact was malformed");
   }
