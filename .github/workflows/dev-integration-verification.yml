@@ -241,12 +241,16 @@ jobs:
           if [[ "$pkill_status" -ne 0 && "$pkill_status" -ne 1 ]]; then
             exit "$pkill_status"
           fi
-          sudo chown -R root:root -- "$VERIFICATION_SERVER_CWD"
-          sudo chmod -R a+rX -- "$VERIFICATION_SERVER_CWD"
-          sudo chmod -R a-w -- "$VERIFICATION_SERVER_CWD"
-          sudo chown -R root:root -- "$RUNNER_TEMP/trusted-browser-telemetry"
-          sudo chmod -R a+rX -- "$RUNNER_TEMP/trusted-browser-telemetry"
-          sudo chmod -R a-w -- "$RUNNER_TEMP/trusted-browser-telemetry"
+          if [[ -e "$VERIFICATION_SERVER_CWD" ]]; then
+            sudo chown -R root:root -- "$VERIFICATION_SERVER_CWD"
+            sudo chmod -R a+rX -- "$VERIFICATION_SERVER_CWD"
+            sudo chmod -R a-w -- "$VERIFICATION_SERVER_CWD"
+          fi
+          if [[ -e "$RUNNER_TEMP/trusted-browser-telemetry" ]]; then
+            sudo chown -R root:root -- "$RUNNER_TEMP/trusted-browser-telemetry"
+            sudo chmod -R a+rX -- "$RUNNER_TEMP/trusted-browser-telemetry"
+            sudo chmod -R a-w -- "$RUNNER_TEMP/trusted-browser-telemetry"
+          fi
           sudo chown root:root -- candidate
           sudo chmod a+rX -- candidate
           sudo chmod a-w -- candidate
