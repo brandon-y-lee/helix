@@ -1,5 +1,4 @@
 import { defineConfig, devices } from "@playwright/test";
-import { BROWSER_VERIFICATION_PLAN } from "./scripts/browser-verification-plan";
 
 const verificationAdapter = process.env.MEI_PELLE_VERIFICATION_ADAPTER === "1";
 const verificationBaseURL = process.env.MEI_PELLE_VERIFICATION_BASE_URL;
@@ -20,28 +19,23 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
-  reporter: process.env.CI
-    ? [
-        ["github"],
-        ["html", { open: "never" }],
-        ...(process.env.PLAYWRIGHT_JSON_OUTPUT_FILE
-          ? [["json", { outputFile: process.env.PLAYWRIGHT_JSON_OUTPUT_FILE }] as const]
-          : []),
-      ]
-    : "html",
+  reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : "html",
   use: {
     baseURL: verificationBaseURL,
     trace: "on-first-retry",
   },
-  projects: BROWSER_VERIFICATION_PLAN.projects
-    .filter(
-      ({ name }) =>
-        name === "chromium" ||
-        !process.env.CI ||
-        process.env.MEI_PELLE_VERIFICATION_PROJECT === name,
-    )
-    .map(({ device, name }) => ({
-      name,
-      use: { ...devices[device] },
-    })),
+  projects: [
+    {
+      name: "chromium",
+      use: { ...devices["Desktop Chrome"] },
+    },
+    ...(!process.env.CI
+      ? [
+          {
+            name: "webkit",
+            use: { ...devices["Desktop Safari"] },
+          },
+        ]
+      : []),
+  ],
 });
