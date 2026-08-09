@@ -164,6 +164,9 @@ rollback-first procedure are documented in
 
 ## Efficiency audit
 
+The executable record sources, outcome taxonomy, 30-day clock, and evaluation
+procedure are defined in [`efficiency-audit.md`](./efficiency-audit.md).
+
 For the first 30 days, record median and worst-case time from implementation completion to trustworthy integration, PR preflight time, Integration Line wait time, per-test duration, retries, browser-case executions per integrated PR, selected capabilities, build reuse, and full-suite executions. The expected steady state is:
 
 - no browser run for documentation-only work;

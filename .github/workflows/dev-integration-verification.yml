@@ -190,10 +190,18 @@ jobs:
 
       - name: Verify receipted production artifact with the trusted runner
         if: ${{ inputs.gate == 'complete-behavioral' }}
+        id: browser-verify
         env:
-          PLAYWRIGHT_JSON_OUTPUT_FILE: ${{ github.workspace }}/candidate/test-results/playwright-telemetry.json
-          VERIFICATION_BROWSER_RESULT_PATH: ${{ github.workspace }}/candidate/test-results/verification-browser-result.json
-        run: sudo -E -H -u verifier-candidate env "PATH=$VERIFICATION_CANDIDATE_PATH" pnpm --dir trusted exec tsx scripts/verify-production-ci.ts verify --selection routine-chromium
+          PLAYWRIGHT_JSON_OUTPUT_FILE: ${{ runner.temp }}/trusted-browser-telemetry/playwright-telemetry.json
+          VERIFICATION_BROWSER_RESULT_PATH: ${{ runner.temp }}/trusted-browser-telemetry/verification-browser-result.json
+        run: |
+          set +e
+          sudo pkill -KILL -u verifier-candidate
+          pkill_status=$?
+          set -e
+          if [[ "$pkill_status" -ne 0 && "$pkill_status" -ne 1 ]]; then exit "$pkill_status"; fi
+          sudo install -d -o verifier-candidate -g verifier-candidate -m 0700 -- "$RUNNER_TEMP/trusted-browser-telemetry"
+          sudo -E -H -u verifier-candidate env "PATH=$VERIFICATION_CANDIDATE_PATH" pnpm --dir trusted exec tsx scripts/verify-production-ci.ts verify --selection routine-chromium
 
       - name: Freeze browser evidence for retention
         if: ${{ always() && inputs.gate == 'complete-behavioral' }}
@@ -228,10 +236,20 @@ jobs:
           sudo chmod -R a+rX -- "$RUNNER_TEMP/verification-browser-evidence"
           sudo chmod -R a-w -- "$RUNNER_TEMP/verification-browser-evidence"
 
+      - name: Create trusted compact verification efficiency result
+        if: ${{ always() && inputs.gate == 'complete-behavioral' }}
+        env:
+          INTEGRATION_BROWSER_STEP_OUTCOME: ${{ steps.browser-verify.outcome }}
+          INTEGRATION_EFFICIENCY_OUTPUT_PATH: ${{ runner.temp }}/integration-efficiency/verification-browser-result.json
+          PLAYWRIGHT_JSON_OUTPUT_FILE: ${{ runner.temp }}/trusted-browser-telemetry/playwright-telemetry.json
+        run: |
+          mkdir -p "$RUNNER_TEMP/integration-efficiency"
+          pnpm --dir trusted exec tsx scripts/github/integration-efficiency-command.ts
+
       - name: Require structured browser telemetry
         if: ${{ inputs.gate == 'complete-behavioral' }}
         env:
-          PLAYWRIGHT_JSON_OUTPUT_FILE: ${{ runner.temp }}/verification-browser-evidence/test-results/playwright-telemetry.json
+          PLAYWRIGHT_JSON_OUTPUT_FILE: ${{ runner.temp }}/trusted-browser-telemetry/playwright-telemetry.json
         run: test -s "$PLAYWRIGHT_JSON_OUTPUT_FILE"
 
       - name: Record Catalog fingerprint after verification with trusted code
@@ -258,7 +276,7 @@ jobs:
           CATALOG_FINGERPRINT_AFTER: ${{ steps.catalog-after.outputs.fingerprint }}
           CATALOG_FINGERPRINT_BEFORE: ${{ steps.catalog-before.outputs.fingerprint }}
           VERIFICATION_BROWSER_VERSION: ${{ steps.browser-version.outputs.version }}
-          VERIFICATION_BROWSER_RESULT_PATH: ${{ runner.temp }}/verification-browser-evidence/test-results/verification-browser-result.json
+          VERIFICATION_BROWSER_RESULT_PATH: ${{ runner.temp }}/trusted-browser-telemetry/verification-browser-result.json
           VERIFICATION_EVIDENCE_PATH: ${{ runner.temp }}/verification-evidence/execution.json
         run: |
           git -C candidate diff --exit-code
@@ -282,7 +300,7 @@ jobs:
           name: integration-playwright-success-${{ inputs.pr_number }}-${{ inputs.nonce }}
           path: |
             ${{ runner.temp }}/verification-browser-evidence/playwright-report/
-            ${{ runner.temp }}/verification-browser-evidence/test-results/playwright-telemetry.json
+            ${{ runner.temp }}/trusted-browser-telemetry/playwright-telemetry.json
           retention-days: 30
           if-no-files-found: error
 
@@ -294,8 +312,18 @@ jobs:
           path: |
             ${{ runner.temp }}/verification-browser-evidence/playwright-report/
             ${{ runner.temp }}/verification-browser-evidence/test-results/
+            ${{ runner.temp }}/trusted-browser-telemetry/
           retention-days: 90
           if-no-files-found: ignore
+
+      - name: Upload compact verification efficiency result
+        if: ${{ always() && inputs.gate == 'complete-behavioral' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-verification-efficiency-${{ github.run_id }}
+          path: ${{ runner.temp }}/integration-efficiency/verification-browser-result.json
+          retention-days: 30
+          if-no-files-found: error
 
   attest-stable-result:
     if: ${{ inputs.gate == 'complete-behavioral' }}

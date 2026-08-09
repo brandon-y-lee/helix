@@ -45,7 +45,10 @@ describe("staged Production verification command", () => {
     expect(workflow).toContain("workflow_dispatch:");
     expect(workflow).toContain("source_sha:");
     expect(workflow).toContain("permissions:\n  contents: read");
-    expect(workflow).toContain("verification:staged-production --");
+    expect(workflow).toContain("verification:staged-production \\");
+    expect(workflow).toContain("verification:staged-production reconstruct-receipt \\");
+    expect(workflow).toContain("verification:staged-production verify-attestation \\");
+    expect(workflow).not.toContain("verification:staged-production --");
     expect(workflow).toContain("--candidate-sha \"$SOURCE_SHA\"");
     expect(workflow).toContain("uses: actions/attest@v4");
     expect(workflow).toContain("reconstruct-receipt");

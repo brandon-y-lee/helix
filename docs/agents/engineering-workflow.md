@@ -48,6 +48,10 @@ An eligible ticket is open, unblocked, unassigned, `type:ticket`, and `ready-for
 8. Let GitHub CI run the pull-request gate. A ready, green PR receives `workflow:integration-queued`; the [Dev Integration Line](./dev-integration.md) freezes one candidate and current `dev`, then runs the work-class gate in a separate read-only workflow.
 9. The coordinator alone merges an unchanged successful candidate. After GitHub reports the merge, comment with the PR, integrated commit, CI and Integration Line evidence, and review result; close the ticket; update the parent spec when one exists; clean up the worktree.
 
+The first clean Integration Line record after repository cutover starts the
+30-day [verification efficiency audit](./efficiency-audit.md). Preserve its UTC
+start time with the ticket evidence; do not infer activation from staged code.
+
 Future multi-ticket specs use the lifecycle in [`spec-integration.md`](./spec-integration.md). Child PRs squash into the protected spec branch and close with `workflow:spec-integrated`; their draft final spec PR enters this Integration Line only after all children and combined review pass. Spec #50 is deliberately excluded from that lifecycle.
 
 If `dev` advances before integration, merge it into the ticket branch and repeat every affected verification and review step.

@@ -8,16 +8,19 @@ const candidateCwd = process.env.VERIFICATION_CANDIDATE_CWD
   : process.cwd();
 
 runProductionVerificationCli(async (signal) => {
-  const result = await runProductionVerificationCiCommand({
-    argv: process.argv.slice(2),
-    cwd: candidateCwd,
-    env: process.env,
-    requestedPort: process.env.PORT,
-    signal,
-  });
-  if (result.operation === "verify" && process.env.VERIFICATION_BROWSER_RESULT_PATH) {
+  const resultPath = process.env.VERIFICATION_BROWSER_RESULT_PATH;
+  const argv = process.argv.slice(2);
+  try {
+    const result = await runProductionVerificationCiCommand({
+      argv,
+      cwd: candidateCwd,
+      env: process.env,
+      requestedPort: process.env.PORT,
+      signal,
+    });
+    if (result.operation !== "verify" || !resultPath) return;
     await writeFile(
-      process.env.VERIFICATION_BROWSER_RESULT_PATH,
+      resultPath,
       JSON.stringify({
         attempts: result.retries + 1,
         buildId: result.buildId,
@@ -25,5 +28,20 @@ runProductionVerificationCli(async (signal) => {
       }),
       { encoding: "utf8", mode: 0o600 },
     );
+  } catch (error) {
+    if (argv[0] === "verify" && resultPath) {
+      const retryCount = typeof (error as { retryCount?: unknown })?.retryCount === "number"
+        ? (error as { retryCount: number }).retryCount
+        : null;
+      await writeFile(
+        resultPath,
+        JSON.stringify({
+          attempts: retryCount === null ? null : retryCount + 1,
+          outcome: "failed",
+        }),
+        { encoding: "utf8", mode: 0o600 },
+      );
+    }
+    throw error;
   }
 });

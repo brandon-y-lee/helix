@@ -68,7 +68,7 @@ jobs:
           PLAYWRIGHT_JSON_OUTPUT_FILE: ${{ runner.temp }}/staged-production/playwright-telemetry.json
         run: |
           mkdir -p "$RUNNER_TEMP/staged-production"
-          pnpm verification:staged-production -- \
+          pnpm verification:staged-production \
             --candidate-sha "$SOURCE_SHA" \
             --evidence-path "$RUNNER_TEMP/staged-production/evidence.json" \
             --receipt-path "$RUNNER_TEMP/staged-production/receipt.json"
@@ -161,7 +161,7 @@ jobs:
 
       - name: Independently reconstruct current staged inputs
         run: |
-          pnpm verification:staged-production -- reconstruct-receipt \
+          pnpm verification:staged-production reconstruct-receipt \
             --receipt-path "$RUNNER_TEMP/staged-production/receipt.json" \
             --subject-path "$RUNNER_TEMP/staged-production/subject.json"
 
@@ -177,7 +177,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          pnpm verification:staged-production -- verify-attestation \
+          pnpm verification:staged-production verify-attestation \
             --attestation-id "${{ steps.attest.outputs.attestation-id }}" \
             --bundle-path "${{ steps.attest.outputs.bundle-path }}" \
             --receipt-path "$RUNNER_TEMP/staged-production/receipt.json" \

@@ -7,6 +7,10 @@ const coordinator = readFileSync(
   resolve(projectRoot, ".github/workflows/dev-integration.yml"),
   "utf8",
 );
+const coordinatorCommand = readFileSync(
+  resolve(projectRoot, "scripts/github/run-integration-coordinator.ts"),
+  "utf8",
+);
 const verification = readFileSync(
   resolve(projectRoot, ".github/workflows/dev-integration-verification.yml"),
   "utf8",
@@ -29,6 +33,30 @@ const packageJson = JSON.parse(
 ) as { scripts: Record<string, string> };
 
 describe("dev Integration Line workflows", () => {
+  it("retains structured Integration Line efficiency records for the 30-day audit", () => {
+    expect(coordinator).toContain(
+      'pnpm --silent integration:dev | tee "$RUNNER_TEMP/integration-efficiency.json"',
+    );
+    expect(coordinator).toContain("name: integration-efficiency-${{ github.run_id }}-${{ github.run_attempt }}");
+    expect(coordinator).toContain("path: ${{ runner.temp }}/integration-efficiency.json");
+    expect(coordinator).toContain("retention-days: 30");
+    expect(coordinator).toContain("if-no-files-found: error");
+    expect(verification).toContain("name: integration-verification-efficiency-${{ github.run_id }}");
+    expect(verification).toContain("verification-browser-result.json");
+    expect(verification).toContain("Create trusted compact verification efficiency result");
+    expect(verification).toContain("scripts/github/integration-efficiency-command.ts");
+    expect(verification).toContain("${{ runner.temp }}/integration-efficiency/verification-browser-result.json");
+    const trustedTelemetryStep = verification.split("- name: Verify receipted production artifact")[1]!
+      .split("- name: Freeze browser evidence")[0]!;
+    expect(trustedTelemetryStep.indexOf("pkill -KILL -u verifier-candidate")).toBeLessThan(
+      trustedTelemetryStep.indexOf("install -d -o verifier-candidate"),
+    );
+    expect(trustedTelemetryStep).toContain("$RUNNER_TEMP/trusted-browser-telemetry");
+    expect(coordinatorCommand.indexOf("process.stdout.write")).toBeLessThan(
+      coordinatorCommand.indexOf("await requestIntegrationHandoff(repository)"),
+    );
+  });
+
   it("separates the trusted coordinator from read-only candidate verification", () => {
     expect(coordinator).toContain("pull_request_target:");
     expect(coordinator).toContain("workflow_run:");
@@ -42,7 +70,7 @@ describe("dev Integration Line workflows", () => {
     expect(coordinator).toContain("actions: write");
     expect(coordinator).toContain("ref: dev");
     expect(coordinator).toContain("persist-credentials: false");
-    expect(coordinator).toContain("run: pnpm integration:dev");
+    expect(coordinator).toContain("run: pnpm --silent integration:dev");
     expect(coordinator).not.toContain("verify-production-ci.ts");
     expect(packageJson.scripts["integration:dev"]).toBe(
       "tsx scripts/github/run-integration-coordinator.ts",
@@ -248,7 +276,7 @@ describe("dev Integration Line workflows", () => {
       "sudo chmod -R a-w -- \"$RUNNER_TEMP/verification-browser-evidence\"",
     );
     expect(verification).toContain(
-      "${{ runner.temp }}/verification-browser-evidence/test-results/verification-browser-result.json",
+      "${{ runner.temp }}/trusted-browser-telemetry/verification-browser-result.json",
     );
     expect(verification).toContain(
       "${{ runner.temp }}/verification-browser-evidence/playwright-report/",

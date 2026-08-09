@@ -26,6 +26,76 @@ const scheduledIdentity: ScheduledVerificationIdentity = {
 };
 
 describe("Verification Orchestrator", () => {
+  it("records one fail-closed efficiency event for the complete Integration Slot", async () => {
+    let candidate: IntegrationCandidate | undefined = {
+      number: 59,
+      target: "dev",
+      createdAt: "2026-08-09T00:00:00.000Z",
+      implementationCompletedAt: "2026-08-09T00:00:00.000Z",
+      queuedAt: "2026-08-09T00:02:00.000Z",
+      readyAt: "2026-08-09T00:02:00.000Z",
+      headSha: "candidate-59",
+      workClass: "verification-system",
+      changedFiles: ["scripts/github/verification-orchestrator.ts"],
+      labels: ["workflow:integration-queued"],
+      ready: true,
+    };
+    const repository: RepositoryAdapter = {
+      async read() {
+        return { devSha: "dev-1", candidates: candidate ? [structuredClone(candidate)] : [] };
+      },
+      async queue() { return true; },
+      async claim() { candidate!.labels = ["workflow:integration-active"]; return true; },
+      async release() { candidate = undefined; },
+    };
+    const times = [
+      Date.parse("2026-08-09T00:05:00.000Z"),
+      Date.parse("2026-08-09T00:05:01.000Z"),
+      Date.parse("2026-08-09T00:05:03.000Z"),
+      Date.parse("2026-08-09T00:05:10.000Z"),
+    ];
+
+    const report = await runIntegrationLine({
+      repository,
+      git: { async prepare() { return { candidateSha: "merge-tree-59" }; } },
+      verification: {
+        async verify() {
+          return {
+            outcome: "passed",
+            telemetry: {
+              browserCaseExecutions: 35,
+              buildReuse: "new",
+              completePlanRuns: 1,
+              retries: 0,
+              selectedCapabilities: ["complete-plan"],
+              testTimeMs: 6_500,
+            },
+          };
+        },
+      },
+      merge: { async merge() { return { mergeSha: "dev-2" }; } },
+    }, { clock: { now: () => times.shift()! } });
+
+    expect(report).toMatchObject({
+      outcome: "merged",
+      attempts: [{
+        telemetry: {
+          browserCaseExecutions: 35,
+          buildReuse: "new",
+          completePlanRuns: 1,
+          failureClassification: "none",
+          implementationToIntegrationMs: 301_000,
+          integrationTimeMs: 1_000,
+          preflightTimeMs: 120_000,
+          queueWaitMs: 180_000,
+          retries: 0,
+          selectedCapabilities: ["complete-plan"],
+          testTimeMs: 6_500,
+        },
+      }],
+    });
+  });
+
   it("owns production receipt preparation from actual adapter evidence", async () => {
     const orchestrator = createRoutineReceiptOrchestrator({
       identity: { async read() { return {
@@ -70,8 +140,43 @@ describe("Verification Orchestrator", () => {
       reasons: ["verification-system retains the complete behavioral gate"],
       timeoutMs: 20 * 60 * 1_000,
       signal: new AbortController().signal,
-    })).resolves.toEqual({ outcome: "passed" });
+    })).resolves.toEqual({
+      outcome: "passed",
+      telemetry: {
+        browserCaseExecutions: null,
+        buildReuse: null,
+        completePlanRuns: 0,
+        failureClassification: "none",
+        retries: null,
+        selectedCapabilities: [],
+        testTimeMs: null,
+        workflowRunId: 530,
+      },
+    });
     expect(calls).toEqual(["dispatch", "find", "wait"]);
+  });
+
+  it("preserves observed unstable retry-pass evidence when the receipt workflow fails", async () => {
+    const adapter = createWorkflowVerificationAdapter({
+      async dispatch() {}, async findRun() { return 531; },
+      async waitForRun() { return { outcome: "failed", telemetry: {
+        browserCaseExecutions: 10, buildReuse: "new", completePlanRuns: 1,
+        failureClassification: "unstable", retries: 1,
+        selectedCapabilities: ["complete-plan"], testTimeMs: 1_000,
+      } }; },
+      async cancelRun() {}, async delay() {},
+    });
+
+    const result = await adapter.verify({
+      number: 53, baseSha: "b".repeat(40), headSha: "c".repeat(40),
+      candidateSha: "d".repeat(40), gate: "complete-behavioral", reasons: [],
+      timeoutMs: 20 * 60 * 1_000, signal: new AbortController().signal,
+    });
+
+    expect(result).toMatchObject({
+      outcome: "failed",
+      telemetry: { failureClassification: "unstable", workflowRunId: 531 },
+    });
   });
 
   it("does not grant the fast path to runtime-consumed Markdown", async () => {
@@ -1313,9 +1418,59 @@ describe("Verification Orchestrator", () => {
 
       expect(report).toMatchObject({
         outcome: "handoff",
-        attempts: [{ number: 123, outcome: "execution-failed", stage }],
+        attempts: [{
+          number: 123,
+          outcome: "execution-failed",
+          stage,
+          telemetry: {
+            browserCaseExecutions: null,
+            buildReuse: null,
+            completePlanRuns: 0,
+            retries: null,
+            selectedCapabilities: [],
+            testTimeMs: null,
+            workflowRunId: null,
+          },
+        }],
       });
       expect(released).toBe(true);
     },
   );
+
+  it("ends execution-failure latency after the review-label release completes", async () => {
+    let candidate: IntegrationCandidate | undefined = {
+      number: 126,
+      target: "dev",
+      headSha: "candidate-126",
+      readyAt: "1970-01-01T00:00:00.000Z",
+      queuedAt: "1970-01-01T00:00:00.000Z",
+      implementationCompletedAt: "1970-01-01T00:00:00.000Z",
+      workClass: "standalone",
+      changedFiles: ["app/page.tsx"],
+      labels: ["workflow:integration-queued"],
+      ready: true,
+    };
+    const repository: RepositoryAdapter = {
+      async read() { return { devSha: "dev-1", candidates: candidate ? [candidate] : [] }; },
+      async queue() { return true; },
+      async claim() { return true; },
+      async release() { candidate = undefined; },
+    };
+    const times = [1_000, 5_000];
+
+    const report = await runIntegrationLine({
+      repository,
+      git: { async prepare() { throw new Error("controlled Git failure"); } },
+      verification: { async verify() { throw new Error("must not verify"); } },
+      merge: { async merge() { throw new Error("must not merge"); } },
+    }, { clock: { now: () => times.shift()! } });
+
+    expect(report).toMatchObject({
+      attempts: [{ telemetry: {
+        implementationToIntegrationMs: 5_000,
+        integrationTimeMs: 4_000,
+      } }],
+      outcome: "handoff",
+    });
+  });
 });

@@ -8,6 +8,103 @@ export * from "./production-release";
 
 export const INTEGRATION_TIMEOUT_MS = 20 * 60 * 1_000;
 
+export const WORKFLOW_CUTOVER_CONTRACTS = [
+  "work-classification",
+  "affected-browser-verification",
+  "local-build-reuse",
+  "integration-slot-concurrency",
+  "non-preemptive-urgent-priority",
+  "timeout-and-failure-handoff",
+  "verification-receipts",
+  "spec-dependencies",
+  "scheduled-failure-and-recovery",
+  "staged-production-verification",
+  "exact-production-promotion",
+  "rollback-first-recovery",
+  "efficiency-telemetry",
+  "repository-cutover",
+  "deployment-controls",
+] as const;
+
+export type WorkflowCutoverContract = typeof WORKFLOW_CUTOVER_CONTRACTS[number];
+export type WorkflowCutoverEvidence = Partial<Record<
+  WorkflowCutoverContract,
+  "passed" | "pending" | "failed"
+>>;
+
+export type WorkflowCutoverObservation = {
+  evidence: string[];
+  outcome: "passed" | "pending" | "failed";
+  plan: string[];
+  transitions: string[];
+};
+
+export type WorkflowCutoverAcceptanceAdapters = Record<
+  WorkflowCutoverContract,
+  () => Promise<WorkflowCutoverObservation>
+>;
+
+export function evaluateWorkflowCutover(evidence: WorkflowCutoverEvidence) {
+  const gaps = WORKFLOW_CUTOVER_CONTRACTS.flatMap((contract) => {
+    const state = evidence[contract] ?? "pending";
+    return state === "passed"
+      ? []
+      : [`${contract} ${state === "failed" ? "failed" : "is pending"}`];
+  });
+  const remoteCutover =
+    evidence["repository-cutover"] === "passed" &&
+    evidence["deployment-controls"] === "passed"
+      ? "active" as const
+      : "pending" as const;
+  return {
+    acceptance: gaps.length === 0 ? "clean" as const : "blocked" as const,
+    adrs: gaps.length === 0 && remoteCutover === "active"
+      ? "accepted" as const
+      : "proposed" as const,
+    gaps,
+    remoteCutover,
+  };
+}
+
+export async function runWorkflowCutoverAcceptance(
+  adapters: WorkflowCutoverAcceptanceAdapters,
+) {
+  const observations = {} as Record<
+    WorkflowCutoverContract,
+    WorkflowCutoverObservation
+  >;
+  for (const contract of WORKFLOW_CUTOVER_CONTRACTS) {
+    try {
+      const observation = await adapters[contract]();
+      const completeTrace =
+        observation.plan.length > 0 &&
+        observation.transitions.length > 0 &&
+        observation.evidence.length > 0;
+      observations[contract] = completeTrace
+        ? observation
+        : { ...observation, outcome: "failed" };
+    } catch {
+      observations[contract] = {
+        evidence: ["adapter failed closed"],
+        outcome: "failed",
+        plan: [contract],
+        transitions: ["adapter-error"],
+      };
+    }
+  }
+  return {
+    decision: evaluateWorkflowCutover(
+      Object.fromEntries(
+        WORKFLOW_CUTOVER_CONTRACTS.map((contract) => [
+          contract,
+          observations[contract].outcome,
+        ]),
+      ),
+    ),
+    observations,
+  };
+}
+
 export {
   findReusableProtectedPushReceipt,
   findReusableVerificationReceipt,
@@ -240,6 +337,9 @@ export async function runWindowsLifecycleVerification(
 export type IntegrationCandidate = {
   number: number;
   target: "dev";
+  createdAt?: string;
+  implementationCompletedAt?: string;
+  queuedAt?: string;
   headSha: string;
   readyAt: string;
   workClass: WorkClass;
@@ -279,8 +379,40 @@ export interface VerificationAdapter {
     reasons: string[];
     timeoutMs: number;
     signal: AbortSignal;
-  }): Promise<{ outcome: "passed" | "failed" }>;
+  }): Promise<{
+    outcome: "passed" | "failed";
+    telemetry?: VerificationEfficiencyTelemetry;
+  }>;
 }
+
+export type VerificationEfficiencyTelemetry = {
+  browserCaseExecutions: number | null;
+  buildReuse: "new" | "reused" | "not-applicable" | null;
+  completePlanRuns: number;
+  failureClassification?: EfficiencyFailureClassification;
+  retries: number | null;
+  selectedCapabilities: string[];
+  testTimeMs: number | null;
+  workflowRunId?: number | null;
+};
+
+export type EfficiencyFailureClassification =
+  | "none"
+  | "failed"
+  | "changed"
+  | "timed-out"
+  | "cancelled"
+  | "unstable";
+
+export type IntegrationEfficiencyTelemetry = VerificationEfficiencyTelemetry & {
+  failureClassification: EfficiencyFailureClassification;
+  implementationToIntegrationMs: number | null;
+  integrationTimeMs: number;
+  preflightTimeMs: number | null;
+  queueWaitMs: number | null;
+  schemaVersion: 1;
+  workflowRunId: number | null;
+};
 
 type VerificationRequest = Parameters<VerificationAdapter["verify"]>[0];
 
@@ -290,7 +422,10 @@ export interface WorkflowVerificationTransport {
   waitForRun(input: {
     runId: number;
     signal: AbortSignal;
-  }): Promise<{ outcome: "passed" | "failed" }>;
+  }): Promise<{
+    outcome: "passed" | "failed";
+    telemetry?: VerificationEfficiencyTelemetry;
+  }>;
   cancelRun(input: { runId: number }): Promise<void>;
   delay(input: { milliseconds: number; signal: AbortSignal }): Promise<void>;
 }
@@ -312,7 +447,25 @@ export function createWorkflowVerificationAdapter(
 
       const result = await transport.waitForRun({ runId, signal: input.signal });
       if (input.signal.aborted) await transport.cancelRun({ runId });
-      return result;
+      return {
+        ...result,
+        telemetry: {
+          browserCaseExecutions: null,
+          buildReuse: input.gate === "fast-non-runtime" ? "not-applicable" : null,
+          completePlanRuns: 0,
+          retries: null,
+          selectedCapabilities: [],
+          testTimeMs: null,
+          ...result.telemetry,
+          failureClassification:
+            result.telemetry?.failureClassification === "unstable"
+              ? "unstable"
+              : result.outcome === "failed"
+              ? "failed"
+              : result.telemetry?.failureClassification ?? "none",
+          workflowRunId: runId,
+        },
+      };
     },
   };
 }
@@ -391,7 +544,7 @@ export interface MergeAdapter {
   }): Promise<{ mergeSha: string }>;
 }
 
-export type IntegrationAttempt = FrozenCandidate &
+export type IntegrationAttempt = FrozenCandidate & { telemetry: IntegrationEfficiencyTelemetry } &
   (
     | { outcome: "rejected"; reason: "trivial-path-not-proven" }
     | { outcome: "execution-failed"; stage: "git" | "verification" | "merge" }
@@ -428,9 +581,61 @@ type IntegrationAdapters = {
 };
 
 type IntegrationOptions = {
+  clock?: { now(): number };
   timeoutMs?: number;
   signal?: AbortSignal;
 };
+
+function elapsed(startedAt: number, completedAt: number): number {
+  return Math.max(0, completedAt - startedAt);
+}
+
+function parsedElapsed(startedAt: string | undefined, completedAt: number): number | null {
+  if (!startedAt) return null;
+  const parsed = Date.parse(startedAt);
+  return Number.isFinite(parsed) && Number.isFinite(completedAt)
+    ? elapsed(parsed, completedAt)
+    : null;
+}
+
+function efficiencyTelemetry(input: {
+  candidate: IntegrationCandidate;
+  claimedAt: number;
+  completedAt: number;
+  gate: VerificationGate;
+  failureClassification: EfficiencyFailureClassification;
+  verification?: VerificationEfficiencyTelemetry;
+}): IntegrationEfficiencyTelemetry {
+  const verification = input.verification ?? {
+    browserCaseExecutions: null,
+    buildReuse: input.gate === "fast-non-runtime" ? "not-applicable" : null,
+    completePlanRuns: 0,
+    retries: null,
+    selectedCapabilities: [],
+    testTimeMs: null,
+    workflowRunId: null,
+  };
+  return {
+    ...verification,
+    failureClassification:
+      verification.failureClassification ?? input.failureClassification,
+    implementationToIntegrationMs: parsedElapsed(
+      input.candidate.implementationCompletedAt,
+      input.completedAt,
+    ),
+    integrationTimeMs: elapsed(input.claimedAt, input.completedAt),
+    preflightTimeMs:
+      input.candidate.implementationCompletedAt && input.candidate.queuedAt
+      ? parsedElapsed(
+          input.candidate.implementationCompletedAt,
+          Date.parse(input.candidate.queuedAt),
+        )
+      : null,
+    queueWaitMs: parsedElapsed(input.candidate.queuedAt, input.claimedAt),
+    schemaVersion: 1,
+    workflowRunId: verification.workflowRunId ?? null,
+  };
+}
 
 function planFor(candidate: IntegrationCandidate): {
   gate: VerificationGate;
@@ -533,12 +738,14 @@ async function handOffExecutionFailure(
   adapters: IntegrationAdapters,
   frozen: FrozenCandidate,
   stage: "git" | "verification" | "merge",
+  telemetry: () => IntegrationEfficiencyTelemetry,
 ): Promise<IntegrationReport> {
   await adapters.repository.release(frozen, "review");
   return advanceAfterAttempt({
     ...frozen,
     outcome: "execution-failed",
     stage,
+    telemetry: telemetry(),
   });
 }
 
@@ -547,6 +754,7 @@ export async function runIntegrationLine(
   options: IntegrationOptions = {},
 ): Promise<IntegrationReport> {
   const { repository, git, verification, merge } = adapters;
+  const clock = options.clock ?? { now: Date.now };
   const initial = await repository.read();
   for (const candidate of initial.candidates) {
     if (candidate.ready && !isQueued(candidate) && !isActive(candidate)) {
@@ -572,6 +780,19 @@ export async function runIntegrationLine(
     headSha: candidate.headSha,
   };
   if (!(await repository.claim(frozen))) return { outcome: "claim-lost", attempts: [] };
+  const claimedAt = clock.now();
+  const telemetryFor = (
+    failureClassification: EfficiencyFailureClassification,
+    completedAt: number,
+    verificationTelemetry?: VerificationEfficiencyTelemetry,
+  ) => efficiencyTelemetry({
+    candidate,
+    claimedAt,
+    completedAt,
+    gate: planFor(candidate).gate,
+    failureClassification,
+    verification: verificationTelemetry,
+  });
 
   if (
     candidate.workClass === "trivial" && !hasExactTrivialProof(candidate)
@@ -581,6 +802,7 @@ export async function runIntegrationLine(
       ...frozen,
       outcome: "rejected",
       reason: "trivial-path-not-proven",
+      telemetry: telemetryFor("failed", clock.now()),
     });
   }
 
@@ -600,6 +822,7 @@ export async function runIntegrationLine(
       reasons,
       outcome: result.outcome,
       stage,
+      telemetry: telemetryFor(result.outcome, clock.now()),
     };
     if (result.outcome === "cancelled") {
       return { outcome: "exhausted", attempts: [attempt] };
@@ -617,9 +840,14 @@ export async function runIntegrationLine(
     prepared = result.value;
   } catch {
     slot.close();
-    return handOffExecutionFailure(adapters, frozen, "git");
+    return handOffExecutionFailure(
+      adapters,
+      frozen,
+      "git",
+      () => telemetryFor("failed", clock.now()),
+    );
   }
-  let verificationResult: { outcome: "passed" | "failed" };
+  let verificationResult: Awaited<ReturnType<VerificationAdapter["verify"]>>;
   try {
     const result = await inSlot(
       verification.verify({
@@ -636,7 +864,12 @@ export async function runIntegrationLine(
     verificationResult = result.value;
   } catch {
     slot.close();
-    return handOffExecutionFailure(adapters, frozen, "verification");
+    return handOffExecutionFailure(
+      adapters,
+      frozen,
+      "verification",
+      () => telemetryFor("failed", clock.now()),
+    );
   }
   if (verificationResult.outcome !== "passed") {
     slot.close();
@@ -647,6 +880,11 @@ export async function runIntegrationLine(
       gate,
       reasons,
       outcome: "failed",
+      telemetry: telemetryFor(
+        "failed",
+        clock.now(),
+        verificationResult.telemetry,
+      ),
     });
   }
 
@@ -657,7 +895,12 @@ export async function runIntegrationLine(
     current = result.value;
   } catch {
     slot.close();
-    return handOffExecutionFailure(adapters, frozen, "merge");
+    return handOffExecutionFailure(
+      adapters,
+      frozen,
+      "merge",
+      () => telemetryFor("failed", clock.now(), verificationResult.telemetry),
+    );
   }
   const currentCandidate = current.candidates.find((entry) => entry.number === frozen.number);
   if (
@@ -680,6 +923,7 @@ export async function runIntegrationLine(
       reasons,
       outcome: "changed-input",
       reason,
+      telemetry: telemetryFor("changed", clock.now(), verificationResult.telemetry),
     });
   }
 
@@ -694,10 +938,16 @@ export async function runIntegrationLine(
     merged = result.value;
   } catch {
     slot.close();
-    return handOffExecutionFailure(adapters, frozen, "merge");
+    return handOffExecutionFailure(
+      adapters,
+      frozen,
+      "merge",
+      () => telemetryFor("failed", clock.now(), verificationResult.telemetry),
+    );
   }
   slot.close();
   await repository.release(frozen, "merged");
+  const completedAt = clock.now();
   return {
     outcome: "merged",
     attempts: [
@@ -709,6 +959,11 @@ export async function runIntegrationLine(
         outcome: "merged",
         mergeMethod,
         mergeSha: merged.mergeSha,
+        telemetry: telemetryFor(
+          "none",
+          completedAt,
+          verificationResult.telemetry,
+        ),
       },
     ],
   };

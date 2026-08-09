@@ -420,7 +420,12 @@ describe("Production Verification Node Adapters", () => {
         );
       } finally {
         await owned.stop();
-        await rm(cwd, { force: true, recursive: true });
+        await rm(cwd, {
+          force: true,
+          maxRetries: process.platform === "win32" ? 5 : 0,
+          recursive: true,
+          retryDelay: 100,
+        });
       }
     },
     process.platform === "win32" ? 35_000 : 20_000,
