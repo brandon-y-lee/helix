@@ -74,6 +74,9 @@ const ORPHAN_INTERMEDIATE_SCRIPT = Buffer.from(
 ).toString("base64");
 
 const lifecycleStdio = process.platform === "win32" ? "inherit" : "ignore";
+const isolatedBrowserHome = resolve(tmpdir(), "mei-pelle-verifier-candidate-home");
+const isolatedServerCwd = resolve(tmpdir(), "mei-pelle-verification-server-runtime");
+const isolatedServerHome = resolve(tmpdir(), "mei-pelle-verifier-server-home");
 
 describe("Production Verification Node Adapters", () => {
   it("runs selected Chromium and WebKit journeys as sequential passes", async () => {
@@ -89,11 +92,11 @@ describe("Production Verification Node Adapters", () => {
         GITHUB_ACTIONS: "true",
         NODE_ENV: "test",
         VERIFICATION_BROWSER_GID: "2101",
-        VERIFICATION_BROWSER_HOME: "/home/verifier-candidate",
+        VERIFICATION_BROWSER_HOME: isolatedBrowserHome,
         VERIFICATION_BROWSER_UID: "2100",
-        VERIFICATION_SERVER_CWD: "/tmp/mei-pelle-server-runtime",
+        VERIFICATION_SERVER_CWD: isolatedServerCwd,
         VERIFICATION_SERVER_GID: "2201",
-        VERIFICATION_SERVER_HOME: "/home/verifier-server",
+        VERIFICATION_SERVER_HOME: isolatedServerHome,
         VERIFICATION_SERVER_UID: "2200",
       },
       {
@@ -146,8 +149,8 @@ describe("Production Verification Node Adapters", () => {
       { gid: 2101, uid: 2100 },
     ]);
     expect(commands.map(({ env }) => env.HOME)).toEqual([
-      "/home/verifier-candidate",
-      "/home/verifier-candidate",
+      isolatedBrowserHome,
+      isolatedBrowserHome,
     ]);
   });
 
@@ -201,11 +204,11 @@ describe("Production Verification Node Adapters", () => {
       {
         NODE_ENV: "test",
         VERIFICATION_BROWSER_GID: "2101",
-        VERIFICATION_BROWSER_HOME: "/home/verifier-candidate",
+        VERIFICATION_BROWSER_HOME: isolatedBrowserHome,
         VERIFICATION_BROWSER_UID: "2100",
-        VERIFICATION_SERVER_CWD: "/tmp/mei-pelle-server-runtime",
+        VERIFICATION_SERVER_CWD: isolatedServerCwd,
         VERIFICATION_SERVER_GID: "2201",
-        VERIFICATION_SERVER_HOME: "/home/verifier-server",
+        VERIFICATION_SERVER_HOME: isolatedServerHome,
         VERIFICATION_SERVER_UID: "2200",
       },
       {
@@ -223,8 +226,8 @@ describe("Production Verification Node Adapters", () => {
     await adapters.startServer({ host: "127.0.0.1", port: 43_142 });
 
     expect(serverInput).toEqual({
-      cwd: "/tmp/mei-pelle-server-runtime",
-      env: expect.objectContaining({ HOME: "/home/verifier-server" }),
+      cwd: isolatedServerCwd,
+      env: expect.objectContaining({ HOME: isolatedServerHome }),
       gid: 2201,
       uid: 2200,
     });
