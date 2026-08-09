@@ -7,6 +7,7 @@ import {
   createRepositoryAdapter,
   createVerificationAdapter,
   requestIntegrationHandoff,
+  resolveCommandEnvironment,
   toIntegrationCandidate,
   type CommandAdapter,
 } from "@/scripts/github/run-integration-coordinator";
@@ -45,6 +46,23 @@ function pullRequestFact(overrides: Record<string, unknown> = {}) {
 }
 
 describe("GitHub Integration Coordinator adapter", () => {
+  it("keeps the merge secret out of ordinary and merge child environments", () => {
+    const inherited = {
+      GH_TOKEN: "workflow-token",
+      INTEGRATION_MERGE_TOKEN: "merge-token",
+      PATH: "/usr/bin",
+    };
+
+    expect(resolveCommandEnvironment({}, inherited)).toEqual({
+      GH_TOKEN: "workflow-token",
+      PATH: "/usr/bin",
+    });
+    expect(resolveCommandEnvironment({ GH_TOKEN: "merge-token" }, inherited)).toEqual({
+      GH_TOKEN: "merge-token",
+      PATH: "/usr/bin",
+    });
+  });
+
   it("uses the dedicated integration token only for the merge request", async () => {
     vi.stubEnv("INTEGRATION_MERGE_TOKEN", "merge-token");
     const calls: Array<{

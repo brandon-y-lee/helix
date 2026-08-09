@@ -168,7 +168,7 @@ function requireAuditedWorkflowAuthority(sha) {
   const scheduledBrowserVerification =
     ".github/workflows/scheduled-browser-verification.yml";
   const trustedWriters = new Map([
-    [".github/workflows/dev-integration.yml", { actions: "write", contents: "write", issues: "write", "pull-requests": "write" }],
+    [".github/workflows/dev-integration.yml", { actions: "write", contents: "read", issues: "write", "pull-requests": "read" }],
     [".github/workflows/spec-lifecycle.yml", { actions: "read", contents: "write", "id-token": "write", issues: "write", "pull-requests": "write" }],
   ]);
   const workflows = runGit([

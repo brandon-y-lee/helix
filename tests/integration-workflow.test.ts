@@ -76,8 +76,10 @@ describe("dev Integration Line workflows", () => {
     expect(coordinator).toContain("group: dev-integration");
     expect(coordinator).toContain("cancel-in-progress: false");
     expect(coordinator).toContain("timeout-minutes: 30");
-    expect(coordinator).toContain("contents: write");
-    expect(coordinator).toContain("pull-requests: write");
+    expect(coordinator).toContain("contents: read");
+    expect(coordinator).toContain("pull-requests: read");
+    expect(coordinator).not.toContain("contents: write");
+    expect(coordinator).not.toContain("pull-requests: write");
     expect(coordinator).toContain("issues: write");
     expect(coordinator).toContain("actions: write");
     expect(coordinator).toContain("ref: dev");

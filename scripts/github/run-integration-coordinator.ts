@@ -54,6 +54,15 @@ export interface CommandAdapter {
   run(command: string, args: string[], options?: CommandOptions): Promise<CommandResult>;
 }
 
+export function resolveCommandEnvironment(
+  overrides: Record<string, string | undefined> = {},
+  inherited: Record<string, string | undefined> = process.env,
+): Record<string, string | undefined> {
+  const environment = { ...inherited, ...overrides };
+  delete environment.INTEGRATION_MERGE_TOKEN;
+  return environment;
+}
+
 const commandAdapter: CommandAdapter = {
   async run(command, args, options = {}) {
     return new Promise((resolve, reject) => {
@@ -63,7 +72,7 @@ const commandAdapter: CommandAdapter = {
         {
           cwd: process.cwd(),
           encoding: "utf8",
-          env: { ...process.env, ...options.environment },
+          env: resolveCommandEnvironment(options.environment) as NodeJS.ProcessEnv,
           signal: options.signal,
         },
         (error, stdout, stderr) => {
