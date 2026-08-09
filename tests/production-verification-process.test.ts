@@ -77,13 +77,28 @@ const lifecycleStdio = process.platform === "win32" ? "inherit" : "ignore";
 
 describe("Production Verification Node Adapters", () => {
   it("runs selected Chromium and WebKit journeys as sequential passes", async () => {
-    const commands: Array<{ args: string[]; env: NodeJS.ProcessEnv }> = [];
+    const commands: Array<{
+      args: string[];
+      env: NodeJS.ProcessEnv;
+      gid?: number;
+      uid?: number;
+    }> = [];
     const adapters = await createNodeProductionVerificationAdapters(
       process.cwd(),
-      { NODE_ENV: "test" },
       {
-        runCommand: async ({ args, env }) => {
-          commands.push({ args, env });
+        GITHUB_ACTIONS: "true",
+        NODE_ENV: "test",
+        VERIFICATION_BROWSER_GID: "2101",
+        VERIFICATION_BROWSER_HOME: "/home/verifier-candidate",
+        VERIFICATION_BROWSER_UID: "2100",
+        VERIFICATION_SERVER_CWD: "/tmp/mei-pelle-server-runtime",
+        VERIFICATION_SERVER_GID: "2201",
+        VERIFICATION_SERVER_HOME: "/home/verifier-server",
+        VERIFICATION_SERVER_UID: "2200",
+      },
+      {
+        runCommand: async ({ args, env, gid, uid }) => {
+          commands.push({ args, env, gid, uid });
           await writeFile(
             env.PLAYWRIGHT_JSON_OUTPUT_FILE!,
             JSON.stringify({ suites: [] }),
@@ -126,6 +141,14 @@ describe("Production Verification Node Adapters", () => {
       "http://127.0.0.1:43138",
       "http://127.0.0.1:43138",
     ]);
+    expect(commands.map(({ gid, uid }) => ({ gid, uid }))).toEqual([
+      { gid: 2101, uid: 2100 },
+      { gid: 2101, uid: 2100 },
+    ]);
+    expect(commands.map(({ env }) => env.HOME)).toEqual([
+      "/home/verifier-candidate",
+      "/home/verifier-candidate",
+    ]);
   });
 
   it("reports retry executions observed by the supported browser adapter", async () => {
@@ -167,6 +190,55 @@ describe("Production Verification Node Adapters", () => {
         },
       }),
     ).resolves.toEqual({ retries: 1 });
+  });
+
+  it("runs the server and candidate browser under separate isolated identities", async () => {
+    let serverInput:
+      | { cwd: string; env: NodeJS.ProcessEnv; gid?: number; uid?: number }
+      | undefined;
+    const adapters = await createNodeProductionVerificationAdapters(
+      process.cwd(),
+      {
+        NODE_ENV: "test",
+        VERIFICATION_BROWSER_GID: "2101",
+        VERIFICATION_BROWSER_HOME: "/home/verifier-candidate",
+        VERIFICATION_BROWSER_UID: "2100",
+        VERIFICATION_SERVER_CWD: "/tmp/mei-pelle-server-runtime",
+        VERIFICATION_SERVER_GID: "2201",
+        VERIFICATION_SERVER_HOME: "/home/verifier-server",
+        VERIFICATION_SERVER_UID: "2200",
+      },
+      {
+        spawnProcess: async ({ cwd, env, gid, uid }) => {
+          serverInput = { cwd, env, gid, uid };
+          return {
+            exited: new Promise(() => {}),
+            pid: 123,
+            stop: async () => {},
+          };
+        },
+      },
+    );
+
+    await adapters.startServer({ host: "127.0.0.1", port: 43_142 });
+
+    expect(serverInput).toEqual({
+      cwd: "/tmp/mei-pelle-server-runtime",
+      env: expect.objectContaining({ HOME: "/home/verifier-server" }),
+      gid: 2201,
+      uid: 2200,
+    });
+  });
+
+  it("fails closed when an isolated process identity is incomplete", async () => {
+    await expect(
+      createNodeProductionVerificationAdapters(process.cwd(), {
+        NODE_ENV: "test",
+        VERIFICATION_BROWSER_UID: "2100",
+      }),
+    ).rejects.toThrow(
+      "Isolated production verification requires complete browser and server process identities.",
+    );
   });
 
   it("retains structured timing telemetry when the caller supplies an artifact path", async () => {

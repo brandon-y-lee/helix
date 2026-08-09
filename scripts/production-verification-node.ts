@@ -57,13 +57,18 @@ export type OwnedCommandInput = {
   command: string;
   cwd: string;
   env: NodeJS.ProcessEnv;
+  gid?: number;
   label: string;
   signal?: AbortSignal;
   stdio?: "ignore" | "inherit";
+  uid?: number;
 };
 
 type NodeProductionVerificationDependencies = {
   runCommand?: (input: OwnedCommandInput) => Promise<void>;
+  spawnProcess?: (
+    input: Omit<OwnedCommandInput, "label" | "signal">,
+  ) => Promise<OwnedProcess>;
 };
 
 type ProcessTreeControl = {
@@ -201,6 +206,9 @@ export async function spawnOwnedProcess(
   input: Omit<OwnedCommandInput, "label" | "signal">,
 ): Promise<OwnedProcess> {
   const windows = process.platform === "win32";
+  if (windows && (input.gid !== undefined || input.uid !== undefined)) {
+    throw new Error("Production verification process identities are not supported on Windows.");
+  }
   const controlPath = resolve(
     tmpdir(),
     `mei-pelle-verification-control-${process.pid}-${randomUUID()}`,
@@ -233,6 +241,7 @@ export async function spawnOwnedProcess(
       cwd: input.cwd,
       detached: !windows,
       env: input.env,
+      ...(windows ? {} : { gid: input.gid, uid: input.uid }),
       stdio: windows
         ? [
             "pipe",
@@ -999,6 +1008,76 @@ async function removeStoredReceipt(path: string): Promise<void> {
   }
 }
 
+type IsolatedVerificationProcess = {
+  cwd: string;
+  env: NodeJS.ProcessEnv;
+  gid?: number;
+  uid?: number;
+};
+
+function readPositiveInteger(value: string, name: string): number {
+  if (!/^\d+$/.test(value)) {
+    throw new Error(`${name} must be a positive integer.`);
+  }
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed < 1) {
+    throw new Error(`${name} must be a positive integer.`);
+  }
+  return parsed;
+}
+
+function readIsolatedVerificationProcesses(
+  cwd: string,
+  env: NodeJS.ProcessEnv,
+): { browser: IsolatedVerificationProcess; server: IsolatedVerificationProcess } {
+  const names = [
+    "VERIFICATION_BROWSER_GID",
+    "VERIFICATION_BROWSER_HOME",
+    "VERIFICATION_BROWSER_UID",
+    "VERIFICATION_SERVER_CWD",
+    "VERIFICATION_SERVER_GID",
+    "VERIFICATION_SERVER_HOME",
+    "VERIFICATION_SERVER_UID",
+  ] as const;
+  const configured = names.filter((name) => env[name]?.trim());
+  if (configured.length === 0) {
+    return {
+      browser: { cwd, env },
+      server: { cwd, env },
+    };
+  }
+  if (configured.length !== names.length) {
+    throw new Error(
+      "Isolated production verification requires complete browser and server process identities.",
+    );
+  }
+
+  const absolutePath = (name: "VERIFICATION_BROWSER_HOME" | "VERIFICATION_SERVER_CWD" | "VERIFICATION_SERVER_HOME") => {
+    const value = env[name]!.trim();
+    if (resolve(value) !== value) {
+      throw new Error(`${name} must be an absolute path.`);
+    }
+    return value;
+  };
+  const browserHome = absolutePath("VERIFICATION_BROWSER_HOME");
+  const serverCwd = absolutePath("VERIFICATION_SERVER_CWD");
+  const serverHome = absolutePath("VERIFICATION_SERVER_HOME");
+  return {
+    browser: {
+      cwd,
+      env: { ...env, HOME: browserHome },
+      gid: readPositiveInteger(env.VERIFICATION_BROWSER_GID!.trim(), "VERIFICATION_BROWSER_GID"),
+      uid: readPositiveInteger(env.VERIFICATION_BROWSER_UID!.trim(), "VERIFICATION_BROWSER_UID"),
+    },
+    server: {
+      cwd: serverCwd,
+      env: { ...env, HOME: serverHome },
+      gid: readPositiveInteger(env.VERIFICATION_SERVER_GID!.trim(), "VERIFICATION_SERVER_GID"),
+      uid: readPositiveInteger(env.VERIFICATION_SERVER_UID!.trim(), "VERIFICATION_SERVER_UID"),
+    },
+  };
+}
+
 export async function createNodeProductionVerificationAdapters(
   cwd: string,
   env: NodeJS.ProcessEnv,
@@ -1011,6 +1090,8 @@ export async function createNodeProductionVerificationAdapters(
     REUSABLE_PRODUCTION_BUILD_RECEIPT_PATH,
   );
   const executeOwnedCommand = dependencies.runCommand ?? runOwnedCommand;
+  const spawnProcess = dependencies.spawnProcess ?? spawnOwnedProcess;
+  const isolatedProcesses = readIsolatedVerificationProcesses(cwd, env);
 
   return {
     acquireLock: () => acquireCheckoutLock({ cwd }),
@@ -1064,11 +1145,10 @@ export async function createNodeProductionVerificationAdapters(
       }
     },
     startServer: ({ host, port }) =>
-      spawnOwnedProcess({
+      spawnProcess({
         args: [candidateRequire.resolve("next/dist/bin/next"), "start", "--hostname", host, "--port", String(port)],
         command: process.execPath,
-        cwd,
-        env,
+        ...isolatedProcesses.server,
       }),
     waitForBuildIdentity: waitForExpectedBuild,
     runBrowserTests: async ({ baseURL, selection, signal }) => {
@@ -1106,9 +1186,9 @@ export async function createNodeProductionVerificationAdapters(
               env.CI ? "github,html,json" : "html,json",
             ],
             command: process.execPath,
-            cwd,
+            cwd: isolatedProcesses.browser.cwd,
             env: {
-              ...env,
+              ...isolatedProcesses.browser.env,
               MEI_PELLE_VERIFICATION_ADAPTER: "1",
               MEI_PELLE_VERIFICATION_BASE_URL: baseURL,
               MEI_PELLE_VERIFICATION_PROJECT: project ?? "",
@@ -1117,6 +1197,8 @@ export async function createNodeProductionVerificationAdapters(
             },
             label: `Playwright${project ? ` ${project}` : ""} browser tests`,
             signal,
+            gid: isolatedProcesses.browser.gid,
+            uid: isolatedProcesses.browser.uid,
           });
         } catch (error) {
           primaryFailure = error;
