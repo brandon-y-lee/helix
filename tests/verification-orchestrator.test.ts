@@ -31,6 +31,8 @@ describe("Verification Orchestrator", () => {
       number: 59,
       target: "dev",
       createdAt: "2026-08-09T00:00:00.000Z",
+      implementationCompletedAt: "2026-08-09T00:00:00.000Z",
+      queuedAt: "2026-08-09T00:02:00.000Z",
       readyAt: "2026-08-09T00:02:00.000Z",
       headSha: "candidate-59",
       workClass: "verification-system",
@@ -82,8 +84,8 @@ describe("Verification Orchestrator", () => {
           buildReuse: "new",
           completePlanRuns: 1,
           failureClassification: "none",
-          implementationToIntegrationMs: 190_000,
-          integrationTimeMs: 10_000,
+          implementationToIntegrationMs: 301_000,
+          integrationTimeMs: 1_000,
           preflightTimeMs: 120_000,
           queueWaitMs: 180_000,
           retries: 0,
@@ -138,7 +140,19 @@ describe("Verification Orchestrator", () => {
       reasons: ["verification-system retains the complete behavioral gate"],
       timeoutMs: 20 * 60 * 1_000,
       signal: new AbortController().signal,
-    })).resolves.toEqual({ outcome: "passed" });
+    })).resolves.toEqual({
+      outcome: "passed",
+      telemetry: {
+        browserCaseExecutions: null,
+        buildReuse: null,
+        completePlanRuns: 0,
+        failureClassification: "none",
+        retries: null,
+        selectedCapabilities: [],
+        testTimeMs: null,
+        workflowRunId: 530,
+      },
+    });
     expect(calls).toEqual(["dispatch", "find", "wait"]);
   });
 
@@ -1381,7 +1395,20 @@ describe("Verification Orchestrator", () => {
 
       expect(report).toMatchObject({
         outcome: "handoff",
-        attempts: [{ number: 123, outcome: "execution-failed", stage }],
+        attempts: [{
+          number: 123,
+          outcome: "execution-failed",
+          stage,
+          telemetry: {
+            browserCaseExecutions: null,
+            buildReuse: null,
+            completePlanRuns: 0,
+            retries: null,
+            selectedCapabilities: [],
+            testTimeMs: null,
+            workflowRunId: null,
+          },
+        }],
       });
       expect(released).toBe(true);
     },

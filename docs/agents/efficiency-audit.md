@@ -11,12 +11,16 @@ the clock and does not make the proposed ADRs accepted.
 - `integration-efficiency-<run>-<attempt>` records one immutable Integration
   Slot result for 30 days. Its schema records implementation-to-integration
   time, preflight time, queue wait, test duration, complete-plan runs, and
-  failure classification. `createdAt → readyAt` is preflight;
-  `readyAt → claim` is queue wait; `readyAt → release` is
-  implementation-to-integration time.
+  failure classification. The latest ready-for-review, reopen, or deliberate
+  review-handoff release is implementation completion; the actual
+  `workflow:integration-queued` label event is preflight completion. Queue wait
+  begins at that label event and ends at the successful Integration Slot claim;
+  implementation-to-integration ends at release. Unknown execution facts remain
+  `null` and complete-plan runs remain zero until the verification workflow
+  returns observed evidence.
 - Integration browser artifacts retain Playwright's structured per-test
   duration, retries, and browser-case executions. Join them to the Integration
-  Slot record by pull request and workflow run. Successful evidence remains 30
+  Slot record by pull request and its recorded `workflowRunId`. Successful evidence remains 30
   days and failed evidence remains 90 days.
 - Each supported affected check emits one `[affected-verification-result]` JSON
   record with selected capabilities, build reuse, browser-case executions,

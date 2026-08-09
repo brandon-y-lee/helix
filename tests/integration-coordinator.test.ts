@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { writeFile } from "node:fs/promises";
+import { resolve } from "node:path";
 
 import {
   createRepositoryAdapter,
@@ -63,6 +65,74 @@ describe("GitHub Integration Coordinator adapter", () => {
     expect(seamInvoked).toBe(true);
   });
 
+  it("returns observed verification telemetry from the dispatched workflow artifact", async () => {
+    const commands: CommandAdapter = {
+      async run(_command, args) {
+        if (args[0] === "workflow") return { stdout: "", stderr: "", status: 0 };
+        if (args[0] === "run" && args[1] === "list") {
+          return {
+            stdout: JSON.stringify([{
+              databaseId: 530,
+              displayTitle: "Integration verification #53 530-1",
+            }]),
+            stderr: "",
+            status: 0,
+          };
+        }
+        if (args[0] === "run" && args[1] === "watch") {
+          return { stdout: "", stderr: "", status: 0 };
+        }
+        if (args[0] === "run" && args[1] === "download") {
+          const directory = args[args.indexOf("--dir") + 1]!;
+          await writeFile(
+            resolve(directory, "verification-browser-result.json"),
+            JSON.stringify({
+              telemetry: {
+                browserCaseExecutions: 9,
+                buildReuse: "new",
+                completePlanRuns: 1,
+                failureClassification: "unstable",
+                retries: 1,
+                selectedCapabilities: ["complete-plan"],
+                testTimeMs: 5_000,
+              },
+            }),
+          );
+          return { stdout: "", stderr: "", status: 0 };
+        }
+        throw new Error(`unexpected command: ${args.join(" ")}`);
+      },
+    };
+    const adapter = createVerificationAdapter(
+      "brandon-y-lee/mei-pelle",
+      "530-1",
+      commands,
+    );
+
+    await expect(adapter.verify({
+      number: 53,
+      baseSha: "b".repeat(40),
+      headSha: "c".repeat(40),
+      candidateSha: "d".repeat(40),
+      gate: "complete-behavioral",
+      reasons: ["verification-system retains the complete behavioral gate"],
+      timeoutMs: 20 * 60 * 1_000,
+      signal: new AbortController().signal,
+    })).resolves.toEqual({
+      outcome: "passed",
+      telemetry: {
+        browserCaseExecutions: 9,
+        buildReuse: "new",
+        completePlanRuns: 1,
+        failureClassification: "unstable",
+        retries: 1,
+        selectedCapabilities: ["complete-plan"],
+        testTimeMs: 5_000,
+        workflowRunId: 530,
+      },
+    });
+  });
+
   it("fails closed to verification-system work from current pull-request facts", () => {
     const candidate = toIntegrationCandidate(pullRequestFact({
       statusCheckRollup: [
@@ -74,6 +144,8 @@ describe("GitHub Integration Coordinator adapter", () => {
       number: 52,
       target: "dev",
       createdAt: "2026-08-08T07:00:00.000Z",
+      implementationCompletedAt: "2026-08-08T07:00:00.000Z",
+      queuedAt: undefined,
       headSha: "a".repeat(40),
       readyAt: "2026-08-08T07:00:00.000Z",
       workClass: "verification-system",
@@ -169,7 +241,7 @@ describe("GitHub Integration Coordinator adapter", () => {
     expect(candidate.fastPathProof).toEqual(["README.md", "docs/operator-guide.md"]);
   });
 
-  it("uses the latest ready-for-review event instead of mutable PR updates", async () => {
+  it("records implementation completion and the actual Integration queue transition", async () => {
     const commands: CommandAdapter = {
       async run(_command, args) {
         const joined = args.join(" ");
@@ -193,10 +265,17 @@ describe("GitHub Integration Coordinator adapter", () => {
                       number: 52,
                       createdAt: "2026-08-08T07:00:00.000Z",
                       timelineItems: {
-                        nodes: [{
-                          __typename: "ReadyForReviewEvent",
-                          createdAt: "2026-08-08T07:30:00.000Z",
-                        }],
+                        nodes: [
+                          {
+                            __typename: "ReadyForReviewEvent",
+                            createdAt: "2026-08-08T07:30:00.000Z",
+                          },
+                          {
+                            __typename: "LabeledEvent",
+                            createdAt: "2026-08-08T08:00:00.000Z",
+                            label: { name: "workflow:integration-queued" },
+                          },
+                        ],
                       },
                     }],
                   },
@@ -213,7 +292,11 @@ describe("GitHub Integration Coordinator adapter", () => {
 
     const snapshot = await createRepositoryAdapter("owner/repo", commands).read();
 
-    expect(snapshot.candidates[0]?.readyAt).toBe("2026-08-08T07:30:00.000Z");
+    expect(snapshot.candidates[0]).toMatchObject({
+      implementationCompletedAt: "2026-08-08T07:30:00.000Z",
+      queuedAt: "2026-08-08T08:00:00.000Z",
+      readyAt: "2026-08-08T08:00:00.000Z",
+    });
   });
 
   it("compensates a changed-input claim so no false active owner remains", async () => {

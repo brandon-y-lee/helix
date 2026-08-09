@@ -297,6 +297,15 @@ jobs:
           retention-days: 90
           if-no-files-found: ignore
 
+      - name: Upload compact verification efficiency result
+        if: ${{ always() && inputs.gate == 'complete-behavioral' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-verification-efficiency-${{ github.run_id }}
+          path: ${{ runner.temp }}/verification-browser-evidence/test-results/verification-browser-result.json
+          retention-days: 30
+          if-no-files-found: ignore
+
   attest-stable-result:
     if: ${{ inputs.gate == 'complete-behavioral' }}
     needs: verify-frozen-candidate

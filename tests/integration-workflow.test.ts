@@ -7,6 +7,10 @@ const coordinator = readFileSync(
   resolve(projectRoot, ".github/workflows/dev-integration.yml"),
   "utf8",
 );
+const coordinatorCommand = readFileSync(
+  resolve(projectRoot, "scripts/github/run-integration-coordinator.ts"),
+  "utf8",
+);
 const verification = readFileSync(
   resolve(projectRoot, ".github/workflows/dev-integration-verification.yml"),
   "utf8",
@@ -36,6 +40,12 @@ describe("dev Integration Line workflows", () => {
     expect(coordinator).toContain("name: integration-efficiency-${{ github.run_id }}-${{ github.run_attempt }}");
     expect(coordinator).toContain("path: ${{ runner.temp }}/integration-efficiency.json");
     expect(coordinator).toContain("retention-days: 30");
+    expect(coordinator).toContain("if-no-files-found: error");
+    expect(verification).toContain("name: integration-verification-efficiency-${{ github.run_id }}");
+    expect(verification).toContain("verification-browser-result.json");
+    expect(coordinatorCommand.indexOf("process.stdout.write")).toBeLessThan(
+      coordinatorCommand.indexOf("await requestIntegrationHandoff(repository)"),
+    );
   });
 
   it("separates the trusted coordinator from read-only candidate verification", () => {

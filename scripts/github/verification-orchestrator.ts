@@ -32,6 +32,18 @@ export type WorkflowCutoverEvidence = Partial<Record<
   "passed" | "pending" | "failed"
 >>;
 
+export type WorkflowCutoverObservation = {
+  evidence: string[];
+  outcome: "passed" | "pending" | "failed";
+  plan: string[];
+  transitions: string[];
+};
+
+export type WorkflowCutoverAcceptanceAdapters = Record<
+  WorkflowCutoverContract,
+  () => Promise<WorkflowCutoverObservation>
+>;
+
 export function evaluateWorkflowCutover(evidence: WorkflowCutoverEvidence) {
   const gaps = WORKFLOW_CUTOVER_CONTRACTS.flatMap((contract) => {
     const state = evidence[contract] ?? "pending";
@@ -51,6 +63,45 @@ export function evaluateWorkflowCutover(evidence: WorkflowCutoverEvidence) {
       : "proposed" as const,
     gaps,
     remoteCutover,
+  };
+}
+
+export async function runWorkflowCutoverAcceptance(
+  adapters: WorkflowCutoverAcceptanceAdapters,
+) {
+  const observations = {} as Record<
+    WorkflowCutoverContract,
+    WorkflowCutoverObservation
+  >;
+  for (const contract of WORKFLOW_CUTOVER_CONTRACTS) {
+    try {
+      const observation = await adapters[contract]();
+      const completeTrace =
+        observation.plan.length > 0 &&
+        observation.transitions.length > 0 &&
+        observation.evidence.length > 0;
+      observations[contract] = completeTrace
+        ? observation
+        : { ...observation, outcome: "failed" };
+    } catch {
+      observations[contract] = {
+        evidence: ["adapter failed closed"],
+        outcome: "failed",
+        plan: [contract],
+        transitions: ["adapter-error"],
+      };
+    }
+  }
+  return {
+    decision: evaluateWorkflowCutover(
+      Object.fromEntries(
+        WORKFLOW_CUTOVER_CONTRACTS.map((contract) => [
+          contract,
+          observations[contract].outcome,
+        ]),
+      ),
+    ),
+    observations,
   };
 }
 
@@ -287,6 +338,8 @@ export type IntegrationCandidate = {
   number: number;
   target: "dev";
   createdAt?: string;
+  implementationCompletedAt?: string;
+  queuedAt?: string;
   headSha: string;
   readyAt: string;
   workClass: WorkClass;
@@ -334,12 +387,13 @@ export interface VerificationAdapter {
 
 export type VerificationEfficiencyTelemetry = {
   browserCaseExecutions: number | null;
-  buildReuse: "new" | "reused" | "not-applicable";
+  buildReuse: "new" | "reused" | "not-applicable" | null;
   completePlanRuns: number;
   failureClassification?: EfficiencyFailureClassification;
   retries: number | null;
   selectedCapabilities: string[];
   testTimeMs: number | null;
+  workflowRunId?: number | null;
 };
 
 export type EfficiencyFailureClassification =
@@ -355,8 +409,9 @@ export type IntegrationEfficiencyTelemetry = VerificationEfficiencyTelemetry & {
   implementationToIntegrationMs: number | null;
   integrationTimeMs: number;
   preflightTimeMs: number | null;
-  queueWaitMs: number;
+  queueWaitMs: number | null;
   schemaVersion: 1;
+  workflowRunId: number | null;
 };
 
 type VerificationRequest = Parameters<VerificationAdapter["verify"]>[0];
@@ -367,7 +422,10 @@ export interface WorkflowVerificationTransport {
   waitForRun(input: {
     runId: number;
     signal: AbortSignal;
-  }): Promise<{ outcome: "passed" | "failed" }>;
+  }): Promise<{
+    outcome: "passed" | "failed";
+    telemetry?: VerificationEfficiencyTelemetry;
+  }>;
   cancelRun(input: { runId: number }): Promise<void>;
   delay(input: { milliseconds: number; signal: AbortSignal }): Promise<void>;
 }
@@ -389,7 +447,20 @@ export function createWorkflowVerificationAdapter(
 
       const result = await transport.waitForRun({ runId, signal: input.signal });
       if (input.signal.aborted) await transport.cancelRun({ runId });
-      return result;
+      return {
+        ...result,
+        telemetry: {
+          browserCaseExecutions: null,
+          buildReuse: input.gate === "fast-non-runtime" ? "not-applicable" : null,
+          completePlanRuns: 0,
+          failureClassification: result.outcome === "passed" ? "none" : "failed",
+          retries: null,
+          selectedCapabilities: [],
+          testTimeMs: null,
+          workflowRunId: runId,
+          ...result.telemetry,
+        },
+      };
     },
   };
 }
@@ -529,30 +600,35 @@ function efficiencyTelemetry(input: {
   gate: VerificationGate;
   failureClassification: EfficiencyFailureClassification;
   verification?: VerificationEfficiencyTelemetry;
-  verificationTimeMs?: number;
 }): IntegrationEfficiencyTelemetry {
   const verification = input.verification ?? {
     browserCaseExecutions: null,
-    buildReuse: input.gate === "complete-behavioral" ? "new" : "not-applicable",
-    completePlanRuns: input.gate === "complete-behavioral" ? 1 : 0,
+    buildReuse: input.gate === "fast-non-runtime" ? "not-applicable" : null,
+    completePlanRuns: 0,
     retries: null,
-    selectedCapabilities: input.gate === "complete-behavioral" ? ["complete-plan"] : [],
-    testTimeMs: input.verificationTimeMs ?? null,
+    selectedCapabilities: [],
+    testTimeMs: null,
+    workflowRunId: null,
   };
   return {
     ...verification,
     failureClassification:
       verification.failureClassification ?? input.failureClassification,
     implementationToIntegrationMs: parsedElapsed(
-      input.candidate.readyAt,
+      input.candidate.implementationCompletedAt,
       input.completedAt,
     ),
     integrationTimeMs: elapsed(input.claimedAt, input.completedAt),
-    preflightTimeMs: input.candidate.createdAt
-      ? parsedElapsed(input.candidate.createdAt, Date.parse(input.candidate.readyAt))
+    preflightTimeMs:
+      input.candidate.implementationCompletedAt && input.candidate.queuedAt
+      ? parsedElapsed(
+          input.candidate.implementationCompletedAt,
+          Date.parse(input.candidate.queuedAt),
+        )
       : null,
-    queueWaitMs: parsedElapsed(input.candidate.readyAt, input.claimedAt) ?? 0,
+    queueWaitMs: parsedElapsed(input.candidate.queuedAt, input.claimedAt),
     schemaVersion: 1,
+    workflowRunId: verification.workflowRunId ?? null,
   };
 }
 
@@ -704,7 +780,6 @@ export async function runIntegrationLine(
     failureClassification: EfficiencyFailureClassification,
     completedAt: number,
     verificationTelemetry?: VerificationEfficiencyTelemetry,
-    verificationTimeMs?: number,
   ) => efficiencyTelemetry({
     candidate,
     claimedAt,
@@ -712,7 +787,6 @@ export async function runIntegrationLine(
     gate: planFor(candidate).gate,
     failureClassification,
     verification: verificationTelemetry,
-    verificationTimeMs,
   });
 
   if (
@@ -752,7 +826,6 @@ export async function runIntegrationLine(
   };
 
   let prepared: { candidateSha: string };
-  let verificationStartedAt = claimedAt;
   try {
     const result = await inSlot(
       git.prepare({ ...frozen, signal: slot.signal }),
@@ -760,7 +833,6 @@ export async function runIntegrationLine(
     );
     if (result.kind === "interrupted") return interrupted("git", result);
     prepared = result.value;
-    verificationStartedAt = clock.now();
   } catch {
     slot.close();
     return handOffExecutionFailure(
@@ -771,7 +843,6 @@ export async function runIntegrationLine(
     );
   }
   let verificationResult: Awaited<ReturnType<VerificationAdapter["verify"]>>;
-  let verificationCompletedAt = verificationStartedAt;
   try {
     const result = await inSlot(
       verification.verify({
@@ -786,7 +857,6 @@ export async function runIntegrationLine(
     );
     if (result.kind === "interrupted") return interrupted("verification", result, prepared);
     verificationResult = result.value;
-    verificationCompletedAt = clock.now();
   } catch {
     slot.close();
     const completedAt = clock.now();
@@ -794,12 +864,7 @@ export async function runIntegrationLine(
       adapters,
       frozen,
       "verification",
-      telemetryFor(
-        "failed",
-        completedAt,
-        undefined,
-        elapsed(verificationStartedAt, completedAt),
-      ),
+      telemetryFor("failed", completedAt),
     );
   }
   if (verificationResult.outcome !== "passed") {
@@ -815,7 +880,6 @@ export async function runIntegrationLine(
         "failed",
         clock.now(),
         verificationResult.telemetry,
-        elapsed(verificationStartedAt, verificationCompletedAt),
       ),
     });
   }
@@ -895,7 +959,6 @@ export async function runIntegrationLine(
           "none",
           completedAt,
           verificationResult.telemetry,
-          elapsed(verificationStartedAt, verificationCompletedAt),
         ),
       },
     ],

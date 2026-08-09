@@ -5,6 +5,8 @@ import { describe, expect, it } from "vitest";
 import {
   WORKFLOW_CUTOVER_CONTRACTS,
   evaluateWorkflowCutover,
+  runWorkflowCutoverAcceptance,
+  type WorkflowCutoverAcceptanceAdapters,
 } from "@/scripts/github/verification-orchestrator";
 
 describe("complete verification workflow cutover", () => {
@@ -31,17 +33,33 @@ describe("complete verification workflow cutover", () => {
     expect(audit).toContain("No sharding or additional workers");
   });
 
-  it("accepts the architecture only when every public contract and remote control is proven", () => {
-    const evidence = Object.fromEntries(
-      WORKFLOW_CUTOVER_CONTRACTS.map((contract) => [contract, "passed"]),
-    );
+  it("traces every public plan, transition, evidence record, and outcome as one workflow", async () => {
+    const transitions: string[] = [];
+    const adapters = Object.fromEntries(
+      WORKFLOW_CUTOVER_CONTRACTS.map((contract) => [contract, async () => {
+        transitions.push(`${contract}:planned`, `${contract}:observed`);
+        return {
+          evidence: [`${contract}-receipt`],
+          outcome: "passed" as const,
+          plan: [`${contract}-plan`],
+          transitions: [`${contract}:planned`, `${contract}:observed`],
+        };
+      }]),
+    ) as WorkflowCutoverAcceptanceAdapters;
 
-    expect(evaluateWorkflowCutover(evidence)).toEqual({
-      acceptance: "clean",
-      adrs: "accepted",
-      gaps: [],
-      remoteCutover: "active",
+    const result = await runWorkflowCutoverAcceptance(adapters);
+
+    expect(result.decision).toEqual({
+      acceptance: "clean", adrs: "accepted", gaps: [], remoteCutover: "active",
     });
+    expect(transitions).toHaveLength(WORKFLOW_CUTOVER_CONTRACTS.length * 2);
+    for (const contract of WORKFLOW_CUTOVER_CONTRACTS) {
+      expect(result.observations[contract]).toMatchObject({
+        evidence: [`${contract}-receipt`],
+        outcome: "passed",
+        plan: [`${contract}-plan`],
+      });
+    }
   });
 
   it("keeps the ADRs proposed and names every unproven or failed contract", () => {

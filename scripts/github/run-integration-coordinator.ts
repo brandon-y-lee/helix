@@ -1,4 +1,7 @@
 import { execFile } from "node:child_process";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import {
@@ -10,6 +13,7 @@ import {
   type RepositoryAdapter,
   RiskArea,
   type VerificationAdapter,
+  type VerificationEfficiencyTelemetry,
   type WorkflowVerificationTransport,
   WorkClass,
 } from "./verification-orchestrator";
@@ -149,6 +153,7 @@ export function toIntegrationCandidate(fact: PullRequestFact): IntegrationCandid
     number: fact.number,
     target: "dev",
     createdAt: fact.createdAt,
+    implementationCompletedAt: fact.createdAt,
     headSha: fact.headRefOid,
     readyAt: fact.createdAt,
     workClass,
@@ -178,11 +183,29 @@ function requireSha(value: string, description: string): string {
   return value;
 }
 
+function parseVerificationEfficiency(value: string): VerificationEfficiencyTelemetry {
+  const parsed = parseJson<{ telemetry?: VerificationEfficiencyTelemetry }>(
+    value,
+    "integration verification efficiency artifact",
+  ).telemetry;
+  if (
+    !parsed ||
+    !Array.isArray(parsed.selectedCapabilities) ||
+    typeof parsed.completePlanRuns !== "number" ||
+    !(parsed.browserCaseExecutions === null || typeof parsed.browserCaseExecutions === "number") ||
+    !(parsed.retries === null || typeof parsed.retries === "number") ||
+    !(parsed.testTimeMs === null || typeof parsed.testTimeMs === "number")
+  ) {
+    throw new Error("integration verification efficiency artifact was malformed");
+  }
+  return parsed;
+}
+
 async function readReadyTimes(
   commands: CommandAdapter,
   repository: string,
   signal?: AbortSignal,
-): Promise<Map<number, string>> {
+): Promise<Map<number, { implementationCompletedAt: string; queuedAt?: string }>> {
   const [owner, name] = repository.split("/");
   if (!owner || !name) throw new Error("repository must be owner/name");
   const query = `
@@ -194,12 +217,13 @@ async function readReadyTimes(
             createdAt
             timelineItems(
               last: 100
-              itemTypes: [READY_FOR_REVIEW_EVENT, REOPENED_EVENT, UNLABELED_EVENT]
+              itemTypes: [READY_FOR_REVIEW_EVENT, REOPENED_EVENT, LABELED_EVENT, UNLABELED_EVENT]
             ) {
               nodes {
                 __typename
                 ... on ReadyForReviewEvent { createdAt }
                 ... on ReopenedEvent { createdAt }
+                ... on LabeledEvent { createdAt label { name } }
                 ... on UnlabeledEvent { createdAt label { name } }
               }
             }
@@ -232,16 +256,37 @@ async function readReadyTimes(
       };
     };
   }>(result.stdout, "pull request readiness timeline");
-  const readyTimes = new Map<number, string>();
+  const readyTimes = new Map<number, {
+    implementationCompletedAt: string;
+    queuedAt?: string;
+  }>();
   for (const pull of response.data?.repository?.pullRequests?.nodes ?? []) {
-    const events = (pull.timelineItems?.nodes ?? [])
+    const events = pull.timelineItems?.nodes ?? [];
+    const implementationEvents = events
       .filter(
         (event) =>
           event.createdAt &&
-          (event.__typename !== "UnlabeledEvent" || event.label?.name === "workflow:review"),
+          (event.__typename === "ReadyForReviewEvent" ||
+            event.__typename === "ReopenedEvent" ||
+            (event.__typename === "UnlabeledEvent" &&
+              event.label?.name === "workflow:review")),
       )
       .sort((left, right) => left.createdAt!.localeCompare(right.createdAt!));
-    readyTimes.set(pull.number, events.at(-1)?.createdAt ?? pull.createdAt);
+    const queuedEvents = events
+      .filter(
+        (event) =>
+          event.createdAt &&
+          event.__typename === "LabeledEvent" &&
+          event.label?.name === "workflow:integration-queued",
+      )
+      .sort((left, right) => left.createdAt!.localeCompare(right.createdAt!));
+    readyTimes.set(pull.number, {
+      implementationCompletedAt:
+        implementationEvents.at(-1)?.createdAt ?? pull.createdAt,
+      ...(queuedEvents.at(-1)?.createdAt
+        ? { queuedAt: queuedEvents.at(-1)!.createdAt }
+        : {}),
+    });
   }
   return readyTimes;
 }
@@ -279,7 +324,12 @@ export function createRepositoryAdapter(
     const candidates = await Promise.all(
       facts.map(async (fact) => {
         const candidate = toIntegrationCandidate(fact);
-        candidate.readyAt = readyTimes.get(candidate.number) ?? candidate.readyAt;
+        const timing = readyTimes.get(candidate.number);
+        if (timing) {
+          candidate.implementationCompletedAt = timing.implementationCompletedAt;
+          candidate.readyAt = timing.queuedAt ?? timing.implementationCompletedAt;
+          candidate.queuedAt = timing.queuedAt;
+        }
         return candidate;
       }),
     );
@@ -466,7 +516,29 @@ export function createVerificationAdapter(
         ["run", "watch", String(runId), "--repo", repository, "--exit-status", "--interval", "10"],
         { allowFailure: true, signal },
       );
-      return { outcome: watched.status === 0 ? "passed" : "failed" };
+      const directory = await mkdtemp(resolve(tmpdir(), "mei-pelle-integration-efficiency-"));
+      try {
+        const downloaded = await commands.run(
+          "gh",
+          [
+            "run", "download", String(runId), "--repo", repository,
+            "--name", `integration-verification-efficiency-${runId}`,
+            "--dir", directory,
+          ],
+          { allowFailure: true, signal },
+        );
+        const telemetry = downloaded.status === 0
+          ? parseVerificationEfficiency(
+              await readFile(resolve(directory, "verification-browser-result.json"), "utf8"),
+            )
+          : undefined;
+        return {
+          outcome: watched.status === 0 ? "passed" : "failed",
+          ...(telemetry ? { telemetry } : {}),
+        };
+      } finally {
+        await rm(directory, { force: true, recursive: true });
+      }
     },
     async cancelRun({ runId }) {
       await commands.run(
@@ -527,10 +599,10 @@ async function main(): Promise<void> {
     },
     { signal: cancellation.signal },
   );
+  process.stdout.write(`${JSON.stringify(report)}\n`);
   if (report.outcome === "handoff") {
     await requestIntegrationHandoff(repository);
   }
-  process.stdout.write(`${JSON.stringify(report)}\n`);
   if (report.outcome === "exhausted") process.exitCode = 1;
 }
 

@@ -17,9 +17,12 @@ The coordinator dispatches `.github/workflows/dev-integration-verification.yml` 
 The Integration Slot timer starts immediately after a successful claim and is bounded to 20 minutes across candidate preparation, verification, the unchanged-input check, and merge. The coordinator job has a separate 30-minute ceiling so the slot timer can abort controlled adapters and release labels before Actions terminates the job. A job claims at most one candidate: after failure, timeout, adapter failure, or changed inputs, it releases that candidate and dispatches a fresh trusted coordinator run for automatic handoff. This prevents a second full slot from inheriting an expiring job deadline. Cancellation releases the slot without redispatching. Review handoffs are ineligible until `workflow:review` is deliberately removed after correction.
 
 Every attempt retains a 30-day `integration-efficiency-<run>-<attempt>` record
-with the public Integration Slot transition, outcome class, and timing fields.
-Browser and local-build metrics remain in their structured verification records;
-the join and evaluation contract is
+with the public Integration Slot transition, outcome class, actual queue-label
+timestamp, verification workflow run ID, and timing fields. The coordinator
+writes the attempt before requesting a handoff so a failed dispatch cannot erase
+an unsuccessful candidate. Browser and local-build metrics come back through the
+verification workflow's compact structured artifact; facts that were not
+observed remain `null`. The join and evaluation contract is
 [`efficiency-audit.md`](./efficiency-audit.md).
 
 ## Configuration cutover

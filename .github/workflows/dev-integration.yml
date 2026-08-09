@@ -57,4 +57,4 @@ jobs:
           name: integration-efficiency-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/integration-efficiency.json
           retention-days: 30
-          if-no-files-found: ignore
+          if-no-files-found: error
