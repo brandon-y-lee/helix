@@ -158,6 +158,10 @@ promotion, or a `dev` to `main` merge.
 
 After explicit user authorization, the release merges `dev` into `main`, confirms the `main` Runtime Fingerprint matches the receipt, and promotes the tested deployment without rebuilding it. A post-promotion incident restores the previous known-good deployment first, then uses an urgent ticket to reconcile the served deployment, `main`, and `dev` without rewriting Git history.
 
+The executable plan, exact authorization challenge, promotion audit, and
+rollback-first procedure are documented in
+[`production-release.md`](./production-release.md).
+
 ## Efficiency audit
 
 For the first 30 days, record median and worst-case time from implementation completion to trustworthy integration, PR preflight time, Integration Line wait time, per-test duration, retries, browser-case executions per integrated PR, selected capabilities, build reuse, and full-suite executions. The expected steady state is:

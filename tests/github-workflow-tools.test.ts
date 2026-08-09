@@ -93,6 +93,18 @@ function initialiseRepository(): { root: string; tempRoot: string } {
     "name: scheduled\npermissions:\n  contents: read\n  issues: write\njobs:\n  verify:\n    runs-on: ubuntu-latest\n    steps: []\n",
   );
   writeFileSync(
+    join(root, ".github", "workflows", "staged-production-verification.yml"),
+    "name: staged\npermissions:\n  contents: read\njobs:\n  verify-staged-production:\n    runs-on: ubuntu-latest\n    steps: []\n  attest-production-receipt:\n    permissions:\n      artifact-metadata: write\n      attestations: write\n      contents: read\n      id-token: write\n    runs-on: ubuntu-latest\n    steps: []\n",
+  );
+  writeFileSync(
+    join(root, ".github", "workflows", "production-promotion.yml"),
+    "name: promotion\npermissions:\n  contents: read\njobs:\n  plan:\n    permissions:\n      actions: read\n      attestations: read\n      checks: read\n      contents: read\n      issues: read\n    runs-on: ubuntu-latest\n    steps: []\n  promote:\n    permissions:\n      actions: read\n      attestations: read\n      checks: read\n      contents: write\n      issues: read\n      pull-requests: write\n    runs-on: ubuntu-latest\n    steps: []\n",
+  );
+  writeFileSync(
+    join(root, ".github", "workflows", "production-rollback.yml"),
+    "name: rollback\npermissions:\n  contents: read\njobs:\n  rollback:\n    permissions:\n      actions: read\n      contents: read\n      issues: write\n    runs-on: ubuntu-latest\n    steps: []\n",
+  );
+  writeFileSync(
     join(root, ".github", "workflows", "spec-lifecycle.yml"),
     "name: spec lifecycle\npermissions:\n  actions: read\n  contents: write\n  id-token: write\n  issues: write\n  pull-requests: write\njobs:\n  orchestrate:\n    runs-on: ubuntu-latest\n    steps: []\n",
   );
@@ -852,7 +864,7 @@ describe("GitHub workflow bootstrap", () => {
     } finally {
       cleanupFixture(tempRoot);
     }
-  });
+  }, 15_000);
 
   it("pushes only the confirmed dev SHA when local dev moves during apply", () => {
     const { root, tempRoot, devSha } = initialiseRemoteRepository();
@@ -1051,6 +1063,32 @@ describe("GitHub workflow bootstrap", () => {
           expectSuccess(git(root, "branch", "-f", "dev", "HEAD"));
         },
         expected: /scheduled browser verification must grant only contents: read and issues: write/,
+      },
+      {
+        name: "Production Promotion excess authority",
+        mutateRepo: (root) => {
+          writeFileSync(
+            join(root, ".github", "workflows", "production-promotion.yml"),
+            "name: promotion\npermissions:\n  contents: read\njobs:\n  plan:\n    permissions:\n      actions: write\n      attestations: read\n      checks: read\n      contents: read\n      issues: read\n    runs-on: ubuntu-latest\n    steps: []\n  promote:\n    permissions:\n      actions: read\n      attestations: read\n      checks: read\n      contents: write\n      issues: read\n      pull-requests: write\n    runs-on: ubuntu-latest\n    steps: []\n",
+          );
+          expectSuccess(git(root, "add", ".github/workflows/production-promotion.yml"));
+          expectSuccess(git(root, "commit", "-m", "Overgrant Production Promotion"));
+          expectSuccess(git(root, "branch", "-f", "dev", "HEAD"));
+        },
+        expected: /Production Promotion job 'plan' exceeds its exact authority/,
+      },
+      {
+        name: "Production Rollback excess authority",
+        mutateRepo: (root) => {
+          writeFileSync(
+            join(root, ".github", "workflows", "production-rollback.yml"),
+            "name: rollback\npermissions:\n  contents: read\njobs:\n  rollback:\n    permissions:\n      actions: read\n      contents: write\n      issues: write\n    runs-on: ubuntu-latest\n    steps: []\n",
+          );
+          expectSuccess(git(root, "add", ".github/workflows/production-rollback.yml"));
+          expectSuccess(git(root, "commit", "-m", "Overgrant Production Rollback"));
+          expectSuccess(git(root, "branch", "-f", "dev", "HEAD"));
+        },
+        expected: /Production Rollback exceeds its exact restoration authority/,
       },
   ];
 

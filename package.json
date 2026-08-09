@@ -26,6 +26,7 @@
     "verification:receipt:verify": "tsx scripts/github/verification-receipt-command.ts verify",
     "verification:receipt:protected-push": "tsx scripts/github/verification-receipt-command.ts protected-push",
     "verification:staged-production": "tsx scripts/github/staged-production-verification-command.ts",
+    "production:release": "tsx scripts/github/production-release-command.ts",
     "github:spec:lifecycle": "tsx scripts/github/run-spec-lifecycle.ts --repo brandon-y-lee/mei-pelle",
     "github:workflow:plan": "node scripts/github/bootstrap-workflow.mjs plan --repo brandon-y-lee/mei-pelle",
     "github:workflow:apply": "node scripts/github/bootstrap-workflow.mjs apply --repo brandon-y-lee/mei-pelle",

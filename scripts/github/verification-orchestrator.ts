@@ -4,6 +4,7 @@ import {
 } from "./scheduled-verification-issue.mjs";
 export * from "./spec-integration-lifecycle";
 export * from "./staged-production-verification";
+export * from "./production-release";
 
 export const INTEGRATION_TIMEOUT_MS = 20 * 60 * 1_000;
 

@@ -12,7 +12,7 @@ import { STAGED_PRODUCTION_RECEIPT_PREDICATE_TYPE } from "@/scripts/github/stage
 
 describe("staged Production verification command", () => {
   it.each([
-    "http://meipelle.com",
+    "http://mei-pelle.vercel.app",
     "https://localhost",
     "https://foo.localhost",
     "https://127.0.0.2",
@@ -68,7 +68,7 @@ describe("staged Production verification command", () => {
       env: {
         NODE_ENV: "production",
         NEXT_PUBLIC_SUPABASE_URL: "https://project.supabase.co",
-        NEXT_PUBLIC_SITE_URL: "https://meipelle.com",
+        NEXT_PUBLIC_SITE_URL: "https://mei-pelle.vercel.app",
         VERCEL_ORG_ID: "team_mei_pelle",
         VERCEL_PROJECT_ID: "prj_mei_pelle",
         VERCEL_TOKEN: "secret-not-for-output",

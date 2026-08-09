@@ -353,7 +353,7 @@ function createSourceAdapter(input: {
   };
 }
 
-async function readReceipt(path: string): Promise<StagedProductionReceipt> {
+export async function readStagedProductionReceipt(path: string): Promise<StagedProductionReceipt> {
   const receipt = JSON.parse(await readFile(path, "utf8")) as StagedProductionReceipt;
   let receiptUrl: URL | undefined;
   try {
@@ -377,9 +377,11 @@ export async function reconstructStagedProductionReceipt(input: {
   env: NodeJS.ProcessEnv;
   receiptPath: string;
   subjectPath: string;
+  workflowRun?: string;
 }) {
-  const receipt = await readReceipt(input.receiptPath);
-  const workflowRun = `${input.env.GITHUB_RUN_ID ?? ""}-${input.env.GITHUB_RUN_ATTEMPT ?? ""}`;
+  const receipt = await readStagedProductionReceipt(input.receiptPath);
+  const workflowRun = input.workflowRun ??
+    `${input.env.GITHUB_RUN_ID ?? ""}-${input.env.GITHUB_RUN_ATTEMPT ?? ""}`;
   if (!/^\d+-\d+$/.test(workflowRun)) {
     throw new Error("Production Receipt reconstruction requires the current workflow run identity.");
   }
@@ -411,30 +413,34 @@ export async function reconstructStagedProductionReceipt(input: {
     deploymentId: receipt.deployment.id,
     runtimeFingerprint: receipt.artifact.runtimeFingerprint,
   }), { encoding: "utf8", mode: 0o600 });
-  return receipt;
+  return {
+    current: { catalogFingerprint, deployment, source, workflowRun },
+    receipt,
+  };
 }
 
 export async function verifyStagedProductionAttestation(input: {
   attestationId: string;
-  bundlePath: string;
+  bundlePath?: string;
   cwd: string;
   env: NodeJS.ProcessEnv;
   receiptPath: string;
   run?: CommandRunner;
   subjectPath: string;
 }) {
-  const receipt = await readReceipt(input.receiptPath);
+  const receipt = await readStagedProductionReceipt(input.receiptPath);
   const repository = input.env.GITHUB_REPOSITORY?.trim();
   if (!repository || !input.attestationId.trim()) {
     throw new Error("Production Receipt verification requires GitHub identities.");
   }
+  const bundleArgs = input.bundlePath ? ["--bundle", input.bundlePath] : [];
   const { stdout } = await (input.run ?? runCommand)("gh", [
     "attestation", "verify", input.subjectPath,
     "--repo", repository,
     "--predicate-type", STAGED_PRODUCTION_RECEIPT_PREDICATE_TYPE,
     "--signer-workflow", `${repository}/.github/workflows/staged-production-verification.yml`,
     "--format", "json",
-    "--bundle", input.bundlePath,
+    ...bundleArgs,
   ], { cwd: input.cwd, env: input.env });
   const verified = JSON.parse(stdout) as Array<{
     verificationResult?: { statement?: { predicate?: unknown } };

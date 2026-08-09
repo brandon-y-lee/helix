@@ -104,6 +104,13 @@ Production promotion requires:
 
 The solo maintainer does not self-approve the PR through GitHub; branch protection requires zero approving reviews. Merge the authorized promotion with a regular merge commit. Promotion must reuse the receipted staged deployment rather than rebuild it. Production authority, live-mode changes, domain assignment, and destructive remote operations remain human-controlled.
 
+The executable procedure is
+[`docs/agents/production-release.md`](./agents/production-release.md): run a
+read-only immutable plan, authorize that exact plan in a separate dispatch,
+regular-merge its frozen `dev` head, record the prior deployment, and promote
+the receipted deployment ID. Rollback consumes that audit and restores the prior
+deployment before opening urgent reconciliation; Git history remains additive.
+
 ## GitHub bootstrap
 
 The repository configuration tool is read-only by default:
