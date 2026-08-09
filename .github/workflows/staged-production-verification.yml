@@ -189,3 +189,22 @@ jobs:
           DEPLOYMENT_URL: ${{ needs.verify-staged-production.outputs.deployment-url }}
         run: |
           printf '## Verified staged Production deployment\n\n- Deployment: %s\n- Production Receipt: %s\n- Production domains assigned: no\n' "$DEPLOYMENT_URL" "$ATTESTATION_URL" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Record exact signed evidence identity
+        env:
+          ATTESTATION_ID: ${{ steps.attest.outputs.attestation-id }}
+          ATTESTATION_URL: ${{ steps.attest.outputs.attestation-url }}
+        run: |
+          node -e 'require("node:fs").writeFileSync(process.argv[1], JSON.stringify({ id: process.env.ATTESTATION_ID, url: process.env.ATTESTATION_URL }) + "\n", { mode: 0o600 })' "$RUNNER_TEMP/staged-production/attestation.json"
+          cp "${{ steps.attest.outputs.bundle-path }}" "$RUNNER_TEMP/staged-production/attestation-bundle.json"
+
+      - name: Retain exact signed release evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: staged-production-release-evidence-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/staged-production/attestation-bundle.json
+            ${{ runner.temp }}/staged-production/attestation.json
+            ${{ runner.temp }}/staged-production/receipt.json
+          retention-days: 30
+          if-no-files-found: error

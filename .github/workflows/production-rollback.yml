@@ -1,0 +1,57 @@
+name: Production Rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      promotion_run_id:
+        description: Exact Production Promotion attempt containing a success or recovery audit
+        required: true
+        type: string
+      reason:
+        description: Factual reason Production must be restored
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-release
+  cancel-in-progress: false
+
+jobs:
+  rollback:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: Production
+    permissions:
+      actions: read
+      contents: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+    steps:
+      - name: Checkout trusted rollback tooling
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Download exact promotion audit
+        env:
+          PROMOTION_RUN_ID: ${{ inputs.promotion_run_id }}
+        run: gh run download "$PROMOTION_RUN_ID" --name "production-promotion-audit-$PROMOTION_RUN_ID" --dir "$RUNNER_TEMP/production-rollback"
+      - name: Restore known-good deployment before reconciliation
+        env:
+          ROLLBACK_REASON: ${{ inputs.reason }}
+        run: >-
+          pnpm production:release -- rollback
+          --audit-path "$RUNNER_TEMP/production-rollback/audit.json"
+          --reason "$ROLLBACK_REASON"

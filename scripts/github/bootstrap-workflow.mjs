@@ -158,8 +158,13 @@ function requireDefaultBranchCoordinator(sha) {
 }
 
 function requireAuditedWorkflowAuthority(sha) {
-  const attestationSigner = ".github/workflows/dev-integration-verification.yml";
+  const attestationSigners = new Map([
+    [".github/workflows/dev-integration-verification.yml", "attest-stable-result"],
+    [".github/workflows/staged-production-verification.yml", "attest-production-receipt"],
+  ]);
   const ciWorkflow = ".github/workflows/ci.yml";
+  const productionPromotion = ".github/workflows/production-promotion.yml";
+  const productionRollback = ".github/workflows/production-rollback.yml";
   const scheduledBrowserVerification =
     ".github/workflows/scheduled-browser-verification.yml";
   const trustedWriters = new Map([
@@ -290,7 +295,8 @@ function requireAuditedWorkflowAuthority(sha) {
       continue;
     }
     const permissions = workflow.permissions;
-    if (path === attestationSigner) {
+    const attestationSignerJob = attestationSigners.get(path);
+    if (attestationSignerJob) {
       const requiredSigner = {
         "artifact-metadata": "write",
         attestations: "write",
@@ -310,7 +316,7 @@ function requireAuditedWorkflowAuthority(sha) {
       }
       for (const [jobName, job] of Object.entries(jobs)) {
         if (!job || typeof job !== "object" || Array.isArray(job)) continue;
-        if (jobName === "attest-stable-result") {
+        if (jobName === attestationSignerJob) {
           const jobPermissions = job.permissions;
           if (
             !jobPermissions ||
@@ -330,6 +336,49 @@ function requireAuditedWorkflowAuthority(sha) {
             `unprivileged attestation workflow job '${jobName}' must inherit contents: read at ${sha}`,
           );
         }
+      }
+      continue;
+    }
+    if (path === productionPromotion) {
+      const expectedJobs = {
+        plan: {
+          actions: "read", attestations: "read", checks: "read",
+          contents: "read", issues: "read", "pull-requests": "write",
+        },
+        promote: {
+          actions: "read", attestations: "read", checks: "read",
+          contents: "write", issues: "read", "pull-requests": "write",
+        },
+      };
+      if (
+        !permissions || typeof permissions !== "object" || Array.isArray(permissions) ||
+        Object.keys(permissions).length !== 1 || permissions.contents !== "read"
+      ) {
+        throw new Error(`Production Promotion must default to only contents: read at ${sha}`);
+      }
+      for (const [jobName, expected] of Object.entries(expectedJobs)) {
+        const jobPermissions = jobs[jobName]?.permissions;
+        if (
+          !jobPermissions || typeof jobPermissions !== "object" || Array.isArray(jobPermissions) ||
+          Object.keys(jobPermissions).length !== Object.keys(expected).length ||
+          Object.entries(expected).some(([permission, access]) => jobPermissions[permission] !== access)
+        ) {
+          throw new Error(`Production Promotion job '${jobName}' exceeds its exact authority at ${sha}`);
+        }
+      }
+      continue;
+    }
+    if (path === productionRollback) {
+      const expected = { actions: "read", contents: "read", issues: "write" };
+      const jobPermissions = jobs.rollback?.permissions;
+      if (
+        !permissions || typeof permissions !== "object" || Array.isArray(permissions) ||
+        Object.keys(permissions).length !== 1 || permissions.contents !== "read" ||
+        !jobPermissions || typeof jobPermissions !== "object" || Array.isArray(jobPermissions) ||
+        Object.keys(jobPermissions).length !== Object.keys(expected).length ||
+        Object.entries(expected).some(([permission, access]) => jobPermissions[permission] !== access)
+      ) {
+        throw new Error(`Production Rollback exceeds its exact restoration authority at ${sha}`);
       }
       continue;
     }

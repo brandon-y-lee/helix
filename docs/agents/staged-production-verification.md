@@ -48,7 +48,9 @@ provider payloads.
    retained for 90 days. The signed receipt remains in GitHub's attestation
    store.
 
-The receipt is valid only when the deployment, source, Runtime Fingerprint,
+The downloadable receipt artifact is retained for 30 days so the later release
+plan can independently reconstruct and verify it. The signed attestation remains
+the authority. The receipt is valid only when the deployment, source, Runtime Fingerprint,
 non-secret configuration, build identity, browser versions and plan, and
 Catalog Fingerprints remain unchanged and both browsers pass without retry.
 Failure, partial execution, timeout, cancellation, retry-pass, or any changed
@@ -68,8 +70,10 @@ outer job limit; failure and cancellation cleanup uploads available diagnostics.
 
 ## Release boundary
 
-Inspection does not authorize promotion. The later promotion workflow must
-receive explicit user authorization, verify that `main` matches this receipt,
-and promote this exact deployment without rebuilding. Until that separately
-approved operation exists and runs, Production domains remain on the current
-known-good deployment.
+Inspection does not authorize promotion. Run the preauthorization plan and separate
+explicit authorization workflow in
+[`production-release.md`](./production-release.md). It regular-merges the exact
+inspected `dev` state into `main`, proves its Runtime Fingerprint matches this
+receipt, records the current known-good deployment, and promotes this exact
+deployment without rebuilding. Until that separately authorized operation runs,
+Production domains remain on the current known-good deployment.

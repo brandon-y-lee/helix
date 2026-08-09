@@ -73,6 +73,12 @@ Cancelled or superseded issues retain their history: comment with the reason and
 
 Ticket PRs target `dev` and may merge autonomously after their gates pass. `dev → main` is a separate production promotion: inspect staging, require green CI and explicit user authorization, and use a regular merge commit. The solo maintainer does not self-review through GitHub. `main` remains the default branch.
 
+Use the two-dispatch plan and promotion procedure in
+[`production-release.md`](./production-release.md). Authorization is bound to
+the exact immutable plan and cannot be inferred from workflow state. Recovery
+restores the audit's previous deployment first, then creates urgent additive
+reconciliation work.
+
 Staging inspection uses the domainless, receipted deployment path in
 [`staged-production-verification.md`](./staged-production-verification.md).
 Successful staging evidence does not authorize Production domains or
