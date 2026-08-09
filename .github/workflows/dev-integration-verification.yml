@@ -1,5 +1,5 @@
 name: Dev Integration Verification
-run-name: Integration verification #${{ inputs.pr_number }} ${{ inputs.nonce }}
+run-name: "Integration verification #${{ inputs.pr_number }} ${{ inputs.nonce }}"
 
 on:
   workflow_dispatch:
