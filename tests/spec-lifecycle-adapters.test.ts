@@ -16,7 +16,7 @@ describe("spec lifecycle production adapters", () => {
       GITHUB_REPOSITORY: "brandon-y-lee/mei-pelle",
       GITHUB_RUN_ID: "12345",
       GH_TOKEN: "redacted",
-      ACTIONS_ID_TOKEN_REQUEST_URL: "https://pipelines.actions.githubusercontent.com/example/token",
+      ACTIONS_ID_TOKEN_REQUEST_URL: "https://results-receiver.actions.githubusercontent.com/example/token",
       ACTIONS_ID_TOKEN_REQUEST_TOKEN: "actions-bearer",
     };
     let workflowRef = "brandon-y-lee/mei-pelle/.github/workflows/spec-lifecycle.yml@refs/heads/dev";
@@ -47,6 +47,22 @@ describe("spec lifecycle production adapters", () => {
     await expect(
       assertTrustedActionsContext("brandon-y-lee/mei-pelle", commands, environment, requestIdentityToken),
     ).resolves.toBeUndefined();
+
+    for (const untrustedUrl of [
+      "http://results-receiver.actions.githubusercontent.com/example/token",
+      "https://actions.githubusercontent.com.example.com/example/token",
+      "https://github.com/example/token",
+    ]) {
+      await expect(
+        assertTrustedActionsContext(
+          "brandon-y-lee/mei-pelle",
+          commands,
+          { ...environment, ACTIONS_ID_TOKEN_REQUEST_URL: untrustedUrl },
+          requestIdentityToken,
+        ),
+      ).rejects.toThrow("not the trusted GitHub issuer");
+    }
+
     workflowRef = "brandon-y-lee/mei-pelle/.github/workflows/rogue.yml@refs/heads/dev";
     await expect(
       assertTrustedActionsContext("brandon-y-lee/mei-pelle", commands, environment, requestIdentityToken),

@@ -69,7 +69,10 @@ export async function assertTrustedActionsContext(
     throw new Error("spec lifecycle mutations require the trusted GitHub Actions orchestrator");
   }
   const identityUrl = new URL(identityUrlValue);
-  if (identityUrl.protocol !== "https:" || identityUrl.hostname !== "pipelines.actions.githubusercontent.com") {
+  if (
+    identityUrl.protocol !== "https:" ||
+    !identityUrl.hostname.endsWith(".actions.githubusercontent.com")
+  ) {
     throw new Error("Actions identity endpoint is not the trusted GitHub issuer");
   }
   const audience = `https://github.com/${repository}/spec-lifecycle`;
