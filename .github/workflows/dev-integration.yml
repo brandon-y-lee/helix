@@ -46,6 +46,7 @@ jobs:
       - name: Run the Integration Line
         env:
           GH_TOKEN: ${{ github.token }}
+          INTEGRATION_MERGE_TOKEN: ${{ secrets.INTEGRATION_MERGE_TOKEN }}
           INTEGRATION_REPOSITORY: ${{ github.repository }}
           INTEGRATION_RUN_NONCE: ${{ github.run_id }}-${{ github.run_attempt }}
         run: pnpm --silent integration:dev | tee "$RUNNER_TEMP/integration-efficiency.json"

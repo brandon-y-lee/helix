@@ -83,6 +83,13 @@ describe("dev Integration Line workflows", () => {
     expect(coordinator).toContain("ref: dev");
     expect(coordinator).toContain("persist-credentials: false");
     expect(coordinator).toContain("run: pnpm --silent integration:dev");
+    expect(coordinator).toContain("GH_TOKEN: ${{ github.token }}");
+    expect(coordinator).toContain(
+      "INTEGRATION_MERGE_TOKEN: ${{ secrets.INTEGRATION_MERGE_TOKEN }}",
+    );
+    expect(coordinator).not.toContain(
+      "GH_TOKEN: ${{ secrets.INTEGRATION_MERGE_TOKEN }}",
+    );
     expect(coordinator).not.toContain("verify-production-ci.ts");
     expect(packageJson.scripts["integration:dev"]).toBe(
       "tsx scripts/github/run-integration-coordinator.ts",

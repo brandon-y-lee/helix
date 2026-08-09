@@ -46,6 +46,7 @@ type CommandResult = {
 
 type CommandOptions = {
   allowFailure?: boolean;
+  environment?: Record<string, string | undefined>;
   signal?: AbortSignal;
 };
 
@@ -62,7 +63,7 @@ const commandAdapter: CommandAdapter = {
         {
           cwd: process.cwd(),
           encoding: "utf8",
-          env: process.env,
+          env: { ...process.env, ...options.environment },
           signal: options.signal,
         },
         (error, stdout, stderr) => {
@@ -564,6 +565,10 @@ export function createMergeAdapter(
   repository: string,
   commands: CommandAdapter = commandAdapter,
 ): MergeAdapter {
+  const mergeToken = process.env.INTEGRATION_MERGE_TOKEN?.trim();
+  if (!mergeToken) {
+    throw new Error("INTEGRATION_MERGE_TOKEN is required for coordinator-owned merges");
+  }
   return {
     async merge(candidate) {
       const result = await commands.run("gh", [
@@ -575,7 +580,10 @@ export function createMergeAdapter(
         `merge_method=${candidate.mergeMethod}`,
         "-f",
         `sha=${candidate.headSha}`,
-      ], { signal: candidate.signal });
+      ], {
+        environment: { GH_TOKEN: mergeToken },
+        signal: candidate.signal,
+      });
       const merged = parseJson<{ merged?: boolean; sha?: string; message?: string }>(
         result.stdout,
         `pull request #${candidate.number} merge`,
