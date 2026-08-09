@@ -185,6 +185,18 @@ describe("complete verification workflow cutover", () => {
         pullRequests: { async find() { return null; }, async read() { throw new Error("unused"); }, async create() { throw new Error("unused"); }, async update() {}, async merge() { throw new Error("unused"); } },
       } as any,
     );
+    expect(busy).toMatchObject({ outcome: "busy", activeNumber: 70 });
+    expect(priority.outcome).toBe("claim-lost");
+    expect(urgentSelection).toBe(73);
+    expect(timedOut).toMatchObject({
+      outcome: "handoff",
+      attempts: [{ outcome: "timed-out", stage: "verification" }],
+    });
+    expect(dependency).toMatchObject({
+      outcome: "child-started",
+      branch: "codex/61-dependent",
+      baseBranch: "codex/spec-60-controlled-cutover",
+    });
 
     const candidateSha = "d".repeat(40);
     const deployment = { id: "dpl-59", target: "production" as const, url: "https://staged.example.com" };
