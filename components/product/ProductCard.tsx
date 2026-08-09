@@ -19,6 +19,7 @@ import {
   type CSSProperties,
   type FocusEvent,
   type KeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { ProductImage } from "@/components/product/ProductImage";
@@ -164,7 +165,9 @@ export function ProductCard({
     clientX: number;
     clientY: number;
     pointerType: string;
+    viewport: { scrollX: number; scrollY: number };
   } | null>(null);
+  const viewportRestoreFrameRef = useRef<number | null>(null);
   const controlled = quickBuyOpen !== undefined;
   const [localQuickBuyOpen, setLocalQuickBuyOpen] = useState(false);
   const [added, setAdded] = useState(false);
@@ -254,6 +257,9 @@ export function ProductCard({
       if (pointerPreviewTimeoutRef.current) {
         window.clearTimeout(pointerPreviewTimeoutRef.current);
       }
+      if (viewportRestoreFrameRef.current) {
+        window.cancelAnimationFrame(viewportRestoreFrameRef.current);
+      }
     };
   }, []);
 
@@ -295,9 +301,39 @@ export function ProductCard({
     }
   }
 
+  function preserveViewportAfterUpdate(
+    viewport = { scrollX: window.scrollX, scrollY: window.scrollY },
+  ) {
+    const { scrollX, scrollY } = viewport;
+    const restoreViewport = () => {
+      if (window.scrollX !== scrollX || window.scrollY !== scrollY) {
+        window.scrollTo(scrollX, scrollY);
+      }
+    };
+    restoreViewport();
+    if (viewportRestoreFrameRef.current) {
+      window.cancelAnimationFrame(viewportRestoreFrameRef.current);
+    }
+    viewportRestoreFrameRef.current = window.requestAnimationFrame(() => {
+      viewportRestoreFrameRef.current = null;
+      restoreViewport();
+    });
+  }
+
+  function focusTriggerWithoutScrolling() {
+    const viewport = { scrollX: window.scrollX, scrollY: window.scrollY };
+    triggerRef.current?.focus({ preventScroll: true });
+    preserveViewportAfterUpdate(viewport);
+  }
+
   function closeQuickBuy({
     focusTrigger = true,
     restorePointerPreview = false,
+    viewport,
+  }: {
+    focusTrigger?: boolean;
+    restorePointerPreview?: boolean;
+    viewport?: { scrollX: number; scrollY: number };
   } = {}) {
     if (controlled) {
       onQuickBuyClose?.();
@@ -319,7 +355,9 @@ export function ProductCard({
       }
     }
     if (focusTrigger) {
-      triggerRef.current?.focus();
+      focusTriggerWithoutScrolling();
+    } else {
+      preserveViewportAfterUpdate(viewport);
     }
   }
 
@@ -376,6 +414,7 @@ export function ProductCard({
       clientX: event.clientX,
       clientY: event.clientY,
       pointerType: event.pointerType || "mouse",
+      viewport: { scrollX: window.scrollX, scrollY: window.scrollY },
     };
   }
 
@@ -384,13 +423,24 @@ export function ProductCard({
       clientX: 0,
       clientY: 0,
       pointerType: "touch",
+      viewport: { scrollX: window.scrollX, scrollY: window.scrollY },
     };
   }
 
-  function handleCloseClick() {
+  function handleCloseClick(event: ReactMouseEvent<HTMLButtonElement>) {
+    const closePointer = closePointerRef.current;
+    const closeWasTouch =
+      closePointer?.pointerType === "touch" && !lastInputWasKeyboardRef.current;
+    const viewport = closeWasTouch ? closePointer.viewport : undefined;
+    if (viewport) {
+      event.currentTarget.blur();
+    }
     closeQuickBuy({
+      focusTrigger: !closeWasTouch,
       restorePointerPreview: !lastInputWasKeyboardRef.current,
+      viewport,
     });
+    closePointerRef.current = null;
   }
 
   async function handleFinalBuy() {
@@ -406,8 +456,10 @@ export function ProductCard({
         swatch: product.swatch,
         ...cartMediaSnapshot(media),
       },
-      beforeDrawerOpen: () => closeQuickBuy({ focusTrigger: false }),
-      returnFocus: () => triggerRef.current?.focus(),
+      beforeDrawerOpen: () => {
+        closeQuickBuy({ focusTrigger: false });
+      },
+      returnFocus: focusTriggerWithoutScrolling,
     });
     if (ok) {
       setAdded(true);
@@ -611,6 +663,14 @@ export function ProductCard({
                 </dl>
               )}
 
+              <Link
+                href={href}
+                className="product-card__quick-link"
+                tabIndex={isQuickBuyOpen ? undefined : -1}
+              >
+                Full details
+              </Link>
+
               {product.variants.length > 1 && (
                 <fieldset className="product-card__quick-variants">
                   <legend>Size</legend>
@@ -655,13 +715,6 @@ export function ProductCard({
                 >
                   {pending ? "ADDING" : purchaseCta.label}
                 </button>
-                <Link
-                  href={href}
-                  className="product-card__quick-link"
-                  tabIndex={isQuickBuyOpen ? undefined : -1}
-                >
-                  Full details
-                </Link>
               </div>
             </section>
           </div>

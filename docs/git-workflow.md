@@ -7,24 +7,27 @@ This document owns branch, worktree, PR, integration, and release mechanics. The
 - `main` is the default and production branch.
 - `dev` is the staging and integration branch.
 - `codex/<issue-number>-<slug>` implements one approved ticket.
+- `codex/spec-<spec-number>-<slug>` integrates one future multi-ticket spec; its ticket branches are flat siblings created from the current spec tip.
 - `codex/<issue-number>-urgent-<slug>` is the abbreviated production/security path without a parent spec.
 - `codex/plan-<slug>` carries domain documentation resolved during planning.
 - `codex/trivial-<slug>` is the bounded non-behavioral fast path.
 
-All short-lived branches target `dev` through a PR. Ticket PRs squash-merge; the human-approved `dev → main` promotion uses a regular merge commit. Force-pushes and direct task merges to long-lived branches are outside the workflow.
+Spec #50, standalone, urgent, planning, and trivial branches target `dev`. For later multi-ticket specs, child ticket PRs target the protected spec branch and squash-merge; the completed spec targets `dev` and regular-merges so child commits remain visible. The human-approved `dev → main` promotion also uses a regular merge commit. Force-pushes and direct task merges to integration or long-lived branches are outside the workflow.
 
 ## Start an isolated task
 
 Run from a clean checkout before the first repository edit:
 
 ```bash
+scripts/git/codex-task.sh spec-start <spec-number>-<slug>
 scripts/git/codex-task.sh start <issue-number>-<slug>
+scripts/git/codex-task.sh start <issue-number>-<slug> --spec <spec-number>-<slug>
 scripts/git/codex-task.sh start <issue-number>-urgent-<slug>
 scripts/git/codex-task.sh start plan-<slug>
 scripts/git/codex-task.sh start trivial-<slug>
 ```
 
-The helper creates the task from local `dev` and records `refs/codex/review-base/<slug>`.
+`spec-start` creates the local spec integration ref at current `dev`; publish and protect it only through the audited lifecycle/configuration path. `start` creates work from local `dev` or the explicitly named current spec branch and records `refs/codex/review-base/<slug>`. Spec-based work also records its pull-request target so `prepare` and `cleanup` cannot silently use `dev`.
 
 - In the shared Local checkout, it creates a temporary worktree and prints its path. Use that path for every task command.
 - In an app-managed Worktree, it creates the branch in place.
@@ -33,7 +36,7 @@ The command fails on dirty state, a missing local `dev`, an existing task branch
 
 ## Prepare for review and PR
 
-Commit the implementation before `code-review`; the review compares committed changes against `dev`. Ticket commits include both footers:
+Commit the implementation before `code-review`; the review compares committed changes against the helper's declared base (`dev` for the prior workflow, or the parent spec branch for a future-spec child). Ticket commits include both footers:
 
 ```text
 Refs #<ticket-number>
@@ -49,38 +52,49 @@ scripts/git/codex-task.sh prepare <task-worktree>
 scripts/git/codex-task.sh prepare
 ```
 
-`prepare` requires clean state, commits ahead of `dev`, current `dev` ancestry, the recorded review base, and the applicable traceability footers. It never merges or pushes.
+`prepare` requires clean state, commits ahead of the declared base, current base ancestry, the recorded review base, and the applicable traceability footers. It never merges or pushes.
 
-Run `code-review dev`. Resolve every confirmed actionable finding or obtain an explicit human acceptance; P0/P1 findings always block. If fixes add commits, rerun affected checks and review.
+Run `code-review` against the base printed by `prepare`. Resolve every confirmed actionable finding or obtain an explicit human acceptance; P0/P1 findings always block. If fixes add commits, rerun affected checks and review.
 
-After review passes, push the branch and open a ready PR targeting `dev`. The PR body follows `.github/PULL_REQUEST_TEMPLATE.md`. GitHub CI is the executable merge gate. An approved ticket authorizes the implementing agent to squash-merge after CI passes.
+After review passes, push the branch and open a ready PR targeting the base printed by the helper. The PR body follows `.github/PULL_REQUEST_TEMPLATE.md`. GitHub CI is the preflight gate; the [Dev Integration Line](./agents/dev-integration.md) is the canonical serialized verify-and-merge path for `dev`. On this personal repository, an Operator with write access can merge a green pull request only as an explicitly approved manual exception. The future-spec lifecycle is the canonical child-integration path for protected spec branches under the same limitation.
 
 ## Clean up after merge
 
-After GitHub reports the PR merged into `dev`, run:
+After GitHub reports the PR merged into its declared base, run:
 
 ```bash
 scripts/git/codex-task.sh cleanup <task-worktree>
 scripts/git/codex-task.sh cleanup
 ```
 
-The helper queries the PR through `gh`, requires the merged base to be `dev`, and verifies that the merged PR head is the current task commit. It then deletes the recorded review-base ref and local task branch and removes helper-created Local worktrees. It leaves the remote branch to GitHub's delete-on-merge setting.
+The helper queries the PR through `gh`, requires its recorded target base, and verifies that the merged PR head is the current task commit. It then deletes the recorded review refs and local task branch and removes helper-created Local worktrees. It leaves the remote branch to GitHub's delete-on-merge setting.
 
-Before cleanup, the merging agent comments on the ticket with the PR, squash commit, verification, and `code-review` outcome; closes the ticket; and advances the parent spec state. The parent spec closes after every child ticket PR is integrated into `dev`.
+Before cleanup, the merging agent comments on the ticket with the PR, squash commit, verification, and `code-review` outcome; closes the ticket; and advances the parent spec state. In the future-spec lifecycle, a child closes as `workflow:spec-integrated` after its squash merge into the spec branch; the parent spec closes only after the final regular-merge PR enters `dev`.
 
 ## Concurrent tickets and an advancing dev
 
-Only open, unblocked, unassigned `type:ticket` issues on the frontier are claimable. Independent tickets may run concurrently, but PRs integrate sequentially. When `dev` advances:
+Only open, unblocked, unassigned `type:ticket` issues on the frontier are claimable. For later specs, a native blocker is satisfied only after it closes with `workflow:spec-integrated`; the newly eligible child starts from the updated spec branch. Independent children are sibling branches and may run concurrently. Never start from another ticket branch. Spec #50 retains direct-to-`dev` integration. When an applicable base advances:
 
 ```bash
 git merge dev
+# or, for future-spec work:
+git merge codex/spec-<spec-number>-<slug>
 ```
 
 Resolve conflicts, repeat affected verification and `code-review`, then rerun `prepare`. Preserve the merge in the task branch; the final PR still squash-merges to one ticket commit.
 
 ## Staging and production
 
-Each merge into `dev` receives CI and the staging deployment configured for that branch. Production promotion requires:
+Vercel Git-triggered deployments are disabled in `vercel.json`; pushes do not
+create an alternative release artifact. Preview deployments are deliberate and
+disposable. `dev` remains the staging source authority. To create the
+inspection candidate, dispatch `Staged Production Verification` with the exact
+current `dev` SHA. The workflow creates one Production-configured deployment
+with `--skip-domain`, verifies complete Chromium and WebKit evidence against
+that exact generated URL, and signs a Production Receipt. See
+[`docs/agents/staged-production-verification.md`](./agents/staged-production-verification.md).
+
+Production promotion requires:
 
 1. the complete intended spec set integrated into `dev`;
 2. full CI-equivalent verification and staging inspection;
@@ -88,7 +102,16 @@ Each merge into `dev` receives CI and the staging deployment configured for that
 4. green required checks; and
 5. explicit user authorization to promote the inspected commit.
 
-The solo maintainer does not self-approve the PR through GitHub; branch protection requires zero approving reviews. Merge the authorized promotion with a regular merge commit. Production authority, live-mode changes, and destructive remote operations remain human-controlled.
+The solo maintainer does not self-approve the PR through GitHub; branch protection requires zero approving reviews. Merge the authorized promotion with a regular merge commit. Promotion must reuse the receipted staged deployment rather than rebuild it. Production authority, live-mode changes, domain assignment, and destructive remote operations remain human-controlled.
+
+The executable procedure is
+[`docs/agents/production-release.md`](./agents/production-release.md): run a
+preauthorization plan that creates/reuses the release PR and waits for its checks,
+authorize that exact plan in a separate dispatch,
+regular-merge its frozen `dev` head, record the prior deployment, and promote
+the receipted deployment ID. Rollback consumes that audit and restores the prior
+deployment before opening reconciliation; urgency remains user-approved and Git
+history remains additive.
 
 ## GitHub bootstrap
 
@@ -101,10 +124,13 @@ pnpm github:workflow:plan
 Before the first remote `dev` creation, run the complete gate from `.github/workflows/ci.yml` against one clean local `dev` commit: frozen install, lint, typecheck, unit tests, and production-build Playwright tests. After reviewing the plan, apply requires that same SHA as both the audited source and the explicit CI attestation:
 
 ```bash
-pnpm github:workflow:apply -- \
+pnpm github:workflow:apply \
   --confirm-repo brandon-y-lee/mei-pelle \
   --confirm-dev-sha <audited-dev-sha> \
-  --confirm-ci-sha <same-CI-verified-sha>
+  --confirm-ci-sha <same-CI-verified-sha> \
+  --confirm-integration-cutover dev-integration-authority \
+  --confirm-spec-branch-cutover protected-spec-branches \
+  --confirm-integration-app-id <app-id-printed-by-plan>
 ```
 
-The tool pushes the captured commit rather than the mutable branch name and rechecks remote `main`/`dev` immediately before that push. It fails closed on missing authentication, the wrong repository, stale or divergent branch ancestry, unavailable repository or issue-API facts, or mismatched confirmations. Apply remains a separately approved remote mutation.
+The tool pushes the captured commit rather than the mutable branch name and rechecks remote `main`/`dev` immediately before that push. It also proves the GitHub Actions Integration from the existing `ci` check before planning the `dev` pull-request ruleset. The App identity pins required-check sources; it is not a bypass actor on this personal repository. The ruleset protects pull-request integration but does not make the Integration Coordinator the exclusive merge actor. The tool fails closed on missing authentication, the wrong repository, stale or divergent branch ancestry, unavailable repository, issue, check, or ruleset facts, or mismatched confirmations. Apply remains a separately approved remote mutation.

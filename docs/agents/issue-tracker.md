@@ -32,11 +32,16 @@ Internal delivery PRs are still required. Each approved `type:ticket` issue maps
 - **Claim a ticket**: `gh issue edit <number> --add-assignee @me --remove-label ready-for-agent --add-label workflow:in-progress`
 - **Mark review-ready**: `gh issue edit <number> --remove-label workflow:in-progress --add-label workflow:review`
 - **Open the ticket PR**: `gh pr create --base dev --head codex/<number>-<slug> --title "..." --body-file <path>`
+- **Open a future-spec ticket PR**: target its `codex/spec-<spec>-<slug>` branch; require `ci`, `affected-browser-verification`, and completed local `code-review` evidence.
 - **Inspect checks**: `gh pr checks <number> --watch`
-- **Squash-merge into dev**: `gh pr merge <number> --squash --delete-branch`
+- **Observe integration**: a ready green PR receives `workflow:integration-queued`, then at most one candidate receives `workflow:integration-active`; do not merge around the coordinator.
 - **Complete the ticket**: comment with the PR, integrated commit, checks, and `code-review` result; remove workflow labels and close the issue.
 
+`workflow:urgent` is user-approved input, never an agent or automation classification. See [`dev-integration.md`](./dev-integration.md) for queue, release, and cutover operations.
+
 Specs use `type:spec`. Tickets use `type:ticket`. After `to-tickets` publishes the approved children, replace the spec's `ready-for-agent` label with `workflow:planned`; use `workflow:in-progress` once the first child is claimed. Close the spec only after every child ticket PR is integrated into `dev`.
+
+For specs created after #50, use the spec lifecycle in `docs/agents/spec-integration.md`. A child becomes a satisfied native dependency only after its PR squash-merges into the protected spec branch and the issue closes with `workflow:spec-integrated`. The final spec PR remains draft until every required child has that state and combined review passes. Spec #50 keeps the earlier direct-to-`dev` workflow for all of its children.
 
 ## When a skill says "publish to the issue tracker"
 

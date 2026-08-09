@@ -1,10 +1,10 @@
 "use client";
 
-import Image from "next/image";
 import {
   type CSSProperties,
   type Ref,
 } from "react";
+import { ProductImage } from "@/components/product/ProductImage";
 import { useCoreRoutineSelection } from "@/components/product-detail/useCoreRoutineSelection";
 import {
   PDP_SLIDE_DURATION_MS,
@@ -122,10 +122,10 @@ export function PdpCoreRoutineSection({
                   <small>{product.productType}</small>
                 </span>
                 <span className="pdp-core-routine__texture">
-                  <Image
-                    src={product.textureMedia.url!}
-                    alt={product.textureMedia.alt}
-                    fill
+                  <ProductImage
+                    media={product.textureMedia}
+                    swatch={product.swatch}
+                    className="pdp-core-routine__texture-media"
                     sizes="(max-width: 640px) 68vw, 320px"
                     loading="eager"
                   />
@@ -191,10 +191,11 @@ export function PdpCoreRoutineSection({
               style={style}
             >
               {product.editorialMedia?.url ? (
-                <Image
-                  src={product.editorialMedia.url}
-                  alt=""
-                  fill
+                <ProductImage
+                  media={product.editorialMedia}
+                  swatch={product.swatch}
+                  className="pdp-core-routine__editorial-media"
+                  imageAlt=""
                   sizes="(max-width: 760px) calc(100vw - 24px), 50vw"
                 />
               ) : null}

@@ -1,10 +1,13 @@
 name: CI
 
+permissions:
+  contents: read
+
 on:
   push:
     branches: [dev, main]
   pull_request:
-    branches: [dev, main]
+    branches: [dev, main, "codex/spec-*"]
 
 # Cancel superseded runs on the same ref to save CI minutes.
 concurrency:
@@ -12,7 +15,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  ci:
+  ci-core:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
@@ -21,9 +24,13 @@ jobs:
       NEXT_PUBLIC_ALGOLIA_APP_ID: ${{ secrets.NEXT_PUBLIC_ALGOLIA_APP_ID }}
       NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY: ${{ secrets.NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY }}
       NEXT_PUBLIC_ALGOLIA_INDEX_NAME: ${{ secrets.NEXT_PUBLIC_ALGOLIA_INDEX_NAME }}
+      NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000' }}
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       # pnpm/action-setup reads the pinned version from package.json "packageManager".
       - name: Install pnpm
@@ -51,18 +58,147 @@ jobs:
       - name: Unit tests
         run: pnpm test
 
-      # Gate 5: end-to-end tests against one production build.
-      - name: Install Playwright browsers
-        run: pnpm exec playwright install --with-deps chromium
+      - name: Classify verification-system pull request
+        id: verification-system
+        if: ${{ github.event_name == 'pull_request' && !startsWith(github.base_ref, 'codex/spec-') }}
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          git diff --name-only --diff-filter=ACMR "$BASE_SHA" "$GITHUB_SHA" > "$RUNNER_TEMP/changed-files.txt"
+          if ! relevant="$(node scripts/github/verification-system-paths.mjs "$RUNNER_TEMP/changed-files.txt")"; then
+            echo "Verification-system classification failed." >&2
+            exit 1
+          fi
+          if [[ "$relevant" != "true" && "$relevant" != "false" ]]; then
+            echo "Verification-system classification returned an invalid result." >&2
+            exit 1
+          fi
+          echo "relevant=$relevant" >> "$GITHUB_OUTPUT"
 
-      - name: Production build and E2E tests
-        run: pnpm e2e
+      # Gate 5: proportional browser evidence for the pull-request merge tree.
+      # The serialized Integration Slot owns the one complete clean Chromium run.
+      - name: Install Playwright browsers
+        if: ${{ github.event_name == 'pull_request' && !startsWith(github.base_ref, 'codex/spec-') && steps.verification-system.outputs.relevant != 'true' }}
+        run: pnpm exec playwright install --with-deps chromium webkit
+
+      - name: Verify affected browser journeys
+        if: ${{ github.event_name == 'pull_request' && !startsWith(github.base_ref, 'codex/spec-') && steps.verification-system.outputs.relevant != 'true' }}
+        run: pnpm verify:affected -- --base "origin/${{ github.base_ref }}"
 
       - name: Upload Playwright report
-        if: ${{ failure() }}
+        if: ${{ failure() && github.event_name == 'pull_request' }}
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
           path: playwright-report/
-          retention-days: 7
+          retention-days: 90
+          if-no-files-found: ignore
+
+  protected-push-receipt:
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/dev' }}
+    permissions:
+      actions: write
+      attestations: read
+      contents: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      NEXT_PUBLIC_ALGOLIA_APP_ID: ${{ secrets.NEXT_PUBLIC_ALGOLIA_APP_ID }}
+      NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY: ${{ secrets.NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY }}
+      NEXT_PUBLIC_ALGOLIA_INDEX_NAME: ${{ secrets.NEXT_PUBLIC_ALGOLIA_INDEX_NAME }}
+      NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000' }}
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
+    steps:
+      - name: Checkout protected dev push
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install current Chromium binary for exact version matching
+        run: pnpm exec playwright install chromium
+
+      - name: Require a matching signed Integration Slot receipt
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERIFICATION_DEV_BASE: ${{ github.event.before }}
+        run: pnpm verification:receipt:protected-push
+
+  ci:
+    if: ${{ github.event_name != 'schedule' && github.event_name != 'workflow_dispatch' && always() }}
+    needs: [ci-core, protected-push-receipt]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    env:
+      CORE_RESULT: ${{ needs.ci-core.result }}
+      PROTECTED_PUSH: ${{ github.event_name == 'push' && github.ref == 'refs/heads/dev' }}
+      RECEIPT_RESULT: ${{ needs.protected-push-receipt.result }}
+    steps:
+      - name: Require CI and protected-push receipt policy
+        run: |
+          if [[ "$CORE_RESULT" != "success" ]]; then
+            echo "Core CI must succeed." >&2
+            exit 1
+          fi
+          if [[ "$PROTECTED_PUSH" == "true" && "$RECEIPT_RESULT" != "success" ]]; then
+            echo "Protected dev pushes require a matching signed receipt." >&2
+            exit 1
+          fi
+
+  affected-browser-verification:
+    if: ${{ github.event_name == 'pull_request' && startsWith(github.base_ref, 'codex/spec-') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      NEXT_PUBLIC_ALGOLIA_APP_ID: ${{ secrets.NEXT_PUBLIC_ALGOLIA_APP_ID }}
+      NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY: ${{ secrets.NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY }}
+      NEXT_PUBLIC_ALGOLIA_INDEX_NAME: ${{ secrets.NEXT_PUBLIC_ALGOLIA_INDEX_NAME }}
+      NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000' }}
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
+    steps:
+      - name: Checkout pull request merge tree
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install affected browser engines
+        run: pnpm exec playwright install --with-deps chromium webkit
+
+      - name: Run affected browser verification
+        run: pnpm verify:affected -- --base "origin/${{ github.base_ref }}"
+
+      - name: Upload affected Playwright report
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: affected-playwright-report
+          path: playwright-report/
+          retention-days: 90
           if-no-files-found: ignore

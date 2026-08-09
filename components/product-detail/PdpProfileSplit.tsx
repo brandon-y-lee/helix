@@ -1,5 +1,5 @@
-import Image from "next/image";
 import type { Ref } from "react";
+import { ProductImage } from "@/components/product/ProductImage";
 import {
   corePdpProfileRows,
   type CorePdpPresentation,
@@ -61,12 +61,12 @@ export function PdpProfileSplit({
         data-pdp-panel
         data-pdp-panel-kind="media"
       >
-        <Image
-          src={media.url}
-          alt={media.alt}
-          fill
+        <ProductImage
+          media={media}
+          swatch={product.swatch}
+          className="pdp-profile-split__media-content"
           sizes="(max-width: 820px) 100vw, 50vw"
-          style={{ objectPosition: presentation.profileMediaPosition }}
+          imageStyle={{ objectPosition: presentation.profileMediaPosition }}
         />
       </div>
     </section>

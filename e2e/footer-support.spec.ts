@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./storefront-fixture";
 
 test("all internal footer destinations return a successful response", async ({
   page,

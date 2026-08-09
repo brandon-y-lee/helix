@@ -6,6 +6,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { ProductImage } from "@/components/product/ProductImage";
+import { ProductVideo } from "@/components/product/ProductVideo";
 import {
   PDP_SLIDE_DURATION_MS,
   PDP_SLIDE_STYLE,
@@ -49,25 +50,26 @@ function PdpGalleryMedia({
 }: PdpGalleryMediaProps) {
   if (media?.kind === "video" && media.url) {
     return (
-      <span className={className} data-media-kind="video">
-        <video
-          ref={videoRef}
-          src={media.url}
-          className={mediaClassName}
-          aria-label={thumbnail ? undefined : media.alt}
-          aria-hidden={thumbnail || undefined}
-          controls={!thumbnail}
-          muted={thumbnail}
-          playsInline
-          preload={thumbnail ? "none" : "metadata"}
-          tabIndex={thumbnail ? -1 : undefined}
-        />
+      <ProductVideo
+        ref={videoRef}
+        media={media}
+        swatch={swatch}
+        className={className}
+        videoClassName={mediaClassName}
+        aria-label={thumbnail ? undefined : media.alt}
+        aria-hidden={thumbnail || undefined}
+        controls={!thumbnail}
+        muted={thumbnail}
+        playsInline
+        preload={thumbnail ? "none" : "metadata"}
+        tabIndex={thumbnail ? -1 : undefined}
+      >
         {thumbnail && (
           <span className="pdp__thumb-play" aria-hidden="true">
             ▶
           </span>
         )}
-      </span>
+      </ProductVideo>
     );
   }
 
@@ -77,6 +79,7 @@ function PdpGalleryMedia({
       swatch={swatch}
       className={className}
       imageClassName={mediaClassName}
+      imageAlt={thumbnail ? "" : undefined}
       sizes={sizes}
       priority={priority}
     />
