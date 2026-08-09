@@ -26,6 +26,74 @@ const scheduledIdentity: ScheduledVerificationIdentity = {
 };
 
 describe("Verification Orchestrator", () => {
+  it("records one fail-closed efficiency event for the complete Integration Slot", async () => {
+    let candidate: IntegrationCandidate | undefined = {
+      number: 59,
+      target: "dev",
+      createdAt: "2026-08-09T00:00:00.000Z",
+      readyAt: "2026-08-09T00:02:00.000Z",
+      headSha: "candidate-59",
+      workClass: "verification-system",
+      changedFiles: ["scripts/github/verification-orchestrator.ts"],
+      labels: ["workflow:integration-queued"],
+      ready: true,
+    };
+    const repository: RepositoryAdapter = {
+      async read() {
+        return { devSha: "dev-1", candidates: candidate ? [structuredClone(candidate)] : [] };
+      },
+      async queue() { return true; },
+      async claim() { candidate!.labels = ["workflow:integration-active"]; return true; },
+      async release() { candidate = undefined; },
+    };
+    const times = [
+      Date.parse("2026-08-09T00:05:00.000Z"),
+      Date.parse("2026-08-09T00:05:01.000Z"),
+      Date.parse("2026-08-09T00:05:03.000Z"),
+      Date.parse("2026-08-09T00:05:10.000Z"),
+    ];
+
+    const report = await runIntegrationLine({
+      repository,
+      git: { async prepare() { return { candidateSha: "merge-tree-59" }; } },
+      verification: {
+        async verify() {
+          return {
+            outcome: "passed",
+            telemetry: {
+              browserCaseExecutions: 35,
+              buildReuse: "new",
+              completePlanRuns: 1,
+              retries: 0,
+              selectedCapabilities: ["complete-plan"],
+              testTimeMs: 6_500,
+            },
+          };
+        },
+      },
+      merge: { async merge() { return { mergeSha: "dev-2" }; } },
+    }, { clock: { now: () => times.shift()! } });
+
+    expect(report).toMatchObject({
+      outcome: "merged",
+      attempts: [{
+        telemetry: {
+          browserCaseExecutions: 35,
+          buildReuse: "new",
+          completePlanRuns: 1,
+          failureClassification: "none",
+          implementationToIntegrationMs: 190_000,
+          integrationTimeMs: 10_000,
+          preflightTimeMs: 120_000,
+          queueWaitMs: 180_000,
+          retries: 0,
+          selectedCapabilities: ["complete-plan"],
+          testTimeMs: 6_500,
+        },
+      }],
+    });
+  });
+
   it("owns production receipt preparation from actual adapter evidence", async () => {
     const orchestrator = createRoutineReceiptOrchestrator({
       identity: { async read() { return {

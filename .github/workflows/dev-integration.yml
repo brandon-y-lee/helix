@@ -48,4 +48,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           INTEGRATION_REPOSITORY: ${{ github.repository }}
           INTEGRATION_RUN_NONCE: ${{ github.run_id }}-${{ github.run_attempt }}
-        run: pnpm integration:dev
+        run: pnpm --silent integration:dev | tee "$RUNNER_TEMP/integration-efficiency.json"
+
+      - name: Retain Integration Line efficiency record
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-efficiency-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/integration-efficiency.json
+          retention-days: 30
+          if-no-files-found: ignore

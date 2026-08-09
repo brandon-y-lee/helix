@@ -8,6 +8,52 @@ export * from "./production-release";
 
 export const INTEGRATION_TIMEOUT_MS = 20 * 60 * 1_000;
 
+export const WORKFLOW_CUTOVER_CONTRACTS = [
+  "work-classification",
+  "affected-browser-verification",
+  "local-build-reuse",
+  "integration-slot-concurrency",
+  "non-preemptive-urgent-priority",
+  "timeout-and-failure-handoff",
+  "verification-receipts",
+  "spec-dependencies",
+  "scheduled-failure-and-recovery",
+  "staged-production-verification",
+  "exact-production-promotion",
+  "rollback-first-recovery",
+  "efficiency-telemetry",
+  "repository-cutover",
+  "deployment-controls",
+] as const;
+
+export type WorkflowCutoverContract = typeof WORKFLOW_CUTOVER_CONTRACTS[number];
+export type WorkflowCutoverEvidence = Partial<Record<
+  WorkflowCutoverContract,
+  "passed" | "pending" | "failed"
+>>;
+
+export function evaluateWorkflowCutover(evidence: WorkflowCutoverEvidence) {
+  const gaps = WORKFLOW_CUTOVER_CONTRACTS.flatMap((contract) => {
+    const state = evidence[contract] ?? "pending";
+    return state === "passed"
+      ? []
+      : [`${contract} ${state === "failed" ? "failed" : "is pending"}`];
+  });
+  const remoteCutover =
+    evidence["repository-cutover"] === "passed" &&
+    evidence["deployment-controls"] === "passed"
+      ? "active" as const
+      : "pending" as const;
+  return {
+    acceptance: gaps.length === 0 ? "clean" as const : "blocked" as const,
+    adrs: gaps.length === 0 && remoteCutover === "active"
+      ? "accepted" as const
+      : "proposed" as const,
+    gaps,
+    remoteCutover,
+  };
+}
+
 export {
   findReusableProtectedPushReceipt,
   findReusableVerificationReceipt,
@@ -240,6 +286,7 @@ export async function runWindowsLifecycleVerification(
 export type IntegrationCandidate = {
   number: number;
   target: "dev";
+  createdAt?: string;
   headSha: string;
   readyAt: string;
   workClass: WorkClass;
@@ -279,8 +326,38 @@ export interface VerificationAdapter {
     reasons: string[];
     timeoutMs: number;
     signal: AbortSignal;
-  }): Promise<{ outcome: "passed" | "failed" }>;
+  }): Promise<{
+    outcome: "passed" | "failed";
+    telemetry?: VerificationEfficiencyTelemetry;
+  }>;
 }
+
+export type VerificationEfficiencyTelemetry = {
+  browserCaseExecutions: number | null;
+  buildReuse: "new" | "reused" | "not-applicable";
+  completePlanRuns: number;
+  failureClassification?: EfficiencyFailureClassification;
+  retries: number | null;
+  selectedCapabilities: string[];
+  testTimeMs: number | null;
+};
+
+export type EfficiencyFailureClassification =
+  | "none"
+  | "failed"
+  | "changed"
+  | "timed-out"
+  | "cancelled"
+  | "unstable";
+
+export type IntegrationEfficiencyTelemetry = VerificationEfficiencyTelemetry & {
+  failureClassification: EfficiencyFailureClassification;
+  implementationToIntegrationMs: number | null;
+  integrationTimeMs: number;
+  preflightTimeMs: number | null;
+  queueWaitMs: number;
+  schemaVersion: 1;
+};
 
 type VerificationRequest = Parameters<VerificationAdapter["verify"]>[0];
 
@@ -391,7 +468,7 @@ export interface MergeAdapter {
   }): Promise<{ mergeSha: string }>;
 }
 
-export type IntegrationAttempt = FrozenCandidate &
+export type IntegrationAttempt = FrozenCandidate & { telemetry: IntegrationEfficiencyTelemetry } &
   (
     | { outcome: "rejected"; reason: "trivial-path-not-proven" }
     | { outcome: "execution-failed"; stage: "git" | "verification" | "merge" }
@@ -428,9 +505,56 @@ type IntegrationAdapters = {
 };
 
 type IntegrationOptions = {
+  clock?: { now(): number };
   timeoutMs?: number;
   signal?: AbortSignal;
 };
+
+function elapsed(startedAt: number, completedAt: number): number {
+  return Math.max(0, completedAt - startedAt);
+}
+
+function parsedElapsed(startedAt: string | undefined, completedAt: number): number | null {
+  if (!startedAt) return null;
+  const parsed = Date.parse(startedAt);
+  return Number.isFinite(parsed) && Number.isFinite(completedAt)
+    ? elapsed(parsed, completedAt)
+    : null;
+}
+
+function efficiencyTelemetry(input: {
+  candidate: IntegrationCandidate;
+  claimedAt: number;
+  completedAt: number;
+  gate: VerificationGate;
+  failureClassification: EfficiencyFailureClassification;
+  verification?: VerificationEfficiencyTelemetry;
+  verificationTimeMs?: number;
+}): IntegrationEfficiencyTelemetry {
+  const verification = input.verification ?? {
+    browserCaseExecutions: null,
+    buildReuse: input.gate === "complete-behavioral" ? "new" : "not-applicable",
+    completePlanRuns: input.gate === "complete-behavioral" ? 1 : 0,
+    retries: null,
+    selectedCapabilities: input.gate === "complete-behavioral" ? ["complete-plan"] : [],
+    testTimeMs: input.verificationTimeMs ?? null,
+  };
+  return {
+    ...verification,
+    failureClassification:
+      verification.failureClassification ?? input.failureClassification,
+    implementationToIntegrationMs: parsedElapsed(
+      input.candidate.readyAt,
+      input.completedAt,
+    ),
+    integrationTimeMs: elapsed(input.claimedAt, input.completedAt),
+    preflightTimeMs: input.candidate.createdAt
+      ? parsedElapsed(input.candidate.createdAt, Date.parse(input.candidate.readyAt))
+      : null,
+    queueWaitMs: parsedElapsed(input.candidate.readyAt, input.claimedAt) ?? 0,
+    schemaVersion: 1,
+  };
+}
 
 function planFor(candidate: IntegrationCandidate): {
   gate: VerificationGate;
@@ -533,12 +657,14 @@ async function handOffExecutionFailure(
   adapters: IntegrationAdapters,
   frozen: FrozenCandidate,
   stage: "git" | "verification" | "merge",
+  telemetry: IntegrationEfficiencyTelemetry,
 ): Promise<IntegrationReport> {
   await adapters.repository.release(frozen, "review");
   return advanceAfterAttempt({
     ...frozen,
     outcome: "execution-failed",
     stage,
+    telemetry,
   });
 }
 
@@ -547,6 +673,7 @@ export async function runIntegrationLine(
   options: IntegrationOptions = {},
 ): Promise<IntegrationReport> {
   const { repository, git, verification, merge } = adapters;
+  const clock = options.clock ?? { now: Date.now };
   const initial = await repository.read();
   for (const candidate of initial.candidates) {
     if (candidate.ready && !isQueued(candidate) && !isActive(candidate)) {
@@ -572,6 +699,21 @@ export async function runIntegrationLine(
     headSha: candidate.headSha,
   };
   if (!(await repository.claim(frozen))) return { outcome: "claim-lost", attempts: [] };
+  const claimedAt = clock.now();
+  const telemetryFor = (
+    failureClassification: EfficiencyFailureClassification,
+    completedAt: number,
+    verificationTelemetry?: VerificationEfficiencyTelemetry,
+    verificationTimeMs?: number,
+  ) => efficiencyTelemetry({
+    candidate,
+    claimedAt,
+    completedAt,
+    gate: planFor(candidate).gate,
+    failureClassification,
+    verification: verificationTelemetry,
+    verificationTimeMs,
+  });
 
   if (
     candidate.workClass === "trivial" && !hasExactTrivialProof(candidate)
@@ -581,6 +723,7 @@ export async function runIntegrationLine(
       ...frozen,
       outcome: "rejected",
       reason: "trivial-path-not-proven",
+      telemetry: telemetryFor("failed", clock.now()),
     });
   }
 
@@ -600,6 +743,7 @@ export async function runIntegrationLine(
       reasons,
       outcome: result.outcome,
       stage,
+      telemetry: telemetryFor(result.outcome, clock.now()),
     };
     if (result.outcome === "cancelled") {
       return { outcome: "exhausted", attempts: [attempt] };
@@ -608,6 +752,7 @@ export async function runIntegrationLine(
   };
 
   let prepared: { candidateSha: string };
+  let verificationStartedAt = claimedAt;
   try {
     const result = await inSlot(
       git.prepare({ ...frozen, signal: slot.signal }),
@@ -615,11 +760,18 @@ export async function runIntegrationLine(
     );
     if (result.kind === "interrupted") return interrupted("git", result);
     prepared = result.value;
+    verificationStartedAt = clock.now();
   } catch {
     slot.close();
-    return handOffExecutionFailure(adapters, frozen, "git");
+    return handOffExecutionFailure(
+      adapters,
+      frozen,
+      "git",
+      telemetryFor("failed", clock.now()),
+    );
   }
-  let verificationResult: { outcome: "passed" | "failed" };
+  let verificationResult: Awaited<ReturnType<VerificationAdapter["verify"]>>;
+  let verificationCompletedAt = verificationStartedAt;
   try {
     const result = await inSlot(
       verification.verify({
@@ -634,9 +786,21 @@ export async function runIntegrationLine(
     );
     if (result.kind === "interrupted") return interrupted("verification", result, prepared);
     verificationResult = result.value;
+    verificationCompletedAt = clock.now();
   } catch {
     slot.close();
-    return handOffExecutionFailure(adapters, frozen, "verification");
+    const completedAt = clock.now();
+    return handOffExecutionFailure(
+      adapters,
+      frozen,
+      "verification",
+      telemetryFor(
+        "failed",
+        completedAt,
+        undefined,
+        elapsed(verificationStartedAt, completedAt),
+      ),
+    );
   }
   if (verificationResult.outcome !== "passed") {
     slot.close();
@@ -647,6 +811,12 @@ export async function runIntegrationLine(
       gate,
       reasons,
       outcome: "failed",
+      telemetry: telemetryFor(
+        "failed",
+        clock.now(),
+        verificationResult.telemetry,
+        elapsed(verificationStartedAt, verificationCompletedAt),
+      ),
     });
   }
 
@@ -657,7 +827,12 @@ export async function runIntegrationLine(
     current = result.value;
   } catch {
     slot.close();
-    return handOffExecutionFailure(adapters, frozen, "merge");
+    return handOffExecutionFailure(
+      adapters,
+      frozen,
+      "merge",
+      telemetryFor("failed", clock.now(), verificationResult.telemetry),
+    );
   }
   const currentCandidate = current.candidates.find((entry) => entry.number === frozen.number);
   if (
@@ -680,6 +855,7 @@ export async function runIntegrationLine(
       reasons,
       outcome: "changed-input",
       reason,
+      telemetry: telemetryFor("changed", clock.now(), verificationResult.telemetry),
     });
   }
 
@@ -694,10 +870,16 @@ export async function runIntegrationLine(
     merged = result.value;
   } catch {
     slot.close();
-    return handOffExecutionFailure(adapters, frozen, "merge");
+    return handOffExecutionFailure(
+      adapters,
+      frozen,
+      "merge",
+      telemetryFor("failed", clock.now(), verificationResult.telemetry),
+    );
   }
   slot.close();
   await repository.release(frozen, "merged");
+  const completedAt = clock.now();
   return {
     outcome: "merged",
     attempts: [
@@ -709,6 +891,12 @@ export async function runIntegrationLine(
         outcome: "merged",
         mergeMethod,
         mergeSha: merged.mergeSha,
+        telemetry: telemetryFor(
+          "none",
+          completedAt,
+          verificationResult.telemetry,
+          elapsed(verificationStartedAt, verificationCompletedAt),
+        ),
       },
     ],
   };

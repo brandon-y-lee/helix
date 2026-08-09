@@ -29,6 +29,15 @@ const packageJson = JSON.parse(
 ) as { scripts: Record<string, string> };
 
 describe("dev Integration Line workflows", () => {
+  it("retains structured Integration Line efficiency records for the 30-day audit", () => {
+    expect(coordinator).toContain(
+      'pnpm --silent integration:dev | tee "$RUNNER_TEMP/integration-efficiency.json"',
+    );
+    expect(coordinator).toContain("name: integration-efficiency-${{ github.run_id }}-${{ github.run_attempt }}");
+    expect(coordinator).toContain("path: ${{ runner.temp }}/integration-efficiency.json");
+    expect(coordinator).toContain("retention-days: 30");
+  });
+
   it("separates the trusted coordinator from read-only candidate verification", () => {
     expect(coordinator).toContain("pull_request_target:");
     expect(coordinator).toContain("workflow_run:");
@@ -42,7 +51,7 @@ describe("dev Integration Line workflows", () => {
     expect(coordinator).toContain("actions: write");
     expect(coordinator).toContain("ref: dev");
     expect(coordinator).toContain("persist-credentials: false");
-    expect(coordinator).toContain("run: pnpm integration:dev");
+    expect(coordinator).toContain("run: pnpm --silent integration:dev");
     expect(coordinator).not.toContain("verify-production-ci.ts");
     expect(packageJson.scripts["integration:dev"]).toBe(
       "tsx scripts/github/run-integration-coordinator.ts",

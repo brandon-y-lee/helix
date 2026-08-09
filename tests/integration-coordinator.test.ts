@@ -73,6 +73,7 @@ describe("GitHub Integration Coordinator adapter", () => {
     expect(candidate).toEqual({
       number: 52,
       target: "dev",
+      createdAt: "2026-08-08T07:00:00.000Z",
       headSha: "a".repeat(40),
       readyAt: "2026-08-08T07:00:00.000Z",
       workClass: "verification-system",

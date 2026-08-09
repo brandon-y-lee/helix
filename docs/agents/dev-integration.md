@@ -16,6 +16,12 @@ The coordinator dispatches `.github/workflows/dev-integration-verification.yml` 
 
 The Integration Slot timer starts immediately after a successful claim and is bounded to 20 minutes across candidate preparation, verification, the unchanged-input check, and merge. The coordinator job has a separate 30-minute ceiling so the slot timer can abort controlled adapters and release labels before Actions terminates the job. A job claims at most one candidate: after failure, timeout, adapter failure, or changed inputs, it releases that candidate and dispatches a fresh trusted coordinator run for automatic handoff. This prevents a second full slot from inheriting an expiring job deadline. Cancellation releases the slot without redispatching. Review handoffs are ineligible until `workflow:review` is deliberately removed after correction.
 
+Every attempt retains a 30-day `integration-efficiency-<run>-<attempt>` record
+with the public Integration Slot transition, outcome class, and timing fields.
+Browser and local-build metrics remain in their structured verification records;
+the join and evaluation contract is
+[`efficiency-audit.md`](./efficiency-audit.md).
+
 ## Configuration cutover
 
 `pnpm github:workflow:plan` audits the labels, classic protections, default Actions token permissions, GitHub Actions integration identity, and the `dev Integration Line authority` ruleset without changing GitHub. The proposed cutover sets the repository default token to read-only and forbids token-authored review approval. Every workflow except the exactly audited Dev Integration Coordinator and Spec Lifecycle Orchestrator is explicitly read-only, with narrow audited exceptions: scheduled browser verification receives only `issues: write`; Production preauthorization receives `pull-requests: write` only to prepare the checked release PR; the separately authorized Production Promotion job receives `contents` and `pull-requests` write; and Production Rollback receives only `issues: write` after restoring the recorded deployment. The ruleset restricts `dev` updates to the GitHub Actions Integration through pull requests and binds `ci` and `dev-integration` to that Integration ID. Integration, release, scheduled-issue, and attestation writers use exact least-privilege maps, and the trusted integration workflow definitions must already exist on remote `main` before cutover. `dev` does not require an up-to-date head because the coordinator freezes and verifies the exact current base; `main` remains strict.

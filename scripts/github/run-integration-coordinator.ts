@@ -148,6 +148,7 @@ export function toIntegrationCandidate(fact: PullRequestFact): IntegrationCandid
   return {
     number: fact.number,
     target: "dev",
+    createdAt: fact.createdAt,
     headSha: fact.headRefOid,
     readyAt: fact.createdAt,
     workClass,
