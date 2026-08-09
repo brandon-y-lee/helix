@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   bootstrapInitialVerificationReceipt,
+  canCarryForwardProtectedPushReceipt,
   findReusableProtectedPushReceiptWithEvidence,
   isInitialReceiptVerificationCutover,
   writeVerificationExecutionEvidence,
@@ -45,6 +46,29 @@ const receipt: VerificationReceipt = {
 };
 
 describe("GitHub Verification Receipt lookup", () => {
+  it("carries a receipt across an ancestry-only protected push", () => {
+    expect(canCarryForwardProtectedPushReceipt({
+      baseTreeSha: "same-tree",
+      changedPaths: [],
+      pushTreeSha: "same-tree",
+    })).toBe(true);
+    expect(canCarryForwardProtectedPushReceipt({
+      baseTreeSha: "base-tree",
+      changedPaths: [],
+      pushTreeSha: "different-tree",
+    })).toBe(false);
+    expect(canCarryForwardProtectedPushReceipt({
+      baseTreeSha: "base-tree",
+      changedPaths: ["docs/agents/browser-verification.md"],
+      pushTreeSha: "different-tree",
+    })).toBe(true);
+    expect(canCarryForwardProtectedPushReceipt({
+      baseTreeSha: "base-tree",
+      changedPaths: ["app/page.tsx"],
+      pushTreeSha: "different-tree",
+    })).toBe(false);
+  });
+
   it("records actual artifact, Catalog, browser version, and retry evidence for orchestration", async () => {
     const directory = await mkdtemp(resolve(tmpdir(), "mei-pelle-execution-evidence-"));
     const evidencePath = resolve(directory, "execution.json");
