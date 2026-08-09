@@ -84,8 +84,8 @@ The user approves shared understanding, the specification, and the ticket breakd
 
 ### Branch safety
 
-- `main` is production; `dev` is staging and integration. Spec #50, standalone, urgent, ticket, and planning work follows its documented base. Future multi-ticket spec children enter only their protected `codex/spec-*` branch through PRs; the completed spec enters `dev` through a regular-merge PR. Nothing merges directly to `main` outside Production promotion.
-- Before a repository edit, start an isolated worktree with `scripts/git/codex-task.sh start <issue-number>-<slug>` or `scripts/git/codex-task.sh start plan-<slug>`. Future-spec children add `--spec <spec-number>-<slug>` after the protected spec branch is established; never use a ticket branch as another ticket's base. Urgent work uses `<issue-number>-urgent-<slug>`; the trivial fast path uses `trivial-<slug>`.
+- `main` is production; `dev` is staging and integration. Ticket and planning work enters `dev` through PRs and never merges directly to `main`.
+- Before a repository edit, start an isolated worktree with `scripts/git/codex-task.sh start <issue-number>-<slug>` or `scripts/git/codex-task.sh start plan-<slug>`. Urgent work uses `<issue-number>-urgent-<slug>`; the trivial fast path uses `trivial-<slug>`.
 - Use the printed task worktree for every subsequent edit, command, test, and commit. Before review and push, run the printed `prepare` command.
 - If `dev` advances, merge it into the task branch and repeat affected verification and `code-review`.
 - After the PR is merged into `dev`, use `scripts/git/codex-task.sh cleanup [task-worktree]`. The helper verifies the merged PR before deleting local task state.

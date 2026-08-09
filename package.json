@@ -16,18 +16,7 @@
     "test": "vitest run",
     "e2e": "tsx scripts/verify-production.ts",
     "verify:production": "tsx scripts/verify-production.ts",
-    "verify:affected": "tsx scripts/verify-affected.ts",
-    "verify:scheduled": "tsx scripts/github/run-scheduled-browser-verification.ts",
     "verify:product-media": "tsx scripts/verify-product-media.ts",
-    "verification:lifecycle:windows": "tsx scripts/github/run-windows-lifecycle-verification.ts",
-    "integration:dev": "tsx scripts/github/run-integration-coordinator.ts",
-    "verification:catalog-fingerprint": "tsx scripts/github/catalog-fingerprint-command.ts",
-    "verification:receipt:prepare": "tsx scripts/github/verification-receipt-command.ts prepare",
-    "verification:receipt:verify": "tsx scripts/github/verification-receipt-command.ts verify",
-    "verification:receipt:protected-push": "tsx scripts/github/verification-receipt-command.ts protected-push",
-    "verification:staged-production": "tsx scripts/github/staged-production-verification-command.ts",
-    "production:release": "tsx scripts/github/production-release-command.ts",
-    "github:spec:lifecycle": "tsx scripts/github/run-spec-lifecycle.ts --repo brandon-y-lee/mei-pelle",
     "github:workflow:plan": "node scripts/github/bootstrap-workflow.mjs plan --repo brandon-y-lee/mei-pelle",
     "github:workflow:apply": "node scripts/github/bootstrap-workflow.mjs apply --repo brandon-y-lee/mei-pelle",
     "catalog:webhooks:plan": "tsx scripts/catalog-webhooks.ts plan",
@@ -73,9 +62,7 @@
     "jsdom": "26.1.0",
     "tsx": "^4.22.4",
     "typescript": "5.8.3",
-    "vercel": "58.9.0",
-    "vitest": "3.2.6",
-    "yaml": "^2.8.2"
+    "vitest": "3.2.6"
   },
   "pnpm": {
     "overrides": {

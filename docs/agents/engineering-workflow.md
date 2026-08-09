@@ -39,20 +39,14 @@ Dependencies express structural blocking. `needs-info` and `ready-for-human` exp
 An eligible ticket is open, unblocked, unassigned, `type:ticket`, and `ready-for-agent`.
 
 1. Assign the ticket before work; replace `ready-for-agent` with `workflow:in-progress`.
-2. Start `codex/<ticket-number>-<slug>` using the task helper. Spec #50 and standalone work start from `dev`; later multi-ticket specs start flat sibling branches from their protected `codex/spec-<spec>-<slug>` branch.
+2. Start `codex/<ticket-number>-<slug>` from `dev` using the task helper.
 3. Implement with TDD at the approved seams. Run the smallest complete relevant local verification set; security, payment, data, and cross-cutting changes receive broader checks.
 4. Commit with `Refs #<ticket>` and `Spec #<parent>` footers. The urgent fast path uses only `Refs #<ticket>`.
 5. Run the helper's `prepare`, then `code-review dev` on the committed diff.
 6. Fix and rereview every confirmed actionable finding unless the user explicitly accepts it. P0/P1 findings always block.
-7. Replace `workflow:in-progress` with `workflow:review`, push, and open a ready PR into its declared base. A future-spec child targets the spec branch and requires fast CI plus Affected Browser Verification; spec #50 and standalone tickets target `dev` under the previously executable path.
-8. Let GitHub CI run the pull-request gate. A ready, green PR receives `workflow:integration-queued`; the [Dev Integration Line](./dev-integration.md) freezes one candidate and current `dev`, then runs the work-class gate in a separate read-only workflow.
-9. The coordinator normally merges an unchanged successful candidate. GitHub's personal-repository policy cannot make it the exclusive merge actor; an Operator may merge a green pull request only as an explicitly approved manual exception. After GitHub reports the merge, comment with the PR, integrated commit, CI and Integration Line evidence, and review result; close the ticket; update the parent spec when one exists; clean up the worktree.
-
-The first clean Integration Line record after repository cutover starts the
-30-day [verification efficiency audit](./efficiency-audit.md). Preserve its UTC
-start time with the ticket evidence; do not infer activation from staged code.
-
-Future multi-ticket specs use the lifecycle in [`spec-integration.md`](./spec-integration.md). Child PRs squash into the protected spec branch and close with `workflow:spec-integrated`; their draft final spec PR enters this Integration Line only after all children and combined review pass. Spec #50 is deliberately excluded from that lifecycle.
+7. Replace `workflow:in-progress` with `workflow:review`, push, and open a ready PR into `dev`.
+8. Let GitHub CI run the full install, lint, typecheck, unit, build, and Playwright gate.
+9. After review and CI pass, squash-merge. Comment with the PR, integrated commit, checks, and review result; close the ticket; update the parent spec when one exists; clean up the worktree.
 
 If `dev` advances before integration, merge it into the ticket branch and repeat every affected verification and review step.
 
@@ -70,26 +64,15 @@ Cancelled or superseded issues retain their history: comment with the reason and
 
 ## Fast paths
 
-- **Trivial non-behavioral work** may skip GitHub planning artifacts. It still uses `codex/trivial-<slug>`, proportional verification, `code-review`, a PR into `dev`, and CI. The Integration Line grants the fast gate only when every changed path proves non-runtime; uncertainty returns the PR to review.
-- **Urgent production or security fixes** may skip exploration, specification, and decomposition. Create one abbreviated GitHub ticket, use `codex/<ticket>-urgent-<slug>`, and commit with only the `Refs #<ticket>` footer. The normal review, PR, and CI gates still apply. Only the user may approve `workflow:urgent`, which selects the next waiting position without preempting an active candidate. Record deferred context immediately afterward.
+- **Trivial non-behavioral work** may skip GitHub planning artifacts. It still uses `codex/trivial-<slug>`, proportional verification, `code-review`, a PR into `dev`, and CI.
+- **Urgent production or security fixes** may skip exploration, specification, and decomposition. Create one abbreviated GitHub ticket, use `codex/<ticket>-urgent-<slug>`, and commit with only the `Refs #<ticket>` footer. The normal review, PR, and CI gates still apply. Record deferred context immediately afterward.
 
 ## Release boundary
 
 Ticket PRs target `dev` and may merge autonomously after their gates pass. `dev → main` is a separate production promotion: inspect staging, require green CI and explicit user authorization, and use a regular merge commit. The solo maintainer does not self-review through GitHub. `main` remains the default branch.
 
-Use the two-dispatch plan and promotion procedure in
-[`production-release.md`](./production-release.md). Authorization is bound to
-the exact immutable plan and cannot be inferred from workflow state. Recovery
-restores the audit's previous deployment first, then creates urgent additive
-reconciliation work.
-
-Staging inspection uses the domainless, receipted deployment path in
-[`staged-production-verification.md`](./staged-production-verification.md).
-Successful staging evidence does not authorize Production domains or
-promotion.
-
 ## GitHub configuration
 
 Issues, labels, sub-issues, dependencies, assignees, and PRs are the single workflow state system; no GitHub Project is required. Both `dev` and `main` require PRs and CI with zero GitHub approving reviews. Production promotion remains user-authorized in the agent workflow. Both branches reject force-push and deletion.
 
-Use `pnpm github:workflow:plan` to audit drift. Before the initial remote `dev` creation or pull-request policy cutover, run the complete CI-equivalent gate at the audited local `dev` commit. `apply` is a separately approved remote mutation and requires exact repository, local-`dev`, CI-verified SHA, cutover phrase, and GitHub App ID confirmations. See [Dev Integration Line](./dev-integration.md).
+Use `pnpm github:workflow:plan` to audit drift. Before the initial remote `dev` creation, run the complete CI-equivalent gate at the audited local `dev` commit. `apply` is a separately approved remote mutation and requires exact repository, local-`dev`, and CI-verified SHA confirmations.

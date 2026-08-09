@@ -18,18 +18,6 @@ const ciWorkflow = readFileSync(
   resolve(projectRoot, ".github/workflows/ci.yml"),
   "utf8",
 );
-const specLifecycleWorkflow = readFileSync(
-  resolve(projectRoot, ".github/workflows/spec-lifecycle.yml"),
-  "utf8",
-);
-const devIntegrationRunbook = readFileSync(
-  resolve(projectRoot, "docs/agents/dev-integration.md"),
-  "utf8",
-);
-const gitWorkflowRunbook = readFileSync(
-  resolve(projectRoot, "docs/git-workflow.md"),
-  "utf8",
-);
 
 const ciPublicRuntimeSecrets = [
   "NEXT_PUBLIC_SUPABASE_URL",
@@ -83,40 +71,7 @@ function initialiseRepository(): { root: string; tempRoot: string } {
   expectSuccess(git(root, "config", "user.name", "Workflow Test"));
   expectSuccess(git(root, "config", "user.email", "workflow@example.test"));
   writeFileSync(join(root, "README.md"), "fixture\n");
-  mkdirSync(join(root, ".github", "workflows"), { recursive: true });
-  writeFileSync(
-    join(root, ".github", "workflows", "ci.yml"),
-    "name: CI\npermissions:\n  contents: read\njobs:\n  ci-core:\n    runs-on: ubuntu-latest\n    steps: []\n  protected-push-receipt:\n    permissions:\n      actions: write\n      attestations: read\n      contents: read\n    runs-on: ubuntu-latest\n    steps: []\n",
-  );
-  writeFileSync(
-    join(root, ".github", "workflows", "dev-integration.yml"),
-    "name: coordinator\npermissions:\n  actions: write\n  contents: read\n  issues: write\n  pull-requests: read\njobs:\n  coordinate:\n    runs-on: ubuntu-latest\n    steps: []\n",
-  );
-  writeFileSync(
-    join(root, ".github", "workflows", "dev-integration-verification.yml"),
-    "name: verification\npermissions:\n  contents: read\njobs:\n  verify:\n    runs-on: ubuntu-latest\n    steps: []\n  attest-stable-result:\n    permissions:\n      artifact-metadata: write\n      attestations: write\n      contents: read\n      id-token: write\n    runs-on: ubuntu-latest\n    steps: []\n",
-  );
-  writeFileSync(
-    join(root, ".github", "workflows", "scheduled-browser-verification.yml"),
-    "name: scheduled\npermissions:\n  contents: read\n  issues: write\njobs:\n  verify:\n    runs-on: ubuntu-latest\n    steps: []\n",
-  );
-  writeFileSync(
-    join(root, ".github", "workflows", "staged-production-verification.yml"),
-    "name: staged\npermissions:\n  contents: read\njobs:\n  verify-staged-production:\n    runs-on: ubuntu-latest\n    steps: []\n  attest-production-receipt:\n    permissions:\n      artifact-metadata: write\n      attestations: write\n      contents: read\n      id-token: write\n    runs-on: ubuntu-latest\n    steps: []\n",
-  );
-  writeFileSync(
-    join(root, ".github", "workflows", "production-promotion.yml"),
-    "name: promotion\npermissions:\n  contents: read\njobs:\n  plan:\n    permissions:\n      actions: read\n      attestations: read\n      checks: read\n      contents: read\n      issues: read\n      pull-requests: write\n    runs-on: ubuntu-latest\n    steps: []\n  promote:\n    permissions:\n      actions: read\n      attestations: read\n      checks: read\n      contents: write\n      issues: read\n      pull-requests: write\n    runs-on: ubuntu-latest\n    steps: []\n",
-  );
-  writeFileSync(
-    join(root, ".github", "workflows", "production-rollback.yml"),
-    "name: rollback\npermissions:\n  contents: read\njobs:\n  rollback:\n    permissions:\n      actions: read\n      contents: read\n      issues: write\n    runs-on: ubuntu-latest\n    steps: []\n",
-  );
-  writeFileSync(
-    join(root, ".github", "workflows", "spec-lifecycle.yml"),
-    "name: spec lifecycle\npermissions:\n  actions: read\n  contents: write\n  id-token: write\n  issues: write\n  pull-requests: write\njobs:\n  orchestrate:\n    runs-on: ubuntu-latest\n    steps: []\n",
-  );
-  expectSuccess(git(root, "add", "README.md", ".github/workflows"));
+  expectSuccess(git(root, "add", "README.md"));
   expectSuccess(git(root, "commit", "-m", "Initial fixture"));
   expectSuccess(git(root, "branch", "dev"));
   mkdirSync(join(tempRoot, "tasks"));
@@ -127,9 +82,8 @@ function startTask(
   root: string,
   tempRoot: string,
   slug: string,
-  ...args: string[]
 ): { result: CommandResult; worktree?: string } {
-  const result = run(taskHelper, ["start", slug, ...args], root, {
+  const result = run(taskHelper, ["start", slug], root, {
     env: { TMPDIR: join(tempRoot, "tasks") },
   });
   const worktree = result.stdout.match(/^Task worktree: (.+)$/m)?.[1];
@@ -157,41 +111,6 @@ function cleanupFixture(tempRoot: string): void {
 }
 
 describe("GitHub Actions CI", () => {
-  it("documents the executable personal-repository cutover command and policy", () => {
-    expect(gitWorkflowRunbook).toContain("pnpm github:workflow:apply \\");
-    expect(gitWorkflowRunbook).not.toContain("pnpm github:workflow:apply -- \\");
-    expect(devIntegrationRunbook).toContain("has no bypass actor");
-    expect(devIntegrationRunbook).toContain(
-      "GitHub does not enforce it as the only merge actor",
-    );
-  });
-
-  it("runs spec lifecycle mutations only through the trusted serialized GitHub Actions identity", () => {
-    expect(specLifecycleWorkflow).toContain("workflow_dispatch:");
-    expect(specLifecycleWorkflow).toContain("group: spec-lifecycle");
-    expect(specLifecycleWorkflow).toContain("cancel-in-progress: false");
-    expect(specLifecycleWorkflow).toContain("contents: write");
-    expect(specLifecycleWorkflow).toContain("actions: read");
-    expect(specLifecycleWorkflow).toContain("id-token: write");
-    expect(specLifecycleWorkflow).toContain("issues: write");
-    expect(specLifecycleWorkflow).toContain("pull-requests: write");
-    expect(specLifecycleWorkflow).toContain("ref: dev");
-    expect(specLifecycleWorkflow).toContain("GH_TOKEN: ${{ github.token }}");
-    expect(specLifecycleWorkflow).toContain("pnpm github:spec:lifecycle -- --command-file");
-  });
-  it("gates spec child pull requests with fast CI and affected browser verification", () => {
-    expect(ciWorkflow).toContain('branches: [dev, main, "codex/spec-*"]');
-    expect(ciWorkflow).toContain("  affected-browser-verification:");
-    expect(ciWorkflow).toContain("startsWith(github.base_ref, 'codex/spec-')");
-    expect(ciWorkflow).toContain('pnpm verify:affected -- --base "origin/${{ github.base_ref }}"');
-    for (const name of [
-      "Install Playwright browsers",
-      "Verify affected browser journeys",
-    ]) {
-      expect(workflowStep(name)).toContain("!startsWith(github.base_ref, 'codex/spec-')");
-    }
-  });
-
   it("receives the approved public runtime configuration from repository secrets", () => {
     for (const key of ciPublicRuntimeSecrets) {
       expect(ciWorkflow).toContain(`${key}: \${{ secrets.${key} }}`);
@@ -202,23 +121,20 @@ describe("GitHub Actions CI", () => {
     expect(ciWorkflow).not.toContain("ALGOLIA_ADMIN_API_KEY");
   });
 
-  it("runs affected browser verification only for pull-request merge trees", () => {
+  it("runs production browser verification only for pull-request merge trees", () => {
     for (const name of [
       "Install Playwright browsers",
-      "Verify affected browser journeys",
+      "Build receipted production artifact",
+      "Verify receipted production artifact",
     ]) {
       expect(workflowStep(name)).toContain(
-        "github.event_name == 'pull_request'",
+        "if: ${{ github.event_name == 'pull_request' }}",
       );
     }
 
     expect(workflowStep("Upload Playwright report")).toContain(
       "if: ${{ failure() && github.event_name == 'pull_request' }}",
     );
-    expect(workflowStep("Verify affected browser journeys")).toContain(
-      "pnpm verify:affected -- --base \"origin/${{ github.base_ref }}\"",
-    );
-    expect(ciWorkflow).not.toContain("scripts/verify-production-ci.ts");
 
     for (const name of ["Lint", "Typecheck", "Unit tests"]) {
       expect(workflowStep(name)).not.toContain("github.event_name");
@@ -227,86 +143,6 @@ describe("GitHub Actions CI", () => {
 });
 
 describe("Codex workflow task helper", () => {
-  it("creates a spec integration branch from current dev and starts sibling tickets from it", () => {
-    const { root, tempRoot } = initialiseRepository();
-    try {
-      const devSha = git(root, "rev-parse", "dev").stdout.trim();
-      const spec = run(taskHelper, ["spec-start", "45-checkout-lifecycle"], root);
-      expectSuccess(spec);
-      expect(spec.stdout).toContain("Created codex/spec-45-checkout-lifecycle");
-      expect(git(root, "rev-parse", "codex/spec-45-checkout-lifecycle").stdout.trim()).toBe(
-        devSha,
-      );
-
-      const first = startTask(root, tempRoot, "123-first-slice", "--spec", "45-checkout-lifecycle");
-      const second = startTask(root, tempRoot, "124-second-slice", "--spec", "45-checkout-lifecycle");
-      expectSuccess(first.result);
-      expectSuccess(second.result);
-      expect(git(first.worktree!, "merge-base", "--is-ancestor", "codex/spec-45-checkout-lifecycle", "HEAD").status).toBe(0);
-      expect(git(second.worktree!, "merge-base", "--is-ancestor", "codex/spec-45-checkout-lifecycle", "HEAD").status).toBe(0);
-      expect(first.result.stdout).toContain("Pull request base: codex/spec-45-checkout-lifecycle");
-      expect(second.result.stdout).toContain("Pull request base: codex/spec-45-checkout-lifecycle");
-      commitTicket(first.worktree!, 123, 45);
-      const prepared = run(taskHelper, ["prepare", first.worktree!], root);
-      expectSuccess(prepared);
-      expect(prepared.stdout).toContain(
-        "Ready for code-review against codex/spec-45-checkout-lifecycle",
-      );
-      expect(prepared.stdout).toContain(
-        "open a ready PR targeting codex/spec-45-checkout-lifecycle",
-      );
-    } finally {
-      cleanupFixture(tempRoot);
-    }
-  });
-
-  it("rejects a child base that is a ticket branch instead of the parent spec branch", () => {
-    const { root, tempRoot } = initialiseRepository();
-    try {
-      expectSuccess(git(root, "branch", "codex/122-foundation", "dev"));
-      const started = startTask(root, tempRoot, "123-dependent", "--spec", "122-foundation");
-      expect(started.result.status).not.toBe(0);
-      expect(started.result.stderr).toContain("spec base must be codex/spec-<number>-<slug>");
-      expect(git(root, "show-ref", "--verify", "--quiet", "refs/heads/codex/123-dependent").status).not.toBe(0);
-    } finally {
-      cleanupFixture(tempRoot);
-    }
-  });
-
-  it("keeps spec #50 on the previously executable direct-to-dev workflow", () => {
-    const { root, tempRoot } = initialiseRepository();
-    try {
-      const spec = run(taskHelper, ["spec-start", "50-browser-verification"], root);
-      expect(spec.status).not.toBe(0);
-      expect(spec.stderr).toContain("spec #50 remains on the previously executable workflow");
-      expect(
-        git(root, "show-ref", "--verify", "--quiet", "refs/heads/codex/spec-50-browser-verification").status,
-      ).not.toBe(0);
-    } finally {
-      cleanupFixture(tempRoot);
-    }
-  });
-
-  it("removes the recorded spec target when a managed worktree cannot start a task", () => {
-    const { root, tempRoot } = initialiseRepository();
-    const linked = join(tempRoot, "linked");
-    try {
-      expectSuccess(git(root, "branch", "codex/spec-45-checkout-lifecycle", "dev"));
-      expectSuccess(git(root, "worktree", "add", linked, "dev"));
-      const started = run(
-        taskHelper,
-        ["start", "123-dependent", "--spec", "45-checkout-lifecycle"],
-        linked,
-      );
-      expect(started.status).not.toBe(0);
-      expect(started.stderr).toContain("already owns branch 'dev'");
-      expect(git(root, "show-ref", "--verify", "--quiet", "refs/codex/review-base/123-dependent").status).not.toBe(0);
-      expect(git(root, "symbolic-ref", "-q", "refs/codex/review-target/123-dependent").status).not.toBe(0);
-    } finally {
-      cleanupFixture(tempRoot);
-    }
-  });
-
   it("starts ticket and planning worktrees with recorded review bases", () => {
     for (const slug of [
       "123-checkout-state",
@@ -462,12 +298,6 @@ type FakeGithubState = {
   repo: Record<string, unknown>;
   labels: Array<{ name: string; color: string; description: string }>;
   protections: Record<string, unknown>;
-  githubActionsAppId?: number;
-  rulesets?: Array<Record<string, unknown>>;
-  workflowPermissions?: {
-    default_workflow_permissions: "read" | "write";
-    can_approve_pull_request_reviews: boolean;
-  };
   failAuth?: boolean;
   failIssues?: boolean;
   advanceDev?: boolean;
@@ -531,33 +361,6 @@ if (args[0] === "api") {
     process.stdout.write("[]");
     process.exit(0);
   }
-  if (method === "GET" && endpoint?.includes("/check-runs?per_page=100")) {
-    process.stdout.write(JSON.stringify({
-      check_runs: [{ name: "ci", app: { id: state.githubActionsAppId ?? 15368, slug: "github-actions" } }],
-    }));
-    process.exit(0);
-  }
-  if (method === "GET" && endpoint?.endsWith("/actions/permissions/workflow")) {
-    process.stdout.write(JSON.stringify(state.workflowPermissions ?? {
-      default_workflow_permissions: "write",
-      can_approve_pull_request_reviews: true,
-    }));
-    process.exit(0);
-  }
-  if (method === "GET" && endpoint?.endsWith("/rulesets?includes_parents=false")) {
-    process.stdout.write(JSON.stringify(state.rulesets ?? []));
-    process.exit(0);
-  }
-  const rulesetId = endpoint?.match(/\\/rulesets\\/(\\d+)$/)?.[1];
-  if (method === "GET" && rulesetId) {
-    const ruleset = (state.rulesets ?? []).find((entry) => String(entry.id) === rulesetId);
-    if (!ruleset) {
-      process.stderr.write("gh: Ruleset not found (HTTP 404)\\n");
-      process.exit(1);
-    }
-    process.stdout.write(JSON.stringify(ruleset));
-    process.exit(0);
-  }
   const protection = endpoint?.match(/\\/branches\\/(main|dev)\\/protection$/)?.[1];
   if (method === "GET" && protection) {
     if (!state.protections[protection]) {
@@ -582,27 +385,6 @@ if (args[0] === "api") {
     state.protections[protection] = JSON.parse(input);
     save();
     process.stdout.write(JSON.stringify(state.protections[protection]));
-    process.exit(0);
-  }
-  if (method === "PUT" && endpoint?.endsWith("/actions/permissions/workflow")) {
-    state.workflowPermissions = JSON.parse(input);
-    save();
-    process.stdout.write(JSON.stringify(state.workflowPermissions));
-    process.exit(0);
-  }
-  if ((method === "POST" || method === "PUT") && endpoint?.includes("/rulesets")) {
-    const body = JSON.parse(input);
-    state.rulesets ??= [];
-    if (method === "POST") {
-      body.id = 9001 + state.rulesets.length;
-      state.rulesets.push(body);
-    } else {
-      const index = state.rulesets.findIndex((entry) => String(entry.id) === rulesetId);
-      body.id = Number(rulesetId);
-      state.rulesets[index] = body;
-    }
-    save();
-    process.stdout.write(JSON.stringify(body));
     process.exit(0);
   }
 }
@@ -664,8 +446,6 @@ describe("GitHub workflow bootstrap", () => {
         },
         labels: [],
         protections: {},
-        githubActionsAppId: 15368,
-        rulesets: [],
       };
       writeFileSync(statePath, JSON.stringify(state));
       const fakeGh = writeFakeGh(tempRoot, logPath);
@@ -682,17 +462,6 @@ describe("GitHub workflow bootstrap", () => {
       expectSuccess(planned);
       expect(planned.stdout).toContain(`create remote dev at ${devSha}`);
       expect(planned.stdout).toContain("create label type:spec");
-      expect(planned.stdout).toContain("create label workflow:spec-integrated");
-      expect(planned.stdout).toContain("create label workflow:integration-queued");
-      expect(planned.stdout).toContain("create label workflow:integration-active");
-      expect(planned.stdout).toContain("create label workflow:urgent");
-      expect(planned.stdout).toContain(
-        "create dev pull request integration ruleset with checks from GitHub App 15368",
-      );
-      expect(planned.stdout).toContain(
-        "create protected spec branch ruleset with checks from GitHub App 15368",
-      );
-      expect(planned.stdout).toContain("set default Actions workflow permissions to read-only");
       expect(planned.stdout).toContain("update repository merge settings");
       expect(planned.stdout).toContain("protect dev");
       expect(planned.stdout).toContain("protect main");
@@ -796,12 +565,6 @@ describe("GitHub workflow bootstrap", () => {
         devSha,
         "--confirm-ci-sha",
         devSha,
-        "--confirm-integration-cutover",
-        "dev-integration-authority",
-        "--confirm-spec-branch-cutover",
-        "protected-spec-branches",
-        "--confirm-integration-app-id",
-        "15368",
       );
       expectSuccess(applied);
       expect(applied.stdout).toContain("Applied GitHub workflow configuration.");
@@ -810,35 +573,6 @@ describe("GitHub workflow bootstrap", () => {
       expect(
         state.protections.main.required_pull_request_reviews.required_approving_review_count,
       ).toBe(0);
-      expect(
-        state.rulesets[0].rules.find((rule: { type: string }) => rule.type === "required_status_checks")
-          .parameters.strict_required_status_checks_policy,
-      ).toBe(false);
-      expect(state.protections.dev.required_status_checks.contexts).toEqual([
-        "ci",
-        "verification-system-browser-gate",
-        "verification-lifecycle-gate",
-      ]);
-      expect(
-        state.rulesets[0].rules.find((rule: { type: string }) => rule.type === "required_status_checks")
-          .parameters.required_status_checks.map((check: { context: string }) => check.context),
-      ).toEqual([
-        "ci",
-        "verification-system-browser-gate",
-        "verification-lifecycle-gate",
-      ]);
-      expect(state.rulesets[0].bypass_actors).toEqual([]);
-      expect(
-        state.rulesets[0].rules.some((rule: { type: string }) => rule.type === "update"),
-      ).toBe(false);
-      expect(state.rulesets[1].bypass_actors).toEqual([]);
-      expect(
-        state.rulesets[1].rules.some((rule: { type: string }) => rule.type === "update"),
-      ).toBe(false);
-      expect(state.workflowPermissions).toEqual({
-        default_workflow_permissions: "read",
-        can_approve_pull_request_reviews: false,
-      });
       expect(readFileSync(logPath, "utf8")).not.toContain("collaborators");
 
       writeFileSync(logPath, "");
@@ -888,7 +622,7 @@ describe("GitHub workflow bootstrap", () => {
     } finally {
       cleanupFixture(tempRoot);
     }
-  }, 15_000);
+  });
 
   it("pushes only the confirmed dev SHA when local dev moves during apply", () => {
     const { root, tempRoot, devSha } = initialiseRemoteRepository();
@@ -928,12 +662,6 @@ describe("GitHub workflow bootstrap", () => {
         devSha,
         "--confirm-ci-sha",
         devSha,
-        "--confirm-integration-cutover",
-        "dev-integration-authority",
-        "--confirm-spec-branch-cutover",
-        "protected-spec-branches",
-        "--confirm-integration-app-id",
-        "15368",
       );
       expectSuccess(applied);
       expect(git(root, "rev-parse", "dev").stdout.trim()).not.toBe(devSha);
@@ -945,12 +673,13 @@ describe("GitHub workflow bootstrap", () => {
     }
   });
 
-  const uncertaintyScenarios: Array<{
-    name: string;
-    mutateState?: (state: FakeGithubState) => void;
-    mutateRepo?: (root: string) => void;
-    expected: RegExp;
-  }> = [
+  it("fails closed on authentication, repository, ancestry, and issue capability uncertainty", () => {
+    const scenarios: Array<{
+      name: string;
+      mutateState?: (state: FakeGithubState) => void;
+      mutateRepo?: (root: string) => void;
+      expected: RegExp;
+    }> = [
       {
         name: "authentication",
         mutateState: (state) => {
@@ -982,175 +711,44 @@ describe("GitHub workflow bootstrap", () => {
         },
         expected: /issue API capability/,
       },
-      {
-        name: "default-branch coordinator",
-        mutateRepo: (root) => {
-          expectSuccess(
-            git(
-              root,
-              "rm",
-              ".github/workflows/dev-integration.yml",
-              ".github/workflows/dev-integration-verification.yml",
-            ),
-          );
-          expectSuccess(git(root, "commit", "-m", "Remove coordinator workflows"));
-          expectSuccess(git(root, "branch", "-f", "dev", "HEAD"));
-          expectSuccess(git(root, "push", "origin", "main"));
-        },
-        expected: /trusted writer workflow .* is absent from audited dev|trusted integration workflows must exist on remote main/,
-      },
-      {
-        name: "non-coordinator write authority",
-        mutateRepo: (root) => {
-          writeFileSync(
-            join(root, ".github", "workflows", "rogue.yml"),
-            [
-              "name: rogue",
-              "permissions: { contents: read }",
-              "jobs:",
-              "  mutate:",
-              "    permissions: write-all",
-              "    runs-on: ubuntu-latest",
-              "    steps: []",
-              "",
-            ].join("\n"),
-          );
-          expectSuccess(git(root, "add", ".github/workflows/rogue.yml"));
-          expectSuccess(git(root, "commit", "-m", "Add rogue workflow"));
-          expectSuccess(git(root, "branch", "-f", "dev", "HEAD"));
-        },
-        expected: /non-coordinator workflow '.github\/workflows\/rogue.yml' job 'mutate' requests write-all/,
-      },
-      {
-        name: "CI protected-push excess authority",
-        mutateRepo: (root) => {
-          writeFileSync(
-            join(root, ".github", "workflows", "ci.yml"),
-            "name: CI\npermissions:\n  contents: read\njobs:\n  protected-push-receipt:\n    permissions:\n      actions: write\n      attestations: read\n      contents: read\n      issues: write\n    runs-on: ubuntu-latest\n    steps: []\n",
-          );
-          expectSuccess(git(root, "add", ".github/workflows/ci.yml"));
-          expectSuccess(git(root, "commit", "-m", "Overgrant protected push"));
-          expectSuccess(git(root, "branch", "-f", "dev", "HEAD"));
-        },
-        expected: /CI protected-push receipt job must grant only actions: write, attestations: read, and contents: read/,
-      },
-      {
-        name: "CI misplaced write authority",
-        mutateRepo: (root) => {
-          writeFileSync(
-            join(root, ".github", "workflows", "ci.yml"),
-            "name: CI\npermissions:\n  contents: read\njobs:\n  ci-core:\n    permissions:\n      actions: write\n      contents: read\n    runs-on: ubuntu-latest\n    steps: []\n  protected-push-receipt:\n    permissions:\n      actions: write\n      attestations: read\n      contents: read\n    runs-on: ubuntu-latest\n    steps: []\n",
-          );
-          expectSuccess(git(root, "add", ".github/workflows/ci.yml"));
-          expectSuccess(git(root, "commit", "-m", "Overgrant core CI"));
-          expectSuccess(git(root, "branch", "-f", "dev", "HEAD"));
-        },
-        expected: /CI job 'ci-core' must inherit contents: read/,
-      },
-      {
-        name: "CI top-level excess authority",
-        mutateRepo: (root) => {
-          writeFileSync(
-            join(root, ".github", "workflows", "ci.yml"),
-            "name: CI\npermissions:\n  actions: read\n  contents: read\njobs:\n  protected-push-receipt:\n    permissions:\n      actions: write\n      attestations: read\n      contents: read\n    runs-on: ubuntu-latest\n    steps: []\n",
-          );
-          expectSuccess(git(root, "add", ".github/workflows/ci.yml"));
-          expectSuccess(git(root, "commit", "-m", "Overgrant CI workflow"));
-          expectSuccess(git(root, "branch", "-f", "dev", "HEAD"));
-        },
-        expected: /CI workflow must default to only contents: read/,
-      },
-      {
-        name: "attestation signer authority",
-        mutateRepo: (root) => {
-          writeFileSync(
-            join(root, ".github", "workflows", "dev-integration-verification.yml"),
-            "name: verification\npermissions:\n  contents: write\njobs:\n  verify:\n    runs-on: ubuntu-latest\n    steps: []\n",
-          );
-          expectSuccess(git(root, "add", ".github/workflows/dev-integration-verification.yml"));
-          expectSuccess(git(root, "commit", "-m", "Overgrant receipt signer"));
-          expectSuccess(git(root, "branch", "-f", "dev", "HEAD"));
-        },
-        expected: /attestation signer workflow must default to contents: read/,
-      },
-      {
-        name: "scheduled workflow excess authority",
-        mutateRepo: (root) => {
-          writeFileSync(
-            join(root, ".github", "workflows", "scheduled-browser-verification.yml"),
-            "name: scheduled\npermissions:\n  actions: write\n  contents: read\n  issues: write\njobs:\n  verify:\n    runs-on: ubuntu-latest\n    steps: []\n",
-          );
-          expectSuccess(
-            git(root, "add", ".github/workflows/scheduled-browser-verification.yml"),
-          );
-          expectSuccess(git(root, "commit", "-m", "Overgrant scheduled workflow"));
-          expectSuccess(git(root, "branch", "-f", "dev", "HEAD"));
-        },
-        expected: /scheduled browser verification must grant only contents: read and issues: write/,
-      },
-      {
-        name: "Production Promotion excess authority",
-        mutateRepo: (root) => {
-          writeFileSync(
-            join(root, ".github", "workflows", "production-promotion.yml"),
-            "name: promotion\npermissions:\n  contents: read\njobs:\n  plan:\n    permissions:\n      actions: write\n      attestations: read\n      checks: read\n      contents: read\n      issues: read\n      pull-requests: write\n    runs-on: ubuntu-latest\n    steps: []\n  promote:\n    permissions:\n      actions: read\n      attestations: read\n      checks: read\n      contents: write\n      issues: read\n      pull-requests: write\n    runs-on: ubuntu-latest\n    steps: []\n",
-          );
-          expectSuccess(git(root, "add", ".github/workflows/production-promotion.yml"));
-          expectSuccess(git(root, "commit", "-m", "Overgrant Production Promotion"));
-          expectSuccess(git(root, "branch", "-f", "dev", "HEAD"));
-        },
-        expected: /Production Promotion job 'plan' exceeds its exact authority/,
-      },
-      {
-        name: "Production Rollback excess authority",
-        mutateRepo: (root) => {
-          writeFileSync(
-            join(root, ".github", "workflows", "production-rollback.yml"),
-            "name: rollback\npermissions:\n  contents: read\njobs:\n  rollback:\n    permissions:\n      actions: read\n      contents: write\n      issues: write\n    runs-on: ubuntu-latest\n    steps: []\n",
-          );
-          expectSuccess(git(root, "add", ".github/workflows/production-rollback.yml"));
-          expectSuccess(git(root, "commit", "-m", "Overgrant Production Rollback"));
-          expectSuccess(git(root, "branch", "-f", "dev", "HEAD"));
-        },
-        expected: /Production Rollback exceeds its exact restoration authority/,
-      },
-  ];
+    ];
 
-  it.each(uncertaintyScenarios)("fails closed on $name uncertainty", (scenario) => {
-    const { root, tempRoot } = initialiseRemoteRepository();
-    try {
-      const statePath = join(tempRoot, "github-state.json");
-      const logPath = join(tempRoot, "github-calls.log");
-      const state: FakeGithubState = {
-        repo: {
-          nameWithOwner: "brandon-y-lee/mei-pelle",
-          defaultBranchRef: { name: "main" },
-          hasIssuesEnabled: true,
-          mergeCommitAllowed: true,
-          squashMergeAllowed: true,
-          rebaseMergeAllowed: false,
-          deleteBranchOnMerge: true,
-        },
-        labels: [],
-        protections: {},
-      };
-      scenario.mutateState?.(state);
-      scenario.mutateRepo?.(root);
-      writeFileSync(statePath, JSON.stringify(state));
-      const fakeGh = writeFakeGh(tempRoot, logPath);
-      const planned = bootstrap(
-        root,
-        fakeGh,
-        statePath,
-        logPath,
-        "plan",
-        "--repo",
-        "brandon-y-lee/mei-pelle",
-      );
-      expect(planned.status, scenario.name).not.toBe(0);
-      expect(planned.stderr).toMatch(scenario.expected);
-    } finally {
-      cleanupFixture(tempRoot);
+    for (const scenario of scenarios) {
+      const { root, tempRoot } = initialiseRemoteRepository();
+      try {
+        const statePath = join(tempRoot, "github-state.json");
+        const logPath = join(tempRoot, "github-calls.log");
+        const state: FakeGithubState = {
+          repo: {
+            nameWithOwner: "brandon-y-lee/mei-pelle",
+            defaultBranchRef: { name: "main" },
+            hasIssuesEnabled: true,
+            mergeCommitAllowed: true,
+            squashMergeAllowed: true,
+            rebaseMergeAllowed: false,
+            deleteBranchOnMerge: true,
+          },
+          labels: [],
+          protections: {},
+        };
+        scenario.mutateState?.(state);
+        scenario.mutateRepo?.(root);
+        writeFileSync(statePath, JSON.stringify(state));
+        const fakeGh = writeFakeGh(tempRoot, logPath);
+        const planned = bootstrap(
+          root,
+          fakeGh,
+          statePath,
+          logPath,
+          "plan",
+          "--repo",
+          "brandon-y-lee/mei-pelle",
+        );
+        expect(planned.status, scenario.name).not.toBe(0);
+        expect(planned.stderr).toMatch(scenario.expected);
+      } finally {
+        cleanupFixture(tempRoot);
+      }
     }
   });
 });

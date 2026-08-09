@@ -3,7 +3,6 @@ import react from "@vitejs/plugin-react";
 import { resolve } from "node:path";
 
 export default defineConfig({
-  cacheDir: process.env.MEI_PELLE_VITE_CACHE_DIR ?? "node_modules/.vite",
   plugins: [react()],
   test: {
     environment: "jsdom",
