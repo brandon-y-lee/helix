@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   bootstrapInitialVerificationReceipt,
+  canCarryForwardProtectedPushReceipt,
   findReusableProtectedPushReceiptWithEvidence,
   isInitialReceiptVerificationCutover,
   writeVerificationExecutionEvidence,
@@ -45,6 +46,14 @@ const receipt: VerificationReceipt = {
 };
 
 describe("GitHub Verification Receipt lookup", () => {
+  it("carries a receipt across an ancestry-only protected push", () => {
+    expect(canCarryForwardProtectedPushReceipt([])).toBe(true);
+    expect(canCarryForwardProtectedPushReceipt([
+      "docs/agents/browser-verification.md",
+    ])).toBe(true);
+    expect(canCarryForwardProtectedPushReceipt(["app/page.tsx"])).toBe(false);
+  });
+
   it("records actual artifact, Catalog, browser version, and retry evidence for orchestration", async () => {
     const directory = await mkdtemp(resolve(tmpdir(), "mei-pelle-execution-evidence-"));
     const evidencePath = resolve(directory, "execution.json");

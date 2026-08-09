@@ -400,6 +400,14 @@ export async function findReusableProtectedPushReceiptWithEvidence(input: {
   return { outcome: "missing" as const, reusable: false as const };
 }
 
+/**
+ * A reviewed merge with no changed paths is ancestry-only, so it is the safest
+ * form of non-runtime receipt carry-forward.
+ */
+export function canCarryForwardProtectedPushReceipt(changedPaths: string[]): boolean {
+  return changedPaths.every(isReviewedNonRuntimePath);
+}
+
 const PROTECTED_PUSH_SCRIPT = "verification:receipt:protected-push";
 const PROTECTED_PUSH_COMMAND = "tsx scripts/github/verification-receipt-command.ts protected-push";
 
@@ -534,8 +542,7 @@ export async function verifyProtectedBranchPushReceipt(input: {
     { cwd, encoding: "utf8" },
   );
   const changedPaths = changed.stdout.split("\n").filter(Boolean);
-  const allowIntegrationCarryForward =
-    changedPaths.length > 0 && changedPaths.every(isReviewedNonRuntimePath);
+  const allowIntegrationCarryForward = canCarryForwardProtectedPushReceipt(changedPaths);
   const files = await readVersionedFiles(cwd);
   const configurationFingerprint = fingerprintConfiguration(environment);
   const runtimeSubject = canonicalizeVerificationValue({

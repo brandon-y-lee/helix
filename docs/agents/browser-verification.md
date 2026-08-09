@@ -131,7 +131,7 @@ The integration workflow writes a canonical JSON predicate, signs it with GitHub
 
 The required check and Actions summary link to the attestation. Successful browser reports and structured timing data use 30-day artifacts; failed reports, screenshots, and traces use 90-day artifacts. Receipts never contain secrets, Customer information, raw provider payloads, or raw Catalog data.
 
-A protected-branch push does not repeat a valid pre-merge browser result. Documentation-only changes may carry forward the same Runtime Fingerprint. A source tree, dependency, environment, Catalog, browser, plan, or artifact mismatch requires new evidence.
+A protected-branch push does not repeat a valid pre-merge browser result. Documentation-only changes may carry forward the same Runtime Fingerprint. An ancestry-only merge whose result tree is identical to its `dev` parent may also carry forward the prior receipt after the command proves exactly one associated merged pull request and every runtime, configuration, Catalog, browser, plan, tool, and available artifact identity still matches. A source tree, dependency, environment, Catalog, browser, plan, tool, or artifact mismatch requires new evidence.
 
 ## Scheduled and remote verification
 
