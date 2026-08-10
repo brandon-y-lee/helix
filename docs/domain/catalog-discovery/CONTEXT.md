@@ -109,7 +109,7 @@ The foundational Routine Group for Products that fulfill CLEANSE, TREAT, and SEA
 _Avoid_: Core Collection, FOUNDATION
 
 **Beyond The Core**:
-The Routine Group for Products that extend The Core. Its current members fulfill REFINE, FRAME, PROTECT, and LIFT.
+The Routine Group for Products that extend The Core. Products that fulfill REFINE, FRAME, PROTECT, or LIFT belong to this group.
 _Avoid_: Beyond the Core, Beyond Core Collection
 
 **Shop Collection**:
