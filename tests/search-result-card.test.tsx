@@ -17,6 +17,8 @@ const comingSoonProduct: AlgoliaProductRecord = {
   routineSort: 70,
   badge: "Coming soon",
   status: "coming_soon",
+  priceMin: null,
+  priceMax: null,
   currency: "USD",
   available: false,
   waitlist: false,
@@ -41,6 +43,25 @@ const comingSoonProduct: AlgoliaProductRecord = {
   texture: null,
 };
 
+const waitlistProduct: AlgoliaProductRecord = {
+  ...comingSoonProduct,
+  objectID: "mineral-guard",
+  productId: "mineral-guard",
+  slug: "mineral-guard",
+  displayName: "Mineral Guard",
+  productType: "Mineral facial sunscreen",
+  systemStepPosition: 6,
+  systemStepName: "PROTECT",
+  routineSort: 60,
+  badge: "Waitlist",
+  status: "waitlist",
+  priceMin: null,
+  priceMax: null,
+  waitlist: true,
+  variantCount: 0,
+  variantNames: [],
+};
+
 describe("SearchResultCard", () => {
   it("routes coming-soon products to details without promising a waitlist", () => {
     render(<SearchResultCard hit={comingSoonProduct} />);
@@ -53,5 +74,13 @@ describe("SearchResultCard", () => {
     expect(
       screen.getByRole("link", { name: "LIFT — Eye treatment" }),
     ).toHaveAttribute("href", "/products/lift");
+  });
+
+  it("omits fabricated pricing for a zero-Offer Waitlist Product", () => {
+    render(<SearchResultCard hit={waitlistProduct} />);
+
+    expect(screen.getByText("Waitlist")).toBeInTheDocument();
+    expect(screen.getByText("View details")).toBeInTheDocument();
+    expect(screen.queryByText("$0.00")).not.toBeInTheDocument();
   });
 });

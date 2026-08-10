@@ -87,6 +87,19 @@ describe("Product structured data", () => {
     expect(structuredData).not.toHaveProperty("offers");
   });
 
+  it("publishes waitlist Product identity without fabricating an Offer", () => {
+    const structuredData = buildProductStructuredData(
+      product({ status: "waitlist", variants: [] }),
+      new URL("https://meipelle.example"),
+    );
+
+    expect(structuredData).toMatchObject({
+      "@type": "Product",
+      name: "Peptide Bounce — PDRN serum",
+    });
+    expect(structuredData).not.toHaveProperty("offers");
+  });
+
   it("escapes markup-significant characters before embedding JSON-LD", () => {
     expect(serializeStructuredData({ description: "</script>" })).toBe(
       '{"description":"\\u003c/script>"}',

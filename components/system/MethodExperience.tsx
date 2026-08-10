@@ -48,6 +48,7 @@ function availabilityLabel(product: Product) {
   if (isAvailableProduct(product)) return "Available";
   if (product.status === "coming_soon") return "Coming soon";
   if (product.status === "sold_out") return "Sold out";
+  if (product.status === "waitlist") return "Waitlist";
   return "Unavailable";
 }
 

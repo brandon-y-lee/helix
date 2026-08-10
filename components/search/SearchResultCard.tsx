@@ -23,7 +23,7 @@ export function SearchResultCard({
 }) {
   const href = `/products/${hit.slug}`;
   const priceLabel =
-    hit.priceMin === undefined || hit.priceMax === undefined
+    hit.priceMin === null || hit.priceMax === null
       ? null
       : hit.priceMax > hit.priceMin
         ? `From ${formatPrice(hit.priceMin)}`

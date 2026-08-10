@@ -97,26 +97,30 @@ function collectionMismatches(
     const expectedPrice = journeys.cardPriceLabel(product);
     if ((price ?? null) !== expectedPrice) {
       mismatches.push(
-        `${path} Product "${product.slug}" price was "${price ?? "missing"}" instead of "${expectedPrice}".`,
+        `${path} Product "${product.slug}" price was "${price ?? "missing"}" instead of "${expectedPrice ?? "missing"}".`,
       );
     }
     const quickBuy = card
       ?.querySelector(".product-card__quick-trigger")
       ?.textContent?.trim();
-    const selectedVariant = product.offer
-      ? product.variants.find((variant) => variant.id === product.offer?.variantId)
-      : product.variants[0];
-    const expectedQuickBuy = productPurchaseCta(
-      {
-        displayName: product.displayName,
-        status: product.merchandisingStatus,
-        variants: product.variants,
-      },
-      selectedVariant,
-    ).label;
+    const expectedQuickBuy =
+      product.merchandisingStatus === "waitlist"
+        ? undefined
+        : productPurchaseCta(
+            {
+              displayName: product.displayName,
+              status: product.merchandisingStatus,
+              variants: product.variants,
+            },
+            product.offer
+              ? product.variants.find(
+                  (variant) => variant.id === product.offer?.variantId,
+                )
+              : product.variants[0],
+          ).label;
     if (quickBuy !== expectedQuickBuy) {
       mismatches.push(
-        `${path} Product "${product.slug}" purchase label was "${quickBuy ?? "missing"}" instead of "${expectedQuickBuy}".`,
+        `${path} Product "${product.slug}" purchase label was "${quickBuy ?? "missing"}" instead of "${expectedQuickBuy ?? "missing"}".`,
       );
     }
     const offerPresentation = productOfferPresentation(product.variants);

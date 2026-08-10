@@ -188,16 +188,20 @@ export function ProductCard({
     availableVariants[0] ??
     product.variants[0] ??
     null;
-  const isQuickBuyOpen = controlled ? quickBuyOpen : localQuickBuyOpen;
+  const isWaitlist = product.status === "waitlist";
+  const isQuickBuyOpen =
+    !isWaitlist && (controlled ? quickBuyOpen : localQuickBuyOpen);
   const purchaseCta = productPurchaseCta(product, selectedVariant);
   const canBuy = purchaseCta.purchasable;
   const offerPresentation = productOfferPresentation(product.variants);
   const startingPrice = offerPresentation.showPrice
     ? Math.min(...offerPresentation.offers.map((variant) => variant.price))
     : null;
-  const priceLabel = startingPrice === null
-    ? null
-    : `${offerPresentation.hasMultipleOffers ? "From " : ""}${formatPrice(startingPrice)}`;
+  const priceLabel = isWaitlist
+    ? "Waitlist"
+    : startingPrice === null
+      ? null
+      : `${offerPresentation.hasMultipleOffers ? "From " : ""}${formatPrice(startingPrice)}`;
   const displayName = product.displayName;
   const cardImageSizes =
     defaultImage?.sizes ??
@@ -588,46 +592,49 @@ export function ProductCard({
               </m.span>
             </Link>
 
-            <m.div
-              className="product-card__cta"
-              data-motion-state={ctaMotionState}
-              variants={PRODUCT_CARD_CTA_VARIANTS}
-              initial={false}
-              animate={ctaMotionState}
-              transition={{
-                type: "tween",
-                duration: shouldReduceMotion ? 0 : 0.7,
-                ease: PRODUCT_CARD_CTA_EASE,
-              }}
-            >
-              <button
-                ref={triggerRef}
-                type="button"
-                className="product-card__button product-card__quick-trigger"
-                onClick={openQuickBuy}
-                aria-label={
-                  canBuy
-                    ? `Open quick buy for ${displayName}`
-                    : purchaseCta.label
-                }
-                aria-expanded={isQuickBuyOpen}
-                aria-controls={panelId}
-                disabled={!canBuy}
-                tabIndex={
-                  isQuickBuyOpen || visualState === "default" ? -1 : undefined
-                }
+            {!isWaitlist && (
+              <m.div
+                className="product-card__cta"
+                data-motion-state={ctaMotionState}
+                variants={PRODUCT_CARD_CTA_VARIANTS}
+                initial={false}
+                animate={ctaMotionState}
+                transition={{
+                  type: "tween",
+                  duration: shouldReduceMotion ? 0 : 0.7,
+                  ease: PRODUCT_CARD_CTA_EASE,
+                }}
               >
-                {purchaseCta.label}
-              </button>
-            </m.div>
+                <button
+                  ref={triggerRef}
+                  type="button"
+                  className="product-card__button product-card__quick-trigger"
+                  onClick={openQuickBuy}
+                  aria-label={
+                    canBuy
+                      ? `Open quick buy for ${displayName}`
+                      : purchaseCta.label
+                  }
+                  aria-expanded={isQuickBuyOpen}
+                  aria-controls={panelId}
+                  disabled={!canBuy}
+                  tabIndex={
+                    isQuickBuyOpen || visualState === "default" ? -1 : undefined
+                  }
+                >
+                  {purchaseCta.label}
+                </button>
+              </m.div>
+            )}
 
-            <section
-              id={panelId}
-              className="product-card__quick-buy"
-              data-open={isQuickBuyOpen}
-              aria-hidden={!isQuickBuyOpen}
-              aria-labelledby={`${panelId}-title`}
-            >
+            {!isWaitlist && (
+              <section
+                id={panelId}
+                className="product-card__quick-buy"
+                data-open={isQuickBuyOpen}
+                aria-hidden={!isQuickBuyOpen}
+                aria-labelledby={`${panelId}-title`}
+              >
               <button
                 type="button"
                 className="product-card__quick-close"
@@ -717,7 +724,8 @@ export function ProductCard({
                   {pending ? "ADDING" : purchaseCta.label}
                 </button>
               </div>
-            </section>
+              </section>
+            )}
           </div>
         </MotionConfig>
       </LazyMotion>

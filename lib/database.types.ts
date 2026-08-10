@@ -1495,6 +1495,17 @@ export type Database = {
         Args: { p_actor_id: string; p_product_id: string }
         Returns: Json
       }
+      enroll_product_waitlist: {
+        Args: {
+          p_abuse_key: string
+          p_marketing_consent: boolean
+          p_normalized_email: string
+          p_policy_version: string
+          p_product_id: string
+          p_source: string
+        }
+        Returns: Json
+      }
       ensure_loyalty_account: {
         Args: { p_user_id: string }
         Returns: undefined

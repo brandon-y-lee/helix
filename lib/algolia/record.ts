@@ -1,6 +1,7 @@
 // Storefront-safe Algolia record and deterministic canonical mapper.
 
 import {
+  isProductStatus,
   productOfferPresentation,
   type ProductStatus,
   type Variant,
@@ -85,8 +86,8 @@ export type AlgoliaProductRecord = {
   routineSort: number;
   badge: string | null;
   status: ProductStatus;
-  priceMin?: number;
-  priceMax?: number;
+  priceMin: number | null;
+  priceMax: number | null;
   currency: "USD";
   available: boolean;
   waitlist: boolean;
@@ -134,16 +135,8 @@ export type AlgoliaProductRecord = {
   texture: string | null;
 };
 
-const VALID_STATUSES: ProductStatus[] = [
-  "available",
-  "coming_soon",
-  "sold_out",
-];
-
 function toStatus(value: string): ProductStatus {
-  return (VALID_STATUSES as string[]).includes(value)
-    ? (value as ProductStatus)
-    : "available";
+  return isProductStatus(value) ? value : "available";
 }
 
 function toRoutineGroup(
@@ -295,7 +288,7 @@ export function buildAlgoliaRecord(
     ...(row.key_ingredients ?? []),
     ...(row.search_keywords ?? []),
     ...slugAliases,
-    ...variants.map((variant) => variant.label),
+    ...offerPresentation.offers.map((variant) => variant.label),
   ].filter((value): value is string => Boolean(value?.trim()));
 
   return {
@@ -312,18 +305,20 @@ export function buildAlgoliaRecord(
     routineSort: row.routine_sort,
     badge: statusLabel(status) ?? row.badge,
     status,
-    ...(offerPrices.length > 0
-      ? {
-          priceMin: Math.min(...offerPrices),
-          priceMax: Math.max(...offerPrices),
-        }
-      : {}),
+    priceMin:
+      status !== "waitlist" && offerPrices.length
+        ? Math.min(...offerPrices)
+        : null,
+    priceMax:
+      status !== "waitlist" && offerPrices.length
+        ? Math.max(...offerPrices)
+        : null,
     currency: "USD",
     available:
       row.catalog_status === "active" &&
       status === "available" &&
       availableVariants.length > 0,
-    waitlist: false,
+    waitlist: status === "waitlist",
     variantCount: offerPresentation.offers.length,
     variantNames: offerPresentation.offers.map((variant) => variant.label),
     keywords,
