@@ -33,3 +33,4 @@ Define an individual value from a finite platform vocabulary only when it has no
 - **Feedback & Reputation → People & Access, Catalog & Discovery, and Ordering & Payment**: feedback and reviews connect a person to a Product or qualifying Order without taking ownership of those concepts.
 - **Service & Fulfillment → People & Access and Ordering & Payment**: service may assist a Visitor or Customer, and fulfillment may concern a Customer and Order.
 - **Trust & Policy → Brand & Platform, People & Access, and Service & Fulfillment**: policies govern platform commitments, customer choices, and service representations without owning their operational execution.
+- **Trust & Policy → Catalog & Discovery**: a Product Waitlist Enrollment records a Product-specific notification choice without changing the Product's Catalog, merchandising, inventory, or Product Offer state.
