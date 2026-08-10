@@ -107,10 +107,26 @@ const beyond = product({
   media: [],
   offer: null,
 });
+const waitlist = product({
+  id: "waitlist-id",
+  slug: "mineral-guard",
+  path: "/products/mineral-guard",
+  displayName: "Mineral Guard",
+  productType: "Mineral facial sunscreen",
+  merchandisingStatus: "waitlist",
+  routineGroup: "beyond_core",
+  systemPosition: 6,
+  systemStepName: "PROTECT",
+  routineSort: 30,
+  sortOrder: 30,
+  variants: [],
+  media: [],
+  offer: null,
+});
 
 const snapshot = {
   schemaVersion: 1,
-  products: [core, beyond],
+  products: [core, beyond, waitlist],
   routineComplements: [],
   journeys: {
     coreProductId: core.id,
@@ -127,16 +143,20 @@ function collectionHtml(products: readonly StorefrontSnapshotProduct[]) {
     <ul>${products.map((item) => {
       const startingPrice = item.variants.length
         ? Math.min(...item.variants.map((variant) => variant.price))
-        : 0;
-      const price = `${item.variants.length > 1 ? "From " : ""}$${(startingPrice / 100).toFixed(2)}`;
+        : null;
+      const price = item.merchandisingStatus === "waitlist"
+        ? "Waitlist"
+        : startingPrice === null
+          ? null
+          : `${item.variants.length > 1 ? "From " : ""}$${(startingPrice / 100).toFixed(2)}`;
       const buyLabel = item.offer
         ? `BUY ${item.displayName} - $${(item.offer.price / 100).toFixed(2)}`
         : "OUT OF STOCK";
       return `
       <li data-product-card-slug="${item.slug}">
         <span class="product-card__name">${item.displayName}</span>
-        <span class="product-card__price">${price}</span>
-        <button class="product-card__quick-trigger">${buyLabel}</button>
+        ${price === null ? "" : `<span class="product-card__price">${price}</span>`}
+        ${item.merchandisingStatus === "waitlist" ? "" : `<button class="product-card__quick-trigger">${buyLabel}</button>`}
       </li>`;
     }).join("")}
     </ul>
@@ -171,7 +191,7 @@ describe("Storefront snapshot reconciliation", () => {
         return new Response(collectionHtml([core]), { status: 200 });
       }
       if (pathname === "/collections/beyond-the-core") {
-        return new Response(collectionHtml([beyond]), { status: 200 });
+        return new Response(collectionHtml([beyond, waitlist]), { status: 200 });
       }
       if (pathname === core.path) {
         return new Response(pdpHtml(core), { status: 200 });
@@ -191,7 +211,7 @@ describe("Storefront snapshot reconciliation", () => {
     ).resolves.toBeUndefined();
 
     expect(shopReads).toBe(2);
-    expect(snapshot.products).toEqual([core, beyond]);
+    expect(snapshot.products).toEqual([core, beyond, waitlist]);
   });
 
   it("fails after 15 seconds with a cache-reconciliation rerun diagnostic", async () => {
@@ -205,7 +225,7 @@ describe("Storefront snapshot reconciliation", () => {
         return new Response(collectionHtml([core]), { status: 200 });
       }
       if (pathname === "/collections/beyond-the-core") {
-        return new Response(collectionHtml([beyond]), { status: 200 });
+        return new Response(collectionHtml([beyond, waitlist]), { status: 200 });
       }
       if (pathname === core.path) {
         return new Response(pdpHtml(core), { status: 200 });
@@ -294,6 +314,8 @@ describe("Storefront journey expectations", () => {
       variant: { id: "standard", label: "Standard", price: 2400 },
     });
     expect(journeys.cardPriceLabel(multiVariantProduct)).toBe("From $12.00");
+    expect(journeys.cardPriceLabel(beyond)).toBeUndefined();
+    expect(journeys.cardPriceLabel(waitlist)).toBe("Waitlist");
     expect(
       journeys.gallery(multiVariantProduct).map((item) => item.alt),
     ).toEqual(["Core detail", "Core bottle", "Core motion"]);

@@ -24,8 +24,21 @@ export type Variant = {
   sortOrder: number;
 };
 
-/** Availability state driving badges and purchase controls. */
-export type ProductStatus = "available" | "coming_soon" | "sold_out";
+/** Availability states driving badges and purchase controls. */
+export const PRODUCT_STATUSES = [
+  "available",
+  "coming_soon",
+  "sold_out",
+  "waitlist",
+] as const;
+export type ProductStatus = (typeof PRODUCT_STATUSES)[number];
+
+export function isProductStatus(value: unknown): value is ProductStatus {
+  return (
+    typeof value === "string" &&
+    (PRODUCT_STATUSES as readonly string[]).includes(value)
+  );
+}
 
 export type CatalogStatus = "active" | "draft" | "archived";
 
@@ -164,6 +177,13 @@ export function productPurchaseCta<TOffer extends PurchaseOffer>(
   product: PurchaseProduct<TOffer>,
   variant: TOffer | null | undefined,
 ) {
+  if (product.status === "waitlist") {
+    return {
+      label: "Join the waitlist",
+      purchasable: false,
+      variant: variant ?? null,
+    };
+  }
   const purchasable = isVariantPurchasable(product, variant);
   return {
     label: purchasable

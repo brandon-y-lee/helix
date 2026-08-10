@@ -1,6 +1,6 @@
 // Storefront-safe Algolia record and deterministic canonical mapper.
 
-import type { ProductStatus } from "@/lib/products";
+import { isProductStatus, type ProductStatus } from "@/lib/products";
 import { statusLabel } from "@/lib/catalog/product-status";
 import { routineGroupLabel } from "@/lib/catalog/product-routine";
 import {
@@ -81,8 +81,8 @@ export type AlgoliaProductRecord = {
   routineSort: number;
   badge: string | null;
   status: ProductStatus;
-  priceMin: number;
-  priceMax: number;
+  priceMin: number | null;
+  priceMax: number | null;
   currency: "USD";
   available: boolean;
   waitlist: boolean;
@@ -130,16 +130,8 @@ export type AlgoliaProductRecord = {
   texture: string | null;
 };
 
-const VALID_STATUSES: ProductStatus[] = [
-  "available",
-  "coming_soon",
-  "sold_out",
-];
-
 function toStatus(value: string): ProductStatus {
-  return (VALID_STATUSES as string[]).includes(value)
-    ? (value as ProductStatus)
-    : "available";
+  return isProductStatus(value) ? value : "available";
 }
 
 function toRoutineGroup(
@@ -301,14 +293,16 @@ export function buildAlgoliaRecord(
     routineSort: row.routine_sort,
     badge: statusLabel(status) ?? row.badge,
     status,
-    priceMin: prices.length ? Math.min(...prices) : 0,
-    priceMax: prices.length ? Math.max(...prices) : 0,
+    priceMin:
+      status !== "waitlist" && prices.length ? Math.min(...prices) : null,
+    priceMax:
+      status !== "waitlist" && prices.length ? Math.max(...prices) : null,
     currency: "USD",
     available:
       row.catalog_status === "active" &&
       status === "available" &&
       availableVariants.length > 0,
-    waitlist: status === "coming_soon",
+    waitlist: status === "waitlist",
     variantCount: variants.length,
     variantNames: variants.map((variant) => variant.label),
     keywords,

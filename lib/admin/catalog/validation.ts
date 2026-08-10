@@ -11,6 +11,7 @@ import {
   PRODUCT_SLUG_PATTERN,
 } from "@/lib/catalog/product-slug";
 import { systemStepByName } from "@/lib/catalog/system-steps";
+import { PRODUCT_STATUSES } from "@/lib/products";
 import {
   catalogFieldsForTable,
   type CatalogEditorTable,
@@ -20,7 +21,6 @@ const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const SHA256_PATTERN = /^[0-9a-f]{64}$/;
 
-const PRODUCT_STATUSES = ["available", "coming_soon", "sold_out"] as const;
 const CATALOG_STATUSES = ["active", "archived", "draft"] as const;
 const ROUTINE_GROUPS = ["core", "beyond_core"] as const;
 const INVENTORY_STATUSES = [
@@ -904,6 +904,19 @@ export function validateProductEditorDocument(
   const variantIds = Array.isArray(input.variants)
     ? validateVariants(input.variants, productId, issues)
     : new Set<string>();
+  if (
+    isRecord(input.product) &&
+    input.product.status === "waitlist" &&
+    Array.isArray(input.variants) &&
+    input.variants.length > 0
+  ) {
+    issue(
+      issues,
+      "variants",
+      "waitlist_offer_forbidden",
+      "A Waitlist Product cannot publish a Product Offer.",
+    );
+  }
   const productSlug =
     isRecord(input.product) && typeof input.product.slug === "string"
       ? input.product.slug

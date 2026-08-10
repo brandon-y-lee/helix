@@ -256,8 +256,19 @@ describe("buildAlgoliaRecord", () => {
   it("flags availability/waitlist and badge from status", () => {
     const coming = buildAlgoliaRecord({ ...sourceRow, status: "coming_soon" });
     expect(coming.available).toBe(false);
-    expect(coming.waitlist).toBe(true);
+    expect(coming.waitlist).toBe(false);
     expect(coming.badge).toBe("Coming soon");
+
+    const waitlist = buildAlgoliaRecord({
+      ...sourceRow,
+      status: "waitlist",
+      product_variants: [],
+    });
+    expect(waitlist.available).toBe(false);
+    expect(waitlist.waitlist).toBe(true);
+    expect(waitlist.badge).toBe("Waitlist");
+    expect(waitlist.priceMin).toBeNull();
+    expect(waitlist.priceMax).toBeNull();
 
     const soldOut = buildAlgoliaRecord({ ...sourceRow, status: "sold_out" });
     expect(soldOut.available).toBe(false);
@@ -268,8 +279,8 @@ describe("buildAlgoliaRecord", () => {
   it("handles a product with no variants", () => {
     const r = buildAlgoliaRecord({ ...sourceRow, product_variants: null });
     expect(r.variantCount).toBe(0);
-    expect(r.priceMin).toBe(0);
-    expect(r.priceMax).toBe(0);
+    expect(r.priceMin).toBeNull();
+    expect(r.priceMax).toBeNull();
     expect(r.variantNames).toEqual([]);
   });
 

@@ -96,6 +96,11 @@ describe("catalog editor field metadata", () => {
       expect(canCatalogRoleEditField("admin", "products", field)).toBe(false);
     }
     expect(canCatalogRoleEditField("admin", "products", "slug")).toBe(true);
+    expect(
+      catalogFieldsForTable("products").find(
+        (field) => field.field === "status",
+      )?.options,
+    ).toContain("waitlist");
     expect(canCatalogRoleEditField("catalog_publisher", "products", "slug")).toBe(false);
     expect(
       catalogFieldsForTable("products").find((field) => field.field === "slug"),

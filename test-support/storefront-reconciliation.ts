@@ -93,18 +93,21 @@ function collectionMismatches(
     const expectedPrice = journeys.cardPriceLabel(product);
     if (price !== expectedPrice) {
       mismatches.push(
-        `${path} Product "${product.slug}" price was "${price ?? "missing"}" instead of "${expectedPrice}".`,
+        `${path} Product "${product.slug}" price was "${price ?? "missing"}" instead of "${expectedPrice ?? "missing"}".`,
       );
     }
     const quickBuy = card
       ?.querySelector(".product-card__quick-trigger")
       ?.textContent?.trim();
-    const expectedQuickBuy = product.offer
-      ? journeys.purchase(product).buyLabel
-      : "OUT OF STOCK";
+    const expectedQuickBuy =
+      product.merchandisingStatus === "waitlist"
+        ? undefined
+        : product.offer
+          ? journeys.purchase(product).buyLabel
+          : "OUT OF STOCK";
     if (quickBuy !== expectedQuickBuy) {
       mismatches.push(
-        `${path} Product "${product.slug}" purchase label was "${quickBuy ?? "missing"}" instead of "${expectedQuickBuy}".`,
+        `${path} Product "${product.slug}" purchase label was "${quickBuy ?? "missing"}" instead of "${expectedQuickBuy ?? "missing"}".`,
       );
     }
     if (product.variants.length > 1) {

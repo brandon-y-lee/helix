@@ -80,10 +80,10 @@ const PRODUCT_CARD_CTA_VARIANTS: Variants = {
 
 const PRODUCT_CARD_CTA_EASE = [0.76, 0, 0.24, 1] as const;
 
-function minPrice(product: ProductCardModel): number {
+function minPrice(product: ProductCardModel): number | null {
   return product.variants.length
     ? Math.min(...product.variants.map((variant) => variant.price))
-    : 0;
+    : null;
 }
 
 function variantSizeLabel(
@@ -193,12 +193,18 @@ export function ProductCard({
     availableVariants[0] ??
     product.variants[0] ??
     null;
-  const isQuickBuyOpen = controlled ? quickBuyOpen : localQuickBuyOpen;
+  const isWaitlist = product.status === "waitlist";
+  const isQuickBuyOpen =
+    !isWaitlist && (controlled ? quickBuyOpen : localQuickBuyOpen);
   const purchaseCta = productPurchaseCta(product, selectedVariant);
   const canBuy = purchaseCta.purchasable;
   const startingPrice = minPrice(product);
   const hasRange = product.variants.length > 1;
-  const priceLabel = `${hasRange ? "From " : ""}${formatPrice(startingPrice)}`;
+  const priceLabel = isWaitlist
+    ? "Waitlist"
+    : startingPrice === null
+      ? null
+      : `${hasRange ? "From " : ""}${formatPrice(startingPrice)}`;
   const displayName = product.displayName;
   const cardImageSizes =
     defaultImage?.sizes ??
@@ -583,50 +589,55 @@ export function ProductCard({
                 <span className="product-card__tagline">
                   {product.productType}
                 </span>
-                <span className="product-card__price">{priceLabel}</span>
+                {priceLabel && (
+                  <span className="product-card__price">{priceLabel}</span>
+                )}
               </m.span>
             </Link>
 
-            <m.div
-              className="product-card__cta"
-              data-motion-state={ctaMotionState}
-              variants={PRODUCT_CARD_CTA_VARIANTS}
-              initial={false}
-              animate={ctaMotionState}
-              transition={{
-                type: "tween",
-                duration: shouldReduceMotion ? 0 : 0.7,
-                ease: PRODUCT_CARD_CTA_EASE,
-              }}
-            >
-              <button
-                ref={triggerRef}
-                type="button"
-                className="product-card__button product-card__quick-trigger"
-                onClick={openQuickBuy}
-                aria-label={
-                  canBuy
-                    ? `Open quick buy for ${displayName}`
-                    : purchaseCta.label
-                }
-                aria-expanded={isQuickBuyOpen}
-                aria-controls={panelId}
-                disabled={!canBuy}
-                tabIndex={
-                  isQuickBuyOpen || visualState === "default" ? -1 : undefined
-                }
+            {!isWaitlist && (
+              <m.div
+                className="product-card__cta"
+                data-motion-state={ctaMotionState}
+                variants={PRODUCT_CARD_CTA_VARIANTS}
+                initial={false}
+                animate={ctaMotionState}
+                transition={{
+                  type: "tween",
+                  duration: shouldReduceMotion ? 0 : 0.7,
+                  ease: PRODUCT_CARD_CTA_EASE,
+                }}
               >
-                {purchaseCta.label}
-              </button>
-            </m.div>
+                <button
+                  ref={triggerRef}
+                  type="button"
+                  className="product-card__button product-card__quick-trigger"
+                  onClick={openQuickBuy}
+                  aria-label={
+                    canBuy
+                      ? `Open quick buy for ${displayName}`
+                      : purchaseCta.label
+                  }
+                  aria-expanded={isQuickBuyOpen}
+                  aria-controls={panelId}
+                  disabled={!canBuy}
+                  tabIndex={
+                    isQuickBuyOpen || visualState === "default" ? -1 : undefined
+                  }
+                >
+                  {purchaseCta.label}
+                </button>
+              </m.div>
+            )}
 
-            <section
-              id={panelId}
-              className="product-card__quick-buy"
-              data-open={isQuickBuyOpen}
-              aria-hidden={!isQuickBuyOpen}
-              aria-labelledby={`${panelId}-title`}
-            >
+            {!isWaitlist && (
+              <section
+                id={panelId}
+                className="product-card__quick-buy"
+                data-open={isQuickBuyOpen}
+                aria-hidden={!isQuickBuyOpen}
+                aria-labelledby={`${panelId}-title`}
+              >
               <button
                 type="button"
                 className="product-card__quick-close"
@@ -716,7 +727,8 @@ export function ProductCard({
                   {pending ? "ADDING" : purchaseCta.label}
                 </button>
               </div>
-            </section>
+              </section>
+            )}
           </div>
         </MotionConfig>
       </LazyMotion>
