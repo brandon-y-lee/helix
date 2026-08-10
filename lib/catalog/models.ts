@@ -7,9 +7,9 @@ import type { ProductPdpContent } from "@/lib/catalog/product-content";
 import type { SystemStepName } from "@/lib/catalog/system-steps";
 
 export const CORE_ROUTINE_PRODUCT_SLUGS = [
-  "cleanse-01-calming-gel-cleanser",
-  "treat-03-pdrn-5-ampoule",
-  "seal-05-green-collagen-cream",
+  "biotic-reset",
+  "peptide-bounce",
+  "ceramide-cushion",
 ] as const;
 
 export type OfferAvailability = {

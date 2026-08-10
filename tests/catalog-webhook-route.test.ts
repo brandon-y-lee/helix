@@ -224,14 +224,10 @@ describe("catalog search sync route", () => {
 
     expect(response.status).toBe(200);
     expect(revalidateTagMock).toHaveBeenCalledWith("catalog-core-routine");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/products/biotic-reset");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/products/peptide-bounce");
     expect(revalidatePathMock).toHaveBeenCalledWith(
-      "/products/cleanse-01-calming-gel-cleanser",
-    );
-    expect(revalidatePathMock).toHaveBeenCalledWith(
-      "/products/treat-03-pdrn-5-ampoule",
-    );
-    expect(revalidatePathMock).toHaveBeenCalledWith(
-      "/products/seal-05-green-collagen-cream",
+      "/products/ceramide-cushion",
     );
     expect(revalidateTagMock).not.toHaveBeenCalledWith("catalog-product-card");
     for (const path of SHOP_COLLECTION_PATHS) {

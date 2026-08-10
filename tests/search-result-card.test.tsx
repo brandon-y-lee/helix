@@ -17,13 +17,13 @@ const comingSoonProduct: AlgoliaProductRecord = {
   routineSort: 70,
   badge: "Coming soon",
   status: "coming_soon",
-  priceMin: 2800,
-  priceMax: 2800,
+  priceMin: null,
+  priceMax: null,
   currency: "USD",
   available: false,
   waitlist: false,
-  variantCount: 1,
-  variantNames: ["15 ml"],
+  variantCount: 0,
+  variantNames: [],
   keywords: [],
   concerns: [],
   ingredients: [],
@@ -68,6 +68,8 @@ describe("SearchResultCard", () => {
 
     expect(screen.getByText("Coming soon")).toBeInTheDocument();
     expect(screen.getByText("View details")).toBeInTheDocument();
+    expect(screen.queryByText("$28.00")).not.toBeInTheDocument();
+    expect(document.querySelector(".search-result__price")).not.toBeInTheDocument();
     expect(screen.queryByText(/join the waitlist/i)).not.toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: "LIFT — Eye treatment" }),

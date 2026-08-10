@@ -7,9 +7,9 @@ import type { StorefrontJourneys } from "@/test-support/storefront-journeys";
 import { expect, test } from "./storefront-fixture";
 
 const CORE_DESCRIPTION_BY_SLUG = {
-  "cleanse-01-calming-gel-cleanser": homeCoreDescriptions.items.cleanse,
-  "treat-03-pdrn-5-ampoule": homeCoreDescriptions.items.treat,
-  "seal-05-green-collagen-cream": homeCoreDescriptions.items.seal,
+  "biotic-reset": homeCoreDescriptions.items.cleanse,
+  "peptide-bounce": homeCoreDescriptions.items.treat,
+  "ceramide-cushion": homeCoreDescriptions.items.seal,
 } as const;
 
 const BEYOND_DESCRIPTION_BY_SLUG = {

@@ -44,6 +44,8 @@ function renderWaitlist() {
         stickyMedia={null}
         stripePublishableKey={null}
         variants={[]}
+        showPrice={false}
+        showVariantOptions={false}
       >
         <h1>Mineral Guard</h1>
       </PdpPurchaseIsland>

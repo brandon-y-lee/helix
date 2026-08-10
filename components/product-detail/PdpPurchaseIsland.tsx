@@ -47,6 +47,8 @@ export type PdpPurchaseIslandProps = {
   stickyMedia: ProductMedia | null;
   stripePublishableKey: string | null;
   variants: PdpPurchaseVariant[];
+  showPrice: boolean;
+  showVariantOptions: boolean;
   status: ProductStatus;
   commerceDisabled?: boolean;
 };
@@ -64,6 +66,8 @@ export function PdpPurchaseIsland({
   stickyMedia,
   stripePublishableKey,
   variants,
+  showPrice,
+  showVariantOptions,
   status,
   commerceDisabled = false,
 }: PdpPurchaseIslandProps) {
@@ -213,11 +217,11 @@ export function PdpPurchaseIsland({
     <>
       <div className="pdp__purchase">
         {children}
-        {!waitlist && variant && (
+        {!waitlist && showPrice && variant && (
           <p className="pdp__price">{formatPrice(variant.price)}</p>
         )}
 
-        {!waitlist && variants.length > 0 && (
+        {!waitlist && showVariantOptions && (
           <>
             <span className="field-label" id="size-label">
               Size

@@ -9,7 +9,10 @@ import {
   getCachedIngredientIndexProducts,
   getCachedProductCards,
 } from "@/lib/catalog-cache";
-import type { ProductCard } from "@/lib/catalog/models";
+import {
+  CORE_ROUTINE_PRODUCT_SLUGS,
+  type ProductCard,
+} from "@/lib/catalog/models";
 import { homeThreePrinciples } from "@/lib/content/home";
 import {
   buildIngredientIndex,
@@ -21,14 +24,11 @@ import {
 export const metadata: Metadata = {
   title: "Mei Pelle | Men's Skincare",
   description:
-    "A three-step men's skincare baseline: cleanse, treat, and seal with CLEANSE, TREAT, and SEAL.",
+    "A simple daily system for skin that looks better now—and stays smooth, even, and resilient over time.",
 };
 
-const CORE_PRODUCT_SLUGS = [
-  "cleanse-01-calming-gel-cleanser",
-  "treat-03-pdrn-5-ampoule",
-  "seal-05-green-collagen-cream",
-] as const satisfies readonly MethodProductSlug[];
+const CORE_PRODUCT_SLUGS =
+  CORE_ROUTINE_PRODUCT_SLUGS satisfies readonly MethodProductSlug[];
 
 const BEYOND_CORE_PRODUCT_SLUGS = [
   "refine-02-pore-treatment-pads",

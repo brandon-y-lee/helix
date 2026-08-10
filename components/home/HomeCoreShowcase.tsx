@@ -11,36 +11,27 @@ import {
 import type { ProductCard } from "@/lib/catalog/models";
 
 const CORE_DESCRIPTION_KEY_BY_SLUG = {
-  "cleanse-01-calming-gel-cleanser": "cleanse",
-  "treat-03-pdrn-5-ampoule": "treat",
-  "seal-05-green-collagen-cream": "seal",
+  "biotic-reset": "cleanse",
+  "peptide-bounce": "treat",
+  "ceramide-cushion": "seal",
 } as const satisfies Readonly<Record<string, HomeCoreDescriptionKey>>;
 
 const CORE_CARD_IMAGES_BY_SLUG = {
-  "cleanse-01-calming-gel-cleanser": {
+  "biotic-reset": {
     src: "/media/home/cleanse-product-card-default-01.webp",
-    alt: "CLEANSE product bottle.",
+    alt: "Biotic Reset product bottle.",
     width: 1200,
     height: 1650,
     objectPosition: "50% 54%",
     presentation: "full-frame",
     sizes: "(max-width: 900px) 92vw, 33vw",
   },
-  "treat-03-pdrn-5-ampoule": {
+  "peptide-bounce": {
     src: "/media/home/treat-product-card-default-01.webp",
-    alt: "TREAT product bottle.",
+    alt: "Peptide Bounce product bottle.",
     width: 1400,
     height: 1867,
     objectPosition: "50% 54%",
-    presentation: "full-frame",
-    sizes: "(max-width: 900px) 92vw, 33vw",
-  },
-  "seal-05-green-collagen-cream": {
-    src: "/media/home/seal-product-card-default-01.webp",
-    alt: "SEAL product jar.",
-    width: 1400,
-    height: 1867,
-    objectPosition: "50% 57%",
     presentation: "full-frame",
     sizes: "(max-width: 900px) 92vw, 33vw",
   },

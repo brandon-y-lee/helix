@@ -16,6 +16,7 @@ import {
 import { PDP_CORE_DETAILS_PRESENTATIONS } from "@/lib/content/pdp-core-details";
 import {
   firstPurchasableVariant,
+  productOfferPresentation,
   productPurchaseCta,
   type ProductMedia,
   type ProductStatus,
@@ -191,7 +192,11 @@ export function purchaseIslandProps(
   commerceDisabled = false,
 ): PdpPurchaseData {
   const media = product.cartMedia ?? product.cardMedia;
-  const variants: PdpPurchaseVariant[] = product.variants.map((variant) => {
+  const offerPresentation = productOfferPresentation(product.variants);
+  const presentedVariants = offerPresentation.showVariantOptions
+    ? offerPresentation.offers
+    : product.variants.slice(0, 1);
+  const variants: PdpPurchaseVariant[] = presentedVariants.map((variant) => {
     const cta = productPurchaseCta(product, variant);
     return {
       id: variant.id,
@@ -220,6 +225,8 @@ export function purchaseIslandProps(
     stickyMedia: media,
     stripePublishableKey,
     variants,
+    showPrice: offerPresentation.showPrice,
+    showVariantOptions: offerPresentation.showVariantOptions,
     commerceDisabled,
   };
 }

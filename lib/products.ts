@@ -138,12 +138,37 @@ function formatBuyLabel(productName: string, cents: number): string {
 }
 
 const OUT_OF_STOCK_CTA_LABEL = "OUT OF STOCK";
+const COMING_SOON_CTA_LABEL = "COMING SOON";
 
 type PurchaseOffer = {
   available: boolean;
   inventoryStatus: Variant["inventoryStatus"];
   price: number;
 };
+
+type OfferFact = Pick<PurchaseOffer, "inventoryStatus" | "price">;
+
+export function isOfferPresentable<TOffer extends OfferFact>(
+  offer: TOffer,
+): boolean {
+  return (
+    Number.isSafeInteger(offer.price) &&
+    offer.price >= 0 &&
+    offer.inventoryStatus !== "unavailable"
+  );
+}
+
+export function productOfferPresentation<TOffer extends OfferFact>(
+  offers: readonly TOffer[],
+) {
+  const presentableOffers = offers.filter(isOfferPresentable);
+  return {
+    offers: presentableOffers,
+    hasMultipleOffers: presentableOffers.length > 1,
+    showPrice: presentableOffers.length > 0,
+    showVariantOptions: presentableOffers.length > 0,
+  } as const;
+}
 
 type PurchaseProduct<TOffer extends PurchaseOffer> = {
   displayName: string;
@@ -188,7 +213,9 @@ export function productPurchaseCta<TOffer extends PurchaseOffer>(
   return {
     label: purchasable
       ? formatBuyLabel(product.displayName, variant.price)
-      : OUT_OF_STOCK_CTA_LABEL,
+      : product.status === "coming_soon"
+        ? COMING_SOON_CTA_LABEL
+        : OUT_OF_STOCK_CTA_LABEL,
     purchasable,
     variant: variant ?? null,
   };

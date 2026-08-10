@@ -34,6 +34,7 @@ import {
   firstPurchasableVariant,
   formatPrice,
   isVariantPurchasable,
+  productOfferPresentation,
   productPurchaseCta,
 } from "@/lib/products";
 
@@ -79,12 +80,6 @@ const PRODUCT_CARD_CTA_VARIANTS: Variants = {
 };
 
 const PRODUCT_CARD_CTA_EASE = [0.76, 0, 0.24, 1] as const;
-
-function minPrice(product: ProductCardModel): number | null {
-  return product.variants.length
-    ? Math.min(...product.variants.map((variant) => variant.price))
-    : null;
-}
 
 function variantSizeLabel(
   variant: OfferAvailability | null | undefined,
@@ -198,13 +193,15 @@ export function ProductCard({
     !isWaitlist && (controlled ? quickBuyOpen : localQuickBuyOpen);
   const purchaseCta = productPurchaseCta(product, selectedVariant);
   const canBuy = purchaseCta.purchasable;
-  const startingPrice = minPrice(product);
-  const hasRange = product.variants.length > 1;
+  const offerPresentation = productOfferPresentation(product.variants);
+  const startingPrice = offerPresentation.showPrice
+    ? Math.min(...offerPresentation.offers.map((variant) => variant.price))
+    : null;
   const priceLabel = isWaitlist
     ? "Waitlist"
     : startingPrice === null
       ? null
-      : `${hasRange ? "From " : ""}${formatPrice(startingPrice)}`;
+      : `${offerPresentation.hasMultipleOffers ? "From " : ""}${formatPrice(startingPrice)}`;
   const displayName = product.displayName;
   const cardImageSizes =
     defaultImage?.sizes ??
@@ -682,11 +679,11 @@ export function ProductCard({
                 Full details
               </Link>
 
-              {product.variants.length > 1 && (
+              {offerPresentation.hasMultipleOffers && (
                 <fieldset className="product-card__quick-variants">
                   <legend>Size</legend>
                   <div className="product-card__quick-options">
-                    {product.variants.map((variant) => {
+                    {offerPresentation.offers.map((variant) => {
                       const buyable = isVariantPurchasable(product, variant);
                       return (
                         <label
