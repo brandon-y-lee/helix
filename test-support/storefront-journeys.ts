@@ -167,6 +167,7 @@ export function createStorefrontJourneys(snapshot: StorefrontSnapshot) {
       });
     },
     cardPriceLabel(product: StorefrontSnapshotProduct): string {
+      if (product.merchandisingStatus === "waitlist") return "Waitlist";
       const startingPrice = product.variants.length
         ? Math.min(...product.variants.map((variant) => variant.price))
         : 0;

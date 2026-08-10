@@ -1,4 +1,8 @@
-import { firstPurchasableVariant, type ProductStatus } from "@/lib/products";
+import {
+  firstPurchasableVariant,
+  PRODUCT_STATUSES,
+  type ProductStatus,
+} from "@/lib/products";
 import { isProductMediaRole } from "@/lib/catalog/media-roles";
 import {
   systemStepFromDatabaseRelation,
@@ -6,12 +10,6 @@ import {
 } from "@/lib/catalog/system-steps";
 
 const CATALOG_STATUSES = ["active", "draft", "archived"] as const;
-const PRODUCT_STATUSES = [
-  "available",
-  "coming_soon",
-  "sold_out",
-  "waitlist",
-] as const;
 const ROUTINE_GROUPS = ["core", "beyond_core"] as const;
 const INVENTORY_STATUSES = [
   "in_stock",
