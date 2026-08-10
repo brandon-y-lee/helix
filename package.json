@@ -23,6 +23,7 @@
     "catalog:webhooks:apply": "tsx scripts/catalog-webhooks.ts apply",
     "catalog:webhooks:verify": "tsx scripts/catalog-webhooks.ts verify",
     "catalog:webhooks:smoke": "tsx scripts/catalog-webhooks.ts smoke",
+    "catalog:publish:frame-lift": "tsx scripts/catalog/publish-frame-lift.ts",
     "admin:bootstrap": "tsx scripts/admin-bootstrap.ts",
     "db:carts:cleanup:dry-run": "tsx scripts/db/cleanup-expired-carts.ts --dry-run",
     "db:carts:cleanup:apply": "tsx scripts/db/cleanup-expired-carts.ts --apply",

@@ -39,6 +39,7 @@ export type PdpPurchaseIslandProps = {
   routineLabel: string;
   stickyMedia: ProductMedia | null;
   stripePublishableKey: string | null;
+  unavailableLabel: string;
   variants: PdpPurchaseVariant[];
   commerceDisabled?: boolean;
 };
@@ -54,6 +55,7 @@ export function PdpPurchaseIsland({
   routineLabel,
   stickyMedia,
   stripePublishableKey,
+  unavailableLabel,
   variants,
   commerceDisabled = false,
 }: PdpPurchaseIslandProps) {
@@ -81,7 +83,7 @@ export function PdpPurchaseIsland({
         purchasable: variant.purchasable,
       }
     : {
-        label: "OUT OF STOCK",
+        label: unavailableLabel,
         purchasable: false,
       };
   const cta = commerceDisabled
@@ -188,9 +190,9 @@ export function PdpPurchaseIsland({
     <>
       <div className="pdp__purchase">
         {children}
-        <p className="pdp__price">
-          {variant ? formatPrice(variant.price) : "—"}
-        </p>
+        {variant ? (
+          <p className="pdp__price">{formatPrice(variant.price)}</p>
+        ) : null}
 
         {variants.length > 0 && (
           <>

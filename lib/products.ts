@@ -126,6 +126,10 @@ function formatBuyLabel(productName: string, cents: number): string {
 
 const OUT_OF_STOCK_CTA_LABEL = "OUT OF STOCK";
 
+export function productUnavailableCtaLabel(status: ProductStatus): string {
+  return status === "coming_soon" ? "COMING SOON" : OUT_OF_STOCK_CTA_LABEL;
+}
+
 type PurchaseOffer = {
   available: boolean;
   inventoryStatus: Variant["inventoryStatus"];
@@ -168,7 +172,7 @@ export function productPurchaseCta<TOffer extends PurchaseOffer>(
   return {
     label: purchasable
       ? formatBuyLabel(product.displayName, variant.price)
-      : OUT_OF_STOCK_CTA_LABEL,
+      : productUnavailableCtaLabel(product.status),
     purchasable,
     variant: variant ?? null,
   };

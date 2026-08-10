@@ -23,9 +23,13 @@ export function SearchResultCard({
 }) {
   const href = `/products/${hit.slug}`;
   const priceLabel =
-    hit.priceMax > hit.priceMin
-      ? `From ${formatPrice(hit.priceMin)}`
-      : formatPrice(hit.priceMin);
+    hit.variantCount > 0 &&
+    typeof hit.priceMin === "number" &&
+    typeof hit.priceMax === "number"
+      ? hit.priceMax > hit.priceMin
+        ? `From ${formatPrice(hit.priceMin)}`
+        : formatPrice(hit.priceMin)
+      : null;
   const availability = hit.available
     ? "Available"
     : statusLabel(hit.status) ?? "View details";
@@ -81,7 +85,9 @@ export function SearchResultCard({
           <span className="search-result__status">{availability}</span>
           <span className="search-result__descriptor">{hit.productType}</span>
           <span className="search-result__meta">
-            <span className="search-result__price">{priceLabel}</span>
+            {priceLabel ? (
+              <span className="search-result__price">{priceLabel}</span>
+            ) : null}
             <span className="search-result__cta">{ctaLabel(hit)}</span>
           </span>
         </div>

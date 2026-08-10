@@ -176,6 +176,24 @@ describe("ProductCard quick buy", () => {
     expect(cartMock.openCartDrawer).not.toHaveBeenCalled();
   });
 
+  it("omits fabricated pricing when a coming-soon Product has no Offer", () => {
+    render(
+      <ProductCard
+        product={makeProduct({
+          displayName: "Peptide Eye Cream",
+          productType: "PDRN eye cream",
+          status: "coming_soon",
+          variants: [],
+        })}
+      />,
+    );
+
+    const status = screen.getByRole("button", { name: "COMING SOON" });
+    expect(status).toBeDisabled();
+    expect(screen.queryByText("$0.00")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "OUT OF STOCK" })).toBeNull();
+  });
+
   it("adds from the final buy button and opens the cart drawer", async () => {
     const user = userEvent.setup();
     render(<ProductCard product={makeProduct()} />);

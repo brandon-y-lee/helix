@@ -268,8 +268,8 @@ describe("buildAlgoliaRecord", () => {
   it("handles a product with no variants", () => {
     const r = buildAlgoliaRecord({ ...sourceRow, product_variants: null });
     expect(r.variantCount).toBe(0);
-    expect(r.priceMin).toBe(0);
-    expect(r.priceMax).toBe(0);
+    expect(r).not.toHaveProperty("priceMin");
+    expect(r).not.toHaveProperty("priceMax");
     expect(r.variantNames).toEqual([]);
   });
 

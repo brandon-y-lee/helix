@@ -17,6 +17,7 @@ import { PDP_CORE_DETAILS_PRESENTATIONS } from "@/lib/content/pdp-core-details";
 import {
   firstPurchasableVariant,
   productPurchaseCta,
+  productUnavailableCtaLabel,
   type ProductMedia,
   type ProductStatus,
 } from "@/lib/products";
@@ -217,6 +218,7 @@ export function purchaseIslandProps(
     routineLabel,
     stickyMedia: media,
     stripePublishableKey,
+    unavailableLabel: productUnavailableCtaLabel(product.status),
     variants,
     commerceDisabled,
   };
