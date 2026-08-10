@@ -799,6 +799,29 @@ describe("ProductDetail purchase accordions", () => {
     expect(cartMock.add).toHaveBeenCalledTimes(1);
   });
 
+  it("keeps a coming-soon PDP non-purchasable without presenting an Offer price", () => {
+    const base = makeProduct();
+    render(
+      <ProductDetail
+        product={makeProduct({
+          status: "coming_soon",
+          variants: base.variants.map((variant) => ({
+            ...variant,
+            available: false,
+            inventoryStatus: "unavailable" as const,
+          })),
+        })}
+      />,
+    );
+
+    for (const button of screen.getAllByRole("button", { name: "COMING SOON" })) {
+      expect(button).toBeDisabled();
+    }
+    expect(document.querySelector(".pdp__price")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("afterpay-messaging-boundary")).not.toBeInTheDocument();
+    expect(cartMock.add).not.toHaveBeenCalled();
+  });
+
   it("fails closed without empty Core editorial media shells", () => {
     render(<ProductDetail product={makeProduct({ media: [] })} />);
 

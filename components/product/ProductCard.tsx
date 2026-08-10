@@ -198,7 +198,10 @@ export function ProductCard({
   const canBuy = purchaseCta.purchasable;
   const startingPrice = minPrice(product);
   const hasRange = product.variants.length > 1;
-  const priceLabel = `${hasRange ? "From " : ""}${formatPrice(startingPrice)}`;
+  const priceLabel =
+    product.status === "coming_soon"
+      ? null
+      : `${hasRange ? "From " : ""}${formatPrice(startingPrice)}`;
   const displayName = product.displayName;
   const cardImageSizes =
     defaultImage?.sizes ??
@@ -583,7 +586,9 @@ export function ProductCard({
                 <span className="product-card__tagline">
                   {product.productType}
                 </span>
-                <span className="product-card__price">{priceLabel}</span>
+                {priceLabel && (
+                  <span className="product-card__price">{priceLabel}</span>
+                )}
               </m.span>
             </Link>
 
@@ -671,7 +676,8 @@ export function ProductCard({
                 Full details
               </Link>
 
-              {product.variants.length > 1 && (
+              {product.status !== "coming_soon" &&
+                product.variants.length > 1 && (
                 <fieldset className="product-card__quick-variants">
                   <legend>Size</legend>
                   <div className="product-card__quick-options">

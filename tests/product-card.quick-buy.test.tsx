@@ -176,6 +176,27 @@ describe("ProductCard quick buy", () => {
     expect(cartMock.openCartDrawer).not.toHaveBeenCalled();
   });
 
+  it("labels coming-soon Products truthfully without presenting a price", () => {
+    render(
+      <ProductCard
+        product={makeProduct({
+          displayName: "Biotic Reset",
+          status: "coming_soon",
+          variants: [
+            makeVariant({
+              available: false,
+              inventoryStatus: "unavailable",
+            }),
+          ],
+        })}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "COMING SOON" })).toBeDisabled();
+    expect(screen.queryByText("$20.00")).not.toBeInTheDocument();
+    expect(cartMock.add).not.toHaveBeenCalled();
+  });
+
   it("adds from the final buy button and opens the cart drawer", async () => {
     const user = userEvent.setup();
     render(<ProductCard product={makeProduct()} />);

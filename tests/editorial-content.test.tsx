@@ -26,24 +26,33 @@ import type { SystemStepName } from "@/lib/catalog/system-steps";
 const mockedGetProducts = getCachedProducts as unknown as Mock;
 
 const nameBySlug: Record<string, string> = {
-  "cleanse-01-calming-gel-cleanser": "CLEANSE",
+  "biotic-reset": "Biotic Reset",
   "refine-02-pore-treatment-pads": "REFINE",
-  "treat-03-pdrn-5-ampoule": "TREAT",
+  "peptide-bounce": "Peptide Bounce",
   "frame-04-pdrn-eye-cream": "FRAME",
-  "seal-05-green-collagen-cream": "SEAL",
+  "ceramide-cushion": "Ceramide Cushion",
+  "lift-06-pdrn-mask-system": "LIFT",
+};
+
+const systemStepBySlug: Record<string, SystemStepName> = {
+  "biotic-reset": "CLEANSE",
+  "refine-02-pore-treatment-pads": "REFINE",
+  "peptide-bounce": "TREAT",
+  "frame-04-pdrn-eye-cream": "FRAME",
+  "ceramide-cushion": "SEAL",
   "lift-06-pdrn-mask-system": "LIFT",
 };
 
 const ingredientsBySlug: Record<string, string[]> = {
-  "cleanse-01-calming-gel-cleanser": ["6-Type Cica Complex"],
+  "biotic-reset": ["6-Type Cica Complex"],
   "refine-02-pore-treatment-pads": ["Panthenol", "LHA"],
-  "treat-03-pdrn-5-ampoule": [
+  "peptide-bounce": [
     "Sodium DNA (50,000 ppm)",
     "Niacinamide",
     "Copper Tripeptide-1",
   ],
   "frame-04-pdrn-eye-cream": ["Sodium DNA", "Acetyl Tetrapeptide-5"],
-  "seal-05-green-collagen-cream": ["Green collagen complex", "Panthenol"],
+  "ceramide-cushion": ["Ceramide AP", "Panthenol"],
   "lift-06-pdrn-mask-system": ["Sodium DNA (5,000 ppm)", "Niacinamide"],
 };
 
@@ -59,6 +68,7 @@ const systemPositionByName: Record<SystemStepName, number> = {
 
 function makeProduct(slug: string, overrides: Partial<Product> = {}): Product {
   const displayName = nameBySlug[slug] ?? "PRODUCT";
+  const systemStepName = systemStepBySlug[slug] ?? "CLEANSE";
   const routineNumber = slug === "lift-06-pdrn-mask-system"
     ? "07"
     : slug.match(/-(\d{2})-/)?.[1] ?? null;
@@ -68,11 +78,11 @@ function makeProduct(slug: string, overrides: Partial<Product> = {}): Product {
     id: `${slug}-id`,
     slug,
     displayName,
-    routineGroup: ["CLEANSE", "TREAT", "SEAL"].includes(displayName)
+    routineGroup: ["CLEANSE", "TREAT", "SEAL"].includes(systemStepName)
       ? "core"
       : "beyond_core",
-    systemStepPosition: systemPositionByName[displayName as SystemStepName],
-    systemStepName: displayName as SystemStepName,
+    systemStepPosition: systemPositionByName[systemStepName],
+    systemStepName,
     routineSort: Number(routineNumber ?? 0) * 10,
     productType: "Treatment",
     badge: null,
@@ -170,15 +180,15 @@ describe("System content architecture", () => {
 
     const state = getMethodProductState(
       methodFixtures.filter(
-        (product) => product.slug !== "seal-05-green-collagen-cream",
+        (product) => product.slug !== "ceramide-cushion",
       ),
     );
     expect(state.methodProducts.map((product) => product.slug)).toEqual(
       METHOD_PRODUCT_SLUGS.filter(
-        (slug) => slug !== "seal-05-green-collagen-cream",
+        (slug) => slug !== "ceramide-cushion",
       ),
     );
-    expect(state.missingSlugs).toEqual(["seal-05-green-collagen-cream"]);
+    expect(state.missingSlugs).toEqual(["ceramide-cushion"]);
   });
 
   it("derives the exact monotonic 3-7 System ladder without mutating catalog metadata", () => {
@@ -232,12 +242,12 @@ describe("System content architecture", () => {
       routineTimingEntriesForGroup(ROUTINE_GROUPS[0], coreSteps).map(
         (entry) => entry.label,
       ),
-    ).toEqual(["CLEANSE", "TREAT", "SEAL"]);
+    ).toEqual(["Biotic Reset", "Peptide Bounce", "Ceramide Cushion"]);
     expect(
       routineTimingEntriesForGroup(ROUTINE_GROUPS[1], coreSteps).map(
         (entry) => entry.label,
       ),
-    ).toEqual(["CLEANSE", "TREAT", "SEAL"]);
+    ).toEqual(["Biotic Reset", "Peptide Bounce", "Ceramide Cushion"]);
     expect(routineTimingEntriesForGroup(ROUTINE_GROUPS[2], coreSteps)).toEqual([]);
 
     const fullSteps = deriveMethodRoutineSteps(methodFixtures, 7);

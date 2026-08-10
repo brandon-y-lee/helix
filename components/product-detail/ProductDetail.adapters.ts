@@ -218,6 +218,7 @@ export function purchaseIslandProps(
     stickyMedia: media,
     stripePublishableKey,
     variants,
+    showPrice: product.status !== "coming_soon",
     commerceDisabled,
   };
 }

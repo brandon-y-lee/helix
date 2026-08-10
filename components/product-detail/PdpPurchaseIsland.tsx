@@ -40,6 +40,7 @@ export type PdpPurchaseIslandProps = {
   stickyMedia: ProductMedia | null;
   stripePublishableKey: string | null;
   variants: PdpPurchaseVariant[];
+  showPrice: boolean;
   commerceDisabled?: boolean;
 };
 
@@ -55,6 +56,7 @@ export function PdpPurchaseIsland({
   stickyMedia,
   stripePublishableKey,
   variants,
+  showPrice,
   commerceDisabled = false,
 }: PdpPurchaseIslandProps) {
   const {
@@ -188,9 +190,11 @@ export function PdpPurchaseIsland({
     <>
       <div className="pdp__purchase">
         {children}
-        <p className="pdp__price">
-          {variant ? formatPrice(variant.price) : "—"}
-        </p>
+        {showPrice && (
+          <p className="pdp__price">
+            {variant ? formatPrice(variant.price) : "—"}
+          </p>
+        )}
 
         {variants.length > 0 && (
           <>

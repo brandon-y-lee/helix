@@ -915,9 +915,9 @@ describe("catalog cache invalidation", () => {
     );
     expect(targets.paths).toEqual(
       expect.arrayContaining([
-        "/products/cleanse-01-calming-gel-cleanser",
-        "/products/treat-03-pdrn-5-ampoule",
-        "/products/seal-05-green-collagen-cream",
+        "/products/biotic-reset",
+        "/products/peptide-bounce",
+        "/products/ceramide-cushion",
       ]),
     );
     expect(targets.tags).not.toContain("catalog-product-card");
@@ -955,10 +955,10 @@ describe("catalog cache invalidation", () => {
 
     expect(targets.tags).toContain("catalog-core-routine");
     expect(targets.paths).toContain(
-      "/products/cleanse-01-calming-gel-cleanser",
+      "/products/biotic-reset",
     );
-    expect(targets.paths).toContain("/products/treat-03-pdrn-5-ampoule");
-    expect(targets.paths).toContain("/products/seal-05-green-collagen-cream");
+    expect(targets.paths).toContain("/products/peptide-bounce");
+    expect(targets.paths).toContain("/products/ceramide-cushion");
   });
 
   it("invalidates only the owning PDP for outcome media on a Core product", () => {
