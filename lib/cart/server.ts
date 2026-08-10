@@ -7,6 +7,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { CartError, type CartLine, type CartState } from "@/lib/cart/types";
 import { normalizeCartQuantity } from "@/lib/cart/validation";
 import { routineGroupLabel } from "@/lib/catalog/product-routine";
+import { composeProductTitle } from "@/lib/products";
 
 const GUEST_CART_COOKIE = "mei_pelle_guest_cart";
 const GUEST_CART_DAYS = 60;
@@ -39,7 +40,7 @@ type ProductRow = {
   id: string;
   slug: string;
   display_name: string;
-  formal_title: string;
+  product_type: string;
   routine_group: "core" | "beyond_core";
   status: string;
   catalog_status: string;
@@ -316,17 +317,20 @@ function mapCheckoutLine(row: CartItemRow): CheckoutCartLine {
   const line = mapLine(row);
   const product = firstProduct(row.products);
   const variant = product?.product_variants?.find((v) => v.variant_key === row.variant_key);
+  const productName = product
+    ? composeProductTitle(product.display_name, product.product_type)
+    : line.name;
 
   return {
     ...line,
     productId: row.product_id,
-    productName: product?.formal_title ?? line.name,
+    productName,
     variantSku: variant?.sku ?? null,
     productSnapshot: {
       productId: row.product_id,
       slug: product?.slug ?? line.slug,
       displayName: product?.display_name ?? line.name,
-      productName: product?.formal_title ?? line.name,
+      productName,
       collection: product ? routineGroupLabel(product.routine_group) : line.collection,
       variantKey: row.variant_key,
       variantLabel: variant?.label ?? line.variantLabel,
@@ -346,7 +350,7 @@ async function readCart(cartId: string): Promise<CartState> {
   const { data, error } = await admin
     .from("cart_items")
     .select(
-      "id, product_id, variant_key, quantity, products ( id, slug, display_name, formal_title, routine_group, status, catalog_status, swatch_from, swatch_to, product_variants ( variant_key, label, price_cents, sort_order, sku, available, inventory_status ), product_media ( media_type, url, alt, role, sort_order, palette_id, placeholder_palette ) )",
+      "id, product_id, variant_key, quantity, products ( id, slug, display_name, product_type, routine_group, status, catalog_status, swatch_from, swatch_to, product_variants ( variant_key, label, price_cents, sort_order, sku, available, inventory_status ), product_media ( media_type, url, alt, role, sort_order, palette_id, placeholder_palette ) )",
     )
     .eq("cart_id", cartId)
     .order("created_at", { ascending: true });
@@ -369,7 +373,7 @@ async function readCheckoutCart(
   const { data, error } = await admin
     .from("cart_items")
     .select(
-      "id, product_id, variant_key, quantity, products ( id, slug, display_name, formal_title, routine_group, status, catalog_status, swatch_from, swatch_to, product_variants ( variant_key, label, price_cents, sort_order, sku, available, inventory_status ), product_media ( media_type, url, alt, role, sort_order, palette_id, placeholder_palette ) )",
+      "id, product_id, variant_key, quantity, products ( id, slug, display_name, product_type, routine_group, status, catalog_status, swatch_from, swatch_to, product_variants ( variant_key, label, price_cents, sort_order, sku, available, inventory_status ), product_media ( media_type, url, alt, role, sort_order, palette_id, placeholder_palette ) )",
     )
     .eq("cart_id", cartId)
     .order("created_at", { ascending: true });
@@ -393,7 +397,7 @@ async function getCatalogProduct(slug: string, variantKey: string): Promise<{
   const { data, error } = await admin
     .from("products")
     .select(
-      "id, slug, display_name, formal_title, routine_group, status, catalog_status, swatch_from, swatch_to, product_variants!inner ( variant_key, label, price_cents, sort_order, sku, available, inventory_status ), product_media ( media_type, url, alt, role, sort_order, palette_id, placeholder_palette )",
+      "id, slug, display_name, product_type, routine_group, status, catalog_status, swatch_from, swatch_to, product_variants!inner ( variant_key, label, price_cents, sort_order, sku, available, inventory_status ), product_media ( media_type, url, alt, role, sort_order, palette_id, placeholder_palette )",
     )
     .eq("slug", slug)
     .eq("catalog_status", "active")

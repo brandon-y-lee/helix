@@ -1,4 +1,5 @@
 import type { Database } from "@/lib/database.types";
+import { SYSTEM_STEP_NAMES } from "@/lib/catalog/system-steps";
 
 type CatalogFieldOwner =
   | "supplier"
@@ -189,8 +190,6 @@ export const CATALOG_FIELD_OWNERSHIP: readonly CatalogFieldOwnership[] = [
   ]),
   ...fields("products", "editorial", NORMAL_ROLES, [
     { field: "display_name", inputKind: "text", previewRelevant: true },
-    { field: "formal_title", inputKind: "text", previewRelevant: true },
-    { field: "card_tagline", inputKind: "text", previewRelevant: true },
     { field: "product_type", inputKind: "text", previewRelevant: true },
     { field: "editorial_description", inputKind: "textarea", previewRelevant: true },
     { field: "editorial_how_to_use", inputKind: "textarea", previewRelevant: true },
@@ -230,8 +229,14 @@ export const CATALOG_FIELD_OWNERSHIP: readonly CatalogFieldOwnership[] = [
     { field: "catalog_status", inputKind: "select", options: ["draft", "active", "archived"], previewRelevant: true, disruptive: true },
     { field: "sort_order", inputKind: "number" },
     { field: "routine_group", inputKind: "select", options: ["core", "beyond_core"], previewRelevant: true, disruptive: true },
-    { field: "routine_step_number", inputKind: "number", nullable: true, previewRelevant: true },
-    { field: "routine_step_name", inputKind: "text", nullable: true, previewRelevant: true },
+    {
+      field: "system_step_name",
+      inputKind: "select",
+      nullable: true,
+      options: SYSTEM_STEP_NAMES,
+      previewRelevant: true,
+      disruptive: true,
+    },
     { field: "routine_sort", inputKind: "number", previewRelevant: true },
     { field: "swatch_from", inputKind: "color", previewRelevant: true },
     { field: "swatch_to", inputKind: "color", previewRelevant: true },

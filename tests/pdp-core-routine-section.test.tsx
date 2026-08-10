@@ -2,21 +2,19 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { PdpCoreRoutineSection } from "@/components/product-detail/PdpCoreRoutineSection";
 
-const productRows: Array<
-  [string, string, string, string, number, number, string, string]
-> = [
-  ["cleanse", "CLEANSE", "Cleanse", "Gel cleanser", 1, 10, "#d9e2dc", "#a7bcb0"],
-  ["treat", "TREAT", "Treat", "Treatment serum", 2, 20, "#e4c175", "#a7772f"],
-  ["seal", "SEAL", "Seal", "Barrier cream", 3, 30, "#e7e1d7", "#b8aa92"],
-];
+const productRows = [
+  ["cleanse", "CLEANSE", "CLEANSE", "Gel cleanser", 1, 10, "#d9e2dc", "#a7bcb0"],
+  ["treat", "TREAT", "TREAT", "Treatment serum", 3, 20, "#e4c175", "#a7772f"],
+  ["seal", "SEAL", "SEAL", "Barrier cream", 5, 30, "#e7e1d7", "#b8aa92"],
+] as const;
 
 const products = productRows.map(
   ([
     slug,
     displayName,
-    routineStepName,
+    systemStepName,
     productType,
-    routineStepNumber,
+    systemStepPosition,
     routineSort,
     swatchFrom,
     swatchTo,
@@ -24,10 +22,9 @@ const products = productRows.map(
     id: `${slug}-id`,
     slug,
     displayName,
-    formalTitle: `${displayName} formal title`,
     productType,
-    routineStepNumber,
-    routineStepName,
+    systemStepPosition,
+    systemStepName: systemStepName as "CLEANSE" | "TREAT" | "SEAL",
     routineSort,
     swatch: [swatchFrom, swatchTo] as [string, string],
     textureMedia: {
@@ -62,11 +59,11 @@ describe("PdpCoreRoutineSection", () => {
     );
 
     expect(
-      screen.getByRole("radio", { name: "Show step 2, TREAT" }),
+      screen.getByRole("radio", { name: "Show TREAT, TREAT" }),
     ).toHaveAttribute("aria-checked", "true");
     expect(container.querySelector(".pdp-core-routine")).toHaveAttribute(
       "data-active-step",
-      "02",
+      "03",
     );
     expect(
       container.querySelectorAll(".pdp-core-routine__visual-state"),
@@ -83,9 +80,9 @@ describe("PdpCoreRoutineSection", () => {
     const { container } = render(
       <PdpCoreRoutineSection products={products} currentSlug="cleanse" />,
     );
-    const first = screen.getByRole("radio", { name: "Show step 1, CLEANSE" });
-    const second = screen.getByRole("radio", { name: "Show step 2, TREAT" });
-    const third = screen.getByRole("radio", { name: "Show step 3, SEAL" });
+    const first = screen.getByRole("radio", { name: "Show CLEANSE, CLEANSE" });
+    const second = screen.getByRole("radio", { name: "Show TREAT, TREAT" });
+    const third = screen.getByRole("radio", { name: "Show SEAL, SEAL" });
 
     fireEvent.pointerEnter(second);
     expect(second).toHaveAttribute("aria-checked", "true");
@@ -134,7 +131,7 @@ describe("PdpCoreRoutineSection", () => {
     expect(activeVisual?.querySelector("img")).toBeNull();
 
     fireEvent.click(
-      screen.getByRole("radio", { name: "Show step 3, SEAL" }),
+      screen.getByRole("radio", { name: "Show SEAL, SEAL" }),
     );
     expect(
       container.querySelector(

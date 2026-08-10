@@ -21,7 +21,6 @@ export type PdpCoreDetailsItem = {
   productType: string | null;
   benefits: string[];
   goodFor: string | null;
-  cardTagline: string;
   finish: string | null;
   texture: string | null;
   description: string;
@@ -144,8 +143,6 @@ export function PdpCoreDetailsRoutine({
             const ingredients = item.keyIngredients.filter(Boolean).slice(0, 5);
             const effect =
               item.finish ||
-              item.texture ||
-              item.cardTagline ||
               item.description;
 
             return (
@@ -199,7 +196,7 @@ export function PdpCoreDetailsRoutine({
                           ))}
                         </ul>
                       ) : (
-                        benefits[0] || item.goodFor || item.cardTagline
+                        benefits[0] || item.goodFor || item.description
                       )}
                     </dd>
                   </div>

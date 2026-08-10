@@ -25,7 +25,7 @@ type ProductRevisionRow =
 type CatalogAuditRow =
   Database["public"]["Tables"]["catalog_editor_audit_log"]["Row"];
 
-export const PRODUCT_EDITOR_SCHEMA_VERSION = 3 as const;
+export const PRODUCT_EDITOR_SCHEMA_VERSION = 4 as const;
 
 type DraftMediaUpload = {
   bucket: "mei-pelle-catalog";
@@ -70,7 +70,7 @@ export type CatalogProductMedia = ProductMediaRow & {
 export type CatalogProductRelationship = ProductRelationshipRow;
 export type CatalogProductSource = ProductSourceRow;
 
-export type ProductEditorDocumentV3 = {
+export type ProductEditorDocumentV4 = {
   schemaVersion: typeof PRODUCT_EDITOR_SCHEMA_VERSION;
   productId: string;
   product: CatalogProductFields;
@@ -99,7 +99,7 @@ export type CatalogDraftRecord = {
   schema_version: number;
   base_revision: number;
   version: number;
-  document: ProductEditorDocumentV3;
+  document: ProductEditorDocumentV4;
   status: CatalogDraftStatus;
   validation_errors: CatalogValidationIssue[];
   created_by: string;
@@ -188,7 +188,7 @@ export type CatalogGridRow = {
   id: string;
   slug: string;
   displayName: string;
-  formalTitle: string;
+  productType: string;
   catalogStatus: string;
   productStatus: string;
   routineGroup: string | null;
@@ -213,7 +213,7 @@ export type CatalogGridRow = {
 };
 
 export type CatalogEditorResponse = {
-  canonical: ProductEditorDocumentV3;
+  canonical: ProductEditorDocumentV4;
   draft: CatalogDraftRecord | null;
   latestRevision: number;
   role: "admin" | "catalog_publisher" | "catalog_editor";

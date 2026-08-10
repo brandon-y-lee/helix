@@ -21,8 +21,8 @@ const cases = [
     goodFor: "Daily cleansing, SPF removal, buildup",
     texture: "Clean, fresh, non-stripping",
     finish: "Balanced, not tight",
-    step: 1,
-    stepName: "Cleanse",
+    systemPosition: 1,
+    systemStepName: "CLEANSE",
   },
   {
     slug: "treat-03-pdrn-5-ampoule",
@@ -40,8 +40,8 @@ const cases = [
     goodFor: "Dullness, dehydration, uneven-looking texture",
     texture: "Lightweight concentrated serum",
     finish: "Clean, hydrated, non-sticky",
-    step: 2,
-    stepName: "Treat",
+    systemPosition: 3,
+    systemStepName: "TREAT",
   },
   {
     slug: "seal-05-green-collagen-cream",
@@ -59,8 +59,8 @@ const cases = [
     goodFor: "Dryness, comfort, routine finish",
     texture: "Cushioned, controlled",
     finish: "Composed, not overloaded",
-    step: 3,
-    stepName: "Seal",
+    systemPosition: 5,
+    systemStepName: "SEAL",
   },
 ] as const;
 
@@ -87,7 +87,7 @@ describe("Core PDP presentation contract", () => {
             })),
             supportingIngredients: "Supporting ingredients.",
           },
-          routine_guidance: `${entry.stepName} routine guidance.`,
+          routine_guidance: `${entry.systemStepName} routine guidance.`,
         },
         entry.slug,
       );
@@ -99,9 +99,8 @@ describe("Core PDP presentation contract", () => {
         finish: entry.finish,
         skinTypes: ["All skin types"],
         usageTime: ["Morning", "Night"],
-        routineStepNumber: entry.step,
-        routineStepName: entry.stepName,
-        routineSort: entry.step * 10,
+        systemStepPosition: entry.systemPosition,
+        systemStepName: entry.systemStepName,
         pdpContent: content,
       };
       const presentation = getCorePdpPresentation(product, content);
@@ -133,7 +132,7 @@ describe("Core PDP presentation contract", () => {
         { label: "FINISH", value: entry.finish },
         {
           label: "FYI",
-          value: `All skin types • Morning and night • Step 0${entry.step} of The Core`,
+          value: `All skin types • Morning and night • 0${entry.systemPosition} — The Core`,
         },
       ]);
       expect(JSON.stringify(corePdpProfileRows(product))).not.toContain(

@@ -20,8 +20,6 @@ const snapshot = {
       slug: "product",
       path: "/products/product",
       displayName: "PRODUCT",
-      formalTitle: "Product",
-      cardTagline: "Tagline",
       productType: "Cleanser",
       badge: null,
       currency: "USD",

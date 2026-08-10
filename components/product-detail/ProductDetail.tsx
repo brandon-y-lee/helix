@@ -151,7 +151,7 @@ export function ProductDetail({
   const routineLabel = routineDisplayLabelForProduct(product);
   const routineGroupLabel = routineGroupLabelForProduct(product);
   const leadDescription = compactDescription(
-    product.description || product.cardTagline,
+    product.description || product.productType,
   );
   const howToUse = resolveHowToUseSteps(
     content?.howToUseSteps,
@@ -262,7 +262,7 @@ export function ProductDetail({
         >
           <p className="pdp__collection">{routineLabel}</p>
           <h1>{product.displayName}</h1>
-          <p className="pdp__tagline">{product.cardTagline}</p>
+          <p className="pdp__tagline">{product.productType}</p>
           <p className="pdp__description">{leadDescription}</p>
         </PdpPurchaseIsland>
       </div>

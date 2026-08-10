@@ -87,11 +87,9 @@ function makeCoreProduct(
     id: `${displayName.toLowerCase()}-id`,
     slug,
     displayName,
-    formalTitle: `${displayName} formal title`,
-    cardTagline: `${displayName} card tagline`,
     routineGroup: "core",
-    routineStepNumber: index + 1,
-    routineStepName: displayName,
+    systemStepPosition: [1, 3, 5][index],
+    systemStepName: (["CLEANSE", "TREAT", "SEAL"] as const)[index],
     routineSort: (index + 1) * 10,
     productType,
     badge: null,
@@ -241,6 +239,40 @@ describe("PdpCoreDetailsRoutine", () => {
         ".pdp-details-routine__steps [data-pdp-slide-layer]",
       ),
     ).toBeNull();
+  });
+
+  it("keeps Product Type out of benefit and effect fallbacks", () => {
+    const fallbackProducts = products.map((product) =>
+      product.systemStepName === "CLEANSE"
+        ? {
+            ...product,
+            benefits: [],
+            goodFor: null,
+            finish: null,
+            texture: null,
+          }
+        : product,
+    );
+    const { container } = render(
+      <PdpCoreDetailsRoutine
+        items={coreDetailsIslandItems(fallbackProducts)}
+        currentSlug="cleanse-01-calming-gel-cleanser"
+      />,
+    );
+    const active = container.querySelector<HTMLElement>(
+      '.pdp-details-routine__state[data-state="active"]',
+    );
+    const benefits = active?.querySelector(
+      '[data-pdp-details-field="benefits"] dd',
+    );
+    const effect = active?.querySelector(
+      '[data-pdp-details-field="effect"] dd',
+    );
+
+    expect(benefits).toHaveTextContent("CLEANSE description");
+    expect(effect).toHaveTextContent("CLEANSE description");
+    expect(benefits).not.toHaveTextContent("Gel cleanser");
+    expect(effect).not.toHaveTextContent("Gel cleanser");
   });
 
   it("supports focus, arrow keys, and route resets", async () => {

@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const routeMocks = vi.hoisted(() => ({
@@ -137,10 +137,14 @@ describe("catalog draft preview route", () => {
 
     expect(screen.getByTestId("preview-toolbar")).toHaveTextContent("draft");
     expect(screen.getByText("Preview — purchasing disabled")).toBeVisible();
-    expect(
-      screen.getByRole("heading", { name: "Preview metadata" }),
-    ).toBeVisible();
-    expect(screen.getByText("CLEANSE 01 Calming Gel Cleanser")).toBeVisible();
+    const previewMetadataHeading = screen.getByRole("heading", {
+      name: "Preview metadata",
+    });
+    expect(previewMetadataHeading).toBeVisible();
+    const previewMetadata = previewMetadataHeading.closest("aside");
+    expect(previewMetadata).not.toBeNull();
+    expect(within(previewMetadata!).getAllByText("CLEANSE")).toHaveLength(2);
+    expect(within(previewMetadata!).getByText("Gel cleanser")).toBeVisible();
     expect(screen.getByTestId("real-pdp")).toHaveAttribute(
       "data-commerce-disabled",
       "true",

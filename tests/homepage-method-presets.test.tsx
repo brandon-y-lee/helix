@@ -13,6 +13,7 @@ import {
   getCachedProductCards,
 } from "@/lib/catalog-cache";
 import type { Product } from "@/lib/products";
+import type { SystemStepName } from "@/lib/catalog/system-steps";
 
 const mockedGetProducts = getCachedProductCards as unknown as Mock;
 const mockedGetIngredientProducts =
@@ -26,6 +27,16 @@ const ingredientsBySlug: Record<string, string[]> = {
   ],
 };
 
+const systemPositionByName: Record<SystemStepName, number> = {
+  CLEANSE: 1,
+  REFINE: 2,
+  TREAT: 3,
+  FRAME: 4,
+  SEAL: 5,
+  PROTECT: 6,
+  LIFT: 7,
+};
+
 function makeProduct(
   slug: string,
   displayName: string,
@@ -37,19 +48,11 @@ function makeProduct(
     id: `${slug}-id`,
     slug,
     displayName,
-    formalTitle: `${displayName} System Product`,
-    cardTagline: `${displayName} card tagline`,
     routineGroup: ["CLEANSE", "TREAT", "SEAL"].includes(displayName)
       ? "core"
       : "beyond_core",
-    routineStepNumber: ["CLEANSE", "TREAT", "SEAL"].includes(displayName)
-      ? ({ CLEANSE: 1, TREAT: 2, SEAL: 3 } as const)[
-          displayName as "CLEANSE" | "TREAT" | "SEAL"
-        ]
-      : null,
-    routineStepName: ["CLEANSE", "TREAT", "SEAL"].includes(displayName)
-      ? displayName
-      : null,
+    systemStepPosition: systemPositionByName[displayName as SystemStepName],
+    systemStepName: displayName as SystemStepName,
     routineSort: routineOrder * 10,
     productType: "Treatment",
     badge: null,

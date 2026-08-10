@@ -8,13 +8,11 @@ const comingSoonProduct: AlgoliaProductRecord = {
   productId: "lift",
   slug: "lift",
   displayName: "LIFT",
-  formalTitle: "LIFT Eye Treatment",
-  cardTagline: "Targeted eye care",
   editorialDescription: "A focused eye treatment.",
   productType: "Eye treatment",
   routineGroup: "beyond_core",
-  routineStepNumber: 7,
-  routineStepName: "LIFT",
+  systemStepPosition: 7,
+  systemStepName: "LIFT",
   routineSort: 70,
   badge: "Coming soon",
   status: "coming_soon",
@@ -52,7 +50,7 @@ describe("SearchResultCard", () => {
     expect(screen.getByText("View details")).toBeInTheDocument();
     expect(screen.queryByText(/join the waitlist/i)).not.toBeInTheDocument();
     expect(
-      screen.getByRole("link", { name: "LIFT — Targeted eye care" }),
+      screen.getByRole("link", { name: "LIFT — Eye treatment" }),
     ).toHaveAttribute("href", "/products/lift");
   });
 });

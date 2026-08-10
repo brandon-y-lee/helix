@@ -496,7 +496,7 @@ export function MethodExperience({
         meta:
           step.kind === "protect"
             ? PROTECT_STEP.status
-            : step.product?.routineStepName ?? undefined,
+            : step.product?.systemStepName ?? undefined,
         position: step.canonicalPosition,
       })),
       { id: "system-ingredients", label: "Index", meta: "Ingredients" },

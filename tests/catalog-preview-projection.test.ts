@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ProductEditorDocumentV3 } from "@/lib/admin/catalog/types";
+import type { ProductEditorDocumentV4 } from "@/lib/admin/catalog/types";
 import {
   CatalogPreviewProjectionError,
   projectCatalogDraftPreview,
@@ -10,6 +10,7 @@ import type {
   PdpProduct,
 } from "@/lib/catalog/models";
 import { catalogDocument } from "./fixtures/catalog-editor";
+import { SYSTEM_STEPS } from "@/lib/catalog/system-steps";
 
 const productId = "33333333-3333-4333-8333-333333333333";
 const canonicalSlug = "cleanse-01-calming-gel-cleanser";
@@ -30,13 +31,12 @@ function canonicalProduct(): PdpProduct {
   return {
     id: productId,
     slug: canonicalSlug,
-    displayName: "CLEANSE",
-    cardTagline: "Canonical tagline",
+    displayName: "Biotic Reset",
     routineGroup: "core",
-    routineStepNumber: 1,
-    routineStepName: "Cleanse",
+    systemStepPosition: 1,
+    systemStepName: "CLEANSE",
     routineSort: 10,
-    productType: "Gel cleanser",
+    productType: "Daily gel cleanser",
     description: "Canonical description",
     howToUse: "Canonical use",
     swatch: ["#dce8df", "#82978a"],
@@ -92,9 +92,7 @@ function base(): CatalogPreviewBase {
     id: product.id,
     slug: product.slug,
     displayName: product.displayName,
-    formalTitle: "CLEANSE 01 Calming Gel Cleanser",
     productType: product.productType ?? "",
-    cardTagline: product.cardTagline,
     description: product.description,
     benefits: ["Cleans without stripping"],
     goodFor: product.goodFor,
@@ -102,8 +100,8 @@ function base(): CatalogPreviewBase {
     finish: product.finish,
     keyIngredients: product.keyIngredients,
     routineGroup: "core",
-    routineStepNumber: 1,
-    routineStepName: "Cleanse",
+    systemStepPosition: 1,
+    systemStepName: "CLEANSE",
     routineSort: 10,
     swatch: product.swatch,
     textureMedia,
@@ -120,16 +118,20 @@ function base(): CatalogPreviewBase {
     status: product.status,
     variants: product.variants,
   };
-  return { product, coreProducts: [coreProduct] };
+  return {
+    product,
+    coreProducts: [coreProduct],
+    systemSteps: SYSTEM_STEPS.map((step) => ({ ...step })),
+  };
 }
 
-function document(): ProductEditorDocumentV3 {
+function document(): ProductEditorDocumentV4 {
   const draft = structuredClone(catalogDocument);
   draft.productId = productId;
   draft.product.id = productId;
   draft.product.slug = canonicalSlug;
-  draft.product.display_name = "CLEANSE";
-  draft.product.card_tagline = "Draft card tagline";
+  draft.product.display_name = "Biotic Reset";
+  draft.product.product_type = "Draft daily gel cleanser";
   draft.product.editorial_description = "Draft editorial description";
   draft.product.editorial_how_to_use = "Draft editorial use";
   draft.product.benefits = ["Draft benefit"];
@@ -185,8 +187,8 @@ describe("catalog draft PDP projection", () => {
     });
 
     expect(preview.product).toMatchObject({
-      displayName: "CLEANSE",
-      cardTagline: "Draft card tagline",
+      displayName: "Biotic Reset",
+      productType: "Draft daily gel cleanser",
       description: "Draft editorial description",
       howToUse: "Draft editorial use",
       variants: [
@@ -201,7 +203,8 @@ describe("catalog draft PDP projection", () => {
     expect(preview.product.detailMedia?.url).toBe(approvedImage);
     expect(preview.warnings).toEqual([]);
     expect(preview.coreProducts[0]).toMatchObject({
-      displayName: "CLEANSE",
+      displayName: "Biotic Reset",
+      productType: "Draft daily gel cleanser",
       benefits: ["Draft benefit"],
       variants: [
         { id: "55555555-5555-4555-8555-555555555555", price: 9900 },
@@ -210,6 +213,20 @@ describe("catalog draft PDP projection", () => {
       editorialMedia: null,
     });
     expect(canonical).toEqual(original);
+  });
+
+  it("projects System Step position from the Supabase-backed preview registry", () => {
+    const canonical = Object.assign(base(), {
+      systemSteps: [
+        { name: "CLEANSE" as const, position: 2, routineGroup: "core" as const },
+      ],
+    });
+
+    const preview = projectCatalogDraftPreview(document(), canonical, {
+      approvedMediaOrigin: storageOrigin,
+    });
+
+    expect(preview.product.systemStepPosition).toBe(2);
   });
 
   it("projects staged Core editorial media while preserving the left texture", () => {

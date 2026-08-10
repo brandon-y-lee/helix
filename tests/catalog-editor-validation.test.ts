@@ -3,7 +3,7 @@ import {
   assertValidProductEditorDocument,
   validateProductEditorDocument,
 } from "@/lib/admin/catalog/validation";
-import type { ProductEditorDocumentV3 } from "@/lib/admin/catalog/types";
+import type { ProductEditorDocumentV4 } from "@/lib/admin/catalog/types";
 import { catalogDocument } from "./fixtures/catalog-editor";
 
 const PRODUCT_ID = catalogDocument.productId;
@@ -15,15 +15,15 @@ const APPROVED_ENV = {
   NEXT_PUBLIC_SUPABASE_URL: "https://erasogmsqpgiirovubjh.supabase.co",
 } as NodeJS.ProcessEnv;
 
-function validDocument(): ProductEditorDocumentV3 {
+function validDocument(): ProductEditorDocumentV4 {
   const document = structuredClone(catalogDocument);
   document.media = [];
   return document;
 }
 
 function coreRoutineEditorialMedia(
-  overrides: Partial<ProductEditorDocumentV3["media"][number]> = {},
-): ProductEditorDocumentV3["media"][number] {
+  overrides: Partial<ProductEditorDocumentV4["media"][number]> = {},
+): ProductEditorDocumentV4["media"][number] {
   return {
     id: MEDIA_ID,
     product_id: PRODUCT_ID,
@@ -49,9 +49,26 @@ function coreRoutineEditorialMedia(
 describe("product editor document validation", () => {
   it("accepts the normalized versioned aggregate", () => {
     expect(assertValidProductEditorDocument(validDocument())).toMatchObject({
-      schemaVersion: 3,
+      schemaVersion: 4,
       productId: PRODUCT_ID,
     });
+  });
+
+  it("validates System Step identity independently from Display Name", () => {
+    const document = validDocument();
+    document.product.display_name = "Biotic Reset";
+    document.product.system_step_name = "CLEANSE";
+    expect(validateProductEditorDocument(document).issues).toEqual([]);
+
+    document.product.routine_group = "beyond_core";
+    expect(validateProductEditorDocument(document).issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          path: "product.system_step_name",
+          code: "routine_group_mismatch",
+        }),
+      ]),
+    );
   });
 
   it("accepts current long-form SEO copy while retaining a finite bound", () => {

@@ -14,8 +14,6 @@ function product(
     slug: "core-product",
     path: "/products/core-product",
     displayName: "CORE",
-    formalTitle: "Core Product",
-    cardTagline: "Public tagline",
     productType: "Cleanser",
     badge: null,
     currency: "USD",

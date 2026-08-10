@@ -15,6 +15,25 @@ const QUERY_AND_MAPPER_FILES = [
   "lib/algolia/record.ts",
   "lib/cart/server.ts",
   "lib/admin/catalog/service.ts",
+  "lib/catalog-cache.ts",
+  "lib/catalog-invalidation.ts",
+  "lib/catalog-editor/preview-projection.ts",
+  "lib/admin/catalog/validation.ts",
+  "lib/catalog/field-ownership.ts",
+  "test-support/storefront-baseline.ts",
+  "test-support/storefront-search-projection.ts",
+  "test-support/supabase-storefront-catalog.ts",
+] as const;
+
+const PRESENTATION_FILES = [
+  "components/product/ProductCard.tsx",
+  "components/search/SearchResultCard.tsx",
+  "components/product-detail/ProductDetail.tsx",
+  "components/product-detail/ProductDetail.adapters.ts",
+  "components/product-detail/PdpCoreDetailsRoutine.tsx",
+  "components/product-detail/PdpCoreRoutineSection.tsx",
+  "components/system/MethodExperience.tsx",
+  "lib/content/core-pdp.ts",
 ] as const;
 
 const RETIRED_PRODUCT_COLUMNS = [
@@ -37,6 +56,10 @@ const RETIRED_PRODUCT_COLUMNS = [
   "routine_display_label",
   "legacy_routine_group_label",
   "legacy_routine_display_label",
+  "formal_title",
+  "card_tagline",
+  "routine_step_number",
+  "routine_step_name",
 ] as const;
 const RETIRED_MEDIA_COLUMNS = ["media_kind"] as const;
 
@@ -85,6 +108,33 @@ describe("canonical catalog source contract", () => {
       expect(modelSource, `domain model exposes ${field}`).not.toMatch(
         new RegExp(`\\b${field}\\s*:`),
       );
+    }
+
+    for (const field of [
+      "formalTitle",
+      "cardTagline",
+      "routineStepNumber",
+      "routineStepName",
+    ]) {
+      expect(modelSource, `domain model exposes ${field}`).not.toMatch(
+        new RegExp(`\\b${field}\\s*:`),
+      );
+    }
+  });
+
+  it("keeps current presentation boundaries free of retired identity properties", () => {
+    for (const path of PRESENTATION_FILES) {
+      const contents = source(path);
+      for (const field of [
+        "formalTitle",
+        "cardTagline",
+        "routineStepNumber",
+        "routineStepName",
+      ]) {
+        expect(contents, `${path} references ${field}`).not.toMatch(
+          new RegExp(`\\b${field}\\b`),
+        );
+      }
     }
   });
 

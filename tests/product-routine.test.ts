@@ -8,7 +8,7 @@ type RoutineProduct = Parameters<typeof routineDisplayLabelForProduct>[0];
 function product(overrides: Partial<RoutineProduct> = {}): RoutineProduct {
   return {
     routineGroup: "core",
-    routineStepNumber: 1,
+    systemStepPosition: 1,
     ...overrides,
   };
 }
@@ -26,7 +26,7 @@ describe("commerce routine presentation", () => {
   it("renders Beyond The Core without a synthetic step", () => {
     const catalogProduct = product({
       routineGroup: "beyond_core",
-      routineStepNumber: null,
+      systemStepPosition: 4,
     });
 
     expect(routineDisplayLabelForProduct(catalogProduct)).toBe(
@@ -39,7 +39,7 @@ describe("commerce routine presentation", () => {
 
   it("does not invent a numbered label for an incomplete Core row", () => {
     const catalogProduct = product({
-      routineStepNumber: null,
+      systemStepPosition: null,
     });
 
     expect(routineDisplayLabelForProduct(catalogProduct)).toBe("The Core");

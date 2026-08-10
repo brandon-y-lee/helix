@@ -47,11 +47,13 @@ const sourceRow: CatalogProductSource = {
   id: "11111111-1111-1111-1111-111111111111",
   slug: "northpoint-renewal-serum",
   display_name: "NORTHPOINT",
-  formal_title: "NORTHPOINT 03 Renewal Serum",
-  card_tagline: "Smoother-looking tone",
   routine_group: "core",
-  routine_step_number: 2,
-  routine_step_name: "Treat",
+  system_step_name: "TREAT",
+  system_steps: {
+    name: "TREAT",
+    position: 4,
+    routine_group: "core",
+  },
   routine_sort: 20,
   product_type: "Serum",
   badge: "Night step",
@@ -117,14 +119,12 @@ describe("buildAlgoliaRecord", () => {
     expect(r.productId).toBe(sourceRow.id);
     expect(r.slug).toBe("northpoint-renewal-serum");
     expect(r.displayName).toBe("NORTHPOINT");
-    expect(r.formalTitle).toBe("NORTHPOINT 03 Renewal Serum");
-    expect(r.cardTagline).toBe("Smoother-looking tone");
     expect(r.editorialDescription).toBe(
       "A nightly serum for smoother-looking tone.",
     );
     expect(r.routineGroup).toBe("core");
-    expect(r.routineStepNumber).toBe(2);
-    expect(r.routineStepName).toBe("Treat");
+    expect(r.systemStepPosition).toBe(4);
+    expect(r.systemStepName).toBe("TREAT");
     expect(r.routineSort).toBe(20);
     expect(r.productType).toBe("Serum");
     expect(r.currency).toBe("USD");
@@ -140,7 +140,7 @@ describe("buildAlgoliaRecord", () => {
     expect(r.sortOrder).toBe(20);
     // Keywords pull from safe descriptive fields + variant labels.
     expect(r.keywords).toContain("The Core");
-    expect(r.keywords).toContain("Treat");
+    expect(r.keywords).toContain("TREAT");
     expect(r.keywords).toContain("Silky serum");
     expect(r.keywords).toContain("30 ml");
     expect(r.placeholderMedia).toMatchObject({
@@ -268,6 +268,9 @@ describe("buildAlgoliaRecord", () => {
 
   it("exposes index settings driven by existing fields only", () => {
     expect(INDEX_SETTINGS.searchableAttributes).toContain("displayName");
+    expect(INDEX_SETTINGS.searchableAttributes).toContain("productType");
+    expect(INDEX_SETTINGS.searchableAttributes).not.toContain("formalTitle");
+    expect(INDEX_SETTINGS.searchableAttributes).not.toContain("cardTagline");
     expect(INDEX_SETTINGS.customRanking).toContain("asc(sortOrder)");
     expect(INDEX_SETTINGS.attributesForFaceting).toContain(
       "filterOnly(routineGroup)",

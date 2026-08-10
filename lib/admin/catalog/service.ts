@@ -22,7 +22,7 @@ import type {
   CatalogPublishSuccess,
   CatalogPublishTransactionSuccess,
   CatalogRevisionRecord,
-  ProductEditorDocumentV3,
+  ProductEditorDocumentV4,
   CatalogValidationIssue,
 } from "@/lib/admin/catalog/types";
 import { PRODUCT_EDITOR_SCHEMA_VERSION } from "@/lib/admin/catalog/types";
@@ -49,7 +49,7 @@ function isRecord(value: unknown): value is JsonRecord {
 
 function assertRpcResult<T extends JsonRecord>(
   data: unknown,
-  callerDocument?: ProductEditorDocumentV3,
+  callerDocument?: ProductEditorDocumentV4,
 ): T {
   if (!isRecord(data)) {
     throw new CatalogAdminError(
@@ -83,7 +83,7 @@ function throwDatabaseError(error: { message: string; code?: string } | null): n
 
 async function readCanonicalDocument(
   productId: string,
-): Promise<ProductEditorDocumentV3> {
+): Promise<ProductEditorDocumentV4> {
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin.rpc("get_catalog_editor_document", {
     p_product_id: productId,
@@ -96,7 +96,7 @@ async function readCanonicalDocument(
 }
 
 async function relationshipValidationIssues(
-  document: ProductEditorDocumentV3,
+  document: ProductEditorDocumentV4,
 ): Promise<CatalogValidationIssue[]> {
   const relatedIds = [...new Set(document.relationships.map((item) => item.related_product_id))];
   if (relatedIds.length === 0) return [];
@@ -119,8 +119,8 @@ async function relationshipValidationIssues(
 }
 
 function assertCatalogEditorOwnership(
-  document: ProductEditorDocumentV3,
-  canonical: ProductEditorDocumentV3,
+  document: ProductEditorDocumentV4,
+  canonical: ProductEditorDocumentV4,
   role: CatalogEditorRole,
 ) {
   const issues = validateCatalogEditorOwnership(document, canonical, role);
@@ -135,7 +135,7 @@ function assertCatalogEditorOwnership(
 }
 
 async function pendingMediaValidationIssues(
-  document: ProductEditorDocumentV3,
+  document: ProductEditorDocumentV4,
 ): Promise<CatalogValidationIssue[]> {
   const pending = document.media
     .map((media, index) => ({ media, index }))
@@ -280,11 +280,11 @@ export async function listCatalogProducts(url: URL): Promise<{
   let query = admin
     .from("products")
     .select(
-      "id, slug, display_name, formal_title, catalog_status, status, routine_group, routine_sort, published_at, updated_at",
+      "id, slug, display_name, product_type, catalog_status, status, routine_group, routine_sort, published_at, updated_at",
     );
   if (queryText) {
     query = query.or(
-      `slug.ilike.%${queryText}%,display_name.ilike.%${queryText}%,formal_title.ilike.%${queryText}%`,
+      `slug.ilike.%${queryText}%,display_name.ilike.%${queryText}%,product_type.ilike.%${queryText}%`,
     );
   }
   if (catalogStatus) query = query.eq("catalog_status", catalogStatus);
@@ -330,7 +330,7 @@ export async function listCatalogProducts(url: URL): Promise<{
     id: string;
     slug: string;
     display_name: string;
-    formal_title: string;
+    product_type: string;
     catalog_status: string;
     status: string;
     routine_group: string | null;
@@ -449,7 +449,7 @@ export async function listCatalogProducts(url: URL): Promise<{
         id: product.id,
         slug: product.slug,
         displayName: product.display_name,
-        formalTitle: product.formal_title,
+        productType: product.product_type,
         catalogStatus: product.catalog_status,
         productStatus: product.status,
         routineGroup: product.routine_group,
@@ -691,7 +691,7 @@ export type CatalogPublishDependencies = Readonly<{
   pendingMediaValidationIssues: typeof pendingMediaValidationIssues;
   relationshipValidationIssues: typeof relationshipValidationIssues;
   verifyMedia(
-    document: ProductEditorDocumentV3,
+    document: ProductEditorDocumentV4,
   ): Promise<RealProductMediaVerificationReport>;
   publishTransaction(
     input: PublishTransactionInput,
@@ -699,7 +699,7 @@ export type CatalogPublishDependencies = Readonly<{
 }>;
 
 async function verifyCatalogProductMedia(
-  document: ProductEditorDocumentV3,
+  document: ProductEditorDocumentV4,
 ): Promise<RealProductMediaVerificationReport> {
   let approvedOrigin: string | null = null;
   try {
@@ -728,7 +728,7 @@ async function verifyCatalogProductMedia(
   });
 }
 
-function expectedCatalogMedia(document: ProductEditorDocumentV3) {
+function expectedCatalogMedia(document: ProductEditorDocumentV4) {
   return document.media.flatMap((media, index) =>
     media.archived_at === null &&
     typeof media.url === "string" &&

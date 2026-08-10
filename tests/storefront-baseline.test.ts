@@ -8,12 +8,10 @@ import {
 function product(
   overrides: Partial<StorefrontCatalogProduct> = {},
 ): StorefrontCatalogProduct {
-  return {
+  const value: StorefrontCatalogProduct = {
     id: "core-alpha-id",
     slug: "core-alpha",
     display_name: "CORE ALPHA",
-    formal_title: "Core Alpha Cleanser",
-    card_tagline: "A calm daily cleanse.",
     product_type: "Cleanser",
     badge: null,
     currency: "USD",
@@ -35,8 +33,8 @@ function product(
     usage_time: ["Morning", "Night"],
     search_keywords: ["cleanser"],
     routine_group: "core",
-    routine_step_number: 1,
-    routine_step_name: "CLEANSE",
+    system_step_name: "CLEANSE",
+    system_steps: { name: "CLEANSE", position: 1, routine_group: "core" },
     routine_sort: 20,
     product_variants: [
       {
@@ -85,6 +83,16 @@ function product(
     ],
     ...overrides,
   };
+  if (!("system_step_name" in overrides)) {
+    value.system_step_name =
+      value.routine_group === "beyond_core" ? "FRAME" : "CLEANSE";
+  }
+  if (!("system_steps" in overrides)) {
+    value.system_steps = value.routine_group === "beyond_core"
+      ? { name: "FRAME", position: 4, routine_group: "beyond_core" }
+      : { name: "CLEANSE", position: 1, routine_group: "core" };
+  }
+  return value;
 }
 
 describe("Storefront Baseline", () => {
@@ -106,8 +114,7 @@ describe("Storefront Baseline", () => {
             slug: "beyond-product",
             display_name: "BEYOND",
             routine_group: "beyond_core",
-            routine_step_number: 4,
-            routine_step_name: "FRAME",
+            system_step_name: "FRAME",
             routine_sort: 30,
             sort_order: 30,
             product_variants: [],
@@ -375,8 +382,7 @@ describe("Storefront Baseline", () => {
           product({
             id: "core-sibling-id",
             slug: "core-sibling",
-            routine_step_number: 1,
-            routine_step_name: "CLEANSE",
+            system_step_name: "CLEANSE",
             routine_sort: 25,
             sort_order: 25,
             product_variants: [],
@@ -386,8 +392,7 @@ describe("Storefront Baseline", () => {
             id: "beyond-id",
             slug: "beyond-product",
             routine_group: "beyond_core",
-            routine_step_number: 4,
-            routine_step_name: "FRAME",
+            system_step_name: "FRAME",
             routine_sort: 30,
             sort_order: 30,
             product_variants: [],
@@ -465,7 +470,7 @@ describe("Storefront Baseline", () => {
     ["status", "hidden", "unsupported-merchandising-status"],
     ["routine_group", "seasonal", "unsupported-routine-group"],
     ["routine_sort", -1, "invalid-ordering"],
-    ["routine_step_number", -1, "invalid-ordering"],
+    ["system_step_name", "UNKNOWN", "invalid-ordering"],
   ] as const)(
     "rejects an invalid %s value",
     async (field, value, code) => {

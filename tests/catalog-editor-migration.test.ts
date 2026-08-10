@@ -58,6 +58,27 @@ const completeFieldCoverageLintMigration = readFileSync(
   ),
   "utf8",
 );
+const catalogIdentityV4Migration = readFileSync(
+  resolve(
+    process.cwd(),
+    "supabase/migrations/20260810121222_catalog_identity_v4.sql",
+  ),
+  "utf8",
+);
+const catalogIdentityV4IndexMigration = readFileSync(
+  resolve(
+    process.cwd(),
+    "supabase/migrations/20260810130000_catalog_identity_v4_fk_index.sql",
+  ),
+  "utf8",
+);
+const systemStepsFixedContractMigration = readFileSync(
+  resolve(
+    process.cwd(),
+    "supabase/migrations/20260810140000_system_steps_fixed_contract.sql",
+  ),
+  "utf8",
+);
 
 describe("catalog editor database boundary", () => {
   it("keeps editor tables browser-inaccessible and history append-only", () => {
@@ -332,5 +353,95 @@ describe("catalog editor database boundary", () => {
     expect(completeFieldCoverageLintMigration).toContain(
       "catalog_editor_upgrade_to_v3(jsonb) volatile",
     );
+  });
+
+  it("governs the fixed seven-step System and enforces Product classification", () => {
+    expect(catalogIdentityV4Migration).toContain(
+      "create table public.system_steps",
+    );
+    for (const row of [
+      "('CLEANSE', 1, 'core')",
+      "('REFINE', 2, 'beyond_core')",
+      "('TREAT', 3, 'core')",
+      "('FRAME', 4, 'beyond_core')",
+      "('SEAL', 5, 'core')",
+      "('PROTECT', 6, 'beyond_core')",
+      "('LIFT', 7, 'beyond_core')",
+    ]) {
+      expect(catalogIdentityV4Migration).toContain(row);
+    }
+    expect(catalogIdentityV4Migration).toContain(
+      "alter table public.system_steps enable row level security",
+    );
+    expect(catalogIdentityV4Migration).toContain(
+      "grant select on table public.system_steps to anon, authenticated, service_role",
+    );
+    expect(catalogIdentityV4Migration).toContain(
+      "foreign key (system_step_name, routine_group)",
+    );
+    expect(catalogIdentityV4Migration).toContain(
+      "references public.system_steps (name, routine_group)",
+    );
+    expect(catalogIdentityV4Migration).toContain(
+      "create index products_system_step_name_idx",
+    );
+    expect(catalogIdentityV4IndexMigration).toContain(
+      "drop index public.products_system_step_name_idx",
+    );
+    expect(catalogIdentityV4IndexMigration).toContain(
+      "on public.products (system_step_name, routine_group)",
+    );
+    expect(catalogIdentityV4Migration).not.toMatch(/\bcascade\b/i);
+  });
+
+  it("binds every governed System Step to its fixed position and Routine Group", () => {
+    expect(systemStepsFixedContractMigration).toContain(
+      "add constraint system_steps_fixed_contract_check",
+    );
+    for (const clause of [
+      "name = 'CLEANSE' and position = 1 and routine_group = 'core'",
+      "name = 'REFINE' and position = 2 and routine_group = 'beyond_core'",
+      "name = 'TREAT' and position = 3 and routine_group = 'core'",
+      "name = 'FRAME' and position = 4 and routine_group = 'beyond_core'",
+      "name = 'SEAL' and position = 5 and routine_group = 'core'",
+      "name = 'PROTECT' and position = 6 and routine_group = 'beyond_core'",
+      "name = 'LIFT' and position = 7 and routine_group = 'beyond_core'",
+    ]) {
+      expect(systemStepsFixedContractMigration).toContain(clause);
+    }
+    expect(systemStepsFixedContractMigration).not.toMatch(/\bcascade\b/i);
+  });
+
+  it("cuts current drafts and publication over to V4 while preserving old revisions", () => {
+    expect(catalogIdentityV4Migration).toContain(
+      "private.catalog_editor_document_v4",
+    );
+    expect(catalogIdentityV4Migration).toContain(
+      "private.catalog_editor_upgrade_v3_to_v4",
+    );
+    expect(catalogIdentityV4Migration).toContain(
+      "private.catalog_editor_upgrade_to_v4",
+    );
+    expect(catalogIdentityV4Migration).toContain(
+      "private.catalog_editor_upgrade_v1_to_v2(p_document)",
+    );
+    expect(catalogIdentityV4Migration).toContain(
+      "where status in ('draft', 'ready')",
+    );
+    expect(catalogIdentityV4Migration).not.toMatch(
+      /update public\.catalog_product_revisions\s+set/i,
+    );
+    expect(catalogIdentityV4Migration).toContain("'schemaVersion', 4");
+    expect(catalogIdentityV4Migration).toContain(
+      "v_document := private.catalog_editor_upgrade_to_v4(v_revision.document)",
+    );
+    for (const field of [
+      "formal_title",
+      "card_tagline",
+      "routine_step_number",
+      "routine_step_name",
+    ]) {
+      expect(catalogIdentityV4Migration).toContain(`drop column ${field}`);
+    }
   });
 });

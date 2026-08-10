@@ -17,12 +17,10 @@ const originalSnapshotPath = process.env[STOREFRONT_SNAPSHOT_ENV];
 function product(
   overrides: Partial<StorefrontCatalogProduct> = {},
 ): StorefrontCatalogProduct {
-  return {
+  const value: StorefrontCatalogProduct = {
     id: "core-id",
     slug: "core-product",
     display_name: "CORE",
-    formal_title: "Core Product",
-    card_tagline: "Public tagline",
     product_type: "Cleanser",
     badge: null,
     currency: "USD",
@@ -44,8 +42,8 @@ function product(
     usage_time: [],
     search_keywords: [],
     routine_group: "core",
-    routine_step_number: 1,
-    routine_step_name: "CLEANSE",
+    system_step_name: "CLEANSE",
+    system_steps: { name: "CLEANSE", position: 1, routine_group: "core" },
     routine_sort: 10,
     product_variants: [
       {
@@ -94,6 +92,12 @@ function product(
     ],
     ...overrides,
   };
+  if (!("system_steps" in overrides)) {
+    value.system_steps = value.routine_group === "beyond_core"
+      ? { name: "FRAME", position: 4, routine_group: "beyond_core" }
+      : { name: "CLEANSE", position: 1, routine_group: "core" };
+  }
+  return value;
 }
 
 beforeEach(() => {
@@ -159,8 +163,7 @@ describe("Playwright global Storefront baseline setup", () => {
             slug: "beyond-product",
             display_name: "BEYOND",
             routine_group: "beyond_core",
-            routine_step_number: 4,
-            routine_step_name: "FRAME",
+            system_step_name: "FRAME",
             routine_sort: 20,
             sort_order: 20,
             product_variants: [],

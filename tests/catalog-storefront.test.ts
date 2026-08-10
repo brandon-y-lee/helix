@@ -82,15 +82,12 @@ function media(role: string, sortOrder = 0) {
 }
 
 function productRow(overrides: Record<string, unknown> = {}) {
-  return {
+  const row = {
     id: "product-id",
     slug: "treat-03-pdrn-5-ampoule",
     display_name: "TREAT",
-    formal_title: "TREAT 03 PDRN Ampoule",
-    card_tagline: "Bounce and glow",
     routine_group: "core",
-    routine_step_number: 2,
-    routine_step_name: "Treat",
+    system_step_name: "TREAT",
     routine_sort: 20,
     product_type: "Ampoule / Serum",
     currency: "USD",
@@ -138,6 +135,15 @@ function productRow(overrides: Record<string, unknown> = {}) {
     ],
     ...overrides,
   };
+  const step = {
+    CLEANSE: { name: "CLEANSE", position: 1, routine_group: "core" },
+    TREAT: { name: "TREAT", position: 3, routine_group: "core" },
+    SEAL: { name: "SEAL", position: 5, routine_group: "core" },
+  }[row.system_step_name as "CLEANSE" | "TREAT" | "SEAL"];
+  return {
+    ...row,
+    system_steps: overrides.system_steps ?? step,
+  };
 }
 
 beforeEach(() => {
@@ -157,7 +163,9 @@ describe("storefront catalog projections", () => {
     expect(card).toMatchObject({
       slug: "treat-03-pdrn-5-ampoule",
       displayName: "TREAT",
-      cardTagline: "Bounce and glow",
+      productType: "Ampoule / Serum",
+      systemStepName: "TREAT",
+      systemStepPosition: 3,
     });
     expect(card).not.toHaveProperty("description");
     expect(card).not.toHaveProperty("ingredients");
@@ -179,8 +187,8 @@ describe("storefront catalog projections", () => {
   it("gives discovery ProductCard data while preserving exclusion and order", async () => {
     const { client, calls } = makeClient({
       data: [
-        productRow({ slug: "seal-05-green-collagen-cream", display_name: "SEAL", routine_sort: 30 }),
-        productRow({ slug: "cleanse-01-calming-gel-cleanser", display_name: "CLEANSE", routine_sort: 10 }),
+        productRow({ slug: "seal-05-green-collagen-cream", display_name: "SEAL", system_step_name: "SEAL", routine_sort: 30 }),
+        productRow({ slug: "cleanse-01-calming-gel-cleanser", display_name: "CLEANSE", system_step_name: "CLEANSE", routine_sort: 10 }),
       ],
       error: null,
     });
@@ -212,7 +220,8 @@ describe("storefront catalog projections", () => {
       description: "Approved editorial description.",
       howToUse: "Apply after CLEANSE.",
       keyIngredients: ["PDRN", "Niacinamide"],
-      routineStepName: "Treat",
+      systemStepName: "TREAT",
+      systemStepPosition: 3,
     });
     expect(product?.media.map((item) => item.role)).toContain("pdp_outcome");
     expect(product?.media.map((item) => item.role)).toContain("pdp_application");
@@ -237,8 +246,7 @@ describe("storefront catalog projections", () => {
         id: `${index + 1}-id`,
         slug,
         display_name: ["CLEANSE", "TREAT", "SEAL"][index],
-        routine_step_number: index + 1,
-        routine_step_name: ["Cleanse", "Treat", "Seal"][index],
+        system_step_name: ["CLEANSE", "TREAT", "SEAL"][index],
         routine_sort: (index + 1) * 10,
         product_media: [
           media("card_default"),
@@ -313,8 +321,9 @@ describe("storefront catalog projections", () => {
       getProductMetadata("treat-03-pdrn-5-ampoule"),
     ).resolves.toEqual({
       slug: "treat-03-pdrn-5-ampoule",
-      formalTitle: "TREAT 03 PDRN Ampoule",
-      cardTagline: "Bounce and glow",
+      displayName: "TREAT",
+      productType: "Ampoule / Serum",
+      editorialDescription: "Approved editorial description.",
       seoTitle: "TREAT PDRN Ampoule | Mei Pelle",
       seoDescription: "A lightweight daily ampoule.",
     });

@@ -17,6 +17,10 @@ import type {
   ProductStatus,
   Variant,
 } from "@/lib/products";
+import {
+  systemStepFromDatabaseRelation,
+  type SystemStepDatabaseRelation,
+} from "@/lib/catalog/system-steps";
 
 export type { Product } from "@/lib/products";
 
@@ -24,8 +28,6 @@ type ProductRow = {
   id: string;
   slug: string;
   display_name: string;
-  formal_title: string;
-  card_tagline: string;
   product_type: string;
   badge: string | null;
   currency: string;
@@ -53,8 +55,8 @@ type ProductRow = {
   seo_description: string | null;
   search_keywords: string[];
   routine_group: string;
-  routine_step_number: number | null;
-  routine_step_name: string | null;
+  system_step_name: string | null;
+  system_steps: SystemStepDatabaseRelation;
   routine_sort: number;
   created_at: string;
   product_pdp_content:
@@ -92,12 +94,12 @@ type MediaRow = {
 };
 
 const PRODUCT_SELECT =
-  "id, slug, display_name, formal_title, card_tagline, product_type, badge, currency, " +
+  "id, slug, display_name, product_type, badge, currency, " +
   "sort_order, editorial_description, benefits, editorial_how_to_use, formula_notes, " +
   "swatch_from, swatch_to, status, catalog_status, made_for, good_for, texture, " +
   "key_ingredients, ingredients, cautions, finish, volume, skin_types, concerns, " +
   "usage_time, seo_title, seo_description, search_keywords, routine_group, " +
-  "routine_step_number, routine_step_name, routine_sort, created_at, " +
+  "system_step_name, system_steps ( name, position, routine_group ), routine_sort, created_at, " +
   "product_pdp_content ( schema_version, profile_title_tokens, routine_overlay, " +
   "outcome_heading, outcome_labels, how_to_use_steps, application_steps, " +
   "ingredient_cards, ingredient_story, routine_guidance ), " +
@@ -249,6 +251,21 @@ function firstPdpContent(
 }
 
 function mapProductRow(row: ProductRow): Product {
+  const routineGroup = toCommerceRoutineGroup(row.routine_group);
+  const systemStep = systemStepFromDatabaseRelation(row.system_steps);
+  if (
+    row.system_step_name &&
+    (!systemStep ||
+      systemStep.name !== row.system_step_name ||
+      systemStep.routineGroup !== routineGroup)
+  ) {
+    throw new Error(
+      `[catalog] Unsupported System Step "${row.system_step_name}" for ${row.slug}.`,
+    );
+  }
+  if (row.catalog_status === "active" && !systemStep) {
+    throw new Error(`[catalog] Active Product ${row.slug} has no System Step.`);
+  }
   const swatch: [string, string] = [row.swatch_from, row.swatch_to];
   const variants: Variant[] = (row.product_variants ?? [])
     .slice()
@@ -296,12 +313,10 @@ function mapProductRow(row: ProductRow): Product {
     id: row.id,
     slug: row.slug,
     displayName: row.display_name,
-    formalTitle: row.formal_title,
-    cardTagline: row.card_tagline,
     productType: row.product_type,
-    routineGroup: toCommerceRoutineGroup(row.routine_group),
-    routineStepNumber: row.routine_step_number,
-    routineStepName: row.routine_step_name,
+    routineGroup,
+    systemStepName: systemStep?.name ?? null,
+    systemStepPosition: systemStep?.position ?? null,
     routineSort: row.routine_sort,
     badge: row.badge,
     currency: row.currency === "USD" ? "USD" : "USD",

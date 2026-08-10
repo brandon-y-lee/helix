@@ -63,7 +63,6 @@ type LegacyOfferKey =
   | "status"
   | "catalogStatus";
 type LegacyCardKey =
-  | "cardTagline"
   | "badge"
   | "sortOrder";
 type LegacyMediaKey =
@@ -134,7 +133,6 @@ function toLegacyContent(product: Product): LegacyProductContent {
     "variants",
     "status",
     "catalogStatus",
-    "cardTagline",
     "badge",
     "sortOrder",
     "media",
@@ -166,7 +164,6 @@ function toLegacyCard(product: Product): LegacyProductCard {
   return {
     id: product.id,
     slug: product.slug,
-    cardTagline: product.cardTagline,
     badge: product.badge,
     sortOrder: product.sortOrder,
     media: product.media.filter((media) => CARD_MEDIA_ROLES.has(media.role)),
@@ -204,7 +201,7 @@ const requestLegacyProducts = cache(getProducts);
 
 const readCachedLegacyContents = unstable_cache(
   async () => (await requestLegacyProducts()).map(toLegacyContent),
-  ["catalog-products-content-v2"],
+  ["catalog-products-content-v3"],
   {
     revalidate: PRODUCT_CONTENT_REVALIDATE_SECONDS,
     tags: [
@@ -228,7 +225,7 @@ const readCachedLegacyOffers = unstable_cache(
 
 const readCachedLegacyCards = unstable_cache(
   async () => (await requestLegacyProducts()).map(toLegacyCard),
-  ["catalog-products-card-v2"],
+  ["catalog-products-card-v3"],
   {
     revalidate: PRODUCT_CARD_REVALIDATE_SECONDS,
     tags: [
@@ -322,7 +319,7 @@ function composeCore(
 
 const readCachedProductCardContents = unstable_cache(
   getProductCardContents,
-  ["catalog-product-cards-v2"],
+  ["catalog-product-cards-v3"],
   {
     revalidate: PRODUCT_CARD_REVALIDATE_SECONDS,
     tags: [
@@ -377,7 +374,7 @@ export function getCachedIngredientIndexProducts(): Promise<
 
 const readCachedCoreRoutineContents = unstable_cache(
   getCoreRoutineContentSummaries,
-  ["catalog-core-routine-content-v3"],
+  ["catalog-core-routine-content-v4"],
   {
     revalidate: CORE_ROUTINE_REVALIDATE_SECONDS,
     tags: [
@@ -407,7 +404,7 @@ export async function getCachedPdpProduct(
   const [content, offer] = await Promise.all([
     unstable_cache(
       () => getPdpProductContent(slug),
-      ["catalog-pdp-content-v3", slug],
+      ["catalog-pdp-content-v4", slug],
       {
         revalidate: PRODUCT_CONTENT_REVALIDATE_SECONDS,
         tags: [productContentCacheTag(slug)],
@@ -430,7 +427,7 @@ export function getCachedProductMetadata(
 ): Promise<ProductMetadata | undefined> {
   return unstable_cache(
     () => getProductMetadata(slug),
-    ["catalog-product-metadata-v2", slug],
+    ["catalog-product-metadata-v3", slug],
     {
       revalidate: PRODUCT_CONTENT_REVALIDATE_SECONDS,
       tags: [productContentCacheTag(slug)],
@@ -445,7 +442,7 @@ export async function getCachedDiscoveryProductCards(
   const [contents, offers] = await Promise.all([
     unstable_cache(
       () => getDiscoveryProductCardContents(excludeSlug, limit),
-      ["catalog-discovery-cards-v4", excludeSlug, String(limit)],
+      ["catalog-discovery-cards-v5", excludeSlug, String(limit)],
       {
         revalidate: DISCOVERY_REVALIDATE_SECONDS,
         tags: [

@@ -3,6 +3,11 @@
 import type { ProductStatus } from "@/lib/products";
 import { statusLabel } from "@/lib/catalog/product-status";
 import { routineGroupLabel } from "@/lib/catalog/product-routine";
+import {
+  systemStepFromDatabaseRelation,
+  type SystemStepName,
+  type SystemStepDatabaseRelation,
+} from "@/lib/catalog/system-steps";
 
 type CatalogVariantSource = {
   variant_key: string;
@@ -29,8 +34,6 @@ export type CatalogProductSource = {
   id: string;
   slug: string;
   display_name: string;
-  formal_title: string;
-  card_tagline: string;
   product_type: string;
   badge: string | null;
   catalog_status: string;
@@ -49,8 +52,8 @@ export type CatalogProductSource = {
   usage_time: string[];
   search_keywords: string[];
   routine_group: string;
-  routine_step_number: number | null;
-  routine_step_name: string | null;
+  system_step_name: string | null;
+  system_steps: SystemStepDatabaseRelation;
   routine_sort: number;
   published_at: string | null;
   updated_at: string | null;
@@ -63,13 +66,11 @@ export type AlgoliaProductRecord = {
   productId: string;
   slug: string;
   displayName: string;
-  formalTitle: string;
-  cardTagline: string;
   editorialDescription: string;
   productType: string;
   routineGroup: "core" | "beyond_core";
-  routineStepNumber: number | null;
-  routineStepName: string | null;
+  systemStepPosition: number;
+  systemStepName: SystemStepName;
   routineSort: number;
   badge: string | null;
   status: ProductStatus;
@@ -235,6 +236,16 @@ export function buildAlgoliaRecord(
   );
   const swatch: [string, string] = [row.swatch_from, row.swatch_to];
   const routineGroup = toRoutineGroup(row.routine_group);
+  const systemStep = systemStepFromDatabaseRelation(row.system_steps);
+  if (
+    !systemStep ||
+    systemStep.name !== row.system_step_name ||
+    systemStep.routineGroup !== routineGroup
+  ) {
+    throw new Error(
+      `[search-sync] Product "${row.slug}" has an invalid System Step.`,
+    );
+  }
   const concerns = row.concerns ?? [];
   const ingredients = [
     ...(row.key_ingredients ?? []),
@@ -247,11 +258,9 @@ export function buildAlgoliaRecord(
   ];
   const keywords = [
     routineGroupLabel(routineGroup),
-    row.routine_step_name,
+    systemStep.name,
     row.product_type,
     row.display_name,
-    row.formal_title,
-    row.card_tagline,
     row.editorial_description,
     row.made_for,
     row.good_for,
@@ -268,13 +277,11 @@ export function buildAlgoliaRecord(
     productId: row.id,
     slug: row.slug,
     displayName: row.display_name,
-    formalTitle: row.formal_title,
-    cardTagline: row.card_tagline,
     editorialDescription: row.editorial_description,
     productType: row.product_type,
     routineGroup,
-    routineStepNumber: row.routine_step_number,
-    routineStepName: row.routine_step_name,
+    systemStepPosition: systemStep.position,
+    systemStepName: systemStep.name,
     routineSort: row.routine_sort,
     badge: statusLabel(status) ?? row.badge,
     status,
@@ -318,8 +325,6 @@ export type IndexSettings = {
 export const INDEX_SETTINGS: IndexSettings = {
   searchableAttributes: [
     "displayName",
-    "formalTitle",
-    "cardTagline",
     "productType",
     "editorialDescription",
     "unordered(keywords)",
@@ -335,7 +340,7 @@ export const INDEX_SETTINGS: IndexSettings = {
   customRanking: ["asc(sortOrder)", "asc(displayName)"],
   attributesToHighlight: [
     "displayName",
-    "cardTagline",
+    "productType",
     "editorialDescription",
   ],
 };

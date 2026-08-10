@@ -1,4 +1,4 @@
-import type { ProductEditorDocumentV3 } from "@/lib/admin/catalog/types";
+import type { ProductEditorDocumentV4 } from "@/lib/admin/catalog/types";
 import {
   catalogFieldsForTable,
   type CatalogEditorTable,
@@ -100,8 +100,8 @@ function collectionEntries(
 }
 
 export function catalogDocumentDiff(
-  before: ProductEditorDocumentV3,
-  after: ProductEditorDocumentV3,
+  before: ProductEditorDocumentV4,
+  after: ProductEditorDocumentV4,
 ): CatalogDocumentDiff {
   const groups: Array<{
     table: CatalogDocumentTable;
