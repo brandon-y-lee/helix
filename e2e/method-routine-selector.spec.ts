@@ -13,7 +13,7 @@ test("System routine selector and anchored navigation are keyboard operable", as
   await page.keyboard.press("End");
   await expect(slider).toHaveValue("7");
 
-  await page.locator('.method-index__link[href="#system-seal"]').click();
-  await expect(page).toHaveURL(/\/system#system-seal$/);
-  await expect(page.locator("#system-seal")).toBeInViewport();
+  await page.locator('.method-index__link[href="#system-treat"]').click();
+  await expect(page).toHaveURL(/\/system#system-treat$/);
+  await expect(page.locator("#system-treat")).toBeInViewport();
 });
