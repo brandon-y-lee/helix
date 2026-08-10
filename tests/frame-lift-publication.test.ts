@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ProductEditorDocumentV4 } from "@/lib/admin/catalog/types";
+import { validateProductEditorDocument } from "@/lib/admin/catalog/validation";
 import { catalogDocument } from "@/tests/fixtures/catalog-editor";
 import {
   FRAME_LIFT_PUBLICATIONS,
@@ -19,20 +20,21 @@ function sourceDocument(step: "FRAME" | "LIFT"): ProductEditorDocumentV4 {
   document.product.system_step_name = step;
   document.product.product_type = isFrame ? "Eye contour cream" : "Sheet mask";
   document.product.ingredients = isFrame
-    ? "Water, Sodium DNA, Acetyl Tetrapeptide-5, Acetyl Hexapeptide-8, Copper Tripeptide-1"
-    : "Water, Sodium DNA (5,000 ppm), Hydrolyzed Collagen, Niacinamide";
+    ? "Water, Sodium DNA, Niacinamide, Panthenol, Allantoin, Acetyl Tetrapeptide-5, Acetyl Hexapeptide-8, Copper Tripeptide-1, Palmitoyl Pentapeptide-4"
+    : "Water, Glycerin, Niacinamide, Sodium DNA (5,000 ppm), Allantoin, Adenosine, Hydrolyzed Collagen";
   document.product.volume = isFrame ? "20 mL" : "10 x 25 mL";
   document.productPdpContent!.product_id = publication.productId;
   document.variants[0]!.product_id = publication.productId;
-  document.media = document.media.map((item) => ({
+  document.media = document.media.map((item, index) => ({
     ...item,
     product_id: publication.productId,
+    url: `https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/mei-pelle-catalog/products/${step.toLowerCase()}/${index}.webp`,
   }));
   document.relationships = [
     {
       product_id: publication.productId,
       related_product_id: "123e4567-e89b-42d3-a456-426614174099",
-      relationship_type: "pairs_with",
+      relationship_type: "related",
       sort_order: 0,
       created_at: "2026-07-20T12:00:00.000Z",
       archived_at: null,
@@ -43,7 +45,10 @@ function sourceDocument(step: "FRAME" | "LIFT"): ProductEditorDocumentV4 {
     product_id: publication.productId,
     supplier_title: publication.sourceTitle,
     supplier_url: publication.sourceUrl,
-    raw_source: { immutable: "supplier evidence" },
+    raw_source: {
+      catalogProduct: { ingredients: document.product.ingredients },
+      immutable: "supplier evidence",
+    },
   };
 
   return document;
@@ -74,6 +79,15 @@ describe("FRAME and LIFT Catalog publication", () => {
       expect(after.productSource?.raw_source).toEqual(
         before.productSource?.raw_source,
       );
+      expect(after.productSource?.source_content_hash).toMatch(/^[a-f\d]{64}$/i);
+      expect(after.product.skin_types).toEqual([]);
+      expect(
+        validateProductEditorDocument(after, {
+          ...process.env,
+          NEXT_PUBLIC_SUPABASE_URL:
+            "https://erasogmsqpgiirovubjh.supabase.co",
+        }).issues,
+      ).toEqual([]);
       expect(isFrameLiftPublicationCurrent(after, step)).toBe(true);
     },
   );
@@ -118,6 +132,10 @@ describe("FRAME and LIFT Catalog publication", () => {
     );
     expect(publicCopy).not.toMatch(/lifting|\b0\.5%\b|rejuvenat|medical|clinical/i);
     expect(publicCopy).toMatch(/Hydrolyzed Collagen/);
+    expect(after.productSource?.raw_source).toHaveProperty(
+      "catalogProduct.ingredients",
+      expect.stringContaining("Hydrolyzed Collagen"),
+    );
   });
 
   it("fails closed when immutable supplier or Formula evidence is different", () => {
@@ -134,6 +152,12 @@ describe("FRAME and LIFT Catalog publication", () => {
     expect(() =>
       buildFrameLiftPublicationDocument(wrongFormula, "FRAME"),
     ).toThrow(/Formula evidence/i);
+
+    const missingGovernedEvidence = sourceDocument("LIFT");
+    missingGovernedEvidence.productSource!.source_content_hash = null;
+    expect(() =>
+      buildFrameLiftPublicationDocument(missingGovernedEvidence, "LIFT"),
+    ).toThrow(/governed supplier Formula evidence/i);
   });
 
   it("is deterministic and recognizes a completed publication for safe retries", () => {

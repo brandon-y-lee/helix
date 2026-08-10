@@ -23,8 +23,8 @@ function sourceDocument(step: FrameLiftStep): ProductEditorDocumentV4 {
     product_type: step === "FRAME" ? "Eye contour cream" : "Sheet mask",
     ingredients:
       step === "FRAME"
-        ? "Water, Sodium DNA, Acetyl Tetrapeptide-5"
-        : "Water, Sodium DNA (5,000 ppm), Hydrolyzed Collagen",
+        ? "Water, Sodium DNA, Niacinamide, Panthenol, Allantoin, Acetyl Tetrapeptide-5, Acetyl Hexapeptide-8, Copper Tripeptide-1, Palmitoyl Pentapeptide-4"
+        : "Water, Glycerin, Niacinamide, Sodium DNA (5,000 ppm), Allantoin, Adenosine, Hydrolyzed Collagen",
   };
   document.productPdpContent = {
     ...document.productPdpContent!,
@@ -43,6 +43,9 @@ function sourceDocument(step: FrameLiftStep): ProductEditorDocumentV4 {
     product_id: definition.productId,
     supplier_title: definition.sourceTitle,
     supplier_url: definition.sourceUrl,
+    raw_source: {
+      catalogProduct: { ingredients: document.product.ingredients },
+    },
   };
   return document;
 }
@@ -50,26 +53,37 @@ function sourceDocument(step: FrameLiftStep): ProductEditorDocumentV4 {
 function gateway(step: FrameLiftStep): FrameLiftPublicationGateway {
   let current = sourceDocument(step);
   let redirected = false;
+  let activeDraft: { id: string; version: number } | null = null;
   return {
     readState: vi.fn(async () => ({
       canonical: current,
-      activeDraftId: null,
+      activeDraft,
       sourceRedirectExists: redirected,
     })),
-    createDraft: vi.fn(async () => ({
-      created: true,
-      draft: { id: "draft-id", version: 1, document: current },
-    })),
-    validateDocument: vi.fn(() => []),
-    saveDraft: vi.fn(async ({ document }) => ({
-      draft: { id: "draft-id", version: 2, document },
-    })),
-    markReady: vi.fn(async () => ({
-      draft: { id: "draft-id", version: 3 },
-    })),
+    createDraft: vi.fn(async () => {
+      activeDraft = { id: "draft-id", version: 1 };
+      return {
+        created: true,
+        draft: { id: "draft-id", version: 1, document: current },
+      };
+    }),
+    validateDocument: vi.fn(async () => []),
+    verifyMedia: vi.fn(async () => undefined),
+    saveDraft: vi.fn(async ({ document }) => {
+      activeDraft = { id: "draft-id", version: 2 };
+      return { draft: { id: "draft-id", version: 2, document } };
+    }),
+    markReady: vi.fn(async () => {
+      activeDraft = { id: "draft-id", version: 3 };
+      return { draft: { id: "draft-id", version: 3 } };
+    }),
+    discardDraft: vi.fn(async () => {
+      activeDraft = null;
+    }),
     publishDraft: vi.fn(async ({ document }) => {
       current = document;
       redirected = true;
+      activeDraft = null;
       return { revisionId: "revision-id", revisionNumber: 1 };
     }),
   };
@@ -124,7 +138,7 @@ describe("FRAME/LIFT publication runner", () => {
     const adapter = gateway("FRAME");
     vi.mocked(adapter.readState).mockResolvedValueOnce({
       canonical: sourceDocument("FRAME"),
-      activeDraftId: "someone-elses-draft",
+      activeDraft: { id: "someone-elses-draft", version: 4 },
       sourceRedirectExists: false,
     });
 
@@ -136,7 +150,7 @@ describe("FRAME/LIFT publication runner", () => {
 
   it("does not publish when local validation reports any issue", async () => {
     const adapter = gateway("LIFT");
-    vi.mocked(adapter.validateDocument).mockReturnValue([
+    vi.mocked(adapter.validateDocument).mockResolvedValue([
       { path: "product.slug", code: "invalid", message: "invalid" },
     ]);
 
@@ -156,7 +170,7 @@ describe("FRAME/LIFT publication runner", () => {
     );
     vi.mocked(adapter.readState).mockResolvedValueOnce({
       canonical: publishedState.canonical,
-      activeDraftId: null,
+      activeDraft: null,
       sourceRedirectExists: false,
     });
 
@@ -164,5 +178,22 @@ describe("FRAME/LIFT publication runner", () => {
       /redirect/i,
     );
     expect(adapter.createDraft).toHaveBeenCalledTimes(1);
+  });
+
+  it("discards only the draft created by a failed publication", async () => {
+    const adapter = gateway("LIFT");
+    vi.mocked(adapter.saveDraft).mockRejectedValueOnce(new Error("network"));
+
+    await expect(publishFrameLiftProduct("LIFT", adapter)).rejects.toThrow(
+      "network",
+    );
+    expect(adapter.discardDraft).toHaveBeenCalledWith({
+      draftId: "draft-id",
+      expectedVersion: 1,
+    });
+    const state = await adapter.readState(
+      FRAME_LIFT_PUBLICATIONS.LIFT.productId,
+    );
+    expect(state.activeDraft).toBeNull();
   });
 });

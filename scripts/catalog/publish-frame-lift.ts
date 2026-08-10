@@ -3,6 +3,7 @@ import {
   assertValidProductEditorDocument,
   validateProductEditorDocument,
 } from "../../lib/admin/catalog/validation";
+import { validateCatalogEditorOwnership } from "../../lib/admin/catalog/ownership";
 import type {
   CatalogDraftRecord,
   CatalogValidationIssue,
@@ -16,6 +17,9 @@ import {
   publishFrameLiftProduct,
   type FrameLiftPublicationGateway,
 } from "../../lib/catalog/frame-lift-publication-runner";
+import { CATALOG_MEDIA_BUCKET } from "../../lib/catalog/media-storage";
+import { productMediaHttpClient } from "../../lib/catalog/product-media-http-client";
+import { verifyRealProductMedia } from "../../lib/catalog/real-product-media-verification";
 import { createOpsClient, parseFlag, printJson } from "../db/supabase-ops";
 
 type JsonRecord = Record<string, unknown>;
@@ -88,7 +92,7 @@ function createGateway(
         client.rpc("get_catalog_editor_document", { p_product_id: productId }),
         client
           .from("product_content_drafts")
-          .select("id")
+          .select("id, version")
           .eq("product_id", productId)
           .in("status", ["draft", "ready"])
           .limit(2),
@@ -113,7 +117,7 @@ function createGateway(
       }
       return {
         canonical: assertValidProductEditorDocument(documentResult.data),
-        activeDraftId: draftResult.data?.[0]?.id ?? null,
+        activeDraft: draftResult.data?.[0] ?? null,
         sourceRedirectExists: (routeResult.data?.length ?? 0) === 1,
       };
     },
@@ -131,8 +135,76 @@ function createGateway(
       };
     },
 
-    validateDocument(document): CatalogValidationIssue[] {
-      return validateProductEditorDocument(document).issues;
+    async validateDocument(
+      canonical,
+      document,
+    ): Promise<CatalogValidationIssue[]> {
+      const issues = [
+        ...validateProductEditorDocument(document).issues,
+        ...validateCatalogEditorOwnership(document, canonical, "admin"),
+      ];
+      document.media.forEach((media, index) => {
+        if (media.pendingUpload) {
+          issues.push({
+            path: `media.${index}.pendingUpload`,
+            code: "pending_upload_forbidden",
+            message:
+              "The release command does not publish unverified pending uploads.",
+          });
+        }
+      });
+      const relatedIds = [...new Set(
+        document.relationships.map((item) => item.related_product_id),
+      )];
+      if (relatedIds.length > 0) {
+        const { data, error } = await client
+          .from("products")
+          .select("id")
+          .in("id", relatedIds);
+        if (error) operationError("Relationship verification", error);
+        const existingIds = new Set((data ?? []).map((item) => item.id));
+        document.relationships.forEach((relationship, index) => {
+          if (!existingIds.has(relationship.related_product_id)) {
+            issues.push({
+              path: `relationships.${index}.related_product_id`,
+              code: "related_product_not_found",
+              message: "Related Product must exist before publication.",
+            });
+          }
+        });
+      }
+      return issues;
+    },
+
+    async verifyMedia(document) {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      if (!supabaseUrl) throw new Error("Missing approved Supabase URL.");
+      const report = await verifyRealProductMedia({
+        expectedMedia: document.media.flatMap((media) =>
+          media.archived_at === null &&
+          typeof media.url === "string" &&
+          media.url.length > 0
+            ? [{
+                url: media.url,
+                mediaType: media.media_type as "image" | "video",
+              }]
+            : [],
+        ),
+        urlPolicy: {
+          approvedLocations: [{
+            origin: new URL(supabaseUrl).origin,
+            pathPrefix: `/storage/v1/object/public/${CATALOG_MEDIA_BUCKET}/`,
+          }],
+          maxRedirects: 2,
+          timeoutMs: 5_000,
+        },
+        httpClient: productMediaHttpClient,
+      });
+      if (report.summary.failures > 0) {
+        throw new Error(
+          `Product Media verification failed for ${report.summary.failures} asset(s).`,
+        );
+      }
     },
 
     async saveDraft({ draftId, expectedVersion, document, role }) {
@@ -161,6 +233,21 @@ function createGateway(
       if (error) operationError("Draft readiness transition", error);
       const draft = draftRecord("Draft readiness transition", data);
       return { draft: { id: draft.id, version: draft.version } };
+    },
+
+    async discardDraft({ draftId, expectedVersion }) {
+      const { data, error } = await client.rpc(
+        "transition_catalog_product_draft",
+        {
+          p_draft_id: draftId,
+          p_expected_version: expectedVersion,
+          p_action: "discard",
+          p_validation_errors: [],
+          p_actor_id: actorId,
+        },
+      );
+      if (error) operationError("Draft cleanup", error);
+      draftRecord("Draft cleanup", data);
     },
 
     async publishDraft({
@@ -199,19 +286,25 @@ async function main(): Promise<void> {
     for (const step of ["FRAME", "LIFT"] as const) {
       const definition = FRAME_LIFT_PUBLICATIONS[step];
       const state = await gateway.readState(definition.productId);
-      if (state.activeDraftId) {
+      if (state.activeDraft) {
         throw new Error(`${step} has an active draft; verification stopped.`);
       }
       const candidate = buildFrameLiftPublicationDocument(
         state.canonical,
         step,
       );
-      const issues = gateway.validateDocument(candidate);
+      const issues = await gateway.validateDocument(
+        state.canonical,
+        candidate,
+      );
       if (issues.length > 0) {
         throw new Error(
-          `${step} candidate has ${issues.length} validation issue(s).`,
+          `${step} candidate has ${issues.length} validation issue(s): ${issues
+            .map((issue) => `${issue.path}:${issue.code}`)
+            .join(", ")}.`,
         );
       }
+      await gateway.verifyMedia(candidate);
       candidates.push({
         step,
         sourceSlug: state.canonical.product.slug,
@@ -260,7 +353,8 @@ async function main(): Promise<void> {
   printJson({
     project: "erasogmsqpgiirovubjh",
     results,
-    verified: true,
+    catalogVerified: true,
+    downstreamVerificationRequired: ["cache", "algolia"],
   });
 }
 

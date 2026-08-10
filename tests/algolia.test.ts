@@ -256,7 +256,7 @@ describe("buildAlgoliaRecord", () => {
   it("flags availability/waitlist and badge from status", () => {
     const coming = buildAlgoliaRecord({ ...sourceRow, status: "coming_soon" });
     expect(coming.available).toBe(false);
-    expect(coming.waitlist).toBe(true);
+    expect(coming.waitlist).toBe(false);
     expect(coming.badge).toBe("Coming soon");
 
     const soldOut = buildAlgoliaRecord({ ...sourceRow, status: "sold_out" });

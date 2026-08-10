@@ -309,7 +309,7 @@ export function buildAlgoliaRecord(
       row.catalog_status === "active" &&
       status === "available" &&
       availableVariants.length > 0,
-    waitlist: status === "coming_soon",
+    waitlist: false,
     variantCount: variants.length,
     variantNames: variants.map((variant) => variant.label),
     keywords,

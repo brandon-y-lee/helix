@@ -42,6 +42,34 @@ function normalizedIngredients(value: string): string {
   return value.replace(/\s*\(5,?000\s*ppm\)\s*/i, "").trim();
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function sourceFormulaInci(
+  document: ProductEditorDocumentV4,
+  step: FrameLiftStep,
+): string {
+  const source = document.productSource;
+  const rawSource = source?.raw_source;
+  const catalogProduct = isRecord(rawSource)
+    ? rawSource.catalogProduct
+    : null;
+  const rawInci = isRecord(catalogProduct)
+    ? catalogProduct.ingredients
+    : null;
+  if (
+    typeof rawInci !== "string" ||
+    !/^[a-f\d]{64}$/i.test(source?.source_content_hash ?? "") ||
+    !source?.source_inspected_at
+  ) {
+    throw new Error(
+      `${step} governed supplier Formula evidence is incomplete.`,
+    );
+  }
+  return rawInci;
+}
+
 function assertSourceEvidence(
   document: ProductEditorDocumentV4,
   step: FrameLiftStep,
@@ -62,12 +90,37 @@ function assertSourceEvidence(
     );
   }
 
-  const ingredients = normalizedIngredients(document.product.ingredients ?? "");
+  const sourceInci = sourceFormulaInci(document, step);
+  const publicInci =
+    step === "LIFT" ? normalizedIngredients(sourceInci) : sourceInci;
+  const expectedCurrentInci =
+    document.product.slug === definition.sourceSlug ? sourceInci : publicInci;
+  if (document.product.ingredients !== expectedCurrentInci) {
+    throw new Error(
+      `${step} Complete INCI does not match the governed supplier Formula evidence.`,
+    );
+  }
   const required =
     step === "FRAME"
-      ? ["Sodium DNA", "Acetyl Tetrapeptide-5"]
-      : ["Sodium DNA", "Hydrolyzed Collagen"];
-  if (!required.every((ingredient) => ingredients.includes(ingredient))) {
+      ? [
+          "Sodium DNA",
+          "Niacinamide",
+          "Panthenol",
+          "Allantoin",
+          "Acetyl Tetrapeptide-5",
+          "Acetyl Hexapeptide-8",
+          "Copper Tripeptide-1",
+          "Palmitoyl Pentapeptide-4",
+        ]
+      : [
+          "Sodium DNA",
+          "Hydrolyzed Collagen",
+          "Niacinamide",
+          "Glycerin",
+          "Allantoin",
+          "Adenosine",
+        ];
+  if (!required.every((ingredient) => sourceInci.includes(ingredient))) {
     throw new Error(`${step} Formula evidence does not support publication.`);
   }
 }
@@ -93,6 +146,7 @@ function frameProduct(
     good_for: "Dry-looking texture and a tired-looking finish",
     texture: "Cushiony cream-balm",
     finish: "Soft, conditioned, non-greasy",
+    skin_types: [],
     key_ingredients: [
       "Sodium DNA",
       "Acetyl Tetrapeptide-5",
@@ -202,13 +256,14 @@ function liftProduct(
     good_for: "Dry-looking skin and a flat, tired-looking finish",
     texture: "Serum-saturated sheet",
     finish: "Fresh, cushioned, supple",
+    skin_types: [],
     key_ingredients: [
       "Sodium DNA",
       "Hydrolyzed Collagen",
       "Niacinamide",
       "Glycerin",
     ],
-    ingredients: normalizedIngredients(document.product.ingredients ?? ""),
+    ingredients: normalizedIngredients(sourceFormulaInci(document, "LIFT")),
     cautions: [
       "For external use only.",
       "Single-use sheet; do not reuse.",
@@ -295,7 +350,9 @@ function publicationProjection(document: ProductEditorDocumentV4): unknown {
     product: document.product,
     productPdpContent: document.productPdpContent,
     variants: document.variants,
-    productSourceNotes: document.productSource?.formulation_version_notes,
+    media: document.media,
+    relationships: document.relationships,
+    productSource: document.productSource,
   };
 }
 
@@ -305,13 +362,14 @@ export function buildFrameLiftPublicationDocument(
 ): ProductEditorDocumentV4 {
   assertSourceEvidence(document, step);
   const isFrame = step === "FRAME";
+  const source = document.productSource!;
   return {
     ...document,
     product: isFrame ? frameProduct(document) : liftProduct(document),
     productPdpContent: isFrame ? framePdp(document) : liftPdp(document),
     variants: [],
     productSource: {
-      ...document.productSource!,
+      ...source,
       formulation_version_notes: isFrame
         ? "The supplier Formula INCI declares Sodium DNA and multiple cosmetic peptides as separate ingredients. PDRN is not a peptide. No 2% concentration claim is approved because the Formula INCI does not quantify Sodium DNA."
         : "The supplier Formula INCI declares Hydrolyzed Collagen separately from Sodium DNA. Hydrolyzed Collagen is the governed basis for the locked Peptide Nourish Mask name; PDRN is not a peptide. No lifting claim is approved.",
