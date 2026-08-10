@@ -18,6 +18,7 @@ import {
   buildProductStructuredData,
   serializeStructuredData,
 } from "@/lib/catalog/product-structured-data";
+import { isValidProductSlug } from "@/lib/catalog/product-slug";
 
 const siteUrl = new URL(
   process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
@@ -34,7 +35,9 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const resolution = await getCachedProductSlugResolution(slug);
+  const resolution = isValidProductSlug(slug)
+    ? await getCachedProductSlugResolution(slug)
+    : undefined;
   const product = resolution
     ? await getCachedProductMetadata(resolution.targetSlug)
     : undefined;
@@ -79,6 +82,9 @@ export default async function ProductDetailPage({
   searchParams?: Promise<ProductSearchParams>;
 }) {
   const { slug } = await params;
+  if (!isValidProductSlug(slug)) {
+    notFound();
+  }
   const resolution = await getCachedProductSlugResolution(slug);
 
   if (!resolution) {

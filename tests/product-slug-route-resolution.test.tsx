@@ -63,6 +63,27 @@ beforeEach(() => {
 });
 
 describe("durable Product slug route resolution", () => {
+  it.each(["Invalid_Product", "a".repeat(121)])(
+    "rejects invalid inbound slug %s before creating a cached lookup",
+    async (slug) => {
+      await expect(
+        ProductDetailPage({
+          params: Promise.resolve({ slug }),
+          searchParams: Promise.resolve({}),
+        }),
+      ).rejects.toThrow("NOT_FOUND");
+
+      expect(catalogCache.getCachedProductSlugResolution).not.toHaveBeenCalled();
+      expect(catalogCache.getCachedPdpProduct).not.toHaveBeenCalled();
+
+      const result = await generateMetadata({
+        params: Promise.resolve({ slug }),
+      });
+      expect(result.title).toBe("Product | Mei Pelle");
+      expect(catalogCache.getCachedProductSlugResolution).not.toHaveBeenCalled();
+    },
+  );
+
   it("renders a canonical Product only after resolving its canonical ledger row", async () => {
     catalogCache.getCachedProductSlugResolution.mockResolvedValue({
       sourceSlug: canonicalSlug,
