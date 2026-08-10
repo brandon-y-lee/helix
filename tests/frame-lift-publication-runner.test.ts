@@ -210,6 +210,21 @@ describe("FRAME/LIFT publication runner", () => {
     );
   });
 
+  it("does not recover an identical document under a different revision id", async () => {
+    const adapter = gateway("FRAME");
+    const readState = vi.mocked(adapter.readState).getMockImplementation()!;
+    vi.mocked(adapter.readState).mockImplementation(async (productId) => {
+      const state = await readState(productId);
+      return state.latestRevisionDocument
+        ? { ...state, latestRevisionId: "different-revision-id" }
+        : state;
+    });
+
+    await expect(publishFrameLiftProduct("FRAME", adapter)).rejects.toThrow(
+      /governed publication snapshot/i,
+    );
+  });
+
   it("discards only the draft created by a failed publication", async () => {
     const adapter = gateway("LIFT");
     vi.mocked(adapter.saveDraft).mockRejectedValueOnce(new Error("network"));

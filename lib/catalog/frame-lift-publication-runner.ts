@@ -105,11 +105,13 @@ async function recoverFailedPublication(
   step: FrameLiftStep,
   createdDraftId: string,
   gateway: FrameLiftPublicationGateway,
+  expected?: ProductEditorDocumentV4,
+  expectedRevisionId?: string,
 ): Promise<FrameLiftPublicationResult | null> {
   const definition = FRAME_LIFT_PUBLICATIONS[step];
   const state = await gateway.readState(definition.productId);
   if (isFrameLiftPublicationCurrent(state.canonical, step)) {
-    assertVerifiedState(state, step);
+    assertVerifiedState(state, step, expected, expectedRevisionId);
     await gateway.verifyMedia(state.canonical);
     return {
       step,
@@ -163,6 +165,7 @@ export async function publishFrameLiftProduct(
   if (!created.created) {
     throw new Error(`${step} draft was not created; publication lost a race.`);
   }
+  let published: { revisionId: string; revisionNumber: number } | null = null;
   try {
     const draftCandidate = buildFrameLiftPublicationDocument(
       created.draft.document,
@@ -182,7 +185,7 @@ export async function publishFrameLiftProduct(
       draftId: saved.draft.id,
       expectedVersion: saved.draft.version,
     });
-    const published = await gateway.publishDraft({
+    published = await gateway.publishDraft({
       draftId: ready.draft.id,
       expectedVersion: ready.draft.version,
       document: draftCandidate,
@@ -211,6 +214,8 @@ export async function publishFrameLiftProduct(
       step,
       created.draft.id,
       gateway,
+      published ? candidate : undefined,
+      published?.revisionId,
     );
     if (recovered) return recovered;
     throw cause;
