@@ -6,6 +6,7 @@ import type {
 } from "@/lib/admin/catalog/types";
 import { PRODUCT_EDITOR_SCHEMA_VERSION } from "@/lib/admin/catalog/types";
 import { PRODUCT_MEDIA_ROLES } from "@/lib/catalog/media-roles";
+import { PRODUCT_SLUG_MAX_LENGTH } from "@/lib/catalog/product-slug";
 import { systemStepByName } from "@/lib/catalog/system-steps";
 import {
   catalogFieldsForTable,
@@ -171,6 +172,17 @@ function validateProduct(
       "product.slug",
       "invalid_slug",
       "slug must use lowercase letters, numbers, and single hyphens.",
+    );
+  }
+  if (
+    typeof product.slug === "string" &&
+    product.slug.length > PRODUCT_SLUG_MAX_LENGTH
+  ) {
+    issue(
+      issues,
+      "product.slug",
+      "too_long",
+      `slug must be at most ${PRODUCT_SLUG_MAX_LENGTH} characters.`,
     );
   }
 

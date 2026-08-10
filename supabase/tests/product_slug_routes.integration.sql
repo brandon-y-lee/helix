@@ -76,6 +76,17 @@ begin
     raise exception 'Product slug route function grants are unsafe';
   end if;
 
+  begin
+    update public.products
+    set slug = repeat('a', 121)
+    where id = (
+      select id from public.products order by id limit 1
+    );
+    raise exception 'oversized Product slug unexpectedly succeeded';
+  exception
+    when check_violation then null;
+  end;
+
   insert into auth.users (
     id, instance_id, aud, role, email, encrypted_password,
     email_confirmed_at, raw_app_meta_data, raw_user_meta_data,
@@ -268,6 +279,28 @@ begin
   set catalog_status = 'archived'
   where id = v_source_product_id;
 
+  begin
+    perform public.replace_catalog_product_slug(
+      v_source_product_id,
+      v_target_product_id,
+      null
+    );
+    raise exception 'replacement with a NULL actor unexpectedly succeeded';
+  exception
+    when insufficient_privilege then null;
+  end;
+
+  begin
+    perform public.replace_catalog_product_slug(
+      v_source_product_id,
+      v_target_product_id,
+      gen_random_uuid()
+    );
+    raise exception 'replacement without an Admin membership unexpectedly succeeded';
+  exception
+    when insufficient_privilege then null;
+  end;
+
   v_result := public.replace_catalog_product_slug(
     v_source_product_id,
     v_target_product_id,
@@ -294,6 +327,23 @@ begin
     from public.resolve_product_slug(v_source_slug)
   ) <> ('replacement:' || v_target_slug) then
     raise exception 'replacement route did not resolve directly to the active target';
+  end if;
+
+  begin
+    update public.products
+    set catalog_status = 'active'
+    where id = v_source_product_id;
+    raise exception 'replaced Product was reactivated';
+  exception
+    when check_violation then null;
+  end;
+
+  if (
+    select catalog_status
+    from public.products
+    where id = v_source_product_id
+  ) <> 'archived' then
+    raise exception 'failed reactivation changed the replaced Product';
   end if;
 
   begin

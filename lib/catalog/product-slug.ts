@@ -1,0 +1,1 @@
+export const PRODUCT_SLUG_MAX_LENGTH = 120;

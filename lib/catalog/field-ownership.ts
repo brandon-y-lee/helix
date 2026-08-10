@@ -1,5 +1,6 @@
 import type { Database } from "@/lib/database.types";
 import { SYSTEM_STEP_NAMES } from "@/lib/catalog/system-steps";
+import { PRODUCT_SLUG_MAX_LENGTH } from "@/lib/catalog/product-slug";
 
 type CatalogFieldOwner =
   | "supplier"
@@ -224,6 +225,7 @@ export const CATALOG_FIELD_OWNERSHIP: readonly CatalogFieldOwnership[] = [
     {
       field: "slug",
       inputKind: "text",
+      validation: `Maximum ${PRODUCT_SLUG_MAX_LENGTH} characters.`,
       previewRelevant: true,
       disruptive: true,
       importWarning:

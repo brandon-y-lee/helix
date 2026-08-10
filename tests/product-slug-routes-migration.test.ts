@@ -16,8 +16,33 @@ const auditMigration = readFileSync(
   ),
   "utf8",
 );
+const hardeningMigration = readFileSync(
+  resolve(
+    process.cwd(),
+    "supabase/migrations/20260810143938_harden_product_slug_replacement_lifecycle.sql",
+  ),
+  "utf8",
+);
+const lengthMigration = readFileSync(
+  resolve(
+    process.cwd(),
+    "supabase/migrations/20260810144258_bound_product_slug_length.sql",
+  ),
+  "utf8",
+);
 
 describe("durable Product slug route migration", () => {
+  it("bounds every canonical and historical Product slug", () => {
+    expect(lengthMigration).toContain("char_length(source_slug) <= 120");
+    expect(lengthMigration).toContain("product_slug_routes_source_slug_check");
+  });
+
+  it("fails closed for missing actors and keeps replaced Products archived", () => {
+    expect(hardeningMigration).toContain("v_actor_role is null");
+    expect(hardeningMigration).toContain("enforce_replaced_product_archival");
+    expect(hardeningMigration).toContain("route_kind = 'replacement'");
+  });
+
   it("extends the immutable Catalog audit allowlist for both route events", () => {
     expect(auditMigration).toContain("slug.rename.published");
     expect(auditMigration).toContain("slug.replacement.published");

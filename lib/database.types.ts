@@ -1643,6 +1643,14 @@ export type Database = {
         }
         Returns: Json
       }
+      replace_catalog_product_slug_v1: {
+        Args: {
+          p_actor_id: string
+          p_source_product_id: string
+          p_target_product_id: string
+        }
+        Returns: Json
+      }
       reserve_checkout_order_snapshot: {
         Args: {
           p_cart_id: string
