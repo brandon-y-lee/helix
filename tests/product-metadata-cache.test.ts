@@ -18,6 +18,7 @@ describe("product metadata cache ownership", () => {
       slug: "treat-03-pdrn-5-ampoule",
       displayName: "Peptide Bounce",
       productType: "PDRN serum",
+      editorialDescription: "A daily serum for bouncier-looking skin.",
       seoTitle: null,
       seoDescription: "Stable product metadata.",
     });
@@ -33,5 +34,24 @@ describe("product metadata cache ownership", () => {
       title: "Peptide Bounce — PDRN serum | Mei Pelle",
       description: "Stable product metadata.",
     });
+  });
+
+  it("uses canonical Product Education when no SEO description is authored", async () => {
+    vi.mocked(getCachedProductMetadata).mockResolvedValue({
+      slug: "peptide-bounce",
+      displayName: "Peptide Bounce",
+      productType: "PDRN serum",
+      editorialDescription: "A daily serum for bouncier-looking skin.",
+      seoTitle: null,
+      seoDescription: null,
+    });
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: "peptide-bounce" }),
+    });
+
+    expect(metadata.description).toBe(
+      "A daily serum for bouncier-looking skin.",
+    );
   });
 });

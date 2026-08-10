@@ -11,6 +11,7 @@ import {
   PDP_SLIDE_STYLE,
 } from "@/components/product-detail/usePdpSlideTransition";
 import type { CoreRoutineSummary } from "@/lib/catalog/models";
+import { CORE_SYSTEM_STEPS } from "@/lib/catalog/system-steps";
 
 type CoreRoutinePresentation = Pick<
   CoreRoutineSummary,
@@ -42,11 +43,6 @@ export function PdpCoreRoutineSection({
   currentSlug: string;
   rootRef?: Ref<HTMLElement>;
 }) {
-  const expectedSteps = [
-    ["CLEANSE", 1],
-    ["TREAT", 3],
-    ["SEAL", 5],
-  ] as const;
   const {
     activeIndex,
     direction,
@@ -64,8 +60,8 @@ export function PdpCoreRoutineSection({
     products.length !== 3 ||
     products.some(
       (product, index) =>
-        product.systemStepName !== expectedSteps[index][0] ||
-        product.systemStepPosition !== expectedSteps[index][1] ||
+        product.systemStepName !== CORE_SYSTEM_STEPS[index].name ||
+        product.systemStepPosition !== CORE_SYSTEM_STEPS[index].position ||
         product.textureMedia.kind !== "image" || !product.textureMedia.url,
     )
   ) {

@@ -82,7 +82,7 @@ function media(role: string, sortOrder = 0) {
 }
 
 function productRow(overrides: Record<string, unknown> = {}) {
-  return {
+  const row = {
     id: "product-id",
     slug: "treat-03-pdrn-5-ampoule",
     display_name: "TREAT",
@@ -134,6 +134,15 @@ function productRow(overrides: Record<string, unknown> = {}) {
       media("pdp_application", 5),
     ],
     ...overrides,
+  };
+  const step = {
+    CLEANSE: { name: "CLEANSE", position: 1, routine_group: "core" },
+    TREAT: { name: "TREAT", position: 3, routine_group: "core" },
+    SEAL: { name: "SEAL", position: 5, routine_group: "core" },
+  }[row.system_step_name as "CLEANSE" | "TREAT" | "SEAL"];
+  return {
+    ...row,
+    system_steps: overrides.system_steps ?? step,
   };
 }
 
@@ -314,6 +323,7 @@ describe("storefront catalog projections", () => {
       slug: "treat-03-pdrn-5-ampoule",
       displayName: "TREAT",
       productType: "Ampoule / Serum",
+      editorialDescription: "Approved editorial description.",
       seoTitle: "TREAT PDRN Ampoule | Mei Pelle",
       seoDescription: "A lightweight daily ampoule.",
     });

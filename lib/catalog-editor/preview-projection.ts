@@ -30,7 +30,6 @@ import type {
   ProductStatus,
 } from "@/lib/products";
 import { PRODUCT_MEDIA_ROLES } from "@/lib/catalog/media-roles";
-import { systemStepByName } from "@/lib/catalog/system-steps";
 
 const PRODUCT_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const UUID_PATTERN =
@@ -470,7 +469,9 @@ export function projectCatalogDraftPreview(
     draft.routine_group === "core" || draft.routine_group === "beyond_core"
       ? draft.routine_group
       : invalid("product.routine_group is invalid.");
-  const systemStep = systemStepByName(draft.system_step_name);
+  const systemStep = base.systemSteps.find(
+    (step) => step.name === draft.system_step_name,
+  );
   if (!systemStep || systemStep.routineGroup !== routineGroup) {
     invalid("product.system_step_name is invalid.");
   }

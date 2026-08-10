@@ -19,7 +19,13 @@ import {
   type ProductStatus,
 } from "@/lib/products";
 import { PDP_DISCOVERY_PRODUCT_LIMIT } from "@/lib/catalog/discovery";
-import { systemStepByName } from "@/lib/catalog/system-steps";
+import {
+  CORE_SYSTEM_STEPS,
+  isCoreSystemStep,
+  systemStepFromDatabaseRelation,
+  type GovernedSystemStep,
+  type SystemStepDatabaseRelation,
+} from "@/lib/catalog/system-steps";
 import { getSupabaseClient } from "@/lib/supabase";
 
 type VariantRow = {
@@ -48,6 +54,7 @@ type MediaRow = {
 type RoutineRow = {
   routine_group: string;
   system_step_name: string | null;
+  system_steps: SystemStepDatabaseRelation;
   routine_sort: number;
 };
 
@@ -102,7 +109,9 @@ type CoreRoutineRow = {
   texture: string | null;
   finish: string | null;
   key_ingredients: string[] | null;
+  routine_group: string;
   system_step_name: string | null;
+  system_steps: SystemStepDatabaseRelation;
   routine_sort: number | null;
   swatch_from: string;
   swatch_to: string;
@@ -125,6 +134,7 @@ type ProductMetadataRow = {
   slug: string;
   display_name: string;
   product_type: string;
+  editorial_description: string;
   seo_title: string | null;
   seo_description: string | null;
 };
@@ -142,7 +152,7 @@ const OFFER_SELECT =
 const MEDIA_SELECT =
   "media_type, url, alt, width, height, role, sort_order, palette_id, placeholder_palette";
 const ROUTINE_SELECT =
-  "routine_group, system_step_name, routine_sort";
+  "routine_group, system_step_name, system_steps ( name, position, routine_group ), routine_sort";
 const PDP_CONTENT_SELECT =
   "schema_version, profile_title_tokens, routine_overlay, outcome_heading, outcome_labels, " +
   "how_to_use_steps, application_steps, ingredient_cards, ingredient_story, routine_guidance";
@@ -196,14 +206,14 @@ const PDP_PRODUCT_SELECT =
 const CORE_ROUTINE_SUMMARY_SELECT =
   "id, slug, display_name, product_type, " +
   "editorial_description, benefits, good_for, texture, finish, key_ingredients, " +
-  "system_step_name, routine_sort, swatch_from, swatch_to, " +
+  `${ROUTINE_SELECT}, swatch_from, swatch_to, ` +
   `product_pdp_content ( ${PDP_CONTENT_SELECT} ), product_media!inner ( ${MEDIA_SELECT} )`;
 
 const PRODUCT_OFFER_SELECT =
   `id, slug, currency, status, product_variants ( ${OFFER_SELECT} )`;
 
 const PRODUCT_METADATA_SELECT =
-  "slug, display_name, product_type, seo_title, seo_description";
+  "slug, display_name, product_type, editorial_description, seo_title, seo_description";
 
 const PRODUCT_ROUTE_SELECT = "slug";
 
@@ -239,10 +249,17 @@ function toRoutineGroup(value: string): CommerceRoutineGroup {
 
 function requireSystemStep(row: {
   slug: string;
+  routine_group: string;
   system_step_name: string | null;
-}) {
-  const systemStep = systemStepByName(row.system_step_name);
-  if (!systemStep) {
+  system_steps: SystemStepDatabaseRelation;
+}): GovernedSystemStep {
+  const routineGroup = toRoutineGroup(row.routine_group);
+  const systemStep = systemStepFromDatabaseRelation(row.system_steps);
+  if (
+    !systemStep ||
+    systemStep.name !== row.system_step_name ||
+    systemStep.routineGroup !== routineGroup
+  ) {
     throw new Error(`[catalog] Active Product ${row.slug} has no System Step.`);
   }
   return systemStep;
@@ -482,7 +499,7 @@ function mapCoreRoutineRow(
         !editorialMedia.alt.trim() ||
         !editorialMedia.width ||
         !editorialMedia.height)) ||
-    systemStep.routineGroup !== "core" ||
+    !isCoreSystemStep(systemStep) ||
     row.routine_sort === null ||
     !isHex(row.swatch_from) ||
     !isHex(row.swatch_to)
@@ -659,6 +676,7 @@ export async function getProductMetadata(
     slug: row.slug,
     displayName: row.display_name,
     productType: row.product_type,
+    editorialDescription: row.editorial_description,
     seoTitle: row.seo_title,
     seoDescription: row.seo_description,
   };
@@ -735,13 +753,13 @@ export async function getCoreRoutineContentSummaries(): Promise<
     mapCoreRoutineRow,
   );
   const expectedSlugs = [...CORE_ROUTINE_PRODUCT_SLUGS];
-  const expectedSteps = ["CLEANSE", "TREAT", "SEAL"] as const;
   if (
     products.length !== expectedSlugs.length ||
     products.some(
       (product, index) =>
         product.slug !== expectedSlugs[index] ||
-        product.systemStepName !== expectedSteps[index],
+        product.systemStepName !== CORE_SYSTEM_STEPS[index].name ||
+        product.systemStepPosition !== CORE_SYSTEM_STEPS[index].position,
     )
   ) {
     throw new Error(
@@ -750,6 +768,27 @@ export async function getCoreRoutineContentSummaries(): Promise<
   }
 
   return products;
+}
+
+export async function getSystemSteps(): Promise<GovernedSystemStep[]> {
+  const { data, error } = await getSupabaseClient()
+    .from("system_steps")
+    .select("name, position, routine_group")
+    .order("position", { ascending: true });
+
+  if (error) {
+    throw new Error(
+      `[catalog] Failed to load the governed System Step registry: ${error.message}.`,
+    );
+  }
+
+  const steps = (data ?? []).map((row) =>
+    systemStepFromDatabaseRelation(row),
+  );
+  if (steps.some((step) => step === null)) {
+    throw new Error("[catalog] The governed System Step registry is invalid.");
+  }
+  return steps as GovernedSystemStep[];
 }
 
 export async function getIngredientIndexProducts(): Promise<

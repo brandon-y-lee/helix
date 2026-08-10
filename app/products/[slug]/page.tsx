@@ -13,6 +13,14 @@ import { stripeMessagingPublishableKey } from "@/lib/checkout/config";
 import type { CoreRoutineSummary } from "@/lib/catalog/models";
 import { PDP_DISCOVERY_PRODUCT_LIMIT } from "@/lib/catalog/discovery";
 import { composeProductTitle } from "@/lib/products";
+import {
+  buildProductStructuredData,
+  serializeStructuredData,
+} from "@/lib/catalog/product-structured-data";
+
+const siteUrl = new URL(
+  process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
+);
 
 export async function generateStaticParams() {
   const products = await getCachedProductRoutes();
@@ -31,7 +39,10 @@ export async function generateMetadata({
       ? product.seoTitle ??
         `${composeProductTitle(product.displayName, product.productType)} | Mei Pelle`
       : "Product | Mei Pelle",
-    description: product?.seoDescription ?? product?.productType,
+    description: product?.seoDescription ?? product?.editorialDescription,
+    alternates: product
+      ? { canonical: `/products/${product.slug}` }
+      : undefined,
   };
 }
 
@@ -61,9 +72,16 @@ export default async function ProductDetailPage({
     }
   }
   const related = await relatedPromise;
+  const structuredData = buildProductStructuredData(product, siteUrl);
 
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: serializeStructuredData(structuredData),
+        }}
+      />
       <div className="storefront-shell" data-layout-shell="storefront">
         <ProductDetail
           key={product.slug}

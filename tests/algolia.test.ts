@@ -49,6 +49,11 @@ const sourceRow: CatalogProductSource = {
   display_name: "NORTHPOINT",
   routine_group: "core",
   system_step_name: "TREAT",
+  system_steps: {
+    name: "TREAT",
+    position: 4,
+    routine_group: "core",
+  },
   routine_sort: 20,
   product_type: "Serum",
   badge: "Night step",
@@ -118,7 +123,7 @@ describe("buildAlgoliaRecord", () => {
       "A nightly serum for smoother-looking tone.",
     );
     expect(r.routineGroup).toBe("core");
-    expect(r.systemStepPosition).toBe(3);
+    expect(r.systemStepPosition).toBe(4);
     expect(r.systemStepName).toBe("TREAT");
     expect(r.routineSort).toBe(20);
     expect(r.productType).toBe("Serum");

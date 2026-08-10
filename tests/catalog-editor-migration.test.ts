@@ -72,6 +72,13 @@ const catalogIdentityV4IndexMigration = readFileSync(
   ),
   "utf8",
 );
+const systemStepsFixedContractMigration = readFileSync(
+  resolve(
+    process.cwd(),
+    "supabase/migrations/20260810140000_system_steps_fixed_contract.sql",
+  ),
+  "utf8",
+);
 
 describe("catalog editor database boundary", () => {
   it("keeps editor tables browser-inaccessible and history append-only", () => {
@@ -385,6 +392,24 @@ describe("catalog editor database boundary", () => {
       "on public.products (system_step_name, routine_group)",
     );
     expect(catalogIdentityV4Migration).not.toMatch(/\bcascade\b/i);
+  });
+
+  it("binds every governed System Step to its fixed position and Routine Group", () => {
+    expect(systemStepsFixedContractMigration).toContain(
+      "add constraint system_steps_fixed_contract_check",
+    );
+    for (const clause of [
+      "name = 'CLEANSE' and position = 1 and routine_group = 'core'",
+      "name = 'REFINE' and position = 2 and routine_group = 'beyond_core'",
+      "name = 'TREAT' and position = 3 and routine_group = 'core'",
+      "name = 'FRAME' and position = 4 and routine_group = 'beyond_core'",
+      "name = 'SEAL' and position = 5 and routine_group = 'core'",
+      "name = 'PROTECT' and position = 6 and routine_group = 'beyond_core'",
+      "name = 'LIFT' and position = 7 and routine_group = 'beyond_core'",
+    ]) {
+      expect(systemStepsFixedContractMigration).toContain(clause);
+    }
+    expect(systemStepsFixedContractMigration).not.toMatch(/\bcascade\b/i);
   });
 
   it("cuts current drafts and publication over to V4 while preserving old revisions", () => {

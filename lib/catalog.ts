@@ -17,7 +17,10 @@ import type {
   ProductStatus,
   Variant,
 } from "@/lib/products";
-import { systemStepByName } from "@/lib/catalog/system-steps";
+import {
+  systemStepFromDatabaseRelation,
+  type SystemStepDatabaseRelation,
+} from "@/lib/catalog/system-steps";
 
 export type { Product } from "@/lib/products";
 
@@ -53,6 +56,7 @@ type ProductRow = {
   search_keywords: string[];
   routine_group: string;
   system_step_name: string | null;
+  system_steps: SystemStepDatabaseRelation;
   routine_sort: number;
   created_at: string;
   product_pdp_content:
@@ -95,7 +99,7 @@ const PRODUCT_SELECT =
   "swatch_from, swatch_to, status, catalog_status, made_for, good_for, texture, " +
   "key_ingredients, ingredients, cautions, finish, volume, skin_types, concerns, " +
   "usage_time, seo_title, seo_description, search_keywords, routine_group, " +
-  "system_step_name, routine_sort, created_at, " +
+  "system_step_name, system_steps ( name, position, routine_group ), routine_sort, created_at, " +
   "product_pdp_content ( schema_version, profile_title_tokens, routine_overlay, " +
   "outcome_heading, outcome_labels, how_to_use_steps, application_steps, " +
   "ingredient_cards, ingredient_story, routine_guidance ), " +
@@ -247,8 +251,14 @@ function firstPdpContent(
 }
 
 function mapProductRow(row: ProductRow): Product {
-  const systemStep = systemStepByName(row.system_step_name);
-  if (row.system_step_name && !systemStep) {
+  const routineGroup = toCommerceRoutineGroup(row.routine_group);
+  const systemStep = systemStepFromDatabaseRelation(row.system_steps);
+  if (
+    row.system_step_name &&
+    (!systemStep ||
+      systemStep.name !== row.system_step_name ||
+      systemStep.routineGroup !== routineGroup)
+  ) {
     throw new Error(
       `[catalog] Unsupported System Step "${row.system_step_name}" for ${row.slug}.`,
     );
@@ -304,7 +314,7 @@ function mapProductRow(row: ProductRow): Product {
     slug: row.slug,
     displayName: row.display_name,
     productType: row.product_type,
-    routineGroup: toCommerceRoutineGroup(row.routine_group),
+    routineGroup,
     systemStepName: systemStep?.name ?? null,
     systemStepPosition: systemStep?.position ?? null,
     routineSort: row.routine_sort,

@@ -1,6 +1,9 @@
 import { firstPurchasableVariant, type ProductStatus } from "@/lib/products";
 import { isProductMediaRole } from "@/lib/catalog/media-roles";
-import { systemStepByName } from "@/lib/catalog/system-steps";
+import {
+  systemStepFromDatabaseRelation,
+  type SystemStepDatabaseRelation,
+} from "@/lib/catalog/system-steps";
 
 const CATALOG_STATUSES = ["active", "draft", "archived"] as const;
 const PRODUCT_STATUSES = ["available", "coming_soon", "sold_out"] as const;
@@ -63,6 +66,7 @@ export type StorefrontCatalogProduct = {
   search_keywords: string[];
   routine_group: string;
   system_step_name: string | null;
+  system_steps: SystemStepDatabaseRelation;
   routine_sort: number;
   product_variants: StorefrontCatalogVariant[] | null;
   product_media: StorefrontCatalogMedia[] | null;
@@ -394,8 +398,12 @@ function normalizeProduct(
       `Product "${slug}" has unsupported currency "${row.currency}".`,
     );
   }
-  const systemStep = systemStepByName(row.system_step_name);
-  if (!systemStep || systemStep.routineGroup !== row.routine_group) {
+  const systemStep = systemStepFromDatabaseRelation(row.system_steps);
+  if (
+    !systemStep ||
+    systemStep.name !== row.system_step_name ||
+    systemStep.routineGroup !== row.routine_group
+  ) {
     throw new StorefrontBaselineError(
       "invalid-ordering",
       `Product "${slug}" has invalid System Step identity ${String(row.system_step_name)}.`,

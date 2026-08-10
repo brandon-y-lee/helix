@@ -10,6 +10,7 @@ import type {
   PdpProduct,
 } from "@/lib/catalog/models";
 import { catalogDocument } from "./fixtures/catalog-editor";
+import { SYSTEM_STEPS } from "@/lib/catalog/system-steps";
 
 const productId = "33333333-3333-4333-8333-333333333333";
 const canonicalSlug = "cleanse-01-calming-gel-cleanser";
@@ -117,7 +118,11 @@ function base(): CatalogPreviewBase {
     status: product.status,
     variants: product.variants,
   };
-  return { product, coreProducts: [coreProduct] };
+  return {
+    product,
+    coreProducts: [coreProduct],
+    systemSteps: SYSTEM_STEPS.map((step) => ({ ...step })),
+  };
 }
 
 function document(): ProductEditorDocumentV4 {
@@ -208,6 +213,20 @@ describe("catalog draft PDP projection", () => {
       editorialMedia: null,
     });
     expect(canonical).toEqual(original);
+  });
+
+  it("projects System Step position from the Supabase-backed preview registry", () => {
+    const canonical = Object.assign(base(), {
+      systemSteps: [
+        { name: "CLEANSE" as const, position: 2, routineGroup: "core" as const },
+      ],
+    });
+
+    const preview = projectCatalogDraftPreview(document(), canonical, {
+      approvedMediaOrigin: storageOrigin,
+    });
+
+    expect(preview.product.systemStepPosition).toBe(2);
   });
 
   it("projects staged Core editorial media while preserving the left texture", () => {

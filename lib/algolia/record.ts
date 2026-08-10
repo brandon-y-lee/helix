@@ -4,8 +4,9 @@ import type { ProductStatus } from "@/lib/products";
 import { statusLabel } from "@/lib/catalog/product-status";
 import { routineGroupLabel } from "@/lib/catalog/product-routine";
 import {
-  systemStepByName,
+  systemStepFromDatabaseRelation,
   type SystemStepName,
+  type SystemStepDatabaseRelation,
 } from "@/lib/catalog/system-steps";
 
 type CatalogVariantSource = {
@@ -52,6 +53,7 @@ export type CatalogProductSource = {
   search_keywords: string[];
   routine_group: string;
   system_step_name: string | null;
+  system_steps: SystemStepDatabaseRelation;
   routine_sort: number;
   published_at: string | null;
   updated_at: string | null;
@@ -234,8 +236,12 @@ export function buildAlgoliaRecord(
   );
   const swatch: [string, string] = [row.swatch_from, row.swatch_to];
   const routineGroup = toRoutineGroup(row.routine_group);
-  const systemStep = systemStepByName(row.system_step_name);
-  if (!systemStep || systemStep.routineGroup !== routineGroup) {
+  const systemStep = systemStepFromDatabaseRelation(row.system_steps);
+  if (
+    !systemStep ||
+    systemStep.name !== row.system_step_name ||
+    systemStep.routineGroup !== routineGroup
+  ) {
     throw new Error(
       `[search-sync] Product "${row.slug}" has an invalid System Step.`,
     );

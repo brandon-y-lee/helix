@@ -143,8 +143,6 @@ export function PdpCoreDetailsRoutine({
             const ingredients = item.keyIngredients.filter(Boolean).slice(0, 5);
             const effect =
               item.finish ||
-              item.texture ||
-              item.productType ||
               item.description;
 
             return (
@@ -198,7 +196,7 @@ export function PdpCoreDetailsRoutine({
                           ))}
                         </ul>
                       ) : (
-                        benefits[0] || item.goodFor || item.productType
+                        benefits[0] || item.goodFor || item.description
                       )}
                     </dd>
                   </div>

@@ -118,6 +118,7 @@ export type ProductMetadata = {
   slug: string;
   displayName: string;
   productType: string;
+  editorialDescription: string;
   seoTitle: string | null;
   seoDescription: string | null;
 };

@@ -34,6 +34,7 @@ function product(
     search_keywords: ["cleanser"],
     routine_group: "core",
     system_step_name: "CLEANSE",
+    system_steps: { name: "CLEANSE", position: 1, routine_group: "core" },
     routine_sort: 20,
     product_variants: [
       {
@@ -85,6 +86,11 @@ function product(
   if (!("system_step_name" in overrides)) {
     value.system_step_name =
       value.routine_group === "beyond_core" ? "FRAME" : "CLEANSE";
+  }
+  if (!("system_steps" in overrides)) {
+    value.system_steps = value.routine_group === "beyond_core"
+      ? { name: "FRAME", position: 4, routine_group: "beyond_core" }
+      : { name: "CLEANSE", position: 1, routine_group: "core" };
   }
   return value;
 }

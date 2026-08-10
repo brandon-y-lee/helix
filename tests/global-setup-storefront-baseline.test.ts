@@ -17,7 +17,7 @@ const originalSnapshotPath = process.env[STOREFRONT_SNAPSHOT_ENV];
 function product(
   overrides: Partial<StorefrontCatalogProduct> = {},
 ): StorefrontCatalogProduct {
-  return {
+  const value: StorefrontCatalogProduct = {
     id: "core-id",
     slug: "core-product",
     display_name: "CORE",
@@ -43,6 +43,7 @@ function product(
     search_keywords: [],
     routine_group: "core",
     system_step_name: "CLEANSE",
+    system_steps: { name: "CLEANSE", position: 1, routine_group: "core" },
     routine_sort: 10,
     product_variants: [
       {
@@ -91,6 +92,12 @@ function product(
     ],
     ...overrides,
   };
+  if (!("system_steps" in overrides)) {
+    value.system_steps = value.routine_group === "beyond_core"
+      ? { name: "FRAME", position: 4, routine_group: "beyond_core" }
+      : { name: "CLEANSE", position: 1, routine_group: "core" };
+  }
+  return value;
 }
 
 beforeEach(() => {

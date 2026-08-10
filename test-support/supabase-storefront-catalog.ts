@@ -32,6 +32,7 @@ const PRODUCT_SELECT = [
   "search_keywords",
   "routine_group",
   "system_step_name",
+  "system_steps(name,position,routine_group)",
   "routine_sort",
   "product_variants(variant_key,label,price_cents,sort_order,available,inventory_status)",
   "product_media(media_type,url,alt,width,height,role,sort_order,palette_id,placeholder_palette)",

@@ -1,4 +1,5 @@
 import type { Database } from "@/lib/database.types";
+import { SYSTEM_STEP_NAMES } from "@/lib/catalog/system-steps";
 
 type CatalogFieldOwner =
   | "supplier"
@@ -232,7 +233,7 @@ export const CATALOG_FIELD_OWNERSHIP: readonly CatalogFieldOwnership[] = [
       field: "system_step_name",
       inputKind: "select",
       nullable: true,
-      options: ["CLEANSE", "REFINE", "TREAT", "FRAME", "SEAL", "PROTECT", "LIFT"],
+      options: SYSTEM_STEP_NAMES,
       previewRelevant: true,
       disruptive: true,
     },

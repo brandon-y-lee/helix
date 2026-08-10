@@ -32,6 +32,14 @@ export function buildStorefrontSearchRecord(
     search_keywords: [...product.searchKeywords],
     routine_group: product.routineGroup,
     system_step_name: product.systemStepName,
+    system_steps:
+      product.systemStepName && product.systemPosition !== null
+        ? {
+            name: product.systemStepName,
+            position: product.systemPosition,
+            routine_group: product.routineGroup,
+          }
+        : null,
     routine_sort: product.routineSort,
     published_at: product.publishedAt,
     updated_at: product.updatedAt,
