@@ -127,6 +127,13 @@ export type ProductRoute = {
   slug: string;
 };
 
+export type ProductSlugResolution = {
+  sourceSlug: string;
+  targetSlug: string;
+  targetProductId: string;
+  routeKind: "canonical" | "rename" | "replacement";
+};
+
 export type IngredientIndexProduct = {
   slug: string;
   displayName: string;

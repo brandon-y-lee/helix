@@ -59,6 +59,10 @@ const schemaFields = {
     "id", "action", "actor_id", "product_id", "draft_id", "revision_id",
     "metadata", "created_at",
   ],
+  product_slug_routes: [
+    "source_slug", "source_product_id", "target_product_id", "route_kind",
+    "created_at",
+  ],
 } as const satisfies Partial<Record<CatalogEditorTable, readonly string[]>>;
 
 describe("catalog editor field metadata", () => {
@@ -88,9 +92,17 @@ describe("catalog editor field metadata", () => {
   });
 
   it("keeps system identity constraints immutable and advanced mutations admin-only", () => {
-    for (const field of ["id", "slug", "currency", "created_at", "updated_at"] as const) {
+    for (const field of ["id", "currency", "created_at", "updated_at"] as const) {
       expect(canCatalogRoleEditField("admin", "products", field)).toBe(false);
     }
+    expect(canCatalogRoleEditField("admin", "products", "slug")).toBe(true);
+    expect(canCatalogRoleEditField("catalog_publisher", "products", "slug")).toBe(false);
+    expect(
+      catalogFieldsForTable("products").find((field) => field.field === "slug"),
+    ).toMatchObject({
+      disruptive: true,
+      importWarning: expect.stringMatching(/permanent redirect/i),
+    });
     expect(canCatalogRoleEditField("catalog_editor", "products", "display_name")).toBe(true);
     expect(canCatalogRoleEditField("catalog_publisher", "products", "display_name")).toBe(true);
     expect(canCatalogRoleEditField("catalog_editor", "products", "texture")).toBe(false);

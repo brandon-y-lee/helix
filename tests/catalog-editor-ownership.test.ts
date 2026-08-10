@@ -43,6 +43,24 @@ describe("catalog editor field ownership", () => {
     );
   });
 
+  it("allows only a Catalog Administrator to change the canonical slug", () => {
+    const canonical = cloneDocument();
+    const candidate = cloneDocument();
+    candidate.product.slug = "biotic-reset";
+
+    expect(
+      validateCatalogEditorOwnership(candidate, canonical, "admin"),
+    ).toEqual([]);
+    expect(
+      validateCatalogEditorOwnership(candidate, canonical, "catalog_publisher"),
+    ).toContainEqual(
+      expect.objectContaining({
+        path: "product.slug",
+        code: "field_read_only",
+      }),
+    );
+  });
+
   it("rejects new commerce rows for ordinary catalog editors", () => {
     const canonical = cloneDocument();
     const candidate = cloneDocument();

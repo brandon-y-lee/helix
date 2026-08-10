@@ -36,6 +36,7 @@ export type CatalogEditorTable =
   | "product_content_drafts"
   | "catalog_product_revisions"
   | "catalog_editor_audit_log"
+  | "product_slug_routes"
   | "algolia_products"
   | "next_data_cache";
 
@@ -49,6 +50,7 @@ type TableRows = {
   product_content_drafts: Database["public"]["Tables"]["product_content_drafts"]["Row"];
   catalog_product_revisions: Database["public"]["Tables"]["catalog_product_revisions"]["Row"];
   catalog_editor_audit_log: Database["public"]["Tables"]["catalog_editor_audit_log"]["Row"];
+  product_slug_routes: Database["public"]["Tables"]["product_slug_routes"]["Row"];
 };
 
 export type CatalogFieldOwnership = {
@@ -177,13 +179,6 @@ const IMPORT_WARNING = "A future supplier import may overwrite this field.";
 export const CATALOG_FIELD_OWNERSHIP: readonly CatalogFieldOwnership[] = [
   ...fields("products", "system", NO_ROLES, [
     { field: "id", inputKind: "uuid", readOnlyReason: IMMUTABLE_IDENTITY },
-    {
-      field: "slug",
-      inputKind: "text",
-      previewRelevant: true,
-      readOnlyReason:
-        "Slug changes are disabled until the platform has a durable redirect and alias ledger.",
-    },
     { field: "created_at", inputKind: "date-time", readOnlyReason: IMMUTABLE_TIMESTAMP },
     { field: "published_at", inputKind: "date-time", readOnlyReason: IMMUTABLE_TIMESTAMP },
     { field: "updated_at", inputKind: "date-time", readOnlyReason: IMMUTABLE_TIMESTAMP },
@@ -226,6 +221,14 @@ export const CATALOG_FIELD_OWNERSHIP: readonly CatalogFieldOwnership[] = [
     { field: "status", inputKind: "select", options: ["available", "coming_soon", "sold_out"], previewRelevant: true },
   ]),
   ...fields("products", "system", ADMIN_ROLE, [
+    {
+      field: "slug",
+      inputKind: "text",
+      previewRelevant: true,
+      disruptive: true,
+      importWarning:
+        "A permanent redirect will be created: the old public URL will permanently redirect to the new Product URL.",
+    },
     { field: "catalog_status", inputKind: "select", options: ["draft", "active", "archived"], previewRelevant: true, disruptive: true },
     { field: "sort_order", inputKind: "number" },
     { field: "routine_group", inputKind: "select", options: ["core", "beyond_core"], previewRelevant: true, disruptive: true },
@@ -240,6 +243,35 @@ export const CATALOG_FIELD_OWNERSHIP: readonly CatalogFieldOwnership[] = [
     { field: "routine_sort", inputKind: "number", previewRelevant: true },
     { field: "swatch_from", inputKind: "color", previewRelevant: true },
     { field: "swatch_to", inputKind: "color", previewRelevant: true },
+  ]),
+
+  ...fields("product_slug_routes", "system", NO_ROLES, [
+    {
+      field: "source_slug",
+      inputKind: "text",
+      readOnlyReason: "Historical Product URL route records cannot be changed or deleted.",
+    },
+    {
+      field: "source_product_id",
+      inputKind: "uuid",
+      readOnlyReason: IMMUTABLE_IDENTITY,
+    },
+    {
+      field: "target_product_id",
+      inputKind: "uuid",
+      readOnlyReason: "Redirect targets can only change through the controlled replacement workflow.",
+    },
+    {
+      field: "route_kind",
+      inputKind: "select",
+      options: ["canonical", "rename", "replacement"],
+      readOnlyReason: "Route provenance is immutable history.",
+    },
+    {
+      field: "created_at",
+      inputKind: "date-time",
+      readOnlyReason: IMMUTABLE_TIMESTAMP,
+    },
   ]),
 
   ...fields("product_pdp_content", "system", NO_ROLES, [

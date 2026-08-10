@@ -40,21 +40,38 @@ vi.mock(
         document: CatalogDraftDocument;
         onChange: (document: CatalogDraftDocument) => void;
       }) => (
-        <label>
-          Display name
-          <input
-            value={document.product.display_name}
-            onChange={(event) =>
-              onChange({
-                ...document,
-                product: {
-                  ...document.product,
-                  display_name: event.target.value,
-                },
-              })
-            }
-          />
-        </label>
+        <>
+          <label>
+            Display name
+            <input
+              value={document.product.display_name}
+              onChange={(event) =>
+                onChange({
+                  ...document,
+                  product: {
+                    ...document.product,
+                    display_name: event.target.value,
+                  },
+                })
+              }
+            />
+          </label>
+          <label>
+            Slug
+            <input
+              value={document.product.slug}
+              onChange={(event) =>
+                onChange({
+                  ...document,
+                  product: {
+                    ...document.product,
+                    slug: event.target.value,
+                  },
+                })
+              }
+            />
+          </label>
+        </>
       ),
     };
   },
@@ -157,6 +174,7 @@ describe("CatalogEditor draft workflow", () => {
       ok: true,
       changedTables: {
         products: true,
+        productSlugRoutes: false,
         productPdpContent: false,
         variants: false,
         media: false,
@@ -201,6 +219,44 @@ describe("CatalogEditor draft workflow", () => {
     expect(screen.getByText(/not reported/)).toBeVisible();
   });
 
+  it("shows the exact permanent redirect consequence before publishing a slug change", async () => {
+    vi.mocked(catalogEditorApi.validateDraft).mockResolvedValue({
+      valid: true,
+      issues: [],
+      affected_tables: ["products"],
+      draft: { ...catalogDraft, status: "ready", version: 6 },
+      diff: {
+        products: [
+          {
+            field: "slug",
+            before: "cleanse-01-calming-gel-cleanser",
+            after: "biotic-reset",
+            disruptive: true,
+            adminOnly: true,
+          },
+        ],
+      },
+    });
+    render(<CatalogEditor productId="product-cleanse" />);
+    await screen.findByRole("heading", { name: "CLEANSE" });
+    fireEvent.change(screen.getByLabelText("Slug"), {
+      target: { value: "biotic-reset" },
+    });
+
+    expect(
+      screen.getByText(
+        /\/products\/cleanse-01-calming-gel-cleanser will permanently redirect to \/products\/biotic-reset/i,
+      ),
+    ).toBeVisible();
+
+    fireEvent.click(screen.getByRole("button", { name: "Review publish" }));
+    expect(await screen.findByText("Confirm publication")).toBeVisible();
+    expect(
+      screen.getAllByText(/old public URL remains in redirect history/i).length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByLabelText(/acknowledge disruptive changes/i)).not.toBeChecked();
+  });
+
   it("shows a Product Media warning without misreporting the committed revision", async () => {
     const failedUrl = catalogDraft.document.media[0].url!;
     vi.mocked(catalogEditorApi.publishDraft).mockResolvedValue({
@@ -218,6 +274,7 @@ describe("CatalogEditor draft workflow", () => {
       ok: true,
       changedTables: {
         products: true,
+        productSlugRoutes: false,
         productPdpContent: false,
         variants: false,
         media: false,

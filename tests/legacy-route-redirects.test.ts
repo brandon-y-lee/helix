@@ -54,16 +54,16 @@ describe("legacy route redirects", () => {
           destination: "/collections/shop",
           permanent: true,
         },
-        {
+      ]),
+    );
+    expect(redirects).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
           source: "/products/reset-01-calming-gel-cleanser",
-          destination: "/products/cleanse-01-calming-gel-cleanser",
-          permanent: true,
-        },
-        {
+        }),
+        expect.objectContaining({
           source: "/products/recode-03-pdrn-5-ampoule",
-          destination: "/products/treat-03-pdrn-5-ampoule",
-          permanent: true,
-        },
+        }),
       ]),
     );
   });

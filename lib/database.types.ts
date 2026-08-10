@@ -860,6 +860,45 @@ export type Database = {
           },
         ]
       }
+      product_slug_routes: {
+        Row: {
+          created_at: string
+          route_kind: string
+          source_product_id: string
+          source_slug: string
+          target_product_id: string
+        }
+        Insert: {
+          created_at?: string
+          route_kind: string
+          source_product_id: string
+          source_slug: string
+          target_product_id: string
+        }
+        Update: {
+          created_at?: string
+          route_kind?: string
+          source_product_id?: string
+          source_slug?: string
+          target_product_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_slug_routes_source_product_id_fkey"
+            columns: ["source_product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_slug_routes_target_product_id_fkey"
+            columns: ["target_product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_sources: {
         Row: {
           created_at: string
@@ -1567,6 +1606,16 @@ export type Database = {
         }
         Returns: Json
       }
+      publish_catalog_product_draft_v4: {
+        Args: {
+          p_actor_id: string
+          p_actor_role: string
+          p_change_audit: Json
+          p_draft_id: string
+          p_expected_version: number
+        }
+        Returns: Json
+      }
       redeem_loyalty_points: {
         Args: {
           p_amount_cents: number
@@ -1585,6 +1634,14 @@ export type Database = {
       release_loyalty_redemptions_for_order: {
         Args: { p_order_id: string; p_reason: string; p_user_id: string }
         Returns: number
+      }
+      replace_catalog_product_slug: {
+        Args: {
+          p_actor_id: string
+          p_source_product_id: string
+          p_target_product_id: string
+        }
+        Returns: Json
       }
       reserve_checkout_order_snapshot: {
         Args: {
@@ -1722,6 +1779,15 @@ export type Database = {
           guest_token_hash: string
           status: Database["public"]["Enums"]["cart_status"]
           user_id: string
+        }[]
+      }
+      resolve_product_slug: {
+        Args: { p_source_slug: string }
+        Returns: {
+          route_kind: string
+          source_slug: string
+          target_product_id: string
+          target_slug: string
         }[]
       }
       restore_catalog_product_revision: {

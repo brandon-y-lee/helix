@@ -12,6 +12,7 @@ import {
   type ProductMetadata,
   type ProductOffer,
   type ProductRoute,
+  type ProductSlugResolution,
 } from "@/lib/catalog/models";
 import {
   type CommerceRoutineGroup,
@@ -145,6 +146,13 @@ type IngredientIndexRow = {
   key_ingredients: string[] | null;
   ingredients: string | null;
   formula_notes: string[] | null;
+};
+
+type ProductSlugResolutionRow = {
+  source_slug: string;
+  target_slug: string;
+  target_product_id: string;
+  route_kind: string;
 };
 
 const OFFER_SELECT =
@@ -696,6 +704,39 @@ export async function getProductRoutes(): Promise<ProductRoute[]> {
   }
 
   return (data ?? []) as ProductRoute[];
+}
+
+export async function getProductSlugResolution(
+  sourceSlug: string,
+): Promise<ProductSlugResolution | undefined> {
+  const { data, error } = await getSupabaseClient().rpc(
+    "resolve_product_slug",
+    { p_source_slug: sourceSlug },
+  );
+
+  if (error) {
+    throw new Error(
+      `[catalog] Failed to resolve Product slug "${sourceSlug}": ${error.message}.`,
+    );
+  }
+
+  const row = (data as ProductSlugResolutionRow[] | null)?.[0];
+  if (!row) return undefined;
+  if (
+    row.route_kind !== "canonical" &&
+    row.route_kind !== "rename" &&
+    row.route_kind !== "replacement"
+  ) {
+    throw new Error(
+      `[catalog] Unsupported Product slug route kind "${row.route_kind}".`,
+    );
+  }
+  return {
+    sourceSlug: row.source_slug,
+    targetSlug: row.target_slug,
+    targetProductId: row.target_product_id,
+    routeKind: row.route_kind,
+  };
 }
 
 export async function getDiscoveryProductCardContents(
