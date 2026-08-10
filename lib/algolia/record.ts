@@ -1,6 +1,10 @@
 // Storefront-safe Algolia record and deterministic canonical mapper.
 
-import type { ProductStatus } from "@/lib/products";
+import {
+  productOfferPresentation,
+  type ProductStatus,
+  type Variant,
+} from "@/lib/products";
 import { statusLabel } from "@/lib/catalog/product-status";
 import { routineGroupLabel } from "@/lib/catalog/product-routine";
 import {
@@ -15,7 +19,7 @@ type CatalogVariantSource = {
   price_cents: number;
   sort_order: number;
   available: boolean;
-  inventory_status: string;
+  inventory_status: Variant["inventoryStatus"];
 };
 
 type CatalogMediaSource = {
@@ -81,8 +85,8 @@ export type AlgoliaProductRecord = {
   routineSort: number;
   badge: string | null;
   status: ProductStatus;
-  priceMin: number;
-  priceMax: number;
+  priceMin?: number;
+  priceMax?: number;
   currency: "USD";
   available: boolean;
   waitlist: boolean;
@@ -217,7 +221,6 @@ export function buildAlgoliaRecord(
   const variants = (row.product_variants ?? [])
     .slice()
     .sort((a, b) => a.sort_order - b.sort_order);
-  const prices = variants.map((variant) => variant.price_cents);
   const status = toStatus(row.status);
   const availableVariants = variants.filter(
     (variant) =>
@@ -225,6 +228,14 @@ export function buildAlgoliaRecord(
       variant.inventory_status !== "out_of_stock" &&
       variant.inventory_status !== "unavailable",
   );
+  const offerPresentation = productOfferPresentation(
+    variants.map((variant) => ({
+      ...variant,
+      inventoryStatus: variant.inventory_status,
+      price: variant.price_cents,
+    })),
+  );
+  const offerPrices = offerPresentation.offers.map((variant) => variant.price);
   const media = (row.product_media ?? [])
     .slice()
     .sort(
@@ -301,16 +312,20 @@ export function buildAlgoliaRecord(
     routineSort: row.routine_sort,
     badge: statusLabel(status) ?? row.badge,
     status,
-    priceMin: prices.length ? Math.min(...prices) : 0,
-    priceMax: prices.length ? Math.max(...prices) : 0,
+    ...(offerPrices.length > 0
+      ? {
+          priceMin: Math.min(...offerPrices),
+          priceMax: Math.max(...offerPrices),
+        }
+      : {}),
     currency: "USD",
     available:
       row.catalog_status === "active" &&
       status === "available" &&
       availableVariants.length > 0,
-    waitlist: status === "coming_soon",
-    variantCount: variants.length,
-    variantNames: variants.map((variant) => variant.label),
+    waitlist: false,
+    variantCount: offerPresentation.offers.length,
+    variantNames: offerPresentation.offers.map((variant) => variant.label),
     keywords,
     concerns,
     ingredients,

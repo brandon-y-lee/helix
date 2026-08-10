@@ -197,6 +197,25 @@ describe("ProductCard quick buy", () => {
     expect(cartMock.add).not.toHaveBeenCalled();
   });
 
+  it("withholds Offer presentation when inventory evidence is unavailable", () => {
+    render(
+      <ProductCard
+        product={makeProduct({
+          status: "available",
+          variants: [
+            makeVariant({
+              available: false,
+              inventoryStatus: "unavailable",
+            }),
+          ],
+        })}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "OUT OF STOCK" })).toBeDisabled();
+    expect(screen.queryByText("$20.00")).not.toBeInTheDocument();
+  });
+
   it("adds from the final buy button and opens the cart drawer", async () => {
     const user = userEvent.setup();
     render(<ProductCard product={makeProduct()} />);

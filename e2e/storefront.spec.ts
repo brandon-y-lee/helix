@@ -136,6 +136,10 @@ test("shop renders live Products and combines filtering with sorting", async ({
   const beyondProducts = storefront.products("beyondCore");
   const purchasable = storefront.product("purchasable");
   const purchase = storefront.purchase(purchasable);
+  const purchasablePrice = storefront.cardPriceLabel(purchasable);
+  if (!purchasablePrice) {
+    throw new Error("The Purchasable journey is missing Offer presentation.");
+  }
   await page.goto("/collections/shop");
   await expect(page.locator(".product-count")).toHaveText(
     productCount(products),
@@ -150,7 +154,7 @@ test("shop renders live Products and combines filtering with sorting", async ({
     page
       .locator(`[data-product-card-slug="${purchasable.slug}"]`)
       .locator(".product-card__price"),
-  ).toHaveText(storefront.cardPriceLabel(purchasable));
+  ).toHaveText(purchasablePrice);
 
   const filters = page.getByRole("navigation", {
     name: "Shop collections",

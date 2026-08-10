@@ -41,6 +41,7 @@ export type PdpPurchaseIslandProps = {
   stripePublishableKey: string | null;
   variants: PdpPurchaseVariant[];
   showPrice: boolean;
+  showVariantOptions: boolean;
   commerceDisabled?: boolean;
 };
 
@@ -57,6 +58,7 @@ export function PdpPurchaseIsland({
   stripePublishableKey,
   variants,
   showPrice,
+  showVariantOptions,
   commerceDisabled = false,
 }: PdpPurchaseIslandProps) {
   const {
@@ -196,7 +198,7 @@ export function PdpPurchaseIsland({
           </p>
         )}
 
-        {variants.length > 0 && (
+        {showVariantOptions && (
           <>
             <span className="field-label" id="size-label">
               Size

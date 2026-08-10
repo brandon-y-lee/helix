@@ -822,6 +822,26 @@ describe("ProductDetail purchase accordions", () => {
     expect(cartMock.add).not.toHaveBeenCalled();
   });
 
+  it("withholds PDP Offer facts when inventory evidence is unavailable", () => {
+    const base = makeProduct();
+    render(
+      <ProductDetail
+        product={makeProduct({
+          status: "available",
+          variants: base.variants.map((variant) => ({
+            ...variant,
+            available: false,
+            inventoryStatus: "unavailable" as const,
+          })),
+        })}
+      />,
+    );
+
+    expect(document.querySelector(".pdp__price")).not.toBeInTheDocument();
+    expect(document.querySelector(".variant-options")).not.toBeInTheDocument();
+    expect(cartMock.add).not.toHaveBeenCalled();
+  });
+
   it("fails closed without empty Core editorial media shells", () => {
     render(<ProductDetail product={makeProduct({ media: [] })} />);
 

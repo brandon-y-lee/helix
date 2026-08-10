@@ -5,6 +5,10 @@ import type {
 } from "@/test-support/storefront-baseline";
 import { reconcileStorefrontSnapshot } from "@/test-support/storefront-reconciliation";
 import { createStorefrontJourneys } from "@/test-support/storefront-journeys";
+import {
+  productOfferPresentation,
+  productPurchaseCta,
+} from "@/lib/products";
 
 function product(
   overrides: Partial<StorefrontSnapshotProduct> = {},
@@ -125,17 +129,28 @@ function collectionHtml(products: readonly StorefrontSnapshotProduct[]) {
   return `<!doctype html><html><body>
     <span class="product-count">${products.length} ${products.length === 1 ? "product" : "products"}</span>
     <ul>${products.map((item) => {
-      const startingPrice = item.variants.length
-        ? Math.min(...item.variants.map((variant) => variant.price))
-        : 0;
-      const price = `${item.variants.length > 1 ? "From " : ""}$${(startingPrice / 100).toFixed(2)}`;
-      const buyLabel = item.offer
-        ? `BUY ${item.displayName} - $${(item.offer.price / 100).toFixed(2)}`
-        : "OUT OF STOCK";
+      const presentation = productOfferPresentation(item.variants);
+      const startingPrice = presentation.showPrice
+        ? Math.min(...presentation.offers.map((variant) => variant.price))
+        : null;
+      const price = startingPrice === null
+        ? ""
+        : `<span class="product-card__price">${presentation.hasMultipleOffers ? "From " : ""}$${(startingPrice / 100).toFixed(2)}</span>`;
+      const selectedVariant = item.offer
+        ? item.variants.find((variant) => variant.id === item.offer?.variantId)
+        : item.variants[0];
+      const buyLabel = productPurchaseCta(
+        {
+          displayName: item.displayName,
+          status: item.merchandisingStatus,
+          variants: item.variants,
+        },
+        selectedVariant,
+      ).label;
       return `
       <li data-product-card-slug="${item.slug}">
         <span class="product-card__name">${item.displayName}</span>
-        <span class="product-card__price">${price}</span>
+        ${price}
         <button class="product-card__quick-trigger">${buyLabel}</button>
       </li>`;
     }).join("")}
@@ -144,11 +159,27 @@ function collectionHtml(products: readonly StorefrontSnapshotProduct[]) {
 }
 
 function pdpHtml(item: StorefrontSnapshotProduct) {
+  const presentation = productOfferPresentation(item.variants);
+  const initialVariant = presentation.offers[0] ?? item.variants[0];
+  const price = presentation.showPrice && initialVariant
+    ? `<p class="pdp__price">$${(initialVariant.price / 100).toFixed(2)}</p>`
+    : "";
+  const options = presentation.showVariantOptions
+    ? presentation.offers.map((variant) => `<button>${variant.label}</button>`).join("")
+    : "";
+  const buyLabel = productPurchaseCta(
+    {
+      displayName: item.displayName,
+      status: item.merchandisingStatus,
+      variants: item.variants,
+    },
+    initialVariant,
+  ).label;
   return `<!doctype html><html><body>
     <h1>${item.displayName}</h1>
-    <p class="pdp__price">$${((item.variants[0]?.price ?? 0) / 100).toFixed(2)}</p>
-    <div class="variant-options">${item.variants.map((variant) => `<button>${variant.label}</button>`).join("")}</div>
-    <button data-pdp-buy-button>BUY ${item.displayName} - $${((item.variants[0]?.price ?? 0) / 100).toFixed(2)}</button>
+    ${price}
+    <div class="variant-options">${options}</div>
+    <button data-pdp-buy-button>${buyLabel}</button>
     <section aria-label="${item.displayName} routine video"></section>
     ${item.media.filter((media) => media.role === "gallery").map((media, index) => `<button data-pdp-media-thumbnail aria-label="View ${media.alt}, media ${index + 1} of 1"></button>`).join("")}
   </body></html>`;

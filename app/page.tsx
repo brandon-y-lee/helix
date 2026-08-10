@@ -9,7 +9,10 @@ import {
   getCachedIngredientIndexProducts,
   getCachedProductCards,
 } from "@/lib/catalog-cache";
-import type { ProductCard } from "@/lib/catalog/models";
+import {
+  CORE_ROUTINE_PRODUCT_SLUGS,
+  type ProductCard,
+} from "@/lib/catalog/models";
 import { homeThreePrinciples } from "@/lib/content/home";
 import {
   buildIngredientIndex,
@@ -24,11 +27,8 @@ export const metadata: Metadata = {
     "A simple daily system for skin that looks better now—and stays smooth, even, and resilient over time.",
 };
 
-const CORE_PRODUCT_SLUGS = [
-  "biotic-reset",
-  "peptide-bounce",
-  "ceramide-cushion",
-] as const satisfies readonly MethodProductSlug[];
+const CORE_PRODUCT_SLUGS =
+  CORE_ROUTINE_PRODUCT_SLUGS satisfies readonly MethodProductSlug[];
 
 const BEYOND_CORE_PRODUCT_SLUGS = [
   "refine-02-pore-treatment-pads",

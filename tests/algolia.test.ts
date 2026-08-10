@@ -253,11 +253,23 @@ describe("buildAlgoliaRecord", () => {
     expect(r.imageMedia?.role).toBe("search");
   });
 
-  it("flags availability/waitlist and badge from status", () => {
-    const coming = buildAlgoliaRecord({ ...sourceRow, status: "coming_soon" });
+  it("omits unsupported Offer facts and does not infer waitlist from coming soon", () => {
+    const coming = buildAlgoliaRecord({
+      ...sourceRow,
+      status: "coming_soon",
+      product_variants: sourceRow.product_variants?.map((variant) => ({
+        ...variant,
+        available: false,
+        inventory_status: "unavailable",
+      })) ?? null,
+    });
     expect(coming.available).toBe(false);
-    expect(coming.waitlist).toBe(true);
+    expect(coming.waitlist).toBe(false);
     expect(coming.badge).toBe("Coming soon");
+    expect(coming).not.toHaveProperty("priceMin");
+    expect(coming).not.toHaveProperty("priceMax");
+    expect(coming.variantCount).toBe(0);
+    expect(coming.variantNames).toEqual([]);
 
     const soldOut = buildAlgoliaRecord({ ...sourceRow, status: "sold_out" });
     expect(soldOut.available).toBe(false);
@@ -268,8 +280,8 @@ describe("buildAlgoliaRecord", () => {
   it("handles a product with no variants", () => {
     const r = buildAlgoliaRecord({ ...sourceRow, product_variants: null });
     expect(r.variantCount).toBe(0);
-    expect(r.priceMin).toBe(0);
-    expect(r.priceMax).toBe(0);
+    expect(r).not.toHaveProperty("priceMin");
+    expect(r).not.toHaveProperty("priceMax");
     expect(r.variantNames).toEqual([]);
   });
 
