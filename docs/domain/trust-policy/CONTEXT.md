@@ -29,11 +29,11 @@ A Visitor or Customer request to exercise a privacy right or ask about Mei Pelle
 _Avoid_: Privacy Choice, Support Inquiry
 
 **Product Waitlist Enrollment**:
-A Visitor or Customer request, tied to one Product and an email address, to receive an availability notification when that Product becomes Purchasable. It does not imply Marketing Consent or require an Account.
+A Visitor or Customer request, tied to one Product and an email address, to receive an availability notification when that Product becomes Purchasable. It creates neither an Account, Product Offer, Cart, nor Order and does not imply Marketing Consent.
 _Avoid_: Newsletter Signup, Marketing Consent, Back-in-stock Alert
 
 **Marketing Consent**:
-An explicit Customer choice to receive promotional communications from Mei Pelle, collected independently of Product Waitlist Enrollment.
+An affirmative Customer choice to receive promotional communications from Mei Pelle. It is collected independently and is never inferred or preselected.
 _Avoid_: Product Waitlist Enrollment, Account Creation, Implied Consent
 
 **Cookie Preference**:

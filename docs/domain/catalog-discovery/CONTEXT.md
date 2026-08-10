@@ -81,7 +81,7 @@ A stable merchandising identifier assigned to a Product, independent of System P
 _Avoid_: Step Number, System Position, Routine Position
 
 **Product Display Name**:
-The short authored Product name used in Storefront presentation, kept distinct from its Product Type and System Step Name. Presentation may combine it with Product Type without creating another canonical title.
+The short authored Product name used in Storefront presentation, kept distinct from its Product Type and System Step Name.
 _Avoid_: System Step Name, Product Type, Formal Product Title
 
 **Product Type**:
