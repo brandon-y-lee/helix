@@ -193,7 +193,10 @@ export function purchaseIslandProps(
 ): PdpPurchaseData {
   const media = product.cartMedia ?? product.cardMedia;
   const offerPresentation = productOfferPresentation(product.variants);
-  const variants: PdpPurchaseVariant[] = product.variants.map((variant) => {
+  const presentedVariants = offerPresentation.showVariantOptions
+    ? offerPresentation.offers
+    : product.variants.slice(0, 1);
+  const variants: PdpPurchaseVariant[] = presentedVariants.map((variant) => {
     const cta = productPurchaseCta(product, variant);
     return {
       id: variant.id,
