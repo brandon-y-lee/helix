@@ -166,8 +166,9 @@ export function createStorefrontJourneys(snapshot: StorefrontSnapshot) {
         variant,
       });
     },
-    cardPriceLabel(product: StorefrontSnapshotProduct): string {
+    cardPriceLabel(product: StorefrontSnapshotProduct): string | undefined {
       if (product.merchandisingStatus === "waitlist") return "Waitlist";
+      if (product.variants.length === 0) return undefined;
       const startingPrice = product.variants.length
         ? Math.min(...product.variants.map((variant) => variant.price))
         : 0;

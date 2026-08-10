@@ -93,7 +93,7 @@ function collectionMismatches(
     const expectedPrice = journeys.cardPriceLabel(product);
     if (price !== expectedPrice) {
       mismatches.push(
-        `${path} Product "${product.slug}" price was "${price ?? "missing"}" instead of "${expectedPrice}".`,
+        `${path} Product "${product.slug}" price was "${price ?? "missing"}" instead of "${expectedPrice ?? "missing"}".`,
       );
     }
     const quickBuy = card

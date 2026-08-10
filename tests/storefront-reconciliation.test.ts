@@ -143,17 +143,19 @@ function collectionHtml(products: readonly StorefrontSnapshotProduct[]) {
     <ul>${products.map((item) => {
       const startingPrice = item.variants.length
         ? Math.min(...item.variants.map((variant) => variant.price))
-        : 0;
+        : null;
       const price = item.merchandisingStatus === "waitlist"
         ? "Waitlist"
-        : `${item.variants.length > 1 ? "From " : ""}$${(startingPrice / 100).toFixed(2)}`;
+        : startingPrice === null
+          ? null
+          : `${item.variants.length > 1 ? "From " : ""}$${(startingPrice / 100).toFixed(2)}`;
       const buyLabel = item.offer
         ? `BUY ${item.displayName} - $${(item.offer.price / 100).toFixed(2)}`
         : "OUT OF STOCK";
       return `
       <li data-product-card-slug="${item.slug}">
         <span class="product-card__name">${item.displayName}</span>
-        <span class="product-card__price">${price}</span>
+        ${price === null ? "" : `<span class="product-card__price">${price}</span>`}
         ${item.merchandisingStatus === "waitlist" ? "" : `<button class="product-card__quick-trigger">${buyLabel}</button>`}
       </li>`;
     }).join("")}
@@ -312,6 +314,8 @@ describe("Storefront journey expectations", () => {
       variant: { id: "standard", label: "Standard", price: 2400 },
     });
     expect(journeys.cardPriceLabel(multiVariantProduct)).toBe("From $12.00");
+    expect(journeys.cardPriceLabel(beyond)).toBeUndefined();
+    expect(journeys.cardPriceLabel(waitlist)).toBe("Waitlist");
     expect(
       journeys.gallery(multiVariantProduct).map((item) => item.alt),
     ).toEqual(["Core detail", "Core bottle", "Core motion"]);

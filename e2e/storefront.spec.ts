@@ -150,7 +150,7 @@ test("shop renders live Products and combines filtering with sorting", async ({
     page
       .locator(`[data-product-card-slug="${purchasable.slug}"]`)
       .locator(".product-card__price"),
-  ).toHaveText(storefront.cardPriceLabel(purchasable));
+  ).toHaveText(storefront.cardPriceLabel(purchasable)!);
 
   const filters = page.getByRole("navigation", {
     name: "Shop collections",
