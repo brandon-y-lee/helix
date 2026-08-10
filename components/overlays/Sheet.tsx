@@ -235,6 +235,7 @@ export function Sheet({
   description,
   onClose,
   returnFocus,
+  initialFocus,
   children,
   className = "",
   overlayClassName = "",
@@ -250,6 +251,7 @@ export function Sheet({
   description?: string;
   onClose: () => void;
   returnFocus: () => void;
+  initialFocus?: () => HTMLElement | null;
   children: ReactNode;
   className?: string;
   overlayClassName?: string;
@@ -287,7 +289,13 @@ export function Sheet({
     const panel = panelRef.current;
     const focusTimeout = window.setTimeout(() => {
       if (panel?.contains(document.activeElement)) return;
-      const first = panel ? focusableIn(panel)[0] : null;
+      const preferred = initialFocus?.();
+      const first =
+        preferred && panel?.contains(preferred)
+          ? preferred
+          : panel
+            ? focusableIn(panel)[0]
+            : null;
       first?.focus({ preventScroll: true });
     }, 0);
 
@@ -327,7 +335,14 @@ export function Sheet({
         returnFocus();
       }
     };
-  }, [animated, open, onClose, releaseScrollLock, returnFocus]);
+  }, [
+    animated,
+    initialFocus,
+    open,
+    onClose,
+    releaseScrollLock,
+    returnFocus,
+  ]);
 
   useEffect(() => () => releaseScrollLock(), [releaseScrollLock]);
 

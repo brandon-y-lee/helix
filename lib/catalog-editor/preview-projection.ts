@@ -38,6 +38,7 @@ const PRODUCT_STATUSES: ProductStatus[] = [
   "available",
   "coming_soon",
   "sold_out",
+  "waitlist",
 ];
 const INVENTORY_STATUSES = [
   "in_stock",

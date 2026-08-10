@@ -25,7 +25,11 @@ export type Variant = {
 };
 
 /** Availability state driving badges and purchase controls. */
-export type ProductStatus = "available" | "coming_soon" | "sold_out";
+export type ProductStatus =
+  | "available"
+  | "coming_soon"
+  | "sold_out"
+  | "waitlist";
 
 export type CatalogStatus = "active" | "draft" | "archived";
 
@@ -164,6 +168,13 @@ export function productPurchaseCta<TOffer extends PurchaseOffer>(
   product: PurchaseProduct<TOffer>,
   variant: TOffer | null | undefined,
 ) {
+  if (product.status === "waitlist") {
+    return {
+      label: "Join the waitlist",
+      purchasable: false,
+      variant: variant ?? null,
+    };
+  }
   const purchasable = isVariantPurchasable(product, variant);
   return {
     label: purchasable

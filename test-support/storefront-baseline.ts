@@ -6,7 +6,12 @@ import {
 } from "@/lib/catalog/system-steps";
 
 const CATALOG_STATUSES = ["active", "draft", "archived"] as const;
-const PRODUCT_STATUSES = ["available", "coming_soon", "sold_out"] as const;
+const PRODUCT_STATUSES = [
+  "available",
+  "coming_soon",
+  "sold_out",
+  "waitlist",
+] as const;
 const ROUTINE_GROUPS = ["core", "beyond_core"] as const;
 const INVENTORY_STATUSES = [
   "in_stock",
@@ -454,6 +459,12 @@ function normalizeProduct(
     })
     .sort((a, b) => a.sortOrder - b.sortOrder || a.id.localeCompare(b.id));
   const merchandisingStatus = row.status;
+  if (merchandisingStatus === "waitlist" && variants.length > 0) {
+    throw new StorefrontBaselineError(
+      "invalid-product-offer",
+      `Waitlist Product "${slug}" cannot expose Product Offers.`,
+    );
+  }
   const selectedOffer = firstPurchasableVariant({
     displayName: row.display_name,
     status: merchandisingStatus,

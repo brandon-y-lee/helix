@@ -111,6 +111,7 @@ const VALID_STATUSES: ProductStatus[] = [
   "available",
   "coming_soon",
   "sold_out",
+  "waitlist",
 ];
 const VALID_CATALOG_STATUSES: CatalogStatus[] = [
   "active",

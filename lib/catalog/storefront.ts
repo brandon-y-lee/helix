@@ -228,7 +228,12 @@ const PRODUCT_ROUTE_SELECT = "slug";
 const INGREDIENT_INDEX_SELECT =
   "slug, display_name, key_ingredients, ingredients, formula_notes";
 
-const VALID_STATUSES: ProductStatus[] = ["available", "coming_soon", "sold_out"];
+const VALID_STATUSES: ProductStatus[] = [
+  "available",
+  "coming_soon",
+  "sold_out",
+  "waitlist",
+];
 const VALID_INVENTORY_STATUSES = [
   "in_stock",
   "low_stock",

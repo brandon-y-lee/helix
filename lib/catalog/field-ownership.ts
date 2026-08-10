@@ -219,7 +219,7 @@ export const CATALOG_FIELD_OWNERSHIP: readonly CatalogFieldOwnership[] = [
     },
   ]),
   ...fields("products", "commerce", ADMIN_ROLE, [
-    { field: "status", inputKind: "select", options: ["available", "coming_soon", "sold_out"], previewRelevant: true },
+    { field: "status", inputKind: "select", options: ["available", "coming_soon", "sold_out", "waitlist"], previewRelevant: true },
   ]),
   ...fields("products", "system", ADMIN_ROLE, [
     {

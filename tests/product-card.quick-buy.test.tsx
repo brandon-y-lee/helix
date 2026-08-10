@@ -126,6 +126,22 @@ describe("ProductCard quick buy", () => {
     return surface;
   }
 
+  it("shows waitlist Products without a price or purchase affordance", () => {
+    render(
+      <ProductCard
+        product={makeProduct({ status: "waitlist", variants: [] })}
+      />,
+    );
+
+    expect(screen.getByText("Waitlist")).toBeInTheDocument();
+    expect(screen.queryByText("$0.00")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "CLEANSE" })).toHaveAttribute(
+      "href",
+      "/products/cleanse-01-calming-gel-cleanser",
+    );
+  });
+
   it("opens the inline panel without adding to cart", async () => {
     const user = userEvent.setup();
     render(<ProductCard product={makeProduct()} />);

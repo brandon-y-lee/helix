@@ -179,6 +179,19 @@ function document(): ProductEditorDocumentV4 {
 }
 
 describe("catalog draft PDP projection", () => {
+  it("projects a zero-Offer waitlist Product", () => {
+    const draft = document();
+    draft.product.status = "waitlist";
+    draft.variants = [];
+
+    const preview = projectCatalogDraftPreview(draft, base(), {
+      approvedMediaOrigin: storageOrigin,
+    });
+
+    expect(preview.product.status).toBe("waitlist");
+    expect(preview.product.variants).toEqual([]);
+  });
+
   it("applies editor precedence without mutating the canonical aggregate", () => {
     const canonical = base();
     const original = structuredClone(canonical);

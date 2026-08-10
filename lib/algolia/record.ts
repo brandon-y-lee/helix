@@ -81,8 +81,8 @@ export type AlgoliaProductRecord = {
   routineSort: number;
   badge: string | null;
   status: ProductStatus;
-  priceMin: number;
-  priceMax: number;
+  priceMin: number | null;
+  priceMax: number | null;
   currency: "USD";
   available: boolean;
   waitlist: boolean;
@@ -134,6 +134,7 @@ const VALID_STATUSES: ProductStatus[] = [
   "available",
   "coming_soon",
   "sold_out",
+  "waitlist",
 ];
 
 function toStatus(value: string): ProductStatus {
@@ -301,14 +302,16 @@ export function buildAlgoliaRecord(
     routineSort: row.routine_sort,
     badge: statusLabel(status) ?? row.badge,
     status,
-    priceMin: prices.length ? Math.min(...prices) : 0,
-    priceMax: prices.length ? Math.max(...prices) : 0,
+    priceMin:
+      status !== "waitlist" && prices.length ? Math.min(...prices) : null,
+    priceMax:
+      status !== "waitlist" && prices.length ? Math.max(...prices) : null,
     currency: "USD",
     available:
       row.catalog_status === "active" &&
       status === "available" &&
       availableVariants.length > 0,
-    waitlist: status === "coming_soon",
+    waitlist: status === "waitlist",
     variantCount: variants.length,
     variantNames: variants.map((variant) => variant.label),
     keywords,
