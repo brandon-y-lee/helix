@@ -17,6 +17,7 @@ declare
   v_enrollment_id bigint;
   v_attempt integer;
   v_table text;
+  v_privilege text;
 begin
   foreach v_table in array array[
     'product_waitlist_enrollments',
@@ -35,12 +36,22 @@ begin
       raise exception 'private.% must enforce RLS', v_table;
     end if;
 
-    if has_table_privilege('anon', format('private.%I', v_table), 'select')
-       or has_table_privilege('authenticated', format('private.%I', v_table), 'select')
-       or has_table_privilege('service_role', format('private.%I', v_table), 'select')
-    then
-      raise exception 'private.% exposes direct table reads', v_table;
-    end if;
+    foreach v_privilege in array array['select', 'insert', 'update', 'delete'] loop
+      if has_table_privilege('anon', format('private.%I', v_table), v_privilege)
+         or has_table_privilege(
+           'authenticated',
+           format('private.%I', v_table),
+           v_privilege
+         )
+         or has_table_privilege(
+           'service_role',
+           format('private.%I', v_table),
+           v_privilege
+         )
+      then
+        raise exception 'private.% exposes direct % access', v_table, v_privilege;
+      end if;
+    end loop;
   end loop;
 
   if has_function_privilege(
@@ -110,6 +121,20 @@ begin
 
   if v_product_id is null then
     raise exception 'integration test requires one active Product with an Offer';
+  end if;
+
+  v_result := public.enroll_product_waitlist(
+    v_product_id,
+    'unavailable@example.invalid',
+    false,
+    '2026-08-10',
+    'pdp_waitlist',
+    repeat('0', 64)
+  );
+  if v_result <> jsonb_build_object(
+    'ok', false, 'code', 'product_unavailable'
+  ) then
+    raise exception 'non-waitlist Product enrollment did not fail closed';
   end if;
 
   v_document := public.get_catalog_editor_document(v_product_id);
