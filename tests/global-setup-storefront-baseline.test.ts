@@ -166,6 +166,7 @@ describe("Playwright global Storefront baseline setup", () => {
             system_step_name: "FRAME",
             routine_sort: 20,
             sort_order: 20,
+            status: "sold_out",
             product_variants: [],
             product_media: [],
           }),
