@@ -7,6 +7,7 @@ const comingSoonProduct: AlgoliaProductRecord = {
   objectID: "lift",
   productId: "lift",
   slug: "lift",
+  slugAliases: [],
   displayName: "LIFT",
   editorialDescription: "A focused eye treatment.",
   productType: "Eye treatment",

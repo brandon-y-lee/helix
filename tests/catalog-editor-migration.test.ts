@@ -61,21 +61,21 @@ const completeFieldCoverageLintMigration = readFileSync(
 const catalogIdentityV4Migration = readFileSync(
   resolve(
     process.cwd(),
-    "supabase/migrations/20260810121222_catalog_identity_v4.sql",
+    "supabase/migrations/20260810124340_catalog_identity_v4.sql",
   ),
   "utf8",
 );
 const catalogIdentityV4IndexMigration = readFileSync(
   resolve(
     process.cwd(),
-    "supabase/migrations/20260810130000_catalog_identity_v4_fk_index.sql",
+    "supabase/migrations/20260810124620_catalog_identity_v4_fk_index.sql",
   ),
   "utf8",
 );
 const systemStepsFixedContractMigration = readFileSync(
   resolve(
     process.cwd(),
-    "supabase/migrations/20260810140000_system_steps_fixed_contract.sql",
+    "supabase/migrations/20260810131658_system_steps_fixed_contract.sql",
   ),
   "utf8",
 );

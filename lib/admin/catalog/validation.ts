@@ -6,6 +6,10 @@ import type {
 } from "@/lib/admin/catalog/types";
 import { PRODUCT_EDITOR_SCHEMA_VERSION } from "@/lib/admin/catalog/types";
 import { PRODUCT_MEDIA_ROLES } from "@/lib/catalog/media-roles";
+import {
+  PRODUCT_SLUG_MAX_LENGTH,
+  PRODUCT_SLUG_PATTERN,
+} from "@/lib/catalog/product-slug";
 import { systemStepByName } from "@/lib/catalog/system-steps";
 import {
   catalogFieldsForTable,
@@ -14,7 +18,6 @@ import {
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const SHA256_PATTERN = /^[0-9a-f]{64}$/;
 
 const PRODUCT_STATUSES = ["available", "coming_soon", "sold_out"] as const;
@@ -165,12 +168,26 @@ function validateProduct(
     }
   }
 
-  if (typeof product.slug === "string" && !SLUG_PATTERN.test(product.slug)) {
+  if (
+    typeof product.slug === "string" &&
+    !PRODUCT_SLUG_PATTERN.test(product.slug)
+  ) {
     issue(
       issues,
       "product.slug",
       "invalid_slug",
       "slug must use lowercase letters, numbers, and single hyphens.",
+    );
+  }
+  if (
+    typeof product.slug === "string" &&
+    product.slug.length > PRODUCT_SLUG_MAX_LENGTH
+  ) {
+    issue(
+      issues,
+      "product.slug",
+      "too_long",
+      `slug must be at most ${PRODUCT_SLUG_MAX_LENGTH} characters.`,
     );
   }
 

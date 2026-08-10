@@ -19,6 +19,7 @@ const SOURCE_SELECT =
   "catalog_status, editorial_description, status, swatch_from, swatch_to, sort_order, created_at, " +
   "published_at, updated_at, made_for, good_for, texture, key_ingredients, " +
   "ingredients, concerns, usage_time, search_keywords, " +
+  "product_slug_routes!product_slug_routes_target_product_id_fkey ( source_slug, route_kind ), " +
   "product_variants ( variant_key, label, price_cents, sort_order, available, inventory_status ), " +
   "product_media ( media_type, url, alt, width, height, role, sort_order, palette_id, placeholder_palette )";
 

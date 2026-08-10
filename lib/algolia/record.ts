@@ -30,6 +30,11 @@ type CatalogMediaSource = {
   placeholder_palette: Record<string, string> | null;
 };
 
+type CatalogSlugRouteSource = {
+  source_slug: string;
+  route_kind: "canonical" | "rename" | "replacement";
+};
+
 export type CatalogProductSource = {
   id: string;
   slug: string;
@@ -51,6 +56,7 @@ export type CatalogProductSource = {
   concerns: string[];
   usage_time: string[];
   search_keywords: string[];
+  product_slug_routes: CatalogSlugRouteSource[] | null;
   routine_group: string;
   system_step_name: string | null;
   system_steps: SystemStepDatabaseRelation;
@@ -65,6 +71,7 @@ export type AlgoliaProductRecord = {
   objectID: string;
   productId: string;
   slug: string;
+  slugAliases: string[];
   displayName: string;
   editorialDescription: string;
   productType: string;
@@ -247,6 +254,13 @@ export function buildAlgoliaRecord(
     );
   }
   const concerns = row.concerns ?? [];
+  const slugAliases = (row.product_slug_routes ?? [])
+    .filter(
+      (route) =>
+        route.route_kind !== "canonical" && route.source_slug !== row.slug,
+    )
+    .map((route) => route.source_slug)
+    .sort();
   const ingredients = [
     ...(row.key_ingredients ?? []),
     ...(row.ingredients
@@ -269,6 +283,7 @@ export function buildAlgoliaRecord(
     ...concerns,
     ...(row.key_ingredients ?? []),
     ...(row.search_keywords ?? []),
+    ...slugAliases,
     ...variants.map((variant) => variant.label),
   ].filter((value): value is string => Boolean(value?.trim()));
 
@@ -276,6 +291,7 @@ export function buildAlgoliaRecord(
     objectID: row.id,
     productId: row.id,
     slug: row.slug,
+    slugAliases,
     displayName: row.display_name,
     editorialDescription: row.editorial_description,
     productType: row.product_type,
@@ -327,6 +343,7 @@ export const INDEX_SETTINGS: IndexSettings = {
     "displayName",
     "productType",
     "editorialDescription",
+    "unordered(slugAliases)",
     "unordered(keywords)",
     "unordered(variantNames)",
   ],

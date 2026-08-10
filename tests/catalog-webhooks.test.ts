@@ -65,7 +65,7 @@ function state(
 }
 
 describe("catalog webhook desired state", () => {
-  it("contains the four canonical tables with deterministic event coverage", () => {
+  it("contains the five canonical tables with deterministic event coverage", () => {
     const first = buildDesiredCatalogWebhooks(ENDPOINT, SECRET);
     const second = buildDesiredCatalogWebhooks(ENDPOINT, SECRET);
 
@@ -75,8 +75,9 @@ describe("catalog webhook desired state", () => {
       "product_variants",
       "product_media",
       "product_pdp_content",
+      "product_slug_routes",
     ]);
-    expect(first).toHaveLength(4);
+    expect(first).toHaveLength(5);
     expect(first.every((webhook) => webhook.events === CATALOG_WEBHOOK_EVENTS)).toBe(
       true,
     );
@@ -85,6 +86,7 @@ describe("catalog webhook desired state", () => {
       "mei_pelle_catalog_search_sync_product_variants",
       "mei_pelle_catalog_search_sync_product_media",
       "mei_pelle_catalog_search_sync_product_pdp_content",
+      "mei_pelle_catalog_search_sync_product_slug_routes",
     ]);
   });
 

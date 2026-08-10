@@ -85,6 +85,20 @@ describe("product editor document validation", () => {
     ]);
   });
 
+  it("bounds canonical Product slugs for cache tags and public paths", () => {
+    const document = validDocument();
+    document.product.slug = "a".repeat(120);
+    expect(validateProductEditorDocument(document).issues).toEqual([]);
+
+    document.product.slug = "a".repeat(121);
+    expect(validateProductEditorDocument(document).issues).toEqual([
+      expect.objectContaining({
+        path: "product.slug",
+        code: "too_long",
+      }),
+    ]);
+  });
+
   it("rejects fractional prices, duplicate variant keys, and review data", () => {
     const document = validDocument();
     document.variants.push({

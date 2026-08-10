@@ -15,6 +15,8 @@ import {
   PRODUCT_CARD_COLLECTION_CACHE_TAG,
   PRODUCT_CONTENT_COLLECTION_CACHE_TAG,
   PRODUCT_OFFER_COLLECTION_CACHE_TAG,
+  PRODUCT_SLUG_ROUTE_COLLECTION_CACHE_TAG,
+  productSlugRouteCacheTag,
 } from "@/lib/catalog-cache";
 import { SHOP_COLLECTION_PATHS } from "@/lib/catalog/collection-routes";
 
@@ -156,6 +158,7 @@ export function getCatalogInvalidationTargets(
   let invalidateMembership = false;
   let invalidateDiscovery = false;
   let invalidateCollection = false;
+  let invalidateSlugRoutes = false;
 
   if (payload.table === "product_variants") {
     invalidateOffer = true;
@@ -164,6 +167,8 @@ export function getCatalogInvalidationTargets(
     invalidateContent = mediaAffectsContent(payload);
   } else if (payload.table === "product_pdp_content") {
     invalidateContent = true;
+  } else if (payload.table === "product_slug_routes") {
+    invalidateSlugRoutes = true;
   } else if (payload.table === "products") {
     const changedFields = changedProductFields(payload);
     const broadProductChange =
@@ -192,13 +197,20 @@ export function getCatalogInvalidationTargets(
           !PRODUCT_OFFER_FIELDS.has(field) &&
           !PRODUCT_CARD_ONLY_FIELDS.has(field),
       );
+    invalidateSlugRoutes =
+      broadProductChange || changedFields.has("slug");
   }
 
   for (const productKey of productKeys) {
     if (invalidateContent) tags.add(productContentCacheTag(productKey));
     if (invalidateOffer) tags.add(productOfferCacheTag(productKey));
     if (invalidateCard) tags.add(productCardCacheTag(productKey));
+    if (invalidateSlugRoutes) tags.add(productSlugRouteCacheTag(productKey));
     paths.add(`/products/${productKey}`);
+  }
+
+  if (invalidateSlugRoutes) {
+    tags.add(PRODUCT_SLUG_ROUTE_COLLECTION_CACHE_TAG);
   }
 
   if (invalidateContent) {

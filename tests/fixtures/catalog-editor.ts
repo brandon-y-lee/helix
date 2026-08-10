@@ -228,6 +228,15 @@ export function editorResponse(publish = true): CatalogEditorResponse {
       drafts: [],
       revisions: [],
       audit: [],
+      slugRoutes: [
+        {
+          source_slug: "reset-01-calming-gel-cleanser",
+          source_product_id: catalogDocument.productId,
+          target_product_id: catalogDocument.productId,
+          route_kind: "rename",
+          created_at: "2026-06-29T00:00:00.000Z",
+        },
+      ],
     },
   };
 }

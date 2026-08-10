@@ -491,6 +491,7 @@ export async function getCatalogEditor(
     draftHistoryResult,
     auditResult,
     relationshipTargetsResult,
+    slugRoutesResult,
   ] = await Promise.all([
     readCanonicalDocument(productId),
     admin
@@ -522,12 +523,18 @@ export async function getCatalogEditor(
       .select("id, display_name, slug")
       .neq("id", productId)
       .order("display_name"),
+    admin
+      .from("product_slug_routes")
+      .select("source_slug, source_product_id, target_product_id, route_kind, created_at")
+      .or(`source_product_id.eq.${productId},target_product_id.eq.${productId}`)
+      .order("created_at", { ascending: false }),
   ]);
   if (draftResult.error) throwDatabaseError(draftResult.error);
   if (revisionHistoryResult.error) throwDatabaseError(revisionHistoryResult.error);
   if (draftHistoryResult.error) throwDatabaseError(draftHistoryResult.error);
   if (auditResult.error) throwDatabaseError(auditResult.error);
   if (relationshipTargetsResult.error) throwDatabaseError(relationshipTargetsResult.error);
+  if (slugRoutesResult.error) throwDatabaseError(slugRoutesResult.error);
 
   const draft = draftResult.data
     ? normalizeDraftRecord(draftResult.data)
@@ -550,6 +557,7 @@ export async function getCatalogEditor(
       drafts: draftHistoryResult.data ?? [],
       revisions: revisionHistoryResult.data ?? [],
       audit: auditResult.data ?? [],
+      slugRoutes: slugRoutesResult.data ?? [],
     },
   };
 }

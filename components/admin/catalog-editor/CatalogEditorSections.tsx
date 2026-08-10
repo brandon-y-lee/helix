@@ -1285,7 +1285,7 @@ function SourceSection({ document, role, issues, changes, onChange }: CatalogEdi
 }
 
 function SystemMetadataSection({ metadata }: { metadata: CatalogEditorResponse["systemMetadata"] }) {
-  const recordCount = metadata.drafts.length + metadata.revisions.length + metadata.audit.length;
+  const recordCount = metadata.drafts.length + metadata.revisions.length + metadata.audit.length + metadata.slugRoutes.length;
   return (
     <TableSection
       table="system_metadata"
@@ -1293,11 +1293,12 @@ function SystemMetadataSection({ metadata }: { metadata: CatalogEditorResponse["
       readOnly
     >
       <p className={styles.help}>
-        Workflow, revision, and audit records are displayed for inspection only. They are not part of the editable product document.
+        Workflow, revision, audit, and Product URL redirect records are displayed for inspection only. Redirect history is append-only and cannot be silently deleted.
       </p>
       <MetadataRows table="product_content_drafts" rows={metadata.drafts} />
       <MetadataRows table="catalog_product_revisions" rows={metadata.revisions} />
       <MetadataRows table="catalog_editor_audit_log" rows={metadata.audit} />
+      <MetadataRows table="product_slug_routes" rows={metadata.slugRoutes} />
     </TableSection>
   );
 }
@@ -1313,7 +1314,11 @@ function MetadataRows({ table, rows }: { table: CatalogEditorTable; rows: Array<
     >
       {rows.length === 0 ? <p className={styles.help}>No records.</p> : null}
       {rows.map((row, index) => (
-        <details className={styles.metadataRecord} key={String(row.id ?? index)}>
+        <details
+          className={styles.metadataRecord}
+          key={String(row.id ?? row.source_slug ?? index)}
+          open={table === "product_slug_routes"}
+        >
           <summary>{String(row.id ?? `Record ${index + 1}`)}</summary>
           <div className={styles.fieldGrid}>
             {fields.map((field) => (

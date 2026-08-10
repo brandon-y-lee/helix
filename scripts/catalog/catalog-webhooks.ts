@@ -12,6 +12,7 @@ export const CATALOG_WEBHOOK_TABLES = [
   "product_variants",
   "product_media",
   "product_pdp_content",
+  "product_slug_routes",
 ] as const;
 export const CATALOG_WEBHOOK_EVENTS = [
   "INSERT",
@@ -409,7 +410,8 @@ with target_tables(table_name) as (
     ('products'),
     ('product_variants'),
     ('product_media'),
-    ('product_pdp_content')
+    ('product_pdp_content'),
+    ('product_slug_routes')
 ),
 hook_rows as (
   select

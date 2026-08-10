@@ -24,6 +24,8 @@ type ProductRevisionRow =
   Database["public"]["Tables"]["catalog_product_revisions"]["Row"];
 type CatalogAuditRow =
   Database["public"]["Tables"]["catalog_editor_audit_log"]["Row"];
+type ProductSlugRouteRow =
+  Database["public"]["Tables"]["product_slug_routes"]["Row"];
 
 export const PRODUCT_EDITOR_SCHEMA_VERSION = 4 as const;
 
@@ -145,6 +147,7 @@ export type CatalogRpcConflict = {
 
 type CatalogChangedTables = {
   products: boolean;
+  productSlugRoutes: boolean;
   productPdpContent: boolean;
   variants: boolean;
   media: boolean;
@@ -227,5 +230,6 @@ export type CatalogEditorResponse = {
     drafts: ProductDraftRow[];
     revisions: ProductRevisionRow[];
     audit: CatalogAuditRow[];
+    slugRoutes: ProductSlugRouteRow[];
   };
 };

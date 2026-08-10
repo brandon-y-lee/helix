@@ -119,6 +119,7 @@ describe("catalog editor protected routes", () => {
       revision: {} as never,
       changedTables: {
         products: false,
+        productSlugRoutes: false,
         productPdpContent: true,
         variants: false,
         media: false,

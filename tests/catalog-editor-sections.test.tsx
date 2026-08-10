@@ -137,6 +137,24 @@ describe("CatalogEditor sections", () => {
     );
   }, 10_000);
 
+  it("warns an administrator that a slug edit creates a permanent redirect", () => {
+    const onChange = vi.fn();
+    const { container } = render(<SectionsHarness onChange={onChange} />);
+
+    toggleDisclosure(container, "section-products");
+    toggleDisclosure(container, "group-products-advanced");
+    expect(screen.getByLabelText("Slug")).toBeEnabled();
+    expect(screen.getByText(/old public URL will permanently redirect/i)).toBeVisible();
+    fireEvent.change(screen.getByLabelText("Slug"), {
+      target: { value: "biotic-reset" },
+    });
+    expect(onChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        product: expect.objectContaining({ slug: "biotic-reset" }),
+      }),
+    );
+  });
+
   it("keeps advanced and commerce controls read only for a catalog editor", () => {
     const { container } = render(<SectionsHarness role="catalog_editor" />);
 
@@ -149,6 +167,19 @@ describe("CatalogEditor sections", () => {
     toggleDisclosure(container, "group-source-fields");
     expect(screen.getByText("Supplier Cleanser")).toBeVisible();
     expect(screen.getAllByText("$22.00")).toHaveLength(2);
+  });
+
+  it("shows append-only Product slug history as read-only system metadata", () => {
+    const { container } = render(<SectionsHarness />);
+
+    toggleDisclosure(container, "section-system_metadata");
+    toggleDisclosure(container, "group-system-product-slug-routes");
+    expect(screen.getByText("reset-01-calming-gel-cleanser")).toBeVisible();
+    expect(screen.getByText("rename")).toBeVisible();
+    expect(screen.getAllByText("Read only").length).toBeGreaterThan(0);
+    expect(
+      screen.getByText(/redirect history is append-only/i),
+    ).toBeVisible();
   });
 
   it("reorders media and delegates fixed Core uploads", async () => {

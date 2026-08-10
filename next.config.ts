@@ -43,16 +43,6 @@ const nextConfig: NextConfig = {
         destination: "/collections/shop",
         permanent: true,
       },
-      {
-        source: "/products/reset-01-calming-gel-cleanser",
-        destination: "/products/cleanse-01-calming-gel-cleanser",
-        permanent: true,
-      },
-      {
-        source: "/products/recode-03-pdrn-5-ampoule",
-        destination: "/products/treat-03-pdrn-5-ampoule",
-        permanent: true,
-      },
     ];
   },
   images: {

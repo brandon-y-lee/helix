@@ -134,7 +134,7 @@ export default function CatalogEditor({ productId }: { productId: string }) {
   >([]);
   const [systemMetadata, setSystemMetadata] = useState<
     CatalogEditorResponse["systemMetadata"]
-  >({ drafts: [], revisions: [], audit: [] });
+  >({ drafts: [], revisions: [], audit: [], slugRoutes: [] });
   const [canPublish, setCanPublish] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
@@ -171,6 +171,27 @@ export default function CatalogEditor({ productId }: { productId: string }) {
         : { diff: {}, affectedTables: [], advancedChanges: [] },
     [document, savedDocument],
   );
+  const documentSlugChange = useMemo(() => {
+    if (!document || !canonicalDocument) return null;
+    if (document.product.slug === canonicalDocument.product.slug) return null;
+    return {
+      from: canonicalDocument.product.slug,
+      to: document.product.slug,
+    };
+  }, [canonicalDocument, document]);
+  const slugChange = useMemo(() => {
+    if (documentSlugChange) return documentSlugChange;
+    const slugDiff = validation?.diff.products?.find(
+      (entry) => entry.field === "slug",
+    );
+    if (
+      typeof slugDiff?.before !== "string" ||
+      typeof slugDiff.after !== "string"
+    ) {
+      return null;
+    }
+    return { from: slugDiff.before, to: slugDiff.after };
+  }, [documentSlugChange, validation]);
 
   const revealTarget = useCallback((selector: string, focus = true) => {
     const target = window.document.querySelector<HTMLElement>(selector);
@@ -632,6 +653,17 @@ export default function CatalogEditor({ productId }: { productId: string }) {
             </section>
           ) : null}
 
+          {slugChange ? (
+            <section className={styles.notice} role="status">
+              <h2>Permanent Product URL redirect</h2>
+              <p>
+                /products/{slugChange.from} will permanently redirect to
+                {" "}/products/{slugChange.to}. The old public URL remains in
+                redirect history and cannot be silently deleted.
+              </p>
+            </section>
+          ) : null}
+
           {conflict ? (
             <section className={styles.conflict} role="alert">
               <h2>Newer draft detected</h2>
@@ -724,6 +756,13 @@ export default function CatalogEditor({ productId }: { productId: string }) {
                 This validated draft will update{" "}
                 {validation.affected_tables.join(", ")}.
               </p>
+              {slugChange ? (
+                <p>
+                  /products/{slugChange.from} will permanently redirect to
+                  {" "}/products/{slugChange.to}. The old public URL remains in
+                  redirect history and cannot be silently deleted.
+                </p>
+              ) : null}
               {validation.affected_tables.map((table) => (
                 <div className={styles.diffGroup} key={table}>
                   <h3>{table}</h3>
@@ -754,8 +793,8 @@ export default function CatalogEditor({ productId }: { productId: string }) {
                     <span>
                       <strong>Acknowledge disruptive changes</strong>
                       <span className={styles.help}>
-                        Review classification, publication, variant, or media
-                        lifecycle changes before publishing.
+                        Review classification, publication, Product URL,
+                        variant, or media lifecycle changes before publishing.
                       </span>
                     </span>
                   </label>
