@@ -54,11 +54,13 @@ function gateway(step: FrameLiftStep): FrameLiftPublicationGateway {
   let current = sourceDocument(step);
   let redirected = false;
   let activeDraft: { id: string; version: number } | null = null;
+  let latestRevisionId: string | null = null;
   let latestRevisionDocument: ProductEditorDocumentV4 | null = null;
   return {
     readState: vi.fn(async () => ({
       canonical: current,
       activeDraft,
+      latestRevisionId,
       latestRevisionDocument,
       sourceRedirectExists: redirected,
     })),
@@ -84,6 +86,7 @@ function gateway(step: FrameLiftStep): FrameLiftPublicationGateway {
     }),
     publishDraft: vi.fn(async ({ document }) => {
       current = document;
+      latestRevisionId = "revision-id";
       latestRevisionDocument = structuredClone(document);
       redirected = true;
       activeDraft = null;
@@ -142,6 +145,7 @@ describe("FRAME/LIFT publication runner", () => {
     vi.mocked(adapter.readState).mockResolvedValueOnce({
       canonical: sourceDocument("FRAME"),
       activeDraft: { id: "someone-elses-draft", version: 4 },
+      latestRevisionId: null,
       latestRevisionDocument: null,
       sourceRedirectExists: false,
     });
@@ -175,6 +179,7 @@ describe("FRAME/LIFT publication runner", () => {
     vi.mocked(adapter.readState).mockResolvedValueOnce({
       canonical: publishedState.canonical,
       activeDraft: null,
+      latestRevisionId: publishedState.latestRevisionId,
       latestRevisionDocument: publishedState.latestRevisionDocument,
       sourceRedirectExists: false,
     });
@@ -183,6 +188,26 @@ describe("FRAME/LIFT publication runner", () => {
       /redirect/i,
     );
     expect(adapter.createDraft).toHaveBeenCalledTimes(1);
+  });
+
+  it("requires the exact returned revision to match the first publication", async () => {
+    const adapter = gateway("LIFT");
+    const readState = vi.mocked(adapter.readState).getMockImplementation()!;
+    vi.mocked(adapter.readState).mockImplementation(async (productId) => {
+      const state = await readState(productId);
+      if (!state.latestRevisionDocument) return state;
+      return {
+        ...state,
+        latestRevisionDocument: {
+          ...state.latestRevisionDocument,
+          media: [],
+        },
+      };
+    });
+
+    await expect(publishFrameLiftProduct("LIFT", adapter)).rejects.toThrow(
+      /governed publication snapshot/i,
+    );
   });
 
   it("discards only the draft created by a failed publication", async () => {

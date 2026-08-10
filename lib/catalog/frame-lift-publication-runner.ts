@@ -20,6 +20,7 @@ type DraftWithDocument = Readonly<{
 export type FrameLiftPublicationState = Readonly<{
   canonical: ProductEditorDocumentV4;
   activeDraft: Readonly<{ id: string; version: number }> | null;
+  latestRevisionId: string | null;
   latestRevisionDocument: ProductEditorDocumentV4 | null;
   sourceRedirectExists: boolean;
 }>;
@@ -70,6 +71,7 @@ function assertVerifiedState(
   state: FrameLiftPublicationState,
   step: FrameLiftStep,
   expected?: ProductEditorDocumentV4,
+  expectedRevisionId?: string,
 ): void {
   if (!isFrameLiftPublicationCurrent(state.canonical, step)) {
     throw new Error(`${step} publication did not persist the approved document.`);
@@ -77,6 +79,12 @@ function assertVerifiedState(
   const reference = expected ?? state.latestRevisionDocument;
   if (
     !reference ||
+    (expected !== undefined &&
+      (state.latestRevisionId !== expectedRevisionId ||
+        !state.latestRevisionDocument ||
+        JSON.stringify(
+          frameLiftPublicationSnapshot(state.latestRevisionDocument),
+        ) !== JSON.stringify(frameLiftPublicationSnapshot(expected)))) ||
     !isFrameLiftPublicationCurrent(reference, step) ||
     JSON.stringify(frameLiftPublicationSnapshot(state.canonical)) !==
       JSON.stringify(frameLiftPublicationSnapshot(reference))
@@ -183,7 +191,12 @@ export async function publishFrameLiftProduct(
         .advancedChanges,
     });
     const finalState = await gateway.readState(definition.productId);
-    assertVerifiedState(finalState, step, draftCandidate);
+    assertVerifiedState(
+      finalState,
+      step,
+      draftCandidate,
+      published.revisionId,
+    );
     await gateway.verifyMedia(finalState.canonical);
 
     return {

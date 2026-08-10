@@ -99,7 +99,7 @@ function createGateway(
           .limit(2),
         client
           .from("catalog_product_revisions")
-          .select("document")
+          .select("id, document")
           .eq("product_id", productId)
           .order("revision_number", { ascending: false })
           .limit(1)
@@ -129,6 +129,7 @@ function createGateway(
       return {
         canonical: assertValidProductEditorDocument(documentResult.data),
         activeDraft: draftResult.data?.[0] ?? null,
+        latestRevisionId: revisionResult.data?.id ?? null,
         latestRevisionDocument: revisionResult.data
           ? assertValidProductEditorDocument(revisionResult.data.document)
           : null,
