@@ -28,9 +28,7 @@ function processIsAlive(pid: number): boolean {
 
 async function waitUntil(
   assertion: () => boolean,
-  // Cold hosted Windows runners can spend more than ten seconds compiling or
-  // draining the PowerShell job-object supervisor around an owned process tree.
-  timeoutMs = process.platform === "win32" ? 20_000 : 3_000,
+  timeoutMs = process.platform === "win32" ? 10_000 : 3_000,
 ): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -127,13 +125,16 @@ describe("Production Verification Node Adapters", () => {
         await owned.stop();
         await waitUntil(
           () => !processIsAlive(pids.parent) && !processIsAlive(pids.child),
+          // A cold hosted Windows runner can take more than ten seconds to
+          // drain the job-object process tree after its supervisor exits.
+          process.platform === "win32" ? 20_000 : 3_000,
         );
       } finally {
         await owned.stop();
         await rm(cwd, { force: true, recursive: true });
       }
     },
-    process.platform === "win32" ? 35_000 : 20_000,
+    process.platform === "win32" ? 50_000 : 20_000,
   );
 
   it(
