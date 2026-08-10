@@ -72,10 +72,10 @@ test("Algolia result opens its canonical product detail page", async ({
     .fill(searchTerm);
   await expect(page.getByText(/1 result for/i)).toBeVisible();
   const result = page.getByRole("link", {
-    name: `${product.displayName} — ${product.cardTagline}`,
+    name: `${product.displayName} — ${product.productType}`,
   });
   await expect(result).toContainText(product.productType);
-  await expect(result).toContainText(product.cardTagline);
+  await expect(result).toContainText(product.productType);
   await expect(result).toContainText(`$${(offerPrice / 100).toFixed(2)}`);
   await result.click();
 

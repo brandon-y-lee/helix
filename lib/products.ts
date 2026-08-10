@@ -5,6 +5,7 @@
 
 import type { ProductPdpContent } from "@/lib/catalog/product-content";
 import type { ProductMediaRole } from "@/lib/catalog/media-roles";
+import type { SystemStepName } from "@/lib/catalog/system-steps";
 
 export type { ProductMediaRole } from "@/lib/catalog/media-roles";
 
@@ -54,15 +55,12 @@ export type ProductMedia = {
 export type Product = {
   id: string;
   slug: string;
-  /** Short storefront display name, e.g. CLEANSE. */
+  /** Short authored storefront Product Display Name. */
   displayName: string;
-  /** Formal catalog title, e.g. CLEANSE 01 Calming Gel Cleanser. */
-  formalTitle: string;
-  cardTagline: string;
   productType: string;
   routineGroup: CommerceRoutineGroup;
-  routineStepNumber: number | null;
-  routineStepName: string | null;
+  systemStepName: SystemStepName | null;
+  systemStepPosition: number | null;
   routineSort: number;
   badge: string | null;
   currency: "USD";
@@ -107,6 +105,13 @@ export type Product = {
   /** ISO timestamp; used for the "Newest first" sort. */
   createdAt: string;
 };
+
+export function composeProductTitle(
+  displayName: string,
+  productType: string,
+): string {
+  return `${displayName} — ${productType}`;
+}
 
 export function formatPrice(cents: number): string {
   return new Intl.NumberFormat("en-US", {

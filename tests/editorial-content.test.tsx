@@ -21,6 +21,7 @@ import {
   routineTimingEntriesForGroup,
 } from "@/lib/content/system";
 import type { Product } from "@/lib/products";
+import type { SystemStepName } from "@/lib/catalog/system-steps";
 
 const mockedGetProducts = getCachedProducts as unknown as Mock;
 
@@ -46,6 +47,16 @@ const ingredientsBySlug: Record<string, string[]> = {
   "lift-06-pdrn-mask-system": ["Sodium DNA (5,000 ppm)", "Niacinamide"],
 };
 
+const systemPositionByName: Record<SystemStepName, number> = {
+  CLEANSE: 1,
+  REFINE: 2,
+  TREAT: 3,
+  FRAME: 4,
+  SEAL: 5,
+  PROTECT: 6,
+  LIFT: 7,
+};
+
 function makeProduct(slug: string, overrides: Partial<Product> = {}): Product {
   const displayName = nameBySlug[slug] ?? "PRODUCT";
   const routineNumber = slug === "lift-06-pdrn-mask-system"
@@ -57,19 +68,11 @@ function makeProduct(slug: string, overrides: Partial<Product> = {}): Product {
     id: `${slug}-id`,
     slug,
     displayName,
-    formalTitle: `${displayName} ${routineNumber ?? ""}`,
-    cardTagline: "Short product line",
     routineGroup: ["CLEANSE", "TREAT", "SEAL"].includes(displayName)
       ? "core"
       : "beyond_core",
-    routineStepNumber: ["CLEANSE", "TREAT", "SEAL"].includes(displayName)
-      ? ({ CLEANSE: 1, TREAT: 2, SEAL: 3 } as const)[
-          displayName as "CLEANSE" | "TREAT" | "SEAL"
-        ]
-      : null,
-    routineStepName: ["CLEANSE", "TREAT", "SEAL"].includes(displayName)
-      ? displayName
-      : null,
+    systemStepPosition: systemPositionByName[displayName as SystemStepName],
+    systemStepName: displayName as SystemStepName,
     routineSort: Number(routineNumber ?? 0) * 10,
     productType: "Treatment",
     badge: null,
@@ -187,10 +190,10 @@ describe("System content architecture", () => {
       7: ["cleanse", "refine", "treat", "frame", "seal", "protect", "lift"],
     } as const;
     const metadataBefore = methodFixtures.map(
-      ({ slug, routineGroup, routineStepNumber, routineSort }) => ({
+      ({ slug, routineGroup, systemStepPosition, routineSort }) => ({
         slug,
         routineGroup,
-        routineStepNumber,
+        systemStepPosition,
         routineSort,
       }),
     );
@@ -214,10 +217,10 @@ describe("System content architecture", () => {
     }
 
     expect(
-      methodFixtures.map(({ slug, routineGroup, routineStepNumber, routineSort }) => ({
+      methodFixtures.map(({ slug, routineGroup, systemStepPosition, routineSort }) => ({
         slug,
         routineGroup,
-        routineStepNumber,
+        systemStepPosition,
         routineSort,
       })),
     ).toEqual(metadataBefore);

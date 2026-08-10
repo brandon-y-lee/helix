@@ -33,15 +33,14 @@ const PRODUCT_OFFER_FIELDS = new Set([
   "currency",
 ]);
 const PRODUCT_CARD_ONLY_FIELDS = new Set([
-  "card_tagline",
   "badge",
   "sort_order",
 ]);
 const PRODUCT_CARD_SHARED_FIELDS = new Set([
   "slug",
   "display_name",
-  "formal_title",
   "product_type",
+  "system_step_name",
   "swatch_from",
   "swatch_to",
 ]);

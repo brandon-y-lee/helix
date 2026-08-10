@@ -5,7 +5,7 @@ import {
 } from "@/lib/catalog/field-ownership";
 import type {
   CatalogValidationIssue,
-  ProductEditorDocumentV3,
+  ProductEditorDocumentV4,
 } from "@/lib/admin/catalog/types";
 import { isCoreRoutineMediaRole } from "@/lib/catalog/media-roles";
 
@@ -205,8 +205,8 @@ function validateCollectionOwnership({
 }
 
 export function validateCatalogEditorOwnership(
-  candidate: ProductEditorDocumentV3,
-  canonical: ProductEditorDocumentV3,
+  candidate: ProductEditorDocumentV4,
+  canonical: ProductEditorDocumentV4,
   role: CatalogEditorRole,
 ): CatalogValidationIssue[] {
   const issues: CatalogValidationIssue[] = [];

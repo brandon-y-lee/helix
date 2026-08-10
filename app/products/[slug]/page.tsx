@@ -12,6 +12,7 @@ import {
 import { stripeMessagingPublishableKey } from "@/lib/checkout/config";
 import type { CoreRoutineSummary } from "@/lib/catalog/models";
 import { PDP_DISCOVERY_PRODUCT_LIMIT } from "@/lib/catalog/discovery";
+import { composeProductTitle } from "@/lib/products";
 
 export async function generateStaticParams() {
   const products = await getCachedProductRoutes();
@@ -27,9 +28,10 @@ export async function generateMetadata({
   const product = await getCachedProductMetadata(slug);
   return {
     title: product
-      ? product.seoTitle ?? `${product.formalTitle} | Mei Pelle`
+      ? product.seoTitle ??
+        `${composeProductTitle(product.displayName, product.productType)} | Mei Pelle`
       : "Product | Mei Pelle",
-    description: product?.seoDescription ?? product?.cardTagline,
+    description: product?.seoDescription ?? product?.productType,
   };
 }
 

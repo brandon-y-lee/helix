@@ -17,9 +17,10 @@ type CoreRoutinePresentation = Pick<
   | "displayName"
   | "editorialMedia"
   | "productType"
-  | "routineStepNumber"
   | "slug"
   | "swatch"
+  | "systemStepName"
+  | "systemStepPosition"
   | "textureMedia"
 >;
 
@@ -41,6 +42,11 @@ export function PdpCoreRoutineSection({
   currentSlug: string;
   rootRef?: Ref<HTMLElement>;
 }) {
+  const expectedSteps = [
+    ["CLEANSE", 1],
+    ["TREAT", 3],
+    ["SEAL", 5],
+  ] as const;
   const {
     activeIndex,
     direction,
@@ -58,7 +64,8 @@ export function PdpCoreRoutineSection({
     products.length !== 3 ||
     products.some(
       (product, index) =>
-        product.routineStepNumber !== index + 1 ||
+        product.systemStepName !== expectedSteps[index][0] ||
+        product.systemStepPosition !== expectedSteps[index][1] ||
         product.textureMedia.kind !== "image" || !product.textureMedia.url,
     )
   ) {
@@ -71,7 +78,7 @@ export function PdpCoreRoutineSection({
       className="pdp-core-routine"
       aria-labelledby="pdp-core-routine-heading"
       data-active-step={sequenceLabel(
-        products[activeIndex].routineStepNumber,
+        products[activeIndex].systemStepPosition,
       )}
       data-direction={direction}
       data-pdp-slide-transitioning={isTransitioning}
@@ -149,14 +156,14 @@ export function PdpCoreRoutineSection({
               type="button"
               role="radio"
               aria-checked={index === activeIndex}
-              aria-label={`Show step ${product.routineStepNumber}, ${product.displayName}`}
+              aria-label={`Show ${product.systemStepName}, ${product.displayName}`}
               tabIndex={index === activeIndex ? 0 : -1}
               onClick={() => select(index)}
               onFocus={() => select(index)}
               onPointerEnter={() => select(index)}
               onKeyDown={(event) => handleKeyDown(event, index)}
             >
-              <span>{sequenceLabel(product.routineStepNumber)}</span>
+              <span>{sequenceLabel(product.systemStepPosition)}</span>
               <small>{product.displayName}</small>
             </button>
           ))}

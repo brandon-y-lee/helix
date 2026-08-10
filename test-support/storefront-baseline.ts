@@ -1,5 +1,6 @@
 import { firstPurchasableVariant, type ProductStatus } from "@/lib/products";
 import { isProductMediaRole } from "@/lib/catalog/media-roles";
+import { systemStepByName } from "@/lib/catalog/system-steps";
 
 const CATALOG_STATUSES = ["active", "draft", "archived"] as const;
 const PRODUCT_STATUSES = ["available", "coming_soon", "sold_out"] as const;
@@ -40,8 +41,6 @@ export type StorefrontCatalogProduct = {
   id: string;
   slug: string;
   display_name: string;
-  formal_title: string;
-  card_tagline: string;
   product_type: string;
   badge: string | null;
   currency: string;
@@ -63,8 +62,7 @@ export type StorefrontCatalogProduct = {
   usage_time: string[];
   search_keywords: string[];
   routine_group: string;
-  routine_step_number: number | null;
-  routine_step_name: string | null;
+  system_step_name: string | null;
   routine_sort: number;
   product_variants: StorefrontCatalogVariant[] | null;
   product_media: StorefrontCatalogMedia[] | null;
@@ -113,8 +111,6 @@ export type StorefrontSnapshotProduct = Readonly<{
   slug: string;
   path: string;
   displayName: string;
-  formalTitle: string;
-  cardTagline: string;
   productType: string;
   badge: string | null;
   currency: "USD";
@@ -398,13 +394,11 @@ function normalizeProduct(
       `Product "${slug}" has unsupported currency "${row.currency}".`,
     );
   }
-  if (
-    row.routine_step_number !== null &&
-    (!Number.isInteger(row.routine_step_number) || row.routine_step_number <= 0)
-  ) {
+  const systemStep = systemStepByName(row.system_step_name);
+  if (!systemStep || systemStep.routineGroup !== row.routine_group) {
     throw new StorefrontBaselineError(
       "invalid-ordering",
-      `Product "${slug}" has invalid System Step ordering ${String(row.routine_step_number)}.`,
+      `Product "${slug}" has invalid System Step identity ${String(row.system_step_name)}.`,
     );
   }
 
@@ -497,8 +491,6 @@ function normalizeProduct(
     slug,
     path: `/products/${slug}`,
     displayName: requireText(row.display_name, "display name", slug),
-    formalTitle: requireText(row.formal_title, "formal title", slug),
-    cardTagline: requireText(row.card_tagline, "card tagline", slug),
     productType: requireText(row.product_type, "product type", slug),
     badge: optionalText(row.badge, "badge", slug),
     currency: "USD",
@@ -538,12 +530,8 @@ function normalizeProduct(
       slug,
     ),
     routineGroup: row.routine_group,
-    systemPosition: row.routine_step_number,
-    systemStepName: optionalText(
-      row.routine_step_name,
-      "System Step Name",
-      slug,
-    ),
+    systemPosition: systemStep.position,
+    systemStepName: systemStep.name,
     routineSort: requireOrder(row.routine_sort, "Routine ordering", slug),
     variants,
     media,

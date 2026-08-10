@@ -230,6 +230,8 @@ export default function CatalogProductGrid() {
                 <div className={styles.cardBody}>
                   <div>
                     <h2 className={styles.cardTitle}>{product.displayName}</h2>
+                    <span className={styles.muted}>{product.productType}</span>
+                    <br />
                     <span className={styles.muted}>/{product.slug}</span>
                   </div>
                   <div className={styles.pillRow}>

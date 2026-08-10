@@ -2,10 +2,11 @@ import { normalizeProductPdpContent } from "@/lib/catalog/product-content";
 import { CatalogAdminError } from "@/lib/admin/catalog/errors";
 import type {
   CatalogValidationIssue,
-  ProductEditorDocumentV3,
+  ProductEditorDocumentV4,
 } from "@/lib/admin/catalog/types";
 import { PRODUCT_EDITOR_SCHEMA_VERSION } from "@/lib/admin/catalog/types";
 import { PRODUCT_MEDIA_ROLES } from "@/lib/catalog/media-roles";
+import { systemStepByName } from "@/lib/catalog/system-steps";
 import {
   catalogFieldsForTable,
   type CatalogEditorTable,
@@ -145,11 +146,9 @@ function validateProduct(
     }
   }
   const requiredText = [
-    "card_tagline",
     "display_name",
     "editorial_description",
     "editorial_how_to_use",
-    "formal_title",
     "product_type",
     "slug",
     "swatch_from",
@@ -202,9 +201,9 @@ function validateProduct(
     "good_for",
     "ingredients",
     "made_for",
-    "routine_step_name",
     "seo_description",
     "seo_title",
+    "system_step_name",
     "texture",
     "volume",
   ] as const;
@@ -215,20 +214,6 @@ function validateProduct(
         `product.${field}`,
         "invalid_type",
         `${field} must be a string or null.`,
-      );
-    }
-  }
-
-  const nullableIntegers = [
-    "routine_step_number",
-  ] as const;
-  for (const field of nullableIntegers) {
-    if (!isNullableInteger(product[field])) {
-      issue(
-        issues,
-        `product.${field}`,
-        "invalid_integer",
-        `${field} must be an integer or null.`,
       );
     }
   }
@@ -297,45 +282,34 @@ function validateProduct(
     );
   }
 
-  if (product.routine_group === "core") {
-    const name = String(product.display_name).toUpperCase();
-    if (!["CLEANSE", "TREAT", "SEAL"].includes(name)) {
-      issue(
-        issues,
-        "product.display_name",
-        "invalid_core_product",
-        "Core products must be CLEANSE, TREAT, or SEAL.",
-      );
-    }
-    if (!isInteger(product.routine_step_number, 1)) {
-      issue(
-        issues,
-        "product.routine_step_number",
-        "invalid_core_step",
-        "Core products require a positive routine step number.",
-      );
-    }
-    if (
-      typeof product.routine_step_name !== "string" ||
-      !product.routine_step_name.trim()
-    ) {
-      issue(
-        issues,
-        "product.routine_step_name",
-        "invalid_core_step",
-        "Core products require a routine step name.",
-      );
-    }
+  const systemStep = systemStepByName(product.system_step_name);
+  if (product.catalog_status === "active" && !systemStep) {
+    issue(
+      issues,
+      "product.system_step_name",
+      "system_step_required",
+      "Active Products must fulfill a governed System Step.",
+    );
   } else if (
-    product.routine_group === "beyond_core" &&
-    (product.routine_step_number !== null ||
-      product.routine_step_name !== null)
+    product.system_step_name !== null &&
+    !systemStep
   ) {
     issue(
       issues,
-      "product.routine_step_number",
-      "invalid_beyond_step",
-      "Beyond The Core products cannot claim a Core step.",
+      "product.system_step_name",
+      "invalid_system_step",
+      "System Step Name must use one of the seven canonical uppercase values.",
+    );
+  } else if (
+    systemStep &&
+    oneOf(product.routine_group, ROUTINE_GROUPS) &&
+    systemStep.routineGroup !== product.routine_group
+  ) {
+    issue(
+      issues,
+      "product.system_step_name",
+      "routine_group_mismatch",
+      "System Step and Routine Group must agree.",
     );
   }
 }
@@ -853,7 +827,7 @@ export function validateProductEditorDocument(
   input: unknown,
   env: NodeJS.ProcessEnv = process.env,
 ): {
-  document: ProductEditorDocumentV3 | null;
+  document: ProductEditorDocumentV4 | null;
   issues: CatalogValidationIssue[];
 } {
   const issues: CatalogValidationIssue[] = [];
@@ -989,14 +963,14 @@ export function validateProductEditorDocument(
   }
 
   return {
-    document: issues.length === 0 ? (input as ProductEditorDocumentV3) : null,
+    document: issues.length === 0 ? (input as ProductEditorDocumentV4) : null,
     issues,
   };
 }
 
 export function assertProductEditorDocumentStructure(
   input: unknown,
-): ProductEditorDocumentV3 {
+): ProductEditorDocumentV4 {
   const issues: CatalogValidationIssue[] = [];
   if (!isRecord(input)) {
     throw new CatalogAdminError(
@@ -1059,13 +1033,13 @@ export function assertProductEditorDocumentStructure(
       { issues },
     );
   }
-  return input as ProductEditorDocumentV3;
+  return input as ProductEditorDocumentV4;
 }
 
 export function assertValidProductEditorDocument(
   input: unknown,
   env: NodeJS.ProcessEnv = process.env,
-): ProductEditorDocumentV3 {
+): ProductEditorDocumentV4 {
   const result = validateProductEditorDocument(input, env);
   if (!result.document) {
     throw new CatalogAdminError(

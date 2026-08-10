@@ -8,14 +8,14 @@ import {
 
 const schemaFields = {
   products: [
-    "id", "slug", "display_name", "formal_title", "card_tagline",
+    "id", "slug", "display_name",
     "product_type", "catalog_status", "badge", "currency", "sort_order",
     "editorial_description", "benefits", "editorial_how_to_use",
     "formula_notes", "swatch_from", "swatch_to", "status", "made_for",
     "good_for", "texture", "key_ingredients", "ingredients", "cautions",
     "finish", "volume", "skin_types", "concerns", "usage_time",
     "seo_title", "seo_description", "search_keywords", "routine_group",
-    "routine_step_number", "routine_step_name", "routine_sort", "created_at",
+    "system_step_name", "routine_sort", "created_at",
     "published_at", "updated_at",
   ],
   product_pdp_content: [

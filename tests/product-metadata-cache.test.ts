@@ -16,8 +16,8 @@ describe("product metadata cache ownership", () => {
   it("uses stable product content without reading offer state", async () => {
     vi.mocked(getCachedProductMetadata).mockResolvedValue({
       slug: "treat-03-pdrn-5-ampoule",
-      formalTitle: "TREAT 03 PDRN 5 Ampoule",
-      cardTagline: "Bounce and glow",
+      displayName: "Peptide Bounce",
+      productType: "PDRN serum",
       seoTitle: null,
       seoDescription: "Stable product metadata.",
     });
@@ -30,7 +30,7 @@ describe("product metadata cache ownership", () => {
       "treat-03-pdrn-5-ampoule",
     );
     expect(metadata).toMatchObject({
-      title: "TREAT 03 PDRN 5 Ampoule | Mei Pelle",
+      title: "Peptide Bounce — PDRN serum | Mei Pelle",
       description: "Stable product metadata.",
     });
   });

@@ -4,6 +4,7 @@ import type {
   ProductStatus,
 } from "@/lib/products";
 import type { ProductPdpContent } from "@/lib/catalog/product-content";
+import type { SystemStepName } from "@/lib/catalog/system-steps";
 
 export const CORE_ROUTINE_PRODUCT_SLUGS = [
   "cleanse-01-calming-gel-cleanser",
@@ -37,12 +38,12 @@ export type ProductCardContent = {
   id: string;
   slug: string;
   displayName: string;
-  cardTagline: string;
   productType: string;
   volume: string | null;
   usageTime: string[];
   routineGroup: CommerceRoutineGroup;
-  routineStepNumber: number | null;
+  systemStepName: SystemStepName;
+  systemStepPosition: number;
   routineSort: number;
   sortOrder: number;
   createdAt: string;
@@ -59,10 +60,9 @@ export type PdpProductContent = {
   id: string;
   slug: string;
   displayName: string;
-  cardTagline: string;
   routineGroup: CommerceRoutineGroup;
-  routineStepNumber: number | null;
-  routineStepName: string | null;
+  systemStepName: SystemStepName;
+  systemStepPosition: number;
   routineSort: number;
   productType: string;
   description: string;
@@ -92,9 +92,7 @@ export type CoreRoutineContentSummary = {
   id: string;
   slug: string;
   displayName: string;
-  formalTitle: string;
   productType: string;
-  cardTagline: string;
   description: string;
   benefits: string[];
   goodFor: string | null;
@@ -102,8 +100,8 @@ export type CoreRoutineContentSummary = {
   finish: string | null;
   keyIngredients: string[];
   routineGroup: "core";
-  routineStepNumber: number;
-  routineStepName: string;
+  systemStepName: Extract<SystemStepName, "CLEANSE" | "TREAT" | "SEAL">;
+  systemStepPosition: 1 | 3 | 5;
   routineSort: number;
   swatch: [string, string];
   textureMedia: ProductMedia;
@@ -118,8 +116,8 @@ export type CoreRoutineSummary = CoreRoutineContentSummary &
 
 export type ProductMetadata = {
   slug: string;
-  formalTitle: string;
-  cardTagline: string;
+  displayName: string;
+  productType: string;
   seoTitle: string | null;
   seoDescription: string | null;
 };

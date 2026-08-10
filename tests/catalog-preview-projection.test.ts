@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ProductEditorDocumentV3 } from "@/lib/admin/catalog/types";
+import type { ProductEditorDocumentV4 } from "@/lib/admin/catalog/types";
 import {
   CatalogPreviewProjectionError,
   projectCatalogDraftPreview,
@@ -30,13 +30,12 @@ function canonicalProduct(): PdpProduct {
   return {
     id: productId,
     slug: canonicalSlug,
-    displayName: "CLEANSE",
-    cardTagline: "Canonical tagline",
+    displayName: "Biotic Reset",
     routineGroup: "core",
-    routineStepNumber: 1,
-    routineStepName: "Cleanse",
+    systemStepPosition: 1,
+    systemStepName: "CLEANSE",
     routineSort: 10,
-    productType: "Gel cleanser",
+    productType: "Daily gel cleanser",
     description: "Canonical description",
     howToUse: "Canonical use",
     swatch: ["#dce8df", "#82978a"],
@@ -92,9 +91,7 @@ function base(): CatalogPreviewBase {
     id: product.id,
     slug: product.slug,
     displayName: product.displayName,
-    formalTitle: "CLEANSE 01 Calming Gel Cleanser",
     productType: product.productType ?? "",
-    cardTagline: product.cardTagline,
     description: product.description,
     benefits: ["Cleans without stripping"],
     goodFor: product.goodFor,
@@ -102,8 +99,8 @@ function base(): CatalogPreviewBase {
     finish: product.finish,
     keyIngredients: product.keyIngredients,
     routineGroup: "core",
-    routineStepNumber: 1,
-    routineStepName: "Cleanse",
+    systemStepPosition: 1,
+    systemStepName: "CLEANSE",
     routineSort: 10,
     swatch: product.swatch,
     textureMedia,
@@ -123,13 +120,13 @@ function base(): CatalogPreviewBase {
   return { product, coreProducts: [coreProduct] };
 }
 
-function document(): ProductEditorDocumentV3 {
+function document(): ProductEditorDocumentV4 {
   const draft = structuredClone(catalogDocument);
   draft.productId = productId;
   draft.product.id = productId;
   draft.product.slug = canonicalSlug;
-  draft.product.display_name = "CLEANSE";
-  draft.product.card_tagline = "Draft card tagline";
+  draft.product.display_name = "Biotic Reset";
+  draft.product.product_type = "Draft daily gel cleanser";
   draft.product.editorial_description = "Draft editorial description";
   draft.product.editorial_how_to_use = "Draft editorial use";
   draft.product.benefits = ["Draft benefit"];
@@ -185,8 +182,8 @@ describe("catalog draft PDP projection", () => {
     });
 
     expect(preview.product).toMatchObject({
-      displayName: "CLEANSE",
-      cardTagline: "Draft card tagline",
+      displayName: "Biotic Reset",
+      productType: "Draft daily gel cleanser",
       description: "Draft editorial description",
       howToUse: "Draft editorial use",
       variants: [
@@ -201,7 +198,8 @@ describe("catalog draft PDP projection", () => {
     expect(preview.product.detailMedia?.url).toBe(approvedImage);
     expect(preview.warnings).toEqual([]);
     expect(preview.coreProducts[0]).toMatchObject({
-      displayName: "CLEANSE",
+      displayName: "Biotic Reset",
+      productType: "Draft daily gel cleanser",
       benefits: ["Draft benefit"],
       variants: [
         { id: "55555555-5555-4555-8555-555555555555", price: 9900 },

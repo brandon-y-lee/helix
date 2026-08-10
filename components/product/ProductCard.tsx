@@ -581,7 +581,7 @@ export function ProductCard({
                 }}
               >
                 <span className="product-card__tagline">
-                  {product.cardTagline}
+                  {product.productType}
                 </span>
                 <span className="product-card__price">{priceLabel}</span>
               </m.span>

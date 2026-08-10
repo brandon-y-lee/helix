@@ -985,7 +985,6 @@ export type Database = {
         Row: {
           badge: string | null
           benefits: string[]
-          card_tagline: string
           catalog_status: string
           cautions: string[]
           concerns: string[]
@@ -995,7 +994,6 @@ export type Database = {
           editorial_description: string
           editorial_how_to_use: string
           finish: string | null
-          formal_title: string
           formula_notes: string[]
           good_for: string | null
           id: string
@@ -1006,8 +1004,6 @@ export type Database = {
           published_at: string
           routine_group: string
           routine_sort: number
-          routine_step_name: string | null
-          routine_step_number: number | null
           search_keywords: string[]
           seo_description: string | null
           seo_title: string | null
@@ -1017,6 +1013,7 @@ export type Database = {
           status: string
           swatch_from: string
           swatch_to: string
+          system_step_name: string | null
           texture: string | null
           updated_at: string
           usage_time: string[]
@@ -1025,7 +1022,6 @@ export type Database = {
         Insert: {
           badge?: string | null
           benefits?: string[]
-          card_tagline: string
           catalog_status?: string
           cautions?: string[]
           concerns?: string[]
@@ -1035,7 +1031,6 @@ export type Database = {
           editorial_description: string
           editorial_how_to_use: string
           finish?: string | null
-          formal_title: string
           formula_notes?: string[]
           good_for?: string | null
           id?: string
@@ -1046,8 +1041,6 @@ export type Database = {
           published_at?: string
           routine_group: string
           routine_sort: number
-          routine_step_name?: string | null
-          routine_step_number?: number | null
           search_keywords?: string[]
           seo_description?: string | null
           seo_title?: string | null
@@ -1057,6 +1050,7 @@ export type Database = {
           status?: string
           swatch_from: string
           swatch_to: string
+          system_step_name?: string | null
           texture?: string | null
           updated_at?: string
           usage_time?: string[]
@@ -1065,7 +1059,6 @@ export type Database = {
         Update: {
           badge?: string | null
           benefits?: string[]
-          card_tagline?: string
           catalog_status?: string
           cautions?: string[]
           concerns?: string[]
@@ -1075,7 +1068,6 @@ export type Database = {
           editorial_description?: string
           editorial_how_to_use?: string
           finish?: string | null
-          formal_title?: string
           formula_notes?: string[]
           good_for?: string | null
           id?: string
@@ -1086,8 +1078,6 @@ export type Database = {
           published_at?: string
           routine_group?: string
           routine_sort?: number
-          routine_step_name?: string | null
-          routine_step_number?: number | null
           search_keywords?: string[]
           seo_description?: string | null
           seo_title?: string | null
@@ -1097,12 +1087,21 @@ export type Database = {
           status?: string
           swatch_from?: string
           swatch_to?: string
+          system_step_name?: string | null
           texture?: string | null
           updated_at?: string
           usage_time?: string[]
           volume?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "products_system_step_routine_group_fkey"
+            columns: ["system_step_name", "routine_group"]
+            isOneToOne: false
+            referencedRelation: "system_steps"
+            referencedColumns: ["name", "routine_group"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -1326,6 +1325,24 @@ export type Database = {
           processing_error?: string | null
           stripe_event_id?: string
           type?: string
+        }
+        Relationships: []
+      }
+      system_steps: {
+        Row: {
+          name: string
+          position: number
+          routine_group: string
+        }
+        Insert: {
+          name: string
+          position: number
+          routine_group: string
+        }
+        Update: {
+          name?: string
+          position?: number
+          routine_group?: string
         }
         Relationships: []
       }

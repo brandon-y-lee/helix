@@ -14,8 +14,8 @@ import {
 // Includes `id` (the Algolia objectID) alongside every storefront-safe field
 // the record builder needs.
 const SOURCE_SELECT =
-  "id, slug, display_name, formal_title, card_tagline, product_type, badge, " +
-  "routine_group, routine_step_number, routine_step_name, routine_sort, " +
+  "id, slug, display_name, product_type, badge, " +
+  "routine_group, system_step_name, routine_sort, " +
   "catalog_status, editorial_description, status, swatch_from, swatch_to, sort_order, created_at, " +
   "published_at, updated_at, made_for, good_for, texture, key_ingredients, " +
   "ingredients, concerns, usage_time, search_keywords, " +

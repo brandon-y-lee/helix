@@ -3,6 +3,8 @@ import type {
   ProductPdpContent,
 } from "@/lib/catalog/product-content";
 import { routineGroupLabelForProduct } from "@/lib/catalog/product-routine";
+import { routineDisplayLabelForProduct } from "@/lib/catalog/product-routine";
+import type { SystemStepName } from "@/lib/catalog/system-steps";
 
 export type CorePdpStep = "cleanse" | "treat" | "seal";
 
@@ -101,7 +103,7 @@ export const CORE_PDP_DESIGN_TOKENS = {
 
 type CoreStepProduct = {
   routineGroup?: "core" | "beyond_core" | null;
-  routineStepName?: string | null;
+  systemStepName?: SystemStepName | null;
 };
 
 type CorePresentationProduct = CoreStepProduct & {
@@ -112,12 +114,12 @@ export function corePdpStepForProduct(
   product: CoreStepProduct,
 ): CorePdpStep | null {
   if (product.routineGroup !== "core") return null;
-  switch (product.routineStepName?.toLowerCase()) {
-    case "cleanse":
+  switch (product.systemStepName) {
+    case "CLEANSE":
       return "cleanse";
-    case "treat":
+    case "TREAT":
       return "treat";
-    case "seal":
+    case "SEAL":
       return "seal";
     default:
       return null;
@@ -183,15 +185,14 @@ export function corePdpProfileRows(
     finish: string | null;
     goodFor: string | null;
     routineGroup: "core" | "beyond_core";
-    routineStepNumber: number | null;
-    routineSort: number;
+    systemStepPosition: number | null;
     skinTypes: string[];
     texture: string | null;
     usageTime: string[];
   },
 ) {
-  const step = product.routineStepNumber
-    ? `Step ${String(product.routineStepNumber).padStart(2, "0")} of ${routineGroupLabelForProduct(product)}`
+  const step = product.systemStepPosition
+    ? routineDisplayLabelForProduct(product)
     : routineGroupLabelForProduct(product);
   const fyi = [
     product.skinTypes.join(", "),
