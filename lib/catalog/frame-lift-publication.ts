@@ -345,14 +345,39 @@ function liftPdp(
   };
 }
 
-function publicationProjection(document: ProductEditorDocumentV4): unknown {
+export function frameLiftPublicationSnapshot(
+  document: ProductEditorDocumentV4,
+): unknown {
+  const withoutDatabaseTimestamps = (
+    value: object,
+    fields: readonly string[],
+  ) => Object.fromEntries(
+    Object.entries(value).filter(([field]) => !fields.includes(field)),
+  );
+  const product = withoutDatabaseTimestamps(document.product, [
+    "created_at",
+    "updated_at",
+    "published_at",
+  ]);
+  const productPdpContent = document.productPdpContent
+    ? withoutDatabaseTimestamps(document.productPdpContent, [
+        "created_at",
+        "updated_at",
+      ])
+    : null;
+  const productSource = document.productSource
+    ? withoutDatabaseTimestamps(document.productSource, [
+        "created_at",
+        "updated_at",
+      ])
+    : null;
   return {
-    product: document.product,
-    productPdpContent: document.productPdpContent,
+    product,
+    productPdpContent,
     variants: document.variants,
     media: document.media,
     relationships: document.relationships,
-    productSource: document.productSource,
+    productSource,
   };
 }
 
@@ -384,8 +409,8 @@ export function isFrameLiftPublicationCurrent(
   try {
     const expected = buildFrameLiftPublicationDocument(document, step);
     return (
-      JSON.stringify(publicationProjection(document)) ===
-      JSON.stringify(publicationProjection(expected))
+      JSON.stringify(frameLiftPublicationSnapshot(document)) ===
+      JSON.stringify(frameLiftPublicationSnapshot(expected))
     );
   } catch {
     return false;

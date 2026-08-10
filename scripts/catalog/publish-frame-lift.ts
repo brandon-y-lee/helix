@@ -88,7 +88,8 @@ function createGateway(
     async readState(productId) {
       const step = stepForProduct(productId);
       const definition = FRAME_LIFT_PUBLICATIONS[step];
-      const [documentResult, draftResult, routeResult] = await Promise.all([
+      const [documentResult, draftResult, revisionResult, routeResult] =
+        await Promise.all([
         client.rpc("get_catalog_editor_document", { p_product_id: productId }),
         client
           .from("product_content_drafts")
@@ -97,6 +98,13 @@ function createGateway(
           .in("status", ["draft", "ready"])
           .limit(2),
         client
+          .from("catalog_product_revisions")
+          .select("document")
+          .eq("product_id", productId)
+          .order("revision_number", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        client
           .from("product_slug_routes")
           .select("source_slug")
           .eq("source_slug", definition.sourceSlug)
@@ -104,12 +112,15 @@ function createGateway(
           .eq("target_product_id", productId)
           .eq("route_kind", "rename")
           .limit(1),
-      ]);
+        ]);
       if (documentResult.error) {
         operationError("Catalog document read", documentResult.error);
       }
       if (draftResult.error) {
         operationError("Active draft read", draftResult.error);
+      }
+      if (revisionResult.error) {
+        operationError("Catalog revision read", revisionResult.error);
       }
       if (routeResult.error) operationError("Slug redirect read", routeResult.error);
       if ((draftResult.data?.length ?? 0) > 1) {
@@ -118,6 +129,9 @@ function createGateway(
       return {
         canonical: assertValidProductEditorDocument(documentResult.data),
         activeDraft: draftResult.data?.[0] ?? null,
+        latestRevisionDocument: revisionResult.data
+          ? assertValidProductEditorDocument(revisionResult.data.document)
+          : null,
         sourceRedirectExists: (routeResult.data?.length ?? 0) === 1,
       };
     },

@@ -54,10 +54,12 @@ function gateway(step: FrameLiftStep): FrameLiftPublicationGateway {
   let current = sourceDocument(step);
   let redirected = false;
   let activeDraft: { id: string; version: number } | null = null;
+  let latestRevisionDocument: ProductEditorDocumentV4 | null = null;
   return {
     readState: vi.fn(async () => ({
       canonical: current,
       activeDraft,
+      latestRevisionDocument,
       sourceRedirectExists: redirected,
     })),
     createDraft: vi.fn(async () => {
@@ -82,6 +84,7 @@ function gateway(step: FrameLiftStep): FrameLiftPublicationGateway {
     }),
     publishDraft: vi.fn(async ({ document }) => {
       current = document;
+      latestRevisionDocument = structuredClone(document);
       redirected = true;
       activeDraft = null;
       return { revisionId: "revision-id", revisionNumber: 1 };
@@ -139,6 +142,7 @@ describe("FRAME/LIFT publication runner", () => {
     vi.mocked(adapter.readState).mockResolvedValueOnce({
       canonical: sourceDocument("FRAME"),
       activeDraft: { id: "someone-elses-draft", version: 4 },
+      latestRevisionDocument: null,
       sourceRedirectExists: false,
     });
 
@@ -171,6 +175,7 @@ describe("FRAME/LIFT publication runner", () => {
     vi.mocked(adapter.readState).mockResolvedValueOnce({
       canonical: publishedState.canonical,
       activeDraft: null,
+      latestRevisionDocument: publishedState.latestRevisionDocument,
       sourceRedirectExists: false,
     });
 
@@ -195,5 +200,25 @@ describe("FRAME/LIFT publication runner", () => {
       FRAME_LIFT_PUBLICATIONS.LIFT.productId,
     );
     expect(state.activeDraft).toBeNull();
+  });
+
+  it("rejects retry state that differs from the immutable published revision", async () => {
+    const adapter = gateway("FRAME");
+    await publishFrameLiftProduct("FRAME", adapter);
+    const publishedState = await adapter.readState(
+      FRAME_LIFT_PUBLICATIONS.FRAME.productId,
+    );
+    vi.mocked(adapter.readState).mockResolvedValueOnce({
+      ...publishedState,
+      canonical: {
+        ...publishedState.canonical,
+        media: [],
+      },
+    });
+
+    await expect(publishFrameLiftProduct("FRAME", adapter)).rejects.toThrow(
+      /governed publication snapshot/i,
+    );
+    expect(adapter.createDraft).toHaveBeenCalledTimes(1);
   });
 });

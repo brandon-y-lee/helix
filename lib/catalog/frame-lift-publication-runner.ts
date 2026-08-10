@@ -6,6 +6,7 @@ import type {
 import {
   FRAME_LIFT_PUBLICATIONS,
   buildFrameLiftPublicationDocument,
+  frameLiftPublicationSnapshot,
   isFrameLiftPublicationCurrent,
   type FrameLiftStep,
 } from "@/lib/catalog/frame-lift-publication";
@@ -19,6 +20,7 @@ type DraftWithDocument = Readonly<{
 export type FrameLiftPublicationState = Readonly<{
   canonical: ProductEditorDocumentV4;
   activeDraft: Readonly<{ id: string; version: number }> | null;
+  latestRevisionDocument: ProductEditorDocumentV4 | null;
   sourceRedirectExists: boolean;
 }>;
 
@@ -67,9 +69,21 @@ export type FrameLiftPublicationResult = Readonly<{
 function assertVerifiedState(
   state: FrameLiftPublicationState,
   step: FrameLiftStep,
+  expected?: ProductEditorDocumentV4,
 ): void {
   if (!isFrameLiftPublicationCurrent(state.canonical, step)) {
     throw new Error(`${step} publication did not persist the approved document.`);
+  }
+  const reference = expected ?? state.latestRevisionDocument;
+  if (
+    !reference ||
+    !isFrameLiftPublicationCurrent(reference, step) ||
+    JSON.stringify(frameLiftPublicationSnapshot(state.canonical)) !==
+      JSON.stringify(frameLiftPublicationSnapshot(reference))
+  ) {
+    throw new Error(
+      `${step} canonical state does not match its governed publication snapshot.`,
+    );
   }
   if (!state.sourceRedirectExists) {
     throw new Error(`${step} publication is missing its permanent source redirect.`);
@@ -169,7 +183,7 @@ export async function publishFrameLiftProduct(
         .advancedChanges,
     });
     const finalState = await gateway.readState(definition.productId);
-    assertVerifiedState(finalState, step);
+    assertVerifiedState(finalState, step, draftCandidate);
     await gateway.verifyMedia(finalState.canonical);
 
     return {
