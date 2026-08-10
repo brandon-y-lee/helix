@@ -9,6 +9,13 @@ const sql = readFileSync(
   ),
   "utf8",
 );
+const hardeningSql = readFileSync(
+  resolve(
+    process.cwd(),
+    "supabase/migrations/20260810213630_harden_product_waitlist_abuse_controls.sql",
+  ),
+  "utf8",
+);
 
 describe("private Product waitlist migration", () => {
   it("keeps enrollment, consent, and abuse data private and service-bound", () => {
@@ -31,6 +38,11 @@ describe("private Product waitlist migration", () => {
     expect(sql).toContain("on conflict (product_id, normalized_email) do update");
     expect(sql).toContain("on conflict (enrollment_id, policy_version, source) do nothing");
     expect(sql).toContain("return jsonb_build_object('ok', false, 'code', 'rate_limited')");
+    expect(hardeningSql).toContain(
+      "create index product_waitlist_rate_limits_updated_at_idx",
+    );
+    expect(hardeningSql).toContain("interval '24 hours'");
+    expect(hardeningSql).toContain("for update skip locked");
   });
 
   it("allows waitlist catalog status only when the canonical draft has no Offers", () => {

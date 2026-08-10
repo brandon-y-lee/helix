@@ -142,6 +142,14 @@ describe("ProductCard quick buy", () => {
     );
   });
 
+  it("fails closed when stale waitlist card data still contains an Offer", () => {
+    render(<ProductCard product={makeProduct({ status: "waitlist" })} />);
+
+    expect(screen.getByText("Waitlist")).toBeInTheDocument();
+    expect(screen.queryByText("$20.00")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
+
   it("opens the inline panel without adding to cart", async () => {
     const user = userEvent.setup();
     render(<ProductCard product={makeProduct()} />);

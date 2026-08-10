@@ -27,19 +27,13 @@ import type {
   PlaceholderPalette,
   ProductMedia,
   ProductMediaRole,
-  ProductStatus,
 } from "@/lib/products";
+import { isProductStatus } from "@/lib/products";
 import { PRODUCT_MEDIA_ROLES } from "@/lib/catalog/media-roles";
 
 const PRODUCT_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const PRODUCT_STATUSES: ProductStatus[] = [
-  "available",
-  "coming_soon",
-  "sold_out",
-  "waitlist",
-];
 const INVENTORY_STATUSES = [
   "in_stock",
   "low_stock",
@@ -461,8 +455,8 @@ export function projectCatalogDraftPreview(
   const status =
     draft.status === null
       ? base.product.status
-      : PRODUCT_STATUSES.includes(draft.status as ProductStatus)
-        ? (draft.status as ProductStatus)
+      : isProductStatus(draft.status)
+        ? draft.status
         : invalid("product.status is invalid.");
   const displayName = draft.display_name;
   if (!displayName.trim()) invalid("product.displayName cannot be empty.");

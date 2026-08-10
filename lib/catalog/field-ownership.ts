@@ -1,6 +1,7 @@
 import type { Database } from "@/lib/database.types";
 import { SYSTEM_STEP_NAMES } from "@/lib/catalog/system-steps";
 import { PRODUCT_SLUG_MAX_LENGTH } from "@/lib/catalog/product-slug";
+import { PRODUCT_STATUSES } from "@/lib/products";
 
 type CatalogFieldOwner =
   | "supplier"
@@ -219,7 +220,7 @@ export const CATALOG_FIELD_OWNERSHIP: readonly CatalogFieldOwnership[] = [
     },
   ]),
   ...fields("products", "commerce", ADMIN_ROLE, [
-    { field: "status", inputKind: "select", options: ["available", "coming_soon", "sold_out", "waitlist"], previewRelevant: true },
+    { field: "status", inputKind: "select", options: PRODUCT_STATUSES, previewRelevant: true },
   ]),
   ...fields("products", "system", ADMIN_ROLE, [
     {

@@ -123,23 +123,28 @@ class WaitlistRequestError extends Error {
   }
 }
 
-function defaultAbuseKey(request: Request): string {
-  const forwarded =
-    request.headers.get("x-vercel-forwarded-for") ??
-    request.headers.get("x-forwarded-for") ??
-    "unavailable";
-  const clientAddress = forwarded.split(",", 1)[0]?.trim() || "unavailable";
-  const userAgent = request.headers.get("user-agent") ?? "unavailable";
+export function productWaitlistAbuseKey(request: Request): string {
+  const vercelForwarded = request.headers.get("x-vercel-forwarded-for");
+  const localForwarded =
+    process.env.VERCEL === "1"
+      ? null
+      : request.headers.get("x-forwarded-for");
+  const clientAddress = (vercelForwarded ?? localForwarded)
+    ?.split(",", 1)[0]
+    ?.trim();
+  if (!clientAddress) {
+    throw new Error("Waitlist trusted client address is unavailable.");
+  }
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!key) throw new Error("Waitlist abuse protection is unavailable.");
   return createHmac("sha256", `${key}:waitlist-abuse-v1`)
-    .update(`${clientAddress}|${userAgent}`)
+    .update(clientAddress)
     .digest("hex");
 }
 
 function defaultAdapters(): ProductWaitlistRequestAdapters {
   return {
-    abuseKey: defaultAbuseKey,
+    abuseKey: productWaitlistAbuseKey,
     enroll: async (input) => {
       const { data, error } = await createSupabaseAdminClient().rpc(
         "enroll_product_waitlist",

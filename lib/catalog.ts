@@ -5,6 +5,7 @@
 // required catalog source and there is no static or legacy-column fallback.
 
 import { getSupabaseClient } from "@/lib/supabase";
+import { isProductStatus } from "@/lib/products";
 import {
   normalizeProductPdpContent,
   type ProductPdpContentRow,
@@ -107,12 +108,6 @@ const PRODUCT_SELECT =
   "available, inventory_status, option_values, volume, pack_count, sort_order ), " +
   "product_media ( media_type, url, alt, width, height, role, sort_order, palette_id, placeholder_palette )";
 
-const VALID_STATUSES: ProductStatus[] = [
-  "available",
-  "coming_soon",
-  "sold_out",
-  "waitlist",
-];
 const VALID_CATALOG_STATUSES: CatalogStatus[] = [
   "active",
   "draft",
@@ -126,9 +121,7 @@ const VALID_INVENTORY_STATUSES = [
 ] as const;
 
 function toStatus(value: string): ProductStatus {
-  return (VALID_STATUSES as string[]).includes(value)
-    ? (value as ProductStatus)
-    : "available";
+  return isProductStatus(value) ? value : "available";
 }
 
 function toCatalogStatus(value: string): CatalogStatus {

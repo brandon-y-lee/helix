@@ -200,11 +200,10 @@ export function ProductCard({
   const canBuy = purchaseCta.purchasable;
   const startingPrice = minPrice(product);
   const hasRange = product.variants.length > 1;
-  const priceLabel =
-    startingPrice === null
-      ? isWaitlist
-        ? "Waitlist"
-        : null
+  const priceLabel = isWaitlist
+    ? "Waitlist"
+    : startingPrice === null
+      ? null
       : `${hasRange ? "From " : ""}${formatPrice(startingPrice)}`;
   const displayName = product.displayName;
   const cardImageSizes =

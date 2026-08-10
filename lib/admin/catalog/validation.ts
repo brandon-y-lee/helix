@@ -11,6 +11,7 @@ import {
   PRODUCT_SLUG_PATTERN,
 } from "@/lib/catalog/product-slug";
 import { systemStepByName } from "@/lib/catalog/system-steps";
+import { PRODUCT_STATUSES } from "@/lib/products";
 import {
   catalogFieldsForTable,
   type CatalogEditorTable,
@@ -20,12 +21,6 @@ const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const SHA256_PATTERN = /^[0-9a-f]{64}$/;
 
-const PRODUCT_STATUSES = [
-  "available",
-  "coming_soon",
-  "sold_out",
-  "waitlist",
-] as const;
 const CATALOG_STATUSES = ["active", "archived", "draft"] as const;
 const ROUTINE_GROUPS = ["core", "beyond_core"] as const;
 const INVENTORY_STATUSES = [

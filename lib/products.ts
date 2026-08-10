@@ -24,12 +24,21 @@ export type Variant = {
   sortOrder: number;
 };
 
-/** Availability state driving badges and purchase controls. */
-export type ProductStatus =
-  | "available"
-  | "coming_soon"
-  | "sold_out"
-  | "waitlist";
+/** Availability states driving badges and purchase controls. */
+export const PRODUCT_STATUSES = [
+  "available",
+  "coming_soon",
+  "sold_out",
+  "waitlist",
+] as const;
+export type ProductStatus = (typeof PRODUCT_STATUSES)[number];
+
+export function isProductStatus(value: unknown): value is ProductStatus {
+  return (
+    typeof value === "string" &&
+    (PRODUCT_STATUSES as readonly string[]).includes(value)
+  );
+}
 
 export type CatalogStatus = "active" | "draft" | "archived";
 
