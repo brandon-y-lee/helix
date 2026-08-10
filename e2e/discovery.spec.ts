@@ -83,6 +83,20 @@ async function renderedProducts(
   return products;
 }
 
+test("historical Product slugs redirect permanently without dynamic render failures", async ({
+  request,
+}) => {
+  const response = await request.get(
+    "/products/cleanse-01-calming-gel-cleanser?campaign=core%20launch&filter=one&filter=two",
+    { maxRedirects: 0 },
+  );
+
+  expect(response.status()).toBe(308);
+  expect(response.headers().location).toBe(
+    "/products/biotic-reset?campaign=core%20launch&filter=one&filter=two",
+  );
+});
+
 test("Explore The Core is locally outlined and inverts for discovery", async ({
   page,
 }) => {
