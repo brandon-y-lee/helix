@@ -401,7 +401,7 @@ export function getCachedIngredientIndexProducts(): Promise<
 
 const readCachedCoreRoutineContents = unstable_cache(
   getCoreRoutineContentSummaries,
-  ["catalog-core-routine-content-v4"],
+  ["catalog-core-routine-content-v5"],
   {
     revalidate: CORE_ROUTINE_REVALIDATE_SECONDS,
     tags: [

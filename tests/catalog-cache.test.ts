@@ -210,7 +210,7 @@ describe("catalog cache domains", () => {
       revalidate: PRODUCT_OFFER_REVALIDATE_SECONDS,
       tags: expect.arrayContaining([PRODUCT_OFFER_COLLECTION_CACHE_TAG]),
     });
-    expect(registration("catalog-core-routine-content-v4").options).toEqual({
+    expect(registration("catalog-core-routine-content-v5").options).toEqual({
       revalidate: CORE_ROUTINE_REVALIDATE_SECONDS,
       tags: expect.arrayContaining([CORE_ROUTINE_CACHE_TAG]),
     });

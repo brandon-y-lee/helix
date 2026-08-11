@@ -256,7 +256,7 @@ beforeEach(() => {
 });
 
 describe("ProductDetail purchase accordions", () => {
-  it("replaces Core Details in place and preserves the later Core routine", () => {
+  it("renders the Core Routine in place of Details", () => {
     const coreDetailProducts = [
       makeProduct({
         id: "cleanse-id",
@@ -320,23 +320,17 @@ describe("ProductDetail purchase accordions", () => {
     );
 
     const ingredients = screen.getByRole("heading", { name: "what’s inside" });
-    const detailsRoutine = container.querySelector(
-      "[data-pdp-details-routine]",
-    );
-    const laterRoutine = screen.getByRole("heading", {
+    const coreRoutine = screen.getByRole("heading", {
       name: "The Mei Pelle CORE for clearer, healthier skin.",
     });
 
-    expect(detailsRoutine).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "DETAILS" })).toBeNull();
-    expect(before(ingredients, detailsRoutine as Element)).toBe(true);
-    expect(before(detailsRoutine as Element, laterRoutine)).toBe(true);
-    expect(container.querySelectorAll("[data-pdp-details-routine]")).toHaveLength(
-      1,
-    );
+    expect(container.querySelector("[data-pdp-details-routine]")).toBeNull();
+    expect(before(ingredients, coreRoutine)).toBe(true);
+    expect(container.querySelectorAll(".pdp-core-routine")).toHaveLength(1);
   });
 
-  it("retains static Details for a non-Core PDP", () => {
+  it("omits Details and Core Routine for a Product Beyond The Core", () => {
     const { container } = render(
       <ProductDetail
         product={makeProduct({
@@ -350,8 +344,12 @@ describe("ProductDetail purchase accordions", () => {
       />,
     );
 
-    expect(screen.getByRole("heading", { name: "DETAILS" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "DETAILS" })).toBeNull();
+    expect(screen.queryByRole("heading", {
+      name: "The Mei Pelle CORE for clearer, healthier skin.",
+    })).toBeNull();
     expect(container.querySelector("[data-pdp-details-routine]")).toBeNull();
+    expect(container.querySelector(".pdp-core-routine")).toBeNull();
   });
 
   it("uses one accordion at a time and links structured ingredients", async () => {

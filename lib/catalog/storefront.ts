@@ -3,7 +3,6 @@ import {
   type ProductPdpContentRow,
 } from "@/lib/catalog/product-content";
 import {
-  CORE_ROUTINE_PRODUCT_SLUGS,
   type CoreRoutineContentSummary,
   type IngredientIndexProduct,
   type OfferAvailability,
@@ -906,10 +905,11 @@ export async function getCoreRoutineContentSummaries(): Promise<
     .from("products")
     .select(CORE_ROUTINE_SUMMARY_SELECT)
     .eq("catalog_status", "active")
-    .in("slug", [...CORE_ROUTINE_PRODUCT_SLUGS])
+    .eq("routine_group", "core")
+    .in("system_step_name", CORE_SYSTEM_STEPS.map((step) => step.name))
     .in("product_media.role", [...CORE_MEDIA_ROLES])
     .order("routine_sort", { ascending: true, nullsFirst: false })
-    .limit(CORE_ROUTINE_PRODUCT_SLUGS.length);
+    .limit(CORE_SYSTEM_STEPS.length + 1);
   const { data, error } = await withMediaOrdering(query);
 
   if (error) {
@@ -918,15 +918,15 @@ export async function getCoreRoutineContentSummaries(): Promise<
     );
   }
 
-  const products = ((data ?? []) as unknown as CoreRoutineRow[]).map(
-    mapCoreRoutineRow,
-  );
-  const expectedSlugs = [...CORE_ROUTINE_PRODUCT_SLUGS];
+  const products = ((data ?? []) as unknown as CoreRoutineRow[])
+    .map(mapCoreRoutineRow)
+    .sort(
+      (a, b) => a.systemStepPosition - b.systemStepPosition,
+    );
   if (
-    products.length !== expectedSlugs.length ||
+    products.length !== CORE_SYSTEM_STEPS.length ||
     products.some(
       (product, index) =>
-        product.slug !== expectedSlugs[index] ||
         product.systemStepName !== CORE_SYSTEM_STEPS[index].name ||
         product.systemStepPosition !== CORE_SYSTEM_STEPS[index].position,
     )

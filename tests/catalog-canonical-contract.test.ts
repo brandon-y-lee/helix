@@ -30,7 +30,6 @@ const PRESENTATION_FILES = [
   "components/search/SearchResultCard.tsx",
   "components/product-detail/ProductDetail.tsx",
   "components/product-detail/ProductDetail.adapters.ts",
-  "components/product-detail/PdpCoreDetailsRoutine.tsx",
   "components/product-detail/PdpCoreRoutineSection.tsx",
   "components/system/MethodExperience.tsx",
   "lib/content/core-pdp.ts",
