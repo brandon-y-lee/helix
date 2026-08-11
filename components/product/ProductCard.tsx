@@ -586,9 +586,9 @@ export function ProductCard({
                 <span className="product-card__tagline">
                   {product.productType}
                 </span>
-                {priceLabel && (
+                {priceLabel ? (
                   <span className="product-card__price">{priceLabel}</span>
-                )}
+                ) : null}
               </m.span>
             </Link>
 

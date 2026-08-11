@@ -44,6 +44,7 @@ function renderWaitlist() {
         status="waitlist"
         stickyMedia={null}
         stripePublishableKey={null}
+        unavailableLabel="COMING SOON"
         variants={[]}
         showPrice={false}
         showVariantOptions={false}

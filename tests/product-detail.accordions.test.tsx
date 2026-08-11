@@ -803,6 +803,38 @@ describe("ProductDetail purchase accordions", () => {
     expect(cartMock.add).toHaveBeenCalledTimes(1);
   });
 
+  it("renders a truthful no-Offer state for coming-soon Products", () => {
+    const { container } = render(
+      <ProductDetail
+        product={makeProduct({
+          displayName: "Peptide Nourish Mask",
+          productType: "PDRN sheet mask",
+          status: "coming_soon",
+          variants: [],
+        })}
+        stripePublishableKey="pk_test_product"
+      />,
+    );
+
+    const mainBuy = container.querySelector<HTMLButtonElement>(
+      "[data-pdp-buy-button]",
+    );
+    const stickyBuy = container.querySelector<HTMLButtonElement>(
+      "[data-sticky-pdp-buy-button]",
+    );
+
+    expect(container.querySelector(".pdp__price")).toBeNull();
+    expect(screen.queryByRole("group", { name: "Size" })).toBeNull();
+    expect(mainBuy).toHaveTextContent("COMING SOON");
+    expect(mainBuy).toBeDisabled();
+    expect(stickyBuy).toHaveTextContent("COMING SOON");
+    expect(stickyBuy).toBeDisabled();
+    expect(screen.queryByTestId("afterpay-messaging-boundary")).toBeNull();
+    fireEvent.click(mainBuy as HTMLButtonElement);
+    fireEvent.click(stickyBuy as HTMLButtonElement);
+    expect(cartMock.add).not.toHaveBeenCalled();
+  });
+
   it("keeps a coming-soon PDP non-purchasable without presenting an Offer price", () => {
     const base = makeProduct();
     render(

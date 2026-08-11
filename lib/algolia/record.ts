@@ -103,8 +103,8 @@ export type AlgoliaProductRecord = {
   routineSort: number;
   badge: string | null;
   status: ProductStatus;
-  priceMin: number | null;
-  priceMax: number | null;
+  priceMin?: number;
+  priceMax?: number;
   currency: "USD";
   available: boolean;
   waitlist: boolean;
@@ -350,14 +350,12 @@ export function buildAlgoliaRecord(
     routineSort: row.routine_sort,
     badge: statusLabel(status) ?? row.badge,
     status,
-    priceMin:
-      status !== "waitlist" && offerPrices.length
-        ? Math.min(...offerPrices)
-        : null,
-    priceMax:
-      status !== "waitlist" && offerPrices.length
-        ? Math.max(...offerPrices)
-        : null,
+    ...(status !== "waitlist" && offerPrices.length > 0
+      ? {
+          priceMin: Math.min(...offerPrices),
+          priceMax: Math.max(...offerPrices),
+        }
+      : {}),
     currency: "USD",
     available:
       row.catalog_status === "active" &&
