@@ -8,7 +8,8 @@ export type HomeThreePrinciple = {
 export type HomeCoreDescriptionKey = "cleanse" | "treat" | "seal";
 
 export const homeCoreDescriptions = {
-  default: "Simple by design. For all skin types.",
+  default:
+    "A simple daily system for skin that looks better now—and stays smooth, even, and resilient over time.",
   items: {
     cleanse: "Start with a gentle deep-cleansing that doesn't strip or dehydrate the barrier.",
     treat: "Apply the treatment layer for glass-skin texture and to target signs of aging.",

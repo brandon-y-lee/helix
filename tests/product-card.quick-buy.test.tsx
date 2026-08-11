@@ -126,6 +126,30 @@ describe("ProductCard quick buy", () => {
     return surface;
   }
 
+  it("shows waitlist Products without a price or purchase affordance", () => {
+    render(
+      <ProductCard
+        product={makeProduct({ status: "waitlist", variants: [] })}
+      />,
+    );
+
+    expect(screen.getByText("Waitlist")).toBeInTheDocument();
+    expect(screen.queryByText("$0.00")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "CLEANSE" })).toHaveAttribute(
+      "href",
+      "/products/cleanse-01-calming-gel-cleanser",
+    );
+  });
+
+  it("fails closed when stale waitlist card data still contains an Offer", () => {
+    render(<ProductCard product={makeProduct({ status: "waitlist" })} />);
+
+    expect(screen.getByText("Waitlist")).toBeInTheDocument();
+    expect(screen.queryByText("$20.00")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
+
   it("opens the inline panel without adding to cart", async () => {
     const user = userEvent.setup();
     render(<ProductCard product={makeProduct()} />);
@@ -192,6 +216,46 @@ describe("ProductCard quick buy", () => {
     expect(status).toBeDisabled();
     expect(screen.queryByText("$0.00")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "OUT OF STOCK" })).toBeNull();
+  });
+
+  it("labels coming-soon Products truthfully without presenting a price", () => {
+    render(
+      <ProductCard
+        product={makeProduct({
+          displayName: "Biotic Reset",
+          status: "coming_soon",
+          variants: [
+            makeVariant({
+              available: false,
+              inventoryStatus: "unavailable",
+            }),
+          ],
+        })}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "COMING SOON" })).toBeDisabled();
+    expect(screen.queryByText("$20.00")).not.toBeInTheDocument();
+    expect(cartMock.add).not.toHaveBeenCalled();
+  });
+
+  it("withholds Offer presentation when inventory evidence is unavailable", () => {
+    render(
+      <ProductCard
+        product={makeProduct({
+          status: "available",
+          variants: [
+            makeVariant({
+              available: false,
+              inventoryStatus: "unavailable",
+            }),
+          ],
+        })}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "OUT OF STOCK" })).toBeDisabled();
+    expect(screen.queryByText("$20.00")).not.toBeInTheDocument();
   });
 
   it("adds from the final buy button and opens the cart drawer", async () => {

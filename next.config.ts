@@ -43,6 +43,16 @@ const nextConfig: NextConfig = {
         destination: "/collections/shop",
         permanent: true,
       },
+      {
+        source: "/products/cleanse-01-calming-gel-cleanser",
+        destination: "/products/biotic-reset",
+        permanent: true,
+      },
+      {
+        source: "/products/treat-03-pdrn-5-ampoule",
+        destination: "/products/peptide-bounce",
+        permanent: true,
+      },
     ];
   },
   images: {

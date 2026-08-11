@@ -253,11 +253,34 @@ describe("buildAlgoliaRecord", () => {
     expect(r.imageMedia?.role).toBe("search");
   });
 
-  it("flags availability/waitlist and badge from status", () => {
-    const coming = buildAlgoliaRecord({ ...sourceRow, status: "coming_soon" });
+  it("omits unsupported Offer facts and does not infer waitlist from coming soon", () => {
+    const coming = buildAlgoliaRecord({
+      ...sourceRow,
+      status: "coming_soon",
+      product_variants: sourceRow.product_variants?.map((variant) => ({
+        ...variant,
+        available: false,
+        inventory_status: "unavailable",
+      })) ?? null,
+    });
     expect(coming.available).toBe(false);
     expect(coming.waitlist).toBe(false);
     expect(coming.badge).toBe("Coming soon");
+    expect(coming).not.toHaveProperty("priceMin");
+    expect(coming).not.toHaveProperty("priceMax");
+    expect(coming.variantCount).toBe(0);
+    expect(coming.variantNames).toEqual([]);
+
+    const waitlist = buildAlgoliaRecord({
+      ...sourceRow,
+      status: "waitlist",
+      product_variants: [],
+    });
+    expect(waitlist.available).toBe(false);
+    expect(waitlist.waitlist).toBe(true);
+    expect(waitlist.badge).toBe("Waitlist");
+    expect(waitlist).not.toHaveProperty("priceMin");
+    expect(waitlist).not.toHaveProperty("priceMax");
 
     const soldOut = buildAlgoliaRecord({ ...sourceRow, status: "sold_out" });
     expect(soldOut.available).toBe(false);
@@ -915,9 +938,9 @@ describe("catalog cache invalidation", () => {
     );
     expect(targets.paths).toEqual(
       expect.arrayContaining([
-        "/products/cleanse-01-calming-gel-cleanser",
-        "/products/treat-03-pdrn-5-ampoule",
-        "/products/seal-05-green-collagen-cream",
+        "/products/biotic-reset",
+        "/products/peptide-bounce",
+        "/products/ceramide-cushion",
       ]),
     );
     expect(targets.tags).not.toContain("catalog-product-card");
@@ -955,10 +978,10 @@ describe("catalog cache invalidation", () => {
 
     expect(targets.tags).toContain("catalog-core-routine");
     expect(targets.paths).toContain(
-      "/products/cleanse-01-calming-gel-cleanser",
+      "/products/biotic-reset",
     );
-    expect(targets.paths).toContain("/products/treat-03-pdrn-5-ampoule");
-    expect(targets.paths).toContain("/products/seal-05-green-collagen-cream");
+    expect(targets.paths).toContain("/products/peptide-bounce");
+    expect(targets.paths).toContain("/products/ceramide-cushion");
   });
 
   it("invalidates only the owning PDP for outcome media on a Core product", () => {

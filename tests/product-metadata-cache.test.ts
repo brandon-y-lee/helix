@@ -28,7 +28,7 @@ beforeEach(() => {
 describe("product metadata cache ownership", () => {
   it("uses stable product content without reading offer state", async () => {
     vi.mocked(getCachedProductMetadata).mockResolvedValue({
-      slug: "treat-03-pdrn-5-ampoule",
+      slug: "peptide-bounce",
       displayName: "Peptide Bounce",
       productType: "PDRN serum",
       editorialDescription: "A daily serum for bouncier-looking skin.",
@@ -37,11 +37,11 @@ describe("product metadata cache ownership", () => {
     });
 
     const metadata = await generateMetadata({
-      params: Promise.resolve({ slug: "treat-03-pdrn-5-ampoule" }),
+      params: Promise.resolve({ slug: "peptide-bounce" }),
     });
 
     expect(getCachedProductMetadata).toHaveBeenCalledWith(
-      "treat-03-pdrn-5-ampoule",
+      "peptide-bounce",
     );
     expect(metadata).toMatchObject({
       title: "Peptide Bounce — PDRN serum | Mei Pelle",

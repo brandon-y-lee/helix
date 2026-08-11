@@ -7,9 +7,9 @@ import type { StorefrontJourneys } from "@/test-support/storefront-journeys";
 import { expect, test } from "./storefront-fixture";
 
 const CORE_DESCRIPTION_BY_SLUG = {
-  "cleanse-01-calming-gel-cleanser": homeCoreDescriptions.items.cleanse,
-  "treat-03-pdrn-5-ampoule": homeCoreDescriptions.items.treat,
-  "seal-05-green-collagen-cream": homeCoreDescriptions.items.seal,
+  "biotic-reset": homeCoreDescriptions.items.cleanse,
+  "peptide-bounce": homeCoreDescriptions.items.treat,
+  "ceramide-cushion": homeCoreDescriptions.items.seal,
 } as const;
 
 const BEYOND_DESCRIPTION_BY_SLUG = {
@@ -82,6 +82,20 @@ async function renderedProducts(
   }
   return products;
 }
+
+test("historical Product slugs redirect permanently without dynamic render failures", async ({
+  request,
+}) => {
+  const response = await request.get(
+    "/products/cleanse-01-calming-gel-cleanser?campaign=core%20launch&filter=one&filter=two",
+    { maxRedirects: 0 },
+  );
+
+  expect(response.status()).toBe(308);
+  expect(response.headers().location).toBe(
+    "/products/biotic-reset?campaign=core%20launch&filter=one&filter=two",
+  );
+});
 
 test("Explore The Core is locally outlined and inverts for discovery", async ({
   page,

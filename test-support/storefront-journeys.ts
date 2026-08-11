@@ -1,4 +1,8 @@
-import { formatPrice, productPurchaseCta } from "@/lib/products";
+import {
+  formatPrice,
+  productOfferPresentation,
+  productPurchaseCta,
+} from "@/lib/products";
 import {
   StorefrontBaselineError,
   type StorefrontSnapshot,
@@ -166,11 +170,14 @@ export function createStorefrontJourneys(snapshot: StorefrontSnapshot) {
         variant,
       });
     },
-    cardPriceLabel(product: StorefrontSnapshotProduct): string {
-      const startingPrice = product.variants.length
-        ? Math.min(...product.variants.map((variant) => variant.price))
-        : 0;
-      return `${product.variants.length > 1 ? "From " : ""}${formatPrice(startingPrice)}`;
+    cardPriceLabel(product: StorefrontSnapshotProduct): string | null {
+      if (product.merchandisingStatus === "waitlist") return "Waitlist";
+      const presentation = productOfferPresentation(product.variants);
+      if (!presentation.showPrice) return null;
+      const startingPrice = Math.min(
+        ...presentation.offers.map((variant) => variant.price),
+      );
+      return `${presentation.hasMultipleOffers ? "From " : ""}${formatPrice(startingPrice)}`;
     },
     gallery(product: StorefrontSnapshotProduct): readonly StorefrontGalleryItem[] {
       const media = galleryMedia(product);

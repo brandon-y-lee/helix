@@ -831,6 +831,83 @@ describe("ProductDetail purchase accordions", () => {
     expect(cartMock.add).not.toHaveBeenCalled();
   });
 
+  it("keeps a coming-soon PDP non-purchasable without presenting an Offer price", () => {
+    const base = makeProduct();
+    render(
+      <ProductDetail
+        product={makeProduct({
+          status: "coming_soon",
+          variants: base.variants.map((variant) => ({
+            ...variant,
+            available: false,
+            inventoryStatus: "unavailable" as const,
+          })),
+        })}
+      />,
+    );
+
+    for (const button of screen.getAllByRole("button", { name: "COMING SOON" })) {
+      expect(button).toBeDisabled();
+    }
+    expect(document.querySelector(".pdp__price")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("afterpay-messaging-boundary")).not.toBeInTheDocument();
+    expect(cartMock.add).not.toHaveBeenCalled();
+  });
+
+  it("withholds PDP Offer facts when inventory evidence is unavailable", () => {
+    const base = makeProduct();
+    render(
+      <ProductDetail
+        product={makeProduct({
+          status: "available",
+          variants: base.variants.map((variant) => ({
+            ...variant,
+            available: false,
+            inventoryStatus: "unavailable" as const,
+          })),
+        })}
+      />,
+    );
+
+    expect(document.querySelector(".pdp__price")).not.toBeInTheDocument();
+    expect(document.querySelector(".variant-options")).not.toBeInTheDocument();
+    expect(cartMock.add).not.toHaveBeenCalled();
+  });
+
+  it("presents only supported Offers when PDP variant evidence is mixed", () => {
+    const base = makeProduct();
+    const variant = base.variants[0];
+    if (!variant) throw new Error("Expected a Product Variant fixture.");
+
+    render(
+      <ProductDetail
+        product={makeProduct({
+          variants: [
+            {
+              ...variant,
+              id: "unverified",
+              label: "Unverified",
+              price: 1200,
+              available: false,
+              inventoryStatus: "unavailable",
+            },
+            {
+              ...variant,
+              id: "verified",
+              label: "Verified",
+              price: 2500,
+            },
+          ],
+        })}
+      />,
+    );
+
+    expect(screen.queryByText("$12.00")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Unverified" })).not.toBeInTheDocument();
+    expect(screen.getAllByText("$25.00").length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: "Verified" })).toBeInTheDocument();
+  });
+
   it("fails closed without empty Core editorial media shells", () => {
     render(<ProductDetail product={makeProduct({ media: [] })} />);
 

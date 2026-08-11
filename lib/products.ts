@@ -24,8 +24,21 @@ export type Variant = {
   sortOrder: number;
 };
 
-/** Availability state driving badges and purchase controls. */
-export type ProductStatus = "available" | "coming_soon" | "sold_out";
+/** Availability states driving badges and purchase controls. */
+export const PRODUCT_STATUSES = [
+  "available",
+  "coming_soon",
+  "sold_out",
+  "waitlist",
+] as const;
+export type ProductStatus = (typeof PRODUCT_STATUSES)[number];
+
+export function isProductStatus(value: unknown): value is ProductStatus {
+  return (
+    typeof value === "string" &&
+    (PRODUCT_STATUSES as readonly string[]).includes(value)
+  );
+}
 
 export type CatalogStatus = "active" | "draft" | "archived";
 
@@ -125,9 +138,12 @@ function formatBuyLabel(productName: string, cents: number): string {
 }
 
 const OUT_OF_STOCK_CTA_LABEL = "OUT OF STOCK";
+const COMING_SOON_CTA_LABEL = "COMING SOON";
 
 export function productUnavailableCtaLabel(status: ProductStatus): string {
-  return status === "coming_soon" ? "COMING SOON" : OUT_OF_STOCK_CTA_LABEL;
+  return status === "coming_soon"
+    ? COMING_SOON_CTA_LABEL
+    : OUT_OF_STOCK_CTA_LABEL;
 }
 
 type PurchaseOffer = {
@@ -135,6 +151,30 @@ type PurchaseOffer = {
   inventoryStatus: Variant["inventoryStatus"];
   price: number;
 };
+
+type OfferFact = Pick<PurchaseOffer, "inventoryStatus" | "price">;
+
+export function isOfferPresentable<TOffer extends OfferFact>(
+  offer: TOffer,
+): boolean {
+  return (
+    Number.isSafeInteger(offer.price) &&
+    offer.price >= 0 &&
+    offer.inventoryStatus !== "unavailable"
+  );
+}
+
+export function productOfferPresentation<TOffer extends OfferFact>(
+  offers: readonly TOffer[],
+) {
+  const presentableOffers = offers.filter(isOfferPresentable);
+  return {
+    offers: presentableOffers,
+    hasMultipleOffers: presentableOffers.length > 1,
+    showPrice: presentableOffers.length > 0,
+    showVariantOptions: presentableOffers.length > 0,
+  } as const;
+}
 
 type PurchaseProduct<TOffer extends PurchaseOffer> = {
   displayName: string;
@@ -168,6 +208,13 @@ export function productPurchaseCta<TOffer extends PurchaseOffer>(
   product: PurchaseProduct<TOffer>,
   variant: TOffer | null | undefined,
 ) {
+  if (product.status === "waitlist") {
+    return {
+      label: "Join the waitlist",
+      purchasable: false,
+      variant: variant ?? null,
+    };
+  }
   const purchasable = isVariantPurchasable(product, variant);
   return {
     label: purchasable

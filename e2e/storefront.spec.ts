@@ -136,6 +136,10 @@ test("shop renders live Products and combines filtering with sorting", async ({
   const beyondProducts = storefront.products("beyondCore");
   const purchasable = storefront.product("purchasable");
   const purchase = storefront.purchase(purchasable);
+  const purchasablePrice = storefront.cardPriceLabel(purchasable);
+  if (!purchasablePrice) {
+    throw new Error("The Purchasable journey is missing Offer presentation.");
+  }
   await page.goto("/collections/shop");
   await expect(page.locator(".product-count")).toHaveText(
     productCount(products),
@@ -150,7 +154,7 @@ test("shop renders live Products and combines filtering with sorting", async ({
     page
       .locator(`[data-product-card-slug="${purchasable.slug}"]`)
       .locator(".product-card__price"),
-  ).toHaveText(storefront.cardPriceLabel(purchasable));
+  ).toHaveText(purchasablePrice);
 
   const filters = page.getByRole("navigation", {
     name: "Shop collections",
@@ -481,15 +485,21 @@ test("Quick Buy places Product education before configuration and the final Buy 
 }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   const shopProducts = storefront.products();
+  const offerProducts = shopProducts.filter(
+    (product) => product.offer !== null,
+  );
   const singleVariantProduct =
-    shopProducts.find((product) => product.variants.length === 1) ??
+    offerProducts.find((product) => product.variants.length === 1) ??
     storefront.product("purchasable");
-  const multipleVariantProduct = shopProducts.find(
+  const multipleVariantProduct = offerProducts.find(
     (product) => product.variants.length > 1,
   );
+  const homepageProducts = [
+    storefront.product("core"),
+    storefront.product("beyondCore"),
+  ].filter((product) => product.offer !== null);
   const cases = [
-    { path: "/", product: storefront.product("core") },
-    { path: "/", product: storefront.product("beyondCore") },
+    ...homepageProducts.map((product) => ({ path: "/", product })),
     { path: "/collections/shop", product: singleVariantProduct },
     ...(multipleVariantProduct
       ? [{ path: "/collections/shop", product: multipleVariantProduct }]
@@ -601,7 +611,14 @@ test("opening another Product's Quick Buy preserves the viewport", async ({
   page,
   storefront,
 }) => {
-  const [firstProduct, secondProduct] = storefront.products();
+  const [firstProduct, secondProduct] = storefront
+    .products()
+    .filter((product) => product.offer !== null);
+  if (!firstProduct || !secondProduct) {
+    throw new Error(
+      "The Quick Buy viewport journey requires two Products with canonical Offers.",
+    );
+  }
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/collections/shop");
 

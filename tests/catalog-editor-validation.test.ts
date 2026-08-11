@@ -54,6 +54,25 @@ describe("product editor document validation", () => {
     });
   });
 
+  it("accepts a zero-Offer waitlist Product and rejects waitlist variants", () => {
+    const document = validDocument();
+    document.product.status = "waitlist";
+    document.product.catalog_status = "active";
+    document.variants = [];
+
+    expect(validateProductEditorDocument(document).issues).toEqual([]);
+
+    document.variants = [structuredClone(catalogDocument.variants[0])];
+    expect(validateProductEditorDocument(document).issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          path: "variants",
+          code: "waitlist_offer_forbidden",
+        }),
+      ]),
+    );
+  });
+
   it("validates System Step identity independently from Display Name", () => {
     const document = validDocument();
     document.product.display_name = "Biotic Reset";

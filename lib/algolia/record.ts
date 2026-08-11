@@ -1,6 +1,11 @@
 // Storefront-safe Algolia record and deterministic canonical mapper.
 
-import type { ProductStatus } from "@/lib/products";
+import {
+  isProductStatus,
+  productOfferPresentation,
+  type ProductStatus,
+  type Variant,
+} from "@/lib/products";
 import { statusLabel } from "@/lib/catalog/product-status";
 import { routineGroupLabel } from "@/lib/catalog/product-routine";
 import {
@@ -15,7 +20,7 @@ type CatalogVariantSource = {
   price_cents: number;
   sort_order: number;
   available: boolean;
-  inventory_status: string;
+  inventory_status: Variant["inventoryStatus"];
 };
 
 type CatalogMediaSource = {
@@ -130,16 +135,8 @@ export type AlgoliaProductRecord = {
   texture: string | null;
 };
 
-const VALID_STATUSES: ProductStatus[] = [
-  "available",
-  "coming_soon",
-  "sold_out",
-];
-
 function toStatus(value: string): ProductStatus {
-  return (VALID_STATUSES as string[]).includes(value)
-    ? (value as ProductStatus)
-    : "available";
+  return isProductStatus(value) ? value : "available";
 }
 
 function toRoutineGroup(
@@ -217,7 +214,6 @@ export function buildAlgoliaRecord(
   const variants = (row.product_variants ?? [])
     .slice()
     .sort((a, b) => a.sort_order - b.sort_order);
-  const prices = variants.map((variant) => variant.price_cents);
   const status = toStatus(row.status);
   const availableVariants = variants.filter(
     (variant) =>
@@ -225,6 +221,14 @@ export function buildAlgoliaRecord(
       variant.inventory_status !== "out_of_stock" &&
       variant.inventory_status !== "unavailable",
   );
+  const offerPresentation = productOfferPresentation(
+    variants.map((variant) => ({
+      ...variant,
+      inventoryStatus: variant.inventory_status,
+      price: variant.price_cents,
+    })),
+  );
+  const offerPrices = offerPresentation.offers.map((variant) => variant.price);
   const media = (row.product_media ?? [])
     .slice()
     .sort(
@@ -284,7 +288,7 @@ export function buildAlgoliaRecord(
     ...(row.key_ingredients ?? []),
     ...(row.search_keywords ?? []),
     ...slugAliases,
-    ...variants.map((variant) => variant.label),
+    ...offerPresentation.offers.map((variant) => variant.label),
   ].filter((value): value is string => Boolean(value?.trim()));
 
   return {
@@ -301,17 +305,20 @@ export function buildAlgoliaRecord(
     routineSort: row.routine_sort,
     badge: statusLabel(status) ?? row.badge,
     status,
-    ...(prices.length > 0
-      ? { priceMin: Math.min(...prices), priceMax: Math.max(...prices) }
+    ...(status !== "waitlist" && offerPrices.length > 0
+      ? {
+          priceMin: Math.min(...offerPrices),
+          priceMax: Math.max(...offerPrices),
+        }
       : {}),
     currency: "USD",
     available:
       row.catalog_status === "active" &&
       status === "available" &&
       availableVariants.length > 0,
-    waitlist: false,
-    variantCount: variants.length,
-    variantNames: variants.map((variant) => variant.label),
+    waitlist: status === "waitlist",
+    variantCount: offerPresentation.offers.length,
+    variantNames: offerPresentation.offers.map((variant) => variant.label),
     keywords,
     concerns,
     ingredients,

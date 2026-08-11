@@ -15,6 +15,7 @@ import {
   type ProductSlugResolution,
 } from "@/lib/catalog/models";
 import {
+  isProductStatus,
   type CommerceRoutineGroup,
   type ProductMedia,
   type ProductStatus,
@@ -228,7 +229,6 @@ const PRODUCT_ROUTE_SELECT = "slug";
 const INGREDIENT_INDEX_SELECT =
   "slug, display_name, key_ingredients, ingredients, formula_notes";
 
-const VALID_STATUSES: ProductStatus[] = ["available", "coming_soon", "sold_out"];
 const VALID_INVENTORY_STATUSES = [
   "in_stock",
   "low_stock",
@@ -237,9 +237,7 @@ const VALID_INVENTORY_STATUSES = [
 ] as const;
 
 function toStatus(value: string): ProductStatus {
-  return (VALID_STATUSES as string[]).includes(value)
-    ? (value as ProductStatus)
-    : "available";
+  return isProductStatus(value) ? value : "available";
 }
 
 function toInventoryStatus(
