@@ -226,9 +226,13 @@ test("shop presents the approved Product, collection, sheet, and footer treatmen
   const card = page.locator(
     `[data-product-card-slug="${purchase.product.slug}"]`,
   );
+  const step = card.locator(".product-card__step");
   const name = card.locator(".product-card__display-name");
   const productType = card.locator(".product-card__type");
   const price = card.locator(".product-card__price");
+  await expect(step).toHaveCSS("font-family", /Marcellus/);
+  await expect(step).toHaveCSS("font-weight", "700");
+  await expect(step).toHaveCSS("color", PRODUCT_CARD_WARM_GRAY);
   await expect(name).toHaveCSS("color", PRODUCT_CARD_WARM_GRAY);
   await expect(productType).toHaveCSS("color", PRODUCT_CARD_WARM_GRAY);
   await expect(price).toHaveCSS("color", PRODUCT_CARD_WARM_GRAY);
@@ -258,6 +262,27 @@ test("shop presents the approved Product, collection, sheet, and footer treatmen
   await previewCta.click();
   const finalCta = card.locator("[data-product-card-buy]");
   await expect(finalCta).toBeVisible();
+  const quickBuyForegrounds = await card
+    .locator(
+      [
+        ".product-card__quick-close",
+        ".product-card__quick-head h3",
+        ".product-card__quick-head p",
+        ".product-card__quick-row dt",
+        ".product-card__quick-row dd",
+        ".product-card__quick-variants legend",
+        ".product-card__quick-option span",
+        ".product-card__quick-option small",
+        ".product-card__quick-link",
+        ".product-card__quick-final",
+      ].join(", "),
+    )
+    .evaluateAll((elements) =>
+      Array.from(
+        new Set(elements.map((element) => getComputedStyle(element).color)),
+      ).sort(),
+    );
+  expect(quickBuyForegrounds).toEqual([PRODUCT_CARD_WARM_GRAY]);
   await card.locator(".product-card__quick-head").hover();
   expect(await buttonVisual(finalCta)).toEqual({
     backgroundColor: PRODUCT_CARD_CREAM,
