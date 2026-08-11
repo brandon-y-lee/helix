@@ -221,6 +221,7 @@ describe("REFINE Product Family selector", () => {
         status="waitlist"
         stickyMedia={null}
         stripePublishableKey={null}
+        unavailableLabel="Coming soon"
         variants={[]}
         showPrice={false}
         showVariantOptions={false}
