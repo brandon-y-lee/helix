@@ -6,7 +6,7 @@ import type {
 import {
   FRAME_LIFT_PUBLICATIONS,
   buildFrameLiftPublicationDocument,
-  frameLiftPublicationSnapshot,
+  frameLiftPublicationSnapshotsMatch,
   isFrameLiftPublicationCurrent,
   type FrameLiftStep,
 } from "@/lib/catalog/frame-lift-publication";
@@ -82,12 +82,12 @@ function assertVerifiedState(
     (expected !== undefined &&
       (state.latestRevisionId !== expectedRevisionId ||
         !state.latestRevisionDocument ||
-        JSON.stringify(
-          frameLiftPublicationSnapshot(state.latestRevisionDocument),
-        ) !== JSON.stringify(frameLiftPublicationSnapshot(expected)))) ||
+        !frameLiftPublicationSnapshotsMatch(
+          state.latestRevisionDocument,
+          expected,
+        ))) ||
     !isFrameLiftPublicationCurrent(reference, step) ||
-    JSON.stringify(frameLiftPublicationSnapshot(state.canonical)) !==
-      JSON.stringify(frameLiftPublicationSnapshot(reference))
+    !frameLiftPublicationSnapshotsMatch(state.canonical, reference)
   ) {
     throw new Error(
       `${step} canonical state does not match its governed publication snapshot.`,

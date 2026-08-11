@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from "node:util";
 import type { ProductEditorDocumentV4 } from "@/lib/admin/catalog/types";
 
 export type FrameLiftStep = "FRAME" | "LIFT";
@@ -381,6 +382,16 @@ export function frameLiftPublicationSnapshot(
   };
 }
 
+export function frameLiftPublicationSnapshotsMatch(
+  left: ProductEditorDocumentV4,
+  right: ProductEditorDocumentV4,
+): boolean {
+  return isDeepStrictEqual(
+    frameLiftPublicationSnapshot(left),
+    frameLiftPublicationSnapshot(right),
+  );
+}
+
 export function buildFrameLiftPublicationDocument(
   document: ProductEditorDocumentV4,
   step: FrameLiftStep,
@@ -408,10 +419,7 @@ export function isFrameLiftPublicationCurrent(
 ): boolean {
   try {
     const expected = buildFrameLiftPublicationDocument(document, step);
-    return (
-      JSON.stringify(frameLiftPublicationSnapshot(document)) ===
-      JSON.stringify(frameLiftPublicationSnapshot(expected))
-    );
+    return frameLiftPublicationSnapshotsMatch(document, expected);
   } catch {
     return false;
   }
