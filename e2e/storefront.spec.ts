@@ -574,6 +574,15 @@ test("PDP purchase island contains and reveals purchase details across its respo
     )
     .toBe(true);
 
+  await purchase.evaluate((element) => {
+    element.scrollTo({ top: 0, behavior: "auto" });
+  });
+  await expect.poll(() => purchase.evaluate((element) => element.scrollTop)).toBe(0);
+  await page.keyboard.press("Enter");
+  await expect(howToUse).toHaveAttribute("aria-expanded", "false");
+  await expect(howToUse).toBeFocused();
+  await expect.poll(() => purchase.evaluate((element) => element.scrollTop)).toBe(0);
+
   await page.setViewportSize({ width: 820, height: 640 });
   await page.goto(product.path);
 
