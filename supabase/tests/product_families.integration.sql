@@ -101,6 +101,18 @@ begin
     raise exception 'REFINE family migration audit is incomplete';
   end if;
 
+  if (
+    select count(*)
+    from public.catalog_editor_audit_log audit
+    join public.products product on product.id = audit.product_id
+    where product.slug = 'balancing-prep'
+      and audit.action = 'slug.rename.published'
+      and audit.metadata ->> 'oldSlug' = 'refine-02-pore-treatment-pads'
+      and audit.metadata ->> 'newSlug' = 'balancing-prep'
+  ) <> 1 then
+    raise exception 'Balancing Prep requires one durable slug rename audit';
+  end if;
+
   if has_table_privilege('anon', 'public.product_families', 'insert')
      or has_table_privilege(
        'authenticated', 'public.product_family_memberships', 'update'

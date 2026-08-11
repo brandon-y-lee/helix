@@ -74,7 +74,10 @@ type ProductCardRow = RoutineRow & {
   swatch_from: string;
   swatch_to: string;
   product_media: MediaRow[] | null;
-  product_family_memberships: FamilyCardMembershipRow[] | null;
+  product_family_memberships:
+    | FamilyCardMembershipRow
+    | FamilyCardMembershipRow[]
+    | null;
 };
 
 type FamilyCardMembershipRow = {
@@ -134,7 +137,10 @@ type PdpProductRow = RoutineRow & {
     | ProductPdpContentRow[]
     | null;
   product_media: MediaRow[] | null;
-  product_family_memberships: CurrentFamilyMembershipRow[] | null;
+  product_family_memberships:
+    | CurrentFamilyMembershipRow
+    | CurrentFamilyMembershipRow[]
+    | null;
 };
 
 type CoreRoutineRow = {
@@ -453,12 +459,17 @@ function mapProductOfferRow(row: ProductOfferRow): ProductOffer {
   };
 }
 
+function relationRows<T>(value: T | T[] | null): T[] {
+  if (value === null) return [];
+  return Array.isArray(value) ? value : [value];
+}
+
 function mapProductCardRow(row: ProductCardRow): ProductCardContent {
   const systemStep = requireSystemStep(row);
   const swatch: [string, string] = [row.swatch_from, row.swatch_to];
   const media = mapMedia(row.product_media, swatch);
   const cardMedia = selectCardMedia(media);
-  const familyRows = row.product_family_memberships ?? [];
+  const familyRows = relationRows(row.product_family_memberships);
   if (familyRows.length > 1) {
     throw new Error(
       `[catalog] Product "${row.slug}" belongs to multiple Product Families.`,
@@ -502,7 +513,7 @@ function mapProductFamily(
   row: PdpProductRow,
   systemStep: GovernedSystemStep,
 ): ProductFamily | null {
-  const memberships = row.product_family_memberships ?? [];
+  const memberships = relationRows(row.product_family_memberships);
   if (memberships.length === 0) return null;
   if (memberships.length !== 1) {
     throw new Error(

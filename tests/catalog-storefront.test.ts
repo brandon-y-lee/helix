@@ -225,12 +225,12 @@ describe("storefront catalog projections", () => {
         productRow({
           id: "balancing-id",
           slug: "balancing-prep",
-          product_family_memberships: [{ family_id: familyId, is_entry: true }],
+          product_family_memberships: { family_id: familyId, is_entry: true },
         }),
         productRow({
           id: "polishing-id",
           slug: "polishing-prep",
-          product_family_memberships: [{ family_id: familyId, is_entry: false }],
+          product_family_memberships: { family_id: familyId, is_entry: false },
         }),
         productRow({
           id: "standalone-id",
@@ -280,7 +280,7 @@ describe("storefront catalog projections", () => {
         productRow({
           slug: "polishing-prep",
           display_name: "Polishing Prep",
-          product_family_memberships: [{ family_id: "family-1", is_entry: false }],
+          product_family_memberships: { family_id: "family-1", is_entry: false },
         }),
         productRow({ slug: "biotic-reset", display_name: "Biotic Reset", routine_sort: 10 }),
         productRow({ slug: "peptide-bounce", display_name: "Peptide Bounce", routine_sort: 20 }),
@@ -360,19 +360,17 @@ describe("storefront catalog projections", () => {
         product_type: "Niacinamide brightening pads",
         routine_group: "beyond_core",
         system_step_name: "REFINE",
-        product_family_memberships: [
-          {
-            family_id: familyId,
-            is_entry: false,
-            product_families: {
-              id: familyId,
-              slug: "refine",
-              display_name: "REFINE",
-              system_step_name: "REFINE",
-              product_family_memberships: members,
-            },
+        product_family_memberships: {
+          family_id: familyId,
+          is_entry: false,
+          product_families: {
+            id: familyId,
+            slug: "refine",
+            display_name: "REFINE",
+            system_step_name: "REFINE",
+            product_family_memberships: members,
           },
-        ],
+        },
       }),
       error: null,
     });
