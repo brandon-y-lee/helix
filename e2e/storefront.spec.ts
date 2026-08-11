@@ -1,6 +1,9 @@
 import type { Locator, Page } from "@playwright/test";
 import { formatPrice } from "@/lib/products";
-import type { StorefrontPurchase } from "@/test-support/storefront-journeys";
+import type {
+  StorefrontJourneys,
+  StorefrontPurchase,
+} from "@/test-support/storefront-journeys";
 import { installCartFixture } from "./cart-fixture";
 import { expect, test } from "./storefront-fixture";
 
@@ -77,6 +80,18 @@ function productCount(products: readonly unknown[]) {
   return `${products.length} ${products.length === 1 ? "product" : "products"}`;
 }
 
+function requirePurchasableProduct(storefront: StorefrontJourneys) {
+  const product = storefront.purchasableProduct();
+  if (!product) {
+    test.skip(
+      true,
+      "The canonical Catalog does not currently expose a Product Offer.",
+    );
+    throw new Error("Skipped because the canonical Catalog has no Product Offer.");
+  }
+  return product;
+}
+
 async function selectPurchaseVariant(
   page: Page,
   purchase: StorefrontPurchase,
@@ -135,27 +150,35 @@ test("shop renders live Products and combines filtering with sorting", async ({
   const products = storefront.products();
   const coreProducts = storefront.products("core");
   const beyondProducts = storefront.products("beyondCore");
-  const purchasable = storefront.product("purchasable");
-  const purchase = storefront.purchase(purchasable);
-  const purchasablePrice = storefront.cardPriceLabel(purchasable);
-  if (!purchasablePrice) {
-    throw new Error("The Purchasable journey is missing Offer presentation.");
-  }
+  const purchasable = storefront.purchasableProduct();
   await page.goto("/collections/shop");
   await expect(page.locator(".product-count")).toHaveText(
     productCount(products),
   );
   await expect(page.locator(".product-card")).toHaveCount(products.length);
-  await expect(
-    page
-      .locator(`[data-product-card-slug="${purchasable.slug}"]`)
-      .locator(".product-card__quick-trigger"),
-  ).toHaveText(purchase.buyLabel);
-  await expect(
-    page
-      .locator(`[data-product-card-slug="${purchasable.slug}"]`)
-      .locator(".product-card__price"),
-  ).toHaveText(purchasablePrice);
+  if (purchasable) {
+    const purchase = storefront.purchase(purchasable);
+    const purchasablePrice = storefront.cardPriceLabel(purchasable);
+    if (!purchasablePrice) {
+      throw new Error("The Purchasable journey is missing Offer presentation.");
+    }
+    await expect(
+      page
+        .locator(`[data-product-card-slug="${purchasable.slug}"]`)
+        .locator(".product-card__quick-trigger"),
+    ).toHaveText(purchase.buyLabel);
+    await expect(
+      page
+        .locator(`[data-product-card-slug="${purchasable.slug}"]`)
+        .locator(".product-card__price"),
+    ).toHaveText(purchasablePrice);
+  } else {
+    expect(
+      (await page.locator(".product-card__price").allTextContents()).some(
+        (label) => label.includes("$"),
+      ),
+    ).toBe(false);
+  }
 
   const filters = page.getByRole("navigation", {
     name: "Shop collections",
@@ -213,7 +236,7 @@ test("shop presents the approved Product, collection, sheet, and footer treatmen
   page,
   storefront,
 }) => {
-  const purchase = storefront.purchase(storefront.product("purchasable"));
+  const purchase = storefront.purchase(requirePurchasableProduct(storefront));
   await installCartFixture(page, storefront.snapshot.products);
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/collections/shop");
@@ -451,6 +474,10 @@ test("PDP resolves canonical data and exposes an available variant", async ({
   storefront,
 }) => {
   const product = storefront.product("richPdp");
+  test.skip(
+    product.offer === null,
+    "The canonical rich PDP Product does not currently expose an Offer.",
+  );
   const purchase = storefront.purchase(product);
   const gallery = storefront.gallery(product);
   const serverResponse = await page.request.get(product.path);
@@ -543,13 +570,48 @@ test("PDP presents the Core Routine in place of Details only for Core Products",
   await expect(page.locator("[data-pdp-details-routine]")).toHaveCount(0);
 });
 
+test("Ceramide Cushion replaces Green Collagen as a non-purchasable Core PDP", async ({
+  page,
+  storefront,
+}) => {
+  const product = storefront
+    .products("core")
+    .find((candidate) => candidate.slug === "ceramide-cushion");
+  if (!product) {
+    throw new Error("The active Core snapshot is missing Ceramide Cushion.");
+  }
+  expect(product).toMatchObject({
+    displayName: "Ceramide Cushion",
+    merchandisingStatus: "coming_soon",
+    routineGroup: "core",
+    systemStepName: "SEAL",
+    variants: [],
+  });
+
+  await page.goto(product.path);
+  await expect(
+    page.getByRole("heading", { level: 1, name: product.displayName }),
+  ).toBeVisible();
+  await expect(page.locator("[data-pdp-buy-button]")).toHaveText("COMING SOON");
+  await expect(page.locator("[data-pdp-buy-button]")).toBeDisabled();
+  await expect(page.locator(".pdp__price")).toHaveCount(0);
+
+  const sections = page.locator(".pdp-sections");
+  await expect(
+    sections.getByRole("heading", {
+      name: "The Mei Pelle CORE for clearer, healthier skin.",
+    }),
+  ).toHaveCount(1);
+  await expect(sections.getByRole("heading", { name: "DETAILS" })).toHaveCount(0);
+});
+
 test("PDP purchase island contains and reveals purchase details across its responsive boundary", async ({
   page,
   storefront,
 }) => {
   const product = storefront.product("richPdp");
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await page.setViewportSize({ width: 821, height: 640 });
+  await page.setViewportSize({ width: 821, height: 480 });
   await page.goto(product.path);
 
   const primary = page.locator("[data-pdp-primary-section]");
@@ -600,7 +662,7 @@ test("PDP purchase island contains and reveals purchase details across its respo
     desktopPresentation.clientHeight,
   );
   expect(desktopPresentation.top).toBeGreaterThan(0);
-  expect(desktopPresentation.bottom).toBeLessThan(640);
+  expect(desktopPresentation.bottom).toBeLessThan(480);
 
   await howToUse.focus();
   await page.keyboard.press("Enter");
@@ -625,7 +687,7 @@ test("PDP purchase island contains and reveals purchase details across its respo
   await expect(howToUse).toBeFocused();
   await expect.poll(() => purchase.evaluate((element) => element.scrollTop)).toBe(0);
 
-  await page.setViewportSize({ width: 820, height: 640 });
+  await page.setViewportSize({ width: 820, height: 480 });
   await page.goto(product.path);
 
   const narrowPrimary = page.locator("[data-pdp-primary-section]");
@@ -704,7 +766,7 @@ test("Quick Buy places Product education before configuration and the final Buy 
   );
   const singleVariantProduct =
     offerProducts.find((product) => product.variants.length === 1) ??
-    storefront.product("purchasable");
+    requirePurchasableProduct(storefront);
   const multipleVariantProduct = offerProducts.find(
     (product) => product.variants.length > 1,
   );
@@ -767,7 +829,7 @@ test("PDP add-to-cart persists across reload and reaches the cart page", async (
   page,
   storefront,
 }) => {
-  const purchase = storefront.purchase(storefront.product("purchasable"));
+  const purchase = storefront.purchase(requirePurchasableProduct(storefront));
   await installCartFixture(page, storefront.snapshot.products);
   const { drawer, geometryBeforeOpen } = await addProduct(page, purchase);
   const drawerOverlay = page.locator(".cart-sheet-overlay");
@@ -800,7 +862,7 @@ test("mobile quick buy Escape preserves the Customer's viewport and focus previe
   page,
   storefront,
 }) => {
-  const product = storefront.product("purchasable");
+  const product = requirePurchasableProduct(storefront);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/collections/shop");
 
@@ -876,7 +938,7 @@ test.describe("touch Quick Buy", () => {
       browserName === "webkit",
       "Playwright WebKit resolves this transformed close control to the underlying card link; Chromium and the in-app Browser cover native touch hit-testing.",
     );
-    const product = storefront.product("purchasable");
+    const product = requirePurchasableProduct(storefront);
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/collections/shop");
 
@@ -916,7 +978,7 @@ test("mobile quick buy opens the cart drawer and restores focus on Escape", asyn
   page,
   storefront,
 }) => {
-  const purchase = storefront.purchase(storefront.product("purchasable"));
+  const purchase = storefront.purchase(requirePurchasableProduct(storefront));
   await installCartFixture(page, storefront.snapshot.products);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/collections/shop");
@@ -997,7 +1059,12 @@ test("PDP sticky purchase appears after routine video and hides at the footer", 
   page,
   storefront,
 }) => {
-  const purchase = storefront.purchase(storefront.product("richPdp"));
+  const product = storefront.product("richPdp");
+  test.skip(
+    product.offer === null,
+    "The canonical rich PDP Product does not currently expose an Offer.",
+  );
+  const purchase = storefront.purchase(product);
   await installCartFixture(page, storefront.snapshot.products);
   await page.goto(purchase.product.path);
   await selectPurchaseVariant(page, purchase);

@@ -253,7 +253,7 @@ describe("storefront catalog projections", () => {
   it("gives discovery ProductCard data while preserving exclusion and order", async () => {
     const { client, calls } = makeClient({
       data: [
-        productRow({ slug: "seal-05-green-collagen-cream", display_name: "SEAL", system_step_name: "SEAL", routine_sort: 30 }),
+        productRow({ slug: "ceramide-cushion", display_name: "Ceramide Cushion", system_step_name: "SEAL", routine_sort: 30 }),
         productRow({ slug: "cleanse-01-calming-gel-cleanser", display_name: "CLEANSE", system_step_name: "CLEANSE", routine_sort: 10 }),
       ],
       error: null,
@@ -264,7 +264,10 @@ describe("storefront catalog projections", () => {
       "treat-03-pdrn-5-ampoule",
     );
 
-    expect(cards.map((card) => card.displayName)).toEqual(["CLEANSE", "SEAL"]);
+    expect(cards.map((card) => card.displayName)).toEqual([
+      "CLEANSE",
+      "Ceramide Cushion",
+    ]);
     expect(cards.every((card) => !("description" in card))).toBe(true);
     expect(calls).toContainEqual({
       method: "neq",
@@ -395,7 +398,7 @@ describe("storefront catalog projections", () => {
     const activeCoreSlugs = [
       "biotic-reset",
       "peptide-bounce",
-      "seal-05-green-collagen-cream",
+      "ceramide-cushion",
     ];
     const rows = activeCoreSlugs.map((slug, index) =>
       productRow({

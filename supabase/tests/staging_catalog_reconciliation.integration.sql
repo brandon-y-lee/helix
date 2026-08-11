@@ -39,7 +39,7 @@ begin
       ('Peptide Bounce', 'PDRN serum', 'peptide-bounce',
         'TREAT', 'core', 'active', 'coming_soon'),
       ('Ceramide Cushion', 'Intensive moisture cream', 'ceramide-cushion',
-        'SEAL', 'core', 'draft', 'coming_soon'),
+        'SEAL', 'core', 'active', 'coming_soon'),
       ('Mineral Guard', 'Mineral facial sunscreen', 'mineral-guard',
         'PROTECT', 'beyond_core', 'active', 'waitlist'),
       ('Balancing Prep', 'Daily toner pads', 'balancing-prep',
@@ -94,7 +94,7 @@ begin
         '03fd41764448c3e017b6c72fc3f0a794', '3e62d3e910bfa7978d0b96f156e5a1f0',
         '48d14ca463e79a6e779c325a56309293', 'cc27c5b51a79ce2b61a47d7d47708fc9',
         '9fdb3c9a2243246cd0dc0a867e2f2866',
-        '573a09e15f965bfabb877dcb1ae34d34', 'c7eb0df0b4ee6c60974dadc85469f5f0'),
+        'd6092fe292497dc8287ea977d1c22f0e', 'c7eb0df0b4ee6c60974dadc85469f5f0'),
       ('beaming-prep', 'Vita Blemish Pad', true, true,
         '053a4614d87d1e8fa6684a5f1e003646', 'b14cf6b41a18fa36fe18f93d36fb8f42',
         '5b2c93aa51a5b4aa7636e7256e056d09', 'b71fe1e4658df21deabe98b3c310c659',
@@ -136,13 +136,13 @@ begin
         '56d258f74199425e324dea67c9a08c61', 'a2bf5cd4eaa952bff9c698a61b523702',
         'd87f5ef68722a333e0e055d027019274', 'a47ed5748f46594b330be9f875d076ed',
         '7e49b530d8496a6c1a89fc1c063a840d',
-        '931c6c217f7a3f615d40d0afb573b5c7', '904150ecb2f258461d8bbfd0682a5944'),
+        '9ecd434ac7f15fe4833e66b66c35d041', '904150ecb2f258461d8bbfd0682a5944'),
       ('peptide-nourish-mask', 'PDRN 0.5% Lifting Mask', true, true,
         '30917866658feaacb46c1d0da6400c44', '35992928b6405f918e08b61325746824',
         '80938a018a01a5fab45af1605d1b399e', 'e5ab501af3efa84e5c971d0331a95f82',
         '4de7d92f9073a36c50e08d7e62d784c3', '2d8f77f1891a82258be676f48d22fc41',
         '17954927055f626db1c3ddb82d883eea',
-        '7c92e3c67d530c0c486f403ed36da4db', '34a076f6d583978d89d6ae244ea75bef'),
+        '44ab24ad7b46ea107c42f70e8038adbc', '34a076f6d583978d89d6ae244ea75bef'),
       ('polishing-prep', 'PEEL STEP PHA Deep Peeling Pad', true, true,
         'e53bc9c790d230cbb64ef193ada22b0f', '692a35ba42e305b436c3f5ed95a1205e',
         '51db33b40c13a419c4b57fa0de4ea264', '4863a3dd21bc6fb0a41dc7adb6f1b4d0',
@@ -365,43 +365,35 @@ begin
     raise exception 'historical Green Collagen Product identity is not preserved';
   end if;
 
-  if exists (
-    select 1
-    from public.products green
-    join public.products replacement on replacement.slug = 'ceramide-cushion'
-    where green.slug = 'seal-05-green-collagen-cream'
-      and replacement.catalog_status = 'draft'
-      and (
-        green.catalog_status is distinct from 'active'
-        or exists (
-          select 1 from public.product_slug_routes route
-          where route.source_product_id = green.id
-            and route.target_product_id = replacement.id
-            and route.route_kind = 'replacement'
-        )
-      )
-  ) then
-    raise exception 'Green Collagen was replaced before Ceramide Cushion eligibility';
-  end if;
-
-  if exists (
+  if not exists (
     select 1
     from public.products green
     join public.products replacement on replacement.slug = 'ceramide-cushion'
     where green.slug = 'seal-05-green-collagen-cream'
       and green.catalog_status = 'archived'
+      and replacement.catalog_status = 'active'
+      and replacement.status = 'coming_soon'
       and (
-        replacement.catalog_status is distinct from 'active'
-        or (
-          select count(*)
-          from public.product_slug_routes route
-          where route.source_product_id = green.id
-            and route.target_product_id = replacement.id
-            and route.route_kind = 'replacement'
-        ) <> 1
-      )
+        select count(*)
+        from public.product_slug_routes route
+        where route.source_product_id = green.id
+          and route.target_product_id = replacement.id
+          and route.route_kind = 'replacement'
+      ) = 1
   ) then
-    raise exception 'eligible Green Collagen replacement lacks one durable route';
+    raise exception 'Green Collagen replacement lifecycle drifted';
+  end if;
+
+  if exists (
+    select 1
+    from public.product_relationships relationship
+    join public.products source on source.id = relationship.product_id
+    join public.products green on green.id = relationship.related_product_id
+    where green.slug = 'seal-05-green-collagen-cream'
+      and relationship.archived_at is null
+      and source.catalog_status = 'active'
+  ) then
+    raise exception 'an Active Product still points to archived Green Collagen';
   end if;
 
   if (
@@ -427,7 +419,16 @@ begin
     select count(*)
     from public.product_slug_routes route
     where route.route_kind = 'canonical'
-  ) <> (select count(*) from public.products) or exists (
+  ) <> (
+    select count(*)
+    from public.products product
+    where not exists (
+      select 1
+      from public.product_slug_routes route
+      where route.source_product_id = product.id
+        and route.route_kind = 'replacement'
+    )
+  ) or exists (
     select 1
     from public.product_slug_routes route
     join public.product_slug_routes next_route
@@ -477,7 +478,8 @@ begin
     select 1
     from public.products product
     where product.slug in (
-      'biotic-reset', 'peptide-bounce', 'mineral-guard', 'balancing-prep',
+      'biotic-reset', 'peptide-bounce', 'ceramide-cushion',
+      'mineral-guard', 'balancing-prep',
       'polishing-prep', 'beaming-prep', 'chilling-prep',
       'peptide-eye-cream', 'peptide-nourish-mask'
     )

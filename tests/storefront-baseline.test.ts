@@ -191,6 +191,32 @@ describe("Storefront Baseline", () => {
     });
   });
 
+  it("represents an active Storefront with no Product Offers", async () => {
+    const snapshot = await createStorefrontBaseline({
+      readCatalog: async () => ({
+        products: [
+          product({
+            status: "coming_soon",
+            product_variants: [],
+          }),
+          product({
+            id: "beyond-id",
+            slug: "beyond-product",
+            display_name: "BEYOND",
+            routine_group: "beyond_core",
+            status: "waitlist",
+            product_variants: [],
+            product_media: [],
+          }),
+        ],
+        routineComplements: [],
+      }),
+    });
+
+    expect(snapshot.journeys.purchasableProductId).toBeNull();
+    expect(snapshot.journeys.searchableProductId).toBe("beyond-id");
+  });
+
   it("rejects a duplicate Storefront path independently of Product identity", async () => {
     await expect(
       createStorefrontBaseline({

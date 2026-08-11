@@ -377,7 +377,7 @@ describe("Storefront journey expectations", () => {
     } satisfies StorefrontSnapshot;
     const journeys = createStorefrontJourneys(liveSnapshot);
 
-    expect(journeys.purchase(journeys.product("purchasable"))).toMatchObject({
+    expect(journeys.purchase(journeys.purchasableProduct()!)).toMatchObject({
       buyLabel: "BUY CORE - $24.00",
       variant: { id: "standard", label: "Standard", price: 2400 },
     });

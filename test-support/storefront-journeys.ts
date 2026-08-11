@@ -15,7 +15,6 @@ import {
 export type StorefrontJourney =
   | "core"
   | "beyondCore"
-  | "purchasable"
   | "richPdp"
   | "searchable";
 
@@ -37,7 +36,6 @@ export type StorefrontGalleryItem = Readonly<{
 const JOURNEY_KEYS = {
   core: "coreProductId",
   beyondCore: "beyondCoreProductId",
-  purchasable: "purchasableProductId",
   richPdp: "richPdpProductId",
   searchable: "searchableProductId",
 } as const satisfies Readonly<
@@ -142,6 +140,10 @@ export function createStorefrontJourneys(snapshot: StorefrontSnapshot) {
       return collectionProducts.filter(
         (product) => product.routineGroup === snapshotGroup,
       );
+    },
+    purchasableProduct(): StorefrontSnapshotProduct | null {
+      const productId = snapshot.journeys.purchasableProductId;
+      return productId ? requireProduct(snapshot, productId) : null;
     },
     purchase(product: StorefrontSnapshotProduct): StorefrontPurchase {
       const offer = product.offer;
