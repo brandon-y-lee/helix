@@ -238,7 +238,11 @@ function makeProduct(overrides: ProductOverrides = {}): PdpProduct {
     },
     createdAt: "2026-06-14T00:00:00.000Z",
   };
-  return { ...base, ...overrides } as unknown as PdpProduct;
+  return {
+    ...base,
+    productFamily: null,
+    ...overrides,
+  } as unknown as PdpProduct;
 }
 
 function before(a: Element, b: Element) {
@@ -336,8 +340,8 @@ describe("ProductDetail purchase accordions", () => {
     const { container } = render(
       <ProductDetail
         product={makeProduct({
-          slug: "refine-02-pore-treatment-pads",
-          displayName: "REFINE",
+          slug: "balancing-prep",
+          displayName: "Balancing Prep",
           routineGroup: "beyond_core",
           systemStepPosition: 2,
           systemStepName: "REFINE",

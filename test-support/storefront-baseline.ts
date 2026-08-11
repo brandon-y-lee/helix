@@ -43,6 +43,11 @@ export type StorefrontCatalogMedia = {
   placeholder_palette: Record<string, string> | null;
 };
 
+export type StorefrontCatalogFamilyMembership = {
+  family_id: string;
+  is_entry: boolean;
+};
+
 export type StorefrontCatalogProduct = {
   id: string;
   slug: string;
@@ -73,6 +78,10 @@ export type StorefrontCatalogProduct = {
   routine_sort: number;
   product_variants: StorefrontCatalogVariant[] | null;
   product_media: StorefrontCatalogMedia[] | null;
+  product_family_memberships:
+    | StorefrontCatalogFamilyMembership
+    | StorefrontCatalogFamilyMembership[]
+    | null;
 };
 
 export type StorefrontCatalogRoutineComplement = {
@@ -141,6 +150,8 @@ export type StorefrontSnapshotProduct = Readonly<{
   systemPosition: number | null;
   systemStepName: string | null;
   routineSort: number;
+  familyId: string | null;
+  familyIsEntry: boolean | null;
   variants: readonly StorefrontSnapshotVariant[];
   media: readonly StorefrontSnapshotMedia[];
   offer: Readonly<{
@@ -150,6 +161,12 @@ export type StorefrontSnapshotProduct = Readonly<{
     currency: "USD";
   }> | null;
 }>;
+
+export function isStorefrontCollectionProduct(
+  product: Pick<StorefrontSnapshotProduct, "familyId" | "familyIsEntry">,
+): boolean {
+  return product.familyId === null || product.familyIsEntry === true;
+}
 
 export type StorefrontSnapshot = Readonly<{
   schemaVersion: 1;
@@ -354,6 +371,20 @@ function optionalRows<T>(
   );
 }
 
+function optionalSingleRelation<T>(
+  value: T | readonly T[] | null,
+  subject: string,
+  identity: string,
+): T | null {
+  if (value === null) return null;
+  if (!Array.isArray(value)) return value as T;
+  if (value.length <= 1) return value[0] ?? null;
+  throw new StorefrontBaselineError(
+    "invalid-catalog-shape",
+    `Product "${identity}" has multiple ${subject} relations.`,
+  );
+}
+
 function requireRoutineComplementText(
   value: unknown,
   field: string,
@@ -502,6 +533,20 @@ function normalizeProduct(
       };
     })
     .sort((a, b) => a.sortOrder - b.sortOrder || a.role.localeCompare(b.role));
+  const familyMembership = optionalSingleRelation(
+    row.product_family_memberships,
+    "Product Family membership",
+    slug,
+  );
+  if (
+    familyMembership &&
+    typeof familyMembership.is_entry !== "boolean"
+  ) {
+    throw new StorefrontBaselineError(
+      "invalid-catalog-shape",
+      `Product "${slug}" has an invalid Product Family entry marker.`,
+    );
+  }
 
   return {
     id,
@@ -550,6 +595,10 @@ function normalizeProduct(
     systemPosition: systemStep.position,
     systemStepName: systemStep.name,
     routineSort: requireOrder(row.routine_sort, "Routine ordering", slug),
+    familyId: familyMembership
+      ? requireText(familyMembership.family_id, "Product Family id", slug)
+      : null,
+    familyIsEntry: familyMembership?.is_entry ?? null,
     variants,
     media,
     offer: selectedOffer
@@ -668,6 +717,7 @@ function buildStorefrontSnapshot(
         a.slug.localeCompare(b.slug) ||
         a.id.localeCompare(b.id),
     );
+  const collectionProducts = products.filter(isStorefrontCollectionProduct);
   const ids = new Set(products.map((product) => product.id));
   const routineComplements = catalog.routineComplements
     .map((relationship) => {
@@ -708,17 +758,17 @@ function buildStorefrontSnapshot(
     );
 
   const core = requireCapability(
-    products,
+    collectionProducts,
     "The Core Routine Group",
     (product) => product.routineGroup === "core",
   );
   const beyond = requireCapability(
-    products,
+    collectionProducts,
     "Beyond The Core Routine Group",
     (product) => product.routineGroup === "beyond_core",
   );
   const purchasable = requireCapability(
-    products,
+    collectionProducts,
     "Purchasable Product",
     (product) => product.offer !== null,
   );

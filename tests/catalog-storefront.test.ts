@@ -134,13 +134,15 @@ function productRow(overrides: Record<string, unknown> = {}) {
       media("pdp_outcome", 4),
       media("pdp_application", 5),
     ],
+    product_family_memberships: null,
     ...overrides,
   };
   const step = {
     CLEANSE: { name: "CLEANSE", position: 1, routine_group: "core" },
+    REFINE: { name: "REFINE", position: 2, routine_group: "beyond_core" },
     TREAT: { name: "TREAT", position: 3, routine_group: "core" },
     SEAL: { name: "SEAL", position: 5, routine_group: "core" },
-  }[row.system_step_name as "CLEANSE" | "TREAT" | "SEAL"];
+  }[row.system_step_name as "CLEANSE" | "REFINE" | "TREAT" | "SEAL"];
   return {
     ...row,
     system_steps: overrides.system_steps ?? step,
@@ -216,6 +218,39 @@ describe("storefront catalog projections", () => {
     });
   });
 
+  it("collapses Product Families to their entry Product in card projections", async () => {
+    const familyId = "123e4567-e89b-42d3-a456-426614174143";
+    const { client } = makeClient({
+      data: [
+        productRow({
+          id: "balancing-id",
+          slug: "balancing-prep",
+          product_family_memberships: { family_id: familyId, is_entry: true },
+        }),
+        productRow({
+          id: "polishing-id",
+          slug: "polishing-prep",
+          product_family_memberships: { family_id: familyId, is_entry: false },
+        }),
+        productRow({
+          id: "standalone-id",
+          slug: "standalone-product",
+        }),
+      ],
+      error: null,
+    });
+    mockedGetClient.mockReturnValue(client);
+
+    const cards = await getProductCardContents();
+
+    expect(cards.map((card) => card.slug)).toEqual([
+      "balancing-prep",
+      "standalone-product",
+    ]);
+    expect(cards[0].productFamily).toEqual({ familyId, isEntry: true });
+    expect(cards[1].productFamily).toBeNull();
+  });
+
   it("gives discovery ProductCard data while preserving exclusion and order", async () => {
     const { client, calls } = makeClient({
       data: [
@@ -236,7 +271,32 @@ describe("storefront catalog projections", () => {
       method: "neq",
       args: ["slug", "treat-03-pdrn-5-ampoule"],
     });
-    expect(calls).toContainEqual({ method: "limit", args: [3] });
+    expect(calls).not.toContainEqual({ method: "limit", args: [3] });
+  });
+
+  it("applies the discovery limit after non-entry family siblings are collapsed", async () => {
+    const { client } = makeClient({
+      data: [
+        productRow({
+          slug: "polishing-prep",
+          display_name: "Polishing Prep",
+          product_family_memberships: { family_id: "family-1", is_entry: false },
+        }),
+        productRow({ slug: "biotic-reset", display_name: "Biotic Reset", routine_sort: 10 }),
+        productRow({ slug: "peptide-bounce", display_name: "Peptide Bounce", routine_sort: 20 }),
+        productRow({ slug: "ceramide-cushion", display_name: "Ceramide Cushion", routine_sort: 30 }),
+      ],
+      error: null,
+    });
+    mockedGetClient.mockReturnValue(client);
+
+    const cards = await getDiscoveryProductCardContents("balancing-prep", 3);
+
+    expect(cards.map((card) => card.slug)).toEqual([
+      "biotic-reset",
+      "peptide-bounce",
+      "ceramide-cushion",
+    ]);
   });
 
   it("returns a complete PDP projection with PDP-only media isolated", async () => {
@@ -270,6 +330,66 @@ describe("storefront catalog projections", () => {
     expect(calls.find((call) => call.method === "in")?.args[1]).not.toContain(
       "core_routine_editorial",
     );
+  });
+
+  it("projects the complete ordered Product Family on every member PDP", async () => {
+    const familyId = "123e4567-e89b-42d3-a456-426614174143";
+    const members = [
+      ["balancing-id", "balancing-prep", "Balancing Prep", "General", "available", true],
+      ["polishing-id", "polishing-prep", "Polishing Prep", "Exfoliating", "waitlist", false],
+      ["beaming-id", "beaming-prep", "Beaming Prep", "Brightening", "waitlist", false],
+      ["chilling-id", "chilling-prep", "Chilling Prep", "Cooling", "waitlist", false],
+    ].map(([id, slug, displayName, optionLabel, status, isEntry], index) => ({
+      product_id: id,
+      option_label: optionLabel,
+      sort_order: index,
+      is_entry: isEntry,
+      products: {
+        id,
+        slug,
+        display_name: displayName,
+        status,
+        catalog_status: "active",
+      },
+    }));
+    const { client } = makeClient({
+      data: productRow({
+        id: "beaming-id",
+        slug: "beaming-prep",
+        display_name: "Beaming Prep",
+        product_type: "Niacinamide brightening pads",
+        routine_group: "beyond_core",
+        system_step_name: "REFINE",
+        product_family_memberships: {
+          family_id: familyId,
+          is_entry: false,
+          product_families: {
+            id: familyId,
+            slug: "refine",
+            display_name: "REFINE",
+            system_step_name: "REFINE",
+            product_family_memberships: members,
+          },
+        },
+      }),
+      error: null,
+    });
+    mockedGetClient.mockReturnValue(client);
+
+    const product = await getPdpProductContent("beaming-prep");
+
+    expect(product?.productFamily).toMatchObject({
+      id: familyId,
+      slug: "refine",
+      displayName: "REFINE",
+      systemStepName: "REFINE",
+    });
+    expect(product?.productFamily?.memberships).toEqual([
+      expect.objectContaining({ optionLabel: "General", slug: "balancing-prep", isEntry: true, isCurrent: false }),
+      expect.objectContaining({ optionLabel: "Exfoliating", slug: "polishing-prep", status: "waitlist", isCurrent: false }),
+      expect.objectContaining({ optionLabel: "Brightening", slug: "beaming-prep", status: "waitlist", isCurrent: true }),
+      expect.objectContaining({ optionLabel: "Cooling", slug: "chilling-prep", status: "waitlist", isCurrent: false }),
+    ]);
   });
 
   it("queries exactly CLEANSE, TREAT, and SEAL for the ordered Core summaries", async () => {

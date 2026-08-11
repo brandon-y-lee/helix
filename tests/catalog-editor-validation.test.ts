@@ -10,6 +10,8 @@ const PRODUCT_ID = catalogDocument.productId;
 const VARIANT_ID = catalogDocument.variants[0].id;
 const MEDIA_ID = "123e4567-e89b-42d3-a456-426614174002";
 const ACTOR_ID = "123e4567-e89b-42d3-a456-426614174003";
+const FAMILY_ID = "123e4567-e89b-42d3-a456-426614174010";
+const FAMILY_MEMBER_ID = "123e4567-e89b-42d3-a456-426614174011";
 const APPROVED_ENV = {
   NODE_ENV: "test",
   NEXT_PUBLIC_SUPABASE_URL: "https://erasogmsqpgiirovubjh.supabase.co",
@@ -86,6 +88,51 @@ describe("product editor document validation", () => {
           path: "product.system_step_name",
           code: "routine_group_mismatch",
         }),
+      ]),
+    );
+  });
+
+  it("rejects a Product Family aggregate without one entry, unique order, and the current Product membership", () => {
+    const document = validDocument();
+    Object.assign(document, {
+      productFamily: {
+        family: {
+          id: FAMILY_ID,
+          slug: "refine",
+          display_name: "REFINE",
+          system_step_name: "REFINE",
+          created_at: "2026-08-10T12:00:00.000Z",
+          updated_at: "2026-08-10T12:00:00.000Z",
+        },
+        memberships: [
+          {
+            family_id: FAMILY_ID,
+            product_id: FAMILY_MEMBER_ID,
+            option_label: "Exfoliating",
+            sort_order: 1,
+            is_entry: false,
+            created_at: "2026-08-10T12:00:00.000Z",
+            updated_at: "2026-08-10T12:00:00.000Z",
+          },
+          {
+            family_id: FAMILY_ID,
+            product_id: "123e4567-e89b-42d3-a456-426614174012",
+            option_label: "Brightening",
+            sort_order: 1,
+            is_entry: false,
+            created_at: "2026-08-10T12:00:00.000Z",
+            updated_at: "2026-08-10T12:00:00.000Z",
+          },
+        ],
+      },
+    });
+
+    expect(validateProductEditorDocument(document).issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: "family_step_mismatch" }),
+        expect.objectContaining({ code: "family_entry_required" }),
+        expect.objectContaining({ code: "duplicate_family_order" }),
+        expect.objectContaining({ code: "current_product_membership_required" }),
       ]),
     );
   });

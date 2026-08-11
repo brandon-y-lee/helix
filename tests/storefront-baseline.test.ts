@@ -81,6 +81,7 @@ function product(
         placeholder_palette: null,
       },
     ],
+    product_family_memberships: null,
     ...overrides,
   };
   if (!("system_step_name" in overrides)) {
@@ -100,7 +101,12 @@ describe("Storefront Baseline", () => {
     const snapshot = await createStorefrontBaseline({
       readCatalog: async () => ({
         products: [
-          product(),
+          product({
+            product_family_memberships: {
+              family_id: "family-id",
+              is_entry: true,
+            },
+          }),
           product({
             id: "core-first-id",
             slug: "core-first",
@@ -108,6 +114,10 @@ describe("Storefront Baseline", () => {
             routine_sort: 40,
             sort_order: 10,
             product_media: [],
+            product_family_memberships: {
+              family_id: "family-id",
+              is_entry: false,
+            },
           }),
           product({
             id: "beyond-id",
@@ -138,13 +148,21 @@ describe("Storefront Baseline", () => {
       "/products/beyond-product",
     ]);
     expect(snapshot.journeys).toEqual({
-      coreProductId: "core-first-id",
+      coreProductId: "core-alpha-id",
       beyondCoreProductId: "beyond-id",
-      purchasableProductId: "core-first-id",
+      purchasableProductId: "core-alpha-id",
       richPdpProductId: "core-alpha-id",
       searchableProductId: "core-first-id",
     });
     expect(snapshot.products[0]?.offer?.variantId).toBe("standard");
+    expect(snapshot.products[0]).toMatchObject({
+      familyId: "family-id",
+      familyIsEntry: false,
+    });
+    expect(snapshot.products[1]).toMatchObject({
+      familyId: "family-id",
+      familyIsEntry: true,
+    });
     expect(snapshot.routineComplements).toEqual([
       {
         productId: "beyond-id",

@@ -55,6 +55,7 @@ function canonicalProduct(): PdpProduct {
     skinTypes: ["All skin types"],
     usageTime: ["Morning", "Night"],
     pdpContent: null,
+    productFamily: null,
     currency: "USD",
     status: "available",
     variants: [

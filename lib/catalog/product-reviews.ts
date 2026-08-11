@@ -41,10 +41,10 @@ const meters = {
     lowLabel: "Dry by noon",
     highLabel: "Comfort held",
   },
-  "refine-02-pore-treatment-pads": {
-    question: "How smooth did texture look?",
-    lowLabel: "Still uneven",
-    highLabel: "Noticeably smoother",
+  "balancing-prep": {
+    question: "How balanced did your skin feel after cleansing?",
+    lowLabel: "Still unsettled",
+    highLabel: "Fresh and balanced",
   },
   "frame-04-pdrn-eye-cream": {
     question: "How awake did the eye area look?",
@@ -176,8 +176,8 @@ const productReviewFixturesBySlug = {
       },
     ],
   },
-  "refine-02-pore-treatment-pads": {
-    meter: meters["refine-02-pore-treatment-pads"],
+  "balancing-prep": {
+    meter: meters["balancing-prep"],
     reviews: [
       {
         id: "refine-miles",
@@ -185,13 +185,13 @@ const productReviewFixturesBySlug = {
         firstName: "Miles",
         ageRange: "25-34",
         skinType: "Oily-combination",
-        primaryConcern: "Uneven texture",
-        routineContext: "Beyond The Core twice weekly",
-        favoriteFeatures: ["Measured format", "Smoother look", "Fresh finish"],
+        primaryConcern: "Post-cleanse balance",
+        routineContext: "Daily after cleansing",
+        favoriteFeatures: ["Measured format", "Easy prep", "Fresh finish"],
         rating: 4,
         date: "2026-06-02",
-        title: "Better when used deliberately",
-        body: sharedReviews.beyondMeasured[0],
+        title: "Easy daily prep",
+        body: "The pad adds one quick step after cleansing and leaves the next layer easy to spread.",
         meterValue: 80,
       },
       {
@@ -200,13 +200,13 @@ const productReviewFixturesBySlug = {
         firstName: "Kai",
         ageRange: "25-34",
         skinType: "Combination",
-        primaryConcern: "Surface roughness",
-        routineContext: "Night add-on before The Core",
-        favoriteFeatures: ["Controlled cadence", "Quick use", "Cleaner surface"],
+        primaryConcern: "Oil-heavy areas",
+        routineContext: "Morning and night before TREAT",
+        favoriteFeatures: ["Daily cadence", "Quick use", "Fresh finish"],
         rating: 4,
         date: "2026-06-05",
-        title: "Not an everyday thing",
-        body: sharedReviews.beyondMeasured[1],
+        title: "Fits the everyday routine",
+        body: "It feels like a practical bridge between cleansing and serum without slowing the routine down.",
         meterValue: 78,
       },
     ],

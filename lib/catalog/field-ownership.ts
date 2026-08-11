@@ -30,6 +30,8 @@ type CatalogInputKind =
 
 export type CatalogEditorTable =
   | "products"
+  | "product_families"
+  | "product_family_memberships"
   | "product_pdp_content"
   | "product_variants"
   | "product_media"
@@ -44,6 +46,8 @@ export type CatalogEditorTable =
 
 type TableRows = {
   products: Database["public"]["Tables"]["products"]["Row"];
+  product_families: Database["public"]["Tables"]["product_families"]["Row"];
+  product_family_memberships: Database["public"]["Tables"]["product_family_memberships"]["Row"];
   product_pdp_content: Database["public"]["Tables"]["product_pdp_content"]["Row"];
   product_variants: Database["public"]["Tables"]["product_variants"]["Row"];
   product_media: Database["public"]["Tables"]["product_media"]["Row"];
@@ -275,6 +279,34 @@ export const CATALOG_FIELD_OWNERSHIP: readonly CatalogFieldOwnership[] = [
       inputKind: "date-time",
       readOnlyReason: IMMUTABLE_TIMESTAMP,
     },
+  ]),
+
+  ...fields("product_families", "system", NO_ROLES, [
+    { field: "id", inputKind: "uuid", readOnlyReason: IMMUTABLE_IDENTITY },
+    { field: "created_at", inputKind: "date-time", readOnlyReason: IMMUTABLE_TIMESTAMP },
+    { field: "updated_at", inputKind: "date-time", readOnlyReason: IMMUTABLE_TIMESTAMP },
+  ]),
+  ...fields("product_families", "system", ADMIN_ROLE, [
+    { field: "slug", inputKind: "text", disruptive: true },
+    { field: "display_name", inputKind: "text", previewRelevant: true },
+    {
+      field: "system_step_name",
+      inputKind: "select",
+      options: SYSTEM_STEP_NAMES,
+      disruptive: true,
+      previewRelevant: true,
+    },
+  ]),
+  ...fields("product_family_memberships", "system", NO_ROLES, [
+    { field: "family_id", inputKind: "uuid", readOnlyReason: IMMUTABLE_IDENTITY },
+    { field: "created_at", inputKind: "date-time", readOnlyReason: IMMUTABLE_TIMESTAMP },
+    { field: "updated_at", inputKind: "date-time", readOnlyReason: IMMUTABLE_TIMESTAMP },
+  ]),
+  ...fields("product_family_memberships", "system", ADMIN_ROLE, [
+    { field: "product_id", inputKind: "uuid", disruptive: true },
+    { field: "option_label", inputKind: "text", previewRelevant: true },
+    { field: "sort_order", inputKind: "number", previewRelevant: true },
+    { field: "is_entry", inputKind: "boolean", disruptive: true, previewRelevant: true },
   ]),
 
   ...fields("product_pdp_content", "system", NO_ROLES, [

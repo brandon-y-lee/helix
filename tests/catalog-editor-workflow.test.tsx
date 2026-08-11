@@ -179,7 +179,8 @@ describe("CatalogEditor draft workflow", () => {
         variants: false,
         media: false,
         relationships: false,
-        productSource: false,
+      productSource: false,
+      productFamily: false,
       },
       mediaVerification: {
         status: "healthy",
@@ -279,7 +280,8 @@ describe("CatalogEditor draft workflow", () => {
         variants: false,
         media: false,
         relationships: false,
-        productSource: false,
+      productSource: false,
+      productFamily: false,
       },
       mediaVerification: {
         status: "warning",

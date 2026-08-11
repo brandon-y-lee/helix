@@ -34,6 +34,30 @@ export type ProductOffer = {
   variants: OfferAvailability[];
 };
 
+export type ProductFamilyMembership = {
+  productId: string;
+  slug: string;
+  displayName: string;
+  optionLabel: string;
+  status: ProductStatus;
+  sortOrder: number;
+  isEntry: boolean;
+  isCurrent: boolean;
+};
+
+export type ProductFamily = {
+  id: string;
+  slug: string;
+  displayName: string;
+  systemStepName: SystemStepName;
+  memberships: ProductFamilyMembership[];
+};
+
+export type ProductFamilyCardMembership = {
+  familyId: string;
+  isEntry: boolean;
+};
+
 export type ProductCardContent = {
   id: string;
   slug: string;
@@ -51,6 +75,7 @@ export type ProductCardContent = {
   cardMedia: ProductMedia | null;
   cardHoverMedia: ProductMedia | null;
   cartMedia: ProductMedia | null;
+  productFamily: ProductFamilyCardMembership | null;
 };
 
 export type ProductCard = ProductCardContent &
@@ -83,6 +108,7 @@ export type PdpProductContent = {
   skinTypes: string[];
   usageTime: string[];
   pdpContent: ProductPdpContent | null;
+  productFamily: ProductFamily | null;
 };
 
 export type PdpProduct = PdpProductContent &

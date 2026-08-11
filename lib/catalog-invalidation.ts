@@ -15,6 +15,7 @@ import {
   PRODUCT_CARD_COLLECTION_CACHE_TAG,
   PRODUCT_CONTENT_COLLECTION_CACHE_TAG,
   PRODUCT_OFFER_COLLECTION_CACHE_TAG,
+  PRODUCT_FAMILY_CACHE_TAG,
   PRODUCT_SLUG_ROUTE_COLLECTION_CACHE_TAG,
   productSlugRouteCacheTag,
 } from "@/lib/catalog-cache";
@@ -63,6 +64,12 @@ const PRODUCT_COLLECTION_FIELDS = new Set([
   "routine_group",
   "sort_order",
   "slug",
+]);
+const PRODUCT_FAMILY_FIELDS = new Set([
+  "slug",
+  "display_name",
+  "status",
+  "catalog_status",
 ]);
 const PRODUCT_IGNORED_FIELDS = new Set(["updated_at"]);
 const CARD_MEDIA_ROLES = new Set([
@@ -151,6 +158,10 @@ export function getCatalogInvalidationTargets(
     (value, index, values): value is string =>
       Boolean(value) && values.indexOf(value) === index,
   );
+  const affectedProducts = outcome?.affectedProducts ?? [];
+  for (const product of affectedProducts) {
+    if (!productKeys.includes(product.slug)) productKeys.push(product.slug);
+  }
 
   let invalidateContent = false;
   let invalidateOffer = false;
@@ -159,6 +170,7 @@ export function getCatalogInvalidationTargets(
   let invalidateDiscovery = false;
   let invalidateCollection = false;
   let invalidateSlugRoutes = false;
+  let invalidateFamily = false;
 
   if (payload.table === "product_variants") {
     invalidateOffer = true;
@@ -169,6 +181,16 @@ export function getCatalogInvalidationTargets(
     invalidateContent = true;
   } else if (payload.table === "product_slug_routes") {
     invalidateSlugRoutes = true;
+  } else if (
+    payload.table === "product_families" ||
+    payload.table === "product_family_memberships"
+  ) {
+    invalidateContent = true;
+    invalidateCard = true;
+    invalidateMembership = true;
+    invalidateDiscovery = true;
+    invalidateCollection = true;
+    tags.add(PRODUCT_FAMILY_CACHE_TAG);
   } else if (payload.table === "products") {
     const changedFields = changedProductFields(payload);
     const broadProductChange =
@@ -199,7 +221,11 @@ export function getCatalogInvalidationTargets(
       );
     invalidateSlugRoutes =
       broadProductChange || changedFields.has("slug");
+    invalidateFamily =
+      broadProductChange || includesAny(changedFields, PRODUCT_FAMILY_FIELDS);
   }
+
+  if (invalidateFamily) tags.add(PRODUCT_FAMILY_CACHE_TAG);
 
   for (const productKey of productKeys) {
     if (invalidateContent) tags.add(productContentCacheTag(productKey));
@@ -239,6 +265,11 @@ export function getCatalogInvalidationTargets(
 
   if (invalidateCollection && routineGroup) {
     tags.add(collectionCacheTag(routineGroup));
+  }
+  if (invalidateCollection) {
+    for (const product of affectedProducts) {
+      tags.add(collectionCacheTag(product.routineGroup));
+    }
   }
   if (
     invalidateCollection &&

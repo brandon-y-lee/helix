@@ -50,6 +50,7 @@ export const PRODUCT_OFFER_COLLECTION_CACHE_TAG = "catalog-product-offer";
 export const PRODUCT_CARD_COLLECTION_CACHE_TAG = "catalog-product-card";
 export const CORE_ROUTINE_CACHE_TAG = "catalog-core-routine";
 export const DISCOVERY_CACHE_TAG = "catalog-discovery";
+export const PRODUCT_FAMILY_CACHE_TAG = "catalog-product-family";
 export const PRODUCT_SLUG_ROUTE_COLLECTION_CACHE_TAG =
   "catalog-product-slug-route";
 export { CORE_ROUTINE_PRODUCT_SLUGS } from "@/lib/catalog/models";
@@ -239,6 +240,7 @@ const readCachedLegacyCards = unstable_cache(
     tags: [
       CATALOG_PRODUCTS_CACHE_TAG,
       PRODUCT_CARD_COLLECTION_CACHE_TAG,
+      PRODUCT_FAMILY_CACHE_TAG,
     ],
   },
 );
@@ -333,6 +335,7 @@ const readCachedProductCardContents = unstable_cache(
     tags: [
       CATALOG_PRODUCTS_CACHE_TAG,
       PRODUCT_CARD_COLLECTION_CACHE_TAG,
+      PRODUCT_FAMILY_CACHE_TAG,
     ],
   },
 );
@@ -431,7 +434,7 @@ export async function getCachedPdpProduct(
       ["catalog-pdp-content-v4", slug],
       {
         revalidate: PRODUCT_CONTENT_REVALIDATE_SECONDS,
-        tags: [productContentCacheTag(slug)],
+        tags: [productContentCacheTag(slug), PRODUCT_FAMILY_CACHE_TAG],
       },
     )(),
     unstable_cache(
@@ -473,6 +476,7 @@ export async function getCachedDiscoveryProductCards(
           CATALOG_PRODUCTS_CACHE_TAG,
           DISCOVERY_CACHE_TAG,
           PRODUCT_CARD_COLLECTION_CACHE_TAG,
+          PRODUCT_FAMILY_CACHE_TAG,
         ],
       },
     )(),

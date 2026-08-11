@@ -126,4 +126,43 @@ describe("catalog editor field ownership", () => {
       }),
     );
   });
+
+  it("allows only an administrator to govern Product Family membership", () => {
+    const canonical = cloneDocument();
+    canonical.productFamily = {
+      family: {
+        id: "123e4567-e89b-42d3-a456-426614174143",
+        slug: "refine",
+        display_name: "REFINE",
+        system_step_name: "REFINE",
+        created_at: "2026-08-10T00:00:00.000Z",
+        updated_at: "2026-08-10T00:00:00.000Z",
+      },
+      memberships: [
+        {
+          family_id: "123e4567-e89b-42d3-a456-426614174143",
+          product_id: canonical.productId,
+          option_label: "General",
+          sort_order: 0,
+          is_entry: true,
+          created_at: "2026-08-10T00:00:00.000Z",
+          updated_at: "2026-08-10T00:00:00.000Z",
+        },
+      ],
+    };
+    const candidate = structuredClone(canonical);
+    candidate.productFamily!.memberships[0].option_label = "Daily";
+
+    expect(
+      validateCatalogEditorOwnership(candidate, canonical, "admin"),
+    ).toEqual([]);
+    expect(
+      validateCatalogEditorOwnership(candidate, canonical, "catalog_publisher"),
+    ).toContainEqual(
+      expect.objectContaining({
+        path: "productFamily.memberships.0.option_label",
+        code: "field_read_only",
+      }),
+    );
+  });
 });

@@ -4,6 +4,7 @@ import {
   productPurchaseCta,
 } from "@/lib/products";
 import {
+  isStorefrontCollectionProduct,
   StorefrontBaselineError,
   type StorefrontSnapshot,
   type StorefrontSnapshotMedia,
@@ -133,9 +134,12 @@ export function createStorefrontJourneys(snapshot: StorefrontSnapshot) {
       );
     },
     products(routineGroup?: StorefrontRoutineGroup) {
-      if (!routineGroup) return snapshot.products;
+      const collectionProducts = snapshot.products.filter(
+        isStorefrontCollectionProduct,
+      );
+      if (!routineGroup) return collectionProducts;
       const snapshotGroup = routineGroup === "core" ? "core" : "beyond_core";
-      return snapshot.products.filter(
+      return collectionProducts.filter(
         (product) => product.routineGroup === snapshotGroup,
       );
     },

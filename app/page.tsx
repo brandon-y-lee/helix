@@ -31,7 +31,7 @@ const CORE_PRODUCT_SLUGS =
   CORE_ROUTINE_PRODUCT_SLUGS satisfies readonly MethodProductSlug[];
 
 const BEYOND_CORE_PRODUCT_SLUGS = [
-  "refine-02-pore-treatment-pads",
+  "balancing-prep",
   "frame-04-pdrn-eye-cream",
   "lift-06-pdrn-mask-system",
 ] as const satisfies readonly MethodProductSlug[];

@@ -40,6 +40,22 @@ type CatalogSlugRouteSource = {
   route_kind: "canonical" | "rename" | "replacement";
 };
 
+type CatalogProductFamilySource = {
+  slug: string;
+  display_name: string;
+};
+
+type CatalogProductFamilyMembershipSource = {
+  family_id: string;
+  option_label: string;
+  sort_order: number;
+  is_entry: boolean;
+  product_families:
+    | CatalogProductFamilySource
+    | CatalogProductFamilySource[]
+    | null;
+};
+
 export type CatalogProductSource = {
   id: string;
   slug: string;
@@ -62,6 +78,10 @@ export type CatalogProductSource = {
   usage_time: string[];
   search_keywords: string[];
   product_slug_routes: CatalogSlugRouteSource[] | null;
+  product_family_memberships:
+    | CatalogProductFamilyMembershipSource
+    | CatalogProductFamilyMembershipSource[]
+    | null;
   routine_group: string;
   system_step_name: string | null;
   system_steps: SystemStepDatabaseRelation;
@@ -133,7 +153,18 @@ export type AlgoliaProductRecord = {
   madeFor: string | null;
   goodFor: string | null;
   texture: string | null;
+  familyId: string | null;
+  familySlug: string | null;
+  familyDisplayName: string | null;
+  familyOptionLabel: string | null;
+  familySortOrder: number | null;
+  familyIsEntry: boolean | null;
 };
+
+function firstRelation<T>(value: T | T[] | null): T | null {
+  if (Array.isArray(value)) return value[0] ?? null;
+  return value;
+}
 
 function toStatus(value: string): ProductStatus {
   return isProductStatus(value) ? value : "available";
@@ -258,6 +289,25 @@ export function buildAlgoliaRecord(
     );
   }
   const concerns = row.concerns ?? [];
+  const familyRows = row.product_family_memberships
+    ? Array.isArray(row.product_family_memberships)
+      ? row.product_family_memberships
+      : [row.product_family_memberships]
+    : [];
+  if (familyRows.length > 1) {
+    throw new Error(
+      `[search-sync] Product "${row.slug}" belongs to multiple Product Families.`,
+    );
+  }
+  const familyMembership = familyRows[0] ?? null;
+  const family = familyMembership
+    ? firstRelation(familyMembership.product_families)
+    : null;
+  if (familyMembership && !family) {
+    throw new Error(
+      `[search-sync] Product "${row.slug}" has an incomplete Product Family.`,
+    );
+  }
   const slugAliases = (row.product_slug_routes ?? [])
     .filter(
       (route) =>
@@ -287,6 +337,8 @@ export function buildAlgoliaRecord(
     ...concerns,
     ...(row.key_ingredients ?? []),
     ...(row.search_keywords ?? []),
+    family?.display_name,
+    familyMembership?.option_label,
     ...slugAliases,
     ...offerPresentation.offers.map((variant) => variant.label),
   ].filter((value): value is string => Boolean(value?.trim()));
@@ -336,6 +388,12 @@ export function buildAlgoliaRecord(
     madeFor: row.made_for,
     goodFor: row.good_for,
     texture: row.texture,
+    familyId: familyMembership?.family_id ?? null,
+    familySlug: family?.slug ?? null,
+    familyDisplayName: family?.display_name ?? null,
+    familyOptionLabel: familyMembership?.option_label ?? null,
+    familySortOrder: familyMembership?.sort_order ?? null,
+    familyIsEntry: familyMembership?.is_entry ?? null,
   };
 }
 

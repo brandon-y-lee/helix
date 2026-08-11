@@ -124,7 +124,8 @@ describe("catalog editor protected routes", () => {
         variants: false,
         media: false,
         relationships: false,
-        productSource: false,
+      productSource: false,
+      productFamily: false,
       },
       mediaVerification: {
         status: "healthy",

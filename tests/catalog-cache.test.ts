@@ -121,6 +121,7 @@ const card = {
   cardMedia: null,
   cardHoverMedia: null,
   cartMedia: null,
+  productFamily: null,
 } satisfies ProductCardContent;
 
 const pdp = {
@@ -176,7 +177,7 @@ describe("catalog cache domains", () => {
     });
     expect(registration("catalog-pdp-content-v4").options).toEqual({
       revalidate: PRODUCT_CONTENT_REVALIDATE_SECONDS,
-      tags: [productContentCacheTag(slug)],
+      tags: [productContentCacheTag(slug), "catalog-product-family"],
     });
     expect(registration("catalog-pdp-offer-v2").options).toEqual({
       revalidate: PRODUCT_OFFER_REVALIDATE_SECONDS,

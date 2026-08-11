@@ -36,6 +36,7 @@ const PRODUCT_SELECT = [
   "routine_sort",
   "product_variants(variant_key,label,price_cents,sort_order,available,inventory_status)",
   "product_media(media_type,url,alt,width,height,role,sort_order,palette_id,placeholder_palette)",
+  "product_family_memberships!product_family_memberships_product_id_fkey(family_id,is_entry)",
 ].join(",");
 
 const ROUTINE_COMPLEMENT_SELECT =

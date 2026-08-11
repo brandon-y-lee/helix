@@ -687,6 +687,86 @@ export type Database = {
           },
         ]
       }
+      product_families: {
+        Row: {
+          created_at: string
+          display_name: string
+          id: string
+          slug: string
+          system_step_name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          display_name: string
+          id?: string
+          slug: string
+          system_step_name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string
+          id?: string
+          slug?: string
+          system_step_name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_families_system_step_name_fkey"
+            columns: ["system_step_name"]
+            isOneToOne: false
+            referencedRelation: "system_steps"
+            referencedColumns: ["name"]
+          },
+        ]
+      }
+      product_family_memberships: {
+        Row: {
+          created_at: string
+          family_id: string
+          is_entry: boolean
+          option_label: string
+          product_id: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          family_id: string
+          is_entry?: boolean
+          option_label: string
+          product_id: string
+          sort_order: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          family_id?: string
+          is_entry?: boolean
+          option_label?: string
+          product_id?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_family_memberships_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "product_families"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_family_memberships_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: true
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_media: {
         Row: {
           alt: string
@@ -1627,6 +1707,36 @@ export type Database = {
         }
         Returns: Json
       }
+      publish_catalog_product_draft_v4_without_family: {
+        Args: {
+          p_actor_id: string
+          p_actor_role: string
+          p_change_audit: Json
+          p_draft_id: string
+          p_expected_version: number
+        }
+        Returns: Json
+      }
+      publish_catalog_product_draft_v4_without_family_concurrency: {
+        Args: {
+          p_actor_id: string
+          p_actor_role: string
+          p_change_audit: Json
+          p_draft_id: string
+          p_expected_version: number
+        }
+        Returns: Json
+      }
+      publish_catalog_product_draft_without_family_lock_order: {
+        Args: {
+          p_actor_id: string
+          p_actor_role: string
+          p_change_audit: Json
+          p_draft_id: string
+          p_expected_version: number
+        }
+        Returns: Json
+      }
       redeem_loyalty_points: {
         Args: {
           p_amount_cents: number
@@ -1818,6 +1928,16 @@ export type Database = {
         Returns: boolean
       }
       save_catalog_product_draft: {
+        Args: {
+          p_actor_id: string
+          p_actor_role: string
+          p_document: Json
+          p_draft_id: string
+          p_expected_version: number
+        }
+        Returns: Json
+      }
+      save_catalog_product_draft_without_family: {
         Args: {
           p_actor_id: string
           p_actor_role: string

@@ -41,6 +41,8 @@ function product(
     systemPosition: 1,
     systemStepName: "CLEANSE",
     routineSort: 10,
+    familyId: null,
+    familyIsEntry: null,
     variants: [
       {
         id: "standard",
@@ -280,6 +282,43 @@ describe("Storefront snapshot reconciliation", () => {
 });
 
 describe("Storefront journey expectations", () => {
+  it("collapses Product Family siblings only on collection journeys", () => {
+    const familyEntry = product({
+      id: "family-entry-id",
+      slug: "family-entry",
+      path: "/products/family-entry",
+      familyId: "family-id",
+      familyIsEntry: true,
+    });
+    const familySibling = product({
+      id: "family-sibling-id",
+      slug: "family-sibling",
+      path: "/products/family-sibling",
+      familyId: "family-id",
+      familyIsEntry: false,
+    });
+    const familySnapshot = {
+      ...snapshot,
+      products: [familyEntry, familySibling, beyond, waitlist],
+      journeys: {
+        ...snapshot.journeys,
+        coreProductId: familyEntry.id,
+        purchasableProductId: familyEntry.id,
+        richPdpProductId: familyEntry.id,
+        searchableProductId: familySibling.id,
+      },
+    } as const satisfies StorefrontSnapshot;
+    const journeys = createStorefrontJourneys(familySnapshot);
+
+    expect(journeys.products().map((item) => item.slug)).toEqual([
+      "family-entry",
+      "beyond-product",
+      "mineral-guard",
+    ]);
+    expect(journeys.productAtPath(familySibling.path)).toBe(familySibling);
+    expect(journeys.product("searchable")).toBe(familySibling);
+  });
+
   it("uses the selected production Product Offer without assuming one Product Variant", () => {
     const multiVariantProduct = product({
       variants: [

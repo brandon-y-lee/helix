@@ -38,6 +38,7 @@ function renderWaitlist() {
         productId="123e4567-e89b-42d3-a456-426614174141"
         productKey="mineral-guard"
         productName="Mineral Guard"
+        productFamily={null}
         productType="Mineral facial sunscreen"
         routineLabel="Beyond The Core"
         status="waitlist"
@@ -183,5 +184,71 @@ describe("Waitlist Product PDP enrollment", () => {
     await user.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     await waitFor(() => expect(sticky).toHaveFocus());
+  });
+});
+
+describe("REFINE Product Family selector", () => {
+  it("renders the exact ordered options and canonical member navigation", () => {
+    render(
+      <PdpPurchaseIsland
+        accordions={<div>Formula details</div>}
+        cartItem={{
+          slug: "beaming-prep",
+          name: "Beaming Prep",
+          swatch: ["#f4e7be", "#b99743"],
+          imageUrl: null,
+          imageAlt: null,
+          placeholderMedia: null,
+        }}
+        currency="USD"
+        productId="123e4567-e89b-42d3-a456-426614174143"
+        productKey="beaming-prep"
+        productName="Beaming Prep"
+        productType="Niacinamide brightening pads"
+        productFamily={{
+          id: "123e4567-e89b-42d3-a456-426614174144",
+          slug: "refine",
+          displayName: "REFINE",
+          systemStepName: "REFINE",
+          memberships: [
+            { productId: "general", slug: "balancing-prep", displayName: "Balancing Prep", optionLabel: "General", status: "coming_soon", sortOrder: 0, isEntry: true, isCurrent: false },
+            { productId: "exfoliating", slug: "polishing-prep", displayName: "Polishing Prep", optionLabel: "Exfoliating", status: "waitlist", sortOrder: 1, isEntry: false, isCurrent: false },
+            { productId: "brightening", slug: "beaming-prep", displayName: "Beaming Prep", optionLabel: "Brightening", status: "waitlist", sortOrder: 2, isEntry: false, isCurrent: true },
+            { productId: "cooling", slug: "chilling-prep", displayName: "Chilling Prep", optionLabel: "Cooling", status: "waitlist", sortOrder: 3, isEntry: false, isCurrent: false },
+          ],
+        }}
+        routineLabel="Beyond The Core"
+        status="waitlist"
+        stickyMedia={null}
+        stripePublishableKey={null}
+        unavailableLabel="Coming soon"
+        variants={[]}
+        showPrice={false}
+        showVariantOptions={false}
+      >
+        <h1>Beaming Prep</h1>
+      </PdpPurchaseIsland>,
+    );
+
+    const selector = screen.getByRole("group", { name: "REFINE options" });
+    expect(
+      within(selector).getAllByTestId("product-family-option").map((option) =>
+        option.getAttribute("data-option-label"),
+      ),
+    ).toEqual(["General", "Exfoliating", "Brightening", "Cooling"]);
+    expect(within(selector).getByText("Brightening").closest("span")).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(within(selector).getByRole("link", { name: /General/ })).toHaveAttribute(
+      "href",
+      "/products/balancing-prep",
+    );
+    expect(within(selector).getByRole("link", { name: /Cooling/ })).toHaveAttribute(
+      "href",
+      "/products/chilling-prep",
+    );
+    expect(within(selector).getAllByText("Waitlist")).toHaveLength(3);
+    expect(screen.getByRole("button", { name: "Join the waitlist" })).toBeEnabled();
   });
 });

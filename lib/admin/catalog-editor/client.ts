@@ -7,6 +7,8 @@ import type {
   CatalogRpcConflict,
   CatalogValidationIssue as CatalogBackendValidationIssue,
   CatalogProductMedia,
+  CatalogProductFamilyFields,
+  CatalogProductFamilyMembership,
   CatalogProductRelationship,
   CatalogProductSource,
   CatalogProductVariant,
@@ -27,6 +29,8 @@ export type CatalogRoutineFilter = "all" | "core" | "beyond";
 export type CatalogDraftFilter = "all" | "draft" | "ready" | "none";
 export type CatalogTable =
   | "products"
+  | "product_families"
+  | "product_family_memberships"
   | "product_pdp_content"
   | "product_variants"
   | "product_media"
@@ -48,6 +52,8 @@ export type CatalogVariantFields = CatalogProductVariant;
 export type CatalogMediaFields = CatalogProductMedia;
 export type CatalogRelationshipFields = CatalogProductRelationship;
 export type CatalogSourceFields = CatalogProductSource;
+export type CatalogFamilyFields = CatalogProductFamilyFields;
+export type CatalogFamilyMembershipFields = CatalogProductFamilyMembership;
 export type CatalogIngredientCard = PdpIngredientCard;
 export type CatalogIngredientHighlight = PdpIngredientHighlight;
 export type { CatalogEditorResponse };

@@ -20,8 +20,14 @@ const SOURCE_SELECT =
   "published_at, updated_at, made_for, good_for, texture, key_ingredients, " +
   "ingredients, concerns, usage_time, search_keywords, " +
   "product_slug_routes!product_slug_routes_target_product_id_fkey ( source_slug, route_kind ), " +
+  "product_family_memberships!product_family_memberships_product_id_fkey ( family_id, option_label, sort_order, is_entry, product_families!inner ( slug, display_name ) ), " +
   "product_variants ( variant_key, label, price_cents, sort_order, available, inventory_status ), " +
   "product_media ( media_type, url, alt, width, height, role, sort_order, palette_id, placeholder_palette )";
+
+const FAMILY_SOURCE_SELECT = SOURCE_SELECT.replace(
+  "product_family_memberships!product_family_memberships_product_id_fkey (",
+  "product_family_memberships!product_family_memberships_product_id_fkey!inner (",
+);
 
 /** All products as Algolia records, in canonical merchandising order. */
 export async function fetchAllSearchRecords(): Promise<AlgoliaProductRecord[]> {
@@ -64,4 +70,32 @@ export async function fetchSearchRecordById(
   if (row.catalog_status !== "active") return null;
   if (row.published_at && Date.parse(row.published_at) > Date.now()) return null;
   return buildAlgoliaRecord(row);
+}
+
+/** All current public member records for one canonical Product Family. */
+export async function fetchSearchRecordsByFamilyId(
+  familyId: string,
+): Promise<AlgoliaProductRecord[]> {
+  const { data, error } = await getSupabaseClient()
+    .from("products")
+    .select(FAMILY_SOURCE_SELECT)
+    .eq("product_family_memberships.family_id", familyId)
+    .order("sort_order", {
+      ascending: true,
+      referencedTable: "product_family_memberships",
+    });
+
+  if (error) {
+    throw new Error(
+      `[search-sync] Failed to read Product Family "${familyId}": ${error.message}`,
+    );
+  }
+
+  return (data as unknown as CatalogProductSource[])
+    .filter(
+      (row) =>
+        row.catalog_status === "active" &&
+        (!row.published_at || Date.parse(row.published_at) <= Date.now()),
+    )
+    .map(buildAlgoliaRecord);
 }
