@@ -14,7 +14,6 @@ const catalogCache = vi.hoisted(() => ({
   getCachedDiscoveryProductCards: vi.fn(),
   getCachedPdpProduct: vi.fn(),
   getCachedProductMetadata: vi.fn(),
-  getCachedProductRoutes: vi.fn(),
   getCachedProductSlugResolution: vi.fn(),
 }));
 
@@ -35,6 +34,7 @@ vi.mock("@/lib/checkout/config", () => ({
 }));
 
 import ProductDetailPage, {
+  dynamic,
   generateMetadata,
 } from "@/app/products/[slug]/page";
 
@@ -53,7 +53,6 @@ beforeEach(() => {
   vi.clearAllMocks();
   catalogCache.getCachedCoreRoutineSummaries.mockResolvedValue([]);
   catalogCache.getCachedDiscoveryProductCards.mockResolvedValue([]);
-  catalogCache.getCachedProductRoutes.mockResolvedValue([]);
   catalogCache.getCachedPdpProduct.mockResolvedValue({
     id: "product-id",
     slug: canonicalSlug,
@@ -63,6 +62,10 @@ beforeEach(() => {
 });
 
 describe("durable Product slug route resolution", () => {
+  it("resolves canonical and future alias paths only after a real request", () => {
+    expect(dynamic).toBe("force-dynamic");
+  });
+
   it.each(["Invalid_Product", "a".repeat(121)])(
     "rejects invalid inbound slug %s before creating a cached lookup",
     async (slug) => {

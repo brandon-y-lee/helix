@@ -86,14 +86,32 @@ async function renderedProducts(
 test("historical Product slugs redirect permanently without dynamic render failures", async ({
   request,
 }) => {
-  const response = await request.get(
-    "/products/cleanse-01-calming-gel-cleanser?campaign=core%20launch&filter=one&filter=two",
+  const redirects = [
+    ["reset-01-calming-gel-cleanser", "biotic-reset"],
+    ["cleanse-01-calming-gel-cleanser", "biotic-reset"],
+    ["recode-03-pdrn-5-ampoule", "peptide-bounce"],
+    ["treat-03-pdrn-5-ampoule", "peptide-bounce"],
+    ["refine-02-pore-treatment-pads", "balancing-prep"],
+    ["frame-04-pdrn-eye-cream", "peptide-eye-cream"],
+    ["lift-06-pdrn-mask-system", "peptide-nourish-mask"],
+  ] as const;
+
+  for (const [source, target] of redirects) {
+    const response = await request.get(`/products/${source}`, {
+      maxRedirects: 0,
+    });
+
+    expect(response.status(), source).toBe(308);
+    expect(response.headers().location, source).toBe(`/products/${target}`);
+  }
+
+  const queryResponse = await request.get(
+    "/products/reset-01-calming-gel-cleanser?campaign=core%20launch&filter=one&filter=two",
     { maxRedirects: 0 },
   );
-
-  expect(response.status()).toBe(308);
-  expect(response.headers().location).toBe(
-    "/products/biotic-reset?campaign=core%20launch&filter=one&filter=two",
+  expect(queryResponse.status()).toBe(308);
+  expect(queryResponse.headers().location).toBe(
+    "/products/biotic-reset?campaign=core+launch&filter=one&filter=two",
   );
 });
 

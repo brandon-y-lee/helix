@@ -17,6 +17,7 @@ import {
 } from "@/scripts/catalog/catalog-webhooks";
 
 const SECRET = "catalog-webhook-secret-that-is-long-enough";
+const DEPLOYMENT_BYPASS_SECRET = "vercel-preview-bypass-secret-that-is-long-enough";
 const ENDPOINT =
   "https://preview.mei-pelle.example/api/webhooks/supabase/catalog-search-sync";
 const PRODUCT_ID = "11111111-1111-4111-8111-111111111111";
@@ -26,6 +27,7 @@ const config: CatalogWebhookConfig = {
   targetEnvironment: "preview",
   endpoint: ENDPOINT,
   secret: SECRET,
+  deploymentBypassSecret: null,
   accessToken: "test-management-token",
 };
 
@@ -92,6 +94,36 @@ describe("catalog webhook desired state", () => {
       "mei_pelle_catalog_search_sync_product_families",
       "mei_pelle_catalog_search_sync_product_family_memberships",
     ]);
+  });
+
+  it("authenticates protected Preview deliveries without exposing the bypass secret", () => {
+    const desired = buildDesiredCatalogWebhooks(
+      ENDPOINT,
+      SECRET,
+      DEPLOYMENT_BYPASS_SECRET,
+    );
+
+    expect(desired.every((webhook) =>
+      webhook.headers["x-vercel-protection-bypass"] === DEPLOYMENT_BYPASS_SECRET
+    )).toBe(true);
+
+    const loaded = loadCatalogWebhookConfig({
+      NODE_ENV: "test",
+      SUPABASE_PROJECT_REF: "erasogmsqpgiirovubjh",
+      CATALOG_WEBHOOK_TARGET_ENVIRONMENT: "preview",
+      SUPABASE_CATALOG_WEBHOOK_URL: ENDPOINT,
+      SUPABASE_CATALOG_WEBHOOK_SECRET: SECRET,
+      SUPABASE_ACCESS_TOKEN: "test-management-token",
+      VERCEL_AUTOMATION_BYPASS_SECRET: DEPLOYMENT_BYPASS_SECRET,
+    });
+    const report = buildCatalogWebhookReport("plan", loaded, state({ hooks: [] }));
+
+    expect(report.desired[0]?.headerNames).toEqual([
+      "Content-Type",
+      "x-webhook-secret",
+      "x-vercel-protection-bypass",
+    ]);
+    expect(JSON.stringify(report)).not.toContain(DEPLOYMENT_BYPASS_SECRET);
   });
 
   it("fails closed for unknown or production projects and missing configuration", () => {
@@ -315,6 +347,7 @@ describe("catalog webhook smoke verification", () => {
     targetEnvironment: config.targetEnvironment,
     endpoint: config.endpoint,
     secret: config.secret,
+    deploymentBypassSecret: DEPLOYMENT_BYPASS_SECRET,
     productId: PRODUCT_ID,
   } as const;
 
@@ -351,6 +384,10 @@ describe("catalog webhook smoke verification", () => {
     });
     expect(JSON.stringify(report)).not.toContain(SECRET);
     expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock.mock.calls.every(([, init]) =>
+      (init?.headers as Record<string, string>)["x-vercel-protection-bypass"] ===
+        DEPLOYMENT_BYPASS_SECRET
+    )).toBe(true);
   });
 
   it("reports Algolia and partial-success failures distinctly", async () => {
