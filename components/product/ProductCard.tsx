@@ -569,7 +569,9 @@ export function ProductCard({
               aria-label={displayName}
               draggable={false}
             >
-              <span className="product-card__name">{displayName}</span>
+              <span className="product-card__step">
+                {product.systemStepName}
+              </span>
               <m.span
                 className="product-card__meta"
                 data-motion-state={visualState}
@@ -583,8 +585,13 @@ export function ProductCard({
                   ease: "easeOut",
                 }}
               >
-                <span className="product-card__tagline">
-                  {product.productType}
+                <span className="product-card__identity">
+                  <span className="product-card__display-name">
+                    {displayName}
+                  </span>
+                  <span className="product-card__type">
+                    {product.productType}
+                  </span>
                 </span>
                 {priceLabel ? (
                   <span className="product-card__price">{priceLabel}</span>

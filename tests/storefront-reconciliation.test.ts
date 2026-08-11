@@ -169,7 +169,7 @@ function collectionHtml(products: readonly StorefrontSnapshotProduct[]) {
       ).label;
       return `
       <li data-product-card-slug="${item.slug}">
-        <span class="product-card__name">${item.displayName}</span>
+        <span class="product-card__display-name">${item.displayName}</span>
         ${price === null ? "" : `<span class="product-card__price">${price}</span>`}
         ${item.merchandisingStatus === "waitlist" ? "" : `<button class="product-card__quick-trigger">${buyLabel}</button>`}
       </li>`;
