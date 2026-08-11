@@ -231,6 +231,7 @@ test("shop presents the approved Product, collection, sheet, and footer treatmen
   const productType = card.locator(".product-card__type");
   const price = card.locator(".product-card__price");
   await expect(step).toHaveCSS("font-family", /Marcellus/);
+  await expect(step).toHaveCSS("font-weight", "700");
   await expect(step).toHaveCSS("color", PRODUCT_CARD_WARM_GRAY);
   await expect(name).toHaveCSS("color", PRODUCT_CARD_WARM_GRAY);
   await expect(productType).toHaveCSS("color", PRODUCT_CARD_WARM_GRAY);
