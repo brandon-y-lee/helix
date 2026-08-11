@@ -231,11 +231,20 @@ test("shop presents the approved Product, collection, sheet, and footer treatmen
   const productType = card.locator(".product-card__type");
   const price = card.locator(".product-card__price");
   await expect(step).toHaveCSS("font-family", /Marcellus/);
-  await expect(step).toHaveCSS("font-weight", "700");
+  await expect(step).toHaveCSS("font-weight", "400");
   await expect(step).toHaveCSS("color", PRODUCT_CARD_WARM_GRAY);
   await expect(name).toHaveCSS("color", PRODUCT_CARD_WARM_GRAY);
   await expect(productType).toHaveCSS("color", PRODUCT_CARD_WARM_GRAY);
   await expect(price).toHaveCSS("color", PRODUCT_CARD_WARM_GRAY);
+  const displayNameGeometry = await elementGeometry(name);
+  const priceGeometry = await elementGeometry(price);
+  const productTypeGeometry = await elementGeometry(productType);
+  expect(Math.abs(displayNameGeometry.top - priceGeometry.top)).toBeLessThanOrEqual(
+    1,
+  );
+  expect(productTypeGeometry.top).toBeGreaterThanOrEqual(
+    displayNameGeometry.bottom,
+  );
   await name.hover();
   await expect(name).toHaveCSS("text-decoration-line", "none");
 

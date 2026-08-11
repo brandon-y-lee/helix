@@ -586,16 +586,18 @@ export function ProductCard({
                 }}
               >
                 <span className="product-card__identity">
-                  <span className="product-card__display-name">
-                    {displayName}
+                  <span className="product-card__display-row">
+                    <span className="product-card__display-name">
+                      {displayName}
+                    </span>
+                    {priceLabel ? (
+                      <span className="product-card__price">{priceLabel}</span>
+                    ) : null}
                   </span>
                   <span className="product-card__type">
                     {product.productType}
                   </span>
                 </span>
-                {priceLabel ? (
-                  <span className="product-card__price">{priceLabel}</span>
-                ) : null}
               </m.span>
             </Link>
 
