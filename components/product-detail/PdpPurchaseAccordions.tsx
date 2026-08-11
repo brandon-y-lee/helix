@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type PurchaseAccordionId = "use" | "ingredients";
 
@@ -23,6 +23,45 @@ export function PdpPurchaseAccordions({
 }: PdpPurchaseAccordionsProps) {
   const [openAccordion, setOpenAccordion] =
     useState<PurchaseAccordionId | null>(null);
+  const accordionsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (
+      !openAccordion ||
+      typeof window.matchMedia !== "function" ||
+      !window.matchMedia("(min-width: 821px)").matches
+    ) {
+      return;
+    }
+
+    const accordions = accordionsRef.current;
+    const purchaseIsland = accordions?.closest<HTMLElement>(".pdp__purchase");
+    if (!accordions || !purchaseIsland) return;
+
+    let cancelled = false;
+    const frame = window.requestAnimationFrame(() => {
+      const revealAnimations = accordions.getAnimations({ subtree: true });
+      void Promise.all(
+        revealAnimations.map((animation) =>
+          animation.finished.catch(() => undefined),
+        ),
+      ).then(() => {
+        if (cancelled) return;
+        const reducedMotion = window.matchMedia(
+          "(prefers-reduced-motion: reduce)",
+        ).matches;
+        purchaseIsland.scrollTo({
+          top: purchaseIsland.scrollHeight,
+          behavior: reducedMotion ? "auto" : "smooth",
+        });
+      });
+    });
+
+    return () => {
+      cancelled = true;
+      window.cancelAnimationFrame(frame);
+    };
+  }, [openAccordion]);
 
   function toggleAccordion(id: PurchaseAccordionId) {
     setOpenAccordion((current) => (current === id ? null : id));
@@ -30,6 +69,7 @@ export function PdpPurchaseAccordions({
 
   return (
     <div
+      ref={accordionsRef}
       className="pdp-accordions"
       aria-label={`${productName} purchase details`}
     >

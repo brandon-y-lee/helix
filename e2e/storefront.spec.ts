@@ -479,6 +479,144 @@ test("PDP resolves canonical data and exposes an available variant", async ({
   );
 });
 
+test("PDP purchase island contains and reveals purchase details across its responsive boundary", async ({
+  page,
+  storefront,
+}) => {
+  const product = storefront.product("richPdp");
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.setViewportSize({ width: 821, height: 640 });
+  await page.goto(product.path);
+
+  const primary = page.locator("[data-pdp-primary-section]");
+  const gallery = primary.locator(".pdp__gallery");
+  const purchase = primary.locator(".pdp__purchase");
+  const howToUse = purchase.getByRole("button", { name: "HOW TO USE" });
+
+  await expect(
+    purchase.getByRole("heading", { level: 1, name: product.displayName }),
+  ).toBeVisible();
+  await expect(purchase.locator("[data-pdp-buy-button]")).toBeVisible();
+  await expect(purchase.locator(".pdp-accordions")).toBeVisible();
+
+  const desktop = await Promise.all([
+    gallery.boundingBox(),
+    purchase.boundingBox(),
+    purchase.evaluate((element) => {
+      const style = getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+      return {
+        backgroundColor: style.backgroundColor,
+        borderRadius: style.borderRadius,
+        bottom: rect.bottom,
+        clientHeight: element.clientHeight,
+        overflowY: style.overflowY,
+        position: style.position,
+        scrollbarGutter: style.scrollbarGutter,
+        scrollHeight: element.scrollHeight,
+        top: rect.top,
+      };
+    }),
+  ]);
+  const [desktopGallery, desktopPurchase, desktopPresentation] = desktop;
+  expect(desktopGallery).not.toBeNull();
+  expect(desktopPurchase).not.toBeNull();
+  expect(desktopPurchase!.x).toBeGreaterThan(desktopGallery!.x);
+  expect(desktopPresentation).toMatchObject({
+    backgroundColor: "rgb(223, 229, 223)",
+    overflowY: "auto",
+    position: "sticky",
+    scrollbarGutter: "stable",
+  });
+  expect(desktopPresentation.borderRadius).not.toBe("0px");
+  expect(desktopPresentation.scrollHeight).toBeGreaterThan(
+    desktopPresentation.clientHeight,
+  );
+  expect(desktopPresentation.top).toBeGreaterThan(0);
+  expect(desktopPresentation.bottom).toBeLessThan(640);
+
+  await howToUse.focus();
+  await page.keyboard.press("Enter");
+  await expect(howToUse).toHaveAttribute("aria-expanded", "true");
+  await expect(howToUse).toBeFocused();
+  await expect
+    .poll(() =>
+      purchase.evaluate(
+        (element) =>
+          Math.abs(element.scrollHeight - element.clientHeight - element.scrollTop) <=
+          1,
+      ),
+    )
+    .toBe(true);
+
+  await page.setViewportSize({ width: 820, height: 640 });
+  await page.goto(product.path);
+
+  const narrowPrimary = page.locator("[data-pdp-primary-section]");
+  const narrowGallery = narrowPrimary.locator(".pdp__gallery");
+  const narrowMedia = narrowGallery.locator(".pdp__media-frame");
+  const narrowPurchase = narrowPrimary.locator(".pdp__purchase");
+  const narrowHowToUse = narrowPurchase.getByRole("button", {
+    name: "HOW TO USE",
+  });
+  const narrow = await Promise.all([
+    narrowGallery.boundingBox(),
+    narrowPurchase.boundingBox(),
+    narrowMedia.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return {
+        borderBottomLeftRadius: style.borderBottomLeftRadius,
+        borderBottomRightRadius: style.borderBottomRightRadius,
+        borderTopLeftRadius: style.borderTopLeftRadius,
+        borderTopRightRadius: style.borderTopRightRadius,
+      };
+    }),
+    narrowPurchase.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return {
+        borderBottomLeftRadius: style.borderBottomLeftRadius,
+        borderBottomRightRadius: style.borderBottomRightRadius,
+        borderTopLeftRadius: style.borderTopLeftRadius,
+        borderTopRightRadius: style.borderTopRightRadius,
+        clientHeight: element.clientHeight,
+        overflowY: style.overflowY,
+        position: style.position,
+        scrollHeight: element.scrollHeight,
+      };
+    }),
+  ]);
+  const [narrowGalleryBox, narrowPurchaseBox, narrowMediaStyle, narrowPurchaseStyle] =
+    narrow;
+  expect(narrowGalleryBox).not.toBeNull();
+  expect(narrowPurchaseBox).not.toBeNull();
+  expect(narrowPurchaseBox!.y).toBeCloseTo(
+    narrowGalleryBox!.y + narrowGalleryBox!.height,
+    1,
+  );
+  expect(narrowMediaStyle).toMatchObject({
+    borderBottomLeftRadius: "0px",
+    borderBottomRightRadius: "0px",
+  });
+  expect(narrowMediaStyle.borderTopLeftRadius).not.toBe("0px");
+  expect(narrowMediaStyle.borderTopRightRadius).not.toBe("0px");
+  expect(narrowPurchaseStyle).toMatchObject({
+    borderTopLeftRadius: "0px",
+    borderTopRightRadius: "0px",
+    overflowY: "visible",
+    position: "static",
+  });
+  expect(narrowPurchaseStyle.borderBottomLeftRadius).not.toBe("0px");
+  expect(narrowPurchaseStyle.borderBottomRightRadius).not.toBe("0px");
+  expect(narrowPurchaseStyle.scrollHeight).toBe(narrowPurchaseStyle.clientHeight);
+
+  await narrowHowToUse.focus();
+  const pageOriginBeforeReveal = await viewportOrigin(page);
+  await page.keyboard.press("Enter");
+  await expect(narrowHowToUse).toHaveAttribute("aria-expanded", "true");
+  await expect(narrowHowToUse).toBeFocused();
+  expect(await viewportOrigin(page)).toEqual(pageOriginBeforeReveal);
+});
+
 test("Quick Buy places Product education before configuration and the final Buy action", async ({
   page,
   storefront,
