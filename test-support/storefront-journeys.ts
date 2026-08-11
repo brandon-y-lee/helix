@@ -4,6 +4,7 @@ import {
   productPurchaseCta,
 } from "@/lib/products";
 import {
+  isStorefrontCollectionProduct,
   StorefrontBaselineError,
   type StorefrontSnapshot,
   type StorefrontSnapshotMedia,
@@ -134,7 +135,7 @@ export function createStorefrontJourneys(snapshot: StorefrontSnapshot) {
     },
     products(routineGroup?: StorefrontRoutineGroup) {
       const collectionProducts = snapshot.products.filter(
-        (product) => product.familyId === null || product.familyIsEntry === true,
+        isStorefrontCollectionProduct,
       );
       if (!routineGroup) return collectionProducts;
       const snapshotGroup = routineGroup === "core" ? "core" : "beyond_core";

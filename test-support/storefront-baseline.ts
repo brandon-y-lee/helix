@@ -162,6 +162,12 @@ export type StorefrontSnapshotProduct = Readonly<{
   }> | null;
 }>;
 
+export function isStorefrontCollectionProduct(
+  product: Pick<StorefrontSnapshotProduct, "familyId" | "familyIsEntry">,
+): boolean {
+  return product.familyId === null || product.familyIsEntry === true;
+}
+
 export type StorefrontSnapshot = Readonly<{
   schemaVersion: 1;
   products: readonly StorefrontSnapshotProduct[];
@@ -711,6 +717,7 @@ function buildStorefrontSnapshot(
         a.slug.localeCompare(b.slug) ||
         a.id.localeCompare(b.id),
     );
+  const collectionProducts = products.filter(isStorefrontCollectionProduct);
   const ids = new Set(products.map((product) => product.id));
   const routineComplements = catalog.routineComplements
     .map((relationship) => {
@@ -751,17 +758,17 @@ function buildStorefrontSnapshot(
     );
 
   const core = requireCapability(
-    products,
+    collectionProducts,
     "The Core Routine Group",
     (product) => product.routineGroup === "core",
   );
   const beyond = requireCapability(
-    products,
+    collectionProducts,
     "Beyond The Core Routine Group",
     (product) => product.routineGroup === "beyond_core",
   );
   const purchasable = requireCapability(
-    products,
+    collectionProducts,
     "Purchasable Product",
     (product) => product.offer !== null,
   );
