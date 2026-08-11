@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { AccountAccessLayout } from "@/components/account/AccountAccessLayout";
 import { SignUpForm } from "@/components/account/AccountForms";
 import { getCurrentUserForPublicPage } from "@/lib/auth/session";
 
@@ -12,12 +13,8 @@ export default async function SignUpPage() {
   if (user) redirect("/account");
 
   return (
-    <div className="container account-shell">
-      <section className="account-panel">
-        <p className="eyebrow">Account</p>
-        <h1>Create account</h1>
-        <SignUpForm />
-      </section>
-    </div>
+    <AccountAccessLayout heading="Create account">
+      <SignUpForm />
+    </AccountAccessLayout>
   );
 }

@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/catalog-cache", () => ({
@@ -18,6 +19,8 @@ vi.mock("next/navigation", async (importOriginal) => {
 });
 
 import SignInPage from "@/app/account/sign-in/page";
+import SignUpPage from "@/app/account/sign-up/page";
+import ForgotPasswordPage from "@/app/account/forgot-password/page";
 import ResetPasswordPage from "@/app/account/reset-password/page";
 import CartPage from "@/app/cart/page";
 import CollectionPage, {
@@ -155,6 +158,156 @@ describe("public route states", () => {
       "href",
       "/account/sign-up",
     );
+  });
+
+  it("renders account creation in the shared access layout", async () => {
+    const user = userEvent.setup();
+    render(await SignUpPage());
+
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Create account" }),
+    ).toBeVisible();
+    expect(screen.queryByText("Account")).not.toBeInTheDocument();
+
+    const fields = [
+      screen.getByLabelText("First name"),
+      screen.getByLabelText("Last name"),
+      screen.getByLabelText("Email"),
+      screen.getByLabelText("Password"),
+    ];
+
+    expect(fields.map((field) => field.getAttribute("name"))).toEqual([
+      "firstName",
+      "lastName",
+      "email",
+      "password",
+    ]);
+    expect(fields.map((field) => field.getAttribute("placeholder"))).toEqual([
+      "First name",
+      "Last name",
+      "Email",
+      "Password",
+    ]);
+    expect(fields.map((field) => field.getAttribute("autocomplete"))).toEqual([
+      "given-name",
+      "family-name",
+      "email",
+      "new-password",
+    ]);
+    fields.slice(0, -1).forEach((field, index) => {
+      expect(
+        field.compareDocumentPosition(fields[index + 1]) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    });
+    expect(fields[0]).not.toBeRequired();
+    expect(fields[1]).not.toBeRequired();
+    expect(fields[2]).toBeRequired();
+    expect(fields[3]).toBeRequired();
+    expect(fields[3]).toHaveAttribute("type", "password");
+    expect(
+      screen.queryByRole("button", { name: /show password/i }),
+    ).not.toBeInTheDocument();
+
+    expect(
+      screen.getByText("Your skin. Your system.").closest('[aria-hidden="true"]'),
+    ).not.toBeNull();
+    expect(screen.getByRole("link", { name: "Sign in instead" })).toHaveAttribute(
+      "href",
+      "/account/sign-in",
+    );
+
+    const createAccount = screen.getByRole("button", { name: "Create account" });
+    const signInInstead = screen.getByRole("link", { name: "Sign in instead" });
+    await user.tab();
+    expect(fields[0]).toHaveFocus();
+    await user.tab();
+    expect(fields[1]).toHaveFocus();
+    await user.tab();
+    expect(fields[2]).toHaveFocus();
+    await user.tab();
+    expect(fields[3]).toHaveFocus();
+    await user.tab();
+    expect(createAccount).toHaveFocus();
+    await user.tab();
+    expect(signInInstead).toHaveFocus();
+  });
+
+  it("renders password recovery in the shared access layout", async () => {
+    const user = userEvent.setup();
+    render(<ForgotPasswordPage />);
+
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Reset password" }),
+    ).toBeVisible();
+    expect(screen.queryByText("Account")).not.toBeInTheDocument();
+
+    const email = screen.getByLabelText("Email");
+    expect(email).toHaveAttribute("type", "email");
+    expect(email).toHaveAttribute("placeholder", "Email");
+    expect(email).toHaveAttribute("autocomplete", "email");
+    expect(email).toBeRequired();
+    expect(email).toHaveAttribute("aria-invalid", "false");
+    expect(screen.getByRole("button", { name: "Send reset link" })).toBeVisible();
+    expect(screen.getByRole("link", { name: "Return to sign in" })).toHaveAttribute(
+      "href",
+      "/account/sign-in",
+    );
+    expect(
+      screen.getByText("Your skin. Your system.").closest('[aria-hidden="true"]'),
+    ).not.toBeNull();
+
+    await user.tab();
+    expect(email).toHaveFocus();
+    await user.tab();
+    expect(screen.getByRole("button", { name: "Send reset link" })).toHaveFocus();
+    await user.tab();
+    expect(screen.getByRole("link", { name: "Return to sign in" })).toHaveFocus();
+  });
+
+  it("keeps account-creation errors adjacent and globally announced", async () => {
+    render(await SignUpPage());
+
+    const form = screen.getByRole("button", { name: "Create account" }).closest("form");
+    if (!form) throw new Error("Expected the account-creation form");
+    fireEvent.submit(form);
+
+    const alert = await screen.findByRole("alert");
+    const email = screen.getByLabelText("Email");
+    const password = screen.getByLabelText("Password");
+    const emailError = screen.getByText("Email is required.");
+    const passwordError = screen.getByText("Password is required.");
+
+    expect(alert).toHaveTextContent("Check the highlighted fields.");
+    expect(
+      alert.compareDocumentPosition(email) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(email).toHaveAttribute("aria-invalid", "true");
+    expect(email).toHaveAccessibleDescription("Email is required.");
+    expect(email.parentElement?.lastElementChild).toBe(emailError);
+    expect(password).toHaveAttribute("aria-invalid", "true");
+    expect(password).toHaveAccessibleDescription("Password is required.");
+    expect(password.parentElement?.lastElementChild).toBe(passwordError);
+  });
+
+  it("keeps recovery errors adjacent and globally announced", async () => {
+    render(<ForgotPasswordPage />);
+
+    const form = screen.getByRole("button", { name: "Send reset link" }).closest("form");
+    if (!form) throw new Error("Expected the recovery form");
+    fireEvent.submit(form);
+
+    const alert = await screen.findByRole("alert");
+    const email = screen.getByLabelText("Email");
+    const emailError = screen.getByText("Email is required.");
+
+    expect(alert).toHaveTextContent("Check the highlighted fields.");
+    expect(
+      alert.compareDocumentPosition(email) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(email).toHaveAttribute("aria-invalid", "true");
+    expect(email).toHaveAccessibleDescription("Email is required.");
+    expect(email.parentElement?.lastElementChild).toBe(emailError);
   });
 
   it("keeps reset-password visibility controls outside the access-page change", async () => {
