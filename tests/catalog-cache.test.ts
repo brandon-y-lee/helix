@@ -47,7 +47,6 @@ vi.mock("@/lib/catalog/storefront", () => ({
   getProductOffer: vi.fn(),
   getProductOffers: vi.fn(),
   getProductRoutes: vi.fn(),
-  getProductStaticRoutes: vi.fn(),
   getProductSlugResolution: vi.fn(),
 }));
 

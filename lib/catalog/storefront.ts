@@ -834,21 +834,6 @@ export async function getProductRoutes(): Promise<ProductRoute[]> {
   return (data ?? []) as ProductRoute[];
 }
 
-export async function getProductStaticRoutes(): Promise<ProductRoute[]> {
-  const { data, error } = await getSupabaseClient()
-    .from("product_slug_routes")
-    .select("source_slug")
-    .order("source_slug", { ascending: true });
-
-  if (error) {
-    throw new Error(
-      `[catalog] Failed to load static Product paths from Supabase: ${error.message}.`,
-    );
-  }
-
-  return (data ?? []).map((route) => ({ slug: route.source_slug }));
-}
-
 export async function getProductSlugResolution(
   sourceSlug: string,
 ): Promise<ProductSlugResolution | undefined> {

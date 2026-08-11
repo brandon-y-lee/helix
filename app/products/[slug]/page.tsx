@@ -7,7 +7,6 @@ import {
   getCachedDiscoveryProductCards,
   getCachedPdpProduct,
   getCachedProductMetadata,
-  getCachedProductStaticRoutes,
   getCachedProductSlugResolution,
 } from "@/lib/catalog-cache";
 import { stripeMessagingPublishableKey } from "@/lib/checkout/config";
@@ -24,10 +23,11 @@ const siteUrl = new URL(
   process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
 );
 
-export async function generateStaticParams() {
-  const routes = await getCachedProductStaticRoutes();
-  return routes.map((route) => ({ slug: route.slug }));
-}
+// Product aliases are governed data and may be published after a deployment.
+// Keep the route request-time while its public Catalog projections remain
+// independently cached, so every current or future alias can resolve without
+// a rebuild and preserve the incoming query string.
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({
   params,

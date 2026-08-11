@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("@/lib/catalog-cache", () => ({
   getCachedProductMetadata: vi.fn(),
   getCachedProductRoutes: vi.fn(),
-  getCachedProductStaticRoutes: vi.fn(),
   getCachedProductSlugResolution: vi.fn(),
 }));
 

@@ -12,7 +12,6 @@ import {
   getProductCardContents,
   getProductMetadata,
   getProductOffer,
-  getProductStaticRoutes,
   getProductSlugResolution,
 } from "@/lib/catalog/storefront";
 import { CORE_ROUTINE_PRODUCT_SLUGS } from "@/lib/catalog/models";
@@ -155,26 +154,6 @@ beforeEach(() => {
 });
 
 describe("storefront catalog projections", () => {
-  it("loads canonical and historical static paths from the public slug ledger", async () => {
-    const { client, calls } = makeClient({
-      data: [
-        { source_slug: "peptide-bounce" },
-        { source_slug: "recode-03-pdrn-5-ampoule" },
-      ],
-      error: null,
-    });
-    mockedGetClient.mockReturnValue(client);
-
-    await expect(getProductStaticRoutes()).resolves.toEqual([
-      { slug: "peptide-bounce" },
-      { slug: "recode-03-pdrn-5-ampoule" },
-    ]);
-    expect(calls).toEqual([
-      { method: "select", args: ["source_slug"] },
-      { method: "order", args: ["source_slug", { ascending: true }] },
-    ]);
-  });
-
   it("maps the public slug resolver result without following a route chain in application code", async () => {
     const calls: Call[] = [];
     mockedGetClient.mockReturnValue({

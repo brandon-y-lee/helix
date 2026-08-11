@@ -38,6 +38,17 @@ begin
     ) then
       raise exception 'service_role Catalog access is incomplete for public.%', v_table;
     end if;
+
+    foreach v_privilege in array array['truncate', 'references', 'trigger']
+    loop
+      if has_table_privilege(
+        'service_role',
+        'public.' || v_table,
+        v_privilege
+      ) then
+        raise exception 'service_role retains % on public.%', v_privilege, v_table;
+      end if;
+    end loop;
   end loop;
 end;
 $catalog_grant_contract$;

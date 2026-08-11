@@ -10,6 +10,14 @@ const sql = readFileSync(
   "utf8",
 );
 
+const serviceRoleSql = readFileSync(
+  resolve(
+    process.cwd(),
+    "supabase/migrations/20260811043315_narrow_service_role_catalog_grants.sql",
+  ),
+  "utf8",
+);
+
 describe("public Catalog least-privilege migration", () => {
   it("leaves browser roles with read-only table privileges", () => {
     for (const table of ["products", "product_variants", "product_media"]) {
@@ -28,9 +36,16 @@ describe("public Catalog least-privilege migration", () => {
 
   it("preserves the server role's explicit Catalog read and write boundary", () => {
     for (const table of ["products", "product_variants", "product_media"]) {
-      expect(sql).toContain(
+      expect(serviceRoleSql).toContain(
+        `revoke all privileges on table public.${table} from service_role`,
+      );
+      expect(serviceRoleSql).toContain(
         `grant select, insert, update, delete on table public.${table} to service_role`,
       );
     }
+
+    expect(serviceRoleSql).not.toMatch(
+      /grant\s+(?:truncate|references|trigger|all)\b[\s\S]*?\bto\s+service_role/i,
+    );
   });
 });

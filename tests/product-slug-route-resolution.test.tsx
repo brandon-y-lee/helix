@@ -14,8 +14,6 @@ const catalogCache = vi.hoisted(() => ({
   getCachedDiscoveryProductCards: vi.fn(),
   getCachedPdpProduct: vi.fn(),
   getCachedProductMetadata: vi.fn(),
-  getCachedProductRoutes: vi.fn(),
-  getCachedProductStaticRoutes: vi.fn(),
   getCachedProductSlugResolution: vi.fn(),
 }));
 
@@ -36,7 +34,7 @@ vi.mock("@/lib/checkout/config", () => ({
 }));
 
 import ProductDetailPage, {
-  generateStaticParams,
+  dynamic,
   generateMetadata,
 } from "@/app/products/[slug]/page";
 
@@ -55,8 +53,6 @@ beforeEach(() => {
   vi.clearAllMocks();
   catalogCache.getCachedCoreRoutineSummaries.mockResolvedValue([]);
   catalogCache.getCachedDiscoveryProductCards.mockResolvedValue([]);
-  catalogCache.getCachedProductRoutes.mockResolvedValue([]);
-  catalogCache.getCachedProductStaticRoutes.mockResolvedValue([]);
   catalogCache.getCachedPdpProduct.mockResolvedValue({
     id: "product-id",
     slug: canonicalSlug,
@@ -66,20 +62,8 @@ beforeEach(() => {
 });
 
 describe("durable Product slug route resolution", () => {
-  it("pre-renders canonical and historical Product paths from the slug ledger", async () => {
-    catalogCache.getCachedProductStaticRoutes.mockResolvedValue([
-      { slug: "peptide-bounce" },
-      { slug: "treat-03-pdrn-5-ampoule" },
-      { slug: "recode-03-pdrn-5-ampoule" },
-    ]);
-
-    await expect(generateStaticParams()).resolves.toEqual([
-      { slug: "peptide-bounce" },
-      { slug: "treat-03-pdrn-5-ampoule" },
-      { slug: "recode-03-pdrn-5-ampoule" },
-    ]);
-    expect(catalogCache.getCachedProductStaticRoutes).toHaveBeenCalledOnce();
-    expect(catalogCache.getCachedProductRoutes).not.toHaveBeenCalled();
+  it("resolves canonical and future alias paths only after a real request", () => {
+    expect(dynamic).toBe("force-dynamic");
   });
 
   it.each(["Invalid_Product", "a".repeat(121)])(
