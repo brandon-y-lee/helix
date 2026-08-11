@@ -2,7 +2,7 @@ import type { Product } from "@/lib/products";
 
 export const METHOD_PRODUCT_SLUGS = [
   "biotic-reset",
-  "refine-02-pore-treatment-pads",
+  "balancing-prep",
   "peptide-bounce",
   "frame-04-pdrn-eye-cream",
   "ceramide-cushion",
@@ -40,14 +40,14 @@ export const ROUTINE_PRESET_COPY: Record<
     ariaValueText: "4 steps, foundation plus protection",
   },
   5: {
-    label: "+ TEXTURE",
-    summary: "Adds controlled, frequency-dependent refinement.",
-    ariaValueText: "5 steps, foundation plus protection and texture control",
+    label: "+ PREP",
+    summary: "Adds daily balancing prep after cleansing.",
+    ariaValueText: "5 steps, foundation plus protection and balancing prep",
   },
   6: {
     label: "+ EYE CARE",
     summary: "Adds targeted support around the eyes.",
-    ariaValueText: "6 steps, foundation plus protection, texture control, and eye care",
+    ariaValueText: "6 steps, foundation plus protection, balancing prep, and eye care",
   },
   7: {
     label: "+ WEEKLY",
@@ -97,7 +97,7 @@ export const METHOD_STEP_CONFIGS = [
   {
     id: "refine",
     kind: "product",
-    slug: "refine-02-pore-treatment-pads",
+    slug: "balancing-prep",
     anchorId: "system-refine",
     legacyAnchorIds: ["step-refine", "method-refine"],
     canonicalPosition: 2,
@@ -169,10 +169,10 @@ const METHOD_STEP_COPY: Record<MethodProductSlug, MethodStepCopy> = {
     why:
       "Clean skin helps treatment layers spread evenly without relying on a stripped finish.",
   },
-  "refine-02-pore-treatment-pads": {
-    what: "A treatment pad for visible texture, pores, and oil-heavy areas.",
+  "balancing-prep": {
+    what: "A daily toner pad for a fresh, balanced-feeling finish after cleansing.",
     why:
-      "It clears the path between cleansing and serum while keeping frequency adjustable.",
+      "It adds a light prep layer before serum without introducing an exfoliating-acid claim.",
   },
   "peptide-bounce": {
     what:
@@ -389,8 +389,8 @@ export const ROUTINE_GROUPS: ReadonlyArray<RoutineGroup> = [
       { kind: "product", slug: "biotic-reset" },
       {
         kind: "product",
-        slug: "refine-02-pore-treatment-pads",
-        note: "Use at the supported frequency.",
+        slug: "balancing-prep",
+        note: "Use daily after cleansing.",
       },
       { kind: "product", slug: "peptide-bounce" },
       { kind: "product", slug: "frame-04-pdrn-eye-cream" },
@@ -407,8 +407,8 @@ export const ROUTINE_GROUPS: ReadonlyArray<RoutineGroup> = [
       { kind: "product", slug: "biotic-reset" },
       {
         kind: "product",
-        slug: "refine-02-pore-treatment-pads",
-        note: "Use when directed.",
+        slug: "balancing-prep",
+        note: "Use daily after cleansing.",
       },
       { kind: "product", slug: "peptide-bounce" },
       { kind: "product", slug: "frame-04-pdrn-eye-cream" },
@@ -555,7 +555,7 @@ const INGREDIENT_DEFINITIONS: IngredientDefinition[] = [
     mechanism:
       "Supports desquamation or surface refinement depending on acid type, pH, vehicle, and use frequency.",
     skinRelevance:
-      "Relevant to REFINE's texture-control role without claiming permanent pore changes.",
+      "Relevant to exfoliating REFINE options only when the published formula supports the acid identity.",
     formulationNote:
       "Stability, pH, vehicle, and frequency influence performance more than the acid name alone.",
   },

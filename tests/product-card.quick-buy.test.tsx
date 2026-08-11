@@ -105,6 +105,7 @@ function makeProduct(
     volume: "50 ml",
     usageTime: ["AM", "PM"],
     createdAt: "2026-06-14T00:00:00.000Z",
+    productFamily: null,
   };
   return { ...base, ...overrides };
 }

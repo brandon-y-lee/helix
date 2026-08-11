@@ -220,6 +220,7 @@ export function purchaseIslandProps(
     productKey: product.slug,
     productName: product.displayName,
     productType: product.productType,
+    productFamily: product.productFamily,
     status: product.status,
     routineLabel,
     stickyMedia: media,

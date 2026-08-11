@@ -44,6 +44,7 @@ export function buildStorefrontSearchRecord(
     published_at: product.publishedAt,
     updated_at: product.updatedAt,
     product_slug_routes: [],
+    product_family_memberships: null,
     product_variants: product.variants.map((variant) => ({
       variant_key: variant.id,
       label: variant.label,

@@ -27,7 +27,7 @@ const mockedGetProducts = getCachedProducts as unknown as Mock;
 
 const nameBySlug: Record<string, string> = {
   "biotic-reset": "Biotic Reset",
-  "refine-02-pore-treatment-pads": "REFINE",
+  "balancing-prep": "Balancing Prep",
   "peptide-bounce": "Peptide Bounce",
   "frame-04-pdrn-eye-cream": "FRAME",
   "ceramide-cushion": "Ceramide Cushion",
@@ -36,7 +36,7 @@ const nameBySlug: Record<string, string> = {
 
 const systemStepBySlug: Record<string, SystemStepName> = {
   "biotic-reset": "CLEANSE",
-  "refine-02-pore-treatment-pads": "REFINE",
+  "balancing-prep": "REFINE",
   "peptide-bounce": "TREAT",
   "frame-04-pdrn-eye-cream": "FRAME",
   "ceramide-cushion": "SEAL",
@@ -45,7 +45,7 @@ const systemStepBySlug: Record<string, SystemStepName> = {
 
 const ingredientsBySlug: Record<string, string[]> = {
   "biotic-reset": ["6-Type Cica Complex"],
-  "refine-02-pore-treatment-pads": ["Panthenol", "LHA"],
+  "balancing-prep": ["Panthenol", "Hyaluronic Acid"],
   "peptide-bounce": [
     "Sodium DNA (50,000 ppm)",
     "Niacinamide",
@@ -264,6 +264,13 @@ describe("System content architecture", () => {
         (entry) => entry.label,
       ),
     ).toEqual(["LIFT"]);
+    const balancingEntries = [
+      ...routineTimingEntriesForGroup(ROUTINE_GROUPS[0], fullSteps),
+      ...routineTimingEntriesForGroup(ROUTINE_GROUPS[1], fullSteps),
+    ].filter((entry) => entry.slug === "balancing-prep");
+    expect(balancingEntries).toHaveLength(2);
+    expect(balancingEntries.every((entry) => entry.note === "Use daily after cleansing."))
+      .toBe(true);
     expect(
       formulaFocus(
         makeProduct("cleanse-01-calming-gel-cleanser", { keyIngredients: [] }),

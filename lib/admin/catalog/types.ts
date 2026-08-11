@@ -26,6 +26,10 @@ type CatalogAuditRow =
   Database["public"]["Tables"]["catalog_editor_audit_log"]["Row"];
 type ProductSlugRouteRow =
   Database["public"]["Tables"]["product_slug_routes"]["Row"];
+type ProductFamilyRow =
+  Database["public"]["Tables"]["product_families"]["Row"];
+type ProductFamilyMembershipRow =
+  Database["public"]["Tables"]["product_family_memberships"]["Row"];
 
 export const PRODUCT_EDITOR_SCHEMA_VERSION = 4 as const;
 
@@ -72,6 +76,15 @@ export type CatalogProductMedia = ProductMediaRow & {
 export type CatalogProductRelationship = ProductRelationshipRow;
 export type CatalogProductSource = ProductSourceRow;
 
+export type CatalogProductFamilyFields = ProductFamilyRow;
+
+export type CatalogProductFamilyMembership = ProductFamilyMembershipRow;
+
+export type CatalogProductFamily = {
+  family: CatalogProductFamilyFields;
+  memberships: CatalogProductFamilyMembership[];
+};
+
 export type ProductEditorDocumentV4 = {
   schemaVersion: typeof PRODUCT_EDITOR_SCHEMA_VERSION;
   productId: string;
@@ -81,6 +94,7 @@ export type ProductEditorDocumentV4 = {
   media: CatalogProductMedia[];
   relationships: CatalogProductRelationship[];
   productSource: CatalogProductSource | null;
+  productFamily: CatalogProductFamily | null;
 };
 
 type CatalogDraftStatus =
@@ -153,6 +167,7 @@ type CatalogChangedTables = {
   media: boolean;
   relationships: boolean;
   productSource: boolean;
+  productFamily: boolean;
 };
 
 export type CatalogPublishTransactionSuccess = {

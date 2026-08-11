@@ -11,6 +11,8 @@ import { isCoreRoutineMediaRole } from "@/lib/catalog/media-roles";
 
 type EditorTable =
   | "products"
+  | "product_families"
+  | "product_family_memberships"
   | "product_pdp_content"
   | "product_variants"
   | "product_media"
@@ -21,6 +23,12 @@ type JsonObject = Record<string, unknown>;
 
 const NEW_ROW_SYSTEM_FIELDS: Readonly<Record<EditorTable, ReadonlySet<string>>> = {
   products: new Set(),
+  product_families: new Set(["id", "created_at", "updated_at"]),
+  product_family_memberships: new Set([
+    "family_id",
+    "created_at",
+    "updated_at",
+  ]),
   product_pdp_content: new Set([
     "product_id",
     "schema_version",
@@ -163,7 +171,10 @@ function validateCollectionOwnership({
   const identity = (row: JsonObject) =>
     typeof row.id === "string"
       ? row.id
-      : table === "product_relationships" &&
+      : table === "product_family_memberships" &&
+          typeof row.product_id === "string"
+        ? row.product_id
+        : table === "product_relationships" &&
           typeof row.related_product_id === "string" &&
           typeof row.relationship_type === "string"
         ? `${row.related_product_id}:${row.relationship_type}`
@@ -240,6 +251,37 @@ export function validateCatalogEditorOwnership(
           (canonical.productPdpContent as JsonObject | null) ?? undefined,
         role,
       }),
+    );
+  }
+
+  if (candidate.productFamily) {
+    issues.push(
+      ...validateObjectOwnership({
+        table: "product_families",
+        path: "productFamily.family",
+        candidate: candidate.productFamily.family as JsonObject,
+        canonical:
+          (canonical.productFamily?.family as JsonObject | undefined) ??
+          undefined,
+        role,
+      }),
+      ...validateCollectionOwnership({
+        table: "product_family_memberships",
+        path: "productFamily.memberships",
+        candidate: candidate.productFamily.memberships as JsonObject[],
+        canonical:
+          (canonical.productFamily?.memberships as JsonObject[] | undefined) ??
+          [],
+        role,
+      }),
+    );
+  } else if (canonical.productFamily && role !== "admin") {
+    issues.push(
+      ownershipIssue(
+        "productFamily",
+        "field_read_only",
+        "Only an admin can remove a Product Family.",
+      ),
     );
   }
 

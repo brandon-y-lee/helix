@@ -41,6 +41,12 @@ const comingSoonProduct: AlgoliaProductRecord = {
   madeFor: null,
   goodFor: null,
   texture: null,
+  familyId: null,
+  familySlug: null,
+  familyDisplayName: null,
+  familyOptionLabel: null,
+  familySortOrder: null,
+  familyIsEntry: null,
 };
 
 const waitlistProduct: AlgoliaProductRecord = {

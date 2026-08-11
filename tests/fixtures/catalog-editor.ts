@@ -171,6 +171,7 @@ export const catalogDocument: CatalogDraftDocument = {
     },
   ],
   relationships: [],
+  productFamily: null,
   productSource: {
     product_id: PRODUCT_ID,
     supplier: "leaders",

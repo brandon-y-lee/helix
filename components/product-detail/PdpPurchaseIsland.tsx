@@ -8,6 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import Link from "next/link";
 import { AfterpayMessaging } from "@/components/product-detail/AfterpayMessaging";
 import { ProductImage } from "@/components/product/ProductImage";
 import { useProductPurchase } from "@/components/cart/useProductPurchase";
@@ -19,6 +20,8 @@ import {
 } from "@/lib/products";
 import { PREVIEW_COMMERCE_DISABLED_LABEL } from "@/lib/catalog-editor/preview-commerce";
 import { ProductWaitlistSheet } from "@/components/product-detail/ProductWaitlistSheet";
+import type { ProductFamily } from "@/lib/catalog/models";
+import { statusLabel } from "@/lib/catalog/product-status";
 
 export type PdpPurchaseVariant = {
   id: string;
@@ -43,6 +46,7 @@ export type PdpPurchaseIslandProps = {
   productId: string;
   productName: string;
   productType: string | null;
+  productFamily: ProductFamily | null;
   routineLabel: string;
   stickyMedia: ProductMedia | null;
   stripePublishableKey: string | null;
@@ -62,6 +66,7 @@ export function PdpPurchaseIsland({
   productId,
   productName,
   productType,
+  productFamily,
   routineLabel,
   stickyMedia,
   stripePublishableKey,
@@ -217,6 +222,48 @@ export function PdpPurchaseIsland({
     <>
       <div className="pdp__purchase">
         {children}
+        {productFamily && (
+          <fieldset className="pdp-family-selector">
+            <legend>{productFamily.displayName} options</legend>
+            <div className="pdp-family-selector__options">
+              {productFamily.memberships.map((membership) => {
+                const state = statusLabel(membership.status) ?? "Available";
+                const content = (
+                  <>
+                    <strong>{membership.optionLabel}</strong>
+                    <span>{membership.displayName}</span>
+                    <small>{state}</small>
+                  </>
+                );
+                const className = "pdp-family-selector__option";
+                const common = {
+                  className,
+                  "data-option-label": membership.optionLabel,
+                  "data-product-status": membership.status,
+                  "data-testid": "product-family-option",
+                };
+                return membership.isCurrent ? (
+                  <span
+                    key={membership.productId}
+                    {...common}
+                    aria-current="page"
+                  >
+                    {content}
+                  </span>
+                ) : (
+                  <Link
+                    key={membership.productId}
+                    {...common}
+                    href={`/products/${membership.slug}`}
+                    aria-label={`${membership.optionLabel}: ${membership.displayName}, ${state}`}
+                  >
+                    {content}
+                  </Link>
+                );
+              })}
+            </div>
+          </fieldset>
+        )}
         {!waitlist && showPrice && variant && (
           <p className="pdp__price">{formatPrice(variant.price)}</p>
         )}

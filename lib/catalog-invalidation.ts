@@ -15,6 +15,7 @@ import {
   PRODUCT_CARD_COLLECTION_CACHE_TAG,
   PRODUCT_CONTENT_COLLECTION_CACHE_TAG,
   PRODUCT_OFFER_COLLECTION_CACHE_TAG,
+  PRODUCT_FAMILY_CACHE_TAG,
   PRODUCT_SLUG_ROUTE_COLLECTION_CACHE_TAG,
   productSlugRouteCacheTag,
 } from "@/lib/catalog-cache";
@@ -151,6 +152,10 @@ export function getCatalogInvalidationTargets(
     (value, index, values): value is string =>
       Boolean(value) && values.indexOf(value) === index,
   );
+  const affectedProducts = outcome?.affectedProducts ?? [];
+  for (const product of affectedProducts) {
+    if (!productKeys.includes(product.slug)) productKeys.push(product.slug);
+  }
 
   let invalidateContent = false;
   let invalidateOffer = false;
@@ -169,6 +174,16 @@ export function getCatalogInvalidationTargets(
     invalidateContent = true;
   } else if (payload.table === "product_slug_routes") {
     invalidateSlugRoutes = true;
+  } else if (
+    payload.table === "product_families" ||
+    payload.table === "product_family_memberships"
+  ) {
+    invalidateContent = true;
+    invalidateCard = true;
+    invalidateMembership = true;
+    invalidateDiscovery = true;
+    invalidateCollection = true;
+    tags.add(PRODUCT_FAMILY_CACHE_TAG);
   } else if (payload.table === "products") {
     const changedFields = changedProductFields(payload);
     const broadProductChange =
@@ -239,6 +254,11 @@ export function getCatalogInvalidationTargets(
 
   if (invalidateCollection && routineGroup) {
     tags.add(collectionCacheTag(routineGroup));
+  }
+  if (invalidateCollection) {
+    for (const product of affectedProducts) {
+      tags.add(collectionCacheTag(product.routineGroup));
+    }
   }
   if (
     invalidateCollection &&

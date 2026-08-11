@@ -9,6 +9,8 @@ import {
   type OfferAvailability,
   type PdpProductContent,
   type ProductCardContent,
+  type ProductFamily,
+  type ProductFamilyCardMembership,
   type ProductMetadata,
   type ProductOffer,
   type ProductRoute,
@@ -72,6 +74,40 @@ type ProductCardRow = RoutineRow & {
   swatch_from: string;
   swatch_to: string;
   product_media: MediaRow[] | null;
+  product_family_memberships: FamilyCardMembershipRow[] | null;
+};
+
+type FamilyCardMembershipRow = {
+  family_id: string;
+  is_entry: boolean;
+};
+
+type FamilyMemberProductRow = {
+  id: string;
+  slug: string;
+  display_name: string;
+  status: string;
+  catalog_status: string;
+};
+
+type FamilyMemberRow = {
+  product_id: string;
+  option_label: string;
+  sort_order: number;
+  is_entry: boolean;
+  products: FamilyMemberProductRow | FamilyMemberProductRow[] | null;
+};
+
+type ProductFamilyRow = {
+  id: string;
+  slug: string;
+  display_name: string;
+  system_step_name: string;
+  product_family_memberships: FamilyMemberRow[] | null;
+};
+
+type CurrentFamilyMembershipRow = FamilyCardMembershipRow & {
+  product_families: ProductFamilyRow | ProductFamilyRow[] | null;
 };
 
 type PdpProductRow = RoutineRow & {
@@ -98,6 +134,7 @@ type PdpProductRow = RoutineRow & {
     | ProductPdpContentRow[]
     | null;
   product_media: MediaRow[] | null;
+  product_family_memberships: CurrentFamilyMembershipRow[] | null;
 };
 
 type CoreRoutineRow = {
@@ -203,14 +240,19 @@ const CORE_MEDIA_ROLES = [
 const PRODUCT_CARD_SELECT =
   "id, slug, display_name, product_type, " +
   `${ROUTINE_SELECT}, volume, usage_time, sort_order, created_at, swatch_from, swatch_to, ` +
-  `product_media ( ${MEDIA_SELECT} )`;
+  `product_media ( ${MEDIA_SELECT} ), ` +
+  "product_family_memberships!product_family_memberships_product_id_fkey ( family_id, is_entry )";
 
 const PDP_PRODUCT_SELECT =
   "id, slug, display_name, product_type, " +
   `${ROUTINE_SELECT}, editorial_description, editorial_how_to_use, ` +
   "swatch_from, swatch_to, made_for, good_for, texture, " +
   "key_ingredients, ingredients, cautions, finish, volume, skin_types, usage_time, " +
-  `product_pdp_content ( ${PDP_CONTENT_SELECT} ), product_media ( ${MEDIA_SELECT} )`;
+  `product_pdp_content ( ${PDP_CONTENT_SELECT} ), product_media ( ${MEDIA_SELECT} ), ` +
+  "product_family_memberships!product_family_memberships_product_id_fkey ( " +
+  "family_id, is_entry, product_families!inner ( id, slug, display_name, system_step_name, " +
+  "product_family_memberships ( product_id, option_label, sort_order, is_entry, " +
+  "products!inner ( id, slug, display_name, status, catalog_status ) ) ) )";
 
 const CORE_ROUTINE_SUMMARY_SELECT =
   "id, slug, display_name, product_type, " +
@@ -416,6 +458,18 @@ function mapProductCardRow(row: ProductCardRow): ProductCardContent {
   const swatch: [string, string] = [row.swatch_from, row.swatch_to];
   const media = mapMedia(row.product_media, swatch);
   const cardMedia = selectCardMedia(media);
+  const familyRows = row.product_family_memberships ?? [];
+  if (familyRows.length > 1) {
+    throw new Error(
+      `[catalog] Product "${row.slug}" belongs to multiple Product Families.`,
+    );
+  }
+  const productFamily: ProductFamilyCardMembership | null = familyRows[0]
+    ? {
+        familyId: familyRows[0].family_id,
+        isEntry: familyRows[0].is_entry,
+      }
+    : null;
   return {
     id: row.id,
     slug: row.slug,
@@ -435,6 +489,68 @@ function mapProductCardRow(row: ProductCardRow): ProductCardContent {
       presentationMedia(media).find((item) => item.role === "card_hover") ??
       cardMedia,
     cartMedia: selectCartMedia(media, cardMedia),
+    productFamily,
+  };
+}
+
+function firstRelation<T>(value: T | T[] | null): T | null {
+  if (Array.isArray(value)) return value[0] ?? null;
+  return value;
+}
+
+function mapProductFamily(
+  row: PdpProductRow,
+  systemStep: GovernedSystemStep,
+): ProductFamily | null {
+  const memberships = row.product_family_memberships ?? [];
+  if (memberships.length === 0) return null;
+  if (memberships.length !== 1) {
+    throw new Error(
+      `[catalog] Product "${row.slug}" belongs to multiple Product Families.`,
+    );
+  }
+
+  const family = firstRelation(memberships[0].product_families);
+  if (!family || family.system_step_name !== systemStep.name) {
+    throw new Error(
+      `[catalog] Product Family for "${row.slug}" has an invalid System Step.`,
+    );
+  }
+
+  const mapped = (family.product_family_memberships ?? [])
+    .map((membership) => {
+      const product = firstRelation(membership.products);
+      if (!product || product.catalog_status !== "active") return null;
+      return {
+        productId: membership.product_id,
+        slug: product.slug,
+        displayName: product.display_name,
+        optionLabel: membership.option_label,
+        status: toStatus(product.status),
+        sortOrder: membership.sort_order,
+        isEntry: membership.is_entry,
+        isCurrent: membership.product_id === row.id,
+      };
+    })
+    .filter((member): member is NonNullable<typeof member> => member !== null)
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+
+  if (
+    mapped.length === 0 ||
+    mapped.filter((member) => member.isEntry).length !== 1 ||
+    mapped.filter((member) => member.isCurrent).length !== 1
+  ) {
+    throw new Error(
+      `[catalog] Product Family for "${row.slug}" is incomplete.`,
+    );
+  }
+
+  return {
+    id: family.id,
+    slug: family.slug,
+    displayName: family.display_name,
+    systemStepName: systemStep.name,
+    memberships: mapped,
   };
 }
 
@@ -473,6 +589,7 @@ function mapPdpProductRow(row: PdpProductRow): PdpProductContent {
       firstPdpContent(row.product_pdp_content),
       row.slug,
     ),
+    productFamily: mapProductFamily(row, systemStep),
   };
 }
 
@@ -597,7 +714,9 @@ export async function getProductCardContents(): Promise<
     );
   }
 
-  return ((data ?? []) as unknown as ProductCardRow[]).map(mapProductCardRow);
+  return ((data ?? []) as unknown as ProductCardRow[])
+    .map(mapProductCardRow)
+    .filter((product) => product.productFamily?.isEntry !== false);
 }
 
 export async function getPdpProductContent(
@@ -749,8 +868,7 @@ export async function getDiscoveryProductCardContents(
     .neq("slug", excludeSlug)
     .in("product_media.role", [...CARD_MEDIA_ROLES])
     .order("routine_sort", { ascending: true })
-    .order("sort_order", { ascending: true })
-    .limit(limit);
+    .order("sort_order", { ascending: true });
   const { data, error } = await withMediaOrdering(query);
 
   if (error) {
@@ -761,6 +879,7 @@ export async function getDiscoveryProductCardContents(
 
   return ((data ?? []) as unknown as ProductCardRow[])
     .map(mapProductCardRow)
+    .filter((product) => product.productFamily?.isEntry !== false)
     .sort(
       (a, b) =>
         a.routineSort - b.routineSort ||

@@ -156,6 +156,12 @@ describe("Storefront search projection", () => {
       madeFor: "Uneven texture or tone",
       goodFor: "Nighttime routine",
       texture: "Silky serum",
+      familyId: null,
+      familySlug: null,
+      familyDisplayName: null,
+      familyOptionLabel: null,
+      familySortOrder: null,
+      familyIsEntry: null,
     } satisfies AlgoliaProductRecord;
 
     expect(buildStorefrontSearchRecord(searchableProduct)).toEqual(expected);

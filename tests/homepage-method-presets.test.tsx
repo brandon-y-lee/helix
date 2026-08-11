@@ -108,7 +108,7 @@ function makeProduct(
 
 const fixtures = [
   makeProduct("biotic-reset", "Biotic Reset", "CLEANSE", 1),
-  makeProduct("refine-02-pore-treatment-pads", "REFINE", "REFINE", 2),
+  makeProduct("balancing-prep", "Balancing Prep", "REFINE", 2),
   makeProduct("peptide-bounce", "Peptide Bounce", "TREAT", 3),
   makeProduct("frame-04-pdrn-eye-cream", "FRAME", "FRAME", 4),
   makeProduct("ceramide-cushion", "Ceramide Cushion", "SEAL", 5),
@@ -158,7 +158,7 @@ describe("homepage product wiring", () => {
       "/products/ceramide-cushion",
     ]);
     expect(productDestinations(sectionForHeading("Beyond The Core"))).toEqual([
-      "/products/refine-02-pore-treatment-pads",
+      "/products/balancing-prep",
       "/products/frame-04-pdrn-eye-cream",
       "/products/lift-06-pdrn-mask-system",
     ]);

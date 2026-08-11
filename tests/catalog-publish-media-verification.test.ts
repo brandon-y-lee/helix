@@ -95,6 +95,7 @@ const publishSuccess: CatalogPublishTransactionSuccess = {
     media: false,
     relationships: false,
     productSource: false,
+    productFamily: false,
   },
 };
 

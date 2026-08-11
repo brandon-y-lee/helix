@@ -2,7 +2,8 @@
 //
 // Configure a Supabase Database Webhook (Dashboard → Database → Webhooks) on
 // the `products`, `product_variants`, `product_media`, and
-// `product_pdp_content`, and `product_slug_routes` tables
+// `product_pdp_content`, `product_slug_routes`, `product_families`, and
+// `product_family_memberships` tables
 // (INSERT/UPDATE/DELETE) pointing at this route, with an HTTP header
 // `x-webhook-secret: <SUPABASE_CATALOG_WEBHOOK_SECRET>`.
 // On each change we rebuild the affected product's record from Supabase (the

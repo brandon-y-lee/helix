@@ -33,6 +33,7 @@ function product(overrides: Partial<PdpProduct> = {}): PdpProduct {
     skinTypes: [],
     usageTime: ["AM", "PM"],
     pdpContent: null,
+    productFamily: null,
     currency: "USD",
     status: "available",
     variants: [

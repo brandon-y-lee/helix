@@ -840,6 +840,200 @@ function validateProductSource(
   }
 }
 
+function validateProductFamily(
+  value: RecordValue,
+  productId: string,
+  productStepName: unknown,
+  issues: CatalogValidationIssue[],
+) {
+  const family = value.family;
+  const memberships = value.memberships;
+  if (!isRecord(family)) {
+    issue(
+      issues,
+      "productFamily.family",
+      "invalid_type",
+      "Product Family fields must be an object.",
+    );
+    return;
+  }
+  if (!Array.isArray(memberships)) {
+    issue(
+      issues,
+      "productFamily.memberships",
+      "invalid_type",
+      "Product Family memberships must be an array.",
+    );
+    return;
+  }
+
+  const familyId = typeof family.id === "string" ? family.id : "";
+  if (!UUID_PATTERN.test(familyId)) {
+    issue(
+      issues,
+      "productFamily.family.id",
+      "invalid_uuid",
+      "Product Family id must be a UUID.",
+    );
+  }
+  if (
+    typeof family.slug !== "string" ||
+    !PRODUCT_SLUG_PATTERN.test(family.slug)
+  ) {
+    issue(
+      issues,
+      "productFamily.family.slug",
+      "invalid_slug",
+      "Product Family slug must use lowercase letters, numbers, and single hyphens.",
+    );
+  }
+  if (
+    typeof family.display_name !== "string" ||
+    !family.display_name.trim()
+  ) {
+    issue(
+      issues,
+      "productFamily.family.display_name",
+      "required",
+      "Product Family display name is required.",
+    );
+  }
+  if (
+    typeof family.system_step_name !== "string" ||
+    !systemStepByName(family.system_step_name)
+  ) {
+    issue(
+      issues,
+      "productFamily.family.system_step_name",
+      "invalid_system_step",
+      "Product Family System Step must be governed.",
+    );
+  } else if (family.system_step_name !== productStepName) {
+    issue(
+      issues,
+      "productFamily.family.system_step_name",
+      "family_step_mismatch",
+      "Product Family and current Product must fulfill the same System Step.",
+    );
+  }
+  for (const field of ["created_at", "updated_at"] as const) {
+    if (!isTimestamp(family[field])) {
+      issue(
+        issues,
+        `productFamily.family.${field}`,
+        "invalid_timestamp",
+        `Product Family ${field} must be an ISO timestamp.`,
+      );
+    }
+  }
+
+  const productIds = new Set<string>();
+  const orders = new Set<number>();
+  let entryCount = 0;
+  let includesCurrentProduct = false;
+  memberships.forEach((membership, index) => {
+    const path = `productFamily.memberships.${index}`;
+    if (!isRecord(membership)) {
+      issue(issues, path, "invalid_type", "Family membership must be an object.");
+      return;
+    }
+    if (membership.family_id !== familyId) {
+      issue(
+        issues,
+        `${path}.family_id`,
+        "family_mismatch",
+        "Family membership must belong to this Product Family.",
+      );
+    }
+    if (
+      typeof membership.product_id !== "string" ||
+      !UUID_PATTERN.test(membership.product_id)
+    ) {
+      issue(
+        issues,
+        `${path}.product_id`,
+        "invalid_uuid",
+        "Family member Product id must be a UUID.",
+      );
+    } else if (productIds.has(membership.product_id)) {
+      issue(
+        issues,
+        `${path}.product_id`,
+        "duplicate_family_product",
+        "A Product can appear only once in a Product Family.",
+      );
+    } else {
+      productIds.add(membership.product_id);
+      includesCurrentProduct ||= membership.product_id === productId;
+    }
+    if (
+      typeof membership.option_label !== "string" ||
+      !membership.option_label.trim()
+    ) {
+      issue(
+        issues,
+        `${path}.option_label`,
+        "required",
+        "Family option label is required.",
+      );
+    }
+    if (!isInteger(membership.sort_order, 0)) {
+      issue(
+        issues,
+        `${path}.sort_order`,
+        "invalid_order",
+        "Family sort order must be a non-negative integer.",
+      );
+    } else if (orders.has(membership.sort_order)) {
+      issue(
+        issues,
+        `${path}.sort_order`,
+        "duplicate_family_order",
+        "Family sort order must be unique.",
+      );
+    } else {
+      orders.add(membership.sort_order);
+    }
+    if (typeof membership.is_entry !== "boolean") {
+      issue(
+        issues,
+        `${path}.is_entry`,
+        "invalid_type",
+        "Family entry state must be boolean.",
+      );
+    } else if (membership.is_entry) {
+      entryCount += 1;
+    }
+    for (const field of ["created_at", "updated_at"] as const) {
+      if (!isTimestamp(membership[field])) {
+        issue(
+          issues,
+          `${path}.${field}`,
+          "invalid_timestamp",
+          `Family membership ${field} must be an ISO timestamp.`,
+        );
+      }
+    }
+  });
+
+  if (entryCount !== 1) {
+    issue(
+      issues,
+      "productFamily.memberships",
+      "family_entry_required",
+      "A Product Family must contain exactly one entry Product.",
+    );
+  }
+  if (!includesCurrentProduct) {
+    issue(
+      issues,
+      "productFamily.memberships",
+      "current_product_membership_required",
+      "The current Product must belong to its Product Family aggregate.",
+    );
+  }
+}
+
 export function validateProductEditorDocument(
   input: unknown,
   env: NodeJS.ProcessEnv = process.env,
@@ -946,6 +1140,24 @@ export function validateProductEditorDocument(
     }
   }
 
+  if (input.productFamily !== null) {
+    if (!isRecord(input.productFamily)) {
+      issue(
+        issues,
+        "productFamily",
+        "invalid_type",
+        "Product Family must be an object or null.",
+      );
+    } else {
+      validateProductFamily(
+        input.productFamily,
+        productId,
+        isRecord(input.product) ? input.product.system_step_name : undefined,
+        issues,
+      );
+    }
+  }
+
   if (input.productPdpContent !== null) {
     if (!isRecord(input.productPdpContent)) {
       issue(
@@ -1046,6 +1258,14 @@ export function assertProductEditorDocumentStructure(
   }
   if (input.productSource !== null && !isRecord(input.productSource)) {
     issue(issues, "productSource", "invalid_type", "Product source must be an object or null.");
+  }
+  if (input.productFamily !== null && !isRecord(input.productFamily)) {
+    issue(
+      issues,
+      "productFamily",
+      "invalid_type",
+      "Product Family must be an object or null.",
+    );
   }
   if (containsReviewData(input)) {
     issue(
