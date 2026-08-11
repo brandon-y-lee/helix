@@ -514,6 +514,35 @@ test("PDP resolves canonical data and exposes an available variant", async ({
   );
 });
 
+test("PDP presents the Core Routine in place of Details only for Core Products", async ({
+  page,
+  storefront,
+}) => {
+  const coreProduct = storefront.product("richPdp");
+  const beyondProduct = storefront.product("beyondCore");
+  const routineHeading = "The Mei Pelle CORE for clearer, healthier skin.";
+
+  await page.goto(coreProduct.path);
+  const coreSections = page.locator(".pdp-sections");
+  await expect(
+    coreSections.getByRole("heading", { name: routineHeading }),
+  ).toHaveCount(1);
+  await expect(
+    coreSections.getByRole("heading", { name: "DETAILS" }),
+  ).toHaveCount(0);
+  await expect(page.locator("[data-pdp-details-routine]")).toHaveCount(0);
+
+  await page.goto(beyondProduct.path);
+  const beyondSections = page.locator(".pdp-sections");
+  await expect(
+    beyondSections.getByRole("heading", { name: routineHeading }),
+  ).toHaveCount(0);
+  await expect(
+    beyondSections.getByRole("heading", { name: "DETAILS" }),
+  ).toHaveCount(0);
+  await expect(page.locator("[data-pdp-details-routine]")).toHaveCount(0);
+});
+
 test("PDP purchase island contains and reveals purchase details across its responsive boundary", async ({
   page,
   storefront,

@@ -14,7 +14,6 @@ import {
   getProductOffer,
   getProductSlugResolution,
 } from "@/lib/catalog/storefront";
-import { CORE_ROUTINE_PRODUCT_SLUGS } from "@/lib/catalog/models";
 
 const mockedGetClient = getSupabaseClient as unknown as Mock;
 
@@ -392,8 +391,13 @@ describe("storefront catalog projections", () => {
     ]);
   });
 
-  it("queries exactly CLEANSE, TREAT, and SEAL for the ordered Core summaries", async () => {
-    const rows = CORE_ROUTINE_PRODUCT_SLUGS.map((slug, index) =>
+  it("queries the active CLEANSE, TREAT, and SEAL identities for the ordered Core summaries", async () => {
+    const activeCoreSlugs = [
+      "biotic-reset",
+      "peptide-bounce",
+      "seal-05-green-collagen-cream",
+    ];
+    const rows = activeCoreSlugs.map((slug, index) =>
       productRow({
         id: `${index + 1}-id`,
         slug,
@@ -412,9 +416,7 @@ describe("storefront catalog projections", () => {
 
     const summaries = await getCoreRoutineContentSummaries();
 
-    expect(summaries.map((item) => item.slug)).toEqual(
-      CORE_ROUTINE_PRODUCT_SLUGS,
-    );
+    expect(summaries.map((item) => item.slug)).toEqual(activeCoreSlugs);
     expect(summaries.every((item) => item.textureMedia.role === "core_routine_texture")).toBe(true);
     expect(summaries.map((item) => item.editorialMedia?.role ?? null)).toEqual([
       null,
@@ -422,12 +424,16 @@ describe("storefront catalog projections", () => {
       null,
     ]);
     expect(calls).toContainEqual({
+      method: "eq",
+      args: ["routine_group", "core"],
+    });
+    expect(calls).toContainEqual({
       method: "in",
-      args: ["slug", [...CORE_ROUTINE_PRODUCT_SLUGS]],
+      args: ["system_step_name", ["CLEANSE", "TREAT", "SEAL"]],
     });
     expect(calls).toContainEqual({
       method: "limit",
-      args: [3],
+      args: [4],
     });
     expect(calls).toContainEqual({
       method: "in",

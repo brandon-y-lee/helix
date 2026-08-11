@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 import { ProductEndorsementRail } from "@/components/product-detail/ProductEndorsementRail";
 import { ProductReviewsSection } from "@/components/product-detail/ProductReviewsSection";
 import { PdpApplicationCarousel } from "@/components/product-detail/PdpApplicationCarousel";
-import { PdpCoreDetailsRoutine } from "@/components/product-detail/PdpCoreDetailsRoutine";
 import { PdpCoreRoutineSection } from "@/components/product-detail/PdpCoreRoutineSection";
 import { PdpGalleryIsland } from "@/components/product-detail/PdpGalleryIsland";
 import { PdpIngredientsSplit } from "@/components/product-detail/PdpIngredientsSplit";
@@ -17,7 +16,6 @@ import { PdpPurchaseIsland } from "@/components/product-detail/PdpPurchaseIsland
 import { PdpRoutineVideo } from "@/components/product-detail/PdpRoutineVideo";
 import {
   applicationIslandProps,
-  coreDetailsIslandItems,
   galleryIslandProps,
   outcomeIslandProps,
   purchaseAccordionProps,
@@ -32,10 +30,7 @@ import type {
   PdpProduct,
 } from "@/lib/catalog/models";
 import { resolveFullInci } from "@/lib/catalog/product-ingredients";
-import {
-  routineDisplayLabelForProduct,
-  routineGroupLabelForProduct,
-} from "@/lib/catalog/product-routine";
+import { routineDisplayLabelForProduct } from "@/lib/catalog/product-routine";
 import {
   getProductReviews,
   type ProductReviews,
@@ -149,7 +144,6 @@ export function ProductDetail({
   commerceDisabled?: boolean;
 }) {
   const routineLabel = routineDisplayLabelForProduct(product);
-  const routineGroupLabel = routineGroupLabelForProduct(product);
   const leadDescription = compactDescription(
     product.description || product.productType,
   );
@@ -161,25 +155,6 @@ export function ProductDetail({
   const fullIngredientsText =
     resolvedFullInci?.text ||
     "The current full ingredient list should be checked on product packaging or the approved product source.";
-  const initialVariant = product.variants[0];
-  const details = [
-    { label: "Routine placement", value: routineLabel },
-    { label: "Routine group", value: routineGroupLabel },
-    { label: "Product type", value: product.productType },
-    { label: "Use cadence", value: product.usageTime.join(" / ") },
-    { label: "Texture", value: product.texture },
-    { label: "Finish", value: product.finish },
-    { label: "Size", value: initialVariant?.volume ?? product.volume },
-    {
-      label: "Pack count",
-      value: initialVariant?.packCount ? String(initialVariant.packCount) : "",
-    },
-    { label: "Made for", value: product.madeFor },
-    { label: "Good for", value: product.goodFor },
-    { label: "Skin", value: product.skinTypes.join(", ") },
-  ].filter((item): item is { label: string; value: string } =>
-    Boolean(item.value),
-  );
   const howToUseItems: PdpSequenceItem[] = howToUse.map((step, index) => ({
     kicker: `Step ${String(index + 1).padStart(2, "0")}`,
     title:
@@ -237,10 +212,6 @@ export function ProductDetail({
     content,
     howToUse,
     corePresentation,
-  );
-  const coreDetailsItems = coreDetailsIslandItems(
-    coreProducts,
-    commerceDisabled,
   );
 
   return (
@@ -376,43 +347,6 @@ export function ProductDetail({
             </PdpEditorialPair>
           </>
         )}
-
-        {corePresentation && coreDetailsItems.length === 3 ? (
-          <PdpCoreDetailsRoutine
-            key={`details:${product.slug}`}
-            items={coreDetailsItems}
-            currentSlug={product.slug}
-          />
-        ) : details.length > 0 ? (
-          <PdpEditorialPair
-            headingId="product-details"
-            eyebrow="Specs"
-            heading="DETAILS"
-            summary="Server-backed product facts and routine placement."
-            className="pdp-editorial-pair--details"
-          >
-            <dl className="meta-grid">
-              {details.map((item) => (
-                <div key={item.label} className="meta-grid__item">
-                  <dt>{item.label}</dt>
-                  <dd>{item.value}</dd>
-                </div>
-              ))}
-            </dl>
-            {product.cautions.length > 0 && (
-              <div className="pdp-disclosures">
-                <details>
-                  <summary>Cautions</summary>
-                  <ul>
-                    {product.cautions.map((caution) => (
-                      <li key={caution}>{caution}</li>
-                    ))}
-                  </ul>
-                </details>
-              </div>
-            )}
-          </PdpEditorialPair>
-        ) : null}
 
         {product.routineGroup === "core" && coreProducts.length === 3 && (
           <PdpCoreRoutineSection
