@@ -3788,6 +3788,15 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   top: calc(var(--site-header-height) + var(--storefront-gutter));
   display: grid;
   gap: 0;
+  max-height: calc(
+    100svh - var(--site-header-height) - (2 * var(--storefront-gutter))
+  );
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  padding: var(--pdp-panel-padding);
+  border-radius: var(--pdp-panel-radius);
+  background: var(--surface-muted);
 }
 
 .pdp__purchase .field-label {
@@ -5885,9 +5894,9 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   border: 0;
 }
 
-@media (min-width: 861px) {
+@media (min-width: 821px) {
   .pdp {
-    min-height: calc(
+    height: calc(
       100svh - var(--site-header-height) - var(--storefront-gutter)
     );
     align-items: stretch;
@@ -5896,14 +5905,13 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   .pdp__gallery,
   .pdp__media-frame,
   .pdp__media-viewport,
-  .pdp__media,
-  .pdp__purchase {
+  .pdp__media {
     height: 100%;
     min-height: 0;
   }
 
   .pdp__purchase {
-    align-self: stretch;
+    max-height: 100%;
   }
 
   .pdp__media,
@@ -8328,11 +8336,25 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 
   .pdp {
     grid-template-columns: 1fr;
+    gap: 0;
   }
 
   .pdp__gallery,
   .pdp__purchase {
     position: static;
+  }
+
+  .pdp__media-frame,
+  .pdp__media-viewport {
+    border-radius: var(--pdp-panel-radius) var(--pdp-panel-radius) 0 0;
+  }
+
+  .pdp__purchase {
+    max-height: none;
+    overflow: visible;
+    overscroll-behavior: auto;
+    scrollbar-gutter: auto;
+    border-radius: 0 0 var(--pdp-panel-radius) var(--pdp-panel-radius);
   }
 
   .pdp__thumbs {
@@ -8597,20 +8619,6 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 }
 
 @media (min-width: 821px) and (max-width: 860px) {
-  .pdp {
-    grid-template-columns: 1fr;
-  }
-
-  .pdp__gallery,
-  .pdp__purchase {
-    position: static;
-  }
-
-  .pdp__media,
-  .pdp__media-viewport {
-    aspect-ratio: 4 / 5;
-  }
-
   .pdp-reviews__overview,
   .review-row {
     grid-template-columns: 1fr;
