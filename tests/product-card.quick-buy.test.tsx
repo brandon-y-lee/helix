@@ -127,6 +127,37 @@ describe("ProductCard quick buy", () => {
     return surface;
   }
 
+  it("renders the System Step above the Product identity", () => {
+    const { container } = render(
+      <ProductCard
+        product={makeProduct({
+          displayName: "Biotic Reset",
+          systemStepName: "CLEANSE",
+          productType: "Daily gel cleanser",
+        })}
+      />,
+    );
+
+    const cardLink = screen.getByRole("link", { name: "Biotic Reset" });
+    const step = within(cardLink).getByText("CLEANSE");
+    const identity = container.querySelector<HTMLElement>(
+      ".product-card__identity",
+    );
+
+    expect(step).toHaveClass("product-card__step");
+    expect(identity).not.toBeNull();
+    expect(within(identity as HTMLElement).getByText("Biotic Reset")).toHaveClass(
+      "product-card__display-name",
+    );
+    expect(
+      within(identity as HTMLElement).getByText("Daily gel cleanser"),
+    ).toHaveClass("product-card__type");
+    expect(
+      step.compareDocumentPosition(identity as HTMLElement) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
   it("shows waitlist Products without a price or purchase affordance", () => {
     render(
       <ProductCard
