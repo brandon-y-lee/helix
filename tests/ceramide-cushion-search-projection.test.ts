@@ -78,7 +78,7 @@ describe("Ceramide Cushion search replacement projection", () => {
     expect(records[0]).not.toHaveProperty("priceMin");
     expect(records[0]).not.toHaveProperty("priceMax");
     expect(JSON.stringify(records[0])).not.toMatch(
-      /3:1:1|100[- ]?hours?|barrier|penetrat|clinically|hypoallergenic|vegan|cruelty[- ]free/i,
+      /3:1:1|\d+(?:\.\d+)?\s*(?:hours?|hrs?|days?|weeks?|months?|%|percent|[x×]|(?:mg|mcg|µg|μg|g)\s*\/\s*(?:ml|g)|ppm)|twice|double|triple|barrier|penetrat|clinically|hypoallergenic|vegan|cruelty[- ]free/i,
     );
   });
 });

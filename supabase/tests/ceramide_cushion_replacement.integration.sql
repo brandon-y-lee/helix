@@ -10,7 +10,7 @@ do $ceramide_cushion_replacement_verification$
 declare
   expected_green_history_hash constant text := 'd3ca56a60d5fc4ac34d8cffdfa761316';
   excluded_claim_pattern constant text :=
-    '(3:1:1|100[- ]?hours?|((repair|restore|rebuild)[[:alpha:]]*.{0,40}(skin[ -])?barrier)|((skin[ -])?barrier.{0,40}(repair|restore|rebuild)[[:alpha:]]*)|penetrat[[:alpha:]]*.{0,30}(deeper|into)|deliver[[:alpha:]]*.{0,30}into( the)? skin|layer[- ]specific|clinically|before[ /-]?after|all skin types|sensitive[- ]skin( safe)?|hypoallergenic|non[- ]irritating|dermatologist[- ]tested|[0-9]+([.][0-9]+)?[[:space:]]*%|[0-9]+([.][0-9]+)?[[:space:]]*percent|concentration[- ]led|vegan|cruelty[- ]free|(^|[^[:alnum:]_])clean([^[:alnum:]_]|$)|sustainab|sourcing|certif)';
+    '(3:1:1|[0-9]+([.][0-9]+)?[[:space:]-]*(hours?|hrs?|days?|weeks?|months?)|all[- ]day|((repair|restore|rebuild)[[:alpha:]]*.{0,40}(skin[ -])?barrier)|((skin[ -])?barrier.{0,40}(repair|restore|rebuild)[[:alpha:]]*)|penetrat[[:alpha:]]*.{0,30}(deeper|into)|deliver[[:alpha:]]*.{0,30}into( the)? skin|layer[- ]specific|clinically|before[ /-]?after|[0-9]+([.][0-9]+)?[[:space:]]*(x|×)|(twice|double|triple)|all skin types|sensitive[- ]skin( safe)?|hypoallergenic|non[- ]irritating|dermatologist[- ]tested|[0-9]+([.][0-9]+)?[[:space:]]*%|[0-9]+([.][0-9]+)?[[:space:]]*percent|[0-9]+([.][0-9]+)?[[:space:]]*(mg|mcg|µg|μg|g)[[:space:]]*/[[:space:]]*(ml|g)|[0-9]+([.][0-9]+)?[[:space:]]*ppm|concentration[- ]led|vegan|cruelty[- ]free|(^|[^[:alnum:]_])clean([^[:alnum:]_]|$)|sustainab|sourcing|certif)';
   green_id uuid;
   ceramide_id uuid;
   green_history_hash text;
@@ -55,6 +55,7 @@ begin
   if (
     select concat_ws(
       ' ',
+      -- Formula notes preserve internal evidence for the excluded-claims dossier.
       (to_jsonb(product) - 'formula_notes')::text,
       to_jsonb(content)::text
     )

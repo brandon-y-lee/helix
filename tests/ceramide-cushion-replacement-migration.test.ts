@@ -23,6 +23,13 @@ const claimsHardeningMigration = readFileSync(
   ),
   "utf8",
 );
+const completeClaimsHardeningMigration = readFileSync(
+  resolve(
+    process.cwd(),
+    "supabase/migrations/20260811142003_complete_ceramide_claim_exclusion.sql",
+  ),
+  "utf8",
+);
 
 describe("Ceramide Cushion replacement publication", () => {
   it("atomically activates Ceramide and archives Green without commerce transfer", () => {
@@ -64,23 +71,31 @@ describe("Ceramide Cushion replacement publication", () => {
 
   it("excludes every claim family withheld by the approved dossier", () => {
     expect(claimsHardeningMigration).toContain("to_jsonb(product) - 'formula_notes'");
+    expect(completeClaimsHardeningMigration).toContain(
+      "to_jsonb(product) - 'formula_notes'",
+    );
     expect(integrationSql).toContain("to_jsonb(product) - 'formula_notes'");
 
     for (const claimPattern of [
       "3:1:1",
-      "100[- ]?hours?",
+      "hours?|hrs?|days?|weeks?|months?",
+      "all[- ]day",
       "repair|restore|rebuild",
       "penetrat",
       "deliver",
       "layer[- ]specific",
       "clinically",
       "before[ /-]?after",
+      "x|×",
+      "twice|double|triple",
       "all skin types",
       "sensitive[- ]skin",
       "hypoallergenic",
       "non[- ]irritating",
       "dermatologist[- ]tested",
       "percent",
+      "mg|mcg|µg|μg|g",
+      "ppm",
       "concentration[- ]led",
       "vegan",
       "cruelty[- ]free",
@@ -89,7 +104,7 @@ describe("Ceramide Cushion replacement publication", () => {
       "sourcing",
       "certif",
     ]) {
-      expect(claimsHardeningMigration).toContain(claimPattern);
+      expect(completeClaimsHardeningMigration).toContain(claimPattern);
       expect(integrationSql).toContain(claimPattern);
     }
   });
