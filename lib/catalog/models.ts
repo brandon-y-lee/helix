@@ -4,11 +4,12 @@ import type {
   ProductStatus,
 } from "@/lib/products";
 import type { ProductPdpContent } from "@/lib/catalog/product-content";
+import type { SystemStepName } from "@/lib/catalog/system-steps";
 
 export const CORE_ROUTINE_PRODUCT_SLUGS = [
-  "cleanse-01-calming-gel-cleanser",
-  "treat-03-pdrn-5-ampoule",
-  "seal-05-green-collagen-cream",
+  "biotic-reset",
+  "peptide-bounce",
+  "ceramide-cushion",
 ] as const;
 
 export type OfferAvailability = {
@@ -33,16 +34,40 @@ export type ProductOffer = {
   variants: OfferAvailability[];
 };
 
+export type ProductFamilyMembership = {
+  productId: string;
+  slug: string;
+  displayName: string;
+  optionLabel: string;
+  status: ProductStatus;
+  sortOrder: number;
+  isEntry: boolean;
+  isCurrent: boolean;
+};
+
+export type ProductFamily = {
+  id: string;
+  slug: string;
+  displayName: string;
+  systemStepName: SystemStepName;
+  memberships: ProductFamilyMembership[];
+};
+
+export type ProductFamilyCardMembership = {
+  familyId: string;
+  isEntry: boolean;
+};
+
 export type ProductCardContent = {
   id: string;
   slug: string;
   displayName: string;
-  cardTagline: string;
   productType: string;
   volume: string | null;
   usageTime: string[];
   routineGroup: CommerceRoutineGroup;
-  routineStepNumber: number | null;
+  systemStepName: SystemStepName;
+  systemStepPosition: number;
   routineSort: number;
   sortOrder: number;
   createdAt: string;
@@ -50,6 +75,7 @@ export type ProductCardContent = {
   cardMedia: ProductMedia | null;
   cardHoverMedia: ProductMedia | null;
   cartMedia: ProductMedia | null;
+  productFamily: ProductFamilyCardMembership | null;
 };
 
 export type ProductCard = ProductCardContent &
@@ -59,10 +85,9 @@ export type PdpProductContent = {
   id: string;
   slug: string;
   displayName: string;
-  cardTagline: string;
   routineGroup: CommerceRoutineGroup;
-  routineStepNumber: number | null;
-  routineStepName: string | null;
+  systemStepName: SystemStepName;
+  systemStepPosition: number;
   routineSort: number;
   productType: string;
   description: string;
@@ -83,6 +108,7 @@ export type PdpProductContent = {
   skinTypes: string[];
   usageTime: string[];
   pdpContent: ProductPdpContent | null;
+  productFamily: ProductFamily | null;
 };
 
 export type PdpProduct = PdpProductContent &
@@ -92,9 +118,7 @@ export type CoreRoutineContentSummary = {
   id: string;
   slug: string;
   displayName: string;
-  formalTitle: string;
   productType: string;
-  cardTagline: string;
   description: string;
   benefits: string[];
   goodFor: string | null;
@@ -102,8 +126,8 @@ export type CoreRoutineContentSummary = {
   finish: string | null;
   keyIngredients: string[];
   routineGroup: "core";
-  routineStepNumber: number;
-  routineStepName: string;
+  systemStepName: Extract<SystemStepName, "CLEANSE" | "TREAT" | "SEAL">;
+  systemStepPosition: 1 | 3 | 5;
   routineSort: number;
   swatch: [string, string];
   textureMedia: ProductMedia;
@@ -118,14 +142,22 @@ export type CoreRoutineSummary = CoreRoutineContentSummary &
 
 export type ProductMetadata = {
   slug: string;
-  formalTitle: string;
-  cardTagline: string;
+  displayName: string;
+  productType: string;
+  editorialDescription: string;
   seoTitle: string | null;
   seoDescription: string | null;
 };
 
 export type ProductRoute = {
   slug: string;
+};
+
+export type ProductSlugResolution = {
+  sourceSlug: string;
+  targetSlug: string;
+  targetProductId: string;
+  routeKind: "canonical" | "rename" | "replacement";
 };
 
 export type IngredientIndexProduct = {

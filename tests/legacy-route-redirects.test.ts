@@ -35,7 +35,7 @@ describe("legacy route redirects", () => {
     expect(navigation.permanentRedirect).toHaveBeenCalledWith(destination);
   });
 
-  it("keeps canonical collection, product, and System redirects in Next config", async () => {
+  it("keeps only non-Product compatibility redirects in Next config", async () => {
     const redirects = await nextConfig.redirects?.();
     expect(redirects).toEqual(
       expect.arrayContaining([
@@ -54,17 +54,10 @@ describe("legacy route redirects", () => {
           destination: "/collections/shop",
           permanent: true,
         },
-        {
-          source: "/products/reset-01-calming-gel-cleanser",
-          destination: "/products/cleanse-01-calming-gel-cleanser",
-          permanent: true,
-        },
-        {
-          source: "/products/recode-03-pdrn-5-ampoule",
-          destination: "/products/treat-03-pdrn-5-ampoule",
-          permanent: true,
-        },
       ]),
     );
+    expect(redirects).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ source: expect.stringMatching(/^\/products\/.+/) }),
+    ]));
   });
 });

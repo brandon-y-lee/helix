@@ -132,7 +132,8 @@ function PreviewMetadata({
   const list = (values: string[]) => values.length > 0 ? values.join(", ") : "Not set";
   const values = [
     ["Slug", product.slug],
-    ["Formal title", product.formal_title],
+    ["Display name", product.display_name],
+    ["Product type", product.product_type],
     ["SEO title", product.seo_title ?? "Not set"],
     ["SEO description", product.seo_description ?? "Not set"],
     ["Badge", product.badge ?? "Not set"],
@@ -140,9 +141,7 @@ function PreviewMetadata({
     ["Product status", product.status],
     ["Currency", product.currency],
     ["Routine group", product.routine_group],
-    ["Routine step", product.routine_step_number === null
-      ? "Not set"
-      : `${product.routine_step_number} · ${product.routine_step_name ?? "Unnamed"}`],
+    ["System Step", product.system_step_name ?? "Not set"],
     ["Routine order", String(product.routine_sort)],
     ["Storefront order", String(product.sort_order)],
     ["Benefits", list(product.benefits)],

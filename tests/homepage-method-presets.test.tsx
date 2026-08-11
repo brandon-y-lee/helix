@@ -13,22 +13,34 @@ import {
   getCachedProductCards,
 } from "@/lib/catalog-cache";
 import type { Product } from "@/lib/products";
+import type { SystemStepName } from "@/lib/catalog/system-steps";
 
 const mockedGetProducts = getCachedProductCards as unknown as Mock;
 const mockedGetIngredientProducts =
   getCachedIngredientIndexProducts as unknown as Mock;
 
 const ingredientsBySlug: Record<string, string[]> = {
-  "treat-03-pdrn-5-ampoule": [
+  "peptide-bounce": [
     "Sodium DNA (50,000 ppm)",
     "Niacinamide",
     "Copper Tripeptide-1",
   ],
 };
 
+const systemPositionByName: Record<SystemStepName, number> = {
+  CLEANSE: 1,
+  REFINE: 2,
+  TREAT: 3,
+  FRAME: 4,
+  SEAL: 5,
+  PROTECT: 6,
+  LIFT: 7,
+};
+
 function makeProduct(
   slug: string,
   displayName: string,
+  systemStepName: SystemStepName,
   routineOrder: number,
 ): Product {
   const keyIngredients = ingredientsBySlug[slug] ?? [];
@@ -37,19 +49,11 @@ function makeProduct(
     id: `${slug}-id`,
     slug,
     displayName,
-    formalTitle: `${displayName} System Product`,
-    cardTagline: `${displayName} card tagline`,
-    routineGroup: ["CLEANSE", "TREAT", "SEAL"].includes(displayName)
+    routineGroup: ["CLEANSE", "TREAT", "SEAL"].includes(systemStepName)
       ? "core"
       : "beyond_core",
-    routineStepNumber: ["CLEANSE", "TREAT", "SEAL"].includes(displayName)
-      ? ({ CLEANSE: 1, TREAT: 2, SEAL: 3 } as const)[
-          displayName as "CLEANSE" | "TREAT" | "SEAL"
-        ]
-      : null,
-    routineStepName: ["CLEANSE", "TREAT", "SEAL"].includes(displayName)
-      ? displayName
-      : null,
+    systemStepPosition: systemPositionByName[systemStepName],
+    systemStepName,
     routineSort: routineOrder * 10,
     productType: "Treatment",
     badge: null,
@@ -103,12 +107,12 @@ function makeProduct(
 }
 
 const fixtures = [
-  makeProduct("cleanse-01-calming-gel-cleanser", "CLEANSE", 1),
-  makeProduct("refine-02-pore-treatment-pads", "REFINE", 2),
-  makeProduct("treat-03-pdrn-5-ampoule", "TREAT", 3),
-  makeProduct("frame-04-pdrn-eye-cream", "FRAME", 4),
-  makeProduct("seal-05-green-collagen-cream", "SEAL", 5),
-  makeProduct("lift-06-pdrn-mask-system", "LIFT", 7),
+  makeProduct("biotic-reset", "Biotic Reset", "CLEANSE", 1),
+  makeProduct("balancing-prep", "Balancing Prep", "REFINE", 2),
+  makeProduct("peptide-bounce", "Peptide Bounce", "TREAT", 3),
+  makeProduct("frame-04-pdrn-eye-cream", "FRAME", "FRAME", 4),
+  makeProduct("ceramide-cushion", "Ceramide Cushion", "SEAL", 5),
+  makeProduct("lift-06-pdrn-mask-system", "LIFT", "LIFT", 7),
 ];
 
 function sectionForHeading(name: string) {
@@ -149,12 +153,12 @@ describe("homepage product wiring", () => {
     render(<CartProvider>{await HomePage()}</CartProvider>);
 
     expect(productDestinations(sectionForHeading("The Core"))).toEqual([
-      "/products/cleanse-01-calming-gel-cleanser",
-      "/products/treat-03-pdrn-5-ampoule",
-      "/products/seal-05-green-collagen-cream",
+      "/products/biotic-reset",
+      "/products/peptide-bounce",
+      "/products/ceramide-cushion",
     ]);
     expect(productDestinations(sectionForHeading("Beyond The Core"))).toEqual([
-      "/products/refine-02-pore-treatment-pads",
+      "/products/balancing-prep",
       "/products/frame-04-pdrn-eye-cream",
       "/products/lift-06-pdrn-mask-system",
     ]);
@@ -184,14 +188,22 @@ describe("homepage product wiring", () => {
 
   it("does not substitute unrelated products when a required Core product is missing", async () => {
     mockedGetProducts.mockResolvedValue(
-      fixtures.filter((product) => product.slug !== "seal-05-green-collagen-cream"),
+      fixtures.filter((product) => product.slug !== "ceramide-cushion"),
     );
 
     render(<CartProvider>{await HomePage()}</CartProvider>);
 
     expect(productDestinations(sectionForHeading("The Core"))).toEqual([
-      "/products/cleanse-01-calming-gel-cleanser",
-      "/products/treat-03-pdrn-5-ampoule",
+      "/products/biotic-reset",
+      "/products/peptide-bounce",
     ]);
+  });
+
+  it("publishes the approved System line on the Core education surface", async () => {
+    render(<CartProvider>{await HomePage()}</CartProvider>);
+
+    expect(sectionForHeading("The Core")).toHaveTextContent(
+      "A simple daily system for skin that looks better now—and stays smooth, even, and resilient over time.",
+    );
   });
 });

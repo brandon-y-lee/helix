@@ -119,11 +119,13 @@ describe("catalog editor protected routes", () => {
       revision: {} as never,
       changedTables: {
         products: false,
+        productSlugRoutes: false,
         productPdpContent: true,
         variants: false,
         media: false,
         relationships: false,
-        productSource: false,
+      productSource: false,
+      productFamily: false,
       },
       mediaVerification: {
         status: "healthy",

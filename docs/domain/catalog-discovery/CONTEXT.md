@@ -61,8 +61,12 @@ A Product whose Catalog Status is archived and is retained in the Catalog but ex
 _Avoid_: Deleted Product, Unpublished Product
 
 **Merchandising Status**:
-The Storefront presentation of a Product's purchase readiness: available, coming soon, or sold out.
+The Storefront presentation of a Product's purchase readiness: available, coming soon, sold out, or waitlist.
 _Avoid_: Status, Product Status, Inventory Status
+
+**Waitlist Product**:
+A Customer-visible Product whose Merchandising Status is waitlist. It is not Purchasable and may accept Product Waitlist Enrollments before a Product Offer exists.
+_Avoid_: Sold-out Product, Coming Soon Product, Available Product
 
 **Inventory Status**:
 The stock condition of a Product Variant.
@@ -77,16 +81,12 @@ A stable merchandising identifier assigned to a Product, independent of System P
 _Avoid_: Step Number, System Position, Routine Position
 
 **Product Display Name**:
-The short Product name used in Storefront presentation. It may match a System Step Name but refers to a Product only when Product context is explicit.
-_Avoid_: System Step Name, Formal Product Title
-
-**Formal Product Title**:
-The complete Catalog name that identifies a Product beyond its Product Display Name.
-_Avoid_: Product Display Name, System Step Name
+The short authored Product name used in Storefront presentation, kept distinct from its Product Type and System Step Name.
+_Avoid_: System Step Name, Product Type, Formal Product Title
 
 **Product Type**:
-A descriptive classification of a Product's form or purpose, independent of its System Step and Routine Group.
-_Avoid_: System Step, Routine Group, Product Variant
+A concrete Customer-facing description of a Product's form or purpose, authored separately from its Product Display Name and independent of its System Step and Routine Group.
+_Avoid_: Product Display Name, System Step, Routine Group, Product Variant
 
 **Product Media**:
 Project-controlled visual or audiovisual material used to present a Product.
@@ -109,12 +109,16 @@ The foundational Routine Group for Products that fulfill CLEANSE, TREAT, and SEA
 _Avoid_: Core Collection, FOUNDATION
 
 **Beyond The Core**:
-The Routine Group for Products that extend The Core. Its current members fulfill REFINE, FRAME, and LIFT.
+The Routine Group for Products that extend The Core. Products that fulfill REFINE, FRAME, PROTECT, or LIFT belong to this group.
 _Avoid_: Beyond the Core, Beyond Core Collection
 
 **Shop Collection**:
 A Customer-facing discovery grouping of Products that may be derived from a Routine Group without becoming a canonical Product classification.
 _Avoid_: Collection, Catalog, Routine Group
+
+**Product Family**:
+A curated set of distinct Products that fulfill the same System Step and are presented as alternatives. Each member retains its own Product identity, Catalog Status, Merchandising Status, Product Variants, and Product Offers.
+_Avoid_: Product Variant, Shop Collection, Bundle
 
 **Product Relationship**:
 A directed association from one Product to another for a defined discovery or Routine purpose.

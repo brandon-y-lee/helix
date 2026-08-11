@@ -1,4 +1,4 @@
-import type { ProductEditorDocumentV3 } from "@/lib/admin/catalog/types";
+import type { ProductEditorDocumentV4 } from "@/lib/admin/catalog/types";
 import {
   catalogFieldsForTable,
   type CatalogEditorTable,
@@ -6,6 +6,8 @@ import {
 
 export type CatalogDocumentTable =
   | "products"
+  | "product_families"
+  | "product_family_memberships"
   | "product_pdp_content"
   | "product_variants"
   | "product_media"
@@ -58,6 +60,12 @@ function objectEntries(
 function rowIdentity(table: CatalogDocumentTable, row: Record<string, unknown>) {
   if (typeof row.id === "string") return row.id;
   if (
+    table === "product_family_memberships" &&
+    typeof row.product_id === "string"
+  ) {
+    return row.product_id;
+  }
+  if (
     table === "product_relationships" &&
     typeof row.related_product_id === "string" &&
     typeof row.relationship_type === "string"
@@ -87,8 +95,13 @@ function collectionEntries(
         field: `${identity} record`,
         before: previous ?? null,
         after: next ?? null,
-        disruptive: table === "product_variants" || removedPrimaryMedia,
-        adminOnly: table === "product_variants",
+        disruptive:
+          table === "product_variants" ||
+          table === "product_family_memberships" ||
+          removedPrimaryMedia,
+        adminOnly:
+          table === "product_variants" ||
+          table === "product_family_memberships",
       });
       continue;
     }
@@ -100,8 +113,8 @@ function collectionEntries(
 }
 
 export function catalogDocumentDiff(
-  before: ProductEditorDocumentV3,
-  after: ProductEditorDocumentV3,
+  before: ProductEditorDocumentV4,
+  after: ProductEditorDocumentV4,
 ): CatalogDocumentDiff {
   const groups: Array<{
     table: CatalogDocumentTable;
@@ -110,6 +123,22 @@ export function catalogDocumentDiff(
     {
       table: "products",
       entries: objectEntries("products", before.product, after.product),
+    },
+    {
+      table: "product_families",
+      entries: objectEntries(
+        "product_families",
+        before.productFamily?.family ?? null,
+        after.productFamily?.family ?? null,
+      ),
+    },
+    {
+      table: "product_family_memberships",
+      entries: collectionEntries(
+        "product_family_memberships",
+        before.productFamily?.memberships ?? [],
+        after.productFamily?.memberships ?? [],
+      ),
     },
     {
       table: "product_pdp_content",

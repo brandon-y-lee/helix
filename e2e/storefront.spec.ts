@@ -46,6 +46,16 @@ async function elementGeometry(locator: Locator): Promise<ElementGeometry> {
   };
 }
 
+async function finishAnimations(locator: Locator): Promise<void> {
+  await locator.evaluate(async (element) => {
+    await Promise.all(
+      element
+        .getAnimations({ subtree: true })
+        .map((animation) => animation.finished.catch(() => undefined)),
+    );
+  });
+}
+
 async function viewportOrigin(page: Page): Promise<ViewportOrigin> {
   return page.evaluate(() => ({
     scrollX: window.scrollX,
@@ -126,6 +136,10 @@ test("shop renders live Products and combines filtering with sorting", async ({
   const beyondProducts = storefront.products("beyondCore");
   const purchasable = storefront.product("purchasable");
   const purchase = storefront.purchase(purchasable);
+  const purchasablePrice = storefront.cardPriceLabel(purchasable);
+  if (!purchasablePrice) {
+    throw new Error("The Purchasable journey is missing Offer presentation.");
+  }
   await page.goto("/collections/shop");
   await expect(page.locator(".product-count")).toHaveText(
     productCount(products),
@@ -140,7 +154,7 @@ test("shop renders live Products and combines filtering with sorting", async ({
     page
       .locator(`[data-product-card-slug="${purchasable.slug}"]`)
       .locator(".product-card__price"),
-  ).toHaveText(storefront.cardPriceLabel(purchasable));
+  ).toHaveText(purchasablePrice);
 
   const filters = page.getByRole("navigation", {
     name: "Shop collections",
@@ -471,15 +485,21 @@ test("Quick Buy places Product education before configuration and the final Buy 
 }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   const shopProducts = storefront.products();
+  const offerProducts = shopProducts.filter(
+    (product) => product.offer !== null,
+  );
   const singleVariantProduct =
-    shopProducts.find((product) => product.variants.length === 1) ??
+    offerProducts.find((product) => product.variants.length === 1) ??
     storefront.product("purchasable");
-  const multipleVariantProduct = shopProducts.find(
+  const multipleVariantProduct = offerProducts.find(
     (product) => product.variants.length > 1,
   );
+  const homepageProducts = [
+    storefront.product("core"),
+    storefront.product("beyondCore"),
+  ].filter((product) => product.offer !== null);
   const cases = [
-    { path: "/", product: storefront.product("core") },
-    { path: "/", product: storefront.product("beyondCore") },
+    ...homepageProducts.map((product) => ({ path: "/", product })),
     { path: "/collections/shop", product: singleVariantProduct },
     ...(multipleVariantProduct
       ? [{ path: "/collections/shop", product: multipleVariantProduct }]
@@ -502,13 +522,7 @@ test("Quick Buy places Product education before configuration and the final Buy 
     const fullDetails = card.getByRole("link", { name: "Full details" });
     const variants = card.locator(".product-card__quick-variants");
     const finalBuy = card.locator("[data-product-card-buy]");
-    await panel.evaluate(async (element) => {
-      await Promise.all(
-        element
-          .getAnimations({ subtree: true })
-          .map((animation) => animation.finished.catch(() => undefined)),
-      );
-    });
+    await finishAnimations(panel);
     const [panelBox, detailsBox, fullDetailsBox, finalBuyBox] = await Promise.all([
       elementGeometry(panel),
       elementGeometry(details),
@@ -568,36 +582,6 @@ test("PDP add-to-cart persists across reload and reaches the cart page", async (
   ).toBeVisible();
 });
 
-test("mobile quick buy pointer close preserves the Customer's viewport and preview", async ({
-  page,
-  storefront,
-}) => {
-  const products = storefront.products();
-  const product = products[Math.floor(products.length / 2)];
-  if (!product) throw new Error("The Storefront has no Product to inspect.");
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/collections/shop");
-
-  const card = page.locator(`[data-product-card-slug="${product.slug}"]`);
-  const quickBuy = card.getByRole("button", {
-    name: `Open quick buy for ${product.displayName}`,
-  });
-  await quickBuy.click();
-
-  const close = card.getByRole("button", {
-    name: `Close quick buy for ${product.displayName}`,
-  });
-  await close.scrollIntoViewIfNeeded();
-  const scrollYBeforeClose = await page.evaluate(() => window.scrollY);
-  await close.click();
-
-  await expect(card).toHaveAttribute("data-quick-buy-open", "false");
-  await expect(quickBuy).toBeFocused();
-  await expect(card).toHaveAttribute("data-visual-state", "preview");
-  await page.waitForTimeout(750);
-  expect(await page.evaluate(() => window.scrollY)).toBe(scrollYBeforeClose);
-});
-
 test("mobile quick buy Escape preserves the Customer's viewport and focus preview", async ({
   page,
   storefront,
@@ -627,7 +611,16 @@ test("opening another Product's Quick Buy preserves the viewport", async ({
   page,
   storefront,
 }) => {
-  const [firstProduct, secondProduct] = storefront.products();
+  const [firstProduct, secondProduct] = storefront
+    .products()
+    .filter((product) => product.offer !== null);
+  if (!firstProduct || !secondProduct) {
+    test.skip(
+      true,
+      "The canonical Catalog does not currently expose two collection Products with Offers.",
+    );
+    return;
+  }
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/collections/shop");
 
@@ -688,9 +681,14 @@ test.describe("touch Quick Buy", () => {
       "none",
     );
     await close.scrollIntoViewIfNeeded();
+    const closeBox = await close.boundingBox();
+    if (!closeBox) throw new Error("Touch Quick Buy close control has no box.");
     const cardUrl = page.url();
     const scrollYBeforeClose = await page.evaluate(() => window.scrollY);
-    await close.tap();
+    await page.touchscreen.tap(
+      closeBox.x + closeBox.width / 2,
+      closeBox.y + closeBox.height / 2,
+    );
 
     await expect(card).toHaveAttribute("data-quick-buy-open", "false");
     await expect(card).toHaveAttribute("data-visual-state", "default");

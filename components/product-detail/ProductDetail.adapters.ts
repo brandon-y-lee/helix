@@ -16,16 +16,18 @@ import {
 import { PDP_CORE_DETAILS_PRESENTATIONS } from "@/lib/content/pdp-core-details";
 import {
   firstPurchasableVariant,
+  productOfferPresentation,
   productPurchaseCta,
+  productUnavailableCtaLabel,
   type ProductMedia,
   type ProductStatus,
 } from "@/lib/products";
 import { PREVIEW_COMMERCE_DISABLED_LABEL } from "@/lib/catalog-editor/preview-commerce";
+import type { SystemStepName } from "@/lib/catalog/system-steps";
 
 type CoreDetailsSource = {
   benefits: string[];
   cardMedia: ProductMedia | null;
-  cardTagline: string;
   cartMedia: ProductMedia | null;
   description: string;
   displayName: string;
@@ -33,9 +35,9 @@ type CoreDetailsSource = {
   goodFor: string | null;
   keyIngredients: string[];
   pdpContent?: ProductPdpContent | null;
-  productType: string | null;
+  productType: string;
   routineGroup?: "core" | "beyond_core" | null;
-  routineStepName?: string | null;
+  systemStepName?: SystemStepName | null;
   slug: string;
   status: ProductStatus;
   swatch: [string, string];
@@ -191,7 +193,11 @@ export function purchaseIslandProps(
   commerceDisabled = false,
 ): PdpPurchaseData {
   const media = product.cartMedia ?? product.cardMedia;
-  const variants: PdpPurchaseVariant[] = product.variants.map((variant) => {
+  const offerPresentation = productOfferPresentation(product.variants);
+  const presentedVariants = offerPresentation.showVariantOptions
+    ? offerPresentation.offers
+    : product.variants.slice(0, 1);
+  const variants: PdpPurchaseVariant[] = presentedVariants.map((variant) => {
     const cta = productPurchaseCta(product, variant);
     return {
       id: variant.id,
@@ -211,13 +217,19 @@ export function purchaseIslandProps(
       ...cartMediaSnapshot(media),
     },
     currency: product.currency,
+    productId: product.id,
     productKey: product.slug,
     productName: product.displayName,
     productType: product.productType,
+    productFamily: product.productFamily,
+    status: product.status,
     routineLabel,
     stickyMedia: media,
     stripePublishableKey,
+    unavailableLabel: productUnavailableCtaLabel(product.status),
     variants,
+    showPrice: offerPresentation.showPrice,
+    showVariantOptions: offerPresentation.showVariantOptions,
     commerceDisabled,
   };
 }
@@ -290,7 +302,6 @@ export function coreDetailsIslandItems(
         productType: product.productType,
         benefits: product.benefits,
         goodFor: product.goodFor,
-        cardTagline: product.cardTagline,
         finish: product.finish,
         texture: product.texture,
         description: product.description,

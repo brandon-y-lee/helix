@@ -53,7 +53,7 @@ scripts/git/codex-task.sh prepare
 
 Run `code-review dev`. Resolve every confirmed actionable finding or obtain an explicit human acceptance; P0/P1 findings always block. If fixes add commits, rerun affected checks and review.
 
-After review passes, push the branch and open a ready PR targeting `dev`. The PR body follows `.github/PULL_REQUEST_TEMPLATE.md`. GitHub CI is the preflight gate; the [Dev Integration Line](./agents/dev-integration.md) is the serialized verify-and-merge authority. An approved ticket authorizes the coordinator to squash-merge an unchanged candidate after its gate passes.
+After review passes, push the branch and open a ready PR targeting `dev`. The PR body follows `.github/PULL_REQUEST_TEMPLATE.md`. GitHub CI is the executable merge gate. An approved ticket authorizes the implementing agent to squash-merge after CI passes.
 
 ## Clean up after merge
 
@@ -104,9 +104,7 @@ Before the first remote `dev` creation, run the complete gate from `.github/work
 pnpm github:workflow:apply -- \
   --confirm-repo brandon-y-lee/mei-pelle \
   --confirm-dev-sha <audited-dev-sha> \
-  --confirm-ci-sha <same-CI-verified-sha> \
-  --confirm-integration-cutover dev-integration-authority \
-  --confirm-integration-app-id <app-id-printed-by-plan>
+  --confirm-ci-sha <same-CI-verified-sha>
 ```
 
-The tool pushes the captured commit rather than the mutable branch name and rechecks remote `main`/`dev` immediately before that push. It also proves the GitHub Actions Integration from the existing `ci` check before planning the `dev` authority ruleset. It fails closed on missing authentication, the wrong repository, stale or divergent branch ancestry, unavailable repository, issue, check, or ruleset facts, or mismatched confirmations. Apply remains a separately approved remote mutation.
+The tool pushes the captured commit rather than the mutable branch name and rechecks remote `main`/`dev` immediately before that push. It fails closed on missing authentication, the wrong repository, stale or divergent branch ancestry, unavailable repository or issue-API facts, or mismatched confirmations. Apply remains a separately approved remote mutation.

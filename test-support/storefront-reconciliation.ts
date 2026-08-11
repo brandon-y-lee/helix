@@ -1,5 +1,9 @@
 import { createRequire } from "node:module";
-import { formatPrice, productPurchaseCta } from "@/lib/products";
+import {
+  formatPrice,
+  productOfferPresentation,
+  productPurchaseCta,
+} from "@/lib/products";
 import {
   StorefrontBaselineError,
   type StorefrontSnapshot,
@@ -91,23 +95,36 @@ function collectionMismatches(
       ?.querySelector(".product-card__price")
       ?.textContent?.trim();
     const expectedPrice = journeys.cardPriceLabel(product);
-    if (price !== expectedPrice) {
+    if ((price ?? null) !== expectedPrice) {
       mismatches.push(
-        `${path} Product "${product.slug}" price was "${price ?? "missing"}" instead of "${expectedPrice}".`,
+        `${path} Product "${product.slug}" price was "${price ?? "missing"}" instead of "${expectedPrice ?? "missing"}".`,
       );
     }
     const quickBuy = card
       ?.querySelector(".product-card__quick-trigger")
       ?.textContent?.trim();
-    const expectedQuickBuy = product.offer
-      ? journeys.purchase(product).buyLabel
-      : "OUT OF STOCK";
+    const expectedQuickBuy =
+      product.merchandisingStatus === "waitlist"
+        ? undefined
+        : productPurchaseCta(
+            {
+              displayName: product.displayName,
+              status: product.merchandisingStatus,
+              variants: product.variants,
+            },
+            product.offer
+              ? product.variants.find(
+                  (variant) => variant.id === product.offer?.variantId,
+                )
+              : product.variants[0],
+          ).label;
     if (quickBuy !== expectedQuickBuy) {
       mismatches.push(
-        `${path} Product "${product.slug}" purchase label was "${quickBuy ?? "missing"}" instead of "${expectedQuickBuy}".`,
+        `${path} Product "${product.slug}" purchase label was "${quickBuy ?? "missing"}" instead of "${expectedQuickBuy ?? "missing"}".`,
       );
     }
-    if (product.variants.length > 1) {
+    const offerPresentation = productOfferPresentation(product.variants);
+    if (offerPresentation.hasMultipleOffers) {
       const optionLabels = Array.from(
         card?.querySelectorAll(".product-card__quick-option") ?? [],
         (option) => ({
@@ -115,7 +132,7 @@ function collectionMismatches(
           price: option.querySelector("small")?.textContent?.trim() ?? "",
         }),
       );
-      const expectedOptions = product.variants.map((variant) => ({
+      const expectedOptions = offerPresentation.offers.map((variant) => ({
         label: variant.label,
         price: formatPrice(variant.price),
       }));
@@ -148,17 +165,22 @@ function pdpMismatches(
     document.querySelectorAll(".variant-options button"),
     (button) => button.textContent?.trim() ?? "",
   );
-  const expectedLabels = product.variants.map((variant) => variant.label);
+  const offerPresentation = productOfferPresentation(product.variants);
+  const expectedLabels = offerPresentation.offers.map(
+    (variant) => variant.label,
+  );
   if (variantLabels.join("|") !== expectedLabels.join("|")) {
     mismatches.push(
       `${product.path} Product Variant labels were [${variantLabels.join(", ")}] instead of [${expectedLabels.join(", ")}].`,
     );
   }
 
-  const initialVariant = product.variants[0];
+  const initialVariant = offerPresentation.offers[0] ?? product.variants[0];
   const price = document.querySelector(".pdp__price")?.textContent?.trim();
-  const expectedPrice = initialVariant ? formatPrice(initialVariant.price) : "—";
-  if (price !== expectedPrice) {
+  const expectedPrice = offerPresentation.showPrice && initialVariant
+    ? formatPrice(initialVariant.price)
+    : null;
+  if ((price ?? null) !== expectedPrice) {
     mismatches.push(
       `${product.path} initial Product Offer price was "${price ?? "missing"}" instead of "${expectedPrice}".`,
     );

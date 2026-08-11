@@ -1,5 +1,10 @@
-import { formatPrice, productPurchaseCta } from "@/lib/products";
 import {
+  formatPrice,
+  productOfferPresentation,
+  productPurchaseCta,
+} from "@/lib/products";
+import {
+  isStorefrontCollectionProduct,
   StorefrontBaselineError,
   type StorefrontSnapshot,
   type StorefrontSnapshotMedia,
@@ -129,9 +134,12 @@ export function createStorefrontJourneys(snapshot: StorefrontSnapshot) {
       );
     },
     products(routineGroup?: StorefrontRoutineGroup) {
-      if (!routineGroup) return snapshot.products;
+      const collectionProducts = snapshot.products.filter(
+        isStorefrontCollectionProduct,
+      );
+      if (!routineGroup) return collectionProducts;
       const snapshotGroup = routineGroup === "core" ? "core" : "beyond_core";
-      return snapshot.products.filter(
+      return collectionProducts.filter(
         (product) => product.routineGroup === snapshotGroup,
       );
     },
@@ -166,11 +174,14 @@ export function createStorefrontJourneys(snapshot: StorefrontSnapshot) {
         variant,
       });
     },
-    cardPriceLabel(product: StorefrontSnapshotProduct): string {
-      const startingPrice = product.variants.length
-        ? Math.min(...product.variants.map((variant) => variant.price))
-        : 0;
-      return `${product.variants.length > 1 ? "From " : ""}${formatPrice(startingPrice)}`;
+    cardPriceLabel(product: StorefrontSnapshotProduct): string | null {
+      if (product.merchandisingStatus === "waitlist") return "Waitlist";
+      const presentation = productOfferPresentation(product.variants);
+      if (!presentation.showPrice) return null;
+      const startingPrice = Math.min(
+        ...presentation.offers.map((variant) => variant.price),
+      );
+      return `${presentation.hasMultipleOffers ? "From " : ""}${formatPrice(startingPrice)}`;
     },
     gallery(product: StorefrontSnapshotProduct): readonly StorefrontGalleryItem[] {
       const media = galleryMedia(product);

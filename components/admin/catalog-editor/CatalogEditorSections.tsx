@@ -5,6 +5,8 @@ import type {
   CatalogDraftDocument,
   CatalogIngredientCard,
   CatalogIngredientHighlight,
+  CatalogFamilyFields,
+  CatalogFamilyMembershipFields,
   CatalogMediaFields,
   CatalogRelationshipFields,
   CatalogSourceFields,
@@ -39,6 +41,8 @@ type SectionKey = CatalogTable | "system_metadata";
 
 export const CATALOG_SECTIONS: Array<{ key: SectionKey; label: string }> = [
   { key: "products", label: "Products" },
+  { key: "product_families", label: "Product Family" },
+  { key: "product_family_memberships", label: "Family Members" },
   { key: "product_pdp_content", label: "PDP content" },
   { key: "product_variants", label: "Variants" },
   { key: "product_media", label: "Media" },
@@ -118,6 +122,10 @@ export function catalogGroupIdForField(table: CatalogTable, field: string) {
     if (field === "ingredient_cards") return "group-pdp-ingredient-cards";
     if (field === "ingredient_story") return "group-pdp-ingredient-story";
     return "group-pdp-content";
+  }
+  if (table === "product_families") return "group-product-family";
+  if (table === "product_family_memberships") {
+    return "group-product-family-memberships";
   }
   if (table === "product_variants") return "group-variant-records";
   if (table === "product_media") return "group-media-records";
@@ -779,6 +787,7 @@ export default function CatalogEditorSections(props: CatalogEditorSectionsProps)
         </FieldGroup>
       </TableSection>
 
+      <ProductFamilySection {...props} />
       <PdpSection {...props} />
       <VariantsSection {...props} />
       <MediaSection {...props} />
@@ -786,6 +795,276 @@ export default function CatalogEditorSections(props: CatalogEditorSectionsProps)
       <SourceSection {...props} />
       <SystemMetadataSection metadata={props.systemMetadata} />
     </div>
+  );
+}
+
+function ProductFamilySection({
+  document,
+  role,
+  issues,
+  changes,
+  relationshipTargets,
+  onChange,
+}: CatalogEditorSectionsProps) {
+  const aggregate = document.productFamily;
+  if (!aggregate) {
+    return (
+      <>
+        <TableSection
+          table="product_families"
+          countLabel="0 rows"
+          errors={errorCount(issues, "product_families")}
+        >
+          <p className={styles.help}>
+            This Product is not assigned to a Product Family.
+          </p>
+          <button
+            className={`${styles.button} ${styles.buttonSecondary}`}
+            type="button"
+            disabled={role !== "admin" || !document.product.system_step_name}
+            onClick={() => {
+              const now = new Date().toISOString();
+              const familyId = crypto.randomUUID();
+              const step = document.product.system_step_name;
+              if (!step) return;
+              onChange({
+                ...document,
+                productFamily: {
+                  family: {
+                    id: familyId,
+                    slug: step.toLowerCase(),
+                    display_name: step,
+                    system_step_name: step,
+                    created_at: now,
+                    updated_at: now,
+                  },
+                  memberships: [
+                    {
+                      family_id: familyId,
+                      product_id: document.productId,
+                      option_label: "General",
+                      sort_order: 0,
+                      is_entry: true,
+                      created_at: now,
+                      updated_at: now,
+                    },
+                  ],
+                },
+              });
+            }}
+          >
+            Create Product Family
+          </button>
+        </TableSection>
+        <TableSection
+          table="product_family_memberships"
+          countLabel="0 rows"
+          errors={errorCount(issues, "product_family_memberships")}
+          readOnly
+        >
+          <p className={styles.help}>
+            Create a Product Family before adding ordered members.
+          </p>
+        </TableSection>
+      </>
+    );
+  }
+
+  const familyRecord = aggregate.family as unknown as Record<string, unknown>;
+  const familyFields = catalogFieldsForTable("product_families");
+  const membershipFields = catalogFieldsForTable(
+    "product_family_memberships",
+  );
+  const targets = [
+    {
+      id: document.productId,
+      slug: document.product.slug,
+      displayName: document.product.display_name,
+    },
+    ...relationshipTargets.filter((target) => target.id !== document.productId),
+  ];
+  const targetOptions = targets.map((target) => ({
+    label: `${target.displayName} (/${target.slug})`,
+    value: target.id,
+  }));
+  const updateFamily = (field: string, value: unknown) =>
+    onChange({
+      ...document,
+      productFamily: {
+        ...aggregate,
+        family: {
+          ...aggregate.family,
+          [field]: value,
+        } as CatalogFamilyFields,
+      },
+    });
+  const updateMembership = (
+    productId: string,
+    field: string,
+    value: unknown,
+  ) =>
+    onChange({
+      ...document,
+      productFamily: {
+        ...aggregate,
+        memberships: aggregate.memberships.map((membership) => ({
+          ...membership,
+          ...(membership.product_id === productId ? { [field]: value } : {}),
+          ...(field === "is_entry" &&
+          value === true &&
+          membership.product_id !== productId
+            ? { is_entry: false }
+            : {}),
+        })),
+      },
+    });
+
+  return (
+    <>
+      <TableSection
+        table="product_families"
+        countLabel="1 row"
+        changed={changedCount(changes, "product_families")}
+        errors={errorCount(issues, "product_families")}
+        readOnly={role !== "admin"}
+      >
+        <FieldGroup
+          id="group-product-family"
+          title="Family identity"
+          description="Canonical family presentation and shared System Step. Administrator-only."
+          countLabel={`${familyFields.length} fields`}
+          changed={changedCount(changes, "product_families")}
+          errors={errorCount(issues, "product_families")}
+          readOnly={role !== "admin"}
+        >
+          <div className={styles.fieldGrid}>
+            {familyFields.map((metadata) => (
+              <MetadataField
+                key={metadata.field}
+                table="product_families"
+                field={metadata.field}
+                value={familyRecord[metadata.field]}
+                role={role}
+                onChange={(value) => updateFamily(metadata.field, value)}
+                issues={issues}
+              />
+            ))}
+          </div>
+        </FieldGroup>
+      </TableSection>
+
+      <TableSection
+        table="product_family_memberships"
+        countLabel={`${aggregate.memberships.length} rows`}
+        changed={changedCount(changes, "product_family_memberships")}
+        errors={errorCount(issues, "product_family_memberships")}
+        readOnly={role !== "admin"}
+      >
+        <FieldGroup
+          id="group-product-family-memberships"
+          title="Ordered family members"
+          description="Every member is a separate Product. Exactly one member is the family entry."
+          countLabel={`${aggregate.memberships.length} rows`}
+          changed={changedCount(changes, "product_family_memberships")}
+          errors={errorCount(issues, "product_family_memberships")}
+          readOnly={role !== "admin"}
+        >
+          <div className={styles.stack}>
+            {aggregate.memberships.map((membership) => {
+              const record = membership as unknown as Record<string, unknown>;
+              return (
+                <article className={styles.recordCard} key={membership.product_id}>
+                  <div className={styles.fieldGrid}>
+                    {membershipFields.map((metadata) => (
+                      <MetadataField
+                        key={metadata.field}
+                        table="product_family_memberships"
+                        field={metadata.field}
+                        value={record[metadata.field]}
+                        role={role}
+                        onChange={(value) =>
+                          updateMembership(
+                            membership.product_id,
+                            metadata.field,
+                            value,
+                          )
+                        }
+                        issues={issues}
+                        rowId={membership.product_id}
+                        selectOptions={
+                          metadata.field === "product_id"
+                            ? targetOptions
+                            : undefined
+                        }
+                      />
+                    ))}
+                  </div>
+                  <button
+                    className={`${styles.button} ${styles.buttonDanger}`}
+                    type="button"
+                    disabled={role !== "admin"}
+                    onClick={() =>
+                      onChange({
+                        ...document,
+                        productFamily: {
+                          ...aggregate,
+                          memberships: aggregate.memberships.filter(
+                            (item) => item.product_id !== membership.product_id,
+                          ),
+                        },
+                      })
+                    }
+                  >
+                    Remove family member
+                  </button>
+                </article>
+              );
+            })}
+          </div>
+          <button
+            className={`${styles.button} ${styles.buttonSecondary}`}
+            type="button"
+            disabled={
+              role !== "admin" ||
+              !targets.some(
+                (target) =>
+                  !aggregate.memberships.some(
+                    (membership) => membership.product_id === target.id,
+                  ),
+              )
+            }
+            onClick={() => {
+              const target = targets.find(
+                (candidate) =>
+                  !aggregate.memberships.some(
+                    (membership) => membership.product_id === candidate.id,
+                  ),
+              );
+              if (!target) return;
+              const now = new Date().toISOString();
+              const membership: CatalogFamilyMembershipFields = {
+                family_id: aggregate.family.id,
+                product_id: target.id,
+                option_label: target.displayName,
+                sort_order: aggregate.memberships.length,
+                is_entry: false,
+                created_at: now,
+                updated_at: now,
+              };
+              onChange({
+                ...document,
+                productFamily: {
+                  ...aggregate,
+                  memberships: [...aggregate.memberships, membership],
+                },
+              });
+            }}
+          >
+            Add family member
+          </button>
+        </FieldGroup>
+      </TableSection>
+    </>
   );
 }
 
@@ -1285,7 +1564,7 @@ function SourceSection({ document, role, issues, changes, onChange }: CatalogEdi
 }
 
 function SystemMetadataSection({ metadata }: { metadata: CatalogEditorResponse["systemMetadata"] }) {
-  const recordCount = metadata.drafts.length + metadata.revisions.length + metadata.audit.length;
+  const recordCount = metadata.drafts.length + metadata.revisions.length + metadata.audit.length + metadata.slugRoutes.length;
   return (
     <TableSection
       table="system_metadata"
@@ -1293,11 +1572,12 @@ function SystemMetadataSection({ metadata }: { metadata: CatalogEditorResponse["
       readOnly
     >
       <p className={styles.help}>
-        Workflow, revision, and audit records are displayed for inspection only. They are not part of the editable product document.
+        Workflow, revision, audit, and Product URL redirect records are displayed for inspection only. Redirect history is append-only and cannot be silently deleted.
       </p>
       <MetadataRows table="product_content_drafts" rows={metadata.drafts} />
       <MetadataRows table="catalog_product_revisions" rows={metadata.revisions} />
       <MetadataRows table="catalog_editor_audit_log" rows={metadata.audit} />
+      <MetadataRows table="product_slug_routes" rows={metadata.slugRoutes} />
     </TableSection>
   );
 }
@@ -1313,7 +1593,11 @@ function MetadataRows({ table, rows }: { table: CatalogEditorTable; rows: Array<
     >
       {rows.length === 0 ? <p className={styles.help}>No records.</p> : null}
       {rows.map((row, index) => (
-        <details className={styles.metadataRecord} key={String(row.id ?? index)}>
+        <details
+          className={styles.metadataRecord}
+          key={String(row.id ?? row.source_slug ?? index)}
+          open={table === "product_slug_routes"}
+        >
           <summary>{String(row.id ?? `Record ${index + 1}`)}</summary>
           <div className={styles.fieldGrid}>
             {fields.map((field) => (

@@ -15,6 +15,9 @@ import {
   PRODUCT_CARD_COLLECTION_CACHE_TAG,
   PRODUCT_CONTENT_COLLECTION_CACHE_TAG,
   PRODUCT_OFFER_COLLECTION_CACHE_TAG,
+  PRODUCT_FAMILY_CACHE_TAG,
+  PRODUCT_SLUG_ROUTE_COLLECTION_CACHE_TAG,
+  productSlugRouteCacheTag,
 } from "@/lib/catalog-cache";
 import { SHOP_COLLECTION_PATHS } from "@/lib/catalog/collection-routes";
 
@@ -33,15 +36,14 @@ const PRODUCT_OFFER_FIELDS = new Set([
   "currency",
 ]);
 const PRODUCT_CARD_ONLY_FIELDS = new Set([
-  "card_tagline",
   "badge",
   "sort_order",
 ]);
 const PRODUCT_CARD_SHARED_FIELDS = new Set([
   "slug",
   "display_name",
-  "formal_title",
   "product_type",
+  "system_step_name",
   "swatch_from",
   "swatch_to",
 ]);
@@ -62,6 +64,12 @@ const PRODUCT_COLLECTION_FIELDS = new Set([
   "routine_group",
   "sort_order",
   "slug",
+]);
+const PRODUCT_FAMILY_FIELDS = new Set([
+  "slug",
+  "display_name",
+  "status",
+  "catalog_status",
 ]);
 const PRODUCT_IGNORED_FIELDS = new Set(["updated_at"]);
 const CARD_MEDIA_ROLES = new Set([
@@ -150,6 +158,10 @@ export function getCatalogInvalidationTargets(
     (value, index, values): value is string =>
       Boolean(value) && values.indexOf(value) === index,
   );
+  const affectedProducts = outcome?.affectedProducts ?? [];
+  for (const product of affectedProducts) {
+    if (!productKeys.includes(product.slug)) productKeys.push(product.slug);
+  }
 
   let invalidateContent = false;
   let invalidateOffer = false;
@@ -157,6 +169,8 @@ export function getCatalogInvalidationTargets(
   let invalidateMembership = false;
   let invalidateDiscovery = false;
   let invalidateCollection = false;
+  let invalidateSlugRoutes = false;
+  let invalidateFamily = false;
 
   if (payload.table === "product_variants") {
     invalidateOffer = true;
@@ -165,6 +179,18 @@ export function getCatalogInvalidationTargets(
     invalidateContent = mediaAffectsContent(payload);
   } else if (payload.table === "product_pdp_content") {
     invalidateContent = true;
+  } else if (payload.table === "product_slug_routes") {
+    invalidateSlugRoutes = true;
+  } else if (
+    payload.table === "product_families" ||
+    payload.table === "product_family_memberships"
+  ) {
+    invalidateContent = true;
+    invalidateCard = true;
+    invalidateMembership = true;
+    invalidateDiscovery = true;
+    invalidateCollection = true;
+    tags.add(PRODUCT_FAMILY_CACHE_TAG);
   } else if (payload.table === "products") {
     const changedFields = changedProductFields(payload);
     const broadProductChange =
@@ -193,13 +219,24 @@ export function getCatalogInvalidationTargets(
           !PRODUCT_OFFER_FIELDS.has(field) &&
           !PRODUCT_CARD_ONLY_FIELDS.has(field),
       );
+    invalidateSlugRoutes =
+      broadProductChange || changedFields.has("slug");
+    invalidateFamily =
+      broadProductChange || includesAny(changedFields, PRODUCT_FAMILY_FIELDS);
   }
+
+  if (invalidateFamily) tags.add(PRODUCT_FAMILY_CACHE_TAG);
 
   for (const productKey of productKeys) {
     if (invalidateContent) tags.add(productContentCacheTag(productKey));
     if (invalidateOffer) tags.add(productOfferCacheTag(productKey));
     if (invalidateCard) tags.add(productCardCacheTag(productKey));
+    if (invalidateSlugRoutes) tags.add(productSlugRouteCacheTag(productKey));
     paths.add(`/products/${productKey}`);
+  }
+
+  if (invalidateSlugRoutes) {
+    tags.add(PRODUCT_SLUG_ROUTE_COLLECTION_CACHE_TAG);
   }
 
   if (invalidateContent) {
@@ -228,6 +265,11 @@ export function getCatalogInvalidationTargets(
 
   if (invalidateCollection && routineGroup) {
     tags.add(collectionCacheTag(routineGroup));
+  }
+  if (invalidateCollection) {
+    for (const product of affectedProducts) {
+      tags.add(collectionCacheTag(product.routineGroup));
+    }
   }
   if (
     invalidateCollection &&

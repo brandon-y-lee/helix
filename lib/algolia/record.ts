@@ -1,8 +1,18 @@
 // Storefront-safe Algolia record and deterministic canonical mapper.
 
-import type { ProductStatus } from "@/lib/products";
+import {
+  isProductStatus,
+  productOfferPresentation,
+  type ProductStatus,
+  type Variant,
+} from "@/lib/products";
 import { statusLabel } from "@/lib/catalog/product-status";
 import { routineGroupLabel } from "@/lib/catalog/product-routine";
+import {
+  systemStepFromDatabaseRelation,
+  type SystemStepName,
+  type SystemStepDatabaseRelation,
+} from "@/lib/catalog/system-steps";
 
 type CatalogVariantSource = {
   variant_key: string;
@@ -10,7 +20,7 @@ type CatalogVariantSource = {
   price_cents: number;
   sort_order: number;
   available: boolean;
-  inventory_status: string;
+  inventory_status: Variant["inventoryStatus"];
 };
 
 type CatalogMediaSource = {
@@ -25,12 +35,31 @@ type CatalogMediaSource = {
   placeholder_palette: Record<string, string> | null;
 };
 
+type CatalogSlugRouteSource = {
+  source_slug: string;
+  route_kind: "canonical" | "rename" | "replacement";
+};
+
+type CatalogProductFamilySource = {
+  slug: string;
+  display_name: string;
+};
+
+type CatalogProductFamilyMembershipSource = {
+  family_id: string;
+  option_label: string;
+  sort_order: number;
+  is_entry: boolean;
+  product_families:
+    | CatalogProductFamilySource
+    | CatalogProductFamilySource[]
+    | null;
+};
+
 export type CatalogProductSource = {
   id: string;
   slug: string;
   display_name: string;
-  formal_title: string;
-  card_tagline: string;
   product_type: string;
   badge: string | null;
   catalog_status: string;
@@ -48,9 +77,14 @@ export type CatalogProductSource = {
   concerns: string[];
   usage_time: string[];
   search_keywords: string[];
+  product_slug_routes: CatalogSlugRouteSource[] | null;
+  product_family_memberships:
+    | CatalogProductFamilyMembershipSource
+    | CatalogProductFamilyMembershipSource[]
+    | null;
   routine_group: string;
-  routine_step_number: number | null;
-  routine_step_name: string | null;
+  system_step_name: string | null;
+  system_steps: SystemStepDatabaseRelation;
   routine_sort: number;
   published_at: string | null;
   updated_at: string | null;
@@ -62,19 +96,18 @@ export type AlgoliaProductRecord = {
   objectID: string;
   productId: string;
   slug: string;
+  slugAliases: string[];
   displayName: string;
-  formalTitle: string;
-  cardTagline: string;
   editorialDescription: string;
   productType: string;
   routineGroup: "core" | "beyond_core";
-  routineStepNumber: number | null;
-  routineStepName: string | null;
+  systemStepPosition: number;
+  systemStepName: SystemStepName;
   routineSort: number;
   badge: string | null;
   status: ProductStatus;
-  priceMin: number;
-  priceMax: number;
+  priceMin?: number;
+  priceMax?: number;
   currency: "USD";
   available: boolean;
   waitlist: boolean;
@@ -120,18 +153,21 @@ export type AlgoliaProductRecord = {
   madeFor: string | null;
   goodFor: string | null;
   texture: string | null;
+  familyId: string | null;
+  familySlug: string | null;
+  familyDisplayName: string | null;
+  familyOptionLabel: string | null;
+  familySortOrder: number | null;
+  familyIsEntry: boolean | null;
 };
 
-const VALID_STATUSES: ProductStatus[] = [
-  "available",
-  "coming_soon",
-  "sold_out",
-];
+function firstRelation<T>(value: T | T[] | null): T | null {
+  if (Array.isArray(value)) return value[0] ?? null;
+  return value;
+}
 
 function toStatus(value: string): ProductStatus {
-  return (VALID_STATUSES as string[]).includes(value)
-    ? (value as ProductStatus)
-    : "available";
+  return isProductStatus(value) ? value : "available";
 }
 
 function toRoutineGroup(
@@ -209,7 +245,6 @@ export function buildAlgoliaRecord(
   const variants = (row.product_variants ?? [])
     .slice()
     .sort((a, b) => a.sort_order - b.sort_order);
-  const prices = variants.map((variant) => variant.price_cents);
   const status = toStatus(row.status);
   const availableVariants = variants.filter(
     (variant) =>
@@ -217,6 +252,14 @@ export function buildAlgoliaRecord(
       variant.inventory_status !== "out_of_stock" &&
       variant.inventory_status !== "unavailable",
   );
+  const offerPresentation = productOfferPresentation(
+    variants.map((variant) => ({
+      ...variant,
+      inventoryStatus: variant.inventory_status,
+      price: variant.price_cents,
+    })),
+  );
+  const offerPrices = offerPresentation.offers.map((variant) => variant.price);
   const media = (row.product_media ?? [])
     .slice()
     .sort(
@@ -235,7 +278,43 @@ export function buildAlgoliaRecord(
   );
   const swatch: [string, string] = [row.swatch_from, row.swatch_to];
   const routineGroup = toRoutineGroup(row.routine_group);
+  const systemStep = systemStepFromDatabaseRelation(row.system_steps);
+  if (
+    !systemStep ||
+    systemStep.name !== row.system_step_name ||
+    systemStep.routineGroup !== routineGroup
+  ) {
+    throw new Error(
+      `[search-sync] Product "${row.slug}" has an invalid System Step.`,
+    );
+  }
   const concerns = row.concerns ?? [];
+  const familyRows = row.product_family_memberships
+    ? Array.isArray(row.product_family_memberships)
+      ? row.product_family_memberships
+      : [row.product_family_memberships]
+    : [];
+  if (familyRows.length > 1) {
+    throw new Error(
+      `[search-sync] Product "${row.slug}" belongs to multiple Product Families.`,
+    );
+  }
+  const familyMembership = familyRows[0] ?? null;
+  const family = familyMembership
+    ? firstRelation(familyMembership.product_families)
+    : null;
+  if (familyMembership && !family) {
+    throw new Error(
+      `[search-sync] Product "${row.slug}" has an incomplete Product Family.`,
+    );
+  }
+  const slugAliases = (row.product_slug_routes ?? [])
+    .filter(
+      (route) =>
+        route.route_kind !== "canonical" && route.source_slug !== row.slug,
+    )
+    .map((route) => route.source_slug)
+    .sort();
   const ingredients = [
     ...(row.key_ingredients ?? []),
     ...(row.ingredients
@@ -247,11 +326,9 @@ export function buildAlgoliaRecord(
   ];
   const keywords = [
     routineGroupLabel(routineGroup),
-    row.routine_step_name,
+    systemStep.name,
     row.product_type,
     row.display_name,
-    row.formal_title,
-    row.card_tagline,
     row.editorial_description,
     row.made_for,
     row.good_for,
@@ -260,34 +337,40 @@ export function buildAlgoliaRecord(
     ...concerns,
     ...(row.key_ingredients ?? []),
     ...(row.search_keywords ?? []),
-    ...variants.map((variant) => variant.label),
+    family?.display_name,
+    familyMembership?.option_label,
+    ...slugAliases,
+    ...offerPresentation.offers.map((variant) => variant.label),
   ].filter((value): value is string => Boolean(value?.trim()));
 
   return {
     objectID: row.id,
     productId: row.id,
     slug: row.slug,
+    slugAliases,
     displayName: row.display_name,
-    formalTitle: row.formal_title,
-    cardTagline: row.card_tagline,
     editorialDescription: row.editorial_description,
     productType: row.product_type,
     routineGroup,
-    routineStepNumber: row.routine_step_number,
-    routineStepName: row.routine_step_name,
+    systemStepPosition: systemStep.position,
+    systemStepName: systemStep.name,
     routineSort: row.routine_sort,
     badge: statusLabel(status) ?? row.badge,
     status,
-    priceMin: prices.length ? Math.min(...prices) : 0,
-    priceMax: prices.length ? Math.max(...prices) : 0,
+    ...(status !== "waitlist" && offerPrices.length > 0
+      ? {
+          priceMin: Math.min(...offerPrices),
+          priceMax: Math.max(...offerPrices),
+        }
+      : {}),
     currency: "USD",
     available:
       row.catalog_status === "active" &&
       status === "available" &&
       availableVariants.length > 0,
-    waitlist: status === "coming_soon",
-    variantCount: variants.length,
-    variantNames: variants.map((variant) => variant.label),
+    waitlist: status === "waitlist",
+    variantCount: offerPresentation.offers.length,
+    variantNames: offerPresentation.offers.map((variant) => variant.label),
     keywords,
     concerns,
     ingredients,
@@ -305,6 +388,12 @@ export function buildAlgoliaRecord(
     madeFor: row.made_for,
     goodFor: row.good_for,
     texture: row.texture,
+    familyId: familyMembership?.family_id ?? null,
+    familySlug: family?.slug ?? null,
+    familyDisplayName: family?.display_name ?? null,
+    familyOptionLabel: familyMembership?.option_label ?? null,
+    familySortOrder: familyMembership?.sort_order ?? null,
+    familyIsEntry: familyMembership?.is_entry ?? null,
   };
 }
 
@@ -318,10 +407,9 @@ export type IndexSettings = {
 export const INDEX_SETTINGS: IndexSettings = {
   searchableAttributes: [
     "displayName",
-    "formalTitle",
-    "cardTagline",
     "productType",
     "editorialDescription",
+    "unordered(slugAliases)",
     "unordered(keywords)",
     "unordered(variantNames)",
   ],
@@ -335,7 +423,7 @@ export const INDEX_SETTINGS: IndexSettings = {
   customRanking: ["asc(sortOrder)", "asc(displayName)"],
   attributesToHighlight: [
     "displayName",
-    "cardTagline",
+    "productType",
     "editorialDescription",
   ],
 };

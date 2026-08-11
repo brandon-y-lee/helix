@@ -71,16 +71,7 @@ function initialiseRepository(): { root: string; tempRoot: string } {
   expectSuccess(git(root, "config", "user.name", "Workflow Test"));
   expectSuccess(git(root, "config", "user.email", "workflow@example.test"));
   writeFileSync(join(root, "README.md"), "fixture\n");
-  mkdirSync(join(root, ".github", "workflows"), { recursive: true });
-  writeFileSync(
-    join(root, ".github", "workflows", "dev-integration.yml"),
-    "name: coordinator\npermissions:\n  actions: write\n  contents: write\n  issues: write\n  pull-requests: write\njobs:\n  coordinate:\n    runs-on: ubuntu-latest\n    steps: []\n",
-  );
-  writeFileSync(
-    join(root, ".github", "workflows", "dev-integration-verification.yml"),
-    "name: verification\npermissions:\n  contents: read\njobs:\n  verify:\n    runs-on: ubuntu-latest\n    steps: []\n",
-  );
-  expectSuccess(git(root, "add", "README.md", ".github/workflows"));
+  expectSuccess(git(root, "add", "README.md"));
   expectSuccess(git(root, "commit", "-m", "Initial fixture"));
   expectSuccess(git(root, "branch", "dev"));
   mkdirSync(join(tempRoot, "tasks"));
@@ -307,12 +298,6 @@ type FakeGithubState = {
   repo: Record<string, unknown>;
   labels: Array<{ name: string; color: string; description: string }>;
   protections: Record<string, unknown>;
-  githubActionsAppId?: number;
-  rulesets?: Array<Record<string, unknown>>;
-  workflowPermissions?: {
-    default_workflow_permissions: "read" | "write";
-    can_approve_pull_request_reviews: boolean;
-  };
   failAuth?: boolean;
   failIssues?: boolean;
   advanceDev?: boolean;
@@ -376,33 +361,6 @@ if (args[0] === "api") {
     process.stdout.write("[]");
     process.exit(0);
   }
-  if (method === "GET" && endpoint?.includes("/check-runs?per_page=100")) {
-    process.stdout.write(JSON.stringify({
-      check_runs: [{ name: "ci", app: { id: state.githubActionsAppId ?? 15368, slug: "github-actions" } }],
-    }));
-    process.exit(0);
-  }
-  if (method === "GET" && endpoint?.endsWith("/actions/permissions/workflow")) {
-    process.stdout.write(JSON.stringify(state.workflowPermissions ?? {
-      default_workflow_permissions: "write",
-      can_approve_pull_request_reviews: true,
-    }));
-    process.exit(0);
-  }
-  if (method === "GET" && endpoint?.endsWith("/rulesets?includes_parents=false")) {
-    process.stdout.write(JSON.stringify(state.rulesets ?? []));
-    process.exit(0);
-  }
-  const rulesetId = endpoint?.match(/\\/rulesets\\/(\\d+)$/)?.[1];
-  if (method === "GET" && rulesetId) {
-    const ruleset = (state.rulesets ?? []).find((entry) => String(entry.id) === rulesetId);
-    if (!ruleset) {
-      process.stderr.write("gh: Ruleset not found (HTTP 404)\\n");
-      process.exit(1);
-    }
-    process.stdout.write(JSON.stringify(ruleset));
-    process.exit(0);
-  }
   const protection = endpoint?.match(/\\/branches\\/(main|dev)\\/protection$/)?.[1];
   if (method === "GET" && protection) {
     if (!state.protections[protection]) {
@@ -427,27 +385,6 @@ if (args[0] === "api") {
     state.protections[protection] = JSON.parse(input);
     save();
     process.stdout.write(JSON.stringify(state.protections[protection]));
-    process.exit(0);
-  }
-  if (method === "PUT" && endpoint?.endsWith("/actions/permissions/workflow")) {
-    state.workflowPermissions = JSON.parse(input);
-    save();
-    process.stdout.write(JSON.stringify(state.workflowPermissions));
-    process.exit(0);
-  }
-  if ((method === "POST" || method === "PUT") && endpoint?.includes("/rulesets")) {
-    const body = JSON.parse(input);
-    state.rulesets ??= [];
-    if (method === "POST") {
-      body.id = 9001;
-      state.rulesets.push(body);
-    } else {
-      const index = state.rulesets.findIndex((entry) => String(entry.id) === rulesetId);
-      body.id = Number(rulesetId);
-      state.rulesets[index] = body;
-    }
-    save();
-    process.stdout.write(JSON.stringify(body));
     process.exit(0);
   }
 }
@@ -509,8 +446,6 @@ describe("GitHub workflow bootstrap", () => {
         },
         labels: [],
         protections: {},
-        githubActionsAppId: 15368,
-        rulesets: [],
       };
       writeFileSync(statePath, JSON.stringify(state));
       const fakeGh = writeFakeGh(tempRoot, logPath);
@@ -527,13 +462,6 @@ describe("GitHub workflow bootstrap", () => {
       expectSuccess(planned);
       expect(planned.stdout).toContain(`create remote dev at ${devSha}`);
       expect(planned.stdout).toContain("create label type:spec");
-      expect(planned.stdout).toContain("create label workflow:integration-queued");
-      expect(planned.stdout).toContain("create label workflow:integration-active");
-      expect(planned.stdout).toContain("create label workflow:urgent");
-      expect(planned.stdout).toContain(
-        "create dev Integration Line authority ruleset for GitHub App 15368",
-      );
-      expect(planned.stdout).toContain("set default Actions workflow permissions to read-only");
       expect(planned.stdout).toContain("update repository merge settings");
       expect(planned.stdout).toContain("protect dev");
       expect(planned.stdout).toContain("protect main");
@@ -637,10 +565,6 @@ describe("GitHub workflow bootstrap", () => {
         devSha,
         "--confirm-ci-sha",
         devSha,
-        "--confirm-integration-cutover",
-        "dev-integration-authority",
-        "--confirm-integration-app-id",
-        "15368",
       );
       expectSuccess(applied);
       expect(applied.stdout).toContain("Applied GitHub workflow configuration.");
@@ -649,14 +573,6 @@ describe("GitHub workflow bootstrap", () => {
       expect(
         state.protections.main.required_pull_request_reviews.required_approving_review_count,
       ).toBe(0);
-      expect(
-        state.rulesets[0].rules.find((rule: { type: string }) => rule.type === "required_status_checks")
-          .parameters.strict_required_status_checks_policy,
-      ).toBe(false);
-      expect(state.workflowPermissions).toEqual({
-        default_workflow_permissions: "read",
-        can_approve_pull_request_reviews: false,
-      });
       expect(readFileSync(logPath, "utf8")).not.toContain("collaborators");
 
       writeFileSync(logPath, "");
@@ -746,10 +662,6 @@ describe("GitHub workflow bootstrap", () => {
         devSha,
         "--confirm-ci-sha",
         devSha,
-        "--confirm-integration-cutover",
-        "dev-integration-authority",
-        "--confirm-integration-app-id",
-        "15368",
       );
       expectSuccess(applied);
       expect(git(root, "rev-parse", "dev").stdout.trim()).not.toBe(devSha);
@@ -798,45 +710,6 @@ describe("GitHub workflow bootstrap", () => {
           state.failIssues = true;
         },
         expected: /issue API capability/,
-      },
-      {
-        name: "default-branch coordinator",
-        mutateRepo: (root) => {
-          expectSuccess(
-            git(
-              root,
-              "rm",
-              ".github/workflows/dev-integration.yml",
-              ".github/workflows/dev-integration-verification.yml",
-            ),
-          );
-          expectSuccess(git(root, "commit", "-m", "Remove coordinator workflows"));
-          expectSuccess(git(root, "branch", "-f", "dev", "HEAD"));
-          expectSuccess(git(root, "push", "origin", "main"));
-        },
-        expected: /coordinator workflow is absent from audited dev|coordinator workflows must exist on remote main/,
-      },
-      {
-        name: "non-coordinator write authority",
-        mutateRepo: (root) => {
-          writeFileSync(
-            join(root, ".github", "workflows", "rogue.yml"),
-            [
-              "name: rogue",
-              "permissions: { contents: read }",
-              "jobs:",
-              "  mutate:",
-              "    permissions: write-all",
-              "    runs-on: ubuntu-latest",
-              "    steps: []",
-              "",
-            ].join("\n"),
-          );
-          expectSuccess(git(root, "add", ".github/workflows/rogue.yml"));
-          expectSuccess(git(root, "commit", "-m", "Add rogue workflow"));
-          expectSuccess(git(root, "branch", "-f", "dev", "HEAD"));
-        },
-        expected: /non-coordinator workflow '.github\/workflows\/rogue.yml' job 'mutate' requests write-all/,
       },
     ];
 

@@ -19,6 +19,7 @@ import {
   type CSSProperties,
   type FocusEvent,
   type KeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { ProductImage } from "@/components/product/ProductImage";
@@ -33,6 +34,7 @@ import {
   firstPurchasableVariant,
   formatPrice,
   isVariantPurchasable,
+  productOfferPresentation,
   productPurchaseCta,
 } from "@/lib/products";
 
@@ -78,12 +80,6 @@ const PRODUCT_CARD_CTA_VARIANTS: Variants = {
 };
 
 const PRODUCT_CARD_CTA_EASE = [0.76, 0, 0.24, 1] as const;
-
-function minPrice(product: ProductCardModel): number {
-  return product.variants.length
-    ? Math.min(...product.variants.map((variant) => variant.price))
-    : 0;
-}
 
 function variantSizeLabel(
   variant: OfferAvailability | null | undefined,
@@ -164,7 +160,9 @@ export function ProductCard({
     clientX: number;
     clientY: number;
     pointerType: string;
+    viewport: { scrollX: number; scrollY: number };
   } | null>(null);
+  const viewportRestoreFrameRef = useRef<number | null>(null);
   const controlled = quickBuyOpen !== undefined;
   const [localQuickBuyOpen, setLocalQuickBuyOpen] = useState(false);
   const [added, setAdded] = useState(false);
@@ -190,12 +188,20 @@ export function ProductCard({
     availableVariants[0] ??
     product.variants[0] ??
     null;
-  const isQuickBuyOpen = controlled ? quickBuyOpen : localQuickBuyOpen;
+  const isWaitlist = product.status === "waitlist";
+  const isQuickBuyOpen =
+    !isWaitlist && (controlled ? quickBuyOpen : localQuickBuyOpen);
   const purchaseCta = productPurchaseCta(product, selectedVariant);
   const canBuy = purchaseCta.purchasable;
-  const startingPrice = minPrice(product);
-  const hasRange = product.variants.length > 1;
-  const priceLabel = `${hasRange ? "From " : ""}${formatPrice(startingPrice)}`;
+  const offerPresentation = productOfferPresentation(product.variants);
+  const startingPrice = offerPresentation.showPrice
+    ? Math.min(...offerPresentation.offers.map((variant) => variant.price))
+    : null;
+  const priceLabel = isWaitlist
+    ? "Waitlist"
+    : startingPrice === null
+      ? null
+      : `${offerPresentation.hasMultipleOffers ? "From " : ""}${formatPrice(startingPrice)}`;
   const displayName = product.displayName;
   const cardImageSizes =
     defaultImage?.sizes ??
@@ -254,6 +260,9 @@ export function ProductCard({
       if (pointerPreviewTimeoutRef.current) {
         window.clearTimeout(pointerPreviewTimeoutRef.current);
       }
+      if (viewportRestoreFrameRef.current) {
+        window.cancelAnimationFrame(viewportRestoreFrameRef.current);
+      }
     };
   }, []);
 
@@ -305,7 +314,13 @@ export function ProductCard({
       }
     };
     restoreViewport();
-    window.requestAnimationFrame(restoreViewport);
+    if (viewportRestoreFrameRef.current) {
+      window.cancelAnimationFrame(viewportRestoreFrameRef.current);
+    }
+    viewportRestoreFrameRef.current = window.requestAnimationFrame(() => {
+      viewportRestoreFrameRef.current = null;
+      restoreViewport();
+    });
   }
 
   function focusTriggerWithoutScrolling() {
@@ -317,6 +332,11 @@ export function ProductCard({
   function closeQuickBuy({
     focusTrigger = true,
     restorePointerPreview = false,
+    viewport,
+  }: {
+    focusTrigger?: boolean;
+    restorePointerPreview?: boolean;
+    viewport?: { scrollX: number; scrollY: number };
   } = {}) {
     if (controlled) {
       onQuickBuyClose?.();
@@ -339,6 +359,8 @@ export function ProductCard({
     }
     if (focusTrigger) {
       focusTriggerWithoutScrolling();
+    } else {
+      preserveViewportAfterUpdate(viewport);
     }
   }
 
@@ -395,6 +417,7 @@ export function ProductCard({
       clientX: event.clientX,
       clientY: event.clientY,
       pointerType: event.pointerType || "mouse",
+      viewport: { scrollX: window.scrollX, scrollY: window.scrollY },
     };
   }
 
@@ -403,13 +426,24 @@ export function ProductCard({
       clientX: 0,
       clientY: 0,
       pointerType: "touch",
+      viewport: { scrollX: window.scrollX, scrollY: window.scrollY },
     };
   }
 
-  function handleCloseClick() {
+  function handleCloseClick(event: ReactMouseEvent<HTMLButtonElement>) {
+    const closePointer = closePointerRef.current;
+    const closeWasTouch =
+      closePointer?.pointerType === "touch" && !lastInputWasKeyboardRef.current;
+    const viewport = closeWasTouch ? closePointer.viewport : undefined;
+    if (viewport) {
+      event.currentTarget.blur();
+    }
     closeQuickBuy({
+      focusTrigger: !closeWasTouch,
       restorePointerPreview: !lastInputWasKeyboardRef.current,
+      viewport,
     });
+    closePointerRef.current = null;
   }
 
   async function handleFinalBuy() {
@@ -427,7 +461,6 @@ export function ProductCard({
       },
       beforeDrawerOpen: () => {
         closeQuickBuy({ focusTrigger: false });
-        preserveViewportAfterUpdate();
       },
       returnFocus: focusTriggerWithoutScrolling,
     });
@@ -551,52 +584,57 @@ export function ProductCard({
                 }}
               >
                 <span className="product-card__tagline">
-                  {product.cardTagline}
+                  {product.productType}
                 </span>
-                <span className="product-card__price">{priceLabel}</span>
+                {priceLabel ? (
+                  <span className="product-card__price">{priceLabel}</span>
+                ) : null}
               </m.span>
             </Link>
 
-            <m.div
-              className="product-card__cta"
-              data-motion-state={ctaMotionState}
-              variants={PRODUCT_CARD_CTA_VARIANTS}
-              initial={false}
-              animate={ctaMotionState}
-              transition={{
-                type: "tween",
-                duration: shouldReduceMotion ? 0 : 0.7,
-                ease: PRODUCT_CARD_CTA_EASE,
-              }}
-            >
-              <button
-                ref={triggerRef}
-                type="button"
-                className="product-card__button product-card__quick-trigger"
-                onClick={openQuickBuy}
-                aria-label={
-                  canBuy
-                    ? `Open quick buy for ${displayName}`
-                    : purchaseCta.label
-                }
-                aria-expanded={isQuickBuyOpen}
-                aria-controls={panelId}
-                disabled={!canBuy}
-                tabIndex={
-                  isQuickBuyOpen || visualState === "default" ? -1 : undefined
-                }
+            {!isWaitlist && (
+              <m.div
+                className="product-card__cta"
+                data-motion-state={ctaMotionState}
+                variants={PRODUCT_CARD_CTA_VARIANTS}
+                initial={false}
+                animate={ctaMotionState}
+                transition={{
+                  type: "tween",
+                  duration: shouldReduceMotion ? 0 : 0.7,
+                  ease: PRODUCT_CARD_CTA_EASE,
+                }}
               >
-                {purchaseCta.label}
-              </button>
-            </m.div>
+                <button
+                  ref={triggerRef}
+                  type="button"
+                  className="product-card__button product-card__quick-trigger"
+                  onClick={openQuickBuy}
+                  aria-label={
+                    canBuy
+                      ? `Open quick buy for ${displayName}`
+                      : purchaseCta.label
+                  }
+                  aria-expanded={isQuickBuyOpen}
+                  aria-controls={panelId}
+                  disabled={!canBuy}
+                  tabIndex={
+                    isQuickBuyOpen || visualState === "default" ? -1 : undefined
+                  }
+                >
+                  {purchaseCta.label}
+                </button>
+              </m.div>
+            )}
 
-            <section
-              id={panelId}
-              className="product-card__quick-buy"
-              data-open={isQuickBuyOpen}
-              aria-hidden={!isQuickBuyOpen}
-              aria-labelledby={`${panelId}-title`}
-            >
+            {!isWaitlist && (
+              <section
+                id={panelId}
+                className="product-card__quick-buy"
+                data-open={isQuickBuyOpen}
+                aria-hidden={!isQuickBuyOpen}
+                aria-labelledby={`${panelId}-title`}
+              >
               <button
                 type="button"
                 className="product-card__quick-close"
@@ -641,11 +679,11 @@ export function ProductCard({
                 Full details
               </Link>
 
-              {product.variants.length > 1 && (
+              {offerPresentation.hasMultipleOffers && (
                 <fieldset className="product-card__quick-variants">
                   <legend>Size</legend>
                   <div className="product-card__quick-options">
-                    {product.variants.map((variant) => {
+                    {offerPresentation.offers.map((variant) => {
                       const buyable = isVariantPurchasable(product, variant);
                       return (
                         <label
@@ -686,7 +724,8 @@ export function ProductCard({
                   {pending ? "ADDING" : purchaseCta.label}
                 </button>
               </div>
-            </section>
+              </section>
+            )}
           </div>
         </MotionConfig>
       </LazyMotion>

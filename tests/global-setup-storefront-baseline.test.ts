@@ -17,12 +17,10 @@ const originalSnapshotPath = process.env[STOREFRONT_SNAPSHOT_ENV];
 function product(
   overrides: Partial<StorefrontCatalogProduct> = {},
 ): StorefrontCatalogProduct {
-  return {
+  const value: StorefrontCatalogProduct = {
     id: "core-id",
     slug: "core-product",
     display_name: "CORE",
-    formal_title: "Core Product",
-    card_tagline: "Public tagline",
     product_type: "Cleanser",
     badge: null,
     currency: "USD",
@@ -44,8 +42,8 @@ function product(
     usage_time: [],
     search_keywords: [],
     routine_group: "core",
-    routine_step_number: 1,
-    routine_step_name: "CLEANSE",
+    system_step_name: "CLEANSE",
+    system_steps: { name: "CLEANSE", position: 1, routine_group: "core" },
     routine_sort: 10,
     product_variants: [
       {
@@ -92,8 +90,15 @@ function product(
         placeholder_palette: null,
       },
     ],
+    product_family_memberships: null,
     ...overrides,
   };
+  if (!("system_steps" in overrides)) {
+    value.system_steps = value.routine_group === "beyond_core"
+      ? { name: "FRAME", position: 4, routine_group: "beyond_core" }
+      : { name: "CLEANSE", position: 1, routine_group: "core" };
+  }
+  return value;
 }
 
 beforeEach(() => {
@@ -133,7 +138,7 @@ describe("Playwright global Storefront baseline setup", () => {
         if (pathname.startsWith("/collections/")) {
           return new Response(`<!doctype html><html><body>
             <span class="product-count">${products.length} ${products.length === 1 ? "product" : "products"}</span>
-            ${products.map(([slug, name]) => `<div data-product-card-slug="${slug}"><span class="product-card__name">${name}</span><span class="product-card__price">${slug === "core-product" ? "$22.00" : "$0.00"}</span><button class="product-card__quick-trigger">${slug === "core-product" ? "BUY CORE - $22.00" : "OUT OF STOCK"}</button></div>`).join("")}
+            ${products.map(([slug, name]) => `<div data-product-card-slug="${slug}"><span class="product-card__name">${name}</span>${slug === "core-product" ? '<span class="product-card__price">$22.00</span>' : ""}<button class="product-card__quick-trigger">${slug === "core-product" ? "BUY CORE - $22.00" : "OUT OF STOCK"}</button></div>`).join("")}
           </body></html>`, { status: 200 });
         }
         if (pathname === "/products/core-product") {
@@ -159,10 +164,10 @@ describe("Playwright global Storefront baseline setup", () => {
             slug: "beyond-product",
             display_name: "BEYOND",
             routine_group: "beyond_core",
-            routine_step_number: 4,
-            routine_step_name: "FRAME",
+            system_step_name: "FRAME",
             routine_sort: 20,
             sort_order: 20,
+            status: "sold_out",
             product_variants: [],
             product_media: [],
           }),

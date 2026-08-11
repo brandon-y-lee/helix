@@ -131,11 +131,9 @@ function makeProduct(overrides: ProductOverrides = {}): PdpProduct {
     id: "33333333-3333-4333-8333-333333333333",
     slug: "treat-03-pdrn-5-ampoule",
     displayName: "TREAT",
-    formalTitle: "TREAT 02 PDRN 5 Ampoule",
-    cardTagline: "Bounce and glow",
     routineGroup: "core",
-    routineStepNumber: 2,
-    routineStepName: "Treat",
+    systemStepPosition: 3,
+    systemStepName: "TREAT",
     routineSort: 20,
     productType: "Ampoule",
     badge: null,
@@ -240,7 +238,11 @@ function makeProduct(overrides: ProductOverrides = {}): PdpProduct {
     },
     createdAt: "2026-06-14T00:00:00.000Z",
   };
-  return { ...base, ...overrides } as unknown as PdpProduct;
+  return {
+    ...base,
+    productFamily: null,
+    ...overrides,
+  } as unknown as PdpProduct;
 }
 
 function before(a: Element, b: Element) {
@@ -261,8 +263,8 @@ describe("ProductDetail purchase accordions", () => {
         slug: "cleanse-01-calming-gel-cleanser",
         displayName: "CLEANSE",
         productType: "Gel cleanser",
-        routineStepNumber: 1,
-        routineStepName: "Cleanse",
+        systemStepPosition: 1,
+        systemStepName: "CLEANSE",
         routineSort: 10,
       }),
       makeProduct(),
@@ -271,8 +273,8 @@ describe("ProductDetail purchase accordions", () => {
         slug: "seal-05-green-collagen-cream",
         displayName: "SEAL",
         productType: "Cream",
-        routineStepNumber: 3,
-        routineStepName: "Seal",
+        systemStepPosition: 5,
+        systemStepName: "SEAL",
         routineSort: 30,
       }),
     ];
@@ -280,9 +282,7 @@ describe("ProductDetail purchase accordions", () => {
       id: item.id,
       slug: item.slug,
       displayName: item.displayName,
-      formalTitle: `${item.displayName} formal title`,
       productType: item.productType ?? "",
-      cardTagline: item.cardTagline,
       description: item.description,
       benefits: [],
       goodFor: item.goodFor,
@@ -292,8 +292,8 @@ describe("ProductDetail purchase accordions", () => {
       pdpContent: item.pdpContent ?? null,
       status: item.status,
       routineGroup: "core",
-      routineStepNumber: index + 1,
-      routineStepName: item.displayName,
+      systemStepPosition: ([1, 3, 5] as const)[index],
+      systemStepName: (["CLEANSE", "TREAT", "SEAL"] as const)[index],
       routineSort: (index + 1) * 10,
       swatch: item.swatch,
       cardMedia: item.cardMedia,
@@ -340,11 +340,11 @@ describe("ProductDetail purchase accordions", () => {
     const { container } = render(
       <ProductDetail
         product={makeProduct({
-          slug: "refine-02-pore-treatment-pads",
-          displayName: "REFINE",
+          slug: "balancing-prep",
+          displayName: "Balancing Prep",
           routineGroup: "beyond_core",
-          routineStepNumber: null,
-          routineStepName: null,
+          systemStepPosition: 2,
+          systemStepName: "REFINE",
           routineSort: 110,
         })}
       />,
@@ -653,8 +653,8 @@ describe("ProductDetail purchase accordions", () => {
         product={makeProduct({
           slug: "cleanse-01-calming-gel-cleanser",
           displayName: "CLEANSE",
-          routineStepNumber: 1,
-          routineStepName: "Cleanse",
+          systemStepPosition: 1,
+          systemStepName: "CLEANSE",
           routineSort: 10,
           pdpContent: {
             ...treat.pdpContent!,
@@ -801,6 +801,115 @@ describe("ProductDetail purchase accordions", () => {
     fireEvent.click(mainBuy as HTMLButtonElement);
     fireEvent.click(stickyBuy as HTMLButtonElement);
     expect(cartMock.add).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders a truthful no-Offer state for coming-soon Products", () => {
+    const { container } = render(
+      <ProductDetail
+        product={makeProduct({
+          displayName: "Peptide Nourish Mask",
+          productType: "PDRN sheet mask",
+          status: "coming_soon",
+          variants: [],
+        })}
+        stripePublishableKey="pk_test_product"
+      />,
+    );
+
+    const mainBuy = container.querySelector<HTMLButtonElement>(
+      "[data-pdp-buy-button]",
+    );
+    const stickyBuy = container.querySelector<HTMLButtonElement>(
+      "[data-sticky-pdp-buy-button]",
+    );
+
+    expect(container.querySelector(".pdp__price")).toBeNull();
+    expect(screen.queryByRole("group", { name: "Size" })).toBeNull();
+    expect(mainBuy).toHaveTextContent("COMING SOON");
+    expect(mainBuy).toBeDisabled();
+    expect(stickyBuy).toHaveTextContent("COMING SOON");
+    expect(stickyBuy).toBeDisabled();
+    expect(screen.queryByTestId("afterpay-messaging-boundary")).toBeNull();
+    fireEvent.click(mainBuy as HTMLButtonElement);
+    fireEvent.click(stickyBuy as HTMLButtonElement);
+    expect(cartMock.add).not.toHaveBeenCalled();
+  });
+
+  it("keeps a coming-soon PDP non-purchasable without presenting an Offer price", () => {
+    const base = makeProduct();
+    render(
+      <ProductDetail
+        product={makeProduct({
+          status: "coming_soon",
+          variants: base.variants.map((variant) => ({
+            ...variant,
+            available: false,
+            inventoryStatus: "unavailable" as const,
+          })),
+        })}
+      />,
+    );
+
+    for (const button of screen.getAllByRole("button", { name: "COMING SOON" })) {
+      expect(button).toBeDisabled();
+    }
+    expect(document.querySelector(".pdp__price")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("afterpay-messaging-boundary")).not.toBeInTheDocument();
+    expect(cartMock.add).not.toHaveBeenCalled();
+  });
+
+  it("withholds PDP Offer facts when inventory evidence is unavailable", () => {
+    const base = makeProduct();
+    render(
+      <ProductDetail
+        product={makeProduct({
+          status: "available",
+          variants: base.variants.map((variant) => ({
+            ...variant,
+            available: false,
+            inventoryStatus: "unavailable" as const,
+          })),
+        })}
+      />,
+    );
+
+    expect(document.querySelector(".pdp__price")).not.toBeInTheDocument();
+    expect(document.querySelector(".variant-options")).not.toBeInTheDocument();
+    expect(cartMock.add).not.toHaveBeenCalled();
+  });
+
+  it("presents only supported Offers when PDP variant evidence is mixed", () => {
+    const base = makeProduct();
+    const variant = base.variants[0];
+    if (!variant) throw new Error("Expected a Product Variant fixture.");
+
+    render(
+      <ProductDetail
+        product={makeProduct({
+          variants: [
+            {
+              ...variant,
+              id: "unverified",
+              label: "Unverified",
+              price: 1200,
+              available: false,
+              inventoryStatus: "unavailable",
+            },
+            {
+              ...variant,
+              id: "verified",
+              label: "Verified",
+              price: 2500,
+            },
+          ],
+        })}
+      />,
+    );
+
+    expect(screen.queryByText("$12.00")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Unverified" })).not.toBeInTheDocument();
+    expect(screen.getAllByText("$25.00").length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: "Verified" })).toBeInTheDocument();
   });
 
   it("fails closed without empty Core editorial media shells", () => {

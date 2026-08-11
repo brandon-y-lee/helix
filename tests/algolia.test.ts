@@ -10,6 +10,7 @@ import {
 // is exercised without any network or real credentials.
 vi.mock("@/lib/algolia/source", () => ({
   fetchSearchRecordById: vi.fn(),
+  fetchSearchRecordsByFamilyId: vi.fn(),
   fetchAllSearchRecords: vi.fn(),
 }));
 vi.mock("@/lib/algolia/server", () => ({
@@ -22,6 +23,7 @@ vi.mock("@/lib/algolia/server", () => ({
 import {
   fetchAllSearchRecords,
   fetchSearchRecordById,
+  fetchSearchRecordsByFamilyId,
 } from "@/lib/algolia/source";
 import {
   upsertSearchRecord,
@@ -41,17 +43,20 @@ const mockedFetch = fetchSearchRecordById as unknown as Mock;
 const mockedUpsert = upsertSearchRecord as unknown as Mock;
 const mockedDelete = deleteSearchRecord as unknown as Mock;
 const mockedFetchAll = fetchAllSearchRecords as unknown as Mock;
+const mockedFetchFamily = fetchSearchRecordsByFamilyId as unknown as Mock;
 const mockedReindex = reindexAllSearchRecords as unknown as Mock;
 
 const sourceRow: CatalogProductSource = {
   id: "11111111-1111-1111-1111-111111111111",
   slug: "northpoint-renewal-serum",
   display_name: "NORTHPOINT",
-  formal_title: "NORTHPOINT 03 Renewal Serum",
-  card_tagline: "Smoother-looking tone",
   routine_group: "core",
-  routine_step_number: 2,
-  routine_step_name: "Treat",
+  system_step_name: "TREAT",
+  system_steps: {
+    name: "TREAT",
+    position: 4,
+    routine_group: "core",
+  },
   routine_sort: 20,
   product_type: "Serum",
   badge: "Night step",
@@ -72,6 +77,17 @@ const sourceRow: CatalogProductSource = {
   concerns: ["Texture"],
   usage_time: ["PM"],
   search_keywords: ["serum"],
+  product_slug_routes: [
+    {
+      source_slug: "old-northpoint-serum",
+      route_kind: "rename",
+    },
+    {
+      source_slug: "northpoint-renewal-serum",
+      route_kind: "canonical",
+    },
+  ],
+  product_family_memberships: null,
   product_variants: [
     {
       variant_key: "50ml",
@@ -116,15 +132,14 @@ describe("buildAlgoliaRecord", () => {
     expect(r.objectID).toBe(sourceRow.id);
     expect(r.productId).toBe(sourceRow.id);
     expect(r.slug).toBe("northpoint-renewal-serum");
+    expect(r.slugAliases).toEqual(["old-northpoint-serum"]);
     expect(r.displayName).toBe("NORTHPOINT");
-    expect(r.formalTitle).toBe("NORTHPOINT 03 Renewal Serum");
-    expect(r.cardTagline).toBe("Smoother-looking tone");
     expect(r.editorialDescription).toBe(
       "A nightly serum for smoother-looking tone.",
     );
     expect(r.routineGroup).toBe("core");
-    expect(r.routineStepNumber).toBe(2);
-    expect(r.routineStepName).toBe("Treat");
+    expect(r.systemStepPosition).toBe(4);
+    expect(r.systemStepName).toBe("TREAT");
     expect(r.routineSort).toBe(20);
     expect(r.productType).toBe("Serum");
     expect(r.currency).toBe("USD");
@@ -140,9 +155,10 @@ describe("buildAlgoliaRecord", () => {
     expect(r.sortOrder).toBe(20);
     // Keywords pull from safe descriptive fields + variant labels.
     expect(r.keywords).toContain("The Core");
-    expect(r.keywords).toContain("Treat");
+    expect(r.keywords).toContain("TREAT");
     expect(r.keywords).toContain("Silky serum");
     expect(r.keywords).toContain("30 ml");
+    expect(r.keywords).toContain("old-northpoint-serum");
     expect(r.placeholderMedia).toMatchObject({
       kind: "placeholder",
       paletteId: "northpoint-search",
@@ -179,6 +195,40 @@ describe("buildAlgoliaRecord", () => {
       role: "search",
     });
     expect(r.placeholderMedia).toBeNull();
+  });
+
+  it("projects Product Family identity without collapsing searchable members", () => {
+    const r = buildAlgoliaRecord({
+      ...sourceRow,
+      slug: "beaming-prep",
+      display_name: "Beaming Prep",
+      status: "waitlist",
+      product_variants: [],
+      product_family_memberships: {
+        family_id: "123e4567-e89b-42d3-a456-426614174143",
+        option_label: "Brightening",
+        sort_order: 2,
+        is_entry: false,
+        product_families: {
+          slug: "refine",
+          display_name: "REFINE",
+        },
+      },
+    });
+
+    expect(r).toMatchObject({
+      slug: "beaming-prep",
+      familyId: "123e4567-e89b-42d3-a456-426614174143",
+      familySlug: "refine",
+      familyDisplayName: "REFINE",
+      familyOptionLabel: "Brightening",
+      familySortOrder: 2,
+      familyIsEntry: false,
+      waitlist: true,
+    });
+    expect(r.keywords).toEqual(
+      expect.arrayContaining(["REFINE", "Brightening"]),
+    );
   });
 
   it("never promotes PDP-only media into search", () => {
@@ -241,11 +291,34 @@ describe("buildAlgoliaRecord", () => {
     expect(r.imageMedia?.role).toBe("search");
   });
 
-  it("flags availability/waitlist and badge from status", () => {
-    const coming = buildAlgoliaRecord({ ...sourceRow, status: "coming_soon" });
+  it("omits unsupported Offer facts and does not infer waitlist from coming soon", () => {
+    const coming = buildAlgoliaRecord({
+      ...sourceRow,
+      status: "coming_soon",
+      product_variants: sourceRow.product_variants?.map((variant) => ({
+        ...variant,
+        available: false,
+        inventory_status: "unavailable",
+      })) ?? null,
+    });
     expect(coming.available).toBe(false);
-    expect(coming.waitlist).toBe(true);
+    expect(coming.waitlist).toBe(false);
     expect(coming.badge).toBe("Coming soon");
+    expect(coming).not.toHaveProperty("priceMin");
+    expect(coming).not.toHaveProperty("priceMax");
+    expect(coming.variantCount).toBe(0);
+    expect(coming.variantNames).toEqual([]);
+
+    const waitlist = buildAlgoliaRecord({
+      ...sourceRow,
+      status: "waitlist",
+      product_variants: [],
+    });
+    expect(waitlist.available).toBe(false);
+    expect(waitlist.waitlist).toBe(true);
+    expect(waitlist.badge).toBe("Waitlist");
+    expect(waitlist).not.toHaveProperty("priceMin");
+    expect(waitlist).not.toHaveProperty("priceMax");
 
     const soldOut = buildAlgoliaRecord({ ...sourceRow, status: "sold_out" });
     expect(soldOut.available).toBe(false);
@@ -256,8 +329,8 @@ describe("buildAlgoliaRecord", () => {
   it("handles a product with no variants", () => {
     const r = buildAlgoliaRecord({ ...sourceRow, product_variants: null });
     expect(r.variantCount).toBe(0);
-    expect(r.priceMin).toBe(0);
-    expect(r.priceMax).toBe(0);
+    expect(r).not.toHaveProperty("priceMin");
+    expect(r).not.toHaveProperty("priceMax");
     expect(r.variantNames).toEqual([]);
   });
 
@@ -268,6 +341,9 @@ describe("buildAlgoliaRecord", () => {
 
   it("exposes index settings driven by existing fields only", () => {
     expect(INDEX_SETTINGS.searchableAttributes).toContain("displayName");
+    expect(INDEX_SETTINGS.searchableAttributes).toContain("productType");
+    expect(INDEX_SETTINGS.searchableAttributes).not.toContain("formalTitle");
+    expect(INDEX_SETTINGS.searchableAttributes).not.toContain("cardTagline");
     expect(INDEX_SETTINGS.customRanking).toContain("asc(sortOrder)");
     expect(INDEX_SETTINGS.attributesForFaceting).toContain(
       "filterOnly(routineGroup)",
@@ -318,6 +394,26 @@ describe("validateCatalogWebhookPayload", () => {
         table: "product_media",
         record: { id: "m-2", product_id: sourceRow.id },
         old_record: { id: "m-1", product_id: sourceRow.id },
+      }),
+    ).not.toThrow();
+    expect(() =>
+      validateCatalogWebhookPayload({
+        schema: "public",
+        type: "UPDATE",
+        table: "product_family_memberships",
+        record: { family_id: "family-1", product_id: sourceRow.id },
+        old_record: { family_id: "family-1", product_id: sourceRow.id },
+      }),
+    ).not.toThrow();
+    expect(() =>
+      validateCatalogWebhookPayload({
+        schema: "public",
+        type: "INSERT",
+        table: "product_slug_routes",
+        record: {
+          source_slug: "old-northpoint-serum",
+          target_product_id: sourceRow.id,
+        },
       }),
     ).not.toThrow();
     expect(() =>
@@ -383,6 +479,7 @@ describe("applyCatalogWebhookEvent", () => {
     mockedFetch.mockReset();
     mockedUpsert.mockReset().mockResolvedValue(undefined);
     mockedDelete.mockReset().mockResolvedValue(undefined);
+    mockedFetchFamily.mockReset().mockResolvedValue([]);
   });
 
   it("upserts on product INSERT/UPDATE by rebuilding from Supabase", async () => {
@@ -457,6 +554,46 @@ describe("applyCatalogWebhookEvent", () => {
     expect(outcome).toMatchObject({ action: "upsert", objectID: sourceRow.id });
   });
 
+  it("rebuilds every affected member search record on a family membership change", async () => {
+    const built = buildAlgoliaRecord(sourceRow);
+    mockedFetch.mockResolvedValue(built);
+
+    const outcome = await applyCatalogWebhookEvent({
+      type: "UPDATE",
+      table: "product_family_memberships",
+      record: { family_id: "family-1", product_id: sourceRow.id },
+      old_record: { family_id: "family-1", product_id: sourceRow.id },
+    });
+
+    expect(mockedFetch).toHaveBeenCalledWith(sourceRow.id);
+    expect(mockedUpsert).toHaveBeenCalledWith(built);
+    expect(outcome).toMatchObject({
+      action: "upsert",
+      objectID: sourceRow.id,
+      affectedProducts: [
+        { id: sourceRow.id, slug: sourceRow.slug, routineGroup: "core" },
+      ],
+    });
+  });
+
+  it("rebuilds all current members when Product Family presentation changes", async () => {
+    const built = buildAlgoliaRecord(sourceRow);
+    mockedFetchFamily.mockResolvedValue([built]);
+
+    const outcome = await applyCatalogWebhookEvent({
+      type: "UPDATE",
+      table: "product_families",
+      record: { id: "family-1", display_name: "REFINE" },
+      old_record: { id: "family-1", display_name: "REFINE" },
+    });
+
+    expect(mockedFetchFamily).toHaveBeenCalledWith("family-1");
+    expect(mockedUpsert).toHaveBeenCalledWith(built);
+    expect(outcome.affectedProducts).toEqual([
+      { id: sourceRow.id, slug: sourceRow.slug, routineGroup: "core" },
+    ]);
+  });
+
   it("rebuilds the parent product on a media change", async () => {
     const built = buildAlgoliaRecord(sourceRow);
     mockedFetch.mockResolvedValue(built);
@@ -527,6 +664,29 @@ describe("applyCatalogWebhookEvent", () => {
       slug: sourceRow.slug,
       routineGroup: sourceRow.routine_group,
       reason: "PDP content is not indexed",
+    });
+  });
+
+  it("rebuilds the direct target when a historical slug route changes", async () => {
+    const built = buildAlgoliaRecord(sourceRow);
+    mockedFetch.mockResolvedValue(built);
+
+    const outcome = await applyCatalogWebhookEvent({
+      type: "INSERT",
+      table: "product_slug_routes",
+      record: {
+        source_slug: "old-northpoint-serum",
+        target_product_id: sourceRow.id,
+      },
+    });
+
+    expect(mockedFetch).toHaveBeenCalledWith(sourceRow.id);
+    expect(mockedUpsert).toHaveBeenCalledWith(built);
+    expect(outcome).toMatchObject({
+      action: "upsert",
+      objectID: sourceRow.id,
+      slug: sourceRow.slug,
+      oldSlug: "old-northpoint-serum",
     });
   });
 
@@ -628,6 +788,81 @@ describe("runSearchBackfill", () => {
 });
 
 describe("catalog cache invalidation", () => {
+  it("invalidates every affected PDP and generic collection for family changes", () => {
+    const targets = getCatalogInvalidationTargets(
+      {
+        type: "UPDATE",
+        table: "product_family_memberships",
+        record: { family_id: "family-1", product_id: sourceRow.id },
+        old_record: { family_id: "family-1", product_id: sourceRow.id },
+      },
+      {
+        action: "upsert",
+        table: "product_family_memberships",
+        objectID: sourceRow.id,
+        slug: "beaming-prep",
+        routineGroup: "beyond_core",
+        affectedProducts: [
+          { id: "one", slug: "balancing-prep", routineGroup: "beyond_core" },
+          { id: "two", slug: "beaming-prep", routineGroup: "beyond_core" },
+        ],
+      },
+    );
+
+    expect(targets.tags).toEqual(
+      expect.arrayContaining([
+        "catalog-product-family",
+        "catalog-product-content:balancing-prep",
+        "catalog-product-content:beaming-prep",
+        "catalog-product-card",
+        "catalog-products",
+        "catalog-discovery",
+        "collection:beyond-the-core",
+      ]),
+    );
+    expect(targets.paths).toEqual(
+      expect.arrayContaining([
+        "/products/balancing-prep",
+        "/products/beaming-prep",
+        "/collections/shop",
+      ]),
+    );
+  });
+
+  it("invalidates both route lookup and Product paths for a historical slug change", () => {
+    const targets = getCatalogInvalidationTargets(
+      {
+        type: "INSERT",
+        table: "product_slug_routes",
+        record: {
+          source_slug: "old-northpoint-serum",
+          target_product_id: sourceRow.id,
+        },
+      },
+      {
+        action: "upsert",
+        table: "product_slug_routes",
+        objectID: sourceRow.id,
+        slug: sourceRow.slug,
+        oldSlug: "old-northpoint-serum",
+      },
+    );
+
+    expect(targets.tags).toEqual(
+      expect.arrayContaining([
+        "catalog-product-slug-route",
+        "catalog-product-slug-route:old-northpoint-serum",
+        `catalog-product-slug-route:${sourceRow.slug}`,
+      ]),
+    );
+    expect(targets.paths).toEqual(
+      expect.arrayContaining([
+        "/products/old-northpoint-serum",
+        `/products/${sourceRow.slug}`,
+      ]),
+    );
+  });
+
   it("targets stable content and Core routine caches for PDP content changes", () => {
     const targets = getCatalogInvalidationTargets(
       {
@@ -731,7 +966,7 @@ describe("catalog cache invalidation", () => {
     );
   });
 
-  it("keeps an offer-only product status update out of editorial caches", () => {
+  it("invalidates the shared family selector for a product status update", () => {
     const targets = getCatalogInvalidationTargets(
       {
         type: "UPDATE",
@@ -757,10 +992,13 @@ describe("catalog cache invalidation", () => {
       },
     );
 
-    expect(targets.tags).toEqual([
-      `catalog-product-offer:${sourceRow.slug}`,
-      "catalog-product-offer",
-    ]);
+    expect(targets.tags).toEqual(
+      expect.arrayContaining([
+        `catalog-product-offer:${sourceRow.slug}`,
+        "catalog-product-offer",
+        "catalog-product-family",
+      ]),
+    );
     expect(targets.tags).not.toContain(
       `catalog-product-content:${sourceRow.slug}`,
     );
@@ -832,9 +1070,9 @@ describe("catalog cache invalidation", () => {
     );
     expect(targets.paths).toEqual(
       expect.arrayContaining([
-        "/products/cleanse-01-calming-gel-cleanser",
-        "/products/treat-03-pdrn-5-ampoule",
-        "/products/seal-05-green-collagen-cream",
+        "/products/biotic-reset",
+        "/products/peptide-bounce",
+        "/products/ceramide-cushion",
       ]),
     );
     expect(targets.tags).not.toContain("catalog-product-card");
@@ -872,10 +1110,10 @@ describe("catalog cache invalidation", () => {
 
     expect(targets.tags).toContain("catalog-core-routine");
     expect(targets.paths).toContain(
-      "/products/cleanse-01-calming-gel-cleanser",
+      "/products/biotic-reset",
     );
-    expect(targets.paths).toContain("/products/treat-03-pdrn-5-ampoule");
-    expect(targets.paths).toContain("/products/seal-05-green-collagen-cream");
+    expect(targets.paths).toContain("/products/peptide-bounce");
+    expect(targets.paths).toContain("/products/ceramide-cushion");
   });
 
   it("invalidates only the owning PDP for outcome media on a Core product", () => {

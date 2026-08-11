@@ -687,6 +687,86 @@ export type Database = {
           },
         ]
       }
+      product_families: {
+        Row: {
+          created_at: string
+          display_name: string
+          id: string
+          slug: string
+          system_step_name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          display_name: string
+          id?: string
+          slug: string
+          system_step_name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string
+          id?: string
+          slug?: string
+          system_step_name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_families_system_step_name_fkey"
+            columns: ["system_step_name"]
+            isOneToOne: false
+            referencedRelation: "system_steps"
+            referencedColumns: ["name"]
+          },
+        ]
+      }
+      product_family_memberships: {
+        Row: {
+          created_at: string
+          family_id: string
+          is_entry: boolean
+          option_label: string
+          product_id: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          family_id: string
+          is_entry?: boolean
+          option_label: string
+          product_id: string
+          sort_order: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          family_id?: string
+          is_entry?: boolean
+          option_label?: string
+          product_id?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_family_memberships_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "product_families"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_family_memberships_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: true
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_media: {
         Row: {
           alt: string
@@ -860,6 +940,45 @@ export type Database = {
           },
         ]
       }
+      product_slug_routes: {
+        Row: {
+          created_at: string
+          route_kind: string
+          source_product_id: string
+          source_slug: string
+          target_product_id: string
+        }
+        Insert: {
+          created_at?: string
+          route_kind: string
+          source_product_id: string
+          source_slug: string
+          target_product_id: string
+        }
+        Update: {
+          created_at?: string
+          route_kind?: string
+          source_product_id?: string
+          source_slug?: string
+          target_product_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_slug_routes_source_product_id_fkey"
+            columns: ["source_product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_slug_routes_target_product_id_fkey"
+            columns: ["target_product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_sources: {
         Row: {
           created_at: string
@@ -985,7 +1104,6 @@ export type Database = {
         Row: {
           badge: string | null
           benefits: string[]
-          card_tagline: string
           catalog_status: string
           cautions: string[]
           concerns: string[]
@@ -995,7 +1113,6 @@ export type Database = {
           editorial_description: string
           editorial_how_to_use: string
           finish: string | null
-          formal_title: string
           formula_notes: string[]
           good_for: string | null
           id: string
@@ -1006,8 +1123,6 @@ export type Database = {
           published_at: string
           routine_group: string
           routine_sort: number
-          routine_step_name: string | null
-          routine_step_number: number | null
           search_keywords: string[]
           seo_description: string | null
           seo_title: string | null
@@ -1017,6 +1132,7 @@ export type Database = {
           status: string
           swatch_from: string
           swatch_to: string
+          system_step_name: string | null
           texture: string | null
           updated_at: string
           usage_time: string[]
@@ -1025,7 +1141,6 @@ export type Database = {
         Insert: {
           badge?: string | null
           benefits?: string[]
-          card_tagline: string
           catalog_status?: string
           cautions?: string[]
           concerns?: string[]
@@ -1035,7 +1150,6 @@ export type Database = {
           editorial_description: string
           editorial_how_to_use: string
           finish?: string | null
-          formal_title: string
           formula_notes?: string[]
           good_for?: string | null
           id?: string
@@ -1046,8 +1160,6 @@ export type Database = {
           published_at?: string
           routine_group: string
           routine_sort: number
-          routine_step_name?: string | null
-          routine_step_number?: number | null
           search_keywords?: string[]
           seo_description?: string | null
           seo_title?: string | null
@@ -1057,6 +1169,7 @@ export type Database = {
           status?: string
           swatch_from: string
           swatch_to: string
+          system_step_name?: string | null
           texture?: string | null
           updated_at?: string
           usage_time?: string[]
@@ -1065,7 +1178,6 @@ export type Database = {
         Update: {
           badge?: string | null
           benefits?: string[]
-          card_tagline?: string
           catalog_status?: string
           cautions?: string[]
           concerns?: string[]
@@ -1075,7 +1187,6 @@ export type Database = {
           editorial_description?: string
           editorial_how_to_use?: string
           finish?: string | null
-          formal_title?: string
           formula_notes?: string[]
           good_for?: string | null
           id?: string
@@ -1086,8 +1197,6 @@ export type Database = {
           published_at?: string
           routine_group?: string
           routine_sort?: number
-          routine_step_name?: string | null
-          routine_step_number?: number | null
           search_keywords?: string[]
           seo_description?: string | null
           seo_title?: string | null
@@ -1097,12 +1206,21 @@ export type Database = {
           status?: string
           swatch_from?: string
           swatch_to?: string
+          system_step_name?: string | null
           texture?: string | null
           updated_at?: string
           usage_time?: string[]
           volume?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "products_system_step_routine_group_fkey"
+            columns: ["system_step_name", "routine_group"]
+            isOneToOne: false
+            referencedRelation: "system_steps"
+            referencedColumns: ["name", "routine_group"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -1329,6 +1447,24 @@ export type Database = {
         }
         Relationships: []
       }
+      system_steps: {
+        Row: {
+          name: string
+          position: number
+          routine_group: string
+        }
+        Insert: {
+          name: string
+          position: number
+          routine_group: string
+        }
+        Update: {
+          name?: string
+          position?: number
+          routine_group?: string
+        }
+        Relationships: []
+      }
       trustpilot_invitation_attempts: {
         Row: {
           blocked_reason: string
@@ -1437,6 +1573,17 @@ export type Database = {
       clear_paid_order_cart: { Args: { p_order_id: string }; Returns: number }
       create_catalog_product_draft: {
         Args: { p_actor_id: string; p_product_id: string }
+        Returns: Json
+      }
+      enroll_product_waitlist: {
+        Args: {
+          p_abuse_key: string
+          p_marketing_consent: boolean
+          p_normalized_email: string
+          p_policy_version: string
+          p_product_id: string
+          p_source: string
+        }
         Returns: Json
       }
       ensure_loyalty_account: {
@@ -1550,6 +1697,46 @@ export type Database = {
         }
         Returns: Json
       }
+      publish_catalog_product_draft_v4: {
+        Args: {
+          p_actor_id: string
+          p_actor_role: string
+          p_change_audit: Json
+          p_draft_id: string
+          p_expected_version: number
+        }
+        Returns: Json
+      }
+      publish_catalog_product_draft_v4_without_family: {
+        Args: {
+          p_actor_id: string
+          p_actor_role: string
+          p_change_audit: Json
+          p_draft_id: string
+          p_expected_version: number
+        }
+        Returns: Json
+      }
+      publish_catalog_product_draft_v4_without_family_concurrency: {
+        Args: {
+          p_actor_id: string
+          p_actor_role: string
+          p_change_audit: Json
+          p_draft_id: string
+          p_expected_version: number
+        }
+        Returns: Json
+      }
+      publish_catalog_product_draft_without_family_lock_order: {
+        Args: {
+          p_actor_id: string
+          p_actor_role: string
+          p_change_audit: Json
+          p_draft_id: string
+          p_expected_version: number
+        }
+        Returns: Json
+      }
       redeem_loyalty_points: {
         Args: {
           p_amount_cents: number
@@ -1568,6 +1755,22 @@ export type Database = {
       release_loyalty_redemptions_for_order: {
         Args: { p_order_id: string; p_reason: string; p_user_id: string }
         Returns: number
+      }
+      replace_catalog_product_slug: {
+        Args: {
+          p_actor_id: string
+          p_source_product_id: string
+          p_target_product_id: string
+        }
+        Returns: Json
+      }
+      replace_catalog_product_slug_v1: {
+        Args: {
+          p_actor_id: string
+          p_source_product_id: string
+          p_target_product_id: string
+        }
+        Returns: Json
       }
       reserve_checkout_order_snapshot: {
         Args: {
@@ -1707,6 +1910,15 @@ export type Database = {
           user_id: string
         }[]
       }
+      resolve_product_slug: {
+        Args: { p_source_slug: string }
+        Returns: {
+          route_kind: string
+          source_slug: string
+          target_product_id: string
+          target_slug: string
+        }[]
+      }
       restore_catalog_product_revision: {
         Args: { p_actor_id: string; p_revision_id: string }
         Returns: Json
@@ -1716,6 +1928,16 @@ export type Database = {
         Returns: boolean
       }
       save_catalog_product_draft: {
+        Args: {
+          p_actor_id: string
+          p_actor_role: string
+          p_document: Json
+          p_draft_id: string
+          p_expected_version: number
+        }
+        Returns: Json
+      }
+      save_catalog_product_draft_without_family: {
         Args: {
           p_actor_id: string
           p_actor_role: string

@@ -1,18 +1,27 @@
 "use client";
 
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
   type ReactNode,
 } from "react";
+import Link from "next/link";
 import { AfterpayMessaging } from "@/components/product-detail/AfterpayMessaging";
 import { ProductImage } from "@/components/product/ProductImage";
 import { useProductPurchase } from "@/components/cart/useProductPurchase";
 import type { CartAddInput } from "@/lib/cart/types";
-import { formatPrice, type ProductMedia } from "@/lib/products";
+import {
+  formatPrice,
+  type ProductMedia,
+  type ProductStatus,
+} from "@/lib/products";
 import { PREVIEW_COMMERCE_DISABLED_LABEL } from "@/lib/catalog-editor/preview-commerce";
+import { ProductWaitlistSheet } from "@/components/product-detail/ProductWaitlistSheet";
+import type { ProductFamily } from "@/lib/catalog/models";
+import { statusLabel } from "@/lib/catalog/product-status";
 
 export type PdpPurchaseVariant = {
   id: string;
@@ -34,12 +43,18 @@ export type PdpPurchaseIslandProps = {
   children: ReactNode;
   currency: "USD";
   productKey: string;
+  productId: string;
   productName: string;
   productType: string | null;
+  productFamily: ProductFamily | null;
   routineLabel: string;
   stickyMedia: ProductMedia | null;
   stripePublishableKey: string | null;
+  unavailableLabel: string;
   variants: PdpPurchaseVariant[];
+  showPrice: boolean;
+  showVariantOptions: boolean;
+  status: ProductStatus;
   commerceDisabled?: boolean;
 };
 
@@ -49,12 +64,18 @@ export function PdpPurchaseIsland({
   children,
   currency,
   productKey,
+  productId,
   productName,
   productType,
+  productFamily,
   routineLabel,
   stickyMedia,
   stripePublishableKey,
+  unavailableLabel,
   variants,
+  showPrice,
+  showVariantOptions,
+  status,
   commerceDisabled = false,
 }: PdpPurchaseIslandProps) {
   const {
@@ -70,18 +91,23 @@ export function PdpPurchaseIsland({
   const [added, setAdded] = useState(false);
   const [hasPassedVideoStart, setHasPassedVideoStart] = useState(false);
   const [footerEnteringViewport, setFooterEnteringViewport] = useState(false);
+  const [waitlistOpen, setWaitlistOpen] = useState(false);
+  const waitlistReturnFocusRef = useRef<() => void>(() => undefined);
   const mainBuyButtonRef = useRef<HTMLButtonElement>(null);
   const stickyBuyButtonRef = useRef<HTMLButtonElement>(null);
   const addedTimeoutRef = useRef<number | null>(null);
   const variant =
     variants.find((option) => option.id === variantId) ?? variants[0];
-  const productCta = variant
+  const waitlist = status === "waitlist";
+  const productCta = waitlist
+    ? { label: "Join the waitlist", purchasable: false }
+    : variant
     ? {
         label: variant.purchaseLabel,
         purchasable: variant.purchasable,
       }
     : {
-        label: "OUT OF STOCK",
+        label: unavailableLabel,
         purchasable: false,
       };
   const cta = commerceDisabled
@@ -97,6 +123,16 @@ export function PdpPurchaseIsland({
       ? cta.label.slice(0, -stickyPrice.length)
       : null;
   const stickyVisible = hasPassedVideoStart && !footerEnteringViewport;
+  const closeWaitlist = useCallback(() => setWaitlistOpen(false), []);
+  const restoreWaitlistFocus = useCallback(
+    () => waitlistReturnFocusRef.current(),
+    [],
+  );
+
+  function openWaitlist(returnFocus: () => void) {
+    waitlistReturnFocusRef.current = returnFocus;
+    setWaitlistOpen(true);
+  }
 
   useEffect(
     () => () => {
@@ -188,11 +224,53 @@ export function PdpPurchaseIsland({
     <>
       <div className="pdp__purchase">
         {children}
-        <p className="pdp__price">
-          {variant ? formatPrice(variant.price) : "—"}
-        </p>
+        {productFamily && (
+          <fieldset className="pdp-family-selector">
+            <legend>{productFamily.displayName} options</legend>
+            <div className="pdp-family-selector__options">
+              {productFamily.memberships.map((membership) => {
+                const state = statusLabel(membership.status) ?? "Available";
+                const content = (
+                  <>
+                    <strong>{membership.optionLabel}</strong>
+                    <span>{membership.displayName}</span>
+                    <small>{state}</small>
+                  </>
+                );
+                const className = "pdp-family-selector__option";
+                const common = {
+                  className,
+                  "data-option-label": membership.optionLabel,
+                  "data-product-status": membership.status,
+                  "data-testid": "product-family-option",
+                };
+                return membership.isCurrent ? (
+                  <span
+                    key={membership.productId}
+                    {...common}
+                    aria-current="page"
+                  >
+                    {content}
+                  </span>
+                ) : (
+                  <Link
+                    key={membership.productId}
+                    {...common}
+                    href={`/products/${membership.slug}`}
+                    aria-label={`${membership.optionLabel}: ${membership.displayName}, ${state}`}
+                  >
+                    {content}
+                  </Link>
+                );
+              })}
+            </div>
+          </fieldset>
+        )}
+        {!waitlist && showPrice && variant && (
+          <p className="pdp__price">{formatPrice(variant.price)}</p>
+        )}
 
-        {variants.length > 0 && (
+        {!waitlist && showVariantOptions && (
           <>
             <span className="field-label" id="size-label">
               Size
@@ -224,10 +302,17 @@ export function PdpPurchaseIsland({
             type="button"
             className="btn"
             data-pdp-buy-button
-            onClick={() =>
-              void handleAdd(() => mainBuyButtonRef.current?.focus())
+            onClick={() => {
+              const returnFocus = () => mainBuyButtonRef.current?.focus();
+              if (waitlist && !commerceDisabled) {
+                openWaitlist(returnFocus);
+                return;
+              }
+              void handleAdd(returnFocus);
+            }}
+            disabled={
+              commerceDisabled || (!waitlist && (!cta.purchasable || pending))
             }
-            disabled={!cta.purchasable || pending}
           >
             {pending && cta.purchasable ? "Adding" : cta.label}
           </button>
@@ -271,10 +356,17 @@ export function PdpPurchaseIsland({
             type="button"
             className="btn"
             data-sticky-pdp-buy-button
-            onClick={() =>
-              void handleAdd(() => stickyBuyButtonRef.current?.focus())
+            onClick={() => {
+              const returnFocus = () => stickyBuyButtonRef.current?.focus();
+              if (waitlist && !commerceDisabled) {
+                openWaitlist(returnFocus);
+                return;
+              }
+              void handleAdd(returnFocus);
+            }}
+            disabled={
+              commerceDisabled || (!waitlist && (!cta.purchasable || pending))
             }
-            disabled={!cta.purchasable || pending}
             tabIndex={stickyVisible ? undefined : -1}
             aria-label={cta.label}
           >
@@ -293,6 +385,15 @@ export function PdpPurchaseIsland({
           </button>
         </div>
       </div>
+      {waitlist && !commerceDisabled && (
+        <ProductWaitlistSheet
+          open={waitlistOpen}
+          productId={productId}
+          productName={productName}
+          onClose={closeWaitlist}
+          returnFocus={restoreWaitlistFocus}
+        />
+      )}
     </>
   );
 }

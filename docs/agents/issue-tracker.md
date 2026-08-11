@@ -33,10 +33,8 @@ Internal delivery PRs are still required. Each approved `type:ticket` issue maps
 - **Mark review-ready**: `gh issue edit <number> --remove-label workflow:in-progress --add-label workflow:review`
 - **Open the ticket PR**: `gh pr create --base dev --head codex/<number>-<slug> --title "..." --body-file <path>`
 - **Inspect checks**: `gh pr checks <number> --watch`
-- **Observe integration**: a ready green PR receives `workflow:integration-queued`, then at most one candidate receives `workflow:integration-active`; do not merge around the coordinator.
+- **Squash-merge into dev**: `gh pr merge <number> --squash --delete-branch`
 - **Complete the ticket**: comment with the PR, integrated commit, checks, and `code-review` result; remove workflow labels and close the issue.
-
-`workflow:urgent` is user-approved input, never an agent or automation classification. See [`dev-integration.md`](./dev-integration.md) for queue, release, and cutover operations.
 
 Specs use `type:spec`. Tickets use `type:ticket`. After `to-tickets` publishes the approved children, replace the spec's `ready-for-agent` label with `workflow:planned`; use `workflow:in-progress` once the first child is claimed. Close the spec only after every child ticket PR is integrated into `dev`.
 

@@ -1,11 +1,11 @@
 import type { Product } from "@/lib/products";
 
 export const METHOD_PRODUCT_SLUGS = [
-  "cleanse-01-calming-gel-cleanser",
-  "refine-02-pore-treatment-pads",
-  "treat-03-pdrn-5-ampoule",
+  "biotic-reset",
+  "balancing-prep",
+  "peptide-bounce",
   "frame-04-pdrn-eye-cream",
-  "seal-05-green-collagen-cream",
+  "ceramide-cushion",
   "lift-06-pdrn-mask-system",
 ] as const;
 
@@ -40,14 +40,14 @@ export const ROUTINE_PRESET_COPY: Record<
     ariaValueText: "4 steps, foundation plus protection",
   },
   5: {
-    label: "+ TEXTURE",
-    summary: "Adds controlled, frequency-dependent refinement.",
-    ariaValueText: "5 steps, foundation plus protection and texture control",
+    label: "+ PREP",
+    summary: "Adds daily balancing prep after cleansing.",
+    ariaValueText: "5 steps, foundation plus protection and balancing prep",
   },
   6: {
     label: "+ EYE CARE",
     summary: "Adds targeted support around the eyes.",
-    ariaValueText: "6 steps, foundation plus protection, texture control, and eye care",
+    ariaValueText: "6 steps, foundation plus protection, balancing prep, and eye care",
   },
   7: {
     label: "+ WEEKLY",
@@ -88,7 +88,7 @@ export const METHOD_STEP_CONFIGS = [
   {
     id: "cleanse",
     kind: "product",
-    slug: "cleanse-01-calming-gel-cleanser",
+    slug: "biotic-reset",
     anchorId: "system-cleanse",
     legacyAnchorIds: ["step-cleanse", "step-reset", "method-cleanse", "method-reset"],
     canonicalPosition: 1,
@@ -97,7 +97,7 @@ export const METHOD_STEP_CONFIGS = [
   {
     id: "refine",
     kind: "product",
-    slug: "refine-02-pore-treatment-pads",
+    slug: "balancing-prep",
     anchorId: "system-refine",
     legacyAnchorIds: ["step-refine", "method-refine"],
     canonicalPosition: 2,
@@ -106,7 +106,7 @@ export const METHOD_STEP_CONFIGS = [
   {
     id: "treat",
     kind: "product",
-    slug: "treat-03-pdrn-5-ampoule",
+    slug: "peptide-bounce",
     anchorId: "system-treat",
     legacyAnchorIds: ["step-treat", "step-recode", "method-treat", "method-recode"],
     canonicalPosition: 3,
@@ -124,7 +124,7 @@ export const METHOD_STEP_CONFIGS = [
   {
     id: "seal",
     kind: "product",
-    slug: "seal-05-green-collagen-cream",
+    slug: "ceramide-cushion",
     anchorId: "system-seal",
     legacyAnchorIds: ["step-seal", "method-seal"],
     canonicalPosition: 5,
@@ -163,18 +163,18 @@ export type MethodStepCopy = {
 };
 
 const METHOD_STEP_COPY: Record<MethodProductSlug, MethodStepCopy> = {
-  "cleanse-01-calming-gel-cleanser": {
+  "biotic-reset": {
     what:
       "A low-pH gel cleanser for sunscreen, oil, sweat, and surface buildup.",
     why:
       "Clean skin helps treatment layers spread evenly without relying on a stripped finish.",
   },
-  "refine-02-pore-treatment-pads": {
-    what: "A treatment pad for visible texture, pores, and oil-heavy areas.",
+  "balancing-prep": {
+    what: "A daily toner pad for a fresh, balanced-feeling finish after cleansing.",
     why:
-      "It clears the path between cleansing and serum while keeping frequency adjustable.",
+      "It adds a light prep layer before serum without introducing an exfoliating-acid claim.",
   },
-  "treat-03-pdrn-5-ampoule": {
+  "peptide-bounce": {
     what:
       "A lightweight ampoule built around Sodium DNA, niacinamide, peptides, and humectants.",
     why:
@@ -185,7 +185,7 @@ const METHOD_STEP_COPY: Record<MethodProductSlug, MethodStepCopy> = {
     why:
       "The eye area benefits from a smaller dose and a texture made for controlled placement.",
   },
-  "seal-05-green-collagen-cream": {
+  "ceramide-cushion": {
     what: "A daily cream for the final moisturizing layer.",
     why:
       "It reduces water loss from the routine and leaves skin comfortable before sunscreen or sleep.",
@@ -386,15 +386,15 @@ export const ROUTINE_GROUPS: ReadonlyArray<RoutineGroup> = [
     heading: "Morning",
     summary: "Cleanse, treat, moisturize, then protect.",
     entries: [
-      { kind: "product", slug: "cleanse-01-calming-gel-cleanser" },
+      { kind: "product", slug: "biotic-reset" },
       {
         kind: "product",
-        slug: "refine-02-pore-treatment-pads",
-        note: "Use at the supported frequency.",
+        slug: "balancing-prep",
+        note: "Use daily after cleansing.",
       },
-      { kind: "product", slug: "treat-03-pdrn-5-ampoule" },
+      { kind: "product", slug: "peptide-bounce" },
       { kind: "product", slug: "frame-04-pdrn-eye-cream" },
-      { kind: "product", slug: "seal-05-green-collagen-cream" },
+      { kind: "product", slug: "ceramide-cushion" },
       { kind: "protect", id: "protect", label: "PROTECT", note: "Coming soon." },
     ],
   },
@@ -404,15 +404,15 @@ export const ROUTINE_GROUPS: ReadonlyArray<RoutineGroup> = [
     heading: "Night",
     summary: "Cleanse, treat, and finish with moisture.",
     entries: [
-      { kind: "product", slug: "cleanse-01-calming-gel-cleanser" },
+      { kind: "product", slug: "biotic-reset" },
       {
         kind: "product",
-        slug: "refine-02-pore-treatment-pads",
-        note: "Use when directed.",
+        slug: "balancing-prep",
+        note: "Use daily after cleansing.",
       },
-      { kind: "product", slug: "treat-03-pdrn-5-ampoule" },
+      { kind: "product", slug: "peptide-bounce" },
       { kind: "product", slug: "frame-04-pdrn-eye-cream" },
-      { kind: "product", slug: "seal-05-green-collagen-cream" },
+      { kind: "product", slug: "ceramide-cushion" },
     ],
   },
   {
@@ -555,7 +555,7 @@ const INGREDIENT_DEFINITIONS: IngredientDefinition[] = [
     mechanism:
       "Supports desquamation or surface refinement depending on acid type, pH, vehicle, and use frequency.",
     skinRelevance:
-      "Relevant to REFINE's texture-control role without claiming permanent pore changes.",
+      "Relevant to exfoliating REFINE options only when the published formula supports the acid identity.",
     formulationNote:
       "Stability, pH, vehicle, and frequency influence performance more than the acid name alone.",
   },

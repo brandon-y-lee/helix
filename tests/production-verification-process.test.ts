@@ -125,13 +125,16 @@ describe("Production Verification Node Adapters", () => {
         await owned.stop();
         await waitUntil(
           () => !processIsAlive(pids.parent) && !processIsAlive(pids.child),
+          // A cold hosted Windows runner can take more than ten seconds to
+          // drain the job-object process tree after its supervisor exits.
+          process.platform === "win32" ? 20_000 : 3_000,
         );
       } finally {
         await owned.stop();
         await rm(cwd, { force: true, recursive: true });
       }
     },
-    20_000,
+    process.platform === "win32" ? 50_000 : 20_000,
   );
 
   it(

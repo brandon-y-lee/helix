@@ -12,7 +12,7 @@ import type { ProductCard } from "@/lib/catalog/models";
 const BEYOND_DESCRIPTION_KEY_BY_SLUG: Readonly<
   Record<string, HomeBeyondCoreDescriptionKey | undefined>
 > = {
-  "refine-02-pore-treatment-pads": "refine",
+  "balancing-prep": "refine",
   "frame-04-pdrn-eye-cream": "frame",
   "lift-06-pdrn-mask-system": "lift",
 };

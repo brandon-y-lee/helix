@@ -2,10 +2,16 @@ import { normalizeProductPdpContent } from "@/lib/catalog/product-content";
 import { CatalogAdminError } from "@/lib/admin/catalog/errors";
 import type {
   CatalogValidationIssue,
-  ProductEditorDocumentV3,
+  ProductEditorDocumentV4,
 } from "@/lib/admin/catalog/types";
 import { PRODUCT_EDITOR_SCHEMA_VERSION } from "@/lib/admin/catalog/types";
 import { PRODUCT_MEDIA_ROLES } from "@/lib/catalog/media-roles";
+import {
+  PRODUCT_SLUG_MAX_LENGTH,
+  PRODUCT_SLUG_PATTERN,
+} from "@/lib/catalog/product-slug";
+import { systemStepByName } from "@/lib/catalog/system-steps";
+import { PRODUCT_STATUSES } from "@/lib/products";
 import {
   catalogFieldsForTable,
   type CatalogEditorTable,
@@ -13,10 +19,8 @@ import {
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const SHA256_PATTERN = /^[0-9a-f]{64}$/;
 
-const PRODUCT_STATUSES = ["available", "coming_soon", "sold_out"] as const;
 const CATALOG_STATUSES = ["active", "archived", "draft"] as const;
 const ROUTINE_GROUPS = ["core", "beyond_core"] as const;
 const INVENTORY_STATUSES = [
@@ -145,11 +149,9 @@ function validateProduct(
     }
   }
   const requiredText = [
-    "card_tagline",
     "display_name",
     "editorial_description",
     "editorial_how_to_use",
-    "formal_title",
     "product_type",
     "slug",
     "swatch_from",
@@ -166,12 +168,26 @@ function validateProduct(
     }
   }
 
-  if (typeof product.slug === "string" && !SLUG_PATTERN.test(product.slug)) {
+  if (
+    typeof product.slug === "string" &&
+    !PRODUCT_SLUG_PATTERN.test(product.slug)
+  ) {
     issue(
       issues,
       "product.slug",
       "invalid_slug",
       "slug must use lowercase letters, numbers, and single hyphens.",
+    );
+  }
+  if (
+    typeof product.slug === "string" &&
+    product.slug.length > PRODUCT_SLUG_MAX_LENGTH
+  ) {
+    issue(
+      issues,
+      "product.slug",
+      "too_long",
+      `slug must be at most ${PRODUCT_SLUG_MAX_LENGTH} characters.`,
     );
   }
 
@@ -202,9 +218,9 @@ function validateProduct(
     "good_for",
     "ingredients",
     "made_for",
-    "routine_step_name",
     "seo_description",
     "seo_title",
+    "system_step_name",
     "texture",
     "volume",
   ] as const;
@@ -215,20 +231,6 @@ function validateProduct(
         `product.${field}`,
         "invalid_type",
         `${field} must be a string or null.`,
-      );
-    }
-  }
-
-  const nullableIntegers = [
-    "routine_step_number",
-  ] as const;
-  for (const field of nullableIntegers) {
-    if (!isNullableInteger(product[field])) {
-      issue(
-        issues,
-        `product.${field}`,
-        "invalid_integer",
-        `${field} must be an integer or null.`,
       );
     }
   }
@@ -297,45 +299,34 @@ function validateProduct(
     );
   }
 
-  if (product.routine_group === "core") {
-    const name = String(product.display_name).toUpperCase();
-    if (!["CLEANSE", "TREAT", "SEAL"].includes(name)) {
-      issue(
-        issues,
-        "product.display_name",
-        "invalid_core_product",
-        "Core products must be CLEANSE, TREAT, or SEAL.",
-      );
-    }
-    if (!isInteger(product.routine_step_number, 1)) {
-      issue(
-        issues,
-        "product.routine_step_number",
-        "invalid_core_step",
-        "Core products require a positive routine step number.",
-      );
-    }
-    if (
-      typeof product.routine_step_name !== "string" ||
-      !product.routine_step_name.trim()
-    ) {
-      issue(
-        issues,
-        "product.routine_step_name",
-        "invalid_core_step",
-        "Core products require a routine step name.",
-      );
-    }
+  const systemStep = systemStepByName(product.system_step_name);
+  if (product.catalog_status === "active" && !systemStep) {
+    issue(
+      issues,
+      "product.system_step_name",
+      "system_step_required",
+      "Active Products must fulfill a governed System Step.",
+    );
   } else if (
-    product.routine_group === "beyond_core" &&
-    (product.routine_step_number !== null ||
-      product.routine_step_name !== null)
+    product.system_step_name !== null &&
+    !systemStep
   ) {
     issue(
       issues,
-      "product.routine_step_number",
-      "invalid_beyond_step",
-      "Beyond The Core products cannot claim a Core step.",
+      "product.system_step_name",
+      "invalid_system_step",
+      "System Step Name must use one of the seven canonical uppercase values.",
+    );
+  } else if (
+    systemStep &&
+    oneOf(product.routine_group, ROUTINE_GROUPS) &&
+    systemStep.routineGroup !== product.routine_group
+  ) {
+    issue(
+      issues,
+      "product.system_step_name",
+      "routine_group_mismatch",
+      "System Step and Routine Group must agree.",
     );
   }
 }
@@ -849,11 +840,205 @@ function validateProductSource(
   }
 }
 
+function validateProductFamily(
+  value: RecordValue,
+  productId: string,
+  productStepName: unknown,
+  issues: CatalogValidationIssue[],
+) {
+  const family = value.family;
+  const memberships = value.memberships;
+  if (!isRecord(family)) {
+    issue(
+      issues,
+      "productFamily.family",
+      "invalid_type",
+      "Product Family fields must be an object.",
+    );
+    return;
+  }
+  if (!Array.isArray(memberships)) {
+    issue(
+      issues,
+      "productFamily.memberships",
+      "invalid_type",
+      "Product Family memberships must be an array.",
+    );
+    return;
+  }
+
+  const familyId = typeof family.id === "string" ? family.id : "";
+  if (!UUID_PATTERN.test(familyId)) {
+    issue(
+      issues,
+      "productFamily.family.id",
+      "invalid_uuid",
+      "Product Family id must be a UUID.",
+    );
+  }
+  if (
+    typeof family.slug !== "string" ||
+    !PRODUCT_SLUG_PATTERN.test(family.slug)
+  ) {
+    issue(
+      issues,
+      "productFamily.family.slug",
+      "invalid_slug",
+      "Product Family slug must use lowercase letters, numbers, and single hyphens.",
+    );
+  }
+  if (
+    typeof family.display_name !== "string" ||
+    !family.display_name.trim()
+  ) {
+    issue(
+      issues,
+      "productFamily.family.display_name",
+      "required",
+      "Product Family display name is required.",
+    );
+  }
+  if (
+    typeof family.system_step_name !== "string" ||
+    !systemStepByName(family.system_step_name)
+  ) {
+    issue(
+      issues,
+      "productFamily.family.system_step_name",
+      "invalid_system_step",
+      "Product Family System Step must be governed.",
+    );
+  } else if (family.system_step_name !== productStepName) {
+    issue(
+      issues,
+      "productFamily.family.system_step_name",
+      "family_step_mismatch",
+      "Product Family and current Product must fulfill the same System Step.",
+    );
+  }
+  for (const field of ["created_at", "updated_at"] as const) {
+    if (!isTimestamp(family[field])) {
+      issue(
+        issues,
+        `productFamily.family.${field}`,
+        "invalid_timestamp",
+        `Product Family ${field} must be an ISO timestamp.`,
+      );
+    }
+  }
+
+  const productIds = new Set<string>();
+  const orders = new Set<number>();
+  let entryCount = 0;
+  let includesCurrentProduct = false;
+  memberships.forEach((membership, index) => {
+    const path = `productFamily.memberships.${index}`;
+    if (!isRecord(membership)) {
+      issue(issues, path, "invalid_type", "Family membership must be an object.");
+      return;
+    }
+    if (membership.family_id !== familyId) {
+      issue(
+        issues,
+        `${path}.family_id`,
+        "family_mismatch",
+        "Family membership must belong to this Product Family.",
+      );
+    }
+    if (
+      typeof membership.product_id !== "string" ||
+      !UUID_PATTERN.test(membership.product_id)
+    ) {
+      issue(
+        issues,
+        `${path}.product_id`,
+        "invalid_uuid",
+        "Family member Product id must be a UUID.",
+      );
+    } else if (productIds.has(membership.product_id)) {
+      issue(
+        issues,
+        `${path}.product_id`,
+        "duplicate_family_product",
+        "A Product can appear only once in a Product Family.",
+      );
+    } else {
+      productIds.add(membership.product_id);
+      includesCurrentProduct ||= membership.product_id === productId;
+    }
+    if (
+      typeof membership.option_label !== "string" ||
+      !membership.option_label.trim()
+    ) {
+      issue(
+        issues,
+        `${path}.option_label`,
+        "required",
+        "Family option label is required.",
+      );
+    }
+    if (!isInteger(membership.sort_order, 0)) {
+      issue(
+        issues,
+        `${path}.sort_order`,
+        "invalid_order",
+        "Family sort order must be a non-negative integer.",
+      );
+    } else if (orders.has(membership.sort_order)) {
+      issue(
+        issues,
+        `${path}.sort_order`,
+        "duplicate_family_order",
+        "Family sort order must be unique.",
+      );
+    } else {
+      orders.add(membership.sort_order);
+    }
+    if (typeof membership.is_entry !== "boolean") {
+      issue(
+        issues,
+        `${path}.is_entry`,
+        "invalid_type",
+        "Family entry state must be boolean.",
+      );
+    } else if (membership.is_entry) {
+      entryCount += 1;
+    }
+    for (const field of ["created_at", "updated_at"] as const) {
+      if (!isTimestamp(membership[field])) {
+        issue(
+          issues,
+          `${path}.${field}`,
+          "invalid_timestamp",
+          `Family membership ${field} must be an ISO timestamp.`,
+        );
+      }
+    }
+  });
+
+  if (entryCount !== 1) {
+    issue(
+      issues,
+      "productFamily.memberships",
+      "family_entry_required",
+      "A Product Family must contain exactly one entry Product.",
+    );
+  }
+  if (!includesCurrentProduct) {
+    issue(
+      issues,
+      "productFamily.memberships",
+      "current_product_membership_required",
+      "The current Product must belong to its Product Family aggregate.",
+    );
+  }
+}
+
 export function validateProductEditorDocument(
   input: unknown,
   env: NodeJS.ProcessEnv = process.env,
 ): {
-  document: ProductEditorDocumentV3 | null;
+  document: ProductEditorDocumentV4 | null;
   issues: CatalogValidationIssue[];
 } {
   const issues: CatalogValidationIssue[] = [];
@@ -913,6 +1098,19 @@ export function validateProductEditorDocument(
   const variantIds = Array.isArray(input.variants)
     ? validateVariants(input.variants, productId, issues)
     : new Set<string>();
+  if (
+    isRecord(input.product) &&
+    input.product.status === "waitlist" &&
+    Array.isArray(input.variants) &&
+    input.variants.length > 0
+  ) {
+    issue(
+      issues,
+      "variants",
+      "waitlist_offer_forbidden",
+      "A Waitlist Product cannot publish a Product Offer.",
+    );
+  }
   const productSlug =
     isRecord(input.product) && typeof input.product.slug === "string"
       ? input.product.slug
@@ -939,6 +1137,24 @@ export function validateProductEditorDocument(
       issue(issues, "productSource", "invalid_type", "Product source must be an object or null.");
     } else {
       validateProductSource(input.productSource, productId, issues);
+    }
+  }
+
+  if (input.productFamily !== null) {
+    if (!isRecord(input.productFamily)) {
+      issue(
+        issues,
+        "productFamily",
+        "invalid_type",
+        "Product Family must be an object or null.",
+      );
+    } else {
+      validateProductFamily(
+        input.productFamily,
+        productId,
+        isRecord(input.product) ? input.product.system_step_name : undefined,
+        issues,
+      );
     }
   }
 
@@ -989,14 +1205,14 @@ export function validateProductEditorDocument(
   }
 
   return {
-    document: issues.length === 0 ? (input as ProductEditorDocumentV3) : null,
+    document: issues.length === 0 ? (input as ProductEditorDocumentV4) : null,
     issues,
   };
 }
 
 export function assertProductEditorDocumentStructure(
   input: unknown,
-): ProductEditorDocumentV3 {
+): ProductEditorDocumentV4 {
   const issues: CatalogValidationIssue[] = [];
   if (!isRecord(input)) {
     throw new CatalogAdminError(
@@ -1043,6 +1259,14 @@ export function assertProductEditorDocumentStructure(
   if (input.productSource !== null && !isRecord(input.productSource)) {
     issue(issues, "productSource", "invalid_type", "Product source must be an object or null.");
   }
+  if (input.productFamily !== null && !isRecord(input.productFamily)) {
+    issue(
+      issues,
+      "productFamily",
+      "invalid_type",
+      "Product Family must be an object or null.",
+    );
+  }
   if (containsReviewData(input)) {
     issue(
       issues,
@@ -1059,13 +1283,13 @@ export function assertProductEditorDocumentStructure(
       { issues },
     );
   }
-  return input as ProductEditorDocumentV3;
+  return input as ProductEditorDocumentV4;
 }
 
 export function assertValidProductEditorDocument(
   input: unknown,
   env: NodeJS.ProcessEnv = process.env,
-): ProductEditorDocumentV3 {
+): ProductEditorDocumentV4 {
   const result = validateProductEditorDocument(input, env);
   if (!result.document) {
     throw new CatalogAdminError(

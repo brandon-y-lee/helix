@@ -7,6 +7,8 @@ export function statusLabel(status: ProductStatus): string | null {
       return "Coming soon";
     case "sold_out":
       return "Sold out";
+    case "waitlist":
+      return "Waitlist";
     default:
       return null;
   }

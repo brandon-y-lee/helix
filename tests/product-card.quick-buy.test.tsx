@@ -90,9 +90,9 @@ function makeProduct(
     id: "11111111-1111-4111-8111-111111111111",
     slug: "cleanse-01-calming-gel-cleanser",
     displayName,
-    cardTagline: "Fresh, balanced skin",
     routineGroup: "core",
-    routineStepNumber: 1,
+    systemStepName: "CLEANSE",
+    systemStepPosition: 1,
     routineSort: 10,
     productType: "Gel cleanser",
     sortOrder: 0,
@@ -105,6 +105,7 @@ function makeProduct(
     volume: "50 ml",
     usageTime: ["AM", "PM"],
     createdAt: "2026-06-14T00:00:00.000Z",
+    productFamily: null,
   };
   return { ...base, ...overrides };
 }
@@ -125,6 +126,30 @@ describe("ProductCard quick buy", () => {
     if (!surface) throw new Error("Product card surface not found");
     return surface;
   }
+
+  it("shows waitlist Products without a price or purchase affordance", () => {
+    render(
+      <ProductCard
+        product={makeProduct({ status: "waitlist", variants: [] })}
+      />,
+    );
+
+    expect(screen.getByText("Waitlist")).toBeInTheDocument();
+    expect(screen.queryByText("$0.00")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "CLEANSE" })).toHaveAttribute(
+      "href",
+      "/products/cleanse-01-calming-gel-cleanser",
+    );
+  });
+
+  it("fails closed when stale waitlist card data still contains an Offer", () => {
+    render(<ProductCard product={makeProduct({ status: "waitlist" })} />);
+
+    expect(screen.getByText("Waitlist")).toBeInTheDocument();
+    expect(screen.queryByText("$20.00")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
 
   it("opens the inline panel without adding to cart", async () => {
     const user = userEvent.setup();
@@ -174,6 +199,64 @@ describe("ProductCard quick buy", () => {
     fireEvent.click(final as HTMLButtonElement);
     expect(cartMock.add).not.toHaveBeenCalled();
     expect(cartMock.openCartDrawer).not.toHaveBeenCalled();
+  });
+
+  it("omits fabricated pricing when a coming-soon Product has no Offer", () => {
+    render(
+      <ProductCard
+        product={makeProduct({
+          displayName: "Peptide Eye Cream",
+          productType: "PDRN eye cream",
+          status: "coming_soon",
+          variants: [],
+        })}
+      />,
+    );
+
+    const status = screen.getByRole("button", { name: "COMING SOON" });
+    expect(status).toBeDisabled();
+    expect(screen.queryByText("$0.00")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "OUT OF STOCK" })).toBeNull();
+  });
+
+  it("labels coming-soon Products truthfully without presenting a price", () => {
+    render(
+      <ProductCard
+        product={makeProduct({
+          displayName: "Biotic Reset",
+          status: "coming_soon",
+          variants: [
+            makeVariant({
+              available: false,
+              inventoryStatus: "unavailable",
+            }),
+          ],
+        })}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "COMING SOON" })).toBeDisabled();
+    expect(screen.queryByText("$20.00")).not.toBeInTheDocument();
+    expect(cartMock.add).not.toHaveBeenCalled();
+  });
+
+  it("withholds Offer presentation when inventory evidence is unavailable", () => {
+    render(
+      <ProductCard
+        product={makeProduct({
+          status: "available",
+          variants: [
+            makeVariant({
+              available: false,
+              inventoryStatus: "unavailable",
+            }),
+          ],
+        })}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "OUT OF STOCK" })).toBeDisabled();
+    expect(screen.queryByText("$20.00")).not.toBeInTheDocument();
   });
 
   it("adds from the final buy button and opens the cart drawer", async () => {
@@ -332,10 +415,110 @@ describe("ProductCard quick buy", () => {
     const close = screen.getByRole("button", {
       name: "Close quick buy for CLEANSE",
     });
+    close.focus();
     fireEvent.touchStart(close);
     fireEvent.click(close);
 
     expect(surface).toHaveAttribute("data-visual-state", "default");
+    expect(close).not.toHaveFocus();
+    expect(trigger).not.toHaveFocus();
+  });
+
+  it("restores the viewport captured before a touch close changes focus", () => {
+    let scrollX = 0;
+    let scrollY = 472;
+    const scrollXSpy = vi.spyOn(window, "scrollX", "get").mockImplementation(
+      () => scrollX,
+    );
+    const scrollYSpy = vi.spyOn(window, "scrollY", "get").mockImplementation(
+      () => scrollY,
+    );
+    const scrollToSpy = vi.spyOn(window, "scrollTo").mockImplementation((x, y) => {
+      scrollX = Number(x);
+      scrollY = Number(y);
+    });
+    const animationFrameSpy = vi
+      .spyOn(window, "requestAnimationFrame")
+      .mockImplementation((callback) => {
+        callback(0);
+        return 1;
+      });
+
+    try {
+      render(<ProductCard product={makeProduct()} />);
+      const surface = cardSurface();
+      fireEvent.pointerDown(surface, { pointerType: "touch" });
+      fireEvent.click(
+        screen.getByRole("button", { name: "Open quick buy for CLEANSE" }),
+      );
+      const close = screen.getByRole("button", {
+        name: "Close quick buy for CLEANSE",
+      });
+
+      scrollY = 472;
+      scrollToSpy.mockClear();
+      fireEvent.touchStart(close);
+      scrollY = 129;
+      fireEvent.click(close);
+
+      expect(scrollToSpy).toHaveBeenCalledWith(0, 472);
+      expect(scrollY).toBe(472);
+    } finally {
+      animationFrameSpy.mockRestore();
+      scrollToSpy.mockRestore();
+      scrollYSpy.mockRestore();
+      scrollXSpy.mockRestore();
+    }
+  });
+
+  it("restores keyboard focus after an earlier touch close", async () => {
+    render(<ProductCard product={makeProduct()} />);
+
+    const trigger = screen.getByRole("button", {
+      name: "Open quick buy for CLEANSE",
+    });
+    fireEvent.pointerDown(trigger, { pointerType: "touch" });
+    fireEvent.click(trigger);
+    const touchClose = screen.getByRole("button", {
+      name: "Close quick buy for CLEANSE",
+    });
+    fireEvent.touchStart(touchClose);
+    fireEvent.click(touchClose);
+
+    act(() => {
+      fireEvent.keyDown(window, { key: "Tab" });
+      trigger.focus();
+      fireEvent.focusIn(trigger);
+    });
+    fireEvent.click(trigger);
+    const keyboardClose = screen.getByRole("button", {
+      name: "Close quick buy for CLEANSE",
+    });
+    act(() => keyboardClose.focus());
+    fireEvent.click(keyboardClose);
+
+    await waitFor(() => expect(trigger).toHaveFocus());
+  });
+
+  it("restores keyboard focus after a canceled touch close", async () => {
+    render(<ProductCard product={makeProduct()} />);
+
+    const trigger = screen.getByRole("button", {
+      name: "Open quick buy for CLEANSE",
+    });
+    fireEvent.click(trigger);
+    const close = screen.getByRole("button", {
+      name: "Close quick buy for CLEANSE",
+    });
+    fireEvent.touchStart(close);
+    act(() => {
+      fireEvent.keyDown(window, { key: "Tab" });
+      close.focus();
+      fireEvent.focusIn(close);
+    });
+    fireEvent.click(close);
+
+    await waitFor(() => expect(trigger).toHaveFocus());
   });
 
   it("uses Escape to close the inline panel", async () => {

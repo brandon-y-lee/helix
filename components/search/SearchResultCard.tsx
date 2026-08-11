@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { ProductImage } from "@/components/product/ProductImage";
-import { formatPrice, type ProductMedia } from "@/lib/products";
+import {
+  composeProductTitle,
+  formatPrice,
+  type ProductMedia,
+} from "@/lib/products";
 import type { AlgoliaProductRecord } from "@/lib/algolia/record";
 import { statusLabel } from "@/lib/catalog/product-status";
 
@@ -19,9 +23,13 @@ export function SearchResultCard({
 }) {
   const href = `/products/${hit.slug}`;
   const priceLabel =
-    hit.priceMax > hit.priceMin
-      ? `From ${formatPrice(hit.priceMin)}`
-      : formatPrice(hit.priceMin);
+    hit.variantCount > 0 &&
+    typeof hit.priceMin === "number" &&
+    typeof hit.priceMax === "number"
+      ? hit.priceMax > hit.priceMin
+        ? `From ${formatPrice(hit.priceMin)}`
+        : formatPrice(hit.priceMin)
+      : null;
   const availability = hit.available
     ? "Available"
     : statusLabel(hit.status) ?? "View details";
@@ -60,7 +68,7 @@ export function SearchResultCard({
         href={href}
         className="search-result__link"
         onClick={onClick}
-        aria-label={`${hit.displayName} — ${hit.cardTagline}`}
+        aria-label={composeProductTitle(hit.displayName, hit.productType)}
       >
         <div className="search-result__media">
           <ProductImage
@@ -75,9 +83,11 @@ export function SearchResultCard({
         <div className="search-result__body">
           <span className="search-result__name">{hit.displayName}</span>
           <span className="search-result__status">{availability}</span>
-          <span className="search-result__descriptor">{hit.cardTagline}</span>
+          <span className="search-result__descriptor">{hit.productType}</span>
           <span className="search-result__meta">
-            <span className="search-result__price">{priceLabel}</span>
+            {priceLabel ? (
+              <span className="search-result__price">{priceLabel}</span>
+            ) : null}
             <span className="search-result__cta">{ctaLabel(hit)}</span>
           </span>
         </div>
