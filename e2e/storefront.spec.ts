@@ -557,6 +557,9 @@ test("PDP purchase island contains and reveals purchase details across its respo
   expect(desktopGallery).not.toBeNull();
   expect(desktopPurchase).not.toBeNull();
   expect(desktopPurchase!.x).toBeGreaterThan(desktopGallery!.x);
+  expect(
+    desktopPurchase!.x - (desktopGallery!.x + desktopGallery!.width),
+  ).toBeCloseTo(821 * 0.0225, 1);
   expect(desktopPresentation).toMatchObject({
     backgroundColor: "rgb(223, 229, 223)",
     overflowY: "auto",
