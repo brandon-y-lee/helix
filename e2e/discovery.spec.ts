@@ -13,7 +13,7 @@ const CORE_DESCRIPTION_BY_SLUG = {
 } as const;
 
 const BEYOND_DESCRIPTION_BY_SLUG = {
-  "refine-02-pore-treatment-pads": homeBeyondCoreDescriptions.items.refine,
+  "balancing-prep": homeBeyondCoreDescriptions.items.refine,
   "frame-04-pdrn-eye-cream": homeBeyondCoreDescriptions.items.frame,
   "lift-06-pdrn-mask-system": homeBeyondCoreDescriptions.items.lift,
 } as const;

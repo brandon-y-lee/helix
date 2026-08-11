@@ -81,6 +81,7 @@ function product(
         placeholder_palette: null,
       },
     ],
+    product_family_memberships: null,
     ...overrides,
   };
   if (!("system_step_name" in overrides)) {
@@ -100,7 +101,12 @@ describe("Storefront Baseline", () => {
     const snapshot = await createStorefrontBaseline({
       readCatalog: async () => ({
         products: [
-          product(),
+          product({
+            product_family_memberships: {
+              family_id: "family-id",
+              is_entry: true,
+            },
+          }),
           product({
             id: "core-first-id",
             slug: "core-first",
@@ -145,6 +151,10 @@ describe("Storefront Baseline", () => {
       searchableProductId: "core-first-id",
     });
     expect(snapshot.products[0]?.offer?.variantId).toBe("standard");
+    expect(snapshot.products[1]).toMatchObject({
+      familyId: "family-id",
+      familyIsEntry: true,
+    });
     expect(snapshot.routineComplements).toEqual([
       {
         productId: "beyond-id",

@@ -90,6 +90,7 @@ function product(
         placeholder_palette: null,
       },
     ],
+    product_family_memberships: null,
     ...overrides,
   };
   if (!("system_steps" in overrides)) {

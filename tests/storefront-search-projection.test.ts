@@ -31,6 +31,8 @@ const searchableProduct = {
   systemPosition: 3,
   systemStepName: "TREAT",
   routineSort: 30,
+  familyId: null,
+  familyIsEntry: null,
   variants: [
     {
       id: "30ml",

@@ -133,9 +133,12 @@ export function createStorefrontJourneys(snapshot: StorefrontSnapshot) {
       );
     },
     products(routineGroup?: StorefrontRoutineGroup) {
-      if (!routineGroup) return snapshot.products;
+      const collectionProducts = snapshot.products.filter(
+        (product) => product.familyId === null || product.familyIsEntry === true,
+      );
+      if (!routineGroup) return collectionProducts;
       const snapshotGroup = routineGroup === "core" ? "core" : "beyond_core";
-      return snapshot.products.filter(
+      return collectionProducts.filter(
         (product) => product.routineGroup === snapshotGroup,
       );
     },
