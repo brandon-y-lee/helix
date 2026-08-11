@@ -51,6 +51,7 @@ function AccessField({
   label,
   minLength,
   name,
+  required = true,
   type,
 }: {
   autoComplete: string;
@@ -59,7 +60,8 @@ function AccessField({
   label: string;
   minLength?: number;
   name: string;
-  type: "email" | "password";
+  required?: boolean;
+  type: "email" | "password" | "text";
 }) {
   const errorId = `${id}-error`;
 
@@ -75,7 +77,7 @@ function AccessField({
         placeholder={label}
         autoComplete={autoComplete}
         minLength={minLength}
-        required
+        required={required}
         aria-invalid={Boolean(error)}
         aria-describedby={error ? errorId : undefined}
       />
@@ -173,34 +175,37 @@ export function SignUpForm() {
   return (
     <form action={formAction} className="account-form">
       <StatusMessage state={state} />
-      <div className="form-grid">
-        <div className="form-field">
-          <label htmlFor="firstName">First name</label>
-          <input id="firstName" name="firstName" autoComplete="given-name" />
-        </div>
-        <div className="form-field">
-          <label htmlFor="lastName">Last name</label>
-          <input id="lastName" name="lastName" autoComplete="family-name" />
-        </div>
-      </div>
-      <div className="form-field">
-        <label htmlFor="sign-up-email">Email</label>
-        <input
-          id="sign-up-email"
-          name="email"
-          type="email"
-          autoComplete="email"
-          required
-          aria-invalid={Boolean(emailError)}
-          aria-describedby={emailError ? "sign-up-email-error" : undefined}
-        />
-        <FieldError id="sign-up-email-error" message={emailError} />
-      </div>
-      <PasswordField
+      <AccessField
+        id="firstName"
+        name="firstName"
+        type="text"
+        label="First name"
+        autoComplete="given-name"
+        required={false}
+      />
+      <AccessField
+        id="lastName"
+        name="lastName"
+        type="text"
+        label="Last name"
+        autoComplete="family-name"
+        required={false}
+      />
+      <AccessField
+        id="sign-up-email"
+        name="email"
+        type="email"
+        label="Email"
+        autoComplete="email"
+        error={emailError}
+      />
+      <AccessField
         id="sign-up-password"
         name="password"
+        type="password"
         label="Password"
         autoComplete="new-password"
+        minLength={8}
         error={passwordError}
       />
       <SubmitButton>Create account</SubmitButton>
@@ -218,19 +223,14 @@ export function ForgotPasswordForm() {
   return (
     <form action={formAction} className="account-form">
       <StatusMessage state={state} />
-      <div className="form-field">
-        <label htmlFor="forgot-email">Email</label>
-        <input
-          id="forgot-email"
-          name="email"
-          type="email"
-          autoComplete="email"
-          required
-          aria-invalid={Boolean(emailError)}
-          aria-describedby={emailError ? "forgot-email-error" : undefined}
-        />
-        <FieldError id="forgot-email-error" message={emailError} />
-      </div>
+      <AccessField
+        id="forgot-email"
+        name="email"
+        type="email"
+        label="Email"
+        autoComplete="email"
+        error={emailError}
+      />
       <SubmitButton>Send reset link</SubmitButton>
     </form>
   );
