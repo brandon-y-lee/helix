@@ -173,4 +173,22 @@ describe("FRAME and LIFT Catalog publication", () => {
     published.product.seo_title = "stale";
     expect(isFrameLiftPublicationCurrent(published, "LIFT")).toBe(false);
   });
+
+  it("recognizes structurally identical published JSON after key reordering", () => {
+    const published = buildFrameLiftPublicationDocument(
+      sourceDocument("FRAME"),
+      "FRAME",
+    );
+    const content = published.productPdpContent;
+    if (!content?.ingredient_cards) {
+      throw new Error("Expected FRAME PDP ingredient cards.");
+    }
+    content.ingredient_cards = content.ingredient_cards.map((card) => ({
+        copy: card.copy,
+        label: card.label,
+        name: card.name,
+      }));
+
+    expect(isFrameLiftPublicationCurrent(published, "FRAME")).toBe(true);
+  });
 });

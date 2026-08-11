@@ -95,6 +95,22 @@ function gateway(step: FrameLiftStep): FrameLiftPublicationGateway {
   };
 }
 
+function reorderPublishedJson(
+  document: ProductEditorDocumentV4,
+): ProductEditorDocumentV4 {
+  const reordered = structuredClone(document);
+  const content = reordered.productPdpContent;
+  if (!content?.ingredient_cards) {
+    throw new Error("Expected publication PDP ingredient cards.");
+  }
+  content.ingredient_cards = content.ingredient_cards.map((card) => ({
+      copy: card.copy,
+      label: card.label,
+      name: card.name,
+    }));
+  return reordered;
+}
+
 describe("FRAME/LIFT publication runner", () => {
   it("uses the versioned draft → ready → publish protocol and verifies the redirect", async () => {
     const adapter = gateway("FRAME");
@@ -138,6 +154,30 @@ describe("FRAME/LIFT publication runner", () => {
       }),
     );
     expect(adapter.createDraft).toHaveBeenCalledTimes(1);
+  });
+
+  it("accepts database JSON key reordering after publication", async () => {
+    const adapter = gateway("FRAME");
+    const readState = vi.mocked(adapter.readState).getMockImplementation()!;
+    vi.mocked(adapter.readState).mockImplementation(async (productId) => {
+      const state = await readState(productId);
+      if (!state.latestRevisionDocument) return state;
+      return {
+        ...state,
+        canonical: reorderPublishedJson(state.canonical),
+        latestRevisionDocument: reorderPublishedJson(
+          state.latestRevisionDocument,
+        ),
+      };
+    });
+
+    await expect(publishFrameLiftProduct("FRAME", adapter)).resolves.toEqual(
+      expect.objectContaining({
+        step: "FRAME",
+        status: "published",
+        revisionId: "revision-id",
+      }),
+    );
   });
 
   it("fails closed rather than overwriting an active draft", async () => {
