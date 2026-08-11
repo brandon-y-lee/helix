@@ -1052,16 +1052,6 @@ body[data-sheet-scroll-lock] .site-header {
   flex: 1;
 }
 
-.product-card__name {
-  font-size: 1.05rem;
-  font-weight: 600;
-  color: var(--storefront-warm-gray);
-}
-
-.product-card__name:hover {
-  text-decoration: none;
-}
-
 .product-card__blurb {
   color: var(--ink-soft);
   font-size: 0.9rem;
@@ -3656,10 +3646,6 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 
 .product-card__body {
   background: var(--surface);
-}
-
-.product-card__name {
-  line-height: 1.25;
 }
 
 .shop-toolbar {

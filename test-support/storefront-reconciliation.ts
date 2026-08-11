@@ -84,7 +84,7 @@ function collectionMismatches(
       (item) => item.dataset.productCardSlug === product.slug,
     );
     const name = card
-      ?.querySelector(".product-card__name")
+      ?.querySelector(".product-card__display-name")
       ?.textContent?.trim();
     if (name !== product.displayName) {
       mismatches.push(

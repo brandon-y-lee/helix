@@ -138,7 +138,7 @@ describe("Playwright global Storefront baseline setup", () => {
         if (pathname.startsWith("/collections/")) {
           return new Response(`<!doctype html><html><body>
             <span class="product-count">${products.length} ${products.length === 1 ? "product" : "products"}</span>
-            ${products.map(([slug, name]) => `<div data-product-card-slug="${slug}"><span class="product-card__name">${name}</span>${slug === "core-product" ? '<span class="product-card__price">$22.00</span>' : ""}<button class="product-card__quick-trigger">${slug === "core-product" ? "BUY CORE - $22.00" : "OUT OF STOCK"}</button></div>`).join("")}
+            ${products.map(([slug, name]) => `<div data-product-card-slug="${slug}"><span class="product-card__display-name">${name}</span>${slug === "core-product" ? '<span class="product-card__price">$22.00</span>' : ""}<button class="product-card__quick-trigger">${slug === "core-product" ? "BUY CORE - $22.00" : "OUT OF STOCK"}</button></div>`).join("")}
           </body></html>`, { status: 200 });
         }
         if (pathname === "/products/core-product") {
