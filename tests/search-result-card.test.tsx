@@ -17,8 +17,6 @@ const comingSoonProduct: AlgoliaProductRecord = {
   routineSort: 70,
   badge: "Coming soon",
   status: "coming_soon",
-  priceMin: null,
-  priceMax: null,
   currency: "USD",
   available: false,
   waitlist: false,
@@ -55,8 +53,6 @@ const waitlistProduct: AlgoliaProductRecord = {
   routineSort: 60,
   badge: "Waitlist",
   status: "waitlist",
-  priceMin: null,
-  priceMax: null,
   waitlist: true,
   variantCount: 0,
   variantNames: [],
@@ -74,6 +70,23 @@ describe("SearchResultCard", () => {
     expect(
       screen.getByRole("link", { name: "LIFT — Eye treatment" }),
     ).toHaveAttribute("href", "/products/lift");
+  });
+
+  it("omits price when the search record has no Product Offer", () => {
+    render(
+      <SearchResultCard
+        hit={{
+          ...comingSoonProduct,
+          variantCount: 0,
+          variantNames: [],
+          priceMin: 0,
+          priceMax: 0,
+        }}
+      />,
+    );
+
+    expect(screen.queryByText("$0.00")).toBeNull();
+    expect(screen.getByText("View details")).toBeInTheDocument();
   });
 
   it("omits fabricated pricing for a zero-Offer Waitlist Product", () => {

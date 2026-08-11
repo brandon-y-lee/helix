@@ -18,6 +18,7 @@ import {
   firstPurchasableVariant,
   productOfferPresentation,
   productPurchaseCta,
+  productUnavailableCtaLabel,
   type ProductMedia,
   type ProductStatus,
 } from "@/lib/products";
@@ -224,6 +225,7 @@ export function purchaseIslandProps(
     routineLabel,
     stickyMedia: media,
     stripePublishableKey,
+    unavailableLabel: productUnavailableCtaLabel(product.status),
     variants,
     showPrice: offerPresentation.showPrice,
     showVariantOptions: offerPresentation.showVariantOptions,
