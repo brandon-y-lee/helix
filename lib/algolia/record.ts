@@ -78,7 +78,10 @@ export type CatalogProductSource = {
   usage_time: string[];
   search_keywords: string[];
   product_slug_routes: CatalogSlugRouteSource[] | null;
-  product_family_memberships: CatalogProductFamilyMembershipSource[] | null;
+  product_family_memberships:
+    | CatalogProductFamilyMembershipSource
+    | CatalogProductFamilyMembershipSource[]
+    | null;
   routine_group: string;
   system_step_name: string | null;
   system_steps: SystemStepDatabaseRelation;
@@ -286,7 +289,11 @@ export function buildAlgoliaRecord(
     );
   }
   const concerns = row.concerns ?? [];
-  const familyRows = row.product_family_memberships ?? [];
+  const familyRows = row.product_family_memberships
+    ? Array.isArray(row.product_family_memberships)
+      ? row.product_family_memberships
+      : [row.product_family_memberships]
+    : [];
   if (familyRows.length > 1) {
     throw new Error(
       `[search-sync] Product "${row.slug}" belongs to multiple Product Families.`,

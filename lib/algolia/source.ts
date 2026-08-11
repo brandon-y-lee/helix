@@ -24,6 +24,11 @@ const SOURCE_SELECT =
   "product_variants ( variant_key, label, price_cents, sort_order, available, inventory_status ), " +
   "product_media ( media_type, url, alt, width, height, role, sort_order, palette_id, placeholder_palette )";
 
+const FAMILY_SOURCE_SELECT = SOURCE_SELECT.replace(
+  "product_family_memberships!product_family_memberships_product_id_fkey (",
+  "product_family_memberships!product_family_memberships_product_id_fkey!inner (",
+);
+
 /** All products as Algolia records, in canonical merchandising order. */
 export async function fetchAllSearchRecords(): Promise<AlgoliaProductRecord[]> {
   const supabase = getSupabaseClient();
@@ -72,10 +77,13 @@ export async function fetchSearchRecordsByFamilyId(
   familyId: string,
 ): Promise<AlgoliaProductRecord[]> {
   const { data, error } = await getSupabaseClient()
-    .from("product_family_memberships")
-    .select("product_id")
-    .eq("family_id", familyId)
-    .order("sort_order", { ascending: true });
+    .from("products")
+    .select(FAMILY_SOURCE_SELECT)
+    .eq("product_family_memberships.family_id", familyId)
+    .order("sort_order", {
+      ascending: true,
+      referencedTable: "product_family_memberships",
+    });
 
   if (error) {
     throw new Error(
@@ -83,12 +91,11 @@ export async function fetchSearchRecordsByFamilyId(
     );
   }
 
-  const records = await Promise.all(
-    (data ?? []).map((membership) =>
-      fetchSearchRecordById(membership.product_id),
-    ),
-  );
-  return records.filter(
-    (record): record is AlgoliaProductRecord => record !== null,
-  );
+  return (data as unknown as CatalogProductSource[])
+    .filter(
+      (row) =>
+        row.catalog_status === "active" &&
+        (!row.published_at || Date.parse(row.published_at) <= Date.now()),
+    )
+    .map(buildAlgoliaRecord);
 }

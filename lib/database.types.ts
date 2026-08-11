@@ -1717,6 +1717,16 @@ export type Database = {
         }
         Returns: Json
       }
+      publish_catalog_product_draft_v4_without_family_concurrency: {
+        Args: {
+          p_actor_id: string
+          p_actor_role: string
+          p_change_audit: Json
+          p_draft_id: string
+          p_expected_version: number
+        }
+        Returns: Json
+      }
       redeem_loyalty_points: {
         Args: {
           p_amount_cents: number

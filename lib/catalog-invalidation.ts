@@ -65,6 +65,12 @@ const PRODUCT_COLLECTION_FIELDS = new Set([
   "sort_order",
   "slug",
 ]);
+const PRODUCT_FAMILY_FIELDS = new Set([
+  "slug",
+  "display_name",
+  "status",
+  "catalog_status",
+]);
 const PRODUCT_IGNORED_FIELDS = new Set(["updated_at"]);
 const CARD_MEDIA_ROLES = new Set([
   "card",
@@ -164,6 +170,7 @@ export function getCatalogInvalidationTargets(
   let invalidateDiscovery = false;
   let invalidateCollection = false;
   let invalidateSlugRoutes = false;
+  let invalidateFamily = false;
 
   if (payload.table === "product_variants") {
     invalidateOffer = true;
@@ -214,7 +221,11 @@ export function getCatalogInvalidationTargets(
       );
     invalidateSlugRoutes =
       broadProductChange || changedFields.has("slug");
+    invalidateFamily =
+      broadProductChange || includesAny(changedFields, PRODUCT_FAMILY_FIELDS);
   }
+
+  if (invalidateFamily) tags.add(PRODUCT_FAMILY_CACHE_TAG);
 
   for (const productKey of productKeys) {
     if (invalidateContent) tags.add(productContentCacheTag(productKey));

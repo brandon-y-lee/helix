@@ -161,7 +161,9 @@ declare
   v_admin_id uuid := '00000000-0000-4000-8000-000000000143';
   v_publisher_id uuid := '00000000-0000-4000-8000-000000000144';
   v_product_id uuid;
+  v_stale_product_id uuid;
   v_draft_id uuid;
+  v_stale_draft_id uuid;
   v_document jsonb;
   v_changed_document jsonb;
   v_result jsonb;
@@ -196,6 +198,16 @@ begin
   select id into strict v_product_id
   from public.products
   where slug = 'beaming-prep';
+
+  select id into strict v_stale_product_id
+  from public.products
+  where slug = 'chilling-prep';
+
+  v_result := public.create_catalog_product_draft(
+    v_stale_product_id,
+    v_admin_id
+  );
+  v_stale_draft_id := (v_result #>> '{draft,id}')::uuid;
 
   v_result := public.create_catalog_product_draft(
     v_product_id,
@@ -255,6 +267,48 @@ begin
      )
   then
     raise exception 'Administrator family publication lacked revision/audit state';
+  end if;
+
+  if not exists (
+    select 1
+    from public.catalog_product_revisions revision
+    where revision.product_id = v_stale_product_id
+      and revision.document
+        #>> '{productFamily,memberships,2,option_label}' = 'Glow test'
+      and revision.id = (
+        select latest.id
+        from public.catalog_product_revisions latest
+        where latest.product_id = v_stale_product_id
+        order by latest.revision_number desc
+        limit 1
+      )
+  ) or not exists (
+    select 1
+    from public.catalog_editor_audit_log audit
+    where audit.product_id = v_stale_product_id
+      and audit.action = 'family.published'
+      and audit.metadata ->> 'source' = 'shared-family-publication'
+      and audit.metadata ->> 'originDraftId' = v_draft_id::text
+  ) then
+    raise exception 'Family publication did not revise and audit every sibling';
+  end if;
+
+  perform public.transition_catalog_product_draft(
+    v_stale_draft_id,
+    1,
+    'ready',
+    '[]'::jsonb,
+    v_admin_id
+  );
+  v_result := public.publish_catalog_product_draft(
+    v_stale_draft_id,
+    2,
+    v_admin_id,
+    'admin',
+    '[]'::jsonb
+  );
+  if v_result ->> 'code' <> 'revision_conflict' then
+    raise exception 'Stale sibling draft overwrote newer Product Family state';
   end if;
 end;
 $family_publisher_contract$;

@@ -204,18 +204,16 @@ describe("buildAlgoliaRecord", () => {
       display_name: "Beaming Prep",
       status: "waitlist",
       product_variants: [],
-      product_family_memberships: [
-        {
-          family_id: "123e4567-e89b-42d3-a456-426614174143",
-          option_label: "Brightening",
-          sort_order: 2,
-          is_entry: false,
-          product_families: {
-            slug: "refine",
-            display_name: "REFINE",
-          },
+      product_family_memberships: {
+        family_id: "123e4567-e89b-42d3-a456-426614174143",
+        option_label: "Brightening",
+        sort_order: 2,
+        is_entry: false,
+        product_families: {
+          slug: "refine",
+          display_name: "REFINE",
         },
-      ],
+      },
     });
 
     expect(r).toMatchObject({
@@ -968,7 +966,7 @@ describe("catalog cache invalidation", () => {
     );
   });
 
-  it("keeps an offer-only product status update out of editorial caches", () => {
+  it("invalidates the shared family selector for a product status update", () => {
     const targets = getCatalogInvalidationTargets(
       {
         type: "UPDATE",
@@ -994,10 +992,13 @@ describe("catalog cache invalidation", () => {
       },
     );
 
-    expect(targets.tags).toEqual([
-      `catalog-product-offer:${sourceRow.slug}`,
-      "catalog-product-offer",
-    ]);
+    expect(targets.tags).toEqual(
+      expect.arrayContaining([
+        `catalog-product-offer:${sourceRow.slug}`,
+        "catalog-product-offer",
+        "catalog-product-family",
+      ]),
+    );
     expect(targets.tags).not.toContain(
       `catalog-product-content:${sourceRow.slug}`,
     );
