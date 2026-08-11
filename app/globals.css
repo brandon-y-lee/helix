@@ -6583,16 +6583,13 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   font-family: var(--font-heading);
   font-size: clamp(1.65rem, 3vw, 2.4rem);
   line-height: 0.95;
-  font-weight: 700;
+  font-weight: 400;
   letter-spacing: -0.04em;
   color: var(--storefront-warm-gray);
 }
 
 .product-card__meta {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: start;
-  gap: 12px;
+  display: block;
   opacity: var(--product-card-meta-opacity, 1);
   transform: translateY(var(--product-card-meta-translate-y, 0));
 }
@@ -6602,6 +6599,14 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   display: flex;
   flex-direction: column;
   gap: 2px;
+}
+
+.product-card__display-row {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 12px;
 }
 
 .product-card__display-name,

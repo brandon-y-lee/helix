@@ -127,7 +127,7 @@ describe("ProductCard quick buy", () => {
     return surface;
   }
 
-  it("renders the System Step above the Product identity", () => {
+  it("renders the price beside Product Display Name and Product Type below", () => {
     const { container } = render(
       <ProductCard
         product={makeProduct({
@@ -143,15 +143,27 @@ describe("ProductCard quick buy", () => {
     const identity = container.querySelector<HTMLElement>(
       ".product-card__identity",
     );
+    const displayRow = container.querySelector<HTMLElement>(
+      ".product-card__display-row",
+    );
 
     expect(step).toHaveClass("product-card__step");
     expect(identity).not.toBeNull();
-    expect(within(identity as HTMLElement).getByText("Biotic Reset")).toHaveClass(
-      "product-card__display-name",
+    expect(displayRow).not.toBeNull();
+    expect(
+      within(displayRow as HTMLElement).getByText("Biotic Reset"),
+    ).toHaveClass("product-card__display-name");
+    expect(within(displayRow as HTMLElement).getByText("$20.00")).toHaveClass(
+      "product-card__price",
     );
     expect(
       within(identity as HTMLElement).getByText("Daily gel cleanser"),
     ).toHaveClass("product-card__type");
+    expect(
+      (displayRow as HTMLElement).compareDocumentPosition(
+        within(identity as HTMLElement).getByText("Daily gel cleanser"),
+      ) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
     expect(
       step.compareDocumentPosition(identity as HTMLElement) &
         Node.DOCUMENT_POSITION_FOLLOWING,
