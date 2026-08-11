@@ -183,7 +183,7 @@ test("shop renders live Products and combines filtering with sorting", async ({
   const firstCoreByDescendingName = [...coreProducts].sort((a, b) =>
     b.displayName.localeCompare(a.displayName),
   )[0];
-  await expect(page.locator(".product-card__name").first()).toHaveText(
+  await expect(page.locator(".product-card__display-name").first()).toHaveText(
     firstCoreByDescendingName.displayName,
   );
 
@@ -226,11 +226,11 @@ test("shop presents the approved Product, collection, sheet, and footer treatmen
   const card = page.locator(
     `[data-product-card-slug="${purchase.product.slug}"]`,
   );
-  const name = card.locator(".product-card__name");
-  const tagline = card.locator(".product-card__tagline");
+  const name = card.locator(".product-card__display-name");
+  const productType = card.locator(".product-card__type");
   const price = card.locator(".product-card__price");
   await expect(name).toHaveCSS("color", PRODUCT_CARD_WARM_GRAY);
-  await expect(tagline).toHaveCSS("color", PRODUCT_CARD_WARM_GRAY);
+  await expect(productType).toHaveCSS("color", PRODUCT_CARD_WARM_GRAY);
   await expect(price).toHaveCSS("color", PRODUCT_CARD_WARM_GRAY);
   await name.hover();
   await expect(name).toHaveCSS("text-decoration-line", "none");
