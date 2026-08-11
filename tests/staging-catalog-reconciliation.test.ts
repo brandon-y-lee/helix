@@ -30,6 +30,34 @@ describe("staging Catalog reconciliation contract", () => {
     expect(sql).toContain("selected Product provenance/content evidence drifted");
     expect(sql).toContain("actual.relationships_hash");
     expect(sql).toContain("actual.offers_hash");
+
+    for (const field of [
+      "badge",
+      "texture",
+      "finish",
+      "volume",
+      "swatch_from",
+      "swatch_to",
+      "sort_order",
+      "routine_sort",
+      "currency",
+      "seo_title",
+    ]) {
+      expect(sql).toContain(`'${field}', product.${field}`);
+    }
+    expect(sql).toContain("'usage_time', to_jsonb(product.usage_time)");
+    expect(sql).toContain(
+      "'search_keywords', to_jsonb(product.search_keywords)",
+    );
+
+    for (const field of [
+      "width",
+      "height",
+      "placeholder_palette",
+      "variant_id",
+    ]) {
+      expect(sql).toContain(`'${field}', item.${field}`);
+    }
   });
 
   it("rejects premature Green Collagen archival directly", () => {
