@@ -14,6 +14,7 @@ import {
   getProductOffer,
   getProductOffers,
   getProductRoutes,
+  getProductStaticRoutes,
   getProductSlugResolution,
 } from "@/lib/catalog/storefront";
 import {
@@ -363,6 +364,22 @@ const readCachedProductRoutes = unstable_cache(
 
 export function getCachedProductRoutes(): Promise<ProductRoute[]> {
   return readCachedProductRoutes();
+}
+
+const readCachedProductStaticRoutes = unstable_cache(
+  getProductStaticRoutes,
+  ["catalog-product-static-routes-v1"],
+  {
+    revalidate: COLLECTION_REVALIDATE_SECONDS,
+    tags: [
+      CATALOG_PRODUCTS_CACHE_TAG,
+      PRODUCT_SLUG_ROUTE_COLLECTION_CACHE_TAG,
+    ],
+  },
+);
+
+export function getCachedProductStaticRoutes(): Promise<ProductRoute[]> {
+  return readCachedProductStaticRoutes();
 }
 
 export function getCachedProductSlugResolution(

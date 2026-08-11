@@ -7,7 +7,7 @@ import {
   getCachedDiscoveryProductCards,
   getCachedPdpProduct,
   getCachedProductMetadata,
-  getCachedProductRoutes,
+  getCachedProductStaticRoutes,
   getCachedProductSlugResolution,
 } from "@/lib/catalog-cache";
 import { stripeMessagingPublishableKey } from "@/lib/checkout/config";
@@ -25,8 +25,8 @@ const siteUrl = new URL(
 );
 
 export async function generateStaticParams() {
-  const products = await getCachedProductRoutes();
-  return products.map((product) => ({ slug: product.slug }));
+  const routes = await getCachedProductStaticRoutes();
+  return routes.map((route) => ({ slug: route.slug }));
 }
 
 export async function generateMetadata({

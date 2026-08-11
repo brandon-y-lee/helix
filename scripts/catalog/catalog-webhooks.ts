@@ -6,6 +6,8 @@ import {
 const CATALOG_WEBHOOK_PATH =
   "/api/webhooks/supabase/catalog-search-sync" as const;
 const CATALOG_WEBHOOK_HEADER = "x-webhook-secret" as const;
+const CATALOG_WEBHOOK_DEPLOYMENT_BYPASS_HEADER =
+  "x-vercel-protection-bypass" as const;
 const CATALOG_WEBHOOK_TIMEOUT_MS = 5_000;
 export const CATALOG_WEBHOOK_TABLES = [
   "products",
@@ -32,12 +34,17 @@ export type CatalogWebhookConfig = {
   targetEnvironment: "development" | "preview";
   endpoint: string;
   secret: string;
+  deploymentBypassSecret: string | null;
   accessToken: string;
 };
 
 export type CatalogWebhookSmokeConfig = Pick<
   CatalogWebhookConfig,
-  "projectRef" | "targetEnvironment" | "endpoint" | "secret"
+  | "projectRef"
+  | "targetEnvironment"
+  | "endpoint"
+  | "secret"
+  | "deploymentBypassSecret"
 > & {
   productId: string;
 };
@@ -53,6 +60,7 @@ export type DesiredCatalogWebhook = {
   headers: {
     "Content-Type": "application/json";
     [CATALOG_WEBHOOK_HEADER]: string;
+    [CATALOG_WEBHOOK_DEPLOYMENT_BYPASS_HEADER]?: string;
   };
 };
 
@@ -102,7 +110,7 @@ export type CatalogWebhookReport = {
     method: "POST";
     endpoint: string;
     timeoutMs: typeof CATALOG_WEBHOOK_TIMEOUT_MS;
-    headerNames: ["Content-Type", typeof CATALOG_WEBHOOK_HEADER];
+    headerNames: string[];
   }>;
   actions: CatalogWebhookAction[];
   duplicates: Array<{
@@ -204,7 +212,18 @@ function readEndpointAndSecret(env: NodeJS.ProcessEnv) {
     );
   }
 
-  return { endpoint: endpoint.href, secret };
+  const deploymentBypassSecret =
+    env.VERCEL_AUTOMATION_BYPASS_SECRET?.trim() || null;
+  if (
+    deploymentBypassSecret &&
+    /^(your-|replace|generate-)/i.test(deploymentBypassSecret)
+  ) {
+    throw new Error(
+      "[catalog-webhooks] VERCEL_AUTOMATION_BYPASS_SECRET still contains a placeholder.",
+    );
+  }
+
+  return { endpoint: endpoint.href, secret, deploymentBypassSecret };
 }
 
 export function loadCatalogWebhookConfig(
@@ -244,6 +263,7 @@ export function catalogWebhookTriggerName(table: CatalogWebhookTable): string {
 export function buildDesiredCatalogWebhooks(
   endpoint: string,
   secret: string,
+  deploymentBypassSecret: string | null = null,
 ): DesiredCatalogWebhook[] {
   return CATALOG_WEBHOOK_TABLES.map((table) => ({
     name: catalogWebhookTriggerName(table),
@@ -256,6 +276,12 @@ export function buildDesiredCatalogWebhooks(
     headers: {
       "Content-Type": "application/json",
       [CATALOG_WEBHOOK_HEADER]: secret,
+      ...(deploymentBypassSecret
+        ? {
+            [CATALOG_WEBHOOK_DEPLOYMENT_BYPASS_HEADER]:
+              deploymentBypassSecret,
+          }
+        : {}),
     },
   }));
 }
@@ -282,7 +308,11 @@ export function buildCatalogWebhookReport(
   config: CatalogWebhookConfig,
   state: CatalogWebhookRemoteState,
 ): CatalogWebhookReport {
-  const desired = buildDesiredCatalogWebhooks(config.endpoint, config.secret);
+  const desired = buildDesiredCatalogWebhooks(
+    config.endpoint,
+    config.secret,
+    config.deploymentBypassSecret,
+  );
   const duplicates: CatalogWebhookReport["duplicates"] = [];
   const actions: CatalogWebhookAction[] = [];
 
@@ -347,7 +377,7 @@ export function buildCatalogWebhookReport(
       method: webhook.method,
       endpoint: webhook.endpoint,
       timeoutMs: webhook.timeoutMs,
-      headerNames: ["Content-Type", CATALOG_WEBHOOK_HEADER],
+      headerNames: Object.keys(webhook.headers),
     })),
     actions,
     duplicates,
@@ -586,6 +616,12 @@ export class SupabaseCatalogWebhookControlPlane
             JSON.stringify({
               "Content-Type": "application/json",
               [CATALOG_WEBHOOK_HEADER]: config.secret,
+              ...(config.deploymentBypassSecret
+                ? {
+                    [CATALOG_WEBHOOK_DEPLOYMENT_BYPASS_HEADER]:
+                      config.deploymentBypassSecret,
+                  }
+                : {}),
             }),
             String(CATALOG_WEBHOOK_TIMEOUT_MS),
           ],
@@ -662,7 +698,11 @@ export async function runCatalogWebhookProvisioning(
   const initialReport = buildCatalogWebhookReport(mode, config, initialState);
   if (mode !== "apply" || !initialReport.ok) return initialReport;
 
-  const desired = buildDesiredCatalogWebhooks(config.endpoint, config.secret);
+  const desired = buildDesiredCatalogWebhooks(
+    config.endpoint,
+    config.secret,
+    config.deploymentBypassSecret,
+  );
   let currentState = initialState;
   let enabledDuringRun = false;
 
@@ -779,6 +819,12 @@ async function postSyntheticChildEvent(
     headers: {
       "content-type": "application/json",
       [CATALOG_WEBHOOK_HEADER]: config.secret,
+      ...(config.deploymentBypassSecret
+        ? {
+            [CATALOG_WEBHOOK_DEPLOYMENT_BYPASS_HEADER]:
+              config.deploymentBypassSecret,
+          }
+        : {}),
     },
     body: JSON.stringify({
       schema: "public",
@@ -800,6 +846,12 @@ export async function runCatalogWebhookSmoke(
     headers: {
       "content-type": "application/json",
       [CATALOG_WEBHOOK_HEADER]: `${config.secret}.invalid`,
+      ...(config.deploymentBypassSecret
+        ? {
+            [CATALOG_WEBHOOK_DEPLOYMENT_BYPASS_HEADER]:
+              config.deploymentBypassSecret,
+          }
+        : {}),
     },
     body: JSON.stringify({
       schema: "public",
