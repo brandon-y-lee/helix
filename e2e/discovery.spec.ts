@@ -94,6 +94,7 @@ test("historical Product slugs redirect permanently without dynamic render failu
     ["refine-02-pore-treatment-pads", "balancing-prep"],
     ["frame-04-pdrn-eye-cream", "peptide-eye-cream"],
     ["lift-06-pdrn-mask-system", "peptide-nourish-mask"],
+    ["seal-05-green-collagen-cream", "ceramide-cushion"],
   ] as const;
 
   for (const [source, target] of redirects) {

@@ -29,6 +29,20 @@ const FAMILY_SOURCE_SELECT = SOURCE_SELECT.replace(
   "product_family_memberships!product_family_memberships_product_id_fkey!inner (",
 );
 
+/** Build the public search projection from canonical catalog rows. */
+export function buildPublicSearchRecords(
+  rows: CatalogProductSource[],
+  now = Date.now(),
+): AlgoliaProductRecord[] {
+  return rows
+    .filter(
+      (row) =>
+        row.catalog_status === "active" &&
+        (!row.published_at || Date.parse(row.published_at) <= now),
+    )
+    .map(buildAlgoliaRecord);
+}
+
 /** All products as Algolia records, in canonical merchandising order. */
 export async function fetchAllSearchRecords(): Promise<AlgoliaProductRecord[]> {
   const supabase = getSupabaseClient();
@@ -43,9 +57,7 @@ export async function fetchAllSearchRecords(): Promise<AlgoliaProductRecord[]> {
     );
   }
 
-  return (data as unknown as CatalogProductSource[])
-    .filter((row) => row.catalog_status === "active")
-    .map(buildAlgoliaRecord);
+  return buildPublicSearchRecords(data as unknown as CatalogProductSource[]);
 }
 
 /** One product as an Algolia record, or null if it no longer exists. */
@@ -66,10 +78,10 @@ export async function fetchSearchRecordById(
   }
 
   if (!data) return null;
-  const row = data as unknown as CatalogProductSource;
-  if (row.catalog_status !== "active") return null;
-  if (row.published_at && Date.parse(row.published_at) > Date.now()) return null;
-  return buildAlgoliaRecord(row);
+  const [record] = buildPublicSearchRecords([
+    data as unknown as CatalogProductSource,
+  ]);
+  return record ?? null;
 }
 
 /** All current public member records for one canonical Product Family. */
@@ -91,11 +103,5 @@ export async function fetchSearchRecordsByFamilyId(
     );
   }
 
-  return (data as unknown as CatalogProductSource[])
-    .filter(
-      (row) =>
-        row.catalog_status === "active" &&
-        (!row.published_at || Date.parse(row.published_at) <= Date.now()),
-    )
-    .map(buildAlgoliaRecord);
+  return buildPublicSearchRecords(data as unknown as CatalogProductSource[]);
 }

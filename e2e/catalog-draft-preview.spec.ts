@@ -6,7 +6,7 @@ test("draft preview is private while the public PDP remains canonical", async ({
   page,
   storefront,
 }) => {
-  const product = storefront.product("purchasable");
+  const product = storefront.product("richPdp");
   const previewResponse = await page.goto(
     `/admin/catalog/preview/${draftId}`,
   );

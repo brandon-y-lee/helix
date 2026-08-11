@@ -60,10 +60,11 @@ describe("staging Catalog reconciliation contract", () => {
     }
   });
 
-  it("rejects premature Green Collagen archival directly", () => {
-    expect(sql).toContain("replacement.catalog_status = 'draft'");
-    expect(sql).toContain("green.catalog_status is distinct from 'active'");
-    expect(sql).toContain("replacement.catalog_status is distinct from 'active'");
-    expect(sql).toContain("eligible Green Collagen replacement lacks one durable route");
+  it("pins the completed Green Collagen replacement lifecycle directly", () => {
+    expect(sql).toContain("green.catalog_status = 'archived'");
+    expect(sql).toContain("replacement.catalog_status = 'active'");
+    expect(sql).toContain("replacement.status = 'coming_soon'");
+    expect(sql).toContain("Green Collagen replacement lifecycle drifted");
+    expect(sql).toContain("an Active Product still points to archived Green Collagen");
   });
 });

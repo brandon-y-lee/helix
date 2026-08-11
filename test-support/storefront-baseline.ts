@@ -179,7 +179,7 @@ export type StorefrontSnapshot = Readonly<{
   journeys: Readonly<{
     coreProductId: string;
     beyondCoreProductId: string;
-    purchasableProductId: string;
+    purchasableProductId: string | null;
     richPdpProductId: string;
     searchableProductId: string;
   }>;
@@ -617,7 +617,6 @@ function hasRichPdpMedia(product: StorefrontSnapshotProduct): boolean {
     product.media.filter((item) => Boolean(item.url)).map((item) => item.role),
   );
   return (
-    product.offer !== null &&
     roles.has("routine_video") &&
     roles.has("routine_video_poster") &&
     roles.has("gallery")
@@ -767,11 +766,8 @@ function buildStorefrontSnapshot(
     "Beyond The Core Routine Group",
     (product) => product.routineGroup === "beyond_core",
   );
-  const purchasable = requireCapability(
-    collectionProducts,
-    "Purchasable Product",
-    (product) => product.offer !== null,
-  );
+  const purchasable =
+    collectionProducts.find((product) => product.offer !== null) ?? null;
   const richPdp = requireCapability(
     products,
     "rich PDP media",
@@ -780,7 +776,7 @@ function buildStorefrontSnapshot(
   const searchable = requireCapability(
     products,
     "searchable Product",
-    (product) => product.offer !== null && product.displayName.length > 0,
+    (product) => product.displayName.length > 0,
   );
 
   const complementKeys = new Set<string>();
@@ -817,7 +813,7 @@ function buildStorefrontSnapshot(
     journeys: {
       coreProductId: core.id,
       beyondCoreProductId: beyond.id,
-      purchasableProductId: purchasable.id,
+      purchasableProductId: purchasable?.id ?? null,
       richPdpProductId: richPdp.id,
       searchableProductId: searchable.id,
     },
