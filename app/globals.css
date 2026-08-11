@@ -3676,7 +3676,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 
 .pdp {
   grid-template-columns: minmax(0, 1.15fr) minmax(360px, 0.9fr);
-  gap: 2.25vw;
+  gap: var(--storefront-gutter);
   padding-top: var(--storefront-gutter);
 }
 
