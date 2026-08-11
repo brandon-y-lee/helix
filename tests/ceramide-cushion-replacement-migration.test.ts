@@ -16,6 +16,13 @@ const integrationSql = readFileSync(
   ),
   "utf8",
 );
+const claimsHardeningMigration = readFileSync(
+  resolve(
+    process.cwd(),
+    "supabase/migrations/20260811141153_harden_ceramide_claim_exclusion.sql",
+  ),
+  "utf8",
+);
 
 describe("Ceramide Cushion replacement publication", () => {
   it("atomically activates Ceramide and archives Green without commerce transfer", () => {
@@ -53,5 +60,37 @@ describe("Ceramide Cushion replacement publication", () => {
     expect(integrationSql).toContain("expected_green_history_hash");
     expect(integrationSql).toContain("Ceramide Cushion inbound Routine Complement graph drifted");
     expect(integrationSql).toContain("unsupported claim entered published Ceramide Cushion content");
+  });
+
+  it("excludes every claim family withheld by the approved dossier", () => {
+    expect(claimsHardeningMigration).toContain("to_jsonb(product) - 'formula_notes'");
+    expect(integrationSql).toContain("to_jsonb(product) - 'formula_notes'");
+
+    for (const claimPattern of [
+      "3:1:1",
+      "100[- ]?hours?",
+      "repair|restore|rebuild",
+      "penetrat",
+      "deliver",
+      "layer[- ]specific",
+      "clinically",
+      "before[ /-]?after",
+      "all skin types",
+      "sensitive[- ]skin",
+      "hypoallergenic",
+      "non[- ]irritating",
+      "dermatologist[- ]tested",
+      "percent",
+      "concentration[- ]led",
+      "vegan",
+      "cruelty[- ]free",
+      "clean",
+      "sustainab",
+      "sourcing",
+      "certif",
+    ]) {
+      expect(claimsHardeningMigration).toContain(claimPattern);
+      expect(integrationSql).toContain(claimPattern);
+    }
   });
 });
