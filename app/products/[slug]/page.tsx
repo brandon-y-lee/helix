@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { ProductDetail } from "@/components/product-detail/ProductDetail";
 import { ProductCarousel } from "@/components/product/ProductCarousel";
 import {
@@ -7,16 +7,27 @@ import {
   getCachedDiscoveryProductCards,
   getCachedPdpProduct,
   getCachedProductMetadata,
-  getCachedProductRoutes,
+  getCachedProductSlugResolution,
 } from "@/lib/catalog-cache";
 import { stripeMessagingPublishableKey } from "@/lib/checkout/config";
 import type { CoreRoutineSummary } from "@/lib/catalog/models";
 import { PDP_DISCOVERY_PRODUCT_LIMIT } from "@/lib/catalog/discovery";
+import { composeProductTitle } from "@/lib/products";
+import {
+  buildProductStructuredData,
+  serializeStructuredData,
+} from "@/lib/catalog/product-structured-data";
+import { isValidProductSlug } from "@/lib/catalog/product-slug";
 
-export async function generateStaticParams() {
-  const products = await getCachedProductRoutes();
-  return products.map((product) => ({ slug: product.slug }));
-}
+const siteUrl = new URL(
+  process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
+);
+
+// Product aliases are governed data and may be published after a deployment.
+// Keep the route request-time while its public Catalog projections remain
+// independently cached, so every current or future alias can resolve without
+// a rebuild and preserve the incoming query string.
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({
   params,
@@ -24,22 +35,69 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const product = await getCachedProductMetadata(slug);
+  const resolution = isValidProductSlug(slug)
+    ? await getCachedProductSlugResolution(slug)
+    : undefined;
+  const product = resolution
+    ? await getCachedProductMetadata(resolution.targetSlug)
+    : undefined;
   return {
     title: product
-      ? product.seoTitle ?? `${product.formalTitle} | Mei Pelle`
+      ? product.seoTitle ??
+        `${composeProductTitle(product.displayName, product.productType)} | Mei Pelle`
       : "Product | Mei Pelle",
-    description: product?.seoDescription ?? product?.cardTagline,
+    description: product?.seoDescription ?? product?.editorialDescription,
+    alternates: product
+      ? { canonical: `/products/${product.slug}` }
+      : undefined,
   };
+}
+
+type ProductSearchParams = Record<
+  string,
+  string | string[] | undefined
+>;
+
+function productRedirectDestination(
+  targetSlug: string,
+  searchParams: ProductSearchParams,
+): string {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(searchParams)) {
+    if (Array.isArray(value)) {
+      for (const item of value) query.append(key, item);
+    } else if (value !== undefined) {
+      query.append(key, value);
+    }
+  }
+  const serialized = query.toString();
+  return `/products/${targetSlug}${serialized ? `?${serialized}` : ""}`;
 }
 
 export default async function ProductDetailPage({
   params,
+  searchParams = Promise.resolve({}),
 }: {
   params: Promise<{ slug: string }>;
+  searchParams?: Promise<ProductSearchParams>;
 }) {
   const { slug } = await params;
-  const product = await getCachedPdpProduct(slug);
+  if (!isValidProductSlug(slug)) {
+    notFound();
+  }
+  const resolution = await getCachedProductSlugResolution(slug);
+
+  if (!resolution) {
+    notFound();
+  }
+
+  if (resolution.targetSlug !== slug) {
+    permanentRedirect(
+      productRedirectDestination(resolution.targetSlug, await searchParams),
+    );
+  }
+
+  const product = await getCachedPdpProduct(resolution.targetSlug);
 
   if (!product) {
     notFound();
@@ -59,9 +117,16 @@ export default async function ProductDetailPage({
     }
   }
   const related = await relatedPromise;
+  const structuredData = buildProductStructuredData(product, siteUrl);
 
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: serializeStructuredData(structuredData),
+        }}
+      />
       <div className="storefront-shell" data-layout-shell="storefront">
         <ProductDetail
           key={product.slug}

@@ -47,6 +47,7 @@ vi.mock("@/lib/catalog/storefront", () => ({
   getProductOffer: vi.fn(),
   getProductOffers: vi.fn(),
   getProductRoutes: vi.fn(),
+  getProductSlugResolution: vi.fn(),
 }));
 
 import { getProducts } from "@/lib/catalog";
@@ -57,6 +58,7 @@ import {
   getProductCardContents,
   getProductOffer,
   getProductOffers,
+  getProductSlugResolution,
 } from "@/lib/catalog/storefront";
 import {
   CORE_ROUTINE_CACHE_TAG,
@@ -67,6 +69,7 @@ import {
   getCachedPdpProduct,
   getCachedProductCards,
   getCachedProducts,
+  getCachedProductSlugResolution,
   PRODUCT_CARD_COLLECTION_CACHE_TAG,
   PRODUCT_CARD_REVALIDATE_SECONDS,
   PRODUCT_CONTENT_REVALIDATE_SECONDS,
@@ -74,6 +77,8 @@ import {
   PRODUCT_OFFER_REVALIDATE_SECONDS,
   productContentCacheTag,
   productOfferCacheTag,
+  productSlugRouteCacheTag,
+  PRODUCT_SLUG_ROUTE_COLLECTION_CACHE_TAG,
 } from "@/lib/catalog-cache";
 
 const slug = "treat-03-pdrn-5-ampoule";
@@ -103,8 +108,21 @@ const card = {
   id: "product-id",
   slug,
   displayName: "TREAT",
-  cardTagline: "Daily bounce support",
-} as ProductCardContent;
+  productType: "PDRN serum",
+  volume: "30 mL",
+  usageTime: ["AM", "PM"],
+  routineGroup: "core",
+  systemStepName: "TREAT",
+  systemStepPosition: 3,
+  routineSort: 30,
+  sortOrder: 3,
+  createdAt: "2026-06-14T00:00:00.000Z",
+  swatch: ["#f1e8df", "#c8b6a6"],
+  cardMedia: null,
+  cardHoverMedia: null,
+  cartMedia: null,
+  productFamily: null,
+} satisfies ProductCardContent;
 
 const pdp = {
   id: "product-id",
@@ -116,14 +134,10 @@ const pdp = {
 
 const core = {
   ...card,
-  formalTitle: "TREAT 03 PDRN 5 Ampoule",
   description: "Stable editorial content",
   benefits: [],
   keyIngredients: [],
   routineGroup: "core",
-  routineStepNumber: 2,
-  routineStepName: "Treat",
-  routineSort: 20,
   pdpContent: { schemaVersion: 1, routineGuidance: "After CLEANSE." },
 } as unknown as CoreRoutineContentSummary;
 
@@ -143,6 +157,12 @@ beforeEach(() => {
   vi.mocked(getProductCardContents).mockResolvedValue([card]);
   vi.mocked(getDiscoveryProductCardContents).mockResolvedValue([card]);
   vi.mocked(getCoreRoutineContentSummaries).mockResolvedValue([core]);
+  vi.mocked(getProductSlugResolution).mockResolvedValue({
+    sourceSlug: slug,
+    targetSlug: slug,
+    targetProductId: "product-id",
+    routeKind: "canonical",
+  });
 });
 
 describe("catalog cache domains", () => {
@@ -155,9 +175,9 @@ describe("catalog cache domains", () => {
       status: "available",
       variants: [{ price: 2500 }],
     });
-    expect(registration("catalog-pdp-content-v3").options).toEqual({
+    expect(registration("catalog-pdp-content-v4").options).toEqual({
       revalidate: PRODUCT_CONTENT_REVALIDATE_SECONDS,
-      tags: [productContentCacheTag(slug)],
+      tags: [productContentCacheTag(slug), "catalog-product-family"],
     });
     expect(registration("catalog-pdp-offer-v2").options).toEqual({
       revalidate: PRODUCT_OFFER_REVALIDATE_SECONDS,
@@ -176,13 +196,13 @@ describe("catalog cache domains", () => {
     expect(discovery[0]).toMatchObject({ slug, status: "available" });
     expect(summaries[0]).toMatchObject({
       slug,
-      routineStepName: "Treat",
+      systemStepName: "TREAT",
       variants: [{ price: 2500 }],
     });
     expect(getProductCardContents).toHaveBeenCalled();
     expect(getDiscoveryProductCardContents).toHaveBeenCalledWith(slug, 3);
     expect(getCoreRoutineContentSummaries).toHaveBeenCalled();
-    expect(registration("catalog-product-cards-v2").options).toEqual({
+    expect(registration("catalog-product-cards-v3").options).toEqual({
       revalidate: PRODUCT_CARD_REVALIDATE_SECONDS,
       tags: expect.arrayContaining([PRODUCT_CARD_COLLECTION_CACHE_TAG]),
     });
@@ -190,11 +210,11 @@ describe("catalog cache domains", () => {
       revalidate: PRODUCT_OFFER_REVALIDATE_SECONDS,
       tags: expect.arrayContaining([PRODUCT_OFFER_COLLECTION_CACHE_TAG]),
     });
-    expect(registration("catalog-core-routine-content-v3").options).toEqual({
+    expect(registration("catalog-core-routine-content-v5").options).toEqual({
       revalidate: CORE_ROUTINE_REVALIDATE_SECONDS,
       tags: expect.arrayContaining([CORE_ROUTINE_CACHE_TAG]),
     });
-    expect(registration("catalog-discovery-cards-v4").options.tags).toEqual(
+    expect(registration("catalog-discovery-cards-v5").options.tags).toEqual(
       expect.arrayContaining([DISCOVERY_CACHE_TAG]),
     );
   });
@@ -209,7 +229,6 @@ describe("catalog cache domains", () => {
         currency: "USD",
         status: "available",
         catalogStatus: "active",
-        cardTagline: "Card",
         badge: null,
         featuredRank: null,
         sortOrder: 1,
@@ -217,14 +236,30 @@ describe("catalog cache domains", () => {
     ]);
 
     await expect(getCachedProducts()).resolves.toHaveLength(1);
-    expect(registration("catalog-products-content-v2").options.revalidate).toBe(
+    expect(registration("catalog-products-content-v3").options.revalidate).toBe(
       PRODUCT_CONTENT_REVALIDATE_SECONDS,
     );
     expect(registration("catalog-products-offer-v2").options.revalidate).toBe(
       PRODUCT_OFFER_REVALIDATE_SECONDS,
     );
-    expect(registration("catalog-products-card-v2").options.revalidate).toBe(
+    expect(registration("catalog-products-card-v3").options.revalidate).toBe(
       PRODUCT_CARD_REVALIDATE_SECONDS,
     );
+  });
+
+  it("caches route resolution by source slug with ledger-wide invalidation", async () => {
+    await expect(getCachedProductSlugResolution(slug)).resolves.toMatchObject({
+      sourceSlug: slug,
+      targetSlug: slug,
+      routeKind: "canonical",
+    });
+    expect(getProductSlugResolution).toHaveBeenCalledWith(slug);
+    expect(registration("catalog-product-slug-route-v1").options).toEqual({
+      revalidate: PRODUCT_CONTENT_REVALIDATE_SECONDS,
+      tags: [
+        PRODUCT_SLUG_ROUTE_COLLECTION_CACHE_TAG,
+        productSlugRouteCacheTag(slug),
+      ],
+    });
   });
 });

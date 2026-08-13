@@ -89,11 +89,13 @@ const publishSuccess: CatalogPublishTransactionSuccess = {
   },
   changedTables: {
     products: false,
+    productSlugRoutes: false,
     productPdpContent: false,
     variants: false,
     media: false,
     relationships: false,
     productSource: false,
+    productFamily: false,
   },
 };
 

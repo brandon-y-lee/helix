@@ -1,18 +1,9 @@
 #!/usr/bin/env node
 
 import { spawnSync } from "node:child_process";
-import { parse as parseYaml } from "yaml";
-import {
-  assertDesiredSpecRuleset,
-  desiredSpecRuleset,
-  SPEC_RULESET_NAME,
-} from "./spec-ruleset.mjs";
 
 const API_VERSION = "2026-03-10";
 const EXPECTED_REPOSITORY = "brandon-y-lee/mei-pelle";
-const INTEGRATION_RULESET_NAME = "dev pull request integration";
-const INTEGRATION_CUTOVER_CONFIRMATION = "dev-integration-authority";
-const SPEC_BRANCH_CUTOVER_CONFIRMATION = "protected-spec-branches";
 const ghBin = process.env.GH_BIN ?? "gh";
 const gitBin = process.env.GIT_BIN ?? "git";
 
@@ -27,10 +18,6 @@ const desiredLabels = [
   ["workflow:planned", "C5DEF5", "Approved and decomposed into tickets"],
   ["workflow:in-progress", "FBCA04", "Claimed work in progress"],
   ["workflow:review", "D4C5F9", "Implementation awaiting review or CI"],
-  ["workflow:spec-integrated", "0E8A16", "Ticket integrated into its parent spec branch"],
-  ["workflow:integration-queued", "C5DEF5", "Ready dev pull request awaiting the Integration Slot"],
-  ["workflow:integration-active", "B60205", "Current frozen dev Integration Slot owner"],
-  ["workflow:urgent", "D93F0B", "Human-approved active production or security urgency"],
   ["wayfinder:map", "5319E7", "Wayfinder decision map"],
   ["wayfinder:research", "0052CC", "Wayfinder research ticket"],
   ["wayfinder:prototype", "B60205", "Wayfinder prototype ticket"],
@@ -71,19 +58,10 @@ function runGit(args, options = {}) {
 function parseArgs(argv) {
   const [mode, ...rest] = argv;
   if (mode !== "plan" && mode !== "apply") {
-    fail("usage: bootstrap-workflow.mjs <plan|apply> --repo <owner/repo> [--confirm-repo <owner/repo> --confirm-dev-sha <sha> --confirm-ci-sha <sha> --confirm-integration-cutover dev-integration-authority --confirm-spec-branch-cutover protected-spec-branches --confirm-integration-app-id <id>]");
+    fail("usage: bootstrap-workflow.mjs <plan|apply> --repo <owner/repo> [--confirm-repo <owner/repo> --confirm-dev-sha <sha> --confirm-ci-sha <sha>]");
   }
 
-  const parsed = {
-    mode,
-    repo: "",
-    confirmRepo: "",
-    confirmDevSha: "",
-    confirmCiSha: "",
-    confirmIntegrationCutover: "",
-    confirmSpecBranchCutover: "",
-    confirmIntegrationAppId: "",
-  };
+  const parsed = { mode, repo: "", confirmRepo: "", confirmDevSha: "", confirmCiSha: "" };
   for (let index = 0; index < rest.length; index += 1) {
     const flag = rest[index];
     const value = rest[index + 1];
@@ -92,9 +70,6 @@ function parseArgs(argv) {
     else if (flag === "--confirm-repo") parsed.confirmRepo = value;
     else if (flag === "--confirm-dev-sha") parsed.confirmDevSha = value;
     else if (flag === "--confirm-ci-sha") parsed.confirmCiSha = value;
-    else if (flag === "--confirm-integration-cutover") parsed.confirmIntegrationCutover = value;
-    else if (flag === "--confirm-spec-branch-cutover") parsed.confirmSpecBranchCutover = value;
-    else if (flag === "--confirm-integration-app-id") parsed.confirmIntegrationAppId = value;
     else fail(`unknown option '${flag}'`);
     index += 1;
   }
@@ -141,293 +116,6 @@ function requireLocalCommit(sha, label) {
   }
 }
 
-function requireDefaultBranchCoordinator(sha) {
-  const paths = [
-    ".github/workflows/dev-integration.yml",
-    ".github/workflows/dev-integration-verification.yml",
-    ".github/workflows/spec-lifecycle.yml",
-  ];
-  if (
-    paths.some(
-      (path) =>
-        runGit(["cat-file", "-e", `${sha}:${path}`], { allowFailure: true }).status !== 0,
-    )
-  ) {
-    throw new Error("trusted integration workflows must exist on remote main before cutover planning");
-  }
-}
-
-function requireAuditedWorkflowAuthority(sha) {
-  const attestationSigners = new Map([
-    [".github/workflows/dev-integration-verification.yml", "attest-stable-result"],
-    [".github/workflows/staged-production-verification.yml", "attest-production-receipt"],
-  ]);
-  const ciWorkflow = ".github/workflows/ci.yml";
-  const productionPromotion = ".github/workflows/production-promotion.yml";
-  const productionRollback = ".github/workflows/production-rollback.yml";
-  const scheduledBrowserVerification =
-    ".github/workflows/scheduled-browser-verification.yml";
-  const trustedWriters = new Map([
-    [".github/workflows/dev-integration.yml", { actions: "write", contents: "write", issues: "write", "pull-requests": "write" }],
-    [".github/workflows/spec-lifecycle.yml", { actions: "read", contents: "write", "id-token": "write", issues: "write", "pull-requests": "write" }],
-  ]);
-  const workflows = runGit([
-    "ls-tree",
-    "-r",
-    "--name-only",
-    sha,
-    "--",
-    ".github/workflows",
-  ]).stdout.trim().split("\n").filter((path) => /\.ya?ml$/.test(path));
-  for (const path of trustedWriters.keys()) {
-    if (!workflows.includes(path)) {
-      throw new Error(`trusted writer workflow '${path}' is absent from audited dev ${sha}`);
-    }
-  }
-  for (const path of workflows) {
-    const contents = runGit(["show", `${sha}:${path}`]).stdout;
-    let workflow;
-    try {
-      workflow = parseYaml(contents);
-    } catch (error) {
-      throw new Error(
-        `workflow '${path}' is not valid YAML at ${sha}: ${error instanceof Error ? error.message : String(error)}`,
-      );
-    }
-    if (!workflow || typeof workflow !== "object" || Array.isArray(workflow)) {
-      throw new Error(`workflow '${path}' must be a YAML object at ${sha}`);
-    }
-    const jobs = workflow.jobs;
-    if (!jobs || typeof jobs !== "object" || Array.isArray(jobs)) {
-      throw new Error(`workflow '${path}' must declare jobs at ${sha}`);
-    }
-    const required = trustedWriters.get(path);
-    if (required) {
-      const permissions = workflow.permissions;
-      if (!permissions || typeof permissions !== "object" || Array.isArray(permissions)) {
-        throw new Error(`trusted writer workflow '${path}' must declare an explicit permission map at ${sha}`);
-      }
-      if (
-        Object.keys(permissions).length !== Object.keys(required).length ||
-        Object.entries(required).some(([permission, access]) => permissions[permission] !== access)
-      ) {
-        throw new Error(
-          `trusted writer workflow '${path}' does not match its exact least-privilege permission map at ${sha}`,
-        );
-      }
-      for (const [jobName, job] of Object.entries(jobs)) {
-        if (job && typeof job === "object" && !Array.isArray(job) && "permissions" in job) {
-          throw new Error(
-            `trusted writer workflow '${path}' job '${jobName}' must inherit the audited workflow permissions at ${sha}`,
-          );
-        }
-      }
-      continue;
-    }
-    if (path === ciWorkflow) {
-      const permissions = workflow.permissions;
-      if (
-        !permissions ||
-        typeof permissions !== "object" ||
-        Array.isArray(permissions) ||
-        Object.keys(permissions).length !== 1 ||
-        permissions.contents !== "read"
-      ) {
-        throw new Error(`CI workflow must default to only contents: read at ${sha}`);
-      }
-      const protectedPushJob = jobs["protected-push-receipt"];
-      const requiredProtectedPush = {
-        actions: "write",
-        attestations: "read",
-        contents: "read",
-      };
-      if (
-        !protectedPushJob ||
-        typeof protectedPushJob !== "object" ||
-        Array.isArray(protectedPushJob) ||
-        !protectedPushJob.permissions ||
-        typeof protectedPushJob.permissions !== "object" ||
-        Array.isArray(protectedPushJob.permissions) ||
-        Object.keys(protectedPushJob.permissions).length !==
-          Object.keys(requiredProtectedPush).length ||
-        Object.entries(requiredProtectedPush).some(
-          ([permission, access]) => protectedPushJob.permissions[permission] !== access,
-        )
-      ) {
-        throw new Error(
-          `CI protected-push receipt job must grant only actions: write, attestations: read, and contents: read at ${sha}`,
-        );
-      }
-      for (const [jobName, job] of Object.entries(jobs)) {
-        if (
-          jobName !== "protected-push-receipt" &&
-          job &&
-          typeof job === "object" &&
-          !Array.isArray(job) &&
-          "permissions" in job
-        ) {
-          throw new Error(`CI job '${jobName}' must inherit contents: read at ${sha}`);
-        }
-      }
-      continue;
-    }
-    if (path === scheduledBrowserVerification) {
-      const permissions = workflow.permissions;
-      if (
-        !permissions ||
-        typeof permissions !== "object" ||
-        Array.isArray(permissions) ||
-        Object.keys(permissions).sort().join(",") !== "contents,issues" ||
-        permissions.contents !== "read" ||
-        permissions.issues !== "write"
-      ) {
-        throw new Error(
-          `scheduled browser verification must grant only contents: read and issues: write at ${sha}`,
-        );
-      }
-      for (const [jobName, job] of Object.entries(jobs)) {
-        if (job && typeof job === "object" && !Array.isArray(job) && "permissions" in job) {
-          throw new Error(
-            `scheduled browser verification job '${jobName}' must inherit the audited workflow permissions at ${sha}`,
-          );
-        }
-      }
-      continue;
-    }
-    const permissions = workflow.permissions;
-    const attestationSignerJob = attestationSigners.get(path);
-    if (attestationSignerJob) {
-      const requiredSigner = {
-        "artifact-metadata": "write",
-        attestations: "write",
-        contents: "read",
-        "id-token": "write",
-      };
-      if (
-        !permissions ||
-        typeof permissions !== "object" ||
-        Array.isArray(permissions) ||
-        Object.keys(permissions).length !== 1 ||
-        permissions.contents !== "read"
-      ) {
-        throw new Error(
-          `attestation signer workflow must default to contents: read at ${sha}`,
-        );
-      }
-      for (const [jobName, job] of Object.entries(jobs)) {
-        if (!job || typeof job !== "object" || Array.isArray(job)) continue;
-        if (jobName === attestationSignerJob) {
-          const jobPermissions = job.permissions;
-          if (
-            !jobPermissions ||
-            typeof jobPermissions !== "object" ||
-            Array.isArray(jobPermissions) ||
-            Object.keys(jobPermissions).length !== Object.keys(requiredSigner).length ||
-            Object.entries(requiredSigner).some(
-              ([permission, access]) => jobPermissions[permission] !== access,
-            )
-          ) {
-            throw new Error(
-              `attestation signer job must grant only artifact-metadata, attestations, id-token: write and contents: read at ${sha}`,
-            );
-          }
-        } else if ("permissions" in job) {
-          throw new Error(
-            `unprivileged attestation workflow job '${jobName}' must inherit contents: read at ${sha}`,
-          );
-        }
-      }
-      continue;
-    }
-    if (path === productionPromotion) {
-      const expectedJobs = {
-        plan: {
-          actions: "read", attestations: "read", checks: "read",
-          contents: "read", issues: "read", "pull-requests": "write",
-        },
-        promote: {
-          actions: "read", attestations: "read", checks: "read",
-          contents: "write", issues: "read", "pull-requests": "write",
-        },
-      };
-      if (
-        !permissions || typeof permissions !== "object" || Array.isArray(permissions) ||
-        Object.keys(permissions).length !== 1 || permissions.contents !== "read"
-      ) {
-        throw new Error(`Production Promotion must default to only contents: read at ${sha}`);
-      }
-      for (const [jobName, expected] of Object.entries(expectedJobs)) {
-        const jobPermissions = jobs[jobName]?.permissions;
-        if (
-          !jobPermissions || typeof jobPermissions !== "object" || Array.isArray(jobPermissions) ||
-          Object.keys(jobPermissions).length !== Object.keys(expected).length ||
-          Object.entries(expected).some(([permission, access]) => jobPermissions[permission] !== access)
-        ) {
-          throw new Error(`Production Promotion job '${jobName}' exceeds its exact authority at ${sha}`);
-        }
-      }
-      continue;
-    }
-    if (path === productionRollback) {
-      const expected = { actions: "read", contents: "read", issues: "write" };
-      const jobPermissions = jobs.rollback?.permissions;
-      if (
-        !permissions || typeof permissions !== "object" || Array.isArray(permissions) ||
-        Object.keys(permissions).length !== 1 || permissions.contents !== "read" ||
-        !jobPermissions || typeof jobPermissions !== "object" || Array.isArray(jobPermissions) ||
-        Object.keys(jobPermissions).length !== Object.keys(expected).length ||
-        Object.entries(expected).some(([permission, access]) => jobPermissions[permission] !== access)
-      ) {
-        throw new Error(`Production Rollback exceeds its exact restoration authority at ${sha}`);
-      }
-      continue;
-    }
-    if (
-      !permissions ||
-      typeof permissions !== "object" ||
-      Array.isArray(permissions) ||
-      Object.keys(permissions).length !== 1 ||
-      permissions.contents !== "read"
-    ) {
-      throw new Error(
-        `non-coordinator workflow '${path}' must grant only contents: read at ${sha}`,
-      );
-    }
-    for (const [jobName, job] of Object.entries(jobs)) {
-      if (!job || typeof job !== "object" || Array.isArray(job) || !("permissions" in job)) {
-        continue;
-      }
-      const jobPermissions = job.permissions;
-      if (jobPermissions === "write-all") {
-        throw new Error(
-          `non-coordinator workflow '${path}' job '${jobName}' requests write-all at ${sha}`,
-        );
-      }
-      if (
-        typeof jobPermissions !== "object" ||
-        Array.isArray(jobPermissions) ||
-        jobPermissions === null
-      ) {
-        throw new Error(
-          `non-coordinator workflow '${path}' job '${jobName}' has an unrecognized permission declaration at ${sha}`,
-        );
-      }
-      for (const [permission, access] of Object.entries(jobPermissions)) {
-        if (access === "write") {
-          throw new Error(
-            `non-coordinator workflow '${path}' job '${jobName}' requests ${permission}: write at ${sha}`,
-          );
-        }
-        if (access !== "read" && access !== "none") {
-          throw new Error(
-            `non-coordinator workflow '${path}' job '${jobName}' has invalid ${permission} permission at ${sha}`,
-          );
-        }
-      }
-    }
-  }
-}
-
 function isAncestor(ancestor, descendant) {
   return runGit(["merge-base", "--is-ancestor", ancestor, descendant], {
     allowFailure: true,
@@ -449,14 +137,9 @@ function readProtection(repo, branch) {
   throw new Error(`could not inspect ${branch} protection: ${(result.stderr || result.stdout).trim()}`);
 }
 
-function desiredProtection(branch) {
+function desiredProtection() {
   return {
-    required_status_checks: {
-      strict: branch === "main",
-      contexts: branch === "dev"
-        ? ["ci", "verification-system-browser-gate", "verification-lifecycle-gate"]
-        : ["ci"],
-    },
+    required_status_checks: { strict: true, contexts: ["ci"] },
     enforce_admins: true,
     required_pull_request_reviews: {
       dismiss_stale_reviews: true,
@@ -470,115 +153,6 @@ function desiredProtection(branch) {
     allow_deletions: false,
     required_conversation_resolution: true,
   };
-}
-
-function readCoordinatorAppId(repo, sha) {
-  const result = parseJson(
-    runGh([
-      "api",
-      `repos/${repo}/commits/${sha}/check-runs?per_page=100`,
-      "-H",
-      `X-GitHub-Api-Version: ${API_VERSION}`,
-    ]),
-    "GitHub Actions app inspection",
-  );
-  const app = result.check_runs?.find(
-    (check) => check.name === "ci" && check.app?.slug === "github-actions",
-  )?.app;
-  if (!Number.isInteger(app?.id) || app.id <= 0) {
-    throw new Error("the GitHub Actions app identity could not be proven from the ci check");
-  }
-  return app.id;
-}
-
-function desiredIntegrationRuleset(appId) {
-  return {
-    name: INTEGRATION_RULESET_NAME,
-    target: "branch",
-    enforcement: "active",
-    bypass_actors: [],
-    conditions: { ref_name: { include: ["refs/heads/dev"], exclude: [] } },
-    rules: [
-      { type: "deletion" },
-      { type: "non_fast_forward" },
-      {
-        type: "pull_request",
-        parameters: {
-          allowed_merge_methods: ["merge", "squash"],
-          dismiss_stale_reviews_on_push: true,
-          require_code_owner_review: false,
-          require_last_push_approval: false,
-          required_approving_review_count: 0,
-          required_review_thread_resolution: true,
-        },
-      },
-      {
-        type: "required_status_checks",
-        parameters: {
-          required_status_checks: [
-            { context: "ci", integration_id: appId },
-            { context: "verification-system-browser-gate", integration_id: appId },
-            { context: "verification-lifecycle-gate", integration_id: appId },
-          ],
-          strict_required_status_checks_policy: false,
-          do_not_enforce_on_create: false,
-        },
-      },
-    ],
-  };
-}
-
-function containsDesired(value, desired) {
-  if (Array.isArray(desired)) {
-    return (
-      Array.isArray(value) &&
-      value.length === desired.length &&
-      desired.every((entry, index) => containsDesired(value[index], entry))
-    );
-  }
-  if (desired && typeof desired === "object") {
-    return (
-      value &&
-      typeof value === "object" &&
-      Object.entries(desired).every(([key, entry]) => containsDesired(value[key], entry))
-    );
-  }
-  return value === desired;
-}
-
-function readRuleset(repo, name, description) {
-  const rulesets = parseJson(
-    runGh([
-      "api",
-      `repos/${repo}/rulesets?includes_parents=false`,
-      "-H",
-      `X-GitHub-Api-Version: ${API_VERSION}`,
-    ]),
-    "repository ruleset inspection",
-  );
-  const summary = rulesets.find((ruleset) => ruleset.name === name);
-  if (!summary) return null;
-  return parseJson(
-    runGh([
-      "api",
-      `repos/${repo}/rulesets/${summary.id}`,
-      "-H",
-      `X-GitHub-Api-Version: ${API_VERSION}`,
-    ]),
-    description,
-  );
-}
-
-function readWorkflowPermissions(repo) {
-  return parseJson(
-    runGh([
-      "api",
-      `repos/${repo}/actions/permissions/workflow`,
-      "-H",
-      `X-GitHub-Api-Version: ${API_VERSION}`,
-    ]),
-    "default Actions workflow permissions",
-  );
 }
 
 function enabled(value) {
@@ -646,12 +220,10 @@ function collectPlan(repo) {
   }
 
   const localDevSha = runGit(["rev-parse", "dev"]).stdout.trim();
-  requireAuditedWorkflowAuthority(localDevSha);
   const remoteBranches = readRemoteBranches();
   const remoteMainSha = remoteBranches.get("main");
   if (!remoteMainSha) throw new Error("remote branch 'main' does not exist");
   requireLocalCommit(remoteMainSha, "remote main");
-  requireDefaultBranchCoordinator(remoteMainSha);
   if (!isAncestor(remoteMainSha, localDevSha)) {
     throw new Error(`local dev ${localDevSha} does not contain remote main ${remoteMainSha}`);
   }
@@ -663,8 +235,6 @@ function collectPlan(repo) {
       throw new Error(`remote dev ${remoteDevSha} is not an ancestor of local dev ${localDevSha}`);
     }
   }
-
-  const coordinatorAppId = readCoordinatorAppId(repo, remoteDevSha ?? remoteMainSha);
 
   const labels = parseJson(
     runGh(["label", "list", "--repo", repo, "--limit", "200", "--json", "name,color,description"]),
@@ -732,36 +302,6 @@ function collectPlan(repo) {
     });
   }
 
-  const workflowPermissions = readWorkflowPermissions(repo);
-  if (
-    workflowPermissions.default_workflow_permissions !== "read" ||
-    workflowPermissions.can_approve_pull_request_reviews !== false
-  ) {
-    actions.push({
-      description: "set default Actions workflow permissions to read-only",
-      apply: () => {
-        runGh(
-          [
-            "api",
-            "--method",
-            "PUT",
-            `repos/${repo}/actions/permissions/workflow`,
-            "-H",
-            `X-GitHub-Api-Version: ${API_VERSION}`,
-            "--input",
-            "-",
-          ],
-          {
-            input: JSON.stringify({
-              default_workflow_permissions: "read",
-              can_approve_pull_request_reviews: false,
-            }),
-          },
-        );
-      },
-    });
-  }
-
   if (remoteDevSha !== localDevSha) {
     actions.push({
       description: `${remoteDevSha ? "update" : "create"} remote dev at ${localDevSha}`,
@@ -783,7 +323,7 @@ function collectPlan(repo) {
   }
 
   for (const branch of ["dev", "main"]) {
-    const desired = desiredProtection(branch);
+    const desired = desiredProtection();
     const observed = readProtection(repo, branch);
     if (!protectionMatches(observed, desired)) {
       actions.push({
@@ -807,72 +347,7 @@ function collectPlan(repo) {
     }
   }
 
-  const desiredRuleset = desiredIntegrationRuleset(coordinatorAppId);
-  const observedRuleset = readRuleset(
-    repo,
-    INTEGRATION_RULESET_NAME,
-    "dev Integration Line ruleset inspection",
-  );
-  if (!containsDesired(observedRuleset, desiredRuleset)) {
-    actions.push({
-      description: `${observedRuleset ? "update" : "create"} dev pull request integration ruleset with checks from GitHub App ${coordinatorAppId}`,
-      apply: () => {
-        runGh(
-          [
-            "api",
-            "--method",
-            observedRuleset ? "PUT" : "POST",
-            observedRuleset
-              ? `repos/${repo}/rulesets/${observedRuleset.id}`
-              : `repos/${repo}/rulesets`,
-            "-H",
-            `X-GitHub-Api-Version: ${API_VERSION}`,
-            "--input",
-            "-",
-          ],
-          { input: JSON.stringify(desiredRuleset) },
-        );
-      },
-    });
-  }
-
-  const desiredSpecBranchRuleset = desiredSpecRuleset(coordinatorAppId);
-  const observedSpecBranchRuleset = readRuleset(
-    repo,
-    SPEC_RULESET_NAME,
-    "spec branch ruleset inspection",
-  );
-  let specRulesetMatches = false;
-  try {
-    assertDesiredSpecRuleset(observedSpecBranchRuleset);
-    specRulesetMatches = containsDesired(observedSpecBranchRuleset, desiredSpecBranchRuleset);
-  } catch {
-    specRulesetMatches = false;
-  }
-  if (!specRulesetMatches) {
-    actions.push({
-      description: `${observedSpecBranchRuleset ? "update" : "create"} protected spec branch ruleset with checks from GitHub App ${coordinatorAppId}`,
-      apply: () => {
-        runGh(
-          [
-            "api",
-            "--method",
-            observedSpecBranchRuleset ? "PUT" : "POST",
-            observedSpecBranchRuleset
-              ? `repos/${repo}/rulesets/${observedSpecBranchRuleset.id}`
-              : `repos/${repo}/rulesets`,
-            "-H",
-            `X-GitHub-Api-Version: ${API_VERSION}`,
-            "--input",
-            "-",
-          ],
-          { input: JSON.stringify(desiredSpecBranchRuleset) },
-        );
-      },
-    });
-  }
-
-  return { actions, localDevSha, coordinatorAppId };
+  return { actions, localDevSha };
 }
 
 function main() {
@@ -898,15 +373,6 @@ function main() {
   }
   if (options.confirmCiSha !== plan.localDevSha) {
     fail(`apply requires --confirm-ci-sha ${plan.localDevSha}`);
-  }
-  if (options.confirmIntegrationCutover !== INTEGRATION_CUTOVER_CONFIRMATION) {
-    fail(`apply requires --confirm-integration-cutover ${INTEGRATION_CUTOVER_CONFIRMATION}`);
-  }
-  if (options.confirmSpecBranchCutover !== SPEC_BRANCH_CUTOVER_CONFIRMATION) {
-    fail(`apply requires --confirm-spec-branch-cutover ${SPEC_BRANCH_CUTOVER_CONFIRMATION}`);
-  }
-  if (options.confirmIntegrationAppId !== String(plan.coordinatorAppId)) {
-    fail(`apply requires --confirm-integration-app-id ${plan.coordinatorAppId}`);
   }
 
   try {

@@ -85,6 +85,8 @@ describe("CatalogEditor sections", () => {
 
     for (const table of [
       "products",
+      "product_families",
+      "product_family_memberships",
       "product_pdp_content",
       "product_variants",
       "product_media",
@@ -112,6 +114,56 @@ describe("CatalogEditor sections", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("shows administrator-governed Product Family identity and memberships", () => {
+    const familyDocument = structuredClone(catalogDocument);
+    familyDocument.product.system_step_name = "REFINE";
+    familyDocument.product.routine_group = "beyond_core";
+    familyDocument.productFamily = {
+      family: {
+        id: "123e4567-e89b-42d3-a456-426614174143",
+        slug: "refine",
+        display_name: "REFINE",
+        system_step_name: "REFINE",
+        created_at: "2026-08-10T00:00:00.000Z",
+        updated_at: "2026-08-10T00:00:00.000Z",
+      },
+      memberships: [
+        {
+          family_id: "123e4567-e89b-42d3-a456-426614174143",
+          product_id: familyDocument.productId,
+          option_label: "General",
+          sort_order: 0,
+          is_entry: true,
+          created_at: "2026-08-10T00:00:00.000Z",
+          updated_at: "2026-08-10T00:00:00.000Z",
+        },
+      ],
+    };
+    const onChange = vi.fn();
+    const { container } = render(
+      <SectionsHarness initialDocument={familyDocument} onChange={onChange} />,
+    );
+
+    toggleDisclosure(container, "section-product_families");
+    toggleDisclosure(container, "group-product-family");
+    expect(
+      container.querySelector("#product_families-display_name"),
+    ).toHaveValue("REFINE");
+
+    toggleDisclosure(container, "section-product_family_memberships");
+    toggleDisclosure(container, "group-product-family-memberships");
+    fireEvent.change(screen.getByLabelText("Option label"), {
+      target: { value: "Daily" },
+    });
+    expect(onChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        productFamily: expect.objectContaining({
+          memberships: [expect.objectContaining({ option_label: "Daily" })],
+        }),
+      }),
+    );
+  });
+
   it("allows an admin to edit safe source and commerce fields", () => {
     const onChange = vi.fn();
     render(<SectionsHarness onChange={onChange} />);
@@ -137,6 +189,24 @@ describe("CatalogEditor sections", () => {
     );
   }, 10_000);
 
+  it("warns an administrator that a slug edit creates a permanent redirect", () => {
+    const onChange = vi.fn();
+    const { container } = render(<SectionsHarness onChange={onChange} />);
+
+    toggleDisclosure(container, "section-products");
+    toggleDisclosure(container, "group-products-advanced");
+    expect(screen.getByLabelText("Slug")).toBeEnabled();
+    expect(screen.getByText(/old public URL will permanently redirect/i)).toBeVisible();
+    fireEvent.change(screen.getByLabelText("Slug"), {
+      target: { value: "biotic-reset" },
+    });
+    expect(onChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        product: expect.objectContaining({ slug: "biotic-reset" }),
+      }),
+    );
+  });
+
   it("keeps advanced and commerce controls read only for a catalog editor", () => {
     const { container } = render(<SectionsHarness role="catalog_editor" />);
 
@@ -149,6 +219,19 @@ describe("CatalogEditor sections", () => {
     toggleDisclosure(container, "group-source-fields");
     expect(screen.getByText("Supplier Cleanser")).toBeVisible();
     expect(screen.getAllByText("$22.00")).toHaveLength(2);
+  });
+
+  it("shows append-only Product slug history as read-only system metadata", () => {
+    const { container } = render(<SectionsHarness />);
+
+    toggleDisclosure(container, "section-system_metadata");
+    toggleDisclosure(container, "group-system-product-slug-routes");
+    expect(screen.getByText("reset-01-calming-gel-cleanser")).toBeVisible();
+    expect(screen.getByText("rename")).toBeVisible();
+    expect(screen.getAllByText("Read only").length).toBeGreaterThan(0);
+    expect(
+      screen.getByText(/redirect history is append-only/i),
+    ).toBeVisible();
   });
 
   it("reorders media and delegates fixed Core uploads", async () => {

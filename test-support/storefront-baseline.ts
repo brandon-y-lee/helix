@@ -1,8 +1,15 @@
-import { firstPurchasableVariant, type ProductStatus } from "@/lib/products";
+import {
+  firstPurchasableVariant,
+  PRODUCT_STATUSES,
+  type ProductStatus,
+} from "@/lib/products";
 import { isProductMediaRole } from "@/lib/catalog/media-roles";
+import {
+  systemStepFromDatabaseRelation,
+  type SystemStepDatabaseRelation,
+} from "@/lib/catalog/system-steps";
 
 const CATALOG_STATUSES = ["active", "draft", "archived"] as const;
-const PRODUCT_STATUSES = ["available", "coming_soon", "sold_out"] as const;
 const ROUTINE_GROUPS = ["core", "beyond_core"] as const;
 const INVENTORY_STATUSES = [
   "in_stock",
@@ -36,12 +43,15 @@ export type StorefrontCatalogMedia = {
   placeholder_palette: Record<string, string> | null;
 };
 
+export type StorefrontCatalogFamilyMembership = {
+  family_id: string;
+  is_entry: boolean;
+};
+
 export type StorefrontCatalogProduct = {
   id: string;
   slug: string;
   display_name: string;
-  formal_title: string;
-  card_tagline: string;
   product_type: string;
   badge: string | null;
   currency: string;
@@ -63,11 +73,15 @@ export type StorefrontCatalogProduct = {
   usage_time: string[];
   search_keywords: string[];
   routine_group: string;
-  routine_step_number: number | null;
-  routine_step_name: string | null;
+  system_step_name: string | null;
+  system_steps: SystemStepDatabaseRelation;
   routine_sort: number;
   product_variants: StorefrontCatalogVariant[] | null;
   product_media: StorefrontCatalogMedia[] | null;
+  product_family_memberships:
+    | StorefrontCatalogFamilyMembership
+    | StorefrontCatalogFamilyMembership[]
+    | null;
 };
 
 export type StorefrontCatalogRoutineComplement = {
@@ -113,8 +127,6 @@ export type StorefrontSnapshotProduct = Readonly<{
   slug: string;
   path: string;
   displayName: string;
-  formalTitle: string;
-  cardTagline: string;
   productType: string;
   badge: string | null;
   currency: "USD";
@@ -138,6 +150,8 @@ export type StorefrontSnapshotProduct = Readonly<{
   systemPosition: number | null;
   systemStepName: string | null;
   routineSort: number;
+  familyId: string | null;
+  familyIsEntry: boolean | null;
   variants: readonly StorefrontSnapshotVariant[];
   media: readonly StorefrontSnapshotMedia[];
   offer: Readonly<{
@@ -147,6 +161,12 @@ export type StorefrontSnapshotProduct = Readonly<{
     currency: "USD";
   }> | null;
 }>;
+
+export function isStorefrontCollectionProduct(
+  product: Pick<StorefrontSnapshotProduct, "familyId" | "familyIsEntry">,
+): boolean {
+  return product.familyId === null || product.familyIsEntry === true;
+}
 
 export type StorefrontSnapshot = Readonly<{
   schemaVersion: 1;
@@ -159,7 +179,7 @@ export type StorefrontSnapshot = Readonly<{
   journeys: Readonly<{
     coreProductId: string;
     beyondCoreProductId: string;
-    purchasableProductId: string;
+    purchasableProductId: string | null;
     richPdpProductId: string;
     searchableProductId: string;
   }>;
@@ -351,6 +371,20 @@ function optionalRows<T>(
   );
 }
 
+function optionalSingleRelation<T>(
+  value: T | readonly T[] | null,
+  subject: string,
+  identity: string,
+): T | null {
+  if (value === null) return null;
+  if (!Array.isArray(value)) return value as T;
+  if (value.length <= 1) return value[0] ?? null;
+  throw new StorefrontBaselineError(
+    "invalid-catalog-shape",
+    `Product "${identity}" has multiple ${subject} relations.`,
+  );
+}
+
 function requireRoutineComplementText(
   value: unknown,
   field: string,
@@ -398,13 +432,15 @@ function normalizeProduct(
       `Product "${slug}" has unsupported currency "${row.currency}".`,
     );
   }
+  const systemStep = systemStepFromDatabaseRelation(row.system_steps);
   if (
-    row.routine_step_number !== null &&
-    (!Number.isInteger(row.routine_step_number) || row.routine_step_number <= 0)
+    !systemStep ||
+    systemStep.name !== row.system_step_name ||
+    systemStep.routineGroup !== row.routine_group
   ) {
     throw new StorefrontBaselineError(
       "invalid-ordering",
-      `Product "${slug}" has invalid System Step ordering ${String(row.routine_step_number)}.`,
+      `Product "${slug}" has invalid System Step identity ${String(row.system_step_name)}.`,
     );
   }
 
@@ -452,6 +488,12 @@ function normalizeProduct(
     })
     .sort((a, b) => a.sortOrder - b.sortOrder || a.id.localeCompare(b.id));
   const merchandisingStatus = row.status;
+  if (merchandisingStatus === "waitlist" && variants.length > 0) {
+    throw new StorefrontBaselineError(
+      "invalid-product-offer",
+      `Waitlist Product "${slug}" cannot expose Product Offers.`,
+    );
+  }
   const selectedOffer = firstPurchasableVariant({
     displayName: row.display_name,
     status: merchandisingStatus,
@@ -491,14 +533,26 @@ function normalizeProduct(
       };
     })
     .sort((a, b) => a.sortOrder - b.sortOrder || a.role.localeCompare(b.role));
+  const familyMembership = optionalSingleRelation(
+    row.product_family_memberships,
+    "Product Family membership",
+    slug,
+  );
+  if (
+    familyMembership &&
+    typeof familyMembership.is_entry !== "boolean"
+  ) {
+    throw new StorefrontBaselineError(
+      "invalid-catalog-shape",
+      `Product "${slug}" has an invalid Product Family entry marker.`,
+    );
+  }
 
   return {
     id,
     slug,
     path: `/products/${slug}`,
     displayName: requireText(row.display_name, "display name", slug),
-    formalTitle: requireText(row.formal_title, "formal title", slug),
-    cardTagline: requireText(row.card_tagline, "card tagline", slug),
     productType: requireText(row.product_type, "product type", slug),
     badge: optionalText(row.badge, "badge", slug),
     currency: "USD",
@@ -538,13 +592,13 @@ function normalizeProduct(
       slug,
     ),
     routineGroup: row.routine_group,
-    systemPosition: row.routine_step_number,
-    systemStepName: optionalText(
-      row.routine_step_name,
-      "System Step Name",
-      slug,
-    ),
+    systemPosition: systemStep.position,
+    systemStepName: systemStep.name,
     routineSort: requireOrder(row.routine_sort, "Routine ordering", slug),
+    familyId: familyMembership
+      ? requireText(familyMembership.family_id, "Product Family id", slug)
+      : null,
+    familyIsEntry: familyMembership?.is_entry ?? null,
     variants,
     media,
     offer: selectedOffer
@@ -563,7 +617,6 @@ function hasRichPdpMedia(product: StorefrontSnapshotProduct): boolean {
     product.media.filter((item) => Boolean(item.url)).map((item) => item.role),
   );
   return (
-    product.offer !== null &&
     roles.has("routine_video") &&
     roles.has("routine_video_poster") &&
     roles.has("gallery")
@@ -663,6 +716,7 @@ function buildStorefrontSnapshot(
         a.slug.localeCompare(b.slug) ||
         a.id.localeCompare(b.id),
     );
+  const collectionProducts = products.filter(isStorefrontCollectionProduct);
   const ids = new Set(products.map((product) => product.id));
   const routineComplements = catalog.routineComplements
     .map((relationship) => {
@@ -703,20 +757,17 @@ function buildStorefrontSnapshot(
     );
 
   const core = requireCapability(
-    products,
+    collectionProducts,
     "The Core Routine Group",
     (product) => product.routineGroup === "core",
   );
   const beyond = requireCapability(
-    products,
+    collectionProducts,
     "Beyond The Core Routine Group",
     (product) => product.routineGroup === "beyond_core",
   );
-  const purchasable = requireCapability(
-    products,
-    "Purchasable Product",
-    (product) => product.offer !== null,
-  );
+  const purchasable =
+    collectionProducts.find((product) => product.offer !== null) ?? null;
   const richPdp = requireCapability(
     products,
     "rich PDP media",
@@ -725,7 +776,7 @@ function buildStorefrontSnapshot(
   const searchable = requireCapability(
     products,
     "searchable Product",
-    (product) => product.offer !== null && product.displayName.length > 0,
+    (product) => product.displayName.length > 0,
   );
 
   const complementKeys = new Set<string>();
@@ -762,7 +813,7 @@ function buildStorefrontSnapshot(
     journeys: {
       coreProductId: core.id,
       beyondCoreProductId: beyond.id,
-      purchasableProductId: purchasable.id,
+      purchasableProductId: purchasable?.id ?? null,
       richPdpProductId: richPdp.id,
       searchableProductId: searchable.id,
     },

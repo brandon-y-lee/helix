@@ -5,6 +5,7 @@
 
 import type { ProductPdpContent } from "@/lib/catalog/product-content";
 import type { ProductMediaRole } from "@/lib/catalog/media-roles";
+import type { SystemStepName } from "@/lib/catalog/system-steps";
 
 export type { ProductMediaRole } from "@/lib/catalog/media-roles";
 
@@ -23,8 +24,21 @@ export type Variant = {
   sortOrder: number;
 };
 
-/** Availability state driving badges and purchase controls. */
-export type ProductStatus = "available" | "coming_soon" | "sold_out";
+/** Availability states driving badges and purchase controls. */
+export const PRODUCT_STATUSES = [
+  "available",
+  "coming_soon",
+  "sold_out",
+  "waitlist",
+] as const;
+export type ProductStatus = (typeof PRODUCT_STATUSES)[number];
+
+export function isProductStatus(value: unknown): value is ProductStatus {
+  return (
+    typeof value === "string" &&
+    (PRODUCT_STATUSES as readonly string[]).includes(value)
+  );
+}
 
 export type CatalogStatus = "active" | "draft" | "archived";
 
@@ -54,15 +68,12 @@ export type ProductMedia = {
 export type Product = {
   id: string;
   slug: string;
-  /** Short storefront display name, e.g. CLEANSE. */
+  /** Short authored storefront Product Display Name. */
   displayName: string;
-  /** Formal catalog title, e.g. CLEANSE 01 Calming Gel Cleanser. */
-  formalTitle: string;
-  cardTagline: string;
   productType: string;
   routineGroup: CommerceRoutineGroup;
-  routineStepNumber: number | null;
-  routineStepName: string | null;
+  systemStepName: SystemStepName | null;
+  systemStepPosition: number | null;
   routineSort: number;
   badge: string | null;
   currency: "USD";
@@ -108,6 +119,13 @@ export type Product = {
   createdAt: string;
 };
 
+export function composeProductTitle(
+  displayName: string,
+  productType: string,
+): string {
+  return `${displayName} — ${productType}`;
+}
+
 export function formatPrice(cents: number): string {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -120,12 +138,43 @@ function formatBuyLabel(productName: string, cents: number): string {
 }
 
 const OUT_OF_STOCK_CTA_LABEL = "OUT OF STOCK";
+const COMING_SOON_CTA_LABEL = "COMING SOON";
+
+export function productUnavailableCtaLabel(status: ProductStatus): string {
+  return status === "coming_soon"
+    ? COMING_SOON_CTA_LABEL
+    : OUT_OF_STOCK_CTA_LABEL;
+}
 
 type PurchaseOffer = {
   available: boolean;
   inventoryStatus: Variant["inventoryStatus"];
   price: number;
 };
+
+type OfferFact = Pick<PurchaseOffer, "inventoryStatus" | "price">;
+
+export function isOfferPresentable<TOffer extends OfferFact>(
+  offer: TOffer,
+): boolean {
+  return (
+    Number.isSafeInteger(offer.price) &&
+    offer.price >= 0 &&
+    offer.inventoryStatus !== "unavailable"
+  );
+}
+
+export function productOfferPresentation<TOffer extends OfferFact>(
+  offers: readonly TOffer[],
+) {
+  const presentableOffers = offers.filter(isOfferPresentable);
+  return {
+    offers: presentableOffers,
+    hasMultipleOffers: presentableOffers.length > 1,
+    showPrice: presentableOffers.length > 0,
+    showVariantOptions: presentableOffers.length > 0,
+  } as const;
+}
 
 type PurchaseProduct<TOffer extends PurchaseOffer> = {
   displayName: string;
@@ -159,11 +208,18 @@ export function productPurchaseCta<TOffer extends PurchaseOffer>(
   product: PurchaseProduct<TOffer>,
   variant: TOffer | null | undefined,
 ) {
+  if (product.status === "waitlist") {
+    return {
+      label: "Join the waitlist",
+      purchasable: false,
+      variant: variant ?? null,
+    };
+  }
   const purchasable = isVariantPurchasable(product, variant);
   return {
     label: purchasable
       ? formatBuyLabel(product.displayName, variant.price)
-      : OUT_OF_STOCK_CTA_LABEL,
+      : productUnavailableCtaLabel(product.status),
     purchasable,
     variant: variant ?? null,
   };

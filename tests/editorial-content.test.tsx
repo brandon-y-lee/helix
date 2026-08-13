@@ -21,33 +21,54 @@ import {
   routineTimingEntriesForGroup,
 } from "@/lib/content/system";
 import type { Product } from "@/lib/products";
+import type { SystemStepName } from "@/lib/catalog/system-steps";
 
 const mockedGetProducts = getCachedProducts as unknown as Mock;
 
 const nameBySlug: Record<string, string> = {
-  "cleanse-01-calming-gel-cleanser": "CLEANSE",
-  "refine-02-pore-treatment-pads": "REFINE",
-  "treat-03-pdrn-5-ampoule": "TREAT",
+  "biotic-reset": "Biotic Reset",
+  "balancing-prep": "Balancing Prep",
+  "peptide-bounce": "Peptide Bounce",
   "frame-04-pdrn-eye-cream": "FRAME",
-  "seal-05-green-collagen-cream": "SEAL",
+  "ceramide-cushion": "Ceramide Cushion",
+  "lift-06-pdrn-mask-system": "LIFT",
+};
+
+const systemStepBySlug: Record<string, SystemStepName> = {
+  "biotic-reset": "CLEANSE",
+  "balancing-prep": "REFINE",
+  "peptide-bounce": "TREAT",
+  "frame-04-pdrn-eye-cream": "FRAME",
+  "ceramide-cushion": "SEAL",
   "lift-06-pdrn-mask-system": "LIFT",
 };
 
 const ingredientsBySlug: Record<string, string[]> = {
-  "cleanse-01-calming-gel-cleanser": ["6-Type Cica Complex"],
-  "refine-02-pore-treatment-pads": ["Panthenol", "LHA"],
-  "treat-03-pdrn-5-ampoule": [
+  "biotic-reset": ["6-Type Cica Complex"],
+  "balancing-prep": ["Panthenol", "Hyaluronic Acid"],
+  "peptide-bounce": [
     "Sodium DNA (50,000 ppm)",
     "Niacinamide",
     "Copper Tripeptide-1",
   ],
   "frame-04-pdrn-eye-cream": ["Sodium DNA", "Acetyl Tetrapeptide-5"],
-  "seal-05-green-collagen-cream": ["Green collagen complex", "Panthenol"],
+  "ceramide-cushion": ["Ceramide AP", "Panthenol"],
   "lift-06-pdrn-mask-system": ["Sodium DNA (5,000 ppm)", "Niacinamide"],
+};
+
+const systemPositionByName: Record<SystemStepName, number> = {
+  CLEANSE: 1,
+  REFINE: 2,
+  TREAT: 3,
+  FRAME: 4,
+  SEAL: 5,
+  PROTECT: 6,
+  LIFT: 7,
 };
 
 function makeProduct(slug: string, overrides: Partial<Product> = {}): Product {
   const displayName = nameBySlug[slug] ?? "PRODUCT";
+  const systemStepName = systemStepBySlug[slug] ?? "CLEANSE";
   const routineNumber = slug === "lift-06-pdrn-mask-system"
     ? "07"
     : slug.match(/-(\d{2})-/)?.[1] ?? null;
@@ -57,19 +78,11 @@ function makeProduct(slug: string, overrides: Partial<Product> = {}): Product {
     id: `${slug}-id`,
     slug,
     displayName,
-    formalTitle: `${displayName} ${routineNumber ?? ""}`,
-    cardTagline: "Short product line",
-    routineGroup: ["CLEANSE", "TREAT", "SEAL"].includes(displayName)
+    routineGroup: ["CLEANSE", "TREAT", "SEAL"].includes(systemStepName)
       ? "core"
       : "beyond_core",
-    routineStepNumber: ["CLEANSE", "TREAT", "SEAL"].includes(displayName)
-      ? ({ CLEANSE: 1, TREAT: 2, SEAL: 3 } as const)[
-          displayName as "CLEANSE" | "TREAT" | "SEAL"
-        ]
-      : null,
-    routineStepName: ["CLEANSE", "TREAT", "SEAL"].includes(displayName)
-      ? displayName
-      : null,
+    systemStepPosition: systemPositionByName[systemStepName],
+    systemStepName,
     routineSort: Number(routineNumber ?? 0) * 10,
     productType: "Treatment",
     badge: null,
@@ -167,15 +180,15 @@ describe("System content architecture", () => {
 
     const state = getMethodProductState(
       methodFixtures.filter(
-        (product) => product.slug !== "seal-05-green-collagen-cream",
+        (product) => product.slug !== "ceramide-cushion",
       ),
     );
     expect(state.methodProducts.map((product) => product.slug)).toEqual(
       METHOD_PRODUCT_SLUGS.filter(
-        (slug) => slug !== "seal-05-green-collagen-cream",
+        (slug) => slug !== "ceramide-cushion",
       ),
     );
-    expect(state.missingSlugs).toEqual(["seal-05-green-collagen-cream"]);
+    expect(state.missingSlugs).toEqual(["ceramide-cushion"]);
   });
 
   it("derives the exact monotonic 3-7 System ladder without mutating catalog metadata", () => {
@@ -187,10 +200,10 @@ describe("System content architecture", () => {
       7: ["cleanse", "refine", "treat", "frame", "seal", "protect", "lift"],
     } as const;
     const metadataBefore = methodFixtures.map(
-      ({ slug, routineGroup, routineStepNumber, routineSort }) => ({
+      ({ slug, routineGroup, systemStepPosition, routineSort }) => ({
         slug,
         routineGroup,
-        routineStepNumber,
+        systemStepPosition,
         routineSort,
       }),
     );
@@ -214,10 +227,10 @@ describe("System content architecture", () => {
     }
 
     expect(
-      methodFixtures.map(({ slug, routineGroup, routineStepNumber, routineSort }) => ({
+      methodFixtures.map(({ slug, routineGroup, systemStepPosition, routineSort }) => ({
         slug,
         routineGroup,
-        routineStepNumber,
+        systemStepPosition,
         routineSort,
       })),
     ).toEqual(metadataBefore);
@@ -229,12 +242,12 @@ describe("System content architecture", () => {
       routineTimingEntriesForGroup(ROUTINE_GROUPS[0], coreSteps).map(
         (entry) => entry.label,
       ),
-    ).toEqual(["CLEANSE", "TREAT", "SEAL"]);
+    ).toEqual(["Biotic Reset", "Peptide Bounce", "Ceramide Cushion"]);
     expect(
       routineTimingEntriesForGroup(ROUTINE_GROUPS[1], coreSteps).map(
         (entry) => entry.label,
       ),
-    ).toEqual(["CLEANSE", "TREAT", "SEAL"]);
+    ).toEqual(["Biotic Reset", "Peptide Bounce", "Ceramide Cushion"]);
     expect(routineTimingEntriesForGroup(ROUTINE_GROUPS[2], coreSteps)).toEqual([]);
 
     const fullSteps = deriveMethodRoutineSteps(methodFixtures, 7);
@@ -251,6 +264,13 @@ describe("System content architecture", () => {
         (entry) => entry.label,
       ),
     ).toEqual(["LIFT"]);
+    const balancingEntries = [
+      ...routineTimingEntriesForGroup(ROUTINE_GROUPS[0], fullSteps),
+      ...routineTimingEntriesForGroup(ROUTINE_GROUPS[1], fullSteps),
+    ].filter((entry) => entry.slug === "balancing-prep");
+    expect(balancingEntries).toHaveLength(2);
+    expect(balancingEntries.every((entry) => entry.note === "Use daily after cleansing."))
+      .toBe(true);
     expect(
       formulaFocus(
         makeProduct("cleanse-01-calming-gel-cleanser", { keyIngredients: [] }),

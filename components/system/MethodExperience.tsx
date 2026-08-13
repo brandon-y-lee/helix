@@ -48,6 +48,7 @@ function availabilityLabel(product: Product) {
   if (isAvailableProduct(product)) return "Available";
   if (product.status === "coming_soon") return "Coming soon";
   if (product.status === "sold_out") return "Sold out";
+  if (product.status === "waitlist") return "Waitlist";
   return "Unavailable";
 }
 
@@ -496,7 +497,7 @@ export function MethodExperience({
         meta:
           step.kind === "protect"
             ? PROTECT_STEP.status
-            : step.product?.routineStepName ?? undefined,
+            : step.product?.systemStepName ?? undefined,
         position: step.canonicalPosition,
       })),
       { id: "system-ingredients", label: "Index", meta: "Ingredients" },

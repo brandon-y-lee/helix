@@ -8,7 +8,8 @@ export type HomeThreePrinciple = {
 export type HomeCoreDescriptionKey = "cleanse" | "treat" | "seal";
 
 export const homeCoreDescriptions = {
-  default: "Simple by design. For all skin types.",
+  default:
+    "A simple daily system for skin that looks better now—and stays smooth, even, and resilient over time.",
   items: {
     cleanse: "Start with a gentle deep-cleansing that doesn't strip or dehydrate the barrier.",
     treat: "Apply the treatment layer for glass-skin texture and to target signs of aging.",
@@ -24,7 +25,7 @@ export type HomeBeyondCoreDescriptionKey = "refine" | "frame" | "protect" | "lif
 export const homeBeyondCoreDescriptions = {
   default: "For when your skin has a high baseline. Add what you need.",
   items: {
-    refine: "refine texture when the baseline is stable",
+    refine: "add a daily balancing prep after cleansing",
     frame: "support the eye area without adding a full routine",
     protect: "finish the morning with broad-spectrum SPF",
     lift: "add a weekly intensive when the system is repeatable",

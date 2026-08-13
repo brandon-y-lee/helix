@@ -7,13 +7,13 @@ import type { StorefrontJourneys } from "@/test-support/storefront-journeys";
 import { expect, test } from "./storefront-fixture";
 
 const CORE_DESCRIPTION_BY_SLUG = {
-  "cleanse-01-calming-gel-cleanser": homeCoreDescriptions.items.cleanse,
-  "treat-03-pdrn-5-ampoule": homeCoreDescriptions.items.treat,
-  "seal-05-green-collagen-cream": homeCoreDescriptions.items.seal,
+  "biotic-reset": homeCoreDescriptions.items.cleanse,
+  "peptide-bounce": homeCoreDescriptions.items.treat,
+  "ceramide-cushion": homeCoreDescriptions.items.seal,
 } as const;
 
 const BEYOND_DESCRIPTION_BY_SLUG = {
-  "refine-02-pore-treatment-pads": homeBeyondCoreDescriptions.items.refine,
+  "balancing-prep": homeBeyondCoreDescriptions.items.refine,
   "frame-04-pdrn-eye-cream": homeBeyondCoreDescriptions.items.frame,
   "lift-06-pdrn-mask-system": homeBeyondCoreDescriptions.items.lift,
 } as const;
@@ -82,6 +82,39 @@ async function renderedProducts(
   }
   return products;
 }
+
+test("historical Product slugs redirect permanently without dynamic render failures", async ({
+  request,
+}) => {
+  const redirects = [
+    ["reset-01-calming-gel-cleanser", "biotic-reset"],
+    ["cleanse-01-calming-gel-cleanser", "biotic-reset"],
+    ["recode-03-pdrn-5-ampoule", "peptide-bounce"],
+    ["treat-03-pdrn-5-ampoule", "peptide-bounce"],
+    ["refine-02-pore-treatment-pads", "balancing-prep"],
+    ["frame-04-pdrn-eye-cream", "peptide-eye-cream"],
+    ["lift-06-pdrn-mask-system", "peptide-nourish-mask"],
+    ["seal-05-green-collagen-cream", "ceramide-cushion"],
+  ] as const;
+
+  for (const [source, target] of redirects) {
+    const response = await request.get(`/products/${source}`, {
+      maxRedirects: 0,
+    });
+
+    expect(response.status(), source).toBe(308);
+    expect(response.headers().location, source).toBe(`/products/${target}`);
+  }
+
+  const queryResponse = await request.get(
+    "/products/reset-01-calming-gel-cleanser?campaign=core%20launch&filter=one&filter=two",
+    { maxRedirects: 0 },
+  );
+  expect(queryResponse.status()).toBe(308);
+  expect(queryResponse.headers().location).toBe(
+    "/products/biotic-reset?campaign=core+launch&filter=one&filter=two",
+  );
+});
 
 test("Explore The Core is locally outlined and inverts for discovery", async ({
   page,

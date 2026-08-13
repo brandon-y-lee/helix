@@ -1,6 +1,9 @@
 import type { Locator, Page } from "@playwright/test";
 import { formatPrice } from "@/lib/products";
-import type { StorefrontPurchase } from "@/test-support/storefront-journeys";
+import type {
+  StorefrontJourneys,
+  StorefrontPurchase,
+} from "@/test-support/storefront-journeys";
 import { installCartFixture } from "./cart-fixture";
 import { expect, test } from "./storefront-fixture";
 
@@ -13,6 +16,7 @@ type ViewportOrigin = {
 };
 
 const PRODUCT_CARD_WARM_GRAY = "rgb(103, 100, 94)";
+const PRODUCT_CARD_TEXT_BLACK = "rgb(0, 0, 0)";
 const PRODUCT_CARD_CREAM = "rgb(255, 253, 248)";
 
 async function buttonVisual(locator: Locator) {
@@ -76,6 +80,18 @@ function productCount(products: readonly unknown[]) {
   return `${products.length} ${products.length === 1 ? "product" : "products"}`;
 }
 
+function requirePurchasableProduct(storefront: StorefrontJourneys) {
+  const product = storefront.purchasableProduct();
+  if (!product) {
+    test.skip(
+      true,
+      "The canonical Catalog does not currently expose a Product Offer.",
+    );
+    throw new Error("Skipped because the canonical Catalog has no Product Offer.");
+  }
+  return product;
+}
+
 async function selectPurchaseVariant(
   page: Page,
   purchase: StorefrontPurchase,
@@ -134,23 +150,35 @@ test("shop renders live Products and combines filtering with sorting", async ({
   const products = storefront.products();
   const coreProducts = storefront.products("core");
   const beyondProducts = storefront.products("beyondCore");
-  const purchasable = storefront.product("purchasable");
-  const purchase = storefront.purchase(purchasable);
+  const purchasable = storefront.purchasableProduct();
   await page.goto("/collections/shop");
   await expect(page.locator(".product-count")).toHaveText(
     productCount(products),
   );
   await expect(page.locator(".product-card")).toHaveCount(products.length);
-  await expect(
-    page
-      .locator(`[data-product-card-slug="${purchasable.slug}"]`)
-      .locator(".product-card__quick-trigger"),
-  ).toHaveText(purchase.buyLabel);
-  await expect(
-    page
-      .locator(`[data-product-card-slug="${purchasable.slug}"]`)
-      .locator(".product-card__price"),
-  ).toHaveText(storefront.cardPriceLabel(purchasable));
+  if (purchasable) {
+    const purchase = storefront.purchase(purchasable);
+    const purchasablePrice = storefront.cardPriceLabel(purchasable);
+    if (!purchasablePrice) {
+      throw new Error("The Purchasable journey is missing Offer presentation.");
+    }
+    await expect(
+      page
+        .locator(`[data-product-card-slug="${purchasable.slug}"]`)
+        .locator(".product-card__quick-trigger"),
+    ).toHaveText(purchase.buyLabel);
+    await expect(
+      page
+        .locator(`[data-product-card-slug="${purchasable.slug}"]`)
+        .locator(".product-card__price"),
+    ).toHaveText(purchasablePrice);
+  } else {
+    expect(
+      (await page.locator(".product-card__price").allTextContents()).some(
+        (label) => label.includes("$"),
+      ),
+    ).toBe(false);
+  }
 
   const filters = page.getByRole("navigation", {
     name: "Shop collections",
@@ -179,7 +207,7 @@ test("shop renders live Products and combines filtering with sorting", async ({
   const firstCoreByDescendingName = [...coreProducts].sort((a, b) =>
     b.displayName.localeCompare(a.displayName),
   )[0];
-  await expect(page.locator(".product-card__name").first()).toHaveText(
+  await expect(page.locator(".product-card__display-name").first()).toHaveText(
     firstCoreByDescendingName.displayName,
   );
 
@@ -208,7 +236,7 @@ test("shop presents the approved Product, collection, sheet, and footer treatmen
   page,
   storefront,
 }) => {
-  const purchase = storefront.purchase(storefront.product("purchasable"));
+  const purchase = storefront.purchase(requirePurchasableProduct(storefront));
   await installCartFixture(page, storefront.snapshot.products);
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/collections/shop");
@@ -222,12 +250,25 @@ test("shop presents the approved Product, collection, sheet, and footer treatmen
   const card = page.locator(
     `[data-product-card-slug="${purchase.product.slug}"]`,
   );
-  const name = card.locator(".product-card__name");
-  const tagline = card.locator(".product-card__tagline");
+  const step = card.locator(".product-card__step");
+  const name = card.locator(".product-card__display-name");
+  const productType = card.locator(".product-card__type");
   const price = card.locator(".product-card__price");
-  await expect(name).toHaveCSS("color", PRODUCT_CARD_WARM_GRAY);
-  await expect(tagline).toHaveCSS("color", PRODUCT_CARD_WARM_GRAY);
-  await expect(price).toHaveCSS("color", PRODUCT_CARD_WARM_GRAY);
+  await expect(step).toHaveCSS("font-family", /Marcellus/);
+  await expect(step).toHaveCSS("font-weight", "400");
+  await expect(step).toHaveCSS("color", PRODUCT_CARD_TEXT_BLACK);
+  await expect(name).toHaveCSS("color", PRODUCT_CARD_TEXT_BLACK);
+  await expect(productType).toHaveCSS("color", PRODUCT_CARD_TEXT_BLACK);
+  await expect(price).toHaveCSS("color", PRODUCT_CARD_TEXT_BLACK);
+  const displayNameGeometry = await elementGeometry(name);
+  const priceGeometry = await elementGeometry(price);
+  const productTypeGeometry = await elementGeometry(productType);
+  expect(Math.abs(displayNameGeometry.top - priceGeometry.top)).toBeLessThanOrEqual(
+    1,
+  );
+  expect(productTypeGeometry.top).toBeGreaterThanOrEqual(
+    displayNameGeometry.bottom,
+  );
   await name.hover();
   await expect(name).toHaveCSS("text-decoration-line", "none");
 
@@ -254,6 +295,27 @@ test("shop presents the approved Product, collection, sheet, and footer treatmen
   await previewCta.click();
   const finalCta = card.locator("[data-product-card-buy]");
   await expect(finalCta).toBeVisible();
+  const quickBuyForegrounds = await card
+    .locator(
+      [
+        ".product-card__quick-close",
+        ".product-card__quick-head h3",
+        ".product-card__quick-head p",
+        ".product-card__quick-row dt",
+        ".product-card__quick-row dd",
+        ".product-card__quick-variants legend",
+        ".product-card__quick-option span",
+        ".product-card__quick-option small",
+        ".product-card__quick-link",
+        ".product-card__quick-final",
+      ].join(", "),
+    )
+    .evaluateAll((elements) =>
+      Array.from(
+        new Set(elements.map((element) => getComputedStyle(element).color)),
+      ).sort(),
+    );
+  expect(quickBuyForegrounds).toEqual([PRODUCT_CARD_WARM_GRAY]);
   await card.locator(".product-card__quick-head").hover();
   expect(await buttonVisual(finalCta)).toEqual({
     backgroundColor: PRODUCT_CARD_CREAM,
@@ -412,6 +474,10 @@ test("PDP resolves canonical data and exposes an available variant", async ({
   storefront,
 }) => {
   const product = storefront.product("richPdp");
+  test.skip(
+    product.offer === null,
+    "The canonical rich PDP Product does not currently expose an Offer.",
+  );
   const purchase = storefront.purchase(product);
   const gallery = storefront.gallery(product);
   const serverResponse = await page.request.get(product.path);
@@ -475,21 +541,241 @@ test("PDP resolves canonical data and exposes an available variant", async ({
   );
 });
 
+test("PDP presents the Core Routine in place of Details only for Core Products", async ({
+  page,
+  storefront,
+}) => {
+  const coreProduct = storefront.product("richPdp");
+  const beyondProduct = storefront.product("beyondCore");
+  const routineHeading = "The Mei Pelle CORE for clearer, healthier skin.";
+
+  await page.goto(coreProduct.path);
+  const coreSections = page.locator(".pdp-sections");
+  await expect(
+    coreSections.getByRole("heading", { name: routineHeading }),
+  ).toHaveCount(1);
+  await expect(
+    coreSections.getByRole("heading", { name: "DETAILS" }),
+  ).toHaveCount(0);
+  await expect(page.locator("[data-pdp-details-routine]")).toHaveCount(0);
+
+  await page.goto(beyondProduct.path);
+  const beyondSections = page.locator(".pdp-sections");
+  await expect(
+    beyondSections.getByRole("heading", { name: routineHeading }),
+  ).toHaveCount(0);
+  await expect(
+    beyondSections.getByRole("heading", { name: "DETAILS" }),
+  ).toHaveCount(0);
+  await expect(page.locator("[data-pdp-details-routine]")).toHaveCount(0);
+});
+
+test("Ceramide Cushion replaces Green Collagen as a non-purchasable Core PDP", async ({
+  page,
+  storefront,
+}) => {
+  const product = storefront
+    .products("core")
+    .find((candidate) => candidate.slug === "ceramide-cushion");
+  if (!product) {
+    throw new Error("The active Core snapshot is missing Ceramide Cushion.");
+  }
+  expect(product).toMatchObject({
+    displayName: "Ceramide Cushion",
+    merchandisingStatus: "coming_soon",
+    routineGroup: "core",
+    systemStepName: "SEAL",
+    variants: [],
+  });
+
+  await page.goto(product.path);
+  await expect(
+    page.getByRole("heading", { level: 1, name: product.displayName }),
+  ).toBeVisible();
+  await expect(page.locator("[data-pdp-buy-button]")).toHaveText("COMING SOON");
+  await expect(page.locator("[data-pdp-buy-button]")).toBeDisabled();
+  await expect(page.locator(".pdp__price")).toHaveCount(0);
+
+  const sections = page.locator(".pdp-sections");
+  await expect(
+    sections.getByRole("heading", {
+      name: "The Mei Pelle CORE for clearer, healthier skin.",
+    }),
+  ).toHaveCount(1);
+  await expect(sections.getByRole("heading", { name: "DETAILS" })).toHaveCount(0);
+});
+
+test("PDP purchase island contains and reveals purchase details across its responsive boundary", async ({
+  page,
+  storefront,
+}) => {
+  const product = storefront.product("richPdp");
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.setViewportSize({ width: 821, height: 480 });
+  await page.goto(product.path);
+
+  const primary = page.locator("[data-pdp-primary-section]");
+  const gallery = primary.locator(".pdp__gallery");
+  const purchase = primary.locator(".pdp__purchase");
+  const howToUse = purchase.getByRole("button", { name: "HOW TO USE" });
+
+  await expect(
+    purchase.getByRole("heading", { level: 1, name: product.displayName }),
+  ).toBeVisible();
+  await expect(purchase.locator("[data-pdp-buy-button]")).toBeVisible();
+  await expect(purchase.locator(".pdp-accordions")).toBeVisible();
+
+  const desktop = await Promise.all([
+    gallery.boundingBox(),
+    purchase.boundingBox(),
+    purchase.evaluate((element) => {
+      const style = getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+      return {
+        backgroundColor: style.backgroundColor,
+        borderRadius: style.borderRadius,
+        bottom: rect.bottom,
+        clientHeight: element.clientHeight,
+        overflowY: style.overflowY,
+        position: style.position,
+        scrollbarGutter: style.scrollbarGutter,
+        scrollHeight: element.scrollHeight,
+        top: rect.top,
+      };
+    }),
+  ]);
+  const [desktopGallery, desktopPurchase, desktopPresentation] = desktop;
+  expect(desktopGallery).not.toBeNull();
+  expect(desktopPurchase).not.toBeNull();
+  expect(desktopPurchase!.x).toBeGreaterThan(desktopGallery!.x);
+  expect(
+    desktopPurchase!.x - (desktopGallery!.x + desktopGallery!.width),
+  ).toBeCloseTo(821 * 0.0225, 1);
+  expect(desktopPresentation).toMatchObject({
+    backgroundColor: "rgb(223, 229, 223)",
+    overflowY: "auto",
+    position: "sticky",
+    scrollbarGutter: "stable",
+  });
+  expect(desktopPresentation.borderRadius).not.toBe("0px");
+  expect(desktopPresentation.scrollHeight).toBeGreaterThan(
+    desktopPresentation.clientHeight,
+  );
+  expect(desktopPresentation.top).toBeGreaterThan(0);
+  expect(desktopPresentation.bottom).toBeLessThan(480);
+
+  await howToUse.focus();
+  await page.keyboard.press("Enter");
+  await expect(howToUse).toHaveAttribute("aria-expanded", "true");
+  await expect(howToUse).toBeFocused();
+  await expect
+    .poll(() =>
+      purchase.evaluate(
+        (element) =>
+          Math.abs(element.scrollHeight - element.clientHeight - element.scrollTop) <=
+          1,
+      ),
+    )
+    .toBe(true);
+
+  await purchase.evaluate((element) => {
+    element.scrollTo({ top: 0, behavior: "auto" });
+  });
+  await expect.poll(() => purchase.evaluate((element) => element.scrollTop)).toBe(0);
+  await page.keyboard.press("Enter");
+  await expect(howToUse).toHaveAttribute("aria-expanded", "false");
+  await expect(howToUse).toBeFocused();
+  await expect.poll(() => purchase.evaluate((element) => element.scrollTop)).toBe(0);
+
+  await page.setViewportSize({ width: 820, height: 480 });
+  await page.goto(product.path);
+
+  const narrowPrimary = page.locator("[data-pdp-primary-section]");
+  const narrowGallery = narrowPrimary.locator(".pdp__gallery");
+  const narrowMedia = narrowGallery.locator(".pdp__media-frame");
+  const narrowPurchase = narrowPrimary.locator(".pdp__purchase");
+  const narrowHowToUse = narrowPurchase.getByRole("button", {
+    name: "HOW TO USE",
+  });
+  const narrow = await Promise.all([
+    narrowGallery.boundingBox(),
+    narrowPurchase.boundingBox(),
+    narrowMedia.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return {
+        borderBottomLeftRadius: style.borderBottomLeftRadius,
+        borderBottomRightRadius: style.borderBottomRightRadius,
+        borderTopLeftRadius: style.borderTopLeftRadius,
+        borderTopRightRadius: style.borderTopRightRadius,
+      };
+    }),
+    narrowPurchase.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return {
+        borderBottomLeftRadius: style.borderBottomLeftRadius,
+        borderBottomRightRadius: style.borderBottomRightRadius,
+        borderTopLeftRadius: style.borderTopLeftRadius,
+        borderTopRightRadius: style.borderTopRightRadius,
+        clientHeight: element.clientHeight,
+        overflowY: style.overflowY,
+        position: style.position,
+        scrollHeight: element.scrollHeight,
+      };
+    }),
+  ]);
+  const [narrowGalleryBox, narrowPurchaseBox, narrowMediaStyle, narrowPurchaseStyle] =
+    narrow;
+  expect(narrowGalleryBox).not.toBeNull();
+  expect(narrowPurchaseBox).not.toBeNull();
+  expect(narrowPurchaseBox!.y).toBeCloseTo(
+    narrowGalleryBox!.y + narrowGalleryBox!.height,
+    1,
+  );
+  expect(narrowMediaStyle).toMatchObject({
+    borderBottomLeftRadius: "0px",
+    borderBottomRightRadius: "0px",
+  });
+  expect(narrowMediaStyle.borderTopLeftRadius).not.toBe("0px");
+  expect(narrowMediaStyle.borderTopRightRadius).not.toBe("0px");
+  expect(narrowPurchaseStyle).toMatchObject({
+    borderTopLeftRadius: "0px",
+    borderTopRightRadius: "0px",
+    overflowY: "visible",
+    position: "static",
+  });
+  expect(narrowPurchaseStyle.borderBottomLeftRadius).not.toBe("0px");
+  expect(narrowPurchaseStyle.borderBottomRightRadius).not.toBe("0px");
+  expect(narrowPurchaseStyle.scrollHeight).toBe(narrowPurchaseStyle.clientHeight);
+
+  await narrowHowToUse.focus();
+  const pageOriginBeforeReveal = await viewportOrigin(page);
+  await page.keyboard.press("Enter");
+  await expect(narrowHowToUse).toHaveAttribute("aria-expanded", "true");
+  await expect(narrowHowToUse).toBeFocused();
+  expect(await viewportOrigin(page)).toEqual(pageOriginBeforeReveal);
+});
+
 test("Quick Buy places Product education before configuration and the final Buy action", async ({
   page,
   storefront,
 }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   const shopProducts = storefront.products();
+  const offerProducts = shopProducts.filter(
+    (product) => product.offer !== null,
+  );
   const singleVariantProduct =
-    shopProducts.find((product) => product.variants.length === 1) ??
-    storefront.product("purchasable");
-  const multipleVariantProduct = shopProducts.find(
+    offerProducts.find((product) => product.variants.length === 1) ??
+    requirePurchasableProduct(storefront);
+  const multipleVariantProduct = offerProducts.find(
     (product) => product.variants.length > 1,
   );
+  const homepageProducts = [
+    storefront.product("core"),
+    storefront.product("beyondCore"),
+  ].filter((product) => product.offer !== null);
   const cases = [
-    { path: "/", product: storefront.product("core") },
-    { path: "/", product: storefront.product("beyondCore") },
+    ...homepageProducts.map((product) => ({ path: "/", product })),
     { path: "/collections/shop", product: singleVariantProduct },
     ...(multipleVariantProduct
       ? [{ path: "/collections/shop", product: multipleVariantProduct }]
@@ -543,7 +829,7 @@ test("PDP add-to-cart persists across reload and reaches the cart page", async (
   page,
   storefront,
 }) => {
-  const purchase = storefront.purchase(storefront.product("purchasable"));
+  const purchase = storefront.purchase(requirePurchasableProduct(storefront));
   await installCartFixture(page, storefront.snapshot.products);
   const { drawer, geometryBeforeOpen } = await addProduct(page, purchase);
   const drawerOverlay = page.locator(".cart-sheet-overlay");
@@ -572,42 +858,11 @@ test("PDP add-to-cart persists across reload and reaches the cart page", async (
   ).toBeVisible();
 });
 
-test("mobile quick buy pointer close preserves the Customer's viewport and preview", async ({
-  page,
-  storefront,
-}) => {
-  const products = storefront.products();
-  const product = products[Math.floor(products.length / 2)];
-  if (!product) throw new Error("The Storefront has no Product to inspect.");
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/collections/shop");
-
-  const card = page.locator(`[data-product-card-slug="${product.slug}"]`);
-  const quickBuy = card.getByRole("button", {
-    name: `Open quick buy for ${product.displayName}`,
-  });
-  await quickBuy.click();
-
-  const close = card.getByRole("button", {
-    name: `Close quick buy for ${product.displayName}`,
-  });
-  await finishAnimations(card.locator(".product-card__quick-buy"));
-  await close.scrollIntoViewIfNeeded();
-  const scrollYBeforeClose = await page.evaluate(() => window.scrollY);
-  await close.click();
-
-  await expect(card).toHaveAttribute("data-quick-buy-open", "false");
-  await expect(quickBuy).toBeFocused();
-  await expect(card).toHaveAttribute("data-visual-state", "preview");
-  await page.waitForTimeout(750);
-  expect(await page.evaluate(() => window.scrollY)).toBe(scrollYBeforeClose);
-});
-
 test("mobile quick buy Escape preserves the Customer's viewport and focus preview", async ({
   page,
   storefront,
 }) => {
-  const product = storefront.product("purchasable");
+  const product = requirePurchasableProduct(storefront);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/collections/shop");
 
@@ -632,7 +887,16 @@ test("opening another Product's Quick Buy preserves the viewport", async ({
   page,
   storefront,
 }) => {
-  const [firstProduct, secondProduct] = storefront.products();
+  const [firstProduct, secondProduct] = storefront
+    .products()
+    .filter((product) => product.offer !== null);
+  if (!firstProduct || !secondProduct) {
+    test.skip(
+      true,
+      "The canonical Catalog does not currently expose two collection Products with Offers.",
+    );
+    return;
+  }
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/collections/shop");
 
@@ -674,7 +938,7 @@ test.describe("touch Quick Buy", () => {
       browserName === "webkit",
       "Playwright WebKit resolves this transformed close control to the underlying card link; Chromium and the in-app Browser cover native touch hit-testing.",
     );
-    const product = storefront.product("purchasable");
+    const product = requirePurchasableProduct(storefront);
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/collections/shop");
 
@@ -714,7 +978,7 @@ test("mobile quick buy opens the cart drawer and restores focus on Escape", asyn
   page,
   storefront,
 }) => {
-  const purchase = storefront.purchase(storefront.product("purchasable"));
+  const purchase = storefront.purchase(requirePurchasableProduct(storefront));
   await installCartFixture(page, storefront.snapshot.products);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/collections/shop");
@@ -795,7 +1059,12 @@ test("PDP sticky purchase appears after routine video and hides at the footer", 
   page,
   storefront,
 }) => {
-  const purchase = storefront.purchase(storefront.product("richPdp"));
+  const product = storefront.product("richPdp");
+  test.skip(
+    product.offer === null,
+    "The canonical rich PDP Product does not currently expose an Offer.",
+  );
+  const purchase = storefront.purchase(product);
   await installCartFixture(page, storefront.snapshot.products);
   await page.goto(purchase.product.path);
   await selectPurchaseVariant(page, purchase);

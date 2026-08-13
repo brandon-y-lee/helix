@@ -1,12 +1,12 @@
 type RoutineProduct = {
   routineGroup: "core" | "beyond_core";
-  routineStepNumber: number | null;
+  systemStepPosition: number | null;
 };
 
 export function routineDisplayLabelForProduct(product: RoutineProduct): string {
   if (product.routineGroup === "beyond_core") return "Beyond The Core";
-  if (!product.routineStepNumber) return "The Core";
-  return `${String(product.routineStepNumber).padStart(2, "0")} — The Core`;
+  if (!product.systemStepPosition) return "The Core";
+  return `${String(product.systemStepPosition).padStart(2, "0")} — The Core`;
 }
 
 export function routineGroupLabel(

@@ -14,6 +14,7 @@ import {
   getProductOffer,
   getProductOffers,
   getProductRoutes,
+  getProductSlugResolution,
 } from "@/lib/catalog/storefront";
 import {
   CORE_ROUTINE_PRODUCT_SLUGS,
@@ -27,6 +28,7 @@ import {
   type ProductMetadata,
   type ProductOffer,
   type ProductRoute,
+  type ProductSlugResolution,
 } from "@/lib/catalog/models";
 import { PDP_DISCOVERY_PRODUCT_LIMIT } from "@/lib/catalog/discovery";
 import { routineGroupLabel } from "@/lib/catalog/product-routine";
@@ -48,6 +50,9 @@ export const PRODUCT_OFFER_COLLECTION_CACHE_TAG = "catalog-product-offer";
 export const PRODUCT_CARD_COLLECTION_CACHE_TAG = "catalog-product-card";
 export const CORE_ROUTINE_CACHE_TAG = "catalog-core-routine";
 export const DISCOVERY_CACHE_TAG = "catalog-discovery";
+export const PRODUCT_FAMILY_CACHE_TAG = "catalog-product-family";
+export const PRODUCT_SLUG_ROUTE_COLLECTION_CACHE_TAG =
+  "catalog-product-slug-route";
 export { CORE_ROUTINE_PRODUCT_SLUGS } from "@/lib/catalog/models";
 
 const CARD_MEDIA_ROLES = new Set<ProductMedia["role"]>([
@@ -63,7 +68,6 @@ type LegacyOfferKey =
   | "status"
   | "catalogStatus";
 type LegacyCardKey =
-  | "cardTagline"
   | "badge"
   | "sortOrder";
 type LegacyMediaKey =
@@ -106,6 +110,10 @@ export function productCardCacheTag(productKey: string): string {
   return `catalog-product-card:${productKey}`;
 }
 
+export function productSlugRouteCacheTag(sourceSlug: string): string {
+  return `catalog-product-slug-route:${sourceSlug}`;
+}
+
 export function collectionCacheTag(routineGroup: string): string {
   const label =
     routineGroup === "core" || routineGroup === "beyond_core"
@@ -134,7 +142,6 @@ function toLegacyContent(product: Product): LegacyProductContent {
     "variants",
     "status",
     "catalogStatus",
-    "cardTagline",
     "badge",
     "sortOrder",
     "media",
@@ -166,7 +173,6 @@ function toLegacyCard(product: Product): LegacyProductCard {
   return {
     id: product.id,
     slug: product.slug,
-    cardTagline: product.cardTagline,
     badge: product.badge,
     sortOrder: product.sortOrder,
     media: product.media.filter((media) => CARD_MEDIA_ROLES.has(media.role)),
@@ -204,7 +210,7 @@ const requestLegacyProducts = cache(getProducts);
 
 const readCachedLegacyContents = unstable_cache(
   async () => (await requestLegacyProducts()).map(toLegacyContent),
-  ["catalog-products-content-v2"],
+  ["catalog-products-content-v3"],
   {
     revalidate: PRODUCT_CONTENT_REVALIDATE_SECONDS,
     tags: [
@@ -228,12 +234,13 @@ const readCachedLegacyOffers = unstable_cache(
 
 const readCachedLegacyCards = unstable_cache(
   async () => (await requestLegacyProducts()).map(toLegacyCard),
-  ["catalog-products-card-v2"],
+  ["catalog-products-card-v3"],
   {
     revalidate: PRODUCT_CARD_REVALIDATE_SECONDS,
     tags: [
       CATALOG_PRODUCTS_CACHE_TAG,
       PRODUCT_CARD_COLLECTION_CACHE_TAG,
+      PRODUCT_FAMILY_CACHE_TAG,
     ],
   },
 );
@@ -322,12 +329,13 @@ function composeCore(
 
 const readCachedProductCardContents = unstable_cache(
   getProductCardContents,
-  ["catalog-product-cards-v2"],
+  ["catalog-product-cards-v3"],
   {
     revalidate: PRODUCT_CARD_REVALIDATE_SECONDS,
     tags: [
       CATALOG_PRODUCTS_CACHE_TAG,
       PRODUCT_CARD_COLLECTION_CACHE_TAG,
+      PRODUCT_FAMILY_CACHE_TAG,
     ],
   },
 );
@@ -357,6 +365,22 @@ export function getCachedProductRoutes(): Promise<ProductRoute[]> {
   return readCachedProductRoutes();
 }
 
+export function getCachedProductSlugResolution(
+  sourceSlug: string,
+): Promise<ProductSlugResolution | undefined> {
+  return unstable_cache(
+    () => getProductSlugResolution(sourceSlug),
+    ["catalog-product-slug-route-v1", sourceSlug],
+    {
+      revalidate: PRODUCT_CONTENT_REVALIDATE_SECONDS,
+      tags: [
+        PRODUCT_SLUG_ROUTE_COLLECTION_CACHE_TAG,
+        productSlugRouteCacheTag(sourceSlug),
+      ],
+    },
+  )();
+}
+
 const readCachedIngredientIndexProducts = unstable_cache(
   getIngredientIndexProducts,
   ["catalog-ingredient-index-products-v2"],
@@ -377,7 +401,7 @@ export function getCachedIngredientIndexProducts(): Promise<
 
 const readCachedCoreRoutineContents = unstable_cache(
   getCoreRoutineContentSummaries,
-  ["catalog-core-routine-content-v3"],
+  ["catalog-core-routine-content-v5"],
   {
     revalidate: CORE_ROUTINE_REVALIDATE_SECONDS,
     tags: [
@@ -407,10 +431,10 @@ export async function getCachedPdpProduct(
   const [content, offer] = await Promise.all([
     unstable_cache(
       () => getPdpProductContent(slug),
-      ["catalog-pdp-content-v3", slug],
+      ["catalog-pdp-content-v4", slug],
       {
         revalidate: PRODUCT_CONTENT_REVALIDATE_SECONDS,
-        tags: [productContentCacheTag(slug)],
+        tags: [productContentCacheTag(slug), PRODUCT_FAMILY_CACHE_TAG],
       },
     )(),
     unstable_cache(
@@ -430,7 +454,7 @@ export function getCachedProductMetadata(
 ): Promise<ProductMetadata | undefined> {
   return unstable_cache(
     () => getProductMetadata(slug),
-    ["catalog-product-metadata-v2", slug],
+    ["catalog-product-metadata-v3", slug],
     {
       revalidate: PRODUCT_CONTENT_REVALIDATE_SECONDS,
       tags: [productContentCacheTag(slug)],
@@ -445,13 +469,14 @@ export async function getCachedDiscoveryProductCards(
   const [contents, offers] = await Promise.all([
     unstable_cache(
       () => getDiscoveryProductCardContents(excludeSlug, limit),
-      ["catalog-discovery-cards-v4", excludeSlug, String(limit)],
+      ["catalog-discovery-cards-v5", excludeSlug, String(limit)],
       {
         revalidate: DISCOVERY_REVALIDATE_SECONDS,
         tags: [
           CATALOG_PRODUCTS_CACHE_TAG,
           DISCOVERY_CACHE_TAG,
           PRODUCT_CARD_COLLECTION_CACHE_TAG,
+          PRODUCT_FAMILY_CACHE_TAG,
         ],
       },
     )(),

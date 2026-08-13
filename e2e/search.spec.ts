@@ -8,7 +8,7 @@ import { expect, test } from "./storefront-fixture";
 async function loadSearchJourney(): Promise<{
   product: StorefrontSnapshotProduct;
   record: AlgoliaProductRecord;
-  offerPrice: number;
+  offerPrice: number | null;
   searchTerm: string;
 }> {
   const snapshot = await loadStorefrontSnapshot();
@@ -20,15 +20,10 @@ async function loadSearchJourney(): Promise<{
       `Search journey Product "${snapshot.journeys.searchableProductId}" is absent from the Storefront snapshot.`,
     );
   }
-  if (!product.offer) {
-    throw new Error(
-      `Search journey Product "${product.id}" has no Product Offer in the Storefront snapshot.`,
-    );
-  }
   return {
     product,
     record: buildStorefrontSearchRecord(product),
-    offerPrice: product.offer.price,
+    offerPrice: product.offer?.price ?? null,
     searchTerm: product.searchKeywords[0] ?? product.displayName,
   };
 }
@@ -72,11 +67,15 @@ test("Algolia result opens its canonical product detail page", async ({
     .fill(searchTerm);
   await expect(page.getByText(/1 result for/i)).toBeVisible();
   const result = page.getByRole("link", {
-    name: `${product.displayName} — ${product.cardTagline}`,
+    name: `${product.displayName} — ${product.productType}`,
   });
   await expect(result).toContainText(product.productType);
-  await expect(result).toContainText(product.cardTagline);
-  await expect(result).toContainText(`$${(offerPrice / 100).toFixed(2)}`);
+  await expect(result).toContainText(product.productType);
+  if (offerPrice === null) {
+    await expect(result.locator(".search-result__price")).toHaveCount(0);
+  } else {
+    await expect(result).toContainText(`$${(offerPrice / 100).toFixed(2)}`);
+  }
   await result.click();
 
   await expect(page).toHaveURL(product.path);

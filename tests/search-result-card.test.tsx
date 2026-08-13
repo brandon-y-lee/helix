@@ -7,24 +7,21 @@ const comingSoonProduct: AlgoliaProductRecord = {
   objectID: "lift",
   productId: "lift",
   slug: "lift",
+  slugAliases: [],
   displayName: "LIFT",
-  formalTitle: "LIFT Eye Treatment",
-  cardTagline: "Targeted eye care",
   editorialDescription: "A focused eye treatment.",
   productType: "Eye treatment",
   routineGroup: "beyond_core",
-  routineStepNumber: 7,
-  routineStepName: "LIFT",
+  systemStepPosition: 7,
+  systemStepName: "LIFT",
   routineSort: 70,
   badge: "Coming soon",
   status: "coming_soon",
-  priceMin: 2800,
-  priceMax: 2800,
   currency: "USD",
   available: false,
-  waitlist: true,
-  variantCount: 1,
-  variantNames: ["15 ml"],
+  waitlist: false,
+  variantCount: 0,
+  variantNames: [],
   keywords: [],
   concerns: [],
   ingredients: [],
@@ -42,6 +39,29 @@ const comingSoonProduct: AlgoliaProductRecord = {
   madeFor: null,
   goodFor: null,
   texture: null,
+  familyId: null,
+  familySlug: null,
+  familyDisplayName: null,
+  familyOptionLabel: null,
+  familySortOrder: null,
+  familyIsEntry: null,
+};
+
+const waitlistProduct: AlgoliaProductRecord = {
+  ...comingSoonProduct,
+  objectID: "mineral-guard",
+  productId: "mineral-guard",
+  slug: "mineral-guard",
+  displayName: "Mineral Guard",
+  productType: "Mineral facial sunscreen",
+  systemStepPosition: 6,
+  systemStepName: "PROTECT",
+  routineSort: 60,
+  badge: "Waitlist",
+  status: "waitlist",
+  waitlist: true,
+  variantCount: 0,
+  variantNames: [],
 };
 
 describe("SearchResultCard", () => {
@@ -50,9 +70,36 @@ describe("SearchResultCard", () => {
 
     expect(screen.getByText("Coming soon")).toBeInTheDocument();
     expect(screen.getByText("View details")).toBeInTheDocument();
+    expect(screen.queryByText("$28.00")).not.toBeInTheDocument();
+    expect(document.querySelector(".search-result__price")).not.toBeInTheDocument();
     expect(screen.queryByText(/join the waitlist/i)).not.toBeInTheDocument();
     expect(
-      screen.getByRole("link", { name: "LIFT — Targeted eye care" }),
+      screen.getByRole("link", { name: "LIFT — Eye treatment" }),
     ).toHaveAttribute("href", "/products/lift");
+  });
+
+  it("omits price when the search record has no Product Offer", () => {
+    render(
+      <SearchResultCard
+        hit={{
+          ...comingSoonProduct,
+          variantCount: 0,
+          variantNames: [],
+          priceMin: 0,
+          priceMax: 0,
+        }}
+      />,
+    );
+
+    expect(screen.queryByText("$0.00")).toBeNull();
+    expect(screen.getByText("View details")).toBeInTheDocument();
+  });
+
+  it("omits fabricated pricing for a zero-Offer Waitlist Product", () => {
+    render(<SearchResultCard hit={waitlistProduct} />);
+
+    expect(screen.getByText("Waitlist")).toBeInTheDocument();
+    expect(screen.getByText("View details")).toBeInTheDocument();
+    expect(screen.queryByText("$0.00")).not.toBeInTheDocument();
   });
 });

@@ -7,10 +7,12 @@ import type {
   CatalogRpcConflict,
   CatalogValidationIssue as CatalogBackendValidationIssue,
   CatalogProductMedia,
+  CatalogProductFamilyFields,
+  CatalogProductFamilyMembership,
   CatalogProductRelationship,
   CatalogProductSource,
   CatalogProductVariant,
-  ProductEditorDocumentV3,
+  ProductEditorDocumentV4,
 } from "@/lib/admin/catalog/types";
 import type {
   PdpIngredientCard,
@@ -27,13 +29,15 @@ export type CatalogRoutineFilter = "all" | "core" | "beyond";
 export type CatalogDraftFilter = "all" | "draft" | "ready" | "none";
 export type CatalogTable =
   | "products"
+  | "product_families"
+  | "product_family_memberships"
   | "product_pdp_content"
   | "product_variants"
   | "product_media"
   | "product_relationships"
   | "product_sources";
 
-export type CatalogDraftDocument = ProductEditorDocumentV3;
+export type CatalogDraftDocument = ProductEditorDocumentV4;
 export type CatalogDraft = CatalogDraftRecord;
 export type CatalogRevision = CatalogRevisionRecord;
 export type CatalogPublishResult = CatalogPublishSuccess & {
@@ -48,6 +52,8 @@ export type CatalogVariantFields = CatalogProductVariant;
 export type CatalogMediaFields = CatalogProductMedia;
 export type CatalogRelationshipFields = CatalogProductRelationship;
 export type CatalogSourceFields = CatalogProductSource;
+export type CatalogFamilyFields = CatalogProductFamilyFields;
+export type CatalogFamilyMembershipFields = CatalogProductFamilyMembership;
 export type CatalogIngredientCard = PdpIngredientCard;
 export type CatalogIngredientHighlight = PdpIngredientHighlight;
 export type { CatalogEditorResponse };
@@ -135,7 +141,7 @@ function tableForPath(segment: string): CatalogTable {
 
 function editorIssue(
   issue: CatalogBackendValidationIssue,
-  document: ProductEditorDocumentV3,
+  document: ProductEditorDocumentV4,
 ): CatalogEditorIssue {
   const parts = issue.path.split(".");
   const table = tableForPath(parts[0] ?? "");
@@ -168,7 +174,7 @@ function editorIssue(
 
 export function catalogEditorIssuesFromError(
   error: unknown,
-  document: ProductEditorDocumentV3,
+  document: ProductEditorDocumentV4,
 ): CatalogEditorIssue[] {
   if (!(error instanceof CatalogApiError) || !error.details ||
       typeof error.details !== "object" || !("issues" in error.details) ||
@@ -284,7 +290,7 @@ function catalogProductsQuery(params: {
 async function saveDraft(
   draftId: string,
   version: number,
-  document: ProductEditorDocumentV3,
+  document: ProductEditorDocumentV4,
 ) {
   return requestJson<{ ok: true; draft: CatalogDraftRecord }>(
     `/api/admin/catalog/drafts/${encodeURIComponent(draftId)}`,
@@ -315,7 +321,7 @@ export const catalogEditorApi = {
     );
   },
 
-  async createDraft(productId: string, document: ProductEditorDocumentV3) {
+  async createDraft(productId: string, document: ProductEditorDocumentV4) {
     const created = await requestJson<{
       created: boolean;
       draft: CatalogDraftRecord;

@@ -4,52 +4,16 @@ import type {
   PdpPurchaseIslandProps,
   PdpPurchaseVariant,
 } from "@/components/product-detail/PdpPurchaseIsland";
-import type { PdpCoreDetailsItem } from "@/components/product-detail/PdpCoreDetailsRoutine";
 import { cartMediaSnapshot } from "@/lib/cart/media";
-import type { CartAddInput } from "@/lib/cart/types";
 import type { ProductPdpContent } from "@/lib/catalog/product-content";
 import type { PdpProduct } from "@/lib/catalog/models";
+import type { CorePdpPresentation } from "@/lib/content/core-pdp";
 import {
-  corePdpStepForProduct,
-  type CorePdpPresentation,
-} from "@/lib/content/core-pdp";
-import { PDP_CORE_DETAILS_PRESENTATIONS } from "@/lib/content/pdp-core-details";
-import {
-  firstPurchasableVariant,
+  productOfferPresentation,
   productPurchaseCta,
+  productUnavailableCtaLabel,
   type ProductMedia,
-  type ProductStatus,
 } from "@/lib/products";
-import { PREVIEW_COMMERCE_DISABLED_LABEL } from "@/lib/catalog-editor/preview-commerce";
-
-type CoreDetailsSource = {
-  benefits: string[];
-  cardMedia: ProductMedia | null;
-  cardTagline: string;
-  cartMedia: ProductMedia | null;
-  description: string;
-  displayName: string;
-  finish: string | null;
-  goodFor: string | null;
-  keyIngredients: string[];
-  pdpContent?: ProductPdpContent | null;
-  productType: string | null;
-  routineGroup?: "core" | "beyond_core" | null;
-  routineStepName?: string | null;
-  slug: string;
-  status: ProductStatus;
-  swatch: [string, string];
-  texture: string | null;
-  variants: CoreDetailsOffer[];
-};
-
-type CoreDetailsOffer = {
-  available: boolean;
-  id: string;
-  inventoryStatus: "in_stock" | "low_stock" | "out_of_stock" | "unavailable";
-  label: string;
-  price: number;
-};
 
 function galleryRoleRank(role: ProductMedia["role"]) {
   if (role === "detail" || role === "hero") return 0;
@@ -129,25 +93,6 @@ function selectGalleryMedia(product: PdpProduct) {
     });
 }
 
-function cartItemFor(
-  product: Pick<
-    CoreDetailsSource,
-    "cardMedia" | "cartMedia" | "displayName" | "slug" | "swatch"
-  >,
-  variant: CoreDetailsOffer,
-): CartAddInput {
-  const media = product.cartMedia ?? product.cardMedia;
-  return {
-    slug: product.slug,
-    name: product.displayName,
-    variantId: variant.id,
-    variantLabel: variant.label,
-    price: variant.price,
-    swatch: product.swatch,
-    ...cartMediaSnapshot(media),
-  };
-}
-
 function selectRoleMedia(
   media: readonly ProductMedia[],
   role: ProductMedia["role"],
@@ -191,7 +136,11 @@ export function purchaseIslandProps(
   commerceDisabled = false,
 ): PdpPurchaseData {
   const media = product.cartMedia ?? product.cardMedia;
-  const variants: PdpPurchaseVariant[] = product.variants.map((variant) => {
+  const offerPresentation = productOfferPresentation(product.variants);
+  const presentedVariants = offerPresentation.showVariantOptions
+    ? offerPresentation.offers
+    : product.variants.slice(0, 1);
+  const variants: PdpPurchaseVariant[] = presentedVariants.map((variant) => {
     const cta = productPurchaseCta(product, variant);
     return {
       id: variant.id,
@@ -211,13 +160,19 @@ export function purchaseIslandProps(
       ...cartMediaSnapshot(media),
     },
     currency: product.currency,
+    productId: product.id,
     productKey: product.slug,
     productName: product.displayName,
     productType: product.productType,
+    productFamily: product.productFamily,
+    status: product.status,
     routineLabel,
     stickyMedia: media,
     stripePublishableKey,
+    unavailableLabel: productUnavailableCtaLabel(product.status),
     variants,
+    showPrice: offerPresentation.showPrice,
+    showVariantOptions: offerPresentation.showVariantOptions,
     commerceDisabled,
   };
 }
@@ -266,51 +221,4 @@ export function applicationIslandProps(
     steps: presentation.applicationSteps,
     media: selectRoleMedia(product.media, "pdp_application", "image"),
   };
-}
-
-export function coreDetailsIslandItems(
-  products: CoreDetailsSource[],
-  commerceDisabled = false,
-): PdpCoreDetailsItem[] {
-  return PDP_CORE_DETAILS_PRESENTATIONS.flatMap((presentation) => {
-    const product = products.find(
-      (candidate) =>
-        corePdpStepForProduct(candidate) === presentation.step &&
-        Boolean(candidate.pdpContent?.routineGuidance),
-    );
-    if (!product) return [];
-
-    const variant =
-      firstPurchasableVariant(product) ?? product.variants[0] ?? null;
-    const cta = productPurchaseCta(product, variant);
-    return [
-      {
-        slug: product.slug,
-        displayName: product.displayName,
-        productType: product.productType,
-        benefits: product.benefits,
-        goodFor: product.goodFor,
-        cardTagline: product.cardTagline,
-        finish: product.finish,
-        texture: product.texture,
-        description: product.description,
-        keyIngredients: product.keyIngredients,
-        presentation: {
-          step: presentation.step,
-          routineFit: product.pdpContent!.routineGuidance!,
-          placeholder: presentation.placeholder,
-        },
-        purchase: {
-          label: commerceDisabled
-            ? PREVIEW_COMMERCE_DISABLED_LABEL
-            : cta.label,
-          purchasable: commerceDisabled ? false : cta.purchasable,
-          item:
-            commerceDisabled || !variant
-              ? null
-              : cartItemFor(product, variant),
-        },
-      },
-    ];
-  });
 }

@@ -8,7 +8,7 @@ import {
   type CatalogProductMedia,
   type CatalogProductPdpContentFields,
   type CatalogProductVariant,
-  type ProductEditorDocumentV3,
+  type ProductEditorDocumentV4,
 } from "@/lib/admin/catalog/types";
 import type {
   CatalogPreviewBase,
@@ -27,18 +27,13 @@ import type {
   PlaceholderPalette,
   ProductMedia,
   ProductMediaRole,
-  ProductStatus,
 } from "@/lib/products";
+import { isProductStatus } from "@/lib/products";
 import { PRODUCT_MEDIA_ROLES } from "@/lib/catalog/media-roles";
 
 const PRODUCT_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const PRODUCT_STATUSES: ProductStatus[] = [
-  "available",
-  "coming_soon",
-  "sold_out",
-];
 const INVENTORY_STATUSES = [
   "in_stock",
   "low_stock",
@@ -339,7 +334,7 @@ function safeVariants(
 function validateDocument(
   value: unknown,
   approvedMediaOrigin?: string,
-): ProductEditorDocumentV3 {
+): ProductEditorDocumentV4 {
   if (!isRecord(value)) invalid("The saved draft document is not an object.");
   if (value.schemaVersion !== PRODUCT_EDITOR_SCHEMA_VERSION) {
     throw new CatalogPreviewProjectionError(
@@ -396,15 +391,19 @@ function projectCoreProducts(
           Boolean(media.url),
       ) ?? null;
 
+    if (
+      product.routineGroup !== "core" ||
+      product.systemStepName !== item.systemStepName ||
+      product.systemStepPosition !== item.systemStepPosition
+    ) {
+      return item;
+    }
+
     return {
       ...item,
       slug: product.slug,
       displayName: product.displayName,
-      formalTitle:
-        optionalText(draftProduct, "formal_title", item.formalTitle) ??
-        item.formalTitle,
       productType: product.productType ?? item.productType,
-      cardTagline: product.cardTagline,
       description: product.description,
       benefits: optionalStringArray(
         draftProduct,
@@ -415,9 +414,8 @@ function projectCoreProducts(
       texture: product.texture,
       finish: product.finish,
       keyIngredients: product.keyIngredients,
-      routineStepNumber:
-        product.routineStepNumber ?? item.routineStepNumber,
-      routineStepName: product.routineStepName ?? item.routineStepName,
+      systemStepPosition: product.systemStepPosition,
+      systemStepName: product.systemStepName,
       swatch: product.swatch,
       textureMedia,
       editorialMedia,
@@ -457,12 +455,21 @@ export function projectCatalogDraftPreview(
   const status =
     draft.status === null
       ? base.product.status
-      : PRODUCT_STATUSES.includes(draft.status as ProductStatus)
-        ? (draft.status as ProductStatus)
+      : isProductStatus(draft.status)
+        ? draft.status
         : invalid("product.status is invalid.");
   const displayName = draft.display_name;
   if (!displayName.trim()) invalid("product.displayName cannot be empty.");
-  const cardTagline = draft.card_tagline;
+  const routineGroup =
+    draft.routine_group === "core" || draft.routine_group === "beyond_core"
+      ? draft.routine_group
+      : invalid("product.routine_group is invalid.");
+  const systemStep = base.systemSteps.find(
+    (step) => step.name === draft.system_step_name,
+  );
+  if (!systemStep || systemStep.routineGroup !== routineGroup) {
+    invalid("product.system_step_name is invalid.");
+  }
   const description = draft.editorial_description;
   const howToUse = draft.editorial_how_to_use;
   const swatch = optionalSwatch(draft, base.product.swatch);
@@ -477,17 +484,9 @@ export function projectCatalogDraftPreview(
     ...base.product,
     slug: draft.slug,
     displayName,
-    cardTagline,
-    routineGroup:
-      draft.routine_group === "core" || draft.routine_group === "beyond_core"
-        ? draft.routine_group
-        : invalid("product.routine_group is invalid."),
-    routineStepNumber: draft.routine_step_number,
-    routineStepName: optionalText(
-      draft,
-      "routine_step_name",
-      base.product.routineStepName,
-    ),
+    routineGroup,
+    systemStepPosition: systemStep.position,
+    systemStepName: systemStep.name,
     routineSort: draft.routine_sort,
     productType: draft.product_type,
     description,

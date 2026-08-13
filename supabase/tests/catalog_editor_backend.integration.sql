@@ -17,6 +17,10 @@ declare
   v_draft_id uuid;
   v_result jsonb;
   v_revision_id uuid;
+  v_legacy_revision_id uuid;
+  v_legacy_v2_revision_id uuid;
+  v_legacy_v1_revision_id uuid;
+  v_restored_draft_id uuid;
   v_second_draft_id uuid;
 begin
   insert into auth.users (
@@ -74,6 +78,17 @@ begin
   end if;
 
   v_document_before := public.get_catalog_editor_document(v_product_id);
+  if v_document_before ->> 'schemaVersion' <> '4'
+     or (v_document_before -> 'product') ?| array[
+       'formal_title',
+       'card_tagline',
+       'routine_step_number',
+       'routine_step_name'
+     ]
+     or v_document_before #>> '{product,system_step_name}' is null
+  then
+    raise exception 'canonical editor document is not V4';
+  end if;
   v_document_with_editorial := jsonb_set(
     v_document_before,
     '{media}',
@@ -125,7 +140,8 @@ begin
     v_draft_id,
     99,
     v_document_before,
-    v_actor_id
+    v_actor_id,
+    'admin'
   );
   if v_result ->> 'code' <> 'version_conflict' then
     raise exception 'stale save did not return version_conflict';
@@ -145,7 +161,8 @@ begin
       '{variants,0,price_cents}',
       '-1'::jsonb
     ),
-    v_actor_id
+    v_actor_id,
+    'admin'
   );
   if v_result #>> '{draft,version}' <> '2' then
     raise exception 'draft save did not advance version';
@@ -166,12 +183,14 @@ begin
     perform public.publish_catalog_product_draft(
       v_draft_id,
       3,
-      v_actor_id
+      v_actor_id,
+      'admin',
+      '[]'::jsonb
     );
     raise exception 'invalid child publication unexpectedly succeeded';
   exception
-    when sqlstate '22023' then
-      if sqlerrm <> 'invalid product variant' then
+    when check_violation then
+      if sqlerrm not like '%product_variants_price_cents_check%' then
         raise;
       end if;
   end;
@@ -194,7 +213,8 @@ begin
     v_draft_id,
     3,
     v_document_with_editorial,
-    v_actor_id
+    v_actor_id,
+    'admin'
   );
   if v_result #>> '{draft,version}' <> '4' then
     raise exception 'valid recovery save did not advance version';
@@ -210,7 +230,9 @@ begin
   v_result := public.publish_catalog_product_draft(
     v_draft_id,
     5,
-    v_actor_id
+    v_actor_id,
+    'admin',
+    '[]'::jsonb
   );
 
   if (v_result ->> 'ok')::boolean is not true then
@@ -224,7 +246,8 @@ begin
     'productPdpContent', false,
     'variants', false,
     'media', true,
-    'relationships', false
+    'relationships', false,
+    'productSource', false
   ) then
     raise exception 'changed canonical tables were reported incorrectly';
   end if;
@@ -260,15 +283,30 @@ begin
   insert into public.catalog_product_revisions (
     product_id,
     revision_number,
+    schema_version,
     document,
     published_by
   )
   values (
     v_product_id,
     2,
-    v_document_before,
+    3,
+    jsonb_set(
+      jsonb_set(v_document_before, '{schemaVersion}', '3'::jsonb),
+      '{product}',
+      (
+        (v_document_before -> 'product') - 'system_step_name'
+      ) || jsonb_build_object(
+        'formal_title', 'Legacy formal title',
+        'card_tagline', 'Legacy card tagline',
+        'routine_step_number', 1,
+        'routine_step_name',
+          v_document_before #>> '{product,system_step_name}'
+      )
+    ),
     v_actor_id
-  );
+  )
+  returning id into v_legacy_revision_id;
 
   perform public.transition_catalog_product_draft(
     v_second_draft_id,
@@ -280,7 +318,9 @@ begin
   v_result := public.publish_catalog_product_draft(
     v_second_draft_id,
     2,
-    v_actor_id
+    v_actor_id,
+    'admin',
+    '[]'::jsonb
   );
   if v_result ->> 'code' <> 'revision_conflict' then
     raise exception 'stale base revision did not reject publication';
@@ -294,7 +334,7 @@ begin
     v_actor_id
   );
   v_result := public.restore_catalog_product_revision(
-    v_revision_id,
+    v_legacy_revision_id,
     v_actor_id
   );
   if (v_result ->> 'ok')::boolean is not true then
@@ -305,6 +345,153 @@ begin
     '$[*] ? (@.role == "core_routine_editorial")'
   ) then
     raise exception 'revision restore lost Core routine editorial media';
+  end if;
+  if v_result #>> '{draft,document,schemaVersion}' <> '4'
+     or (v_result #> '{draft,document,product}') ?| array[
+       'formal_title',
+       'card_tagline',
+       'routine_step_number',
+       'routine_step_name'
+     ]
+     or v_result #>> '{draft,document,product,system_step_name}' is null
+  then
+    raise exception 'V3 revision did not restore through the V4 adapter';
+  end if;
+
+  v_restored_draft_id := (v_result #>> '{draft,id}')::uuid;
+  perform public.transition_catalog_product_draft(
+    v_restored_draft_id,
+    1,
+    'discard',
+    '[]'::jsonb,
+    v_actor_id
+  );
+
+  insert into public.catalog_product_revisions (
+    product_id,
+    revision_number,
+    schema_version,
+    document,
+    published_by
+  ) values (
+    v_product_id,
+    3,
+    2,
+    jsonb_set(v_document_before, '{schemaVersion}', '2'::jsonb),
+    v_actor_id
+  ) returning id into v_legacy_v2_revision_id;
+
+  v_result := public.restore_catalog_product_revision(
+    v_legacy_v2_revision_id,
+    v_actor_id
+  );
+  if v_result #>> '{draft,document,schemaVersion}' <> '4'
+     or (v_result #> '{draft,document,product}') ?| array[
+       'formal_title',
+       'card_tagline',
+       'routine_step_number',
+       'routine_step_name'
+     ]
+     or v_result #>> '{draft,document,product,system_step_name}' is null
+     or (
+       select schema_version
+       from public.catalog_product_revisions
+       where id = v_legacy_v2_revision_id
+     ) <> 2
+  then
+    raise exception 'V2 revision did not restore immutably through V4';
+  end if;
+
+  v_restored_draft_id := (v_result #>> '{draft,id}')::uuid;
+  perform public.transition_catalog_product_draft(
+    v_restored_draft_id,
+    1,
+    'discard',
+    '[]'::jsonb,
+    v_actor_id
+  );
+
+  insert into public.catalog_product_revisions (
+    product_id,
+    revision_number,
+    schema_version,
+    document,
+    published_by
+  ) values (
+    v_product_id,
+    4,
+    1,
+    jsonb_set(v_document_before, '{schemaVersion}', '1'::jsonb),
+    v_actor_id
+  ) returning id into v_legacy_v1_revision_id;
+
+  v_result := public.restore_catalog_product_revision(
+    v_legacy_v1_revision_id,
+    v_actor_id
+  );
+  if v_result #>> '{draft,document,schemaVersion}' <> '4'
+     or (v_result #> '{draft,document,product}') ?| array[
+       'formal_title',
+       'card_tagline',
+       'routine_step_number',
+       'routine_step_name'
+     ]
+     or v_result #>> '{draft,document,product,system_step_name}' is null
+     or (
+       select schema_version
+       from public.catalog_product_revisions
+       where id = v_legacy_v1_revision_id
+     ) <> 1
+  then
+    raise exception 'V1 revision did not restore immutably through V4';
+  end if;
+
+  if (
+    select array_agg(format('%s:%s:%s', name, position, routine_group)
+      order by position)
+    from public.system_steps
+  ) <> array[
+    'CLEANSE:1:core',
+    'REFINE:2:beyond_core',
+    'TREAT:3:core',
+    'FRAME:4:beyond_core',
+    'SEAL:5:core',
+    'PROTECT:6:beyond_core',
+    'LIFT:7:beyond_core'
+  ] then
+    raise exception 'System Step registry is not canonical';
+  end if;
+
+  if not exists (
+    select 1
+    from pg_constraint
+    where conrelid = 'public.system_steps'::regclass
+      and conname = 'system_steps_fixed_contract_check'
+      and contype = 'c'
+  ) then
+    raise exception 'System Step fixed contract is not enforced';
+  end if;
+
+  if not has_table_privilege('anon', 'public.system_steps', 'select')
+     or has_table_privilege('anon', 'public.system_steps', 'insert')
+     or has_table_privilege('authenticated', 'public.system_steps', 'update')
+  then
+    raise exception 'System Step table privileges are unsafe';
+  end if;
+
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'products'
+      and column_name in (
+        'formal_title',
+        'card_tagline',
+        'routine_step_number',
+        'routine_step_name'
+      )
+  ) then
+    raise exception 'retired Product identity columns still exist';
   end if;
 
   if has_table_privilege(

@@ -10,8 +10,6 @@ const PRODUCT_SELECT = [
   "id",
   "slug",
   "display_name",
-  "formal_title",
-  "card_tagline",
   "product_type",
   "badge",
   "currency",
@@ -33,11 +31,12 @@ const PRODUCT_SELECT = [
   "usage_time",
   "search_keywords",
   "routine_group",
-  "routine_step_number",
-  "routine_step_name",
+  "system_step_name",
+  "system_steps(name,position,routine_group)",
   "routine_sort",
   "product_variants(variant_key,label,price_cents,sort_order,available,inventory_status)",
   "product_media(media_type,url,alt,width,height,role,sort_order,palette_id,placeholder_palette)",
+  "product_family_memberships!product_family_memberships_product_id_fkey(family_id,is_entry)",
 ].join(",");
 
 const ROUTINE_COMPLEMENT_SELECT =

@@ -17,7 +17,7 @@ export const catalogProduct: CatalogProductListItem = {
   id: PRODUCT_ID,
   slug: "cleanse-01-calming-gel-cleanser",
   displayName: "CLEANSE",
-  formalTitle: "CLEANSE 01 Calming Gel Cleanser",
+  productType: "Gel cleanser",
   routineGroup: "core",
   routineSort: 1,
   productStatus: "available",
@@ -39,12 +39,11 @@ export const catalogProduct: CatalogProductListItem = {
 };
 
 export const catalogDocument: CatalogDraftDocument = {
-  schemaVersion: 3,
+  schemaVersion: 4,
   productId: PRODUCT_ID,
   product: {
     badge: null,
     benefits: ["Cleans without stripping"],
-    card_tagline: "Clean skin. No tight finish.",
     catalog_status: "active",
     cautions: [],
     concerns: [],
@@ -54,7 +53,6 @@ export const catalogDocument: CatalogDraftDocument = {
     editorial_description: "A daily gel cleanser.",
     editorial_how_to_use: "Massage, then rinse.",
     finish: "Balanced",
-    formal_title: "CLEANSE 01 Calming Gel Cleanser",
     formula_notes: [],
     good_for: "All skin types",
     id: PRODUCT_ID,
@@ -65,8 +63,7 @@ export const catalogDocument: CatalogDraftDocument = {
     published_at: TIMESTAMP,
     routine_group: "core",
     routine_sort: 1,
-    routine_step_name: "Cleanse",
-    routine_step_number: 1,
+    system_step_name: "CLEANSE",
     search_keywords: [],
     seo_title: "CLEANSE | Mei Pelle",
     seo_description: "Daily gel cleanser.",
@@ -174,6 +171,7 @@ export const catalogDocument: CatalogDraftDocument = {
     },
   ],
   relationships: [],
+  productFamily: null,
   productSource: {
     product_id: PRODUCT_ID,
     supplier: "leaders",
@@ -194,7 +192,7 @@ export const catalogDocument: CatalogDraftDocument = {
 export const catalogDraft: CatalogDraft = {
   id: DRAFT_ID,
   product_id: PRODUCT_ID,
-  schema_version: 3,
+  schema_version: 4,
   status: "draft",
   base_revision: 3,
   version: 4,
@@ -231,6 +229,15 @@ export function editorResponse(publish = true): CatalogEditorResponse {
       drafts: [],
       revisions: [],
       audit: [],
+      slugRoutes: [
+        {
+          source_slug: "reset-01-calming-gel-cleanser",
+          source_product_id: catalogDocument.productId,
+          target_product_id: catalogDocument.productId,
+          route_kind: "rename",
+          created_at: "2026-06-29T00:00:00.000Z",
+        },
+      ],
     },
   };
 }

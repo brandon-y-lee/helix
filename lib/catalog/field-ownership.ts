@@ -1,4 +1,7 @@
 import type { Database } from "@/lib/database.types";
+import { SYSTEM_STEP_NAMES } from "@/lib/catalog/system-steps";
+import { PRODUCT_SLUG_MAX_LENGTH } from "@/lib/catalog/product-slug";
+import { PRODUCT_STATUSES } from "@/lib/products";
 
 type CatalogFieldOwner =
   | "supplier"
@@ -27,6 +30,8 @@ type CatalogInputKind =
 
 export type CatalogEditorTable =
   | "products"
+  | "product_families"
+  | "product_family_memberships"
   | "product_pdp_content"
   | "product_variants"
   | "product_media"
@@ -35,11 +40,14 @@ export type CatalogEditorTable =
   | "product_content_drafts"
   | "catalog_product_revisions"
   | "catalog_editor_audit_log"
+  | "product_slug_routes"
   | "algolia_products"
   | "next_data_cache";
 
 type TableRows = {
   products: Database["public"]["Tables"]["products"]["Row"];
+  product_families: Database["public"]["Tables"]["product_families"]["Row"];
+  product_family_memberships: Database["public"]["Tables"]["product_family_memberships"]["Row"];
   product_pdp_content: Database["public"]["Tables"]["product_pdp_content"]["Row"];
   product_variants: Database["public"]["Tables"]["product_variants"]["Row"];
   product_media: Database["public"]["Tables"]["product_media"]["Row"];
@@ -48,6 +56,7 @@ type TableRows = {
   product_content_drafts: Database["public"]["Tables"]["product_content_drafts"]["Row"];
   catalog_product_revisions: Database["public"]["Tables"]["catalog_product_revisions"]["Row"];
   catalog_editor_audit_log: Database["public"]["Tables"]["catalog_editor_audit_log"]["Row"];
+  product_slug_routes: Database["public"]["Tables"]["product_slug_routes"]["Row"];
 };
 
 export type CatalogFieldOwnership = {
@@ -176,21 +185,12 @@ const IMPORT_WARNING = "A future supplier import may overwrite this field.";
 export const CATALOG_FIELD_OWNERSHIP: readonly CatalogFieldOwnership[] = [
   ...fields("products", "system", NO_ROLES, [
     { field: "id", inputKind: "uuid", readOnlyReason: IMMUTABLE_IDENTITY },
-    {
-      field: "slug",
-      inputKind: "text",
-      previewRelevant: true,
-      readOnlyReason:
-        "Slug changes are disabled until the platform has a durable redirect and alias ledger.",
-    },
     { field: "created_at", inputKind: "date-time", readOnlyReason: IMMUTABLE_TIMESTAMP },
     { field: "published_at", inputKind: "date-time", readOnlyReason: IMMUTABLE_TIMESTAMP },
     { field: "updated_at", inputKind: "date-time", readOnlyReason: IMMUTABLE_TIMESTAMP },
   ]),
   ...fields("products", "editorial", NORMAL_ROLES, [
     { field: "display_name", inputKind: "text", previewRelevant: true },
-    { field: "formal_title", inputKind: "text", previewRelevant: true },
-    { field: "card_tagline", inputKind: "text", previewRelevant: true },
     { field: "product_type", inputKind: "text", previewRelevant: true },
     { field: "editorial_description", inputKind: "textarea", previewRelevant: true },
     { field: "editorial_how_to_use", inputKind: "textarea", previewRelevant: true },
@@ -224,17 +224,89 @@ export const CATALOG_FIELD_OWNERSHIP: readonly CatalogFieldOwnership[] = [
     },
   ]),
   ...fields("products", "commerce", ADMIN_ROLE, [
-    { field: "status", inputKind: "select", options: ["available", "coming_soon", "sold_out"], previewRelevant: true },
+    { field: "status", inputKind: "select", options: PRODUCT_STATUSES, previewRelevant: true },
   ]),
   ...fields("products", "system", ADMIN_ROLE, [
+    {
+      field: "slug",
+      inputKind: "text",
+      validation: `Maximum ${PRODUCT_SLUG_MAX_LENGTH} characters.`,
+      previewRelevant: true,
+      disruptive: true,
+      importWarning:
+        "A permanent redirect will be created: the old public URL will permanently redirect to the new Product URL.",
+    },
     { field: "catalog_status", inputKind: "select", options: ["draft", "active", "archived"], previewRelevant: true, disruptive: true },
     { field: "sort_order", inputKind: "number" },
     { field: "routine_group", inputKind: "select", options: ["core", "beyond_core"], previewRelevant: true, disruptive: true },
-    { field: "routine_step_number", inputKind: "number", nullable: true, previewRelevant: true },
-    { field: "routine_step_name", inputKind: "text", nullable: true, previewRelevant: true },
+    {
+      field: "system_step_name",
+      inputKind: "select",
+      nullable: true,
+      options: SYSTEM_STEP_NAMES,
+      previewRelevant: true,
+      disruptive: true,
+    },
     { field: "routine_sort", inputKind: "number", previewRelevant: true },
     { field: "swatch_from", inputKind: "color", previewRelevant: true },
     { field: "swatch_to", inputKind: "color", previewRelevant: true },
+  ]),
+
+  ...fields("product_slug_routes", "system", NO_ROLES, [
+    {
+      field: "source_slug",
+      inputKind: "text",
+      readOnlyReason: "Historical Product URL route records cannot be changed or deleted.",
+    },
+    {
+      field: "source_product_id",
+      inputKind: "uuid",
+      readOnlyReason: IMMUTABLE_IDENTITY,
+    },
+    {
+      field: "target_product_id",
+      inputKind: "uuid",
+      readOnlyReason: "Redirect targets can only change through the controlled replacement workflow.",
+    },
+    {
+      field: "route_kind",
+      inputKind: "select",
+      options: ["canonical", "rename", "replacement"],
+      readOnlyReason: "Route provenance is immutable history.",
+    },
+    {
+      field: "created_at",
+      inputKind: "date-time",
+      readOnlyReason: IMMUTABLE_TIMESTAMP,
+    },
+  ]),
+
+  ...fields("product_families", "system", NO_ROLES, [
+    { field: "id", inputKind: "uuid", readOnlyReason: IMMUTABLE_IDENTITY },
+    { field: "created_at", inputKind: "date-time", readOnlyReason: IMMUTABLE_TIMESTAMP },
+    { field: "updated_at", inputKind: "date-time", readOnlyReason: IMMUTABLE_TIMESTAMP },
+  ]),
+  ...fields("product_families", "system", ADMIN_ROLE, [
+    { field: "slug", inputKind: "text", disruptive: true },
+    { field: "display_name", inputKind: "text", previewRelevant: true },
+    {
+      field: "system_step_name",
+      inputKind: "select",
+      options: SYSTEM_STEP_NAMES,
+      disruptive: true,
+      previewRelevant: true,
+    },
+  ]),
+  ...fields("product_family_memberships", "system", NO_ROLES, [
+    { field: "family_id", inputKind: "uuid", readOnlyReason: IMMUTABLE_IDENTITY },
+    { field: "created_at", inputKind: "date-time", readOnlyReason: IMMUTABLE_TIMESTAMP },
+    { field: "updated_at", inputKind: "date-time", readOnlyReason: IMMUTABLE_TIMESTAMP },
+  ]),
+  ...fields("product_family_memberships", "system", ADMIN_ROLE, [
+    { field: "product_id", inputKind: "uuid", disruptive: true },
+    { field: "option_label", inputKind: "text", previewRelevant: true },
+    { field: "sort_order", inputKind: "number", previewRelevant: true },
+    { field: "is_entry", inputKind: "boolean", disruptive: true, previewRelevant: true },
   ]),
 
   ...fields("product_pdp_content", "system", NO_ROLES, [

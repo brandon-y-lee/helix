@@ -20,8 +20,6 @@ const snapshot = {
       slug: "product",
       path: "/products/product",
       displayName: "PRODUCT",
-      formalTitle: "Product",
-      cardTagline: "Tagline",
       productType: "Cleanser",
       badge: null,
       currency: "USD",
@@ -45,6 +43,8 @@ const snapshot = {
       systemPosition: 1,
       systemStepName: "CLEANSE",
       routineSort: 0,
+      familyId: null,
+      familyIsEntry: null,
       variants: [],
       media: [
         {

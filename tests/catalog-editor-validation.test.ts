@@ -3,27 +3,29 @@ import {
   assertValidProductEditorDocument,
   validateProductEditorDocument,
 } from "@/lib/admin/catalog/validation";
-import type { ProductEditorDocumentV3 } from "@/lib/admin/catalog/types";
+import type { ProductEditorDocumentV4 } from "@/lib/admin/catalog/types";
 import { catalogDocument } from "./fixtures/catalog-editor";
 
 const PRODUCT_ID = catalogDocument.productId;
 const VARIANT_ID = catalogDocument.variants[0].id;
 const MEDIA_ID = "123e4567-e89b-42d3-a456-426614174002";
 const ACTOR_ID = "123e4567-e89b-42d3-a456-426614174003";
+const FAMILY_ID = "123e4567-e89b-42d3-a456-426614174010";
+const FAMILY_MEMBER_ID = "123e4567-e89b-42d3-a456-426614174011";
 const APPROVED_ENV = {
   NODE_ENV: "test",
   NEXT_PUBLIC_SUPABASE_URL: "https://erasogmsqpgiirovubjh.supabase.co",
 } as NodeJS.ProcessEnv;
 
-function validDocument(): ProductEditorDocumentV3 {
+function validDocument(): ProductEditorDocumentV4 {
   const document = structuredClone(catalogDocument);
   document.media = [];
   return document;
 }
 
 function coreRoutineEditorialMedia(
-  overrides: Partial<ProductEditorDocumentV3["media"][number]> = {},
-): ProductEditorDocumentV3["media"][number] {
+  overrides: Partial<ProductEditorDocumentV4["media"][number]> = {},
+): ProductEditorDocumentV4["media"][number] {
   return {
     id: MEDIA_ID,
     product_id: PRODUCT_ID,
@@ -49,9 +51,90 @@ function coreRoutineEditorialMedia(
 describe("product editor document validation", () => {
   it("accepts the normalized versioned aggregate", () => {
     expect(assertValidProductEditorDocument(validDocument())).toMatchObject({
-      schemaVersion: 3,
+      schemaVersion: 4,
       productId: PRODUCT_ID,
     });
+  });
+
+  it("accepts a zero-Offer waitlist Product and rejects waitlist variants", () => {
+    const document = validDocument();
+    document.product.status = "waitlist";
+    document.product.catalog_status = "active";
+    document.variants = [];
+
+    expect(validateProductEditorDocument(document).issues).toEqual([]);
+
+    document.variants = [structuredClone(catalogDocument.variants[0])];
+    expect(validateProductEditorDocument(document).issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          path: "variants",
+          code: "waitlist_offer_forbidden",
+        }),
+      ]),
+    );
+  });
+
+  it("validates System Step identity independently from Display Name", () => {
+    const document = validDocument();
+    document.product.display_name = "Biotic Reset";
+    document.product.system_step_name = "CLEANSE";
+    expect(validateProductEditorDocument(document).issues).toEqual([]);
+
+    document.product.routine_group = "beyond_core";
+    expect(validateProductEditorDocument(document).issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          path: "product.system_step_name",
+          code: "routine_group_mismatch",
+        }),
+      ]),
+    );
+  });
+
+  it("rejects a Product Family aggregate without one entry, unique order, and the current Product membership", () => {
+    const document = validDocument();
+    Object.assign(document, {
+      productFamily: {
+        family: {
+          id: FAMILY_ID,
+          slug: "refine",
+          display_name: "REFINE",
+          system_step_name: "REFINE",
+          created_at: "2026-08-10T12:00:00.000Z",
+          updated_at: "2026-08-10T12:00:00.000Z",
+        },
+        memberships: [
+          {
+            family_id: FAMILY_ID,
+            product_id: FAMILY_MEMBER_ID,
+            option_label: "Exfoliating",
+            sort_order: 1,
+            is_entry: false,
+            created_at: "2026-08-10T12:00:00.000Z",
+            updated_at: "2026-08-10T12:00:00.000Z",
+          },
+          {
+            family_id: FAMILY_ID,
+            product_id: "123e4567-e89b-42d3-a456-426614174012",
+            option_label: "Brightening",
+            sort_order: 1,
+            is_entry: false,
+            created_at: "2026-08-10T12:00:00.000Z",
+            updated_at: "2026-08-10T12:00:00.000Z",
+          },
+        ],
+      },
+    });
+
+    expect(validateProductEditorDocument(document).issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: "family_step_mismatch" }),
+        expect.objectContaining({ code: "family_entry_required" }),
+        expect.objectContaining({ code: "duplicate_family_order" }),
+        expect.objectContaining({ code: "current_product_membership_required" }),
+      ]),
+    );
   });
 
   it("accepts current long-form SEO copy while retaining a finite bound", () => {
@@ -63,6 +146,20 @@ describe("product editor document validation", () => {
     expect(validateProductEditorDocument(document).issues).toEqual([
       expect.objectContaining({
         path: "product.seo_description",
+        code: "too_long",
+      }),
+    ]);
+  });
+
+  it("bounds canonical Product slugs for cache tags and public paths", () => {
+    const document = validDocument();
+    document.product.slug = "a".repeat(120);
+    expect(validateProductEditorDocument(document).issues).toEqual([]);
+
+    document.product.slug = "a".repeat(121);
+    expect(validateProductEditorDocument(document).issues).toEqual([
+      expect.objectContaining({
+        path: "product.slug",
         code: "too_long",
       }),
     ]);

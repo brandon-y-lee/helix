@@ -77,4 +77,50 @@ describe("catalog editor publish diff", () => {
       catalogDocumentDiff(withGallery, withoutGallery).diff.product_media,
     ).toContainEqual(expect.objectContaining({ disruptive: false }));
   });
+
+  it("records Product Family governance changes as administrator-owned publish facts", () => {
+    const candidate = structuredClone(catalogDocument);
+    candidate.product.system_step_name = "REFINE";
+    candidate.product.routine_group = "beyond_core";
+    candidate.productFamily = {
+      family: {
+        id: "123e4567-e89b-42d3-a456-426614174010",
+        slug: "refine",
+        display_name: "REFINE",
+        system_step_name: "REFINE",
+        created_at: "2026-08-10T12:00:00.000Z",
+        updated_at: "2026-08-10T12:00:00.000Z",
+      },
+      memberships: [
+        {
+          family_id: "123e4567-e89b-42d3-a456-426614174010",
+          product_id: candidate.productId,
+          option_label: "General",
+          sort_order: 0,
+          is_entry: true,
+          created_at: "2026-08-10T12:00:00.000Z",
+          updated_at: "2026-08-10T12:00:00.000Z",
+        },
+      ],
+    };
+
+    const result = catalogDocumentDiff(catalogDocument, candidate);
+
+    expect(result.affectedTables).toEqual(
+      expect.arrayContaining([
+        "product_families",
+        "product_family_memberships",
+      ]),
+    );
+    expect(result.advancedChanges).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          table: "product_family_memberships",
+          field: expect.stringContaining(`${candidate.productId} record`),
+          after: expect.objectContaining({ option_label: "General" }),
+          adminOnly: true,
+        }),
+      ]),
+    );
+  });
 });

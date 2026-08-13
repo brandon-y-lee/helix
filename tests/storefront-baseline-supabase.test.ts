@@ -38,6 +38,9 @@ describe("Supabase Storefront Catalog adapter", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
     const requests = fetchMock.mock.calls.map(([input]) => String(input));
     expect(requests.some((url) => url.includes("products?"))).toBe(true);
+    expect(
+      requests.some((url) => url.includes("product_family_memberships")),
+    ).toBe(true);
     expect(requests.some((url) => url.includes("product_relationships?"))).toBe(true);
     expect(requests.join(" ")).not.toMatch(
       /supplier|raw_source|catalog_editor|draft|audit/i,

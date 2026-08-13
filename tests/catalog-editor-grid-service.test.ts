@@ -77,7 +77,7 @@ describe("catalog editor product grid service", () => {
         id: productId,
         slug: "cleanse-01-calming-gel-cleanser",
         display_name: "CLEANSE",
-        formal_title: "CLEANSE 01 Calming Gel Cleanser",
+        product_type: "Daily gel cleanser",
         catalog_status: "active",
         status: "available",
         routine_group: "core",
@@ -157,7 +157,7 @@ describe("catalog editor product grid service", () => {
     ]);
     expect(products.calls.find((call) => call.method === "select")?.args[0])
       .toBe(
-        "id, slug, display_name, formal_title, catalog_status, status, routine_group, routine_sort, published_at, updated_at",
+        "id, slug, display_name, product_type, catalog_status, status, routine_group, routine_sort, published_at, updated_at",
       );
     expect(variants.calls.find((call) => call.method === "select")?.args[0])
       .toBe("product_id, price_cents");

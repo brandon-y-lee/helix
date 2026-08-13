@@ -1,5 +1,10 @@
-import { formatPrice, productPurchaseCta } from "@/lib/products";
 import {
+  formatPrice,
+  productOfferPresentation,
+  productPurchaseCta,
+} from "@/lib/products";
+import {
+  isStorefrontCollectionProduct,
   StorefrontBaselineError,
   type StorefrontSnapshot,
   type StorefrontSnapshotMedia,
@@ -10,7 +15,6 @@ import {
 export type StorefrontJourney =
   | "core"
   | "beyondCore"
-  | "purchasable"
   | "richPdp"
   | "searchable";
 
@@ -32,7 +36,6 @@ export type StorefrontGalleryItem = Readonly<{
 const JOURNEY_KEYS = {
   core: "coreProductId",
   beyondCore: "beyondCoreProductId",
-  purchasable: "purchasableProductId",
   richPdp: "richPdpProductId",
   searchable: "searchableProductId",
 } as const satisfies Readonly<
@@ -129,11 +132,18 @@ export function createStorefrontJourneys(snapshot: StorefrontSnapshot) {
       );
     },
     products(routineGroup?: StorefrontRoutineGroup) {
-      if (!routineGroup) return snapshot.products;
+      const collectionProducts = snapshot.products.filter(
+        isStorefrontCollectionProduct,
+      );
+      if (!routineGroup) return collectionProducts;
       const snapshotGroup = routineGroup === "core" ? "core" : "beyond_core";
-      return snapshot.products.filter(
+      return collectionProducts.filter(
         (product) => product.routineGroup === snapshotGroup,
       );
+    },
+    purchasableProduct(): StorefrontSnapshotProduct | null {
+      const productId = snapshot.journeys.purchasableProductId;
+      return productId ? requireProduct(snapshot, productId) : null;
     },
     purchase(product: StorefrontSnapshotProduct): StorefrontPurchase {
       const offer = product.offer;
@@ -166,11 +176,14 @@ export function createStorefrontJourneys(snapshot: StorefrontSnapshot) {
         variant,
       });
     },
-    cardPriceLabel(product: StorefrontSnapshotProduct): string {
-      const startingPrice = product.variants.length
-        ? Math.min(...product.variants.map((variant) => variant.price))
-        : 0;
-      return `${product.variants.length > 1 ? "From " : ""}${formatPrice(startingPrice)}`;
+    cardPriceLabel(product: StorefrontSnapshotProduct): string | null {
+      if (product.merchandisingStatus === "waitlist") return "Waitlist";
+      const presentation = productOfferPresentation(product.variants);
+      if (!presentation.showPrice) return null;
+      const startingPrice = Math.min(
+        ...presentation.offers.map((variant) => variant.price),
+      );
+      return `${presentation.hasMultipleOffers ? "From " : ""}${formatPrice(startingPrice)}`;
     },
     gallery(product: StorefrontSnapshotProduct): readonly StorefrontGalleryItem[] {
       const media = galleryMedia(product);

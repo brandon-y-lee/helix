@@ -90,9 +90,9 @@ function makeProduct(
     id: "11111111-1111-4111-8111-111111111111",
     slug: "cleanse-01-calming-gel-cleanser",
     displayName,
-    cardTagline: "Fresh, balanced skin",
     routineGroup: "core",
-    routineStepNumber: 1,
+    systemStepName: "CLEANSE",
+    systemStepPosition: 1,
     routineSort: 10,
     productType: "Gel cleanser",
     sortOrder: 0,
@@ -105,6 +105,7 @@ function makeProduct(
     volume: "50 ml",
     usageTime: ["AM", "PM"],
     createdAt: "2026-06-14T00:00:00.000Z",
+    productFamily: null,
   };
   return { ...base, ...overrides };
 }
@@ -125,6 +126,73 @@ describe("ProductCard quick buy", () => {
     if (!surface) throw new Error("Product card surface not found");
     return surface;
   }
+
+  it("renders the price beside Product Display Name and Product Type below", () => {
+    const { container } = render(
+      <ProductCard
+        product={makeProduct({
+          displayName: "Biotic Reset",
+          systemStepName: "CLEANSE",
+          productType: "Daily gel cleanser",
+        })}
+      />,
+    );
+
+    const cardLink = screen.getByRole("link", { name: "Biotic Reset" });
+    const step = within(cardLink).getByText("CLEANSE");
+    const identity = container.querySelector<HTMLElement>(
+      ".product-card__identity",
+    );
+    const displayRow = container.querySelector<HTMLElement>(
+      ".product-card__display-row",
+    );
+
+    expect(step).toHaveClass("product-card__step");
+    expect(identity).not.toBeNull();
+    expect(displayRow).not.toBeNull();
+    expect(
+      within(displayRow as HTMLElement).getByText("Biotic Reset"),
+    ).toHaveClass("product-card__display-name");
+    expect(within(displayRow as HTMLElement).getByText("$20.00")).toHaveClass(
+      "product-card__price",
+    );
+    expect(
+      within(identity as HTMLElement).getByText("Daily gel cleanser"),
+    ).toHaveClass("product-card__type");
+    expect(
+      (displayRow as HTMLElement).compareDocumentPosition(
+        within(identity as HTMLElement).getByText("Daily gel cleanser"),
+      ) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      step.compareDocumentPosition(identity as HTMLElement) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("shows waitlist Products without a price or purchase affordance", () => {
+    render(
+      <ProductCard
+        product={makeProduct({ status: "waitlist", variants: [] })}
+      />,
+    );
+
+    expect(screen.getByText("Waitlist")).toBeInTheDocument();
+    expect(screen.queryByText("$0.00")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "CLEANSE" })).toHaveAttribute(
+      "href",
+      "/products/cleanse-01-calming-gel-cleanser",
+    );
+  });
+
+  it("fails closed when stale waitlist card data still contains an Offer", () => {
+    render(<ProductCard product={makeProduct({ status: "waitlist" })} />);
+
+    expect(screen.getByText("Waitlist")).toBeInTheDocument();
+    expect(screen.queryByText("$20.00")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
 
   it("opens the inline panel without adding to cart", async () => {
     const user = userEvent.setup();
@@ -174,6 +242,64 @@ describe("ProductCard quick buy", () => {
     fireEvent.click(final as HTMLButtonElement);
     expect(cartMock.add).not.toHaveBeenCalled();
     expect(cartMock.openCartDrawer).not.toHaveBeenCalled();
+  });
+
+  it("omits fabricated pricing when a coming-soon Product has no Offer", () => {
+    render(
+      <ProductCard
+        product={makeProduct({
+          displayName: "Peptide Eye Cream",
+          productType: "PDRN eye cream",
+          status: "coming_soon",
+          variants: [],
+        })}
+      />,
+    );
+
+    const status = screen.getByRole("button", { name: "COMING SOON" });
+    expect(status).toBeDisabled();
+    expect(screen.queryByText("$0.00")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "OUT OF STOCK" })).toBeNull();
+  });
+
+  it("labels coming-soon Products truthfully without presenting a price", () => {
+    render(
+      <ProductCard
+        product={makeProduct({
+          displayName: "Biotic Reset",
+          status: "coming_soon",
+          variants: [
+            makeVariant({
+              available: false,
+              inventoryStatus: "unavailable",
+            }),
+          ],
+        })}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "COMING SOON" })).toBeDisabled();
+    expect(screen.queryByText("$20.00")).not.toBeInTheDocument();
+    expect(cartMock.add).not.toHaveBeenCalled();
+  });
+
+  it("withholds Offer presentation when inventory evidence is unavailable", () => {
+    render(
+      <ProductCard
+        product={makeProduct({
+          status: "available",
+          variants: [
+            makeVariant({
+              available: false,
+              inventoryStatus: "unavailable",
+            }),
+          ],
+        })}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "OUT OF STOCK" })).toBeDisabled();
+    expect(screen.queryByText("$20.00")).not.toBeInTheDocument();
   });
 
   it("adds from the final buy button and opens the cart drawer", async () => {

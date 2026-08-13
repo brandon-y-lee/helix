@@ -14,13 +14,34 @@ import {
 // Includes `id` (the Algolia objectID) alongside every storefront-safe field
 // the record builder needs.
 const SOURCE_SELECT =
-  "id, slug, display_name, formal_title, card_tagline, product_type, badge, " +
-  "routine_group, routine_step_number, routine_step_name, routine_sort, " +
+  "id, slug, display_name, product_type, badge, " +
+  "routine_group, system_step_name, system_steps ( name, position, routine_group ), routine_sort, " +
   "catalog_status, editorial_description, status, swatch_from, swatch_to, sort_order, created_at, " +
   "published_at, updated_at, made_for, good_for, texture, key_ingredients, " +
   "ingredients, concerns, usage_time, search_keywords, " +
+  "product_slug_routes!product_slug_routes_target_product_id_fkey ( source_slug, route_kind ), " +
+  "product_family_memberships!product_family_memberships_product_id_fkey ( family_id, option_label, sort_order, is_entry, product_families!inner ( slug, display_name ) ), " +
   "product_variants ( variant_key, label, price_cents, sort_order, available, inventory_status ), " +
   "product_media ( media_type, url, alt, width, height, role, sort_order, palette_id, placeholder_palette )";
+
+const FAMILY_SOURCE_SELECT = SOURCE_SELECT.replace(
+  "product_family_memberships!product_family_memberships_product_id_fkey (",
+  "product_family_memberships!product_family_memberships_product_id_fkey!inner (",
+);
+
+/** Build the public search projection from canonical catalog rows. */
+export function buildPublicSearchRecords(
+  rows: CatalogProductSource[],
+  now = Date.now(),
+): AlgoliaProductRecord[] {
+  return rows
+    .filter(
+      (row) =>
+        row.catalog_status === "active" &&
+        (!row.published_at || Date.parse(row.published_at) <= now),
+    )
+    .map(buildAlgoliaRecord);
+}
 
 /** All products as Algolia records, in canonical merchandising order. */
 export async function fetchAllSearchRecords(): Promise<AlgoliaProductRecord[]> {
@@ -36,9 +57,7 @@ export async function fetchAllSearchRecords(): Promise<AlgoliaProductRecord[]> {
     );
   }
 
-  return (data as unknown as CatalogProductSource[])
-    .filter((row) => row.catalog_status === "active")
-    .map(buildAlgoliaRecord);
+  return buildPublicSearchRecords(data as unknown as CatalogProductSource[]);
 }
 
 /** One product as an Algolia record, or null if it no longer exists. */
@@ -59,8 +78,30 @@ export async function fetchSearchRecordById(
   }
 
   if (!data) return null;
-  const row = data as unknown as CatalogProductSource;
-  if (row.catalog_status !== "active") return null;
-  if (row.published_at && Date.parse(row.published_at) > Date.now()) return null;
-  return buildAlgoliaRecord(row);
+  const [record] = buildPublicSearchRecords([
+    data as unknown as CatalogProductSource,
+  ]);
+  return record ?? null;
+}
+
+/** All current public member records for one canonical Product Family. */
+export async function fetchSearchRecordsByFamilyId(
+  familyId: string,
+): Promise<AlgoliaProductRecord[]> {
+  const { data, error } = await getSupabaseClient()
+    .from("products")
+    .select(FAMILY_SOURCE_SELECT)
+    .eq("product_family_memberships.family_id", familyId)
+    .order("sort_order", {
+      ascending: true,
+      referencedTable: "product_family_memberships",
+    });
+
+  if (error) {
+    throw new Error(
+      `[search-sync] Failed to read Product Family "${familyId}": ${error.message}`,
+    );
+  }
+
+  return buildPublicSearchRecords(data as unknown as CatalogProductSource[]);
 }
