@@ -2939,7 +2939,8 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   font-size: clamp(2.3rem, 5vw, 4rem);
 }
 
-.account-access-layout__heading--single-line {
+.account-access-layout__form h1.account-access-layout__heading--single-line {
+  font-size: clamp(2rem, 4.65vw, 3.75rem);
   white-space: nowrap;
 }
 
