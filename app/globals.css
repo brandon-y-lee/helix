@@ -2939,23 +2939,51 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   font-size: clamp(2.3rem, 5vw, 4rem);
 }
 
+.account-access-layout__heading--single-line {
+  white-space: nowrap;
+}
+
 .account-access-layout__visual {
+  position: relative;
   display: grid;
   min-width: 0;
   grid-column: 1;
   grid-row: 1;
-  place-items: center;
+  align-items: end;
+  justify-items: start;
+  isolation: isolate;
   padding: var(--pdp-panel-padding);
   background: var(--surface-muted);
-  color: var(--ink);
-  text-align: center;
+  color: #fff;
+  text-align: left;
+}
+
+.account-access-layout__visual::after {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgb(6 12 16 / 0%) 52%,
+    rgb(6 12 16 / 72%) 100%
+  );
+  content: "";
+}
+
+.account-access-layout__image {
+  z-index: 0;
+  object-fit: cover;
+  object-position: center;
 }
 
 .account-access-layout__visual p {
+  position: relative;
+  z-index: 2;
   max-width: 12ch;
   font-family: var(--font-heading);
   font-size: clamp(2.5rem, 4.5vw, 5rem);
   line-height: 1.08;
+  text-shadow: 0 1px 20px rgb(0 0 0 / 24%);
 }
 
 .account-panel {

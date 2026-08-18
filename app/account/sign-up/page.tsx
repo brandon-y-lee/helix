@@ -5,7 +5,7 @@ import { SignUpForm } from "@/components/account/AccountForms";
 import { getCurrentUserForPublicPage } from "@/lib/auth/session";
 
 export const metadata: Metadata = {
-  title: "Create account | Mei Pelle",
+  title: "Create Account | Mei Pelle",
 };
 
 export default async function SignUpPage() {
@@ -13,7 +13,7 @@ export default async function SignUpPage() {
   if (user) redirect("/account");
 
   return (
-    <AccountAccessLayout heading="Create account">
+    <AccountAccessLayout heading="Create Account" keepHeadingOnOneLine>
       <SignUpForm />
     </AccountAccessLayout>
   );
