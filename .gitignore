@@ -4,11 +4,11 @@ node_modules/
 
 # next.js
 .next/
-.mei-pelle-production-verification.lock
-.mei-pelle-production-verification.lock.candidate-*
-.mei-pelle-production-verification.lock.recovery
-.mei-pelle-production-verification.lock.recovery.candidate-*
-.mei-pelle-production-verification.lock.recovery-*
+.helix-production-verification.lock
+.helix-production-verification.lock.candidate-*
+.helix-production-verification.lock.recovery
+.helix-production-verification.lock.recovery.candidate-*
+.helix-production-verification.lock.recovery-*
 out/
 next-env.d.ts
 *.tsbuildinfo

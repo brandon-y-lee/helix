@@ -122,7 +122,7 @@ afterEach(() => {
 describe("Playwright global Storefront baseline setup", () => {
   it("writes one validated live snapshot to the shared test output", async () => {
     const outputDirectory = await mkdtemp(
-      join(tmpdir(), "mei-pelle-global-baseline-"),
+      join(tmpdir(), "helix-global-baseline-"),
     );
     const storefrontReads: string[] = [];
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {

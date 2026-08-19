@@ -102,7 +102,7 @@ Before the first remote `dev` creation, run the complete gate from `.github/work
 
 ```bash
 pnpm github:workflow:apply -- \
-  --confirm-repo brandon-y-lee/mei-pelle \
+  --confirm-repo brandon-y-lee/helix \
   --confirm-dev-sha <audited-dev-sha> \
   --confirm-ci-sha <same-CI-verified-sha>
 ```

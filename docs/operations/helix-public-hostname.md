@@ -16,7 +16,7 @@ Preview branch `dev`. The resulting non-secret configuration is:
 - Team: `Brandon's projects`
 - Project: `helix`
 - Project ID: `prj_N9nyPL9SixJHOROIovS8PDQ9aKny`
-- Connected repository: `brandon-y-lee/mei-pelle`
+- Connected repository: `brandon-y-lee/helix`
 - Domain: `helixskin.vercel.app`, valid and assigned to Preview branch `dev`
 - Preview environment variable for branch `dev`:
   `NEXT_PUBLIC_SITE_URL=https://helixskin.vercel.app`
@@ -24,6 +24,23 @@ Preview branch `dev`. The resulting non-secret configuration is:
 The controlled hostname resolved to the expected storefront after assignment.
 No production deployment was promoted and no live payment configuration was
 changed during this cutover.
+
+## Repository and deployment identity
+
+Ticket #191 completed the repository identity cutover on 2026-08-19. The
+GitHub repository was renamed in place from `brandon-y-lee/mei-pelle` to
+`brandon-y-lee/helix`; repository ID `1280166759`, issues, pull requests,
+history, and the provider-managed redirect from the former URL were preserved.
+The `dev` and `main` branch protections, required `ci` status check, Actions
+permissions, and disabled GitHub Pages state were re-read after the rename and
+remained unchanged.
+
+The Vercel project was already named `helix` when #191 began. Project ID
+`prj_N9nyPL9SixJHOROIovS8PDQ9aKny` and the stable
+`helixskin.vercel.app` domain were preserved; the project was not recreated.
+The connected Git repository was re-read after the GitHub rename and follows
+the in-place repository identity. No production deployment was promoted and no
+live payment configuration was changed for #191.
 
 ## Application consumers
 

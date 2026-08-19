@@ -64,7 +64,7 @@ function git(cwd: string, ...args: string[]): CommandResult {
 }
 
 function initialiseRepository(): { root: string; tempRoot: string } {
-  const tempRoot = mkdtempSync(join(tmpdir(), "mei-pelle-workflow-test-"));
+  const tempRoot = mkdtempSync(join(tmpdir(), "helix-workflow-test-"));
   const root = join(tempRoot, "repo");
   mkdirSync(root);
   expectSuccess(git(root, "init", "-b", "main"));
@@ -371,7 +371,7 @@ if (args[0] === "api") {
     process.exit(0);
   }
   const input = readFileSync(0, "utf8");
-  if (method === "PATCH" && endpoint === "repos/brandon-y-lee/mei-pelle") {
+  if (method === "PATCH" && endpoint === "repos/brandon-y-lee/helix") {
     const patch = JSON.parse(input);
     state.repo.mergeCommitAllowed = patch.allow_merge_commit;
     state.repo.squashMergeAllowed = patch.allow_squash_merge;
@@ -436,7 +436,7 @@ describe("GitHub workflow bootstrap", () => {
       const logPath = join(tempRoot, "github-calls.log");
       const state: FakeGithubState = {
         repo: {
-          nameWithOwner: "brandon-y-lee/mei-pelle",
+          nameWithOwner: "brandon-y-lee/helix",
           defaultBranchRef: { name: "main" },
           hasIssuesEnabled: true,
           mergeCommitAllowed: false,
@@ -457,7 +457,7 @@ describe("GitHub workflow bootstrap", () => {
         logPath,
         "plan",
         "--repo",
-        "brandon-y-lee/mei-pelle",
+        "brandon-y-lee/helix",
       );
       expectSuccess(planned);
       expect(planned.stdout).toContain(`create remote dev at ${devSha}`);
@@ -483,7 +483,7 @@ describe("GitHub workflow bootstrap", () => {
         statePath,
         JSON.stringify({
           repo: {
-            nameWithOwner: "brandon-y-lee/mei-pelle",
+            nameWithOwner: "brandon-y-lee/helix",
             defaultBranchRef: { name: "main" },
             hasIssuesEnabled: true,
             mergeCommitAllowed: true,
@@ -503,7 +503,7 @@ describe("GitHub workflow bootstrap", () => {
         logPath,
         "apply",
         "--repo",
-        "brandon-y-lee/mei-pelle",
+        "brandon-y-lee/helix",
       );
       expect(applied.status).not.toBe(0);
       expect(applied.stderr).toContain("apply requires --confirm-repo");
@@ -514,9 +514,9 @@ describe("GitHub workflow bootstrap", () => {
         logPath,
         "apply",
         "--repo",
-        "brandon-y-lee/mei-pelle",
+        "brandon-y-lee/helix",
         "--confirm-repo",
-        "brandon-y-lee/mei-pelle",
+        "brandon-y-lee/helix",
         "--confirm-dev-sha",
         devSha,
       );
@@ -537,7 +537,7 @@ describe("GitHub workflow bootstrap", () => {
         statePath,
         JSON.stringify({
           repo: {
-            nameWithOwner: "brandon-y-lee/mei-pelle",
+            nameWithOwner: "brandon-y-lee/helix",
             defaultBranchRef: { name: "main" },
             hasIssuesEnabled: true,
             mergeCommitAllowed: false,
@@ -558,9 +558,9 @@ describe("GitHub workflow bootstrap", () => {
         logPath,
         "apply",
         "--repo",
-        "brandon-y-lee/mei-pelle",
+        "brandon-y-lee/helix",
         "--confirm-repo",
-        "brandon-y-lee/mei-pelle",
+        "brandon-y-lee/helix",
         "--confirm-dev-sha",
         devSha,
         "--confirm-ci-sha",
@@ -583,7 +583,7 @@ describe("GitHub workflow bootstrap", () => {
         logPath,
         "plan",
         "--repo",
-        "brandon-y-lee/mei-pelle",
+        "brandon-y-lee/helix",
       );
       expectSuccess(plannedAgain);
       expect(plannedAgain.stdout).toContain("No changes required.");
@@ -600,7 +600,7 @@ describe("GitHub workflow bootstrap", () => {
         logPath,
         "plan",
         "--repo",
-        "brandon-y-lee/mei-pelle",
+        "brandon-y-lee/helix",
       );
       expectSuccess(approvalDrift);
       expect(approvalDrift.stdout).toContain("protect dev");
@@ -615,7 +615,7 @@ describe("GitHub workflow bootstrap", () => {
         logPath,
         "plan",
         "--repo",
-        "brandon-y-lee/mei-pelle",
+        "brandon-y-lee/helix",
       );
       expectSuccess(statusCheckDrift);
       expect(statusCheckDrift.stdout).toContain("protect dev");
@@ -633,7 +633,7 @@ describe("GitHub workflow bootstrap", () => {
         statePath,
         JSON.stringify({
           repo: {
-            nameWithOwner: "brandon-y-lee/mei-pelle",
+            nameWithOwner: "brandon-y-lee/helix",
             defaultBranchRef: { name: "main" },
             hasIssuesEnabled: true,
             mergeCommitAllowed: false,
@@ -655,9 +655,9 @@ describe("GitHub workflow bootstrap", () => {
         logPath,
         "apply",
         "--repo",
-        "brandon-y-lee/mei-pelle",
+        "brandon-y-lee/helix",
         "--confirm-repo",
-        "brandon-y-lee/mei-pelle",
+        "brandon-y-lee/helix",
         "--confirm-dev-sha",
         devSha,
         "--confirm-ci-sha",
@@ -692,7 +692,7 @@ describe("GitHub workflow bootstrap", () => {
         mutateState: (state) => {
           state.repo.nameWithOwner = "someone/else";
         },
-        expected: /not 'brandon-y-lee\/mei-pelle'/,
+        expected: /not 'brandon-y-lee\/helix'/,
       },
       {
         name: "ancestry",
@@ -720,7 +720,7 @@ describe("GitHub workflow bootstrap", () => {
         const logPath = join(tempRoot, "github-calls.log");
         const state: FakeGithubState = {
           repo: {
-            nameWithOwner: "brandon-y-lee/mei-pelle",
+            nameWithOwner: "brandon-y-lee/helix",
             defaultBranchRef: { name: "main" },
             hasIssuesEnabled: true,
             mergeCommitAllowed: true,
@@ -742,7 +742,7 @@ describe("GitHub workflow bootstrap", () => {
           logPath,
           "plan",
           "--repo",
-          "brandon-y-lee/mei-pelle",
+          "brandon-y-lee/helix",
         );
         expect(planned.status, scenario.name).not.toBe(0);
         expect(planned.stderr).toMatch(scenario.expected);

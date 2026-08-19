@@ -67,7 +67,7 @@ const lifecycleStdio = process.platform === "win32" ? "inherit" : "ignore";
 
 describe("Production Verification Node Adapters", () => {
   it("stores only the build ID and commit SHA in the artifact receipt", async () => {
-    const cwd = await mkdtemp(resolve(tmpdir(), "mei-pelle-artifact-receipt-"));
+    const cwd = await mkdtemp(resolve(tmpdir(), "helix-artifact-receipt-"));
     const nextDirectory = resolve(cwd, ".next");
     const receipt = {
       buildId: "receipt-build",
@@ -103,7 +103,7 @@ describe("Production Verification Node Adapters", () => {
   it(
     "starts and cleans up a complete owned process tree",
     async () => {
-      const cwd = await mkdtemp(resolve(tmpdir(), "mei-pelle-process-tree-"));
+      const cwd = await mkdtemp(resolve(tmpdir(), "helix-process-tree-"));
       const pidFile = resolve(cwd, "pids.json");
       const owned = await spawnOwnedProcess({
         args: ["-e", PROCESS_TREE_SCRIPT, pidFile],
@@ -140,7 +140,7 @@ describe("Production Verification Node Adapters", () => {
   it(
     "interrupts an owned command and cleans up its process tree",
     async () => {
-      const cwd = await mkdtemp(resolve(tmpdir(), "mei-pelle-process-interrupt-"));
+      const cwd = await mkdtemp(resolve(tmpdir(), "helix-process-interrupt-"));
       const pidFile = resolve(cwd, "pids.json");
       const controller = new AbortController();
       const command = runOwnedCommand({
@@ -206,7 +206,7 @@ describe("Production Verification Node Adapters", () => {
   it(
     "cleans up descendants after their root command exits",
     async () => {
-      const cwd = await mkdtemp(resolve(tmpdir(), "mei-pelle-process-orphan-"));
+      const cwd = await mkdtemp(resolve(tmpdir(), "helix-process-orphan-"));
       const pidFile = resolve(cwd, "pids.json");
 
       try {
@@ -355,7 +355,7 @@ describe("Production Verification Node Adapters", () => {
   });
 
   it("blocks a second lock owned by a live process", async () => {
-    const cwd = await mkdtemp(resolve(tmpdir(), "mei-pelle-live-lock-"));
+    const cwd = await mkdtemp(resolve(tmpdir(), "helix-live-lock-"));
 
     try {
       const first = await acquireCheckoutLock({ cwd, pid: process.pid });
@@ -371,10 +371,10 @@ describe("Production Verification Node Adapters", () => {
   it("recovers a stale lock without deleting a replacement owner", async () => {
     const cwd = resolve(
       tmpdir(),
-      `mei-pelle-stale-lock-${process.pid}-${Date.now()}`,
+      `helix-stale-lock-${process.pid}-${Date.now()}`,
     );
     await mkdir(cwd, { recursive: true });
-    const lockPath = resolve(cwd, ".mei-pelle-production-verification.lock");
+    const lockPath = resolve(cwd, ".helix-production-verification.lock");
 
     try {
       await writeFile(lockPath, "99999999\n");
@@ -392,7 +392,7 @@ describe("Production Verification Node Adapters", () => {
   });
 
   it("allows only one concurrent fresh-lock winner", async () => {
-    const cwd = await mkdtemp(resolve(tmpdir(), "mei-pelle-fresh-lock-race-"));
+    const cwd = await mkdtemp(resolve(tmpdir(), "helix-fresh-lock-race-"));
 
     try {
       const attempts = await Promise.allSettled(
@@ -412,8 +412,8 @@ describe("Production Verification Node Adapters", () => {
   }, 20_000);
 
   it("allows only one concurrent stale-lock recovery winner", async () => {
-    const cwd = await mkdtemp(resolve(tmpdir(), "mei-pelle-stale-lock-race-"));
-    const lockPath = resolve(cwd, ".mei-pelle-production-verification.lock");
+    const cwd = await mkdtemp(resolve(tmpdir(), "helix-stale-lock-race-"));
+    const lockPath = resolve(cwd, ".helix-production-verification.lock");
 
     try {
       await writeFile(lockPath, "99999999:stale\n");

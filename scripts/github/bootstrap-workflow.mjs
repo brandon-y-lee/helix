@@ -3,7 +3,7 @@
 import { spawnSync } from "node:child_process";
 
 const API_VERSION = "2026-03-10";
-const EXPECTED_REPOSITORY = "brandon-y-lee/mei-pelle";
+const EXPECTED_REPOSITORY = "brandon-y-lee/helix";
 const ghBin = process.env.GH_BIN ?? "gh";
 const gitBin = process.env.GIT_BIN ?? "git";
 

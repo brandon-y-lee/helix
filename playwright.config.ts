@@ -1,7 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const verificationAdapter = process.env.MEI_PELLE_VERIFICATION_ADAPTER === "1";
-const verificationBaseURL = process.env.MEI_PELLE_VERIFICATION_BASE_URL;
+const verificationAdapter = process.env.HELIX_VERIFICATION_ADAPTER === "1";
+const verificationBaseURL = process.env.HELIX_VERIFICATION_BASE_URL;
 if (!verificationAdapter || !verificationBaseURL) {
   throw new Error(
     "Direct Playwright execution is unsupported. " +

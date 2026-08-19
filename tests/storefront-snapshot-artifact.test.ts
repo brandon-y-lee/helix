@@ -29,7 +29,7 @@ afterEach(() => {
 describe("Storefront snapshot artifact", () => {
   it("writes one deterministic ignored-output artifact for worker processes", async () => {
     const outputDirectory = await mkdtemp(
-      join(tmpdir(), "mei-pelle-storefront-snapshot-"),
+      join(tmpdir(), "helix-storefront-snapshot-"),
     );
     try {
       const artifactPath = await writeStorefrontSnapshot(

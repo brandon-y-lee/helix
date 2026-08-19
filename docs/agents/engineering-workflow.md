@@ -1,6 +1,6 @@
 # Engineering workflow
 
-This is the canonical delivery lifecycle for Mei Pelle. Git mechanics live in [`docs/git-workflow.md`](../git-workflow.md); tracker commands live in [`docs/agents/issue-tracker.md`](./issue-tracker.md).
+This is the canonical delivery lifecycle for helix. Git mechanics live in [`docs/git-workflow.md`](../git-workflow.md); tracker commands live in [`docs/agents/issue-tracker.md`](./issue-tracker.md).
 
 ## Select the path
 
