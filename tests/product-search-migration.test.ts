@@ -268,6 +268,17 @@ describe("Product Search configuration inventory", () => {
     expect(readPage).toHaveBeenNthCalledWith(2, 1, 1);
   });
 
+  it("fails closed on an empty final index inventory page", async () => {
+    const readPage = vi
+      .fn()
+      .mockResolvedValueOnce({ items: [{ name: "other" }], nbPages: 2 })
+      .mockResolvedValueOnce({ items: [], nbPages: 2 });
+
+    await expect(collectPaginatedIndices(readPage, 1)).rejects.toThrow(
+      /inventory was incomplete/,
+    );
+  });
+
   it("collects every rules or synonyms page before reconciliation", async () => {
     const readPage = vi
       .fn()

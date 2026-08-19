@@ -242,11 +242,11 @@ export async function collectPaginatedIndices<T>(
     if (pages === 0 && response.items.length > 0) {
       throw new Error("[product-search] Invalid empty index inventory.");
     }
-    items.push(...response.items);
-    if (page + 1 >= pages) return items;
-    if (response.items.length === 0) {
+    if (pages > 0 && response.items.length === 0) {
       throw new Error("[product-search] Index inventory was incomplete.");
     }
+    items.push(...response.items);
+    if (page + 1 >= pages) return items;
   }
 }
 
