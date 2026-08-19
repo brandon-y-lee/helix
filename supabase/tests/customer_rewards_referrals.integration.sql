@@ -185,7 +185,7 @@ insert into public.private_feedback (
   'available'
 );
 
-update public.loyalty_accounts
+update public.rewards_accounts
 set points_balance = 2147483600, lifetime_points = 2147483600
 where user_id = '18500000-0000-4000-8000-000000000002';
 
@@ -212,14 +212,14 @@ select is(
 select is(
   (
     select count(*)::integer
-    from public.loyalty_ledger_entries
+    from public.rewards_ledger_entries
     where source_key = 'private-feedback:18500000-0000-4000-8000-000000000101'
   ),
   0,
   'a failed Points Award leaves no partial Points Ledger entry'
 );
 
-update public.loyalty_accounts
+update public.rewards_accounts
 set points_balance = 0, lifetime_points = 0
 where user_id = '18500000-0000-4000-8000-000000000002';
 
@@ -257,7 +257,7 @@ select is(
 select is(
   (
     select count(*)::integer
-    from public.loyalty_ledger_entries
+    from public.rewards_ledger_entries
     where source_key = 'private-feedback:18500000-0000-4000-8000-000000000101'
   ),
   1,

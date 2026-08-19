@@ -108,9 +108,21 @@ async function run(): Promise<void> {
       .in("source_key", [...sourceKeys]);
     requireNoError(reservationsError, "Points Reservation read");
 
-    if (account?.points_balance !== 0 || reservations?.length !== 1) {
+    const { data: ledgerEntries, error: ledgerEntriesError } = await supabase
+      .from("rewards_ledger_entries")
+      .select("id, points")
+      .eq("user_id", userId)
+      .in("source_key", [...sourceKeys]);
+    requireNoError(ledgerEntriesError, "Points Ledger read");
+
+    if (
+      account?.points_balance !== 0 ||
+      reservations?.length !== 1 ||
+      ledgerEntries?.length !== 1 ||
+      ledgerEntries[0]?.points !== -400
+    ) {
       throw new Error(
-        `Concurrent reservation invariant failed: balance=${account?.points_balance}, reservations=${reservations?.length}.`,
+        `Concurrent reservation invariant failed: balance=${account?.points_balance}, reservations=${reservations?.length}, ledgerEntries=${ledgerEntries?.length}.`,
       );
     }
 
@@ -194,6 +206,7 @@ async function run(): Promise<void> {
         successfulReservations: succeeded.length,
         rejectedReservations: failed.length,
         availablePointsBalance: account.points_balance,
+        pointsLedgerEntries: ledgerEntries.length,
         concurrentReferralQualifications: concurrentReferralQualifications.length,
         referralRewards: referralRewards.length,
       }),

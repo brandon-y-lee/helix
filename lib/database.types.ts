@@ -225,121 +225,6 @@ export type Database = {
           },
         ]
       }
-      loyalty_accounts: {
-        Row: {
-          created_at: string
-          lifetime_points: number
-          points_balance: number
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          lifetime_points?: number
-          points_balance?: number
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          lifetime_points?: number
-          points_balance?: number
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
-      loyalty_ledger_entries: {
-        Row: {
-          created_at: string
-          description: string
-          entry_type: Database["public"]["Enums"]["loyalty_ledger_entry_type"]
-          id: string
-          metadata: Json
-          order_id: string | null
-          points: number
-          source_key: string
-          status: Database["public"]["Enums"]["loyalty_ledger_status"]
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          description: string
-          entry_type: Database["public"]["Enums"]["loyalty_ledger_entry_type"]
-          id?: string
-          metadata?: Json
-          order_id?: string | null
-          points: number
-          source_key: string
-          status?: Database["public"]["Enums"]["loyalty_ledger_status"]
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          description?: string
-          entry_type?: Database["public"]["Enums"]["loyalty_ledger_entry_type"]
-          id?: string
-          metadata?: Json
-          order_id?: string | null
-          points?: number
-          source_key?: string
-          status?: Database["public"]["Enums"]["loyalty_ledger_status"]
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "loyalty_ledger_entries_order_id_fkey"
-            columns: ["order_id"]
-            isOneToOne: false
-            referencedRelation: "orders"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      loyalty_redemptions: {
-        Row: {
-          amount_cents: number
-          created_at: string
-          id: string
-          order_id: string | null
-          points: number
-          source_key: string
-          status: Database["public"]["Enums"]["loyalty_redemption_status"]
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          amount_cents: number
-          created_at?: string
-          id?: string
-          order_id?: string | null
-          points: number
-          source_key: string
-          status?: Database["public"]["Enums"]["loyalty_redemption_status"]
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          amount_cents?: number
-          created_at?: string
-          id?: string
-          order_id?: string | null
-          points?: number
-          source_key?: string
-          status?: Database["public"]["Enums"]["loyalty_redemption_status"]
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "loyalty_redemptions_order_id_fkey"
-            columns: ["order_id"]
-            isOneToOne: false
-            referencedRelation: "orders"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       order_items: {
         Row: {
           created_at: string
@@ -1384,6 +1269,121 @@ export type Database = {
           },
         ]
       }
+      rewards_accounts: {
+        Row: {
+          created_at: string
+          lifetime_points: number
+          points_balance: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          lifetime_points?: number
+          points_balance?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          lifetime_points?: number
+          points_balance?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      rewards_ledger_entries: {
+        Row: {
+          created_at: string
+          description: string
+          entry_type: Database["public"]["Enums"]["rewards_ledger_entry_type"]
+          id: string
+          metadata: Json
+          order_id: string | null
+          points: number
+          source_key: string
+          status: Database["public"]["Enums"]["rewards_ledger_status"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          entry_type: Database["public"]["Enums"]["rewards_ledger_entry_type"]
+          id?: string
+          metadata?: Json
+          order_id?: string | null
+          points: number
+          source_key: string
+          status?: Database["public"]["Enums"]["rewards_ledger_status"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          entry_type?: Database["public"]["Enums"]["rewards_ledger_entry_type"]
+          id?: string
+          metadata?: Json
+          order_id?: string | null
+          points?: number
+          source_key?: string
+          status?: Database["public"]["Enums"]["rewards_ledger_status"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rewards_ledger_entries_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rewards_reservations: {
+        Row: {
+          amount_cents: number
+          created_at: string
+          id: string
+          order_id: string | null
+          points: number
+          source_key: string
+          status: Database["public"]["Enums"]["rewards_reservation_status"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount_cents: number
+          created_at?: string
+          id?: string
+          order_id?: string | null
+          points: number
+          source_key: string
+          status?: Database["public"]["Enums"]["rewards_reservation_status"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount_cents?: number
+          created_at?: string
+          id?: string
+          order_id?: string | null
+          points?: number
+          source_key?: string
+          status?: Database["public"]["Enums"]["rewards_reservation_status"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rewards_reservations_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       stripe_customers: {
         Row: {
           checkout_environment: Database["public"]["Enums"]["checkout_environment"]
@@ -1505,133 +1505,7 @@ export type Database = {
       }
     }
     Views: {
-      rewards_accounts: {
-        Row: {
-          created_at: string | null
-          lifetime_points: number | null
-          points_balance: number | null
-          updated_at: string | null
-          user_id: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          lifetime_points?: number | null
-          points_balance?: number | null
-          updated_at?: string | null
-          user_id?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          lifetime_points?: number | null
-          points_balance?: number | null
-          updated_at?: string | null
-          user_id?: string | null
-        }
-        Relationships: []
-      }
-      rewards_ledger_entries: {
-        Row: {
-          created_at: string | null
-          description: string | null
-          entry_type:
-            | Database["public"]["Enums"]["loyalty_ledger_entry_type"]
-            | null
-          id: string | null
-          metadata: Json | null
-          order_id: string | null
-          points: number | null
-          source_key: string | null
-          status: Database["public"]["Enums"]["loyalty_ledger_status"] | null
-          user_id: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          description?: string | null
-          entry_type?:
-            | Database["public"]["Enums"]["loyalty_ledger_entry_type"]
-            | null
-          id?: string | null
-          metadata?: Json | null
-          order_id?: string | null
-          points?: number | null
-          source_key?: string | null
-          status?: Database["public"]["Enums"]["loyalty_ledger_status"] | null
-          user_id?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          description?: string | null
-          entry_type?:
-            | Database["public"]["Enums"]["loyalty_ledger_entry_type"]
-            | null
-          id?: string | null
-          metadata?: Json | null
-          order_id?: string | null
-          points?: number | null
-          source_key?: string | null
-          status?: Database["public"]["Enums"]["loyalty_ledger_status"] | null
-          user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "loyalty_ledger_entries_order_id_fkey"
-            columns: ["order_id"]
-            isOneToOne: false
-            referencedRelation: "orders"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      rewards_reservations: {
-        Row: {
-          amount_cents: number | null
-          created_at: string | null
-          id: string | null
-          order_id: string | null
-          points: number | null
-          source_key: string | null
-          status:
-            | Database["public"]["Enums"]["loyalty_redemption_status"]
-            | null
-          updated_at: string | null
-          user_id: string | null
-        }
-        Insert: {
-          amount_cents?: number | null
-          created_at?: string | null
-          id?: string | null
-          order_id?: string | null
-          points?: number | null
-          source_key?: string | null
-          status?:
-            | Database["public"]["Enums"]["loyalty_redemption_status"]
-            | null
-          updated_at?: string | null
-          user_id?: string | null
-        }
-        Update: {
-          amount_cents?: number | null
-          created_at?: string | null
-          id?: string | null
-          order_id?: string | null
-          points?: number | null
-          source_key?: string | null
-          status?:
-            | Database["public"]["Enums"]["loyalty_redemption_status"]
-            | null
-          updated_at?: string | null
-          user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "loyalty_redemptions_order_id_fkey"
-            columns: ["order_id"]
-            isOneToOne: false
-            referencedRelation: "orders"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
+      [_ in never]: never
     }
     Functions: {
       attach_checkout_session: {
@@ -1644,22 +1518,10 @@ export type Database = {
         }
         Returns: boolean
       }
-      award_loyalty_points: {
-        Args: {
-          p_description: string
-          p_entry_type: Database["public"]["Enums"]["loyalty_ledger_entry_type"]
-          p_metadata?: Json
-          p_order_id?: string
-          p_points: number
-          p_source_key: string
-          p_user_id: string
-        }
-        Returns: string
-      }
       award_rewards_points: {
         Args: {
           p_description: string
-          p_entry_type: Database["public"]["Enums"]["loyalty_ledger_entry_type"]
+          p_entry_type: Database["public"]["Enums"]["rewards_ledger_entry_type"]
           p_metadata?: Json
           p_order_id?: string
           p_points: number
@@ -1723,10 +1585,6 @@ export type Database = {
           p_source: string
         }
         Returns: Json
-      }
-      ensure_loyalty_account: {
-        Args: { p_user_id: string }
-        Returns: undefined
       }
       ensure_rewards_account: {
         Args: { p_user_id: string }
@@ -1883,31 +1741,11 @@ export type Database = {
         Args: { p_order_id: string }
         Returns: string
       }
-      submit_private_feedback_reward: {
-        Args: {
-          p_comments: string
-          p_feedback_id: string
-          p_rating: number
-          p_user_id: string
-        }
-        Returns: string
-      }
       record_rewards_points_adjustment: {
         Args: {
           p_description: string
-          p_entry_type: Database["public"]["Enums"]["loyalty_ledger_entry_type"]
+          p_entry_type: Database["public"]["Enums"]["rewards_ledger_entry_type"]
           p_metadata?: Json
-          p_order_id?: string
-          p_points: number
-          p_source_key: string
-          p_user_id: string
-        }
-        Returns: string
-      }
-      redeem_loyalty_points: {
-        Args: {
-          p_amount_cents: number
-          p_description: string
           p_order_id?: string
           p_points: number
           p_source_key: string
@@ -1918,10 +1756,6 @@ export type Database = {
       release_checkout_attempt: {
         Args: { p_attempt_token: string; p_order_id: string }
         Returns: boolean
-      }
-      release_loyalty_redemptions_for_order: {
-        Args: { p_order_id: string; p_reason: string; p_user_id: string }
-        Returns: number
       }
       release_rewards_reservations_for_order: {
         Args: { p_order_id: string; p_reason: string; p_user_id: string }
@@ -2129,6 +1963,15 @@ export type Database = {
         }
         Returns: Json
       }
+      submit_private_feedback_reward: {
+        Args: {
+          p_comments: string
+          p_feedback_id: string
+          p_rating: number
+          p_user_id: string
+        }
+        Returns: string
+      }
       transition_catalog_product_draft: {
         Args: {
           p_action: string
@@ -2143,22 +1986,6 @@ export type Database = {
     Enums: {
       cart_status: "active" | "merged" | "abandoned"
       checkout_environment: "sandbox"
-      loyalty_ledger_entry_type:
-        | "welcome"
-        | "purchase_earn"
-        | "purchase_refund"
-        | "redemption_reserved"
-        | "redemption_captured"
-        | "redemption_released"
-        | "redemption_reversal"
-        | "referral_entitlement_issued"
-        | "referral_entitlement_reserved"
-        | "referral_entitlement_consumed"
-        | "referral_entitlement_released"
-        | "private_feedback"
-        | "manual_adjustment"
-      loyalty_ledger_status: "pending" | "posted" | "void"
-      loyalty_redemption_status: "pending" | "applied" | "void" | "reversed"
       order_status:
         | "draft"
         | "pending_payment"
@@ -2176,6 +2003,22 @@ export type Database = {
       private_feedback_status: "available" | "submitted" | "rewarded" | "void"
       referral_reward_status: "available" | "reserved" | "consumed" | "void"
       referral_status: "pending" | "qualified" | "rewarded" | "void"
+      rewards_ledger_entry_type:
+        | "welcome"
+        | "purchase_earn"
+        | "purchase_refund"
+        | "redemption_reserved"
+        | "redemption_captured"
+        | "redemption_released"
+        | "redemption_reversal"
+        | "referral_entitlement_issued"
+        | "referral_entitlement_reserved"
+        | "referral_entitlement_consumed"
+        | "referral_entitlement_released"
+        | "private_feedback"
+        | "manual_adjustment"
+      rewards_ledger_status: "pending" | "posted" | "void"
+      rewards_reservation_status: "pending" | "applied" | "void" | "reversed"
       trustpilot_invitation_status: "blocked_private_feedback_only"
     }
     CompositeTypes: {
@@ -2306,23 +2149,6 @@ export const Constants = {
     Enums: {
       cart_status: ["active", "merged", "abandoned"],
       checkout_environment: ["sandbox"],
-      loyalty_ledger_entry_type: [
-        "welcome",
-        "purchase_earn",
-        "purchase_refund",
-        "redemption_reserved",
-        "redemption_captured",
-        "redemption_released",
-        "redemption_reversal",
-        "referral_entitlement_issued",
-        "referral_entitlement_reserved",
-        "referral_entitlement_consumed",
-        "referral_entitlement_released",
-        "private_feedback",
-        "manual_adjustment",
-      ],
-      loyalty_ledger_status: ["pending", "posted", "void"],
-      loyalty_redemption_status: ["pending", "applied", "void", "reversed"],
       order_status: [
         "draft",
         "pending_payment",
@@ -2342,6 +2168,23 @@ export const Constants = {
       private_feedback_status: ["available", "submitted", "rewarded", "void"],
       referral_reward_status: ["available", "reserved", "consumed", "void"],
       referral_status: ["pending", "qualified", "rewarded", "void"],
+      rewards_ledger_entry_type: [
+        "welcome",
+        "purchase_earn",
+        "purchase_refund",
+        "redemption_reserved",
+        "redemption_captured",
+        "redemption_released",
+        "redemption_reversal",
+        "referral_entitlement_issued",
+        "referral_entitlement_reserved",
+        "referral_entitlement_consumed",
+        "referral_entitlement_released",
+        "private_feedback",
+        "manual_adjustment",
+      ],
+      rewards_ledger_status: ["pending", "posted", "void"],
+      rewards_reservation_status: ["pending", "applied", "void", "reversed"],
       trustpilot_invitation_status: ["blocked_private_feedback_only"],
     },
   },
