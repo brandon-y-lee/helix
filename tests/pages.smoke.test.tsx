@@ -137,6 +137,9 @@ describe("public route states", () => {
     const decorativeMessage = screen.getByText("Your skin. Your system.");
     expect(decorativeMessage.closest('[aria-hidden="true"]')).not.toBeNull();
     expect(
+      decorativeMessage.parentElement?.querySelector("img")?.getAttribute("src"),
+    ).toContain("access-hero.webp");
+    expect(
       screen
         .getByRole("heading", { level: 1, name: "Sign in" })
         .compareDocumentPosition(decorativeMessage) &
@@ -165,8 +168,11 @@ describe("public route states", () => {
     render(await SignUpPage());
 
     expect(
-      screen.getByRole("heading", { level: 1, name: "Create account" }),
+      screen.getByRole("heading", { level: 1, name: "Create Account" }),
     ).toBeVisible();
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Create Account" }),
+    ).toHaveClass("account-access-layout__heading--single-line");
     expect(screen.queryByText("Account")).not.toBeInTheDocument();
 
     const fields = [

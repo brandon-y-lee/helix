@@ -13,7 +13,7 @@ export default async function SignUpPage() {
   if (user) redirect("/account");
 
   return (
-    <AccountAccessLayout heading="Create account">
+    <AccountAccessLayout heading="Create Account" keepHeadingOnOneLine>
       <SignUpForm />
     </AccountAccessLayout>
   );
