@@ -51,8 +51,12 @@ describe("rewards rules", () => {
     ["redemption_captured", "Points Redemption"],
     ["redemption_released", "Points Release"],
     ["redemption_reversal", "Points Reversal"],
-    ["referral_entitlement_issued", "Referral Reward"],
+    ["referral_entitlement_issued", "Referral Reward Issued"],
+    ["referral_entitlement_reserved", "Referral Reward Reserved"],
+    ["referral_entitlement_consumed", "Referral Reward Used"],
+    ["referral_entitlement_released", "Referral Reward Released"],
   ])("labels %s history as %s", (entryType, label) => {
-    expect(pointsLedgerEntryLabel(entryType)).toBe(label);
+    expect(pointsLedgerEntryLabel(entryType as Parameters<typeof pointsLedgerEntryLabel>[0]))
+      .toBe(label);
   });
 });

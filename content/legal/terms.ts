@@ -40,9 +40,9 @@ export const termsOfService: LegalDocument = {
       body: [
         "helix rewards requires an authenticated, confirmed account to earn Points, redeem Points, use Referral Offers, submit eligible private feedback, or receive Referral Rewards.",
         "Points have no cash value, are not transferable, do not currently expire, and may be adjusted or reversed after cancellations, failed payments, expirations, refunds, abuse, or reconciliation issues.",
-        "Checkout may apply at most one internal points reward or one referral offer. Rewards and referral offers do not stack with each other.",
-        "Private post-purchase feedback is first-party, private, and earns the same points regardless of sentiment. It is not a Trustpilot review and is not published publicly.",
-        "Mei Pelle does not award points for writing, editing, or deleting Trustpilot reviews.",
+        "Checkout may apply at most one Redemption Tier or one Referral Offer. Redemption Tiers and Referral Offers do not stack with each other.",
+        "Private post-purchase feedback is first-party, private, and earns the same Points Award regardless of sentiment. It is not a Trustpilot review and is not published publicly.",
+        "Helix does not award Points for writing, editing, or deleting Trustpilot reviews.",
       ],
     },
     {

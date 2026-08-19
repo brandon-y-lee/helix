@@ -58,6 +58,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getStripeClient } from "@/lib/stripe/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { REFERRAL_COOKIE_READ_ORDER } from "@/lib/referrals/constants";
+import { qualifyReferralForPaidOrder } from "@/lib/referrals/server";
 
 const CHECKOUT_SCHEMA_VERSION = "checkout_v1";
 
@@ -1107,31 +1108,6 @@ async function clearPurchasedCartLines(order: OrderRow): Promise<void> {
   }
 }
 
-async function qualifyReferralForPaidOrder(order: OrderRow): Promise<void> {
-  if (!order.referral_code || !order.user_id) return;
-  const admin = createSupabaseAdminClient();
-  const { data: attribution, error } = await admin
-    .from("referral_attributions")
-    .select("id, referrer_user_id, status")
-    .eq("order_id", order.id)
-    .maybeSingle();
-  if (error) throw new Error(`[referrals] Failed to load attribution: ${error.message}`);
-  const row = attribution as { id: string; referrer_user_id: string; status: string } | null;
-  if (!row || row.status === "qualified" || row.status === "rewarded") return;
-
-  await admin
-    .from("referral_attributions")
-    .update({ status: "qualified", qualified_at: new Date().toISOString() })
-    .eq("id", row.id)
-    .eq("status", "pending");
-  await admin.from("referral_rewards").insert({
-    user_id: row.referrer_user_id,
-    referral_attribution_id: row.id,
-    status: "available",
-    source_key: `referral-reward:${row.id}`,
-  });
-}
-
 async function paymentAttemptMetadata(
   sessionId: string,
 ): Promise<Record<string, unknown>> {
@@ -1218,7 +1194,7 @@ async function finalizePaidOrderSideEffects(order: OrderRow): Promise<void> {
     }
   }
 
-  await qualifyReferralForPaidOrder(order);
+  await qualifyReferralForPaidOrder(order.id);
   await clearPurchasedCartLines(order);
   revalidatePath("/account");
   revalidatePath("/rewards");

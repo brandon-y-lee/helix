@@ -20,7 +20,22 @@ export const REWARD_TIERS: RewardTier[] = [
   { id: "points_600", points: 600, discountCents: 1500, label: "$15 off" },
 ];
 
-const POINTS_LEDGER_ENTRY_LABELS: Record<string, string> = {
+export type PointsLedgerEntryType =
+  | "welcome"
+  | "purchase_earn"
+  | "private_feedback"
+  | "redemption_reserved"
+  | "redemption_captured"
+  | "redemption_released"
+  | "purchase_refund"
+  | "redemption_reversal"
+  | "referral_entitlement_issued"
+  | "referral_entitlement_reserved"
+  | "referral_entitlement_consumed"
+  | "referral_entitlement_released"
+  | "manual_adjustment";
+
+const POINTS_LEDGER_ENTRY_LABELS: Record<PointsLedgerEntryType, string> = {
   welcome: "Points Award",
   purchase_earn: "Points Award",
   private_feedback: "Points Award",
@@ -29,15 +44,15 @@ const POINTS_LEDGER_ENTRY_LABELS: Record<string, string> = {
   redemption_released: "Points Release",
   purchase_refund: "Points Reversal",
   redemption_reversal: "Points Reversal",
-  referral_entitlement_issued: "Referral Reward",
-  referral_entitlement_reserved: "Referral Reward",
-  referral_entitlement_consumed: "Referral Reward",
-  referral_entitlement_released: "Referral Reward",
+  referral_entitlement_issued: "Referral Reward Issued",
+  referral_entitlement_reserved: "Referral Reward Reserved",
+  referral_entitlement_consumed: "Referral Reward Used",
+  referral_entitlement_released: "Referral Reward Released",
   manual_adjustment: "Points Adjustment",
 };
 
-export function pointsLedgerEntryLabel(entryType: string): string {
-  return POINTS_LEDGER_ENTRY_LABELS[entryType] ?? "Points activity";
+export function pointsLedgerEntryLabel(entryType: PointsLedgerEntryType): string {
+  return POINTS_LEDGER_ENTRY_LABELS[entryType];
 }
 
 export function calculatePurchasePoints(eligibleNetMerchandiseCents: unknown): number {

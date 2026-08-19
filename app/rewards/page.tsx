@@ -44,27 +44,28 @@ export default async function RewardsPage() {
         <>
           <section className="checkout-result__panel rewards-hero">
             <p>
-              Earn {PURCHASE_POINTS_PER_DOLLAR} points per eligible merchandise
-              dollar, receive {WELCOME_REWARD_POINTS} points once with a confirmed
-              account, and earn {PRIVATE_FEEDBACK_POINTS} points for one private
-              first-party post-purchase feedback submission per eligible paid order.
+              Earn {PURCHASE_POINTS_PER_DOLLAR} Points per eligible merchandise
+              dollar, receive a {WELCOME_REWARD_POINTS}-Point welcome award once with
+              a confirmed account, and earn a {PRIVATE_FEEDBACK_POINTS}-Point Award
+              for one private first-party post-purchase feedback submission per
+              eligible Paid Order.
             </p>
             <p className="account-muted">
-              Points do not currently expire. Rewards have no cash value, cannot be
-              transferred, and cannot stack with referral offers.
+              Points do not currently expire. Points have no cash value and cannot be
+              transferred. Redemption Tiers cannot stack with Referral Offers.
             </p>
           </section>
 
           <section className="account-grid" aria-label="helix rewards overview">
             <article className="account-section">
-              <h2>Redeem points</h2>
+              <h2>Redemption Tiers</h2>
               <ul className="ledger-list">
                 {REWARD_TIERS.map((tier) => (
                   <li key={tier.id}>
-                    <span>{tier.points} points</span>
+                    <span>{tier.points} Points</span>
                     <span>{tier.label}</span>
                     <span>{formatPrice(tier.discountCents)}</span>
-                    <span>One per order</span>
+                    <span>One per Order</span>
                   </li>
                 ))}
               </ul>
@@ -74,26 +75,26 @@ export default async function RewardsPage() {
               <h2>Referrals</h2>
               <p className="account-muted">
                 Referred friends can receive {REFERRAL_DISCOUNT_PERCENT}% off their
-                first qualifying order of {formatPrice(REFERRAL_MINIMUM_SUBTOTAL_CENTS)}
-                {" "}or more before the referral discount. Confirmed accounts only; no
+                first qualifying Order of {formatPrice(REFERRAL_MINIMUM_SUBTOTAL_CENTS)}
+                {" "}or more before the Referral Offer is applied. Confirmed accounts only; no
                 self-referrals and no stacking.
               </p>
               {rewards.authenticated ? (
                 <div className="form-status" role="status">
-                  Your referral code: {rewards.referralCode ?? "initializing"}
+                  Your Referral Code: {rewards.referralCode ?? "initializing"}
                 </div>
               ) : (
                 <Link
                   href="/account/sign-in?next=%2Frewards"
                   className="btn btn--ghost btn--editorial-rounded"
                 >
-                  Sign in for referral code
+                  Sign in for a Referral Code
                 </Link>
               )}
             </article>
 
             <article className="account-section">
-              <h2>Your points</h2>
+              <h2>Your Points</h2>
               {rewards.authenticated ? (
                 <dl className="account-details">
                   <div>
@@ -111,8 +112,8 @@ export default async function RewardsPage() {
                 </dl>
               ) : (
                 <p className="account-muted">
-                  Sign in or create an account to earn, redeem, submit private
-                  feedback, and use referrals.
+                  Sign in or create an account to earn and redeem Points, submit
+                  private feedback, and use referrals.
                 </p>
               )}
             </article>
@@ -131,7 +132,7 @@ export default async function RewardsPage() {
                   ))}
                 </ul>
               ) : (
-                <p className="account-muted">No rewards activity yet.</p>
+                <p className="account-muted">No Points Ledger entries yet.</p>
               )}
             </article>
 
@@ -139,14 +140,14 @@ export default async function RewardsPage() {
               <h2>Private feedback</h2>
               <p className="account-muted">
                 This is a private helix survey. It is not a Trustpilot review,
-                is not public, and earns the same points regardless of sentiment.
+                is not public, and earns the same Points Award regardless of sentiment.
               </p>
               {rewards.feedbackRequests.length ? (
                 <ul className="feedback-list">
                   {rewards.feedbackRequests.map((request) => (
                     <li key={request.id}>
                       <span>{request.order_number}</span>
-                      <span>{request.points} points</span>
+                      <span>{request.points} Points</span>
                       <PrivateFeedbackForm
                         feedbackId={request.id}
                         orderNumber={request.order_number}
@@ -164,8 +165,8 @@ export default async function RewardsPage() {
             <article className="account-section">
               <h2>Trustpilot</h2>
               <p className="account-muted">
-                Trustpilot invitations are independent from rewards. Helix does
-                not award points for writing, editing, or deleting a Trustpilot
+                Trustpilot invitations are independent from helix rewards. Helix does
+                not award Points for writing, editing, or deleting a Trustpilot
                 review, and sandbox orders do not send real Trustpilot invitations.
               </p>
             </article>

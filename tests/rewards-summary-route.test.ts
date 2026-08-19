@@ -3,17 +3,28 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const rewards = vi.hoisted(() => ({
   getRewardsSummaryForCurrentUser: vi.fn(),
 }));
+const cart = vi.hoisted(() => ({
+  getCartState: vi.fn(),
+}));
 
 vi.mock("@/lib/rewards/server", () => rewards);
+vi.mock("@/lib/cart/server", () => cart);
 
 import { GET } from "@/app/api/rewards/summary/route";
 
 describe("Rewards summary route", () => {
   beforeEach(() => {
     rewards.getRewardsSummaryForCurrentUser.mockReset();
+    cart.getCartState.mockReset();
   });
 
-  it("uses only the cart subtotal from browser input and keeps the response private", async () => {
+  it("ignores browser authority and uses the server-backed Cart subtotal", async () => {
+    cart.getCartState.mockResolvedValue({
+      lines: [],
+      count: 0,
+      subtotal: 1_000,
+      currency: "USD",
+    });
     rewards.getRewardsSummaryForCurrentUser.mockResolvedValue({
       authenticated: true,
       emailConfirmed: true,
@@ -27,13 +38,12 @@ describe("Rewards summary route", () => {
       feedbackRequests: [],
     });
 
-    const response = await GET(new Request(
-      "https://helixskin.vercel.app/api/rewards/summary?subtotal=5000&pointsBalance=999999&userId=attacker",
-    ));
+    const response = await GET();
 
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("private, no-store");
-    expect(rewards.getRewardsSummaryForCurrentUser).toHaveBeenCalledWith(5_000);
+    expect(cart.getCartState).toHaveBeenCalledOnce();
+    expect(rewards.getRewardsSummaryForCurrentUser).toHaveBeenCalledWith(1_000);
     expect(await response.json()).toMatchObject({
       programName: "helix rewards",
       pointsBalance: 425,
@@ -41,13 +51,17 @@ describe("Rewards summary route", () => {
   });
 
   it("returns an honest retryable failure without leaking provider details", async () => {
+    cart.getCartState.mockResolvedValue({
+      lines: [],
+      count: 0,
+      subtotal: 0,
+      currency: "USD",
+    });
     rewards.getRewardsSummaryForCurrentUser.mockRejectedValue(
       new Error("provider leaked customer@example.test"),
     );
 
-    const response = await GET(new Request(
-      "https://helixskin.vercel.app/api/rewards/summary?subtotal=5000",
-    ));
+    const response = await GET();
     const body = await response.json();
 
     expect(response.status).toBe(503);

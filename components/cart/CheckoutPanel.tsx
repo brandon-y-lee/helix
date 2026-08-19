@@ -58,8 +58,7 @@ export function CheckoutPanel({
   useEffect(() => {
     let active = true;
     setRewardsStatus("loading");
-    const params = new URLSearchParams({ subtotal: String(subtotal) });
-    fetch(`/api/rewards/summary?${params.toString()}`, { cache: "no-store" })
+    fetch("/api/rewards/summary", { cache: "no-store" })
       .then((response) => {
         if (!response.ok) throw new Error("rewards unavailable");
         return response.json();
@@ -103,15 +102,15 @@ export function CheckoutPanel({
         ) : rewardSummary?.authenticated ? (
           <>
             <div className="summary-row">
-              <span>Estimated points</span>
+              <span>Estimated Points Award</span>
               <span>{rewardSummary.estimatedPurchasePoints ?? 0}</span>
             </div>
             <div className="summary-row">
-              <span>Available points</span>
+              <span>Available Points Balance</span>
               <span>{rewardSummary.pointsBalance ?? 0}</span>
             </div>
             <fieldset className="reward-selector">
-              <legend>Apply one reward</legend>
+              <legend>Choose one Redemption Tier</legend>
               <label>
                 <input
                   type="radio"
@@ -120,7 +119,7 @@ export function CheckoutPanel({
                   checked={selectedReward === "none"}
                   onChange={() => setSelectedReward("none")}
                 />
-                No reward
+                No Redemption Tier
               </label>
               {tiers.map((tier) => (
                 <label key={tier.id}>
@@ -131,19 +130,19 @@ export function CheckoutPanel({
                     checked={selectedReward === tier.id}
                     onChange={() => setSelectedReward(tier.id)}
                   />
-                  {tier.label} ({tier.points} points)
+                  {tier.label} ({tier.points} Points)
                 </label>
               ))}
               {tiers.length === 0 && (
                 <p className="checkout-panel__hint">
-                  No point rewards are available for this cart yet.
+                  No Redemption Tier is available for this Cart yet.
                 </p>
               )}
             </fieldset>
           </>
         ) : (
           <p className="checkout-panel__hint">
-            An account is required to earn and redeem points. Guest sandbox
+            An account is required to earn and redeem Points. Guest sandbox
             checkout is still available.
             {" "}
             <Link href="/account/sign-in?next=%2Fcart">Sign in</Link>

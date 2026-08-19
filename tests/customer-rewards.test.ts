@@ -113,7 +113,7 @@ describe("customer rewards service", () => {
     dependencies.createSupabaseAdminClient.mockReturnValue({ from, rpc });
 
     await expect(getRewardsSummaryForCurrentUser()).rejects.toThrow(
-      "Failed to ensure rewards account",
+      "helix rewards is temporarily unavailable.",
     );
     expect(from).not.toHaveBeenCalled();
   });
@@ -136,7 +136,7 @@ describe("customer rewards service", () => {
     dependencies.createSupabaseAdminClient.mockReturnValue({ from, rpc });
 
     await expect(getRewardsSummaryForCurrentUser()).rejects.toThrow(
-      "Failed to load Points Ledger",
+      "helix rewards is temporarily unavailable.",
     );
   });
 

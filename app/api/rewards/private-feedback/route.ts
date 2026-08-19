@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { RewardsServiceUnavailableError } from "@/lib/rewards/errors";
 import { submitPrivateFeedbackForCurrentUser } from "@/lib/rewards/server";
 
 export const dynamic = "force-dynamic";
@@ -23,6 +24,24 @@ export async function POST(request: Request): Promise<NextResponse> {
     });
     return NextResponse.json(result);
   } catch (error) {
+    if (error instanceof RewardsServiceUnavailableError) {
+      return NextResponse.json(
+        {
+          error: {
+            code: "REWARDS_SERVICE_UNAVAILABLE",
+            message: error.message,
+            retryable: true,
+          },
+        },
+        {
+          status: 503,
+          headers: {
+            "Cache-Control": "private, no-store",
+            "Retry-After": "5",
+          },
+        },
+      );
+    }
     const message =
       error instanceof Error
         ? error.message

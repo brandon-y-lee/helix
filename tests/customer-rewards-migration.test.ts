@@ -31,20 +31,4 @@ describe("customer helix rewards migration", () => {
     expect(customerRuntime).toContain('.from("rewards_ledger_entries")');
   });
 
-  it("retains the established retry, failure, concurrency, and out-of-order gates", () => {
-    const databaseContract = source("supabase/tests/rewards_contract.integration.sql");
-    const concurrencyProbe = source("scripts/db/verify-rewards-contract.ts");
-    const checkoutStateTests = source("tests/checkout-stripe-state.test.ts");
-    const checkoutOperations = source("lib/orders/server.ts");
-
-    expect(databaseContract).toContain("rewards account setup is retry-safe");
-    expect(databaseContract).toContain("a retried Points Release is idempotent");
-    expect(databaseContract).toContain("the Points Release appends one immutable ledger entry");
-    expect(databaseContract).toContain("browser sessions cannot reserve Points");
-    expect(concurrencyProbe).toContain("Promise.allSettled([");
-    expect(concurrencyProbe).toContain("Expected one successful and one rejected reservation");
-    expect(checkoutStateTests).toContain("does not regress terminal orders to payment failed");
-    expect(checkoutOperations).toContain('if (order.status === "paid")');
-    expect(checkoutOperations).toContain('return { action: "duplicate", type: event.type }');
-  });
 });

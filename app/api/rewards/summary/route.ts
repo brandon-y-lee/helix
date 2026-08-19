@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getCartState } from "@/lib/cart/server";
 import { getRewardsSummaryForCurrentUser } from "@/lib/rewards/server";
 import { HELIX_REWARDS_NAME } from "@/lib/rewards/rules";
 
@@ -9,13 +10,11 @@ const PRIVATE_RESPONSE_HEADERS = {
   "Cache-Control": "private, no-store",
 };
 
-export async function GET(request: Request): Promise<NextResponse> {
-  const url = new URL(request.url);
-  const subtotal = Number(url.searchParams.get("subtotal") ?? 0);
-
+export async function GET(): Promise<NextResponse> {
   try {
+    const cart = await getCartState();
     const summary = await getRewardsSummaryForCurrentUser(
-      Number.isFinite(subtotal) ? subtotal : 0,
+      cart.subtotal,
     );
     return NextResponse.json(summary, { headers: PRIVATE_RESPONSE_HEADERS });
   } catch {

@@ -9,7 +9,11 @@ import {
   WELCOME_REWARD_POINTS,
   affordableRewardTiers,
   calculatePurchasePoints,
+  type PointsLedgerEntryType,
 } from "@/lib/rewards/rules";
+import { RewardsServiceUnavailableError } from "@/lib/rewards/errors";
+
+export { RewardsServiceUnavailableError } from "@/lib/rewards/errors";
 
 export type RewardsSummary = {
   authenticated: boolean;
@@ -22,7 +26,7 @@ export type RewardsSummary = {
   referralCode: string | null;
   recentLedger: Array<{
     id: string;
-    entry_type: string;
+    entry_type: PointsLedgerEntryType;
     points: number;
     description: string;
     created_at: string;
@@ -47,7 +51,7 @@ async function ensureCurrentUserRewards(): Promise<{
     p_user_id: user.id,
   });
   if (ensureError) {
-    throw new Error(`[rewards] Failed to ensure rewards account: ${ensureError.message}`);
+    throw new RewardsServiceUnavailableError();
   }
   if (user.email_confirmed_at) {
     const { error: welcomeError } = await admin.rpc("award_rewards_points", {
@@ -60,7 +64,7 @@ async function ensureCurrentUserRewards(): Promise<{
       p_metadata: { email_confirmed: true },
     });
     if (welcomeError) {
-      throw new Error(`[rewards] Failed to award welcome Points: ${welcomeError.message}`);
+      throw new RewardsServiceUnavailableError();
     }
   }
 
@@ -113,16 +117,16 @@ export async function getRewardsSummaryForCurrentUser(
   ]);
 
   if (accountResult.error) {
-    throw new Error(`[rewards] Failed to load rewards account: ${accountResult.error.message}`);
+    throw new RewardsServiceUnavailableError();
   }
   if (referralResult.error) {
-    throw new Error(`[rewards] Failed to load Referral Code: ${referralResult.error.message}`);
+    throw new RewardsServiceUnavailableError();
   }
   if (ledgerResult.error) {
-    throw new Error(`[rewards] Failed to load Points Ledger: ${ledgerResult.error.message}`);
+    throw new RewardsServiceUnavailableError();
   }
   if (feedbackResult.error) {
-    throw new Error(`[rewards] Failed to load feedback requests: ${feedbackResult.error.message}`);
+    throw new RewardsServiceUnavailableError();
   }
   const account = accountResult.data as { points_balance?: number; lifetime_points?: number };
   const balance = Number(account.points_balance ?? 0);
@@ -174,7 +178,7 @@ export async function submitPrivateFeedbackForCurrentUser(input: {
     .eq("id", input.feedbackId)
     .eq("user_id", userId)
     .maybeSingle();
-  if (error) throw new Error(`[rewards] Failed to load feedback request: ${error.message}`);
+  if (error) throw new RewardsServiceUnavailableError();
   const row = feedback as { id: string; order_id: string; status: string } | null;
   if (!row || row.status !== "available") {
     throw new Error("This private feedback request is no longer available.");
@@ -192,7 +196,7 @@ export async function submitPrivateFeedbackForCurrentUser(input: {
     })
     .eq("id", row.id)
     .eq("status", "available");
-  if (updateError) throw new Error(`[rewards] Failed to save private feedback: ${updateError.message}`);
+  if (updateError) throw new RewardsServiceUnavailableError();
 
   const { error: awardError } = await admin.rpc("award_rewards_points", {
     p_user_id: userId,
@@ -203,7 +207,7 @@ export async function submitPrivateFeedbackForCurrentUser(input: {
     p_order_id: row.order_id,
     p_metadata: { sentiment_neutral_reward: true },
   });
-  if (awardError) throw new Error(`[rewards] Failed to award feedback points: ${awardError.message}`);
+  if (awardError) throw new RewardsServiceUnavailableError();
 
   revalidatePath("/account");
   revalidatePath("/rewards");
