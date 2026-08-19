@@ -19,7 +19,7 @@ import {
 const SECRET = "catalog-webhook-secret-that-is-long-enough";
 const DEPLOYMENT_BYPASS_SECRET = "vercel-preview-bypass-secret-that-is-long-enough";
 const ENDPOINT =
-  "https://preview.mei-pelle.example/api/webhooks/supabase/catalog-search-sync";
+  "https://helix-preview.example/api/webhooks/supabase/catalog-search-sync";
 const PRODUCT_ID = "11111111-1111-4111-8111-111111111111";
 
 const config: CatalogWebhookConfig = {
@@ -86,13 +86,13 @@ describe("catalog webhook desired state", () => {
       true,
     );
     expect(first.map((webhook) => webhook.name)).toEqual([
-      "mei_pelle_catalog_search_sync_products",
-      "mei_pelle_catalog_search_sync_product_variants",
-      "mei_pelle_catalog_search_sync_product_media",
-      "mei_pelle_catalog_search_sync_product_pdp_content",
-      "mei_pelle_catalog_search_sync_product_slug_routes",
-      "mei_pelle_catalog_search_sync_product_families",
-      "mei_pelle_catalog_search_sync_product_family_memberships",
+      "helix_catalog_search_sync_products",
+      "helix_catalog_search_sync_product_variants",
+      "helix_catalog_search_sync_product_media",
+      "helix_catalog_search_sync_product_pdp_content",
+      "helix_catalog_search_sync_product_slug_routes",
+      "helix_catalog_search_sync_product_families",
+      "helix_catalog_search_sync_product_family_memberships",
     ]);
   });
 
@@ -186,7 +186,7 @@ describe("catalog webhook desired state", () => {
     expect(mismatched.actions).toContainEqual({
       action: "update",
       table: "product_media",
-      name: "mei_pelle_catalog_search_sync_product_media",
+      name: "helix_catalog_search_sync_product_media",
     });
 
     const duplicate = buildCatalogWebhookReport(
@@ -204,11 +204,56 @@ describe("catalog webhook desired state", () => {
       {
         table: "products",
         triggerNames: [
-          "mei_pelle_catalog_search_sync_products",
+          "helix_catalog_search_sync_products",
           "unmanaged_products_webhook",
         ],
       },
     ]);
+  });
+
+  it("replaces exactly one legacy trigger without accepting old/new duplicates", () => {
+    const legacyName = "mei_pelle_catalog_search_sync_products";
+    const legacyOnly = buildCatalogWebhookReport(
+      "plan",
+      config,
+      state({
+        hooks: [
+          ...CATALOG_WEBHOOK_TABLES.filter((table) => table !== "products").map(
+            (table) => observed(table),
+          ),
+          observed("products", { triggerName: legacyName }),
+        ],
+      }),
+    );
+
+    expect(legacyOnly.ok).toBe(true);
+    expect(legacyOnly.actions).toContainEqual({
+      action: "update",
+      table: "products",
+      name: "helix_catalog_search_sync_products",
+      currentName: legacyName,
+    });
+
+    const desired = buildDesiredCatalogWebhooks(ENDPOINT, SECRET);
+    const sql = buildCatalogWebhookApplySql(desired, legacyOnly.actions);
+    expect(sql).toContain(
+      'drop trigger if exists "mei_pelle_catalog_search_sync_products"',
+    );
+    expect(sql).toContain(
+      'create trigger "helix_catalog_search_sync_products"',
+    );
+
+    const duplicate = buildCatalogWebhookReport(
+      "plan",
+      config,
+      state({
+        hooks: [
+          ...CATALOG_WEBHOOK_TABLES.map((table) => observed(table)),
+          observed("products", { triggerName: legacyName }),
+        ],
+      }),
+    );
+    expect(duplicate.ok).toBe(false);
   });
 
   it("keeps secrets out of deterministic plan and verification reports", () => {
@@ -301,13 +346,13 @@ describe("catalog webhook apply", () => {
     const sql = buildCatalogWebhookApplySql(desired, actions);
 
     expect(sql).toContain(
-      'drop trigger if exists "mei_pelle_catalog_search_sync_product_media"',
+      'drop trigger if exists "helix_catalog_search_sync_product_media"',
     );
     expect(sql).toContain(
-      'create trigger "mei_pelle_catalog_search_sync_product_media"',
+      'create trigger "helix_catalog_search_sync_product_media"',
     );
     expect(sql).not.toContain(
-      'create trigger "mei_pelle_catalog_search_sync_products"',
+      'create trigger "helix_catalog_search_sync_products"',
     );
   });
 
@@ -357,6 +402,8 @@ describe("catalog webhook smoke verification", () => {
       action: "upsert",
       table: "product_variants",
       objectID: PRODUCT_ID,
+      indexName: "helix_products",
+      publicIndexName: "helix_products",
       cache: {
         tags: ["catalog-product-offer:treat-03-pdrn-5-ampoule"],
         paths: ["/products/treat-03-pdrn-5-ampoule"],
@@ -379,6 +426,8 @@ describe("catalog webhook smoke verification", () => {
       authenticationVerified: true,
       childProductResolutionVerified: true,
       algoliaAttemptVerified: true,
+      indexName: "helix_products",
+      publicIndexName: "helix_products",
       cacheInvalidationAttemptVerified: true,
       duplicateDeliveryVerified: true,
     });
@@ -406,6 +455,8 @@ describe("catalog webhook smoke verification", () => {
       action: "upsert",
       table: "product_variants",
       objectID: PRODUCT_ID,
+      indexName: "helix_products",
+      publicIndexName: "helix_products",
       cache: { tags: ["tag"], paths: ["/products/example"] },
     };
     const partialFailure = vi
@@ -418,5 +469,27 @@ describe("catalog webhook smoke verification", () => {
     await expect(
       runCatalogWebhookSmoke(smokeConfig, partialFailure),
     ).rejects.toThrow(/Partial success/);
+  });
+
+  it("rejects a deployed public reader that still names the legacy index", async () => {
+    const mismatchedBody = {
+      ok: true,
+      action: "upsert",
+      table: "product_variants",
+      objectID: PRODUCT_ID,
+      indexName: "helix_products",
+      publicIndexName: "mei_pelle_products",
+      cache: { tags: ["tag"], paths: ["/products/example"] },
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response("{}", { status: 401 }))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(mismatchedBody), { status: 200 }),
+      );
+
+    await expect(
+      runCatalogWebhookSmoke(smokeConfig, fetchMock),
+    ).rejects.toThrow(/readers and writers/);
   });
 });
