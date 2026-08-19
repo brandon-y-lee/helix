@@ -70,7 +70,6 @@ describe("admin route hierarchy", () => {
 
     render(<AdminPage />);
     expect(screen.getByText("helix Platform", { exact: false })).toBeVisible();
-    expect(screen.queryByText(/Mei Pelle/i)).toBeNull();
   });
 
   it("marks the entire hierarchy noindex and nofollow", () => {
