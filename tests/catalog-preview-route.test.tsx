@@ -133,7 +133,7 @@ describe("catalog draft preview route", () => {
     routeMocks.project.mockReturnValue({
       product: {},
       coreProducts: [],
-      warnings: ["Confirm the Product education before publishing."],
+      warnings: ["Confirm the Product Education before publishing."],
     });
 
     render(
@@ -156,7 +156,7 @@ describe("catalog draft preview route", () => {
       screen.getByRole("complementary", {
         name: "Catalog Preview warnings",
       }),
-    ).toHaveTextContent("Confirm the Product education before publishing.");
+    ).toHaveTextContent("Confirm the Product Education before publishing.");
     expect(screen.getByTestId("real-pdp")).toHaveAttribute(
       "data-commerce-disabled",
       "true",
