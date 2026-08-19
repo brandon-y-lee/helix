@@ -3,7 +3,7 @@ import Link from "next/link";
 import { SANDBOX_CHECKOUT_NOTICE } from "@/lib/checkout/config";
 
 export const metadata: Metadata = {
-  title: "Checkout | Mei Pelle",
+  title: "Checkout | helix",
 };
 
 export default function CheckoutPage() {

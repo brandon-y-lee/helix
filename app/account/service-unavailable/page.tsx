@@ -3,7 +3,7 @@ import { AccountUnavailable } from "@/components/account/AccountUnavailable";
 import { safeReturnTo } from "@/lib/auth/redirect";
 
 export const metadata: Metadata = {
-  title: "Account unavailable | Mei Pelle",
+  title: "Account unavailable | helix",
 };
 
 export const dynamic = "force-dynamic";

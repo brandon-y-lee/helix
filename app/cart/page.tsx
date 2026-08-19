@@ -4,7 +4,7 @@ import { CheckoutCancellationCleanup } from "@/components/cart/CheckoutCancellat
 import { isCheckoutCancelledSearchParams } from "@/lib/orders/checkout-cancel";
 
 export const metadata: Metadata = {
-  title: "Cart | Mei Pelle",
+  title: "Cart | helix",
 };
 
 type CartPageProps = {

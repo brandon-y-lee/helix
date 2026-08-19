@@ -3,7 +3,7 @@ export type NamedCookie = {
   value?: string;
 };
 
-export const AUTH_DEGRADED_REQUEST_HEADER = "x-mei-pelle-auth-degraded";
+export { AUTH_DEGRADED_REQUEST_HEADER } from "@/lib/customer-state-identifiers";
 
 const SUPABASE_AUTH_COOKIE = /^sb-[a-z0-9]+-auth-token(?:\.\d+)?$/i;
 

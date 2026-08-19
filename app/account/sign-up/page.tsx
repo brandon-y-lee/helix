@@ -5,7 +5,7 @@ import { SignUpForm } from "@/components/account/AccountForms";
 import { getCurrentUserForPublicPage } from "@/lib/auth/session";
 
 export const metadata: Metadata = {
-  title: "Create account | Mei Pelle",
+  title: "Create account | helix",
 };
 
 export default async function SignUpPage() {

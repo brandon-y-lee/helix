@@ -44,10 +44,12 @@ consumers include:
 an allowed origin for project-controlled product media. It therefore receives
 the branch-scoped canonical value in the `dev` Preview deployment.
 
-## Supabase Auth follow-on
+## Supabase Auth configuration
 
 The approved non-production Supabase project is `erasogmsqpgiirovubjh`. A
-later configuration ticket must verify and, if needed, set:
+read-only dashboard preflight on 2026-08-19 found the Site URL still set to
+`http://localhost:3000` with an empty redirect allowlist. Ticket #181 updated
+the hosted Auth configuration to:
 
 - Site URL: `https://helixskin.vercel.app`
 - Redirect URL: `https://helixskin.vercel.app/auth/callback`
@@ -55,10 +57,9 @@ later configuration ticket must verify and, if needed, set:
 - Local redirect URL: `http://localhost:3000/auth/callback`
 - Local redirect URL: `http://localhost:3000/auth/confirm`
 
-The available project connector did not expose the Auth URL configuration and
-the Supabase Dashboard session was not authenticated, so the current remote
-Site URL and redirect allowlist were not observed. They were not mutated in
-#178.
+The Site URL and all four exact redirect URLs were visibly re-read after the
+update. No wildcard redirect, generated deployment hostname, Auth provider,
+template, account, or session setting was changed.
 
 ## Catalog webhook follow-on
 

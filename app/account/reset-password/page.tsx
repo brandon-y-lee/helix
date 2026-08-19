@@ -4,7 +4,7 @@ import { ResetPasswordForm } from "@/components/account/AccountForms";
 import { getCurrentUserForPublicPage } from "@/lib/auth/session";
 
 export const metadata: Metadata = {
-  title: "Set new password | Mei Pelle",
+  title: "Set new password | helix",
 };
 
 export default async function ResetPasswordPage() {
