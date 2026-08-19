@@ -19,9 +19,9 @@ export const returnsPolicy = {
 export const supportPolicy = {
   contactIntakeConfigured: false,
   contactStatus:
-    "Mei Pelle has not published a verified public support destination yet.",
+    "No verified public Support Channel has been published for helix.",
   privacyRequestRoute:
-    "Use the Contact page to review request categories while a verified privacy intake channel is finalized.",
+    "Use the Contact page to prepare Privacy Request details. The page cannot submit or store a request while Support Intake is unavailable.",
 };
 
 export function qualifiesForFreeStandardShipping(subtotalCents: unknown): boolean {

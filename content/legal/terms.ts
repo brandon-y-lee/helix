@@ -2,109 +2,70 @@ import type { LegalDocument } from "./types";
 
 export const termsOfService: LegalDocument = {
   title: "Terms of Service",
-  metadataTitle: "Terms of Service | Mei Pelle",
+  metadataTitle: "Terms of Service | helix",
   description:
-    "Terms for using Mei Pelle account tools, product information, cart features, and website content.",
+    "Prelaunch Terms of Service status for helix account, catalog, sandbox cart, and website features.",
   canonical: "/terms",
-  status: "Last updated June 24, 2026",
+  status: "Updated August 19, 2026",
   intro:
-    "These Terms of Service govern use of the Mei Pelle website, including account tools, product information, cart features, and support-policy content.",
+    "This page records the current prelaunch service boundary. It is not an operative Terms of Service and does not identify helix as a responsible legal person or entity.",
   sections: [
     {
-      id: "acceptance",
-      title: "Acceptance",
+      id: "publication-status",
+      title: "Publication Status",
       body: [
-        "By using the site, you agree to use it lawfully and consistently with these terms. If you do not agree, do not use the site.",
+        "Operative Terms of Service cannot be published until a Legal Operator and verified legal contact details exist and the final document has been reviewed.",
+        "Using the current site does not turn this prelaunch summary into an agreement with helix. helix is the brand presented by the site, not the absent Legal Operator.",
       ],
     },
     {
       id: "accounts",
-      title: "Accounts",
+      title: "Account Status",
       body: [
-        "Account tools are powered by Supabase authentication. You are responsible for using accurate account information and keeping your password secure.",
-        "Mei Pelle may restrict or disable access to accounts used to interfere with the site, bypass security, misuse the service, or violate these terms.",
+        "Account tools are powered by Supabase authentication. Customers can create an Account, confirm an email address, sign in, reset a password, and update optional profile names.",
+        "Security controls can restrict access that interferes with the site, bypasses authentication, or attempts to expose private data.",
       ],
     },
     {
       id: "commerce-status",
       title: "Commerce Status",
       body: [
-        "Checkout operates only through Stripe sandbox mode. Sandbox transactions can create order records and payment-status simulations, but they do not create real charges, shipments, fulfillment, labels, customer emails, or Trustpilot invitations.",
-        "Cart, reward, referral, shipping, tax, and order totals are revalidated on the server before Stripe Checkout. Browser-submitted prices, balances, discounts, user IDs, and totals are not authoritative.",
-        "Shipping, return, and refund content on the FAQ describes policy direction for the sandbox commerce flow and does not create a real shipment obligation without a future approved live-order launch.",
+        "Checkout operates only through Stripe sandbox mode. Sandbox transactions can create Order and payment-status records for testing, but they do not create real charges, Shipments, Fulfillment, labels, customer emails, or Trustpilot invitations.",
+        "Cart, rewards, referral, shipping, tax, and Order totals are revalidated on the server before sandbox Checkout. Browser-submitted prices, balances, discounts, user IDs, and totals are not authoritative.",
+        "Shipping, Return, Exchange, and refund content describes planned service direction only. It does not create a real purchase, Shipment, Return right, refund obligation, or other commerce commitment.",
       ],
     },
     {
       id: "rewards",
       title: "helix rewards and Referrals",
       body: [
-        "helix rewards requires an authenticated, confirmed account to earn Points, redeem Points, use Referral Offers, submit eligible private feedback, or receive Referral Rewards.",
-        "Points have no cash value, are not transferable, do not currently expire, and may be adjusted or reversed after cancellations, failed payments, expirations, refunds, abuse, or reconciliation issues.",
-        "Checkout may apply at most one Redemption Tier or one Referral Offer. Redemption Tiers and Referral Offers do not stack with each other.",
-        "Private post-purchase feedback is first-party, private, and earns the same Points Award regardless of sentiment. It is not a Trustpilot review and is not published publicly.",
-        "Helix does not award Points for writing, editing, or deleting Trustpilot reviews.",
+        "helix rewards is available only inside the current sandbox experience. It requires an authenticated, email-confirmed Account to earn or redeem test Points, use a Referral Offer, submit eligible private feedback, or receive a Referral Reward.",
+        "Test Points have no cash value and cannot be used for a real purchase. Current rules may reserve, release, reverse, or reconcile test Points after sandbox payment and Order state changes.",
+        "Private post-purchase feedback is first-party and private. It is not a Trustpilot review, is not published publicly, and receives the same test Points Award regardless of sentiment.",
+        "Writing, editing, or deleting a Trustpilot review does not earn Points.",
       ],
     },
     {
       id: "product-information",
       title: "Product Information",
       body: [
-        "Product pages, System content, and ingredient notes are educational and cosmetic in nature. They are not medical advice, diagnosis, or treatment.",
-        "Product availability, variants, pricing, presentation, ingredient details, and directions may change.",
+        "Product pages, System content, and ingredient notes are cosmetic education, not medical advice, diagnosis, or treatment.",
+        "Product availability, Variants, pricing, presentation, ingredient details, and directions may change before live commerce is authorized.",
       ],
     },
     {
-      id: "acceptable-use",
-      title: "Acceptable Use",
+      id: "providers",
+      title: "Current Providers",
       body: [
-        "Do not attempt to disrupt the site, scrape private data, bypass authentication, submit malicious content, reverse engineer restricted areas, or use the site in a way that violates law or harms others.",
-      ],
-    },
-    {
-      id: "intellectual-property",
-      title: "Intellectual Property",
-      body: [
-        "The Mei Pelle name, interface, product presentation, editorial copy, and visual system are intended as original brand materials except where third-party services, fonts, or supplier facts are identified.",
-        "You may not copy, modify, distribute, sell, or exploit site content except as allowed by law or with written permission.",
-      ],
-    },
-    {
-      id: "third-party-services",
-      title: "Third-Party Services",
-      body: [
-        "The site uses providers such as Supabase, Stripe, Algolia, Vercel/Next.js, and Google Fonts. Those services may process technical information needed to operate the site.",
-        "Trustpilot invitations are not implemented in the current codebase. Sandbox orders do not send real Trustpilot invitations.",
-        "Third-party services have their own terms and privacy practices. Mei Pelle is not responsible for services it does not control.",
-      ],
-    },
-    {
-      id: "disclaimers",
-      title: "Disclaimers",
-      body: [
-        "The site is provided as available. Mei Pelle does not promise uninterrupted availability, error-free operation, or that all content will remain unchanged.",
-        "To the fullest extent allowed by law, Mei Pelle disclaims warranties not expressly stated in these terms.",
-      ],
-    },
-    {
-      id: "liability",
-      title: "Limitation of Liability",
-      body: [
-        "To the fullest extent allowed by law, Mei Pelle will not be liable for indirect, incidental, special, consequential, exemplary, or punitive damages arising from site use.",
-        "Nothing in these terms limits rights that cannot be limited under applicable law.",
-      ],
-    },
-    {
-      id: "changes",
-      title: "Changes",
-      body: [
-        "Mei Pelle may update these terms as features, providers, or legal requirements change. Material updates should be reviewed before public release.",
+        "The site uses providers including Supabase, Stripe, Algolia, Vercel, Next.js, and Google Fonts. Provider-controlled services have their own terms and privacy practices.",
+        "Trustpilot invitations are not implemented. Sandbox Orders do not send real Trustpilot invitations.",
       ],
     },
     {
       id: "contact",
-      title: "Contact",
+      title: "Contact Status",
       body: [
-        "Use the Contact page to review support, accessibility, privacy, partnership, wholesale, and general inquiry categories while Mei Pelle finalizes a verified public intake channel.",
+        "No verified public Support Channel or legal contact destination has been published. The Contact page can help prepare inquiry details but cannot submit a Support Inquiry.",
       ],
     },
   ],

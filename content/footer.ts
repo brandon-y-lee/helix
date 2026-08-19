@@ -63,7 +63,7 @@ export const footerServiceCards: FooterServiceCard[] = [
   {
     id: "contact",
     label: "Contact status",
-    description: "Public support intake pending",
+    description: "Support Intake unavailable",
     href: "/contact",
     icon: "contact",
   },
@@ -86,12 +86,12 @@ export const footerServiceCards: FooterServiceCard[] = [
 export const footerStatusModules = {
   reviews: {
     label: "Customer reviews",
-    status: "Coming soon",
+    status: "Not available",
     note: "No public rating is published.",
   },
   social: {
     label: "Social channels",
-    status: "Coming soon",
+    status: "Not published",
     channels: [
       { label: "Instagram", mark: "IG" },
       { label: "Facebook", mark: "FB" },

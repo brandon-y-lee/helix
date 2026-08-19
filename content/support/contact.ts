@@ -81,7 +81,7 @@ export const contactPreparationGroups: ContactPreparationGroup[] = [
 
 export const contactIntakeStatus = {
   configured: supportPolicy.contactIntakeConfigured,
-  heading: "PUBLIC SUPPORT INTAKE PENDING",
+  heading: "SUPPORT INTAKE UNAVAILABLE",
   message:
-    "Mei Pelle has not published a verified public support destination yet. This page explains how inquiries will be routed once intake is available.",
+    "No verified public Support Channel has been published for helix. This page only prepares inquiry details; it cannot submit a Support Inquiry.",
 };

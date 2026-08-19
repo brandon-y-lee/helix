@@ -103,10 +103,10 @@ export function CookieAcknowledgementDialog({
               </button>
             </div>
             <p id={descriptionId}>
-              Helix uses essential cookies for authentication, Cart continuity,
-              and remembering this acknowledgement. Stripe may use
-              functional storage when payment-method messaging loads on an
-              eligible product page. Optional analytics and advertising
+              The helix Platform uses essential cookies for authentication,
+              Cart continuity, and remembering this acknowledgement. Stripe
+              may use functional storage when payment-method messaging loads
+              on an eligible Product page. Optional analytics and advertising
               categories are not active.
             </p>
             <div className="cookie-dialog__category">
@@ -133,8 +133,8 @@ export function CookieAcknowledgementDialog({
               <div>
                 <h3>Analytics and advertising</h3>
                 <p>
-                  Not active in this repository, so there are no optional
-                  toggles to save yet.
+                  Not active on the site, so there are no optional toggles to
+                  save.
                 </p>
               </div>
               <span>Off</span>

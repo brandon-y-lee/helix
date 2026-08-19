@@ -43,7 +43,9 @@ test("Account, Cart, Checkout, and acknowledgement use the helix identity", asyn
 
   await page.getByRole("button", { name: "Cookie notice" }).click();
   const acknowledgement = page.getByRole("dialog", { name: "Cookie notice" });
-  await expect(acknowledgement).toContainText("Helix uses essential cookies");
+  await expect(acknowledgement).toContainText(
+    "The helix Platform uses essential cookies",
+  );
   await expect(acknowledgement).not.toContainText("Mei Pelle");
 });
 

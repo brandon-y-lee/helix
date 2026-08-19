@@ -26,10 +26,10 @@ export const faqCategories: FAQCategory[] = [
     summary: "Product selection, ingredient facts, suitability, and routine fit.",
     items: [
       {
-        id: "what-is-mei-pelle",
-        question: "What is Mei Pelle?",
+        id: "what-is-helix",
+        question: "What is helix?",
         answer:
-          "Mei Pelle is a prestige men's skincare system built around concise product steps, ingredient literacy, and a disciplined daily routine.",
+          "helix is a prestige men's skincare brand built around concise Product steps, ingredient literacy, and a disciplined daily Routine.",
       },
       {
         id: "available-products",
@@ -59,7 +59,7 @@ export const faqCategories: FAQCategory[] = [
       },
       {
         id: "medical-advice",
-        question: "Is Mei Pelle medical advice?",
+        question: "Is helix medical advice?",
         answer:
           "No. Product pages and ingredient notes are cosmetic and educational. They are not medical advice, diagnosis, or treatment, and they should not replace guidance from a qualified clinician.",
       },
@@ -142,15 +142,15 @@ export const faqCategories: FAQCategory[] = [
     items: [
       {
         id: "free-shipping",
-        question: "Does Mei Pelle offer free standard shipping?",
+        question: "Does helix offer free standard shipping?",
         answer: `Standard shipping is planned to be free on eligible United States orders of ${formatFreeShippingThreshold()} before taxes and any discounts that change the merchandise subtotal.`,
       },
       {
         id: "shipping-destinations",
-        question: "Where will Mei Pelle ship?",
+        question: "Where will helix ship?",
         answer:
           shippingPolicy.destinationSummary +
-          " International, expedited, freight forwarder, and resale shipping terms are not available unless Mei Pelle publishes them later.",
+          " International, expedited, freight-forwarder, and resale shipping terms are unavailable unless a future Legal Operator publishes them.",
       },
       {
         id: "shipping-timing",
@@ -173,7 +173,7 @@ export const faqCategories: FAQCategory[] = [
       {
         id: "return-window",
         question: "What is the return window?",
-        answer: `Mei Pelle's planned return window is ${returnsPolicy.returnWindowDays} days from delivery for eligible items. ${returnsPolicy.condition}`,
+        answer: `The planned Return Window is ${returnsPolicy.returnWindowDays} days from Delivery for eligible items. ${returnsPolicy.condition} This is not an operative Return Policy.`,
       },
       {
         id: "damaged-missing",
@@ -189,13 +189,13 @@ export const faqCategories: FAQCategory[] = [
         id: "exchanges",
         question: "Do you offer exchanges?",
         answer:
-          "Direct exchanges are not planned as a default flow. If a damaged, missing, or incorrect item claim is approved, Mei Pelle may offer a replacement when inventory and support operations allow.",
+          "Direct Exchanges are not planned as a default flow. A future Item Claim process may provide a Replacement only after a Legal Operator, real Fulfillment, and Support Intake exist.",
       },
       {
         id: "shipping-costs",
         question: "Are original shipping costs refundable?",
         answer:
-          "Original shipping costs are not planned to be refundable unless Mei Pelle caused the issue or applicable law requires a different result.",
+          "Original shipping costs are not planned to be refundable unless a future Fulfillment issue or applicable law requires a different result. This is not an operative refund commitment.",
       },
     ],
   },
@@ -244,14 +244,14 @@ export const faqCategories: FAQCategory[] = [
     items: [
       {
         id: "contact-topics",
-        question: "What can I contact Mei Pelle about?",
+        question: "What will Support Intake cover?",
         answer:
-          "The Contact page organizes product, System, account, cart, accessibility, privacy, partnership, wholesale, and general inquiry topics so the right information is ready when public support intake opens.",
+          "The Contact page organizes Product, System, Account, Cart, Accessibility Feedback, Privacy Request, partnership, wholesale, and general Inquiry Types so details can be prepared while Support Intake is unavailable.",
         links: [{ label: "Contact", href: "/contact" }],
       },
       {
         id: "contact-intake",
-        question: "Can I send Mei Pelle a message through the site?",
+        question: "Can I submit a Support Inquiry through the site?",
         answer:
           supportPolicy.contactStatus +
           " The Contact page does not submit or store messages until a verified intake channel is published.",
@@ -287,14 +287,14 @@ export const faqCategories: FAQCategory[] = [
         id: "accessibility",
         question: "Where is the Accessibility Statement?",
         answer:
-          "The Accessibility Statement explains Mei Pelle's WCAG target, implemented practices, testing approach, and feedback path.",
+          "The Accessibility Statement explains the helix Accessibility Commitment, WCAG target, implemented practices, testing approach, and unavailable feedback channel.",
         links: [{ label: "Accessibility Statement", href: "/accessibility" }],
       },
       {
         id: "cookies",
-        question: "Where can I manage cookie preferences?",
+        question: "What does the Cookie notice record?",
         answer:
-          "Cookie Preferences explains the current essential-cookie setup and inactive optional categories. Your Privacy Choices explains the current state of sale, sharing, and targeted advertising controls.",
+          "The Cookie notice records only a Cookie Acknowledgement for the required and functional storage disclosure. It does not offer optional Cookie Preferences. Your Privacy Choices explains the current state of sale, sharing, and targeted-advertising controls.",
         links: [
           { label: "Cookie Policy", href: "/cookie-policy" },
           { label: "Your Privacy Choices", href: "/privacy-choices" },
