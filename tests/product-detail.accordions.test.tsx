@@ -84,7 +84,7 @@ function makeProduct(overrides: ProductOverrides = {}): PdpProduct {
   const editorialMedia: Product["media"] = [
     {
       kind: "video",
-      url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/mei-pelle-catalog/products/treat/routine/video.mp4",
+      url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/helix-catalog/products/treat/routine/video.mp4",
       alt: "TREAT routine application video.",
       width: 720,
       height: 1280,
@@ -95,7 +95,7 @@ function makeProduct(overrides: ProductOverrides = {}): PdpProduct {
     },
     {
       kind: "image",
-      url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/mei-pelle-catalog/products/treat/routine/poster.webp",
+      url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/helix-catalog/products/treat/routine/poster.webp",
       alt: "TREAT routine video poster showing skincare application.",
       width: 720,
       height: 1280,
@@ -106,7 +106,7 @@ function makeProduct(overrides: ProductOverrides = {}): PdpProduct {
     },
     {
       kind: "image",
-      url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/mei-pelle-catalog/products/treat/profile/profile.webp",
+      url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/helix-catalog/products/treat/profile/profile.webp",
       alt: "TREAT bottle with wood-grain cap on a warm neutral backdrop.",
       width: 1122,
       height: 1402,
@@ -117,7 +117,7 @@ function makeProduct(overrides: ProductOverrides = {}): PdpProduct {
     },
     {
       kind: "image",
-      url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/mei-pelle-catalog/products/treat/ingredients-texture/texture.webp",
+      url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/helix-catalog/products/treat/ingredients-texture/texture.webp",
       alt: "Golden TREAT serum formula texture with suspended air bubbles.",
       width: 1254,
       height: 1254,
@@ -381,7 +381,7 @@ describe("ProductDetail purchase accordions", () => {
     const user = userEvent.setup();
     const cartMedia = {
       kind: "image" as const,
-      url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/mei-pelle-catalog/products/treat-03-pdrn-5-ampoule/primary/hash.webp",
+      url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/helix-catalog/products/treat-03-pdrn-5-ampoule/primary/hash.webp",
       alt: "TREAT PDRN ampoule",
       width: 1400,
       height: 1867,
@@ -441,7 +441,7 @@ describe("ProductDetail purchase accordions", () => {
 
   it("keeps one canonical primary and removes synthetic gallery hues", () => {
     const sharedAsset =
-      "https://ERASOGMSQPGIIROVUBJH.supabase.co/storage/v1/object/public/mei-pelle-catalog/products/treat/primary/hash.webp";
+      "https://ERASOGMSQPGIIROVUBJH.supabase.co/storage/v1/object/public/helix-catalog/products/treat/primary/hash.webp";
     const media: Product["media"] = [
       {
         kind: "image",

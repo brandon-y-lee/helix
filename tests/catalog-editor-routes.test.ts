@@ -72,7 +72,7 @@ describe("catalog editor protected routes", () => {
       id: "123e4567-e89b-42d3-a456-426614174002",
       variant_id: null,
       media_type: "image",
-      url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/mei-pelle-catalog/products/refine/drafts/hash.webp",
+      url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/helix-catalog/products/refine/drafts/hash.webp",
       alt: "Product texture",
       width: 1200,
       height: 1600,
@@ -83,7 +83,7 @@ describe("catalog editor protected routes", () => {
       original_source_url: null,
       source_filename: "product.webp",
       pendingUpload: {
-        bucket: "mei-pelle-catalog",
+        bucket: "helix-catalog",
         path: "products/refine/drafts/hash.webp",
         sha256: "a".repeat(64),
         mimeType: "image/webp",

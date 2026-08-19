@@ -23,6 +23,7 @@ import type {
   OfferAvailability,
   PdpProduct,
 } from "@/lib/catalog/models";
+import { CATALOG_MEDIA_BUCKET } from "@/lib/catalog/media-storage";
 import type {
   PlaceholderPalette,
   ProductMedia,
@@ -180,7 +181,7 @@ function approvedStorageUrl(
     if (
       url.origin !== approvedOrigin ||
       !url.pathname.startsWith(
-        "/storage/v1/object/public/mei-pelle-catalog/",
+        `/storage/v1/object/public/${CATALOG_MEDIA_BUCKET}/`,
       )
     ) {
       return false;
