@@ -1,0 +1,3 @@
+# Complete the helix rebrand through coordinated identifier migrations
+
+The helix rebrand will finish without application-managed Mei Pelle compatibility identifiers or Mei Pelle-named remote resources. Resources that cannot be renamed in place will use a temporary create, copy, switch, verify, and delete sequence; the temporary bridge must be removed before the rebrand is complete. Applied migration files, immutable business history, opaque provider-assigned identifiers, and provider-managed redirects remain intact because they are historical or external identity rather than active Brand compatibility.

@@ -13,11 +13,11 @@ The complete composition and form of a Product as made from its Ingredients.
 _Avoid_: Product, Complete INCI
 
 **Ingredient Index**:
-Customer education that explains Ingredients used across Mei Pelle Products without replacing Product-specific Complete INCI.
+Customer education that explains Ingredients used across helix Products without replacing Product-specific Complete INCI.
 _Avoid_: Complete INCI, Ingredient Declaration
 
 **The System**:
-Mei Pelle's fixed seven-role skincare architecture: CLEANSE, REFINE, TREAT, FRAME, SEAL, PROTECT, and LIFT.
+The fixed seven-role helix skincare architecture: CLEANSE, REFINE, TREAT, FRAME, SEAL, PROTECT, and LIFT.
 _Avoid_: Method, Protocol, Routine
 
 **System Step**:

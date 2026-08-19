@@ -1,6 +1,6 @@
 # People & Access
 
-People & Access defines the people who interact with Mei Pelle, their relationship to an Account, and the authority under which they act.
+People & Access defines the people who interact with helix, their relationship to an Account, and the authority under which they act.
 
 ## Language
 
@@ -9,15 +9,15 @@ A person accessing or seeking to interact with the Public Site, whether or not t
 _Avoid_: Customer, User, Guest
 
 **Customer**:
-A person who shops or purchases from Mei Pelle. A Customer may act as a Guest or Account Holder and need not have completed a purchase.
+A person who shops or purchases from helix. A Customer may act as a Guest or Account Holder and need not have completed a purchase.
 _Avoid_: User, Member, Shopper
 
 **Guest**:
-A Customer who is not using an authenticated Mei Pelle account.
+A Customer who is not using an authenticated helix Account.
 _Avoid_: Anonymous User
 
 **Account Holder**:
-A Customer who controls a Mei Pelle Account, regardless of whether the Customer is currently signed in.
+A Customer who controls a helix Account, regardless of whether the Customer is currently signed in.
 _Avoid_: User, Member
 
 **Signed-in Account Holder**:
@@ -29,7 +29,7 @@ An Account Holder whose control of the Account email address has been confirmed.
 _Avoid_: Signed-in Account Holder, Verified Customer
 
 **Account**:
-The persistent Mei Pelle relationship through which an Account Holder accesses private Customer information and account-specific capabilities.
+The persistent helix relationship through which an Account Holder accesses private Customer information and account-specific capabilities.
 _Avoid_: Account Holder, Profile, Identity
 
 **Profile**:

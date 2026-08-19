@@ -1,6 +1,6 @@
-# Mei Pelle Context Map
+# Helix Context Map
 
-This map routes agents to the canonical project-specific language for the Mei Pelle platform. The glossaries form a maintained baseline rather than an exhaustive dictionary; a future task may add a justified term through domain modeling once its meaning is resolved.
+This map routes agents to the canonical project-specific language for the helix Platform. The glossaries form a maintained baseline rather than an exhaustive dictionary; a future task may add a justified term through domain modeling once its meaning is resolved.
 
 ## Reading Guide
 
@@ -12,15 +12,15 @@ Define an individual value from a finite platform vocabulary only when it has no
 
 | Context | Owns | Read when | Does not own |
 | --- | --- | --- | --- |
-| [Brand & Platform](./docs/domain/brand-platform/CONTEXT.md) | Mei Pelle, brand language, editorial posture, and platform surfaces | Naming the brand, a public or operator-facing surface, or platform-wide experience language | People, skincare concepts, catalog records, transactions, or policies |
+| [Brand & Platform](./docs/domain/brand-platform/CONTEXT.md) | helix, Brand language, editorial posture, and platform surfaces | Naming the Brand, a public or operator-facing surface, or platform-wide experience language | People, skincare concepts, catalog records, transactions, or policies |
 | [People & Access](./docs/domain/people-access/CONTEXT.md) | Visitors, Customers, Accounts, Profiles, authentication states, Operators, and roles | Describing a person, account relationship, identity state, or platform authority | Customer transactions, rewards, or service cases |
 | [Skincare](./docs/domain/skincare/CONTEXT.md) | The System, Routines, ingredients, concerns, formulation, and usage concepts | Describing skincare education, ingredient language, or how a Routine is composed | Catalog lifecycle, merchandising, or purchase state |
-| [Catalog & Discovery](./docs/domain/catalog-discovery/CONTEXT.md) | Products, Variants, Offers, merchandising, catalog operations, media, search, navigation, and recommendations | Describing what Mei Pelle presents, governs, publishes, finds, or offers | Skincare meaning, customer identity, or completed transaction facts |
+| [Catalog & Discovery](./docs/domain/catalog-discovery/CONTEXT.md) | Products, Variants, Offers, merchandising, catalog operations, media, search, navigation, and recommendations | Describing what helix presents, governs, publishes, finds, or offers | Skincare meaning, customer identity, or completed transaction facts |
 | [Ordering & Payment](./docs/domain/ordering-payment/CONTEXT.md) | Carts, Checkout, Orders, monetary components, payment, cancellation, and refunds | Describing purchase intent, agreed terms, or payment state | Catalog governance, customer identity, fulfillment, or reward-program rules |
-| [Rewards & Referrals](./docs/domain/rewards-referrals/CONTEXT.md) | MEI PELLE REWARDS, Points, ledgers, referral attribution, offers, and benefits | Describing program eligibility, earning, redemption, or referral value | Customer identity or the underlying Order and payment state |
+| [Rewards & Referrals](./docs/domain/rewards-referrals/CONTEXT.md) | helix rewards, Points, ledgers, referral attribution, offers, and benefits | Describing Program eligibility, earning, redemption, or referral value | Customer identity or the underlying Order and payment state |
 | [Feedback & Reputation](./docs/domain/feedback-reputation/CONTEXT.md) | Private feedback, customer reviews, ratings, third-party reviews, and endorsements | Describing first-party responses or public reputation signals | Order eligibility, Product facts, or support inquiries |
 | [Service & Fulfillment](./docs/domain/service-fulfillment/CONTEXT.md) | Support, shipping, delivery, returns, exchanges, claims, and service status | Describing assistance after or around a purchase, fulfillment, or service availability | Orders, customer identity, or binding policy language |
-| [Trust & Policy](./docs/domain/trust-policy/CONTEXT.md) | Legal documents, privacy, consent and preferences, accessibility, and public factual-status language | Describing Mei Pelle's formal commitments, customer choices, or truth-status of public information | Operational service cases, fulfillment actions, or brand positioning |
+| [Trust & Policy](./docs/domain/trust-policy/CONTEXT.md) | Legal documents, privacy, consent and preferences, accessibility, and public factual-status language | Describing the helix Platform's formal commitments, Customer choices, or truth-status of public information | Operational service cases, fulfillment actions, or Brand positioning |
 
 ## Relationships
 
