@@ -10,6 +10,7 @@ import {
 import { usePathname } from "next/navigation";
 import { signOutAction } from "@/app/account/actions";
 import { AdminNavigation } from "@/components/admin/shell/AdminNavigation";
+import { HelixIdentity } from "@/components/brand/HelixIdentity";
 import { Sheet } from "@/components/overlays/Sheet";
 import type { AdminModule } from "@/lib/admin/modules";
 
@@ -119,18 +120,21 @@ export function AdminShell({
       </a>
 
       <aside className="admin-sidebar">
-        <div className="admin-brand">
-          <span
-            className="admin-brand__wordmark"
-            aria-label={sidebarCollapsed ? "Mei Pelle Admin" : undefined}
-            title={sidebarCollapsed ? "Mei Pelle Admin" : undefined}
-          >
-            <span aria-hidden={sidebarCollapsed || undefined}>
-              {sidebarCollapsed ? "MP" : "MEI PELLE"}
-            </span>
-          </span>
+        <div
+          className="admin-brand"
+          role="img"
+          aria-label="helix Admin"
+          title={sidebarCollapsed ? "helix Admin" : undefined}
+        >
+          <HelixIdentity
+            className="admin-brand__identity"
+            variant={sidebarCollapsed ? "symbol" : "wordmark"}
+            decorative
+          />
           {sidebarCollapsed ? null : (
-            <span className="admin-brand__label">ADMIN</span>
+            <span className="admin-brand__label" aria-hidden="true">
+              ADMIN
+            </span>
           )}
         </div>
         <button
@@ -167,7 +171,14 @@ export function AdminShell({
           >
             Menu
           </button>
-          <span className="admin-mobile-header__brand">MEI PELLE ADMIN</span>
+          <span
+            className="admin-mobile-header__brand"
+            role="img"
+            aria-label="helix Admin"
+          >
+            <HelixIdentity decorative />
+            <span aria-hidden="true">ADMIN</span>
+          </span>
           <span className="admin-mobile-header__current">{currentView}</span>
         </header>
 
@@ -185,7 +196,7 @@ export function AdminShell({
         open={mobileNavigationOpen}
         side="left"
         title="Admin menu"
-        description="Navigate Mei Pelle internal tools."
+        description="Navigate helix internal tools."
         onClose={closeMobileNavigation}
         returnFocus={restoreMenuFocus}
         className="admin-drawer"

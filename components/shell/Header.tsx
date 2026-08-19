@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { HelixIdentity } from "@/components/brand/HelixIdentity";
 import { useCartDrawer } from "@/components/cart/CartProvider";
 import { useCartCount } from "@/components/cart/useCart";
 import { SearchOverlay } from "@/components/search/SearchOverlay";
@@ -207,8 +208,8 @@ export function Header({
           <Link href="/system" aria-current={current("/system")}>SYSTEM</Link>
           <Link href="/about" aria-current={current("/about")}>ABOUT</Link>
         </nav>
-        <Link href="/" className="brand" aria-label="Mei Pelle home">
-          MEI PELLE
+        <Link href="/" className="brand" aria-label="helix home">
+          <HelixIdentity decorative />
         </Link>
         <nav className="site-nav site-nav--right" aria-label="Utilities">
           <button
@@ -260,7 +261,7 @@ export function Header({
         open={menuOpen}
         side="left"
         title="Menu"
-        eyebrow="Mei Pelle"
+        eyebrow="helix"
         description="Primary navigation"
         onClose={closeMenu}
         returnFocus={returnFocusToMenu}

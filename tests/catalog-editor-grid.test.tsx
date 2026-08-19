@@ -48,6 +48,11 @@ describe("CatalogProductGrid", () => {
       "href",
       `/admin/catalog/products/${catalogProduct.id}`,
     );
+    const mediaFallback = screen.getByLabelText("No product image");
+    expect(
+      mediaFallback.querySelector('[data-helix-identity="symbol"]'),
+    ).toHaveAttribute("aria-hidden", "true");
+    expect(mediaFallback).not.toHaveTextContent("MEI PELLE");
     expect(screen.getByText("$22.00")).toBeVisible();
 
     listProducts.mockResolvedValueOnce({

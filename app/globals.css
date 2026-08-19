@@ -540,12 +540,8 @@ body[data-sheet-scroll-lock] .site-header {
 
 .site-footer__wordmark h2 {
   width: 100%;
+  height: clamp(3.5rem, 21vw, 20rem);
   color: var(--ink);
-  font-size: clamp(2rem, 21vw, 26rem);
-  font-weight: 550;
-  line-height: 0.86;
-  text-align: center;
-  text-transform: none;
   transform: scale(
     var(--site-footer-wordmark-scale, var(--site-footer-wordmark-static-scale))
   );
@@ -578,6 +574,11 @@ body[data-sheet-scroll-lock] .site-header {
 .site-footer__wordmark a {
   display: block;
   width: 100%;
+  height: 100%;
+}
+
+.site-footer__wordmark svg {
+  height: 100%;
 }
 
 .site-footer__wordmark a:focus-visible {
@@ -2389,12 +2390,8 @@ main:focus {
 
 .brand {
   grid-column: 2;
-  font-family: var(--font-heading);
-  font-size: clamp(1.25rem, 2.4vw, 1.85rem);
-  font-weight: 400;
-  letter-spacing: 0.08em;
+  width: clamp(6.75rem, 8vw, 7.25rem);
   justify-self: center;
-  white-space: nowrap;
 }
 
 .site-nav {
@@ -3332,8 +3329,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   }
 
   .brand {
-    font-size: 1.16rem;
-    letter-spacing: 0.06em;
+    width: 6.5rem;
   }
 
   .display-secondary {
