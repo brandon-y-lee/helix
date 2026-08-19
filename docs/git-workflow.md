@@ -64,9 +64,44 @@ scripts/git/codex-task.sh cleanup <task-worktree>
 scripts/git/codex-task.sh cleanup
 ```
 
-The helper queries the PR through `gh`, requires the merged base to be `dev`, and verifies that the merged PR head is the current task commit. It then deletes the recorded review-base ref and local task branch and removes helper-created Local worktrees. It leaves the remote branch to GitHub's delete-on-merge setting.
+The helper queries the PR through `gh`, requires the merged base to be `dev`, and verifies that the merged PR head is the current task commit. GitHub failures remain visible so unavailable evidence cannot look like an ordinary unmerged PR. It then deletes the recorded review-base ref and local task branch and removes the linked task worktree, whether the worktree was created by the helper or managed by the Codex app. It leaves the remote branch to GitHub's delete-on-merge setting.
 
 Before cleanup, the merging agent comments on the ticket with the PR, squash commit, verification, and `code-review` outcome; closes the ticket; and advances the parent spec state. The parent spec closes after every child ticket PR is integrated into `dev`.
+
+### Reconcile accumulated task state
+
+Audit the complete repository before removing accumulated worktrees or refs:
+
+```bash
+scripts/git/codex-task.sh reconcile
+```
+
+The default is read-only. It inventories linked worktrees, local branches, `refs/codex/review-base/*`, tracked `origin/*` branches, open issues, and pull requests. Each item is reported as protected, active, dirty, safely removable, or unproven together with its evidence. `main`, `dev`, the primary and invoking worktrees, dirty state, open issues or PRs, changed commits, non-`codex/*` branches, and unavailable or ambiguous GitHub facts are never inferred safe.
+
+Apply only the proven local actions after reviewing that plan:
+
+```bash
+scripts/git/codex-task.sh reconcile --apply
+```
+
+Remote branch deletion is a separate opt-in and uses an exact-SHA force-with-lease:
+
+```bash
+scripts/git/codex-task.sh reconcile --apply --remote
+```
+
+Clean detached worktrees are removable when their exact commit is already integrated into `dev` or is the recorded head of a merged PR into `dev`. Branch-backed `codex/*` state requires an exact merged PR head. Research, prototype, legacy worktree, and other non-task branches remain unproven regardless of age or naming.
+
+### Retire assessed unique state
+
+Use explicit retirement only after deciding that a unique branch or worktree should not be preserved:
+
+```bash
+scripts/git/codex-task.sh retire <branch-or-worktree> --expect-head <full-40-character-sha>
+scripts/git/codex-task.sh retire <branch-or-worktree> --expect-head <full-40-character-sha> --remote
+```
+
+Retirement checks the expected SHA, worktree cleanliness, protected locations and branches, open issue and PR state, and the remote head before changing anything. Without `--remote`, any remote branch is preserved. With `--remote`, deletion is lease-protected against a concurrent head change. A mismatch or unavailable GitHub/remote fact stops the operation without treating the artifact as disposable.
 
 ## Concurrent tickets and an advancing dev
 
