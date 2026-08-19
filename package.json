@@ -36,7 +36,9 @@
     "db:verify": "tsx scripts/db/verify-supabase-data.ts",
     "search:backfill": "tsx scripts/search-backfill.ts",
     "search:reindex": "pnpm run search:backfill",
-    "stripe:sync:sandbox": "tsx scripts/stripe-sync-sandbox.ts"
+    "stripe:sync:sandbox": "tsx scripts/stripe-sync-sandbox.ts apply",
+    "stripe:sandbox:plan": "tsx scripts/stripe-sync-sandbox.ts plan",
+    "stripe:sandbox:verify": "tsx scripts/stripe-sync-sandbox.ts verify"
   },
   "dependencies": {
     "@stripe/react-stripe-js": "^6.8.0",

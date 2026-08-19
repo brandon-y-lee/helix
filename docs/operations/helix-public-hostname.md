@@ -77,13 +77,42 @@ The intended staging destination for the later webhook cutover ticket is:
 
 No database trigger or catalog webhook was changed in #178.
 
-## Stripe follow-on
+## Stripe sandbox webhook
 
-The intended sandbox webhook destination for a later payment configuration
-ticket is:
+Ticket #190 completed the sandbox payment configuration on 2026-08-19. The
+fresh preflight verified test account `acct_1Tm9WRFEzyaKzdmq`, found no legacy
+webhook endpoint and no independent v2 Event Destination, and confirmed that
+all four managed coupons already had the required helix identity and preserved
+economics. After the owner separately authorized creation, exactly one endpoint
+was created:
 
-`https://helixskin.vercel.app/api/webhooks/stripe`
+- Endpoint ID: `we_1U6GHJFEzyaKzdmqVxkG9jRC`
+- URL: `https://helixskin.vercel.app/api/webhooks/stripe`
+- API version: `2026-06-24.dahlia`
+- Events: `checkout.session.completed`,
+  `checkout.session.async_payment_succeeded`,
+  `checkout.session.async_payment_failed`, `checkout.session.expired`, and
+  `charge.refunded`
+- Mode: test only; Connect events disabled
 
-Stripe environment keys were not visible in the Vercel project environment
-variable inventory. No Stripe endpoint, key, event, or live-mode setting was
-created or changed in #178.
+The one-time signing secret was stored as a sensitive, branch-scoped Vercel
+Preview variable for `dev`; it was not printed, committed, or added to a browser
+environment. The endpoint ID and the four coupon IDs are branch-scoped Preview
+configuration. The `dev` Preview deployment was rebuilt so the new secret took
+effect. A provider-originated `checkout.session.expired` test event was accepted,
+processed without error, and recorded once; resending the same Stripe event kept
+one audit record. An invalid signature returned HTTP 400.
+
+Managed coupon inventory remains:
+
+- `8vjxcrGj`: `helix rewards — $5 off`, USD 500 cents, once
+- `TqgKgvOl`: `helix rewards — $10 off`, USD 1,000 cents, once
+- `0K1xoUqV`: `helix rewards — $15 off`, USD 1,500 cents, once
+- `k9Ikzpaz`: `helix referral offer — 15% off`, 15 percent, once
+
+Use `pnpm stripe:sandbox:plan` for a read-only proposed-state report and
+`pnpm stripe:sandbox:verify` for the fail-closed postcondition check. Normal
+syncs require the configured endpoint ID and update that endpoint in place.
+One-time endpoint creation additionally requires `--allow-webhook-create` and
+an unused temporary `STRIPE_WEBHOOK_SECRET_OUTPUT_FILE`; this prevents an
+unintended parallel endpoint or secret disclosure.

@@ -78,7 +78,7 @@ const MANAGED_METADATA = {
   managed_by: "pnpm stripe:sync:sandbox",
 } as const;
 
-function assertEquivalentSandboxCoupon(
+export function assertEquivalentSandboxCoupon(
   coupon: SandboxRewardsCoupon,
   definition: SandboxRewardsCouponDefinition,
 ): asserts coupon is ActiveSandboxRewardsCoupon {
@@ -134,7 +134,7 @@ export function managedSandboxCouponIdForDefinition(
   return matches[0]?.id ?? null;
 }
 
-function hasManagedIdentity(
+export function sandboxCouponHasManagedIdentity(
   coupon: ActiveSandboxRewardsCoupon,
   definition: SandboxRewardsCouponDefinition,
 ): boolean {
@@ -150,7 +150,7 @@ function assertManagedIdentity(
   coupon: ActiveSandboxRewardsCoupon,
   definition: SandboxRewardsCouponDefinition,
 ): void {
-  if (!hasManagedIdentity(coupon, definition)) {
+  if (!sandboxCouponHasManagedIdentity(coupon, definition)) {
     throw new Error(`${definition.env} did not apply the helix rewards identity.`);
   }
 }
@@ -190,7 +190,7 @@ export async function syncSandboxRewardsCoupon(
   }
   assertEquivalentSandboxCoupon(coupon, definition);
 
-  if (hasManagedIdentity(coupon, definition)) {
+  if (sandboxCouponHasManagedIdentity(coupon, definition)) {
     return { id: coupon.id, status: "reused" };
   }
 
