@@ -102,7 +102,7 @@ resolve_task_repository() {
   task_review_ref=$(review_ref_for_slug "$task_slug")
 
   task_parent=$(dirname "$task_repository")
-  task_marker="$task_parent/.mei-pelle-codex-task"
+  task_marker="$task_parent/.helix-codex-task"
   generated_task_worktree=0
   if [ "$(basename "$task_repository")" = "worktree" ] && [ -f "$task_marker" ]; then
     IFS= read -r marker_branch < "$task_marker" || true
@@ -149,9 +149,9 @@ start_task() {
         ;;
     esac
 
-    task_parent=$(mktemp -d "${TMPDIR:-/tmp}/mei-pelle-task-${task_slug}.XXXXXX")
+    task_parent=$(mktemp -d "${TMPDIR:-/tmp}/helix-task-${task_slug}.XXXXXX")
     task_worktree="$task_parent/worktree"
-    task_marker="$task_parent/.mei-pelle-codex-task"
+    task_marker="$task_parent/.helix-codex-task"
 
     if ! git -C "$start_repository" worktree add -b "$task_branch" "$task_worktree" dev; then
       git -C "$start_repository" update-ref -d "$review_ref"

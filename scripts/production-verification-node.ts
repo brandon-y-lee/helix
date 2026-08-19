@@ -27,12 +27,12 @@ import {
   type NodeProductionVerificationAdapters,
 } from "./production-verification";
 
-const CHECKOUT_LOCK_NAME = ".mei-pelle-production-verification.lock";
+const CHECKOUT_LOCK_NAME = ".helix-production-verification.lock";
 const CHECKOUT_LOCK_RECOVERY_NAME = `${CHECKOUT_LOCK_NAME}.recovery`;
 const DEFAULT_CLEANUP_GRACE_MS = 5_000;
 const READINESS_POLL_MS = 250;
 const WINDOWS_CONTROL_TIMEOUT_MS = 2_000;
-const PRODUCTION_ARTIFACT_RECEIPT_PATH = ".next/mei-pelle-artifact-receipt.json";
+const PRODUCTION_ARTIFACT_RECEIPT_PATH = ".next/helix-artifact-receipt.json";
 const WINDOWS_SUPERVISOR_PATH = resolve(
   process.cwd(),
   "scripts/production-verification-windows.ps1",
@@ -190,11 +190,11 @@ export async function spawnOwnedProcess(
   const windows = process.platform === "win32";
   const controlPath = resolve(
     tmpdir(),
-    `mei-pelle-verification-control-${process.pid}-${randomUUID()}`,
+    `helix-verification-control-${process.pid}-${randomUUID()}`,
   );
   const statusPath = resolve(
     tmpdir(),
-    `mei-pelle-verification-status-${process.pid}-${randomUUID()}`,
+    `helix-verification-status-${process.pid}-${randomUUID()}`,
   );
   const child = spawn(
     windows ? "powershell.exe" : input.command,
@@ -863,8 +863,8 @@ export async function createNodeProductionVerificationAdapters(
         cwd,
         env: {
           ...env,
-          MEI_PELLE_VERIFICATION_ADAPTER: "1",
-          MEI_PELLE_VERIFICATION_BASE_URL: baseURL,
+          HELIX_VERIFICATION_ADAPTER: "1",
+          HELIX_VERIFICATION_BASE_URL: baseURL,
           PLAYWRIGHT_HTML_OPEN: "never",
         },
         label: "Playwright browser tests",

@@ -6,8 +6,7 @@ import {
   type StorefrontSnapshot,
 } from "@/test-support/storefront-baseline";
 
-export const STOREFRONT_SNAPSHOT_ENV =
-  "MEI_PELLE_STOREFRONT_SNAPSHOT_PATH";
+export const STOREFRONT_SNAPSHOT_ENV = "HELIX_STOREFRONT_SNAPSHOT_PATH";
 export const STOREFRONT_SNAPSHOT_FILENAME = "storefront-baseline.json";
 
 export async function writeStorefrontSnapshot(

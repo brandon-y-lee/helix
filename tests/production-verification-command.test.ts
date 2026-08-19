@@ -242,8 +242,8 @@ describe("Production Verification Commands", () => {
     const require = createRequire(import.meta.url);
     const playwrightCli = require.resolve("@playwright/test/cli");
     const environment = { ...process.env };
-    delete environment.MEI_PELLE_VERIFICATION_ADAPTER;
-    delete environment.MEI_PELLE_VERIFICATION_BASE_URL;
+    delete environment.HELIX_VERIFICATION_ADAPTER;
+    delete environment.HELIX_VERIFICATION_BASE_URL;
 
     const result = spawnSync(process.execPath, [playwrightCli, "test", "--list"], {
       cwd: process.cwd(),
@@ -262,7 +262,7 @@ describe("Production Verification Commands", () => {
     const originalUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const originalAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     const temporaryDirectory = await mkdtemp(
-      resolve(tmpdir(), "mei-pelle-global-setup-"),
+      resolve(tmpdir(), "helix-global-setup-"),
     );
 
     try {

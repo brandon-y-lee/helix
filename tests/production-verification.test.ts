@@ -305,8 +305,8 @@ describe("Production Artifact Verification", () => {
       },
       local: {
         CI: "1",
-        MEI_PELLE_VERIFICATION_ADAPTER: "1",
-        MEI_PELLE_VERIFICATION_BASE_URL: "http://untrusted.example.test",
+        HELIX_VERIFICATION_ADAPTER: "1",
+        HELIX_VERIFICATION_BASE_URL: "http://untrusted.example.test",
         NEXT_PUBLIC_ALGOLIA_APP_ID: "local-app-id",
         NEXT_PUBLIC_SUPABASE_ANON_KEY: "local-anon-key",
         NEXT_PUBLIC_SUPABASE_URL: "https://local.example.test",
@@ -330,8 +330,8 @@ describe("Production Artifact Verification", () => {
       SUPABASE_CATALOG_WEBHOOK_SECRET: "e2e-test-secret",
     });
     expect(environment.CI).toBe("");
-    expect(environment.MEI_PELLE_VERIFICATION_ADAPTER).toBe("");
-    expect(environment.MEI_PELLE_VERIFICATION_BASE_URL).toBe("");
+    expect(environment.HELIX_VERIFICATION_ADAPTER).toBe("");
+    expect(environment.HELIX_VERIFICATION_BASE_URL).toBe("");
     expect(environment.NODE_OPTIONS).toBe("");
     expect(environment.PLAYWRIGHT_HTML_OPEN).toBe("");
     expect(environment.TZ).toBe("");

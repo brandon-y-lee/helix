@@ -1,6 +1,6 @@
-# Mei Pelle — Codex Agent Rules
+# helix — Codex Agent Rules
 
-Mei Pelle is a mens skincare ecommerce platform deployed on Vercel. Build durable software that serves real customers at scale. 
+Helix is a mens skincare ecommerce platform deployed on Vercel. Build durable software that serves real customers at scale.
 
 ## 2. Proportional Preflight
 
@@ -24,7 +24,7 @@ Then:
 
 ## 3 Brand, References, and Product Contracts
 
-Mei Pelle should feel editorial, modern, visually led, sparse, confident, ingredient-literate, and masculine without tactical or hyper-macho styling. Use Marcellus selectively for display and wordmark treatment; use Manrope for functional UI and body text.
+Helix should feel editorial, modern, visually led, sparse, confident, ingredient-literate, and masculine without tactical or hyper-macho styling. Use Marcellus selectively for display and wordmark treatment; use Manrope for functional UI and body text.
 
 Public support, legal, order, rewards, and service-status content must be factual.
 
