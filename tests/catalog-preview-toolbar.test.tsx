@@ -31,7 +31,7 @@ describe("CatalogPreviewToolbar", () => {
 
     expect(
       screen.getByRole("complementary", {
-        name: "Draft preview controls",
+        name: "Catalog Preview controls",
       }),
     ).toHaveTextContent("helix Catalog Preview");
     expect(screen.getByText("CLEANSE")).toBeInTheDocument();
@@ -45,6 +45,9 @@ describe("CatalogPreviewToolbar", () => {
       "href",
       "/products/cleanse-01-calming-gel-cleanser",
     );
+    expect(
+      screen.getByRole("navigation", { name: "Catalog Preview actions" }),
+    ).toBeVisible();
 
     await user.tab();
     expect(screen.getByRole("link", { name: "Back to Editor" })).toHaveFocus();

@@ -130,6 +130,12 @@ describe("catalog draft preview route", () => {
   });
 
   it("renders the real PDP with preview commerce disabled", async () => {
+    routeMocks.project.mockReturnValue({
+      product: {},
+      coreProducts: [],
+      warnings: ["Confirm the Product education before publishing."],
+    });
+
     render(
       await CatalogDraftPreviewPage({
         params: Promise.resolve({ draftId }),
@@ -146,6 +152,11 @@ describe("catalog draft preview route", () => {
     expect(previewMetadata).not.toBeNull();
     expect(within(previewMetadata!).getAllByText("CLEANSE")).toHaveLength(2);
     expect(within(previewMetadata!).getByText("Gel cleanser")).toBeVisible();
+    expect(
+      screen.getByRole("complementary", {
+        name: "Catalog Preview warnings",
+      }),
+    ).toHaveTextContent("Confirm the Product education before publishing.");
     expect(screen.getByTestId("real-pdp")).toHaveAttribute(
       "data-commerce-disabled",
       "true",
@@ -178,7 +189,7 @@ describe("catalog draft preview route", () => {
     );
 
     expect(
-      screen.getByRole("heading", { name: "Draft preview unavailable" }),
+      screen.getByRole("heading", { name: "Catalog Preview unavailable" }),
     ).toBeVisible();
     expect(screen.getByText("helix Catalog Preview")).toBeVisible();
     expect(screen.getByText(/No public product data/)).toBeVisible();

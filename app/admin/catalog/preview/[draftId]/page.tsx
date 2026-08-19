@@ -80,7 +80,7 @@ function draftFailureCopy(reason: CatalogDraftLoadFailure) {
       };
     case "backend_unavailable":
       return {
-        title: "Draft preview unavailable",
+        title: "Catalog Preview unavailable",
         message:
           "The protected catalog editor backend is not available. No public product data has been substituted.",
       };
@@ -332,7 +332,7 @@ export default async function CatalogDraftPreviewPage({
       {preview.warnings.length > 0 && (
         <aside
           className="catalog-preview-warning"
-          aria-label="Draft preview warnings"
+          aria-label="Catalog Preview warnings"
         >
           {preview.warnings.map((warning) => (
             <p key={warning}>{warning}</p>
