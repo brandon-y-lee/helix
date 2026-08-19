@@ -4,7 +4,7 @@ import { getOrderConfirmationBySession } from "@/lib/orders/server";
 import { formatPrice } from "@/lib/products";
 
 export const metadata: Metadata = {
-  title: "Order confirmed | Mei Pelle",
+  title: "Payment verified | helix",
 };
 
 export const dynamic = "force-dynamic";
@@ -27,7 +27,7 @@ export default async function CheckoutSuccessPage({
           <h1>Order status</h1>
         </div>
         <div className="empty-state">
-          <p>We could not verify that Checkout Session.</p>
+          <p>We could not verify this payment status.</p>
           <Link href="/cart" className="btn btn--editorial-rounded">
             Return to cart
           </Link>
@@ -42,10 +42,10 @@ export default async function CheckoutSuccessPage({
     <div className="container checkout-result">
       <div className="page-head">
         <p className="eyebrow">Sandbox checkout</p>
-        <h1>Order confirmed</h1>
+        <h1>Payment verified</h1>
       </div>
 
-      <section className="checkout-result__panel" aria-label="Order confirmation">
+      <section className="checkout-result__panel" aria-label="Paid Order details">
         <p className="checkout-panel__notice">{confirmation.notice}</p>
         {confirmation.webhookPending && (
           <p className="form-status" role="status">
