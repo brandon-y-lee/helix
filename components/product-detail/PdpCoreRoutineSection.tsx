@@ -91,7 +91,7 @@ export function PdpCoreRoutineSection({
       >
         <div className="pdp-core-routine__heading">
           <h2 id="pdp-core-routine-heading">
-            The Mei Pelle CORE for clearer, healthier skin.
+            The helix CORE for clearer, healthier skin.
           </h2>
           <p>Your morning and evening essentials.</p>
         </div>

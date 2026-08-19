@@ -82,7 +82,7 @@ describe("durable Product slug route resolution", () => {
       const result = await generateMetadata({
         params: Promise.resolve({ slug }),
       });
-      expect(result.title).toBe("Product | Mei Pelle");
+      expect(result.title).toBe("Product | helix");
       expect(catalogCache.getCachedProductSlugResolution).not.toHaveBeenCalled();
     },
   );

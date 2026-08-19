@@ -44,8 +44,12 @@ describe("product metadata cache ownership", () => {
       "peptide-bounce",
     );
     expect(metadata).toMatchObject({
-      title: "Peptide Bounce — PDRN serum | Mei Pelle",
+      title: "Peptide Bounce — PDRN serum | helix",
       description: "Stable product metadata.",
+      openGraph: {
+        siteName: "helix",
+        url: "/products/peptide-bounce",
+      },
     });
   });
 

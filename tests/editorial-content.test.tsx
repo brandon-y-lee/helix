@@ -160,6 +160,19 @@ beforeEach(() => {
 });
 
 describe("System content architecture", () => {
+  it("renders helix casing across the public System journey", async () => {
+    render(await MethodPage());
+    const pageText = document.body.textContent ?? "";
+
+    expect(screen.getByText("helix")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "About helix" })).toHaveAttribute(
+      "href",
+      "/about",
+    );
+    expect(pageText).toContain("A helix sunscreen is in development.");
+    expect(pageText).not.toMatch(/Mei Pelle/i);
+  });
+
   it("keeps the canonical 01-07 sequence and reports missing catalog records", () => {
     expect(
       METHOD_STEP_CONFIGS.map((step) => [
@@ -335,6 +348,21 @@ describe("System content architecture", () => {
 });
 
 describe("About claim safety", () => {
+  it("presents the helix origin and motif without genetic implications", () => {
+    render(<AboutPage />);
+    const pageText = document.body.textContent ?? "";
+
+    expect(pageText).toContain("SEOUL");
+    expect(pageText).toContain("LOS ANGELES");
+    expect(pageText).toMatch(
+      /structure, renewal, and ingredient-literate formulation/i,
+    );
+    expect(pageText).not.toMatch(/Mei Pelle/i);
+    expect(pageText).not.toMatch(
+      /genetic testing|genetic personalization|clinical genomics|DNA effects/i,
+    );
+  });
+
   it("does not publish fake founder, advisor, certification, or green claims", () => {
     render(<AboutPage />);
     const pageText = document.body.textContent?.toLowerCase() ?? "";

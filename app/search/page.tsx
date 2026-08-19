@@ -2,7 +2,23 @@ import type { Metadata } from "next";
 import { SearchView } from "@/components/search/SearchView";
 
 export const metadata: Metadata = {
-  title: "Search | Mei Pelle",
+  title: "Search | helix",
+  description: "Search the helix Product catalog by name, type, or concern.",
+  alternates: {
+    canonical: "/search",
+  },
+  openGraph: {
+    title: "Search | helix",
+    description: "Search the helix Product catalog by name, type, or concern.",
+    url: "/search",
+    siteName: "helix",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Search | helix",
+    description: "Search the helix Product catalog by name, type, or concern.",
+  },
 };
 
 // Standalone search page. Like the header overlay, it searches the synced

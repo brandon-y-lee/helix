@@ -170,7 +170,7 @@ export function SiteFooter() {
             <Link href="/cookie-policy">Cookie Policy</Link>
           </div>
           <p className="site-footer__copyright">
-            &copy; {year} Mei Pelle. All rights reserved.
+            &copy; {year} helix. All rights reserved.
           </p>
         </div>
       </div>

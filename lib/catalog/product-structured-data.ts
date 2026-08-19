@@ -39,7 +39,7 @@ export function buildProductStructuredData(
     name: composeProductTitle(product.displayName, product.productType),
     description: product.description,
     url: productUrl,
-    brand: { "@type": "Brand", name: "Mei Pelle" },
+    brand: { "@type": "Brand", name: "helix" },
     ...(image.length > 0 ? { image } : {}),
     ...(offers.length > 0 ? { offers } : {}),
   };

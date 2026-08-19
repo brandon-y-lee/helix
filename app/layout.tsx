@@ -20,9 +20,24 @@ const marcellus = Marcellus({
 
 export const metadata: Metadata = {
   metadataBase: new URL(resolvePublicSiteOrigin()),
-  title: "Mei Pelle — Prestige Skincare for Men",
+  applicationName: "helix",
+  title: "helix — Prestige Skincare for Men",
   description:
     "An original, focused men's skincare routine. Cleanse, treat, hydrate, and protect.",
+  openGraph: {
+    title: "helix — Prestige Skincare for Men",
+    description:
+      "An original, focused men's skincare routine. Cleanse, treat, hydrate, and protect.",
+    url: "/",
+    siteName: "helix",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "helix — Prestige Skincare for Men",
+    description:
+      "An original, focused men's skincare routine. Cleanse, treat, hydrate, and protect.",
+  },
   icons: {
     icon: [
       {

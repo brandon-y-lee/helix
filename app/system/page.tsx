@@ -9,23 +9,23 @@ import {
 import { getCachedProducts } from "@/lib/catalog-cache";
 
 export const metadata: Metadata = {
-  title: "The Mei Pelle System | Men's Skincare Routine",
+  title: "The System | helix",
   description:
     "A clear step-by-step skincare system covering cleansing, treatment, hydration, eye care, weekly care, and daily SPF.",
   alternates: {
     canonical: "/system",
   },
   openGraph: {
-    title: "The Mei Pelle System | Men's Skincare Routine",
+    title: "The System | helix",
     description:
       "A clear step-by-step skincare system covering cleansing, treatment, hydration, eye care, weekly care, and daily SPF.",
     url: "/system",
-    siteName: "Mei Pelle",
+    siteName: "helix",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "The Mei Pelle System | Men's Skincare Routine",
+    title: "The System | helix",
     description:
       "A clear step-by-step skincare system covering cleansing, treatment, hydration, eye care, weekly care, and daily SPF.",
   },
@@ -50,7 +50,7 @@ export default async function SystemPage() {
           decorated={false}
         />
         <div className="method-hero__copy">
-          <p className="eyebrow">Mei Pelle</p>
+          <p className="eyebrow">helix</p>
           <h1 id="system-heading">THE SYSTEM.</h1>
           <p>A system for clearer, healthier, beautiful skin</p>
           <div className="hero__actions">

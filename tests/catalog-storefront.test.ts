@@ -110,7 +110,7 @@ function productRow(overrides: Record<string, unknown> = {}) {
     volume: "30 mL",
     skin_types: ["All skin types"],
     usage_time: ["Morning", "Night"],
-    seo_title: "TREAT PDRN Ampoule | Mei Pelle",
+    seo_title: "TREAT PDRN Ampoule | helix",
     seo_description: "A lightweight daily ampoule.",
     product_variants: [variant],
     product_pdp_content: {
@@ -485,7 +485,7 @@ describe("storefront catalog projections", () => {
       displayName: "TREAT",
       productType: "Ampoule / Serum",
       editorialDescription: "Approved editorial description.",
-      seoTitle: "TREAT PDRN Ampoule | Mei Pelle",
+      seoTitle: "TREAT PDRN Ampoule | helix",
       seoDescription: "A lightweight daily ampoule.",
     });
     const selection = String(

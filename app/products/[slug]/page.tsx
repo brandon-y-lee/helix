@@ -40,15 +40,29 @@ export async function generateMetadata({
   const product = resolution
     ? await getCachedProductMetadata(resolution.targetSlug)
     : undefined;
+  const title = product
+    ? product.seoTitle ??
+      `${composeProductTitle(product.displayName, product.productType)} | helix`
+    : "Product | helix";
+  const description = product?.seoDescription ?? product?.editorialDescription;
   return {
-    title: product
-      ? product.seoTitle ??
-        `${composeProductTitle(product.displayName, product.productType)} | Mei Pelle`
-      : "Product | Mei Pelle",
-    description: product?.seoDescription ?? product?.editorialDescription,
+    title,
+    description,
     alternates: product
       ? { canonical: `/products/${product.slug}` }
       : undefined,
+    openGraph: {
+      title,
+      description,
+      ...(product ? { url: `/products/${product.slug}` } : {}),
+      siteName: "helix",
+      type: "website",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+    },
   };
 }
 

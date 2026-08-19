@@ -22,9 +22,26 @@ import {
 } from "@/lib/content/system";
 
 export const metadata: Metadata = {
-  title: "Mei Pelle | Men's Skincare",
+  title: "helix | Men's Skincare",
   description:
     "A simple daily system for skin that looks better now—and stays smooth, even, and resilient over time.",
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    title: "helix | Men's Skincare",
+    description:
+      "A simple daily system for skin that looks better now—and stays smooth, even, and resilient over time.",
+    url: "/",
+    siteName: "helix",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "helix | Men's Skincare",
+    description:
+      "A simple daily system for skin that looks better now—and stays smooth, even, and resilient over time.",
+  },
 };
 
 const CORE_PRODUCT_SLUGS =
@@ -81,7 +98,7 @@ export default async function HomePage() {
         <div className="home-video-hero__scrim" aria-hidden="true" />
         <div className="home-video-hero__content">
           <div>
-            <p className="home-video-hero__eyebrow">Mei Pelle</p>
+            <p className="home-video-hero__eyebrow">helix</p>
             <h1 id="home-hero-heading" className="display-secondary home-video-hero__title">
               Your skin starts with three steps.
             </h1>

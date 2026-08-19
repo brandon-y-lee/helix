@@ -53,7 +53,7 @@ const cases = [
     application: [
       "After TREAT, smooth a small amount over face and neck.",
       "Press into skin, giving extra attention to areas that feel dry or tight.",
-      "Use as the final Mei Pelle step at night. In the morning, follow with SPF.",
+      "Use as the final helix step at night. In the morning, follow with SPF.",
     ],
     ingredientNames: ["GREEN COLLAGEN COMPLEX", "PANTHENOL"],
     goodFor: "Dryness, comfort, routine finish",

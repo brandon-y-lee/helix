@@ -22,8 +22,27 @@ export async function generateMetadata({
 
   if (!collection) notFound();
 
+  const title = `${collection.label} | helix`;
+  const description = `Explore ${collection.label} across The Core and Beyond The Core at helix.`;
+
   return {
-    title: `${collection.label} | Mei Pelle`,
+    title,
+    description,
+    alternates: {
+      canonical: `/collections/${collection.slug}`,
+    },
+    openGraph: {
+      title,
+      description,
+      url: `/collections/${collection.slug}`,
+      siteName: "helix",
+      type: "website",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+    },
   };
 }
 

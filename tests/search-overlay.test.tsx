@@ -70,7 +70,11 @@ describe("SearchOverlay", () => {
 
     await user.click(screen.getByRole("button", { name: "Search" }));
 
-    expect(screen.getByRole("dialog", { name: "Search" })).toBe(overlay);
+    const dialog = screen.getByRole("dialog", { name: "Search" });
+    expect(dialog).toBe(overlay);
+    expect(dialog).toHaveAccessibleDescription(
+      "Search the helix product catalog.",
+    );
     expect(document.querySelector(".search-sheet")).toBe(panel);
     expect(overlay).toHaveAttribute("data-state", "open");
     expect(overlay).toHaveAttribute("aria-modal", "true");
