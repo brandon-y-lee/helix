@@ -1,6 +1,6 @@
 # Trust & Policy
 
-Trust & Policy defines Mei Pelle's formal public commitments, Customer choices, accessibility language, and the factual status under which platform information may be represented.
+Trust & Policy defines the formal public commitments made for the helix Platform, Customer choices, accessibility language, and the factual status under which platform information may be represented.
 
 ## Language
 
@@ -13,11 +13,15 @@ A deliberately described platform or service capability that is not currently av
 _Avoid_: Current Capability, Coming Soon Product
 
 **Legal Document**:
-A formally published document stating Mei Pelle's terms, practices, rights, or commitments.
+A formally published document stating the Legal Operator's terms, practices, rights, or commitments for the helix Platform.
 _Avoid_: Editorial Content, Policy Summary
 
+**Legal Operator**:
+The identified person or entity legally responsible for the helix Platform, its Legal Documents, and its commerce. A Legal Operator must exist before operative Legal Documents or commerce can be a Current Capability.
+_Avoid_: helix, Brand
+
 **Policy**:
-A canonical statement governing Mei Pelle conduct, Customer expectations, or platform use.
+A canonical statement governing the helix Platform's conduct, Customer expectations, or platform use.
 _Avoid_: Legal Document, Editorial Content, FAQ
 
 **Privacy Choice**:
@@ -25,7 +29,7 @@ A Customer decision about an available privacy practice or control.
 _Avoid_: Cookie Preference, Privacy Request
 
 **Privacy Request**:
-A Visitor or Customer request to exercise a privacy right or ask about Mei Pelle's handling of personal information.
+A Visitor or Customer request to exercise a privacy right or ask about the helix Platform's handling of personal information.
 _Avoid_: Privacy Choice, Support Inquiry
 
 **Product Waitlist Enrollment**:
@@ -33,7 +37,7 @@ A Visitor or Customer request, tied to one Product and an email address, to rece
 _Avoid_: Newsletter Signup, Marketing Consent, Back-in-stock Alert
 
 **Marketing Consent**:
-An affirmative Customer choice to receive promotional communications from Mei Pelle. It is collected independently and is never inferred or preselected.
+An affirmative Customer choice to receive promotional communications from helix. It is collected independently and is never inferred or preselected.
 _Avoid_: Product Waitlist Enrollment, Account Creation, Implied Consent
 
 **Cookie Preference**:
@@ -49,9 +53,9 @@ A named class of browser storage grouped by its platform purpose and whether it 
 _Avoid_: Cookie Preference, Provider Cookie
 
 **Accessibility Commitment**:
-Mei Pelle's stated target and practices for making the platform usable by people with disabilities, without representing an unearned certification.
+The helix Platform's stated target and practices for making the platform usable by people with disabilities, without representing an unearned certification.
 _Avoid_: Accessibility Certification, Conformance Report
 
 **Accessibility Feedback**:
-A Visitor or Customer report about an accessibility barrier or accessibility-related experience on the Mei Pelle Platform.
+A Visitor or Customer report about an accessibility barrier or accessibility-related experience on the helix Platform.
 _Avoid_: Support Inquiry, Accessibility Audit

@@ -1,19 +1,19 @@
 # Rewards & Referrals
 
-Rewards & Referrals defines MEI PELLE REWARDS, its auditable Points economy, and the attribution, offers, and benefits created by referral relationships.
+Rewards & Referrals defines helix rewards, its auditable Points economy, and the attribution, offers, and benefits created by referral relationships.
 
 ## Language
 
-**MEI PELLE REWARDS**:
-Mei Pelle's program through which email-confirmed Account Holders earn and use Points and referral benefits.
+**helix rewards**:
+The helix program through which email-confirmed Account Holders earn and use Points and referral benefits.
 _Avoid_: Loyalty Program, Membership
 
 **Reward**:
-An umbrella term for a benefit offered or earned through MEI PELLE REWARDS. Use the precise benefit name whenever its type matters.
+An umbrella term for a benefit offered or earned through helix rewards. Use the precise benefit name whenever its type matters.
 _Avoid_: Points, Discount
 
 **Points**:
-The non-cash units earned and used within MEI PELLE REWARDS.
+The non-cash units earned and used within helix rewards.
 _Avoid_: Rewards, Credit, Cash
 
 **Points Ledger**:
