@@ -5,7 +5,7 @@ Rewards & Referrals defines helix rewards, its auditable Points economy, and the
 ## Language
 
 **helix rewards**:
-The helix Program through which email-confirmed Account Holders earn and use Points and referral benefits.
+The helix program through which email-confirmed Account Holders earn and use Points and referral benefits.
 _Avoid_: Loyalty Program, Membership
 
 **Reward**:

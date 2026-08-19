@@ -5,7 +5,7 @@ Brand & Platform defines helix, its distinctive expression, and the surfaces thr
 ## Language
 
 **helix**:
-The customer-facing skincare Brand offering The System and the helix platform experience. Brand Voice uses `helix` within prose and `Helix` when the name starts a sentence; helix is not a legal entity.
+The customer-facing skincare brand offering The System and the helix Platform experience, rooted in Seoul and Los Angeles. Brand Voice uses `helix` within prose and `Helix` when the name starts a sentence; helix is not a legal entity.
 _Avoid_: Mei Pelle, Mei-Pelle, mei-pelle, mei_pelle
 
 **Helix Motif**:
@@ -13,11 +13,11 @@ The DNA-inspired visual idea used in the helix identity to express structure, re
 _Avoid_: DNA Technology, Genetic Skincare
 
 **Helix Symbol**:
-The standalone custom lowercase `h` formed from two visually distinct crossing strands for compact Brand surfaces. It must read as an `h` before it reads as the Helix Motif, does not use literal DNA ladder connections, and works in one-color black or white.
+The standalone custom lowercase `h` formed from two visually distinct crossing strands for compact brand surfaces.
 _Avoid_: Icon, Monogram
 
 **Helix Wordmark**:
-The complete lowercase `helix` identity in which the Helix Symbol and `elix` are designed as one fixed composition. It works in one-color black or white.
+The complete lowercase `helix` identity in which the Helix Symbol and `elix` form one fixed composition.
 _Avoid_: Logo Text, Live Wordmark
 
 **helix Platform**:
