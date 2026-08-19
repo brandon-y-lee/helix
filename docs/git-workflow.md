@@ -90,7 +90,7 @@ Remote branch deletion is a separate opt-in and uses an exact-SHA force-with-lea
 scripts/git/codex-task.sh reconcile --apply --remote
 ```
 
-Clean detached worktrees are removable when their exact commit is already integrated into `dev` or is the recorded head of a merged PR into `dev`. Branch-backed `codex/*` state requires an exact merged PR head. Research, prototype, legacy worktree, and other non-task branches remain unproven regardless of age or naming.
+Clean detached worktrees and branch-backed `codex/*` state are removable only when their exact commit is the recorded head of a merged PR into `dev`. Ordinary `dev` ancestry is not enough automatic evidence. Research, prototype, legacy worktree, and other non-task branches remain unproven regardless of age or naming.
 
 ### Retire assessed unique state
 

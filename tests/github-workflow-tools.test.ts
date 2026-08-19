@@ -409,28 +409,55 @@ describe("Codex workflow task helper", () => {
     }
   });
 
-  it("plans detached integrated worktree removal without mutating", () => {
+  it("plans exact merged detached worktree removal without mutating", () => {
     const { root, tempRoot } = initialiseRepository();
     try {
+      const branch = "codex/123-detached-merged-task";
+      expectSuccess(git(root, "switch", "-c", branch, "dev"));
+      writeFileSync(join(root, "task.txt"), "merged task head\n");
+      expectSuccess(git(root, "add", "task.txt"));
+      expectSuccess(git(root, "commit", "-m", "Detached merged task head"));
+      const detachedHead = git(root, "rev-parse", "HEAD").stdout.trim();
+      expectSuccess(git(root, "switch", "main"));
       const detachedWorktree = join(tempRoot, "detached-app-worktree");
-      expectSuccess(git(root, "worktree", "add", "--detach", detachedWorktree, "dev"));
-      const detachedHead = git(detachedWorktree, "rev-parse", "HEAD").stdout.trim();
+      const ancestorOnlyWorktree = join(tempRoot, "ancestor-only-worktree");
+      expectSuccess(git(root, "worktree", "add", "--detach", detachedWorktree, detachedHead));
+      expectSuccess(git(root, "worktree", "add", "--detach", ancestorOnlyWorktree, "dev"));
       const fakeGh = writeTaskLifecycleFakeGh(tempRoot);
+      const env = {
+        GH_BIN: fakeGh,
+        FAKE_TASK_PRS: JSON.stringify([
+          {
+            number: 320,
+            state: "MERGED",
+            baseRefName: "dev",
+            mergedAt: "2026-08-19T12:00:00Z",
+            headRefName: branch,
+            headRefOid: detachedHead,
+            mergeCommit: { oid: git(root, "rev-parse", "dev").stdout.trim() },
+          },
+        ]),
+      };
 
       const planned = run(taskHelper, ["reconcile"], root, {
-        env: { GH_BIN: fakeGh },
+        env,
       });
 
       expectSuccess(planned);
       expect(planned.stdout).toContain("REMOVE worktree");
       expect(planned.stdout).toContain(detachedHead);
       expect(planned.stdout).toContain(detachedWorktree);
-      expect(planned.stdout).toContain("integrated into dev");
+      expect(planned.stdout).toContain("merged by PR #320 into dev");
+      expect(planned.stdout).toContain(`UNPROVEN worktree`);
+      expect(planned.stdout).toContain(ancestorOnlyWorktree);
       expect(planned.stdout).toContain("PROTECTED worktree");
       expect(planned.stdout).toContain("invoking or primary worktree");
       expect(planned.stdout).toContain("Dry run only");
       expect(git(root, "worktree", "list", "--porcelain").stdout).toContain(
         detachedWorktree,
+      );
+      expect(git(root, "worktree", "list", "--porcelain").stdout).toContain(
+        ancestorOnlyWorktree,
       );
     } finally {
       cleanupFixture(tempRoot);
@@ -440,24 +467,49 @@ describe("Codex workflow task helper", () => {
   it("applies only proven clean worktree removals", () => {
     const { root, tempRoot } = initialiseRepository();
     try {
+      const branch = "codex/123-duplicate-detached-task";
+      expectSuccess(git(root, "switch", "-c", branch, "dev"));
+      writeFileSync(join(root, "task.txt"), "duplicate detached head\n");
+      expectSuccess(git(root, "add", "task.txt"));
+      expectSuccess(git(root, "commit", "-m", "Duplicate detached task head"));
+      const taskHead = git(root, "rev-parse", "HEAD").stdout.trim();
+      expectSuccess(git(root, "switch", "main"));
       const safeWorktree = join(tempRoot, "safe-detached-worktree");
+      const duplicateSafeWorktree = join(tempRoot, "duplicate-safe-detached-worktree");
       const dirtyWorktree = join(tempRoot, "dirty-detached-worktree");
-      expectSuccess(git(root, "worktree", "add", "--detach", safeWorktree, "dev"));
-      expectSuccess(git(root, "worktree", "add", "--detach", dirtyWorktree, "dev"));
+      expectSuccess(git(root, "worktree", "add", "--detach", safeWorktree, taskHead));
+      expectSuccess(git(root, "worktree", "add", "--detach", duplicateSafeWorktree, taskHead));
+      expectSuccess(git(root, "worktree", "add", "--detach", dirtyWorktree, taskHead));
       writeFileSync(join(dirtyWorktree, "untracked.txt"), "preserve me\n");
       const fakeGh = writeTaskLifecycleFakeGh(tempRoot);
+      const env = {
+        GH_BIN: fakeGh,
+        FAKE_TASK_PRS: JSON.stringify([
+          {
+            number: 324,
+            state: "MERGED",
+            baseRefName: "dev",
+            mergedAt: "2026-08-19T12:00:00Z",
+            headRefName: branch,
+            headRefOid: taskHead,
+            mergeCommit: { oid: git(root, "rev-parse", "dev").stdout.trim() },
+          },
+        ]),
+      };
 
       const applied = run(taskHelper, ["reconcile", "--apply"], root, {
-        env: { GH_BIN: fakeGh },
+        env,
       });
 
       expectSuccess(applied);
       expect(applied.stdout).toContain(`REMOVED worktree`);
       expect(applied.stdout).toContain(safeWorktree);
+      expect(applied.stdout).toContain(duplicateSafeWorktree);
       expect(applied.stdout).toContain(`DIRTY worktree`);
       expect(applied.stdout).toContain(dirtyWorktree);
       const remaining = git(root, "worktree", "list", "--porcelain").stdout;
       expect(remaining).not.toContain(safeWorktree);
+      expect(remaining).not.toContain(duplicateSafeWorktree);
       expect(remaining).toContain(dirtyWorktree);
       expect(remaining).toContain(root);
     } finally {

@@ -158,14 +158,7 @@ function isClean(path) {
   return result.status === 0 && result.stdout.length === 0;
 }
 
-function isAncestor(cwd, ancestor, descendant) {
-  const result = run("git", ["merge-base", "--is-ancestor", ancestor, descendant], cwd, true);
-  if (result.status === 0) return true;
-  if (result.status === 1) return false;
-  fail(result.stderr.trim() || "could not verify Git ancestry");
-}
-
-function classifyWorktree(cwd, inventory, worktree) {
+function classifyWorktree(inventory, worktree) {
   if (worktree.locked || worktree.prunable) {
     return { status: "BLOCKED", evidence: "locked or prunable" };
   }
@@ -177,9 +170,6 @@ function classifyWorktree(cwd, inventory, worktree) {
   }
   const openPr = openPrFor(inventory, null, worktree.head);
   if (openPr) return { status: "ACTIVE", evidence: `open PR #${openPr.number}` };
-  if (isAncestor(cwd, worktree.head, "dev")) {
-    return { status: "REMOVE", evidence: "clean detached HEAD is integrated into dev" };
-  }
   const mergedPr = mergedPrFor(inventory, null, worktree.head);
   if (mergedPr && mergedPr.headRefName?.startsWith("codex/")) {
     const issue = ticketNumber(mergedPr.headRefName);
@@ -267,7 +257,7 @@ function reconcile(args) {
       }
       continue;
     }
-    const result = classifyWorktree(invocationRoot, inventory, worktree);
+    const result = classifyWorktree(inventory, worktree);
     if (worktree.branch) worktreeResults.set(worktree.branch, result);
     emitPlan(result.status, "worktree", worktree.head, path, result.evidence);
     if (result.status === "REMOVE") actions.worktrees.push(worktree);
@@ -346,7 +336,7 @@ function reconcile(args) {
       fail(`worktree changed after planning: ${worktree.path}`);
     }
     current.path = canonicalPath(current.path);
-    if (classifyWorktree(invocationRoot, inventory, current).status !== "REMOVE") {
+    if (classifyWorktree(inventory, current).status !== "REMOVE") {
       fail(`worktree is no longer safe to remove: ${worktree.path}`);
     }
   }
