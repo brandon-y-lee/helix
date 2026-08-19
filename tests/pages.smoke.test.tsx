@@ -50,9 +50,14 @@ describe("public route states", () => {
       }),
     );
 
+    const heroHeading = screen.getByRole("heading", {
+      level: 1,
+      name: "raise your baseline",
+    });
+    expect(heroHeading).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { level: 1, name: "raise your baseline" }),
-    ).toBeInTheDocument();
+      heroHeading.parentElement?.querySelector("img")?.getAttribute("src"),
+    ).toContain("raise-your-baseline-hero.webp");
     expect(
       screen.getByRole("navigation", { name: "Shop collections" }),
     ).toBeInTheDocument();

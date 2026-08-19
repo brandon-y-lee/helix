@@ -378,24 +378,33 @@ test("shop presents the approved Product, collection, sheet, and footer treatmen
   const [heroGeometry, headingGeometry] = await Promise.all([
     hero.evaluate((element) => {
       const rect = element.getBoundingClientRect();
-      return { bottom: rect.bottom, left: rect.left };
+      return {
+        centerX: rect.left + rect.width / 2,
+        centerY: rect.top + rect.height / 2,
+      };
     }),
     heading.evaluate((element) => {
       const rect = element.getBoundingClientRect();
       return {
-        bottom: rect.bottom,
+        centerX: rect.left + rect.width / 2,
+        centerY: rect.top + rect.height / 2,
         color: getComputedStyle(element).color,
-        left: rect.left,
+        fontSize: getComputedStyle(element).fontSize,
         textAlign: getComputedStyle(element).textAlign,
       };
     }),
   ]);
-  expect(headingGeometry.left - heroGeometry.left).toBeCloseTo(44.2, 1);
-  expect(heroGeometry.bottom - headingGeometry.bottom).toBeCloseTo(44.2, 1);
+  expect(headingGeometry.centerX).toBeCloseTo(heroGeometry.centerX, 1);
+  expect(headingGeometry.centerY).toBeCloseTo(heroGeometry.centerY, 1);
   expect(headingGeometry).toMatchObject({
-    color: "rgb(17, 19, 18)",
-    textAlign: "left",
+    color: "rgb(255, 255, 255)",
+    fontSize: "24px",
+    textAlign: "center",
   });
+  await expect(hero.locator("img")).toHaveAttribute(
+    "src",
+    /raise-your-baseline-hero\.webp/,
+  );
 
   await page.getByRole("button", { name: "SEARCH" }).click();
   const search = page.getByRole("dialog", { name: "Search" });
@@ -429,24 +438,32 @@ test("shop presents the approved Product, collection, sheet, and footer treatmen
   );
 
   await page.setViewportSize({ width: 390, height: 844 });
-  const mobileHeroGeometry = await Promise.all([
+  const [mobileHeroGeometry, mobileHeadingGeometry] = await Promise.all([
     hero.evaluate((element) => {
       const rect = element.getBoundingClientRect();
-      return { bottom: rect.bottom, left: rect.left };
+      return {
+        centerX: rect.left + rect.width / 2,
+        centerY: rect.top + rect.height / 2,
+      };
     }),
     heading.evaluate((element) => {
       const rect = element.getBoundingClientRect();
-      return { bottom: rect.bottom, left: rect.left };
+      return {
+        centerX: rect.left + rect.width / 2,
+        centerY: rect.top + rect.height / 2,
+        fontSize: getComputedStyle(element).fontSize,
+      };
     }),
   ]);
-  expect(mobileHeroGeometry[1].left - mobileHeroGeometry[0].left).toBeCloseTo(
-    23,
+  expect(mobileHeadingGeometry.centerX).toBeCloseTo(
+    mobileHeroGeometry.centerX,
     1,
   );
-  expect(mobileHeroGeometry[0].bottom - mobileHeroGeometry[1].bottom).toBeCloseTo(
-    23,
+  expect(mobileHeadingGeometry.centerY).toBeCloseTo(
+    mobileHeroGeometry.centerY,
     1,
   );
+  expect(mobileHeadingGeometry.fontSize).toBe("18px");
   await page.reload();
   await expect(page.locator(".site-footer__accordion").first()).toHaveCSS(
     "border-top-width",
