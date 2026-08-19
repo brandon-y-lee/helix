@@ -2,10 +2,10 @@ import "server-only";
 
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
-export class RewardsReservationUnavailableError extends Error {
+export class PointsReservationUnavailableError extends Error {
   constructor(message: string) {
     super(message);
-    this.name = "RewardsReservationUnavailableError";
+    this.name = "PointsReservationUnavailableError";
   }
 }
 
@@ -60,9 +60,13 @@ export async function reservePointsForOrder(input: {
     p_order_id: input.orderId,
   });
   if (error) {
-    throw new RewardsReservationUnavailableError(
-      `[rewards] Failed to reserve Points: ${error.message}`,
-    );
+    if (
+      error.code === "P0001" &&
+      error.message.includes("Insufficient Available Points Balance")
+    ) {
+      throw new PointsReservationUnavailableError(error.message);
+    }
+    throw new Error(`[rewards] Failed to record Points Reservation: ${error.message}`);
   }
 }
 

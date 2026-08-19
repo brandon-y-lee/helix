@@ -45,7 +45,7 @@ import {
   type RewardTier,
 } from "@/lib/rewards/rules";
 import {
-  RewardsReservationUnavailableError,
+  PointsReservationUnavailableError,
   awardPaidOrderPoints,
   getAvailablePointsBalance,
   reservePointsForOrder,
@@ -545,10 +545,10 @@ async function reserveReward(input: {
       orderId: input.order.id,
       points: input.rewardTier.points,
       amountCents: input.rewardTier.discountCents,
-      description: `${input.rewardTier.label} sandbox Checkout reward reserved.`,
+      description: `Sandbox Checkout ${input.rewardTier.label} Points Reservation.`,
     });
   } catch (error) {
-    if (!(error instanceof RewardsReservationUnavailableError)) throw error;
+    if (!(error instanceof PointsReservationUnavailableError)) throw error;
     throw new CheckoutError("reward_unavailable", "Selected points reward is no longer available.");
   }
 }

@@ -10,7 +10,7 @@ vi.mock("@/lib/supabase/admin", () => ({
 }));
 
 import {
-  RewardsReservationUnavailableError,
+  PointsReservationUnavailableError,
   awardPaidOrderPoints,
   getAvailablePointsBalance,
   reservePointsForOrder,
@@ -49,7 +49,7 @@ describe("operational rewards", () => {
 
     await reservePointsForOrder({
       amountCents: 500,
-      description: "$5 off sandbox Checkout reward reserved.",
+      description: "Sandbox Checkout $5 off Points Reservation.",
       orderId: "order-1",
       points: 200,
       userId: "account-holder-1",
@@ -58,7 +58,7 @@ describe("operational rewards", () => {
     expect(supabase.from).toHaveBeenCalledWith("rewards_reservations");
     expect(supabase.rpc).toHaveBeenCalledWith("reserve_rewards_points", {
       p_amount_cents: 500,
-      p_description: "$5 off sandbox Checkout reward reserved.",
+      p_description: "Sandbox Checkout $5 off Points Reservation.",
       p_order_id: "order-1",
       p_points: 200,
       p_source_key: "reward-reserve:order-1:1",
@@ -69,17 +69,45 @@ describe("operational rewards", () => {
   it("distinguishes an unavailable Points Reservation from an operational failure", async () => {
     const eq = vi.fn().mockResolvedValue({ data: [], error: null });
     supabase.from.mockReturnValue({ select: vi.fn(() => ({ eq })) });
-    supabase.rpc.mockResolvedValue({ error: { message: "insufficient balance" } });
+    supabase.rpc.mockResolvedValue({
+      error: {
+        code: "P0001",
+        message: "Insufficient Available Points Balance",
+      },
+    });
 
     await expect(
       reservePointsForOrder({
         amountCents: 500,
-        description: "$5 off sandbox Checkout reward reserved.",
+        description: "Sandbox Checkout $5 off Points Reservation.",
         orderId: "order-1",
         points: 200,
         userId: "account-holder-1",
       }),
-    ).rejects.toBeInstanceOf(RewardsReservationUnavailableError);
+    ).rejects.toBeInstanceOf(PointsReservationUnavailableError);
+  });
+
+  it("keeps non-balance reservation failures as operational errors", async () => {
+    const eq = vi.fn().mockResolvedValue({ data: [], error: null });
+    supabase.from.mockReturnValue({ select: vi.fn(() => ({ eq })) });
+    supabase.rpc.mockResolvedValue({
+      error: { code: "42501", message: "permission denied" },
+    });
+
+    const reservation = reservePointsForOrder({
+      amountCents: 500,
+      description: "Sandbox Checkout $5 off Points Reservation.",
+      orderId: "order-1",
+      points: 200,
+      userId: "account-holder-1",
+    });
+
+    await expect(reservation).rejects.toThrow(
+      "Failed to record Points Reservation: permission denied",
+    );
+    await expect(reservation).rejects.not.toBeInstanceOf(
+      PointsReservationUnavailableError,
+    );
   });
 
   it("records a Paid Order Points Award through the rewards contract", async () => {
