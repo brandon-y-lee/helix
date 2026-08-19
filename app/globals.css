@@ -540,7 +540,6 @@ body[data-sheet-scroll-lock] .site-header {
 
 .site-footer__wordmark h2 {
   width: 100%;
-  height: clamp(3.5rem, 21vw, 20rem);
   color: var(--ink);
   transform: scale(
     var(--site-footer-wordmark-scale, var(--site-footer-wordmark-static-scale))
@@ -574,11 +573,6 @@ body[data-sheet-scroll-lock] .site-header {
 .site-footer__wordmark a {
   display: block;
   width: 100%;
-  height: 100%;
-}
-
-.site-footer__wordmark svg {
-  height: 100%;
 }
 
 .site-footer__wordmark a:focus-visible {

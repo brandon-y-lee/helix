@@ -68,12 +68,12 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.14);
 }
 
-.admin-brand__identity {
+.admin-brand svg {
   width: 7.25rem;
   flex: 0 1 auto;
 }
 
-.admin-brand__label {
+.admin-brand > span {
   color: var(--admin-sidebar-soft);
   font-size: 0.7rem;
   font-weight: 700;
@@ -224,7 +224,7 @@ a.admin-navigation__item:hover {
   padding-inline: 0;
 }
 
-.admin-shell[data-sidebar-collapsed="true"] .admin-brand__identity {
+.admin-shell[data-sidebar-collapsed="true"] .admin-brand svg {
   width: 1.75rem;
 }
 

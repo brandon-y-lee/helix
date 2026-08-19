@@ -23,6 +23,14 @@ export const metadata: Metadata = {
   title: "Mei Pelle — Prestige Skincare for Men",
   description:
     "An original, focused men's skincare routine. Cleanse, treat, hydrate, and protect.",
+  icons: {
+    icon: [
+      {
+        url: "/brand/helix-symbol-black.svg",
+        type: "image/svg+xml",
+      },
+    ],
+  },
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

@@ -54,9 +54,54 @@ test("client navigation updates declarative header presentation", async ({
     "top",
   );
 
-  await page.getByLabel("Mei Pelle home").click();
+  await page.getByLabel("helix home").click();
   await expect(page).toHaveURL(/\/$/);
   await expect(overlaySurface).toHaveCount(1);
+});
+
+test("shared Helix identities remain accessible and responsive", async ({
+  page,
+}) => {
+  for (const viewport of [
+    { width: 1440, height: 900 },
+    { width: 390, height: 844 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await page.goto("/");
+
+    const homeLink = page.getByRole("link", { name: "helix home" });
+    const wordmark = homeLink.locator('[data-helix-identity="wordmark"]');
+    await expect(homeLink).toBeVisible();
+    await expect(wordmark).toHaveAttribute("aria-hidden", "true");
+    await homeLink.focus();
+    await expect(homeLink).toBeFocused();
+
+    const layout = await page.evaluate(() => {
+      const root = document.documentElement;
+      const header = document.querySelector(".site-header");
+      const identity = document.querySelector(
+        '.brand [data-helix-identity="wordmark"]',
+      );
+      const headerRect = header?.getBoundingClientRect();
+      const identityRect = identity?.getBoundingClientRect();
+      return {
+        hasHorizontalOverflow: root.scrollWidth > window.innerWidth,
+        identityInsideHeader:
+          Boolean(headerRect) &&
+          Boolean(identityRect) &&
+          identityRect!.top >= headerRect!.top &&
+          identityRect!.bottom <= headerRect!.bottom,
+      };
+    });
+    expect(layout).toEqual({
+      hasHorizontalOverflow: false,
+      identityInsideHeader: true,
+    });
+
+    await expect(
+      page.locator('link[rel~="icon"][href="/brand/helix-symbol-black.svg"]'),
+    ).toHaveCount(1);
+  }
 });
 
 test("mobile menu keeps the navbar visible and restores trigger focus", async ({

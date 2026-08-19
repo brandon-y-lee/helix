@@ -9,8 +9,8 @@ import {
 } from "react";
 import { usePathname } from "next/navigation";
 import { signOutAction } from "@/app/account/actions";
+import { AdminHelixIdentity } from "@/components/admin/shell/AdminHelixIdentity";
 import { AdminNavigation } from "@/components/admin/shell/AdminNavigation";
-import { HelixIdentity } from "@/components/brand/HelixIdentity";
 import { Sheet } from "@/components/overlays/Sheet";
 import type { AdminModule } from "@/lib/admin/modules";
 
@@ -120,23 +120,11 @@ export function AdminShell({
       </a>
 
       <aside className="admin-sidebar">
-        <div
+        <AdminHelixIdentity
           className="admin-brand"
-          role="img"
-          aria-label="helix Admin"
+          compact={sidebarCollapsed}
           title={sidebarCollapsed ? "helix Admin" : undefined}
-        >
-          <HelixIdentity
-            className="admin-brand__identity"
-            variant={sidebarCollapsed ? "symbol" : "wordmark"}
-            decorative
-          />
-          {sidebarCollapsed ? null : (
-            <span className="admin-brand__label" aria-hidden="true">
-              ADMIN
-            </span>
-          )}
-        </div>
+        />
         <button
           type="button"
           className="admin-sidebar__toggle"
@@ -171,14 +159,9 @@ export function AdminShell({
           >
             Menu
           </button>
-          <span
+          <AdminHelixIdentity
             className="admin-mobile-header__brand"
-            role="img"
-            aria-label="helix Admin"
-          >
-            <HelixIdentity decorative />
-            <span aria-hidden="true">ADMIN</span>
-          </span>
+          />
           <span className="admin-mobile-header__current">{currentView}</span>
         </header>
 
