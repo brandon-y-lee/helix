@@ -3,6 +3,7 @@ import { Manrope, Marcellus } from "next/font/google";
 import type { ReactNode } from "react";
 import "./globals.css";
 import { ApplicationChrome } from "@/components/shell/ApplicationChrome";
+import { createPublicSiteMetadata } from "@/lib/public-site-metadata";
 import { resolvePublicSiteOrigin } from "@/lib/site-url";
 
 const manrope = Manrope({
@@ -19,10 +20,14 @@ const marcellus = Marcellus({
 });
 
 export const metadata: Metadata = {
+  ...createPublicSiteMetadata({
+    title: "helix — Prestige Skincare for Men",
+    description:
+      "An original, focused men's skincare routine. Cleanse, treat, hydrate, and protect.",
+    canonical: "/",
+  }),
   metadataBase: new URL(resolvePublicSiteOrigin()),
-  title: "Mei Pelle — Prestige Skincare for Men",
-  description:
-    "An original, focused men's skincare routine. Cleanse, treat, hydrate, and protect.",
+  applicationName: "helix",
   icons: {
     icon: [
       {

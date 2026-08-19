@@ -149,6 +149,13 @@ beforeEach(() => {
 });
 
 describe("homepage product wiring", () => {
+  it("uses the lowercase helix name in the editorial hero", async () => {
+    render(<CartProvider>{await HomePage()}</CartProvider>);
+
+    expect(screen.getByText("helix")).toHaveClass("home-video-hero__eyebrow");
+    expect(document.body).not.toHaveTextContent(/Mei Pelle/i);
+  });
+
   it("selects Core and Beyond products in canonical order without merchandising PROTECT", async () => {
     render(<CartProvider>{await HomePage()}</CartProvider>);
 

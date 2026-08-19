@@ -69,7 +69,7 @@ const sharedReviews = {
   ],
 };
 
-// Original Mei Pelle placeholder fixtures for non-production review-section QA.
+// Original prelaunch placeholder fixtures for non-production review-section QA.
 const productReviewFixturesBySlug = {
   "cleanse-01-calming-gel-cleanser": {
     meter: meters["cleanse-01-calming-gel-cleanser"],

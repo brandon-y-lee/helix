@@ -18,6 +18,7 @@ import {
   serializeStructuredData,
 } from "@/lib/catalog/product-structured-data";
 import { isValidProductSlug } from "@/lib/catalog/product-slug";
+import { createPublicSiteMetadata } from "@/lib/public-site-metadata";
 import { resolvePublicSiteOrigin } from "@/lib/site-url";
 
 const siteUrl = new URL(resolvePublicSiteOrigin());
@@ -40,16 +41,16 @@ export async function generateMetadata({
   const product = resolution
     ? await getCachedProductMetadata(resolution.targetSlug)
     : undefined;
-  return {
-    title: product
-      ? product.seoTitle ??
-        `${composeProductTitle(product.displayName, product.productType)} | Mei Pelle`
-      : "Product | Mei Pelle",
-    description: product?.seoDescription ?? product?.editorialDescription,
-    alternates: product
-      ? { canonical: `/products/${product.slug}` }
-      : undefined,
-  };
+  const title = product
+    ? product.seoTitle ??
+      `${composeProductTitle(product.displayName, product.productType)} | helix`
+    : "Product | helix";
+  const description = product?.seoDescription ?? product?.editorialDescription;
+  return createPublicSiteMetadata({
+    title,
+    description,
+    canonical: product ? `/products/${product.slug}` : undefined,
+  });
 }
 
 type ProductSearchParams = Record<

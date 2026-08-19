@@ -25,7 +25,7 @@ export function SearchOverlay({
       open={open}
       side="right"
       title="Search"
-      description="Search the Mei Pelle product catalog."
+      description="Search the helix product catalog."
       onClose={onClose}
       returnFocus={returnFocus}
       className="search-sheet"
