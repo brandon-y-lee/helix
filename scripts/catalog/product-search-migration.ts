@@ -211,6 +211,75 @@ export async function collectPaginatedSearchConfiguration<T>(
   }
 }
 
+export async function collectPaginatedIndices<T>(
+  readPage: (
+    page: number,
+    hitsPerPage: number,
+  ) => Promise<{ items: T[]; nbPages?: number }>,
+  hitsPerPage = 100,
+): Promise<T[]> {
+  if (!Number.isSafeInteger(hitsPerPage) || hitsPerPage < 1) {
+    throw new Error("[product-search] Invalid index inventory page size.");
+  }
+
+  const items: T[] = [];
+  let expectedPages: number | null = null;
+  for (let page = 0; ; page += 1) {
+    const response = await readPage(page, hitsPerPage);
+    const pages = response.nbPages;
+    if (
+      typeof pages !== "number" ||
+      !Number.isSafeInteger(pages) ||
+      pages < 0
+    ) {
+      throw new Error("[product-search] Invalid index inventory page count.");
+    }
+    if (expectedPages === null) expectedPages = pages;
+    else if (pages !== expectedPages) {
+      throw new Error("[product-search] Index inventory changed during read.");
+    }
+
+    if (pages === 0 && response.items.length > 0) {
+      throw new Error("[product-search] Invalid empty index inventory.");
+    }
+    items.push(...response.items);
+    if (page + 1 >= pages) return items;
+    if (response.items.length === 0) {
+      throw new Error("[product-search] Index inventory was incomplete.");
+    }
+  }
+}
+
+function wildcardMatches(pattern: string, value: string): boolean {
+  let patternIndex = 0;
+  let valueIndex = 0;
+  let starIndex = -1;
+  let valueAfterStar = -1;
+
+  while (valueIndex < value.length) {
+    if (
+      patternIndex < pattern.length &&
+      pattern[patternIndex] === value[valueIndex]
+    ) {
+      patternIndex += 1;
+      valueIndex += 1;
+    } else if (pattern[patternIndex] === "*") {
+      starIndex = patternIndex;
+      valueAfterStar = valueIndex;
+      patternIndex += 1;
+    } else if (starIndex >= 0) {
+      patternIndex = starIndex + 1;
+      valueAfterStar += 1;
+      valueIndex = valueAfterStar;
+    } else {
+      return false;
+    }
+  }
+
+  while (pattern[patternIndex] === "*") patternIndex += 1;
+  return patternIndex === pattern.length;
+}
+
 export function assessProductSearchMigration(
   mode: ProductSearchMigrationMode,
   inventory: ProductSearchInventory,
@@ -236,7 +305,13 @@ export function assessProductSearchMigration(
     blockers.push("all Algolia API keys must be inventoried before mutation");
   }
   for (const key of inventory.apiKeys.keys ?? []) {
-    if (key.indexes.includes(LEGACY_PRODUCTS_INDEX)) {
+    if (
+      key.indexes.some(
+        (restriction) =>
+          wildcardMatches(restriction, LEGACY_PRODUCTS_INDEX) &&
+          !wildcardMatches(restriction, HELIX_PRODUCTS_INDEX),
+      )
+    ) {
       blockers.push(
         `Algolia API key ${key.identity} is scoped to the source index`,
       );
@@ -445,6 +520,13 @@ export class AlgoliaProductSearchControlPlane
     return records;
   }
 
+  private async readIndices(): Promise<FetchedIndex[]> {
+    return collectPaginatedIndices(async (page, hitsPerPage) => {
+      const response = await this.client.listIndices({ page, hitsPerPage });
+      return { items: response.items, nbPages: response.nbPages };
+    });
+  }
+
   private async readRules(indexName: string): Promise<Rule[]> {
     return collectPaginatedSearchConfiguration(async (page, hitsPerPage) => {
       const response = await this.client.searchRules({
@@ -644,11 +726,11 @@ export class AlgoliaProductSearchControlPlane
   async inspect(
     canonicalRecords: ProductSearchRecord[],
   ): Promise<ProductSearchInventory> {
-    const listed = await this.client.listIndices({ hitsPerPage: 100 });
-    const sourceIndex = listed.items.find(
+    const indices = await this.readIndices();
+    const sourceIndex = indices.find(
       (index) => index.name === LEGACY_PRODUCTS_INDEX,
     );
-    const targetIndex = listed.items.find(
+    const targetIndex = indices.find(
       (index) => index.name === HELIX_PRODUCTS_INDEX,
     );
     const [source, target, querySuggestions, recommend, apiKeys] =
@@ -801,6 +883,7 @@ export class AlgoliaProductSearchControlPlane
 import {
   algoliasearch,
   type Algoliasearch,
+  type FetchedIndex,
   type Rule,
   type SynonymHit,
 } from "algoliasearch";

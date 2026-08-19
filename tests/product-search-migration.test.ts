@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   assessProductSearchMigration,
+  collectPaginatedIndices,
   collectPaginatedSearchConfiguration,
   runProductSearchMigration,
   type ProductSearchControlPlane,
@@ -171,6 +172,50 @@ describe("Product Search migration assessment", () => {
     );
   });
 
+  it("blocks wildcard API key restrictions that can match the source index", () => {
+    const report = assessProductSearchMigration(
+      "apply",
+      inventory({
+        apiKeys: {
+          status: "all-keys-enumerated",
+          configuredPublicKeyVerified: true,
+          configuredWriteKeyVerified: true,
+          keys: [
+            {
+              identity: "other-key-1",
+              acl: ["search"],
+              indexes: ["mei_pelle_*"],
+              description: null,
+            },
+            {
+              identity: "other-key-2",
+              acl: ["search"],
+              indexes: ["helix_*"],
+              description: null,
+            },
+            {
+              identity: "other-key-3",
+              acl: ["search"],
+              indexes: ["*_pelle_products"],
+              description: null,
+            },
+          ],
+        },
+      }),
+      canonicalRecords,
+    );
+
+    expect(report.blockers).toContain(
+      "Algolia API key other-key-1 is scoped to the source index",
+    );
+    expect(report.blockers).not.toContain(
+      "Algolia API key other-key-2 is scoped to the source index",
+    );
+    expect(report.blockers).toContain(
+      "Algolia API key other-key-3 is scoped to the source index",
+    );
+  });
+
   it("rejects equal counts when records, rules, or synonyms differ", () => {
     const report = assessProductSearchMigration(
       "verify",
@@ -206,6 +251,23 @@ describe("Product Search migration assessment", () => {
 });
 
 describe("Product Search configuration inventory", () => {
+  it("collects every index inventory page", async () => {
+    const readPage = vi
+      .fn()
+      .mockResolvedValueOnce({ items: [{ name: "other" }], nbPages: 2 })
+      .mockResolvedValueOnce({
+        items: [{ name: "mei_pelle_products" }],
+        nbPages: 2,
+      });
+
+    await expect(collectPaginatedIndices(readPage, 1)).resolves.toEqual([
+      { name: "other" },
+      { name: "mei_pelle_products" },
+    ]);
+    expect(readPage).toHaveBeenNthCalledWith(1, 0, 1);
+    expect(readPage).toHaveBeenNthCalledWith(2, 1, 1);
+  });
+
   it("collects every rules or synonyms page before reconciliation", async () => {
     const readPage = vi
       .fn()
