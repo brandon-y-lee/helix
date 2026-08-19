@@ -69,6 +69,14 @@ async function run(): Promise<void> {
         `Expected one successful and one rejected reservation; got ${succeeded.length} and ${failed.length}.`,
       );
     }
+    const rejection = failed[0];
+    if (
+      rejection.status !== "rejected" ||
+      !(rejection.reason instanceof Error) ||
+      !rejection.reason.message.includes("Insufficient loyalty balance")
+    ) {
+      throw new Error("The competing reservation did not fail for insufficient balance.");
+    }
 
     const { data: account, error: accountError } = await supabase
       .from("rewards_accounts")

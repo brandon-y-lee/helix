@@ -5,7 +5,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(48);
+select plan(55);
 
 select has_view('public', 'rewards_accounts', 'rewards accounts exposes the existing Points account');
 select has_view('public', 'rewards_ledger_entries', 'the Points Ledger exposes existing history');
@@ -33,24 +33,26 @@ select table_privs_are('public', 'rewards_reservations', 'anon', array[]::text[]
 select table_privs_are('public', 'rewards_accounts', 'service_role', array['SELECT'], 'the trusted server reads accounts through the view');
 select table_privs_are('public', 'rewards_ledger_entries', 'service_role', array['SELECT'], 'the trusted server reads immutable history through the view');
 select table_privs_are('public', 'rewards_reservations', 'service_role', array['SELECT'], 'the trusted server reads reservations through the view');
-select table_privs_are('public', 'rewards_redemptions', 'authenticated', array[]::text[], 'the provisional misnamed view is not public contract');
-select table_privs_are('public', 'rewards_redemptions', 'service_role', array[]::text[], 'the provisional misnamed view is not a trusted-server contract');
+select hasnt_view('public', 'rewards_redemptions', 'the provisional misnamed view is removed');
 
 select has_function('public', 'ensure_rewards_account', array['uuid'], 'rewards account setup has a rewards-named RPC');
 select has_function('public', 'award_rewards_points', array['uuid', 'integer', 'loyalty_ledger_entry_type', 'text', 'text', 'uuid', 'jsonb'], 'Points Awards have a rewards-named RPC');
 select has_function('public', 'reserve_rewards_points', array['uuid', 'integer', 'integer', 'text', 'text', 'uuid'], 'Points Reservations have a rewards-named RPC');
 select has_function('public', 'release_rewards_reservations_for_order', array['uuid', 'uuid', 'text'], 'Points Releases have a rewards-named RPC');
+select has_function('public', 'record_rewards_points_adjustment', array['uuid', 'integer', 'loyalty_ledger_entry_type', 'text', 'text', 'uuid', 'jsonb'], 'operational Points adjustments have a rewards-named RPC');
 
 select function_privs_are('public', 'ensure_rewards_account', array['uuid'], 'authenticated', array[]::text[], 'browser sessions cannot initialize rewards state');
 select function_privs_are('public', 'award_rewards_points', array['uuid', 'integer', 'loyalty_ledger_entry_type', 'text', 'text', 'uuid', 'jsonb'], 'authenticated', array[]::text[], 'browser sessions cannot award Points');
 select function_privs_are('public', 'reserve_rewards_points', array['uuid', 'integer', 'integer', 'text', 'text', 'uuid'], 'authenticated', array[]::text[], 'browser sessions cannot reserve Points');
 select function_privs_are('public', 'release_rewards_reservations_for_order', array['uuid', 'uuid', 'text'], 'authenticated', array[]::text[], 'browser sessions cannot release Points');
+select function_privs_are('public', 'record_rewards_points_adjustment', array['uuid', 'integer', 'loyalty_ledger_entry_type', 'text', 'text', 'uuid', 'jsonb'], 'authenticated', array[]::text[], 'browser sessions cannot adjust Points');
 select function_privs_are('public', 'ensure_rewards_account', array['uuid'], 'service_role', array['EXECUTE'], 'the trusted server can initialize rewards state');
 select function_privs_are('public', 'award_rewards_points', array['uuid', 'integer', 'loyalty_ledger_entry_type', 'text', 'text', 'uuid', 'jsonb'], 'service_role', array['EXECUTE'], 'the trusted server can award Points');
 select function_privs_are('public', 'reserve_rewards_points', array['uuid', 'integer', 'integer', 'text', 'text', 'uuid'], 'service_role', array['EXECUTE'], 'the trusted server can reserve Points');
 select function_privs_are('public', 'release_rewards_reservations_for_order', array['uuid', 'uuid', 'text'], 'service_role', array['EXECUTE'], 'the trusted server can release Points');
-select function_privs_are('public', 'redeem_rewards_points', array['uuid', 'integer', 'integer', 'text', 'text', 'uuid'], 'service_role', array[]::text[], 'the provisional reservation-as-redemption RPC is retired');
-select function_privs_are('public', 'release_rewards_redemptions_for_order', array['uuid', 'uuid', 'text'], 'service_role', array[]::text[], 'the provisional misnamed release RPC is retired');
+select function_privs_are('public', 'record_rewards_points_adjustment', array['uuid', 'integer', 'loyalty_ledger_entry_type', 'text', 'text', 'uuid', 'jsonb'], 'service_role', array['EXECUTE'], 'the trusted server can record operational adjustments');
+select hasnt_function('public', 'redeem_rewards_points', array['uuid', 'integer', 'integer', 'text', 'text', 'uuid'], 'the provisional reservation-as-redemption RPC is removed');
+select hasnt_function('public', 'release_rewards_redemptions_for_order', array['uuid', 'uuid', 'text'], 'the provisional misnamed release RPC is removed');
 
 select ok(
   not exists (
@@ -60,7 +62,8 @@ select ok(
       'public.ensure_rewards_account(uuid)'::regprocedure,
       'public.award_rewards_points(uuid,integer,loyalty_ledger_entry_type,text,text,uuid,jsonb)'::regprocedure,
       'public.reserve_rewards_points(uuid,integer,integer,text,text,uuid)'::regprocedure,
-      'public.release_rewards_reservations_for_order(uuid,uuid,text)'::regprocedure
+      'public.release_rewards_reservations_for_order(uuid,uuid,text)'::regprocedure,
+      'public.record_rewards_points_adjustment(uuid,integer,loyalty_ledger_entry_type,text,text,uuid,jsonb)'::regprocedure
     )
       and (prosecdef or proconfig is distinct from array['search_path=""'])
   ),
@@ -194,10 +197,56 @@ select is(
   'the Points Release appends one immutable ledger entry'
 );
 
+select is(
+  public.record_rewards_points_adjustment(
+    '18400000-0000-4000-8000-000000000001', -200, 'purchase_refund',
+    'ticket-184-purchase-refund', 'Ticket 184 purchase refund.',
+    '18400000-0000-4000-8000-000000000101', '{}'::jsonb
+  ),
+  public.record_rewards_points_adjustment(
+    '18400000-0000-4000-8000-000000000001', -200, 'purchase_refund',
+    'ticket-184-purchase-refund', 'Ticket 184 purchase refund.',
+    '18400000-0000-4000-8000-000000000101', '{}'::jsonb
+  ),
+  'operational adjustment retries return the same ledger identity'
+);
+
+select is(
+  (select points_balance from public.rewards_accounts where user_id = '18400000-0000-4000-8000-000000000001'),
+  400,
+  'a retried purchase refund removes Points once'
+);
+
+select is(
+  public.record_rewards_points_adjustment(
+    '18400000-0000-4000-8000-000000000001', 200, 'redemption_reversal',
+    'ticket-184-redemption-reversal', 'Ticket 184 Points Redemption reversal.',
+    '18400000-0000-4000-8000-000000000101', '{}'::jsonb
+  ),
+  public.record_rewards_points_adjustment(
+    '18400000-0000-4000-8000-000000000001', 200, 'redemption_reversal',
+    'ticket-184-redemption-reversal', 'Ticket 184 Points Redemption reversal.',
+    '18400000-0000-4000-8000-000000000101', '{}'::jsonb
+  ),
+  'a Points Reversal retry preserves ledger identity'
+);
+
+select is(
+  (select points_balance from public.rewards_accounts where user_id = '18400000-0000-4000-8000-000000000001'),
+  600,
+  'a retried Points Reversal restores Points once'
+);
+
+select is(
+  (select lifetime_points from public.rewards_accounts where user_id = '18400000-0000-4000-8000-000000000001'),
+  600,
+  'operational balance adjustments preserve Lifetime Points'
+);
+
 select set_config('request.jwt.claims', '{"sub":"18400000-0000-4000-8000-000000000001","role":"authenticated"}', true);
 set local role authenticated;
 select is((select count(*)::integer from public.rewards_accounts), 1, 'rewards account RLS hides another Account Holder');
-select is((select count(*)::integer from public.rewards_ledger_entries), 3, 'Points Ledger RLS returns only the caller history');
+select is((select count(*)::integer from public.rewards_ledger_entries), 5, 'Points Ledger RLS returns only the caller history');
 select is((select count(*)::integer from public.rewards_reservations), 1, 'Points Reservation RLS returns only the caller holds');
 reset role;
 

@@ -1582,56 +1582,6 @@ export type Database = {
           },
         ]
       }
-      rewards_redemptions: {
-        Row: {
-          amount_cents: number | null
-          created_at: string | null
-          id: string | null
-          order_id: string | null
-          points: number | null
-          source_key: string | null
-          status:
-            | Database["public"]["Enums"]["loyalty_redemption_status"]
-            | null
-          updated_at: string | null
-          user_id: string | null
-        }
-        Insert: {
-          amount_cents?: number | null
-          created_at?: string | null
-          id?: string | null
-          order_id?: string | null
-          points?: number | null
-          source_key?: string | null
-          status?:
-            | Database["public"]["Enums"]["loyalty_redemption_status"]
-            | null
-          updated_at?: string | null
-          user_id?: string | null
-        }
-        Update: {
-          amount_cents?: number | null
-          created_at?: string | null
-          id?: string | null
-          order_id?: string | null
-          points?: number | null
-          source_key?: string | null
-          status?:
-            | Database["public"]["Enums"]["loyalty_redemption_status"]
-            | null
-          updated_at?: string | null
-          user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "loyalty_redemptions_order_id_fkey"
-            columns: ["order_id"]
-            isOneToOne: false
-            referencedRelation: "orders"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       rewards_reservations: {
         Row: {
           amount_cents: number | null
@@ -1929,10 +1879,11 @@ export type Database = {
         }
         Returns: Json
       }
-      redeem_loyalty_points: {
+      record_rewards_points_adjustment: {
         Args: {
-          p_amount_cents: number
           p_description: string
+          p_entry_type: Database["public"]["Enums"]["loyalty_ledger_entry_type"]
+          p_metadata?: Json
           p_order_id?: string
           p_points: number
           p_source_key: string
@@ -1940,7 +1891,7 @@ export type Database = {
         }
         Returns: string
       }
-      redeem_rewards_points: {
+      redeem_loyalty_points: {
         Args: {
           p_amount_cents: number
           p_description: string
@@ -1956,10 +1907,6 @@ export type Database = {
         Returns: boolean
       }
       release_loyalty_redemptions_for_order: {
-        Args: { p_order_id: string; p_reason: string; p_user_id: string }
-        Returns: number
-      }
-      release_rewards_redemptions_for_order: {
         Args: { p_order_id: string; p_reason: string; p_user_id: string }
         Returns: number
       }

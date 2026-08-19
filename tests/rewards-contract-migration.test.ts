@@ -18,6 +18,32 @@ const hardeningSql = readFileSync(
   "utf8",
 );
 
+const finalizationSql = readFileSync(
+  resolve(
+    process.cwd(),
+    "supabase/migrations/20260819042432_finalize_rewards_contract.sql",
+  ),
+  "utf8",
+);
+
+const provisionalRemovalSql = readFileSync(
+  resolve(
+    process.cwd(),
+    "supabase/migrations/20260819042708_remove_provisional_rewards_contract.sql",
+  ),
+  "utf8",
+);
+
+const adjustmentFixSql = readFileSync(
+  resolve(
+    process.cwd(),
+    "supabase/migrations/20260819051228_fix_rewards_adjustment_coalesce.sql",
+  ),
+  "utf8",
+);
+
+const effectiveMigrationSql = `${migrationSql}\n${hardeningSql}\n${finalizationSql}\n${provisionalRemovalSql}\n${adjustmentFixSql}`;
+
 const databaseTypes = readFileSync(
   resolve(process.cwd(), "lib/database.types.ts"),
   "utf8",
@@ -39,12 +65,13 @@ const rewardsFunctions = [
   "award_rewards_points",
   "reserve_rewards_points",
   "release_rewards_reservations_for_order",
+  "record_rewards_points_adjustment",
 ] as const;
 
 describe("temporary rewards database contract", () => {
   it("adds explicit security-invoker views over the existing Points records", () => {
     for (const view of rewardsViews) {
-      expect(`${migrationSql}\n${hardeningSql}`).toContain(
+      expect(effectiveMigrationSql).toContain(
         `create view public.${view}\nwith (security_invoker = true)`,
       );
       expect(hardeningSql).toContain(
@@ -61,7 +88,7 @@ describe("temporary rewards database contract", () => {
     expect(migrationSql).toContain("from public.loyalty_accounts");
     expect(migrationSql).toContain("from public.loyalty_ledger_entries");
     expect(hardeningSql).toContain("from public.loyalty_redemptions");
-    expect(`${migrationSql}\n${hardeningSql}`).not.toMatch(
+    expect(effectiveMigrationSql).not.toMatch(
       /create\s+table\s+public\.rewards_/i,
     );
     expect(hardeningSql).not.toMatch(
@@ -71,16 +98,16 @@ describe("temporary rewards database contract", () => {
 
   it("keeps rewards mutations service-only behind fixed-search-path wrappers", () => {
     for (const fn of rewardsFunctions) {
-      expect(`${migrationSql}\n${hardeningSql}`).toContain(
+      expect(effectiveMigrationSql).toContain(
         `create function public.${fn}(`,
       );
-      expect(`${migrationSql}\n${hardeningSql}`).toContain(
+      expect(effectiveMigrationSql).toContain(
         `revoke all on function public.${fn}`,
       );
-      expect(`${migrationSql}\n${hardeningSql}`).toContain(
+      expect(effectiveMigrationSql).toContain(
         "from public, anon, authenticated, service_role",
       );
-      expect(`${migrationSql}\n${hardeningSql}`).toContain(`to service_role`);
+      expect(effectiveMigrationSql).toContain(`to service_role`);
     }
 
     expect(hardeningSql.match(/security invoker/g)).toHaveLength(2);
@@ -95,6 +122,25 @@ describe("temporary rewards database contract", () => {
     expect(hardeningSql).toContain(
       "revoke all on function public.release_rewards_redemptions_for_order",
     );
+    expect(finalizationSql).toContain("for update");
+    expect(finalizationSql).toContain("on conflict (source_key) do nothing");
+    expect(finalizationSql.match(/security invoker/g)).toHaveLength(1);
+    expect(finalizationSql.match(/set search_path = ''/g)).toHaveLength(1);
+    expect(adjustmentFixSql).toContain(
+      "create or replace function public.record_rewards_points_adjustment(",
+    );
+    expect(adjustmentFixSql.match(/security invoker/g)).toHaveLength(1);
+    expect(adjustmentFixSql.match(/set search_path = ''/g)).toHaveLength(1);
+    expect(adjustmentFixSql).not.toContain("pg_catalog.coalesce");
+    expect(provisionalRemovalSql).toContain(
+      "drop function public.redeem_rewards_points",
+    );
+    expect(provisionalRemovalSql).toContain(
+      "drop function public.release_rewards_redemptions_for_order",
+    );
+    expect(provisionalRemovalSql).toContain(
+      "drop view public.rewards_redemptions",
+    );
   });
 
   it("publishes rewards-named application types without removing compatibility", () => {
@@ -107,6 +153,11 @@ describe("temporary rewards database contract", () => {
 
     expect(databaseTypes).toContain("loyalty_accounts: {");
     expect(databaseTypes).toContain("award_loyalty_points: {");
+    expect(databaseTypes).not.toContain("rewards_redemptions: {");
+    expect(databaseTypes).not.toContain("redeem_rewards_points: {");
+    expect(databaseTypes).not.toContain(
+      "release_rewards_redemptions_for_order: {",
+    );
   });
 
   it("marks the compatibility boundary as temporary and rebrand-scoped", () => {
@@ -120,6 +171,7 @@ describe("temporary rewards database contract", () => {
     expect(concurrencyVerifier.match(/reserve\(sourceKeys\[/g)).toHaveLength(2);
     expect(concurrencyVerifier).toContain('succeeded.length !== 1');
     expect(concurrencyVerifier).toContain('failed.length !== 1');
+    expect(concurrencyVerifier).toContain("Insufficient loyalty balance");
     expect(concurrencyVerifier).toContain('.from("rewards_accounts")');
     expect(concurrencyVerifier).toContain('.from("rewards_reservations")');
     expect(concurrencyVerifier).toContain("supabase.auth.admin.deleteUser(userId)");
