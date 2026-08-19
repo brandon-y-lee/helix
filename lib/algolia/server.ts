@@ -3,6 +3,7 @@
 // This module must only be imported from server code (route handlers).
 
 import { algoliasearch, type Algoliasearch } from "algoliasearch";
+import { HELIX_PRODUCTS_INDEX } from "@/lib/algolia/index";
 import { INDEX_SETTINGS, type AlgoliaProductRecord } from "@/lib/algolia/record";
 
 class AlgoliaConfigError extends Error {
@@ -32,6 +33,12 @@ function getWriteConfig(): WriteConfig {
       `Missing required server Algolia env var(s): ${missing.join(", ")}. ` +
         "Set them in .env.local (server-only — do NOT use NEXT_PUBLIC_ for the " +
         "write key). See .env.example.",
+    );
+  }
+
+  if (indexName !== HELIX_PRODUCTS_INDEX) {
+    throw new AlgoliaConfigError(
+      `ALGOLIA_INDEX_NAME must be ${HELIX_PRODUCTS_INDEX}.`,
     );
   }
 

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { revalidatePath, revalidateTag } from "next/cache";
 import {
   applyCatalogWebhookEvent,
@@ -6,6 +6,7 @@ import {
 } from "@/lib/algolia/sync";
 import { POST } from "@/app/api/webhooks/supabase/catalog-search-sync/route";
 import { SHOP_COLLECTION_PATHS } from "@/lib/catalog/collection-routes";
+import { getIndexName } from "@/lib/algolia/server";
 
 vi.mock("next/cache", async (importOriginal) => {
   const actual = await importOriginal<typeof import("next/cache")>();
@@ -25,10 +26,16 @@ vi.mock("@/lib/algolia/sync", async (importOriginal) => {
   };
 });
 
+vi.mock("@/lib/algolia/server", () => ({
+  getIndexName: vi.fn(() => "helix_products"),
+}));
+
 const applyMock = vi.mocked(applyCatalogWebhookEvent);
 const verifyMock = vi.mocked(verifyWebhookSecret);
 const revalidatePathMock = vi.mocked(revalidatePath);
 const revalidateTagMock = vi.mocked(revalidateTag);
+const getIndexNameMock = vi.mocked(getIndexName);
+const originalPublicIndexName = process.env.NEXT_PUBLIC_ALGOLIA_INDEX_NAME;
 
 function request(body: unknown, init: RequestInit = {}) {
   return new Request("https://mei-pelle.test/api/webhooks/supabase/catalog-search-sync", {
@@ -47,7 +54,18 @@ beforeEach(() => {
   verifyMock.mockReset();
   revalidatePathMock.mockReset();
   revalidateTagMock.mockReset();
+  getIndexNameMock.mockReset();
+  getIndexNameMock.mockReturnValue("helix_products");
+  process.env.NEXT_PUBLIC_ALGOLIA_INDEX_NAME = "helix_products";
   verifyMock.mockImplementation((secret) => secret === "valid-secret");
+});
+
+afterAll(() => {
+  if (originalPublicIndexName === undefined) {
+    delete process.env.NEXT_PUBLIC_ALGOLIA_INDEX_NAME;
+  } else {
+    process.env.NEXT_PUBLIC_ALGOLIA_INDEX_NAME = originalPublicIndexName;
+  }
 });
 
 describe("catalog search sync route", () => {
@@ -108,6 +126,8 @@ describe("catalog search sync route", () => {
 
     expect(response.status).toBe(200);
     expect(body.ok).toBe(true);
+    expect(body.indexName).toBe("helix_products");
+    expect(body.publicIndexName).toBe("helix_products");
     expect(applyMock).toHaveBeenCalledOnce();
     expect(revalidateTagMock).toHaveBeenCalledWith("catalog-product-card");
     expect(revalidateTagMock).toHaveBeenCalledWith(
