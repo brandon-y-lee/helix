@@ -59,7 +59,7 @@ beforeEach(() => {
 });
 
 describe("Account and Cart identity transition", () => {
-  it("merges the guest Cart and emits the identity signal after sign-in", async () => {
+  it("merges Cart ownership and emits the identity signal after sign-in", async () => {
     const form = new FormData();
     form.set("email", "customer@example.test");
     form.set("password", "correct-password");

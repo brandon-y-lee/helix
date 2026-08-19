@@ -41,13 +41,13 @@ test("Account, Cart, Checkout, and consent use the helix identity", async ({
     page.getByText(/no real charge, shipment, fulfillment/i),
   ).toBeVisible();
 
-  await page.getByRole("button", { name: "Cookie Preferences" }).click();
-  const consent = page.getByRole("dialog", { name: "Cookie Preferences" });
-  await expect(consent).toContainText("helix uses essential cookies");
+  await page.getByRole("button", { name: "Cookie notice" }).click();
+  const consent = page.getByRole("dialog", { name: "Cookie notice" });
+  await expect(consent).toContainText("Helix uses essential cookies");
   await expect(consent).not.toContainText("Mei Pelle");
 });
 
-test("Checkout cancellation returns to an intact guest Cart", async ({ page }) => {
+test("Checkout cancellation returns to the intact Cart", async ({ page }) => {
   await page.goto("/cart?checkout=cancelled");
 
   await expect(
@@ -57,4 +57,18 @@ test("Checkout cancellation returns to an intact guest Cart", async ({ page }) =
     page.locator("#content").getByText("Your cart is empty."),
   ).toBeVisible();
   await expect(page).toHaveTitle("Cart | helix");
+});
+
+test("an unverifiable Checkout return fails closed", async ({ page }) => {
+  await page.goto("/checkout/success?session_id=invalid");
+
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Order status" }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("We could not verify that Checkout Session."),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Order confirmed" }),
+  ).toHaveCount(0);
 });

@@ -5,11 +5,11 @@ import { COOKIE_ACKNOWLEDGEMENT_COOKIE } from "@/lib/customer-state-identifiers"
 
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 
-function writeEssentialPreference() {
+function writeCookieAcknowledgement() {
   document.cookie = `${COOKIE_ACKNOWLEDGEMENT_COOKIE}=required-and-payment-functional; Max-Age=${COOKIE_MAX_AGE}; Path=/; SameSite=Lax`;
 }
 
-export function CookiePreferencesDialog({
+export function CookieAcknowledgementDialog({
   triggerClassName,
 }: {
   triggerClassName?: string;
@@ -77,7 +77,7 @@ export function CookiePreferencesDialog({
           setOpen(true);
         }}
       >
-        Cookie Preferences
+        Cookie notice
       </button>
 
       {open && (
@@ -91,20 +91,20 @@ export function CookiePreferencesDialog({
           >
             <div className="cookie-dialog__head">
               <p className="eyebrow">Privacy controls</p>
-              <h2 id={titleId}>Cookie Preferences</h2>
+              <h2 id={titleId}>Cookie notice</h2>
               <button
                 ref={closeRef}
                 type="button"
                 className="cookie-dialog__close"
                 onClick={() => setOpen(false)}
-                aria-label="Close cookie preferences"
+                aria-label="Close cookie notice"
               >
                 Close
               </button>
             </div>
             <p id={descriptionId}>
-              helix uses essential cookies for authentication, guest-cart
-              continuity, and this preference acknowledgement. Stripe may use
+              Helix uses essential cookies for authentication, Cart continuity,
+              and remembering this acknowledgement. Stripe may use
               functional storage when payment-method messaging loads on an
               eligible product page. Optional analytics and advertising
               categories are not active.
@@ -141,7 +141,7 @@ export function CookiePreferencesDialog({
             </div>
             {saved && (
               <p className="cookie-dialog__status" role="status">
-                Current preference saved.
+                Cookie notice acknowledged.
               </p>
             )}
             <div className="cookie-dialog__actions">
@@ -149,11 +149,11 @@ export function CookiePreferencesDialog({
                 type="button"
                 className="btn"
                 onClick={() => {
-                  writeEssentialPreference();
+                  writeCookieAcknowledgement();
                   setSaved(true);
                 }}
               >
-                Save current preference
+                Acknowledge notice
               </button>
               <button
                 type="button"

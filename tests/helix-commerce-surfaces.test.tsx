@@ -10,7 +10,7 @@ import { metadata as cartMetadata } from "@/app/cart/page";
 import { metadata as checkoutMetadata } from "@/app/checkout/page";
 import { metadata as successMetadata } from "@/app/checkout/success/page";
 import { metadata as cancelMetadata } from "@/app/checkout/cancel/page";
-import { CookiePreferencesDialog } from "@/components/privacy/CookiePreferencesDialog";
+import { CookieAcknowledgementDialog } from "@/components/privacy/CookieAcknowledgementDialog";
 import { COOKIE_ACKNOWLEDGEMENT_COOKIE } from "@/lib/customer-state-identifiers";
 
 describe("helix Account, Cart, Checkout, and consent surfaces", () => {
@@ -41,16 +41,16 @@ describe("helix Account, Cart, Checkout, and consent surfaces", () => {
   });
 
   it("presents truthful helix consent copy and writes the acknowledgement", () => {
-    render(<CookiePreferencesDialog />);
-    fireEvent.click(screen.getByRole("button", { name: "Cookie Preferences" }));
+    render(<CookieAcknowledgementDialog />);
+    fireEvent.click(screen.getByRole("button", { name: "Cookie notice" }));
 
     expect(screen.getByRole("dialog")).toHaveTextContent(
-      "helix uses essential cookies",
+      "Helix uses essential cookies",
     );
     expect(screen.getByRole("dialog")).not.toHaveTextContent("Mei Pelle");
 
     fireEvent.click(
-      screen.getByRole("button", { name: "Save current preference" }),
+      screen.getByRole("button", { name: "Acknowledge notice" }),
     );
     expect(document.cookie).toContain(
       `${COOKIE_ACKNOWLEDGEMENT_COOKIE}=required-and-payment-functional`,
