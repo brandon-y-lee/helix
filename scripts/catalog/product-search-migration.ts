@@ -88,7 +88,9 @@ export type ProductSearchConsumerVerification = {
 export type ProductSearchMigrationConfig = {
   appId: string;
   writeApiKey: string;
+  adminApiKey: string | null;
   publicSearchApiKey: string;
+  querySuggestionsRegion: "us" | "eu";
   targetEnvironment: "development" | "preview";
 };
 
@@ -120,21 +122,32 @@ export function loadProductSearchMigrationConfig(
       "[product-search] Public and server Algolia application IDs must match.",
     );
   }
+  const querySuggestionsRegion = requiredEnv(
+    env,
+    "ALGOLIA_QUERY_SUGGESTIONS_REGION",
+  );
+  if (querySuggestionsRegion !== "us" && querySuggestionsRegion !== "eu") {
+    throw new Error(
+      "[product-search] ALGOLIA_QUERY_SUGGESTIONS_REGION must be us or eu.",
+    );
+  }
   return {
     appId,
     writeApiKey: requiredEnv(env, "ALGOLIA_WRITE_API_KEY"),
+    adminApiKey: env.ALGOLIA_ADMIN_API_KEY?.trim() || null,
     publicSearchApiKey: requiredEnv(env, "NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY"),
+    querySuggestionsRegion,
     targetEnvironment,
   };
 }
 
-function stable(value: unknown): string {
-  if (Array.isArray(value)) return `[${value.map(stable).join(",")}]`;
+function canonicalJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
   if (value && typeof value === "object") {
     return `{${Object.entries(value as Record<string, unknown>)
       .filter(([, entry]) => entry !== undefined)
       .sort(([left], [right]) => left.localeCompare(right))
-      .map(([key, entry]) => `${JSON.stringify(key)}:${stable(entry)}`)
+      .map(([key, entry]) => `${JSON.stringify(key)}:${canonicalJson(entry)}`)
       .join(",")}}`;
   }
   return JSON.stringify(value);
@@ -147,7 +160,7 @@ function recordsMatch(
   if (observed.length !== canonical.length) return false;
   const byId = new Map(observed.map((record) => [record.objectID, record]));
   return canonical.every(
-    (record) => stable(byId.get(record.objectID)) === stable(record),
+    (record) => canonicalJson(byId.get(record.objectID)) === canonicalJson(record),
   );
 }
 
@@ -181,12 +194,21 @@ export function assessProductSearchMigration(
   ) {
     blockers.push("configured Algolia keys could not be verified");
   }
+  if (
+    (mode === "plan" || mode === "apply" || mode === "finalize") &&
+    inventory.apiKeys.status !== "all-keys-enumerated"
+  ) {
+    blockers.push("all Algolia API keys must be inventoried before mutation");
+  }
   const sourceReplicas = inventory.source?.replicas ?? [];
   if (sourceReplicas.length > 0) {
     blockers.push(`source index has replicas: ${sourceReplicas.join(", ")}`);
   }
   if (inventory.source?.primary) {
     blockers.push(`source index is a replica of ${inventory.source.primary}`);
+  }
+  if (inventory.source && !inventory.source.settingsMatch) {
+    blockers.push("source settings do not match canonical Product Search settings");
   }
   for (const config of inventory.querySuggestions) {
     if (config.sourceIndices.includes(LEGACY_PRODUCTS_INDEX)) {
@@ -202,11 +224,11 @@ export function assessProductSearchMigration(
   const targetMatchesCanonical = inventory.target
     ? inventory.target.settingsMatch &&
       (!inventory.source ||
-        stable(inventory.target.settings) === stable(inventory.source.settings)) &&
+        canonicalJson(inventory.target.settings) === canonicalJson(inventory.source.settings)) &&
       (!inventory.source ||
-        stable(inventory.target.rules) === stable(inventory.source.rules)) &&
+        canonicalJson(inventory.target.rules) === canonicalJson(inventory.source.rules)) &&
       (!inventory.source ||
-        stable(inventory.target.synonyms) === stable(inventory.source.synonyms)) &&
+        canonicalJson(inventory.target.synonyms) === canonicalJson(inventory.source.synonyms)) &&
       recordsMatch(inventory.target.records, canonicalRecords)
     : false;
   const actions: ProductSearchMigrationReport["actions"] = [];
@@ -290,6 +312,11 @@ export async function runProductSearchMigration(
       "[product-search] Refusing to delete the source without deployed consumer verification.",
     );
   }
+  if (initial.apiKeys.status !== "all-keys-enumerated") {
+    throw new Error(
+      "[product-search] Refusing to delete the source without complete API key inventory.",
+    );
+  }
   await retryProviderOperation(() => controlPlane.verifyPublicRead());
   await retryProviderOperation(() => controlPlane.deleteSource());
   const finalInventory = await retryProviderOperation(() =>
@@ -344,7 +371,7 @@ async function inspectProvider<T>(
 
 function settingsMatch(settings: Record<string, unknown>): boolean {
   return Object.entries(INDEX_SETTINGS).every(
-    ([key, expected]) => stable(settings[key]) === stable(expected),
+    ([key, expected]) => canonicalJson(settings[key]) === canonicalJson(expected),
   );
 }
 
@@ -355,7 +382,10 @@ export class AlgoliaProductSearchControlPlane
   private readonly publicClient: LiteClient;
 
   constructor(private readonly config: ProductSearchMigrationConfig) {
-    this.client = algoliasearch(config.appId, config.writeApiKey);
+    this.client = algoliasearch(
+      config.appId,
+      config.adminApiKey ?? config.writeApiKey,
+    );
     this.publicClient = liteClient(config.appId, config.publicSearchApiKey);
   }
 
@@ -400,10 +430,10 @@ export class AlgoliaProductSearchControlPlane
       replicas: index.replicas ?? [],
       primary: index.primary ?? null,
       rules: (rules.hits as Array<Record<string, unknown>>).sort((left, right) =>
-        stable(left).localeCompare(stable(right)),
+        canonicalJson(left).localeCompare(canonicalJson(right)),
       ),
       synonyms: (synonyms.hits as Array<Record<string, unknown>>).sort(
-        (left, right) => stable(left).localeCompare(stable(right)),
+        (left, right) => canonicalJson(left).localeCompare(canonicalJson(right)),
       ),
       settings: rawSettings,
       settingsMatch: settingsMatch(rawSettings),
@@ -416,26 +446,25 @@ export class AlgoliaProductSearchControlPlane
     status: ProductSearchInventory["providerChecks"]["querySuggestions"];
   }> {
     const inventory: ProductSearchInventory["querySuggestions"] = [];
-    let verifiedRegion = false;
-    for (const region of ["us", "eu"] as const) {
-      const result = await inspectProvider(() =>
-        this.client.initQuerySuggestions({ region }).getAllConfigs(),
-      );
-      if (!result.ok) continue;
-      verifiedRegion = true;
-      for (const config of result.value) {
-        inventory.push({
-          region,
-          indexName: String(config.indexName),
-          sourceIndices: config.sourceIndices.map((source) =>
-            String(source.indexName),
-          ),
-        });
-      }
+    const region = this.config.querySuggestionsRegion;
+    const result = await inspectProvider(() =>
+      this.client.initQuerySuggestions({ region }).getAllConfigs(),
+    );
+    if (!result.ok) {
+      return { configurations: [], status: "unavailable" };
+    }
+    for (const config of result.value) {
+      inventory.push({
+        region,
+        indexName: String(config.indexName),
+        sourceIndices: config.sourceIndices.map((source) =>
+          String(source.indexName),
+        ),
+      });
     }
     return {
       configurations: inventory,
-      status: verifiedRegion ? "verified" : "unavailable",
+      status: "verified",
     };
   }
 
@@ -596,6 +625,17 @@ export class AlgoliaProductSearchControlPlane
   }
 
   async prepareTarget(canonicalRecords: ProductSearchRecord[]): Promise<void> {
+    const [sourceSettings, sourceRules, sourceSynonyms] = await Promise.all([
+      this.client.getSettings({ indexName: LEGACY_PRODUCTS_INDEX }),
+      this.client.searchRules({
+        indexName: LEGACY_PRODUCTS_INDEX,
+        searchRulesParams: { query: "", hitsPerPage: 1_000 },
+      }),
+      this.client.searchSynonyms({
+        indexName: LEGACY_PRODUCTS_INDEX,
+        searchSynonymsParams: { query: "", hitsPerPage: 1_000 },
+      }),
+    ]);
     if (
       !(await this.client.indexExists({
         indexName: HELIX_PRODUCTS_INDEX,
@@ -623,11 +663,43 @@ export class AlgoliaProductSearchControlPlane
     }
     const settings = await this.client.setSettings({
       indexName: HELIX_PRODUCTS_INDEX,
-      indexSettings: INDEX_SETTINGS,
+      indexSettings: sourceSettings,
     });
     await this.client.waitForTask({
       indexName: HELIX_PRODUCTS_INDEX,
       taskID: settings.taskID,
+      maxRetries: 20,
+    });
+    const rules = sourceRules.hits.length
+      ? await this.client.saveRules({
+          indexName: HELIX_PRODUCTS_INDEX,
+          rules: sourceRules.hits,
+          clearExistingRules: true,
+          forwardToReplicas: false,
+        })
+      : await this.client.clearRules({
+          indexName: HELIX_PRODUCTS_INDEX,
+          forwardToReplicas: false,
+        });
+    await this.client.waitForTask({
+      indexName: HELIX_PRODUCTS_INDEX,
+      taskID: rules.taskID,
+      maxRetries: 20,
+    });
+    const synonyms = sourceSynonyms.hits.length
+      ? await this.client.saveSynonyms({
+          indexName: HELIX_PRODUCTS_INDEX,
+          synonymHit: sourceSynonyms.hits,
+          replaceExistingSynonyms: true,
+          forwardToReplicas: false,
+        })
+      : await this.client.clearSynonyms({
+          indexName: HELIX_PRODUCTS_INDEX,
+          forwardToReplicas: false,
+        });
+    await this.client.waitForTask({
+      indexName: HELIX_PRODUCTS_INDEX,
+      taskID: synonyms.taskID,
       maxRetries: 20,
     });
     await this.client.replaceAllObjects({

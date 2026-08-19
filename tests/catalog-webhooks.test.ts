@@ -403,6 +403,7 @@ describe("catalog webhook smoke verification", () => {
       table: "product_variants",
       objectID: PRODUCT_ID,
       indexName: "helix_products",
+      publicIndexName: "helix_products",
       cache: {
         tags: ["catalog-product-offer:treat-03-pdrn-5-ampoule"],
         paths: ["/products/treat-03-pdrn-5-ampoule"],
@@ -426,6 +427,7 @@ describe("catalog webhook smoke verification", () => {
       childProductResolutionVerified: true,
       algoliaAttemptVerified: true,
       indexName: "helix_products",
+      publicIndexName: "helix_products",
       cacheInvalidationAttemptVerified: true,
       duplicateDeliveryVerified: true,
     });
@@ -454,6 +456,7 @@ describe("catalog webhook smoke verification", () => {
       table: "product_variants",
       objectID: PRODUCT_ID,
       indexName: "helix_products",
+      publicIndexName: "helix_products",
       cache: { tags: ["tag"], paths: ["/products/example"] },
     };
     const partialFailure = vi
@@ -466,5 +469,27 @@ describe("catalog webhook smoke verification", () => {
     await expect(
       runCatalogWebhookSmoke(smokeConfig, partialFailure),
     ).rejects.toThrow(/Partial success/);
+  });
+
+  it("rejects a deployed public reader that still names the legacy index", async () => {
+    const mismatchedBody = {
+      ok: true,
+      action: "upsert",
+      table: "product_variants",
+      objectID: PRODUCT_ID,
+      indexName: "helix_products",
+      publicIndexName: "mei_pelle_products",
+      cache: { tags: ["tag"], paths: ["/products/example"] },
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response("{}", { status: 401 }))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(mismatchedBody), { status: 200 }),
+      );
+
+    await expect(
+      runCatalogWebhookSmoke(smokeConfig, fetchMock),
+    ).rejects.toThrow(/readers and writers/);
   });
 });

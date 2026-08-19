@@ -789,6 +789,7 @@ type WebhookResponseBody = {
   table?: string;
   objectID?: string;
   indexName?: string;
+  publicIndexName?: string;
   reason?: string;
   cache?: {
     tags?: unknown;
@@ -897,10 +898,11 @@ export async function runCatalogWebhookSmoke(
     first.body.action !== "upsert" ||
     first.body.table !== "product_variants" ||
     first.body.objectID !== config.productId ||
-    first.body.indexName !== HELIX_PRODUCTS_INDEX
+    first.body.indexName !== HELIX_PRODUCTS_INDEX ||
+    first.body.publicIndexName !== HELIX_PRODUCTS_INDEX
   ) {
     throw new Error(
-      "[catalog-webhook-smoke] Deployed writer did not resolve the expected Product on helix_products.",
+      "[catalog-webhook-smoke] Deployed Product Search readers and writers are not both on helix_products.",
     );
   }
   if (
@@ -923,7 +925,8 @@ export async function runCatalogWebhookSmoke(
   if (
     duplicate.body.action !== first.body.action ||
     duplicate.body.objectID !== first.body.objectID ||
-    duplicate.body.indexName !== first.body.indexName
+    duplicate.body.indexName !== first.body.indexName ||
+    duplicate.body.publicIndexName !== first.body.publicIndexName
   ) {
     throw new Error(
       "[catalog-webhook-smoke] Duplicate delivery was not idempotent.",
@@ -939,6 +942,7 @@ export async function runCatalogWebhookSmoke(
     childProductResolutionVerified: true,
     algoliaAttemptVerified: true,
     indexName: HELIX_PRODUCTS_INDEX,
+    publicIndexName: HELIX_PRODUCTS_INDEX,
     cacheInvalidationAttemptVerified: true,
     duplicateDeliveryVerified: true,
     productId: config.productId,

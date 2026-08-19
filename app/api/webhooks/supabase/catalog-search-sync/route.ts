@@ -97,6 +97,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       ok: true,
       ...outcome,
       indexName: getIndexName(),
+      publicIndexName: process.env.NEXT_PUBLIC_ALGOLIA_INDEX_NAME,
       cache,
     });
   } catch (err) {

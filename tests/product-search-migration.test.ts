@@ -39,7 +39,7 @@ function inventory(
       recommend: "verified",
     },
     apiKeys: {
-      status: "configured-keys-verified",
+      status: "all-keys-enumerated",
       configuredPublicKeyVerified: false,
       configuredWriteKeyVerified: true,
     },
@@ -120,7 +120,27 @@ describe("Product Search migration assessment", () => {
       "Query Suggestions inventory is unavailable",
       "Recommend inventory is unavailable",
       "configured Algolia keys could not be verified",
+      "all Algolia API keys must be inventoried before mutation",
     ]);
+  });
+
+  it("blocks mutation when only configured keys can be verified", () => {
+    const report = assessProductSearchMigration(
+      "apply",
+      inventory({
+        apiKeys: {
+          status: "configured-keys-verified",
+          configuredPublicKeyVerified: true,
+          configuredWriteKeyVerified: true,
+        },
+      }),
+      canonicalRecords,
+    );
+
+    expect(report.ok).toBe(false);
+    expect(report.blockers).toContain(
+      "all Algolia API keys must be inventoried before mutation",
+    );
   });
 
   it("rejects equal counts when records, rules, or synonyms differ", () => {
@@ -144,7 +164,7 @@ describe("Product Search migration assessment", () => {
           records: [{ ...canonicalRecords[0], staleLegacyField: true }],
         },
         apiKeys: {
-          status: "configured-keys-verified",
+          status: "all-keys-enumerated",
           configuredPublicKeyVerified: true,
           configuredWriteKeyVerified: true,
         },
@@ -272,7 +292,7 @@ describe("Product Search migration lifecycle", () => {
         records: canonicalRecords,
       },
       apiKeys: {
-        status: "configured-keys-verified",
+        status: "all-keys-enumerated",
         configuredPublicKeyVerified: true,
         configuredWriteKeyVerified: true,
       },
@@ -319,7 +339,7 @@ describe("Product Search migration lifecycle", () => {
         records: canonicalRecords,
       },
       apiKeys: {
-        status: "configured-keys-verified",
+        status: "all-keys-enumerated",
         configuredPublicKeyVerified: true,
         configuredWriteKeyVerified: true,
       },

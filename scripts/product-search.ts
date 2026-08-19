@@ -12,7 +12,6 @@ import {
   loadCatalogWebhookSmokeConfig,
   runCatalogWebhookSmoke,
 } from "./catalog/catalog-webhooks";
-import { HELIX_PRODUCTS_INDEX } from "../lib/algolia/index";
 
 loadDotEnv({
   path: resolve(
@@ -71,7 +70,7 @@ export async function runProductSearchCli(
     smoke
       ? {
           consumerVerification: {
-            publicReadIndex: HELIX_PRODUCTS_INDEX,
+            publicReadIndex: smoke.publicIndexName,
             serverWriteIndex: smoke.indexName,
             webhookDeliveryVerified: true,
           },
