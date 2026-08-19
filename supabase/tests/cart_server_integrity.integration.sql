@@ -85,9 +85,9 @@ select has_function(
 );
 select has_function(
   'public',
-  'release_loyalty_redemptions_for_order',
+  'release_rewards_reservations_for_order',
   array['uuid', 'uuid', 'text'],
-  'reward release is transactional'
+  'Points Reservation release is transactional'
 );
 select has_function(
   'public',
