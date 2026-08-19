@@ -2,6 +2,7 @@ import {
   APPROVED_SUPABASE_PROJECT_REF,
   assertApprovedSupabaseProjectRef,
 } from "../../lib/supabase/project-safety";
+import { HELIX_PRODUCTS_INDEX } from "../../lib/algolia/index";
 
 const CATALOG_WEBHOOK_PATH =
   "/api/webhooks/supabase/catalog-search-sync" as const;
@@ -92,6 +93,7 @@ export type CatalogWebhookAction = {
   action: "create" | "update" | "unchanged";
   table: CatalogWebhookTable;
   name: string;
+  currentName?: string;
 };
 
 export type CatalogWebhookReport = {
@@ -257,6 +259,10 @@ export function loadCatalogWebhookSmokeConfig(
 }
 
 export function catalogWebhookTriggerName(table: CatalogWebhookTable): string {
+  return `helix_catalog_search_sync_${table}`;
+}
+
+function legacyCatalogWebhookTriggerName(table: CatalogWebhookTable): string {
   return `mei_pelle_catalog_search_sync_${table}`;
 }
 
@@ -323,11 +329,21 @@ export function buildCatalogWebhookReport(
     const managedHook = tableHooks.find(
       (hook) => hook.triggerName === webhook.name,
     );
+    const legacyHook = tableHooks.find(
+      (hook) =>
+        hook.triggerName === legacyCatalogWebhookTriggerName(webhook.table),
+    );
     const unmanagedHooks = tableHooks.filter(
-      (hook) => hook.triggerName !== webhook.name,
+      (hook) =>
+        hook.triggerName !== webhook.name &&
+        hook.triggerName !== legacyCatalogWebhookTriggerName(webhook.table),
     );
 
-    if (tableHooks.length > 1 || unmanagedHooks.length > 0) {
+    if (
+      tableHooks.length > 1 ||
+      unmanagedHooks.length > 0 ||
+      (managedHook && legacyHook)
+    ) {
       duplicates.push({
         table: webhook.table,
         triggerNames: tableHooks
@@ -338,13 +354,15 @@ export function buildCatalogWebhookReport(
     }
 
     actions.push({
-      action: managedHook
-        ? observedHookMatches(managedHook)
-          ? "unchanged"
-          : "update"
-        : "create",
+      action:
+        managedHook || legacyHook
+          ? managedHook && observedHookMatches(managedHook)
+            ? "unchanged"
+            : "update"
+          : "create",
       table: webhook.table,
       name: webhook.name,
+      ...(legacyHook ? { currentName: legacyHook.triggerName } : {}),
     });
   }
 
@@ -412,7 +430,7 @@ export function buildCatalogWebhookApplySql(
     const drop =
       action.action === "update"
         ? [
-            `drop trigger if exists ${quoteIdentifier(webhook.name)} on ` +
+            `drop trigger if exists ${quoteIdentifier(action.currentName ?? webhook.name)} on ` +
               `${quoteIdentifier(webhook.schema)}.${quoteIdentifier(webhook.table)};`,
           ]
         : [];
@@ -472,6 +490,7 @@ hook_rows as (
     and n.nspname = 'public'
     and (
       (pn.nspname = 'supabase_functions' and p.proname = 'http_request')
+      or t.tgname like 'helix_catalog_search_sync_%'
       or t.tgname like 'mei_pelle_catalog_search_sync_%'
     )
 )
@@ -769,6 +788,8 @@ type WebhookResponseBody = {
   action?: string;
   table?: string;
   objectID?: string;
+  indexName?: string;
+  publicIndexName?: string;
   reason?: string;
   cache?: {
     tags?: unknown;
@@ -876,10 +897,12 @@ export async function runCatalogWebhookSmoke(
   if (
     first.body.action !== "upsert" ||
     first.body.table !== "product_variants" ||
-    first.body.objectID !== config.productId
+    first.body.objectID !== config.productId ||
+    first.body.indexName !== HELIX_PRODUCTS_INDEX ||
+    first.body.publicIndexName !== HELIX_PRODUCTS_INDEX
   ) {
     throw new Error(
-      "[catalog-webhook-smoke] Missing product identity: the child event did not resolve to the expected product.",
+      "[catalog-webhook-smoke] Deployed Product Search readers and writers are not both on helix_products.",
     );
   }
   if (
@@ -901,7 +924,9 @@ export async function runCatalogWebhookSmoke(
   }
   if (
     duplicate.body.action !== first.body.action ||
-    duplicate.body.objectID !== first.body.objectID
+    duplicate.body.objectID !== first.body.objectID ||
+    duplicate.body.indexName !== first.body.indexName ||
+    duplicate.body.publicIndexName !== first.body.publicIndexName
   ) {
     throw new Error(
       "[catalog-webhook-smoke] Duplicate delivery was not idempotent.",
@@ -916,6 +941,8 @@ export async function runCatalogWebhookSmoke(
     authenticationVerified: true,
     childProductResolutionVerified: true,
     algoliaAttemptVerified: true,
+    indexName: HELIX_PRODUCTS_INDEX,
+    publicIndexName: HELIX_PRODUCTS_INDEX,
     cacheInvalidationAttemptVerified: true,
     duplicateDeliveryVerified: true,
     productId: config.productId,

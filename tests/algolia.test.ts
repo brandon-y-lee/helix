@@ -16,7 +16,7 @@ vi.mock("@/lib/algolia/source", () => ({
 vi.mock("@/lib/algolia/server", () => ({
   upsertSearchRecord: vi.fn(() => Promise.resolve()),
   deleteSearchRecord: vi.fn(() => Promise.resolve()),
-  getIndexName: vi.fn(() => "mei_pelle_products_test"),
+  getIndexName: vi.fn(() => "helix_products"),
   reindexAllSearchRecords: vi.fn(),
 }));
 
@@ -745,7 +745,7 @@ describe("runSearchBackfill", () => {
     mockedReindex.mockResolvedValue({ submitted: 1, verified: 1 });
 
     await expect(runSearchBackfill()).resolves.toMatchObject({
-      indexName: "mei_pelle_products_test",
+      indexName: "helix_products",
       read: 1,
       transformed: 1,
       upserted: 1,
