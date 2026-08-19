@@ -438,24 +438,32 @@ test("shop presents the approved Product, collection, sheet, and footer treatmen
   );
 
   await page.setViewportSize({ width: 390, height: 844 });
-  const mobileHeroGeometry = await Promise.all([
+  const [mobileHeroGeometry, mobileHeadingGeometry] = await Promise.all([
     hero.evaluate((element) => {
       const rect = element.getBoundingClientRect();
-      return { bottom: rect.bottom, left: rect.left };
+      return {
+        centerX: rect.left + rect.width / 2,
+        centerY: rect.top + rect.height / 2,
+      };
     }),
     heading.evaluate((element) => {
       const rect = element.getBoundingClientRect();
-      return { bottom: rect.bottom, left: rect.left };
+      return {
+        centerX: rect.left + rect.width / 2,
+        centerY: rect.top + rect.height / 2,
+        fontSize: getComputedStyle(element).fontSize,
+      };
     }),
   ]);
-  expect(mobileHeroGeometry[1].left - mobileHeroGeometry[0].left).toBeCloseTo(
-    23,
+  expect(mobileHeadingGeometry.centerX).toBeCloseTo(
+    mobileHeroGeometry.centerX,
     1,
   );
-  expect(mobileHeroGeometry[0].bottom - mobileHeroGeometry[1].bottom).toBeCloseTo(
-    23,
+  expect(mobileHeadingGeometry.centerY).toBeCloseTo(
+    mobileHeroGeometry.centerY,
     1,
   );
+  expect(mobileHeadingGeometry.fontSize).toBe("18px");
   await page.reload();
   await expect(page.locator(".site-footer__accordion").first()).toHaveCSS(
     "border-top-width",
