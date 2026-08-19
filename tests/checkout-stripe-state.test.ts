@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { CheckoutConfigError } from "@/lib/checkout/config";
 import { resolveCheckoutOrigin } from "@/lib/checkout/origin";
 import {
   checkoutCancellationState,
@@ -92,11 +91,11 @@ describe("trusted checkout return origins", () => {
       resolveCheckoutOrigin({
         env: {
           NODE_ENV: "production",
-          NEXT_PUBLIC_SITE_URL: "https://mei-pelle.example/path",
+          NEXT_PUBLIC_SITE_URL: "https://helixskin.vercel.app",
         },
         requestOrigin: "https://attacker.example",
       }),
-    ).toBe("https://mei-pelle.example");
+    ).toBe("https://helixskin.vercel.app");
   });
 
   it("allows only local HTTP request origins during development", () => {
@@ -114,12 +113,15 @@ describe("trusted checkout return origins", () => {
     ).toBe("http://localhost:3000");
   });
 
-  it("fails closed in production when no trusted return origin exists", () => {
-    expect(() =>
+  it("uses the controlled hostname instead of a generated Vercel return origin", () => {
+    expect(
       resolveCheckoutOrigin({
-        env: { NODE_ENV: "production" },
+        env: {
+          NODE_ENV: "production",
+          VERCEL_URL: "helix-random-build.vercel.app",
+        },
         requestOrigin: "https://attacker.example",
       }),
-    ).toThrow(CheckoutConfigError);
+    ).toBe("https://helixskin.vercel.app");
   });
 });

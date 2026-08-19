@@ -8,10 +8,7 @@ import {
 } from "@/lib/content/system";
 import { getCachedProducts } from "@/lib/catalog-cache";
 
-const siteUrl = new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000");
-
 export const metadata: Metadata = {
-  metadataBase: siteUrl,
   title: "The Mei Pelle System | Men's Skincare Routine",
   description:
     "A clear step-by-step skincare system covering cleansing, treatment, hydration, eye care, weekly care, and daily SPF.",

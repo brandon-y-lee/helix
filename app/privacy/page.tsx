@@ -2,10 +2,7 @@ import type { Metadata } from "next";
 import { LegalDocumentLayout } from "@/components/content/LegalDocumentLayout";
 import { privacyPolicy } from "@/content/legal/privacy";
 
-const siteUrl = new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000");
-
 export const metadata: Metadata = {
-  metadataBase: siteUrl,
   title: privacyPolicy.metadataTitle,
   description: privacyPolicy.description,
   alternates: { canonical: privacyPolicy.canonical },

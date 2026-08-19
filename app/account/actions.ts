@@ -19,14 +19,10 @@ import {
   logSupabaseUnavailable,
 } from "@/lib/supabase/network";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { resolvePublicSiteOrigin } from "@/lib/site-url";
 
 function originFromHeaders(headersList: Headers): string {
-  return (
-    headersList.get("origin") ??
-    process.env.NEXT_PUBLIC_SITE_URL ??
-    process.env.VERCEL_URL?.replace(/^/, "https://") ??
-    "http://localhost:3000"
-  );
+  return resolvePublicSiteOrigin({ requestOrigin: headersList.get("origin") });
 }
 
 async function unavailableAuthState(

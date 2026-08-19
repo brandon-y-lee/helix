@@ -2,10 +2,7 @@ import type { Metadata } from "next";
 import { LegalDocumentLayout } from "@/components/content/LegalDocumentLayout";
 import { cookieCategories, cookiePolicy } from "@/content/legal/cookies";
 
-const siteUrl = new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000");
-
 export const metadata: Metadata = {
-  metadataBase: siteUrl,
   title: cookiePolicy.metadataTitle,
   description: cookiePolicy.description,
   alternates: { canonical: cookiePolicy.canonical },
@@ -48,4 +45,3 @@ export default function CookiePolicyPage() {
     </LegalDocumentLayout>
   );
 }
-

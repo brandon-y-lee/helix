@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
+import { resolvePublicSiteOrigin } from "@/lib/site-url";
 
-const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+const baseUrl = resolvePublicSiteOrigin();
 
 export default function robots(): MetadataRoute.Robots {
   return {
@@ -12,4 +13,3 @@ export default function robots(): MetadataRoute.Robots {
     sitemap: `${baseUrl}/sitemap.xml`,
   };
 }
-

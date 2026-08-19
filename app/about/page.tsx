@@ -13,10 +13,7 @@ import {
   WHY_MEN,
 } from "@/lib/content/about";
 
-const siteUrl = new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000");
-
 export const metadata: Metadata = {
-  metadataBase: siteUrl,
   title: "About Mei Pelle | Seoul Precision, Los Angeles Perspective",
   description:
     "Discover the values behind Mei Pelle, a prestige men's skincare system shaped by South Korean formulation discipline and Los Angeles self-invention.",

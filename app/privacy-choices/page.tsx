@@ -4,10 +4,7 @@ import { CookiePreferencesDialog } from "@/components/privacy/CookiePreferencesD
 import { LegalDocumentLayout } from "@/components/content/LegalDocumentLayout";
 import { privacyChoices } from "@/content/legal/privacy-choices";
 
-const siteUrl = new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000");
-
 export const metadata: Metadata = {
-  metadataBase: siteUrl,
   title: privacyChoices.metadataTitle,
   description: privacyChoices.description,
   alternates: { canonical: privacyChoices.canonical },

@@ -2,10 +2,7 @@ import type { Metadata } from "next";
 import { FAQAccordion } from "@/components/content/FAQAccordion";
 import { faqCategories } from "@/content/support/faq";
 
-const siteUrl = new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000");
-
 export const metadata: Metadata = {
-  metadataBase: siteUrl,
   title: "FAQ | Mei Pelle",
   description:
     "Answers about Mei Pelle products, accounts, orders, shipping, returns, rewards, contact, and policies.",

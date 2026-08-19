@@ -18,10 +18,9 @@ import {
   serializeStructuredData,
 } from "@/lib/catalog/product-structured-data";
 import { isValidProductSlug } from "@/lib/catalog/product-slug";
+import { resolvePublicSiteOrigin } from "@/lib/site-url";
 
-const siteUrl = new URL(
-  process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
-);
+const siteUrl = new URL(resolvePublicSiteOrigin());
 
 // Product aliases are governed data and may be published after a deployment.
 // Keep the route request-time while its public Catalog projections remain

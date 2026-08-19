@@ -6,10 +6,7 @@ import {
   contactPreparationGroups,
 } from "@/content/support/contact";
 
-const siteUrl = new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000");
-
 export const metadata: Metadata = {
-  metadataBase: siteUrl,
   title: "Contact | Mei Pelle",
   description:
     "Contact routing for Mei Pelle product, System, account, cart, accessibility, privacy, partnership, and general inquiries.",
