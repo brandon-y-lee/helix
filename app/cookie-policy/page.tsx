@@ -1,12 +1,8 @@
 import type { Metadata } from "next";
 import { LegalDocumentLayout } from "@/components/content/LegalDocumentLayout";
 import { cookieCategories, cookiePolicy } from "@/content/legal/cookies";
-import { resolvePublicSiteOrigin } from "@/lib/site-url";
-
-const siteUrl = new URL(resolvePublicSiteOrigin());
 
 export const metadata: Metadata = {
-  metadataBase: siteUrl,
   title: cookiePolicy.metadataTitle,
   description: cookiePolicy.description,
   alternates: { canonical: cookiePolicy.canonical },

@@ -5,12 +5,8 @@ import {
   contactIntakeStatus,
   contactPreparationGroups,
 } from "@/content/support/contact";
-import { resolvePublicSiteOrigin } from "@/lib/site-url";
-
-const siteUrl = new URL(resolvePublicSiteOrigin());
 
 export const metadata: Metadata = {
-  metadataBase: siteUrl,
   title: "Contact | Mei Pelle",
   description:
     "Contact routing for Mei Pelle product, System, account, cart, accessibility, privacy, partnership, and general inquiries.",

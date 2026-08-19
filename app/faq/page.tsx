@@ -1,12 +1,8 @@
 import type { Metadata } from "next";
 import { FAQAccordion } from "@/components/content/FAQAccordion";
 import { faqCategories } from "@/content/support/faq";
-import { resolvePublicSiteOrigin } from "@/lib/site-url";
-
-const siteUrl = new URL(resolvePublicSiteOrigin());
 
 export const metadata: Metadata = {
-  metadataBase: siteUrl,
   title: "FAQ | Mei Pelle",
   description:
     "Answers about Mei Pelle products, accounts, orders, shipping, returns, rewards, contact, and policies.",

@@ -12,12 +12,8 @@ import {
   SUSTAINABILITY,
   WHY_MEN,
 } from "@/lib/content/about";
-import { resolvePublicSiteOrigin } from "@/lib/site-url";
-
-const siteUrl = new URL(resolvePublicSiteOrigin());
 
 export const metadata: Metadata = {
-  metadataBase: siteUrl,
   title: "About Mei Pelle | Seoul Precision, Los Angeles Perspective",
   description:
     "Discover the values behind Mei Pelle, a prestige men's skincare system shaped by South Korean formulation discipline and Los Angeles self-invention.",

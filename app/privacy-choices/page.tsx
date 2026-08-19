@@ -3,12 +3,8 @@ import Link from "next/link";
 import { CookiePreferencesDialog } from "@/components/privacy/CookiePreferencesDialog";
 import { LegalDocumentLayout } from "@/components/content/LegalDocumentLayout";
 import { privacyChoices } from "@/content/legal/privacy-choices";
-import { resolvePublicSiteOrigin } from "@/lib/site-url";
-
-const siteUrl = new URL(resolvePublicSiteOrigin());
 
 export const metadata: Metadata = {
-  metadataBase: siteUrl,
   title: privacyChoices.metadataTitle,
   description: privacyChoices.description,
   alternates: { canonical: privacyChoices.canonical },

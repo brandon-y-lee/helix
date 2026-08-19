@@ -9,7 +9,9 @@ The stable public origin is `https://helixskin.vercel.app`. Application code
 must not use a generated Vercel deployment hostname as a public URL fallback.
 Local development continues to use an HTTP loopback origin.
 
-The Vercel project was observed with the following non-secret configuration:
+The fresh Vercel preflight found `helixskin.vercel.app` valid but initially
+assigned to Production. The domain assignment was then changed to the intended
+Preview branch `dev`. The resulting non-secret configuration is:
 
 - Team: `Brandon's projects`
 - Project: `helix`
@@ -19,6 +21,7 @@ The Vercel project was observed with the following non-secret configuration:
 - Preview environment variable for branch `dev`:
   `NEXT_PUBLIC_SITE_URL=https://helixskin.vercel.app`
 
+The controlled hostname resolved to the expected storefront after assignment.
 No production deployment was promoted and no live payment configuration was
 changed during this cutover.
 
@@ -31,8 +34,9 @@ configuration. Its consumers include:
   `app/account/actions.ts`
 - Stripe Checkout return URL construction through `lib/checkout/origin.ts`
 - `robots.txt` and sitemap URL generation
-- metadata bases for About, System, product detail, support, privacy, legal,
-  and accessibility routes
+- the root metadata base inherited by public routes, including product detail,
+  support, privacy, legal, and accessibility routes
+- product-detail structured data
 
 `lib/admin/catalog/validation.ts` separately reads `NEXT_PUBLIC_SITE_URL` as
 an allowed origin for project-controlled product media. It therefore receives
