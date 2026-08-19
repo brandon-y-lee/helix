@@ -33,7 +33,7 @@ describe("CatalogPreviewToolbar", () => {
       screen.getByRole("complementary", {
         name: "Draft preview controls",
       }),
-    ).toHaveTextContent("Draft Preview");
+    ).toHaveTextContent("helix Catalog Preview");
     expect(screen.getByText("CLEANSE")).toBeInTheDocument();
     expect(screen.getByText("7")).toBeInTheDocument();
     expect(

@@ -29,7 +29,7 @@ export function CatalogPreviewToolbar({
       data-catalog-preview-toolbar
     >
       <div className="catalog-preview-toolbar__identity">
-        <strong>Draft Preview</strong>
+        <strong>helix Catalog Preview</strong>
         <span>{productName}</span>
       </div>
       <dl className="catalog-preview-toolbar__meta">

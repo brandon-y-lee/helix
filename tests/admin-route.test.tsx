@@ -45,6 +45,8 @@ import AdminError from "@/app/admin/error";
 import AdminLayout, { metadata } from "@/app/admin/layout";
 import AdminLoading from "@/app/admin/loading";
 import AdminPage from "@/app/admin/page";
+import { metadata as catalogMetadata } from "@/app/admin/catalog/page";
+import { metadata as productEditorMetadata } from "@/app/admin/catalog/products/[productId]/page";
 import { checkAdminCapability } from "@/lib/admin/capabilities";
 import { getAdminModules } from "@/lib/admin/modules";
 
@@ -58,6 +60,19 @@ beforeEach(() => {
 });
 
 describe("admin route hierarchy", () => {
+  it("presents the restricted hierarchy as helix Admin", () => {
+    expect(metadata.title).toEqual({
+      default: "helix Admin",
+      template: "%s | helix Admin",
+    });
+    expect(catalogMetadata.title).toBe("Catalog Editor");
+    expect(productEditorMetadata.title).toBe("Edit Catalog Product");
+
+    render(<AdminPage />);
+    expect(screen.getByText("helix Platform", { exact: false })).toBeVisible();
+    expect(screen.queryByText(/Mei Pelle/i)).toBeNull();
+  });
+
   it("marks the entire hierarchy noindex and nofollow", () => {
     expect(metadata.robots).toMatchObject({
       index: false,
@@ -124,11 +139,12 @@ describe("admin route hierarchy", () => {
     const reset = vi.fn();
     const { unmount } = render(<AdminLoading />);
     expect(screen.getByRole("status")).toHaveTextContent(
-      "session and admin permissions",
+      "session and helix Admin permissions",
     );
     unmount();
 
     render(<AdminError reset={reset} />);
+    expect(screen.getByText("helix Admin")).toBeVisible();
     await screen.getByRole("button", { name: "Try again" }).click();
     expect(reset).toHaveBeenCalledOnce();
     expect(screen.getByRole("alert")).toHaveTextContent(

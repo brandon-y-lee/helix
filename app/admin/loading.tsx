@@ -8,7 +8,7 @@ export default function AdminLoading() {
           className="admin-gate__eyebrow"
         />
         <h1>Checking access</h1>
-        <p>Your session and admin permissions are being verified.</p>
+        <p>Your session and helix Admin permissions are being verified.</p>
       </section>
     </main>
   );

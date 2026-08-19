@@ -28,7 +28,12 @@ describe("catalog editor request boundary", () => {
           headers: { origin: "https://attacker.test" },
         }),
       ),
-    ).toThrowError(expect.objectContaining({ code: "same_origin_required" }));
+    ).toThrowError(
+      expect.objectContaining({
+        code: "same_origin_required",
+        message: "This request must originate from helix Admin.",
+      }),
+    );
   });
 
   it("bounds and parses JSON bodies without accepting stale versions", async () => {

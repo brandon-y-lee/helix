@@ -95,6 +95,7 @@ describe("catalog draft preview route", () => {
       index: false,
       follow: false,
     });
+    expect(metadata.title).toBe("Catalog Preview");
 
     const previewSource = readFileSync(
       resolve(
@@ -138,7 +139,7 @@ describe("catalog draft preview route", () => {
     expect(screen.getByTestId("preview-toolbar")).toHaveTextContent("draft");
     expect(screen.getByText("Preview — purchasing disabled")).toBeVisible();
     const previewMetadataHeading = screen.getByRole("heading", {
-      name: "Preview metadata",
+      name: "Catalog Preview metadata",
     });
     expect(previewMetadataHeading).toBeVisible();
     const previewMetadata = previewMetadataHeading.closest("aside");
@@ -179,6 +180,7 @@ describe("catalog draft preview route", () => {
     expect(
       screen.getByRole("heading", { name: "Draft preview unavailable" }),
     ).toBeVisible();
+    expect(screen.getByText("helix Catalog Preview")).toBeVisible();
     expect(screen.getByText(/No public product data/)).toBeVisible();
     expect(routeMocks.loadBase).not.toHaveBeenCalled();
     expect(screen.queryByTestId("real-pdp")).not.toBeInTheDocument();

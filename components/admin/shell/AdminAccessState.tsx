@@ -21,8 +21,8 @@ export function AdminAccessState({
         <h1>{forbidden ? "Access denied" : "Authorization unavailable"}</h1>
         <p>
           {forbidden
-            ? "Your account is signed in but does not have permission to access this console."
-            : "Admin permissions could not be verified. Access remains closed until authorization is available."}
+            ? "Your account is signed in but does not have permission to access helix Admin."
+            : "helix Admin permissions could not be verified. Access remains closed until authorization is available."}
         </p>
         <div className="admin-gate__actions">
           <Link href="/" className="admin-gate__link">

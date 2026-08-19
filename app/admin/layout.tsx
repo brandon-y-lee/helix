@@ -18,8 +18,8 @@ import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {
   title: {
-    default: "Admin | Mei Pelle",
-    template: "%s | Mei Pelle Admin",
+    default: "helix Admin",
+    template: "%s | helix Admin",
   },
   robots: {
     index: false,
