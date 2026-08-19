@@ -4,7 +4,7 @@ import { AccountAccessLayout } from "@/components/account/AccountAccessLayout";
 import { ForgotPasswordForm } from "@/components/account/AccountForms";
 
 export const metadata: Metadata = {
-  title: "Reset password | Mei Pelle",
+  title: "Reset password | helix",
 };
 
 export default function ForgotPasswordPage() {

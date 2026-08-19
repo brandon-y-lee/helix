@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import { COOKIE_ACKNOWLEDGEMENT_COOKIE } from "@/lib/customer-state-identifiers";
 
-const COOKIE_NAME = "mei_pelle_cookie_preferences";
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 
 function writeEssentialPreference() {
-  document.cookie = `${COOKIE_NAME}=required-and-payment-functional; Max-Age=${COOKIE_MAX_AGE}; Path=/; SameSite=Lax`;
+  document.cookie = `${COOKIE_ACKNOWLEDGEMENT_COOKIE}=required-and-payment-functional; Max-Age=${COOKIE_MAX_AGE}; Path=/; SameSite=Lax`;
 }
 
 export function CookiePreferencesDialog({
@@ -103,7 +103,7 @@ export function CookiePreferencesDialog({
               </button>
             </div>
             <p id={descriptionId}>
-              Mei Pelle uses essential cookies for authentication, guest-cart
+              helix uses essential cookies for authentication, guest-cart
               continuity, and this preference acknowledgement. Stripe may use
               functional storage when payment-method messaging loads on an
               eligible product page. Optional analytics and advertising

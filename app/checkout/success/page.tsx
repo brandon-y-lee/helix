@@ -4,7 +4,7 @@ import { getOrderConfirmationBySession } from "@/lib/orders/server";
 import { formatPrice } from "@/lib/products";
 
 export const metadata: Metadata = {
-  title: "Order confirmed | Mei Pelle",
+  title: "Order confirmed | helix",
 };
 
 export const dynamic = "force-dynamic";
