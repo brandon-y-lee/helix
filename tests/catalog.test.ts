@@ -67,7 +67,7 @@ const sampleRow = {
   skin_types: ["Combination"],
   concerns: ["Texture"],
   usage_time: ["PM"],
-  seo_title: "Northpoint Renewal Serum | Mei Pelle",
+  seo_title: "Northpoint Renewal Serum | helix",
   seo_description: "Overnight resurfacing concentrate",
   search_keywords: ["serum"],
   created_at: "2026-06-14T00:00:00.000Z",

@@ -76,7 +76,7 @@ export function HomeThreePrinciples({ headingId, principles }: HomeThreePrincipl
       <div
         className="home-three-principles__labels"
         role="group"
-        aria-label="Mei Pelle principles"
+        aria-label="helix principles"
       >
         {principles.map((principle, index) => {
           const isActive = index === activeIndex;

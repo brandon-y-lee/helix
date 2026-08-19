@@ -60,14 +60,15 @@ describe("Product structured data", () => {
     expect(
       buildProductStructuredData(
         product(),
-        new URL("https://meipelle.example"),
+        new URL("https://helixskin.vercel.app"),
       ),
     ).toMatchObject({
       "@context": "https://schema.org",
       "@type": "Product",
       name: "Peptide Bounce — PDRN serum",
       description: "A daily serum for smoother-, bouncier-looking skin.",
-      url: "https://meipelle.example/products/peptide-bounce",
+      url: "https://helixskin.vercel.app/products/peptide-bounce",
+      brand: { "@type": "Brand", name: "helix" },
       offers: [
         {
           "@type": "Offer",
@@ -82,7 +83,7 @@ describe("Product structured data", () => {
   it("omits Offers when canonical commerce facts are not purchasable", () => {
     const structuredData = buildProductStructuredData(
       product({ status: "sold_out" }),
-      new URL("https://meipelle.example"),
+      new URL("https://helixskin.vercel.app"),
     );
 
     expect(structuredData).not.toHaveProperty("offers");
@@ -91,7 +92,7 @@ describe("Product structured data", () => {
   it("publishes waitlist Product identity without fabricating an Offer", () => {
     const structuredData = buildProductStructuredData(
       product({ status: "waitlist", variants: [] }),
-      new URL("https://meipelle.example"),
+      new URL("https://helixskin.vercel.app"),
     );
 
     expect(structuredData).toMatchObject({

@@ -56,11 +56,11 @@ function sourceDocument(step: "FRAME" | "LIFT"): ProductEditorDocumentV4 {
 
 describe("FRAME and LIFT Catalog publication", () => {
   it.each([
-    ["FRAME", "Peptide Eye Cream", "PDRN eye cream", "peptide-eye-cream"],
-    ["LIFT", "Peptide Nourish Mask", "PDRN sheet mask", "peptide-nourish-mask"],
+    ["FRAME", "Peptide Eye Cream", "PDRN eye cream", "peptide-eye-cream", "Peptide Eye Cream — PDRN eye cream | helix"],
+    ["LIFT", "Peptide Nourish Mask", "PDRN sheet mask", "peptide-nourish-mask", "Peptide Nourish Mask — PDRN sheet mask | helix"],
   ] as const)(
     "publishes %s with its approved identity and without an unverified Offer",
-    (step, displayName, productType, slug) => {
+    (step, displayName, productType, slug, seoTitle) => {
       const before = sourceDocument(step);
       const after = buildFrameLiftPublicationDocument(before, step);
 
@@ -72,6 +72,7 @@ describe("FRAME and LIFT Catalog publication", () => {
         routine_group: "beyond_core",
         status: "coming_soon",
         catalog_status: "active",
+        seo_title: seoTitle,
       });
       expect(after.variants).toEqual([]);
       expect(after.media).toEqual(before.media);

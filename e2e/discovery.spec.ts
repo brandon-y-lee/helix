@@ -244,7 +244,7 @@ test("Three Principles selection uses only a persistent 700ms label fade", async
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await page.goto("/");
 
-  const group = page.getByRole("group", { name: "Mei Pelle principles" });
+  const group = page.getByRole("group", { name: "helix principles" });
   const mission = group.getByRole("button", { name: "mission" });
   const innovation = group.getByRole("button", { name: "innovation" });
   const sustainability = group.getByRole("button", {
@@ -334,7 +334,7 @@ test("Three Principles selection is immediate with reduced motion", async ({
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
 
-  const group = page.getByRole("group", { name: "Mei Pelle principles" });
+  const group = page.getByRole("group", { name: "helix principles" });
   const mission = group.getByRole("button", { name: "mission" });
   const innovation = group.getByRole("button", { name: "innovation" });
 
