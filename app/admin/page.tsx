@@ -15,8 +15,7 @@ export default function AdminPage() {
         <p className="admin-dashboard__eyebrow">Internal operations</p>
         <h1>Admin overview</h1>
         <p>
-          Open an available module to manage its part of the Mei Pelle
-          platform.
+          Open an available module to manage its part of the helix Platform.
         </p>
       </header>
 

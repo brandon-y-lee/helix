@@ -31,7 +31,7 @@ export const revalidate = 0;
 export const fetchCache = "force-no-store";
 
 export const metadata: Metadata = {
-  title: "Draft Preview | Mei Pelle",
+  title: "Catalog Preview",
   robots: {
     index: false,
     follow: false,
@@ -51,7 +51,7 @@ function PreviewState({
 }) {
   return (
     <article className="catalog-preview-state" aria-labelledby="preview-state">
-      <p className="eyebrow">Draft Preview</p>
+      <p className="eyebrow">helix Catalog Preview</p>
       <h1 id="preview-state">{title}</h1>
       <p>{message}</p>
     </article>
@@ -80,7 +80,7 @@ function draftFailureCopy(reason: CatalogDraftLoadFailure) {
       };
     case "backend_unavailable":
       return {
-        title: "Draft preview unavailable",
+        title: "Catalog Preview unavailable",
         message:
           "The protected catalog editor backend is not available. No public product data has been substituted.",
       };
@@ -152,7 +152,7 @@ function PreviewMetadata({
 
   return (
     <aside className="catalog-preview-metadata" aria-labelledby="preview-metadata-title">
-      <h2 id="preview-metadata-title">Preview metadata</h2>
+      <h2 id="preview-metadata-title">Catalog Preview metadata</h2>
       <dl>
         {values.map(([label, value]) => (
           <div key={label}>
@@ -332,7 +332,7 @@ export default async function CatalogDraftPreviewPage({
       {preview.warnings.length > 0 && (
         <aside
           className="catalog-preview-warning"
-          aria-label="Draft preview warnings"
+          aria-label="Catalog Preview warnings"
         >
           {preview.warnings.map((warning) => (
             <p key={warning}>{warning}</p>

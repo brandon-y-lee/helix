@@ -25,11 +25,11 @@ export function CatalogPreviewToolbar({
   return (
     <aside
       className="catalog-preview-toolbar"
-      aria-label="Draft preview controls"
+      aria-label="Catalog Preview controls"
       data-catalog-preview-toolbar
     >
       <div className="catalog-preview-toolbar__identity">
-        <strong>Draft Preview</strong>
+        <strong>helix Catalog Preview</strong>
         <span>{productName}</span>
       </div>
       <dl className="catalog-preview-toolbar__meta">
@@ -48,7 +48,7 @@ export function CatalogPreviewToolbar({
       </dl>
       <nav
         className="catalog-preview-toolbar__actions"
-        aria-label="Draft preview actions"
+        aria-label="Catalog Preview actions"
       >
         <Link href={editorPath}>Back to Editor</Link>
         <button

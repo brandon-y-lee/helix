@@ -95,6 +95,7 @@ describe("catalog draft preview route", () => {
       index: false,
       follow: false,
     });
+    expect(metadata.title).toBe("Catalog Preview");
 
     const previewSource = readFileSync(
       resolve(
@@ -129,6 +130,12 @@ describe("catalog draft preview route", () => {
   });
 
   it("renders the real PDP with preview commerce disabled", async () => {
+    routeMocks.project.mockReturnValue({
+      product: {},
+      coreProducts: [],
+      warnings: ["Confirm the Product Education before publishing."],
+    });
+
     render(
       await CatalogDraftPreviewPage({
         params: Promise.resolve({ draftId }),
@@ -138,13 +145,18 @@ describe("catalog draft preview route", () => {
     expect(screen.getByTestId("preview-toolbar")).toHaveTextContent("draft");
     expect(screen.getByText("Preview — purchasing disabled")).toBeVisible();
     const previewMetadataHeading = screen.getByRole("heading", {
-      name: "Preview metadata",
+      name: "Catalog Preview metadata",
     });
     expect(previewMetadataHeading).toBeVisible();
     const previewMetadata = previewMetadataHeading.closest("aside");
     expect(previewMetadata).not.toBeNull();
     expect(within(previewMetadata!).getAllByText("CLEANSE")).toHaveLength(2);
     expect(within(previewMetadata!).getByText("Gel cleanser")).toBeVisible();
+    expect(
+      screen.getByRole("complementary", {
+        name: "Catalog Preview warnings",
+      }),
+    ).toHaveTextContent("Confirm the Product Education before publishing.");
     expect(screen.getByTestId("real-pdp")).toHaveAttribute(
       "data-commerce-disabled",
       "true",
@@ -177,8 +189,9 @@ describe("catalog draft preview route", () => {
     );
 
     expect(
-      screen.getByRole("heading", { name: "Draft preview unavailable" }),
+      screen.getByRole("heading", { name: "Catalog Preview unavailable" }),
     ).toBeVisible();
+    expect(screen.getByText("helix Catalog Preview")).toBeVisible();
     expect(screen.getByText(/No public product data/)).toBeVisible();
     expect(routeMocks.loadBase).not.toHaveBeenCalled();
     expect(screen.queryByTestId("real-pdp")).not.toBeInTheDocument();

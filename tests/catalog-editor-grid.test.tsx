@@ -39,7 +39,13 @@ describe("CatalogProductGrid", () => {
     );
 
     render(<CatalogProductGrid />);
-    expect(screen.getByRole("heading", { name: "Loading catalog" })).toBeVisible();
+    expect(screen.getByText("helix Admin · Catalog")).toBeVisible();
+    expect(
+      screen.getByRole("heading", { name: "Catalog Editor" }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("heading", { name: "Loading helix Catalog" }),
+    ).toBeVisible();
 
     resolveFirst?.({ items: [catalogProduct], nextCursor: "cursor-2" });
     expect(
@@ -48,7 +54,9 @@ describe("CatalogProductGrid", () => {
       "href",
       `/admin/catalog/products/${catalogProduct.id}`,
     );
-    const mediaFallback = screen.getByLabelText("No product image");
+    const mediaFallback = screen.getByRole("img", {
+      name: "helix Product image unavailable",
+    });
     expect(
       mediaFallback.querySelector('[data-helix-identity="symbol"]'),
     ).toHaveAttribute("aria-hidden", "true");
@@ -72,7 +80,12 @@ describe("CatalogProductGrid", () => {
         expect.any(AbortSignal),
       ),
     );
-    expect(await screen.findByRole("heading", { name: "No products found" })).toBeVisible();
+    expect(
+      await screen.findByRole("heading", {
+        name: "No Catalog Products found",
+      }),
+    ).toBeVisible();
+    expect(screen.getByText(/helix Catalog/)).toBeVisible();
   });
 
   it("submits search terms and offers an honest retry after API failure", async () => {
@@ -80,7 +93,9 @@ describe("CatalogProductGrid", () => {
     render(<CatalogProductGrid />);
 
     expect(
-      await screen.findByRole("heading", { name: "Catalog unavailable" }),
+      await screen.findByRole("heading", {
+        name: "helix Catalog unavailable",
+      }),
     ).toBeVisible();
     listProducts.mockResolvedValueOnce({
       items: [catalogProduct],
