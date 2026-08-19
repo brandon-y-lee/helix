@@ -28,8 +28,13 @@ describe("global footer", () => {
 
     const footer = screen.getByRole("contentinfo");
     expect(screen.getAllByRole("contentinfo")).toHaveLength(1);
-    expect(screen.getByRole("heading", { name: "Mei Pelle" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Mei Pelle" })).toHaveAttribute("href", "/");
+    const identityLink = screen.getByRole("link", { name: "helix" });
+    expect(screen.getByRole("heading", { name: "helix" })).toBeInTheDocument();
+    expect(identityLink).toHaveAttribute("href", "/");
+    expect(
+      identityLink.querySelector('[data-helix-identity="wordmark"]'),
+    ).toHaveAttribute("aria-hidden", "true");
+    expect(identityLink).not.toHaveTextContent(/Mei Pelle|helix/);
     expect(screen.queryByText("Stay in the system.")).not.toBeInTheDocument();
     expect(screen.queryByText("Email updates are not open")).not.toBeInTheDocument();
     expect(screen.queryByRole("textbox", { name: /email/i })).not.toBeInTheDocument();

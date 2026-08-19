@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef } from "react";
+import { HelixIdentity } from "@/components/brand/HelixIdentity";
 
 const PERCENTAGE_BASE = 100;
 
@@ -121,7 +122,9 @@ export function FooterWordmark() {
     >
       <div className="site-footer__wordmark">
         <h2 id="site-footer-heading">
-          <Link href="/">Mei Pelle</Link>
+          <Link href="/" aria-label="helix">
+            <HelixIdentity decorative />
+          </Link>
         </h2>
       </div>
     </div>
