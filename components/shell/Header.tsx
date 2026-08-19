@@ -234,7 +234,7 @@ export function Header({
             aria-expanded={commerceDisabled ? false : cartDrawerOpen}
             aria-label={
               commerceDisabled
-                ? "Cart unavailable in draft preview"
+                ? "Cart unavailable in Catalog Preview"
                 : undefined
             }
             disabled={commerceDisabled}

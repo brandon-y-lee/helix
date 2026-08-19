@@ -9,10 +9,22 @@ vi.mock("@/components/account/AccountForms", () => ({
 
 describe("admin fallback identity", () => {
   it.each([
-    ["forbidden", <AdminAccessState key="forbidden" state="forbidden" />],
-    ["unavailable", <AdminAccessState key="unavailable" state="unavailable" />],
-    ["loading", <AdminLoading key="loading" />],
-  ])("renders the canonical wordmark in the %s state", (_state, fallback) => {
+    [
+      "forbidden",
+      <AdminAccessState key="forbidden" state="forbidden" />,
+      "permission to access helix Admin",
+    ],
+    [
+      "unavailable",
+      <AdminAccessState key="unavailable" state="unavailable" />,
+      "helix Admin permissions could not be verified",
+    ],
+    [
+      "loading",
+      <AdminLoading key="loading" />,
+      "helix Admin permissions are being verified",
+    ],
+  ])("renders the canonical wordmark in the %s state", (_state, fallback, message) => {
     const { container } = render(fallback);
     const identity = container.querySelector(".admin-gate__eyebrow");
 
@@ -21,5 +33,6 @@ describe("admin fallback identity", () => {
       identity?.querySelector('[data-helix-identity="wordmark"]'),
     ).toHaveAttribute("aria-hidden", "true");
     expect(identity).not.toHaveTextContent("MEI PELLE");
+    expect(container).toHaveTextContent(message);
   });
 });
