@@ -103,7 +103,7 @@ const sampleRow = {
   product_media: [
     {
       media_type: "image",
-      url: "https://example.supabase.co/storage/v1/object/public/mei-pelle-catalog/products/northpoint/card.jpg",
+      url: "https://example.supabase.co/storage/v1/object/public/helix-catalog/products/northpoint/card.jpg",
       alt: "Northpoint product",
       width: 1000,
       height: 1000,

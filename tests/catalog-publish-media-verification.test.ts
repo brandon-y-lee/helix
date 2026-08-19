@@ -13,7 +13,7 @@ const readyDocument = {
   ...catalogDraft.document,
   media: catalogDraft.document.media.map((media, index) => ({
     ...media,
-    url: `${MEDIA_ORIGIN}/storage/v1/object/public/mei-pelle-catalog/products/cleanse/media-${index}.webp`,
+    url: `${MEDIA_ORIGIN}/storage/v1/object/public/helix-catalog/products/cleanse/media-${index}.webp`,
   })),
 };
 
@@ -165,7 +165,7 @@ describe("catalog publish media verification", () => {
       ...failedReport,
       results: [{
         ...failedReport.results[0],
-        url: `${MEDIA_ORIGIN}/storage/v1/object/public/mei-pelle-catalog/products/cleanse/sanitized.webp`,
+        url: `${MEDIA_ORIGIN}/storage/v1/object/public/helix-catalog/products/cleanse/sanitized.webp`,
       }],
       summary: {
         ...failedReport.summary,

@@ -15,16 +15,16 @@ import { SYSTEM_STEPS } from "@/lib/catalog/system-steps";
 const productId = "33333333-3333-4333-8333-333333333333";
 const canonicalSlug = "cleanse-01-calming-gel-cleanser";
 const storageOrigin = "https://erasogmsqpgiirovubjh.supabase.co";
-const approvedImage = `${storageOrigin}/storage/v1/object/public/mei-pelle-catalog/products/cleanse/drafts/hero.webp`;
-const approvedEditorialImage = `${storageOrigin}/storage/v1/object/public/mei-pelle-catalog/products/cleanse/drafts/core-routine-editorial.webp`;
-const approvedGalleryImage = `${storageOrigin}/storage/v1/object/public/mei-pelle-catalog/products/cleanse/drafts/gallery-02.webp`;
+const approvedImage = `${storageOrigin}/storage/v1/object/public/helix-catalog/products/cleanse/drafts/hero.webp`;
+const approvedEditorialImage = `${storageOrigin}/storage/v1/object/public/helix-catalog/products/cleanse/drafts/core-routine-editorial.webp`;
+const approvedGalleryImage = `${storageOrigin}/storage/v1/object/public/helix-catalog/products/cleanse/drafts/gallery-02.webp`;
 const approvedApplicationImages = [1, 2, 3].map(
   (position) =>
-    `${storageOrigin}/storage/v1/object/public/mei-pelle-catalog/products/cleanse/drafts/application-${position}.webp`,
+    `${storageOrigin}/storage/v1/object/public/helix-catalog/products/cleanse/drafts/application-${position}.webp`,
 );
 const approvedOutcomeImages = [1, 2, 3].map(
   (position) =>
-    `${storageOrigin}/storage/v1/object/public/mei-pelle-catalog/products/treat/outcomes/outcome-${position}.webp`,
+    `${storageOrigin}/storage/v1/object/public/helix-catalog/products/treat/outcomes/outcome-${position}.webp`,
 );
 
 function canonicalProduct(): PdpProduct {
@@ -80,7 +80,7 @@ function base(): CatalogPreviewBase {
   const product = canonicalProduct();
   const textureMedia = {
     kind: "image" as const,
-    url: `${storageOrigin}/storage/v1/object/public/mei-pelle-catalog/products/cleanse/core/texture.webp`,
+    url: `${storageOrigin}/storage/v1/object/public/helix-catalog/products/cleanse/core/texture.webp`,
     alt: "CLEANSE texture",
     width: 800,
     height: 800,
@@ -108,7 +108,7 @@ function base(): CatalogPreviewBase {
     textureMedia,
     editorialMedia: {
       ...textureMedia,
-      url: `${storageOrigin}/storage/v1/object/public/mei-pelle-catalog/products/cleanse/core/editorial.webp`,
+      url: `${storageOrigin}/storage/v1/object/public/helix-catalog/products/cleanse/core/editorial.webp`,
       alt: "Canonical CLEANSE editorial",
       role: "core_routine_editorial",
       sortOrder: 1,

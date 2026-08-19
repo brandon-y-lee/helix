@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { CATALOG_MEDIA_BUCKET } from "./lib/catalog/media-storage";
 
 const DAYS_PER_YEAR = 365;
 const ONE_YEAR_SECONDS = 60 * 60 * 24 * DAYS_PER_YEAR;
@@ -50,7 +51,7 @@ const nextConfig: NextConfig = {
       {
         protocol: "https",
         hostname: "**.supabase.co",
-        pathname: "/storage/v1/object/public/mei-pelle-catalog/**",
+        pathname: `/storage/v1/object/public/${CATALOG_MEDIA_BUCKET}/**`,
       },
     ],
   },

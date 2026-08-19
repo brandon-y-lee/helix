@@ -17,7 +17,7 @@ const story: PdpIngredientStory = {
 
 const media: ProductMedia = {
   kind: "image",
-  url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/mei-pelle-catalog/products/treat/ingredients-texture/hash.webp",
+  url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/helix-catalog/products/treat/ingredients-texture/hash.webp",
   alt: "Golden TREAT serum formula texture with suspended air bubbles.",
   width: 1254,
   height: 1254,

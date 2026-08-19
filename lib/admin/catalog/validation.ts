@@ -4,6 +4,7 @@ import type {
   CatalogValidationIssue,
   ProductEditorDocumentV4,
 } from "@/lib/admin/catalog/types";
+import { CATALOG_MEDIA_BUCKET } from "@/lib/catalog/media-storage";
 import { PRODUCT_EDITOR_SCHEMA_VERSION } from "@/lib/admin/catalog/types";
 import { PRODUCT_MEDIA_ROLES } from "@/lib/catalog/media-roles";
 import {
@@ -483,7 +484,7 @@ function approvedCatalogStorageUrl(
     const url = new URL(value);
     const projectUrl = new URL(env.NEXT_PUBLIC_SUPABASE_URL);
     const productMediaPrefix =
-      "/storage/v1/object/public/mei-pelle-catalog/products/";
+      `/storage/v1/object/public/${CATALOG_MEDIA_BUCKET}/products/`;
     return (
       url.origin === projectUrl.origin &&
       url.pathname.startsWith(productMediaPrefix) &&
@@ -650,7 +651,7 @@ function validateMedia(
           ? `products/${productSlug}/drafts/${sha}.${extension}`
           : null;
       if (
-        upload.bucket !== "mei-pelle-catalog" ||
+        upload.bucket !== CATALOG_MEDIA_BUCKET ||
         !oneOf(mime, UPLOAD_MIME_TYPES) ||
         typeof sha !== "string" ||
         !SHA256_PATTERN.test(sha) ||
