@@ -10,6 +10,14 @@ const contractionSql = readFileSync(
   "utf8",
 );
 
+const ledgerHardeningSql = readFileSync(
+  resolve(
+    process.cwd(),
+    "supabase/migrations/20260819190732_harden_rewards_ledger_contract.sql",
+  ),
+  "utf8",
+);
+
 const databaseTypes = readFileSync(
   resolve(process.cwd(), "lib/database.types.ts"),
   "utf8",
@@ -144,5 +152,14 @@ describe("contracted rewards database implementation", () => {
     expect(concurrencyVerifier).toContain('.from("rewards_ledger_entries")');
     expect(concurrencyVerifier).toContain('.from("rewards_reservations")');
     expect(concurrencyVerifier).not.toMatch(/loyalty/i);
+  });
+
+  it("keeps operational access to the Points Ledger append-only", () => {
+    expect(ledgerHardeningSql).toContain(
+      "revoke update on table public.rewards_ledger_entries from service_role",
+    );
+    expect(ledgerHardeningSql).toContain(
+      "Trusted server-only operational Points adjustment contract.",
+    );
   });
 });

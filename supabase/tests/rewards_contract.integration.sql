@@ -5,7 +5,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(67);
+select plan(70);
 
 select has_table('public', 'rewards_accounts', 'rewards accounts are physical records');
 select has_table('public', 'rewards_ledger_entries', 'the Points Ledger is a physical table');
@@ -32,7 +32,7 @@ select table_privs_are('public', 'rewards_accounts', 'anon', array[]::text[], 'V
 select table_privs_are('public', 'rewards_ledger_entries', 'anon', array[]::text[], 'Visitors cannot access the Points Ledger');
 select table_privs_are('public', 'rewards_reservations', 'anon', array[]::text[], 'Visitors cannot access Points Reservations');
 select table_privs_are('public', 'rewards_accounts', 'service_role', array['SELECT', 'INSERT', 'UPDATE'], 'the trusted server mutates accounts through narrow grants');
-select table_privs_are('public', 'rewards_ledger_entries', 'service_role', array['SELECT', 'INSERT', 'UPDATE'], 'the trusted server appends and reads Points history');
+select table_privs_are('public', 'rewards_ledger_entries', 'service_role', array['SELECT', 'INSERT'], 'the trusted server can only append and read Points history');
 select table_privs_are('public', 'rewards_reservations', 'service_role', array['SELECT', 'INSERT', 'UPDATE'], 'the trusted server manages Points Reservations');
 
 select has_function('public', 'ensure_rewards_account', array['uuid'], 'rewards account setup has a rewards-named RPC');
@@ -40,6 +40,12 @@ select has_function('public', 'award_rewards_points', array['uuid', 'integer', '
 select has_function('public', 'reserve_rewards_points', array['uuid', 'integer', 'integer', 'text', 'text', 'uuid'], 'Points Reservations have a rewards-named RPC');
 select has_function('public', 'release_rewards_reservations_for_order', array['uuid', 'uuid', 'text'], 'Points Releases have a rewards-named RPC');
 select has_function('public', 'record_rewards_points_adjustment', array['uuid', 'integer', 'rewards_ledger_entry_type', 'text', 'text', 'uuid', 'jsonb'], 'operational Points adjustments have a rewards-named RPC');
+
+select is(
+  obj_description('public.record_rewards_points_adjustment(uuid,integer,rewards_ledger_entry_type,text,text,uuid,jsonb)'::regprocedure, 'pg_proc'),
+  'Trusted server-only operational Points adjustment contract.',
+  'the operational adjustment RPC has a current rewards-domain description'
+);
 
 select function_privs_are('public', 'ensure_rewards_account', array['uuid'], 'authenticated', array[]::text[], 'browser sessions cannot initialize rewards state');
 select function_privs_are('public', 'award_rewards_points', array['uuid', 'integer', 'rewards_ledger_entry_type', 'text', 'text', 'uuid', 'jsonb'], 'authenticated', array[]::text[], 'browser sessions cannot award Points');
@@ -228,6 +234,21 @@ select is(
 
 select is((select points_balance from public.rewards_accounts where user_id = '18400000-0000-4000-8000-000000000001'), 600, 'a retried Points Reversal restores Points once');
 select is((select lifetime_points from public.rewards_accounts where user_id = '18400000-0000-4000-8000-000000000001'), 600, 'operational balance adjustments preserve Lifetime Points');
+
+set local role service_role;
+select throws_ok(
+  $$update public.rewards_ledger_entries set description = 'mutated' where source_key = 'ticket-187-award-one'$$,
+  '42501',
+  'permission denied for table rewards_ledger_entries',
+  'the trusted server cannot rewrite immutable Points Ledger history'
+);
+select throws_ok(
+  $$delete from public.rewards_ledger_entries where source_key = 'ticket-187-award-one'$$,
+  '42501',
+  'permission denied for table rewards_ledger_entries',
+  'the trusted server cannot delete immutable Points Ledger history'
+);
+reset role;
 
 select throws_ok(
   $$select public.record_rewards_points_adjustment(
