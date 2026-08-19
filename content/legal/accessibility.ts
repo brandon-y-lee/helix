@@ -1,20 +1,21 @@
 import type { LegalDocument } from "./types";
+import { supportPolicy } from "@/content/support/policy";
 
 export const accessibilityStatement: LegalDocument = {
   title: "Accessibility Statement",
-  metadataTitle: "Accessibility Statement | Mei Pelle",
+  metadataTitle: "Accessibility Statement | helix",
   description:
-    "Mei Pelle's accessibility target, implemented practices, known limitations, and feedback path.",
+    "The helix Accessibility Commitment, implemented practices, known limitations, and feedback status.",
   canonical: "/accessibility",
-  status: "Last updated June 24, 2026",
+  status: "Updated August 19, 2026",
   intro:
-    "Mei Pelle aims to provide a usable, accessible storefront experience for visitors using keyboard, screen-reader, magnification, touch, and pointer input.",
+    "The helix Accessibility Commitment is to provide a usable Public Site experience for Visitors using keyboard, screen-reader, magnification, touch, and pointer input.",
   sections: [
     {
       id: "target",
       title: "Target",
       body: [
-        "The design and engineering target is WCAG 2.2 AA for implemented storefront, account, cart, search, footer, support, and legal flows. This is a target, not a formal certification.",
+        "The design and engineering target is WCAG 2.2 AA for implemented Storefront, Account, Cart, search, footer, support, and policy flows. This is a target, not a formal certification or conformance report.",
       ],
     },
     {
@@ -44,7 +45,7 @@ export const accessibilityStatement: LegalDocument = {
       title: "Feedback",
       body: [
         "Use the Contact page and choose Accessibility feedback to prepare page, device, browser, assistive technology, and task details.",
-        "Mei Pelle should publish a verified public accessibility feedback channel before relying on customer-submitted accessibility reports.",
+        `${supportPolicy.contactStatus} The Contact page therefore cannot submit or store Accessibility Feedback.`,
       ],
     },
     {
@@ -52,7 +53,7 @@ export const accessibilityStatement: LegalDocument = {
       title: "Known Limitations",
       body: [
         "No third-party accessibility audit, formal conformance report, or accessibility vendor certification has been completed in this repository.",
-        "Some provider-controlled experiences may have separate accessibility behavior outside Mei Pelle's direct control.",
+        "Some provider-controlled experiences may have separate accessibility behavior outside the helix Platform's direct implementation.",
       ],
     },
   ],

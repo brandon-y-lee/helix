@@ -1,11 +1,12 @@
 import type { LegalDocument } from "./types";
+import { supportPolicy } from "@/content/support/policy";
 
 export const privacyChoices: LegalDocument = {
   title: "Your Privacy Choices",
-  metadataTitle: "Your Privacy Choices | Mei Pelle",
-  description: "Current privacy-choice behavior for the Mei Pelle website.",
+  metadataTitle: "Your Privacy Choices | helix",
+  description: "Current Privacy Choice behavior on the helix Public Site.",
   canonical: "/privacy-choices",
-  status: "Last updated June 24, 2026",
+  status: "Updated August 19, 2026",
   intro:
     "The current site does not include advertising pixels, cross-context behavioral advertising, or a sale/share opt-out workflow. This page explains the current status and links to related controls.",
   sections: [
@@ -20,7 +21,7 @@ export const privacyChoices: LegalDocument = {
       id: "available-controls",
       title: "Available Controls",
       body: [
-        "Cookie Preferences lets users acknowledge the current essential-cookie-only setup.",
+        "The Cookie notice records only that the required and functional storage disclosure was shown and acknowledged. It is not a Cookie Preference or optional-storage choice.",
         "Account holders can access and update profile information through the Account page.",
         "Cart contents can be edited or cleared through the cart interface.",
       ],
@@ -29,14 +30,14 @@ export const privacyChoices: LegalDocument = {
       id: "requests",
       title: "Privacy Requests",
       body: [
-        "Use the Contact page to prepare access, correction, deletion, or privacy-choice request details while Mei Pelle finalizes a verified public privacy intake channel.",
+        `Use the Contact page to prepare access, correction, deletion, or Privacy Request details. ${supportPolicy.contactStatus} The page cannot submit or store a Privacy Request.`,
       ],
     },
     {
       id: "future",
       title: "Future Advertising or Analytics",
       body: [
-        "If Mei Pelle later adds optional analytics, advertising, or other privacy-choice technology, this page and the Cookie Preferences control should be updated before those tools are enabled.",
+        "If the helix Platform later adds optional analytics, advertising, or other privacy-choice technology, this page and a genuine Cookie Preference control must be updated before those tools are enabled.",
       ],
     },
   ],

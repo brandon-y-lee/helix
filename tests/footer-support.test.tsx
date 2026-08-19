@@ -2,6 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { FAQAccordion } from "@/components/content/FAQAccordion";
+import { LegalDocumentLayout } from "@/components/content/LegalDocumentLayout";
 import { SiteFooter } from "@/components/shell/SiteFooter";
 import { accessibilityStatement } from "@/content/legal/accessibility";
 import { cookieCategories, cookiePolicy } from "@/content/legal/cookies";
@@ -17,6 +18,20 @@ import {
   remainingForFreeStandardShipping,
 } from "@/content/support/policy";
 import ContactPage from "@/app/contact/page";
+import PrivacyChoicesPage from "@/app/privacy-choices/page";
+import { metadata as accessibilityMetadata } from "@/app/accessibility/page";
+import { metadata as contactMetadata } from "@/app/contact/page";
+import { metadata as cookiePolicyMetadata } from "@/app/cookie-policy/page";
+import { metadata as faqMetadata } from "@/app/faq/page";
+import { metadata as privacyChoicesMetadata } from "@/app/privacy-choices/page";
+import { metadata as privacyMetadata } from "@/app/privacy/page";
+import { metadata as termsMetadata } from "@/app/terms/page";
+import {
+  COOKIE_ACKNOWLEDGEMENT_COOKIE,
+  GUEST_CART_COOKIE,
+  PENDING_CHECKOUT_COOKIE,
+  REFERRAL_COOKIE,
+} from "@/lib/customer-state-identifiers";
 
 function documentText(values: unknown): string {
   return JSON.stringify(values);
@@ -83,7 +98,7 @@ describe("global footer", () => {
     });
     expect(
       within(serviceLinks).getByRole("link", {
-        name: "Contact status: Public support intake pending",
+        name: "Contact status: Support Intake unavailable",
       }),
     ).toHaveAttribute("href", "/contact");
     expect(
@@ -95,13 +110,13 @@ describe("global footer", () => {
     const reviews = within(footer).getByRole("region", {
       name: "Customer reviews",
     });
-    expect(within(reviews).getByText("Coming soon")).toBeInTheDocument();
+    expect(within(reviews).getByText("Not available")).toBeInTheDocument();
     expect(within(reviews).getByText("No public rating is published.")).toBeInTheDocument();
 
     const social = within(footer).getByRole("region", {
       name: "Social channels",
     });
-    expect(within(social).getByText("Coming soon")).toBeInTheDocument();
+    expect(within(social).getByText("Not published")).toBeInTheDocument();
     expect(within(social).queryByRole("link")).not.toBeInTheDocument();
     expect(within(social).queryByRole("button")).not.toBeInTheDocument();
 
@@ -158,6 +173,42 @@ describe("global footer", () => {
 });
 
 describe("legal and support content", () => {
+  it("keeps Legal Documents visibly unavailable until a Legal Operator exists", () => {
+    render(<LegalDocumentLayout document={termsOfService} />);
+
+    expect(screen.getByText("Not in effect")).toBeInTheDocument();
+    expect(screen.getByText(/helix is the brand, not a legal person or entity/i))
+      .toBeInTheDocument();
+    expect(screen.getByText(/No Legal Operator or verified legal contact details/i))
+      .toBeInTheDocument();
+    expect(screen.queryByText("Official")).not.toBeInTheDocument();
+  });
+
+  it("uses helix metadata across trust, support, and policy routes", () => {
+    expect([
+      faqMetadata,
+      contactMetadata,
+      accessibilityMetadata,
+      privacyMetadata,
+      privacyChoicesMetadata,
+      cookiePolicyMetadata,
+      termsMetadata,
+    ].map((value) => ({
+      title: value.title,
+      siteName: value.openGraph && "siteName" in value.openGraph
+        ? value.openGraph.siteName
+        : undefined,
+    }))).toEqual([
+      { title: "FAQ | helix", siteName: "helix" },
+      { title: "Contact | helix", siteName: "helix" },
+      { title: "Accessibility Statement | helix", siteName: "helix" },
+      { title: "Privacy Policy | helix", siteName: "helix" },
+      { title: "Your Privacy Choices | helix", siteName: "helix" },
+      { title: "Cookie Policy | helix", siteName: "helix" },
+      { title: "Terms of Service | helix", siteName: "helix" },
+    ]);
+  });
+
   it("matches actual data practices and avoids unresolved public placeholders", () => {
     const combined = documentText({
       privacyPolicy,
@@ -178,6 +229,24 @@ describe("legal and support content", () => {
     expect(combined).not.toMatch(/MEI PELLE REWARDS|loyalty/i);
     expect(combined).toMatch(/does not submit or store messages/i);
     expect(combined).toMatch(/WCAG 2\.2 AA/i);
+    expect(combined).not.toMatch(/Mei[ _-]Pelle/i);
+    expect(combined).not.toMatch(/helix (?:is responsible|will be liable|disclaims)/i);
+    const publicSentences = [
+      ...[
+        accessibilityStatement,
+        cookiePolicy,
+        privacyChoices,
+        privacyPolicy,
+        termsOfService,
+      ].flatMap((document) => [
+        document.intro,
+        ...document.sections.flatMap((section) => section.body),
+      ]),
+      ...faqCategories.flatMap((category) =>
+        category.items.map((item) => item.answer),
+      ),
+    ].join("\n");
+    expect(publicSentences).not.toMatch(/^helix (?:is|rewards)/m);
     expect(privacyPolicy.canonical).toBe("/privacy");
     expect(termsOfService.canonical).toBe("/terms");
   });
@@ -191,6 +260,44 @@ describe("legal and support content", () => {
         expect.objectContaining({ category: "Advertising", active: false }),
       ]),
     );
+
+    const essential = cookieCategories.find(
+      (category) => category.category === "Essential",
+    );
+    expect(essential?.examples).toEqual(
+      expect.arrayContaining([
+        GUEST_CART_COOKIE,
+        PENDING_CHECKOUT_COOKIE,
+        REFERRAL_COOKIE,
+        COOKIE_ACKNOWLEDGEMENT_COOKIE,
+      ]),
+    );
+    expect(documentText({ cookieCategories, cookiePolicy, privacyPolicy, privacyChoices }))
+      .not.toMatch(/mei_pelle|cookie preferences|cookie-preference|consent/i);
+  });
+
+  it("describes the visible acknowledgement as required and functional", () => {
+    render(<PrivacyChoicesPage />);
+
+    expect(screen.getByText(/required and functional storage acknowledgement/i))
+      .toBeInTheDocument();
+    expect(screen.queryByText(/essential-storage acknowledgement/i))
+      .not.toBeInTheDocument();
+  });
+
+  it("states the unavailable Support Intake and factual Accessibility Commitment", () => {
+    expect(contactIntakeStatus).toEqual({
+      configured: false,
+      heading: "SUPPORT INTAKE UNAVAILABLE",
+      message:
+        "No verified public Support Channel has been published for helix. This page only prepares inquiry details; it cannot submit a Support Inquiry.",
+    });
+
+    const accessibilityText = documentText(accessibilityStatement);
+    expect(accessibilityText).toMatch(/Accessibility Commitment/);
+    expect(accessibilityText).toMatch(/target, not a formal certification/i);
+    expect(accessibilityText).toMatch(/No verified public Support Channel/);
+    expect(accessibilityText).not.toMatch(/Mei[ _-]Pelle/i);
   });
 
   it("defines and applies the shared free standard shipping threshold", () => {
@@ -231,6 +338,10 @@ describe("legal and support content", () => {
 
     const faqText = document.body.textContent ?? "";
     expect(faqText).toContain("$50+");
+    expect(faqText).toMatch(/No real shipping or Fulfillment capability is available/i);
+    expect(faqText).toMatch(/No operative Return Policy is in effect/i);
+    expect(faqText).toMatch(/Terms status page/i);
+    expect(faqText).not.toMatch(/Does helix offer|Report the issue within|Approved refunds/i);
     expect(faqText).not.toMatch(
       /development storefront|development platform|demo|test store|placeholder/i,
     );

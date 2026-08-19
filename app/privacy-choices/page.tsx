@@ -3,19 +3,13 @@ import Link from "next/link";
 import { CookieAcknowledgementDialog } from "@/components/privacy/CookieAcknowledgementDialog";
 import { LegalDocumentLayout } from "@/components/content/LegalDocumentLayout";
 import { privacyChoices } from "@/content/legal/privacy-choices";
+import { createPublicSiteMetadata } from "@/lib/public-site-metadata";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = createPublicSiteMetadata({
   title: privacyChoices.metadataTitle,
   description: privacyChoices.description,
-  alternates: { canonical: privacyChoices.canonical },
-  openGraph: {
-    title: privacyChoices.metadataTitle,
-    description: privacyChoices.description,
-    url: privacyChoices.canonical,
-    siteName: "Mei Pelle",
-    type: "website",
-  },
-};
+  canonical: privacyChoices.canonical,
+});
 
 export default function PrivacyChoicesPage() {
   return (
@@ -23,7 +17,8 @@ export default function PrivacyChoicesPage() {
       <div className="privacy-choice-panel">
         <p>
           Optional analytics and advertising categories are not active. The
-          Cookie notice records only an essential-storage acknowledgement.
+          Cookie notice records only a required and functional storage
+          acknowledgement.
         </p>
         <div className="hero__actions">
           <CookieAcknowledgementDialog triggerClassName="btn" />

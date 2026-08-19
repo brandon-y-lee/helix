@@ -1,19 +1,13 @@
 import type { Metadata } from "next";
 import { LegalDocumentLayout } from "@/components/content/LegalDocumentLayout";
 import { accessibilityStatement } from "@/content/legal/accessibility";
+import { createPublicSiteMetadata } from "@/lib/public-site-metadata";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = createPublicSiteMetadata({
   title: accessibilityStatement.metadataTitle,
   description: accessibilityStatement.description,
-  alternates: { canonical: accessibilityStatement.canonical },
-  openGraph: {
-    title: accessibilityStatement.metadataTitle,
-    description: accessibilityStatement.description,
-    url: accessibilityStatement.canonical,
-    siteName: "Mei Pelle",
-    type: "website",
-  },
-};
+  canonical: accessibilityStatement.canonical,
+});
 
 export default function AccessibilityPage() {
   return <LegalDocumentLayout document={accessibilityStatement} />;

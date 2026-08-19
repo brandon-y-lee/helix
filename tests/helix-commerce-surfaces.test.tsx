@@ -45,7 +45,7 @@ describe("helix Account, Cart, Checkout, and acknowledgement surfaces", () => {
     fireEvent.click(screen.getByRole("button", { name: "Cookie notice" }));
 
     expect(screen.getByRole("dialog")).toHaveTextContent(
-      "Helix uses essential cookies",
+      "The helix Platform uses essential cookies",
     );
     expect(screen.getByRole("dialog")).not.toHaveTextContent("Mei Pelle");
 
