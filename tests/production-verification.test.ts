@@ -320,7 +320,7 @@ describe("Production Artifact Verification", () => {
 
     expect(environment).toMatchObject({
       NEXT_PUBLIC_ALGOLIA_APP_ID: "testappid",
-      NEXT_PUBLIC_ALGOLIA_INDEX_NAME: "mei_pelle_products",
+      NEXT_PUBLIC_ALGOLIA_INDEX_NAME: "helix_products",
       NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY: "test-search-only-key",
       NEXT_PUBLIC_SUPABASE_ANON_KEY: "local-anon-key",
       NEXT_PUBLIC_SUPABASE_URL: "https://shell.example.test",

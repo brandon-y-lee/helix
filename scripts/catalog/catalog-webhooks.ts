@@ -92,6 +92,7 @@ export type CatalogWebhookAction = {
   action: "create" | "update" | "unchanged";
   table: CatalogWebhookTable;
   name: string;
+  currentName?: string;
 };
 
 export type CatalogWebhookReport = {
@@ -257,6 +258,10 @@ export function loadCatalogWebhookSmokeConfig(
 }
 
 export function catalogWebhookTriggerName(table: CatalogWebhookTable): string {
+  return `helix_catalog_search_sync_${table}`;
+}
+
+function legacyCatalogWebhookTriggerName(table: CatalogWebhookTable): string {
   return `mei_pelle_catalog_search_sync_${table}`;
 }
 
@@ -323,11 +328,21 @@ export function buildCatalogWebhookReport(
     const managedHook = tableHooks.find(
       (hook) => hook.triggerName === webhook.name,
     );
+    const legacyHook = tableHooks.find(
+      (hook) =>
+        hook.triggerName === legacyCatalogWebhookTriggerName(webhook.table),
+    );
     const unmanagedHooks = tableHooks.filter(
-      (hook) => hook.triggerName !== webhook.name,
+      (hook) =>
+        hook.triggerName !== webhook.name &&
+        hook.triggerName !== legacyCatalogWebhookTriggerName(webhook.table),
     );
 
-    if (tableHooks.length > 1 || unmanagedHooks.length > 0) {
+    if (
+      tableHooks.length > 1 ||
+      unmanagedHooks.length > 0 ||
+      (managedHook && legacyHook)
+    ) {
       duplicates.push({
         table: webhook.table,
         triggerNames: tableHooks
@@ -338,13 +353,15 @@ export function buildCatalogWebhookReport(
     }
 
     actions.push({
-      action: managedHook
-        ? observedHookMatches(managedHook)
-          ? "unchanged"
-          : "update"
-        : "create",
+      action:
+        managedHook || legacyHook
+          ? managedHook && observedHookMatches(managedHook)
+            ? "unchanged"
+            : "update"
+          : "create",
       table: webhook.table,
       name: webhook.name,
+      ...(legacyHook ? { currentName: legacyHook.triggerName } : {}),
     });
   }
 
@@ -412,7 +429,7 @@ export function buildCatalogWebhookApplySql(
     const drop =
       action.action === "update"
         ? [
-            `drop trigger if exists ${quoteIdentifier(webhook.name)} on ` +
+            `drop trigger if exists ${quoteIdentifier(action.currentName ?? webhook.name)} on ` +
               `${quoteIdentifier(webhook.schema)}.${quoteIdentifier(webhook.table)};`,
           ]
         : [];
@@ -472,6 +489,7 @@ hook_rows as (
     and n.nspname = 'public'
     and (
       (pn.nspname = 'supabase_functions' and p.proname = 'http_request')
+      or t.tgname like 'helix_catalog_search_sync_%'
       or t.tgname like 'mei_pelle_catalog_search_sync_%'
     )
 )
