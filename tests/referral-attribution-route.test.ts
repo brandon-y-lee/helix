@@ -68,4 +68,32 @@ describe("Referral Attribution route", () => {
     expect(response.headers.get("set-cookie")).toBeNull();
     expect(from).not.toHaveBeenCalled();
   });
+
+  it("reports a retryable outage instead of calling provider failure invalid", async () => {
+    const query = referralLookup({
+      data: null,
+      error: { message: "provider leaked customer@example.test" },
+    });
+    dependencies.createSupabaseAdminClient.mockReturnValue({
+      from: vi.fn(() => query),
+    });
+
+    const response = await GET(
+      new Request("https://helixskin.vercel.app/r/helix25"),
+      { params: Promise.resolve({ code: "helix25" }) },
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get("retry-after")).toBe("5");
+    expect(body).toEqual({
+      error: {
+        code: "REFERRAL_SERVICE_UNAVAILABLE",
+        message: "Referral Code validation is temporarily unavailable.",
+        retryable: true,
+      },
+    });
+    expect(JSON.stringify(body)).not.toContain("customer@example.test");
+    expect(response.headers.get("set-cookie")).toBeNull();
+  });
 });

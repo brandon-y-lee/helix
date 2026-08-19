@@ -33,7 +33,35 @@ function unavailableResponse(): NextResponse {
   );
 }
 
+function requestHasSameOrigin(request: Request): boolean {
+  const origin = request.headers.get("origin");
+  if (!origin) return false;
+  try {
+    return new URL(origin).origin === new URL(request.url).origin;
+  } catch {
+    return false;
+  }
+}
+
+function sameOriginRequiredResponse(): NextResponse {
+  return NextResponse.json(
+    {
+      error: {
+        code: "SAME_ORIGIN_REQUIRED",
+        message: "This request must originate from helix.",
+        retryable: false,
+      },
+    },
+    {
+      status: 403,
+      headers: { "Cache-Control": "private, no-store" },
+    },
+  );
+}
+
 export async function POST(request: Request): Promise<NextResponse> {
+  if (!requestHasSameOrigin(request)) return sameOriginRequiredResponse();
+
   try {
     const body = await readBody(request);
     const result = await submitPrivateFeedbackForCurrentUser({

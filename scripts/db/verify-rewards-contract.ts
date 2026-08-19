@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { createOpsClient } from "./supabase-ops";
+import { runCleanupAttempts } from "./rewards-contract-cleanup";
 
 function safeErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
@@ -198,18 +199,34 @@ async function run(): Promise<void> {
       }),
     );
   } finally {
-    const { error: orderCleanupError } = await supabase
-      .from("orders")
-      .delete()
-      .eq("id", orderId);
-    requireNoError(orderCleanupError, "synthetic Order cleanup");
-    if (refereeUserId) {
-      const { error: refereeCleanupError } =
-        await supabase.auth.admin.deleteUser(refereeUserId);
-      requireNoError(refereeCleanupError, "synthetic referred Account Holder cleanup");
-    }
-    const { error } = await supabase.auth.admin.deleteUser(userId);
-    requireNoError(error, "synthetic Account Holder cleanup");
+    const cleanupRefereeUserId = refereeUserId;
+    await runCleanupAttempts([
+      {
+        label: "synthetic Order",
+        run: async () => {
+          const { error } = await supabase.from("orders").delete().eq("id", orderId);
+          requireNoError(error, "synthetic Order cleanup");
+        },
+      },
+      ...(cleanupRefereeUserId
+        ? [{
+            label: "synthetic referred Account Holder",
+            run: async () => {
+              const { error } = await supabase.auth.admin.deleteUser(
+                cleanupRefereeUserId,
+              );
+              requireNoError(error, "synthetic referred Account Holder cleanup");
+            },
+          }]
+        : []),
+      {
+        label: "synthetic Account Holder",
+        run: async () => {
+          const { error } = await supabase.auth.admin.deleteUser(userId);
+          requireNoError(error, "synthetic Account Holder cleanup");
+        },
+      },
+    ]);
   }
 }
 

@@ -26,6 +26,7 @@ describe("Private feedback rewards route", () => {
       "https://helixskin.vercel.app/api/rewards/private-feedback",
       {
         method: "POST",
+        headers: { origin: "https://helixskin.vercel.app" },
         body: JSON.stringify({
           feedbackId: "feedback-1",
           rating: 5,
@@ -52,7 +53,11 @@ describe("Private feedback rewards route", () => {
 
     const response = await POST(new Request(
       "https://helixskin.vercel.app/api/rewards/private-feedback",
-      { method: "POST", body: "{}" },
+      {
+        method: "POST",
+        headers: { origin: "https://helixskin.vercel.app" },
+        body: "{}",
+      },
     ));
 
     expect(response.status).toBe(400);
@@ -68,12 +73,42 @@ describe("Private feedback rewards route", () => {
 
     const response = await POST(new Request(
       "https://helixskin.vercel.app/api/rewards/private-feedback",
-      { method: "POST", body: "{}" },
+      {
+        method: "POST",
+        headers: { origin: "https://helixskin.vercel.app" },
+        body: "{}",
+      },
     ));
     const body = await response.json();
 
     expect(response.status).toBe(503);
     expect(body.error.message).toBe("helix rewards is temporarily unavailable.");
     expect(JSON.stringify(body)).not.toContain("customer@example.test");
+  });
+
+  it("rejects a cross-origin mutation before reading customer input", async () => {
+    const response = await POST(new Request(
+      "https://helixskin.vercel.app/api/rewards/private-feedback",
+      {
+        method: "POST",
+        headers: { origin: "https://attacker.example" },
+        body: JSON.stringify({
+          feedbackId: "feedback-1",
+          rating: 5,
+          comments: "should not be read",
+        }),
+      },
+    ));
+
+    expect(response.status).toBe(403);
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+    expect(await response.json()).toEqual({
+      error: {
+        code: "SAME_ORIGIN_REQUIRED",
+        message: "This request must originate from helix.",
+        retryable: false,
+      },
+    });
+    expect(rewards.submitPrivateFeedbackForCurrentUser).not.toHaveBeenCalled();
   });
 });

@@ -37,7 +37,6 @@ import {
   buildCheckoutCancelUrl,
 } from "@/lib/orders/checkout-cancel";
 import {
-  calculateReferralDiscount,
   calculatePurchasePoints,
   isReferralSubtotalEligible,
   rewardDiscountForTier,
@@ -58,7 +57,11 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getStripeClient } from "@/lib/stripe/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { REFERRAL_COOKIE } from "@/lib/referrals/constants";
-import { qualifyReferralForPaidOrder } from "@/lib/referrals/server";
+import {
+  qualifyReferralForPaidOrder,
+  resolveReferralOfferForCheckout,
+  type ReferralOffer,
+} from "@/lib/referrals/server";
 
 const CHECKOUT_SCHEMA_VERSION = "checkout_v1";
 
@@ -120,12 +123,6 @@ export type OrderConfirmation = {
 
 type CreateCheckoutInput = {
   rewardTierId?: unknown;
-};
-
-type ReferralOffer = {
-  code: string;
-  referrerUserId: string;
-  discountCents: number;
 };
 
 type CreateCheckoutResult = {
@@ -390,31 +387,11 @@ async function resolveReferralOffer(input: {
   const code = await referralCodeFromCookie();
   if (!code) return null;
 
-  const admin = createSupabaseAdminClient();
-  const { data: referral, error } = await admin
-    .from("referral_codes")
-    .select("code, user_id, active")
-    .eq("code", code)
-    .eq("active", true)
-    .maybeSingle();
-  if (error || !referral) return null;
-
-  const referralRow = referral as { user_id: string; code: string };
-  if (referralRow.user_id === input.userId) return null;
-
-  const { data: priorOrders, error: ordersError } = await admin
-    .from("orders")
-    .select("id")
-    .eq("user_id", input.userId)
-    .eq("status", "paid")
-    .limit(1);
-  if (ordersError || (priorOrders?.length ?? 0) > 0) return null;
-
-  return {
-    code: referralRow.code,
-    referrerUserId: referralRow.user_id,
-    discountCents: calculateReferralDiscount(input.merchandiseSubtotalCents),
-  };
+  return resolveReferralOfferForCheckout({
+    code,
+    userId: input.userId,
+    merchandiseSubtotalCents: input.merchandiseSubtotalCents,
+  });
 }
 
 function couponIdForReward(config: CheckoutConfig, tier: RewardTier | null): string | null {
