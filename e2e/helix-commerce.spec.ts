@@ -20,7 +20,7 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-test("Account, Cart, Checkout, and consent use the helix identity", async ({
+test("Account, Cart, Checkout, and acknowledgement use the helix identity", async ({
   page,
 }) => {
   await page.goto("/account/sign-in");
@@ -42,9 +42,9 @@ test("Account, Cart, Checkout, and consent use the helix identity", async ({
   ).toBeVisible();
 
   await page.getByRole("button", { name: "Cookie notice" }).click();
-  const consent = page.getByRole("dialog", { name: "Cookie notice" });
-  await expect(consent).toContainText("Helix uses essential cookies");
-  await expect(consent).not.toContainText("Mei Pelle");
+  const acknowledgement = page.getByRole("dialog", { name: "Cookie notice" });
+  await expect(acknowledgement).toContainText("Helix uses essential cookies");
+  await expect(acknowledgement).not.toContainText("Mei Pelle");
 });
 
 test("Checkout cancellation returns to the intact Cart", async ({ page }) => {
@@ -66,9 +66,9 @@ test("an unverifiable Checkout return fails closed", async ({ page }) => {
     page.getByRole("heading", { level: 1, name: "Order status" }),
   ).toBeVisible();
   await expect(
-    page.getByText("We could not verify that Checkout Session."),
+    page.getByText("We could not verify this payment status."),
   ).toBeVisible();
   await expect(
-    page.getByRole("heading", { level: 1, name: "Order confirmed" }),
+    page.getByRole("heading", { level: 1, name: "Payment verified" }),
   ).toHaveCount(0);
 });

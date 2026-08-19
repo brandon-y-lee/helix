@@ -13,7 +13,7 @@ import { metadata as cancelMetadata } from "@/app/checkout/cancel/page";
 import { CookieAcknowledgementDialog } from "@/components/privacy/CookieAcknowledgementDialog";
 import { COOKIE_ACKNOWLEDGEMENT_COOKIE } from "@/lib/customer-state-identifiers";
 
-describe("helix Account, Cart, Checkout, and consent surfaces", () => {
+describe("helix Account, Cart, Checkout, and acknowledgement surfaces", () => {
   it("uses the approved brand casing in route metadata", () => {
     expect([
       accountMetadata.title,
@@ -35,12 +35,12 @@ describe("helix Account, Cart, Checkout, and consent surfaces", () => {
       "Account unavailable | helix",
       "Cart | helix",
       "Checkout | helix",
-      "Order confirmed | helix",
+      "Payment verified | helix",
       "Checkout canceled | helix",
     ]);
   });
 
-  it("presents truthful helix consent copy and writes the acknowledgement", () => {
+  it("presents truthful helix acknowledgement copy and writes its record", () => {
     render(<CookieAcknowledgementDialog />);
     fireEvent.click(screen.getByRole("button", { name: "Cookie notice" }));
 

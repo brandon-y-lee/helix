@@ -132,7 +132,7 @@ describe("Checkout creation and verified completion", () => {
     );
 
     expect(
-      screen.getByRole("heading", { level: 1, name: "Order confirmed" }),
+      screen.getByRole("heading", { level: 1, name: "Payment verified" }),
     ).toBeVisible();
     expect(screen.getByText("HX-000101")).toBeVisible();
     expect(screen.getByText(/no real charge or fulfillment/i)).toBeVisible();
@@ -153,8 +153,8 @@ describe("Checkout creation and verified completion", () => {
       screen.getByRole("heading", { level: 1, name: "Order status" }),
     ).toBeVisible();
     expect(
-      screen.getByText("We could not verify that Checkout Session."),
+      screen.getByText("We could not verify this payment status."),
     ).toBeVisible();
-    expect(screen.queryByText("Order confirmed")).not.toBeInTheDocument();
+    expect(screen.queryByText("Payment verified")).not.toBeInTheDocument();
   });
 });
