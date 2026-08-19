@@ -27,6 +27,7 @@
     "admin:bootstrap": "tsx scripts/admin-bootstrap.ts",
     "db:carts:cleanup:dry-run": "tsx scripts/db/cleanup-expired-carts.ts --dry-run",
     "db:carts:cleanup:apply": "tsx scripts/db/cleanup-expired-carts.ts --apply",
+    "db:rewards:verify": "tsx scripts/db/verify-rewards-contract.ts",
     "db:types": "pnpm dlx supabase gen types --linked --schema public > lib/database.types.ts",
     "db:verify": "tsx scripts/db/verify-supabase-data.ts",
     "search:backfill": "tsx scripts/search-backfill.ts",
