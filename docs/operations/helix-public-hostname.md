@@ -27,8 +27,10 @@ changed during this cutover.
 
 ## Application consumers
 
-`lib/site-url.ts` owns the canonical origin and validates deployed
-configuration. Its consumers include:
+`lib/site-url.ts` owns and enforces the canonical deployed origin. Generated
+deployment hostnames and stale deployed environment values cannot override it;
+only HTTP loopback origins are configurable in local development. Its
+consumers include:
 
 - Supabase Auth confirmation and password-recovery redirects in
   `app/account/actions.ts`

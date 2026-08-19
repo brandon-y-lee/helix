@@ -21,24 +21,38 @@ describe("public-site URL contract", () => {
     "http://helixskin.vercel.app",
     "https://helix-random-build.vercel.app",
     "https://helixskin.vercel.app/path",
-  ])("rejects a noncanonical production site URL: %s", (siteUrl) => {
-    expect(() =>
+  ])("ignores a noncanonical deployed site URL: %s", (siteUrl) => {
+    expect(
       resolvePublicSiteOrigin({
         env: {
           NODE_ENV: "production",
           NEXT_PUBLIC_SITE_URL: siteUrl,
         },
       }),
-    ).toThrow(/canonical public-site URL/i);
+    ).toBe("https://helixskin.vercel.app");
   });
 
-  it("accepts only loopback request origins during local development", () => {
+  it("accepts only loopback configured and request origins during local development", () => {
+    expect(
+      resolvePublicSiteOrigin({
+        env: {
+          NODE_ENV: "development",
+          NEXT_PUBLIC_SITE_URL: "http://localhost:3100",
+        },
+      }),
+    ).toBe("http://localhost:3100");
     expect(
       resolvePublicSiteOrigin({
         env: { NODE_ENV: "development" },
         requestOrigin: "http://127.0.0.1:3100",
       }),
     ).toBe("http://127.0.0.1:3100");
+    expect(
+      resolvePublicSiteOrigin({
+        env: { NODE_ENV: "development" },
+        requestOrigin: "http://[::1]:3200",
+      }),
+    ).toBe("http://[::1]:3200");
     expect(
       resolvePublicSiteOrigin({
         env: { NODE_ENV: "development" },
