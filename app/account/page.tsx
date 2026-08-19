@@ -123,23 +123,23 @@ export default async function AccountPage() {
         </article>
 
         <article className="account-section">
-          <h2>Rewards</h2>
+          <h2>helix rewards</h2>
           <dl className="account-details">
             <div>
-              <dt>Available points</dt>
+              <dt>Available Points Balance</dt>
               <dd>{rewards?.pointsBalance ?? 0}</dd>
             </div>
             <div>
-              <dt>Lifetime points</dt>
+              <dt>Lifetime Points</dt>
               <dd>{rewards?.lifetimePoints ?? 0}</dd>
             </div>
             <div>
-              <dt>Referral code</dt>
+              <dt>Referral Code</dt>
               <dd>{rewards?.referralCode ?? "Available after rewards setup"}</dd>
             </div>
           </dl>
           <Link href="/rewards" className="btn btn--ghost btn--editorial-rounded">
-            Rewards
+            helix rewards
           </Link>
         </article>
 
@@ -150,7 +150,7 @@ export default async function AccountPage() {
               {rewards.feedbackRequests.map((request) => (
                 <li key={request.id}>
                   <span>{request.order_number}</span>
-                  <span>{request.points} points</span>
+                  <span>{request.points} Points</span>
                   <PrivateFeedbackForm
                     feedbackId={request.id}
                     orderNumber={request.order_number}
@@ -160,8 +160,8 @@ export default async function AccountPage() {
             </ul>
           ) : (
             <p className="account-muted">
-              Eligible paid sandbox orders can unlock one private feedback
-              request worth 300 points. This is first-party feedback, not a
+              Eligible Paid Orders can unlock one private feedback request with
+              a 300-Point Award. This is first-party feedback, not a
               Trustpilot review.
             </p>
           )}

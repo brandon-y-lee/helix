@@ -201,39 +201,39 @@ export const faqCategories: FAQCategory[] = [
   },
   {
     id: "rewards",
-    label: "Rewards",
-    summary: "Points, redemptions, referrals, private feedback, and refunds.",
+    label: "helix rewards",
+    summary: "Points, Redemption Tiers, Referrals, private feedback, and refunds.",
     items: [
       {
         id: "rewards-program",
-        question: "Does Mei Pelle have a rewards program?",
+        question: "How does helix rewards work?",
         answer:
-          "MEI PELLE REWARDS is account-backed. Confirmed members receive 100 welcome points once, earn 2 points per eligible net merchandise dollar after successful sandbox payment, and can redeem 200, 400, or 600 points for $5, $10, or $15 off one eligible order.",
-        links: [{ label: "Rewards", href: "/rewards" }],
+          "helix rewards is account-backed. Email-confirmed Account Holders receive a 100-Point welcome award once, earn 2 Points per eligible net merchandise dollar after successful sandbox payment, and can redeem 200, 400, or 600 Points for $5, $10, or $15 off one eligible Order.",
+        links: [{ label: "helix rewards", href: "/rewards" }],
       },
       {
         id: "promo-codes",
-        question: "Can I stack rewards or promo codes?",
+        question: "Can I stack Redemption Tiers or promo codes?",
         answer:
-          "No. Checkout applies at most one internal points reward or one referral offer. Stripe promotion-code entry is disabled so points, referrals, and free-shipping calculations stay server-authoritative.",
+          "No. Checkout applies at most one Redemption Tier or one Referral Offer. Stripe promotion-code entry is disabled so Points, Referral Offers, and free-shipping calculations stay server-authoritative.",
       },
       {
         id: "referrals",
         question: "How do referrals work?",
         answer:
-          "A confirmed account can share a referral code. A referred friend must sign in with a confirmed account and can use 15% off a first qualifying order of $50+ before the referral discount. Self-referrals and stacking are blocked.",
+          "An email-confirmed Account Holder can share a Referral Code. A referred Customer must sign in with a confirmed account and can use a 15% Referral Offer on a first qualifying Order of $50.00 or more. Self-referrals and stacking are blocked.",
       },
       {
         id: "private-feedback-reward",
-        question: "Does private feedback earn points?",
+        question: "Does private feedback earn Points?",
         answer:
-          "Eligible paid sandbox orders can unlock one private first-party feedback request worth 300 points. The reward is the same for positive, neutral, or negative sentiment. This is not a Trustpilot review and is not published publicly.",
+          "Eligible Paid Orders can unlock one private first-party feedback request with a 300-Point Award. The Points Award is the same for positive, neutral, or negative sentiment. This is not a Trustpilot review and is not published publicly.",
       },
       {
         id: "trustpilot-rewards",
-        question: "Do Trustpilot reviews earn points?",
+        question: "Do Trustpilot reviews earn Points?",
         answer:
-          "No. Trustpilot invitations are independent from rewards. Mei Pelle does not award points for writing, editing, or deleting a Trustpilot review, and sandbox orders do not send real Trustpilot invitations.",
+          "No. Trustpilot invitations are independent from helix rewards. Helix does not award Points for writing, editing, or deleting a Trustpilot review, and sandbox Orders do not send real Trustpilot invitations.",
       },
     ],
   },

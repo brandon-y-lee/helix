@@ -45,7 +45,7 @@ describe("global footer", () => {
     for (const [name, href] of [
       ["Shop", "/collections/shop"],
       ["System", "/system"],
-      ["Rewards", "/rewards"],
+      ["helix rewards", "/rewards"],
       ["Account overview", "/account"],
       ["Sign in", "/account/sign-in"],
       ["Create account", "/account/sign-up"],
@@ -75,7 +75,7 @@ describe("global footer", () => {
       .not.toBeInTheDocument();
     expect(within(accountGroup).getByRole("link", { name: "Account overview" }))
       .toHaveAttribute("href", "/account");
-    expect(within(accountGroup).getByRole("link", { name: "Rewards" }))
+    expect(within(accountGroup).getByRole("link", { name: "helix rewards" }))
       .toHaveAttribute("href", "/rewards");
 
     const serviceLinks = within(footer).getByRole("complementary", {
@@ -174,7 +174,8 @@ describe("legal and support content", () => {
     expect(combined).not.toMatch(/mandatory arbitration|class-action waiver|jury-trial waiver/i);
     expect(combined).not.toMatch(/real payments are available|returns are accepted/i);
     expect(combined).toMatch(/sandbox Checkout/i);
-    expect(combined).toMatch(/MEI PELLE REWARDS/i);
+    expect(combined).toMatch(/helix rewards/i);
+    expect(combined).not.toMatch(/MEI PELLE REWARDS|loyalty/i);
     expect(combined).toMatch(/does not submit or store messages/i);
     expect(combined).toMatch(/WCAG 2\.2 AA/i);
     expect(privacyPolicy.canonical).toBe("/privacy");

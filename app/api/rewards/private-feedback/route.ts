@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { RewardsRequestError } from "@/lib/rewards/errors";
 import { submitPrivateFeedbackForCurrentUser } from "@/lib/rewards/server";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +14,54 @@ async function readBody(request: Request): Promise<Record<string, unknown>> {
   }
 }
 
+function unavailableResponse(): NextResponse {
+  return NextResponse.json(
+    {
+      error: {
+        code: "REWARDS_SERVICE_UNAVAILABLE",
+        message: "helix rewards is temporarily unavailable.",
+        retryable: true,
+      },
+    },
+    {
+      status: 503,
+      headers: {
+        "Cache-Control": "private, no-store",
+        "Retry-After": "5",
+      },
+    },
+  );
+}
+
+function requestHasSameOrigin(request: Request): boolean {
+  const origin = request.headers.get("origin");
+  if (!origin) return false;
+  try {
+    return new URL(origin).origin === new URL(request.url).origin;
+  } catch {
+    return false;
+  }
+}
+
+function sameOriginRequiredResponse(): NextResponse {
+  return NextResponse.json(
+    {
+      error: {
+        code: "SAME_ORIGIN_REQUIRED",
+        message: "This request must originate from helix.",
+        retryable: false,
+      },
+    },
+    {
+      status: 403,
+      headers: { "Cache-Control": "private, no-store" },
+    },
+  );
+}
+
 export async function POST(request: Request): Promise<NextResponse> {
+  if (!requestHasSameOrigin(request)) return sameOriginRequiredResponse();
+
   try {
     const body = await readBody(request);
     const result = await submitPrivateFeedbackForCurrentUser({
@@ -23,10 +71,18 @@ export async function POST(request: Request): Promise<NextResponse> {
     });
     return NextResponse.json(result);
   } catch (error) {
-    const message =
-      error instanceof Error
-        ? error.message
-        : "Private feedback could not be submitted.";
-    return NextResponse.json({ error: message }, { status: 400 });
+    if (error instanceof RewardsRequestError) {
+      return NextResponse.json(
+        { error: error.message },
+        {
+          status: 400,
+          headers: { "Cache-Control": "private, no-store" },
+        },
+      );
+    }
+    console.error("[rewards] Private feedback submission failed.", {
+      errorType: error instanceof Error ? error.name : "UnknownError",
+    });
+    return unavailableResponse();
   }
 }

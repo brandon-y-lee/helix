@@ -1879,6 +1879,19 @@ export type Database = {
         }
         Returns: Json
       }
+      qualify_referral_for_paid_order: {
+        Args: { p_order_id: string }
+        Returns: string
+      }
+      submit_private_feedback_reward: {
+        Args: {
+          p_comments: string
+          p_feedback_id: string
+          p_rating: number
+          p_user_id: string
+        }
+        Returns: string
+      }
       record_rewards_points_adjustment: {
         Args: {
           p_description: string

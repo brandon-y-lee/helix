@@ -40,6 +40,9 @@ export function CheckoutPanel({
   subtotal: number;
 }) {
   const [rewardSummary, setRewardSummary] = useState<RewardsSummaryResponse | null>(null);
+  const [rewardsStatus, setRewardsStatus] = useState<
+    "loading" | "ready" | "unavailable"
+  >("loading");
   const [selectedReward, setSelectedReward] = useState("none");
   const {
     checkoutPending: pending,
@@ -54,14 +57,23 @@ export function CheckoutPanel({
 
   useEffect(() => {
     let active = true;
-    const params = new URLSearchParams({ subtotal: String(subtotal) });
-    fetch(`/api/rewards/summary?${params.toString()}`, { cache: "no-store" })
-      .then((response) => response.json())
+    setRewardsStatus("loading");
+    fetch("/api/rewards/summary", { cache: "no-store" })
+      .then((response) => {
+        if (!response.ok) throw new Error("rewards unavailable");
+        return response.json();
+      })
       .then((data: RewardsSummaryResponse) => {
-        if (active) setRewardSummary(data);
+        if (active) {
+          setRewardSummary(data);
+          setRewardsStatus("ready");
+        }
       })
       .catch(() => {
-        if (active) setRewardSummary(null);
+        if (active) {
+          setRewardSummary(null);
+          setRewardsStatus("unavailable");
+        }
       });
 
     return () => {
@@ -81,18 +93,24 @@ export function CheckoutPanel({
   return (
     <div className="checkout-panel" aria-label="Sandbox checkout">
       <div className="checkout-panel__rewards">
-        {rewardSummary?.authenticated ? (
+        {rewardsStatus === "loading" ? (
+          <p className="checkout-panel__hint">Loading helix rewards.</p>
+        ) : rewardsStatus === "unavailable" ? (
+          <p className="checkout-panel__hint" role="status">
+            helix rewards is temporarily unavailable.
+          </p>
+        ) : rewardSummary?.authenticated ? (
           <>
             <div className="summary-row">
-              <span>Estimated points</span>
+              <span>Estimated Points Award</span>
               <span>{rewardSummary.estimatedPurchasePoints ?? 0}</span>
             </div>
             <div className="summary-row">
-              <span>Available points</span>
+              <span>Available Points Balance</span>
               <span>{rewardSummary.pointsBalance ?? 0}</span>
             </div>
             <fieldset className="reward-selector">
-              <legend>Apply one reward</legend>
+              <legend>Choose one Redemption Tier</legend>
               <label>
                 <input
                   type="radio"
@@ -101,7 +119,7 @@ export function CheckoutPanel({
                   checked={selectedReward === "none"}
                   onChange={() => setSelectedReward("none")}
                 />
-                No reward
+                No Redemption Tier
               </label>
               {tiers.map((tier) => (
                 <label key={tier.id}>
@@ -112,19 +130,19 @@ export function CheckoutPanel({
                     checked={selectedReward === tier.id}
                     onChange={() => setSelectedReward(tier.id)}
                   />
-                  {tier.label} ({tier.points} points)
+                  {tier.label} ({tier.points} Points)
                 </label>
               ))}
               {tiers.length === 0 && (
                 <p className="checkout-panel__hint">
-                  No point rewards are available for this cart yet.
+                  No Redemption Tier is available for this Cart yet.
                 </p>
               )}
             </fieldset>
           </>
         ) : (
           <p className="checkout-panel__hint">
-            An account is required to earn and redeem points. Guest sandbox
+            An account is required to earn and redeem Points. Guest sandbox
             checkout is still available.
             {" "}
             <Link href="/account/sign-in?next=%2Fcart">Sign in</Link>
