@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { CHECKOUT_CANCELLED_CART_PATH } from "@/lib/orders/checkout-cancel";
 
 export const metadata: Metadata = {
-  title: "Checkout canceled | Mei Pelle",
+  title: "Checkout canceled | helix",
 };
 
 export const dynamic = "force-dynamic";

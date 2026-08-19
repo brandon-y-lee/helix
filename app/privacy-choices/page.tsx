@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { CookiePreferencesDialog } from "@/components/privacy/CookiePreferencesDialog";
+import { CookieAcknowledgementDialog } from "@/components/privacy/CookieAcknowledgementDialog";
 import { LegalDocumentLayout } from "@/components/content/LegalDocumentLayout";
 import { privacyChoices } from "@/content/legal/privacy-choices";
 
@@ -22,11 +22,11 @@ export default function PrivacyChoicesPage() {
     <LegalDocumentLayout document={privacyChoices}>
       <div className="privacy-choice-panel">
         <p>
-          Optional analytics and advertising categories are not active. Cookie
-          Preferences currently saves an essential-only acknowledgement.
+          Optional analytics and advertising categories are not active. The
+          Cookie notice records only an essential-storage acknowledgement.
         </p>
         <div className="hero__actions">
-          <CookiePreferencesDialog triggerClassName="btn" />
+          <CookieAcknowledgementDialog triggerClassName="btn" />
           <Link href="/privacy" className="btn btn--ghost">
             Privacy Policy
           </Link>
