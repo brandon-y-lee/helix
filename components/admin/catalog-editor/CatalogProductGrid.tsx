@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useState } from "react";
+import { HelixIdentity } from "@/components/brand/HelixIdentity";
 import {
   CatalogDraftFilter,
   CatalogProductListItem,
@@ -224,7 +225,12 @@ export default function CatalogProductGrid() {
                       alt={product.primaryMedia.alt}
                     />
                   ) : (
-                    <span aria-label="No product image">MEI PELLE</span>
+                    <span
+                      className={styles.cardMediaFallback}
+                      aria-label="No product image"
+                    >
+                      <HelixIdentity variant="symbol" decorative />
+                    </span>
                   )}
                 </div>
                 <div className={styles.cardBody}>

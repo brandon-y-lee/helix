@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { SignOutButton } from "@/components/account/AccountForms";
+import { AdminHelixIdentity } from "@/components/admin/shell/AdminHelixIdentity";
 
 export function AdminAccessState({
   state,
@@ -14,7 +15,9 @@ export function AdminAccessState({
         className="admin-gate__panel"
         role={forbidden ? undefined : "alert"}
       >
-        <p className="admin-gate__eyebrow">MEI PELLE ADMIN</p>
+        <AdminHelixIdentity
+          className="admin-gate__eyebrow"
+        />
         <h1>{forbidden ? "Access denied" : "Authorization unavailable"}</h1>
         <p>
           {forbidden

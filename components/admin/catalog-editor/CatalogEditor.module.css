@@ -210,6 +210,10 @@
   object-fit: cover;
 }
 
+.cardMediaFallback {
+  width: 3rem;
+}
+
 .cardBody {
   display: grid;
   gap: 13px;

@@ -121,6 +121,21 @@ describe("admin shell navigation", () => {
     expect(menuButton).toHaveFocus();
   });
 
+  it("renders the canonical wordmark in the mobile admin header", () => {
+    const { container } = render(
+      <AdminShell accountLabel="operator@example.com" modules={modules}>
+        <h1>Admin overview</h1>
+      </AdminShell>,
+    );
+
+    const mobileBrand = container.querySelector(".admin-mobile-header__brand");
+    expect(mobileBrand).toHaveAccessibleName("helix Admin");
+    expect(
+      mobileBrand?.querySelector('[data-helix-identity="wordmark"]'),
+    ).toHaveAttribute("aria-hidden", "true");
+    expect(mobileBrand).not.toHaveTextContent("MEI PELLE");
+  });
+
   it("collapses the desktop sidebar and restores the browser preference", async () => {
     const user = userEvent.setup();
     const activeModules = [{ ...modules[0], status: "active" as const }];
@@ -129,6 +144,13 @@ describe("admin shell navigation", () => {
         <h1>Admin overview</h1>
       </AdminShell>,
     );
+    const adminBrand = first.container.querySelector(".admin-brand");
+
+    expect(adminBrand).toHaveAccessibleName("helix Admin");
+    expect(
+      adminBrand?.querySelector('[data-helix-identity="wordmark"]'),
+    ).toHaveAttribute("aria-hidden", "true");
+    expect(adminBrand).not.toHaveTextContent(/MEI PELLE|\bMP\b/);
 
     await user.click(
       screen.getByRole("button", { name: "Collapse admin sidebar" }),
@@ -145,6 +167,10 @@ describe("admin shell navigation", () => {
       screen.getByRole("link", { name: "Catalog Editor" }),
     ).toBeVisible();
     expect(screen.getByRole("button", { name: "Sign out" })).toBeVisible();
+    expect(
+      adminBrand?.querySelector('[data-helix-identity="symbol"]'),
+    ).toHaveAttribute("aria-hidden", "true");
+    expect(adminBrand).toHaveAttribute("title", "helix Admin");
 
     first.unmount();
     const restored = render(
