@@ -2,21 +2,26 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { config as loadDotEnv } from "dotenv";
 import {
-  AlgoliaCatalogSearchControlPlane,
-  loadCatalogSearchMigrationConfig,
-  runCatalogSearchMigration,
-  type CatalogSearchMigrationMode,
-  type CatalogSearchRecord,
-} from "./catalog/catalog-search-migration";
+  AlgoliaProductSearchControlPlane,
+  loadProductSearchMigrationConfig,
+  runProductSearchMigration,
+  type ProductSearchMigrationMode,
+  type ProductSearchRecord,
+} from "./catalog/product-search-migration";
+import {
+  loadCatalogWebhookSmokeConfig,
+  runCatalogWebhookSmoke,
+} from "./catalog/catalog-webhooks";
+import { HELIX_PRODUCTS_INDEX } from "../lib/algolia/index";
 
 loadDotEnv({
   path: resolve(
-    process.env.CATALOG_SEARCH_ENV_FILE ?? resolve(process.cwd(), ".env.local"),
+    process.env.PRODUCT_SEARCH_ENV_FILE ?? resolve(process.cwd(), ".env.local"),
   ),
   quiet: true,
 });
 
-function readMode(argv: string[]): CatalogSearchMigrationMode {
+function readMode(argv: string[]): ProductSearchMigrationMode {
   const value = argv[0];
   if (
     value === "plan" ||
@@ -27,13 +32,13 @@ function readMode(argv: string[]): CatalogSearchMigrationMode {
     return value;
   }
   throw new Error(
-    "[catalog-search] Expected plan, apply, verify, or finalize.",
+    "[product-search] Expected plan, apply, verify, or finalize.",
   );
 }
 
 function summarizeIndex(
   index: Awaited<
-    ReturnType<AlgoliaCatalogSearchControlPlane["inspect"]>
+    ReturnType<AlgoliaProductSearchControlPlane["inspect"]>
   >["source"],
 ) {
   if (!index) return null;
@@ -46,20 +51,32 @@ function summarizeIndex(
   };
 }
 
-export async function runCatalogSearchCli(
+export async function runProductSearchCli(
   argv: string[],
   env: NodeJS.ProcessEnv,
 ) {
   const mode = readMode(argv);
-  const config = loadCatalogSearchMigrationConfig(env);
+  const config = loadProductSearchMigrationConfig(env);
   const { fetchAllSearchRecords } = await import("../lib/algolia/source");
   const canonicalRecords =
-    (await fetchAllSearchRecords()) as unknown as CatalogSearchRecord[];
-  const report = await runCatalogSearchMigration(
+    (await fetchAllSearchRecords()) as unknown as ProductSearchRecord[];
+  const smoke =
+    mode === "finalize"
+      ? await runCatalogWebhookSmoke(loadCatalogWebhookSmokeConfig(env))
+      : null;
+  const report = await runProductSearchMigration(
     mode,
-    new AlgoliaCatalogSearchControlPlane(config),
+    new AlgoliaProductSearchControlPlane(config),
     canonicalRecords,
-    { consumersSwitched: argv.includes("--consumers-switched") },
+    smoke
+      ? {
+          consumerVerification: {
+            publicReadIndex: HELIX_PRODUCTS_INDEX,
+            serverWriteIndex: smoke.indexName,
+            webhookDeliveryVerified: true,
+          },
+        }
+      : {},
   );
   return {
     ...report,
@@ -72,7 +89,7 @@ export async function runCatalogSearchCli(
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
-  runCatalogSearchCli(process.argv.slice(2), process.env)
+  runProductSearchCli(process.argv.slice(2), process.env)
     .then((report) => {
       console.log(JSON.stringify(report, null, 2));
       if (!report.ok) process.exitCode = 1;
@@ -84,7 +101,7 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
           error:
             error instanceof Error
               ? error.message
-              : "[catalog-search] Unknown failure.",
+              : "[product-search] Unknown failure.",
         }),
       );
       process.exitCode = 1;

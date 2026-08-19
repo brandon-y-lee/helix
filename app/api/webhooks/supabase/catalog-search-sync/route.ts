@@ -21,6 +21,7 @@ import {
   type CatalogWebhookPayload,
 } from "@/lib/algolia/sync";
 import { getCatalogInvalidationTargets } from "@/lib/catalog-invalidation";
+import { getIndexName } from "@/lib/algolia/server";
 
 // Needs Node (algoliasearch + supabase-js); never statically cached.
 export const runtime = "nodejs";
@@ -92,7 +93,12 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   try {
     const cache = invalidateCatalog(payload, outcome);
-    return NextResponse.json({ ok: true, ...outcome, cache });
+    return NextResponse.json({
+      ok: true,
+      ...outcome,
+      indexName: getIndexName(),
+      cache,
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : "unknown cache error";
     console.error("[catalog-search-sync] cache invalidation failed:", message);

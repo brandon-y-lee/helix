@@ -2,6 +2,7 @@ import {
   APPROVED_SUPABASE_PROJECT_REF,
   assertApprovedSupabaseProjectRef,
 } from "../../lib/supabase/project-safety";
+import { HELIX_PRODUCTS_INDEX } from "../../lib/algolia/index";
 
 const CATALOG_WEBHOOK_PATH =
   "/api/webhooks/supabase/catalog-search-sync" as const;
@@ -787,6 +788,7 @@ type WebhookResponseBody = {
   action?: string;
   table?: string;
   objectID?: string;
+  indexName?: string;
   reason?: string;
   cache?: {
     tags?: unknown;
@@ -894,10 +896,11 @@ export async function runCatalogWebhookSmoke(
   if (
     first.body.action !== "upsert" ||
     first.body.table !== "product_variants" ||
-    first.body.objectID !== config.productId
+    first.body.objectID !== config.productId ||
+    first.body.indexName !== HELIX_PRODUCTS_INDEX
   ) {
     throw new Error(
-      "[catalog-webhook-smoke] Missing product identity: the child event did not resolve to the expected product.",
+      "[catalog-webhook-smoke] Deployed writer did not resolve the expected Product on helix_products.",
     );
   }
   if (
@@ -919,7 +922,8 @@ export async function runCatalogWebhookSmoke(
   }
   if (
     duplicate.body.action !== first.body.action ||
-    duplicate.body.objectID !== first.body.objectID
+    duplicate.body.objectID !== first.body.objectID ||
+    duplicate.body.indexName !== first.body.indexName
   ) {
     throw new Error(
       "[catalog-webhook-smoke] Duplicate delivery was not idempotent.",
@@ -934,6 +938,7 @@ export async function runCatalogWebhookSmoke(
     authenticationVerified: true,
     childProductResolutionVerified: true,
     algoliaAttemptVerified: true,
+    indexName: HELIX_PRODUCTS_INDEX,
     cacheInvalidationAttemptVerified: true,
     duplicateDeliveryVerified: true,
     productId: config.productId,

@@ -402,6 +402,7 @@ describe("catalog webhook smoke verification", () => {
       action: "upsert",
       table: "product_variants",
       objectID: PRODUCT_ID,
+      indexName: "helix_products",
       cache: {
         tags: ["catalog-product-offer:treat-03-pdrn-5-ampoule"],
         paths: ["/products/treat-03-pdrn-5-ampoule"],
@@ -424,6 +425,7 @@ describe("catalog webhook smoke verification", () => {
       authenticationVerified: true,
       childProductResolutionVerified: true,
       algoliaAttemptVerified: true,
+      indexName: "helix_products",
       cacheInvalidationAttemptVerified: true,
       duplicateDeliveryVerified: true,
     });
@@ -451,6 +453,7 @@ describe("catalog webhook smoke verification", () => {
       action: "upsert",
       table: "product_variants",
       objectID: PRODUCT_ID,
+      indexName: "helix_products",
       cache: { tags: ["tag"], paths: ["/products/example"] },
     };
     const partialFailure = vi
