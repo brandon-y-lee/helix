@@ -20,12 +20,14 @@ import {
   type IngredientIndexCard,
   type MethodProductSlug,
 } from "@/lib/content/system";
+import { createPublicSiteMetadata } from "@/lib/public-site-metadata";
 
-export const metadata: Metadata = {
-  title: "Mei Pelle | Men's Skincare",
+export const metadata: Metadata = createPublicSiteMetadata({
+  title: "helix | Men's Skincare",
   description:
     "A simple daily system for skin that looks better now—and stays smooth, even, and resilient over time.",
-};
+  canonical: "/",
+});
 
 const CORE_PRODUCT_SLUGS =
   CORE_ROUTINE_PRODUCT_SLUGS satisfies readonly MethodProductSlug[];
@@ -81,7 +83,7 @@ export default async function HomePage() {
         <div className="home-video-hero__scrim" aria-hidden="true" />
         <div className="home-video-hero__content">
           <div>
-            <p className="home-video-hero__eyebrow">Mei Pelle</p>
+            <p className="home-video-hero__eyebrow">helix</p>
             <h1 id="home-hero-heading" className="display-secondary home-video-hero__title">
               Your skin starts with three steps.
             </h1>

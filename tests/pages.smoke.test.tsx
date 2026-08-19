@@ -72,7 +72,10 @@ describe("public route states", () => {
       await generateCollectionMetadata({
         params: Promise.resolve({ collection: "shop" }),
       }),
-    ).toEqual({ title: "Shop All | Mei Pelle" });
+    ).toMatchObject({
+      title: "Shop All | helix",
+      openGraph: { siteName: "helix", url: "/collections/shop" },
+    });
   });
 
   it("renders the Cart empty state inside its provider", async () => {

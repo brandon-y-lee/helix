@@ -7,6 +7,7 @@ import {
   getShopCollection,
   SHOP_COLLECTIONS,
 } from "@/lib/catalog/collection-routes";
+import { createPublicSiteMetadata } from "@/lib/public-site-metadata";
 
 export function generateStaticParams() {
   return SHOP_COLLECTIONS.map(({ slug }) => ({ collection: slug }));
@@ -22,9 +23,14 @@ export async function generateMetadata({
 
   if (!collection) notFound();
 
-  return {
-    title: `${collection.label} | Mei Pelle`,
-  };
+  const title = `${collection.label} | helix`;
+  const description = `Explore ${collection.label} across The Core and Beyond The Core at helix.`;
+
+  return createPublicSiteMetadata({
+    title,
+    description,
+    canonical: `/collections/${collection.slug}`,
+  });
 }
 
 export default async function CollectionPage({

@@ -28,6 +28,9 @@ describe("global footer", () => {
 
     const footer = screen.getByRole("contentinfo");
     expect(screen.getAllByRole("contentinfo")).toHaveLength(1);
+    expect(footer).toHaveTextContent(/© \d{4}\. All rights reserved\./);
+    expect(footer).not.toHaveTextContent(/© \d{4} helix/i);
+    expect(footer).not.toHaveTextContent(/Mei Pelle/i);
     const identityLink = screen.getByRole("link", { name: "helix" });
     expect(screen.getByRole("heading", { name: "helix" })).toBeInTheDocument();
     expect(identityLink).toHaveAttribute("href", "/");
