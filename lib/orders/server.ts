@@ -45,6 +45,13 @@ import {
   type RewardTier,
 } from "@/lib/rewards/rules";
 import {
+  RewardsReservationUnavailableError,
+  awardPaidOrderPoints,
+  getAvailablePointsBalance,
+  reservePointsForOrder,
+  reversePaidOrderPoints,
+} from "@/lib/rewards/operations";
+import {
   qualifiesForFreeStandardShipping,
 } from "@/content/support/policy";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -256,20 +263,6 @@ function publicAddressSnapshot(address: Stripe.Address | null | undefined): Reco
     postal_code: address.postal_code ?? null,
     state: address.state ?? null,
   };
-}
-
-async function getLoyaltyBalance(userId: string | null): Promise<number> {
-  if (!userId) return 0;
-  const admin = createSupabaseAdminClient();
-  await admin.rpc("ensure_loyalty_account", { p_user_id: userId });
-  const { data, error } = await admin
-    .from("loyalty_accounts")
-    .select("points_balance")
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  if (error) throw new Error(`[rewards] Failed to load balance: ${error.message}`);
-  return Number((data as { points_balance?: number } | null)?.points_balance ?? 0);
 }
 
 async function getOrCreateStripeCustomer(input: {
@@ -546,28 +539,16 @@ async function reserveReward(input: {
     throw new CheckoutError("reward_unavailable", "Sign in to redeem points.");
   }
 
-  const admin = createSupabaseAdminClient();
-  const { data: reservations, error: existingError } = await admin
-    .from("loyalty_redemptions")
-    .select("id,status")
-    .eq("order_id", input.order.id);
-  if (existingError) {
-    throw new Error(`[rewards] Failed to load reservation: ${existingError.message}`);
-  }
-  if ((reservations ?? []).some((reservation) => reservation.status === "applied")) {
-    return;
-  }
-  const reservationNumber = (reservations?.length ?? 0) + 1;
-
-  const { error } = await admin.rpc("redeem_loyalty_points", {
-    p_user_id: input.userId,
-    p_points: input.rewardTier.points,
-    p_amount_cents: input.rewardTier.discountCents,
-    p_source_key: `reward-reserve:${input.order.id}:${reservationNumber}`,
-    p_description: `${input.rewardTier.label} sandbox checkout reward reserved.`,
-    p_order_id: input.order.id,
-  });
-  if (error) {
+  try {
+    await reservePointsForOrder({
+      userId: input.userId,
+      orderId: input.order.id,
+      points: input.rewardTier.points,
+      amountCents: input.rewardTier.discountCents,
+      description: `${input.rewardTier.label} sandbox Checkout reward reserved.`,
+    });
+  } catch (error) {
+    if (!(error instanceof RewardsReservationUnavailableError)) throw error;
     throw new CheckoutError("reward_unavailable", "Selected points reward is no longer available.");
   }
 }
@@ -752,7 +733,7 @@ export async function createStripeCheckoutSession(
     throw new CheckoutError("reward_unavailable", "Selected points reward is not available.");
   }
   if (rewardTier) {
-    const balance = await getLoyaltyBalance(cart.userId);
+    const balance = await getAvailablePointsBalance(cart.userId);
     if (balance < rewardTier.points) {
       throw new CheckoutError("reward_unavailable", "Selected points reward is not available.");
     }
@@ -1211,23 +1192,16 @@ async function markStripeSessionProcessing(
 async function finalizePaidOrderSideEffects(order: OrderRow): Promise<void> {
   const admin = createSupabaseAdminClient();
   if (order.user_id && order.reward_points_earned > 0) {
-    const { error: pointsError } = await admin.rpc("award_loyalty_points", {
-      p_user_id: order.user_id,
-      p_points: order.reward_points_earned,
-      p_entry_type: "purchase_earn",
-      p_source_key: `purchase:${order.id}`,
-      p_description: `Sandbox order ${order.order_number} purchase points.`,
-      p_order_id: order.id,
-      p_metadata: {
-        eligible_net_merchandise_cents: Math.max(
-          0,
-          order.merchandise_subtotal_cents - order.discount_cents,
-        ),
-      },
+    await awardPaidOrderPoints({
+      userId: order.user_id,
+      orderId: order.id,
+      orderNumber: order.order_number,
+      points: order.reward_points_earned,
+      eligibleNetMerchandiseCents: Math.max(
+        0,
+        order.merchandise_subtotal_cents - order.discount_cents,
+      ),
     });
-    if (pointsError) {
-      throw new Error(`[rewards] Failed to award purchase points: ${pointsError.message}`);
-    }
 
     const { error: feedbackError } = await admin.from("private_feedback").upsert(
       {
@@ -1468,53 +1442,6 @@ async function failStripeSession(
     .neq("status", "paid");
 }
 
-async function insertLedgerBalanceAdjustment(input: {
-  userId: string;
-  orderId: string;
-  points: number;
-  entryType: string;
-  sourceKey: string;
-  description: string;
-}): Promise<void> {
-  if (input.points === 0) return;
-  const admin = createSupabaseAdminClient();
-  const { data } = await admin
-    .from("loyalty_ledger_entries")
-    .select("id")
-    .eq("source_key", input.sourceKey)
-    .maybeSingle();
-  if (data) return;
-
-  const { error } = await admin.from("loyalty_ledger_entries").insert({
-    user_id: input.userId,
-    order_id: input.orderId,
-    entry_type: input.entryType,
-    status: "posted",
-    points: input.points,
-    description: input.description,
-    source_key: input.sourceKey,
-  });
-  if (error) throw new Error(`[rewards] Failed to insert ledger adjustment: ${error.message}`);
-
-  const { error: balanceError } = await admin.rpc("ensure_loyalty_account", {
-    p_user_id: input.userId,
-  });
-  if (balanceError) throw new Error(`[rewards] Failed to ensure account: ${balanceError.message}`);
-
-  const { data: account, error: accountError } = await admin
-    .from("loyalty_accounts")
-    .select("points_balance")
-    .eq("user_id", input.userId)
-    .single();
-  if (accountError) throw new Error(`[rewards] Failed to load account: ${accountError.message}`);
-  const current = Number((account as { points_balance?: number }).points_balance ?? 0);
-  const { error: updateError } = await admin
-    .from("loyalty_accounts")
-    .update({ points_balance: current + input.points })
-    .eq("user_id", input.userId);
-  if (updateError) throw new Error(`[rewards] Failed to update account: ${updateError.message}`);
-}
-
 async function handleFullRefund(charge: Stripe.Charge): Promise<void> {
   assertSandboxStripeObject(charge);
   if (!charge.refunded || charge.amount_refunded < charge.amount) return;
@@ -1525,7 +1452,7 @@ async function handleFullRefund(charge: Stripe.Charge): Promise<void> {
   if (!paymentIntentId) return;
 
   const order = await loadOrderByPaymentIntent(paymentIntentId);
-  if (!order || order.status === "refunded") return;
+  if (!order) return;
 
   const admin = createSupabaseAdminClient();
   await admin
@@ -1541,24 +1468,13 @@ async function handleFullRefund(charge: Stripe.Charge): Promise<void> {
     .update({ status: "refunded", raw_status: "charge.refunded" })
     .eq("order_id", order.id);
 
-  if (order.user_id && order.reward_points_earned > 0) {
-    await insertLedgerBalanceAdjustment({
+  if (order.user_id) {
+    await reversePaidOrderPoints({
       userId: order.user_id,
       orderId: order.id,
-      points: -order.reward_points_earned,
-      entryType: "purchase_refund",
-      sourceKey: `purchase-refund:${order.id}`,
-      description: `Reversed sandbox order ${order.order_number} purchase points after refund.`,
-    });
-  }
-  if (order.user_id && order.reward_points_redeemed > 0) {
-    await insertLedgerBalanceAdjustment({
-      userId: order.user_id,
-      orderId: order.id,
-      points: order.reward_points_redeemed,
-      entryType: "redemption_reversal",
-      sourceKey: `reward-refund-restore:${order.id}`,
-      description: `Restored redeemed points after sandbox order ${order.order_number} refund.`,
+      orderNumber: order.order_number,
+      pointsEarned: order.reward_points_earned,
+      pointsRedeemed: order.reward_points_redeemed,
     });
   }
   const { data: attribution } = await admin
