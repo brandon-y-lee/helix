@@ -13,8 +13,12 @@ A deliberately described platform or service capability that is not currently av
 _Avoid_: Current Capability, Coming Soon Product
 
 **Legal Document**:
-A formally published document stating an identified legal operator's terms, practices, rights, or commitments for the helix Platform.
+A formally published document stating the Legal Operator's terms, practices, rights, or commitments for the helix Platform.
 _Avoid_: Editorial Content, Policy Summary
+
+**Legal Operator**:
+The identified person or entity legally responsible for the helix Platform, its Legal Documents, and its commerce. A Legal Operator must exist before operative Legal Documents or commerce can be a Current Capability.
+_Avoid_: helix, Brand
 
 **Policy**:
 A canonical statement governing the helix Platform's conduct, Customer expectations, or platform use.

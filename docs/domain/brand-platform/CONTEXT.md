@@ -9,7 +9,7 @@ The customer-facing skincare brand offering The System and the helix Platform ex
 _Avoid_: Mei Pelle, Mei-Pelle, mei-pelle, mei_pelle
 
 **Helix Motif**:
-The DNA-inspired visual idea used in the helix identity to express structure, renewal, and ingredient-literate formulation. It does not represent genetic testing, genetic personalization, or a claim that a Product changes DNA.
+The DNA-inspired visual idea used in the helix identity to express structure, renewal, and ingredient-literate formulation. It does not represent genetic testing, genetic personalization, or any genetic or DNA effect.
 _Avoid_: DNA Technology, Genetic Skincare
 
 **Helix Symbol**:
