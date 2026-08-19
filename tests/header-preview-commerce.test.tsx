@@ -62,6 +62,15 @@ describe("Header draft preview commerce", () => {
     expect(container).not.toHaveTextContent("MEI PELLE");
   });
 
+  it("renders the standalone symbol for the compact mobile menu context", () => {
+    render(<Header />);
+
+    expect(screen.getByRole("img", { name: "helix" })).toHaveAttribute(
+      "data-helix-identity",
+      "symbol",
+    );
+  });
+
   it("keeps the cart control visible but prevents the drawer from opening", () => {
     render(<Header commerceDisabled />);
     const cart = screen.getByRole("button", {

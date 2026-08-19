@@ -1,4 +1,5 @@
 import { expect, test } from "./storefront-fixture";
+import { expectStableIdentityLayout } from "./identity-assertions";
 
 test("all internal footer destinations return a successful response", async ({
   page,
@@ -47,6 +48,8 @@ test("the Helix Wordmark preserves full-band scaling and reduced motion", async 
     await expect(wordmark).toHaveAttribute("aria-hidden", "true");
     await identityLink.focus();
     await expect(identityLink).toBeFocused();
+
+    await expectStableIdentityLayout(wordmark);
 
     const layout = await page.evaluate(() => {
       const root = document.documentElement;

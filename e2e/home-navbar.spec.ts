@@ -1,4 +1,5 @@
 import { expect, test } from "./storefront-fixture";
+import { expectStableIdentityLayout } from "./identity-assertions";
 
 test("global navbar follows scroll direction and returns to its top state", async ({
   page,
@@ -76,6 +77,8 @@ test("shared Helix identities remain accessible and responsive", async ({
     await homeLink.focus();
     await expect(homeLink).toBeFocused();
 
+    await expectStableIdentityLayout(wordmark);
+
     const layout = await page.evaluate(() => {
       const root = document.documentElement;
       const header = document.querySelector(".site-header");
@@ -113,9 +116,39 @@ test("mobile menu keeps the navbar visible and restores trigger focus", async ({
   const header = page.locator(".site-header");
   const trigger = page.getByRole("button", { name: "Menu" });
   await trigger.click();
-  await expect(page.getByRole("dialog", { name: "Menu" })).toBeVisible();
+  const dialog = page.getByRole("dialog", { name: "Menu" });
+  await expect(dialog).toBeVisible();
   await expect(header).toHaveAttribute("data-overlay-open", "true");
   await expect(header).toHaveAttribute("data-nav-state", "revealed");
+
+  const symbol = dialog.getByRole("img", { name: "helix" });
+  await expect(symbol).toHaveAttribute("data-helix-identity", "symbol");
+  await page.waitForTimeout(350);
+  await expectStableIdentityLayout(symbol);
+
+  const symbolLayout = await page.evaluate(() => {
+    const root = document.documentElement;
+    const panel = document.querySelector(".mobile-nav-sheet");
+    const identity = panel?.querySelector(
+      '[data-helix-identity="symbol"]',
+    );
+    const panelRect = panel?.getBoundingClientRect();
+    const identityRect = identity?.getBoundingClientRect();
+    return {
+      hasHorizontalOverflow: root.scrollWidth > window.innerWidth,
+      identityInsidePanel:
+        Boolean(panelRect) &&
+        Boolean(identityRect) &&
+        identityRect!.left >= panelRect!.left &&
+        identityRect!.right <= panelRect!.right &&
+        identityRect!.top >= panelRect!.top &&
+        identityRect!.bottom <= panelRect!.bottom,
+    };
+  });
+  expect(symbolLayout).toEqual({
+    hasHorizontalOverflow: false,
+    identityInsidePanel: true,
+  });
 
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog", { name: "Menu" })).toHaveCount(0);

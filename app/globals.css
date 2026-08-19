@@ -2872,6 +2872,11 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   gap: 8px;
 }
 
+.mobile-nav__identity {
+  width: 2rem;
+  margin-bottom: 20px;
+}
+
 .mobile-nav a,
 .mobile-nav button {
   border: 0;

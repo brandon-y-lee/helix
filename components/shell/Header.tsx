@@ -261,12 +261,12 @@ export function Header({
         open={menuOpen}
         side="left"
         title="Menu"
-        eyebrow="helix"
         description="Primary navigation"
         onClose={closeMenu}
         returnFocus={returnFocusToMenu}
         className="mobile-nav-sheet"
       >
+        <HelixIdentity variant="symbol" className="mobile-nav__identity" />
         <nav className="mobile-nav" aria-label="Mobile primary">
           <Link href="/collections/shop" onClick={closeMenu} aria-current={current("/collections/shop")}>SHOP</Link>
           <Link href="/system" onClick={closeMenu} aria-current={current("/system")}>SYSTEM</Link>
