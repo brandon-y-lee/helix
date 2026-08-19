@@ -84,6 +84,9 @@ describe("Waitlist Product PDP enrollment", () => {
     const consent = within(dialog).getByRole("checkbox", {
       name: /marketing emails/i,
     });
+    expect(consent).toHaveAccessibleName(
+      "I’d also like to receive helix marketing emails. Optional.",
+    );
     expect(email).toHaveFocus();
     expect(consent).not.toBeChecked();
     expect(document.body).toHaveAttribute("data-sheet-scroll-lock");

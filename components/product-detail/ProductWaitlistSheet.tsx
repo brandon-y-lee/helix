@@ -143,7 +143,7 @@ export function ProductWaitlistSheet({
               disabled={submission.kind === "pending"}
             />
             <span>
-              I’d also like to receive Mei Pelle marketing emails. Optional.
+              I’d also like to receive helix marketing emails. Optional.
             </span>
           </label>
           <button

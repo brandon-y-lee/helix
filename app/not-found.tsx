@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Not found | Mei Pelle",
+  title: "Not found | helix",
 };
 
 export default function NotFound() {

@@ -28,6 +28,9 @@ describe("global footer", () => {
 
     const footer = screen.getByRole("contentinfo");
     expect(screen.getAllByRole("contentinfo")).toHaveLength(1);
+    expect(footer).toHaveTextContent(/© \d{4}\. All rights reserved\./);
+    expect(footer).not.toHaveTextContent(/© \d{4} helix/i);
+    expect(footer).not.toHaveTextContent(/Mei Pelle/i);
     const identityLink = screen.getByRole("link", { name: "helix" });
     expect(screen.getByRole("heading", { name: "helix" })).toBeInTheDocument();
     expect(identityLink).toHaveAttribute("href", "/");
@@ -115,7 +118,7 @@ describe("global footer", () => {
     expect(screen.queryByRole("link", { name: /instagram/i })).not.toBeInTheDocument();
   });
 
-  it("toggles mobile groups and opens cookie preferences", async () => {
+  it("toggles mobile groups and opens the cookie notice", async () => {
     const user = userEvent.setup();
     render(<SiteFooter />);
 
@@ -142,14 +145,14 @@ describe("global footer", () => {
     expect(within(mobileGroups).getByRole("link", { name: "Create account" }))
       .toHaveAttribute("href", "/account/sign-up");
 
-    await user.click(screen.getByRole("button", { name: "Cookie Preferences" }));
-    const dialog = screen.getByRole("dialog", { name: "Cookie Preferences" });
+    await user.click(screen.getByRole("button", { name: "Cookie notice" }));
+    const dialog = screen.getByRole("dialog", { name: "Cookie notice" });
     expect(dialog).toHaveTextContent("Essential cookies");
     expect(dialog).toHaveTextContent("Payment messaging");
     expect(dialog).toHaveTextContent("Active when eligible");
-    await user.click(within(dialog).getByRole("button", { name: /save current preference/i }));
+    await user.click(within(dialog).getByRole("button", { name: /acknowledge notice/i }));
     expect(within(dialog).getByRole("status")).toHaveTextContent(
-      "Current preference saved.",
+      "Cookie notice acknowledged.",
     );
   });
 });

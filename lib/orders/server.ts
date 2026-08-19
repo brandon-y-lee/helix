@@ -57,7 +57,7 @@ import {
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getStripeClient } from "@/lib/stripe/server";
 import { getCurrentUser } from "@/lib/auth/session";
-import { REFERRAL_COOKIE_READ_ORDER } from "@/lib/referrals/constants";
+import { REFERRAL_COOKIE } from "@/lib/referrals/constants";
 import { qualifyReferralForPaidOrder } from "@/lib/referrals/server";
 
 const CHECKOUT_SCHEMA_VERSION = "checkout_v1";
@@ -373,9 +373,7 @@ function shippingOptions(
 
 async function referralCodeFromCookie(): Promise<string | null> {
   const cookieStore = await cookies();
-  const code = REFERRAL_COOKIE_READ_ORDER
-    .map((cookieName) => cookieStore.get(cookieName)?.value)
-    .find(Boolean);
+  const code = cookieStore.get(REFERRAL_COOKIE)?.value;
   if (!code) return null;
   const normalized = code.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
   return normalized.length >= 6 ? normalized.slice(0, 16) : null;

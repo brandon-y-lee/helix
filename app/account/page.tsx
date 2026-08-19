@@ -16,7 +16,7 @@ import {
 } from "@/lib/supabase/network";
 
 export const metadata: Metadata = {
-  title: "Account | Mei Pelle",
+  title: "Account | helix",
 };
 
 export const dynamic = "force-dynamic";

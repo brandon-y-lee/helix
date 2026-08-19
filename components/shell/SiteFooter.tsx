@@ -5,7 +5,7 @@ import {
   footerStatusModules,
   type FooterServiceCard,
 } from "@/content/footer";
-import { CookiePreferencesDialog } from "@/components/privacy/CookiePreferencesDialog";
+import { CookieAcknowledgementDialog } from "@/components/privacy/CookieAcknowledgementDialog";
 import { FooterWordmark } from "@/components/shell/FooterWordmark";
 
 function FooterServiceIcon({ name }: { name: FooterServiceCard["icon"] }) {
@@ -165,12 +165,12 @@ export function SiteFooter() {
         <div className="site-footer__utility">
           <p className="site-footer__locale">{footerStatusModules.locale}</p>
           <div className="site-footer__utility-links">
-            <CookiePreferencesDialog triggerClassName="site-footer__utility-button" />
+            <CookieAcknowledgementDialog triggerClassName="site-footer__utility-button" />
             <Link href="/privacy-choices">Your Privacy Choices</Link>
             <Link href="/cookie-policy">Cookie Policy</Link>
           </div>
           <p className="site-footer__copyright">
-            &copy; {year} Mei Pelle. All rights reserved.
+            &copy; {year}. All rights reserved.
           </p>
         </div>
       </div>

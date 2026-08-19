@@ -24,7 +24,7 @@ function galleryRoleRank(role: ProductMedia["role"]) {
 
 function normalizedMediaUrl(url: string) {
   try {
-    const base = "https://mei-pelle.invalid";
+    const base = "https://helix.invalid";
     const parsed = new URL(url, base);
     const origin = parsed.origin === base ? "" : parsed.origin.toLowerCase();
     const pathname = parsed.pathname.replace(/\/{2,}/g, "/").replace(/\/$/, "");

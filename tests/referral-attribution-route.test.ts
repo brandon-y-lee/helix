@@ -9,10 +9,7 @@ vi.mock("@/lib/supabase/admin", () => ({
 }));
 
 import { GET } from "@/app/r/[code]/route";
-import {
-  HELIX_REFERRAL_COOKIE,
-  REFERRAL_COOKIE_READ_ORDER,
-} from "@/lib/referrals/constants";
+import { REFERRAL_COOKIE } from "@/lib/referrals/constants";
 
 function referralLookup(result: { data: unknown; error: unknown }) {
   const query = {
@@ -48,7 +45,7 @@ describe("Referral Attribution route", () => {
       "https://helixskin.vercel.app/collections/shop?referral=accepted",
     );
     expect(response.headers.get("set-cookie")).toContain(
-      `${HELIX_REFERRAL_COOKIE}=HELIX25`,
+      `${REFERRAL_COOKIE}=HELIX25`,
     );
     expect(response.headers.get("set-cookie")).not.toContain(
       "mei_pelle_referral_code=HELIX25",
@@ -70,12 +67,5 @@ describe("Referral Attribution route", () => {
     );
     expect(response.headers.get("set-cookie")).toBeNull();
     expect(from).not.toHaveBeenCalled();
-  });
-
-  it("keeps the old cookie only as a lower-priority migration fallback", () => {
-    expect(REFERRAL_COOKIE_READ_ORDER).toEqual([
-      "helix_referral_code",
-      "mei_pelle_referral_code",
-    ]);
   });
 });
