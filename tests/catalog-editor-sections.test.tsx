@@ -310,7 +310,7 @@ describe("CatalogEditor sections", () => {
         role: "pdp_outcome" as const,
         sort_order: position,
         source_filename: `cleanse-pdp-outcomes-0${position}.webp`,
-        url: `https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/mei-pelle-catalog/products/cleanse/outcomes/outcome-${position}.webp`,
+        url: `https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/helix-catalog/products/cleanse/outcomes/outcome-${position}.webp`,
         alt: `CLEANSE outcome visual ${position}`,
       })),
     );

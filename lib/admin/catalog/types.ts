@@ -6,6 +6,7 @@ import type {
   PdpProfileTitleToken,
 } from "@/lib/catalog/product-content";
 import type { RealProductMediaVerificationReport } from "@/lib/catalog/real-product-media-verification";
+import { CATALOG_MEDIA_BUCKET } from "@/lib/catalog/media-storage";
 
 type ProductRow = Database["public"]["Tables"]["products"]["Row"];
 type ProductVariantRow =
@@ -34,7 +35,7 @@ type ProductFamilyMembershipRow =
 export const PRODUCT_EDITOR_SCHEMA_VERSION = 4 as const;
 
 type DraftMediaUpload = {
-  bucket: "mei-pelle-catalog";
+  bucket: typeof CATALOG_MEDIA_BUCKET;
   path: string;
   sha256: string;
   mimeType: "image/jpeg" | "image/png" | "image/webp" | "video/mp4";

@@ -50,7 +50,7 @@ const nextConfig: NextConfig = {
       {
         protocol: "https",
         hostname: "**.supabase.co",
-        pathname: "/storage/v1/object/public/mei-pelle-catalog/**",
+        pathname: "/storage/v1/object/public/helix-catalog/**",
       },
     ],
   },

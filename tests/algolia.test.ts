@@ -174,7 +174,7 @@ describe("buildAlgoliaRecord", () => {
       product_media: [
         {
           media_type: "image",
-          url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/mei-pelle-catalog/products/northpoint/primary/hash.webp",
+          url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/helix-catalog/products/northpoint/primary/hash.webp",
           alt: "Northpoint serum",
           width: 1200,
           height: 1650,
@@ -188,7 +188,7 @@ describe("buildAlgoliaRecord", () => {
 
     expect(r.imageMedia).toEqual({
       kind: "image",
-      url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/mei-pelle-catalog/products/northpoint/primary/hash.webp",
+      url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/helix-catalog/products/northpoint/primary/hash.webp",
       alt: "Northpoint serum",
       width: 1200,
       height: 1650,
@@ -234,7 +234,7 @@ describe("buildAlgoliaRecord", () => {
   it("never promotes PDP-only media into search", () => {
     const searchImage = {
       media_type: "image",
-      url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/mei-pelle-catalog/products/northpoint/search.webp",
+      url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/helix-catalog/products/northpoint/search.webp",
       alt: "Northpoint serum",
       width: 1200,
       height: 1650,
@@ -248,38 +248,38 @@ describe("buildAlgoliaRecord", () => {
       product_media: [
         {
           ...searchImage,
-          url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/mei-pelle-catalog/products/northpoint/gallery.webp",
+          url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/helix-catalog/products/northpoint/gallery.webp",
           role: "gallery",
           sort_order: -10,
         },
         {
           ...searchImage,
           media_type: "video",
-          url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/mei-pelle-catalog/products/northpoint/routine/video.mp4",
+          url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/helix-catalog/products/northpoint/routine/video.mp4",
           role: "routine_video",
           sort_order: -10,
         },
         {
           ...searchImage,
-          url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/mei-pelle-catalog/products/northpoint/profile.webp",
+          url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/helix-catalog/products/northpoint/profile.webp",
           role: "profile_editorial",
           sort_order: -9,
         },
         {
           ...searchImage,
-          url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/mei-pelle-catalog/products/northpoint/ingredients-texture.webp",
+          url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/helix-catalog/products/northpoint/ingredients-texture.webp",
           role: "ingredients_texture",
           sort_order: -8,
         },
         {
           ...searchImage,
-          url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/mei-pelle-catalog/products/northpoint/core-routine-texture.webp",
+          url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/helix-catalog/products/northpoint/core-routine-texture.webp",
           role: "core_routine_texture",
           sort_order: -7,
         },
         {
           ...searchImage,
-          url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/mei-pelle-catalog/products/northpoint/core-routine-editorial.webp",
+          url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/helix-catalog/products/northpoint/core-routine-editorial.webp",
           role: "core_routine_editorial",
           sort_order: -8,
         },
