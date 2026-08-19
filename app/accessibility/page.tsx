@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { LegalDocumentLayout } from "@/components/content/LegalDocumentLayout";
 import { accessibilityStatement } from "@/content/legal/accessibility";
+import { resolvePublicSiteOrigin } from "@/lib/site-url";
 
-const siteUrl = new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000");
+const siteUrl = new URL(resolvePublicSiteOrigin());
 
 export const metadata: Metadata = {
   metadataBase: siteUrl,
@@ -21,4 +22,3 @@ export const metadata: Metadata = {
 export default function AccessibilityPage() {
   return <LegalDocumentLayout document={accessibilityStatement} />;
 }
-

@@ -5,8 +5,9 @@ import {
   contactIntakeStatus,
   contactPreparationGroups,
 } from "@/content/support/contact";
+import { resolvePublicSiteOrigin } from "@/lib/site-url";
 
-const siteUrl = new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000");
+const siteUrl = new URL(resolvePublicSiteOrigin());
 
 export const metadata: Metadata = {
   metadataBase: siteUrl,
