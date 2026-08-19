@@ -21,7 +21,6 @@ const HELIX_STRIPE_WEBHOOK_METADATA = {
 } as const;
 
 type SandboxStripeAccount = {
-  business_profile?: { name?: string | null } | null;
   id: string;
 };
 
@@ -169,7 +168,12 @@ export function planSandboxWebhookEndpoint(
   }
 
   assertSandboxWebhookEndpoint(endpoint);
-  if (configuredEndpointId && endpoint.id !== configuredEndpointId) {
+  if (!configuredEndpointId) {
+    throw new Error(
+      "An existing Stripe webhook endpoint must match the configured endpoint ID.",
+    );
+  }
+  if (endpoint.id !== configuredEndpointId) {
     throw new Error("The configured Stripe webhook endpoint does not match inventory.");
   }
   return endpointHasHelixContract(endpoint)

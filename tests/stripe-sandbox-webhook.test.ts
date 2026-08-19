@@ -110,6 +110,9 @@ describe("Stripe sandbox endpoint plan", () => {
       planSandboxWebhookEndpoint([endpoint()], "we_unknown", false),
     ).toThrow(/configured/i);
     expect(() =>
+      planSandboxWebhookEndpoint([endpoint()], null, true),
+    ).toThrow(/configured/i);
+    expect(() =>
       planSandboxWebhookEndpoint(
         [endpoint({ api_version: "2026-05-27.dahlia" })],
         "we_existing",
