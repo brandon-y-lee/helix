@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   assessProductSearchMigration,
+  collectPaginatedSearchConfiguration,
   runProductSearchMigration,
   type ProductSearchControlPlane,
   type ProductSearchInventory,
@@ -143,6 +144,33 @@ describe("Product Search migration assessment", () => {
     );
   });
 
+  it("blocks mutation while any enumerated API key is scoped to the source index", () => {
+    const report = assessProductSearchMigration(
+      "apply",
+      inventory({
+        apiKeys: {
+          status: "all-keys-enumerated",
+          configuredPublicKeyVerified: true,
+          configuredWriteKeyVerified: true,
+          keys: [
+            {
+              identity: "other-key-1",
+              acl: ["search"],
+              indexes: ["mei_pelle_products"],
+              description: "Legacy mobile search key",
+            },
+          ],
+        },
+      }),
+      canonicalRecords,
+    );
+
+    expect(report.ok).toBe(false);
+    expect(report.blockers).toContain(
+      "Algolia API key other-key-1 is scoped to the source index",
+    );
+  });
+
   it("rejects equal counts when records, rules, or synonyms differ", () => {
     const report = assessProductSearchMigration(
       "verify",
@@ -174,6 +202,32 @@ describe("Product Search migration assessment", () => {
 
     expect(report.ok).toBe(false);
     expect(report.reconciliation.targetMatchesCanonical).toBe(false);
+  });
+});
+
+describe("Product Search configuration inventory", () => {
+  it("collects every rules or synonyms page before reconciliation", async () => {
+    const readPage = vi
+      .fn()
+      .mockResolvedValueOnce({ hits: [{ objectID: "1" }], nbHits: 2 })
+      .mockResolvedValueOnce({ hits: [{ objectID: "2" }], nbHits: 2 });
+
+    await expect(
+      collectPaginatedSearchConfiguration(readPage, 1),
+    ).resolves.toEqual([{ objectID: "1" }, { objectID: "2" }]);
+    expect(readPage).toHaveBeenNthCalledWith(1, 0, 1);
+    expect(readPage).toHaveBeenNthCalledWith(2, 1, 1);
+  });
+
+  it("fails closed if the configuration total changes between pages", async () => {
+    const readPage = vi
+      .fn()
+      .mockResolvedValueOnce({ hits: [{ objectID: "1" }], nbHits: 2 })
+      .mockResolvedValueOnce({ hits: [{ objectID: "2" }], nbHits: 3 });
+
+    await expect(
+      collectPaginatedSearchConfiguration(readPage, 1),
+    ).rejects.toThrow(/changed during inventory/);
   });
 });
 

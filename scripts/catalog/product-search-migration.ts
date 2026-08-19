@@ -176,6 +176,41 @@ function representativeMediaUrls(records: ProductSearchRecord[]): string[] {
     .slice(0, 5);
 }
 
+export async function collectPaginatedSearchConfiguration<T>(
+  readPage: (
+    page: number,
+    hitsPerPage: number,
+  ) => Promise<{ hits: T[]; nbHits: number }>,
+  hitsPerPage = 1_000,
+): Promise<T[]> {
+  if (!Number.isSafeInteger(hitsPerPage) || hitsPerPage < 1) {
+    throw new Error("[product-search] Invalid configuration page size.");
+  }
+
+  const hits: T[] = [];
+  let expectedTotal: number | null = null;
+  for (let page = 0; ; page += 1) {
+    const response = await readPage(page, hitsPerPage);
+    if (!Number.isSafeInteger(response.nbHits) || response.nbHits < 0) {
+      throw new Error("[product-search] Invalid configuration total.");
+    }
+    if (expectedTotal === null) expectedTotal = response.nbHits;
+    else if (response.nbHits !== expectedTotal) {
+      throw new Error(
+        "[product-search] Search configuration changed during inventory.",
+      );
+    }
+
+    hits.push(...response.hits);
+    if (hits.length === expectedTotal) return hits;
+    if (response.hits.length === 0 || hits.length > expectedTotal) {
+      throw new Error(
+        "[product-search] Search configuration inventory was incomplete.",
+      );
+    }
+  }
+}
+
 export function assessProductSearchMigration(
   mode: ProductSearchMigrationMode,
   inventory: ProductSearchInventory,
@@ -199,6 +234,13 @@ export function assessProductSearchMigration(
     inventory.apiKeys.status !== "all-keys-enumerated"
   ) {
     blockers.push("all Algolia API keys must be inventoried before mutation");
+  }
+  for (const key of inventory.apiKeys.keys ?? []) {
+    if (key.indexes.includes(LEGACY_PRODUCTS_INDEX)) {
+      blockers.push(
+        `Algolia API key ${key.identity} is scoped to the source index`,
+      );
+    }
   }
   const sourceReplicas = inventory.source?.replicas ?? [];
   if (sourceReplicas.length > 0) {
@@ -403,6 +445,32 @@ export class AlgoliaProductSearchControlPlane
     return records;
   }
 
+  private async readRules(indexName: string): Promise<Rule[]> {
+    return collectPaginatedSearchConfiguration(async (page, hitsPerPage) => {
+      const response = await this.client.searchRules({
+        indexName,
+        searchRulesParams: { query: "", page, hitsPerPage },
+      });
+      return {
+        hits: response.hits,
+        nbHits: response.nbHits,
+      };
+    });
+  }
+
+  private async readSynonyms(indexName: string): Promise<SynonymHit[]> {
+    return collectPaginatedSearchConfiguration(async (page, hitsPerPage) => {
+      const response = await this.client.searchSynonyms({
+        indexName,
+        searchSynonymsParams: { query: "", page, hitsPerPage },
+      });
+      return {
+        hits: response.hits,
+        nbHits: response.nbHits,
+      };
+    });
+  }
+
   private async readIndex(
     indexName: string,
     index: {
@@ -413,14 +481,8 @@ export class AlgoliaProductSearchControlPlane
   ): Promise<ProductSearchIndexSnapshot> {
     const [settings, rules, synonyms, records] = await Promise.all([
       this.client.getSettings({ indexName }),
-      this.client.searchRules({
-        indexName,
-        searchRulesParams: { query: "", hitsPerPage: 1_000 },
-      }),
-      this.client.searchSynonyms({
-        indexName,
-        searchSynonymsParams: { query: "", hitsPerPage: 1_000 },
-      }),
+      this.readRules(indexName),
+      this.readSynonyms(indexName),
       this.readRecords(indexName),
     ]);
     const rawSettings = settings as Record<string, unknown>;
@@ -429,10 +491,10 @@ export class AlgoliaProductSearchControlPlane
       entries: index.entries,
       replicas: index.replicas ?? [],
       primary: index.primary ?? null,
-      rules: (rules.hits as Array<Record<string, unknown>>).sort((left, right) =>
-        canonicalJson(left).localeCompare(canonicalJson(right)),
+      rules: (rules as unknown as Array<Record<string, unknown>>).sort(
+        (left, right) => canonicalJson(left).localeCompare(canonicalJson(right)),
       ),
-      synonyms: (synonyms.hits as Array<Record<string, unknown>>).sort(
+      synonyms: (synonyms as unknown as Array<Record<string, unknown>>).sort(
         (left, right) => canonicalJson(left).localeCompare(canonicalJson(right)),
       ),
       settings: rawSettings,
@@ -627,14 +689,8 @@ export class AlgoliaProductSearchControlPlane
   async prepareTarget(canonicalRecords: ProductSearchRecord[]): Promise<void> {
     const [sourceSettings, sourceRules, sourceSynonyms] = await Promise.all([
       this.client.getSettings({ indexName: LEGACY_PRODUCTS_INDEX }),
-      this.client.searchRules({
-        indexName: LEGACY_PRODUCTS_INDEX,
-        searchRulesParams: { query: "", hitsPerPage: 1_000 },
-      }),
-      this.client.searchSynonyms({
-        indexName: LEGACY_PRODUCTS_INDEX,
-        searchSynonymsParams: { query: "", hitsPerPage: 1_000 },
-      }),
+      this.readRules(LEGACY_PRODUCTS_INDEX),
+      this.readSynonyms(LEGACY_PRODUCTS_INDEX),
     ]);
     if (
       !(await this.client.indexExists({
@@ -670,10 +726,10 @@ export class AlgoliaProductSearchControlPlane
       taskID: settings.taskID,
       maxRetries: 20,
     });
-    const rules = sourceRules.hits.length
+    const rules = sourceRules.length
       ? await this.client.saveRules({
           indexName: HELIX_PRODUCTS_INDEX,
-          rules: sourceRules.hits,
+          rules: sourceRules,
           clearExistingRules: true,
           forwardToReplicas: false,
         })
@@ -686,10 +742,10 @@ export class AlgoliaProductSearchControlPlane
       taskID: rules.taskID,
       maxRetries: 20,
     });
-    const synonyms = sourceSynonyms.hits.length
+    const synonyms = sourceSynonyms.length
       ? await this.client.saveSynonyms({
           indexName: HELIX_PRODUCTS_INDEX,
-          synonymHit: sourceSynonyms.hits,
+          synonymHit: sourceSynonyms,
           replaceExistingSynonyms: true,
           forwardToReplicas: false,
         })
@@ -742,7 +798,12 @@ export class AlgoliaProductSearchControlPlane
     });
   }
 }
-import { algoliasearch, type Algoliasearch } from "algoliasearch";
+import {
+  algoliasearch,
+  type Algoliasearch,
+  type Rule,
+  type SynonymHit,
+} from "algoliasearch";
 import { liteClient, type LiteClient } from "algoliasearch/lite";
 import { INDEX_SETTINGS } from "../../lib/algolia/record";
 import {
