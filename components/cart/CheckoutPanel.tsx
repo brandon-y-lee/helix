@@ -40,6 +40,9 @@ export function CheckoutPanel({
   subtotal: number;
 }) {
   const [rewardSummary, setRewardSummary] = useState<RewardsSummaryResponse | null>(null);
+  const [rewardsStatus, setRewardsStatus] = useState<
+    "loading" | "ready" | "unavailable"
+  >("loading");
   const [selectedReward, setSelectedReward] = useState("none");
   const {
     checkoutPending: pending,
@@ -54,14 +57,24 @@ export function CheckoutPanel({
 
   useEffect(() => {
     let active = true;
+    setRewardsStatus("loading");
     const params = new URLSearchParams({ subtotal: String(subtotal) });
     fetch(`/api/rewards/summary?${params.toString()}`, { cache: "no-store" })
-      .then((response) => response.json())
+      .then((response) => {
+        if (!response.ok) throw new Error("rewards unavailable");
+        return response.json();
+      })
       .then((data: RewardsSummaryResponse) => {
-        if (active) setRewardSummary(data);
+        if (active) {
+          setRewardSummary(data);
+          setRewardsStatus("ready");
+        }
       })
       .catch(() => {
-        if (active) setRewardSummary(null);
+        if (active) {
+          setRewardSummary(null);
+          setRewardsStatus("unavailable");
+        }
       });
 
     return () => {
@@ -81,7 +94,13 @@ export function CheckoutPanel({
   return (
     <div className="checkout-panel" aria-label="Sandbox checkout">
       <div className="checkout-panel__rewards">
-        {rewardSummary?.authenticated ? (
+        {rewardsStatus === "loading" ? (
+          <p className="checkout-panel__hint">Loading helix rewards.</p>
+        ) : rewardsStatus === "unavailable" ? (
+          <p className="checkout-panel__hint" role="status">
+            helix rewards is temporarily unavailable.
+          </p>
+        ) : rewardSummary?.authenticated ? (
           <>
             <div className="summary-row">
               <span>Estimated points</span>

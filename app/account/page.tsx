@@ -123,14 +123,14 @@ export default async function AccountPage() {
         </article>
 
         <article className="account-section">
-          <h2>Rewards</h2>
+          <h2>helix rewards</h2>
           <dl className="account-details">
             <div>
-              <dt>Available points</dt>
+              <dt>Available Points Balance</dt>
               <dd>{rewards?.pointsBalance ?? 0}</dd>
             </div>
             <div>
-              <dt>Lifetime points</dt>
+              <dt>Lifetime Points</dt>
               <dd>{rewards?.lifetimePoints ?? 0}</dd>
             </div>
             <div>
@@ -139,7 +139,7 @@ export default async function AccountPage() {
             </div>
           </dl>
           <Link href="/rewards" className="btn btn--ghost btn--editorial-rounded">
-            Rewards
+            helix rewards
           </Link>
         </article>
 

@@ -36,9 +36,9 @@ export const termsOfService: LegalDocument = {
     },
     {
       id: "rewards",
-      title: "Rewards and Referrals",
+      title: "helix rewards and Referrals",
       body: [
-        "MEI PELLE REWARDS requires an authenticated, confirmed account to earn points, redeem points, use referral offers, submit eligible private feedback, or receive referral rewards.",
+        "helix rewards requires an authenticated, confirmed account to earn Points, redeem Points, use Referral Offers, submit eligible private feedback, or receive Referral Rewards.",
         "Points have no cash value, are not transferable, do not currently expire, and may be adjusted or reversed after cancellations, failed payments, expirations, refunds, abuse, or reconciliation issues.",
         "Checkout may apply at most one internal points reward or one referral offer. Rewards and referral offers do not stack with each other.",
         "Private post-purchase feedback is first-party, private, and earns the same points regardless of sentiment. It is not a Trustpilot review and is not published publicly.",

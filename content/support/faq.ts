@@ -206,10 +206,10 @@ export const faqCategories: FAQCategory[] = [
     items: [
       {
         id: "rewards-program",
-        question: "Does Mei Pelle have a rewards program?",
+        question: "How does helix rewards work?",
         answer:
-          "MEI PELLE REWARDS is account-backed. Confirmed members receive 100 welcome points once, earn 2 points per eligible net merchandise dollar after successful sandbox payment, and can redeem 200, 400, or 600 points for $5, $10, or $15 off one eligible order.",
-        links: [{ label: "Rewards", href: "/rewards" }],
+          "helix rewards is account-backed. Email-confirmed Account Holders receive a 100-Point welcome award once, earn 2 Points per eligible net merchandise dollar after successful sandbox payment, and can redeem 200, 400, or 600 Points for $5, $10, or $15 off one eligible Order.",
+        links: [{ label: "helix rewards", href: "/rewards" }],
       },
       {
         id: "promo-codes",

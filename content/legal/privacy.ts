@@ -25,7 +25,7 @@ export const privacyPolicy: LegalDocument = {
         "Account forms collect an email address, password, and optional first and last name through Supabase authentication and profile records.",
         "Cart tools store selected products, variants, quantities, and cart status so you can review a routine before sandbox Checkout.",
         "Sandbox order records store order numbers, item snapshots, Stripe Checkout Session and PaymentIntent identifiers, checkout status, shipping and billing snapshots, reward and referral references, totals, and timestamps.",
-        "Rewards, referrals, and private feedback store loyalty balances, ledger entries, referral codes, referral attributions, one-time referral rewards, private first-party feedback responses, and reward issuance status.",
+        "helix rewards, referrals, and private feedback store Available Points Balances, Points Ledger entries, Referral Codes, Referral Attributions, one-time Referral Rewards, private first-party feedback responses, and reward issuance status.",
         "The Contact page explains inquiry categories and preparation details. It does not submit or store messages because Mei Pelle has not published a verified public support destination yet.",
         "Newsletter signup is not open. The footer updates module does not collect email addresses.",
       ],

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { REFERRAL_COOKIE } from "@/lib/referrals/constants";
+import { HELIX_REFERRAL_COOKIE } from "@/lib/referrals/constants";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
@@ -37,7 +37,7 @@ export async function GET(
 
   url.searchParams.set("referral", "accepted");
   const response = NextResponse.redirect(url);
-  response.cookies.set(REFERRAL_COOKIE, normalized, {
+  response.cookies.set(HELIX_REFERRAL_COOKIE, normalized, {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",

@@ -1,4 +1,4 @@
-export const MEI_PELLE_REWARDS_NAME = "MEI PELLE REWARDS";
+export const HELIX_REWARDS_NAME = "helix rewards";
 export const WELCOME_REWARD_POINTS = 100;
 export const PRIVATE_FEEDBACK_POINTS = 300;
 export const PURCHASE_POINTS_PER_DOLLAR = 2;
@@ -19,6 +19,26 @@ export const REWARD_TIERS: RewardTier[] = [
   { id: "points_400", points: 400, discountCents: 1000, label: "$10 off" },
   { id: "points_600", points: 600, discountCents: 1500, label: "$15 off" },
 ];
+
+const POINTS_LEDGER_ENTRY_LABELS: Record<string, string> = {
+  welcome: "Points Award",
+  purchase_earn: "Points Award",
+  private_feedback: "Points Award",
+  redemption_reserved: "Points Reservation",
+  redemption_captured: "Points Redemption",
+  redemption_released: "Points Release",
+  purchase_refund: "Points Reversal",
+  redemption_reversal: "Points Reversal",
+  referral_entitlement_issued: "Referral Reward",
+  referral_entitlement_reserved: "Referral Reward",
+  referral_entitlement_consumed: "Referral Reward",
+  referral_entitlement_released: "Referral Reward",
+  manual_adjustment: "Points Adjustment",
+};
+
+export function pointsLedgerEntryLabel(entryType: string): string {
+  return POINTS_LEDGER_ENTRY_LABELS[entryType] ?? "Points activity";
+}
 
 export function calculatePurchasePoints(eligibleNetMerchandiseCents: unknown): number {
   if (

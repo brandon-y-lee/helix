@@ -54,7 +54,7 @@ export const footerLinkGroups: FooterLinkGroup[] = [
       { label: "Account overview", href: "/account" },
       { label: "Sign in", href: "/account/sign-in" },
       { label: "Create account", href: "/account/sign-up" },
-      { label: "Rewards", href: "/rewards" },
+      { label: "helix rewards", href: "/rewards" },
     ],
   },
 ];

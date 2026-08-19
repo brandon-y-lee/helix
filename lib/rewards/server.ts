@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth/session";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
-  MEI_PELLE_REWARDS_NAME,
+  HELIX_REWARDS_NAME,
   PRIVATE_FEEDBACK_POINTS,
   WELCOME_REWARD_POINTS,
   affordableRewardTiers,
@@ -14,7 +14,7 @@ import {
 export type RewardsSummary = {
   authenticated: boolean;
   emailConfirmed: boolean;
-  programName: typeof MEI_PELLE_REWARDS_NAME;
+  programName: typeof HELIX_REWARDS_NAME;
   pointsBalance: number;
   lifetimePoints: number;
   estimatedPurchasePoints: number;
@@ -43,17 +43,25 @@ async function ensureCurrentUserRewards(): Promise<{
   if (!user) return { userId: null, emailConfirmed: false };
 
   const admin = createSupabaseAdminClient();
-  await admin.rpc("ensure_loyalty_account", { p_user_id: user.id });
+  const { error: ensureError } = await admin.rpc("ensure_rewards_account", {
+    p_user_id: user.id,
+  });
+  if (ensureError) {
+    throw new Error(`[rewards] Failed to ensure rewards account: ${ensureError.message}`);
+  }
   if (user.email_confirmed_at) {
-    await admin.rpc("award_loyalty_points", {
+    const { error: welcomeError } = await admin.rpc("award_rewards_points", {
       p_user_id: user.id,
       p_points: WELCOME_REWARD_POINTS,
       p_entry_type: "welcome",
       p_source_key: `welcome:${user.id}`,
-      p_description: "Welcome to MEI PELLE REWARDS.",
+      p_description: "Welcome to helix rewards.",
       p_order_id: null,
       p_metadata: { email_confirmed: true },
     });
+    if (welcomeError) {
+      throw new Error(`[rewards] Failed to award welcome Points: ${welcomeError.message}`);
+    }
   }
 
   return { userId: user.id, emailConfirmed: Boolean(user.email_confirmed_at) };
@@ -67,7 +75,7 @@ export async function getRewardsSummaryForCurrentUser(
     return {
       authenticated: false,
       emailConfirmed: false,
-      programName: MEI_PELLE_REWARDS_NAME,
+      programName: HELIX_REWARDS_NAME,
       pointsBalance: 0,
       lifetimePoints: 0,
       estimatedPurchasePoints: 0,
@@ -81,7 +89,7 @@ export async function getRewardsSummaryForCurrentUser(
   const admin = createSupabaseAdminClient();
   const [accountResult, referralResult, ledgerResult, feedbackResult] = await Promise.all([
     admin
-      .from("loyalty_accounts")
+      .from("rewards_accounts")
       .select("points_balance, lifetime_points")
       .eq("user_id", userId)
       .single(),
@@ -91,7 +99,7 @@ export async function getRewardsSummaryForCurrentUser(
       .eq("user_id", userId)
       .maybeSingle(),
     admin
-      .from("loyalty_ledger_entries")
+      .from("rewards_ledger_entries")
       .select("id, entry_type, points, description, created_at")
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
@@ -105,7 +113,16 @@ export async function getRewardsSummaryForCurrentUser(
   ]);
 
   if (accountResult.error) {
-    throw new Error(`[rewards] Failed to load loyalty account: ${accountResult.error.message}`);
+    throw new Error(`[rewards] Failed to load rewards account: ${accountResult.error.message}`);
+  }
+  if (referralResult.error) {
+    throw new Error(`[rewards] Failed to load Referral Code: ${referralResult.error.message}`);
+  }
+  if (ledgerResult.error) {
+    throw new Error(`[rewards] Failed to load Points Ledger: ${ledgerResult.error.message}`);
+  }
+  if (feedbackResult.error) {
+    throw new Error(`[rewards] Failed to load feedback requests: ${feedbackResult.error.message}`);
   }
   const account = accountResult.data as { points_balance?: number; lifetime_points?: number };
   const balance = Number(account.points_balance ?? 0);
@@ -114,7 +131,7 @@ export async function getRewardsSummaryForCurrentUser(
   return {
     authenticated: true,
     emailConfirmed,
-    programName: MEI_PELLE_REWARDS_NAME,
+    programName: HELIX_REWARDS_NAME,
     pointsBalance: balance,
     lifetimePoints: Number(account.lifetime_points ?? 0),
     estimatedPurchasePoints: calculatePurchasePoints(subtotal),
@@ -177,7 +194,7 @@ export async function submitPrivateFeedbackForCurrentUser(input: {
     .eq("status", "available");
   if (updateError) throw new Error(`[rewards] Failed to save private feedback: ${updateError.message}`);
 
-  const { error: awardError } = await admin.rpc("award_loyalty_points", {
+  const { error: awardError } = await admin.rpc("award_rewards_points", {
     p_user_id: userId,
     p_points: PRIVATE_FEEDBACK_POINTS,
     p_entry_type: "private_feedback",

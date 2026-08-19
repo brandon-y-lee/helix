@@ -5,6 +5,7 @@ import {
   calculatePurchasePoints,
   calculateReferralDiscount,
   isReferralSubtotalEligible,
+  pointsLedgerEntryLabel,
   rewardDiscountForTier,
   rewardTierById,
 } from "@/lib/rewards/rules";
@@ -42,5 +43,16 @@ describe("rewards rules", () => {
     expect(isReferralSubtotalEligible(5000)).toBe(true);
     expect(calculateReferralDiscount(5000)).toBe(750);
     expect(qualifiesForFreeStandardShipping(5000 - 750)).toBe(false);
+  });
+
+  it.each([
+    ["welcome", "Points Award"],
+    ["redemption_reserved", "Points Reservation"],
+    ["redemption_captured", "Points Redemption"],
+    ["redemption_released", "Points Release"],
+    ["redemption_reversal", "Points Reversal"],
+    ["referral_entitlement_issued", "Referral Reward"],
+  ])("labels %s history as %s", (entryType, label) => {
+    expect(pointsLedgerEntryLabel(entryType)).toBe(label);
   });
 });
