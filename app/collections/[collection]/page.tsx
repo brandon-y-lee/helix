@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import { notFound } from "next/navigation";
 import { ShopBrowser } from "@/components/product/ShopBrowser";
 import { getCachedProductCards } from "@/lib/catalog-cache";
@@ -53,6 +54,14 @@ export default async function CollectionPage({
         data-layout-shell="storefront"
       >
         <div className="shop-hero__surface">
+          <Image
+            src="/media/collections/raise-your-baseline-hero.webp"
+            alt=""
+            fill
+            priority
+            sizes="(max-width: 720px) calc(100vw - 32px), calc(100vw - 60px)"
+            className="shop-hero__image"
+          />
           <h1 id="shop-heading">raise your baseline</h1>
         </div>
       </section>

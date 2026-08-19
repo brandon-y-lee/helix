@@ -961,6 +961,7 @@ body[data-sheet-scroll-lock] .site-header {
 
 .shop-hero__surface {
   position: relative;
+  isolation: isolate;
   min-height: clamp(240px, 34vw, 420px);
   border: 1px solid color-mix(in srgb, var(--line) 72%, transparent);
   border-radius: var(--radius);
@@ -970,21 +971,24 @@ body[data-sheet-scroll-lock] .site-header {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background:
-    radial-gradient(circle at 18% 18%, #fff8ec 0%, transparent 26%),
-    radial-gradient(circle at 82% 76%, #70483f 0%, transparent 30%),
-    linear-gradient(135deg, #dfe8e1 0%, #8fa195 48%, #5f6f86 100%);
+  background: var(--surface-muted);
+}
+
+.shop-hero__image {
+  z-index: 0;
+  object-fit: cover;
+  object-position: center;
 }
 
 .shop-hero__surface h1 {
-  position: absolute;
-  left: clamp(22px, 3vw, 52px);
-  bottom: clamp(22px, 3vw, 52px);
-  max-width: calc(100% - clamp(44px, 6vw, 104px));
-  color: var(--ink);
-  font-size: clamp(2.5rem, 7vw, 6rem);
-  line-height: 0.95;
-  text-align: left;
+  position: relative;
+  z-index: 1;
+  max-width: min(86%, 22ch);
+  color: #fff;
+  font-size: clamp(1.125rem, 1.67vw, 1.5rem);
+  line-height: 1.4;
+  text-align: center;
+  text-shadow: 0 1px 18px rgb(0 0 0 / 28%);
 }
 
 /* ---------- Section headings ---------- */
@@ -9501,7 +9505,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 
 @media (max-width: 900px) {
   .shop-hero__surface h1 {
-    max-width: min(86%, 14ch);
+    max-width: min(86%, 22ch);
   }
 }
 
