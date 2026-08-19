@@ -42,7 +42,15 @@ const adjustmentFixSql = readFileSync(
   "utf8",
 );
 
-const effectiveMigrationSql = `${migrationSql}\n${hardeningSql}\n${finalizationSql}\n${provisionalRemovalSql}\n${adjustmentFixSql}`;
+const canonicalErrorsSql = readFileSync(
+  resolve(
+    process.cwd(),
+    "supabase/migrations/20260819051920_canonicalize_rewards_balance_errors.sql",
+  ),
+  "utf8",
+);
+
+const effectiveMigrationSql = `${migrationSql}\n${hardeningSql}\n${finalizationSql}\n${provisionalRemovalSql}\n${adjustmentFixSql}\n${canonicalErrorsSql}`;
 
 const databaseTypes = readFileSync(
   resolve(process.cwd(), "lib/database.types.ts"),
@@ -132,6 +140,10 @@ describe("temporary rewards database contract", () => {
     expect(adjustmentFixSql.match(/security invoker/g)).toHaveLength(1);
     expect(adjustmentFixSql.match(/set search_path = ''/g)).toHaveLength(1);
     expect(adjustmentFixSql).not.toContain("pg_catalog.coalesce");
+    expect(
+      canonicalErrorsSql.match(/Insufficient Available Points Balance/g),
+    ).toHaveLength(2);
+    expect(canonicalErrorsSql).not.toContain("Insufficient rewards balance");
     expect(provisionalRemovalSql).toContain(
       "drop function public.redeem_rewards_points",
     );
@@ -171,7 +183,9 @@ describe("temporary rewards database contract", () => {
     expect(concurrencyVerifier.match(/reserve\(sourceKeys\[/g)).toHaveLength(2);
     expect(concurrencyVerifier).toContain('succeeded.length !== 1');
     expect(concurrencyVerifier).toContain('failed.length !== 1');
-    expect(concurrencyVerifier).toContain("Insufficient loyalty balance");
+    expect(concurrencyVerifier).toContain(
+      "Insufficient Available Points Balance",
+    );
     expect(concurrencyVerifier).toContain('.from("rewards_accounts")');
     expect(concurrencyVerifier).toContain('.from("rewards_reservations")');
     expect(concurrencyVerifier).toContain("supabase.auth.admin.deleteUser(userId)");

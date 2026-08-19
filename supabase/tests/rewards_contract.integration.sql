@@ -5,7 +5,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(55);
+select plan(56);
 
 select has_view('public', 'rewards_accounts', 'rewards accounts exposes the existing Points account');
 select has_view('public', 'rewards_ledger_entries', 'the Points Ledger exposes existing history');
@@ -241,6 +241,16 @@ select is(
   (select lifetime_points from public.rewards_accounts where user_id = '18400000-0000-4000-8000-000000000001'),
   600,
   'operational balance adjustments preserve Lifetime Points'
+);
+
+select throws_ok(
+  $$select public.record_rewards_points_adjustment(
+    '18400000-0000-4000-8000-000000000001', -700, 'manual_adjustment',
+    'ticket-184-insufficient-adjustment', 'Ticket 184 insufficient adjustment.',
+    null, '{}'::jsonb
+  )$$,
+  'Insufficient Available Points Balance',
+  'operational adjustments use the canonical insufficient-balance contract'
 );
 
 select set_config('request.jwt.claims', '{"sub":"18400000-0000-4000-8000-000000000001","role":"authenticated"}', true);

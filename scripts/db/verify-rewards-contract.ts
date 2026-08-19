@@ -73,7 +73,7 @@ async function run(): Promise<void> {
     if (
       rejection.status !== "rejected" ||
       !(rejection.reason instanceof Error) ||
-      !rejection.reason.message.includes("Insufficient loyalty balance")
+      !rejection.reason.message.includes("Insufficient Available Points Balance")
     ) {
       throw new Error("The competing reservation did not fail for insufficient balance.");
     }
