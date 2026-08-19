@@ -321,7 +321,7 @@ describe("ProductDetail purchase accordions", () => {
 
     const ingredients = screen.getByRole("heading", { name: "what’s inside" });
     const coreRoutine = screen.getByRole("heading", {
-      name: "The helix CORE for clearer, healthier skin.",
+      name: "The Core for clearer, healthier skin.",
     });
 
     expect(screen.queryByRole("heading", { name: "DETAILS" })).toBeNull();
@@ -346,7 +346,7 @@ describe("ProductDetail purchase accordions", () => {
 
     expect(screen.queryByRole("heading", { name: "DETAILS" })).toBeNull();
     expect(screen.queryByRole("heading", {
-      name: "The helix CORE for clearer, healthier skin.",
+      name: "The Core for clearer, healthier skin.",
     })).toBeNull();
     expect(container.querySelector("[data-pdp-details-routine]")).toBeNull();
     expect(container.querySelector(".pdp-core-routine")).toBeNull();

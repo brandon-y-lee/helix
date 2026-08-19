@@ -564,7 +564,7 @@ test("PDP presents the Core Routine in place of Details only for Core Products",
 }) => {
   const coreProduct = storefront.product("richPdp");
   const beyondProduct = storefront.product("beyondCore");
-  const routineHeading = "The helix CORE for clearer, healthier skin.";
+  const routineHeading = "The Core for clearer, healthier skin.";
 
   await page.goto(coreProduct.path);
   const coreSections = page.locator(".pdp-sections");
@@ -616,7 +616,7 @@ test("Ceramide Cushion replaces Green Collagen as a non-purchasable Core PDP", a
   const sections = page.locator(".pdp-sections");
   await expect(
     sections.getByRole("heading", {
-      name: "The helix CORE for clearer, healthier skin.",
+      name: "The Core for clearer, healthier skin.",
     }),
   ).toHaveCount(1);
   await expect(sections.getByRole("heading", { name: "DETAILS" })).toHaveCount(0);

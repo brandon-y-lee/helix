@@ -20,29 +20,14 @@ import {
   type IngredientIndexCard,
   type MethodProductSlug,
 } from "@/lib/content/system";
+import { createPublicSiteMetadata } from "@/lib/public-site-metadata";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = createPublicSiteMetadata({
   title: "helix | Men's Skincare",
   description:
     "A simple daily system for skin that looks better now—and stays smooth, even, and resilient over time.",
-  alternates: {
-    canonical: "/",
-  },
-  openGraph: {
-    title: "helix | Men's Skincare",
-    description:
-      "A simple daily system for skin that looks better now—and stays smooth, even, and resilient over time.",
-    url: "/",
-    siteName: "helix",
-    type: "website",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "helix | Men's Skincare",
-    description:
-      "A simple daily system for skin that looks better now—and stays smooth, even, and resilient over time.",
-  },
-};
+  canonical: "/",
+});
 
 const CORE_PRODUCT_SLUGS =
   CORE_ROUTINE_PRODUCT_SLUGS satisfies readonly MethodProductSlug[];

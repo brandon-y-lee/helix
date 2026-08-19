@@ -18,6 +18,7 @@ import {
   serializeStructuredData,
 } from "@/lib/catalog/product-structured-data";
 import { isValidProductSlug } from "@/lib/catalog/product-slug";
+import { createPublicSiteMetadata } from "@/lib/public-site-metadata";
 import { resolvePublicSiteOrigin } from "@/lib/site-url";
 
 const siteUrl = new URL(resolvePublicSiteOrigin());
@@ -45,25 +46,11 @@ export async function generateMetadata({
       `${composeProductTitle(product.displayName, product.productType)} | helix`
     : "Product | helix";
   const description = product?.seoDescription ?? product?.editorialDescription;
-  return {
+  return createPublicSiteMetadata({
     title,
     description,
-    alternates: product
-      ? { canonical: `/products/${product.slug}` }
-      : undefined,
-    openGraph: {
-      title,
-      description,
-      ...(product ? { url: `/products/${product.slug}` } : {}),
-      siteName: "helix",
-      type: "website",
-    },
-    twitter: {
-      card: "summary_large_image",
-      title,
-      description,
-    },
-  };
+    canonical: product ? `/products/${product.slug}` : undefined,
+  });
 }
 
 type ProductSearchParams = Record<

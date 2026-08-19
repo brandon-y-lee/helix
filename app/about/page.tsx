@@ -12,29 +12,14 @@ import {
   SUSTAINABILITY,
   WHY_MEN,
 } from "@/lib/content/about";
+import { createPublicSiteMetadata } from "@/lib/public-site-metadata";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = createPublicSiteMetadata({
   title: "About helix | Seoul Precision, Los Angeles Perspective",
   description:
     "Discover the values behind helix, a prestige men's skincare system shaped by South Korean formulation discipline and Los Angeles self-invention.",
-  alternates: {
-    canonical: "/about",
-  },
-  openGraph: {
-    title: "About helix | Seoul Precision, Los Angeles Perspective",
-    description:
-      "Discover the values behind helix, a prestige men's skincare system shaped by South Korean formulation discipline and Los Angeles self-invention.",
-    url: "/about",
-    siteName: "helix",
-    type: "website",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "About helix | Seoul Precision, Los Angeles Perspective",
-    description:
-      "Discover the values behind helix, a prestige men's skincare system shaped by South Korean formulation discipline and Los Angeles self-invention.",
-  },
-};
+  canonical: "/about",
+});
 
 export default function AboutPage() {
   return (
@@ -167,7 +152,7 @@ export default function AboutPage() {
       </section>
 
       <section className="about-system" aria-labelledby="about-system-heading">
-        <p className="eyebrow">The helix system</p>
+        <p className="eyebrow">The System</p>
         <h2 id="about-system-heading">PREPARE. TREAT. PRESERVE.</h2>
         <div className="about-system__promises">
           {BRAND_PROMISES.map((promise) => (

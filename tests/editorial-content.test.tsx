@@ -164,7 +164,9 @@ describe("System content architecture", () => {
     render(await MethodPage());
     const pageText = document.body.textContent ?? "";
 
-    expect(screen.getByText("helix")).toBeInTheDocument();
+    expect(document.querySelector(".method-hero__copy .eyebrow")).toHaveTextContent(
+      "The System",
+    );
     expect(screen.getByRole("link", { name: "About helix" })).toHaveAttribute(
       "href",
       "/about",
@@ -357,6 +359,7 @@ describe("About claim safety", () => {
     expect(pageText).toMatch(
       /structure, renewal, and ingredient-literate formulation/i,
     );
+    expect(pageText).toContain("Helix Motif");
     expect(pageText).not.toMatch(/Mei Pelle/i);
     expect(pageText).not.toMatch(
       /genetic testing|genetic personalization|clinical genomics|DNA effects/i,

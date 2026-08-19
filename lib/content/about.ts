@@ -10,7 +10,7 @@ export const ABOUT_HERO = {
 export const ABOUT_OPENING = [
   "Helix exists between two beauty cultures, not as a costume of either one. From South Korean skincare we take precision, iteration, thoughtful layering, sensorial formulas, and the belief that skin is maintained before it has to be corrected.",
   "From Los Angeles we take individuality, visible ambition, performance, cultural range, and the confidence to treat appearance as one part of a larger practice of self-development.",
-  "The translation is deliberately simple: fewer decisions, purposeful compounds, clear instructions, and formulas that have to earn their place in the routine. The helix motif reflects structure, renewal, and ingredient-literate formulation—the shape of a routine refined through repetition.",
+  "The translation is deliberately simple: fewer decisions, purposeful compounds, clear instructions, and formulas that have to earn their place in the routine. The Helix Motif reflects structure, renewal, and ingredient-literate formulation—the shape of a routine refined through repetition.",
 ];
 
 export const CULTURE_PANELS = [

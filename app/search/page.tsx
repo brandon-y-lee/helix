@@ -1,25 +1,12 @@
 import type { Metadata } from "next";
 import { SearchView } from "@/components/search/SearchView";
+import { createPublicSiteMetadata } from "@/lib/public-site-metadata";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = createPublicSiteMetadata({
   title: "Search | helix",
   description: "Search the helix Product catalog by name, type, or concern.",
-  alternates: {
-    canonical: "/search",
-  },
-  openGraph: {
-    title: "Search | helix",
-    description: "Search the helix Product catalog by name, type, or concern.",
-    url: "/search",
-    siteName: "helix",
-    type: "website",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "Search | helix",
-    description: "Search the helix Product catalog by name, type, or concern.",
-  },
-};
+  canonical: "/search",
+});
 
 // Standalone search page. Like the header overlay, it searches the synced
 // Algolia index client-side (see SearchView / useProductSearch) — it does not

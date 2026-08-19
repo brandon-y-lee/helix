@@ -7,29 +7,14 @@ import {
   getMethodProductState,
 } from "@/lib/content/system";
 import { getCachedProducts } from "@/lib/catalog-cache";
+import { createPublicSiteMetadata } from "@/lib/public-site-metadata";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = createPublicSiteMetadata({
   title: "The System | helix",
   description:
     "A clear step-by-step skincare system covering cleansing, treatment, hydration, eye care, weekly care, and daily SPF.",
-  alternates: {
-    canonical: "/system",
-  },
-  openGraph: {
-    title: "The System | helix",
-    description:
-      "A clear step-by-step skincare system covering cleansing, treatment, hydration, eye care, weekly care, and daily SPF.",
-    url: "/system",
-    siteName: "helix",
-    type: "website",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "The System | helix",
-    description:
-      "A clear step-by-step skincare system covering cleansing, treatment, hydration, eye care, weekly care, and daily SPF.",
-  },
-};
+  canonical: "/system",
+});
 
 export default async function SystemPage() {
   const products = await getCachedProducts();
@@ -50,7 +35,7 @@ export default async function SystemPage() {
           decorated={false}
         />
         <div className="method-hero__copy">
-          <p className="eyebrow">helix</p>
+          <p className="eyebrow">The System</p>
           <h1 id="system-heading">THE SYSTEM.</h1>
           <p>A system for clearer, healthier, beautiful skin</p>
           <div className="hero__actions">
