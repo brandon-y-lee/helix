@@ -1,4 +1,5 @@
 import type { LegalDocument } from "./types";
+import { supportPolicy } from "@/content/support/policy";
 
 export const termsOfService: LegalDocument = {
   title: "Terms of Service",
@@ -15,7 +16,7 @@ export const termsOfService: LegalDocument = {
       title: "Publication Status",
       body: [
         "Operative Terms of Service cannot be published until a Legal Operator and verified legal contact details exist and the final document has been reviewed.",
-        "Using the current site does not turn this prelaunch summary into an agreement with helix. helix is the brand presented by the site, not the absent Legal Operator.",
+        "Using the current site does not turn this prelaunch summary into an agreement with helix. Helix is the brand presented by the site, not the absent Legal Operator.",
       ],
     },
     {
@@ -39,7 +40,7 @@ export const termsOfService: LegalDocument = {
       id: "rewards",
       title: "helix rewards and Referrals",
       body: [
-        "helix rewards is available only inside the current sandbox experience. It requires an authenticated, email-confirmed Account to earn or redeem test Points, use a Referral Offer, submit eligible private feedback, or receive a Referral Reward.",
+        "Helix rewards is available only inside the current sandbox experience. It requires an authenticated, email-confirmed Account to earn or redeem test Points, use a Referral Offer, submit eligible private feedback, or receive a Referral Reward.",
         "Test Points have no cash value and cannot be used for a real purchase. Current rules may reserve, release, reverse, or reconcile test Points after sandbox payment and Order state changes.",
         "Private post-purchase feedback is first-party and private. It is not a Trustpilot review, is not published publicly, and receives the same test Points Award regardless of sentiment.",
         "Writing, editing, or deleting a Trustpilot review does not earn Points.",
@@ -65,7 +66,7 @@ export const termsOfService: LegalDocument = {
       id: "contact",
       title: "Contact Status",
       body: [
-        "No verified public Support Channel or legal contact destination has been published. The Contact page can help prepare inquiry details but cannot submit a Support Inquiry.",
+        `${supportPolicy.contactStatus} No legal contact destination has been published. The Contact page can help prepare inquiry details but cannot submit a Support Inquiry.`,
       ],
     },
   ],

@@ -1,4 +1,5 @@
 import type { LegalDocument } from "./types";
+import { supportPolicy } from "@/content/support/policy";
 
 export const privacyChoices: LegalDocument = {
   title: "Your Privacy Choices",
@@ -29,7 +30,7 @@ export const privacyChoices: LegalDocument = {
       id: "requests",
       title: "Privacy Requests",
       body: [
-        "Use the Contact page to prepare access, correction, deletion, or Privacy Request details. No verified public Support Channel is available, so the page cannot submit or store a Privacy Request.",
+        `Use the Contact page to prepare access, correction, deletion, or Privacy Request details. ${supportPolicy.contactStatus} The page cannot submit or store a Privacy Request.`,
       ],
     },
     {

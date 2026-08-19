@@ -17,7 +17,8 @@ export default function PrivacyChoicesPage() {
       <div className="privacy-choice-panel">
         <p>
           Optional analytics and advertising categories are not active. The
-          Cookie notice records only an essential-storage acknowledgement.
+          Cookie notice records only a required and functional storage
+          acknowledgement.
         </p>
         <div className="hero__actions">
           <CookieAcknowledgementDialog triggerClassName="btn" />

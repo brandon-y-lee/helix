@@ -13,7 +13,7 @@ export const returnsPolicy = {
   issueReportWindowDays: 7,
   refundProcessingWindow: "1 to 2 weeks after the approved return is received and inspected",
   condition:
-    "Items should be unopened, unused, and returned with their original packaging unless the issue is an approved damaged, missing, or incorrect item claim.",
+    "Eligible items would need to be unopened, unused, and in their original packaging unless a future Item Claim process approved another condition.",
 };
 
 export const supportPolicy = {

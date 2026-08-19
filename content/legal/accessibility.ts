@@ -1,4 +1,5 @@
 import type { LegalDocument } from "./types";
+import { supportPolicy } from "@/content/support/policy";
 
 export const accessibilityStatement: LegalDocument = {
   title: "Accessibility Statement",
@@ -44,7 +45,7 @@ export const accessibilityStatement: LegalDocument = {
       title: "Feedback",
       body: [
         "Use the Contact page and choose Accessibility feedback to prepare page, device, browser, assistive technology, and task details.",
-        "No verified public Support Channel is currently available for Accessibility Feedback, so the Contact page does not submit or store a report.",
+        `${supportPolicy.contactStatus} The Contact page therefore cannot submit or store Accessibility Feedback.`,
       ],
     },
     {

@@ -1,4 +1,5 @@
 import type { LegalDocument } from "./types";
+import { supportPolicy } from "@/content/support/policy";
 
 export const privacyPolicy: LegalDocument = {
   title: "Privacy Policy",
@@ -25,8 +26,8 @@ export const privacyPolicy: LegalDocument = {
         "Account forms collect an email address, password, and optional first and last name through Supabase authentication and profile records.",
         "Cart tools store selected products, variants, quantities, and cart status so you can review a routine before sandbox Checkout.",
         "Sandbox order records store order numbers, item snapshots, Stripe Checkout Session and PaymentIntent identifiers, checkout status, shipping and billing snapshots, reward and referral references, totals, and timestamps.",
-        "helix rewards, referrals, and private feedback store Available Points Balances, Points Ledger entries, Referral Codes, Referral Attributions, one-time Referral Rewards, private first-party feedback responses, and reward issuance status.",
-        "The Contact page explains Inquiry Types and preparation details. It does not submit or store messages because no verified public Support Channel is available.",
+        "Helix rewards, referrals, and private feedback store Available Points Balances, Points Ledger entries, Referral Codes, Referral Attributions, one-time Referral Rewards, private first-party feedback responses, and reward issuance status.",
+        `The Contact page explains Inquiry Types and preparation details. ${supportPolicy.contactStatus} The page does not submit or store messages.`,
         "Newsletter signup is not open. The footer updates module does not collect email addresses.",
       ],
     },
@@ -120,7 +121,7 @@ export const privacyPolicy: LegalDocument = {
       id: "contact",
       title: "Contact",
       body: [
-        "Use the Contact page to review current Privacy Request preparation details. No verified public Support Channel is available, so the page cannot submit or store a Privacy Request.",
+        `Use the Contact page to review current Privacy Request preparation details. ${supportPolicy.contactStatus} The page cannot submit or store a Privacy Request.`,
       ],
     },
   ],

@@ -29,7 +29,7 @@ export const faqCategories: FAQCategory[] = [
         id: "what-is-helix",
         question: "What is helix?",
         answer:
-          "helix is a prestige men's skincare brand built around concise Product steps, ingredient literacy, and a disciplined daily Routine.",
+          "Helix is a prestige men's skincare brand built around concise Product steps, ingredient literacy, and a disciplined daily Routine.",
       },
       {
         id: "available-products",
@@ -138,24 +138,25 @@ export const faqCategories: FAQCategory[] = [
   {
     id: "shipping",
     label: "Shipping",
-    summary: "Planned standard shipping policy, threshold, timing, and limits.",
+    summary: "Unavailable shipping capability and current planning assumptions.",
     items: [
       {
         id: "free-shipping",
-        question: "Does helix offer free standard shipping?",
-        answer: `Standard shipping is planned to be free on eligible United States orders of ${formatFreeShippingThreshold()} before taxes and any discounts that change the merchandise subtotal.`,
+        question: "Is standard shipping available?",
+        answer: `No real shipping or Fulfillment capability is available. The current planning assumption is free standard shipping on eligible United States Orders of ${formatFreeShippingThreshold()} before taxes and any discounts that change the merchandise subtotal.`,
       },
       {
         id: "shipping-destinations",
-        question: "Where will helix ship?",
+        question: "Which destinations are being considered?",
         answer:
+          "No Shipment service is available. " +
           shippingPolicy.destinationSummary +
-          " International, expedited, freight-forwarder, and resale shipping terms are unavailable unless a future Legal Operator publishes them.",
+          " International, expedited, freight-forwarder, and resale shipping are not current or committed capabilities.",
       },
       {
         id: "shipping-timing",
-        question: "How long will shipping take?",
-        answer: `The planned estimate is ${shippingPolicy.processingWindow} for processing, then ${shippingPolicy.transitWindow}. Carrier tracking can take ${shippingPolicy.trackingWindow} to update.`,
+        question: "Are processing and transit estimates in effect?",
+        answer: `No. These planning assumptions are not a Service Status commitment: ${shippingPolicy.processingWindow} for processing, ${shippingPolicy.transitWindow} for transit, and ${shippingPolicy.trackingWindow} before Tracking may update.`,
       },
       {
         id: "shipping-address-changes",
@@ -168,26 +169,26 @@ export const faqCategories: FAQCategory[] = [
   {
     id: "returns",
     label: "Returns & Refunds",
-    summary: "Return windows, damaged items, exchanges, and refund timing.",
+    summary: "Unavailable Return, Item Claim, Exchange, and refund capabilities.",
     items: [
       {
         id: "return-window",
-        question: "What is the return window?",
-        answer: `The planned Return Window is ${returnsPolicy.returnWindowDays} days from Delivery for eligible items. ${returnsPolicy.condition} This is not an operative Return Policy.`,
+        question: "Is a Return Policy in effect?",
+        answer: `No operative Return Policy is in effect. A ${returnsPolicy.returnWindowDays}-day Return Window is only a planning assumption. ${returnsPolicy.condition} This is not a current Customer instruction.`,
       },
       {
         id: "damaged-missing",
-        question: "What if an item arrives damaged, missing, or incorrect?",
-        answer: `Report the issue within ${returnsPolicy.issueReportWindowDays} days of delivery and keep packaging, order details, and clear photos. Approved claims may be resolved with a replacement, refund, or other remedy when order support exists.`,
+        question: "Can I submit an Item Claim?",
+        answer: `No. Real Fulfillment and Support Intake are unavailable, so there is no Item Claim process or public submission destination. A ${returnsPolicy.issueReportWindowDays}-day reporting window is only a planning assumption.`,
       },
       {
         id: "refund-timing",
-        question: "When will I receive a refund?",
-        answer: `Approved refunds are planned to be processed within ${returnsPolicy.refundProcessingWindow}. Your bank or card issuer may take additional time to post the credit.`,
+        question: "Are real refunds available?",
+        answer: `No live payment is accepted, so no real refund service is available. The ${returnsPolicy.refundProcessingWindow} estimate is a planning assumption, not an operative commitment.`,
       },
       {
         id: "exchanges",
-        question: "Do you offer exchanges?",
+        question: "Are Exchanges available?",
         answer:
           "Direct Exchanges are not planned as a default flow. A future Item Claim process may provide a Replacement only after a Legal Operator, real Fulfillment, and Support Intake exist.",
       },
@@ -195,7 +196,7 @@ export const faqCategories: FAQCategory[] = [
         id: "shipping-costs",
         question: "Are original shipping costs refundable?",
         answer:
-          "Original shipping costs are not planned to be refundable unless a future Fulfillment issue or applicable law requires a different result. This is not an operative refund commitment.",
+          "No real shipping cost is charged, and no operative refund rule is in effect. Any future treatment of shipping costs requires a Legal Operator and reviewed Policy.",
       },
     ],
   },
@@ -208,7 +209,7 @@ export const faqCategories: FAQCategory[] = [
         id: "rewards-program",
         question: "How does helix rewards work?",
         answer:
-          "helix rewards is account-backed. Email-confirmed Account Holders receive a 100-Point welcome award once, earn 2 Points per eligible net merchandise dollar after successful sandbox payment, and can redeem 200, 400, or 600 Points for $5, $10, or $15 off one eligible Order.",
+          "Helix rewards is account-backed. Email-confirmed Account Holders receive a 100-Point welcome award once, earn 2 Points per eligible net merchandise dollar after successful sandbox payment, and can redeem 200, 400, or 600 Points for $5, $10, or $15 off one eligible Order.",
         links: [{ label: "helix rewards", href: "/rewards" }],
       },
       {
@@ -280,7 +281,7 @@ export const faqCategories: FAQCategory[] = [
         id: "terms",
         question: "Where are the Terms of Service?",
         answer:
-          "The Terms explain site use, accounts, product information, cart status, acceptable use, intellectual property, and service limits.",
+          "The Terms status page explains the absent Legal Operator boundary, Account and sandbox commerce status, current providers, and the unavailable public contact destination. It is not an operative Terms of Service.",
         links: [{ label: "Terms of Service", href: "/terms" }],
       },
       {

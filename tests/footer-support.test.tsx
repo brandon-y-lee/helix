@@ -18,6 +18,7 @@ import {
   remainingForFreeStandardShipping,
 } from "@/content/support/policy";
 import ContactPage from "@/app/contact/page";
+import PrivacyChoicesPage from "@/app/privacy-choices/page";
 import { metadata as accessibilityMetadata } from "@/app/accessibility/page";
 import { metadata as contactMetadata } from "@/app/contact/page";
 import { metadata as cookiePolicyMetadata } from "@/app/cookie-policy/page";
@@ -230,6 +231,22 @@ describe("legal and support content", () => {
     expect(combined).toMatch(/WCAG 2\.2 AA/i);
     expect(combined).not.toMatch(/Mei[ _-]Pelle/i);
     expect(combined).not.toMatch(/helix (?:is responsible|will be liable|disclaims)/i);
+    const publicSentences = [
+      ...[
+        accessibilityStatement,
+        cookiePolicy,
+        privacyChoices,
+        privacyPolicy,
+        termsOfService,
+      ].flatMap((document) => [
+        document.intro,
+        ...document.sections.flatMap((section) => section.body),
+      ]),
+      ...faqCategories.flatMap((category) =>
+        category.items.map((item) => item.answer),
+      ),
+    ].join("\n");
+    expect(publicSentences).not.toMatch(/^helix (?:is|rewards)/m);
     expect(privacyPolicy.canonical).toBe("/privacy");
     expect(termsOfService.canonical).toBe("/terms");
   });
@@ -257,6 +274,15 @@ describe("legal and support content", () => {
     );
     expect(documentText({ cookieCategories, cookiePolicy, privacyPolicy, privacyChoices }))
       .not.toMatch(/mei_pelle|cookie preferences|cookie-preference|consent/i);
+  });
+
+  it("describes the visible acknowledgement as required and functional", () => {
+    render(<PrivacyChoicesPage />);
+
+    expect(screen.getByText(/required and functional storage acknowledgement/i))
+      .toBeInTheDocument();
+    expect(screen.queryByText(/essential-storage acknowledgement/i))
+      .not.toBeInTheDocument();
   });
 
   it("states the unavailable Support Intake and factual Accessibility Commitment", () => {
@@ -312,6 +338,10 @@ describe("legal and support content", () => {
 
     const faqText = document.body.textContent ?? "";
     expect(faqText).toContain("$50+");
+    expect(faqText).toMatch(/No real shipping or Fulfillment capability is available/i);
+    expect(faqText).toMatch(/No operative Return Policy is in effect/i);
+    expect(faqText).toMatch(/Terms status page/i);
+    expect(faqText).not.toMatch(/Does helix offer|Report the issue within|Approved refunds/i);
     expect(faqText).not.toMatch(
       /development storefront|development platform|demo|test store|placeholder/i,
     );

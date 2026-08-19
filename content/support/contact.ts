@@ -82,6 +82,5 @@ export const contactPreparationGroups: ContactPreparationGroup[] = [
 export const contactIntakeStatus = {
   configured: supportPolicy.contactIntakeConfigured,
   heading: "SUPPORT INTAKE UNAVAILABLE",
-  message:
-    "No verified public Support Channel has been published for helix. This page only prepares inquiry details; it cannot submit a Support Inquiry.",
+  message: `${supportPolicy.contactStatus} This page only prepares inquiry details; it cannot submit a Support Inquiry.`,
 };
