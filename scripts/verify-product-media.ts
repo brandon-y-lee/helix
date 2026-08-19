@@ -11,10 +11,12 @@ import {
   type RealProductMediaVerificationReport,
 } from "../lib/catalog/real-product-media-verification";
 import { createBoundedProductMediaHttpClient } from "../lib/catalog/product-media-http-client";
+import { CATALOG_MEDIA_BUCKET } from "../lib/catalog/media-storage";
 
 export { createBoundedProductMediaHttpClient };
 
-const DEFAULT_MEDIA_PATH_PREFIX = "/storage/v1/object/public/mei-pelle-catalog/";
+const DEFAULT_MEDIA_PATH_PREFIX =
+  `/storage/v1/object/public/${CATALOG_MEDIA_BUCKET}/`;
 const DEFAULT_MAX_REDIRECTS = 3;
 const DEFAULT_TIMEOUT_MS = 5_000;
 

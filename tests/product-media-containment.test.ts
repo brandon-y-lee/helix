@@ -6,9 +6,9 @@ import type { StorefrontSnapshot } from "@/test-support/storefront-baseline";
 import { createProductMediaContainment } from "@/test-support/product-media-containment";
 
 const mediaOrigin = "https://erasogmsqpgiirovubjh.supabase.co";
-const imageUrl = `${mediaOrigin}/storage/v1/object/public/mei-pelle-catalog/card.webp`;
-const posterUrl = `${mediaOrigin}/storage/v1/object/public/mei-pelle-catalog/poster.webp`;
-const videoUrl = `${mediaOrigin}/storage/v1/object/public/mei-pelle-catalog/routine.mp4`;
+const imageUrl = `${mediaOrigin}/storage/v1/object/public/helix-catalog/card.webp`;
+const posterUrl = `${mediaOrigin}/storage/v1/object/public/helix-catalog/poster.webp`;
+const videoUrl = `${mediaOrigin}/storage/v1/object/public/helix-catalog/routine.mp4`;
 const sameSiteImageUrl = "/media/catalog/local-product.webp";
 const approvedOriginImageUrl = `${mediaOrigin}/catalog-assets/alternate-product.webp`;
 
@@ -227,7 +227,7 @@ describe("routine Product Media containment", () => {
     });
     await containment.install(harness.page);
     const unexpectedUrl =
-      `${mediaOrigin}/storage/v1/object/public/mei-pelle-catalog/unexpected.webp`;
+      `${mediaOrigin}/storage/v1/object/public/helix-catalog/unexpected.webp`;
 
     await expect(harness.dispatch(unexpectedUrl)).rejects.toThrow(
       `Product Media request is absent from the live Storefront: ${unexpectedUrl}`,

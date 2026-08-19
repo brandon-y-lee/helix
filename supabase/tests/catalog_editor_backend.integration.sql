@@ -104,7 +104,7 @@ begin
         'id', gen_random_uuid(),
         'variant_id', null,
         'media_type', 'image',
-        'url', 'https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/mei-pelle-catalog/products/integration/core-routine-editorial.webp',
+        'url', 'https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/helix-catalog/products/integration/core-routine-editorial.webp',
         'alt', 'Integration Core routine editorial',
         'width', 1200,
         'height', 1500,
