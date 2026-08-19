@@ -9503,12 +9503,6 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   }
 }
 
-@media (max-width: 900px) {
-  .shop-hero__surface h1 {
-    max-width: min(86%, 22ch);
-  }
-}
-
 /* ---------- Homepage core system rebuild ---------- */
 .home-video-hero__content > div {
   max-width: min(690px, 92vw);
