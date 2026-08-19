@@ -65,17 +65,43 @@ begin
     where policy.schemaname = 'storage'
       and policy.tablename = 'objects'
       and policy.policyname like '%Mei-Pelle%'
-  ) or (
-    select count(*)
+  ) or exists (
+    select 1
     from pg_policies policy
     where policy.schemaname = 'storage'
       and policy.tablename = 'objects'
-      and policy.policyname in (
+      and (
+        coalesce(policy.qual, '') like '%helix-catalog%'
+        or coalesce(policy.with_check, '') like '%helix-catalog%'
+      )
+      and policy.policyname not in (
         'Public read helix catalog assets',
         'Service role manages helix catalog assets'
       )
-      and policy.qual like '%helix-catalog%'
-  ) <> 2 then
+  ) or not exists (
+    select 1
+    from pg_policies policy
+    where policy.schemaname = 'storage'
+      and policy.tablename = 'objects'
+      and policy.policyname = 'Public read helix catalog assets'
+      and policy.cmd = 'SELECT'
+      and cardinality(policy.roles) = 2
+      and 'anon' = any(policy.roles)
+      and 'authenticated' = any(policy.roles)
+      and policy.qual = '(bucket_id = ''helix-catalog''::text)'
+      and policy.with_check is null
+  ) or not exists (
+    select 1
+    from pg_policies policy
+    where policy.schemaname = 'storage'
+      and policy.tablename = 'objects'
+      and policy.policyname = 'Service role manages helix catalog assets'
+      and policy.cmd = 'ALL'
+      and cardinality(policy.roles) = 1
+      and 'service_role' = any(policy.roles)
+      and policy.qual = '(bucket_id = ''helix-catalog''::text)'
+      and policy.with_check = '(bucket_id = ''helix-catalog''::text)'
+  ) then
     raise exception 'helix catalog Storage policies drifted';
   end if;
 
