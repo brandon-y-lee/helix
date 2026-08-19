@@ -13,6 +13,10 @@ const integration = readFileSync(
   resolve(process.cwd(), "supabase/tests/customer_rewards_referrals.integration.sql"),
   "utf8",
 );
+const verifier = readFileSync(
+  resolve(process.cwd(), "scripts/db/verify-rewards-contract.ts"),
+  "utf8",
+);
 
 describe("customer Referral Reward database contract", () => {
   it("qualifies paid Referral Rewards atomically and idempotently", () => {
@@ -28,8 +32,12 @@ describe("customer Referral Reward database contract", () => {
   });
 
   it("ships executable retry and browser-authority coverage", () => {
+    expect(integration).toContain("an unpaid Order cannot issue a Referral Reward");
+    expect(integration).toContain("a later verified Paid Order can issue the Referral Reward");
     expect(integration).toContain("a retried Referral Reward qualification returns the same Reward");
     expect(integration).toContain("a retry creates exactly one Referral Reward");
     expect(integration).toContain("browser sessions cannot qualify Referral Rewards");
+    expect(verifier).toContain("concurrentReferralQualifications");
+    expect(verifier).toContain("Concurrent Referral Reward qualification");
   });
 });

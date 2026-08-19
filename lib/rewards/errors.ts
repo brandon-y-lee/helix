@@ -4,3 +4,10 @@ export class RewardsServiceUnavailableError extends Error {
     this.name = "RewardsServiceUnavailableError";
   }
 }
+
+export class RewardsRequestError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "RewardsRequestError";
+  }
+}

@@ -69,6 +69,10 @@ describe("helix rewards page", () => {
     expect(screen.getByRole("status")).toHaveTextContent(
       "helix rewards is temporarily unavailable.",
     );
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "We could not load your Points or referral benefits.",
+    );
+    expect(screen.getByRole("status")).not.toHaveTextContent(/have not changed|unchanged/i);
     expect(screen.queryByRole("link", { name: /sign in/i }))
       .not.toBeInTheDocument();
     expect(screen.queryByText(/no rewards activity yet/i))

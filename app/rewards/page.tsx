@@ -36,8 +36,7 @@ export default async function RewardsPage() {
         <section className="checkout-result__panel" role="status">
           <p>helix rewards is temporarily unavailable.</p>
           <p className="account-muted">
-            Your Points, Referral Code, and eligible benefits have not changed.
-            Try again in a moment.
+            We could not load your Points or referral benefits. Try again in a moment.
           </p>
         </section>
       ) : (

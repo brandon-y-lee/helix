@@ -11,9 +11,10 @@ import {
   calculatePurchasePoints,
   type PointsLedgerEntryType,
 } from "@/lib/rewards/rules";
-import { RewardsServiceUnavailableError } from "@/lib/rewards/errors";
-
-export { RewardsServiceUnavailableError } from "@/lib/rewards/errors";
+import {
+  RewardsRequestError,
+  RewardsServiceUnavailableError,
+} from "@/lib/rewards/errors";
 
 export type RewardsSummary = {
   authenticated: boolean;
@@ -165,49 +166,29 @@ export async function submitPrivateFeedbackForCurrentUser(input: {
 }): Promise<{ ok: true; pointsAwarded: number }> {
   const { userId, emailConfirmed } = await ensureCurrentUserRewards();
   if (!userId || !emailConfirmed) {
-    throw new Error("Sign in with a confirmed account to submit private feedback.");
+    throw new RewardsRequestError(
+      "Sign in with a confirmed account to submit private feedback.",
+    );
   }
   const rating = Math.trunc(input.rating);
-  if (rating < 1 || rating > 5) throw new Error("Choose a feedback rating from 1 to 5.");
+  if (rating < 1 || rating > 5) {
+    throw new RewardsRequestError("Choose a feedback rating from 1 to 5.");
+  }
   const comments = input.comments.trim().slice(0, 2000);
 
   const admin = createSupabaseAdminClient();
-  const { data: feedback, error } = await admin
-    .from("private_feedback")
-    .select("id, order_id, status")
-    .eq("id", input.feedbackId)
-    .eq("user_id", userId)
-    .maybeSingle();
-  if (error) throw new RewardsServiceUnavailableError();
-  const row = feedback as { id: string; order_id: string; status: string } | null;
-  if (!row || row.status !== "available") {
-    throw new Error("This private feedback request is no longer available.");
-  }
-
-  const now = new Date().toISOString();
-  const { error: updateError } = await admin
-    .from("private_feedback")
-    .update({
-      status: "rewarded",
-      rating,
-      comments: comments || null,
-      points_awarded: PRIVATE_FEEDBACK_POINTS,
-      submitted_at: now,
-    })
-    .eq("id", row.id)
-    .eq("status", "available");
-  if (updateError) throw new RewardsServiceUnavailableError();
-
-  const { error: awardError } = await admin.rpc("award_rewards_points", {
+  const { error } = await admin.rpc("submit_private_feedback_reward", {
     p_user_id: userId,
-    p_points: PRIVATE_FEEDBACK_POINTS,
-    p_entry_type: "private_feedback",
-    p_source_key: `private-feedback:${row.order_id}`,
-    p_description: "Private post-purchase feedback reward.",
-    p_order_id: row.order_id,
-    p_metadata: { sentiment_neutral_reward: true },
+    p_feedback_id: input.feedbackId,
+    p_rating: rating,
+    p_comments: comments,
   });
-  if (awardError) throw new RewardsServiceUnavailableError();
+  if (error?.code === "P0001" && error.message === "feedback request unavailable") {
+    throw new RewardsRequestError(
+      "This private feedback request is no longer available.",
+    );
+  }
+  if (error) throw new RewardsServiceUnavailableError();
 
   revalidatePath("/account");
   revalidatePath("/rewards");

@@ -7,7 +7,10 @@ const rewards = vi.hoisted(() => ({
 vi.mock("@/lib/rewards/server", () => rewards);
 
 import { POST } from "@/app/api/rewards/private-feedback/route";
-import { RewardsServiceUnavailableError } from "@/lib/rewards/errors";
+import {
+  RewardsRequestError,
+  RewardsServiceUnavailableError,
+} from "@/lib/rewards/errors";
 
 describe("Private feedback rewards route", () => {
   beforeEach(() => {
@@ -40,5 +43,37 @@ describe("Private feedback rewards route", () => {
         retryable: true,
       },
     });
+  });
+
+  it("returns only typed validation messages", async () => {
+    rewards.submitPrivateFeedbackForCurrentUser.mockRejectedValue(
+      new RewardsRequestError("Choose a feedback rating from 1 to 5."),
+    );
+
+    const response = await POST(new Request(
+      "https://helixskin.vercel.app/api/rewards/private-feedback",
+      { method: "POST", body: "{}" },
+    ));
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      error: "Choose a feedback rating from 1 to 5.",
+    });
+  });
+
+  it("sanitizes every unexpected error", async () => {
+    rewards.submitPrivateFeedbackForCurrentUser.mockRejectedValue(
+      new Error("provider leaked customer@example.test"),
+    );
+
+    const response = await POST(new Request(
+      "https://helixskin.vercel.app/api/rewards/private-feedback",
+      { method: "POST", body: "{}" },
+    ));
+    const body = await response.json();
+
+    expect(response.status).toBe(503);
+    expect(body.error.message).toBe("helix rewards is temporarily unavailable.");
+    expect(JSON.stringify(body)).not.toContain("customer@example.test");
   });
 });

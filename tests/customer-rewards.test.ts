@@ -141,34 +141,8 @@ describe("customer rewards service", () => {
   });
 
   it("derives feedback identity and Points Awards from trusted server state", async () => {
-    const feedbackLookup = {
-      select: vi.fn(),
-      eq: vi.fn(),
-      maybeSingle: vi.fn().mockResolvedValue({
-        data: { id: "feedback-1", order_id: "order-1", status: "available" },
-        error: null,
-      }),
-    };
-    feedbackLookup.select.mockReturnValue(feedbackLookup);
-    feedbackLookup.eq.mockReturnValue(feedbackLookup);
-
-    const updateResult = { data: null, error: null };
-    const feedbackUpdate = {
-      update: vi.fn(),
-      eq: vi.fn(),
-      then: <TResult1 = typeof updateResult, TResult2 = never>(
-        onFulfilled?: ((value: typeof updateResult) => TResult1 | PromiseLike<TResult1>) | null,
-        onRejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null,
-      ) => Promise.resolve(updateResult).then(onFulfilled, onRejected),
-    };
-    feedbackUpdate.update.mockReturnValue(feedbackUpdate);
-    feedbackUpdate.eq.mockReturnValue(feedbackUpdate);
-
     const rpc = vi.fn().mockResolvedValue({ error: null });
-    const from = vi.fn()
-      .mockReturnValueOnce(feedbackLookup)
-      .mockReturnValueOnce(feedbackUpdate);
-    dependencies.createSupabaseAdminClient.mockReturnValue({ from, rpc });
+    dependencies.createSupabaseAdminClient.mockReturnValue({ rpc });
 
     await expect(submitPrivateFeedbackForCurrentUser({
       feedbackId: "feedback-1",
@@ -176,15 +150,37 @@ describe("customer rewards service", () => {
       comments: "Calm after use.",
     })).resolves.toEqual({ ok: true, pointsAwarded: 300 });
 
-    expect(feedbackLookup.eq).toHaveBeenCalledWith("user_id", "account-holder-1");
-    expect(rpc).toHaveBeenLastCalledWith("award_rewards_points", {
+    expect(rpc).toHaveBeenLastCalledWith("submit_private_feedback_reward", {
       p_user_id: "account-holder-1",
-      p_points: 300,
-      p_entry_type: "private_feedback",
-      p_source_key: "private-feedback:order-1",
-      p_description: "Private post-purchase feedback reward.",
-      p_order_id: "order-1",
-      p_metadata: { sentiment_neutral_reward: true },
+      p_feedback_id: "feedback-1",
+      p_rating: 5,
+      p_comments: "Calm after use.",
     });
+  });
+
+  it("keeps a failed private feedback transaction retryable", async () => {
+    let feedbackAttempts = 0;
+    const rpc = vi.fn(async (name: string) => {
+      if (name !== "submit_private_feedback_reward") {
+        return { data: null, error: null };
+      }
+      feedbackAttempts += 1;
+      return feedbackAttempts === 1
+        ? { data: null, error: { message: "provider detail" } }
+        : { data: "entry-1", error: null };
+    });
+    dependencies.createSupabaseAdminClient.mockReturnValue({ rpc });
+
+    const input = { feedbackId: "feedback-1", rating: 5, comments: "Calm." };
+    await expect(submitPrivateFeedbackForCurrentUser(input)).rejects.toThrow(
+      "helix rewards is temporarily unavailable.",
+    );
+    await expect(submitPrivateFeedbackForCurrentUser(input)).resolves.toEqual({
+      ok: true,
+      pointsAwarded: 300,
+    });
+    expect(
+      rpc.mock.calls.filter(([name]) => name === "submit_private_feedback_reward"),
+    ).toHaveLength(2);
   });
 });
