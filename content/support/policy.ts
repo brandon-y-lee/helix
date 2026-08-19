@@ -13,15 +13,15 @@ export const returnsPolicy = {
   issueReportWindowDays: 7,
   refundProcessingWindow: "1 to 2 weeks after the approved return is received and inspected",
   condition:
-    "Items should be unopened, unused, and returned with their original packaging unless the issue is an approved damaged, missing, or incorrect item claim.",
+    "Eligible items would need to be unopened, unused, and in their original packaging unless a future Item Claim process approved another condition.",
 };
 
 export const supportPolicy = {
   contactIntakeConfigured: false,
   contactStatus:
-    "Mei Pelle has not published a verified public support destination yet.",
+    "No verified public Support Channel has been published for helix.",
   privacyRequestRoute:
-    "Use the Contact page to review request categories while a verified privacy intake channel is finalized.",
+    "Use the Contact page to prepare Privacy Request details. The page cannot submit or store a request while Support Intake is unavailable.",
 };
 
 export function qualifiesForFreeStandardShipping(subtotalCents: unknown): boolean {

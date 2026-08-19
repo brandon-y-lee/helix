@@ -5,21 +5,14 @@ import {
   contactIntakeStatus,
   contactPreparationGroups,
 } from "@/content/support/contact";
+import { createPublicSiteMetadata } from "@/lib/public-site-metadata";
 
-export const metadata: Metadata = {
-  title: "Contact | Mei Pelle",
+export const metadata: Metadata = createPublicSiteMetadata({
+  title: "Contact | helix",
   description:
-    "Contact routing for Mei Pelle product, System, account, cart, accessibility, privacy, partnership, and general inquiries.",
-  alternates: { canonical: "/contact" },
-  openGraph: {
-    title: "Contact | Mei Pelle",
-    description:
-      "Contact routing for Mei Pelle product, System, account, cart, accessibility, privacy, partnership, and general inquiries.",
-    url: "/contact",
-    siteName: "Mei Pelle",
-    type: "website",
-  },
-};
+    "Current Support Intake status and preparation guidance for helix product, account, accessibility, privacy, partnership, and general inquiries.",
+  canonical: "/contact",
+});
 
 export default function ContactPage() {
   return (
@@ -29,9 +22,9 @@ export default function ContactPage() {
           <p className="eyebrow">Support</p>
           <h1>CONTACT</h1>
           <p>
-            Route product, routine, account, cart, accessibility, privacy, and
-            partnership questions without sending unsupported order or payment
-            details.
+            Prepare Product, Routine, Account, Cart, Accessibility Feedback,
+            Privacy Request, and partnership questions while Support Intake is
+            unavailable.
           </p>
         </div>
         <aside>

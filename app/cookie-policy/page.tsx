@@ -1,19 +1,13 @@
 import type { Metadata } from "next";
 import { LegalDocumentLayout } from "@/components/content/LegalDocumentLayout";
 import { cookieCategories, cookiePolicy } from "@/content/legal/cookies";
+import { createPublicSiteMetadata } from "@/lib/public-site-metadata";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = createPublicSiteMetadata({
   title: cookiePolicy.metadataTitle,
   description: cookiePolicy.description,
-  alternates: { canonical: cookiePolicy.canonical },
-  openGraph: {
-    title: cookiePolicy.metadataTitle,
-    description: cookiePolicy.description,
-    url: cookiePolicy.canonical,
-    siteName: "Mei Pelle",
-    type: "website",
-  },
-};
+  canonical: cookiePolicy.canonical,
+});
 
 export default function CookiePolicyPage() {
   return (

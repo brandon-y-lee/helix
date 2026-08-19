@@ -1,4 +1,10 @@
 import type { LegalDocument } from "./types";
+import {
+  COOKIE_ACKNOWLEDGEMENT_COOKIE,
+  GUEST_CART_COOKIE,
+  PENDING_CHECKOUT_COOKIE,
+  REFERRAL_COOKIE,
+} from "@/lib/customer-state-identifiers";
 
 export type CookieCategory = {
   category: string;
@@ -14,11 +20,13 @@ export const cookieCategories: CookieCategory[] = [
     active: true,
     examples: [
       "Supabase authentication cookies",
-      "mei_pelle_guest_cart",
-      "mei_pelle_cookie_preferences",
+      GUEST_CART_COOKIE,
+      PENDING_CHECKOUT_COOKIE,
+      REFERRAL_COOKIE,
+      COOKIE_ACKNOWLEDGEMENT_COOKIE,
     ],
     purpose:
-      "Keep users signed in, preserve cart identity, merge carts after sign-in, and remember the essential-cookie acknowledgement.",
+      "Keep Customers signed in, preserve Cart and referral state, track a pending sandbox Checkout, and remember the required-storage acknowledgement.",
     optional: false,
   },
   {
@@ -26,7 +34,7 @@ export const cookieCategories: CookieCategory[] = [
     active: true,
     examples: ["Stripe Payment Method Messaging Element storage on eligible product pages"],
     purpose:
-      "Let Stripe determine eligibility and render current payment-method information without Mei Pelle calculating or promising installment terms.",
+      "Let Stripe determine eligibility and render current payment-method information without the application deriving or presenting its own installment terms.",
     optional: false,
   },
   {
@@ -47,13 +55,13 @@ export const cookieCategories: CookieCategory[] = [
 
 export const cookiePolicy: LegalDocument = {
   title: "Cookie Policy",
-  metadataTitle: "Cookie Policy | Mei Pelle",
+  metadataTitle: "Cookie Policy | helix",
   description:
-    "Current cookie and browser-storage behavior for the Mei Pelle website.",
+    "Current cookie and browser-storage behavior on the helix Public Site.",
   canonical: "/cookie-policy",
-  status: "Last updated July 23, 2026",
+  status: "Updated August 19, 2026",
   intro:
-    "This policy documents the cookie categories currently reflected in the application code. Optional analytics and advertising cookies are not implemented.",
+    "This factual prelaunch summary documents the Cookie Categories currently reflected in application code. It is not an operative Cookie Policy, and optional analytics and advertising cookies are not implemented.",
   sections: [
     {
       id: "what-cookies-do",
@@ -66,7 +74,7 @@ export const cookiePolicy: LegalDocument = {
       id: "current-categories",
       title: "Current Categories",
       body: [
-        "The current site uses essential cookies for Supabase authentication, server-backed guest carts, and cookie-preference acknowledgement. Stripe may use functional cookies or similar storage when its payment-method messaging loads on eligible product pages. No optional analytics or advertising categories are active.",
+        "The current site uses required storage for Supabase authentication, server-backed guest Carts, pending sandbox Checkout, Referral Codes, and Cookie Acknowledgement. Stripe may use functional cookies or similar storage when its payment-method messaging loads on eligible Product pages. No optional analytics or advertising categories are active.",
       ],
     },
     {
@@ -77,17 +85,17 @@ export const cookiePolicy: LegalDocument = {
       ],
     },
     {
-      id: "preferences",
-      title: "Cookie Preferences",
+      id: "acknowledgement",
+      title: "Cookie Acknowledgement",
       body: [
-        "Cookie Preferences documents the required account, cart, and payment-messaging storage currently in use. Optional analytics and advertising categories are inactive, so there are no optional toggles to save.",
+        "The Cookie notice records that a Visitor was shown the current required and functional storage disclosure. It does not record agreement to optional storage and does not imply that optional toggles are available.",
       ],
     },
     {
       id: "future",
       title: "Future Changes",
       body: [
-        "If analytics, advertising, region preferences, or other optional storage are added, this policy and the Cookie Preferences control should be updated before those tools load.",
+        "If analytics, advertising, region choices, or other optional storage are added, this page and a genuine Cookie Preference control must be updated before those tools load.",
       ],
     },
   ],
