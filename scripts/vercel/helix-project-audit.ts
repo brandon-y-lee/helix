@@ -1,12 +1,17 @@
 export type VercelHelixAuditConfig = Readonly<{
   token: string;
-  projectId: string;
   teamId: string | null;
-  expectedProjectName: string;
-  expectedRepository: string;
-  expectedDomain: string;
-  expectedBranch: string;
 }>;
+
+export const APPROVED_VERCEL_PROJECT_ID = "prj_N9nyPL9SixJHOROIovS8PDQ9aKny";
+const EXPECTED_PROJECT_NAME = "helix";
+const EXPECTED_REPOSITORY = "brandon-y-lee/helix";
+const EXPECTED_DOMAIN = "helixskin.vercel.app";
+const EXPECTED_BRANCH = "dev";
+const FORBIDDEN_REMOTE_ENVIRONMENT_KEYS = new Set([
+  "HELIX_VERIFICATION_ADAPTER",
+  "HELIX_VERIFICATION_BASE_URL",
+]);
 
 export type VercelHelixAuditReport = Readonly<{
   ok: boolean;
@@ -57,11 +62,9 @@ export function loadVercelHelixAuditConfig(
   env: NodeJS.ProcessEnv,
 ): VercelHelixAuditConfig {
   const token = env.VERCEL_ACCESS_TOKEN?.trim() || env.VERCEL_TOKEN?.trim();
-  const projectId = env.VERCEL_PROJECT_ID?.trim();
   const teamId = env.VERCEL_ORG_ID?.trim() || env.VERCEL_TEAM_ID?.trim();
   const missing = [
     ["VERCEL_ACCESS_TOKEN or VERCEL_TOKEN", token],
-    ["VERCEL_PROJECT_ID", projectId],
   ].filter(([, value]) => !value).map(([name]) => name);
 
   if (missing.length > 0) {
@@ -70,14 +73,7 @@ export function loadVercelHelixAuditConfig(
 
   return {
     token: token!,
-    projectId: projectId!,
     teamId: teamId || null,
-    expectedProjectName: env.VERCEL_EXPECTED_PROJECT_NAME?.trim() || "helix",
-    expectedRepository:
-      env.VERCEL_EXPECTED_REPOSITORY?.trim() || "brandon-y-lee/helix",
-    expectedDomain:
-      env.VERCEL_EXPECTED_DOMAIN?.trim() || "helixskin.vercel.app",
-    expectedBranch: env.VERCEL_EXPECTED_BRANCH?.trim() || "dev",
   };
 }
 
@@ -101,7 +97,7 @@ export async function runVercelHelixAudit(
   config: VercelHelixAuditConfig,
   fetchImpl: typeof fetch = fetch,
 ): Promise<VercelHelixAuditReport> {
-  const projectPath = encodeURIComponent(config.projectId);
+  const projectPath = encodeURIComponent(APPROVED_VERCEL_PROJECT_ID);
   const query = config.teamId
     ? `?teamId=${encodeURIComponent(config.teamId)}`
     : "";
@@ -128,11 +124,11 @@ export async function runVercelHelixAudit(
   const repository = repositoryFromProject(project);
   const domains = asArray(domainResponse.domains).map(asRecord);
   const canonicalDomain = domains.find(
-    (candidate) => asString(candidate.name) === config.expectedDomain,
+    (candidate) => asString(candidate.name) === EXPECTED_DOMAIN,
   );
   const domain = canonicalDomain
     ? {
-        name: config.expectedDomain,
+        name: EXPECTED_DOMAIN,
         gitBranch: asString(canonicalDomain.gitBranch),
         verified:
           canonicalDomain.verified === true ||
@@ -149,11 +145,11 @@ export async function runVercelHelixAudit(
   ].sort();
   const findings: string[] = [];
 
-  if (projectId !== config.projectId) findings.push("project-id-mismatch");
-  if (projectName !== config.expectedProjectName) findings.push("project-name-mismatch");
-  if (repository !== config.expectedRepository) findings.push("repository-link-mismatch");
+  if (projectId !== APPROVED_VERCEL_PROJECT_ID) findings.push("project-id-mismatch");
+  if (projectName !== EXPECTED_PROJECT_NAME) findings.push("project-name-mismatch");
+  if (repository !== EXPECTED_REPOSITORY) findings.push("repository-link-mismatch");
   if (!domain) findings.push("canonical-domain-missing");
-  if (domain && domain.gitBranch !== config.expectedBranch) {
+  if (domain && domain.gitBranch !== EXPECTED_BRANCH) {
     findings.push("canonical-domain-branch-mismatch");
   }
   if (domain && !domain.verified) findings.push("canonical-domain-unverified");
@@ -165,6 +161,9 @@ export async function runVercelHelixAudit(
     ...environmentKeys,
   ].filter((value): value is string => value !== null && containsRetiredIdentity(value));
   if (retiredMetadata.length > 0) findings.push("retired-identity-in-active-metadata");
+  if (environmentKeys.some((key) => FORBIDDEN_REMOTE_ENVIRONMENT_KEYS.has(key))) {
+    findings.push("verification-adapter-in-remote-environment");
+  }
 
   return {
     ok: findings.length === 0,

@@ -6,12 +6,7 @@ import {
 
 const config = {
   token: "secret-token",
-  projectId: "prj_helix",
   teamId: "team_helix",
-  expectedProjectName: "helix",
-  expectedRepository: "brandon-y-lee/helix",
-  expectedDomain: "helixskin.vercel.app",
-  expectedBranch: "dev",
 } as const;
 
 function response(body: unknown): Response {
@@ -24,7 +19,7 @@ function response(body: unknown): Response {
 describe("Vercel Helix project audit", () => {
   it("requires explicit credentials and project authority", () => {
     expect(() => loadVercelHelixAuditConfig({} as NodeJS.ProcessEnv)).toThrow(
-      "VERCEL_ACCESS_TOKEN or VERCEL_TOKEN, VERCEL_PROJECT_ID",
+      "VERCEL_ACCESS_TOKEN or VERCEL_TOKEN",
     );
   });
 
@@ -32,7 +27,7 @@ describe("Vercel Helix project audit", () => {
     const fetchImpl = vi.fn<typeof fetch>()
       .mockResolvedValueOnce(
         response({
-          id: "prj_helix",
+          id: "prj_N9nyPL9SixJHOROIovS8PDQ9aKny",
           name: "helix",
           link: { org: "brandon-y-lee", repo: "helix" },
         }),
@@ -62,7 +57,7 @@ describe("Vercel Helix project audit", () => {
     expect(report).toEqual({
       ok: true,
       project: {
-        id: "prj_helix",
+        id: "prj_N9nyPL9SixJHOROIovS8PDQ9aKny",
         name: "helix",
         repository: "brandon-y-lee/helix",
       },
@@ -105,7 +100,12 @@ describe("Vercel Helix project audit", () => {
         }),
       )
       .mockResolvedValueOnce(
-        response({ envs: [{ key: formerEnvironmentKey, value: "do-not-report" }] }),
+        response({
+          envs: [
+            { key: formerEnvironmentKey, value: "do-not-report" },
+            { key: "HELIX_VERIFICATION_ADAPTER", value: "do-not-report" },
+          ],
+        }),
       );
 
     const report = await runVercelHelixAudit(config, fetchImpl);
@@ -118,6 +118,7 @@ describe("Vercel Helix project audit", () => {
       "canonical-domain-branch-mismatch",
       "canonical-domain-unverified",
       "retired-identity-in-active-metadata",
+      "verification-adapter-in-remote-environment",
     ]);
     expect(JSON.stringify(report)).not.toContain("do-not-report");
   });

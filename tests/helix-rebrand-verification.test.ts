@@ -182,7 +182,7 @@ describe("Helix Rebrand Verification", () => {
       expect.arrayContaining([
         "verify:production",
         "verify:product-media",
-        "product:search:rebrand:verify",
+        "product:search:verify",
         "catalog:webhooks:verify",
         "stripe:sandbox:verify",
         "github:workflow:verify",

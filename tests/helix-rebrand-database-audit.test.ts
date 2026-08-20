@@ -87,6 +87,7 @@ describe("Helix database rebrand audit", () => {
     expect(HELIX_DATABASE_AUDIT_SQL).toContain("to_jsonb(audited_row) - array");
     expect(HELIX_DATABASE_AUDIT_SQL).toContain("$1");
     expect(HELIX_DATABASE_AUDIT_SQL).toContain("$2");
+    expect(HELIX_DATABASE_AUDIT_SQL).not.toContain("[ _-]+");
     expect(HELIX_DATABASE_AUDIT_SQL).not.toContain("select *");
   });
 });

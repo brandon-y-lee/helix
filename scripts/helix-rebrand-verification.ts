@@ -140,7 +140,7 @@ export const HELIX_REBRAND_CHECKS = [
     label: "Product Search",
     kind: "command",
     scope: "remote",
-    args: ["product:search:rebrand:verify"],
+    args: ["product:search:verify"],
   },
   {
     category: "renamed-resources",

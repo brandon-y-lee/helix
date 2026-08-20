@@ -293,7 +293,7 @@ export type HelixDatabaseAuditReport = Readonly<{
 
 type Fetch = typeof fetch;
 
-const FORMER_BRAND_DATABASE_PATTERN = ["mei", "pelle"].join("[ _-]+");
+const FORMER_BRAND_DATABASE_PATTERN = ["mei", "pelle"].join("[ _-]*");
 const LEGACY_REWARDS_DATABASE_PATTERN = ["loyal", "ty"].join("");
 
 function requiredEnv(env: NodeJS.ProcessEnv, name: string): string {

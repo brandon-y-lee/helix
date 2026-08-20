@@ -11,7 +11,12 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default function AdminVerificationPage() {
-  if (process.env.HELIX_VERIFICATION_ADAPTER !== "1") notFound();
+  if (
+    process.env.VERCEL === "1" ||
+    process.env.HELIX_VERIFICATION_ADAPTER !== "1"
+  ) {
+    notFound();
+  }
 
   return (
     <AdminShell accountLabel="Verification account" modules={getAdminModules()}>

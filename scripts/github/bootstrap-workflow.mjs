@@ -58,15 +58,16 @@ function runGit(args, options = {}) {
 function parseArgs(argv) {
   const [mode, ...rest] = argv;
   if (mode !== "plan" && mode !== "verify" && mode !== "apply") {
-    fail("usage: bootstrap-workflow.mjs <plan|verify|apply> --repo <owner/repo> [--confirm-repo <owner/repo> --confirm-dev-sha <sha> --confirm-ci-sha <sha>]");
+    fail("usage: bootstrap-workflow.mjs <plan|verify|apply> --repo <owner/repo> [--candidate-ref <ref>] [--confirm-repo <owner/repo> --confirm-dev-sha <sha> --confirm-ci-sha <sha>]");
   }
 
-  const parsed = { mode, repo: "", confirmRepo: "", confirmDevSha: "", confirmCiSha: "" };
+  const parsed = { mode, repo: "", candidateRef: "", confirmRepo: "", confirmDevSha: "", confirmCiSha: "" };
   for (let index = 0; index < rest.length; index += 1) {
     const flag = rest[index];
     const value = rest[index + 1];
     if (!value || !flag.startsWith("--")) fail(`missing value for '${flag}'`);
     if (flag === "--repo") parsed.repo = value;
+    else if (flag === "--candidate-ref") parsed.candidateRef = value;
     else if (flag === "--confirm-repo") parsed.confirmRepo = value;
     else if (flag === "--confirm-dev-sha") parsed.confirmDevSha = value;
     else if (flag === "--confirm-ci-sha") parsed.confirmCiSha = value;
@@ -80,6 +81,9 @@ function parseArgs(argv) {
   }
   if (parsed.mode === "apply" && parsed.confirmRepo !== parsed.repo) {
     fail(`apply requires --confirm-repo ${parsed.repo}`);
+  }
+  if (parsed.mode === "apply" && parsed.candidateRef) {
+    fail("apply does not accept --candidate-ref");
   }
   return parsed;
 }
@@ -184,7 +188,19 @@ function protectionMatches(observed, desired) {
   );
 }
 
-function collectPlan(repo) {
+function protectionSatisfiesCandidateVerification(observed) {
+  if (!observed) return false;
+  const contexts = observed.required_status_checks?.contexts ?? [];
+  return (
+    contexts.includes("ci") &&
+    observed.required_pull_request_reviews?.required_approving_review_count === 0 &&
+    enabled(observed.allow_force_pushes) === false &&
+    enabled(observed.allow_deletions) === false &&
+    enabled(observed.required_conversation_resolution) === true
+  );
+}
+
+function collectPlan(repo, candidateRef = "") {
   runGh(["auth", "status"]);
   const repository = parseJson(
     runGh([
@@ -219,7 +235,7 @@ function collectPlan(repo) {
     );
   }
 
-  const localDevSha = runGit(["rev-parse", "dev"]).stdout.trim();
+  const localDevSha = runGit(["rev-parse", candidateRef || "dev"]).stdout.trim();
   const remoteBranches = readRemoteBranches();
   const remoteMainSha = remoteBranches.get("main");
   if (!remoteMainSha) throw new Error("remote branch 'main' does not exist");
@@ -302,7 +318,7 @@ function collectPlan(repo) {
     });
   }
 
-  if (remoteDevSha !== localDevSha) {
+  if (!candidateRef && remoteDevSha !== localDevSha) {
     actions.push({
       description: `${remoteDevSha ? "update" : "create"} remote dev at ${localDevSha}`,
       apply: () => {
@@ -325,7 +341,10 @@ function collectPlan(repo) {
   for (const branch of ["dev", "main"]) {
     const desired = desiredProtection();
     const observed = readProtection(repo, branch);
-    if (!protectionMatches(observed, desired)) {
+    const protectionVerified = candidateRef
+      ? protectionSatisfiesCandidateVerification(observed)
+      : protectionMatches(observed, desired);
+    if (!protectionVerified) {
       actions.push({
         description: `protect ${branch}`,
         apply: () => {
@@ -354,7 +373,7 @@ function main() {
   const options = parseArgs(process.argv.slice(2));
   let plan;
   try {
-    plan = collectPlan(options.repo);
+    plan = collectPlan(options.repo, options.candidateRef);
   } catch (error) {
     fail(error instanceof Error ? error.message : String(error));
   }
