@@ -49,7 +49,7 @@ An eligible Ticket is open, unblocked, unassigned, `type:ticket`, and `ready-for
 4. Do not synchronize for an ordinary sibling advance. Synchronization is allowed only for a merge conflict, newly approved blocker, consumed-interface break, or combined-test failure. Merge the recorded Spec Branch additively and include exactly one `Ticket-Sync-Reason` trailer: `merge-conflict`, `newly-approved-blocker`, `consumed-interface`, or `combined-test`. Never rebase, force-push, cherry-pick siblings, merge `dev` directly, or silently retarget.
 5. Run `prepare`, then Ticket Review on Standards and Spec against the immutable Ticket Snapshot. Repeat affected checks and delta review after justified synchronization.
 6. Replace `workflow:in-progress` with `workflow:review`, push, and open a ready Ticket PR into the recorded Spec Branch.
-7. Require `ticket-gate`: one frozen install, lint, typecheck, and complete Vitest suite. It has no production build, browser run, Windows lane, provider secrets, preview wait, or remote mutation.
+7. Require `ticket-gate`: one frozen install, lint, typecheck, and complete Vitest suite. It has no production build, browser run, provider secrets, preview wait, or remote mutation.
 8. After Ticket Review and `ticket-gate` pass, squash-merge into the Spec Branch, record bounded evidence, close the Ticket, and run target-aware cleanup.
 
 In short: squash-merge Ticket PRs into the Spec Branch; never merge them directly into `dev`.
