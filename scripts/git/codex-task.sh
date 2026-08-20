@@ -453,8 +453,8 @@ prepare_task() {
   review_target=dev
   comparison_base=dev
   snapshot_target=0
-  if git -C "$task_repository" symbolic-ref -q "$task_review_target_ref" >/dev/null 2>&1; then
-    target_remote_ref=$(git -C "$task_repository" symbolic-ref "$task_review_target_ref")
+  target_remote_ref=$(git -C "$task_repository" symbolic-ref -q "$task_review_target_ref" 2>/dev/null || true)
+  if [ -n "$target_remote_ref" ]; then
     review_target=${target_remote_ref#refs/remotes/origin/}
     [ "$review_target" != "$target_remote_ref" ] ||
       fail "recorded Ticket target is malformed; preserve the branch and obtain recovery direction"
@@ -467,6 +467,8 @@ prepare_task() {
     comparison_base=$recorded_base
     review_base=$recorded_base
     snapshot_target=1
+  elif git -C "$task_repository" show-ref --verify --quiet "$task_review_target_ref"; then
+    fail "recorded Ticket target is not symbolic; preserve the branch and obtain recovery direction"
   else
     if ! git -C "$task_repository" merge-base --is-ancestor dev HEAD; then
       fail "dev advanced; merge dev into '$task_branch', reverify, and retry"
@@ -514,13 +516,15 @@ cleanup_task() {
   require_clean_worktree "$task_repository"
 
   cleanup_target=dev
-  if git -C "$task_repository" symbolic-ref -q "$task_review_target_ref" >/dev/null 2>&1; then
-    cleanup_target_ref=$(git -C "$task_repository" symbolic-ref "$task_review_target_ref")
+  cleanup_target_ref=$(git -C "$task_repository" symbolic-ref -q "$task_review_target_ref" 2>/dev/null || true)
+  if [ -n "$cleanup_target_ref" ]; then
     cleanup_target=${cleanup_target_ref#refs/remotes/origin/}
     [ "$cleanup_target" != "$cleanup_target_ref" ] ||
       fail "recorded cleanup target is malformed; preserve the task state"
     case "$cleanup_target" in codex/spec-*) ;; *) fail "recorded cleanup target is not a canonical Spec Branch; preserve the task state" ;; esac
     classify_spec_slug "${cleanup_target#codex/spec-}"
+  elif git -C "$task_repository" show-ref --verify --quiet "$task_review_target_ref"; then
+    fail "recorded cleanup target is not symbolic; preserve the task state"
   fi
 
   gh_bin=${GH_BIN:-gh}

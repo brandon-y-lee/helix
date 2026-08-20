@@ -732,6 +732,17 @@ describe("Codex workflow task helper", () => {
       expect(prepared.stderr).toContain(
         "recorded Ticket target is not a canonical Spec Branch",
       );
+
+      expectSuccess(git(
+        root,
+        "update-ref",
+        "--no-deref",
+        "refs/codex/review-target/123-checkout-state",
+        git(worktree!, "rev-parse", "HEAD").stdout.trim(),
+      ));
+      const directTarget = run(taskHelper, ["prepare", worktree!], root);
+      expect(directTarget.status).not.toBe(0);
+      expect(directTarget.stderr).toContain("recorded Ticket target is not symbolic");
     } finally {
       cleanupFixture(tempRoot);
     }
