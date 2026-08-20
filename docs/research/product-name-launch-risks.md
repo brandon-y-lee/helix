@@ -1,6 +1,6 @@
 # Product Name Launch Risks
 
-**Research date:** 2026-08-10  
+**Research date:** 2026-08-10<br>
 **Decision served:** preserve the final, user-locked Product Display Names and the launch gates that remain after the broader naming exploration was retired.
 
 ## Authority and limits
