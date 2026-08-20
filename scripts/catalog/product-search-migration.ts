@@ -281,6 +281,9 @@ export function assessProductSearchMigration(
   if (!inventory.apiKeys.configuredPublicKeyVerified) {
     blockers.push("configured public Product Search key could not read helix_products");
   }
+  if (inventory.apiKeys.status !== "all-keys-enumerated") {
+    blockers.push("all Algolia API keys must be inventoried");
+  }
   for (const key of inventory.apiKeys.keys ?? []) {
     if (
       key.indexes.some(

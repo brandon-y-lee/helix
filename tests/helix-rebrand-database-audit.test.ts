@@ -75,6 +75,7 @@ describe("Helix database rebrand audit", () => {
     expect(HELIX_DATABASE_AUDIT_SQL).toContain("pg_get_triggerdef");
     expect(HELIX_DATABASE_AUDIT_SQL).toContain("pg_get_constraintdef");
     expect(HELIX_DATABASE_AUDIT_SQL).toContain("pg_get_indexdef");
+    expect(HELIX_DATABASE_AUDIT_SQL).toContain("pg_get_viewdef");
     expect(HELIX_DATABASE_AUDIT_SQL).toContain("pg_get_expr(default_record.adbin");
     expect(HELIX_DATABASE_AUDIT_SQL).toContain("enum_record.enumlabel");
     expect(HELIX_DATABASE_AUDIT_SQL).toContain("pg_catalog.col_description");
@@ -82,6 +83,8 @@ describe("Helix database rebrand audit", () => {
     expect(HELIX_DATABASE_AUDIT_SQL).toContain("pg_catalog.pg_policy");
     expect(HELIX_DATABASE_AUDIT_SQL).toContain("query_to_xml");
     expect(HELIX_DATABASE_AUDIT_SQL).toContain("storage");
+    expect(HELIX_DATABASE_AUDIT_SQL).toContain("relation.relname <> 'users'");
+    expect(HELIX_DATABASE_AUDIT_SQL).toContain("to_jsonb(audited_row) - array");
     expect(HELIX_DATABASE_AUDIT_SQL).toContain("$1");
     expect(HELIX_DATABASE_AUDIT_SQL).toContain("$2");
     expect(HELIX_DATABASE_AUDIT_SQL).not.toContain("select *");

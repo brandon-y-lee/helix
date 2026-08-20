@@ -26,6 +26,19 @@ with object_findings as (
   union
 
   select
+    'view-definition',
+    pg_catalog.format('%I.%I', namespace.nspname, relation.relname),
+    1::bigint
+  from pg_catalog.pg_class as relation
+  join pg_catalog.pg_namespace as namespace on namespace.oid = relation.relnamespace
+  where namespace.nspname in ('public', 'auth', 'storage')
+    and relation.relkind in ('v', 'm')
+    and pg_catalog.pg_get_viewdef(relation.oid, true)
+      ~* ('(' || $1 || ')|(' || $2 || ')')
+
+  union
+
+  select
     'column-name',
     pg_catalog.format('%I.%I.%I', namespace.nspname, relation.relname, attribute.attname),
     1::bigint
@@ -202,9 +215,10 @@ audited_tables as (
   select namespace.nspname as schema_name, relation.relname as table_name
   from pg_catalog.pg_class as relation
   join pg_catalog.pg_namespace as namespace on namespace.oid = relation.relnamespace
-  where namespace.nspname in ('public', 'storage')
+  where namespace.nspname in ('public', 'storage', 'auth')
     and relation.relkind in ('r', 'p')
     and not (namespace.nspname = 'storage' and relation.relname <> 'buckets')
+    and not (namespace.nspname = 'auth' and relation.relname <> 'users')
 ),
 current_data_counts as (
   select
@@ -216,9 +230,17 @@ current_data_counts as (
           '/table/row/matches/text()',
           pg_catalog.query_to_xml(
             pg_catalog.format(
-              'select count(1)::bigint as matches from %I.%I as audited_row where to_jsonb(audited_row)::text ~* %L',
+              'select count(1)::bigint as matches from %I.%I as audited_row where %s ~* %L',
               tables.schema_name,
               tables.table_name,
+              case
+                when tables.schema_name = 'auth' and tables.table_name = 'users' then
+                  -- Customer-controlled contact details are private identities, not
+                  -- application-managed brand compatibility. Audit the remaining
+                  -- Auth row, including active provider and app metadata.
+                  '(to_jsonb(audited_row) - array[''email'', ''email_change'', ''phone'', ''phone_change'', ''encrypted_password'', ''confirmation_token'', ''recovery_token'', ''email_change_token_new'', ''email_change_token_current'', ''phone_change_token'', ''reauthentication_token''])::text'
+                else 'to_jsonb(audited_row)::text'
+              end,
               '(' || $1 || ')|(' || $2 || ')'
             ),
             false,

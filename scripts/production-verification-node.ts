@@ -815,7 +815,10 @@ export async function createNodeProductionVerificationAdapters(
         args: [nextCli, "build"],
         command: process.execPath,
         cwd,
-        env,
+        env: {
+          ...env,
+          HELIX_VERIFICATION_ADAPTER: "1",
+        },
         label: "Production build",
         signal,
       });
@@ -853,7 +856,10 @@ export async function createNodeProductionVerificationAdapters(
         args: [nextCli, "start", "--hostname", host, "--port", String(port)],
         command: process.execPath,
         cwd,
-        env,
+        env: {
+          ...env,
+          HELIX_VERIFICATION_ADAPTER: "1",
+        },
       }),
     waitForBuildIdentity: waitForExpectedBuild,
     runBrowserTests: ({ baseURL, signal }) =>

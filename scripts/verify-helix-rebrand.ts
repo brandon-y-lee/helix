@@ -76,13 +76,32 @@ async function loadAuditedFiles(cwd: string): Promise<AuditedFile[]> {
   return files.filter((file): file is AuditedFile => file !== null);
 }
 
+async function loadHistoricalMigrationPaths(cwd: string): Promise<ReadonlySet<string>> {
+  const listed = await runCommand(
+    "git",
+    ["ls-tree", "-r", "--name-only", "dev", "--", "supabase/migrations"],
+    cwd,
+    "pipe",
+  );
+  if (listed.code !== 0) {
+    throw new Error("Unable to enumerate immutable migration history from dev.");
+  }
+  return new Set([
+    ...listed.stdout.split("\n").filter(Boolean),
+    "supabase/migrations/20260819233842_complete_helix_rebrand_database_audit.sql",
+  ]);
+}
+
 async function executeCheck(
   check: HelixRebrandExecutableCheck,
   cwd: string,
 ): Promise<void> {
   console.log(`\n[${check.category}] ${check.label}`);
   if (check.kind === "static-audit") {
-    const findings = auditActiveLegacyNames(await loadAuditedFiles(cwd));
+    const findings = auditActiveLegacyNames(
+      await loadAuditedFiles(cwd),
+      await loadHistoricalMigrationPaths(cwd),
+    );
     if (findings.length > 0) {
       const detail = findings
         .map(

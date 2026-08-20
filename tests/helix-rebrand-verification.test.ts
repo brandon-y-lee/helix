@@ -13,20 +13,22 @@ describe("Helix Rebrand Verification", () => {
     const formerBrand = ["Mei", "Pelle"].join(" ");
     const formerCookie = ["mei", "pelle", "cart"].join("_");
     const formerProgram = ["loyal", "ty_balance"].join("");
+    const migrationPath =
+      "supabase/migrations/20260819000000_historical_rebrand.sql";
     const findings = auditActiveLegacyNames([
       {
         path: "lib/example.ts",
         content: [formerBrand, formerCookie, formerProgram].join("\n"),
       },
       {
-        path: "supabase/migrations/20260819000000_historical_rebrand.sql",
+        path: migrationPath,
         content: [
           ["Mei", "Pelle"].join("-"),
           ["MEI", "PELLE"].join("_"),
           ["loyal", "ty"].join(""),
         ].join("\n"),
       },
-    ]);
+    ], new Set([migrationPath]));
 
     expect(findings).toEqual([
       {
@@ -44,6 +46,21 @@ describe("Helix Rebrand Verification", () => {
         path: "lib/example.ts",
         variant: "legacy-rewards-language",
       },
+    ]);
+  });
+
+  it("flags concatenated and camel-case former brand identifiers", () => {
+    const concatenated = ["mei", "pelle"].join("");
+    const camelCase = `${["mei", "Pelle"].join("")}Cart`;
+
+    expect(
+      auditActiveLegacyNames([
+        { path: "lib/concatenated.ts", content: concatenated },
+        { path: "lib/camel.ts", content: camelCase },
+      ]),
+    ).toEqual([
+      { line: 1, path: "lib/concatenated.ts", variant: "former-brand" },
+      { line: 1, path: "lib/camel.ts", variant: "former-brand" },
     ]);
   });
 
@@ -75,17 +92,22 @@ describe("Helix Rebrand Verification", () => {
 
   it("allows only the exact immutable ADR and provider-history lines", () => {
     const formerBrand = ["Mei", "Pelle"].join(" ");
-    const operationLines = Array.from({ length: 90 }, () => "current");
-    operationLines[30] = `renamed from ${formerBrand}`;
-    operationLines[31] = `active ${formerBrand}`;
-    operationLines[88] = `historical URL for ${formerBrand}`;
+    const operationLines = [
+      `GitHub repository was renamed in place from \`brandon-y-lee/${["mei", "pelle"].join("-")}\` to`,
+      `active ${formerBrand}`,
+      `\`https://${["mei", "pelle"].join("-")}.vercel.app/api/webhooks/supabase/catalog-search-sync\``,
+    ];
 
     expect(
       auditActiveLegacyNames([
         {
           path:
             "docs/adr/0004-complete-the-helix-rebrand-through-coordinated-identifier-migrations.md",
-          content: ["# title", "", `historical ${formerBrand}`].join("\n"),
+          content: [
+            "# Complete the helix rebrand through coordinated identifier migrations",
+            "",
+            `The helix rebrand will finish without active ${formerBrand} names in application code, tests, configuration, current database objects or data, or remote resources, without application-managed legacy compatibility, and with active Rewards & Referrals identifiers using rewards language instead of ${["loyal", "ty"].join("")} language. Resources that cannot be renamed in place will use a temporary create, copy, switch, verify, and delete sequence; the temporary bridge must be removed before the rebrand is complete. Applied migration files, immutable real audit history, opaque provider-assigned identifiers, and provider-managed redirects remain intact because they are historical or external identity rather than active brand compatibility.`,
+          ].join("\n"),
         },
         {
           path: "docs/operations/helix-public-hostname.md",
@@ -94,7 +116,7 @@ describe("Helix Rebrand Verification", () => {
       ]),
     ).toEqual([
       {
-        line: 32,
+        line: 2,
         path: "docs/operations/helix-public-hostname.md",
         variant: "former-brand",
       },
@@ -160,10 +182,11 @@ describe("Helix Rebrand Verification", () => {
       expect.arrayContaining([
         "verify:production",
         "verify:product-media",
-        "product:search:verify",
+        "product:search:rebrand:verify",
         "catalog:webhooks:verify",
         "stripe:sandbox:verify",
-        "github:workflow:plan",
+        "github:workflow:verify",
+        "vercel:helix:verify",
       ]),
     );
   });

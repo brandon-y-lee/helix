@@ -27,6 +27,9 @@ describe("helix repository and deployment identity", () => {
     expect(manifest.scripts["github:workflow:plan"]).toContain(
       "--repo brandon-y-lee/helix",
     );
+    expect(manifest.scripts["github:workflow:verify"]).toContain(
+      "verify --repo brandon-y-lee/helix",
+    );
     expect(manifest.scripts["github:workflow:apply"]).toContain(
       "--repo brandon-y-lee/helix",
     );

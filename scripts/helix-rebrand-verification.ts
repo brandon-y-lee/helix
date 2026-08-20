@@ -55,16 +55,33 @@ export type HelixRebrandCheckResult = HelixRebrandCheck &
       }
   >;
 
-const APPLIED_MIGRATION_PATH =
-  /^supabase\/migrations\/\d{12,14}_[a-z0-9_]+\.sql$/;
 const FORMER_BRAND_PATTERN = new RegExp(
-  ["mei", "pelle"].join("[\\s_-]+"),
+  ["mei", "pelle"].join("[\\s_-]*"),
   "i",
 );
 const LEGACY_REWARDS_PATTERN = new RegExp(
   ["loyal", "ty"].join(""),
   "i",
 );
+const FORMER_BRAND_NAME = ["Mei", "Pelle"].join(" ");
+const FORMER_REPOSITORY = `brandon-y-lee/${["mei", "pelle"].join("-")}`;
+const FORMER_DEPLOYMENT_HOST = `${["mei", "pelle"].join("-")}.vercel.app`;
+const LEGACY_REWARDS_WORD = ["loyal", "ty"].join("");
+const ALLOWED_HISTORICAL_LINES = new Map<string, ReadonlySet<string>>([
+  [
+    "docs/adr/0004-complete-the-helix-rebrand-through-coordinated-identifier-migrations.md",
+    new Set([
+      `The helix rebrand will finish without active ${FORMER_BRAND_NAME} names in application code, tests, configuration, current database objects or data, or remote resources, without application-managed legacy compatibility, and with active Rewards & Referrals identifiers using rewards language instead of ${LEGACY_REWARDS_WORD} language. Resources that cannot be renamed in place will use a temporary create, copy, switch, verify, and delete sequence; the temporary bridge must be removed before the rebrand is complete. Applied migration files, immutable real audit history, opaque provider-assigned identifiers, and provider-managed redirects remain intact because they are historical or external identity rather than active brand compatibility.`,
+    ]),
+  ],
+  [
+    "docs/operations/helix-public-hostname.md",
+    new Set([
+      `GitHub repository was renamed in place from \`${FORMER_REPOSITORY}\` to`,
+      `\`https://${FORMER_DEPLOYMENT_HOST}/api/webhooks/supabase/catalog-search-sync\``,
+    ]),
+  ],
+]);
 
 export const HELIX_REBRAND_CHECKS = [
   {
@@ -123,7 +140,7 @@ export const HELIX_REBRAND_CHECKS = [
     label: "Product Search",
     kind: "command",
     scope: "remote",
-    args: ["product:search:verify"],
+    args: ["product:search:rebrand:verify"],
   },
   {
     category: "renamed-resources",
@@ -144,7 +161,14 @@ export const HELIX_REBRAND_CHECKS = [
     label: "GitHub workflow and repository",
     kind: "command",
     scope: "remote",
-    args: ["github:workflow:plan"],
+    args: ["github:workflow:verify"],
+  },
+  {
+    category: "renamed-resources",
+    label: "Vercel project, repository link, domain, and environment names",
+    kind: "command",
+    scope: "remote",
+    args: ["vercel:helix:verify"],
   },
   {
     category: "affected-journeys",
@@ -176,24 +200,10 @@ export const HELIX_REBRAND_CHECKS = [
 
 function isAllowedHistoricalLine(
   path: string,
-  lineNumber: number,
   line: string,
   variant: LegacyNameVariant,
 ): boolean {
-  if (
-    path ===
-      "docs/adr/0004-complete-the-helix-rebrand-through-coordinated-identifier-migrations.md" &&
-    lineNumber === 3
-  ) {
-    return true;
-  }
-  if (
-    path === "docs/operations/helix-public-hostname.md" &&
-    ((lineNumber === 31 && variant === "former-brand") ||
-      (lineNumber === 89 && variant === "former-brand"))
-  ) {
-    return true;
-  }
+  if (ALLOWED_HISTORICAL_LINES.get(path)?.has(line)) return true;
   if (!line.startsWith("_Avoid_:")) return false;
   return (
     (path === "docs/domain/brand-platform/CONTEXT.md" &&
@@ -205,11 +215,12 @@ function isAllowedHistoricalLine(
 
 export function auditActiveLegacyNames(
   files: readonly AuditedFile[],
+  historicalMigrationPaths: ReadonlySet<string> = new Set(),
 ): LegacyNameFinding[] {
   const findings: LegacyNameFinding[] = [];
 
   for (const file of files) {
-    if (APPLIED_MIGRATION_PATH.test(file.path)) continue;
+    if (historicalMigrationPaths.has(file.path)) continue;
 
     if (FORMER_BRAND_PATTERN.test(file.path)) {
       findings.push({
@@ -229,7 +240,7 @@ export function auditActiveLegacyNames(
     for (const [index, line] of file.content.split(/\r?\n/).entries()) {
       if (
         FORMER_BRAND_PATTERN.test(line) &&
-        !isAllowedHistoricalLine(file.path, index + 1, line, "former-brand")
+        !isAllowedHistoricalLine(file.path, line, "former-brand")
       ) {
         findings.push({
           path: file.path,
@@ -241,7 +252,6 @@ export function auditActiveLegacyNames(
         LEGACY_REWARDS_PATTERN.test(line) &&
         !isAllowedHistoricalLine(
           file.path,
-          index + 1,
           line,
           "legacy-rewards-language",
         )

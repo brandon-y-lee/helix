@@ -126,7 +126,24 @@ describe("Product Search completion assessment", () => {
       "Recommend inventory is unavailable",
       "configured Algolia keys could not be verified",
       "configured public Product Search key could not read helix_products",
+      "all Algolia API keys must be inventoried",
     ]);
+  });
+
+  it("fails when only configured keys can be verified", () => {
+    const report = assessProductSearchMigration(
+      inventory({
+        apiKeys: {
+          status: "configured-keys-verified",
+          configuredPublicKeyVerified: true,
+          configuredWriteKeyVerified: true,
+        },
+      }),
+      canonicalRecords,
+    );
+
+    expect(report.ok).toBe(false);
+    expect(report.blockers).toContain("all Algolia API keys must be inventoried");
   });
 
   it("fails when any inventoried API key is scoped only to the former index", () => {

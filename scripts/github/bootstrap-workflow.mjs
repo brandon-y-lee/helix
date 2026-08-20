@@ -57,8 +57,8 @@ function runGit(args, options = {}) {
 
 function parseArgs(argv) {
   const [mode, ...rest] = argv;
-  if (mode !== "plan" && mode !== "apply") {
-    fail("usage: bootstrap-workflow.mjs <plan|apply> --repo <owner/repo> [--confirm-repo <owner/repo> --confirm-dev-sha <sha> --confirm-ci-sha <sha>]");
+  if (mode !== "plan" && mode !== "verify" && mode !== "apply") {
+    fail("usage: bootstrap-workflow.mjs <plan|verify|apply> --repo <owner/repo> [--confirm-repo <owner/repo> --confirm-dev-sha <sha> --confirm-ci-sha <sha>]");
   }
 
   const parsed = { mode, repo: "", confirmRepo: "", confirmDevSha: "", confirmCiSha: "" };
@@ -365,6 +365,13 @@ function main() {
 
   if (options.mode === "plan") {
     process.stdout.write("No changes applied.\n");
+    return;
+  }
+  if (options.mode === "verify") {
+    if (plan.actions.length > 0) {
+      fail(`verification found ${plan.actions.length} required change(s)`);
+    }
+    process.stdout.write("GitHub workflow configuration verified.\n");
     return;
   }
 

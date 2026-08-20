@@ -18,6 +18,7 @@ type ViewportOrigin = {
 const PRODUCT_CARD_WARM_GRAY = "rgb(103, 100, 94)";
 const PRODUCT_CARD_TEXT_BLACK = "rgb(0, 0, 0)";
 const PRODUCT_CARD_CREAM = "rgb(255, 253, 248)";
+const formerBrandPattern = new RegExp(["mei", "pelle"].join("[\\s_-]*"), "i");
 
 async function buttonVisual(locator: Locator) {
   return locator.evaluate((element) => {
@@ -434,6 +435,7 @@ test("shop presents the approved Product, collection, sheet, and footer treatmen
     "border-top-width",
     "0px",
   );
+  await expect(page.locator("body")).not.toContainText(formerBrandPattern);
 
   await page.setViewportSize({ width: 390, height: 844 });
   const [mobileHeroGeometry, mobileHeadingGeometry] = await Promise.all([
