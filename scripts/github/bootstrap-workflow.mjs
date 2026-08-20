@@ -188,18 +188,6 @@ function protectionMatches(observed, desired) {
   );
 }
 
-function protectionSatisfiesCandidateVerification(observed) {
-  if (!observed) return false;
-  const contexts = observed.required_status_checks?.contexts ?? [];
-  return (
-    contexts.includes("ci") &&
-    observed.required_pull_request_reviews?.required_approving_review_count === 0 &&
-    enabled(observed.allow_force_pushes) === false &&
-    enabled(observed.allow_deletions) === false &&
-    enabled(observed.required_conversation_resolution) === true
-  );
-}
-
 function collectPlan(repo, candidateRef = "") {
   runGh(["auth", "status"]);
   const repository = parseJson(
@@ -341,9 +329,7 @@ function collectPlan(repo, candidateRef = "") {
   for (const branch of ["dev", "main"]) {
     const desired = desiredProtection();
     const observed = readProtection(repo, branch);
-    const protectionVerified = candidateRef
-      ? protectionSatisfiesCandidateVerification(observed)
-      : protectionMatches(observed, desired);
+    const protectionVerified = protectionMatches(observed, desired);
     if (!protectionVerified) {
       actions.push({
         description: `protect ${branch}`,

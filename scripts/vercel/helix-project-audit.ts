@@ -41,8 +41,11 @@ function asString(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
-function asArray(value: unknown): readonly unknown[] {
-  return Array.isArray(value) ? value : [];
+function requiredArray(record: JsonRecord, key: "domains" | "envs"): readonly unknown[] {
+  if (!Array.isArray(record[key])) {
+    throw new Error(`[vercel-audit] Provider response omitted ${key}.`);
+  }
+  return record[key] as readonly unknown[];
 }
 
 function repositoryFromProject(project: JsonRecord): string | null {
@@ -93,6 +96,38 @@ async function readJson(
   return asRecord(await response.json());
 }
 
+async function readAllPages(
+  fetchImpl: typeof fetch,
+  initialUrl: URL,
+  token: string,
+  collectionKey: "domains" | "envs",
+): Promise<readonly unknown[]> {
+  const url = new URL(initialUrl);
+  url.searchParams.set("limit", "100");
+  const entries: unknown[] = [];
+  const cursors = new Set<string>();
+
+  for (let page = 0; page < 100; page += 1) {
+    const response = await readJson(fetchImpl, new URL(url), token);
+    entries.push(...requiredArray(response, collectionKey));
+    const rawNext = asRecord(response.pagination).next;
+    if (rawNext === null || rawNext === undefined || rawNext === "") {
+      return entries;
+    }
+    if (typeof rawNext !== "string" && typeof rawNext !== "number") {
+      throw new Error("[vercel-audit] Provider returned an invalid pagination cursor.");
+    }
+    const next = String(rawNext);
+    if (cursors.has(next)) {
+      throw new Error("[vercel-audit] Provider repeated a pagination cursor.");
+    }
+    cursors.add(next);
+    url.searchParams.set("until", next);
+  }
+
+  throw new Error("[vercel-audit] Provider pagination exceeded 100 pages.");
+}
+
 export async function runVercelHelixAudit(
   config: VercelHelixAuditConfig,
   fetchImpl: typeof fetch = fetch,
@@ -101,28 +136,30 @@ export async function runVercelHelixAudit(
   const query = config.teamId
     ? `?teamId=${encodeURIComponent(config.teamId)}`
     : "";
-  const [project, domainResponse, environmentResponse] = await Promise.all([
+  const [project, domainValues, environmentValues] = await Promise.all([
     readJson(
       fetchImpl,
       new URL(`https://api.vercel.com/v9/projects/${projectPath}${query}`),
       config.token,
     ),
-    readJson(
+    readAllPages(
       fetchImpl,
       new URL(`https://api.vercel.com/v9/projects/${projectPath}/domains${query}`),
       config.token,
+      "domains",
     ),
-    readJson(
+    readAllPages(
       fetchImpl,
       new URL(`https://api.vercel.com/v9/projects/${projectPath}/env${query}`),
       config.token,
+      "envs",
     ),
   ]);
 
   const projectId = asString(project.id);
   const projectName = asString(project.name);
   const repository = repositoryFromProject(project);
-  const domains = asArray(domainResponse.domains).map(asRecord);
+  const domains = domainValues.map(asRecord);
   const canonicalDomain = domains.find(
     (candidate) => asString(candidate.name) === EXPECTED_DOMAIN,
   );
@@ -130,15 +167,12 @@ export async function runVercelHelixAudit(
     ? {
         name: EXPECTED_DOMAIN,
         gitBranch: asString(canonicalDomain.gitBranch),
-        verified:
-          canonicalDomain.verified === true ||
-          (canonicalDomain.verified === undefined &&
-            asArray(canonicalDomain.verification).length === 0),
+        verified: canonicalDomain.verified === true,
       }
     : null;
   const environmentKeys = [
     ...new Set(
-      asArray(environmentResponse.envs)
+      environmentValues
         .map((entry) => asString(asRecord(entry).key))
         .filter((key): key is string => key !== null),
     ),

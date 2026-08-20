@@ -122,4 +122,54 @@ describe("Vercel Helix project audit", () => {
     ]);
     expect(JSON.stringify(report)).not.toContain("do-not-report");
   });
+
+  it("loads every domain and environment page before deciding", async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async (input) => {
+      const url = new URL(String(input));
+      if (url.pathname.endsWith("/domains")) {
+        return url.searchParams.has("until")
+          ? response({
+              domains: [
+                {
+                  name: "helixskin.vercel.app",
+                  gitBranch: "dev",
+                  verified: true,
+                },
+              ],
+              pagination: { next: null },
+            })
+          : response({ domains: [], pagination: { next: 1234 } });
+      }
+      if (url.pathname.endsWith("/env")) {
+        return url.searchParams.has("until")
+          ? response({
+              envs: [{ key: "HELIX_VERIFICATION_BASE_URL", value: "hidden" }],
+              pagination: { next: null },
+            })
+          : response({
+              envs: [{ key: "NEXT_PUBLIC_SITE_URL", value: "hidden" }],
+              pagination: { next: "next-page" },
+            });
+      }
+      return response({
+        id: "prj_N9nyPL9SixJHOROIovS8PDQ9aKny",
+        name: "helix",
+        link: { org: "brandon-y-lee", repo: "helix" },
+      });
+    });
+
+    const report = await runVercelHelixAudit(config, fetchImpl);
+
+    expect(report.environmentKeys).toEqual([
+      "HELIX_VERIFICATION_BASE_URL",
+      "NEXT_PUBLIC_SITE_URL",
+    ]);
+    expect(report.findings).toContain("verification-adapter-in-remote-environment");
+    expect(fetchImpl).toHaveBeenCalledTimes(5);
+    expect(
+      fetchImpl.mock.calls.filter(([input]) =>
+        new URL(String(input)).searchParams.has("until"),
+      ),
+    ).toHaveLength(2);
+  });
 });

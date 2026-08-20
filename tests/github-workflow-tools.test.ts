@@ -1499,6 +1499,43 @@ describe("GitHub workflow bootstrap", () => {
       expect(readFileSync(logPath, "utf8")).not.toContain('"PATCH"');
       expect(readFileSync(logPath, "utf8")).not.toContain('"PUT"');
 
+      writeFileSync(join(root, "candidate.txt"), "candidate\n");
+      expectSuccess(git(root, "add", "candidate.txt"));
+      expectSuccess(git(root, "commit", "-m", "Candidate"));
+      const candidateVerified = bootstrap(
+        root,
+        fakeGh,
+        statePath,
+        logPath,
+        "verify",
+        "--repo",
+        "brandon-y-lee/helix",
+        "--candidate-ref",
+        "HEAD",
+      );
+      expectSuccess(candidateVerified);
+      expect(candidateVerified.stdout).toContain("No changes required.");
+
+      state.protections.dev.required_status_checks.strict = false;
+      state.protections.dev.enforce_admins = false;
+      writeFileSync(statePath, JSON.stringify(state));
+      const candidateProtectionDrift = bootstrap(
+        root,
+        fakeGh,
+        statePath,
+        logPath,
+        "verify",
+        "--repo",
+        "brandon-y-lee/helix",
+        "--candidate-ref",
+        "HEAD",
+      );
+      expect(candidateProtectionDrift.status).not.toBe(0);
+      expect(candidateProtectionDrift.stdout).toContain("protect dev");
+
+      state.protections.dev.required_status_checks.strict = true;
+      state.protections.dev.enforce_admins = true;
+
       state.protections.dev.required_pull_request_reviews.require_code_owner_reviews = true;
       writeFileSync(statePath, JSON.stringify(state));
       const approvalDrift = bootstrap(

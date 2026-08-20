@@ -15,6 +15,7 @@ export type ProductSearchIndexSnapshot = {
 };
 
 export type ProductSearchInventory = {
+  indices: Array<{ name: string }>;
   source: ProductSearchIndexSnapshot | null;
   target: ProductSearchIndexSnapshot | null;
   querySuggestions: Array<{
@@ -261,6 +262,12 @@ function wildcardMatches(pattern: string, value: string): boolean {
   return patternIndex === pattern.length;
 }
 
+function containsRetiredIdentifier(value: string): boolean {
+  const formerBrand = new RegExp(["mei", "pelle"].join("[\\s_-]*"), "i");
+  const retiredRewards = new RegExp(["loyal", "ty"].join(""), "i");
+  return formerBrand.test(value) || retiredRewards.test(value);
+}
+
 export function assessProductSearchMigration(
   inventory: ProductSearchInventory,
   canonicalRecords: ProductSearchRecord[],
@@ -284,7 +291,17 @@ export function assessProductSearchMigration(
   if (inventory.apiKeys.status !== "all-keys-enumerated") {
     blockers.push("all Algolia API keys must be inventoried");
   }
+  for (const index of inventory.indices) {
+    if (containsRetiredIdentifier(index.name)) {
+      blockers.push(`Algolia index ${index.name} contains a retired identifier`);
+    }
+  }
   for (const key of inventory.apiKeys.keys ?? []) {
+    if (key.description && containsRetiredIdentifier(key.description)) {
+      blockers.push(
+        `Algolia API key ${key.identity} description contains a retired identifier`,
+      );
+    }
     if (
       key.indexes.some(
         (restriction) =>
@@ -635,6 +652,7 @@ export class AlgoliaProductSearchControlPlane
         this.readApiKeys(Boolean(targetIndex)),
       ]);
     return {
+      indices: indices.map(({ name }) => ({ name })),
       source,
       target,
       querySuggestions: querySuggestions.configurations,

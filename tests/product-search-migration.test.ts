@@ -23,6 +23,7 @@ function inventory(
   overrides: Partial<ProductSearchInventory> = {},
 ): ProductSearchInventory {
   return {
+    indices: [{ name: "helix_products" }],
     source: null,
     target: {
       name: "helix_products",
@@ -202,6 +203,37 @@ describe("Product Search completion assessment", () => {
     );
     expect(report.blockers).not.toContain(
       "Algolia API key other-key-2 is scoped to the source index",
+    );
+  });
+
+  it("rejects retired identifiers in any index name or API-key description", () => {
+    const retiredCopy = ["mei", "Pelle", "archive"].join("");
+    const retiredDescription = ["loyal", "ty mobile key"].join("");
+    const report = assessProductSearchMigration(
+      inventory({
+        indices: [{ name: "helix_products" }, { name: retiredCopy }],
+        apiKeys: {
+          status: "all-keys-enumerated",
+          configuredPublicKeyVerified: true,
+          configuredWriteKeyVerified: true,
+          keys: [
+            {
+              identity: "other-key-1",
+              acl: ["search"],
+              indexes: ["helix_products"],
+              description: retiredDescription,
+            },
+          ],
+        },
+      }),
+      canonicalRecords,
+    );
+
+    expect(report.blockers).toContain(
+      `Algolia index ${retiredCopy} contains a retired identifier`,
+    );
+    expect(report.blockers).toContain(
+      "Algolia API key other-key-1 description contains a retired identifier",
     );
   });
 
