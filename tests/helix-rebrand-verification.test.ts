@@ -123,6 +123,31 @@ describe("Helix Rebrand Verification", () => {
     ]);
   });
 
+  it("allows verified immutable research only while its full content is unchanged", () => {
+    const formerBrand = ["Mei", "Pelle"].join(" ");
+    const preservedPath = "docs/research/preserved-decision.md";
+    const changedPath = "docs/research/changed-decision.md";
+    const preservedContent = `# Historical research\n\n${formerBrand} launch decision.`;
+    const changedContent = `${preservedContent}\n\nNew active ${formerBrand} instruction.`;
+
+    expect(
+      auditActiveLegacyNames(
+        [
+          { path: preservedPath, content: preservedContent },
+          { path: changedPath, content: changedContent },
+        ],
+        new Set(),
+        new Map([
+          [preservedPath, preservedContent],
+          [changedPath, preservedContent],
+        ]),
+      ),
+    ).toEqual([
+      { line: 3, path: changedPath, variant: "former-brand" },
+      { line: 5, path: changedPath, variant: "former-brand" },
+    ]);
+  });
+
   it("reports each verification category distinctly and continues after failure", async () => {
     const checks = HELIX_REBRAND_VERIFICATION_CATEGORIES.map((category) => ({
       category,

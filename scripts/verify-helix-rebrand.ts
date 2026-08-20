@@ -15,6 +15,25 @@ type CommandOutput = Readonly<{
   stdout: string;
 }>;
 
+const VERIFIED_IMMUTABLE_RESEARCH_BLOBS = new Map([
+  [
+    "docs/research/core-protect-formulation-portfolios.md",
+    "16bf1873ef35b3a45b9415f18cbc64d438af197c",
+  ],
+  [
+    "docs/research/leaders-active-pad-options.md",
+    "0703ee01b9519a8d6408d8f5dd4d3b7386af8ae5",
+  ],
+  [
+    "docs/research/leaders-catalog-evidence.md",
+    "ed5963b30f2191f631059a6212e8accde3fadf1c",
+  ],
+  [
+    "docs/research/product-name-launch-risks.md",
+    "f2bc471411afafd0c445bbd8afbc67b69f6bd499",
+  ],
+] as const);
+
 function runCommand(
   command: string,
   args: readonly string[],
@@ -79,7 +98,7 @@ async function loadAuditedFiles(cwd: string): Promise<AuditedFile[]> {
 async function loadHistoricalMigrationPaths(cwd: string): Promise<ReadonlySet<string>> {
   const listed = await runCommand(
     "git",
-    ["ls-tree", "-r", "--name-only", "dev", "--", "supabase/migrations"],
+    ["ls-tree", "-r", "--name-only", "origin/dev", "--", "supabase/migrations"],
     cwd,
     "pipe",
   );
@@ -92,6 +111,37 @@ async function loadHistoricalMigrationPaths(cwd: string): Promise<ReadonlySet<st
   ]);
 }
 
+async function loadVerifiedHistoricalFiles(
+  cwd: string,
+): Promise<ReadonlyMap<string, string>> {
+  const files = new Map<string, string>();
+  for (const [path, expectedBlob] of VERIFIED_IMMUTABLE_RESEARCH_BLOBS) {
+    const observedBlob = await runCommand(
+      "git",
+      ["rev-parse", `origin/dev:${path}`],
+      cwd,
+      "pipe",
+    );
+    if (
+      observedBlob.code !== 0 ||
+      observedBlob.stdout.trim() !== expectedBlob
+    ) {
+      throw new Error(`Immutable research history changed at ${path}.`);
+    }
+    const historical = await runCommand(
+      "git",
+      ["cat-file", "blob", expectedBlob],
+      cwd,
+      "pipe",
+    );
+    if (historical.code !== 0) {
+      throw new Error(`Unable to verify immutable research history at ${path}.`);
+    }
+    files.set(path, historical.stdout);
+  }
+  return files;
+}
+
 async function executeCheck(
   check: HelixRebrandExecutableCheck,
   cwd: string,
@@ -101,6 +151,7 @@ async function executeCheck(
     const findings = auditActiveLegacyNames(
       await loadAuditedFiles(cwd),
       await loadHistoricalMigrationPaths(cwd),
+      await loadVerifiedHistoricalFiles(cwd),
     );
     if (findings.length > 0) {
       const detail = findings

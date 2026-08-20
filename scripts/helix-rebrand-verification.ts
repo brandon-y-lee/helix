@@ -216,11 +216,17 @@ function isAllowedHistoricalLine(
 export function auditActiveLegacyNames(
   files: readonly AuditedFile[],
   historicalMigrationPaths: ReadonlySet<string> = new Set(),
+  verifiedHistoricalFiles: ReadonlyMap<string, string> = new Map(),
 ): LegacyNameFinding[] {
   const findings: LegacyNameFinding[] = [];
 
   for (const file of files) {
-    if (historicalMigrationPaths.has(file.path)) continue;
+    if (
+      historicalMigrationPaths.has(file.path) ||
+      verifiedHistoricalFiles.get(file.path) === file.content
+    ) {
+      continue;
+    }
 
     if (FORMER_BRAND_PATTERN.test(file.path)) {
       findings.push({
