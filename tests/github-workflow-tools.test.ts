@@ -427,6 +427,9 @@ describe("Spec delivery documentation", () => {
     expect(workflowDocumentation).toContain(
       "main-only `ci` reporter remains until that separate transition",
     );
+    expect(workflowDocumentation).toContain(
+      "restore classic `integration-gate` protection before disabling replacements",
+    );
     expect(workflowDocumentation).not.toContain(
       "Each approved `type:ticket` issue maps to one `codex/<issue-number>-<slug>` branch and one PR targeting `dev`",
     );
@@ -2384,6 +2387,9 @@ describe("GitHub workflow bootstrap", () => {
       expect(planned.stdout).toContain("remove classic dev protection");
       expect(planned.stdout).toContain("delete retired label workflow:integration-active");
       expect(planned.stdout).toContain("Rollback before cleanup");
+      expect(planned.stdout).toContain(
+        "Rollback after cleanup: restore classic integration-gate protection before disabling replacement rules.",
+      );
       expect(planned.stdout).toContain("main transition is deferred");
       expect(planned.stdout).toContain("No changes applied.");
       expect(readFileSync(statePath, "utf8")).toBe(JSON.stringify(state));

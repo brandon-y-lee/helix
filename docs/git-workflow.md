@@ -167,4 +167,4 @@ pnpm github:workflow:apply -- \
   --confirm-github-actions-app-id <audited-id>
 ```
 
-The tool never pushes `dev`. It fails closed on missing authentication, the wrong repository, stale or divergent ancestry, unavailable repository, issue, check, ruleset, protection, or label facts, mismatched confirmations, or cleanup before exact replacement activation. Before cleanup, rollback is deletion of the new rules while classic `ci` remains. After cleanup, rollback restores exact classic `ci` protection before disabling replacements.
+The tool never pushes `dev`. It fails closed on missing authentication, the wrong repository, stale or divergent ancestry, unavailable repository, issue, check, ruleset, protection, or label facts, mismatched confirmations, or cleanup before exact replacement activation. Before cleanup, rollback is deletion of the new rules while classic `ci` remains. After cleanup, rollback must restore classic `integration-gate` protection before disabling replacements.

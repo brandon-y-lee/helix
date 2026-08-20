@@ -475,7 +475,7 @@ function printPlan(repo, plan) {
   if (plan.cleanup.length === 0) process.stdout.write("- no cleanup changes required\n");
   else for (const action of plan.cleanup) process.stdout.write(`- ${action.description}\n`);
   process.stdout.write("Rollback before cleanup: delete the new rulesets while classic ci still protects dev.\n");
-  process.stdout.write("Rollback after cleanup: restore exact classic ci protection before disabling replacement rules.\n");
+  process.stdout.write("Rollback after cleanup: restore classic integration-gate protection before disabling replacement rules.\n");
   process.stdout.write("The main transition is deferred; classic main protection remains unchanged.\n");
 }
 
