@@ -397,6 +397,9 @@ describe("GitHub Actions CI", () => {
       expect(finalJob).toContain('test "$VERIFICATION_RESULT" == \'success\'');
     }
     const mainCompatibility = workflowJob("ci");
+    expect(mainCompatibility).toContain(
+      "name: ${{ github.base_ref == 'main' && 'ci' || 'main-ci-not-applicable' }}",
+    );
     expect(mainCompatibility).toContain("needs: integration-verification");
     expect(mainCompatibility).toContain("github.base_ref == 'main'");
     expect(mainCompatibility).toContain("Report Main Compatibility Gate");

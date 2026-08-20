@@ -124,6 +124,7 @@ jobs:
   # Classic main protection remains deferred and still requires this context.
   # It is not part of the active dev delivery contract.
   ci:
+    name: ${{ github.base_ref == 'main' && 'ci' || 'main-ci-not-applicable' }}
     needs: integration-verification
     if: ${{ always() && github.event_name == 'pull_request' && github.base_ref == 'main' && github.event.pull_request.draft == false }}
     runs-on: ubuntu-latest
