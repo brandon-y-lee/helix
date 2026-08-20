@@ -110,22 +110,97 @@ function cleanupFixture(tempRoot: string): void {
   rmSync(tempRoot, { recursive: true, force: true });
 }
 
+function writeCleanupFakeGh(tempRoot: string): string {
+  const fakeGh = join(tempRoot, "fake-cleanup-gh");
+  writeFileSync(
+    fakeGh,
+    `#!/bin/sh
+if [ -n "\${FAKE_CLEANUP_FAILURE:-}" ]; then
+  printf '%s\\n' "$FAKE_CLEANUP_FAILURE" >&2
+  exit 1
+fi
+printf '%s\\t%s\\t%s\\t%s\\n' \
+  "\${FAKE_PR_STATE:-MERGED}" \
+  "\${FAKE_PR_BASE:-dev}" \
+  "\${FAKE_PR_MERGED_AT:-2026-08-19T12:00:00Z}" \
+  "\${FAKE_PR_HEAD:-missing}"
+`,
+  );
+  chmodSync(fakeGh, 0o755);
+  return fakeGh;
+}
+
+type TaskPullRequest = {
+  number: number;
+  state: "open" | "closed";
+  merged_at: string | null;
+  base: { ref: string };
+  head: { ref: string; sha: string };
+};
+
+function mergedTaskPr(number: number, branch: string, head: string): TaskPullRequest {
+  return {
+    number,
+    state: "closed",
+    merged_at: "2026-08-19T12:00:00Z",
+    base: { ref: "dev" },
+    head: { ref: branch, sha: head },
+  };
+}
+
+function openTaskPr(number: number, branch: string, head: string): TaskPullRequest {
+  return {
+    number,
+    state: "open",
+    merged_at: null,
+    base: { ref: "dev" },
+    head: { ref: branch, sha: head },
+  };
+}
+
+function writeRemoteRaceHook(root: string, tempRoot: string): string {
+  const markerPath = join(tempRoot, "remote-race-triggered");
+  const hook = join(root, ".git", "hooks", "pre-push");
+  writeFileSync(
+    hook,
+    `#!/bin/sh
+if [ ! -f "$RACE_MARKER" ]; then
+  git --git-dir="$RACE_REMOTE" update-ref "$RACE_REF" "$RACE_HEAD" || exit 1
+  printf 'triggered\\n' > "$RACE_MARKER"
+fi
+`,
+  );
+  chmodSync(hook, 0o755);
+  return markerPath;
+}
+
 function writeTaskLifecycleFakeGh(tempRoot: string): string {
   const fakeGh = join(tempRoot, "fake-task-gh.mjs");
   writeFileSync(
     fakeGh,
     `#!/usr/bin/env node
+import { appendFileSync } from "node:fs";
 const args = process.argv.slice(2);
+if (process.env.FAKE_TASK_GH_LOG) {
+  appendFileSync(process.env.FAKE_TASK_GH_LOG, args.join(" ") + "\\n");
+}
 if (process.env.FAKE_TASK_GH_FAILURE) {
   process.stderr.write(process.env.FAKE_TASK_GH_FAILURE + "\\n");
   process.exit(1);
 }
-if (args[0] === "pr" && args[1] === "list") {
-  process.stdout.write(process.env.FAKE_TASK_PRS || "[]");
+if (args[0] !== "api" || !args.includes("--paginate") || !args.includes("--slurp")) {
+  process.stderr.write("GitHub inventory must use complete pagination\\n");
+  process.exit(2);
+}
+const endpoint = args.find((arg) => arg.startsWith("repos/")) || "";
+if (endpoint.includes("/pulls?")) {
+  const records = JSON.parse(process.env.FAKE_TASK_PRS || "[]");
+  process.stdout.write(JSON.stringify([records]));
   process.exit(0);
 }
-if (args[0] === "issue" && args[1] === "list") {
-  process.stdout.write(process.env.FAKE_TASK_ISSUES || "[]");
+if (endpoint.includes("/issues?")) {
+  const records = JSON.parse(process.env.FAKE_TASK_ISSUES || "[]");
+  process.stdout.write(JSON.stringify([records]));
   process.exit(0);
 }
 process.stderr.write("unexpected fake gh call: " + args.join(" ") + "\\n");
@@ -278,12 +353,7 @@ describe("Codex workflow task helper", () => {
       commitTicket(started.worktree!, 123, 45);
       const taskHead = git(started.worktree!, "rev-parse", "HEAD").stdout.trim();
 
-      const fakeGh = join(tempRoot, "fake-gh");
-      writeFileSync(
-        fakeGh,
-        "#!/bin/sh\nprintf '%s\\tdev\\t2026-08-05T12:00:00Z\\t%s\\n' \"${FAKE_PR_STATE:-OPEN}\" \"${FAKE_PR_HEAD:-missing}\"\n",
-      );
-      chmodSync(fakeGh, 0o755);
+      const fakeGh = writeCleanupFakeGh(tempRoot);
 
       const refused = run(taskHelper, ["cleanup", started.worktree!], root, {
         env: { GH_BIN: fakeGh, FAKE_PR_STATE: "OPEN", FAKE_PR_HEAD: taskHead },
@@ -328,12 +398,7 @@ describe("Codex workflow task helper", () => {
       const taskHead = git(started.worktree!, "rev-parse", "HEAD").stdout.trim();
 
       rmSync(join(dirname(started.worktree!), ".helix-codex-task"));
-      const fakeGh = join(tempRoot, "fake-gh");
-      writeFileSync(
-        fakeGh,
-        "#!/bin/sh\nprintf 'MERGED\\tdev\\t2026-08-19T12:00:00Z\\t%s\\n' \"$FAKE_PR_HEAD\"\n",
-      );
-      chmodSync(fakeGh, 0o755);
+      const fakeGh = writeCleanupFakeGh(tempRoot);
 
       const cleaned = run(taskHelper, ["cleanup", started.worktree!], root, {
         env: { GH_BIN: fakeGh, FAKE_PR_HEAD: taskHead },
@@ -362,12 +427,7 @@ describe("Codex workflow task helper", () => {
       const taskHead = git(started.worktree!, "rev-parse", "HEAD").stdout.trim();
 
       rmSync(join(dirname(started.worktree!), ".helix-codex-task"));
-      const fakeGh = join(tempRoot, "fake-gh");
-      writeFileSync(
-        fakeGh,
-        "#!/bin/sh\nprintf 'MERGED\\tdev\\t2026-08-19T12:00:00Z\\t%s\\n' \"$FAKE_PR_HEAD\"\n",
-      );
-      chmodSync(fakeGh, 0o755);
+      const fakeGh = writeCleanupFakeGh(tempRoot);
 
       const cleaned = run(taskHelper, ["cleanup"], started.worktree!, {
         env: { GH_BIN: fakeGh, FAKE_PR_HEAD: taskHead },
@@ -409,6 +469,29 @@ describe("Codex workflow task helper", () => {
     }
   });
 
+  it("loads every GitHub inventory page before classifying cleanup state", () => {
+    const { root, tempRoot } = initialiseRepository();
+    try {
+      const fakeGh = writeTaskLifecycleFakeGh(tempRoot);
+      const logPath = join(tempRoot, "task-github-calls.log");
+      writeFileSync(logPath, "");
+
+      const planned = run(taskHelper, ["reconcile"], root, {
+        env: { GH_BIN: fakeGh, FAKE_TASK_GH_LOG: logPath },
+      });
+
+      expectSuccess(planned);
+      const calls = readFileSync(logPath, "utf8").trim().split("\n");
+      expect(calls).toHaveLength(2);
+      expect(calls.every((call) => call.includes("--paginate"))).toBe(true);
+      expect(calls.every((call) => call.includes("--slurp"))).toBe(true);
+      expect(calls.some((call) => call.includes("/pulls?state=all&per_page=100"))).toBe(true);
+      expect(calls.some((call) => call.includes("/issues?state=open&per_page=100"))).toBe(true);
+    } finally {
+      cleanupFixture(tempRoot);
+    }
+  });
+
   it("plans exact merged detached worktree removal without mutating", () => {
     const { root, tempRoot } = initialiseRepository();
     try {
@@ -427,15 +510,7 @@ describe("Codex workflow task helper", () => {
       const env = {
         GH_BIN: fakeGh,
         FAKE_TASK_PRS: JSON.stringify([
-          {
-            number: 320,
-            state: "MERGED",
-            baseRefName: "dev",
-            mergedAt: "2026-08-19T12:00:00Z",
-            headRefName: branch,
-            headRefOid: detachedHead,
-            mergeCommit: { oid: git(root, "rev-parse", "dev").stdout.trim() },
-          },
+          mergedTaskPr(320, branch, detachedHead),
         ]),
       };
 
@@ -485,15 +560,7 @@ describe("Codex workflow task helper", () => {
       const env = {
         GH_BIN: fakeGh,
         FAKE_TASK_PRS: JSON.stringify([
-          {
-            number: 324,
-            state: "MERGED",
-            baseRefName: "dev",
-            mergedAt: "2026-08-19T12:00:00Z",
-            headRefName: branch,
-            headRefOid: taskHead,
-            mergeCommit: { oid: git(root, "rev-parse", "dev").stdout.trim() },
-          },
+          mergedTaskPr(324, branch, taskHead),
         ]),
       };
 
@@ -547,15 +614,7 @@ describe("Codex workflow task helper", () => {
       const env = {
         GH_BIN: fakeGh,
         FAKE_TASK_PRS: JSON.stringify([
-          {
-            number: 321,
-            state: "MERGED",
-            baseRefName: "dev",
-            mergedAt: "2026-08-19T12:00:00Z",
-            headRefName: "codex/123-merged-cleanup",
-            headRefOid: mergedHead,
-            mergeCommit: { oid: git(root, "rev-parse", "dev").stdout.trim() },
-          },
+          mergedTaskPr(321, "codex/123-merged-cleanup", mergedHead),
         ]),
         FAKE_TASK_ISSUES: JSON.stringify([{ number: 124 }]),
       };
@@ -639,15 +698,7 @@ describe("Codex workflow task helper", () => {
       const env = {
         GH_BIN: fakeGh,
         FAKE_TASK_PRS: JSON.stringify([
-          {
-            number: 323,
-            state: "MERGED",
-            baseRefName: "dev",
-            mergedAt: "2026-08-19T12:00:00Z",
-            headRefName: branch,
-            headRefOid: taskHead,
-            mergeCommit: { oid: git(root, "rev-parse", "dev").stdout.trim() },
-          },
+          mergedTaskPr(323, branch, taskHead),
         ]),
       };
 
@@ -747,6 +798,116 @@ describe("Codex workflow task helper", () => {
     }
   });
 
+  it("refuses retirement when the expected head is absent everywhere", () => {
+    const { root, tempRoot } = initialiseRemoteRepository();
+    try {
+      const fakeGh = writeTaskLifecycleFakeGh(tempRoot);
+      const retired = run(
+        taskHelper,
+        [
+          "retire",
+          "research/missing-retirement-target",
+          "--expect-head",
+          "0".repeat(40),
+          "--remote",
+        ],
+        root,
+        { env: { GH_BIN: fakeGh } },
+      );
+
+      expect(retired.status).not.toBe(0);
+      expect(retired.stderr).toContain("no state found for 'research/missing-retirement-target'");
+    } finally {
+      cleanupFixture(tempRoot);
+    }
+  });
+
+  it("refuses retirement when multiple worktrees own the same branch", () => {
+    const { root, tempRoot } = initialiseRepository();
+    try {
+      const branch = "research/ambiguous-worktree-owner";
+      expectSuccess(git(root, "switch", "-c", branch, "dev"));
+      writeFileSync(join(root, "research.md"), "ambiguous ownership\n");
+      expectSuccess(git(root, "add", "research.md"));
+      expectSuccess(git(root, "commit", "-m", "Ambiguous ownership fixture"));
+      const expectedHead = git(root, "rev-parse", "HEAD").stdout.trim();
+      expectSuccess(git(root, "switch", "main"));
+      const firstWorktree = join(tempRoot, "first-owner");
+      const secondWorktree = join(tempRoot, "second-owner");
+      expectSuccess(git(root, "worktree", "add", firstWorktree, branch));
+      expectSuccess(git(root, "worktree", "add", "--force", secondWorktree, branch));
+      const fakeGh = writeTaskLifecycleFakeGh(tempRoot);
+
+      const retired = run(
+        taskHelper,
+        ["retire", firstWorktree, "--expect-head", expectedHead],
+        root,
+        { env: { GH_BIN: fakeGh } },
+      );
+
+      expect(retired.status).not.toBe(0);
+      expect(retired.stderr).toContain(`branch '${branch}' is checked out in 2 worktrees`);
+      const remaining = git(root, "worktree", "list", "--porcelain").stdout;
+      expect(remaining).toContain(firstWorktree);
+      expect(remaining).toContain(secondWorktree);
+      expectSuccess(git(root, "show-ref", "--verify", `refs/heads/${branch}`));
+    } finally {
+      cleanupFixture(tempRoot);
+    }
+  });
+
+  it("preserves local state when a remote branch races its deletion lease", () => {
+    const { root, tempRoot, remote } = initialiseRemoteRepository();
+    try {
+      const branch = "research/remote-retirement-race";
+      expectSuccess(git(root, "switch", "-c", branch, "dev"));
+      writeFileSync(join(root, "research.md"), "retirement race\n");
+      expectSuccess(git(root, "add", "research.md"));
+      expectSuccess(git(root, "commit", "-m", "Remote retirement race fixture"));
+      const expectedHead = git(root, "rev-parse", "HEAD").stdout.trim();
+      expectSuccess(git(root, "push", "-u", "origin", branch));
+      const tree = git(root, "rev-parse", `${expectedHead}^{tree}`).stdout.trim();
+      const raceHead = git(
+        root,
+        "commit-tree",
+        tree,
+        "-p",
+        expectedHead,
+        "-m",
+        "Concurrent remote update",
+      ).stdout.trim();
+      expectSuccess(git(root, "push", "origin", `${raceHead}:refs/heads/race-fixture`));
+      expectSuccess(git(root, "switch", "main"));
+      const worktree = join(tempRoot, "remote-race-worktree");
+      expectSuccess(git(root, "worktree", "add", worktree, branch));
+      const fakeGh = writeTaskLifecycleFakeGh(tempRoot);
+      const markerPath = writeRemoteRaceHook(root, tempRoot);
+
+      const retired = run(
+        taskHelper,
+        ["retire", worktree, "--expect-head", expectedHead, "--remote"],
+        root,
+        {
+          env: {
+            GH_BIN: fakeGh,
+            RACE_MARKER: markerPath,
+            RACE_REMOTE: remote,
+            RACE_REF: `refs/heads/${branch}`,
+            RACE_HEAD: raceHead,
+          },
+        },
+      );
+
+      expect(retired.status).not.toBe(0);
+      expect(readFileSync(markerPath, "utf8")).toBe("triggered\n");
+      expect(git(root, "worktree", "list", "--porcelain").stdout).toContain(worktree);
+      expect(git(root, "rev-parse", `refs/heads/${branch}`).stdout.trim()).toBe(expectedHead);
+      expect(git(root, "ls-remote", remote, `refs/heads/${branch}`).stdout).toContain(raceHead);
+    } finally {
+      cleanupFixture(tempRoot);
+    }
+  });
+
   it("refuses retirement when local, GitHub, or remote evidence changes", () => {
     const { root, tempRoot, remote } = initialiseRemoteRepository();
     try {
@@ -790,17 +951,7 @@ describe("Codex workflow task helper", () => {
         {
           env: {
             ...baseEnv,
-            FAKE_TASK_PRS: JSON.stringify([
-              {
-                number: 322,
-                state: "OPEN",
-                baseRefName: "dev",
-                mergedAt: null,
-                headRefName: branch,
-                headRefOid: expectedHead,
-                mergeCommit: null,
-              },
-            ]),
+            FAKE_TASK_PRS: JSON.stringify([openTaskPr(322, branch, expectedHead)]),
           },
         },
       );

@@ -41,31 +41,70 @@ function repositoryContext(cwd = process.cwd()) {
   return { invocationRoot, primaryCheckout: canonicalPath(dirname(commonDir)) };
 }
 
+function loadGithubPages(ghBin, cwd, endpoint) {
+  const result = run(ghBin, ["api", endpoint, "--paginate", "--slurp"], cwd, true);
+  if (result.status !== 0) {
+    const detail = result.stderr.trim() || result.stdout.trim();
+    fail(`could not inventory GitHub state${detail ? `: ${detail}` : ""}`);
+  }
+  try {
+    const pages = JSON.parse(result.stdout);
+    if (!Array.isArray(pages) || pages.some((page) => !Array.isArray(page))) {
+      throw new Error("expected paginated JSON arrays");
+    }
+    return pages.flat();
+  } catch (error) {
+    fail(`could not parse GitHub inventory: ${error.message}`);
+  }
+}
+
+function normalizeGithubPr(pr) {
+  if (
+    !Number.isInteger(pr?.number) ||
+    (pr.state !== "open" && pr.state !== "closed") ||
+    (pr.merged_at !== null && typeof pr.merged_at !== "string") ||
+    typeof pr.base?.ref !== "string" ||
+    typeof pr.head?.ref !== "string" ||
+    typeof pr.head?.sha !== "string"
+  ) {
+    throw new Error("received an incomplete pull request record");
+  }
+  return {
+    number: pr.number,
+    state: pr.merged_at ? "MERGED" : pr.state.toUpperCase(),
+    baseRefName: pr.base.ref,
+    mergedAt: pr.merged_at,
+    headRefName: pr.head.ref,
+    headRefOid: pr.head.sha,
+  };
+}
+
 function loadGithubInventory(cwd) {
   const ghBin = process.env.GH_BIN || "gh";
-  const queries = [
-    ["pr", "list", "--state", "all", "--limit", "1000", "--json",
-      "number,state,baseRefName,mergedAt,headRefName,headRefOid,mergeCommit"],
-    ["issue", "list", "--state", "open", "--limit", "1000", "--json", "number"],
-  ];
-
-  const [prs, issues] = queries.map((args) => {
-    const result = run(ghBin, args, cwd, true);
-    if (result.status !== 0) {
-      const detail = result.stderr.trim() || result.stdout.trim();
-      fail(`could not inventory GitHub state${detail ? `: ${detail}` : ""}`);
+  const rawPrs = loadGithubPages(
+    ghBin,
+    cwd,
+    "repos/{owner}/{repo}/pulls?state=all&per_page=100",
+  );
+  const issues = loadGithubPages(
+    ghBin,
+    cwd,
+    "repos/{owner}/{repo}/issues?state=open&per_page=100",
+  );
+  let prs;
+  try {
+    prs = rawPrs.map(normalizeGithubPr);
+    if (issues.some((issue) => !Number.isInteger(issue?.number))) {
+      throw new Error("received an incomplete issue record");
     }
-    try {
-      const value = JSON.parse(result.stdout);
-      if (!Array.isArray(value)) throw new Error("expected a JSON array");
-      return value;
-    } catch (error) {
-      fail(`could not parse GitHub inventory: ${error.message}`);
-    }
-  });
+  } catch (error) {
+    fail(`could not parse GitHub inventory: ${error.message}`);
+  }
   return {
     prs,
-    openIssues: new Set(issues.map((issue) => issue.number)),
+    openIssues: new Set(
+      issues.filter((issue) => !issue.pull_request).map((issue) => issue.number),
+    ),
   };
 }
 
@@ -97,15 +136,53 @@ function openPrFor(inventory, branch, head) {
   );
 }
 
-function mergedPrFor(inventory, branch, head, requireExactHead = true) {
+function mergedPrFor(
+  inventory,
+  branch,
+  head,
+  requireExactHead = true,
+  accept = () => true,
+) {
   return inventory.prs.find(
     (pr) =>
       pr.state === "MERGED" &&
       pr.baseRefName === "dev" &&
       pr.mergedAt &&
       (!branch || pr.headRefName === branch) &&
-      (!requireExactHead || pr.headRefOid === head),
+      (!requireExactHead || pr.headRefOid === head) &&
+      accept(pr),
   );
+}
+
+function classifyGithubEvidence(
+  inventory,
+  {
+    branch,
+    head,
+    requireExactHead = true,
+    acceptMerged = () => true,
+    mergedEvidence,
+    unprovenEvidence,
+  },
+) {
+  const openPr = openPrFor(inventory, branch, head);
+  const mergedPr = mergedPrFor(
+    inventory,
+    branch,
+    head,
+    requireExactHead,
+    acceptMerged,
+  );
+  const evidenceBranch = branch || openPr?.headRefName || mergedPr?.headRefName;
+  const issue = evidenceBranch ? ticketNumber(evidenceBranch) : null;
+  if (issue && inventory.openIssues.has(issue)) {
+    return { status: "ACTIVE", evidence: `open issue #${issue}` };
+  }
+  if (openPr) return { status: "ACTIVE", evidence: `open PR #${openPr.number}` };
+  if (mergedPr) {
+    return { status: "REMOVE", evidence: mergedEvidence(mergedPr) };
+  }
+  return { status: "UNPROVEN", evidence: unprovenEvidence };
 }
 
 function classifyTaskBranch(inventory, branch, head) {
@@ -115,17 +192,12 @@ function classifyTaskBranch(inventory, branch, head) {
   if (!branch.startsWith("codex/")) {
     return { status: "UNPROVEN", evidence: "explicit SHA-pinned retirement required" };
   }
-  const issue = ticketNumber(branch);
-  if (issue && inventory.openIssues.has(issue)) {
-    return { status: "ACTIVE", evidence: `open issue #${issue}` };
-  }
-  const openPr = openPrFor(inventory, branch, head);
-  if (openPr) return { status: "ACTIVE", evidence: `open PR #${openPr.number}` };
-  const mergedPr = mergedPrFor(inventory, branch, head);
-  if (mergedPr) {
-    return { status: "REMOVE", evidence: `exact head merged by PR #${mergedPr.number} into dev` };
-  }
-  return { status: "UNPROVEN", evidence: "no exact merged PR evidence" };
+  return classifyGithubEvidence(inventory, {
+    branch,
+    head,
+    mergedEvidence: (pr) => `exact head merged by PR #${pr.number} into dev`,
+    unprovenEvidence: "no exact merged PR evidence",
+  });
 }
 
 function parseWorktrees(cwd) {
@@ -168,20 +240,13 @@ function classifyWorktree(inventory, worktree) {
   if (worktree.branch) {
     return classifyTaskBranch(inventory, worktree.branch, worktree.head);
   }
-  const openPr = openPrFor(inventory, null, worktree.head);
-  if (openPr) return { status: "ACTIVE", evidence: `open PR #${openPr.number}` };
-  const mergedPr = mergedPrFor(inventory, null, worktree.head);
-  if (mergedPr && mergedPr.headRefName?.startsWith("codex/")) {
-    const issue = ticketNumber(mergedPr.headRefName);
-    if (issue && inventory.openIssues.has(issue)) {
-      return { status: "ACTIVE", evidence: `open issue #${issue}` };
-    }
-    return {
-      status: "REMOVE",
-      evidence: `detached HEAD merged by PR #${mergedPr.number} into dev`,
-    };
-  }
-  return { status: "UNPROVEN", evidence: "explicit evidence required" };
+  return classifyGithubEvidence(inventory, {
+    branch: null,
+    head: worktree.head,
+    acceptMerged: (pr) => pr.headRefName?.startsWith("codex/"),
+    mergedEvidence: (pr) => `detached HEAD merged by PR #${pr.number} into dev`,
+    unprovenEvidence: "explicit evidence required",
+  });
 }
 
 function emitPlan(status, kind, head, name, evidence) {
@@ -293,18 +358,13 @@ function reconcile(args) {
     } else if (currentRef) {
       result = classifyTaskBranch(inventory, branch, currentRef.head);
     } else {
-      const issue = ticketNumber(branch);
-      const openPr = openPrFor(inventory, branch, null);
-      const mergedPr = mergedPrFor(inventory, branch, null, false);
-      if (issue && inventory.openIssues.has(issue)) {
-        result = { status: "ACTIVE", evidence: `open issue #${issue}` };
-      } else if (openPr) {
-        result = { status: "ACTIVE", evidence: `open PR #${openPr.number}` };
-      } else if (mergedPr) {
-        result = { status: "REMOVE", evidence: `task merged by PR #${mergedPr.number} into dev` };
-      } else {
-        result = { status: "UNPROVEN", evidence: "no merged task evidence" };
-      }
+      result = classifyGithubEvidence(inventory, {
+        branch,
+        head: null,
+        requireExactHead: false,
+        mergedEvidence: (pr) => `task merged by PR #${pr.number} into dev`,
+        unprovenEvidence: "no merged task evidence",
+      });
     }
     emitPlan(result.status, "review-ref", item.head, item.ref, result.evidence);
     if (result.status === "REMOVE") actions.reviewRefs.push(item);
@@ -433,10 +493,16 @@ function retire(args) {
     const validBranch = run("git", ["check-ref-format", "--branch", target], invocationRoot, true);
     if (validBranch.status !== 0) fail(`'${target}' is neither a linked worktree nor a valid branch`);
     branch = target;
-    worktree = worktrees.find((candidate) => candidate.branch === branch) || null;
   }
 
   if (branch === "main" || branch === "dev") fail(`refusing to retire permanent branch '${branch}'`);
+  const branchWorktrees = branch
+    ? worktrees.filter((candidate) => candidate.branch === branch)
+    : [];
+  if (branchWorktrees.length > 1) {
+    fail(`branch '${branch}' is checked out in ${branchWorktrees.length} worktrees`);
+  }
+  if (!worktree && branchWorktrees.length === 1) worktree = branchWorktrees[0];
   if (worktree && (worktree.path === invocationRoot || worktree.path === primaryCheckout)) {
     fail(`refusing to retire the invoking or primary worktree: ${worktree.path}`);
   }
@@ -449,27 +515,31 @@ function retire(args) {
   const trackingRef = branch ? `refs/remotes/origin/${branch}` : null;
   const localHead = localRef ? refHead(invocationRoot, localRef) : null;
   const trackingHead = trackingRef ? refHead(invocationRoot, trackingRef) : null;
-  const observedHeads = [worktree?.head, localHead, trackingHead].filter(Boolean);
-  if (observedHeads.length === 0 && !remote) fail(`no local state found for '${target}'`);
-  for (const actualHead of observedHeads) {
+  if (remote && !branch) fail("--remote requires an attached branch name");
+  const actualRemoteHead = remote ? remoteHead(invocationRoot, branch) : null;
+  const localObservedHeads = [worktree?.head, localHead, trackingHead].filter(Boolean);
+  if (localObservedHeads.length === 0 && !actualRemoteHead) {
+    fail(`no state found for '${target}'`);
+  }
+  for (const actualHead of localObservedHeads) {
     if (actualHead !== expectedHead) {
       fail(`expected ${expectedHead}, found ${actualHead}; nothing was retired`);
     }
+  }
+  if (actualRemoteHead && actualRemoteHead !== expectedHead) {
+    fail(
+      `origin/${branch} is ${actualRemoteHead}, not expected ${expectedHead}; nothing was retired`,
+    );
   }
 
   const issue = branch ? ticketNumber(branch) : null;
   if (issue && inventory.openIssues.has(issue)) fail(`branch belongs to open issue #${issue}`);
   const openPr = openPrFor(inventory, branch, expectedHead);
   if (openPr) fail(`state belongs to open PR #${openPr.number}`);
-  if (remote && !branch) fail("--remote requires an attached branch name");
 
   if (remote) {
-    const actualRemoteHead = remoteHead(invocationRoot, branch);
-    if (actualRemoteHead && actualRemoteHead !== expectedHead) {
-      fail(
-        `origin/${branch} is ${actualRemoteHead}, not expected ${expectedHead}; nothing was retired`,
-      );
-    }
+    const removed = removeRemoteBranch(primaryCheckout, branch, expectedHead);
+    reportRemoteMutation("RETIRED", removed, expectedHead, branch);
   }
 
   if (worktree) {
@@ -491,10 +561,7 @@ function retire(args) {
       process.stdout.write(`RETIRED review-ref ${reviewHead} ${reviewRef}\n`);
     }
   }
-  if (remote) {
-    const removed = removeRemoteBranch(primaryCheckout, branch, expectedHead);
-    reportRemoteMutation("RETIRED", removed, expectedHead, branch);
-  } else if (trackingHead) {
+  if (!remote && trackingHead) {
     process.stdout.write(
       `PRESERVED remote-branch ${trackingHead} origin/${branch} — add --remote to retire\n`,
     );

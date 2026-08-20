@@ -76,7 +76,7 @@ Audit the complete repository before removing accumulated worktrees or refs:
 scripts/git/codex-task.sh reconcile
 ```
 
-The default is read-only. It inventories linked worktrees, local branches, `refs/codex/review-base/*`, tracked `origin/*` branches, open issues, and pull requests. Each item is reported as protected, active, dirty, safely removable, or unproven together with its evidence. `main`, `dev`, the primary and invoking worktrees, dirty state, open issues or PRs, changed commits, non-`codex/*` branches, and unavailable or ambiguous GitHub facts are never inferred safe.
+The default is read-only. It inventories linked worktrees, local branches, `refs/codex/review-base/*`, tracked `origin/*` branches, open issues, and pull requests. GitHub issue and PR inventory is fully paginated; an unavailable or malformed page stops classification. Each item is reported as protected, active, dirty, safely removable, or unproven together with its evidence. `main`, `dev`, the primary and invoking worktrees, dirty state, open issues or PRs, changed commits, non-`codex/*` branches, and unavailable or ambiguous GitHub facts are never inferred safe.
 
 Apply only the proven local actions after reviewing that plan:
 
@@ -101,7 +101,7 @@ scripts/git/codex-task.sh retire <branch-or-worktree> --expect-head <full-40-cha
 scripts/git/codex-task.sh retire <branch-or-worktree> --expect-head <full-40-character-sha> --remote
 ```
 
-Retirement checks the expected SHA, worktree cleanliness, protected locations and branches, open issue and PR state, and the remote head before changing anything. Without `--remote`, any remote branch is preserved. With `--remote`, deletion is lease-protected against a concurrent head change. A mismatch or unavailable GitHub/remote fact stops the operation without treating the artifact as disposable.
+Retirement checks the expected SHA, worktree cleanliness, protected locations and branches, open issue and PR state, and the remote head before changing anything. A missing target or a branch owned by more than one worktree is ambiguous and refused. Without `--remote`, any remote branch is preserved. With `--remote`, deletion is lease-protected against a concurrent head change and completes before local retirement, so a rejected remote lease leaves the local artifact intact. A mismatch or unavailable GitHub/remote fact stops the operation without treating the artifact as disposable.
 
 ## Concurrent tickets and an advancing dev
 
