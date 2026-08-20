@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./storefront-fixture";
 
 const formerBrandPattern = new RegExp(["mei", "pelle"].join("[\\s_-]*"), "i");
 
