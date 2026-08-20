@@ -14,6 +14,10 @@ import { describe, expect, it } from "vitest";
 const projectRoot = process.cwd();
 const taskHelper = resolve(projectRoot, "scripts/git/codex-task.sh");
 const bootstrapTool = resolve(projectRoot, "scripts/github/bootstrap-workflow.mjs");
+const helixRepositoryVerificationTool = resolve(
+  projectRoot,
+  "scripts/github/verify-helix-repository.mjs",
+);
 const ciWorkflow = readFileSync(
   resolve(projectRoot, ".github/workflows/ci.yml"),
   "utf8",
@@ -1335,6 +1339,156 @@ function bootstrap(
     },
   });
 }
+
+function verifyHelixRepository(
+  root: string,
+  fakeGh: string,
+  statePath: string,
+  logPath: string,
+): CommandResult {
+  return run(
+    process.execPath,
+    [
+      helixRepositoryVerificationTool,
+      "--repo",
+      "brandon-y-lee/helix",
+      "--candidate-ref",
+      "HEAD",
+    ],
+    root,
+    {
+      env: {
+        GH_BIN: fakeGh,
+        FAKE_GH_STATE: statePath,
+        FAKE_GH_LOG: logPath,
+      },
+    },
+  );
+}
+
+describe("Helix repository verification", () => {
+  it("passes when the helix repository identity and candidate are current despite wider policy drift", () => {
+    const { root, tempRoot, remote } = initialiseRemoteRepository();
+    try {
+      mkdirSync(join(root, ".github", "workflows"), { recursive: true });
+      writeFileSync(join(root, ".github", "workflows", "ci.yml"), "name: CI\n");
+      expectSuccess(git(root, "add", ".github/workflows/ci.yml"));
+      expectSuccess(git(root, "commit", "-m", "Add CI workflow"));
+      expectSuccess(git(root, "branch", "-f", "dev", "HEAD"));
+      expectSuccess(git(root, "push", "origin", "main"));
+      expectSuccess(git(root, "push", "origin", "dev"));
+      const devSha = git(root, "rev-parse", "dev").stdout.trim();
+      expectSuccess(
+        git(
+          root,
+          "config",
+          `url.${remote}.insteadOf`,
+          "https://github.com/brandon-y-lee/helix.git",
+        ),
+      );
+      expectSuccess(
+        git(
+          root,
+          "remote",
+          "set-url",
+          "origin",
+          "https://github.com/brandon-y-lee/helix.git",
+        ),
+      );
+      writeFileSync(join(root, "candidate.txt"), "candidate\n");
+      expectSuccess(git(root, "add", "candidate.txt"));
+      expectSuccess(git(root, "commit", "-m", "Candidate"));
+
+      const statePath = join(tempRoot, "github-state.json");
+      const logPath = join(tempRoot, "github-calls.log");
+      const state: FakeGithubState = {
+        repo: {
+          nameWithOwner: "brandon-y-lee/helix",
+          defaultBranchRef: { name: "main" },
+          hasIssuesEnabled: true,
+          mergeCommitAllowed: false,
+          squashMergeAllowed: false,
+          rebaseMergeAllowed: true,
+          deleteBranchOnMerge: false,
+        },
+        labels: [],
+        protections: {},
+      };
+      writeFileSync(statePath, JSON.stringify(state));
+      const fakeGh = writeFakeGh(tempRoot, logPath);
+
+      const verified = verifyHelixRepository(
+        root,
+        fakeGh,
+        statePath,
+        logPath,
+      );
+
+      expectSuccess(verified);
+      expect(verified.stdout).toContain(
+        "Helix repository identity and candidate verified.",
+      );
+      expect(git(root, "rev-parse", "refs/remotes/origin/dev").stdout.trim()).toBe(
+        devSha,
+      );
+      expect(readFileSync(statePath, "utf8")).toBe(JSON.stringify(state));
+    } finally {
+      cleanupFixture(tempRoot);
+    }
+  });
+
+  it("fails when the candidate does not contain the canonical CI workflow", () => {
+    const { root, tempRoot, remote } = initialiseRemoteRepository();
+    try {
+      expectSuccess(git(root, "push", "origin", "dev"));
+      expectSuccess(
+        git(
+          root,
+          "config",
+          `url.${remote}.insteadOf`,
+          "https://github.com/brandon-y-lee/helix.git",
+        ),
+      );
+      expectSuccess(
+        git(
+          root,
+          "remote",
+          "set-url",
+          "origin",
+          "https://github.com/brandon-y-lee/helix.git",
+        ),
+      );
+      const statePath = join(tempRoot, "github-state.json");
+      const logPath = join(tempRoot, "github-calls.log");
+      writeFileSync(
+        statePath,
+        JSON.stringify({
+          repo: {
+            nameWithOwner: "brandon-y-lee/helix",
+            defaultBranchRef: { name: "main" },
+          },
+          labels: [],
+          protections: {},
+        }),
+      );
+      const fakeGh = writeFakeGh(tempRoot, logPath);
+
+      const verified = verifyHelixRepository(
+        root,
+        fakeGh,
+        statePath,
+        logPath,
+      );
+
+      expect(verified.status).not.toBe(0);
+      expect(verified.stderr).toContain(
+        "candidate does not contain .github/workflows/ci.yml",
+      );
+    } finally {
+      cleanupFixture(tempRoot);
+    }
+  });
+});
 
 describe("GitHub workflow bootstrap", () => {
   it("plans exact drift without mutating GitHub or creating remote dev", () => {

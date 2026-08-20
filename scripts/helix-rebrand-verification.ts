@@ -161,7 +161,7 @@ export const HELIX_REBRAND_CHECKS = [
     label: "GitHub workflow and repository",
     kind: "command",
     scope: "remote",
-    args: ["github:workflow:verify"],
+    args: ["github:rebrand:verify"],
   },
   {
     category: "renamed-resources",

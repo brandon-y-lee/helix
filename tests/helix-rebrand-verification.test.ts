@@ -175,6 +175,9 @@ describe("Helix Rebrand Verification", () => {
     expect(packageJson.scripts["verify:helix-rebrand"]).toBe(
       "tsx scripts/verify-helix-rebrand.ts",
     );
+    expect(packageJson.scripts["github:rebrand:verify"]).toBe(
+      "node scripts/github/verify-helix-repository.mjs --repo brandon-y-lee/helix --candidate-ref HEAD",
+    );
     expect(new Set(HELIX_REBRAND_CHECKS.map(({ category }) => category))).toEqual(
       new Set(HELIX_REBRAND_VERIFICATION_CATEGORIES),
     );
@@ -185,7 +188,7 @@ describe("Helix Rebrand Verification", () => {
         "product:search:verify",
         "catalog:webhooks:verify",
         "stripe:sandbox:verify",
-        "github:workflow:verify",
+        "github:rebrand:verify",
         "vercel:helix:verify",
       ]),
     );

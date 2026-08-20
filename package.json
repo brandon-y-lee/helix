@@ -19,6 +19,7 @@
     "verify:helix-rebrand": "tsx scripts/verify-helix-rebrand.ts",
     "verify:product-media": "tsx scripts/verify-product-media.ts",
     "vercel:helix:verify": "tsx scripts/vercel/verify-helix-project.ts",
+    "github:rebrand:verify": "node scripts/github/verify-helix-repository.mjs --repo brandon-y-lee/helix --candidate-ref HEAD",
     "github:workflow:plan": "node scripts/github/bootstrap-workflow.mjs plan --repo brandon-y-lee/helix",
     "github:workflow:verify": "node scripts/github/bootstrap-workflow.mjs verify --repo brandon-y-lee/helix --candidate-ref HEAD",
     "github:workflow:apply": "node scripts/github/bootstrap-workflow.mjs apply --repo brandon-y-lee/helix",
