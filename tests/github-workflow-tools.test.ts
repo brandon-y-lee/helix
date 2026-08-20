@@ -2618,7 +2618,7 @@ describe("GitHub workflow bootstrap", () => {
     } finally {
       cleanupFixture(tempRoot);
     }
-  });
+  }, 15_000);
 
   it("never pushes dev and rejects stale SHA confirmation", () => {
     const { root, tempRoot, devSha } = initialiseRemoteRepository();

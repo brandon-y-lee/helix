@@ -331,6 +331,7 @@ describe("CatalogEditor sections", () => {
   });
 
   it("reveals and focuses section validation errors through the full editor", async () => {
+    const user = userEvent.setup();
     const duplicateDocument = {
       ...catalogDocument,
       variants: [
@@ -360,10 +361,12 @@ describe("CatalogEditor sections", () => {
     const { container } = render(<CatalogEditor productId="product-cleanse" />);
     await screen.findByRole("heading", { name: "CLEANSE" });
 
-    fireEvent.click(screen.getByRole("button", { name: "Validate" }));
-    expect(
-      await screen.findByText("SKU must be unique within this product."),
-    ).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Validate" }));
+    await waitFor(() => {
+      expect(
+        screen.getByText("SKU must be unique within this product."),
+      ).toBeVisible();
+    });
     expect(screen.getByRole("alert", { name: "" })).toBeInTheDocument();
     await waitFor(() => {
       expect(disclosure(container, "section-product_variants").open).toBe(true);
