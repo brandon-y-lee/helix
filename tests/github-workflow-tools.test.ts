@@ -396,7 +396,8 @@ describe("GitHub Actions CI", () => {
       expect(finalJob).toContain("if: ${{ always()");
       expect(finalJob).toContain('test "$VERIFICATION_RESULT" == \'success\'');
     }
-    expect(workflowJob("ci")).toContain("integration-verification");
+    expect(ciWorkflow).not.toContain("\n  ci:\n");
+    expect(ciWorkflow).not.toContain("Report compatibility Integration Gate");
   });
 });
 
@@ -417,6 +418,9 @@ describe("Spec delivery documentation", () => {
     }
     expect(workflowDocumentation).toContain("squash-merge Ticket PRs into the Spec Branch");
     expect(workflowDocumentation).toContain("regular-merge the Spec PR into `dev`");
+    expect(workflowDocumentation).not.toContain(
+      "reports both compatibility `ci` and `integration-gate`",
+    );
     expect(workflowDocumentation).not.toContain(
       "Each approved `type:ticket` issue maps to one `codex/<issue-number>-<slug>` branch and one PR targeting `dev`",
     );
@@ -2327,6 +2331,15 @@ describe("GitHub workflow bootstrap", () => {
           dev: desiredFakeProtection(false),
           main: desiredFakeProtection(true),
         },
+        checkRunsBySha: {
+          [devSha]: [
+            {
+              name: "integration-gate",
+              conclusion: "skipped",
+              app: { id: 15368, slug: "github-actions" },
+            },
+          ],
+        },
         rulesets: [
           {
             id: 11,
@@ -2381,6 +2394,26 @@ describe("GitHub workflow bootstrap", () => {
       );
       expect(verified.status).not.toBe(0);
       expect(verified.stderr).toContain("verification found");
+
+      state.checkRunsBySha?.[devSha].push({
+        name: "ticket-gate",
+        conclusion: "skipped",
+        app: { id: 99999, slug: "github-actions" },
+      });
+      writeFileSync(statePath, JSON.stringify(state));
+      const ambiguousIdentity = bootstrap(
+        root,
+        fakeGh,
+        statePath,
+        logPath,
+        "plan",
+        "--repo",
+        "brandon-y-lee/helix",
+      );
+      expect(ambiguousIdentity.status).not.toBe(0);
+      expect(ambiguousIdentity.stderr).toContain(
+        "GitHub Actions app identity could not be proven from the canonical gate checks",
+      );
     } finally {
       cleanupFixture(tempRoot);
     }

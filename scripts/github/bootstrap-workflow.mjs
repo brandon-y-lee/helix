@@ -155,13 +155,19 @@ function githubActionsAppId(repo, sha) {
     runGh(["api", `repos/${repo}/commits/${sha}/check-runs?per_page=100`, "-H", `X-GitHub-Api-Version: ${API_VERSION}`]),
     "GitHub Actions check identity",
   );
-  const app = checks.check_runs?.find(
-    (check) => check.name === "ci" && check.app?.slug === "github-actions",
-  )?.app;
-  if (!Number.isInteger(app?.id) || app.id <= 0) {
-    throw new Error("GitHub Actions app identity could not be proven from the compatibility ci check");
+  const identityChecks = checks.check_runs?.filter(
+    (check) => ["ticket-gate", "integration-gate", "ci"].includes(check.name) &&
+      check.app?.slug === "github-actions",
+  ) ?? [];
+  const appIds = new Set(identityChecks.map((check) => check.app?.id));
+  if (
+    identityChecks.length === 0 ||
+    [...appIds].some((id) => !Number.isInteger(id) || id <= 0) ||
+    appIds.size !== 1
+  ) {
+    throw new Error("GitHub Actions app identity could not be proven from the canonical gate checks");
   }
-  return app.id;
+  return [...appIds][0];
 }
 
 function pullRequestsForRun(repo, run) {
