@@ -109,7 +109,7 @@ Remote branch deletion is a separate opt-in and uses an exact-SHA force-with-lea
 scripts/git/codex-task.sh reconcile --apply --remote
 ```
 
-Clean detached worktrees and branch-backed `codex/*` state are removable only when their exact commit is the recorded head of a merged PR into its authoritative base. Ordinary ancestry is not enough automatic evidence. Research, prototype, legacy worktree, and other non-task branches remain unproven regardless of age or naming.
+Clean detached worktrees and branch-backed direct-to-`dev` state are removable only when their exact commit is the recorded head of a merged PR into `dev`. Any state with a recorded Spec target remains unproven in generic reconciliation and must use the target-aware `cleanup` path. Ordinary ancestry is not enough automatic evidence. Research, prototype, legacy worktree, and other non-task branches remain unproven regardless of age or naming.
 
 ### Retire assessed unique state
 

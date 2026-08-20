@@ -704,6 +704,39 @@ describe("Codex workflow task helper", () => {
     }
   });
 
+  it("rejects a recorded target outside the canonical Spec Branch namespace", () => {
+    const { root, tempRoot } = initialiseRemoteRepository();
+    try {
+      expectSuccess(git(root, "push", "origin", "dev"));
+      expectSuccess(git(root, "branch", "codex/spec-45-checkout", "dev"));
+      expectSuccess(git(root, "push", "origin", "codex/spec-45-checkout"));
+      const fakeGh = writeSnapshotFakeGh(tempRoot);
+      const started = run(
+        taskHelper,
+        ["start", "123-checkout-state", "--spec", "45-checkout"],
+        root,
+        { env: { GH_BIN: fakeGh, TMPDIR: join(tempRoot, "tasks") } },
+      );
+      expectSuccess(started);
+      const worktree = started.stdout.match(/^Task worktree: (.+)$/m)?.[1];
+      commitTicket(worktree!, 123, 45);
+      expectSuccess(git(
+        root,
+        "symbolic-ref",
+        "refs/codex/review-target/123-checkout-state",
+        "refs/remotes/origin/dev",
+      ));
+
+      const prepared = run(taskHelper, ["prepare", worktree!], root);
+      expect(prepared.status).not.toBe(0);
+      expect(prepared.stderr).toContain(
+        "recorded Ticket target is not a canonical Spec Branch",
+      );
+    } finally {
+      cleanupFixture(tempRoot);
+    }
+  });
+
   it("rejects Ticket synchronization without an approved concrete reason", () => {
     const { root, tempRoot } = initialiseRemoteRepository();
     try {
@@ -1263,23 +1296,6 @@ describe("Codex workflow task helper", () => {
           git(root, "rev-parse", "dev").stdout.trim(),
         ),
       );
-      expectSuccess(
-        git(
-          root,
-          "update-ref",
-          "refs/remotes/origin/codex/spec-45-checkout",
-          git(root, "rev-parse", "dev").stdout.trim(),
-        ),
-      );
-      expectSuccess(
-        git(
-          root,
-          "symbolic-ref",
-          "refs/codex/review-target/123-merged-cleanup",
-          "refs/remotes/origin/codex/spec-45-checkout",
-        ),
-      );
-
       expectSuccess(git(root, "switch", "-c", "codex/124-active-cleanup", "dev"));
       writeFileSync(join(root, "active.txt"), "active task\n");
       expectSuccess(git(root, "add", "active.txt"));
@@ -1292,12 +1308,7 @@ describe("Codex workflow task helper", () => {
       const env = {
         GH_BIN: fakeGh,
         FAKE_TASK_PRS: JSON.stringify([
-          mergedTaskPr(
-            321,
-            "codex/123-merged-cleanup",
-            mergedHead,
-            "codex/spec-45-checkout",
-          ),
+          mergedTaskPr(321, "codex/123-merged-cleanup", mergedHead),
         ]),
         FAKE_TASK_ISSUES: JSON.stringify([{ number: 124 }]),
       };
@@ -1308,8 +1319,6 @@ describe("Codex workflow task helper", () => {
       expect(planned.stdout).toContain(
         "REMOVE review-ref",
       );
-      expect(planned.stdout).toContain("REMOVE review-target");
-      expect(planned.stdout).toContain("into codex/spec-45-checkout");
       expect(planned.stdout).toContain(
         `REMOVE remote-branch ${mergedHead} origin/codex/123-merged-cleanup`,
       );
@@ -1335,15 +1344,6 @@ describe("Codex workflow task helper", () => {
         ).status,
       ).not.toBe(0);
       expect(
-        git(
-          root,
-          "show-ref",
-          "--verify",
-          "--quiet",
-          "refs/codex/review-target/123-merged-cleanup",
-        ).status,
-      ).toBe(0);
-      expect(
         git(root, "ls-remote", "--heads", remote, "refs/heads/codex/123-merged-cleanup").stdout,
       ).toContain(mergedHead);
 
@@ -1357,15 +1357,6 @@ describe("Codex workflow task helper", () => {
       expect(
         git(root, "ls-remote", "--heads", remote, "refs/heads/codex/123-merged-cleanup").stdout,
       ).toBe("");
-      expect(
-        git(
-          root,
-          "show-ref",
-          "--verify",
-          "--quiet",
-          "refs/codex/review-target/123-merged-cleanup",
-        ).status,
-      ).not.toBe(0);
       expectSuccess(git(root, "show-ref", "--verify", "refs/heads/codex/124-active-cleanup"));
       expectSuccess(
         git(root, "show-ref", "--verify", "refs/remotes/origin/codex/124-active-cleanup"),
@@ -1398,7 +1389,7 @@ describe("Codex workflow task helper", () => {
 
       expectSuccess(planned);
       expect(planned.stdout).toContain(`UNPROVEN branch ${taskHead} ${branch}`);
-      expect(planned.stdout).toContain("recorded review target is malformed");
+      expect(planned.stdout).toContain("recorded Spec target requires target-aware cleanup");
       expectSuccess(git(root, "show-ref", "--verify", `refs/heads/${branch}`));
       expectSuccess(
         git(root, "show-ref", "--verify", "refs/codex/review-target/123-malformed-target"),

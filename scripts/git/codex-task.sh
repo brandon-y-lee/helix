@@ -458,6 +458,8 @@ prepare_task() {
     review_target=${target_remote_ref#refs/remotes/origin/}
     [ "$review_target" != "$target_remote_ref" ] ||
       fail "recorded Ticket target is malformed; preserve the branch and obtain recovery direction"
+    case "$review_target" in codex/spec-*) ;; *) fail "recorded Ticket target is not a canonical Spec Branch; preserve the branch and obtain recovery direction" ;; esac
+    classify_spec_slug "${review_target#codex/spec-}"
     git -C "$task_repository" fetch --quiet origin \
       "refs/heads/$review_target:$target_remote_ref" ||
       fail "recorded target '$review_target' is missing, renamed, or cancelled; do not retarget automatically—preserve the Ticket branch and reconcile the Spec"
@@ -517,6 +519,8 @@ cleanup_task() {
     cleanup_target=${cleanup_target_ref#refs/remotes/origin/}
     [ "$cleanup_target" != "$cleanup_target_ref" ] ||
       fail "recorded cleanup target is malformed; preserve the task state"
+    case "$cleanup_target" in codex/spec-*) ;; *) fail "recorded cleanup target is not a canonical Spec Branch; preserve the task state" ;; esac
+    classify_spec_slug "${cleanup_target#codex/spec-}"
   fi
 
   gh_bin=${GH_BIN:-gh}
