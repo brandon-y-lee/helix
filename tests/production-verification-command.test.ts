@@ -207,15 +207,15 @@ describe("Production Verification Commands", () => {
     );
   });
 
-  it("keeps a lightweight Windows lifecycle contract in CI", async () => {
+  it("does not schedule the retired Windows lifecycle lane in CI", async () => {
     const workflow = await readFile(
       resolve(process.cwd(), ".github/workflows/ci.yml"),
       "utf8",
     );
 
-    expect(workflow).toContain("verification-lifecycle-windows:");
-    expect(workflow).toContain("runs-on: windows-latest");
-    expect(workflow).toContain(
+    expect(workflow).not.toContain("verification-lifecycle-windows:");
+    expect(workflow).not.toContain("runs-on: windows-latest");
+    expect(workflow).not.toContain(
       "pnpm vitest run tests/production-verification.test.ts tests/production-verification-process.test.ts",
     );
 

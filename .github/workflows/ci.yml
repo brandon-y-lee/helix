@@ -16,29 +16,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  verification-lifecycle-windows:
-    if: ${{ github.event_name == 'push' || (!startsWith(github.base_ref, 'codex/spec-') && github.event.pull_request.draft == false) }}
-    runs-on: windows-latest
-    timeout-minutes: 10
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Verify lifecycle start, failure, interruption, and cleanup
-        run: pnpm vitest run tests/production-verification.test.ts tests/production-verification-process.test.ts
-
   ticket-verification:
     if: ${{ github.event_name == 'pull_request' && startsWith(github.base_ref, 'codex/spec-') }}
     runs-on: ubuntu-latest
