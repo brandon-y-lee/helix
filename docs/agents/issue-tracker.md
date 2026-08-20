@@ -25,18 +25,19 @@ When set to `yes`, PRs run through the same labels and states as issues, using t
 
 GitHub shares one number space across issues and PRs, so a bare `#42` may be either — resolve with `gh pr view 42` and fall back to `gh issue view 42`.
 
-Internal delivery PRs are still required. Each approved `type:ticket` issue maps to one `codex/<issue-number>-<slug>` branch and one PR targeting `dev`; this does not make unsolicited PRs part of the triage queue. See `docs/agents/engineering-workflow.md`.
+Internal delivery PRs are still required. Each approved `type:ticket` maps to one `codex/<issue-number>-<slug>` branch and one PR targeting its recorded Spec Branch. The final draft Spec PR targets `dev`. Direct urgent, standalone, planning, and trivial paths target `dev`; this does not make unsolicited PRs part of the triage queue. See `docs/agents/engineering-workflow.md`.
 
 ## Delivery operations
 
 - **Claim a ticket**: `gh issue edit <number> --add-assignee @me --remove-label ready-for-agent --add-label workflow:in-progress`
 - **Mark review-ready**: `gh issue edit <number> --remove-label workflow:in-progress --add-label workflow:review`
-- **Open the ticket PR**: `gh pr create --base dev --head codex/<number>-<slug> --title "..." --body-file <path>`
+- **Establish a Spec Branch**: `scripts/git/codex-task.sh spec-start <spec-number>-<slug>` creates the exact remote-`dev` branch and draft Spec PR before exposing child Tickets.
+- **Open the Ticket PR**: `gh pr create --base codex/spec-<spec-number>-<slug> --head codex/<number>-<slug> --title "..." --body-file <path>`
 - **Inspect checks**: `gh pr checks <number> --watch`
-- **Squash-merge into dev**: `gh pr merge <number> --squash --delete-branch`
-- **Complete the ticket**: comment with the PR, integrated commit, checks, and `code-review` result; remove workflow labels and close the issue.
+- **Complete the Ticket**: after Ticket Review and `ticket-gate`, squash-merge into its Spec Branch; comment with the PR, integrated commit, checks, and review result; remove workflow labels and close the Ticket.
+- **Complete the Spec**: the sole Spec Closer performs Combined Spec Review, waits for `integration-gate`, then regular-merges the ready Spec PR into `dev`; record evidence and close the Spec.
 
-Specs use `type:spec`. Tickets use `type:ticket`. After `to-tickets` publishes the approved children, replace the spec's `ready-for-agent` label with `workflow:planned`; use `workflow:in-progress` once the first child is claimed. Close the spec only after every child ticket PR is integrated into `dev`.
+Specs use `type:spec`. Tickets use `type:ticket`. After `to-tickets` publishes approved children without readiness labels, replace the Spec's `ready-for-agent` label with `workflow:planned`; successful Spec setup exposes the Tickets, and the first Ticket claim moves the Spec to `workflow:in-progress`. Close the Spec only after every required Ticket is closed and its Spec PR is integrated into `dev`.
 
 ## When a skill says "publish to the issue tracker"
 

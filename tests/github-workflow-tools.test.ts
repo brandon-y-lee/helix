@@ -22,6 +22,15 @@ const ciWorkflow = readFileSync(
   resolve(projectRoot, ".github/workflows/ci.yml"),
   "utf8",
 );
+const pullRequestTemplate = readFileSync(
+  resolve(projectRoot, ".github/PULL_REQUEST_TEMPLATE.md"),
+  "utf8",
+);
+const workflowDocumentation = [
+  "docs/agents/engineering-workflow.md",
+  "docs/agents/issue-tracker.md",
+  "docs/git-workflow.md",
+].map((path) => readFileSync(resolve(projectRoot, path), "utf8")).join("\n");
 
 const ciPublicRuntimeSecrets = [
   "NEXT_PUBLIC_SUPABASE_URL",
@@ -37,6 +46,17 @@ function workflowStep(name: string): string {
   expect(start, `Missing CI step: ${name}`).toBeGreaterThanOrEqual(0);
   const nextStep = ciWorkflow.indexOf("\n      - ", start + marker.length);
   return ciWorkflow.slice(start, nextStep < 0 ? undefined : nextStep);
+}
+
+function workflowJob(name: string): string {
+  const marker = `  ${name}:`;
+  const start = ciWorkflow.indexOf(marker);
+  expect(start, `Missing CI job: ${name}`).toBeGreaterThanOrEqual(0);
+  const nextJob = ciWorkflow.slice(start + marker.length).search(/\n  [a-z][a-z0-9-]*:/);
+  return ciWorkflow.slice(
+    start,
+    nextJob < 0 ? undefined : start + marker.length + nextJob,
+  );
 }
 
 type CommandResult = SpawnSyncReturns<string>;
@@ -132,6 +152,81 @@ printf '%s\\t%s\\t%s\\t%s\\n' \
   );
   chmodSync(fakeGh, 0o755);
   return fakeGh;
+}
+
+function writeSnapshotFakeGh(tempRoot: string): string {
+  const fakeGh = join(tempRoot, "fake-snapshot-gh");
+  writeFileSync(
+    fakeGh,
+    `#!/bin/sh
+if [ "$1" = "repo" ] && [ "$2" = "view" ]; then
+  printf '%s\n' 'brandon-y-lee/helix'
+  exit 0
+fi
+if [ "$1" = "api" ] && [ "$2" = "repos/brandon-y-lee/helix/issues/123" ]; then
+  printf '%s\t%s\t%s\t%s\t%s\n' OPEN "\${FAKE_SNAPSHOT_BLOCKERS:-0}" 45 1 true
+  exit 0
+fi
+printf 'unexpected fake gh call: %s\n' "$*" >&2
+exit 2
+`,
+  );
+  chmodSync(fakeGh, 0o755);
+  return fakeGh;
+}
+
+function writeSpecSetupFakeGh(tempRoot: string): {
+  executable: string;
+  statePath: string;
+} {
+  const executable = join(tempRoot, "fake-spec-setup-gh.mjs");
+  const statePath = join(tempRoot, "spec-setup-state.json");
+  writeFileSync(
+    statePath,
+    JSON.stringify({ draftPr: false, prCreates: 0, readyTickets: [] }),
+  );
+  writeFileSync(
+    executable,
+    `#!/usr/bin/env node
+import { readFileSync, writeFileSync } from "node:fs";
+const args = process.argv.slice(2);
+const statePath = process.env.FAKE_SPEC_SETUP_STATE;
+const state = JSON.parse(readFileSync(statePath, "utf8"));
+const save = () => writeFileSync(statePath, JSON.stringify(state));
+if (args[0] === "repo" && args[1] === "view") {
+  process.stdout.write("brandon-y-lee/helix\\n");
+  process.exit(0);
+}
+if (args[0] === "api" && args[1] === "repos/brandon-y-lee/helix/issues/45") {
+  process.stdout.write("OPEN\\ttrue\\n");
+  process.exit(0);
+}
+if (args[0] === "pr" && args[1] === "list") {
+  process.stdout.write(state.draftPr ? "OPEN\\ttrue\\thttps://example.test/pr/1\\n" : "");
+  process.exit(0);
+}
+if (args[0] === "pr" && args[1] === "create") {
+  state.draftPr = true;
+  state.prCreates += 1;
+  save();
+  process.stdout.write("https://example.test/pr/1\\n");
+  process.exit(0);
+}
+if (args[0] === "api" && args[1] === "repos/brandon-y-lee/helix/issues/45/sub_issues") {
+  process.stdout.write("123\\tOPEN\\ttrue\\n124\\tOPEN\\ttrue\\n");
+  process.exit(0);
+}
+if (args[0] === "issue" && args[1] === "edit") {
+  state.readyTickets.push(Number(args[2]));
+  save();
+  process.exit(0);
+}
+process.stderr.write("unexpected fake gh call: " + args.join(" ") + "\\n");
+process.exit(2);
+`,
+  );
+  chmodSync(executable, 0o755);
+  return { executable, statePath };
 }
 
 type TaskPullRequest = {
@@ -254,8 +349,77 @@ describe("GitHub Actions CI", () => {
       "if: ${{ failure() && github.event_name == 'pull_request' }}",
     );
 
-    for (const name of ["Lint", "Typecheck", "Unit tests"]) {
+    for (const name of ["Lint", "Typecheck"]) {
       expect(workflowStep(name)).not.toContain("github.event_name");
+    }
+    expect(workflowJob("ticket-verification")).toContain(
+      "- name: Complete Vitest suite\n        run: pnpm test",
+    );
+  });
+
+  it("selects one fast Ticket Gate or one strict Integration Gate from the PR base", () => {
+    expect(ciWorkflow).toContain('branches: [dev, main, "codex/spec-*"]');
+    expect(ciWorkflow).toContain("ready_for_review");
+
+    const ticketWork = workflowJob("ticket-verification");
+    expect(ticketWork).toContain("timeout-minutes: 10");
+    expect(ticketWork).toContain("startsWith(github.base_ref, 'codex/spec-')");
+    for (const command of [
+      "pnpm install --frozen-lockfile",
+      "pnpm lint",
+      "pnpm typecheck",
+      "pnpm test",
+    ]) {
+      expect(ticketWork.match(new RegExp(command.replaceAll(" ", "\\s+"), "g"))).toHaveLength(1);
+    }
+    expect(ticketWork).not.toMatch(/Playwright|verify-production|secrets\.|windows/i);
+
+    const integrationWork = workflowJob("integration-verification");
+    expect(integrationWork).toContain("timeout-minutes: 20");
+    expect(integrationWork).toContain("github.event.pull_request.draft == false");
+    expect(integrationWork).toContain("scripts/verify-production-ci.ts build");
+    expect(integrationWork).toContain("scripts/verify-production-ci.ts verify");
+    expect(integrationWork).toContain("retention-days: 7");
+
+    for (const gate of ["ticket-gate", "integration-gate"]) {
+      const finalJob = workflowJob(gate);
+      expect(finalJob).toContain("if: ${{ always()");
+      expect(finalJob).toContain('test "$VERIFICATION_RESULT" == \'success\'');
+    }
+    expect(workflowJob("ci")).toContain("integration-verification");
+  });
+});
+
+describe("Spec delivery documentation", () => {
+  it("documents only the active snapshot workflow and its bounded evidence", () => {
+    for (const term of [
+      "Spec Branch",
+      "Ticket Snapshot",
+      "Ticket Review",
+      "Combined Spec Review",
+      "Spec Closer",
+      "ticket-gate",
+      "integration-gate",
+      "cancellation",
+      "cleanup",
+    ]) {
+      expect(workflowDocumentation).toContain(term);
+    }
+    expect(workflowDocumentation).toContain("squash-merge Ticket PRs into the Spec Branch");
+    expect(workflowDocumentation).toContain("regular-merge the Spec PR into `dev`");
+    expect(workflowDocumentation).not.toContain(
+      "Each approved `type:ticket` issue maps to one `codex/<issue-number>-<slug>` branch and one PR targeting `dev`",
+    );
+
+    for (const field of [
+      "Base:",
+      "Ticket Snapshot:",
+      "Ticket Review:",
+      "Combined Spec Review:",
+      "Gate:",
+      "Spec Closer evidence:",
+    ]) {
+      expect(pullRequestTemplate).toContain(field);
     }
   });
 });
@@ -291,6 +455,303 @@ describe("Codex workflow task helper", () => {
       expect(started.result.stderr).toContain(
         "slug must start with an issue number, 'plan-', or 'trivial-'",
       );
+    } finally {
+      cleanupFixture(tempRoot);
+    }
+  });
+
+  it("starts a claimed unblocked Ticket from an immutable remote Spec Branch snapshot", () => {
+    const { root, tempRoot } = initialiseRemoteRepository();
+    try {
+      expectSuccess(git(root, "push", "origin", "dev"));
+      expectSuccess(git(root, "branch", "codex/spec-45-checkout", "dev"));
+      expectSuccess(git(root, "push", "origin", "codex/spec-45-checkout"));
+      const snapshot = git(root, "rev-parse", "codex/spec-45-checkout").stdout.trim();
+      const fakeGh = writeSnapshotFakeGh(tempRoot);
+
+      const result = run(
+        taskHelper,
+        ["start", "123-checkout-state", "--spec", "45-checkout"],
+        root,
+        {
+          env: {
+            GH_BIN: fakeGh,
+            TMPDIR: join(tempRoot, "tasks"),
+          },
+        },
+      );
+      const worktree = result.stdout.match(/^Task worktree: (.+)$/m)?.[1];
+
+      expectSuccess(result);
+      expect(worktree).toBeTruthy();
+      expect(result.stdout).toContain(
+        `Ticket Snapshot: codex/spec-45-checkout @ ${snapshot}`,
+      );
+      expect(git(worktree!, "rev-parse", "HEAD").stdout.trim()).toBe(snapshot);
+      expect(
+        git(root, "rev-parse", "refs/codex/review-base/123-checkout-state")
+          .stdout
+          .trim(),
+      ).toBe(snapshot);
+      expect(
+        git(
+          root,
+          "symbolic-ref",
+          "refs/codex/review-target/123-checkout-state",
+        ).stdout.trim(),
+      ).toBe("refs/remotes/origin/codex/spec-45-checkout");
+    } finally {
+      cleanupFixture(tempRoot);
+    }
+  });
+
+  it("refuses to snapshot a Ticket with an open native blocker", () => {
+    const { root, tempRoot } = initialiseRemoteRepository();
+    try {
+      expectSuccess(git(root, "push", "origin", "dev"));
+      expectSuccess(git(root, "branch", "codex/spec-45-checkout", "dev"));
+      expectSuccess(git(root, "push", "origin", "codex/spec-45-checkout"));
+      const fakeGh = writeSnapshotFakeGh(tempRoot);
+
+      const result = run(
+        taskHelper,
+        ["start", "123-checkout-state", "--spec", "45-checkout"],
+        root,
+        {
+          env: {
+            FAKE_SNAPSHOT_BLOCKERS: "1",
+            GH_BIN: fakeGh,
+            TMPDIR: join(tempRoot, "tasks"),
+          },
+        },
+      );
+
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toContain("Ticket #123 has open native blockers");
+      expect(
+        git(root, "show-ref", "--verify", "--quiet", "refs/codex/review-base/123-checkout-state").status,
+      ).not.toBe(0);
+    } finally {
+      cleanupFixture(tempRoot);
+    }
+  });
+
+  it("repeat-safely creates a Spec Branch and draft PR before exposing child Tickets", () => {
+    const { root, tempRoot, devSha } = initialiseRemoteRepository();
+    try {
+      expectSuccess(git(root, "push", "origin", "dev"));
+      const fakeGh = writeSpecSetupFakeGh(tempRoot);
+      const options = {
+        env: {
+          GH_BIN: fakeGh.executable,
+          FAKE_SPEC_SETUP_STATE: fakeGh.statePath,
+        },
+      };
+
+      const started = run(
+        taskHelper,
+        ["spec-start", "45-checkout"],
+        root,
+        options,
+      );
+      expectSuccess(started);
+      expect(started.stdout).toContain(
+        `Spec Branch: codex/spec-45-checkout @ ${devSha}`,
+      );
+      expect(started.stdout).toContain("Draft Spec PR: https://example.test/pr/1");
+      expect(
+        git(
+          root,
+          "ls-remote",
+          "--heads",
+          "origin",
+          "refs/heads/codex/spec-45-checkout",
+        ).stdout.split(/\s+/)[0],
+      ).toBe(devSha);
+
+      const repeated = run(
+        taskHelper,
+        ["spec-start", "45-checkout"],
+        root,
+        options,
+      );
+      expectSuccess(repeated);
+      expect(repeated.stdout).toContain("Spec setup already complete");
+      expect(JSON.parse(readFileSync(fakeGh.statePath, "utf8"))).toEqual({
+        draftPr: true,
+        prCreates: 1,
+        readyTickets: [123, 124, 123, 124],
+      });
+    } finally {
+      cleanupFixture(tempRoot);
+    }
+  });
+
+  it("prepares Ticket Review against the snapshot when sibling work advances the Spec Branch", () => {
+    const { root, tempRoot } = initialiseRemoteRepository();
+    try {
+      expectSuccess(git(root, "push", "origin", "dev"));
+      expectSuccess(git(root, "branch", "codex/spec-45-checkout", "dev"));
+      expectSuccess(git(root, "push", "origin", "codex/spec-45-checkout"));
+      const snapshot = git(root, "rev-parse", "codex/spec-45-checkout").stdout.trim();
+      const fakeGh = writeSnapshotFakeGh(tempRoot);
+      const started = run(
+        taskHelper,
+        ["start", "123-checkout-state", "--spec", "45-checkout"],
+        root,
+        {
+          env: { GH_BIN: fakeGh, TMPDIR: join(tempRoot, "tasks") },
+        },
+      );
+      expectSuccess(started);
+      const worktree = started.stdout.match(/^Task worktree: (.+)$/m)?.[1];
+      commitTicket(worktree!, 123, 45);
+
+      expectSuccess(git(root, "switch", "codex/spec-45-checkout"));
+      writeFileSync(join(root, "sibling.txt"), "sibling\n");
+      expectSuccess(git(root, "add", "sibling.txt"));
+      expectSuccess(git(root, "commit", "-m", "Integrate sibling Ticket"));
+      expectSuccess(git(root, "push", "origin", "codex/spec-45-checkout"));
+
+      const prepared = run(taskHelper, ["prepare", worktree!], root);
+      expectSuccess(prepared);
+      expect(prepared.stdout).toContain(
+        `Ticket Review base: codex/spec-45-checkout @ ${snapshot}`,
+      );
+      expect(prepared.stdout).toContain(
+        "open a ready PR targeting codex/spec-45-checkout",
+      );
+      expect(prepared.stdout).toContain("Sibling advances do not invalidate the Ticket Snapshot");
+    } finally {
+      cleanupFixture(tempRoot);
+    }
+  });
+
+  it("preserves a Ticket when its recorded Spec Branch is missing", () => {
+    const { root, tempRoot } = initialiseRemoteRepository();
+    try {
+      expectSuccess(git(root, "push", "origin", "dev"));
+      expectSuccess(git(root, "branch", "codex/spec-45-checkout", "dev"));
+      expectSuccess(git(root, "push", "origin", "codex/spec-45-checkout"));
+      const fakeGh = writeSnapshotFakeGh(tempRoot);
+      const started = run(
+        taskHelper,
+        ["start", "123-checkout-state", "--spec", "45-checkout"],
+        root,
+        {
+          env: { GH_BIN: fakeGh, TMPDIR: join(tempRoot, "tasks") },
+        },
+      );
+      expectSuccess(started);
+      const worktree = started.stdout.match(/^Task worktree: (.+)$/m)?.[1];
+      commitTicket(worktree!, 123, 45);
+      expectSuccess(git(root, "push", "origin", "--delete", "codex/spec-45-checkout"));
+
+      const prepared = run(taskHelper, ["prepare", worktree!], root);
+
+      expect(prepared.status).not.toBe(0);
+      expect(prepared.stderr).toContain(
+        "recorded target 'codex/spec-45-checkout' is missing, renamed, or cancelled",
+      );
+      expect(git(worktree!, "branch", "--show-current").stdout.trim()).toBe(
+        "codex/123-checkout-state",
+      );
+    } finally {
+      cleanupFixture(tempRoot);
+    }
+  });
+
+  it("rejects Ticket synchronization without an approved concrete reason", () => {
+    const { root, tempRoot } = initialiseRemoteRepository();
+    try {
+      expectSuccess(git(root, "push", "origin", "dev"));
+      expectSuccess(git(root, "branch", "codex/spec-45-checkout", "dev"));
+      expectSuccess(git(root, "push", "origin", "codex/spec-45-checkout"));
+      const fakeGh = writeSnapshotFakeGh(tempRoot);
+      const started = run(
+        taskHelper,
+        ["start", "123-checkout-state", "--spec", "45-checkout"],
+        root,
+        {
+          env: { GH_BIN: fakeGh, TMPDIR: join(tempRoot, "tasks") },
+        },
+      );
+      expectSuccess(started);
+      const worktree = started.stdout.match(/^Task worktree: (.+)$/m)?.[1];
+      commitTicket(worktree!, 123, 45);
+
+      expectSuccess(git(root, "switch", "codex/spec-45-checkout"));
+      writeFileSync(join(root, "blocker.txt"), "blocker\n");
+      expectSuccess(git(root, "add", "blocker.txt"));
+      expectSuccess(git(root, "commit", "-m", "Integrate blocker"));
+      expectSuccess(
+        git(
+          worktree!,
+          "merge",
+          "--no-ff",
+          "codex/spec-45-checkout",
+          "-m",
+          "Synchronize for convenience",
+          "-m",
+          "Ticket-Sync-Reason: convenience",
+        ),
+      );
+
+      const prepared = run(taskHelper, ["prepare", worktree!], root);
+      expect(prepared.status).not.toBe(0);
+      expect(prepared.stderr).toContain(
+        "Ticket synchronization requires one approved concrete reason",
+      );
+    } finally {
+      cleanupFixture(tempRoot);
+    }
+  });
+
+  it("cleans a Ticket only after its exact head integrates into the recorded Spec Branch", () => {
+    const { root, tempRoot } = initialiseRemoteRepository();
+    try {
+      expectSuccess(git(root, "push", "origin", "dev"));
+      expectSuccess(git(root, "branch", "codex/spec-45-checkout", "dev"));
+      expectSuccess(git(root, "push", "origin", "codex/spec-45-checkout"));
+      const fakeSnapshotGh = writeSnapshotFakeGh(tempRoot);
+      const started = run(
+        taskHelper,
+        ["start", "123-checkout-state", "--spec", "45-checkout"],
+        root,
+        {
+          env: {
+            GH_BIN: fakeSnapshotGh,
+            TMPDIR: join(tempRoot, "tasks"),
+          },
+        },
+      );
+      expectSuccess(started);
+      const worktree = started.stdout.match(/^Task worktree: (.+)$/m)?.[1];
+      commitTicket(worktree!, 123, 45);
+      const taskHead = git(worktree!, "rev-parse", "HEAD").stdout.trim();
+      const fakeCleanupGh = writeCleanupFakeGh(tempRoot);
+
+      const cleaned = run(taskHelper, ["cleanup", worktree!], root, {
+        env: {
+          GH_BIN: fakeCleanupGh,
+          FAKE_PR_BASE: "codex/spec-45-checkout",
+          FAKE_PR_HEAD: taskHead,
+        },
+      });
+
+      expectSuccess(cleaned);
+      expect(cleaned.stdout).toContain(
+        "Verified integration into recorded target codex/spec-45-checkout",
+      );
+      expect(
+        git(
+          root,
+          "show-ref",
+          "--verify",
+          "--quiet",
+          "refs/codex/review-target/123-checkout-state",
+        ).status,
+      ).not.toBe(0);
     } finally {
       cleanupFixture(tempRoot);
     }
@@ -1206,10 +1667,28 @@ describe("Codex workflow task helper", () => {
   });
 });
 
+function desiredFakeProtection(strict: boolean): Record<string, unknown> {
+  return {
+    required_status_checks: { strict, contexts: ["ci"] },
+    enforce_admins: { enabled: true },
+    required_pull_request_reviews: {
+      dismiss_stale_reviews: true,
+      require_code_owner_reviews: false,
+      required_approving_review_count: 0,
+      require_last_push_approval: false,
+    },
+    required_linear_history: { enabled: false },
+    allow_force_pushes: { enabled: false },
+    allow_deletions: { enabled: false },
+    required_conversation_resolution: { enabled: true },
+  };
+}
+
 type FakeGithubState = {
   repo: Record<string, unknown>;
   labels: Array<{ name: string; color: string; description: string }>;
   protections: Record<string, unknown>;
+  rulesets?: Array<Record<string, unknown>>;
   failAuth?: boolean;
   failIssues?: boolean;
   advanceDev?: boolean;
@@ -1261,6 +1740,11 @@ if (args[0] === "label" && args[1] === "create") {
   save();
   process.exit(0);
 }
+if (args[0] === "label" && args[1] === "delete") {
+  state.labels = state.labels.filter((label) => label.name !== args[2]);
+  save();
+  process.exit(0);
+}
 if (args[0] === "api") {
   const methodIndex = args.findIndex((arg) => arg === "--method" || arg === "-X");
   const method = methodIndex === -1 ? "GET" : args[methodIndex + 1];
@@ -1271,6 +1755,26 @@ if (args[0] === "api") {
       process.exit(1);
     }
     process.stdout.write("[]");
+    process.exit(0);
+  }
+  if (method === "GET" && endpoint?.includes("/check-runs?")) {
+    process.stdout.write(JSON.stringify({
+      check_runs: [{ name: "ci", app: { id: 15368, slug: "github-actions" } }],
+    }));
+    process.exit(0);
+  }
+  if (method === "GET" && endpoint?.endsWith("/rulesets?includes_parents=false")) {
+    process.stdout.write(JSON.stringify((state.rulesets || []).map(({ id, name, enforcement }) => ({ id, name, enforcement }))));
+    process.exit(0);
+  }
+  const rulesetId = endpoint?.match(/\\/rulesets\\/(\\d+)$/)?.[1];
+  if (method === "GET" && rulesetId) {
+    const ruleset = (state.rulesets || []).find((entry) => String(entry.id) === rulesetId);
+    if (!ruleset) {
+      process.stderr.write("gh: Not Found (HTTP 404)\\n");
+      process.exit(1);
+    }
+    process.stdout.write(JSON.stringify(ruleset));
     process.exit(0);
   }
   const protection = endpoint?.match(/\\/branches\\/(main|dev)\\/protection$/)?.[1];
@@ -1297,6 +1801,30 @@ if (args[0] === "api") {
     state.protections[protection] = JSON.parse(input);
     save();
     process.stdout.write(JSON.stringify(state.protections[protection]));
+    process.exit(0);
+  }
+  if (method === "DELETE" && protection) {
+    delete state.protections[protection];
+    save();
+    process.exit(0);
+  }
+  if (method === "POST" && endpoint === "repos/brandon-y-lee/helix/rulesets") {
+    const ruleset = { id: Math.max(0, ...(state.rulesets || []).map((entry) => Number(entry.id))) + 1, ...JSON.parse(input) };
+    state.rulesets = [...(state.rulesets || []), ruleset];
+    save();
+    process.stdout.write(JSON.stringify(ruleset));
+    process.exit(0);
+  }
+  if (method === "PUT" && rulesetId) {
+    const update = JSON.parse(input);
+    state.rulesets = (state.rulesets || []).map((entry) => String(entry.id) === rulesetId ? { id: entry.id, ...update } : entry);
+    save();
+    process.stdout.write(JSON.stringify(update));
+    process.exit(0);
+  }
+  if (method === "DELETE" && rulesetId) {
+    state.rulesets = (state.rulesets || []).filter((entry) => String(entry.id) !== rulesetId);
+    save();
     process.exit(0);
   }
 }
@@ -1592,9 +2120,10 @@ describe("Helix repository verification", () => {
 });
 
 describe("GitHub workflow bootstrap", () => {
-  it("plans exact drift without mutating GitHub or creating remote dev", () => {
+  it("plans overlapping gate activation, retired-control cleanup, rollback, and deferred main without mutation", () => {
     const { root, tempRoot, devSha } = initialiseRemoteRepository();
     try {
+      expectSuccess(git(root, "push", "origin", "dev"));
       const statePath = join(tempRoot, "github-state.json");
       const logPath = join(tempRoot, "github-calls.log");
       const state: FakeGithubState = {
@@ -1607,8 +2136,29 @@ describe("GitHub workflow bootstrap", () => {
           rebaseMergeAllowed: true,
           deleteBranchOnMerge: false,
         },
-        labels: [],
-        protections: {},
+        labels: [
+          {
+            name: "workflow:integration-active",
+            color: "B60205",
+            description: "retired",
+          },
+        ],
+        protections: {
+          dev: desiredFakeProtection(false),
+          main: desiredFakeProtection(true),
+        },
+        rulesets: [
+          {
+            id: 11,
+            name: "dev pull request integration",
+            enforcement: "disabled",
+          },
+          {
+            id: 12,
+            name: "spec branch pull request integration",
+            enforcement: "disabled",
+          },
+        ],
       };
       writeFileSync(statePath, JSON.stringify(state));
       const fakeGh = writeFakeGh(tempRoot, logPath);
@@ -1623,15 +2173,18 @@ describe("GitHub workflow bootstrap", () => {
         "brandon-y-lee/helix",
       );
       expectSuccess(planned);
-      expect(planned.stdout).toContain(`create remote dev at ${devSha}`);
-      expect(planned.stdout).toContain("create label type:spec");
-      expect(planned.stdout).toContain("update repository merge settings");
-      expect(planned.stdout).toContain("protect dev");
-      expect(planned.stdout).toContain("protect main");
+      expect(planned.stdout).toContain(`Audited dev: ${devSha}`);
+      expect(planned.stdout).toContain("Activation phase (classic ci remains required)");
+      expect(planned.stdout).toContain("loose ticket-gate");
+      expect(planned.stdout).toContain("strict integration-gate with no bypass");
+      expect(planned.stdout).toContain("Cleanup phase (only after replacement gates are verified)");
+      expect(planned.stdout).toContain("remove classic dev protection");
+      expect(planned.stdout).toContain("delete retired label workflow:integration-active");
+      expect(planned.stdout).toContain("Rollback before cleanup");
+      expect(planned.stdout).toContain("main transition is deferred");
       expect(planned.stdout).toContain("No changes applied.");
-      expect(git(root, "ls-remote", "--exit-code", "--heads", "origin", "dev").status).not.toBe(0);
       expect(readFileSync(statePath, "utf8")).toBe(JSON.stringify(state));
-      expect(readFileSync(logPath, "utf8")).not.toContain('["label","create"');
+      expect(readFileSync(logPath, "utf8")).not.toMatch(/"POST"|"PUT"|"DELETE"/);
     } finally {
       cleanupFixture(tempRoot);
     }
@@ -1640,6 +2193,7 @@ describe("GitHub workflow bootstrap", () => {
   it("fails closed when apply lacks exact repository, dev, and CI confirmations", () => {
     const { root, tempRoot, devSha } = initialiseRemoteRepository();
     try {
+      expectSuccess(git(root, "push", "origin", "dev"));
       const statePath = join(tempRoot, "github-state.json");
       const logPath = join(tempRoot, "github-calls.log");
       writeFileSync(
@@ -1655,7 +2209,11 @@ describe("GitHub workflow bootstrap", () => {
             deleteBranchOnMerge: true,
           },
           labels: [],
-          protections: {},
+          protections: {
+            dev: desiredFakeProtection(false),
+            main: desiredFakeProtection(true),
+          },
+          rulesets: [],
         }),
       );
       const fakeGh = writeFakeGh(tempRoot, logPath);
@@ -1685,15 +2243,16 @@ describe("GitHub workflow bootstrap", () => {
       );
       expect(missingCiAttestation.status).not.toBe(0);
       expect(missingCiAttestation.stderr).toContain(`apply requires --confirm-ci-sha ${devSha}`);
-      expect(git(root, "ls-remote", "--exit-code", "--heads", "origin", "dev").status).not.toBe(0);
+      expectSuccess(git(root, "ls-remote", "--exit-code", "--heads", "origin", "dev"));
     } finally {
       cleanupFixture(tempRoot);
     }
   });
 
-  it("applies solo-maintainer protection and becomes a no-op on the next plan", () => {
+  it("applies activation and cleanup as separate idempotent phases", () => {
     const { root, tempRoot, devSha } = initialiseRemoteRepository();
     try {
+      expectSuccess(git(root, "push", "origin", "dev"));
       const statePath = join(tempRoot, "github-state.json");
       const logPath = join(tempRoot, "github-calls.log");
       writeFileSync(
@@ -1703,18 +2262,23 @@ describe("GitHub workflow bootstrap", () => {
             nameWithOwner: "brandon-y-lee/helix",
             defaultBranchRef: { name: "main" },
             hasIssuesEnabled: true,
-            mergeCommitAllowed: false,
-            squashMergeAllowed: false,
-            rebaseMergeAllowed: true,
-            deleteBranchOnMerge: false,
           },
-          labels: [],
-          protections: {},
+          labels: [
+            { name: "workflow:integration-active", color: "B60205", description: "retired" },
+          ],
+          protections: {
+            dev: desiredFakeProtection(false),
+            main: desiredFakeProtection(true),
+          },
+          rulesets: [
+            { id: 11, name: "dev pull request integration", enforcement: "disabled" },
+            { id: 12, name: "spec branch pull request integration", enforcement: "disabled" },
+          ],
         }),
       );
       const fakeGh = writeFakeGh(tempRoot, logPath);
 
-      const applied = bootstrap(
+      const activated = bootstrap(
         root,
         fakeGh,
         statePath,
@@ -1728,105 +2292,82 @@ describe("GitHub workflow bootstrap", () => {
         devSha,
         "--confirm-ci-sha",
         devSha,
+        "--confirm-phase",
+        "activate",
+        "--confirm-github-actions-app-id",
+        "15368",
       );
-      expectSuccess(applied);
-      expect(applied.stdout).toContain("Applied GitHub workflow configuration.");
-      expectSuccess(git(root, "ls-remote", "--exit-code", "--heads", "origin", "dev"));
-      const state = JSON.parse(readFileSync(statePath, "utf8"));
-      expect(
-        state.protections.main.required_pull_request_reviews.required_approving_review_count,
-      ).toBe(0);
-      expect(readFileSync(logPath, "utf8")).not.toContain("collaborators");
+      expectSuccess(activated);
+      expect(activated.stdout).toContain("Applied activate phase");
+      let state = JSON.parse(readFileSync(statePath, "utf8"));
+      expect(state.protections.dev).toBeTruthy();
+      expect(state.labels.some((label: { name: string }) => label.name === "workflow:integration-active")).toBe(true);
+      expect(state.rulesets.find((ruleset: { name: string }) => ruleset.name === "Spec Branch Ticket Gate").rules[1].parameters.allowed_merge_methods).toEqual(["squash"]);
+      expect(state.rulesets.find((ruleset: { name: string }) => ruleset.name === "Spec Branch Ticket Gate").bypass_actors).toEqual([
+        { actor_id: 5, actor_type: "RepositoryRole", bypass_mode: "always" },
+      ]);
+      expect(state.rulesets.find((ruleset: { name: string }) => ruleset.name === "dev Integration Gate").bypass_actors).toEqual([]);
 
       writeFileSync(logPath, "");
-      const plannedAgain = bootstrap(
+      const activatedAgain = bootstrap(
         root,
         fakeGh,
         statePath,
         logPath,
-        "plan",
+        "apply",
         "--repo",
         "brandon-y-lee/helix",
+        "--confirm-repo",
+        "brandon-y-lee/helix",
+        "--confirm-dev-sha",
+        devSha,
+        "--confirm-ci-sha",
+        devSha,
+        "--confirm-phase",
+        "activate",
+        "--confirm-github-actions-app-id",
+        "15368",
       );
-      expectSuccess(plannedAgain);
-      expect(plannedAgain.stdout).toContain("No changes required.");
-      expect(readFileSync(logPath, "utf8")).not.toContain('["label","create"');
-      expect(readFileSync(logPath, "utf8")).not.toContain('"PATCH"');
-      expect(readFileSync(logPath, "utf8")).not.toContain('"PUT"');
+      expectSuccess(activatedAgain);
+      expect(readFileSync(logPath, "utf8")).not.toMatch(/"POST"|"PUT"|"DELETE"/);
 
-      writeFileSync(join(root, "candidate.txt"), "candidate\n");
-      expectSuccess(git(root, "add", "candidate.txt"));
-      expectSuccess(git(root, "commit", "-m", "Candidate"));
-      const candidateVerified = bootstrap(
+      const cleaned = bootstrap(
         root,
         fakeGh,
         statePath,
         logPath,
-        "verify",
+        "apply",
         "--repo",
         "brandon-y-lee/helix",
-        "--candidate-ref",
-        "HEAD",
-      );
-      expectSuccess(candidateVerified);
-      expect(candidateVerified.stdout).toContain("No changes required.");
-
-      state.protections.dev.required_status_checks.strict = false;
-      state.protections.dev.enforce_admins = false;
-      writeFileSync(statePath, JSON.stringify(state));
-      const candidateProtectionDrift = bootstrap(
-        root,
-        fakeGh,
-        statePath,
-        logPath,
-        "verify",
-        "--repo",
+        "--confirm-repo",
         "brandon-y-lee/helix",
-        "--candidate-ref",
-        "HEAD",
+        "--confirm-dev-sha",
+        devSha,
+        "--confirm-ci-sha",
+        devSha,
+        "--confirm-phase",
+        "cleanup",
+        "--confirm-github-actions-app-id",
+        "15368",
       );
-      expect(candidateProtectionDrift.status).not.toBe(0);
-      expect(candidateProtectionDrift.stdout).toContain("protect dev");
-
-      state.protections.dev.required_status_checks.strict = true;
-      state.protections.dev.enforce_admins = true;
-
-      state.protections.dev.required_pull_request_reviews.require_code_owner_reviews = true;
-      writeFileSync(statePath, JSON.stringify(state));
-      const approvalDrift = bootstrap(
-        root,
-        fakeGh,
-        statePath,
-        logPath,
-        "plan",
-        "--repo",
-        "brandon-y-lee/helix",
-      );
-      expectSuccess(approvalDrift);
-      expect(approvalDrift.stdout).toContain("protect dev");
-
-      state.protections.dev.required_pull_request_reviews.require_code_owner_reviews = false;
-      state.protections.dev.required_status_checks.contexts = ["ci", "obsolete-check"];
-      writeFileSync(statePath, JSON.stringify(state));
-      const statusCheckDrift = bootstrap(
-        root,
-        fakeGh,
-        statePath,
-        logPath,
-        "plan",
-        "--repo",
-        "brandon-y-lee/helix",
-      );
-      expectSuccess(statusCheckDrift);
-      expect(statusCheckDrift.stdout).toContain("protect dev");
+      expectSuccess(cleaned);
+      state = JSON.parse(readFileSync(statePath, "utf8"));
+      expect(state.protections.dev).toBeUndefined();
+      expect(state.rulesets.map((ruleset: { name: string }) => ruleset.name).sort()).toEqual([
+        "Spec Branch Ticket Gate",
+        "dev Integration Gate",
+      ]);
+      expect(state.labels).toEqual([]);
+      expect(git(root, "ls-remote", "--heads", "origin", "refs/heads/dev").stdout.split(/\s+/)[0]).toBe(devSha);
     } finally {
       cleanupFixture(tempRoot);
     }
   });
 
-  it("pushes only the confirmed dev SHA when local dev moves during apply", () => {
+  it("never pushes dev and rejects stale SHA confirmation", () => {
     const { root, tempRoot, devSha } = initialiseRemoteRepository();
     try {
+      expectSuccess(git(root, "push", "origin", "dev"));
       const statePath = join(tempRoot, "github-state.json");
       const logPath = join(tempRoot, "github-calls.log");
       writeFileSync(
@@ -1842,8 +2383,11 @@ describe("GitHub workflow bootstrap", () => {
             deleteBranchOnMerge: false,
           },
           labels: [],
-          protections: {},
-          advanceDev: true,
+          protections: {
+            dev: desiredFakeProtection(false),
+            main: desiredFakeProtection(true),
+          },
+          rulesets: [],
         }),
       );
       const fakeGh = writeFakeGh(tempRoot, logPath);
@@ -1859,15 +2403,20 @@ describe("GitHub workflow bootstrap", () => {
         "--confirm-repo",
         "brandon-y-lee/helix",
         "--confirm-dev-sha",
-        devSha,
+        "0".repeat(40),
         "--confirm-ci-sha",
         devSha,
+        "--confirm-phase",
+        "activate",
+        "--confirm-github-actions-app-id",
+        "15368",
       );
-      expectSuccess(applied);
-      expect(git(root, "rev-parse", "dev").stdout.trim()).not.toBe(devSha);
+      expect(applied.status).not.toBe(0);
+      expect(applied.stderr).toContain(`apply requires --confirm-dev-sha ${devSha}`);
       expect(
         git(root, "ls-remote", "--heads", "origin", "refs/heads/dev").stdout.split(/\s+/)[0],
       ).toBe(devSha);
+      expect(readFileSync(logPath, "utf8")).not.toContain("push");
     } finally {
       cleanupFixture(tempRoot);
     }
@@ -1895,14 +2444,13 @@ describe("GitHub workflow bootstrap", () => {
         expected: /not 'brandon-y-lee\/helix'/,
       },
       {
-        name: "ancestry",
+        name: "remote dev ancestry",
         mutateRepo: (root) => {
-          writeFileSync(join(root, "main-only.txt"), "remote main advanced\n");
-          expectSuccess(git(root, "add", "main-only.txt"));
-          expectSuccess(git(root, "commit", "-m", "Advance main only"));
-          expectSuccess(git(root, "push", "origin", "main"));
+          const tree = git(root, "rev-parse", "main^{tree}").stdout.trim();
+          const unrelated = git(root, "commit-tree", tree, "-m", "Unrelated dev").stdout.trim();
+          expectSuccess(git(root, "push", "--force", "origin", `${unrelated}:refs/heads/dev`));
         },
-        expected: /does not contain remote main/,
+        expected: /does not contain remote dev/,
       },
       {
         name: "capability",
@@ -1916,6 +2464,7 @@ describe("GitHub workflow bootstrap", () => {
     for (const scenario of scenarios) {
       const { root, tempRoot } = initialiseRemoteRepository();
       try {
+        expectSuccess(git(root, "push", "origin", "dev"));
         const statePath = join(tempRoot, "github-state.json");
         const logPath = join(tempRoot, "github-calls.log");
         const state: FakeGithubState = {
@@ -1929,7 +2478,11 @@ describe("GitHub workflow bootstrap", () => {
             deleteBranchOnMerge: true,
           },
           labels: [],
-          protections: {},
+          protections: {
+            dev: desiredFakeProtection(false),
+            main: desiredFakeProtection(true),
+          },
+          rulesets: [],
         };
         scenario.mutateState?.(state);
         scenario.mutateRepo?.(root);

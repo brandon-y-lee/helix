@@ -6,12 +6,23 @@ This document owns branch, worktree, PR, integration, and release mechanics. The
 
 - `main` is the default and production branch.
 - `dev` is the staging and integration branch.
-- `codex/<issue-number>-<slug>` implements one approved ticket.
+- `codex/spec-<spec-number>-<slug>` is one approved multi-Ticket Spec Branch and owns a draft Spec PR to `dev`.
+- `codex/<issue-number>-<slug>` implements one approved Ticket from an immutable Ticket Snapshot and targets its Spec Branch.
 - `codex/<issue-number>-urgent-<slug>` is the abbreviated production/security path without a parent spec.
 - `codex/plan-<slug>` carries domain documentation resolved during planning.
 - `codex/trivial-<slug>` is the bounded non-behavioral fast path.
 
-All short-lived branches target `dev` through a PR. Ticket PRs squash-merge; the human-approved `dev → main` promotion uses a regular merge commit. Force-pushes and direct task merges to long-lived branches are outside the workflow.
+Ticket PRs squash-merge into their Spec Branch. The final Spec PR regular-merges into `dev`, preserving the Ticket commits and visible Spec boundary. Urgent, standalone, planning, and trivial branches remain direct-to-`dev`. The human-approved `dev → main` promotion uses a regular merge commit. Force-pushes and history rewriting are outside the workflow.
+
+## Establish a Spec Branch and draft Spec PR
+
+After the approved Ticket set is published without `ready-for-agent`, run from a clean checkout:
+
+```bash
+scripts/git/codex-task.sh spec-start <spec-number>-<slug>
+```
+
+The helper validates the planned Spec, fetches the exact current remote `dev`, creates `codex/spec-<spec-number>-<slug>` at that commit, pushes it, and opens a draft Spec PR to `dev`. Only after both remote artifacts exist does it add `ready-for-agent` to the approved child Tickets. Rerunning is safe when the same branch and draft PR already exist. A missing branch, non-draft PR, or stale partial setup fails with preservation-oriented recovery output.
 
 ## Start an isolated task
 
@@ -19,21 +30,27 @@ Run from a clean checkout before the first repository edit:
 
 ```bash
 scripts/git/codex-task.sh start <issue-number>-<slug>
+scripts/git/codex-task.sh start <issue-number>-<slug> --spec <spec-number>-<spec-slug>
 scripts/git/codex-task.sh start <issue-number>-urgent-<slug>
 scripts/git/codex-task.sh start plan-<slug>
 scripts/git/codex-task.sh start trivial-<slug>
 ```
 
-The helper creates the task from local `dev` and records `refs/codex/review-base/<slug>`.
+Normal multi-Ticket work uses `--spec`. The helper validates that the Ticket is open, claimed by exactly one assignee, `workflow:in-progress`, a child of the named Spec, and free of open native blockers. It fetches the remote Spec Branch and records the Ticket Snapshot as:
+
+- `refs/codex/review-base/<slug>` — the immutable starting SHA;
+- `refs/codex/review-target/<slug>` — the recorded remote Spec Branch name.
+
+Direct urgent, standalone, planning, and trivial work continues to start from local `dev`.
 
 - In the shared Local checkout, it creates a temporary worktree and prints its path. Use that path for every task command.
 - In an app-managed Worktree, it creates the branch in place.
 
-The command fails on dirty state, a missing local `dev`, an existing task branch or review-base ref, or a slug outside the workflow classes.
+The command fails on dirty state, missing or uncertain GitHub facts, a missing target, an existing task branch or recorded ref, or a slug outside the workflow classes.
 
 ## Prepare for review and PR
 
-Commit the implementation before `code-review`; the review compares committed changes against `dev`. Ticket commits include both footers:
+Commit the implementation before `code-review`. Ticket Review compares committed Ticket work against the immutable Ticket Snapshot. Ticket commits include both footers:
 
 ```text
 Refs #<ticket-number>
@@ -49,24 +66,26 @@ scripts/git/codex-task.sh prepare <task-worktree>
 scripts/git/codex-task.sh prepare
 ```
 
-`prepare` requires clean state, commits ahead of `dev`, current `dev` ancestry, the recorded review base, and the applicable traceability footers. It never merges or pushes.
+For a Spec Ticket, `prepare` requires clean state, additive ancestry from the Ticket Snapshot, commits ahead of that snapshot, an available recorded target, traceability footers, and an approved `Ticket-Sync-Reason` on every synchronization merge. Ordinary sibling advances do not invalidate the snapshot. Direct paths retain current-`dev` ancestry checks. `prepare` never merges, pushes, or retargets.
 
-Run `code-review dev`. Resolve every confirmed actionable finding or obtain an explicit human acceptance; P0/P1 findings always block. If fixes add commits, rerun affected checks and review.
+Allowed synchronization reasons are `merge-conflict`, `newly-approved-blocker`, `consumed-interface`, and `combined-test`. Synchronize only on the concrete condition named by the trailer, by additively merging the recorded Spec Branch. Do not rebase, force-push, cherry-pick siblings, merge `dev` directly, or synchronize merely because the Spec Branch advanced.
 
-After review passes, push the branch and open a ready PR targeting `dev`. The PR body follows `.github/PULL_REQUEST_TEMPLATE.md`. GitHub CI is the executable merge gate. An approved ticket authorizes the implementing agent to squash-merge after CI passes.
+Run Ticket Review on the Standards and Spec axes against the printed Ticket Snapshot. Resolve every confirmed actionable finding or obtain explicit human acceptance; P0/P1 findings always block. If fixes or justified synchronization add commits, rerun affected checks and delta review.
+
+After review passes, push and open a ready PR targeting the printed Spec Branch. The PR body follows `.github/PULL_REQUEST_TEMPLATE.md`. `ticket-gate` is the executable merge gate. An approved Ticket authorizes its assigned agent to squash-merge after Ticket Review and the gate pass.
 
 ## Clean up after merge
 
-After GitHub reports the PR merged into `dev`, run:
+After GitHub reports the Ticket PR merged into its recorded target, run:
 
 ```bash
 scripts/git/codex-task.sh cleanup <task-worktree>
 scripts/git/codex-task.sh cleanup
 ```
 
-The helper queries the PR through `gh`, requires the merged base to be `dev`, and verifies that the merged PR head is the current task commit. GitHub failures remain visible so unavailable evidence cannot look like an ordinary unmerged PR. It then deletes the recorded review-base ref and local task branch and removes the linked task worktree, whether the worktree was created by the helper or managed by the Codex app. It leaves the remote branch to GitHub's delete-on-merge setting.
+The helper queries the PR through `gh`, requires the recorded base, and verifies that the merged PR head is the exact current task commit. It does not require the remote Ticket head to remain present, so automatic branch deletion is safe. GitHub failures and missing/renamed/cancelled targets remain visible. It then deletes both recorded refs and the local task branch, and removes the linked worktree whether helper-created or app-managed.
 
-Before cleanup, the merging agent comments on the ticket with the PR, squash commit, verification, and `code-review` outcome; closes the ticket; and advances the parent spec state. The parent spec closes after every child ticket PR is integrated into `dev`.
+Before cleanup, the merging agent comments on the Ticket with the PR, squash commit, `ticket-gate`, and Ticket Review outcome, then closes it. The parent Spec closes only after every required Ticket is closed and the ready Spec PR passes Combined Spec Review plus `integration-gate` and regular-merges into `dev`.
 
 ### Reconcile accumulated task state
 
@@ -90,7 +109,7 @@ Remote branch deletion is a separate opt-in and uses an exact-SHA force-with-lea
 scripts/git/codex-task.sh reconcile --apply --remote
 ```
 
-Clean detached worktrees and branch-backed `codex/*` state are removable only when their exact commit is the recorded head of a merged PR into `dev`. Ordinary `dev` ancestry is not enough automatic evidence. Research, prototype, legacy worktree, and other non-task branches remain unproven regardless of age or naming.
+Clean detached worktrees and branch-backed `codex/*` state are removable only when their exact commit is the recorded head of a merged PR into its authoritative base. Ordinary ancestry is not enough automatic evidence. Research, prototype, legacy worktree, and other non-task branches remain unproven regardless of age or naming.
 
 ### Retire assessed unique state
 
@@ -103,19 +122,21 @@ scripts/git/codex-task.sh retire <branch-or-worktree> --expect-head <full-40-cha
 
 Retirement checks the expected SHA, worktree cleanliness, protected locations and branches, open issue and PR state, and the remote head before changing anything. A missing target or a branch owned by more than one worktree is ambiguous and refused. Without `--remote`, any remote branch is preserved. With `--remote`, deletion is lease-protected against a concurrent head change and completes before local retirement, so a rejected remote lease leaves the local artifact intact. A mismatch or unavailable GitHub/remote fact stops the operation without treating the artifact as disposable.
 
-## Concurrent tickets and an advancing dev
+## Concurrent Tickets and Spec closure
 
-Only open, unblocked, unassigned `type:ticket` issues on the frontier are claimable. Independent tickets may run concurrently, but PRs integrate sequentially. When `dev` advances:
+Only open, unblocked, unassigned `type:ticket` issues on the frontier are claimable. Independent Tickets may run concurrently from immutable snapshots. A sibling merge does not require synchronization. When concrete evidence requires it, merge only the recorded Spec Branch and record the approved reason.
+
+After every required Ticket closes, the sole Spec Closer records the pre-merge head and incorporates current `dev` additively:
 
 ```bash
 git merge dev
 ```
 
-Resolve conflicts, repeat affected verification and `code-review`, then rerun `prepare`. Preserve the merge in the task branch; the final PR still squash-merges to one ticket commit.
+Resolve only necessary composition conflicts. Run focused verification and Combined Spec Review against the incorporated `dev` commit, then mark the draft Spec PR ready. The `ready_for_review` event runs `integration-gate`. If `dev` advances, incorporate it again and repeat affected proof. The final Spec PR regular-merges into `dev`.
 
 ## Staging and production
 
-Each merge into `dev` receives CI and the staging deployment configured for that branch. Production promotion requires:
+Each merge into `dev` receives the Integration Gate and staging deployment configured for that branch. Production promotion requires:
 
 1. the complete intended spec set integrated into `dev`;
 2. full CI-equivalent verification and staging inspection;
@@ -125,7 +146,7 @@ Each merge into `dev` receives CI and the staging deployment configured for that
 
 The solo maintainer does not self-approve the PR through GitHub; branch protection requires zero approving reviews. Merge the authorized promotion with a regular merge commit. Production authority, live-mode changes, and destructive remote operations remain human-controlled.
 
-## GitHub bootstrap
+## GitHub workflow configuration
 
 The repository configuration tool is read-only by default:
 
@@ -133,13 +154,17 @@ The repository configuration tool is read-only by default:
 pnpm github:workflow:plan
 ```
 
-Before the first remote `dev` creation, run the complete gate from `.github/workflows/ci.yml` against one clean local `dev` commit: frozen install, lint, typecheck, unit tests, and production-build Playwright tests. After reviewing the plan, apply requires that same SHA as both the audited source and the explicit CI attestation:
+The plan names two phases. `activate` adds the loose Spec Branch `ticket-gate` ruleset with its narrow repository-administrator bypass and strict no-bypass `dev` `integration-gate` ruleset while classic `ci` remains required. `cleanup` becomes available only after both replacement rules are exact and real gate evidence has been verified; it removes classic `dev` protection and the named retired rulesets and labels. `main` is explicitly deferred.
+
+Apply remains a separate, exact user authorization. It requires the remote `dev` SHA as both audited source and CI attestation, plus the GitHub Actions app and one phase:
 
 ```bash
 pnpm github:workflow:apply -- \
   --confirm-repo brandon-y-lee/helix \
   --confirm-dev-sha <audited-dev-sha> \
-  --confirm-ci-sha <same-CI-verified-sha>
+  --confirm-ci-sha <same-CI-verified-sha> \
+  --confirm-phase <activate-or-cleanup> \
+  --confirm-github-actions-app-id <audited-id>
 ```
 
-The tool pushes the captured commit rather than the mutable branch name and rechecks remote `main`/`dev` immediately before that push. It fails closed on missing authentication, the wrong repository, stale or divergent branch ancestry, unavailable repository or issue-API facts, or mismatched confirmations. Apply remains a separately approved remote mutation.
+The tool never pushes `dev`. It fails closed on missing authentication, the wrong repository, stale or divergent ancestry, unavailable repository, issue, check, ruleset, protection, or label facts, mismatched confirmations, or cleanup before exact replacement activation. Before cleanup, rollback is deletion of the new rules while classic `ci` remains. After cleanup, rollback restores exact classic `ci` protection before disabling replacements.
