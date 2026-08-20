@@ -165,7 +165,8 @@ function githubActionsAppId(repo, sha) {
 }
 
 function pullRequestsForRun(repo, run) {
-  if (run.pull_requests?.length) return run.pull_requests;
+  if (!Array.isArray(run.pull_requests)) return [];
+  if (run.pull_requests.length > 0) return run.pull_requests;
   const associated = parseJson(
     runGh([
       "api",

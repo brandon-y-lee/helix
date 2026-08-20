@@ -2562,7 +2562,6 @@ describe("GitHub workflow bootstrap", () => {
         {
           conclusion: "success",
           head_sha: "a".repeat(40),
-          pull_requests: [],
         },
         {
           conclusion: "success",
@@ -2578,6 +2577,42 @@ describe("GitHub workflow bootstrap", () => {
           { name: "integration-gate", conclusion: "success", app: { id: 15368, slug: "github-actions" } },
         ],
       };
+      state.pullRequestsBySha = {
+        ["a".repeat(40)]: [
+          {
+            number: 218,
+            base: { ref: "codex/spec-45-checkout" },
+            head: { sha: "a".repeat(40) },
+          },
+        ],
+      };
+      writeFileSync(statePath, JSON.stringify(state));
+
+      const missingAssociationMetadata = bootstrap(
+        root,
+        fakeGh,
+        statePath,
+        logPath,
+        "apply",
+        "--repo",
+        "brandon-y-lee/helix",
+        "--confirm-repo",
+        "brandon-y-lee/helix",
+        "--confirm-dev-sha",
+        devSha,
+        "--confirm-ci-sha",
+        devSha,
+        "--confirm-phase",
+        "cleanup",
+        "--confirm-github-actions-app-id",
+        "15368",
+      );
+      expect(missingAssociationMetadata.status).not.toBe(0);
+      expect(missingAssociationMetadata.stderr).toContain(
+        "cleanup requires successful real ticket-gate and integration-gate evidence from pull requests",
+      );
+
+      state.workflowRuns[0].pull_requests = [];
       state.pullRequestsBySha = {
         ["a".repeat(40)]: [
           {
