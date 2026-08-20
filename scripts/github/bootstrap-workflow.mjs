@@ -164,6 +164,28 @@ function githubActionsAppId(repo, sha) {
   return app.id;
 }
 
+function pullRequestsForRun(repo, run) {
+  if (!Array.isArray(run.pull_requests)) return [];
+  if (run.pull_requests.length > 0) return run.pull_requests;
+  const pages = parseJson(
+    runGh([
+      "api",
+      "--paginate",
+      "--slurp",
+      `repos/${repo}/commits/${run.head_sha}/pulls`,
+      "-H",
+      `X-GitHub-Api-Version: ${API_VERSION}`,
+    ]),
+    "workflow run pull-request association",
+  );
+  if (!Array.isArray(pages) || !pages.every(Array.isArray)) return [];
+  const associated = pages.flat();
+  const exact = associated.filter((pullRequest) =>
+    pullRequest.head?.sha === run.head_sha
+  );
+  return exact.length === 1 ? exact : [];
+}
+
 function replacementGateEvidence(repo, appId) {
   const runs = parseJson(
     runGh(["api", `repos/${repo}/actions/runs?event=pull_request&status=success&per_page=100`, "-H", `X-GitHub-Api-Version: ${API_VERSION}`, "--jq", "{workflow_runs: [.workflow_runs[] | {conclusion, head_sha, pull_requests}]}" ]),
@@ -172,7 +194,7 @@ function replacementGateEvidence(repo, appId) {
   const evidence = { ticket: false, integration: false };
   for (const run of runs) {
     if (run.conclusion !== "success" || !run.head_sha) continue;
-    const base = run.pull_requests?.[0]?.base?.ref;
+    const base = pullRequestsForRun(repo, run)[0]?.base?.ref;
     const gate = base?.startsWith("codex/spec-") ? "ticket-gate" : (base === "dev" || base === "main" ? "integration-gate" : null);
     if (!gate) continue;
     const checks = parseJson(

@@ -1861,6 +1861,7 @@ type FakeGithubState = {
   advancedDev?: boolean;
   workflowRuns?: Array<Record<string, unknown>>;
   checkRunsBySha?: Record<string, Array<Record<string, unknown>>>;
+  pullRequestPagesBySha?: Record<string, Array<Array<Record<string, unknown>>>>;
 };
 
 function writeFakeGh(tempRoot: string, logPath: string): string {
@@ -1930,6 +1931,12 @@ if (args[0] === "api") {
     process.stdout.write(JSON.stringify({
       check_runs: state.checkRunsBySha?.[sha] || [{ name: "ci", app: { id: 15368, slug: "github-actions" } }],
     }));
+    process.exit(0);
+  }
+  if (method === "GET" && endpoint?.endsWith("/pulls")) {
+    const sha = endpoint.match(/\\/commits\\/([^/]+)\\/pulls$/)?.[1];
+    const pages = state.pullRequestPagesBySha?.[sha] || [[]];
+    process.stdout.write(JSON.stringify(args.includes("--slurp") ? pages : pages[0]));
     process.exit(0);
   }
   if (method === "GET" && endpoint?.endsWith("/actions/runs?event=pull_request&status=success&per_page=100")) {
@@ -2556,7 +2563,6 @@ describe("GitHub workflow bootstrap", () => {
         {
           conclusion: "success",
           head_sha: "a".repeat(40),
-          pull_requests: [{ base: { ref: "codex/spec-45-checkout" } }],
         },
         {
           conclusion: "success",
@@ -2571,6 +2577,164 @@ describe("GitHub workflow bootstrap", () => {
         ["b".repeat(40)]: [
           { name: "integration-gate", conclusion: "success", app: { id: 15368, slug: "github-actions" } },
         ],
+      };
+      state.pullRequestPagesBySha = {
+        ["a".repeat(40)]: [[
+          {
+            number: 218,
+            base: { ref: "codex/spec-45-checkout" },
+            head: { sha: "a".repeat(40) },
+          },
+        ]],
+      };
+      writeFileSync(statePath, JSON.stringify(state));
+
+      const missingAssociationMetadata = bootstrap(
+        root,
+        fakeGh,
+        statePath,
+        logPath,
+        "apply",
+        "--repo",
+        "brandon-y-lee/helix",
+        "--confirm-repo",
+        "brandon-y-lee/helix",
+        "--confirm-dev-sha",
+        devSha,
+        "--confirm-ci-sha",
+        devSha,
+        "--confirm-phase",
+        "cleanup",
+        "--confirm-github-actions-app-id",
+        "15368",
+      );
+      expect(missingAssociationMetadata.status).not.toBe(0);
+      expect(missingAssociationMetadata.stderr).toContain(
+        "cleanup requires successful real ticket-gate and integration-gate evidence from pull requests",
+      );
+
+      state.workflowRuns[0].pull_requests = [];
+      state.pullRequestPagesBySha = {
+        ["a".repeat(40)]: [[
+          {
+            number: 218,
+            base: { ref: "codex/spec-45-checkout" },
+            head: { sha: "c".repeat(40) },
+          },
+        ]],
+      };
+      writeFileSync(statePath, JSON.stringify(state));
+
+      const mismatchedAssociation = bootstrap(
+        root,
+        fakeGh,
+        statePath,
+        logPath,
+        "apply",
+        "--repo",
+        "brandon-y-lee/helix",
+        "--confirm-repo",
+        "brandon-y-lee/helix",
+        "--confirm-dev-sha",
+        devSha,
+        "--confirm-ci-sha",
+        devSha,
+        "--confirm-phase",
+        "cleanup",
+        "--confirm-github-actions-app-id",
+        "15368",
+      );
+      expect(mismatchedAssociation.status).not.toBe(0);
+      expect(mismatchedAssociation.stderr).toContain(
+        "cleanup requires successful real ticket-gate and integration-gate evidence from pull requests",
+      );
+
+      state.pullRequestPagesBySha = {
+        ["a".repeat(40)]: [[
+          {
+            number: 218,
+            base: { ref: "codex/spec-45-checkout" },
+          },
+        ]],
+      };
+      writeFileSync(statePath, JSON.stringify(state));
+
+      const malformedAssociation = bootstrap(
+        root,
+        fakeGh,
+        statePath,
+        logPath,
+        "apply",
+        "--repo",
+        "brandon-y-lee/helix",
+        "--confirm-repo",
+        "brandon-y-lee/helix",
+        "--confirm-dev-sha",
+        devSha,
+        "--confirm-ci-sha",
+        devSha,
+        "--confirm-phase",
+        "cleanup",
+        "--confirm-github-actions-app-id",
+        "15368",
+      );
+      expect(malformedAssociation.status).not.toBe(0);
+      expect(malformedAssociation.stderr).toContain(
+        "cleanup requires successful real ticket-gate and integration-gate evidence from pull requests",
+      );
+
+      state.pullRequestPagesBySha = {
+        ["a".repeat(40)]: [
+          [
+            {
+              number: 218,
+              base: { ref: "codex/spec-45-checkout" },
+              head: { sha: "a".repeat(40) },
+            },
+          ],
+          [
+            {
+              number: 220,
+              base: { ref: "codex/spec-197-other-proof" },
+              head: { sha: "a".repeat(40) },
+            },
+          ],
+        ],
+      };
+      writeFileSync(statePath, JSON.stringify(state));
+
+      const ambiguousAssociation = bootstrap(
+        root,
+        fakeGh,
+        statePath,
+        logPath,
+        "apply",
+        "--repo",
+        "brandon-y-lee/helix",
+        "--confirm-repo",
+        "brandon-y-lee/helix",
+        "--confirm-dev-sha",
+        devSha,
+        "--confirm-ci-sha",
+        devSha,
+        "--confirm-phase",
+        "cleanup",
+        "--confirm-github-actions-app-id",
+        "15368",
+      );
+      expect(ambiguousAssociation.status).not.toBe(0);
+      expect(ambiguousAssociation.stderr).toContain(
+        "cleanup requires successful real ticket-gate and integration-gate evidence from pull requests",
+      );
+
+      state.pullRequestPagesBySha = {
+        ["a".repeat(40)]: [[
+          {
+            number: 218,
+            base: { ref: "codex/spec-45-checkout" },
+            head: { sha: "a".repeat(40) },
+          },
+        ]],
       };
       writeFileSync(statePath, JSON.stringify(state));
 
@@ -2618,7 +2782,7 @@ describe("GitHub workflow bootstrap", () => {
     } finally {
       cleanupFixture(tempRoot);
     }
-  });
+  }, 10_000);
 
   it("never pushes dev and rejects stale SHA confirmation", () => {
     const { root, tempRoot, devSha } = initialiseRemoteRepository();
