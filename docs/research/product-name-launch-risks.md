@@ -1,24 +1,24 @@
-# Product Name Launch Risks
+# Historical Product Name Launch Risks
 
 **Research date:** 2026-08-10<br>
-**Decision served:** preserve the final, user-locked Product Display Names and the launch gates that remain after the broader naming exploration was retired.
+**Decision served:** preserve the last user-locked Product Display Names and launch gates from the retired pre-rebrand exploration for provenance.
 
-## Authority and limits
+> **Historical, non-authoritative research snapshot.** This screen was conducted for the retired `MEI PELLE` composite before the completed helix rebrand. It does not approve a name, trademark position, claim, or launch under `helix`. Follow the [Brand & Platform glossary](../domain/brand-platform/CONTEXT.md) and [ADR-0004](../adr/0004-complete-the-helix-rebrand-through-coordinated-identifier-migrations.md). Before reusing any candidate, rerun the screen for the exact helix composite and revalidate the current Formula and claims.
 
-The six spellings below are the approved naming slate and supersede earlier alternatives. The underlying screen covered exact phrases, compressed forms, related word roots, the official [USPTO Trademark Search](https://tmsearch.uspto.gov/), and current beauty commerce. It was a bounded preliminary screen, not legal clearance.
+## Historical scope and limits
 
-Several names are descriptive or crowded. Use them with the **MEI PELLE** house mark and do not assume exclusive rights in the standalone wording. Trademark counsel must clear the complete composite before packaging or launch.
+The six spellings below were the approved slate at the time of the research and superseded earlier alternatives within that retired exploration. The screen covered exact phrases, compressed forms, related word roots, the official [USPTO Trademark Search](https://tmsearch.uspto.gov/), and then-current beauty commerce. It was a bounded preliminary screen, not legal clearance. Its composite-mark conclusions do not transfer from `MEI PELLE` to `helix`.
 
 ## Locked slate
 
-| Catalog position | Product Display Name | Formula / Product Type | Risk | Publication decision |
+| Catalog position | Product Display Name | Formula / Product Type | Historical risk | Historical disposition |
 | --- | --- | --- | --- | --- |
-| REFINE — General | **Balancing Prep** | Daily toner pads | Medium–high; descriptive and commercially weak | Approved with the house mark and claim controls. |
-| REFINE — Exfoliating | **Polishing Prep** | PHA + LHA exfoliating pads | Medium; descriptive, with prior cosmetics use of the dominant phrase | Approved with the house mark and claim controls. |
-| REFINE — Brightening | **Beaming Prep** | Niacinamide brightening pads | Low–moderate preliminary risk; still result-oriented wording | Approved with the house mark and claim controls. |
-| REFINE — Cooling | **Chilling Prep** | TECA cooling pads | Low–moderate preliminary risk; sensory promise requires tolerance support | Approved with the house mark and tolerance controls. |
-| FRAME | **Peptide Eye Cream** | PDRN eye cream | High; generic, descriptive, and crowded | Approved only as **MEI PELLE Peptide Eye Cream**, after counsel reviews the composite use. |
-| LIFT | **Peptide Nourish Mask** | PDRN sheet mask | High; the current source formula declares no peptide | Name approved, but publication is blocked until the exact production formula substantiates `Peptide`. |
+| REFINE — General | **Balancing Prep** | Daily toner pads | Medium–high; descriptive and commercially weak | Historically approved for the retired composite; not cleared for helix. |
+| REFINE — Exfoliating | **Polishing Prep** | PHA + LHA exfoliating pads | Medium; descriptive, with prior cosmetics use of the dominant phrase | Historically approved for the retired composite; not cleared for helix. |
+| REFINE — Brightening | **Beaming Prep** | Niacinamide brightening pads | Low–moderate preliminary risk; still result-oriented wording | Historically approved for the retired composite; not cleared for helix. |
+| REFINE — Cooling | **Chilling Prep** | TECA cooling pads | Low–moderate preliminary risk; sensory promise requires tolerance support | Historically approved for the retired composite; not cleared for helix. |
+| FRAME | **Peptide Eye Cream** | PDRN eye cream | High; generic, descriptive, and crowded | Historically approved only within the retired composite; not cleared for helix. |
+| LIFT | **Peptide Nourish Mask** | PDRN sheet mask | High; the source formula declared no peptide | Historically name-approved but formula-blocked; not cleared for helix. |
 
 ## Name-specific controls
 
@@ -46,10 +46,10 @@ The exact phrase is common Product/category wording. A live longer Class 3 regis
 
 Meaning-adjacent nourishing-peptide mask names exist in current skincare, but the hard blocker is formula truth: Leaders' current LIFT declaration lists Sodium DNA and hydrolyzed collagen but no peptide. Do not publish this name in packaging, PDP copy, metadata, or campaigns until a signed production specification and U.S. INCI identify the peptide ingredients and support the associated claims. [Leaders PDRN 0.5% Lifting Mask](https://www.leaderscosmeticsusa.com/products/leaders-pdrn-0-5-lifting-mask)
 
-## Launch gates
+## Gates before any helix reuse
 
-1. Clear every complete **MEI PELLE + Product Display Name** composite across federal, state, common-law, marketplace, domain, handle, owner-family, and intended international markets.
-2. Preserve the six approved spellings exactly; do not silently restore earlier alternatives.
-3. Reconcile every cosmetic claim with the exact OEM formula ID, signed INCI, label, directions, warnings, and finished-product substantiation.
-4. Keep **Peptide Nourish Mask** blocked until the production formula truthfully supports `Peptide`.
-5. Treat this record as preliminary risk context, not a legal opinion or final clearance.
+1. Rerun knockout research and have trademark counsel clear every exact **helix + Product Display Name** composite across federal, state, common-law, marketplace, domain, handle, owner-family, and intended international markets.
+2. Preserve the six spellings exactly in this historical record; their presence here is not current naming authorization.
+3. Reconcile every cosmetic claim with the current OEM Formula ID, signed Complete INCI, label, directions, warnings, and finished-Product substantiation.
+4. Keep **Peptide Nourish Mask** blocked unless the production Formula truthfully supports `Peptide`; historical user preference does not override Formula truth.
+5. Treat this record only as preliminary historical risk context, not a legal opinion or final clearance.

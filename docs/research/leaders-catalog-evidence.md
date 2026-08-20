@@ -1,5 +1,7 @@
 # Leaders Formula and Catalog Evidence
 
+> **Historical, non-authoritative research snapshot.** This report preserves evidence and decisions recorded on 2026-08-09 under the retired Mei Pelle identity. The current brand is `helix`; do not treat legacy brand, Catalog, naming, or launch statements below as current authority. Follow the [Brand & Platform glossary](../domain/brand-platform/CONTEXT.md) and [ADR-0004](../adr/0004-complete-the-helix-rebrand-through-coordinated-identifier-migrations.md), and revalidate time-sensitive supplier, formula, regulatory, and availability evidence before use.
+
 **Research date:** 2026-08-09<br>
 **Decision served:** establish the factual supplier-formula and current-Catalog baseline for Mei Pelle's catalog strategy. This note does not choose final names or a final portfolio.
 
