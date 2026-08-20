@@ -17,7 +17,7 @@ import CheckoutCancelPage from "@/app/checkout/cancel/page";
 
 describe("checkout cancellation routing", () => {
   it("builds a cart cancel URL without public order identifiers", () => {
-    const url = buildCheckoutCancelUrl("https://mei-pelle.test");
+    const url = buildCheckoutCancelUrl("https://helix.test");
     const parsed = new URL(url);
 
     expect(parsed.pathname).toBe("/cart");

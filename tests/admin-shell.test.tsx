@@ -1,6 +1,7 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { FORMER_BRAND_PATTERN } from "@/tests/helpers/former-identifiers";
 
 let pathname = "/admin";
 
@@ -133,7 +134,7 @@ describe("admin shell navigation", () => {
     expect(
       mobileBrand?.querySelector('[data-helix-identity="wordmark"]'),
     ).toHaveAttribute("aria-hidden", "true");
-    expect(mobileBrand).not.toHaveTextContent("MEI PELLE");
+    expect(mobileBrand).not.toHaveTextContent(FORMER_BRAND_PATTERN);
   });
 
   it("collapses the desktop sidebar and restores the browser preference", async () => {
@@ -150,7 +151,8 @@ describe("admin shell navigation", () => {
     expect(
       adminBrand?.querySelector('[data-helix-identity="wordmark"]'),
     ).toHaveAttribute("aria-hidden", "true");
-    expect(adminBrand).not.toHaveTextContent(/MEI PELLE|\bMP\b/);
+    expect(adminBrand).not.toHaveTextContent(FORMER_BRAND_PATTERN);
+    expect(adminBrand).not.toHaveTextContent(/\bMP\b/);
 
     await user.click(
       screen.getByRole("button", { name: "Collapse admin sidebar" }),
@@ -159,7 +161,7 @@ describe("admin shell navigation", () => {
       "data-sidebar-collapsed",
       "true",
     );
-    expect(window.localStorage.getItem("mei-pelle-admin-sidebar-collapsed")).toBe(
+    expect(window.localStorage.getItem("helix-admin-sidebar-collapsed")).toBe(
       "true",
     );
     expect(screen.getByRole("link", { name: "Overview" })).toBeVisible();
@@ -188,7 +190,7 @@ describe("admin shell navigation", () => {
 
   it("keeps the collapsed current route identifiable and keyboard togglable", async () => {
     pathname = "/admin/catalog/products/product-cleanse";
-    window.localStorage.setItem("mei-pelle-admin-sidebar-collapsed", "true");
+    window.localStorage.setItem("helix-admin-sidebar-collapsed", "true");
     const user = userEvent.setup();
     const { container } = render(
       <AdminShell

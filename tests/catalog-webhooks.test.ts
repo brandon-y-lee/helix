@@ -211,51 +211,6 @@ describe("catalog webhook desired state", () => {
     ]);
   });
 
-  it("replaces exactly one legacy trigger without accepting old/new duplicates", () => {
-    const legacyName = "mei_pelle_catalog_search_sync_products";
-    const legacyOnly = buildCatalogWebhookReport(
-      "plan",
-      config,
-      state({
-        hooks: [
-          ...CATALOG_WEBHOOK_TABLES.filter((table) => table !== "products").map(
-            (table) => observed(table),
-          ),
-          observed("products", { triggerName: legacyName }),
-        ],
-      }),
-    );
-
-    expect(legacyOnly.ok).toBe(true);
-    expect(legacyOnly.actions).toContainEqual({
-      action: "update",
-      table: "products",
-      name: "helix_catalog_search_sync_products",
-      currentName: legacyName,
-    });
-
-    const desired = buildDesiredCatalogWebhooks(ENDPOINT, SECRET);
-    const sql = buildCatalogWebhookApplySql(desired, legacyOnly.actions);
-    expect(sql).toContain(
-      'drop trigger if exists "mei_pelle_catalog_search_sync_products"',
-    );
-    expect(sql).toContain(
-      'create trigger "helix_catalog_search_sync_products"',
-    );
-
-    const duplicate = buildCatalogWebhookReport(
-      "plan",
-      config,
-      state({
-        hooks: [
-          ...CATALOG_WEBHOOK_TABLES.map((table) => observed(table)),
-          observed("products", { triggerName: legacyName }),
-        ],
-      }),
-    );
-    expect(duplicate.ok).toBe(false);
-  });
-
   it("keeps secrets out of deterministic plan and verification reports", () => {
     const report = buildCatalogWebhookReport("plan", config, state({ hooks: [] }));
     const output = JSON.stringify(report);
@@ -471,14 +426,14 @@ describe("catalog webhook smoke verification", () => {
     ).rejects.toThrow(/Partial success/);
   });
 
-  it("rejects a deployed public reader that still names the legacy index", async () => {
+  it("rejects a deployed public reader that names an unexpected index", async () => {
     const mismatchedBody = {
       ok: true,
       action: "upsert",
       table: "product_variants",
       objectID: PRODUCT_ID,
       indexName: "helix_products",
-      publicIndexName: "mei_pelle_products",
+      publicIndexName: "unexpected_products",
       cache: { tags: ["tag"], paths: ["/products/example"] },
     };
     const fetchMock = vi

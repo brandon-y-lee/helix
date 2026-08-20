@@ -1,6 +1,10 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import {
+  FORMER_BRAND_PATTERN,
+  LEGACY_REWARDS_PATTERN,
+} from "@/tests/helpers/former-identifiers";
 
 function source(path: string): string {
   return readFileSync(resolve(process.cwd(), path), "utf8");
@@ -23,7 +27,8 @@ describe("customer helix rewards migration", () => {
       "lib/rewards/server.ts",
     ].map(source).join("\n");
 
-    expect(customerRuntime).not.toMatch(/loyalty|MEI PELLE REWARDS/i);
+    expect(customerRuntime).not.toMatch(LEGACY_REWARDS_PATTERN);
+    expect(customerRuntime).not.toMatch(FORMER_BRAND_PATTERN);
     expect(customerRuntime).toContain("helix rewards");
     expect(customerRuntime).toContain('rpc("ensure_rewards_account"');
     expect(customerRuntime).toContain('rpc("award_rewards_points"');

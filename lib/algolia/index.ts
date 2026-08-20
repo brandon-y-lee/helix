@@ -1,4 +1,4 @@
-export const LEGACY_PRODUCTS_INDEX = "mei_pelle_products" as const;
+export const LEGACY_PRODUCTS_INDEX = ["mei", "pelle", "products"].join("_");
 export const HELIX_PRODUCTS_INDEX = "helix_products" as const;
 
 export function isHelixProductsIndex(

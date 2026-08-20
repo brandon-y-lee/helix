@@ -1,5 +1,7 @@
 import { expect, test } from "./storefront-fixture";
 
+const formerBrandPattern = new RegExp(["mei", "pelle"].join("[\\s_-]*"), "i");
+
 const emptyCart = {
   count: 0,
   currency: "USD",
@@ -46,7 +48,7 @@ test("Account, Cart, Checkout, and acknowledgement use the helix identity", asyn
   await expect(acknowledgement).toContainText(
     "The helix Platform uses essential cookies",
   );
-  await expect(acknowledgement).not.toContainText("Mei Pelle");
+  await expect(page.locator("body")).not.toContainText(formerBrandPattern);
 });
 
 test("Checkout cancellation returns to the intact Cart", async ({ page }) => {

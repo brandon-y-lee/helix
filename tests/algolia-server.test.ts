@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { FORMER_PRODUCTS_INDEX } from "@/tests/helpers/former-identifiers";
 
 const { algoliasearch, saveObjects } = vi.hoisted(() => ({
   algoliasearch: vi.fn(),
@@ -39,7 +40,7 @@ afterEach(() => {
 
 describe("server Algolia configuration", () => {
   it("fails closed when the writer still names the legacy index", async () => {
-    process.env.ALGOLIA_INDEX_NAME = "mei_pelle_products";
+    process.env.ALGOLIA_INDEX_NAME = FORMER_PRODUCTS_INDEX;
     const { getIndexName } = await import("@/lib/algolia/server");
 
     expect(() => getIndexName()).toThrow(/helix_products/);

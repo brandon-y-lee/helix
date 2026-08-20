@@ -6,8 +6,8 @@ const ONE_YEAR_SECONDS = 60 * 60 * 24 * DAYS_PER_YEAR;
 const IMMUTABLE_MEDIA_CACHE_CONTROL =
   `public, max-age=${ONE_YEAR_SECONDS}, immutable`;
 const HOME_VIDEO_PATHS = [
-  "/media/home/mei-pelle-hero.webm",
-  "/media/home/mei-pelle-hero.mp4",
+  "/media/home/helix-hero.webm",
+  "/media/home/helix-hero.mp4",
   "/media/home/plug-and-play-loop.webm",
   "/media/home/plug-and-play-loop.mp4",
   "/media/home/final-cta-loop.webm",

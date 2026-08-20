@@ -8,6 +8,12 @@ import {
   planSandboxWebhookEndpoint,
   syncSandboxWebhookEndpoint,
 } from "@/scripts/stripe/sandbox-webhook";
+import {
+  FORMER_BRAND_NAME,
+  FORMER_BRAND_SLUG,
+} from "@/tests/helpers/former-identifiers";
+
+const formerWebhookUrl = `https://${FORMER_BRAND_SLUG}.vercel.app/api/webhooks/stripe`;
 
 function endpoint(overrides: Record<string, unknown> = {}) {
   return {
@@ -31,7 +37,7 @@ describe("Stripe sandbox endpoint plan", () => {
   it("accepts the v2 inventory mirror of the current v1 endpoint", () => {
     const currentEndpoint = endpoint({
       enabled_events: ["checkout.session.completed"],
-      url: "https://mei-pelle.vercel.app/api/webhooks/stripe",
+      url: formerWebhookUrl,
     });
     expect(() =>
       assertNoConflictingEventDestinations(
@@ -43,7 +49,7 @@ describe("Stripe sandbox endpoint plan", () => {
             status: "enabled",
             type: "webhook_endpoint",
             webhook_endpoint: {
-              url: "https://mei-pelle.vercel.app/api/webhooks/stripe",
+              url: formerWebhookUrl,
             },
           },
         ],
@@ -88,9 +94,9 @@ describe("Stripe sandbox endpoint plan", () => {
       planSandboxWebhookEndpoint(
         [
           endpoint({
-            description: "Mei Pelle sandbox Checkout",
+            description: `${FORMER_BRAND_NAME} sandbox Checkout`,
             enabled_events: ["checkout.session.completed"],
-            url: "https://mei-pelle.vercel.app/api/webhooks/stripe",
+            url: formerWebhookUrl,
           }),
         ],
         "we_existing",

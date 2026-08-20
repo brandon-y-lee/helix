@@ -190,7 +190,7 @@ describe("routine Product Media containment", () => {
     );
 
     const homepage = await harness.dispatch(
-      "http://127.0.0.1:3000/media/home/mei-pelle-hero.mp4",
+      "http://127.0.0.1:3000/media/home/helix-hero.mp4",
     );
     expect(homepage.fallback).toHaveBeenCalledOnce();
 

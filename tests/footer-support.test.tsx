@@ -12,6 +12,11 @@ import { termsOfService } from "@/content/legal/terms";
 import { contactIntakeStatus } from "@/content/support/contact";
 import { faqCategories } from "@/content/support/faq";
 import {
+  FORMER_BRAND_PATTERN,
+  FORMER_BRAND_SNAKE,
+  LEGACY_REWARDS_PATTERN,
+} from "@/tests/helpers/former-identifiers";
+import {
   FREE_STANDARD_SHIPPING_THRESHOLD_CENTS,
   formatFreeShippingThreshold,
   qualifiesForFreeStandardShipping,
@@ -45,14 +50,15 @@ describe("global footer", () => {
     expect(screen.getAllByRole("contentinfo")).toHaveLength(1);
     expect(footer).toHaveTextContent(/© \d{4}\. All rights reserved\./);
     expect(footer).not.toHaveTextContent(/© \d{4} helix/i);
-    expect(footer).not.toHaveTextContent(/Mei Pelle/i);
+    expect(footer).not.toHaveTextContent(FORMER_BRAND_PATTERN);
     const identityLink = screen.getByRole("link", { name: "helix" });
     expect(screen.getByRole("heading", { name: "helix" })).toBeInTheDocument();
     expect(identityLink).toHaveAttribute("href", "/");
     expect(
       identityLink.querySelector('[data-helix-identity="wordmark"]'),
     ).toHaveAttribute("aria-hidden", "true");
-    expect(identityLink).not.toHaveTextContent(/Mei Pelle|helix/);
+    expect(identityLink).not.toHaveTextContent(FORMER_BRAND_PATTERN);
+    expect(identityLink).not.toHaveTextContent(/helix/);
     expect(screen.queryByText("Stay in the system.")).not.toBeInTheDocument();
     expect(screen.queryByText("Email updates are not open")).not.toBeInTheDocument();
     expect(screen.queryByRole("textbox", { name: /email/i })).not.toBeInTheDocument();
@@ -226,10 +232,11 @@ describe("legal and support content", () => {
     expect(combined).not.toMatch(/real payments are available|returns are accepted/i);
     expect(combined).toMatch(/sandbox Checkout/i);
     expect(combined).toMatch(/helix rewards/i);
-    expect(combined).not.toMatch(/MEI PELLE REWARDS|loyalty/i);
+    expect(combined).not.toMatch(FORMER_BRAND_PATTERN);
+    expect(combined).not.toMatch(LEGACY_REWARDS_PATTERN);
     expect(combined).toMatch(/does not submit or store messages/i);
     expect(combined).toMatch(/WCAG 2\.2 AA/i);
-    expect(combined).not.toMatch(/Mei[ _-]Pelle/i);
+    expect(combined).not.toMatch(FORMER_BRAND_PATTERN);
     expect(combined).not.toMatch(/helix (?:is responsible|will be liable|disclaims)/i);
     const publicSentences = [
       ...[
@@ -272,8 +279,14 @@ describe("legal and support content", () => {
         COOKIE_ACKNOWLEDGEMENT_COOKIE,
       ]),
     );
-    expect(documentText({ cookieCategories, cookiePolicy, privacyPolicy, privacyChoices }))
-      .not.toMatch(/mei_pelle|cookie preferences|cookie-preference|consent/i);
+    expect(
+      documentText({ cookieCategories, cookiePolicy, privacyPolicy, privacyChoices }),
+    ).not.toMatch(
+      new RegExp(
+        `${FORMER_BRAND_SNAKE}|cookie preferences|cookie-preference|consent`,
+        "i",
+      ),
+    );
   });
 
   it("describes the visible acknowledgement as required and functional", () => {

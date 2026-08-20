@@ -17,7 +17,7 @@ function request(
 ) {
   const headers = new Headers({ "content-type": "application/json" });
   if (options.origin !== null) {
-    headers.set("origin", options.origin ?? "https://mei-pelle.test");
+    headers.set("origin", options.origin ?? "https://helix.test");
   }
   if (options.contentLength) {
     headers.set("content-length", options.contentLength);
@@ -27,7 +27,7 @@ function request(
   )) {
     headers.set(name, value);
   }
-  return new Request("https://mei-pelle.test/api/product-waitlist", {
+  return new Request("https://helix.test/api/product-waitlist", {
     method: "POST",
     headers,
     body: JSON.stringify(body),
@@ -53,7 +53,7 @@ describe("Product waitlist request boundary", () => {
     vi.stubEnv("VERCEL", "1");
     vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "test-service-secret");
     const trustedHeaders = {
-      origin: "https://mei-pelle.test",
+      origin: "https://helix.test",
       "x-vercel-forwarded-for": "203.0.113.5",
     };
     const first = request(
@@ -122,6 +122,13 @@ describe("Product waitlist request boundary", () => {
     );
 
     expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({
+      ok: false,
+      error: {
+        code: "same_origin_required",
+        message: "This request must originate from helix.",
+      },
+    });
     expect(rpc).not.toHaveBeenCalled();
   });
 

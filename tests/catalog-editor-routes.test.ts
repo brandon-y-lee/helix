@@ -35,12 +35,12 @@ function uploadRequest() {
   form.set("sortOrder", "0");
   form.set("alt", "Product texture");
   const request = new Request(
-    "https://mei-pelle.test/api/admin/catalog/media/upload",
+    "https://helix.test/api/admin/catalog/media/upload",
     {
       method: "POST",
       headers: {
         "content-type": "multipart/form-data; boundary=vitest",
-        origin: "https://mei-pelle.test",
+        origin: "https://helix.test",
       },
     },
   );
@@ -145,12 +145,12 @@ describe("catalog editor protected routes", () => {
 
     const response = await publishDraft(
       new Request(
-        "https://mei-pelle.test/api/admin/catalog/drafts/draft-1/publish",
+        "https://helix.test/api/admin/catalog/drafts/draft-1/publish",
         {
           method: "POST",
           headers: {
             "content-type": "application/json",
-            origin: "https://mei-pelle.test",
+            origin: "https://helix.test",
           },
           body: JSON.stringify({ expectedVersion: 7 }),
         },

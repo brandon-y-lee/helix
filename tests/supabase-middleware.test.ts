@@ -40,7 +40,7 @@ describe("Supabase middleware ownership", () => {
 
     expect(
       response.headers.get(
-        "x-middleware-request-x-mei-pelle-admin-route",
+        "x-middleware-request-x-helix-admin-route",
       ),
     ).toBe(
       "/admin/catalog/preview/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa?mode=inspect",

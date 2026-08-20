@@ -14,7 +14,7 @@ import { AdminNavigation } from "@/components/admin/shell/AdminNavigation";
 import { Sheet } from "@/components/overlays/Sheet";
 import type { AdminModule } from "@/lib/admin/modules";
 
-const ADMIN_SIDEBAR_PREFERENCE = "mei-pelle-admin-sidebar-collapsed";
+const ADMIN_SIDEBAR_PREFERENCE = "helix-admin-sidebar-collapsed";
 
 function currentViewLabel(
   pathname: string,

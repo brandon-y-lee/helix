@@ -2,6 +2,7 @@ import { render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import AdminLoading from "@/app/admin/loading";
 import { AdminAccessState } from "@/components/admin/shell/AdminAccessState";
+import { FORMER_BRAND_PATTERN } from "@/tests/helpers/former-identifiers";
 
 vi.mock("@/components/account/AccountForms", () => ({
   SignOutButton: () => <button type="button">Sign out</button>,
@@ -32,7 +33,7 @@ describe("admin fallback identity", () => {
     expect(
       identity?.querySelector('[data-helix-identity="wordmark"]'),
     ).toHaveAttribute("aria-hidden", "true");
-    expect(identity).not.toHaveTextContent("MEI PELLE");
+    expect(identity).not.toHaveTextContent(FORMER_BRAND_PATTERN);
     expect(container).toHaveTextContent(message);
   });
 });

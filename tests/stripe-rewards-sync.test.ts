@@ -4,6 +4,9 @@ import {
   managedSandboxCouponIdForDefinition,
   syncSandboxRewardsCoupon,
 } from "@/scripts/stripe/sandbox-rewards";
+import { FORMER_BRAND_NAME } from "@/tests/helpers/former-identifiers";
+
+const formerRewardsCouponName = `${FORMER_BRAND_NAME} Rewards - $5`;
 
 describe("Stripe sandbox rewards sync", () => {
   it("discovers an existing managed coupon by its preserved economics", () => {
@@ -22,7 +25,7 @@ describe("Stripe sandbox rewards sync", () => {
               environment: "sandbox",
               managed_by: "pnpm stripe:sync:sandbox",
             },
-            name: "Mei Pelle Rewards - $5",
+            name: formerRewardsCouponName,
             percent_off: null,
             valid: true,
           },
@@ -41,7 +44,7 @@ describe("Stripe sandbox rewards sync", () => {
       id: "coupon-200",
       livemode: false,
       metadata: { environment: "sandbox" },
-      name: "Mei Pelle Rewards - $5",
+      name: formerRewardsCouponName,
       percent_off: null,
       valid: true,
     };

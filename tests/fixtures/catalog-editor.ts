@@ -65,7 +65,7 @@ export const catalogDocument: CatalogDraftDocument = {
     routine_sort: 1,
     system_step_name: "CLEANSE",
     search_keywords: [],
-    seo_title: "CLEANSE | Mei Pelle",
+    seo_title: "CLEANSE | helix",
     seo_description: "Daily gel cleanser.",
     skin_types: ["All skin types"],
     slug: "cleanse-01-calming-gel-cleanser",

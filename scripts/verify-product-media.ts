@@ -119,6 +119,7 @@ export function collectExpectedProductMedia(
         );
       }
 
+      if (candidate.url === null) continue;
       if (typeof candidate.url !== "string" || !candidate.url.trim()) {
         throw new ProductMediaInventoryError(
           "Active Product Media inventory contains a missing or invalid public URL.",

@@ -10,6 +10,7 @@ vi.mock("@/lib/supabase/admin", () => ({
 
 import { GET } from "@/app/r/[code]/route";
 import { REFERRAL_COOKIE } from "@/lib/referrals/constants";
+import { FORMER_BRAND_SNAKE } from "@/tests/helpers/former-identifiers";
 
 function referralLookup(result: { data: unknown; error: unknown }) {
   const query = {
@@ -48,7 +49,7 @@ describe("Referral Attribution route", () => {
       `${REFERRAL_COOKIE}=HELIX25`,
     );
     expect(response.headers.get("set-cookie")).not.toContain(
-      "mei_pelle_referral_code=HELIX25",
+      `${FORMER_BRAND_SNAKE}_referral_code=HELIX25`,
     );
     expect(from).toHaveBeenCalledWith("referral_codes");
   });

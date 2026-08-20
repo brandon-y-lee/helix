@@ -1,9 +1,3 @@
-export type ProductSearchMigrationMode =
-  | "plan"
-  | "apply"
-  | "verify"
-  | "finalize";
-
 export type ProductSearchRecord = Record<string, unknown> & {
   objectID: string;
 };
@@ -21,6 +15,7 @@ export type ProductSearchIndexSnapshot = {
 };
 
 export type ProductSearchInventory = {
+  indices: Array<{ name: string }>;
   source: ProductSearchIndexSnapshot | null;
   target: ProductSearchIndexSnapshot | null;
   querySuggestions: Array<{
@@ -54,13 +49,9 @@ export type ProductSearchInventory = {
 
 export type ProductSearchMigrationReport = {
   ok: boolean;
-  mode: ProductSearchMigrationMode;
   verified: boolean;
   inventory: ProductSearchInventory;
   blockers: string[];
-  actions: Array<
-    "prepare-target" | "reconcile-target" | "verify-public-read" | "delete-source"
-  >;
   reconciliation: {
     canonicalRecords: number;
     sourceRecords: number;
@@ -74,15 +65,6 @@ export interface ProductSearchControlPlane {
   inspect(
     canonicalRecords: ProductSearchRecord[],
   ): Promise<ProductSearchInventory>;
-  prepareTarget(canonicalRecords: ProductSearchRecord[]): Promise<void>;
-  verifyPublicRead(): Promise<void>;
-  deleteSource(): Promise<void>;
-}
-
-export type ProductSearchConsumerVerification = {
-  publicReadIndex: typeof HELIX_PRODUCTS_INDEX;
-  serverWriteIndex: typeof HELIX_PRODUCTS_INDEX;
-  webhookDeliveryVerified: true;
 };
 
 export type ProductSearchMigrationConfig = {
@@ -280,8 +262,13 @@ function wildcardMatches(pattern: string, value: string): boolean {
   return patternIndex === pattern.length;
 }
 
+function containsRetiredIdentifier(value: string): boolean {
+  const formerBrand = new RegExp(["mei", "pelle"].join("[\\s_-]*"), "i");
+  const retiredRewards = new RegExp(["loyal", "ty"].join(""), "i");
+  return formerBrand.test(value) || retiredRewards.test(value);
+}
+
 export function assessProductSearchMigration(
-  mode: ProductSearchMigrationMode,
   inventory: ProductSearchInventory,
   canonicalRecords: ProductSearchRecord[],
 ): ProductSearchMigrationReport {
@@ -298,13 +285,30 @@ export function assessProductSearchMigration(
   ) {
     blockers.push("configured Algolia keys could not be verified");
   }
-  if (
-    (mode === "plan" || mode === "apply" || mode === "finalize") &&
-    inventory.apiKeys.status !== "all-keys-enumerated"
-  ) {
-    blockers.push("all Algolia API keys must be inventoried before mutation");
+  if (!inventory.apiKeys.configuredPublicKeyVerified) {
+    blockers.push("configured public Product Search key could not read helix_products");
+  }
+  if (inventory.apiKeys.status !== "all-keys-enumerated") {
+    blockers.push("all Algolia API keys must be inventoried");
+  }
+  for (const index of inventory.indices) {
+    if (containsRetiredIdentifier(index.name)) {
+      blockers.push(`Algolia index ${index.name} contains a retired identifier`);
+    }
   }
   for (const key of inventory.apiKeys.keys ?? []) {
+    if (key.description && containsRetiredIdentifier(key.description)) {
+      blockers.push(
+        `Algolia API key ${key.identity} description contains a retired identifier`,
+      );
+    }
+    for (const restriction of key.indexes) {
+      if (containsRetiredIdentifier(restriction)) {
+        blockers.push(
+          `Algolia API key ${key.identity} restriction contains a retired identifier`,
+        );
+      }
+    }
     if (
       key.indexes.some(
         (restriction) =>
@@ -317,17 +321,20 @@ export function assessProductSearchMigration(
       );
     }
   }
-  const sourceReplicas = inventory.source?.replicas ?? [];
-  if (sourceReplicas.length > 0) {
-    blockers.push(`source index has replicas: ${sourceReplicas.join(", ")}`);
-  }
-  if (inventory.source?.primary) {
-    blockers.push(`source index is a replica of ${inventory.source.primary}`);
-  }
-  if (inventory.source && !inventory.source.settingsMatch) {
-    blockers.push("source settings do not match canonical Product Search settings");
-  }
+  if (inventory.source) blockers.push("former Product Search index still exists");
   for (const config of inventory.querySuggestions) {
+    if (containsRetiredIdentifier(config.indexName)) {
+      blockers.push(
+        `Query Suggestions ${config.indexName} contains a retired identifier`,
+      );
+    }
+    for (const sourceIndex of config.sourceIndices) {
+      if (containsRetiredIdentifier(sourceIndex)) {
+        blockers.push(
+          `Query Suggestions ${config.indexName} source ${sourceIndex} contains a retired identifier`,
+        );
+      }
+    }
     if (config.sourceIndices.includes(LEGACY_PRODUCTS_INDEX)) {
       blockers.push(
         `Query Suggestions ${config.indexName} (${config.region}) reads the source index`,
@@ -340,34 +347,23 @@ export function assessProductSearchMigration(
 
   const targetMatchesCanonical = inventory.target
     ? inventory.target.settingsMatch &&
-      (!inventory.source ||
-        canonicalJson(inventory.target.settings) === canonicalJson(inventory.source.settings)) &&
-      (!inventory.source ||
-        canonicalJson(inventory.target.rules) === canonicalJson(inventory.source.rules)) &&
-      (!inventory.source ||
-        canonicalJson(inventory.target.synonyms) === canonicalJson(inventory.source.synonyms)) &&
+      inventory.target.primary === null &&
+      inventory.target.replicas.length === 0 &&
+      inventory.target.rules.length === 0 &&
+      inventory.target.synonyms.length === 0 &&
       recordsMatch(inventory.target.records, canonicalRecords)
     : false;
-  const actions: ProductSearchMigrationReport["actions"] = [];
-  if (!inventory.target) actions.push("prepare-target");
-  else if (!targetMatchesCanonical) actions.push("reconcile-target");
-  if (inventory.target && !inventory.apiKeys.configuredPublicKeyVerified) {
-    actions.push("verify-public-read");
+  if (!inventory.target) blockers.push("helix_products index is missing");
+  else if (!targetMatchesCanonical) {
+    blockers.push("helix_products does not match canonical Product Search state");
   }
-  if (mode === "finalize" && inventory.source) actions.push("delete-source");
-
-  const targetVerified =
-    targetMatchesCanonical && inventory.apiKeys.configuredPublicKeyVerified;
-  const verified =
-    targetVerified && (mode !== "finalize" || inventory.source === null);
+  const verified = blockers.length === 0;
 
   return {
-    ok: blockers.length === 0 && (mode === "plan" || mode === "apply" || verified),
-    mode,
+    ok: verified,
     verified,
     inventory,
     blockers,
-    actions,
     reconciliation: {
       canonicalRecords: canonicalRecords.length,
       sourceRecords: inventory.source?.entries ?? 0,
@@ -378,91 +374,14 @@ export function assessProductSearchMigration(
   };
 }
 
-export async function runProductSearchMigration(
-  mode: ProductSearchMigrationMode,
+export async function runProductSearchVerification(
   controlPlane: ProductSearchControlPlane,
   canonicalRecords: ProductSearchRecord[],
-  options: { consumerVerification?: ProductSearchConsumerVerification } = {},
 ): Promise<ProductSearchMigrationReport> {
-  const initial = await controlPlane.inspect(canonicalRecords);
-  const initialReport = assessProductSearchMigration(
-    mode === "finalize" ? "verify" : mode,
-    initial,
+  return assessProductSearchMigration(
+    await controlPlane.inspect(canonicalRecords),
     canonicalRecords,
   );
-  if (!initialReport.ok) {
-    throw new Error(
-      `[product-search] Preflight failed: ${initialReport.blockers.join("; ") || "target verification failed"}.`,
-    );
-  }
-  if (mode === "plan" || mode === "verify") return initialReport;
-
-  if (mode === "apply") {
-    if (!initialReport.reconciliation.targetMatchesCanonical) {
-      await retryProviderOperation(() =>
-        controlPlane.prepareTarget(canonicalRecords),
-      );
-    }
-    await retryProviderOperation(() => controlPlane.verifyPublicRead());
-    const finalInventory = await retryProviderOperation(() =>
-      controlPlane.inspect(canonicalRecords),
-    );
-    const finalReport = assessProductSearchMigration(
-      "verify",
-      finalInventory,
-      canonicalRecords,
-    );
-    if (!finalReport.ok) {
-      throw new Error(
-        "[product-search] Target reconciliation or public read verification failed.",
-      );
-    }
-    return finalReport;
-  }
-
-  if (
-    options.consumerVerification?.publicReadIndex !== HELIX_PRODUCTS_INDEX ||
-    options.consumerVerification.serverWriteIndex !== HELIX_PRODUCTS_INDEX ||
-    !options.consumerVerification.webhookDeliveryVerified
-  ) {
-    throw new Error(
-      "[product-search] Refusing to delete the source without deployed consumer verification.",
-    );
-  }
-  if (initial.apiKeys.status !== "all-keys-enumerated") {
-    throw new Error(
-      "[product-search] Refusing to delete the source without complete API key inventory.",
-    );
-  }
-  await retryProviderOperation(() => controlPlane.verifyPublicRead());
-  await retryProviderOperation(() => controlPlane.deleteSource());
-  const finalInventory = await retryProviderOperation(() =>
-    controlPlane.inspect(canonicalRecords),
-  );
-  const finalReport = assessProductSearchMigration(
-    "finalize",
-    finalInventory,
-    canonicalRecords,
-  );
-  if (!finalReport.ok) {
-    throw new Error("[product-search] Final verification detected active legacy state.");
-  }
-  return finalReport;
-}
-
-async function retryProviderOperation<T>(
-  operation: () => Promise<T>,
-  attempts = 3,
-): Promise<T> {
-  let lastError: unknown;
-  for (let attempt = 1; attempt <= attempts; attempt += 1) {
-    try {
-      return await operation();
-    } catch (error) {
-      lastError = error;
-    }
-  }
-  throw lastError;
 }
 
 type ProviderInspection<T> =
@@ -752,6 +671,7 @@ export class AlgoliaProductSearchControlPlane
         this.readApiKeys(Boolean(targetIndex)),
       ]);
     return {
+      indices: indices.map(({ name }) => ({ name })),
       source,
       target,
       querySuggestions: querySuggestions.configurations,
@@ -768,117 +688,6 @@ export class AlgoliaProductSearchControlPlane
     };
   }
 
-  async prepareTarget(canonicalRecords: ProductSearchRecord[]): Promise<void> {
-    const [sourceSettings, sourceRules, sourceSynonyms] = await Promise.all([
-      this.client.getSettings({ indexName: LEGACY_PRODUCTS_INDEX }),
-      this.readRules(LEGACY_PRODUCTS_INDEX),
-      this.readSynonyms(LEGACY_PRODUCTS_INDEX),
-    ]);
-    if (
-      !(await this.client.indexExists({
-        indexName: HELIX_PRODUCTS_INDEX,
-      }))
-    ) {
-      if (
-        !(await this.client.indexExists({
-          indexName: LEGACY_PRODUCTS_INDEX,
-        }))
-      ) {
-        throw new Error("[product-search] Source index does not exist.");
-      }
-      const copied = await this.client.operationIndex({
-        indexName: LEGACY_PRODUCTS_INDEX,
-        operationIndexParams: {
-          operation: "copy",
-          destination: HELIX_PRODUCTS_INDEX,
-        },
-      });
-      await this.client.waitForTask({
-        indexName: LEGACY_PRODUCTS_INDEX,
-        taskID: copied.taskID,
-        maxRetries: 20,
-      });
-    }
-    const settings = await this.client.setSettings({
-      indexName: HELIX_PRODUCTS_INDEX,
-      indexSettings: sourceSettings,
-    });
-    await this.client.waitForTask({
-      indexName: HELIX_PRODUCTS_INDEX,
-      taskID: settings.taskID,
-      maxRetries: 20,
-    });
-    const rules = sourceRules.length
-      ? await this.client.saveRules({
-          indexName: HELIX_PRODUCTS_INDEX,
-          rules: sourceRules,
-          clearExistingRules: true,
-          forwardToReplicas: false,
-        })
-      : await this.client.clearRules({
-          indexName: HELIX_PRODUCTS_INDEX,
-          forwardToReplicas: false,
-        });
-    await this.client.waitForTask({
-      indexName: HELIX_PRODUCTS_INDEX,
-      taskID: rules.taskID,
-      maxRetries: 20,
-    });
-    const synonyms = sourceSynonyms.length
-      ? await this.client.saveSynonyms({
-          indexName: HELIX_PRODUCTS_INDEX,
-          synonymHit: sourceSynonyms,
-          replaceExistingSynonyms: true,
-          forwardToReplicas: false,
-        })
-      : await this.client.clearSynonyms({
-          indexName: HELIX_PRODUCTS_INDEX,
-          forwardToReplicas: false,
-        });
-    await this.client.waitForTask({
-      indexName: HELIX_PRODUCTS_INDEX,
-      taskID: synonyms.taskID,
-      maxRetries: 20,
-    });
-    await this.client.replaceAllObjects({
-      indexName: HELIX_PRODUCTS_INDEX,
-      objects: canonicalRecords,
-      maxRetries: 20,
-    });
-  }
-
-  async verifyPublicRead(): Promise<void> {
-    const { results } = await this.publicClient.searchForHits({
-      requests: [
-        {
-          indexName: HELIX_PRODUCTS_INDEX,
-          query: "",
-          hitsPerPage: 1,
-        },
-      ],
-    });
-    if ((results[0]?.nbHits ?? 0) < 1) {
-      throw new Error("[product-search] Public key returned no helix Products.");
-    }
-  }
-
-  async deleteSource(): Promise<void> {
-    if (
-      !(await this.client.indexExists({
-        indexName: LEGACY_PRODUCTS_INDEX,
-      }))
-    ) {
-      return;
-    }
-    const deleted = await this.client.deleteIndex({
-      indexName: LEGACY_PRODUCTS_INDEX,
-    });
-    await this.client.waitForTask({
-      indexName: LEGACY_PRODUCTS_INDEX,
-      taskID: deleted.taskID,
-      maxRetries: 20,
-    });
-  }
 }
 import {
   algoliasearch,

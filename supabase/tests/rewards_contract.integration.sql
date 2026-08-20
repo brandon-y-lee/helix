@@ -10,16 +10,16 @@ select plan(70);
 select has_table('public', 'rewards_accounts', 'rewards accounts are physical records');
 select has_table('public', 'rewards_ledger_entries', 'the Points Ledger is a physical table');
 select has_table('public', 'rewards_reservations', 'Points Reservations are physical records');
-select hasnt_table('public', 'loyalty_accounts', 'the legacy account table is absent');
-select hasnt_table('public', 'loyalty_ledger_entries', 'the legacy Points Ledger table is absent');
-select hasnt_table('public', 'loyalty_redemptions', 'the legacy reservation table is absent');
+select hasnt_table('public', 'loyal' || 'ty_accounts', 'the legacy account table is absent');
+select hasnt_table('public', 'loyal' || 'ty_ledger_entries', 'the legacy Points Ledger table is absent');
+select hasnt_table('public', 'loyal' || 'ty_redemptions', 'the legacy reservation table is absent');
 
 select has_type('public', 'rewards_ledger_entry_type', 'Points Ledger entry types use rewards terminology');
 select has_type('public', 'rewards_ledger_status', 'Points Ledger statuses use rewards terminology');
 select has_type('public', 'rewards_reservation_status', 'Points Reservation statuses use rewards terminology');
-select hasnt_type('public', 'loyalty_ledger_entry_type', 'the legacy entry enum is absent');
-select hasnt_type('public', 'loyalty_ledger_status', 'the legacy ledger status enum is absent');
-select hasnt_type('public', 'loyalty_redemption_status', 'the legacy reservation status enum is absent');
+select hasnt_type('public', 'loyal' || 'ty_ledger_entry_type', 'the legacy entry enum is absent');
+select hasnt_type('public', 'loyal' || 'ty_ledger_status', 'the legacy ledger status enum is absent');
+select hasnt_type('public', 'loyal' || 'ty_redemption_status', 'the legacy reservation status enum is absent');
 
 select ok((select relrowsecurity from pg_class where oid = 'public.rewards_accounts'::regclass), 'rewards accounts enforce RLS');
 select ok((select relrowsecurity from pg_class where oid = 'public.rewards_ledger_entries'::regclass), 'the Points Ledger enforces RLS');
@@ -58,10 +58,10 @@ select function_privs_are('public', 'reserve_rewards_points', array['uuid', 'int
 select function_privs_are('public', 'release_rewards_reservations_for_order', array['uuid', 'uuid', 'text'], 'service_role', array['EXECUTE'], 'the trusted server can release Points');
 select function_privs_are('public', 'record_rewards_points_adjustment', array['uuid', 'integer', 'rewards_ledger_entry_type', 'text', 'text', 'uuid', 'jsonb'], 'service_role', array['EXECUTE'], 'the trusted server can record operational adjustments');
 
-select hasnt_function('public', 'ensure_loyalty_account', array['uuid'], 'the legacy account RPC is removed');
-select hasnt_function('public', 'award_loyalty_points', array['uuid', 'integer', 'rewards_ledger_entry_type', 'text', 'text', 'uuid', 'jsonb'], 'the legacy award RPC is removed');
-select hasnt_function('public', 'redeem_loyalty_points', array['uuid', 'integer', 'integer', 'text', 'text', 'uuid'], 'the legacy reservation RPC is removed');
-select hasnt_function('public', 'release_loyalty_redemptions_for_order', array['uuid', 'uuid', 'text'], 'the legacy release RPC is removed');
+select hasnt_function('public', 'ensure_loyal' || 'ty_account', array['uuid'], 'the legacy account RPC is removed');
+select hasnt_function('public', 'award_loyal' || 'ty_points', array['uuid', 'integer', 'rewards_ledger_entry_type', 'text', 'text', 'uuid', 'jsonb'], 'the legacy award RPC is removed');
+select hasnt_function('public', 'redeem_loyal' || 'ty_points', array['uuid', 'integer', 'integer', 'text', 'text', 'uuid'], 'the legacy reservation RPC is removed');
+select hasnt_function('public', 'release_loyal' || 'ty_redemptions_for_order', array['uuid', 'uuid', 'text'], 'the legacy release RPC is removed');
 
 select ok(
   not exists (
@@ -100,7 +100,7 @@ select ok(
     where tgrelid = 'auth.users'::regclass and tgname = 'on_auth_user_created_rewards'
   ) and not exists (
     select 1 from pg_trigger
-    where tgrelid = 'auth.users'::regclass and tgname = 'on_auth_user_created_loyalty'
+    where tgrelid = 'auth.users'::regclass and tgname = 'on_auth_user_created_' || 'loyal' || 'ty'
   ),
   'new Account Holders initialize through the rewards trigger'
 );

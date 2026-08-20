@@ -27,17 +27,17 @@ const HOME_VIDEO_CONFIG = {
   hero: {
     eager: true,
     frameClassName: "home-video-hero__media",
-    poster: "/media/home/mei-pelle-hero-poster.webp",
+    poster: "/media/home/helix-hero-poster.webp",
     posterClassName: "home-video-hero__poster",
     posterPriority: true,
     posterSizes: "100vw",
     sources: [
       {
-        src: "/media/home/mei-pelle-hero.webm?v=469b5c0022c8",
+        src: "/media/home/helix-hero.webm?v=469b5c0022c8",
         type: "video/webm",
       },
       {
-        src: "/media/home/mei-pelle-hero.mp4?v=7048d1daaa75",
+        src: "/media/home/helix-hero.mp4?v=7048d1daaa75",
         type: "video/mp4",
       },
     ],

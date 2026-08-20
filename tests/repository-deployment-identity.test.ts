@@ -1,6 +1,11 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import {
+  FORMER_BRAND_NAME,
+  FORMER_BRAND_PATTERN,
+  FORMER_REPOSITORY,
+} from "@/tests/helpers/former-identifiers";
 
 const projectRoot = process.cwd();
 
@@ -22,6 +27,9 @@ describe("helix repository and deployment identity", () => {
     expect(manifest.scripts["github:workflow:plan"]).toContain(
       "--repo brandon-y-lee/helix",
     );
+    expect(manifest.scripts["github:workflow:verify"]).toContain(
+      "verify --repo brandon-y-lee/helix",
+    );
     expect(manifest.scripts["github:workflow:apply"]).toContain(
       "--repo brandon-y-lee/helix",
     );
@@ -29,7 +37,7 @@ describe("helix repository and deployment identity", () => {
       'const EXPECTED_REPOSITORY = "brandon-y-lee/helix";',
     );
     expect(`${JSON.stringify(manifest)}\n${workflowBootstrap}`).not.toContain(
-      "brandon-y-lee/mei-pelle",
+      FORMER_REPOSITORY,
     );
   });
 
@@ -45,7 +53,12 @@ describe("helix repository and deployment identity", () => {
     ]) {
       expect(contract).toContain(name);
     }
-    expect(contract).not.toMatch(/MEI_PELLE_ADMIN_(?:USER_ID|EMAIL|ROLE)/);
+    expect(contract).not.toMatch(
+      new RegExp(
+        `${FORMER_BRAND_PATTERN.source}_ADMIN_(?:USER_ID|EMAIL|ROLE)`,
+        "i",
+      ),
+    );
   });
 
   it("uses helix names for local workflow and verification artifacts", () => {
@@ -71,7 +84,7 @@ describe("helix repository and deployment identity", () => {
     ]) {
       expect(toolingContract).toContain(identity);
     }
-    expect(toolingContract).not.toMatch(/MEI_PELLE|mei-pelle/);
+    expect(toolingContract).not.toMatch(FORMER_BRAND_PATTERN);
   });
 
   it("documents the current helix repository and platform identity", () => {
@@ -89,7 +102,7 @@ describe("helix repository and deployment identity", () => {
     );
 
     expect(readProjectFile("README.md")).toMatch(/^# helix$/m);
-    expect(currentPlatformDocs).not.toContain("Mei Pelle");
+    expect(currentPlatformDocs).not.toContain(FORMER_BRAND_NAME);
     expect(gitWorkflow).toContain("--confirm-repo brandon-y-lee/helix");
     expect(hostnameRunbook).toContain(
       "Connected repository: `brandon-y-lee/helix`",

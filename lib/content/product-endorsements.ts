@@ -19,7 +19,7 @@ export const productEndorsementMedia = [
   },
   {
     id: "system-hero-portrait",
-    src: "/media/home/mei-pelle-hero-poster.webp",
+    src: "/media/home/helix-hero-poster.webp",
     alt: "Black-and-white portrait of a model in a suit.",
     width: 1920,
     height: 1080,

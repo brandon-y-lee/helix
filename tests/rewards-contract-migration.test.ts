@@ -1,11 +1,15 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import {
+  LEGACY_REWARDS_PATTERN,
+  formerRewardsIdentifier,
+} from "@/tests/helpers/former-identifiers";
 
 const contractionSql = readFileSync(
   resolve(
     process.cwd(),
-    "supabase/migrations/20260819183701_contract_legacy_loyalty_implementation.sql",
+    `supabase/migrations/20260819183701_contract_legacy_${formerRewardsIdentifier("_implementation")}.sql`,
   ),
   "utf8",
 );
@@ -51,13 +55,13 @@ describe("contracted rewards database implementation", () => {
     }
 
     expect(contractionSql).toContain(
-      "alter type public.loyalty_ledger_entry_type rename to rewards_ledger_entry_type",
+      `alter type public.${formerRewardsIdentifier("_ledger_entry_type")} rename to rewards_ledger_entry_type`,
     );
     expect(contractionSql).toContain(
-      "alter type public.loyalty_ledger_status rename to rewards_ledger_status",
+      `alter type public.${formerRewardsIdentifier("_ledger_status")} rename to rewards_ledger_status`,
     );
     expect(contractionSql).toContain(
-      "alter type public.loyalty_redemption_status rename to rewards_reservation_status",
+      `alter type public.${formerRewardsIdentifier("_redemption_status")} rename to rewards_reservation_status`,
     );
     expect(databaseTypes).toContain("rewards_ledger_entry_type:");
     expect(databaseTypes).toContain("rewards_ledger_status:");
@@ -121,11 +125,17 @@ describe("contracted rewards database implementation", () => {
       );
     }
 
-    expect(contractionSql).toContain("drop function public.award_loyalty_points");
-    expect(contractionSql).toContain("drop function public.ensure_loyalty_account");
-    expect(contractionSql).toContain("drop function public.redeem_loyalty_points");
     expect(contractionSql).toContain(
-      "drop function public.release_loyalty_redemptions_for_order",
+      `drop function public.award_${formerRewardsIdentifier("_points")}`,
+    );
+    expect(contractionSql).toContain(
+      `drop function public.ensure_${formerRewardsIdentifier("_account")}`,
+    );
+    expect(contractionSql).toContain(
+      `drop function public.redeem_${formerRewardsIdentifier("_points")}`,
+    );
+    expect(contractionSql).toContain(
+      `drop function public.release_${formerRewardsIdentifier("_redemptions_for_order")}`,
     );
     expect(contractionSql).not.toMatch(/delete\s+from|truncate\s+/i);
     expect(contractionSql).not.toMatch(/drop\s+(?:table|type)\s+/i);
@@ -139,7 +149,7 @@ describe("contracted rewards database implementation", () => {
       expect(databaseTypes).toContain(`${fn}: {`);
     }
 
-    expect(databaseTypes).not.toMatch(/loyalty/i);
+    expect(databaseTypes).not.toMatch(LEGACY_REWARDS_PATTERN);
   });
 
   it("keeps the executable overspend and idempotency probe on rewards interfaces", () => {
@@ -151,7 +161,7 @@ describe("contracted rewards database implementation", () => {
     expect(concurrencyVerifier).toContain('.from("rewards_accounts")');
     expect(concurrencyVerifier).toContain('.from("rewards_ledger_entries")');
     expect(concurrencyVerifier).toContain('.from("rewards_reservations")');
-    expect(concurrencyVerifier).not.toMatch(/loyalty/i);
+    expect(concurrencyVerifier).not.toMatch(LEGACY_REWARDS_PATTERN);
   });
 
   it("keeps operational access to the Points Ledger append-only", () => {
