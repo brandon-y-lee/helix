@@ -56,10 +56,21 @@ function loadGithubRows(ghBin, cwd, endpoint, projection) {
   return output ? output.split("\n") : [];
 }
 
+function parseGithubNumber(token, recordKind) {
+  if (!/^[1-9]\d*$/.test(token)) {
+    throw new Error(`received an incomplete ${recordKind} record`);
+  }
+  const number = Number(token);
+  if (!Number.isSafeInteger(number)) {
+    throw new Error(`received an incomplete ${recordKind} record`);
+  }
+  return number;
+}
+
 function parseGithubPrRow(row) {
   const [number, state, mergedAt, baseRefName, headRefName, headRefOid, ...extra] =
     row.split("\t");
-  const parsedNumber = Number(number);
+  const parsedNumber = parseGithubNumber(number, "pull request");
   const mergedAtMillis = Date.parse(mergedAt);
   const validMergedAt =
     !mergedAt ||
@@ -68,7 +79,6 @@ function parseGithubPrRow(row) {
       new Date(mergedAtMillis).toISOString() === mergedAt.replace("Z", ".000Z"));
   if (
     extra.length > 0 ||
-    !Number.isInteger(parsedNumber) ||
     (state !== "open" && state !== "closed") ||
     (mergedAt && state !== "closed") ||
     !validMergedAt ||
@@ -108,10 +118,9 @@ function loadGithubInventory(cwd) {
     prs = prRows.map(parseGithubPrRow);
     issues = issueRows.map((row) => {
       const [number, pullRequest, ...extra] = row.split("\t");
-      const parsedNumber = Number(number);
+      const parsedNumber = parseGithubNumber(number, "issue");
       if (
         extra.length > 0 ||
-        !Number.isInteger(parsedNumber) ||
         (pullRequest !== "true" && pullRequest !== "false")
       ) {
         throw new Error("received an incomplete issue record");

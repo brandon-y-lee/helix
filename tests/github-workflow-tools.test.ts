@@ -540,6 +540,43 @@ describe("Codex workflow task helper", () => {
     }
   });
 
+  it("fails closed on malformed GitHub issue and pull request identifiers", () => {
+    for (const malformedRecord of ["pull request", "issue"] as const) {
+      const { root, tempRoot } = initialiseRepository();
+      try {
+        const branch = "codex/123-invalid-github-identifier";
+        expectSuccess(git(root, "switch", "-c", branch, "dev"));
+        writeFileSync(join(root, "task.txt"), "invalid GitHub identifier fixture\n");
+        expectSuccess(git(root, "add", "task.txt"));
+        expectSuccess(git(root, "commit", "-m", "Invalid GitHub identifier fixture"));
+        const head = git(root, "rev-parse", "HEAD").stdout.trim();
+        expectSuccess(git(root, "switch", "main"));
+        const fakeGh = writeTaskLifecycleFakeGh(tempRoot);
+        const pullRequest = mergedTaskPr(334, branch, head);
+
+        const applied = run(taskHelper, ["reconcile", "--apply"], root, {
+          env: {
+            GH_BIN: fakeGh,
+            FAKE_TASK_PRS: JSON.stringify([
+              malformedRecord === "pull request"
+                ? { ...pullRequest, number: "1e3" }
+                : pullRequest,
+            ]),
+            FAKE_TASK_ISSUES: JSON.stringify(
+              malformedRecord === "issue" ? [{ number: "1e3" }] : [],
+            ),
+          },
+        });
+
+        expect(applied.status).not.toBe(0);
+        expect(applied.stderr).toContain(`incomplete ${malformedRecord} record`);
+        expectSuccess(git(root, "show-ref", "--verify", `refs/heads/${branch}`));
+      } finally {
+        cleanupFixture(tempRoot);
+      }
+    }
+  });
+
   it("reports locked worktrees as documented unproven state", () => {
     const { root, tempRoot } = initialiseRepository();
     try {
