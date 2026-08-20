@@ -11,6 +11,8 @@ export default defineConfig({
     // Unit/smoke tests live in tests/** (qa-owned). Keep Playwright e2e/** out.
     include: ["tests/**/*.{test,spec}.{ts,tsx}"],
     exclude: ["node_modules", ".next", "e2e", "playwright-report", "test-results"],
+    // Real-Git workflow contracts are process-heavy; cap file workers so UI timers stay meaningful.
+    maxWorkers: 4,
   },
   resolve: {
     alias: {

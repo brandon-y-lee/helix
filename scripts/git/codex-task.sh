@@ -10,11 +10,15 @@ Usage:
   scripts/git/codex-task.sh start trivial-<slug>
   scripts/git/codex-task.sh prepare [task-worktree]
   scripts/git/codex-task.sh cleanup [task-worktree]
+  scripts/git/codex-task.sh reconcile [--apply [--remote]]
+  scripts/git/codex-task.sh retire <branch-or-worktree> --expect-head <sha> [--remote]
 
 start    Create an isolated codex/* worktree from local dev and record its
          review base.
 prepare  Validate a clean, traceable branch before code-review, push, and PR.
 cleanup  Remove the local task branch/worktree after its PR merges into dev.
+reconcile  Plan safe cleanup across linked worktrees and Git refs.
+retire     Explicitly remove assessed state at one immutable expected SHA.
 EOF
 }
 
@@ -91,6 +95,10 @@ resolve_task_repository() {
     fail "task worktree belongs to a different Git repository"
 
   task_primary_checkout=$(dirname "$task_common_dir")
+  linked_task_worktree=0
+  if [ "$task_repository" != "$task_primary_checkout" ]; then
+    linked_task_worktree=1
+  fi
   task_branch=$(git -C "$task_repository" branch --show-current)
   case "$task_branch" in
     codex/*) ;;
@@ -237,7 +245,7 @@ cleanup_task() {
       --base dev \
       --limit 1 \
       --json state,baseRefName,mergedAt,headRefOid \
-      --jq '.[0] | [.state, .baseRefName, .mergedAt, .headRefOid] | @tsv' 2>/dev/null
+      --jq '.[0] | [.state, .baseRefName, .mergedAt, .headRefOid] | @tsv'
   ) || fail "could not verify a GitHub PR for '$task_branch'"
 
   tab=$(printf '\t')
@@ -262,11 +270,13 @@ cleanup_task() {
 
   git -C "$task_primary_checkout" update-ref -d "$task_review_ref"
 
-  if [ "$generated_task_worktree" -eq 1 ]; then
+  if [ "$linked_task_worktree" -eq 1 ]; then
     git -C "$task_primary_checkout" worktree remove "$task_repository"
     git -C "$task_primary_checkout" branch -D "$task_branch"
-    rm -f "$task_marker"
-    rmdir "$task_parent"
+    if [ "$generated_task_worktree" -eq 1 ]; then
+      rm -f "$task_marker"
+      rmdir "$task_parent"
+    fi
     printf 'Removed task worktree %s\n' "$task_repository"
     return
   fi
@@ -291,6 +301,8 @@ case "$command_name" in
   start) start_task "$@" ;;
   prepare) prepare_task "$@" ;;
   cleanup) cleanup_task "$@" ;;
+  reconcile) exec node "$(dirname "$0")/codex-task-state.mjs" reconcile "$@" ;;
+  retire) exec node "$(dirname "$0")/codex-task-state.mjs" retire "$@" ;;
   -h|--help|help) usage ;;
   *)
     usage >&2
