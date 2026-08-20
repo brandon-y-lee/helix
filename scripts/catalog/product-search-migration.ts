@@ -302,6 +302,13 @@ export function assessProductSearchMigration(
         `Algolia API key ${key.identity} description contains a retired identifier`,
       );
     }
+    for (const restriction of key.indexes) {
+      if (containsRetiredIdentifier(restriction)) {
+        blockers.push(
+          `Algolia API key ${key.identity} restriction contains a retired identifier`,
+        );
+      }
+    }
     if (
       key.indexes.some(
         (restriction) =>
@@ -316,6 +323,18 @@ export function assessProductSearchMigration(
   }
   if (inventory.source) blockers.push("former Product Search index still exists");
   for (const config of inventory.querySuggestions) {
+    if (containsRetiredIdentifier(config.indexName)) {
+      blockers.push(
+        `Query Suggestions ${config.indexName} contains a retired identifier`,
+      );
+    }
+    for (const sourceIndex of config.sourceIndices) {
+      if (containsRetiredIdentifier(sourceIndex)) {
+        blockers.push(
+          `Query Suggestions ${config.indexName} source ${sourceIndex} contains a retired identifier`,
+        );
+      }
+    }
     if (config.sourceIndices.includes(LEGACY_PRODUCTS_INDEX)) {
       blockers.push(
         `Query Suggestions ${config.indexName} (${config.region}) reads the source index`,

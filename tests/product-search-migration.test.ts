@@ -101,6 +101,7 @@ describe("Product Search completion assessment", () => {
     );
 
     expect(report.blockers).toEqual([
+      `Query Suggestions product_suggestions source ${LEGACY_PRODUCTS_INDEX} contains a retired identifier`,
       "Query Suggestions product_suggestions (us) reads the source index",
       "Recommend model related-products depends on the source index",
     ]);
@@ -234,6 +235,45 @@ describe("Product Search completion assessment", () => {
     );
     expect(report.blockers).toContain(
       "Algolia API key other-key-1 description contains a retired identifier",
+    );
+  });
+
+  it("rejects retired identifiers in key restrictions and Query Suggestions names", () => {
+    const retiredRestriction = ["mei", "Pelle", "*"].join("");
+    const retiredSuggestion = ["loyal", "ty", "suggestions"].join("");
+    const retiredSource = ["mei", "-pelle", "-source"].join("");
+    const report = assessProductSearchMigration(
+      inventory({
+        querySuggestions: [
+          {
+            region: "us",
+            indexName: retiredSuggestion,
+            sourceIndices: [retiredSource],
+          },
+        ],
+        apiKeys: {
+          status: "all-keys-enumerated",
+          configuredPublicKeyVerified: true,
+          configuredWriteKeyVerified: true,
+          keys: [
+            {
+              identity: "other-key-1",
+              acl: ["search"],
+              indexes: [retiredRestriction],
+              description: null,
+            },
+          ],
+        },
+      }),
+      canonicalRecords,
+    );
+
+    expect(report.blockers).toEqual(
+      expect.arrayContaining([
+        "Algolia API key other-key-1 restriction contains a retired identifier",
+        `Query Suggestions ${retiredSuggestion} contains a retired identifier`,
+        `Query Suggestions ${retiredSuggestion} source ${retiredSource} contains a retired identifier`,
+      ]),
     );
   });
 
