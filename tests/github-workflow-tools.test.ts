@@ -750,7 +750,7 @@ describe("Codex workflow task helper", () => {
     }
   });
 
-  it("rejects an approved synchronization trailer on a merge outside the recorded target", () => {
+  it("rejects a direct dev merge even after the recorded target incorporated dev", () => {
     const { root, tempRoot } = initialiseRemoteRepository();
     try {
       expectSuccess(git(root, "push", "origin", "dev"));
@@ -771,6 +771,9 @@ describe("Codex workflow task helper", () => {
       writeFileSync(join(root, "unrelated.txt"), "not in the Spec Branch\n");
       expectSuccess(git(root, "add", "unrelated.txt"));
       expectSuccess(git(root, "commit", "-m", "Advance dev outside the Spec"));
+      expectSuccess(git(root, "switch", "codex/spec-45-checkout"));
+      expectSuccess(git(root, "merge", "--no-ff", "dev", "-m", "Incorporate dev into Spec"));
+      expectSuccess(git(root, "push", "origin", "codex/spec-45-checkout"));
       expectSuccess(
         git(
           worktree!,
@@ -787,7 +790,7 @@ describe("Codex workflow task helper", () => {
       const prepared = run(taskHelper, ["prepare", worktree!], root);
       expect(prepared.status).not.toBe(0);
       expect(prepared.stderr).toContain(
-        "Ticket synchronization source is not contained in the recorded Spec Branch",
+        "Ticket synchronization source is not on the recorded Spec Branch first-parent history",
       );
     } finally {
       cleanupFixture(tempRoot);
@@ -1372,6 +1375,39 @@ describe("Codex workflow task helper", () => {
     }
   });
 
+  it("preserves malformed recorded targets instead of falling back to dev", () => {
+    const { root, tempRoot } = initialiseRepository();
+    try {
+      const branch = "codex/123-malformed-target";
+      expectSuccess(git(root, "switch", "-c", branch, "dev"));
+      writeFileSync(join(root, "task.txt"), "merged task\n");
+      expectSuccess(git(root, "add", "task.txt"));
+      expectSuccess(git(root, "commit", "-m", "Merged task"));
+      const taskHead = git(root, "rev-parse", "HEAD").stdout.trim();
+      expectSuccess(git(root, "switch", "main"));
+      expectSuccess(
+        git(root, "update-ref", "refs/codex/review-target/123-malformed-target", taskHead),
+      );
+      const fakeGh = writeTaskLifecycleFakeGh(tempRoot);
+      const planned = run(taskHelper, ["reconcile"], root, {
+        env: {
+          GH_BIN: fakeGh,
+          FAKE_TASK_PRS: JSON.stringify([mergedTaskPr(325, branch, taskHead)]),
+        },
+      });
+
+      expectSuccess(planned);
+      expect(planned.stdout).toContain(`UNPROVEN branch ${taskHead} ${branch}`);
+      expect(planned.stdout).toContain("recorded review target is malformed");
+      expectSuccess(git(root, "show-ref", "--verify", `refs/heads/${branch}`));
+      expectSuccess(
+        git(root, "show-ref", "--verify", "refs/codex/review-target/123-malformed-target"),
+      );
+    } finally {
+      cleanupFixture(tempRoot);
+    }
+  });
+
   it("preserves every ref associated with a dirty merged task worktree", () => {
     const { root, tempRoot, remote } = initialiseRemoteRepository();
     try {
@@ -1821,6 +1857,8 @@ type FakeGithubState = {
   failIssues?: boolean;
   advanceDev?: boolean;
   advancedDev?: boolean;
+  workflowRuns?: Array<Record<string, unknown>>;
+  checkRunsBySha?: Record<string, Array<Record<string, unknown>>>;
 };
 
 function writeFakeGh(tempRoot: string, logPath: string): string {
@@ -1886,9 +1924,14 @@ if (args[0] === "api") {
     process.exit(0);
   }
   if (method === "GET" && endpoint?.includes("/check-runs?")) {
+    const sha = endpoint.match(/\\/commits\\/([^/]+)\\/check-runs/)?.[1];
     process.stdout.write(JSON.stringify({
-      check_runs: [{ name: "ci", app: { id: 15368, slug: "github-actions" } }],
+      check_runs: state.checkRunsBySha?.[sha] || [{ name: "ci", app: { id: 15368, slug: "github-actions" } }],
     }));
+    process.exit(0);
+  }
+  if (method === "GET" && endpoint?.endsWith("/actions/runs?event=pull_request&status=success&per_page=100")) {
+    process.stdout.write(JSON.stringify({ workflow_runs: state.workflowRuns || [] }));
     process.exit(0);
   }
   if (method === "GET" && endpoint?.endsWith("/rulesets?includes_parents=false")) {
@@ -2308,6 +2351,8 @@ describe("GitHub workflow bootstrap", () => {
       expect(planned.stdout).toContain("enable merge and squash, disable rebase");
       expect(planned.stdout).toContain("create canonical label needs-triage");
       expect(planned.stdout).toContain("Cleanup phase (only after replacement gates are verified)");
+      expect(planned.stdout).toContain("ticket-gate evidence: missing");
+      expect(planned.stdout).toContain("integration-gate evidence: missing");
       expect(planned.stdout).toContain("remove classic dev protection");
       expect(planned.stdout).toContain("delete retired label workflow:integration-active");
       expect(planned.stdout).toContain("Rollback before cleanup");
@@ -2479,6 +2524,53 @@ describe("GitHub workflow bootstrap", () => {
       );
       expectSuccess(activatedAgain);
       expect(readFileSync(logPath, "utf8")).not.toMatch(/"POST"|"PUT"|"DELETE"/);
+
+      const prematureCleanup = bootstrap(
+        root,
+        fakeGh,
+        statePath,
+        logPath,
+        "apply",
+        "--repo",
+        "brandon-y-lee/helix",
+        "--confirm-repo",
+        "brandon-y-lee/helix",
+        "--confirm-dev-sha",
+        devSha,
+        "--confirm-ci-sha",
+        devSha,
+        "--confirm-phase",
+        "cleanup",
+        "--confirm-github-actions-app-id",
+        "15368",
+      );
+      expect(prematureCleanup.status).not.toBe(0);
+      expect(prematureCleanup.stderr).toContain(
+        "cleanup requires successful real ticket-gate and integration-gate evidence",
+      );
+
+      state = JSON.parse(readFileSync(statePath, "utf8"));
+      state.workflowRuns = [
+        {
+          conclusion: "success",
+          head_sha: "a".repeat(40),
+          pull_requests: [{ base: { ref: "codex/spec-45-checkout" } }],
+        },
+        {
+          conclusion: "success",
+          head_sha: "b".repeat(40),
+          pull_requests: [{ base: { ref: "dev" } }],
+        },
+      ];
+      state.checkRunsBySha = {
+        ["a".repeat(40)]: [
+          { name: "ticket-gate", conclusion: "success", app: { id: 15368, slug: "github-actions" } },
+        ],
+        ["b".repeat(40)]: [
+          { name: "integration-gate", conclusion: "success", app: { id: 15368, slug: "github-actions" } },
+        ],
+      };
+      writeFileSync(statePath, JSON.stringify(state));
 
       const cleaned = bootstrap(
         root,

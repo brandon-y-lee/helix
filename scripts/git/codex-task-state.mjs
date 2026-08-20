@@ -165,10 +165,19 @@ function loadReviewTargets(cwd) {
   for (const line of output.split("\n")) {
     const [ref, symbolicTarget] = line.split("\t");
     const prefix = "refs/remotes/origin/";
-    if (!symbolicTarget?.startsWith(prefix)) continue;
     const slug = ref.slice("refs/codex/review-target/".length);
+    if (!symbolicTarget?.startsWith(prefix)) {
+      targets.set(`codex/${slug}`, {
+        base: null,
+        malformed: true,
+        ref,
+        symbolicTarget: symbolicTarget ?? "",
+      });
+      continue;
+    }
     targets.set(`codex/${slug}`, {
       base: symbolicTarget.slice(prefix.length),
+      malformed: false,
       ref,
       symbolicTarget,
     });
@@ -177,7 +186,9 @@ function loadReviewTargets(cwd) {
 }
 
 function expectedBaseFor(inventory, branch) {
-  return inventory.reviewTargets?.get(branch)?.base ?? "dev";
+  const target = inventory.reviewTargets?.get(branch);
+  if (target?.malformed) return null;
+  return target?.base ?? "dev";
 }
 
 function ticketNumber(branch) {
@@ -247,6 +258,12 @@ function classifyGithubEvidence(
   }
   const evidenceBranch = branchEvidence.branch;
   const expectedBase = expectedBaseFor(inventory, evidenceBranch);
+  if (expectedBase === null) {
+    return {
+      status: "UNPROVEN",
+      evidence: "recorded review target is malformed",
+    };
+  }
   const openPr = openPrFor(inventory, evidenceBranch, head);
   const mergedPr = mergedPrFor(
     inventory,

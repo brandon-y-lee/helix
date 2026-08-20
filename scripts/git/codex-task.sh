@@ -125,8 +125,9 @@ validate_ticket_sync_reasons() {
     [ "$#" -eq 3 ] ||
       fail "Ticket synchronization must be one ordinary merge from the recorded Spec Branch"
     sync_source_parent=$3
-    git -C "$sync_repository" merge-base --is-ancestor "$sync_source_parent" "$sync_target" ||
-      fail "Ticket synchronization source is not contained in the recorded Spec Branch"
+    git -C "$sync_repository" rev-list --first-parent "$sync_target" |
+      grep -Fxq "$sync_source_parent" ||
+      fail "Ticket synchronization source is not on the recorded Spec Branch first-parent history"
   done
 }
 

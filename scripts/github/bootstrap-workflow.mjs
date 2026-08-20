@@ -164,6 +164,51 @@ function githubActionsAppId(repo, sha) {
   return app.id;
 }
 
+function replacementGateEvidence(repo, appId) {
+  const runs = parseJson(
+    runGh([
+      "api",
+      `repos/${repo}/actions/runs?event=pull_request&status=success&per_page=100`,
+      "-H",
+      `X-GitHub-Api-Version: ${API_VERSION}`,
+      "--jq",
+      "{workflow_runs: [.workflow_runs[] | {conclusion, head_sha, pull_requests}]}",
+    ]),
+    "successful pull-request workflow runs",
+  ).workflow_runs ?? [];
+  const evidence = { ticket: false, integration: false };
+  for (const run of runs) {
+    if (run.conclusion !== "success" || !run.head_sha) continue;
+    const base = run.pull_requests?.[0]?.base?.ref;
+    const gate = base?.startsWith("codex/spec-")
+      ? "ticket-gate"
+      : (base === "dev" || base === "main" ? "integration-gate" : null);
+    if (!gate) continue;
+    const checks = parseJson(
+      runGh([
+        "api",
+        `repos/${repo}/commits/${run.head_sha}/check-runs?per_page=100`,
+        "-H",
+        `X-GitHub-Api-Version: ${API_VERSION}`,
+        "--jq",
+        "{check_runs: [.check_runs[] | {name, conclusion, app: {id: .app.id, slug: .app.slug}}]}",
+      ]),
+      `${gate} evidence`,
+    ).check_runs ?? [];
+    const passed = checks.some(
+      (check) =>
+        check.name === gate &&
+        check.conclusion === "success" &&
+        check.app?.id === appId &&
+        check.app?.slug === "github-actions",
+    );
+    if (gate === "ticket-gate" && passed) evidence.ticket = true;
+    if (gate === "integration-gate" && passed) evidence.integration = true;
+    if (evidence.ticket && evidence.integration) break;
+  }
+  return evidence;
+}
+
 function desiredSpecRuleset(appId) {
   return {
     name: SPEC_RULESET_NAME,
@@ -294,6 +339,7 @@ function collectPlan(repo, candidateRef = "") {
   }
 
   const appId = githubActionsAppId(repo, remoteDevSha);
+  const gateEvidence = replacementGateEvidence(repo, appId);
   const rulesets = readRulesets(repo);
   const labels = parseJson(
     runGh(["label", "list", "--repo", repo, "--limit", "200", "--json", "name,color,description"]),
@@ -401,6 +447,7 @@ function collectPlan(repo, candidateRef = "") {
     activation,
     cleanup,
     activationReady: specMatches && devMatches,
+    gateEvidence,
     auditedDevSha,
     remoteDevSha,
     appId,
@@ -415,6 +462,8 @@ function printPlan(repo, plan) {
   if (plan.activation.length === 0) process.stdout.write("- no activation changes required\n");
   else for (const action of plan.activation) process.stdout.write(`- ${action.description}\n`);
   process.stdout.write("Cleanup phase (only after replacement gates are verified)\n");
+  process.stdout.write(`- ticket-gate evidence: ${plan.gateEvidence.ticket ? "verified" : "missing"}\n`);
+  process.stdout.write(`- integration-gate evidence: ${plan.gateEvidence.integration ? "verified" : "missing"}\n`);
   if (plan.cleanup.length === 0) process.stdout.write("- no cleanup changes required\n");
   else for (const action of plan.cleanup) process.stdout.write(`- ${action.description}\n`);
   process.stdout.write("Rollback before cleanup: delete the new rulesets while classic ci still protects dev.\n");
@@ -450,6 +499,12 @@ function main() {
   }
   if (options.confirmPhase === "cleanup" && !plan.activationReady) {
     fail("cleanup requires both replacement rulesets to be active and exact; run and verify activation first");
+  }
+  if (
+    options.confirmPhase === "cleanup" &&
+    (!plan.gateEvidence.ticket || !plan.gateEvidence.integration)
+  ) {
+    fail("cleanup requires successful real ticket-gate and integration-gate evidence from pull requests");
   }
   const actions = options.confirmPhase === "activate" ? plan.activation : plan.cleanup;
   try {
