@@ -41,69 +41,82 @@ function repositoryContext(cwd = process.cwd()) {
   return { invocationRoot, primaryCheckout: canonicalPath(dirname(commonDir)) };
 }
 
-function loadGithubPages(ghBin, cwd, endpoint) {
-  const result = run(ghBin, ["api", endpoint, "--paginate", "--slurp"], cwd, true);
+function loadGithubRows(ghBin, cwd, endpoint, projection) {
+  const result = run(
+    ghBin,
+    ["api", endpoint, "--paginate", "--jq", projection],
+    cwd,
+    true,
+  );
   if (result.status !== 0) {
     const detail = result.stderr.trim() || result.stdout.trim();
     fail(`could not inventory GitHub state${detail ? `: ${detail}` : ""}`);
   }
-  try {
-    const pages = JSON.parse(result.stdout);
-    if (!Array.isArray(pages) || pages.some((page) => !Array.isArray(page))) {
-      throw new Error("expected paginated JSON arrays");
-    }
-    return pages.flat();
-  } catch (error) {
-    fail(`could not parse GitHub inventory: ${error.message}`);
-  }
+  const output = result.stdout.trim();
+  return output ? output.split("\n") : [];
 }
 
-function normalizeGithubPr(pr) {
+function parseGithubPrRow(row) {
+  const [number, state, mergedAt, baseRefName, headRefName, headRefOid, ...extra] =
+    row.split("\t");
+  const parsedNumber = Number(number);
   if (
-    !Number.isInteger(pr?.number) ||
-    (pr.state !== "open" && pr.state !== "closed") ||
-    (pr.merged_at !== null && typeof pr.merged_at !== "string") ||
-    typeof pr.base?.ref !== "string" ||
-    typeof pr.head?.ref !== "string" ||
-    typeof pr.head?.sha !== "string"
+    extra.length > 0 ||
+    !Number.isInteger(parsedNumber) ||
+    (state !== "open" && state !== "closed") ||
+    !baseRefName ||
+    !headRefName ||
+    !/^[0-9a-f]{40}$/.test(headRefOid)
   ) {
     throw new Error("received an incomplete pull request record");
   }
   return {
-    number: pr.number,
-    state: pr.merged_at ? "MERGED" : pr.state.toUpperCase(),
-    baseRefName: pr.base.ref,
-    mergedAt: pr.merged_at,
-    headRefName: pr.head.ref,
-    headRefOid: pr.head.sha,
+    number: parsedNumber,
+    state: mergedAt ? "MERGED" : state.toUpperCase(),
+    baseRefName,
+    mergedAt: mergedAt || null,
+    headRefName,
+    headRefOid,
   };
 }
 
 function loadGithubInventory(cwd) {
   const ghBin = process.env.GH_BIN || "gh";
-  const rawPrs = loadGithubPages(
+  const prRows = loadGithubRows(
     ghBin,
     cwd,
     "repos/{owner}/{repo}/pulls?state=all&per_page=100",
+    '.[] | [.number, .state, (.merged_at // ""), .base.ref, .head.ref, .head.sha] | @tsv',
   );
-  const issues = loadGithubPages(
+  const issueRows = loadGithubRows(
     ghBin,
     cwd,
     "repos/{owner}/{repo}/issues?state=open&per_page=100",
+    '.[] | [.number, has("pull_request")] | @tsv',
   );
   let prs;
+  let issues;
   try {
-    prs = rawPrs.map(normalizeGithubPr);
-    if (issues.some((issue) => !Number.isInteger(issue?.number))) {
-      throw new Error("received an incomplete issue record");
-    }
+    prs = prRows.map(parseGithubPrRow);
+    issues = issueRows.map((row) => {
+      const [number, pullRequest, ...extra] = row.split("\t");
+      const parsedNumber = Number(number);
+      if (
+        extra.length > 0 ||
+        !Number.isInteger(parsedNumber) ||
+        (pullRequest !== "true" && pullRequest !== "false")
+      ) {
+        throw new Error("received an incomplete issue record");
+      }
+      return { number: parsedNumber, pullRequest: pullRequest === "true" };
+    });
   } catch (error) {
     fail(`could not parse GitHub inventory: ${error.message}`);
   }
   return {
     prs,
     openIssues: new Set(
-      issues.filter((issue) => !issue.pull_request).map((issue) => issue.number),
+      issues.filter((issue) => !issue.pullRequest).map((issue) => issue.number),
     ),
   };
 }

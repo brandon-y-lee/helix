@@ -188,19 +188,32 @@ if (process.env.FAKE_TASK_GH_FAILURE) {
   process.stderr.write(process.env.FAKE_TASK_GH_FAILURE + "\\n");
   process.exit(1);
 }
-if (args[0] !== "api" || !args.includes("--paginate") || !args.includes("--slurp")) {
-  process.stderr.write("GitHub inventory must use complete pagination\\n");
+if (
+  args[0] !== "api" ||
+  !args.includes("--paginate") ||
+  args.includes("--slurp") ||
+  !args.includes("--jq")
+) {
+  process.stderr.write("GitHub inventory must use compact, complete pagination\\n");
   process.exit(2);
 }
 const endpoint = args.find((arg) => arg.startsWith("repos/")) || "";
 if (endpoint.includes("/pulls?")) {
   const records = JSON.parse(process.env.FAKE_TASK_PRS || "[]");
-  process.stdout.write(JSON.stringify([records]));
+  process.stdout.write(
+    records
+      .map((pr) =>
+        [pr.number, pr.state, pr.merged_at || "", pr.base.ref, pr.head.ref, pr.head.sha].join("\\t"),
+      )
+      .join("\\n"),
+  );
   process.exit(0);
 }
 if (endpoint.includes("/issues?")) {
   const records = JSON.parse(process.env.FAKE_TASK_ISSUES || "[]");
-  process.stdout.write(JSON.stringify([records]));
+  process.stdout.write(
+    records.map((issue) => [issue.number, Boolean(issue.pull_request)].join("\\t")).join("\\n"),
+  );
   process.exit(0);
 }
 process.stderr.write("unexpected fake gh call: " + args.join(" ") + "\\n");
@@ -484,7 +497,8 @@ describe("Codex workflow task helper", () => {
       const calls = readFileSync(logPath, "utf8").trim().split("\n");
       expect(calls).toHaveLength(2);
       expect(calls.every((call) => call.includes("--paginate"))).toBe(true);
-      expect(calls.every((call) => call.includes("--slurp"))).toBe(true);
+      expect(calls.every((call) => !call.includes("--slurp"))).toBe(true);
+      expect(calls.every((call) => call.includes("--jq"))).toBe(true);
       expect(calls.some((call) => call.includes("/pulls?state=all&per_page=100"))).toBe(true);
       expect(calls.some((call) => call.includes("/issues?state=open&per_page=100"))).toBe(true);
     } finally {
