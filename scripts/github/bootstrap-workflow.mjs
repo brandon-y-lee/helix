@@ -8,6 +8,23 @@ const SPEC_RULESET_NAME = "Spec Branch Ticket Gate";
 const DEV_RULESET_NAME = "dev Integration Gate";
 // GitHub's built-in RepositoryRole database ID for repository administrators.
 const ADMIN_REPOSITORY_ROLE_ID = 5;
+const DESIRED_LABELS = [
+  ["needs-triage", "D4C5F9", "Maintainer evaluation required"],
+  ["needs-info", "FBCA04", "Waiting for more information"],
+  ["ready-for-agent", "0E8A16", "Ready for an autonomous agent"],
+  ["ready-for-human", "1D76DB", "Human action or implementation required"],
+  ["wontfix", "FFFFFF", "Closed without implementation"],
+  ["type:spec", "0E8A16", "Approved delivery specification"],
+  ["type:ticket", "1D76DB", "Implementable vertical slice"],
+  ["workflow:planned", "C5DEF5", "Approved and decomposed into tickets"],
+  ["workflow:in-progress", "FBCA04", "Claimed work in progress"],
+  ["workflow:review", "D4C5F9", "Implementation awaiting review or CI"],
+  ["wayfinder:map", "5319E7", "Wayfinder decision map"],
+  ["wayfinder:research", "0052CC", "Wayfinder research ticket"],
+  ["wayfinder:prototype", "B60205", "Wayfinder prototype ticket"],
+  ["wayfinder:grilling", "D93F0B", "Wayfinder grilling ticket"],
+  ["wayfinder:task", "C2E0C6", "Wayfinder prerequisite task"],
+].map(([name, color, description]) => ({ name, color, description }));
 const RETIRED_RULESETS = [
   "dev pull request integration",
   "spec branch pull request integration",
@@ -250,7 +267,7 @@ function rulesetAction(repo, observed, desired, description) {
 function collectPlan(repo, candidateRef = "") {
   runGh(["auth", "status"]);
   const repository = parseJson(
-    runGh(["repo", "view", repo, "--json", "nameWithOwner,defaultBranchRef,hasIssuesEnabled"]),
+    runGh(["repo", "view", repo, "--json", "nameWithOwner,defaultBranchRef,hasIssuesEnabled,mergeCommitAllowed,squashMergeAllowed,rebaseMergeAllowed,deleteBranchOnMerge"]),
     "repository inspection",
   );
   if (repository.nameWithOwner !== repo) throw new Error(`authenticated repository '${repository.nameWithOwner}' is not '${repo}'`);
@@ -282,7 +299,8 @@ function collectPlan(repo, candidateRef = "") {
     runGh(["label", "list", "--repo", repo, "--limit", "200", "--json", "name,color,description"]),
     "label inventory",
   );
-  const labelNames = new Set(labels.map((label) => label.name));
+  const labelsByName = new Map(labels.map((label) => [label.name, label]));
+  const labelNames = new Set(labelsByName.keys());
   const classicDev = readProtection(repo, "dev");
   const classicMain = readProtection(repo, "main");
   if (!classicMain) throw new Error("main compatibility protection is unavailable; production policy is not safe to plan");
@@ -294,11 +312,68 @@ function collectPlan(repo, candidateRef = "") {
   const specMatches = containsDesired(observedSpec, desiredSpec);
   const devMatches = containsDesired(observedDev, desiredDev);
   const activation = [];
+  const repositorySettingsMatch =
+    repository.mergeCommitAllowed === true &&
+    repository.squashMergeAllowed === true &&
+    repository.rebaseMergeAllowed === false &&
+    repository.deleteBranchOnMerge === true;
+  if (!repositorySettingsMatch) {
+    activation.push({
+      description: "enable merge and squash, disable rebase, and delete merged heads",
+      apply: () => runGh(
+        [
+          "api",
+          "--method",
+          "PATCH",
+          `repos/${repo}`,
+          "-H",
+          `X-GitHub-Api-Version: ${API_VERSION}`,
+          "--input",
+          "-",
+        ],
+        {
+          input: JSON.stringify({
+            allow_merge_commit: true,
+            allow_squash_merge: true,
+            allow_rebase_merge: false,
+            delete_branch_on_merge: true,
+          }),
+        },
+      ),
+    });
+  }
+  for (const desiredLabel of DESIRED_LABELS) {
+    const observed = labelsByName.get(desiredLabel.name);
+    if (
+      !observed ||
+      observed.color.toLowerCase() !== desiredLabel.color.toLowerCase() ||
+      (observed.description ?? "") !== desiredLabel.description
+    ) {
+      activation.push({
+        description: `${observed ? "update" : "create"} canonical label ${desiredLabel.name}`,
+        apply: () => runGh([
+          "label",
+          "create",
+          desiredLabel.name,
+          "--repo",
+          repo,
+          "--color",
+          desiredLabel.color,
+          "--description",
+          desiredLabel.description,
+          "--force",
+        ]),
+      });
+    }
+  }
   if (!specMatches) {
     activation.push(rulesetAction(repo, observedSpec, desiredSpec, "create/update active Spec Branch ruleset with loose ticket-gate, creation/deletion lifecycle, and repository-administrator bypass"));
   }
   if (!devMatches) {
     activation.push(rulesetAction(repo, observedDev, desiredDev, "create/update active dev ruleset with strict integration-gate with no bypass"));
+  }
+  if (!classicDev && (!specMatches || !devMatches)) {
+    throw new Error("classic dev protection is absent before replacement rulesets are exact; stop and restore protection before activation");
   }
 
   const cleanup = [];
@@ -356,8 +431,14 @@ function main() {
     fail(error instanceof Error ? error.message : String(error));
   }
   printPlan(options.repo, plan);
-  if (options.mode !== "apply") {
+  if (options.mode === "plan") {
     process.stdout.write("No changes applied.\n");
+    return;
+  }
+  if (options.mode === "verify") {
+    const driftCount = plan.activation.length + plan.cleanup.length;
+    if (driftCount > 0) fail(`verification found ${driftCount} required change(s)`);
+    process.stdout.write("GitHub workflow configuration verified.\n");
     return;
   }
   if (options.confirmRepo !== options.repo) fail(`apply requires --confirm-repo ${options.repo}`);

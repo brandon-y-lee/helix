@@ -14,6 +14,12 @@ The user owns three planning gates: shared understanding, the specification, and
 
 `grill-with-docs` fits a coherent idea that can reach shared understanding in one session. Wayfinder fits multi-session fog that needs decisions, research, or prototypes. Planning and domain-documentation changes still enter `dev` through planning PRs before `to-spec`.
 
+## Planning and domain documentation
+
+Start `codex/plan-<slug>` before a `grill-with-docs` session that may edit the repository. Capture resolved, project-specific platform domain language in the applicable `CONTEXT.md`, including customer-facing, operational, editorial, service, and governance concepts. Exclude generic technical vocabulary, specifications, and implementation decisions. Future tasks may append justified terms as the platform language develops. Record only qualifying durable decisions in ADRs. After shared understanding is confirmed, review and merge those documents into `dev` through a planning PR before `to-spec`. An empty planning branch is discarded.
+
+Wayfinder decisions use the same planning-PR rule when they change repository documentation. Close a completed map after its frontier and fog are empty and link the resulting Spec.
+
 ## Establish the Spec delivery boundary
 
 `to-spec` publishes the approved specification as a `type:spec` issue. `to-tickets` publishes the user-approved Tickets as native sub-issues with native dependencies, but does not add `ready-for-agent` yet. Move the Spec to `workflow:planned`, then run:
@@ -66,11 +72,22 @@ If `dev` advances, incorporate it again and repeat affected verification and rev
 
 For cancellation or failure, a failed Spec PR returns to draft. Ticket-specific defects use repair Ticket PRs; cross-Ticket conflicts belong to the Spec Closer; scope expansion requires user approval. A sound abandoned Spec keeps its draft PR and history but loses stale assignment. A cancelled or untrustworthy Spec closes without entering `dev`; reuse requires newly approved Tickets from current `dev` or a valid replacement Spec Branch. Never reset, rebase, force-push, or silently salvage it.
 
+Cancelled or superseded issues retain their history: comment with the reason and replacement link, apply `wontfix`, and close them. GitHub treats closed native blockers as resolved, so reconcile every dependent Ticket before cancelling a blocker.
+
 ## Direct-to-`dev` paths and authority
 
 Urgent, standalone, trivial, and planning work remain direct-to-`dev` through `integration-gate`. The Bootstrap PR that introduces this workflow also uses the previously protected direct path and reports both compatibility `ci` and `integration-gate`.
 
+- **Trivial non-behavioral work** may skip GitHub planning artifacts. It still uses `codex/trivial-<slug>`, proportional verification, `code-review`, a PR into `dev`, and `integration-gate`.
+- **Urgent production or security fixes** may skip exploration, specification, and decomposition. Create one abbreviated GitHub Ticket, use `codex/<ticket>-urgent-<slug>`, and commit with only the `Refs #<ticket>` footer. The normal review, PR, and Integration Gate still apply. Record deferred context immediately afterward.
+
 Invoking `implement` for an approved Ticket authorizes Ticket-scoped tracker updates, branch push, PR creation, and the applicable merge after review and CI pass. It does not authorize production promotion, live configuration apply, destructive operations, unrelated fixes, or scope expansion.
+
+When implementation exposes new work:
+
+- Required work that changes the Ticket or Spec pauses for user approval.
+- Independent follow-up becomes a new child Ticket with explicit dependencies.
+- A discovery that invalidates the solution returns to `grill-with-docs` or Wayfinder.
 
 ## GitHub configuration and release boundary
 

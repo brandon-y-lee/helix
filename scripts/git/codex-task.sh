@@ -108,6 +108,7 @@ require_gh() {
 validate_ticket_sync_reasons() {
   sync_repository=$1
   sync_base=$2
+  sync_target=$3
   merge_commits=$(git -C "$sync_repository" rev-list --merges "$sync_base"..HEAD)
   for merge_commit in $merge_commits; do
     sync_reasons=$(
@@ -120,6 +121,12 @@ validate_ticket_sync_reasons() {
         fail "Ticket synchronization requires one approved concrete reason: merge-conflict, newly-approved-blocker, consumed-interface, or combined-test"
         ;;
     esac
+    set -- $(git -C "$sync_repository" rev-list --parents -n 1 "$merge_commit")
+    [ "$#" -eq 3 ] ||
+      fail "Ticket synchronization must be one ordinary merge from the recorded Spec Branch"
+    sync_source_parent=$3
+    git -C "$sync_repository" merge-base --is-ancestor "$sync_source_parent" "$sync_target" ||
+      fail "Ticket synchronization source is not contained in the recorded Spec Branch"
   done
 }
 
@@ -352,6 +359,20 @@ start_task() {
     git -C "$start_repository" fetch --quiet origin \
       "refs/heads/$spec_branch:refs/remotes/origin/$spec_branch" ||
       fail "recorded target '$spec_branch' is missing or unavailable; do not retarget the Ticket"
+
+    blocker_statuses=$(
+      "$gh_bin" api "repos/$repository/issues/$ticket_number/dependencies/blocked_by" \
+        --paginate --jq '.[] | [.number, .state] | @tsv'
+    ) || fail "could not inspect native blockers for Ticket #$ticket_number"
+    if [ -n "$blocker_statuses" ]; then
+      printf '%s\n' "$blocker_statuses" |
+        while IFS="$tab" read -r blocker_number blocker_state; do
+          case "$blocker_state" in closed|CLOSED) ;; *) fail "Ticket #$ticket_number has an unresolved native blocker #$blocker_number" ;; esac
+          git -C "$start_repository" log --format=%B "$start_base" |
+            grep -Eq "^Refs #${blocker_number}[[:space:]]*$" ||
+            fail "Ticket Snapshot does not contain closed blocker #$blocker_number"
+        done
+    fi
   fi
 
   git -C "$start_repository" show-ref --verify --quiet "refs/heads/$task_branch" &&
@@ -436,12 +457,10 @@ prepare_task() {
     review_target=${target_remote_ref#refs/remotes/origin/}
     [ "$review_target" != "$target_remote_ref" ] ||
       fail "recorded Ticket target is malformed; preserve the branch and obtain recovery direction"
-    current_target=$(
-      git -C "$task_repository" ls-remote --heads origin "refs/heads/$review_target" |
-        awk 'NR == 1 { print $1 }'
-    )
-    [ -n "$current_target" ] ||
+    git -C "$task_repository" fetch --quiet origin \
+      "refs/heads/$review_target:$target_remote_ref" ||
       fail "recorded target '$review_target' is missing, renamed, or cancelled; do not retarget automatically—preserve the Ticket branch and reconcile the Spec"
+    current_target=$(git -C "$task_repository" rev-parse "$target_remote_ref")
     comparison_base=$recorded_base
     review_base=$recorded_base
     snapshot_target=1
@@ -458,7 +477,7 @@ prepare_task() {
   ahead_count=$(git -C "$task_repository" rev-list --count "$comparison_base"..HEAD)
   [ "$ahead_count" -gt 0 ] || fail "task branch has no commits ahead of its review base"
   if [ "$snapshot_target" -eq 1 ]; then
-    validate_ticket_sync_reasons "$task_repository" "$recorded_base"
+    validate_ticket_sync_reasons "$task_repository" "$recorded_base" "$target_remote_ref"
   fi
 
   if [ "$task_kind" = ticket ] || [ "$task_kind" = urgent ]; then

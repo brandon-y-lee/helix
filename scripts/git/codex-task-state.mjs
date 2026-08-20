@@ -153,6 +153,33 @@ function refHead(cwd, ref) {
   return null;
 }
 
+function loadReviewTargets(cwd) {
+  const output = git(
+    cwd,
+    "for-each-ref",
+    "--format=%(refname)%09%(symref)",
+    "refs/codex/review-target/",
+  );
+  const targets = new Map();
+  if (!output) return targets;
+  for (const line of output.split("\n")) {
+    const [ref, symbolicTarget] = line.split("\t");
+    const prefix = "refs/remotes/origin/";
+    if (!symbolicTarget?.startsWith(prefix)) continue;
+    const slug = ref.slice("refs/codex/review-target/".length);
+    targets.set(`codex/${slug}`, {
+      base: symbolicTarget.slice(prefix.length),
+      ref,
+      symbolicTarget,
+    });
+  }
+  return targets;
+}
+
+function expectedBaseFor(inventory, branch) {
+  return inventory.reviewTargets?.get(branch)?.base ?? "dev";
+}
+
 function ticketNumber(branch) {
   const match = branch.match(/^codex\/(\d+)-/);
   return match ? Number(match[1]) : null;
@@ -185,13 +212,14 @@ function mergedPrFor(
   inventory,
   branch,
   head,
+  expectedBase,
   requireExactHead = true,
   accept = () => true,
 ) {
   return inventory.prs.find(
     (pr) =>
       pr.state === "MERGED" &&
-      pr.baseRefName === "dev" &&
+      pr.baseRefName === expectedBase &&
       pr.mergedAt &&
       (!branch || pr.headRefName === branch) &&
       (!requireExactHead || pr.headRefOid === head) &&
@@ -218,11 +246,13 @@ function classifyGithubEvidence(
     };
   }
   const evidenceBranch = branchEvidence.branch;
+  const expectedBase = expectedBaseFor(inventory, evidenceBranch);
   const openPr = openPrFor(inventory, evidenceBranch, head);
   const mergedPr = mergedPrFor(
     inventory,
     evidenceBranch,
     head,
+    expectedBase,
     requireExactHead,
     acceptMerged,
   );
@@ -247,7 +277,7 @@ function classifyTaskBranch(inventory, branch, head) {
   return classifyGithubEvidence(inventory, {
     branch,
     head,
-    mergedEvidence: (pr) => `exact head merged by PR #${pr.number} into dev`,
+    mergedEvidence: (pr) => `exact head merged by PR #${pr.number} into ${pr.baseRefName}`,
     unprovenEvidence: "no exact merged PR evidence",
   });
 }
@@ -296,7 +326,7 @@ function classifyWorktree(inventory, worktree) {
     branch: null,
     head: worktree.head,
     acceptMerged: (pr) => pr.headRefName?.startsWith("codex/"),
-    mergedEvidence: (pr) => `detached HEAD merged by PR #${pr.number} into dev`,
+    mergedEvidence: (pr) => `detached HEAD merged by PR #${pr.number} into ${pr.baseRefName}`,
     unprovenEvidence: "explicit evidence required",
   });
 }
@@ -352,6 +382,7 @@ function reconcile(args) {
 
   const { invocationRoot, primaryCheckout } = repositoryContext();
   const inventory = loadGithubInventory(invocationRoot);
+  inventory.reviewTargets = loadReviewTargets(invocationRoot);
   const actions = {
     worktrees: [],
     branches: [],
@@ -414,12 +445,32 @@ function reconcile(args) {
         branch,
         head: null,
         requireExactHead: false,
-        mergedEvidence: (pr) => `task merged by PR #${pr.number} into dev`,
+        mergedEvidence: (pr) => `task merged by PR #${pr.number} into ${pr.baseRefName}`,
         unprovenEvidence: "no merged task evidence",
       });
     }
     emitPlan(result.status, "review-ref", item.head, item.ref, result.evidence);
     if (result.status === "REMOVE") actions.reviewRefs.push(item);
+  }
+
+  for (const target of inventory.reviewTargets.values()) {
+    const slug = target.ref.slice("refs/codex/review-target/".length);
+    const branch = `codex/${slug}`;
+    const currentRef =
+      localRefs.find(({ ref }) => ref === `refs/heads/${branch}`) ||
+      remoteRefs.find(({ ref }) => ref === `refs/remotes/origin/${branch}`);
+    const result = branchResults.get(branch) ?? classifyGithubEvidence(inventory, {
+      branch,
+      head: currentRef?.head ?? null,
+      requireExactHead: Boolean(currentRef),
+      mergedEvidence: (pr) => `task merged by PR #${pr.number} into ${pr.baseRefName}`,
+      unprovenEvidence: "no merged task evidence",
+    });
+    const targetHead = refHead(invocationRoot, target.ref) ?? "0".repeat(40);
+    emitPlan(result.status, "review-target", targetHead, target.ref, result.evidence);
+    if (result.status === "REMOVE") {
+      actions.reviewRefs.push({ ...target, head: targetHead, symbolic: true });
+    }
   }
 
   for (const item of remoteRefs) {
@@ -466,7 +517,12 @@ function reconcile(args) {
     if (retainedWorktree) fail(`branch is checked out in retained worktree: ${item.branch}`);
   }
   for (const item of actions.reviewRefs) {
-    if (refHead(invocationRoot, item.ref) !== item.head) {
+    if (item.symbolic) {
+      const currentTarget = run("git", ["symbolic-ref", "-q", item.ref], invocationRoot, true);
+      if (currentTarget.status !== 0 || currentTarget.stdout.trim() !== item.symbolicTarget) {
+        fail(`review target changed after planning: ${item.ref}`);
+      }
+    } else if (refHead(invocationRoot, item.ref) !== item.head) {
       fail(`review ref changed after planning: ${item.ref}`);
     }
   }
@@ -490,8 +546,17 @@ function reconcile(args) {
     process.stdout.write(`REMOVED branch ${item.head} ${item.branch}\n`);
   }
   for (const item of actions.reviewRefs) {
-    run("git", ["update-ref", "-d", item.ref, item.head], primaryCheckout);
-    process.stdout.write(`REMOVED review-ref ${item.head} ${item.ref}\n`);
+    if (item.symbolic) {
+      if (remote) {
+        run("git", ["symbolic-ref", "-d", item.ref], primaryCheckout);
+        process.stdout.write(`REMOVED review-target ${item.head} ${item.ref}\n`);
+      } else {
+        process.stdout.write(`PRESERVED review-target ${item.head} ${item.ref} — add --remote to delete\n`);
+      }
+    } else {
+      run("git", ["update-ref", "-d", item.ref, item.head], primaryCheckout);
+      process.stdout.write(`REMOVED review-ref ${item.head} ${item.ref}\n`);
+    }
   }
   for (const item of actions.remoteBranches) {
     if (remote) {
@@ -532,6 +597,7 @@ function retire(args) {
   const { target, expectedHead, remote } = parseRetireArgs(args);
   const { invocationRoot, primaryCheckout } = repositoryContext();
   const inventory = loadGithubInventory(invocationRoot);
+  inventory.reviewTargets = loadReviewTargets(invocationRoot);
   const worktrees = worktreeInventory(invocationRoot).map((worktree) => ({
     ...worktree,
     displayPath: worktree.path,
@@ -618,6 +684,12 @@ function retire(args) {
     if (reviewHead) {
       run("git", ["update-ref", "-d", reviewRef, reviewHead], primaryCheckout);
       process.stdout.write(`RETIRED review-ref ${reviewHead} ${reviewRef}\n`);
+    }
+    const reviewTargetRef = `refs/codex/review-target/${branch.slice("codex/".length)}`;
+    const reviewTarget = run("git", ["symbolic-ref", "-q", reviewTargetRef], primaryCheckout, true);
+    if (reviewTarget.status === 0) {
+      run("git", ["symbolic-ref", "-d", reviewTargetRef], primaryCheckout);
+      process.stdout.write(`RETIRED review-target ${reviewTarget.stdout.trim()} ${reviewTargetRef}\n`);
     }
   }
   if (!remote && trackingHead) {
