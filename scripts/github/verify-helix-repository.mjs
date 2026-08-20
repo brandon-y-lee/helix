@@ -130,13 +130,6 @@ function verify({ repo, candidateRef }) {
   }
 
   const candidateSha = runGit(["rev-parse", "--verify", `${candidateRef}^{commit}`]).stdout.trim();
-  const ciWorkflow = runGit(
-    ["cat-file", "-e", `${candidateSha}:.github/workflows/ci.yml`],
-    { allowFailure: true },
-  );
-  if (ciWorkflow.status !== 0) {
-    throw new Error("candidate does not contain .github/workflows/ci.yml");
-  }
   const branches = readRemoteBranches();
   for (const branch of ["main", "dev"]) {
     const sha = branches.get(branch);
@@ -147,6 +140,23 @@ function verify({ repo, candidateRef }) {
       candidateSha,
       `candidate ${candidateSha} does not contain remote ${branch} ${sha}`,
     );
+  }
+
+  const remoteDevSha = branches.get("dev");
+  const candidateCiBlob = runGit(
+    ["rev-parse", `${candidateSha}:.github/workflows/ci.yml`],
+    { allowFailure: true },
+  );
+  const currentDevCiBlob = runGit(
+    ["rev-parse", `${remoteDevSha}:.github/workflows/ci.yml`],
+    { allowFailure: true },
+  );
+  if (
+    candidateCiBlob.status !== 0 ||
+    currentDevCiBlob.status !== 0 ||
+    candidateCiBlob.stdout.trim() !== currentDevCiBlob.stdout.trim()
+  ) {
+    throw new Error("candidate CI workflow differs from current dev");
   }
 }
 

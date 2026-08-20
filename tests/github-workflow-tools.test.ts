@@ -1437,9 +1437,15 @@ describe("Helix repository verification", () => {
     }
   });
 
-  it("fails when the candidate does not contain the canonical CI workflow", () => {
+  it("fails when the candidate replaces the canonical CI workflow", () => {
     const { root, tempRoot, remote } = initialiseRemoteRepository();
     try {
+      mkdirSync(join(root, ".github", "workflows"), { recursive: true });
+      writeFileSync(join(root, ".github", "workflows", "ci.yml"), "name: CI\n");
+      expectSuccess(git(root, "add", ".github/workflows/ci.yml"));
+      expectSuccess(git(root, "commit", "-m", "Add CI workflow"));
+      expectSuccess(git(root, "branch", "-f", "dev", "HEAD"));
+      expectSuccess(git(root, "push", "origin", "main"));
       expectSuccess(git(root, "push", "origin", "dev"));
       expectSuccess(
         git(
@@ -1458,6 +1464,12 @@ describe("Helix repository verification", () => {
           "https://github.com/brandon-y-lee/helix.git",
         ),
       );
+      writeFileSync(
+        join(root, ".github", "workflows", "ci.yml"),
+        "name: Replaced workflow\n",
+      );
+      expectSuccess(git(root, "add", ".github/workflows/ci.yml"));
+      expectSuccess(git(root, "commit", "-m", "Replace CI workflow"));
       const statePath = join(tempRoot, "github-state.json");
       const logPath = join(tempRoot, "github-calls.log");
       writeFileSync(
@@ -1482,7 +1494,7 @@ describe("Helix repository verification", () => {
 
       expect(verified.status).not.toBe(0);
       expect(verified.stderr).toContain(
-        "candidate does not contain .github/workflows/ci.yml",
+        "candidate CI workflow differs from current dev",
       );
     } finally {
       cleanupFixture(tempRoot);
