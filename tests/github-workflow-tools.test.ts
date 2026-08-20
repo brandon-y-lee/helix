@@ -7,7 +7,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { spawnSync, type SpawnSyncReturns } from "node:child_process";
 import { describe, expect, it } from "vitest";
 
@@ -108,6 +108,120 @@ function commitTicket(worktree: string, ticket = 123, spec?: number): void {
 
 function cleanupFixture(tempRoot: string): void {
   rmSync(tempRoot, { recursive: true, force: true });
+}
+
+function writeCleanupFakeGh(tempRoot: string): string {
+  const fakeGh = join(tempRoot, "fake-cleanup-gh");
+  writeFileSync(
+    fakeGh,
+    `#!/bin/sh
+if [ -n "\${FAKE_CLEANUP_FAILURE:-}" ]; then
+  printf '%s\\n' "$FAKE_CLEANUP_FAILURE" >&2
+  exit 1
+fi
+printf '%s\\t%s\\t%s\\t%s\\n' \
+  "\${FAKE_PR_STATE:-MERGED}" \
+  "\${FAKE_PR_BASE:-dev}" \
+  "\${FAKE_PR_MERGED_AT:-2026-08-19T12:00:00Z}" \
+  "\${FAKE_PR_HEAD:-missing}"
+`,
+  );
+  chmodSync(fakeGh, 0o755);
+  return fakeGh;
+}
+
+type TaskPullRequest = {
+  number: number;
+  state: "open" | "closed";
+  merged_at: string | null;
+  base: { ref: string };
+  head: { ref: string; sha: string };
+};
+
+function mergedTaskPr(number: number, branch: string, head: string): TaskPullRequest {
+  return {
+    number,
+    state: "closed",
+    merged_at: "2026-08-19T12:00:00Z",
+    base: { ref: "dev" },
+    head: { ref: branch, sha: head },
+  };
+}
+
+function openTaskPr(number: number, branch: string, head: string): TaskPullRequest {
+  return {
+    number,
+    state: "open",
+    merged_at: null,
+    base: { ref: "dev" },
+    head: { ref: branch, sha: head },
+  };
+}
+
+function writeRemoteRaceHook(root: string, tempRoot: string): string {
+  const markerPath = join(tempRoot, "remote-race-triggered");
+  const hook = join(root, ".git", "hooks", "pre-push");
+  writeFileSync(
+    hook,
+    `#!/bin/sh
+if [ ! -f "$RACE_MARKER" ]; then
+  git --git-dir="$RACE_REMOTE" update-ref "$RACE_REF" "$RACE_HEAD" || exit 1
+  printf 'triggered\\n' > "$RACE_MARKER"
+fi
+`,
+  );
+  chmodSync(hook, 0o755);
+  return markerPath;
+}
+
+function writeTaskLifecycleFakeGh(tempRoot: string): string {
+  const fakeGh = join(tempRoot, "fake-task-gh.mjs");
+  writeFileSync(
+    fakeGh,
+    `#!/usr/bin/env node
+import { appendFileSync } from "node:fs";
+const args = process.argv.slice(2);
+if (process.env.FAKE_TASK_GH_LOG) {
+  appendFileSync(process.env.FAKE_TASK_GH_LOG, args.join(" ") + "\\n");
+}
+if (process.env.FAKE_TASK_GH_FAILURE) {
+  process.stderr.write(process.env.FAKE_TASK_GH_FAILURE + "\\n");
+  process.exit(1);
+}
+if (
+  args[0] !== "api" ||
+  !args.includes("--paginate") ||
+  args.includes("--slurp") ||
+  !args.includes("--jq")
+) {
+  process.stderr.write("GitHub inventory must use compact, complete pagination\\n");
+  process.exit(2);
+}
+const endpoint = args.find((arg) => arg.startsWith("repos/")) || "";
+if (endpoint.includes("/pulls?")) {
+  const records = JSON.parse(process.env.FAKE_TASK_PRS || "[]");
+  process.stdout.write(
+    records
+      .map((pr) =>
+        [pr.number, pr.state, pr.merged_at || "", pr.base.ref, pr.head.ref, pr.head.sha].join("\\t"),
+      )
+      .join("\\n"),
+  );
+  process.exit(0);
+}
+if (endpoint.includes("/issues?")) {
+  const records = JSON.parse(process.env.FAKE_TASK_ISSUES || "[]");
+  process.stdout.write(
+    records.map((issue) => [issue.number, Boolean(issue.pull_request)].join("\\t")).join("\\n"),
+  );
+  process.exit(0);
+}
+process.stderr.write("unexpected fake gh call: " + args.join(" ") + "\\n");
+process.exit(2);
+`,
+  );
+  chmodSync(fakeGh, 0o755);
+  return fakeGh;
 }
 
 describe("GitHub Actions CI", () => {
@@ -252,12 +366,7 @@ describe("Codex workflow task helper", () => {
       commitTicket(started.worktree!, 123, 45);
       const taskHead = git(started.worktree!, "rev-parse", "HEAD").stdout.trim();
 
-      const fakeGh = join(tempRoot, "fake-gh");
-      writeFileSync(
-        fakeGh,
-        "#!/bin/sh\nprintf '%s\\tdev\\t2026-08-05T12:00:00Z\\t%s\\n' \"${FAKE_PR_STATE:-OPEN}\" \"${FAKE_PR_HEAD:-missing}\"\n",
-      );
-      chmodSync(fakeGh, 0o755);
+      const fakeGh = writeCleanupFakeGh(tempRoot);
 
       const refused = run(taskHelper, ["cleanup", started.worktree!], root, {
         env: { GH_BIN: fakeGh, FAKE_PR_STATE: "OPEN", FAKE_PR_HEAD: taskHead },
@@ -288,6 +397,805 @@ describe("Codex workflow task helper", () => {
         git(root, "show-ref", "--verify", "--quiet", "refs/codex/review-base/123-checkout-state")
           .status,
       ).not.toBe(0);
+    } finally {
+      cleanupFixture(tempRoot);
+    }
+  });
+
+  it("removes an app-managed worktree after its exact PR head merges", () => {
+    const { root, tempRoot } = initialiseRepository();
+    try {
+      const started = startTask(root, tempRoot, "123-app-managed-cleanup");
+      expectSuccess(started.result);
+      commitTicket(started.worktree!, 123, 45);
+      const taskHead = git(started.worktree!, "rev-parse", "HEAD").stdout.trim();
+
+      rmSync(join(dirname(started.worktree!), ".helix-codex-task"));
+      const fakeGh = writeCleanupFakeGh(tempRoot);
+
+      const cleaned = run(taskHelper, ["cleanup", started.worktree!], root, {
+        env: { GH_BIN: fakeGh, FAKE_PR_HEAD: taskHead },
+      });
+
+      expectSuccess(cleaned);
+      expect(cleaned.stdout).toContain("Removed task worktree");
+      expect(git(root, "worktree", "list", "--porcelain").stdout).not.toContain(
+        started.worktree!,
+      );
+      expect(
+        git(root, "show-ref", "--verify", "--quiet", "refs/heads/codex/123-app-managed-cleanup")
+          .status,
+      ).not.toBe(0);
+    } finally {
+      cleanupFixture(tempRoot);
+    }
+  });
+
+  it("removes the current app-managed worktree when cleanup runs inside it", () => {
+    const { root, tempRoot } = initialiseRepository();
+    try {
+      const started = startTask(root, tempRoot, "123-current-app-cleanup");
+      expectSuccess(started.result);
+      commitTicket(started.worktree!, 123, 45);
+      const taskHead = git(started.worktree!, "rev-parse", "HEAD").stdout.trim();
+
+      rmSync(join(dirname(started.worktree!), ".helix-codex-task"));
+      const fakeGh = writeCleanupFakeGh(tempRoot);
+
+      const cleaned = run(taskHelper, ["cleanup"], started.worktree!, {
+        env: { GH_BIN: fakeGh, FAKE_PR_HEAD: taskHead },
+      });
+
+      expectSuccess(cleaned);
+      expect(cleaned.stdout).toContain("Removed task worktree");
+      expect(git(root, "worktree", "list", "--porcelain").stdout).not.toContain(
+        started.worktree!,
+      );
+    } finally {
+      cleanupFixture(tempRoot);
+    }
+  });
+
+  it("surfaces GitHub failures that prevent cleanup verification", () => {
+    const { root, tempRoot } = initialiseRepository();
+    try {
+      const started = startTask(root, tempRoot, "123-cleanup-outage");
+      expectSuccess(started.result);
+      commitTicket(started.worktree!, 123, 45);
+
+      const fakeGh = join(tempRoot, "fake-gh");
+      writeFileSync(
+        fakeGh,
+        "#!/bin/sh\nprintf 'GitHub inventory unavailable\\n' >&2\nexit 1\n",
+      );
+      chmodSync(fakeGh, 0o755);
+
+      const cleaned = run(taskHelper, ["cleanup", started.worktree!], root, {
+        env: { GH_BIN: fakeGh },
+      });
+
+      expect(cleaned.status).not.toBe(0);
+      expect(cleaned.stderr).toContain("GitHub inventory unavailable");
+      expect(cleaned.stderr).toContain("could not verify a GitHub PR");
+    } finally {
+      cleanupFixture(tempRoot);
+    }
+  });
+
+  it("loads every GitHub inventory page before classifying cleanup state", () => {
+    const { root, tempRoot } = initialiseRepository();
+    try {
+      const fakeGh = writeTaskLifecycleFakeGh(tempRoot);
+      const logPath = join(tempRoot, "task-github-calls.log");
+      writeFileSync(logPath, "");
+
+      const planned = run(taskHelper, ["reconcile"], root, {
+        env: { GH_BIN: fakeGh, FAKE_TASK_GH_LOG: logPath },
+      });
+
+      expectSuccess(planned);
+      const calls = readFileSync(logPath, "utf8").trim().split("\n");
+      expect(calls).toHaveLength(2);
+      expect(calls.every((call) => call.includes("--paginate"))).toBe(true);
+      expect(calls.every((call) => !call.includes("--slurp"))).toBe(true);
+      expect(calls.every((call) => call.includes("--jq"))).toBe(true);
+      expect(calls.some((call) => call.includes("/pulls?state=all&per_page=100"))).toBe(true);
+      expect(calls.some((call) => call.includes("/issues?state=open&per_page=100"))).toBe(true);
+    } finally {
+      cleanupFixture(tempRoot);
+    }
+  });
+
+  it("fails closed on contradictory or malformed GitHub merge metadata", () => {
+    for (const invalidPr of [
+      { state: "open" as const, merged_at: "2026-08-19T12:00:00Z" },
+      { state: "closed" as const, merged_at: "not-a-timestamp" },
+    ]) {
+      const { root, tempRoot } = initialiseRepository();
+      try {
+        const branch = "codex/123-invalid-github-metadata";
+        expectSuccess(git(root, "switch", "-c", branch, "dev"));
+        writeFileSync(join(root, "task.txt"), "invalid GitHub metadata fixture\n");
+        expectSuccess(git(root, "add", "task.txt"));
+        expectSuccess(git(root, "commit", "-m", "Invalid GitHub metadata fixture"));
+        const head = git(root, "rev-parse", "HEAD").stdout.trim();
+        expectSuccess(git(root, "switch", "main"));
+        const fakeGh = writeTaskLifecycleFakeGh(tempRoot);
+
+        const applied = run(taskHelper, ["reconcile", "--apply"], root, {
+          env: {
+            GH_BIN: fakeGh,
+            FAKE_TASK_PRS: JSON.stringify([
+              { ...mergedTaskPr(330, branch, head), ...invalidPr },
+            ]),
+          },
+        });
+
+        expect(applied.status).not.toBe(0);
+        expect(applied.stderr).toContain("incomplete pull request record");
+        expectSuccess(git(root, "show-ref", "--verify", `refs/heads/${branch}`));
+      } finally {
+        cleanupFixture(tempRoot);
+      }
+    }
+  });
+
+  it("fails closed on malformed GitHub issue and pull request identifiers", () => {
+    for (const malformedRecord of ["pull request", "issue"] as const) {
+      const { root, tempRoot } = initialiseRepository();
+      try {
+        const branch = "codex/123-invalid-github-identifier";
+        expectSuccess(git(root, "switch", "-c", branch, "dev"));
+        writeFileSync(join(root, "task.txt"), "invalid GitHub identifier fixture\n");
+        expectSuccess(git(root, "add", "task.txt"));
+        expectSuccess(git(root, "commit", "-m", "Invalid GitHub identifier fixture"));
+        const head = git(root, "rev-parse", "HEAD").stdout.trim();
+        expectSuccess(git(root, "switch", "main"));
+        const fakeGh = writeTaskLifecycleFakeGh(tempRoot);
+        const pullRequest = mergedTaskPr(334, branch, head);
+
+        const applied = run(taskHelper, ["reconcile", "--apply"], root, {
+          env: {
+            GH_BIN: fakeGh,
+            FAKE_TASK_PRS: JSON.stringify([
+              malformedRecord === "pull request"
+                ? { ...pullRequest, number: "1e3" }
+                : pullRequest,
+            ]),
+            FAKE_TASK_ISSUES: JSON.stringify(
+              malformedRecord === "issue" ? [{ number: "1e3" }] : [],
+            ),
+          },
+        });
+
+        expect(applied.status).not.toBe(0);
+        expect(applied.stderr).toContain(`incomplete ${malformedRecord} record`);
+        expectSuccess(git(root, "show-ref", "--verify", `refs/heads/${branch}`));
+      } finally {
+        cleanupFixture(tempRoot);
+      }
+    }
+  });
+
+  it("reports locked worktrees as documented unproven state", () => {
+    const { root, tempRoot } = initialiseRepository();
+    try {
+      const lockedWorktree = join(tempRoot, "locked-worktree");
+      expectSuccess(git(root, "worktree", "add", "--detach", lockedWorktree, "dev"));
+      expectSuccess(git(root, "worktree", "lock", lockedWorktree));
+      const fakeGh = writeTaskLifecycleFakeGh(tempRoot);
+
+      const planned = run(taskHelper, ["reconcile"], root, {
+        env: { GH_BIN: fakeGh },
+      });
+
+      expectSuccess(planned);
+      expect(planned.stdout).toContain(`UNPROVEN worktree`);
+      expect(planned.stdout).toContain(lockedWorktree);
+      expect(planned.stdout).toContain("locked or prunable");
+      expect(planned.stdout).not.toContain(`BLOCKED worktree`);
+    } finally {
+      cleanupFixture(tempRoot);
+    }
+  });
+
+  it("plans exact merged detached worktree removal without mutating", () => {
+    const { root, tempRoot } = initialiseRepository();
+    try {
+      const branch = "codex/123-detached-merged-task";
+      expectSuccess(git(root, "switch", "-c", branch, "dev"));
+      writeFileSync(join(root, "task.txt"), "merged task head\n");
+      expectSuccess(git(root, "add", "task.txt"));
+      expectSuccess(git(root, "commit", "-m", "Detached merged task head"));
+      const detachedHead = git(root, "rev-parse", "HEAD").stdout.trim();
+      expectSuccess(git(root, "switch", "main"));
+      const detachedWorktree = join(tempRoot, "detached-app-worktree");
+      const ancestorOnlyWorktree = join(tempRoot, "ancestor-only-worktree");
+      expectSuccess(git(root, "worktree", "add", "--detach", detachedWorktree, detachedHead));
+      expectSuccess(git(root, "worktree", "add", "--detach", ancestorOnlyWorktree, "dev"));
+      const fakeGh = writeTaskLifecycleFakeGh(tempRoot);
+      const env = {
+        GH_BIN: fakeGh,
+        FAKE_TASK_PRS: JSON.stringify([
+          mergedTaskPr(320, branch, detachedHead),
+        ]),
+      };
+
+      const planned = run(taskHelper, ["reconcile"], root, {
+        env,
+      });
+
+      expectSuccess(planned);
+      expect(planned.stdout).toContain("REMOVE worktree");
+      expect(planned.stdout).toContain(detachedHead);
+      expect(planned.stdout).toContain(detachedWorktree);
+      expect(planned.stdout).toContain("merged by PR #320 into dev");
+      expect(planned.stdout).toContain(`UNPROVEN worktree`);
+      expect(planned.stdout).toContain(ancestorOnlyWorktree);
+      expect(planned.stdout).toContain("PROTECTED worktree");
+      expect(planned.stdout).toContain("invoking or primary worktree");
+      expect(planned.stdout).toContain("Dry run only");
+      expect(git(root, "worktree", "list", "--porcelain").stdout).toContain(
+        detachedWorktree,
+      );
+      expect(git(root, "worktree", "list", "--porcelain").stdout).toContain(
+        ancestorOnlyWorktree,
+      );
+    } finally {
+      cleanupFixture(tempRoot);
+    }
+  });
+
+  it("applies only proven clean worktree removals", () => {
+    const { root, tempRoot } = initialiseRepository();
+    try {
+      const branch = "codex/123-duplicate-detached-task";
+      expectSuccess(git(root, "switch", "-c", branch, "dev"));
+      writeFileSync(join(root, "task.txt"), "duplicate detached head\n");
+      expectSuccess(git(root, "add", "task.txt"));
+      expectSuccess(git(root, "commit", "-m", "Duplicate detached task head"));
+      const taskHead = git(root, "rev-parse", "HEAD").stdout.trim();
+      expectSuccess(git(root, "switch", "main"));
+      const safeWorktree = join(tempRoot, "safe-detached-worktree");
+      const duplicateSafeWorktree = join(tempRoot, "duplicate-safe-detached-worktree");
+      const dirtyWorktree = join(tempRoot, "dirty-detached-worktree");
+      expectSuccess(git(root, "worktree", "add", "--detach", safeWorktree, taskHead));
+      expectSuccess(git(root, "worktree", "add", "--detach", duplicateSafeWorktree, taskHead));
+      expectSuccess(git(root, "worktree", "add", "--detach", dirtyWorktree, taskHead));
+      writeFileSync(join(dirtyWorktree, "untracked.txt"), "preserve me\n");
+      const fakeGh = writeTaskLifecycleFakeGh(tempRoot);
+      const env = {
+        GH_BIN: fakeGh,
+        FAKE_TASK_PRS: JSON.stringify([
+          mergedTaskPr(324, branch, taskHead),
+        ]),
+      };
+
+      const applied = run(taskHelper, ["reconcile", "--apply"], root, {
+        env,
+      });
+
+      expectSuccess(applied);
+      expect(applied.stdout).toContain(`REMOVED worktree`);
+      expect(applied.stdout).toContain(safeWorktree);
+      expect(applied.stdout).toContain(duplicateSafeWorktree);
+      expect(applied.stdout).toContain(`DIRTY worktree`);
+      expect(applied.stdout).toContain(dirtyWorktree);
+      const remaining = git(root, "worktree", "list", "--porcelain").stdout;
+      expect(remaining).not.toContain(safeWorktree);
+      expect(remaining).not.toContain(duplicateSafeWorktree);
+      expect(remaining).toContain(dirtyWorktree);
+      expect(remaining).toContain(root);
+    } finally {
+      cleanupFixture(tempRoot);
+    }
+  });
+
+  it("reconciles exact merged task refs while preserving active tickets", () => {
+    const { root, tempRoot, remote } = initialiseRemoteRepository();
+    try {
+      expectSuccess(git(root, "switch", "-c", "codex/123-merged-cleanup", "dev"));
+      writeFileSync(join(root, "merged.txt"), "merged task\n");
+      expectSuccess(git(root, "add", "merged.txt"));
+      expectSuccess(git(root, "commit", "-m", "Merged task head"));
+      const mergedHead = git(root, "rev-parse", "HEAD").stdout.trim();
+      expectSuccess(git(root, "push", "-u", "origin", "codex/123-merged-cleanup"));
+      expectSuccess(
+        git(
+          root,
+          "update-ref",
+          "refs/codex/review-base/123-merged-cleanup",
+          git(root, "rev-parse", "dev").stdout.trim(),
+        ),
+      );
+
+      expectSuccess(git(root, "switch", "-c", "codex/124-active-cleanup", "dev"));
+      writeFileSync(join(root, "active.txt"), "active task\n");
+      expectSuccess(git(root, "add", "active.txt"));
+      expectSuccess(git(root, "commit", "-m", "Active task head"));
+      const activeHead = git(root, "rev-parse", "HEAD").stdout.trim();
+      expectSuccess(git(root, "push", "-u", "origin", "codex/124-active-cleanup"));
+      expectSuccess(git(root, "switch", "main"));
+
+      const fakeGh = writeTaskLifecycleFakeGh(tempRoot);
+      const env = {
+        GH_BIN: fakeGh,
+        FAKE_TASK_PRS: JSON.stringify([
+          mergedTaskPr(321, "codex/123-merged-cleanup", mergedHead),
+        ]),
+        FAKE_TASK_ISSUES: JSON.stringify([{ number: 124 }]),
+      };
+
+      const planned = run(taskHelper, ["reconcile"], root, { env });
+      expectSuccess(planned);
+      expect(planned.stdout).toContain(`REMOVE branch ${mergedHead} codex/123-merged-cleanup`);
+      expect(planned.stdout).toContain(
+        "REMOVE review-ref",
+      );
+      expect(planned.stdout).toContain(
+        `REMOVE remote-branch ${mergedHead} origin/codex/123-merged-cleanup`,
+      );
+      expect(planned.stdout).toContain(`ACTIVE branch ${activeHead} codex/124-active-cleanup`);
+      expectSuccess(git(root, "show-ref", "--verify", "refs/heads/codex/123-merged-cleanup"));
+
+      const appliedLocally = run(taskHelper, ["reconcile", "--apply"], root, { env });
+      expectSuccess(appliedLocally);
+      expect(appliedLocally.stdout).toContain(
+        `SKIPPED remote-branch ${mergedHead} origin/codex/123-merged-cleanup`,
+      );
+      expect(
+        git(root, "show-ref", "--verify", "--quiet", "refs/heads/codex/123-merged-cleanup")
+          .status,
+      ).not.toBe(0);
+      expect(
+        git(
+          root,
+          "show-ref",
+          "--verify",
+          "--quiet",
+          "refs/codex/review-base/123-merged-cleanup",
+        ).status,
+      ).not.toBe(0);
+      expect(
+        git(root, "ls-remote", "--heads", remote, "refs/heads/codex/123-merged-cleanup").stdout,
+      ).toContain(mergedHead);
+
+      const appliedRemotely = run(
+        taskHelper,
+        ["reconcile", "--apply", "--remote"],
+        root,
+        { env },
+      );
+      expectSuccess(appliedRemotely);
+      expect(
+        git(root, "ls-remote", "--heads", remote, "refs/heads/codex/123-merged-cleanup").stdout,
+      ).toBe("");
+      expectSuccess(git(root, "show-ref", "--verify", "refs/heads/codex/124-active-cleanup"));
+      expectSuccess(
+        git(root, "show-ref", "--verify", "refs/remotes/origin/codex/124-active-cleanup"),
+      );
+    } finally {
+      cleanupFixture(tempRoot);
+    }
+  });
+
+  it("preserves every ref associated with a dirty merged task worktree", () => {
+    const { root, tempRoot, remote } = initialiseRemoteRepository();
+    try {
+      const branch = "codex/123-dirty-merged-task";
+      expectSuccess(git(root, "switch", "-c", branch, "dev"));
+      writeFileSync(join(root, "task.txt"), "merged task\n");
+      expectSuccess(git(root, "add", "task.txt"));
+      expectSuccess(git(root, "commit", "-m", "Dirty merged task head"));
+      const taskHead = git(root, "rev-parse", "HEAD").stdout.trim();
+      expectSuccess(git(root, "push", "-u", "origin", branch));
+      expectSuccess(
+        git(
+          root,
+          "update-ref",
+          "refs/codex/review-base/123-dirty-merged-task",
+          git(root, "rev-parse", "dev").stdout.trim(),
+        ),
+      );
+      expectSuccess(git(root, "switch", "main"));
+      const dirtyWorktree = join(tempRoot, "dirty-merged-task-worktree");
+      expectSuccess(git(root, "worktree", "add", dirtyWorktree, branch));
+      writeFileSync(join(dirtyWorktree, "untracked.txt"), "preserve me\n");
+      const fakeGh = writeTaskLifecycleFakeGh(tempRoot);
+      const env = {
+        GH_BIN: fakeGh,
+        FAKE_TASK_PRS: JSON.stringify([
+          mergedTaskPr(323, branch, taskHead),
+        ]),
+      };
+
+      const applied = run(taskHelper, ["reconcile", "--apply", "--remote"], root, { env });
+
+      expectSuccess(applied);
+      expect(applied.stdout).toContain(`DIRTY worktree ${taskHead}`);
+      expect(applied.stdout).toContain(`DIRTY branch ${taskHead} ${branch}`);
+      expect(applied.stdout).toContain(`DIRTY remote-branch ${taskHead} origin/${branch}`);
+      expect(git(root, "worktree", "list", "--porcelain").stdout).toContain(dirtyWorktree);
+      expectSuccess(git(root, "show-ref", "--verify", `refs/heads/${branch}`));
+      expectSuccess(
+        git(root, "show-ref", "--verify", "refs/codex/review-base/123-dirty-merged-task"),
+      );
+      expect(git(root, "ls-remote", "--heads", remote, `refs/heads/${branch}`).stdout).toContain(
+        taskHead,
+      );
+    } finally {
+      cleanupFixture(tempRoot);
+    }
+  });
+
+  it("retires an assessed worktree and branch only at the expected SHA", () => {
+    const { root, tempRoot, remote } = initialiseRemoteRepository();
+    try {
+      expectSuccess(git(root, "switch", "-c", "research/retired-prototype", "dev"));
+      writeFileSync(join(root, "research.md"), "assessed and retired\n");
+      expectSuccess(git(root, "add", "research.md"));
+      expectSuccess(git(root, "commit", "-m", "Retired research artifact"));
+      const expectedHead = git(root, "rev-parse", "HEAD").stdout.trim();
+      expectSuccess(git(root, "push", "-u", "origin", "research/retired-prototype"));
+      expectSuccess(git(root, "switch", "main"));
+      const retiredWorktree = join(tempRoot, "retired-research-worktree");
+      expectSuccess(git(root, "worktree", "add", retiredWorktree, "research/retired-prototype"));
+      const fakeGh = writeTaskLifecycleFakeGh(tempRoot);
+
+      const retired = run(
+        taskHelper,
+        ["retire", retiredWorktree, "--expect-head", expectedHead, "--remote"],
+        root,
+        { env: { GH_BIN: fakeGh } },
+      );
+
+      expectSuccess(retired);
+      expect(retired.stdout).toContain(`RETIRED worktree ${expectedHead} ${retiredWorktree}`);
+      expect(retired.stdout).toContain(
+        `RETIRED branch ${expectedHead} research/retired-prototype`,
+      );
+      expect(retired.stdout).toContain(
+        `RETIRED remote-branch ${expectedHead} origin/research/retired-prototype`,
+      );
+      expect(git(root, "worktree", "list", "--porcelain").stdout).not.toContain(retiredWorktree);
+      expect(
+        git(root, "show-ref", "--verify", "--quiet", "refs/heads/research/retired-prototype")
+          .status,
+      ).not.toBe(0);
+      expect(
+        git(root, "ls-remote", "--heads", remote, "refs/heads/research/retired-prototype").stdout,
+      ).toBe("");
+      expectSuccess(git(root, "show-ref", "--verify", "refs/heads/main"));
+      expectSuccess(git(root, "show-ref", "--verify", "refs/heads/dev"));
+    } finally {
+      cleanupFixture(tempRoot);
+    }
+  });
+
+  it("reports an already-absent remote branch as a retirement no-op", () => {
+    const { root, tempRoot } = initialiseRemoteRepository();
+    try {
+      const branch = "prototype/already-removed-remote";
+      expectSuccess(git(root, "switch", "-c", branch, "dev"));
+      writeFileSync(join(root, "prototype.txt"), "retired prototype\n");
+      expectSuccess(git(root, "add", "prototype.txt"));
+      expectSuccess(git(root, "commit", "-m", "Retired prototype"));
+      const expectedHead = git(root, "rev-parse", "HEAD").stdout.trim();
+      expectSuccess(git(root, "push", "-u", "origin", branch));
+      expectSuccess(git(root, "switch", "main"));
+      expectSuccess(git(root, "push", "origin", "--delete", branch));
+      const fakeGh = writeTaskLifecycleFakeGh(tempRoot);
+
+      const retired = run(
+        taskHelper,
+        ["retire", branch, "--expect-head", expectedHead, "--remote"],
+        root,
+        { env: { GH_BIN: fakeGh } },
+      );
+
+      expectSuccess(retired);
+      expect(retired.stdout).toContain(
+        `ABSENT remote-branch ${expectedHead} origin/${branch} — no-op`,
+      );
+      expect(
+        git(root, "show-ref", "--verify", "--quiet", `refs/heads/${branch}`).status,
+      ).not.toBe(0);
+    } finally {
+      cleanupFixture(tempRoot);
+    }
+  });
+
+  it("refuses retirement when the expected head is absent everywhere", () => {
+    const { root, tempRoot } = initialiseRemoteRepository();
+    try {
+      const fakeGh = writeTaskLifecycleFakeGh(tempRoot);
+      const retired = run(
+        taskHelper,
+        [
+          "retire",
+          "research/missing-retirement-target",
+          "--expect-head",
+          "0".repeat(40),
+          "--remote",
+        ],
+        root,
+        { env: { GH_BIN: fakeGh } },
+      );
+
+      expect(retired.status).not.toBe(0);
+      expect(retired.stderr).toContain("no state found for 'research/missing-retirement-target'");
+    } finally {
+      cleanupFixture(tempRoot);
+    }
+  });
+
+  it("refuses retirement when multiple worktrees own the same branch", () => {
+    const { root, tempRoot } = initialiseRepository();
+    try {
+      const branch = "research/ambiguous-worktree-owner";
+      expectSuccess(git(root, "switch", "-c", branch, "dev"));
+      writeFileSync(join(root, "research.md"), "ambiguous ownership\n");
+      expectSuccess(git(root, "add", "research.md"));
+      expectSuccess(git(root, "commit", "-m", "Ambiguous ownership fixture"));
+      const expectedHead = git(root, "rev-parse", "HEAD").stdout.trim();
+      expectSuccess(git(root, "switch", "main"));
+      const firstWorktree = join(tempRoot, "first-owner");
+      const secondWorktree = join(tempRoot, "second-owner");
+      expectSuccess(git(root, "worktree", "add", firstWorktree, branch));
+      expectSuccess(git(root, "worktree", "add", "--force", secondWorktree, branch));
+      const fakeGh = writeTaskLifecycleFakeGh(tempRoot);
+
+      const retired = run(
+        taskHelper,
+        ["retire", firstWorktree, "--expect-head", expectedHead],
+        root,
+        { env: { GH_BIN: fakeGh } },
+      );
+
+      expect(retired.status).not.toBe(0);
+      expect(retired.stderr).toContain(`branch '${branch}' is checked out in 2 worktrees`);
+      const remaining = git(root, "worktree", "list", "--porcelain").stdout;
+      expect(remaining).toContain(firstWorktree);
+      expect(remaining).toContain(secondWorktree);
+      expectSuccess(git(root, "show-ref", "--verify", `refs/heads/${branch}`));
+    } finally {
+      cleanupFixture(tempRoot);
+    }
+  });
+
+  it("refuses detached retirement when its GitHub task issue is still open", () => {
+    const { root, tempRoot } = initialiseRepository();
+    try {
+      const branch = "codex/123-open-detached-retirement";
+      expectSuccess(git(root, "switch", "-c", branch, "dev"));
+      writeFileSync(join(root, "task.txt"), "completed head with an open issue\n");
+      expectSuccess(git(root, "add", "task.txt"));
+      expectSuccess(git(root, "commit", "-m", "Open detached retirement fixture"));
+      const expectedHead = git(root, "rev-parse", "HEAD").stdout.trim();
+      expectSuccess(git(root, "switch", "main"));
+      const detachedWorktree = join(tempRoot, "open-issue-detached-worktree");
+      expectSuccess(git(root, "worktree", "add", "--detach", detachedWorktree, expectedHead));
+      const fakeGh = writeTaskLifecycleFakeGh(tempRoot);
+
+      const retired = run(
+        taskHelper,
+        ["retire", detachedWorktree, "--expect-head", expectedHead],
+        root,
+        {
+          env: {
+            GH_BIN: fakeGh,
+            FAKE_TASK_PRS: JSON.stringify([mergedTaskPr(331, branch, expectedHead)]),
+            FAKE_TASK_ISSUES: JSON.stringify([{ number: 123 }]),
+          },
+        },
+      );
+
+      expect(retired.status).not.toBe(0);
+      expect(retired.stderr).toContain("state belongs to open issue #123");
+      expect(git(root, "worktree", "list", "--porcelain").stdout).toContain(detachedWorktree);
+    } finally {
+      cleanupFixture(tempRoot);
+    }
+  });
+
+  it("refuses detached retirement with ambiguous GitHub branch ownership", () => {
+    const { root, tempRoot } = initialiseRepository();
+    try {
+      expectSuccess(git(root, "switch", "-c", "codex/123-first-owner", "dev"));
+      writeFileSync(join(root, "task.txt"), "shared detached head\n");
+      expectSuccess(git(root, "add", "task.txt"));
+      expectSuccess(git(root, "commit", "-m", "Ambiguous GitHub ownership fixture"));
+      const expectedHead = git(root, "rev-parse", "HEAD").stdout.trim();
+      expectSuccess(git(root, "switch", "main"));
+      const detachedWorktree = join(tempRoot, "ambiguous-github-worktree");
+      expectSuccess(git(root, "worktree", "add", "--detach", detachedWorktree, expectedHead));
+      const fakeGh = writeTaskLifecycleFakeGh(tempRoot);
+
+      const retired = run(
+        taskHelper,
+        ["retire", detachedWorktree, "--expect-head", expectedHead],
+        root,
+        {
+          env: {
+            GH_BIN: fakeGh,
+            FAKE_TASK_PRS: JSON.stringify([
+              mergedTaskPr(332, "codex/123-first-owner", expectedHead),
+              mergedTaskPr(333, "codex/124-second-owner", expectedHead),
+            ]),
+          },
+        },
+      );
+
+      expect(retired.status).not.toBe(0);
+      expect(retired.stderr).toContain("multiple GitHub branches");
+      expect(git(root, "worktree", "list", "--porcelain").stdout).toContain(detachedWorktree);
+    } finally {
+      cleanupFixture(tempRoot);
+    }
+  });
+
+  it("preserves local state when a remote branch races its deletion lease", () => {
+    const { root, tempRoot, remote } = initialiseRemoteRepository();
+    try {
+      const branch = "research/remote-retirement-race";
+      expectSuccess(git(root, "switch", "-c", branch, "dev"));
+      writeFileSync(join(root, "research.md"), "retirement race\n");
+      expectSuccess(git(root, "add", "research.md"));
+      expectSuccess(git(root, "commit", "-m", "Remote retirement race fixture"));
+      const expectedHead = git(root, "rev-parse", "HEAD").stdout.trim();
+      expectSuccess(git(root, "push", "-u", "origin", branch));
+      const tree = git(root, "rev-parse", `${expectedHead}^{tree}`).stdout.trim();
+      const raceHead = git(
+        root,
+        "commit-tree",
+        tree,
+        "-p",
+        expectedHead,
+        "-m",
+        "Concurrent remote update",
+      ).stdout.trim();
+      expectSuccess(git(root, "push", "origin", `${raceHead}:refs/heads/race-fixture`));
+      expectSuccess(git(root, "switch", "main"));
+      const worktree = join(tempRoot, "remote-race-worktree");
+      expectSuccess(git(root, "worktree", "add", worktree, branch));
+      const fakeGh = writeTaskLifecycleFakeGh(tempRoot);
+      const markerPath = writeRemoteRaceHook(root, tempRoot);
+
+      const retired = run(
+        taskHelper,
+        ["retire", worktree, "--expect-head", expectedHead, "--remote"],
+        root,
+        {
+          env: {
+            GH_BIN: fakeGh,
+            RACE_MARKER: markerPath,
+            RACE_REMOTE: remote,
+            RACE_REF: `refs/heads/${branch}`,
+            RACE_HEAD: raceHead,
+          },
+        },
+      );
+
+      expect(retired.status).not.toBe(0);
+      expect(readFileSync(markerPath, "utf8")).toBe("triggered\n");
+      expect(git(root, "worktree", "list", "--porcelain").stdout).toContain(worktree);
+      expect(git(root, "rev-parse", `refs/heads/${branch}`).stdout.trim()).toBe(expectedHead);
+      expect(git(root, "ls-remote", remote, `refs/heads/${branch}`).stdout).toContain(raceHead);
+    } finally {
+      cleanupFixture(tempRoot);
+    }
+  });
+
+  it("refuses retirement when local, GitHub, or remote evidence changes", () => {
+    const { root, tempRoot, remote } = initialiseRemoteRepository();
+    try {
+      const branch = "research/retirement-safety";
+      expectSuccess(git(root, "switch", "-c", branch, "dev"));
+      writeFileSync(join(root, "research.md"), "preserve until every check passes\n");
+      expectSuccess(git(root, "add", "research.md"));
+      expectSuccess(git(root, "commit", "-m", "Retirement safety fixture"));
+      const expectedHead = git(root, "rev-parse", "HEAD").stdout.trim();
+      expectSuccess(git(root, "push", "-u", "origin", branch));
+      expectSuccess(git(root, "switch", "main"));
+      const worktree = join(tempRoot, "retirement-safety-worktree");
+      expectSuccess(git(root, "worktree", "add", worktree, branch));
+      const fakeGh = writeTaskLifecycleFakeGh(tempRoot);
+      const baseEnv = { GH_BIN: fakeGh };
+
+      writeFileSync(join(worktree, "dirty.txt"), "do not delete\n");
+      const dirty = run(
+        taskHelper,
+        ["retire", worktree, "--expect-head", expectedHead, "--remote"],
+        root,
+        { env: baseEnv },
+      );
+      expect(dirty.status).not.toBe(0);
+      expect(dirty.stderr).toContain("worktree has local changes");
+      rmSync(join(worktree, "dirty.txt"));
+
+      const wrongHead = run(
+        taskHelper,
+        ["retire", worktree, "--expect-head", "0".repeat(40), "--remote"],
+        root,
+        { env: baseEnv },
+      );
+      expect(wrongHead.status).not.toBe(0);
+      expect(wrongHead.stderr).toContain(`found ${expectedHead}; nothing was retired`);
+
+      const openPr = run(
+        taskHelper,
+        ["retire", worktree, "--expect-head", expectedHead, "--remote"],
+        root,
+        {
+          env: {
+            ...baseEnv,
+            FAKE_TASK_PRS: JSON.stringify([openTaskPr(322, branch, expectedHead)]),
+          },
+        },
+      );
+      expect(openPr.status).not.toBe(0);
+      expect(openPr.stderr).toContain("state belongs to open PR #322");
+
+      const tree = git(root, "rev-parse", `${expectedHead}^{tree}`).stdout.trim();
+      const remoteAdvance = git(
+        root,
+        "commit-tree",
+        tree,
+        "-p",
+        expectedHead,
+        "-m",
+        "Remote branch advanced",
+      ).stdout.trim();
+      expectSuccess(git(root, "push", "origin", `${remoteAdvance}:refs/heads/${branch}`));
+      expectSuccess(git(root, "update-ref", `refs/remotes/origin/${branch}`, expectedHead));
+
+      const changedRemote = run(
+        taskHelper,
+        ["retire", worktree, "--expect-head", expectedHead, "--remote"],
+        root,
+        { env: baseEnv },
+      );
+      expect(changedRemote.status).not.toBe(0);
+      expect(changedRemote.stderr).toContain(`origin/${branch} is ${remoteAdvance}`);
+
+      const protectedMain = run(
+        taskHelper,
+        ["retire", "main", "--expect-head", git(root, "rev-parse", "main").stdout.trim()],
+        root,
+        { env: baseEnv },
+      );
+      expect(protectedMain.status).not.toBe(0);
+      expect(protectedMain.stderr).toContain("refusing to retire permanent branch 'main'");
+
+      expect(git(root, "worktree", "list", "--porcelain").stdout).toContain(worktree);
+      expectSuccess(git(root, "show-ref", "--verify", `refs/heads/${branch}`));
+      expect(git(root, "ls-remote", "--heads", remote, `refs/heads/${branch}`).stdout).toContain(
+        remoteAdvance,
+      );
+    } finally {
+      cleanupFixture(tempRoot);
+    }
+  });
+
+  it("does not reconcile anything when GitHub inventory is unavailable", () => {
+    const { root, tempRoot } = initialiseRepository();
+    try {
+      const detachedWorktree = join(tempRoot, "uncertain-detached-worktree");
+      expectSuccess(git(root, "worktree", "add", "--detach", detachedWorktree, "dev"));
+      const fakeGh = writeTaskLifecycleFakeGh(tempRoot);
+
+      const applied = run(taskHelper, ["reconcile", "--apply"], root, {
+        env: {
+          GH_BIN: fakeGh,
+          FAKE_TASK_GH_FAILURE: "GitHub unavailable during reconciliation",
+        },
+      });
+
+      expect(applied.status).not.toBe(0);
+      expect(applied.stderr).toContain("GitHub unavailable during reconciliation");
+      expect(git(root, "worktree", "list", "--porcelain").stdout).toContain(
+        detachedWorktree,
+      );
     } finally {
       cleanupFixture(tempRoot);
     }
