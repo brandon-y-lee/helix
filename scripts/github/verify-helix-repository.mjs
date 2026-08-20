@@ -135,14 +135,34 @@ function verify({ repo, candidateRef }) {
     const sha = branches.get(branch);
     if (!sha) throw new Error(`remote branch '${branch}' does not exist`);
     requireLocalCommit(sha, `remote ${branch}`);
-    requireAncestor(
-      sha,
-      candidateSha,
-      `candidate ${candidateSha} does not contain remote ${branch} ${sha}`,
-    );
   }
 
+  const remoteMainSha = branches.get("main");
   const remoteDevSha = branches.get("dev");
+  requireAncestor(
+    remoteDevSha,
+    candidateSha,
+    `candidate ${candidateSha} does not contain remote dev ${remoteDevSha}`,
+  );
+
+  const mainHistory = runGit([
+    "rev-list",
+    "--parents",
+    "--max-count=1",
+    remoteMainSha,
+  ]).stdout.trim().split(/\s+/);
+  const promotionParents = mainHistory.slice(2);
+  if (
+    promotionParents.length === 0 ||
+    !promotionParents.some((parent) =>
+      runGit(["merge-base", "--is-ancestor", parent, remoteDevSha], {
+        allowFailure: true,
+      }).status === 0
+    )
+  ) {
+    throw new Error("remote main is not a regular promotion of history contained by dev");
+  }
+
   const candidateCiBlob = runGit(
     ["rev-parse", `${candidateSha}:.github/workflows/ci.yml`],
     { allowFailure: true },

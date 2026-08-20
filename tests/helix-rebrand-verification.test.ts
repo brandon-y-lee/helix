@@ -1,5 +1,15 @@
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { createRequire } from "node:module";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
+import { spawnSync } from "node:child_process";
 import { describe, expect, it, vi } from "vitest";
 import {
   HELIX_REBRAND_CHECKS,
@@ -146,6 +156,77 @@ describe("Helix Rebrand Verification", () => {
       { line: 3, path: changedPath, variant: "former-brand" },
       { line: 5, path: changedPath, variant: "former-brand" },
     ]);
+  });
+
+  it("verifies pinned research from origin/dev and fails closed when a blob changes", () => {
+    const projectRoot = process.cwd();
+    const tempRoot = mkdtempSync(join(tmpdir(), "helix-rebrand-history-"));
+    const root = join(tempRoot, "repo");
+    const remote = join(tempRoot, "remote.git");
+    const researchPaths = [
+      "docs/research/core-protect-formulation-portfolios.md",
+      "docs/research/leaders-active-pad-options.md",
+      "docs/research/leaders-catalog-evidence.md",
+      "docs/research/product-name-launch-risks.md",
+    ];
+    const runGit = (...args: string[]) =>
+      spawnSync("git", args, { cwd: root, encoding: "utf8" });
+    const expectGitSuccess = (...args: string[]) => {
+      const result = runGit(...args);
+      expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
+    };
+    const tsxLoader = createRequire(import.meta.url).resolve("tsx");
+    const runAudit = () =>
+      spawnSync(
+        process.execPath,
+        [
+          "--import",
+          tsxLoader,
+          resolve(projectRoot, "scripts/verify-helix-rebrand.ts"),
+          "--audit-only",
+        ],
+        { cwd: root, encoding: "utf8" },
+      );
+
+    try {
+      mkdirSync(root);
+      expectGitSuccess("init", "-b", "main");
+      expectGitSuccess("config", "user.name", "Rebrand History Test");
+      expectGitSuccess("config", "user.email", "history@example.test");
+      for (const researchPath of researchPaths) {
+        const target = join(root, researchPath);
+        mkdirSync(dirname(target), { recursive: true });
+        writeFileSync(target, readFileSync(resolve(projectRoot, researchPath)));
+      }
+      expectGitSuccess("add", "docs/research");
+      expectGitSuccess("commit", "-m", "Preserve immutable research");
+      expectGitSuccess("branch", "dev");
+      expectGitSuccess("init", "--bare", remote);
+      expectGitSuccess("remote", "add", "origin", remote);
+      expectGitSuccess("push", "origin", "main", "dev");
+
+      const matching = runAudit();
+      expect(matching.status, `${matching.stdout}\n${matching.stderr}`).toBe(0);
+      expect(matching.stdout).toContain('"ok": true');
+
+      expectGitSuccess("switch", "dev");
+      const changedPath = join(root, researchPaths[0]);
+      writeFileSync(
+        changedPath,
+        `${readFileSync(changedPath, "utf8")}\nRetired research changed.\n`,
+      );
+      expectGitSuccess("add", researchPaths[0]);
+      expectGitSuccess("commit", "-m", "Change retired research");
+      expectGitSuccess("push", "origin", "dev");
+
+      const mismatched = runAudit();
+      expect(mismatched.status).not.toBe(0);
+      expect(mismatched.stdout).toContain(
+        `Immutable research history changed at ${researchPaths[0]}`,
+      );
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
   });
 
   it("reports each verification category distinctly and continues after failure", async () => {

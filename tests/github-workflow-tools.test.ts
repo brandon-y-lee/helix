@@ -1370,13 +1370,23 @@ describe("Helix repository verification", () => {
   it("passes when the helix repository identity and candidate are current despite wider policy drift", () => {
     const { root, tempRoot, remote } = initialiseRemoteRepository();
     try {
+      expectSuccess(git(root, "switch", "dev"));
       mkdirSync(join(root, ".github", "workflows"), { recursive: true });
       writeFileSync(join(root, ".github", "workflows", "ci.yml"), "name: CI\n");
       expectSuccess(git(root, "add", ".github/workflows/ci.yml"));
       expectSuccess(git(root, "commit", "-m", "Add CI workflow"));
-      expectSuccess(git(root, "branch", "-f", "dev", "HEAD"));
-      expectSuccess(git(root, "push", "origin", "main"));
       expectSuccess(git(root, "push", "origin", "dev"));
+
+      expectSuccess(git(root, "switch", "main"));
+      expectSuccess(git(root, "merge", "--no-ff", "dev", "-m", "Promote dev"));
+      expectSuccess(git(root, "push", "origin", "main"));
+
+      expectSuccess(git(root, "switch", "dev"));
+      writeFileSync(join(root, "current-dev.txt"), "current dev\n");
+      expectSuccess(git(root, "add", "current-dev.txt"));
+      expectSuccess(git(root, "commit", "-m", "Advance dev"));
+      expectSuccess(git(root, "push", "origin", "dev"));
+      expectSuccess(git(root, "switch", "-c", "candidate"));
       const devSha = git(root, "rev-parse", "dev").stdout.trim();
       expectSuccess(
         git(
@@ -1440,13 +1450,17 @@ describe("Helix repository verification", () => {
   it("fails when the candidate replaces the canonical CI workflow", () => {
     const { root, tempRoot, remote } = initialiseRemoteRepository();
     try {
+      expectSuccess(git(root, "switch", "dev"));
       mkdirSync(join(root, ".github", "workflows"), { recursive: true });
       writeFileSync(join(root, ".github", "workflows", "ci.yml"), "name: CI\n");
       expectSuccess(git(root, "add", ".github/workflows/ci.yml"));
       expectSuccess(git(root, "commit", "-m", "Add CI workflow"));
-      expectSuccess(git(root, "branch", "-f", "dev", "HEAD"));
-      expectSuccess(git(root, "push", "origin", "main"));
       expectSuccess(git(root, "push", "origin", "dev"));
+      expectSuccess(git(root, "switch", "main"));
+      expectSuccess(git(root, "merge", "--no-ff", "dev", "-m", "Promote dev"));
+      expectSuccess(git(root, "push", "origin", "main"));
+      expectSuccess(git(root, "switch", "dev"));
+      expectSuccess(git(root, "switch", "-c", "candidate"));
       expectSuccess(
         git(
           root,
