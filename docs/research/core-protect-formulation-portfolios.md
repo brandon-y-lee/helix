@@ -1,6 +1,6 @@
 # Mei Pelle Core and PROTECT formulation portfolios
 
-**Research ticket:** [#128 — Compare cohesive Core and PROTECT formulation portfolios](https://github.com/brandon-y-lee/mei-pelle/issues/128)
+**Research ticket:** [#128 — Compare cohesive Core and PROTECT formulation portfolios](https://github.com/brandon-y-lee/helix/issues/128)
 
 **Decision date:** 9 August 2026
 
