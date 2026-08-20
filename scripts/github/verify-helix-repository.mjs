@@ -151,16 +151,15 @@ function verify({ repo, candidateRef }) {
     "--max-count=1",
     remoteMainSha,
   ]).stdout.trim().split(/\s+/);
-  const promotionParents = mainHistory.slice(2);
   if (
-    promotionParents.length === 0 ||
-    !promotionParents.some((parent) =>
-      runGit(["merge-base", "--is-ancestor", parent, remoteDevSha], {
-        allowFailure: true,
-      }).status === 0
-    )
+    mainHistory.length !== 3 ||
+    runGit(["merge-base", "--is-ancestor", mainHistory[2], remoteDevSha], {
+      allowFailure: true,
+    }).status !== 0
   ) {
-    throw new Error("remote main is not a regular promotion of history contained by dev");
+    throw new Error(
+      "remote main is not a regular two-parent promotion of history contained by dev",
+    );
   }
 
   const candidateCiBlob = runGit(

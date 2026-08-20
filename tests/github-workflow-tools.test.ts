@@ -1447,6 +1447,81 @@ describe("Helix repository verification", () => {
     }
   });
 
+  it.each(["one-parent", "octopus"] as const)(
+    "fails when remote main has a %s history",
+    (topology) => {
+      const { root, tempRoot, remote } = initialiseRemoteRepository();
+      try {
+        expectSuccess(git(root, "switch", "dev"));
+        mkdirSync(join(root, ".github", "workflows"), { recursive: true });
+        writeFileSync(join(root, ".github", "workflows", "ci.yml"), "name: CI\n");
+        expectSuccess(git(root, "add", ".github/workflows/ci.yml"));
+        expectSuccess(git(root, "commit", "-m", "Add CI workflow"));
+        expectSuccess(git(root, "push", "origin", "dev"));
+
+        if (topology === "octopus") {
+          expectSuccess(git(root, "switch", "-c", "unrelated", "main"));
+          writeFileSync(join(root, "unrelated.txt"), "unrelated\n");
+          expectSuccess(git(root, "add", "unrelated.txt"));
+          expectSuccess(git(root, "commit", "-m", "Unrelated main parent"));
+          expectSuccess(git(root, "switch", "main"));
+          expectSuccess(
+            git(root, "merge", "--no-ff", "unrelated", "dev", "-m", "Octopus main"),
+          );
+          expectSuccess(git(root, "push", "origin", "main"));
+        }
+
+        expectSuccess(git(root, "switch", "dev"));
+        expectSuccess(git(root, "switch", "-c", "candidate"));
+        expectSuccess(
+          git(
+            root,
+            "config",
+            `url.${remote}.insteadOf`,
+            "https://github.com/brandon-y-lee/helix.git",
+          ),
+        );
+        expectSuccess(
+          git(
+            root,
+            "remote",
+            "set-url",
+            "origin",
+            "https://github.com/brandon-y-lee/helix.git",
+          ),
+        );
+        const statePath = join(tempRoot, "github-state.json");
+        const logPath = join(tempRoot, "github-calls.log");
+        writeFileSync(
+          statePath,
+          JSON.stringify({
+            repo: {
+              nameWithOwner: "brandon-y-lee/helix",
+              defaultBranchRef: { name: "main" },
+            },
+            labels: [],
+            protections: {},
+          }),
+        );
+        const fakeGh = writeFakeGh(tempRoot, logPath);
+
+        const verified = verifyHelixRepository(
+          root,
+          fakeGh,
+          statePath,
+          logPath,
+        );
+
+        expect(verified.status).not.toBe(0);
+        expect(verified.stderr).toContain(
+          "remote main is not a regular two-parent promotion",
+        );
+      } finally {
+        cleanupFixture(tempRoot);
+      }
+    },
+  );
+
   it("fails when the candidate replaces the canonical CI workflow", () => {
     const { root, tempRoot, remote } = initialiseRemoteRepository();
     try {
