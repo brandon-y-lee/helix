@@ -60,10 +60,18 @@ function parseGithubPrRow(row) {
   const [number, state, mergedAt, baseRefName, headRefName, headRefOid, ...extra] =
     row.split("\t");
   const parsedNumber = Number(number);
+  const mergedAtMillis = Date.parse(mergedAt);
+  const validMergedAt =
+    !mergedAt ||
+    (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(mergedAt) &&
+      !Number.isNaN(mergedAtMillis) &&
+      new Date(mergedAtMillis).toISOString() === mergedAt.replace("Z", ".000Z"));
   if (
     extra.length > 0 ||
     !Number.isInteger(parsedNumber) ||
     (state !== "open" && state !== "closed") ||
+    (mergedAt && state !== "closed") ||
+    !validMergedAt ||
     !baseRefName ||
     !headRefName ||
     !/^[0-9a-f]{40}$/.test(headRefOid)
@@ -141,6 +149,21 @@ function ticketNumber(branch) {
   return match ? Number(match[1]) : null;
 }
 
+function resolveGithubBranchEvidence(inventory, branch, head) {
+  if (branch) return { branch, ambiguous: false };
+  const candidates = [
+    ...new Set(
+      inventory.prs
+        .filter((pr) => head && pr.headRefOid === head)
+        .map((pr) => pr.headRefName),
+    ),
+  ];
+  return {
+    branch: candidates.length === 1 ? candidates[0] : null,
+    ambiguous: candidates.length > 1,
+  };
+}
+
 function openPrFor(inventory, branch, head) {
   return inventory.prs.find(
     (pr) =>
@@ -178,15 +201,22 @@ function classifyGithubEvidence(
     unprovenEvidence,
   },
 ) {
-  const openPr = openPrFor(inventory, branch, head);
+  const branchEvidence = resolveGithubBranchEvidence(inventory, branch, head);
+  if (branchEvidence.ambiguous) {
+    return {
+      status: "UNPROVEN",
+      evidence: "multiple GitHub branches share the exact head",
+    };
+  }
+  const evidenceBranch = branchEvidence.branch;
+  const openPr = openPrFor(inventory, evidenceBranch, head);
   const mergedPr = mergedPrFor(
     inventory,
-    branch,
+    evidenceBranch,
     head,
     requireExactHead,
     acceptMerged,
   );
-  const evidenceBranch = branch || openPr?.headRefName || mergedPr?.headRefName;
   const issue = evidenceBranch ? ticketNumber(evidenceBranch) : null;
   if (issue && inventory.openIssues.has(issue)) {
     return { status: "ACTIVE", evidence: `open issue #${issue}` };
@@ -245,7 +275,7 @@ function isClean(path) {
 
 function classifyWorktree(inventory, worktree) {
   if (worktree.locked || worktree.prunable) {
-    return { status: "BLOCKED", evidence: "locked or prunable" };
+    return { status: "UNPROVEN", evidence: "locked or prunable" };
   }
   if (!isClean(worktree.path)) {
     return { status: "DIRTY", evidence: "preserve local changes" };
@@ -545,9 +575,16 @@ function retire(args) {
     );
   }
 
-  const issue = branch ? ticketNumber(branch) : null;
-  if (issue && inventory.openIssues.has(issue)) fail(`branch belongs to open issue #${issue}`);
-  const openPr = openPrFor(inventory, branch, expectedHead);
+  const githubBranch = resolveGithubBranchEvidence(inventory, branch, expectedHead);
+  if (githubBranch.ambiguous) {
+    fail(`state at ${expectedHead} belongs to multiple GitHub branches`);
+  }
+  const evidenceBranch = githubBranch.branch;
+  const issue = evidenceBranch ? ticketNumber(evidenceBranch) : null;
+  if (issue && inventory.openIssues.has(issue)) {
+    fail(`${branch ? "branch" : "state"} belongs to open issue #${issue}`);
+  }
+  const openPr = openPrFor(inventory, evidenceBranch, expectedHead);
   if (openPr) fail(`state belongs to open PR #${openPr.number}`);
 
   if (remote) {

@@ -506,6 +506,62 @@ describe("Codex workflow task helper", () => {
     }
   });
 
+  it("fails closed on contradictory or malformed GitHub merge metadata", () => {
+    for (const invalidPr of [
+      { state: "open" as const, merged_at: "2026-08-19T12:00:00Z" },
+      { state: "closed" as const, merged_at: "not-a-timestamp" },
+    ]) {
+      const { root, tempRoot } = initialiseRepository();
+      try {
+        const branch = "codex/123-invalid-github-metadata";
+        expectSuccess(git(root, "switch", "-c", branch, "dev"));
+        writeFileSync(join(root, "task.txt"), "invalid GitHub metadata fixture\n");
+        expectSuccess(git(root, "add", "task.txt"));
+        expectSuccess(git(root, "commit", "-m", "Invalid GitHub metadata fixture"));
+        const head = git(root, "rev-parse", "HEAD").stdout.trim();
+        expectSuccess(git(root, "switch", "main"));
+        const fakeGh = writeTaskLifecycleFakeGh(tempRoot);
+
+        const applied = run(taskHelper, ["reconcile", "--apply"], root, {
+          env: {
+            GH_BIN: fakeGh,
+            FAKE_TASK_PRS: JSON.stringify([
+              { ...mergedTaskPr(330, branch, head), ...invalidPr },
+            ]),
+          },
+        });
+
+        expect(applied.status).not.toBe(0);
+        expect(applied.stderr).toContain("incomplete pull request record");
+        expectSuccess(git(root, "show-ref", "--verify", `refs/heads/${branch}`));
+      } finally {
+        cleanupFixture(tempRoot);
+      }
+    }
+  });
+
+  it("reports locked worktrees as documented unproven state", () => {
+    const { root, tempRoot } = initialiseRepository();
+    try {
+      const lockedWorktree = join(tempRoot, "locked-worktree");
+      expectSuccess(git(root, "worktree", "add", "--detach", lockedWorktree, "dev"));
+      expectSuccess(git(root, "worktree", "lock", lockedWorktree));
+      const fakeGh = writeTaskLifecycleFakeGh(tempRoot);
+
+      const planned = run(taskHelper, ["reconcile"], root, {
+        env: { GH_BIN: fakeGh },
+      });
+
+      expectSuccess(planned);
+      expect(planned.stdout).toContain(`UNPROVEN worktree`);
+      expect(planned.stdout).toContain(lockedWorktree);
+      expect(planned.stdout).toContain("locked or prunable");
+      expect(planned.stdout).not.toContain(`BLOCKED worktree`);
+    } finally {
+      cleanupFixture(tempRoot);
+    }
+  });
+
   it("plans exact merged detached worktree removal without mutating", () => {
     const { root, tempRoot } = initialiseRepository();
     try {
@@ -865,6 +921,77 @@ describe("Codex workflow task helper", () => {
       expect(remaining).toContain(firstWorktree);
       expect(remaining).toContain(secondWorktree);
       expectSuccess(git(root, "show-ref", "--verify", `refs/heads/${branch}`));
+    } finally {
+      cleanupFixture(tempRoot);
+    }
+  });
+
+  it("refuses detached retirement when its GitHub task issue is still open", () => {
+    const { root, tempRoot } = initialiseRepository();
+    try {
+      const branch = "codex/123-open-detached-retirement";
+      expectSuccess(git(root, "switch", "-c", branch, "dev"));
+      writeFileSync(join(root, "task.txt"), "completed head with an open issue\n");
+      expectSuccess(git(root, "add", "task.txt"));
+      expectSuccess(git(root, "commit", "-m", "Open detached retirement fixture"));
+      const expectedHead = git(root, "rev-parse", "HEAD").stdout.trim();
+      expectSuccess(git(root, "switch", "main"));
+      const detachedWorktree = join(tempRoot, "open-issue-detached-worktree");
+      expectSuccess(git(root, "worktree", "add", "--detach", detachedWorktree, expectedHead));
+      const fakeGh = writeTaskLifecycleFakeGh(tempRoot);
+
+      const retired = run(
+        taskHelper,
+        ["retire", detachedWorktree, "--expect-head", expectedHead],
+        root,
+        {
+          env: {
+            GH_BIN: fakeGh,
+            FAKE_TASK_PRS: JSON.stringify([mergedTaskPr(331, branch, expectedHead)]),
+            FAKE_TASK_ISSUES: JSON.stringify([{ number: 123 }]),
+          },
+        },
+      );
+
+      expect(retired.status).not.toBe(0);
+      expect(retired.stderr).toContain("state belongs to open issue #123");
+      expect(git(root, "worktree", "list", "--porcelain").stdout).toContain(detachedWorktree);
+    } finally {
+      cleanupFixture(tempRoot);
+    }
+  });
+
+  it("refuses detached retirement with ambiguous GitHub branch ownership", () => {
+    const { root, tempRoot } = initialiseRepository();
+    try {
+      expectSuccess(git(root, "switch", "-c", "codex/123-first-owner", "dev"));
+      writeFileSync(join(root, "task.txt"), "shared detached head\n");
+      expectSuccess(git(root, "add", "task.txt"));
+      expectSuccess(git(root, "commit", "-m", "Ambiguous GitHub ownership fixture"));
+      const expectedHead = git(root, "rev-parse", "HEAD").stdout.trim();
+      expectSuccess(git(root, "switch", "main"));
+      const detachedWorktree = join(tempRoot, "ambiguous-github-worktree");
+      expectSuccess(git(root, "worktree", "add", "--detach", detachedWorktree, expectedHead));
+      const fakeGh = writeTaskLifecycleFakeGh(tempRoot);
+
+      const retired = run(
+        taskHelper,
+        ["retire", detachedWorktree, "--expect-head", expectedHead],
+        root,
+        {
+          env: {
+            GH_BIN: fakeGh,
+            FAKE_TASK_PRS: JSON.stringify([
+              mergedTaskPr(332, "codex/123-first-owner", expectedHead),
+              mergedTaskPr(333, "codex/124-second-owner", expectedHead),
+            ]),
+          },
+        },
+      );
+
+      expect(retired.status).not.toBe(0);
+      expect(retired.stderr).toContain("multiple GitHub branches");
+      expect(git(root, "worktree", "list", "--porcelain").stdout).toContain(detachedWorktree);
     } finally {
       cleanupFixture(tempRoot);
     }
