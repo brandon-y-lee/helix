@@ -93,4 +93,4 @@ When implementation exposes new work:
 
 `pnpm github:workflow:plan` is read-only. It describes overlapping Spec Branch and `dev` ruleset activation, compatibility cleanup, rollback, and the deferred `main` transition. Apply is a separately approved remote mutation with exact repository, remote-`dev`, CI-verified SHA, phase, and GitHub Actions app confirmations. Activation keeps classic `ci` protection; cleanup is allowed only after real `ticket-gate` and `integration-gate` evidence is verified.
 
-Production promotion remains a separate `dev → main` PR with green `integration-gate`, staging inspection, and explicit user authorization. The solo maintainer does not self-approve through GitHub.
+Production promotion remains a separate `dev → main` PR with green `integration-gate`, staging inspection, and explicit user authorization. Because `main` protection is deferred, a main-only `ci` reporter remains until that separate transition; it is not part of the active `dev` delivery contract. The solo maintainer does not self-approve through GitHub.

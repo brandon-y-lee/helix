@@ -396,8 +396,11 @@ describe("GitHub Actions CI", () => {
       expect(finalJob).toContain("if: ${{ always()");
       expect(finalJob).toContain('test "$VERIFICATION_RESULT" == \'success\'');
     }
-    expect(ciWorkflow).not.toContain("\n  ci:\n");
-    expect(ciWorkflow).not.toContain("Report compatibility Integration Gate");
+    const mainCompatibility = workflowJob("ci");
+    expect(mainCompatibility).toContain("needs: integration-verification");
+    expect(mainCompatibility).toContain("github.base_ref == 'main'");
+    expect(mainCompatibility).toContain("Report Main Compatibility Gate");
+    expect(mainCompatibility).not.toContain("github.event_name == 'push'");
   });
 });
 
@@ -420,6 +423,9 @@ describe("Spec delivery documentation", () => {
     expect(workflowDocumentation).toContain("regular-merge the Spec PR into `dev`");
     expect(workflowDocumentation).not.toContain(
       "reports both compatibility `ci` and `integration-gate`",
+    );
+    expect(workflowDocumentation).toContain(
+      "main-only `ci` reporter remains until that separate transition",
     );
     expect(workflowDocumentation).not.toContain(
       "Each approved `type:ticket` issue maps to one `codex/<issue-number>-<slug>` branch and one PR targeting `dev`",

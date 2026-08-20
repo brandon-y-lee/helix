@@ -120,3 +120,15 @@ jobs:
         env:
           VERIFICATION_RESULT: ${{ needs.integration-verification.result }}
         run: test "$VERIFICATION_RESULT" == 'success'
+
+  # Classic main protection remains deferred and still requires this context.
+  # It is not part of the active dev delivery contract.
+  ci:
+    needs: integration-verification
+    if: ${{ always() && github.event_name == 'pull_request' && github.base_ref == 'main' && github.event.pull_request.draft == false }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report Main Compatibility Gate
+        env:
+          VERIFICATION_RESULT: ${{ needs.integration-verification.result }}
+        run: test "$VERIFICATION_RESULT" == 'success'
