@@ -121,47 +121,15 @@ jobs:
           VERIFICATION_RESULT: ${{ needs.integration-verification.result }}
         run: test "$VERIFICATION_RESULT" == 'success'
 
-  # Compatibility context retained only for the bootstrap transition. Ticket #209
-  # removes it after integration-gate is proven and required by live protection.
+  # Classic main protection remains deferred and still requires this context.
+  # It is not part of the active dev delivery contract.
   ci:
+    name: ${{ github.base_ref == 'main' && 'ci' || 'main-ci-not-applicable' }}
     needs: integration-verification
-    if: ${{ always() && (github.event_name == 'push' || (!startsWith(github.base_ref, 'codex/spec-') && github.event.pull_request.draft == false)) }}
+    if: ${{ always() && github.event_name == 'pull_request' && github.base_ref == 'main' && github.event.pull_request.draft == false }}
     runs-on: ubuntu-latest
-    timeout-minutes: 10
     steps:
-      - name: Checkout protected push
-        if: ${{ github.event_name == 'push' }}
-        uses: actions/checkout@v4
-
-      - name: Install pnpm for protected push
-        if: ${{ github.event_name == 'push' }}
-        uses: pnpm/action-setup@v4
-
-      - name: Set up Node for protected push
-        if: ${{ github.event_name == 'push' }}
-        uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-          cache: pnpm
-
-      - name: Install dependencies for protected push
-        if: ${{ github.event_name == 'push' }}
-        run: pnpm install --frozen-lockfile
-
-      - name: Lint protected push
-        if: ${{ github.event_name == 'push' }}
-        run: pnpm lint
-
-      - name: Typecheck protected push
-        if: ${{ github.event_name == 'push' }}
-        run: pnpm typecheck
-
-      - name: Test protected push
-        if: ${{ github.event_name == 'push' }}
-        run: pnpm test
-
-      - name: Report compatibility Integration Gate
-        if: ${{ github.event_name == 'pull_request' }}
+      - name: Report Main Compatibility Gate
         env:
           VERIFICATION_RESULT: ${{ needs.integration-verification.result }}
         run: test "$VERIFICATION_RESULT" == 'success'

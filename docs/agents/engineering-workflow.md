@@ -76,7 +76,7 @@ Cancelled or superseded issues retain their history: comment with the reason and
 
 ## Direct-to-`dev` paths and authority
 
-Urgent, standalone, trivial, and planning work remain direct-to-`dev` through `integration-gate`. The Bootstrap PR that introduces this workflow also uses the previously protected direct path and reports both compatibility `ci` and `integration-gate`.
+Urgent, standalone, trivial, and planning work remain direct-to-`dev` through `integration-gate`.
 
 - **Trivial non-behavioral work** may skip GitHub planning artifacts. It still uses `codex/trivial-<slug>`, proportional verification, `code-review`, a PR into `dev`, and `integration-gate`.
 - **Urgent production or security fixes** may skip exploration, specification, and decomposition. Create one abbreviated GitHub Ticket, use `codex/<ticket>-urgent-<slug>`, and commit with only the `Refs #<ticket>` footer. The normal review, PR, and Integration Gate still apply. Record deferred context immediately afterward.
@@ -93,4 +93,4 @@ When implementation exposes new work:
 
 `pnpm github:workflow:plan` is read-only. It describes overlapping Spec Branch and `dev` ruleset activation, compatibility cleanup, rollback, and the deferred `main` transition. Apply is a separately approved remote mutation with exact repository, remote-`dev`, CI-verified SHA, phase, and GitHub Actions app confirmations. Activation keeps classic `ci` protection; cleanup is allowed only after real `ticket-gate` and `integration-gate` evidence is verified.
 
-Production promotion remains a separate `dev → main` PR with green `integration-gate`, staging inspection, and explicit user authorization. The solo maintainer does not self-approve through GitHub.
+Production promotion remains a separate `dev → main` PR with green `integration-gate`, staging inspection, and explicit user authorization. Because `main` protection is deferred, a main-only `ci` reporter remains until that separate transition; it is not part of the active `dev` delivery contract. The solo maintainer does not self-approve through GitHub.

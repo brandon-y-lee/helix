@@ -155,13 +155,19 @@ function githubActionsAppId(repo, sha) {
     runGh(["api", `repos/${repo}/commits/${sha}/check-runs?per_page=100`, "-H", `X-GitHub-Api-Version: ${API_VERSION}`]),
     "GitHub Actions check identity",
   );
-  const app = checks.check_runs?.find(
-    (check) => check.name === "ci" && check.app?.slug === "github-actions",
-  )?.app;
-  if (!Number.isInteger(app?.id) || app.id <= 0) {
-    throw new Error("GitHub Actions app identity could not be proven from the compatibility ci check");
+  const identityChecks = checks.check_runs?.filter(
+    (check) => ["ticket-gate", "integration-gate", "ci"].includes(check.name) &&
+      check.app?.slug === "github-actions",
+  ) ?? [];
+  const appIds = new Set(identityChecks.map((check) => check.app?.id));
+  if (
+    identityChecks.length === 0 ||
+    [...appIds].some((id) => !Number.isInteger(id) || id <= 0) ||
+    appIds.size !== 1
+  ) {
+    throw new Error("GitHub Actions app identity could not be proven from the canonical gate checks");
   }
-  return app.id;
+  return [...appIds][0];
 }
 
 function pullRequestsForRun(repo, run) {
@@ -469,7 +475,7 @@ function printPlan(repo, plan) {
   if (plan.cleanup.length === 0) process.stdout.write("- no cleanup changes required\n");
   else for (const action of plan.cleanup) process.stdout.write(`- ${action.description}\n`);
   process.stdout.write("Rollback before cleanup: delete the new rulesets while classic ci still protects dev.\n");
-  process.stdout.write("Rollback after cleanup: restore exact classic ci protection before disabling replacement rules.\n");
+  process.stdout.write("Rollback after cleanup: restore classic integration-gate protection before disabling replacement rules.\n");
   process.stdout.write("The main transition is deferred; classic main protection remains unchanged.\n");
 }
 
