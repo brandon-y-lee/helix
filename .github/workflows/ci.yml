@@ -7,15 +7,17 @@ on:
   push:
     branches: [dev, main]
   pull_request:
-    branches: [dev, main]
+    branches: [dev, main, "codex/spec-*"]
+    types: [opened, synchronize, reopened, ready_for_review]
 
-# Cancel superseded runs on the same ref to save CI minutes.
+# Cancel only superseded work for the same pull request or protected ref.
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
   verification-lifecycle-windows:
+    if: ${{ github.event_name == 'push' || (!startsWith(github.base_ref, 'codex/spec-') && github.event.pull_request.draft == false) }}
     runs-on: windows-latest
     timeout-minutes: 10
     steps:
@@ -37,7 +39,47 @@ jobs:
       - name: Verify lifecycle start, failure, interruption, and cleanup
         run: pnpm vitest run tests/production-verification.test.ts tests/production-verification-process.test.ts
 
-  ci:
+  ticket-verification:
+    if: ${{ github.event_name == 'pull_request' && startsWith(github.base_ref, 'codex/spec-') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Complete Vitest suite
+        run: pnpm test
+
+  ticket-gate:
+    needs: ticket-verification
+    if: ${{ always() && github.event_name == 'pull_request' && startsWith(github.base_ref, 'codex/spec-') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report Ticket Gate
+        env:
+          VERIFICATION_RESULT: ${{ needs.ticket-verification.result }}
+        run: test "$VERIFICATION_RESULT" == 'success'
+
+  integration-verification:
+    if: ${{ github.event_name == 'pull_request' && !startsWith(github.base_ref, 'codex/spec-') && github.event.pull_request.draft == false }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
@@ -50,7 +92,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # pnpm/action-setup reads the pinned version from package.json "packageManager".
       - name: Install pnpm
         uses: pnpm/action-setup@v4
 
@@ -60,25 +101,18 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
 
-      # Gate 1: deterministic install from the committed lockfile.
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # Gate 2: lint.
       - name: Lint
         run: pnpm lint
 
-      # Gate 3: type check (independent of lint).
       - name: Typecheck
         run: pnpm typecheck
 
-      # Gate 4: unit / smoke tests.
-      - name: Unit tests
+      - name: Complete Vitest suite
         run: pnpm test
 
-      # Gate 5: end-to-end tests against one receipted production build.
-      # Strict branch protection tests the current PR merge tree. Protected-branch
-      # pushes retain Gates 1-4 without repeating the identical browser workload.
       - name: Install Playwright browsers
         if: ${{ github.event_name == 'pull_request' }}
         run: pnpm exec playwright install --with-deps chromium
@@ -99,3 +133,58 @@ jobs:
           path: playwright-report/
           retention-days: 7
           if-no-files-found: ignore
+
+  integration-gate:
+    needs: integration-verification
+    if: ${{ always() && github.event_name == 'pull_request' && !startsWith(github.base_ref, 'codex/spec-') && github.event.pull_request.draft == false }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report Integration Gate
+        env:
+          VERIFICATION_RESULT: ${{ needs.integration-verification.result }}
+        run: test "$VERIFICATION_RESULT" == 'success'
+
+  # Compatibility context retained only for the bootstrap transition. Ticket #209
+  # removes it after integration-gate is proven and required by live protection.
+  ci:
+    needs: integration-verification
+    if: ${{ always() && (github.event_name == 'push' || (!startsWith(github.base_ref, 'codex/spec-') && github.event.pull_request.draft == false)) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout protected push
+        if: ${{ github.event_name == 'push' }}
+        uses: actions/checkout@v4
+
+      - name: Install pnpm for protected push
+        if: ${{ github.event_name == 'push' }}
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node for protected push
+        if: ${{ github.event_name == 'push' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies for protected push
+        if: ${{ github.event_name == 'push' }}
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint protected push
+        if: ${{ github.event_name == 'push' }}
+        run: pnpm lint
+
+      - name: Typecheck protected push
+        if: ${{ github.event_name == 'push' }}
+        run: pnpm typecheck
+
+      - name: Test protected push
+        if: ${{ github.event_name == 'push' }}
+        run: pnpm test
+
+      - name: Report compatibility Integration Gate
+        if: ${{ github.event_name == 'pull_request' }}
+        env:
+          VERIFICATION_RESULT: ${{ needs.integration-verification.result }}
+        run: test "$VERIFICATION_RESULT" == 'success'

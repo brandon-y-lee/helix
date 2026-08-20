@@ -77,18 +77,18 @@ Preserve uncommitted user work, review the final diff for scope drift and unnece
 For planned features, behavior changes, bugs, refactors, production fixes, or security fixes, read `docs/agents/engineering-workflow.md` before creating issues, branches, commits, or PRs. The canonical sequence is:
 
 ```text
-grill-with-docs | wayfinder → to-spec → to-tickets → implement → code-review → PR → CI → dev
+grill-with-docs | wayfinder → to-spec → to-tickets → Spec Branch → implement → Ticket Review → ticket-gate → Combined Spec Review → integration-gate → dev
 ```
 
-The user approves shared understanding, the specification, and the ticket breakdown. An approved implementation ticket authorizes its issue updates, branch push, PR, and merge into `dev` after review and CI pass. Production promotion from `dev` to `main` always requires explicit user authorization; the solo maintainer does not self-approve through GitHub.
+The user approves shared understanding, the specification, and the Ticket breakdown. An approved implementation Ticket authorizes its issue updates, branch push, PR, and applicable merge after review and CI pass. Production promotion from `dev` to `main` always requires explicit user authorization; the solo maintainer does not self-approve through GitHub.
 
 ### Branch safety
 
-- `main` is production; `dev` is staging and integration. Ticket and planning work enters `dev` through PRs and never merges directly to `main`.
-- Before a repository edit, start an isolated worktree with `scripts/git/codex-task.sh start <issue-number>-<slug>` or `scripts/git/codex-task.sh start plan-<slug>`. Urgent work uses `<issue-number>-urgent-<slug>`; the trivial fast path uses `trivial-<slug>`.
+- `main` is production; `dev` is staging and integration. Planned multi-Ticket work enters a Spec Branch through Ticket PRs and then `dev` through the final Spec PR. Planning, urgent, standalone, and trivial work enters `dev` through PRs. Nothing merges directly to `main`.
+- Before a repository edit, start an isolated worktree with `scripts/git/codex-task.sh start <issue-number>-<slug> --spec <spec-number>-<spec-slug>` for a normal Ticket or `scripts/git/codex-task.sh start plan-<slug>` for planning. Urgent work uses `<issue-number>-urgent-<slug>`; the trivial fast path uses `trivial-<slug>`.
 - Use the printed task worktree for every subsequent edit, command, test, and commit. Before review and push, run the printed `prepare` command.
-- If `dev` advances, merge it into the task branch and repeat affected verification and `code-review`.
-- After the PR is merged into `dev`, use `scripts/git/codex-task.sh cleanup [task-worktree]`. The helper verifies the merged PR before deleting local task state.
+- Ordinary sibling advances do not invalidate a Ticket Snapshot. Synchronize only for an approved concrete reason by additively merging the recorded Spec Branch. The sole Spec Closer incorporates current `dev` before Combined Spec Review.
+- After the PR is merged into its recorded target, use `scripts/git/codex-task.sh cleanup [task-worktree]`. The helper verifies the exact merged PR before deleting local task state.
 
 See `docs/git-workflow.md` for Git mechanics and recovery.
 

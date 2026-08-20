@@ -218,6 +218,9 @@ function classifyGithubEvidence(
     };
   }
   const evidenceBranch = branchEvidence.branch;
+  if (evidenceBranch && inventory.reviewTargetSlugs?.has(evidenceBranch.slice("codex/".length))) {
+    return { status: "UNPROVEN", evidence: "recorded Spec target requires target-aware cleanup" };
+  }
   const openPr = openPrFor(inventory, evidenceBranch, head);
   const mergedPr = mergedPrFor(
     inventory,
@@ -352,6 +355,10 @@ function reconcile(args) {
 
   const { invocationRoot, primaryCheckout } = repositoryContext();
   const inventory = loadGithubInventory(invocationRoot);
+  const reviewTargets = listRefs(invocationRoot, "refs/codex/review-target/");
+  inventory.reviewTargetSlugs = new Set(reviewTargets.map(
+    ({ ref }) => ref.slice("refs/codex/review-target/".length),
+  ));
   const actions = {
     worktrees: [],
     branches: [],
@@ -420,6 +427,10 @@ function reconcile(args) {
     }
     emitPlan(result.status, "review-ref", item.head, item.ref, result.evidence);
     if (result.status === "REMOVE") actions.reviewRefs.push(item);
+  }
+
+  for (const item of reviewTargets) {
+    emitPlan("UNPROVEN", "review-target", item.head, item.ref, "recorded Spec target requires target-aware cleanup");
   }
 
   for (const item of remoteRefs) {
