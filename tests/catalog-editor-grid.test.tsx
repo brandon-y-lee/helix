@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import CatalogProductGrid from "@/components/admin/catalog-editor/CatalogProductGrid";
 import { catalogEditorApi } from "@/lib/admin/catalog-editor/client";
 import { catalogProduct } from "./fixtures/catalog-editor";
+import { FORMER_BRAND_PATTERN } from "@/tests/helpers/former-identifiers";
 
 vi.mock("@/lib/admin/catalog-editor/client", async (importOriginal) => {
   const original =
@@ -60,7 +61,7 @@ describe("CatalogProductGrid", () => {
     expect(
       mediaFallback.querySelector('[data-helix-identity="symbol"]'),
     ).toHaveAttribute("aria-hidden", "true");
-    expect(mediaFallback).not.toHaveTextContent("MEI PELLE");
+    expect(mediaFallback).not.toHaveTextContent(FORMER_BRAND_PATTERN);
     expect(screen.getByText("$22.00")).toBeVisible();
 
     listProducts.mockResolvedValueOnce({

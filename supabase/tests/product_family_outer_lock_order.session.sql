@@ -8,7 +8,7 @@ set local statement_timeout = '15s';
 
 select pg_catalog.pg_advisory_xact_lock(
   pg_catalog.hashtextextended(
-    'mei-pelle-product-family:' || family.id::text,
+    'helix-product-family:' || family.id::text,
     0
   )
 )

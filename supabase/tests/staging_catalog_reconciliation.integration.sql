@@ -262,7 +262,7 @@ begin
       'peptide-eye-cream', 'peptide-nourish-mask'
     )
       and product.seo_title is distinct from
-        product.display_name || ' — ' || product.product_type || ' | Mei Pelle'
+        product.display_name || ' — ' || product.product_type || ' | helix'
   ) then
     raise exception 'selected Product title composition or metadata drifted';
   end if;

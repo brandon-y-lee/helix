@@ -38,7 +38,7 @@ const getIndexNameMock = vi.mocked(getIndexName);
 const originalPublicIndexName = process.env.NEXT_PUBLIC_ALGOLIA_INDEX_NAME;
 
 function request(body: unknown, init: RequestInit = {}) {
-  return new Request("https://mei-pelle.test/api/webhooks/supabase/catalog-search-sync", {
+  return new Request("https://helix.test/api/webhooks/supabase/catalog-search-sync", {
     method: "POST",
     body: JSON.stringify(body),
     headers: {

@@ -409,9 +409,7 @@ test("shop presents the approved Product, collection, sheet, and footer treatmen
   await page.getByRole("button", { name: "SEARCH" }).click();
   const search = page.getByRole("dialog", { name: "Search" });
   await expect(search).toBeVisible();
-  await expect(
-    search.getByText("Discover Mei Pelle", { exact: true }),
-  ).toHaveCount(0);
+  await expect(search.getByText("Search products", { exact: true })).toBeVisible();
   await search.getByRole("button", { name: "Close" }).click();
 
   await page.getByRole("button", { name: /CART \(0\)/ }).click();

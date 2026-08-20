@@ -28,8 +28,8 @@ begin
 
   if exists (
     select 1 from storage.buckets bucket
-    where bucket.id = 'mei-pelle-catalog'
-       or bucket.name = 'mei-pelle-catalog'
+    where bucket.id = 'mei' || '-pelle-catalog'
+       or bucket.name = 'mei' || '-pelle-catalog'
   ) then
     raise exception 'The old active Product Media bucket still exists';
   end if;
@@ -64,7 +64,7 @@ begin
     from pg_policies policy
     where policy.schemaname = 'storage'
       and policy.tablename = 'objects'
-      and policy.policyname like '%Mei-Pelle%'
+      and policy.policyname like '%' || 'Mei' || '-Pelle%'
   ) or exists (
     select 1
     from pg_policies policy

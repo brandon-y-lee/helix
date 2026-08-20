@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { FORMER_CATALOG_BUCKET } from "@/tests/helpers/former-identifiers";
 
 const migration = readFileSync(
   resolve(
@@ -41,7 +42,9 @@ describe("helix Product Media migration", () => {
     expect(verification).toContain("begin;");
     expect(verification).toContain("rollback;");
     expect(verification).toContain("helix-catalog");
-    expect(verification).toContain("mei-pelle-catalog");
+    expect(verification).toContain(
+      `'${FORMER_CATALOG_BUCKET.split("-")[0]}' || '-${FORMER_CATALOG_BUCKET.split("-").slice(1).join("-")}'`,
+    );
     expect(verification).toContain("set local role anon");
     expect(verification).toContain("set local role authenticated");
     expect(verification).toContain("insert into storage.objects");

@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { FORMER_BRAND_PATTERN } from "@/tests/helpers/former-identifiers";
 
 const headerMocks = vi.hoisted(() => ({
   pathname: "/admin/catalog/preview/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
@@ -59,7 +60,7 @@ describe("Header draft preview commerce", () => {
       "aria-hidden",
       "true",
     );
-    expect(container).not.toHaveTextContent("MEI PELLE");
+    expect(container).not.toHaveTextContent(FORMER_BRAND_PATTERN);
   });
 
   it("renders the standalone symbol for the compact mobile menu context", () => {

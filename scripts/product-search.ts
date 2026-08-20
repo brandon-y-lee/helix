@@ -4,14 +4,9 @@ import { config as loadDotEnv } from "dotenv";
 import {
   AlgoliaProductSearchControlPlane,
   loadProductSearchMigrationConfig,
-  runProductSearchMigration,
-  type ProductSearchMigrationMode,
+  runProductSearchVerification,
   type ProductSearchRecord,
 } from "./catalog/product-search-migration";
-import {
-  loadCatalogWebhookSmokeConfig,
-  runCatalogWebhookSmoke,
-} from "./catalog/catalog-webhooks";
 
 loadDotEnv({
   path: resolve(
@@ -20,19 +15,10 @@ loadDotEnv({
   quiet: true,
 });
 
-function readMode(argv: string[]): ProductSearchMigrationMode {
+function assertVerifyMode(argv: string[]): void {
   const value = argv[0];
-  if (
-    value === "plan" ||
-    value === "apply" ||
-    value === "verify" ||
-    value === "finalize"
-  ) {
-    return value;
-  }
-  throw new Error(
-    "[product-search] Expected plan, apply, verify, or finalize.",
-  );
+  if (value === "verify") return;
+  throw new Error("[product-search] Expected verify.");
 }
 
 function summarizeIndex(
@@ -54,28 +40,14 @@ export async function runProductSearchCli(
   argv: string[],
   env: NodeJS.ProcessEnv,
 ) {
-  const mode = readMode(argv);
+  assertVerifyMode(argv);
   const config = loadProductSearchMigrationConfig(env);
   const { fetchAllSearchRecords } = await import("../lib/algolia/source");
   const canonicalRecords =
     (await fetchAllSearchRecords()) as unknown as ProductSearchRecord[];
-  const smoke =
-    mode === "finalize"
-      ? await runCatalogWebhookSmoke(loadCatalogWebhookSmokeConfig(env))
-      : null;
-  const report = await runProductSearchMigration(
-    mode,
+  const report = await runProductSearchVerification(
     new AlgoliaProductSearchControlPlane(config),
     canonicalRecords,
-    smoke
-      ? {
-          consumerVerification: {
-            publicReadIndex: smoke.publicIndexName,
-            serverWriteIndex: smoke.indexName,
-            webhookDeliveryVerified: true,
-          },
-        }
-      : {},
   );
   return {
     ...report,

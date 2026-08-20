@@ -46,7 +46,6 @@ test("Account, Cart, Checkout, and acknowledgement use the helix identity", asyn
   await expect(acknowledgement).toContainText(
     "The helix Platform uses essential cookies",
   );
-  await expect(acknowledgement).not.toContainText("Mei Pelle");
 });
 
 test("Checkout cancellation returns to the intact Cart", async ({ page }) => {

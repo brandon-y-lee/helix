@@ -1,5 +1,6 @@
 import { render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
+import { FORMER_BRAND_PATTERN } from "@/tests/helpers/former-identifiers";
 
 vi.mock("@/lib/catalog-cache", () => ({
   getCachedProducts: vi.fn(),
@@ -172,7 +173,7 @@ describe("System content architecture", () => {
       "/about",
     );
     expect(pageText).toContain("A helix sunscreen is in development.");
-    expect(pageText).not.toMatch(/Mei Pelle/i);
+    expect(pageText).not.toMatch(FORMER_BRAND_PATTERN);
   });
 
   it("keeps the canonical 01-07 sequence and reports missing catalog records", () => {
@@ -360,7 +361,7 @@ describe("About claim safety", () => {
       /structure, renewal, and ingredient-literate formulation/i,
     );
     expect(pageText).toContain("Helix Motif");
-    expect(pageText).not.toMatch(/Mei Pelle/i);
+    expect(pageText).not.toMatch(FORMER_BRAND_PATTERN);
     expect(pageText).not.toMatch(
       /genetic testing|genetic personalization|clinical genomics|DNA effects/i,
     );

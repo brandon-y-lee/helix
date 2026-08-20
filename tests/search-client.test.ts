@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { FORMER_PRODUCTS_INDEX } from "@/tests/helpers/former-identifiers";
 
 const { searchForHits } = vi.hoisted(() => ({
   searchForHits: vi.fn(),
@@ -70,7 +71,7 @@ describe("public Algolia configuration", () => {
   it("fails closed when the public reader still names the legacy index", async () => {
     process.env.NEXT_PUBLIC_ALGOLIA_APP_ID = "test-app";
     process.env.NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY = "test-key";
-    process.env.NEXT_PUBLIC_ALGOLIA_INDEX_NAME = "mei_pelle_products";
+    process.env.NEXT_PUBLIC_ALGOLIA_INDEX_NAME = FORMER_PRODUCTS_INDEX;
 
     const { isSearchConfigured, searchProducts, SearchNotConfiguredError } =
       await import("@/lib/algolia/search-client");

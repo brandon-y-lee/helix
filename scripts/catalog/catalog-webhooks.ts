@@ -262,10 +262,6 @@ export function catalogWebhookTriggerName(table: CatalogWebhookTable): string {
   return `helix_catalog_search_sync_${table}`;
 }
 
-function legacyCatalogWebhookTriggerName(table: CatalogWebhookTable): string {
-  return `mei_pelle_catalog_search_sync_${table}`;
-}
-
 export function buildDesiredCatalogWebhooks(
   endpoint: string,
   secret: string,
@@ -329,21 +325,11 @@ export function buildCatalogWebhookReport(
     const managedHook = tableHooks.find(
       (hook) => hook.triggerName === webhook.name,
     );
-    const legacyHook = tableHooks.find(
-      (hook) =>
-        hook.triggerName === legacyCatalogWebhookTriggerName(webhook.table),
-    );
     const unmanagedHooks = tableHooks.filter(
-      (hook) =>
-        hook.triggerName !== webhook.name &&
-        hook.triggerName !== legacyCatalogWebhookTriggerName(webhook.table),
+      (hook) => hook.triggerName !== webhook.name,
     );
 
-    if (
-      tableHooks.length > 1 ||
-      unmanagedHooks.length > 0 ||
-      (managedHook && legacyHook)
-    ) {
+    if (tableHooks.length > 1 || unmanagedHooks.length > 0) {
       duplicates.push({
         table: webhook.table,
         triggerNames: tableHooks
@@ -355,14 +341,13 @@ export function buildCatalogWebhookReport(
 
     actions.push({
       action:
-        managedHook || legacyHook
-          ? managedHook && observedHookMatches(managedHook)
+        managedHook
+          ? observedHookMatches(managedHook)
             ? "unchanged"
             : "update"
           : "create",
       table: webhook.table,
       name: webhook.name,
-      ...(legacyHook ? { currentName: legacyHook.triggerName } : {}),
     });
   }
 
@@ -491,7 +476,6 @@ hook_rows as (
     and (
       (pn.nspname = 'supabase_functions' and p.proname = 'http_request')
       or t.tgname like 'helix_catalog_search_sync_%'
-      or t.tgname like 'mei_pelle_catalog_search_sync_%'
     )
 )
 select

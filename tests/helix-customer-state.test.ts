@@ -10,6 +10,7 @@ import {
   PENDING_CHECKOUT_COOKIE,
   REFERRAL_COOKIE,
 } from "@/lib/customer-state-identifiers";
+import { FORMER_BRAND_PATTERN } from "@/tests/helpers/former-identifiers";
 
 const customerStateRuntimeFiles = [
   "lib/cart/server.ts",
@@ -46,9 +47,7 @@ describe("helix customer-state identifiers", () => {
       .map((path) => readFileSync(resolve(path), "utf8"))
       .join("\n");
 
-    expect(runtime).not.toMatch(
-      /mei_pelle_(?:guest_cart|cart_identity_changed|pending_checkout|referral_code|cookie_preferences)|mei-pelle-cart|x-mei-pelle-auth-degraded/i,
-    );
+    expect(runtime).not.toMatch(FORMER_BRAND_PATTERN);
   });
 });
 

@@ -12,6 +12,7 @@ import { metadata as successMetadata } from "@/app/checkout/success/page";
 import { metadata as cancelMetadata } from "@/app/checkout/cancel/page";
 import { CookieAcknowledgementDialog } from "@/components/privacy/CookieAcknowledgementDialog";
 import { COOKIE_ACKNOWLEDGEMENT_COOKIE } from "@/lib/customer-state-identifiers";
+import { FORMER_BRAND_PATTERN } from "@/tests/helpers/former-identifiers";
 
 describe("helix Account, Cart, Checkout, and acknowledgement surfaces", () => {
   it("uses the approved brand casing in route metadata", () => {
@@ -47,7 +48,9 @@ describe("helix Account, Cart, Checkout, and acknowledgement surfaces", () => {
     expect(screen.getByRole("dialog")).toHaveTextContent(
       "The helix Platform uses essential cookies",
     );
-    expect(screen.getByRole("dialog")).not.toHaveTextContent("Mei Pelle");
+    expect(screen.getByRole("dialog")).not.toHaveTextContent(
+      FORMER_BRAND_PATTERN,
+    );
 
     fireEvent.click(
       screen.getByRole("button", { name: "Acknowledge notice" }),

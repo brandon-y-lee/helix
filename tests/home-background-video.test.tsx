@@ -91,12 +91,12 @@ describe("HomeBackgroundVideo", () => {
     const video = container.querySelector("video") as HTMLVideoElement;
     expect(video).toHaveAttribute(
       "poster",
-      "/media/home/mei-pelle-hero-poster.webp",
+      "/media/home/helix-hero-poster.webp",
     );
     expect(video).toHaveAttribute("preload", "metadata");
     expect(sourceUrls(container)).toEqual([
-      "/media/home/mei-pelle-hero.webm?v=469b5c0022c8",
-      "/media/home/mei-pelle-hero.mp4?v=7048d1daaa75",
+      "/media/home/helix-hero.webm?v=469b5c0022c8",
+      "/media/home/helix-hero.mp4?v=7048d1daaa75",
     ]);
     expect(video.autoplay).toBe(true);
     expect(video.loop).toBe(true);

@@ -289,6 +289,25 @@ describe("Product Media Verification Command", () => {
     ]);
   });
 
+  it("verifies URL-backed media while ignoring valid palette-only rows", () => {
+    const snapshot: ProductMediaCatalogSnapshot = {
+      products: [
+        {
+          id: "p-1",
+          slug: "alpha",
+          product_media: [
+            { media_type: "image", url: null },
+            { media_type: "image", url: imageUrl },
+          ],
+        },
+      ],
+    };
+
+    expect(collectExpectedProductMedia(snapshot)).toEqual([
+      { mediaType: "image", url: imageUrl },
+    ]);
+  });
+
   it("fails closed when Product Media type or URL metadata is unsupported", () => {
     expect(() =>
       collectExpectedProductMedia({

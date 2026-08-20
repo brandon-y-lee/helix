@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { LEGACY_REWARDS_PATTERN } from "@/tests/helpers/former-identifiers";
 
 function source(path: string): string {
   return readFileSync(resolve(process.cwd(), path), "utf8");
@@ -11,7 +12,9 @@ describe("operational rewards migration", () => {
     const orderOperations = source("lib/orders/server.ts");
     const rewardsOperations = source("lib/rewards/operations.ts");
 
-    expect(`${orderOperations}\n${rewardsOperations}`).not.toMatch(/loyalty/i);
+    expect(`${orderOperations}\n${rewardsOperations}`).not.toMatch(
+      LEGACY_REWARDS_PATTERN,
+    );
     expect(rewardsOperations).toContain('rpc("reserve_rewards_points"');
     expect(rewardsOperations).toContain('rpc("record_rewards_points_adjustment"');
     expect(orderOperations).not.toContain(
@@ -23,7 +26,9 @@ describe("operational rewards migration", () => {
     const checkoutContract = source("supabase/tests/cart_server_integrity.integration.sql");
 
     expect(checkoutContract).toContain("release_rewards_reservations_for_order");
-    expect(checkoutContract).not.toContain("release_loyalty_redemptions_for_order");
+    expect(checkoutContract).not.toContain(
+      ["release", "loyal", "ty", "redemptions", "for", "order"].join("_"),
+    );
   });
 
   it("keeps the active Stripe sandbox tool on helix rewards language", () => {

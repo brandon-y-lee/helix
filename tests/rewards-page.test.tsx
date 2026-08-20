@@ -8,6 +8,10 @@ const rewards = vi.hoisted(() => ({
 vi.mock("@/lib/rewards/server", () => rewards);
 
 import RewardsPage, { metadata } from "@/app/rewards/page";
+import {
+  FORMER_BRAND_PATTERN,
+  LEGACY_REWARDS_PATTERN,
+} from "@/tests/helpers/former-identifiers";
 
 describe("helix rewards page", () => {
   beforeEach(() => {
@@ -50,7 +54,8 @@ describe("helix rewards page", () => {
     expect(screen.getByText(/your referral code: HELIX25/i)).toBeVisible();
     expect(screen.getByText(/first qualifying order of \$50\.00 or more/i))
       .toBeVisible();
-    expect(document.body).not.toHaveTextContent(/mei pelle rewards|loyalty/i);
+    expect(document.body).not.toHaveTextContent(FORMER_BRAND_PATTERN);
+    expect(document.body).not.toHaveTextContent(LEGACY_REWARDS_PATTERN);
     expect(metadata).toMatchObject({
       title: "helix rewards | helix",
       description: expect.stringContaining("helix rewards"),

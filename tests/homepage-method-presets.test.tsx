@@ -14,6 +14,7 @@ import {
 } from "@/lib/catalog-cache";
 import type { Product } from "@/lib/products";
 import type { SystemStepName } from "@/lib/catalog/system-steps";
+import { FORMER_BRAND_PATTERN } from "@/tests/helpers/former-identifiers";
 
 const mockedGetProducts = getCachedProductCards as unknown as Mock;
 const mockedGetIngredientProducts =
@@ -153,7 +154,7 @@ describe("homepage product wiring", () => {
     render(<CartProvider>{await HomePage()}</CartProvider>);
 
     expect(screen.getByText("helix")).toHaveClass("home-video-hero__eyebrow");
-    expect(document.body).not.toHaveTextContent(/Mei Pelle/i);
+    expect(document.body).not.toHaveTextContent(FORMER_BRAND_PATTERN);
   });
 
   it("selects Core and Beyond products in canonical order without merchandising PROTECT", async () => {

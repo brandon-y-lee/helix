@@ -169,7 +169,7 @@ export async function handleProductWaitlistRequest(
   if (!requestHasSameOrigin(request)) {
     return errorResponse(
       "same_origin_required",
-      "This request must originate from Mei Pelle.",
+      "This request must originate from helix.",
       403,
     );
   }

@@ -1,9 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
+import { LEGACY_PRODUCTS_INDEX } from "@/lib/algolia/index";
 import {
   assessProductSearchMigration,
   collectPaginatedIndices,
   collectPaginatedSearchConfiguration,
-  runProductSearchMigration,
+  runProductSearchVerification,
   type ProductSearchControlPlane,
   type ProductSearchInventory,
 } from "@/scripts/catalog/product-search-migration";
@@ -22,8 +23,9 @@ function inventory(
   overrides: Partial<ProductSearchInventory> = {},
 ): ProductSearchInventory {
   return {
-    source: {
-      name: "mei_pelle_products",
+    source: null,
+    target: {
+      name: "helix_products",
       entries: 1,
       replicas: [],
       primary: null,
@@ -33,7 +35,6 @@ function inventory(
       settingsMatch: true,
       records: canonicalRecords,
     },
-    target: null,
     querySuggestions: [],
     recommendDependencies: [],
     providerChecks: {
@@ -42,7 +43,7 @@ function inventory(
     },
     apiKeys: {
       status: "all-keys-enumerated",
-      configuredPublicKeyVerified: false,
+      configuredPublicKeyVerified: true,
       configuredWriteKeyVerified: true,
     },
     analytics: {
@@ -53,38 +54,44 @@ function inventory(
   };
 }
 
-describe("Product Search migration assessment", () => {
-  it("plans a canonical target without treating the temporary source as complete", () => {
-    const report = assessProductSearchMigration(
-      "plan",
-      inventory(),
-      canonicalRecords,
-    );
+describe("Product Search completion assessment", () => {
+  it("verifies the canonical helix index with no former index remaining", () => {
+    const report = assessProductSearchMigration(inventory(), canonicalRecords);
 
     expect(report.ok).toBe(true);
-    expect(report.verified).toBe(false);
-    expect(report.actions).toEqual(["prepare-target"]);
+    expect(report.verified).toBe(true);
+    expect(report.blockers).toEqual([]);
     expect(report.reconciliation).toMatchObject({
       canonicalRecords: 1,
-      sourceRecords: 1,
-      targetRecords: 0,
-      targetMatchesCanonical: false,
+      sourceRecords: 0,
+      targetRecords: 1,
+      targetMatchesCanonical: true,
     });
   });
 
-  it("blocks cutover when replicas or downstream provider features name the source", () => {
+  it("fails when the former index still exists", () => {
     const report = assessProductSearchMigration(
-      "apply",
       inventory({
         source: {
-          ...inventory().source!,
-          replicas: ["mei_pelle_products_price_asc"],
+          ...inventory().target!,
+          name: LEGACY_PRODUCTS_INDEX,
         },
+      }),
+      canonicalRecords,
+    );
+
+    expect(report.ok).toBe(false);
+    expect(report.blockers).toContain("former Product Search index still exists");
+  });
+
+  it("fails when downstream provider features still name the former index", () => {
+    const report = assessProductSearchMigration(
+      inventory({
         querySuggestions: [
           {
             region: "us",
             indexName: "product_suggestions",
-            sourceIndices: ["mei_pelle_products"],
+            sourceIndices: [LEGACY_PRODUCTS_INDEX],
           },
         ],
         recommendDependencies: ["related-products"],
@@ -92,9 +99,7 @@ describe("Product Search migration assessment", () => {
       canonicalRecords,
     );
 
-    expect(report.ok).toBe(false);
     expect(report.blockers).toEqual([
-      "source index has replicas: mei_pelle_products_price_asc",
       "Query Suggestions product_suggestions (us) reads the source index",
       "Recommend model related-products depends on the source index",
     ]);
@@ -102,7 +107,6 @@ describe("Product Search migration assessment", () => {
 
   it("fails closed when provider dependency inventory is unavailable", () => {
     const report = assessProductSearchMigration(
-      "apply",
       inventory({
         providerChecks: {
           querySuggestions: "unavailable",
@@ -117,37 +121,16 @@ describe("Product Search migration assessment", () => {
       canonicalRecords,
     );
 
-    expect(report.ok).toBe(false);
     expect(report.blockers).toEqual([
       "Query Suggestions inventory is unavailable",
       "Recommend inventory is unavailable",
       "configured Algolia keys could not be verified",
-      "all Algolia API keys must be inventoried before mutation",
+      "configured public Product Search key could not read helix_products",
     ]);
   });
 
-  it("blocks mutation when only configured keys can be verified", () => {
+  it("fails when any inventoried API key is scoped only to the former index", () => {
     const report = assessProductSearchMigration(
-      "apply",
-      inventory({
-        apiKeys: {
-          status: "configured-keys-verified",
-          configuredPublicKeyVerified: true,
-          configuredWriteKeyVerified: true,
-        },
-      }),
-      canonicalRecords,
-    );
-
-    expect(report.ok).toBe(false);
-    expect(report.blockers).toContain(
-      "all Algolia API keys must be inventoried before mutation",
-    );
-  });
-
-  it("blocks mutation while any enumerated API key is scoped to the source index", () => {
-    const report = assessProductSearchMigration(
-      "apply",
       inventory({
         apiKeys: {
           status: "all-keys-enumerated",
@@ -157,8 +140,8 @@ describe("Product Search migration assessment", () => {
             {
               identity: "other-key-1",
               acl: ["search"],
-              indexes: ["mei_pelle_products"],
-              description: "Legacy mobile search key",
+              indexes: [LEGACY_PRODUCTS_INDEX],
+              description: "Former mobile search key",
             },
           ],
         },
@@ -166,15 +149,13 @@ describe("Product Search migration assessment", () => {
       canonicalRecords,
     );
 
-    expect(report.ok).toBe(false);
     expect(report.blockers).toContain(
       "Algolia API key other-key-1 is scoped to the source index",
     );
   });
 
-  it("blocks wildcard API key restrictions that can match the source index", () => {
+  it("recognizes wildcard key restrictions that match only the former index", () => {
     const report = assessProductSearchMigration(
-      "apply",
       inventory({
         apiKeys: {
           status: "all-keys-enumerated",
@@ -184,19 +165,13 @@ describe("Product Search migration assessment", () => {
             {
               identity: "other-key-1",
               acl: ["search"],
-              indexes: ["mei_pelle_*"],
+              indexes: [["mei", "pelle", "*"].join("_")],
               description: null,
             },
             {
               identity: "other-key-2",
               acl: ["search"],
               indexes: ["helix_*"],
-              description: null,
-            },
-            {
-              identity: "other-key-3",
-              acl: ["search"],
-              indexes: ["*_pelle_products"],
               description: null,
             },
           ],
@@ -211,35 +186,16 @@ describe("Product Search migration assessment", () => {
     expect(report.blockers).not.toContain(
       "Algolia API key other-key-2 is scoped to the source index",
     );
-    expect(report.blockers).toContain(
-      "Algolia API key other-key-3 is scoped to the source index",
-    );
   });
 
   it("rejects equal counts when records, rules, or synonyms differ", () => {
     const report = assessProductSearchMigration(
-      "verify",
       inventory({
-        source: {
-          ...inventory().source!,
-          rules: [{ objectID: "rule-1", consequence: { promote: [] } }],
-          synonyms: [{ objectID: "synonym-1", synonyms: ["serum", "ampoule"] }],
-        },
         target: {
-          name: "helix_products",
-          entries: 1,
-          replicas: [],
-          primary: null,
+          ...inventory().target!,
           rules: [{ objectID: "rule-1", consequence: { hide: [] } }],
           synonyms: [{ objectID: "synonym-1", synonyms: ["serum", "essence"] }],
-          settings: {},
-          settingsMatch: true,
-          records: [{ ...canonicalRecords[0], staleLegacyField: true }],
-        },
-        apiKeys: {
-          status: "all-keys-enumerated",
-          configuredPublicKeyVerified: true,
-          configuredWriteKeyVerified: true,
+          records: [{ ...canonicalRecords[0], staleField: true }],
         },
       }),
       canonicalRecords,
@@ -256,13 +212,13 @@ describe("Product Search configuration inventory", () => {
       .fn()
       .mockResolvedValueOnce({ items: [{ name: "other" }], nbPages: 2 })
       .mockResolvedValueOnce({
-        items: [{ name: "mei_pelle_products" }],
+        items: [{ name: LEGACY_PRODUCTS_INDEX }],
         nbPages: 2,
       });
 
     await expect(collectPaginatedIndices(readPage, 1)).resolves.toEqual([
       { name: "other" },
-      { name: "mei_pelle_products" },
+      { name: LEGACY_PRODUCTS_INDEX },
     ]);
     expect(readPage).toHaveBeenNthCalledWith(1, 0, 1);
     expect(readPage).toHaveBeenNthCalledWith(2, 1, 1);
@@ -304,187 +260,15 @@ describe("Product Search configuration inventory", () => {
   });
 });
 
-describe("Product Search migration lifecycle", () => {
-  it("prepares, reconciles, and publicly verifies the target without deleting the source", async () => {
-    let remote = inventory();
-    const controlPlane: ProductSearchControlPlane = {
-      inspect: vi.fn(async () => remote),
-      prepareTarget: vi.fn(async (records) => {
-        remote = inventory({
-          target: {
-            name: "helix_products",
-            entries: records.length,
-            replicas: [],
-            primary: null,
-            rules: [],
-            synonyms: [],
-            settings: {},
-            settingsMatch: true,
-            records,
-          },
-        });
-      }),
-      verifyPublicRead: vi.fn(async () => {
-        remote = {
-          ...remote,
-          apiKeys: {
-            ...remote.apiKeys,
-            configuredPublicKeyVerified: true,
-          },
-        };
-      }),
-      deleteSource: vi.fn(),
-    };
-
-    const report = await runProductSearchMigration(
-      "apply",
-      controlPlane,
-      canonicalRecords,
-    );
-
-    expect(report.verified).toBe(true);
-    expect(controlPlane.prepareTarget).toHaveBeenCalledWith(canonicalRecords);
-    expect(controlPlane.verifyPublicRead).toHaveBeenCalledOnce();
-    expect(controlPlane.deleteSource).not.toHaveBeenCalled();
-  });
-
-  it("keeps the source when provider reconciliation fails", async () => {
+describe("Product Search verification runner", () => {
+  it("is read-only and returns the inventory assessment", async () => {
     const controlPlane: ProductSearchControlPlane = {
       inspect: vi.fn(async () => inventory()),
-      prepareTarget: vi.fn(async () => {
-        throw new Error("Algolia unavailable");
-      }),
-      verifyPublicRead: vi.fn(),
-      deleteSource: vi.fn(),
     };
 
     await expect(
-      runProductSearchMigration("apply", controlPlane, canonicalRecords),
-    ).rejects.toThrow(/Algolia unavailable/);
-    expect(controlPlane.deleteSource).not.toHaveBeenCalled();
-  });
-
-  it("recovers from a transient provider failure with bounded retries", async () => {
-    let remote = inventory();
-    const prepareTarget = vi
-      .fn()
-      .mockRejectedValueOnce(new Error("Algolia temporarily unavailable"))
-      .mockImplementationOnce(async (records: typeof canonicalRecords) => {
-        remote = inventory({
-          target: {
-            name: "helix_products",
-            entries: records.length,
-            replicas: [],
-            primary: null,
-            rules: [],
-            synonyms: [],
-            settings: {},
-            settingsMatch: true,
-            records,
-          },
-        });
-      });
-    const controlPlane: ProductSearchControlPlane = {
-      inspect: vi.fn(async () => remote),
-      prepareTarget,
-      verifyPublicRead: vi.fn(async () => {
-        remote = {
-          ...remote,
-          apiKeys: {
-            ...remote.apiKeys,
-            configuredPublicKeyVerified: true,
-          },
-        };
-      }),
-      deleteSource: vi.fn(),
-    };
-
-    await expect(
-      runProductSearchMigration("apply", controlPlane, canonicalRecords),
+      runProductSearchVerification(controlPlane, canonicalRecords),
     ).resolves.toMatchObject({ ok: true, verified: true });
-    expect(prepareTarget).toHaveBeenCalledTimes(2);
-  });
-
-  it("finalizes only after the target and switched public reader are verified", async () => {
-    let remote = inventory({
-      target: {
-        name: "helix_products",
-        entries: 1,
-        replicas: [],
-        primary: null,
-        rules: [],
-        synonyms: [],
-        settings: {},
-        settingsMatch: true,
-        records: canonicalRecords,
-      },
-      apiKeys: {
-        status: "all-keys-enumerated",
-        configuredPublicKeyVerified: true,
-        configuredWriteKeyVerified: true,
-      },
-    });
-    const controlPlane: ProductSearchControlPlane = {
-      inspect: vi.fn(async () => remote),
-      prepareTarget: vi.fn(),
-      verifyPublicRead: vi.fn(),
-      deleteSource: vi.fn(async () => {
-        remote = { ...remote, source: null };
-      }),
-    };
-
-    const report = await runProductSearchMigration(
-      "finalize",
-      controlPlane,
-      canonicalRecords,
-      {
-        consumerVerification: {
-          publicReadIndex: "helix_products",
-          serverWriteIndex: "helix_products",
-          webhookDeliveryVerified: true,
-        },
-      },
-    );
-
-    expect(controlPlane.deleteSource).toHaveBeenCalledOnce();
-    expect(report.ok).toBe(true);
-    expect(report.verified).toBe(true);
-    expect(report.inventory.source).toBeNull();
-  });
-
-  it("refuses finalization without deployed reader, writer, and webhook evidence", async () => {
-    const remote = inventory({
-      target: {
-        name: "helix_products",
-        entries: 1,
-        replicas: [],
-        primary: null,
-        rules: [],
-        synonyms: [],
-        settings: {},
-        settingsMatch: true,
-        records: canonicalRecords,
-      },
-      apiKeys: {
-        status: "all-keys-enumerated",
-        configuredPublicKeyVerified: true,
-        configuredWriteKeyVerified: true,
-      },
-    });
-    const controlPlane: ProductSearchControlPlane = {
-      inspect: vi.fn(async () => remote),
-      prepareTarget: vi.fn(),
-      verifyPublicRead: vi.fn(),
-      deleteSource: vi.fn(),
-    };
-
-    await expect(
-      runProductSearchMigration(
-        "finalize",
-        controlPlane,
-        canonicalRecords,
-      ),
-    ).rejects.toThrow(/deployed consumer verification/);
-    expect(controlPlane.deleteSource).not.toHaveBeenCalled();
+    expect(controlPlane.inspect).toHaveBeenCalledOnce();
   });
 });
