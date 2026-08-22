@@ -980,7 +980,8 @@ body[data-sheet-scroll-lock] .site-header {
   object-position: 50% 0%;
 }
 
-.shop-hero__surface h1 {
+.shop-hero__surface h1,
+.method-hero h1 {
   position: relative;
   z-index: 1;
   max-width: min(86%, 22ch);
@@ -6879,11 +6880,6 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 }
 
 .method-hero h1 {
-  max-width: min(86%, 22ch);
-  color: #fff;
-  font-size: clamp(1.125rem, 1.67vw, 1.5rem);
-  line-height: 1.4;
-  text-align: center;
   text-shadow:
     0 1px 2px rgb(0 0 0 / 70%),
     0 1px 18px rgb(0 0 0 / 45%);
@@ -10588,11 +10584,6 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 
   .method-hero__image {
     object-position: 60% 50%;
-  }
-
-  .method-hero h1 {
-    max-width: min(86%, 22ch);
-    font-size: clamp(1.125rem, 1.67vw, 1.5rem);
   }
 
   .method-section-head {

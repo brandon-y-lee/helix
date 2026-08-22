@@ -68,6 +68,16 @@ test("System hero uses the campaign image and responsive focal points", async ({
   await expect(coreLink).toHaveAttribute("href", "/collections/core");
   await expect(coreLink).toHaveCSS("text-transform", "none");
 
+  await page.setViewportSize({ width: 1024, height: 900 });
+  await expect(image).toHaveCSS("object-position", "50% 15%");
+  await expect(heading).toHaveCSS("font-size", "18px");
+  const tabletWidths = await page.evaluate(() => ({
+    clientWidth: document.documentElement.clientWidth,
+    mainScrollWidth: document.querySelector("#content")?.scrollWidth ?? 0,
+  }));
+  expect(tabletWidths.clientWidth).toBeLessThanOrEqual(1024);
+  expect(tabletWidths.mainScrollWidth).toBe(tabletWidths.clientWidth);
+
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(image).toHaveCSS("object-position", "60% 50%");
   await expect(heading).toHaveCSS("font-size", "18px");
