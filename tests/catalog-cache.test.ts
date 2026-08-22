@@ -5,6 +5,7 @@ import type {
   ProductCardContent,
   ProductOffer,
 } from "@/lib/catalog/models";
+import { CATALOG_MEDIA_BUCKET } from "@/lib/catalog/media-storage";
 import type { Product } from "@/lib/products";
 
 type CacheRegistration = {
@@ -191,7 +192,7 @@ describe("catalog cache domains", () => {
       getCachedProductSlugResolution(slug),
     ]);
 
-    const mediaCacheNamespace = "catalog-media:helix-catalog";
+    const mediaCacheNamespace = `catalog-media:${CATALOG_MEDIA_BUCKET}`;
     expect(registration("catalog-products-content-v3").keyParts).toEqual([
       "catalog-products-content-v3",
       mediaCacheNamespace,
