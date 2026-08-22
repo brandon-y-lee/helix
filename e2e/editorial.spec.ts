@@ -10,10 +10,10 @@ test("primary navigation reaches System, a live PDP, and About", async ({
   await primary.getByRole("link", { name: "SYSTEM" }).click();
   await expect(page).toHaveURL(/\/system$/);
   await expect(
-    page.getByRole("heading", { level: 1, name: "THE SYSTEM." }),
+    page.getByRole("heading", { level: 1, name: "THREE STEPS. ONE BASELINE." }),
   ).toBeVisible();
 
-  const productLink = page.locator(".method-step__link").first();
+  const productLink = page.locator(".method-system-card__link").first();
   const href = await productLink.getAttribute("href");
   if (!href) throw new Error("The System did not render a Product path.");
   const product = storefront.productAtPath(href);

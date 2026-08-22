@@ -13,12 +13,14 @@ import {
   CORE_ROUTINE_PRODUCT_SLUGS,
   type ProductCard,
 } from "@/lib/catalog/models";
-import { homeThreePrinciples } from "@/lib/content/home";
+import {
+  HOME_BEYOND_CORE_PRODUCT_SLUGS,
+  homeThreePrinciples,
+} from "@/lib/content/home";
 import {
   buildIngredientIndex,
   ingredientAnchorId,
   type IngredientIndexCard,
-  type MethodProductSlug,
 } from "@/lib/content/system";
 import { createPublicSiteMetadata } from "@/lib/public-site-metadata";
 
@@ -29,14 +31,7 @@ export const metadata: Metadata = createPublicSiteMetadata({
   canonical: "/",
 });
 
-const CORE_PRODUCT_SLUGS =
-  CORE_ROUTINE_PRODUCT_SLUGS satisfies readonly MethodProductSlug[];
-
-const BEYOND_CORE_PRODUCT_SLUGS = [
-  "balancing-prep",
-  "frame-04-pdrn-eye-cream",
-  "lift-06-pdrn-mask-system",
-] as const satisfies readonly MethodProductSlug[];
+const CORE_PRODUCT_SLUGS = CORE_ROUTINE_PRODUCT_SLUGS;
 
 const INGREDIENT_LINK_LABELS: Record<string, string> = {
   pdrn: "PDRN",
@@ -46,7 +41,7 @@ const INGREDIENT_LINK_LABELS: Record<string, string> = {
 
 function productsForSlugs(
   productsBySlug: ReadonlyMap<string, ProductCard>,
-  slugs: readonly MethodProductSlug[],
+  slugs: readonly string[],
 ): ProductCard[] {
   return slugs.flatMap((slug) => {
     const product = productsBySlug.get(slug);
@@ -68,7 +63,7 @@ export default async function HomePage() {
   const ingredientCards = buildIngredientIndex(ingredientProducts).slice(0, 3);
   const beyondCoreProducts = productsForSlugs(
     productsBySlug,
-    BEYOND_CORE_PRODUCT_SLUGS,
+    HOME_BEYOND_CORE_PRODUCT_SLUGS,
   );
 
   return (

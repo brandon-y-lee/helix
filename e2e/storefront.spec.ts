@@ -261,6 +261,9 @@ test("shop presents the approved Product, collection, sheet, and footer treatmen
   await expect(name).toHaveCSS("color", PRODUCT_CARD_TEXT_BLACK);
   await expect(productType).toHaveCSS("color", PRODUCT_CARD_TEXT_BLACK);
   await expect(price).toHaveCSS("color", PRODUCT_CARD_TEXT_BLACK);
+  await expect(name).toHaveCSS("font-size", "18px");
+  await expect(productType).toHaveCSS("font-size", "16px");
+  await expect(productType).toHaveCSS("white-space", "nowrap");
   const displayNameGeometry = await elementGeometry(name);
   const priceGeometry = await elementGeometry(price);
   const productTypeGeometry = await elementGeometry(productType);
@@ -382,6 +385,8 @@ test("shop presents the approved Product, collection, sheet, and footer treatmen
       return {
         centerX: rect.left + rect.width / 2,
         centerY: rect.top + rect.height / 2,
+        width: rect.width,
+        height: rect.height,
       };
     }),
     heading.evaluate((element) => {
@@ -397,6 +402,7 @@ test("shop presents the approved Product, collection, sheet, and footer treatmen
   ]);
   expect(headingGeometry.centerX).toBeCloseTo(heroGeometry.centerX, 1);
   expect(headingGeometry.centerY).toBeCloseTo(heroGeometry.centerY, 1);
+  expect(heroGeometry.width / heroGeometry.height).toBeCloseTo(2.896, 2);
   expect(headingGeometry).toMatchObject({
     color: "rgb(255, 255, 255)",
     fontSize: "24px",
@@ -404,7 +410,7 @@ test("shop presents the approved Product, collection, sheet, and footer treatmen
   });
   await expect(hero.locator("img")).toHaveAttribute(
     "src",
-    /raise-your-baseline-hero\.webp/,
+    /raise-your-baseline-hero-02\.webp/,
   );
 
   await page.getByRole("button", { name: "SEARCH" }).click();
@@ -444,6 +450,8 @@ test("shop presents the approved Product, collection, sheet, and footer treatmen
       return {
         centerX: rect.left + rect.width / 2,
         centerY: rect.top + rect.height / 2,
+        width: rect.width,
+        height: rect.height,
       };
     }),
     heading.evaluate((element) => {
@@ -462,6 +470,10 @@ test("shop presents the approved Product, collection, sheet, and footer treatmen
   expect(mobileHeadingGeometry.centerY).toBeCloseTo(
     mobileHeroGeometry.centerY,
     1,
+  );
+  expect(mobileHeroGeometry.width / mobileHeroGeometry.height).toBeCloseTo(
+    1.366,
+    2,
   );
   expect(mobileHeadingGeometry.fontSize).toBe("18px");
   await page.reload();
@@ -484,6 +496,29 @@ test("shop presents the approved Product, collection, sheet, and footer treatmen
   if (browserName !== "webkit") {
     expect(mobileWidths.mainScrollWidth).toBe(390);
   }
+  await expect(page.locator(".product-card__display-name").first()).toHaveCSS(
+    "font-size",
+    "14.4px",
+  );
+  const mobileProductTypeLayout = await page
+    .locator(".product-card__type")
+    .evaluateAll((elements) =>
+      elements.map((element) => ({
+        fontSize: getComputedStyle(element).fontSize,
+        whiteSpace: getComputedStyle(element).whiteSpace,
+        clientWidth: element.clientWidth,
+        scrollWidth: element.scrollWidth,
+      })),
+    );
+  expect(mobileProductTypeLayout.length).toBeGreaterThan(0);
+  expect(
+    mobileProductTypeLayout.every(
+      (item) =>
+        item.fontSize === "13.2px" &&
+        item.whiteSpace === "nowrap" &&
+        item.scrollWidth <= item.clientWidth,
+    ),
+  ).toBe(true);
 });
 
 test("PDP resolves canonical data and exposes an available variant", async ({

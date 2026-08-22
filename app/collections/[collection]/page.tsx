@@ -61,7 +61,7 @@ export default async function CollectionPage({
       >
         <div className="shop-hero__surface">
           <Image
-            src="/media/collections/raise-your-baseline-hero.webp"
+            src="/media/collections/raise-your-baseline-hero-02.webp"
             alt=""
             fill
             priority
