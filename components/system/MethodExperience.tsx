@@ -15,7 +15,7 @@ import {
   type IngredientIndexCard,
   type SystemProductGroups,
 } from "@/lib/content/system";
-import type { Product } from "@/lib/products";
+import { firstPurchasableVariant, type Product } from "@/lib/products";
 
 const SYSTEM_NAV_ITEMS: MethodRoutineNavItem[] = [
   { id: "system-overview", label: "Start", meta: "Overview" },
@@ -36,10 +36,10 @@ function LegacyAnchors({ ids }: { ids?: readonly string[] }) {
 }
 
 function availabilityLabel(product: Product) {
-  if (product.status === "available") return "Available";
+  if (firstPurchasableVariant(product)) return "Available";
   if (product.status === "coming_soon") return "Coming soon";
-  if (product.status === "sold_out") return "Sold out";
-  return "Waitlist";
+  if (product.status === "waitlist") return "Waitlist";
+  return "Sold out";
 }
 
 function primaryVariantMeta(product: Product) {
@@ -106,28 +106,41 @@ function CoreProductFeature({ entry }: { entry: CoreSystemProductEntry }) {
   );
 }
 
-function MissingCoreFeature({
+function MissingSystemCard({
   stepName,
+  presentation,
   displayNumber,
 }: {
-  stepName: (typeof CORE_SYSTEM_STEP_NAMES)[number];
-  displayNumber: string;
+  stepName:
+    | (typeof CORE_SYSTEM_STEP_NAMES)[number]
+    | (typeof BEYOND_SYSTEM_STEP_NAMES)[number];
+  presentation: "core" | "beyond";
+  displayNumber?: string;
 }) {
   const anchorId = SYSTEM_STEP_ANCHORS[stepName];
+  const groupLabel = presentation === "core" ? "Core" : "Beyond";
   return (
     <article
       id={anchorId}
-      className="method-core-card method-system-card--missing"
+      className={`${presentation === "core" ? "method-core-card" : "method-beyond-card"} method-system-card--missing`}
       aria-labelledby={`${anchorId}-heading`}
     >
       <LegacyAnchors ids={SYSTEM_STEP_LEGACY_ANCHORS[stepName]} />
-      <span className="method-core-card__number" aria-hidden="true">
-        {displayNumber}
-      </span>
-      <div className="method-core-card__body">
+      {displayNumber && (
+        <span className="method-core-card__number" aria-hidden="true">
+          {displayNumber}
+        </span>
+      )}
+      <div
+        className={
+          presentation === "core"
+            ? "method-core-card__body"
+            : "method-beyond-card__body"
+        }
+      >
         <p className="eyebrow">{stepName}</p>
         <h3 id={`${anchorId}-heading`}>{stepName} currently unavailable</h3>
-        <p>The active catalog does not currently contain this Core entry.</p>
+        <p>No collection-facing {groupLabel} entry is available for this step.</p>
       </div>
     </article>
   );
@@ -167,28 +180,6 @@ function BeyondProductCard({ entry }: { entry: BeyondSystemProductEntry }) {
         >
           View product
         </Link>
-      </div>
-    </article>
-  );
-}
-
-function MissingBeyondCard({
-  stepName,
-}: {
-  stepName: (typeof BEYOND_SYSTEM_STEP_NAMES)[number];
-}) {
-  const anchorId = SYSTEM_STEP_ANCHORS[stepName];
-  return (
-    <article
-      id={anchorId}
-      className="method-beyond-card method-system-card--missing"
-      aria-labelledby={`${anchorId}-heading`}
-    >
-      <LegacyAnchors ids={SYSTEM_STEP_LEGACY_ANCHORS[stepName]} />
-      <div className="method-beyond-card__body">
-        <p className="eyebrow">{stepName}</p>
-        <h3 id={`${anchorId}-heading`}>{stepName} currently unavailable</h3>
-        <p>The active catalog does not currently contain this Beyond entry.</p>
       </div>
     </article>
   );
@@ -307,9 +298,10 @@ export function MethodExperience({
               return entry ? (
                 <CoreProductFeature key={stepName} entry={entry} />
               ) : (
-                <MissingCoreFeature
+                <MissingSystemCard
                   key={stepName}
                   stepName={stepName}
+                  presentation="core"
                   displayNumber={String(index + 1).padStart(2, "0")}
                 />
               );
@@ -345,7 +337,11 @@ export function MethodExperience({
               return entry ? (
                 <BeyondProductCard key={stepName} entry={entry} />
               ) : (
-                <MissingBeyondCard key={stepName} stepName={stepName} />
+                <MissingSystemCard
+                  key={stepName}
+                  stepName={stepName}
+                  presentation="beyond"
+                />
               );
             })}
           </div>

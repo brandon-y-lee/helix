@@ -4,18 +4,11 @@ import { useState } from "react";
 import { HomePhasedDescription } from "@/components/home/HomePhasedDescription";
 import { ProductCarousel } from "@/components/product/ProductCarousel";
 import {
+  HOME_BEYOND_DESCRIPTION_KEY_BY_SLUG,
   homeBeyondCoreDescriptions,
   type HomeBeyondCoreDescriptionKey,
 } from "@/lib/content/home";
 import type { ProductCard } from "@/lib/catalog/models";
-
-const BEYOND_DESCRIPTION_KEY_BY_SLUG: Readonly<
-  Record<string, HomeBeyondCoreDescriptionKey | undefined>
-> = {
-  "balancing-prep": "refine",
-  "peptide-eye-cream": "frame",
-  "peptide-nourish-mask": "lift",
-};
 
 export function HomeBeyondCoreShowcase({
   products = [],
@@ -51,7 +44,7 @@ export function HomeBeyondCoreShowcase({
           products={products}
           ariaLabel="Beyond The Core products"
           announcementContext="Beyond The Core"
-          previewKeyBySlug={BEYOND_DESCRIPTION_KEY_BY_SLUG}
+          previewKeyBySlug={HOME_BEYOND_DESCRIPTION_KEY_BY_SLUG}
           onPreviewChange={(key) =>
             setActiveDescriptionKey(
               key as HomeBeyondCoreDescriptionKey | null,

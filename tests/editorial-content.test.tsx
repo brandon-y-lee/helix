@@ -4,13 +4,13 @@ import { FORMER_BRAND_PATTERN } from "@/tests/helpers/former-identifiers";
 
 vi.mock("@/lib/catalog-cache", () => ({
   getCachedProducts: vi.fn(),
-  getCachedProductCards: vi.fn(),
+  getCachedProductCardEntryIds: vi.fn(),
 }));
 
 import AboutPage from "@/app/about/page";
 import SystemPage from "@/app/system/page";
 import {
-  getCachedProductCards,
+  getCachedProductCardEntryIds,
   getCachedProducts,
 } from "@/lib/catalog-cache";
 import { buildIngredientIndex } from "@/lib/content/system";
@@ -18,7 +18,7 @@ import type { SystemStepName } from "@/lib/catalog/system-steps";
 import type { Product } from "@/lib/products";
 
 const mockedGetProducts = getCachedProducts as unknown as Mock;
-const mockedGetProductCards = getCachedProductCards as unknown as Mock;
+const mockedGetProductCards = getCachedProductCardEntryIds as unknown as Mock;
 
 const productDetails: Record<
   string,
@@ -227,7 +227,34 @@ describe("System content architecture", () => {
     expect(
       screen.getByRole("heading", { name: "LIFT currently unavailable" }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByText("No collection-facing Beyond entry is available for this step."),
+    ).toBeInTheDocument();
     expect(document.getElementById("step-lift")).toBeInTheDocument();
+  });
+
+  it("does not label an unavailable Offer as available", async () => {
+    const products = systemFixtures.map((product) =>
+      product.slug === "biotic-reset"
+        ? makeProduct("biotic-reset", {
+            variants: product.variants.map((variant) => ({
+              ...variant,
+              available: false,
+              inventoryStatus: "out_of_stock",
+            })),
+          })
+        : product,
+    );
+    mockedGetProducts.mockResolvedValue(products);
+    mockedGetProductCards.mockResolvedValue(
+      products.map((product) => ({ id: product.id })),
+    );
+
+    render(await SystemPage());
+
+    const cleanse = document.getElementById("system-cleanse") as HTMLElement;
+    expect(within(cleanse).getByText("Sold out")).toBeInTheDocument();
+    expect(within(cleanse).queryByText("Available")).not.toBeInTheDocument();
   });
 
   it("keeps ingredient science fields and claim-safety boundaries catalog-derived", () => {

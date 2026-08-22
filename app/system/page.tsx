@@ -7,7 +7,7 @@ import {
   groupSystemProducts,
 } from "@/lib/content/system";
 import {
-  getCachedProductCards,
+  getCachedProductCardEntryIds,
   getCachedProducts,
 } from "@/lib/catalog-cache";
 import { createPublicSiteMetadata } from "@/lib/public-site-metadata";
@@ -22,7 +22,7 @@ export const metadata: Metadata = createPublicSiteMetadata({
 export default async function SystemPage() {
   const [products, collectionEntries] = await Promise.all([
     getCachedProducts(),
-    getCachedProductCards(),
+    getCachedProductCardEntryIds(),
   ]);
   const groups = groupSystemProducts(products, collectionEntries);
   const ingredientCards = buildIngredientIndex(

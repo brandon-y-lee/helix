@@ -13,7 +13,10 @@ import {
   CORE_ROUTINE_PRODUCT_SLUGS,
   type ProductCard,
 } from "@/lib/catalog/models";
-import { homeThreePrinciples } from "@/lib/content/home";
+import {
+  HOME_BEYOND_CORE_PRODUCT_SLUGS,
+  homeThreePrinciples,
+} from "@/lib/content/home";
 import {
   buildIngredientIndex,
   ingredientAnchorId,
@@ -29,12 +32,6 @@ export const metadata: Metadata = createPublicSiteMetadata({
 });
 
 const CORE_PRODUCT_SLUGS = CORE_ROUTINE_PRODUCT_SLUGS;
-
-const BEYOND_CORE_PRODUCT_SLUGS = [
-  "balancing-prep",
-  "peptide-eye-cream",
-  "peptide-nourish-mask",
-] as const;
 
 const INGREDIENT_LINK_LABELS: Record<string, string> = {
   pdrn: "PDRN",
@@ -66,7 +63,7 @@ export default async function HomePage() {
   const ingredientCards = buildIngredientIndex(ingredientProducts).slice(0, 3);
   const beyondCoreProducts = productsForSlugs(
     productsBySlug,
-    BEYOND_CORE_PRODUCT_SLUGS,
+    HOME_BEYOND_CORE_PRODUCT_SLUGS,
   );
 
   return (

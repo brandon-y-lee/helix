@@ -67,6 +67,7 @@ import {
   getCachedCoreRoutineSummaries,
   getCachedDiscoveryProductCards,
   getCachedPdpProduct,
+  getCachedProductCardEntryIds,
   getCachedProductCards,
   getCachedProducts,
   getCachedProductSlugResolution,
@@ -186,12 +187,14 @@ describe("catalog cache domains", () => {
   });
 
   it("uses narrow card and Core readers while sharing the volatile offer cache", async () => {
-    const [cards, discovery, summaries] = await Promise.all([
+    const [entryIds, cards, discovery, summaries] = await Promise.all([
+      getCachedProductCardEntryIds(),
       getCachedProductCards(),
       getCachedDiscoveryProductCards(slug),
       getCachedCoreRoutineSummaries(),
     ]);
 
+    expect(entryIds).toEqual([{ id: "product-id" }]);
     expect(cards[0]).toMatchObject({ slug, variants: [{ price: 2500 }] });
     expect(discovery[0]).toMatchObject({ slug, status: "available" });
     expect(summaries[0]).toMatchObject({

@@ -907,26 +907,27 @@ describe("Codex workflow task helper", () => {
     }
   });
 
-  it("prepares a traceable ticket branch without changing dev", () => {
+  it("prepares a standalone ticket branch without inventing a parent spec", () => {
     const { root, tempRoot } = initialiseRepository();
     try {
       const devBefore = git(root, "rev-parse", "dev").stdout.trim();
       const started = startTask(root, tempRoot, "123-checkout-state");
       expectSuccess(started.result);
-      commitTicket(started.worktree!, 123, 45);
+      commitTicket(started.worktree!, 123);
 
       const prepared = run(taskHelper, ["prepare", started.worktree!], root);
       expectSuccess(prepared);
       expect(prepared.stdout).toContain("Ready for code-review against dev");
       expect(prepared.stdout).toContain("Refs #123");
-      expect(prepared.stdout).toContain("Spec #45");
+      expect(prepared.stdout).toContain("Standalone Ticket");
+      expect(prepared.stdout).toContain("no parent spec");
       expect(git(root, "rev-parse", "dev").stdout.trim()).toBe(devBefore);
     } finally {
       cleanupFixture(tempRoot);
     }
   });
 
-  it("refuses to prepare ticket commits without ticket and spec references", () => {
+  it("refuses to prepare ticket commits without a ticket reference", () => {
     const { root, tempRoot } = initialiseRepository();
     try {
       const started = startTask(root, tempRoot, "123-checkout-state");

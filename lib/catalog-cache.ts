@@ -340,6 +340,12 @@ const readCachedProductCardContents = unstable_cache(
   },
 );
 
+export async function getCachedProductCardEntryIds(): Promise<
+  Array<Pick<ProductCard, "id">>
+> {
+  return (await readCachedProductCardContents()).map(({ id }) => ({ id }));
+}
+
 export async function getCachedProductCards(): Promise<ProductCard[]> {
   const [contents, offers] = await Promise.all([
     readCachedProductCardContents(),

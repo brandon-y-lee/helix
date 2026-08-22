@@ -50,14 +50,14 @@ The command fails on dirty state, missing or uncertain GitHub facts, a missing t
 
 ## Prepare for review and PR
 
-Commit the implementation before `code-review`. Ticket Review compares committed Ticket work against the immutable Ticket Snapshot. Ticket commits include both footers:
+Commit the implementation before `code-review`. Ticket Review compares committed Ticket work against the immutable Ticket Snapshot. Spec Ticket commits include both footers:
 
 ```text
 Refs #<ticket-number>
 Spec #<parent-spec-number>
 ```
 
-An urgent branch uses only `Refs #<ticket-number>` because its abbreviated ticket intentionally has no parent spec.
+Urgent and standalone branches use only `Refs #<ticket-number>` because they intentionally have no parent Spec.
 
 From the shared checkout, pass the temporary task path printed by `start`; an app-managed Worktree omits it:
 
