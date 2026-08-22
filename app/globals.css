@@ -8523,7 +8523,6 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
     padding-inline: 0;
   }
 
-  .method-hero h1,
   .about-hero h1 {
     max-width: 100%;
     font-size: clamp(3.2rem, 15vw, 4.4rem);
