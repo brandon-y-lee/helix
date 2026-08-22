@@ -166,6 +166,76 @@ beforeEach(() => {
 });
 
 describe("catalog cache domains", () => {
+  it("changes every Product Media cache identity with the canonical bucket", async () => {
+    vi.mocked(getProducts).mockResolvedValue([
+      {
+        id: "product-id",
+        slug,
+        media: [],
+        variants: [],
+        currency: "USD",
+        status: "available",
+        catalogStatus: "active",
+        badge: null,
+        featuredRank: null,
+        sortOrder: 1,
+      } as unknown as Product,
+    ]);
+
+    await Promise.all([
+      getCachedProducts(),
+      getCachedProductCards(),
+      getCachedPdpProduct(slug),
+      getCachedDiscoveryProductCards(slug),
+      getCachedCoreRoutineSummaries(),
+      getCachedProductSlugResolution(slug),
+    ]);
+
+    const mediaCacheNamespace = "catalog-media:helix-catalog";
+    expect(registration("catalog-products-content-v3").keyParts).toEqual([
+      "catalog-products-content-v3",
+      mediaCacheNamespace,
+    ]);
+    expect(registration("catalog-products-card-v3").keyParts).toEqual([
+      "catalog-products-card-v3",
+      mediaCacheNamespace,
+    ]);
+    expect(registration("catalog-product-cards-v3").keyParts).toEqual([
+      "catalog-product-cards-v3",
+      mediaCacheNamespace,
+    ]);
+    expect(registration("catalog-pdp-content-v4").keyParts).toEqual([
+      "catalog-pdp-content-v4",
+      mediaCacheNamespace,
+      slug,
+    ]);
+    expect(registration("catalog-discovery-cards-v5").keyParts).toEqual([
+      "catalog-discovery-cards-v5",
+      mediaCacheNamespace,
+      slug,
+      "3",
+    ]);
+    expect(registration("catalog-core-routine-content-v5").keyParts).toEqual([
+      "catalog-core-routine-content-v5",
+      mediaCacheNamespace,
+    ]);
+
+    expect(registration("catalog-products-offer-v2").keyParts).toEqual([
+      "catalog-products-offer-v2",
+    ]);
+    expect(registration("catalog-purpose-offers-v1").keyParts).toEqual([
+      "catalog-purpose-offers-v1",
+    ]);
+    expect(registration("catalog-pdp-offer-v2").keyParts).toEqual([
+      "catalog-pdp-offer-v2",
+      slug,
+    ]);
+    expect(registration("catalog-product-slug-route-v1").keyParts).toEqual([
+      "catalog-product-slug-route-v1",
+      slug,
+    ]);
+  });
+
   it("composes a PDP only after independently caching stable content and offers", async () => {
     const product = await getCachedPdpProduct(slug);
 
