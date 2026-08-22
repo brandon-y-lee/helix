@@ -10,7 +10,10 @@ test("primary navigation reaches System, a live PDP, and About", async ({
   await primary.getByRole("link", { name: "SYSTEM" }).click();
   await expect(page).toHaveURL(/\/system$/);
   await expect(
-    page.getByRole("heading", { level: 1, name: "THREE STEPS. ONE BASELINE." }),
+    page.getByRole("heading", {
+      level: 1,
+      name: "a new philosophy on male skincare",
+    }),
   ).toBeVisible();
 
   const productLink = page.locator(".method-system-card__link").first();
@@ -34,6 +37,46 @@ test("primary navigation reaches System, a live PDP, and About", async ({
       name: "TWO CITIES. ONE STANDARD.",
     }),
   ).toBeVisible();
+});
+
+test("System hero uses the campaign image and responsive focal points", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/system");
+
+  const hero = page.locator(".method-hero");
+  const image = hero.locator("img");
+  const heading = hero.getByRole("heading", {
+    level: 1,
+    name: "a new philosophy on male skincare",
+  });
+
+  await expect(image).toHaveAttribute(
+    "src",
+    /a-new-philosophy-hero-01\.webp/,
+  );
+  await expect(image).toHaveAttribute("alt", "");
+  await expect(image).toHaveCSS("object-position", "50% 15%");
+  await expect(heading).toHaveCSS("color", "rgb(255, 255, 255)");
+  await expect(heading).toHaveCSS("font-size", "24px");
+  await expect(heading).toHaveCSS("text-align", "center");
+  await expect(hero.locator(".eyebrow")).toHaveCount(0);
+  await expect(hero.locator("p")).toHaveCount(0);
+  await expect(hero.getByRole("link")).toHaveCount(1);
+  const coreLink = hero.getByRole("link", { name: "shop the core" });
+  await expect(coreLink).toHaveAttribute("href", "/collections/core");
+  await expect(coreLink).toHaveCSS("text-transform", "none");
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(image).toHaveCSS("object-position", "60% 50%");
+  await expect(heading).toHaveCSS("font-size", "18px");
+  const widths = await page.evaluate(() => ({
+    clientWidth: document.documentElement.clientWidth,
+    mainScrollWidth: document.querySelector("#content")?.scrollWidth ?? 0,
+  }));
+  expect(widths.clientWidth).toBeLessThanOrEqual(390);
+  expect(widths.mainScrollWidth).toBe(widths.clientWidth);
 });
 
 test("skip link transfers keyboard focus to main content", async ({
