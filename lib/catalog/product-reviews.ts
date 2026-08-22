@@ -46,12 +46,12 @@ const meters = {
     lowLabel: "Still unsettled",
     highLabel: "Fresh and balanced",
   },
-  "frame-04-pdrn-eye-cream": {
+  "peptide-eye-cream": {
     question: "How awake did the eye area look?",
     lowLabel: "Still tired",
     highLabel: "More awake",
   },
-  "lift-06-pdrn-mask-system": {
+  "peptide-nourish-mask": {
     question: "How refreshed did your skin feel?",
     lowLabel: "No refresh",
     highLabel: "Fully refreshed",
@@ -211,8 +211,8 @@ const productReviewFixturesBySlug = {
       },
     ],
   },
-  "frame-04-pdrn-eye-cream": {
-    meter: meters["frame-04-pdrn-eye-cream"],
+  "peptide-eye-cream": {
+    meter: meters["peptide-eye-cream"],
     reviews: [
       {
         id: "frame-owen",
@@ -246,8 +246,8 @@ const productReviewFixturesBySlug = {
       },
     ],
   },
-  "lift-06-pdrn-mask-system": {
-    meter: meters["lift-06-pdrn-mask-system"],
+  "peptide-nourish-mask": {
+    meter: meters["peptide-nourish-mask"],
     reviews: [
       {
         id: "lift-luca",

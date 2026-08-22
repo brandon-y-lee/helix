@@ -14,8 +14,8 @@ const CORE_DESCRIPTION_BY_SLUG = {
 
 const BEYOND_DESCRIPTION_BY_SLUG = {
   "balancing-prep": homeBeyondCoreDescriptions.items.refine,
-  "frame-04-pdrn-eye-cream": homeBeyondCoreDescriptions.items.frame,
-  "lift-06-pdrn-mask-system": homeBeyondCoreDescriptions.items.lift,
+  "peptide-eye-cream": homeBeyondCoreDescriptions.items.frame,
+  "peptide-nourish-mask": homeBeyondCoreDescriptions.items.lift,
 } as const;
 
 function descriptionForSlug(

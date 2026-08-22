@@ -491,12 +491,14 @@ prepare_task() {
       fail "ticket commits must include a 'Refs #$ticket_number' footer"
     if [ "$task_kind" = urgent ]; then
       printf 'Urgent fast path: Refs #%s; no parent spec\n' "$ticket_number"
-    else
+    elif [ "$snapshot_target" -eq 1 ]; then
       spec_number=$(printf '%s\n' "$commit_messages" |
         sed -n 's/^Spec #\([0-9][0-9]*\)[[:space:]]*$/\1/p' |
         tail -n 1)
       [ -n "$spec_number" ] || fail "ticket commits must include a 'Spec #<number>' footer"
       printf 'Traceability: Refs #%s; Spec #%s\n' "$ticket_number" "$spec_number"
+    else
+      printf 'Standalone Ticket: Refs #%s; no parent spec\n' "$ticket_number"
     fi
   fi
 

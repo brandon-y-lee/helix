@@ -22,6 +22,23 @@ export const homeCoreDescriptions = {
 
 export type HomeBeyondCoreDescriptionKey = "refine" | "frame" | "protect" | "lift";
 
+export const HOME_BEYOND_CORE_PRODUCT_SLUGS = [
+  "balancing-prep",
+  "peptide-eye-cream",
+  "peptide-nourish-mask",
+] as const;
+
+export type HomeBeyondCoreProductSlug =
+  (typeof HOME_BEYOND_CORE_PRODUCT_SLUGS)[number];
+
+export const HOME_BEYOND_DESCRIPTION_KEY_BY_SLUG: Readonly<
+  Record<HomeBeyondCoreProductSlug, HomeBeyondCoreDescriptionKey>
+> = {
+  "balancing-prep": "refine",
+  "peptide-eye-cream": "frame",
+  "peptide-nourish-mask": "lift",
+};
+
 export const homeBeyondCoreDescriptions = {
   default: "For when your skin has a high baseline. Add what you need.",
   items: {
