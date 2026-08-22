@@ -1,4 +1,15 @@
+import type { Page } from "@playwright/test";
 import { expect, test } from "./storefront-fixture";
+
+async function expectNoMainOverflow(page: Page, viewportWidth: number) {
+  const widths = await page.evaluate(() => ({
+    clientWidth: document.documentElement.clientWidth,
+    mainScrollWidth: document.querySelector("#content")?.scrollWidth ?? 0,
+  }));
+
+  expect(widths.clientWidth).toBeLessThanOrEqual(viewportWidth);
+  expect(widths.mainScrollWidth).toBe(widths.clientWidth);
+}
 
 test("primary navigation reaches System, a live PDP, and About", async ({
   page,
@@ -71,22 +82,12 @@ test("System hero uses the campaign image and responsive focal points", async ({
   await page.setViewportSize({ width: 1024, height: 900 });
   await expect(image).toHaveCSS("object-position", "50% 15%");
   await expect(heading).toHaveCSS("font-size", "18px");
-  const tabletWidths = await page.evaluate(() => ({
-    clientWidth: document.documentElement.clientWidth,
-    mainScrollWidth: document.querySelector("#content")?.scrollWidth ?? 0,
-  }));
-  expect(tabletWidths.clientWidth).toBeLessThanOrEqual(1024);
-  expect(tabletWidths.mainScrollWidth).toBe(tabletWidths.clientWidth);
+  await expectNoMainOverflow(page, 1024);
 
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(image).toHaveCSS("object-position", "60% 50%");
   await expect(heading).toHaveCSS("font-size", "18px");
-  const widths = await page.evaluate(() => ({
-    clientWidth: document.documentElement.clientWidth,
-    mainScrollWidth: document.querySelector("#content")?.scrollWidth ?? 0,
-  }));
-  expect(widths.clientWidth).toBeLessThanOrEqual(390);
-  expect(widths.mainScrollWidth).toBe(widths.clientWidth);
+  await expectNoMainOverflow(page, 390);
 });
 
 test("skip link transfers keyboard focus to main content", async ({
