@@ -4,9 +4,12 @@ import { EditorialHueField } from "@/components/content/EditorialHueField";
 import { MethodExperience } from "@/components/system/MethodExperience";
 import {
   buildIngredientIndex,
-  getMethodProductState,
+  groupSystemProducts,
 } from "@/lib/content/system";
-import { getCachedProducts } from "@/lib/catalog-cache";
+import {
+  getCachedProductCards,
+  getCachedProducts,
+} from "@/lib/catalog-cache";
 import { createPublicSiteMetadata } from "@/lib/public-site-metadata";
 
 export const metadata: Metadata = createPublicSiteMetadata({
@@ -17,9 +20,14 @@ export const metadata: Metadata = createPublicSiteMetadata({
 });
 
 export default async function SystemPage() {
-  const products = await getCachedProducts();
-  const { methodProducts, missingSlugs } = getMethodProductState(products);
-  const ingredientCards = buildIngredientIndex(methodProducts);
+  const [products, collectionEntries] = await Promise.all([
+    getCachedProducts(),
+    getCachedProductCards(),
+  ]);
+  const groups = groupSystemProducts(products, collectionEntries);
+  const ingredientCards = buildIngredientIndex(
+    [...groups.core, ...groups.beyond].map((entry) => entry.product),
+  );
 
   return (
     <div className="method-page">
@@ -36,33 +44,23 @@ export default async function SystemPage() {
         />
         <div className="method-hero__copy">
           <p className="eyebrow">The System</p>
-          <h1 id="system-heading">THE SYSTEM.</h1>
-          <p>A system for clearer, healthier, beautiful skin</p>
+          <h1 id="system-heading">THREE STEPS. ONE BASELINE.</h1>
+          <p>
+            Cleanse. Treat. Seal. Start with the Core, then add targeted steps
+            only where they earn a place.
+          </p>
           <div className="hero__actions">
-            <Link href="/collections/shop" className="btn btn--editorial-rounded">
-              Start the system
+            <Link href="/collections/core" className="btn btn--editorial-rounded">
+              Shop the Core
             </Link>
-            <Link href="#system-routine" className="btn btn--ghost btn--editorial-rounded">
-              View the routine
+            <Link href="#system-core" className="btn btn--ghost btn--editorial-rounded">
+              See the three steps
             </Link>
           </div>
         </div>
       </section>
 
-      {missingSlugs.length > 0 && (
-        <section className="container method-missing" aria-labelledby="system-missing-heading">
-          <h2 id="system-missing-heading">System catalog incomplete</h2>
-          <p>
-            The System needs live catalog records for every approved step. Missing:
-            {" "}
-            {missingSlugs.join(", ")}.
-          </p>
-        </section>
-      )}
-
-      {methodProducts.length > 0 && (
-        <MethodExperience methodProducts={methodProducts} ingredientCards={ingredientCards} />
-      )}
+      <MethodExperience groups={groups} ingredientCards={ingredientCards} />
     </div>
   );
 }

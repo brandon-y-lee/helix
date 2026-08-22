@@ -18,7 +18,6 @@ import {
   buildIngredientIndex,
   ingredientAnchorId,
   type IngredientIndexCard,
-  type MethodProductSlug,
 } from "@/lib/content/system";
 import { createPublicSiteMetadata } from "@/lib/public-site-metadata";
 
@@ -29,14 +28,13 @@ export const metadata: Metadata = createPublicSiteMetadata({
   canonical: "/",
 });
 
-const CORE_PRODUCT_SLUGS =
-  CORE_ROUTINE_PRODUCT_SLUGS satisfies readonly MethodProductSlug[];
+const CORE_PRODUCT_SLUGS = CORE_ROUTINE_PRODUCT_SLUGS;
 
 const BEYOND_CORE_PRODUCT_SLUGS = [
   "balancing-prep",
-  "frame-04-pdrn-eye-cream",
-  "lift-06-pdrn-mask-system",
-] as const satisfies readonly MethodProductSlug[];
+  "peptide-eye-cream",
+  "peptide-nourish-mask",
+] as const;
 
 const INGREDIENT_LINK_LABELS: Record<string, string> = {
   pdrn: "PDRN",
@@ -46,7 +44,7 @@ const INGREDIENT_LINK_LABELS: Record<string, string> = {
 
 function productsForSlugs(
   productsBySlug: ReadonlyMap<string, ProductCard>,
-  slugs: readonly MethodProductSlug[],
+  slugs: readonly string[],
 ): ProductCard[] {
   return slugs.flatMap((slug) => {
     const product = productsBySlug.get(slug);

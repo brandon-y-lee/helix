@@ -1,19 +1,22 @@
 import { expect, test } from "./storefront-fixture";
 
-test("System routine selector and anchored navigation are keyboard operable", async ({
+test("System section navigation and legacy anchors are keyboard operable", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/system");
-  const slider = page.getByLabel("Routine length");
 
-  await slider.focus();
-  await page.keyboard.press("Home");
-  await expect(slider).toHaveValue("3");
-  await page.keyboard.press("End");
-  await expect(slider).toHaveValue("7");
+  const navigation = page.getByRole("navigation", {
+    name: "System step navigation",
+  });
+  const coreLink = navigation.getByRole("link", { name: /Core/ });
+  await coreLink.focus();
+  await expect(coreLink).toBeFocused();
+  await expect(coreLink).toHaveCSS("outline-style", "solid");
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/\/system#system-core$/);
+  await expect(page.locator("#system-core")).toBeInViewport();
 
-  await page.locator('.method-index__link[href="#system-treat"]').click();
-  await expect(page).toHaveURL(/\/system#system-treat$/);
+  await page.goto("/system#system-treat");
   await expect(page.locator("#system-treat")).toBeInViewport();
 });

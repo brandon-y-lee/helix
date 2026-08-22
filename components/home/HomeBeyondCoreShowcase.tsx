@@ -13,8 +13,8 @@ const BEYOND_DESCRIPTION_KEY_BY_SLUG: Readonly<
   Record<string, HomeBeyondCoreDescriptionKey | undefined>
 > = {
   "balancing-prep": "refine",
-  "frame-04-pdrn-eye-cream": "frame",
-  "lift-06-pdrn-mask-system": "lift",
+  "peptide-eye-cream": "frame",
+  "peptide-nourish-mask": "lift",
 };
 
 export function HomeBeyondCoreShowcase({

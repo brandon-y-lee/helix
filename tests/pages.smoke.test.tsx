@@ -57,7 +57,7 @@ describe("public route states", () => {
     expect(heroHeading).toBeInTheDocument();
     expect(
       heroHeading.parentElement?.querySelector("img")?.getAttribute("src"),
-    ).toContain("raise-your-baseline-hero.webp");
+    ).toContain("raise-your-baseline-hero-02.webp");
     expect(
       screen.getByRole("navigation", { name: "Shop collections" }),
     ).toBeInTheDocument();
