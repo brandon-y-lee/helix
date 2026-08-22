@@ -24,6 +24,19 @@ const SYSTEM_NAV_ITEMS: MethodRoutineNavItem[] = [
   { id: "system-ingredients", label: "Ingredients", meta: "Literacy" },
 ];
 
+const MISSING_SYSTEM_CARD_PRESENTATION = {
+  core: {
+    groupLabel: "Core",
+    cardClassName: "method-core-card",
+    bodyClassName: "method-core-card__body",
+  },
+  beyond: {
+    groupLabel: "Beyond",
+    cardClassName: "method-beyond-card",
+    bodyClassName: "method-beyond-card__body",
+  },
+} as const;
+
 function LegacyAnchors({ ids }: { ids?: readonly string[] }) {
   if (!ids?.length) return null;
   return (
@@ -118,11 +131,11 @@ function MissingSystemCard({
   displayNumber?: string;
 }) {
   const anchorId = SYSTEM_STEP_ANCHORS[stepName];
-  const groupLabel = presentation === "core" ? "Core" : "Beyond";
+  const presentationDetails = MISSING_SYSTEM_CARD_PRESENTATION[presentation];
   return (
     <article
       id={anchorId}
-      className={`${presentation === "core" ? "method-core-card" : "method-beyond-card"} method-system-card--missing`}
+      className={`${presentationDetails.cardClassName} method-system-card--missing`}
       aria-labelledby={`${anchorId}-heading`}
     >
       <LegacyAnchors ids={SYSTEM_STEP_LEGACY_ANCHORS[stepName]} />
@@ -131,16 +144,13 @@ function MissingSystemCard({
           {displayNumber}
         </span>
       )}
-      <div
-        className={
-          presentation === "core"
-            ? "method-core-card__body"
-            : "method-beyond-card__body"
-        }
-      >
+      <div className={presentationDetails.bodyClassName}>
         <p className="eyebrow">{stepName}</p>
         <h3 id={`${anchorId}-heading`}>{stepName} currently unavailable</h3>
-        <p>No collection-facing {groupLabel} entry is available for this step.</p>
+        <p>
+          No collection-facing {presentationDetails.groupLabel} entry is available for
+          this step.
+        </p>
       </div>
     </article>
   );
