@@ -970,13 +970,18 @@ body[data-sheet-scroll-lock] .site-header {
   background: var(--surface-muted);
 }
 
-.shop-hero__image {
+.shop-hero__image,
+.method-hero__image {
   z-index: 0;
   object-fit: cover;
-  object-position: center;
 }
 
-.shop-hero__surface h1 {
+.shop-hero__image {
+  object-position: 50% 0%;
+}
+
+.shop-hero__surface h1,
+.method-hero h1 {
   position: relative;
   z-index: 1;
   max-width: min(86%, 22ch);
@@ -6836,6 +6841,10 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 
 .method-hero {
   min-height: clamp(380px, 50svh, 520px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-muted);
 }
 
 .about-hero {
@@ -6855,13 +6864,35 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 }
 
 .method-hero__copy {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: none;
   padding-block: clamp(32px, 4vw, 56px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.method-hero__image {
+  object-position: 50% 15%;
 }
 
 .method-hero h1 {
-  max-width: 12ch;
-  font-size: clamp(3.3rem, 7vw, 6.6rem);
-  line-height: 0.9;
+  text-shadow:
+    0 1px 2px rgb(0 0 0 / 70%),
+    0 1px 18px rgb(0 0 0 / 45%);
+}
+
+.method-hero__actions {
+  justify-content: center;
+  margin-top: 24px;
+}
+
+.method-hero__actions .btn {
+  letter-spacing: 0.02em;
+  text-transform: none;
 }
 
 .about-hero h1 {
@@ -8492,7 +8523,6 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
     padding-inline: 0;
   }
 
-  .method-hero h1,
   .about-hero h1 {
     max-width: 100%;
     font-size: clamp(3.2rem, 15vw, 4.4rem);
@@ -10543,13 +10573,16 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
     aspect-ratio: 1.366 / 1;
   }
 
+  .shop-hero__image {
+    object-position: 50% 50%;
+  }
+
   .method-hero {
     min-height: 360px;
   }
 
-  .method-hero h1 {
-    max-width: 12ch;
-    font-size: clamp(3rem, 14vw, 4.6rem);
+  .method-hero__image {
+    object-position: 60% 50%;
   }
 
   .method-section-head {

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
-import { EditorialHueField } from "@/components/content/EditorialHueField";
 import { MethodExperience } from "@/components/system/MethodExperience";
 import {
   buildIngredientIndex,
@@ -37,24 +37,19 @@ export default async function SystemPage() {
         aria-labelledby="system-heading"
       >
         <span id="method-overview" className="method-anchor-alias" aria-hidden="true" />
-        <EditorialHueField
-          className="method-hero__field"
-          tone="method"
-          decorated={false}
+        <Image
+          src="/media/system/a-new-philosophy-hero-01.webp"
+          alt=""
+          fill
+          priority
+          sizes="(max-width: 720px) calc(100vw - 36px), calc(100vw - 48px)"
+          className="method-hero__image"
         />
         <div className="method-hero__copy">
-          <p className="eyebrow">The System</p>
-          <h1 id="system-heading">THREE STEPS. ONE BASELINE.</h1>
-          <p>
-            Cleanse. Treat. Seal. Start with the Core, then add targeted steps
-            only where they earn a place.
-          </p>
-          <div className="hero__actions">
+          <h1 id="system-heading">a new philosophy on male skincare</h1>
+          <div className="hero__actions method-hero__actions">
             <Link href="/collections/core" className="btn btn--editorial-rounded">
-              Shop the Core
-            </Link>
-            <Link href="#system-core" className="btn btn--ghost btn--editorial-rounded">
-              See the three steps
+              shop the core
             </Link>
           </div>
         </div>

@@ -163,8 +163,25 @@ describe("System content architecture", () => {
     render(await SystemPage());
 
     expect(
-      screen.getByRole("heading", { level: 1, name: "THREE STEPS. ONE BASELINE." }),
+      screen.getByRole("heading", {
+        level: 1,
+        name: "a new philosophy on male skincare",
+      }),
     ).toBeInTheDocument();
+    const hero = document.querySelector(".method-hero") as HTMLElement;
+    const heroImage = hero.querySelector("img");
+    expect(heroImage).toHaveAttribute("alt", "");
+    expect(heroImage?.getAttribute("src")).toContain(
+      "a-new-philosophy-hero-01.webp",
+    );
+    expect(within(hero).getAllByRole("link")).toHaveLength(1);
+    expect(within(hero).getByRole("link", { name: "shop the core" })).toHaveAttribute(
+      "href",
+      "/collections/core",
+    );
+    expect(hero.querySelector(".eyebrow")).not.toBeInTheDocument();
+    expect(within(hero).queryByText(/Start with the Core/i)).not.toBeInTheDocument();
+    expect(within(hero).queryByRole("link", { name: /three steps/i })).not.toBeInTheDocument();
     const core = document.getElementById("system-core") as HTMLElement;
     const beyond = document.getElementById("system-beyond") as HTMLElement;
     expect(

@@ -408,7 +408,9 @@ test("shop presents the approved Product, collection, sheet, and footer treatmen
     fontSize: "24px",
     textAlign: "center",
   });
-  await expect(hero.locator("img")).toHaveAttribute(
+  const heroImage = hero.locator("img");
+  await expect(heroImage).toHaveCSS("object-position", "50% 0%");
+  await expect(heroImage).toHaveAttribute(
     "src",
     /raise-your-baseline-hero-02\.webp/,
   );
@@ -476,6 +478,7 @@ test("shop presents the approved Product, collection, sheet, and footer treatmen
     2,
   );
   expect(mobileHeadingGeometry.fontSize).toBe("18px");
+  await expect(heroImage).toHaveCSS("object-position", "50% 50%");
   await page.reload();
   await expect(page.locator(".site-footer__accordion").first()).toHaveCSS(
     "border-top-width",
