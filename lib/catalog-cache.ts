@@ -31,6 +31,7 @@ import {
   type ProductSlugResolution,
 } from "@/lib/catalog/models";
 import { PDP_DISCOVERY_PRODUCT_LIMIT } from "@/lib/catalog/discovery";
+import { CATALOG_MEDIA_BUCKET } from "@/lib/catalog/media-storage";
 import { routineGroupLabel } from "@/lib/catalog/product-routine";
 import type { Product, ProductMedia } from "@/lib/products";
 
@@ -42,6 +43,7 @@ export const PRODUCT_CARD_REVALIDATE_SECONDS = 60 * 60;
 const COLLECTION_REVALIDATE_SECONDS = 60 * 60;
 export const CORE_ROUTINE_REVALIDATE_SECONDS = 24 * 60 * 60;
 const DISCOVERY_REVALIDATE_SECONDS = 60 * 60;
+const CATALOG_MEDIA_CACHE_NAMESPACE = `catalog-media:${CATALOG_MEDIA_BUCKET}`;
 
 export const CATALOG_PRODUCTS_CACHE_TAG = "catalog-products";
 export const PRODUCT_CONTENT_COLLECTION_CACHE_TAG =
@@ -210,7 +212,7 @@ const requestLegacyProducts = cache(getProducts);
 
 const readCachedLegacyContents = unstable_cache(
   async () => (await requestLegacyProducts()).map(toLegacyContent),
-  ["catalog-products-content-v3"],
+  ["catalog-products-content-v3", CATALOG_MEDIA_CACHE_NAMESPACE],
   {
     revalidate: PRODUCT_CONTENT_REVALIDATE_SECONDS,
     tags: [
@@ -234,7 +236,7 @@ const readCachedLegacyOffers = unstable_cache(
 
 const readCachedLegacyCards = unstable_cache(
   async () => (await requestLegacyProducts()).map(toLegacyCard),
-  ["catalog-products-card-v3"],
+  ["catalog-products-card-v3", CATALOG_MEDIA_CACHE_NAMESPACE],
   {
     revalidate: PRODUCT_CARD_REVALIDATE_SECONDS,
     tags: [
@@ -329,7 +331,7 @@ function composeCore(
 
 const readCachedProductCardContents = unstable_cache(
   getProductCardContents,
-  ["catalog-product-cards-v3"],
+  ["catalog-product-cards-v3", CATALOG_MEDIA_CACHE_NAMESPACE],
   {
     revalidate: PRODUCT_CARD_REVALIDATE_SECONDS,
     tags: [
@@ -407,7 +409,7 @@ export function getCachedIngredientIndexProducts(): Promise<
 
 const readCachedCoreRoutineContents = unstable_cache(
   getCoreRoutineContentSummaries,
-  ["catalog-core-routine-content-v5"],
+  ["catalog-core-routine-content-v5", CATALOG_MEDIA_CACHE_NAMESPACE],
   {
     revalidate: CORE_ROUTINE_REVALIDATE_SECONDS,
     tags: [
@@ -437,7 +439,7 @@ export async function getCachedPdpProduct(
   const [content, offer] = await Promise.all([
     unstable_cache(
       () => getPdpProductContent(slug),
-      ["catalog-pdp-content-v4", slug],
+      ["catalog-pdp-content-v4", CATALOG_MEDIA_CACHE_NAMESPACE, slug],
       {
         revalidate: PRODUCT_CONTENT_REVALIDATE_SECONDS,
         tags: [productContentCacheTag(slug), PRODUCT_FAMILY_CACHE_TAG],
@@ -475,7 +477,12 @@ export async function getCachedDiscoveryProductCards(
   const [contents, offers] = await Promise.all([
     unstable_cache(
       () => getDiscoveryProductCardContents(excludeSlug, limit),
-      ["catalog-discovery-cards-v5", excludeSlug, String(limit)],
+      [
+        "catalog-discovery-cards-v5",
+        CATALOG_MEDIA_CACHE_NAMESPACE,
+        excludeSlug,
+        String(limit),
+      ],
       {
         revalidate: DISCOVERY_REVALIDATE_SECONDS,
         tags: [
