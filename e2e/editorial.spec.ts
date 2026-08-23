@@ -1,15 +1,5 @@
-import type { Page } from "@playwright/test";
+import { expectNoMainOverflow } from "./layout-assertions";
 import { expect, test } from "./storefront-fixture";
-
-async function expectNoMainOverflow(page: Page, viewportWidth: number) {
-  const widths = await page.evaluate(() => ({
-    clientWidth: document.documentElement.clientWidth,
-    mainScrollWidth: document.querySelector("#content")?.scrollWidth ?? 0,
-  }));
-
-  expect(widths.clientWidth).toBeLessThanOrEqual(viewportWidth);
-  expect(widths.mainScrollWidth).toBe(widths.clientWidth);
-}
 
 test("primary navigation reaches System, a live PDP, and About", async ({
   page,
@@ -27,13 +17,11 @@ test("primary navigation reaches System, a live PDP, and About", async ({
     }),
   ).toBeVisible();
 
-  const productLink = page.locator(".method-system-card__link").first();
+  const productLink = page.locator(".method-flow__product-link").first();
   const href = await productLink.getAttribute("href");
   if (!href) throw new Error("The System did not render a Product path.");
   const product = storefront.productAtPath(href);
-  await expect(productLink).toHaveAccessibleName(
-    `View ${product.displayName} product details`,
-  );
+  await expect(productLink).toHaveAccessibleName(`View ${product.displayName}`);
   await productLink.click();
   await expect(page).toHaveURL(new RegExp(`${product.path}$`));
   await expect(
@@ -57,6 +45,7 @@ test("System hero uses the campaign image and responsive focal points", async ({
   await page.goto("/system");
 
   const hero = page.locator(".method-hero");
+  const surface = hero.locator(".method-hero__surface");
   const image = hero.locator("img");
   const heading = hero.getByRole("heading", {
     level: 1,
@@ -74,19 +63,46 @@ test("System hero uses the campaign image and responsive focal points", async ({
   await expect(heading).toHaveCSS("text-align", "center");
   await expect(hero.locator(".eyebrow")).toHaveCount(0);
   await expect(hero.locator("p")).toHaveCount(0);
-  await expect(hero.getByRole("link")).toHaveCount(1);
-  const coreLink = hero.getByRole("link", { name: "shop the core" });
-  await expect(coreLink).toHaveAttribute("href", "/collections/core");
-  await expect(coreLink).toHaveCSS("text-transform", "none");
+  await expect(hero.getByRole("link")).toHaveCount(0);
+  const surfaceRadius = await surface.evaluate((element) =>
+    Number.parseFloat(getComputedStyle(element).borderTopLeftRadius),
+  );
+  expect(surfaceRadius).toBeGreaterThan(0);
+
+  const expectViewportHero = async () => {
+    const dimensions = await hero.evaluate((element) => {
+      const styles = getComputedStyle(document.documentElement);
+      const surface = element.querySelector(".method-hero__surface");
+      if (!surface) throw new Error("The System hero surface is missing.");
+      const surfaceRect = surface.getBoundingClientRect();
+      return {
+        actual: element.getBoundingClientRect().height,
+        expected:
+          window.innerHeight -
+          Number.parseFloat(styles.getPropertyValue("--site-header-height")),
+        leftGutter: surfaceRect.left,
+        rightGutter: window.innerWidth - surfaceRect.right,
+      };
+    });
+    expect(Math.abs(dimensions.actual - dimensions.expected)).toBeLessThanOrEqual(1);
+    expect(dimensions.leftGutter).toBeGreaterThan(0);
+    expect(Math.abs(dimensions.leftGutter - dimensions.rightGutter)).toBeLessThanOrEqual(
+      2,
+    );
+  };
+  await expectViewportHero();
+  await expectNoMainOverflow(page, 1440);
 
   await page.setViewportSize({ width: 1024, height: 900 });
   await expect(image).toHaveCSS("object-position", "50% 15%");
   await expect(heading).toHaveCSS("font-size", "18px");
+  await expectViewportHero();
   await expectNoMainOverflow(page, 1024);
 
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(image).toHaveCSS("object-position", "60% 50%");
   await expect(heading).toHaveCSS("font-size", "18px");
+  await expectViewportHero();
   await expectNoMainOverflow(page, 390);
 });
 

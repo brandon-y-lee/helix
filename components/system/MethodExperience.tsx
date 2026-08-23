@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { ProductImage } from "@/components/product/ProductImage";
 import {
-  MethodRoutineNav,
-  type MethodRoutineNavItem,
-} from "@/components/system/MethodRoutineNav";
+  SystemCoreFlow,
+  type SystemCoreFlowItem,
+} from "@/components/system/SystemCoreFlow";
+import { SystemLegacyAnchors } from "@/components/system/SystemLegacyAnchors";
 import {
   BEYOND_SYSTEM_STEP_NAMES,
   CORE_SYSTEM_STEP_NAMES,
@@ -11,42 +12,12 @@ import {
   SYSTEM_STEP_LEGACY_ANCHORS,
   ingredientAnchorId,
   type BeyondSystemProductEntry,
-  type CoreSystemProductEntry,
   type IngredientIndexCard,
   type SystemProductGroups,
 } from "@/lib/content/system";
 import { firstPurchasableVariant, type Product } from "@/lib/products";
 
-const SYSTEM_NAV_ITEMS: MethodRoutineNavItem[] = [
-  { id: "system-overview", label: "Start", meta: "Overview" },
-  { id: "system-core", label: "Core", meta: "Three steps" },
-  { id: "system-beyond", label: "Beyond", meta: "Targeted additions" },
-  { id: "system-ingredients", label: "Ingredients", meta: "Literacy" },
-];
-
-const MISSING_SYSTEM_CARD_PRESENTATION = {
-  core: {
-    groupLabel: "Core",
-    cardClassName: "method-core-card",
-    bodyClassName: "method-core-card__body",
-  },
-  beyond: {
-    groupLabel: "Beyond",
-    cardClassName: "method-beyond-card",
-    bodyClassName: "method-beyond-card__body",
-  },
-} as const;
-
-function LegacyAnchors({ ids }: { ids?: readonly string[] }) {
-  if (!ids?.length) return null;
-  return (
-    <>
-      {ids.map((id) => (
-        <span key={id} id={id} className="method-anchor-alias" aria-hidden="true" />
-      ))}
-    </>
-  );
-}
+const MISSING_CORE_SWATCH: [string, string] = ["#dedbd3", "#807d76"];
 
 function availabilityLabel(product: Product) {
   if (firstPurchasableVariant(product)) return "Available";
@@ -55,105 +26,59 @@ function availabilityLabel(product: Product) {
   return "Sold out";
 }
 
-function primaryVariantMeta(product: Product) {
-  const variant = product.variants[0];
-  if (variant?.volume) return variant.volume;
-  if (variant?.packCount) return `${variant.packCount} pack`;
-  if (variant?.label) return variant.label;
-  return product.volume;
-}
-
-function CoreProductFeature({ entry }: { entry: CoreSystemProductEntry }) {
-  const { product } = entry;
-  const variantMeta = primaryVariantMeta(product);
-
-  return (
-    <article
-      id={entry.anchorId}
-      className="method-core-card"
-      aria-labelledby={`${entry.anchorId}-heading`}
-      data-method-step-id={entry.stepName.toLowerCase()}
-      data-display-number={entry.displayNumber}
-    >
-      <LegacyAnchors ids={entry.legacyAnchorIds} />
-      <div className="method-core-card__media">
-        <ProductImage
-          media={product.detailMedia ?? product.cardMedia}
-          swatch={product.swatch}
-          className="method-core-card__image"
-          imageClassName="method-core-card__img"
-          sizes="(max-width: 720px) 92vw, (max-width: 1020px) 86vw, 30vw"
-        />
-        <span className="method-core-card__number" aria-hidden="true">
-          {entry.displayNumber}
-        </span>
-      </div>
-      <div className="method-core-card__body">
-        <p className="eyebrow">{entry.stepName}</p>
-        <h3 id={`${entry.anchorId}-heading`}>{product.displayName}</h3>
-        <p className="method-system-card__type">
-          {product.productType}
-          {variantMeta ? ` / ${variantMeta}` : ""}
-        </p>
-        <p className="method-core-card__description">{product.description}</p>
-        {product.keyIngredients.length > 0 && (
-          <ul className="method-core-card__ingredients" aria-label="Key ingredients">
-            {product.keyIngredients.slice(0, 3).map((ingredient) => (
-              <li key={ingredient}>{ingredient}</li>
-            ))}
-          </ul>
-        )}
-        <div className="method-system-card__meta">
-          <span>{product.usageTime.join(" + ") || "Use as directed"}</span>
-          <span>{availabilityLabel(product)}</span>
-        </div>
-        <Link
-          href={`/products/${product.slug}`}
-          className="btn btn--ghost btn--editorial-rounded method-system-card__link"
-          aria-label={`View ${product.displayName} product details`}
-        >
-          View {product.displayName}
-        </Link>
-      </div>
-    </article>
-  );
-}
-
 function MissingSystemCard({
   stepName,
-  presentation,
-  displayNumber,
 }: {
-  stepName:
-    | (typeof CORE_SYSTEM_STEP_NAMES)[number]
-    | (typeof BEYOND_SYSTEM_STEP_NAMES)[number];
-  presentation: "core" | "beyond";
-  displayNumber?: string;
+  stepName: (typeof BEYOND_SYSTEM_STEP_NAMES)[number];
 }) {
   const anchorId = SYSTEM_STEP_ANCHORS[stepName];
-  const presentationDetails = MISSING_SYSTEM_CARD_PRESENTATION[presentation];
   return (
     <article
       id={anchorId}
-      className={`${presentationDetails.cardClassName} method-system-card--missing`}
+      className="method-beyond-card method-system-card--missing"
       aria-labelledby={`${anchorId}-heading`}
     >
-      <LegacyAnchors ids={SYSTEM_STEP_LEGACY_ANCHORS[stepName]} />
-      {displayNumber && (
-        <span className="method-core-card__number" aria-hidden="true">
-          {displayNumber}
-        </span>
-      )}
-      <div className={presentationDetails.bodyClassName}>
+      <SystemLegacyAnchors ids={SYSTEM_STEP_LEGACY_ANCHORS[stepName]} />
+      <div className="method-beyond-card__body">
         <p className="eyebrow">{stepName}</p>
         <h3 id={`${anchorId}-heading`}>{stepName} currently unavailable</h3>
         <p>
-          No collection-facing {presentationDetails.groupLabel} entry is available for
-          this step.
+          No collection-facing Beyond entry is available for this step.
         </p>
       </div>
     </article>
   );
+}
+
+function buildCoreFlowItems(groups: SystemProductGroups): SystemCoreFlowItem[] {
+  return CORE_SYSTEM_STEP_NAMES.map((stepName, index) => {
+    const entry = groups.core.find((item) => item.stepName === stepName);
+    if (entry) {
+      return {
+        anchorId: entry.anchorId,
+        description: entry.product.description,
+        displayName: entry.product.displayName,
+        displayNumber: entry.displayNumber,
+        legacyAnchorIds: entry.legacyAnchorIds,
+        productType: entry.product.productType,
+        slug: entry.product.slug,
+        stepName,
+        swatch: entry.product.swatch,
+      };
+    }
+
+    return {
+      anchorId: SYSTEM_STEP_ANCHORS[stepName],
+      description: "No collection-facing Core entry is available for this step.",
+      displayName: `${stepName} currently unavailable`,
+      displayNumber: String(index + 1).padStart(2, "0"),
+      legacyAnchorIds: SYSTEM_STEP_LEGACY_ANCHORS[stepName],
+      productType: "Currently unavailable",
+      slug: null,
+      stepName,
+      swatch: MISSING_CORE_SWATCH,
+    };
+  });
 }
 
 function BeyondProductCard({ entry }: { entry: BeyondSystemProductEntry }) {
@@ -165,7 +90,7 @@ function BeyondProductCard({ entry }: { entry: BeyondSystemProductEntry }) {
       aria-labelledby={`${entry.anchorId}-heading`}
       data-method-step-id={entry.stepName.toLowerCase()}
     >
-      <LegacyAnchors ids={entry.legacyAnchorIds} />
+      <SystemLegacyAnchors ids={entry.legacyAnchorIds} />
       <div className="method-beyond-card__media">
         <ProductImage
           media={product.cardMedia ?? product.detailMedia}
@@ -202,7 +127,7 @@ function IngredientLiteracy({ cards }: { cards: IngredientIndexCard[] }) {
       className="method-ingredients"
       aria-labelledby="system-ingredients-heading"
     >
-      <LegacyAnchors ids={["method-ingredients"]} />
+      <SystemLegacyAnchors ids={["method-ingredients"]} />
       <div className="section-head">
         <div>
           <p className="eyebrow">Ingredient literacy</p>
@@ -270,6 +195,33 @@ function IngredientLiteracy({ cards }: { cards: IngredientIndexCard[] }) {
   );
 }
 
+function IntentionalSkincare() {
+  return (
+    <section
+      className="method-intentional"
+      aria-labelledby="system-intentional-heading"
+    >
+      <div className="method-intentional__copy">
+        <div>
+          <h2 id="system-intentional-heading">intentional skincare</h2>
+          <p>
+            Helix is a line of curated skincare essentials. Formulated for a
+            variety of skin types and needs with high performance ingredients,
+            it’s a daily routine that nourishes your skin barrier over time.
+          </p>
+        </div>
+      </div>
+      <div className="method-intentional__visual" aria-hidden="true">
+        <div className="editorial-hue-field editorial-hue-field--clean editorial-hue-field--method">
+          <span />
+          <span />
+          <span />
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export function MethodExperience({
   groups,
   ingredientCards,
@@ -279,86 +231,45 @@ export function MethodExperience({
 }) {
   return (
     <div className="method-shell">
-      <MethodRoutineNav items={SYSTEM_NAV_ITEMS} />
+      <SystemCoreFlow items={buildCoreFlowItems(groups)} />
 
-      <div className="method-flow">
-        <section
-          id="system-core"
-          className="method-core"
-          aria-labelledby="system-core-heading"
-        >
-          <LegacyAnchors ids={["system-routine", "method-routine"]} />
-          <header className="method-section-head">
-            <div>
-              <p className="eyebrow">The Core</p>
-              <h2 id="system-core-heading">CLEANSE. TREAT. SEAL.</h2>
-              <p>
-                Three daily steps form the baseline. Start here before adding
-                anything more.
-              </p>
-            </div>
-            <Link href="/collections/core" className="btn btn--editorial-rounded">
-              Shop the Core
-            </Link>
-          </header>
+      <IntentionalSkincare />
 
-          <div className="method-core__grid">
-            {CORE_SYSTEM_STEP_NAMES.map((stepName, index) => {
-              const entry = groups.core.find((item) => item.stepName === stepName);
-              return entry ? (
-                <CoreProductFeature key={stepName} entry={entry} />
-              ) : (
-                <MissingSystemCard
-                  key={stepName}
-                  stepName={stepName}
-                  presentation="core"
-                  displayNumber={String(index + 1).padStart(2, "0")}
-                />
-              );
-            })}
+      <section
+        id="system-beyond"
+        className="method-beyond"
+        aria-labelledby="system-beyond-heading"
+      >
+        <header className="method-section-head method-section-head--beyond">
+          <div>
+            <p className="eyebrow">Beyond The Core</p>
+            <h2 id="system-beyond-heading">TARGETED STEPS. USED DELIBERATELY.</h2>
+            <p>
+              Add prep, eye care, daily protection, or a weekly intensive where it
+              earns a place in your routine.
+            </p>
           </div>
-        </section>
+          <Link
+            href="/collections/beyond-the-core"
+            className="btn btn--ghost btn--editorial-rounded"
+          >
+            Shop Beyond
+          </Link>
+        </header>
 
-        <section
-          id="system-beyond"
-          className="method-beyond"
-          aria-labelledby="system-beyond-heading"
-        >
-          <header className="method-section-head method-section-head--beyond">
-            <div>
-              <p className="eyebrow">Beyond The Core</p>
-              <h2 id="system-beyond-heading">TARGETED STEPS. USED DELIBERATELY.</h2>
-              <p>
-                Add prep, eye care, daily protection, or a weekly intensive where
-                it earns a place in your routine.
-              </p>
-            </div>
-            <Link
-              href="/collections/beyond-the-core"
-              className="btn btn--ghost btn--editorial-rounded"
-            >
-              Shop Beyond
-            </Link>
-          </header>
+        <div className="method-beyond__grid">
+          {BEYOND_SYSTEM_STEP_NAMES.map((stepName) => {
+            const entry = groups.beyond.find((item) => item.stepName === stepName);
+            return entry ? (
+              <BeyondProductCard key={stepName} entry={entry} />
+            ) : (
+              <MissingSystemCard key={stepName} stepName={stepName} />
+            );
+          })}
+        </div>
+      </section>
 
-          <div className="method-beyond__grid">
-            {BEYOND_SYSTEM_STEP_NAMES.map((stepName) => {
-              const entry = groups.beyond.find((item) => item.stepName === stepName);
-              return entry ? (
-                <BeyondProductCard key={stepName} entry={entry} />
-              ) : (
-                <MissingSystemCard
-                  key={stepName}
-                  stepName={stepName}
-                  presentation="beyond"
-                />
-              );
-            })}
-          </div>
-        </section>
-
-        <IngredientLiteracy cards={ingredientCards} />
-      </div>
+      <IngredientLiteracy cards={ingredientCards} />
     </div>
   );
 }
