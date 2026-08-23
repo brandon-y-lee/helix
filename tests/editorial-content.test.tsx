@@ -174,19 +174,27 @@ describe("System content architecture", () => {
     expect(heroImage?.getAttribute("src")).toContain(
       "a-new-philosophy-hero-01.webp",
     );
-    expect(within(hero).getAllByRole("link")).toHaveLength(1);
-    expect(within(hero).getByRole("link", { name: "shop the core" })).toHaveAttribute(
-      "href",
-      "/collections/core",
-    );
+    expect(within(hero).queryByRole("link")).not.toBeInTheDocument();
     expect(hero.querySelector(".eyebrow")).not.toBeInTheDocument();
     expect(within(hero).queryByText(/Start with the Core/i)).not.toBeInTheDocument();
     expect(within(hero).queryByRole("link", { name: /three steps/i })).not.toBeInTheDocument();
     const core = document.getElementById("system-core") as HTMLElement;
     const beyond = document.getElementById("system-beyond") as HTMLElement;
     expect(
+      within(core).getByRole("heading", {
+        level: 2,
+        name: "Three daily steps form the baseline",
+      }),
+    ).toBeInTheDocument();
+    expect(within(core).getAllByRole("tab")).toHaveLength(3);
+    expect(document.querySelector(".method-index")).not.toBeInTheDocument();
+    expect(core.querySelector('[data-helix-identity="symbol"]')).toHaveAttribute(
+      "aria-hidden",
+      "true",
+    );
+    expect(
       within(core).getAllByRole("heading", { level: 3 }).map((heading) => heading.textContent),
-    ).toEqual(["Biotic Reset", "Peptide Bounce", "Ceramide Cushion"]);
+    ).toEqual(["Biotic Reset"]);
     expect(
       within(beyond).getAllByRole("heading", { level: 3 }).map((heading) => heading.textContent),
     ).toEqual([
@@ -196,10 +204,6 @@ describe("System content architecture", () => {
       "Peptide Nourish Mask",
     ]);
     expect(document.querySelector('input[type="range"]')).not.toBeInTheDocument();
-    expect(document.querySelector(".method-flow")?.lastElementChild).toHaveAttribute(
-      "id",
-      "system-ingredients",
-    );
     expect(document.body.textContent ?? "").not.toMatch(FORMER_BRAND_PATTERN);
   });
 
@@ -207,14 +211,36 @@ describe("System content architecture", () => {
     render(await SystemPage());
 
     expect(
-      Array.from(document.querySelectorAll(".method-core-card")).map((card) =>
-        card.getAttribute("data-display-number"),
-      ),
+      screen.getAllByRole("tab").map((tab) => tab.getAttribute("data-display-number")),
     ).toEqual(["01", "02", "03"]);
     expect(document.getElementById("system-routine")).toBeInTheDocument();
     expect(document.getElementById("method-routine")).toBeInTheDocument();
     expect(document.getElementById("step-reset")).toBeInTheDocument();
     expect(document.getElementById("method-lift")).toBeInTheDocument();
+  });
+
+  it("places the intentional-skincare split between Core and Beyond", async () => {
+    render(await SystemPage());
+
+    const core = document.getElementById("system-core") as HTMLElement;
+    const split = document.querySelector(".method-intentional") as HTMLElement;
+    const beyond = document.getElementById("system-beyond") as HTMLElement;
+    expect(
+      within(split).getByRole("heading", {
+        level: 2,
+        name: "intentional skincare",
+      }),
+    ).toBeInTheDocument();
+    expect(split).toHaveTextContent(
+      "Helix is a line of curated skincare essentials. Formulated for a variety of skin types and needs with high performance ingredients, it’s a daily routine that nourishes your skin barrier over time.",
+    );
+    expect(split.querySelector(".editorial-hue-field--method")).toBeInTheDocument();
+    expect(
+      core.compareDocumentPosition(split) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      split.compareDocumentPosition(beyond) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 
   it("uses the catalog-backed PROTECT product without invented formula claims", async () => {
@@ -250,17 +276,9 @@ describe("System content architecture", () => {
     expect(document.getElementById("step-lift")).toBeInTheDocument();
   });
 
-  it("does not label an unavailable Offer as available", async () => {
-    const products = systemFixtures.map((product) =>
-      product.slug === "biotic-reset"
-        ? makeProduct("biotic-reset", {
-            variants: product.variants.map((variant) => ({
-              ...variant,
-              available: false,
-              inventoryStatus: "out_of_stock",
-            })),
-          })
-        : product,
+  it("keeps a missing Core step selectable without inventing a PDP", async () => {
+    const products = systemFixtures.filter(
+      (product) => product.slug !== "biotic-reset",
     );
     mockedGetProducts.mockResolvedValue(products);
     mockedGetProductCards.mockResolvedValue(
@@ -269,9 +287,19 @@ describe("System content architecture", () => {
 
     render(await SystemPage());
 
-    const cleanse = document.getElementById("system-cleanse") as HTMLElement;
-    expect(within(cleanse).getByText("Sold out")).toBeInTheDocument();
-    expect(within(cleanse).queryByText("Available")).not.toBeInTheDocument();
+    const cleanseTab = screen.getAllByRole("tab")[0];
+    expect(cleanseTab).toHaveTextContent("CLEANSE currently unavailable");
+    expect(cleanseTab).toHaveTextContent("Currently unavailable");
+    const cleanse = screen.getByRole("tabpanel", { name: /CLEANSE/i });
+    expect(
+      within(cleanse).getByRole("heading", {
+        name: "CLEANSE currently unavailable",
+      }),
+    ).toBeInTheDocument();
+    expect(cleanse).toHaveTextContent(
+      "No collection-facing Core entry is available for this step.",
+    );
+    expect(within(cleanse).queryByRole("link")).not.toBeInTheDocument();
   });
 
   it("keeps ingredient science fields and claim-safety boundaries catalog-derived", () => {

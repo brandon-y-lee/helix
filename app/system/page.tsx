@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Image from "next/image";
-import Link from "next/link";
 import { MethodExperience } from "@/components/system/MethodExperience";
 import {
   buildIngredientIndex,
@@ -33,24 +32,22 @@ export default async function SystemPage() {
     <div className="method-page">
       <section
         id="system-overview"
-        className="method-hero"
+        className="storefront-shell method-hero"
         aria-labelledby="system-heading"
+        data-layout-shell="storefront"
       >
         <span id="method-overview" className="method-anchor-alias" aria-hidden="true" />
-        <Image
-          src="/media/system/a-new-philosophy-hero-01.webp"
-          alt=""
-          fill
-          priority
-          sizes="(max-width: 720px) calc(100vw - 36px), calc(100vw - 48px)"
-          className="method-hero__image"
-        />
-        <div className="method-hero__copy">
-          <h1 id="system-heading">a new philosophy on male skincare</h1>
-          <div className="hero__actions method-hero__actions">
-            <Link href="/collections/core" className="btn btn--editorial-rounded">
-              shop the core
-            </Link>
+        <div className="method-hero__surface">
+          <Image
+            src="/media/system/a-new-philosophy-hero-01.webp"
+            alt=""
+            fill
+            priority
+            sizes="(max-width: 720px) calc(100vw - 32px), calc(100vw - 60px)"
+            className="method-hero__image"
+          />
+          <div className="method-hero__copy">
+            <h1 id="system-heading">a new philosophy on male skincare</h1>
           </div>
         </div>
       </section>
