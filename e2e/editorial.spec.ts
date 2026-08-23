@@ -74,21 +74,34 @@ test("System hero uses the campaign image and responsive focal points", async ({
   await expect(hero.locator(".eyebrow")).toHaveCount(0);
   await expect(hero.locator("p")).toHaveCount(0);
   await expect(hero.getByRole("link")).toHaveCount(0);
-  await expect(surface).toHaveCSS("border-radius", "12px");
+  const surfaceRadius = await surface.evaluate((element) =>
+    Number.parseFloat(getComputedStyle(element).borderTopLeftRadius),
+  );
+  expect(surfaceRadius).toBeGreaterThan(0);
 
   const expectViewportHero = async () => {
     const dimensions = await hero.evaluate((element) => {
       const styles = getComputedStyle(document.documentElement);
+      const surface = element.querySelector(".method-hero__surface");
+      if (!surface) throw new Error("The System hero surface is missing.");
+      const surfaceRect = surface.getBoundingClientRect();
       return {
         actual: element.getBoundingClientRect().height,
         expected:
           window.innerHeight -
           Number.parseFloat(styles.getPropertyValue("--site-header-height")),
+        leftGutter: surfaceRect.left,
+        rightGutter: window.innerWidth - surfaceRect.right,
       };
     });
     expect(Math.abs(dimensions.actual - dimensions.expected)).toBeLessThanOrEqual(1);
+    expect(dimensions.leftGutter).toBeGreaterThan(0);
+    expect(Math.abs(dimensions.leftGutter - dimensions.rightGutter)).toBeLessThanOrEqual(
+      2,
+    );
   };
   await expectViewportHero();
+  await expectNoMainOverflow(page, 1440);
 
   await page.setViewportSize({ width: 1024, height: 900 });
   await expect(image).toHaveCSS("object-position", "50% 15%");

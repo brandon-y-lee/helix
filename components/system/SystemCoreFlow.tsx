@@ -9,6 +9,7 @@ import {
   type KeyboardEvent,
 } from "react";
 import { HelixIdentity } from "@/components/brand/HelixIdentity";
+import { SystemLegacyAnchors } from "@/components/system/SystemLegacyAnchors";
 
 export type SystemCoreFlowItem = {
   anchorId: string;
@@ -86,18 +87,13 @@ export function SystemCoreFlow({ items }: { items: SystemCoreFlowItem[] }) {
       aria-labelledby="system-core-flow-heading"
       data-active-step={items[activeIndex]?.stepName.toLowerCase()}
     >
-      <span id="system-routine" className="method-anchor-alias" aria-hidden="true" />
-      <span id="method-routine" className="method-anchor-alias" aria-hidden="true" />
-      {items
-        .flatMap((item) => [item.anchorId, ...item.legacyAnchorIds])
-        .map((id) => (
-          <span
-            key={id}
-            id={id}
-            className="method-anchor-alias"
-            aria-hidden="true"
-          />
-        ))}
+      <SystemLegacyAnchors
+        ids={[
+          "system-routine",
+          "method-routine",
+          ...items.flatMap((item) => [item.anchorId, ...item.legacyAnchorIds]),
+        ]}
+      />
       <div className="method-flow__backgrounds" aria-hidden="true">
         {items.map((item, index) => (
           <div

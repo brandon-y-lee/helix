@@ -4,6 +4,7 @@ import {
   SystemCoreFlow,
   type SystemCoreFlowItem,
 } from "@/components/system/SystemCoreFlow";
+import { SystemLegacyAnchors } from "@/components/system/SystemLegacyAnchors";
 import {
   BEYOND_SYSTEM_STEP_NAMES,
   CORE_SYSTEM_STEP_NAMES,
@@ -17,17 +18,6 @@ import {
 import { firstPurchasableVariant, type Product } from "@/lib/products";
 
 const MISSING_CORE_SWATCH: [string, string] = ["#dedbd3", "#807d76"];
-
-function LegacyAnchors({ ids }: { ids?: readonly string[] }) {
-  if (!ids?.length) return null;
-  return (
-    <>
-      {ids.map((id) => (
-        <span key={id} id={id} className="method-anchor-alias" aria-hidden="true" />
-      ))}
-    </>
-  );
-}
 
 function availabilityLabel(product: Product) {
   if (firstPurchasableVariant(product)) return "Available";
@@ -48,7 +38,7 @@ function MissingSystemCard({
       className="method-beyond-card method-system-card--missing"
       aria-labelledby={`${anchorId}-heading`}
     >
-      <LegacyAnchors ids={SYSTEM_STEP_LEGACY_ANCHORS[stepName]} />
+      <SystemLegacyAnchors ids={SYSTEM_STEP_LEGACY_ANCHORS[stepName]} />
       <div className="method-beyond-card__body">
         <p className="eyebrow">{stepName}</p>
         <h3 id={`${anchorId}-heading`}>{stepName} currently unavailable</h3>
@@ -100,7 +90,7 @@ function BeyondProductCard({ entry }: { entry: BeyondSystemProductEntry }) {
       aria-labelledby={`${entry.anchorId}-heading`}
       data-method-step-id={entry.stepName.toLowerCase()}
     >
-      <LegacyAnchors ids={entry.legacyAnchorIds} />
+      <SystemLegacyAnchors ids={entry.legacyAnchorIds} />
       <div className="method-beyond-card__media">
         <ProductImage
           media={product.cardMedia ?? product.detailMedia}
@@ -137,7 +127,7 @@ function IngredientLiteracy({ cards }: { cards: IngredientIndexCard[] }) {
       className="method-ingredients"
       aria-labelledby="system-ingredients-heading"
     >
-      <LegacyAnchors ids={["method-ingredients"]} />
+      <SystemLegacyAnchors ids={["method-ingredients"]} />
       <div className="section-head">
         <div>
           <p className="eyebrow">Ingredient literacy</p>
