@@ -1,15 +1,5 @@
-import type { Page } from "@playwright/test";
+import { expectNoMainOverflow } from "./layout-assertions";
 import { expect, test } from "./storefront-fixture";
-
-async function expectNoMainOverflow(page: Page, viewportWidth: number) {
-  const widths = await page.evaluate(() => ({
-    clientWidth: document.documentElement.clientWidth,
-    mainScrollWidth: document.querySelector("#content")?.scrollWidth ?? 0,
-  }));
-
-  expect(widths.clientWidth).toBeLessThanOrEqual(viewportWidth);
-  expect(widths.mainScrollWidth).toBe(widths.clientWidth);
-}
 
 test("Core flow supports pointer, keyboard, wrapping controls, and deep links", async ({
   page,
