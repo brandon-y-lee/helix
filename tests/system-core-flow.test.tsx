@@ -9,10 +9,10 @@ import {
 const coreItems: SystemCoreFlowItem[] = [
   {
     anchorId: "system-cleanse",
-    description: "A complete catalog-authored cleanser description.",
     displayName: "Biotic Reset",
     displayNumber: "01",
     legacyAnchorIds: ["step-cleanse", "step-reset", "method-cleanse", "method-reset"],
+    narrative: "A cleanser narrative.",
     productType: "Daily gel cleanser",
     slug: "biotic-reset",
     stepName: "CLEANSE",
@@ -20,10 +20,10 @@ const coreItems: SystemCoreFlowItem[] = [
   },
   {
     anchorId: "system-treat",
-    description: "A complete catalog-authored treatment description.",
     displayName: "Peptide Bounce",
     displayNumber: "02",
     legacyAnchorIds: ["step-treat", "step-recode", "method-treat", "method-recode"],
+    narrative: "A treatment narrative.",
     productType: "PDRN serum",
     slug: "peptide-bounce",
     stepName: "TREAT",
@@ -31,10 +31,10 @@ const coreItems: SystemCoreFlowItem[] = [
   },
   {
     anchorId: "system-seal",
-    description: "A complete catalog-authored moisturizer description.",
     displayName: "Ceramide Cushion",
     displayNumber: "03",
     legacyAnchorIds: ["step-seal", "method-seal"],
+    narrative: "A moisturizer narrative.",
     productType: "Intensive moisture cream",
     slug: "ceramide-cushion",
     stepName: "SEAL",
@@ -53,7 +53,7 @@ describe("SystemCoreFlow", () => {
     expect(
       screen.getByRole("heading", {
         level: 2,
-        name: "Three daily steps form the baseline",
+        name: "Three steps form the baseline.",
       }),
     ).toBeInTheDocument();
     expect(screen.getByText("The Core")).toBeInTheDocument();
@@ -76,14 +76,13 @@ describe("SystemCoreFlow", () => {
     );
 
     const activePanel = screen.getByRole("tabpanel", { name: /CLEANSE/i });
+    expect(activePanel).toHaveClass("method-selection-panel");
     expect(activePanel.querySelector(".method-flow__position")).not.toBeInTheDocument();
     expect(
       within(activePanel).getByRole("heading", { level: 3, name: "Biotic Reset" }),
     ).toBeInTheDocument();
     expect(activePanel).toHaveTextContent("Daily gel cleanser");
-    expect(activePanel).toHaveTextContent(
-      "A complete catalog-authored cleanser description.",
-    );
+    expect(activePanel).toHaveTextContent("A cleanser narrative.");
     expect(
       within(activePanel).getByRole("link", { name: "View Biotic Reset" }),
     ).toHaveAttribute("href", "/products/biotic-reset");
@@ -169,7 +168,7 @@ describe("SystemCoreFlow", () => {
       item.stepName === "TREAT"
         ? {
             ...item,
-            description:
+            narrative:
               "No collection-facing Core entry is available for this step.",
             displayName: "TREAT currently unavailable",
             productType: "Currently unavailable",

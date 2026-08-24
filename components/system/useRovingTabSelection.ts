@@ -28,7 +28,7 @@ export function useRovingTabSelection(
       if (scrollTabsIntoView) {
         tab?.scrollIntoView?.({ block: "nearest", inline: "center" });
       }
-      if (focus) tab?.focus();
+      if (focus) tab?.focus({ preventScroll: true });
     },
     [itemCount, scrollTabsIntoView],
   );

@@ -184,7 +184,7 @@ describe("System content architecture", () => {
     expect(
       within(core).getByRole("heading", {
         level: 2,
-        name: "Three daily steps form the baseline",
+        name: "Three steps form the baseline.",
       }),
     ).toBeInTheDocument();
     expect(within(core).getAllByRole("tab")).toHaveLength(3);
@@ -204,7 +204,7 @@ describe("System content architecture", () => {
     expect(
       within(beyond).getByRole("heading", {
         level: 2,
-        name: "Targeted steps. Used deliberately.",
+        name: "Targeted steps.",
       }),
     ).toBeInTheDocument();
     expect(
@@ -216,6 +216,21 @@ describe("System content architecture", () => {
     expect(ingredients.querySelector(".ingredient-carousel")).toBeInTheDocument();
     expect(ingredients.querySelector(".ingredient-index")).not.toBeInTheDocument();
     expect(ingredients).not.toHaveTextContent("FORMULATION NOTE");
+    expect(core).not.toHaveTextContent("A catalog-authored product description.");
+    expect(core).toHaveTextContent(
+      "The reset after a long day, a commute, or a workout. Work it into damp skin to take off sunscreen, sweat, and the day’s buildup, then rinse and move on with skin ready for the next step.",
+    );
+    expect(core).toHaveTextContent(
+      "A quick layer for mornings that start early and nights that run late. Press a few drops into clean skin for lightweight hydration and a smoother, replenished-looking finish—no complicated routine required.",
+    );
+    expect(core).toHaveTextContent(
+      "The last layer before you head out or turn in. Smooth it on to hold the routine together with comfortable moisture, so skin feels supported wherever the rest of the day takes you.",
+    );
+    expect(beyond).toHaveTextContent(
+      "Add prep, eye care, daily protection, or a weekly intensive.",
+    );
+    expect(within(beyond).queryByRole("link", { name: "Shop Beyond" })).not.toBeInTheDocument();
+    expect(beyond).not.toHaveTextContent("View product");
     expect(
       within(core).getAllByRole("heading", { level: 3 }).map((heading) => heading.textContent),
     ).toEqual(["Biotic Reset"]);
@@ -288,6 +303,9 @@ describe("System content architecture", () => {
     expect(within(protect).getByRole("link", { name: /view mineral guard/i })).toHaveAttribute(
       "href",
       "/products/mineral-guard",
+    );
+    expect(within(protect).getByRole("link", { name: /view mineral guard/i })).toHaveClass(
+      "method-beyond-card__link",
     );
     expect(protect).not.toHaveTextContent(/formula focus|in development|UV filters/i);
   });
