@@ -58,6 +58,7 @@ test("System hero uses the campaign image and responsive focal points", async ({
   );
   await expect(image).toHaveAttribute("alt", "");
   await expect(image).toHaveCSS("object-position", "50% 15%");
+  await expect(image).not.toHaveCSS("transform", "none");
   await expect(heading).toHaveCSS("color", "rgb(255, 255, 255)");
   await expect(heading).toHaveCSS("font-size", "24px");
   await expect(heading).toHaveCSS("text-align", "center");

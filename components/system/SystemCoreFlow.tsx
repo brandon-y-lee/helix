@@ -3,13 +3,11 @@
 import Link from "next/link";
 import {
   useEffect,
-  useRef,
-  useState,
   type CSSProperties,
-  type KeyboardEvent,
 } from "react";
 import { HelixIdentity } from "@/components/brand/HelixIdentity";
 import { SystemLegacyAnchors } from "@/components/system/SystemLegacyAnchors";
+import { useRovingTabSelection } from "@/components/system/useRovingTabSelection";
 
 export type SystemCoreFlowItem = {
   anchorId: string;
@@ -33,8 +31,8 @@ function stepKey(item: SystemCoreFlowItem) {
 }
 
 export function SystemCoreFlow({ items }: { items: SystemCoreFlowItem[] }) {
-  const [activeIndex, setActiveIndex] = useState(0);
-  const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const { activeIndex, handleTabKeyDown, registerTab, selectIndex } =
+    useRovingTabSelection(items.length);
 
   useEffect(() => {
     function selectHashedStep() {
@@ -43,42 +41,15 @@ export function SystemCoreFlow({ items }: { items: SystemCoreFlowItem[] }) {
         (item) =>
           item.anchorId === hash || item.legacyAnchorIds.includes(hash),
       );
-      if (hashedIndex >= 0) setActiveIndex(hashedIndex);
+      if (hashedIndex >= 0) selectIndex(hashedIndex);
     }
 
     selectHashedStep();
     window.addEventListener("hashchange", selectHashedStep);
     return () => window.removeEventListener("hashchange", selectHashedStep);
-  }, [items]);
+  }, [items, selectIndex]);
 
   if (items.length === 0) return null;
-
-  function advance(offset: -1 | 1) {
-    setActiveIndex(
-      (current) => (current + offset + items.length) % items.length,
-    );
-  }
-
-  function handleTabKeyDown(
-    event: KeyboardEvent<HTMLButtonElement>,
-    index: number,
-  ) {
-    let nextIndex: number | null = null;
-    if (event.key === "ArrowRight") {
-      nextIndex = (index + 1) % items.length;
-    } else if (event.key === "ArrowLeft") {
-      nextIndex = (index - 1 + items.length) % items.length;
-    } else if (event.key === "Home") {
-      nextIndex = 0;
-    } else if (event.key === "End") {
-      nextIndex = items.length - 1;
-    }
-
-    if (nextIndex === null) return;
-    event.preventDefault();
-    setActiveIndex(nextIndex);
-    tabRefs.current[nextIndex]?.focus();
-  }
 
   return (
     <section
@@ -131,10 +102,6 @@ export function SystemCoreFlow({ items }: { items: SystemCoreFlowItem[] }) {
               hidden={index !== activeIndex}
               inert={index !== activeIndex}
             >
-              <p className="method-flow__position">
-                <span>{item.displayNumber}</span>
-                <span>{item.stepName}</span>
-              </p>
               <h3>{item.displayName}</h3>
               <p className="method-flow__type">{item.productType}</p>
               <p className="method-flow__description">{item.description}</p>
@@ -162,7 +129,7 @@ export function SystemCoreFlow({ items }: { items: SystemCoreFlowItem[] }) {
             <button
               key={item.stepName}
               ref={(node) => {
-                tabRefs.current[index] = node;
+                registerTab(index, node);
               }}
               id={`system-core-tab-${key}`}
               type="button"
@@ -171,7 +138,7 @@ export function SystemCoreFlow({ items }: { items: SystemCoreFlowItem[] }) {
               aria-selected={index === activeIndex}
               data-display-number={item.displayNumber}
               tabIndex={index === activeIndex ? 0 : -1}
-              onClick={() => setActiveIndex(index)}
+              onClick={() => selectIndex(index)}
               onKeyDown={(event) => handleTabKeyDown(event, index)}
             >
               <strong>{item.stepName}</strong>
@@ -186,14 +153,14 @@ export function SystemCoreFlow({ items }: { items: SystemCoreFlowItem[] }) {
         <button
           type="button"
           aria-label="Previous Core step"
-          onClick={() => advance(-1)}
+          onClick={() => selectIndex(activeIndex - 1)}
         >
           <span aria-hidden="true">←</span>
         </button>
         <button
           type="button"
           aria-label="Next Core step"
-          onClick={() => advance(1)}
+          onClick={() => selectIndex(activeIndex + 1)}
         >
           <span aria-hidden="true">→</span>
         </button>

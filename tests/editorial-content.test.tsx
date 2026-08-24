@@ -180,6 +180,7 @@ describe("System content architecture", () => {
     expect(within(hero).queryByRole("link", { name: /three steps/i })).not.toBeInTheDocument();
     const core = document.getElementById("system-core") as HTMLElement;
     const beyond = document.getElementById("system-beyond") as HTMLElement;
+    const ingredients = document.getElementById("system-ingredients") as HTMLElement;
     expect(
       within(core).getByRole("heading", {
         level: 2,
@@ -192,6 +193,29 @@ describe("System content architecture", () => {
       "aria-hidden",
       "true",
     );
+    expect(beyond.querySelector('[data-helix-identity="symbol"]')).toHaveAttribute(
+      "aria-hidden",
+      "true",
+    );
+    expect(ingredients.querySelector('[data-helix-identity="symbol"]')).toHaveAttribute(
+      "aria-hidden",
+      "true",
+    );
+    expect(
+      within(beyond).getByRole("heading", {
+        level: 2,
+        name: "Targeted steps. Used deliberately.",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(ingredients).getByRole("heading", {
+        level: 2,
+        name: "Know what you’re using.",
+      }),
+    ).toBeInTheDocument();
+    expect(ingredients.querySelector(".ingredient-carousel")).toBeInTheDocument();
+    expect(ingredients.querySelector(".ingredient-index")).not.toBeInTheDocument();
+    expect(ingredients).not.toHaveTextContent("FORMULATION NOTE");
     expect(
       within(core).getAllByRole("heading", { level: 3 }).map((heading) => heading.textContent),
     ).toEqual(["Biotic Reset"]);
@@ -210,8 +234,12 @@ describe("System content architecture", () => {
   it("numbers only the three-step Core and preserves legacy anchors", async () => {
     render(await SystemPage());
 
+    const core = document.getElementById("system-core");
+    expect(core).not.toBeNull();
     expect(
-      screen.getAllByRole("tab").map((tab) => tab.getAttribute("data-display-number")),
+      within(core as HTMLElement)
+        .getAllByRole("tab")
+        .map((tab) => tab.getAttribute("data-display-number")),
     ).toEqual(["01", "02", "03"]);
     expect(document.getElementById("system-routine")).toBeInTheDocument();
     expect(document.getElementById("method-routine")).toBeInTheDocument();
@@ -235,6 +263,12 @@ describe("System content architecture", () => {
       "Helix is a line of curated skincare essentials. Formulated for a variety of skin types and needs with high performance ingredients, it’s a daily routine that nourishes your skin barrier over time.",
     );
     expect(split.querySelector(".editorial-hue-field--method")).toBeInTheDocument();
+    expect(
+      within(split).getByRole("heading", {
+        level: 2,
+        name: "intentional skincare",
+      }),
+    ).toHaveClass("method-intentional__heading");
     expect(
       core.compareDocumentPosition(split) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
