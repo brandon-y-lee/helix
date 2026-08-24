@@ -1,16 +1,17 @@
 import Link from "next/link";
+import { HelixIdentity } from "@/components/brand/HelixIdentity";
 import { ProductImage } from "@/components/product/ProductImage";
 import {
   SystemCoreFlow,
   type SystemCoreFlowItem,
 } from "@/components/system/SystemCoreFlow";
 import { SystemLegacyAnchors } from "@/components/system/SystemLegacyAnchors";
+import { SystemIngredientCarousel } from "@/components/system/SystemIngredientCarousel";
 import {
   BEYOND_SYSTEM_STEP_NAMES,
   CORE_SYSTEM_STEP_NAMES,
   SYSTEM_STEP_ANCHORS,
   SYSTEM_STEP_LEGACY_ANCHORS,
-  ingredientAnchorId,
   type BeyondSystemProductEntry,
   type IngredientIndexCard,
   type SystemProductGroups,
@@ -130,62 +131,15 @@ function IngredientLiteracy({ cards }: { cards: IngredientIndexCard[] }) {
       <SystemLegacyAnchors ids={["method-ingredients"]} />
       <div className="section-head">
         <div>
-          <p className="eyebrow">Ingredient literacy</p>
-          <h2 id="system-ingredients-heading">KNOW WHAT YOU’RE USING.</h2>
+          <p className="eyebrow method-section-eyebrow">
+            <HelixIdentity variant="symbol" decorative />
+            <span>Ingredient literacy</span>
+          </p>
+          <h2 id="system-ingredients-heading">Know what you’re using.</h2>
         </div>
       </div>
       {cards.length > 0 ? (
-        <div className="ingredient-index">
-          {cards.map((card) => {
-            const anchorId = ingredientAnchorId(card.id);
-            return (
-              <article
-                key={card.id}
-                id={anchorId}
-                className="ingredient-card"
-                aria-labelledby={`${anchorId}-heading`}
-              >
-                <p>{card.ingredientClass}</p>
-                <h3 id={`${anchorId}-heading`}>{card.name}</h3>
-                <dl className="ingredient-card__fields">
-                  <div>
-                    <dt>INCI / IDENTITY</dt>
-                    <dd>{card.identity}</dd>
-                  </div>
-                  <div>
-                    <dt>MECHANISM</dt>
-                    <dd>{card.mechanism}</dd>
-                  </div>
-                  <div>
-                    <dt>SKIN RELEVANCE</dt>
-                    <dd>{card.skinRelevance}</dd>
-                  </div>
-                  {card.formulationNote && (
-                    <div>
-                      <dt>FORMULATION NOTE</dt>
-                      <dd>{card.formulationNote}</dd>
-                    </div>
-                  )}
-                </dl>
-                <div className="ingredient-card__found">
-                  <strong>FOUND IN</strong>
-                  <ul aria-label={`${card.name} products`}>
-                    {card.products.map((product) => (
-                      <li key={`${card.id}-${product.slug}`}>
-                        <Link
-                          href={`/products/${product.slug}`}
-                          aria-label={`${product.displayName}. Opens product details.`}
-                        >
-                          {product.displayName}
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </article>
-            );
-          })}
-        </div>
+        <SystemIngredientCarousel cards={cards} />
       ) : (
         <p className="method-ingredients__empty">
           Ingredient details are being prepared for the active System products.
@@ -203,7 +157,9 @@ function IntentionalSkincare() {
     >
       <div className="method-intentional__copy">
         <div>
-          <h2 id="system-intentional-heading">intentional skincare</h2>
+          <h2 id="system-intentional-heading" className="method-intentional__heading">
+            intentional skincare
+          </h2>
           <p>
             Helix is a line of curated skincare essentials. Formulated for a
             variety of skin types and needs with high performance ingredients,
@@ -242,8 +198,11 @@ export function MethodExperience({
       >
         <header className="method-section-head method-section-head--beyond">
           <div>
-            <p className="eyebrow">Beyond The Core</p>
-            <h2 id="system-beyond-heading">TARGETED STEPS. USED DELIBERATELY.</h2>
+            <p className="eyebrow method-section-eyebrow">
+              <HelixIdentity variant="symbol" decorative />
+              <span>Beyond The Core</span>
+            </p>
+            <h2 id="system-beyond-heading">Targeted steps. Used deliberately.</h2>
             <p>
               Add prep, eye care, daily protection, or a weekly intensive where it
               earns a place in your routine.

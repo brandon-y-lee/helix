@@ -76,6 +76,7 @@ describe("SystemCoreFlow", () => {
     );
 
     const activePanel = screen.getByRole("tabpanel", { name: /CLEANSE/i });
+    expect(activePanel.querySelector(".method-flow__position")).not.toBeInTheDocument();
     expect(
       within(activePanel).getByRole("heading", { level: 3, name: "Biotic Reset" }),
     ).toBeInTheDocument();

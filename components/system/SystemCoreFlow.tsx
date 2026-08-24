@@ -131,10 +131,6 @@ export function SystemCoreFlow({ items }: { items: SystemCoreFlowItem[] }) {
               hidden={index !== activeIndex}
               inert={index !== activeIndex}
             >
-              <p className="method-flow__position">
-                <span>{item.displayNumber}</span>
-                <span>{item.stepName}</span>
-              </p>
               <h3>{item.displayName}</h3>
               <p className="method-flow__type">{item.productType}</p>
               <p className="method-flow__description">{item.description}</p>
