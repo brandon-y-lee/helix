@@ -29,7 +29,7 @@ const CORE_STEP_NARRATIVES: Record<
   TREAT:
     "A quick layer for mornings that start early and nights that run late. Press a few drops into clean skin for lightweight hydration and a smoother, replenished-looking finish—no complicated routine required.",
   SEAL:
-    "The last layer before you head out or turn in. Smooth it on to hold the routine together with comfortable moisture, so skin feels supported through the day and into the next morning.",
+    "The last layer before you head out or turn in. Smooth it on to hold the routine together with comfortable moisture, so skin feels supported wherever the rest of the day takes you.",
 };
 
 function availabilityLabel(product: Product) {

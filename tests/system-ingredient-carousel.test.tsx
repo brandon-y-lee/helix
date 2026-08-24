@@ -89,8 +89,10 @@ describe("SystemIngredientCarousel", () => {
     );
 
     tabs[1].focus();
+    const focusWithoutScroll = vi.spyOn(tabs[0], "focus");
     await user.keyboard("{Home}");
     expect(tabs[0]).toHaveFocus();
+    expect(focusWithoutScroll).toHaveBeenCalledWith({ preventScroll: true });
     await user.keyboard("{ArrowLeft}");
     expect(tabs[1]).toHaveFocus();
     await user.keyboard("{ArrowRight}");

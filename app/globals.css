@@ -7489,6 +7489,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 .ingredient-carousel__viewport {
   position: relative;
   overflow: hidden;
+  overflow: clip;
   touch-action: pan-y;
 }
 

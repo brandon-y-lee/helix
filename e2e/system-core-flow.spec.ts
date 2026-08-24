@@ -149,14 +149,15 @@ for (const viewport of [
     await page.goto("/system#system-ingredients");
 
     const section = page.locator("#system-ingredients");
+    const carouselViewport = section.locator(".ingredient-carousel__viewport");
     const tabs = section.getByRole("tab");
     await expect(tabs).toHaveCount(9);
     await expect(tabs.first().locator("img")).toBeVisible();
     await expect(section.getByText("FORMULATION NOTE", { exact: true })).toHaveCount(0);
     await expect(tabs.first()).toHaveAttribute("aria-selected", "true");
-    await expect(section.locator(".ingredient-carousel__viewport")).toHaveCSS(
+    await expect(carouselViewport).toHaveCSS(
       "overflow-x",
-      "hidden",
+      "clip",
     );
 
     const geometry = await section.evaluate((element) => {
@@ -174,11 +175,30 @@ for (const viewport of [
     expect(Math.abs(geometry.cardRatio - 4 / 5)).toBeLessThan(0.02);
     expect(Math.abs(geometry.left - geometry.right)).toBeLessThanOrEqual(2);
 
-    await tabs.nth(1).click();
+    const secondCardClickPoint = await tabs.nth(1).evaluate((element) => {
+      const cardRect = element.getBoundingClientRect();
+      const viewportRect = element
+        .closest(".ingredient-carousel__viewport")
+        ?.getBoundingClientRect();
+      if (!viewportRect) throw new Error("The ingredient viewport is missing.");
+
+      const left = Math.max(cardRect.left, viewportRect.left, 0);
+      const right = Math.min(cardRect.right, viewportRect.right, window.innerWidth);
+      const top = Math.max(cardRect.top, viewportRect.top, 0);
+      const bottom = Math.min(cardRect.bottom, viewportRect.bottom, window.innerHeight);
+      if (right <= left || bottom <= top) {
+        throw new Error("The second ingredient card has no visible click target.");
+      }
+      return { x: left + (right - left) / 2, y: top + (bottom - top) / 2 };
+    });
+    await page.mouse.click(secondCardClickPoint.x, secondCardClickPoint.y);
     await expect(tabs.nth(1)).toHaveAttribute("aria-selected", "true");
     await expect(section.getByRole("tabpanel")).toContainText("Peptides");
 
-    await tabs.nth(4).click();
+    const nextIngredient = section.getByRole("button", { name: "Next ingredient" });
+    await nextIngredient.click();
+    await nextIngredient.click();
+    await nextIngredient.click();
     await expect(tabs.nth(4)).toHaveAttribute("aria-selected", "true");
     await expect
       .poll(() =>
@@ -198,11 +218,11 @@ for (const viewport of [
       )
       .toBeLessThanOrEqual(2);
 
-    await tabs.nth(4).focus();
-    await page.keyboard.press("End");
+    await tabs.nth(4).press("End");
     await expect(tabs.last()).toBeFocused();
     await expect(tabs.last()).toHaveAttribute("aria-selected", "true");
-    await section.getByRole("button", { name: "Next ingredient" }).click();
+    await expect(carouselViewport).toHaveJSProperty("scrollLeft", 0);
+    await nextIngredient.click();
     await expect(tabs.first()).toHaveAttribute("aria-selected", "true");
     await expectNoMainOverflow(page, viewport.width);
   });
@@ -217,6 +237,14 @@ test("Core flow removes crossfade motion for reduced-motion users", async ({ pag
     "0s",
   );
   await expect(page.locator(".ingredient-carousel__image").first()).toHaveCSS(
+    "transition-duration",
+    "0s",
+  );
+  await expect(page.locator(".method-selection-panel").first()).toHaveCSS(
+    "animation-name",
+    "none",
+  );
+  await expect(page.locator(".ingredient-carousel__rail")).toHaveCSS(
     "transition-duration",
     "0s",
   );
