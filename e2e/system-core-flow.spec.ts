@@ -137,29 +137,52 @@ for (const viewport of [
   });
 }
 
-test("Ingredient literacy uses an image-led disclosure carousel", async ({ page }) => {
-  await page.setViewportSize({ width: 1024, height: 900 });
-  await page.goto("/system#system-ingredients");
+for (const viewport of [
+  { width: 1440, height: 1000 },
+  { width: 1024, height: 900 },
+  { width: 390, height: 844 },
+] as const) {
+  test(`Ingredient literacy carousel remains responsive at ${viewport.width}×${viewport.height}`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(viewport);
+    await page.goto("/system#system-ingredients");
 
-  const section = page.locator("#system-ingredients");
-  const tabs = section.getByRole("tab");
-  await expect(tabs).toHaveCount(9);
-  await expect(tabs.first().locator("img")).toBeVisible();
-  await expect(section.getByText("FORMULATION NOTE", { exact: true })).toHaveCount(0);
-  await expect(tabs.first()).toHaveAttribute("aria-selected", "true");
+    const section = page.locator("#system-ingredients");
+    const tabs = section.getByRole("tab");
+    await expect(tabs).toHaveCount(9);
+    await expect(tabs.first().locator("img")).toBeVisible();
+    await expect(section.getByText("FORMULATION NOTE", { exact: true })).toHaveCount(0);
+    await expect(tabs.first()).toHaveAttribute("aria-selected", "true");
 
-  await tabs.nth(1).click();
-  await expect(tabs.nth(1)).toHaveAttribute("aria-selected", "true");
-  await expect(section.getByRole("tabpanel")).toContainText("Peptides");
+    const geometry = await section.evaluate((element) => {
+      const sectionRect = element.getBoundingClientRect();
+      const cardRect = element
+        .querySelector('[role="tab"]')
+        ?.getBoundingClientRect();
+      if (!cardRect) throw new Error("The ingredient carousel card is missing.");
+      return {
+        cardRatio: cardRect.width / cardRect.height,
+        left: sectionRect.left,
+        right: window.innerWidth - sectionRect.right,
+      };
+    });
+    expect(Math.abs(geometry.cardRatio - 4 / 5)).toBeLessThan(0.02);
+    expect(Math.abs(geometry.left - geometry.right)).toBeLessThanOrEqual(2);
 
-  await tabs.nth(1).focus();
-  await page.keyboard.press("End");
-  await expect(tabs.last()).toBeFocused();
-  await expect(tabs.last()).toHaveAttribute("aria-selected", "true");
-  await section.getByRole("button", { name: "Next ingredient" }).click();
-  await expect(tabs.first()).toHaveAttribute("aria-selected", "true");
-  await expectNoMainOverflow(page, 1024);
-});
+    await tabs.nth(1).click();
+    await expect(tabs.nth(1)).toHaveAttribute("aria-selected", "true");
+    await expect(section.getByRole("tabpanel")).toContainText("Peptides");
+
+    await tabs.nth(1).focus();
+    await page.keyboard.press("End");
+    await expect(tabs.last()).toBeFocused();
+    await expect(tabs.last()).toHaveAttribute("aria-selected", "true");
+    await section.getByRole("button", { name: "Next ingredient" }).click();
+    await expect(tabs.first()).toHaveAttribute("aria-selected", "true");
+    await expectNoMainOverflow(page, viewport.width);
+  });
+}
 
 test("Core flow removes crossfade motion for reduced-motion users", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });

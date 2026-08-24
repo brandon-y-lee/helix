@@ -2,12 +2,8 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import {
-  useEffect,
-  useRef,
-  useState,
-  type KeyboardEvent,
-} from "react";
+import { useEffect } from "react";
+import { useRovingTabSelection } from "@/components/system/useRovingTabSelection";
 import {
   ingredientAnchorId,
   type IngredientIndexCard,
@@ -38,44 +34,21 @@ export function SystemIngredientCarousel({
 }: {
   cards: IngredientIndexCard[];
 }) {
-  const [activeIndex, setActiveIndex] = useState(0);
-  const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const { activeIndex, handleTabKeyDown, registerTab, selectIndex } =
+    useRovingTabSelection(cards.length, { scrollTabsIntoView: true });
 
   useEffect(() => {
-    const hash = decodeURIComponent(window.location.hash.slice(1));
+    const hash = window.location.hash.slice(1);
     const hashIndex = cards.findIndex((card) => panelId(card) === hash);
     if (hashIndex < 0) return;
 
-    setActiveIndex(hashIndex);
+    selectIndex(hashIndex);
     window.requestAnimationFrame?.(() => {
       document.getElementById(hash)?.scrollIntoView?.({ block: "start" });
     });
-  }, [cards]);
+  }, [cards, selectIndex]);
 
   if (cards.length === 0) return null;
-
-  function select(index: number, focus = false) {
-    const nextIndex = (index + cards.length) % cards.length;
-    setActiveIndex(nextIndex);
-    const tab = tabRefs.current[nextIndex];
-    tab?.scrollIntoView?.({ block: "nearest", inline: "center" });
-    if (focus) tab?.focus();
-  }
-
-  function handleKeyDown(
-    event: KeyboardEvent<HTMLButtonElement>,
-    index: number,
-  ) {
-    let nextIndex: number | null = null;
-    if (event.key === "ArrowRight") nextIndex = index + 1;
-    if (event.key === "ArrowLeft") nextIndex = index - 1;
-    if (event.key === "Home") nextIndex = 0;
-    if (event.key === "End") nextIndex = cards.length - 1;
-    if (nextIndex === null) return;
-
-    event.preventDefault();
-    select(nextIndex, true);
-  }
 
   return (
     <div className="ingredient-carousel" data-active-ingredient={cards[activeIndex].id}>
@@ -83,14 +56,14 @@ export function SystemIngredientCarousel({
         <button
           type="button"
           aria-label="Previous ingredient"
-          onClick={() => select(activeIndex - 1)}
+          onClick={() => selectIndex(activeIndex - 1)}
         >
           <span aria-hidden="true">←</span>
         </button>
         <button
           type="button"
           aria-label="Next ingredient"
-          onClick={() => select(activeIndex + 1)}
+          onClick={() => selectIndex(activeIndex + 1)}
         >
           <span aria-hidden="true">→</span>
         </button>
@@ -107,7 +80,7 @@ export function SystemIngredientCarousel({
             <button
               key={card.id}
               ref={(node) => {
-                tabRefs.current[index] = node;
+                registerTab(index, node);
               }}
               id={tabId(card)}
               className="ingredient-carousel__card"
@@ -116,8 +89,8 @@ export function SystemIngredientCarousel({
               aria-controls={panelId(card)}
               aria-selected={index === activeIndex}
               tabIndex={index === activeIndex ? 0 : -1}
-              onClick={() => select(index)}
-              onKeyDown={(event) => handleKeyDown(event, index)}
+              onClick={() => selectIndex(index)}
+              onKeyDown={(event) => handleTabKeyDown(event, index)}
             >
               <span className="ingredient-carousel__media" aria-hidden="true">
                 {imagePath ? (

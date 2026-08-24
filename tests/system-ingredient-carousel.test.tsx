@@ -98,4 +98,11 @@ describe("SystemIngredientCarousel", () => {
       "system-ingredient-niacinamide",
     );
   });
+
+  it("ignores malformed or unknown ingredient hashes without crashing", () => {
+    window.history.replaceState(null, "", "/system#%E0%A4%A");
+
+    expect(() => render(<SystemIngredientCarousel cards={cards} />)).not.toThrow();
+    expect(screen.getAllByRole("tab")[0]).toHaveAttribute("aria-selected", "true");
+  });
 });

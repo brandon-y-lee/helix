@@ -7357,7 +7357,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 .method-beyond {
   position: relative;
   border: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
-  border-radius: var(--radius);
+  border-radius: var(--pdp-panel-radius);
   padding: clamp(24px, 4vw, 48px);
   background:
     linear-gradient(135deg, rgba(255, 255, 255, 0.42), transparent 58%),
