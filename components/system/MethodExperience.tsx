@@ -20,6 +20,18 @@ import { firstPurchasableVariant, type Product } from "@/lib/products";
 
 const MISSING_CORE_SWATCH: [string, string] = ["#dedbd3", "#807d76"];
 
+const CORE_STEP_NARRATIVES: Record<
+  (typeof CORE_SYSTEM_STEP_NAMES)[number],
+  string
+> = {
+  CLEANSE:
+    "The reset after a long day, a commute, or a workout. Work it into damp skin to take off sunscreen, sweat, and the day’s buildup, then rinse and move on with skin ready for the next step.",
+  TREAT:
+    "A quick layer for mornings that start early and nights that run late. Press a few drops into clean skin for lightweight hydration and a smoother, replenished-looking finish—no complicated routine required.",
+  SEAL:
+    "The last layer before you head out or turn in. Smooth it on to hold the routine together with comfortable moisture, so skin feels supported through the day and into the next morning.",
+};
+
 function availabilityLabel(product: Product) {
   if (firstPurchasableVariant(product)) return "Available";
   if (product.status === "coming_soon") return "Coming soon";
@@ -57,10 +69,10 @@ function buildCoreFlowItems(groups: SystemProductGroups): SystemCoreFlowItem[] {
     if (entry) {
       return {
         anchorId: entry.anchorId,
-        description: entry.product.description,
         displayName: entry.product.displayName,
         displayNumber: entry.displayNumber,
         legacyAnchorIds: entry.legacyAnchorIds,
+        narrative: CORE_STEP_NARRATIVES[stepName],
         productType: entry.product.productType,
         slug: entry.product.slug,
         stepName,
@@ -70,10 +82,10 @@ function buildCoreFlowItems(groups: SystemProductGroups): SystemCoreFlowItem[] {
 
     return {
       anchorId: SYSTEM_STEP_ANCHORS[stepName],
-      description: "No collection-facing Core entry is available for this step.",
       displayName: `${stepName} currently unavailable`,
       displayNumber: String(index + 1).padStart(2, "0"),
       legacyAnchorIds: SYSTEM_STEP_LEGACY_ANCHORS[stepName],
+      narrative: "No collection-facing Core entry is available for this step.",
       productType: "Currently unavailable",
       slug: null,
       stepName,
@@ -114,7 +126,7 @@ function BeyondProductCard({ entry }: { entry: BeyondSystemProductEntry }) {
           className="method-beyond-card__link"
           aria-label={`View ${product.displayName} product details`}
         >
-          View product
+          <span className="sr-only">View {product.displayName} product details</span>
         </Link>
       </div>
     </article>
@@ -202,18 +214,11 @@ export function MethodExperience({
               <HelixIdentity variant="symbol" decorative />
               <span>Beyond The Core</span>
             </p>
-            <h2 id="system-beyond-heading">Targeted steps. Used deliberately.</h2>
+            <h2 id="system-beyond-heading">Targeted steps.</h2>
             <p>
-              Add prep, eye care, daily protection, or a weekly intensive where it
-              earns a place in your routine.
+              Add prep, eye care, daily protection, or a weekly intensive.
             </p>
           </div>
-          <Link
-            href="/collections/beyond-the-core"
-            className="btn btn--ghost btn--editorial-rounded"
-          >
-            Shop Beyond
-          </Link>
         </header>
 
         <div className="method-beyond__grid">

@@ -11,10 +11,10 @@ import { useRovingTabSelection } from "@/components/system/useRovingTabSelection
 
 export type SystemCoreFlowItem = {
   anchorId: string;
-  description: string;
   displayName: string;
   displayNumber: string;
   legacyAnchorIds: readonly string[];
+  narrative: string;
   productType: string;
   slug: string | null;
   stepName: "CLEANSE" | "TREAT" | "SEAL";
@@ -86,7 +86,7 @@ export function SystemCoreFlow({ items }: { items: SystemCoreFlowItem[] }) {
           <HelixIdentity variant="symbol" decorative />
           <span>The Core</span>
         </p>
-        <h2 id="system-core-flow-heading">Three daily steps form the baseline</h2>
+        <h2 id="system-core-flow-heading">Three steps form the baseline.</h2>
       </header>
 
       <div className="method-flow__panels">
@@ -96,7 +96,7 @@ export function SystemCoreFlow({ items }: { items: SystemCoreFlowItem[] }) {
             <article
               key={item.stepName}
               id={`system-core-panel-${key}`}
-              className="method-flow__panel"
+              className="method-flow__panel method-selection-panel"
               role="tabpanel"
               aria-labelledby={`system-core-tab-${key}`}
               hidden={index !== activeIndex}
@@ -104,7 +104,7 @@ export function SystemCoreFlow({ items }: { items: SystemCoreFlowItem[] }) {
             >
               <h3>{item.displayName}</h3>
               <p className="method-flow__type">{item.productType}</p>
-              <p className="method-flow__description">{item.description}</p>
+              <p className="method-flow__description">{item.narrative}</p>
               {item.slug ? (
                 <Link
                   href={`/products/${item.slug}`}

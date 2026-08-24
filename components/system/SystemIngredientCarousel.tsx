@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRovingTabSelection } from "@/components/system/useRovingTabSelection";
 import {
   ingredientAnchorId,
@@ -29,13 +29,37 @@ function panelId(card: IngredientIndexCard) {
   return ingredientAnchorId(card.id);
 }
 
+function renderedRailOffset(rail: HTMLElement) {
+  const transform = window.getComputedStyle(rail).transform;
+  if (!transform || transform === "none") return 0;
+
+  const matrix3d = transform.match(/^matrix3d\((.+)\)$/);
+  if (matrix3d) {
+    const values = matrix3d[1].split(",").map(Number);
+    return Math.max(0, -(values[12] ?? 0));
+  }
+
+  const matrix = transform.match(/^matrix\((.+)\)$/);
+  if (matrix) {
+    const values = matrix[1].split(",").map(Number);
+    return Math.max(0, -(values[4] ?? 0));
+  }
+
+  const translation = transform.match(/^translate3d\(([-\d.]+)px/);
+  return Math.max(0, -(Number(translation?.[1]) || 0));
+}
+
 export function SystemIngredientCarousel({
   cards,
 }: {
   cards: IngredientIndexCard[];
 }) {
   const { activeIndex, handleTabKeyDown, registerTab, selectIndex } =
-    useRovingTabSelection(cards.length, { scrollTabsIntoView: true });
+    useRovingTabSelection(cards.length);
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const railRef = useRef<HTMLDivElement>(null);
+  const cardRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const [railOffset, setRailOffset] = useState(0);
 
   useEffect(() => {
     const hash = window.location.hash.slice(1);
@@ -48,69 +72,110 @@ export function SystemIngredientCarousel({
     });
   }, [cards, selectIndex]);
 
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    const rail = railRef.current;
+    const activeCard = cardRefs.current[activeIndex];
+    if (!viewport || !rail || !activeCard) return;
+
+    const centerActiveCard = () => {
+      const viewportRect = viewport.getBoundingClientRect();
+      const activeCardRect = activeCard.getBoundingClientRect();
+      const visualDistanceToCenter =
+        activeCardRect.left + activeCardRect.width / 2 -
+        (viewportRect.left + viewportRect.width / 2);
+      setRailOffset(
+        Math.max(
+          0,
+          renderedRailOffset(rail) + visualDistanceToCenter,
+        ),
+      );
+    };
+
+    centerActiveCard();
+
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", centerActiveCard);
+      return () => window.removeEventListener("resize", centerActiveCard);
+    }
+
+    const observer = new ResizeObserver(centerActiveCard);
+    observer.observe(viewport);
+    observer.observe(activeCard);
+    return () => observer.disconnect();
+  }, [activeIndex, cards.length]);
+
   if (cards.length === 0) return null;
 
   return (
-    <div className="ingredient-carousel" data-active-ingredient={cards[activeIndex].id}>
-      <div className="ingredient-carousel__controls">
-        <button
-          type="button"
-          aria-label="Previous ingredient"
-          onClick={() => selectIndex(activeIndex - 1)}
-        >
-          <span aria-hidden="true">←</span>
-        </button>
-        <button
-          type="button"
-          aria-label="Next ingredient"
-          onClick={() => selectIndex(activeIndex + 1)}
-        >
-          <span aria-hidden="true">→</span>
-        </button>
-      </div>
+    <div
+      className="ingredient-carousel"
+      data-active-ingredient={cards[activeIndex].id}
+    >
+      <div ref={viewportRef} className="ingredient-carousel__viewport">
+        <div className="ingredient-carousel__controls">
+          <button
+            type="button"
+            aria-label="Previous ingredient"
+            onClick={() => selectIndex(activeIndex - 1)}
+          >
+            <span aria-hidden="true">←</span>
+          </button>
+          <button
+            type="button"
+            aria-label="Next ingredient"
+            onClick={() => selectIndex(activeIndex + 1)}
+          >
+            <span aria-hidden="true">→</span>
+          </button>
+        </div>
 
-      <div
-        className="ingredient-carousel__rail"
-        role="tablist"
-        aria-label="Ingredient literacy"
-      >
-        {cards.map((card, index) => {
-          const imagePath = INGREDIENT_IMAGE_PATHS[card.id];
-          return (
-            <button
-              key={card.id}
-              ref={(node) => {
-                registerTab(index, node);
-              }}
-              id={tabId(card)}
-              className="ingredient-carousel__card"
-              type="button"
-              role="tab"
-              aria-controls={panelId(card)}
-              aria-selected={index === activeIndex}
-              tabIndex={index === activeIndex ? 0 : -1}
-              onClick={() => selectIndex(index)}
-              onKeyDown={(event) => handleTabKeyDown(event, index)}
-            >
-              <span className="ingredient-carousel__media" aria-hidden="true">
-                {imagePath ? (
-                  <Image
-                    src={imagePath}
-                    alt=""
-                    fill
-                    className="ingredient-carousel__image"
-                    sizes="(max-width: 720px) 78vw, (max-width: 1200px) 34vw, 28vw"
-                  />
-                ) : null}
-              </span>
-              <span className="ingredient-carousel__card-copy">
-                <small>{card.ingredientClass}</small>
-                <strong>{card.name}</strong>
-                <span>View details</span>
-              </span>
-            </button>
-          );
-        })}
+        <div
+          ref={railRef}
+          className="ingredient-carousel__rail"
+          role="tablist"
+          aria-label="Ingredient literacy"
+          style={{ transform: `translate3d(${-railOffset}px, 0, 0)` }}
+        >
+          {cards.map((card, index) => {
+            const imagePath = INGREDIENT_IMAGE_PATHS[card.id];
+            return (
+              <button
+                key={card.id}
+                ref={(node) => {
+                  cardRefs.current[index] = node;
+                  registerTab(index, node);
+                }}
+                id={tabId(card)}
+                className="ingredient-carousel__card"
+                type="button"
+                role="tab"
+                aria-controls={panelId(card)}
+                aria-selected={index === activeIndex}
+                tabIndex={index === activeIndex ? 0 : -1}
+                onClick={() => selectIndex(index)}
+                onKeyDown={(event) => handleTabKeyDown(event, index)}
+              >
+                <span className="ingredient-carousel__media" aria-hidden="true">
+                  {imagePath ? (
+                    <Image
+                      src={imagePath}
+                      alt=""
+                      fill
+                      className="ingredient-carousel__image"
+                      sizes="(max-width: 720px) 78vw, (max-width: 1200px) 34vw, 28vw"
+                    />
+                  ) : null}
+                </span>
+                <span className="ingredient-carousel__card-copy">
+                  <small>{card.ingredientClass}</small>
+                  <strong>{card.name}</strong>
+                  <span>View details</span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       <div className="ingredient-carousel__details">
@@ -118,7 +183,7 @@ export function SystemIngredientCarousel({
           <article
             key={card.id}
             id={panelId(card)}
-            className="ingredient-carousel__panel"
+            className="ingredient-carousel__panel method-selection-panel"
             role="tabpanel"
             aria-labelledby={tabId(card)}
             hidden={index !== activeIndex}

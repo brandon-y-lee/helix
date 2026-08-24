@@ -95,7 +95,7 @@ for (const viewport of [
     });
     expect(Math.abs(coreGeometry.left - coreGeometry.right)).toBeLessThanOrEqual(2);
     expect(coreGeometry.headingFontSize).toBeLessThanOrEqual(48);
-    expect(coreGeometry.panelTextAlign).toBe("right");
+    expect(coreGeometry.panelTextAlign).toBe("left");
 
     if (viewport.splitMode === "paired") {
       expect(Math.abs(coreGeometry.width / coreGeometry.height - 16 / 9)).toBeLessThan(
@@ -154,6 +154,10 @@ for (const viewport of [
     await expect(tabs.first().locator("img")).toBeVisible();
     await expect(section.getByText("FORMULATION NOTE", { exact: true })).toHaveCount(0);
     await expect(tabs.first()).toHaveAttribute("aria-selected", "true");
+    await expect(section.locator(".ingredient-carousel__viewport")).toHaveCSS(
+      "overflow-x",
+      "hidden",
+    );
 
     const geometry = await section.evaluate((element) => {
       const sectionRect = element.getBoundingClientRect();
@@ -174,7 +178,27 @@ for (const viewport of [
     await expect(tabs.nth(1)).toHaveAttribute("aria-selected", "true");
     await expect(section.getByRole("tabpanel")).toContainText("Peptides");
 
-    await tabs.nth(1).focus();
+    await tabs.nth(4).click();
+    await expect(tabs.nth(4)).toHaveAttribute("aria-selected", "true");
+    await expect
+      .poll(() =>
+        section.evaluate((element) => {
+          const viewportRect = element
+            .querySelector(".ingredient-carousel__viewport")
+            ?.getBoundingClientRect();
+          const activeRect = element
+            .querySelector('[role="tab"][aria-selected="true"]')
+            ?.getBoundingClientRect();
+          if (!viewportRect || !activeRect) return Number.POSITIVE_INFINITY;
+          return Math.abs(
+            activeRect.left + activeRect.width / 2 -
+              (viewportRect.left + viewportRect.width / 2),
+          );
+        }),
+      )
+      .toBeLessThanOrEqual(2);
+
+    await tabs.nth(4).focus();
     await page.keyboard.press("End");
     await expect(tabs.last()).toBeFocused();
     await expect(tabs.last()).toHaveAttribute("aria-selected", "true");
