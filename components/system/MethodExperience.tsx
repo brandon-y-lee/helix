@@ -147,7 +147,7 @@ function IngredientLiteracy({ cards }: { cards: IngredientIndexCard[] }) {
             <HelixIdentity variant="symbol" decorative />
             <span>Ingredient literacy</span>
           </p>
-          <h2 id="system-ingredients-heading">Know what you’re using.</h2>
+          <h2 id="system-ingredients-heading">Research-backed ingredients</h2>
         </div>
       </div>
       {cards.length > 0 ? (
@@ -214,7 +214,7 @@ export function MethodExperience({
               <HelixIdentity variant="symbol" decorative />
               <span>Beyond The Core</span>
             </p>
-            <h2 id="system-beyond-heading">Targeted steps.</h2>
+            <h2 id="system-beyond-heading">Targeted steps</h2>
             <p>
               Add prep, eye care, daily protection, or a weekly intensive.
             </p>

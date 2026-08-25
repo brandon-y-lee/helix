@@ -82,20 +82,62 @@ for (const viewport of [
       const rect = element.getBoundingClientRect();
       const heading = element.querySelector("h2");
       const panel = element.querySelector('[role="tabpanel"]');
-      if (!heading || !panel) throw new Error("Core editorial content is missing.");
+      const tablist = element.querySelector('[role="tablist"]');
+      const productLink = panel?.querySelector(".method-flow__product-link");
+      const activeStep = tablist?.querySelector<HTMLElement>(
+        '[role="tab"][aria-selected="true"] strong',
+      );
+      const inactiveStep = tablist?.querySelector<HTMLElement>(
+        '[role="tab"][aria-selected="false"] strong',
+      );
+      if (!heading || !panel || !tablist || !productLink || !activeStep || !inactiveStep) {
+        throw new Error("Core editorial content is missing.");
+      }
+      const headingRect = heading.getBoundingClientRect();
+      const panelRect = panel.getBoundingClientRect();
+      const tablistRect = tablist.getBoundingClientRect();
+      const productLinkRect = productLink.getBoundingClientRect();
       return {
         width: rect.width,
         height: rect.height,
         left: rect.left,
         right: window.innerWidth - rect.right,
         headingFontSize: Number.parseFloat(getComputedStyle(heading).fontSize),
+        headingFontFamily: getComputedStyle(heading).fontFamily,
         headingWhiteSpace: getComputedStyle(heading).whiteSpace,
         panelTextAlign: getComputedStyle(panel).textAlign,
+        panelHeadingOffset: Math.abs(panelRect.left - headingRect.left),
+        productLinkBottomGap: panelRect.bottom - productLinkRect.bottom,
+        tablistBeforeHeading: tablistRect.bottom <= headingRect.top,
+        activeStepWeight: Number.parseInt(getComputedStyle(activeStep).fontWeight, 10),
+        inactiveStepWeight: Number.parseInt(getComputedStyle(inactiveStep).fontWeight, 10),
       };
     });
     expect(Math.abs(coreGeometry.left - coreGeometry.right)).toBeLessThanOrEqual(2);
     expect(coreGeometry.headingFontSize).toBeLessThanOrEqual(48);
     expect(coreGeometry.panelTextAlign).toBe("left");
+    expect(coreGeometry.panelHeadingOffset).toBeLessThanOrEqual(2);
+    expect(coreGeometry.productLinkBottomGap).toBeLessThanOrEqual(2);
+    expect(coreGeometry.tablistBeforeHeading).toBe(true);
+    expect(coreGeometry.activeStepWeight).toBeGreaterThan(coreGeometry.inactiveStepWeight);
+
+    const matchingTitleStyles = await page.evaluate(() =>
+      ["#system-beyond-heading", "#system-ingredients-heading"].map((selector) => {
+        const heading = document.querySelector(selector);
+        if (!heading) throw new Error(`Missing section heading: ${selector}`);
+        const style = getComputedStyle(heading);
+        return {
+          fontFamily: style.fontFamily,
+          fontSize: Number.parseFloat(style.fontSize),
+        };
+      }),
+    );
+    for (const titleStyle of matchingTitleStyles) {
+      expect(Math.abs(titleStyle.fontSize - coreGeometry.headingFontSize)).toBeLessThanOrEqual(
+        0.1,
+      );
+      expect(titleStyle.fontFamily).toBe(coreGeometry.headingFontFamily);
+    }
 
     if (viewport.splitMode === "paired") {
       expect(Math.abs(coreGeometry.width / coreGeometry.height - 16 / 9)).toBeLessThan(
@@ -155,6 +197,9 @@ for (const viewport of [
     await expect(tabs.first().locator("img")).toBeVisible();
     await expect(section.getByText("FORMULATION NOTE", { exact: true })).toHaveCount(0);
     await expect(tabs.first()).toHaveAttribute("aria-selected", "true");
+    await expect(
+      section.getByRole("heading", { level: 2, name: "Research-backed ingredients" }),
+    ).toBeVisible();
     await expect(carouselViewport).toHaveCSS(
       "overflow-x",
       "clip",
@@ -162,17 +207,52 @@ for (const viewport of [
 
     const geometry = await section.evaluate((element) => {
       const sectionRect = element.getBoundingClientRect();
-      const cardRect = element
-        .querySelector('[role="tab"]')
+      const viewportRect = element
+        .querySelector(".ingredient-carousel__viewport")
         ?.getBoundingClientRect();
-      if (!cardRect) throw new Error("The ingredient carousel card is missing.");
+      const cardRect = element.querySelector('[role="tab"]')?.getBoundingClientRect();
+      const previous = element.querySelector<HTMLButtonElement>(
+        '.ingredient-carousel__controls [aria-label="Previous ingredient"]',
+      );
+      const next = element.querySelector<HTMLButtonElement>(
+        '.ingredient-carousel__controls [aria-label="Next ingredient"]',
+      );
+      const panel = element.querySelector<HTMLElement>('[role="tabpanel"]');
+      if (!viewportRect || !cardRect || !previous || !next || !panel) {
+        throw new Error("The ingredient carousel composition is missing.");
+      }
+      const previousRect = previous.getBoundingClientRect();
+      const nextRect = next.getBoundingClientRect();
+      const controls = previous.parentElement as HTMLElement;
       return {
         cardRatio: cardRect.width / cardRect.height,
+        controlsPosition: getComputedStyle(controls).position,
+        controlsZIndex: Number.parseInt(getComputedStyle(controls).zIndex, 10),
+        previousBorderStyle: getComputedStyle(previous).borderStyle,
+        previousEdgeGap: previousRect.left - viewportRect.left,
+        nextEdgeGap: viewportRect.right - nextRect.right,
+        previousCenterInsideCard:
+          previousRect.top + previousRect.height / 2 >= cardRect.top &&
+          previousRect.top + previousRect.height / 2 <= cardRect.bottom,
+        nextCenterInsideCard:
+          nextRect.top + nextRect.height / 2 >= cardRect.top &&
+          nextRect.top + nextRect.height / 2 <= cardRect.bottom,
+        panelRadius: Number.parseFloat(getComputedStyle(panel).borderTopLeftRadius),
         left: sectionRect.left,
         right: window.innerWidth - sectionRect.right,
       };
     });
     expect(Math.abs(geometry.cardRatio - 4 / 5)).toBeLessThan(0.02);
+    expect(geometry.controlsPosition).toBe("absolute");
+    expect(geometry.controlsZIndex).toBeGreaterThan(1);
+    expect(geometry.previousBorderStyle).toBe("none");
+    expect(geometry.previousEdgeGap).toBeGreaterThanOrEqual(0);
+    expect(geometry.previousEdgeGap).toBeLessThanOrEqual(12);
+    expect(geometry.nextEdgeGap).toBeGreaterThanOrEqual(0);
+    expect(geometry.nextEdgeGap).toBeLessThanOrEqual(12);
+    expect(geometry.previousCenterInsideCard).toBe(true);
+    expect(geometry.nextCenterInsideCard).toBe(true);
+    expect(geometry.panelRadius).toBeGreaterThan(0);
     expect(Math.abs(geometry.left - geometry.right)).toBeLessThanOrEqual(2);
 
     const secondCardClickPoint = await tabs.nth(1).evaluate((element) => {

@@ -184,7 +184,7 @@ describe("System content architecture", () => {
     expect(
       within(core).getByRole("heading", {
         level: 2,
-        name: "Three steps form the baseline.",
+        name: "Three steps form the baseline",
       }),
     ).toBeInTheDocument();
     expect(within(core).getAllByRole("tab")).toHaveLength(3);
@@ -204,13 +204,13 @@ describe("System content architecture", () => {
     expect(
       within(beyond).getByRole("heading", {
         level: 2,
-        name: "Targeted steps.",
+        name: "Targeted steps",
       }),
     ).toBeInTheDocument();
     expect(
       within(ingredients).getByRole("heading", {
         level: 2,
-        name: "Know what you’re using.",
+        name: "Research-backed ingredients",
       }),
     ).toBeInTheDocument();
     expect(ingredients.querySelector(".ingredient-carousel")).toBeInTheDocument();
