@@ -47,6 +47,12 @@ describe("SystemIngredientCarousel", () => {
       (controls as HTMLElement).compareDocumentPosition(rail as HTMLElement) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
+    expect(
+      screen.queryByRole("button", { name: "Previous ingredient" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Next ingredient" }),
+    ).toBeInTheDocument();
 
     const panel = screen.getByRole("tabpanel", { name: /PDRN/i });
     expect(panel).toHaveClass("method-selection-panel");
@@ -102,14 +108,30 @@ describe("SystemIngredientCarousel", () => {
     expect(tabs[1]).toHaveFocus();
   });
 
-  it("wraps previous and next controls", async () => {
+  it("shows only the direction available at each carousel endpoint", async () => {
     const user = userEvent.setup();
     render(<SystemIngredientCarousel cards={cards} />);
 
-    await user.click(screen.getByRole("button", { name: "Previous ingredient" }));
+    expect(
+      screen.queryByRole("button", { name: "Previous ingredient" }),
+    ).not.toBeInTheDocument();
+    const next = screen.getByRole("button", { name: "Next ingredient" });
+    next.focus();
+    await user.keyboard("{Enter}");
     expect(screen.getAllByRole("tab")[1]).toHaveAttribute("aria-selected", "true");
-    await user.click(screen.getByRole("button", { name: "Next ingredient" }));
+    expect(
+      screen.queryByRole("button", { name: "Next ingredient" }),
+    ).not.toBeInTheDocument();
+    const previous = screen.getByRole("button", { name: "Previous ingredient" });
+    await waitFor(() => expect(previous).toHaveFocus());
+    await user.keyboard("{Enter}");
     expect(screen.getAllByRole("tab")[0]).toHaveAttribute("aria-selected", "true");
+    expect(
+      screen.queryByRole("button", { name: "Previous ingredient" }),
+    ).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Next ingredient" })).toHaveFocus(),
+    );
   });
 
   it("preserves ingredient deep links and selects their disclosure", async () => {
@@ -126,6 +148,12 @@ describe("SystemIngredientCarousel", () => {
       "id",
       "system-ingredient-niacinamide",
     );
+    expect(
+      screen.queryByRole("button", { name: "Next ingredient" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Previous ingredient" }),
+    ).toBeInTheDocument();
   });
 
   it("ignores malformed or unknown ingredient hashes without crashing", () => {

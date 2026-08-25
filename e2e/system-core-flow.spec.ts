@@ -84,13 +84,24 @@ for (const viewport of [
       const panel = element.querySelector('[role="tabpanel"]');
       const tablist = element.querySelector('[role="tablist"]');
       const productLink = panel?.querySelector(".method-flow__product-link");
+      const nextControl = element.querySelector<HTMLElement>(
+        '[aria-label="Next Core step"]',
+      );
       const activeStep = tablist?.querySelector<HTMLElement>(
         '[role="tab"][aria-selected="true"] strong',
       );
       const inactiveStep = tablist?.querySelector<HTMLElement>(
         '[role="tab"][aria-selected="false"] strong',
       );
-      if (!heading || !panel || !tablist || !productLink || !activeStep || !inactiveStep) {
+      if (
+        !heading ||
+        !panel ||
+        !tablist ||
+        !productLink ||
+        !nextControl ||
+        !activeStep ||
+        !inactiveStep
+      ) {
         throw new Error("Core editorial content is missing.");
       }
       const headingRect = heading.getBoundingClientRect();
@@ -108,7 +119,8 @@ for (const viewport of [
         panelTextAlign: getComputedStyle(panel).textAlign,
         panelHeadingOffset: Math.abs(panelRect.left - headingRect.left),
         productLinkBottomGap: panelRect.bottom - productLinkRect.bottom,
-        tablistBeforeHeading: tablistRect.bottom <= headingRect.top,
+        tablistAfterPanel: tablistRect.top >= panelRect.bottom,
+        nextControlBorderStyle: getComputedStyle(nextControl).borderStyle,
         activeStepWeight: Number.parseInt(getComputedStyle(activeStep).fontWeight, 10),
         inactiveStepWeight: Number.parseInt(getComputedStyle(inactiveStep).fontWeight, 10),
       };
@@ -118,7 +130,8 @@ for (const viewport of [
     expect(coreGeometry.panelTextAlign).toBe("left");
     expect(coreGeometry.panelHeadingOffset).toBeLessThanOrEqual(2);
     expect(coreGeometry.productLinkBottomGap).toBeLessThanOrEqual(2);
-    expect(coreGeometry.tablistBeforeHeading).toBe(true);
+    expect(coreGeometry.tablistAfterPanel).toBe(true);
+    expect(coreGeometry.nextControlBorderStyle).toBe("none");
     expect(coreGeometry.activeStepWeight).toBeGreaterThan(coreGeometry.inactiveStepWeight);
 
     const matchingTitleStyles = await page.evaluate(() =>
@@ -211,29 +224,26 @@ for (const viewport of [
         .querySelector(".ingredient-carousel__viewport")
         ?.getBoundingClientRect();
       const cardRect = element.querySelector('[role="tab"]')?.getBoundingClientRect();
-      const previous = element.querySelector<HTMLButtonElement>(
-        '.ingredient-carousel__controls [aria-label="Previous ingredient"]',
-      );
       const next = element.querySelector<HTMLButtonElement>(
         '.ingredient-carousel__controls [aria-label="Next ingredient"]',
       );
       const panel = element.querySelector<HTMLElement>('[role="tabpanel"]');
-      if (!viewportRect || !cardRect || !previous || !next || !panel) {
+      if (!viewportRect || !cardRect || !next || !panel) {
         throw new Error("The ingredient carousel composition is missing.");
       }
-      const previousRect = previous.getBoundingClientRect();
       const nextRect = next.getBoundingClientRect();
-      const controls = previous.parentElement as HTMLElement;
+      const controls = next.parentElement as HTMLElement;
       return {
         cardRatio: cardRect.width / cardRect.height,
         controlsPosition: getComputedStyle(controls).position,
         controlsZIndex: Number.parseInt(getComputedStyle(controls).zIndex, 10),
-        previousBorderStyle: getComputedStyle(previous).borderStyle,
-        previousEdgeGap: previousRect.left - viewportRect.left,
+        previousPresent: Boolean(
+          element.querySelector(
+            '.ingredient-carousel__controls [aria-label="Previous ingredient"]',
+          ),
+        ),
+        nextBorderStyle: getComputedStyle(next).borderStyle,
         nextEdgeGap: viewportRect.right - nextRect.right,
-        previousCenterInsideCard:
-          previousRect.top + previousRect.height / 2 >= cardRect.top &&
-          previousRect.top + previousRect.height / 2 <= cardRect.bottom,
         nextCenterInsideCard:
           nextRect.top + nextRect.height / 2 >= cardRect.top &&
           nextRect.top + nextRect.height / 2 <= cardRect.bottom,
@@ -245,12 +255,10 @@ for (const viewport of [
     expect(Math.abs(geometry.cardRatio - 4 / 5)).toBeLessThan(0.02);
     expect(geometry.controlsPosition).toBe("absolute");
     expect(geometry.controlsZIndex).toBeGreaterThan(1);
-    expect(geometry.previousBorderStyle).toBe("none");
-    expect(geometry.previousEdgeGap).toBeGreaterThanOrEqual(0);
-    expect(geometry.previousEdgeGap).toBeLessThanOrEqual(12);
+    expect(geometry.previousPresent).toBe(false);
+    expect(geometry.nextBorderStyle).toBe("none");
     expect(geometry.nextEdgeGap).toBeGreaterThanOrEqual(0);
     expect(geometry.nextEdgeGap).toBeLessThanOrEqual(12);
-    expect(geometry.previousCenterInsideCard).toBe(true);
     expect(geometry.nextCenterInsideCard).toBe(true);
     expect(geometry.panelRadius).toBeGreaterThan(0);
     expect(Math.abs(geometry.left - geometry.right)).toBeLessThanOrEqual(2);
@@ -274,6 +282,12 @@ for (const viewport of [
     await page.mouse.click(secondCardClickPoint.x, secondCardClickPoint.y);
     await expect(tabs.nth(1)).toHaveAttribute("aria-selected", "true");
     await expect(section.getByRole("tabpanel")).toContainText("Peptides");
+    await expect(
+      section.getByRole("button", { name: "Previous ingredient" }),
+    ).toBeVisible();
+    await expect(
+      section.getByRole("button", { name: "Next ingredient" }),
+    ).toBeVisible();
 
     const nextIngredient = section.getByRole("button", { name: "Next ingredient" });
     await nextIngredient.click();
@@ -302,11 +316,59 @@ for (const viewport of [
     await expect(tabs.last()).toBeFocused();
     await expect(tabs.last()).toHaveAttribute("aria-selected", "true");
     await expect(carouselViewport).toHaveJSProperty("scrollLeft", 0);
-    await nextIngredient.click();
-    await expect(tabs.first()).toHaveAttribute("aria-selected", "true");
+    await expect(
+      section.getByRole("button", { name: "Previous ingredient" }),
+    ).toBeVisible();
+    await expect(
+      section.getByRole("button", { name: "Next ingredient" }),
+    ).toHaveCount(0);
+    await section.getByRole("button", { name: "Previous ingredient" }).click();
+    await expect(tabs.nth(7)).toHaveAttribute("aria-selected", "true");
+    const finalNext = section.getByRole("button", { name: "Next ingredient" });
+    await finalNext.focus();
+    await page.keyboard.press("Enter");
+    await expect(tabs.last()).toHaveAttribute("aria-selected", "true");
+    await expect(
+      section.getByRole("button", { name: "Previous ingredient" }),
+    ).toBeFocused();
     await expectNoMainOverflow(page, viewport.width);
   });
 }
+
+test("Core and ingredient arrow controls use an eased fill treatment", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/system");
+
+  for (const control of [
+    page.getByRole("button", { name: "Next Core step" }),
+    page.getByRole("button", { name: "Next ingredient" }),
+  ]) {
+    await expect(control).toHaveCSS("border-style", "none");
+    const initialFill = await control.evaluate(
+      (element) => getComputedStyle(element, "::before").transform,
+    );
+    const motion = await control.evaluate((element) => {
+      const style = getComputedStyle(element, "::before");
+      return {
+        duration: style.transitionDuration,
+        easing: style.transitionTimingFunction,
+      };
+    });
+    expect(motion.duration).not.toBe("0s");
+    expect(motion.easing).toContain("cubic-bezier");
+
+    await control.hover();
+    await expect
+      .poll(() =>
+        control.evaluate(
+          (element) => getComputedStyle(element, "::before").transform,
+        ),
+      )
+      .not.toBe(initialFill);
+  }
+});
 
 test("Core flow removes crossfade motion for reduced-motion users", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
@@ -328,4 +390,17 @@ test("Core flow removes crossfade motion for reduced-motion users", async ({ pag
     "transition-duration",
     "0s",
   );
+  for (const control of [
+    page.getByRole("button", { name: "Next Core step" }),
+    page.getByRole("button", { name: "Next ingredient" }),
+  ]) {
+    await expect(control).toHaveCSS("transition-duration", "0s");
+    await expect
+      .poll(() =>
+        control.evaluate(
+          (element) => getComputedStyle(element, "::before").transitionDuration,
+        ),
+      )
+      .toBe("0s");
+  }
 });
