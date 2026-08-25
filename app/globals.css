@@ -7000,7 +7000,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   min-height: 0;
   aspect-ratio: 16 / 9;
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
   gap: clamp(18px, 2.4vw, 34px);
   overflow: hidden;
   padding: clamp(24px, 3vw, 48px);
@@ -7151,6 +7151,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: clamp(12px, 2vw, 28px);
+  padding-right: clamp(76px, 8vw, 118px);
 }
 
 .method-flow__steps button {
@@ -7203,22 +7204,48 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 .method-flow__controls {
   position: absolute;
   right: clamp(24px, 3vw, 48px);
-  bottom: clamp(24px, 3vw, 48px);
+  bottom: clamp(42px, 4vw, 64px);
   z-index: 2;
   display: flex;
   gap: 8px;
 }
 
+.method-arrow-control {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border: 0;
+  border-radius: 50%;
+  font: inherit;
+  cursor: pointer;
+  transition: color var(--motion-fast) var(--ease-out);
+}
+
+.method-arrow-control::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  background: var(--method-arrow-fill);
+  transform: scale(0);
+  transition: transform 260ms var(--ease-out);
+  pointer-events: none;
+}
+
+.method-arrow-control span {
+  position: relative;
+  z-index: 1;
+}
+
 .method-flow__controls button {
+  --method-arrow-fill: rgba(251, 250, 246, 0.92);
+  --method-arrow-active-color: #171a18;
   width: 42px;
   height: 42px;
-  border: 1px solid rgba(251, 250, 246, 0.58);
-  border-radius: 50%;
   color: #fbfaf6;
-  background: rgba(12, 14, 13, 0.1);
-  font: inherit;
+  background: transparent;
   font-size: 1.25rem;
-  cursor: pointer;
 }
 
 .method-flow__steps button:focus-visible,
@@ -7226,6 +7253,14 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 .method-flow__product-link:focus-visible {
   outline: 2px solid #fbfaf6;
   outline-offset: 4px;
+}
+
+.method-arrow-control:focus-visible {
+  color: var(--method-arrow-active-color);
+}
+
+.method-arrow-control:focus-visible::before {
+  transform: scale(1);
 }
 
 .method-intentional {
@@ -7511,17 +7546,19 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 }
 
 .ingredient-carousel__controls button {
+  --method-arrow-fill: var(--ink);
+  --method-arrow-active-color: var(--surface);
   width: 40px;
   height: 40px;
-  border: 0;
-  border-radius: 50%;
   color: var(--ink);
   background: color-mix(in srgb, var(--surface) 58%, transparent);
   backdrop-filter: blur(8px);
-  font: inherit;
   font-size: 1.15rem;
-  cursor: pointer;
   pointer-events: auto;
+}
+
+.ingredient-carousel__control--next {
+  margin-left: auto;
 }
 
 .ingredient-carousel__rail {
@@ -7712,6 +7749,16 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 .ingredient-carousel__found a:focus-visible {
   outline: 2px solid var(--ink);
   outline-offset: 3px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .method-arrow-control:hover {
+    color: var(--method-arrow-active-color);
+  }
+
+  .method-arrow-control:hover::before {
+    transform: scale(1);
+  }
 }
 
 .editorial-cta {
@@ -10521,7 +10568,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
       820px
     );
     aspect-ratio: auto;
-    grid-template-rows: auto auto minmax(300px, 1fr);
+    grid-template-rows: auto minmax(300px, 1fr) auto;
     padding: clamp(24px, 5.5vw, 42px);
   }
 
@@ -10533,9 +10580,13 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
     justify-self: start;
   }
 
+  .method-flow__steps {
+    padding-right: 96px;
+  }
+
   .method-flow__controls {
     right: clamp(24px, 5.5vw, 42px);
-    bottom: clamp(24px, 5.5vw, 42px);
+    bottom: clamp(42px, 7vw, 62px);
   }
 
   .method-intentional {
@@ -10801,6 +10852,8 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 
 @media (prefers-reduced-motion: reduce) {
   .method-flow__background,
+  .method-arrow-control,
+  .method-arrow-control::before,
   .ingredient-carousel__image,
   .ingredient-carousel__rail,
   .method-beyond-card {
@@ -10883,7 +10936,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   }
 
   .method-flow {
-    grid-template-rows: auto auto minmax(330px, 1fr);
+    grid-template-rows: auto minmax(330px, 1fr) auto;
     gap: 20px;
     padding: 22px;
   }
@@ -10917,7 +10970,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 
   .method-flow__steps {
     gap: 10px;
-    padding-right: 0;
+    padding-right: 86px;
   }
 
   .method-flow__steps button {
@@ -10940,7 +10993,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 
   .method-flow__controls {
     right: 22px;
-    bottom: 22px;
+    bottom: 36px;
   }
 
   .method-flow__controls button {

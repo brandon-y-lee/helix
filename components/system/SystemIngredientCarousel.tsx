@@ -114,20 +114,26 @@ export function SystemIngredientCarousel({
     >
       <div ref={viewportRef} className="ingredient-carousel__viewport">
         <div className="ingredient-carousel__controls">
-          <button
-            type="button"
-            aria-label="Previous ingredient"
-            onClick={() => selectIndex(activeIndex - 1)}
-          >
-            <span aria-hidden="true">←</span>
-          </button>
-          <button
-            type="button"
-            aria-label="Next ingredient"
-            onClick={() => selectIndex(activeIndex + 1)}
-          >
-            <span aria-hidden="true">→</span>
-          </button>
+          {activeIndex > 0 ? (
+            <button
+              className="method-arrow-control ingredient-carousel__control ingredient-carousel__control--previous"
+              type="button"
+              aria-label="Previous ingredient"
+              onClick={() => selectIndex(activeIndex - 1)}
+            >
+              <span aria-hidden="true">←</span>
+            </button>
+          ) : null}
+          {activeIndex < cards.length - 1 ? (
+            <button
+              className="method-arrow-control ingredient-carousel__control ingredient-carousel__control--next"
+              type="button"
+              aria-label="Next ingredient"
+              onClick={() => selectIndex(activeIndex + 1)}
+            >
+              <span aria-hidden="true">→</span>
+            </button>
+          ) : null}
         </div>
 
         <div

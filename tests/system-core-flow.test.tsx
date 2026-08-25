@@ -76,14 +76,17 @@ describe("SystemCoreFlow", () => {
       level: 2,
       name: "Three steps form the baseline",
     });
+    const activePanel = screen.getByRole("tabpanel", { name: /CLEANSE/i });
     expect(
-      tablist.compareDocumentPosition(heading) & Node.DOCUMENT_POSITION_FOLLOWING,
+      heading.compareDocumentPosition(activePanel) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      activePanel.compareDocumentPosition(tablist) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
     expect(document.getElementById("system-core-panel-treat")).toHaveAttribute(
       "inert",
     );
 
-    const activePanel = screen.getByRole("tabpanel", { name: /CLEANSE/i });
     expect(activePanel).toHaveClass("method-selection-panel");
     expect(activePanel.querySelector(".method-flow__position")).not.toBeInTheDocument();
     expect(

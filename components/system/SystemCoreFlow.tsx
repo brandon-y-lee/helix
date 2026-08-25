@@ -81,37 +81,6 @@ export function SystemCoreFlow({ items }: { items: SystemCoreFlowItem[] }) {
         ))}
       </div>
 
-      <div
-        className="method-flow__steps"
-        role="tablist"
-        aria-label="Core system steps"
-      >
-        {items.map((item, index) => {
-          const key = stepKey(item);
-          return (
-            <button
-              key={item.stepName}
-              ref={(node) => {
-                registerTab(index, node);
-              }}
-              id={`system-core-tab-${key}`}
-              type="button"
-              role="tab"
-              aria-controls={`system-core-panel-${key}`}
-              aria-selected={index === activeIndex}
-              data-display-number={item.displayNumber}
-              tabIndex={index === activeIndex ? 0 : -1}
-              onClick={() => selectIndex(index)}
-              onKeyDown={(event) => handleTabKeyDown(event, index)}
-            >
-              <strong>{item.stepName}</strong>
-              <span>{item.displayName}</span>
-              <small>{item.productType}</small>
-            </button>
-          );
-        })}
-      </div>
-
       <header className="method-flow__heading">
         <p className="method-flow__eyebrow">
           <HelixIdentity variant="symbol" decorative />
@@ -149,8 +118,40 @@ export function SystemCoreFlow({ items }: { items: SystemCoreFlowItem[] }) {
         })}
       </div>
 
+      <div
+        className="method-flow__steps"
+        role="tablist"
+        aria-label="Core system steps"
+      >
+        {items.map((item, index) => {
+          const key = stepKey(item);
+          return (
+            <button
+              key={item.stepName}
+              ref={(node) => {
+                registerTab(index, node);
+              }}
+              id={`system-core-tab-${key}`}
+              type="button"
+              role="tab"
+              aria-controls={`system-core-panel-${key}`}
+              aria-selected={index === activeIndex}
+              data-display-number={item.displayNumber}
+              tabIndex={index === activeIndex ? 0 : -1}
+              onClick={() => selectIndex(index)}
+              onKeyDown={(event) => handleTabKeyDown(event, index)}
+            >
+              <strong>{item.stepName}</strong>
+              <span>{item.displayName}</span>
+              <small>{item.productType}</small>
+            </button>
+          );
+        })}
+      </div>
+
       <div className="method-flow__controls">
         <button
+          className="method-arrow-control"
           type="button"
           aria-label="Previous Core step"
           onClick={() => selectIndex(activeIndex - 1)}
@@ -158,6 +159,7 @@ export function SystemCoreFlow({ items }: { items: SystemCoreFlowItem[] }) {
           <span aria-hidden="true">←</span>
         </button>
         <button
+          className="method-arrow-control"
           type="button"
           aria-label="Next Core step"
           onClick={() => selectIndex(activeIndex + 1)}
