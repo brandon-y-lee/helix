@@ -115,16 +115,23 @@ describe("SystemIngredientCarousel", () => {
     expect(
       screen.queryByRole("button", { name: "Previous ingredient" }),
     ).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Next ingredient" }));
+    const next = screen.getByRole("button", { name: "Next ingredient" });
+    next.focus();
+    await user.keyboard("{Enter}");
     expect(screen.getAllByRole("tab")[1]).toHaveAttribute("aria-selected", "true");
     expect(
       screen.queryByRole("button", { name: "Next ingredient" }),
     ).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Previous ingredient" }));
+    const previous = screen.getByRole("button", { name: "Previous ingredient" });
+    await waitFor(() => expect(previous).toHaveFocus());
+    await user.keyboard("{Enter}");
     expect(screen.getAllByRole("tab")[0]).toHaveAttribute("aria-selected", "true");
     expect(
       screen.queryByRole("button", { name: "Previous ingredient" }),
     ).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Next ingredient" })).toHaveFocus(),
+    );
   });
 
   it("preserves ingredient deep links and selects their disclosure", async () => {

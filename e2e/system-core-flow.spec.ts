@@ -324,6 +324,13 @@ for (const viewport of [
     ).toHaveCount(0);
     await section.getByRole("button", { name: "Previous ingredient" }).click();
     await expect(tabs.nth(7)).toHaveAttribute("aria-selected", "true");
+    const finalNext = section.getByRole("button", { name: "Next ingredient" });
+    await finalNext.focus();
+    await page.keyboard.press("Enter");
+    await expect(tabs.last()).toHaveAttribute("aria-selected", "true");
+    await expect(
+      section.getByRole("button", { name: "Previous ingredient" }),
+    ).toBeFocused();
     await expectNoMainOverflow(page, viewport.width);
   });
 }

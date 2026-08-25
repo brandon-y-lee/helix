@@ -59,7 +59,16 @@ export function SystemIngredientCarousel({
   const viewportRef = useRef<HTMLDivElement>(null);
   const railRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const previousControlRef = useRef<HTMLButtonElement>(null);
+  const nextControlRef = useRef<HTMLButtonElement>(null);
+  const pendingControlFocus = useRef<"previous" | "next" | null>(null);
   const [railOffset, setRailOffset] = useState(0);
+
+  function selectFromControl(nextIndex: number) {
+    if (nextIndex === 0) pendingControlFocus.current = "next";
+    if (nextIndex === cards.length - 1) pendingControlFocus.current = "previous";
+    selectIndex(nextIndex);
+  }
 
   useEffect(() => {
     const hash = window.location.hash.slice(1);
@@ -105,6 +114,18 @@ export function SystemIngredientCarousel({
     return () => observer.disconnect();
   }, [activeIndex, cards.length]);
 
+  useEffect(() => {
+    const pendingFocus = pendingControlFocus.current;
+    if (!pendingFocus) return;
+
+    pendingControlFocus.current = null;
+    const control =
+      pendingFocus === "previous"
+        ? previousControlRef.current
+        : nextControlRef.current;
+    control?.focus({ preventScroll: true });
+  }, [activeIndex]);
+
   if (cards.length === 0) return null;
 
   return (
@@ -116,20 +137,22 @@ export function SystemIngredientCarousel({
         <div className="ingredient-carousel__controls">
           {activeIndex > 0 ? (
             <button
+              ref={previousControlRef}
               className="method-arrow-control ingredient-carousel__control ingredient-carousel__control--previous"
               type="button"
               aria-label="Previous ingredient"
-              onClick={() => selectIndex(activeIndex - 1)}
+              onClick={() => selectFromControl(activeIndex - 1)}
             >
               <span aria-hidden="true">←</span>
             </button>
           ) : null}
           {activeIndex < cards.length - 1 ? (
             <button
+              ref={nextControlRef}
               className="method-arrow-control ingredient-carousel__control ingredient-carousel__control--next"
               type="button"
               aria-label="Next ingredient"
-              onClick={() => selectIndex(activeIndex + 1)}
+              onClick={() => selectFromControl(activeIndex + 1)}
             >
               <span aria-hidden="true">→</span>
             </button>
