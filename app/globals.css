@@ -7078,11 +7078,8 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 }
 
 .method-flow__heading h2 {
-  max-width: none;
   margin-top: 14px;
   color: #fbfaf6;
-  font-size: clamp(2.25rem, 4.5vw, 3rem);
-  line-height: 1;
   white-space: nowrap;
 }
 
@@ -7178,7 +7175,12 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 
 .method-flow__steps strong {
   font-size: 0.74rem;
+  font-weight: 600;
   letter-spacing: 0.14em;
+}
+
+.method-flow__steps button[aria-selected="true"] strong {
+  font-weight: 800;
 }
 
 .method-flow__steps span {

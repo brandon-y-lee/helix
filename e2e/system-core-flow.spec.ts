@@ -84,7 +84,13 @@ for (const viewport of [
       const panel = element.querySelector('[role="tabpanel"]');
       const tablist = element.querySelector('[role="tablist"]');
       const productLink = panel?.querySelector(".method-flow__product-link");
-      if (!heading || !panel || !tablist || !productLink) {
+      const activeStep = tablist?.querySelector<HTMLElement>(
+        '[role="tab"][aria-selected="true"] strong',
+      );
+      const inactiveStep = tablist?.querySelector<HTMLElement>(
+        '[role="tab"][aria-selected="false"] strong',
+      );
+      if (!heading || !panel || !tablist || !productLink || !activeStep || !inactiveStep) {
         throw new Error("Core editorial content is missing.");
       }
       const headingRect = heading.getBoundingClientRect();
@@ -103,6 +109,8 @@ for (const viewport of [
         panelHeadingOffset: Math.abs(panelRect.left - headingRect.left),
         productLinkBottomGap: panelRect.bottom - productLinkRect.bottom,
         tablistBeforeHeading: tablistRect.bottom <= headingRect.top,
+        activeStepWeight: Number.parseInt(getComputedStyle(activeStep).fontWeight, 10),
+        inactiveStepWeight: Number.parseInt(getComputedStyle(inactiveStep).fontWeight, 10),
       };
     });
     expect(Math.abs(coreGeometry.left - coreGeometry.right)).toBeLessThanOrEqual(2);
@@ -111,6 +119,7 @@ for (const viewport of [
     expect(coreGeometry.panelHeadingOffset).toBeLessThanOrEqual(2);
     expect(coreGeometry.productLinkBottomGap).toBeLessThanOrEqual(2);
     expect(coreGeometry.tablistBeforeHeading).toBe(true);
+    expect(coreGeometry.activeStepWeight).toBeGreaterThan(coreGeometry.inactiveStepWeight);
 
     const matchingTitleStyles = await page.evaluate(() =>
       ["#system-beyond-heading", "#system-ingredients-heading"].map((selector) => {
