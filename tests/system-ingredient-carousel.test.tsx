@@ -50,6 +50,7 @@ describe("SystemIngredientCarousel", () => {
 
     const panel = screen.getByRole("tabpanel", { name: /PDRN/i });
     expect(panel).toHaveClass("method-selection-panel");
+    expect(panel).toHaveClass("ingredient-carousel__panel");
     expect(panel).toHaveAttribute("id", "system-ingredient-pdrn");
     expect(panel).toHaveTextContent("Purified DNA fragments.");
     expect(panel).toHaveTextContent("Conditions within water-based formulas.");

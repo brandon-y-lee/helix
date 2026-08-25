@@ -53,7 +53,7 @@ describe("SystemCoreFlow", () => {
     expect(
       screen.getByRole("heading", {
         level: 2,
-        name: "Three steps form the baseline.",
+        name: "Three steps form the baseline",
       }),
     ).toBeInTheDocument();
     expect(screen.getByText("The Core")).toBeInTheDocument();
@@ -71,6 +71,14 @@ describe("SystemCoreFlow", () => {
     ]);
     expect(tabs[0]).toHaveAttribute("aria-selected", "true");
     expect(tabs[0]).toHaveAttribute("tabindex", "0");
+    const tablist = screen.getByRole("tablist", { name: "Core system steps" });
+    const heading = screen.getByRole("heading", {
+      level: 2,
+      name: "Three steps form the baseline",
+    });
+    expect(
+      tablist.compareDocumentPosition(heading) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
     expect(document.getElementById("system-core-panel-treat")).toHaveAttribute(
       "inert",
     );

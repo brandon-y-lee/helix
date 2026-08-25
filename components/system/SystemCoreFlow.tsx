@@ -81,43 +81,6 @@ export function SystemCoreFlow({ items }: { items: SystemCoreFlowItem[] }) {
         ))}
       </div>
 
-      <header className="method-flow__heading">
-        <p className="method-flow__eyebrow">
-          <HelixIdentity variant="symbol" decorative />
-          <span>The Core</span>
-        </p>
-        <h2 id="system-core-flow-heading">Three steps form the baseline.</h2>
-      </header>
-
-      <div className="method-flow__panels">
-        {items.map((item, index) => {
-          const key = stepKey(item);
-          return (
-            <article
-              key={item.stepName}
-              id={`system-core-panel-${key}`}
-              className="method-flow__panel method-selection-panel"
-              role="tabpanel"
-              aria-labelledby={`system-core-tab-${key}`}
-              hidden={index !== activeIndex}
-              inert={index !== activeIndex}
-            >
-              <h3>{item.displayName}</h3>
-              <p className="method-flow__type">{item.productType}</p>
-              <p className="method-flow__description">{item.narrative}</p>
-              {item.slug ? (
-                <Link
-                  href={`/products/${item.slug}`}
-                  className="method-flow__product-link"
-                >
-                  View {item.displayName}
-                </Link>
-              ) : null}
-            </article>
-          );
-        })}
-      </div>
-
       <div
         className="method-flow__steps"
         role="tablist"
@@ -145,6 +108,43 @@ export function SystemCoreFlow({ items }: { items: SystemCoreFlowItem[] }) {
               <span>{item.displayName}</span>
               <small>{item.productType}</small>
             </button>
+          );
+        })}
+      </div>
+
+      <header className="method-flow__heading">
+        <p className="method-flow__eyebrow">
+          <HelixIdentity variant="symbol" decorative />
+          <span>The Core</span>
+        </p>
+        <h2 id="system-core-flow-heading">Three steps form the baseline</h2>
+      </header>
+
+      <div className="method-flow__panels">
+        {items.map((item, index) => {
+          const key = stepKey(item);
+          return (
+            <article
+              key={item.stepName}
+              id={`system-core-panel-${key}`}
+              className="method-flow__panel method-selection-panel"
+              role="tabpanel"
+              aria-labelledby={`system-core-tab-${key}`}
+              hidden={index !== activeIndex}
+              inert={index !== activeIndex}
+            >
+              <h3>{item.displayName}</h3>
+              <p className="method-flow__type">{item.productType}</p>
+              <p className="method-flow__description">{item.narrative}</p>
+              {item.slug ? (
+                <Link
+                  href={`/products/${item.slug}`}
+                  className="method-flow__product-link"
+                >
+                  View {item.displayName}
+                </Link>
+              ) : null}
+            </article>
           );
         })}
       </div>
