@@ -53,7 +53,7 @@ describe("SystemCoreFlow", () => {
     expect(
       screen.getByRole("heading", {
         level: 2,
-        name: "Three steps form the baseline",
+        name: "The essential baseline",
       }),
     ).toBeInTheDocument();
     expect(screen.getByText("The Core")).toBeInTheDocument();
@@ -74,7 +74,7 @@ describe("SystemCoreFlow", () => {
     const tablist = screen.getByRole("tablist", { name: "Core system steps" });
     const heading = screen.getByRole("heading", {
       level: 2,
-      name: "Three steps form the baseline",
+      name: "The essential baseline",
     });
     const activePanel = screen.getByRole("tabpanel", { name: /CLEANSE/i });
     expect(

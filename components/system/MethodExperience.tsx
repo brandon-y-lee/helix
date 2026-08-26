@@ -27,9 +27,9 @@ const CORE_STEP_NARRATIVES: Record<
   CLEANSE:
     "The reset after a long day, a commute, or a workout. Work it into damp skin to take off sunscreen, sweat, and the day’s buildup, then rinse and move on with skin ready for the next step.",
   TREAT:
-    "A quick layer for mornings that start early and nights that run late. Press a few drops into clean skin for lightweight hydration and a smoother, replenished-looking finish—no complicated routine required.",
+    "A nourishing layer for mornings and nights. Apply a few drops onto clean skin for lightweight hydration, a smoother finish, and long-term rejuvenation.",
   SEAL:
-    "The last layer before you head out or turn in. Smooth it on to hold the routine together with comfortable moisture, so skin feels supported wherever the rest of the day takes you.",
+    "The last layer before you head out or turn in. Smooth it on to hold layers together with deep moisture, so skin feels supported wherever the rest of the day takes you.",
 };
 
 function availabilityLabel(product: Product) {

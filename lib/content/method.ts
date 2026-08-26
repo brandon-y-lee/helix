@@ -224,7 +224,7 @@ const INGREDIENT_DEFINITIONS: IngredientDefinition[] = [
   },
   {
     id: "hyaluronic-acid",
-    name: "Hyaluronic Acid / Sodium Hyaluronate",
+    name: "Hyaluronic Acid",
     identity:
       "A glycosaminoglycan used in topical formulas primarily as a humectant.",
     ingredientClass: "Humectant",
@@ -274,10 +274,10 @@ const INGREDIENT_DEFINITIONS: IngredientDefinition[] = [
   },
   {
     id: "collagen-source",
-    name: "Collagen-source ingredients",
+    name: "Collagen",
     identity:
       "Catalog collagen language covering green collagen, hydrolyzed collagen, or collagen-associated support.",
-    ingredientClass: "Film-forming or conditioning ingredient family",
+    ingredientClass: "Film-forming family",
     match: [/collagen/i],
     mechanism:
       "Used for surface feel, film formation, hydration context, or texture support depending on the material.",
