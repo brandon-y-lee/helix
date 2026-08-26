@@ -86,7 +86,7 @@ export function SystemCoreFlow({ items }: { items: SystemCoreFlowItem[] }) {
           <HelixIdentity variant="symbol" decorative />
           <span>The Core</span>
         </p>
-        <h2 id="system-core-flow-heading">Three steps form the baseline</h2>
+        <h2 id="system-core-flow-heading">The essential baseline</h2>
       </header>
 
       <div className="method-flow__panels">

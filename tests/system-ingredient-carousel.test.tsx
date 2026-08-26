@@ -26,6 +26,21 @@ const cards: IngredientIndexCard[] = [
   },
 ];
 
+const abbreviatedCards: IngredientIndexCard[] = [
+  {
+    ...cards[0],
+    id: "collagen-source",
+    name: "Collagen",
+    ingredientClass: "Film-forming family",
+  },
+  {
+    ...cards[1],
+    id: "hyaluronic-acid",
+    name: "Hyaluronic Acid",
+    ingredientClass: "Humectant",
+  },
+];
+
 describe("SystemIngredientCarousel", () => {
   beforeEach(() => {
     window.history.replaceState(null, "", "/system");
@@ -66,6 +81,28 @@ describe("SystemIngredientCarousel", () => {
       "href",
       "/products/peptide-bounce",
     );
+  });
+
+  it("uses shortened ingredient labels in cards and expanded details", async () => {
+    const user = userEvent.setup();
+    render(<SystemIngredientCarousel cards={abbreviatedCards} />);
+
+    const tabs = screen.getAllByRole("tab");
+    expect(tabs[0]).toHaveTextContent("Film-forming family");
+    expect(tabs[0]).toHaveTextContent("Collagen");
+    expect(tabs[1]).toHaveTextContent("Hyaluronic Acid");
+
+    const panel = screen.getByRole("tabpanel", { name: /Collagen/i });
+    expect(panel).toHaveTextContent("Collagen");
+    expect(panel).toHaveTextContent("Film-forming family");
+    expect(panel).not.toHaveTextContent("Collagen-source ingredients");
+
+    await user.click(tabs[1]);
+    const hyaluronicPanel = screen.getByRole("tabpanel", {
+      name: /Hyaluronic Acid/i,
+    });
+    expect(hyaluronicPanel).toHaveTextContent("Hyaluronic Acid");
+    expect(hyaluronicPanel).not.toHaveTextContent("Sodium Hyaluronate");
   });
 
   it("reveals a selected card and supports roving carousel keyboard controls", async () => {
