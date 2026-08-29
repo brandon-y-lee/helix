@@ -1,4 +1,11 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SystemIngredientCarousel } from "@/components/system/SystemIngredientCarousel";
@@ -196,6 +203,20 @@ describe("SystemIngredientCarousel", () => {
     expect(tabs[1]).toHaveAttribute("aria-selected", "false");
     expect(carousel).toHaveAttribute("data-centered-ingredient", "niacinamide");
     expect(screen.getByRole("tabpanel", { name: /PDRN/i })).toBeVisible();
+
+    act(() => tabs[0].focus());
+    await waitFor(() =>
+      expect(carousel).toHaveAttribute("data-centered-ingredient", "pdrn"),
+    );
+    expect(tabs[0]).toHaveFocus();
+
+    await user.click(screen.getByRole("button", { name: "Next ingredient" }));
+    expect(carousel).toHaveAttribute("data-centered-ingredient", "niacinamide");
+    await user.click(tabs[0]);
+    expect(tabs[0]).toHaveAttribute("aria-selected", "true");
+    expect(carousel).toHaveAttribute("data-centered-ingredient", "pdrn");
+
+    await user.click(screen.getByRole("button", { name: "Next ingredient" }));
     expect(
       screen.queryByRole("button", { name: "Next ingredient" }),
     ).not.toBeInTheDocument();

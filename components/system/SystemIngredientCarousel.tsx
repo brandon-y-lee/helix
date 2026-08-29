@@ -113,6 +113,11 @@ export function SystemIngredientCarousel({
     setCenteredIndex(nextIndex);
   }
 
+  function selectCard(index: number) {
+    setCenteredIndex(index);
+    selectIndex(index);
+  }
+
   useEffect(() => {
     const hash = window.location.hash.slice(1);
     const hashIndex = cards.findIndex((card) => panelId(card) === hash);
@@ -267,7 +272,8 @@ export function SystemIngredientCarousel({
                 aria-controls={panelId(card)}
                 aria-selected={index === activeIndex}
                 tabIndex={index === activeIndex ? 0 : -1}
-                onClick={() => selectIndex(index)}
+                onClick={() => selectCard(index)}
+                onFocus={() => setCenteredIndex(index)}
                 onKeyDown={(event) => handleTabKeyDown(event, index)}
               >
                 <span className="ingredient-carousel__media" aria-hidden="true">

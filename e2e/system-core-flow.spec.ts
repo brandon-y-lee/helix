@@ -348,6 +348,9 @@ for (const viewport of [
       )
       .toBeLessThanOrEqual(2);
 
+    await tabs.nth(1).focus();
+    await expect(tabs.nth(1)).toHaveAttribute("data-centered", "true");
+
     await tabs.nth(1).press("End");
     await expect(tabs.last()).toBeFocused();
     await expect(tabs.last()).toHaveAttribute("aria-selected", "true");
