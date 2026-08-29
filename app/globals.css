@@ -11018,6 +11018,12 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   }
 }
 
+@media (max-width: 360px) {
+  .method-flow__hero-phrase {
+    font-size: 8vw;
+  }
+}
+
 @media print {
   .site-header,
   .site-footer,

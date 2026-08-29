@@ -42,9 +42,10 @@ test("Core flow supports pointer, keyboard, wrapping controls, and deep links", 
 });
 
 for (const viewport of [
-  { width: 1440, height: 1000, splitMode: "paired" },
-  { width: 1024, height: 900, splitMode: "paired" },
-  { width: 390, height: 844, splitMode: "stacked" },
+  { width: 1440, height: 1000, splitMode: "paired", minPhraseSize: 36 },
+  { width: 1024, height: 900, splitMode: "paired", minPhraseSize: 36 },
+  { width: 390, height: 844, splitMode: "stacked", minPhraseSize: 36 },
+  { width: 320, height: 760, splitMode: "stacked", minPhraseSize: 24 },
 ] as const) {
   test(`Core and split remain responsive at ${viewport.width}×${viewport.height}`, async ({
     browserName,
@@ -118,6 +119,15 @@ for (const viewport of [
         sectionLabel: sectionLabel.textContent?.trim(),
         phraseLineCount: phrase.querySelectorAll(":scope > span").length,
         phraseFontSize: Number.parseFloat(getComputedStyle(phrase).fontSize),
+        phraseFitsPanel: Array.from(phrase.querySelectorAll(":scope > span")).every(
+          (line) => {
+            const lineRect = line.getBoundingClientRect();
+            return (
+              lineRect.left >= panelRect.left - 1 &&
+              lineRect.right <= panelRect.right + 1
+            );
+          },
+        ),
         panelTextAlign: getComputedStyle(panel).textAlign,
         panelPhraseOffset: Math.abs(panelRect.left - phraseRect.left),
         productLinkAfterPhrase: productLinkRect.top > phraseRect.bottom,
@@ -131,7 +141,8 @@ for (const viewport of [
     expect(Math.abs(coreGeometry.left - coreGeometry.right)).toBeLessThanOrEqual(2);
     expect(coreGeometry.sectionLabel).toBe("The Core");
     expect(coreGeometry.phraseLineCount).toBe(2);
-    expect(coreGeometry.phraseFontSize).toBeGreaterThan(36);
+    expect(coreGeometry.phraseFontSize).toBeGreaterThan(viewport.minPhraseSize);
+    expect(coreGeometry.phraseFitsPanel).toBe(true);
     expect(coreGeometry.panelTextAlign).toBe("left");
     expect(coreGeometry.panelPhraseOffset).toBeLessThanOrEqual(2);
     expect(coreGeometry.productLinkAfterPhrase).toBe(true);
