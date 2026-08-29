@@ -7,6 +7,7 @@ import {
 } from "@/components/system/SystemCoreFlow";
 import { SystemLegacyAnchors } from "@/components/system/SystemLegacyAnchors";
 import { SystemIngredientCarousel } from "@/components/system/SystemIngredientCarousel";
+import { IntentionalSkincareVisual } from "@/components/system/IntentionalSkincareVisual";
 import {
   BEYOND_SYSTEM_STEP_NAMES,
   CORE_SYSTEM_STEP_NAMES,
@@ -185,13 +186,7 @@ function IntentionalSkincare() {
           </p>
         </div>
       </div>
-      <div className="method-intentional__visual" aria-hidden="true">
-        <div className="editorial-hue-field editorial-hue-field--clean editorial-hue-field--method">
-          <span />
-          <span />
-          <span />
-        </div>
-      </div>
+      <IntentionalSkincareVisual />
     </section>
   );
 }

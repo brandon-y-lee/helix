@@ -7301,10 +7301,49 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 }
 
 .method-intentional__visual {
+  --method-intentional-image-start-scale: 1.12;
+  --method-intentional-image-end-scale: 1;
+  --method-intentional-image-static-scale: 1.03;
+  --method-intentional-image-cover: 74%;
   position: relative;
   min-width: 0;
   min-height: 100%;
   overflow: hidden;
+  background: #b4aaa2;
+}
+
+.method-intentional__image {
+  object-fit: cover;
+  object-position: 50% 42%;
+  transform: scale(
+    var(
+      --method-intentional-image-scale,
+      var(--method-intentional-image-static-scale)
+    )
+  );
+  transform-origin: 50% 50%;
+  will-change: transform;
+}
+
+@supports (animation-timeline: view()) and (animation-range: entry 0% cover 74%) {
+  .method-intentional__image {
+    animation-name: method-intentional-image-zoom;
+    animation-duration: 1ms;
+    animation-timing-function: linear;
+    animation-fill-mode: both;
+    animation-timeline: view(block);
+    animation-range: entry 0% cover var(--method-intentional-image-cover);
+  }
+}
+
+@keyframes method-intentional-image-zoom {
+  from {
+    transform: scale(var(--method-intentional-image-start-scale));
+  }
+
+  to {
+    transform: scale(var(--method-intentional-image-end-scale));
+  }
 }
 
 .method-section-head {
@@ -10858,6 +10897,12 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .method-intentional__image {
+    animation: none;
+    transform: scale(var(--method-intentional-image-static-scale));
+    will-change: auto;
+  }
+
   .method-flow__background,
   .method-arrow-control,
   .method-arrow-control::before,
