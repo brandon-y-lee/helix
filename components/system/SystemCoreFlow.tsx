@@ -6,15 +6,18 @@ import {
   type CSSProperties,
 } from "react";
 import { HelixIdentity } from "@/components/brand/HelixIdentity";
+import { ProductImage } from "@/components/product/ProductImage";
 import { SystemLegacyAnchors } from "@/components/system/SystemLegacyAnchors";
 import { useRovingTabSelection } from "@/components/system/useRovingTabSelection";
+import type { ProductMedia } from "@/lib/products";
 
 export type SystemCoreFlowItem = {
   anchorId: string;
   displayName: string;
   displayNumber: string;
+  backgroundMedia: ProductMedia | null;
+  heroLines: readonly [string, string];
   legacyAnchorIds: readonly string[];
-  narrative: string;
   productType: string;
   slug: string | null;
   stepName: "CLEANSE" | "TREAT" | "SEAL";
@@ -77,16 +80,24 @@ export function SystemCoreFlow({ items }: { items: SystemCoreFlowItem[] }) {
                 "--system-core-hue-to": item.swatch[1],
               } as CoreHueStyle
             }
-          />
+          >
+            <ProductImage
+              media={item.backgroundMedia}
+              swatch={item.swatch}
+              className="method-flow__background-media"
+              imageClassName="method-flow__background-image"
+              imageAlt=""
+              sizes="(max-width: 720px) calc(100vw - 32px), calc(100vw - 60px)"
+            />
+          </div>
         ))}
       </div>
 
       <header className="method-flow__heading">
-        <p className="method-flow__eyebrow">
+        <h2 id="system-core-flow-heading" className="method-flow__eyebrow">
           <HelixIdentity variant="symbol" decorative />
           <span>The Core</span>
-        </p>
-        <h2 id="system-core-flow-heading">The essential baseline</h2>
+        </h2>
       </header>
 
       <div className="method-flow__panels">
@@ -102,15 +113,17 @@ export function SystemCoreFlow({ items }: { items: SystemCoreFlowItem[] }) {
               hidden={index !== activeIndex}
               inert={index !== activeIndex}
             >
-              <h3>{item.displayName}</h3>
-              <p className="method-flow__type">{item.productType}</p>
-              <p className="method-flow__description">{item.narrative}</p>
+              <p className="method-flow__hero-phrase">
+                <span>{item.heroLines[0]}</span>
+                <span>{item.heroLines[1]}</span>
+              </p>
               {item.slug ? (
                 <Link
                   href={`/products/${item.slug}`}
-                  className="method-flow__product-link"
+                  className="btn btn--editorial-rounded method-flow__product-link"
                 >
-                  View {item.displayName}
+                  <span>View {item.displayName}</span>
+                  <span aria-hidden="true">↗</span>
                 </Link>
               ) : null}
             </article>

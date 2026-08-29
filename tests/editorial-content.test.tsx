@@ -184,9 +184,10 @@ describe("System content architecture", () => {
     expect(
       within(core).getByRole("heading", {
         level: 2,
-        name: "The essential baseline",
+        name: "The Core",
       }),
     ).toBeInTheDocument();
+    expect(core).not.toHaveTextContent("The essential baseline");
     expect(within(core).getAllByRole("tab")).toHaveLength(3);
     expect(document.querySelector(".method-index")).not.toBeInTheDocument();
     expect(core.querySelector('[data-helix-identity="symbol"]')).toHaveAttribute(
@@ -217,23 +218,15 @@ describe("System content architecture", () => {
     expect(ingredients.querySelector(".ingredient-index")).not.toBeInTheDocument();
     expect(ingredients).not.toHaveTextContent("FORMULATION NOTE");
     expect(core).not.toHaveTextContent("A catalog-authored product description.");
-    expect(core).toHaveTextContent(
-      "The reset after a long day, a commute, or a workout. Work it into damp skin to take off sunscreen, sweat, and the day’s buildup, then rinse and move on with skin ready for the next step.",
-    );
-    expect(core).toHaveTextContent(
-      "A nourishing layer for mornings and nights. Apply a few drops onto clean skin for lightweight hydration, a smoother finish, and long-term rejuvenation.",
-    );
-    expect(core).toHaveTextContent(
-      "The last layer before you head out or turn in. Smooth it on to hold layers together with deep moisture, so skin feels supported wherever the rest of the day takes you.",
-    );
+    expect(core).toHaveTextContent("Wash off the day.Start fresh.");
+    expect(core).toHaveTextContent("Bring skin back.Smooth. Hydrated.");
+    expect(core).toHaveTextContent("Hold every layer.Keep moisture in.");
     expect(beyond).toHaveTextContent(
       "Add prep, eye care, daily protection, or a weekly intensive.",
     );
     expect(within(beyond).queryByRole("link", { name: "Shop Beyond" })).not.toBeInTheDocument();
     expect(beyond).not.toHaveTextContent("View product");
-    expect(
-      within(core).getAllByRole("heading", { level: 3 }).map((heading) => heading.textContent),
-    ).toEqual(["Biotic Reset"]);
+    expect(within(core).queryByRole("heading", { level: 3 })).not.toBeInTheDocument();
     expect(
       within(beyond).getAllByRole("heading", { level: 3 }).map((heading) => heading.textContent),
     ).toEqual([
@@ -343,14 +336,8 @@ describe("System content architecture", () => {
     expect(cleanseTab).toHaveTextContent("CLEANSE currently unavailable");
     expect(cleanseTab).toHaveTextContent("Currently unavailable");
     const cleanse = screen.getByRole("tabpanel", { name: /CLEANSE/i });
-    expect(
-      within(cleanse).getByRole("heading", {
-        name: "CLEANSE currently unavailable",
-      }),
-    ).toBeInTheDocument();
-    expect(cleanse).toHaveTextContent(
-      "No collection-facing Core entry is available for this step.",
-    );
+    expect(cleanse).toHaveTextContent("Step unavailable.");
+    expect(cleanse).toHaveTextContent("No product is listed.");
     expect(within(cleanse).queryByRole("link")).not.toBeInTheDocument();
   });
 

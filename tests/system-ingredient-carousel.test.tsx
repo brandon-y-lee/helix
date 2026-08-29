@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SystemIngredientCarousel } from "@/components/system/SystemIngredientCarousel";
@@ -44,6 +44,10 @@ const abbreviatedCards: IngredientIndexCard[] = [
 describe("SystemIngredientCarousel", () => {
   beforeEach(() => {
     window.history.replaceState(null, "", "/system");
+    Object.defineProperty(window, "matchMedia", {
+      configurable: true,
+      value: vi.fn().mockReturnValue({ matches: true }),
+    });
   });
 
   it("presents image-led ingredient tabs with one compact detail disclosure", () => {
@@ -56,8 +60,12 @@ describe("SystemIngredientCarousel", () => {
     const viewport = container.querySelector(".ingredient-carousel__viewport");
     const controls = container.querySelector(".ingredient-carousel__controls");
     const rail = container.querySelector(".ingredient-carousel__rail");
+    const swipeIndicator = container.querySelector(".carousel-swipe-indicator");
     expect(viewport).toContainElement(controls as HTMLElement);
     expect(viewport).toContainElement(rail as HTMLElement);
+    expect(viewport).toContainElement(swipeIndicator as HTMLElement);
+    expect(swipeIndicator).toHaveTextContent("SWIPE");
+    expect(swipeIndicator).toHaveAttribute("data-visible", "false");
     expect(
       (controls as HTMLElement).compareDocumentPosition(rail as HTMLElement) &
         Node.DOCUMENT_POSITION_FOLLOWING,
@@ -81,6 +89,29 @@ describe("SystemIngredientCarousel", () => {
       "href",
       "/products/peptide-bounce",
     );
+  });
+
+  it("reveals the shared swipe indicator over ingredient cards", async () => {
+    const { container } = render(<SystemIngredientCarousel cards={cards} />);
+    const viewport = container.querySelector(
+      ".ingredient-carousel__viewport",
+    ) as HTMLElement;
+    const indicator = container.querySelector(
+      ".carousel-swipe-indicator",
+    ) as HTMLElement;
+    viewport.getBoundingClientRect = vi.fn(
+      () => ({ left: 20, top: 40, width: 500, height: 400 }) as DOMRect,
+    );
+
+    fireEvent.pointerMove(screen.getAllByRole("tab")[0], {
+      clientX: 180,
+      clientY: 220,
+      pointerType: "mouse",
+    });
+    await waitFor(() => expect(indicator).toHaveAttribute("data-visible", "true"));
+
+    fireEvent.pointerLeave(viewport);
+    await waitFor(() => expect(indicator).toHaveAttribute("data-visible", "false"));
   });
 
   it("uses shortened ingredient labels in cards and expanded details", async () => {

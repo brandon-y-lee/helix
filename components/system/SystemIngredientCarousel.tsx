@@ -2,7 +2,17 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type PointerEvent,
+} from "react";
+import {
+  SwipeIndicator,
+  useSwipeIndicator,
+} from "@/components/carousel/SwipeIndicator";
+import { useHorizontalCarouselDrag } from "@/components/carousel/useHorizontalCarouselDrag";
 import { useRovingTabSelection } from "@/components/system/useRovingTabSelection";
 import {
   ingredientAnchorId,
@@ -63,6 +73,38 @@ export function SystemIngredientCarousel({
   const nextControlRef = useRef<HTMLButtonElement>(null);
   const pendingControlFocus = useRef<"previous" | "next" | null>(null);
   const [railOffset, setRailOffset] = useState(0);
+  const {
+    hideIndicator,
+    indicatorRef,
+    indicatorVisible,
+    updateIndicator,
+  } = useSwipeIndicator(viewportRef);
+  const {
+    dragging,
+    finishDrag,
+    handleClickCapture,
+    handlePointerDown,
+    handlePointerMove: handleDragPointerMove,
+  } = useHorizontalCarouselDrag({
+    enabled: cards.length > 1,
+    canStart: (target) =>
+      target instanceof HTMLElement &&
+      Boolean(target.closest(".ingredient-carousel__card")),
+    getCommitDelta: ingredientCommitDelta,
+    getRenderedDelta: ingredientRenderedDelta,
+    onDrag: (renderedDeltaX) => {
+      if (railRef.current) {
+        railRef.current.style.transform = `translate3d(${renderedDeltaX - railOffset}px, 0, 0)`;
+      }
+    },
+    onFinish: ({ committed, deltaX }) => {
+      resetRailTransform();
+      hideIndicator();
+      if (committed) {
+        selectIndex(activeIndex + (deltaX < 0 ? 1 : -1));
+      }
+    },
+  });
 
   function selectFromControl(nextIndex: number) {
     if (nextIndex === 0) pendingControlFocus.current = "next";
@@ -126,14 +168,55 @@ export function SystemIngredientCarousel({
     control?.focus({ preventScroll: true });
   }, [activeIndex]);
 
+  function resetRailTransform() {
+    if (!railRef.current) return;
+    railRef.current.style.transform = `translate3d(${-railOffset}px, 0, 0)`;
+  }
+
+  function ingredientCommitDelta(deltaX: number) {
+    const canMove =
+      (deltaX < 0 && activeIndex < cards.length - 1) ||
+      (deltaX > 0 && activeIndex > 0);
+    return canMove ? deltaX : 0;
+  }
+
+  function ingredientRenderedDelta(deltaX: number) {
+    return ingredientCommitDelta(deltaX) === deltaX ? deltaX : deltaX * 0.16;
+  }
+
+  function handlePointerMove(event: PointerEvent<HTMLDivElement>) {
+    const overIngredientCard =
+      cards.length > 1 &&
+      event.target instanceof HTMLElement &&
+      Boolean(event.target.closest(".ingredient-carousel__card"));
+    updateIndicator(
+      event.clientX,
+      event.clientY,
+      overIngredientCard || dragging,
+    );
+
+    handleDragPointerMove(event);
+  }
+
   if (cards.length === 0) return null;
 
   return (
     <div
       className="ingredient-carousel"
       data-active-ingredient={cards[activeIndex].id}
+      data-dragging={dragging}
     >
-      <div ref={viewportRef} className="ingredient-carousel__viewport">
+      <div
+        ref={viewportRef}
+        className="ingredient-carousel__viewport"
+        onClickCapture={handleClickCapture}
+        onDragStart={(event) => event.preventDefault()}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={(event) => finishDrag(event)}
+        onPointerCancel={(event) => finishDrag(event, true)}
+        onPointerLeave={hideIndicator}
+      >
         <div className="ingredient-carousel__controls">
           {activeIndex > 0 ? (
             <button
@@ -205,6 +288,11 @@ export function SystemIngredientCarousel({
             );
           })}
         </div>
+        <SwipeIndicator
+          ref={indicatorRef}
+          visible={indicatorVisible}
+          active={dragging}
+        />
       </div>
 
       <div className="ingredient-carousel__details">
