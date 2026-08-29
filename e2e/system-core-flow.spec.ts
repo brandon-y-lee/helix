@@ -87,6 +87,7 @@ for (const viewport of [
       const panel = element.querySelector('[role="tabpanel"]');
       const tablist = element.querySelector('[role="tablist"]');
       const productLink = panel?.querySelector(".method-flow__product-link");
+      const ingredientTitle = document.querySelector("#system-ingredients h2");
       const nextControl = element.querySelector<HTMLElement>(
         '[aria-label="Next Core step"]',
       );
@@ -102,6 +103,7 @@ for (const viewport of [
         !panel ||
         !tablist ||
         !productLink ||
+        !ingredientTitle ||
         !nextControl ||
         !activeStep ||
         !inactiveStep
@@ -120,6 +122,9 @@ for (const viewport of [
         sectionLabel: sectionLabel.textContent?.trim(),
         phraseLineCount: phrase.querySelectorAll(":scope > span").length,
         phraseFontSize: Number.parseFloat(getComputedStyle(phrase).fontSize),
+        ingredientTitleFontSize: Number.parseFloat(
+          getComputedStyle(ingredientTitle).fontSize,
+        ),
         phraseFitsPanel: Array.from(phrase.querySelectorAll(":scope > span")).every(
           (line) => {
             const lineRect = line.getBoundingClientRect();
@@ -133,6 +138,9 @@ for (const viewport of [
         panelPhraseOffset: Math.abs(panelRect.left - phraseRect.left),
         productLinkAfterPhrase: productLinkRect.top > phraseRect.bottom,
         productLinkBorderStyle: getComputedStyle(productLink).borderStyle,
+        productLinkFontSize: Number.parseFloat(
+          getComputedStyle(productLink).fontSize,
+        ),
         tablistAfterPanel: tablistRect.top >= panelRect.bottom,
         nextControlBorderStyle: getComputedStyle(nextControl).borderStyle,
         activeStepWeight: Number.parseInt(getComputedStyle(activeStep).fontWeight, 10),
@@ -148,11 +156,17 @@ for (const viewport of [
     expect(coreGeometry.panelPhraseOffset).toBeLessThanOrEqual(2);
     expect(coreGeometry.productLinkAfterPhrase).toBe(true);
     expect(coreGeometry.productLinkBorderStyle).toBe("solid");
+    expect(coreGeometry.productLinkFontSize).toBe(12);
     expect(coreGeometry.tablistAfterPanel).toBe(true);
     expect(coreGeometry.nextControlBorderStyle).toBe("none");
     expect(coreGeometry.activeStepWeight).toBeGreaterThan(coreGeometry.inactiveStepWeight);
 
     if (viewport.splitMode === "paired") {
+      expect(
+        Math.abs(
+          coreGeometry.phraseFontSize - coreGeometry.ingredientTitleFontSize,
+        ),
+      ).toBeLessThanOrEqual(0.1);
       expect(Math.abs(coreGeometry.width / coreGeometry.height - 16 / 9)).toBeLessThan(
         0.02,
       );
@@ -262,6 +276,27 @@ for (const viewport of [
     expect(geometry.panelRadius).toBeGreaterThan(0);
     expect(Math.abs(geometry.left - geometry.right)).toBeLessThanOrEqual(2);
 
+    await section.getByRole("button", { name: "Next ingredient" }).click();
+    await expect(tabs.first()).toHaveAttribute("aria-selected", "true");
+    await expect(tabs.nth(1)).toHaveAttribute("data-centered", "true");
+    await expect
+      .poll(() =>
+        section.evaluate((element) => {
+          const viewportRect = element
+            .querySelector(".ingredient-carousel__viewport")
+            ?.getBoundingClientRect();
+          const centeredRect = element
+            .querySelector('[role="tab"][data-centered="true"]')
+            ?.getBoundingClientRect();
+          if (!viewportRect || !centeredRect) return Number.POSITIVE_INFINITY;
+          return Math.abs(
+            centeredRect.left + centeredRect.width / 2 -
+              (viewportRect.left + viewportRect.width / 2),
+          );
+        }),
+      )
+      .toBeLessThanOrEqual(2);
+
     const secondCardClickPoint = await tabs.nth(1).evaluate((element) => {
       const cardRect = element.getBoundingClientRect();
       const viewportRect = element
@@ -292,7 +327,9 @@ for (const viewport of [
     await nextIngredient.click();
     await nextIngredient.click();
     await nextIngredient.click();
-    await expect(tabs.nth(4)).toHaveAttribute("aria-selected", "true");
+    await expect(tabs.nth(1)).toHaveAttribute("aria-selected", "true");
+    await expect(tabs.nth(4)).toHaveAttribute("data-centered", "true");
+    await expect(section.getByRole("tabpanel")).toContainText("Peptides");
     await expect
       .poll(() =>
         section.evaluate((element) => {
@@ -300,7 +337,7 @@ for (const viewport of [
             .querySelector(".ingredient-carousel__viewport")
             ?.getBoundingClientRect();
           const activeRect = element
-            .querySelector('[role="tab"][aria-selected="true"]')
+            .querySelector('[role="tab"][data-centered="true"]')
             ?.getBoundingClientRect();
           if (!viewportRect || !activeRect) return Number.POSITIVE_INFINITY;
           return Math.abs(
@@ -311,7 +348,7 @@ for (const viewport of [
       )
       .toBeLessThanOrEqual(2);
 
-    await tabs.nth(4).press("End");
+    await tabs.nth(1).press("End");
     await expect(tabs.last()).toBeFocused();
     await expect(tabs.last()).toHaveAttribute("aria-selected", "true");
     await expect(carouselViewport).toHaveJSProperty("scrollLeft", 0);
@@ -322,7 +359,8 @@ for (const viewport of [
       section.getByRole("button", { name: "Next ingredient" }),
     ).toHaveCount(0);
     await section.getByRole("button", { name: "Previous ingredient" }).click();
-    await expect(tabs.nth(7)).toHaveAttribute("aria-selected", "true");
+    await expect(tabs.last()).toHaveAttribute("aria-selected", "true");
+    await expect(tabs.nth(7)).toHaveAttribute("data-centered", "true");
     const finalNext = section.getByRole("button", { name: "Next ingredient" });
     await finalNext.focus();
     await page.keyboard.press("Enter");
@@ -377,7 +415,8 @@ test("Ingredient literacy shares the PDP swipe-following pointer behavior", asyn
     "true",
   );
   await page.mouse.up();
-  await expect(tabs.nth(1)).toHaveAttribute("aria-selected", "true");
+  await expect(tabs.first()).toHaveAttribute("aria-selected", "true");
+  await expect(tabs.nth(1)).toHaveAttribute("data-centered", "true");
   await expect(indicator).toHaveAttribute("data-visible", "false");
 });
 

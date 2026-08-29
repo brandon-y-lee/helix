@@ -46,17 +46,17 @@ function renderedRailOffset(rail: HTMLElement) {
   const matrix3d = transform.match(/^matrix3d\((.+)\)$/);
   if (matrix3d) {
     const values = matrix3d[1].split(",").map(Number);
-    return Math.max(0, -(values[12] ?? 0));
+    return -(values[12] ?? 0);
   }
 
   const matrix = transform.match(/^matrix\((.+)\)$/);
   if (matrix) {
     const values = matrix[1].split(",").map(Number);
-    return Math.max(0, -(values[4] ?? 0));
+    return -(values[4] ?? 0);
   }
 
   const translation = transform.match(/^translate3d\(([-\d.]+)px/);
-  return Math.max(0, -(Number(translation?.[1]) || 0));
+  return -(Number(translation?.[1]) || 0);
 }
 
 export function SystemIngredientCarousel({
@@ -73,6 +73,7 @@ export function SystemIngredientCarousel({
   const nextControlRef = useRef<HTMLButtonElement>(null);
   const pendingControlFocus = useRef<"previous" | "next" | null>(null);
   const [railOffset, setRailOffset] = useState(0);
+  const [centeredIndex, setCenteredIndex] = useState(0);
   const {
     hideIndicator,
     indicatorRef,
@@ -101,15 +102,15 @@ export function SystemIngredientCarousel({
       resetRailTransform();
       hideIndicator();
       if (committed) {
-        selectIndex(activeIndex + (deltaX < 0 ? 1 : -1));
+        setCenteredIndex((current) => current + (deltaX < 0 ? 1 : -1));
       }
     },
   });
 
-  function selectFromControl(nextIndex: number) {
+  function moveCarousel(nextIndex: number) {
     if (nextIndex === 0) pendingControlFocus.current = "next";
     if (nextIndex === cards.length - 1) pendingControlFocus.current = "previous";
-    selectIndex(nextIndex);
+    setCenteredIndex(nextIndex);
   }
 
   useEffect(() => {
@@ -124,37 +125,36 @@ export function SystemIngredientCarousel({
   }, [cards, selectIndex]);
 
   useEffect(() => {
+    setCenteredIndex(activeIndex);
+  }, [activeIndex]);
+
+  useEffect(() => {
     const viewport = viewportRef.current;
     const rail = railRef.current;
-    const activeCard = cardRefs.current[activeIndex];
-    if (!viewport || !rail || !activeCard) return;
+    const centeredCard = cardRefs.current[centeredIndex];
+    if (!viewport || !rail || !centeredCard) return;
 
-    const centerActiveCard = () => {
+    const centerCard = () => {
       const viewportRect = viewport.getBoundingClientRect();
-      const activeCardRect = activeCard.getBoundingClientRect();
+      const centeredCardRect = centeredCard.getBoundingClientRect();
       const visualDistanceToCenter =
-        activeCardRect.left + activeCardRect.width / 2 -
+        centeredCardRect.left + centeredCardRect.width / 2 -
         (viewportRect.left + viewportRect.width / 2);
-      setRailOffset(
-        Math.max(
-          0,
-          renderedRailOffset(rail) + visualDistanceToCenter,
-        ),
-      );
+      setRailOffset(renderedRailOffset(rail) + visualDistanceToCenter);
     };
 
-    centerActiveCard();
+    centerCard();
 
     if (typeof ResizeObserver === "undefined") {
-      window.addEventListener("resize", centerActiveCard);
-      return () => window.removeEventListener("resize", centerActiveCard);
+      window.addEventListener("resize", centerCard);
+      return () => window.removeEventListener("resize", centerCard);
     }
 
-    const observer = new ResizeObserver(centerActiveCard);
+    const observer = new ResizeObserver(centerCard);
     observer.observe(viewport);
-    observer.observe(activeCard);
+    observer.observe(centeredCard);
     return () => observer.disconnect();
-  }, [activeIndex, cards.length]);
+  }, [cards.length, centeredIndex]);
 
   useEffect(() => {
     const pendingFocus = pendingControlFocus.current;
@@ -166,7 +166,7 @@ export function SystemIngredientCarousel({
         ? previousControlRef.current
         : nextControlRef.current;
     control?.focus({ preventScroll: true });
-  }, [activeIndex]);
+  }, [centeredIndex]);
 
   function resetRailTransform() {
     if (!railRef.current) return;
@@ -175,8 +175,8 @@ export function SystemIngredientCarousel({
 
   function ingredientCommitDelta(deltaX: number) {
     const canMove =
-      (deltaX < 0 && activeIndex < cards.length - 1) ||
-      (deltaX > 0 && activeIndex > 0);
+      (deltaX < 0 && centeredIndex < cards.length - 1) ||
+      (deltaX > 0 && centeredIndex > 0);
     return canMove ? deltaX : 0;
   }
 
@@ -204,6 +204,7 @@ export function SystemIngredientCarousel({
     <div
       className="ingredient-carousel"
       data-active-ingredient={cards[activeIndex].id}
+      data-centered-ingredient={cards[centeredIndex].id}
       data-dragging={dragging}
     >
       <div
@@ -218,24 +219,24 @@ export function SystemIngredientCarousel({
         onPointerLeave={hideIndicator}
       >
         <div className="ingredient-carousel__controls">
-          {activeIndex > 0 ? (
+          {centeredIndex > 0 ? (
             <button
               ref={previousControlRef}
               className="method-arrow-control ingredient-carousel__control ingredient-carousel__control--previous"
               type="button"
               aria-label="Previous ingredient"
-              onClick={() => selectFromControl(activeIndex - 1)}
+              onClick={() => moveCarousel(centeredIndex - 1)}
             >
               <span aria-hidden="true">←</span>
             </button>
           ) : null}
-          {activeIndex < cards.length - 1 ? (
+          {centeredIndex < cards.length - 1 ? (
             <button
               ref={nextControlRef}
               className="method-arrow-control ingredient-carousel__control ingredient-carousel__control--next"
               type="button"
               aria-label="Next ingredient"
-              onClick={() => selectFromControl(activeIndex + 1)}
+              onClick={() => moveCarousel(centeredIndex + 1)}
             >
               <span aria-hidden="true">→</span>
             </button>
@@ -260,6 +261,7 @@ export function SystemIngredientCarousel({
                 }}
                 id={tabId(card)}
                 className="ingredient-carousel__card"
+                data-centered={index === centeredIndex}
                 type="button"
                 role="tab"
                 aria-controls={panelId(card)}

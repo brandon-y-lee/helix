@@ -162,6 +162,10 @@ describe("SystemIngredientCarousel", () => {
     expect(screen.getByRole("tabpanel", { name: /Niacinamide/i })).toHaveTextContent(
       "The amide form of vitamin B3.",
     );
+    expect(container.querySelector(".ingredient-carousel")).toHaveAttribute(
+      "data-centered-ingredient",
+      "niacinamide",
+    );
 
     tabs[1].focus();
     const focusWithoutScroll = vi.spyOn(tabs[0], "focus");
@@ -176,9 +180,11 @@ describe("SystemIngredientCarousel", () => {
     expect(tabs[1]).toHaveFocus();
   });
 
-  it("shows only the direction available at each carousel endpoint", async () => {
+  it("moves between carousel endpoints without changing the selected ingredient", async () => {
     const user = userEvent.setup();
-    render(<SystemIngredientCarousel cards={cards} />);
+    const { container } = render(<SystemIngredientCarousel cards={cards} />);
+    const carousel = container.querySelector(".ingredient-carousel");
+    const tabs = screen.getAllByRole("tab");
 
     expect(
       screen.queryByRole("button", { name: "Previous ingredient" }),
@@ -186,14 +192,18 @@ describe("SystemIngredientCarousel", () => {
     const next = screen.getByRole("button", { name: "Next ingredient" });
     next.focus();
     await user.keyboard("{Enter}");
-    expect(screen.getAllByRole("tab")[1]).toHaveAttribute("aria-selected", "true");
+    expect(tabs[0]).toHaveAttribute("aria-selected", "true");
+    expect(tabs[1]).toHaveAttribute("aria-selected", "false");
+    expect(carousel).toHaveAttribute("data-centered-ingredient", "niacinamide");
+    expect(screen.getByRole("tabpanel", { name: /PDRN/i })).toBeVisible();
     expect(
       screen.queryByRole("button", { name: "Next ingredient" }),
     ).not.toBeInTheDocument();
     const previous = screen.getByRole("button", { name: "Previous ingredient" });
     await waitFor(() => expect(previous).toHaveFocus());
     await user.keyboard("{Enter}");
-    expect(screen.getAllByRole("tab")[0]).toHaveAttribute("aria-selected", "true");
+    expect(tabs[0]).toHaveAttribute("aria-selected", "true");
+    expect(carousel).toHaveAttribute("data-centered-ingredient", "pdrn");
     expect(
       screen.queryByRole("button", { name: "Previous ingredient" }),
     ).not.toBeInTheDocument();
