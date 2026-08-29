@@ -6802,6 +6802,10 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   width: 100%;
 }
 
+.method-page {
+  --method-section-title-size: clamp(2.25rem, 4.5vw, 3rem);
+}
+
 .about-opening,
 .culture-split,
 .about-men,
@@ -7117,7 +7121,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   gap: 0.04em;
   color: #fbfaf6;
   font-family: var(--font-heading);
-  font-size: clamp(2.8rem, 5.8vw, 5.9rem);
+  font-size: var(--method-section-title-size);
   line-height: 0.96;
   text-wrap: balance;
   text-shadow: 0 1px 18px rgba(0, 0, 0, 0.24);
@@ -7137,6 +7141,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   border-color: rgba(251, 250, 246, 0.72);
   background: rgba(17, 19, 18, 0.16);
   color: #fbfaf6;
+  font-size: 0.75rem;
   backdrop-filter: blur(10px);
 }
 
@@ -7499,7 +7504,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 .method-section-head--beyond h2,
 .method-ingredients h2 {
   max-width: none;
-  font-size: clamp(2.25rem, 4.5vw, 3rem);
+  font-size: var(--method-section-title-size);
   line-height: 1;
 }
 
@@ -10614,6 +10619,10 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 }
 
 @media (max-width: 720px) {
+  .method-page {
+    --method-section-title-size: clamp(2rem, 10vw, 3rem);
+  }
+
   .home-video-hero__content > div {
     max-width: min(100%, 360px);
   }
@@ -10945,7 +10954,10 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   }
 
   .method-flow__hero-phrase {
-    font-size: clamp(1.65rem, 8.5vw, 3.5rem);
+    font-size: min(
+      var(--method-section-title-size),
+      clamp(1.65rem, 8.5vw, 3.5rem)
+    );
   }
 
   .method-flow__product-link {
@@ -10993,7 +11005,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   .method-section-head h2,
   .method-section-head--beyond h2,
   .method-ingredients h2 {
-    font-size: clamp(2rem, 10vw, 3rem);
+    font-size: var(--method-section-title-size);
   }
 
   .method-beyond {
