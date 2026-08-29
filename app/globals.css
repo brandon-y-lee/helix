@@ -10945,7 +10945,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   }
 
   .method-flow__hero-phrase {
-    font-size: clamp(2.15rem, 9.5vw, 3.5rem);
+    font-size: clamp(1.65rem, 8.5vw, 3.5rem);
   }
 
   .method-flow__product-link {
@@ -11015,12 +11015,6 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 
   .method-beyond-card__body {
     min-height: 235px;
-  }
-}
-
-@media (max-width: 360px) {
-  .method-flow__hero-phrase {
-    font-size: 8vw;
   }
 }
 

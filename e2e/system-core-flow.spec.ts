@@ -44,7 +44,8 @@ test("Core flow supports pointer, keyboard, wrapping controls, and deep links", 
 for (const viewport of [
   { width: 1440, height: 1000, splitMode: "paired", minPhraseSize: 36 },
   { width: 1024, height: 900, splitMode: "paired", minPhraseSize: 36 },
-  { width: 390, height: 844, splitMode: "stacked", minPhraseSize: 36 },
+  { width: 390, height: 844, splitMode: "stacked", minPhraseSize: 30 },
+  { width: 361, height: 800, splitMode: "stacked", minPhraseSize: 28 },
   { width: 320, height: 760, splitMode: "stacked", minPhraseSize: 24 },
 ] as const) {
   test(`Core and split remain responsive at ${viewport.width}×${viewport.height}`, async ({
@@ -345,7 +346,13 @@ test("Ingredient literacy shares the PDP swipe-following pointer behavior", asyn
   const tabs = section.getByRole("tab");
   await expect(tabs).toHaveCount(9);
   await expect(tabs.first()).toBeVisible();
-  const firstCard = await tabs.first().boundingBox();
+  let firstCard = await tabs.first().boundingBox();
+  await expect
+    .poll(async () => {
+      firstCard = await tabs.first().boundingBox();
+      return firstCard;
+    })
+    .not.toBeNull();
   if (!firstCard) throw new Error("The first ingredient card is not visible.");
 
   const startX = firstCard.x + firstCard.width * 0.62;
