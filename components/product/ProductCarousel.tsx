@@ -10,7 +10,6 @@ import {
   useState,
   type CSSProperties,
   type FocusEvent,
-  type MouseEvent,
   type PointerEvent,
   type RefObject,
   type WheelEvent,
@@ -20,11 +19,10 @@ import {
   SwipeIndicator,
   useSwipeIndicator,
 } from "@/components/carousel/SwipeIndicator";
+import { useHorizontalCarouselDrag } from "@/components/carousel/useHorizontalCarouselDrag";
 import { ProductCard } from "@/components/product/ProductCard";
 import type { ProductCard as ProductCardModel } from "@/lib/catalog/models";
 
-const DRAG_START_THRESHOLD = 8;
-const DRAG_COMMIT_THRESHOLD = 44;
 const TRANSITION_LOCK_MS = 240;
 const SCROLL_EPSILON = 1;
 
@@ -32,16 +30,6 @@ type Direction = "previous" | "next";
 type CarouselTrackStyle = CSSProperties & {
   "--home-beyond-offset"?: string;
 };
-
-type DragState = {
-  pointerId: number;
-  startX: number;
-  startY: number;
-  deltaX: number;
-  boundedDeltaX: number;
-  dragging: boolean;
-  pointerType: string;
-} | null;
 
 type CarouselMetrics = {
   initialized: boolean;
@@ -119,17 +107,14 @@ export function ProductCarousel({
   const trackRef = useRef<HTMLUListElement>(null);
   const previousButtonRef = useRef<HTMLButtonElement>(null);
   const nextButtonRef = useRef<HTMLButtonElement>(null);
-  const dragRef = useRef<DragState>(null);
   const lockTimeoutRef = useRef<number | null>(null);
   const pendingFocusCorrectionRef = useRef<Direction | null>(null);
   const focusedControlRef = useRef<Direction | null>(null);
-  const suppressClickRef = useRef(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const [metrics, setMetrics] = useState<CarouselMetrics>(
     initialCarouselMetrics,
   );
   const [motionDirection, setMotionDirection] = useState<Direction | null>(null);
-  const [dragging, setDragging] = useState(false);
   const [announcement, setAnnouncement] = useState("");
   const {
     hideIndicator,
@@ -153,6 +138,30 @@ export function ProductCarousel({
     "--home-beyond-offset": `${activeOffset}px`,
   } as CarouselTrackStyle;
   const leadProduct = products[activeIndex] ?? products[0] ?? null;
+  const {
+    dragging,
+    finishDrag,
+    handleClickCapture,
+    handlePointerDown,
+    handlePointerMove: handleDragPointerMove,
+    resetDrag,
+  } = useHorizontalCarouselDrag({
+    enabled: scrollable,
+    canStart: (target) => !isInteractiveTarget(target),
+    getCommitDelta: boundedDragDelta,
+    getRenderedDelta: boundedDragDelta,
+    onDrag: (renderedDeltaX) => {
+      trackRef.current?.style.setProperty(
+        "--home-beyond-drag-x",
+        `${renderedDeltaX}px`,
+      );
+    },
+    onFinish: ({ committed, deltaX }) => {
+      clearDragTransform();
+      hideIndicator();
+      if (committed) move(deltaX < 0 ? "next" : "previous");
+    },
+  });
 
   const measureCarousel = useCallback(() => {
     const viewport = viewportRef.current;
@@ -215,10 +224,10 @@ export function ProductCarousel({
     setActiveIndex(0);
     setMotionDirection(null);
     setAnnouncement("");
-    setDragging(false);
+    resetDrag();
     hideIndicator();
     trackRef.current?.style.setProperty("--home-beyond-drag-x", "0px");
-  }, [hideIndicator, productSignature]);
+  }, [hideIndicator, productSignature, resetDrag]);
 
   useEffect(() => {
     measureCarousel();
@@ -343,21 +352,6 @@ export function ProductCarousel({
     trackRef.current?.style.setProperty("--home-beyond-drag-x", "0px");
   }
 
-  function handlePointerDown(event: PointerEvent<HTMLDivElement>) {
-    if (!scrollable || isInteractiveTarget(event.target)) return;
-    if (event.pointerType === "mouse" && event.button !== 0) return;
-
-    dragRef.current = {
-      pointerId: event.pointerId,
-      startX: event.clientX,
-      startY: event.clientY,
-      deltaX: 0,
-      boundedDeltaX: 0,
-      dragging: false,
-      pointerType: event.pointerType,
-    };
-  }
-
   function handlePointerMove(event: PointerEvent<HTMLDivElement>) {
     const indicatorEligible =
       scrollable &&
@@ -372,70 +366,7 @@ export function ProductCarousel({
       event.clientY,
       indicatorEligible || dragging,
     );
-
-    const drag = dragRef.current;
-    if (!drag || drag.pointerId !== event.pointerId) return;
-
-    const deltaX = event.clientX - drag.startX;
-    const deltaY = event.clientY - drag.startY;
-    drag.deltaX = deltaX;
-    drag.boundedDeltaX = boundedDragDelta(deltaX);
-
-    if (!drag.dragging) {
-      const horizontalIntent =
-        Math.abs(deltaX) > DRAG_START_THRESHOLD &&
-        Math.abs(deltaX) > Math.abs(deltaY) * 1.15;
-      if (!horizontalIntent) return;
-      event.currentTarget.setPointerCapture(event.pointerId);
-      drag.dragging = true;
-      setDragging(true);
-    }
-
-    event.preventDefault();
-    trackRef.current?.style.setProperty(
-      "--home-beyond-drag-x",
-      `${drag.boundedDeltaX}px`,
-    );
-  }
-
-  function finishDrag(
-    event: PointerEvent<HTMLDivElement>,
-    cancelled = false,
-  ) {
-    const drag = dragRef.current;
-    if (!drag || drag.pointerId !== event.pointerId) return;
-
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    }
-
-    const effectiveDelta = drag.boundedDeltaX;
-    const shouldMove =
-      drag.dragging &&
-      !cancelled &&
-      Math.abs(effectiveDelta) >= DRAG_COMMIT_THRESHOLD;
-    if (drag.dragging) {
-      suppressClickRef.current = true;
-      window.setTimeout(() => {
-        suppressClickRef.current = false;
-      }, 80);
-    }
-
-    clearDragTransform();
-    setDragging(false);
-    hideIndicator();
-    dragRef.current = null;
-
-    if (shouldMove) {
-      move(effectiveDelta < 0 ? "next" : "previous");
-    }
-  }
-
-  function handleClickCapture(event: MouseEvent<HTMLDivElement>) {
-    if (!suppressClickRef.current) return;
-    event.preventDefault();
-    event.stopPropagation();
-    suppressClickRef.current = false;
+    handleDragPointerMove(event);
   }
 
   function handleWheel(event: WheelEvent<HTMLDivElement>) {

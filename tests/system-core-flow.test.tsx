@@ -183,8 +183,8 @@ describe("SystemCoreFlow", () => {
         ? {
             ...item,
             heroLines: [
-              "This Core step is unavailable.",
-              "No product is currently listed.",
+              "Step unavailable.",
+              "No product is listed.",
             ] as const,
             displayName: "TREAT currently unavailable",
             productType: "Currently unavailable",
@@ -198,8 +198,8 @@ describe("SystemCoreFlow", () => {
     await user.click(screen.getAllByRole("tab")[1]);
 
     const panel = screen.getByRole("tabpanel", { name: /TREAT/i });
-    expect(panel).toHaveTextContent("This Core step is unavailable.");
-    expect(panel).toHaveTextContent("No product is currently listed.");
+    expect(panel).toHaveTextContent("Step unavailable.");
+    expect(panel).toHaveTextContent("No product is listed.");
     expect(within(panel).queryByRole("link")).not.toBeInTheDocument();
   });
 });

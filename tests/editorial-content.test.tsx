@@ -336,8 +336,8 @@ describe("System content architecture", () => {
     expect(cleanseTab).toHaveTextContent("CLEANSE currently unavailable");
     expect(cleanseTab).toHaveTextContent("Currently unavailable");
     const cleanse = screen.getByRole("tabpanel", { name: /CLEANSE/i });
-    expect(cleanse).toHaveTextContent("This Core step is unavailable.");
-    expect(cleanse).toHaveTextContent("No product is currently listed.");
+    expect(cleanse).toHaveTextContent("Step unavailable.");
+    expect(cleanse).toHaveTextContent("No product is listed.");
     expect(within(cleanse).queryByRole("link")).not.toBeInTheDocument();
   });
 

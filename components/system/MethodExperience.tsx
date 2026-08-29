@@ -88,8 +88,8 @@ function buildCoreFlowItems(groups: SystemProductGroups): SystemCoreFlowItem[] {
       displayName: `${stepName} currently unavailable`,
       displayNumber: String(index + 1).padStart(2, "0"),
       heroLines: [
-        "This Core step is unavailable.",
-        "No product is currently listed.",
+        "Step unavailable.",
+        "No product is listed.",
       ],
       legacyAnchorIds: SYSTEM_STEP_LEGACY_ANCHORS[stepName],
       productType: "Currently unavailable",

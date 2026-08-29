@@ -6,29 +6,18 @@ import {
   useEffect,
   useRef,
   useState,
-  type MouseEvent,
   type PointerEvent,
 } from "react";
 import {
   SwipeIndicator,
   useSwipeIndicator,
 } from "@/components/carousel/SwipeIndicator";
+import { useHorizontalCarouselDrag } from "@/components/carousel/useHorizontalCarouselDrag";
 import { useRovingTabSelection } from "@/components/system/useRovingTabSelection";
 import {
   ingredientAnchorId,
   type IngredientIndexCard,
 } from "@/lib/content/system";
-
-const DRAG_START_THRESHOLD = 8;
-const DRAG_COMMIT_THRESHOLD = 44;
-
-type IngredientDragState = {
-  pointerId: number;
-  startX: number;
-  startY: number;
-  deltaX: number;
-  dragging: boolean;
-} | null;
 
 const INGREDIENT_IMAGE_PATHS: Record<string, string> = {
   "cica-centella": "/media/system/ingredients/cica-centella.jpg",
@@ -83,16 +72,39 @@ export function SystemIngredientCarousel({
   const previousControlRef = useRef<HTMLButtonElement>(null);
   const nextControlRef = useRef<HTMLButtonElement>(null);
   const pendingControlFocus = useRef<"previous" | "next" | null>(null);
-  const dragRef = useRef<IngredientDragState>(null);
-  const suppressClickRef = useRef(false);
   const [railOffset, setRailOffset] = useState(0);
-  const [dragging, setDragging] = useState(false);
   const {
     hideIndicator,
     indicatorRef,
     indicatorVisible,
     updateIndicator,
   } = useSwipeIndicator(viewportRef);
+  const {
+    dragging,
+    finishDrag,
+    handleClickCapture,
+    handlePointerDown,
+    handlePointerMove: handleDragPointerMove,
+  } = useHorizontalCarouselDrag({
+    enabled: cards.length > 1,
+    canStart: (target) =>
+      target instanceof HTMLElement &&
+      Boolean(target.closest(".ingredient-carousel__card")),
+    getCommitDelta: ingredientCommitDelta,
+    getRenderedDelta: ingredientRenderedDelta,
+    onDrag: (renderedDeltaX) => {
+      if (railRef.current) {
+        railRef.current.style.transform = `translate3d(${renderedDeltaX - railOffset}px, 0, 0)`;
+      }
+    },
+    onFinish: ({ committed, deltaX }) => {
+      resetRailTransform();
+      hideIndicator();
+      if (committed) {
+        selectIndex(activeIndex + (deltaX < 0 ? 1 : -1));
+      }
+    },
+  });
 
   function selectFromControl(nextIndex: number) {
     if (nextIndex === 0) pendingControlFocus.current = "next";
@@ -161,23 +173,15 @@ export function SystemIngredientCarousel({
     railRef.current.style.transform = `translate3d(${-railOffset}px, 0, 0)`;
   }
 
-  function handlePointerDown(event: PointerEvent<HTMLDivElement>) {
-    if (
-      cards.length < 2 ||
-      !(event.target instanceof HTMLElement) ||
-      !event.target.closest(".ingredient-carousel__card")
-    ) {
-      return;
-    }
-    if (event.pointerType === "mouse" && event.button !== 0) return;
+  function ingredientCommitDelta(deltaX: number) {
+    const canMove =
+      (deltaX < 0 && activeIndex < cards.length - 1) ||
+      (deltaX > 0 && activeIndex > 0);
+    return canMove ? deltaX : 0;
+  }
 
-    dragRef.current = {
-      pointerId: event.pointerId,
-      startX: event.clientX,
-      startY: event.clientY,
-      deltaX: 0,
-      dragging: false,
-    };
+  function ingredientRenderedDelta(deltaX: number) {
+    return ingredientCommitDelta(deltaX) === deltaX ? deltaX : deltaX * 0.16;
   }
 
   function handlePointerMove(event: PointerEvent<HTMLDivElement>) {
@@ -191,78 +195,7 @@ export function SystemIngredientCarousel({
       overIngredientCard || dragging,
     );
 
-    const drag = dragRef.current;
-    if (!drag || drag.pointerId !== event.pointerId) return;
-
-    const deltaX = event.clientX - drag.startX;
-    const deltaY = event.clientY - drag.startY;
-    drag.deltaX = deltaX;
-
-    if (!drag.dragging) {
-      const horizontalIntent =
-        Math.abs(deltaX) > DRAG_START_THRESHOLD &&
-        Math.abs(deltaX) > Math.abs(deltaY) * 1.15;
-      if (!horizontalIntent) return;
-      event.currentTarget.setPointerCapture(event.pointerId);
-      drag.dragging = true;
-      setDragging(true);
-    }
-
-    const canMove =
-      (deltaX < 0 && activeIndex < cards.length - 1) ||
-      (deltaX > 0 && activeIndex > 0);
-    const renderedDelta = canMove ? deltaX : deltaX * 0.16;
-    event.preventDefault();
-    if (railRef.current) {
-      railRef.current.style.transform = `translate3d(${renderedDelta - railOffset}px, 0, 0)`;
-    }
-  }
-
-  function finishDrag(
-    event: PointerEvent<HTMLDivElement>,
-    cancelled = false,
-  ) {
-    const drag = dragRef.current;
-    if (!drag || drag.pointerId !== event.pointerId) return;
-
-    if (
-      typeof event.currentTarget.hasPointerCapture === "function" &&
-      event.currentTarget.hasPointerCapture(event.pointerId)
-    ) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    }
-
-    const canMove =
-      (drag.deltaX < 0 && activeIndex < cards.length - 1) ||
-      (drag.deltaX > 0 && activeIndex > 0);
-    const shouldMove =
-      drag.dragging &&
-      !cancelled &&
-      canMove &&
-      Math.abs(drag.deltaX) >= DRAG_COMMIT_THRESHOLD;
-
-    resetRailTransform();
-    setDragging(false);
-    hideIndicator();
-    dragRef.current = null;
-
-    if (drag.dragging) {
-      suppressClickRef.current = true;
-      window.setTimeout(() => {
-        suppressClickRef.current = false;
-      }, 80);
-    }
-
-    if (shouldMove) {
-      selectIndex(activeIndex + (drag.deltaX < 0 ? 1 : -1));
-    }
-  }
-
-  function handleClickCapture(event: MouseEvent<HTMLDivElement>) {
-    if (!suppressClickRef.current) return;
-    event.preventDefault();
-    event.stopPropagation();
-    suppressClickRef.current = false;
+    handleDragPointerMove(event);
   }
 
   if (cards.length === 0) return null;
