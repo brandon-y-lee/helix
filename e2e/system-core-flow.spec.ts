@@ -172,19 +172,44 @@ for (const viewport of [
       );
     }
 
+    await expect(page.locator(".method-intentional__visual")).not.toHaveAttribute(
+      "data-scroll-zoom-mode",
+      "pending",
+    );
     const splitGeometry = await page.locator(".method-intentional").evaluate(
       (element) => {
         const copy = element.querySelector(".method-intentional__copy");
         const visual = element.querySelector(".method-intentional__visual");
-        if (!copy || !visual) throw new Error("The split panels are missing.");
+        const image = element.querySelector<HTMLImageElement>(
+          ".method-intentional__image",
+        );
+        if (!copy || !visual || !image) {
+          throw new Error("The split panels or portrait are missing.");
+        }
         const copyRect = copy.getBoundingClientRect();
         const visualRect = visual.getBoundingClientRect();
+        const imageRect = image.getBoundingClientRect();
         return {
           copy: { x: copyRect.x, y: copyRect.y, width: copyRect.width },
           visual: { x: visualRect.x, y: visualRect.y, width: visualRect.width },
+          imageCoversVisual:
+            imageRect.left <= visualRect.left + 1 &&
+            imageRect.top <= visualRect.top + 1 &&
+            imageRect.right >= visualRect.right - 1 &&
+            imageRect.bottom >= visualRect.bottom - 1,
+          imageObjectFit: getComputedStyle(image).objectFit,
+          imageSource: image.currentSrc || image.src,
+          zoomMode: (visual as HTMLElement).dataset.scrollZoomMode,
         };
       },
     );
+
+    expect(splitGeometry.imageCoversVisual).toBe(true);
+    expect(splitGeometry.imageObjectFit).toBe("cover");
+    expect(splitGeometry.imageSource).toContain(
+      "intentional-skincare-portrait-01.webp",
+    );
+    expect(splitGeometry.zoomMode).toMatch(/^(view-timeline|javascript)$/);
 
     if (viewport.splitMode === "paired") {
       expect(Math.abs(splitGeometry.copy.y - splitGeometry.visual.y)).toBeLessThanOrEqual(
@@ -375,7 +400,7 @@ for (const viewport of [
   });
 }
 
-test("Ingredient literacy shares the PDP swipe-following pointer behavior", async ({
+test("Ingredient literacy supports reliable selection and multi-card swipe snapping", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
@@ -387,17 +412,23 @@ test("Ingredient literacy shares the PDP swipe-following pointer behavior", asyn
   const tabs = section.getByRole("tab");
   await expect(tabs).toHaveCount(9);
   await expect(tabs.first()).toBeVisible();
-  let firstCard = await tabs.first().boundingBox();
+
+  await tabs.nth(1).click();
+  await expect(tabs.nth(1)).toHaveAttribute("aria-selected", "true");
+  await expect(tabs.nth(1)).toHaveAttribute("data-centered", "true");
+  await expect(section.getByRole("tabpanel")).toContainText("Peptides");
+
+  let focusedCard = await tabs.nth(1).boundingBox();
   await expect
     .poll(async () => {
-      firstCard = await tabs.first().boundingBox();
-      return firstCard;
+      focusedCard = await tabs.nth(1).boundingBox();
+      return focusedCard;
     })
     .not.toBeNull();
-  if (!firstCard) throw new Error("The first ingredient card is not visible.");
+  if (!focusedCard) throw new Error("The focused ingredient card is not visible.");
 
-  const startX = firstCard.x + firstCard.width * 0.62;
-  const startY = firstCard.y + firstCard.height * 0.5;
+  const startX = focusedCard.x + focusedCard.width * 0.62;
+  const startY = focusedCard.y + focusedCard.height * 0.5;
   await page.mouse.move(startX, startY);
   await expect(indicator).toHaveAttribute("data-visible", "true");
   await expect(indicator).toHaveCSS("opacity", "1");
@@ -412,15 +443,27 @@ test("Ingredient literacy shares the PDP swipe-following pointer behavior", asyn
   ).toBeLessThanOrEqual(2);
 
   await page.mouse.down();
-  await page.mouse.move(startX - 90, startY, { steps: 4 });
+  await page.mouse.move(startX - 650, startY, { steps: 12 });
   await expect(section.locator(".ingredient-carousel")).toHaveAttribute(
     "data-dragging",
     "true",
   );
   await page.mouse.up();
-  await expect(tabs.first()).toHaveAttribute("aria-selected", "true");
-  await expect(tabs.nth(1)).toHaveAttribute("data-centered", "true");
+  await expect(tabs.nth(1)).toHaveAttribute("aria-selected", "true");
+  await expect(tabs.nth(3)).toHaveAttribute("data-centered", "true");
+  await expect(section.getByRole("tabpanel")).toContainText("Peptides");
   await expect(indicator).toHaveAttribute("data-visible", "false");
+
+  const thirdSnapCard = await tabs.nth(3).boundingBox();
+  if (!thirdSnapCard) throw new Error("The snapped ingredient card is not visible.");
+  const shortStartX = thirdSnapCard.x + thirdSnapCard.width / 2;
+  const shortStartY = thirdSnapCard.y + thirdSnapCard.height / 2;
+  await page.mouse.move(shortStartX, shortStartY);
+  await page.mouse.down();
+  await page.mouse.move(shortStartX - 120, shortStartY, { steps: 5 });
+  await page.mouse.up();
+  await expect(tabs.nth(3)).toHaveAttribute("data-centered", "true");
+  await expect(tabs.nth(1)).toHaveAttribute("aria-selected", "true");
 });
 
 test("Core and ingredient arrow controls use an eased fill treatment", async ({
@@ -477,6 +520,14 @@ test("Core flow removes crossfade motion for reduced-motion users", async ({ pag
   await expect(page.locator(".ingredient-carousel__rail")).toHaveCSS(
     "transition-duration",
     "0s",
+  );
+  await expect(page.locator(".method-intentional__visual")).toHaveAttribute(
+    "data-scroll-zoom-mode",
+    "static",
+  );
+  await expect(page.locator(".method-intentional__image")).toHaveCSS(
+    "animation-name",
+    "none",
   );
   for (const control of [
     page.getByRole("button", { name: "Next Core step" }),

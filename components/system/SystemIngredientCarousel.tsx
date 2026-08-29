@@ -72,6 +72,7 @@ export function SystemIngredientCarousel({
   const previousControlRef = useRef<HTMLButtonElement>(null);
   const nextControlRef = useRef<HTMLButtonElement>(null);
   const pendingControlFocus = useRef<"previous" | "next" | null>(null);
+  const pointerFocusRef = useRef(false);
   const [railOffset, setRailOffset] = useState(0);
   const [centeredIndex, setCenteredIndex] = useState(0);
   const {
@@ -102,7 +103,7 @@ export function SystemIngredientCarousel({
       resetRailTransform();
       hideIndicator();
       if (committed) {
-        setCenteredIndex((current) => current + (deltaX < 0 ? 1 : -1));
+        setCenteredIndex(nearestSnapIndex(railOffset - deltaX));
       }
     },
   });
@@ -179,14 +180,55 @@ export function SystemIngredientCarousel({
   }
 
   function ingredientCommitDelta(deltaX: number) {
-    const canMove =
-      (deltaX < 0 && centeredIndex < cards.length - 1) ||
-      (deltaX > 0 && centeredIndex > 0);
-    return canMove ? deltaX : 0;
+    const firstOffset = cardSnapOffset(0);
+    const lastOffset = cardSnapOffset(cards.length - 1);
+    if (firstOffset === null || lastOffset === null) return 0;
+
+    const proposedOffset = railOffset - deltaX;
+    const boundedOffset = Math.min(
+      Math.max(proposedOffset, Math.min(firstOffset, lastOffset)),
+      Math.max(firstOffset, lastOffset),
+    );
+    return railOffset - boundedOffset;
   }
 
   function ingredientRenderedDelta(deltaX: number) {
-    return ingredientCommitDelta(deltaX) === deltaX ? deltaX : deltaX * 0.16;
+    const boundedDelta = ingredientCommitDelta(deltaX);
+    return boundedDelta + (deltaX - boundedDelta) * 0.16;
+  }
+
+  function cardSnapOffset(index: number) {
+    const viewport = viewportRef.current;
+    const rail = railRef.current;
+    const card = cardRefs.current[index];
+    if (!viewport || !rail || !card) return null;
+
+    const viewportRect = viewport.getBoundingClientRect();
+    const cardRect = card.getBoundingClientRect();
+    const untransformedCardCenter =
+      cardRect.left + renderedRailOffset(rail) + cardRect.width / 2;
+    return (
+      untransformedCardCenter -
+      (viewportRect.left + viewportRect.width / 2)
+    );
+  }
+
+  function nearestSnapIndex(targetOffset: number) {
+    let nearestIndex = centeredIndex;
+    let nearestDistance = Number.POSITIVE_INFINITY;
+
+    cards.forEach((_, index) => {
+      const offset = cardSnapOffset(index);
+      if (offset === null) return;
+
+      const distance = Math.abs(offset - targetOffset);
+      if (distance < nearestDistance) {
+        nearestIndex = index;
+        nearestDistance = distance;
+      }
+    });
+
+    return nearestIndex;
   }
 
   function handlePointerMove(event: PointerEvent<HTMLDivElement>) {
@@ -203,6 +245,21 @@ export function SystemIngredientCarousel({
     handleDragPointerMove(event);
   }
 
+  function handleIngredientPointerDown(event: PointerEvent<HTMLDivElement>) {
+    pointerFocusRef.current =
+      event.target instanceof HTMLElement &&
+      Boolean(event.target.closest(".ingredient-carousel__card"));
+    handlePointerDown(event);
+  }
+
+  function finishIngredientDrag(
+    event: PointerEvent<HTMLDivElement>,
+    cancelled = false,
+  ) {
+    finishDrag(event, cancelled);
+    pointerFocusRef.current = false;
+  }
+
   if (cards.length === 0) return null;
 
   return (
@@ -217,11 +274,14 @@ export function SystemIngredientCarousel({
         className="ingredient-carousel__viewport"
         onClickCapture={handleClickCapture}
         onDragStart={(event) => event.preventDefault()}
-        onPointerDown={handlePointerDown}
+        onPointerDown={handleIngredientPointerDown}
         onPointerMove={handlePointerMove}
-        onPointerUp={(event) => finishDrag(event)}
-        onPointerCancel={(event) => finishDrag(event, true)}
-        onPointerLeave={hideIndicator}
+        onPointerUp={(event) => finishIngredientDrag(event)}
+        onPointerCancel={(event) => finishIngredientDrag(event, true)}
+        onPointerLeave={() => {
+          hideIndicator();
+          if (!dragging) pointerFocusRef.current = false;
+        }}
       >
         <div className="ingredient-carousel__controls">
           {centeredIndex > 0 ? (
@@ -273,7 +333,9 @@ export function SystemIngredientCarousel({
                 aria-selected={index === activeIndex}
                 tabIndex={index === activeIndex ? 0 : -1}
                 onClick={() => selectCard(index)}
-                onFocus={() => setCenteredIndex(index)}
+                onFocus={() => {
+                  if (!pointerFocusRef.current) setCenteredIndex(index);
+                }}
                 onKeyDown={(event) => handleTabKeyDown(event, index)}
               >
                 <span className="ingredient-carousel__media" aria-hidden="true">

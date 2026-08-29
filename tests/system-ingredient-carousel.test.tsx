@@ -233,6 +233,40 @@ describe("SystemIngredientCarousel", () => {
     );
   });
 
+  it("waits for a pointer click before centering and selecting its card", () => {
+    const { container } = render(<SystemIngredientCarousel cards={cards} />);
+    const carousel = container.querySelector(".ingredient-carousel");
+    const viewport = container.querySelector(
+      ".ingredient-carousel__viewport",
+    ) as HTMLElement;
+    const tabs = screen.getAllByRole("tab");
+
+    fireEvent.pointerDown(tabs[1], {
+      button: 0,
+      clientX: 240,
+      clientY: 120,
+      pointerId: 11,
+      pointerType: "mouse",
+    });
+    act(() => tabs[1].focus());
+    expect(carousel).toHaveAttribute("data-centered-ingredient", "pdrn");
+    expect(tabs[0]).toHaveAttribute("aria-selected", "true");
+
+    fireEvent.pointerUp(viewport, {
+      clientX: 240,
+      clientY: 120,
+      pointerId: 11,
+      pointerType: "mouse",
+    });
+    fireEvent.click(tabs[1]);
+
+    expect(tabs[1]).toHaveAttribute("aria-selected", "true");
+    expect(carousel).toHaveAttribute(
+      "data-centered-ingredient",
+      "niacinamide",
+    );
+  });
+
   it("preserves ingredient deep links and selects their disclosure", async () => {
     window.history.replaceState(null, "", "/system#system-ingredient-niacinamide");
     render(<SystemIngredientCarousel cards={cards} />);

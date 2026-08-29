@@ -270,7 +270,15 @@ describe("System content architecture", () => {
     expect(split).toHaveTextContent(
       "Helix is a line of curated skincare essentials. Formulated for a variety of skin types and needs with high performance ingredients, it’s a daily routine that nourishes your skin barrier over time.",
     );
-    expect(split.querySelector(".editorial-hue-field--method")).toBeInTheDocument();
+    const portrait = split.querySelector(
+      'img[src*="intentional-skincare-portrait-01.webp"]',
+    );
+    expect(portrait).toBeInTheDocument();
+    expect(portrait).toHaveAttribute("alt", "");
+    expect(split.querySelector(".editorial-hue-field--method")).not.toBeInTheDocument();
+    expect(split.querySelector(".method-intentional__visual")).toHaveAttribute(
+      "data-scroll-zoom-mode",
+    );
     expect(
       within(split).getByRole("heading", {
         level: 2,
