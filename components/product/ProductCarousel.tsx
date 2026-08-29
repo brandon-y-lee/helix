@@ -16,6 +16,10 @@ import {
   type WheelEvent,
 } from "react";
 import { useCartDrawer } from "@/components/cart/CartProvider";
+import {
+  SwipeIndicator,
+  useSwipeIndicator,
+} from "@/components/carousel/SwipeIndicator";
 import { ProductCard } from "@/components/product/ProductCard";
 import type { ProductCard as ProductCardModel } from "@/lib/catalog/models";
 
@@ -61,13 +65,6 @@ const initialCarouselMetrics: CarouselMetrics = {
   maxScroll: 0,
   step: 0,
 };
-
-function isFinePointer() {
-  return (
-    typeof window !== "undefined" &&
-    window.matchMedia("(hover: hover) and (pointer: fine)").matches
-  );
-}
 
 function isInteractiveTarget(target: EventTarget) {
   return target instanceof HTMLElement
@@ -120,13 +117,10 @@ export function ProductCarousel({
   const carouselRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLUListElement>(null);
-  const indicatorRef = useRef<HTMLSpanElement>(null);
   const previousButtonRef = useRef<HTMLButtonElement>(null);
   const nextButtonRef = useRef<HTMLButtonElement>(null);
   const dragRef = useRef<DragState>(null);
   const lockTimeoutRef = useRef<number | null>(null);
-  const indicatorFrameRef = useRef<number | null>(null);
-  const indicatorPointRef = useRef({ x: 0, y: 0 });
   const pendingFocusCorrectionRef = useRef<Direction | null>(null);
   const focusedControlRef = useRef<Direction | null>(null);
   const suppressClickRef = useRef(false);
@@ -136,8 +130,13 @@ export function ProductCarousel({
   );
   const [motionDirection, setMotionDirection] = useState<Direction | null>(null);
   const [dragging, setDragging] = useState(false);
-  const [indicatorVisible, setIndicatorVisible] = useState(false);
   const [announcement, setAnnouncement] = useState("");
+  const {
+    hideIndicator,
+    indicatorRef,
+    indicatorVisible,
+    updateIndicator,
+  } = useSwipeIndicator(viewportRef);
   const productCount = products.length;
   const productSignature = useMemo(
     () => products.map((product) => `${product.id}:${product.slug}`).join("|"),
@@ -209,9 +208,6 @@ export function ProductCarousel({
       if (lockTimeoutRef.current) {
         window.clearTimeout(lockTimeoutRef.current);
       }
-      if (indicatorFrameRef.current) {
-        window.cancelAnimationFrame(indicatorFrameRef.current);
-      }
     };
   }, []);
 
@@ -220,9 +216,9 @@ export function ProductCarousel({
     setMotionDirection(null);
     setAnnouncement("");
     setDragging(false);
-    setIndicatorVisible(false);
+    hideIndicator();
     trackRef.current?.style.setProperty("--home-beyond-drag-x", "0px");
-  }, [productSignature]);
+  }, [hideIndicator, productSignature]);
 
   useEffect(() => {
     measureCarousel();
@@ -347,33 +343,6 @@ export function ProductCarousel({
     trackRef.current?.style.setProperty("--home-beyond-drag-x", "0px");
   }
 
-  function queueIndicatorPosition(clientX: number, clientY: number) {
-    const viewport = viewportRef.current;
-    const indicator = indicatorRef.current;
-    if (!viewport || !indicator) return;
-
-    const rect = viewport.getBoundingClientRect();
-    const radius = 32;
-    indicatorPointRef.current = {
-      x: Math.min(Math.max(clientX - rect.left, radius), rect.width - radius),
-      y: Math.min(Math.max(clientY - rect.top, radius), rect.height - radius),
-    };
-
-    if (indicatorFrameRef.current) return;
-    indicatorFrameRef.current = window.requestAnimationFrame(() => {
-      const point = indicatorPointRef.current;
-      indicator.style.setProperty(
-        "--home-beyond-indicator-x",
-        `${point.x}px`,
-      );
-      indicator.style.setProperty(
-        "--home-beyond-indicator-y",
-        `${point.y}px`,
-      );
-      indicatorFrameRef.current = null;
-    });
-  }
-
   function handlePointerDown(event: PointerEvent<HTMLDivElement>) {
     if (!scrollable || isInteractiveTarget(event.target)) return;
     if (event.pointerType === "mouse" && event.button !== 0) return;
@@ -390,21 +359,19 @@ export function ProductCarousel({
   }
 
   function handlePointerMove(event: PointerEvent<HTMLDivElement>) {
-    if (
+    const indicatorEligible =
       scrollable &&
-      isFinePointer() &&
       !isInteractiveTarget(event.target) &&
       isPointInProductSurface(
         event.currentTarget,
         event.clientX,
         event.clientY,
-      )
-    ) {
-      queueIndicatorPosition(event.clientX, event.clientY);
-      setIndicatorVisible(true);
-    } else if (!dragging) {
-      setIndicatorVisible(false);
-    }
+      );
+    updateIndicator(
+      event.clientX,
+      event.clientY,
+      indicatorEligible || dragging,
+    );
 
     const drag = dragRef.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
@@ -456,7 +423,7 @@ export function ProductCarousel({
 
     clearDragTransform();
     setDragging(false);
-    setIndicatorVisible(false);
+    hideIndicator();
     dragRef.current = null;
 
     if (shouldMove) {
@@ -507,7 +474,7 @@ export function ProductCarousel({
         onPointerMove={handlePointerMove}
         onPointerUp={(event) => finishDrag(event)}
         onPointerCancel={(event) => finishDrag(event, true)}
-        onPointerLeave={() => setIndicatorVisible(false)}
+        onPointerLeave={hideIndicator}
         onWheel={handleWheel}
       >
         <ProductCarouselTrack
@@ -519,15 +486,11 @@ export function ProductCarousel({
           trackStyle={trackStyle}
           trackRef={trackRef}
         />
-        <span
+        <SwipeIndicator
           ref={indicatorRef}
-          className="home-beyond-swipe-indicator"
-          data-visible={indicatorVisible}
-          data-active={dragging}
-          aria-hidden="true"
-        >
-          SWIPE
-        </span>
+          visible={indicatorVisible}
+          active={dragging}
+        />
       </div>
 
       {canScrollPrev && (

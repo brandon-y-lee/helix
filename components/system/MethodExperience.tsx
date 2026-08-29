@@ -20,16 +20,13 @@ import { firstPurchasableVariant, type Product } from "@/lib/products";
 
 const MISSING_CORE_SWATCH: [string, string] = ["#dedbd3", "#807d76"];
 
-const CORE_STEP_NARRATIVES: Record<
+const CORE_STEP_HERO_LINES: Record<
   (typeof CORE_SYSTEM_STEP_NAMES)[number],
-  string
+  readonly [string, string]
 > = {
-  CLEANSE:
-    "The reset after a long day, a commute, or a workout. Work it into damp skin to take off sunscreen, sweat, and the day’s buildup, then rinse and move on with skin ready for the next step.",
-  TREAT:
-    "A nourishing layer for mornings and nights. Apply a few drops onto clean skin for lightweight hydration, a smoother finish, and long-term rejuvenation.",
-  SEAL:
-    "The last layer before you head out or turn in. Smooth it on to hold layers together with deep moisture, so skin feels supported wherever the rest of the day takes you.",
+  CLEANSE: ["Wash off the day.", "Start fresh."],
+  TREAT: ["Bring skin back.", "Smooth. Hydrated."],
+  SEAL: ["Hold every layer.", "Keep moisture in."],
 };
 
 function availabilityLabel(product: Product) {
@@ -69,10 +66,15 @@ function buildCoreFlowItems(groups: SystemProductGroups): SystemCoreFlowItem[] {
     if (entry) {
       return {
         anchorId: entry.anchorId,
+        backgroundMedia:
+          entry.product.cardHoverMedia ??
+          entry.product.heroMedia ??
+          entry.product.cardMedia ??
+          entry.product.detailMedia,
         displayName: entry.product.displayName,
         displayNumber: entry.displayNumber,
+        heroLines: CORE_STEP_HERO_LINES[stepName],
         legacyAnchorIds: entry.legacyAnchorIds,
-        narrative: CORE_STEP_NARRATIVES[stepName],
         productType: entry.product.productType,
         slug: entry.product.slug,
         stepName,
@@ -82,10 +84,14 @@ function buildCoreFlowItems(groups: SystemProductGroups): SystemCoreFlowItem[] {
 
     return {
       anchorId: SYSTEM_STEP_ANCHORS[stepName],
+      backgroundMedia: null,
       displayName: `${stepName} currently unavailable`,
       displayNumber: String(index + 1).padStart(2, "0"),
+      heroLines: [
+        "This Core step is unavailable.",
+        "No product is currently listed.",
+      ],
       legacyAnchorIds: SYSTEM_STEP_LEGACY_ANCHORS[stepName],
-      narrative: "No collection-facing Core entry is available for this step.",
       productType: "Currently unavailable",
       slug: null,
       stepName,

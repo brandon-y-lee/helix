@@ -9,10 +9,11 @@ import {
 const coreItems: SystemCoreFlowItem[] = [
   {
     anchorId: "system-cleanse",
+    backgroundMedia: null,
     displayName: "Biotic Reset",
     displayNumber: "01",
+    heroLines: ["Wash off the day.", "Start fresh."],
     legacyAnchorIds: ["step-cleanse", "step-reset", "method-cleanse", "method-reset"],
-    narrative: "A cleanser narrative.",
     productType: "Daily gel cleanser",
     slug: "biotic-reset",
     stepName: "CLEANSE",
@@ -20,10 +21,11 @@ const coreItems: SystemCoreFlowItem[] = [
   },
   {
     anchorId: "system-treat",
+    backgroundMedia: null,
     displayName: "Peptide Bounce",
     displayNumber: "02",
+    heroLines: ["Bring skin back.", "Smooth. Hydrated."],
     legacyAnchorIds: ["step-treat", "step-recode", "method-treat", "method-recode"],
-    narrative: "A treatment narrative.",
     productType: "PDRN serum",
     slug: "peptide-bounce",
     stepName: "TREAT",
@@ -31,10 +33,11 @@ const coreItems: SystemCoreFlowItem[] = [
   },
   {
     anchorId: "system-seal",
+    backgroundMedia: null,
     displayName: "Ceramide Cushion",
     displayNumber: "03",
+    heroLines: ["Hold every layer.", "Keep moisture in."],
     legacyAnchorIds: ["step-seal", "method-seal"],
-    narrative: "A moisturizer narrative.",
     productType: "Intensive moisture cream",
     slug: "ceramide-cushion",
     stepName: "SEAL",
@@ -53,10 +56,10 @@ describe("SystemCoreFlow", () => {
     expect(
       screen.getByRole("heading", {
         level: 2,
-        name: "The essential baseline",
+        name: "The Core",
       }),
     ).toBeInTheDocument();
-    expect(screen.getByText("The Core")).toBeInTheDocument();
+    expect(screen.queryByText("The essential baseline")).not.toBeInTheDocument();
     expect(container.querySelector('[data-helix-identity="symbol"]')).toHaveAttribute(
       "aria-hidden",
       "true",
@@ -74,7 +77,7 @@ describe("SystemCoreFlow", () => {
     const tablist = screen.getByRole("tablist", { name: "Core system steps" });
     const heading = screen.getByRole("heading", {
       level: 2,
-      name: "The essential baseline",
+      name: "The Core",
     });
     const activePanel = screen.getByRole("tabpanel", { name: /CLEANSE/i });
     expect(
@@ -89,14 +92,14 @@ describe("SystemCoreFlow", () => {
 
     expect(activePanel).toHaveClass("method-selection-panel");
     expect(activePanel.querySelector(".method-flow__position")).not.toBeInTheDocument();
-    expect(
-      within(activePanel).getByRole("heading", { level: 3, name: "Biotic Reset" }),
-    ).toBeInTheDocument();
-    expect(activePanel).toHaveTextContent("Daily gel cleanser");
-    expect(activePanel).toHaveTextContent("A cleanser narrative.");
-    expect(
-      within(activePanel).getByRole("link", { name: "View Biotic Reset" }),
-    ).toHaveAttribute("href", "/products/biotic-reset");
+    expect(activePanel).toHaveTextContent("Wash off the day.");
+    expect(activePanel).toHaveTextContent("Start fresh.");
+    expect(activePanel.querySelectorAll(".method-flow__hero-phrase > span")).toHaveLength(2);
+    const productLink = within(activePanel).getByRole("link", {
+      name: "View Biotic Reset",
+    });
+    expect(productLink).toHaveAttribute("href", "/products/biotic-reset");
+    expect(productLink).toHaveClass("btn", "method-flow__product-link");
   });
 
   it("changes the active step through tabs and wrapping sequence controls", async () => {
@@ -179,8 +182,10 @@ describe("SystemCoreFlow", () => {
       item.stepName === "TREAT"
         ? {
             ...item,
-            narrative:
-              "No collection-facing Core entry is available for this step.",
+            heroLines: [
+              "This Core step is unavailable.",
+              "No product is currently listed.",
+            ] as const,
             displayName: "TREAT currently unavailable",
             productType: "Currently unavailable",
             slug: null,
@@ -193,14 +198,8 @@ describe("SystemCoreFlow", () => {
     await user.click(screen.getAllByRole("tab")[1]);
 
     const panel = screen.getByRole("tabpanel", { name: /TREAT/i });
-    expect(
-      within(panel).getByRole("heading", {
-        name: "TREAT currently unavailable",
-      }),
-    ).toBeInTheDocument();
-    expect(panel).toHaveTextContent(
-      "No collection-facing Core entry is available for this step.",
-    );
+    expect(panel).toHaveTextContent("This Core step is unavailable.");
+    expect(panel).toHaveTextContent("No product is currently listed.");
     expect(within(panel).queryByRole("link")).not.toBeInTheDocument();
   });
 });

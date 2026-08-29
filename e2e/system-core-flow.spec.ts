@@ -80,7 +80,8 @@ for (const viewport of [
 
     const coreGeometry = await core.evaluate((element) => {
       const rect = element.getBoundingClientRect();
-      const heading = element.querySelector("h2");
+      const sectionLabel = element.querySelector("h2");
+      const phrase = element.querySelector(".method-flow__hero-phrase");
       const panel = element.querySelector('[role="tabpanel"]');
       const tablist = element.querySelector('[role="tablist"]');
       const productLink = panel?.querySelector(".method-flow__product-link");
@@ -94,7 +95,8 @@ for (const viewport of [
         '[role="tab"][aria-selected="false"] strong',
       );
       if (
-        !heading ||
+        !sectionLabel ||
+        !phrase ||
         !panel ||
         !tablist ||
         !productLink ||
@@ -104,7 +106,7 @@ for (const viewport of [
       ) {
         throw new Error("Core editorial content is missing.");
       }
-      const headingRect = heading.getBoundingClientRect();
+      const phraseRect = phrase.getBoundingClientRect();
       const panelRect = panel.getBoundingClientRect();
       const tablistRect = tablist.getBoundingClientRect();
       const productLinkRect = productLink.getBoundingClientRect();
@@ -113,12 +115,13 @@ for (const viewport of [
         height: rect.height,
         left: rect.left,
         right: window.innerWidth - rect.right,
-        headingFontSize: Number.parseFloat(getComputedStyle(heading).fontSize),
-        headingFontFamily: getComputedStyle(heading).fontFamily,
-        headingWhiteSpace: getComputedStyle(heading).whiteSpace,
+        sectionLabel: sectionLabel.textContent?.trim(),
+        phraseLineCount: phrase.querySelectorAll(":scope > span").length,
+        phraseFontSize: Number.parseFloat(getComputedStyle(phrase).fontSize),
         panelTextAlign: getComputedStyle(panel).textAlign,
-        panelHeadingOffset: Math.abs(panelRect.left - headingRect.left),
-        productLinkBottomGap: panelRect.bottom - productLinkRect.bottom,
+        panelPhraseOffset: Math.abs(panelRect.left - phraseRect.left),
+        productLinkAfterPhrase: productLinkRect.top > phraseRect.bottom,
+        productLinkBorderStyle: getComputedStyle(productLink).borderStyle,
         tablistAfterPanel: tablistRect.top >= panelRect.bottom,
         nextControlBorderStyle: getComputedStyle(nextControl).borderStyle,
         activeStepWeight: Number.parseInt(getComputedStyle(activeStep).fontWeight, 10),
@@ -126,37 +129,21 @@ for (const viewport of [
       };
     });
     expect(Math.abs(coreGeometry.left - coreGeometry.right)).toBeLessThanOrEqual(2);
-    expect(coreGeometry.headingFontSize).toBeLessThanOrEqual(48);
+    expect(coreGeometry.sectionLabel).toBe("The Core");
+    expect(coreGeometry.phraseLineCount).toBe(2);
+    expect(coreGeometry.phraseFontSize).toBeGreaterThan(36);
     expect(coreGeometry.panelTextAlign).toBe("left");
-    expect(coreGeometry.panelHeadingOffset).toBeLessThanOrEqual(2);
-    expect(coreGeometry.productLinkBottomGap).toBeLessThanOrEqual(2);
+    expect(coreGeometry.panelPhraseOffset).toBeLessThanOrEqual(2);
+    expect(coreGeometry.productLinkAfterPhrase).toBe(true);
+    expect(coreGeometry.productLinkBorderStyle).toBe("solid");
     expect(coreGeometry.tablistAfterPanel).toBe(true);
     expect(coreGeometry.nextControlBorderStyle).toBe("none");
     expect(coreGeometry.activeStepWeight).toBeGreaterThan(coreGeometry.inactiveStepWeight);
-
-    const matchingTitleStyles = await page.evaluate(() =>
-      ["#system-beyond-heading", "#system-ingredients-heading"].map((selector) => {
-        const heading = document.querySelector(selector);
-        if (!heading) throw new Error(`Missing section heading: ${selector}`);
-        const style = getComputedStyle(heading);
-        return {
-          fontFamily: style.fontFamily,
-          fontSize: Number.parseFloat(style.fontSize),
-        };
-      }),
-    );
-    for (const titleStyle of matchingTitleStyles) {
-      expect(Math.abs(titleStyle.fontSize - coreGeometry.headingFontSize)).toBeLessThanOrEqual(
-        0.1,
-      );
-      expect(titleStyle.fontFamily).toBe(coreGeometry.headingFontFamily);
-    }
 
     if (viewport.splitMode === "paired") {
       expect(Math.abs(coreGeometry.width / coreGeometry.height - 16 / 9)).toBeLessThan(
         0.02,
       );
-      expect(coreGeometry.headingWhiteSpace).toBe("nowrap");
     }
 
     const splitGeometry = await page.locator(".method-intentional").evaluate(
@@ -334,6 +321,47 @@ for (const viewport of [
     await expectNoMainOverflow(page, viewport.width);
   });
 }
+
+test("Ingredient literacy shares the PDP swipe-following pointer behavior", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/system#system-ingredients");
+
+  const section = page.locator("#system-ingredients");
+  const viewport = section.locator(".ingredient-carousel__viewport");
+  const indicator = viewport.locator(".carousel-swipe-indicator");
+  const tabs = section.getByRole("tab");
+  await expect(tabs).toHaveCount(9);
+  await expect(tabs.first()).toBeVisible();
+  const firstCard = await tabs.first().boundingBox();
+  if (!firstCard) throw new Error("The first ingredient card is not visible.");
+
+  const startX = firstCard.x + firstCard.width * 0.62;
+  const startY = firstCard.y + firstCard.height * 0.5;
+  await page.mouse.move(startX, startY);
+  await expect(indicator).toHaveAttribute("data-visible", "true");
+  await expect(indicator).toHaveCSS("opacity", "1");
+
+  const indicatorBox = await indicator.boundingBox();
+  if (!indicatorBox) throw new Error("The ingredient swipe indicator is missing.");
+  expect(
+    Math.abs(indicatorBox.x + indicatorBox.width / 2 - startX),
+  ).toBeLessThanOrEqual(2);
+  expect(
+    Math.abs(indicatorBox.y + indicatorBox.height / 2 - startY),
+  ).toBeLessThanOrEqual(2);
+
+  await page.mouse.down();
+  await page.mouse.move(startX - 90, startY, { steps: 4 });
+  await expect(section.locator(".ingredient-carousel")).toHaveAttribute(
+    "data-dragging",
+    "true",
+  );
+  await page.mouse.up();
+  await expect(tabs.nth(1)).toHaveAttribute("aria-selected", "true");
+  await expect(indicator).toHaveAttribute("data-visible", "false");
+});
 
 test("Core and ingredient arrow controls use an eased fill treatment", async ({
   page,
