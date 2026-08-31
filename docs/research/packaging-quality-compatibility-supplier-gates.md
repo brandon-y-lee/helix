@@ -1,9 +1,9 @@
 # Packaging Quality, Compatibility, and Supplier Gates
 
-**Status:** Public research report  
-**Decision scope:** Formula-independent supplier and package prequalification for Helix primary, secondary, tertiary, decoration, filling, warehousing, and logistics partners  
-**Research date:** 2026-08-30  
-**Decision boundary:** This report defines what can be approved from documents, empty components, or safe mechanical simulants. It deliberately does not approve an exact Formula/package combination for sale.
+- **Status:** Public research report
+- **Decision scope:** Formula-independent supplier and package prequalification for Helix primary, secondary, tertiary, decoration, filling, warehousing, and logistics partners
+- **Research date:** 2026-08-30
+- **Decision boundary:** This report defines what can be approved from documents, empty components, or safe mechanical simulants. It deliberately does not approve an exact Formula/package combination for sale.
 
 ## Executive decision
 
