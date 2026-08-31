@@ -51,7 +51,7 @@ Federal cosmetics law supplies the national floor. California quantity, misleadi
 | Misleading container/slack fill | **Binding** federal and California law | Minimize opaque void and require a functional-void file | Counsel applies facts to final primary/carton/online presentation |
 | Toxics in Packaging | **Binding** California material/certificate controls | Require component-specific certificates across all three packaging layers | Supplier/site/material changes trigger refreshed evidence |
 | Proposition 65 | **Binding** when exposure facts trigger it | Collect composition and exposure inputs | Qualified exposure assessment and counsel decide whether/how to warn |
-| FTC environmental claims | Deception law is **binding**; Green Guides are **official guidance** | Ban unsubstantiated general-benefit, recyclable, recycled-content, and refillable claims | Claim-specific evidence and counsel approve final language |
+| Federal/California environmental claims | Deception and California degradability/compostability laws are **binding**; FTC Green Guides and CalRecycle explanations are **official guidance** | Ban unsubstantiated general-benefit, recyclable, recycled-content, refillable, degradable, and compostable claims | Claim-specific evidence, California statutory eligibility, and counsel approve any final language |
 | SB 343 | Statute is **binding**, enforcement **unsettled/enjoined** | Omit chasing arrows/recyclability indicators by default | Refresh litigation, dates, studies, package facts, and counsel immediately before manufacture |
 | SB 54 | **Binding**, effective regulations with implementation still developing | Build a component-level material/weight/count ledger now | Resolve producer, deadline, CMCs, exemptions, PRO/independent path, and reporting with counsel |
 | DOT/PHMSA transport | **Binding** if the filled Product is hazardous material | Require final Formula classification before route approval | Hazmat professional/offeror signs classification and exact-mode packout |
@@ -345,7 +345,24 @@ The FTC's official [Green Guides summary](https://www.ftc.gov/business-guidance/
 
 An inconspicuous, molded resin-identification code on the bottom ordinarily has a different claim context from a conspicuous chasing-arrows symbol near the Product name; the FTC addresses that distinction in [16 C.F.R. § 260.12](https://www.ecfr.gov/current/title-16/chapter-I/subchapter-B/part-260/section-260.12). California can be more restrictive.
 
-### 8.2 SB 343 is binding law with currently enjoined enforcement
+### 8.2 California separately restricts degradability and compostability claims
+
+California Public Resources Code §§ 42355–42358.5 applies to consumer Products, packages, and packaging components. Except for the statute's compostability provisions and specialized agricultural-mulch exception, a Product may not be sold or offered for sale in California when labeled “biodegradable,” “degradable,” “decomposable,” any form of those terms, or in a way that implies breakdown, fragmentation, biodegradation, or decomposition in a landfill or other environment. That broad implied-claim rule can reach a phrase such as “marine degradable”; a qualified federal-style disclaimer should not be assumed to cure it ([California Public Resources Code §§ 42355–42358.5](https://leginfo.legislature.ca.gov/faces/codes_displayText.xhtml?article=&chapter=5.7.&division=30.&lawCode=PRC&part=3.&title=)).
+
+“Compostable” and “home compostable” are conditional, not general green synonyms. Under the current statute and CalRecycle explanation:
+
+- a compostable plastic Product must meet ASTM D6400-19 and a plastic-coated fiber Product must meet ASTM D6868-19, as applicable; satisfying only part of a standard is insufficient;
+- a home-compostable Product needs the applicable OK compost HOME certification or a later standard adopted under the statute;
+- required third-party certification applies when the statutory conditions for an approved certifier are met;
+- total organic fluorine must not exceed 100 ppm;
+- the Product must be distinguishable from noncompostable Products and designed to be associated with recovery of desirable organic waste; and
+- CalRecycle's current two-year extension delays the allowable-agricultural-organic-input requirement for otherwise qualifying synthetic-containing Products until 30 June 2027.
+
+CalRecycle summarizes the current standards and extension on its [Truth-in-Labeling Laws](https://calrecycle.ca.gov/plastics/labeling/) page. Compliance with these rules does not establish compliance with the FTC guides or another California marketing law, and SB 54's “compostable” category does not independently authorize a claim on a particular component.
+
+**Decision rule.** helix should omit biodegradable, degradable, decomposable, marine-degradable, compostable, and home-compostable claims from Product, package, online, and supplier-derived copy by default. A proposed compostability claim must pass a component-specific statutory/certification file, current CalRecycle and SB 54 category review, FTC substantiation, and California counsel approval. Color, symbols, imagery, or disposal directions that imply the same message belong in the review even if none of the listed words appears.
+
+### 8.3 SB 343 is binding law with currently enjoined enforcement
 
 California SB 343 prohibits chasing arrows and other recyclability indicators unless statutory criteria are met. CalRecycle published final material-characterization findings on 4 April 2025, updated Table 2 on 24 June 2026, and states that restrictions apply to packaging manufactured after 4 October 2026. On 14 July 2026, however, a federal court issued a preliminary injunction that blocks enforcement of SB 343 only; CalRecycle continues its study work and says the deadline may be affected by the litigation ([CalRecycle Accurate Recycling Labels](https://calrecycle.ca.gov/wcs/recyclinglabels/)).
 
@@ -359,7 +376,7 @@ Until counsel documents otherwise, helix should:
 4. recheck the injunction, statutory date, CalRecycle tables, and the 2027 study before artwork lock and again before manufacture; and
 5. approve a future claim only with a package-specific substantiation record covering California and every other sales geography.
 
-### 8.3 SB 54 applies to the packaging system, not only plastic primaries
+### 8.4 SB 54 applies to the packaging system, not only plastic primaries
 
 California SB 54 establishes extended producer responsibility for single-use packaging across sectors. Permanent regulations became effective on 1 May 2026; Circular Action Alliance is the first approved producer responsibility organization (PRO), and it submitted its first plan on 15 June 2026 ([CalRecycle SB 54 program](https://calrecycle.ca.gov/packaging/packaging-epr/)).
 
@@ -413,7 +430,7 @@ If a final Formula is hazardous material, [49 C.F.R. § 173.24](https://www.ecfr
 
 An ordinary nonhazardous, water-based cosmetic may fall outside those Hazardous Materials Regulations, but “cosmetic,” “natural,” or “alcohol-free” is not a transport classification. A qualified hazmat professional must review the final Formula, composition/SDS data, flash point and other properties, quantity, inner/outer pack, mode, and route. The determination must be retained by Product Variant and revisited on Formula or packout change.
 
-If USPS is used, current Postal Service rules also control nonhazardous liquids. Current Publication 52 § 451.3 requires secure liquid packaging and triple packaging for specified nonmetal or breakable containers over 4 fluid ounces, including absorbent material sufficient for all liquid, a leakproof secondary, and a strong outer container ([USPS Publication 52](https://pe.usps.com/cpim/ftp/pubs/pub52/pub52.pdf)). Confirm the then-current publication and selected service at ship date. Other carriers can impose different contractual acceptance and packaging rules.
+If USPS is used, current Postal Service rules also control nonhazardous liquids, creams, and pastes. The live Publication 52 § 451.3, accessed 31 August 2026, requires outer liquid marking/orientation, effective closures, and triple packaging for nonmetal liquid containers exceeding 4 ounces—including plastic containers—and for metal containers with friction-top closures. That triple pack includes absorbent material sufficient for all liquid, leakproof secondary packaging, and a strong, securely sealed outer package ([USPS Publication 52 § 451.3](https://pe.usps.com/text/pub52/pub52c4_018.htm); [official 1 June 2025 archive](https://pe.usps.com/PUB52_Archive/NHTML/PUB52_Archive_20250601/pub52c4_018.htm)). Confirm the then-current live publication, selected service, and any test-based alternative at ship date. Other carriers can impose different contractual acceptance and packaging rules.
 
 ### 9.2 Glass needs system-level evidence
 
