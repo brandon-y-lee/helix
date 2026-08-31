@@ -1,8 +1,8 @@
 # Cleanser Packaging, Size, and Supply-Chain Benchmark
 
-**Research ticket:** [#255 — Benchmark cleanser sizes, packaging, and supply chains](https://github.com/brandon-y-lee/helix/issues/255)  
-**Research date:** 2026-08-30  
-**Decision served:** choose defensible Mini and Full Size bands and preserve two distinct white-tube experiences for the helix Core cleanser.  
+- **Research ticket:** [#255 — Benchmark cleanser sizes, packaging, and supply chains](https://github.com/brandon-y-lee/helix/issues/255)
+- **Research date:** 2026-08-30
+- **Decision served:** choose defensible Mini and Full Size bands and preserve two distinct white-tube experiences for the helix Core cleanser.
 **Market:** United States direct-to-consumer; benchmark prices are current U.S. list prices where the brand publishes them.
 
 > **Research recommendation, not a purchase specification.** Public Product pages seldom disclose tube gauges, full layer structures, cap resins, decoration systems, filling sites, evacuation, pallet patterns, or named packaging manufacturers. No supplier relationship, country of manufacture, service life, or cost is inferred from a Product image. Final selection requires signed drawings, material declarations, compatibility and transit tests, samples from the exact production tool, and binding quotations at helix quantities.
