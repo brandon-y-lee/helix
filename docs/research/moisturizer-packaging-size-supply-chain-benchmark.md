@@ -6,11 +6,11 @@
 
 ## Executive decision
 
-Helix should take **15 g / 0.53 oz net weight as the Mini planning fill** and **50 g / 1.76 oz net weight as the Full Size planning fill**. The Full Size should retain a **60 g contingency** if formula-specific dose observation puts the median service life below 60 days or if the qualified jar leaves unacceptable residual product. These are net-weight targets, not final label copy.
+Helix should take **15 g / 0.53 oz net weight as the proposed Mini declared net quantity** and **50 g / 1.76 oz net weight as the proposed Full Size declared net quantity**. The Full Size should retain a **60 g declaration contingency** if Formula-specific dose observation puts the median service life below 60 days or if the qualified jar leaves unacceptable residual product. These are artwork and package-development starting points, not production target fills. The filler must later set a statistically justified target fill above the declaration and validate lot net-content control.
 
-The requested primary package remains a **low, wide, frosted-glass jar with a black or white closure**, developed as visibly Helix rather than copied from the supplied Haramoon references. Start fit sampling across 15/20 mL-class Mini and 50/60/75 mL-class Full stock jars, but do **not** equate a supplier's nominal milliliter capacity with the proposed gram fill. Final formula density, brimful and nominal capacity, closure displacement, headspace, fill temperature, process capability, and transport orientation determine the actual jar size.
+The requested primary package remains a **low, wide, frosted-glass jar with a black or white closure**, developed as visibly Helix rather than copied from the supplied Haramoon references. Start fit sampling across 15/20 mL-class Mini and 50/60/75 mL-class Full stock jars, but do **not** equate a supplier's nominal milliliter capacity with the proposed gram declaration. Final Formula density, brimful and nominal capacity, closure displacement, headspace, fill temperature, target fill, process capability, and transport orientation determine the actual jar size.
 
-The recommendation is intentionally conditional. The glass jar must pass formula compatibility, microbial-risk controls, closure/liner/seal performance, use-and-residual testing, decoration durability, and filled-pack logistics tests. A protective airless pack is the fallback only if the requested jar fails those mandatory gates; it is not a premature aesthetic substitution.
+The recommendation is intentionally conditional. The glass jar must pass Formula compatibility, microbial-risk controls, closure/liner/seal performance, use-and-residual testing, decoration durability, and filled-pack logistics tests. Keep one lightweight protective/airless comparator alive through compatibility, evacuation, transit, and landed-lane evidence so the premium glass burden remains visible; it becomes the selection fallback only if the requested jar fails mandatory gates. Concurrent evidence collection is not a premature aesthetic substitution.
 
 One narrow product-level attribution is currently public: Verescence names the glass jar and decoration it produced for Laneige Radian-C Cream. Historical or cross-SKU Toly and GPA credits were also found. None identifies a current complete package, filler, purchasing contract, every market/lot, or Helix-equivalent delivered cost. No exact current primary-pack supplier was verified for the other panel products, and no explicit product-filling assignment was verified. Supplier names presented later are otherwise **capability leads**, not inferred brand relationships. Consequently, this report does not name a cheapest supplier. A lowest-cost claim requires comparable, quote-backed, gate-qualified landed-cost offers under the repository's [packaging landed-cost evidence model](packaging-landed-cost-evidence-model.md).
 
@@ -81,7 +81,7 @@ Current brands sell facial moisturizers in grams, milliliters, ambiguous web “
 
 The controlling FDA rule defaults a solid, semisolid, or viscous cosmetic to weight and a liquid cosmetic to fluid measure; a firmly established consumer or trade custom can support the opposite basis. Weight means avoirdupois ounces and fluid measure means U.S. fluid ounces. Helix should therefore develop the cream in grams, document the finished formula's determination, use both customary and metric units on final U.S. artwork after label review, and treat milliliters as package engineering unless the exception is substantiated. ([21 CFR 701.13](https://www.ecfr.gov/current/title-21/chapter-I/subchapter-G/part-701/subpart-B/section-701.13), [FDA Cosmetics Labeling Guide](https://www.fda.gov/cosmetics/cosmetics-labeling-regulations/cosmetics-labeling-guide), [15 U.S.C. § 1453](https://uscode.house.gov/view.xhtml?edition=prelim&num=0&req=granuleid%3AUSC-prelim-title15-section1453))
 
-NIST's conversion table makes the distinction concrete: 1 avoirdupois ounce is approximately 28.35 g, while 1 U.S. fluid ounce is approximately 29.57 mL. The proposed planning artwork points are therefore `NET WT 0.53 OZ (15 g)`, `NET WT 1.76 OZ (50 g)`, and, for the contingency only, `NET WT 2.12 OZ (60 g)`, all subject to final regulatory review and the production fill-control plan. They are not fluid-ounce statements. ([NIST conversion table](https://www.nist.gov/pml/owm/metric-si/unit-conversion/approximate-conversions-us-customary-measures-metric))
+NIST's conversion table makes the distinction concrete: 1 avoirdupois ounce is approximately 28.35 g, while 1 U.S. fluid ounce is approximately 29.57 mL. The proposed declared-quantity artwork points are therefore `NET WT 0.53 OZ (15 g)`, `NET WT 1.76 OZ (50 g)`, and, for the contingency only, `NET WT 2.12 OZ (60 g)`, all subject to final regulatory review and the production fill-control plan. They are not fluid-ounce statements and do not set the statistically higher production target fill. ([NIST conversion table](https://www.nist.gov/pml/owm/metric-si/unit-conversion/approximate-conversions-us-customary-measures-metric))
 
 ### 2. Mini and Full roles cluster, but larger fills are not automatically better
 
@@ -103,9 +103,9 @@ No first-party source provides a measured Helix dose. Directions such as “appr
 
 The table below is therefore an **E0 planning sensitivity**, not consumer evidence. It assumes facial use twice daily and shows days as:
 
-`days = net fill in grams / (grams per application × 2 applications per day)`
+`days = declared net quantity in grams / (grams per application × 2 applications per day)`
 
-| Candidate net fill | 0.25 g/application | 0.35 g/application | 0.50 g/application | Planning role |
+| Candidate declared net quantity | 0.25 g/application | 0.35 g/application | 0.50 g/application | Planning role |
 |---:|---:|---:|---:|---|
 | 15 g | 30 days | 21 days | 15 days | Fits the intended 14–30-day Mini window across the sensitivity range |
 | 20 g | 40 days | 29 days | 20 days | Mini only if observed dose is not light |
@@ -123,9 +123,9 @@ Before specification freeze, Helix should run a gravimetric use study on the fin
 
 ## Weight, volume, and the actual jar capacity
 
-Mass-to-volume conversion requires final bulk density `ρ`:
+Mass-to-volume conversion requires final bulk density `ρ`. The first calculation uses the proposed declaration; jar fit must then use the statistically justified target fill:
 
-`product volume in mL = net fill in g / density in g/mL`
+`declared product volume in mL = declared net quantity in g / density in g/mL`
 
 For a supplier-confirmed overflow capacity, an early fit check is:
 
@@ -146,7 +146,7 @@ These figures are sensitivities, not a formula estimate. They show why a stock �
 - closure displacement and closed-package headspace;
 - finish, thread, sealing-land flatness, torque window, leak behavior, and orientation limits;
 - formula density over filling and storage temperatures, fill temperature, aeration/deaeration behavior, and fill-weight process capability;
-- legal fill allowance and final label declaration reviewed against the production formula.
+- final declared net quantity, statistically justified target fill, tare method, process capability, and lot verification reviewed against the production Formula.
 
 For travel, TSA's carry-on rule treats creams as liquids, gels, or aerosols and limits each container to 3.4 oz / 100 mL. A 15 g Mini in a correctly engineered small jar is well below that capacity threshold; a 50–75 mL Full jar can also qualify. “Mini” is therefore chiefly a trial, price-access, and short-trip role rather than the only carry-on-compatible SKU. Helix should avoid “TSA approved” and make a factual size statement only against the actual container capacity and current rule. ([TSA liquids rule](https://www.tsa.gov/travel/security-screening/liquids-rule))
 
@@ -172,7 +172,7 @@ The EU Ecolabel's voluntary assessment manual provides a useful, non-mandatory c
 
 ### Mandatory qualification gates
 
-A candidate does not advance to cost ranking until it passes the applicable gates in the [quality, compatibility, and supplier-gates report](packaging-quality-compatibility-supplier-gates.md):
+A candidate does not advance to cost ranking until it passes the applicable gates in the [quality, compatibility, and supplier-gates report](packaging-quality-compatibility-supplier-gates.md) and [U.S./California packaging constraints](us-california-cosmetic-packaging-constraints.md):
 
 1. final-formula material compatibility and stability, including closure/liner/seal contact;
 2. microbiological protection appropriate to open-jar use;
@@ -181,9 +181,13 @@ A candidate does not advance to cost ranking until it passes the applicable gate
 5. use access, reclosure, shive handling, and residual/evacuation performance;
 6. frost, print, cap-color, scuff, chemical, and wet-hand durability;
 7. objective differentiation and design-rights review;
-8. supplier quality-system, change-control, traceability, defect-response, and capacity evidence.
+8. final label/PDP, dual-unit declared quantity, physical artwork, Responsible Person, and required-information review;
+9. California toxics-in-packaging, Proposition 65, SB 54 producer/category/reporting path, and current component records;
+10. substantiation and approval for every environmental or disposal claim, symbol, code, and final net impression;
+11. Formula transport classification, carrier acceptance, filled-pack distribution testing, lot traceability, and shipment release; and
+12. supplier quality-system, change-control, traceability, defect-response, and capacity evidence.
 
-If the requested jar fails a mandatory formula, hygiene, or transport gate, the fallback is a **protective airless system** in the same Mini/Full roles. Aptar's first-party catalog offers a 30 mL PP airless jar and describes controlled dosing and reduced contamination exposure; Quadpack catalogs refillable glass airless systems at 15, 20, 30, and 50 mL. These are capability references, not Helix approvals or brand relationships. ([Aptar Pure Airless Jar](https://beauty.latamcatalog.aptar.com/en/product/pure-airless-jar/), [Quadpack Crystal Ballet](https://catalogue.quadpack.com/pack-types/airless/14047782/the-crystal-ballet))
+Run a **lightweight protective/airless comparator** in parallel through compatibility, evacuation, transit, and landed-lane evidence. Aptar's first-party catalog offers a 30 mL PP airless jar and describes controlled dosing and reduced contamination exposure; Quadpack catalogs refillable glass airless systems at 15, 20, 30, and 50 mL. These are capability references, not Helix approvals or brand relationships. The comparator becomes the fallback selection only if the requested glass jar fails a mandatory gate. ([Aptar Pure Airless Jar](https://beauty.latamcatalog.aptar.com/en/product/pure-airless-jar/), [Quadpack Crystal Ballet](https://catalogue.quadpack.com/pack-types/airless/14047782/the-crystal-ballet))
 
 ## Secondary and tertiary implications
 
@@ -195,7 +199,8 @@ For each jar size and cap color, source and test three nested systems:
 |---|---|---|
 | Primary | filled jar, cap, liner/shive, seal, decoration, label if used | high empty-pack mass; dimensional variation; scuffing; closure loosening; direct breakage and product loss |
 | Secondary | retail carton, protective insert if needed, leaflets only if required, tamper evidence | insert/carton may be necessary to pass drop and retail handling; larger board area and assembly labor must be counted |
-| Tertiary | master case, dividers/cells, tape, labels, palletization, DTC parcel packout | reduced case count, higher actual weight, breakage replacements, warehouse handling, parcel dimensional/actual-weight charges |
+| Tertiary/distribution | master case, dividers/cells, tape, labels, palletization | reduced case count, higher actual weight, inbound breakage, warehouse handling, and P3 receiving consequences |
+| DTC order packout | customer-order mailer/box, protection, labels, mixed-basket configuration | P4 dimensional/actual-weight charges, customer-delivery damage, reshipment, return, and support cost |
 
 The cost comparison must include a no-insert carton only if that filled system passes. Do not remove protection on a spreadsheet and then externalize breakage to fulfillment, support, replacement product, and customer experience. Conversely, do not specify a premium rigid box without evidence that a lighter recyclable folding carton cannot pass.
 
@@ -244,19 +249,23 @@ The disciplined conclusion is that public competitor supply-chain visibility is 
 
 ## Cost-benefit implications
 
-At the stated 1,000–3,000 primary-component planning MOQ, stock tooling and a shared 15/50 family are likely to reduce first-run cash exposure relative to a custom mold; that is a **supported inference**, not a quote. Every bidder must price the same demand cases and exact system scope.
+At the stated 1,000–3,000 primary-component planning MOQ, stock tooling and a coherent size family are likely to reduce first-run cash exposure relative to a custom mold; that is a **supported inference**, not a quote. Component MOQ is not the demand denominator. Run every route independently at **1,000, 2,000, and 3,000 total saleable finished moisturizer units**, then split each Product total through at least three sensitivity mixes: **10% Mini / 90% Full**, **25% Mini / 75% Full**, and **50% Mini / 50% Full**. These are stress cases, not a launch forecast. Preserve every body, cap color, liner, seal, decoration, carton, insert, and assembly MOQ and its buy-to-MOQ surplus inside each run.
 
-Compare at least:
+Keep at least five routes distinct: ODM stock packaging/fill abroad; ODM-managed custom packaging/fill abroad; Helix-nominated components consigned to an ODM abroad; imported bulk Formula filled/assembled domestically; and a domestic packaging/filling combination where offered. Each route needs its own leg ledger, importer-of-record treatment, loss points, cash schedule, and P3 destination.
 
-- 1,000 and 3,000 usable, accepted Mini assemblies;
-- 1,000 and 3,000 usable, accepted Full assemblies;
-- black and white cap decoration variants, including any color-change minimum or setup cost;
-- primary-only ex-works price, then complete P3 fulfillment-ready landed cost into Southern California;
-- P4 DTC package-driven delta including carton/insert, master-case protection, parcel materials, damage, replacement product, reshipment, support handling, and disposal;
-- samples, testing, decoration plates/screens, tooling, freight, duty/brokerage, inspection, assembly, storage, overrun, defect allowance, and minimum-order cash timing;
-- consumed economic cost versus first-run cash, with molds and one-time engineering kept visible rather than hidden in unit price.
+Rebuild every offer through the same five cost views:
 
-For a qualified package, also compare `P3 fulfillment-ready landed cost / [net fill × (1 − measured residual fraction)]`. This cost-per-usable-gram view makes an apparently cheap jar with poor evacuation visibly worse and keeps product loss in the economic model. It supplements, rather than replaces, P3 and P4 cost per sale.
+| View | Comparable endpoint and required treatment |
+|---|---|
+| P0 supplier quote | Preserve the written handoff scope and exclusions; never use as winner metric |
+| P1 landed empty packaging | Complete component/secondary BOM received at the named ODM or domestic fill site, including tooling allocation, inspection, freight/import, and receiving |
+| P2 conversion complete | Released filled, assembled, tested, and final-packed finished units at the fill site, including changeovers and validated loss |
+| P3 fulfillment-ready Southern California | P2 plus finished-goods freight, master-case/pallet transport packaging, customs where applicable, and receiving at a **named 3PL/warehouse dock**; the exact dock is a required model input still to be selected |
+| P4 DTC delivered | Total P3 inventory value plus pick/pack, customer-order mailer/protection, billable parcel weight, carrier/accessorial charges, damage, reshipment, returns, support handling, and disposal; report both total P4 and the package-driven delta against the lowest-volume compliant design |
+
+For every view, show first-run cash per saleable unit and consumed economic cost per saleable unit; keep MOQ surplus, tooling, samples, tests, plates/screens, inspection, storage, overrun, defects, freight, duty/brokerage, and cash timing visible. Quote black and white cap variants separately, including color minimums and setup. Do not put master-case protection into P4 or call curbside delivery P3.
+
+For a qualified package, also compare `P3 fulfillment-ready landed cost / [proposed declared mass × (1 − measured residual fraction)]`. This cost-per-usable-gram view makes an apparently cheap jar with poor evacuation visibly worse and keeps product loss in the economic model. It supplements, rather than replaces, P3 and P4 cost per sale.
 
 Glass benefits are the requested tactile/visual weight, chemical-inertness potential, premium frost/decoration, and wide-mouth access. Costs are higher actual mass, breakage/product loss, added protection, fewer units per case/pallet, and potential parcel-weight exposure. A heavy base should receive aesthetic credit only after its incremental grams and protection are priced. Aesop itself says at brand level that it sometimes chooses recycled PET to reduce breakage-related product waste and freight emissions relative to heavier glass; that is a brand rationale, not an independent LCA, but it confirms the tradeoff is commercially real. ([Aesop on plastic versus glass](https://au.assistance.aesop.com/hc/en-au/articles/7358052044559-Why-are-some-Aesop-products-housed-in-plastic-rather-than-glass))
 
@@ -268,9 +277,9 @@ Sustainability remains a weighted objective after mandatory gates. Score the com
 
 ### Baseline to quote
 
-- **Mini:** 15 g / 0.53 oz net-weight planning fill; sample stock low-profile wide-mouth jars at 15 and 20 mL, using 20 mL as the safer first fit check before density is known.
-- **Full:** 50 g / 1.76 oz net-weight planning fill; sample stock families at 50, 60, and 75 mL, because density below 1.00 g/mL plus required headspace can disqualify a nominal 50 mL jar.
-- **Contingency:** 60 g Full only if measured dose/service life or residual supports it.
+- **Mini:** proposed declaration `NET WT 0.53 OZ (15 g)`; production target fill remains open; sample stock low-profile wide-mouth jars at 15 and 20 mL, using 20 mL as the safer first fit check before density is known.
+- **Full:** proposed declaration `NET WT 1.76 OZ (50 g)`; production target fill remains open; sample stock families at 50, 60, and 75 mL, because density below 1.00 g/mL plus required headspace can disqualify a nominal 50 mL jar.
+- **Contingency:** proposed `NET WT 2.12 OZ (60 g)` Full declaration only if measured dose/service life or residual supports it; its target fill is separately validated.
 - **Body:** frosted glass appearance; disclose glass type, empty mass, dimensional tolerances, recycled-content claim basis, coating/frost chemistry, and surface-treatment durability.
 - **Closure:** common Mini/Full finish where a supplier's drawings and access tests support it; within each size, broad black and white variants on the same qualified geometry; quote PP-only and any metal-shelled option separately; disclose resin/PCR, colorant, empty mass, liner/shive, torque window, and decoration.
 - **Security:** quote formula-compatible liner/shive and first-opening seal/tamper strategies separately; state application equipment and validation needs.
@@ -281,14 +290,15 @@ Sustainability remains a weighted objective after mandatory gates. Score the com
 ### Facts required before a finalist can be called lowest cost
 
 1. Formula compatibility and package qualification are complete on the exact decorated assembly.
-2. An E3-grade supplier offer identifies legal entity, facility, Incoterm, currency/date, MOQ tier, lead time, exact components, decoration, quality terms, tooling, freight, duty, and validity.
-3. P3 fulfillment-ready landed and P4 DTC-delta models use the same demand, defect, breakage, and replacement assumptions.
+2. An E3 comparable indicative offer identifies the supplier legal entity and actual facility, is dated, and is tied to a defined drawing/specification and revision, quantities, complete BOM and finish, currency, full Incoterms rule/version and named place, MOQ/order increment, tooling, lead time, payment terms, validity, and material/commercial exclusions.
+3. P0–P4 models use the required 1,000/2,000/3,000 Product totals, Mini/Full stress mixes, route ledgers, common demand/defect/breakage/replacement assumptions, named P3 dock, and both total P4 and package-driven delta.
 4. Stock samples and production-equivalent decorated samples pass the agreed functional, transport, appearance, and in-use gates.
 5. Sustainability evidence is adjusted for completeness and confidence, not marketing vocabulary.
 6. Capacity and change-control evidence show the supplier can repeat the accepted package at the launch cadence.
+7. Label/PDP and declared-quantity architecture, California toxics/SB 54/Proposition 65 position, final claims, transport classification, carrier acceptance, lot traceability, and shipment release are approved.
 
 ## Final recommendation
 
-Advance **15 g Mini / 50 g Full** as the working moisturizer size architecture, with **60 g Full as a measured-use contingency**. Develop one differentiated, stock-platform frosted-glass family with shared finish and black/white closure variants. Sample 15/20 mL-class Mini and 50/60/75 mL-class Full jars; the final milliliter capacity comes from the formula's measured density and the closed package's fill geometry.
+Advance **15 g Mini / 50 g Full as the proposed declared net quantities**, with **60 g Full as a measured-use declaration contingency**. Production target fills remain open until process capability and lot net-content controls justify them. Develop one differentiated, stock-platform frosted-glass family with shared finish and black/white closure variants, while qualifying one lightweight comparator in parallel. Sample 15/20 mL-class Mini and 50/60/75 mL-class Full jars; the final milliliter capacity comes from the Formula's measured density, statistically justified target fill, and the closed package's fill geometry.
 
-The benchmark supports the size roles and exposes the real tradeoffs, but it does not prove a current complete-package relationship or cheapest source. A supplier earns finalist status only after the complete filled system passes formula, hygiene, closure, residual, decoration, transport, design-rights, quality, and supplier gates and its quote is normalized to fulfillment-ready Southern California and DTC economics.
+The benchmark supports the size roles and exposes the real tradeoffs, but it does not prove a current complete-package relationship or cheapest source. A supplier earns finalist status only after the complete filled system passes Formula, hygiene, closure, residual, decoration, transport, design-rights, quality, legal/stewardship, claims, and shipment-release gates and its quote is normalized through P0–P4 to a named Southern California receiving dock and DTC economics.
