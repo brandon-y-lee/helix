@@ -358,15 +358,20 @@ For any environmental burden `B` measured on the same basis:
 ```text
 B_one-way = burden of one complete single-use service
 
-B_durable_initial = burden to make the durable container and its first-use accessories
+B_durable_initial =
+  burden through the first completed rotation, including the durable container,
+  first-use accessories, freight, cleaning, and inspection
 
-B_each_loop = burden of refill components + forward/reverse freight + cleaning + inspection
+B_each_additional_loop =
+  burden of refill components + freight + cleaning + inspection
+  for each later completed rotation
 
 theoretical break-even rotations =
-  (B_durable_initial - B_one-way) / (B_one-way - B_each_loop)
+  (B_durable_initial - B_each_additional_loop)
+  / (B_one-way - B_each_additional_loop)
 ```
 
-This equation is meaningful only when `B_one-way > B_each_loop`, boundaries are identical, and losses/replacements are included. It is a scenario threshold, not a score. A reuse system earns points from achieved cohort performance through all six dimensions. Report low-return, expected, and high-return scenarios, and do not claim a benefit until achieved rotations clear break-even with a reasonable uncertainty margin.
+Here, a rotation means one completed Product service, including the initial service. The equation is meaningful only when `B_one-way > B_each_additional_loop`, boundaries are identical, and losses/replacements are included. It is a scenario threshold, not a score. A reuse system earns points from achieved cohort performance through all six dimensions. Report low-return, expected, and high-return scenarios, and do not claim a benefit until achieved rotations clear break-even with a reasonable uncertainty margin.
 
 Run the break-even separately for climate, material mass, water, and any other material impact. One system can reduce packaging mass but increase transport emissions or water use. Do not collapse unlike impacts into a single “times better” claim.
 
@@ -400,7 +405,7 @@ This is a trade-off map, not a pre-score. Each statement about a candidate must 
 | Lightweight PE or PP tube/container | Low mass, high cube efficiency, good evacuation or resilience when designed well, PCR potential | A technically compatible resin does not prove collection or actual recovery; tube form, small components, dark color, label, cap, barrier, and residue can change outcome | Exact resin/layers/form/dimensions; APR or equivalent sort/reprocess testing; current collection and actual-rate evidence; PCR chain of custody; evacuation; cap/body ordinary separation |
 | Aluminum collapsible tube | Product protection, low residual through permanent collapse, possible recycled input | Production burden, internal lacquer, cap/shoulder, crimp residues, small or “other form” recovery, dent/puncture, exact category ambiguity | Alloy/recycled input, liner and cap BOM, tube-form collection/sort/reprocess evidence, current California item/category determination, residual and damage data, manufacturing energy |
 | Plastic or foil laminate tube/pouch | Barrier, lightweighting, compatibility, low freight, potential Product-loss prevention | Mixed layers, foil/metallization, adhesives and closures can prevent ordinary separation and reprocessing; “mono-material” marketing may omit functional layers | Full layer stack by mass, adhesive/barrier/decoration, exact reprocessing test, route/access/end-market evidence, protection delta versus recyclable alternative |
-| Fiber carton, shipper, or insert | Renewable/recovered feedstock, print surface, product protection, efficient rectangular handling; FSC chain-of-custody opportunity | May be unnecessary; coating, lamination, metallic decoration, adhesives, windows, and inserts add material and can change recovery; paperboard is not OCC | Need/avoidance A/B test, board grade and mass, recycled content, transaction-linked FSC claim, coatings/inks/adhesives, exact category, parcel damage and cube |
+| Fiber carton, shipper, or insert | Renewable/recovered feedstock, print surface, Product protection, efficient rectangular handling; FSC chain-of-custody opportunity | May be unnecessary; coating, lamination, metallic decoration, adhesives, windows, and inserts add material and can change recovery; paperboard is not OCC | Need/avoidance A/B test, board grade and mass, recycled content, transaction-linked FSC claim, coatings/inks/adhesives, exact category, parcel damage and cube |
 | Refillable or returnable system | Can amortize durable packaging and avoid one-way components if consumers complete enough rotations | Low return, breakage/loss, cleaning rejects, sanitation, reverse postage, duplicated refill packaging, inventory, customer friction, extra freight | Cohort returns and achieved rotations; refill BOM; loop LCA; metered cleaning; actual lanes; inspection/reject data; TCO; consumer-comprehension study |
 
 ### Why the obvious shortcuts fail
