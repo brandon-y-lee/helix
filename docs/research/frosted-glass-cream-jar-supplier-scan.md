@@ -1,10 +1,11 @@
 # Frosted-glass cream-jar supplier scan
 
 - **Decision date:** 2026-08-31
+- **Public-source access date:** 2026-08-31, unless a source is expressly described as historical
 - **Scope:** U.S.-first public-source screen of stock and custom low/wide frosted-glass moisturizer jars
 - **Target:** proposed 15 g Mini and 50 g Full Size, with a 60 g Full Size contingency
 - **Sampling window:** 15/20 mL Mini and 50/60/75 mL Full Size jar classes
-- **Commercial objective:** 1,000–3,000 total-product scenarios across 10/90, 25/75 and 50/50 Mini/Full mixes; quote black and white closure alternatives separately
+- **Commercial objective:** 1,000–3,000 total moisturizer units across 10/90, 25/75 and 50/50 Mini/Full Product Variant mixes; quote black and white closure alternatives separately
 - **Status:** sourcing input, not a package qualification, purchase authorization, or production-release specification
 - **Outreach:** none performed
 
@@ -15,7 +16,7 @@ No supplier can yet be called the cheapest high-quality source. Public evidence 
 1. **Stocksmetic / Berlin Packaging Luxe and Heavy 15/50 mL systems** form the strongest public-stock/public-price benchmark. Regular Luxe is the primary public-price control because both bodies are listed as Poland origin; a separate surface-treated Luxe Mini is an inner-disc-adhesion sample lead, not the tier-price basis. Heavy is retained as the squatter, closer aesthetic alternative, but its Mini is Taiwan-origin while its Full is Poland-origin. Both have black and white closure choices and inner-disc choices at the target quantity band. A complete set is not immediately available on current evidence: the 60/400 white PP inner-disc page shows zero in stock and a 2026-10-08 expected arrival. Other critical weaknesses are undisclosed factories, separate Mini/Full necks, multi-origin body/accessory BOMs, no public empty-body weights, uncertain frost chemistry, no proven first-opening seal, and page-routing/unit-label inconsistencies. ([Luxe Mini](https://www.stocksmetic.com/us/vaso-luxe-15ml-acidato), [Luxe Full](https://www.stocksmetic.com/us/luxe-jar-50ml-60-400-frosted-glass), [Full inner disc](https://www.stocksmetic.com/us/lid-60-400-white))
 2. **APC Packaging SXJ 15 mL and 50 mL** is the clearest U.S.-stock exact-size family. Published case quantities are below 1,000 and the component architecture includes glass, PP/ABS caps, PE liner and an optional 50 mL PP+PE disc. Price, cap colors, frost process, body weights, brimful capacities, origin and actual factories are not public. ([APC SXJ](https://apcpackaging.com/product/sxj-frosted-round-glass-jar/))
 3. **Eurovetrocap Laurence / stock-service glass jars** is the strongest European low-batch lead. Public material supports 15 and 50 mL glass jars, satin/frosted choices, small-batch stock service and acid-etched frosting capability. It does not publicly prove that one exact 15/50 configuration, both cap colors, every liner/seal component and all requested quantities are simultaneously stock; one 15 mL white PP lid page instead states a 5,000-piece MOQ. ([Laurence collection](https://www.eurovetrocap.com/en/collezione/laurence/), [15 mL lid](https://www.eurovetrocap.com/en/prodotto/products/skincare/05480laurence-liden/))
-4. **Roetell** is the strongest disclosed Chinese-factory lead near the quantity objective. Its catalog describes 15/30/50/100 g white-glass cream jars, custom frosting/color, stock MOQs variously stated as 2,000 or 3,000 and an identified Xuzhou factory. The exact 15/50 frosted-body plus black/white-closure BOM, process route, quality documents, item factory and public price remain unresolved. ([cream jars](https://www.roetell.com/glass_categories/glass-cream-jars/), [15/30/50/100 family](https://www.roetell.com/glass/15g-30g-50g-100g-white-glass-cream-container-with-lids-wholesale/))
+4. **Roetell** is the strongest disclosed Chinese-factory lead near the quantity objective. Its catalog describes 15/30/50/100 g white-glass cream jars, custom frosting/color, stock MOQs variously stated as 2,000, 3,000 or 5,000 by page/family and an identified Xuzhou factory. The exact 15/50 frosted-body plus black/white-closure BOM, process route, quality documents, item factory and public price remain unresolved. ([cream jars](https://www.roetell.com/glass_categories/glass-cream-jars/), [15/30/50/100 family](https://www.roetell.com/glass/15g-30g-50g-100g-white-glass-cream-container-with-lids-wholesale/), [30/50 frosted family](https://www.roetell.com/glass/30g-50g-cream-jars-30ml-50ml-100ml-120ml-150ml-white-clear-frosted-empty-lotion-bottles-wholesale/))
 5. **Bormioli Luigi Aphrodite or Naxos** is the best publicly documented complete direct-manufacturer system: exact 15 and 50/60 mL bodies, exact weights/dimensions/necks, catalogued black or white PP caps and transparent PP inner lids. The company's publicly documented frost-look capability is lacquering—a simulated decorative frost, not proof that either exact body is supplied that way—and MOQ, price, inventory and lead are unknown. ([2026 collection catalog](https://bormioliluigi.com/upload/pageblock/2025_12_Collection_En_jy188xq8.pdf))
 6. **SGD Pharma Libra** is the strongest exact-size direct glass-body benchmark, with 15, 50 and 60 mL articles, brimful capacities, weights, dimensions, necks and identified Zhanjiang beauty-glass production. Exact cap/liner/seal choices, black/white closure articles, MOQ, price and current stock are unknown. ([Libra](https://www.sgd-pharma.com/libra), [Constellations catalog](https://www.sgd-pharma.com/sites/default/files/mediacenter/SGD%20Pharma%20Beauty%20%26%20Care_%20%20Constellations_%20EN_%20March%202025.pdf))
 
@@ -33,7 +34,7 @@ This report deliberately separates what a source says from what helix may infer:
 - **L — lead:** relevant public capability exists, but the exact helix configuration is not proven.
 - **U — unknown:** the public record does not settle the field, or apparently conflicting fields require written clarification.
 
-Unless explicitly marked otherwise, every supplier/distributor product, company, price, inventory and capability claim with a first-party citation is **SA**; calculations, rankings and dispositions are **I**; an unresolved candidate is **L**; and missing configuration evidence is **U**. “Frosted” is not treated as a process specification. The visible effect can come from at least three materially different routes:
+Unless explicitly marked otherwise, every supplier/distributor product, company, price, inventory and capability claim with a first-party citation is **SA**; calculations, rankings and dispositions are **I**; an unresolved candidate is **L**; and missing configuration evidence is **U**. These claim-status flags are orthogonal to the landed-cost model's E0–E5 evidence ladder: a public supplier page is SA for claim truth and E1 for permitted quantitative use; E2 begins with a non-comparable private supplier response, E3 with a comparable indicative offer and E4 with a production offer. “Frosted” is not treated as a process specification. The visible effect can come from at least three materially different routes:
 
 - **actual surface etch:** the glass surface itself is chemically etched and becomes microscopically pitted;
 - **simulated frost:** an external lacquer, spray, organic coating or other applied layer creates a matte/translucent look; or
@@ -43,7 +44,7 @@ Eurovetrocap's own technical catalog distinguishes acid-etched frosting from a l
 
 Organization role is also bounded. “Direct manufacturer” below means first-party material claims relevant manufacturing capability. It does not prove that the exact item is made in the named company's own plant. “Disclosed distributor” means the commercial seller is identifiable; the upstream factory can still be unknown.
 
-## helix requirement translated into a sourcing specification
+## Helix requirement translated into a sourcing specification
 
 ### Size architecture
 
@@ -107,7 +108,7 @@ The prerequisite [moisturizer benchmark](moisturizer-packaging-size-supply-chain
 
 First-party examples remain capability references only: Aptar catalogs a 30 mL PP Pure Airless Jar, while Quadpack catalogs Crystal Ballet refillable glass-airless sizes at 15, 20, 30 and 50 mL. Neither establishes the proposed 15 g/50 g Formula fit, target-quantity availability, landed cost or production approval. ([Aptar Pure Airless Jar](https://beauty.latamcatalog.aptar.com/en/product/pure-airless-jar/), [Quadpack Crystal Ballet](https://catalogue.quadpack.com/pack-types/airless/14047782/the-crystal-ballet))
 
-## Supplier universe: 25 organizations screened
+## Supplier universe: 25 supplier/channel entries screened
 
 “Coordinated” means a supplier presents Mini- and Full-scale items as one family or with a plausibly harmonized form language. It does **not** mean the two sizes share a neck, cap mold or production line.
 
@@ -205,7 +206,7 @@ Stocksmetic also lists 45/400 and 60/400 “Safeguard Disc” items and white PP
 
 **Factory and logistics boundary.** The Mini body is listed as Taiwan origin, the Full body as Poland origin, and cap/disc pages commonly list Italy. Exact factories, QMS certificates tied to those sites, glass furnaces, decoration site, intercompany route and U.S. import entry are U. A coordinated visual family is therefore a multi-origin, multi-neck BOM with at least three country/origin exposures. The site warns that import duties/customs charges may be due. Stock inventory is volatile and is not a supply guarantee.
 
-**Public-price benchmark — not a landed quote.** The following page arithmetic was recorded on 2026-08-31. The Mini comparison is internally consistent to the U.S. storefront; the Full safeguard-disc evidence comes from the International storefront, so currency, billing geography and availability require confirmation and the resulting Full arithmetic is not a coherent U.S. price. Every figure excludes freight, duty/tariffs, brokerage, tax, inspection, incoming loss, decoration, start charges, assembly, liner insertion, filling-line conversion, secondary packaging, breakage, financing and DTC delivery. Promotional body prices can end without notice.
+**Public-price benchmark — not a landed quote.** The following page evidence was recorded on 2026-08-31. Only the Mini comparison is arithmetically combined because its components share the U.S. storefront and USD display. The Full safeguard-disc evidence comes from the International storefront with unconfirmed currency, billing geography and availability, so no Full total is calculated. Every figure excludes freight, duty/tariffs, brokerage, tax, inspection, incoming loss, decoration, start charges, assembly, liner insertion, filling-line conversion, secondary packaging, breakage, financing and DTC delivery. Promotional body prices can end without notice.
 
 | Configuration | 1,000–1,999 | 2,000–2,999 | 3,000–3,999 | Evidence quality |
 | --- | ---: | ---: | ---: | --- |
@@ -215,8 +216,8 @@ Stocksmetic also lists 45/400 and 60/400 “Safeguard Disc” items and white PP
 | **Mini black page-BOM arithmetic** | **$2.05** | **$1.88** | **$1.75** | Coherent U.S.-storefront body + cap + disc only; not a quote |
 | Full frosted body | $1.49 | $1.38 | $1.28 | Exact public tier ([body](https://www.stocksmetic.com/us/heavy-jar-50ml-60-400-frosted)) |
 | Full matte-black or matte-white 60/400 PP cap | exact tier U; page shows $0.91 each | exact tier U | exact tier U | Family page verifies current color choices, but stable cap tier pages were not retrievable ([body/set page](https://www.stocksmetic.com/us/heavy-jar-50ml-60-400-frosted)) |
-| Full safeguard disc | $0.20 | $0.18 | $0.16 | International-storefront tier; U.S. currency and availability U ([disc](https://www.stocksmetic.com/int/disco-safeguard-60-400)) |
-| **Full matte page arithmetic using undiscounted $0.91 cap** | **$2.60** | **$2.47** | **$2.35** | Cross-storefront planning arithmetic, not a coherent U.S. or volume cap quote |
+| Full safeguard disc | — | — | — | International-storefront page exists, but currency, U.S. billing and availability are U; do not combine with U.S. prices ([disc](https://www.stocksmetic.com/int/disco-safeguard-60-400)) |
+| **Full matte page arithmetic** | **not calculated** | **not calculated** | **not calculated** | A same-currency U.S. disc price and tiered matte-cap quote are required |
 
 Glossy caps provide a cleaner public-tier control if matte tiers cannot be recovered. Current pages show 60/400 glossy black at $0.68/$0.64/$0.59 and glossy white at $0.63/$0.59/$0.54 for the three bands. The aesthetic is not the requested matte default, and the white page snapshot is older than the black page. ([black](https://www.stocksmetic.com/us/girotondo-cap-60-400-glossy-black), [white](https://www.stocksmetic.com/us/girotondo-cap-60-400-glossy-white))
 
@@ -238,9 +239,9 @@ At 1,000/2,000/3,000 pieces, the regular Luxe Mini body page exposes $1.32/$1.22
 
 For the smaller per-size quantities created by the mix scenarios, the same component pages yield complete page-BOM figures of $2.31 at 1–499 and $2.16 at 500–999 for Mini; $2.51 and $2.36 for Full with glossy white; and $2.57 and $2.41 for Full with glossy black. At the published 1,000–1,999 and 2,000–2,999 bands, the complete figures are $2.03/$1.88 Mini, $2.20/$2.06 Full white and $2.25/$2.11 Full black. These are arithmetical combinations of separately listed components, not assembled-set offers.
 
-The following **E1 public-evidence sensitivity** applies the public component tier corresponding to each actual Mini and Full quantity, then multiplies by the stated mix. This is **not a supplier quote or proof that the displayed tier will remain available**. Because Stocksmetic's tiers appear at the supplier-item level, lower-volume size splits can cost more per unit even when the total Product order increases. The model assumes one glossy cap color for the entire Full quantity; a black/white color split can fragment tiers again and requires a fresh calculation and supplier confirmation.
+The following **E1 public-evidence sensitivity** applies the public component tier corresponding to each actual Mini and Full quantity, then multiplies by the stated mix. This is **not a supplier quote or proof that the displayed tier will remain available**. Because Stocksmetic's tiers appear at the supplier-item level, lower-volume Product Variant splits can cost more per unit even when the total moisturizer order increases. The model assumes one glossy cap color for the entire Full quantity; a black/white color split can fragment tiers again and requires a fresh calculation and supplier confirmation.
 
-| Total product units | Mini / Full units | Full with glossy white cap: E1 component total / average per product | Full with glossy black cap: E1 component total / average per product |
+| Total moisturizer units | Mini / Full units | Full with glossy white cap: E1 component total / average per saleable unit | Full with glossy black cap: E1 component total / average per saleable unit |
 | ---: | ---: | ---: | ---: |
 | 1,000 — 10/90 | 100 / 900 | $2,355.00 / $2.3550 | $2,400.00 / $2.4000 |
 | 1,000 — 25/75 | 250 / 750 | $2,347.50 / $2.3475 | $2,385.00 / $2.3850 |
@@ -411,7 +412,7 @@ Verescence publishes several exact size ladders and true manufacturing data:
 
 The public catalog shows stock quantities around 20,000 for some Cleopatre variants and much larger made-to-order minima for some Priam references. It is an authoritative body-mass, brimful and frosting benchmark, but not a credible 1,000–3,000 launch source absent a distributor holding stock.
 
-### Berlin Packaging core catalog — true acid-frost benchmark, currently unavailable
+### Berlin Packaging core catalog — supplier-described acid-frost lead, currently unavailable
 
 Berlin Packaging lists a 0.5 oz Type III thick-base glass jar described as acid-frosted rather than painted, with a 40-400 neck. The target page is currently unavailable with no ETA and contains internally implausible/contradictory data fields, so a current quote and drawing are mandatory. ([0.5 oz](https://www.berlinpackaging.com/0-5-oz-frosted-glass-thick-base-jars-value-pack-5298b21val/))
 
@@ -489,7 +490,7 @@ Only a few direct glassmakers publish empty-body mass. Adding the proposed Formu
 | Heinz Shine 50 | 124 g | 50 g | 174 g |
 | Verescence Cleopatre 60 | 136 g | 60 g | 196 g |
 
-The Full glass body alone can vary by more than twofold: Bormioli's 62 g EcoJar versus 130 g Aphrodite demonstrates a 68 g body difference before Formula and closure. That difference affects inbound freight, line handling, warehouse loads, DTC dimensional/actual-weight breakpoints, cushioning, breakage loss and life-cycle burden. The same calculation remains impossible for the stock-priced Stocksmetic, APC, Eurovetrocap and Roetell candidate configurations because public body weights are missing; supplier item mass evidence is a first-round RFQ requirement.
+The Full glass body alone can vary by more than twofold: Bormioli's 62 g EcoJar versus 130 g Aphrodite demonstrates a 68 g body difference before Formula and closure. That difference affects inbound freight, line handling, warehouse loads, DTC dimensional/actual-weight breakpoints, cushioning, breakage loss and life-cycle burden. The same calculation remains impossible for the Stocksmetic, APC, Eurovetrocap and Roetell candidate configurations because public body weights are missing; only Stocksmetic has public component-price evidence. Supplier item mass evidence is a first-round RFQ requirement.
 
 ## Consumer use, hygiene, accessibility and residual
 
