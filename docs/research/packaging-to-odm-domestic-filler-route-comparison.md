@@ -21,7 +21,7 @@ No route is yet eligible to be called the lowest-cost high-quality route. Public
 
 The evidence supports the following **[SI] RFQ-sequencing hypotheses**, not a route ranking:
 
-1. **Test ODM stock packaging first as the cost-control baseline.** It has the fewest commercial interfaces and freight handoffs. It should be quoted first whenever an exact stock system can pass the applicable safety, quality, compatibility, legality, transport, and environmental-claim gates; sustainability then remains a weighted objective. Whether any reviewed ODM will accept a 1,000–3,000-Formula run split into two sizes remains unverified.
+1. **Test ODM stock packaging first as the cost-control baseline.** It has the fewest commercial interfaces and freight handoffs. It should be quoted first whenever an exact stock system can pass the applicable safety, quality, compatibility, legality, transport, and environmental-claim gates; sustainability then remains a weighted objective. Whether any reviewed ODM will accept one Formula production serving a 1,000–3,000-finished-unit Product run split into two sizes remains unverified.
 2. **Test bulk Formula to a domestic filler as the first challenger.** Public Southern California filling services explicitly advertise customer-supplied bulk and packaging, relevant formats, and entry points as low as 1,000 units ([Talara](https://www.talaramarketing.com/bottlefilling), [Natural Cosmetic Labs](https://naturalcosmeticlabs.com/pages/product-filling-services)). That makes the route plausible at helix's planning quantities, not qualified. It introduces a second manufacturing interface, international bulk movement, receiving quarantine, transfer loss, and divided defect responsibility.
 3. **Test helix-nominated packaging sent to an ODM as an aesthetic-control exception.** It can unlock a required tube, dropper, or jar that an ODM cannot source, but it adds at least one component supply chain and, when the nominated supplier is outside the ODM country, another import. Receiving/storage, overage, and a potentially difficult liability boundary apply either way. It should advance only with written outside-component acceptance and a route-level advantage after every leg and loss is quoted.
 4. **Test ODM-managed custom packaging as a scale or differentiation exception.** Development, sampling, tooling, decoration minimums, and surplus are likely to dominate 1,000–3,000-unit economics unless “custom” is actually a stock mold with decoration or a shared component. No reviewed ODM publishes enough route-specific commercial detail to validate it at these runs.
@@ -95,7 +95,7 @@ An ODM or filler format claim does not collapse these alternatives. Each exact F
 
 ### Route A — ODM stock packaging
 
-The ODM selects an existing package system, sources it through its approved network, fills and assembles the Product Variants, and exports finished units.
+The ODM selects an existing package system, sources it through its approved network, and fills, assembles, and exports finished units corresponding to the Mini and Full Product Variants.
 
 ```text
 approved component suppliers
@@ -224,7 +224,7 @@ This compact public register applies the established E0–E5 evidence contract t
 
 | Source ID | Claim or planning value | Class / publisher / record | Geography, route, scope, and exclusions | Confidence and next validation |
 |---|---|---|---|---|
-| **Q-01** | 1,000/2,000/3,000 Product units; 10/90, 25/75, 50/50 Mini/Full mixes | **E0** approved planning scenarios; analysis date 2026-08-31; unit = finished units | All Products/routes; excludes fill mass/volume, loss, minimums, and forecast approval | High that these are the requested sensitivities; replace or supplement with approved demand forecast |
+| **Q-01** | 1,000/2,000/3,000 finished units per Product; 10/90, 25/75, 50/50 Mini/Full mixes | **E0** approved planning scenarios; analysis date 2026-08-31; unit = finished units | All Products/routes; excludes fill mass/volume, loss, minimums, and forecast approval | High that these are the requested sensitivities; replace or supplement with approved demand forecast |
 | **Q-02** | 3–4 weeks existing product; 6–7 weeks new product | **E1**, Cosmecca [manufacturing page](https://www.cosmecca-esg.com/Manufacturing_system); no currency | Supplier-stated manufacturing context; not P3, not necessarily the exact sites/Variants, no queue/customs/SoCal receipt | Low for route scheduling; obtain an E3 calendar tied to site, configuration, trigger, and route |
 | **Q-03** | 5,000 MOQ; 60–90 days after artwork for one eye-patch listing | **E1**, Cosmecca [EOGM listing](https://en.e3ogm.com/TP1/?bmode=view&idx=170083823); unit = listing units/days | One unrelated catalog item; not cleanser, serum, or moisturizer and not a general supplier minimum | High for the narrow page text, none for the Core Products; obtain Product-specific E3 offers |
 | **Q-04** | MOQ starts at 1,000; filling starts at $1.50/unit + $100 cleaning + $100 setup | **E1**, Talara [filling page](https://www.talaramarketing.com/bottlefilling); USD | Customer packaging + bulk; disclosed price basis is labeling a round bottle with twist cap/pump and unit carton; no stated expiry; not P2/P3 or a Mini/Full quote | Medium for a public lower bound, low for proposed packages; obtain E3 offer with fee-event count and full scope |
@@ -265,14 +265,27 @@ NonSaleable[v]
 RequiredGoodOutput[v]
   = VariantTarget[v] + NonSaleable[v]
 
-RequiredFillStarts[v]
+TechnicalFillStarts[v]
   = ceiling(
       RequiredGoodOutput[v]
       / (FillYield[v] × AssemblyYield[v] × FinalReleaseYield[v])
     )
 
+PhysicalFillStarts[v]
+  = if the provider's fill minimum requires physical production:
+      round_up_to_fill_increment(
+        max(PhysicalFillMOQ[v], TechnicalFillStarts[v])
+      )
+    otherwise:
+      TechnicalFillStarts[v]
+
+BillableFillQuantity[v]
+  = round_up_to_billing_increment(
+      max(BillableFillMinimum[v], PhysicalFillStarts[v])
+    )
+
 GrossComponentNeed[c]
-  = Σv(BOMQuantity[c,v] × RequiredFillStarts[v])
+  = Σv(BOMQuantity[c,v] × PhysicalFillStarts[v])
     + component-only samples
     + destructive incoming-inspection units
 
@@ -282,15 +295,17 @@ OrderQuantity[c]
     )
 ```
 
-Each stage yield must be multiplicative and must carry an E0–E5 source; do not use an AQL as an expected defect rate. Formula quantities remain Product-level even though filling is Variant-level:
+Each stage yield and every physical/billable MOQ and increment must carry an E0–E5 source; do not use an AQL as an expected defect rate. A minimum-charge-only commitment affects filling cash through `BillableFillQuantity` but must not create Formula/component consumption. A physical-production minimum affects Formula, components, surplus, and filling cash through `PhysicalFillStarts`. If the provider does not distinguish the two, the offer is not comparable. Formula quantities remain Product-level even though filling is Variant-level:
 
 ```text
 FormulaNetFillNeed[p]
-  = Σv(RequiredFillStarts[v] × TargetFormulaMassPerUnit[v])
+  = Σv(PhysicalFillStarts[v] × ControlledTargetFormulaMassPerUnit[v])
 
-TargetFormulaMassPerUnit[v]
-  = declared net mass, when mass is the legal/control basis
-  OR target fill volume × validated density at stated conditions
+ControlledTargetFormulaMassPerUnit[v]
+  = statistically justified target fill mass above the declared net mass,
+    when mass is the legal/control basis
+  OR statistically justified target fill volume above the declaration
+     × validated density at stated conditions
 
 FormulaProcessNeed[p]
   = FormulaNetFillNeed[p]
@@ -307,7 +322,9 @@ BulkVesselCount[p]
   = ceiling(FormulaOrderQuantity[p] / qualified vessel working capacity)
 ```
 
-The model must report, for each component, Formula lot, and finished Variant, **ordered**, **accepted**, **consumed**, and **saleable** quantities separately. It must also report:
+The controlled target is the documented process mean needed to satisfy the declaration under the approved tolerance and acceptance rule; it is not the declared net quantity itself. Record the nominal declaration, target mean, expected giveaway/overfill, tolerance, measurement uncertainty, and acceptance rule separately.
+
+The model must report, for each component, Formula lot, and finished-unit stream corresponding to a Product Variant, **ordered**, **accepted**, **consumed**, and **saleable** quantities separately. It must also report:
 
 ```text
 UsableSurplus[c] = Accepted[c] - Consumed[c]
@@ -391,13 +408,14 @@ Route-D P3 advantage over Route A
        + Route-D domestic filling/setup/changeover/assembly/release
        + Route-D separately managed packaging legs
        + Route-D incremental QA/storage/conditioning/transfer loss
-       + Route-D filler-to-Southern-California freight
-       + Route-D incremental coordination and risk cost]
+       + Route-D filler-to-Southern-California freight]
 
 Equivalent check: advantage = P3_A - P3_D
 ```
 
 **[U]** Every monetary term is unquoted. The equation identifies the quote fields; it does not predict that domestic filling is cheaper.
+
+Do not add a generic “risk,” “coordination,” contingency, or risk-adjustment dollar to P3. Technical/performance risk and supplier reliability/lead time remain separate 20% and 10% objectives. Include an expected-loss cash term only when an independently evidenced probability, loss magnitude, route attribution, time horizon, and non-duplication check support monetization; otherwise show the risk in those weighted objectives and scenario sensitivities.
 
 ## Tier and mix effects
 
@@ -443,7 +461,7 @@ BKOLOR's published general conditions state 5% extra buyer-supplied packaging wh
 
 ## Transport classification and Route-D bulk control
 
-Every route requires a documented transport-classification decision for each filled Product Variant, mode, route, and packout before route choice. Routes A–C move filled Formula internationally; Route D moves bulk internationally and filled units domestically. Route D therefore needs separate bulk and finished-Variant determinations. Do not assume either bulk or filled Formula is non-hazardous. Retain the evidence, classifier, date, SDS/revision, composition basis, mode, quantity/package limits, and reclassification triggers required by the [U.S./California constraints](./us-california-cosmetic-packaging-constraints.md).
+Every route requires a documented transport-classification decision for finished units corresponding to each Product Variant, mode, route, and packout before route choice. Routes A–C move filled Formula internationally; Route D moves bulk internationally and finished units domestically. Route D therefore needs separate bulk and finished-unit determinations. Do not assume either bulk or filled Formula is non-hazardous. Retain the evidence, classifier, date, SDS/revision, composition basis, mode, quantity/package limits, and reclassification triggers required by the [U.S./California constraints](./us-california-cosmetic-packaging-constraints.md).
 
 Route D also cannot be costed until the final Formula, shipment mode, vessel, working quantity, and classification establish the bulk transport conditions.
 
@@ -465,7 +483,7 @@ The bulk specification must define:
 ### Rules common to U.S. imports
 
 - **[VF]** Imported cosmetics must comply with the same U.S. legal requirements as domestic cosmetics. Entry data identify the manufacturer, importer, and product; inaccurate or incomplete data can cause manual review ([FDA, Importing Cosmetics](https://www.fda.gov/industry/importing-fda-regulated-products/importing-cosmetics), [FDA import process](https://www.fda.gov/industry/import-program-food-and-drug-administration-fda/fda-import-process)).
-- **[VF]** Each nonexempt cosmetic manufacturing or processing facility's owner/operator has the facility-registration duty. The label-defined Responsible Person has the product-listing duty and related Responsible Person obligations. A domestic filler and a foreign contract manufacturer can each create a facility role; product filling is not merely “packaging” for this purpose. Registration is not FDA approval or certification ([FDA registration and listing](https://www.fda.gov/cosmetics/registration-listing-cosmetic-product-facilities-and-products), [FDA final guidance](https://www.fda.gov/media/170732/download), [21 U.S.C. § 364c](https://uscode.house.gov/view.xhtml?edition=prelim&num=0&req=granuleid%3AUSC-prelim-title21-section364c)). Apply any exemption only after role- and Product-specific review.
+- **[VF]** Each nonexempt cosmetic manufacturing or processing facility must have the required facility registration. Ordinarily the owner/operator submits; for an eligible contract-manufacturing facility, the Responsible Person may submit under the statutory mechanism, in which case the owner/operator does not submit a duplicate registration. The label-defined Responsible Person separately has the product-listing duty and related Responsible Person obligations. A domestic filler and a foreign contract manufacturer can each create a facility role; product filling is not merely “packaging” for this purpose. Registration is not FDA approval or certification ([FDA registration and listing](https://www.fda.gov/cosmetics/registration-listing-cosmetic-product-facilities-and-products), [FDA final guidance](https://www.fda.gov/media/170732/download), [21 U.S.C. § 364c](https://uscode.house.gov/view.xhtml?edition=prelim&num=0&req=granuleid%3AUSC-prelim-title21-section364c)). Apply any submission path or exemption only after role-, facility-, and Product-specific review.
 - **[VF]** CBP transaction value can require additions beyond invoice price, including specified packing, selling commissions, assists, royalties/license fees, or proceeds ([CBP valuation](https://www.help.cbp.gov/s/article/Article-1162?language=en_US)). The named Importer of Record retains reasonable-care responsibility for classification, valuation, origin, entry accuracy, duties, taxes, and fees even when a customs broker files as its agent; paying a broker does not relieve the importer of liability ([CBP importer/exporter tips](https://www.cbp.gov/trade/basic-import-export/importer-exporter-tips), [19 CFR 141.1](https://www.ecfr.gov/current/title-19/chapter-I/part-141/subpart-A/section-141.1)). A carrier is a separate role, and Incoterms® allocation does not replace the statutory Importer of Record.
 - **[U]** Duty, additional duty, Merchandise Processing Fee, Harbor Maintenance Fee where applicable, bond, broker, exam, storage, demurrage, detention, and drayage differ for empty packaging, bulk Formula, and finished cosmetics. No route may use a generic zero-duty assumption.
 
@@ -475,7 +493,7 @@ When a nominated component crosses into Korea for a Korea-based ODM, the flow ne
 
 **[VF]** Korean duty drawback may be available for qualifying imported raw materials used in exported goods, but it requires documentation and calculation. **[SI]** Do not assume eligibility or that an ODM passes any recovery to the buyer's Legal Operator; request the contractual treatment ([Korea Customs Service, drawback](https://www.customs.go.kr/english/cm/cntnts/cntntsView.do?cntntsId=2746&mi=8056)).
 
-When finished Product Variant units enter the United States, the named Importer of Record, with broker/counsel input as appropriate, must assess whether buyer-paid free-issue components or tools are customs assists and how their value is apportioned. **[U]** The route model needs the written determination, not a zero-value placeholder.
+When finished units corresponding to Product Variants enter the United States, the named Importer of Record, with broker/counsel input as appropriate, must assess whether buyer-paid free-issue components or tools are customs assists and how their value is apportioned. **[U]** The route model needs the written determination, not a zero-value placeholder.
 
 ### Route D: bulk entering the United States
 
@@ -513,7 +531,7 @@ All four routes must pass the same release ladder in the [quality and compatibil
 | Bulk receipt/quarantine/transfer (D) | domestic filler `A/R` for receipt and process | Formula ODM, carrier, authorized quality representative `C` | disposition and mass-balance remedy `U` |
 | Manufacturing batch release | overseas ODM/filler `A/R` for A–C; domestic filler `A/R` for D | authorized quality representative `C` | release record and deviation rights `U` |
 | Lot disposition and Southern California acceptance | buyer's Legal Operator acting through its authorized quality representative `A` | manufacturer/filler and receiving site `R/C` | exact Legal Operator, delegate, and acceptance window `U` |
-| Facility registration | each nonexempt facility owner/operator `A/R` | foreign U.S. agent and Responsible Person if submitting `C/R` | exemption and named facility/site `U` |
+| Facility registration | one permitted submitter per nonexempt facility: owner/operator by default, or Responsible Person for an eligible contract-manufacturing submission `A/R` | foreign U.S. agent and non-submitting facility party `C`; no duplicate filing | submission path, exemption, and named facility/site `U` |
 | Product listing, safety substantiation, serious-adverse-event duties, and label control | label-defined Responsible Person `A/R` | ODM/filler/package suppliers `C` for records | exact Responsible Person `U` |
 | Import classification/value/origin/entry/duties | named Importer of Record `A` | licensed customs broker `R` as agent; suppliers/carrier `C` | IOR by shipment and assist treatment `U` |
 | Contractual freight task/cost/risk | party named by complete Incoterms® 2020 rule and named place `A/R` | carrier/forwarder `R`; broker and IOR separately | term, place, exclusions, insurance `U` |
@@ -575,8 +593,8 @@ For every activity request calendar days, working days, queue assumptions, start
 
 - signed commercial quote with scope boundary, currency, tax, complete `Incoterms® 2020` rule and exact named place, included/excluded logistics services, payment, price breaks, validity, and assumptions;
 - controlled Product Variant BOM with supplier, manufacturer, manufacturing site, country of origin, part/revision, material/weight, dimensions/tolerances, color, decoration, closure/liner/seal, secondary and case pack;
-- controlled capacity record stating nominal capacity, brimful/overflow capacity, measured recommended fill point, closure/liner/pipette displacement, functional headspace, tare, target fill and legal mass/volume basis, usable content, residual, density where used, test conditions, and measurement method;
-- approved drawings, golden/limit samples, artwork proofs, specifications, change-control and discontinuation notice;
+- every primary-package supplier drawing and capacity approval record—not merely a separate summary—must state unique component/assembly and closure/liner/wiper/gasket/pipette/bulb/collar revisions; material and construction for every layer; nominal-capacity definition; brimful/overflow capacity and reference plane; fill-point height/capacity and datum; declared net quantity; actual net quantity measurement/result; statistically justified target-fill setpoint; closure intrusion/displacement and closed-package headspace; tare population/tolerance and tare-variation method; usable and residual content; test liquid or Formula, density where used, temperature, conditioning time and gravimetric/volumetric method; mean, tolerance and acceptance rule; neck finish/thread, torque range, sealing surfaces and dimensional tolerances; printable/decorable area; supplier manufacturing site, tool/cavity, test date, sample size and measurement/raw-data record; and record revision/approver;
+- approved drawings, golden/limit samples, artwork proofs, specifications, change-control and discontinuation notice, each linked to the applicable capacity approval record;
 - Formula and packaging safety/compatibility support appropriate to the final system; COA/CoC and relevant material, colorant, adhesive, ink/coating, glass, closure and food/cosmetic-contact declarations;
 - line-trial protocol/result, fill/assembly parameters, cleaning/line clearance, in-process controls, yield/loss reconciliation, batch/lot genealogy, release record, and retains;
 - leak/seal/torque/drop/vibration/temperature/decoration/consumer-use evidence required by the established quality gates;
@@ -604,9 +622,9 @@ Issue the same scenario matrix to every candidate so answers remain comparable:
 5. Provide P0/P1/P2/P3 line items, fixed versus variable fees, first-run cash, repeat cash, surplus ownership/storage/obsolescence, and applicable stewardship fees. Report the package-driven P4 delta separately. Do not bundle an omitted leg as “included” without naming its boundary.
 6. State each setup, cleaning, size changeover, line trial, filling, closure, seal, label, coding, carton, case, pallet, test, release, rework, storage, handling, and disposal fee.
 7. State the exact fill and assembly equipment, change parts, speed, tolerance/control method, startup/process scrap, normal yield, Formula loss, component loss, and yield remedy by Variant.
-8. For every primary system, state nominal and brimful/overflow capacity, recommended fill point and method, closure/liner/pipette displacement, functional headspace, tare, target fill and legal mass/volume basis, validated density where used, usable content, residual, measurement conditions, and supporting report.
+8. Put on every applicable RFQ return, primary-package supplier drawing, and capacity approval record: unique component/assembly and closure/liner/wiper/gasket/pipette/bulb/collar revisions; material/construction of every layer; nominal-capacity definition; measured brimful/overflow capacity and reference plane; fill-point height/capacity and datum; declared net quantity and legal mass/volume basis; measured actual net quantity; statistically justified target-fill mean/setpoint, expected giveaway, tolerance and acceptance rule; closure intrusion/displacement and closed-package headspace; tare population/tolerance and variation method; usable and residual content; test liquid or Formula, validated density where used, temperature, conditioning time and gravimetric/volumetric method; neck finish/thread, torque range, sealing surfaces and dimensional tolerances; printable/decorable area; supplier manufacturing site, tool/cavity, test date, sample size and measurement/raw-data record; and record revision/approver.
 9. For outside packaging, provide written acceptance; complete `Incoterms® 2020` rule and exact named place; domestic or cross-border routing; Importer of Record when applicable; duty/tax/broker treatment; inspection, storage, overage, line compatibility, defect allocation, unused inventory, and delay remedy.
-10. For every route, provide filled-Variant transport classification by Product Variant, mode, route, quantity, and packout. For Route D also provide bulk vessel/liner/closure, allowable quantity, net/tare, hold time, temperature and logger, bulk classification, export/import documentation, receiving tests, quarantine, transfer system, conditioning, heel/residual, mass balance, disposal/return, and contamination/excursion liability.
+10. For every route, provide transport classification for finished units corresponding to each Product Variant, mode, route, quantity, and packout. For Route D also provide bulk vessel/liner/closure, allowable quantity, net/tare, hold time, temperature and logger, bulk classification, export/import documentation, receiving tests, quarantine, transfer system, conditioning, heel/residual, mass balance, disposal/return, and contamination/excursion liability.
 11. Identify every physical leg, complete `Incoterms® 2020` rule and exact named place, included/excluded services, origin/destination, mode, chargeable weight/measure, pallet/carton configuration, transit estimate, carrier allowance, insurance, customs broker and named Importer of Record, duties/fees, exam/storage/demurrage exposure, and party holding contractual risk/title.
 12. Provide the exact incoming, in-process, finished, compatibility, transit and consumer-use evidence needed for the quality gates; disclose subcontractors and manufacturing/filling sites.
 13. State calendar lead time and critical-path triggers for qualification samples, first order, and repeat order; provide quote validity and capacity-reservation terms.
@@ -619,7 +637,7 @@ Use the BKOLOR general conditions as a prompt, not a template or contract exampl
 
 ### Route-D filler qualification questions
 
-Ask for current facility owner/operator registration role and exact site, while separately identifying the proposed Responsible Person and product-listing workflow; also request quality-system evidence, inspection history or regulator responses that can lawfully be shared, organization and training, sanitation/environmental controls, water system if applicable, calibration/maintenance, supplier/material control, batch records, traceability/retains, laboratory methods, deviation/OOS/CAPA, complaint/recall, data integrity, audit terms, capacity continuity, insurance, and disaster recovery. A marketing claim of “FDA certified” or “FDA approved” is not accepted; FDA states that facility registration is not approval ([FDA registration and listing](https://www.fda.gov/cosmetics/registration-listing-cosmetic-product-facilities-and-products)).
+Ask for the exact facility and applicable registration submission path—owner/operator or eligible Responsible Person contract-manufacturer submission—while separately identifying the proposed Responsible Person and product-listing workflow; also request quality-system evidence, inspection history or regulator responses that can lawfully be shared, organization and training, sanitation/environmental controls, water system if applicable, calibration/maintenance, supplier/material control, batch records, traceability/retains, laboratory methods, deviation/OOS/CAPA, complaint/recall, data integrity, audit terms, capacity continuity, insurance, and disaster recovery. A marketing claim of “FDA certified” or “FDA approved” is not accepted; FDA states that facility registration is not approval ([FDA registration and listing](https://www.fda.gov/cosmetics/registration-listing-cosmetic-product-facilities-and-products)).
 
 ## Provisional comparison and stop conditions
 
@@ -637,7 +655,7 @@ Stop a route before weighted cost/sustainability scoring if any of these remains
 - the exact tube/dropper/jar cannot run on the proposed line or fails a mandatory quality/compatibility gate;
 - outside components or imported bulk are not accepted in writing;
 - the parties cannot assign inspection, release, defect, loss, customs, and regulatory responsibilities without gaps;
-- filled-Variant transport classification for any route, or Route-D bulk classification/hold/transfer controls, is incomplete;
+- finished-unit transport classification for any Product Variant/route, or Route-D bulk classification/hold/transfer controls, is incomplete;
 - any material freight, customs, storage, testing, loss, or rejection value is treated as zero because it is unknown;
 - the exact named P3 destination is absent or P3 accepted-unit cost cannot be reconciled to source documents; or
 - the proposed package fails a mandatory safety, quality, legality, transport, or environmental-claim gate.
