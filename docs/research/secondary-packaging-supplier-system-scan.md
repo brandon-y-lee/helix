@@ -169,24 +169,26 @@ The recurring cost rank is an inference, not a quotation. It can reverse after a
 
 Do not compare a carton price with zero. Compare complete accepted-unit systems:
 
-**Cartonless advantage per accepted unit**
-
-= avoided carton recurring cost  
-+ avoided carton tooling/proof amortization  
-+ avoided insertion, inspection, storage, inbound freight, and obsolescence  
-− added direct decoration or label cost  
-− added first-opening feature/application  
-− added immediate-container information solution  
-− added master-case protection and inbound scuff, leak, breakage, rejection, and Product-loss cost.
+```text
+cartonless advantage per accepted unit =
+  avoided carton recurring cost
++ avoided carton tooling/proof amortization
++ avoided insertion, inspection, storage, inbound freight, and obsolescence
+− added direct decoration or label cost
+− added first-opening feature/application
+− added immediate-container information solution
+− added master-case protection and inbound scuff, leak, breakage, rejection, and Product-loss cost
+```
 
 Run the comparison at 1,000, 2,000, and 3,000 finished units per Product Variant and at the project's 10/90, 25/75, and 50/50 Mini/Full demand mixes. Put costs through accepted fulfillment-ready inventory in the project's P3 metric. Keep parcel protection, customer delivery, outbound damage, reshipment, return, and service effects in a separate P4 delta. Do not blend the ledgers. See the [landed-cost evidence model](./packaging-landed-cost-evidence-model.md).
 
 Keep a second protection break-even outside P3:
 
-**required avoided-damage rate**
-
-= incremental parcel-delivered cost of the carton configuration per shipped order  
-÷ fully loaded cost of one damaged order.
+```text
+required avoided-damage rate =
+  incremental parcel-delivered cost of the carton configuration per shipped order
+÷ fully loaded cost of one damaged order
+```
 
 The damaged-order denominator includes lost Product/packaging, pick/pack, delivery, replacement/refund, support time, disposal/return, and customer-remediation cost under the project's approved P4 boundary. Use observed route data or a labeled sensitivity, never an invented “cartons prevent X%” assumption.
 
