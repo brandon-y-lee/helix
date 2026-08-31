@@ -5,7 +5,7 @@
 **Scope:** cleanser, serum, and moisturizer; 1,000, 2,000, and 3,000 finished units per Product, divided between Mini and Full Product Variants  
 **Delivery boundary:** accepted, fulfillment-ready units at a Southern California receiving dock  
 **Related work:** [landed-cost evidence model](./packaging-landed-cost-evidence-model.md), [quality and compatibility gates](./packaging-quality-compatibility-supplier-gates.md), [sustainability scoring](./packaging-sustainability-scoring.md), and [U.S./California constraints](./us-california-cosmetic-packaging-constraints.md)  
-**Issue:** [#262](https://github.com/brandonleegit/helix/issues/262)
+**Issue:** [#262](https://github.com/brandon-y-lee/helix/issues/262)
 
 ## Decision in one page
 
