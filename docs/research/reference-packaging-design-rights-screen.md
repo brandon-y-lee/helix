@@ -2,13 +2,13 @@
 
 - **Status:** Public preliminary knockout research
 - **Research date:** 2026-08-31
-- **Decision scope:** Reference-led primary-package forms for the Helix cleanser, serum, and moisturizing cream; related secondary, display, and tertiary presentation risks
+- **Decision scope:** Reference-led primary-package forms for the helix cleanser, serum, and moisturizing cream; related secondary, display, and tertiary presentation risks
 - **Market lens:** U.S. launch screen, with a limited WIPO Global Design Database owner-name check as an international signal
 - **Decision boundary:** This is not a legal opinion, legal advice, a registrability analysis, or freedom-to-operate clearance. It does not approve a package for tooling, purchase, manufacture, import, advertising, or sale.
 
 ## Executive decision
 
-Helix should **not commission a one-for-one reproduction** of any supplied Aesop, Rhode, or Haramoon package. The commercially sensible route is to use independently documented, nonexclusive stock platforms and create visible distance across the package's dominant features—not merely replace the competitor wordmark.
+helix should **not commission a one-for-one reproduction** of any supplied Aesop, Rhode, or Haramoon package. The commercially sensible route is to use independently documented, nonexclusive stock platforms and create visible distance across the package's dominant features—not merely replace the competitor wordmark.
 
 The preliminary knockout decisions are:
 
@@ -19,13 +19,13 @@ The preliminary knockout decisions are:
 | Haramoon-like amber/frosted glass serum dropper | **Conditional; moderate risk, rising to high for the exact composite** | Amber glass, frosting, pipette dosing, a black bulb, and a metal collar are established packaging options. A round or otherwise clearly differentiated stock bottle is preferred. | Stop an exact broad rounded-square slab, shoulder profile, amber frost, oversized silver collar, black bulb, and dense white technical graphic combination unless counsel clears the final CAD and artwork. |
 | Haramoon-like frosted wide-mouth cream jar | **Conditional; moderate risk, rising with a close total look** | A stock round, wide-mouth frosted glass jar with a black or white closure is a common functional route. | Stop an exact squat ratio, cap/body diameter continuity, closure height, base weight, frost, and label architecture. Create distance in both vessel/closure geometry and graphics. |
 
-The limited register screen did **not** surface a clearly matching cleanser tube, serum bottle, or cream jar under the searched owner names. That is not a negative assurance. Published registers can miss unpublished applications, assignments or filings under other entities, translations and aliases, image/class matches that a name search will not find, national rights outside database coverage, expired rights still relevant to a copying narrative, and unregistered trade dress or other marketplace rights.
+The limited, unverified interactive register screen did **not display** a clearly matching cleanser tube, serum bottle, or cream jar under the searched owner names. That observation is not independently auditable from a retained export and is not a negative assurance. Published registers can miss unpublished applications, assignments or filings under other entities, translations and aliases, image/class matches that a name search will not find, national rights outside database coverage, expired rights still relevant to a copying narrative, and unregistered trade dress or other marketplace rights.
 
 One concrete result heightens caution around Rhode: HRBeauty LLC has a pending U.S. application for a different three-dimensional cosmetic package, Serial No. **99374046**. Its official description claims a short, broad cylindrical package with a domed top, rounded edges, and two circumferential bands. It is not the Pineapple Refresh tube and is not treated here as a direct blocker. At most, it supports the inference that the owner is seeking package-configuration rights in this one other design; it does not establish a broader protection program or that the configuration is registrable. The file was live and pending on the research date. A February 2, 2026 nonfinal Office action advised that the package configuration might be nondistinctive and required a new drawing and description because a functional lid-attachment lip had been shown in solid lines. Those are examination positions, not a final decision. ([USPTO TSDR record 99374046](https://tsdr.uspto.gov/#caseNumber=99374046&caseSearchType=US_APPLICATION&caseType=DEFAULT&searchType=statusSearch), [USPTO nonfinal Office action](https://tmng-al.uspto.gov/resting2/api/casedoc/cms/case/99374046/office-action/OfficeAction8210557.pdf))
 
 The release rule should therefore be:
 
-> No tooling deposit, custom mold, production artwork, or purchase order until Helix has a frozen CAD/artwork package, documented stock-form provenance, a jurisdiction-specific professional search, and written supplier rights assurances.
+> No tooling deposit, custom mold, production artwork, or purchase order until helix has a frozen CAD/artwork package, documented stock-form provenance, a jurisdiction-specific professional search, and written supplier rights assurances.
 
 ## What was screened
 
@@ -63,24 +63,24 @@ USPTO explains that a federal trademark database search is only one element of c
 
 ### Reproducible search log
 
-The searches below were run on 2026-08-31. Counts are point-in-time observations, not enduring legal conclusions. The WIPO interface did not provide a stable, shareable result-state URL, and this pass did not capture item-level publication identifiers, status, or territory for its positive rows. Those rows are therefore disclosed only as **unverified interactive-query observations** and must not be used as a rights inventory; counsel must reproduce them and verify each underlying record.
+The searches below were run on 2026-08-31. The interactive USPTO and WIPO interfaces did not provide a stable, shareable result-state URL, and this pass did not retain dated result exports. Every count, list description, and no-result statement below is therefore an **unverified interactive-query observation** unless the row links a record-specific official document. These observations must not be used as a rights inventory or negative assurance; counsel must reproduce the searches and verify each underlying record, status, and territory.
 
 | Reference owner | Official query and result | Relevance | Limitation |
 | --- | --- | --- | --- |
-| **Emeis / Aesop** | USPTO Patent Public Search assignee query `(Emeis).as.` returned two U.S. design patents: D1056760, *Incense holder*, and D898179, *Oil burner*. An `Emeis AND Cosmetics` assignee query returned the same two records. | Neither result title identifies the cleanser tube. | A title/name pass is not an image/class FTO search and may miss assignments, related entities, partial designs, or other jurisdictions. ([USPTO Patent Public Search](https://ppubs.uspto.gov/basic/)) |
-| **Emeis / Aesop** | The WIPO interface displayed 11 rows for exact-holder query `"Emeis Cosmetics Pty Ltd"`; visible title labels included incense/oil burners, sales stands, display boxes, and a perfume bottle, but no tube. | This is an unverified point-in-time query observation and a lead for a reproducible professional search, not evidence of the number, status, territory, or scope of Emeis rights. | Item identifiers, status, and territory were not captured. WIPO says participating-office coverage should be supplemented with national/regional searches; title review does not substitute for record, image, and Locarno-class review. ([WIPO Global Design Database](https://designdb.wipo.int/designdb/en/), [WIPO database scope](https://www.wipo.int/en/web/global-design-database)) |
-| **Emeis / Aesop** | USPTO Trademark Search field-tag query `OW:Emeis AND DE:(tube OR container OR bottle OR packaging)` returned no result. | No Emeis record with those owner/description terms surfaced. | Description terms may differ; ownership may be recorded differently; registrations are not required for U.S. common-law trade dress. ([USPTO Trademark Search](https://tmsearch.uspto.gov/search/)) |
-| **HRBeauty / Rhode** | USPTO Patent Public Search assignee query `(HRBeauty).as.` returned one utility patent titled *Case for a mobile telephone*; applicant-name search returned that patent and related published applications. No D-numbered cleanser-tube result surfaced. | No clearly matching U.S. cleanser-tube design patent appeared under the exact company name. | Unpublished design applications are not visible before grant, and other assignees or inventors may be relevant. ([USPTO Patent Public Search](https://ppubs.uspto.gov/basic/)) |
-| **HRBeauty / Rhode** | The WIPO interface displayed 11 rows for exact-holder query `"HRBeauty LLC"`; visible title labels described phone cases and brush holders, not a cleanser tube. | This is an unverified point-in-time query observation and a search lead, not an item-level rights finding or negative assurance. | Item identifiers, status, and territory were not captured; the same coverage, alias, title, and image-search limitations apply. ([WIPO Global Design Database](https://designdb.wipo.int/designdb/en/)) |
-| **HRBeauty / Rhode** | USPTO Trademark Search owner query returned 50 company-name results. A narrower field-tag query `OW:"HRBeauty LLC" AND DE:(tube OR container OR bottle OR packaging)` returned one record: pending Serial No. 99374046 for a different short, broad cylindrical package. | The identified configuration does not describe the Pineapple Refresh tube, but it is a direct official record of package-configuration rights-seeking activity. | A description-word search will not find every potentially similar mark; unregistered trade dress remains outside the federal record. ([USPTO TSDR 99374046](https://tsdr.uspto.gov/#caseNumber=99374046&caseSearchType=US_APPLICATION&caseType=DEFAULT&searchType=statusSearch)) |
-| **Haramoon** | USPTO Patent Public Search assignee and applicant queries for `Haramoon` returned no records. USPTO Trademark Search `OW:Haramoon` returned no result. | No named U.S. record surfaced. | Haramoon may use Korean names, other owners, representatives, or assignments; no-result is not clearance. ([USPTO Patent Public Search](https://ppubs.uspto.gov/basic/), [USPTO Trademark Search](https://tmsearch.uspto.gov/search/)) |
-| **Haramoon** | WIPO exact-holder queries `"Haramoon Cosmetic"` and `"Hyeonji Kim"` returned no documents. | No exact Romanized-holder record surfaced across the database collections. | A Korean-language KIPRIS search using the exact legal Korean name, product terms, and relevant design classes remains necessary before South Korean sourcing or sales reliance. WIPO itself recommends national/regional follow-up. ([WIPO Global Design Database](https://designdb.wipo.int/designdb/en/), [KIPRIS design-search guide](https://file.kipris.or.kr/pr/search_level1.pdf)) |
+| **Emeis / Aesop** | USPTO Patent Public Search assignee query `(Emeis).as.` displayed U.S. design identifiers D1056760, *Incense holder*, and D898179, *Oil burner*; an `Emeis AND Cosmetics` query displayed the same identifiers. | The identifiers are reproducible record leads; the completeness of the displayed result list is unverified because no dated export was retained. Neither title identifies the cleanser tube. | A title/name pass is not an image/class FTO search and may miss assignments, related entities, partial designs, or other jurisdictions. ([USPTO Patent Public Search](https://ppubs.uspto.gov/basic/)) |
+| **Emeis / Aesop** | WIPO exact-holder query `"Emeis Cosmetics Pty Ltd"` displayed title labels including incense/oil burners, sales stands, display boxes, and a perfume bottle, but no tube. | This is an unverified interactive-query observation and a lead for a reproducible professional search, not evidence of the number, status, territory, or scope of Emeis rights. | Item identifiers, status, territory, and a dated export were not captured. WIPO says participating-office coverage should be supplemented with national/regional searches; title review does not substitute for record, image, and Locarno-class review. ([WIPO Global Design Database](https://designdb.wipo.int/designdb/en/), [WIPO database scope](https://www.wipo.int/en/web/global-design-database)) |
+| **Emeis / Aesop** | USPTO Trademark Search field-tag query `OW:Emeis AND DE:(tube OR container OR bottle OR packaging)` displayed no result. | This is an unverified interactive no-result observation, not negative assurance. | No dated export was retained; description terms or ownership may differ, and U.S. common-law trade dress need not be registered. ([USPTO Trademark Search](https://tmsearch.uspto.gov/search/)) |
+| **HRBeauty / Rhode** | USPTO Patent Public Search assignee query `(HRBeauty).as.` displayed a utility-patent title, *Case for a mobile telephone*; applicant-name search displayed that patent and related published applications but no D-numbered cleanser-tube title. | This is an unverified interactive-query observation, not a complete owner portfolio or negative assurance. | No dated export was retained; unpublished design applications and other assignees or inventors may be relevant. ([USPTO Patent Public Search](https://ppubs.uspto.gov/basic/)) |
+| **HRBeauty / Rhode** | WIPO exact-holder query `"HRBeauty LLC"` displayed title labels describing phone cases and brush holders, not a cleanser tube. | This is an unverified interactive-query observation and a search lead, not an item-level rights finding or negative assurance. | Item identifiers, status, territory, and a dated export were not captured; the same coverage, alias, title, and image-search limitations apply. ([WIPO Global Design Database](https://designdb.wipo.int/designdb/en/)) |
+| **HRBeauty / Rhode** | USPTO Trademark Search owner and description queries surfaced pending Serial No. 99374046 for a different short, broad cylindrical package. | The search-result pathway is unverified, but the record itself is independently auditable in TSDR and does not describe the Pineapple Refresh tube. | A description-word search will not find every potentially similar mark; unregistered trade dress remains outside the federal record. ([USPTO TSDR 99374046](https://tsdr.uspto.gov/#caseNumber=99374046&caseSearchType=US_APPLICATION&caseType=DEFAULT&searchType=statusSearch), [USPTO nonfinal Office action](https://tmng-al.uspto.gov/resting2/api/casedoc/cms/case/99374046/office-action/OfficeAction8210557.pdf)) |
+| **Haramoon** | USPTO Patent Public Search assignee/applicant queries for `Haramoon` and USPTO Trademark Search `OW:Haramoon` displayed no records. | These are unverified interactive no-result observations, not negative assurance. | No dated exports were retained; Haramoon may use Korean names, other owners, representatives, or assignments. ([USPTO Patent Public Search](https://ppubs.uspto.gov/basic/), [USPTO Trademark Search](https://tmsearch.uspto.gov/search/)) |
+| **Haramoon** | WIPO exact-holder queries `"Haramoon Cosmetic"` and `"Hyeonji Kim"` displayed no documents. | This is an unverified interactive no-result observation, not negative assurance. | No dated export was retained. A Korean-language KIPRIS search using the exact legal Korean name, product terms, and relevant design classes remains necessary before South Korean sourcing or sales reliance. ([WIPO Global Design Database](https://designdb.wipo.int/designdb/en/), [KIPRIS design-search guide](https://file.kipris.or.kr/pr/search_level1.pdf)) |
 
 ### How to interpret the results
 
 The register pass supports only three narrow conclusions:
 
-1. no **clearly named** matching package right surfaced under the exact owner-name queries described above;
+1. the unverified interactive owner-name queries described above did not **display a clearly named** matching package right, which is a search lead rather than a negative finding;
 2. direct USPTO records show Emeis design patents for other articles and one pending HRBeauty configuration application; the positive WIPO rows are only unverified query leads, so no broader rights strategy is inferred; and
 3. a professional search must move from names and keywords to final drawings, image similarity, Locarno/U.S. design classes, assignments, prosecution history, common-law marketplace evidence, and target jurisdictions.
 
@@ -94,7 +94,7 @@ USPTO guidance states that a U.S. design patent may cover an article's configura
 
 For infringement, the governing comparison is not a checklist of isolated differences. *Gorham v. White* established the ordinary-observer comparison of overall visual effect. The Federal Circuit's en banc *Egyptian Goddess v. Swisa* applies that ordinary-observer inquiry in view of the prior art; when the prior art is crowded, the features that distinguish the claimed design can become especially important. ([*Gorham Co. v. White*, 81 U.S. 511](https://tile.loc.gov/storage-services/service/ll/usrep/usrep081/usrep081511/usrep081511.pdf), [*Egyptian Goddess, Inc. v. Swisa, Inc.*, 543 F.3d 665](https://www.cafc.uscourts.gov/opinions-orders/06-1562.pdf))
 
-Practical implication: a copied silhouette does not become low risk because Helix changes the text, and copied graphics do not become low risk because the cap is slightly taller. The final package must be evaluated as a visual whole against any claimed drawings and the closest prior art.
+Practical implication: a copied silhouette does not become low risk because helix changes the text, and copied graphics do not become low risk because the cap is slightly taller. The final package must be evaluated as a visual whole against any claimed drawings and the closest prior art.
 
 ### Trade dress protects total commercial impression, including unregistered packaging
 
@@ -126,11 +126,11 @@ One supplier's technical drawing expressly conditions reproduction and project i
 | Attribute | Classification | Knockout interpretation |
 | --- | --- | --- |
 | Collapsible tube, crimped/sealed tail, threaded closure | **Functional/category convention** | Tubes package creams and pastes; collapse supports dispensing and evacuation. ALLTUB publicly offers collapsible aluminum tubes across many diameters, lengths, finishes, and caps. ([ALLTUB aluminum tubes](https://www.alltub.com/en-us/products/aluminum-squeeze-tubes/)) |
-| Permanent folds or low spring-back | **Predominantly behavioral/functional, but visually conspicuous** | Helix may specify the dispensing behavior without specifying an Aesop copy. The exact crease pattern in marketing and the combination with the reference's proportions and graphics increase similarity. |
+| Permanent folds or low spring-back | **Predominantly behavioral/functional, but visually conspicuous** | helix may specify the dispensing behavior without specifying an Aesop copy. The exact crease pattern in marketing and the combination with the reference's proportions and graphics increase similarity. |
 | White/off-white surface | **Common decoration choice** | White alone is weak evidence of copying, but white plus a dark small cap and Aesop-like black graphic system can reproduce the commercial impression. |
 | Tall narrow body, specific shoulder/nozzle transition, small black ribbed cap | **Potentially ornamental combination** | These are visible choices among alternatives. The closer the ratios and transitions, the less comfort category commonness provides. |
-| Dense black typography, black rules/blocks, multilingual apothecary hierarchy | **Potentially source-identifying graphic architecture** | Do not imitate the placement, rule system, typographic density, or front/back inversion. Replacing “Aesop” with “Helix” is insufficient if the page architecture remains recognizably Aesop-like. |
-| Crinkled tube photographed as an editorial object | **Presentation/trade-dress and copyright-adjacent concern** | Helix should create its own art direction. Do not recreate reference packshots, lighting, folds, crop, or label copy. This report does not provide copyright clearance. |
+| Dense black typography, black rules/blocks, multilingual apothecary hierarchy | **Potentially source-identifying graphic architecture** | Do not imitate the placement, rule system, typographic density, or front/back inversion. Replacing “Aesop” with “helix” is insufficient if the page architecture remains recognizably Aesop-like. |
+| Crinkled tube photographed as an editorial object | **Presentation/trade-dress and copyright-adjacent concern** | helix should create its own art direction. Do not recreate reference packshots, lighting, folds, crop, or label copy. This report does not provide copyright clearance. |
 
 **Preliminary risk:** the generic fold-retaining tube is **conditional/amber**; an exact Aesop-like total look is **stop/red**.
 
@@ -139,11 +139,11 @@ One supplier's technical drawing expressly conditions reproduction and project i
 - start from a dated, independently documented stock tube rather than requesting “the Aesop tube”;
 - choose a materially different diameter-to-height ratio and shoulder/head geometry;
 - use a closure with a different diameter, height, edge treatment, and preferably a different color relationship;
-- use Helix's own Manrope/Marcellus brand hierarchy without Aesop's black rules, block labels, dense instruction field, or vertical information rhythm;
-- decide whether the body reads as coated white aluminum, satin white laminate, or another Helix-specific surface rather than reproducing the reference's metallic/paint-tube impression; and
+- use helix's own Manrope/Marcellus brand hierarchy without Aesop's black rules, block labels, dense instruction field, or vertical information rhythm;
+- decide whether the body reads as coated white aluminum, satin white laminate, or another helix-specific surface rather than reproducing the reference's metallic/paint-tube impression; and
 - develop independent photography that does not stage the same folds or composition.
 
-A black cap is not categorically prohibited, but it should not be combined with the reference's other dominant features. A white or otherwise contrasting Helix-specific cap is the lower-risk starting point for the fold-retaining track.
+A black cap is not categorically prohibited, but it should not be combined with the reference's other dominant features. A white or otherwise contrasting helix-specific cap is the lower-risk starting point for the fold-retaining track.
 
 ### 2. Rhode-led resilient cleanser tube
 
@@ -153,8 +153,8 @@ A black cap is not categorically prohibited, but it should not be combined with 
 | Inverted storage and broad closure | **Functional with ornamental alternatives** | Inversion supports readiness and a cap provides a standing base; cap diameter, height, corner radius, hinge/seam, and shoulder integration remain visible design choices. |
 | Warm cream/off-white monochrome body and cap | **Common color family; potentially distinctive in combination** | The exact Rhode beige, low contrast, and unbroken body-to-cap field should not be copied. Color measurements from a purchased reference should not be used as a target. |
 | Nearly flush cap/body alignment and soft shoulder | **Potentially distinctive configuration** | This is the most important geometry to move away from. A visibly stepped shoulder, narrower or differently edged cap, or non-flush transition creates stronger distance. |
-| Sparse gray print and vertical RHODE wordmark | **High-salience graphic combination** | Use Helix's own horizontal or otherwise independent label architecture, hierarchy, scale, and contrast. Do not retain the same empty-space pattern and merely substitute the name. |
-| Big/Little family resemblance | **Commercially useful, but can amplify copying** | Mini and Full should share Helix cues, not reproduce Rhode's scale-down relationships, identical cap ratios, and exact placements. Each size needs its own rights review because geometry changes. |
+| Sparse gray print and vertical RHODE wordmark | **High-salience graphic combination** | Use helix's own horizontal or otherwise independent label architecture, hierarchy, scale, and contrast. Do not retain the same empty-space pattern and merely substitute the name. |
+| Big/Little family resemblance | **Commercially useful, but can amplify copying** | Mini and Full should share helix cues, not reproduce Rhode's scale-down relationships, identical cap ratios, and exact placements. Each size needs its own rights review because geometry changes. |
 
 Rhode's official terms expressly assert rights in its designs, product names, and trade dress. The pending 3D-package application is one additional rights-seeking filing for another form, not proof of a broader configuration-rights program; its nonfinal examination record also raises possible nondistinctiveness and requires functional matter to be disclaimed from the claimed configuration. ([Rhode Terms of Service](https://www.rhodeskin.com/en-gr/pages/terms-page-2), [USPTO TSDR 99374046](https://tsdr.uspto.gov/#caseNumber=99374046&caseSearchType=US_APPLICATION&caseType=DEFAULT&searchType=statusSearch), [USPTO nonfinal Office action](https://tmng-al.uspto.gov/resting2/api/casedoc/cms/case/99374046/office-action/OfficeAction8210557.pdf))
 
@@ -164,8 +164,8 @@ Rhode's official terms expressly assert rights in its designs, product names, an
 
 - use a supplier's named stock platform whose catalog evidence and provenance do not depend on Rhode;
 - change the cross-section or aspect ratio, shoulder slope, cap-to-body diameter ratio, cap height, and cap edge treatment;
-- avoid a seamless Rhode-beige body/cap field; a white body with a black, white-with-visible-step, or other Helix-specific closure relationship is safer than a color match;
-- use a horizontal or independently structured Helix graphic field, with clearly different type scale, density, orientation, and placement; and
+- avoid a seamless Rhode-beige body/cap field; a white body with a black, white-with-visible-step, or other helix-specific closure relationship is safer than a color match;
+- use a horizontal or independently structured helix graphic field, with clearly different type scale, density, orientation, and placement; and
 - review Mini and Full side by side against both Rhode sizes, not only against one reference photograph.
 
 ### 3. Haramoon-led amber/frosted serum dropper
@@ -178,7 +178,7 @@ Rhode's official terms expressly assert rights in its designs, product names, an
 | Square or rounded-square bottle | **Available as stock, still visually salient** | Quadpack's Charismo square glass dropper and Stocksmetic's square/rounded collections show that square formats are not unique to one brand. That does not clear Haramoon's exact slab proportions or corner/shoulder combination. ([Quadpack Charismo Dropper](https://www.quadpack.com/packbase/11590059/13599613-JHNMVOJZ/f/QP%20Charismo%20Dropper%20PR.pdf), [Stocksmetic Himiko collection](https://www.stocksmetic.com/en/stocksmetic-collections/collections-for-perfumes-fragrances/himiko?stk_sticker=New)) |
 | Broad squat slab, low/flat shoulders, softened corners | **Potentially distinctive combination** | Avoid matching all of these at once. A conventional round bottle is the cleanest first concept; a differentiated rectangle requires stronger provenance and counsel review. |
 | Oversized silver collar plus black bulb | **Common parts, potentially distinctive proportion/color arrangement** | Change collar height/diameter/finish, bulb profile, and their ratio to the bottle. Do not treat a supplier's compatible dropper as proof that the whole combination is clear. |
-| Dense white technical grid and claims | **Potentially source-identifying graphics** | Helix should use its own hierarchy and substantiated claims. Do not reproduce Haramoon's technical panels, thin-rule grid, copy density, or exact white-on-amber arrangement. |
+| Dense white technical grid and claims | **Potentially source-identifying graphics** | helix should use its own hierarchy and substantiated claims. Do not reproduce Haramoon's technical panels, thin-rule grid, copy density, or exact white-on-amber arrangement. |
 
 **Preliminary risk:** individual dropper components are **conditional/lower**; the exact Haramoon composite is **stop/red pending counsel**.
 
@@ -193,34 +193,34 @@ Rhode's official terms expressly assert rights in its designs, product names, an
 | Frosted body | **Common finish** | Quadpack and Stocksmetic catalog multiple glass jars and frosted options. Commonness lowers confidence in exclusivity over frosting alone, not over the total package. ([Quadpack Crystal Chorus Jar](https://catalogue.quadpack.com/product-types/personal-care-%26-haircare/14019322/crystal-chorus-jars), [Stocksmetic Heavy collection](https://www.stocksmetic.com/en/stocksmetic-collections/collections-for-cosmetics-skincare/heavy?colore=Natural)) |
 | Broad black or white flush closure | **Functional part with ornamental proportions** | Cap color is common. Exact cap height, edge radius, sidewall, top profile, diameter continuity, and reveal/gap are variables to differentiate. |
 | Low jar, cap almost equal to body diameter, minimal shoulder | **Potentially distinctive combination** | Use a stepped neck, visible reveal, different cap height, different base/sidewall ratio, or another conspicuous silhouette difference. |
-| Dense technical front label | **Potentially source-identifying graphics** | Replace with the Helix system; do not reuse the label grid, blue accent, thin rules, or copy density. |
+| Dense technical front label | **Potentially source-identifying graphics** | Replace with the helix system; do not reuse the label grid, blue accent, thin rules, or copy density. |
 
 **Preliminary risk:** a stock round frosted jar is **conditional/lower**; a close Haramoon vessel/closure/graphics composite is **stop/red pending counsel**.
 
-**Preferred constraint:** shortlist at least two independently documented jar families with distinct silhouettes. The safer concept should have a visible neck or shadow-line reveal, a materially different cap height/profile, and Helix-specific artwork. Black and white closure variants can both be sampled, but each finished combination requires review.
+**Preferred constraint:** shortlist at least two independently documented jar families with distinct silhouettes. The safer concept should have a visible neck or shadow-line reveal, a materially different cap height/profile, and helix-specific artwork. Black and white closure variants can both be sampled, but each finished combination requires review.
 
 ## Secondary, display, and tertiary packaging
 
 ### Secondary cartons and inserts
 
-Product packaging trade dress can include the carton, color system, graphics, opening gesture, insert, and the consistent family look across SKUs. A stock primary container does not clear a near-copy of a competitor's carton. Helix should avoid:
+Product packaging trade dress can include the carton, color system, graphics, opening gesture, insert, and the consistent family look across SKUs. A stock primary container does not clear a near-copy of a competitor's carton. helix should avoid:
 
 - Rhode-like monochrome cartons using the same beige/gray relationship, vertical wordmark, and sparse placement;
 - Aesop-like dense black text panels, black bars/rules, pharmacy-copy hierarchy, and comparable off-white stock;
 - Haramoon-like technical grids, blue accent boxes, and the same white-on-amber or white/blue label architecture; and
 - kits or bundles that recreate the reference brands' product arrangement and reveal sequence.
 
-Secondary packaging should follow Helix's own editorial system and be checked with the primary package as one shelf/e-commerce impression.
+Secondary packaging should follow helix's own editorial system and be checked with the primary package as one shelf/e-commerce impression.
 
 ### Retail displays and e-commerce presentation
 
 The WIPO interface displayed sales-stand and display-box title labels in the Emeis holder query, but this pass did not capture the record identifiers, status, or territory. Treat that observation only as a lead for counsel to reproduce and verify—not as evidence of a specific live right. Independently, the governing design and trade-dress principles mean retail furniture, tester stands, and display-box architecture should not be treated as mere logistics. Any Aesop-led retail fixture, apothecary grid, sink/display arrangement, or sample stand should be separately designed and cleared. ([WIPO Global Design Database](https://designdb.wipo.int/designdb/en/), [WIPO database scope](https://www.wipo.int/en/web/global-design-database))
 
-Photography also changes commercial impression. Helix should not reproduce competitor packshots, distinctive folds, crop, shadows, props, or image sequences. Use reference images to write objective requirements, then remove them from the creative brief before independent concept development.
+Photography also changes commercial impression. helix should not reproduce competitor packshots, distinctive folds, crop, shadows, props, or image sequences. Use reference images to write objective requirements, then remove them from the creative brief before independent concept development.
 
 ### Tertiary logistics
 
-Plain corrugated shippers, dividers, labels, tape, pallet patterns, and protective materials are primarily operational. Use standard functional forms and Helix's own marks. Escalate only if a consumer-facing shipper, opening experience, reusable mailer, or retail-ready tray adopts distinctive competitor geometry or graphics. This report does not decide transit, quality, or sustainability performance.
+Plain corrugated shippers, dividers, labels, tape, pallet patterns, and protective materials are primarily operational. Use standard functional forms and helix's own marks. Escalate only if a consumer-facing shipper, opening experience, reusable mailer, or retail-ready tray adopts distinctive competitor geometry or graphics. This report does not decide transit, quality, or sustainability performance.
 
 ## Stock-form evidence and the correct inference
 
@@ -255,7 +255,7 @@ For each concept, retain:
 - supplier CAD and controlled drawings;
 - a feature comparison against each relevant reference and closest known stock/prior-art forms;
 - front, side, rear, top, bottom, open, and in-use renders for Mini and Full; and
-- a written explanation of why each visible choice serves Helix rather than imitating a reference.
+- a written explanation of why each visible choice serves helix rather than imitating a reference.
 
 An internal “brand-blind” review can be useful: obscure all wordmarks and ask whether reviewers still identify Aesop, Rhode, or Haramoon. Failure is a design warning, not a legal test. Passing is likewise not clearance.
 
@@ -277,10 +277,10 @@ Every shortlisted supplier, distributor, decorator, and design house should answ
 
 - Who owns the CAD, mold design, drawings, surface decoration, and any design patents/registrations?
 - Identify all patents, design patents, registered designs, trademarks/trade dress registrations, licenses, encumbrances, and pending applications known to cover the component or assembly.
-- Does the supplier have the right to sell, modify, decorate, import, and permit Helix to use the form in every launch market?
-- Will the supplier warrant that the supplied package and authorized Helix modifications do not knowingly infringe third-party rights?
+- Does the supplier have the right to sell, modify, decorate, import, and permit helix to use the form in every launch market?
+- Will the supplier warrant that the supplied package and authorized helix modifications do not knowingly infringe third-party rights?
 - What defense, indemnity, remedy, tooling replacement, insurance, and survival terms apply if a claim arises?
-- Will the supplier notify Helix before any ownership, license, exclusivity, tool, source, or design change?
+- Will the supplier notify helix before any ownership, license, exclusivity, tool, source, or design change?
 
 ### Evidence quality
 
@@ -307,7 +307,7 @@ Reject or escalate a candidate when:
 | --- | --- | --- |
 | 0. Reference abstraction | Objective behavior and package requirements written without “copy” language; reference features classified as functional, common, ornamental, or unknown | Build a broad stock-platform longlist only |
 | 1. Provenance screen | Manufacturer/site/SKU/tool identity, dated catalog evidence, standard-versus-custom status, exclusivity and territory statement | Request unbranded samples and CAD under appropriate terms |
-| 2. Independent concept | Helix-owned graphics; orthographic Mini/Full renders; documented distance on silhouette, closure, finish/color, graphics, behavior, and presentation | Advance visibly distinct concepts; reject close composites |
+| 2. Independent concept | helix-owned graphics; orthographic Mini/Full renders; documented distance on silhouette, closure, finish/color, graphics, behavior, and presentation | Advance visibly distinct concepts; reject close composites |
 | 3. Professional knockout | Final CAD/artwork; USPTO design-patent image/class search; trademark configuration and common-law search; WIPO plus target national registers; owner/assignment/prosecution review | Revise, stop, or proceed conditionally to production engineering |
 | 4. Contract and tooling | Rights warranty, license/authority, indemnity, tooling/CAD ownership, change control, territory, remedies, and insurance aligned to the exact configuration | Place tooling deposit or approve production artwork only after counsel sign-off |
 | 5. Prelaunch refresh | Updated searches near launch; final production sample, carton, and photography; written counsel confirmation that the final package and any changes were reviewed | Proceed only under counsel's written conditions, or return to Gate 3; an operational review alone cannot approve launch |
@@ -332,7 +332,7 @@ The professional search should include image and class searches, current ownersh
 
 This screen intentionally does not determine:
 
-- whether any final Helix design infringes, is registrable, or is clear in any jurisdiction;
+- whether any final helix design infringes, is registrable, or is clear in any jurisdiction;
 - unpublished applications, confidential settlements/licenses, supplier-customer exclusivity, or unrecorded assignments;
 - all common-law trade dress, state unfair-competition, copyright, advertising, passing-off, or platform-takedown exposure;
 - final Mini/Full capacities, Formula compatibility, light-protection need, wall construction, barrier, leakage, dose, evacuation, decoration durability, or transit performance;
@@ -348,6 +348,6 @@ The safest commercially useful route is not to abandon the desired behaviors. It
 - a fold-retaining white cleanser tube can proceed if it is a documented independent platform with different proportions, closure, graphics, and presentation from Aesop;
 - a resilient white cleanser tube can proceed if its silhouette, cap transition, color relationship, and graphic architecture are visibly distinct from Rhode;
 - an amber or frosted glass serum dropper can proceed most cleanly on a round or otherwise clearly differentiated stock bottle; and
-- a frosted wide-mouth jar can proceed on a documented stock family with a different cap/body relationship and Helix-specific graphics.
+- a frosted wide-mouth jar can proceed on a documented stock family with a different cap/body relationship and helix-specific graphics.
 
-The register results are useful warning signals, not clearance. Helix should keep every reference-led candidate conditional until the exact final package passes the professional and contractual gates above.
+The register results are useful warning signals, not clearance. helix should keep every reference-led candidate conditional until the exact final package passes the professional and contractual gates above.
