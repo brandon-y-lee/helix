@@ -1,8 +1,8 @@
 # Moisturizer packaging, size, and supply-chain benchmark
 
-**Decision date:** 2026-08-31  
-**Scope:** U.S.-first Helix moisturizer Mini and Full Size planning; public-source benchmark only  
-**Decision status:** Sourcing input, not a production-release specification
+- **Decision date:** 2026-08-31
+- **Scope:** U.S.-first Helix moisturizer Mini and Full Size planning; public-source benchmark only
+- **Decision status:** Sourcing input, not a production-release specification
 
 ## Executive decision
 
