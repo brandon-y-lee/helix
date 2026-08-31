@@ -8,7 +8,7 @@
 
 ## Executive decision
 
-helix should **not commission a one-for-one reproduction** of any supplied Aesop, Rhode, or Haramoon package. The commercially sensible route is to use independently documented, nonexclusive stock platforms and create visible distance across the package's dominant features—not merely replace the competitor wordmark.
+Helix should **not commission a one-for-one reproduction** of any supplied Aesop, Rhode, or Haramoon package. The commercially sensible route is to use independently documented, nonexclusive stock platforms and create visible distance across the package's dominant features—not merely replace the competitor wordmark.
 
 The preliminary knockout decisions are:
 
@@ -126,11 +126,11 @@ One supplier's technical drawing expressly conditions reproduction and project i
 | Attribute | Classification | Knockout interpretation |
 | --- | --- | --- |
 | Collapsible tube, crimped/sealed tail, threaded closure | **Functional/category convention** | Tubes package creams and pastes; collapse supports dispensing and evacuation. ALLTUB publicly offers collapsible aluminum tubes across many diameters, lengths, finishes, and caps. ([ALLTUB aluminum tubes](https://www.alltub.com/en-us/products/aluminum-squeeze-tubes/)) |
-| Permanent folds or low spring-back | **Predominantly behavioral/functional, but visually conspicuous** | helix may specify the dispensing behavior without specifying an Aesop copy. The exact crease pattern in marketing and the combination with the reference's proportions and graphics increase similarity. |
+| Permanent folds or low spring-back | **Predominantly behavioral/functional, but visually conspicuous** | Helix may specify the dispensing behavior without specifying an Aesop copy. The exact crease pattern in marketing and the combination with the reference's proportions and graphics increase similarity. |
 | White/off-white surface | **Common decoration choice** | White alone is weak evidence of copying, but white plus a dark small cap and Aesop-like black graphic system can reproduce the commercial impression. |
 | Tall narrow body, specific shoulder/nozzle transition, small black ribbed cap | **Potentially ornamental combination** | These are visible choices among alternatives. The closer the ratios and transitions, the less comfort category commonness provides. |
 | Dense black typography, black rules/blocks, multilingual apothecary hierarchy | **Potentially source-identifying graphic architecture** | Do not imitate the placement, rule system, typographic density, or front/back inversion. Replacing “Aesop” with “helix” is insufficient if the page architecture remains recognizably Aesop-like. |
-| Crinkled tube photographed as an editorial object | **Presentation/trade-dress and copyright-adjacent concern** | helix should create its own art direction. Do not recreate reference packshots, lighting, folds, crop, or label copy. This report does not provide copyright clearance. |
+| Crinkled tube photographed as an editorial object | **Presentation/trade-dress and copyright-adjacent concern** | Helix should create its own art direction. Do not recreate reference packshots, lighting, folds, crop, or label copy. This report does not provide copyright clearance. |
 
 **Preliminary risk:** the generic fold-retaining tube is **conditional/amber**; an exact Aesop-like total look is **stop/red**.
 
@@ -178,7 +178,7 @@ Rhode's official terms expressly assert rights in its designs, product names, an
 | Square or rounded-square bottle | **Available as stock, still visually salient** | Quadpack's Charismo square glass dropper and Stocksmetic's square/rounded collections show that square formats are not unique to one brand. That does not clear Haramoon's exact slab proportions or corner/shoulder combination. ([Quadpack Charismo Dropper](https://www.quadpack.com/packbase/11590059/13599613-JHNMVOJZ/f/QP%20Charismo%20Dropper%20PR.pdf), [Stocksmetic Himiko collection](https://www.stocksmetic.com/en/stocksmetic-collections/collections-for-perfumes-fragrances/himiko?stk_sticker=New)) |
 | Broad squat slab, low/flat shoulders, softened corners | **Potentially distinctive combination** | Avoid matching all of these at once. A conventional round bottle is the cleanest first concept; a differentiated rectangle requires stronger provenance and counsel review. |
 | Oversized silver collar plus black bulb | **Common parts, potentially distinctive proportion/color arrangement** | Change collar height/diameter/finish, bulb profile, and their ratio to the bottle. Do not treat a supplier's compatible dropper as proof that the whole combination is clear. |
-| Dense white technical grid and claims | **Potentially source-identifying graphics** | helix should use its own hierarchy and substantiated claims. Do not reproduce Haramoon's technical panels, thin-rule grid, copy density, or exact white-on-amber arrangement. |
+| Dense white technical grid and claims | **Potentially source-identifying graphics** | Helix should use its own hierarchy and substantiated claims. Do not reproduce Haramoon's technical panels, thin-rule grid, copy density, or exact white-on-amber arrangement. |
 
 **Preliminary risk:** individual dropper components are **conditional/lower**; the exact Haramoon composite is **stop/red pending counsel**.
 
@@ -203,7 +203,7 @@ Rhode's official terms expressly assert rights in its designs, product names, an
 
 ### Secondary cartons and inserts
 
-Product packaging trade dress can include the carton, color system, graphics, opening gesture, insert, and the consistent family look across SKUs. A stock primary container does not clear a near-copy of a competitor's carton. helix should avoid:
+Product packaging trade dress can include the carton, color system, graphics, opening gesture, insert, and the consistent family look across SKUs. A stock primary container does not clear a near-copy of a competitor's carton. Helix should avoid:
 
 - Rhode-like monochrome cartons using the same beige/gray relationship, vertical wordmark, and sparse placement;
 - Aesop-like dense black text panels, black bars/rules, pharmacy-copy hierarchy, and comparable off-white stock;
@@ -216,7 +216,7 @@ Secondary packaging should follow helix's own editorial system and be checked wi
 
 The WIPO interface displayed sales-stand and display-box title labels in the Emeis holder query, but this pass did not capture the record identifiers, status, or territory. Treat that observation only as a lead for counsel to reproduce and verify—not as evidence of a specific live right. Independently, the governing design and trade-dress principles mean retail furniture, tester stands, and display-box architecture should not be treated as mere logistics. Any Aesop-led retail fixture, apothecary grid, sink/display arrangement, or sample stand should be separately designed and cleared. ([WIPO Global Design Database](https://designdb.wipo.int/designdb/en/), [WIPO database scope](https://www.wipo.int/en/web/global-design-database))
 
-Photography also changes commercial impression. helix should not reproduce competitor packshots, distinctive folds, crop, shadows, props, or image sequences. Use reference images to write objective requirements, then remove them from the creative brief before independent concept development.
+Photography also changes commercial impression. Helix should not reproduce competitor packshots, distinctive folds, crop, shadows, props, or image sequences. Use reference images to write objective requirements, then remove them from the creative brief before independent concept development.
 
 ### Tertiary logistics
 
@@ -350,4 +350,4 @@ The safest commercially useful route is not to abandon the desired behaviors. It
 - an amber or frosted glass serum dropper can proceed most cleanly on a round or otherwise clearly differentiated stock bottle; and
 - a frosted wide-mouth jar can proceed on a documented stock family with a different cap/body relationship and helix-specific graphics.
 
-The register results are useful warning signals, not clearance. helix should keep every reference-led candidate conditional until the exact final package passes the professional and contractual gates above.
+The register results are useful warning signals, not clearance. Helix should keep every reference-led candidate conditional until the exact final package passes the professional and contractual gates above.
