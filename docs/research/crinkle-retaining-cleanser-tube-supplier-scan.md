@@ -256,7 +256,7 @@ The storefront numbers are useful for budget framing and RFQ anomaly detection. 
 
 ### Required quote normalization
 
-Every bidder must expose per-Product-Variant price breaks for 1,000, 2,000, 3,000, 5,000, 10,000, and 25,000 components per configuration/artwork so MOQ cash and surplus are visible. Those price breaks do **not** redefine launch demand as a per-size order. Written offers must also price the exact Product-level Mini/Full mix cases below, including the quantity made, billed, delivered, stored, or scrapped when a component MOQ exceeds the requested Variant quantity:
+Every bidder must expose price breaks for each Product Variant at 1,000, 2,000, 3,000, 5,000, 10,000, and 25,000 components per configuration/artwork so MOQ cash and surplus are visible. Those price breaks do **not** redefine launch demand as a per-size order. Written offers must also price the exact Product-level Mini/Full mix cases below, including the quantity made, billed, delivered, stored, or scrapped when a component MOQ exceeds the requested Product Variant quantity:
 
 | Saleable finished units per Product | 10% Mini / 90% Full | 25% Mini / 75% Full | 50% Mini / 50% Full |
 |---:|---:|---:|---:|
@@ -420,7 +420,7 @@ No supplier outreach is authorized by this report. The following is the input to
 | Tamper | No first-opening feature assumed | Same | Quote no-feature baseline and each membrane/tamper option separately; state material, tool, line labor, opening method, usability, disposal, seal-integrity test and user-contact materials. |
 | Formula-contact system | Exact internal liner, shoulder/nozzle, membrane, tail sealant/latex and closure-contact material | Same | No generic “food/pharma/cosmetic grade” substitution. |
 | Decoration | White base + one color; quote two colors separately | Same | State print method, setup/tooling, registration and rub/adhesion controls. |
-| Order tiers | Per-Variant component breaks at 1k, 2k, 3k, 5k, 10k, 25k | Same | Also quote the exact 1k/2k/3k Product totals under 10/90, 25/75 and 50/50 Mini/Full mixes; state make/bill/deliver/store/scrap quantities and component-specific minimums. |
+| Order tiers | Product Variant component breaks at 1k, 2k, 3k, 5k, 10k, 25k | Same | Also quote the exact 1k/2k/3k Product totals under 10/90, 25/75 and 50/50 Mini/Full mixes; state make/bill/deliver/store/scrap quantities and component-specific minimums. |
 | Delivery | P1 empty components delivered to named Southern California filler | Same | Also show ex-works and Incoterms 2020 exact named place; integrate separate P2 filler and P3 fulfillment-ready warehouse/3PL costs. |
 
 ### Mandatory response questions
@@ -435,7 +435,7 @@ No supplier outreach is authorized by this report. The following is the input to
 8. Is the tube shipped open or membrane-sealed? How is it filled/crimped, and which fillers have run the exact diameter/closure system?
 9. What dimensions, coatings, caps, colors and print methods are standard tools versus new tools? Itemize every one-time and recurring charge and state tool ownership, location, life, maintenance, replacement, transfer and exclusivity.
 10. What is the MOQ for the body, cap, membrane, liner, base color, each ink, carton and pallet? Can component overages be held for a repeat order, for how long, under whose ownership?
-11. Quote all requested per-Variant breaks and exact Product-level Mini/Full mixes for first and repeat orders; state quantity made/billed/delivered/stored/scrapped, overrun/underrun, samples, proofs, inspection, freight, duty, insurance, taxes, bank fees, payment and quote validity.
+11. Quote all requested breaks for each Product Variant and exact Product-level Mini/Full mixes for first and repeat orders; state quantity made/billed/delivered/stored/scrapped, overrun/underrun, samples, proofs, inspection, freight, duty, insurance, taxes, bank fees, payment and quote validity.
 12. Provide first-order and repeat lead-time breakdown: artwork, color match, tooling, material queue, production, cure, QC, packing, freight and customs.
 13. Provide current quality/environmental certificates and the exact component tests and sampling plan; identify any certificate that does not cover the proposed site/process.
 14. Provide exact recycled-content claim, pre/post-consumer split, chain of custody, part exclusions, plant, mass evidence and MOQ. If none, say none.
