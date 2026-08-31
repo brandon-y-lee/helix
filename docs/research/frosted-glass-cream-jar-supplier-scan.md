@@ -10,16 +10,16 @@
 
 ## Executive decision
 
-No supplier can yet be called the cheapest high-quality source. Public evidence is sufficient to form a **six-lead common RFQ and sample cohort**, but not to compare landed cost or approve a commercial configuration:
+No supplier can yet be called the cheapest high-quality source. Public evidence is sufficient to form a **six-lead RFQ/document-screen cohort**, but not to compare landed cost, order production-equivalent samples or approve a commercial configuration. Every “best,” “strongest,” “advance,” “defer,” “reject,” shortlist and disposition statement below is an **I — inference**, not a verified fact:
 
-1. **Stocksmetic / Berlin Packaging Luxe and Heavy 15/50 mL systems** form the strongest public-stock/public-price benchmark. Regular Luxe is the primary public-price control because both bodies are listed as Poland origin; a separate surface-treated Luxe Mini is an inner-disc-adhesion sample lead, not the tier-price basis. Heavy is retained as the squatter, closer aesthetic alternative, but its Mini is Taiwan-origin while its Full is Poland-origin. Both have black and white closure choices and inner-disc choices at the target quantity band. A complete set is not immediately available on current evidence: the 60/400 white PP inner-disc page shows zero in stock and a 2026-10-08 expected arrival. Other critical weaknesses are undisclosed factories, separate Mini/Full necks, multi-origin body/accessory BOMs, no public empty-body weights, uncertain frost chemistry, no proven first-opening seal, and page-routing/unit-label inconsistencies.
-2. **APC Packaging SXJ 15 mL and 50 mL** is the clearest U.S.-stock exact-size family. Published case quantities are below 1,000 and the component architecture includes glass, PP/ABS caps, PE liner and an optional 50 mL PP+PE disc. Price, cap colors, frost process, body weights, brimful capacities, origin and actual factories are not public.
-3. **Eurovetrocap Laurence / stock-service glass jars** is the strongest European low-batch lead. Public material supports 15 and 50 mL glass jars, satin/frosted choices, small-batch stock service and acid-etched frosting capability. It does not publicly prove that one exact 15/50 configuration, both cap colors, every liner/seal component and all requested quantities are simultaneously stock; one 15 mL white PP lid page instead states a 5,000-piece MOQ.
-4. **Roetell** is the strongest disclosed Chinese-factory lead near the quantity objective. Its catalog describes 15/30/50/100 g white-glass cream jars, custom frosting/color, stock MOQs variously stated as 2,000 or 3,000 and an identified Xuzhou factory. The exact 15/50 frosted-body plus black/white-closure BOM, process route, quality documents, item factory and public price remain unresolved.
-5. **Bormioli Luigi Aphrodite or Naxos** is the best publicly documented complete direct-manufacturer system: exact 15 and 50/60 mL bodies, exact weights/dimensions/necks, catalogued black or white PP caps and transparent PP inner lids. Its frost-look route is publicly described as lacquering—a simulated decorative frost, not verified acid etching—and MOQ, price, inventory and lead are unknown.
-6. **SGD Pharma Libra** is the strongest exact-size direct glass-body benchmark, with 15, 50 and 60 mL articles, brimful capacities, weights, dimensions, necks and identified Zhanjiang beauty-glass production. Exact cap/liner/seal choices, black/white closure articles, MOQ, price and current stock are unknown.
+1. **Stocksmetic / Berlin Packaging Luxe and Heavy 15/50 mL systems** form the strongest public-stock/public-price benchmark. Regular Luxe is the primary public-price control because both bodies are listed as Poland origin; a separate surface-treated Luxe Mini is an inner-disc-adhesion sample lead, not the tier-price basis. Heavy is retained as the squatter, closer aesthetic alternative, but its Mini is Taiwan-origin while its Full is Poland-origin. Both have black and white closure choices and inner-disc choices at the target quantity band. A complete set is not immediately available on current evidence: the 60/400 white PP inner-disc page shows zero in stock and a 2026-10-08 expected arrival. Other critical weaknesses are undisclosed factories, separate Mini/Full necks, multi-origin body/accessory BOMs, no public empty-body weights, uncertain frost chemistry, no proven first-opening seal, and page-routing/unit-label inconsistencies. ([Luxe Mini](https://www.stocksmetic.com/us/vaso-luxe-15ml-acidato), [Luxe Full](https://www.stocksmetic.com/us/luxe-jar-50ml-60-400-frosted-glass), [Full inner disc](https://www.stocksmetic.com/us/lid-60-400-white))
+2. **APC Packaging SXJ 15 mL and 50 mL** is the clearest U.S.-stock exact-size family. Published case quantities are below 1,000 and the component architecture includes glass, PP/ABS caps, PE liner and an optional 50 mL PP+PE disc. Price, cap colors, frost process, body weights, brimful capacities, origin and actual factories are not public. ([APC SXJ](https://apcpackaging.com/product/sxj-frosted-round-glass-jar/))
+3. **Eurovetrocap Laurence / stock-service glass jars** is the strongest European low-batch lead. Public material supports 15 and 50 mL glass jars, satin/frosted choices, small-batch stock service and acid-etched frosting capability. It does not publicly prove that one exact 15/50 configuration, both cap colors, every liner/seal component and all requested quantities are simultaneously stock; one 15 mL white PP lid page instead states a 5,000-piece MOQ. ([Laurence collection](https://www.eurovetrocap.com/en/collezione/laurence/), [15 mL lid](https://www.eurovetrocap.com/en/prodotto/products/skincare/05480laurence-liden/))
+4. **Roetell** is the strongest disclosed Chinese-factory lead near the quantity objective. Its catalog describes 15/30/50/100 g white-glass cream jars, custom frosting/color, stock MOQs variously stated as 2,000 or 3,000 and an identified Xuzhou factory. The exact 15/50 frosted-body plus black/white-closure BOM, process route, quality documents, item factory and public price remain unresolved. ([cream jars](https://www.roetell.com/glass_categories/glass-cream-jars/), [15/30/50/100 family](https://www.roetell.com/glass/15g-30g-50g-100g-white-glass-cream-container-with-lids-wholesale/))
+5. **Bormioli Luigi Aphrodite or Naxos** is the best publicly documented complete direct-manufacturer system: exact 15 and 50/60 mL bodies, exact weights/dimensions/necks, catalogued black or white PP caps and transparent PP inner lids. The company's publicly documented frost-look capability is lacquering—a simulated decorative frost, not proof that either exact body is supplied that way—and MOQ, price, inventory and lead are unknown. ([2026 collection catalog](https://bormioliluigi.com/upload/pageblock/2025_12_Collection_En_jy188xq8.pdf))
+6. **SGD Pharma Libra** is the strongest exact-size direct glass-body benchmark, with 15, 50 and 60 mL articles, brimful capacities, weights, dimensions, necks and identified Zhanjiang beauty-glass production. Exact cap/liner/seal choices, black/white closure articles, MOQ, price and current stock are unknown. ([Libra](https://www.sgd-pharma.com/libra), [Constellations catalog](https://www.sgd-pharma.com/sites/default/files/mediacenter/SGD%20Pharma%20Beauty%20%26%20Care_%20%20Constellations_%20EN_%20March%202025.pdf))
 
-Run a second, conditional RFQ lane for **Koa Glass, PGP Glass, Heinz-Glas, Quadpack, Baralan, Stoelzle, Lumson, TricorBraun and Lecos** only if they will quote the same evidence packet. Baralan's usual 5,000-piece MOQ is above the objective; Verescence, ICONS, O.Berk, Jarsking, Somewang and Feemio disclose still higher or conflicting minima and are not launch-volume finalists on current evidence.
+Run a second, conditional RFQ lane for **Koa Glass, PGP Glass, Heinz-Glas, Quadpack, Baralan, Stoelzle, Lumson, TricorBraun and Lecos** only if they will quote the same evidence packet. Baralan's usual 5,000-piece MOQ is above the objective; Verescence, ICONS, O.Berk, Jarsking, Somewang and Feemio disclose still higher or conflicting minima and are not launch-volume candidates on current evidence.
 
 The final decision remains subject to the repository's mandatory [packaging quality and compatibility gates](packaging-quality-compatibility-supplier-gates.md), [landed-cost evidence model](packaging-landed-cost-evidence-model.md), [sustainability score](packaging-sustainability-scoring.md), and [design-rights screen](reference-packaging-design-rights-screen.md). A supplier enters the weighted comparison only after its exact Formula/size/BOM/line/packout/route configuration passes hard gates. Missing evidence means **not qualified**, not “probably acceptable.”
 
@@ -27,13 +27,13 @@ The final decision remains subject to the repository's mandatory [packaging qual
 
 This report deliberately separates what a source says from what helix may infer:
 
-- **V — verified public fact:** an exact current first-party product page, technical page, catalog or company page states the fact.
-- **SA — supplier assertion:** a supplier states its own capability, environmental benefit, quality or operating fact; it is not independently validated here.
+- **V — verified public fact:** an independent authority, official registry or other non-supplier source establishes the fact. This designation is rare in a supplier scan.
+- **SA — supplier assertion:** supplier- or distributor-authored product data, page state, price, inventory, corporate identity, capability, environmental claim, quality statement or operating fact. Reading it directly from a first-party source does not independently verify it.
 - **I — inference:** a planning conclusion derived from cited facts, clearly identified as such.
 - **L — lead:** relevant public capability exists, but the exact helix configuration is not proven.
 - **U — unknown:** the public record does not settle the field, or apparently conflicting fields require written clarification.
 
-“Frosted” is not treated as a process specification. The visible effect can come from at least three materially different routes:
+Unless explicitly marked otherwise, every supplier/distributor product, company, price, inventory and capability claim with a first-party citation is **SA**; calculations, rankings and dispositions are **I**; an unresolved candidate is **L**; and missing configuration evidence is **U**. “Frosted” is not treated as a process specification. The visible effect can come from at least three materially different routes:
 
 - **actual surface etch:** the glass surface itself is chemically etched and becomes microscopically pitted;
 - **simulated frost:** an external lacquer, spray, organic coating or other applied layer creates a matte/translucent look; or
@@ -49,11 +49,11 @@ Organization role is also bounded. “Direct manufacturer” below means first-p
 
 The controlling size decision is **net weight**, not supplier jar volume:
 
-| Variant | Proposed declaration | Sample jar classes | Release-critical unknowns |
+| Planning case | Proposed declaration | Sample jar classes | Release-critical unknowns |
 | --- | ---: | --- | --- |
-| Mini | 15 g / 0.53 oz | 15 and 20 mL | Formula density, target overfill, brimful volume, process fill basis, closure/disc displacement, usable headspace, residual, fill temperature and tolerance |
-| Full Size | 50 g / 1.76 oz | 50, 60 and 75 mL | Same fields, plus whether use observation supports the 50 g service-life target |
-| Full contingency | 60 g / 2.12 oz | 60 and 75 mL | Same fields; contingent on Formula-specific dose/service-life and residual evidence |
+| Mini Product Variant | 15 g / 0.53 oz | 15 and 20 mL | Formula density, target overfill, brimful volume, process fill basis, closure/disc displacement, usable headspace, residual, fill temperature and tolerance |
+| Full Product Variant | 50 g / 1.76 oz | 50, 60 and 75 mL | Same fields, plus whether use observation supports the 50 g service-life target |
+| Full declaration contingency | 60 g / 2.12 oz | 60 and 75 mL | Same fields; contingent on Formula-specific dose/service-life and residual evidence |
 
 The [moisturizer packaging benchmark](moisturizer-packaging-size-supply-chain-benchmark.md) explains why a supplier's “15 mL” or “50 mL” does not prove that 15 g or 50 g of the eventual Formula will fit. This scan therefore records nominal and brimful capacities separately and never converts them into a legal fill.
 
@@ -69,7 +69,7 @@ For each supplier and each size, helix needs one controlled drawing and BOM for:
 - unit/case/pallet mass and dimensions; and
 - neutral stock, decorated stock and custom alternatives at total quantities of 1,000, 2,000 and 3,000.
 
-The required **Mini/Full product mix** scenarios are 10/90, 25/75 and 50/50 at 1,000, 2,000 and 3,000 total product units:
+The required **Mini/Full Product Variant mix** scenarios are 10/90, 25/75 and 50/50 at 1,000, 2,000 and 3,000 total moisturizer units:
 
 | Total units | 10% Mini / 90% Full | 25% Mini / 75% Full | 50% Mini / 50% Full |
 | ---: | ---: | ---: | ---: |
@@ -77,7 +77,7 @@ The required **Mini/Full product mix** scenarios are 10/90, 25/75 and 50/50 at 1
 | 2,000 | 200 / 1,800 | 500 / 1,500 | 1,000 / 1,000 |
 | 3,000 | 300 / 2,700 | 750 / 2,250 | 1,500 / 1,500 |
 
-These are product-size mixes, **not black/white cap splits**. Quote the black and white closure alternatives separately for each size; any launch allocation between cap colors is a later merchandising input. A 1,000-piece product total may place one or both body sizes below a supplier's per-item MOQ, and separate cap colors can fragment quantity again. The RFQ must state whether MOQs and price tiers apply by body, neck, cap color, decoration, complete set, factory run or aggregate order.
+These are Product Variant size mixes, **not black/white cap splits**. Quote the black and white closure alternatives separately for each size; any launch allocation between cap colors is a later merchandising input and does not create a Product Variant unless helix decides to sell it as a distinct purchasable configuration. A 1,000-piece moisturizer total may place one or both body sizes below a supplier's per-item MOQ, and separate cap colors can fragment quantity again. The RFQ must state whether MOQs and price tiers apply by body, neck, cap color, decoration, complete set, factory run or aggregate order.
 
 ### Hard gates before price scoring
 
@@ -92,8 +92,14 @@ No row in this report is approved. Each exact configuration must still pass:
 7. line trials, inspection controls, dimensional tolerances and golden samples;
 8. empty-component and filled-product transit/DTC testing in the exact secondary and tertiary packout;
 9. supplier identity, quality-system, change-control, lot-traceability and shipment-release evidence;
-10. design-rights review of both sizes and both closure colors; and
-11. a comparable P3 landed-cost quote and evidence-adjusted sustainability score.
+10. design-rights review of both sizes and both closure colors;
+11. 100%-scale U.S. labeling/PDP review, including net-weight basis, dual-unit expression and usable copy area;
+12. exact-component California toxics-in-packaging certificates, Proposition 65 exposure/warning disposition and SB 54 component accounting;
+13. substantiation and approval for every environmental, recycled-content, disposal and certification claim or symbol;
+14. finished-product transport classification, carrier acceptance, route controls and shipment-release evidence; and
+15. a comparable P3 landed-cost quote and evidence-adjusted sustainability score.
+
+Qualification must remain sequenced: **identity/site/process and design provenance → dossier/BOM/drawing/change-control approval → empty-package qualification → filler/pilot line trials → Formula compatibility/use validation → filled-pack transit and release**. An RFQ may request sample pricing and lead time, but no production-equivalent sample program should start before the identity, provenance and document gates pass.
 
 ### Airless-comparator boundary
 
@@ -105,7 +111,7 @@ First-party examples remain capability references only: Aptar catalogs a 30 mL P
 
 “Coordinated” means a supplier presents Mini- and Full-scale items as one family or with a plausibly harmonized form language. It does **not** mean the two sizes share a neck, cap mold or production line.
 
-| Supplier | Publicly evidenced role | Public fit to 15/50/60 target | MOQ / availability evidence | Current disposition |
+| Supplier | Supplier-authored/disclosed role (SA) | Public fit to 15/50/60 target (SA/U) | MOQ / availability evidence (SA/U) | Current disposition (I) |
 | --- | --- | --- | --- | --- |
 | **Stocksmetic / Berlin Packaging** | Disclosed ecommerce distributor owned by Berlin Packaging | Exact low/wide Luxe and Heavy 15/50 mL frosted glass; 45/400 and 60/400 black/white PP cap families; discs | In-stock ecommerce and explicit 1k/2k/3k tiers | **Advance: Luxe price control; Heavy geometry alternative** |
 | **APC Packaging** | Identified U.S. stock/custom packaging supplier; exact upstream factory U | Exact SXJ 15 and 50 mL frosted glass | 504/case Mini, 450/case Full; $500 order floor | **Advance: U.S.-stock exact-size lead** |
@@ -133,7 +139,53 @@ First-party examples remain capability references only: Aptar catalogs a 30 mL P
 | **Toly** | Global beauty-packaging manufacturer and sourcing channel | Adelina sourced 15/30/50 glass family with precision-molded PP lid | 5,000 | Defer: sourced family, above target, finish/BOM U |
 | **ICONS \| America** | Identified multi-source beauty-packaging supplier | Catalogued 15 and 50 mL molded-glass references; closure examples not mapped | Standard 20,000–25,000 | Reject for launch volume; sourcing benchmark |
 
-BOOX is not a primary-jar candidate. Its known relevance is reusable tertiary shipping, which belongs in the separate tertiary/DTC workstream; no first-party evidence reviewed here ties BOOX to a moisturizer jar.
+BOOX is not a primary-jar candidate. Its current site describes sustainable shipping, international sourcing and 3PL/fulfillment services; no first-party evidence reviewed here ties BOOX to a moisturizer jar. Its relevance belongs in the separate tertiary/DTC workstream. ([BOOX](https://boox.eco/))
+
+## Fifteen-candidate requirement comparison
+
+The issue asked for at least 12 credible direct manufacturers or disclosed distributors. Fifteen credible candidates are compared below, and ten additional market references appear in the universe table. **The result is not that 15 suppliers publicly prove every requested predicate.** Only six have enough evidence to enter the initial RFQ/document screen; no source yet proves a complete, coordinated, gate-qualified Mini/Full system with both closure colors near 1,000–3,000. Unknown cells remain disqualifying until closed.
+
+### Technical, use and packout evidence
+
+All first-party product facts in this table are **SA**. “Minimum filled” is an **I** calculation of supplier-published empty glass plus the provisional net declaration; it excludes overfill, closure, liner/seal, decoration and carton.
+
+| Candidate / primary source | Glass and frost route | Size / neck | Closure, liner and seal | Weight and Formula fit | Hygiene, residual and breakage |
+| --- | --- | --- | --- | --- | --- |
+| [Stocksmetic Luxe / Heavy](https://www.stocksmetic.com/us/stocksmetic-collections/collections-for-cosmetics-skincare/luxe) | SA: frosted glass; actual etch versus coating **U** | SA: 15/50 mL; 45/400 and 60/400 | SA: black/white PP cap families and PP inner discs; first-opening seal **U** | Brimful 22/63 mL; body/closure mass, density, displacement, headspace and filled weight **U** | Formula hygiene/residual and filled-pack breakage **U**; multi-origin BOM and Full-disc stock gap |
+| [APC SXJ](https://apcpackaging.com/product/sxj-frosted-round-glass-jar/) | SA: frosted glass; route **U** | SA: 15/50 mL; thread **U** | SA: Mini ABS or PP, Full PP, PE liner, optional Full PP+PE disc; colors/seal **U** | OFC, mass, density, displacement, headspace and filled weight **U** | All use/transit fields **U** |
+| [Eurovetrocap Laurence](https://www.eurovetrocap.com/en/collezione/laurence/) | SA: 15/50 glass with satin/frost options; group acid-etch capability, exact-item route **U** | SA: 40/2P and 53/2P | Cap/accessory leads; exact black/white BOM, liner and seal **U** | OFC, masses, Formula fit and filled weight **U** | All use/transit fields **U** |
+| [Roetell cream jars](https://www.roetell.com/glass_categories/glass-cream-jars/) | SA: glass with custom frosting/color; exact route **U** | SA: 15/50-class family; neck **U** | SA: plastic/aluminum lids and liners generally; exact matched colors/BOM/seal **U** | OFC, masses, Formula fit and filled weight **U** | All use/transit fields **U** |
+| [Bormioli Aphrodite / Naxos](https://bormioliluigi.com/upload/pageblock/2025_12_Collection_En_jy188xq8.pdf) | SA: glass; lacquer can simulate frost, exact-body finish **U** | SA: 15/50–60 mL; GPI 40/400 and 48/400(/405) | SA: matching black/white PP caps and transparent PP inner lids; first-opening seal **U** | SA: 54–55/129–130 g glass, 22/60 mL brimful; I minimum filled 69–70/179–180 g; displacement/headspace **U** | Formula hygiene/residual and exact DTC packout **U**; heavy Full risk |
+| [SGD Libra](https://www.sgd-pharma.com/libra) | SA: glass and group frosting capability; exact route **U** | SA: 15/50/60 mL; GCMI 400.40/.53/.58 | Exact caps, black/white colors, liner and seal **U** | SA: 54/98/136 g and 17.7/60/76 mL brimful; I minimum filled 69/148/196 g; displacement **U** | Formula hygiene/residual and exact DTC packout **U** |
+| [Koa cream jars](https://www.koaglass.co.jp/product_category/cream/) | SA: glass and painting capability; frost route **U** | SA: 15/20/50/60 mL; necks **U** | Caps, colors, liner and seal **U** | SA: selected bodies 70/86/95/117 g and 18.5/23.5/55.4/65 mL brimful; Formula fit **U** | Formula hygiene/residual and exact DTC packout **U**; heavy Mini risk |
+| [PGP Cosmetics & Perfumery](https://www.pgpfirst.com/wp-content/uploads/Final_PGP-Cosmetics-Perfumery-Brochure_17-Feb-2026.pdf) | SA: Type III glass and in-house etch/frost/lacquer; exact-item route **U** | SA: 15/50/60 mL; Mini GPI 40/400/405, selected Full 55 mm | Caps, colors, liner and seal **U** | SA: selected bodies 57/127/117 g and 20/64/68 mL OFC; Formula fit **U** | Formula hygiene/residual and exact DTC packout **U** |
+| [Heinz Shine](https://heinz-glas.com/en/products/glass/details/shine) | SA: glass and group matting/sandblast/spray; exact-item route **U** | SA: 15/50 mL; GPI 40/400-405 and 58/400 special | SA: cap references; resin, colors, liner and seal **U** | SA: 50.8/124 g and 20.5/62 mL brimful; I minimum filled 65.8/174 g; displacement **U** | Formula hygiene/residual and exact DTC packout **U** |
+| [Quadpack Crystal Chorus](https://catalogue.quadpack.com/product/14019322/crystal-chorus-jars) | SA: glass; exact frost route **U** | SA: 15/60 mL relevant pair; necks **U** | SA: PP or PP+aluminum caps; shive only with plastic cap; colors/seal **U** | OFC, masses, Formula fit and filled weight **U** | Formula hygiene/residual and exact DTC packout **U** |
+| [Baralan Maria SW](https://www.baralan.com/press/new-maria-jar-super-weight-sw-line/) | SA: heavy glass and group frosting/lacquer; exact-item route **U** | SA: 15/50 mL; GPI 48/400 and 70/400 | Exact caps, black/white colors, liner and seal **U** | OFC, masses, Formula fit and filled weight **U** | Formula hygiene/residual and exact DTC packout **U**; heavy-body risk |
+| [Stoelzle cosmetic jars](https://www.stoelzle.com/beauty/products/cosmetics/cosmetic-jar/) | SA: glass and group frosting; exact-item route **U** | SA: multiple 15/50 families; selected GPI 400-40-405/400-58-405 | Caps, colors, liner and seal **U** | SA: Classic 54/129 g; I minimum filled 69/179 g; OFC/displacement **U** | Formula hygiene/residual and exact DTC packout **U**; heavy Full risk |
+| [Lumson JAPA](https://lumson.com/en/news/japa/38/) | SA: refillable glass outer; lacquer/decor capability, exact frost **U** | SA: 15/50 mL; proprietary assembly | SA: aluminum lid and product-contact refill; liner/seal and black/white articles **U** | Component masses, Formula fit and filled weight **U** | Formula hygiene/residual **U**; reuse credit requires observed rotations; refill transit **U** |
+| [TricorBraun 15/50](https://www.tricorbraun.com/15-ml-glass-jar-with-36-mm-matte-silver-lined-closure-f217-liner-frosted-clear.html) | SA: frosted glass; route **U** | SA: 15/50 mL; 36/53 mm continuous thread | SA: matte-silver closure and F217 liner; black/white and first-opening seal **U** | OFC, masses, Formula fit and filled weight **U** | Formula hygiene/residual and exact DTC packout **U** |
+| [Lecos glass cream jars](https://www.lecosglass.com/glass-cream-jars/) | SA: glass and custom frost/coating; exact route **U** | SA: 15/50 mL pages; necks **U** | SA: Mini PP cap; Full ABS cap/PE disc; matched colors and seal **U** | SA: 18 ± 2/66 ± 3 mL OFC; masses, Formula fit and filled weight **U** | Formula hygiene/residual and exact DTC packout **U** |
+
+### Commercial, quality and logistics evidence
+
+| Candidate | Stock/custom, MOQ, public cost and lead | Decoration and tooling | Factory, quality and logistics | Principal commercial risk (I) |
+| --- | --- | --- | --- | --- |
+| Stocksmetic | SA: ecommerce tiers through 3,000; corrected Luxe page-BOM sensitivity below; stock timing 3–5 working days; Full disc presently unavailable | SA: screen print from 200/500 colors, $170 start, six-week planning time; tooling life/ownership **U** | COO by item; factories/QMS **U**; Poland/Taiwan bodies and Italy accessories; U.S. landed route **U** | Multi-origin BOM, volatile pages/inventory, no complete current Full BOM |
+| APC | SA: 504 Mini/450 Full case quantities, $500 order floor, quote price; stock dispatch claim 24–48 hours | Decoration MOQ/setup/tooling **U** | Exact factory/COO/QMS **U**; Fort Lauderdale stock route | Low increments but opaque upstream, finish and price |
+| Eurovetrocap | SA: general neutral stock 500–1,000 or 1,000–2,000; exact 15 mL white lid says 5,000; price **U**; “short” lead general | SA: UV-LED print under 500 generally; exact finish/setup/tooling **U** | Exact item plant/QMS/ship point **U**; European route | General small-batch claims may not map to one complete BOM |
+| Roetell | SA: page-dependent stock MOQ 2,000/3,000/5,000; price **U**; seven-day undecorated-stock claim | Custom frosting/color; tooling/setup/decoration MOQ **U** | Named Xuzhou factory is SA; exact item/site/QMS/Incoterm **U**; China lane | Conflicting minima, incomplete drawings/BOM and high diligence |
+| Bormioli | MOQ, price, stock and lead **U** | SA: in-house lacquer/decor capability; exact setup/tooling **U** | SA: Italian beauty-glass operations; exact plant/QMS/route **U** | Strong documented system, quote-only commercial fit and no proven seal |
+| SGD | MOQ, price, stock and lead **U** | SA: Zhanjiang lacquer/frost/print/hot stamp; setup/tooling **U** | SA: Zhanjiang production and PCR campaigns; item-specific QMS/PCR/route **U** | Strong body data, closure and commercial system absent |
+| Koa | MOQ, price, stock and lead **U** | SA: affiliated painting/print/hot stamp; setup/tooling **U** | SA: Ichikawa melt/mold/inspect/ship; exact item/site route to U.S. **U** | Complete closure and U.S. commercial route absent |
+| PGP | MOQ, price, stock and lead **U** | SA: in-house frost/etch/lacquer/print; setup/tooling **U** | SA: India/Sri Lanka production; exact item plant/QMS/route **U** | Potential direct-cost challenger, but closure and lane unpriced |
+| Heinz | Historical stock marks; current stock/MOQ/price/lead **U** | SA: in-house matte/sandblast/spray/print; setup/tooling **U** | SA: German/global operations; exact item plant/QMS/route **U** | Historical availability may not be current; closure materials/colors absent |
+| Quadpack | Stock/custom status, MOQ, price and lead **U** | Multiple decorations SA; tooling/setup **U** | Owned and sourced network; exact glass plant/QMS/route **U** | Attractive family, but exact source and all commercial terms unknown |
+| Baralan | SA: usual MOQ 5,000 and 1–10 samples; price/lead **U** | Group frost/lacquer/print SA; tooling/setup **U** | U.S. warehouses SA; exact glass furnace/item QMS/route **U** | Above target MOQ and broad/heavy design proximity |
+| Stoelzle | Selected pages show stock status; regional quantity/MOQ/price/lead **U** | In-house frost/spray/print SA; tooling/setup **U** | Direct glass group SA; exact item plant/QMS/route **U** | Heavy freight/breakage exposure and no closure system |
+| Lumson | JAPA stock/custom status, MOQ, price and lead **U** | Exterior lacquer/print/hot stamp SA; tooling/setup **U** | Exact glass/refill/cap sites, QMS and route **U** | Separate refill architecture; observed reuse performance unavailable |
+| TricorBraun | SA: China-origin quote items listed in stock; MOQ/price/lead **U** | Decoration/tooling **U** | Disclosed distributor; upstream factory/QMS **U**; China-to-U.S. route **U** | Exact-size system lacks black/white options and provenance |
+| Lecos | Stock/custom status, MOQ, price and lead **U** | Custom frost/coating/print SA; tooling/setup **U** | Legal entity, actual plant, QMS, ship point and route **U** | High identity/configuration diligence and inconsistent Mini/Full closures |
 
 ## Advance cohort: detailed evidence and gaps
 
@@ -143,11 +195,11 @@ Luxe is the primary commercial comparison; Heavy is retained to test the closer 
 
 #### Heavy geometry alternative
 
-**Verified public architecture.** Stocksmetic identifies itself as “the beauty e-commerce of Berlin Packaging.” Its Heavy Mini is a round frosted glass jar, item `BUNDLE-VSV015.1117`, with 15 mL nominal capacity, 23 mL brimful capacity, 45/400 neck, 52 mm diameter, 17 mm height and Taiwan origin. Its Heavy Full is `BUNDLE-VSV050.9498`, 50 mL nominal, 63 mL brimful, 60/400, 68 mm diameter, 26 mm height and Poland origin. Both U.S. pages present samples and stock quantities. ([15 mL](https://www.stocksmetic.com/us/heavy-jar15ml-45-400-frosted), [50 mL](https://www.stocksmetic.com/us/heavy-jar-50ml-60-400-frosted))
+**Supplier-published architecture (SA).** Stocksmetic identifies itself as “the beauty e-commerce of Berlin Packaging.” Its Heavy Mini is a round frosted glass jar, item `BUNDLE-VSV015.1117`, with 15 mL nominal capacity, 23 mL brimful capacity, 45/400 neck, 52 mm diameter, 17 mm height and Taiwan origin. Its Heavy Full is `BUNDLE-VSV050.9498`, 50 mL nominal, 63 mL brimful, 60/400, 68 mm diameter, 26 mm height and Poland origin. Both U.S. pages present samples and stock quantities. ([15 mL](https://www.stocksmetic.com/us/heavy-jar15ml-45-400-frosted), [50 mL](https://www.stocksmetic.com/us/heavy-jar-50ml-60-400-frosted))
 
 The U.S. accessories catalog names glossy and matte black/white Girotondo PP cap families for 45/400 and 60/400. The Full product page directly cross-lists both 60/400 matte colors; the Mini page directly cross-lists glossy 45/400 colors, while separate 45/400 accessory pages/listings expose matte choices. This is strong compatibility **catalog evidence**, not a substitute for an exact drawing/fit/torque validation. ([accessories](https://www.stocksmetic.com/us/accessories/cosmetic-accessories/accessori-vasi-in-vetro?stk_sticker=New), [45/400 matte black](https://www.stocksmetic.com/us/girotondo-45-400-matte-black-pp-cap), [50 mL set page](https://www.stocksmetic.com/us/heavy-jar-50ml-60-400-frosted))
 
-Stocksmetic also lists 45/400 and 60/400 “Safeguard Disc” items and white PP inner lids. The safeguard pages call the item a “sifter,” list only generic plastic, and do not claim a hermetic, induction, tamper-evident or microbiological barrier. helix must not treat the disc as a first-opening seal without a drawing, material declaration and validated seal system. ([45/400 disc](https://www.stocksmetic.com/us/safeguard-disc-45-400), [60/400 disc](https://www.stocksmetic.com/int/disco-safeguard-60-400))
+Stocksmetic also lists 45/400 and 60/400 “Safeguard Disc” items and white PP inner lids. The safeguard pages call the item a “sifter,” list only generic plastic, and do not claim a hermetic, induction, tamper-evident or microbiological barrier. Helix must not treat the disc as a first-opening seal without a drawing, material declaration and validated seal system. ([45/400 disc](https://www.stocksmetic.com/us/safeguard-disc-45-400), [60/400 disc](https://www.stocksmetic.com/int/disco-safeguard-60-400))
 
 **Frost and decoration.** The body pages say “frosted,” but the retrieved U.S. product content does not provide a process specification or coating declaration. Process is therefore **U** until the supplier identifies acid etch versus sprayed/lacquered frost and finishing site. The pages offer one-color screen printing from 200 pieces and two-color from 500, show a $170 machine-start charge, and state six weeks for screen printing versus three to five working days for unassembled stock components. These are SA planning times, not a promised helix production schedule. ([15 mL](https://www.stocksmetic.com/us/heavy-jar15ml-45-400-frosted), [50 mL](https://www.stocksmetic.com/us/heavy-jar-50ml-60-400-frosted))
 
@@ -186,7 +238,7 @@ At 1,000/2,000/3,000 pieces, the regular Luxe Mini body page exposes $1.32/$1.22
 
 For the smaller per-size quantities created by the mix scenarios, the same component pages yield complete page-BOM figures of $2.31 at 1–499 and $2.16 at 500–999 for Mini; $2.51 and $2.36 for Full with glossy white; and $2.57 and $2.41 for Full with glossy black. At the published 1,000–1,999 and 2,000–2,999 bands, the complete figures are $2.03/$1.88 Mini, $2.20/$2.06 Full white and $2.25/$2.11 Full black. These are arithmetical combinations of separately listed components, not assembled-set offers.
 
-The following **E1 public-evidence sensitivity** applies the public component tier corresponding to each actual Mini and Full quantity, then multiplies by the stated mix. This is **not a supplier quote or proof that the displayed tier will remain available**. Because Stocksmetic's tiers appear at the component/SKU level, lower-volume size splits can cost more per unit even when the total Product order increases. The model assumes one glossy cap color for the entire Full quantity; a black/white color split can fragment tiers again and requires a fresh calculation and supplier confirmation.
+The following **E1 public-evidence sensitivity** applies the public component tier corresponding to each actual Mini and Full quantity, then multiplies by the stated mix. This is **not a supplier quote or proof that the displayed tier will remain available**. Because Stocksmetic's tiers appear at the supplier-item level, lower-volume size splits can cost more per unit even when the total Product order increases. The model assumes one glossy cap color for the entire Full quantity; a black/white color split can fragment tiers again and requires a fresh calculation and supplier confirmation.
 
 | Total product units | Mini / Full units | Full with glossy white cap: E1 component total / average per product | Full with glossy black cap: E1 component total / average per product |
 | ---: | ---: | ---: | ---: |
@@ -272,7 +324,7 @@ These suppliers cannot supply the requested Mini/Full family on current public e
 
 ### SKS Bottle & Packaging — 2 oz complete-pack price control
 
-SKS lists a 2 oz / 59.15 mL straight-sided frosted-glass jar with a smooth black PP 53/400 cap and compressible PE-foam liner at 24 units per case and $31.44 per case, or $1.31 per complete unit. A white PP/PE-lined variant is also listed, but first-party pages expose conflicting case prices for that SKU. SKS states that it is a distributor and generally ships stock orders quickly; the exact glass factory, origin, frost chemistry and recycled content are U. ([black-cap set](https://www.sks-bottle.com/product/523.html), [family/white lead](https://www.sks-bottle.com/340c/fin149e.html), [distributor FAQ](https://www.sks-bottle.com/faq.html))
+SKS lists a 2 oz / 59.15 mL straight-sided frosted-glass jar with a smooth black PP 53/400 cap and compressible PE-foam liner at 24 units per case and $31.44 per case, or $1.31 per complete unit. A white PP/PE-lined variant is also listed, but first-party pages expose conflicting case prices for that supplier item. SKS states that it is a distributor and generally ships stock orders quickly; the exact glass factory, origin, frost chemistry and recycled content are U. ([black-cap set](https://www.sks-bottle.com/product/523.html), [family/white lead](https://www.sks-bottle.com/340c/fin149e.html), [distributor FAQ](https://www.sks-bottle.com/faq.html))
 
 The liner is not a first-opening seal. A shrink band is a separate tamper-evidence option, adding material, application labor and consumer-removal/accessibility consequences. Use SKS as a Full-only public cost control and emergency stock path, not as the family decision.
 
@@ -282,7 +334,7 @@ Container and Packaging Supply lists a 2 oz straight-sided frosted glass jar wit
 
 Compatible public closure pages include black PP with F217 foam liner, white PP with a pressure-sensitive liner, and black PP with a universal induction liner. The induction-liner page is the only screened stock option that expressly claims an airtight, hermetic, tamper-evident seal when correctly induction sealed. That is a closure-system claim, not proof on this exact frosted jar or the eventual filler line. ([black F217](https://www.containerandpackaging.com/products/continuous-thread-polypropylene-lid/l217bkf1/), [white pressure-sensitive](https://www.containerandpackaging.com/products/continuous-thread-polypropylene-lid/l217whp1), [black induction](https://www.containerandpackaging.com/products/continuous-thread-polypropylene-lid/l217bkh64))
 
-The company identifies itself as a distributor and says it generally has no MOQ. Jar price, current stock, body origin/factory, frost process and a matched Mini remain U. This is a seal-development comparator, not a coordinated finalist.
+The company identifies itself as a distributor and says it generally has no MOQ. Jar price, current stock, body origin/factory, frost process and a matched Mini remain U. This is a seal-development comparator, not a coordinated candidate.
 
 ## Conditional technical and premium cohort
 
@@ -302,7 +354,7 @@ PGP describes glass production in India and Sri Lanka and in-house frosting/etch
 
 Heinz's Shine Mini `HD12502` is 15/20.5 mL, 50.8 g, 30.3 × 44.5 mm with GPI 40/400-405; a current successor `HD13536` has the same capacity/dimensions at 50 g. Shine Full `HD12598` is 50/62 mL, 124 g, 41 × 62 mm with GPI 58/400 special. An older official catalog marked the Mini and Full on stock and lists corresponding cap references, but it does not disclose cap resin, liner/shive or black/white colors. ([current Shine family](https://heinz-glas.com/en/products/glass/details/shine), [official skincare catalog](https://heinz-glas.com/fileadmin/user_upload/Produkte/SkinCare/210831_Skincare.pdf))
 
-Heinz describes in-house matting, sandblasting, spraying and printing and direct glass production in Germany within a larger global network. ([decoration](https://heinz-glas.com/en/products/decorations/), [locations](https://heinz-glas.com/en/contact)) Current inventory, MOQ, price, lead, exact cap BOM/color and SKU-specific recycled content are U. Treat historical stock markings as a reconfirmation lead, not current availability.
+Heinz describes in-house matting, sandblasting, spraying and printing and direct glass production in Germany within a larger global network. ([decoration](https://heinz-glas.com/en/products/decorations/), [locations](https://heinz-glas.com/en/contact)) Current inventory, MOQ, price, lead, exact cap BOM/color and item-specific recycled content are U. Treat historical stock markings as a reconfirmation lead, not current availability.
 
 ### Quadpack — Crystal Chorus
 
@@ -324,13 +376,13 @@ Stoelzle publishes unusually useful empty-body data. Its cosmetic catalog includ
 
 Stoelzle says it operates in-house decoration sites and offers frosting, spraying and printing. A project page documents acid etching on a fragrance bottle, proving group capability but not the route for these jars. ([decoration](https://www.stoelzle.com/beauty/customization/decoration/), [acid-etched project](https://www.stoelzle.com/beauty/valaya-new-feminine-fragrance/))
 
-The Mini/Full bodies use different necks, and public cap/liner/seal, MOQ, price, lead, stock, black/white and factory-assignment evidence is absent. The high published mass makes Stoelzle valuable as the freight/breakage stress case even if it is not a commercial finalist.
+The Mini/Full bodies use different necks, and public cap/liner/seal, MOQ, price, lead, stock, black/white and factory-assignment evidence is absent. The high published mass makes Stoelzle valuable as the freight/breakage stress case even if it is not a commercial candidate.
 
 ### Lumson — JAPA refillable jar
 
 Lumson's JAPA system is a 15/50 mL refillable glass-jar family with an aluminum lid and customizable colors/graphics. Lumson lists exterior lacquer, screen print, hot stamp and metallization routes for glass jars. ([JAPA](https://lumson.com/en/news/japa/38/), [decoration overview](https://lumson.com/en/blog/cosmetic-jars-how-to-choose-between-plastic-and-glass-to-enhance-your-brand/53))
 
-This is not directly equivalent to a monolithic glass jar: the refill insert becomes the product-contact body, and the reuse claim depends on actual refill adoption, insert mass, return/recovery assumptions and life-cycle boundary. JAPA MOQ, exact factory, body/insert/cap materials and masses, liner/seal, frost route, black/white availability, price and lead are U. Keep it only as a separate refill-system challenger.
+This is not directly equivalent to a monolithic glass jar: the refill insert becomes the product-contact body. Any projected adoption or reuse count is scenario analysis only; sustainability credit requires observed completed rotations with loss, cleaning/inspection yield, replacement and reverse-logistics effects, plus exact insert/outer masses and end-of-life evidence. JAPA MOQ, exact factory, body/insert/cap materials and masses, liner/seal, frost route, black/white availability, price and lead are U. Keep it only as a separate refill-system challenger.
 
 ### TricorBraun — exact 15/50 distributor set
 
@@ -363,7 +415,7 @@ The public catalog shows stock quantities around 20,000 for some Cleopatre varia
 
 Berlin Packaging lists a 0.5 oz Type III thick-base glass jar described as acid-frosted rather than painted, with a 40-400 neck. The target page is currently unavailable with no ETA and contains internally implausible/contradictory data fields, so a current quote and drawing are mandatory. ([0.5 oz](https://www.berlinpackaging.com/0-5-oz-frosted-glass-thick-base-jars-value-pack-5298b21val/))
 
-The closest Full-scale frosted thick-base page is 2.3 oz and currently unavailable/no-restock rather than an exact 50/60 mL mate. ([2.3 oz](https://www.berlinpackaging.com/2-oz-frosted-glass-thick-base-jars-5-040-pallet-5298b25bulk/)) The core catalog is therefore a backup source and acid-frost price check, not a coordinated finalist.
+The closest Full-scale frosted thick-base page is 2.3 oz and currently unavailable/no-restock rather than an exact 50/60 mL mate. ([2.3 oz](https://www.berlinpackaging.com/2-oz-frosted-glass-thick-base-jars-5-040-pallet-5298b25bulk/)) The core catalog is therefore a backup source and acid-frost price check, not a coordinated candidate.
 
 ### O.Berk
 
@@ -383,7 +435,7 @@ Feemio presents broad cosmetic-glass manufacturing capability and an Anhui-facto
 
 ### Toly — relevant sourced family, not verified Toly glass production
 
-Toly's Adelina page lists 15/30/50 mL glass jars, a precision-molded PP lid and a 5,000-piece MOQ. Critically, Toly titles the platform “sourced by Toly Europe Trading”; the page does not prove Toly Korea or another Toly-owned plant forms the glass. ([Adelina](https://ecat.toly.com/en/portals/toly/assets/14133093/the-adelina-glass-jar-sourced-by-toly-europe-trading/), [company model](https://www.toly.com/en/our-company/about-us/)) Exact factory/origin, body dimensions/mass, neck, frost, black/white lid articles, liner/seal, price, lead and stock are U. Keep Toly as a sourcing-channel comparator, not a direct glassmaker or launch-volume finalist.
+Toly's Adelina page lists 15/30/50 mL glass jars, a precision-molded PP lid and a 5,000-piece MOQ. Critically, Toly titles the platform “sourced by Toly Europe Trading”; the page does not prove Toly Korea or another Toly-owned plant forms the glass. ([Adelina](https://ecat.toly.com/en/portals/toly/assets/14133093/the-adelina-glass-jar-sourced-by-toly-europe-trading/), [company model](https://www.toly.com/en/our-company/about-us/)) Exact factory/origin, body dimensions/mass, neck, frost, black/white lid articles, liner/seal, price, lead and stock are U. Keep Toly as a sourcing-channel comparator, not a direct glassmaker or launch-volume candidate.
 
 ### ICONS | America — disclosed multi-source channel, MOQ mismatch
 
@@ -437,7 +489,7 @@ Only a few direct glassmakers publish empty-body mass. Adding the proposed Formu
 | Heinz Shine 50 | 124 g | 50 g | 174 g |
 | Verescence Cleopatre 60 | 136 g | 60 g | 196 g |
 
-The Full glass body alone can vary by more than twofold: Bormioli's 62 g EcoJar versus 130 g Aphrodite demonstrates a 68 g body difference before Formula and closure. That difference affects inbound freight, line handling, warehouse loads, DTC dimensional/actual-weight breakpoints, cushioning, breakage loss and life-cycle burden. The same calculation remains impossible for the stock-priced Stocksmetic, APC, Eurovetrocap and Roetell finalist configurations because public body weights are missing; verified component masses are a first-round RFQ requirement.
+The Full glass body alone can vary by more than twofold: Bormioli's 62 g EcoJar versus 130 g Aphrodite demonstrates a 68 g body difference before Formula and closure. That difference affects inbound freight, line handling, warehouse loads, DTC dimensional/actual-weight breakpoints, cushioning, breakage loss and life-cycle burden. The same calculation remains impossible for the stock-priced Stocksmetic, APC, Eurovetrocap and Roetell candidate configurations because public body weights are missing; supplier item mass evidence is a first-round RFQ requirement.
 
 ## Consumer use, hygiene, accessibility and residual
 
@@ -480,7 +532,7 @@ Public claims in this scan are bounded as follows:
 - Baralan's recyclability and post-industrial-recycled-content statements are SA without exact percentages/certificates for the offered articles.
 - APC's “easier recycling” language for PP caps is SA and does not establish destination recovery or whole-pack compatibility.
 - Eurovetrocap's acid-etch description openly acknowledges that the process is impactful; its lighter-jar comparisons show why mass must be measured rather than assuming heavier glass is better. ([2024 sustainability report](https://www.eurovetrocap.com/wp-content/uploads/2025/11/evc-sustainability-report-2024.pdf))
-- Lumson's refill architecture can earn reuse credit only with the exact replaceable mass, expected reuse count, consumer adoption and end-of-life evidence.
+- Lumson's refill architecture can earn reuse credit only from observed completed rotations, including loss, return/collection, cleaning and inspection yield, replacements, reverse logistics, exact replaceable mass and end-of-life evidence. Expected reuse and adoption belong only in scenario analysis.
 - Glass recyclability does not erase coating/label/cap separability, color, actual local recovery, furnace cullet acceptance, freight or breakage/product loss.
 
 Every RFQ must request body/cap/liner/seal masses, exact PCR/PIR percentage and chain of custody, finish chemistry/mass, separability instructions, recycled-content certificates, manufacturing energy/water claims with boundaries, case/pallet efficiency, lane distance and breakage/reject rates. Unsubstantiated claims receive no evidence credit.
@@ -503,16 +555,18 @@ Both Mini and Full, and both black/white combinations, need side-by-side review.
 | Target-quantity fit | Strong public ecommerce tiers | Strong case increments | General small-batch support; exact item varies | Plausible but inconsistent public MOQs | Mostly U or above target |
 | Exact 15/50 family | Yes | Yes | Yes by Laurence family | Yes on white-glass family page | Several exact families |
 | Black/white closure evidence | Strong catalog evidence; exact matte tiers incomplete | U | Accessory leads; exact matched BOM U | Custom capability SA; exact stock U | Usually U; Tricor silver only |
-| Frost process | U | U | Acid-etch capability V; exact SKU route U | U | Verescence acid etch capability V; most exact SKUs U |
+| Frost process | U | U | Acid-etch capability SA; exact item route U | U | Verescence acid-etch capability SA; most exact items U |
 | Factory identity | Countries only; factories U | U | Company identified; item plant U | Named factory SA; item assignment U | Stoelzle/Verescence strongest direct evidence |
 | Public cost | Strongest, but unlanded | None | None | None | None except limited distributor pages |
 | Lead | Stock and decoration planning times public | “ready to ship,” exact time U | General short lead SA | 7-day stock SA; exact config U | Mostly U |
 | Technical mass/OFC | OFC yes, body mass no | Neither | Catalog-dependent | U | Stoelzle/Verescence strongest |
 | Main risk | Multi-origin BOM, data inconsistencies | Opaque upstream and no price | General claims may not map to exact items | Configuration and factory proof | MOQ, freight mass or missing colors |
 
-## Common RFQ and sample evidence packet
+## Common RFQ, qualification and sampling sequence
 
-No outreach occurred in this task. When the private sourcing workspace and outreach authorization exist, send every advanced supplier the same controlled request. Require responses at configuration level rather than accepting a brochure.
+No outreach occurred in this task. When the private sourcing workspace and outreach authorization exist, send every advanced supplier the same controlled request. Require responses at configuration level rather than accepting a brochure. The RFQ may request sample price, construction and lead-time information, but the sequence below controls when samples can be ordered and used.
+
+### Stage 1 — identity, provenance and document screen
 
 ### Identity and item control
 
@@ -521,7 +575,9 @@ No outreach occurred in this task. When the private sourcing workspace and outre
 - exact item numbers, drawings, revisions, tolerances and cavity/tool ownership;
 - stock versus made-to-order status and whether inventory is reserved;
 - current QMS certificates and scopes tied to the producing sites;
-- approved sub-suppliers, change-notification period and continuity/second-source policy.
+- approved sub-suppliers; exact approved-site and no-unapproved-substitution commitment;
+- prior written change approval, requalification triggers and change-notification period; and
+- continuity/second-source, capacity allocation, disaster-recovery and last-time-buy policy.
 
 ### Exact technical BOM
 
@@ -531,47 +587,74 @@ No outreach occurred in this task. When the private sourcing workspace and outre
 - liner, shive/disc and first-opening seal item numbers, layer construction, thickness, adhesives and product-contact status;
 - closure displacement, recommended fill/headspace range and fill-temperature limits;
 - spatula material, storage approach and unit mass if offered;
-- dimensional/visual defect standards, AQLs, glass annealing/strength controls and certificate-of-analysis/conformance package.
+- dimensional/visual defect standards, AQLs, glass annealing/strength controls and raw test reports rather than certificate-only summaries;
+- lot, furnace/batch, decoration-run and cavity traceability through component and filled-product records; and
+- certificate-of-analysis/conformance package, nonconformance/CAPA process, stop-ship authority, containment, recall support and defect/replacement terms.
 
 ### Commercial quote matrix
 
 - neutral, decorated and fully assembled prices at 1,000, 2,000 and 3,000 complete sets;
-- Mini/Full product mixes of 10/90, 25/75 and 50/50 at each total, with black and white cap alternatives priced separately and MOQ identified by body, cap color, disc/seal and decoration;
-- tooling, plates/screens, color match, proofs, golden samples, setup, line-change, assembly, overrun and scrap charges;
-- sample, pilot, first-production and repeat-production timing;
-- payment milestones, cancellation exposure, inventory/forecast obligations and price-validity period;
+- Mini/Full Product Variant mixes of 10/90, 25/75 and 50/50 at each total, with black and white cap alternatives priced separately and MOQ identified by body, cap color, disc/seal and decoration;
+- order increments, shared-component pooling rules, permissible under/overrun, repeat-order treatment and component pack quantities;
+- tooling, plates/screens, color match, proofs, golden samples, testing, setup, line-change, assembly, overrun and scrap charges, plus ownership, location, maintenance, storage, useful shot life, transfer, exclusivity and replacement;
+- sample, pilot, first-production, capacity-reservation and repeat-production timing;
+- quote currency/date, taxes, bank/payment fees, payment milestones, cancellation exposure, inventory/forecast obligations and price-validity period;
 - Incoterm 2020 rule and named place, country of origin, HTS suggestions as nonbinding inputs, carton/pallet dimensions and weights; and
-- exact route to the proposed fill site and Southern California receiving dock.
+- exact route to the proposed fill site and Southern California receiving dock;
+- filler-specific minimums, outside-component fees, changeover/setup, expected loss/yield basis, retained/test units and disposition of excess Formula and components;
+- responsibility matrix for inspection, release, loss, rework, rejection, replacement, customs and insurance; and
+- every explicit exclusion, assumption and warranty limitation.
 
-### Quality, use and logistics samples
+### Quality, compliance and sustainability dossier
 
-Request enough undecorated and decorated production-equivalent units in both sizes/colors for:
+- exact-component California toxics-in-packaging certificates covering glass, cap, colorant, liner/seal, ink/coating, adhesive and decoration;
+- SB 54 material-category/accounting inputs by separable component and weight;
+- Proposition 65 composition/exposure inputs and any supplier warning position, without treating it as legal approval;
+- product-contact, heavy-metal/composition, migration and Formula-compatibility evidence tied to exact materials and sites;
+- transport classification inputs, dangerous-goods status where applicable, carrier/route constraints, case/pallet release controls and lot shipment records;
+- exact PCR/PIR percentage, chain of custody and batch/site scope; item-level PCF/EPD methodology, boundary, allocation, year, geography, energy mix and assurance;
+- coating/frost/ink/adhesive masses, separability and evidence for collection, sortation, reprocessing yield, end-market acceptance and destination recovery;
+- lane distances, modes, load factors, cube/weight, emission factors and source dates; and
+- for refill/reuse claims, the complete reverse loop, observed completed rotations, loss, collection/return, cleaning, inspection/rejection, replacement and reverse-logistics data.
 
-- formula compatibility/stability/migration/organoleptic testing;
+### Stage 2 — empty-package qualification samples
+
+Only after the exact identity/site/process, design provenance, dossier, BOM, drawings and change-control terms pass review, request enough production-equivalent empty units in both sizes/colors for:
+
 - cap/liner/seal and torque/leak testing;
-- consumer opening, hygiene, dose and residual studies;
+- opening-force/accessibility, dimensional and destructive construction checks;
 - decoration/frost abrasion, oil/water/chemical and aging tests;
-- filling/capping/labeling trials and destructive dimensional checks; and
-- filled retail/DTC transit tests in the intended secondary/tertiary packout.
+- empty-component drop, abrasion, case/pallet and incoming-inspection trials; and
+- design-distance review of the two sizes and both closure colors.
+
+### Stage 3 — filler and pilot qualification
+
+After the empty assembly passes, run equipment-fit, filling/capping/torque, liner/seal application, coding/labeling, line-speed, startup loss, in-process inspection and pilot-yield trials at the named filler. Keep Formula/bulk MOQ, sample/retain units, excess disposition and route responsibilities separate from component MOQ.
+
+### Stage 4 — Formula, use and filled-pack validation
+
+Only after the filler/pilot gate passes, run exact-Formula compatibility/stability/migration/organoleptic and microbiological-risk testing; consumer hygiene, opening, dose, evacuation and residual studies; seal/leak/torque aging; and filled retail/DTC vibration, drop, compression and thermal-cycle testing in the intended secondary/tertiary packout. Production approval still requires the full release dossier and cross-functional decision.
 
 ## Cost-benefit decision rule
 
 1. Reject any exact configuration that fails a mandatory gate or lacks consequence-critical evidence.
-2. Normalize surviving quotes to P3 landed cost at the Southern California receiving dock under the [landed-cost evidence model](packaging-landed-cost-evidence-model.md).
-3. Keep body, closure, liner/disc, first-opening seal, decoration, tooling amortization, assembly, freight, duty/tariffs, brokerage, inspection, reject/breakage allowance and financing visible as separate fields.
-4. Score qualified configurations at **45% cost, 20% technical risk, 15% sustainability, 10% reliability/lead time and 10% aesthetic/brand fit**.
-5. Run total-demand, Mini/Full mix, any later cap-color allocation, freight, duty, exchange-rate, breakage, scrap and working-capital sensitivities.
-6. Call a winner only when the same exact six-Variant scope, evidence date, quality gates, Incoterm and landed boundary are comparable.
+2. Keep the five prerequisite route ledgers distinct: ODM stock packaging/fill abroad; ODM-managed custom packaging/fill abroad; helix-nominated components consigned to an ODM abroad; imported bulk Formula filled/assembled domestically; and a domestic packaging/filling combination where offered.
+3. Rebuild every surviving offer through P0 supplier quote, P1 landed empty packaging, P2 conversion complete, P3 fulfillment-ready Southern California and P4 DTC delivered under the [landed-cost evidence model](packaging-landed-cost-evidence-model.md).
+4. At every view, report first-run cash per saleable unit and consumed economic cost per saleable unit. Keep body, closure, liner/disc, first-opening seal, decoration, MOQ surplus, tooling, samples/tests, assembly, freight, duty/tariffs, brokerage, inspection, storage, reject/breakage allowance, overrun and cash timing visible.
+5. Report both total P4 and the package-driven P4 delta against the lowest-volume compliant design, plus P3 cost per usable gram using measured residual.
+6. Score gate-qualified configurations at **45% cost, 20% technical risk, 15% sustainability, 10% reliability/lead time and 10% aesthetic/brand fit** without allowing the score to override a gate.
+7. Run total-demand, Mini/Full Product Variant mix, any later cap-color allocation, freight, duty, exchange-rate, breakage, scrap and working-capital sensitivities.
+8. Use E3 comparable indicative offers for indicative ranking/candidate selection and E4 production offers plus final qualification for a procurement recommendation. Call a winner only when the same exact Mini and Full Product Variant package configurations, any separately approved 60 g declaration contingency, evidence date, quality gates, Incoterm, route and P0–P4 boundaries are comparable.
 
-Stocksmetic Luxe's public page arithmetic makes it the **benchmark to beat**, not the winner. APC may save time/import handling but has no public unit cost. Eurovetrocap may offer low-batch integration and acid-etch capability, but the exact proposed SKU route is U and component-specific MOQ risk remains. Roetell may reduce ex-works body cost but exposes helix to longer lanes, import controls, upstream/finish verification and higher coordination burden. Bormioli and SGD provide much stronger direct technical/provenance evidence but no public MOQ or price. Those are hypotheses for a common quote, not conclusions.
+Stocksmetic Luxe's public page arithmetic makes it the **benchmark to beat**, not the winner. APC may save time/import handling but has no public unit cost. Eurovetrocap may offer low-batch integration and acid-etch capability, but the exact proposed supplier-item route is U and component-specific MOQ risk remains. Roetell may reduce ex-works body cost but exposes the future Legal Operator/importer of record to longer lanes, import controls, upstream/finish verification and higher coordination burden. Bormioli and SGD provide much stronger direct technical/provenance evidence but no public MOQ or price. Those are hypotheses for a common quote, not conclusions.
 
 ## Final shortlist and next action
 
 | Tier | Suppliers | Action |
 | --- | --- | --- |
-| **A — common RFQ/sample** | Stocksmetic Luxe + Heavy alternative, APC, Eurovetrocap, Roetell, Bormioli Luigi, SGD Pharma | Request the exact evidence packet and production-equivalent samples for 15/50 plus 60/75 contingency where available |
+| **A — RFQ/document screen** | Stocksmetic Luxe + Heavy alternative, APC, Eurovetrocap, Roetell, Bormioli Luigi, SGD Pharma | Request the exact identity/provenance/document packet; only after it passes, sample 15/20 mL Mini and 50/60/75 mL Full classes through the sequenced gates |
 | **B — conditional challenger** | Koa Glass, PGP Glass, Heinz-Glas, Quadpack, Baralan, Stoelzle, Lumson, TricorBraun, Lecos | Invite only if target quantities, both cap colors and the same evidence/landed boundary are accepted |
 | **C — benchmark/deferred** | SKS, Container and Packaging, Verescence, Berlin Packaging core, Jarsking, Toly | Retain Full-only cost/seal, technical, finishing or market intelligence; do not rely on coordinated launch supply |
 | **D — reject at current volume** | ICONS, O.Berk, Somewang, Feemio | Revisit only after demand justifies disclosed minima or a stocked distributor appears |
 
-The immediate next step is not supplier selection. It is a common RFQ and sample gate across Tier A, with Tier B used to prevent a false low-cost local optimum. Until that evidence exists, all exact Formula fit, filled weight, hygiene, residual, breakage, seal integrity, sustainability score and landed-cost rankings remain unknown.
+The immediate next step is not supplier selection or sampling. It is the common RFQ and identity/provenance/document gate across Tier A, with Tier B used to prevent a false low-cost local optimum. Production-equivalent samples follow only after that gate passes. Until the sequenced evidence exists, all exact Formula fit, filled weight, hygiene, residual, breakage, seal integrity, sustainability score and landed-cost rankings remain unknown.
