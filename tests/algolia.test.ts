@@ -1071,7 +1071,7 @@ describe("catalog cache invalidation", () => {
     expect(targets.paths).toEqual(
       expect.arrayContaining([
         "/products/biotic-reset",
-        "/products/peptide-bounce",
+        "/products/maxxing-serum",
         "/products/ceramide-cushion",
       ]),
     );
@@ -1112,7 +1112,7 @@ describe("catalog cache invalidation", () => {
     expect(targets.paths).toContain(
       "/products/biotic-reset",
     );
-    expect(targets.paths).toContain("/products/peptide-bounce");
+    expect(targets.paths).toContain("/products/maxxing-serum");
     expect(targets.paths).toContain("/products/ceramide-cushion");
   });
 

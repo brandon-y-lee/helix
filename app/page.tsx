@@ -44,7 +44,12 @@ function productsForSlugs(
   slugs: readonly string[],
 ): ProductCard[] {
   return slugs.flatMap((slug) => {
-    const product = productsBySlug.get(slug);
+    // Keep TREAT visible while the coordinated Catalog rename is published.
+    const product =
+      productsBySlug.get(slug) ??
+      (slug === "maxxing-serum"
+        ? productsBySlug.get("peptide-bounce")
+        : undefined);
     return product ? [product] : [];
   });
 }

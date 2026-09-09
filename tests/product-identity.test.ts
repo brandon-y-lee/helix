@@ -12,7 +12,7 @@ describe("Product identity presentation", () => {
   it("identifies the approved Core by Product identity rather than Step tokens", () => {
     expect(CORE_ROUTINE_PRODUCT_SLUGS).toEqual([
       "biotic-reset",
-      "peptide-bounce",
+      "maxxing-serum",
       "ceramide-cushion",
     ]);
   });

@@ -12,6 +12,7 @@ import type { ProductCard } from "@/lib/catalog/models";
 
 const CORE_DESCRIPTION_KEY_BY_SLUG = {
   "biotic-reset": "cleanse",
+  "maxxing-serum": "treat",
   "peptide-bounce": "treat",
   "ceramide-cushion": "seal",
 } as const satisfies Readonly<Record<string, HomeCoreDescriptionKey>>;
@@ -22,15 +23,6 @@ const CORE_CARD_IMAGES_BY_SLUG = {
     alt: "Biotic Reset product bottle.",
     width: 1200,
     height: 1650,
-    objectPosition: "50% 54%",
-    presentation: "full-frame",
-    sizes: "(max-width: 900px) 92vw, 33vw",
-  },
-  "peptide-bounce": {
-    src: "/media/home/treat-product-card-default-01.webp",
-    alt: "Peptide Bounce product bottle.",
-    width: 1400,
-    height: 1867,
     objectPosition: "50% 54%",
     presentation: "full-frame",
     sizes: "(max-width: 900px) 92vw, 33vw",
