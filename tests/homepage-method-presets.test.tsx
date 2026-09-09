@@ -1,4 +1,10 @@
-import { render, screen, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 
 vi.mock("@/lib/catalog-cache", () => ({
@@ -13,6 +19,7 @@ import {
   getCachedProductCards,
 } from "@/lib/catalog-cache";
 import type { Product } from "@/lib/products";
+import { homeCoreDescriptions } from "@/lib/content/home";
 import type { SystemStepName } from "@/lib/catalog/system-steps";
 import { FORMER_BRAND_PATTERN } from "@/tests/helpers/former-identifiers";
 
@@ -171,6 +178,110 @@ describe("homepage product wiring", () => {
       "/products/peptide-nourish-mask",
     ]);
     expect(screen.queryByRole("button", { name: /PROTECT/i })).not.toBeInTheDocument();
+  });
+
+  it("keeps the Core in order after TREAT is renamed to Maxxing Serum", async () => {
+    mockedGetProducts.mockResolvedValue(
+      fixtures.map((product) =>
+        product.slug === "peptide-bounce"
+          ? { ...product, slug: "maxxing-serum", displayName: "Maxxing Serum" }
+          : product,
+      ),
+    );
+
+    render(<CartProvider>{await HomePage()}</CartProvider>);
+
+    expect(productDestinations(sectionForHeading("The Core"))).toEqual([
+      "/products/biotic-reset",
+      "/products/maxxing-serum",
+      "/products/ceramide-cushion",
+    ]);
+    expect(screen.getByRole("link", { name: "Maxxing Serum" })).toHaveAttribute(
+      "href",
+      "/products/maxxing-serum",
+    );
+  });
+
+  it("prefers the current TREAT slug if both names are present during publication", async () => {
+    mockedGetProducts.mockResolvedValue([
+      ...fixtures,
+      makeProduct("maxxing-serum", "Maxxing Serum", "TREAT", 3),
+    ]);
+
+    render(<CartProvider>{await HomePage()}</CartProvider>);
+
+    expect(productDestinations(sectionForHeading("The Core"))).toEqual([
+      "/products/biotic-reset",
+      "/products/maxxing-serum",
+      "/products/ceramide-cushion",
+    ]);
+    expect(
+      screen.queryByRole("link", { name: "Peptide Bounce" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["peptide-bounce", "Peptide Bounce"],
+    ["maxxing-serum", "Maxxing Serum"],
+  ])("uses canonical TREAT media and preview copy for %s", async (slug, displayName) => {
+    const product = makeProduct(slug, displayName, "TREAT", 3);
+    product.cardMedia = {
+      kind: "image",
+      url: "/test/treat-canonical-hero.webp",
+      alt: "Approved TREAT bottle hero",
+      width: 1122,
+      height: 1402,
+      role: "card_default",
+      sortOrder: 0,
+      paletteId: null,
+      palette: null,
+    };
+    product.cardHoverMedia = {
+      ...product.cardMedia,
+      url: "/test/treat-unchanged-portrait.webp",
+      alt: "Existing TREAT portrait",
+      role: "card_hover",
+    };
+    mockedGetProducts.mockResolvedValue(
+      fixtures.map((item) =>
+        item.slug === "peptide-bounce" ? product : item,
+      ),
+    );
+
+    render(<CartProvider>{await HomePage()}</CartProvider>);
+
+    const core = sectionForHeading("The Core");
+    const hero = within(core).getByRole("img", {
+      name: "Approved TREAT bottle hero",
+    });
+    expect(hero).toHaveAttribute(
+      "src",
+      expect.stringContaining("treat-canonical-hero.webp"),
+    );
+    expect(hero.closest(".product-card__image")).not.toHaveClass(
+      "product-card__image--asset",
+    );
+    const surface = hero.closest("[data-product-card-media]");
+    expect(surface).toHaveAttribute("data-product-card-media-layout", "full-bleed");
+    expect(
+      within(core).getByRole("img", { name: "Existing TREAT portrait" }),
+    ).toHaveAttribute(
+      "src",
+      expect.stringContaining("treat-unchanged-portrait.webp"),
+    );
+    expect(
+      within(core).getByRole("img", { name: "Biotic Reset product bottle." }),
+    ).toHaveAttribute(
+      "src",
+      expect.stringContaining("cleanse-product-card-default-01.webp"),
+    );
+
+    fireEvent.pointerEnter(surface!, { pointerType: "mouse" });
+    await waitFor(() =>
+      expect(core.querySelector(".home-phased-description")).toHaveTextContent(
+        homeCoreDescriptions.items.treat,
+      ),
+    );
   });
 
   it("links homepage ingredient previews to their canonical System anchors", async () => {
