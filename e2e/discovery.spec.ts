@@ -8,6 +8,7 @@ import { expect, test } from "./storefront-fixture";
 
 const CORE_DESCRIPTION_BY_SLUG = {
   "biotic-reset": homeCoreDescriptions.items.cleanse,
+  "maxxing-serum": homeCoreDescriptions.items.treat,
   "peptide-bounce": homeCoreDescriptions.items.treat,
   "ceramide-cushion": homeCoreDescriptions.items.seal,
 } as const;
@@ -89,8 +90,9 @@ test("historical Product slugs redirect permanently without dynamic render failu
   const redirects = [
     ["reset-01-calming-gel-cleanser", "biotic-reset"],
     ["cleanse-01-calming-gel-cleanser", "biotic-reset"],
-    ["recode-03-pdrn-5-ampoule", "peptide-bounce"],
-    ["treat-03-pdrn-5-ampoule", "peptide-bounce"],
+    ["recode-03-pdrn-5-ampoule", "maxxing-serum"],
+    ["treat-03-pdrn-5-ampoule", "maxxing-serum"],
+    ["peptide-bounce", "maxxing-serum"],
     ["refine-02-pore-treatment-pads", "balancing-prep"],
     ["frame-04-pdrn-eye-cream", "peptide-eye-cream"],
     ["lift-06-pdrn-mask-system", "peptide-nourish-mask"],
