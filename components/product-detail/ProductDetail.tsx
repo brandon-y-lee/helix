@@ -3,6 +3,7 @@ import { ProductEndorsementRail } from "@/components/product-detail/ProductEndor
 import { ProductReviewsSection } from "@/components/product-detail/ProductReviewsSection";
 import { PdpApplicationCarousel } from "@/components/product-detail/PdpApplicationCarousel";
 import { PdpCoreRoutineSection } from "@/components/product-detail/PdpCoreRoutineSection";
+import { PdpEffectsSection } from "@/components/product-detail/PdpEffectsSection";
 import { PdpGalleryIsland } from "@/components/product-detail/PdpGalleryIsland";
 import { PdpIngredientsSplit } from "@/components/product-detail/PdpIngredientsSplit";
 import { PdpOutcomeSplit } from "@/components/product-detail/PdpOutcomeSplit";
@@ -37,6 +38,7 @@ import {
 } from "@/lib/catalog/product-reviews";
 import { getCorePdpPresentation } from "@/lib/content/core-pdp";
 import { productEndorsementMedia } from "@/lib/content/product-endorsements";
+import { SERUM_EFFECTS_PRODUCT_ID } from "@/lib/content/serum-effects";
 
 function compactDescription(value: string) {
   const sentences = value
@@ -264,6 +266,7 @@ export function ProductDetail({
         aria-label={`${product.displayName} details`}
         data-pdp-panel-sequence
       >
+        {product.id === SERUM_EFFECTS_PRODUCT_ID && <PdpEffectsSection />}
         {corePresentation && profileMedia && coreProfileReady ? (
           <>
             <PdpProfileSplit

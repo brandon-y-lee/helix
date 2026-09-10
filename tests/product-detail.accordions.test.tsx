@@ -6,8 +6,9 @@ import {
   within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ProductDetail } from "@/components/product-detail/ProductDetail";
+import { SERUM_EFFECTS_PRODUCT_ID } from "@/lib/content/serum-effects";
 import type {
   CoreRoutineSummary,
   OfferAvailability,
@@ -255,7 +256,64 @@ beforeEach(() => {
   cartMock.openCartDrawer.mockReset();
 });
 
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
 describe("ProductDetail purchase accordions", () => {
+  it("places serum effects immediately after the routine video by stable Product identity", () => {
+    vi.stubGlobal("ResizeObserver", class {
+      observe() {}
+      disconnect() {}
+      unobserve() {}
+    });
+    vi.stubGlobal("matchMedia", vi.fn((query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })));
+    render(
+      <ProductDetail
+        product={makeProduct({
+          id: SERUM_EFFECTS_PRODUCT_ID,
+          slug: "a-future-serum-slug",
+          displayName: "Super Serum",
+        })}
+      />,
+    );
+
+    const effects = screen
+      .getByRole("heading", { name: "Four effects. One formula." })
+      .closest("section");
+    const details = screen.getByRole("region", { name: "Super Serum details" });
+    const video = screen.getByLabelText("Super Serum routine video");
+
+    expect(details.firstElementChild).toBe(effects);
+    expect(video.nextElementSibling).toBe(details);
+    expect(effects).not.toBeNull();
+  });
+
+  it("does not add serum effects to another Product with the same display name and slug", () => {
+    render(
+      <ProductDetail
+        product={makeProduct({
+          displayName: "Super Serum",
+          slug: "super-serum",
+        })}
+      />,
+    );
+
+    expect(
+      screen.queryByRole("heading", { name: "Four effects. One formula." }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Super Serum routine video")).toBeInTheDocument();
+  });
+
   it("renders the Core Routine in place of Details", () => {
     const coreDetailProducts = [
       makeProduct({
