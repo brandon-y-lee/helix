@@ -26,11 +26,11 @@ export default function CookiePolicyPage() {
           <table>
             <thead>
               <tr>
-                <th>Category</th>
-                <th>Status</th>
-                <th>Examples</th>
-                <th>Purpose</th>
-                <th>Optional</th>
+                <th scope="col">Category</th>
+                <th scope="col">Status</th>
+                <th scope="col">Examples</th>
+                <th scope="col">Purpose</th>
+                <th scope="col">Optional</th>
               </tr>
             </thead>
             <tbody>
