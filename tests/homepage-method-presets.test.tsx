@@ -157,6 +157,16 @@ beforeEach(() => {
 });
 
 describe("homepage product wiring", () => {
+  it("offers one Core product list through the shared carousel without duplicating its imagery", async () => {
+    render(<CartProvider>{await HomePage()}</CartProvider>);
+
+    const core = sectionForHeading("The Core");
+    const rail = within(core).getByRole("region", { name: "The Core products" });
+    expect(within(rail).getAllByRole("listitem")).toHaveLength(3);
+    expect(within(core).getAllByRole("link", { name: "Biotic Reset" })).toHaveLength(1);
+    expect(within(core).getAllByRole("img", { name: "Biotic Reset product bottle." })).toHaveLength(1);
+  });
+
   it("uses the lowercase helix name in the editorial hero", async () => {
     render(<CartProvider>{await HomePage()}</CartProvider>);
 
@@ -318,6 +328,9 @@ describe("homepage product wiring", () => {
     render(<CartProvider>{await HomePage()}</CartProvider>);
 
     const ingredients = sectionForHeading("Know what you are using.");
+    expect(
+      within(ingredients).getByRole("region", { name: "Ingredient literacy preview" }),
+    ).toBeInTheDocument();
     expect(
       within(ingredients).getByRole("link", {
         name: "Read about PDRN in the System",

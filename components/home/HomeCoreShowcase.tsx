@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { HomePhasedDescription } from "@/components/home/HomePhasedDescription";
-import { ProductGrid } from "@/components/product/ProductGrid";
+import { ProductCarousel } from "@/components/product/ProductCarousel";
 import type { ProductCardImageOverride } from "@/components/product/ProductCard";
 import {
   homeCoreDescriptions,
@@ -26,7 +26,7 @@ const CORE_CARD_IMAGES_BY_SLUG = {
     height: 1650,
     objectPosition: "50% 54%",
     presentation: "full-frame",
-    sizes: "(max-width: 900px) 92vw, 33vw",
+    sizes: "(max-width: 720px) 80vw, (max-width: 900px) 44vw, 33vw",
   },
 } as const satisfies Readonly<Record<string, ProductCardImageOverride>>;
 
@@ -54,9 +54,11 @@ export function HomeCoreShowcase({ products }: { products: ProductCard[] }) {
       </div>
 
       {products.length > 0 && (
-        <ProductGrid
+        <ProductCarousel
           products={products}
-          className="product-grid home-core-products"
+          className="home-core-products"
+          ariaLabel="The Core products"
+          announcementContext="The Core"
           defaultImageBySlug={CORE_CARD_IMAGES_BY_SLUG}
           previewKeyBySlug={CORE_DESCRIPTION_KEY_BY_SLUG}
           onPreviewChange={(key) =>
