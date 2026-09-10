@@ -79,7 +79,7 @@ test("an unverifiable Checkout return fails closed", async ({ page }) => {
   ).toHaveCount(0);
 });
 
-test("phone cart keeps populated items, update recovery and checkout reachable at normal and short heights", async ({ page, storefront }) => {
+test("phone cart keeps populated items, update recovery and checkout reachable at normal and short heights", async ({ browserName, page, storefront }) => {
   const cart = createCartLayoutFixture(storefront.snapshot.products, {
     lineCount: 6,
     quantity: 2,
@@ -154,9 +154,9 @@ test("phone cart keeps populated items, update recovery and checkout reachable a
       expect(await items.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(true);
     }
     await lastRemove.focus();
-    await page.keyboard.press("Tab");
+    await page.keyboard.press(browserName === "webkit" ? "Alt+Tab" : "Tab");
     await expect(summary.getByRole("link", { name: "Sign in", exact: true })).toBeFocused();
-    await page.keyboard.press("Tab");
+    await page.keyboard.press(browserName === "webkit" ? "Alt+Tab" : "Tab");
     await expect(checkout).toBeFocused();
     await expect(checkout).toBeInViewport({ ratio: 1 });
 

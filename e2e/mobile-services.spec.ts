@@ -78,7 +78,7 @@ test("phone FAQ categories reveal the hash selection and keep native answers usa
   expect((await summary.boundingBox())!.height).toBeGreaterThanOrEqual(48);
 });
 
-test("legal Contents uses a closed phone disclosure and exposes one navigation across breakpoints", async ({ page }) => {
+test("legal Contents uses a closed phone disclosure and exposes one navigation across breakpoints", async ({ browserName, page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/terms");
@@ -93,7 +93,7 @@ test("legal Contents uses a closed phone disclosure and exposes one navigation a
   await page.keyboard.press("Enter");
   await expect(contents).toHaveAttribute("open", "");
   await expect(navigation).toHaveCount(1);
-  await page.keyboard.press("Tab");
+  await page.keyboard.press(browserName === "webkit" ? "Alt+Tab" : "Tab");
   await expect(navigation.getByRole("link").first()).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/\/terms#publication-status$/);
@@ -112,7 +112,7 @@ test("legal Contents uses a closed phone disclosure and exposes one navigation a
   await page.keyboard.press("Enter");
   await expect(contents).not.toHaveAttribute("open");
   await page.keyboard.press("Enter");
-  await page.keyboard.press("Tab");
+  await page.keyboard.press(browserName === "webkit" ? "Alt+Tab" : "Tab");
   await expect(mobilePublication).toBeFocused();
 
   await page.setViewportSize({ width: 721, height: 1024 });
@@ -222,7 +222,7 @@ for (const access of [
   { path: "/account/sign-up", heading: "Create Account", action: "Create account", firstField: "First name" },
   { path: "/account/forgot-password", heading: "Reset password", action: "Send reset link", firstField: "Email" },
 ]) {
-  test(`phone ${access.heading} form starts near the panel top and fits narrow screens`, async ({ page }) => {
+  test(`phone ${access.heading} form starts near the panel top and fits narrow screens`, async ({ browserName, page }) => {
     for (const width of [320, 390]) {
       await page.setViewportSize({ width, height: 844 });
       await page.goto(access.path);
@@ -271,7 +271,7 @@ for (const access of [
       await expectNoDocumentOverflow(page);
 
       await form.getByLabel(access.firstField, { exact: true }).focus();
-      await page.keyboard.press("Tab");
+      await page.keyboard.press(browserName === "webkit" ? "Alt+Tab" : "Tab");
       const fields = form.locator('input:not([type="hidden"])');
       if (await fields.count() > 1) {
         await expect(fields.nth(1)).toBeFocused();
@@ -281,6 +281,58 @@ for (const access of [
     }
   });
 }
+
+test("phone sign-up keeps enlarged heading text and form controls inside the reading frame", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 568 });
+  await page.goto("/account/sign-up");
+  await page.evaluate(() => document.fonts.ready);
+
+  const panel = page.locator(".account-access-layout__form-panel");
+  const heading = panel.getByRole("heading", { name: "Create Account", exact: true });
+  const baselineFontSize = await heading.evaluate((element) =>
+    Number.parseFloat(getComputedStyle(element).fontSize),
+  );
+  const enlargedText = await page.addStyleTag({ content: "html { font-size: 200%; }" });
+  await expect.poll(() => heading.evaluate((element) =>
+    Number.parseFloat(getComputedStyle(element).fontSize),
+  )).toBeGreaterThanOrEqual(baselineFontSize * 2);
+
+  const geometry = await heading.evaluate((element) => {
+    const form = element.closest(".account-access-layout__form")!.getBoundingClientRect();
+    const range = document.createRange();
+    range.selectNodeContents(element);
+    return {
+      form: { left: form.left, right: form.right },
+      clientWidth: element.clientWidth,
+      scrollWidth: element.scrollWidth,
+      text: Array.from(range.getClientRects(), (rect) => ({ left: rect.left, right: rect.right })),
+    };
+  });
+  expect(geometry.text.length).toBeGreaterThan(1);
+  expect(geometry.scrollWidth).toBeLessThanOrEqual(geometry.clientWidth + 1);
+  for (const line of geometry.text) {
+    expect(line.left).toBeGreaterThanOrEqual(geometry.form.left - 1);
+    expect(line.right).toBeLessThanOrEqual(geometry.form.right + 1);
+  }
+
+  const controls = panel.locator('.account-form input:not([type="hidden"]), .account-form button[type="submit"]');
+  await expect(panel.getByRole("button", { name: "Create account", exact: true })).toBeVisible();
+  expect(await controls.count()).toBeGreaterThan(1);
+  for (const control of await controls.all()) {
+    await control.scrollIntoViewIfNeeded();
+    const box = (await control.boundingBox())!;
+    expect(box.x).toBeGreaterThanOrEqual(geometry.form.left - 1);
+    expect(box.x + box.width).toBeLessThanOrEqual(geometry.form.right + 1);
+    expect(box.y).toBeGreaterThanOrEqual(0);
+    expect(box.y + box.height).toBeLessThanOrEqual(568);
+  }
+
+  await enlargedText.evaluate((element) => {
+    element.parentNode?.removeChild(element);
+  });
+  await page.setViewportSize({ width: 721, height: 1000 });
+  await expect(heading).toHaveCSS("white-space", "nowrap");
+});
 
 test("account access keeps the centered tablet panel and desktop image composition", async ({ page }) => {
   await page.setViewportSize({ width: 721, height: 1000 });
