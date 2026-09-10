@@ -184,6 +184,7 @@ test("pilot gallery has bounded pointer and keyboard navigation and retains sele
   for (const viewport of [
     { width: 820, height: 1024 },
     { width: 821, height: 1024 },
+    { width: 390, height: 844 },
     { width: 1440, height: 1000 },
     { width: 390, height: 844 },
   ]) {
@@ -191,6 +192,15 @@ test("pilot gallery has bounded pointer and keyboard navigation and retains sele
     await expect(thumbnails.last()).toHaveAttribute("aria-pressed", "true");
     await expect(activeSlide).toHaveAttribute("data-pdp-gallery-state", String(media.length));
     await expect(thumbnails.last()).toBeFocused();
+    const primaryBox = await box(page.locator(".pdp"));
+    for (const child of [gallery, page.locator(".pdp__purchase")]) {
+      const childBox = await box(child);
+      expect(childBox.x).toBeGreaterThanOrEqual(primaryBox.x - 1);
+      expect(childBox.x + childBox.width).toBeLessThanOrEqual(primaryBox.x + primaryBox.width + 1);
+      if (viewport.width <= 820) {
+        expect(childBox.width).toBeCloseTo(primaryBox.width, 0);
+      }
+    }
     await expectNoMainOverflow(page, viewport.width);
   }
 });
