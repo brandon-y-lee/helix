@@ -245,7 +245,7 @@ describe("catalog search sync route", () => {
     expect(response.status).toBe(200);
     expect(revalidateTagMock).toHaveBeenCalledWith("catalog-core-routine");
     expect(revalidatePathMock).toHaveBeenCalledWith("/products/biotic-reset");
-    expect(revalidatePathMock).toHaveBeenCalledWith("/products/maxxing-serum");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/products/super-serum");
     expect(revalidatePathMock).toHaveBeenCalledWith(
       "/products/ceramide-cushion",
     );

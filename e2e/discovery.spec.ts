@@ -8,6 +8,7 @@ import { expect, test } from "./storefront-fixture";
 
 const CORE_DESCRIPTION_BY_SLUG = {
   "biotic-reset": homeCoreDescriptions.items.cleanse,
+  "super-serum": homeCoreDescriptions.items.treat,
   "maxxing-serum": homeCoreDescriptions.items.treat,
   "peptide-bounce": homeCoreDescriptions.items.treat,
   "ceramide-cushion": homeCoreDescriptions.items.seal,
@@ -86,18 +87,38 @@ async function renderedProducts(
 
 test("historical Product slugs redirect permanently without dynamic render failures", async ({
   request,
+  storefront,
 }) => {
-  const redirects = [
+  const treatProducts = storefront.products("core").filter(
+    (product) => product.systemStepName === "TREAT",
+  );
+  expect(
+    treatProducts,
+    "The Core must have one canonical TREAT Product",
+  ).toHaveLength(1);
+  const treat = treatProducts[0];
+  if (!treat) throw new Error("The Storefront snapshot has no TREAT Product.");
+  expect(["maxxing-serum", "super-serum"]).toContain(treat.slug);
+
+  const canonicalResponse = await request.get(treat.path, {
+    maxRedirects: 0,
+  });
+  expect(canonicalResponse.status(), treat.slug).toBe(200);
+
+  const redirects: [string, string][] = [
     ["reset-01-calming-gel-cleanser", "biotic-reset"],
     ["cleanse-01-calming-gel-cleanser", "biotic-reset"],
-    ["recode-03-pdrn-5-ampoule", "maxxing-serum"],
-    ["treat-03-pdrn-5-ampoule", "maxxing-serum"],
-    ["peptide-bounce", "maxxing-serum"],
+    ["recode-03-pdrn-5-ampoule", treat.slug],
+    ["treat-03-pdrn-5-ampoule", treat.slug],
+    ["peptide-bounce", treat.slug],
     ["refine-02-pore-treatment-pads", "balancing-prep"],
     ["frame-04-pdrn-eye-cream", "peptide-eye-cream"],
     ["lift-06-pdrn-mask-system", "peptide-nourish-mask"],
     ["seal-05-green-collagen-cream", "ceramide-cushion"],
-  ] as const;
+  ];
+  if (treat.slug !== "maxxing-serum") {
+    redirects.push(["maxxing-serum", treat.slug]);
+  }
 
   for (const [source, target] of redirects) {
     const response = await request.get(`/products/${source}`, {

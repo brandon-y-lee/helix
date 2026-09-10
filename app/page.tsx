@@ -47,8 +47,9 @@ function productsForSlugs(
     // Keep TREAT visible while the coordinated Catalog rename is published.
     const product =
       productsBySlug.get(slug) ??
-      (slug === "maxxing-serum"
-        ? productsBySlug.get("peptide-bounce")
+      (slug === "super-serum"
+        ? productsBySlug.get("maxxing-serum") ??
+          productsBySlug.get("peptide-bounce")
         : undefined);
     return product ? [product] : [];
   });
