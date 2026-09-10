@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PdpEducationFocus } from "@/components/product-detail/PdpEducationFocus";
 
 function renderEducation(presentation = "mobile-pilot") {
@@ -9,12 +9,14 @@ function renderEducation(presentation = "mobile-pilot") {
       <div className="pdp-sections">
         <button type="button">Next application step</button>
         <button type="button">Close ingredients</button>
+        <button type="button">FULL INGREDIENTS LIST</button>
       </div>
       <button type="button">Product purchase</button>
       <div className="pdp-sticky-purchase" data-visible="true" data-testid="sticky-purchase" />
     </main>,
   );
   vi.stubGlobal("innerHeight", 800);
+  vi.stubGlobal("innerWidth", 390);
   vi.spyOn(screen.getByTestId("sticky-purchase"), "getBoundingClientRect").mockReturnValue(
     new DOMRect(0, 728, 390, 72),
   );
@@ -25,6 +27,12 @@ async function afterResize() {
   await new Promise((resolve) => window.requestAnimationFrame(() => window.requestAnimationFrame(resolve)));
 }
 
+beforeEach(() => {
+  vi.stubGlobal("matchMedia", (query: string) => ({
+    matches: query === "(max-width: 820px)" && window.innerWidth <= 820,
+  }));
+});
+
 afterEach(() => {
   document.body.removeAttribute("data-sheet-scroll-lock");
   vi.unstubAllGlobals();
@@ -32,6 +40,33 @@ afterEach(() => {
 });
 
 describe("PdpEducationFocus", () => {
+  it("reveals the restored phone trigger after native scrolling places it behind the header", async () => {
+    const scroll = vi.spyOn(window, "scrollBy").mockImplementation(() => {});
+    renderEducation();
+    vi.stubGlobal("innerHeight", 844);
+    vi.mocked(screen.getByTestId("sticky-purchase").getBoundingClientRect).mockReturnValue(
+      new DOMRect(0, 771, 390, 73),
+    );
+    const trigger = screen.getByRole("button", { name: "FULL INGREDIENTS LIST" });
+    const bounds = vi.spyOn(trigger, "getBoundingClientRect").mockReturnValue(
+      new DOMRect(20, 240, 173.140625, 48),
+    );
+    trigger.focus();
+    // Captured WebKit geometry after closing the inline list and native focus scrolling.
+    window.requestAnimationFrame(() => bounds.mockReturnValue(new DOMRect(20, -0.375, 173.140625, 48)));
+
+    await waitFor(() => expect(scroll).toHaveBeenCalledWith({ top: -72.375, behavior: "instant" }));
+    expect(trigger).toHaveFocus();
+
+    scroll.mockClear();
+    bounds.mockReturnValue(new DOMRect(20, 240, 173.140625, 48));
+    trigger.blur();
+    trigger.focus();
+    await afterResize();
+    expect(scroll).not.toHaveBeenCalled();
+    expect(trigger).toHaveFocus();
+  });
+
   it("reveals focused education moved by resize and leaves already-visible focus in place", async () => {
     const scroll = vi.spyOn(window, "scrollBy").mockImplementation(() => {});
     renderEducation();
@@ -58,6 +93,18 @@ describe("PdpEducationFocus", () => {
     expect(next).toHaveFocus();
   });
 
+  it("leaves ordinary desktop focus scrolling to the browser", async () => {
+    const scroll = vi.spyOn(window, "scrollBy").mockImplementation(() => {});
+    renderEducation();
+    vi.stubGlobal("innerWidth", 821);
+    const trigger = screen.getByRole("button", { name: "FULL INGREDIENTS LIST" });
+    vi.spyOn(trigger, "getBoundingClientRect").mockReturnValue(new DOMRect(20, -0.375, 173.140625, 48));
+    trigger.focus();
+    await afterResize();
+    expect(scroll).not.toHaveBeenCalled();
+    expect(trigger).toHaveFocus();
+  });
+
   it("measures current focus after responsive handoff and coalesces resize events", async () => {
     const scroll = vi.spyOn(window, "scrollBy").mockImplementation(() => {});
     renderEducation();
@@ -77,7 +124,7 @@ describe("PdpEducationFocus", () => {
   });
 
   it.each(["body", "purchase", "other-product", "inert", "aria-hidden", "modal", "scroll-lock", "css-hidden"])(
-    "leaves %s focus alone during resize",
+    "leaves %s focus alone after focus restoration and resize",
     async (surface) => {
       const scroll = vi.spyOn(window, "scrollBy").mockImplementation(() => {});
       renderEducation(surface === "other-product" ? "default" : "mobile-pilot");
@@ -93,6 +140,8 @@ describe("PdpEducationFocus", () => {
       if (surface === "scroll-lock") document.body.setAttribute("data-sheet-scroll-lock", "");
       if (surface === "css-hidden") target.style.visibility = "hidden";
 
+      await afterResize();
+      expect(scroll).not.toHaveBeenCalled();
       fireEvent.resize(window);
       await afterResize();
       expect(scroll).not.toHaveBeenCalled();

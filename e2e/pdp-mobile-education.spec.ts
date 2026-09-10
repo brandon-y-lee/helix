@@ -206,6 +206,7 @@ test("inline INCI preserves the reader's place and visible focus through disclos
   const trigger = ingredients.getByRole("button", { name: "FULL INGREDIENTS LIST", exact: true });
   await trigger.scrollIntoViewIfNeeded();
   await trigger.focus();
+  await expectFocusedVisible(page);
   const before = await page.evaluate(() => window.scrollY);
   await trigger.press("Enter");
   await expect(trigger).toHaveAttribute("aria-expanded", "true");

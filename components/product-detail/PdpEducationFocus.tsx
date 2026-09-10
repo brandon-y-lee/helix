@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { PDP_MOBILE_PILOT_QUERY } from "./pdp-presentation";
 
 export function PdpEducationFocus() {
   useEffect(() => {
@@ -30,17 +31,23 @@ export function PdpEducationFocus() {
       if (top) window.scrollBy({ top, behavior: "instant" });
     }
 
-    function onResize() {
+    function scheduleReveal() {
       if (frame !== null) window.cancelAnimationFrame(frame);
-      // Let responsive effects transfer focus before measuring its new position.
+      // Let responsive effects and native focus scrolling settle before measuring.
       frame = window.requestAnimationFrame(() => {
         frame = window.requestAnimationFrame(revealFocusedEducation);
       });
     }
 
-    window.addEventListener("resize", onResize);
+    function onFocusIn() {
+      if (window.matchMedia?.(PDP_MOBILE_PILOT_QUERY).matches) scheduleReveal();
+    }
+
+    window.addEventListener("resize", scheduleReveal);
+    document.addEventListener("focusin", onFocusIn);
     return () => {
-      window.removeEventListener("resize", onResize);
+      window.removeEventListener("resize", scheduleReveal);
+      document.removeEventListener("focusin", onFocusIn);
       if (frame !== null) window.cancelAnimationFrame(frame);
     };
   }, []);
