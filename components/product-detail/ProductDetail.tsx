@@ -37,6 +37,7 @@ import {
 } from "@/lib/catalog/product-reviews";
 import { getCorePdpPresentation } from "@/lib/content/core-pdp";
 import { productEndorsementMedia } from "@/lib/content/product-endorsements";
+import type { PdpPresentation } from "./pdp-presentation";
 
 function compactDescription(value: string) {
   const sentences = value
@@ -135,6 +136,7 @@ export function ProductDetail({
   reviews = getProductReviews(product.slug),
   stripePublishableKey = null,
   commerceDisabled = false,
+  presentation = "default",
 }: {
   product: PdpProduct;
   coreProducts?: CoreRoutineSummary[];
@@ -142,6 +144,7 @@ export function ProductDetail({
   reviews?: ProductReviews;
   stripePublishableKey?: string | null;
   commerceDisabled?: boolean;
+  presentation?: PdpPresentation;
 }) {
   const routineLabel = routineDisplayLabelForProduct(product);
   const leadDescription = compactDescription(
@@ -220,10 +223,12 @@ export function ProductDetail({
         <PdpGalleryIsland
           key={`gallery:${product.slug}`}
           {...galleryProps}
+          presentation={presentation}
         />
         <PdpPurchaseIsland
           key={`purchase:${product.slug}`}
           {...purchaseProps}
+          presentation={presentation}
           accordions={
             <PdpPurchaseAccordions
               key={`accordions:${product.slug}`}
