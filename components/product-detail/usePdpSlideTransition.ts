@@ -30,10 +30,12 @@ export function usePdpSlideTransition({
   initialIndex,
   itemCount,
   resetKey,
+  durationMs = PDP_SLIDE_DURATION_MS,
 }: {
   initialIndex: number;
   itemCount: number;
   resetKey: string;
+  durationMs?: number;
 }) {
   const boundedInitialIndex = Math.min(
     Math.max(initialIndex, 0),
@@ -56,6 +58,11 @@ export function usePdpSlideTransition({
   }, []);
 
   useEffect(() => clearTransition, [clearTransition]);
+
+  useEffect(() => {
+    clearTransition();
+    setOutgoingIndex(null);
+  }, [clearTransition, durationMs]);
 
   useEffect(() => {
     clearTransition();
@@ -93,10 +100,10 @@ export function usePdpSlideTransition({
       transitionTimeoutRef.current = setTimeout(() => {
         setOutgoingIndex(null);
         transitionTimeoutRef.current = null;
-      }, PDP_SLIDE_DURATION_MS);
+      }, durationMs);
       return true;
     },
-    [clearTransition, itemCount],
+    [clearTransition, durationMs, itemCount],
   );
 
   const advance = useCallback(

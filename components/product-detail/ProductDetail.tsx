@@ -38,6 +38,8 @@ import {
 import { getCorePdpPresentation } from "@/lib/content/core-pdp";
 import { productEndorsementMedia } from "@/lib/content/product-endorsements";
 import type { PdpPresentation } from "./pdp-presentation";
+import { PdpEducationFocus } from "./PdpEducationFocus";
+import "./pdp-mobile-education.css";
 
 function compactDescription(value: string) {
   const sentences = value
@@ -258,6 +260,7 @@ export function ProductDetail({
             video={routineVideo}
             poster={routinePoster}
             swatch={product.swatch}
+            pdpPresentation={presentation}
           />
         ) : null
       ) : (
@@ -269,12 +272,14 @@ export function ProductDetail({
         aria-label={`${product.displayName} details`}
         data-pdp-panel-sequence
       >
+        {presentation === "mobile-pilot" && <PdpEducationFocus />}
         {corePresentation && profileMedia && coreProfileReady ? (
           <>
             <PdpProfileSplit
               product={product}
               presentation={corePresentation}
               media={profileMedia}
+              pdpPresentation={presentation}
             />
             <PdpOutcomeSplit
               key={`outcomes:${product.slug}`}
@@ -283,6 +288,7 @@ export function ProductDetail({
             <PdpApplicationCarousel
               key={`application:${product.slug}`}
               {...applicationIslandProps(product, corePresentation)}
+              pdpPresentation={presentation}
             />
             {content?.ingredientStory && (
               <PdpIngredientsSplit
@@ -294,6 +300,7 @@ export function ProductDetail({
                 swatch={product.swatch}
                 fullInci={resolvedFullInci}
                 mediaPosition={corePresentation.ingredientsMediaPosition}
+                pdpPresentation={presentation}
               />
             )}
           </>
@@ -358,6 +365,7 @@ export function ProductDetail({
             key={`core-routine:${product.slug}`}
             products={coreProducts}
             currentSlug={product.slug}
+            pdpPresentation={presentation}
           />
         )}
       </section>
@@ -367,6 +375,7 @@ export function ProductDetail({
         productName={product.displayName}
         productSlug={product.slug}
         reviews={reviews}
+        pdpPresentation={presentation}
       />
     </>
   );

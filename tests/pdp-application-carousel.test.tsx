@@ -1,5 +1,5 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   orderedPdpApplicationMedia,
   PdpApplicationCarousel,
@@ -55,7 +55,148 @@ const productMedia = [
   applicationMedia(2),
 ];
 
+let mobile = true;
+let reducedMotion = false;
+const mediaListeners = new Set<() => void>();
+
+function resizeToMobile(value: boolean) {
+  act(() => {
+    mobile = value;
+    for (const listener of mediaListeners) listener();
+  });
+}
+
+beforeEach(() => {
+  mobile = true;
+  reducedMotion = false;
+  mediaListeners.clear();
+  vi.stubGlobal("matchMedia", (query: string) => ({
+    matches: query === "(max-width: 820px)" ? mobile : query === "(prefers-reduced-motion: reduce)" && reducedMotion,
+    addEventListener: (_event: string, listener: () => void) => mediaListeners.add(listener),
+    removeEventListener: (_event: string, listener: () => void) => mediaListeners.delete(listener),
+  }));
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.useRealTimers();
+});
+
 describe("PdpApplicationCarousel", () => {
+  it("lets phone keyboard users select and focus the montage steps within its bounds", () => {
+    render(
+      <PdpApplicationCarousel
+        productName="Super Serum"
+        steps={steps}
+        media={productMedia}
+        pdpPresentation="mobile-pilot"
+      />,
+    );
+    const first = screen.getByRole("button", { name: "Show application step 1 of 3" });
+    const second = screen.getByRole("button", { name: "Show application step 2 of 3" });
+    const last = screen.getByRole("button", { name: "Show application step 3 of 3" });
+
+    first.focus();
+    fireEvent.keyDown(first, { key: "End" });
+    expect(last).toHaveFocus();
+    expect(last).toHaveAttribute("aria-pressed", "true");
+    fireEvent.keyDown(last, { key: "ArrowRight" });
+    expect(last).toHaveFocus();
+    expect(last).toHaveAttribute("aria-pressed", "true");
+    fireEvent.keyDown(last, { key: "Home" });
+    expect(first).toHaveFocus();
+    fireEvent.keyDown(first, { key: "ArrowLeft" });
+    expect(first).toHaveFocus();
+    fireEvent.keyDown(first, { key: "ArrowRight" });
+    expect(second).toHaveFocus();
+    expect(second).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getAllByRole("heading", { name: "APPLICATION" })).toHaveLength(1);
+    expect(screen.getByText("Application step 2 of 3: Second application step is deliberately longer.")).toHaveAttribute("aria-live", "polite");
+  });
+
+  it("keeps the selected step and a reachable control when a focused phone-only control leaves on resize", () => {
+    render(
+      <PdpApplicationCarousel
+        productName="Super Serum"
+        steps={steps}
+        media={productMedia}
+        pdpPresentation="mobile-pilot"
+      />,
+    );
+    const previous = screen.getByRole("button", { name: "Show previous application step" });
+    const next = screen.getByRole("button", { name: "Show next application step" });
+    const third = screen.getByRole("button", { name: "Show application step 3 of 3" });
+    fireEvent.click(third);
+    fireEvent.click(previous);
+    expect(screen.getByRole("button", { name: "Show application step 2 of 3" })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(next);
+    expect(third).toHaveAttribute("aria-pressed", "true");
+
+    previous.focus();
+    const nextFocus = vi.spyOn(next, "focus");
+    resizeToMobile(false);
+    expect(screen.queryByRole("button", { name: "Show previous application step" })).not.toBeInTheDocument();
+    expect(next).toHaveFocus();
+    expect(nextFocus).toHaveBeenCalledWith({ preventScroll: true });
+    expect(third).toHaveAttribute("aria-pressed", "true");
+
+    resizeToMobile(true);
+    expect(next).toHaveFocus();
+    expect(third).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Show previous application step" })).toBeVisible();
+  });
+
+  it("identifies the phone's selected image with text as well as its pressed state", () => {
+    render(
+      <PdpApplicationCarousel
+        productName="Super Serum"
+        steps={steps}
+        media={productMedia}
+        pdpPresentation="mobile-pilot"
+      />,
+    );
+    const first = screen.getByRole("button", { name: "Show application step 1 of 3" });
+    const second = screen.getByRole("button", { name: "Show application step 2 of 3" });
+    const third = screen.getByRole("button", { name: "Show application step 3 of 3" });
+    expect(within(first).getByText("Step 1")).toBeVisible();
+    expect(within(second).getByText("Step 2")).toBeVisible();
+    expect(within(third).getByText("Step 3")).toBeVisible();
+    expect(within(first).getByText("Selected")).toBeVisible();
+
+    fireEvent.click(second);
+    expect(within(first).queryByText("Selected")).not.toBeInTheDocument();
+    expect(within(second).getByText("Selected")).toBeVisible();
+    expect(second).toHaveAttribute("aria-pressed", "true");
+    resizeToMobile(false);
+    expect(screen.queryByText("Selected")).not.toBeInTheDocument();
+  });
+
+  it("retires phone instructions after 250ms and immediately when motion is reduced", () => {
+    vi.useFakeTimers();
+    render(
+      <PdpApplicationCarousel
+        productName="Super Serum"
+        steps={steps}
+        media={productMedia}
+        pdpPresentation="mobile-pilot"
+      />,
+    );
+    const first = screen.getByText("First application step.").closest("article");
+    const second = screen.getByText("Second application step is deliberately longer.").closest("article");
+    const next = screen.getByRole("button", { name: "Show next application step" });
+    fireEvent.click(next);
+    act(() => vi.advanceTimersByTime(249));
+    expect(first).toHaveAttribute("data-state", "outgoing");
+    act(() => vi.advanceTimersByTime(1));
+    expect(first).toHaveAttribute("data-state", "inactive");
+    expect(second).toHaveAttribute("aria-hidden", "false");
+
+    reducedMotion = true;
+    fireEvent.click(next);
+    expect(second).toHaveAttribute("data-state", "inactive");
+    expect(screen.getByText("Third application step.").closest("article")).toHaveAttribute("aria-hidden", "false");
+  });
+
   it("exposes one active accessible step while reserving every state", () => {
     const { container } = render(
       <PdpApplicationCarousel
