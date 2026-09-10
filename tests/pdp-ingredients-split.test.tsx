@@ -141,52 +141,6 @@ describe("PdpIngredientsSplit", () => {
     expect(trigger).toHaveAttribute("aria-expanded", "false");
   });
 
-  it("reveals a focused control moved outside the clear viewport on resize without scrolling visible focus", async () => {
-    const user = userEvent.setup();
-    vi.stubGlobal("innerHeight", 800);
-    const scroll = vi.spyOn(window, "scrollBy").mockImplementation(() => {});
-    render(
-      <>
-        <PdpIngredientsSplit
-          productSlug="super-serum"
-          productName="Super Serum"
-          story={story}
-          media={media}
-          swatch={["#d9e2dc", "#81998d"]}
-          fullInci={fullInci}
-          mediaPosition="50% 50%"
-          pdpPresentation="mobile-pilot"
-        />
-        <div className="pdp-sticky-purchase" data-visible="true" data-testid="sticky-purchase" />
-      </>,
-    );
-    vi.spyOn(screen.getByTestId("sticky-purchase"), "getBoundingClientRect").mockReturnValue(
-      new DOMRect(0, 728, 390, 72),
-    );
-    await user.click(screen.getByRole("button", { name: "FULL INGREDIENTS LIST" }));
-    await user.tab();
-    const close = screen.getByRole("button", { name: "Close full ingredients list" });
-    const controlBounds = vi.spyOn(close, "getBoundingClientRect").mockReturnValue(
-      new DOMRect(20, 900, 48, 48),
-    );
-
-    resizeToMobile(false);
-    await waitFor(() => expect(scroll).toHaveBeenCalledWith({ top: 228, behavior: "instant" }));
-    expect(close).toHaveFocus();
-
-    scroll.mockClear();
-    controlBounds.mockReturnValue(new DOMRect(20, 240, 48, 48));
-    resizeToMobile(true);
-    await new Promise((resolve) => window.requestAnimationFrame(resolve));
-    expect(scroll).not.toHaveBeenCalled();
-    expect(close).toHaveFocus();
-
-    controlBounds.mockReturnValue(new DOMRect(20, 20, 48, 48));
-    resizeToMobile(false);
-    await waitFor(() => expect(scroll).toHaveBeenCalledWith({ top: -52, behavior: "instant" }));
-    expect(close).toHaveFocus();
-  });
-
   it("replaces only the left story, preserves the image, and restores focus", async () => {
     const user = userEvent.setup();
     render(

@@ -40,9 +40,7 @@ export function PdpIngredientsSplit({
   const [expanded, setExpanded] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
-  const fullListRef = useRef<HTMLDivElement>(null);
   const wasExpanded = useRef(false);
-  const previousMobile = useRef(mobilePilot);
   const headingId = useId();
   const disclosureId = useId();
 
@@ -66,36 +64,6 @@ export function PdpIngredientsSplit({
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, [expanded, mobilePilot]);
-
-  useEffect(() => {
-    const changed = previousMobile.current !== mobilePilot;
-    previousMobile.current = mobilePilot;
-    if (!pilot || !changed) return;
-
-    const focused = document.activeElement;
-    if (
-      !(focused instanceof HTMLElement) ||
-      (focused !== triggerRef.current && !fullListRef.current?.contains(focused))
-    ) return;
-
-    const frame = window.requestAnimationFrame(() => {
-      if (document.activeElement !== focused) return;
-      const bounds = focused.getBoundingClientRect();
-      if (!bounds.width || !bounds.height) return;
-      const sticky = document.querySelector<HTMLElement>(
-        '.pdp-sticky-purchase[data-visible="true"]',
-      );
-      const clearTop = 64 + 8;
-      const clearBottom = window.innerHeight - (sticky?.getBoundingClientRect().height ?? 0) - 8;
-      const top = bounds.top < clearTop
-        ? bounds.top - clearTop
-        : bounds.bottom > clearBottom
-          ? bounds.bottom - clearBottom
-          : 0;
-      if (top) window.scrollBy({ top, behavior: "instant" });
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [mobilePilot, pilot]);
 
   function closeDisclosure() {
     setExpanded(false);
@@ -130,7 +98,6 @@ export function PdpIngredientsSplit({
 
   const fullList = (
     <div
-      ref={fullListRef}
       id={disclosureId}
       className="pdp-ingredients__full"
       data-state={expanded ? "active" : "inactive"}

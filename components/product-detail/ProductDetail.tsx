@@ -38,6 +38,7 @@ import {
 import { getCorePdpPresentation } from "@/lib/content/core-pdp";
 import { productEndorsementMedia } from "@/lib/content/product-endorsements";
 import type { PdpPresentation } from "./pdp-presentation";
+import { PdpEducationFocus } from "./PdpEducationFocus";
 import "./pdp-mobile-education.css";
 
 function compactDescription(value: string) {
@@ -271,6 +272,7 @@ export function ProductDetail({
         aria-label={`${product.displayName} details`}
         data-pdp-panel-sequence
       >
+        {presentation === "mobile-pilot" && <PdpEducationFocus />}
         {corePresentation && profileMedia && coreProfileReady ? (
           <>
             <PdpProfileSplit

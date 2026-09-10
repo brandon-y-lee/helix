@@ -136,6 +136,7 @@ test("all mobile education selections remain close, announced, and stable throug
   await previous.click();
   await page.setViewportSize({ width: 821, height: 1000 });
   await expect(application.getByRole("button", { name: "Show next application step" })).toBeFocused();
+  await expectFocusedVisible(page);
   await expect(application.getByRole("button", { name: "Show application step 2 of 3" })).toHaveAttribute("aria-pressed", "true");
   await page.setViewportSize({ width: 390, height: 844 });
 
@@ -151,8 +152,10 @@ test("all mobile education selections remain close, announced, and stable throug
   await page.setViewportSize({ width: 821, height: 1000 });
   await expect(selectors.first()).toBeFocused();
   await expect(selectors.first()).toHaveAttribute("aria-checked", "true");
+  await expectFocusedVisible(page);
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(selectors.first()).toBeFocused();
+  await expectFocusedVisible(page);
   await expectNoMainOverflow(page, 390);
 });
 
@@ -172,11 +175,19 @@ test("inline INCI preserves the reader's place and visible focus through disclos
   const full = ingredients.locator(".pdp-ingredients__full");
   expect((await box(full)).y).toBeGreaterThan((await box(trigger)).y);
   await expect(full.locator(".pdp-ingredients__full-scroll")).toHaveCSS("overflow-y", "visible");
+  const search = page.getByRole("button", { name: "SEARCH", exact: true });
+  await search.focus();
+  await search.click();
+  await expect(page.getByRole("dialog", { name: "Search", exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(search).toBeFocused();
+  await expect(trigger).toHaveAttribute("aria-expanded", "true");
+  await trigger.focus();
   await trigger.press("Tab");
   const close = ingredients.getByRole("button", { name: "Close full ingredients list" });
   await expect(close).toBeFocused();
   await expectFocusedVisible(page);
-  for (const width of [821, 820, 921, 390]) {
+  for (const width of [821, 820, 920, 921, 390]) {
     await page.setViewportSize({ width, height: 844 });
     await expect(trigger).toHaveAttribute("aria-expanded", "true");
     await expect(close).toBeFocused();
