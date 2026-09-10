@@ -5,6 +5,8 @@ import { createCartLayoutFixture } from "./cart-fixture";
 test("global navbar follows scroll direction and returns to its top state", async ({
   page,
 }) => {
+  const pageErrors: string[] = [];
+  page.on("pageerror", (error) => pageErrors.push(error.message));
   await page.goto("/");
   const header = page.locator(".site-header");
   const homepageSurface = page.locator(
@@ -34,6 +36,7 @@ test("global navbar follows scroll direction and returns to its top state", asyn
 
   await page.evaluate(() => window.scrollTo(0, 0));
   await expect(header).toHaveAttribute("data-nav-state", "top");
+  expect(pageErrors, "The shared shell must hydrate without runtime recovery errors").toEqual([]);
 });
 
 test("client navigation updates declarative header presentation", async ({
