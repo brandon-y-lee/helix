@@ -71,6 +71,7 @@ function Properties({ effect, reduceMotion }: { effect: Effect; reduceMotion: bo
 export function PdpEffectsSection() {
   const [active, setActive] = useState<number | null>(null);
   const railRef = useRef<HTMLDivElement>(null);
+  const closedEffect = useRef<number | null>(null);
   const focusSelected = useRef(false);
   const reduceMotion = !!useReducedMotion();
   const effect = active === null ? null : effects[active];
@@ -78,6 +79,7 @@ export function PdpEffectsSection() {
   function select(index: number) { setActive(index); }
   function close() {
     const selected = active;
+    closedEffect.current = selected;
     setActive(null);
     if (selected !== null) (railRef.current?.children[selected] as HTMLElement | undefined)?.querySelector('button')?.focus({ preventScroll: true });
   }
@@ -91,7 +93,8 @@ export function PdpEffectsSection() {
     if (!rail) return;
     function centerSelection() {
       if (!rail || !window.matchMedia('(max-width: 800px)').matches) return;
-      const selected = active === null ? null : rail.children[active] as HTMLElement;
+      const visibleIndex = active ?? closedEffect.current;
+      const selected = visibleIndex === null ? null : rail.children[visibleIndex] as HTMLElement;
       rail.scrollTo({ left: selected ? selected.offsetLeft - (rail.clientWidth - selected.offsetWidth) / 2 : 0, behavior: 'instant' });
     }
     centerSelection();

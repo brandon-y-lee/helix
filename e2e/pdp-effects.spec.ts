@@ -136,5 +136,31 @@ test("serum effects keep the selected property in view across desktop and mobile
     }));
     expect(widths.viewport).toBe(390);
     expect(widths.page).toBeLessThanOrEqual(widths.viewport + 1);
+
+    await test.step("closing a later effect keeps its focused capsule in the visible rail", async () => {
+      for (const name of effectNames.slice(1)) {
+        await section.getByRole("button", { name: "Next effect" }).click();
+        await expect(section.getByRole("button", { name, exact: true })).toHaveAttribute(
+          "aria-expanded",
+          "true",
+        );
+      }
+      const lastEffect = section.getByRole("button", {
+        name: "Anti-aging & firmness",
+        exact: true,
+      });
+      await section.getByRole("button", { name: "Collapse effect description" }).click();
+      await expect(section.getByRole("region", { name: / properties$/ })).toHaveCount(0);
+      await expect(lastEffect).toHaveAttribute("aria-expanded", "false");
+      await expect(lastEffect).toBeFocused();
+      await expect.poll(() => lastEffect.evaluate((button) => {
+        const rail = button.closest('[aria-label="Explore product effects"]');
+        if (!rail) throw new Error("The effect capsule has no visible control rail.");
+        const buttonBox = button.getBoundingClientRect();
+        const railBox = rail.getBoundingClientRect();
+        return buttonBox.left >= Math.max(0, railBox.left) - 1 &&
+          buttonBox.right <= Math.min(window.innerWidth, railBox.right) + 1;
+      })).toBe(true);
+    });
   });
 });
