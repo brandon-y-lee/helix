@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import type { ProductMedia } from "@/lib/products";
+import { requiresOriginalCatalogImage } from "@/lib/catalog/media-storage";
 
 function swatchFromMedia(
   media: ProductMedia | null | undefined,
@@ -129,6 +130,7 @@ export function ProductImage({
         <Image
           {...imageDataAttributes}
           src={media.url}
+          unoptimized={requiresOriginalCatalogImage(media.url)}
           alt={accessibleAlt}
           fill
           sizes={sizes}
