@@ -10,8 +10,10 @@ import {
 } from "motion/react";
 import * as m from "motion/react-m";
 import {
+  useEffect,
   useId,
   useRef,
+  useState,
   type CSSProperties,
   type ReactNode,
 } from "react";
@@ -221,9 +223,14 @@ export function Sheet({
   const descriptionId = `${id}-sheet-description`;
   const animated = motionTransition !== undefined;
   const keepMounted = persistent && animated;
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const { active, completeClose } = useModalLayer({
-    open,
+    open: mounted && open,
     layerRef,
     panelRef,
     onClose,
@@ -254,7 +261,7 @@ export function Sheet({
     onMotionComplete: completeClose,
   };
 
-  if (typeof document === "undefined") return null;
+  if (!mounted) return null;
 
   return createPortal(
     <LazyMotion features={domAnimation} strict>
