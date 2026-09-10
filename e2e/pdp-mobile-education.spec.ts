@@ -75,7 +75,7 @@ for (const width of [320, 390, 430, 820]) {
     const story = await box(ingredients.locator(".pdp-ingredients__content"));
     expect(texture.width / texture.height).toBeCloseTo(4 / 3, 2);
     expect(Math.abs(story.y - texture.y - texture.height)).toBeLessThanOrEqual(1);
-    const trigger = ingredients.getByRole("button", { name: "FULL INGREDIENTS LIST" });
+    const trigger = ingredients.getByRole("button", { name: "FULL INGREDIENTS LIST", exact: true });
     expect((await box(trigger)).y).toBeGreaterThanOrEqual(story.y + story.height);
 
     const routine = page.locator(".pdp-core-routine");
@@ -133,7 +133,9 @@ test("all mobile education selections remain close, announced, and stable throug
     expect(instruction.width).toBeCloseTo(copy.width, 0);
   }
   const previous = application.getByRole("button", { name: "Show previous application step" });
-  await previous.click();
+  await previous.focus();
+  await previous.press("Enter");
+  await expect(previous).toBeFocused();
   await page.setViewportSize({ width: 821, height: 1000 });
   await expect(application.getByRole("button", { name: "Show next application step" })).toBeFocused();
   await expectFocusedVisible(page);
@@ -159,15 +161,16 @@ test("all mobile education selections remain close, announced, and stable throug
   await expectNoMainOverflow(page, 390);
 });
 
-test("inline INCI preserves the reader's place and visible focus through disclosure and resize", async ({ page, storefront }) => {
+test("inline INCI preserves the reader's place and visible focus through disclosure and resize", async ({ page, storefront, browserName }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto(pilotProduct(storefront).path);
   const ingredients = page.locator(".pdp-ingredients");
-  const trigger = ingredients.getByRole("button", { name: "FULL INGREDIENTS LIST" });
+  const trigger = ingredients.getByRole("button", { name: "FULL INGREDIENTS LIST", exact: true });
   await trigger.scrollIntoViewIfNeeded();
+  await trigger.focus();
   const before = await page.evaluate(() => window.scrollY);
-  await trigger.click();
+  await trigger.press("Enter");
   await expect(trigger).toHaveAttribute("aria-expanded", "true");
   await expect(trigger).toBeFocused();
   expect(Math.abs(await page.evaluate(() => window.scrollY) - before)).toBeLessThanOrEqual(2);
@@ -183,7 +186,7 @@ test("inline INCI preserves the reader's place and visible focus through disclos
   await expect(search).toBeFocused();
   await expect(trigger).toHaveAttribute("aria-expanded", "true");
   await trigger.focus();
-  await trigger.press("Tab");
+  await trigger.press(browserName === "webkit" ? "Alt+Tab" : "Tab");
   const close = ingredients.getByRole("button", { name: "Close full ingredients list" });
   await expect(close).toBeFocused();
   await expectFocusedVisible(page);
