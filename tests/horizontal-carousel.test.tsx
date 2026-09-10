@@ -29,7 +29,7 @@ function renderRail() {
     };
   });
   fireEvent(window, new Event("resize"));
-  return { rail, viewport, resize: (width: number) => {
+  return { rail, viewport, track, resize: (width: number) => {
     viewportWidth = width;
     fireEvent(window, new Event("resize"));
   } };
@@ -78,6 +78,35 @@ describe("shared horizontal discovery", () => {
     resize(900);
     expect(screen.queryByRole("button", { name: "Previous ingredient" })).not.toBeInTheDocument();
     expect(rail).toHaveFocus();
+    expect(screen.getAllByRole("link")).toHaveLength(3);
+  });
+
+  it("removes rail controls when resizing into a stacked list during an unfinished slide animation", () => {
+    vi.useFakeTimers();
+    const { rail, track, resize } = renderRail();
+    const next = screen.getByRole("button", { name: "Next ingredient" });
+    act(() => next.focus());
+    fireEvent.click(next);
+    act(() => vi.advanceTimersByTime(250));
+    fireEvent.click(next);
+    expect(track).toHaveAttribute("data-motion", "next");
+    expect(screen.getByRole("button", { name: "Previous ingredient" })).toHaveFocus();
+
+    // The stacked layout can still include transient transformed-card overflow.
+    track.style.display = "grid";
+    Object.defineProperty(track, "scrollWidth", { configurable: true, value: 310 });
+    resize(300);
+    expect(screen.queryByRole("button", { name: /ingredient/ })).not.toBeInTheDocument();
+    expect(rail).toHaveAttribute("data-active-index", "0");
+    expect(rail).toHaveFocus();
+    act(() => vi.advanceTimersByTime(250));
+    expect(screen.queryByRole("button", { name: /ingredient/ })).not.toBeInTheDocument();
+
+    track.style.display = "flex";
+    Object.defineProperty(track, "scrollWidth", { configurable: true, value: 900 });
+    resize(300);
+    expect(screen.getByRole("button", { name: "Next ingredient" })).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Previous ingredient" })).not.toBeInTheDocument();
     expect(screen.getAllByRole("link")).toHaveLength(3);
   });
 
