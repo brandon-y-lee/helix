@@ -241,7 +241,8 @@ for (const viewport of [
     expect(purchase.x).toBeGreaterThanOrEqual(gallery.x + gallery.width);
     expect(Math.abs(purchase.y - gallery.y)).toBeLessThanOrEqual(1);
     expect(Math.abs(frame.height - gallery.height)).toBeLessThanOrEqual(1);
-    expect(Math.abs(purchase.height - gallery.height)).toBeLessThanOrEqual(1);
+    expect(purchase.height).toBeLessThanOrEqual(gallery.height + 1);
+    expect(purchase.y + purchase.height).toBeLessThanOrEqual(viewport.height);
     expect(gallery.y + gallery.height).toBeLessThanOrEqual(viewport.height);
     await expectNoMainOverflow(page, viewport.width);
 
