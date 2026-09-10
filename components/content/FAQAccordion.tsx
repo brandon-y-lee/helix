@@ -1,16 +1,11 @@
 import Link from "next/link";
 import type { FAQCategory } from "@/content/support/faq";
+import { FAQCategoryNav } from "@/components/content/FAQCategoryNav";
 
 export function FAQAccordion({ categories }: { categories: FAQCategory[] }) {
   return (
     <div className="faq-shell">
-      <nav className="faq-category-nav" aria-label="FAQ categories">
-        {categories.map((category) => (
-          <a key={category.id} href={`#${category.id}`}>
-            {category.label}
-          </a>
-        ))}
-      </nav>
+      <FAQCategoryNav categories={categories.map(({ id, label }) => ({ id, label }))} />
 
       <div className="faq-categories">
         {categories.map((category) => (

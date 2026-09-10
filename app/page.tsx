@@ -3,6 +3,7 @@ import Link from "next/link";
 import { HomeBeyondCoreShowcase } from "@/components/home/HomeBeyondCoreShowcase";
 import { HomeBackgroundVideo } from "@/components/home/HomeBackgroundVideo";
 import { HomeCoreShowcase } from "@/components/home/HomeCoreShowcase";
+import { HomeIngredientPreview } from "@/components/home/HomeIngredientPreview";
 import { HomePrinciplesPortrait } from "@/components/home/HomePrinciplesPortrait";
 import { HomeThreePrinciples } from "@/components/home/HomeThreePrinciples";
 import {
@@ -17,11 +18,7 @@ import {
   HOME_BEYOND_CORE_PRODUCT_SLUGS,
   homeThreePrinciples,
 } from "@/lib/content/home";
-import {
-  buildIngredientIndex,
-  ingredientAnchorId,
-  type IngredientIndexCard,
-} from "@/lib/content/system";
+import { buildIngredientIndex } from "@/lib/content/system";
 import { createPublicSiteMetadata } from "@/lib/public-site-metadata";
 
 export const metadata: Metadata = createPublicSiteMetadata({
@@ -32,12 +29,6 @@ export const metadata: Metadata = createPublicSiteMetadata({
 });
 
 const CORE_PRODUCT_SLUGS = CORE_ROUTINE_PRODUCT_SLUGS;
-
-const INGREDIENT_LINK_LABELS: Record<string, string> = {
-  pdrn: "PDRN",
-  peptides: "Peptides",
-  niacinamide: "Niacinamide",
-};
 
 function productsForSlugs(
   productsBySlug: ReadonlyMap<string, ProductCard>,
@@ -53,10 +44,6 @@ function productsForSlugs(
         : undefined);
     return product ? [product] : [];
   });
-}
-
-function ingredientPreviewLabel(card: IngredientIndexCard) {
-  return `Read about ${INGREDIENT_LINK_LABELS[card.id] ?? card.name} in the System`;
 }
 
 export default async function HomePage() {
@@ -168,20 +155,7 @@ export default async function HomePage() {
           </div>
 
           {ingredientCards.length > 0 && (
-            <div className="home-ingredient-list" aria-label="Ingredient literacy preview">
-              {ingredientCards.map((card) => (
-                <Link
-                  key={card.id}
-                  href={`/system#${ingredientAnchorId(card.id)}`}
-                  className="home-ingredient-card"
-                  aria-label={ingredientPreviewLabel(card)}
-                >
-                  <p>{card.ingredientClass}</p>
-                  <h3>{card.name}</h3>
-                  <span>{card.skinRelevance}</span>
-                </Link>
-              ))}
-            </div>
+            <HomeIngredientPreview cards={ingredientCards} />
           )}
         </div>
       </section>

@@ -11,7 +11,7 @@ export default async function ResetPasswordPage() {
   const user = await getCurrentUserForPublicPage();
 
   return (
-    <div className="container account-shell">
+    <div className="container account-shell account-status-page">
       <section className="account-panel">
         <p className="eyebrow">Account</p>
         <h1>Set new password</h1>

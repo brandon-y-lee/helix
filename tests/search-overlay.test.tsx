@@ -51,6 +51,22 @@ function Harness() {
 }
 
 describe("SearchOverlay", () => {
+  it("focuses its search input after the opening layer becomes interactive", async () => {
+    const user = userEvent.setup();
+    const nativeFocus = HTMLElement.prototype.focus;
+    // jsdom does not enforce the browser's inert focus boundary.
+    vi.spyOn(HTMLElement.prototype, "focus").mockImplementation(function (
+      this: HTMLElement,
+      options?: FocusOptions,
+    ) {
+      if (this.closest("[inert]")) return;
+      nativeFocus.call(this, options);
+    });
+    render(<Harness />);
+    await user.click(screen.getByRole("button", { name: "Search" }));
+    await waitFor(() => expect(screen.getByLabelText("Search products")).toHaveFocus());
+  });
+
   it("keeps one closed Motion drawer mounted and opens the same node", async () => {
     const user = userEvent.setup();
     const focus = vi.spyOn(HTMLElement.prototype, "focus");

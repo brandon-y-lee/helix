@@ -20,6 +20,7 @@ import {
 import { isValidProductSlug } from "@/lib/catalog/product-slug";
 import { createPublicSiteMetadata } from "@/lib/public-site-metadata";
 import { resolvePublicSiteOrigin } from "@/lib/site-url";
+import { getPdpPresentation } from "@/components/product-detail/pdp-presentation";
 
 const siteUrl = new URL(resolvePublicSiteOrigin());
 
@@ -118,6 +119,7 @@ export default async function ProductDetailPage({
   }
   const related = await relatedPromise;
   const structuredData = buildProductStructuredData(product, siteUrl);
+  const presentation = getPdpPresentation(product.slug);
 
   return (
     <>
@@ -127,10 +129,11 @@ export default async function ProductDetailPage({
           __html: serializeStructuredData(structuredData),
         }}
       />
-      <div className="storefront-shell" data-layout-shell="storefront">
+      <div className="storefront-shell" data-layout-shell="storefront" data-pdp-presentation={presentation}>
         <ProductDetail
           key={product.slug}
           product={product}
+          presentation={presentation}
           coreProducts={coreProducts}
           stripePublishableKey={stripeMessagingPublishableKey()}
         />

@@ -1,0 +1,954 @@
+[
+  {
+    "brand": [
+      {
+        "bottom": 53.046875,
+        "height": 43.1015625,
+        "left": 108,
+        "right": 212,
+        "top": 9.9453125,
+        "width": 104,
+        "x": 108,
+        "y": 9.9453125
+      }
+    ],
+    "buttons": [
+      {
+        "display": "flex",
+        "label": null,
+        "rect": {
+          "bottom": 53.5,
+          "height": 44,
+          "left": 16,
+          "right": 60,
+          "top": 9.5,
+          "width": 44,
+          "x": 16,
+          "y": 9.5
+        },
+        "text": "Menu"
+      },
+      {
+        "display": "flex",
+        "label": "SEARCH",
+        "rect": {
+          "bottom": 53.5,
+          "height": 44,
+          "left": 216,
+          "right": 260,
+          "top": 9.5,
+          "width": 44,
+          "x": 216,
+          "y": 9.5
+        },
+        "text": "SEARCH"
+      },
+      {
+        "display": "flex",
+        "label": "CART (0), empty",
+        "rect": {
+          "bottom": 53.5,
+          "height": 44,
+          "left": 260,
+          "right": 304,
+          "top": 9.5,
+          "width": 44,
+          "x": 260,
+          "y": 9.5
+        },
+        "text": "CART (0)0"
+      }
+    ],
+    "footer": {
+      "accordion": "none",
+      "columns": [
+        {
+          "bottom": 7158.0703125,
+          "height": 198.6171875,
+          "left": 16,
+          "right": 152,
+          "top": 6959.453125,
+          "width": 136,
+          "x": 16,
+          "y": 6959.453125
+        },
+        {
+          "bottom": 7158.0703125,
+          "height": 198.6171875,
+          "left": 168,
+          "right": 304,
+          "top": 6959.453125,
+          "width": 136,
+          "x": 168,
+          "y": 6959.453125
+        },
+        {
+          "bottom": 7380.6875,
+          "height": 198.6171875,
+          "left": 16,
+          "right": 152,
+          "top": 7182.0703125,
+          "width": 136,
+          "x": 16,
+          "y": 7182.0703125
+        },
+        {
+          "bottom": 7380.6875,
+          "height": 198.6171875,
+          "left": 168,
+          "right": 304,
+          "top": 7182.0703125,
+          "width": 136,
+          "x": 168,
+          "y": 7182.0703125
+        }
+      ],
+      "nav": "grid"
+    },
+    "header": {
+      "bottom": 64,
+      "height": 64,
+      "left": 0,
+      "right": 320,
+      "top": 0,
+      "width": 320,
+      "x": 0,
+      "y": 0
+    },
+    "overflow": 0,
+    "w": 320
+  },
+  {
+    "brand": [
+      {
+        "bottom": 53.046875,
+        "height": 43.1015625,
+        "left": 143,
+        "right": 247,
+        "top": 9.9453125,
+        "width": 104,
+        "x": 143,
+        "y": 9.9453125
+      }
+    ],
+    "buttons": [
+      {
+        "display": "flex",
+        "label": null,
+        "rect": {
+          "bottom": 53.5,
+          "height": 44,
+          "left": 16,
+          "right": 60,
+          "top": 9.5,
+          "width": 44,
+          "x": 16,
+          "y": 9.5
+        },
+        "text": "Menu"
+      },
+      {
+        "display": "flex",
+        "label": "SEARCH",
+        "rect": {
+          "bottom": 53.5,
+          "height": 44,
+          "left": 286,
+          "right": 330,
+          "top": 9.5,
+          "width": 44,
+          "x": 286,
+          "y": 9.5
+        },
+        "text": "SEARCH"
+      },
+      {
+        "display": "flex",
+        "label": "CART (0), empty",
+        "rect": {
+          "bottom": 53.5,
+          "height": 44,
+          "left": 330,
+          "right": 374,
+          "top": 9.5,
+          "width": 44,
+          "x": 330,
+          "y": 9.5
+        },
+        "text": "CART (0)0"
+      }
+    ],
+    "footer": {
+      "accordion": "none",
+      "columns": [
+        {
+          "bottom": 7424.796875,
+          "height": 198.6171875,
+          "left": 16,
+          "right": 187,
+          "top": 7226.1796875,
+          "width": 171,
+          "x": 16,
+          "y": 7226.1796875
+        },
+        {
+          "bottom": 7424.796875,
+          "height": 198.6171875,
+          "left": 203,
+          "right": 374,
+          "top": 7226.1796875,
+          "width": 171,
+          "x": 203,
+          "y": 7226.1796875
+        },
+        {
+          "bottom": 7647.4140625,
+          "height": 198.6171875,
+          "left": 16,
+          "right": 187,
+          "top": 7448.796875,
+          "width": 171,
+          "x": 16,
+          "y": 7448.796875
+        },
+        {
+          "bottom": 7647.4140625,
+          "height": 198.6171875,
+          "left": 203,
+          "right": 374,
+          "top": 7448.796875,
+          "width": 171,
+          "x": 203,
+          "y": 7448.796875
+        }
+      ],
+      "nav": "grid"
+    },
+    "header": {
+      "bottom": 64,
+      "height": 64,
+      "left": 0,
+      "right": 390,
+      "top": 0,
+      "width": 390,
+      "x": 0,
+      "y": 0
+    },
+    "overflow": 0,
+    "w": 390
+  },
+  {
+    "brand": [
+      {
+        "bottom": 53.046875,
+        "height": 43.1015625,
+        "left": 163,
+        "right": 267,
+        "top": 9.9453125,
+        "width": 104,
+        "x": 163,
+        "y": 9.9453125
+      }
+    ],
+    "buttons": [
+      {
+        "display": "flex",
+        "label": null,
+        "rect": {
+          "bottom": 53.5,
+          "height": 44,
+          "left": 16,
+          "right": 60,
+          "top": 9.5,
+          "width": 44,
+          "x": 16,
+          "y": 9.5
+        },
+        "text": "Menu"
+      },
+      {
+        "display": "flex",
+        "label": "SEARCH",
+        "rect": {
+          "bottom": 53.5,
+          "height": 44,
+          "left": 326,
+          "right": 370,
+          "top": 9.5,
+          "width": 44,
+          "x": 326,
+          "y": 9.5
+        },
+        "text": "SEARCH"
+      },
+      {
+        "display": "flex",
+        "label": "CART (0), empty",
+        "rect": {
+          "bottom": 53.5,
+          "height": 44,
+          "left": 370,
+          "right": 414,
+          "top": 9.5,
+          "width": 44,
+          "x": 370,
+          "y": 9.5
+        },
+        "text": "CART (0)0"
+      }
+    ],
+    "footer": {
+      "accordion": "none",
+      "columns": [
+        {
+          "bottom": 7687.4140625,
+          "height": 198.6171875,
+          "left": 16,
+          "right": 207,
+          "top": 7488.796875,
+          "width": 191,
+          "x": 16,
+          "y": 7488.796875
+        },
+        {
+          "bottom": 7687.4140625,
+          "height": 198.6171875,
+          "left": 223,
+          "right": 414,
+          "top": 7488.796875,
+          "width": 191,
+          "x": 223,
+          "y": 7488.796875
+        },
+        {
+          "bottom": 7910.03125,
+          "height": 198.6171875,
+          "left": 16,
+          "right": 207,
+          "top": 7711.4140625,
+          "width": 191,
+          "x": 16,
+          "y": 7711.4140625
+        },
+        {
+          "bottom": 7910.03125,
+          "height": 198.6171875,
+          "left": 223,
+          "right": 414,
+          "top": 7711.4140625,
+          "width": 191,
+          "x": 223,
+          "y": 7711.4140625
+        }
+      ],
+      "nav": "grid"
+    },
+    "header": {
+      "bottom": 64,
+      "height": 64,
+      "left": 0,
+      "right": 430,
+      "top": 0,
+      "width": 430,
+      "x": 0,
+      "y": 0
+    },
+    "overflow": 0,
+    "w": 430
+  },
+  {
+    "brand": [
+      {
+        "bottom": 53.875,
+        "height": 44.7578125,
+        "left": 306,
+        "right": 414,
+        "top": 9.1171875,
+        "width": 108,
+        "x": 306,
+        "y": 9.1171875
+      }
+    ],
+    "buttons": [
+      {
+        "display": "flex",
+        "label": null,
+        "rect": {
+          "bottom": 53.5,
+          "height": 44,
+          "left": 16.1953125,
+          "right": 60.1953125,
+          "top": 9.5,
+          "width": 44,
+          "x": 16.1953125,
+          "y": 9.5
+        },
+        "text": "Menu"
+      },
+      {
+        "display": "flex",
+        "label": "SEARCH",
+        "rect": {
+          "bottom": 53.5,
+          "height": 44,
+          "left": 615.8046875,
+          "right": 659.8046875,
+          "top": 9.5,
+          "width": 44,
+          "x": 615.8046875,
+          "y": 9.5
+        },
+        "text": "SEARCH"
+      },
+      {
+        "display": "flex",
+        "label": "CART (0), empty",
+        "rect": {
+          "bottom": 53.5,
+          "height": 44,
+          "left": 659.8046875,
+          "right": 703.8046875,
+          "top": 9.5,
+          "width": 44,
+          "x": 659.8046875,
+          "y": 9.5
+        },
+        "text": "CART (0)0"
+      }
+    ],
+    "footer": {
+      "accordion": "none",
+      "columns": [
+        {
+          "bottom": 9151.875,
+          "height": 198.6171875,
+          "left": 16.1953125,
+          "right": 352,
+          "top": 8953.2578125,
+          "width": 335.8046875,
+          "x": 16.1953125,
+          "y": 8953.2578125
+        },
+        {
+          "bottom": 9151.875,
+          "height": 198.6171875,
+          "left": 368,
+          "right": 703.8046875,
+          "top": 8953.2578125,
+          "width": 335.8046875,
+          "x": 368,
+          "y": 8953.2578125
+        },
+        {
+          "bottom": 9374.4921875,
+          "height": 198.6171875,
+          "left": 16.1953125,
+          "right": 352,
+          "top": 9175.875,
+          "width": 335.8046875,
+          "x": 16.1953125,
+          "y": 9175.875
+        },
+        {
+          "bottom": 9374.4921875,
+          "height": 198.6171875,
+          "left": 368,
+          "right": 703.8046875,
+          "top": 9175.875,
+          "width": 335.8046875,
+          "x": 368,
+          "y": 9175.875
+        }
+      ],
+      "nav": "grid"
+    },
+    "header": {
+      "bottom": 64,
+      "height": 64,
+      "left": 0,
+      "right": 720,
+      "top": 0,
+      "width": 720,
+      "x": 0,
+      "y": 0
+    },
+    "overflow": 0,
+    "w": 720
+  },
+  {
+    "brand": [
+      {
+        "bottom": 53.875,
+        "height": 44.7578125,
+        "left": 306.5,
+        "right": 414.5,
+        "top": 9.1171875,
+        "width": 108,
+        "x": 306.5,
+        "y": 9.1171875
+      }
+    ],
+    "buttons": [
+      {
+        "display": "flex",
+        "label": null,
+        "rect": {
+          "bottom": 53.5,
+          "height": 44,
+          "left": 16.21875,
+          "right": 60.21875,
+          "top": 9.5,
+          "width": 44,
+          "x": 16.21875,
+          "y": 9.5
+        },
+        "text": "Menu"
+      },
+      {
+        "display": "flex",
+        "label": "SEARCH",
+        "rect": {
+          "bottom": 53.5,
+          "height": 44,
+          "left": 616.78125,
+          "right": 660.78125,
+          "top": 9.5,
+          "width": 44,
+          "x": 616.78125,
+          "y": 9.5
+        },
+        "text": "SEARCH"
+      },
+      {
+        "display": "flex",
+        "label": "CART (0), empty",
+        "rect": {
+          "bottom": 53.5,
+          "height": 44,
+          "left": 660.78125,
+          "right": 704.78125,
+          "top": 9.5,
+          "width": 44,
+          "x": 660.78125,
+          "y": 9.5
+        },
+        "text": "CART (0)0"
+      }
+    ],
+    "footer": {
+      "accordion": "grid",
+      "columns": [
+        {
+          "bottom": 0,
+          "height": 0,
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "width": 0,
+          "x": 0,
+          "y": 0
+        },
+        {
+          "bottom": 0,
+          "height": 0,
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "width": 0,
+          "x": 0,
+          "y": 0
+        },
+        {
+          "bottom": 0,
+          "height": 0,
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "width": 0,
+          "x": 0,
+          "y": 0
+        },
+        {
+          "bottom": 0,
+          "height": 0,
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "width": 0,
+          "x": 0,
+          "y": 0
+        }
+      ],
+      "nav": "none"
+    },
+    "header": {
+      "bottom": 64,
+      "height": 64,
+      "left": 0,
+      "right": 721,
+      "top": 0,
+      "width": 721,
+      "x": 0,
+      "y": 0
+    },
+    "overflow": 0,
+    "w": 721
+  },
+  {
+    "brand": [
+      {
+        "bottom": 53.875,
+        "height": 44.7578125,
+        "left": 406,
+        "right": 514,
+        "top": 9.1171875,
+        "width": 108,
+        "x": 406,
+        "y": 9.1171875
+      }
+    ],
+    "buttons": [
+      {
+        "display": "flex",
+        "label": null,
+        "rect": {
+          "bottom": 53.5,
+          "height": 44,
+          "left": 20.6953125,
+          "right": 64.6953125,
+          "top": 9.5,
+          "width": 44,
+          "x": 20.6953125,
+          "y": 9.5
+        },
+        "text": "Menu"
+      },
+      {
+        "display": "flex",
+        "label": "SEARCH",
+        "rect": {
+          "bottom": 53.5,
+          "height": 44,
+          "left": 811.3046875,
+          "right": 855.3046875,
+          "top": 9.5,
+          "width": 44,
+          "x": 811.3046875,
+          "y": 9.5
+        },
+        "text": "SEARCH"
+      },
+      {
+        "display": "flex",
+        "label": "CART (0), empty",
+        "rect": {
+          "bottom": 53.5,
+          "height": 44,
+          "left": 855.3046875,
+          "right": 899.3046875,
+          "top": 9.5,
+          "width": 44,
+          "x": 855.3046875,
+          "y": 9.5
+        },
+        "text": "CART (0)0"
+      }
+    ],
+    "footer": {
+      "accordion": "grid",
+      "columns": [
+        {
+          "bottom": 0,
+          "height": 0,
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "width": 0,
+          "x": 0,
+          "y": 0
+        },
+        {
+          "bottom": 0,
+          "height": 0,
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "width": 0,
+          "x": 0,
+          "y": 0
+        },
+        {
+          "bottom": 0,
+          "height": 0,
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "width": 0,
+          "x": 0,
+          "y": 0
+        },
+        {
+          "bottom": 0,
+          "height": 0,
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "width": 0,
+          "x": 0,
+          "y": 0
+        }
+      ],
+      "nav": "none"
+    },
+    "header": {
+      "bottom": 64,
+      "height": 64,
+      "left": 0,
+      "right": 920,
+      "top": 0,
+      "width": 920,
+      "x": 0,
+      "y": 0
+    },
+    "overflow": 0,
+    "w": 920
+  },
+  {
+    "brand": [
+      {
+        "bottom": 53.875,
+        "height": 44.7578125,
+        "left": 406.5,
+        "right": 514.5,
+        "top": 9.1171875,
+        "width": 108,
+        "x": 406.5,
+        "y": 9.1171875
+      }
+    ],
+    "buttons": [
+      {
+        "display": "none",
+        "label": null,
+        "rect": {
+          "bottom": 0,
+          "height": 0,
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "width": 0,
+          "x": 0,
+          "y": 0
+        },
+        "text": "Menu"
+      },
+      {
+        "display": "flex",
+        "label": "SEARCH",
+        "rect": {
+          "bottom": 49.21875,
+          "height": 35.4453125,
+          "left": 677.3984375,
+          "right": 732.859375,
+          "top": 13.7734375,
+          "width": 55.4609375,
+          "x": 677.3984375,
+          "y": 13.7734375
+        },
+        "text": "SEARCH"
+      },
+      {
+        "display": "flex",
+        "label": "CART (0), empty",
+        "rect": {
+          "bottom": 49.21875,
+          "height": 35.4453125,
+          "left": 837.671875,
+          "right": 900.28125,
+          "top": 13.7734375,
+          "width": 62.609375,
+          "x": 837.671875,
+          "y": 13.7734375
+        },
+        "text": "CART (0)0"
+      }
+    ],
+    "footer": {
+      "accordion": "grid",
+      "columns": [
+        {
+          "bottom": 0,
+          "height": 0,
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "width": 0,
+          "x": 0,
+          "y": 0
+        },
+        {
+          "bottom": 0,
+          "height": 0,
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "width": 0,
+          "x": 0,
+          "y": 0
+        },
+        {
+          "bottom": 0,
+          "height": 0,
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "width": 0,
+          "x": 0,
+          "y": 0
+        },
+        {
+          "bottom": 0,
+          "height": 0,
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "width": 0,
+          "x": 0,
+          "y": 0
+        }
+      ],
+      "nav": "none"
+    },
+    "header": {
+      "bottom": 64,
+      "height": 64,
+      "left": 0,
+      "right": 921,
+      "top": 0,
+      "width": 921,
+      "x": 0,
+      "y": 0
+    },
+    "overflow": 0,
+    "w": 921
+  },
+  {
+    "brand": [
+      {
+        "bottom": 55.3671875,
+        "height": 47.734375,
+        "left": 662.3984375,
+        "right": 777.59375,
+        "top": 7.6328125,
+        "width": 115.1953125,
+        "x": 662.3984375,
+        "y": 7.6328125
+      }
+    ],
+    "buttons": [
+      {
+        "display": "none",
+        "label": null,
+        "rect": {
+          "bottom": 0,
+          "height": 0,
+          "left": 0,
+          "right": 0,
+          "top": 0,
+          "width": 0,
+          "x": 0,
+          "y": 0
+        },
+        "text": "Menu"
+      },
+      {
+        "display": "flex",
+        "label": "SEARCH",
+        "rect": {
+          "bottom": 49.21875,
+          "height": 35.4453125,
+          "left": 1163.953125,
+          "right": 1219.4140625,
+          "top": 13.7734375,
+          "width": 55.4609375,
+          "x": 1163.953125,
+          "y": 13.7734375
+        },
+        "text": "SEARCH"
+      },
+      {
+        "display": "flex",
+        "label": "CART (0), empty",
+        "rect": {
+          "bottom": 49.21875,
+          "height": 35.4453125,
+          "left": 1344.9921875,
+          "right": 1407.6015625,
+          "top": 13.7734375,
+          "width": 62.609375,
+          "x": 1344.9921875,
+          "y": 13.7734375
+        },
+        "text": "CART (0)0"
+      }
+    ],
+    "footer": {
+      "accordion": "none",
+      "columns": [
+        {
+          "bottom": 7030.5625,
+          "height": 142.9921875,
+          "left": 32.3984375,
+          "right": 253.3828125,
+          "top": 6887.5703125,
+          "width": 220.984375,
+          "x": 32.3984375,
+          "y": 6887.5703125
+        },
+        {
+          "bottom": 7030.5625,
+          "height": 142.9921875,
+          "left": 296.578125,
+          "right": 517.5703125,
+          "top": 6887.5703125,
+          "width": 220.9921875,
+          "x": 296.578125,
+          "y": 6887.5703125
+        },
+        {
+          "bottom": 7030.5625,
+          "height": 142.9921875,
+          "left": 560.765625,
+          "right": 781.75,
+          "top": 6887.5703125,
+          "width": 220.984375,
+          "x": 560.765625,
+          "y": 6887.5703125
+        },
+        {
+          "bottom": 7030.5625,
+          "height": 142.9921875,
+          "left": 824.9453125,
+          "right": 1045.9375,
+          "top": 6887.5703125,
+          "width": 220.9921875,
+          "x": 824.9453125,
+          "y": 6887.5703125
+        }
+      ],
+      "nav": "grid"
+    },
+    "header": {
+      "bottom": 64,
+      "height": 64,
+      "left": 0,
+      "right": 1440,
+      "top": 0,
+      "width": 1440,
+      "x": 0,
+      "y": 0
+    },
+    "overflow": 0,
+    "w": 1440
+  }
+]

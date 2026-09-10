@@ -377,7 +377,8 @@ test("Three Principles selection is immediate with reduced motion", async ({
   await expect(mission).toHaveCSS("opacity", "0.75");
 });
 
-test("Beyond carousel is finite and keyboard operable on mobile", async ({
+for (const collection of ["The Core", "Beyond The Core"]) {
+test(`${collection} carousel is finite and keyboard operable on mobile`, async ({
   page,
   storefront,
 }) => {
@@ -385,7 +386,7 @@ test("Beyond carousel is finite and keyboard operable on mobile", async ({
   await page.goto("/");
 
   const beyond = page.getByRole("region", {
-    name: "Beyond The Core",
+    name: collection,
     exact: true,
   });
   const carousel = beyond.locator(".home-beyond-carousel");
@@ -410,11 +411,10 @@ test("Beyond carousel is finite and keyboard operable on mobile", async ({
     beyond.getByRole("button", { name: "Previous product" }),
   ).toBeVisible();
 
-  while (
-    (await carousel.getAttribute("data-active-index")) !==
-    String(products.length - 1)
-  ) {
+  for (let index = 2; index < products.length; index += 1) {
+    await expect(carousel.locator(".home-beyond-carousel__track")).toHaveAttribute("data-motion", "idle");
     await beyond.getByRole("button", { name: "Next product" }).click();
+    await expect(carousel).toHaveAttribute("data-active-index", String(index));
   }
   await expect(carousel).toHaveAttribute(
     "data-active-index",
@@ -423,6 +423,92 @@ test("Beyond carousel is finite and keyboard operable on mobile", async ({
   await expect(
     beyond.getByRole("button", { name: "Next product" }),
   ).toHaveCount(0);
+  await expect(carousel.locator(".home-beyond-carousel__position"))
+    .toHaveText(`${products.length} / ${products.length}`);
+});
+}
+
+test("Core changes from one card and a preview to two and then its desktop grid without duplicating products", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  await page.addStyleTag({ content: "html { scrollbar-gutter: stable; }" });
+  const core = page.getByRole("region", { name: "The Core products", exact: true });
+  const cards = core.locator(".product-card");
+  await expect(cards).toHaveCount(3);
+  const firstCard = await cards.first().elementHandle();
+  const next = core.getByRole("button", { name: "Next product" });
+  await expect(next).toBeVisible();
+  const geometry = await core.evaluate((element) => {
+    const items = element.querySelectorAll(".product-card");
+    const first = items[0].getBoundingClientRect();
+    const second = items[1].getBoundingClientRect();
+    const control = element.querySelector("button.home-beyond-carousel__control")!.getBoundingClientRect();
+    return { peek: element.getBoundingClientRect().right - second.left, gap: second.left - first.right, cardBottom: first.bottom, controlTop: control.top, controlWidth: control.width, controlHeight: control.height };
+  });
+  expect(geometry.peek).toBeGreaterThanOrEqual(36);
+  expect(geometry.peek).toBeLessThanOrEqual(52);
+  expect(geometry.gap).toBeGreaterThanOrEqual(12);
+  expect(geometry.controlTop).toBeGreaterThan(geometry.cardBottom);
+  expect(geometry.controlWidth).toBeGreaterThanOrEqual(44);
+  expect(geometry.controlHeight).toBeGreaterThanOrEqual(44);
+
+  await page.setViewportSize({ width: 900, height: 1000 });
+  const tablet = await cards.evaluateAll((items) => items.map((item) => {
+    const bounds = item.getBoundingClientRect();
+    return { left: bounds.left, right: bounds.right, top: bounds.top };
+  }));
+  expect(tablet[1].right).toBeLessThan(900);
+  expect(tablet[2].left).toBeLessThan(900);
+  expect(tablet[2].right).toBeGreaterThan(900);
+  await next.focus();
+  await page.setViewportSize({ width: 901, height: 1000 });
+  await expect(next).toHaveCount(0);
+  await expect(core).toBeFocused();
+  expect(await firstCard?.evaluate((element) => element.isConnected)).toBe(true);
+  const desktop = await cards.evaluateAll((items) => items.map((item) => {
+    const bounds = item.getBoundingClientRect();
+    return { right: bounds.right, top: bounds.top };
+  }));
+  expect(desktop[2].right).toBeLessThanOrEqual(901);
+  const desktopViewport = await core.locator(".home-beyond-carousel__viewport").boundingBox();
+  expect(desktopViewport).not.toBeNull();
+  expect(desktop[2].right).toBeLessThanOrEqual(desktopViewport!.x + desktopViewport!.width + 1);
+  expect(new Set(desktop.map((item) => item.top)).size).toBe(1);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(901);
+
+  const lastLink = cards.last().locator(".product-card__link");
+  await lastLink.focus();
+  await page.setViewportSize({ width: 720, height: 900 });
+  await expect(lastLink).toBeFocused();
+  await expect(core).toHaveAttribute("data-active-index", "2");
+  await expect.poll(async () => core.evaluate((element) => {
+    const viewport = element.querySelector(".home-beyond-carousel__viewport")!.getBoundingClientRect();
+    const focused = document.activeElement!.getBoundingClientRect();
+    return focused.left >= viewport.left - 1 && focused.right <= viewport.right + 1;
+  })).toBe(true);
+  await firstCard?.dispose();
+});
+
+test("phone ingredient preview is finite and returns to its stacked list above 720px", async ({ page }) => {
+  await page.setViewportSize({ width: 720, height: 900 });
+  await page.goto("/");
+  const ingredients = page.getByRole("region", { name: "Ingredient literacy preview", exact: true });
+  const links = ingredients.getByRole("link");
+  const count = await links.count();
+  expect(count).toBeGreaterThan(1);
+  for (let index = 1; index < count; index += 1) {
+    await expect(ingredients.locator(".home-beyond-carousel__track")).toHaveAttribute("data-motion", "idle");
+    await ingredients.getByRole("button", { name: "Next ingredient" }).click();
+    await expect(ingredients).toHaveAttribute("data-active-index", String(index));
+  }
+  await expect(ingredients.getByRole("button", { name: "Next ingredient" })).toHaveCount(0);
+  await ingredients.getByRole("button", { name: "Previous ingredient" }).focus();
+  await page.setViewportSize({ width: 721, height: 900 });
+  await expect(ingredients.getByRole("button", { name: "Previous ingredient" })).toHaveCount(0);
+  await expect(ingredients).toBeFocused();
+  const bounds = await links.evaluateAll((items) => items.map((item) => item.getBoundingClientRect().top));
+  expect(bounds[1]).toBeGreaterThan(bounds[0]);
+  expect(bounds[2]).toBeGreaterThan(bounds[1]);
 });
 
 test("homepage ingredient discovery lands below the fixed System header", async ({

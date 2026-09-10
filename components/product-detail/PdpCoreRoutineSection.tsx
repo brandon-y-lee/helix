@@ -12,6 +12,8 @@ import {
 } from "@/components/product-detail/usePdpSlideTransition";
 import type { CoreRoutineSummary } from "@/lib/catalog/models";
 import { CORE_SYSTEM_STEPS } from "@/lib/catalog/system-steps";
+import type { PdpPresentation } from "./pdp-presentation";
+import { usePdpMobilePresentation } from "./usePdpMobilePresentation";
 
 type CoreRoutinePresentation = Pick<
   CoreRoutineSummary,
@@ -38,11 +40,15 @@ export function PdpCoreRoutineSection({
   products,
   currentSlug,
   rootRef,
+  pdpPresentation = "default",
 }: {
   products: CoreRoutinePresentation[];
   currentSlug: string;
   rootRef?: Ref<HTMLElement>;
+  pdpPresentation?: PdpPresentation;
 }) {
+  const isMobilePilot = usePdpMobilePresentation(pdpPresentation);
+  const durationMs = isMobilePilot ? 250 : PDP_SLIDE_DURATION_MS;
   const {
     activeIndex,
     direction,
@@ -54,6 +60,7 @@ export function PdpCoreRoutineSection({
   } = useCoreRoutineSelection({
     currentSlug,
     slugs: products.map((product) => product.slug),
+    durationMs,
   });
 
   if (
@@ -79,10 +86,10 @@ export function PdpCoreRoutineSection({
       data-direction={direction}
       data-pdp-slide-transitioning={isTransitioning}
       data-slide-direction={direction}
-      data-transition-duration={PDP_SLIDE_DURATION_MS}
+      data-transition-duration={durationMs}
       data-pdp-panel-row="core-routine"
       data-pdp-panel-mode="independent"
-      style={PDP_SLIDE_STYLE}
+      style={{ ...PDP_SLIDE_STYLE, "--pdp-slide-duration": `${durationMs}ms` } as CSSProperties}
     >
       <div
         className="pdp-core-routine__content"
@@ -115,6 +122,7 @@ export function PdpCoreRoutineSection({
                 data-pdp-slide-layer
                 data-state={state}
                 aria-hidden={state !== "active"}
+                inert={state !== "active"}
               >
                 <span className="pdp-core-routine__annotation">
                   <strong>{product.displayName}</strong>
@@ -160,6 +168,11 @@ export function PdpCoreRoutineSection({
               onKeyDown={(event) => handleKeyDown(event, index)}
             >
               <span>{sequenceLabel(product.systemStepPosition)}</span>
+              {pdpPresentation === "mobile-pilot" && (
+                <span className="pdp-core-routine__step-name" aria-hidden="true">
+                  {product.systemStepName}
+                </span>
+              )}
               <small>{product.displayName}</small>
             </button>
           ))}

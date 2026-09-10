@@ -197,12 +197,20 @@ describe("SystemIngredientCarousel", () => {
       screen.queryByRole("button", { name: "Previous ingredient" }),
     ).not.toBeInTheDocument();
     const next = screen.getByRole("button", { name: "Next ingredient" });
+    expect(within(tabs[0]).getByText("Selected", { exact: true })).toBeVisible();
+    expect(within(tabs[1]).getByText("View details", { exact: true })).toBeVisible();
+    expect(screen.getByRole("heading", {
+      name: "Selected ingredient: PDRN / Sodium DNA",
+    })).toBeVisible();
     next.focus();
     await user.keyboard("{Enter}");
     expect(tabs[0]).toHaveAttribute("aria-selected", "true");
     expect(tabs[1]).toHaveAttribute("aria-selected", "false");
     expect(carousel).toHaveAttribute("data-centered-ingredient", "niacinamide");
     expect(screen.getByRole("tabpanel", { name: /PDRN/i })).toBeVisible();
+    expect(screen.getByRole("heading", {
+      name: "Selected ingredient: PDRN / Sodium DNA",
+    })).toBeVisible();
 
     act(() => tabs[0].focus());
     await waitFor(() =>

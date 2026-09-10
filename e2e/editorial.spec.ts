@@ -102,9 +102,43 @@ test("System hero uses the campaign image and responsive focal points", async ({
 
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(image).toHaveCSS("object-position", "60% 50%");
-  await expect(heading).toHaveCSS("font-size", "18px");
+  const phoneTitleSize = await heading.evaluate((element) =>
+    Number.parseFloat(getComputedStyle(element).fontSize),
+  );
+  expect(phoneTitleSize).toBeGreaterThanOrEqual(24);
+  expect(phoneTitleSize).toBeLessThanOrEqual(28);
   await expectViewportHero();
   await expectNoMainOverflow(page, 390);
+});
+
+test("About phone chapters use readable natural-height content", async ({ page }) => {
+  for (const width of [320, 390, 430, 720]) {
+    await page.setViewportSize({ width, height: 844 });
+    await page.goto("/about");
+    const geometry = await page.locator(".about-page").evaluate((element) => {
+      const heading = element.querySelector("h1")!;
+      const band = element.querySelector(".about-quality__visual")!;
+      const cities = [...element.querySelectorAll(".culture-panel")].map((city) => {
+        const title = city.querySelector("h3")!;
+        const body = city.querySelector(":scope > span")!;
+        return body.getBoundingClientRect().top - title.getBoundingClientRect().bottom;
+      });
+      return {
+        titleSize: parseFloat(getComputedStyle(heading).fontSize),
+        bandHeight: band.getBoundingClientRect().height,
+        cityGaps: cities,
+      };
+    });
+    expect(geometry.titleSize).toBeGreaterThanOrEqual(36);
+    expect(geometry.titleSize).toBeLessThanOrEqual(44);
+    expect(geometry.bandHeight).toBeGreaterThanOrEqual(100);
+    expect(geometry.bandHeight).toBeLessThanOrEqual(140);
+    for (const gap of geometry.cityGaps) expect(gap).toBeLessThanOrEqual(24);
+    await expectNoMainOverflow(page, width);
+  }
+
+  await page.setViewportSize({ width: 721, height: 844 });
+  await expect(page.locator(".about-quality__visual")).toHaveCSS("min-height", "440px");
 });
 
 test("skip link transfers keyboard focus to main content", async ({
