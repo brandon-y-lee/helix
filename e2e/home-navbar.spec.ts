@@ -8,6 +8,12 @@ test("global navbar follows scroll direction and returns to its top state", asyn
   const pageErrors: string[] = [];
   page.on("pageerror", (error) => pageErrors.push(error.message));
   await page.goto("/");
+  // The persistent portal is client-mounted; let initial effects settle before
+  // testing scroll direction on an otherwise fast, server-rendered route.
+  await expect(page.locator(".search-sheet")).toHaveAttribute("data-state", "closed");
+  await page.evaluate(() => new Promise<void>((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+  }));
   const header = page.locator(".site-header");
   const homepageSurface = page.locator(
     'main[data-storefront-main] > [data-header-layout="overlay"][data-header-theme="light"]',
