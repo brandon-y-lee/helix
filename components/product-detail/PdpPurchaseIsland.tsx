@@ -22,6 +22,10 @@ import { PREVIEW_COMMERCE_DISABLED_LABEL } from "@/lib/catalog-editor/preview-co
 import { ProductWaitlistSheet } from "@/components/product-detail/ProductWaitlistSheet";
 import type { ProductFamily } from "@/lib/catalog/models";
 import { statusLabel } from "@/lib/catalog/product-status";
+import { focusHeaderCart, useModalPresence } from "@/components/overlays/modal-state";
+import { PDP_MOBILE_PILOT_QUERY, type PdpPresentation } from "./pdp-presentation";
+import { usePdpMobilePresentation } from "./usePdpMobilePresentation";
+import "./pdp-purchase-mobile.css";
 
 export type PdpPurchaseVariant = {
   id: string;
@@ -56,6 +60,7 @@ export type PdpPurchaseIslandProps = {
   showVariantOptions: boolean;
   status: ProductStatus;
   commerceDisabled?: boolean;
+  presentation?: PdpPresentation;
 };
 
 export function PdpPurchaseIsland({
@@ -77,7 +82,10 @@ export function PdpPurchaseIsland({
   showVariantOptions,
   status,
   commerceDisabled = false,
+  presentation = "default",
 }: PdpPurchaseIslandProps) {
+  const mobilePilot = usePdpMobilePresentation(presentation);
+  const modalPresent = useModalPresence();
   const {
     error: addError,
     pending,
@@ -90,11 +98,17 @@ export function PdpPurchaseIsland({
   const [variantId, setVariantId] = useState(variants[0]?.id);
   const [added, setAdded] = useState(false);
   const [hasPassedVideoStart, setHasPassedVideoStart] = useState(false);
+  const [hasPassedMainAction, setHasPassedMainAction] = useState(false);
   const [footerEnteringViewport, setFooterEnteringViewport] = useState(false);
   const [waitlistOpen, setWaitlistOpen] = useState(false);
+  const [actionOrigin, setActionOrigin] = useState<"main" | "sticky">("main");
   const waitlistReturnFocusRef = useRef<() => void>(() => undefined);
   const mainBuyButtonRef = useRef<HTMLButtonElement>(null);
   const stickyBuyButtonRef = useRef<HTMLButtonElement>(null);
+  const stickyPanelRef = useRef<HTMLDivElement>(null);
+  const stickyConfigurationRef = useRef<HTMLSelectElement>(null);
+  const focusFrameRef = useRef<number | null>(null);
+  const focusRequestRef = useRef(0);
   const addedTimeoutRef = useRef<number | null>(null);
   const variant =
     variants.find((option) => option.id === variantId) ?? variants[0];
@@ -122,7 +136,11 @@ export function PdpPurchaseIsland({
     stickyPrice && cta.label.endsWith(stickyPrice)
       ? cta.label.slice(0, -stickyPrice.length)
       : null;
-  const stickyVisible = hasPassedVideoStart && !footerEnteringViewport;
+  const stickyVisible = (mobilePilot ? hasPassedMainAction : hasPassedVideoStart)
+    && !footerEnteringViewport && !(mobilePilot && modalPresent);
+  const stickyConfiguration = presentation === "mobile-pilot" && !waitlist && showVariantOptions
+    && variants.length > 1 && variants.some((option) => option.purchasable);
+  const stickyFeedback = mobilePilot && stickyVisible && actionOrigin === "sticky";
   const closeWaitlist = useCallback(() => setWaitlistOpen(false), []);
   const restoreWaitlistFocus = useCallback(
     () => waitlistReturnFocusRef.current(),
@@ -134,11 +152,84 @@ export function PdpPurchaseIsland({
     setWaitlistOpen(true);
   }
 
+  const restoreActionFocus = useCallback((origin: "main" | "sticky") => {
+    const request = ++focusRequestRef.current;
+    if (presentation !== "mobile-pilot") {
+      (origin === "main" ? mainBuyButtonRef : stickyBuyButtonRef).current?.focus({ preventScroll: true });
+      return;
+    }
+    if (focusFrameRef.current !== null) window.cancelAnimationFrame(focusFrameRef.current);
+    // Modal presence is published before React reveals the action again. Wait
+    // for that commit and its reveal motion before reading visible geometry.
+    focusFrameRef.current = window.requestAnimationFrame(async () => {
+      focusFrameRef.current = null;
+      const panel = stickyPanelRef.current;
+      const animations = panel?.dataset.visible === "true"
+        ? panel.getAnimations?.().filter((animation) => animation.playState === "running") ?? []
+        : [];
+      await Promise.all(animations.map((animation) => animation.finished.catch(() => undefined)));
+      if (request !== focusRequestRef.current) return;
+      const main = mainBuyButtonRef.current;
+      const sticky = stickyBuyButtonRef.current;
+      if (!main || !sticky) return;
+      const mobile = window.matchMedia?.(PDP_MOBILE_PILOT_QUERY).matches;
+      const footer = document.getElementById("site-footer")?.getBoundingClientRect();
+      const boundary = mobile
+        ? main.getBoundingClientRect().bottom
+        : document.querySelector("[data-pdp-video-start]")?.getBoundingClientRect().top;
+      const eligible = boundary !== undefined && boundary <= 0 && footer
+        && !(footer.top < window.innerHeight && footer.bottom > 0);
+      const headerBottom = document.querySelector('.site-header:not([data-nav-state="hidden"])')
+        ?.getBoundingClientRect().bottom ?? 0;
+      const visible = (button: HTMLButtonElement) => {
+        if (button.disabled || button.closest('[inert], [aria-hidden="true"], [hidden]')) return false;
+        const style = window.getComputedStyle(button);
+        const box = button.getBoundingClientRect();
+        return style.display !== "none" && style.visibility !== "hidden"
+          && box.width > 0 && box.height > 0 && box.top >= Math.max(0, headerBottom)
+          && box.bottom <= window.innerHeight;
+      };
+      if (origin === "sticky" && eligible && visible(sticky)) sticky.focus({ preventScroll: true });
+      else if (visible(main)) main.focus({ preventScroll: true });
+      else if (eligible && visible(sticky)) sticky.focus({ preventScroll: true });
+      else focusHeaderCart();
+    });
+  }, [presentation]);
+
+  useEffect(() => {
+    if (modalPresent || presentation !== "mobile-pilot") return;
+    const active = document.activeElement;
+    if ((!stickyVisible && stickyPanelRef.current?.contains(active))
+      || (!mobilePilot && active === stickyConfigurationRef.current)) {
+      restoreActionFocus("sticky");
+    }
+  }, [mobilePilot, modalPresent, presentation, restoreActionFocus, stickyVisible]);
+
+  useEffect(() => {
+    const panel = stickyPanelRef.current;
+    if (!mobilePilot || !panel) return;
+    const root = document.documentElement;
+    const previous = root.style.getPropertyValue("--pdp-sticky-height");
+    const measure = () => root.style.setProperty("--pdp-sticky-height", `${panel.getBoundingClientRect().height}px`);
+    measure();
+    const observer = typeof ResizeObserver === "function" ? new ResizeObserver(measure) : null;
+    observer?.observe(panel);
+    window.addEventListener("resize", measure);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", measure);
+      if (previous) root.style.setProperty("--pdp-sticky-height", previous);
+      else root.style.removeProperty("--pdp-sticky-height");
+    };
+  }, [mobilePilot]);
+
   useEffect(
     () => () => {
       if (addedTimeoutRef.current) {
         window.clearTimeout(addedTimeoutRef.current);
       }
+      if (focusFrameRef.current !== null) window.cancelAnimationFrame(focusFrameRef.current);
+      focusRequestRef.current += 1;
     },
     [],
   );
@@ -156,12 +247,14 @@ export function PdpPurchaseIsland({
 
     setHasPassedVideoStart(false);
     setFooterEnteringViewport(false);
-    if (!videoStart || !footer) return;
+    if (!footer) return;
 
     const updateBoundaries = () => {
-      const videoStartRect = videoStart.getBoundingClientRect();
+      const videoStartRect = videoStart?.getBoundingClientRect();
+      const mainActionRect = mainBuyButtonRef.current?.getBoundingClientRect();
       const footerRect = footer.getBoundingClientRect();
-      setHasPassedVideoStart(videoStartRect.top <= 0);
+      setHasPassedVideoStart(Boolean(videoStartRect && videoStartRect.top <= 0));
+      setHasPassedMainAction(Boolean(mainActionRect && mainActionRect.bottom <= 0));
       setFooterEnteringViewport(
         footerRect.top < window.innerHeight && footerRect.bottom > 0,
       );
@@ -222,7 +315,7 @@ export function PdpPurchaseIsland({
 
   return (
     <>
-      <div className="pdp__purchase">
+      <div className="pdp__purchase" data-pdp-presentation={presentation}>
         {children}
         {productFamily && (
           <fieldset className="pdp-family-selector">
@@ -286,7 +379,7 @@ export function PdpPurchaseIsland({
                   type="button"
                   className="variant-option"
                   aria-pressed={option.id === variant?.id}
-                  disabled={!option.available}
+                  disabled={!option.available || (presentation === "mobile-pilot" && pending)}
                   onClick={() => setVariantId(option.id)}
                 >
                   {option.label}
@@ -303,7 +396,8 @@ export function PdpPurchaseIsland({
             className="btn"
             data-pdp-buy-button
             onClick={() => {
-              const returnFocus = () => mainBuyButtonRef.current?.focus();
+              setActionOrigin("main");
+              const returnFocus = () => restoreActionFocus("main");
               if (waitlist && !commerceDisabled) {
                 openWaitlist(returnFocus);
                 return;
@@ -324,17 +418,20 @@ export function PdpPurchaseIsland({
             publishableKey={stripePublishableKey}
           />
         )}
-        <p className="add-feedback" role="status" aria-live="polite">
+        <p className="add-feedback" role="status" aria-live={stickyFeedback ? "off" : "polite"}>
           {added ? "Added to cart" : addError}
         </p>
         {accordions}
       </div>
 
       <div
+        ref={stickyPanelRef}
         className="pdp-sticky-purchase"
+        data-pdp-presentation={presentation}
         data-layout-shell="storefront-fixed"
         data-visible={stickyVisible}
         aria-hidden={!stickyVisible}
+        inert={!stickyVisible}
       >
         <div className="pdp-sticky-purchase__identity">
           <ProductImage
@@ -351,13 +448,32 @@ export function PdpPurchaseIsland({
           </span>
         </div>
         <div className="pdp-sticky-purchase__action">
+          {stickyConfiguration && (
+            <select
+              ref={stickyConfigurationRef}
+              className="pdp-sticky-purchase__configuration"
+              aria-label={`${productName} configuration`}
+              value={variant?.id}
+              disabled={pending}
+              hidden={!mobilePilot}
+              tabIndex={stickyVisible && mobilePilot ? undefined : -1}
+              onChange={(event) => setVariantId(event.target.value)}
+            >
+              {variants.map((option) => (
+                <option key={option.id} value={option.id} disabled={!option.available}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          )}
           <button
             ref={stickyBuyButtonRef}
             type="button"
             className="btn"
             data-sticky-pdp-buy-button
             onClick={() => {
-              const returnFocus = () => stickyBuyButtonRef.current?.focus();
+              setActionOrigin("sticky");
+              const returnFocus = () => restoreActionFocus("sticky");
               if (waitlist && !commerceDisabled) {
                 openWaitlist(returnFocus);
                 return;
@@ -368,7 +484,7 @@ export function PdpPurchaseIsland({
               commerceDisabled || (!waitlist && (!cta.purchasable || pending))
             }
             tabIndex={stickyVisible ? undefined : -1}
-            aria-label={cta.label}
+            aria-label={mobilePilot ? `${productName}: ${cta.label}` : cta.label}
           >
             {pending && cta.purchasable ? (
               "Adding"
@@ -384,6 +500,11 @@ export function PdpPurchaseIsland({
             )}
           </button>
         </div>
+        {stickyFeedback && (addError || added) && (
+          <p className="pdp-sticky-purchase__feedback" role="status" aria-live="polite">
+            {added ? "Added to cart" : addError}
+          </p>
+        )}
       </div>
       {waitlist && !commerceDisabled && (
         <ProductWaitlistSheet

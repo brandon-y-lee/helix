@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { render, screen } from "@testing-library/react";
 
 const navigation = vi.hoisted(() => ({
   notFound: vi.fn(() => {
@@ -20,7 +21,9 @@ const catalogCache = vi.hoisted(() => ({
 vi.mock("next/navigation", () => navigation);
 vi.mock("@/lib/catalog-cache", () => catalogCache);
 vi.mock("@/components/product-detail/ProductDetail", () => ({
-  ProductDetail: () => <div>Canonical PDP</div>,
+  ProductDetail: ({ presentation }: { presentation?: string }) => (
+    <div data-testid="canonical-pdp" data-presentation={presentation}>Canonical PDP</div>
+  ),
 }));
 vi.mock("@/components/product/ProductCarousel", () => ({
   ProductCarousel: () => null,
@@ -62,6 +65,19 @@ beforeEach(() => {
 });
 
 describe("durable Product slug route resolution", () => {
+  it.each([
+    ["super-serum", "mobile-pilot"],
+    ["biotic-reset", "default"],
+    ["treat-alternative", "default"],
+  ])("opts only canonical Super Serum into mobile presentation: %s", async (slug, expected) => {
+    catalogCache.getCachedProductSlugResolution.mockResolvedValue({ targetSlug: slug });
+    catalogCache.getCachedPdpProduct.mockResolvedValue({ id: "product-id", slug, routineGroup: "core", systemStepName: "TREAT" });
+    const page = await ProductDetailPage({ params: Promise.resolve({ slug }) });
+    const { container } = render(page);
+    expect(container.querySelector(".storefront-shell")).toHaveAttribute("data-pdp-presentation", expected);
+    expect(screen.getByTestId("canonical-pdp")).toHaveAttribute("data-presentation", expected);
+  });
+
   it("resolves canonical and future alias paths only after a real request", () => {
     expect(dynamic).toBe("force-dynamic");
   });
