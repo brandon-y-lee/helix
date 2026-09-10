@@ -104,61 +104,77 @@ for (const width of [320, 390, 430, 820]) {
   });
 }
 
-test("all mobile education selections remain close, announced, and stable through resize", async ({ page, storefront }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.emulateMedia({ reducedMotion: "reduce" });
-  await page.goto(pilotProduct(storefront).path);
-  const outcomes = page.locator(".pdp-outcome-split");
-  const outcomeButtons = outcomes.getByRole("button");
-  for (let index = 0; index < 3; index++) {
-    await outcomeButtons.nth(index).click();
-    await expect(outcomeButtons.nth(index)).toHaveAttribute("aria-pressed", "true");
-    await expect(outcomes.locator('[data-active="true"]')).toHaveAttribute("data-pdp-outcome-state", String(index + 1));
-  }
-  await outcomeButtons.last().press("Home");
-  await expect(outcomeButtons.first()).toBeFocused();
-  await expect(outcomeButtons.first()).toHaveAttribute("aria-pressed", "true");
-  await outcomeButtons.first().press("End");
-  await expect(outcomeButtons.last()).toBeFocused();
+test.describe("pilot phone touch interaction", () => {
+  test.use({ hasTouch: true });
 
-  const application = page.locator(".pdp-application");
-  for (let index = 0; index < 3; index++) {
-    const swatch = application.getByRole("button", { name: `Show application step ${index + 1} of 3` });
-    await swatch.click();
-    await expect(swatch).toHaveAttribute("aria-pressed", "true");
-    await expect(swatch.getByText("Selected", { exact: true })).toBeVisible();
-    await expect(application.locator('.pdp-application__step[aria-hidden="false"]')).toHaveCount(1);
-    const instruction = await box(application.locator('.pdp-application__step[data-state="active"] p'));
-    const copy = await box(application.locator(".pdp-application__copy"));
-    expect(instruction.width).toBeCloseTo(copy.width, 0);
-  }
-  const previous = application.getByRole("button", { name: "Show previous application step" });
-  await previous.focus();
-  await previous.press("Enter");
-  await expect(previous).toBeFocused();
-  await page.setViewportSize({ width: 821, height: 1000 });
-  await expect(application.getByRole("button", { name: "Show next application step" })).toBeFocused();
-  await expectFocusedVisible(page);
-  await expect(application.getByRole("button", { name: "Show application step 2 of 3" })).toHaveAttribute("aria-pressed", "true");
-  await page.setViewportSize({ width: 390, height: 844 });
+  test("education touch selections remain close and retain state through keyboard resize", async ({ page, storefront }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto(pilotProduct(storefront).path);
+    expect(await page.evaluate(() => window.matchMedia("(pointer: coarse)").matches)).toBe(true);
+    const outcomes = page.locator(".pdp-outcome-split");
+    const outcomeButtons = outcomes.getByRole("button");
+    for (let index = 0; index < 3; index++) {
+      await outcomeButtons.nth(index).tap();
+      await expect(outcomeButtons.nth(index)).toHaveAttribute("aria-pressed", "true");
+      await expect(outcomes.locator('[data-active="true"]')).toHaveAttribute("data-pdp-outcome-state", String(index + 1));
+    }
+    await outcomeButtons.last().press("Home");
+    await expect(outcomeButtons.first()).toBeFocused();
+    await expect(outcomeButtons.first()).toHaveAttribute("aria-pressed", "true");
+    await outcomeButtons.first().press("End");
+    await expect(outcomeButtons.last()).toBeFocused();
 
-  const routine = page.locator(".pdp-core-routine");
-  const selectors = routine.getByRole("radio");
-  for (let index = 0; index < 3; index++) {
-    await selectors.nth(index).click();
-    await expect(selectors.nth(index)).toHaveAttribute("aria-checked", "true");
-    await expect(routine.locator('.pdp-core-routine__callout-state[aria-hidden="false"]')).toHaveCount(1);
-  }
-  await selectors.last().press("Home");
-  await expect(selectors.first()).toBeFocused();
-  await page.setViewportSize({ width: 821, height: 1000 });
-  await expect(selectors.first()).toBeFocused();
-  await expect(selectors.first()).toHaveAttribute("aria-checked", "true");
-  await expectFocusedVisible(page);
-  await page.setViewportSize({ width: 390, height: 844 });
-  await expect(selectors.first()).toBeFocused();
-  await expectFocusedVisible(page);
-  await expectNoMainOverflow(page, 390);
+    const application = page.locator(".pdp-application");
+    for (let index = 0; index < 3; index++) {
+      const swatch = application.getByRole("button", { name: `Show application step ${index + 1} of 3` });
+      await swatch.tap();
+      await expect(swatch).toHaveAttribute("aria-pressed", "true");
+      await expect(swatch.getByText("Selected", { exact: true })).toBeVisible();
+      await expect(application.locator('.pdp-application__step[aria-hidden="false"]')).toHaveCount(1);
+      const instruction = await box(application.locator('.pdp-application__step[data-state="active"] p'));
+      const copy = await box(application.locator(".pdp-application__copy"));
+      expect(instruction.width).toBeCloseTo(copy.width, 0);
+    }
+    const previous = application.getByRole("button", { name: "Show previous application step" });
+    await previous.focus();
+    await previous.press("Enter");
+    await expect(previous).toBeFocused();
+    await page.setViewportSize({ width: 821, height: 1000 });
+    await expect(application.getByRole("button", { name: "Show next application step" })).toBeFocused();
+    await expectFocusedVisible(page);
+    await expect(application.getByRole("button", { name: "Show application step 2 of 3" })).toHaveAttribute("aria-pressed", "true");
+    await page.setViewportSize({ width: 390, height: 844 });
+
+    const routine = page.locator(".pdp-core-routine");
+    const selectors = routine.getByRole("radio");
+    for (let index = 0; index < 3; index++) {
+      await selectors.nth(index).tap();
+      await expect(selectors.nth(index)).toHaveAttribute("aria-checked", "true");
+      await expect(routine.locator('.pdp-core-routine__callout-state[aria-hidden="false"]')).toHaveCount(1);
+    }
+    await selectors.last().press("Home");
+    await expect(selectors.first()).toBeFocused();
+    await page.setViewportSize({ width: 821, height: 1000 });
+    await expect(selectors.first()).toBeFocused();
+    await expect(selectors.first()).toHaveAttribute("aria-checked", "true");
+    await expectFocusedVisible(page);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(selectors.first()).toBeFocused();
+    await expectFocusedVisible(page);
+    const ingredients = page.locator(".pdp-ingredients");
+    const ingredientTrigger = ingredients.getByRole("button", { name: "FULL INGREDIENTS LIST", exact: true });
+    await ingredientTrigger.tap();
+    await expect(ingredientTrigger).toHaveAttribute("aria-expanded", "true");
+    await expect(ingredients.locator(".pdp-ingredients__story")).toHaveAttribute("aria-hidden", "false");
+    await expect(ingredients.locator(".pdp-ingredients__full-scroll")).toHaveCSS("overflow-y", "visible");
+    await expectNoMainOverflow(page, 390);
+    await ingredients.getByRole("button", { name: "Close full ingredients list", exact: true }).tap();
+    await expect(ingredientTrigger).toHaveAttribute("aria-expanded", "false");
+    await expect(selectors.first()).toHaveAttribute("aria-checked", "true");
+    await expect(application.getByRole("button", { name: "Show application step 2 of 3" })).toHaveAttribute("aria-pressed", "true");
+    await expectNoMainOverflow(page, 390);
+  });
 });
 
 test("inline INCI preserves the reader's place and visible focus through disclosure and resize", async ({ page, storefront, browserName }) => {
