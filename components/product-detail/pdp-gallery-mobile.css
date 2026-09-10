@@ -1,4 +1,9 @@
 @media (max-width: 820px) {
+  [data-pdp-presentation="mobile-pilot"] .pdp {
+    /* The gallery's intrinsic width must not hold this column open after resize. */
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .pdp__gallery[data-pdp-gallery-presentation="mobile-pilot"] .pdp__media-viewport {
     aspect-ratio: 4 / 5;
     touch-action: pan-y pinch-zoom;

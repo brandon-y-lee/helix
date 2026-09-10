@@ -316,15 +316,37 @@ test("phone sign-up keeps enlarged heading text and form controls inside the rea
   }
 
   const controls = panel.locator('.account-form input:not([type="hidden"]), .account-form button[type="submit"]');
-  await expect(panel.getByRole("button", { name: "Create account", exact: true })).toBeVisible();
+  const submit = panel.getByRole("button", { name: "Create account", exact: true });
+  await expect(submit).toBeVisible();
   expect(await controls.count()).toBeGreaterThan(1);
   for (const control of await controls.all()) {
     await control.scrollIntoViewIfNeeded();
+    await control.evaluate((element) => (element as HTMLElement).focus({ preventScroll: true }));
+    await expect(control).toBeFocused();
     const box = (await control.boundingBox())!;
     expect(box.x).toBeGreaterThanOrEqual(geometry.form.left - 1);
     expect(box.x + box.width).toBeLessThanOrEqual(geometry.form.right + 1);
-    expect(box.y).toBeGreaterThanOrEqual(0);
-    expect(box.y + box.height).toBeLessThanOrEqual(568);
+    // Native scrolling can leave a fractional CSS pixel of the control border at the viewport edge.
+    expect(box.y).toBeGreaterThanOrEqual(-1);
+    expect(box.y + box.height).toBeLessThanOrEqual(568 + 1);
+  }
+
+  const submitText = await submit.evaluate((element) => {
+    const range = document.createRange();
+    range.selectNodeContents(element);
+    return Array.from(range.getClientRects(), (rect) => ({
+      left: rect.left,
+      right: rect.right,
+      top: rect.top,
+      bottom: rect.bottom,
+    }));
+  });
+  expect(submitText.length).toBeGreaterThan(0);
+  for (const line of submitText) {
+    expect(line.left).toBeGreaterThanOrEqual(geometry.form.left);
+    expect(line.right).toBeLessThanOrEqual(geometry.form.right);
+    expect(line.top).toBeGreaterThanOrEqual(0);
+    expect(line.bottom).toBeLessThanOrEqual(568);
   }
 
   await enlargedText.evaluate((element) => {
