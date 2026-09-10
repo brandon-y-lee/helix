@@ -108,6 +108,7 @@ export function PdpPurchaseIsland({
   const stickyPanelRef = useRef<HTMLDivElement>(null);
   const stickyConfigurationRef = useRef<HTMLSelectElement>(null);
   const focusFrameRef = useRef<number | null>(null);
+  const focusRequestRef = useRef(0);
   const addedTimeoutRef = useRef<number | null>(null);
   const variant =
     variants.find((option) => option.id === variantId) ?? variants[0];
@@ -152,15 +153,22 @@ export function PdpPurchaseIsland({
   }
 
   const restoreActionFocus = useCallback((origin: "main" | "sticky") => {
+    const request = ++focusRequestRef.current;
     if (presentation !== "mobile-pilot") {
       (origin === "main" ? mainBuyButtonRef : stickyBuyButtonRef).current?.focus({ preventScroll: true });
       return;
     }
     if (focusFrameRef.current !== null) window.cancelAnimationFrame(focusFrameRef.current);
     // Modal presence is published before React reveals the action again. Wait
-    // for that commit, then read current geometry instead of an opening snapshot.
-    focusFrameRef.current = window.requestAnimationFrame(() => {
+    // for that commit and its reveal motion before reading visible geometry.
+    focusFrameRef.current = window.requestAnimationFrame(async () => {
       focusFrameRef.current = null;
+      const panel = stickyPanelRef.current;
+      const animations = panel?.dataset.visible === "true"
+        ? panel.getAnimations?.().filter((animation) => animation.playState === "running") ?? []
+        : [];
+      await Promise.all(animations.map((animation) => animation.finished.catch(() => undefined)));
+      if (request !== focusRequestRef.current) return;
       const main = mainBuyButtonRef.current;
       const sticky = stickyBuyButtonRef.current;
       if (!main || !sticky) return;
@@ -191,7 +199,7 @@ export function PdpPurchaseIsland({
   useEffect(() => {
     if (modalPresent || presentation !== "mobile-pilot") return;
     const active = document.activeElement;
-    if ((!stickyVisible && active === stickyBuyButtonRef.current)
+    if ((!stickyVisible && stickyPanelRef.current?.contains(active))
       || (!mobilePilot && active === stickyConfigurationRef.current)) {
       restoreActionFocus("sticky");
     }
@@ -221,6 +229,7 @@ export function PdpPurchaseIsland({
         window.clearTimeout(addedTimeoutRef.current);
       }
       if (focusFrameRef.current !== null) window.cancelAnimationFrame(focusFrameRef.current);
+      focusRequestRef.current += 1;
     },
     [],
   );

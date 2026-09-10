@@ -127,7 +127,7 @@ export function PdpGalleryIsland({
     return () => {
       for (const video of videos.values()) video.pause();
     };
-  }, [productKey]);
+  }, [galleryKey]);
 
   function selectPanel(index: number) {
     if (index === activePanel || index < 0 || index >= items.length) return;

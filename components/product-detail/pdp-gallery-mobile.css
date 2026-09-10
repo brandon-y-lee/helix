@@ -1,7 +1,7 @@
 @media (max-width: 820px) {
   .pdp__gallery[data-pdp-gallery-presentation="mobile-pilot"] .pdp__media-viewport {
     aspect-ratio: 4 / 5;
-    touch-action: pan-y;
+    touch-action: pan-y pinch-zoom;
   }
 
   .pdp__gallery[data-pdp-gallery-presentation="mobile-pilot"][data-pdp-gallery-multiple="true"] .pdp__media-track {
@@ -31,7 +31,7 @@
     right: 16px;
     bottom: 4px;
     left: 16px;
-    justify-content: center;
+    justify-content: safe center;
     gap: 0;
     padding: 0;
   }

@@ -161,6 +161,19 @@ describe("Treat mobile gallery", () => {
     expect(views[1]).toHaveFocus();
   });
 
+  it("pauses a retained video when refreshed gallery media resets selection", () => {
+    const { container, rerender } = renderGallery();
+    const video = container.querySelector("video")!;
+    fireEvent.click(screen.getByRole("button", { name: "View application, media 3 of 3" }));
+    const pause = vi.spyOn(video, "pause");
+    pause.mockClear();
+    rerender(<PdpGalleryIsland productKey="super-serum" detailMedia={null} presentation="mobile-pilot" items={[...items, { ...items[0], id: "additional-bottle" }]} />);
+    expect(container.querySelector("video")).toBe(video);
+    expect(screen.getByRole("button", { name: "View bottle, media 1 of 4" })).toHaveAttribute("aria-pressed", "true");
+    expect(pause).toHaveBeenCalled();
+    expect(video.closest("[inert]")).not.toBeNull();
+  });
+
   it("moves at most one view per horizontal swipe and stops at both ends", () => {
     renderGallery();
     const views = screen.getAllByRole("button");

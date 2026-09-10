@@ -27,9 +27,11 @@ let width = 390;
 let mainBottom = 90;
 let videoTop = 400;
 let footerTop = 2000;
+let stickyTop = 700;
 const mediaListeners = new Set<() => void>();
 const fallbackFocus = vi.fn();
 let unregisterFocus: () => void;
+let headerCartButton: HTMLButtonElement;
 
 const props: PdpPurchaseIslandProps = {
   accordions: <div>Product details</div>,
@@ -60,10 +62,16 @@ function mount(overrides: Partial<PdpPurchaseIslandProps> = {}) {
 }
 
 beforeEach(() => {
-  width = 390; mainBottom = 90; videoTop = 400; footerTop = 2000;
+  width = 390; mainBottom = 90; videoTop = 400; footerTop = 2000; stickyTop = 700;
   purchaseMock.mockReset().mockResolvedValue(true);
   fallbackFocus.mockReset();
-  unregisterFocus = registerHeaderCartFocus(fallbackFocus);
+  headerCartButton = document.createElement("button");
+  headerCartButton.textContent = "Header Cart";
+  document.body.append(headerCartButton);
+  unregisterFocus = registerHeaderCartFocus(() => {
+    fallbackFocus();
+    headerCartButton.focus();
+  });
   vi.stubGlobal("matchMedia", (query: string) => ({
     get matches() { return query === "(max-width: 820px)" ? width <= 820 : query.includes("reduced-motion"); },
     media: query, addEventListener: (_: string, callback: () => void) => mediaListeners.add(callback), removeEventListener: (_: string, callback: () => void) => mediaListeners.delete(callback),
@@ -72,12 +80,12 @@ beforeEach(() => {
     if (this.hasAttribute("data-pdp-buy-button")) return rect(mainBottom - 48);
     if (this.hasAttribute("data-pdp-video-start")) return rect(videoTop, 2);
     if (this.id === "site-footer") return rect(footerTop, 800);
-    if (this.hasAttribute("data-sticky-pdp-buy-button")) return rect(700);
+    if (this.hasAttribute("data-sticky-pdp-buy-button")) return rect(stickyTop);
     return rect(0);
   });
 });
 
-afterEach(() => { unregisterFocus(); vi.restoreAllMocks(); vi.unstubAllGlobals(); mediaListeners.clear(); });
+afterEach(() => { unregisterFocus(); headerCartButton.remove(); vi.restoreAllMocks(); vi.unstubAllGlobals(); mediaListeners.clear(); });
 
 describe("Super Serum mobile purchase", () => {
   it("uses the passed main action boundary even while the video remains below the viewport", async () => {
@@ -186,5 +194,41 @@ describe("Super Serum mobile purchase", () => {
     act(purchaseMock.mock.calls[0][0].returnFocus);
     await waitFor(() => expect(fallbackFocus).toHaveBeenCalledOnce());
     expect(view.container.querySelector("[data-pdp-buy-button]")).not.toHaveFocus();
+  });
+
+  it.each(["footer", "main action"])("restores visible focus when the focused sticky configuration is hidden by %s", async (boundary) => {
+    mainBottom = -1;
+    mount({ status: "available", showVariantOptions: true, variants: [
+      { id: "small", label: "15 mL", price: 2500, available: true, purchaseLabel: "BUY", purchasable: true },
+      { id: "large", label: "30 mL", price: 4200, available: true, purchaseLabel: "BUY", purchasable: true },
+    ] });
+    const select = screen.getByRole("combobox");
+    select.focus();
+    if (boundary === "footer") footerTop = 500;
+    else mainBottom = 150;
+    await changeViewport();
+    if (boundary === "footer") await waitFor(() => expect(fallbackFocus).toHaveBeenCalledOnce());
+    else await waitFor(() => expect(document.querySelector("[data-pdp-buy-button]")).toHaveFocus());
+    expect(select).not.toHaveFocus();
+  });
+
+  it("waits for the sticky reveal animation before deciding where to restore focus", async () => {
+    const user = userEvent.setup();
+    mainBottom = -1;
+    const { container } = mount({ status: "available", variants: [{ id: "single", label: "15 mL", price: 2500, available: true, purchaseLabel: "BUY", purchasable: true }] });
+    const panel = container.querySelector(".pdp-sticky-purchase") as HTMLElement;
+    const trigger = within(panel).getByRole("button");
+    await user.click(trigger);
+    headerCartButton.focus();
+    stickyTop = 730;
+    let finishAnimation: () => void;
+    const finished = new Promise<void>((resolve) => { finishAnimation = resolve; });
+    Object.defineProperty(panel, "getAnimations", { value: () => [{ playState: "running", finished }] });
+    act(purchaseMock.mock.calls[0][0].returnFocus);
+    await act(async () => { await new Promise((resolve) => window.requestAnimationFrame(resolve)); });
+    expect(fallbackFocus).not.toHaveBeenCalled();
+    await act(async () => { stickyTop = 700; finishAnimation!(); });
+    await waitFor(() => expect(trigger).toHaveFocus());
+    expect(fallbackFocus).not.toHaveBeenCalled();
   });
 });
