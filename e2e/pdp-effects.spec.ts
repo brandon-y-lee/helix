@@ -91,6 +91,19 @@ test("serum effects keep the selected property in view across desktop and mobile
     }).toBe(true);
     await expect(carousel.getByRole("button", { name: "Next property" })).toBeDisabled();
 
+    await test.step("desktop resize keeps the selected property fully aligned", async () => {
+      const beforeResize = await propertyGeometry(secondCard);
+      await page.setViewportSize({ width: 1280, height: 787 });
+      await expect.poll(async () => {
+        const geometry = await propertyGeometry(secondCard);
+        return geometry.width > beforeResize.width && geometry.aligned &&
+          geometry.contained && geometry.inViewport &&
+          Math.abs(geometry.scrollLeft - geometry.width) <= 1;
+      }).toBe(true);
+      await expect(secondCard.getByRole("heading", { name: "Stress protection" })).toBeVisible();
+      await expect(carousel.getByRole("button", { name: "Next property" })).toBeDisabled();
+    });
+
     await section.getByRole("button", { name: "Collapse effect description" }).click();
     await expect(section.getByRole("region", { name: / properties$/ })).toHaveCount(0);
     await expect(section.getByRole("button", { name: "Hydration", exact: true })).toBeFocused();

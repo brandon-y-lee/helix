@@ -13,6 +13,7 @@ function Chevron({ previous = false }: { previous?: boolean }) {
 function Properties({ effect, reduceMotion }: { effect: Effect; reduceMotion: boolean }) {
   const [active, setActive] = useState(0);
   const trackRef = useRef<HTMLDivElement>(null);
+  const activeRef = useRef(active);
   const previousRef = useRef<HTMLButtonElement>(null);
   const nextRef = useRef<HTMLButtonElement>(null);
 
@@ -25,10 +26,25 @@ function Properties({ effect, reduceMotion }: { effect: Effect; reduceMotion: bo
   }
 
   useLayoutEffect(() => {
+    activeRef.current = active;
     // Move focus after the endpoint buttons have received their new disabled state.
     if (active === 0 && document.activeElement === previousRef.current) nextRef.current?.focus({ preventScroll: true });
     if (active === effect.pathways.length - 1 && document.activeElement === nextRef.current) previousRef.current?.focus({ preventScroll: true });
   }, [active, effect.pathways.length]);
+
+  useLayoutEffect(() => {
+    const track = trackRef.current;
+    if (!track) return;
+    let width = track.clientWidth;
+    const observer = new ResizeObserver(() => {
+      if (track.clientWidth === width) return;
+      width = track.clientWidth;
+      const selected = track.children[activeRef.current] as HTMLElement;
+      track.scrollTo({ left: selected.offsetLeft, behavior: 'instant' });
+    });
+    observer.observe(track);
+    return () => observer.disconnect();
+  }, []);
 
   return <div className={styles.properties} role="region" aria-roledescription="carousel" aria-label={`${effect.title} properties`}>
     <div className={styles.propertyTrack} ref={trackRef} onScroll={event => {
