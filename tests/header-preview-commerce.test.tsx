@@ -72,6 +72,20 @@ describe("Header draft preview commerce", () => {
     );
   });
 
+  it("makes both shopping groups and support directly reachable from the menu", () => {
+    render(<Header />);
+
+    expect(screen.getByRole("link", { name: "Core" })).toHaveAttribute(
+      "href", "/collections/core",
+    );
+    expect(screen.getByRole("link", { name: "Beyond The Core" })).toHaveAttribute(
+      "href", "/collections/beyond-the-core",
+    );
+    expect(screen.getByRole("link", { name: "Support" })).toHaveAttribute(
+      "href", "/faq",
+    );
+  });
+
   it("keeps the cart control visible but prevents the drawer from opening", () => {
     render(<Header commerceDisabled />);
     const cart = screen.getByRole("button", {

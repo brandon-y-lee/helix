@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { useModalLayer } from "@/components/overlays/modal-state";
 import { COOKIE_ACKNOWLEDGEMENT_COOKIE } from "@/lib/customer-state-identifiers";
 
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
@@ -20,51 +22,17 @@ export function CookieAcknowledgementDialog({
   const descriptionId = useId();
   const triggerRef = useRef<HTMLButtonElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
+  const layerRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!open) return;
-
-    const trigger = triggerRef.current;
-    const previous = document.activeElement instanceof HTMLElement
-      ? document.activeElement
-      : null;
-    closeRef.current?.focus();
-
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        setOpen(false);
-      }
-      if (event.key !== "Tab") return;
-
-      const focusable = Array.from(
-        document.querySelectorAll<HTMLElement>(
-          ".cookie-dialog button, .cookie-dialog a[href]",
-        ),
-      ).filter((element) => !element.hasAttribute("disabled"));
-
-      if (focusable.length === 0) return;
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    }
-
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("keydown", onKeyDown);
-      if (previous && document.contains(previous)) {
-        previous.focus();
-      } else {
-        trigger?.focus();
-      }
-    };
-  }, [open]);
+  const { active } = useModalLayer({
+    open,
+    layerRef,
+    panelRef,
+    onClose: () => setOpen(false),
+    returnFocus: () => triggerRef.current?.focus({ preventScroll: true }),
+    initialFocus: () => closeRef.current,
+  });
 
   return (
     <>
@@ -80,11 +48,14 @@ export function CookieAcknowledgementDialog({
         Cookie notice
       </button>
 
-      {open && (
-        <div className="cookie-dialog__backdrop" role="presentation">
+      {open && typeof document !== "undefined" && createPortal(
+        <div ref={layerRef} className="cookie-dialog__backdrop" role="presentation">
           <div
+            ref={panelRef}
             className="cookie-dialog"
             role="dialog"
+            aria-hidden={active ? undefined : true}
+            inert={active ? undefined : true}
             aria-modal="true"
             aria-labelledby={titleId}
             aria-describedby={descriptionId}
@@ -164,7 +135,8 @@ export function CookieAcknowledgementDialog({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );
