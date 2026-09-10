@@ -8,7 +8,7 @@ import type { SystemStepName } from "@/lib/catalog/system-steps";
 
 export const CORE_ROUTINE_PRODUCT_SLUGS = [
   "biotic-reset",
-  "maxxing-serum",
+  "super-serum",
   "ceramide-cushion",
 ] as const;
 

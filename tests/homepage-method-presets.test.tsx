@@ -180,11 +180,14 @@ describe("homepage product wiring", () => {
     expect(screen.queryByRole("button", { name: /PROTECT/i })).not.toBeInTheDocument();
   });
 
-  it("keeps the Core in order after TREAT is renamed to Maxxing Serum", async () => {
+  it.each([
+    ["maxxing-serum", "Maxxing Serum"],
+    ["super-serum", "Super Serum"],
+  ])("keeps the Core in order with TREAT named %s", async (slug, displayName) => {
     mockedGetProducts.mockResolvedValue(
       fixtures.map((product) =>
         product.slug === "peptide-bounce"
-          ? { ...product, slug: "maxxing-serum", displayName: "Maxxing Serum" }
+          ? { ...product, slug, displayName }
           : product,
       ),
     );
@@ -193,16 +196,16 @@ describe("homepage product wiring", () => {
 
     expect(productDestinations(sectionForHeading("The Core"))).toEqual([
       "/products/biotic-reset",
-      "/products/maxxing-serum",
+      `/products/${slug}`,
       "/products/ceramide-cushion",
     ]);
-    expect(screen.getByRole("link", { name: "Maxxing Serum" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: displayName })).toHaveAttribute(
       "href",
-      "/products/maxxing-serum",
+      `/products/${slug}`,
     );
   });
 
-  it("prefers the current TREAT slug if both names are present during publication", async () => {
+  it("prefers Maxxing Serum over Peptide Bounce before Super Serum is published", async () => {
     mockedGetProducts.mockResolvedValue([
       ...fixtures,
       makeProduct("maxxing-serum", "Maxxing Serum", "TREAT", 3),
@@ -220,9 +223,36 @@ describe("homepage product wiring", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("prefers Super Serum when all three TREAT names are present", async () => {
+    mockedGetProducts.mockResolvedValue([
+      ...fixtures,
+      makeProduct("maxxing-serum", "Maxxing Serum", "TREAT", 3),
+      makeProduct("super-serum", "Super Serum", "TREAT", 3),
+    ]);
+
+    render(<CartProvider>{await HomePage()}</CartProvider>);
+
+    expect(productDestinations(sectionForHeading("The Core"))).toEqual([
+      "/products/biotic-reset",
+      "/products/super-serum",
+      "/products/ceramide-cushion",
+    ]);
+    expect(screen.getByRole("link", { name: "Super Serum" })).toHaveAttribute(
+      "href",
+      "/products/super-serum",
+    );
+    expect(
+      screen.queryByRole("link", { name: "Maxxing Serum" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "Peptide Bounce" }),
+    ).not.toBeInTheDocument();
+  });
+
   it.each([
     ["peptide-bounce", "Peptide Bounce"],
     ["maxxing-serum", "Maxxing Serum"],
+    ["super-serum", "Super Serum"],
   ])("uses canonical TREAT media and preview copy for %s", async (slug, displayName) => {
     const product = makeProduct(slug, displayName, "TREAT", 3);
     product.cardMedia = {
