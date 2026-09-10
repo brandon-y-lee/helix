@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { act } from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const cartMock = vi.hoisted(() => ({
   add: vi.fn(),
@@ -46,11 +46,34 @@ vi.mock("@/components/cart/useCart", async () => {
 
 import { ProductCard } from "@/components/product/ProductCard";
 import { ProductGrid } from "@/components/product/ProductGrid";
+import { registerHeaderCartFocus } from "@/components/overlays/modal-state";
 import type {
   OfferAvailability,
   ProductCard as ProductCardModel,
 } from "@/lib/catalog/models";
 import type { Variant } from "@/lib/products";
+
+function phoneViewport(initialPhone = true) {
+  let phone = initialPhone;
+  const listeners = new Set<() => void>();
+  vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
+    () => new DOMRect(16, 100, 160, 44),
+  );
+  vi.stubGlobal("matchMedia", (query: string) => ({
+    matches: query === "(max-width: 720px)" ? phone : false,
+    media: query,
+    addEventListener: (_event: string, listener: () => void) => {
+      if (query === "(max-width: 720px)") listeners.add(listener);
+    },
+    removeEventListener: (_event: string, listener: () => void) => listeners.delete(listener),
+  }));
+  return (nextPhone: boolean) => act(() => {
+    phone = nextPhone;
+    listeners.forEach((listener) => listener());
+  });
+}
+
+afterEach(() => vi.restoreAllMocks());
 
 function makeVariant(overrides: Partial<Variant> = {}): OfferAvailability {
   const variant: Variant = {
@@ -126,6 +149,82 @@ describe("ProductCard quick buy", () => {
     if (!surface) throw new Error("Product card surface not found");
     return surface;
   }
+
+  it("opens phone Quick Buy in a modal and restores the card trigger on Escape", async () => {
+    phoneViewport();
+    const user = userEvent.setup();
+    const view = render(<ProductCard product={makeProduct()} />);
+    try {
+      const trigger = screen.getByRole("button", { name: "Open quick buy for CLEANSE" });
+      expect(trigger).not.toHaveAttribute("tabindex", "-1");
+      await user.click(trigger);
+      const dialog = screen.getByRole("dialog", { name: "Quick buy CLEANSE" });
+      expect(within(dialog).getByRole("button", { name: "BUY CLEANSE - $20.00" })).toBeVisible();
+      expect(document.body.style.overflow).toBe("hidden");
+      expect(view.container.querySelector("[data-product-card-buy]")).toBeNull();
+      await user.keyboard("{Escape}");
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+      expect(trigger).toHaveFocus();
+      expect(document.body.style.overflow).not.toBe("hidden");
+    } finally {
+      view.unmount();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("retains the chosen configuration and visible retry error across phone and inline presentations", async () => {
+    const resizePhone = phoneViewport();
+    const user = userEvent.setup();
+    cartMock.add.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    const view = render(<ProductCard product={makeProduct({ variants: [
+      makeVariant(),
+      makeVariant({ id: "100ml", label: "100 ml", price: 3200, volume: "100 ml" }),
+    ] })} />);
+    try {
+      await user.click(screen.getByRole("button", { name: "Open quick buy for CLEANSE" }));
+      await user.click(screen.getByRole("radio", { name: "100 ml $32.00" }));
+      await user.click(screen.getByRole("button", { name: "BUY CLEANSE - $32.00" }));
+      expect(await screen.findByRole("alert")).toHaveTextContent("Cart is temporarily unavailable");
+      resizePhone(false);
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+      const selected = screen.getByRole("radio", { name: "100 ml $32.00" });
+      expect(selected).toBeChecked();
+      expect(selected).toHaveFocus();
+      expect(screen.getByRole("alert")).toBeVisible();
+      expect(document.body.style.overflow).not.toBe("hidden");
+      expect(screen.getAllByRole("button", { name: "BUY CLEANSE - $32.00" })).toHaveLength(1);
+      resizePhone(true);
+      const dialog = screen.getByRole("dialog", { name: "Quick buy CLEANSE" });
+      expect(within(dialog).getByRole("radio", { name: "100 ml $32.00" })).toBeChecked();
+      await user.click(within(dialog).getByRole("button", { name: "BUY CLEANSE - $32.00" }));
+      await waitFor(() => expect(cartMock.openCartDrawer).toHaveBeenCalledTimes(1));
+      expect(cartMock.add).toHaveBeenCalledTimes(2);
+      expect(cartMock.add.mock.calls[1][0]).toMatchObject({ variantId: "100ml" });
+    } finally {
+      view.unmount();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("returns to visible navigation when resizing has moved the original card offscreen", async () => {
+    phoneViewport();
+    const user = userEvent.setup();
+    const view = render(<><ProductCard product={makeProduct()} /><button>Cart navigation</button></>);
+    const cartNavigation = screen.getByRole("button", { name: "Cart navigation" });
+    const unregister = registerHeaderCartFocus(() => cartNavigation.focus({ preventScroll: true }));
+    try {
+      const trigger = screen.getByRole("button", { name: "Open quick buy for CLEANSE" });
+      await user.click(trigger);
+      vi.spyOn(trigger, "getBoundingClientRect").mockImplementation(() => new DOMRect(16, -500, 160, 44));
+      await user.keyboard("{Escape}");
+      await waitFor(() => expect(cartNavigation).toHaveFocus());
+      expect(screen.queryByRole("dialog")).toBeNull();
+    } finally {
+      unregister();
+      view.unmount();
+      vi.unstubAllGlobals();
+    }
+  });
 
   it("renders the price beside Product Display Name and Product Type below", () => {
     const { container } = render(

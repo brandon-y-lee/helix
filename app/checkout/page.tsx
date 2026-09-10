@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 
 export default function CheckoutPage() {
   return (
-    <div className="container">
+    <div className="container public-utility-page">
       <div className="page-head">
         <h1>Checkout</h1>
       </div>

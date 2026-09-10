@@ -474,16 +474,14 @@ test("shop presents the approved Product, collection, sheet, and footer treatmen
     1,
   );
   expect(mobileHeroGeometry.width / mobileHeroGeometry.height).toBeCloseTo(
-    1.366,
+    8 / 5,
     2,
   );
   expect(mobileHeadingGeometry.fontSize).toBe("18px");
   await expect(heroImage).toHaveCSS("object-position", "50% 50%");
   await page.reload();
-  await expect(page.locator(".site-footer__accordion").first()).toHaveCSS(
-    "border-top-width",
-    "1px",
-  );
+  await expect(page.getByRole("navigation", { name: "Footer navigation" })).toBeVisible();
+  await expect(page.locator(".site-footer__mobile-groups")).toBeHidden();
   const mobileWidths = await page.evaluate(() => ({
     clientWidth: document.documentElement.clientWidth,
     footerScrollWidth:
@@ -511,6 +509,8 @@ test("shop presents the approved Product, collection, sheet, and footer treatmen
         whiteSpace: getComputedStyle(element).whiteSpace,
         clientWidth: element.clientWidth,
         scrollWidth: element.scrollWidth,
+        clientHeight: element.clientHeight,
+        scrollHeight: element.scrollHeight,
       })),
     );
   expect(mobileProductTypeLayout.length).toBeGreaterThan(0);
@@ -518,10 +518,29 @@ test("shop presents the approved Product, collection, sheet, and footer treatmen
     mobileProductTypeLayout.every(
       (item) =>
         item.fontSize === "13.2px" &&
-        item.whiteSpace === "nowrap" &&
-        item.scrollWidth <= item.clientWidth,
+        item.whiteSpace === "normal" &&
+        item.scrollWidth <= item.clientWidth &&
+        item.scrollHeight <= item.clientHeight,
     ),
   ).toBe(true);
+  const mobileCards = await page.locator(".shop-grid-shell .product-card__surface").evaluateAll((elements) =>
+    elements.map((element) => {
+      const rect = element.getBoundingClientRect();
+      const action = element.querySelector(".product-card__button")?.getBoundingClientRect();
+      const identity = element.querySelector(".product-card__identity")!.getBoundingClientRect();
+      return { x: rect.x, y: rect.y, width: rect.width, height: rect.height, identityHeight: identity.height, actionHeight: action?.height };
+    }),
+  );
+  expect(mobileCards[0].x).toBe(16);
+  expect(mobileCards[0].width).toBe(175);
+  expect(mobileCards[1].x - (mobileCards[0].x + mobileCards[0].width)).toBe(8);
+  expect(mobileCards[1].y).toBe(mobileCards[0].y);
+  expect(mobileCards.every((card) => card.actionHeight === undefined || card.actionHeight >= 44)).toBe(true);
+  // Current short-name cards are compact; content may grow without clipping.
+  for (const card of mobileCards.filter((item) => item.identityHeight <= 58 && item.actionHeight === 44)) {
+    expect(card.height).toBeGreaterThanOrEqual(290);
+    expect(card.height).toBeLessThanOrEqual(320);
+  }
 });
 
 test("PDP resolves canonical data and exposes an available variant", async ({
@@ -985,14 +1004,9 @@ test.describe("touch Quick Buy", () => {
   test.use({ hasTouch: true });
 
   test("close preserves the viewport without pinning desktop preview", async ({
-    browserName,
     page,
     storefront,
   }) => {
-    test.skip(
-      browserName === "webkit",
-      "Playwright WebKit resolves this transformed close control to the underlying card link; Chromium and the in-app Browser cover native touch hit-testing.",
-    );
     const product = requirePurchasableProduct(storefront);
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/collections/shop");
@@ -1003,9 +1017,8 @@ test.describe("touch Quick Buy", () => {
         name: `Open quick buy for ${product.displayName}`,
       })
       .tap();
-    const close = card.getByRole("button", {
-      name: `Close quick buy for ${product.displayName}`,
-    });
+    const quickSheet = page.getByRole("dialog", { name: `Quick buy ${product.displayName}` });
+    const close = quickSheet.getByRole("button", { name: "Close", exact: true });
     await expect(card).toHaveAttribute("data-visual-state", "quick-buy");
     await expect(card.locator(".product-card__link")).toHaveCSS(
       "pointer-events",
@@ -1023,6 +1036,7 @@ test.describe("touch Quick Buy", () => {
 
     await expect(card).toHaveAttribute("data-quick-buy-open", "false");
     await expect(card).toHaveAttribute("data-visual-state", "default");
+    await expect(card.getByRole("button", { name: `Open quick buy for ${product.displayName}` })).toBeFocused();
     expect(page.url()).toBe(cardUrl);
     await page.waitForTimeout(750);
     expect(await page.evaluate(() => window.scrollY)).toBe(scrollYBeforeClose);
@@ -1049,12 +1063,13 @@ test("mobile quick buy opens the cart drawer and restores focus on Escape", asyn
   await expect(quickBuy).toBeVisible();
   await quickBuy.click();
 
-  const finalBuy = card.getByRole("button", {
+  const quickSheet = page.getByRole("dialog", { name: `Quick buy ${purchase.product.displayName}` });
+  const finalBuy = quickSheet.getByRole("button", {
     name: purchase.buyLabel,
   });
   if (purchase.product.variants.length > 1) {
     for (const variant of purchase.product.variants) {
-      const option = card
+      const option = quickSheet
         .locator(".product-card__quick-option")
         .filter({ hasText: variant.label });
       await expect(option.locator("span")).toHaveText(variant.label);
@@ -1063,7 +1078,7 @@ test("mobile quick buy opens the cart drawer and restores focus on Escape", asyn
       );
     }
     await expect(
-      card.locator(
+      quickSheet.locator(
         `input[type="radio"][value="${purchase.variant.id}"]`,
       ),
     ).toBeChecked();
@@ -1082,10 +1097,7 @@ test("mobile quick buy opens the cart drawer and restores focus on Escape", asyn
   await expect(drawerPanel).toHaveCount(1);
   expect(await viewportOrigin(page)).toEqual(viewportOriginBeforeCart);
   await expect(card).toHaveAttribute("data-quick-buy-open", "false");
-  await expect(card.locator(".product-card__quick-buy")).toHaveAttribute(
-    "data-open",
-    "false",
-  );
+  await expect(quickSheet).toHaveCount(0);
   await expect(page).toHaveURL(standardCardUrl);
   await expect(
     page.getByRole("button", { name: /CART \(1\)/ }),

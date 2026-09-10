@@ -1,4 +1,5 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CartProvider, useCartDrawer } from "@/components/cart/CartProvider";
 import { CartView } from "@/components/cart/CartView";
@@ -97,7 +98,33 @@ afterEach(() => {
 });
 
 describe("cart client outage recovery", () => {
-  it("preserves a known cart through a retryable 503 and recovers on retry", async () => {
+  it("lets keyboard users reach drawer items independently from the order summary", async () => {
+    vi.stubGlobal("fetch", vi.fn<typeof fetch>((input) =>
+      response(String(input).startsWith("/api/rewards/summary")
+        ? { authenticated: false }
+        : knownCart),
+    ));
+    const user = userEvent.setup();
+
+    render(
+      <CartProvider>
+        <CartView mode="drawer" />
+      </CartProvider>,
+    );
+
+    const items = await screen.findByRole("region", { name: "Cart items and updates" });
+    expect(within(items).getByRole("list", { name: "Cart items" })).toHaveTextContent("CLEANSE");
+    await user.tab();
+    expect(items).toHaveFocus();
+
+    const summary = screen.getByRole("complementary", { name: "Order summary" });
+    expect(items).not.toContainElement(summary);
+    expect(within(summary).getByRole("button", {
+      name: "Sandbox checkout $44.00",
+    })).toBeEnabled();
+  });
+
+  it.each(["page", "drawer"] as const)("preserves a known %s cart through a retryable 503 and recovers on retry", async (mode) => {
     let cartRequests = 0;
     const fetchMock = vi.fn<typeof fetch>((input) => {
       if (String(input).startsWith("/api/rewards/summary")) {
@@ -124,7 +151,7 @@ describe("cart client outage recovery", () => {
     render(
       <CartProvider>
         <CartStateProbe />
-        <CartView />
+        <CartView mode={mode} />
       </CartProvider>,
     );
 
@@ -158,7 +185,7 @@ describe("cart client outage recovery", () => {
     expect(cartRequests).toBe(3);
   });
 
-  it("shows a neutral retry state instead of claiming an unknown cart is empty", async () => {
+  it.each(["page", "drawer"] as const)("shows a neutral retry state instead of claiming an unknown %s cart is empty", async (mode) => {
     const fetchMock = vi.fn<typeof fetch>().mockImplementation(() =>
       response(
         {
@@ -176,7 +203,7 @@ describe("cart client outage recovery", () => {
     render(
       <CartProvider>
         <CartStateProbe />
-        <CartView />
+        <CartView mode={mode} />
       </CartProvider>,
     );
 

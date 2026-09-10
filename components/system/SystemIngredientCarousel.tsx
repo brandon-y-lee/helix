@@ -352,7 +352,7 @@ export function SystemIngredientCarousel({
                 <span className="ingredient-carousel__card-copy">
                   <small>{card.ingredientClass}</small>
                   <strong>{card.name}</strong>
-                  <span>View details</span>
+                  <span>{index === activeIndex ? "Selected" : "View details"}</span>
                 </span>
               </button>
             );
@@ -378,7 +378,12 @@ export function SystemIngredientCarousel({
           >
             <div className="ingredient-carousel__panel-heading">
               <p>{card.ingredientClass}</p>
-              <h3>{card.name}</h3>
+              <h3>
+                <span className="ingredient-carousel__selection-label">
+                  Selected ingredient:{" "}
+                </span>
+                {card.name}
+              </h3>
             </div>
             <dl>
               <div>

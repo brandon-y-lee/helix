@@ -53,6 +53,40 @@ export function SiteFooter() {
         <FooterWordmark />
 
         <div className="site-footer__body">
+          <div className="site-footer__navigation">
+            <nav className="site-footer__nav" aria-label="Footer navigation">
+              {footerLinkGroups.map((group) => (
+                <section key={group.id} aria-labelledby={`footer-${group.id}`}>
+                  <h3 id={`footer-${group.id}`}>{group.label}</h3>
+                  <ul>
+                    {group.links.map((link) => (
+                      <li key={`${group.id}-${link.href}`}>
+                        <Link href={link.href}>{link.label}</Link>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ))}
+            </nav>
+
+            <div className="site-footer__mobile-groups" aria-label="Footer links">
+              {footerLinkGroups.map((group) => (
+                <details key={group.id} className="site-footer__accordion">
+                  <summary className="site-footer__accordion-trigger">
+                    {group.label}
+                  </summary>
+                  <ul>
+                    {group.links.map((link) => (
+                      <li key={`${group.id}-${link.href}`}>
+                        <Link href={link.href}>{link.label}</Link>
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              ))}
+            </div>
+          </div>
+
           <aside className="site-footer__services" aria-label="Footer service links">
             {footerServiceCards.map((card) => (
               <Link
@@ -96,40 +130,6 @@ export function SiteFooter() {
               ))}
             </ul>
           </section>
-
-          <div className="site-footer__navigation">
-            <nav className="site-footer__nav" aria-label="Footer navigation">
-              {footerLinkGroups.map((group) => (
-                <section key={group.id} aria-labelledby={`footer-${group.id}`}>
-                  <h3 id={`footer-${group.id}`}>{group.label}</h3>
-                  <ul>
-                    {group.links.map((link) => (
-                      <li key={`${group.id}-${link.href}`}>
-                        <Link href={link.href}>{link.label}</Link>
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-              ))}
-            </nav>
-
-            <div className="site-footer__mobile-groups" aria-label="Footer links">
-              {footerLinkGroups.map((group) => (
-                <details key={group.id} className="site-footer__accordion">
-                  <summary className="site-footer__accordion-trigger">
-                    {group.label}
-                  </summary>
-                  <ul>
-                    {group.links.map((link) => (
-                      <li key={`${group.id}-${link.href}`}>
-                        <Link href={link.href}>{link.label}</Link>
-                      </li>
-                    ))}
-                  </ul>
-                </details>
-              ))}
-            </div>
-          </div>
 
           <section
             className="site-footer__review-status"

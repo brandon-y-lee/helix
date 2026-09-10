@@ -23,6 +23,9 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { ProductImage } from "@/components/product/ProductImage";
+import { Sheet } from "@/components/overlays/Sheet";
+import { focusHeaderCart } from "@/components/overlays/modal-state";
+import { usePhoneLayout } from "@/components/overlays/usePhoneLayout";
 import { useProductPurchase } from "@/components/cart/useProductPurchase";
 import { routineDisplayLabelForProduct } from "@/lib/catalog/product-routine";
 import { cartMediaSnapshot } from "@/lib/cart/media";
@@ -80,6 +83,27 @@ const PRODUCT_CARD_CTA_VARIANTS: Variants = {
 };
 
 const PRODUCT_CARD_CTA_EASE = [0.76, 0, 0.24, 1] as const;
+
+function focusVisibleControl(control: HTMLElement | null | undefined) {
+  if (
+    !control?.isConnected ||
+    control.closest('[hidden], [inert], [aria-hidden="true"]')
+  ) return false;
+  const rect = control.getBoundingClientRect();
+  if (
+    rect.width <= 0 || rect.height <= 0 || rect.top < 0 ||
+    rect.bottom > window.innerHeight || rect.left < 0 || rect.right > window.innerWidth
+  ) return false;
+  for (let parent = control.parentElement; parent; parent = parent.parentElement) {
+    const style = window.getComputedStyle(parent);
+    if (style.visibility === "hidden") return false;
+    if (!/(hidden|clip|auto|scroll)/.test(`${style.overflowX} ${style.overflowY}`)) continue;
+    const bounds = parent.getBoundingClientRect();
+    if (rect.top < bounds.top || rect.bottom > bounds.bottom || rect.left < bounds.left || rect.right > bounds.right) return false;
+  }
+  control.focus({ preventScroll: true });
+  return document.activeElement === control;
+}
 
 function variantSizeLabel(
   variant: OfferAvailability | null | undefined,
@@ -144,6 +168,7 @@ export function ProductCard({
   onQuickBuyClose,
 }: ProductCardProps) {
   const shouldReduceMotion = useReducedMotion();
+  const phoneLayout = usePhoneLayout();
   const {
     clearError,
     error: addError,
@@ -154,6 +179,8 @@ export function ProductCard({
   const panelId = `${panelBaseId}-quick-buy`;
   const surfaceRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const inlinePanelRef = useRef<HTMLElement>(null);
+  const quickBuyOpenedOnPhoneRef = useRef(false);
   const addedTimeoutRef = useRef<number | null>(null);
   const pointerPreviewTimeoutRef = useRef<number | null>(null);
   const closePointerRef = useRef<{
@@ -191,6 +218,8 @@ export function ProductCard({
   const isWaitlist = product.status === "waitlist";
   const isQuickBuyOpen =
     !isWaitlist && (controlled ? quickBuyOpen : localQuickBuyOpen);
+  const presentationRef = useRef({ phoneLayout, isQuickBuyOpen });
+  presentationRef.current = { phoneLayout, isQuickBuyOpen };
   const purchaseCta = productPurchaseCta(product, selectedVariant);
   const canBuy = purchaseCta.purchasable;
   const offerPresentation = productOfferPresentation(product.variants);
@@ -206,7 +235,7 @@ export function ProductCard({
   const cardImageSizes =
     defaultImage?.sizes ??
     imageSizes ??
-    "(max-width: 1020px) 48vw, 33vw";
+    "(max-width: 720px) calc((100vw - 40px) / 2), (max-width: 1020px) 48vw, 33vw";
   const defaultImageStyle = defaultImage
     ? ({
         "--product-card-image-object-position":
@@ -295,6 +324,7 @@ export function ProductCard({
   }, [pointerInside]);
 
   function openQuickBuy() {
+    quickBuyOpenedOnPhoneRef.current = phoneLayout;
     clearError();
     setAdded(false);
     if (controlled) {
@@ -325,8 +355,25 @@ export function ProductCard({
 
   function focusTriggerWithoutScrolling() {
     const viewport = { scrollX: window.scrollX, scrollY: window.scrollY };
-    triggerRef.current?.focus({ preventScroll: true });
+    if (quickBuyOpenedOnPhoneRef.current) {
+      if (!focusVisibleControl(triggerRef.current)) focusHeaderCart();
+    } else {
+      triggerRef.current?.focus({ preventScroll: true });
+    }
     preserveViewportAfterUpdate(viewport);
+  }
+
+  function restoreQuickBuyFocus() {
+    const presentation = presentationRef.current;
+    if (presentation.isQuickBuyOpen && !presentation.phoneLayout) {
+      const panel = inlinePanelRef.current;
+      const equivalent =
+        panel?.querySelector<HTMLElement>('input:checked:not(:disabled)') ??
+        panel?.querySelector<HTMLElement>('button:not(:disabled)');
+      if (!focusVisibleControl(equivalent)) focusHeaderCart();
+      return;
+    }
+    focusTriggerWithoutScrolling();
   }
 
   function closeQuickBuy({
@@ -406,7 +453,7 @@ export function ProductCard({
 
   function handlePanelKeyDown(event: KeyboardEvent<HTMLElement>) {
     lastInputWasKeyboardRef.current = true;
-    if (event.key !== "Escape" || !isQuickBuyOpen) return;
+    if (phoneLayout || event.key !== "Escape" || !isQuickBuyOpen) return;
     event.preventDefault();
     event.stopPropagation();
     closeQuickBuy();
@@ -475,6 +522,92 @@ export function ProductCard({
       }, 2200);
     }
   }
+
+  const quickBuyContent = (
+    <>
+      <div className="product-card__quick-head">
+        <ProductImage
+          media={product.cartMedia ?? product.cardMedia}
+          swatch={product.swatch}
+          className="product-card__quick-thumb"
+          imageClassName="product-card__quick-thumb-img"
+          sizes="72px"
+        />
+        <div>
+          <h3 id={`${panelId}-title`}>{displayName}</h3>
+          {product.productType && <p>{product.productType}</p>}
+        </div>
+      </div>
+
+      {rows.length > 0 && (
+        <dl className="product-card__quick-details">
+          {rows.map((row) => (
+            <div key={row.label} className="product-card__quick-row">
+              <dt>{row.label}</dt>
+              <dd>{row.value}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+
+      <Link
+        href={href}
+        className="product-card__quick-link"
+        tabIndex={isQuickBuyOpen ? undefined : -1}
+      >
+        Full details
+      </Link>
+
+      {offerPresentation.hasMultipleOffers && (
+        <fieldset className="product-card__quick-variants">
+          <legend>Size</legend>
+          <div className="product-card__quick-options">
+            {offerPresentation.offers.map((variant) => {
+              const buyable = isVariantPurchasable(product, variant);
+              return (
+                <label
+                  key={variant.id}
+                  className="product-card__quick-option"
+                  data-disabled={!buyable}
+                >
+                  <input
+                    type="radio"
+                    name={`${panelId}-variant`}
+                    value={variant.id}
+                    checked={selectedVariant?.id === variant.id}
+                    disabled={!buyable}
+                    onChange={() => setSelectedVariantId(variant.id)}
+                    tabIndex={isQuickBuyOpen ? undefined : -1}
+                  />
+                  <span>{variant.label}</span>
+                  <small>{formatPrice(variant.price)}</small>
+                </label>
+              );
+            })}
+          </div>
+        </fieldset>
+      )}
+
+      <div className="product-card__quick-footer">
+        {addError && (
+          <p className="product-card__quick-error" role="alert">{addError}</p>
+        )}
+        <button
+          type="button"
+          className="product-card__quick-final"
+          data-product-card-buy
+          onClick={() => void handleFinalBuy()}
+          disabled={!canBuy || pending}
+          tabIndex={isQuickBuyOpen ? undefined : -1}
+          aria-label={
+            pending && canBuy ? "ADDING" : purchaseCta.label
+          }
+        >
+          {pending ? "ADDING" : purchaseCta.label}
+        </button>
+      </div>
+    </>
+  );
 
   return (
     <li
@@ -628,7 +761,9 @@ export function ProductCard({
                   aria-controls={panelId}
                   disabled={!canBuy}
                   tabIndex={
-                    isQuickBuyOpen || visualState === "default" ? -1 : undefined
+                    isQuickBuyOpen || (!phoneLayout && visualState === "default")
+                      ? -1
+                      : undefined
                   }
                 >
                   {purchaseCta.label}
@@ -636,8 +771,9 @@ export function ProductCard({
               </m.div>
             )}
 
-            {!isWaitlist && (
+            {!isWaitlist && !phoneLayout && (
               <section
+                ref={inlinePanelRef}
                 id={panelId}
                 className="product-card__quick-buy"
                 data-open={isQuickBuyOpen}
@@ -655,91 +791,31 @@ export function ProductCard({
               >
                 <span aria-hidden="true" />
               </button>
-              <div className="product-card__quick-head">
-                <ProductImage
-                  media={product.cartMedia ?? product.cardMedia}
-                  swatch={product.swatch}
-                  className="product-card__quick-thumb"
-                  imageClassName="product-card__quick-thumb-img"
-                  sizes="72px"
-                />
-                <div>
-                  <h3 id={`${panelId}-title`}>{displayName}</h3>
-                  {product.productType && <p>{product.productType}</p>}
-                </div>
-              </div>
-
-              {rows.length > 0 && (
-                <dl className="product-card__quick-details">
-                  {rows.map((row) => (
-                    <div key={row.label} className="product-card__quick-row">
-                      <dt>{row.label}</dt>
-                      <dd>{row.value}</dd>
-                    </div>
-                  ))}
-                </dl>
-              )}
-
-              <Link
-                href={href}
-                className="product-card__quick-link"
-                tabIndex={isQuickBuyOpen ? undefined : -1}
-              >
-                Full details
-              </Link>
-
-              {offerPresentation.hasMultipleOffers && (
-                <fieldset className="product-card__quick-variants">
-                  <legend>Size</legend>
-                  <div className="product-card__quick-options">
-                    {offerPresentation.offers.map((variant) => {
-                      const buyable = isVariantPurchasable(product, variant);
-                      return (
-                        <label
-                          key={variant.id}
-                          className="product-card__quick-option"
-                          data-disabled={!buyable}
-                        >
-                          <input
-                            type="radio"
-                            name={`${panelId}-variant`}
-                            value={variant.id}
-                            checked={selectedVariant?.id === variant.id}
-                            disabled={!buyable}
-                            onChange={() => setSelectedVariantId(variant.id)}
-                            tabIndex={isQuickBuyOpen ? undefined : -1}
-                          />
-                          <span>{variant.label}</span>
-                          <small>{formatPrice(variant.price)}</small>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </fieldset>
-              )}
-
-              <div className="product-card__quick-footer">
-                <button
-                  type="button"
-                  className="product-card__quick-final"
-                  data-product-card-buy
-                  onClick={() => void handleFinalBuy()}
-                  disabled={!canBuy || pending}
-                  tabIndex={isQuickBuyOpen ? undefined : -1}
-                  aria-label={
-                    pending && canBuy ? "ADDING" : purchaseCta.label
-                  }
-                >
-                  {pending ? "ADDING" : purchaseCta.label}
-                </button>
-              </div>
+                {quickBuyContent}
               </section>
             )}
           </div>
         </MotionConfig>
       </LazyMotion>
+      {!isWaitlist && (
+        <Sheet
+          open={phoneLayout && isQuickBuyOpen}
+          side="bottom"
+          title={`Quick buy ${displayName}`}
+          onClose={() => closeQuickBuy({ focusTrigger: false })}
+          returnFocus={restoreQuickBuyFocus}
+          className="product-quick-sheet"
+          overlayClassName="product-quick-sheet-overlay"
+        >
+          {phoneLayout && (
+            <div id={panelId} className="product-quick-sheet__body">
+              {quickBuyContent}
+            </div>
+          )}
+        </Sheet>
+      )}
       <span className="sr-only" role="status" aria-live="polite">
-        {added ? `${displayName} added to cart` : addError}
+        {added ? `${displayName} added to cart` : ""}
       </span>
     </li>
   );

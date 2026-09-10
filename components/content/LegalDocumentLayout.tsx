@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { LegalContents } from "@/components/content/LegalContents";
 import {
   legalPublicationStatus,
   type LegalDocument,
@@ -23,16 +24,10 @@ export function LegalDocumentLayout({
       </header>
 
       <div className="legal-shell">
-        <nav className="legal-toc" aria-label={`${document.title} sections`}>
-          <h2>Contents</h2>
-          <ol>
-            {document.sections.map((section) => (
-              <li key={section.id}>
-                <a href={`#${section.id}`}>{section.title}</a>
-              </li>
-            ))}
-          </ol>
-        </nav>
+        <LegalContents
+          title={document.title}
+          sections={document.sections.map(({ id, title }) => ({ id, title }))}
+        />
 
         <div className="legal-document">
           {children}
