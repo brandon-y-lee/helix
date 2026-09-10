@@ -1,0 +1,454 @@
+/* Public service components: keep the full navigation sidebar above phones. */
+.legal-contents {
+  display: contents;
+}
+
+.legal-toc--mobile,
+.legal-table-cue {
+  display: none;
+}
+
+.legal-table-block {
+  min-width: 0;
+}
+
+.legal-table-wrap:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+@media (max-width: 720px) {
+  .legal-page,
+  .support-page {
+    padding: 32px 16px 40px;
+  }
+
+  .legal-hero,
+  .support-hero {
+    padding: 0 0 24px;
+  }
+
+  .legal-hero h1,
+  .support-hero h1 {
+    max-width: none;
+    font-size: clamp(2.25rem, 10vw, 2.75rem);
+    line-height: 1.08;
+    overflow-wrap: anywhere;
+  }
+
+  .legal-hero > p:not(.eyebrow),
+  .support-hero > p:not(.eyebrow),
+  .support-hero--split > div > p:not(.eyebrow) {
+    margin-top: 16px;
+    font-size: 1rem;
+    line-height: 1.55;
+  }
+
+  .legal-hero > p:nth-of-type(n + 3) {
+    margin-top: 12px;
+    font-size: 0.875rem;
+  }
+
+  .legal-hero > span {
+    margin-top: 16px;
+  }
+
+  .legal-shell,
+  .faq-shell,
+  .contact-layout {
+    min-width: 0;
+    gap: 24px;
+  }
+
+  .legal-toc--desktop {
+    display: none;
+  }
+
+  .legal-toc--mobile {
+    display: block;
+    min-width: 0;
+    border-block: 1px solid var(--line);
+  }
+
+  .legal-toc--mobile > summary {
+    display: flex;
+    min-height: 48px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    cursor: pointer;
+    list-style: none;
+    font-weight: 700;
+  }
+
+  .legal-toc--mobile > summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .legal-toc--mobile > summary::marker {
+    content: "";
+  }
+
+  .legal-toc--mobile > summary::after {
+    content: "+";
+  }
+
+  .legal-toc--mobile[open] > summary::after {
+    content: "−";
+  }
+
+  .legal-toc--mobile > summary:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+  }
+
+  .legal-toc--mobile ol {
+    margin: 0 0 12px;
+    gap: 0;
+  }
+
+  .legal-toc--mobile a {
+    display: flex;
+    min-height: 44px;
+    align-items: center;
+    padding-block: 8px;
+    line-height: 1.45;
+  }
+
+  .legal-document {
+    min-width: 0;
+    gap: 20px;
+  }
+
+  .legal-document section,
+  .privacy-choice-panel {
+    min-width: 0;
+    padding: 20px 16px;
+    border-radius: 12px;
+  }
+
+  .legal-document h2 {
+    font-size: clamp(1.75rem, 7.5vw, 2rem);
+    line-height: 1.15;
+    overflow-wrap: anywhere;
+  }
+
+  .legal-document p,
+  .legal-document li {
+    font-size: 1rem;
+    line-height: 1.55;
+    overflow-wrap: anywhere;
+  }
+
+  .legal-document p {
+    margin-top: 12px;
+  }
+
+  .legal-document ul {
+    margin-top: 12px;
+  }
+
+  .legal-table-cue {
+    display: block;
+    margin: 0 0 12px;
+    color: var(--ink-soft);
+  }
+
+  .legal-table-wrap {
+    max-width: 100%;
+    overscroll-behavior-inline: contain;
+  }
+
+  .faq-category-nav {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    gap: 8px;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    padding: 4px 0 8px;
+    scroll-padding-inline: 4px;
+  }
+
+  .faq-category-nav a {
+    display: flex;
+    flex: 0 0 auto;
+    min-height: 48px;
+    align-items: center;
+    padding: 10px 16px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--surface);
+    font-size: 0.875rem;
+    line-height: 1.4;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  .faq-category-nav a[aria-current="location"] {
+    background: var(--ink);
+    border-color: var(--ink);
+    color: var(--surface);
+  }
+
+  .faq-categories {
+    min-width: 0;
+    gap: 36px;
+  }
+
+  .faq-category .section-head {
+    margin-bottom: 20px;
+  }
+
+  .faq-category .section-head h2 {
+    font-size: clamp(1.75rem, 7.5vw, 2rem);
+    line-height: 1.15;
+  }
+
+  .faq-category .section-head p:not(.eyebrow),
+  .faq-item div[id^="faq-panel"] {
+    font-size: 1rem;
+    line-height: 1.55;
+  }
+
+  .faq-item summary {
+    min-height: 48px;
+    padding: 16px;
+    gap: 16px;
+    font-size: 1rem;
+    line-height: 1.45;
+  }
+
+  .faq-item div[id^="faq-panel"] {
+    padding: 0 16px 16px;
+  }
+
+  .support-hero--split {
+    gap: 20px;
+  }
+
+  .support-hero--split aside,
+  .contact-status,
+  .contact-routing,
+  .contact-prep section {
+    padding: 20px 16px;
+    border-radius: 12px;
+  }
+
+  .contact-status {
+    margin-bottom: 24px;
+  }
+
+  .contact-page p,
+  .contact-page li {
+    font-size: 1rem;
+    line-height: 1.55;
+  }
+
+  .contact-routing h2,
+  .contact-status h2 {
+    font-size: 2rem;
+    line-height: 1.15;
+  }
+
+  .contact-routing strong {
+    font-size: 0.875rem;
+  }
+
+  .contact-page a,
+  .privacy-choice-panel .btn {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .account-access-shell,
+  .account-access-layout {
+    min-height: 0;
+  }
+
+  .account-access-layout__form-panel {
+    align-items: start;
+    padding: 28px 24px;
+  }
+
+  .account-access-layout__form h1 {
+    font-size: clamp(2rem, 9.5vw, 2.75rem);
+    line-height: 1.15;
+  }
+
+  .account-access-layout__form .account-form,
+  .account-status-page .account-form {
+    gap: 16px;
+    margin-top: 24px;
+  }
+
+  .account-access-layout__form .form-grid,
+  .account-status-page .form-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .account-access-layout__form :is(input, select, textarea),
+  .account-status-page :is(input, select, textarea) {
+    min-width: 0;
+    font-size: 1rem;
+    scroll-margin-block: calc(var(--site-header-height) + 24px) 32px;
+  }
+
+  .account-access-layout__form .btn,
+  .account-status-page .btn {
+    min-height: 48px;
+    scroll-margin-block: calc(var(--site-header-height) + 24px) 32px;
+  }
+
+  .account-access-layout__form .account-form__links {
+    flex-wrap: wrap;
+    gap: 4px 16px;
+  }
+
+  .account-access-layout__form .account-form__links a,
+  .account-access-layout__form .account-panel__note a {
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+  }
+
+  .account-status-page {
+    min-height: 0;
+    place-items: start center;
+    padding: 16px 16px 40px;
+  }
+
+  .account-status-page .account-panel {
+    padding: 28px 24px;
+    border-radius: 12px;
+  }
+
+  .account-status-page .account-panel h1 {
+    font-size: clamp(2rem, 9.5vw, 2.75rem);
+    line-height: 1.15;
+    overflow-wrap: anywhere;
+  }
+
+  .account-status-page .empty-state {
+    padding-top: 20px;
+  }
+
+  .public-utility-page,
+  .rewards-page {
+    padding-inline: 16px;
+  }
+
+  .public-utility-page > .page-head,
+  .rewards-page > .page-head {
+    padding: 32px 0 20px;
+  }
+
+  .public-utility-page .page-head h1,
+  .rewards-page .page-head h1 {
+    font-size: clamp(2.25rem, 10vw, 2.75rem);
+    line-height: 1.08;
+    overflow-wrap: anywhere;
+  }
+
+  .public-utility-page > .empty-state {
+    display: grid;
+    justify-items: start;
+    gap: 16px;
+    padding-top: 0;
+    font-size: 1rem;
+    line-height: 1.55;
+  }
+
+  .public-utility-page > .empty-state .btn {
+    min-height: 48px;
+    margin-top: 4px;
+  }
+
+  .public-utility-page > .cart-layout {
+    gap: 24px;
+    padding-top: 0;
+  }
+
+  .public-utility-page .cart-item {
+    grid-template-columns: 64px minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  .public-utility-page .cart-item__thumb {
+    width: 64px;
+    height: 80px;
+  }
+
+  .public-utility-page .cart-item__name {
+    overflow-wrap: anywhere;
+  }
+
+  .public-utility-page .cart-item__right {
+    grid-column: 2;
+    align-items: flex-start;
+    text-align: left;
+  }
+
+  .public-utility-page .qty button {
+    width: 44px;
+    height: 44px;
+  }
+
+  .public-utility-page .link-button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .public-utility-page .cart-summary,
+  .public-utility-page .checkout-result__panel {
+    padding: 20px 16px;
+  }
+
+  .public-utility-page .checkout-panel__notice {
+    font-size: 0.75rem;
+    line-height: 1.5;
+  }
+
+  .public-utility-page .summary-row {
+    gap: 16px;
+  }
+
+  .public-utility-page .checkout-result__actions .btn {
+    min-height: 48px;
+  }
+
+  .rewards-page .account-grid {
+    gap: 16px;
+    padding-top: 20px;
+  }
+
+  .rewards-page .account-section,
+  .rewards-page .checkout-result__panel {
+    min-width: 0;
+    padding: 20px 16px;
+  }
+
+  .rewards-page p,
+  .rewards-page li {
+    font-size: 1rem;
+    line-height: 1.55;
+  }
+
+  .rewards-page .account-muted {
+    margin-block: 12px;
+  }
+
+  .rewards-page .rewards-tiers li {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 4px 12px;
+  }
+
+  .rewards-page .rewards-tiers li span:nth-child(even) {
+    text-align: right;
+  }
+
+  .rewards-page .account-section .btn {
+    min-height: 48px;
+  }
+}

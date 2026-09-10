@@ -44,9 +44,11 @@ test("Core flow supports pointer, keyboard, wrapping controls, and deep links", 
 for (const viewport of [
   { width: 1440, height: 1000, splitMode: "paired", minPhraseSize: 36 },
   { width: 1024, height: 900, splitMode: "paired", minPhraseSize: 36 },
-  { width: 390, height: 844, splitMode: "stacked", minPhraseSize: 30 },
-  { width: 361, height: 800, splitMode: "stacked", minPhraseSize: 28 },
-  { width: 320, height: 760, splitMode: "stacked", minPhraseSize: 24 },
+  { width: 721, height: 844, splitMode: "stacked", minPhraseSize: 32 },
+  { width: 720, height: 844, splitMode: "image-first", minPhraseSize: 32 },
+  { width: 390, height: 844, splitMode: "image-first", minPhraseSize: 30 },
+  { width: 361, height: 800, splitMode: "image-first", minPhraseSize: 28 },
+  { width: 320, height: 760, splitMode: "image-first", minPhraseSize: 24 },
 ] as const) {
   test(`Core and split remain responsive at ${viewport.width}×${viewport.height}`, async ({
     browserName,
@@ -220,7 +222,17 @@ for (const viewport of [
       ).toBeLessThanOrEqual(1);
       expect(splitGeometry.visual.x).toBeGreaterThan(splitGeometry.copy.x);
     } else {
-      expect(splitGeometry.visual.y).toBeGreaterThan(splitGeometry.copy.y);
+      if (viewport.splitMode === "image-first") {
+        expect(splitGeometry.copy.y).toBeGreaterThan(splitGeometry.visual.y);
+        const controls = core.getByRole("button", { name: "Next Core step" });
+        const controlBox = await controls.boundingBox();
+        expect(controlBox?.width).toBeGreaterThanOrEqual(44);
+        expect(controlBox?.height).toBeGreaterThanOrEqual(44);
+        await expect(core.locator(".method-flow__steps")).toHaveCSS("padding-right", "0px");
+        await expect(tabs.first().locator("span")).toHaveCSS("white-space", "normal");
+      } else {
+        expect(splitGeometry.visual.y).toBeGreaterThan(splitGeometry.copy.y);
+      }
       expect(
         Math.abs(splitGeometry.copy.width - splitGeometry.visual.width),
       ).toBeLessThanOrEqual(1);
@@ -248,6 +260,7 @@ for (const viewport of [
     await expect(tabs.first().locator("img")).toBeVisible();
     await expect(section.getByText("FORMULATION NOTE", { exact: true })).toHaveCount(0);
     await expect(tabs.first()).toHaveAttribute("aria-selected", "true");
+    await expect(tabs.first().getByText("Selected", { exact: true })).toBeVisible();
     await expect(
       section.getByRole("heading", { level: 2, name: "Research-backed ingredients" }),
     ).toBeVisible();
@@ -340,6 +353,7 @@ for (const viewport of [
     });
     await page.mouse.click(secondCardClickPoint.x, secondCardClickPoint.y);
     await expect(tabs.nth(1)).toHaveAttribute("aria-selected", "true");
+    await expect(tabs.nth(1).getByText("Selected", { exact: true })).toBeVisible();
     await expect(section.getByRole("tabpanel")).toContainText("Peptides");
     await expect(
       section.getByRole("button", { name: "Previous ingredient" }),

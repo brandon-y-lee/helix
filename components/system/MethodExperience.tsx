@@ -117,7 +117,7 @@ function BeyondProductCard({ entry }: { entry: BeyondSystemProductEntry }) {
           swatch={product.swatch}
           className="method-beyond-card__image"
           imageClassName="method-beyond-card__img"
-          sizes="(max-width: 720px) 44vw, (max-width: 1020px) 42vw, 20vw"
+          sizes="(max-width: 360px) calc(100vw - 68px), (max-width: 720px) calc((100vw - 76px) / 2), (max-width: 1020px) 42vw, 20vw"
         />
       </div>
       <div className="method-beyond-card__body">

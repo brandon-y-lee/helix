@@ -58,7 +58,7 @@ export default async function RewardsPage() {
           <section className="account-grid" aria-label="helix rewards overview">
             <article className="account-section">
               <h2>Redemption Tiers</h2>
-              <ul className="ledger-list">
+              <ul className="ledger-list rewards-tiers">
                 {REWARD_TIERS.map((tier) => (
                   <li key={tier.id}>
                     <span>{tier.points} Points</span>
