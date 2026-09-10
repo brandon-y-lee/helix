@@ -185,7 +185,11 @@ export function HorizontalCarousel({
       0;
     const cardWidth = firstCard.getBoundingClientRect().width;
     const step = cardWidth + gap;
-    const maxScroll = Math.max(0, track.scrollWidth - viewport.clientWidth);
+    // The stacked grid has no horizontal navigation, even while its cards'
+    // finishing slide animation temporarily increases scrollWidth.
+    const maxScroll = trackStyleDeclaration.display === "grid"
+      ? 0
+      : Math.max(0, track.scrollWidth - viewport.clientWidth);
     const measuredMaxIndex =
       maxScroll > SCROLL_EPSILON && step > 0
         ? Math.ceil((maxScroll - SCROLL_EPSILON) / step)
