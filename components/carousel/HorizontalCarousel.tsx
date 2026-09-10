@@ -1,0 +1,483 @@
+"use client";
+
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type FocusEvent,
+  type PointerEvent,
+  type ReactNode,
+  type WheelEvent,
+} from "react";
+import {
+  SwipeIndicator,
+  useSwipeIndicator,
+} from "@/components/carousel/SwipeIndicator";
+import { useHorizontalCarouselDrag } from "@/components/carousel/useHorizontalCarouselDrag";
+
+const TRANSITION_LOCK_MS = 240;
+const SCROLL_EPSILON = 1;
+
+type Direction = "previous" | "next";
+type CarouselTrackStyle = CSSProperties & {
+  "--home-beyond-offset"?: string;
+};
+
+type CarouselMetrics = {
+  initialized: boolean;
+  maxIndex: number;
+  maxScroll: number;
+  step: number;
+};
+
+type HorizontalCarouselProps = {
+  items: readonly { key: string; label: string; content: ReactNode }[];
+  ariaLabel: string;
+  announcementContext?: string;
+  className?: string;
+  itemName?: string;
+};
+
+const initialCarouselMetrics: CarouselMetrics = {
+  initialized: false,
+  maxIndex: 0,
+  maxScroll: 0,
+  step: 0,
+};
+
+function isInteractiveTarget(target: EventTarget) {
+  return target instanceof HTMLElement
+    ? Boolean(target.closest("button, input, select, textarea, [data-open='true']"))
+    : false;
+}
+
+function isPointInCard(
+  root: HTMLElement,
+  clientX: number,
+  clientY: number,
+) {
+  return Array.from(
+    root.querySelectorAll<HTMLElement>(".home-beyond-carousel__card"),
+  ).some((surface) => {
+    const rect = surface.getBoundingClientRect();
+    return (
+      clientX >= rect.left &&
+      clientX <= rect.right &&
+      clientY >= rect.top &&
+      clientY <= rect.bottom
+    );
+  });
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function metricsChanged(current: CarouselMetrics, next: CarouselMetrics) {
+  return (
+    current.initialized !== next.initialized ||
+    current.maxIndex !== next.maxIndex ||
+    Math.abs(current.maxScroll - next.maxScroll) > 0.5 ||
+    Math.abs(current.step - next.step) > 0.5
+  );
+}
+
+// Keep the existing class contract so product and educational rails share motion
+// and responsive geometry without duplicating their content or domain state.
+export function HorizontalCarousel({
+  items,
+  ariaLabel,
+  announcementContext = ariaLabel,
+  className,
+  itemName = "product",
+}: HorizontalCarouselProps) {
+  const trackId = useId();
+  const carouselRef = useRef<HTMLDivElement>(null);
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const trackRef = useRef<HTMLUListElement>(null);
+  const previousButtonRef = useRef<HTMLButtonElement>(null);
+  const nextButtonRef = useRef<HTMLButtonElement>(null);
+  const lockTimeoutRef = useRef<number | null>(null);
+  const pendingFocusCorrectionRef = useRef<Direction | null>(null);
+  const focusedControlRef = useRef<Direction | null>(null);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [metrics, setMetrics] = useState<CarouselMetrics>(
+    initialCarouselMetrics,
+  );
+  const [motionDirection, setMotionDirection] = useState<Direction | null>(null);
+  const [announcement, setAnnouncement] = useState("");
+  const {
+    hideIndicator,
+    indicatorRef,
+    indicatorVisible,
+    updateIndicator,
+  } = useSwipeIndicator(viewportRef);
+  const itemCount = items.length;
+  const itemSignature = useMemo(
+    () => items.map((item) => item.key).join("|"),
+    [items],
+  );
+  const scrollable =
+    metrics.initialized && metrics.maxScroll > SCROLL_EPSILON;
+  const canScrollPrev = scrollable && activeIndex > 0;
+  const canScrollNext = scrollable && activeIndex < metrics.maxIndex;
+  const activeOffset = scrollable
+    ? Math.min(activeIndex * metrics.step, metrics.maxScroll)
+    : 0;
+  const trackStyle = {
+    "--home-beyond-offset": `${activeOffset}px`,
+  } as CarouselTrackStyle;
+  const leadItem = items[activeIndex] ?? items[0] ?? null;
+  const {
+    dragging,
+    finishDrag,
+    handleClickCapture,
+    handlePointerDown,
+    handlePointerMove: handleDragPointerMove,
+    resetDrag,
+  } = useHorizontalCarouselDrag({
+    enabled: scrollable,
+    canStart: (target) => !isInteractiveTarget(target),
+    getCommitDelta: boundedDragDelta,
+    getRenderedDelta: boundedDragDelta,
+    onDrag: (renderedDeltaX) => {
+      trackRef.current?.style.setProperty(
+        "--home-beyond-drag-x",
+        `${renderedDeltaX}px`,
+      );
+    },
+    onFinish: ({ committed, deltaX }) => {
+      clearDragTransform();
+      hideIndicator();
+      if (committed) move(deltaX < 0 ? "next" : "previous");
+    },
+  });
+
+  const measureCarousel = useCallback(() => {
+    const viewport = viewportRef.current;
+    const track = trackRef.current;
+    const firstCard = track?.querySelector<HTMLElement>(
+      ".home-beyond-carousel__card",
+    );
+
+    if (!viewport || !track || !firstCard || itemCount === 0) {
+      setMetrics((current) =>
+        metricsChanged(current, {
+          ...initialCarouselMetrics,
+          initialized: true,
+        })
+          ? { ...initialCarouselMetrics, initialized: true }
+          : current,
+      );
+      setActiveIndex(0);
+      return;
+    }
+
+    const trackStyleDeclaration = window.getComputedStyle(track);
+    const gap =
+      Number.parseFloat(trackStyleDeclaration.columnGap) ||
+      Number.parseFloat(trackStyleDeclaration.gap) ||
+      0;
+    const cardWidth = firstCard.getBoundingClientRect().width;
+    const step = cardWidth + gap;
+    const maxScroll = Math.max(0, track.scrollWidth - viewport.clientWidth);
+    const measuredMaxIndex =
+      maxScroll > SCROLL_EPSILON && step > 0
+        ? Math.ceil((maxScroll - SCROLL_EPSILON) / step)
+        : 0;
+    const maxIndex = Math.min(
+      itemCount - 1,
+      Math.max(0, measuredMaxIndex),
+    );
+    const nextMetrics = {
+      initialized: true,
+      maxIndex,
+      maxScroll,
+      step,
+    };
+
+    setMetrics((current) =>
+      metricsChanged(current, nextMetrics) ? nextMetrics : current,
+    );
+    setActiveIndex((current) => clamp(current, 0, maxIndex));
+  }, [itemCount]);
+
+  useEffect(() => {
+    return () => {
+      if (lockTimeoutRef.current) {
+        window.clearTimeout(lockTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    setActiveIndex(0);
+    setMotionDirection(null);
+    setAnnouncement("");
+    resetDrag();
+    hideIndicator();
+    trackRef.current?.style.setProperty("--home-beyond-drag-x", "0px");
+  }, [hideIndicator, itemSignature, resetDrag]);
+
+  useEffect(() => {
+    measureCarousel();
+    const frame = window.requestAnimationFrame(measureCarousel);
+    const viewport = viewportRef.current;
+    const track = trackRef.current;
+    const observer =
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(() => measureCarousel())
+        : null;
+
+    if (viewport) observer?.observe(viewport);
+    if (track) observer?.observe(track);
+    window.addEventListener("resize", measureCarousel);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      observer?.disconnect();
+      window.removeEventListener("resize", measureCarousel);
+    };
+  }, [measureCarousel, itemSignature]);
+
+  useLayoutEffect(() => {
+    const pendingDirection =
+      pendingFocusCorrectionRef.current ?? focusedControlRef.current;
+    if (!pendingDirection || !metrics.initialized) return;
+
+    const focusedControlBecameUnavailable =
+      (pendingDirection === "previous" && !canScrollPrev) ||
+      (pendingDirection === "next" && !canScrollNext);
+
+    if (!focusedControlBecameUnavailable) {
+      pendingFocusCorrectionRef.current = null;
+      return;
+    }
+
+    pendingFocusCorrectionRef.current = null;
+    focusedControlRef.current = null;
+    if (canScrollPrev) {
+      previousButtonRef.current?.focus({ preventScroll: true });
+      return;
+    }
+    if (canScrollNext) {
+      nextButtonRef.current?.focus({ preventScroll: true });
+      return;
+    }
+    carouselRef.current?.focus({ preventScroll: true });
+  }, [canScrollNext, canScrollPrev, metrics.initialized]);
+
+  function releaseMotionLock() {
+    if (lockTimeoutRef.current) {
+      window.clearTimeout(lockTimeoutRef.current);
+    }
+    lockTimeoutRef.current = window.setTimeout(() => {
+      setMotionDirection(null);
+      lockTimeoutRef.current = null;
+    }, TRANSITION_LOCK_MS);
+  }
+
+  function handleControlFocus(direction: Direction) {
+    focusedControlRef.current = direction;
+  }
+
+  function handleControlBlur(event: FocusEvent<HTMLButtonElement>) {
+    const nextTarget = event.relatedTarget;
+    if (
+      nextTarget === previousButtonRef.current ||
+      nextTarget === nextButtonRef.current
+    ) {
+      return;
+    }
+
+    window.requestAnimationFrame(() => {
+      const activeElement = document.activeElement;
+      if (
+        activeElement !== previousButtonRef.current &&
+        activeElement !== nextButtonRef.current
+      ) {
+        focusedControlRef.current = null;
+      }
+    });
+  }
+
+  function boundedDragDelta(deltaX: number) {
+    if (!scrollable) return 0;
+    const proposedOffset = activeOffset - deltaX;
+    const boundedOffset = clamp(proposedOffset, 0, metrics.maxScroll);
+    return activeOffset - boundedOffset;
+  }
+
+  function move(direction: Direction) {
+    if (lockTimeoutRef.current) return;
+    if (direction === "next" && !canScrollNext) return;
+    if (direction === "previous" && !canScrollPrev) return;
+
+    const activeElement = document.activeElement;
+    const activatedButton =
+      direction === "next" ? nextButtonRef.current : previousButtonRef.current;
+    if (activatedButton && activeElement === activatedButton) {
+      pendingFocusCorrectionRef.current = direction;
+    }
+
+    setMotionDirection(direction);
+    setActiveIndex((current) => {
+      const next = clamp(
+        current + (direction === "next" ? 1 : -1),
+        0,
+        metrics.maxIndex,
+      );
+      const nextItem = items[next];
+      setAnnouncement(
+        nextItem
+          ? `${next + 1} of ${itemCount}: ${nextItem.label} leads ${announcementContext}.`
+          : `${ariaLabel} updated.`,
+      );
+      return next;
+    });
+    releaseMotionLock();
+  }
+
+  function clearDragTransform() {
+    trackRef.current?.style.setProperty("--home-beyond-drag-x", "0px");
+  }
+
+  function revealFocusedCard(event: FocusEvent<HTMLUListElement>) {
+    const track = trackRef.current;
+    const viewport = viewportRef.current;
+    const card = event.target.closest<HTMLElement>(".home-beyond-carousel__card");
+    if (!scrollable || !track || !viewport || !card) return;
+
+    const index = Array.from(track.children).indexOf(card);
+    if (index < 0) return;
+    const start = index * metrics.step;
+    const end = start + card.getBoundingClientRect().width;
+    if (start < activeOffset || end > activeOffset + viewport.clientWidth + SCROLL_EPSILON) {
+      setActiveIndex(clamp(index, 0, metrics.maxIndex));
+    }
+    // The transform owns horizontal position; native focus scrolling must not
+    // introduce a second offset when tabbing into a clipped card.
+    viewport.scrollLeft = 0;
+  }
+
+  function handlePointerMove(event: PointerEvent<HTMLDivElement>) {
+    const indicatorEligible =
+      scrollable &&
+      !isInteractiveTarget(event.target) &&
+      isPointInCard(
+        event.currentTarget,
+        event.clientX,
+        event.clientY,
+      );
+    updateIndicator(
+      event.clientX,
+      event.clientY,
+      indicatorEligible || dragging,
+    );
+    handleDragPointerMove(event);
+  }
+
+  function handleWheel(event: WheelEvent<HTMLDivElement>) {
+    if (!scrollable || lockTimeoutRef.current) return;
+    if (Math.abs(event.deltaX) <= Math.abs(event.deltaY)) return;
+    if (Math.abs(event.deltaX) < 18) return;
+    const direction = event.deltaX > 0 ? "next" : "previous";
+    if (direction === "next" && !canScrollNext) return;
+    if (direction === "previous" && !canScrollPrev) return;
+    event.preventDefault();
+    move(direction);
+  }
+
+  if (itemCount === 0) return null;
+
+  return (
+    <div
+      ref={carouselRef}
+      className={["home-beyond-carousel", className].filter(Boolean).join(" ")}
+      data-carousel-ready={metrics.initialized}
+      data-dragging={dragging}
+      data-can-scroll-prev={canScrollPrev}
+      data-can-scroll-next={canScrollNext}
+      data-active-index={activeIndex}
+      role="region"
+      aria-roledescription="carousel"
+      aria-label={ariaLabel}
+      tabIndex={-1}
+    >
+      <div
+        ref={viewportRef}
+        className="home-beyond-carousel__viewport"
+        onClickCapture={handleClickCapture}
+        onDragStart={(event) => event.preventDefault()}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={(event) => finishDrag(event)}
+        onPointerCancel={(event) => finishDrag(event, true)}
+        onPointerLeave={hideIndicator}
+        onWheel={handleWheel}
+      >
+        <ul
+          id={trackId}
+          ref={trackRef}
+          className="home-beyond-carousel__track"
+          data-motion={motionDirection ?? "idle"}
+          style={trackStyle}
+          onFocusCapture={revealFocusedCard}
+        >
+          {items.map((item) => item.content)}
+        </ul>
+        <SwipeIndicator
+          ref={indicatorRef}
+          visible={indicatorVisible}
+          active={dragging}
+        />
+      </div>
+
+      {canScrollPrev && (
+        <button
+          ref={previousButtonRef}
+          type="button"
+          className="home-beyond-carousel__control home-beyond-carousel__control--previous"
+          aria-label={`Previous ${itemName}`}
+          aria-controls={trackId}
+          onBlur={handleControlBlur}
+          onClick={() => move("previous")}
+          onFocus={() => handleControlFocus("previous")}
+        >
+          <span aria-hidden="true">←</span>
+        </button>
+      )}
+      {canScrollNext && (
+        <button
+          ref={nextButtonRef}
+          type="button"
+          className="home-beyond-carousel__control home-beyond-carousel__control--next"
+          aria-label={`Next ${itemName}`}
+          aria-controls={trackId}
+          onBlur={handleControlBlur}
+          onClick={() => move("next")}
+          onFocus={() => handleControlFocus("next")}
+        >
+          <span aria-hidden="true">→</span>
+        </button>
+      )}
+
+      <span className="sr-only" aria-live="polite" aria-atomic="true">
+        {announcement}
+      </span>
+      {scrollable && (
+        <span className="home-beyond-carousel__position" aria-hidden="true">
+          {activeIndex + 1} / {itemCount}
+        </span>
+      )}
+      <span className="sr-only">
+        {leadItem ? `${activeIndex + 1} of ${itemCount}: ${leadItem.label}` : ariaLabel}
+      </span>
+    </div>
+  );
+}
