@@ -19,14 +19,35 @@ async function box(locator: Locator) {
 }
 
 async function expectFocusedVisible(page: Page) {
-  await expect.poll(() => page.evaluate(() => {
-    const element = document.activeElement;
-    if (!(element instanceof HTMLElement) || element === document.body) return false;
-    const rect = element.getBoundingClientRect();
-    const sticky = document.querySelector('.pdp-sticky-purchase[data-visible="true"]');
-    const bottom = sticky?.getBoundingClientRect().top ?? window.innerHeight;
-    return rect.width > 0 && rect.height > 0 && rect.top >= 64 && rect.bottom <= bottom;
-  })).toBe(true);
+  let lastGeometry: unknown = null;
+  try {
+    await expect.poll(async () => {
+      const geometry = await page.evaluate(() => {
+        const element = document.activeElement;
+        if (!(element instanceof HTMLElement) || element === document.body) {
+          return { visible: false, focused: null };
+        }
+        const rect = element.getBoundingClientRect();
+        const sticky = document.querySelector('.pdp-sticky-purchase[data-visible="true"]');
+        const bottom = sticky?.getBoundingClientRect().top ?? window.innerHeight;
+        return {
+          visible: rect.width > 0 && rect.height > 0 && rect.top >= 64 && rect.bottom <= bottom,
+          focused: { tag: element.tagName, class: element.className, label: element.getAttribute("aria-label") },
+          rect: { top: rect.top, bottom: rect.bottom, width: rect.width, height: rect.height },
+          clearViewport: { top: 64, bottom },
+          viewport: { width: window.innerWidth, height: window.innerHeight, scrollY: window.scrollY },
+        };
+      });
+      lastGeometry = geometry;
+      return geometry.visible;
+    }).toBe(true);
+  } catch (error) {
+    await test.info().attach("pdp-education-focus-geometry", {
+      body: JSON.stringify(lastGeometry, null, 2),
+      contentType: "application/json",
+    });
+    throw error;
+  }
 }
 
 for (const width of [320, 390, 430, 820]) {
