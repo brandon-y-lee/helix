@@ -27,6 +27,25 @@ afterEach(() => {
 });
 
 describe("usePdpSlideTransition", () => {
+  it("uses the requested duration without resetting the selected step on resize", () => {
+    vi.useFakeTimers();
+    mockReducedMotion(() => false);
+    const { result, rerender } = renderHook(
+      ({ durationMs }) => usePdpSlideTransition({
+        initialIndex: 0, itemCount: 3, resetKey: "pilot", durationMs,
+      }),
+      { initialProps: { durationMs: 250 } },
+    );
+    act(() => { result.current.select(1); });
+    act(() => vi.advanceTimersByTime(250));
+    expect(result.current.isTransitioning).toBe(false);
+    act(() => { result.current.select(2); });
+    rerender({ durationMs: 800 });
+    expect(result.current.activeIndex).toBe(2);
+    expect(result.current.isTransitioning).toBe(false);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
   it("bounds the initial index and resets state for a new key", () => {
     const { result, rerender } = renderHook(
       ({ initialIndex, itemCount, resetKey }) =>

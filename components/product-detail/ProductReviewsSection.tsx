@@ -12,6 +12,8 @@ import {
   type ProductReviewFixture,
   type ProductReviews,
 } from "@/lib/catalog/product-reviews";
+import type { PdpPresentation } from "./pdp-presentation";
+import { usePdpMobilePresentation } from "./usePdpMobilePresentation";
 
 export const INITIAL_VISIBLE_REVIEW_COUNT = 2;
 export const REVIEW_VISIBLE_INCREMENT = 5;
@@ -166,11 +168,14 @@ export function ProductReviewsSection({
   productName,
   productSlug,
   reviews,
+  pdpPresentation = "default",
 }: {
   productName: string;
   productSlug: string;
   reviews: ProductReviews;
+  pdpPresentation?: PdpPresentation;
 }) {
+  const isMobile = usePdpMobilePresentation(pdpPresentation);
   const reviewListId = useId();
   const collectionKey = useMemo(
     () => reviews.reviews.map((review) => review.id).join("|"),
@@ -195,27 +200,30 @@ export function ProductReviewsSection({
       className="pdp-reviews"
       aria-labelledby="pdp-reviews-heading"
       data-review-section
+      data-review-empty={summary.count === 0}
     >
       <h2 id="pdp-reviews-heading" className="sr-only">
         {productName} customer reviews
       </h2>
 
-      <div className="pdp-reviews__overview" data-review-header>
-        <div className="pdp-reviews__rating-summary">
-          <strong>{summary.count > 0 ? summary.average.toFixed(1) : "—"}</strong>
-          <StarRating
-            value={summary.average}
-            label={
-              summary.count > 0
-                ? `${summary.average.toFixed(1)} average rating out of 5 stars`
-                : "No ratings yet"
-            }
-          />
-          <span>AVERAGE RATING</span>
-          <p>{reviewCountLabel(summary.count)}</p>
+      {(!isMobile || summary.count > 0) && (
+        <div className="pdp-reviews__overview" data-review-header>
+          <div className="pdp-reviews__rating-summary">
+            <strong>{summary.count > 0 ? summary.average.toFixed(1) : "—"}</strong>
+            <StarRating
+              value={summary.average}
+              label={
+                summary.count > 0
+                  ? `${summary.average.toFixed(1)} average rating out of 5 stars`
+                  : "No ratings yet"
+              }
+            />
+            <span>AVERAGE RATING</span>
+            <p>{reviewCountLabel(summary.count)}</p>
+          </div>
+          <ReviewResponseMeter reviews={reviews} />
         </div>
-        <ReviewResponseMeter reviews={reviews} />
-      </div>
+      )}
 
       {visibleReviews.length > 0 ? (
         <>

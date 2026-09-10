@@ -1,8 +1,10 @@
 "use client";
 
-import { useRef, useState, type Ref } from "react";
+import { useCallback, useRef, useState, type Ref } from "react";
 import { ProductImage } from "@/components/product/ProductImage";
 import type { ProductMedia } from "@/lib/products";
+import type { PdpPresentation } from "./pdp-presentation";
+import { usePdpMobilePresentation } from "./usePdpMobilePresentation";
 
 export function PdpRoutineVideo({
   productName,
@@ -11,6 +13,7 @@ export function PdpRoutineVideo({
   poster,
   swatch,
   rootRef,
+  pdpPresentation = "default",
 }: {
   productName: string;
   overlay: string;
@@ -18,23 +21,16 @@ export function PdpRoutineVideo({
   poster: ProductMedia;
   swatch: [string, string];
   rootRef?: Ref<HTMLElement>;
+  pdpPresentation?: PdpPresentation;
 }) {
+  const isMobile = usePdpMobilePresentation(pdpPresentation);
   const foregroundRef = useRef<HTMLVideoElement>(null);
   const backgroundRef = useRef<HTMLVideoElement>(null);
   const [activated, setActivated] = useState(false);
   const [backgroundReady, setBackgroundReady] = useState(false);
   const [error, setError] = useState(false);
 
-  if (
-    video.kind !== "video" ||
-    !video.url ||
-    poster.kind !== "image" ||
-    !poster.url
-  ) {
-    return null;
-  }
-
-  function syncBackgroundTime(force = false) {
+  const syncBackgroundTime = useCallback((force = false) => {
     const foreground = foregroundRef.current;
     const background = backgroundRef.current;
     if (!foreground || !background || !Number.isFinite(foreground.currentTime)) {
@@ -51,9 +47,9 @@ export function PdpRoutineVideo({
         // The poster remains the background until background metadata is ready.
       }
     }
-  }
+  }, []);
 
-  function playBackground() {
+  const playBackground = useCallback(() => {
     const background = backgroundRef.current;
     if (!background) return;
     syncBackgroundTime(true);
@@ -61,6 +57,32 @@ export function PdpRoutineVideo({
     void background.play().catch(() => {
       setBackgroundReady(false);
     });
+  }, [syncBackgroundTime]);
+
+  const attachBackground = useCallback(
+    (background: HTMLVideoElement | null) => {
+      if (!background) return;
+      backgroundRef.current = background;
+      setBackgroundReady(false);
+      const foreground = foregroundRef.current;
+      if (foreground && !foreground.paused && !foreground.ended) {
+        playBackground();
+      }
+      return () => {
+        background.pause();
+        backgroundRef.current = null;
+      };
+    },
+    [playBackground],
+  );
+
+  if (
+    video.kind !== "video" ||
+    !video.url ||
+    poster.kind !== "image" ||
+    !poster.url
+  ) {
+    return null;
   }
 
   async function handlePlayRequest() {
@@ -122,19 +144,21 @@ export function PdpRoutineVideo({
         className="pdp-routine-video__poster-foreground"
         imageClassName="pdp-routine-video__poster-foreground-image"
       />
-      <video
-        ref={backgroundRef}
-        className="pdp-routine-video__background"
-        src={video.url}
-        preload="none"
-        muted
-        playsInline
-        tabIndex={-1}
-        aria-hidden="true"
-        data-ready={backgroundReady}
-        onCanPlay={() => setBackgroundReady(true)}
-        onError={() => setBackgroundReady(false)}
-      />
+      {!isMobile && (
+        <video
+          ref={attachBackground}
+          className="pdp-routine-video__background"
+          src={video.url}
+          preload="none"
+          muted
+          playsInline
+          tabIndex={-1}
+          aria-hidden="true"
+          data-ready={backgroundReady}
+          onCanPlay={() => setBackgroundReady(true)}
+          onError={() => setBackgroundReady(false)}
+        />
+      )}
       <video
         ref={foregroundRef}
         className="pdp-routine-video__foreground"
