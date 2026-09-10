@@ -1,4 +1,8 @@
 /* Public service components: keep the full navigation sidebar above phones. */
+.legal-contents {
+  display: contents;
+}
+
 .legal-toc--mobile,
 .legal-table-cue {
   display: none;

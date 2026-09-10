@@ -1,20 +1,9 @@
 import type { ReactNode } from "react";
+import { LegalContents } from "@/components/content/LegalContents";
 import {
   legalPublicationStatus,
   type LegalDocument,
 } from "@/content/legal/types";
-
-function SectionLinks({ document }: { document: LegalDocument }) {
-  return (
-    <ol>
-      {document.sections.map((section) => (
-        <li key={section.id}>
-          <a href={`#${section.id}`}>{section.title}</a>
-        </li>
-      ))}
-    </ol>
-  );
-}
 
 export function LegalDocumentLayout({
   document,
@@ -35,19 +24,10 @@ export function LegalDocumentLayout({
       </header>
 
       <div className="legal-shell">
-        <nav
-          className="legal-toc legal-toc--desktop"
-          aria-label={`${document.title} sections`}
-        >
-          <h2>Contents</h2>
-          <SectionLinks document={document} />
-        </nav>
-        <details className="legal-toc legal-toc--mobile">
-          <summary>Contents</summary>
-          <nav aria-label={`${document.title} sections`}>
-            <SectionLinks document={document} />
-          </nav>
-        </details>
+        <LegalContents
+          title={document.title}
+          sections={document.sections.map(({ id, title }) => ({ id, title }))}
+        />
 
         <div className="legal-document">
           {children}

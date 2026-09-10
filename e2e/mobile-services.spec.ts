@@ -105,11 +105,69 @@ test("legal Contents uses a closed phone disclosure and exposes one navigation a
   await expect(navigation).toHaveCount(1);
   await expect(contents.getByRole("navigation")).toBeVisible();
   await expect(page.locator(".legal-toc--desktop")).toBeHidden();
+  const desktopContents = page.locator(".legal-toc--desktop");
+  const mobilePublication = contents.getByRole("link", { name: "Publication Status", exact: true });
+  const desktopPublication = desktopContents.getByRole("link", { name: "Publication Status", exact: true });
+  await summary.focus();
+  await page.keyboard.press("Enter");
+  await expect(contents).not.toHaveAttribute("open");
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("Tab");
+  await expect(mobilePublication).toBeFocused();
 
   await page.setViewportSize({ width: 721, height: 1024 });
   await expect(contents).toBeHidden();
   await expect(navigation).toHaveCount(1);
-  await expect(page.locator(".legal-toc--desktop")).toBeVisible();
+  await expect(desktopContents).toBeVisible();
+  await expect(desktopPublication).toBeFocused();
+
+  await page.setViewportSize({ width: 720, height: 1024 });
+  await expect(contents).toHaveAttribute("open", "");
+  await expect(navigation).toHaveCount(1);
+  await expect(mobilePublication).toBeFocused();
+
+  await summary.focus();
+  await page.keyboard.press("Enter");
+  await expect(contents).not.toHaveAttribute("open");
+  await expect(navigation).toHaveCount(0);
+  await page.setViewportSize({ width: 721, height: 1024 });
+  await desktopPublication.focus();
+  await expect(desktopPublication).toBeFocused();
+  await page.setViewportSize({ width: 720, height: 1024 });
+  await expect(contents).not.toHaveAttribute("open");
+  await expect(summary).toBeFocused();
+
+  // Leaving Contents must clear the remembered focus owner before a resize.
+  const home = page.getByRole("link", { name: "helix home", exact: true });
+  await home.focus();
+  await expect(home).toBeFocused();
+  await page.setViewportSize({ width: 721, height: 1024 });
+  await expect(desktopContents).toBeVisible();
+  await expect(home).toBeFocused();
+  await page.setViewportSize({ width: 720, height: 1024 });
+  await expect(summary).toBeVisible();
+  await expect(home).toBeFocused();
+
+  // A pointer interaction with non-focusable prose also ends Contents ownership.
+  await summary.focus();
+  await page.getByRole("heading", { name: "Terms of Service", exact: true }).click();
+  const focusIsInContents = () => page.evaluate(() =>
+    Boolean(document.activeElement?.closest(".legal-toc")),
+  );
+  await expect.poll(focusIsInContents).toBe(false);
+  const pointerFocus = await page.evaluate(() => ({
+    tagName: document.activeElement?.tagName,
+    id: document.activeElement?.id,
+  }));
+  for (const width of [721, 720]) {
+    await page.setViewportSize({ width, height: 1024 });
+    await expect(width === 720 ? summary : desktopContents).toBeVisible();
+    await expect.poll(focusIsInContents).toBe(false);
+    expect(await page.evaluate(() => ({
+      tagName: document.activeElement?.tagName,
+      id: document.activeElement?.id,
+    }))).toEqual(pointerFocus);
+  }
 
   await page.setViewportSize({ width: 1440, height: 1000 });
   await expect(contents).toBeHidden();
@@ -122,11 +180,11 @@ test("legal Contents uses a closed phone disclosure and exposes one navigation a
   await expectNoDocumentOverflow(page);
 
   await page.setViewportSize({ width: 390, height: 844 });
-  await expect(contents).toHaveAttribute("open", "");
-  await expect(navigation).toHaveCount(1);
+  await expect(contents).not.toHaveAttribute("open");
+  await expect(navigation).toHaveCount(0);
   await summary.focus();
   await page.keyboard.press("Enter");
-  await expect(navigation).toHaveCount(0);
+  await expect(navigation).toHaveCount(1);
   await expect(summary).toBeFocused();
 });
 
