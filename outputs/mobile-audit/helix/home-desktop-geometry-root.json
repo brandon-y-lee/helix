@@ -1,0 +1,44 @@
+[
+  {
+    "cls": "home-video-hero",
+    "h": 1000,
+    "text": "HELIX\n\nYour skin starts with three steps.\n\nCleanse. Treat. S",
+    "y": 0
+  },
+  {
+    "cls": "storefront-shell home-section home-section--core",
+    "h": 888,
+    "text": "THE CORE\n\nThe Core\n\nA simple daily system for skin that look",
+    "y": 1000
+  },
+  {
+    "cls": "home-section home-section--principles",
+    "h": 1120,
+    "text": "Simple is\nnot basic.\n\nRestore, protect, and nurture the skin",
+    "y": 1888
+  },
+  {
+    "cls": "home-section home-section--core-support",
+    "h": 821,
+    "text": "For skin that is clearer, more hydrated, and less tired.\n\nPl",
+    "y": 3008
+  },
+  {
+    "cls": "home-section home-section--beyond",
+    "h": 888,
+    "text": "BEYOND THE CORE\n\nBeyond The Core\n\nFor when your skin has a h",
+    "y": 3829
+  },
+  {
+    "cls": "home-band home-section",
+    "h": 713,
+    "text": "Know what you are using.\n\nLearn how our formulas nourish you",
+    "y": 4716
+  },
+  {
+    "cls": "home-section home-section--final",
+    "h": 700,
+    "text": "Invest in your skin.\n\nThree steps, one order, repeatable mor",
+    "y": 5430
+  }
+]
