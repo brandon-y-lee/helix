@@ -88,12 +88,42 @@
     "keyboardWrap": {
       "sourceStatus": "Both internal wrap branches now call native focus()",
       "independentBrowserRetest": "Blocked: in-app Browser service unavailable after interruption",
-      "requiredRegression": "e2e/home-navbar.spec.ts: short mobile menu scrolls wrapped keyboard focus into view without moving the page"
+      "requiredRegression": "e2e/home-navbar.spec.ts: short mobile menu scrolls wrapped keyboard focus into view without moving the page",
+      "status": "Resolved: production Chromium geometry regression passed",
+      "regressionResult": "Passed both short-menu wrap directions with focused targets fully in viewport and exact page-scroll restoration"
     },
     "cookieKeyboardWrap": "Not visually retested after repair; earlier panel reachability and Escape restoration passed",
     "lightHeaderContrast": "Source adds SVG drop-shadow and cart count text-shadow; actual bright-frame appearance not recaptured",
     "emptyCartAction": "48px phone minimum confirmed in source; corrected geometry not recaptured",
     "viewportOverride": "Reset before interruption; resumption established no override",
-    "preview": "Released to root for supported production verification"
+    "preview": "Released to root for supported production verification",
+    "productionVerification": {
+      "commit": "9c8fbbbe003cb979ea8a2453df2c492890f40908",
+      "command": "CI=1 pnpm e2e",
+      "buildId": "_5Ryp8v3Z6bLKm-gLZgDb",
+      "passed": 61,
+      "existingOfferConditionalSkipped": 9,
+      "flaky": 0,
+      "browserSeconds": 38.4,
+      "workflowSeconds": 57.259,
+      "log": "/private/tmp/helix-mobile-m1-e2e-3.log",
+      "logInspectedByConsultant": true,
+      "newMobileRegressionsRunAsReportedByRoot": [
+        "Search initial focus through both opening paths",
+        "Short-menu keyboard wrapping and page scroll preservation",
+        "198-item header count at320px",
+        "Footer viewport matrix",
+        "Controlled cart loading, populated, update error and retry at390x844 and320x480"
+      ],
+      "unitTestsPassedAsReportedByRoot": 965,
+      "deltaReviewAsReportedByRoot": "Both axes passed"
+    },
+    "cartLayoutRepair": {
+      "cause": "Inherited align-items:start prevented populated drawer items from stretching into the constrained grid row",
+      "change": "Phone .cart-layout--drawer explicitly uses align-items:stretch",
+      "verification": "Final production Chromium controlled cart tests passed",
+      "actualMediaRecapture": false
+    },
+    "auditDisposition": "M1 composition accepted and blocking keyboard finding resolved through production Chromium verification; physical-device and post-fix actual-media recapture limits retained"
   }
 }
