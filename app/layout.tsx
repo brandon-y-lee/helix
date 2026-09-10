@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Manrope, Marcellus } from "next/font/google";
 import type { ReactNode } from "react";
 import "./globals.css";
+import "./mobile-services.css";
 import { ApplicationChrome } from "@/components/shell/ApplicationChrome";
 import { createPublicSiteMetadata } from "@/lib/public-site-metadata";
 import { resolvePublicSiteOrigin } from "@/lib/site-url";

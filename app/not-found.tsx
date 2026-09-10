@@ -7,7 +7,7 @@ export const metadata: Metadata = {
 
 export default function NotFound() {
   return (
-    <div className="container">
+    <div className="container public-utility-page">
       <div className="page-head">
         <h1>Not found</h1>
       </div>

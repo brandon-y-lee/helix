@@ -21,7 +21,7 @@ export default async function CheckoutSuccessPage({
 
   if (!confirmation) {
     return (
-      <div className="container">
+      <div className="container public-utility-page">
         <div className="page-head">
           <p className="eyebrow">Sandbox checkout</p>
           <h1>Order status</h1>
@@ -39,7 +39,7 @@ export default async function CheckoutSuccessPage({
   const { order, items } = confirmation;
 
   return (
-    <div className="container checkout-result">
+    <div className="container checkout-result public-utility-page">
       <div className="page-head">
         <p className="eyebrow">Sandbox checkout</p>
         <h1>Payment verified</h1>

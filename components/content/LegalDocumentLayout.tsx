@@ -4,6 +4,18 @@ import {
   type LegalDocument,
 } from "@/content/legal/types";
 
+function SectionLinks({ document }: { document: LegalDocument }) {
+  return (
+    <ol>
+      {document.sections.map((section) => (
+        <li key={section.id}>
+          <a href={`#${section.id}`}>{section.title}</a>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
 export function LegalDocumentLayout({
   document,
   children,
@@ -23,16 +35,19 @@ export function LegalDocumentLayout({
       </header>
 
       <div className="legal-shell">
-        <nav className="legal-toc" aria-label={`${document.title} sections`}>
+        <nav
+          className="legal-toc legal-toc--desktop"
+          aria-label={`${document.title} sections`}
+        >
           <h2>Contents</h2>
-          <ol>
-            {document.sections.map((section) => (
-              <li key={section.id}>
-                <a href={`#${section.id}`}>{section.title}</a>
-              </li>
-            ))}
-          </ol>
+          <SectionLinks document={document} />
         </nav>
+        <details className="legal-toc legal-toc--mobile">
+          <summary>Contents</summary>
+          <nav aria-label={`${document.title} sections`}>
+            <SectionLinks document={document} />
+          </nav>
+        </details>
 
         <div className="legal-document">
           {children}

@@ -12,29 +12,40 @@ export const metadata: Metadata = createPublicSiteMetadata({
 export default function CookiePolicyPage() {
   return (
     <LegalDocumentLayout document={cookiePolicy}>
-      <div className="legal-table-wrap" aria-label="Cookie categories">
-        <table>
-          <thead>
-            <tr>
-              <th>Category</th>
-              <th>Status</th>
-              <th>Examples</th>
-              <th>Purpose</th>
-              <th>Optional</th>
-            </tr>
-          </thead>
-          <tbody>
-            {cookieCategories.map((category) => (
-              <tr key={category.category}>
-                <th scope="row">{category.category}</th>
-                <td>{category.active ? "Active" : "Not active"}</td>
-                <td>{category.examples.join("; ")}</td>
-                <td>{category.purpose}</td>
-                <td>{category.optional ? "Yes" : "No"}</td>
+      <div className="legal-table-block">
+        <p className="legal-table-cue" id="cookie-table-cue">
+          Scroll horizontally to view all cookie details.
+        </p>
+        <div
+          className="legal-table-wrap"
+          role="region"
+          aria-label="Cookie categories"
+          aria-describedby="cookie-table-cue"
+          tabIndex={0}
+        >
+          <table>
+            <thead>
+              <tr>
+                <th>Category</th>
+                <th>Status</th>
+                <th>Examples</th>
+                <th>Purpose</th>
+                <th>Optional</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {cookieCategories.map((category) => (
+                <tr key={category.category}>
+                  <th scope="row">{category.category}</th>
+                  <td>{category.active ? "Active" : "Not active"}</td>
+                  <td>{category.examples.join("; ")}</td>
+                  <td>{category.purpose}</td>
+                  <td>{category.optional ? "Yes" : "No"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </LegalDocumentLayout>
   );

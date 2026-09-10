@@ -18,7 +18,7 @@ export default async function CartPage({ searchParams }: CartPageProps) {
   const checkoutCancelled = isCheckoutCancelledSearchParams(params);
 
   return (
-    <div className="container">
+    <div className="container public-utility-page">
       <div className="page-head">
         <h1>Cart</h1>
       </div>
