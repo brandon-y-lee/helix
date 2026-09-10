@@ -10170,6 +10170,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 }
 
 .home-beyond-carousel__card {
+  min-width: 0;
   flex: 0 0 calc(
     (100% - (var(--home-beyond-gap) * (var(--home-beyond-visible) - 1))) /
       var(--home-beyond-visible)
@@ -11135,8 +11136,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
     --home-beyond-visible: 1.2;
   }
 
-  .home-beyond-carousel[data-can-scroll-prev="true"],
-  .home-beyond-carousel[data-can-scroll-next="true"] {
+  .home-beyond-carousel[data-has-multiple-items="true"] {
     padding-bottom: 56px;
   }
 

@@ -204,7 +204,24 @@ export function HorizontalCarousel({
     setMetrics((current) =>
       metricsChanged(current, nextMetrics) ? nextMetrics : current,
     );
-    setActiveIndex((current) => clamp(current, 0, maxIndex));
+    const focusedCard = document.activeElement instanceof HTMLElement &&
+      track.contains(document.activeElement)
+      ? document.activeElement.closest<HTMLElement>(".home-beyond-carousel__card")
+      : null;
+    const focusedIndex = focusedCard
+      ? Array.from(track.children).indexOf(focusedCard)
+      : -1;
+    setActiveIndex((current) => {
+      const boundedIndex = clamp(current, 0, maxIndex);
+      if (focusedIndex < 0 || maxScroll <= SCROLL_EPSILON) return boundedIndex;
+      const offset = Math.min(boundedIndex * step, maxScroll);
+      const start = focusedIndex * step;
+      const end = start + cardWidth;
+      return start < offset || end > offset + viewport.clientWidth + SCROLL_EPSILON
+        ? clamp(focusedIndex, 0, maxIndex)
+        : boundedIndex;
+    });
+    if (focusedCard) viewport.scrollLeft = 0;
   }, [itemCount]);
 
   useEffect(() => {
@@ -400,6 +417,7 @@ export function HorizontalCarousel({
       ref={carouselRef}
       className={["home-beyond-carousel", className].filter(Boolean).join(" ")}
       data-carousel-ready={metrics.initialized}
+      data-has-multiple-items={itemCount > 1}
       data-dragging={dragging}
       data-can-scroll-prev={canScrollPrev}
       data-can-scroll-next={canScrollNext}

@@ -431,6 +431,7 @@ test(`${collection} carousel is finite and keyboard operable on mobile`, async (
 test("Core changes from one card and a preview to two and then its desktop grid without duplicating products", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
+  await page.addStyleTag({ content: "html { scrollbar-gutter: stable; }" });
   const core = page.getByRole("region", { name: "The Core products", exact: true });
   const cards = core.locator(".product-card");
   await expect(cards).toHaveCount(3);
@@ -469,8 +470,22 @@ test("Core changes from one card and a preview to two and then its desktop grid 
     return { right: bounds.right, top: bounds.top };
   }));
   expect(desktop[2].right).toBeLessThanOrEqual(901);
+  const desktopViewport = await core.locator(".home-beyond-carousel__viewport").boundingBox();
+  expect(desktopViewport).not.toBeNull();
+  expect(desktop[2].right).toBeLessThanOrEqual(desktopViewport!.x + desktopViewport!.width + 1);
   expect(new Set(desktop.map((item) => item.top)).size).toBe(1);
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(901);
+
+  const lastLink = cards.last().locator(".product-card__link");
+  await lastLink.focus();
+  await page.setViewportSize({ width: 720, height: 900 });
+  await expect(lastLink).toBeFocused();
+  await expect(core).toHaveAttribute("data-active-index", "2");
+  await expect.poll(async () => core.evaluate((element) => {
+    const viewport = element.querySelector(".home-beyond-carousel__viewport")!.getBoundingClientRect();
+    const focused = document.activeElement!.getBoundingClientRect();
+    return focused.left >= viewport.left - 1 && focused.right <= viewport.right + 1;
+  })).toBe(true);
   await firstCard?.dispose();
 });
 

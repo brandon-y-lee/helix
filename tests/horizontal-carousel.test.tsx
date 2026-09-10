@@ -48,6 +48,18 @@ describe("shared horizontal discovery", () => {
     expect(screen.getByRole("link", { name: "Niacinamide" })).toHaveFocus();
   });
 
+  it("keeps the focused item visible when a wide grid becomes a narrow rail", () => {
+    const { rail, resize } = renderRail();
+    resize(900);
+    const lastItem = screen.getByRole("link", { name: "Niacinamide" });
+    act(() => lastItem.focus());
+    expect(rail).toHaveAttribute("data-active-index", "0");
+
+    resize(300);
+    expect(lastItem).toHaveFocus();
+    expect(rail).toHaveAttribute("data-active-index", "2");
+  });
+
   it("announces finite progress and restores focus when an endpoint or wider layout removes a control", () => {
     vi.useFakeTimers();
     const { rail, resize } = renderRail();
