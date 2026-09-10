@@ -45,6 +45,7 @@ export function CartView({
   const freeShippingQualified = qualifiesForFreeStandardShipping(subtotal);
   const freeShippingRemaining = remainingForFreeStandardShipping(subtotal);
   const checkoutDisabled = loading || isMutating || lines.some((line) => !line.available || line.quantity <= 0);
+  const checkout = <CheckoutPanel disabled={checkoutDisabled} subtotal={subtotal} />;
 
   async function retryCart() {
     resetErrors();
@@ -111,7 +112,12 @@ export function CartView({
 
   return (
     <div className={isDrawer ? "cart-layout cart-layout--drawer" : "cart-layout"}>
-      <div>
+      <div
+        className={isDrawer ? "cart-drawer__items" : undefined}
+        role={isDrawer ? "region" : undefined}
+        aria-label={isDrawer ? "Cart items and updates" : undefined}
+        tabIndex={isDrawer ? 0 : undefined}
+      >
         <div className="cart-items__head">
           <span>{count} {count === 1 ? "item" : "items"}</span>
           <button
@@ -225,7 +231,10 @@ export function CartView({
         </ul>
       </div>
 
-      <aside className="cart-summary" aria-label="Order summary">
+      <aside
+        className={isDrawer ? "cart-summary cart-summary--drawer" : "cart-summary"}
+        aria-label="Order summary"
+      >
         <h2>Summary</h2>
         <div className="summary-row">
           <span>Subtotal ({count} items)</span>
@@ -239,7 +248,7 @@ export function CartView({
             : `Free at ${formatFreeShippingThreshold()}`}
           </span>
         </div>
-        <CheckoutPanel disabled={checkoutDisabled} subtotal={subtotal} />
+        {isDrawer ? <div className="cart-summary__action">{checkout}</div> : checkout}
         <p className="cart-summary__note">
           {freeShippingQualified
             ? "Your cart meets the free standard shipping threshold."

@@ -480,10 +480,8 @@ test("shop presents the approved Product, collection, sheet, and footer treatmen
   expect(mobileHeadingGeometry.fontSize).toBe("18px");
   await expect(heroImage).toHaveCSS("object-position", "50% 50%");
   await page.reload();
-  await expect(page.locator(".site-footer__accordion").first()).toHaveCSS(
-    "border-top-width",
-    "1px",
-  );
+  await expect(page.getByRole("navigation", { name: "Footer navigation" })).toBeVisible();
+  await expect(page.locator(".site-footer__mobile-groups")).toBeHidden();
   const mobileWidths = await page.evaluate(() => ({
     clientWidth: document.documentElement.clientWidth,
     footerScrollWidth:

@@ -166,3 +166,61 @@ test("header search manages initial focus and restores its trigger on Escape", a
     .not.toBe("hidden");
   await expect(trigger).toBeFocused();
 });
+
+for (const entry of ["direct", "menu"] as const) {
+  test(`mobile ${entry} search restores a visible header trigger without moving the reader`, async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const { record, searchTerm } = await loadSearchJourney();
+    await mockAlgolia(page, record);
+    await page.goto("/system");
+    await expect(page.locator(".search-sheet")).toHaveAttribute("data-state", "closed");
+    await page.evaluate(() => new Promise<void>((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+    }));
+
+    const header = page.locator(".site-header");
+    await page.evaluate(() => window.scrollTo(0, 600));
+    await expect(header).toHaveAttribute("data-nav-state", "hidden");
+    await page.evaluate(() => window.scrollBy(0, -180));
+    await expect(header).toHaveAttribute("data-nav-state", "revealed");
+    const trigger = header.getByRole("button", { name: "SEARCH", exact: true });
+    await expect(trigger).toBeInViewport({ ratio: 1 });
+    const origin = await page.evaluate(() => ({ x: window.scrollX, y: window.scrollY }));
+    expect(origin.y).toBeGreaterThan(100);
+
+    if (entry === "menu") {
+      await header.getByRole("button", { name: "Menu", exact: true }).click();
+      const menu = page.getByRole("dialog", { name: "Menu", exact: true });
+      await menu.getByRole("button", { name: "SEARCH", exact: true }).click();
+      await expect(menu).toHaveCount(0);
+    } else {
+      await trigger.click();
+    }
+
+    const search = page.getByRole("dialog", { name: "Search", exact: true });
+    await expect(search).toBeVisible();
+    await expect(page.getByRole("dialog")).toHaveCount(1);
+    const input = search.getByRole("searchbox", { name: "Search products" });
+    await expect(input).toBeFocused();
+    for (const suggestion of await search.locator(".search-suggestions__button").all()) {
+      const target = await suggestion.boundingBox();
+      expect(target).not.toBeNull();
+      expect(target!.height).toBeGreaterThanOrEqual(44);
+      expect(target!.width).toBeGreaterThanOrEqual(44);
+    }
+    await input.fill(searchTerm);
+    await expect(search.getByText(/1 result for/i)).toBeVisible();
+    const clearTarget = await search.getByRole("button", { name: "Clear search" }).boundingBox();
+    expect(clearTarget).not.toBeNull();
+    expect(clearTarget!.height).toBeGreaterThanOrEqual(44);
+    expect(clearTarget!.width).toBeGreaterThanOrEqual(44);
+
+    await page.keyboard.press("Escape");
+    await expect(search).toHaveCount(0);
+    await expect.poll(() => page.evaluate(() => document.body.style.overflow)).not.toBe("hidden");
+    await expect(trigger).toBeFocused();
+    await expect(trigger).toBeInViewport({ ratio: 1 });
+    await expect(header).toHaveAttribute("data-nav-state", "revealed");
+    await expect.poll(() => page.evaluate(() => ({ x: window.scrollX, y: window.scrollY }))).toEqual(origin);
+  });
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   searchProducts,
   isSearchConfigured,
@@ -17,11 +17,11 @@ type SearchStatus =
 export type UseProductSearch = {
   status: SearchStatus;
   result: SearchResult | null;
-  errorMessage: string | null;
+  retry: () => void;
 };
 
 /**
- * Debounced, abortable product search against the synced Algolia index. The
+ * Debounced product search against the synced Algolia index. The
  * storefront searches Algolia here — never Supabase. Stale resolutions are
  * ignored so out-of-order responses can't clobber newer results.
  */
@@ -32,7 +32,8 @@ export function useProductSearch(
   const term = query.trim();
   const [status, setStatus] = useState<SearchStatus>("idle");
   const [result, setResult] = useState<SearchResult | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [retryAttempt, setRetryAttempt] = useState(0);
+  const retry = useCallback(() => setRetryAttempt((attempt) => attempt + 1), []);
 
   useEffect(() => {
     if (!isSearchConfigured()) {
@@ -44,7 +45,6 @@ export function useProductSearch(
     if (!term) {
       setStatus("idle");
       setResult(null);
-      setErrorMessage(null);
       return;
     }
 
@@ -56,14 +56,10 @@ export function useProductSearch(
         .then((r) => {
           if (cancelled) return;
           setResult(r);
-          setErrorMessage(null);
           setStatus("success");
         })
-        .catch((err: unknown) => {
+        .catch(() => {
           if (cancelled) return;
-          setErrorMessage(
-            err instanceof Error ? err.message : "Search request failed.",
-          );
           setStatus("error");
         });
     }, debounceMs);
@@ -72,7 +68,7 @@ export function useProductSearch(
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [term, debounceMs]);
+  }, [term, debounceMs, retryAttempt]);
 
-  return { status, result, errorMessage };
+  return { status, result, retry };
 }

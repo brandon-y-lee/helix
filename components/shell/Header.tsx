@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { HelixIdentity } from "@/components/brand/HelixIdentity";
@@ -8,6 +9,10 @@ import { useCartDrawer } from "@/components/cart/CartProvider";
 import { useCartCount } from "@/components/cart/useCart";
 import { SearchOverlay } from "@/components/search/SearchOverlay";
 import { Sheet } from "@/components/overlays/Sheet";
+import {
+  registerHeaderCartFocus,
+  useModalPresence,
+} from "@/components/overlays/modal-state";
 
 type HeaderNavState = "top" | "revealed" | "hidden";
 
@@ -68,9 +73,10 @@ export function Header({
   } = useCartDrawer();
   const [searchOpen, setSearchOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const modalPresent = useModalPresence();
   const pathname = usePathname();
   const overlayOpen =
-    searchOpen || (!commerceDisabled && cartDrawerOpen) || menuOpen;
+    modalPresent || searchOpen || (!commerceDisabled && cartDrawerOpen) || menuOpen;
   const [navState, setNavState] = useState<HeaderNavState>("top");
   const navStateRef = useRef<HeaderNavState>("top");
   const lastScrollYRef = useRef(0);
@@ -90,14 +96,25 @@ export function Header({
   const closeSearch = useCallback(() => setSearchOpen(false), []);
   const closeMenu = useCallback(() => setMenuOpen(false), []);
   const returnFocusToSearch = useCallback(() => {
-    searchTriggerRef.current?.focus();
-  }, []);
+    setNavStateIfChanged(getScrollY() > TOP_EDGE_Y ? "revealed" : "top");
+    searchTriggerRef.current?.focus({ preventScroll: true });
+  }, [setNavStateIfChanged]);
   const returnFocusToCart = useCallback(() => {
-    cartTriggerRef.current?.focus();
-  }, []);
+    setNavStateIfChanged(getScrollY() > TOP_EDGE_Y ? "revealed" : "top");
+    const target = cartTriggerRef.current?.disabled
+      ? searchTriggerRef.current
+      : cartTriggerRef.current;
+    target?.focus({ preventScroll: true });
+  }, [setNavStateIfChanged]);
   const returnFocusToMenu = useCallback(() => {
-    menuTriggerRef.current?.focus();
-  }, []);
+    const trigger = menuTriggerRef.current;
+    if (trigger && window.getComputedStyle(trigger).display !== "none") {
+      setNavStateIfChanged(getScrollY() > TOP_EDGE_Y ? "revealed" : "top");
+      trigger.focus({ preventScroll: true });
+    } else {
+      returnFocusToSearch();
+    }
+  }, [returnFocusToSearch, setNavStateIfChanged]);
   const current = useCallback(
     (href: string) => (pathname === href ? "page" : undefined),
     [pathname],
@@ -111,6 +128,8 @@ export function Header({
       setNavStateIfChanged("revealed");
     }
   }, [setNavStateIfChanged]);
+
+  useEffect(() => registerHeaderCartFocus(returnFocusToCart), [returnFocusToCart]);
 
   useEffect(() => {
     if (commerceDisabled && cartDrawerOpen) {
@@ -178,6 +197,10 @@ export function Header({
   }, [setNavStateIfChanged]);
 
   const renderedNavState: HeaderNavState = overlayOpen ? "revealed" : navState;
+  const cartQuantity = hasLoadedCart ? count : "—";
+  const cartStatus = hasLoadedCart
+    ? count > 0 ? `${count} ${count === 1 ? "item" : "items"}` : "empty"
+    : cartError ? "temporarily unavailable" : "loading";
 
   return (
     <header
@@ -219,8 +242,13 @@ export function Header({
             onClick={() => setSearchOpen(true)}
             aria-haspopup="dialog"
             aria-expanded={searchOpen}
+            aria-label="SEARCH"
           >
-            SEARCH
+            <span className="site-nav__label" aria-hidden="true">SEARCH</span>
+            <svg className="site-nav__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <circle cx="10.5" cy="10.5" r="6.5" />
+              <path d="m16 16 5 5" />
+            </svg>
           </button>
           <Link href="/account">ACCOUNT</Link>
           <button
@@ -235,23 +263,19 @@ export function Header({
             aria-label={
               commerceDisabled
                 ? "Cart unavailable in Catalog Preview"
-                : undefined
+                : `CART (${cartQuantity}), ${cartStatus}`
             }
             disabled={commerceDisabled}
           >
-            {commerceDisabled
-              ? "CART (PREVIEW)"
-              : `CART (${hasLoadedCart ? count : "—"})`}
-            <span className="sr-only">
-              {commerceDisabled
-                ? ", purchasing disabled"
-                : hasLoadedCart
-                ? count > 0
-                  ? `, ${count} items`
-                  : ", empty"
-                : cartError
-                  ? ", temporarily unavailable"
-                  : ", loading"}
+            <span className="site-nav__label" aria-hidden="true">
+              {commerceDisabled ? "CART (PREVIEW)" : `CART (${cartQuantity})`}
+            </span>
+            <span className="cart-link__mobile" aria-hidden="true">
+              <svg className="site-nav__icon" viewBox="0 0 24 24" focusable="false">
+                <path d="M5 7h14l1 14H4L5 7Z" />
+                <path d="M9 8V6a3 3 0 0 1 6 0v2" />
+              </svg>
+              <span>{commerceDisabled ? "—" : cartQuantity}</span>
             </span>
           </button>
         </nav>
@@ -269,12 +293,23 @@ export function Header({
         <HelixIdentity variant="symbol" className="mobile-nav__identity" />
         <nav className="mobile-nav" aria-label="Mobile primary">
           <Link href="/collections/shop" onClick={closeMenu} aria-current={current("/collections/shop")}>SHOP</Link>
+          <div className="mobile-nav__categories">
+            <Link href="/collections/core" className="mobile-nav__category" onClick={closeMenu} aria-current={current("/collections/core")}>
+              <Image src="/media/home/plug-and-play-poster.webp" alt="" width={400} height={300} sizes="(max-width: 720px) calc(50vw - 24px), 190px" />
+              <span>Core</span>
+            </Link>
+            <Link href="/collections/beyond-the-core" className="mobile-nav__category mobile-nav__category--beyond" onClick={closeMenu} aria-current={current("/collections/beyond-the-core")}>
+              <Image src="/media/home/final-cta-poster.webp" alt="" width={400} height={300} sizes="(max-width: 720px) calc(50vw - 24px), 190px" />
+              <span>Beyond The Core</span>
+            </Link>
+          </div>
           <Link href="/system" onClick={closeMenu} aria-current={current("/system")}>SYSTEM</Link>
           <Link href="/about" onClick={closeMenu} aria-current={current("/about")}>ABOUT</Link>
           <button type="button" onClick={() => { closeMenu(); setSearchOpen(true); }}>
             SEARCH
           </button>
           <Link href="/account" onClick={closeMenu}>ACCOUNT</Link>
+          <Link href="/faq" onClick={closeMenu}>Support</Link>
         </nav>
       </Sheet>
       <SearchOverlay
