@@ -3,6 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PdpEducationFocus } from "@/components/product-detail/PdpEducationFocus";
 
 function renderEducation(presentation = "mobile-pilot") {
+  vi.stubGlobal("innerHeight", 800);
+  vi.stubGlobal("innerWidth", 390);
   const result = render(
     <main data-pdp-presentation={presentation}>
       <PdpEducationFocus />
@@ -15,8 +17,6 @@ function renderEducation(presentation = "mobile-pilot") {
       <div className="pdp-sticky-purchase" data-visible="true" data-testid="sticky-purchase" />
     </main>,
   );
-  vi.stubGlobal("innerHeight", 800);
-  vi.stubGlobal("innerWidth", 390);
   vi.spyOn(screen.getByTestId("sticky-purchase"), "getBoundingClientRect").mockReturnValue(
     new DOMRect(0, 728, 390, 72),
   );
@@ -93,6 +93,37 @@ describe("PdpEducationFocus", () => {
     expect(next).toHaveFocus();
   });
 
+  it("keeps the reader in place on height-only resize while preserving width and explicit focus correction", async () => {
+    const scroll = vi.spyOn(window, "scrollBy").mockImplementation(() => {});
+    renderEducation();
+    const next = screen.getByRole("button", { name: "Next application step" });
+    const bounds = vi.spyOn(next, "getBoundingClientRect").mockReturnValue(new DOMRect(20, 240, 48, 48));
+    next.focus();
+    await afterResize();
+    scroll.mockClear();
+
+    // The reader has scrolled away, leaving the last activated education control focused.
+    bounds.mockReturnValue(new DOMRect(20, -700, 48, 48));
+    for (const height of [760, 844]) {
+      vi.stubGlobal("innerHeight", height);
+      fireEvent.resize(window);
+      await afterResize();
+      expect(scroll).not.toHaveBeenCalled();
+      expect(next).toHaveFocus();
+    }
+
+    vi.stubGlobal("innerWidth", 430);
+    fireEvent.resize(window);
+    await waitFor(() => expect(scroll).toHaveBeenCalledWith({ top: -772, behavior: "instant" }));
+    expect(next).toHaveFocus();
+
+    scroll.mockClear();
+    next.blur();
+    next.focus();
+    await waitFor(() => expect(scroll).toHaveBeenCalledWith({ top: -772, behavior: "instant" }));
+    expect(next).toHaveFocus();
+  });
+
   it("leaves ordinary desktop focus scrolling to the browser", async () => {
     const scroll = vi.spyOn(window, "scrollBy").mockImplementation(() => {});
     renderEducation();
@@ -113,9 +144,10 @@ describe("PdpEducationFocus", () => {
     vi.spyOn(next, "getBoundingClientRect").mockReturnValue(new DOMRect(20, -2625, 48, 48));
     vi.spyOn(close, "getBoundingClientRect").mockReturnValue(new DOMRect(20, 900, 48, 48));
     next.focus();
-    fireEvent.resize(window);
-    fireEvent.resize(window);
-    fireEvent.resize(window);
+    for (const width of [430, 800, 390]) {
+      vi.stubGlobal("innerWidth", width);
+      fireEvent.resize(window);
+    }
     window.requestAnimationFrame(() => close.focus());
 
     await waitFor(() => expect(scroll).toHaveBeenCalledWith({ top: 228, behavior: "instant" }));
@@ -142,6 +174,7 @@ describe("PdpEducationFocus", () => {
 
       await afterResize();
       expect(scroll).not.toHaveBeenCalled();
+      vi.stubGlobal("innerWidth", 430);
       fireEvent.resize(window);
       await afterResize();
       expect(scroll).not.toHaveBeenCalled();
@@ -153,6 +186,7 @@ describe("PdpEducationFocus", () => {
     const scroll = vi.spyOn(window, "scrollBy").mockImplementation(() => {});
     const { unmount } = renderEducation();
     screen.getByRole("button", { name: "Next application step" }).focus();
+    vi.stubGlobal("innerWidth", 430);
     fireEvent.resize(window);
     unmount();
     render(
@@ -164,6 +198,7 @@ describe("PdpEducationFocus", () => {
     vi.spyOn(control, "getBoundingClientRect").mockReturnValue(new DOMRect(20, -2625, 48, 48));
     control.focus();
     await afterResize();
+    vi.stubGlobal("innerWidth", 390);
     fireEvent.resize(window);
     await afterResize();
     expect(scroll).not.toHaveBeenCalled();
