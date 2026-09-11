@@ -192,12 +192,6 @@ export function PdpApplicationCarousel({
                     aria-hidden="true"
                   />
                 )}
-                {isMobile ? (
-                  <span className="pdp-application__step-badge" aria-hidden="true">
-                    <span>Step {index + 1}</span>
-                    {active === index ? <span>Selected</span> : null}
-                  </span>
-                ) : null}
               </button>
             );
           })}
