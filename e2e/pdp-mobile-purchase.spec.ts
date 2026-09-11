@@ -96,10 +96,22 @@ for (const viewport of [
         expect(target.width).toBeGreaterThanOrEqual(44);
         expect(target.height).toBeGreaterThanOrEqual(44);
       }
-      const nextSlide = await box(gallery.locator("[data-pdp-gallery-slide]").nth(1));
-      const peek = frameBox.x + frameBox.width - nextSlide.x;
-      expect(peek).toBeGreaterThanOrEqual(12);
-      expect(peek).toBeLessThanOrEqual(20);
+      for (let index = 0; index < media.length; index += 1) {
+        await thumbnails.nth(index).click();
+        const active = gallery.locator('[data-pdp-gallery-slide][data-state="active"]');
+        await expect(active).toHaveAttribute("data-pdp-gallery-state", String(index + 1));
+        const selectedBox = await box(active);
+        expect(Math.abs(selectedBox.x - frameBox.x)).toBeLessThanOrEqual(1);
+        expect(Math.abs(selectedBox.width - frameBox.width)).toBeLessThanOrEqual(1);
+        const image = active.locator("img");
+        if (await image.count()) {
+          await expect(image).toHaveCSS("object-fit", "cover");
+          const imageBox = await box(image);
+          expect(Math.abs(imageBox.width - frameBox.width)).toBeLessThanOrEqual(1);
+          expect(Math.abs(imageBox.height - frameBox.height)).toBeLessThanOrEqual(1);
+        }
+      }
+      await thumbnails.first().click();
     } else {
       await expect(gallery.locator("[data-pdp-media-rail]")).toBeHidden();
     }
@@ -203,6 +215,44 @@ test("pilot gallery has bounded pointer and keyboard navigation and retains sele
     }
     await expectNoMainOverflow(page, viewport.width);
   }
+});
+
+test("a mobile gallery drag resumes from the rendered position of an interrupted transition", async ({
+  page,
+  storefront,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.goto(pilotProduct(storefront).path);
+  const gallery = page.locator(".pdp__gallery");
+  const views = gallery.locator("[data-pdp-media-thumbnail]");
+  expect(await views.count()).toBeGreaterThan(1);
+  await views.nth(1).click();
+  const track = gallery.locator("[data-pdp-gallery-track]");
+  // Hold a real CSS transition at an intermediate frame. This controls time,
+  // rather than relying on a fast machine to re-grab within a 260ms window.
+  const before = await track.evaluate((element) => {
+    const transition = element.getAnimations().find((animation) =>
+      animation instanceof CSSTransition && animation.transitionProperty === "transform",
+    );
+    if (!transition) throw new Error("Expected an active gallery transition.");
+    transition.pause();
+    transition.currentTime = Number(transition.effect!.getTiming().duration) / 4;
+    return element.getBoundingClientRect().left;
+  });
+  const frame = await box(gallery.locator(".pdp__media-viewport"));
+  const x = frame.x + frame.width / 2;
+  const y = frame.y + frame.height / 2;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x + 25, y);
+  await expect(gallery.locator(".pdp__media-viewport")).toHaveAttribute("data-dragging", "true");
+  const after = await track.evaluate((element) => element.getBoundingClientRect().left);
+  expect(after - before).toBeCloseTo(25, 0);
+  await page.mouse.move(x + 90, y);
+  await page.mouse.up();
+  await expect(views.first()).toHaveAttribute("aria-pressed", "true");
+  await expect.poll(async () => Math.abs((await box(track)).x - frame.x)).toBeLessThanOrEqual(1);
 });
 
 test("pilot sticky action yields to shared Search and Cart and returns when those dialogs close", async ({
