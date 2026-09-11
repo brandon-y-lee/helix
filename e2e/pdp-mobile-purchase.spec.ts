@@ -108,7 +108,15 @@ for (const viewport of [
           await expect(image).toHaveCSS("object-fit", "cover");
           const imageBox = await box(image);
           expect(Math.abs(imageBox.width - frameBox.width)).toBeLessThanOrEqual(1);
-          expect(Math.abs(imageBox.height - frameBox.height)).toBeLessThanOrEqual(1);
+          // WebKit can size the nested slide beyond its clipped viewport.
+          // Require coverage of the visible frame, not equal unclipped heights.
+          const visibleFrameBox = await box(frame);
+          expect(Math.abs(imageBox.x - visibleFrameBox.x)).toBeLessThanOrEqual(1);
+          expect(imageBox.y).toBeLessThanOrEqual(visibleFrameBox.y + 1);
+          expect(imageBox.y + imageBox.height).toBeGreaterThanOrEqual(
+            visibleFrameBox.y + visibleFrameBox.height - 1,
+          );
+          await expect(frame).toHaveCSS("overflow", "hidden");
         }
       }
       await thumbnails.first().click();
