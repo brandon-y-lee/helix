@@ -94,7 +94,6 @@
   .effect { flex: 0 0 auto; max-width: none; }
   .effectLabel { white-space: nowrap; font-size: 15px; }
   .effect button { padding: 16px 20px 16px 16px; }
-  .selector[data-open='true'] .effects::before, .selector[data-open='true'] .effects::after { content: ''; flex: 0 0 100%; }
   .effect[data-expanded='true'] { flex: 0 0 100%; width: 100%; }
   .effect[data-expanded='true'] button { padding: 24px; }
   .description { font-size: 14px; line-height: 20px; }

@@ -225,6 +225,27 @@ test.describe("mobile serum effects", () => {
             }).toBe(true);
             await expect(carousel.getByRole("button", { name: "Next property" })).toBeDisabled();
           }
+          await test.step("expanded rail endpoints expose capsules without blank spacers", async () => {
+            const image = section.getByRole("img", { name: `${name} model image placeholder` });
+            await rail.evaluate((element) => element.scrollTo({ left: 0, behavior: "instant" }));
+            await expect.poll(async () => {
+              const [buttonBox, imageBox] = await Promise.all([first.boundingBox(), image.boundingBox()]);
+              return buttonBox && imageBox ? Math.abs(buttonBox.x - imageBox.x) : Infinity;
+            }).toBeLessThanOrEqual(1);
+            await rail.evaluate((element) => element.scrollTo({ left: element.scrollWidth, behavior: "instant" }));
+            await expect.poll(async () => {
+              const [buttonBox, imageBox] = await Promise.all([last.boundingBox(), image.boundingBox()]);
+              return buttonBox && imageBox
+                ? Math.abs(buttonBox.x + buttonBox.width - imageBox.x - imageBox.width)
+                : Infinity;
+            }).toBeLessThanOrEqual(1);
+            await expect.poll(() => rail.evaluate((element) => {
+              const bounds = element.getBoundingClientRect();
+              const sectionBox = element.closest("section")!.getBoundingClientRect();
+              return Math.abs(bounds.left - sectionBox.left) <= 1 &&
+                Math.abs(bounds.right - sectionBox.right) <= 1;
+            })).toBe(true);
+          });
           await section.getByRole("button", { name: "Collapse effect description" }).tap();
           await expect(section.getByRole("region", { name: / properties$/ })).toHaveCount(0);
           await expect(button).toHaveAttribute("aria-expanded", "false");
