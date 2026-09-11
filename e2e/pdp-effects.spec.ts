@@ -312,12 +312,18 @@ test.describe("mobile serum effects", () => {
     await expectFocusedVisible(barrier);
     await page.keyboard.press("Enter");
     await expectExpandedAligned(section, "Barrier protection");
+    await page.keyboard.press("Escape");
+    await expect(barrier).toHaveAttribute("aria-expanded", "false");
+    await expectFocusedVisible(barrier);
+    await page.keyboard.press("Enter");
+    await expectExpandedAligned(section, "Barrier protection");
     // The same capsules remain the navigation seam while another effect is open.
     for (const name of [...effectNames.slice(2), ...effectNames.slice(1, 3).reverse()]) {
       await section.getByRole("button", { name, exact: true }).tap();
       await expectExpandedAligned(section, name);
     }
-    await page.keyboard.press("Escape");
+    // Safari touch activation need not retain keyboard focus on the capsule.
+    await section.getByRole("button", { name: "Collapse effect description" }).tap();
     await expect(barrier).toHaveAttribute("aria-expanded", "false");
     await expectFocusedVisible(barrier);
   });
