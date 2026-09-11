@@ -119,6 +119,7 @@ export function PdpGalleryIsland({
   const thumbnailRefs = useRef(new Map<number, HTMLButtonElement>());
   const trackRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
+  const dragOriginRef = useRef<number | null>(null);
   const activeItem = items[activePanel] ?? items[0];
 
   useEffect(() => {
@@ -177,16 +178,24 @@ export function PdpGalleryIsland({
     canStart: (target) =>
       target instanceof Element &&
       !target.closest("button, a, input, select, textarea, video, [role='slider']"),
-    getRenderedDelta: (delta) => {
-      const atEdge =
-        (activePanel === 0 && delta > 0) ||
-        (activePanel === items.length - 1 && delta < 0);
-      const limit = atEdge ? 24 : (trackRef.current?.clientWidth ?? 0);
-      return Math.max(-limit, Math.min(delta, limit));
+    onDrag: (delta) => {
+      const track = trackRef.current;
+      const viewport = viewportRef.current;
+      if (!track || !viewport) return;
+      const trackBox = track.getBoundingClientRect();
+      // Capture only once horizontal intent is established, before disabling
+      // the transition, so re-grabbing a settling slide cannot jump.
+      dragOriginRef.current ??= trackBox.left - viewport.getBoundingClientRect().left;
+      const width = trackBox.width;
+      const movement = Math.max(-width, Math.min(delta, width));
+      const position = Math.max(
+        -(items.length - 1) * width - 24,
+        Math.min(dragOriginRef.current + movement, 24),
+      );
+      track.style.setProperty("--pdp-gallery-drag-x", `${position + activePanel * width}px`);
     },
-    onDrag: (delta) =>
-      trackRef.current?.style.setProperty("--pdp-gallery-drag-x", `${delta}px`),
     onFinish: ({ committed, deltaX }) => {
+      dragOriginRef.current = null;
       trackRef.current?.style.setProperty("--pdp-gallery-drag-x", "0px");
       if (committed) selectPanel(activePanel + (deltaX < 0 ? 1 : -1));
     },
@@ -194,6 +203,7 @@ export function PdpGalleryIsland({
 
   useEffect(() => {
     resetDrag();
+    dragOriginRef.current = null;
     trackRef.current?.style.setProperty("--pdp-gallery-drag-x", "0px");
     if (
       mobile && items.length === 1 &&
@@ -202,6 +212,20 @@ export function PdpGalleryIsland({
       viewportRef.current?.focus({ preventScroll: true });
     }
   }, [galleryKey, items.length, mobile, resetDrag]);
+
+  useEffect(() => {
+    if (!mobile) return;
+    let width = window.innerWidth;
+    function handleResize() {
+      if (window.innerWidth === width) return;
+      width = window.innerWidth;
+      resetDrag();
+      dragOriginRef.current = null;
+      trackRef.current?.style.setProperty("--pdp-gallery-drag-x", "0px");
+    }
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [mobile, resetDrag]);
 
   return (
     <div
@@ -227,7 +251,10 @@ export function PdpGalleryIsland({
           tabIndex={presentation === "mobile-pilot" ? -1 : undefined}
           data-pdp-slide-viewport
           data-dragging={dragging}
-          onPointerDown={handlePointerDown}
+          onPointerDown={(event) => {
+            dragOriginRef.current = null;
+            handlePointerDown(event);
+          }}
           onPointerMove={handlePointerMove}
           onPointerUp={finishDrag}
           onPointerCancel={(event) => finishDrag(event, true)}
@@ -247,7 +274,7 @@ export function PdpGalleryIsland({
             data-pdp-gallery-track
             style={{
               transform: mobile && items.length > 1
-                ? `translate3d(calc(${-activePanel * 100}% - ${activePanel * 4}px + ${activePanel === items.length - 1 ? 20 : 0}px + var(--pdp-gallery-drag-x, 0px)), 0, 0)`
+                ? `translate3d(calc(${-activePanel * 100}% + var(--pdp-gallery-drag-x, 0px)), 0, 0)`
                 : `translate3d(${-activePanel * 100}%, 0, 0)`,
             }}
           >
