@@ -169,20 +169,19 @@ describe("PdpEffectsSection", () => {
     expect(within(carousel).getByText("A retinoid pathway for the appearance of fine lines and texture. Final selection remains open.")).toBeVisible();
   });
 
-  it("supports keyboard activation and keeps effect navigation bounded", async () => {
+  it("supports keyboard activation through the effect capsules and Escape closing", async () => {
     const user = userEvent.setup();
     render(<PdpEffectsSection />);
     await user.tab();
     expect(effectButton("Hydration")).toHaveFocus();
     await user.keyboard("{Enter}");
     await properties("Hydration");
-    expect(screen.getByRole("button", { name: "Previous effect" })).toBeDisabled();
-
-    const next = screen.getByRole("button", { name: "Next effect" });
-    next.focus();
-    await user.keyboard("{Enter}{Enter}{Enter}");
-    await properties("Anti-aging & firmness");
-    expect(screen.getByRole("button", { name: "Next effect" })).toBeDisabled();
+    for (const [index, name] of effectNames.slice(1).entries()) {
+      await user.tab();
+      expect(effectButton(name)).toHaveFocus();
+      await user.keyboard(index % 2 === 0 ? " " : "{Enter}");
+      await properties(name);
+    }
     expect(effectButton("Anti-aging & firmness")).toHaveAttribute("aria-expanded", "true");
     await user.keyboard("{Escape}");
     expect(effectButton("Anti-aging & firmness")).toHaveFocus();

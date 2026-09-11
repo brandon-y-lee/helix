@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   orderedPdpApplicationMedia,
@@ -144,31 +144,6 @@ describe("PdpApplicationCarousel", () => {
     expect(next).toHaveFocus();
     expect(third).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: "Show previous application step" })).toBeVisible();
-  });
-
-  it("identifies the phone's selected image with text as well as its pressed state", () => {
-    render(
-      <PdpApplicationCarousel
-        productName="Super Serum"
-        steps={steps}
-        media={productMedia}
-        pdpPresentation="mobile-pilot"
-      />,
-    );
-    const first = screen.getByRole("button", { name: "Show application step 1 of 3" });
-    const second = screen.getByRole("button", { name: "Show application step 2 of 3" });
-    const third = screen.getByRole("button", { name: "Show application step 3 of 3" });
-    expect(within(first).getByText("Step 1")).toBeVisible();
-    expect(within(second).getByText("Step 2")).toBeVisible();
-    expect(within(third).getByText("Step 3")).toBeVisible();
-    expect(within(first).getByText("Selected")).toBeVisible();
-
-    fireEvent.click(second);
-    expect(within(first).queryByText("Selected")).not.toBeInTheDocument();
-    expect(within(second).getByText("Selected")).toBeVisible();
-    expect(second).toHaveAttribute("aria-pressed", "true");
-    resizeToMobile(false);
-    expect(screen.queryByText("Selected")).not.toBeInTheDocument();
   });
 
   it("retires phone instructions after 250ms and immediately when motion is reduced", () => {

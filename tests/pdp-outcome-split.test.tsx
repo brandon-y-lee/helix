@@ -70,7 +70,7 @@ describe("PdpOutcomeSplit", () => {
       "CLEANSE outcome visual 1",
     );
 
-    fireEvent.pointerEnter(controls[1]);
+    fireEvent.mouseEnter(controls[1]);
     expect(activeSlide(container)).toHaveAttribute("data-pdp-outcome-state", "2");
     expect(activeSlide(container).querySelector("img")).toHaveAttribute(
       "alt",
@@ -86,6 +86,34 @@ describe("PdpOutcomeSplit", () => {
 
     fireEvent.keyDown(controls[2], { key: "Home" });
     expect(activeSlide(container)).toHaveAttribute("data-pdp-outcome-state", "1");
+  });
+
+  it("keeps the selected outcome during a canceled touch drag and accepts a subsequent click", () => {
+    const { container } = render(
+      <PdpOutcomeSplit
+        productName="CLEANSE"
+        heading={presentation.outcomeHeading}
+        options={presentation.outcomeOptions}
+        media={[outcomeMedia(1), outcomeMedia(2), outcomeMedia(3)]}
+      />,
+    );
+    const controls = screen.getAllByRole("button");
+    const target = controls[1];
+    const touch = { pointerId: 1, pointerType: "touch", clientX: 160, clientY: 300 };
+
+    fireEvent.pointerEnter(target, touch);
+    fireEvent.pointerDown(target, touch);
+    expect(controls[0]).toHaveAttribute("aria-pressed", "true");
+    fireEvent.pointerMove(target, { ...touch, clientY: 240 });
+    fireEvent.pointerCancel(target, touch);
+    expect(target).toHaveAttribute("aria-pressed", "false");
+    expect(activeSlide(container)).toHaveAttribute("data-pdp-outcome-state", "1");
+    expect(screen.getByText("Selected outcome: cleanses")).toBeInTheDocument();
+
+    fireEvent.click(target);
+    expect(target).toHaveAttribute("aria-pressed", "true");
+    expect(activeSlide(container)).toHaveAttribute("data-pdp-outcome-state", "2");
+    expect(screen.getByText("Selected outcome: balances")).toBeInTheDocument();
   });
 
   it("keeps one accessible label and hides both painted text layers", () => {

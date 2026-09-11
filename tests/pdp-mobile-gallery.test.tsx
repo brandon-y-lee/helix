@@ -174,6 +174,21 @@ describe("Treat mobile gallery", () => {
     expect(video.closest("[inert]")).not.toBeNull();
   });
 
+  it("cancels a swipe when the mobile width changes without crossing the breakpoint", () => {
+    vi.stubGlobal("innerWidth", 390);
+    renderGallery();
+    const bottle = screen.getByRole("img", { name: "Serum bottle" });
+    const first = screen.getByRole("button", { name: "View bottle, media 1 of 3" });
+    first.focus();
+    fireEvent.pointerDown(bottle, { pointerId: 1, clientX: 300, clientY: 100 });
+    fireEvent.pointerMove(bottle, { pointerId: 1, clientX: 180, clientY: 110 });
+    vi.stubGlobal("innerWidth", 430);
+    fireEvent.resize(window);
+    fireEvent.pointerUp(bottle, { pointerId: 1, clientX: 180, clientY: 110 });
+    expect(first).toHaveAttribute("aria-pressed", "true");
+    expect(first).toHaveFocus();
+  });
+
   it("moves at most one view per horizontal swipe and stops at both ends", () => {
     renderGallery();
     const views = screen.getAllByRole("button");

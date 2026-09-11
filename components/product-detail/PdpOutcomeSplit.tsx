@@ -230,7 +230,6 @@ export function PdpOutcomeSplit({
               aria-pressed={active === index}
               onClick={() => setActive(index)}
               onMouseEnter={() => setActive(index)}
-              onPointerEnter={() => setActive(index)}
               onKeyDown={(event) => moveSelection(event, index)}
             >
               <span className="sr-only">{option.label}</span>
