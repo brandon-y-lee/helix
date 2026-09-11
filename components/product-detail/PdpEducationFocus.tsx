@@ -6,6 +6,7 @@ import { PDP_MOBILE_PILOT_QUERY } from "./pdp-presentation";
 export function PdpEducationFocus() {
   useEffect(() => {
     let frame: number | null = null;
+    let width = window.innerWidth;
 
     function revealFocusedEducation() {
       frame = null;
@@ -43,10 +44,16 @@ export function PdpEducationFocus() {
       if (window.matchMedia?.(PDP_MOBILE_PILOT_QUERY).matches) scheduleReveal();
     }
 
-    window.addEventListener("resize", scheduleReveal);
+    function onResize() {
+      if (window.innerWidth === width) return;
+      width = window.innerWidth;
+      scheduleReveal();
+    }
+
+    window.addEventListener("resize", onResize);
     document.addEventListener("focusin", onFocusIn);
     return () => {
-      window.removeEventListener("resize", scheduleReveal);
+      window.removeEventListener("resize", onResize);
       document.removeEventListener("focusin", onFocusIn);
       if (frame !== null) window.cancelAnimationFrame(frame);
     };
