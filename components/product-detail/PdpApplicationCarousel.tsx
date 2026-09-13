@@ -117,6 +117,7 @@ export function PdpApplicationCarousel({
       data-slide-direction={direction}
       data-transition-duration={durationMs}
       data-pdp-panel-row="application"
+      data-pdp-reveal-row
       data-pdp-panel-mode="independent"
       data-pdp-application
       style={
@@ -263,6 +264,7 @@ export function PdpApplicationCarousel({
         data-pdp-panel-kind="media"
         data-pdp-application-media
         data-pdp-slide-viewport
+        data-pdp-zoom-frame
       >
         {steps.map((step, index) => {
           const itemMedia = applicationMedia.find(
@@ -296,6 +298,7 @@ export function PdpApplicationCarousel({
                   media={itemMedia}
                   swatch={[step.surface, step.accent]}
                   className="pdp-application__media"
+                  data-pdp-zoom-media
                   imageClassName="pdp-application__image"
                   imageAlt=""
                   sizes="(max-width: 820px) 100vw, 50vw"

@@ -33,11 +33,13 @@ export function PdpProfileSplit({
       className="pdp-profile-split__media"
       data-pdp-panel
       data-pdp-panel-kind="media"
+      data-pdp-zoom-frame
     >
       <ProductImage
         media={media}
         swatch={product.swatch}
         className="pdp-profile-split__media-content"
+        data-pdp-zoom-media
         sizes="(max-width: 820px) 100vw, 50vw"
         imageStyle={{ objectPosition: presentation.profileMediaPosition }}
       />
@@ -50,6 +52,7 @@ export function PdpProfileSplit({
       className="pdp-profile-split"
       aria-labelledby="pdp-profile-heading"
       data-pdp-panel-row="profile"
+      data-pdp-reveal-row
       data-pdp-panel-mode="independent"
     >
       {pdpPresentation === "mobile-pilot" && mediaPanel}
