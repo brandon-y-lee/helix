@@ -91,7 +91,10 @@ export function PdpDesktopMotion({
       if (animation !== null) window.cancelAnimationFrame(animation);
       animation = null;
       for (const frame of frames) {
-        for (const media of frame.media) media.style.removeProperty("transform");
+        for (const media of frame.media) {
+          media.style.removeProperty("transform");
+          media.style.removeProperty("will-change");
+        }
       }
     }
 
@@ -113,6 +116,11 @@ export function PdpDesktopMotion({
       if (!enabled) {
         stop();
         return;
+      }
+      // Keep large photographs composited while scrolling instead of repainting
+      // their full-resolution pixels at every scale update.
+      for (const frame of frames) {
+        for (const media of frame.media) media.style.willChange = "transform";
       }
       refreshLayout();
       window.addEventListener("scroll", onScroll, { passive: true });

@@ -82,6 +82,12 @@ function scaleFor(image: Element | null) {
   return scale;
 }
 
+function promotedLayers(container: HTMLElement) {
+  return Array.from(container.querySelectorAll<HTMLElement>("[style]")).filter(
+    (element) => getComputedStyle(element).willChange === "transform",
+  );
+}
+
 function scrollTo(y: number, settle = true) {
   act(() => {
     vi.stubGlobal("scrollY", y);
@@ -156,22 +162,28 @@ describe("Treat desktop photographic motion", () => {
     const { container, rerender } = render(application("biotic-reset"));
     const image = () => container.querySelector('[data-pdp-application-main-image="1"]');
     expect(scaleFor(image())).toBe(1);
+    expect(promotedLayers(container)).toHaveLength(0);
     changeMotion(820);
     rerender(application());
     expect(scaleFor(image())).toBe(1);
+    expect(promotedLayers(container)).toHaveLength(0);
     changeMotion(1440, true);
     expect(scaleFor(image())).toBe(1);
+    expect(promotedLayers(container)).toHaveLength(0);
     changeMotion(1440);
     expect(scaleFor(image())).toBe(1.2);
+    expect(promotedLayers(container)).toHaveLength(3);
     scrollTo(800, false);
     changeMotion(1440, true);
     act(() => vi.advanceTimersByTime(112));
     expect(scaleFor(image())).toBe(1);
+    expect(promotedLayers(container)).toHaveLength(0);
     changeMotion(1440);
     expect(scaleFor(image())).toBe(1.05);
     changeMotion(820);
     scrollTo(400);
     expect(scaleFor(image())).toBe(1);
+    expect(promotedLayers(container)).toHaveLength(0);
     changeMotion(1440);
     expect(scaleFor(image())).toBe(1.1125);
   });
@@ -185,6 +197,11 @@ describe("Treat desktop photographic motion", () => {
       </PdpDesktopMotion>,
     );
     expect(scaleFor(screen.getByAltText("Profile bottle"))).toBe(1.2);
+    const photographs = [
+      screen.getByAltText("Profile bottle"),
+      ...container.querySelectorAll('[data-pdp-application-main-image], img[src*="editorial"]'),
+    ];
+    expect(promotedLayers(container).map((layer) => layer.querySelector("img"))).toEqual(photographs);
     for (const image of container.querySelectorAll('img[src*="editorial"]')) {
       expect(scaleFor(image)).toBe(1.2);
     }
@@ -219,6 +236,8 @@ describe("Treat desktop photographic motion", () => {
     changeMotion(1440);
     scrollTo(1100);
     expect(scaleFor(image)).toBe(1.05);
+    const promoted = promotedLayers(container);
+    expect(promoted).toHaveLength(3);
     scrollTo(400, false);
     unmount();
     act(() => {
@@ -230,6 +249,7 @@ describe("Treat desktop photographic motion", () => {
       vi.advanceTimersByTime(112);
     });
     expect(scaleFor(image)).toBe(1);
+    for (const layer of promoted) expect(layer.style.willChange).toBe("");
     expect(resizeCallbacks.size).toBe(0);
   });
 
