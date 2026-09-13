@@ -78,6 +78,43 @@
   .effect[data-expanded='true'] button { padding: 24px; }
   .description { font-size: 15px; }
 }
+@media (min-width: 821px) {
+  .stage {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0;
+    height: auto;
+    min-height: 760px;
+    padding: 0;
+  }
+  .selector { margin: 64px clamp(28px, 4.5vw, 64px); }
+  .visual, .visual[data-selected='true'] {
+    grid-template-rows: minmax(0, 1fr) auto;
+    gap: 0;
+  }
+  .image {
+    grid-area: 1 / 1 / -1 / 2;
+    display: grid;
+    grid-template-rows: subgrid;
+    border-radius: 0 var(--pdp-panel-radius) var(--pdp-panel-radius) 0;
+  }
+  .heading { grid-row: 1; padding: 2.25vw; }
+  .properties {
+    grid-area: 2 / 1;
+    z-index: 1;
+    margin: 0 2.25vw 2.25vw;
+  }
+  .property { padding: 2.25vw; }
+  .propertyControls { padding: 8px 0 0; }
+  .close {
+    top: 2.25vw;
+    right: calc(50% + 2.25vw);
+    border-radius: 0;
+    background: transparent;
+  }
+}
+@media (min-width: 821px) and (max-width: 1068px) {
+  .stage { min-height: 720px; }
+}
 @media (max-width: 800px) {
   .stage { display: flex; flex-direction: column; gap: 24px; height: auto; padding: 48px 0 28px; overflow: clip; }
   .visualStage { min-height: 0; }
