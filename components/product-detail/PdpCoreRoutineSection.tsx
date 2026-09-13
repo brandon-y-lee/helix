@@ -185,6 +185,7 @@ export function PdpCoreRoutineSection({
         data-pdp-panel
         data-pdp-panel-kind="media"
         data-pdp-slide-viewport
+        data-pdp-zoom-frame
       >
         {products.map((product, index) => {
           const state =
@@ -211,6 +212,7 @@ export function PdpCoreRoutineSection({
                   media={product.editorialMedia}
                   swatch={product.swatch}
                   className="pdp-core-routine__editorial-media"
+                  data-pdp-zoom-media
                   imageAlt=""
                   sizes="(max-width: 760px) calc(100vw - 24px), 50vw"
                 />

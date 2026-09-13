@@ -3,6 +3,7 @@ import { ProductEndorsementRail } from "@/components/product-detail/ProductEndor
 import { ProductReviewsSection } from "@/components/product-detail/ProductReviewsSection";
 import { PdpApplicationCarousel } from "@/components/product-detail/PdpApplicationCarousel";
 import { PdpCoreRoutineSection } from "@/components/product-detail/PdpCoreRoutineSection";
+import { PdpDesktopMotion } from "@/components/product-detail/PdpDesktopMotion";
 import { PdpEffectsSection } from "@/components/product-detail/PdpEffectsSection";
 import { PdpGalleryIsland } from "@/components/product-detail/PdpGalleryIsland";
 import { PdpIngredientsSplit } from "@/components/product-detail/PdpIngredientsSplit";
@@ -269,10 +270,9 @@ export function ProductDetail({
         <ProductEndorsementRail items={productEndorsementMedia} />
       )}
 
-      <section
-        className="pdp-sections"
-        aria-label={`${product.displayName} details`}
-        data-pdp-panel-sequence
+      <PdpDesktopMotion
+        productSlug={product.slug}
+        label={`${product.displayName} details`}
       >
         {presentation === "mobile-pilot" && <PdpEducationFocus />}
         {product.id === SERUM_EFFECTS_PRODUCT_ID && <PdpEffectsSection />}
@@ -371,7 +371,7 @@ export function ProductDetail({
             pdpPresentation={presentation}
           />
         )}
-      </section>
+      </PdpDesktopMotion>
 
       <ProductReviewsSection
         key={`reviews:${product.slug}`}
