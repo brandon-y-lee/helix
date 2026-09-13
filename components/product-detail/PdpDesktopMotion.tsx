@@ -31,6 +31,11 @@ export function PdpDesktopMotion({
 
     const mobileQuery = window.matchMedia(PDP_MOBILE_PILOT_QUERY);
     const reducedMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const rows = Array.from(root.querySelectorAll<HTMLElement>("[data-pdp-reveal-row]")).map((element) => ({
+      element,
+      seen: layoutTop(element) <= window.scrollY + window.innerHeight,
+      animation: null as Animation | null,
+    }));
 
     const frames = Array.from(root.querySelectorAll<HTMLElement>("[data-pdp-zoom-frame]")).map((element) => ({
       element,
@@ -44,6 +49,36 @@ export function PdpDesktopMotion({
     let animation: number | null = null;
     let startedAt = 0;
     let enabled = false;
+
+    function releaseEntrance(row: (typeof rows)[number]) {
+      row.animation?.cancel();
+      row.animation = null;
+      row.element.style.removeProperty("will-change");
+    }
+
+    function skipVisibleEntrances() {
+      const viewportBottom = window.scrollY + window.innerHeight;
+      for (const row of rows) {
+        if (layoutTop(row.element) <= viewportBottom) row.seen = true;
+      }
+    }
+
+    function onRevealScroll() {
+      const viewportBottom = window.scrollY + window.innerHeight;
+      for (const row of rows) {
+        if (row.seen) continue;
+        const top = layoutTop(row.element);
+        if (top > viewportBottom) continue;
+        row.seen = true;
+        if (!enabled || top + row.element.offsetHeight <= window.scrollY || typeof row.element.animate !== "function") continue;
+        row.element.style.willChange = "transform";
+        row.animation = row.element.animate(
+          [{ transform: "translate3d(0, 5%, 0)" }, { transform: "translate3d(0, 0, 0)" }],
+          { duration: 1000, easing: "cubic-bezier(0.333333, 0.666667, 0.666667, 1)" },
+        );
+        row.animation.onfinish = () => releaseEntrance(row);
+      }
+    }
 
     function targetScale(frame: (typeof frames)[number]) {
       const start = frame.top - window.innerHeight - frame.height * 0.1;
@@ -85,6 +120,7 @@ export function PdpDesktopMotion({
     }
 
     function stop() {
+      for (const row of rows) releaseEntrance(row);
       window.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", refreshLayout);
       resizeObserver?.disconnect();
@@ -99,6 +135,7 @@ export function PdpDesktopMotion({
     }
 
     function refreshLayout() {
+      skipVisibleEntrances();
       if (!enabled) return;
       if (animation !== null) window.cancelAnimationFrame(animation);
       animation = null;
@@ -110,6 +147,7 @@ export function PdpDesktopMotion({
     }
 
     function syncMode() {
+      skipVisibleEntrances();
       const nextEnabled = !mobileQuery.matches && !reducedMotionQuery.matches;
       if (nextEnabled === enabled) return;
       enabled = nextEnabled;
@@ -134,10 +172,14 @@ export function PdpDesktopMotion({
       ? new ResizeObserver(refreshLayout)
       : null;
     syncMode();
+    window.addEventListener("scroll", onRevealScroll, { passive: true });
+    window.addEventListener("resize", skipVisibleEntrances);
     mobileQuery.addEventListener("change", syncMode);
     reducedMotionQuery.addEventListener("change", syncMode);
     return () => {
       stop();
+      window.removeEventListener("scroll", onRevealScroll);
+      window.removeEventListener("resize", skipVisibleEntrances);
       mobileQuery.removeEventListener("change", syncMode);
       reducedMotionQuery.removeEventListener("change", syncMode);
     };

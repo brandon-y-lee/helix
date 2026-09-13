@@ -176,6 +176,7 @@ export function PdpIngredientsSplit({
       className={`pdp-ingredients${pilot ? " pdp-ingredients--mobile-pilot" : ""}`}
       aria-label={`${productName} ingredients`}
       data-pdp-panel-row="ingredients"
+      data-pdp-reveal-row
       data-pdp-panel-mode="independent"
     >
       {pilot ? (
