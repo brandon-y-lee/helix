@@ -14,7 +14,15 @@ function treatPath(storefront: StorefrontJourneys) {
   return product.path;
 }
 
+async function waitForRowAtRest(frame: Locator) {
+  await expect.poll(() => frame.evaluate((element) => {
+    const row = element.closest("[data-pdp-panel-row]");
+    return row ? getComputedStyle(row).transform : "none";
+  })).toBe("none");
+}
+
 async function geometry(frame: Locator) {
+  await waitForRowAtRest(frame);
   return frame.evaluate((element) => {
     const rect = element.getBoundingClientRect();
     return { top: rect.top + scrollY, height: rect.height, width: rect.width };
@@ -31,11 +39,8 @@ async function scale(frame: Locator, photo: Locator) {
 async function centerFrame(page: Page, frame: Locator) {
   const box = await geometry(frame);
   const height = page.viewportSize()!.height;
-  await page.evaluate((y) => window.scrollTo(0, y), box.top + (box.height - height) / 2);
-  await expect.poll(() => frame.evaluate((element) => {
-    const row = element.closest("[data-pdp-panel-row]");
-    return row ? getComputedStyle(row).transform : "none";
-  })).toBe("none");
+  await scrollPage(page, box.top + (box.height - height) / 2);
+  await waitForRowAtRest(frame);
   return box;
 }
 
@@ -43,6 +48,9 @@ test("Treat photographs follow the reference curve and reverse within fixed fram
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await page.goto(treatPath(storefront));
+  // Start an entrance before measuring: its temporary translation must never
+  // become the scroll target for the fixed-frame zoom assertions.
+  await startEntrance(page, page.locator('[data-pdp-panel-row="profile"]'));
 
   for (const [frameSelector, photoSelector] of photographs) {
     const frame = page.locator(frameSelector);
