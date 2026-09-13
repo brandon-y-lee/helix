@@ -1,10 +1,24 @@
 'use client';
 
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { AnimatePresence, domMax, LazyMotion, useReducedMotion } from 'motion/react';
 import * as m from 'motion/react-m';
 import { effects, type Effect } from '@/lib/content/serum-effects';
 import styles from './PdpEffectsSection.module.css';
+
+const MOBILE_EFFECTS_QUERY = '(max-width: 800px)';
+
+function subscribeMobileEffects(callback: () => void) {
+  const query = window.matchMedia?.(MOBILE_EFFECTS_QUERY);
+  query?.addEventListener?.('change', callback);
+  return () => query?.removeEventListener?.('change', callback);
+}
+
+function mobileEffectsSnapshot() {
+  return window.matchMedia?.(MOBILE_EFFECTS_QUERY).matches ?? false;
+}
+
+const serverMobileEffectsSnapshot = () => true;
 
 function Chevron({ previous = false }: { previous?: boolean }) {
   return <svg viewBox="0 0 20 20" aria-hidden="true"><path d={previous ? 'm12 5-5 5 5 5' : 'm8 5 5 5-5 5'} /></svg>;
@@ -74,6 +88,7 @@ export function PdpEffectsSection() {
   const closedEffect = useRef<number | null>(null);
   const focusSelected = useRef(false);
   const reduceMotion = !!useReducedMotion();
+  const mobile = useSyncExternalStore(subscribeMobileEffects, mobileEffectsSnapshot, serverMobileEffectsSnapshot);
   const effect = active === null ? null : effects[active];
 
   function select(index: number) { setActive(index); }
@@ -92,7 +107,7 @@ export function PdpEffectsSection() {
     const rail = railRef.current;
     if (!rail) return;
     function centerSelection() {
-      if (!rail || !window.matchMedia('(max-width: 800px)').matches) return;
+      if (!rail || !window.matchMedia(MOBILE_EFFECTS_QUERY).matches) return;
       const visibleIndex = active ?? closedEffect.current;
       const selected = visibleIndex === null ? null : rail.children[visibleIndex] as HTMLElement;
       rail.scrollTo({ left: selected ? selected.offsetLeft - (rail.clientWidth - selected.offsetWidth) / 2 : 0, behavior: 'instant' });
@@ -130,7 +145,8 @@ export function PdpEffectsSection() {
           <m.div layoutScroll className={styles.effects} aria-label="Explore product effects" ref={railRef}>
             {effects.map((item, index) => {
               const expanded = active === index;
-              return <m.div layout={reduceMotion ? false : 'position'} transition={{ duration: .42 }} className={styles.effect} key={item.id} data-expanded={expanded}>
+              // Mobile wrapper transforms can shrink WebKit's scroll extent and clamp the selection out of view.
+              return <m.div layout={reduceMotion || mobile ? false : 'position'} transition={{ duration: .42 }} className={styles.effect} key={item.id} data-expanded={expanded}>
                 <m.button layout={!reduceMotion} style={{ borderRadius: 28 }} transition={{ layout: { duration: .42, ease: [.22, 1, .36, 1] } }}
                   type="button" aria-label={item.title} aria-describedby={expanded ? `closer-effect-${item.id}` : undefined}
                   aria-expanded={expanded} aria-controls={`closer-effect-${item.id}`} onClick={() => select(index)}>

@@ -126,21 +126,14 @@
   .ingredients { font-size: 14px; }
   .rationale { font-size: 13px; }
   .selector { position: relative; width: 100%; }
-  .effects { position: relative; flex-direction: row; align-items: flex-end; gap: 12px; padding: 4px 8px; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; }
+  .effects { position: relative; flex-direction: row; align-items: flex-end; gap: 12px; padding: 4px 24px; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; }
   .effects::-webkit-scrollbar { display: none; }
   .effect { flex: 0 0 auto; max-width: none; }
   .effectLabel { white-space: nowrap; font-size: 15px; }
   .effect button { padding: 16px 20px 16px 16px; }
-  .selector[data-open='true'] .effects { padding-inline: 24px; }
-  .selector[data-open='true'] .effects::before, .selector[data-open='true'] .effects::after { content: ''; flex: 0 0 100%; }
   .effect[data-expanded='true'] { flex: 0 0 100%; width: 100%; }
   .effect[data-expanded='true'] button { padding: 24px; }
   .description { font-size: 14px; line-height: 20px; }
-  .arrows { position: absolute; inset: auto 0 14px; display: flex; justify-content: space-between; pointer-events: none; }
-  .arrows button { flex: 0 0 36px; width: 36px; padding: 6px; pointer-events: auto; }
-  .arrows button:first-child { margin-left: -6px; }
-  .arrows button:last-child { margin-right: -6px; }
-  .arrows button:disabled { visibility: hidden; }
   .close { top: 2px; right: 8px; }
 }
 @media (prefers-reduced-motion: reduce) {

@@ -91,10 +91,6 @@
     border-radius: 0;
   }
 
-  [data-pdp-presentation="mobile-pilot"] .pdp-profile-split__media img {
-    object-fit: contain;
-  }
-
   [data-pdp-presentation="mobile-pilot"] .pdp-profile-split__content {
     display: grid;
     grid-template-rows: auto auto;
@@ -182,21 +178,6 @@
 
   [data-pdp-presentation="mobile-pilot"] .pdp-application__swatch:nth-child(3) img {
     object-position: 50% 45%;
-  }
-
-  [data-pdp-presentation="mobile-pilot"] .pdp-application__step-badge {
-    position: absolute;
-    left: 8px;
-    bottom: 8px;
-    display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
-    padding: 5px 8px;
-    border-radius: 4px;
-    color: var(--ink);
-    background: var(--surface);
-    font-size: 12px;
-    line-height: 1.4;
   }
 
   [data-pdp-presentation="mobile-pilot"] .pdp-application__swatch[aria-pressed="true"] {
@@ -359,31 +340,44 @@
 
   [data-pdp-presentation="mobile-pilot"] .pdp-core-routine__callout {
     min-height: 0;
+    width: min(100%, 390px);
+    justify-self: center;
     display: grid;
   }
 
   [data-pdp-presentation="mobile-pilot"] .pdp-core-routine__callout-state {
     position: relative;
     grid-area: 1 / 1;
-    display: flex;
-    flex-direction: column-reverse;
-    gap: 16px;
+    display: block;
+    min-height: 160px;
   }
 
   [data-pdp-presentation="mobile-pilot"] .pdp-core-routine__texture {
-    position: relative;
-    inset: auto;
-    width: 100%;
+    position: absolute;
+    top: 50%;
+    right: 0;
+    left: auto;
+    width: 160px;
     height: 160px;
     aspect-ratio: auto;
-    transform: none;
+    transform: translateY(-50%);
   }
 
   [data-pdp-presentation="mobile-pilot"] .pdp-core-routine__annotation {
-    position: static;
-    width: 100%;
+    position: relative;
+    top: auto;
+    left: auto;
+    width: calc(100% - 80px);
+    min-height: 160px;
+    align-content: center;
+    padding: 16px 0;
     transform: none;
     gap: 6px;
+  }
+
+  [data-pdp-presentation="mobile-pilot"] .pdp-core-routine__annotation :is(strong, small) {
+    max-width: calc(100% - 72px);
+    overflow-wrap: anywhere;
   }
 
   [data-pdp-presentation="mobile-pilot"] .pdp-core-routine__annotation strong {
@@ -394,10 +388,6 @@
   [data-pdp-presentation="mobile-pilot"] .pdp-core-routine__annotation small {
     font-size: 16px;
     text-transform: none;
-  }
-
-  [data-pdp-presentation="mobile-pilot"] .pdp-core-routine__connector {
-    display: none;
   }
 
   [data-pdp-presentation="mobile-pilot"] .pdp-core-routine__steps {

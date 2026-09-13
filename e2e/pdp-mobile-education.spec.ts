@@ -18,6 +18,36 @@ async function box(locator: Locator) {
   return value;
 }
 
+async function expectRoutineConnector(routine: Locator) {
+  const active = routine.locator('.pdp-core-routine__callout-state[data-state="active"]');
+  const connector = active.locator(".pdp-core-routine__connector");
+  await expect(connector).toBeVisible();
+  const line = await box(connector);
+  const texture = await box(active.locator(".pdp-core-routine__texture"));
+  const name = await box(active.locator("strong"));
+  const descriptor = await box(active.locator("small"));
+  const frame = await box(active);
+  expect(line.width).toBeGreaterThan(0);
+  expect(line.height).toBe(1);
+  expect(line.x + line.width).toBeGreaterThan(texture.x);
+  expect(line.x + line.width).toBeLessThan(texture.x + texture.width);
+  expect(line.y).toBeGreaterThan(texture.y);
+  expect(line.y).toBeLessThan(texture.y + texture.height);
+  expect(name.y + name.height).toBeLessThanOrEqual(line.y);
+  expect(descriptor.y).toBeGreaterThanOrEqual(line.y + line.height);
+  const dot = await connector.evaluate((element) => {
+    const style = getComputedStyle(element, "::after");
+    return { width: style.width, height: style.height, content: style.content };
+  });
+  expect(dot).toEqual({ width: "8px", height: "8px", content: '\"\"' });
+  for (const rect of [line, texture, name, descriptor]) {
+    expect(rect.x).toBeGreaterThanOrEqual(frame.x - 1);
+    expect(rect.x + rect.width).toBeLessThanOrEqual(frame.x + frame.width + 1);
+    expect(rect.y).toBeGreaterThanOrEqual(frame.y - 1);
+    expect(rect.y + rect.height).toBeLessThanOrEqual(frame.y + frame.height + 1);
+  }
+}
+
 async function expectFocusedVisible(page: Page) {
   let lastGeometry: unknown = null;
   try {
@@ -63,6 +93,8 @@ for (const width of [320, 390, 430, 820]) {
     const profile = page.locator(".pdp-profile-split");
     const profileMedia = await box(profile.locator(".pdp-profile-split__media"));
     const profileCopy = await box(profile.locator(".pdp-profile-split__content"));
+    // The governed media fixture cannot certify crop quality; this guards the fit contract.
+    await expect(profile.locator(".pdp-profile-split__media img")).toHaveCSS("object-fit", "cover");
     expect(profileMedia.width / profileMedia.height).toBeCloseTo(1, 2);
     expect(Math.abs(profileCopy.y - profileMedia.y - profileMedia.height)).toBeLessThanOrEqual(1);
     const fact = profile.locator(".pdp-profile-split__facts > div").first();
@@ -107,10 +139,14 @@ for (const width of [320, 390, 430, 820]) {
     for (const control of await routine.getByRole("radio").all()) {
       expect((await box(control)).height).toBeGreaterThanOrEqual(44);
       await expect(control.locator(".pdp-core-routine__step-name")).toHaveCSS("font-size", "14px");
+      await control.click();
+      await expect(control).toHaveAttribute("aria-checked", "true");
+      await expect(routine).toHaveAttribute("data-pdp-slide-transitioning", "false");
+      await expectRoutineConnector(routine);
     }
 
     const modules = await page.locator(".pdp-sections > section").all();
-    let prior = videoBox;
+    let prior = await box(video);
     for (const module of modules) {
       const current = await box(module);
       expect(current.y - prior.y - prior.height).toBeCloseTo(20, 0);
@@ -127,6 +163,39 @@ for (const width of [320, 390, 430, 820]) {
 
 test.describe("pilot phone touch interaction", () => {
   test.use({ hasTouch: true });
+
+  test("scrolling from an outcome preserves selection until a deliberate tap", async ({ page, storefront, browserName }) => {
+    test.skip(browserName !== "chromium", "Native touch-stream cancellation is exercised through Chromium; WebKit retains tap and keyboard coverage.");
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(pilotProduct(storefront).path);
+    const outcomes = page.locator(".pdp-outcome-split");
+    const buttons = outcomes.getByRole("button");
+    await buttons.first().tap();
+    const target = buttons.nth(1);
+    await target.evaluate((element) => window.scrollBy(0, element.getBoundingClientRect().top - 400));
+    const before = await page.evaluate(() => window.scrollY);
+    const rect = await box(target);
+    const x = rect.x + rect.width / 2;
+    const y = rect.y + rect.height / 2;
+    const touch = await page.context().newCDPSession(page);
+    try {
+      await touch.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y }] });
+      await expect(buttons.first()).toHaveAttribute("aria-pressed", "true");
+      for (let distance = 15; distance <= 150; distance += 15) {
+        await touch.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x, y: y - distance }] });
+        await page.waitForTimeout(16);
+      }
+      await touch.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+      await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(before + 30);
+      await expect(buttons.first()).toHaveAttribute("aria-pressed", "true");
+      await expect(outcomes.locator('[data-active="true"]')).toHaveAttribute("data-pdp-outcome-state", "1");
+      await target.tap();
+      await expect(target).toHaveAttribute("aria-pressed", "true");
+      await expect(outcomes.locator('[data-active="true"]')).toHaveAttribute("data-pdp-outcome-state", "2");
+    } finally {
+      await touch.detach();
+    }
+  });
 
   test("education touch selections remain close and retain state through keyboard resize", async ({ page, storefront }) => {
     await page.setViewportSize({ width: 390, height: 844 });
@@ -151,7 +220,6 @@ test.describe("pilot phone touch interaction", () => {
       const swatch = application.getByRole("button", { name: `Show application step ${index + 1} of 3` });
       await swatch.tap();
       await expect(swatch).toHaveAttribute("aria-pressed", "true");
-      await expect(swatch.getByText("Selected", { exact: true })).toBeVisible();
       await expect(application.locator('.pdp-application__step[aria-hidden="false"]')).toHaveCount(1);
       const instruction = await box(application.locator('.pdp-application__step[data-state="active"] p'));
       const copy = await box(application.locator(".pdp-application__copy"));
@@ -196,6 +264,25 @@ test.describe("pilot phone touch interaction", () => {
     await expect(application.getByRole("button", { name: "Show application step 2 of 3" })).toHaveAttribute("aria-pressed", "true");
     await expectNoMainOverflow(page, 390);
   });
+});
+
+test("Core annotations remain connected and readable with enlarged text on the narrowest phone", async ({ page, storefront }) => {
+  await page.setViewportSize({ width: 320, height: 844 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto(pilotProduct(storefront).path);
+  const routine = page.locator(".pdp-core-routine");
+  await routine.locator(".pdp-core-routine__annotation :is(strong, small)").evaluateAll((labels) => {
+    for (const label of labels) {
+      (label as HTMLElement).style.fontSize = `${parseFloat(getComputedStyle(label).fontSize) * 2}px`;
+    }
+  });
+  for (const control of await routine.getByRole("radio").all()) {
+    await control.click();
+    await expect(control).toHaveAttribute("aria-checked", "true");
+    await expect(routine).toHaveAttribute("data-pdp-slide-transitioning", "false");
+    await expectRoutineConnector(routine);
+    await expectNoMainOverflow(page, 320);
+  }
 });
 
 test("inline INCI preserves the reader's place and visible focus through disclosure and resize", async ({ page, storefront, browserName }) => {
