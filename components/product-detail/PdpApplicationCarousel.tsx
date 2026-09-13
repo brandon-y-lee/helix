@@ -117,6 +117,7 @@ export function PdpApplicationCarousel({
       data-slide-direction={direction}
       data-transition-duration={durationMs}
       data-pdp-panel-row="application"
+      data-pdp-reveal-row
       data-pdp-panel-mode="independent"
       data-pdp-application
       style={

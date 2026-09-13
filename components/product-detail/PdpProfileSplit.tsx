@@ -52,6 +52,7 @@ export function PdpProfileSplit({
       className="pdp-profile-split"
       aria-labelledby="pdp-profile-heading"
       data-pdp-panel-row="profile"
+      data-pdp-reveal-row
       data-pdp-panel-mode="independent"
     >
       {pdpPresentation === "mobile-pilot" && mediaPanel}

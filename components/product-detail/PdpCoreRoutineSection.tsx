@@ -88,6 +88,7 @@ export function PdpCoreRoutineSection({
       data-slide-direction={direction}
       data-transition-duration={durationMs}
       data-pdp-panel-row="core-routine"
+      data-pdp-reveal-row
       data-pdp-panel-mode="independent"
       style={{ ...PDP_SLIDE_STYLE, "--pdp-slide-duration": `${durationMs}ms` } as CSSProperties}
     >
