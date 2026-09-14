@@ -31,7 +31,7 @@ const PRESENTATION_FILES = [
   "components/product-detail/ProductDetail.tsx",
   "components/product-detail/ProductDetail.adapters.ts",
   "components/product-detail/PdpCoreRoutineSection.tsx",
-  "components/system/MethodExperience.tsx",
+  "components/system/SystemExperience.tsx",
   "lib/content/core-pdp.ts",
 ] as const;
 

@@ -30,11 +30,6 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [
       {
-        source: "/method",
-        destination: "/system",
-        permanent: true,
-      },
-      {
         source: "/collections",
         destination: "/collections/shop",
         permanent: true,
