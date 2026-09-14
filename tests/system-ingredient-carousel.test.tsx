@@ -375,4 +375,18 @@ describe("SystemIngredientCarousel", () => {
       cancelFrame.mockRestore();
     }
   });
+
+  it("recenters the selected ingredient when its hash follows carousel browsing", () => {
+    const { container } = render(<SystemIngredientCarousel cards={cards} />);
+    fireEvent.click(screen.getByRole("button", { name: "Next ingredient" }));
+    const carousel = container.querySelector(".ingredient-carousel");
+    expect(carousel).toHaveAttribute("data-centered-ingredient", "niacinamide");
+    expect(screen.getAllByRole("tab")[0]).toHaveAttribute("aria-selected", "true");
+
+    window.history.replaceState(null, "", "/system#system-ingredient-pdrn");
+    fireEvent(window, new HashChangeEvent("hashchange"));
+
+    expect(carousel).toHaveAttribute("data-centered-ingredient", "pdrn");
+    expect(screen.getByRole("tabpanel", { name: /PDRN/i })).toBeVisible();
+  });
 });

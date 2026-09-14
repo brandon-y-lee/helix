@@ -127,6 +127,7 @@ export function SystemIngredientCarousel({
       const hashIndex = cards.findIndex((card) => panelId(card) === hash);
       if (hashIndex < 0) return;
 
+      setCenteredIndex(hashIndex);
       selectIndex(hashIndex);
       scrollFrame = window.requestAnimationFrame(() => {
         document.getElementById(hash)?.scrollIntoView?.({ block: "start" });

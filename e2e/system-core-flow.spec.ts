@@ -1,5 +1,20 @@
 import { expectNoMainOverflow } from "./layout-assertions";
 import { expect, test } from "./storefront-fixture";
+import type { Locator } from "@playwright/test";
+
+async function expectAnchorInView(target: Locator) {
+  await expect(target).toBeInViewport();
+  await expect.poll(() => target.evaluate((element) => {
+    const headerHeight = Number.parseFloat(
+      getComputedStyle(document.documentElement).getPropertyValue("--site-header-height"),
+    );
+    const top = element.getBoundingClientRect().top;
+    return {
+      clearsHeader: top >= headerHeight - 1,
+      nearHeader: top <= 121,
+    };
+  })).toEqual({ clearsHeader: true, nearHeader: true });
+}
 
 test("Core flow supports pointer, keyboard, wrapping controls, and deep links", async ({
   browserName,
@@ -45,6 +60,11 @@ test("Core flow supports pointer, keyboard, wrapping controls, and deep links", 
 for (const width of [320, 721, 1440]) {
   test(`current System hashes reveal their targets below the header at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 1000 });
+    await page.goto("/system#system-ingredient-niacinamide");
+    await expect(page.locator(".ingredient-carousel")).toHaveAttribute(
+      "data-centered-ingredient", "niacinamide",
+    );
+    await expectAnchorInView(page.locator("#system-ingredient-niacinamide"));
     await page.goto("/system#system-seal");
     const core = page.locator("#system-core");
     await expect(core).toHaveAttribute("data-active-step", "seal");
@@ -67,12 +87,7 @@ for (const width of [320, 721, 1440]) {
       if (["system-cleanse", "system-treat", "system-seal"].includes(hash)) {
         await expect(core).toHaveAttribute("data-active-step", hash.slice(7));
       }
-      await expect.poll(() => page.locator(`#${target}`).evaluate((element) => {
-        const headerHeight = Number.parseFloat(
-          getComputedStyle(document.documentElement).getPropertyValue("--site-header-height"),
-        );
-        return element.getBoundingClientRect().top - headerHeight;
-      }), { message: `${hash} should clear the header` }).toBeGreaterThanOrEqual(-1);
+      await expectAnchorInView(page.locator(`#${target}`));
     }
 
     const ingredientIds = await page.locator('.ingredient-carousel__panel[id]').evaluateAll(
@@ -87,11 +102,7 @@ for (const width of [320, 721, 1440]) {
       await expect(page.locator(".ingredient-carousel")).toHaveAttribute(
         "data-centered-ingredient", id.replace("system-ingredient-", ""),
       );
-      await expect.poll(() => panel.evaluate((element) =>
-        element.getBoundingClientRect().top - Number.parseFloat(
-          getComputedStyle(document.documentElement).getPropertyValue("--site-header-height"),
-        ),
-      )).toBeGreaterThanOrEqual(-1);
+      await expectAnchorInView(panel);
     }
 
     await expect(page.locator('[id="system-routine"], [id^="method-"], [id^="step-"]')).toHaveCount(0);
