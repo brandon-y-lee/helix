@@ -168,7 +168,7 @@ describe("System content architecture", () => {
         name: "a new philosophy on male skincare",
       }),
     ).toBeInTheDocument();
-    const hero = document.querySelector(".method-hero") as HTMLElement;
+    const hero = document.querySelector(".system-hero") as HTMLElement;
     const heroImage = hero.querySelector("img");
     expect(heroImage).toHaveAttribute("alt", "");
     expect(heroImage?.getAttribute("src")).toContain(
@@ -189,7 +189,6 @@ describe("System content architecture", () => {
     ).toBeInTheDocument();
     expect(core).not.toHaveTextContent("The essential baseline");
     expect(within(core).getAllByRole("tab")).toHaveLength(3);
-    expect(document.querySelector(".method-index")).not.toBeInTheDocument();
     expect(core.querySelector('[data-helix-identity="symbol"]')).toHaveAttribute(
       "aria-hidden",
       "true",
@@ -239,7 +238,7 @@ describe("System content architecture", () => {
     expect(document.body.textContent ?? "").not.toMatch(FORMER_BRAND_PATTERN);
   });
 
-  it("numbers only the three-step Core and preserves legacy anchors", async () => {
+  it("numbers only the three-step Core and exposes only current System anchors", async () => {
     render(await SystemPage());
 
     const core = document.getElementById("system-core");
@@ -249,17 +248,22 @@ describe("System content architecture", () => {
         .getAllByRole("tab")
         .map((tab) => tab.getAttribute("data-display-number")),
     ).toEqual(["01", "02", "03"]);
-    expect(document.getElementById("system-routine")).toBeInTheDocument();
-    expect(document.getElementById("method-routine")).toBeInTheDocument();
-    expect(document.getElementById("step-reset")).toBeInTheDocument();
-    expect(document.getElementById("method-lift")).toBeInTheDocument();
+    for (const id of [
+      "system-overview", "system-core", "system-cleanse", "system-treat",
+      "system-seal", "system-refine", "system-frame", "system-protect",
+      "system-lift", "system-beyond", "system-ingredients",
+    ]) {
+      expect(document.querySelectorAll(`[id="${id}"]`)).toHaveLength(1);
+    }
+    expect(document.querySelector('[id="system-routine"], [id^="method-"], [id^="step-"]'))
+      .not.toBeInTheDocument();
   });
 
   it("places the intentional-skincare split between Core and Beyond", async () => {
     render(await SystemPage());
 
     const core = document.getElementById("system-core") as HTMLElement;
-    const split = document.querySelector(".method-intentional") as HTMLElement;
+    const split = document.querySelector(".system-intentional") as HTMLElement;
     const beyond = document.getElementById("system-beyond") as HTMLElement;
     expect(
       within(split).getByRole("heading", {
@@ -275,8 +279,7 @@ describe("System content architecture", () => {
     );
     expect(portrait).toBeInTheDocument();
     expect(portrait).toHaveAttribute("alt", "");
-    expect(split.querySelector(".editorial-hue-field--method")).not.toBeInTheDocument();
-    expect(split.querySelector(".method-intentional__visual")).toHaveAttribute(
+    expect(split.querySelector(".system-intentional__visual")).toHaveAttribute(
       "data-scroll-zoom-mode",
     );
     expect(
@@ -284,7 +287,7 @@ describe("System content architecture", () => {
         level: 2,
         name: "intentional skincare",
       }),
-    ).toHaveClass("method-intentional__heading");
+    ).toHaveClass("system-intentional__heading");
     expect(
       core.compareDocumentPosition(split) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
@@ -306,7 +309,7 @@ describe("System content architecture", () => {
       "/products/mineral-guard",
     );
     expect(within(protect).getByRole("link", { name: /view mineral guard/i })).toHaveClass(
-      "method-beyond-card__link",
+      "system-beyond-card__link",
     );
     expect(protect).not.toHaveTextContent(/formula focus|in development|UV filters/i);
   });
@@ -326,7 +329,8 @@ describe("System content architecture", () => {
     expect(
       screen.getByText("No collection-facing Beyond entry is available for this step."),
     ).toBeInTheDocument();
-    expect(document.getElementById("step-lift")).toBeInTheDocument();
+    expect(document.getElementById("system-lift")).toBeInTheDocument();
+    expect(document.getElementById("step-lift")).not.toBeInTheDocument();
   });
 
   it("keeps a missing Core step selectable without inventing a PDP", async () => {

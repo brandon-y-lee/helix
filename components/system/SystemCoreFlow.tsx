@@ -7,7 +7,6 @@ import {
 } from "react";
 import { HelixIdentity } from "@/components/brand/HelixIdentity";
 import { ProductImage } from "@/components/product/ProductImage";
-import { SystemLegacyAnchors } from "@/components/system/SystemLegacyAnchors";
 import { useRovingTabSelection } from "@/components/system/useRovingTabSelection";
 import type { ProductMedia } from "@/lib/products";
 
@@ -17,7 +16,6 @@ export type SystemCoreFlowItem = {
   displayNumber: string;
   backgroundMedia: ProductMedia | null;
   heroLines: readonly [string, string];
-  legacyAnchorIds: readonly string[];
   productType: string;
   slug: string | null;
   stepName: "CLEANSE" | "TREAT" | "SEAL";
@@ -40,10 +38,7 @@ export function SystemCoreFlow({ items }: { items: SystemCoreFlowItem[] }) {
   useEffect(() => {
     function selectHashedStep() {
       const hash = window.location.hash.slice(1);
-      const hashedIndex = items.findIndex(
-        (item) =>
-          item.anchorId === hash || item.legacyAnchorIds.includes(hash),
-      );
+      const hashedIndex = items.findIndex((item) => item.anchorId === hash);
       if (hashedIndex >= 0) selectIndex(hashedIndex);
     }
 
@@ -57,22 +52,23 @@ export function SystemCoreFlow({ items }: { items: SystemCoreFlowItem[] }) {
   return (
     <section
       id="system-core"
-      className="method-flow"
+      className="system-flow"
       aria-labelledby="system-core-flow-heading"
       data-active-step={items[activeIndex]?.stepName.toLowerCase()}
     >
-      <SystemLegacyAnchors
-        ids={[
-          "system-routine",
-          "method-routine",
-          ...items.flatMap((item) => [item.anchorId, ...item.legacyAnchorIds]),
-        ]}
-      />
-      <div className="method-flow__backgrounds" aria-hidden="true">
+      {items.map((item) => (
+        <span
+          key={item.anchorId}
+          id={item.anchorId}
+          className="system-step-anchor"
+          aria-hidden="true"
+        />
+      ))}
+      <div className="system-flow__backgrounds" aria-hidden="true">
         {items.map((item, index) => (
           <div
             key={item.stepName}
-            className="method-flow__background"
+            className="system-flow__background"
             data-state={index === activeIndex ? "active" : "inactive"}
             style={
               {
@@ -84,8 +80,8 @@ export function SystemCoreFlow({ items }: { items: SystemCoreFlowItem[] }) {
             <ProductImage
               media={item.backgroundMedia}
               swatch={item.swatch}
-              className="method-flow__background-media"
-              imageClassName="method-flow__background-image"
+              className="system-flow__background-media"
+              imageClassName="system-flow__background-image"
               imageAlt=""
               sizes="(max-width: 720px) calc(100vw - 32px), calc(100vw - 60px)"
             />
@@ -93,34 +89,34 @@ export function SystemCoreFlow({ items }: { items: SystemCoreFlowItem[] }) {
         ))}
       </div>
 
-      <header className="method-flow__heading">
-        <h2 id="system-core-flow-heading" className="method-flow__eyebrow">
+      <header className="system-flow__heading">
+        <h2 id="system-core-flow-heading" className="system-flow__eyebrow">
           <HelixIdentity variant="symbol" decorative />
           <span>The Core</span>
         </h2>
       </header>
 
-      <div className="method-flow__panels">
+      <div className="system-flow__panels">
         {items.map((item, index) => {
           const key = stepKey(item);
           return (
             <article
               key={item.stepName}
               id={`system-core-panel-${key}`}
-              className="method-flow__panel method-selection-panel"
+              className="system-flow__panel system-selection-panel"
               role="tabpanel"
               aria-labelledby={`system-core-tab-${key}`}
               hidden={index !== activeIndex}
               inert={index !== activeIndex}
             >
-              <p className="method-flow__hero-phrase">
+              <p className="system-flow__hero-phrase">
                 <span>{item.heroLines[0]}</span>
                 <span>{item.heroLines[1]}</span>
               </p>
               {item.slug ? (
                 <Link
                   href={`/products/${item.slug}`}
-                  className="btn btn--editorial-rounded method-flow__product-link"
+                  className="btn btn--editorial-rounded system-flow__product-link"
                 >
                   <span>View {item.displayName}</span>
                   <span aria-hidden="true">↗</span>
@@ -132,7 +128,7 @@ export function SystemCoreFlow({ items }: { items: SystemCoreFlowItem[] }) {
       </div>
 
       <div
-        className="method-flow__steps"
+        className="system-flow__steps"
         role="tablist"
         aria-label="Core system steps"
       >
@@ -162,9 +158,9 @@ export function SystemCoreFlow({ items }: { items: SystemCoreFlowItem[] }) {
         })}
       </div>
 
-      <div className="method-flow__controls">
+      <div className="system-flow__controls">
         <button
-          className="method-arrow-control"
+          className="system-arrow-control"
           type="button"
           aria-label="Previous Core step"
           onClick={() => selectIndex(activeIndex - 1)}
@@ -172,7 +168,7 @@ export function SystemCoreFlow({ items }: { items: SystemCoreFlowItem[] }) {
           <span aria-hidden="true">←</span>
         </button>
         <button
-          className="method-arrow-control"
+          className="system-arrow-control"
           type="button"
           aria-label="Next Core step"
           onClick={() => selectIndex(activeIndex + 1)}

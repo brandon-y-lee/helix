@@ -120,14 +120,25 @@ export function SystemIngredientCarousel({
   }
 
   useEffect(() => {
-    const hash = window.location.hash.slice(1);
-    const hashIndex = cards.findIndex((card) => panelId(card) === hash);
-    if (hashIndex < 0) return;
+    let scrollFrame: number | undefined;
+    function selectHashedIngredient() {
+      if (scrollFrame !== undefined) window.cancelAnimationFrame(scrollFrame);
+      const hash = window.location.hash.slice(1);
+      const hashIndex = cards.findIndex((card) => panelId(card) === hash);
+      if (hashIndex < 0) return;
 
-    selectIndex(hashIndex);
-    window.requestAnimationFrame?.(() => {
-      document.getElementById(hash)?.scrollIntoView?.({ block: "start" });
-    });
+      selectIndex(hashIndex);
+      scrollFrame = window.requestAnimationFrame(() => {
+        document.getElementById(hash)?.scrollIntoView?.({ block: "start" });
+      });
+    }
+
+    selectHashedIngredient();
+    window.addEventListener("hashchange", selectHashedIngredient);
+    return () => {
+      window.removeEventListener("hashchange", selectHashedIngredient);
+      if (scrollFrame !== undefined) window.cancelAnimationFrame(scrollFrame);
+    };
   }, [cards, selectIndex]);
 
   useEffect(() => {
@@ -287,7 +298,7 @@ export function SystemIngredientCarousel({
           {centeredIndex > 0 ? (
             <button
               ref={previousControlRef}
-              className="method-arrow-control ingredient-carousel__control ingredient-carousel__control--previous"
+              className="system-arrow-control ingredient-carousel__control ingredient-carousel__control--previous"
               type="button"
               aria-label="Previous ingredient"
               onClick={() => moveCarousel(centeredIndex - 1)}
@@ -298,7 +309,7 @@ export function SystemIngredientCarousel({
           {centeredIndex < cards.length - 1 ? (
             <button
               ref={nextControlRef}
-              className="method-arrow-control ingredient-carousel__control ingredient-carousel__control--next"
+              className="system-arrow-control ingredient-carousel__control ingredient-carousel__control--next"
               type="button"
               aria-label="Next ingredient"
               onClick={() => moveCarousel(centeredIndex + 1)}
@@ -370,7 +381,7 @@ export function SystemIngredientCarousel({
           <article
             key={card.id}
             id={panelId(card)}
-            className="ingredient-carousel__panel method-selection-panel"
+            className="ingredient-carousel__panel system-selection-panel"
             role="tabpanel"
             aria-labelledby={tabId(card)}
             hidden={index !== activeIndex}

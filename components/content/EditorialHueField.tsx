@@ -1,7 +1,7 @@
 type EditorialHueFieldProps = {
   className?: string;
   decorated?: boolean;
-  tone?: "default" | "method" | "about";
+  tone?: "default" | "about";
 };
 
 export function EditorialHueField({
