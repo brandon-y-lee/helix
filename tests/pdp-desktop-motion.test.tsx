@@ -119,9 +119,10 @@ beforeEach(() => {
     disconnect() { resizeCallbacks.delete(this.callback); }
   });
   vi.spyOn(HTMLElement.prototype, "offsetTop", "get").mockImplementation(function (this: HTMLElement) {
-    return this.matches(".pdp-application__visual, .pdp-profile-split__media, .pdp-core-routine__visual") ? frameTop : 0;
+    return this.matches(".pdp-application__visual, .pdp-application__swatch, .pdp-profile-split__media, .pdp-core-routine__visual") ? frameTop : 0;
   });
   vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockImplementation(function (this: HTMLElement) {
+    if (this.matches(".pdp-application__swatch")) return 100;
     return this.matches(".pdp-application__visual, .pdp-profile-split__media, .pdp-core-routine__visual") ? frameHeight : 0;
   });
 });
@@ -158,6 +159,40 @@ describe("Treat desktop photographic motion", () => {
     expect(frame.offsetHeight).toBe(500);
   });
 
+  it("zooms every thumbnail within its own fixed button and preserves selection through scroll and suppression", () => {
+    const { container } = render(application());
+    const buttons = Array.from(container.querySelectorAll<HTMLButtonElement>("[data-pdp-application-thumbnail]"));
+    const images = buttons.map((button) => button.querySelector("img"));
+    for (const image of images) expect(scaleFor(image)).toBe(1.2);
+
+    // These 100px thumbnails cross their midpoint before the 500px main image.
+    scrollTo(600);
+    for (const image of images) expect(scaleFor(image)).toBe(1.05);
+    expect(scaleFor(container.querySelector('[data-pdp-application-main-image="1"]'))).toBe(1.07813);
+    fireEvent.click(buttons[2]);
+    expect(buttons[2]).toHaveAttribute("aria-pressed", "true");
+    for (const image of images) expect(scaleFor(image)).toBe(1.05);
+    for (const button of buttons) {
+      expect(button.style.transform).toBe("");
+      expect(button.offsetHeight).toBe(100);
+    }
+    scrollTo(1200);
+    for (const image of images) expect(scaleFor(image)).toBe(1);
+    scrollTo(600);
+    for (const image of images) expect(scaleFor(image)).toBe(1.05);
+    changeMotion(1440, true);
+    for (const image of images) expect(scaleFor(image)).toBe(1);
+    changeMotion(1440);
+    for (const image of images) expect(scaleFor(image)).toBe(1.05);
+    changeMotion(820);
+    for (const image of images) expect(scaleFor(image)).toBe(1);
+    changeMotion(1440);
+    const other = render(application("ceramide-cushion"));
+    for (const image of other.container.querySelectorAll('[data-pdp-application-thumbnail] img')) {
+      expect(scaleFor(image)).toBe(1);
+    }
+  });
+
   it("requires Treat desktop eligibility and clears an in-flight zoom when motion is suppressed", () => {
     const { container, rerender } = render(application("biotic-reset"));
     const image = () => container.querySelector('[data-pdp-application-main-image="1"]');
@@ -172,7 +207,7 @@ describe("Treat desktop photographic motion", () => {
     expect(promotedLayers(container)).toHaveLength(0);
     changeMotion(1440);
     expect(scaleFor(image())).toBe(1.2);
-    expect(promotedLayers(container)).toHaveLength(3);
+    expect(promotedLayers(container)).toHaveLength(6);
     scrollTo(800, false);
     changeMotion(1440, true);
     act(() => vi.advanceTimersByTime(112));
@@ -199,7 +234,7 @@ describe("Treat desktop photographic motion", () => {
     expect(scaleFor(screen.getByAltText("Profile bottle"))).toBe(1.2);
     const photographs = [
       screen.getByAltText("Profile bottle"),
-      ...container.querySelectorAll('[data-pdp-application-main-image], img[src*="editorial"]'),
+      ...container.querySelectorAll('[data-pdp-application-thumbnail] img, [data-pdp-application-main-image], img[src*="editorial"]'),
     ];
     expect(promotedLayers(container).map((layer) => layer.querySelector("img"))).toEqual(photographs);
     for (const image of container.querySelectorAll('img[src*="editorial"]')) {
@@ -210,7 +245,7 @@ describe("Treat desktop photographic motion", () => {
     fireEvent.click(screen.getByRole("radio", { name: "Show SEAL, Super Serum" }));
     expect(scaleFor(container.querySelector('[data-pdp-application-state="3"] img'))).toBe(1.05);
     expect(scaleFor(container.querySelector('.pdp-core-routine__visual-state[data-state="active"] img'))).toBe(1.05);
-    for (const image of container.querySelectorAll('[data-pdp-application-thumbnail] img, img[src*="texture"]')) {
+    for (const image of container.querySelectorAll('img[src*="texture"]')) {
       expect(scaleFor(image)).toBe(1);
     }
     for (const layer of container.querySelectorAll<HTMLElement>("[data-pdp-slide-layer]")) {
@@ -237,7 +272,7 @@ describe("Treat desktop photographic motion", () => {
     scrollTo(1100);
     expect(scaleFor(image)).toBe(1.05);
     const promoted = promotedLayers(container);
-    expect(promoted).toHaveLength(3);
+    expect(promoted).toHaveLength(6);
     scrollTo(400, false);
     unmount();
     act(() => {
