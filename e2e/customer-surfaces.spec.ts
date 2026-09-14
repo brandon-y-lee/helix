@@ -81,7 +81,7 @@ test("synthetic customer forms expose pending, error and success surfaces locall
       writes.push(`${request.method()} ${new URL(request.url()).pathname}`);
       return route.abort();
     }
-    return route.continue();
+    return route.fallback();
   });
   for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844 }]) {
     await page.setViewportSize(viewport);
