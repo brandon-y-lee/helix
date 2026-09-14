@@ -1,13 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 import { LEGACY_PRODUCTS_INDEX } from "@/lib/algolia/index";
 import {
-  assessProductSearchMigration,
+  assessProductSearchVerification,
   collectPaginatedIndices,
   collectPaginatedSearchConfiguration,
   runProductSearchVerification,
   type ProductSearchControlPlane,
   type ProductSearchInventory,
-} from "@/scripts/catalog/product-search-migration";
+} from "@/scripts/catalog/product-search-verification";
 
 const canonicalRecords = [
   {
@@ -57,7 +57,7 @@ function inventory(
 
 describe("Product Search completion assessment", () => {
   it("verifies the canonical helix index with no former index remaining", () => {
-    const report = assessProductSearchMigration(inventory(), canonicalRecords);
+    const report = assessProductSearchVerification(inventory(), canonicalRecords);
 
     expect(report.ok).toBe(true);
     expect(report.verified).toBe(true);
@@ -70,8 +70,141 @@ describe("Product Search completion assessment", () => {
     });
   });
 
+  it.each([
+    { slug: "maxxing-serum" },
+    { displayName: "  Peptide   Bounce " },
+    { keywords: ["MAXXING_SERUM"] },
+    { slugAliases: [] },
+  ])("rejects retired discovery data even when both records agree: %j", (staleIdentity) => {
+    const staleRecords = [{ ...canonicalRecords[0], ...staleIdentity }];
+    const report = assessProductSearchVerification(
+      inventory({ target: { ...inventory().target!, records: staleRecords } }),
+      staleRecords,
+    );
+
+    expect(report.ok).toBe(false);
+    expect(report.blockers).toContain(
+      "canonical Product Search records contain retired identities or aliases",
+    );
+  });
+
+  it.each([
+    { attributesToRetrieve: ["displayName", "slugAliases"] },
+    { attributeForDistinct: "unordered(slugAliases)" },
+    { optionalWords: ["PEPTIDE-BOUNCE"] },
+  ])("rejects retired references in extra provider settings: %j", (settings) => {
+    const report = assessProductSearchVerification(
+      inventory({ target: { ...inventory().target!, settings } }),
+      canonicalRecords,
+    );
+
+    expect(report.ok).toBe(false);
+    expect(report.blockers).toContain(
+      "helix_products settings contain retired identities or aliases",
+    );
+  });
+
+  it.each([
+    {
+      label: "duplicate canonical IDs hide a different indexed Product",
+      canonical: [canonicalRecords[0], canonicalRecords[0]],
+      indexed: [canonicalRecords[0], { ...canonicalRecords[0], objectID: "product-2" }],
+    },
+    {
+      label: "both inventories contain duplicate IDs",
+      canonical: [canonicalRecords[0], canonicalRecords[0]],
+      indexed: [canonicalRecords[0], canonicalRecords[0]],
+    },
+    {
+      label: "an empty ID exists in both inventories",
+      canonical: [{ ...canonicalRecords[0], objectID: " " }],
+      indexed: [{ ...canonicalRecords[0], objectID: " " }],
+    },
+  ])("rejects invalid Product identity inventory: $label", ({ canonical, indexed }) => {
+    const report = assessProductSearchVerification(
+      inventory({
+        target: { ...inventory().target!, entries: indexed.length, records: indexed },
+      }),
+      canonical,
+    );
+
+    expect(report.ok).toBe(false);
+    expect(report.reconciliation.targetMatchesCanonical).toBe(false);
+  });
+
+  it("rejects an incomplete record inventory despite equal compared records", () => {
+    const report = assessProductSearchVerification(
+      inventory({ target: { ...inventory().target!, entries: 2 } }),
+      canonicalRecords,
+    );
+
+    expect(report.ok).toBe(false);
+    expect(report.reconciliation.targetMatchesCanonical).toBe(false);
+  });
+
+  it("preserves ingredient matching and independently governed Product Media", () => {
+    const records = [{
+      ...canonicalRecords[0],
+      slug: "super-serum",
+      displayName: "Super Serum",
+      keywords: ["peptide", "PDRN", "cream", "reset", "bounce", "peptide bounce finish"],
+      imageMedia: {
+        url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/helix-catalog/products/treat-03-pdrn-5-ampoule/primary/original/hash.webp",
+      },
+    }];
+    const report = assessProductSearchVerification(
+      inventory({
+        target: {
+          ...inventory().target!,
+          records,
+          settings: { optionalWords: ["peptide", "bounce"], typoTolerance: true },
+        },
+      }),
+      records,
+    );
+
+    expect(report.ok).toBe(true);
+    expect(report.blockers).toEqual([]);
+  });
+
+  it("preserves useful ingredient rules and synonyms", () => {
+    const report = assessProductSearchVerification(
+      inventory({
+        target: {
+          ...inventory().target!,
+          rules: [{
+            objectID: "niacinamide-serums",
+            conditions: [{ pattern: "niacinamide", anchoring: "is" }],
+            consequence: { params: { query: "serum" } },
+          }],
+          synonyms: [{
+            objectID: "pdrn-sodium-dna",
+            type: "synonym",
+            synonyms: ["PDRN", "sodium DNA"],
+          }],
+        },
+      }),
+      canonicalRecords,
+    );
+
+    expect(report.ok).toBe(true);
+    expect(report.blockers).toEqual([]);
+  });
+
+  it("compares complete unique records independently of provider order", () => {
+    const second = { ...canonicalRecords[0], objectID: "product-2", slug: "super-serum" };
+    const report = assessProductSearchVerification(
+      inventory({
+        target: { ...inventory().target!, entries: 2, records: [second, canonicalRecords[0]] },
+      }),
+      [canonicalRecords[0], second],
+    );
+
+    expect(report.ok).toBe(true);
+  });
+
   it("fails when the former index still exists", () => {
-    const report = assessProductSearchMigration(
+    const report = assessProductSearchVerification(
       inventory({
         source: {
           ...inventory().target!,
@@ -86,7 +219,7 @@ describe("Product Search completion assessment", () => {
   });
 
   it("fails when downstream provider features still name the former index", () => {
-    const report = assessProductSearchMigration(
+    const report = assessProductSearchVerification(
       inventory({
         querySuggestions: [
           {
@@ -108,7 +241,7 @@ describe("Product Search completion assessment", () => {
   });
 
   it("fails closed when provider dependency inventory is unavailable", () => {
-    const report = assessProductSearchMigration(
+    const report = assessProductSearchVerification(
       inventory({
         providerChecks: {
           querySuggestions: "unavailable",
@@ -133,7 +266,7 @@ describe("Product Search completion assessment", () => {
   });
 
   it("fails when only configured keys can be verified", () => {
-    const report = assessProductSearchMigration(
+    const report = assessProductSearchVerification(
       inventory({
         apiKeys: {
           status: "configured-keys-verified",
@@ -149,7 +282,7 @@ describe("Product Search completion assessment", () => {
   });
 
   it("fails when any inventoried API key is scoped only to the former index", () => {
-    const report = assessProductSearchMigration(
+    const report = assessProductSearchVerification(
       inventory({
         apiKeys: {
           status: "all-keys-enumerated",
@@ -174,7 +307,7 @@ describe("Product Search completion assessment", () => {
   });
 
   it("recognizes wildcard key restrictions that match only the former index", () => {
-    const report = assessProductSearchMigration(
+    const report = assessProductSearchVerification(
       inventory({
         apiKeys: {
           status: "all-keys-enumerated",
@@ -210,7 +343,7 @@ describe("Product Search completion assessment", () => {
   it("rejects retired identifiers in any index name or API-key description", () => {
     const retiredCopy = ["mei", "Pelle", "archive"].join("");
     const retiredDescription = ["loyal", "ty mobile key"].join("");
-    const report = assessProductSearchMigration(
+    const report = assessProductSearchVerification(
       inventory({
         indices: [{ name: "helix_products" }, { name: retiredCopy }],
         apiKeys: {
@@ -242,7 +375,7 @@ describe("Product Search completion assessment", () => {
     const retiredRestriction = ["mei", "Pelle", "*"].join("");
     const retiredSuggestion = ["loyal", "ty", "suggestions"].join("");
     const retiredSource = ["mei", "-pelle", "-source"].join("");
-    const report = assessProductSearchMigration(
+    const report = assessProductSearchVerification(
       inventory({
         querySuggestions: [
           {
@@ -277,14 +410,17 @@ describe("Product Search completion assessment", () => {
     );
   });
 
-  it("rejects equal counts when records, rules, or synonyms differ", () => {
-    const report = assessProductSearchMigration(
+  it.each([
+    { rules: [{ objectID: "rule-1", conditions: [{ pattern: "Peptide Bounce" }] }] },
+    { rules: [{ objectID: "rule-2", consequence: { params: { query: "MAXXING-SERUM" } } }] },
+    { synonyms: [{ objectID: "synonym-1", synonyms: ["super serum", "maxxing serum"] }] },
+    { records: [{ ...canonicalRecords[0], staleField: true }] },
+  ])("rejects equal counts when current search configuration differs: %j", (difference) => {
+    const report = assessProductSearchVerification(
       inventory({
         target: {
           ...inventory().target!,
-          rules: [{ objectID: "rule-1", consequence: { hide: [] } }],
-          synonyms: [{ objectID: "synonym-1", synonyms: ["serum", "essence"] }],
-          records: [{ ...canonicalRecords[0], staleField: true }],
+          ...difference,
         },
       }),
       canonicalRecords,
@@ -335,6 +471,17 @@ describe("Product Search configuration inventory", () => {
     ).resolves.toEqual([{ objectID: "1" }, { objectID: "2" }]);
     expect(readPage).toHaveBeenNthCalledWith(1, 0, 1);
     expect(readPage).toHaveBeenNthCalledWith(2, 1, 1);
+  });
+
+  it.each(["rule-1", " "])("rejects a repeated or empty configuration ID %j", async (objectID) => {
+    const readPage = vi
+      .fn()
+      .mockResolvedValueOnce({ hits: [{ objectID: "rule-1" }], nbHits: 2 })
+      .mockResolvedValueOnce({ hits: [{ objectID }], nbHits: 2 });
+
+    await expect(
+      collectPaginatedSearchConfiguration(readPage, 1),
+    ).rejects.toThrow(/duplicate or empty objectIDs/);
   });
 
   it("fails closed if the configuration total changes between pages", async () => {

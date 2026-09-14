@@ -192,6 +192,9 @@ export default function CatalogEditor({ productId }: { productId: string }) {
     }
     return { from: slugDiff.before, to: slugDiff.after };
   }, [documentSlugChange, validation]);
+  const slugChangeMessage = slugChange
+    ? `/products/${slugChange.from} will become unavailable. The current Product URL will be /products/${slugChange.to}. The old URL stays reserved in private Product history.`
+    : null;
 
   const revealTarget = useCallback((selector: string, focus = true) => {
     const target = window.document.querySelector<HTMLElement>(selector);
@@ -655,12 +658,8 @@ export default function CatalogEditor({ productId }: { productId: string }) {
 
           {slugChange ? (
             <section className={styles.notice} role="status">
-              <h2>Permanent Product URL redirect</h2>
-              <p>
-                /products/{slugChange.from} will permanently redirect to
-                {" "}/products/{slugChange.to}. The old public URL remains in
-                redirect history and cannot be silently deleted.
-              </p>
+              <h2>Product URL change</h2>
+              <p>{slugChangeMessage}</p>
             </section>
           ) : null}
 
@@ -757,11 +756,7 @@ export default function CatalogEditor({ productId }: { productId: string }) {
                 {validation.affected_tables.join(", ")}.
               </p>
               {slugChange ? (
-                <p>
-                  /products/{slugChange.from} will permanently redirect to
-                  {" "}/products/{slugChange.to}. The old public URL remains in
-                  redirect history and cannot be silently deleted.
-                </p>
+                <p>{slugChangeMessage}</p>
               ) : null}
               {validation.affected_tables.map((table) => (
                 <div className={styles.diffGroup} key={table}>

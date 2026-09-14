@@ -93,7 +93,6 @@ describe("Storefront search projection", () => {
       objectID: searchableProduct.id,
       productId: searchableProduct.id,
       slug: "northpoint-renewal-serum",
-      slugAliases: [],
       displayName: "NORTHPOINT",
       editorialDescription: "A nightly serum for smoother-looking tone.",
       productType: "Serum",

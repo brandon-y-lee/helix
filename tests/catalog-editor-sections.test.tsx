@@ -189,14 +189,14 @@ describe("CatalogEditor sections", () => {
     );
   }, 10_000);
 
-  it("warns an administrator that a slug edit creates a permanent redirect", () => {
+  it("warns an administrator that a slug edit retires the old public URL", () => {
     const onChange = vi.fn();
     const { container } = render(<SectionsHarness onChange={onChange} />);
 
     toggleDisclosure(container, "section-products");
     toggleDisclosure(container, "group-products-advanced");
     expect(screen.getByLabelText("Slug")).toBeEnabled();
-    expect(screen.getByText(/old public URL will permanently redirect/i)).toBeVisible();
+    expect(screen.getByText(/old public URL will become unavailable/i)).toBeVisible();
     fireEvent.change(screen.getByLabelText("Slug"), {
       target: { value: "biotic-reset" },
     });
@@ -230,7 +230,7 @@ describe("CatalogEditor sections", () => {
     expect(screen.getByText("rename")).toBeVisible();
     expect(screen.getAllByText("Read only").length).toBeGreaterThan(0);
     expect(
-      screen.getByText(/redirect history is append-only/i),
+      screen.getByText(/Reserved URLs and replacement provenance cannot be deleted/i),
     ).toBeVisible();
   });
 

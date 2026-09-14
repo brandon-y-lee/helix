@@ -98,6 +98,8 @@ export type ReindexResult = {
 /**
  * Full (re)index for initial setup / recovery. Applies index settings then
  * atomically replaces every object. Returns the number of records indexed.
+ * Cutover also requires product:search:verify to inspect complete records,
+ * settings, rules, synonyms, and provider dependencies.
  */
 export async function reindexAllSearchRecords(
   records: AlgoliaProductRecord[],

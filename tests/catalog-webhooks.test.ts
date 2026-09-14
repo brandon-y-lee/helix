@@ -5,7 +5,6 @@ import {
   buildDesiredCatalogWebhooks,
   CATALOG_WEBHOOK_EVENTS,
   CATALOG_WEBHOOK_TABLES,
-  catalogWebhookTriggerName,
   loadCatalogWebhookConfig,
   runCatalogWebhookProvisioning,
   runCatalogWebhookSmoke,
@@ -32,12 +31,13 @@ const config: CatalogWebhookConfig = {
 };
 
 function observed(
-  tableName: (typeof CATALOG_WEBHOOK_TABLES)[number],
+  tableName: string,
   overrides: Partial<ObservedCatalogWebhook> = {},
 ): ObservedCatalogWebhook {
   return {
     tableName,
-    triggerName: catalogWebhookTriggerName(tableName),
+    triggerName: `helix_catalog_search_sync_${tableName}`,
+    httpRequestFunctionMatches: true,
     enabled: true,
     rowLevel: true,
     after: true,
@@ -67,7 +67,7 @@ function state(
 }
 
 describe("catalog webhook desired state", () => {
-  it("contains the seven canonical tables with deterministic event coverage", () => {
+  it("provisions the six current Catalog tables without the private slug ledger", () => {
     const first = buildDesiredCatalogWebhooks(ENDPOINT, SECRET);
     const second = buildDesiredCatalogWebhooks(ENDPOINT, SECRET);
 
@@ -77,11 +77,10 @@ describe("catalog webhook desired state", () => {
       "product_variants",
       "product_media",
       "product_pdp_content",
-      "product_slug_routes",
       "product_families",
       "product_family_memberships",
     ]);
-    expect(first).toHaveLength(7);
+    expect(first).toHaveLength(6);
     expect(first.every((webhook) => webhook.events === CATALOG_WEBHOOK_EVENTS)).toBe(
       true,
     );
@@ -90,10 +89,106 @@ describe("catalog webhook desired state", () => {
       "helix_catalog_search_sync_product_variants",
       "helix_catalog_search_sync_product_media",
       "helix_catalog_search_sync_product_pdp_content",
-      "helix_catalog_search_sync_product_slug_routes",
       "helix_catalog_search_sync_product_families",
       "helix_catalog_search_sync_product_family_memberships",
     ]);
+  });
+
+  it("keeps retired hooks visible until separately reviewed contraction removes them", () => {
+    const remote = state({
+      hooks: [...state().hooks, observed("product_slug_routes")],
+    });
+    const plan = buildCatalogWebhookReport("plan", config, remote);
+    const verification = buildCatalogWebhookReport("verify", config, remote);
+
+    expect(plan.ok).toBe(true);
+    expect(plan.currentHooksVerified).toBe(true);
+    expect(plan.verified).toBe(false);
+    expect(plan.retirementRequired).toBe(true);
+    expect(plan.retired).toEqual([{
+      table: "product_slug_routes",
+      expectedName: "helix_catalog_search_sync_product_slug_routes",
+      status: "pending_contraction",
+      hooks: [{
+        name: "helix_catalog_search_sync_product_slug_routes",
+        managed: true,
+        enabled: true,
+        httpRequestFunctionMatches: true,
+        configurationMatches: true,
+      }],
+    }]);
+    expect(plan.actions).toHaveLength(6);
+    expect(verification.ok).toBe(false);
+    expect(verification.verified).toBe(false);
+
+    const contracted = buildCatalogWebhookReport("verify", config, state());
+    expect(contracted.ok).toBe(true);
+    expect(contracted.verified).toBe(true);
+    expect(contracted.retirementRequired).toBe(false);
+    expect(contracted.retired[0]).toMatchObject({ status: "absent", hooks: [] });
+  });
+
+  it("rejects a managed trigger that calls a different function despite matching arguments", () => {
+    const remote = state({ hooks: CATALOG_WEBHOOK_TABLES.map((table) =>
+      observed(table, table === "products"
+        ? { httpRequestFunctionMatches: false }
+        : {})
+    ) });
+
+    const report = buildCatalogWebhookReport("verify", config, remote);
+
+    expect(report.ok).toBe(false);
+    expect(report.currentHooksVerified).toBe(false);
+    expect(report.actions).toContainEqual({
+      action: "update",
+      table: "products",
+      name: "helix_catalog_search_sync_products",
+    });
+  });
+
+  it.each([
+    ["disabled", { enabled: false }],
+    ["different endpoint", { endpointMatches: false }],
+    ["malformed headers", { headersMatch: false }],
+    ["unmanaged HTTP hook", { triggerName: "operator_created_route_hook" }],
+    ["managed name with another function", { httpRequestFunctionMatches: false }],
+  ] satisfies Array<[string, Partial<ObservedCatalogWebhook>]>)(
+    "does not mistake a %s retired hook for absence",
+    async (_description, overrides: Partial<ObservedCatalogWebhook>) => {
+      const retired = observed("product_slug_routes", overrides);
+      const remote = state({ hooks: [...state().hooks, retired] });
+      const fetchMock = vi.fn(async () => new Response(JSON.stringify([remote]), {
+        status: 200,
+      }));
+      const report = await runCatalogWebhookProvisioning(
+        "verify",
+        config,
+        new SupabaseCatalogWebhookControlPlane(fetchMock),
+      );
+
+      expect(report.ok).toBe(false);
+      expect(report.verified).toBe(false);
+      expect(report.retirementRequired).toBe(true);
+      expect(report.retired[0]?.hooks).toEqual([{
+        name: retired.triggerName,
+        managed: retired.triggerName === "helix_catalog_search_sync_product_slug_routes",
+        enabled: retired.enabled,
+        httpRequestFunctionMatches: retired.httpRequestFunctionMatches,
+        configurationMatches: overrides.triggerName !== undefined,
+      }]);
+      expect(JSON.stringify(report)).not.toContain(SECRET);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it("requires the private ledger table to remain present after hook retirement", () => {
+    const report = buildCatalogWebhookReport("verify", config, state({
+      missingTables: ["product_slug_routes"],
+    }));
+
+    expect(report.ok).toBe(false);
+    expect(report.verified).toBe(false);
+    expect(report.missingTables).toEqual(["product_slug_routes"]);
   });
 
   it("authenticates protected Preview deliveries without exposing the bypass secret", () => {
@@ -222,14 +317,39 @@ describe("catalog webhook desired state", () => {
 });
 
 describe("catalog webhook apply", () => {
-  it("is idempotent when all four managed hooks already match", async () => {
+  it("provisions current hooks without contracting the retired hook or claiming full verification", async () => {
+    const retired = observed("product_slug_routes");
+    let remote = state({ hooks: [retired] });
+    const fake: CatalogWebhookControlPlane = {
+      inspect: vi.fn(async () => remote),
+      enableDatabaseWebhooks: vi.fn(),
+      applyChanges: vi.fn(async (_config, desired, actions) => {
+        const sql = buildCatalogWebhookApplySql(desired, actions);
+        expect(sql).toContain('create trigger "helix_catalog_search_sync_products"');
+        expect(sql).not.toContain("product_slug_routes");
+        remote = state({ hooks: [...state().hooks, retired] });
+      }),
+    };
+
+    const report = await runCatalogWebhookProvisioning("apply", config, fake);
+
+    expect(report.ok).toBe(true);
+    expect(report.currentHooksVerified).toBe(true);
+    expect(report.verified).toBe(false);
+    expect(report.retirementRequired).toBe(true);
+    expect(report.retired[0]?.status).toBe("pending_contraction");
+    expect(fake.applyChanges).toHaveBeenCalledTimes(1);
+    expect(remote.hooks).toContainEqual(retired);
+  });
+
+  it("is idempotent when all six managed hooks already match", async () => {
     const matchingRow = {
       pgNetEnabled: true,
       httpRequestAvailable: true,
       missingTables: [],
       hooks: CATALOG_WEBHOOK_TABLES.map((table) => observed(table)),
     };
-    const fetchMock = vi.fn(async (_input: RequestInfo | URL) =>
+    const fetchMock = vi.fn<typeof fetch>(async () =>
       new Response(JSON.stringify([matchingRow]), {
         status: 201,
         headers: { "content-type": "application/json" },
@@ -360,8 +480,8 @@ describe("catalog webhook smoke verification", () => {
       indexName: "helix_products",
       publicIndexName: "helix_products",
       cache: {
-        tags: ["catalog-product-offer:treat-03-pdrn-5-ampoule"],
-        paths: ["/products/treat-03-pdrn-5-ampoule"],
+        tags: ["catalog-product-offer:super-serum"],
+        paths: ["/products/super-serum"],
       },
     };
     const fetchMock = vi

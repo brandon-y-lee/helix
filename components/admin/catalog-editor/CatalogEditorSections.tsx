@@ -1572,7 +1572,7 @@ function SystemMetadataSection({ metadata }: { metadata: CatalogEditorResponse["
       readOnly
     >
       <p className={styles.help}>
-        Workflow, revision, audit, and Product URL redirect records are displayed for inspection only. Redirect history is append-only and cannot be silently deleted.
+        Workflow, revision, audit, and private Product URL history are displayed for inspection only. Reserved URLs and replacement provenance cannot be deleted.
       </p>
       <MetadataRows table="product_content_drafts" rows={metadata.drafts} />
       <MetadataRows table="catalog_product_revisions" rows={metadata.revisions} />
