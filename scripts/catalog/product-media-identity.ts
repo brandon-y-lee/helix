@@ -117,6 +117,11 @@ function headers(response: Response, expectedMime?: string) {
   return { mimeType: mimeType as MimeType, byteSize };
 }
 
+function cancelResponseBody(response: Response): void {
+  // Cleanup must not extend a request deadline or replace its validation result.
+  void response.body?.cancel().catch(() => undefined);
+}
+
 export async function buildMediaIdentityManifest(input: {
   operationId: string; actorId: string; snapshots: MediaIdentitySnapshot[]; http?: typeof fetch;
 }): Promise<MediaIdentityManifest> {
@@ -139,7 +144,7 @@ export async function buildMediaIdentityManifest(input: {
           if (response.status !== 200) fail("Source Product Media is not directly available.");
           metadata = headers(response, source.mimeType);
         } finally {
-          await response.body?.cancel();
+          cancelResponseBody(response);
         }
         sourceMetadata.set(row.url, metadata);
       }
@@ -240,7 +245,8 @@ async function readBoundedBody(response: Response, signal: AbortSignal, maxBytes
     return Buffer.concat(chunks);
   } finally {
     signal.removeEventListener("abort", abort);
-    await reader.cancel().catch(() => undefined);
+    // Initiate cancellation, but release ownership even if the transport stalls.
+    void reader.cancel().catch(() => undefined);
     reader.releaseLock();
   }
 }
@@ -252,7 +258,7 @@ async function requireMissingObject(response: Response, signal: AbortSignal): Pr
   if (response.headers.get("content-type")?.split(";")[0].trim().toLowerCase() !== "application/json"
     || response.headers.has("content-range") || response.headers.has("location")
     || (length !== null && (!/^[0-9]+$/.test(length) || !validNumber(expectedBytes) || expectedBytes > limit))) {
-    await response.body?.cancel();
+    cancelResponseBody(response);
     fail("Storage response did not establish a missing Product Media object.");
   }
   const bytes = await readBoundedBody(response, signal, limit, expectedBytes);
@@ -285,11 +291,11 @@ async function readComplete(url: string, expected: MediaIdentityCopy, fetchImpl:
     await requireMissingObject(response, signal);
     return null;
   }
-  if (response.status !== 200 || !response.body) { await response.body?.cancel(); fail("Full Product Media must be directly retrievable without redirects or partial content."); }
+  if (response.status !== 200 || !response.body) { cancelResponseBody(response); fail("Full Product Media must be directly retrievable without redirects or partial content."); }
   try {
     const metadata = headers(response, expected.mimeType);
     if (metadata.byteSize !== expected.byteSize) fail("Product Media byte size changed after review.");
-  } catch (error) { await response.body.cancel(); throw error; }
+  } catch (error) { cancelResponseBody(response); throw error; }
   return readBoundedBody(response, signal, MAX_BYTES, expected.byteSize);
 }
 

@@ -120,6 +120,26 @@ describe("reviewed Product Media identity operation", () => {
     expect(cancel).toHaveBeenCalledOnce();
   });
 
+  it.each([
+    { status: 200, pending: true }, { status: 302, pending: true },
+    { status: 200, pending: false }, { status: 302, pending: false },
+  ])("planning preserves its result when cleanup cannot complete: $status, pending=$pending", async ({ status, pending }) => {
+    const cancel = vi.fn(() => pending ? new Promise<void>(() => {}) : Promise.reject(new Error("Cancellation failed")));
+    const stream = new ReadableStream({ cancel });
+    const http = vi.fn(async () => new Response(stream, { status, headers: {
+      "content-type": "image/png", "content-length": String(bytes.length), "cache-control": "public, max-age=3600",
+    } })) as typeof fetch;
+    let outcome: unknown;
+    void buildMediaIdentityManifest({ operationId: "10000000-0000-4000-8000-000000000701",
+      actorId: catalogDraft.updated_by, snapshots: [snapshot], http,
+    }).then((result) => { outcome = result; }, (error) => { outcome = error; });
+    await vi.waitFor(() => expect(outcome).toBeDefined(), { timeout: 200 });
+    if (status === 200) expect(outcome).toMatchObject({ products: [{ productId }] });
+    else expect(outcome).toMatchObject({ message: "Source Product Media is not directly available." });
+    expect(cancel).toHaveBeenCalledOnce();
+    expect(stream.locked).toBe(false);
+  });
+
   it("rejects a PNG-coded AVI advertised as an image before copying", async () => {
     // Synthetic 16×16 PNG frame in an AVI container: codec alone is not MIME evidence.
     const avi = await readFile("tests/fixtures/png-coded-avi.avi");
@@ -254,6 +274,35 @@ describe("reviewed Product Media identity operation", () => {
       expect(stream.locked).toBe(false);
       expect(copyObject).not.toHaveBeenCalled();
     } finally { timeout.mockRestore(); }
+  });
+
+  it.each(["oversized body", "invalid headers", "bad status", "media headers", "deadline"])("releases a rejected response without waiting for stalled cancellation: %s", async (failure) => {
+    const manifest = await makeManifest();
+    const controller = new AbortController();
+    const timeout = vi.spyOn(AbortSignal, "timeout").mockReturnValueOnce(new AbortController().signal).mockReturnValueOnce(controller.signal);
+    const cancel = vi.fn(() => new Promise<void>(() => {}));
+    const stream = new ReadableStream({
+      start(reader) { if (failure === "oversized body") reader.enqueue(new Uint8Array(4097)); }, cancel,
+    });
+    const reply = new Response(stream, { status: failure === "bad status" ? 500 : failure === "media headers" ? 200 : 400, headers: {
+      "content-type": failure === "invalid headers" ? "text/plain" : "application/json",
+    } });
+    const copyObject = vi.fn(async () => {});
+    const fetchImpl = vi.fn(async (url) => canonicalUrl(url) === sourceUrl ? response(bytes) : reply) as typeof fetch;
+    let outcome: unknown;
+    try {
+      void verifyAndCopyMedia(manifest, { mode: "copy", copyObject, fetchImpl, inspect }).then(
+        () => { outcome = "unexpected success"; }, (error) => { outcome = error; },
+      );
+      if (failure === "deadline") {
+        await vi.waitFor(() => expect(stream.locked).toBe(true));
+        controller.abort(new Error("Request deadline expired"));
+      }
+      await vi.waitFor(() => expect(outcome).toBeInstanceOf(Error), { timeout: 200 });
+      expect(cancel).toHaveBeenCalledOnce();
+      expect(stream.locked).toBe(false);
+      expect(copyObject).not.toHaveBeenCalled();
+    } finally { controller.abort(); timeout.mockRestore(); }
   });
 
   it("deduplicates a shared object while retaining both role and alt associations", async () => {
