@@ -5,6 +5,7 @@ import { resolve } from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { setTimeout as delay } from "node:timers/promises";
 import { verifyIdentityWriterConcurrency } from "../../supabase/tests/catalog_identity_concurrency.mjs";
+import { verifyIdentityDraftIsolation } from "../../supabase/tests/catalog_identity_isolation.mjs";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const container = process.argv.find((arg) => arg.startsWith("--container="))?.slice(12);
@@ -138,14 +139,19 @@ try {
     container, checkpoint: read(checkpoint), fixtures: read(fixtures),
     operationSql: read(operation), docker,
   });
+  const draftIsolation = await verifyIdentityDraftIsolation({
+    container, checkpoint: read(checkpoint), fixtures: read(fixtures),
+    operationSql: read(operation), docker,
+  });
   console.log(JSON.stringify({
     status: "passed",
     postgres: version,
     checkpoint: { path: checkpoint, sha256: createHash("sha256").update(read(checkpoint)).digest("hex") },
-    executed: [...files.slice(1), preflight, "supabase/tests/catalog_identity_concurrency.mjs"].map((path) => ({ path, sha256: createHash("sha256").update(read(path)).digest("hex") })),
+    executed: [...files.slice(1), preflight, "supabase/tests/catalog_identity_concurrency.mjs", "supabase/tests/catalog_identity_isolation.mjs"].map((path) => ({ path, sha256: createHash("sha256").update(read(path)).digest("hex") })),
     checks,
     concurrency,
     writerConcurrency,
+    draftIsolation,
     scope: "isolated synthetic Catalog; no provider data or outbound delivery",
   }, null, 2));
 } finally {
