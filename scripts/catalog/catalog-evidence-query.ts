@@ -5,6 +5,11 @@ export const MEDIA_BOUNDARY_INSPECTION_QUERY = `select jsonb_build_object(
   'verified_media_copies', to_regclass('private.verified_media_copies') is not null
 ) as media_boundary;`;
 
+/** Authorize protected readers without widening grants; enforce read-only in PostgreSQL. */
+export function catalogEvidenceReadTransaction(query: string): string {
+  return `BEGIN READ ONLY;\nSET LOCAL TIME ZONE 'UTC';\n${query}\nROLLBACK;`;
+}
+
 function rowMap(relation: string, key: string, value = "to_jsonb(row)", filter = ""): string {
   return `(select coalesce(jsonb_object_agg(${key}, ${value} order by ${key}), '{}'::jsonb)
     from ${relation} row ${filter})`;

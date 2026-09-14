@@ -9,7 +9,7 @@ import {
   assertCatalogEvidence, assertCatalogEvidencePlan, compareCatalogEvidence, createCatalogEvidence, parseCatalogEvidenceJson,
   type CatalogEvidenceInput, type EvidencePhase,
 } from "./catalog-evidence";
-import { buildCatalogEvidenceQuery, MEDIA_BOUNDARY_INSPECTION_QUERY } from "./catalog-evidence-query";
+import { buildCatalogEvidenceQuery, catalogEvidenceReadTransaction, MEDIA_BOUNDARY_INSPECTION_QUERY } from "./catalog-evidence-query";
 
 type SourceProvenance = { sourceCommit: string; extractorSha256: string };
 type Runtime = {
@@ -88,7 +88,9 @@ export async function runCatalogEvidenceCommand(argv: string[], runtime: Runtime
         method: query === undefined ? "GET" : "POST",
         redirect: "error",
         headers: { Authorization: `Bearer ${runtime.env.SUPABASE_ACCESS_TOKEN!.trim()}`, "Content-Type": "application/json" },
-        ...(query === undefined ? {} : { body: JSON.stringify({ query, read_only: true }) }),
+        // The API's read_only role cannot execute the protected document RPC.
+        // Use the authorized role with a database-enforced read-only transaction.
+        ...(query === undefined ? {} : { body: JSON.stringify({ query: catalogEvidenceReadTransaction(query), read_only: false }) }),
         signal: AbortSignal.timeout(60_000),
       });
     } catch { return fail("the approved-project read did not complete; no evidence was written."); }

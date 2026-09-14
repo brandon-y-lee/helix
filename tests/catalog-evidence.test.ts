@@ -245,7 +245,15 @@ describe("complete Catalog evidence", () => {
       expect((await stat(output)).mode & 0o777).toBe(0o600);
       expect(JSON.stringify(report)).not.toMatch(/private-test-token|Reviewed source|ISSUED-SKU|Apply reviewed guidance/);
       expect(request).toHaveBeenCalledTimes(3);
-      for (const [, options] of request.mock.calls.slice(1)) expect(JSON.parse(options!.body as string).read_only).toBe(true);
+      for (const [, options] of request.mock.calls.slice(1)) {
+        const body = JSON.parse(options!.body as string);
+        // The provider's constrained read-only role cannot execute the private
+        // Catalog document reader. The actual authorized transaction stays read-only.
+        expect(body.read_only).toBe(false);
+        expect(body.query).toMatch(/^BEGIN READ ONLY;\nSET LOCAL TIME ZONE 'UTC';\nselect /);
+        expect(body.query).toMatch(/;\nROLLBACK;$/);
+        expect(body).not.toHaveProperty("parameters");
+      }
       await expect(runCatalogEvidenceCommand(["capture", "--phase=before", `--output=${output}`], {
         env: { NODE_ENV: "test" }, fetchImpl: request,
       })).rejects.toThrow(/already exists/);

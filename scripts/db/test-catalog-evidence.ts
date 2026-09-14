@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { setTimeout as delay } from "node:timers/promises";
 import {
   buildCatalogEvidenceQuery,
+  catalogEvidenceReadTransaction,
   MEDIA_BOUNDARY_INSPECTION_QUERY,
 } from "../catalog/catalog-evidence-query";
 import { createCatalogEvidence, type CatalogEvidenceInput } from "../catalog/catalog-evidence";
@@ -113,7 +114,7 @@ values('10000000-0000-4000-8000-000000000801','draft.saved','${actorId}','${prod
 type Row = Record<string, unknown>;
 type Capture = { metadata: Row; state: Record<string, Row> };
 const readCapture = (present: boolean): Capture => JSON.parse(docker(psql,
-  `begin read only; set local time zone 'UTC';\n${captureQuery(present)}\nrollback;`,
+  catalogEvidenceReadTransaction(captureQuery(present)),
 ).trim()) as Capture;
 function captureDuringWriter(): Promise<string> {
   return new Promise((resolveCapture, reject) => {
@@ -155,7 +156,7 @@ try {
   const roles = JSON.parse(docker(psql, "select jsonb_object_agg(rolname,rolbypassrls) from pg_roles where rolname in ('anon','authenticated','service_role');").trim());
   deepStrictEqual(roles, { anon: false, authenticated: false, service_role: true });
   docker(psql, [checkpoint, identity, guidance, fixtures].map(read).join("\n") + seed);
-  deepStrictEqual(JSON.parse(docker(psql, MEDIA_BOUNDARY_INSPECTION_QUERY).trim()), boundary(false));
+  deepStrictEqual(JSON.parse(docker(psql, catalogEvidenceReadTransaction(MEDIA_BOUNDARY_INSPECTION_QUERY)).trim()), boundary(false));
   const before = readCapture(false);
   check("historical twelve-digit and current fourteen-digit migration versions remain verbatim", () => {
     deepStrictEqual(before.state.migrationVersions,
