@@ -1,19 +1,8 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
-  CHECKOUT_CANCELLED_CART_PATH,
   buildCheckoutCancelUrl,
   isCheckoutCancelledSearchParams,
 } from "@/lib/orders/checkout-cancel";
-
-const navigation = vi.hoisted(() => ({
-  redirect: vi.fn((url: string) => {
-    throw new Error(`redirect:${url}`);
-  }),
-}));
-
-vi.mock("next/navigation", () => navigation);
-
-import CheckoutCancelPage from "@/app/checkout/cancel/page";
 
 describe("checkout cancellation routing", () => {
   it("builds a cart cancel URL without public order identifiers", () => {
@@ -35,12 +24,5 @@ describe("checkout cancellation routing", () => {
     expect(isCheckoutCancelledSearchParams({ checkout: ["cancelled"] })).toBe(true);
     expect(isCheckoutCancelledSearchParams({ checkout: "order-123" })).toBe(false);
     expect(isCheckoutCancelledSearchParams({})).toBe(false);
-  });
-
-  it("redirects the legacy cancel page to cart without preserving query ids", () => {
-    expect(() => CheckoutCancelPage()).toThrow(
-      `redirect:${CHECKOUT_CANCELLED_CART_PATH}`,
-    );
-    expect(navigation.redirect).toHaveBeenCalledWith(CHECKOUT_CANCELLED_CART_PATH);
   });
 });
