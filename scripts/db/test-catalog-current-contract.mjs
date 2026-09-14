@@ -55,6 +55,7 @@ const paths = {
   dispatcher: "supabase/migrations/20260914051219_retire_catalog_v3_dispatcher.sql",
   guidance: "supabase/migrations/20260914062650_catalog_reviewed_guidance.sql",
   media: "supabase/migrations/20260914062651_catalog_stable_media_boundary.sql",
+  restoreTimestamps: "supabase/migrations/20260914121842_catalog_restore_current_timestamps.sql",
   dispatcherHistory: "supabase/migrations/20260801052736_catalog_editor_v3_complete_field_coverage.sql",
   resolverHistory: "supabase/migrations/20260810135417_durable_product_slug_routes.sql",
   urlPreflight: "supabase/operations/product-url-preflight.sql",
@@ -64,6 +65,7 @@ const paths = {
   orders: "supabase/tests/catalog_current_contract.orders.sql",
   fixtures: "supabase/tests/catalog_current_contract.fixtures.sql",
   tests: "supabase/tests/catalog_current_contract.integration.sql",
+  restoreService: "tests/catalog-restore-sql-service.test.ts",
 };
 // Freeze all source bytes before execution. Evidence must describe exactly the
 // SQL loaded even if another worker edits this shared worktree during the run.
@@ -146,6 +148,12 @@ const assertAbsent = `do $$ begin
 end $$;`;
 let created = false;
 let proof;
+const restoreRoutines = `select coalesce(jsonb_object_agg(p.oid::regprocedure::text,
+  jsonb_build_object('definition',pg_get_functiondef(p.oid),'owner',pg_get_userbyid(p.proowner),
+    'acl',p.proacl::text,'settings',p.proconfig)), '{}')
+  from pg_proc p where p.oid in (
+    to_regprocedure('public.restore_catalog_product_revision(uuid,uuid)'),
+    to_regprocedure('private.catalog_restore_current_timestamps(jsonb,jsonb)'));`;
 const startedAt = new Date().toISOString();
 try {
   success(docker(["exec", container, "createdb", "-U", "postgres", database]));
@@ -157,6 +165,17 @@ try {
     "Use the documented Supabase image role boundaries");
   execute([read(checkpoints.catalog), historicalContracts, read(paths.identity),
     read(paths.guidance), read(paths.media), ordersPrerequisites, ordersSlice].join("\n"));
+  const restoreBefore = JSON.parse(execute(restoreRoutines).trim());
+  execute(read(paths.restoreTimestamps));
+  const restoreAfter = JSON.parse(execute(restoreRoutines).trim());
+  const restoreSignature = "restore_catalog_product_revision(uuid,uuid)";
+  for (const field of ["owner", "acl", "settings"]) {
+    assert.deepEqual(restoreAfter[restoreSignature][field], restoreBefore[restoreSignature][field],
+      `Timestamp migration changed Restore ${field}`);
+  }
+  assert.equal(execute(`select bool_and(not has_function_privilege(role_name,
+    'private.catalog_restore_current_timestamps(jsonb,jsonb)','EXECUTE'))
+    from unnest(array['anon','authenticated','service_role']) as roles(role_name);`).trim(), "t");
   const retainedBefore = JSON.parse(execute(retainedRoutines).trim());
   const red = docker(psql, assertAbsent);
   assert.notEqual(red.status, 0, "Negative control must fail before contraction");
@@ -199,10 +218,21 @@ try {
   assert.deepEqual(JSON.parse(execute(retainedRoutines).trim()), retainedBefore,
     "URL contraction or composed lifecycle changed retained routines or grants");
   execute(read(paths.dispatcher) + "\n" + assertAbsent);
+  // Exercise actual SQL Restore output through the normal application services.
+  // The Supabase transport points only at this runner's disposable database.
+  const service = spawnSync(process.execPath, ["node_modules/vitest/vitest.mjs", "run",
+    paths.restoreService, "--reporter=dot"], {
+    cwd: root, encoding: "utf8", timeout: 120_000, maxBuffer: 4 * 1024 * 1024,
+    env: { ...process.env, HELIX_RESTORE_SQL_CONTAINER: container,
+      HELIX_RESTORE_SQL_DATABASE: database },
+  });
+  assert.equal(service.status, 0, service.stdout + service.stderr);
+  checks.push("actual SQL Restore → normal Save/Validate/Ready/Publish services and negative guards");
   proof = {
     status: "passed", postgres: version, sourceRevision: sourceRevision.stdout.trim(),
     sourceState: "working-tree artifact bytes captured once before execution and identified by exact hashes", startedAt,
     checks, retainedActualRoutines: Object.keys(retainedBefore).length,
+    restoreMigration: { before: restoreBefore, after: restoreAfter },
     retainedRoutineMetadataSha256: hash(JSON.stringify(retainedBefore)),
     artifacts: artifactPaths.map((path) => ({ path, sha256: hash(read(path)) })),
     executedSql,
