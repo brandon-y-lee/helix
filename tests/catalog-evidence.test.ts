@@ -112,6 +112,29 @@ describe("complete Catalog evidence", () => {
     expect(createCatalogEvidence(value, provenance, "before").state.documents[productId].productFamily).toBeNull();
   });
 
+  it("preserves mixed historical and current migration identifiers in capture and comparison", () => {
+    const value = input();
+    value.state.migrationVersions = ["20260617094816", "202606180001", "202607130001", "20260909042518"];
+    const before = createCatalogEvidence(value, provenance, "before");
+    const prepared = structuredClone(value);
+    prepared.metadata.capturedAt = "2026-09-14T08:02:00.000Z";
+    const after = createCatalogEvidence(prepared, provenance, "prepared");
+    expect(before.state.migrationVersions).toEqual(value.state.migrationVersions);
+    expect(compareCatalogEvidence(before, after, {
+      version: 1, beforeCaptureSha256: before.captureSha256, changes: [],
+    })).toMatchObject({ ok: true, changedPaths: [] });
+  });
+
+  it.each([
+    ["20260618000"], ["2026061800010"], ["202606180001000"],
+    ["20260618abcd"], ["202606180001", "202606180001"],
+    ["20260909042518", "202606180001"], [20260909042518],
+  ])("rejects malformed, duplicate, unordered or non-string migration history: %j", (...versions) => {
+    const value = input();
+    value.state.migrationVersions = versions as string[];
+    expect(() => createCatalogEvidence(value, provenance, "before")).toThrow(/migration boundary/);
+  });
+
   it.each([
     ["product", "seo_title", "Reviewed title"],
     ["productPdpContent", "how_to_use_steps", ["Changed instructions."]],

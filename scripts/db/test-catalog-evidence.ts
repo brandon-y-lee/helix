@@ -81,7 +81,7 @@ select pg_temp.seed_catalog_identity('super-serum', 'Super Serum');
 create schema supabase_migrations;
 create table supabase_migrations.schema_migrations(version text primary key);
 insert into supabase_migrations.schema_migrations values
- ('20260909042518'),('20260914051153'),('20260914062650');
+ ('202606180001'),('202607130001'),('20260909042518'),('20260914051153'),('20260914062650');
 create schema storage;
 create table storage.objects(id uuid primary key, bucket_id text, name text, metadata jsonb, version text);
 update public.products set catalog_status='draft' where id='${relatedId}';
@@ -157,6 +157,10 @@ try {
   docker(psql, [checkpoint, identity, guidance, fixtures].map(read).join("\n") + seed);
   deepStrictEqual(JSON.parse(docker(psql, MEDIA_BOUNDARY_INSPECTION_QUERY).trim()), boundary(false));
   const before = readCapture(false);
+  check("historical twelve-digit and current fourteen-digit migration versions remain verbatim", () => {
+    deepStrictEqual(before.state.migrationVersions,
+      ["202606180001", "202607130001", "20260909042518", "20260914051153", "20260914062650"]);
+  });
   check("read-only UTC statement snapshot and exact document-function chain are observed", () => {
     strictEqual(before.metadata.transactionReadOnly, "on");
     strictEqual(before.metadata.catalogReadsBypassRls, true);

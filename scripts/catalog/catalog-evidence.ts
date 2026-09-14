@@ -122,7 +122,9 @@ function validateInput(input: CatalogEvidenceInput): void {
   keys(state.documentFunctions, DOCUMENT_FUNCTIONS, "document function provenance");
   if (Object.values(state.documentFunctions).some((row) => row.volatility !== "s" || typeof row.sha256 !== "string" || !SHA256.test(row.sha256))) fail("current-document functions must be verified STABLE readers.");
   if (!Array.isArray(state.migrationVersions) || !state.migrationVersions.length
-    || state.migrationVersions.some((version) => !/^\d{14}$/.test(version))
+    // The applied June/July ledger contains twelve-digit identifiers. Preserve
+    // them verbatim alongside later fourteen-digit timestamps.
+    || state.migrationVersions.some((version) => typeof version !== "string" || !/^\d{12}(?:\d{2})?$/.test(version))
     || !equal(state.migrationVersions, [...new Set(state.migrationVersions)].sort())) fail("the complete ordered migration boundary is required.");
   if (!object(state.history)) fail("Catalog history is required.");
   keys(state.history, ["revisions", "auditEntries", "mediaOperations", "mediaCopies"], "history");
