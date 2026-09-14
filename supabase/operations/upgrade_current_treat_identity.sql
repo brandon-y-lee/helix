@@ -25,6 +25,13 @@ declare
   v_published public.catalog_product_revisions%rowtype;
   v_affected integer;
 begin
+  -- Later row/table locks cannot refresh a snapshot established before a
+  -- normal Create Draft commits. Refuse it before any read, lock or no-op.
+  if current_setting('transaction_isolation') is distinct from 'read committed' then
+    raise exception 'current identity operation requires READ COMMITTED isolation'
+      using errcode = '25001';
+  end if;
+
   if p_expected_document is null
      or p_expected_document ->> 'schemaVersion' is distinct from '4'
      or p_expected_revision is null or p_expected_revision < 0
