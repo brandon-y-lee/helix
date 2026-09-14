@@ -28,6 +28,13 @@ declare
   v_old_paragraph constant text := 'Massage onto damp skin, then rinse thoroughly. Use at night; morning cleansing can be added when needed. Follow with Peptide Bounce, then Ceramide Cushion when available.';
   v_current_paragraph constant text := 'Massage onto damp skin, then rinse thoroughly. Use at night; morning cleansing can be added when needed. Follow with Super Serum, then Ceramide Cushion when available.';
 begin
+  -- A prior Repeatable Read snapshot can miss a committed normal Draft even
+  -- after Product/table locks are acquired. Refuse it before any state reads.
+  if current_setting('transaction_isolation') <> 'read committed' then
+    raise exception 'guidance preparation requires READ COMMITTED isolation'
+      using errcode = '25001';
+  end if;
+
   -- The supplied ref attests external target verification; SQL does not infer
   -- the provider identity from current_database(), which is normally postgres.
   if p_verified_project_ref is distinct from 'erasogmsqpgiirovubjh'

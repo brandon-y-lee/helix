@@ -33,7 +33,16 @@ Read-only evidence dated 2026-09-14 found 10 active Products: nine already had s
 
 An approved source Ticket provides the operation artifacts. Actual provider application remains a separately recorded action with fresh target and exact manifest authority.
 
-Open a privileged SQL session to the verified target and start one bounded explicit transaction. Set local `lock_timeout = '5s'`, `statement_timeout = '30s'`, and `idle_in_transaction_session_timeout = '60s'`. Load `supabase/operations/prepare_reviewed_product_guidance.sql`, then call:
+Open a privileged SQL session to the verified target and start one bounded transaction explicitly at Read Committed, retaining these local limits:
+
+```sql
+begin isolation level read committed;
+set local lock_timeout = '5s';
+set local statement_timeout = '30s';
+set local idle_in_transaction_session_timeout = '60s';
+```
+
+Load `supabase/operations/prepare_reviewed_product_guidance.sql`, then call:
 
 ```sql
 select pg_temp.prepare_reviewed_product_guidance(
@@ -46,7 +55,7 @@ select pg_temp.prepare_reviewed_product_guidance(
 
 The first three arguments are values from the privately reviewed manifest, not literal SQL identifiers or reusable live Product UUID constants. Bind or safely quote the JSON and UUID values; do not interpolate untrusted text into SQL. The final argument attests the external connection verification and must match the required project. It does not replace that verification.
 
-The operation is a session-local `SECURITY INVOKER` function with an empty search path and no application-role execution grants. It neither creates a persistent compatibility RPC nor changes grants on application tables. It takes the established family/Product locks, then briefly fences current Catalog, draft, history and administrator writers. `NOWAIT` refuses an already-running independent write; public reads continue. Do not wait for human review while the transaction is open. Run the already-reviewed postflight checks and commit promptly, or roll back on any mismatch.
+The operation is a session-local `SECURITY INVOKER` function with an empty search path and no application-role execution grants. It neither creates a persistent compatibility RPC nor changes grants on application tables. Before inspecting any Catalog state, validating arguments, acquiring locks or returning a no-op, it requires `READ COMMITTED` and otherwise rejects with SQLSTATE `25001`. An earlier Repeatable Read snapshot can miss a normal Draft creation that committed later; acquiring locks does not refresh that snapshot. Never change isolation after a snapshot exists to force completion. It takes the established family/Product locks, then briefly fences current Catalog, draft, history and administrator writers. `NOWAIT` refuses an already-running independent write; public reads continue. Do not wait for human review while the transaction is open. Run the already-reviewed postflight checks and commit promptly, or roll back on any mismatch.
 
 The full current document, latest revision, active administrator, exact Product identity/editorial state and absence of open drafts must still match under these locks. Biotic Reset's retained instructions must pass the same guidance validator as normal publication; null or blank steps reject. A successful change appends one Published Revision and one `draft.published` Catalog Audit Entry with `source = spec-358-reviewed-product-guidance`, `method = controlled-content-operation`, the prior document hash and exact changed field. It has no `draft_id` or `source_draft_id`: this is a bounded governed content operation, not a fabricated Ready Catalog Draft.
 
@@ -62,6 +71,6 @@ Every attempt requires a fresh exact manifest, including retries. The current de
 
 ## Isolated SQL validation
 
-The guidance runner loads the captured current-schema checkpoint, the current Restore/guidance migrations, session-local preparation operation and synthetic Catalog fixtures into a disposable PostgreSQL 17 database. `supabase/tests/catalog_guidance_preparation.integration.sql` executes both real operations and asserts exact diffs, preserved history/child facts, active-draft/actor/project/ambiguity/stale-state rejection and repeat no-op behavior. The tests use synthetic IDs and roll back all rows. They have no provider connection or outbound delivery.
+The guidance runner loads the captured current-schema checkpoint, the current Restore/guidance migrations, session-local preparation operation and synthetic Catalog fixtures into a disposable PostgreSQL 17 database. `supabase/tests/catalog_guidance_preparation.integration.sql` executes both real operations and asserts exact diffs, preserved history/child facts, active-draft/actor/project/ambiguity/stale-state rejection and repeat no-op behavior. The tests use synthetic IDs and roll back their single-session rows. The runner also executes `supabase/tests/catalog_guidance_isolation.mjs`: synchronized sessions establish a reviewed snapshot, commit the real normal Create Draft, and prove that both Products reject stale Repeatable Read (`25001`) or observe the new Draft at Read Committed (`23514`). Complete Catalog state comparisons preserve the committed Draft and audit alongside every current and historical fact. Unsupported isolation rejects before argument validation. Each concurrent case uses a separate disposable database that is removed after all sessions finish. These tests have no provider connection or outbound delivery.
 
 The checkpoint represents an existing supported schema. This procedure does not claim empty-database replay of the complete historical migration chain.

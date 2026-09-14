@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { deepStrictEqual } from "node:assert";
+import { verifyGuidanceDraftIsolation } from "../../supabase/tests/catalog_guidance_isolation.mjs";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const container = process.argv.find((arg) => arg.startsWith("--container="))?.slice(12);
@@ -42,7 +43,8 @@ const operation = "supabase/operations/prepare_reviewed_product_guidance.sql";
 const preflight = "supabase/operations/reviewed_product_guidance_preflight.sql";
 const preparationTests = "supabase/tests/catalog_guidance_preparation.integration.sql";
 const files = [checkpoint, identityMigration, ...extraMigrations, fixtures, migration, tests,
-  preexistingReady, operation, preflight, preparationTests];
+  preexistingReady, operation, preflight, preparationTests,
+  "supabase/tests/catalog_guidance_isolation.mjs", "supabase/tests/catalog_sql_session.mjs"];
 const read = (path) => readFileSync(resolve(root, path), "utf8");
 const psql = ["exec", "-i", container, "psql", "-X", "-U", "postgres", "-d", database,
   "--quiet", "--no-align", "--tuples-only", "--set=ON_ERROR_STOP=1"];
@@ -87,10 +89,15 @@ try {
       ${preservedRoutines},'private.catalog_guidance_validation_errors(jsonb)'::regprocedure,
       'private.catalog_restore_guidance(jsonb,jsonb)'::regprocedure,
       'private.enforce_catalog_draft_guidance()'::regprocedure);`).trim());
+  const draftIsolation = await verifyGuidanceDraftIsolation({
+    container, checkpoint: read(checkpoint), identityMigration: read(identityMigration),
+    extraMigrations: extraMigrations.map(read), fixtures: read(fixtures),
+    guidanceMigration: read(migration), operationSql: read(operation), docker,
+  });
   console.log(JSON.stringify({
     status: "passed", postgres: version,
     executed: files.map((path) => ({ path, sha256: createHash("sha256").update(read(path)).digest("hex") })),
-    checks, functionDefinitionSha256: functionDefinitions,
+    checks, draftIsolation, functionDefinitionSha256: functionDefinitions,
     scope: "isolated synthetic Catalog; no provider data or outbound delivery",
   }, null, 2));
 } finally {
