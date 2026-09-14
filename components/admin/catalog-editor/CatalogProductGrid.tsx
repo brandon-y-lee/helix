@@ -36,7 +36,11 @@ function formatTimestamp(value: string | null): string {
   }).format(new Date(value));
 }
 
-export default function CatalogProductGrid() {
+export default function CatalogProductGrid({
+  api = catalogEditorApi,
+}: {
+  api?: Pick<typeof catalogEditorApi, "listProducts">;
+} = {}) {
   const [products, setProducts] = useState<CatalogProductListItem[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [searchInput, setSearchInput] = useState("");
@@ -52,7 +56,7 @@ export default function CatalogProductGrid() {
 
   const load = useCallback(
     async (cursor: string | null, signal?: AbortSignal) => {
-      const result = await catalogEditorApi.listProducts(
+      const result = await api.listProducts(
         { search, publication, routine, draft, cursor },
         signal,
       );
@@ -61,7 +65,7 @@ export default function CatalogProductGrid() {
       );
       setNextCursor(result.nextCursor);
     },
-    [draft, publication, routine, search],
+    [api, draft, publication, routine, search],
   );
 
   useEffect(() => {

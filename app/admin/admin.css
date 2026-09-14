@@ -1,13 +1,15 @@
 :where(.admin-shell, .admin-gate, .admin-drawer) {
-  --admin-bg: #f3f4f0;
-  --admin-surface: #ffffff;
+  --admin-bg: #ffffff;
+  --admin-surface: #f5f5f7;
+  --admin-inset: #ffffff;
+  --admin-control-line: #8c8c91;
   --admin-sidebar: #17221d;
   --admin-sidebar-soft: #aebdb5;
   --admin-accent: #2f5947;
   --admin-accent-soft: #dce8e1;
   --admin-warning: #7a5131;
   --admin-warning-soft: #f0e4d7;
-  --admin-line: #d8ddd8;
+  --admin-line: #d8d8dc;
   --admin-text: #18201c;
   --admin-text-soft: #5f6963;
 }
@@ -146,13 +148,17 @@ a.admin-navigation__item:hover {
 
 .admin-navigation__item:focus-visible,
 .admin-sidebar__toggle:focus-visible,
-.admin-account__signout:focus-visible,
+.admin-account__signout:focus-visible {
+  outline: 3px solid #91b6a3;
+  outline-offset: 2px;
+}
+
 .admin-mobile-header__menu:focus-visible,
 .admin-module__link:focus-visible,
 .admin-gate__link:focus-visible,
 .admin-error button:focus-visible,
 .admin-error a:focus-visible {
-  outline: 3px solid #91b6a3;
+  outline: 3px solid var(--admin-accent);
   outline-offset: 2px;
 }
 
@@ -264,7 +270,7 @@ a.admin-navigation__item:hover {
   justify-content: space-between;
   min-height: 56px;
   padding: 0 clamp(24px, 4vw, 52px);
-  background: rgba(255, 255, 255, 0.82);
+  background: var(--admin-bg);
   border-bottom: 1px solid var(--admin-line);
 }
 
@@ -479,7 +485,12 @@ a.admin-navigation__item:hover {
 }
 
 .admin-error a {
-  border: 1px solid var(--admin-line);
+  background: var(--admin-inset);
+  border: 1px solid var(--admin-control-line);
+}
+
+.admin-gate .account-signout {
+  background: var(--admin-inset);
 }
 
 .admin-drawer.sheet__panel {
@@ -521,6 +532,10 @@ a.admin-navigation__item:hover {
 }
 
 @media (max-width: 820px) {
+  .admin-skip-link:focus-visible {
+    outline-color: var(--admin-accent);
+  }
+
   .admin-shell {
     display: block;
     transition: none;
@@ -540,7 +555,7 @@ a.admin-navigation__item:hover {
     align-items: center;
     min-height: 60px;
     padding: 8px 16px;
-    background: rgba(255, 255, 255, 0.94);
+    background: var(--admin-bg);
     border-bottom: 1px solid var(--admin-line);
   }
 
@@ -549,8 +564,8 @@ a.admin-navigation__item:hover {
     min-height: 44px;
     padding: 8px;
     color: var(--admin-text);
-    background: transparent;
-    border: 1px solid var(--admin-line);
+    background: var(--admin-surface);
+    border: 1px solid var(--admin-control-line);
     border-radius: 6px;
     font: inherit;
     font-size: 0.76rem;

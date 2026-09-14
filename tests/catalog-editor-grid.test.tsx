@@ -24,6 +24,13 @@ describe("CatalogProductGrid", () => {
     listProducts.mockReset();
   });
 
+  it("uses a supplied presentation client without requesting the real catalog", async () => {
+    const api = { listProducts: vi.fn().mockResolvedValue({ items: [], nextCursor: null }) };
+    render(<CatalogProductGrid api={api} />);
+    expect(await screen.findByRole("heading", { name: "No Catalog Products found" })).toBeVisible();
+    expect(listProducts).not.toHaveBeenCalled();
+  });
+
   it("shows loading, product summaries, editor links, filters, and pagination", async () => {
     let resolveFirst:
       | ((
