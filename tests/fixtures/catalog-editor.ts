@@ -116,7 +116,7 @@ export const catalogDocument: CatalogDraftDocument = {
       product_id: PRODUCT_ID,
       variant_key: "200ml",
       label: "200 mL",
-      sku: "MP-CLEANSE-200",
+      sku: "FIXTURE-CLEANSE-200",
       price_cents: 2200,
       compare_at_price_cents: null,
       available: true,

@@ -9,7 +9,6 @@ import { metadata as unavailableMetadata } from "@/app/account/service-unavailab
 import { metadata as cartMetadata } from "@/app/cart/page";
 import { metadata as checkoutMetadata } from "@/app/checkout/page";
 import { metadata as successMetadata } from "@/app/checkout/success/page";
-import { metadata as cancelMetadata } from "@/app/checkout/cancel/page";
 import { CookieAcknowledgementDialog } from "@/components/privacy/CookieAcknowledgementDialog";
 import { COOKIE_ACKNOWLEDGEMENT_COOKIE } from "@/lib/customer-state-identifiers";
 import { FORMER_BRAND_PATTERN } from "@/tests/helpers/former-identifiers";
@@ -26,7 +25,6 @@ describe("helix Account, Cart, Checkout, and acknowledgement surfaces", () => {
       cartMetadata.title,
       checkoutMetadata.title,
       successMetadata.title,
-      cancelMetadata.title,
     ]).toEqual([
       "Account | helix",
       "Sign in | helix",
@@ -37,7 +35,6 @@ describe("helix Account, Cart, Checkout, and acknowledgement surfaces", () => {
       "Cart | helix",
       "Checkout | helix",
       "Payment verified | helix",
-      "Checkout canceled | helix",
     ]);
   });
 

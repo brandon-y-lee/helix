@@ -1603,12 +1603,10 @@ export type Database = {
         }
         Returns: boolean
       }
-      fail_checkout_order_from_stripe:
-        | { Args: { p_order_id: string; p_reason: string }; Returns: boolean }
-        | {
-            Args: { p_order_id: string; p_reason: string; p_session_id: string }
-            Returns: boolean
-          }
+      fail_checkout_order_from_stripe: {
+        Args: { p_order_id: string; p_reason: string; p_session_id: string }
+        Returns: boolean
+      }
       finalize_paid_checkout_order: {
         Args: {
           p_billing_address: Json
