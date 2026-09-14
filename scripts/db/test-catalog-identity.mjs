@@ -31,6 +31,13 @@ const label = docker([
 if (label !== "spec358-synthetic-sql") {
   throw new Error("Refusing a container without the spec358-synthetic-sql test label.");
 }
+const roles = JSON.parse(docker([
+  "exec", container, "psql", "-X", "-U", "postgres", "-d", "postgres", "-Atc",
+  "select coalesce(jsonb_object_agg(rolname, rolbypassrls), '{}'::jsonb) from pg_roles where rolname in ('anon','authenticated','service_role');",
+]).trim());
+if (roles.anon !== false || roles.authenticated !== false || roles.service_role !== true) {
+  throw new Error("Catalog SQL tests require the documented Supabase PostgreSQL image roles: anon/authenticated without BYPASSRLS and service_role with BYPASSRLS.");
+}
 
 const database = `helix_catalog_identity_${randomBytes(8).toString("hex")}`;
 const checkpoint = "supabase/tests/checkpoints/catalog-current-20260909042518.sql";

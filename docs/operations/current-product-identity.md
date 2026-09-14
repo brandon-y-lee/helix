@@ -52,9 +52,10 @@ The Restore migration is required before the updated admin interface claims rete
 
 The checkpoint `supabase/tests/checkpoints/catalog-current-20260909042518.sql` was captured read-only from PostgreSQL 17.6 at installed migration `20260909042518`. It contains actual definitions of 14 Catalog tables and 31 related functions, constraints/indexes, Catalog triggers, RLS/policies and grants. All 31 function definitions matched the provider definitions exactly after loading into isolated PostgreSQL 17.6. No Catalog or customer rows are copied. Auth user identity is an explicit `auth.users(id)` external boundary; outbound provider webhook triggers are excluded so tests cannot deliver external events. Authentication and provider delivery behavior are not claimed by this harness. The extraction query is retained beside the checkpoint; the runner reports its SHA-256 and hashes of every applied operation/test artifact.
 
-Run a disposable local PostgreSQL 17 container with the `helix.task=spec358-synthetic-sql` label, then:
+Use the following disposable local Supabase PostgreSQL image. Its initialization supplies the Catalog checkpoint's required `anon`, `authenticated`, and `service_role` roles; stock PostgreSQL alone is insufficient. `anon` and `authenticated` must not have `BYPASSRLS`, while `service_role` must have it. The runner verifies these existing roles before creating any database and does not change cluster roles. The password below is only for this synthetic local container; no host port is exposed.
 
 ```bash
+docker run --detach --name helix-spec358-pg --label helix.task=spec358-synthetic-sql --env POSTGRES_PASSWORD=helix-local-test-only public.ecr.aws/supabase/postgres:17.6.1.159
 node scripts/db/test-catalog-identity.mjs --container=helix-spec358-pg
 ```
 
