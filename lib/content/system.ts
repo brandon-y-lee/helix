@@ -1,6 +1,5 @@
 import type { ProductCard } from "@/lib/catalog/models";
 import type { SystemStepName } from "@/lib/catalog/system-steps";
-import type { Product } from "@/lib/products";
 
 export const CORE_SYSTEM_STEP_NAMES = [
   "CLEANSE",
@@ -39,14 +38,14 @@ export type CoreSystemProductEntry = {
   stepName: CoreSystemStepName;
   displayNumber: string;
   anchorId: string;
-  product: Product;
+  product: ProductCard;
 };
 
 export type BeyondSystemProductEntry = {
   stepName: BeyondSystemStepName;
   placement: string;
   anchorId: string;
-  product: Product;
+  product: ProductCard;
 };
 
 export type SystemProductGroups = {
@@ -56,7 +55,7 @@ export type SystemProductGroups = {
   missingBeyondSteps: BeyondSystemStepName[];
 };
 
-function compareSystemProducts(a: Product, b: Product) {
+function compareSystemProducts(a: ProductCard, b: ProductCard) {
   return (
     a.routineSort - b.routineSort ||
     a.sortOrder - b.sortOrder ||
@@ -65,20 +64,15 @@ function compareSystemProducts(a: Product, b: Product) {
 }
 
 export function groupSystemProducts(
-  products: readonly Product[],
-  collectionEntries: readonly Pick<ProductCard, "id">[],
+  products: readonly ProductCard[],
 ): SystemProductGroups {
-  const collectionEntryIds = new Set(collectionEntries.map((entry) => entry.id));
   const eligibleProducts = products.filter(
-    (product) =>
-      collectionEntryIds.has(product.id) &&
-      product.catalogStatus === "active" &&
-      product.systemStepName !== null,
+    (product) => product.productFamily?.isEntry !== false,
   );
 
   function productForStep(
     stepName: SystemStepName,
-    routineGroup: Product["routineGroup"],
+    routineGroup: ProductCard["routineGroup"],
   ) {
     return eligibleProducts
       .filter(

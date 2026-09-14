@@ -6,7 +6,6 @@ import type {
   ProductOffer,
 } from "@/lib/catalog/models";
 import { CATALOG_MEDIA_BUCKET } from "@/lib/catalog/media-storage";
-import type { Product } from "@/lib/products";
 
 type CacheRegistration = {
   keyParts: string[];
@@ -28,16 +27,6 @@ vi.mock("next/cache", () => ({
   ),
 }));
 
-vi.mock("react", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("react")>();
-  return { ...actual, cache: <T,>(callback: T) => callback };
-});
-
-vi.mock("@/lib/catalog", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/catalog")>();
-  return { ...actual, getProducts: vi.fn() };
-});
-
 vi.mock("@/lib/catalog/storefront", () => ({
   getCoreRoutineContentSummaries: vi.fn(),
   getDiscoveryProductCardContents: vi.fn(),
@@ -51,9 +40,9 @@ vi.mock("@/lib/catalog/storefront", () => ({
   getProductSlugResolution: vi.fn(),
 }));
 
-import { getProducts } from "@/lib/catalog";
 import {
   getCoreRoutineContentSummaries,
+  getIngredientIndexProducts,
   getDiscoveryProductCardContents,
   getPdpProductContent,
   getProductCardContents,
@@ -66,11 +55,10 @@ import {
   CORE_ROUTINE_REVALIDATE_SECONDS,
   DISCOVERY_CACHE_TAG,
   getCachedCoreRoutineSummaries,
+  getCachedIngredientIndexProducts,
   getCachedDiscoveryProductCards,
   getCachedPdpProduct,
-  getCachedProductCardEntryIds,
   getCachedProductCards,
-  getCachedProducts,
   getCachedProductSlugResolution,
   PRODUCT_CARD_COLLECTION_CACHE_TAG,
   PRODUCT_CARD_REVALIDATE_SECONDS,
@@ -169,23 +157,7 @@ beforeEach(() => {
 
 describe("catalog cache domains", () => {
   it("changes every Product Media cache identity with the canonical bucket", async () => {
-    vi.mocked(getProducts).mockResolvedValue([
-      {
-        id: "product-id",
-        slug,
-        media: [],
-        variants: [],
-        currency: "USD",
-        status: "available",
-        catalogStatus: "active",
-        badge: null,
-        featuredRank: null,
-        sortOrder: 1,
-      } as unknown as Product,
-    ]);
-
     await Promise.all([
-      getCachedProducts(),
       getCachedProductCards(),
       getCachedPdpProduct(slug),
       getCachedDiscoveryProductCards(slug),
@@ -194,14 +166,6 @@ describe("catalog cache domains", () => {
     ]);
 
     const mediaCacheNamespace = `catalog-media:${CATALOG_MEDIA_BUCKET}`;
-    expect(registration("catalog-products-content-v3").keyParts).toEqual([
-      "catalog-products-content-v3",
-      mediaCacheNamespace,
-    ]);
-    expect(registration("catalog-products-card-v3").keyParts).toEqual([
-      "catalog-products-card-v3",
-      mediaCacheNamespace,
-    ]);
     expect(registration("catalog-product-cards-v3").keyParts).toEqual([
       "catalog-product-cards-v3",
       mediaCacheNamespace,
@@ -222,9 +186,6 @@ describe("catalog cache domains", () => {
       mediaCacheNamespace,
     ]);
 
-    expect(registration("catalog-products-offer-v2").keyParts).toEqual([
-      "catalog-products-offer-v2",
-    ]);
     expect(registration("catalog-purpose-offers-v1").keyParts).toEqual([
       "catalog-purpose-offers-v1",
     ]);
@@ -258,14 +219,12 @@ describe("catalog cache domains", () => {
   });
 
   it("uses narrow card and Core readers while sharing the volatile offer cache", async () => {
-    const [entryIds, cards, discovery, summaries] = await Promise.all([
-      getCachedProductCardEntryIds(),
+    const [cards, discovery, summaries] = await Promise.all([
       getCachedProductCards(),
       getCachedDiscoveryProductCards(slug),
       getCachedCoreRoutineSummaries(),
     ]);
 
-    expect(entryIds).toEqual([{ id: "product-id" }]);
     expect(cards[0]).toMatchObject({ slug, variants: [{ price: 2500 }] });
     expect(discovery[0]).toMatchObject({ slug, status: "available" });
     expect(summaries[0]).toMatchObject({
@@ -293,32 +252,18 @@ describe("catalog cache domains", () => {
     );
   });
 
-  it("keeps the remaining complete /system reader stratified by domain", async () => {
-    vi.mocked(getProducts).mockResolvedValue([
-      {
-        id: "product-id",
-        slug,
-        media: [],
-        variants: [],
-        currency: "USD",
-        status: "available",
-        catalogStatus: "active",
-        badge: null,
-        featuredRank: null,
-        sortOrder: 1,
-      } as unknown as Product,
-    ]);
-
-    await expect(getCachedProducts()).resolves.toHaveLength(1);
-    expect(registration("catalog-products-content-v3").options.revalidate).toBe(
-      PRODUCT_CONTENT_REVALIDATE_SECONDS,
-    );
-    expect(registration("catalog-products-offer-v2").options.revalidate).toBe(
-      PRODUCT_OFFER_REVALIDATE_SECONDS,
-    );
-    expect(registration("catalog-products-card-v3").options.revalidate).toBe(
-      PRODUCT_CARD_REVALIDATE_SECONDS,
-    );
+  it("keeps ingredient data on the 24-hour content boundary", async () => {
+    const ingredients = [{ slug, displayName: "Super Serum", keyIngredients: ["Niacinamide"], ingredients: null, formulaNotes: [] }];
+    vi.mocked(getIngredientIndexProducts).mockResolvedValue(ingredients);
+    await expect(getCachedIngredientIndexProducts()).resolves.toEqual(ingredients);
+    expect(registration("catalog-ingredient-index-products-v2").options).toEqual({
+      revalidate: 86400,
+      tags: ["catalog-products", "catalog-product-content"],
+    });
+    expect(PRODUCT_CONTENT_REVALIDATE_SECONDS).toBe(86400);
+    expect(PRODUCT_CARD_REVALIDATE_SECONDS).toBe(3600);
+    expect(PRODUCT_OFFER_REVALIDATE_SECONDS).toBe(60);
+    expect(CORE_ROUTINE_REVALIDATE_SECONDS).toBe(86400);
   });
 
   it("caches route resolution by source slug with ledger-wide invalidation", async () => {

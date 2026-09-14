@@ -11,10 +11,8 @@ import { ProductDetail } from "@/components/product-detail/ProductDetail";
 import { SERUM_EFFECTS_PRODUCT_ID } from "@/lib/content/serum-effects";
 import type {
   CoreRoutineSummary,
-  OfferAvailability,
   PdpProduct,
 } from "@/lib/catalog/models";
-import type { Product, Variant } from "@/lib/products";
 
 const cartMock = vi.hoisted(() => ({
   add: vi.fn(),
@@ -77,12 +75,10 @@ vi.mock("@/components/product-detail/AfterpayMessaging", () => ({
     ) : null,
 }));
 
-type ProductOverrides = Omit<Partial<Product>, "variants"> & {
-  variants?: Array<Variant | OfferAvailability>;
-};
+type ProductOverrides = Partial<PdpProduct>;
 
 function makeProduct(overrides: ProductOverrides = {}): PdpProduct {
-  const editorialMedia: Product["media"] = [
+  const editorialMedia: PdpProduct["media"] = [
     {
       kind: "video",
       url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/helix-catalog/products/treat/routine/video.mp4",
@@ -128,7 +124,7 @@ function makeProduct(overrides: ProductOverrides = {}): PdpProduct {
       palette: null,
     },
   ];
-  const base: Product = {
+  const base: PdpProduct = {
     id: "33333333-3333-4333-8333-333333333333",
     slug: "super-serum",
     displayName: "Super Serum",
@@ -137,42 +133,31 @@ function makeProduct(overrides: ProductOverrides = {}): PdpProduct {
     systemStepName: "TREAT",
     routineSort: 20,
     productType: "Ampoule",
-    badge: null,
     currency: "USD",
-    sortOrder: 0,
     description: "A daily ampoule for smoother-looking bounce.",
-    benefits: [
-      "Helps skin look smoother and more replenished",
-      "Supports a bouncier-looking finish",
-      "Layers cleanly under moisturizer",
-    ],
     howToUse: "Apply after cleansing.",
-    formulaNotes: ["Source formulation highlights PDRN and niacinamide."],
     variants: [
       {
+        productId: "33333333-3333-4333-8333-333333333333",
+        productSlug: "super-serum",
+        productStatus: "available",
+        sortOrder: 0,
         id: "15ml",
         label: "15 mL",
         price: 2500,
-        compareAtPrice: null,
-        sku: null,
         available: true,
         inventoryStatus: "in_stock",
         volume: "15 mL",
         packCount: null,
-        optionValues: { size: "15 mL" },
-        sortOrder: 0,
       },
     ],
     swatch: ["#edf4f5", "#87a3aa"],
     media: editorialMedia,
+    productFamily: null,
     cardMedia: null,
-    cardHoverMedia: null,
-    heroMedia: null,
     detailMedia: null,
     cartMedia: null,
-    searchMedia: null,
     status: "available",
-    catalogStatus: "active",
     madeFor: "Dull-looking skin",
     goodFor: "Dullness, dehydration, uneven-looking texture",
     texture: "Lightweight concentrated serum",
@@ -182,11 +167,7 @@ function makeProduct(overrides: ProductOverrides = {}): PdpProduct {
     finish: "Clean, hydrated, non-sticky",
     volume: "15 mL",
     skinTypes: ["All skin types"],
-    concerns: ["Dullness", "Texture"],
     usageTime: ["Morning", "Night"],
-    seoTitle: null,
-    seoDescription: null,
-    searchKeywords: [],
     pdpContent: {
       schemaVersion: 1,
       profileTitleTokens: [
@@ -237,13 +218,8 @@ function makeProduct(overrides: ProductOverrides = {}): PdpProduct {
       routineGuidance:
         "Use after CLEANSE and before SEAL. In the morning, finish with SPF.",
     },
-    createdAt: "2026-06-14T00:00:00.000Z",
   };
-  return {
-    ...base,
-    productFamily: null,
-    ...overrides,
-  } as unknown as PdpProduct;
+  return { ...base, ...overrides };
 }
 
 function before(a: Element, b: Element) {
@@ -500,7 +476,7 @@ describe("ProductDetail purchase accordions", () => {
   it("keeps one canonical primary and removes synthetic gallery hues", () => {
     const sharedAsset =
       "https://ERASOGMSQPGIIROVUBJH.supabase.co/storage/v1/object/public/helix-catalog/products/treat/primary/hash.webp";
-    const media: Product["media"] = [
+    const media: PdpProduct["media"] = [
       {
         kind: "image",
         url: `${sharedAsset}?width=1400`,
@@ -580,7 +556,7 @@ describe("ProductDetail purchase accordions", () => {
       .spyOn(HTMLMediaElement.prototype, "pause")
       .mockImplementation(() => undefined);
     const user = userEvent.setup();
-    const media: Product["media"] = [
+    const media: PdpProduct["media"] = [
       {
         kind: "image",
         url: "https://example.com/detail.webp",

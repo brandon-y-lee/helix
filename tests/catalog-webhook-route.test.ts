@@ -133,7 +133,7 @@ describe("catalog search sync route", () => {
     expect(revalidateTagMock).toHaveBeenCalledWith(
       "catalog-product-card:treat-03-pdrn-5-ampoule",
     );
-    expect(revalidateTagMock).not.toHaveBeenCalledWith(
+    expect(revalidateTagMock).toHaveBeenCalledWith(
       "catalog-product-content:treat-03-pdrn-5-ampoule",
     );
     for (const path of SHOP_COLLECTION_PATHS) {

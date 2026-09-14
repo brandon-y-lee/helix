@@ -15,7 +15,8 @@ import {
   type IngredientIndexCard,
   type SystemProductGroups,
 } from "@/lib/content/system";
-import { firstPurchasableVariant, type Product } from "@/lib/products";
+import { firstPurchasableVariant } from "@/lib/products";
+import type { ProductCard } from "@/lib/catalog/models";
 
 const MISSING_CORE_SWATCH: [string, string] = ["#dedbd3", "#807d76"];
 
@@ -28,7 +29,7 @@ const CORE_STEP_HERO_LINES: Record<
   SEAL: ["Hold every layer.", "Keep moisture in."],
 };
 
-function availabilityLabel(product: Product) {
+function availabilityLabel(product: ProductCard) {
   if (firstPurchasableVariant(product)) return "Available";
   if (product.status === "coming_soon") return "Coming soon";
   if (product.status === "waitlist") return "Waitlist";
@@ -64,11 +65,7 @@ function buildCoreFlowItems(groups: SystemProductGroups): SystemCoreFlowItem[] {
     if (entry) {
       return {
         anchorId: entry.anchorId,
-        backgroundMedia:
-          entry.product.cardHoverMedia ??
-          entry.product.heroMedia ??
-          entry.product.cardMedia ??
-          entry.product.detailMedia,
+        backgroundMedia: entry.product.cardHoverMedia,
         displayName: entry.product.displayName,
         displayNumber: entry.displayNumber,
         heroLines: CORE_STEP_HERO_LINES[stepName],
@@ -107,7 +104,7 @@ function BeyondProductCard({ entry }: { entry: BeyondSystemProductEntry }) {
     >
       <div className="system-beyond-card__media">
         <ProductImage
-          media={product.cardMedia ?? product.detailMedia}
+          media={product.cardMedia}
           swatch={product.swatch}
           className="system-beyond-card__image"
           imageClassName="system-beyond-card__img"

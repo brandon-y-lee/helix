@@ -3,22 +3,24 @@ import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { FORMER_BRAND_PATTERN } from "@/tests/helpers/former-identifiers";
 
 vi.mock("@/lib/catalog-cache", () => ({
-  getCachedProducts: vi.fn(),
-  getCachedProductCardEntryIds: vi.fn(),
+  getCachedProductCards: vi.fn(),
+  getCachedIngredientIndexProducts: vi.fn(),
 }));
 
 import AboutPage from "@/app/about/page";
 import SystemPage from "@/app/system/page";
 import {
-  getCachedProductCardEntryIds,
-  getCachedProducts,
+  getCachedIngredientIndexProducts,
+  getCachedProductCards,
 } from "@/lib/catalog-cache";
 import { buildIngredientIndex } from "@/lib/content/system";
 import type { SystemStepName } from "@/lib/catalog/system-steps";
-import type { Product } from "@/lib/products";
+import type { IngredientIndexProduct, ProductCard } from "@/lib/catalog/models";
 
-const mockedGetProducts = getCachedProducts as unknown as Mock;
-const mockedGetProductCards = getCachedProductCardEntryIds as unknown as Mock;
+type SystemFixture = ProductCard & IngredientIndexProduct;
+
+const mockedGetProducts = getCachedProductCards as unknown as Mock;
+const mockedGetIngredients = getCachedIngredientIndexProducts as unknown as Mock;
 
 const productDetails: Record<
   string,
@@ -71,7 +73,7 @@ const stepPosition: Record<SystemStepName, number> = {
   LIFT: 7,
 };
 
-function makeProduct(slug: string, overrides: Partial<Product> = {}): Product {
+function makeProduct(slug: string, overrides: Partial<SystemFixture> = {}): SystemFixture {
   const details = productDetails[slug];
   const position = stepPosition[details.step];
   const isCore = ["CLEANSE", "TREAT", "SEAL"].includes(details.step);
@@ -84,52 +86,33 @@ function makeProduct(slug: string, overrides: Partial<Product> = {}): Product {
     systemStepName: details.step,
     systemStepPosition: position,
     routineSort: position * 10,
-    badge: null,
-    currency: "USD",
     sortOrder: position,
-    description: "A catalog-authored product description.",
-    benefits: [],
-    howToUse: "Use as directed.",
     formulaNotes: [],
     variants: [
       {
+        productId: `${slug}-id`,
+        productSlug: slug,
+        productStatus: details.step === "PROTECT" ? "waitlist" : "available",
         id: `${slug}-default`,
         label: "Default",
         price: 2200,
-        compareAtPrice: null,
-        sku: null,
         available: details.step !== "PROTECT",
         inventoryStatus: details.step === "PROTECT" ? "unavailable" : "in_stock",
         volume: "50 mL",
         packCount: null,
-        optionValues: { size: "50 mL" },
         sortOrder: 0,
       },
     ],
     swatch: ["#dce8df", "#7e9285"],
-    media: [],
+    productFamily: null,
     cardMedia: null,
     cardHoverMedia: null,
-    heroMedia: null,
-    detailMedia: null,
     cartMedia: null,
-    searchMedia: null,
     status: details.step === "PROTECT" ? "waitlist" : "available",
-    catalogStatus: "active",
-    madeFor: "All skin types",
-    goodFor: "Routine",
-    texture: "Light",
     keyIngredients: details.ingredients,
     ingredients: details.ingredients.join(", ") || null,
-    cautions: [],
-    finish: null,
     volume: "50 mL",
-    skinTypes: [],
-    concerns: [],
     usageTime: details.step === "LIFT" ? ["Weekly", "PM"] : ["AM", "PM"],
-    seoTitle: null,
-    seoDescription: null,
-    searchKeywords: [],
     createdAt: "2026-06-14T00:00:00.000Z",
     ...overrides,
   };
@@ -152,10 +135,8 @@ const FORBIDDEN_ABOUT_PATTERNS = [
 beforeEach(() => {
   mockedGetProducts.mockReset();
   mockedGetProducts.mockResolvedValue(systemFixtures);
-  mockedGetProductCards.mockReset();
-  mockedGetProductCards.mockResolvedValue(
-    systemFixtures.map((product) => ({ id: product.id })),
-  );
+  mockedGetIngredients.mockReset();
+  mockedGetIngredients.mockResolvedValue(systemFixtures);
 });
 
 describe("System content architecture", () => {
@@ -319,7 +300,6 @@ describe("System content architecture", () => {
       (product) => product.slug !== "peptide-nourish-mask",
     );
     mockedGetProducts.mockResolvedValue(available);
-    mockedGetProductCards.mockResolvedValue(available.map((product) => ({ id: product.id })));
 
     render(await SystemPage());
 
@@ -338,9 +318,6 @@ describe("System content architecture", () => {
       (product) => product.slug !== "biotic-reset",
     );
     mockedGetProducts.mockResolvedValue(products);
-    mockedGetProductCards.mockResolvedValue(
-      products.map((product) => ({ id: product.id })),
-    );
 
     render(await SystemPage());
 
@@ -351,6 +328,16 @@ describe("System content architecture", () => {
     expect(cleanse).toHaveTextContent("Step unavailable.");
     expect(cleanse).toHaveTextContent("No product is listed.");
     expect(within(cleanse).queryByRole("link")).not.toBeInTheDocument();
+  });
+
+  it("limits ingredient links to selected Products in Core-then-Beyond order", async () => {
+    const extra = { ...makeProduct("balancing-prep"), slug: "unselected-prep", displayName: "Unselected Prep" };
+    mockedGetIngredients.mockResolvedValue([extra, ...systemFixtures]);
+    render(await SystemPage());
+    const panel = document.getElementById("system-ingredient-panthenol") as HTMLElement;
+    expect(Array.from(panel.querySelectorAll('a[href^="/products/"]')).map((link) => link.textContent))
+      .toEqual(["Ceramide Cushion", "Balancing Prep"]);
+    expect(document.getElementById("system-ingredients")).not.toHaveTextContent("Unselected Prep");
   });
 
   it("keeps ingredient science fields and claim-safety boundaries catalog-derived", () => {

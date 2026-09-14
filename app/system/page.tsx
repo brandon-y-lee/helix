@@ -6,8 +6,8 @@ import {
   groupSystemProducts,
 } from "@/lib/content/system";
 import {
-  getCachedProductCardEntryIds,
-  getCachedProducts,
+  getCachedIngredientIndexProducts,
+  getCachedProductCards,
 } from "@/lib/catalog-cache";
 import { createPublicSiteMetadata } from "@/lib/public-site-metadata";
 
@@ -19,13 +19,19 @@ export const metadata: Metadata = createPublicSiteMetadata({
 });
 
 export default async function SystemPage() {
-  const [products, collectionEntries] = await Promise.all([
-    getCachedProducts(),
-    getCachedProductCardEntryIds(),
+  const [products, ingredientProducts] = await Promise.all([
+    getCachedProductCards(),
+    getCachedIngredientIndexProducts(),
   ]);
-  const groups = groupSystemProducts(products, collectionEntries);
+  const groups = groupSystemProducts(products);
+  const ingredientsBySlug = new Map(
+    ingredientProducts.map((product) => [product.slug, product]),
+  );
   const ingredientCards = buildIngredientIndex(
-    [...groups.core, ...groups.beyond].map((entry) => entry.product),
+    [...groups.core, ...groups.beyond].flatMap(({ product }) => {
+      const source = ingredientsBySlug.get(product.slug);
+      return source ? [source] : [];
+    }),
   );
 
   return (
