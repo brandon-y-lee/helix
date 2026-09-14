@@ -21,8 +21,12 @@ test("Home and System preserve white groupings around gray panels", async ({ pag
     await expectGrayPanels(page.locator(".home-three-principles-panel, .home-plug-panel, .home-ingredient-card"));
     await expect(page.locator(".home-band")).toHaveCSS("background-color", CANVAS_WHITE);
     await page.goto("/system");
-    await expectGrayPanels(page.locator(".method-intentional__copy, .method-beyond-card, .ingredient-carousel__panel"));
-    for (const section of await page.locator(".method-beyond, .method-ingredients").all()) {
+    for (const selector of [".system-intentional__copy", ".system-beyond-card", ".ingredient-carousel__panel"]) {
+      await expectGrayPanels(page.locator(selector));
+    }
+    for (const selector of [".system-beyond", ".system-ingredients"]) {
+      const section = page.locator(selector);
+      await expect(section).toHaveCount(1);
       await expect(section).toHaveCSS("background-color", CANVAS_WHITE);
       await expect(section).toHaveCSS("background-image", "none");
     }
