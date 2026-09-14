@@ -21,7 +21,10 @@ const targetUrl = `${prefix}products/${catalogDocument.productId}/primary/${asse
 
 function fixture({ targetMissing = false } = {}) {
   const document = structuredClone(catalogDocument);
-  document.media = [{ ...document.media[0], url: sourceUrl, width: 1, height: 1 }];
+  document.media = [
+    { ...document.media[0], url: sourceUrl, width: 1, height: 1 },
+    { ...document.media[1], url: targetUrl, width: 1, height: 1 },
+  ];
   const manifest: MediaIdentityManifest = {
     version: 1, projectRef: "erasogmsqpgiirovubjh", operationId, actorId,
     products: [{ productId: document.productId, expectedRevision: 3, expectedDocument: document,
@@ -31,6 +34,7 @@ function fixture({ targetMissing = false } = {}) {
   const text = `${JSON.stringify(manifest, null, 2)}\n`;
   const afterDocument = structuredClone(document);
   afterDocument.media[0].url = targetUrl;
+  afterDocument.media[0].updated_at = "2026-09-14T12:00:00.000Z";
   let snapshots = [{ document, revision: 3, activeDrafts: 0 }];
   let operation: Record<string, unknown> | null = null;
   const policy = { enabled: false, operationId: null, activatedAt: null };
@@ -211,6 +215,77 @@ describe("media identity operation ordering", () => {
       assets: [{ sourceSha256: assetSha256, targetSha256: assetSha256, canonicalSha256: assetSha256, byteSize: 68, width: 1, height: 1 }] } });
     expect(gateway.copyObject).not.toHaveBeenCalled();
     expect(gateway.cutover).not.toHaveBeenCalled();
+    expect(gateway.activate).not.toHaveBeenCalled();
+  });
+
+  it("verifies the complete after-state with only reviewed pointer and affected timestamp changes", async () => {
+    const { manifest, flags, gateway, text, runtime, afterDocument } = fixture();
+    const beforeDocument = structuredClone(manifest.products[0].expectedDocument);
+    const publishedDocument = structuredClone(afterDocument);
+    await gateway.cutover(manifest);
+    gateway.cutover.mockClear();
+
+    const output = await runMediaIdentityCommand(parseMediaIdentityArgs(["verify", ...flags, "--state", "after"]), gateway, async () => text, runtime);
+
+    expect(output).toMatchObject({
+      recordedOperation: { operationId, outcome: "published", products: [{ revision: 4 }] },
+      report: { copied: 0, distinctAssets: 1, associations: 1 },
+    });
+    expect(runtime.inspect).toHaveBeenCalledTimes(2);
+    expect(afterDocument.media[0].updated_at).not.toBe(beforeDocument.media[0].updated_at);
+    expect(afterDocument.media[1]).toEqual(beforeDocument.media[1]);
+    expect(afterDocument).toEqual(publishedDocument);
+    expect(manifest.products[0].expectedDocument).toEqual(beforeDocument);
+    expect(gateway.copyObject).not.toHaveBeenCalled();
+    expect(gateway.cutover).not.toHaveBeenCalled();
+    expect(gateway.activate).not.toHaveBeenCalled();
+  });
+
+  it.each(["verify", "cutover", "activate"].flatMap((command) =>
+    ["before", "during"].flatMap((timing) =>
+      ["non-media Catalog facts", "untouched media timestamp"].map((change) => ({ command, timing, change })),
+    ),
+  ))("rejects $change drift $timing byte verification for post-cutover $command", async ({ command, timing, change }) => {
+    const { manifest, flags, gateway, text, runtime, afterDocument } = fixture();
+    await gateway.cutover(manifest);
+    gateway.cutover.mockClear();
+    const changedDocument = structuredClone(afterDocument);
+    if (change === "non-media Catalog facts") changedDocument.product.display_name = "An unreviewed concurrent edit";
+    else changedDocument.media[1].updated_at = "2026-09-14T12:01:00.000Z";
+    const changedSnapshot = { document: changedDocument, revision: 4, activeDrafts: 0 };
+    if (timing === "during") {
+      gateway.readSnapshots.mockResolvedValueOnce([{ document: afterDocument, revision: 4, activeDrafts: 0 }]);
+    }
+    gateway.readSnapshots.mockResolvedValue([changedSnapshot]);
+    const extra = command === "verify" ? ["--state", "after"]
+      : command === "activate" ? ["--deployment-sha", "c".repeat(40), "--current-writers-verified"] : [];
+
+    await expect(runMediaIdentityCommand(parseMediaIdentityArgs([command, ...flags, ...extra]), gateway, async () => text, runtime)).rejects.toThrow(/pointer-only/);
+
+    expect(gateway.readSnapshots).toHaveBeenCalledTimes(timing === "during" ? 2 : 1);
+    if (timing === "during") expect(runtime.inspect).toHaveBeenCalledTimes(2);
+    else expect(runtime.fetchImpl).not.toHaveBeenCalled();
+    expect(gateway.copyObject).not.toHaveBeenCalled();
+    expect(gateway.cutover).not.toHaveBeenCalled();
+    expect(gateway.activate).not.toHaveBeenCalled();
+  });
+
+  it("rejects a successful proof when a completed cutover returns unreviewed Catalog facts", async () => {
+    const { manifest, flags, gateway, text, runtime, afterDocument } = fixture();
+    const changedDocument = structuredClone(afterDocument);
+    changedDocument.product.display_name = "An unreviewed post-cutover edit";
+    const beforeSnapshot = { document: manifest.products[0].expectedDocument, revision: 3, activeDrafts: 0 };
+    gateway.readSnapshots.mockResolvedValueOnce([beforeSnapshot]).mockResolvedValueOnce([beforeSnapshot])
+      .mockResolvedValue([{ document: changedDocument, revision: 4, activeDrafts: 0 }]);
+
+    await expect(runMediaIdentityCommand(parseMediaIdentityArgs(["cutover", ...flags]), gateway, async () => text, runtime)).rejects.toThrow(/pointer-only/);
+
+    expect(runtime.inspect).toHaveBeenCalledTimes(2);
+    expect(gateway.cutover).toHaveBeenCalledOnce();
+    expect(await gateway.readOperation()).toMatchObject({
+      operation: { operationId, outcome: "published", products: [{ revision: 4 }] },
+    });
+    expect(gateway.copyObject).not.toHaveBeenCalled();
     expect(gateway.activate).not.toHaveBeenCalled();
   });
 

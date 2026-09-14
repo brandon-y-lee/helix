@@ -161,11 +161,17 @@ export function assertCurrentMediaSnapshot(manifest: MediaIdentityManifest, snap
     } else {
       const expectedRows = expected.expectedDocument.media.map((row) => {
         const copy = expected.media.find((entry) => entry.mediaId === row.id);
-        return copy ? { ...row, url: copy.targetUrl } : row;
+        if (!copy) return row;
+        // The cutover updates only these media IDs. Preserve every other fact,
+        // including timestamps on unrelated Catalog rows and untouched media.
+        const updatedAt = actual.document.media.find((entry) => entry.id === row.id)?.updated_at;
+        if (typeof updatedAt !== "string" || !Number.isFinite(Date.parse(updatedAt))) {
+          fail("Published media timestamp is invalid for the reviewed pointer-only change.");
+        }
+        return { ...row, url: copy.targetUrl, updated_at: updatedAt };
       });
-      const stripTimestamps = (rows: ProductEditorDocumentV4["media"]) => rows.map(({ updated_at: _updatedAt, ...row }) => row);
-      if (!isDeepStrictEqual(stripTimestamps(actual.document.media), stripTimestamps(expectedRows))) {
-        fail("Published media associations differ from the reviewed pointer-only change.");
+      if (!isDeepStrictEqual(actual.document, { ...expected.expectedDocument, media: expectedRows })) {
+        fail("Published Catalog differs from the reviewed pointer-only change.");
       }
     }
   }
