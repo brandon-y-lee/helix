@@ -66,8 +66,10 @@ for (const width of [320, 721, 1440]) {
     );
     await expectAnchorInView(page.locator("#system-ingredient-niacinamide"));
     await page.goto("/system#system-seal");
+    await page.reload();
     const core = page.locator("#system-core");
     await expect(core).toHaveAttribute("data-active-step", "seal");
+    await expectAnchorInView(core);
 
     for (const [hash, target] of [
       ["system-overview", "system-overview"],
