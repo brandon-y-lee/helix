@@ -73,7 +73,52 @@ test("Treat photographs follow the reference curve and reverse within fixed fram
   }
 });
 
-test("Treat slide selection inherits the photographic crop while navigation and diagrams stay still", async ({ page, storefront }) => {
+test("Treat thumbnails zoom and reverse inside fixed, keyboard-operable buttons", async ({ page, storefront }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.goto(treatPath(storefront));
+  const thumbnails = page.locator("[data-pdp-application-thumbnail]");
+  await expect(thumbnails).toHaveCount(3);
+  await expect(thumbnails.first().locator("[data-pdp-zoom-media]")).toHaveCSS("will-change", "transform");
+  const buttons = await thumbnails.all();
+  const original = await Promise.all(buttons.map(geometry));
+  await centerFrame(page, buttons[0]);
+  for (const button of buttons) {
+    // Keep the existing 1.01 seam crop inside the scroll-zoom wrapper.
+    await expect.poll(() => scale(button, button.locator("img"))).toBeCloseTo(1.05 * 1.01, 3);
+  }
+  await buttons[2].focus();
+  await page.keyboard.press("Enter");
+  await expect(buttons[2]).toHaveAttribute("aria-pressed", "true");
+  await expect(buttons[2]).toBeFocused();
+  for (const [index, button] of buttons.entries()) {
+    await expect(button).toHaveCSS("transform", "none");
+    await expect.poll(() => scale(button, button.locator("img"))).toBeCloseTo(1.05 * 1.01, 3);
+    const after = await geometry(button);
+    expect(after.top).toBeCloseTo(original[index].top, 1);
+    expect(after.height).toBeCloseTo(original[index].height, 2);
+    expect(after.width).toBeCloseTo(original[index].width, 2);
+  }
+  await scrollPage(page, original[0].top + original[0].height * 1.1);
+  for (const button of buttons) {
+    await expect.poll(() => scale(button, button.locator("img"))).toBeCloseTo(1.01, 3);
+  }
+  await centerFrame(page, buttons[0]);
+  for (const button of buttons) {
+    await expect.poll(() => scale(button, button.locator("img"))).toBeCloseTo(1.05 * 1.01, 3);
+  }
+  for (const suppression of ["reduce", "mobile"] as const) {
+    await page.emulateMedia({ reducedMotion: suppression === "reduce" ? "reduce" : "no-preference" });
+    if (suppression === "mobile") await page.setViewportSize({ width: 820, height: 1000 });
+    for (const button of buttons) {
+      await expect(button.locator("[data-pdp-zoom-media]")).toHaveCSS("transform", "none");
+      await expect(button.locator("[data-pdp-zoom-media]")).toHaveCSS("will-change", "auto");
+      await expect.poll(() => scale(button, button.locator("img"))).toBeCloseTo(1.01, 3);
+    }
+  }
+});
+
+test("Treat slide selection inherits the photographic crop while navigation controls and diagrams stay still", async ({ page, storefront }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await page.goto(treatPath(storefront));
@@ -139,6 +184,10 @@ test("another core PDP keeps its existing static editorial photography", async (
     const frame = page.locator(frameSelector);
     await centerFrame(page, frame);
     await expect.poll(() => scale(frame, page.locator(photoSelector))).toBeCloseTo(1, 3);
+  }
+  for (const thumbnail of await page.locator(".pdp-application__swatch-media").all()) {
+    await expect(thumbnail).toHaveCSS("transform", "none");
+    await expect(thumbnail).toHaveCSS("will-change", "auto");
   }
 });
 

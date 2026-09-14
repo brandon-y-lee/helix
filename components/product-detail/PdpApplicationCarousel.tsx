@@ -158,6 +158,7 @@ export function PdpApplicationCarousel({
                 aria-label={`Show application step ${index + 1} of ${steps.length}`}
                 aria-pressed={active === index}
                 data-pdp-application-thumbnail={index + 1}
+                data-pdp-zoom-frame
                 data-has-media={Boolean(itemMedia)}
                 onClick={() => selectStep(index)}
                 onKeyDown={
@@ -171,6 +172,7 @@ export function PdpApplicationCarousel({
                     media={itemMedia}
                     swatch={[step.surface, step.accent]}
                     className="pdp-application__swatch-media"
+                    data-pdp-zoom-media
                     imageClassName="pdp-application__swatch-image"
                     imageAlt=""
                     sizes={
