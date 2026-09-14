@@ -1,6 +1,6 @@
 import "server-only";
 
-import { resolveProductPresentationMedia } from "@/lib/catalog";
+import { resolveProductPresentationMedia } from "@/lib/catalog/media-presentation";
 import { assertValidProductEditorDocument } from "@/lib/admin/catalog/validation";
 import { catalogGuidanceValidationIssues } from "@/lib/admin/catalog/guidance";
 import {

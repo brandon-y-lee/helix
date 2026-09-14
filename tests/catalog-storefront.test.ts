@@ -8,6 +8,7 @@ vi.mock("@/lib/supabase", () => ({
 import {
   getCoreRoutineContentSummaries,
   getDiscoveryProductCardContents,
+  getIngredientIndexProducts,
   getPdpProductContent,
   getProductCardContents,
   getProductMetadata,
@@ -152,6 +153,25 @@ beforeEach(() => {
 });
 
 describe("storefront catalog projections", () => {
+  it.each([
+    ["cards", getProductCardContents],
+    ["ingredients", getIngredientIndexProducts],
+  ])("returns empty %s for a reachable empty active Catalog", async (_label, read) => {
+    const { client, calls } = makeClient({ data: [], error: null });
+    mockedGetClient.mockReturnValue(client);
+    await expect(read()).resolves.toEqual([]);
+    expect(calls).toContainEqual({ method: "eq", args: ["catalog_status", "active"] });
+  });
+
+  it.each([
+    ["cards", getProductCardContents],
+    ["ingredients", getIngredientIndexProducts],
+  ])("propagates a failed %s read instead of inventing Products", async (_label, read) => {
+    const { client } = makeClient({ data: null, error: { message: "Catalog unavailable" } });
+    mockedGetClient.mockReturnValue(client);
+    await expect(read()).rejects.toThrow("Catalog unavailable");
+  });
+
   it("returns card-only data and filters embedded media to card roles", async () => {
     const { client, calls } = makeClient({
       data: [productRow()],
@@ -183,6 +203,90 @@ describe("storefront catalog projections", () => {
         ["card_default", "card", "card_hover", "detail", "hero", "cart"],
       ],
     });
+  });
+
+  it.each([
+    {
+      name: "dedicated roles take priority over earlier general images",
+      items: [
+        media("hero", 0),
+        media("card", 1),
+        media("detail", 2),
+        media("card_default", 3),
+        media("card_hover", 4),
+        media("cart", 5),
+      ],
+      expected: { card: "card_default", hover: "card_hover", detail: "detail", cart: "cart" },
+    },
+    {
+      name: "card images also serve hover, detail, and cart",
+      items: [media("card")],
+      expected: { card: "card", hover: "card", detail: "card", cart: "card" },
+    },
+    {
+      name: "detail precedes hero when card roles are absent",
+      items: [media("hero", 0), media("detail", 1)],
+      expected: { card: "detail", hover: "detail", detail: "detail", cart: "detail" },
+    },
+    {
+      name: "hero serves missing card and detail roles",
+      items: [media("hero")],
+      expected: { card: "hero", hover: "hero", detail: "hero", cart: "hero" },
+    },
+    {
+      name: "hover, cart, and editorial images do not replace primary images",
+      items: [media("card_hover"), media("cart"), media("gallery"), media("core_routine_editorial")],
+      expected: { card: null, hover: "card_hover", detail: null, cart: "cart" },
+    },
+    {
+      name: "missing media stays empty",
+      items: [],
+      expected: { card: null, hover: null, detail: null, cart: null },
+    },
+    {
+      name: "videos cannot replace still presentation media",
+      items: [
+        ...["card_default", "card", "card_hover", "detail", "cart"].map((role) => ({
+          ...media(role),
+          media_type: "video",
+        })),
+        media("hero", 1),
+      ],
+      expected: { card: "hero", hover: "hero", detail: "hero", cart: "hero" },
+    },
+  ])("preserves shared presentation across cards, PDPs, and Core: $name", async ({ items, expected }) => {
+    const row = productRow({ product_media: items });
+    mockedGetClient
+      .mockReturnValueOnce(makeClient({ data: [row], error: null }).client)
+      .mockReturnValueOnce(makeClient({ data: row, error: null }).client)
+      .mockReturnValueOnce(makeClient({
+        data: ["CLEANSE", "TREAT", "SEAL"].map((step, index) => productRow({
+          id: `product-${index}`,
+          system_step_name: step,
+          product_media: [...items, media("core_routine_texture", 20)],
+        })),
+        error: null,
+      }).client);
+
+    const [card] = await getProductCardContents();
+    const pdp = await getPdpProductContent("super-serum");
+    const core = await getCoreRoutineContentSummaries();
+
+    expect({
+      card: card.cardMedia?.role ?? null,
+      hover: card.cardHoverMedia?.role ?? null,
+      cart: card.cartMedia?.role ?? null,
+    }).toEqual({ card: expected.card, hover: expected.hover, cart: expected.cart });
+    expect({
+      card: pdp?.cardMedia?.role ?? null,
+      detail: pdp?.detailMedia?.role ?? null,
+      cart: pdp?.cartMedia?.role ?? null,
+    }).toEqual({ card: expected.card, detail: expected.detail, cart: expected.cart });
+    for (const product of core) {
+      expect(product.cardMedia?.role ?? null).toBe(expected.card);
+      expect(product.cartMedia?.role ?? null).toBe(expected.cart);
+      expect(product.textureMedia.role).toBe("core_routine_texture");
+    }
   });
 
   it("collapses Product Families to their entry Product in card projections", async () => {

@@ -1,4 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@/lib/supabase", () => {
+  throw new Error("Draft projection must not load the public Catalog client.");
+});
+
 import type { ProductEditorDocumentV4 } from "@/lib/admin/catalog/types";
 import {
   CatalogPreviewProjectionError,
@@ -241,6 +246,85 @@ describe("catalog draft PDP projection", () => {
       editorialMedia: null,
     });
     expect(canonical).toEqual(original);
+  });
+
+  it.each([
+    {
+      name: "dedicated roles",
+      roles: ["hero", "card", "detail", "card_default", "cart"],
+      expected: { card: "card_default", detail: "detail", cart: "cart" },
+    },
+    {
+      name: "card alone",
+      roles: ["card"],
+      expected: { card: "card", detail: "card", cart: "card" },
+    },
+    {
+      name: "detail before hero",
+      roles: ["hero", "detail"],
+      expected: { card: "detail", detail: "detail", cart: "detail" },
+    },
+    {
+      name: "hero alone",
+      roles: ["hero"],
+      expected: { card: "hero", detail: "hero", cart: "hero" },
+    },
+    {
+      name: "gallery and hover without a primary image",
+      roles: ["gallery", "card_hover"],
+      expected: { card: null, detail: null, cart: null },
+    },
+    {
+      name: "no saved media",
+      roles: [],
+      expected: { card: null, detail: null, cart: null },
+    },
+  ])("preserves the saved draft's media priorities: $name", ({ roles, expected }) => {
+    const draft = document();
+    const savedMedia = draft.media[0];
+    draft.media = roles.map((role, index) => ({
+      ...savedMedia,
+      id: `66666666-6666-4666-8666-${String(index + 1).padStart(12, "0")}`,
+      role,
+      sort_order: index,
+      url: `${storageOrigin}/storage/v1/object/public/helix-catalog/products/cleanse/drafts/${role}.webp`,
+    }));
+    const canonical = base();
+    const original = structuredClone(canonical);
+
+    const preview = projectCatalogDraftPreview(draft, canonical, {
+      approvedMediaOrigin: storageOrigin,
+    });
+
+    expect({
+      card: preview.product.cardMedia?.role ?? null,
+      detail: preview.product.detailMedia?.role ?? null,
+      cart: preview.product.cartMedia?.role ?? null,
+    }).toEqual(expected);
+    expect(preview.coreProducts[0].cardMedia?.role ?? null).toBe(expected.card);
+    expect(preview.coreProducts[0].cartMedia?.role ?? null).toBe(expected.cart);
+    expect(canonical).toEqual(original);
+  });
+
+  it("keeps a saved routine video without selecting it as still presentation media", () => {
+    const draft = document();
+    draft.media.unshift({
+      ...draft.media[0],
+      id: "77777777-7777-4777-8777-777777777777",
+      media_type: "video",
+      role: "routine_video",
+      url: `${storageOrigin}/storage/v1/object/public/helix-catalog/products/cleanse/drafts/routine.mp4`,
+    });
+
+    const preview = projectCatalogDraftPreview(draft, base(), {
+      approvedMediaOrigin: storageOrigin,
+    });
+
+    expect(preview.product.media[0].kind).toBe("video");
+    expect(preview.product.cardMedia?.url).toBe(approvedImage);
+    expect(preview.product.detailMedia?.url).toBe(approvedImage);
+    expect(preview.product.cartMedia?.url).toBe(approvedImage);
+    expect(preview.warnings).toEqual([]);
   });
 
   it("projects System Step position from the Supabase-backed preview registry", () => {

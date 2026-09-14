@@ -1,9 +1,4 @@
-import { cache } from "react";
 import { unstable_cache } from "next/cache";
-import {
-  getProducts,
-  resolveProductPresentationMedia,
-} from "@/lib/catalog";
 import {
   getCoreRoutineContentSummaries,
   getDiscoveryProductCardContents,
@@ -31,7 +26,6 @@ import {
 import { PDP_DISCOVERY_PRODUCT_LIMIT } from "@/lib/catalog/discovery";
 import { CATALOG_MEDIA_BUCKET } from "@/lib/catalog/media-storage";
 import { routineGroupLabel } from "@/lib/catalog/product-routine";
-import type { Product, ProductMedia } from "@/lib/products";
 
 // Tags are the primary freshness mechanism. Durations bound staleness if a
 // delivery is missed, with volatile commerce state isolated from editorial.
@@ -52,49 +46,6 @@ export const CORE_ROUTINE_CACHE_TAG = "catalog-core-routine";
 export const DISCOVERY_CACHE_TAG = "catalog-discovery";
 export const PRODUCT_FAMILY_CACHE_TAG = "catalog-product-family";
 export { CORE_ROUTINE_PRODUCT_SLUGS } from "@/lib/catalog/models";
-
-const CARD_MEDIA_ROLES = new Set<ProductMedia["role"]>([
-  "card",
-  "card_default",
-  "card_hover",
-  "search",
-]);
-
-type LegacyOfferKey =
-  | "currency"
-  | "variants"
-  | "status"
-  | "catalogStatus";
-type LegacyCardKey =
-  | "badge"
-  | "sortOrder";
-type LegacyMediaKey =
-  | "media"
-  | "cardMedia"
-  | "cardHoverMedia"
-  | "heroMedia"
-  | "detailMedia"
-  | "cartMedia"
-  | "searchMedia";
-
-type LegacyProductContent = Omit<
-  Product,
-  LegacyOfferKey | LegacyCardKey | LegacyMediaKey
-> & {
-  media: ProductMedia[];
-};
-
-type LegacyProductOffer = Pick<
-  Product,
-  "id" | "slug" | "currency" | "variants" | "status" | "catalogStatus"
->;
-
-type LegacyProductCard = Pick<
-  Product,
-  "id" | "slug" | LegacyCardKey
-> & {
-  media: ProductMedia[];
-};
 
 export function productContentCacheTag(productKey: string): string {
   return `catalog-product-content:${productKey}`;
@@ -120,141 +71,6 @@ export function collectionCacheTag(routineGroup: string): string {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
   return `collection:${slug || "uncategorized"}`;
-}
-
-function withoutKeys<T extends object, K extends keyof T>(
-  value: T,
-  keys: readonly K[],
-): Omit<T, K> {
-  const copy: Partial<T> = { ...value };
-  for (const key of keys) delete copy[key];
-  return copy as Omit<T, K>;
-}
-
-function toLegacyContent(product: Product): LegacyProductContent {
-  const content = withoutKeys(product, [
-    "currency",
-    "variants",
-    "status",
-    "catalogStatus",
-    "badge",
-    "sortOrder",
-    "media",
-    "cardMedia",
-    "cardHoverMedia",
-    "heroMedia",
-    "detailMedia",
-    "cartMedia",
-    "searchMedia",
-  ] as const);
-  return {
-    ...content,
-    media: product.media.filter((media) => !CARD_MEDIA_ROLES.has(media.role)),
-  };
-}
-
-function toLegacyOffer(product: Product): LegacyProductOffer {
-  return {
-    id: product.id,
-    slug: product.slug,
-    currency: product.currency,
-    variants: product.variants,
-    status: product.status,
-    catalogStatus: product.catalogStatus,
-  };
-}
-
-function toLegacyCard(product: Product): LegacyProductCard {
-  return {
-    id: product.id,
-    slug: product.slug,
-    badge: product.badge,
-    sortOrder: product.sortOrder,
-    media: product.media.filter((media) => CARD_MEDIA_ROLES.has(media.role)),
-  };
-}
-
-function composeLegacyProduct(
-  content: LegacyProductContent,
-  offer: LegacyProductOffer,
-  card: LegacyProductCard,
-): Product {
-  if (
-    content.id !== offer.id ||
-    content.id !== card.id ||
-    content.slug !== offer.slug ||
-    content.slug !== card.slug
-  ) {
-    throw new Error(
-      `[catalog-cache] Cannot compose mismatched legacy product fragments for "${content.slug}".`,
-    );
-  }
-  const media = [...content.media, ...card.media].sort(
-    (a, b) => a.sortOrder - b.sortOrder,
-  );
-  return {
-    ...content,
-    ...offer,
-    ...card,
-    media,
-    ...resolveProductPresentationMedia(media),
-  };
-}
-
-const requestLegacyProducts = cache(getProducts);
-
-const readCachedLegacyContents = unstable_cache(
-  async () => (await requestLegacyProducts()).map(toLegacyContent),
-  ["catalog-products-content-v3", CATALOG_MEDIA_CACHE_NAMESPACE],
-  {
-    revalidate: PRODUCT_CONTENT_REVALIDATE_SECONDS,
-    tags: [
-      CATALOG_PRODUCTS_CACHE_TAG,
-      PRODUCT_CONTENT_COLLECTION_CACHE_TAG,
-    ],
-  },
-);
-
-const readCachedLegacyOffers = unstable_cache(
-  async () => (await requestLegacyProducts()).map(toLegacyOffer),
-  ["catalog-products-offer-v2"],
-  {
-    revalidate: PRODUCT_OFFER_REVALIDATE_SECONDS,
-    tags: [
-      CATALOG_PRODUCTS_CACHE_TAG,
-      PRODUCT_OFFER_COLLECTION_CACHE_TAG,
-    ],
-  },
-);
-
-const readCachedLegacyCards = unstable_cache(
-  async () => (await requestLegacyProducts()).map(toLegacyCard),
-  ["catalog-products-card-v3", CATALOG_MEDIA_CACHE_NAMESPACE],
-  {
-    revalidate: PRODUCT_CARD_REVALIDATE_SECONDS,
-    tags: [
-      CATALOG_PRODUCTS_CACHE_TAG,
-      PRODUCT_CARD_COLLECTION_CACHE_TAG,
-      PRODUCT_FAMILY_CACHE_TAG,
-    ],
-  },
-);
-
-// `/system` still needs the complete editorial shape. Even there, the cached
-// stable, offer, and card fragments retain independent freshness policies.
-export async function getCachedProducts(): Promise<Product[]> {
-  const [contents, offers, cards] = await Promise.all([
-    readCachedLegacyContents(),
-    readCachedLegacyOffers(),
-    readCachedLegacyCards(),
-  ]);
-  const contentBySlug = new Map(contents.map((item) => [item.slug, item]));
-  const offerBySlug = new Map(offers.map((item) => [item.slug, item]));
-  return cards.flatMap((card) => {
-    const content = contentBySlug.get(card.slug);
-    const offer = offerBySlug.get(card.slug);
-    return content && offer ? [composeLegacyProduct(content, offer, card)] : [];
-  });
 }
 
 const readCachedProductOffers = unstable_cache(
@@ -334,12 +150,6 @@ const readCachedProductCardContents = unstable_cache(
     ],
   },
 );
-
-export async function getCachedProductCardEntryIds(): Promise<
-  Array<Pick<ProductCard, "id">>
-> {
-  return (await readCachedProductCardContents()).map(({ id }) => ({ id }));
-}
 
 export async function getCachedProductCards(): Promise<ProductCard[]> {
   const [contents, offers] = await Promise.all([

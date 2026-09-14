@@ -21,6 +21,7 @@ import {
   type ProductStatus,
 } from "@/lib/products";
 import { PDP_DISCOVERY_PRODUCT_LIMIT } from "@/lib/catalog/discovery";
+import { resolveProductPresentationMedia } from "@/lib/catalog/media-presentation";
 import {
   CORE_SYSTEM_STEPS,
   isCoreSystemStep,
@@ -380,36 +381,6 @@ function mapMedia(
     }));
 }
 
-function presentationMedia(media: ProductMedia[]) {
-  return media.filter((item) => item.kind !== "video");
-}
-
-function selectCardMedia(media: ProductMedia[]) {
-  const candidates = presentationMedia(media);
-  return (
-    candidates.find((item) => item.role === "card_default") ??
-    candidates.find((item) => item.role === "card") ??
-    candidates.find((item) => item.role === "detail") ??
-    candidates.find((item) => item.role === "hero") ??
-    null
-  );
-}
-
-function selectDetailMedia(media: ProductMedia[], cardMedia: ProductMedia | null) {
-  const candidates = presentationMedia(media);
-  return (
-    candidates.find((item) => item.role === "detail") ??
-    candidates.find((item) => item.role === "hero") ??
-    cardMedia
-  );
-}
-
-function selectCartMedia(media: ProductMedia[], cardMedia: ProductMedia | null) {
-  return (
-    presentationMedia(media).find((item) => item.role === "cart") ?? cardMedia
-  );
-}
-
 function mapOffers(
   product: { id: string; slug: string; status: string },
   rows: VariantRow[] | null,
@@ -459,7 +430,8 @@ function mapProductCardRow(row: ProductCardRow): ProductCardContent {
   const systemStep = requireSystemStep(row);
   const swatch: [string, string] = [row.swatch_from, row.swatch_to];
   const media = mapMedia(row.product_media, swatch);
-  const cardMedia = selectCardMedia(media);
+  const { cardMedia, cardHoverMedia, cartMedia } =
+    resolveProductPresentationMedia(media);
   const familyRows = relationRows(row.product_family_memberships);
   if (familyRows.length > 1) {
     throw new Error(
@@ -487,10 +459,8 @@ function mapProductCardRow(row: ProductCardRow): ProductCardContent {
     createdAt: row.created_at,
     swatch,
     cardMedia,
-    cardHoverMedia:
-      presentationMedia(media).find((item) => item.role === "card_hover") ??
-      cardMedia,
-    cartMedia: selectCartMedia(media, cardMedia),
+    cardHoverMedia,
+    cartMedia,
     productFamily,
   };
 }
@@ -560,7 +530,8 @@ function mapPdpProductRow(row: PdpProductRow): PdpProductContent {
   const systemStep = requireSystemStep(row);
   const swatch: [string, string] = [row.swatch_from, row.swatch_to];
   const media = mapMedia(row.product_media, swatch);
-  const cardMedia = selectCardMedia(media);
+  const { cardMedia, detailMedia, cartMedia } =
+    resolveProductPresentationMedia(media);
   return {
     id: row.id,
     slug: row.slug,
@@ -575,8 +546,8 @@ function mapPdpProductRow(row: PdpProductRow): PdpProductContent {
     swatch,
     media,
     cardMedia,
-    detailMedia: selectDetailMedia(media, cardMedia),
-    cartMedia: selectCartMedia(media, cardMedia),
+    detailMedia,
+    cartMedia,
     madeFor: row.made_for,
     goodFor: row.good_for,
     texture: row.texture,
@@ -633,7 +604,7 @@ function mapCoreRoutineRow(
       `[catalog] Core routine unavailable: "${row.slug}" is missing canonical routine metadata or texture media.`,
     );
   }
-  const cardMedia = selectCardMedia(media);
+  const { cardMedia, cartMedia } = resolveProductPresentationMedia(media);
   return {
     id: row.id,
     slug: row.slug,
@@ -653,7 +624,7 @@ function mapCoreRoutineRow(
     textureMedia,
     editorialMedia,
     cardMedia,
-    cartMedia: selectCartMedia(media, cardMedia),
+    cartMedia,
     pdpContent: normalizeProductPdpContent(
       firstPdpContent(row.product_pdp_content),
       row.slug,

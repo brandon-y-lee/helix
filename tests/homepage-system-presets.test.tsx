@@ -18,7 +18,7 @@ import {
   getCachedIngredientIndexProducts,
   getCachedProductCards,
 } from "@/lib/catalog-cache";
-import type { Product } from "@/lib/products";
+import type { IngredientIndexProduct, ProductCard } from "@/lib/catalog/models";
 import { homeCoreDescriptions } from "@/lib/content/home";
 import type { SystemStepName } from "@/lib/catalog/system-steps";
 import { FORMER_BRAND_PATTERN } from "@/tests/helpers/former-identifiers";
@@ -50,7 +50,7 @@ function makeProduct(
   displayName: string,
   systemStepName: SystemStepName,
   routineOrder: number,
-): Product {
+): ProductCard & IngredientIndexProduct {
   const keyIngredients = ingredientsBySlug[slug] ?? [];
 
   return {
@@ -64,52 +64,33 @@ function makeProduct(
     systemStepName,
     routineSort: routineOrder * 10,
     productType: "Treatment",
-    badge: null,
-    currency: "USD",
     sortOrder: routineOrder,
-    description: `${displayName} description`,
-    benefits: [],
-    howToUse: "Use as directed.",
     formulaNotes: [],
     variants: [
       {
+        productId: `${slug}-id`,
+        productSlug: slug,
+        productStatus: "available",
         id: "default",
         label: "Default",
         price: 2000,
-        compareAtPrice: null,
-        sku: null,
         available: true,
         inventoryStatus: "in_stock",
         volume: "50 mL",
         packCount: null,
-        optionValues: { size: "50 mL" },
         sortOrder: 0,
       },
     ],
     swatch: ["#dce8df", "#7e9285"],
-    media: [],
+    productFamily: null,
     cardMedia: null,
     cardHoverMedia: null,
-    heroMedia: null,
-    detailMedia: null,
     cartMedia: null,
-    searchMedia: null,
     status: "available",
-    catalogStatus: "active",
-    madeFor: "All skin types",
-    goodFor: "Routine",
-    texture: "Light",
     keyIngredients,
     ingredients: keyIngredients.join(", ") || null,
-    cautions: [],
-    finish: null,
     volume: "50 mL",
-    skinTypes: [],
-    concerns: [],
     usageTime: ["AM", "PM"],
-    seoTitle: null,
-    seoDescription: null,
-    searchKeywords: [],
     createdAt: "2026-06-14T00:00:00.000Z",
   };
 }

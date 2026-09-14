@@ -9,7 +9,7 @@ function source(path: string) {
 }
 
 const QUERY_AND_MAPPER_FILES = [
-  "lib/catalog.ts",
+  "lib/catalog/media-presentation.ts",
   "lib/catalog/storefront.ts",
   "lib/algolia/source.ts",
   "lib/algolia/record.ts",
