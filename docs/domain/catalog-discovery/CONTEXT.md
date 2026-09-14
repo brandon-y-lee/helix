@@ -177,7 +177,7 @@ An immutable historical snapshot of a Product produced when a Ready Catalog Draf
 _Avoid_: Catalog Draft, Product Version
 
 **Restore**:
-Create a new Working Catalog Draft from a Published Revision without rewriting history or immediately changing the Product.
+Create a new Working Catalog Draft from a Published Revision while retaining the current Product identity and discovery metadata, without rewriting history or immediately changing the Product. Remaining historical content is reviewed under current publication requirements.
 _Avoid_: Revert, Roll Back
 
 **Discard**:

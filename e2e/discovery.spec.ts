@@ -9,8 +9,6 @@ import { expect, test } from "./storefront-fixture";
 const CORE_DESCRIPTION_BY_SLUG = {
   "biotic-reset": homeCoreDescriptions.items.cleanse,
   "super-serum": homeCoreDescriptions.items.treat,
-  "maxxing-serum": homeCoreDescriptions.items.treat,
-  "peptide-bounce": homeCoreDescriptions.items.treat,
   "ceramide-cushion": homeCoreDescriptions.items.seal,
 } as const;
 
@@ -98,7 +96,8 @@ test("historical Product slugs redirect permanently without dynamic render failu
   ).toHaveLength(1);
   const treat = treatProducts[0];
   if (!treat) throw new Error("The Storefront snapshot has no TREAT Product.");
-  expect(["maxxing-serum", "super-serum"]).toContain(treat.slug);
+  expect(treat.slug).toBe("super-serum");
+  expect(treat.displayName).toBe("Super Serum");
 
   const canonicalResponse = await request.get(treat.path, {
     maxRedirects: 0,
@@ -111,14 +110,12 @@ test("historical Product slugs redirect permanently without dynamic render failu
     ["recode-03-pdrn-5-ampoule", treat.slug],
     ["treat-03-pdrn-5-ampoule", treat.slug],
     ["peptide-bounce", treat.slug],
+    ["maxxing-serum", treat.slug],
     ["refine-02-pore-treatment-pads", "balancing-prep"],
     ["frame-04-pdrn-eye-cream", "peptide-eye-cream"],
     ["lift-06-pdrn-mask-system", "peptide-nourish-mask"],
     ["seal-05-green-collagen-cream", "ceramide-cushion"],
   ];
-  if (treat.slug !== "maxxing-serum") {
-    redirects.push(["maxxing-serum", treat.slug]);
-  }
 
   for (const [source, target] of redirects) {
     const response = await request.get(`/products/${source}`, {

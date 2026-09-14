@@ -907,6 +907,11 @@ export default function CatalogEditor({ productId }: { productId: string }) {
           {revisions ? (
             <section className={styles.notice}>
               <h2>Revision history</h2>
+              <p>
+                Restoring creates a draft. The current product name, address,
+                search title, search description, and search keywords are kept.
+                Review the remaining content before publishing.
+              </p>
               {revisions.length === 0 ? (
                 <p>No revisions are available.</p>
               ) : (
@@ -929,9 +934,9 @@ export default function CatalogEditor({ productId }: { productId: string }) {
                             setDocument(response.draft.document);
                             setSavedDocument(response.draft.document);
                             setValidation(null);
-                            setIssues([]);
+                            setIssues(response.issues);
                             setStatus(
-                              `Revision ${revision.revision_number} restored as draft version ${response.draft.version}.`,
+                              `Revision ${revision.revision_number} restored as draft version ${response.draft.version}. The current product name, address, search title, search description, and search keywords were kept. Review the remaining content before publishing.`,
                             );
                           })
                         }

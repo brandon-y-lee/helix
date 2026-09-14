@@ -130,8 +130,8 @@ function makeProduct(overrides: ProductOverrides = {}): PdpProduct {
   ];
   const base: Product = {
     id: "33333333-3333-4333-8333-333333333333",
-    slug: "treat-03-pdrn-5-ampoule",
-    displayName: "TREAT",
+    slug: "super-serum",
+    displayName: "Super Serum",
     routineGroup: "core",
     systemStepPosition: 3,
     systemStepName: "TREAT",
@@ -428,7 +428,7 @@ describe("ProductDetail purchase accordions", () => {
       screen.getByRole("link", { name: "Explore ingredients" }),
     ).toHaveAttribute(
       "href",
-      "#pdp-ingredients-treat-03-pdrn-5-ampoule",
+      "#pdp-ingredients-super-serum",
     );
 
     await user.click(ingredients);
@@ -460,7 +460,7 @@ describe("ProductDetail purchase accordions", () => {
     );
 
     const buyButton = screen.getByRole("button", {
-      name: "BUY TREAT - $25.00",
+      name: "BUY Super Serum - $25.00",
     });
     await user.click(buyButton);
 
@@ -484,7 +484,7 @@ describe("ProductDetail purchase accordions", () => {
     render(<ProductDetail product={makeProduct()} />);
 
     const buyButton = screen.getByRole("button", {
-      name: "BUY TREAT - $25.00",
+      name: "BUY Super Serum - $25.00",
     });
     await user.click(buyButton);
 
@@ -807,7 +807,7 @@ describe("ProductDetail purchase accordions", () => {
 
     const initialMessage = screen.getByTestId("afterpay-messaging-boundary");
     const initialAdd = screen.getByRole("button", {
-      name: "BUY TREAT - $25.00",
+      name: "BUY Super Serum - $25.00",
     });
     expect(initialAdd).not.toHaveTextContent(/[–—]/);
     expect(initialMessage).toHaveAttribute("data-amount", "2500");
@@ -825,12 +825,12 @@ describe("ProductDetail purchase accordions", () => {
       "4200",
     );
     expect(
-      screen.getByRole("button", { name: "BUY TREAT - $42.00" }),
+      screen.getByRole("button", { name: "BUY Super Serum - $42.00" }),
     ).toBeInTheDocument();
     const stickyBuy = document.querySelector<HTMLButtonElement>(
       "[data-sticky-pdp-buy-button]",
     );
-    expect(stickyBuy).toHaveTextContent("BUY TREAT - $42.00");
+    expect(stickyBuy).toHaveTextContent("BUY Super Serum - $42.00");
     expect(
       stickyBuy?.querySelector(".pdp-sticky-purchase__cta-price"),
     ).toHaveTextContent("$42.00");
@@ -972,7 +972,7 @@ describe("ProductDetail purchase accordions", () => {
     render(<ProductDetail product={makeProduct({ media: [] })} />);
 
     expect(
-      screen.queryByLabelText("TREAT routine video"),
+      screen.queryByLabelText("Super Serum routine video"),
     ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("heading", { name: /PDRN SERUM/ }),

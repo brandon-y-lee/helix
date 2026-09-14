@@ -28,7 +28,7 @@ const mockedGetIngredientProducts =
   getCachedIngredientIndexProducts as unknown as Mock;
 
 const ingredientsBySlug: Record<string, string[]> = {
-  "peptide-bounce": [
+  "super-serum": [
     "Sodium DNA (50,000 ppm)",
     "Niacinamide",
     "Copper Tripeptide-1",
@@ -117,7 +117,7 @@ function makeProduct(
 const fixtures = [
   makeProduct("biotic-reset", "Biotic Reset", "CLEANSE", 1),
   makeProduct("balancing-prep", "Balancing Prep", "REFINE", 2),
-  makeProduct("peptide-bounce", "Peptide Bounce", "TREAT", 3),
+  makeProduct("super-serum", "Super Serum", "TREAT", 3),
   makeProduct("peptide-eye-cream", "Peptide Eye Cream", "FRAME", 4),
   makeProduct("ceramide-cushion", "Ceramide Cushion", "SEAL", 5),
   makeProduct("peptide-nourish-mask", "Peptide Nourish Mask", "LIFT", 7),
@@ -179,7 +179,7 @@ describe("homepage product wiring", () => {
 
     expect(productDestinations(sectionForHeading("The Core"))).toEqual([
       "/products/biotic-reset",
-      "/products/peptide-bounce",
+      "/products/super-serum",
       "/products/ceramide-cushion",
     ]);
     expect(productDestinations(sectionForHeading("Beyond The Core"))).toEqual([
@@ -190,54 +190,28 @@ describe("homepage product wiring", () => {
     expect(screen.queryByRole("button", { name: /PROTECT/i })).not.toBeInTheDocument();
   });
 
-  it.each([
-    ["maxxing-serum", "Maxxing Serum"],
-    ["super-serum", "Super Serum"],
-  ])("keeps the Core in order with TREAT named %s", async (slug, displayName) => {
-    mockedGetProducts.mockResolvedValue(
-      fixtures.map((product) =>
-        product.slug === "peptide-bounce"
-          ? { ...product, slug, displayName }
-          : product,
-      ),
-    );
-
-    render(<CartProvider>{await HomePage()}</CartProvider>);
-
-    expect(productDestinations(sectionForHeading("The Core"))).toEqual([
-      "/products/biotic-reset",
-      `/products/${slug}`,
-      "/products/ceramide-cushion",
-    ]);
-    expect(screen.getByRole("link", { name: displayName })).toHaveAttribute(
-      "href",
-      `/products/${slug}`,
-    );
-  });
-
-  it("prefers Maxxing Serum over Peptide Bounce before Super Serum is published", async () => {
+  it("does not substitute retired TREAT products when Super Serum is missing", async () => {
     mockedGetProducts.mockResolvedValue([
-      ...fixtures,
+      ...fixtures.filter((product) => product.slug !== "super-serum"),
       makeProduct("maxxing-serum", "Maxxing Serum", "TREAT", 3),
+      makeProduct("peptide-bounce", "Peptide Bounce", "TREAT", 3),
     ]);
 
     render(<CartProvider>{await HomePage()}</CartProvider>);
 
     expect(productDestinations(sectionForHeading("The Core"))).toEqual([
       "/products/biotic-reset",
-      "/products/maxxing-serum",
       "/products/ceramide-cushion",
     ]);
-    expect(
-      screen.queryByRole("link", { name: "Peptide Bounce" }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Maxxing Serum" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Peptide Bounce" })).not.toBeInTheDocument();
   });
 
-  it("prefers Super Serum when all three TREAT names are present", async () => {
+  it("selects only Super Serum when retired TREAT products are also present", async () => {
     mockedGetProducts.mockResolvedValue([
       ...fixtures,
       makeProduct("maxxing-serum", "Maxxing Serum", "TREAT", 3),
-      makeProduct("super-serum", "Super Serum", "TREAT", 3),
+      makeProduct("peptide-bounce", "Peptide Bounce", "TREAT", 3),
     ]);
 
     render(<CartProvider>{await HomePage()}</CartProvider>);
@@ -259,12 +233,8 @@ describe("homepage product wiring", () => {
     ).not.toBeInTheDocument();
   });
 
-  it.each([
-    ["peptide-bounce", "Peptide Bounce"],
-    ["maxxing-serum", "Maxxing Serum"],
-    ["super-serum", "Super Serum"],
-  ])("uses canonical TREAT media and preview copy for %s", async (slug, displayName) => {
-    const product = makeProduct(slug, displayName, "TREAT", 3);
+  it("uses current Super Serum media and TREAT preview copy", async () => {
+    const product = makeProduct("super-serum", "Super Serum", "TREAT", 3);
     product.cardMedia = {
       kind: "image",
       url: "/test/treat-canonical-hero.webp",
@@ -284,7 +254,7 @@ describe("homepage product wiring", () => {
     };
     mockedGetProducts.mockResolvedValue(
       fixtures.map((item) =>
-        item.slug === "peptide-bounce" ? product : item,
+        item.slug === "super-serum" ? product : item,
       ),
     );
 
@@ -357,7 +327,7 @@ describe("homepage product wiring", () => {
 
     expect(productDestinations(sectionForHeading("The Core"))).toEqual([
       "/products/biotic-reset",
-      "/products/peptide-bounce",
+      "/products/super-serum",
     ]);
   });
 

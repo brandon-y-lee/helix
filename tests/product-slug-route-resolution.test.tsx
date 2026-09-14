@@ -41,11 +41,11 @@ import ProductDetailPage, {
   generateMetadata,
 } from "@/app/products/[slug]/page";
 
-const canonicalSlug = "peptide-bounce";
+const canonicalSlug = "super-serum";
 const historicalSlug = "treat-03-pdrn-5-ampoule";
 const metadata = {
   slug: canonicalSlug,
-  displayName: "Peptide Bounce",
+  displayName: "Super Serum",
   productType: "PDRN serum",
   editorialDescription: "A daily serum for bouncier-looking skin.",
   seoTitle: null,
@@ -143,7 +143,7 @@ describe("durable Product slug route resolution", () => {
           }),
         }),
       ).rejects.toThrow(
-        "REDIRECT:/products/peptide-bounce?campaign=launch+%2F+core&filter=one&filter=two&next=https%3A%2F%2Fexample.com%2Foffsite",
+        "REDIRECT:/products/super-serum?campaign=launch+%2F+core&filter=one&filter=two&next=https%3A%2F%2Fexample.com%2Foffsite",
       );
 
       expect(catalogCache.getCachedPdpProduct).not.toHaveBeenCalled();
@@ -180,7 +180,7 @@ describe("durable Product slug route resolution", () => {
       canonicalSlug,
     );
     expect(result.alternates).toEqual({
-      canonical: "/products/peptide-bounce",
+      canonical: "/products/super-serum",
     });
   });
 });

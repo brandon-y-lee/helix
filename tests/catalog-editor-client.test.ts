@@ -19,6 +19,35 @@ afterEach(() => {
 });
 
 describe("catalogEditorApi", () => {
+  it("returns Restore retention and review issues with the new draft", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response({
+      ok: true,
+      draft: {
+        ...catalogDraft,
+        validation_errors: [{
+          path: "productPdpContent.how_to_use_steps",
+          code: "review_required",
+          message: "Review the restored usage instructions before publishing.",
+        }],
+      },
+      retainedFields: [
+        "slug", "display_name", "seo_title", "seo_description", "search_keywords",
+      ],
+    }, 201)));
+
+    const result = await catalogEditorApi.restoreRevision("revision-older");
+
+    expect(result.retainedFields).toEqual([
+      "slug", "display_name", "seo_title", "seo_description", "search_keywords",
+    ]);
+    expect(result.issues).toEqual([{
+      table: "product_pdp_content",
+      field: "how_to_use_steps",
+      row_id: undefined,
+      message: "Review the restored usage instructions before publishing.",
+    }]);
+  });
+
   it("requests the narrow sorted grid and normalizes backend summaries", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       response({

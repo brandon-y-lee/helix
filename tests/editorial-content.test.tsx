@@ -34,8 +34,8 @@ const productDetails: Record<
     step: "REFINE",
     ingredients: ["Panthenol", "Hyaluronic Acid"],
   },
-  "peptide-bounce": {
-    name: "Peptide Bounce",
+  "super-serum": {
+    name: "Super Serum",
     step: "TREAT",
     ingredients: ["Sodium DNA (50,000 ppm)", "Niacinamide", "Copper Tripeptide-1"],
   },

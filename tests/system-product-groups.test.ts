@@ -42,7 +42,7 @@ describe("groupSystemProducts", () => {
   it("uses governed step metadata and collection-facing family entries", () => {
     const products = [
       product("peptide-nourish-mask", "LIFT", "beyond_core"),
-      product("peptide-bounce", "TREAT", "core"),
+      product("super-serum", "TREAT", "core"),
       product("mineral-guard", "PROTECT", "beyond_core"),
       product("biotic-reset", "CLEANSE", "core"),
       product("refine-family-sibling", "REFINE", "beyond_core"),
@@ -61,7 +61,7 @@ describe("groupSystemProducts", () => {
 
     expect(result.core.map((entry) => entry.product.slug)).toEqual([
       "biotic-reset",
-      "peptide-bounce",
+      "super-serum",
       "ceramide-cushion",
     ]);
     expect(result.core.map((entry) => entry.displayNumber)).toEqual([
@@ -87,7 +87,7 @@ describe("groupSystemProducts", () => {
 
   it("reports absent or inactive entries without substituting another product", () => {
     const cleanser = product("biotic-reset", "CLEANSE", "core");
-    const archivedTreat = product("peptide-bounce", "TREAT", "core", {
+    const archivedTreat = product("archived-serum", "TREAT", "core", {
       catalogStatus: "archived",
     });
     const seal = product("ceramide-cushion", "SEAL", "core");

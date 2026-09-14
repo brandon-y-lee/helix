@@ -21,11 +21,15 @@ import type {
   CatalogGridRow,
   CatalogPublishSuccess,
   CatalogPublishTransactionSuccess,
+  CatalogRestoreSuccess,
   CatalogRevisionRecord,
   ProductEditorDocumentV4,
   CatalogValidationIssue,
 } from "@/lib/admin/catalog/types";
-import { PRODUCT_EDITOR_SCHEMA_VERSION } from "@/lib/admin/catalog/types";
+import {
+  CATALOG_RESTORE_RETAINED_FIELDS,
+  PRODUCT_EDITOR_SCHEMA_VERSION,
+} from "@/lib/admin/catalog/types";
 import type { CatalogAdminAccess } from "@/lib/admin/capabilities";
 import { catalogDocumentDiff } from "@/lib/admin/catalog/diff";
 import type { CatalogEditorRole } from "@/lib/catalog/field-ownership";
@@ -879,12 +883,26 @@ export async function listCatalogRevisions(
 export async function restoreCatalogRevision(
   revisionId: string,
   actorId: string,
-): Promise<{ ok: true; draft: CatalogDraftRecord }> {
+): Promise<CatalogRestoreSuccess> {
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin.rpc("restore_catalog_product_revision", {
     p_revision_id: revisionId,
     p_actor_id: actorId,
   });
   if (error) throwDatabaseError(error);
-  return assertRpcResult<{ ok: true; draft: CatalogDraftRecord }>(data);
+  const restored = assertRpcResult<CatalogRestoreSuccess>(data);
+  if (
+    !Array.isArray(restored.retainedFields) ||
+    restored.retainedFields.length !== CATALOG_RESTORE_RETAINED_FIELDS.length ||
+    !CATALOG_RESTORE_RETAINED_FIELDS.every((field) =>
+      restored.retainedFields.includes(field),
+    )
+  ) {
+    throw new CatalogAdminError(
+      "restore_contract_unconfirmed",
+      "Current identity retention could not be confirmed. A draft may have been created. Reload the editor and review the draft before publishing.",
+      503,
+    );
+  }
+  return restored;
 }
