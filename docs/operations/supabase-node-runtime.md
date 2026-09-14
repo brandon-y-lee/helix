@@ -25,9 +25,10 @@ rejection, bounded admin timeout, and bootstrap initialization without a user
 selector. The frozen dependency update removes only direct `ws` and `@types/ws`;
 it does not upgrade the SDK.
 
-Actual deployment evidence remains pending. No Vercel deployment or provider
-configuration was changed by this Ticket. The Spec's integration gate retains
-the production build and browser verification.
+Actual deployment evidence remains pending. This Ticket includes no manual
+Vercel deployment or provider configuration change. Normal Git-linked previews
+may build the branch; record their actual runtime evidence separately. The
+Spec's integration gate retains the production build and browser verification.
 
 References:
 
