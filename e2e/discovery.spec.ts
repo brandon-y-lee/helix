@@ -113,6 +113,37 @@ test("current Product URLs load and retired Product URLs return 404", async ({
   expect(queryResponse.headers().location).toBeUndefined();
 });
 
+test("Super Serum has one current identity across discovery, the System and its PDP", async ({ page, storefront }) => {
+  const product = storefront.products().find(({ slug }) => slug === "super-serum");
+  if (!product) throw new Error("The current Catalog must contain Super Serum.");
+  expect(product.displayName).toBe("Super Serum");
+  for (const path of ["/", "/collections/shop", "/system#system-treat"]) {
+    await page.goto(path);
+    const link = page.locator(`a[href="${product.path}"]`).first();
+    await expect(link).toBeVisible();
+    await expect(link).toHaveAccessibleName(/Super Serum/);
+    await expect(page.locator('a[href="/products/peptide-bounce"], a[href="/products/maxxing-serum"]')).toHaveCount(0);
+  }
+
+  const response = await page.goto(product.path);
+  expect(response?.status()).toBe(200);
+  await expect(page.getByRole("heading", { level: 1, name: "Super Serum", exact: true })).toBeVisible();
+  await expect(page).toHaveTitle(/Super Serum/);
+  expect(await page.title()).not.toMatch(/Peptide Bounce|Maxxing Serum/);
+  const canonical = await page.locator('link[rel="canonical"]').getAttribute("href");
+  expect(canonical).not.toBeNull();
+  expect(new URL(canonical!).pathname).toBe(product.path);
+  const structured = await page.locator('script[type="application/ld+json"]').evaluateAll((scripts) =>
+    scripts.flatMap((script) => {
+      const value: unknown = JSON.parse(script.textContent ?? "null");
+      return Array.isArray(value) ? value : [value];
+    }),
+  );
+  const productData = structured.find((value) => value?.["@type"] === "Product");
+  expect(productData?.name).toBe(`Super Serum — ${product.productType}`);
+  expect(new URL(productData?.url).pathname).toBe(product.path);
+});
+
 test("Explore The Core is locally outlined and inverts for discovery", async ({
   page,
 }) => {

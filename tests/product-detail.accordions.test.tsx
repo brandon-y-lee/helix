@@ -487,7 +487,7 @@ describe("ProductDetail purchase accordions", () => {
     const user = userEvent.setup();
     const cartMedia = {
       kind: "image" as const,
-      url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/helix-catalog/products/treat-03-pdrn-5-ampoule/primary/hash.webp",
+      url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/helix-catalog/products/10000000-0000-4000-8000-000000000101/primary/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.webp",
       alt: "TREAT PDRN ampoule",
       width: 1400,
       height: 1867,
@@ -755,7 +755,7 @@ describe("ProductDetail purchase accordions", () => {
     rerender(
       <ProductDetail
         product={makeProduct({
-          slug: "cleanse-01-calming-gel-cleanser",
+          slug: "biotic-reset",
           displayName: "CLEANSE",
           systemStepPosition: 1,
           systemStepName: "CLEANSE",

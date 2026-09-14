@@ -13,7 +13,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 const item: CartAddInput = {
-  slug: "cleanse-01-calming-gel-cleanser",
+  slug: "biotic-reset",
   name: "CLEANSE",
   variantId: "200ml",
   variantLabel: "200 mL",

@@ -100,7 +100,7 @@ Contact has no form or verified support destination (`app/contact/page.tsx:37–
 
 Account access correctly removes desktop image below820px (`AccountAccessLayout`; CSS`:8284–8294`). Runtime shows Sign-in title at y305 and Forgot title at y338 because the form remains centered in a large empty card. Root checked Create Account at320×568:32px heading and240px input widths fit; no document overflow. The source nowrap concern was not reproduced with current text and remains only a large-text/keyboard regression check (`globals.css:2930–2950`). Logged-out rewards repeats private-account-oriented empty sections; maintain truthful boundaries. Checkout is sandbox introduction; unverified success is not payment success. No private state was fabricated.
 
-Canonical aliases: `/method`→`/system`; `/support`→`/faq`; shipping paths→`/faq#shipping`; return/refund paths→`/faq#returns`; `/privacy-policy`→`/privacy`; `/terms-of-service`→`/terms`; signed-out `/account`→sign-in. Treat aliases as the same page, not extra missing layouts.
+Historical observation from September 10, 2026: `/method`→`/system`; `/support`→`/faq`; shipping paths→`/faq#shipping`; return/refund paths→`/faq#returns`; `/privacy-policy`→`/privacy`; `/terms-of-service`→`/terms`; signed-out `/account`→sign-in. The navigation aliases were superseded by Spec #358's retired-URL policy; see [current contract verification](../operations/current-contract-verification.md). The account authentication redirect remains current.
 
 ## Verification and acceptance implications
 

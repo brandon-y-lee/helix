@@ -31,7 +31,7 @@ function coreRoutineEditorialMedia(
     product_id: PRODUCT_ID,
     variant_id: null,
     media_type: "image",
-    url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/helix-catalog/products/cleanse-01-calming-gel-cleanser/drafts/editorial.webp",
+    url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/helix-catalog/products/123e4567-e89b-42d3-a456-426614174000/drafts/editorial.webp",
     alt: "CLEANSE Core routine editorial",
     width: 1400,
     height: 1600,

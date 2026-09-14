@@ -297,8 +297,8 @@ describe("CatalogEditor draft workflow", () => {
         products: [
           {
             field: "slug",
-            before: "cleanse-01-calming-gel-cleanser",
-            after: "biotic-reset",
+            before: "biotic-reset",
+            after: "reviewed-cleanser",
             disruptive: true,
             adminOnly: true,
           },
@@ -308,12 +308,12 @@ describe("CatalogEditor draft workflow", () => {
     render(<CatalogEditor productId="product-cleanse" />);
     await screen.findByRole("heading", { name: "CLEANSE" });
     fireEvent.change(screen.getByLabelText("Slug"), {
-      target: { value: "biotic-reset" },
+      target: { value: "reviewed-cleanser" },
     });
 
     expect(
       screen.getByText(
-        /\/products\/cleanse-01-calming-gel-cleanser will become unavailable. The current Product URL will be \/products\/biotic-reset/i,
+        /\/products\/biotic-reset will become unavailable. The current Product URL will be \/products\/reviewed-cleanser/i,
       ),
     ).toBeVisible();
 

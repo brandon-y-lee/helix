@@ -98,7 +98,7 @@ describe("Header draft preview commerce", () => {
   });
 
   it("does not change public header cart behavior", () => {
-    headerMocks.pathname = "/products/cleanse-01-calming-gel-cleanser";
+    headerMocks.pathname = "/products/biotic-reset";
     render(<Header />);
     const cart = screen.getByRole("button", { name: /CART \(2\)/ });
 

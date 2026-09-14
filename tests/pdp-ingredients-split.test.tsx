@@ -241,7 +241,7 @@ describe("PdpIngredientsSplit", () => {
   it.each(["default", "mobile-pilot"] as const)("omits an unverified disclosure and reports missing texture media honestly (%s)", (pdpPresentation) => {
     render(
       <PdpIngredientsSplit
-        productSlug="cleanse-01-calming-gel-cleanser"
+        productSlug="biotic-reset"
         productName="CLEANSE"
         story={story}
         media={null}
