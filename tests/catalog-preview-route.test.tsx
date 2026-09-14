@@ -39,14 +39,20 @@ vi.mock("@/components/product-detail/ProductDetail", async () => {
   return {
     ProductDetail: ({
       commerceDisabled,
+      stripePublishableKey,
       product,
       reviews = EMPTY_PRODUCT_REVIEWS,
     }: {
       commerceDisabled?: boolean;
+      stripePublishableKey?: string | null;
       product: { slug?: string; displayName?: string };
       reviews?: import("@/lib/catalog/product-reviews").ProductReviews;
     }) => (
-      <div data-testid="real-pdp" data-commerce-disabled={commerceDisabled}>
+      <div
+        data-testid="real-pdp"
+        data-commerce-disabled={commerceDisabled}
+        data-stripe-key-absent={stripePublishableKey === null}
+      >
         <ProductReviewsSection
           productName={product.displayName ?? "Product"}
           productSlug={product.slug ?? "product"}
@@ -203,6 +209,19 @@ describe("catalog draft preview route", () => {
       "data-commerce-disabled",
       "true",
     );
+    expect(screen.getByTestId("real-pdp")).toHaveAttribute("data-stripe-key-absent", "true");
+  });
+
+  it.each([
+    ["forbidden", "Catalog access required"],
+    ["unavailable", "Authentication unavailable"],
+  ])("preserves the %s access boundary before any Draft read", async (status, title) => {
+    routeMocks.authorize.mockResolvedValue({ status });
+    render(await CatalogDraftPreviewPage({ params: Promise.resolve({ draftId }) }));
+    expect(screen.getByRole("heading", { name: title })).toBeVisible();
+    expect(routeMocks.loadDraft).not.toHaveBeenCalled();
+    expect(routeMocks.loadBase).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("real-pdp")).not.toBeInTheDocument();
   });
 
   it.each([

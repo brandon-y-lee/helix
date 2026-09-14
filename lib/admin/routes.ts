@@ -23,6 +23,13 @@ export function adminReturnPath(value: string | null): string {
 }
 
 export function applicationRouteMode(pathname: string): ApplicationRouteMode {
+  if (pathname === "/helix-verification/admin/preview") return "catalog-preview";
+  if ([
+    "/helix-verification/admin",
+    "/helix-verification/admin/catalog",
+    "/helix-verification/admin/editor",
+    "/helix-verification/admin/states",
+  ].includes(pathname)) return "standard-admin";
   if (/^\/admin\/catalog\/preview\/[^/]+\/?$/.test(pathname)) {
     return "catalog-preview";
   }

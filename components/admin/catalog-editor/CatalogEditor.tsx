@@ -121,7 +121,13 @@ function documentDiff(
   return { diff: result.diff, affected_tables: result.affectedTables };
 }
 
-export default function CatalogEditor({ productId }: { productId: string }) {
+export default function CatalogEditor({
+  productId,
+  api = catalogEditorApi,
+}: {
+  productId: string;
+  api?: typeof catalogEditorApi;
+}) {
   const [document, setDocument] = useState<CatalogDraftDocument | null>(null);
   const [savedDocument, setSavedDocument] =
     useState<CatalogDraftDocument | null>(null);
@@ -237,7 +243,7 @@ export default function CatalogEditor({ productId }: { productId: string }) {
     const controller = new AbortController();
     setLoading(true);
     setError(null);
-    catalogEditorApi
+    api
       .getEditor(productId, controller.signal)
       .then((response) => {
         const initial = response.draft?.document ?? response.canonical;
@@ -264,7 +270,7 @@ export default function CatalogEditor({ productId }: { productId: string }) {
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, [productId, retryKey]);
+  }, [api, productId, retryKey]);
 
   useEffect(() => {
     function warnBeforeLeave(event: BeforeUnloadEvent) {
@@ -325,8 +331,8 @@ export default function CatalogEditor({ productId }: { productId: string }) {
     }
     try {
       const response = draft
-        ? await catalogEditorApi.saveDraft(draft.id, draft.version, current)
-        : await catalogEditorApi.createDraft(productId, current);
+        ? await api.saveDraft(draft.id, draft.version, current)
+        : await api.createDraft(productId, current);
       setDraft(response.draft);
       setDocument(response.draft.document);
       setSavedDocument(response.draft.document);
@@ -342,7 +348,7 @@ export default function CatalogEditor({ productId }: { productId: string }) {
       }
       throw saveError;
     }
-  }, [draft, productId, savedDocument]);
+  }, [api, draft, productId, savedDocument]);
 
   async function runAction(name: string, action: () => Promise<void>) {
     setBusy(name);
@@ -367,7 +373,7 @@ export default function CatalogEditor({ productId }: { productId: string }) {
 
   async function validateCurrent() {
     const savedDraft = await saveCurrent();
-    const result = await catalogEditorApi.validateDraft(
+    const result = await api.validateDraft(
       savedDraft.id,
       savedDraft.version,
     );
@@ -411,7 +417,7 @@ export default function CatalogEditor({ productId }: { productId: string }) {
   ) {
     await runAction("upload", async () => {
       const current = activeDocument.current;
-      const response = await catalogEditorApi.uploadMedia(file, productId, {
+      const response = await api.uploadMedia(file, productId, {
         ...metadata,
         sortOrder: metadata.sortOrder ?? current?.media.length ?? 0,
       });
@@ -543,7 +549,7 @@ export default function CatalogEditor({ productId }: { productId: string }) {
                   runAction("ready", async () => {
                     const checked = await validateCurrent();
                     if (!checked.result.valid) return;
-                    const response = await catalogEditorApi.markReady(
+                    const response = await api.markReady(
                       checked.savedDraft.id,
                       checked.savedDraft.version,
                     );
@@ -608,7 +614,7 @@ export default function CatalogEditor({ productId }: { productId: string }) {
                   runAction("revisions", async () => {
                     if (!draft) return;
                     const response =
-                      await catalogEditorApi.listRevisions(draft.id);
+                      await api.listRevisions(draft.id);
                     setRevisions(response.items);
                   })
                 }
@@ -629,7 +635,7 @@ export default function CatalogEditor({ productId }: { productId: string }) {
                     return;
                   }
                   runAction("discard", async () => {
-                    await catalogEditorApi.discardDraft(draft.id, draft.version);
+                    await api.discardDraft(draft.id, draft.version);
                     setDraft(null);
                     if (canonicalDocument) {
                       setDocument(canonicalDocument);
@@ -678,7 +684,7 @@ export default function CatalogEditor({ productId }: { productId: string }) {
                   type="button"
                   onClick={() =>
                     runAction("reload", async () => {
-                      const response = await catalogEditorApi.getEditor(productId);
+                      const response = await api.getEditor(productId);
                       const latest =
                         response.draft?.document ?? response.canonical;
                       setDraft(response.draft);
@@ -810,12 +816,12 @@ export default function CatalogEditor({ productId }: { productId: string }) {
                   onClick={() =>
                     runAction("publish", async () => {
                       if (!draft) return;
-                      const result = await catalogEditorApi.publishDraft(
+                      const result = await api.publishDraft(
                         draft.id,
                         draft.version,
                       );
                       setPublishResult(result);
-                      const refreshed = await catalogEditorApi.getEditor(productId);
+                      const refreshed = await api.getEditor(productId);
                       setDraft(refreshed.draft);
                       setCanonicalDocument(refreshed.canonical);
                       setSavedDocument(refreshed.canonical);
@@ -924,7 +930,7 @@ export default function CatalogEditor({ productId }: { productId: string }) {
                         onClick={() =>
                           runAction("restore", async () => {
                             const response =
-                              await catalogEditorApi.restoreRevision(revision.id);
+                              await api.restoreRevision(revision.id);
                             setDraft(response.draft);
                             setDocument(response.draft.document);
                             setSavedDocument(response.draft.document);

@@ -169,6 +169,15 @@ describe("CatalogEditor draft workflow", () => {
     expect(catalogEditorApi.publishDraft).not.toHaveBeenCalled();
   });
 
+  it("renders an explicitly supplied presentation client without calling the production client", async () => {
+    const response = editorResponse();
+    const document = { ...response.canonical, product: { ...response.canonical.product, display_name: "Synthetic verification product" } };
+    const api = { ...catalogEditorApi, getEditor: vi.fn().mockResolvedValue({ ...response, canonical: document, draft: null }) };
+    render(<CatalogEditor productId="synthetic-product" api={api} />);
+    expect(await screen.findByRole("heading", { name: "Synthetic verification product" })).toBeVisible();
+    expect(catalogEditorApi.getEditor).not.toHaveBeenCalled();
+  });
+
   it("saves with the draft version and preserves local edits on conflict", async () => {
     render(<CatalogEditor productId="product-cleanse" />);
     await screen.findByRole("heading", { name: "CLEANSE" });

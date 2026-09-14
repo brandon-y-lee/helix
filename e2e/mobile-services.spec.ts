@@ -1,5 +1,11 @@
 import type { Locator, Page } from "@playwright/test";
 import { expect, test } from "./storefront-fixture";
+import {
+  CONTROL_BORDER,
+  PANEL_GRAY,
+  expectGrayPanels,
+  expectWhiteCanvas,
+} from "./surface-assertions";
 
 async function expectNoDocumentOverflow(page: Page) {
   const widths = await page.evaluate(() => ({
@@ -27,6 +33,15 @@ test("phone FAQ categories reveal the hash selection and keep native answers usa
   const navigation = page.getByRole("navigation", { name: "FAQ categories" });
   const policies = navigation.getByRole("link", { name: "Policies", exact: true });
   await expect(policies).toHaveAttribute("aria-current", "location");
+  const neutralCategories = navigation.locator("a:not([aria-current])");
+  await expectWhiteCanvas(page);
+  await expectGrayPanels(page.locator(".faq-item"));
+  await expectGrayPanels(neutralCategories);
+  for (const category of await neutralCategories.all()) {
+    await expect(category).toHaveCSS("border-top-color", CONTROL_BORDER);
+  }
+  await expect(policies).toHaveCSS("background-color", "rgb(17, 19, 18)");
+  await expect(policies).toHaveCSS("color", "rgb(255, 253, 248)");
   await expect(navigation.locator('[aria-current="location"]')).toHaveCount(1);
   await expect.poll(async () => navigation.evaluate((element) => {
     const selected = element.querySelector('[aria-current="location"]')!;
@@ -64,6 +79,10 @@ test("phone FAQ categories reveal the hash selection and keep native answers usa
   await expect(page).toHaveURL(/\/faq#products$/);
   await expect(products).toHaveAttribute("aria-current", "location");
   await expect(policies).not.toHaveAttribute("aria-current", "location");
+  await expect(products).toHaveCSS("background-color", "rgb(17, 19, 18)");
+  await expect(products).toHaveCSS("color", "rgb(255, 253, 248)");
+  await expect(policies).toHaveCSS("background-color", PANEL_GRAY);
+  await expect(policies).toHaveCSS("border-top-color", CONTROL_BORDER);
   await expectAnchorBelowHeader(page.locator("#products"));
 
   const firstAnswer = page.locator("#products details").first();
@@ -86,12 +105,16 @@ test("legal Contents uses a closed phone disclosure and exposes one navigation a
   const contents = page.locator("details.legal-toc--mobile");
   const summary = contents.locator("summary");
   const navigation = page.getByRole("navigation", { name: "Terms of Service sections" });
+  await expectWhiteCanvas(page);
+  await expectGrayPanels(page.locator(".legal-document section"));
+  await expect(contents).toHaveCSS("background-color", PANEL_GRAY);
   await expect(summary).toHaveText("Contents");
   await expect(contents).not.toHaveAttribute("open");
   await expect(navigation).toHaveCount(0);
   await summary.focus();
   await page.keyboard.press("Enter");
   await expect(contents).toHaveAttribute("open", "");
+  await expect(contents).toHaveCSS("background-color", PANEL_GRAY);
   await expect(navigation).toHaveCount(1);
   await page.keyboard.press(browserName === "webkit" ? "Alt+Tab" : "Tab");
   await expect(navigation.getByRole("link").first()).toBeFocused();
@@ -101,6 +124,7 @@ test("legal Contents uses a closed phone disclosure and exposes one navigation a
   await expectNoDocumentOverflow(page);
 
   await page.setViewportSize({ width: 720, height: 1024 });
+  await expect(contents).toHaveCSS("background-color", PANEL_GRAY);
   await expect(summary).toBeVisible();
   await expect(navigation).toHaveCount(1);
   await expect(contents.getByRole("navigation")).toBeVisible();
@@ -193,6 +217,9 @@ test("phone cookie details scroll by keyboard inside a labeled region", async ({
     await page.setViewportSize({ width, height: 844 });
     await page.goto("/cookie-policy");
     const region = page.getByRole("region", { name: "Cookie categories", exact: true });
+    await expectWhiteCanvas(page);
+    await expectGrayPanels(page.locator(".legal-document section"));
+    await expect(region).toHaveCSS("background-color", PANEL_GRAY);
     await expect(page.getByText(/scroll horizontally/i)).toBeVisible();
     await expect(region.getByRole("columnheader")).toHaveText([
       "Category", "Status", "Examples", "Purpose", "Optional",
