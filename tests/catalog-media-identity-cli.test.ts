@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { createHash } from "node:crypto";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { catalogDocument } from "./fixtures/catalog-editor";
 import {
@@ -9,32 +9,24 @@ import {
   createMediaIdentityGateway,
   type MediaIdentityGateway,
 } from "../scripts/catalog/media-identity";
-import {
-  buildMediaIdentityManifest,
-  verifyAndCopyMedia,
-  type MediaIdentityManifest,
-} from "../scripts/catalog/product-media-identity";
-
-vi.mock("../scripts/catalog/product-media-identity", async () => ({
-  ...await vi.importActual("../scripts/catalog/product-media-identity"),
-  buildMediaIdentityManifest: vi.fn(),
-  verifyAndCopyMedia: vi.fn(),
-}));
+import type { MediaIdentityManifest } from "../scripts/catalog/product-media-identity";
 
 const operationId = "123e4567-e89b-42d3-a456-426614174006";
 const actorId = "123e4567-e89b-42d3-a456-426614174005";
 const prefix = "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/helix-catalog/";
-const sourceUrl = `${prefix}products/old-product/primary/${"a".repeat(64)}.webp`;
-const targetUrl = `${prefix}products/${catalogDocument.productId}/primary/${"a".repeat(64)}.webp`;
+const bytes = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aHfoAAAAASUVORK5CYII=", "base64");
+const assetSha256 = "350a03119e021c69694ed8e9b78251fc684f8d2d1683374b24099b5efdb59ff8";
+const sourceUrl = `${prefix}products/old-product/primary/${assetSha256}.png`;
+const targetUrl = `${prefix}products/${catalogDocument.productId}/primary/${assetSha256}.png`;
 
-function fixture() {
+function fixture({ targetMissing = false } = {}) {
   const document = structuredClone(catalogDocument);
-  document.media = [{ ...document.media[0], url: sourceUrl }];
+  document.media = [{ ...document.media[0], url: sourceUrl, width: 1, height: 1 }];
   const manifest: MediaIdentityManifest = {
     version: 1, projectRef: "erasogmsqpgiirovubjh", operationId, actorId,
     products: [{ productId: document.productId, expectedRevision: 3, expectedDocument: document,
       media: [{ mediaId: document.media[0].id, sourceUrl, targetUrl,
-        sha256: "a".repeat(64), byteSize: 128, mimeType: "image/webp", width: 800, height: 1000 }] }],
+        sha256: assetSha256, byteSize: 68, mimeType: "image/png", width: 1, height: 1 }] }],
   };
   const text = `${JSON.stringify(manifest, null, 2)}\n`;
   const afterDocument = structuredClone(document);
@@ -43,13 +35,33 @@ function fixture() {
   let operation: Record<string, unknown> | null = null;
   const policy = { enabled: false, operationId: null, activatedAt: null };
   const result = { ok: true, outcome: "published", operationId, products: [{ productId: document.productId, revision: 4, revisionId: actorId }], associationCount: 1 };
+  const objects = new Map([[sourceUrl, bytes], ...targetMissing ? [] : [[targetUrl, bytes] as const]]);
+  const runtime = {
+    fetchImpl: vi.fn<typeof fetch>(async (input, init) => {
+      const url = new URL(String(input));
+      url.search = "";
+      const content = objects.get(url.href);
+      return content ? new Response(init?.method === "HEAD" ? null : content, {
+        headers: { "content-type": "image/png", "content-length": String(content.length), "cache-control": "public, max-age=31536000" },
+      }) : new Response(null, { status: 404 });
+    }),
+    inspect: vi.fn(async (content: Buffer) => {
+      expect(content).toEqual(bytes);
+      return { width: 1, height: 1, mimeType: "image/png" as const };
+    }),
+  };
   const gateway = {
     readSnapshots: vi.fn(async () => snapshots),
     readAdmin: vi.fn(async () => actorId),
     readOperation: vi.fn(async () => ({ operation, policy })),
     readObjectVersion: vi.fn(async () => ({ id: actorId, version: "version-one" })),
-    copyObject: vi.fn(async () => {}),
+    copyObject: vi.fn(async (sourcePath: string, targetPath: string) => {
+      const content = objects.get(`${prefix}${sourcePath}`);
+      if (!content || objects.has(`${prefix}${targetPath}`)) throw new Error("Storage copy refused.");
+      objects.set(`${prefix}${targetPath}`, Buffer.from(content));
+    }),
     cutover: vi.fn<MediaIdentityGateway["cutover"]>(async () => {
+      if (operation !== null) return { ...result, outcome: "no-op" };
       snapshots = [{ document: afterDocument, revision: 4, activeDrafts: 0 }];
       operation = result;
       return result;
@@ -60,15 +72,13 @@ function fixture() {
     "--expect-project", manifest.projectRef,
     "--expect-operation", operationId,
     "--expect-manifest-sha256", createHash("sha256").update(text).digest("hex")];
-  return { manifest, text, flags, gateway, afterDocument };
+  return { manifest, text, flags, gateway, afterDocument, runtime, objects };
 }
 
 beforeEach(() => {
-  vi.clearAllMocks();
-  vi.mocked(verifyAndCopyMedia).mockResolvedValue({
-    operationId, manifestSha256: "b".repeat(64), distinctAssets: 1, associations: 1, copied: 0, assets: [],
-  });
+  vi.stubGlobal("fetch", vi.fn(() => { throw new Error("Unexpected external network request."); }));
 });
+afterEach(() => vi.unstubAllGlobals());
 
 describe("media identity command confirmations", () => {
   it.each([
@@ -94,16 +104,20 @@ describe("media identity command confirmations", () => {
   });
 
   it("rejects changed file bytes before any provider call", async () => {
-    const { flags, gateway, text } = fixture();
-    await expect(runMediaIdentityCommand(parseMediaIdentityArgs(["copy", ...flags]), gateway, async () => `${text} `)).rejects.toThrow(/file SHA256/);
+    const { flags, gateway, text, runtime } = fixture();
+    await expect(runMediaIdentityCommand(parseMediaIdentityArgs(["copy", ...flags]), gateway, async () => `${text} `, runtime)).rejects.toThrow(/file SHA256/);
     for (const call of Object.values(gateway)) expect(call).not.toHaveBeenCalled();
+    expect(runtime.fetchImpl).not.toHaveBeenCalled();
+    expect(runtime.inspect).not.toHaveBeenCalled();
   });
 
   it("rejects a different operation before any provider call", async () => {
-    const { flags, gateway, text } = fixture();
+    const { flags, gateway, text, runtime } = fixture();
     const args = flags.map((value) => value === operationId ? "123e4567-e89b-42d3-a456-426614174007" : value);
-    await expect(runMediaIdentityCommand(parseMediaIdentityArgs(["copy", ...args]), gateway, async () => text)).rejects.toThrow(/operation or project/);
+    await expect(runMediaIdentityCommand(parseMediaIdentityArgs(["copy", ...args]), gateway, async () => text, runtime)).rejects.toThrow(/operation or project/);
     for (const call of Object.values(gateway)) expect(call).not.toHaveBeenCalled();
+    expect(runtime.fetchImpl).not.toHaveBeenCalled();
+    expect(runtime.inspect).not.toHaveBeenCalled();
   });
 });
 
@@ -153,98 +167,180 @@ describe("media identity operation ordering", () => {
   });
 
   it("plans through read-only boundaries and returns only the manifest", async () => {
-    const { manifest, gateway } = fixture();
-    vi.mocked(buildMediaIdentityManifest).mockResolvedValue(manifest);
-    await expect(runMediaIdentityCommand(parseMediaIdentityArgs(["plan", "--operation-id", operationId]), gateway)).resolves.toEqual(manifest);
+    const { manifest, gateway, runtime } = fixture();
+    await expect(runMediaIdentityCommand(parseMediaIdentityArgs(["plan", "--operation-id", operationId]), gateway, undefined, runtime)).resolves.toEqual(manifest);
     expect(gateway.readSnapshots).toHaveBeenCalledOnce();
     expect(gateway.readAdmin).toHaveBeenCalledOnce();
     expect(gateway.copyObject).not.toHaveBeenCalled();
     expect(gateway.cutover).not.toHaveBeenCalled();
     expect(gateway.activate).not.toHaveBeenCalled();
-    expect(verifyAndCopyMedia).not.toHaveBeenCalled();
+    expect(runtime.fetchImpl).toHaveBeenCalledWith(sourceUrl, expect.objectContaining({ method: "HEAD" }));
+    expect(runtime.inspect).not.toHaveBeenCalled();
   });
 
   it.each(["revision", "document", "draft"])("rejects changed %s before media verification or mutation", async (changed) => {
-    const { manifest, flags, gateway, text } = fixture();
+    const { manifest, flags, gateway, text, runtime } = fixture();
     const document = structuredClone(manifest.products[0].expectedDocument);
     if (changed === "document") document.product.display_name = "An intervening edit";
     gateway.readSnapshots.mockResolvedValue([{ document, revision: changed === "revision" ? 4 : 3, activeDrafts: changed === "draft" ? 1 : 0 }]);
-    await expect(runMediaIdentityCommand(parseMediaIdentityArgs(["copy", ...flags]), gateway, async () => text)).rejects.toThrow();
-    expect(verifyAndCopyMedia).not.toHaveBeenCalled();
+    await expect(runMediaIdentityCommand(parseMediaIdentityArgs(["copy", ...flags]), gateway, async () => text, runtime)).rejects.toThrow();
+    expect(runtime.fetchImpl).not.toHaveBeenCalled();
     expect(gateway.copyObject).not.toHaveBeenCalled();
     expect(gateway.cutover).not.toHaveBeenCalled();
   });
 
-  it.each(["copy", "verify"])("keeps %s separate from cutover and activation", async (command) => {
-    const { flags, gateway, text } = fixture();
-    await runMediaIdentityCommand(parseMediaIdentityArgs([command, ...flags]), gateway, async () => text);
-    expect(verifyAndCopyMedia).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ mode: command }));
+  it("copies missing bytes without cutting over pointers or activating the policy", async () => {
+    const { flags, gateway, text, runtime, objects } = fixture({ targetMissing: true });
+    const output = await runMediaIdentityCommand(parseMediaIdentityArgs(["copy", ...flags]), gateway, async () => text, runtime);
+    expect(gateway.copyObject).toHaveBeenCalledExactlyOnceWith(
+      `products/old-product/primary/${assetSha256}.png`,
+      `products/${catalogDocument.productId}/primary/${assetSha256}.png`,
+    );
+    expect(objects.get(sourceUrl)).toEqual(bytes);
+    expect(objects.get(targetUrl)).toEqual(bytes);
+    expect(output).toMatchObject({ report: { copied: 1, distinctAssets: 1, associations: 1,
+      assets: [{ sourceSha256: assetSha256, targetSha256: assetSha256, canonicalSha256: assetSha256, byteSize: 68, width: 1, height: 1 }] } });
+    expect(gateway.cutover).not.toHaveBeenCalled();
+    expect(gateway.activate).not.toHaveBeenCalled();
+  });
+
+  it("verifies complete existing media bytes without any provider write", async () => {
+    const { flags, gateway, text, runtime } = fixture();
+    const output = await runMediaIdentityCommand(parseMediaIdentityArgs(["verify", ...flags]), gateway, async () => text, runtime);
+    expect(output).toMatchObject({ report: { copied: 0, distinctAssets: 1, associations: 1,
+      assets: [{ sourceSha256: assetSha256, targetSha256: assetSha256, canonicalSha256: assetSha256, byteSize: 68, width: 1, height: 1 }] } });
+    expect(gateway.copyObject).not.toHaveBeenCalled();
+    expect(gateway.cutover).not.toHaveBeenCalled();
+    expect(gateway.activate).not.toHaveBeenCalled();
+  });
+
+  it("refuses to create a missing copy during read-only verification", async () => {
+    const { flags, gateway, text, runtime, objects } = fixture({ targetMissing: true });
+    await expect(runMediaIdentityCommand(parseMediaIdentityArgs(["verify", ...flags]), gateway, async () => text, runtime)).rejects.toThrow(/retrievable/);
+    expect(objects.has(targetUrl)).toBe(false);
+    expect(gateway.copyObject).not.toHaveBeenCalled();
+    expect(gateway.cutover).not.toHaveBeenCalled();
+    expect(gateway.activate).not.toHaveBeenCalled();
+  });
+
+  it.each(["cutover", "activate"])("stops %s when the real engine finds different destination bytes", async (command) => {
+    const { manifest, flags, gateway, text, runtime, objects } = fixture();
+    if (command === "activate") {
+      await gateway.cutover(manifest);
+      gateway.cutover.mockClear();
+    }
+    const corrupted = Buffer.from(bytes);
+    corrupted[corrupted.length - 1] ^= 1;
+    objects.set(targetUrl, corrupted);
+    const extra = command === "activate" ? ["--deployment-sha", "c".repeat(40), "--current-writers-verified"] : [];
+    await expect(runMediaIdentityCommand(parseMediaIdentityArgs([command, ...flags, ...extra]), gateway, async () => text, runtime)).rejects.toThrow(/differs from the source/);
+    expect(gateway.copyObject).not.toHaveBeenCalled();
+    expect(gateway.cutover).not.toHaveBeenCalled();
+    expect(gateway.activate).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { command: "cutover", change: "Catalog revision" },
+    { command: "cutover", change: "administrator membership" },
+    { command: "activate", change: "Catalog revision" },
+    { command: "activate", change: "administrator membership" },
+  ])("stops $command when $change changes during byte verification", async ({ command, change }) => {
+    const { manifest, flags, gateway, text, runtime, afterDocument } = fixture();
+    if (command === "activate") {
+      await gateway.cutover(manifest);
+      gateway.cutover.mockClear();
+    }
+    if (change === "Catalog revision") {
+      const current = { document: command === "activate" ? afterDocument : manifest.products[0].expectedDocument,
+        revision: command === "activate" ? 4 : 3, activeDrafts: 0 };
+      gateway.readSnapshots.mockResolvedValueOnce([current]).mockResolvedValue([{ ...current, revision: current.revision + 1 }]);
+    } else {
+      gateway.readAdmin.mockResolvedValueOnce(actorId).mockRejectedValue(new Error("Administrator is now inactive."));
+    }
+    const extra = command === "activate" ? ["--deployment-sha", "c".repeat(40), "--current-writers-verified"] : [];
+    await expect(runMediaIdentityCommand(parseMediaIdentityArgs([command, ...flags, ...extra]), gateway, async () => text, runtime)).rejects.toThrow(/stale revision|inactive/);
+    expect(runtime.inspect).toHaveBeenCalledTimes(2);
+    expect(gateway.copyObject).not.toHaveBeenCalled();
     expect(gateway.cutover).not.toHaveBeenCalled();
     expect(gateway.activate).not.toHaveBeenCalled();
   });
 
   it("rejects an inactive administrator before media verification", async () => {
-    const { flags, gateway, text } = fixture();
+    const { flags, gateway, text, runtime } = fixture();
     gateway.readAdmin.mockRejectedValue(new Error("Administrator is inactive."));
-    await expect(runMediaIdentityCommand(parseMediaIdentityArgs(["cutover", ...flags]), gateway, async () => text)).rejects.toThrow(/inactive/);
-    expect(verifyAndCopyMedia).not.toHaveBeenCalled();
+    await expect(runMediaIdentityCommand(parseMediaIdentityArgs(["cutover", ...flags]), gateway, async () => text, runtime)).rejects.toThrow(/inactive/);
+    expect(runtime.fetchImpl).not.toHaveBeenCalled();
     expect(gateway.cutover).not.toHaveBeenCalled();
   });
 
   it("does not recreate Storage objects after a recorded cutover", async () => {
-    const { manifest, flags, gateway, text } = fixture();
+    const { manifest, flags, gateway, text, runtime } = fixture();
     await gateway.cutover(manifest);
     gateway.cutover.mockClear();
-    await expect(runMediaIdentityCommand(parseMediaIdentityArgs(["copy", ...flags]), gateway, async () => text)).rejects.toThrow(/already recorded/);
-    expect(verifyAndCopyMedia).not.toHaveBeenCalled();
+    await expect(runMediaIdentityCommand(parseMediaIdentityArgs(["copy", ...flags]), gateway, async () => text, runtime)).rejects.toThrow(/already recorded/);
+    expect(runtime.fetchImpl).not.toHaveBeenCalled();
     expect(gateway.copyObject).not.toHaveBeenCalled();
     expect(gateway.cutover).not.toHaveBeenCalled();
   });
 
   it("rejects an object-version race before pointer cutover", async () => {
-    const { flags, gateway, text } = fixture();
+    const { flags, gateway, text, runtime } = fixture();
     gateway.readObjectVersion.mockResolvedValueOnce({ id: actorId, version: "version-one" });
     gateway.readObjectVersion.mockResolvedValueOnce({ id: actorId, version: "version-one" });
     gateway.readObjectVersion.mockResolvedValue({ id: actorId, version: "version-two" });
-    await expect(runMediaIdentityCommand(parseMediaIdentityArgs(["cutover", ...flags]), gateway, async () => text)).rejects.toThrow(/changed during full-byte/);
-    expect(verifyAndCopyMedia).toHaveBeenCalledOnce();
+    await expect(runMediaIdentityCommand(parseMediaIdentityArgs(["cutover", ...flags]), gateway, async () => text, runtime)).rejects.toThrow(/changed during full-byte/);
+    expect(runtime.inspect).toHaveBeenCalledTimes(2);
     expect(gateway.cutover).not.toHaveBeenCalled();
     expect(gateway.activate).not.toHaveBeenCalled();
   });
 
   it("binds verified object versions to cutover and leaves activation separate", async () => {
-    const { flags, gateway, text } = fixture();
-    const output = await runMediaIdentityCommand(parseMediaIdentityArgs(["cutover", ...flags]), gateway, async () => text);
+    const { flags, gateway, text, runtime } = fixture();
+    const output = await runMediaIdentityCommand(parseMediaIdentityArgs(["cutover", ...flags]), gateway, async () => text, runtime);
     expect(gateway.cutover).toHaveBeenCalledWith(expect.objectContaining({
       products: [expect.objectContaining({ media: [expect.objectContaining({
         sourceObject: { id: actorId, version: "version-one" },
         targetObject: { id: actorId, version: "version-one" },
       })] })],
     }));
-    expect(verifyAndCopyMedia).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ mode: "verify" }));
-    expect(gateway.cutover.mock.invocationCallOrder[0]).toBeGreaterThan(vi.mocked(verifyAndCopyMedia).mock.invocationCallOrder[0]);
+    expect(runtime.inspect).toHaveBeenCalledTimes(2);
+    expect(gateway.cutover.mock.invocationCallOrder[0]).toBeGreaterThan(runtime.fetchImpl.mock.invocationCallOrder.at(-1)!);
     expect(gateway.activate).not.toHaveBeenCalled();
     expect(output).toEqual(expect.objectContaining({ downstreamVerificationRequired: expect.arrayContaining(["Product Search reconciliation", "Catalog cache reconciliation"]) }));
   });
 
+  it("re-verifies the completed operation on a cutover retry without creating another revision", async () => {
+    const { flags, gateway, text, runtime } = fixture();
+    const options = parseMediaIdentityArgs(["cutover", ...flags]);
+    await runMediaIdentityCommand(options, gateway, async () => text, runtime);
+    const output = await runMediaIdentityCommand(options, gateway, async () => text, runtime);
+    expect(output).toMatchObject({
+      result: { operationId, outcome: "no-op", products: [{ revision: 4 }] },
+      recordedOperation: { operationId, outcome: "published", products: [{ revision: 4 }] },
+      report: { copied: 0, assets: [{ sourceSha256: assetSha256, targetSha256: assetSha256 }] },
+    });
+    expect(gateway.copyObject).not.toHaveBeenCalled();
+    expect(gateway.activate).not.toHaveBeenCalled();
+  });
+
   it.each(["verify", "activate"])("requires a recorded cutover for post-cutover %s", async (command) => {
-    const { flags, gateway, text, afterDocument } = fixture();
+    const { flags, gateway, text, afterDocument, runtime } = fixture();
     gateway.readSnapshots.mockResolvedValue([{ document: afterDocument, revision: 4, activeDrafts: 0 }]);
     const extra = command === "verify" ? ["--state", "after"] : ["--deployment-sha", "c".repeat(40), "--current-writers-verified"];
-    await expect(runMediaIdentityCommand(parseMediaIdentityArgs([command, ...flags, ...extra]), gateway, async () => text)).rejects.toThrow(/completed media cutover/);
-    expect(verifyAndCopyMedia).not.toHaveBeenCalled();
+    await expect(runMediaIdentityCommand(parseMediaIdentityArgs([command, ...flags, ...extra]), gateway, async () => text, runtime)).rejects.toThrow(/completed media cutover/);
+    expect(runtime.fetchImpl).not.toHaveBeenCalled();
     expect(gateway.activate).not.toHaveBeenCalled();
   });
 
   it("activates only after full media verification and reports the external deployment attestation", async () => {
-    const { manifest, flags, gateway, text } = fixture();
+    const { manifest, flags, gateway, text, runtime } = fixture();
     await gateway.cutover(manifest);
     gateway.cutover.mockClear();
     const output = await runMediaIdentityCommand(parseMediaIdentityArgs([
       "activate", ...flags, "--deployment-sha", "c".repeat(40), "--current-writers-verified",
-    ]), gateway, async () => text);
+    ]), gateway, async () => text, runtime);
     expect(gateway.activate).toHaveBeenCalledWith(operationId, actorId);
-    expect(gateway.activate.mock.invocationCallOrder[0]).toBeGreaterThan(vi.mocked(verifyAndCopyMedia).mock.invocationCallOrder[0]);
+    expect(gateway.activate.mock.invocationCallOrder[0]).toBeGreaterThan(runtime.fetchImpl.mock.invocationCallOrder.at(-1)!);
     expect(gateway.cutover).not.toHaveBeenCalled();
     expect(gateway.copyObject).not.toHaveBeenCalled();
     expect(output).toEqual(expect.objectContaining({

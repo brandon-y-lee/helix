@@ -234,11 +234,12 @@ export async function runMediaIdentityCommand(
   options: MediaIdentityCommand,
   gateway: MediaIdentityGateway,
   readManifest: (path: string) => Promise<string | Buffer> = (path) => readFile(path),
+  runtime: Pick<Parameters<typeof verifyAndCopyMedia>[1], "fetchImpl" | "inspect"> = {},
 ) {
   if (options.command === "plan") {
     const actorId = await gateway.readAdmin(options.actorId);
     return buildMediaIdentityManifest({
-      operationId: options.operationId, actorId, snapshots: await gateway.readSnapshots(),
+      operationId: options.operationId, actorId, snapshots: await gateway.readSnapshots(), http: runtime.fetchImpl,
     });
   }
   const contents = await readManifest(options.manifestPath);
@@ -266,6 +267,7 @@ export async function runMediaIdentityCommand(
 
   const versionsBefore = options.command === "cutover" ? await storageVersions(manifest, gateway) : null;
   const report = await verifyAndCopyMedia(manifest, {
+    ...runtime,
     mode: options.command === "copy" ? "copy" : "verify",
     copyObject: (source, target) => gateway.copyObject(source, target),
   });

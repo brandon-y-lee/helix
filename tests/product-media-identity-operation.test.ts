@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { createHash } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import { assertCurrentMediaSnapshot, assertMediaIdentityManifest, buildMediaIdentityManifest, manifestDigest, verifyAndCopyMedia } from "../scripts/catalog/product-media-identity";
 import { catalogDraft } from "./fixtures/catalog-editor";
 
@@ -28,6 +29,23 @@ const makeManifest = () => buildMediaIdentityManifest({
 });
 
 describe("reviewed Product Media identity operation", () => {
+  it("rejects a PNG-coded AVI advertised as an image before copying", async () => {
+    // Synthetic 16×16 PNG frame in an AVI container: codec alone is not MIME evidence.
+    const avi = await readFile("tests/fixtures/png-coded-avi.avi");
+    const aviHash = createHash("sha256").update(avi).digest("hex");
+    const manifest = await makeManifest();
+    const copy = manifest.products[0].media[0];
+    Object.assign(copy, { sourceUrl: sourceUrl.replace(hash, aviHash), targetUrl: targetUrl.replace(hash, aviHash),
+      sha256: aviHash, byteSize: avi.length, width: 16, height: 16 });
+    Object.assign(manifest.products[0].expectedDocument.media[0], { url: copy.sourceUrl, width: 16, height: 16 });
+    const copyObject = vi.fn(async () => {});
+    const fetchImpl = vi.fn(async () => new Response(avi, { headers: {
+      "content-type": "image/png", "content-length": String(avi.length), "cache-control": "public, max-age=31536000",
+    } })) as typeof fetch;
+    await expect(verifyAndCopyMedia(manifest, { mode: "copy", fetchImpl, copyObject })).rejects.toThrow("byte format is unsupported");
+    expect(copyObject).not.toHaveBeenCalled();
+  });
+
   it("copies one shared asset unchanged and verifies the destination before returning evidence", async () => {
     let copied = false;
     const fetchImpl = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {

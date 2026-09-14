@@ -172,7 +172,21 @@ export function assertCurrentMediaSnapshot(manifest: MediaIdentityManifest, snap
 }
 
 const run = promisify(execFile);
+function byteMimeType(bytes: Buffer): MimeType {
+  if (bytes.length >= 24 && bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
+    && bytes.readUInt32BE(8) === 13 && bytes.toString("ascii", 12, 16) === "IHDR") return "image/png";
+  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return "image/jpeg";
+  if (bytes.length >= 20 && bytes.toString("ascii", 0, 4) === "RIFF" && bytes.toString("ascii", 8, 12) === "WEBP"
+    && bytes.readUInt32LE(4) + 8 === bytes.length) return "image/webp";
+  // AVIF/HEIF and QuickTime also use ISO BMFF; ftyp alone does not establish MP4.
+  if (bytes.length >= 16 && bytes.toString("ascii", 4, 8) === "ftyp"
+    && bytes.readUInt32BE(0) >= 16 && bytes.readUInt32BE(0) <= bytes.length && bytes.readUInt32BE(0) % 4 === 0
+    && ["isom", "iso2", "iso3", "iso4", "iso5", "iso6", "mp41", "mp42", "avc1", "M4V ", "dash", "msdh", "msix"].includes(bytes.toString("ascii", 8, 12))) return "video/mp4";
+  return fail("Product Media byte format is unsupported.");
+}
+
 export async function inspectMediaDimensions(bytes: Buffer): Promise<MediaDimensions> {
+  const mimeType = byteMimeType(bytes);
   const directory = await mkdtemp(join(tmpdir(), "helix-media-probe-"));
   try {
     const path = join(directory, "approved-asset");
@@ -182,9 +196,13 @@ export async function inspectMediaDimensions(bytes: Buffer): Promise<MediaDimens
     const metadata = JSON.parse(stdout) as { streams?: { width?: number; height?: number; codec_name?: string }[]; format?: { format_name?: string } };
     const stream = metadata.streams?.[0];
     if (!stream || !validNumber(stream.width) || !validNumber(stream.height)) fail("Product Media dimensions could not be independently verified.");
-    const mimeType = metadata.format?.format_name?.split(",").includes("mp4") ? "video/mp4"
-      : ({ png: "image/png", webp: "image/webp", mjpeg: "image/jpeg" } as const)[stream.codec_name as "png" | "webp" | "mjpeg"];
-    if (!mimeType) fail("Product Media byte format is unsupported.");
+    const formats = metadata.format?.format_name?.split(",") ?? [];
+    const expected = { "image/png": { codec: "png", formats: ["png_pipe", "image2"] },
+      "image/jpeg": { codec: "mjpeg", formats: ["jpeg_pipe", "image2"] },
+      "image/webp": { codec: "webp", formats: ["webp_pipe", "image2"] } };
+    const agrees = mimeType === "video/mp4" ? formats.includes("mp4")
+      : stream.codec_name === expected[mimeType].codec && expected[mimeType].formats.some((format) => formats.includes(format));
+    if (!agrees) fail("Product Media byte format is unsupported.");
     return { width: stream.width, height: stream.height, mimeType };
   } finally { await rm(directory, { recursive: true, force: true }); }
 }
