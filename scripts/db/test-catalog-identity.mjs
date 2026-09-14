@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 import { spawn, spawnSync } from "node:child_process";
+import { setTimeout as delay } from "node:timers/promises";
 import { verifyIdentityWriterConcurrency } from "../../supabase/tests/catalog_identity_concurrency.mjs";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
@@ -31,6 +32,17 @@ const label = docker([
 if (label !== "spec358-synthetic-sql") {
   throw new Error("Refusing a container without the spec358-synthetic-sql test label.");
 }
+const readinessDeadline = Date.now() + 30_000;
+let ready = false;
+while (Date.now() < readinessDeadline) {
+  // TCP excludes the image's socket-only initialization server.
+  const probe = spawnSync("docker", [
+    "exec", container, "pg_isready", "-h", "127.0.0.1", "-U", "postgres", "-d", "postgres",
+  ], { encoding: "utf8", timeout: 5_000 });
+  if (probe.status === 0) { ready = true; break; }
+  await delay(250);
+}
+if (!ready) throw new Error("Disposable PostgreSQL did not become ready within 30 seconds.");
 const roles = JSON.parse(docker([
   "exec", container, "psql", "-X", "-U", "postgres", "-d", "postgres", "-Atc",
   "select coalesce(jsonb_object_agg(rolname, rolbypassrls), '{}'::jsonb) from pg_roles where rolname in ('anon','authenticated','service_role');",

@@ -59,4 +59,4 @@ docker run --detach --name helix-spec358-pg --label helix.task=spec358-synthetic
 node scripts/db/test-catalog-identity.mjs --container=helix-spec358-pg
 ```
 
-The runner creates and drops only its random temporary database. It refuses a container without the explicit test label, executes the real Restore migration and temporary upgrade function against synthetic IDs, and fails on any SQL assertion. This is actual SQL execution, separate from Vitest's supplemental source assertions and the repository's ticket-gate.
+The runner waits up to 30 seconds for the image's final TCP PostgreSQL server, checks the required roles, then creates and drops only its random temporary databases. It refuses a container without the explicit test label, executes the real Restore migration and temporary upgrade function against synthetic IDs, and fails on any SQL assertion. This is actual SQL execution, separate from Vitest's supplemental source assertions and the repository's ticket-gate.
