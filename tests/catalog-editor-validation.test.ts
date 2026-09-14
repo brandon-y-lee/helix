@@ -187,7 +187,7 @@ describe("product editor document validation", () => {
     );
   });
 
-  it("validates staged media ownership metadata and controlled origins", () => {
+  it("validates staged media ownership after a Product rename and controlled origins", () => {
     const document = validDocument();
     const sha256 = "a".repeat(64);
     document.media.push({
@@ -195,7 +195,7 @@ describe("product editor document validation", () => {
       product_id: PRODUCT_ID,
       variant_id: VARIANT_ID,
       media_type: "image",
-      url: `https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/helix-catalog/products/cleanse-01-calming-gel-cleanser/drafts/${sha256}.webp`,
+      url: `https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/helix-catalog/products/${PRODUCT_ID}/drafts/${sha256}.webp`,
       alt: "REFINE product texture",
       width: 1200,
       height: 1600,
@@ -210,7 +210,7 @@ describe("product editor document validation", () => {
       archived_at: null,
       pendingUpload: {
         bucket: "helix-catalog",
-        path: `products/cleanse-01-calming-gel-cleanser/drafts/${sha256}.webp`,
+        path: `products/${PRODUCT_ID}/drafts/${sha256}.webp`,
         sha256,
         mimeType: "image/webp",
         sizeBytes: 2048,
@@ -218,6 +218,7 @@ describe("product editor document validation", () => {
       },
     });
 
+    document.product.slug = "biotic-reset";
     expect(
       validateProductEditorDocument(document, {
         NODE_ENV: "test",

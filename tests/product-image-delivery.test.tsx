@@ -11,6 +11,7 @@ const primaryPath =
 const hash = "a".repeat(64);
 const originalUrl = `${origin}${primaryPath}/original/${hash}.webp`;
 const ordinaryUrl = `${origin}${primaryPath}/${hash}.webp`;
+const productId = "123e4567-e89b-42d3-a456-426614174000";
 
 function imageMedia(url: string): ProductMedia {
   return {
@@ -27,24 +28,30 @@ function imageMedia(url: string): ProductMedia {
 }
 
 describe("Product image delivery", () => {
-  it("serves explicitly marked images without optimizer URLs or responsive recompression", () => {
+  it.each([
+    ["historical", originalUrl],
+    ["current UUID", originalUrl.replace("example-product", productId)],
+  ])("serves %s original images without optimizer URLs or responsive recompression", (_label, url) => {
     render(
       <ProductImage
-        media={imageMedia(originalUrl)}
+        media={imageMedia(url)}
         swatch={["#f5f5f5", "#f5f5f5"]}
         sizes="50vw"
       />,
     );
 
     const image = screen.getByRole("img", { name: "Approved Product image" });
-    expect(image).toHaveAttribute("src", originalUrl);
+    expect(image).toHaveAttribute("src", url);
     expect(image).not.toHaveAttribute("srcset");
   });
 
-  it("keeps ordinary Product images optimized and responsive", () => {
+  it.each([
+    ["historical", ordinaryUrl],
+    ["current UUID", ordinaryUrl.replace("example-product", productId)],
+  ])("keeps ordinary %s Product images optimized and responsive", (_label, url) => {
     render(
       <ProductImage
-        media={imageMedia(ordinaryUrl)}
+        media={imageMedia(url)}
         swatch={["#f5f5f5", "#f5f5f5"]}
         sizes="50vw"
       />,
@@ -53,7 +60,7 @@ describe("Product image delivery", () => {
     const image = screen.getByRole("img", { name: "Approved Product image" });
     expect(image).toHaveAttribute(
       "src",
-      expect.stringContaining(`/_next/image?url=${encodeURIComponent(ordinaryUrl)}`),
+      expect.stringContaining(`/_next/image?url=${encodeURIComponent(url)}`),
     );
     expect(image).toHaveAttribute("srcset", expect.stringContaining("640w"));
   });
