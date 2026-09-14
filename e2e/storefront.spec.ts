@@ -17,7 +17,8 @@ type ViewportOrigin = {
 
 const PRODUCT_CARD_WARM_GRAY = "rgb(103, 100, 94)";
 const PRODUCT_CARD_TEXT_BLACK = "rgb(0, 0, 0)";
-const PRODUCT_CARD_CREAM = "rgb(255, 253, 248)";
+const PRODUCT_CARD_ACTION_WHITE = "rgb(255, 255, 255)";
+const PRODUCT_CARD_PANEL_GRAY = "rgb(245, 245, 247)";
 const formerBrandPattern = new RegExp(["mei", "pelle"].join("[\\s_-]*"), "i");
 
 async function buttonVisual(locator: Locator) {
@@ -280,9 +281,10 @@ test("shop presents the approved Product, collection, sheet, and footer treatmen
     name: `Open quick buy for ${purchase.product.displayName}`,
   });
   await expect(previewCta).toBeVisible();
-  await expect(previewCta).toHaveCSS("border-top-width", "0px");
+  await expect(previewCta).toHaveCSS("border-top-width", "1px");
+  await expect(previewCta).toHaveCSS("border-top-color", "rgb(140, 140, 145)");
   expect(await buttonVisual(previewCta)).toEqual({
-    backgroundColor: PRODUCT_CARD_CREAM,
+    backgroundColor: PRODUCT_CARD_ACTION_WHITE,
     color: PRODUCT_CARD_WARM_GRAY,
     hoverFillColor: PRODUCT_CARD_WARM_GRAY,
     hoverFillOpacity: "0",
@@ -322,7 +324,7 @@ test("shop presents the approved Product, collection, sheet, and footer treatmen
   expect(quickBuyForegrounds).toEqual([PRODUCT_CARD_WARM_GRAY]);
   await card.locator(".product-card__quick-head").hover();
   expect(await buttonVisual(finalCta)).toEqual({
-    backgroundColor: PRODUCT_CARD_CREAM,
+    backgroundColor: PRODUCT_CARD_PANEL_GRAY,
     color: PRODUCT_CARD_WARM_GRAY,
     hoverFillColor: PRODUCT_CARD_WARM_GRAY,
     hoverFillOpacity: "0",
@@ -361,7 +363,7 @@ test("shop presents the approved Product, collection, sheet, and footer treatmen
   await expect(unselectedChip).toBeFocused();
   await expect(unselectedChip).toHaveCSS(
     "background-color",
-    "rgba(103, 100, 94, 0.12)",
+    "rgb(245, 245, 247)",
   );
   if (browserName !== "webkit") {
     await expect(unselectedChip).toHaveCSS("outline-style", "solid");
