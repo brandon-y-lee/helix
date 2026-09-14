@@ -46,7 +46,8 @@ function fixture({ targetMissing = false } = {}) {
       url.search = "";
       const content = objects.get(url.href);
       return content ? new Response(init?.method === "HEAD" ? null : content, {
-        headers: { "content-type": "image/png", "content-length": String(content.length), "cache-control": "public, max-age=31536000" },
+        headers: { "content-type": "image/png", "content-length": String(content.length),
+          "cache-control": init?.method === "HEAD" ? "no-cache" : "public, max-age=31536000" },
       }) : new Response(null, { status: 404 });
     }),
     inspect: vi.fn(async (content: Buffer) => {
@@ -178,7 +179,22 @@ describe("media identity operation ordering", () => {
     expect(gateway.copyObject).not.toHaveBeenCalled();
     expect(gateway.cutover).not.toHaveBeenCalled();
     expect(gateway.activate).not.toHaveBeenCalled();
-    expect(runtime.fetchImpl).toHaveBeenCalledWith(sourceUrl, expect.objectContaining({ method: "HEAD" }));
+    expect(runtime.fetchImpl).toHaveBeenCalledWith(sourceUrl, expect.objectContaining({ method: "GET" }));
+    expect(runtime.inspect).not.toHaveBeenCalled();
+  });
+
+  it("refuses an unsafe GET plan without copying, publishing or activating", async () => {
+    const { gateway, runtime } = fixture();
+    const cancel = vi.fn();
+    runtime.fetchImpl.mockImplementation(async () => new Response(new ReadableStream({ cancel }), {
+      headers: { "content-type": "image/png", "content-length": String(bytes.length), "cache-control": "no-store, max-age=31536000" },
+    }));
+    await expect(runMediaIdentityCommand(parseMediaIdentityArgs(["plan", "--operation-id", operationId]), gateway, undefined, runtime))
+      .rejects.toThrow("public caching");
+    expect(cancel).toHaveBeenCalledOnce();
+    expect(gateway.copyObject).not.toHaveBeenCalled();
+    expect(gateway.cutover).not.toHaveBeenCalled();
+    expect(gateway.activate).not.toHaveBeenCalled();
     expect(runtime.inspect).not.toHaveBeenCalled();
   });
 

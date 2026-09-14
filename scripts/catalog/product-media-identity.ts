@@ -122,7 +122,7 @@ export async function buildMediaIdentityManifest(input: {
 }): Promise<MediaIdentityManifest> {
   const manifest: MediaIdentityManifest = { version: 1, projectRef: APPROVED_SUPABASE_PROJECT_REF,
     operationId: input.operationId, actorId: input.actorId, products: [] };
-  const head = new Map<string, { mimeType: MimeType; byteSize: number }>();
+  const sourceMetadata = new Map<string, { mimeType: MimeType; byteSize: number }>();
   for (const snapshot of input.snapshots) {
     const document = snapshot.document;
     const media: MediaIdentityCopy[] = [];
@@ -130,12 +130,18 @@ export async function buildMediaIdentityManifest(input: {
       if (row.archived_at !== null || row.url === null || currentUrl(row.url, document.productId)) continue;
       if (snapshot.activeDrafts !== 0) fail("An affected Product has an active Catalog Draft.");
       const source = sourceParts(row.url);
-      let metadata = head.get(row.url);
+      let metadata = sourceMetadata.get(row.url);
       if (!metadata) {
-        const response = await (input.http ?? fetch)(row.url, { method: "HEAD", redirect: "manual", credentials: "omit", signal: AbortSignal.timeout(10_000) });
-        if (response.status !== 200) fail("Source Product Media is not directly available.");
-        metadata = headers(response, source.mimeType);
-        head.set(row.url, metadata);
+        // HEAD metadata can have a different cache policy from public delivery.
+        // Inspect GET headers here; complete bytes are verified before copying.
+        const response = await (input.http ?? fetch)(row.url, { method: "GET", redirect: "manual", credentials: "omit", signal: AbortSignal.timeout(10_000) });
+        try {
+          if (response.status !== 200) fail("Source Product Media is not directly available.");
+          metadata = headers(response, source.mimeType);
+        } finally {
+          await response.body?.cancel();
+        }
+        sourceMetadata.set(row.url, metadata);
       }
       media.push({ mediaId: row.id, sourceUrl: row.url,
         targetUrl: `${PUBLIC_PREFIX}products/${document.productId}/${source.suffix}`,

@@ -29,7 +29,7 @@ The media boundary migration is compatible preparation: its policy begins disabl
 
 ## Plan and review
 
-`plan` only reads the current non-archived Catalog, administrator membership, and media response headers. It resolves exactly one active Catalog Administrator unless an explicit active administrator UUID is supplied. It creates a new operation UUID unless `--operation-id` is supplied. It refuses unsafe Catalog/media input, including active drafts on affected Products. Its standard output is the manifest itself; redirect it to an absolute private file.
+`plan` only reads the current non-archived Catalog, administrator membership, and media response headers. It checks ordinary GET response headers because HEAD metadata may have a different cache policy from public delivery, then cancels the unread body on both success and failure. Planning retains strict type, declared size, public caching, timeout and redirect checks; it does not inspect complete asset bytes. It resolves exactly one active Catalog Administrator unless an explicit active administrator UUID is supplied. It creates a new operation UUID unless `--operation-id` is supplied. It refuses unsafe Catalog/media input, including active drafts on affected Products. Its standard output is the manifest itself; redirect it to an absolute private file.
 
 ```bash
 umask 077
