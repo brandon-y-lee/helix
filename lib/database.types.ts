@@ -1671,6 +1671,18 @@ export type Database = {
         Args: { p_product_id: string }
         Returns: Json
       }
+      cutover_catalog_product_media: {
+        Args: { p_manifest: Json }
+        Returns: Json
+      }
+      activate_catalog_product_media_policy: {
+        Args: { p_operation_id: string; p_actor_id: string }
+        Returns: Json
+      }
+      get_catalog_product_media_operation: {
+        Args: { p_operation_id: string }
+        Returns: Json
+      }
       merge_guest_cart: {
         Args: { p_guest_token_hash: string; p_user_id: string }
         Returns: string

@@ -15,6 +15,7 @@ import {
   validateProductEditorDocument,
 } from "@/lib/admin/catalog/validation";
 import { validateCatalogEditorOwnership } from "@/lib/admin/catalog/ownership";
+import { validateCurrentProductMedia } from "@/lib/admin/catalog/media-readiness";
 import { catalogGuidanceValidationIssues } from "@/lib/admin/catalog/guidance";
 import type {
   CatalogDraftRecord,
@@ -665,6 +666,7 @@ export async function transitionCatalogDraft(input: {
     validationErrors = result.document
       ? [
           ...result.issues,
+          ...validateCurrentProductMedia(result.document),
           ...catalogGuidanceValidationIssues(result.document),
           ...validateCatalogEditorOwnership(
             result.document,
@@ -803,7 +805,9 @@ export async function publishCatalogDraft(
     canonical,
     input.role,
   );
+  const currentMediaIssues = validateCurrentProductMedia(document);
   if (
+    currentMediaIssues.length > 0 ||
     mediaIssues.length > 0 ||
     relationshipIssues.length > 0 ||
     ownershipIssues.length > 0
@@ -812,7 +816,7 @@ export async function publishCatalogDraft(
       "validation_failed",
       "The product editor document failed publication validation.",
       422,
-      { issues: [...ownershipIssues, ...mediaIssues, ...relationshipIssues] },
+      { issues: [...ownershipIssues, ...currentMediaIssues, ...mediaIssues, ...relationshipIssues] },
     );
   }
   const mediaVerification = await dependencies.verifyMedia(document);

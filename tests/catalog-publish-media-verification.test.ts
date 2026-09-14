@@ -13,7 +13,7 @@ const readyDocument = {
   ...catalogDraft.document,
   media: catalogDraft.document.media.map((media, index) => ({
     ...media,
-    url: `${MEDIA_ORIGIN}/storage/v1/object/public/helix-catalog/products/cleanse/media-${index}.webp`,
+    url: `${MEDIA_ORIGIN}/storage/v1/object/public/helix-catalog/products/${catalogDraft.product_id}/primary/${String(index + 1).repeat(64)}.webp`,
   })),
 };
 
@@ -123,6 +123,24 @@ function dependencies(input: {
 
 describe("catalog publish media verification", () => {
   afterEach(() => vi.unstubAllEnvs());
+
+  it("keeps retired media reviewable but prevents Publish even when its old URL is healthy", async () => {
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", MEDIA_ORIGIN);
+    const document = { ...readyDocument, media: readyDocument.media.map((media) => ({
+      ...media, url: media.url.replace(catalogDraft.product_id, "former-product"),
+    })) };
+    const verifyMedia = vi.fn(async () => healthyReport);
+    const publishTransaction = vi.fn(async () => publishSuccess);
+    await expect(publishCatalogDraft({
+      draftId: catalogDraft.id, expectedVersion: catalogDraft.version,
+      actorId: catalogDraft.updated_by, role: "catalog_publisher",
+    }, dependencies({ document, verifyMedia, publishTransaction }))).rejects.toMatchObject({
+      code: "validation_failed", status: 422,
+      details: { issues: expect.arrayContaining([expect.objectContaining({ path: "media.0.url", code: "retired_media_reference" })]) },
+    });
+    expect(verifyMedia).not.toHaveBeenCalled();
+    expect(publishTransaction).not.toHaveBeenCalled();
+  });
 
   it("keeps missing guidance reviewable but blocks Publish before media or database work", async () => {
     vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", MEDIA_ORIGIN);
