@@ -10,7 +10,7 @@ import {
   catalogEvidenceReadTransaction,
   MEDIA_BOUNDARY_INSPECTION_QUERY,
 } from "../catalog/catalog-evidence-query";
-import { createCatalogEvidence, type CatalogEvidenceInput } from "../catalog/catalog-evidence";
+import { createCatalogEvidence, parseCatalogEvidenceJson, type CatalogEvidenceInput } from "../catalog/catalog-evidence";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const container = process.argv.find((arg) => arg.startsWith("--container="))?.slice(12);
@@ -113,9 +113,18 @@ values('10000000-0000-4000-8000-000000000801','draft.saved','${actorId}','${prod
 
 type Row = Record<string, unknown>;
 type Capture = { metadata: Row; state: Record<string, Row> };
-const readCapture = (present: boolean): Capture => JSON.parse(docker(psql,
+function apiTextValue(text: string): string {
+  // A PostgreSQL text column remains a string through node-postgres and the
+  // Management API's JSON envelope; only our production parser reads its JSON.
+  const envelope = parseCatalogEvidenceJson(JSON.stringify([{ evidence: text }])) as Row[];
+  strictEqual(typeof envelope[0].evidence, "string");
+  strictEqual(envelope[0].evidence, text);
+  return envelope[0].evidence as string;
+}
+const readCaptureText = (present: boolean): string => docker(psql,
   catalogEvidenceReadTransaction(captureQuery(present)),
-).trim()) as Capture;
+).trim();
+const readCapture = (present: boolean): Capture => parseCatalogEvidenceJson(apiTextValue(readCaptureText(present))) as Capture;
 function captureDuringWriter(): Promise<string> {
   return new Promise((resolveCapture, reject) => {
     const child = spawn("docker", psql, { stdio: ["pipe", "pipe", "pipe"] });
@@ -157,6 +166,12 @@ try {
   deepStrictEqual(roles, { anon: false, authenticated: false, service_role: true });
   docker(psql, [checkpoint, identity, guidance, fixtures].map(read).join("\n") + seed);
   deepStrictEqual(JSON.parse(docker(psql, catalogEvidenceReadTransaction(MEDIA_BOUNDARY_INSPECTION_QUERY)).trim()), boundary(false));
+  check("the SQL evidence value is text before any driver JSON decoding", () => {
+    const query = `select pg_typeof(captured.evidence)::text from (
+      ${queryBeforeMedia.replace(/;\s*$/, "")}
+    ) captured;`;
+    strictEqual(docker(psql, catalogEvidenceReadTransaction(query)).trim(), "text");
+  });
   const before = readCapture(false);
   check("historical twelve-digit and current fourteen-digit migration versions remain verbatim", () => {
     deepStrictEqual(before.state.migrationVersions,
@@ -309,7 +324,7 @@ try {
     await concurrent.catch(() => {});
     throw error;
   }
-  const during = JSON.parse((await concurrent).trim()) as Capture;
+  const during = parseCatalogEvidenceJson(apiTextValue((await concurrent).trim())) as Capture;
   const fresh = readCapture(true);
   check("one capture excludes concurrent committed changes and the next sees both", () => {
     deepStrictEqual(during.state.documents, populated.state.documents);
@@ -317,6 +332,33 @@ try {
     strictEqual((document.product as Row).editorial_description, "Concurrent reviewed Product change");
     strictEqual((document.productSource as Row).supplier_title, "Concurrent reviewed Source change");
     notStrictEqual(during.metadata.snapshot, fresh.metadata.snapshot);
+  });
+  for (const [name, token] of [
+    ["oversized decimal", "0.10000000000000000000001"],
+    ["oversized integer", "9007199254740993"],
+  ]) {
+    docker(psql, `update public.product_sources
+      set raw_source = raw_source || '{"syntheticPrecisionSentinel":${token}}'::jsonb
+      where product_id='${productId}';`);
+    check(`${name} survives text transport exactly and is refused before fingerprinting`, () => {
+      const text = apiTextValue(readCaptureText(true));
+      ok(text.includes(`"syntheticPrecisionSentinel": ${token}`), "PostgreSQL must preserve the exact numeric token in text");
+      // This models the JSONB driver's eager JSON.parse, documenting the loss
+      // the SQL text boundary prevents before the response reaches our parser.
+      const lossy = JSON.parse(text) as Capture;
+      const lossySource = (lossy.state.documents[productId] as Row).productSource as Row;
+      const lossyValue = (lossySource.raw_source as Row).syntheticPrecisionSentinel;
+      strictEqual(typeof lossyValue, "number");
+      notStrictEqual(String(lossyValue), token, "The historical JSONB transport would round this sentinel");
+      throws(() => parseCatalogEvidenceJson(text), /numeric precision/);
+    });
+    docker(psql, `update public.product_sources set raw_source=raw_source-'syntheticPrecisionSentinel'
+      where product_id='${productId}';`);
+  }
+  check("ordinary Catalog capture remains valid after precision refusal probes", () => {
+    const safe = createCatalogEvidence(readCapture(true) as unknown as CatalogEvidenceInput, provenance, "prepared");
+    strictEqual(safe.metadata.transactionReadOnly, "on");
+    ok(!JSON.stringify(safe.state.documents).includes("syntheticPrecisionSentinel"));
   });
   proof = {
     status: "passed", postgres, checks, sourceRevision: sourceRevision.stdout.trim(), startedAt,

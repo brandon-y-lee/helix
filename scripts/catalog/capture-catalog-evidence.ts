@@ -108,7 +108,9 @@ export async function runCatalogEvidenceCommand(argv: string[], runtime: Runtime
   const mediaPresent = relationPresence[0] as boolean;
   if (flags.phase !== "before" && !mediaPresent) fail("prepared/postflight captures require the current media boundary; capture its absence as before-state.");
   const query = buildCatalogEvidenceQuery(mediaPresent);
-  const raw = singleRow(await request("/database/query", query), "evidence");
+  const sqlJson = singleRow(await request("/database/query", query), "evidence");
+  if (typeof sqlJson !== "string") fail("complete evidence must arrive as SQL JSON text without intermediate numeric parsing.");
+  const raw = parseCatalogEvidenceJson(sqlJson);
   const evidence = createCatalogEvidence(raw as CatalogEvidenceInput, {
     projectRef: APPROVED_SUPABASE_PROJECT_REF, endpoint: PROJECT_URL, projectVerifiedAt, sourceCommit, extractorSha256,
   }, flags.phase as EvidencePhase);

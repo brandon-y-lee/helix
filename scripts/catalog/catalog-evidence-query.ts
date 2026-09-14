@@ -22,7 +22,8 @@ export function buildCatalogEvidenceQuery(mediaBoundaryPresent: boolean): string
   // validator checks both and the STABLE document-function chain. This single
   // SELECT then observes one statement snapshot, including nested document reads.
   // No customer tables are read; Audit, Draft and Revision payloads contribute
-  // only their complete-row hashes to the exported evidence.
+  // only their complete-row hashes to the exported evidence. Return JSON as
+  // text so the API's PostgreSQL driver cannot round JSON numbers first.
   const mediaOperations = mediaBoundaryPresent
     ? rowMap("private.catalog_media_operations", "row.operation_id::text",
       `jsonb_build_object('sha256', ${completeRowHash})`)
@@ -93,5 +94,5 @@ export function buildCatalogEvidenceQuery(mediaBoundaryPresent: boolean): string
       ]) signature
       left join pg_proc function on function.oid = to_regprocedure(signature))
   )
-) as evidence;`;
+)::text as evidence;`;
 }

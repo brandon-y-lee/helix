@@ -234,7 +234,7 @@ describe("complete Catalog evidence", () => {
       const request = vi.fn<typeof fetch>()
         .mockResolvedValueOnce(Response.json({ ref: provenance.projectRef, status: "ACTIVE_HEALTHY", database: { host: `db.${provenance.projectRef}.supabase.co` } }))
         .mockResolvedValueOnce(Response.json([{ media_boundary: { catalog_media_policy: false, catalog_media_operations: false, verified_media_copies: false } }]))
-        .mockResolvedValueOnce(Response.json([{ evidence: input() }]));
+        .mockResolvedValueOnce(Response.json([{ evidence: JSON.stringify(input()) }]));
       const report = await runCatalogEvidenceCommand(["capture", "--phase=before", `--output=${output}`], {
         env: { NODE_ENV: "test", NEXT_PUBLIC_SUPABASE_URL: provenance.endpoint, SUPABASE_ACCESS_TOKEN: "private-test-token" }, fetchImpl: request,
         now: () => new Date("2026-09-14T08:00:00.000Z"),
@@ -277,13 +277,33 @@ describe("complete Catalog evidence", () => {
     } finally { await rm(directory, { recursive: true, force: true }); }
   });
 
+  it.each(["parsed JSONB", "precise decimal", "oversized integer"])("refuses unverifiable provider numeric transport: %s", async (kind) => {
+    const directory = await mkdtemp(join(tmpdir(), "helix-catalog-numeric-"));
+    try {
+      const exactNumber = kind === "precise decimal" ? "0.10000000000000000000001" : "9007199254740993";
+      const payload = kind === "parsed JSONB" ? input() : JSON.stringify(input()).replace(
+        '"supplier_title":"Reviewed source"',
+        `"supplier_title":"Reviewed source","raw_source":{"exact":${exactNumber}}`,
+      );
+      const request = vi.fn<typeof fetch>()
+        .mockResolvedValueOnce(Response.json({ ref: provenance.projectRef, status: "ACTIVE_HEALTHY", database: { host: `db.${provenance.projectRef}.supabase.co` } }))
+        .mockResolvedValueOnce(Response.json([{ media_boundary: { catalog_media_policy: false, catalog_media_operations: false, verified_media_copies: false } }]))
+        .mockResolvedValueOnce(Response.json([{ evidence: payload }]));
+      const output = join(directory, "refused.json");
+      await expect(runCatalogEvidenceCommand(["capture", "--phase=before", `--output=${output}`], {
+        env: { NODE_ENV: "test", NEXT_PUBLIC_SUPABASE_URL: provenance.endpoint, SUPABASE_ACCESS_TOKEN: "private-test-token" }, fetchImpl: request,
+      })).rejects.toThrow(kind === "parsed JSONB" ? /SQL JSON text/ : /precision/);
+      await expect(stat(output)).rejects.toMatchObject({ code: "ENOENT" });
+    } finally { await rm(directory, { recursive: true, force: true }); }
+  });
+
   it("refuses source or extractor drift during provider reads before writing evidence", async () => {
     const directory = await mkdtemp(join(tmpdir(), "helix-catalog-provenance-"));
     try {
       const request = vi.fn<typeof fetch>()
         .mockResolvedValueOnce(Response.json({ ref: provenance.projectRef, status: "ACTIVE_HEALTHY", database: { host: `db.${provenance.projectRef}.supabase.co` } }))
         .mockResolvedValueOnce(Response.json([{ media_boundary: { catalog_media_policy: false, catalog_media_operations: false, verified_media_copies: false } }]))
-        .mockResolvedValueOnce(Response.json([{ evidence: input() }]));
+        .mockResolvedValueOnce(Response.json([{ evidence: JSON.stringify(input()) }]));
       const readProvenance = vi.fn()
         .mockResolvedValueOnce({ sourceCommit: provenance.sourceCommit, extractorSha256: provenance.extractorSha256 })
         .mockResolvedValueOnce({ sourceCommit: "d".repeat(40), extractorSha256: "e".repeat(64) });
