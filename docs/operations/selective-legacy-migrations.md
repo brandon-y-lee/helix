@@ -47,6 +47,10 @@ Require the pending list to contain only those four files, in that order, with t
 
 After the fresh target/definitions/grants checks and applicable authority are satisfied, apply the same command without `--dry-run`. Match its displayed file list before confirming. Each migration is a separate transaction: if a later file fails, record already committed versions and refresh before resuming the remaining approved files. Verify migration history and each contract's postflight; do not run `migration repair`, reset, ad hoc history writes, or repository-wide push. The media policy must still be disabled after preparation.
 
+### Restore timestamp follow-up
+
+The four compatible preparation migrations are already applied. Before media pointer cutover and deployed Restore verification, use a fresh private phase directory and freshly fetched history to append only the reviewed `20260914121842_catalog_restore_current_timestamps.sql` blob. Require that exact file and hash as the sole pending migration in the same `--skip-vault --dry-run` procedure, then apply without `--dry-run` after fresh target, Restore definition and grant checks. Do not replay the four preparations or change their recorded history. Postflight must confirm the exact new migration record, the timestamp-only Restore insertion and private helper, unchanged Restore ownership/grants and historical revisions, and matching-row timestamps in a normally restored draft before continuing its Save/Validate/Ready/Publish review.
+
 ## Deferred contractions
 
 After actual compatible deployment evidence and required destructive/configuration authority exist, create another fresh private workdir, fetch the now-current history, and add only the exact reviewed deferred file. T8 dispatcher retirement and T6 Checkout retirement should each have their own phase. They sort before already-applied guidance/media files, so use `--include-all` to select the genuinely absent versions:
