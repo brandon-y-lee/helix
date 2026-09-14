@@ -15,7 +15,6 @@ import {
   projectCatalogDraftPreview,
 } from "@/lib/catalog-editor/preview-projection";
 import { PREVIEW_COMMERCE_DISABLED_LABEL } from "@/lib/catalog-editor/preview-commerce";
-import { getProductReviews } from "@/lib/catalog/product-reviews";
 
 const CATALOG_DRAFT_ID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -344,7 +343,6 @@ export default async function CatalogDraftPreviewPage({
           key={`${record.id}:${record.version}`}
           product={preview.product}
           coreProducts={preview.coreProducts}
-          reviews={getProductReviews(base.product.slug)}
           commerceDisabled
           stripePublishableKey={null}
         />

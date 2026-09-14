@@ -5,5 +5,5 @@ The Catalog stores Product Display Name and Product Type as separate canonical f
 ## Consequences
 
 - Where a combined Customer-facing label is useful, surfaces compose exactly `Product Display Name — Product Type`; Product Type uses normal sentence case, and Product Number remains secondary rather than appearing in the primary card or PDP heading.
-- Product URLs use Product Display Name slugs without System Step Name, System Position, or Product Number tokens, and replaced public slugs receive permanent redirects.
+- Product URLs use Product Display Name slugs without System Step Name, System Position, or Product Number tokens. The original permanent-redirect policy is superseded by [ADR 0006's current-only public URL policy](0006-use-only-current-public-product-urls.md).
 - Cards and PDPs render the same canonical Product Type directly instead of maintaining separate subtitle copy.

@@ -48,7 +48,6 @@ vi.mock("@/lib/catalog/storefront", () => ({
   getProductOffer: vi.fn(),
   getProductOffers: vi.fn(),
   getProductRoutes: vi.fn(),
-  getProductSlugResolution: vi.fn(),
 }));
 
 import { getProducts } from "@/lib/catalog";
@@ -59,7 +58,6 @@ import {
   getProductCardContents,
   getProductOffer,
   getProductOffers,
-  getProductSlugResolution,
 } from "@/lib/catalog/storefront";
 import {
   CORE_ROUTINE_CACHE_TAG,
@@ -71,7 +69,6 @@ import {
   getCachedProductCardEntryIds,
   getCachedProductCards,
   getCachedProducts,
-  getCachedProductSlugResolution,
   PRODUCT_CARD_COLLECTION_CACHE_TAG,
   PRODUCT_CARD_REVALIDATE_SECONDS,
   PRODUCT_CONTENT_REVALIDATE_SECONDS,
@@ -79,8 +76,6 @@ import {
   PRODUCT_OFFER_REVALIDATE_SECONDS,
   productContentCacheTag,
   productOfferCacheTag,
-  productSlugRouteCacheTag,
-  PRODUCT_SLUG_ROUTE_COLLECTION_CACHE_TAG,
 } from "@/lib/catalog-cache";
 
 const slug = "treat-03-pdrn-5-ampoule";
@@ -159,12 +154,6 @@ beforeEach(() => {
   vi.mocked(getProductCardContents).mockResolvedValue([card]);
   vi.mocked(getDiscoveryProductCardContents).mockResolvedValue([card]);
   vi.mocked(getCoreRoutineContentSummaries).mockResolvedValue([core]);
-  vi.mocked(getProductSlugResolution).mockResolvedValue({
-    sourceSlug: slug,
-    targetSlug: slug,
-    targetProductId: "product-id",
-    routeKind: "canonical",
-  });
 });
 
 describe("catalog cache domains", () => {
@@ -190,7 +179,6 @@ describe("catalog cache domains", () => {
       getCachedPdpProduct(slug),
       getCachedDiscoveryProductCards(slug),
       getCachedCoreRoutineSummaries(),
-      getCachedProductSlugResolution(slug),
     ]);
 
     const mediaCacheNamespace = `catalog-media:${CATALOG_MEDIA_BUCKET}`;
@@ -232,10 +220,7 @@ describe("catalog cache domains", () => {
       "catalog-pdp-offer-v2",
       slug,
     ]);
-    expect(registration("catalog-product-slug-route-v1").keyParts).toEqual([
-      "catalog-product-slug-route-v1",
-      slug,
-    ]);
+
   });
 
   it("composes a PDP only after independently caching stable content and offers", async () => {
@@ -319,21 +304,5 @@ describe("catalog cache domains", () => {
     expect(registration("catalog-products-card-v3").options.revalidate).toBe(
       PRODUCT_CARD_REVALIDATE_SECONDS,
     );
-  });
-
-  it("caches route resolution by source slug with ledger-wide invalidation", async () => {
-    await expect(getCachedProductSlugResolution(slug)).resolves.toMatchObject({
-      sourceSlug: slug,
-      targetSlug: slug,
-      routeKind: "canonical",
-    });
-    expect(getProductSlugResolution).toHaveBeenCalledWith(slug);
-    expect(registration("catalog-product-slug-route-v1").options).toEqual({
-      revalidate: PRODUCT_CONTENT_REVALIDATE_SECONDS,
-      tags: [
-        PRODUCT_SLUG_ROUTE_COLLECTION_CACHE_TAG,
-        productSlugRouteCacheTag(slug),
-      ],
-    });
   });
 });

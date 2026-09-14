@@ -1,5 +1,20 @@
 import { expectNoMainOverflow } from "./layout-assertions";
 import { expect, test } from "./storefront-fixture";
+import type { Locator } from "@playwright/test";
+
+async function expectAnchorInView(target: Locator) {
+  await expect(target).toBeInViewport();
+  await expect.poll(() => target.evaluate((element) => {
+    const headerHeight = Number.parseFloat(
+      getComputedStyle(document.documentElement).getPropertyValue("--site-header-height"),
+    );
+    const top = element.getBoundingClientRect().top;
+    return {
+      clearsHeader: top >= headerHeight - 1,
+      nearHeader: top <= 121,
+    };
+  })).toEqual({ clearsHeader: true, nearHeader: true });
+}
 
 test("Core flow supports pointer, keyboard, wrapping controls, and deep links", async ({
   browserName,
@@ -34,12 +49,68 @@ test("Core flow supports pointer, keyboard, wrapping controls, and deep links", 
   await page.goto("/system#system-treat");
   await expect(tabs.nth(1)).toHaveAttribute("aria-selected", "true");
 
-  await page.goto("/system#step-recode");
-  await expect(tabs.nth(1)).toHaveAttribute("aria-selected", "true");
   await tabs.nth(2).click();
-  await expect(page).toHaveURL(/\/system#step-recode$/);
+  await page.goto("/system#step-recode");
   await expect(tabs.nth(2)).toHaveAttribute("aria-selected", "true");
+  await page.reload();
+  await expect(tabs.nth(0)).toHaveAttribute("aria-selected", "true");
+  await expect(page).toHaveURL(/\/system#step-recode$/);
 });
+
+for (const width of [320, 721, 1440]) {
+  test(`current System hashes reveal their targets below the header at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 1000 });
+    await page.goto("/system#system-ingredient-niacinamide");
+    await expect(page.locator(".ingredient-carousel")).toHaveAttribute(
+      "data-centered-ingredient", "niacinamide",
+    );
+    await expectAnchorInView(page.locator("#system-ingredient-niacinamide"));
+    await page.goto("/system#system-seal");
+    await page.reload();
+    const core = page.locator("#system-core");
+    await expect(core).toHaveAttribute("data-active-step", "seal");
+    await expectAnchorInView(core);
+
+    for (const [hash, target] of [
+      ["system-overview", "system-overview"],
+      ["system-core", "system-core"],
+      ["system-cleanse", "system-core"],
+      ["system-treat", "system-core"],
+      ["system-seal", "system-core"],
+      ["system-beyond", "system-beyond"],
+      ["system-refine", "system-refine"],
+      ["system-frame", "system-frame"],
+      ["system-protect", "system-protect"],
+      ["system-lift", "system-lift"],
+      ["system-ingredients", "system-ingredients"],
+    ]) {
+      await page.evaluate((id) => { window.location.hash = id; }, hash);
+      await expect(page.locator(`#${hash}`)).toHaveCount(1);
+      if (["system-cleanse", "system-treat", "system-seal"].includes(hash)) {
+        await expect(core).toHaveAttribute("data-active-step", hash.slice(7));
+      }
+      await expectAnchorInView(page.locator(`#${target}`));
+    }
+
+    const ingredientIds = await page.locator('.ingredient-carousel__panel[id]').evaluateAll(
+      (panels) => panels.map((panel) => panel.id),
+    );
+    expect(ingredientIds.length).toBeGreaterThan(1);
+    for (const id of ingredientIds) {
+      await page.evaluate((hash) => { window.location.hash = hash; }, id);
+      const panel = page.locator(`#${id}`);
+      await expect(panel).toBeVisible();
+      await expect(panel).not.toHaveAttribute("inert");
+      await expect(page.locator(".ingredient-carousel")).toHaveAttribute(
+        "data-centered-ingredient", id.replace("system-ingredient-", ""),
+      );
+      await expectAnchorInView(panel);
+    }
+
+    await expect(page.locator('[id="system-routine"], [id^="method-"], [id^="step-"]')).toHaveCount(0);
+    await expectNoMainOverflow(page, width);
+  });
+}
 
 for (const viewport of [
   { width: 1440, height: 1000, splitMode: "paired", minPhraseSize: 36 },
@@ -60,7 +131,7 @@ for (const viewport of [
     const core = page.locator("#system-core");
     const tabs = core.getByRole("tab");
     const initialBackground = core.locator(
-      '.method-flow__background[data-state="active"]',
+      '.system-flow__background[data-state="active"]',
     );
     const initialHue = await initialBackground.evaluate(
       (element) => getComputedStyle(element).backgroundImage,
@@ -72,7 +143,7 @@ for (const viewport of [
       await tabs.nth(1).locator("span").innerText(),
     );
     await expect(
-      core.locator('.method-flow__background[data-state="active"]'),
+      core.locator('.system-flow__background[data-state="active"]'),
     ).not.toHaveCSS("background-image", initialHue);
 
     await tabs.nth(1).focus();
@@ -85,10 +156,10 @@ for (const viewport of [
     const coreGeometry = await core.evaluate((element) => {
       const rect = element.getBoundingClientRect();
       const sectionLabel = element.querySelector("h2");
-      const phrase = element.querySelector(".method-flow__hero-phrase");
+      const phrase = element.querySelector(".system-flow__hero-phrase");
       const panel = element.querySelector('[role="tabpanel"]');
       const tablist = element.querySelector('[role="tablist"]');
-      const productLink = panel?.querySelector(".method-flow__product-link");
+      const productLink = panel?.querySelector(".system-flow__product-link");
       const ingredientTitle = document.querySelector("#system-ingredients h2");
       const nextControl = element.querySelector<HTMLElement>(
         '[aria-label="Next Core step"]',
@@ -174,16 +245,16 @@ for (const viewport of [
       );
     }
 
-    await expect(page.locator(".method-intentional__visual")).not.toHaveAttribute(
+    await expect(page.locator(".system-intentional__visual")).not.toHaveAttribute(
       "data-scroll-zoom-mode",
       "pending",
     );
-    const splitGeometry = await page.locator(".method-intentional").evaluate(
+    const splitGeometry = await page.locator(".system-intentional").evaluate(
       (element) => {
-        const copy = element.querySelector(".method-intentional__copy");
-        const visual = element.querySelector(".method-intentional__visual");
+        const copy = element.querySelector(".system-intentional__copy");
+        const visual = element.querySelector(".system-intentional__visual");
         const image = element.querySelector<HTMLImageElement>(
-          ".method-intentional__image",
+          ".system-intentional__image",
         );
         if (!copy || !visual || !image) {
           throw new Error("The split panels or portrait are missing.");
@@ -228,7 +299,7 @@ for (const viewport of [
         const controlBox = await controls.boundingBox();
         expect(controlBox?.width).toBeGreaterThanOrEqual(44);
         expect(controlBox?.height).toBeGreaterThanOrEqual(44);
-        await expect(core.locator(".method-flow__steps")).toHaveCSS("padding-right", "0px");
+        await expect(core.locator(".system-flow__steps")).toHaveCSS("padding-right", "0px");
         await expect(tabs.first().locator("span")).toHaveCSS("white-space", "normal");
       } else {
         expect(splitGeometry.visual.y).toBeGreaterThan(splitGeometry.copy.y);
@@ -519,7 +590,7 @@ test("Core flow removes crossfade motion for reduced-motion users", async ({ pag
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/system");
 
-  await expect(page.locator(".method-flow__background").first()).toHaveCSS(
+  await expect(page.locator(".system-flow__background").first()).toHaveCSS(
     "transition-duration",
     "0s",
   );
@@ -527,7 +598,7 @@ test("Core flow removes crossfade motion for reduced-motion users", async ({ pag
     "transition-duration",
     "0s",
   );
-  await expect(page.locator(".method-selection-panel").first()).toHaveCSS(
+  await expect(page.locator(".system-selection-panel").first()).toHaveCSS(
     "animation-name",
     "none",
   );
@@ -535,11 +606,11 @@ test("Core flow removes crossfade motion for reduced-motion users", async ({ pag
     "transition-duration",
     "0s",
   );
-  await expect(page.locator(".method-intentional__visual")).toHaveAttribute(
+  await expect(page.locator(".system-intentional__visual")).toHaveAttribute(
     "data-scroll-zoom-mode",
     "static",
   );
-  await expect(page.locator(".method-intentional__image")).toHaveCSS(
+  await expect(page.locator(".system-intentional__image")).toHaveCSS(
     "animation-name",
     "none",
   );

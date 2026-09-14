@@ -142,6 +142,31 @@ describe("catalog publish media verification", () => {
     expect(publishTransaction).not.toHaveBeenCalled();
   });
 
+  it("keeps missing guidance reviewable but blocks Publish before media or database work", async () => {
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", MEDIA_ORIGIN);
+    const document = structuredClone(readyDocument);
+    document.productPdpContent = null;
+    const deps = dependencies({
+      document,
+      verifyMedia: vi.fn(async () => healthyReport),
+    });
+
+    await expect(publishCatalogDraft({
+      draftId: catalogDraft.id,
+      expectedVersion: catalogDraft.version,
+      actorId: catalogDraft.updated_by,
+      role: "catalog_publisher",
+    }, deps)).rejects.toMatchObject({
+      code: "validation_failed",
+      details: { issues: [expect.objectContaining({
+        path: "productPdpContent.how_to_use_steps",
+        code: "guidance_review_required",
+      })] },
+    });
+    expect(deps.verifyMedia).not.toHaveBeenCalled();
+    expect(deps.publishTransaction).not.toHaveBeenCalled();
+  });
+
   it("prevents the Publish transaction when candidate Product Media fails verification", async () => {
     vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", MEDIA_ORIGIN);
     const publishTransaction = vi.fn<

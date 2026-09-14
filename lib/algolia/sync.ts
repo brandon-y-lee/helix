@@ -17,7 +17,6 @@ const PRODUCTS_TABLE = "products";
 const VARIANTS_TABLE = "product_variants";
 const MEDIA_TABLE = "product_media";
 const PDP_CONTENT_TABLE = "product_pdp_content";
-const SLUG_ROUTES_TABLE = "product_slug_routes";
 const PRODUCT_FAMILIES_TABLE = "product_families";
 const PRODUCT_FAMILY_MEMBERSHIPS_TABLE = "product_family_memberships";
 const ALLOWED_TABLES = [
@@ -25,7 +24,6 @@ const ALLOWED_TABLES = [
   VARIANTS_TABLE,
   MEDIA_TABLE,
   PDP_CONTENT_TABLE,
-  SLUG_ROUTES_TABLE,
   PRODUCT_FAMILIES_TABLE,
   PRODUCT_FAMILY_MEMBERSHIPS_TABLE,
 ] as const;
@@ -309,43 +307,6 @@ export async function applyCatalogWebhookEvent(
       routineGroup: records[0]?.routineGroup,
       affectedProducts,
       reason: records.length ? undefined : "family has no public members",
-    };
-  }
-
-  if (table === SLUG_ROUTES_TABLE) {
-    const productId =
-      asId(record?.target_product_id) ?? asId(old_record?.target_product_id);
-    const sourceSlug =
-      asId(record?.source_slug) ?? asId(old_record?.source_slug);
-    if (!productId) {
-      return {
-        action: "noop",
-        table,
-        oldSlug: sourceSlug,
-        reason: "slug route event without target_product_id",
-      };
-    }
-
-    const built = await fetchSearchRecordById(productId);
-    if (!built) {
-      await deleteSearchRecord(productId);
-      return {
-        action: "delete",
-        table,
-        objectID: productId,
-        oldSlug: sourceSlug,
-        reason: "target product no longer public",
-      };
-    }
-
-    await upsertSearchRecord(built);
-    return {
-      action: "upsert",
-      table,
-      objectID: productId,
-      slug: built.slug,
-      oldSlug: sourceSlug,
-      routineGroup: built.routineGroup,
     };
   }
 
