@@ -6,6 +6,7 @@ import type {
 } from "@/test-support/storefront-journeys";
 import { installCartFixture } from "./cart-fixture";
 import { expect, test } from "./storefront-fixture";
+import { PANEL_GRAY } from "./surface-assertions";
 
 type HorizontalGeometry = { x: number; width: number };
 type ElementGeometry = { bottom: number; left: number; top: number };
@@ -728,7 +729,7 @@ test("PDP purchase island contains and reveals purchase details across its respo
     desktopPurchase!.x - (desktopGallery!.x + desktopGallery!.width),
   ).toBeCloseTo(821 * 0.0225, 1);
   expect(desktopPresentation).toMatchObject({
-    backgroundColor: "rgb(223, 229, 223)",
+    backgroundColor: PANEL_GRAY,
     overflowY: "auto",
     position: "sticky",
     scrollbarGutter: "stable",

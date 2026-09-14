@@ -69,10 +69,10 @@
   }
 
   .pdp-sticky-purchase[data-pdp-presentation="mobile-pilot"] select {
-    border: 1px solid var(--line);
+    border: 1px solid var(--control-line);
     border-radius: var(--radius-editorial-button);
     color: var(--ink);
-    background: var(--surface);
+    background: var(--surface-inset);
     font: inherit;
     font-size: 16px;
   }
