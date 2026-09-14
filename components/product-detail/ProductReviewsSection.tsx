@@ -9,7 +9,7 @@ import {
 } from "react";
 import {
   reviewSummary,
-  type ProductReviewFixture,
+  type ProductReview,
   type ProductReviews,
 } from "@/lib/catalog/product-reviews";
 import type { PdpPresentation } from "./pdp-presentation";
@@ -96,7 +96,7 @@ function ReviewRow({
   review,
   hasDivider,
 }: {
-  review: ProductReviewFixture;
+  review: ProductReview;
   hasDivider: boolean;
 }) {
   const reviewerFacts = [

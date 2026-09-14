@@ -24,7 +24,6 @@ import {
   purchaseIslandProps,
 } from "@/components/product-detail/ProductDetail.adapters";
 import {
-  resolveHowToUseSteps,
   type ProductPdpContent,
 } from "@/lib/catalog/product-content";
 import type {
@@ -34,7 +33,7 @@ import type {
 import { resolveFullInci } from "@/lib/catalog/product-ingredients";
 import { routineDisplayLabelForProduct } from "@/lib/catalog/product-routine";
 import {
-  getProductReviews,
+  EMPTY_PRODUCT_REVIEWS,
   type ProductReviews,
 } from "@/lib/catalog/product-reviews";
 import { getCorePdpPresentation } from "@/lib/content/core-pdp";
@@ -138,7 +137,7 @@ export function ProductDetail({
   product,
   coreProducts = [],
   content = product.pdpContent ?? null,
-  reviews = getProductReviews(product.slug),
+  reviews = EMPTY_PRODUCT_REVIEWS,
   stripePublishableKey = null,
   commerceDisabled = false,
   presentation = "default",
@@ -155,10 +154,7 @@ export function ProductDetail({
   const leadDescription = compactDescription(
     product.description || product.productType,
   );
-  const howToUse = resolveHowToUseSteps(
-    content?.howToUseSteps,
-    product.howToUse,
-  ).steps;
+  const howToUse = content?.howToUseSteps ?? [];
   const resolvedFullInci = resolveFullInci(product);
   const fullIngredientsText =
     resolvedFullInci?.text ||
@@ -316,7 +312,7 @@ export function ProductDetail({
 
         {!corePresentation && (
           <>
-            <PdpEditorialPair
+            {howToUseItems.length > 0 && <PdpEditorialPair
               headingId="pdp-use-heading"
               eyebrow="Application"
               heading="HOW TO USE"
@@ -328,7 +324,7 @@ export function ProductDetail({
                 label="How to use"
                 items={howToUseItems}
               />
-            </PdpEditorialPair>
+            </PdpEditorialPair>}
 
             <PdpEditorialPair
               headingId="pdp-inside-heading"

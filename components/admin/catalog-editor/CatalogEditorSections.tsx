@@ -416,6 +416,26 @@ function MetadataField({
           error={error}
         />
         <FieldContext metadata={metadata} />
+        {table === "product_pdp_content" && field === "how_to_use_steps" ? (
+          <>
+            <p className={styles.help}>
+              {value === null
+                ? "Usage instructions have not been reviewed."
+                : Array.isArray(value) && value.length === 0
+                  ? "No How to Use section is intended."
+                  : "Only reviewed structured instructions appear on the Product page."}
+            </p>
+            {value === null ? (
+              <button
+                className={`${styles.button} ${styles.buttonSecondary}`}
+                type="button"
+                onClick={() => onChange([])}
+              >
+                Confirm no How to Use section
+              </button>
+            ) : null}
+          </>
+        ) : null}
         {metadata.nullable && value !== null ? (
           <button
             className={`${styles.button} ${styles.buttonSecondary}`}
@@ -1084,6 +1104,33 @@ function PdpSection({
         errors={errorCount(issues, "product_pdp_content")}
       >
         <p className={styles.help}>No PDP content row exists for this product.</p>
+        {canCatalogRoleEditField(role, "product_pdp_content", "how_to_use_steps") ? (
+          <button
+            id={catalogFieldId("product_pdp_content", "how_to_use_steps")}
+            className={`${styles.button} ${styles.buttonSecondary}`}
+            type="button"
+            onClick={() => onChange({
+              ...document,
+              productPdpContent: {
+                product_id: document.productId,
+                schema_version: 1,
+                profile_title_tokens: null,
+                routine_overlay: null,
+                outcome_heading: null,
+                outcome_labels: null,
+                how_to_use_steps: null,
+                application_steps: null,
+                ingredient_cards: null,
+                ingredient_story: null,
+                routine_guidance: null,
+                created_at: document.product.created_at,
+                updated_at: document.product.updated_at,
+              },
+            })}
+          >
+            Add PDP content for review
+          </button>
+        ) : null}
       </TableSection>
     );
   }

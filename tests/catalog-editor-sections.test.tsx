@@ -75,6 +75,31 @@ function toggleDisclosure(container: HTMLElement, id: string) {
 }
 
 describe("CatalogEditor sections", () => {
+  it("lets an editor add missing PDP content without inventing reviewed instructions", () => {
+    const missing = structuredClone(catalogDocument);
+    missing.productPdpContent = null;
+    const onChange = vi.fn();
+    render(<SectionsHarness initialDocument={missing} role="catalog_editor" onChange={onChange} />);
+    fireEvent.click(screen.getByRole("button", { name: "Add PDP content for review" }));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
+      productPdpContent: expect.objectContaining({
+        product_id: catalogDocument.productId,
+        schema_version: 1,
+        how_to_use_steps: null,
+      }),
+    }));
+  });
+
+  it("lets an editor explicitly confirm that no How to Use section is intended", () => {
+    const missing = structuredClone(catalogDocument);
+    missing.productPdpContent!.how_to_use_steps = null;
+    const onChange = vi.fn();
+    render(<SectionsHarness initialDocument={missing} onChange={onChange} />);
+    fireEvent.click(screen.getByRole("button", { name: "Confirm no How to Use section" }));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
+      productPdpContent: expect.objectContaining({ how_to_use_steps: [] }),
+    }));
+  });
   beforeEach(() => {
     vi.mocked(catalogEditorApi.getEditor).mockReset();
     vi.mocked(catalogEditorApi.getEditor).mockResolvedValue(editorResponse());
