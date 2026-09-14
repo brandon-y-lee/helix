@@ -92,7 +92,7 @@ function makeVariant(overrides: Partial<Variant> = {}): OfferAvailability {
   };
   return {
     productId: "11111111-1111-4111-8111-111111111111",
-    productSlug: "cleanse-01-calming-gel-cleanser",
+    productSlug: "biotic-reset",
     productStatus: "available",
     id: variant.id,
     label: variant.label,
@@ -111,7 +111,7 @@ function makeProduct(
   const displayName = overrides.displayName ?? "CLEANSE";
   const base: ProductCardModel = {
     id: "11111111-1111-4111-8111-111111111111",
-    slug: "cleanse-01-calming-gel-cleanser",
+    slug: "biotic-reset",
     displayName,
     routineGroup: "core",
     systemStepName: "CLEANSE",
@@ -281,7 +281,7 @@ describe("ProductCard quick buy", () => {
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "CLEANSE" })).toHaveAttribute(
       "href",
-      "/products/cleanse-01-calming-gel-cleanser",
+      "/products/biotic-reset",
     );
   });
 
@@ -418,7 +418,7 @@ describe("ProductCard quick buy", () => {
 
     await waitFor(() => expect(cartMock.add).toHaveBeenCalledTimes(1));
     expect(cartMock.add).toHaveBeenCalledWith({
-      slug: "cleanse-01-calming-gel-cleanser",
+      slug: "biotic-reset",
       name: "CLEANSE",
       variantId: "50ml",
       variantLabel: "50 ml",

@@ -15,7 +15,7 @@ const TIMESTAMP = "2026-07-20T12:00:00.000Z";
 
 export const catalogProduct: CatalogProductListItem = {
   id: PRODUCT_ID,
-  slug: "cleanse-01-calming-gel-cleanser",
+  slug: "biotic-reset",
   displayName: "CLEANSE",
   productType: "Gel cleanser",
   routineGroup: "core",
@@ -68,7 +68,7 @@ export const catalogDocument: CatalogDraftDocument = {
     seo_title: "CLEANSE | helix",
     seo_description: "Daily gel cleanser.",
     skin_types: ["All skin types"],
-    slug: "cleanse-01-calming-gel-cleanser",
+    slug: "biotic-reset",
     sort_order: 1,
     status: "available",
     swatch_from: "#dce8df",
@@ -222,7 +222,7 @@ export function editorResponse(publish = true): CatalogEditorResponse {
       {
         id: "123e4567-e89b-42d3-a456-426614174099",
         displayName: "TREAT",
-        slug: "treat-03-pdrn-5-ampoule",
+        slug: "super-serum",
       },
     ],
     systemMetadata: {

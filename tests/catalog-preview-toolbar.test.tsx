@@ -25,7 +25,7 @@ describe("CatalogPreviewToolbar", () => {
         version={7}
         lastSavedLabel="Jul 29, 2026, 6:30 PM UTC"
         editorPath="/admin/catalog/draft-id"
-        publishedPath="/products/cleanse-01-calming-gel-cleanser"
+        publishedPath="/products/biotic-reset"
       />,
     );
 
@@ -43,7 +43,7 @@ describe("CatalogPreviewToolbar", () => {
       screen.getByRole("link", { name: "Open Published PDP" }),
     ).toHaveAttribute(
       "href",
-      "/products/cleanse-01-calming-gel-cleanser",
+      "/products/biotic-reset",
     );
     expect(
       screen.getByRole("navigation", { name: "Catalog Preview actions" }),

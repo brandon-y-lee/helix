@@ -223,11 +223,11 @@ describe("CatalogEditor sections", () => {
     expect(screen.getByLabelText("Slug")).toBeEnabled();
     expect(screen.getByText(/old public URL will become unavailable/i)).toBeVisible();
     fireEvent.change(screen.getByLabelText("Slug"), {
-      target: { value: "biotic-reset" },
+      target: { value: "reviewed-cleanser" },
     });
     expect(onChange).toHaveBeenLastCalledWith(
       expect.objectContaining({
-        product: expect.objectContaining({ slug: "biotic-reset" }),
+        product: expect.objectContaining({ slug: "reviewed-cleanser" }),
       }),
     );
   });

@@ -66,7 +66,7 @@ import {
   productOfferCacheTag,
 } from "@/lib/catalog-cache";
 
-const slug = "treat-03-pdrn-5-ampoule";
+const slug = "super-serum";
 const offer = {
   id: "product-id",
   slug,

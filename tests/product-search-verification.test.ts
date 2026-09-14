@@ -149,7 +149,7 @@ describe("Product Search completion assessment", () => {
       displayName: "Super Serum",
       keywords: ["peptide", "PDRN", "cream", "reset", "bounce", "peptide bounce finish"],
       imageMedia: {
-        url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/helix-catalog/products/treat-03-pdrn-5-ampoule/primary/original/hash.webp",
+        url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/helix-catalog/products/10000000-0000-4000-8000-000000000101/primary/original/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.webp",
       },
     }];
     const report = assessProductSearchVerification(

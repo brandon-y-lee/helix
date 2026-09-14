@@ -10,7 +10,7 @@ const knownCart: CartState = {
   lines: [
     {
       key: "line-1",
-      slug: "cleanse-01-calming-gel-cleanser",
+      slug: "biotic-reset",
       name: "CLEANSE",
       collection: "The Core",
       variantId: "default",
@@ -72,7 +72,7 @@ function DisabledCartProbe() {
         type="button"
         onClick={() =>
           void add({
-            slug: "cleanse-01-calming-gel-cleanser",
+            slug: "biotic-reset",
             name: "CLEANSE",
             variantId: "variant-1",
             variantLabel: "200 mL",
