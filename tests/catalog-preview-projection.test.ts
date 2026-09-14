@@ -185,6 +185,20 @@ function document(): ProductEditorDocumentV4 {
 }
 
 describe("catalog draft PDP projection", () => {
+  it("previews missing guidance with a review warning while authored empty instructions need no warning", () => {
+    const draft = document();
+    draft.productPdpContent = null;
+    const preview = projectCatalogDraftPreview(draft, base(), {
+      approvedMediaOrigin: storageOrigin,
+    });
+    expect(preview.product.pdpContent).toBeNull();
+    expect(preview.warnings).toEqual([expect.stringContaining("Review the usage instructions")]);
+
+    draft.productPdpContent = { ...document().productPdpContent!, how_to_use_steps: [] };
+    const empty = projectCatalogDraftPreview(draft, base(), { approvedMediaOrigin: storageOrigin });
+    expect(empty.product.pdpContent?.howToUseSteps).toEqual([]);
+    expect(empty.warnings).toEqual([]);
+  });
   it("projects a zero-Offer waitlist Product", () => {
     const draft = document();
     draft.product.status = "waitlist";

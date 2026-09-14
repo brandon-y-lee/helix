@@ -1924,15 +1924,6 @@ export type Database = {
           user_id: string
         }[]
       }
-      resolve_product_slug: {
-        Args: { p_source_slug: string }
-        Returns: {
-          route_kind: string
-          source_slug: string
-          target_product_id: string
-          target_slug: string
-        }[]
-      }
       restore_catalog_product_revision: {
         Args: { p_actor_id: string; p_revision_id: string }
         Returns: Json

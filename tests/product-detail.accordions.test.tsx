@@ -11,6 +11,7 @@ import { ProductDetail } from "@/components/product-detail/ProductDetail";
 import { SERUM_EFFECTS_PRODUCT_ID } from "@/lib/content/serum-effects";
 import type {
   CoreRoutineSummary,
+  OfferAvailability,
   PdpProduct,
 } from "@/lib/catalog/models";
 
@@ -132,16 +133,15 @@ function makeProduct(overrides: ProductOverrides = {}): PdpProduct {
     systemStepPosition: 3,
     systemStepName: "TREAT",
     routineSort: 20,
-    productType: "Ampoule",
+    productType: "Serum",
     currency: "USD",
-    description: "A daily ampoule for smoother-looking bounce.",
+    description: "A daily serum for smoother-looking skin.",
     howToUse: "Apply after cleansing.",
     variants: [
       {
         productId: "33333333-3333-4333-8333-333333333333",
         productSlug: "super-serum",
         productStatus: "available",
-        sortOrder: 0,
         id: "15ml",
         label: "15 mL",
         price: 2500,
@@ -149,11 +149,11 @@ function makeProduct(overrides: ProductOverrides = {}): PdpProduct {
         inventoryStatus: "in_stock",
         volume: "15 mL",
         packCount: null,
+        sortOrder: 0,
       },
     ],
     swatch: ["#edf4f5", "#87a3aa"],
     media: editorialMedia,
-    productFamily: null,
     cardMedia: null,
     detailMedia: null,
     cartMedia: null,
@@ -218,8 +218,21 @@ function makeProduct(overrides: ProductOverrides = {}): PdpProduct {
       routineGuidance:
         "Use after CLEANSE and before SEAL. In the morning, finish with SPF.",
     },
+    productFamily: null,
   };
-  return { ...base, ...overrides };
+  const product: PdpProduct = {
+    ...base,
+    ...overrides,
+  };
+  return {
+    ...product,
+    variants: product.variants.map((variant) => ({
+      ...variant,
+      productId: product.id,
+      productSlug: product.slug,
+      productStatus: product.status,
+    })),
+  };
 }
 
 function before(a: Element, b: Element) {
@@ -237,6 +250,25 @@ afterEach(() => {
 });
 
 describe("ProductDetail purchase accordions", () => {
+  it.each([
+    ["balancing-prep", "Balancing Prep"],
+    ["peptide-eye-cream", "Peptide Eye Cream"],
+    ["peptide-nourish-mask", "Peptide Nourish Mask"],
+  ])("shows truthful empty Customer Reviews by default for %s", (slug, displayName) => {
+    render(<ProductDetail product={makeProduct({ slug, displayName })} />);
+
+    const reviews = screen.getByRole("region", {
+      name: `${displayName} customer reviews`,
+    });
+    expect(reviews).toHaveAttribute("data-review-empty", "true");
+    expect(within(reviews).getByText("Based on 0 reviews.")).toBeInTheDocument();
+    expect(
+      within(reviews).getByText("Reviews are not available for this product yet."),
+    ).toBeInTheDocument();
+    expect(within(reviews).queryByRole("article")).not.toBeInTheDocument();
+    expect(within(reviews).queryByRole("meter")).not.toBeInTheDocument();
+  });
+
   it("places serum effects immediately after the routine video by stable Product identity", () => {
     vi.stubGlobal("ResizeObserver", class {
       observe() {}
@@ -294,7 +326,7 @@ describe("ProductDetail purchase accordions", () => {
     const coreDetailProducts = [
       makeProduct({
         id: "cleanse-id",
-        slug: "cleanse-01-calming-gel-cleanser",
+        slug: "biotic-reset",
         displayName: "CLEANSE",
         productType: "Gel cleanser",
         systemStepPosition: 1,
@@ -304,7 +336,7 @@ describe("ProductDetail purchase accordions", () => {
       makeProduct(),
       makeProduct({
         id: "seal-id",
-        slug: "seal-05-green-collagen-cream",
+        slug: "ceramide-cushion",
         displayName: "SEAL",
         productType: "Cream",
         systemStepPosition: 5,
@@ -384,6 +416,46 @@ describe("ProductDetail purchase accordions", () => {
     })).toBeNull();
     expect(container.querySelector("[data-pdp-details-routine]")).toBeNull();
     expect(container.querySelector(".pdp-core-routine")).toBeNull();
+  });
+
+  it("uses only reviewed structured instructions for Beyond The Core application steps", () => {
+    const product = makeProduct({
+      slug: "balancing-prep",
+      displayName: "Balancing Prep",
+      routineGroup: "beyond_core",
+      systemStepPosition: 2,
+      systemStepName: "REFINE",
+      howToUse: "Unreviewed paragraph instruction. Another paragraph instruction.",
+    });
+    const content = product.pdpContent;
+    if (!content) throw new Error("Expected authored PDP content in this fixture.");
+    const { rerender } = render(
+      <ProductDetail product={product} content={{ ...content, howToUseSteps: null }} />,
+    );
+
+    expect(screen.queryAllByText(/Unreviewed paragraph instruction/)).toHaveLength(0);
+    expect(screen.queryAllByRole("heading", { name: "HOW TO USE" })).toHaveLength(0);
+    expect(screen.queryByRole("group", { name: "How to use" })).not.toBeInTheDocument();
+
+    rerender(<ProductDetail product={product} content={{ ...content, howToUseSteps: [] }} />);
+    expect(screen.queryAllByRole("heading", { name: "HOW TO USE" })).toHaveLength(0);
+    expect(screen.queryByRole("group", { name: "How to use" })).not.toBeInTheDocument();
+
+    rerender(
+      <ProductDetail
+        product={product}
+        content={{
+          ...content,
+          howToUseSteps: ["Reviewed first instruction.", "Reviewed second instruction."],
+        }}
+      />,
+    );
+    expect(screen.getAllByRole("heading", { name: "HOW TO USE" }).length).toBeGreaterThan(0);
+    const sequence = screen.getByRole("group", { name: "How to use" });
+    expect(within(sequence).getByRole("article")).toHaveTextContent("Reviewed first instruction.");
+    fireEvent.click(within(sequence).getByRole("button", { name: "Next How to use" }));
+    expect(within(sequence).getByRole("article")).toHaveTextContent("Reviewed second instruction.");
+    expect(screen.queryAllByText(/Unreviewed paragraph instruction/)).toHaveLength(0);
   });
 
   it("uses one accordion at a time and links structured ingredients", async () => {
@@ -752,16 +824,15 @@ describe("ProductDetail purchase accordions", () => {
   it("keeps selected server product pricing in sync with main messaging and the sticky CTA", async () => {
     const user = userEvent.setup();
     const base = makeProduct();
-    const secondVariant = {
+    const secondVariant: OfferAvailability = {
       ...base.variants[0],
       id: "30ml",
       label: "30 mL",
       price: 4200,
       volume: "30 mL",
-      optionValues: { size: "30 mL" },
       sortOrder: 1,
     };
-    const unavailableVariant = {
+    const unavailableVariant: OfferAvailability = {
       ...base.variants[0],
       id: "50ml",
       label: "50 mL",
@@ -769,7 +840,6 @@ describe("ProductDetail purchase accordions", () => {
       available: true,
       inventoryStatus: "out_of_stock" as const,
       volume: "50 mL",
-      optionValues: { size: "50 mL" },
       sortOrder: 2,
     };
     render(

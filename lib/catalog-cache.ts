@@ -9,7 +9,6 @@ import {
   getProductOffer,
   getProductOffers,
   getProductRoutes,
-  getProductSlugResolution,
 } from "@/lib/catalog/storefront";
 import {
   CORE_ROUTINE_PRODUCT_SLUGS,
@@ -23,7 +22,6 @@ import {
   type ProductMetadata,
   type ProductOffer,
   type ProductRoute,
-  type ProductSlugResolution,
 } from "@/lib/catalog/models";
 import { PDP_DISCOVERY_PRODUCT_LIMIT } from "@/lib/catalog/discovery";
 import { CATALOG_MEDIA_BUCKET } from "@/lib/catalog/media-storage";
@@ -47,8 +45,6 @@ export const PRODUCT_CARD_COLLECTION_CACHE_TAG = "catalog-product-card";
 export const CORE_ROUTINE_CACHE_TAG = "catalog-core-routine";
 export const DISCOVERY_CACHE_TAG = "catalog-discovery";
 export const PRODUCT_FAMILY_CACHE_TAG = "catalog-product-family";
-export const PRODUCT_SLUG_ROUTE_COLLECTION_CACHE_TAG =
-  "catalog-product-slug-route";
 export { CORE_ROUTINE_PRODUCT_SLUGS } from "@/lib/catalog/models";
 
 export function productContentCacheTag(productKey: string): string {
@@ -63,9 +59,6 @@ export function productCardCacheTag(productKey: string): string {
   return `catalog-product-card:${productKey}`;
 }
 
-export function productSlugRouteCacheTag(sourceSlug: string): string {
-  return `catalog-product-slug-route:${sourceSlug}`;
-}
 
 export function collectionCacheTag(routineGroup: string): string {
   const label =
@@ -181,22 +174,6 @@ const readCachedProductRoutes = unstable_cache(
 
 export function getCachedProductRoutes(): Promise<ProductRoute[]> {
   return readCachedProductRoutes();
-}
-
-export function getCachedProductSlugResolution(
-  sourceSlug: string,
-): Promise<ProductSlugResolution | undefined> {
-  return unstable_cache(
-    () => getProductSlugResolution(sourceSlug),
-    ["catalog-product-slug-route-v1", sourceSlug],
-    {
-      revalidate: PRODUCT_CONTENT_REVALIDATE_SECONDS,
-      tags: [
-        PRODUCT_SLUG_ROUTE_COLLECTION_CACHE_TAG,
-        productSlugRouteCacheTag(sourceSlug),
-      ],
-    },
-  )();
 }
 
 const readCachedIngredientIndexProducts = unstable_cache(

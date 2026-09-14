@@ -31,15 +31,31 @@ vi.mock("@/lib/catalog-editor/preview-projection", async (importOriginal) => {
     >();
   return { ...actual, projectCatalogDraftPreview: routeMocks.project };
 });
-vi.mock("@/components/product-detail/ProductDetail", () => ({
-  ProductDetail: ({
-    commerceDisabled,
-  }: {
-    commerceDisabled?: boolean;
-  }) => (
-    <div data-testid="real-pdp" data-commerce-disabled={commerceDisabled} />
-  ),
-}));
+vi.mock("@/components/product-detail/ProductDetail", async () => {
+  const { ProductReviewsSection } = await import(
+    "@/components/product-detail/ProductReviewsSection"
+  );
+  const { EMPTY_PRODUCT_REVIEWS } = await import("@/lib/catalog/product-reviews");
+  return {
+    ProductDetail: ({
+      commerceDisabled,
+      product,
+      reviews = EMPTY_PRODUCT_REVIEWS,
+    }: {
+      commerceDisabled?: boolean;
+      product: { slug?: string; displayName?: string };
+      reviews?: import("@/lib/catalog/product-reviews").ProductReviews;
+    }) => (
+      <div data-testid="real-pdp" data-commerce-disabled={commerceDisabled}>
+        <ProductReviewsSection
+          productName={product.displayName ?? "Product"}
+          productSlug={product.slug ?? "product"}
+          reviews={reviews}
+        />
+      </div>
+    ),
+  };
+});
 vi.mock("@/components/admin/CatalogPreviewToolbar", () => ({
   CatalogPreviewToolbar: ({ status }: { status: string }) => (
     <div data-testid="preview-toolbar">{status}</div>
@@ -87,6 +103,32 @@ beforeEach(() => {
 });
 
 describe("catalog draft preview route", () => {
+  it.each(["balancing-prep", "peptide-eye-cream", "peptide-nourish-mask"])(
+    "does not inject sample Customer Reviews into a %s draft preview",
+    async (slug) => {
+      routeMocks.loadBase.mockResolvedValue({ product: { slug }, coreProducts: [] });
+      routeMocks.project.mockReturnValue({
+        product: { slug: "proposed-product-name", displayName: "Proposed Product" },
+        coreProducts: [],
+        warnings: [],
+      });
+
+      render(
+        await CatalogDraftPreviewPage({ params: Promise.resolve({ draftId }) }),
+      );
+
+      const reviews = screen.getByRole("region", {
+        name: "Proposed Product customer reviews",
+      });
+      expect(reviews).toHaveAttribute("data-review-empty", "true");
+      expect(
+        within(reviews).getByText("Reviews are not available for this product yet."),
+      ).toBeInTheDocument();
+      expect(within(reviews).queryByRole("article")).not.toBeInTheDocument();
+      expect(within(reviews).queryByRole("meter")).not.toBeInTheDocument();
+    },
+  );
+
   it("is dynamic, no-store, noindex, and isolated from public cache/search paths", () => {
     expect(dynamic).toBe("force-dynamic");
     expect(revalidate).toBe(0);

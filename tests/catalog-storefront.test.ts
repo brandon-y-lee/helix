@@ -13,7 +13,6 @@ import {
   getProductCardContents,
   getProductMetadata,
   getProductOffer,
-  getProductSlugResolution,
 } from "@/lib/catalog/storefront";
 
 const mockedGetClient = getSupabaseClient as unknown as Mock;
@@ -154,37 +153,6 @@ beforeEach(() => {
 });
 
 describe("storefront catalog projections", () => {
-  it("maps the public slug resolver result without following a route chain in application code", async () => {
-    const calls: Call[] = [];
-    mockedGetClient.mockReturnValue({
-      rpc: (...args: unknown[]) => {
-        calls.push({ method: "rpc", args });
-        return Promise.resolve({
-          data: [
-            {
-              source_slug: "legacy-product",
-              target_slug: "canonical-product",
-              target_product_id: "product-id",
-              route_kind: "replacement",
-            },
-          ],
-          error: null,
-        });
-      },
-    });
-
-    await expect(getProductSlugResolution("legacy-product")).resolves.toEqual({
-      sourceSlug: "legacy-product",
-      targetSlug: "canonical-product",
-      targetProductId: "product-id",
-      routeKind: "replacement",
-    });
-    expect(calls).toContainEqual({
-      method: "rpc",
-      args: ["resolve_product_slug", { p_source_slug: "legacy-product" }],
-    });
-  });
-
   it.each([
     ["cards", getProductCardContents],
     ["ingredients", getIngredientIndexProducts],

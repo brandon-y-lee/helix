@@ -15,10 +15,15 @@ export const CATALOG_WEBHOOK_TABLES = [
   "product_variants",
   "product_media",
   "product_pdp_content",
-  "product_slug_routes",
   "product_families",
   "product_family_memberships",
 ] as const;
+// Inspection must retain these tables until the separately gated contraction
+// removes their HTTP hooks. Ordinary provisioning never creates or drops them.
+const RETIRED_CATALOG_WEBHOOKS = [{
+  table: "product_slug_routes",
+  expectedName: "helix_catalog_search_sync_product_slug_routes",
+}] as const;
 export const CATALOG_WEBHOOK_EVENTS = [
   "INSERT",
   "UPDATE",
@@ -68,6 +73,7 @@ export type DesiredCatalogWebhook = {
 export type ObservedCatalogWebhook = {
   tableName: string;
   triggerName: string;
+  httpRequestFunctionMatches: boolean;
   enabled: boolean;
   rowLevel: boolean;
   after: boolean;
@@ -120,6 +126,20 @@ export type CatalogWebhookReport = {
     triggerNames: string[];
   }>;
   missingTables: string[];
+  currentHooksVerified: boolean;
+  retirementRequired: boolean;
+  retired: Array<{
+    table: (typeof RETIRED_CATALOG_WEBHOOKS)[number]["table"];
+    expectedName: string;
+    status: "absent" | "pending_contraction";
+    hooks: Array<{
+      name: string;
+      managed: boolean;
+      enabled: boolean;
+      httpRequestFunctionMatches: boolean;
+      configurationMatches: boolean;
+    }>;
+  }>;
   verified: boolean;
 };
 
@@ -290,6 +310,7 @@ export function buildDesiredCatalogWebhooks(
 
 function observedHookMatches(hook: ObservedCatalogWebhook): boolean {
   return (
+    hook.httpRequestFunctionMatches &&
     hook.enabled &&
     hook.rowLevel &&
     hook.after &&
@@ -353,12 +374,33 @@ export function buildCatalogWebhookReport(
 
   const databaseWebhooksEnabled =
     state.pgNetEnabled && state.httpRequestAvailable;
-  const verified =
+  const retired: CatalogWebhookReport["retired"] =
+    RETIRED_CATALOG_WEBHOOKS.map(({ table, expectedName }) => {
+      const hooks = state.hooks
+        .filter((hook) => hook.tableName === table)
+        .map((hook) => ({
+          name: hook.triggerName,
+          managed: hook.triggerName === expectedName,
+          enabled: hook.enabled,
+          httpRequestFunctionMatches: hook.httpRequestFunctionMatches,
+          configurationMatches: observedHookMatches(hook),
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+      return {
+        table,
+        expectedName,
+        status: hooks.length === 0 ? "absent" : "pending_contraction",
+        hooks,
+      };
+    });
+  const retirementRequired = retired.some((entry) => entry.hooks.length > 0);
+  const currentHooksVerified =
     databaseWebhooksEnabled &&
     state.missingTables.length === 0 &&
     duplicates.length === 0 &&
     actions.length === desired.length &&
     actions.every((action) => action.action === "unchanged");
+  const verified = currentHooksVerified && !retirementRequired;
   const ok =
     state.missingTables.length === 0 &&
     duplicates.length === 0 &&
@@ -385,6 +427,9 @@ export function buildCatalogWebhookReport(
     actions,
     duplicates,
     missingTables: [...state.missingTables].sort((a, b) => a.localeCompare(b)),
+    currentHooksVerified,
+    retirementRequired,
+    retired,
     verified,
   };
 }
@@ -442,18 +487,17 @@ export function buildCatalogWebhookApplySql(
 const INSPECT_SQL = `
 with target_tables(table_name) as (
   values
-    ('products'),
-    ('product_variants'),
-    ('product_media'),
-    ('product_pdp_content'),
-    ('product_slug_routes'),
-    ('product_families'),
-    ('product_family_memberships')
+    ${[
+      ...CATALOG_WEBHOOK_TABLES,
+      ...RETIRED_CATALOG_WEBHOOKS.map(({ table }) => table),
+    ].map((table) => `(${quoteLiteral(table)})`).join(",\n    ")}
 ),
 hook_rows as (
   select
     c.relname as table_name,
     t.tgname as trigger_name,
+    (pn.nspname = 'supabase_functions' and p.proname = 'http_request')
+      as http_request_function_matches,
     t.tgenabled = 'O' as enabled,
     (t.tgtype & 1) <> 0 as row_level,
     (t.tgtype & 2) = 0 and (t.tgtype & 64) = 0 as after,
@@ -475,7 +519,7 @@ hook_rows as (
     and n.nspname = 'public'
     and (
       (pn.nspname = 'supabase_functions' and p.proname = 'http_request')
-      or t.tgname like 'helix_catalog_search_sync_%'
+      or pg_catalog.starts_with(t.tgname, 'helix_catalog_search_sync_')
     )
 )
 select
@@ -510,6 +554,7 @@ select
         pg_catalog.json_build_object(
           'tableName', h.table_name,
           'triggerName', h.trigger_name,
+          'httpRequestFunctionMatches', h.http_request_function_matches,
           'enabled', h.enabled,
           'rowLevel', h.row_level,
           'after', h.after,
@@ -643,6 +688,7 @@ export class SupabaseCatalogWebhookControlPlane
       return {
         tableName: String(hook.tableName),
         triggerName: String(hook.triggerName),
+        httpRequestFunctionMatches: hook.httpRequestFunctionMatches === true,
         enabled: hook.enabled === true,
         rowLevel: hook.rowLevel === true,
         after: hook.after === true,
@@ -752,16 +798,21 @@ export async function runCatalogWebhookProvisioning(
     );
   }
   const finalReport = buildCatalogWebhookReport("verify", config, finalState);
-  if (!finalReport.ok) {
+  if (!finalReport.currentHooksVerified) {
     throw new Error(
       "[catalog-webhooks] Partial failure: the trigger transaction completed, but final verification detected drift.",
     );
   }
   return {
     ...initialReport,
-    ok: finalReport.ok,
+    // Apply configures only current hooks. Final URL-policy verification also
+    // requires the separate contraction to remove every inventoried retired hook.
+    ok: true,
     databaseWebhooksEnabled: finalReport.databaseWebhooksEnabled,
     enableDatabaseWebhooks: false,
+    currentHooksVerified: finalReport.currentHooksVerified,
+    retirementRequired: finalReport.retirementRequired,
+    retired: finalReport.retired,
     verified: finalReport.verified,
   };
 }

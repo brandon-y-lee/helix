@@ -3,10 +3,10 @@ import { pathToFileURL } from "node:url";
 import { config as loadDotEnv } from "dotenv";
 import {
   AlgoliaProductSearchControlPlane,
-  loadProductSearchMigrationConfig,
+  loadProductSearchVerificationConfig,
   runProductSearchVerification,
   type ProductSearchRecord,
-} from "./catalog/product-search-migration";
+} from "./catalog/product-search-verification";
 
 loadDotEnv({
   path: resolve(
@@ -41,7 +41,7 @@ export async function runProductSearchCli(
   env: NodeJS.ProcessEnv,
 ) {
   assertVerifyMode(argv);
-  const config = loadProductSearchMigrationConfig(env);
+  const config = loadProductSearchVerificationConfig(env);
   const { fetchAllSearchRecords } = await import("../lib/algolia/source");
   const canonicalRecords =
     (await fetchAllSearchRecords()) as unknown as ProductSearchRecord[];

@@ -16,8 +16,6 @@ import {
   PRODUCT_CONTENT_COLLECTION_CACHE_TAG,
   PRODUCT_OFFER_COLLECTION_CACHE_TAG,
   PRODUCT_FAMILY_CACHE_TAG,
-  PRODUCT_SLUG_ROUTE_COLLECTION_CACHE_TAG,
-  productSlugRouteCacheTag,
 } from "@/lib/catalog-cache";
 import { SHOP_COLLECTION_PATHS } from "@/lib/catalog/collection-routes";
 
@@ -181,7 +179,6 @@ export function getCatalogInvalidationTargets(
   let invalidateMembership = false;
   let invalidateDiscovery = false;
   let invalidateCollection = false;
-  let invalidateSlugRoutes = false;
   let invalidateFamily = false;
 
   if (payload.table === "product_variants") {
@@ -191,8 +188,6 @@ export function getCatalogInvalidationTargets(
     invalidateContent = mediaAffectsContent(payload);
   } else if (payload.table === "product_pdp_content") {
     invalidateContent = true;
-  } else if (payload.table === "product_slug_routes") {
-    invalidateSlugRoutes = true;
   } else if (
     payload.table === "product_families" ||
     payload.table === "product_family_memberships"
@@ -210,6 +205,7 @@ export function getCatalogInvalidationTargets(
 
     invalidateOffer =
       broadProductChange ||
+      changedFields.has("slug") ||
       includesAny(changedFields, PRODUCT_OFFER_FIELDS);
     invalidateCard =
       broadProductChange ||
@@ -231,8 +227,6 @@ export function getCatalogInvalidationTargets(
           !PRODUCT_OFFER_FIELDS.has(field) &&
           !PRODUCT_CARD_ONLY_FIELDS.has(field),
       );
-    invalidateSlugRoutes =
-      broadProductChange || changedFields.has("slug");
     invalidateFamily =
       broadProductChange || includesAny(changedFields, PRODUCT_FAMILY_FIELDS);
   }
@@ -243,12 +237,7 @@ export function getCatalogInvalidationTargets(
     if (invalidateContent) tags.add(productContentCacheTag(productKey));
     if (invalidateOffer) tags.add(productOfferCacheTag(productKey));
     if (invalidateCard) tags.add(productCardCacheTag(productKey));
-    if (invalidateSlugRoutes) tags.add(productSlugRouteCacheTag(productKey));
     paths.add(`/products/${productKey}`);
-  }
-
-  if (invalidateSlugRoutes) {
-    tags.add(PRODUCT_SLUG_ROUTE_COLLECTION_CACHE_TAG);
   }
 
   if (invalidateContent) {

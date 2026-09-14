@@ -287,7 +287,7 @@ describe("CatalogEditor draft workflow", () => {
     expect(screen.getByText(/not reported/)).toBeVisible();
   });
 
-  it("shows the exact permanent redirect consequence before publishing a slug change", async () => {
+  it("shows the exact URL retirement consequence before publishing a slug change", async () => {
     vi.mocked(catalogEditorApi.validateDraft).mockResolvedValue({
       valid: true,
       issues: [],
@@ -313,14 +313,14 @@ describe("CatalogEditor draft workflow", () => {
 
     expect(
       screen.getByText(
-        /\/products\/cleanse-01-calming-gel-cleanser will permanently redirect to \/products\/biotic-reset/i,
+        /\/products\/cleanse-01-calming-gel-cleanser will become unavailable. The current Product URL will be \/products\/biotic-reset/i,
       ),
     ).toBeVisible();
 
     fireEvent.click(screen.getByRole("button", { name: "Review publish" }));
     expect(await screen.findByText("Confirm publication")).toBeVisible();
     expect(
-      screen.getAllByText(/old public URL remains in redirect history/i).length,
+      screen.getAllByText(/old URL stays reserved in private Product history/i).length,
     ).toBeGreaterThan(0);
     expect(screen.getByLabelText(/acknowledge disruptive changes/i)).not.toBeChecked();
   });

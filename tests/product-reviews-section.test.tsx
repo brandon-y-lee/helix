@@ -7,11 +7,11 @@ import {
   REVIEW_VISIBLE_INCREMENT,
 } from "@/components/product-detail/ProductReviewsSection";
 import type {
-  ProductReviewFixture,
+  ProductReview,
   ProductReviews,
 } from "@/lib/catalog/product-reviews";
 
-function makeReview(index: number): ProductReviewFixture {
+function makeReview(index: number): ProductReview {
   return {
     id: `review-${index}`,
     initials: `R${index}`,
