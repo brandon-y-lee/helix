@@ -5,7 +5,6 @@ import {
   type SupabaseClient,
   type User,
 } from "@supabase/supabase-js";
-import WebSocket from "ws";
 import { assertApprovedSupabaseProjectUrl } from "../lib/supabase/project-safety";
 
 const ROLES = new Set(["admin", "catalog_publisher", "catalog_editor"]);
@@ -82,9 +81,6 @@ async function main() {
 
   const admin = createClient(url, requiredEnv("SUPABASE_SERVICE_ROLE_KEY"), {
     auth: { autoRefreshToken: false, persistSession: false },
-    realtime: {
-      transport: WebSocket as unknown as typeof globalThis.WebSocket,
-    },
   });
   const user = await resolveUser(admin);
   const { data, error } = await admin.rpc(
