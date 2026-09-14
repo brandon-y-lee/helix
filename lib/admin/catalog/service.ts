@@ -15,6 +15,7 @@ import {
   validateProductEditorDocument,
 } from "@/lib/admin/catalog/validation";
 import { validateCatalogEditorOwnership } from "@/lib/admin/catalog/ownership";
+import { catalogGuidanceValidationIssues } from "@/lib/admin/catalog/guidance";
 import type {
   CatalogDraftRecord,
   CatalogEditorResponse,
@@ -664,6 +665,7 @@ export async function transitionCatalogDraft(input: {
     validationErrors = result.document
       ? [
           ...result.issues,
+          ...catalogGuidanceValidationIssues(result.document),
           ...validateCatalogEditorOwnership(
             result.document,
             await readCanonicalDocument(result.document.productId),
@@ -782,6 +784,15 @@ export async function publishCatalogDraft(
 ): Promise<CatalogPublishSuccess> {
   const draft = await dependencies.readDraft(input.draftId);
   const document = assertValidProductEditorDocument(draft.document);
+  const guidanceIssues = catalogGuidanceValidationIssues(document);
+  if (guidanceIssues.length > 0) {
+    throw new CatalogAdminError(
+      "validation_failed",
+      "Usage instructions require review before Publish.",
+      422,
+      { issues: guidanceIssues },
+    );
+  }
   const [canonical, mediaIssues, relationshipIssues] = await Promise.all([
     dependencies.readCanonicalDocument(document.productId),
     dependencies.pendingMediaValidationIssues(document),

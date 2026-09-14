@@ -14,7 +14,6 @@ import type {
   OfferAvailability,
   PdpProduct,
 } from "@/lib/catalog/models";
-import type { Product, Variant } from "@/lib/products";
 
 const cartMock = vi.hoisted(() => ({
   add: vi.fn(),
@@ -77,12 +76,10 @@ vi.mock("@/components/product-detail/AfterpayMessaging", () => ({
     ) : null,
 }));
 
-type ProductOverrides = Omit<Partial<Product>, "variants"> & {
-  variants?: Array<Variant | OfferAvailability>;
-};
+type ProductOverrides = Partial<PdpProduct>;
 
 function makeProduct(overrides: ProductOverrides = {}): PdpProduct {
-  const editorialMedia: Product["media"] = [
+  const editorialMedia: PdpProduct["media"] = [
     {
       kind: "video",
       url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/helix-catalog/products/treat/routine/video.mp4",
@@ -128,7 +125,7 @@ function makeProduct(overrides: ProductOverrides = {}): PdpProduct {
       palette: null,
     },
   ];
-  const base: Product = {
+  const base: PdpProduct = {
     id: "33333333-3333-4333-8333-333333333333",
     slug: "super-serum",
     displayName: "Super Serum",
@@ -136,43 +133,31 @@ function makeProduct(overrides: ProductOverrides = {}): PdpProduct {
     systemStepPosition: 3,
     systemStepName: "TREAT",
     routineSort: 20,
-    productType: "Ampoule",
-    badge: null,
+    productType: "Serum",
     currency: "USD",
-    sortOrder: 0,
-    description: "A daily ampoule for smoother-looking bounce.",
-    benefits: [
-      "Helps skin look smoother and more replenished",
-      "Supports a bouncier-looking finish",
-      "Layers cleanly under moisturizer",
-    ],
+    description: "A daily serum for smoother-looking skin.",
     howToUse: "Apply after cleansing.",
-    formulaNotes: ["Source formulation highlights PDRN and niacinamide."],
     variants: [
       {
+        productId: "33333333-3333-4333-8333-333333333333",
+        productSlug: "super-serum",
+        productStatus: "available",
         id: "15ml",
         label: "15 mL",
         price: 2500,
-        compareAtPrice: null,
-        sku: null,
         available: true,
         inventoryStatus: "in_stock",
         volume: "15 mL",
         packCount: null,
-        optionValues: { size: "15 mL" },
         sortOrder: 0,
       },
     ],
     swatch: ["#edf4f5", "#87a3aa"],
     media: editorialMedia,
     cardMedia: null,
-    cardHoverMedia: null,
-    heroMedia: null,
     detailMedia: null,
     cartMedia: null,
-    searchMedia: null,
     status: "available",
-    catalogStatus: "active",
     madeFor: "Dull-looking skin",
     goodFor: "Dullness, dehydration, uneven-looking texture",
     texture: "Lightweight concentrated serum",
@@ -182,11 +167,7 @@ function makeProduct(overrides: ProductOverrides = {}): PdpProduct {
     finish: "Clean, hydrated, non-sticky",
     volume: "15 mL",
     skinTypes: ["All skin types"],
-    concerns: ["Dullness", "Texture"],
     usageTime: ["Morning", "Night"],
-    seoTitle: null,
-    seoDescription: null,
-    searchKeywords: [],
     pdpContent: {
       schemaVersion: 1,
       profileTitleTokens: [
@@ -237,13 +218,21 @@ function makeProduct(overrides: ProductOverrides = {}): PdpProduct {
       routineGuidance:
         "Use after CLEANSE and before SEAL. In the morning, finish with SPF.",
     },
-    createdAt: "2026-06-14T00:00:00.000Z",
+    productFamily: null,
+  };
+  const product: PdpProduct = {
+    ...base,
+    ...overrides,
   };
   return {
-    ...base,
-    productFamily: null,
-    ...overrides,
-  } as unknown as PdpProduct;
+    ...product,
+    variants: product.variants.map((variant) => ({
+      ...variant,
+      productId: product.id,
+      productSlug: product.slug,
+      productStatus: product.status,
+    })),
+  };
 }
 
 function before(a: Element, b: Element) {
@@ -261,6 +250,25 @@ afterEach(() => {
 });
 
 describe("ProductDetail purchase accordions", () => {
+  it.each([
+    ["balancing-prep", "Balancing Prep"],
+    ["peptide-eye-cream", "Peptide Eye Cream"],
+    ["peptide-nourish-mask", "Peptide Nourish Mask"],
+  ])("shows truthful empty Customer Reviews by default for %s", (slug, displayName) => {
+    render(<ProductDetail product={makeProduct({ slug, displayName })} />);
+
+    const reviews = screen.getByRole("region", {
+      name: `${displayName} customer reviews`,
+    });
+    expect(reviews).toHaveAttribute("data-review-empty", "true");
+    expect(within(reviews).getByText("Based on 0 reviews.")).toBeInTheDocument();
+    expect(
+      within(reviews).getByText("Reviews are not available for this product yet."),
+    ).toBeInTheDocument();
+    expect(within(reviews).queryByRole("article")).not.toBeInTheDocument();
+    expect(within(reviews).queryByRole("meter")).not.toBeInTheDocument();
+  });
+
   it("places serum effects immediately after the routine video by stable Product identity", () => {
     vi.stubGlobal("ResizeObserver", class {
       observe() {}
@@ -318,7 +326,7 @@ describe("ProductDetail purchase accordions", () => {
     const coreDetailProducts = [
       makeProduct({
         id: "cleanse-id",
-        slug: "cleanse-01-calming-gel-cleanser",
+        slug: "biotic-reset",
         displayName: "CLEANSE",
         productType: "Gel cleanser",
         systemStepPosition: 1,
@@ -328,7 +336,7 @@ describe("ProductDetail purchase accordions", () => {
       makeProduct(),
       makeProduct({
         id: "seal-id",
-        slug: "seal-05-green-collagen-cream",
+        slug: "ceramide-cushion",
         displayName: "SEAL",
         productType: "Cream",
         systemStepPosition: 5,
@@ -408,6 +416,46 @@ describe("ProductDetail purchase accordions", () => {
     })).toBeNull();
     expect(container.querySelector("[data-pdp-details-routine]")).toBeNull();
     expect(container.querySelector(".pdp-core-routine")).toBeNull();
+  });
+
+  it("uses only reviewed structured instructions for Beyond The Core application steps", () => {
+    const product = makeProduct({
+      slug: "balancing-prep",
+      displayName: "Balancing Prep",
+      routineGroup: "beyond_core",
+      systemStepPosition: 2,
+      systemStepName: "REFINE",
+      howToUse: "Unreviewed paragraph instruction. Another paragraph instruction.",
+    });
+    const content = product.pdpContent;
+    if (!content) throw new Error("Expected authored PDP content in this fixture.");
+    const { rerender } = render(
+      <ProductDetail product={product} content={{ ...content, howToUseSteps: null }} />,
+    );
+
+    expect(screen.queryAllByText(/Unreviewed paragraph instruction/)).toHaveLength(0);
+    expect(screen.queryAllByRole("heading", { name: "HOW TO USE" })).toHaveLength(0);
+    expect(screen.queryByRole("group", { name: "How to use" })).not.toBeInTheDocument();
+
+    rerender(<ProductDetail product={product} content={{ ...content, howToUseSteps: [] }} />);
+    expect(screen.queryAllByRole("heading", { name: "HOW TO USE" })).toHaveLength(0);
+    expect(screen.queryByRole("group", { name: "How to use" })).not.toBeInTheDocument();
+
+    rerender(
+      <ProductDetail
+        product={product}
+        content={{
+          ...content,
+          howToUseSteps: ["Reviewed first instruction.", "Reviewed second instruction."],
+        }}
+      />,
+    );
+    expect(screen.getAllByRole("heading", { name: "HOW TO USE" }).length).toBeGreaterThan(0);
+    const sequence = screen.getByRole("group", { name: "How to use" });
+    expect(within(sequence).getByRole("article")).toHaveTextContent("Reviewed first instruction.");
+    fireEvent.click(within(sequence).getByRole("button", { name: "Next How to use" }));
+    expect(within(sequence).getByRole("article")).toHaveTextContent("Reviewed second instruction.");
+    expect(screen.queryAllByText(/Unreviewed paragraph instruction/)).toHaveLength(0);
   });
 
   it("uses one accordion at a time and links structured ingredients", async () => {
@@ -500,7 +548,7 @@ describe("ProductDetail purchase accordions", () => {
   it("keeps one canonical primary and removes synthetic gallery hues", () => {
     const sharedAsset =
       "https://ERASOGMSQPGIIROVUBJH.supabase.co/storage/v1/object/public/helix-catalog/products/treat/primary/hash.webp";
-    const media: Product["media"] = [
+    const media: PdpProduct["media"] = [
       {
         kind: "image",
         url: `${sharedAsset}?width=1400`,
@@ -580,7 +628,7 @@ describe("ProductDetail purchase accordions", () => {
       .spyOn(HTMLMediaElement.prototype, "pause")
       .mockImplementation(() => undefined);
     const user = userEvent.setup();
-    const media: Product["media"] = [
+    const media: PdpProduct["media"] = [
       {
         kind: "image",
         url: "https://example.com/detail.webp",
@@ -776,16 +824,15 @@ describe("ProductDetail purchase accordions", () => {
   it("keeps selected server product pricing in sync with main messaging and the sticky CTA", async () => {
     const user = userEvent.setup();
     const base = makeProduct();
-    const secondVariant = {
+    const secondVariant: OfferAvailability = {
       ...base.variants[0],
       id: "30ml",
       label: "30 mL",
       price: 4200,
       volume: "30 mL",
-      optionValues: { size: "30 mL" },
       sortOrder: 1,
     };
-    const unavailableVariant = {
+    const unavailableVariant: OfferAvailability = {
       ...base.variants[0],
       id: "50ml",
       label: "50 mL",
@@ -793,7 +840,6 @@ describe("ProductDetail purchase accordions", () => {
       available: true,
       inventoryStatus: "out_of_stock" as const,
       volume: "50 mL",
-      optionValues: { size: "50 mL" },
       sortOrder: 2,
     };
     render(
