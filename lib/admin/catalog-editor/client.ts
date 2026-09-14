@@ -3,6 +3,7 @@ import type {
   CatalogEditorResponse,
   CatalogGridRow,
   CatalogPublishSuccess,
+  CatalogRestoreSuccess,
   CatalogRevisionRecord,
   CatalogRpcConflict,
   CatalogValidationIssue as CatalogBackendValidationIssue,
@@ -393,11 +394,17 @@ export const catalogEditorApi = {
     );
   },
 
-  restoreRevision(revisionId: string) {
-    return requestJson<{ ok: true; draft: CatalogDraftRecord }>(
+  async restoreRevision(revisionId: string) {
+    const restored = await requestJson<CatalogRestoreSuccess>(
       `/api/admin/catalog/revisions/${encodeURIComponent(revisionId)}/restore`,
       { method: "POST" },
     );
+    return {
+      ...restored,
+      issues: restored.draft.validation_errors.map((issue) =>
+        editorIssue(issue, restored.draft.document),
+      ),
+    };
   },
 
   uploadMedia(

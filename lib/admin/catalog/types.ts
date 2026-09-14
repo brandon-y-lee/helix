@@ -139,6 +139,20 @@ export type CatalogRevisionRecord = {
   published_at: string;
 };
 
+export const CATALOG_RESTORE_RETAINED_FIELDS = [
+  "slug",
+  "display_name",
+  "seo_title",
+  "seo_description",
+  "search_keywords",
+] as const;
+
+export type CatalogRestoreSuccess = {
+  ok: true;
+  draft: CatalogDraftRecord;
+  retainedFields: Array<(typeof CATALOG_RESTORE_RETAINED_FIELDS)[number]>;
+};
+
 export type CatalogRpcConflict = {
   ok: false;
   code:

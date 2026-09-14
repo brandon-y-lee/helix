@@ -22,12 +22,12 @@ const coreItems: SystemCoreFlowItem[] = [
   {
     anchorId: "system-treat",
     backgroundMedia: null,
-    displayName: "Peptide Bounce",
+    displayName: "Super Serum",
     displayNumber: "02",
     heroLines: ["Bring skin back.", "Smooth. Hydrated."],
     legacyAnchorIds: ["step-treat", "step-recode", "method-treat", "method-recode"],
     productType: "PDRN serum",
-    slug: "peptide-bounce",
+    slug: "super-serum",
     stepName: "TREAT",
     swatch: ["#eadfd9", "#9e7f76"],
   },
@@ -69,7 +69,7 @@ describe("SystemCoreFlow", () => {
     expect(tabs).toHaveLength(3);
     expect(tabs.map((tab) => tab.textContent)).toEqual([
       "CLEANSEBiotic ResetDaily gel cleanser",
-      "TREATPeptide BouncePDRN serum",
+      "TREATSuper SerumPDRN serum",
       "SEALCeramide CushionIntensive moisture cream",
     ]);
     expect(tabs[0]).toHaveAttribute("aria-selected", "true");
@@ -111,7 +111,7 @@ describe("SystemCoreFlow", () => {
     expect(tabs[1]).toHaveAttribute("aria-selected", "true");
     expect(
       screen.getByRole("tabpanel", { name: /TREAT/i }),
-    ).toHaveTextContent("Peptide Bounce");
+    ).toHaveTextContent("Super Serum");
     expect(container.querySelector(".method-flow")).toHaveAttribute(
       "data-active-step",
       "treat",
@@ -159,7 +159,7 @@ describe("SystemCoreFlow", () => {
       "true",
     );
     expect(screen.getByRole("tabpanel", { name: /TREAT/i })).toHaveTextContent(
-      "Peptide Bounce",
+      "Super Serum",
     );
   });
 
@@ -172,7 +172,7 @@ describe("SystemCoreFlow", () => {
       "true",
     );
     expect(screen.getByRole("tabpanel", { name: /TREAT/i })).toHaveTextContent(
-      "Peptide Bounce",
+      "Super Serum",
     );
   });
 

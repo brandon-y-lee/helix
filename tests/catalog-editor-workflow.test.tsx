@@ -102,6 +102,73 @@ describe("CatalogEditor draft workflow", () => {
     });
   });
 
+  it("explains retained current fields and opens the restored content for review", async () => {
+    const currentDocument = {
+      ...catalogDraft.document,
+      product: {
+        ...catalogDraft.document.product,
+        display_name: "Super Serum",
+        slug: "super-serum",
+      },
+    };
+    vi.mocked(catalogEditorApi.getEditor).mockResolvedValue({
+      ...editorResponse(),
+      canonical: currentDocument,
+      draft: { ...catalogDraft, document: currentDocument },
+    });
+    vi.mocked(catalogEditorApi.listRevisions).mockResolvedValue({
+      items: [{
+        id: "revision-older",
+        product_id: catalogDraft.product_id,
+        revision_number: 2,
+        schema_version: 4,
+        document: {},
+        source_draft_id: null,
+        published_by: null,
+        published_at: "2026-07-20T12:00:00.000Z",
+      }],
+    });
+    vi.mocked(catalogEditorApi.restoreRevision).mockResolvedValue({
+      ok: true,
+      draft: {
+        ...catalogDraft,
+        version: 1,
+        document: currentDocument,
+      },
+      retainedFields: [
+        "slug", "display_name", "seo_title", "seo_description", "search_keywords",
+      ],
+      issues: [{
+        table: "product_pdp_content",
+        field: "how_to_use_steps",
+        message: "Review the restored usage instructions before publishing.",
+      }],
+    });
+
+    render(<CatalogEditor productId="product-cleanse" />);
+    await screen.findByRole("heading", { name: "Super Serum" });
+    fireEvent.click(screen.getByRole("button", { name: "Revision history" }));
+    await screen.findByRole("button", { name: "Restore as draft" });
+    expect(screen.getByText(
+      /current product name, address, search title, search description, and search keywords are kept/i,
+    )).toBeInTheDocument();
+
+    vi.mocked(catalogEditorApi.discardDraft).mockResolvedValue({ discarded: true });
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+    fireEvent.click(screen.getByRole("button", { name: "Discard" }));
+    await screen.findByText("Draft discarded. Canonical data remains unchanged.");
+    confirm.mockRestore();
+    fireEvent.click(screen.getByRole("button", { name: "Restore as draft" }));
+
+    await screen.findByText(/revision 2 restored as draft version 1.*current product name/i);
+    expect(screen.getByLabelText("Display name")).toHaveValue("Super Serum");
+    expect(screen.getByLabelText("Slug")).toHaveValue("super-serum");
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Review the restored usage instructions before publishing.",
+    );
+    expect(catalogEditorApi.publishDraft).not.toHaveBeenCalled();
+  });
+
   it("saves with the draft version and preserves local edits on conflict", async () => {
     render(<CatalogEditor productId="product-cleanse" />);
     await screen.findByRole("heading", { name: "CLEANSE" });

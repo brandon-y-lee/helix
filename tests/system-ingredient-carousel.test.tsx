@@ -20,7 +20,7 @@ const cards: IngredientIndexCard[] = [
     mechanism: "Conditions within water-based formulas.",
     skinRelevance: "Supports a replenished-looking finish.",
     formulationNote: "This must not be rendered.",
-    products: [{ slug: "peptide-bounce", displayName: "Peptide Bounce" }],
+    products: [{ slug: "super-serum", displayName: "Super Serum" }],
   },
   {
     id: "niacinamide",
@@ -29,7 +29,7 @@ const cards: IngredientIndexCard[] = [
     ingredientClass: "Vitamin derivative",
     mechanism: "Supports barrier and tone appearance.",
     skinRelevance: "Provides broad cosmetic conditioning.",
-    products: [{ slug: "peptide-bounce", displayName: "Peptide Bounce" }],
+    products: [{ slug: "super-serum", displayName: "Super Serum" }],
   },
 ];
 
@@ -92,9 +92,9 @@ describe("SystemIngredientCarousel", () => {
     expect(panel).toHaveTextContent("Conditions within water-based formulas.");
     expect(panel).toHaveTextContent("Supports a replenished-looking finish.");
     expect(panel).not.toHaveTextContent("This must not be rendered.");
-    expect(within(panel).getByRole("link", { name: /Peptide Bounce/i })).toHaveAttribute(
+    expect(within(panel).getByRole("link", { name: /Super Serum/i })).toHaveAttribute(
       "href",
-      "/products/peptide-bounce",
+      "/products/super-serum",
     );
   });
 

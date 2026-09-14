@@ -84,8 +84,8 @@ function media(role: string, sortOrder = 0) {
 function productRow(overrides: Record<string, unknown> = {}) {
   const row = {
     id: "product-id",
-    slug: "treat-03-pdrn-5-ampoule",
-    display_name: "TREAT",
+    slug: "super-serum",
+    display_name: "Super Serum",
     routine_group: "core",
     system_step_name: "TREAT",
     routine_sort: 20,
@@ -110,7 +110,7 @@ function productRow(overrides: Record<string, unknown> = {}) {
     volume: "30 mL",
     skin_types: ["All skin types"],
     usage_time: ["Morning", "Night"],
-    seo_title: "TREAT PDRN Ampoule | helix",
+    seo_title: "Super Serum | helix",
     seo_description: "A lightweight daily ampoule.",
     product_variants: [variant],
     product_pdp_content: {
@@ -194,8 +194,8 @@ describe("storefront catalog projections", () => {
     const [card] = await getProductCardContents();
 
     expect(card).toMatchObject({
-      slug: "treat-03-pdrn-5-ampoule",
-      displayName: "TREAT",
+      slug: "super-serum",
+      displayName: "Super Serum",
       productType: "Ampoule / Serum",
       systemStepName: "TREAT",
       systemStepPosition: 3,
@@ -254,24 +254,24 @@ describe("storefront catalog projections", () => {
     const { client, calls } = makeClient({
       data: [
         productRow({ slug: "ceramide-cushion", display_name: "Ceramide Cushion", system_step_name: "SEAL", routine_sort: 30 }),
-        productRow({ slug: "cleanse-01-calming-gel-cleanser", display_name: "CLEANSE", system_step_name: "CLEANSE", routine_sort: 10 }),
+        productRow({ slug: "biotic-reset", display_name: "Biotic Reset", system_step_name: "CLEANSE", routine_sort: 10 }),
       ],
       error: null,
     });
     mockedGetClient.mockReturnValue(client);
 
     const cards = await getDiscoveryProductCardContents(
-      "treat-03-pdrn-5-ampoule",
+      "super-serum",
     );
 
     expect(cards.map((card) => card.displayName)).toEqual([
-      "CLEANSE",
+      "Biotic Reset",
       "Ceramide Cushion",
     ]);
     expect(cards.every((card) => !("description" in card))).toBe(true);
     expect(calls).toContainEqual({
       method: "neq",
-      args: ["slug", "treat-03-pdrn-5-ampoule"],
+      args: ["slug", "super-serum"],
     });
     expect(calls).not.toContainEqual({ method: "limit", args: [3] });
   });
@@ -285,7 +285,7 @@ describe("storefront catalog projections", () => {
           product_family_memberships: { family_id: "family-1", is_entry: false },
         }),
         productRow({ slug: "biotic-reset", display_name: "Biotic Reset", routine_sort: 10 }),
-        productRow({ slug: "peptide-bounce", display_name: "Peptide Bounce", routine_sort: 20 }),
+        productRow({ slug: "super-serum", display_name: "Super Serum", routine_sort: 20 }),
         productRow({ slug: "ceramide-cushion", display_name: "Ceramide Cushion", routine_sort: 30 }),
       ],
       error: null,
@@ -296,7 +296,7 @@ describe("storefront catalog projections", () => {
 
     expect(cards.map((card) => card.slug)).toEqual([
       "biotic-reset",
-      "peptide-bounce",
+      "super-serum",
       "ceramide-cushion",
     ]);
   });
@@ -306,11 +306,11 @@ describe("storefront catalog projections", () => {
     mockedGetClient.mockReturnValue(client);
 
     const product = await getPdpProductContent(
-      "treat-03-pdrn-5-ampoule",
+      "super-serum",
     );
 
     expect(product).toMatchObject({
-      displayName: "TREAT",
+      displayName: "Super Serum",
       description: "Approved editorial description.",
       howToUse: "Apply after CLEANSE.",
       keyIngredients: ["PDRN", "Niacinamide"],
@@ -397,14 +397,14 @@ describe("storefront catalog projections", () => {
   it("queries the active CLEANSE, TREAT, and SEAL identities for the ordered Core summaries", async () => {
     const activeCoreSlugs = [
       "biotic-reset",
-      "peptide-bounce",
+      "super-serum",
       "ceramide-cushion",
     ];
     const rows = activeCoreSlugs.map((slug, index) =>
       productRow({
         id: `${index + 1}-id`,
         slug,
-        display_name: ["CLEANSE", "TREAT", "SEAL"][index],
+        display_name: ["Biotic Reset", "Super Serum", "Ceramide Cushion"][index],
         system_step_name: ["CLEANSE", "TREAT", "SEAL"][index],
         routine_sort: (index + 1) * 10,
         product_media: [
@@ -460,9 +460,9 @@ describe("storefront catalog projections", () => {
     mockedGetClient.mockReturnValue(client);
 
     await expect(
-      getProductOffer("treat-03-pdrn-5-ampoule"),
+      getProductOffer("super-serum"),
     ).resolves.toMatchObject({
-      slug: "treat-03-pdrn-5-ampoule",
+      slug: "super-serum",
       status: "available",
       variants: [{ id: "full-size", price: 2500 }],
     });
@@ -479,13 +479,13 @@ describe("storefront catalog projections", () => {
     mockedGetClient.mockReturnValue(client);
 
     await expect(
-      getProductMetadata("treat-03-pdrn-5-ampoule"),
+      getProductMetadata("super-serum"),
     ).resolves.toEqual({
-      slug: "treat-03-pdrn-5-ampoule",
-      displayName: "TREAT",
+      slug: "super-serum",
+      displayName: "Super Serum",
       productType: "Ampoule / Serum",
       editorialDescription: "Approved editorial description.",
-      seoTitle: "TREAT PDRN Ampoule | helix",
+      seoTitle: "Super Serum | helix",
       seoDescription: "A lightweight daily ampoule.",
     });
     const selection = String(
