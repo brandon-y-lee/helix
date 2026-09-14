@@ -68,6 +68,7 @@
     display: block;
     min-width: 0;
     border-block: 1px solid var(--line);
+    background: var(--surface);
   }
 
   .legal-toc--mobile > summary {
@@ -176,7 +177,7 @@
     min-height: 48px;
     align-items: center;
     padding: 10px 16px;
-    border: 1px solid var(--line);
+    border: 1px solid var(--control-line);
     border-radius: 999px;
     background: var(--surface);
     font-size: 0.875rem;
@@ -188,7 +189,7 @@
   .faq-category-nav a[aria-current="location"] {
     background: var(--ink);
     border-color: var(--ink);
-    color: var(--surface);
+    color: var(--ink-inverse);
   }
 
   .faq-categories {
