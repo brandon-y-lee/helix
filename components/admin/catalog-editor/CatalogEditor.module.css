@@ -1,14 +1,16 @@
 .page {
   --catalog-ink: #181a18;
   --catalog-muted: #666961;
-  --catalog-line: #d8d8d1;
-  --catalog-panel: #f3f2ed;
-  --catalog-surface: #fbfaf6;
+  --catalog-line: #d8d8dc;
+  --catalog-control-line: #8c8c91;
+  --catalog-panel: #f5f5f7;
+  --catalog-surface: #ffffff;
+  --catalog-field-bg: var(--catalog-panel);
   --catalog-accent: #23483e;
   min-height: 70vh;
   padding: 0;
   color: var(--catalog-ink);
-  background: transparent;
+  background: var(--catalog-surface);
   font-family: var(--font-manrope), sans-serif;
 }
 
@@ -92,6 +94,7 @@
 }
 
 .filterForm {
+  --catalog-field-bg: var(--catalog-surface);
   display: grid;
   grid-template-columns: minmax(220px, 2fr) repeat(3, minmax(140px, 1fr)) auto;
   gap: 12px;
@@ -112,11 +115,11 @@
 .textarea {
   width: 100%;
   min-height: 38px;
-  border: 1px solid #8c8e87;
+  border: 1px solid var(--catalog-control-line);
   border-radius: 6px;
   padding: 7px 10px;
   color: var(--catalog-ink);
-  background: #fff;
+  background: var(--catalog-field-bg);
   font: inherit;
   font-size: 0.86rem;
   line-height: 1.2;
@@ -135,13 +138,18 @@
 .input:focus-visible,
 .select:focus-visible,
 .textarea:focus-visible,
+.codeTextarea:focus-visible,
+.checkboxField input:focus-visible,
+.colorControl input:focus-visible,
+.paletteControl input:focus-visible,
 .button:focus-visible,
 .iconButton:focus-visible,
 .productCard:focus-visible,
 .sectionNav a:focus-visible,
 .summary:focus-visible,
-.groupSummary:focus-visible {
-  outline: 3px solid #7aa99a;
+.groupSummary:focus-visible,
+.metadataRecord > summary:focus-visible {
+  outline: 3px solid var(--catalog-accent);
   outline-offset: 3px;
 }
 
@@ -161,13 +169,13 @@
 
 .buttonSecondary {
   color: var(--catalog-accent);
-  background: transparent;
+  background: var(--catalog-field-bg);
 }
 
 .buttonDanger {
   border-color: #8b352f;
   color: #8b352f;
-  background: transparent;
+  background: var(--catalog-field-bg);
 }
 
 .button:disabled,
@@ -184,6 +192,7 @@
 }
 
 .productCard {
+  --catalog-field-bg: var(--catalog-surface);
   display: grid;
   grid-template-rows: 180px 1fr;
   min-width: 0;
@@ -191,7 +200,7 @@
   border: 1px solid var(--catalog-line);
   border-radius: 12px;
   color: inherit;
-  background: #fff;
+  background: var(--catalog-panel);
   text-decoration: none;
 }
 
@@ -201,7 +210,7 @@
   place-items: center;
   overflow: hidden;
   color: var(--catalog-muted);
-  background: linear-gradient(135deg, #e7e4dc, #cbd6d1);
+  background: var(--catalog-panel);
 }
 
 .cardMedia img {
@@ -257,7 +266,7 @@
   border-radius: 999px;
   padding: 3px 7px;
   color: #2d332e;
-  background: #e9e9e3;
+  background: var(--catalog-panel);
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -269,10 +278,15 @@
 .errorSummary,
 .conflict,
 .publishReview {
+  --catalog-field-bg: var(--catalog-surface);
   margin-top: 20px;
   border-radius: 12px;
   padding: 18px;
   background: var(--catalog-panel);
+}
+
+.productCard .pill {
+  background: var(--catalog-surface);
 }
 
 .errorSummary,
@@ -315,7 +329,7 @@
 }
 
 .sectionNav a:hover {
-  background: #fff;
+  background: var(--catalog-surface);
 }
 
 .sectionNav a[aria-current="location"] {
@@ -328,13 +342,14 @@
 }
 
 .commandBar {
+  --catalog-field-bg: var(--catalog-surface);
   display: grid;
   gap: 6px;
   margin-bottom: 14px;
   border: 1px solid var(--catalog-line);
   border-radius: 8px;
   padding: 10px;
-  background: #fff;
+  background: var(--catalog-panel);
 }
 
 .commandBar > .actionRow {
@@ -374,7 +389,7 @@
   margin-bottom: 8px;
   border: 1px solid var(--catalog-line);
   border-radius: 8px;
-  background: #fff;
+  background: var(--catalog-surface);
 }
 
 .summary {
@@ -385,6 +400,13 @@
   padding: 9px 12px;
   cursor: pointer;
   list-style: none;
+  background: var(--catalog-panel);
+}
+
+.summary,
+.groupSummary,
+.metadataRecord > summary {
+  border-radius: inherit;
 }
 
 .summary::-webkit-details-marker {
@@ -399,6 +421,13 @@
 
 details[open] > .summary::after {
   content: "−";
+}
+
+details[open] > .summary,
+details[open] > .groupSummary,
+.metadataRecord[open] > summary {
+  border-end-start-radius: 0;
+  border-end-end-radius: 0;
 }
 
 .sectionBody {
@@ -425,14 +454,15 @@ details[open] > .summary::after {
 .sourceFields input,
 .sourceFields textarea {
   color: #60615d;
-  background: #efefeb;
+  background: var(--catalog-field-bg);
 }
 
 .fieldGroup {
+  --catalog-field-bg: var(--catalog-surface);
   margin: 0 0 8px;
   border: 1px solid var(--catalog-line);
   border-radius: 6px;
-  background: #fff;
+  background: var(--catalog-panel);
 }
 
 .groupSummary {
@@ -464,6 +494,13 @@ details[open] > .groupSummary::after {
   gap: 10px;
   border-top: 1px solid var(--catalog-line);
   padding: 12px;
+}
+
+.fieldGroupBodyGrouping {
+  --catalog-field-bg: var(--catalog-panel);
+  background: var(--catalog-surface);
+  border-end-start-radius: inherit;
+  border-end-end-radius: inherit;
 }
 
 .fieldGroupBody > .help {
@@ -502,7 +539,7 @@ details[open] > .groupSummary::after {
   border: 1px solid var(--catalog-line);
   border-radius: 999px;
   padding: 2px 6px;
-  background: var(--catalog-panel);
+  background: var(--catalog-surface);
   white-space: nowrap;
 }
 
@@ -520,6 +557,7 @@ details[open] > .groupSummary::after {
 
 .fieldContext {
   display: grid;
+  align-content: start;
   gap: 3px;
   color: var(--catalog-muted);
   font-size: 0.72rem;
@@ -532,6 +570,7 @@ details[open] > .groupSummary::after {
   border-radius: 999px;
   padding: 2px 7px;
   color: var(--catalog-ink);
+  background: var(--catalog-field-bg);
   font-weight: 700;
   text-transform: capitalize;
 }
@@ -544,7 +583,7 @@ details[open] > .groupSummary::after {
   border-radius: 6px;
   padding: 8px 10px;
   color: #555852;
-  background: #efefeb;
+  background: var(--catalog-field-bg);
   white-space: pre-wrap;
 }
 
@@ -559,9 +598,11 @@ details[open] > .groupSummary::after {
 .codeTextarea {
   width: 100%;
   min-height: 180px;
-  border: 1px solid #8c8e87;
+  border: 1px solid var(--catalog-control-line);
   border-radius: 8px;
   padding: 10px 12px;
+  color: var(--catalog-ink);
+  background: var(--catalog-field-bg);
   font: 0.78rem/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
   resize: vertical;
 }
@@ -571,9 +612,10 @@ details[open] > .groupSummary::after {
   align-items: flex-start;
   gap: 10px;
   min-height: 38px;
-  border: 1px solid var(--catalog-line);
+  border: 1px solid var(--catalog-control-line);
   border-radius: 6px;
   padding: 8px 10px;
+  background: var(--catalog-field-bg);
 }
 
 .checkboxField input {
@@ -594,6 +636,7 @@ details[open] > .groupSummary::after {
 }
 
 .paletteEditor {
+  --catalog-field-bg: var(--catalog-panel);
   display: grid;
   gap: 8px;
   min-width: 0;
@@ -601,6 +644,7 @@ details[open] > .groupSummary::after {
   padding: 12px;
   border: 1px solid var(--catalog-line);
   border-radius: 8px;
+  background: var(--catalog-surface);
 }
 
 .paletteEditor legend {
@@ -621,23 +665,27 @@ details[open] > .groupSummary::after {
   width: 36px;
   height: 32px;
   padding: 2px;
+  border: 1px solid var(--catalog-control-line);
+  background: var(--catalog-field-bg);
 }
 
 .colorControl input[type="color"] {
   width: 48px;
   height: 44px;
-  border: 1px solid #8c8e87;
+  border: 1px solid var(--catalog-control-line);
   border-radius: 8px;
   padding: 3px;
-  background: #fff;
+  background: var(--catalog-field-bg);
 }
 
 .recordCard {
+  --catalog-field-bg: var(--catalog-surface);
   display: grid;
   gap: 12px;
   border: 1px solid var(--catalog-line);
   border-radius: 6px;
   padding: 12px;
+  background: var(--catalog-panel);
 }
 
 .recordHeader,
@@ -667,9 +715,11 @@ details[open] > .groupSummary::after {
 }
 
 .metadataRecord {
+  --catalog-field-bg: var(--catalog-surface);
   margin-top: 10px;
   border: 1px solid var(--catalog-line);
   border-radius: 8px;
+  background: var(--catalog-panel);
 }
 
 .metadataRecord > summary {
@@ -691,12 +741,19 @@ details[open] > .groupSummary::after {
   gap: 8px;
 }
 
+.repeater {
+  --catalog-field-bg: var(--catalog-panel);
+  background: var(--catalog-surface);
+}
+
 .repeaterItem {
+  --catalog-field-bg: var(--catalog-surface);
   display: grid;
   gap: 10px;
   border: 1px solid var(--catalog-line);
   border-radius: 6px;
   padding: 10px;
+  background: var(--catalog-panel);
 }
 
 .inlineFields {
@@ -744,11 +801,13 @@ details[open] > .groupSummary::after {
 }
 
 .mediaCard {
+  --catalog-field-bg: var(--catalog-surface);
   display: grid;
   gap: 10px;
   border: 1px solid var(--catalog-line);
   border-radius: 10px;
   padding: 12px;
+  background: var(--catalog-panel);
 }
 
 .mediaPreview {

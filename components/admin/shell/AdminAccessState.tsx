@@ -1,11 +1,14 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { SignOutButton } from "@/components/account/AccountForms";
 import { AdminHelixIdentity } from "@/components/admin/shell/AdminHelixIdentity";
 
 export function AdminAccessState({
   state,
+  signOutControl = <SignOutButton />,
 }: {
   state: "forbidden" | "unavailable";
+  signOutControl?: ReactNode;
 }) {
   const forbidden = state === "forbidden";
 
@@ -28,7 +31,7 @@ export function AdminAccessState({
           <Link href="/" className="admin-gate__link">
             Return to storefront
           </Link>
-          <SignOutButton />
+          {signOutControl}
         </div>
       </section>
     </main>

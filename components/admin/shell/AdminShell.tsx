@@ -8,13 +8,15 @@ import {
   type ReactNode,
 } from "react";
 import { usePathname } from "next/navigation";
-import { signOutAction } from "@/app/account/actions";
+import { signOutAction as defaultSignOutAction } from "@/app/account/actions";
 import { AdminHelixIdentity } from "@/components/admin/shell/AdminHelixIdentity";
 import { AdminNavigation } from "@/components/admin/shell/AdminNavigation";
 import { Sheet } from "@/components/overlays/Sheet";
 import type { AdminModule } from "@/lib/admin/modules";
 
 const ADMIN_SIDEBAR_PREFERENCE = "helix-admin-sidebar-collapsed";
+
+type SignOutAction = (formData: FormData) => void | Promise<void>;
 
 function currentViewLabel(
   pathname: string,
@@ -32,10 +34,12 @@ function AdminAccount({
   accountLabel,
   compact = false,
   collapsed = false,
+  signOutAction,
 }: {
   accountLabel: string;
   compact?: boolean;
   collapsed?: boolean;
+  signOutAction: SignOutAction;
 }) {
   return (
     <div
@@ -77,12 +81,17 @@ export function AdminShell({
   accountLabel,
   modules,
   children,
+  signOutAction = defaultSignOutAction,
+  navigationPath,
 }: {
   accountLabel: string;
   modules: readonly AdminModule[];
   children: ReactNode;
+  signOutAction?: SignOutAction;
+  navigationPath?: string;
 }) {
-  const pathname = usePathname();
+  const currentPathname = usePathname();
+  const pathname = navigationPath ?? currentPathname;
   const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
@@ -144,6 +153,7 @@ export function AdminShell({
         <AdminAccount
           accountLabel={accountLabel}
           collapsed={sidebarCollapsed}
+          signOutAction={signOutAction}
         />
       </aside>
 
@@ -190,7 +200,11 @@ export function AdminShell({
             modules={modules}
             onNavigate={closeMobileNavigation}
           />
-          <AdminAccount accountLabel={accountLabel} compact />
+          <AdminAccount
+            accountLabel={accountLabel}
+            compact
+            signOutAction={signOutAction}
+          />
         </div>
       </Sheet>
     </div>

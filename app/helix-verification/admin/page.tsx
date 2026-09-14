@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { AdminShell } from "@/components/admin/shell/AdminShell";
-import { getAdminModules } from "@/lib/admin/modules";
+import { AdminDashboard } from "@/components/admin/shell/AdminDashboard";
+import { VerificationAdminShell } from "./VerificationAdminShell";
+import { verificationAdminModules } from "./verification-modules";
 
 export const metadata: Metadata = {
   title: "Admin verification | helix",
@@ -10,7 +11,11 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
-export default function AdminVerificationPage() {
+export default async function AdminVerificationPage({
+  searchParams = Promise.resolve({}),
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
   if (
     process.env.VERCEL === "1" ||
     process.env.HELIX_VERIFICATION_ADAPTER !== "1"
@@ -18,15 +23,28 @@ export default function AdminVerificationPage() {
     notFound();
   }
 
+  const query = await searchParams;
+  if (
+    Object.keys(query).some((key) => key !== "scenario") ||
+    (query.scenario !== undefined &&
+      query.scenario !== "default" &&
+      query.scenario !== "empty" &&
+      query.scenario !== "unavailable")
+  ) {
+    notFound();
+  }
+  const modules =
+    query.scenario === "empty"
+      ? []
+      : query.scenario === "unavailable"
+        ? verificationAdminModules.map((module) => ({
+            ...module,
+            status: "unavailable" as const,
+          }))
+        : verificationAdminModules;
   return (
-    <AdminShell accountLabel="Verification account" modules={getAdminModules()}>
-      <section className="admin-dashboard" aria-labelledby="admin-verification-heading">
-        <header className="admin-dashboard__header">
-          <p className="admin-dashboard__eyebrow">helix Admin</p>
-          <h1 id="admin-verification-heading">Admin verification</h1>
-          <p>Production-rendered shell for browser verification only.</p>
-        </header>
-      </section>
-    </AdminShell>
+    <VerificationAdminShell modules={modules}>
+      <AdminDashboard modules={modules} title="Admin verification" />
+    </VerificationAdminShell>
   );
 }
