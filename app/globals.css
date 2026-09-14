@@ -1,10 +1,13 @@
 :root {
-  --bg: #f1eee8;
-  --surface: #fbfaf6;
-  --surface-muted: #e5e0d6;
+  --bg: #fff;
+  --surface: #f5f5f7;
+  --surface-muted: #f5f5f7;
+  --surface-inset: #fff;
   --ink: #111312;
   --ink-soft: #5d5c55;
-  --line: #d3cec2;
+  --ink-inverse: #fffdf8;
+  --line: #d8d8dc;
+  --control-line: #8c8c91;
   --accent: #28362f;
   --accent-2: #70483f;
   --accent-ink: #fbfaf6;
@@ -40,6 +43,7 @@
 }
 
 html {
+  background: var(--bg);
   -webkit-text-size-adjust: 100%;
 }
 
@@ -141,7 +145,7 @@ main[data-storefront-main]:has(> [data-header-layout="overlay"]) {
   right: 0;
   z-index: 20;
   height: var(--site-header-height);
-  background: rgba(246, 244, 239, 0.85);
+  background: rgba(255, 255, 255, 0.85);
   color: var(--ink);
   backdrop-filter: saturate(140%) blur(10px);
   -webkit-backdrop-filter: saturate(140%) blur(10px);
@@ -280,7 +284,7 @@ body[data-sheet-scroll-lock] .site-header {
 
 .site-footer__service-card:hover {
   border-color: var(--ink-soft);
-  background: color-mix(in srgb, var(--surface) 86%, var(--bg));
+  background: var(--surface);
   color: var(--accent-2);
 }
 
@@ -648,7 +652,7 @@ body[data-sheet-scroll-lock] .site-header {
 .btn--ghost {
   background: transparent;
   color: var(--ink);
-  border-color: var(--line);
+  border-color: var(--control-line);
 }
 
 .btn:disabled {
@@ -735,7 +739,7 @@ body[data-sheet-scroll-lock] .site-header {
   flex: 0 0 auto;
   min-height: 40px;
   border: 1px solid color-mix(in srgb, var(--ink) 70%, transparent);
-  background: transparent;
+  background: var(--surface);
   color: var(--ink);
   border-radius: 999px;
   display: inline-flex;
@@ -756,7 +760,7 @@ body[data-sheet-scroll-lock] .site-header {
 }
 
 .chip:focus {
-  background: rgba(103, 100, 94, 0.12);
+  background: var(--surface);
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -862,7 +866,7 @@ body[data-sheet-scroll-lock] .site-header {
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
   border-radius: 10px;
-  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  background: var(--bg);
   box-shadow: 0 20px 60px rgba(17, 19, 18, 0.16);
   padding: 46px 12px 12px;
   color: var(--ink);
@@ -881,7 +885,7 @@ body[data-sheet-scroll-lock] .site-header {
   border: 0;
   border-radius: 999px;
   background: var(--ink-soft);
-  color: var(--surface);
+  color: var(--ink-inverse);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -929,12 +933,12 @@ body[data-sheet-scroll-lock] .site-header {
 
 .sort-menu__option:hover {
   color: var(--ink);
-  background: color-mix(in srgb, var(--surface) 52%, transparent);
+  background: var(--surface);
 }
 
 .sort-menu__option[aria-pressed="true"] {
-  color: var(--ink);
-  background: color-mix(in srgb, var(--surface) 82%, transparent);
+  color: var(--accent-ink);
+  background: var(--accent);
 }
 
 .shop-grid-transition {
@@ -1311,9 +1315,9 @@ body[data-sheet-scroll-lock] .site-header {
   align-items: center;
   width: 100%;
   padding: 12px var(--storefront-gutter);
-  border-block: 1px solid color-mix(in srgb, var(--surface) 22%, transparent);
+  border-block: 1px solid color-mix(in srgb, var(--ink-inverse) 22%, transparent);
   background: color-mix(in srgb, var(--ink) 96%, black);
-  color: var(--surface);
+  color: var(--ink-inverse);
   box-sizing: border-box;
 }
 
@@ -1355,7 +1359,7 @@ body[data-sheet-scroll-lock] .site-header {
 }
 
 .catalog-preview-toolbar__meta dt {
-  color: color-mix(in srgb, var(--surface) 62%, transparent);
+  color: color-mix(in srgb, var(--ink-inverse) 62%, transparent);
   text-transform: uppercase;
 }
 
@@ -1372,7 +1376,7 @@ body[data-sheet-scroll-lock] .site-header {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid color-mix(in srgb, var(--surface) 55%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ink-inverse) 55%, transparent);
   border-radius: 999px;
   padding: 8px 12px;
   background: transparent;
@@ -1386,8 +1390,8 @@ body[data-sheet-scroll-lock] .site-header {
 
 .catalog-preview-toolbar__actions a:hover,
 .catalog-preview-toolbar__actions button:hover {
-  border-color: var(--surface);
-  background: color-mix(in srgb, var(--surface) 12%, transparent);
+  border-color: var(--ink-inverse);
+  background: color-mix(in srgb, var(--ink-inverse) 12%, transparent);
 }
 
 .catalog-preview-toolbar__actions a:focus-visible,
@@ -1995,7 +1999,7 @@ body[data-sheet-scroll-lock] .site-header {
 
 .search-field input {
   width: 100%;
-  border: 1px solid var(--line);
+  border: 1px solid var(--control-line);
   background: var(--surface);
   color: var(--ink);
   border-radius: 999px;
@@ -2013,7 +2017,7 @@ body[data-sheet-scroll-lock] .site-header {
   position: absolute;
   right: 8px;
   border: 0;
-  background: var(--bg);
+  background: var(--surface-inset);
   color: var(--ink-soft);
   border-radius: 999px;
   padding: 7px 14px;
@@ -2077,7 +2081,7 @@ body[data-sheet-scroll-lock] .site-header {
 }
 
 .search-suggestions__list button {
-  border: 1px solid var(--line);
+  border: 1px solid var(--control-line);
   border-radius: var(--radius-editorial-button);
   background: var(--surface);
   color: var(--ink);
@@ -2088,7 +2092,8 @@ body[data-sheet-scroll-lock] .site-header {
 }
 
 .search-suggestions__list button:hover {
-  background: var(--bg);
+  border-color: var(--ink);
+  background: var(--surface);
 }
 
 .search-suggestions__list button:focus-visible {
@@ -2206,7 +2211,7 @@ body[data-sheet-scroll-lock] .site-header {
 .search-result__status {
   width: max-content;
   border-radius: 999px;
-  background: var(--bg);
+  background: var(--surface-inset);
   color: var(--ink-soft);
   padding: 3px 8px;
   font-size: 0.67rem;
@@ -2275,7 +2280,7 @@ body[data-sheet-scroll-lock] .site-header {
 }
 
 .search-overlay__close {
-  border: 1px solid var(--line);
+  border: 1px solid var(--control-line);
   background: var(--surface);
   color: var(--ink-soft);
   border-radius: 999px;
@@ -2641,7 +2646,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 }
 
 .btn--ghost {
-  background: color-mix(in srgb, var(--surface) 70%, transparent);
+  background: var(--surface);
 }
 
 .btn--editorial-rounded {
@@ -2788,6 +2793,10 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   letter-spacing: 0.08em;
   text-transform: uppercase;
   cursor: pointer;
+}
+
+.sheet__close {
+  border-color: var(--control-line);
 }
 
 .sheet__close:hover,
@@ -3599,9 +3608,6 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 
 /* ---------- Leaders catalog + editorial commerce pass ---------- */
 :root {
-  --bg: #f3f1eb;
-  --surface: #fffdf8;
-  --surface-muted: #dfe5df;
   --accent: #183d34;
   --accent-2: #7a3f30;
   --focus: #2f6f61;
@@ -3984,7 +3990,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   inset: 0;
   display: grid;
   place-items: center;
-  color: var(--surface);
+  color: var(--ink-inverse);
   font-size: 0.72rem;
   text-shadow: 0 1px 4px rgba(17, 19, 18, 0.72);
   pointer-events: none;
@@ -4669,7 +4675,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 .pdp-core-routine__steps button[aria-checked="true"] > span {
   border-color: var(--ink);
   background: var(--ink);
-  color: var(--bg);
+  color: var(--ink-inverse);
 }
 
 .pdp-core-routine__steps button small {
@@ -5143,7 +5149,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 
 .pdp-application__next:hover {
   background: var(--ink);
-  color: var(--surface);
+  color: var(--ink-inverse);
 }
 
 .pdp-application__visual,
@@ -5344,7 +5350,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 .pdp-ingredients__disclosure-trigger:hover,
 .pdp-ingredients__disclosure-trigger:focus-visible {
   background: var(--ink);
-  color: var(--surface);
+  color: var(--ink-inverse);
 }
 
 .pdp-ingredients__image {
@@ -5403,7 +5409,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 
 .pdp-ingredients__close:hover {
   background: var(--ink);
-  color: var(--surface);
+  color: var(--ink-inverse);
 }
 
 .pdp-ingredients__full-scroll {
@@ -6179,7 +6185,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 
 .pdp-reviews__more button:focus-visible {
   background: var(--ink);
-  color: var(--surface);
+  color: var(--ink-inverse);
   outline: 2px solid var(--focus);
   outline-offset: 4px;
 }
@@ -6528,9 +6534,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 }
 
 .product-card__image--asset {
-  background:
-    radial-gradient(circle at 50% 34%, rgba(255, 255, 255, 0.78), transparent 33%),
-    linear-gradient(145deg, color-mix(in srgb, var(--surface) 74%, var(--surface-muted)), #c9d3cc);
+  background: var(--surface-muted);
   opacity: 1;
 }
 
@@ -6723,9 +6727,9 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   z-index: 2;
   width: 30px;
   height: 30px;
-  border: 1px solid color-mix(in srgb, var(--ink) 24%, transparent);
+  border: 1px solid var(--control-line);
   border-radius: 999px;
-  background: rgba(255, 253, 248, 0.86);
+  background: var(--surface);
   color: var(--storefront-warm-gray);
   cursor: pointer;
   display: inline-flex;
@@ -6845,10 +6849,10 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   display: grid;
   gap: 2px;
   padding: 8px 9px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--control-line);
   border-radius: 8px;
   cursor: pointer;
-  background: rgba(255, 253, 248, 0.58);
+  background: var(--surface);
   color: var(--storefront-warm-gray);
 }
 
@@ -6914,7 +6918,8 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 }
 
 .product-card__button {
-  border: 0;
+  border: 1px solid var(--control-line);
+  background: var(--surface-inset);
 }
 
 .product-card__quick-final {
@@ -7388,8 +7393,8 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 }
 
 .method-flow__product-link {
-  --button-fill: #fbfaf6;
-  --button-fill-border: #fbfaf6;
+  --button-fill: var(--surface-inset);
+  --button-fill-border: var(--surface-inset);
   --button-fill-text: #171a18;
   width: fit-content;
   margin-top: clamp(24px, 3vw, 42px);
@@ -7494,7 +7499,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 }
 
 .method-flow__controls button {
-  --method-arrow-fill: rgba(251, 250, 246, 0.92);
+  --method-arrow-fill: rgba(255, 255, 255, 0.92);
   --method-arrow-active-color: #171a18;
   width: 42px;
   height: 42px;
@@ -7532,7 +7537,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   display: grid;
   place-items: center;
   padding: clamp(42px, 7vw, 104px);
-  background: color-mix(in srgb, var(--surface) 92%, var(--surface-muted));
+  background: var(--surface);
 }
 
 .method-intentional__copy > div {
@@ -7564,7 +7569,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   min-width: 0;
   min-height: 100%;
   overflow: hidden;
-  background: #b4aaa2;
+  background: var(--surface-muted);
 }
 
 .method-intentional__image {
@@ -7689,9 +7694,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   border: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
   border-radius: var(--pdp-panel-radius);
   padding: clamp(24px, 4vw, 48px);
-  background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.42), transparent 58%),
-    color-mix(in srgb, var(--surface-muted) 76%, #cfdee5 24%);
+  background: var(--bg);
 }
 
 .method-section-head--beyond h2 {
@@ -7711,7 +7714,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--line) 86%, transparent);
   border-radius: var(--radius);
-  background: color-mix(in srgb, var(--surface) 90%, transparent);
+  background: var(--surface);
   transition:
     border-color var(--motion-panel) var(--ease-out),
     box-shadow var(--motion-panel) var(--ease-out),
@@ -7766,7 +7769,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 .method-system-card--missing {
   min-height: 320px;
   border-style: dashed;
-  background: color-mix(in srgb, var(--surface) 70%, transparent);
+  background: var(--surface);
 }
 
 .method-system-card--missing p:not(.eyebrow) {
@@ -7787,7 +7790,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   padding: clamp(28px, 4vw, 58px);
   border: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
   border-radius: var(--pdp-panel-radius);
-  background: color-mix(in srgb, var(--surface-muted) 88%, #f4f3ef);
+  background: var(--bg);
   scroll-margin-top: calc(var(--site-header-height) + var(--storefront-gutter));
 }
 
@@ -7840,11 +7843,11 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 
 .ingredient-carousel__controls button {
   --method-arrow-fill: var(--ink);
-  --method-arrow-active-color: var(--surface);
+  --method-arrow-active-color: var(--ink-inverse);
   width: 40px;
   height: 40px;
   color: var(--ink);
-  background: color-mix(in srgb, var(--surface) 58%, transparent);
+  background: color-mix(in srgb, var(--surface-inset) 58%, transparent);
   backdrop-filter: blur(8px);
   font-size: 1.15rem;
   pointer-events: auto;
@@ -7878,7 +7881,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   border: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
   border-radius: var(--pdp-panel-radius);
   color: var(--ink);
-  background: #e8e8e5;
+  background: var(--surface-muted);
   font: inherit;
   text-align: left;
   cursor: grab;
@@ -7961,7 +7964,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: var(--pdp-panel-radius);
-  background: color-mix(in srgb, var(--surface) 58%, transparent);
+  background: var(--surface);
 }
 
 .ingredient-carousel__panel[id] {
@@ -8041,8 +8044,9 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 
 .ingredient-carousel__found a {
   display: inline-flex;
-  border: 1px solid var(--line);
+  border: 1px solid var(--control-line);
   border-radius: 999px;
+  background: var(--surface-inset);
   padding: 5px 10px;
   font-size: 0.7rem;
   font-weight: 800;
@@ -8072,10 +8076,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   align-content: center;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background:
-    radial-gradient(circle at 18% 20%, #fff8ec 0%, transparent 26%),
-    radial-gradient(circle at 84% 72%, #244b56 0%, transparent 30%),
-    linear-gradient(135deg, #dce8df 0%, #d8cabe 52%, #8fa195 100%);
+  background: var(--surface);
   padding-block: clamp(42px, 7vw, 86px);
 }
 
@@ -8083,6 +8084,10 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   max-width: 48ch;
   margin-top: 18px;
   color: var(--ink);
+}
+
+.editorial-cta .btn--ghost {
+  background: var(--surface-inset);
 }
 
 .about-opening {
@@ -8294,9 +8299,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   align-items: end;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background:
-    radial-gradient(circle at 20% 15%, #fff7ea 0%, transparent 26%),
-    linear-gradient(135deg, #e6e0d4, #c6b5a1 50%, #9aa9a3);
+  background: var(--surface);
   padding-block: clamp(34px, 6vw, 74px);
 }
 
@@ -10350,7 +10353,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   justify-content: center;
   border: 1px solid color-mix(in srgb, var(--ink) 48%, transparent);
   border-radius: 999px;
-  background: color-mix(in srgb, var(--surface) 82%, transparent);
+  background: color-mix(in srgb, var(--surface-inset) 82%, transparent);
   color: var(--ink);
   box-shadow: 0 12px 30px rgba(17, 19, 18, 0.16);
   cursor: pointer;
@@ -10377,7 +10380,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   .home-beyond-carousel__control:hover {
     border-color: var(--ink);
     background: var(--ink);
-    color: var(--surface);
+    color: var(--ink-inverse);
   }
 }
 
@@ -10388,7 +10391,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 .home-beyond-carousel__control:focus-visible {
   border-color: var(--ink);
   background: var(--ink);
-  color: var(--surface);
+  color: var(--ink-inverse);
   outline: 2px solid var(--focus);
   outline-offset: 4px;
 }
@@ -10504,7 +10507,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   position: relative;
   display: grid;
   align-items: stretch;
-  background: var(--bg);
+  background: var(--surface);
   padding:
     var(--home-principles-title-block)
     var(--home-principles-panel-inline)
@@ -10608,7 +10611,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   position: relative;
   min-height: inherit;
   overflow: hidden;
-  background: var(--ink);
+  background: var(--surface-muted);
 }
 
 .home-three-principles-visual__zoom {
@@ -10627,9 +10630,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 }
 
 .home-band {
-  background:
-    linear-gradient(135deg, color-mix(in srgb, var(--surface-muted) 56%, var(--bg)) 0%, transparent 64%),
-    var(--surface);
+  background: var(--bg);
   border-block: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
 }
 
@@ -10745,7 +10746,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   gap: clamp(28px, 4vw, 56px);
   min-height: inherit;
   padding: clamp(24px, 3.2vw, 52px) clamp(20px, 3vw, 46px);
-  background: var(--bg);
+  background: var(--surface);
   text-align: right;
 }
 
@@ -10880,7 +10881,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 
 .home-ingredient-card:hover {
   border-color: color-mix(in srgb, var(--accent) 46%, var(--line));
-  background: color-mix(in srgb, var(--surface) 84%, var(--surface-muted));
+  background: var(--surface);
   transform: translateY(-2px);
 }
 
@@ -11473,9 +11474,9 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   .home-video-hero__secondary,
   .home-final__cta--primary
 ) {
-  --button-fill: #fbfaf6;
+  --button-fill: var(--surface-inset);
   --button-fill-text: #111312;
-  --button-fill-border: #fbfaf6;
+  --button-fill-border: var(--surface-inset);
 }
 
 .product-card__button,
@@ -11487,13 +11488,13 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 
 .pdp-reviews__more button {
   --button-fill: var(--ink);
-  --button-fill-text: var(--surface);
+  --button-fill-text: var(--ink-inverse);
   --button-fill-border: var(--ink);
 }
 
 .pdp-routine-video__error button {
   --button-fill: var(--ink);
-  --button-fill-text: var(--surface);
+  --button-fill-text: var(--ink-inverse);
   --button-fill-border: rgba(255, 255, 255, 0.8);
 }
 
