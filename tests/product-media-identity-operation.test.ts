@@ -19,6 +19,18 @@ function response(body: Uint8Array | null, status = 200) {
     "cache-control": "public, max-age=31536000",
   } });
 }
+function missingObject(status = 400, error = "not_found") {
+  const body = JSON.stringify({ statusCode: "404", code: "NoSuchKey", error, message: "Object not found" });
+  return new Response(body, { status, headers: {
+    "content-type": "application/json; charset=utf-8", "content-length": String(Buffer.byteLength(body)),
+  } });
+}
+const missingBody = '{"statusCode":"404","code":"NoSuchKey","error":"not_found","message":"Object not found"}';
+function errorResponse(body: string | Uint8Array, overrides: HeadersInit = {}) {
+  return new Response(body as BodyInit, { status: 400, headers: {
+    "content-type": "application/json", "content-length": String(Buffer.byteLength(body)), ...overrides,
+  } });
+}
 function canonicalUrl(value: string | URL | Request) {
   const url = new URL(String(value)); url.search = ""; return url.href;
 }
@@ -108,6 +120,26 @@ describe("reviewed Product Media identity operation", () => {
     expect(cancel).toHaveBeenCalledOnce();
   });
 
+  it.each([
+    { status: 200, pending: true }, { status: 302, pending: true },
+    { status: 200, pending: false }, { status: 302, pending: false },
+  ])("planning preserves its result when cleanup cannot complete: $status, pending=$pending", async ({ status, pending }) => {
+    const cancel = vi.fn(() => pending ? new Promise<void>(() => {}) : Promise.reject(new Error("Cancellation failed")));
+    const stream = new ReadableStream({ cancel });
+    const http = vi.fn(async () => new Response(stream, { status, headers: {
+      "content-type": "image/png", "content-length": String(bytes.length), "cache-control": "public, max-age=3600",
+    } })) as typeof fetch;
+    let outcome: unknown;
+    void buildMediaIdentityManifest({ operationId: "10000000-0000-4000-8000-000000000701",
+      actorId: catalogDraft.updated_by, snapshots: [snapshot], http,
+    }).then((result) => { outcome = result; }, (error) => { outcome = error; });
+    await vi.waitFor(() => expect(outcome).toBeDefined(), { timeout: 200 });
+    if (status === 200) expect(outcome).toMatchObject({ products: [{ productId }] });
+    else expect(outcome).toMatchObject({ message: "Source Product Media is not directly available." });
+    expect(cancel).toHaveBeenCalledOnce();
+    expect(stream.locked).toBe(false);
+  });
+
   it("rejects a PNG-coded AVI advertised as an image before copying", async () => {
     // Synthetic 16×16 PNG frame in an AVI container: codec alone is not MIME evidence.
     const avi = await readFile("tests/fixtures/png-coded-avi.avi");
@@ -125,10 +157,14 @@ describe("reviewed Product Media identity operation", () => {
     expect(copyObject).not.toHaveBeenCalled();
   });
 
-  it("copies one shared asset unchanged and verifies the destination before returning evidence", async () => {
+  it.each(["declared", "chunked"])("copies one shared asset with a %s missing-object response and verifies delivery", async (length) => {
     let copied = false;
     const fetchImpl = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
-      if (canonicalUrl(url) === targetUrl && !copied) return response(null, 404);
+      if (canonicalUrl(url) === targetUrl && !copied) {
+        const reply = missingObject();
+        if (length === "chunked") reply.headers.delete("content-length");
+        return reply;
+      }
       return response(init?.method === "HEAD" ? null : bytes);
     }) as unknown as typeof fetch;
     const manifest = await buildMediaIdentityManifest({
@@ -156,6 +192,117 @@ describe("reviewed Product Media identity operation", () => {
     const fetchImpl = vi.fn(async () => response(bytes)) as unknown as typeof fetch;
     expect(await verifyAndCopyMedia(manifest, { mode: "copy", copyObject, fetchImpl, inspect })).toMatchObject({ copied: 0, distinctAssets: 1 });
     expect(copyObject).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["untyped 404", () => response(null, 404)],
+    ["generic 400", () => errorResponse('{"message":"Not found"}')],
+    ["missing bucket", () => errorResponse(missingBody.replace("NoSuchKey", "NoSuchBucket"))],
+    ["missing tenant", () => errorResponse(missingBody.replace("NoSuchKey", "TenantNotFound"))],
+    ["access denied", () => errorResponse(missingBody.replace("NoSuchKey", "AccessDenied"))],
+    ["invalid credentials", () => errorResponse(missingBody.replace("NoSuchKey", "InvalidJWT"))],
+    ["contradictory status", () => errorResponse(missingBody.replace('"404"', '"403"'))],
+    ["numeric status", () => errorResponse(missingBody.replace('"404"', "404"))],
+    ["contradictory error", () => errorResponse(missingBody.replace("not_found", "AccessDenied"))],
+    ["contradictory message", () => errorResponse(missingBody.replace("Object not found", "Bucket not found"))],
+    ["extra field", () => errorResponse(missingBody.replace("{", '{"extra":true,'))],
+    ["missing field", () => errorResponse(missingBody.replace('"error":"not_found",', ""))],
+    ["duplicate field", () => errorResponse(missingBody.replace("{", '{"code":"AccessDenied",'))],
+    ["escaped duplicate field", () => errorResponse(missingBody.replace("{", '{"c\\u006fde":"AccessDenied",'))],
+    ["duplicate hiding a nested value", () => errorResponse(missingBody.replace("{", '{"code":{"error":"AccessDenied"},'))],
+    ["duplicate replacing a required field", () => errorResponse(missingBody.replace('"error":"not_found"', '"code":"NoSuchKey"'))],
+    ["malformed JSON", () => errorResponse(missingBody.slice(0, -1))],
+    ["invalid UTF-8", () => errorResponse(Buffer.concat([Buffer.from(missingBody), Buffer.from([0xff])]))],
+    ["wrong content type", () => errorResponse(missingBody, { "content-type": "text/plain" })],
+    ["partial error response", () => errorResponse(missingBody, { "content-range": "bytes 0-87/88" })],
+    ["redirect location", () => errorResponse(missingBody, { location: sourceUrl })],
+    ["truncated error body", () => errorResponse(missingBody, { "content-length": "89" })],
+    ["extra error bytes", () => errorResponse(missingBody, { "content-length": "87" })],
+  ])("refuses %s as evidence for an additive copy", async (_label, reply) => {
+    const copyObject = vi.fn(async () => {});
+    const fetchImpl = vi.fn(async (url) => canonicalUrl(url) === sourceUrl ? response(bytes) : reply()) as typeof fetch;
+    await expect(verifyAndCopyMedia(await makeManifest(), { mode: "copy", copyObject, fetchImpl, inspect })).rejects.toThrow();
+    expect(copyObject).not.toHaveBeenCalled();
+  });
+
+  it.each(["source", "verify", "post-copy", "canonical"] as const)("refuses missing-object evidence at the %s boundary", async (boundary) => {
+    let copied = false;
+    const copyObject = vi.fn(async () => { copied = true; });
+    const fetchImpl = vi.fn(async (value) => {
+      const url = new URL(String(value));
+      if (url.href.startsWith(sourceUrl)) return boundary === "source" ? missingObject() : response(bytes);
+      if (boundary === "verify" || boundary === "post-copy" || (boundary === "canonical" && !url.search)) return missingObject();
+      return copied ? response(bytes) : missingObject();
+    }) as typeof fetch;
+    await expect(verifyAndCopyMedia(await makeManifest(), {
+      mode: boundary === "verify" ? "verify" : "copy", copyObject, fetchImpl, inspect,
+    })).rejects.toThrow("without redirects or partial content");
+    expect(copyObject).toHaveBeenCalledTimes(boundary === "post-copy" || boundary === "canonical" ? 1 : 0);
+  });
+
+  it.each(["declared", "streamed"])("cancels an oversized %s error body without copying", async (kind) => {
+    const cancel = vi.fn();
+    const stream = new ReadableStream({ start(controller) { controller.enqueue(new Uint8Array(4097)); }, cancel });
+    const reply = new Response(stream, { status: 400, headers: {
+      "content-type": "application/json", ...(kind === "declared" ? { "content-length": "4097" } : {}),
+    } });
+    const copyObject = vi.fn(async () => {});
+    const fetchImpl = vi.fn(async (url) => canonicalUrl(url) === sourceUrl ? response(bytes) : reply) as typeof fetch;
+    await expect(verifyAndCopyMedia(await makeManifest(), { mode: "copy", copyObject, fetchImpl, inspect })).rejects.toThrow();
+    expect(cancel).toHaveBeenCalledOnce();
+    expect(stream.locked).toBe(false);
+    expect(copyObject).not.toHaveBeenCalled();
+  });
+
+  it.each([false, true])("cancels a stalled missing-object response at its deadline even if cancellation rejects: %s", async (rejectCancellation) => {
+    const manifest = await makeManifest();
+    const controller = new AbortController();
+    const deadline = new Error("Request deadline expired");
+    const timeout = vi.spyOn(AbortSignal, "timeout").mockReturnValueOnce(new AbortController().signal).mockReturnValueOnce(controller.signal);
+    const cancel = vi.fn(() => rejectCancellation ? Promise.reject(new Error("Transport cancellation failed")) : undefined);
+    const stream = new ReadableStream({ cancel });
+    const reply = new Response(stream, { status: 400, headers: { "content-type": "application/json" } });
+    const copyObject = vi.fn(async () => {});
+    const fetchImpl = vi.fn(async (url) => canonicalUrl(url) === sourceUrl ? response(bytes) : reply) as typeof fetch;
+    try {
+      const outcome = verifyAndCopyMedia(manifest, { mode: "copy", copyObject, fetchImpl, inspect }).then(() => null, (error) => error);
+      await vi.waitFor(() => expect(stream.locked).toBe(true));
+      controller.abort(deadline);
+      expect(await outcome).toBe(deadline);
+      expect(timeout).toHaveBeenNthCalledWith(2, 30_000);
+      expect(cancel).toHaveBeenCalledOnce();
+      expect(stream.locked).toBe(false);
+      expect(copyObject).not.toHaveBeenCalled();
+    } finally { timeout.mockRestore(); }
+  });
+
+  it.each(["oversized body", "invalid headers", "bad status", "media headers", "deadline"])("releases a rejected response without waiting for stalled cancellation: %s", async (failure) => {
+    const manifest = await makeManifest();
+    const controller = new AbortController();
+    const timeout = vi.spyOn(AbortSignal, "timeout").mockReturnValueOnce(new AbortController().signal).mockReturnValueOnce(controller.signal);
+    const cancel = vi.fn(() => new Promise<void>(() => {}));
+    const stream = new ReadableStream({
+      start(reader) { if (failure === "oversized body") reader.enqueue(new Uint8Array(4097)); }, cancel,
+    });
+    const reply = new Response(stream, { status: failure === "bad status" ? 500 : failure === "media headers" ? 200 : 400, headers: {
+      "content-type": failure === "invalid headers" ? "text/plain" : "application/json",
+    } });
+    const copyObject = vi.fn(async () => {});
+    const fetchImpl = vi.fn(async (url) => canonicalUrl(url) === sourceUrl ? response(bytes) : reply) as typeof fetch;
+    let outcome: unknown;
+    try {
+      void verifyAndCopyMedia(manifest, { mode: "copy", copyObject, fetchImpl, inspect }).then(
+        () => { outcome = "unexpected success"; }, (error) => { outcome = error; },
+      );
+      if (failure === "deadline") {
+        await vi.waitFor(() => expect(stream.locked).toBe(true));
+        controller.abort(new Error("Request deadline expired"));
+      }
+      await vi.waitFor(() => expect(outcome).toBeInstanceOf(Error), { timeout: 200 });
+      expect(cancel).toHaveBeenCalledOnce();
+      expect(stream.locked).toBe(false);
+      expect(copyObject).not.toHaveBeenCalled();
+    } finally { controller.abort(); timeout.mockRestore(); }
   });
 
   it("deduplicates a shared object while retaining both role and alt associations", async () => {

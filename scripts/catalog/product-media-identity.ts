@@ -117,6 +117,11 @@ function headers(response: Response, expectedMime?: string) {
   return { mimeType: mimeType as MimeType, byteSize };
 }
 
+function cancelResponseBody(response: Response): void {
+  // Cleanup must not extend a request deadline or replace its validation result.
+  void response.body?.cancel().catch(() => undefined);
+}
+
 export async function buildMediaIdentityManifest(input: {
   operationId: string; actorId: string; snapshots: MediaIdentitySnapshot[]; http?: typeof fetch;
 }): Promise<MediaIdentityManifest> {
@@ -139,7 +144,7 @@ export async function buildMediaIdentityManifest(input: {
           if (response.status !== 200) fail("Source Product Media is not directly available.");
           metadata = headers(response, source.mimeType);
         } finally {
-          await response.body?.cancel();
+          cancelResponseBody(response);
         }
         sourceMetadata.set(row.url, metadata);
       }
@@ -219,6 +224,61 @@ export async function inspectMediaDimensions(bytes: Buffer): Promise<MediaDimens
   } finally { await rm(directory, { recursive: true, force: true }); }
 }
 
+async function readBoundedBody(response: Response, signal: AbortSignal, maxBytes: number, expectedBytes?: number): Promise<Buffer> {
+  if (!response.body) fail("Full Product Media response has no body.");
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  const abort = () => { void reader.cancel(signal.reason).catch(() => undefined); };
+  signal.addEventListener("abort", abort, { once: true });
+  try {
+    while (true) {
+      signal.throwIfAborted();
+      const frame = await reader.read();
+      if (frame.done) break;
+      size += frame.value.byteLength;
+      if (size > maxBytes || (expectedBytes !== undefined && size > expectedBytes)) fail("Full Product Media exceeded its reviewed byte budget.");
+      chunks.push(frame.value);
+    }
+    signal.throwIfAborted();
+    if (expectedBytes !== undefined && size !== expectedBytes) fail("Full Product Media body is truncated.");
+    return Buffer.concat(chunks);
+  } finally {
+    signal.removeEventListener("abort", abort);
+    // Initiate cancellation, but release ownership even if the transport stalls.
+    void reader.cancel().catch(() => undefined);
+    reader.releaseLock();
+  }
+}
+
+async function requireMissingObject(response: Response, signal: AbortSignal): Promise<void> {
+  const limit = 4096;
+  const length = response.headers.get("content-length");
+  const expectedBytes = length === null ? undefined : Number(length);
+  if (response.headers.get("content-type")?.split(";")[0].trim().toLowerCase() !== "application/json"
+    || response.headers.has("content-range") || response.headers.has("location")
+    || (length !== null && (!/^[0-9]+$/.test(length) || !validNumber(expectedBytes) || expectedBytes > limit))) {
+    cancelResponseBody(response);
+    fail("Storage response did not establish a missing Product Media object.");
+  }
+  const bytes = await readBoundedBody(response, signal, limit, expectedBytes);
+  let text: string;
+  let value: Record<string, unknown>;
+  try {
+    text = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes);
+    value = JSON.parse(text);
+  } catch { fail("Storage response did not establish a missing Product Media object."); }
+  // Require a flat four-string document before accepting parsed keys. This
+  // prevents JSON.parse from silently hiding duplicate (even escaped) fields.
+  const string = String.raw`"(?:[^"\\]|\\.)*"`;
+  const fourFields = new RegExp(String.raw`^\s*\{\s*(?:${string}\s*:\s*${string}\s*,\s*){3}${string}\s*:\s*${string}\s*\}\s*$`);
+  if (!fourFields.test(text) || !value || Array.isArray(value) || Object.keys(value).length !== 4
+    || value.statusCode !== "404" || value.code !== "NoSuchKey" || value.message !== "Object not found"
+    || (value.error !== "not_found" && value.error !== "NoSuchKey")) {
+    fail("Storage response did not establish a missing Product Media object.");
+  }
+}
+
 async function readComplete(url: string, expected: MediaIdentityCopy, fetchImpl: typeof fetch, allowMissing: boolean, freshProof = true): Promise<Buffer | null> {
   sourceParts(url);
   const signal = AbortSignal.timeout(30_000);
@@ -227,34 +287,16 @@ async function readComplete(url: string, expected: MediaIdentityCopy, fetchImpl:
   const proofUrl = new URL(url);
   if (freshProof) proofUrl.searchParams.set("cacheNonce", randomUUID());
   const response = await fetchImpl(proofUrl.href, { method: "GET", redirect: "manual", credentials: "omit", signal });
-  if (allowMissing && response.status === 404) { await response.body?.cancel(); return null; }
-  if (response.status !== 200 || !response.body) { await response.body?.cancel(); fail("Full Product Media must be directly retrievable without redirects or partial content."); }
+  if (allowMissing && (response.status === 400 || response.status === 404)) {
+    await requireMissingObject(response, signal);
+    return null;
+  }
+  if (response.status !== 200 || !response.body) { cancelResponseBody(response); fail("Full Product Media must be directly retrievable without redirects or partial content."); }
   try {
     const metadata = headers(response, expected.mimeType);
     if (metadata.byteSize !== expected.byteSize) fail("Product Media byte size changed after review.");
-  } catch (error) { await response.body.cancel(); throw error; }
-  const reader = response.body.getReader();
-  const chunks: Uint8Array[] = [];
-  let size = 0;
-  const abort = () => { void reader.cancel(signal.reason); };
-  signal.addEventListener("abort", abort, { once: true });
-  try {
-    while (true) {
-      signal.throwIfAborted();
-      const frame = await reader.read();
-      if (frame.done) break;
-      size += frame.value.byteLength;
-      if (size > expected.byteSize || size > MAX_BYTES) fail("Full Product Media exceeded its reviewed byte budget.");
-      chunks.push(frame.value);
-    }
-    signal.throwIfAborted();
-    if (size !== expected.byteSize) fail("Full Product Media body is truncated.");
-    return Buffer.concat(chunks);
-  } finally {
-    signal.removeEventListener("abort", abort);
-    await reader.cancel().catch(() => undefined);
-    reader.releaseLock();
-  }
+  } catch (error) { cancelResponseBody(response); throw error; }
+  return readBoundedBody(response, signal, MAX_BYTES, expected.byteSize);
 }
 
 export async function verifyAndCopyMedia(manifest: MediaIdentityManifest, input: {
