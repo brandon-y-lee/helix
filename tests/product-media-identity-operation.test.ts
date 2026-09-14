@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { assertCurrentMediaSnapshot, assertMediaIdentityManifest, buildMediaIdentityManifest, manifestDigest, verifyAndCopyMedia } from "../scripts/catalog/product-media-identity";
+import type { ProductEditorDocumentV4 } from "../lib/admin/catalog/types";
 import { catalogDraft } from "./fixtures/catalog-editor";
 
 const productId = catalogDraft.document.productId;
@@ -27,6 +28,33 @@ const makeManifest = () => buildMediaIdentityManifest({
   operationId: "10000000-0000-4000-8000-000000000701", actorId: catalogDraft.updated_by,
   snapshots: [snapshot], http: head,
 });
+
+async function cutoverFixture() {
+  const before: ProductEditorDocumentV4 = structuredClone(document);
+  const original = before.media[0];
+  before.media.push(
+    { ...original, id: "123e4567-e89b-42d3-a456-426614174010", url: targetUrl, sort_order: 1 },
+    { ...original, id: "123e4567-e89b-42d3-a456-426614174011", url: null, sort_order: 2 },
+    { ...original, id: "123e4567-e89b-42d3-a456-426614174012", archived_at: original.updated_at, sort_order: 3 },
+  );
+  before.relationships = [{ product_id: productId, related_product_id: "123e4567-e89b-42d3-a456-426614174099",
+    relationship_type: "related", sort_order: 0, created_at: original.created_at, archived_at: null }];
+  const familyId = "123e4567-e89b-42d3-a456-426614174020";
+  before.productFamily = {
+    family: { id: familyId, slug: "cleanse", display_name: "CLEANSE", system_step_name: "CLEANSE",
+      created_at: original.created_at, updated_at: original.updated_at },
+    memberships: [{ family_id: familyId, product_id: productId, option_label: "Daily", is_entry: true,
+      sort_order: 0, created_at: original.created_at, updated_at: original.updated_at }],
+  };
+  const manifest = await buildMediaIdentityManifest({
+    operationId: "10000000-0000-4000-8000-000000000701", actorId: catalogDraft.updated_by,
+    snapshots: [{ document: before, revision: 3, activeDrafts: 0 }], http: head,
+  });
+  const after = structuredClone(before);
+  after.media[0].url = targetUrl;
+  after.media[0].updated_at = "2026-09-14T09:10:20.123456+00:00";
+  return { manifest, before, after };
+}
 
 describe("reviewed Product Media identity operation", () => {
   it("rejects a PNG-coded AVI advertised as an image before copying", async () => {
@@ -182,6 +210,74 @@ describe("reviewed Product Media identity operation", () => {
     const after = { ...snapshot, revision: 4, document: { ...document, media: [{ ...document.media[0], url: targetUrl }] } };
     expect(() => assertCurrentMediaSnapshot(manifest, [after], "after")).not.toThrow();
     expect(() => assertCurrentMediaSnapshot(manifest, [{ ...after, document: { ...after.document, media: [{ ...after.document.media[0], alt: "silently replaced" }] } }], "after")).toThrow("pointer-only");
+  });
+
+  it("rejects an unrelated Product edit after cutover even without another revision", async () => {
+    const manifest = await makeManifest();
+    const after = structuredClone(document);
+    after.media[0].url = targetUrl;
+    after.product.display_name = "An unreviewed Product name";
+    expect(() => assertCurrentMediaSnapshot(manifest, [{ document: after, revision: 4, activeDrafts: 0 }], "after"))
+      .toThrow("pointer-only");
+  });
+
+  it("accepts only reviewed URLs and changed timestamps on the media rows cutover updates", async () => {
+    const { manifest, after } = await cutoverFixture();
+    const reviewed = structuredClone(manifest);
+    const observed = structuredClone(after);
+    expect(manifest.products[0].media).toHaveLength(1);
+    expect(() => assertCurrentMediaSnapshot(manifest, [{ document: after, revision: 4, activeDrafts: 0 }], "after"))
+      .not.toThrow();
+    expect(manifest).toEqual(reviewed);
+    expect(after).toEqual(observed);
+  });
+
+  it.each<[string, (value: ProductEditorDocumentV4) => void]>([
+    ["PDP guidance", (value) => { value.productPdpContent!.how_to_use_steps = ["Unreviewed step"]; }],
+    ["removed PDP", (value) => { value.productPdpContent = null; }],
+    ["Variant offer", (value) => { value.variants[0].price_cents += 100; }],
+    ["removed Variant", (value) => { value.variants = []; }],
+    ["Source provenance", (value) => { value.productSource!.raw_source = { changed: true }; }],
+    ["removed Source", (value) => { value.productSource = null; }],
+    ["relationship", (value) => { value.relationships[0].sort_order = 1; }],
+    ["removed relationship", (value) => { value.relationships = []; }],
+    ["Family", (value) => { value.productFamily!.family.display_name = "Another Family"; }],
+    ["Family membership", (value) => { value.productFamily!.memberships[0].option_label = "Unreviewed"; }],
+    ["removed Family", (value) => { value.productFamily = null; }],
+    ["document schema", (value) => { Object.assign(value, { schemaVersion: 3 }); }],
+    ["unexpected document field", (value) => { Object.assign(value, { unexpected: true }); }],
+    ["Product timestamp", (value) => { value.product.updated_at = value.media[0].updated_at; }],
+    ["PDP timestamp", (value) => { value.productPdpContent!.updated_at = value.media[0].updated_at; }],
+    ["Variant timestamp", (value) => { value.variants[0].updated_at = value.media[0].updated_at; }],
+    ["Source timestamp", (value) => { value.productSource!.updated_at = value.media[0].updated_at; }],
+    ["Family timestamp", (value) => { value.productFamily!.family.updated_at = value.media[0].updated_at; }],
+    ["membership timestamp", (value) => { value.productFamily!.memberships[0].updated_at = value.media[0].updated_at; }],
+    ["relationship timestamp", (value) => { value.relationships[0].created_at = value.media[0].updated_at; }],
+    ["current UUID media timestamp", (value) => { value.media[1].updated_at = value.media[0].updated_at; }],
+    ["null-URL swatch timestamp", (value) => { value.media[2].updated_at = value.media[0].updated_at; }],
+    ["retained archived media timestamp", (value) => { value.media[3].updated_at = value.media[0].updated_at; }],
+    ["untouched media URL", (value) => { value.media[1].url = sourceUrl; }],
+    ["missing association", (value) => { value.media.shift(); }],
+    ["extra association", (value) => { value.media.push({ ...value.media[0], id: "123e4567-e89b-42d3-a456-426614174013" }); }],
+  ])("rejects after-state %s drift without another revision", async (_label, change) => {
+    const { manifest, after } = await cutoverFixture();
+    change(after);
+    expect(() => assertCurrentMediaSnapshot(manifest, [{ document: after, revision: 4, activeDrafts: 0 }], "after"))
+      .toThrow("pointer-only");
+  });
+
+  it.each([undefined, null, 42, "", "invalid"])("rejects an invalid affected-media timestamp: %s", async (updatedAt) => {
+    const { manifest, after } = await cutoverFixture();
+    Object.assign(after.media[0], { updated_at: updatedAt });
+    expect(() => assertCurrentMediaSnapshot(manifest, [{ document: after, revision: 4, activeDrafts: 0 }], "after"))
+      .toThrow("timestamp is invalid");
+  });
+
+  it("rejects a missing affected-media timestamp", async () => {
+    const { manifest, after } = await cutoverFixture();
+    Reflect.deleteProperty(after.media[0], "updated_at");
+    expect(() => assertCurrentMediaSnapshot(manifest, [{ document: after, revision: 4, activeDrafts: 0 }], "after"))
+      .toThrow("timestamp is invalid");
   });
 
   it("rejects changed Product ownership, suffix, unknown association and incomplete set", async () => {
