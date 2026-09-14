@@ -167,7 +167,7 @@ test("Explore The Core is locally outlined and inverts for discovery", async ({
   await expect(exploreCore).toHaveCSS("outline-style", "solid");
   await expect(exploreCore).toHaveCSS("outline-width", "2px");
 
-  await expect(readIndex).toHaveCSS("border-color", "rgb(211, 206, 194)");
+  await expect(readIndex).toHaveCSS("border-color", "rgb(140, 140, 145)");
   await expect(readIndex).toHaveCSS("color", "rgb(17, 19, 18)");
 });
 

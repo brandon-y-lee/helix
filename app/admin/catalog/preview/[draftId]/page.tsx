@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { ProductDetail } from "@/components/product-detail/ProductDetail";
+import { CatalogPreviewState, CatalogPreviewView } from "@/components/admin/CatalogPreviewView";
 import { CatalogPreviewToolbar } from "@/components/admin/CatalogPreviewToolbar";
 import { authRedirectParam } from "@/lib/auth/redirect";
 import {
@@ -14,7 +14,6 @@ import {
   CatalogPreviewProjectionError,
   projectCatalogDraftPreview,
 } from "@/lib/catalog-editor/preview-projection";
-import { PREVIEW_COMMERCE_DISABLED_LABEL } from "@/lib/catalog-editor/preview-commerce";
 import { getProductReviews } from "@/lib/catalog/product-reviews";
 
 const CATALOG_DRAFT_ID_PATTERN =
@@ -41,22 +40,6 @@ export const metadata: Metadata = {
     },
   },
 };
-
-function PreviewState({
-  title,
-  message,
-}: {
-  title: string;
-  message: string;
-}) {
-  return (
-    <article className="catalog-preview-state" aria-labelledby="preview-state">
-      <p className="eyebrow">helix Catalog Preview</p>
-      <h1 id="preview-state">{title}</h1>
-      <p>{message}</p>
-    </article>
-  );
-}
 
 function draftFailureCopy(reason: CatalogDraftLoadFailure) {
   switch (reason) {
@@ -123,48 +106,6 @@ function savedAtLabel(value: string) {
   }).format(new Date(value))} UTC`;
 }
 
-function PreviewMetadata({
-  document,
-}: {
-  document: Awaited<ReturnType<typeof getCatalogDraftForPreview>>["document"];
-}) {
-  const product = document.product;
-  const list = (values: string[]) => values.length > 0 ? values.join(", ") : "Not set";
-  const values = [
-    ["Slug", product.slug],
-    ["Display name", product.display_name],
-    ["Product type", product.product_type],
-    ["SEO title", product.seo_title ?? "Not set"],
-    ["SEO description", product.seo_description ?? "Not set"],
-    ["Badge", product.badge ?? "Not set"],
-    ["Catalog status", product.catalog_status],
-    ["Product status", product.status],
-    ["Currency", product.currency],
-    ["Routine group", product.routine_group],
-    ["System Step", product.system_step_name ?? "Not set"],
-    ["Routine order", String(product.routine_sort)],
-    ["Storefront order", String(product.sort_order)],
-    ["Benefits", list(product.benefits)],
-    ["Formula notes", list(product.formula_notes)],
-    ["Concerns", list(product.concerns)],
-    ["Search keywords", list(product.search_keywords)],
-  ] as const;
-
-  return (
-    <aside className="catalog-preview-metadata" aria-labelledby="preview-metadata-title">
-      <h2 id="preview-metadata-title">Catalog Preview metadata</h2>
-      <dl>
-        {values.map(([label, value]) => (
-          <div key={label}>
-            <dt>{label}</dt>
-            <dd>{value}</dd>
-          </div>
-        ))}
-      </dl>
-    </aside>
-  );
-}
-
 export default async function CatalogDraftPreviewPage({
   params,
 }: {
@@ -173,7 +114,7 @@ export default async function CatalogDraftPreviewPage({
   const { draftId } = await params;
   if (!CATALOG_DRAFT_ID_PATTERN.test(draftId)) {
     return (
-      <PreviewState
+      <CatalogPreviewState
         title="Draft not found"
         message="The preview address does not contain a valid draft identifier."
       />
@@ -189,7 +130,7 @@ export default async function CatalogDraftPreviewPage({
   }
   if (authorization.status === "forbidden") {
     return (
-      <PreviewState
+      <CatalogPreviewState
         title="Catalog access required"
         message="Your account does not have catalog.read permission."
       />
@@ -197,7 +138,7 @@ export default async function CatalogDraftPreviewPage({
   }
   if (authorization.status === "unavailable") {
     return (
-      <PreviewState
+      <CatalogPreviewState
         title="Authentication unavailable"
         message="Your access could not be verified. Try again when authentication is available."
       />
@@ -213,7 +154,7 @@ export default async function CatalogDraftPreviewPage({
         ? "draft_not_found"
         : "backend_unavailable";
     return (
-      <PreviewState {...draftFailureCopy(failure)} />
+      <CatalogPreviewState {...draftFailureCopy(failure)} />
     );
   }
 
@@ -240,7 +181,7 @@ export default async function CatalogDraftPreviewPage({
     return (
       <div className="catalog-preview-shell">
         {toolbar()}
-        <PreviewState
+        <CatalogPreviewState
           title="Draft discarded"
           message="This saved draft was discarded and can no longer be rendered as an unpublished product."
         />
@@ -251,7 +192,7 @@ export default async function CatalogDraftPreviewPage({
     return (
       <div className="catalog-preview-shell">
         {toolbar()}
-        <PreviewState
+        <CatalogPreviewState
           title="Draft already published"
           message="This draft has already been published. Open the published PDP to view the canonical product."
         />
@@ -262,7 +203,7 @@ export default async function CatalogDraftPreviewPage({
     return (
       <div className="catalog-preview-shell">
         {toolbar()}
-        <PreviewState
+        <CatalogPreviewState
           title="Draft validation failed"
           message="The saved draft does not identify a canonical product."
         />
@@ -277,7 +218,7 @@ export default async function CatalogDraftPreviewPage({
     return (
       <div className="catalog-preview-shell">
         {toolbar()}
-        <PreviewState
+        <CatalogPreviewState
           title="Canonical product unavailable"
           message="The canonical product aggregate could not be loaded. The draft was not substituted with public data."
         />
@@ -288,7 +229,7 @@ export default async function CatalogDraftPreviewPage({
     return (
       <div className="catalog-preview-shell">
         {toolbar()}
-        <PreviewState
+        <CatalogPreviewState
           title="Product deleted or archived"
           message="The canonical base for this draft is no longer an active product."
         />
@@ -311,7 +252,7 @@ export default async function CatalogDraftPreviewPage({
     return (
       <div className="catalog-preview-shell">
         {toolbar(base.product.slug)}
-        <PreviewState
+        <CatalogPreviewState
           title={title}
           message={
             projectionError?.message ??
@@ -323,32 +264,12 @@ export default async function CatalogDraftPreviewPage({
   }
 
   return (
-    <div className="catalog-preview-shell" data-catalog-draft-preview>
-      {toolbar(base.product.slug)}
-      <p className="catalog-preview-commerce-notice" role="status">
-        {PREVIEW_COMMERCE_DISABLED_LABEL}
-      </p>
-      <PreviewMetadata document={record.document} />
-      {preview.warnings.length > 0 && (
-        <aside
-          className="catalog-preview-warning"
-          aria-label="Catalog Preview warnings"
-        >
-          {preview.warnings.map((warning) => (
-            <p key={warning}>{warning}</p>
-          ))}
-        </aside>
-      )}
-      <div className="storefront-shell" data-layout-shell="storefront">
-        <ProductDetail
-          key={`${record.id}:${record.version}`}
-          product={preview.product}
-          coreProducts={preview.coreProducts}
-          reviews={getProductReviews(base.product.slug)}
-          commerceDisabled
-          stripePublishableKey={null}
-        />
-      </div>
-    </div>
+    <CatalogPreviewView
+      document={record.document}
+      preview={preview}
+      previewKey={`${record.id}:${record.version}`}
+      reviews={getProductReviews(base.product.slug)}
+      toolbar={toolbar(base.product.slug)}
+    />
   );
 }

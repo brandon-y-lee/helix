@@ -296,6 +296,11 @@
     margin: 20px 16px 16px;
     padding: 12px 18px;
     font-size: 12px;
+    background: var(--surface-inset);
+  }
+
+  .pdp-ingredients--mobile-pilot > .pdp-ingredients__disclosure-trigger:is(:hover, :focus-visible) {
+    background: var(--ink);
   }
 
   .pdp-ingredients--mobile-pilot > .pdp-ingredients__full {
@@ -399,8 +404,9 @@
     min-height: 48px;
     gap: 0;
     padding: 8px 4px;
-    border: 1px solid var(--line);
+    border: 1px solid var(--control-line);
     border-radius: 6px;
+    background: var(--surface-inset);
   }
 
   [data-pdp-presentation="mobile-pilot"] .pdp-core-routine__steps button > :is(span:not(.pdp-core-routine__step-name), small) {
@@ -421,7 +427,7 @@
   [data-pdp-presentation="mobile-pilot"] .pdp-core-routine__steps button[aria-checked="true"] {
     border-color: var(--ink);
     background: var(--ink);
-    color: var(--surface);
+    color: var(--ink-inverse);
   }
 
   [data-pdp-presentation="mobile-pilot"] .pdp-core-routine__steps button:focus-visible {

@@ -4,6 +4,7 @@ import type { StorefrontSnapshotProduct } from "@/test-support/storefront-baseli
 import { buildStorefrontSearchRecord } from "@/test-support/storefront-search-projection";
 import { loadStorefrontSnapshot } from "@/test-support/storefront-snapshot-artifact";
 import { expect, test } from "./storefront-fixture";
+import { CANVAS_WHITE, PANEL_GRAY, expectWhiteCanvas } from "./surface-assertions";
 
 async function loadSearchJourney(): Promise<{
   product: StorefrontSnapshotProduct;
@@ -66,6 +67,9 @@ test("Algolia result opens its canonical product detail page", async ({
     .getByRole("searchbox", { name: "Search products" })
     .fill(searchTerm);
   await expect(page.getByText(/1 result for/i)).toBeVisible();
+  await expectWhiteCanvas(page);
+  await expect(page.locator(".search-result")).toHaveCSS("background-color", PANEL_GRAY);
+  await expect(page.locator(".search-result__status")).toHaveCSS("background-color", CANVAS_WHITE);
   const result = page.getByRole("link", {
     name: `${product.displayName} — ${product.productType}`,
   });
