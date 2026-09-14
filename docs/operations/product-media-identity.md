@@ -55,6 +55,8 @@ pnpm exec tsx scripts/catalog/media-identity.ts copy \
 
 `copy` verifies current Catalog state and source bytes, then calls Storage's same-bucket copy operation for missing destinations. It verifies existing destinations instead of replacing them. A mismatch stops the operation. Partial copies are safe to retain and retry before cutover after resolving the failure; the command does not alter Catalog pointers or activate publication rules. After the operation is recorded, use `verify --state after`: `copy` refuses to recreate objects because that would invalidate the object identities in the recorded replacement mappings. The [Supabase Storage copy contract](https://supabase.com/docs/guides/storage/management/copy-move-objects) is the provider boundary; no move, upload/upsert, or delete operation is used.
 
+Only the initial copy destination probe may recognize Storage's explicit missing-object response: HTTP 400 or 404 with a complete JSON document identifying `NoSuchKey` and logical status `404`. Generic status codes, bucket or authorization errors, contradictory or duplicate fields, and malformed responses stop the operation. Error bodies are limited to 4 KiB and the same 30-second request deadline; a supplied content length must match. Source reads, verification, post-copy reads and bare canonical delivery still require complete successful media responses. A destination created concurrently causes the non-overwriting copy to fail; the command does not retry or replace it.
+
 ```bash
 pnpm exec tsx scripts/catalog/media-identity.ts verify \
   --state before \

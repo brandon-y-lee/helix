@@ -19,7 +19,14 @@ const assetSha256 = "350a03119e021c69694ed8e9b78251fc684f8d2d1683374b24099b5efdb
 const sourceUrl = `${prefix}products/old-product/primary/${assetSha256}.png`;
 const targetUrl = `${prefix}products/${catalogDocument.productId}/primary/${assetSha256}.png`;
 
-function fixture({ targetMissing = false } = {}) {
+function missingObjectResponse(status = 404, error = "not_found") {
+  return Response.json({ statusCode: "404", code: "NoSuchKey", error, message: "Object not found" }, { status });
+}
+
+function fixture({ targetMissing = false, missingResponse = missingObjectResponse }: {
+  targetMissing?: boolean;
+  missingResponse?: () => Response;
+} = {}) {
   const document = structuredClone(catalogDocument);
   document.media = [
     { ...document.media[0], url: sourceUrl, width: 1, height: 1 },
@@ -48,7 +55,7 @@ function fixture({ targetMissing = false } = {}) {
       return content ? new Response(init?.method === "HEAD" ? null : content, {
         headers: { "content-type": "image/png", "content-length": String(content.length),
           "cache-control": init?.method === "HEAD" ? "no-cache" : "public, max-age=31536000" },
-      }) : new Response(null, { status: 404 });
+      }) : missingResponse();
     }),
     inspect: vi.fn(async (content: Buffer) => {
       expect(content).toEqual(bytes);
@@ -209,8 +216,14 @@ describe("media identity operation ordering", () => {
     expect(gateway.cutover).not.toHaveBeenCalled();
   });
 
-  it("copies missing bytes without cutting over pointers or activating the policy", async () => {
-    const { flags, gateway, text, runtime, objects } = fixture({ targetMissing: true });
+  it.each([
+    { status: 404, error: "not_found" },
+    { status: 400, error: "not_found" },
+    { status: 400, error: "NoSuchKey" },
+  ])("copies an explicit missing object ($status/$error) without cutting over pointers or activating the policy", async ({ status, error }) => {
+    const { flags, gateway, text, runtime, objects } = fixture({
+      targetMissing: true, missingResponse: () => missingObjectResponse(status, error),
+    });
     const output = await runMediaIdentityCommand(parseMediaIdentityArgs(["copy", ...flags]), gateway, async () => text, runtime);
     expect(gateway.copyObject).toHaveBeenCalledExactlyOnceWith(
       `products/old-product/primary/${assetSha256}.png`,
@@ -220,6 +233,31 @@ describe("media identity operation ordering", () => {
     expect(objects.get(targetUrl)).toEqual(bytes);
     expect(output).toMatchObject({ report: { copied: 1, distinctAssets: 1, associations: 1,
       assets: [{ sourceSha256: assetSha256, targetSha256: assetSha256, canonicalSha256: assetSha256, byteSize: 68, width: 1, height: 1 }] } });
+    expect(gateway.cutover).not.toHaveBeenCalled();
+    expect(gateway.activate).not.toHaveBeenCalled();
+  });
+
+  it("propagates a concurrent destination copy conflict without retrying or overwriting", async () => {
+    const { flags, gateway, text, runtime, objects } = fixture({
+      targetMissing: true, missingResponse: () => missingObjectResponse(400),
+    });
+    const concurrentBytes = Buffer.from("A concurrently created destination");
+    const conflict = new Error("Storage copy refused: destination already exists.");
+    gateway.copyObject.mockImplementationOnce(async () => {
+      objects.set(targetUrl, concurrentBytes);
+      throw conflict;
+    });
+
+    await expect(runMediaIdentityCommand(parseMediaIdentityArgs(["copy", ...flags]), gateway, async () => text, runtime))
+      .rejects.toBe(conflict);
+
+    expect(gateway.copyObject).toHaveBeenCalledExactlyOnceWith(
+      `products/old-product/primary/${assetSha256}.png`,
+      `products/${catalogDocument.productId}/primary/${assetSha256}.png`,
+    );
+    expect(objects.get(sourceUrl)).toEqual(bytes);
+    expect(objects.get(targetUrl)).toEqual(concurrentBytes);
+    expect(runtime.fetchImpl).toHaveBeenCalledTimes(2);
     expect(gateway.cutover).not.toHaveBeenCalled();
     expect(gateway.activate).not.toHaveBeenCalled();
   });
@@ -308,6 +346,22 @@ describe("media identity operation ordering", () => {
   it("refuses to create a missing copy during read-only verification", async () => {
     const { flags, gateway, text, runtime, objects } = fixture({ targetMissing: true });
     await expect(runMediaIdentityCommand(parseMediaIdentityArgs(["verify", ...flags]), gateway, async () => text, runtime)).rejects.toThrow(/retrievable/);
+    expect(objects.has(targetUrl)).toBe(false);
+    expect(gateway.copyObject).not.toHaveBeenCalled();
+    expect(gateway.cutover).not.toHaveBeenCalled();
+    expect(gateway.activate).not.toHaveBeenCalled();
+  });
+
+  it.each(["verify", "cutover"])("refuses an HTTP 400 NoSuchKey during %s without any provider write", async (command) => {
+    const { flags, gateway, text, runtime, objects } = fixture({
+      targetMissing: true, missingResponse: () => missingObjectResponse(400),
+    });
+
+    await expect(runMediaIdentityCommand(parseMediaIdentityArgs([command, ...flags]), gateway, async () => text, runtime))
+      .rejects.toThrow(/retrievable/);
+
+    expect(runtime.fetchImpl).toHaveBeenCalledTimes(2);
+    expect(objects.get(sourceUrl)).toEqual(bytes);
     expect(objects.has(targetUrl)).toBe(false);
     expect(gateway.copyObject).not.toHaveBeenCalled();
     expect(gateway.cutover).not.toHaveBeenCalled();
