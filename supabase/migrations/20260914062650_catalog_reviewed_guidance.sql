@@ -21,7 +21,7 @@ begin
     return jsonb_build_array(jsonb_build_object(
       'path', 'productPdpContent.how_to_use_steps',
       'code', 'guidance_review_required',
-      'message', 'Review the usage instructions before Publish. Add approved steps or explicitly confirm that no instruction section is intended.'
+      'message', 'Review the usage instructions before Publish. Add approved steps or explicitly confirm that no How to Use section is intended.'
     ));
   end if;
   if jsonb_typeof(v_steps) <> 'array' then
@@ -39,7 +39,7 @@ begin
     return jsonb_build_array(jsonb_build_object(
       'path', 'productPdpContent.how_to_use_steps',
       'code', 'guidance_invalid_steps',
-      'message', 'Each usage instruction must contain text. Remove empty steps or explicitly confirm that no instruction section is intended.'
+      'message', 'Each usage instruction must contain text. Remove empty steps or explicitly confirm that no How to Use section is intended.'
     ));
   end if;
   return '[]'::jsonb;

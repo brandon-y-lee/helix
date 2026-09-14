@@ -9,7 +9,7 @@ Spec #358 / Ticket #364 removes paragraph parsing and sample Customer Reviews fr
 | Mineral Guard | Active `mineral-guard`, PROTECT / beyond_core, waitlist, no PDP content row, and the exact withholding paragraph below | Create its PDP content row with explicitly authored `how_to_use_steps = []`. Other optional PDP fields remain null and the existing paragraph stays unchanged. |
 | Biotic Reset | Active `biotic-reset`, CLEANSE / core, existing structured instructions, and the exact predecessor paragraph below | Replace only `Peptide Bounce` with `Super Serum` in `editorial_how_to_use`. The structured instructions and all other facts remain unchanged. |
 
-Mineral Guard's existing policy is: “Usage directions will be published only after the exact U.S. OTC formula and Drug Facts label are verified.” The empty list records the reviewed decision to show no instructions section. It does not infer or invent OTC directions, imply formula or label approval, or change waitlist status.
+Mineral Guard's existing policy is: “Usage directions will be published only after the exact U.S. OTC formula and Drug Facts label are verified.” The empty list records the reviewed decision to show no How to Use section. This governs `how_to_use_steps`; separately authored `application_steps` content remains independent. It does not infer or invent OTC directions, imply formula or label approval, or change waitlist status.
 
 Biotic Reset's exact predecessor paragraph is:
 
@@ -57,7 +57,7 @@ Every attempt requires a fresh exact manifest, including retries. The current de
 - Rerun the read-only preflight. Compare complete before/after documents and every prior revision/audit ID and hash. Only the declared content field, allowed timestamps and one appended revision/audit may differ for each successful change; a no-op changes nothing.
 - Verify all 10 observed active Products, or the freshly verified active set if it has changed, now have reviewed structured guidance. Confirm the two exact paragraphs, preserved existing step lists, unchanged media and relationships, and no newly fabricated instruction text.
 - Record actual operation outcomes and revision numbers on the parent Spec's environment checklist. Keep pending status for any action not performed; local synthetic proof is not a provider publication receipt.
-- Prepare the current guidance validation migration and editor behavior before deploying the application that removes paragraph parsing. Verify Restore still creates a reviewable Working Catalog Draft, keeps current identity, and blocks publishing missing/null guidance. Explicit `[]` remains a reviewed no-section decision.
+- Prepare the current guidance validation migration and editor behavior before deploying the application that removes paragraph parsing. Verify Restore still creates a reviewable Working Catalog Draft, keeps current identity, and blocks publishing missing/null guidance. Explicit `how_to_use_steps = []` remains a reviewed decision to show no How to Use section; it does not erase separately authored `application_steps` content.
 - Reconcile affected Catalog caches and Product Search, then inspect current Product pages and admin preview. Verify honest empty Customer Reviews after deployment. Private Feedback and its rewards/eligibility contracts are unchanged.
 
 ## Isolated SQL validation

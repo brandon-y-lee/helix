@@ -422,7 +422,7 @@ function MetadataField({
               {value === null
                 ? "Usage instructions have not been reviewed."
                 : Array.isArray(value) && value.length === 0
-                  ? "No instruction section is intended."
+                  ? "No How to Use section is intended."
                   : "Only reviewed structured instructions appear on the Product page."}
             </p>
             {value === null ? (
@@ -431,7 +431,7 @@ function MetadataField({
                 type="button"
                 onClick={() => onChange([])}
               >
-                Confirm no instruction section
+                Confirm no How to Use section
               </button>
             ) : null}
           </>

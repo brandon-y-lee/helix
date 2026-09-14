@@ -90,12 +90,12 @@ describe("CatalogEditor sections", () => {
     }));
   });
 
-  it("lets an editor explicitly confirm that no instruction section is intended", () => {
+  it("lets an editor explicitly confirm that no How to Use section is intended", () => {
     const missing = structuredClone(catalogDocument);
     missing.productPdpContent!.how_to_use_steps = null;
     const onChange = vi.fn();
     render(<SectionsHarness initialDocument={missing} onChange={onChange} />);
-    fireEvent.click(screen.getByRole("button", { name: "Confirm no instruction section" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm no How to Use section" }));
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
       productPdpContent: expect.objectContaining({ how_to_use_steps: [] }),
     }));
