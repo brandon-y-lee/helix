@@ -1,7 +1,6 @@
 import "server-only";
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import WebSocket from "ws";
 import { createSupabaseFetch } from "@/lib/supabase/network";
 
 let adminClient: SupabaseClient | null = null;
@@ -25,9 +24,6 @@ export function createSupabaseAdminClient(): SupabaseClient {
       },
       global: {
         fetch: createSupabaseFetch(),
-      },
-      realtime: {
-        transport: WebSocket as unknown as typeof globalThis.WebSocket,
       },
     },
   );

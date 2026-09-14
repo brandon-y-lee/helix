@@ -1,5 +1,4 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import WebSocket from "ws";
 
 // Supabase is the required, default catalog source — there is no static
 // fallback. Both vars are NEXT_PUBLIC_* and safe to expose to the browser: the
@@ -37,9 +36,6 @@ export function getSupabaseClient(): SupabaseClient {
   if (!client) {
     client = createClient(url!, anonKey!, {
       auth: { persistSession: false },
-      realtime: {
-        transport: WebSocket as unknown as typeof globalThis.WebSocket,
-      },
     });
   }
   return client;
