@@ -83,57 +83,34 @@ async function renderedProducts(
   return products;
 }
 
-test("historical Product slugs redirect permanently without dynamic render failures", async ({
+test("current Product URLs load and retired Product URLs return 404", async ({
   request,
   storefront,
 }) => {
-  const treatProducts = storefront.products("core").filter(
-    (product) => product.systemStepName === "TREAT",
-  );
-  expect(
-    treatProducts,
-    "The Core must have one canonical TREAT Product",
-  ).toHaveLength(1);
-  const treat = treatProducts[0];
-  if (!treat) throw new Error("The Storefront snapshot has no TREAT Product.");
-  expect(treat.slug).toBe("super-serum");
-  expect(treat.displayName).toBe("Super Serum");
-
-  const canonicalResponse = await request.get(treat.path, {
-    maxRedirects: 0,
-  });
-  expect(canonicalResponse.status(), treat.slug).toBe(200);
-
-  const redirects: [string, string][] = [
-    ["reset-01-calming-gel-cleanser", "biotic-reset"],
-    ["cleanse-01-calming-gel-cleanser", "biotic-reset"],
-    ["recode-03-pdrn-5-ampoule", treat.slug],
-    ["treat-03-pdrn-5-ampoule", treat.slug],
-    ["peptide-bounce", treat.slug],
-    ["maxxing-serum", treat.slug],
-    ["refine-02-pore-treatment-pads", "balancing-prep"],
-    ["frame-04-pdrn-eye-cream", "peptide-eye-cream"],
-    ["lift-06-pdrn-mask-system", "peptide-nourish-mask"],
-    ["seal-05-green-collagen-cream", "ceramide-cushion"],
-  ];
-
-  for (const [source, target] of redirects) {
-    const response = await request.get(`/products/${source}`, {
-      maxRedirects: 0,
-    });
-
-    expect(response.status(), source).toBe(308);
-    expect(response.headers().location, source).toBe(`/products/${target}`);
+  const currentSlugs = ["biotic-reset", "super-serum", "balancing-prep", "peptide-eye-cream", "peptide-nourish-mask", "ceramide-cushion"];
+  for (const slug of currentSlugs) {
+    expect(storefront.productAtPath(`/products/${slug}`).slug).toBe(slug);
+    const response = await request.get(`/products/${slug}`, { maxRedirects: 0 });
+    expect(response.status(), slug).toBe(200);
+    expect(response.headers().location, slug).toBeUndefined();
   }
-
+  const retiredSlugs = [
+    "reset-01-calming-gel-cleanser", "cleanse-01-calming-gel-cleanser",
+    "recode-03-pdrn-5-ampoule", "treat-03-pdrn-5-ampoule", "peptide-bounce", "maxxing-serum",
+    "refine-02-pore-treatment-pads", "frame-04-pdrn-eye-cream",
+    "lift-06-pdrn-mask-system", "seal-05-green-collagen-cream",
+  ];
+  for (const slug of retiredSlugs) {
+    const response = await request.get(`/products/${slug}`, { maxRedirects: 0 });
+    expect(response.status(), slug).toBe(404);
+    expect(response.headers().location, slug).toBeUndefined();
+  }
   const queryResponse = await request.get(
     "/products/reset-01-calming-gel-cleanser?campaign=core%20launch&filter=one&filter=two",
     { maxRedirects: 0 },
   );
-  expect(queryResponse.status()).toBe(308);
-  expect(queryResponse.headers().location).toBe(
-    "/products/biotic-reset?campaign=core+launch&filter=one&filter=two",
-  );
+  expect(queryResponse.status()).toBe(404);
+  expect(queryResponse.headers().location).toBeUndefined();
 });
 
 test("Explore The Core is locally outlined and inverts for discovery", async ({

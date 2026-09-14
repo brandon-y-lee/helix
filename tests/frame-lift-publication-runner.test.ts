@@ -52,7 +52,7 @@ function sourceDocument(step: FrameLiftStep): ProductEditorDocumentV4 {
 
 function gateway(step: FrameLiftStep): FrameLiftPublicationGateway {
   let current = sourceDocument(step);
-  let redirected = false;
+  let reserved = false;
   let activeDraft: { id: string; version: number } | null = null;
   let latestRevisionId: string | null = null;
   let latestRevisionDocument: ProductEditorDocumentV4 | null = null;
@@ -62,7 +62,7 @@ function gateway(step: FrameLiftStep): FrameLiftPublicationGateway {
       activeDraft,
       latestRevisionId,
       latestRevisionDocument,
-      sourceRedirectExists: redirected,
+      sourceReservationExists: reserved,
     })),
     createDraft: vi.fn(async () => {
       activeDraft = { id: "draft-id", version: 1 };
@@ -88,7 +88,7 @@ function gateway(step: FrameLiftStep): FrameLiftPublicationGateway {
       current = document;
       latestRevisionId = "revision-id";
       latestRevisionDocument = structuredClone(document);
-      redirected = true;
+      reserved = true;
       activeDraft = null;
       return { revisionId: "revision-id", revisionNumber: 1 };
     }),
@@ -112,7 +112,7 @@ function reorderPublishedJson(
 }
 
 describe("FRAME/LIFT publication runner", () => {
-  it("uses the versioned draft → ready → publish protocol and verifies the redirect", async () => {
+  it("uses the versioned draft → ready → publish protocol and verifies private source reservation provenance", async () => {
     const adapter = gateway("FRAME");
 
     await expect(publishFrameLiftProduct("FRAME", adapter)).resolves.toEqual({
@@ -187,7 +187,7 @@ describe("FRAME/LIFT publication runner", () => {
       activeDraft: { id: "someone-elses-draft", version: 4 },
       latestRevisionId: null,
       latestRevisionDocument: null,
-      sourceRedirectExists: false,
+      sourceReservationExists: false,
     });
 
     await expect(publishFrameLiftProduct("FRAME", adapter)).rejects.toThrow(
@@ -210,7 +210,7 @@ describe("FRAME/LIFT publication runner", () => {
     expect(adapter.publishDraft).not.toHaveBeenCalled();
   });
 
-  it("fails closed if a completed document is missing its permanent redirect", async () => {
+  it("fails closed if a completed document is missing its private source reservation", async () => {
     const adapter = gateway("FRAME");
     await publishFrameLiftProduct("FRAME", adapter);
     const publishedState = await adapter.readState(
@@ -221,11 +221,11 @@ describe("FRAME/LIFT publication runner", () => {
       activeDraft: null,
       latestRevisionId: publishedState.latestRevisionId,
       latestRevisionDocument: publishedState.latestRevisionDocument,
-      sourceRedirectExists: false,
+      sourceReservationExists: false,
     });
 
     await expect(publishFrameLiftProduct("FRAME", adapter)).rejects.toThrow(
-      /redirect/i,
+      /reservation/i,
     );
     expect(adapter.createDraft).toHaveBeenCalledTimes(1);
   });

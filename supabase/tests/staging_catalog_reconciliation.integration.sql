@@ -400,8 +400,10 @@ begin
     with expected(source_slug, target_slug) as (values
       ('reset-01-calming-gel-cleanser', 'biotic-reset'),
       ('cleanse-01-calming-gel-cleanser', 'biotic-reset'),
-      ('recode-03-pdrn-5-ampoule', 'peptide-bounce'),
-      ('treat-03-pdrn-5-ampoule', 'peptide-bounce'),
+      ('recode-03-pdrn-5-ampoule', 'super-serum'),
+      ('treat-03-pdrn-5-ampoule', 'super-serum'),
+      ('peptide-bounce', 'super-serum'),
+      ('maxxing-serum', 'super-serum'),
       ('refine-02-pore-treatment-pads', 'balancing-prep'),
       ('frame-04-pdrn-eye-cream', 'peptide-eye-cream'),
       ('lift-06-pdrn-mask-system', 'peptide-nourish-mask')
@@ -440,7 +442,7 @@ begin
     where route.route_kind <> 'canonical'
       and next_route.route_kind <> 'canonical'
   ) then
-    raise exception 'canonical Product routes are incomplete, chained, or drifted';
+    raise exception 'private Product reservations are incomplete, chained, or drifted';
   end if;
 
   if exists (

@@ -2,13 +2,16 @@
 //
 // Configure a Supabase Database Webhook (Dashboard → Database → Webhooks) on
 // the `products`, `product_variants`, `product_media`, and
-// `product_pdp_content`, `product_slug_routes`, `product_families`, and
+// `product_pdp_content`, `product_families`, and
 // `product_family_memberships` tables
 // (INSERT/UPDATE/DELETE) pointing at this route, with an HTTP header
 // `x-webhook-secret: <SUPABASE_CATALOG_WEBHOOK_SECRET>`.
 // On each change we rebuild the affected product's record from Supabase (the
 // source of truth) and upsert/delete it in Algolia. This is the NORMAL,
 // automatic sync path — no manual script runs are required after setup.
+// Private slug reservation history does not feed Product Search. Its retired
+// webhook is inventoried by catalog:webhooks:verify and removed only in the separately
+// gated URL-policy contraction after canonical consumers are deployed.
 
 import { NextResponse } from "next/server";
 import { revalidatePath, revalidateTag } from "next/cache";

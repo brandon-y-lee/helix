@@ -1,3 +1,5 @@
+import { isRetiredProductIdentity } from "./product-search-identity";
+
 export type ProductSearchRecord = Record<string, unknown> & {
   objectID: string;
 };
@@ -47,7 +49,7 @@ export type ProductSearchInventory = {
   };
 };
 
-export type ProductSearchMigrationReport = {
+export type ProductSearchVerificationReport = {
   ok: boolean;
   verified: boolean;
   inventory: ProductSearchInventory;
@@ -67,7 +69,7 @@ export interface ProductSearchControlPlane {
   ): Promise<ProductSearchInventory>;
 };
 
-export type ProductSearchMigrationConfig = {
+export type ProductSearchVerificationConfig = {
   appId: string;
   writeApiKey: string;
   adminApiKey: string | null;
@@ -85,12 +87,12 @@ function requiredEnv(env: NodeJS.ProcessEnv, name: string): string {
   return value;
 }
 
-export function loadProductSearchMigrationConfig(
+export function loadProductSearchVerificationConfig(
   env: NodeJS.ProcessEnv,
-): ProductSearchMigrationConfig {
+): ProductSearchVerificationConfig {
   const targetEnvironment = requiredEnv(env, "SEARCH_BACKFILL_ENVIRONMENT");
   if (targetEnvironment === "production") {
-    throw new Error("[product-search] Refusing production search migration.");
+    throw new Error("[product-search] Refusing production Product Search verification.");
   }
   if (targetEnvironment !== "development" && targetEnvironment !== "preview") {
     throw new Error(
@@ -140,7 +142,14 @@ function recordsMatch(
   canonical: ProductSearchRecord[],
 ): boolean {
   if (observed.length !== canonical.length) return false;
+  if (
+    [...observed, ...canonical].some(
+      ({ objectID }) => typeof objectID !== "string" || !objectID.trim(),
+    ) ||
+    new Set(canonical.map((record) => record.objectID)).size !== canonical.length
+  ) return false;
   const byId = new Map(observed.map((record) => [record.objectID, record]));
+  if (byId.size !== observed.length) return false;
   return canonical.every(
     (record) => canonicalJson(byId.get(record.objectID)) === canonicalJson(record),
   );
@@ -158,7 +167,7 @@ function representativeMediaUrls(records: ProductSearchRecord[]): string[] {
     .slice(0, 5);
 }
 
-export async function collectPaginatedSearchConfiguration<T>(
+export async function collectPaginatedSearchConfiguration<T extends { objectID: string }>(
   readPage: (
     page: number,
     hitsPerPage: number,
@@ -170,6 +179,7 @@ export async function collectPaginatedSearchConfiguration<T>(
   }
 
   const hits: T[] = [];
+  const objectIDs = new Set<string>();
   let expectedTotal: number | null = null;
   for (let page = 0; ; page += 1) {
     const response = await readPage(page, hitsPerPage);
@@ -183,7 +193,20 @@ export async function collectPaginatedSearchConfiguration<T>(
       );
     }
 
-    hits.push(...response.hits);
+    for (const hit of response.hits) {
+      const objectID = hit?.objectID;
+      if (
+        typeof objectID !== "string" ||
+        !objectID.trim() ||
+        objectIDs.has(objectID)
+      ) {
+        throw new Error(
+          "[product-search] Search configuration inventory contains duplicate or empty objectIDs.",
+        );
+      }
+      objectIDs.add(objectID);
+      hits.push(hit);
+    }
     if (hits.length === expectedTotal) return hits;
     if (response.hits.length === 0 || hits.length > expectedTotal) {
       throw new Error(
@@ -268,10 +291,31 @@ function containsRetiredIdentifier(value: string): boolean {
   return formerBrand.test(value) || retiredRewards.test(value);
 }
 
-export function assessProductSearchMigration(
+function hasRetiredDiscoveryIdentity(record: ProductSearchRecord): boolean {
+  if (Object.hasOwn(record, "slugAliases")) return true;
+  return [record.slug, record.displayName, record.keywords, record.searchKeywords]
+    .flat()
+    .some((value) => typeof value === "string" && isRetiredProductIdentity(value));
+}
+
+function hasRetiredSearchConfiguration(value: unknown): boolean {
+  if (typeof value === "string") {
+    return isRetiredProductIdentity(value) || /\bslugAliases\b/i.test(value);
+  }
+  if (Array.isArray(value)) return value.some(hasRetiredSearchConfiguration);
+  if (value && typeof value === "object") {
+    return Object.entries(value).some(
+      ([key, entry]) =>
+        hasRetiredSearchConfiguration(key) || hasRetiredSearchConfiguration(entry),
+    );
+  }
+  return false;
+}
+
+export function assessProductSearchVerification(
   inventory: ProductSearchInventory,
   canonicalRecords: ProductSearchRecord[],
-): ProductSearchMigrationReport {
+): ProductSearchVerificationReport {
   const blockers: string[] = [];
   if (inventory.providerChecks.querySuggestions === "unavailable") {
     blockers.push("Query Suggestions inventory is unavailable");
@@ -345,12 +389,42 @@ export function assessProductSearchMigration(
     blockers.push(`Recommend model ${dependency} depends on the source index`);
   }
 
+  const canonicalIdentityIsCurrent =
+    !canonicalRecords.some(hasRetiredDiscoveryIdentity);
+  const targetIdentityIsCurrent =
+    !inventory.target?.records.some(hasRetiredDiscoveryIdentity);
+  const targetSettingsAreCurrent =
+    !hasRetiredSearchConfiguration(inventory.target?.settings);
+  const targetRulesAreCurrent =
+    !hasRetiredSearchConfiguration(inventory.target?.rules);
+  const targetSynonymsAreCurrent =
+    !hasRetiredSearchConfiguration(inventory.target?.synonyms);
+  if (!canonicalIdentityIsCurrent) {
+    blockers.push("canonical Product Search records contain retired identities or aliases");
+  }
+  if (!targetIdentityIsCurrent) {
+    blockers.push("helix_products records contain retired identities or aliases");
+  }
+  if (!targetSettingsAreCurrent) {
+    blockers.push("helix_products settings contain retired identities or aliases");
+  }
+  if (!targetRulesAreCurrent) {
+    blockers.push("helix_products rules contain retired identities or aliases");
+  }
+  if (!targetSynonymsAreCurrent) {
+    blockers.push("helix_products synonyms contain retired identities or aliases");
+  }
+
   const targetMatchesCanonical = inventory.target
-    ? inventory.target.settingsMatch &&
+    ? canonicalIdentityIsCurrent &&
+      targetIdentityIsCurrent &&
+      targetSettingsAreCurrent &&
+      inventory.target.settingsMatch &&
       inventory.target.primary === null &&
       inventory.target.replicas.length === 0 &&
-      inventory.target.rules.length === 0 &&
-      inventory.target.synonyms.length === 0 &&
+      targetRulesAreCurrent &&
+      targetSynonymsAreCurrent &&
+      inventory.target.entries === inventory.target.records.length &&
       recordsMatch(inventory.target.records, canonicalRecords)
     : false;
   if (!inventory.target) blockers.push("helix_products index is missing");
@@ -377,8 +451,8 @@ export function assessProductSearchMigration(
 export async function runProductSearchVerification(
   controlPlane: ProductSearchControlPlane,
   canonicalRecords: ProductSearchRecord[],
-): Promise<ProductSearchMigrationReport> {
-  return assessProductSearchMigration(
+): Promise<ProductSearchVerificationReport> {
+  return assessProductSearchVerification(
     await controlPlane.inspect(canonicalRecords),
     canonicalRecords,
   );
@@ -417,7 +491,7 @@ export class AlgoliaProductSearchControlPlane
   private readonly client: Algoliasearch;
   private readonly publicClient: LiteClient;
 
-  constructor(private readonly config: ProductSearchMigrationConfig) {
+  constructor(private readonly config: ProductSearchVerificationConfig) {
     this.client = algoliasearch(
       config.appId,
       config.adminApiKey ?? config.writeApiKey,

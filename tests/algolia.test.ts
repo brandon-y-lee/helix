@@ -77,16 +77,6 @@ const sourceRow: CatalogProductSource = {
   concerns: ["Texture"],
   usage_time: ["PM"],
   search_keywords: ["serum"],
-  product_slug_routes: [
-    {
-      source_slug: "old-northpoint-serum",
-      route_kind: "rename",
-    },
-    {
-      source_slug: "northpoint-renewal-serum",
-      route_kind: "canonical",
-    },
-  ],
   product_family_memberships: null,
   product_variants: [
     {
@@ -127,12 +117,21 @@ const sourceRow: CatalogProductSource = {
 
 describe("buildAlgoliaRecord", () => {
   it("maps a catalog row to a storefront-safe record", () => {
-    const r = buildAlgoliaRecord(sourceRow);
+    const sourceWithPrivateHistory = {
+      ...sourceRow,
+      product_slug_routes: [
+        { source_slug: "old-northpoint-serum", route_kind: "rename" },
+      ],
+    };
+    const r = buildAlgoliaRecord(sourceWithPrivateHistory);
 
     expect(r.objectID).toBe(sourceRow.id);
     expect(r.productId).toBe(sourceRow.id);
     expect(r.slug).toBe("northpoint-renewal-serum");
-    expect(r.slugAliases).toEqual(["old-northpoint-serum"]);
+    expect(r).not.toHaveProperty("slugAliases");
+    expect(INDEX_SETTINGS.searchableAttributes).not.toContain(
+      "unordered(slugAliases)",
+    );
     expect(r.displayName).toBe("NORTHPOINT");
     expect(r.editorialDescription).toBe(
       "A nightly serum for smoother-looking tone.",
@@ -158,7 +157,8 @@ describe("buildAlgoliaRecord", () => {
     expect(r.keywords).toContain("TREAT");
     expect(r.keywords).toContain("Silky serum");
     expect(r.keywords).toContain("30 ml");
-    expect(r.keywords).toContain("old-northpoint-serum");
+    expect(r.keywords).not.toContain("old-northpoint-serum");
+    expect(r.keywords).toContain("Niacinamide");
     expect(r.placeholderMedia).toMatchObject({
       kind: "placeholder",
       paletteId: "northpoint-search",
@@ -408,17 +408,6 @@ describe("validateCatalogWebhookPayload", () => {
     expect(() =>
       validateCatalogWebhookPayload({
         schema: "public",
-        type: "INSERT",
-        table: "product_slug_routes",
-        record: {
-          source_slug: "old-northpoint-serum",
-          target_product_id: sourceRow.id,
-        },
-      }),
-    ).not.toThrow();
-    expect(() =>
-      validateCatalogWebhookPayload({
-        schema: "public",
         type: "UPDATE",
         table: "product_pdp_content",
         record: { product_id: sourceRow.id, schema_version: 1 },
@@ -452,6 +441,20 @@ describe("validateCatalogWebhookPayload", () => {
         record: { id: sourceRow.id },
       }),
     ).toThrow(/unsupported event type/);
+  });
+
+  it("rejects private slug history events", () => {
+    expect(() =>
+      validateCatalogWebhookPayload({
+        schema: "public",
+        type: "INSERT",
+        table: "product_slug_routes",
+        record: {
+          source_slug: "old-northpoint-serum",
+          target_product_id: sourceRow.id,
+        },
+      }),
+    ).toThrow(/unsupported table/);
   });
 
   it("requires old_record for updates and deletes", () => {
@@ -667,10 +670,7 @@ describe("applyCatalogWebhookEvent", () => {
     });
   });
 
-  it("rebuilds the direct target when a historical slug route changes", async () => {
-    const built = buildAlgoliaRecord(sourceRow);
-    mockedFetch.mockResolvedValue(built);
-
+  it("does not index private slug history events", async () => {
     const outcome = await applyCatalogWebhookEvent({
       type: "INSERT",
       table: "product_slug_routes",
@@ -680,14 +680,10 @@ describe("applyCatalogWebhookEvent", () => {
       },
     });
 
-    expect(mockedFetch).toHaveBeenCalledWith(sourceRow.id);
-    expect(mockedUpsert).toHaveBeenCalledWith(built);
-    expect(outcome).toMatchObject({
-      action: "upsert",
-      objectID: sourceRow.id,
-      slug: sourceRow.slug,
-      oldSlug: "old-northpoint-serum",
-    });
+    expect(mockedFetch).not.toHaveBeenCalled();
+    expect(mockedUpsert).not.toHaveBeenCalled();
+    expect(mockedDelete).not.toHaveBeenCalled();
+    expect(outcome.action).toBe("noop");
   });
 
   it("removes the parent record if a variant change finds no parent", async () => {
@@ -788,6 +784,24 @@ describe("runSearchBackfill", () => {
 });
 
 describe("catalog cache invalidation", () => {
+  it("evicts old and newly published slug content and offers after a canonical rename", () => {
+    const targets = getCatalogInvalidationTargets({
+      table: "products",
+      type: "UPDATE",
+      old_record: { id: sourceRow.id, slug: "former-canonical", routine_group: "core" },
+      record: { id: sourceRow.id, slug: "new-canonical", routine_group: "core" },
+    });
+    expect(targets.paths).toEqual(expect.arrayContaining([
+      "/products/former-canonical", "/products/new-canonical", "/sitemap.xml",
+    ]));
+    expect(targets.tags).toEqual(expect.arrayContaining([
+      "catalog-product-content:former-canonical", "catalog-product-content:new-canonical",
+      "catalog-product-offer:former-canonical", "catalog-product-offer:new-canonical",
+      "catalog-products", "catalog-discovery",
+    ]));
+    expect(targets.tags.some((tag) => tag.includes("slug-route"))).toBe(false);
+  });
+
   it("invalidates every affected PDP and generic collection for family changes", () => {
     const targets = getCatalogInvalidationTargets(
       {
@@ -825,40 +839,6 @@ describe("catalog cache invalidation", () => {
         "/products/balancing-prep",
         "/products/beaming-prep",
         "/collections/shop",
-      ]),
-    );
-  });
-
-  it("invalidates both route lookup and Product paths for a historical slug change", () => {
-    const targets = getCatalogInvalidationTargets(
-      {
-        type: "INSERT",
-        table: "product_slug_routes",
-        record: {
-          source_slug: "old-northpoint-serum",
-          target_product_id: sourceRow.id,
-        },
-      },
-      {
-        action: "upsert",
-        table: "product_slug_routes",
-        objectID: sourceRow.id,
-        slug: sourceRow.slug,
-        oldSlug: "old-northpoint-serum",
-      },
-    );
-
-    expect(targets.tags).toEqual(
-      expect.arrayContaining([
-        "catalog-product-slug-route",
-        "catalog-product-slug-route:old-northpoint-serum",
-        `catalog-product-slug-route:${sourceRow.slug}`,
-      ]),
-    );
-    expect(targets.paths).toEqual(
-      expect.arrayContaining([
-        "/products/old-northpoint-serum",
-        `/products/${sourceRow.slug}`,
       ]),
     );
   });

@@ -22,7 +22,8 @@ export type FrameLiftPublicationState = Readonly<{
   activeDraft: Readonly<{ id: string; version: number }> | null;
   latestRevisionId: string | null;
   latestRevisionDocument: ProductEditorDocumentV4 | null;
-  sourceRedirectExists: boolean;
+  // Same-Product rename provenance in the private ledger; it provides no public redirect.
+  sourceReservationExists: boolean;
 }>;
 
 export type FrameLiftPublicationGateway = Readonly<{
@@ -93,8 +94,8 @@ function assertVerifiedState(
       `${step} canonical state does not match its governed publication snapshot.`,
     );
   }
-  if (!state.sourceRedirectExists) {
-    throw new Error(`${step} publication is missing its permanent source redirect.`);
+  if (!state.sourceReservationExists) {
+    throw new Error(`${step} publication is missing its private source reservation.`);
   }
   if (state.activeDraft) {
     throw new Error(`${step} publication left an active draft behind.`);
