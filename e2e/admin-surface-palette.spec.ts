@@ -86,6 +86,12 @@ test("Catalog Preview renders actual gray metadata and product surfaces with com
     await expect(page.locator(".catalog-preview-commerce-notice")).toHaveCSS("background-color", PANEL_GRAY);
     await expect(page.locator(".pdp__purchase")).toHaveCSS("background-color", PANEL_GRAY);
     await expect(page.getByRole("button", { name: "Cart unavailable in Catalog Preview" })).toBeDisabled();
+    const routineImages = page.locator(".pdp-core-routine__texture-media img");
+    await expect.poll(() => routineImages.evaluateAll((images) =>
+      images.length === 3 && images.every((image) =>
+        image instanceof HTMLImageElement && image.complete && image.naturalWidth > 0,
+      ),
+    )).toBe(true);
     await expectNoDocumentOverflow(page);
     await page.goto("/helix-verification/admin/preview?state=invalid");
     await expect(page.locator(".catalog-preview-state")).toHaveCSS("background-color", PANEL_GRAY);
