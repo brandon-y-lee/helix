@@ -57,6 +57,57 @@ async function cutoverFixture() {
 }
 
 describe("reviewed Product Media identity operation", () => {
+  it("plans shared media from GET delivery headers and cancels the unread body", async () => {
+    const cancel = vi.fn();
+    const http = vi.fn<typeof fetch>(async (_url, init) => {
+      if (init?.method === "HEAD") return new Response(null, { headers: {
+        "content-type": "image/png", "content-length": String(bytes.length), "cache-control": "no-cache",
+      } });
+      return new Response(new ReadableStream({ cancel }), { headers: {
+        "content-type": "image/png", "content-length": String(bytes.length), "cache-control": "public, max-age=31536000",
+      } });
+    });
+    const shared = { ...document, media: [document.media[0], {
+      ...document.media[0], id: catalogDraft.document.media[1].id, role: "cart", alt: "Shared image in the Cart", sort_order: 1,
+    }] };
+    const manifest = await buildMediaIdentityManifest({
+      operationId: "10000000-0000-4000-8000-000000000701", actorId: catalogDraft.updated_by,
+      snapshots: [{ ...snapshot, document: shared }], http,
+    });
+    expect(http).toHaveBeenCalledExactlyOnceWith(sourceUrl, {
+      method: "GET", redirect: "manual", credentials: "omit", signal: expect.any(AbortSignal),
+    });
+    expect(cancel).toHaveBeenCalledOnce();
+    expect(manifest.products[0].media).toHaveLength(2);
+    expect(manifest.products[0].media[0]).toMatchObject({ byteSize: bytes.length, mimeType: "image/png", sha256: hash });
+  });
+
+  it.each([
+    ["redirect", 302, {}],
+    ["partial content", 206, {}],
+    ["wrong MIME", 200, { "content-type": "image/webp" }],
+    ["zero length", 200, { "content-length": "0" }],
+    ["oversized length", 200, { "content-length": String(16 * 1024 * 1024 + 1) }],
+    ["empty length", 200, { "content-length": "" }],
+    ["no-cache GET", 200, { "cache-control": "no-cache" }],
+    ["private GET", 200, { "cache-control": "private, max-age=31536000" }],
+    ["no-store GET", 200, { "cache-control": "no-store, max-age=31536000" }],
+  ] as const)("cancels the unread body when planning rejects %s", async (_label, status, overrides) => {
+    const cancel = vi.fn();
+    const http = vi.fn<typeof fetch>(async () => new Response(new ReadableStream({ cancel }), {
+      status, headers: {
+        "content-type": "image/png", "content-length": String(bytes.length), "cache-control": "public, max-age=31536000",
+        ...overrides,
+      },
+    }));
+    await expect(buildMediaIdentityManifest({
+      operationId: "10000000-0000-4000-8000-000000000701", actorId: catalogDraft.updated_by,
+      snapshots: [snapshot], http,
+    })).rejects.toThrow();
+    expect(http).toHaveBeenCalledOnce();
+    expect(cancel).toHaveBeenCalledOnce();
+  });
+
   it("rejects a PNG-coded AVI advertised as an image before copying", async () => {
     // Synthetic 16×16 PNG frame in an AVI container: codec alone is not MIME evidence.
     const avi = await readFile("tests/fixtures/png-coded-avi.avi");
