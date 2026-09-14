@@ -13,6 +13,11 @@ import {
 } from "@/app/account/actions";
 import { idleAuthState, type AuthActionState } from "@/lib/auth/validation";
 
+export type AccountFormAction = (
+  state: AuthActionState,
+  formData: FormData,
+) => Promise<AuthActionState>;
+
 function SubmitButton({ children }: { children: string }) {
   const { pending } = useFormStatus();
   return (
@@ -129,8 +134,12 @@ function PasswordField({
   );
 }
 
-export function SignInForm({ next, error }: { next: string; error?: string }) {
-  const [state, formAction] = useActionState(signInAction, {
+export function SignInForm({ next, error, action = signInAction }: {
+  next: string;
+  error?: string;
+  action?: AccountFormAction;
+}) {
+  const [state, formAction] = useActionState(action, {
     ...idleAuthState,
     ...(error ? { status: "error" as const, message: error } : {}),
   });
@@ -167,8 +176,8 @@ export function SignInForm({ next, error }: { next: string; error?: string }) {
   );
 }
 
-export function SignUpForm() {
-  const [state, formAction] = useActionState(signUpAction, idleAuthState);
+export function SignUpForm({ action = signUpAction }: { action?: AccountFormAction } = {}) {
+  const [state, formAction] = useActionState(action, idleAuthState);
   const emailError = state.fieldErrors?.email;
   const passwordError = state.fieldErrors?.password;
 
@@ -216,8 +225,8 @@ export function SignUpForm() {
   );
 }
 
-export function ForgotPasswordForm() {
-  const [state, formAction] = useActionState(forgotPasswordAction, idleAuthState);
+export function ForgotPasswordForm({ action = forgotPasswordAction }: { action?: AccountFormAction } = {}) {
+  const [state, formAction] = useActionState(action, idleAuthState);
   const emailError = state.fieldErrors?.email;
 
   return (
@@ -236,8 +245,8 @@ export function ForgotPasswordForm() {
   );
 }
 
-export function ResetPasswordForm() {
-  const [state, formAction] = useActionState(updatePasswordAction, idleAuthState);
+export function ResetPasswordForm({ action = updatePasswordAction }: { action?: AccountFormAction } = {}) {
+  const [state, formAction] = useActionState(action, idleAuthState);
   return (
     <form action={formAction} className="account-form">
       <StatusMessage state={state} />
@@ -263,11 +272,13 @@ export function ResetPasswordForm() {
 export function ProfileForm({
   firstName,
   lastName,
+  action = updateProfileAction,
 }: {
   firstName: string;
   lastName: string;
+  action?: AccountFormAction;
 }) {
-  const [state, formAction] = useActionState(updateProfileAction, idleAuthState);
+  const [state, formAction] = useActionState(action, idleAuthState);
   return (
     <form action={formAction} className="account-form account-form--compact">
       <StatusMessage state={state} />

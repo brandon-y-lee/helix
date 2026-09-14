@@ -1563,6 +1563,7 @@ body[data-sheet-scroll-lock] .site-header {
   align-items: center;
   padding: 20px 0;
   border-bottom: 1px solid var(--line);
+  background: var(--surface);
 }
 
 .cart-item__thumb {
@@ -1584,7 +1585,8 @@ body[data-sheet-scroll-lock] .site-header {
 .qty {
   display: inline-flex;
   align-items: center;
-  border: 1px solid var(--line);
+  border: 1px solid var(--control-line);
+  background: var(--surface-inset);
   border-radius: 999px;
   overflow: hidden;
   margin-top: 8px;
@@ -1601,7 +1603,8 @@ body[data-sheet-scroll-lock] .site-header {
 }
 
 .qty button:hover {
-  background: var(--bg);
+  background: var(--ink);
+  color: var(--ink-inverse);
 }
 
 .qty span {
@@ -1692,7 +1695,7 @@ body[data-sheet-scroll-lock] .site-header {
 
 .checkout-panel__notice {
   border: 1px solid var(--line);
-  background: var(--bg);
+  background: var(--surface);
   color: var(--ink);
   border-radius: var(--radius);
   padding: 10px 12px;
@@ -1718,7 +1721,8 @@ body[data-sheet-scroll-lock] .site-header {
 .reward-selector {
   display: grid;
   gap: 8px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--control-line);
+  background: var(--surface-inset);
   border-radius: var(--radius);
   padding: 12px;
 }
@@ -1750,6 +1754,12 @@ body[data-sheet-scroll-lock] .site-header {
 
 .empty-state .btn {
   margin-top: 20px;
+}
+
+.public-utility-page > .empty-state,
+.cart-sheet > .empty-state {
+  background: var(--surface);
+  border-radius: var(--radius);
 }
 
 /* ---------- Search + prose ---------- */
@@ -2799,6 +2809,11 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   border-color: var(--control-line);
 }
 
+.password-control__toggle {
+  border-color: var(--control-line);
+  background: var(--surface-inset);
+}
+
 .sheet__close:hover,
 .password-control__toggle:hover {
   color: var(--ink);
@@ -3271,8 +3286,8 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 .account-form select,
 .account-form textarea {
   width: 100%;
-  border: 1px solid var(--line);
-  background: var(--bg);
+  border: 1px solid var(--control-line);
+  background: var(--surface-inset);
   color: var(--ink);
   border-radius: var(--radius);
   padding: 13px 14px;
@@ -3291,7 +3306,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 
 .form-status {
   border: 1px solid var(--line);
-  background: var(--bg);
+  background: var(--surface);
   padding: 12px 14px;
   border-radius: var(--radius);
   color: var(--ink-soft);
@@ -3349,6 +3364,12 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 
 .account-section h2 {
   font-size: 1.45rem;
+}
+
+.account-section .btn--ghost,
+.account-panel .btn--ghost,
+.privacy-choice-panel .btn--ghost {
+  background: var(--surface-inset);
 }
 
 .account-details {
@@ -9346,7 +9367,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 .cookie-dialog__close {
   grid-column: 2;
   grid-row: 1 / span 2;
-  border: 1px solid var(--line);
+  border: 1px solid var(--control-line);
   border-radius: 999px;
   padding: 9px 12px;
   background: var(--surface);
@@ -9369,7 +9390,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   grid-template-columns: 1fr auto;
   gap: 18px;
   align-items: start;
-  background: #fbfaf6;
+  background: var(--surface);
 }
 
 .cookie-dialog__category h3 {
@@ -9402,7 +9423,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 }
 
 .cookie-dialog__category--inactive span {
-  background: var(--surface-muted);
+  background: var(--surface-inset);
   color: var(--ink);
 }
 
@@ -9454,6 +9475,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   padding: 8px 11px;
   border: 1px solid var(--line);
   border-radius: 999px;
+  background: var(--surface);
   color: var(--ink-soft);
   font-size: 0.72rem;
   font-weight: 800;
@@ -9513,7 +9535,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 .contact-prep section {
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: #fbfaf6;
+  background: var(--surface);
 }
 
 .legal-document section {
@@ -9545,7 +9567,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   overflow-x: auto;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: #fbfaf6;
+  background: var(--surface);
 }
 
 .legal-table-wrap table {
