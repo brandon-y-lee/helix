@@ -2807,9 +2807,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 .product-waitlist-sheet {
   display: flex;
   flex-direction: column;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.34), transparent 34%),
-    var(--bg);
+  background: var(--bg);
 }
 
 .product-waitlist-sheet__body {
@@ -2843,7 +2841,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 .product-waitlist-form__field input {
   width: 100%;
   min-height: 50px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--control-line);
   border-radius: var(--radius);
   background: var(--surface);
   color: var(--ink);
@@ -4043,6 +4041,11 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   font-size: 0.86rem;
 }
 
+.pdp__purchase .variant-option:not([aria-pressed="true"]) {
+  border-color: var(--control-line);
+  background: var(--surface-inset);
+}
+
 .pdp-family-selector {
   min-width: 0;
   margin: 20px 0 0;
@@ -4067,8 +4070,9 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 .pdp-family-selector__option {
   min-width: 0;
   padding: 10px 12px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--control-line);
   border-radius: 8px;
+  background: var(--surface-inset);
   color: var(--ink);
   text-decoration: none;
   transition:
@@ -4098,7 +4102,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 
 .pdp-family-selector__option[aria-current="page"] {
   border-color: var(--ink);
-  background: color-mix(in srgb, var(--ink) 5%, transparent);
+  background: var(--surface);
 }
 
 .pdp-family-selector__option[href]:hover {
@@ -4742,7 +4746,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   gap: 0;
   overflow: hidden;
   border-radius: var(--pdp-panel-radius);
-  background: var(--line);
+  background: var(--surface);
 }
 
 .pdp-profile-split__content,
@@ -5137,7 +5141,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   place-items: center;
   border: 1px solid var(--ink);
   border-radius: 50%;
-  background: transparent;
+  background: var(--surface-inset);
   color: var(--ink);
   cursor: pointer;
   font: inherit;
@@ -5394,9 +5398,9 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   height: 48px;
   display: grid;
   place-items: center;
-  border: 1px solid var(--line);
+  border: 1px solid var(--control-line);
   border-radius: 50%;
-  background: transparent;
+  background: var(--surface-inset);
   color: var(--ink);
   cursor: pointer;
   font: inherit;
@@ -5497,6 +5501,10 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   overflow: hidden;
   border-radius: var(--pdp-panel-radius);
   padding: var(--pdp-panel-padding);
+  background: var(--surface);
+}
+
+.pdp-editorial-pair--signals .pdp-editorial-pair__panel--content {
   background: var(--bg);
 }
 
@@ -5569,9 +5577,9 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   height: 42px;
   display: grid;
   place-items: center;
-  border: 1px solid var(--line);
+  border: 1px solid var(--control-line);
   border-radius: 999px;
-  background: var(--surface);
+  background: var(--surface-inset);
   color: var(--ink);
   font: inherit;
   cursor: pointer;
@@ -5726,7 +5734,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   gap: 10px;
   align-content: start;
   padding: clamp(14px, 2vw, 20px);
-  background: var(--bg);
+  background: var(--surface);
 }
 
 .product-signal-grid dt,
@@ -5846,8 +5854,8 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 }
 
 .full-ingredients {
-  border: 1px solid var(--line);
-  background: var(--bg);
+  border: 1px solid var(--control-line);
+  background: var(--surface-inset);
 }
 
 .full-ingredients summary {
@@ -5895,6 +5903,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
     var(--pdp-panel-padding)
     0;
   border: 0;
+  background: var(--surface);
 }
 
 .pdp-discovery {
@@ -6171,7 +6180,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   padding: 0 24px;
   border: 1px solid var(--ink);
   border-radius: var(--radius-editorial-button);
-  background: transparent;
+  background: var(--surface-inset);
   color: var(--ink);
   font: inherit;
   font-size: 0.74rem;
@@ -6221,7 +6230,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   border: 1px solid color-mix(in srgb, var(--ink) 18%, transparent);
   border-bottom: 0;
   border-radius: 18px 18px 0 0;
-  background: color-mix(in srgb, var(--surface) 96%, var(--bg));
+  background: var(--surface);
   box-shadow: 0 -12px 42px rgba(17, 19, 18, 0.12);
   opacity: 0;
   pointer-events: none;
