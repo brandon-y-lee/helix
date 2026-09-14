@@ -1,59 +1,7 @@
 // Actual snapshot/Draft races against the runner's labeled disposable database.
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
-import { spawn } from "node:child_process";
-
-function session(psql) {
-  const child = spawn("docker", psql, { stdio: ["pipe", "pipe", "pipe"] });
-  let output = "";
-  let errors = "";
-  let milestone;
-  const timeout = setTimeout(() => child.kill(), 30_000);
-  const done = new Promise((resolveDone, rejectDone) => {
-    child.stdout.on("data", (chunk) => {
-      output += chunk;
-      milestone?.();
-    });
-    child.stderr.on("data", (chunk) => { errors += chunk; });
-    child.on("error", rejectDone);
-    child.on("close", (status) => {
-      clearTimeout(timeout);
-      resolveDone({ status, output, errors });
-    });
-  });
-  done.catch(() => {});
-  return {
-    child,
-    done,
-    async send(sql) {
-      const marker = `IDENTITY_MILESTONE_${randomBytes(8).toString("hex")}`;
-      const offset = output.length;
-      const reached = new Promise((resolveReached) => {
-        milestone = () => {
-          const index = output.indexOf(marker, offset);
-          if (index !== -1) resolveReached(output.slice(offset, index).trim());
-        };
-      });
-      child.stdin.write(`${sql}\n\\echo ${marker}\n`);
-      try {
-        return await Promise.race([reached, done.then((result) => {
-          throw new Error(`SQL session ended before its milestone: ${result.errors}`);
-        })]);
-      } finally {
-        milestone = undefined;
-      }
-    },
-    finish(sql) {
-      child.stdin.end(sql);
-      return done;
-    },
-  };
-}
-
-function requireSqlstate(result, expected) {
-  assert.notEqual(result.status, 0, "Identity operation unexpectedly succeeded");
-  assert.match(result.errors, new RegExp(`ERROR:  ${expected}:`));
-}
+import { createSqlSession, requireSqlstate } from "./catalog_sql_session.mjs";
 
 export async function verifyIdentityDraftIsolation({
   container, checkpoint, fixtures, operationSql, docker,
@@ -80,7 +28,7 @@ export async function verifyIdentityDraftIsolation({
         created = true;
         sql(`${checkpoint}\n${fixtures}\nselect pg_temp.seed_catalog_identity('${slug}', '${name}');`);
         const beforeDraft = state();
-        const reader = session(psql);
+        const reader = createSqlSession(psql);
         sessions.push(reader);
         // A complete read establishes A's snapshot before B is allowed to run.
         const reviewed = JSON.parse(await reader.send(`${operationSql}
@@ -130,7 +78,7 @@ export async function verifyIdentityDraftIsolation({
 
         if (unsupportedIsolation.length === 0) {
           for (const unsupported of ["read uncommitted", "repeatable read", "serializable"]) {
-            const direct = session(psql);
+            const direct = createSqlSession(psql);
             sessions.push(direct);
             const refusal = await direct.finish(`${operationSql}
               begin isolation level ${unsupported};

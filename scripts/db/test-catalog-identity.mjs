@@ -147,7 +147,7 @@ try {
     status: "passed",
     postgres: version,
     checkpoint: { path: checkpoint, sha256: createHash("sha256").update(read(checkpoint)).digest("hex") },
-    executed: [...files.slice(1), preflight, "supabase/tests/catalog_identity_concurrency.mjs", "supabase/tests/catalog_identity_isolation.mjs"].map((path) => ({ path, sha256: createHash("sha256").update(read(path)).digest("hex") })),
+    executed: [...files.slice(1), preflight, "supabase/tests/catalog_identity_concurrency.mjs", "supabase/tests/catalog_identity_isolation.mjs", "supabase/tests/catalog_sql_session.mjs"].map((path) => ({ path, sha256: createHash("sha256").update(read(path)).digest("hex") })),
     checks,
     concurrency,
     writerConcurrency,
