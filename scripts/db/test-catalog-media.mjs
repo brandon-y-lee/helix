@@ -54,6 +54,7 @@ const database = `helix_catalog_media_${randomBytes(8).toString("hex")}`;
 const checkpoint = "supabase/tests/checkpoints/catalog-current-20260909042518.sql";
 const identity = "supabase/migrations/20260914051153_catalog_restore_current_identity.sql";
 const migration = "supabase/migrations/20260914062651_catalog_stable_media_boundary.sql";
+const activationMigration = "supabase/migrations/20260915030021_catalog_media_activation_singleton_guard.sql";
 const fixtures = "supabase/tests/catalog_identity.fixtures.sql";
 const tests = "supabase/tests/catalog_media.integration.sql";
 // Optional read-only composition against a sibling's actual migration. This
@@ -69,7 +70,7 @@ const read = (path) => {
   const sql = readFileSync(resolve(root, path), "utf8");
   return path === fixtures ? sql.replaceAll("current.webp", `primary/${"a".repeat(64)}.webp`) : sql;
 };
-const files = [checkpoint, identity, ...additionalMigrations, migration, fixtures, tests];
+const files = [checkpoint, identity, ...additionalMigrations, migration, activationMigration, fixtures, tests];
 const psql = ["exec", "-i", container, "psql", "-X", "-U", "postgres", "-d", database,
   "--quiet", "--no-align", "--tuples-only", "--set=ON_ERROR_STOP=1"];
 
@@ -150,9 +151,31 @@ async function concurrencyChecks() {
   // an unhandled promise while activation runs.
   const staleOutcome = stale.then(() => false, (error) => error.message.includes("could not serialize access"));
   await hasSnapshot;
-  docker(psql, `select public.activate_catalog_product_media_policy('${manifest.operationId}','${manifest.actorId}');`);
+  // Hosted PostgREST authenticator sessions preload safeupdate. Load the real
+  // extension as the disposable container administrator, then call the RPC with
+  // its actual service role so this test exercises the same UPDATE guard.
+  const apiSession = [...psql];
+  apiSession[apiSession.indexOf("-U") + 1] = "supabase_admin";
+  const activated = JSON.parse(docker(apiSession, `load 'safeupdate'; set role service_role;
+    select public.activate_catalog_product_media_policy('${manifest.operationId}','${manifest.actorId}');`).trim());
+  if (activated.ok !== true || activated.outcome !== "activated" || activated.operationId !== manifest.operationId) {
+    throw new Error("Service-role activation with safeupdate did not activate the reviewed operation.");
+  }
   if (!await staleOutcome) throw new Error("Stale transaction bypassed activated media policy.");
-  return { sourceWriterPreserved: true, retryOutcomes: outcomes, staleOperationalSnapshotRejected: true, staleSnapshotRejected: true };
+  const policyBeforeRetry = docker(psql, "select to_jsonb(p) from private.catalog_media_policy p;").trim();
+  const policy = JSON.parse(policyBeforeRetry);
+  if (!policy.singleton || !policy.enabled || policy.operation_id !== manifest.operationId
+    || policy.activated_by !== manifest.actorId || !policy.activated_at) {
+    throw new Error("Activation did not record the exact reviewed policy operation and actor.");
+  }
+  const retried = JSON.parse(docker(apiSession, `load 'safeupdate'; set role service_role;
+    select public.activate_catalog_product_media_policy('${manifest.operationId}','${manifest.actorId}');`).trim());
+  if (retried.ok !== true || retried.outcome !== "no-op" || retried.operationId !== manifest.operationId
+    || docker(psql, "select to_jsonb(p) from private.catalog_media_policy p;").trim() !== policyBeforeRetry) {
+    throw new Error("Service-role activation retry changed the policy.");
+  }
+  return { sourceWriterPreserved: true, retryOutcomes: outcomes, staleOperationalSnapshotRejected: true,
+    staleSnapshotRejected: true, safeupdateActivation: true, safeupdateActivationRetryPreserved: true };
 }
 
 let created = false;
