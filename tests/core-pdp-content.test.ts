@@ -26,14 +26,13 @@ const cases = [
   },
   {
     slug: "super-serum",
-    title:
-      "A lightweight PDRN SERUM for HYDRATION, smoother-looking texture, and a steadier GLOW.",
+    title: "The SUPERCHARGED step for GLOWING skin.",
     overlay: "See how TREAT works in your skin routine.",
     heading: "YOUR DAILY TREATMENT THAT:",
-    options: ["hydrates", "smooths", "wakes up the finish"],
+    options: ["hydrates", "enhances", "replenishes"],
     application: [
-      "After CLEANSE—and toner or essence, if used—apply 2–3 drops across face and neck.",
-      "Press into skin for 30–60 seconds, letting the lightweight serum settle before the next layer.",
+      "After cleanser apply 2–3 drops across face and neck.",
+      "Press into skin for 30–60 seconds, letting the serum settle before the next layer.",
       "Follow with SEAL. In the morning, finish with SPF.",
     ],
     ingredientNames: ["PDRN / SODIUM DNA 50,000 PPM", "NIACINAMIDE"],
