@@ -171,17 +171,15 @@ function makeProduct(overrides: ProductOverrides = {}): PdpProduct {
     pdpContent: {
       schemaVersion: 1,
       profileTitleTokens: [
-        { text: "A lightweight " },
-        { text: "PDRN SERUM", emphasis: true },
-        { text: " for " },
-        { text: "HYDRATION", emphasis: true },
-        { text: ", smoother-looking texture, and a steadier " },
-        { text: "GLOW", emphasis: true },
-        { text: "." },
+        { text: "The " },
+        { text: "SUPERCHARGED", emphasis: true },
+        { text: " step for " },
+        { text: "GLOWING", emphasis: true },
+        { text: " skin." },
       ],
       routineOverlay: "See how TREAT works in your skin routine.",
       outcomeHeading: "YOUR DAILY TREATMENT THAT:",
-      outcomeLabels: ["hydrates", "smooths", "wakes up the finish"],
+      outcomeLabels: ["hydrates", "enhances", "replenishes"],
       howToUseSteps: [
         "After cleansing and toner or essence, apply 2-3 drops.",
         "Press into skin for 30-60 seconds.",
@@ -189,8 +187,8 @@ function makeProduct(overrides: ProductOverrides = {}): PdpProduct {
         "Use SPF in daytime. Use morning and night.",
       ],
       applicationSteps: [
-        "After CLEANSE—and toner or essence, if used—apply 2–3 drops across face and neck.",
-        "Press into skin for 30–60 seconds, letting the lightweight serum settle before the next layer.",
+        "After cleanser apply 2–3 drops across face and neck.",
+        "Press into skin for 30–60 seconds, letting the serum settle before the next layer.",
         "Follow with SEAL. In the morning, finish with SPF.",
       ],
       ingredientCards: [
@@ -748,7 +746,7 @@ describe("ProductDetail purchase accordions", () => {
 
     expect(
       screen.getByRole("heading", {
-        name: "A lightweight PDRN SERUM for HYDRATION, smoother-looking texture, and a steadier GLOW.",
+        name: "The SUPERCHARGED step for GLOWING skin.",
       }),
     ).toBeInTheDocument();
 
@@ -787,7 +785,7 @@ describe("ProductDetail purchase accordions", () => {
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("heading", {
-        name: /A lightweight PDRN SERUM/,
+        name: /The SUPERCHARGED step/,
       }),
     ).toBeNull();
   });
