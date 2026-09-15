@@ -13,7 +13,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 const item: CartAddInput = {
-  slug: "cleanse-01-calming-gel-cleanser",
+  slug: "biotic-reset",
   name: "CLEANSE",
   variantId: "200ml",
   variantLabel: "200 mL",
@@ -381,6 +381,7 @@ describe("TanStack cart state", () => {
     );
 
     expect(await screen.findByText("quantity:0")).toBeInTheDocument();
-    expect(getRequests).toBe(3);
+    // Removing the old identity renders empty before its replacement read starts.
+    await waitFor(() => expect(getRequests).toBe(3));
   });
 });

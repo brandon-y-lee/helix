@@ -17,7 +17,7 @@ test("primary navigation reaches System, a live PDP, and About", async ({
     }),
   ).toBeVisible();
 
-  const productLink = page.locator(".method-flow__product-link").first();
+  const productLink = page.locator(".system-flow__product-link").first();
   const href = await productLink.getAttribute("href");
   if (!href) throw new Error("The System did not render a Product path.");
   const product = storefront.productAtPath(href);
@@ -44,8 +44,8 @@ test("System hero uses the campaign image and responsive focal points", async ({
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/system");
 
-  const hero = page.locator(".method-hero");
-  const surface = hero.locator(".method-hero__surface");
+  const hero = page.locator(".system-hero");
+  const surface = hero.locator(".system-hero__surface");
   const image = hero.locator("img");
   const heading = hero.getByRole("heading", {
     level: 1,
@@ -73,7 +73,7 @@ test("System hero uses the campaign image and responsive focal points", async ({
   const expectViewportHero = async () => {
     const dimensions = await hero.evaluate((element) => {
       const styles = getComputedStyle(document.documentElement);
-      const surface = element.querySelector(".method-hero__surface");
+      const surface = element.querySelector(".system-hero__surface");
       if (!surface) throw new Error("The System hero surface is missing.");
       const surfaceRect = surface.getBoundingClientRect();
       return {

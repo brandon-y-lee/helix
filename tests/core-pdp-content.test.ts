@@ -7,7 +7,7 @@ import { normalizeProductPdpContent } from "@/lib/catalog/product-content";
 
 const cases = [
   {
-    slug: "cleanse-01-calming-gel-cleanser",
+    slug: "biotic-reset",
     title: "A daily GEL CLEANSER for a clean, BALANCED start.",
     overlay: "See how CLEANSE works in your skin routine.",
     heading: "YOUR DAILY CLEANSER THAT:",
@@ -25,7 +25,7 @@ const cases = [
     systemStepName: "CLEANSE",
   },
   {
-    slug: "treat-03-pdrn-5-ampoule",
+    slug: "super-serum",
     title:
       "A lightweight PDRN SERUM for HYDRATION, smoother-looking texture, and a steadier GLOW.",
     overlay: "See how TREAT works in your skin routine.",
@@ -44,7 +44,7 @@ const cases = [
     systemStepName: "TREAT",
   },
   {
-    slug: "seal-05-green-collagen-cream",
+    slug: "ceramide-cushion",
     title:
       "A CUSHIONING CREAM that holds HYDRATION close with a clean, COMPOSED finish.",
     overlay: "See how SEAL works in your skin routine.",

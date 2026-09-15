@@ -100,10 +100,10 @@ export const previewCoreProducts: CoreRoutineSummary[] = ([
   ["CLEANSE", 1, "cleanse"],
   ["TREAT", 3, "treat"],
   ["SEAL", 5, "seal"],
-] as const).map(([name, position, mediaName]) => ({
+] as const).map(([name, position, stepSlug]) => ({
   id: `verification-core-${position}`,
-  slug: position === 1 ? previewProduct.slug : `verification-core-${mediaName}`,
-  displayName: `Verification ${mediaName}`,
+  slug: position === 1 ? previewProduct.slug : `verification-core-${stepSlug}`,
+  displayName: `Verification ${stepSlug}`,
   productType: "Synthetic routine presentation",
   description: "Synthetic Core routine content for local visual verification.",
   benefits: ["Synthetic benefit"],
@@ -118,10 +118,10 @@ export const previewCoreProducts: CoreRoutineSummary[] = ([
   swatch: ["#DCE8DF", "#82978A"],
   textureMedia: {
     kind: "image",
-    url: `/media/home/${mediaName}-product-card-default-01.webp`,
-    alt: `Local ${mediaName} artwork used in synthetic verification`,
-    width: 800,
-    height: 1000,
+    url: "/media/home/cleanse-product-card-default-01.webp",
+    alt: "Local cleanser artwork reused for synthetic routine verification",
+    width: 1200,
+    height: 1650,
     role: "core_routine_texture",
     sortOrder: 0,
     paletteId: null,

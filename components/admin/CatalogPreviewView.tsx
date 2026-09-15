@@ -73,7 +73,7 @@ export function CatalogPreviewView({
   document: ProductEditorDocumentV4;
   preview: CatalogPreviewProjection;
   previewKey: string;
-  reviews: ProductReviews;
+  reviews?: ProductReviews;
   toolbar: ReactNode;
 }) {
   return (

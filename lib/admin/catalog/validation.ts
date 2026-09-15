@@ -4,7 +4,10 @@ import type {
   CatalogValidationIssue,
   ProductEditorDocumentV4,
 } from "@/lib/admin/catalog/types";
-import { CATALOG_MEDIA_BUCKET } from "@/lib/catalog/media-storage";
+import {
+  CATALOG_MEDIA_BUCKET,
+  CATALOG_MEDIA_ORIGIN,
+} from "@/lib/catalog/media-storage";
 import { PRODUCT_EDITOR_SCHEMA_VERSION } from "@/lib/admin/catalog/types";
 import { PRODUCT_MEDIA_ROLES } from "@/lib/catalog/media-roles";
 import {
@@ -500,7 +503,6 @@ function approvedCatalogStorageUrl(
 function validateMedia(
   media: unknown[],
   productId: string,
-  productSlug: string,
   routineGroup: unknown,
   variantIds: Set<string>,
   issues: CatalogValidationIssue[],
@@ -648,7 +650,7 @@ function validateMedia(
                 : null;
       const expectedPath =
         typeof sha === "string" && extension
-          ? `products/${productSlug}/drafts/${sha}.${extension}`
+          ? `products/${productId}/drafts/${sha}.${extension}`
           : null;
       if (
         upload.bucket !== CATALOG_MEDIA_BUCKET ||
@@ -658,7 +660,8 @@ function validateMedia(
         !isInteger(upload.sizeBytes, 1) ||
         typeof upload.uploadedBy !== "string" ||
         !UUID_PATTERN.test(upload.uploadedBy) ||
-        upload.path !== expectedPath
+        upload.path !== expectedPath ||
+        entry.url !== `${CATALOG_MEDIA_ORIGIN}/storage/v1/object/public/${CATALOG_MEDIA_BUCKET}/${expectedPath}`
       ) {
         issue(
           issues,
@@ -1122,7 +1125,6 @@ export function validateProductEditorDocument(
     validateMedia(
       input.media,
       productId,
-      productSlug,
       routineGroup,
       variantIds,
       issues,

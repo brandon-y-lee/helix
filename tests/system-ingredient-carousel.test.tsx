@@ -20,7 +20,7 @@ const cards: IngredientIndexCard[] = [
     mechanism: "Conditions within water-based formulas.",
     skinRelevance: "Supports a replenished-looking finish.",
     formulationNote: "This must not be rendered.",
-    products: [{ slug: "peptide-bounce", displayName: "Peptide Bounce" }],
+    products: [{ slug: "super-serum", displayName: "Super Serum" }],
   },
   {
     id: "niacinamide",
@@ -29,7 +29,7 @@ const cards: IngredientIndexCard[] = [
     ingredientClass: "Vitamin derivative",
     mechanism: "Supports barrier and tone appearance.",
     skinRelevance: "Provides broad cosmetic conditioning.",
-    products: [{ slug: "peptide-bounce", displayName: "Peptide Bounce" }],
+    products: [{ slug: "super-serum", displayName: "Super Serum" }],
   },
 ];
 
@@ -85,16 +85,16 @@ describe("SystemIngredientCarousel", () => {
     ).toBeInTheDocument();
 
     const panel = screen.getByRole("tabpanel", { name: /PDRN/i });
-    expect(panel).toHaveClass("method-selection-panel");
+    expect(panel).toHaveClass("system-selection-panel");
     expect(panel).toHaveClass("ingredient-carousel__panel");
     expect(panel).toHaveAttribute("id", "system-ingredient-pdrn");
     expect(panel).toHaveTextContent("Purified DNA fragments.");
     expect(panel).toHaveTextContent("Conditions within water-based formulas.");
     expect(panel).toHaveTextContent("Supports a replenished-looking finish.");
     expect(panel).not.toHaveTextContent("This must not be rendered.");
-    expect(within(panel).getByRole("link", { name: /Peptide Bounce/i })).toHaveAttribute(
+    expect(within(panel).getByRole("link", { name: /Super Serum/i })).toHaveAttribute(
       "href",
-      "/products/peptide-bounce",
+      "/products/super-serum",
     );
   });
 
@@ -302,5 +302,91 @@ describe("SystemIngredientCarousel", () => {
 
     expect(() => render(<SystemIngredientCarousel cards={cards} />)).not.toThrow();
     expect(screen.getAllByRole("tab")[0]).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("reveals and centers a changed ingredient hash without stealing focus", () => {
+    const { container } = render(<SystemIngredientCarousel cards={cards} />);
+    const tabs = screen.getAllByRole("tab");
+    tabs[0].focus();
+
+    window.history.replaceState(null, "", "/system#system-ingredient-niacinamide");
+    fireEvent(window, new HashChangeEvent("hashchange"));
+
+    expect(tabs[1]).toHaveAttribute("aria-selected", "true");
+    expect(container.querySelector(".ingredient-carousel")).toHaveAttribute(
+      "data-centered-ingredient", "niacinamide",
+    );
+    expect(screen.getByRole("tabpanel", { name: /Niacinamide/i })).toBeVisible();
+    expect(document.getElementById("system-ingredient-pdrn")).toHaveAttribute("inert");
+    expect(tabs[0]).toHaveFocus();
+
+    for (const hash of ["method-ingredients", "system-ingredient-unknown", "%E0%A4%A"]) {
+      window.history.replaceState(null, "", `/system#${hash}`);
+      fireEvent(window, new HashChangeEvent("hashchange"));
+      expect(tabs[1]).toHaveAttribute("aria-selected", "true");
+    }
+  });
+
+  it("scrolls only the current disclosed ingredient and cancels obsolete navigation", () => {
+    const frames = new Map<number, FrameRequestCallback>();
+    let frameId = 0;
+    const requestFrame = vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      frames.set(++frameId, callback);
+      return frameId;
+    });
+    const cancelFrame = vi.spyOn(window, "cancelAnimationFrame").mockImplementation((id) => {
+      frames.delete(id);
+    });
+    const runFrames = () => act(() => {
+      const callbacks = [...frames.values()];
+      frames.clear();
+      callbacks.forEach((callback) => callback(0));
+    });
+    const navigate = (hash: string) => {
+      window.history.replaceState(null, "", `/system#${hash}`);
+      fireEvent(window, new HashChangeEvent("hashchange"));
+    };
+
+    try {
+      const { unmount } = render(<SystemIngredientCarousel cards={cards} />);
+      const pdrn = document.getElementById("system-ingredient-pdrn")!;
+      const niacinamide = document.getElementById("system-ingredient-niacinamide")!;
+      const scrollPdrn = vi.fn();
+      const scrollNiacinamide = vi.fn(() => expect(niacinamide).toBeVisible());
+      pdrn.scrollIntoView = scrollPdrn;
+      niacinamide.scrollIntoView = scrollNiacinamide;
+
+      navigate("system-ingredient-niacinamide");
+      expect(scrollNiacinamide).not.toHaveBeenCalled();
+      runFrames();
+      expect(scrollNiacinamide).toHaveBeenCalledWith({ block: "start" });
+
+      navigate("system-ingredient-pdrn");
+      navigate("system-ingredient-unknown");
+      runFrames();
+      expect(scrollPdrn).not.toHaveBeenCalled();
+
+      navigate("system-ingredient-pdrn");
+      unmount();
+      runFrames();
+      expect(scrollPdrn).not.toHaveBeenCalled();
+    } finally {
+      requestFrame.mockRestore();
+      cancelFrame.mockRestore();
+    }
+  });
+
+  it("recenters the selected ingredient when its hash follows carousel browsing", () => {
+    const { container } = render(<SystemIngredientCarousel cards={cards} />);
+    fireEvent.click(screen.getByRole("button", { name: "Next ingredient" }));
+    const carousel = container.querySelector(".ingredient-carousel");
+    expect(carousel).toHaveAttribute("data-centered-ingredient", "niacinamide");
+    expect(screen.getAllByRole("tab")[0]).toHaveAttribute("aria-selected", "true");
+
+    window.history.replaceState(null, "", "/system#system-ingredient-pdrn");
+    fireEvent(window, new HashChangeEvent("hashchange"));
+
+    expect(carousel).toHaveAttribute("data-centered-ingredient", "pdrn");
+    expect(screen.getByRole("tabpanel", { name: /PDRN/i })).toBeVisible();
   });
 });

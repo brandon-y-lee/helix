@@ -1,5 +1,5 @@
 import type { ComponentProps } from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import CatalogEditor from "@/components/admin/catalog-editor/CatalogEditor";
@@ -75,6 +75,31 @@ function toggleDisclosure(container: HTMLElement, id: string) {
 }
 
 describe("CatalogEditor sections", () => {
+  it("lets an editor add missing PDP content without inventing reviewed instructions", () => {
+    const missing = structuredClone(catalogDocument);
+    missing.productPdpContent = null;
+    const onChange = vi.fn();
+    render(<SectionsHarness initialDocument={missing} role="catalog_editor" onChange={onChange} />);
+    fireEvent.click(screen.getByRole("button", { name: "Add PDP content for review" }));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
+      productPdpContent: expect.objectContaining({
+        product_id: catalogDocument.productId,
+        schema_version: 1,
+        how_to_use_steps: null,
+      }),
+    }));
+  });
+
+  it("lets an editor explicitly confirm that no How to Use section is intended", () => {
+    const missing = structuredClone(catalogDocument);
+    missing.productPdpContent!.how_to_use_steps = null;
+    const onChange = vi.fn();
+    render(<SectionsHarness initialDocument={missing} onChange={onChange} />);
+    fireEvent.click(screen.getByRole("button", { name: "Confirm no How to Use section" }));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
+      productPdpContent: expect.objectContaining({ how_to_use_steps: [] }),
+    }));
+  });
   beforeEach(() => {
     vi.mocked(catalogEditorApi.getEditor).mockReset();
     vi.mocked(catalogEditorApi.getEditor).mockResolvedValue(editorResponse());
@@ -189,20 +214,20 @@ describe("CatalogEditor sections", () => {
     );
   }, 10_000);
 
-  it("warns an administrator that a slug edit creates a permanent redirect", () => {
+  it("warns an administrator that a slug edit retires the old public URL", () => {
     const onChange = vi.fn();
     const { container } = render(<SectionsHarness onChange={onChange} />);
 
     toggleDisclosure(container, "section-products");
     toggleDisclosure(container, "group-products-advanced");
     expect(screen.getByLabelText("Slug")).toBeEnabled();
-    expect(screen.getByText(/old public URL will permanently redirect/i)).toBeVisible();
+    expect(screen.getByText(/old public URL will become unavailable/i)).toBeVisible();
     fireEvent.change(screen.getByLabelText("Slug"), {
-      target: { value: "biotic-reset" },
+      target: { value: "reviewed-cleanser" },
     });
     expect(onChange).toHaveBeenLastCalledWith(
       expect.objectContaining({
-        product: expect.objectContaining({ slug: "biotic-reset" }),
+        product: expect.objectContaining({ slug: "reviewed-cleanser" }),
       }),
     );
   });
@@ -230,7 +255,7 @@ describe("CatalogEditor sections", () => {
     expect(screen.getByText("rename")).toBeVisible();
     expect(screen.getAllByText("Read only").length).toBeGreaterThan(0);
     expect(
-      screen.getByText(/redirect history is append-only/i),
+      screen.getByText(/Reserved URLs and replacement provenance cannot be deleted/i),
     ).toBeVisible();
   });
 
@@ -357,7 +382,10 @@ describe("CatalogEditor sections", () => {
       affected_tables: [],
       draft: { ...catalogDraft, version: 6, document: duplicateDocument },
     });
-    const { container } = render(<CatalogEditor productId="product-cleanse" />);
+    // Flush the mocked load and its effects before dispatching an editor command.
+    const { container } = await act(async () =>
+      render(<CatalogEditor productId="product-cleanse" />),
+    );
     await screen.findByRole("heading", { name: "CLEANSE" });
 
     fireEvent.click(screen.getByRole("button", { name: "Validate" }));

@@ -287,7 +287,7 @@ describe("admin shell navigation", () => {
   });
 
   it("leaves product detail pages outside the viewport frame", () => {
-    pathname = "/products/treat-03-pdrn-5-ampoule";
+    pathname = "/products/super-serum";
     render(
       <ApplicationChrome>
         <div>Product detail content</div>

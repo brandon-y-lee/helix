@@ -8,6 +8,7 @@ import {
 import { createSupabaseStorefrontCatalogAdapter } from "@/test-support/supabase-storefront-catalog";
 import { reconcileStorefrontSnapshot } from "@/test-support/storefront-reconciliation";
 import { writeStorefrontSnapshot } from "@/test-support/storefront-snapshot-artifact";
+import { verifyColdCanonicalProduct } from "@/test-support/storefront-cold-canonical";
 
 const CATALOG_READ_TIMEOUT_MS = 10_000;
 
@@ -91,6 +92,13 @@ export default async function globalSetup(
   }
 
   try {
+    // This must precede reconciliation, which requests collection and PDP routes.
+    const coldPathArtifact = await verifyColdCanonicalProduct(snapshot, {
+      baseURL: sharedBaseURL(config),
+      buildDirectory: resolve(process.cwd(), ".next"),
+      outputDirectory: sharedOutputDirectory(config),
+    });
+    console.log(`e2e global-setup: wrote ${coldPathArtifact}.`);
     await reconcileStorefrontSnapshot(snapshot, {
       baseURL: sharedBaseURL(config),
     });

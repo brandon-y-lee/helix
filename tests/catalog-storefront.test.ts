@@ -8,11 +8,11 @@ vi.mock("@/lib/supabase", () => ({
 import {
   getCoreRoutineContentSummaries,
   getDiscoveryProductCardContents,
+  getIngredientIndexProducts,
   getPdpProductContent,
   getProductCardContents,
   getProductMetadata,
   getProductOffer,
-  getProductSlugResolution,
 } from "@/lib/catalog/storefront";
 
 const mockedGetClient = getSupabaseClient as unknown as Mock;
@@ -84,8 +84,8 @@ function media(role: string, sortOrder = 0) {
 function productRow(overrides: Record<string, unknown> = {}) {
   const row = {
     id: "product-id",
-    slug: "treat-03-pdrn-5-ampoule",
-    display_name: "TREAT",
+    slug: "super-serum",
+    display_name: "Super Serum",
     routine_group: "core",
     system_step_name: "TREAT",
     routine_sort: 20,
@@ -110,7 +110,7 @@ function productRow(overrides: Record<string, unknown> = {}) {
     volume: "30 mL",
     skin_types: ["All skin types"],
     usage_time: ["Morning", "Night"],
-    seo_title: "TREAT PDRN Ampoule | helix",
+    seo_title: "Super Serum | helix",
     seo_description: "A lightweight daily ampoule.",
     product_variants: [variant],
     product_pdp_content: {
@@ -153,35 +153,23 @@ beforeEach(() => {
 });
 
 describe("storefront catalog projections", () => {
-  it("maps the public slug resolver result without following a route chain in application code", async () => {
-    const calls: Call[] = [];
-    mockedGetClient.mockReturnValue({
-      rpc: (...args: unknown[]) => {
-        calls.push({ method: "rpc", args });
-        return Promise.resolve({
-          data: [
-            {
-              source_slug: "legacy-product",
-              target_slug: "canonical-product",
-              target_product_id: "product-id",
-              route_kind: "replacement",
-            },
-          ],
-          error: null,
-        });
-      },
-    });
+  it.each([
+    ["cards", getProductCardContents],
+    ["ingredients", getIngredientIndexProducts],
+  ])("returns empty %s for a reachable empty active Catalog", async (_label, read) => {
+    const { client, calls } = makeClient({ data: [], error: null });
+    mockedGetClient.mockReturnValue(client);
+    await expect(read()).resolves.toEqual([]);
+    expect(calls).toContainEqual({ method: "eq", args: ["catalog_status", "active"] });
+  });
 
-    await expect(getProductSlugResolution("legacy-product")).resolves.toEqual({
-      sourceSlug: "legacy-product",
-      targetSlug: "canonical-product",
-      targetProductId: "product-id",
-      routeKind: "replacement",
-    });
-    expect(calls).toContainEqual({
-      method: "rpc",
-      args: ["resolve_product_slug", { p_source_slug: "legacy-product" }],
-    });
+  it.each([
+    ["cards", getProductCardContents],
+    ["ingredients", getIngredientIndexProducts],
+  ])("propagates a failed %s read instead of inventing Products", async (_label, read) => {
+    const { client } = makeClient({ data: null, error: { message: "Catalog unavailable" } });
+    mockedGetClient.mockReturnValue(client);
+    await expect(read()).rejects.toThrow("Catalog unavailable");
   });
 
   it("returns card-only data and filters embedded media to card roles", async () => {
@@ -194,8 +182,8 @@ describe("storefront catalog projections", () => {
     const [card] = await getProductCardContents();
 
     expect(card).toMatchObject({
-      slug: "treat-03-pdrn-5-ampoule",
-      displayName: "TREAT",
+      slug: "super-serum",
+      displayName: "Super Serum",
       productType: "Ampoule / Serum",
       systemStepName: "TREAT",
       systemStepPosition: 3,
@@ -215,6 +203,90 @@ describe("storefront catalog projections", () => {
         ["card_default", "card", "card_hover", "detail", "hero", "cart"],
       ],
     });
+  });
+
+  it.each([
+    {
+      name: "dedicated roles take priority over earlier general images",
+      items: [
+        media("hero", 0),
+        media("card", 1),
+        media("detail", 2),
+        media("card_default", 3),
+        media("card_hover", 4),
+        media("cart", 5),
+      ],
+      expected: { card: "card_default", hover: "card_hover", detail: "detail", cart: "cart" },
+    },
+    {
+      name: "card images also serve hover, detail, and cart",
+      items: [media("card")],
+      expected: { card: "card", hover: "card", detail: "card", cart: "card" },
+    },
+    {
+      name: "detail precedes hero when card roles are absent",
+      items: [media("hero", 0), media("detail", 1)],
+      expected: { card: "detail", hover: "detail", detail: "detail", cart: "detail" },
+    },
+    {
+      name: "hero serves missing card and detail roles",
+      items: [media("hero")],
+      expected: { card: "hero", hover: "hero", detail: "hero", cart: "hero" },
+    },
+    {
+      name: "hover, cart, and editorial images do not replace primary images",
+      items: [media("card_hover"), media("cart"), media("gallery"), media("core_routine_editorial")],
+      expected: { card: null, hover: "card_hover", detail: null, cart: "cart" },
+    },
+    {
+      name: "missing media stays empty",
+      items: [],
+      expected: { card: null, hover: null, detail: null, cart: null },
+    },
+    {
+      name: "videos cannot replace still presentation media",
+      items: [
+        ...["card_default", "card", "card_hover", "detail", "cart"].map((role) => ({
+          ...media(role),
+          media_type: "video",
+        })),
+        media("hero", 1),
+      ],
+      expected: { card: "hero", hover: "hero", detail: "hero", cart: "hero" },
+    },
+  ])("preserves shared presentation across cards, PDPs, and Core: $name", async ({ items, expected }) => {
+    const row = productRow({ product_media: items });
+    mockedGetClient
+      .mockReturnValueOnce(makeClient({ data: [row], error: null }).client)
+      .mockReturnValueOnce(makeClient({ data: row, error: null }).client)
+      .mockReturnValueOnce(makeClient({
+        data: ["CLEANSE", "TREAT", "SEAL"].map((step, index) => productRow({
+          id: `product-${index}`,
+          system_step_name: step,
+          product_media: [...items, media("core_routine_texture", 20)],
+        })),
+        error: null,
+      }).client);
+
+    const [card] = await getProductCardContents();
+    const pdp = await getPdpProductContent("super-serum");
+    const core = await getCoreRoutineContentSummaries();
+
+    expect({
+      card: card.cardMedia?.role ?? null,
+      hover: card.cardHoverMedia?.role ?? null,
+      cart: card.cartMedia?.role ?? null,
+    }).toEqual({ card: expected.card, hover: expected.hover, cart: expected.cart });
+    expect({
+      card: pdp?.cardMedia?.role ?? null,
+      detail: pdp?.detailMedia?.role ?? null,
+      cart: pdp?.cartMedia?.role ?? null,
+    }).toEqual({ card: expected.card, detail: expected.detail, cart: expected.cart });
+    for (const product of core) {
+      expect(product.cardMedia?.role ?? null).toBe(expected.card);
+      expect(product.cartMedia?.role ?? null).toBe(expected.cart);
+      expect(product.textureMedia.role).toBe("core_routine_texture");
+    }
   });
 
   it("collapses Product Families to their entry Product in card projections", async () => {
@@ -254,24 +326,24 @@ describe("storefront catalog projections", () => {
     const { client, calls } = makeClient({
       data: [
         productRow({ slug: "ceramide-cushion", display_name: "Ceramide Cushion", system_step_name: "SEAL", routine_sort: 30 }),
-        productRow({ slug: "cleanse-01-calming-gel-cleanser", display_name: "CLEANSE", system_step_name: "CLEANSE", routine_sort: 10 }),
+        productRow({ slug: "biotic-reset", display_name: "Biotic Reset", system_step_name: "CLEANSE", routine_sort: 10 }),
       ],
       error: null,
     });
     mockedGetClient.mockReturnValue(client);
 
     const cards = await getDiscoveryProductCardContents(
-      "treat-03-pdrn-5-ampoule",
+      "super-serum",
     );
 
     expect(cards.map((card) => card.displayName)).toEqual([
-      "CLEANSE",
+      "Biotic Reset",
       "Ceramide Cushion",
     ]);
     expect(cards.every((card) => !("description" in card))).toBe(true);
     expect(calls).toContainEqual({
       method: "neq",
-      args: ["slug", "treat-03-pdrn-5-ampoule"],
+      args: ["slug", "super-serum"],
     });
     expect(calls).not.toContainEqual({ method: "limit", args: [3] });
   });
@@ -285,7 +357,7 @@ describe("storefront catalog projections", () => {
           product_family_memberships: { family_id: "family-1", is_entry: false },
         }),
         productRow({ slug: "biotic-reset", display_name: "Biotic Reset", routine_sort: 10 }),
-        productRow({ slug: "peptide-bounce", display_name: "Peptide Bounce", routine_sort: 20 }),
+        productRow({ slug: "super-serum", display_name: "Super Serum", routine_sort: 20 }),
         productRow({ slug: "ceramide-cushion", display_name: "Ceramide Cushion", routine_sort: 30 }),
       ],
       error: null,
@@ -296,7 +368,7 @@ describe("storefront catalog projections", () => {
 
     expect(cards.map((card) => card.slug)).toEqual([
       "biotic-reset",
-      "peptide-bounce",
+      "super-serum",
       "ceramide-cushion",
     ]);
   });
@@ -306,11 +378,11 @@ describe("storefront catalog projections", () => {
     mockedGetClient.mockReturnValue(client);
 
     const product = await getPdpProductContent(
-      "treat-03-pdrn-5-ampoule",
+      "super-serum",
     );
 
     expect(product).toMatchObject({
-      displayName: "TREAT",
+      displayName: "Super Serum",
       description: "Approved editorial description.",
       howToUse: "Apply after CLEANSE.",
       keyIngredients: ["PDRN", "Niacinamide"],
@@ -397,14 +469,14 @@ describe("storefront catalog projections", () => {
   it("queries the active CLEANSE, TREAT, and SEAL identities for the ordered Core summaries", async () => {
     const activeCoreSlugs = [
       "biotic-reset",
-      "peptide-bounce",
+      "super-serum",
       "ceramide-cushion",
     ];
     const rows = activeCoreSlugs.map((slug, index) =>
       productRow({
         id: `${index + 1}-id`,
         slug,
-        display_name: ["CLEANSE", "TREAT", "SEAL"][index],
+        display_name: ["Biotic Reset", "Super Serum", "Ceramide Cushion"][index],
         system_step_name: ["CLEANSE", "TREAT", "SEAL"][index],
         routine_sort: (index + 1) * 10,
         product_media: [
@@ -460,9 +532,9 @@ describe("storefront catalog projections", () => {
     mockedGetClient.mockReturnValue(client);
 
     await expect(
-      getProductOffer("treat-03-pdrn-5-ampoule"),
+      getProductOffer("super-serum"),
     ).resolves.toMatchObject({
-      slug: "treat-03-pdrn-5-ampoule",
+      slug: "super-serum",
       status: "available",
       variants: [{ id: "full-size", price: 2500 }],
     });
@@ -479,13 +551,13 @@ describe("storefront catalog projections", () => {
     mockedGetClient.mockReturnValue(client);
 
     await expect(
-      getProductMetadata("treat-03-pdrn-5-ampoule"),
+      getProductMetadata("super-serum"),
     ).resolves.toEqual({
-      slug: "treat-03-pdrn-5-ampoule",
-      displayName: "TREAT",
+      slug: "super-serum",
+      displayName: "Super Serum",
       productType: "Ampoule / Serum",
       editorialDescription: "Approved editorial description.",
-      seoTitle: "TREAT PDRN Ampoule | helix",
+      seoTitle: "Super Serum | helix",
       seoDescription: "A lightweight daily ampoule.",
     });
     const selection = String(

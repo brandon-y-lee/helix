@@ -3,22 +3,24 @@ import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { FORMER_BRAND_PATTERN } from "@/tests/helpers/former-identifiers";
 
 vi.mock("@/lib/catalog-cache", () => ({
-  getCachedProducts: vi.fn(),
-  getCachedProductCardEntryIds: vi.fn(),
+  getCachedProductCards: vi.fn(),
+  getCachedIngredientIndexProducts: vi.fn(),
 }));
 
 import AboutPage from "@/app/about/page";
 import SystemPage from "@/app/system/page";
 import {
-  getCachedProductCardEntryIds,
-  getCachedProducts,
+  getCachedIngredientIndexProducts,
+  getCachedProductCards,
 } from "@/lib/catalog-cache";
 import { buildIngredientIndex } from "@/lib/content/system";
 import type { SystemStepName } from "@/lib/catalog/system-steps";
-import type { Product } from "@/lib/products";
+import type { IngredientIndexProduct, ProductCard } from "@/lib/catalog/models";
 
-const mockedGetProducts = getCachedProducts as unknown as Mock;
-const mockedGetProductCards = getCachedProductCardEntryIds as unknown as Mock;
+type SystemFixture = ProductCard & IngredientIndexProduct;
+
+const mockedGetProducts = getCachedProductCards as unknown as Mock;
+const mockedGetIngredients = getCachedIngredientIndexProducts as unknown as Mock;
 
 const productDetails: Record<
   string,
@@ -34,8 +36,8 @@ const productDetails: Record<
     step: "REFINE",
     ingredients: ["Panthenol", "Hyaluronic Acid"],
   },
-  "peptide-bounce": {
-    name: "Peptide Bounce",
+  "super-serum": {
+    name: "Super Serum",
     step: "TREAT",
     ingredients: ["Sodium DNA (50,000 ppm)", "Niacinamide", "Copper Tripeptide-1"],
   },
@@ -71,7 +73,7 @@ const stepPosition: Record<SystemStepName, number> = {
   LIFT: 7,
 };
 
-function makeProduct(slug: string, overrides: Partial<Product> = {}): Product {
+function makeProduct(slug: string, overrides: Partial<SystemFixture> = {}): SystemFixture {
   const details = productDetails[slug];
   const position = stepPosition[details.step];
   const isCore = ["CLEANSE", "TREAT", "SEAL"].includes(details.step);
@@ -84,52 +86,33 @@ function makeProduct(slug: string, overrides: Partial<Product> = {}): Product {
     systemStepName: details.step,
     systemStepPosition: position,
     routineSort: position * 10,
-    badge: null,
-    currency: "USD",
     sortOrder: position,
-    description: "A catalog-authored product description.",
-    benefits: [],
-    howToUse: "Use as directed.",
     formulaNotes: [],
     variants: [
       {
+        productId: `${slug}-id`,
+        productSlug: slug,
+        productStatus: details.step === "PROTECT" ? "waitlist" : "available",
         id: `${slug}-default`,
         label: "Default",
         price: 2200,
-        compareAtPrice: null,
-        sku: null,
         available: details.step !== "PROTECT",
         inventoryStatus: details.step === "PROTECT" ? "unavailable" : "in_stock",
         volume: "50 mL",
         packCount: null,
-        optionValues: { size: "50 mL" },
         sortOrder: 0,
       },
     ],
     swatch: ["#dce8df", "#7e9285"],
-    media: [],
+    productFamily: null,
     cardMedia: null,
     cardHoverMedia: null,
-    heroMedia: null,
-    detailMedia: null,
     cartMedia: null,
-    searchMedia: null,
     status: details.step === "PROTECT" ? "waitlist" : "available",
-    catalogStatus: "active",
-    madeFor: "All skin types",
-    goodFor: "Routine",
-    texture: "Light",
     keyIngredients: details.ingredients,
     ingredients: details.ingredients.join(", ") || null,
-    cautions: [],
-    finish: null,
     volume: "50 mL",
-    skinTypes: [],
-    concerns: [],
     usageTime: details.step === "LIFT" ? ["Weekly", "PM"] : ["AM", "PM"],
-    seoTitle: null,
-    seoDescription: null,
-    searchKeywords: [],
     createdAt: "2026-06-14T00:00:00.000Z",
     ...overrides,
   };
@@ -152,10 +135,8 @@ const FORBIDDEN_ABOUT_PATTERNS = [
 beforeEach(() => {
   mockedGetProducts.mockReset();
   mockedGetProducts.mockResolvedValue(systemFixtures);
-  mockedGetProductCards.mockReset();
-  mockedGetProductCards.mockResolvedValue(
-    systemFixtures.map((product) => ({ id: product.id })),
-  );
+  mockedGetIngredients.mockReset();
+  mockedGetIngredients.mockResolvedValue(systemFixtures);
 });
 
 describe("System content architecture", () => {
@@ -168,7 +149,7 @@ describe("System content architecture", () => {
         name: "a new philosophy on male skincare",
       }),
     ).toBeInTheDocument();
-    const hero = document.querySelector(".method-hero") as HTMLElement;
+    const hero = document.querySelector(".system-hero") as HTMLElement;
     const heroImage = hero.querySelector("img");
     expect(heroImage).toHaveAttribute("alt", "");
     expect(heroImage?.getAttribute("src")).toContain(
@@ -189,7 +170,6 @@ describe("System content architecture", () => {
     ).toBeInTheDocument();
     expect(core).not.toHaveTextContent("The essential baseline");
     expect(within(core).getAllByRole("tab")).toHaveLength(3);
-    expect(document.querySelector(".method-index")).not.toBeInTheDocument();
     expect(core.querySelector('[data-helix-identity="symbol"]')).toHaveAttribute(
       "aria-hidden",
       "true",
@@ -239,7 +219,7 @@ describe("System content architecture", () => {
     expect(document.body.textContent ?? "").not.toMatch(FORMER_BRAND_PATTERN);
   });
 
-  it("numbers only the three-step Core and preserves legacy anchors", async () => {
+  it("numbers only the three-step Core and exposes only current System anchors", async () => {
     render(await SystemPage());
 
     const core = document.getElementById("system-core");
@@ -249,17 +229,22 @@ describe("System content architecture", () => {
         .getAllByRole("tab")
         .map((tab) => tab.getAttribute("data-display-number")),
     ).toEqual(["01", "02", "03"]);
-    expect(document.getElementById("system-routine")).toBeInTheDocument();
-    expect(document.getElementById("method-routine")).toBeInTheDocument();
-    expect(document.getElementById("step-reset")).toBeInTheDocument();
-    expect(document.getElementById("method-lift")).toBeInTheDocument();
+    for (const id of [
+      "system-overview", "system-core", "system-cleanse", "system-treat",
+      "system-seal", "system-refine", "system-frame", "system-protect",
+      "system-lift", "system-beyond", "system-ingredients",
+    ]) {
+      expect(document.querySelectorAll(`[id="${id}"]`)).toHaveLength(1);
+    }
+    expect(document.querySelector('[id="system-routine"], [id^="method-"], [id^="step-"]'))
+      .not.toBeInTheDocument();
   });
 
   it("places the intentional-skincare split between Core and Beyond", async () => {
     render(await SystemPage());
 
     const core = document.getElementById("system-core") as HTMLElement;
-    const split = document.querySelector(".method-intentional") as HTMLElement;
+    const split = document.querySelector(".system-intentional") as HTMLElement;
     const beyond = document.getElementById("system-beyond") as HTMLElement;
     expect(
       within(split).getByRole("heading", {
@@ -275,8 +260,7 @@ describe("System content architecture", () => {
     );
     expect(portrait).toBeInTheDocument();
     expect(portrait).toHaveAttribute("alt", "");
-    expect(split.querySelector(".editorial-hue-field--method")).not.toBeInTheDocument();
-    expect(split.querySelector(".method-intentional__visual")).toHaveAttribute(
+    expect(split.querySelector(".system-intentional__visual")).toHaveAttribute(
       "data-scroll-zoom-mode",
     );
     expect(
@@ -284,7 +268,7 @@ describe("System content architecture", () => {
         level: 2,
         name: "intentional skincare",
       }),
-    ).toHaveClass("method-intentional__heading");
+    ).toHaveClass("system-intentional__heading");
     expect(
       core.compareDocumentPosition(split) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
@@ -306,7 +290,7 @@ describe("System content architecture", () => {
       "/products/mineral-guard",
     );
     expect(within(protect).getByRole("link", { name: /view mineral guard/i })).toHaveClass(
-      "method-beyond-card__link",
+      "system-beyond-card__link",
     );
     expect(protect).not.toHaveTextContent(/formula focus|in development|UV filters/i);
   });
@@ -316,7 +300,6 @@ describe("System content architecture", () => {
       (product) => product.slug !== "peptide-nourish-mask",
     );
     mockedGetProducts.mockResolvedValue(available);
-    mockedGetProductCards.mockResolvedValue(available.map((product) => ({ id: product.id })));
 
     render(await SystemPage());
 
@@ -326,7 +309,8 @@ describe("System content architecture", () => {
     expect(
       screen.getByText("No collection-facing Beyond entry is available for this step."),
     ).toBeInTheDocument();
-    expect(document.getElementById("step-lift")).toBeInTheDocument();
+    expect(document.getElementById("system-lift")).toBeInTheDocument();
+    expect(document.getElementById("step-lift")).not.toBeInTheDocument();
   });
 
   it("keeps a missing Core step selectable without inventing a PDP", async () => {
@@ -334,9 +318,6 @@ describe("System content architecture", () => {
       (product) => product.slug !== "biotic-reset",
     );
     mockedGetProducts.mockResolvedValue(products);
-    mockedGetProductCards.mockResolvedValue(
-      products.map((product) => ({ id: product.id })),
-    );
 
     render(await SystemPage());
 
@@ -347,6 +328,16 @@ describe("System content architecture", () => {
     expect(cleanse).toHaveTextContent("Step unavailable.");
     expect(cleanse).toHaveTextContent("No product is listed.");
     expect(within(cleanse).queryByRole("link")).not.toBeInTheDocument();
+  });
+
+  it("limits ingredient links to selected Products in Core-then-Beyond order", async () => {
+    const extra = { ...makeProduct("balancing-prep"), slug: "unselected-prep", displayName: "Unselected Prep" };
+    mockedGetIngredients.mockResolvedValue([extra, ...systemFixtures]);
+    render(await SystemPage());
+    const panel = document.getElementById("system-ingredient-panthenol") as HTMLElement;
+    expect(Array.from(panel.querySelectorAll('a[href^="/products/"]')).map((link) => link.textContent))
+      .toEqual(["Ceramide Cushion", "Balancing Prep"]);
+    expect(document.getElementById("system-ingredients")).not.toHaveTextContent("Unselected Prep");
   });
 
   it("keeps ingredient science fields and claim-safety boundaries catalog-derived", () => {

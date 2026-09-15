@@ -14,7 +14,6 @@ import {
   CatalogPreviewProjectionError,
   projectCatalogDraftPreview,
 } from "@/lib/catalog-editor/preview-projection";
-import { getProductReviews } from "@/lib/catalog/product-reviews";
 
 const CATALOG_DRAFT_ID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -268,7 +267,6 @@ export default async function CatalogDraftPreviewPage({
       document={record.document}
       preview={preview}
       previewKey={`${record.id}:${record.version}`}
-      reviews={getProductReviews(base.product.slug)}
       toolbar={toolbar(base.product.slug)}
     />
   );

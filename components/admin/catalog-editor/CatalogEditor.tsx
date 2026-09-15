@@ -198,6 +198,9 @@ export default function CatalogEditor({
     }
     return { from: slugDiff.before, to: slugDiff.after };
   }, [documentSlugChange, validation]);
+  const slugChangeMessage = slugChange
+    ? `/products/${slugChange.from} will become unavailable. The current Product URL will be /products/${slugChange.to}. The old URL stays reserved in private Product history.`
+    : null;
 
   const revealTarget = useCallback((selector: string, focus = true) => {
     const target = window.document.querySelector<HTMLElement>(selector);
@@ -661,12 +664,8 @@ export default function CatalogEditor({
 
           {slugChange ? (
             <section className={styles.notice} role="status">
-              <h2>Permanent Product URL redirect</h2>
-              <p>
-                /products/{slugChange.from} will permanently redirect to
-                {" "}/products/{slugChange.to}. The old public URL remains in
-                redirect history and cannot be silently deleted.
-              </p>
+              <h2>Product URL change</h2>
+              <p>{slugChangeMessage}</p>
             </section>
           ) : null}
 
@@ -763,11 +762,7 @@ export default function CatalogEditor({
                 {validation.affected_tables.join(", ")}.
               </p>
               {slugChange ? (
-                <p>
-                  /products/{slugChange.from} will permanently redirect to
-                  {" "}/products/{slugChange.to}. The old public URL remains in
-                  redirect history and cannot be silently deleted.
-                </p>
+                <p>{slugChangeMessage}</p>
               ) : null}
               {validation.affected_tables.map((table) => (
                 <div className={styles.diffGroup} key={table}>
@@ -913,6 +908,11 @@ export default function CatalogEditor({
           {revisions ? (
             <section className={styles.notice}>
               <h2>Revision history</h2>
+              <p>
+                Restoring creates a draft. The current product name, address,
+                search title, search description, and search keywords are kept.
+                Review the remaining content before publishing.
+              </p>
               {revisions.length === 0 ? (
                 <p>No revisions are available.</p>
               ) : (
@@ -935,9 +935,9 @@ export default function CatalogEditor({
                             setDocument(response.draft.document);
                             setSavedDocument(response.draft.document);
                             setValidation(null);
-                            setIssues([]);
+                            setIssues(response.issues);
                             setStatus(
-                              `Revision ${revision.revision_number} restored as draft version ${response.draft.version}.`,
+                              `Revision ${revision.revision_number} restored as draft version ${response.draft.version}. The current product name, address, search title, search description, and search keywords were kept. Review the remaining content before publishing.`,
                             );
                           })
                         }

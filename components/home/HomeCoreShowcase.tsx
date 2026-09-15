@@ -13,8 +13,6 @@ import type { ProductCard } from "@/lib/catalog/models";
 const CORE_DESCRIPTION_KEY_BY_SLUG = {
   "biotic-reset": "cleanse",
   "super-serum": "treat",
-  "maxxing-serum": "treat",
-  "peptide-bounce": "treat",
   "ceramide-cushion": "seal",
 } as const satisfies Readonly<Record<string, HomeCoreDescriptionKey>>;
 

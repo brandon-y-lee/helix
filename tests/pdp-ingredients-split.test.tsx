@@ -145,8 +145,8 @@ describe("PdpIngredientsSplit", () => {
     const user = userEvent.setup();
     render(
       <PdpIngredientsSplit
-        productSlug="treat-03-pdrn-5-ampoule"
-        productName="TREAT"
+        productSlug="super-serum"
+        productName="Super Serum"
         story={story}
         media={media}
         swatch={["#d9e2dc", "#81998d"]}
@@ -187,8 +187,8 @@ describe("PdpIngredientsSplit", () => {
     const user = userEvent.setup();
     render(
       <PdpIngredientsSplit
-        productSlug="treat-03-pdrn-5-ampoule"
-        productName="TREAT"
+        productSlug="super-serum"
+        productName="Super Serum"
         story={story}
         media={media}
         swatch={["#d9e2dc", "#81998d"]}
@@ -241,7 +241,7 @@ describe("PdpIngredientsSplit", () => {
   it.each(["default", "mobile-pilot"] as const)("omits an unverified disclosure and reports missing texture media honestly (%s)", (pdpPresentation) => {
     render(
       <PdpIngredientsSplit
-        productSlug="cleanse-01-calming-gel-cleanser"
+        productSlug="biotic-reset"
         productName="CLEANSE"
         story={story}
         media={null}
@@ -265,8 +265,8 @@ describe("PdpIngredientsSplit", () => {
   it.each(["default", "mobile-pilot"] as const)("replaces a failed texture image without changing ingredient controls (%s)", (pdpPresentation) => {
     render(
       <PdpIngredientsSplit
-        productSlug="treat-03-pdrn-5-ampoule"
-        productName="TREAT"
+        productSlug="super-serum"
+        productName="Super Serum"
         story={story}
         media={media}
         swatch={["#d9e2dc", "#81998d"]}

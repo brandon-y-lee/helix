@@ -16,8 +16,6 @@ import {
   PRODUCT_CONTENT_COLLECTION_CACHE_TAG,
   PRODUCT_OFFER_COLLECTION_CACHE_TAG,
   PRODUCT_FAMILY_CACHE_TAG,
-  PRODUCT_SLUG_ROUTE_COLLECTION_CACHE_TAG,
-  productSlugRouteCacheTag,
 } from "@/lib/catalog-cache";
 import { SHOP_COLLECTION_PATHS } from "@/lib/catalog/collection-routes";
 
@@ -43,6 +41,10 @@ const PRODUCT_CARD_SHARED_FIELDS = new Set([
   "slug",
   "display_name",
   "product_type",
+  "routine_sort",
+  "volume",
+  "usage_time",
+  "created_at",
   "system_step_name",
   "swatch_from",
   "swatch_to",
@@ -76,8 +78,13 @@ const CARD_MEDIA_ROLES = new Set([
   "card",
   "card_default",
   "card_hover",
-  "search",
+  "detail",
+  "hero",
+  "cart",
 ]);
+// Card and content readers overlap: card/default/detail/hero/cart all appear
+// in PDP content too. Only these roles are excluded from content readers.
+const CONTENT_EXCLUDED_MEDIA_ROLES = new Set(["card_hover", "search"]);
 
 function asText(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value : undefined;
@@ -138,7 +145,10 @@ function mediaAffectsContent(payload: CatalogWebhookPayload): boolean {
   const roles = [payload.record?.role, payload.old_record?.role].filter(
     (role): role is string => typeof role === "string",
   );
-  return roles.length === 0 || roles.some((role) => !CARD_MEDIA_ROLES.has(role));
+  return (
+    roles.length === 0 ||
+    roles.some((role) => !CONTENT_EXCLUDED_MEDIA_ROLES.has(role))
+  );
 }
 
 export function getCatalogInvalidationTargets(
@@ -169,7 +179,6 @@ export function getCatalogInvalidationTargets(
   let invalidateMembership = false;
   let invalidateDiscovery = false;
   let invalidateCollection = false;
-  let invalidateSlugRoutes = false;
   let invalidateFamily = false;
 
   if (payload.table === "product_variants") {
@@ -179,8 +188,6 @@ export function getCatalogInvalidationTargets(
     invalidateContent = mediaAffectsContent(payload);
   } else if (payload.table === "product_pdp_content") {
     invalidateContent = true;
-  } else if (payload.table === "product_slug_routes") {
-    invalidateSlugRoutes = true;
   } else if (
     payload.table === "product_families" ||
     payload.table === "product_family_memberships"
@@ -198,6 +205,7 @@ export function getCatalogInvalidationTargets(
 
     invalidateOffer =
       broadProductChange ||
+      changedFields.has("slug") ||
       includesAny(changedFields, PRODUCT_OFFER_FIELDS);
     invalidateCard =
       broadProductChange ||
@@ -219,8 +227,6 @@ export function getCatalogInvalidationTargets(
           !PRODUCT_OFFER_FIELDS.has(field) &&
           !PRODUCT_CARD_ONLY_FIELDS.has(field),
       );
-    invalidateSlugRoutes =
-      broadProductChange || changedFields.has("slug");
     invalidateFamily =
       broadProductChange || includesAny(changedFields, PRODUCT_FAMILY_FIELDS);
   }
@@ -231,12 +237,7 @@ export function getCatalogInvalidationTargets(
     if (invalidateContent) tags.add(productContentCacheTag(productKey));
     if (invalidateOffer) tags.add(productOfferCacheTag(productKey));
     if (invalidateCard) tags.add(productCardCacheTag(productKey));
-    if (invalidateSlugRoutes) tags.add(productSlugRouteCacheTag(productKey));
     paths.add(`/products/${productKey}`);
-  }
-
-  if (invalidateSlugRoutes) {
-    tags.add(PRODUCT_SLUG_ROUTE_COLLECTION_CACHE_TAG);
   }
 
   if (invalidateContent) {
@@ -253,6 +254,7 @@ export function getCatalogInvalidationTargets(
   if (invalidateCard) {
     tags.add(PRODUCT_CARD_COLLECTION_CACHE_TAG);
     paths.add("/");
+    paths.add("/system");
     addShopCollectionPaths(paths);
   }
   if (invalidateMembership) {

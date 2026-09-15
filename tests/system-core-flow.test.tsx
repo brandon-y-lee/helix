@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it } from "vitest";
 import {
@@ -13,7 +13,6 @@ const coreItems: SystemCoreFlowItem[] = [
     displayName: "Biotic Reset",
     displayNumber: "01",
     heroLines: ["Wash off the day.", "Start fresh."],
-    legacyAnchorIds: ["step-cleanse", "step-reset", "method-cleanse", "method-reset"],
     productType: "Daily gel cleanser",
     slug: "biotic-reset",
     stepName: "CLEANSE",
@@ -22,12 +21,11 @@ const coreItems: SystemCoreFlowItem[] = [
   {
     anchorId: "system-treat",
     backgroundMedia: null,
-    displayName: "Peptide Bounce",
+    displayName: "Super Serum",
     displayNumber: "02",
     heroLines: ["Bring skin back.", "Smooth. Hydrated."],
-    legacyAnchorIds: ["step-treat", "step-recode", "method-treat", "method-recode"],
     productType: "PDRN serum",
-    slug: "peptide-bounce",
+    slug: "super-serum",
     stepName: "TREAT",
     swatch: ["#eadfd9", "#9e7f76"],
   },
@@ -37,7 +35,6 @@ const coreItems: SystemCoreFlowItem[] = [
     displayName: "Ceramide Cushion",
     displayNumber: "03",
     heroLines: ["Hold every layer.", "Keep moisture in."],
-    legacyAnchorIds: ["step-seal", "method-seal"],
     productType: "Intensive moisture cream",
     slug: "ceramide-cushion",
     stepName: "SEAL",
@@ -69,7 +66,7 @@ describe("SystemCoreFlow", () => {
     expect(tabs).toHaveLength(3);
     expect(tabs.map((tab) => tab.textContent)).toEqual([
       "CLEANSEBiotic ResetDaily gel cleanser",
-      "TREATPeptide BouncePDRN serum",
+      "TREATSuper SerumPDRN serum",
       "SEALCeramide CushionIntensive moisture cream",
     ]);
     expect(tabs[0]).toHaveAttribute("aria-selected", "true");
@@ -90,16 +87,16 @@ describe("SystemCoreFlow", () => {
       "inert",
     );
 
-    expect(activePanel).toHaveClass("method-selection-panel");
-    expect(activePanel.querySelector(".method-flow__position")).not.toBeInTheDocument();
+    expect(activePanel).toHaveClass("system-selection-panel");
+    expect(activePanel.querySelector(".system-flow__position")).not.toBeInTheDocument();
     expect(activePanel).toHaveTextContent("Wash off the day.");
     expect(activePanel).toHaveTextContent("Start fresh.");
-    expect(activePanel.querySelectorAll(".method-flow__hero-phrase > span")).toHaveLength(2);
+    expect(activePanel.querySelectorAll(".system-flow__hero-phrase > span")).toHaveLength(2);
     const productLink = within(activePanel).getByRole("link", {
       name: "View Biotic Reset",
     });
     expect(productLink).toHaveAttribute("href", "/products/biotic-reset");
-    expect(productLink).toHaveClass("btn", "method-flow__product-link");
+    expect(productLink).toHaveClass("btn", "system-flow__product-link");
   });
 
   it("changes the active step through tabs and wrapping sequence controls", async () => {
@@ -111,8 +108,8 @@ describe("SystemCoreFlow", () => {
     expect(tabs[1]).toHaveAttribute("aria-selected", "true");
     expect(
       screen.getByRole("tabpanel", { name: /TREAT/i }),
-    ).toHaveTextContent("Peptide Bounce");
-    expect(container.querySelector(".method-flow")).toHaveAttribute(
+    ).toHaveTextContent("Super Serum");
+    expect(container.querySelector(".system-flow")).toHaveAttribute(
       "data-active-step",
       "treat",
     );
@@ -150,30 +147,44 @@ describe("SystemCoreFlow", () => {
     expect(tabs[2]).toHaveAttribute("aria-selected", "true");
   });
 
-  it("selects the Core step named by a canonical inbound hash", () => {
-    window.history.replaceState(null, "", "/system#system-treat");
+  it.each([
+    ["system-cleanse", 0, "CLEANSE"],
+    ["system-treat", 1, "TREAT"],
+    ["system-seal", 2, "SEAL"],
+  ])("selects the Core step named by the inbound #%s hash", (hash, index, step) => {
+    window.history.replaceState(null, "", `/system#${hash}`);
     render(<SystemCoreFlow items={coreItems} />);
 
-    expect(screen.getAllByRole("tab")[1]).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
-    expect(screen.getByRole("tabpanel", { name: /TREAT/i })).toHaveTextContent(
-      "Peptide Bounce",
-    );
+    expect(screen.getAllByRole("tab")[index]).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tabpanel", { name: new RegExp(step) })).toBeVisible();
+    expect(document.querySelectorAll(`[id="${hash}"]`)).toHaveLength(1);
   });
 
-  it("selects the Core step named by a legacy inbound hash", () => {
+  it("selects changed canonical hashes without moving keyboard focus", () => {
+    render(<SystemCoreFlow items={coreItems} />);
+    const tabs = screen.getAllByRole("tab");
+    tabs[0].focus();
+    for (const [hash, index] of [["system-treat", 1], ["system-seal", 2], ["system-cleanse", 0]] as const) {
+      window.history.replaceState(null, "", `/system#${hash}`);
+      fireEvent(window, new HashChangeEvent("hashchange"));
+      expect(tabs[index]).toHaveAttribute("aria-selected", "true");
+      expect(tabs[0]).toHaveFocus();
+    }
+  });
+
+  it("ignores retired inbound and changed hashes without changing the selected step", () => {
     window.history.replaceState(null, "", "/system#step-recode");
     render(<SystemCoreFlow items={coreItems} />);
 
-    expect(screen.getAllByRole("tab")[1]).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
-    expect(screen.getByRole("tabpanel", { name: /TREAT/i })).toHaveTextContent(
-      "Peptide Bounce",
-    );
+    const tabs = screen.getAllByRole("tab");
+    expect(tabs[0]).toHaveAttribute("aria-selected", "true");
+    fireEvent.click(tabs[2]);
+
+    for (const hash of ["method-treat", "step-reset", "system-routine", "method-routine"]) {
+      window.history.replaceState(null, "", `/system#${hash}`);
+      fireEvent(window, new HashChangeEvent("hashchange"));
+      expect(tabs[2]).toHaveAttribute("aria-selected", "true");
+    }
   });
 
   it("keeps a missing Core step in sequence without inventing a product link", async () => {

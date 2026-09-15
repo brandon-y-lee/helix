@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import type { ProductCard } from "@/lib/catalog/models";
 import type { SystemStepName } from "@/lib/catalog/system-steps";
 import { groupSystemProducts } from "@/lib/content/system";
-import type { Product } from "@/lib/products";
 
 const STEP_POSITION: Record<SystemStepName, number> = {
   CLEANSE: 1,
@@ -17,9 +16,9 @@ const STEP_POSITION: Record<SystemStepName, number> = {
 function product(
   slug: string,
   step: SystemStepName,
-  routineGroup: Product["routineGroup"],
-  overrides: Partial<Product> = {},
-): Product {
+  routineGroup: ProductCard["routineGroup"],
+  overrides: Partial<ProductCard> = {},
+): ProductCard {
   return {
     id: `${slug}-id`,
     slug,
@@ -29,39 +28,41 @@ function product(
     systemStepPosition: STEP_POSITION[step],
     routineSort: STEP_POSITION[step] * 10,
     sortOrder: STEP_POSITION[step],
-    catalogStatus: "active",
+    productType: "Treatment",
+    volume: null,
+    usageTime: [],
+    createdAt: "2026-06-14T00:00:00.000Z",
+    swatch: ["#ffffff", "#dddddd"],
+    cardMedia: null,
+    cardHoverMedia: null,
+    cartMedia: null,
+    productFamily: null,
+    status: "waitlist",
+    variants: [],
     ...overrides,
-  } as Product;
-}
-
-function card(item: Product): Pick<ProductCard, "id"> {
-  return { id: item.id };
+  };
 }
 
 describe("groupSystemProducts", () => {
   it("uses governed step metadata and collection-facing family entries", () => {
     const products = [
       product("peptide-nourish-mask", "LIFT", "beyond_core"),
-      product("peptide-bounce", "TREAT", "core"),
+      product("super-serum", "TREAT", "core"),
       product("mineral-guard", "PROTECT", "beyond_core"),
       product("biotic-reset", "CLEANSE", "core"),
-      product("refine-family-sibling", "REFINE", "beyond_core"),
+      product("refine-family-sibling", "REFINE", "beyond_core", {
+        productFamily: { familyId: "refine-family", isEntry: false },
+        routineSort: 0,
+      }),
       product("peptide-eye-cream", "FRAME", "beyond_core"),
       product("ceramide-cushion", "SEAL", "core"),
       product("balancing-prep", "REFINE", "beyond_core"),
     ];
-    const familyEntryProducts = products.filter(
-      (item) => item.slug !== "refine-family-sibling",
-    );
-
-    const result = groupSystemProducts(
-      products,
-      familyEntryProducts.map(card),
-    );
+    const result = groupSystemProducts(products);
 
     expect(result.core.map((entry) => entry.product.slug)).toEqual([
       "biotic-reset",
-      "peptide-bounce",
+      "super-serum",
       "ceramide-cushion",
     ]);
     expect(result.core.map((entry) => entry.displayNumber)).toEqual([
@@ -85,17 +86,11 @@ describe("groupSystemProducts", () => {
     expect(result.missingBeyondSteps).toEqual([]);
   });
 
-  it("reports absent or inactive entries without substituting another product", () => {
+  it("reports missing steps without substituting another product", () => {
     const cleanser = product("biotic-reset", "CLEANSE", "core");
-    const archivedTreat = product("peptide-bounce", "TREAT", "core", {
-      catalogStatus: "archived",
-    });
     const seal = product("ceramide-cushion", "SEAL", "core");
 
-    const result = groupSystemProducts(
-      [cleanser, archivedTreat, seal],
-      [cleanser, archivedTreat, seal].map(card),
-    );
+    const result = groupSystemProducts([cleanser, seal]);
 
     expect(result.core.map((entry) => entry.product.slug)).toEqual([
       "biotic-reset",
@@ -108,5 +103,15 @@ describe("groupSystemProducts", () => {
       "PROTECT",
       "LIFT",
     ]);
+  });
+  it("selects each step by routine order, then sort order, then slug", () => {
+    const candidates = [
+      product("later-routine", "TREAT", "core", { routineSort: 20, sortOrder: 0 }),
+      product("later-sort", "TREAT", "core", { routineSort: 10, sortOrder: 20 }),
+      product("zeta-serum", "TREAT", "core", { routineSort: 10, sortOrder: 10 }),
+      product("alpha-serum", "TREAT", "core", { routineSort: 10, sortOrder: 10 }),
+    ];
+    expect(groupSystemProducts(candidates).core[0].product.slug).toBe("alpha-serum");
+    expect(groupSystemProducts([...candidates].reverse()).core[0].product.slug).toBe("alpha-serum");
   });
 });

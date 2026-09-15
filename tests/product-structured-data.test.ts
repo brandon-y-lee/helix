@@ -8,8 +8,8 @@ import type { PdpProduct } from "@/lib/catalog/models";
 function product(overrides: Partial<PdpProduct> = {}): PdpProduct {
   return {
     id: "product-id",
-    slug: "peptide-bounce",
-    displayName: "Peptide Bounce",
+    slug: "super-serum",
+    displayName: "Super Serum",
     productType: "PDRN serum",
     routineGroup: "core",
     systemStepName: "TREAT",
@@ -39,7 +39,7 @@ function product(overrides: Partial<PdpProduct> = {}): PdpProduct {
     variants: [
       {
         productId: "product-id",
-        productSlug: "peptide-bounce",
+        productSlug: "super-serum",
         productStatus: "available",
         id: "30ml",
         label: "30 mL",
@@ -65,9 +65,9 @@ describe("Product structured data", () => {
     ).toMatchObject({
       "@context": "https://schema.org",
       "@type": "Product",
-      name: "Peptide Bounce — PDRN serum",
+      name: "Super Serum — PDRN serum",
       description: "A daily serum for smoother-, bouncier-looking skin.",
-      url: "https://helixskin.vercel.app/products/peptide-bounce",
+      url: "https://helixskin.vercel.app/products/super-serum",
       brand: { "@type": "Brand", name: "helix" },
       offers: [
         {
@@ -97,7 +97,7 @@ describe("Product structured data", () => {
 
     expect(structuredData).toMatchObject({
       "@type": "Product",
-      name: "Peptide Bounce — PDRN serum",
+      name: "Super Serum — PDRN serum",
     });
     expect(structuredData).not.toHaveProperty("offers");
   });

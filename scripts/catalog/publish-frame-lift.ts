@@ -88,7 +88,7 @@ function createGateway(
     async readState(productId) {
       const step = stepForProduct(productId);
       const definition = FRAME_LIFT_PUBLICATIONS[step];
-      const [documentResult, draftResult, revisionResult, routeResult] =
+      const [documentResult, draftResult, revisionResult, reservationResult] =
         await Promise.all([
         client.rpc("get_catalog_editor_document", { p_product_id: productId }),
         client
@@ -122,7 +122,9 @@ function createGateway(
       if (revisionResult.error) {
         operationError("Catalog revision read", revisionResult.error);
       }
-      if (routeResult.error) operationError("Slug redirect read", routeResult.error);
+      if (reservationResult.error) {
+        operationError("Private slug reservation read", reservationResult.error);
+      }
       if ((draftResult.data?.length ?? 0) > 1) {
         throw new Error(`${step} has multiple active drafts; publication is unsafe.`);
       }
@@ -133,7 +135,7 @@ function createGateway(
         latestRevisionDocument: revisionResult.data
           ? assertValidProductEditorDocument(revisionResult.data.document)
           : null,
-        sourceRedirectExists: (routeResult.data?.length ?? 0) === 1,
+        sourceReservationExists: (reservationResult.data?.length ?? 0) === 1,
       };
     },
 

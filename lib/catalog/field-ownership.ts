@@ -234,7 +234,7 @@ export const CATALOG_FIELD_OWNERSHIP: readonly CatalogFieldOwnership[] = [
       previewRelevant: true,
       disruptive: true,
       importWarning:
-        "A permanent redirect will be created: the old public URL will permanently redirect to the new Product URL.",
+        "The old public URL will become unavailable. Its identifier stays reserved in private Product history.",
     },
     { field: "catalog_status", inputKind: "select", options: ["draft", "active", "archived"], previewRelevant: true, disruptive: true },
     { field: "sort_order", inputKind: "number" },
@@ -256,7 +256,7 @@ export const CATALOG_FIELD_OWNERSHIP: readonly CatalogFieldOwnership[] = [
     {
       field: "source_slug",
       inputKind: "text",
-      readOnlyReason: "Historical Product URL route records cannot be changed or deleted.",
+      readOnlyReason: "Reserved Product URL identifiers cannot be changed or deleted.",
     },
     {
       field: "source_product_id",
@@ -266,13 +266,13 @@ export const CATALOG_FIELD_OWNERSHIP: readonly CatalogFieldOwnership[] = [
     {
       field: "target_product_id",
       inputKind: "uuid",
-      readOnlyReason: "Redirect targets can only change through the controlled replacement workflow.",
+      readOnlyReason: "Replacement targets can only change through the controlled replacement workflow.",
     },
     {
       field: "route_kind",
       inputKind: "select",
       options: ["canonical", "rename", "replacement"],
-      readOnlyReason: "Route provenance is immutable history.",
+      readOnlyReason: "Product URL provenance is immutable history.",
     },
     {
       field: "created_at",

@@ -107,11 +107,11 @@ select has_function(
   array['uuid', 'uuid', 'text', 'boolean'],
   'checkout attempt failure is a compare-and-set transaction'
 );
-select has_function(
+select hasnt_function(
   'public',
   'fail_checkout_order_from_stripe',
   array['uuid', 'text'],
-  'trusted Stripe failures are transactional'
+  'obsolete session-free Stripe failures are unavailable'
 );
 select has_function(
   'public',

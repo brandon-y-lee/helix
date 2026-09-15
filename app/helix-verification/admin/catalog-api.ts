@@ -152,7 +152,7 @@ export function createVerificationCatalogApi(
         id: "verification-product-image",
         displayName: "Verification image",
         primaryMedia: {
-          url: "/media/home/treat-product-card-default-01.webp",
+          url: "/media/home/cleanse-product-card-default-01.webp",
           alt: "Synthetic catalog product image",
         },
       };

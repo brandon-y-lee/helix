@@ -1603,12 +1603,10 @@ export type Database = {
         }
         Returns: boolean
       }
-      fail_checkout_order_from_stripe:
-        | { Args: { p_order_id: string; p_reason: string }; Returns: boolean }
-        | {
-            Args: { p_order_id: string; p_reason: string; p_session_id: string }
-            Returns: boolean
-          }
+      fail_checkout_order_from_stripe: {
+        Args: { p_order_id: string; p_reason: string; p_session_id: string }
+        Returns: boolean
+      }
       finalize_paid_checkout_order: {
         Args: {
           p_billing_address: Json
@@ -1671,6 +1669,18 @@ export type Database = {
       }
       get_catalog_editor_document: {
         Args: { p_product_id: string }
+        Returns: Json
+      }
+      cutover_catalog_product_media: {
+        Args: { p_manifest: Json }
+        Returns: Json
+      }
+      activate_catalog_product_media_policy: {
+        Args: { p_operation_id: string; p_actor_id: string }
+        Returns: Json
+      }
+      get_catalog_product_media_operation: {
+        Args: { p_operation_id: string }
         Returns: Json
       }
       merge_guest_cart: {
@@ -1924,15 +1934,6 @@ export type Database = {
           guest_token_hash: string
           status: Database["public"]["Enums"]["cart_status"]
           user_id: string
-        }[]
-      }
-      resolve_product_slug: {
-        Args: { p_source_slug: string }
-        Returns: {
-          route_kind: string
-          source_slug: string
-          target_product_id: string
-          target_slug: string
         }[]
       }
       restore_catalog_product_revision: {
