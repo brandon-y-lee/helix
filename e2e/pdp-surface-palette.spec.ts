@@ -15,7 +15,7 @@ test("PDP editorial panels remain distinct from the white page canvas", async ({
   }
 });
 
-test("Effects keep a white stage around gray controls and preserved illustration", async ({ page, storefront }) => {
+test("Effects keep distinct desktop panels, inset controls and preserved illustration", async ({ page, storefront }) => {
   test.setTimeout(60_000);
   const product = storefront.snapshot.products.find((candidate) => candidate.id === SERUM_EFFECTS_PRODUCT_ID);
   if (!product) throw new Error("The canonical snapshot must include the Effects PDP.");
@@ -36,12 +36,32 @@ test("Effects keep a white stage around gray controls and preserved illustration
     await page.setViewportSize(viewport);
     const section = page.locator("#effects-prototype");
     await expect(section.locator(":scope > div").first()).toHaveCSS("background-color", CANVAS_WHITE);
+    if (viewport.width > 800) {
+      const selector = section.locator('[aria-label="Explore product effects"]').locator("..");
+      await expect(selector).toHaveCSS("background-color", PANEL_GRAY);
+      await expect(selector).toHaveCSS("border-radius", "12px");
+      const illustration = section.locator("[data-effect]");
+      await expect(illustration).toHaveCSS("border-radius", "12px");
+      const panel = await selector.boundingBox();
+      const image = await illustration.boundingBox();
+      expect(panel && image && image.x - (panel.x + panel.width)).toBeGreaterThan(0);
+      await expect(section.getByRole("button", { name: "Hydration", exact: true })).toHaveCSS("box-shadow", "none");
+    }
+    if (viewport.width === 1440) {
+      const option = section.getByRole("button", { name: "Hydration", exact: true });
+      await option.hover();
+      await expect(option).toHaveCSS("background-color", "rgb(232, 232, 237)");
+      await expect(option).toHaveCSS("transition", "background-color 0.25s linear");
+      await page.emulateMedia({ reducedMotion: "reduce" });
+      await expect(option).toHaveCSS("transition-duration", "0s");
+      await page.emulateMedia({ reducedMotion: "no-preference" });
+    }
     for (const effect of effects) {
       const option = section.getByRole("button", { name: effect.title, exact: true });
       await option.click();
       await expect(option).toHaveAttribute("aria-expanded", "true");
       await page.mouse.move(0, 0);
-      await expect(option).toHaveCSS("background-color", PANEL_GRAY);
+      await expect(option).toHaveCSS("background-color", viewport.width > 800 ? CANVAS_WHITE : PANEL_GRAY);
       const properties = section.getByRole("region", { name: `${effect.title} properties` });
       await expect(properties.locator(":scope > div").first()).toHaveCSS("background-color", PANEL_GRAY);
       await expect(section.locator(`[data-effect="${effect.id}"]`)).toHaveCSS("background-color", artwork[effect.id]);

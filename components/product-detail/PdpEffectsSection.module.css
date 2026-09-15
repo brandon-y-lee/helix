@@ -78,15 +78,25 @@
   .effect[data-expanded='true'] button { padding: 24px; }
   .description { font-size: 15px; }
 }
+@media (min-width: 801px) {
+  .stage { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--pdp-panel-gap); padding: 0; }
+  .selector { align-self: stretch; display: flex; flex-direction: column; justify-content: center; padding: 32px 28px; border-radius: var(--pdp-panel-radius); background: var(--card); }
+  .effect button { background: var(--surface-inset); box-shadow: none; transition: background-color 250ms linear; }
+  .effect button:hover { box-shadow: none; }
+  .close { right: calc(50% + var(--pdp-panel-gap) / 2 + 8px); }
+}
+@media (min-width: 801px) and (hover: hover) and (pointer: fine) {
+  .effect:not([data-expanded='true']) button:hover { background-color: #e8e8ed; }
+}
+@media (min-width: 801px) and (max-height: 720px) {
+  .selector { padding-block: 24px; }
+}
 @media (min-width: 821px) {
   .stage {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0;
     height: auto;
     min-height: 760px;
-    padding: 0;
   }
-  .selector { margin: 64px clamp(28px, 4.5vw, 64px); }
+  .selector { padding: 64px clamp(28px, 4.5vw, 64px); }
   .visual, .visual[data-selected='true'] {
     grid-template-rows: minmax(0, 1fr) auto;
     gap: 0;
@@ -95,7 +105,7 @@
     grid-area: 1 / 1 / -1 / 2;
     display: grid;
     grid-template-rows: subgrid;
-    border-radius: 0 var(--pdp-panel-radius) var(--pdp-panel-radius) 0;
+    border-radius: var(--pdp-panel-radius);
   }
   .heading { grid-row: 1; padding: 2.25vw; }
   .properties {
@@ -107,7 +117,7 @@
   .propertyControls { padding: 8px 0 0; }
   .close {
     top: 2.25vw;
-    right: calc(50% + 2.25vw);
+    right: calc(50% + var(--pdp-panel-gap) / 2 + 2.25vw);
     border-radius: 0;
     background: transparent;
   }
