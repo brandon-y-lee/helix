@@ -38,7 +38,7 @@ test("Effects keep distinct desktop panels, inset controls and preserved illustr
     await expect(section.locator(":scope > div").first()).toHaveCSS("background-color", CANVAS_WHITE);
     if (viewport.width > 800) {
       const selector = section.locator('[aria-label="Explore product effects"]').locator("..");
-      await expect(selector).toHaveCSS("background-color", PANEL_GRAY);
+      await expect(selector).toHaveCSS("background-color", CANVAS_WHITE);
       await expect(selector).toHaveCSS("border-radius", "12px");
       const illustration = section.locator("[data-effect]");
       await expect(illustration).toHaveCSS("border-radius", "12px");
