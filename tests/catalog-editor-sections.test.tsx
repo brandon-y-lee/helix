@@ -1,5 +1,5 @@
 import type { ComponentProps } from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import CatalogEditor from "@/components/admin/catalog-editor/CatalogEditor";
@@ -382,7 +382,10 @@ describe("CatalogEditor sections", () => {
       affected_tables: [],
       draft: { ...catalogDraft, version: 6, document: duplicateDocument },
     });
-    const { container } = render(<CatalogEditor productId="product-cleanse" />);
+    // Flush the mocked load and its effects before dispatching an editor command.
+    const { container } = await act(async () =>
+      render(<CatalogEditor productId="product-cleanse" />),
+    );
     await screen.findByRole("heading", { name: "CLEANSE" });
 
     fireEvent.click(screen.getByRole("button", { name: "Validate" }));
