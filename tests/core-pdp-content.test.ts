@@ -32,7 +32,7 @@ const cases = [
     options: ["hydrates", "enhances", "replenishes"],
     application: [
       "After cleanser apply 2–3 drops across face and neck.",
-      "Press into skin for 30–60 seconds, letting the serum settle before the next layer.",
+      "Press into skin for 30–60 seconds, letting the serum settle.",
       "Follow with SEAL. In the morning, finish with SPF.",
     ],
     ingredientNames: ["PDRN / SODIUM DNA 50,000 PPM", "NIACINAMIDE"],

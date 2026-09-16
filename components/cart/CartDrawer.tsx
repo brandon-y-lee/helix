@@ -37,6 +37,7 @@ export function CartDrawer({
       open={open}
       side="right"
       title="Cart"
+      closeVariant="icon"
       description="Review and edit your cart."
       onClose={onClose}
       returnFocus={returnFocus}
