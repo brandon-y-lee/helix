@@ -36,6 +36,7 @@ export const PERSISTENT_SHEET_MOTION_TRANSITION: SheetMotionTransition = {
 };
 
 type SheetLayerProps = {
+  closeVariant: "text" | "icon";
   open: boolean;
   active: boolean;
   persistent: boolean;
@@ -61,6 +62,7 @@ function SheetLayer(props: SheetLayerProps) {
   const isPresent = useIsPresent();
   const shouldReduceMotion = useReducedMotion();
   const {
+    closeVariant,
     open,
     active,
     persistent,
@@ -173,8 +175,17 @@ function SheetLayer(props: SheetLayerProps) {
               </p>
             )}
           </div>
-          <button type="button" className="sheet__close" onClick={onClose}>
-            Close
+          <button
+            type="button"
+            className={`sheet__close${closeVariant === "icon" ? " sheet__close--icon" : ""}`}
+            aria-label="Close"
+            onClick={onClose}
+          >
+            {closeVariant === "icon" ? (
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
+                <path d="m6 6 12 12M18 6 6 18" />
+              </svg>
+            ) : "Close"}
           </button>
         </div>
         {children}
@@ -184,6 +195,7 @@ function SheetLayer(props: SheetLayerProps) {
 }
 
 export function Sheet({
+  closeVariant = "text",
   open,
   side = "right",
   title,
@@ -200,6 +212,7 @@ export function Sheet({
   motionTransition,
   persistent = false,
 }: {
+  closeVariant?: "text" | "icon";
   open: boolean;
   side?: SheetSide;
   title: string;
@@ -240,6 +253,7 @@ export function Sheet({
   });
 
   const layerProps: SheetLayerProps = {
+    closeVariant,
     open,
     active,
     persistent: keepMounted,

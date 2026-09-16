@@ -29,6 +29,7 @@ export function SearchOverlay({
       open={open}
       side="right"
       title="Search"
+      closeVariant="icon"
       description="Search the helix product catalog."
       onClose={onClose}
       returnFocus={returnFocus}

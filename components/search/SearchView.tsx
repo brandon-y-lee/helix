@@ -56,8 +56,7 @@ export function SearchView({
   function suggestions() {
     return (
       <section className="search-suggestions" aria-labelledby={suggestionsId}>
-        <p className="search-suggestions__eyebrow">A useful place to begin</p>
-        <h3 id={suggestionsId}>Popular searches</h3>
+        <h3 id={suggestionsId}>Suggestions</h3>
         <div className="search-suggestions__list">
           {POPULAR_SEARCHES.map((suggestion) => (
             <button
@@ -84,7 +83,7 @@ export function SearchView({
           id={inputId}
           ref={inputRef}
           type="search"
-          placeholder="Search the collection…"
+          placeholder="Type here"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           autoComplete="off"
@@ -113,14 +112,7 @@ export function SearchView({
       </div>
 
       <div className="search-body">
-        {status === "idle" && (
-          <>
-            <p className="search-message">
-              Search by product, routine step, texture, or concern.
-            </p>
-            {suggestions()}
-          </>
-        )}
+        {status === "idle" && suggestions()}
 
         {status === "unconfigured" && (
           <div className="search-unavailable">

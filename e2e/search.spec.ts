@@ -99,7 +99,7 @@ test("search reports a clear no-results state", async ({ page }) => {
     .fill("zzznotathing");
   await expect(page.getByText(/No products match/i)).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "Popular searches" }),
+    page.getByRole("heading", { name: "Suggestions" }),
   ).toBeVisible();
 });
 
@@ -139,7 +139,7 @@ test("header search manages initial focus and restores its trigger on Escape", a
     })),
   ).toEqual(viewportOriginBeforeOpen);
   await expect(
-    dialog.getByRole("heading", { name: "Popular searches" }),
+    dialog.getByRole("heading", { name: "Suggestions" }),
   ).toBeVisible();
   await input.fill(searchTerm);
   await expect(dialog.getByText(/1 result for/i)).toBeVisible();

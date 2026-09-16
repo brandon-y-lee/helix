@@ -61,7 +61,7 @@ test("Effects keep distinct desktop panels, inset controls and preserved illustr
       await option.click();
       await expect(option).toHaveAttribute("aria-expanded", "true");
       await page.mouse.move(0, 0);
-      await expect(option).toHaveCSS("background-color", viewport.width > 800 ? CANVAS_WHITE : PANEL_GRAY);
+      await expect(option).toHaveCSS("background-color", PANEL_GRAY);
       const properties = section.getByRole("region", { name: `${effect.title} properties` });
       await expect(properties.locator(":scope > div").first()).toHaveCSS("background-color", PANEL_GRAY);
       await expect(section.locator(`[data-effect="${effect.id}"]`)).toHaveCSS("background-color", artwork[effect.id]);

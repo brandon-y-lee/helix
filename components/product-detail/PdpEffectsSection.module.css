@@ -81,7 +81,7 @@
 @media (min-width: 801px) {
   .stage { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--pdp-panel-gap); padding: 0; }
   .selector { align-self: stretch; display: flex; flex-direction: column; justify-content: center; padding: 32px 28px; border-radius: var(--pdp-panel-radius); background: var(--bg); }
-  .effect button { background: var(--surface-inset); box-shadow: none; transition: background-color 250ms linear; }
+  .effect button { background: var(--surface); box-shadow: none; transition: background-color 250ms linear; }
   .effect button:hover { box-shadow: none; }
   .close { right: calc(50% + var(--pdp-panel-gap) / 2 + 8px); }
 }
@@ -94,7 +94,7 @@
 @media (min-width: 821px) {
   .stage {
     height: auto;
-    min-height: 760px;
+    min-height: 720px;
   }
   .selector { padding: 64px clamp(28px, 4.5vw, 64px); }
   .visual, .visual[data-selected='true'] {
@@ -123,7 +123,7 @@
   }
 }
 @media (min-width: 821px) and (max-width: 1068px) {
-  .stage { min-height: 720px; }
+  .stage { min-height: 680px; }
 }
 @media (max-width: 800px) {
   .stage { display: flex; flex-direction: column; gap: 24px; height: auto; padding: 48px 0 28px; }

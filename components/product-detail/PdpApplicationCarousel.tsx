@@ -223,7 +223,13 @@ export function PdpApplicationCarousel({
                 <h2 className="pdp-application__eyebrow">APPLICATION</h2>
                 <div className="pdp-application__step-body">
                   <span>({step.id})</span>
-                  <p>{step.copy}</p>
+                  <p>
+                    {step.copy.split(/(\d+[–-]\d+)/u).map((part, index) =>
+                      index % 2 === 1 ? (
+                        <span className="pdp-application__range" key={index}>{part}</span>
+                      ) : part,
+                    )}
+                  </p>
                 </div>
               </article>
             ))}
