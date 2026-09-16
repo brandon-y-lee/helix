@@ -161,10 +161,6 @@
     line-height: 1.1;
   }
 
-  [data-pdp-presentation="mobile-pilot"] :is(.pdp-outcome-split__track, .pdp-ink-option__fill) {
-    transition-duration: 250ms;
-  }
-
   [data-pdp-presentation="mobile-pilot"] .pdp-application__content {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto auto auto;

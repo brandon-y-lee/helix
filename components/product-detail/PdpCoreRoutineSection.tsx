@@ -48,7 +48,7 @@ export function PdpCoreRoutineSection({
   pdpPresentation?: PdpPresentation;
 }) {
   const isMobilePilot = usePdpMobilePresentation(pdpPresentation);
-  const durationMs = isMobilePilot ? 250 : PDP_SLIDE_DURATION_MS;
+  const durationMs = isMobilePilot ? 1500 : PDP_SLIDE_DURATION_MS;
   const {
     activeIndex,
     direction,

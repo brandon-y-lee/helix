@@ -332,11 +332,14 @@ test("inline INCI preserves the reader's place and visible focus through disclos
   await expectFocusedVisible(page);
 });
 
-test("mobile education motion is short and reduced motion is immediate", async ({ page, storefront }) => {
+test("mobile education uses the desktop outcome ease and reduced motion is immediate", async ({ page, storefront }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(pilotProduct(storefront).path);
   const track = page.locator(".pdp-outcome-split__track");
-  await expect(track).toHaveCSS("transition-duration", "0.25s");
+  await expect(track).toHaveCSS("transition-duration", "1.5s");
+  await expect(track).toHaveCSS("transition-timing-function", "cubic-bezier(0.66, 0, 0.18, 1)");
+  await expect(page.locator(".pdp-application")).toHaveAttribute("data-transition-duration", "1500");
+  await expect(page.locator(".pdp-core-routine")).toHaveAttribute("data-transition-duration", "1500");
   await page.emulateMedia({ reducedMotion: "reduce" });
   await expect(track).toHaveCSS("transition-duration", "0s");
   const application = page.locator(".pdp-application");

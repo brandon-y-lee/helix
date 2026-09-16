@@ -1,5 +1,5 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { PdpCoreRoutineSection } from "@/components/product-detail/PdpCoreRoutineSection";
 
 const productRows = [
@@ -52,7 +52,48 @@ const products = productRows.map(
   }),
 );
 
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.useRealTimers();
+});
+
 describe("PdpCoreRoutineSection", () => {
+  it.each([
+    { mobile: true, duration: 1500 },
+    { mobile: false, duration: 800 },
+  ])("finishes interrupted routine motion after $duration ms (mobile: $mobile)", ({ mobile, duration }) => {
+    vi.useFakeTimers();
+    let reducedMotion = false;
+    vi.stubGlobal("matchMedia", (query: string) => ({
+      matches: query === "(max-width: 820px)" ? mobile : reducedMotion,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }));
+    const { container } = render(
+      <PdpCoreRoutineSection
+        products={products}
+        currentSlug="cleanse"
+        pdpPresentation="mobile-pilot"
+      />,
+    );
+    const [first, second, third] = container.querySelectorAll(".pdp-core-routine__callout-state");
+    fireEvent.click(screen.getByRole("radio", { name: "Show TREAT, TREAT" }));
+    act(() => vi.advanceTimersByTime(200));
+    fireEvent.click(screen.getByRole("radio", { name: "Show SEAL, SEAL" }));
+    expect(first).toHaveAttribute("data-state", "inactive");
+    expect(second).toHaveAttribute("data-state", "outgoing");
+    expect(third).toHaveAttribute("aria-hidden", "false");
+    act(() => vi.advanceTimersByTime(duration - 1));
+    expect(second).toHaveAttribute("data-state", "outgoing");
+    act(() => vi.advanceTimersByTime(1));
+    expect(second).toHaveAttribute("data-state", "inactive");
+
+    reducedMotion = true;
+    fireEvent.click(screen.getByRole("radio", { name: "Show CLEANSE, CLEANSE" }));
+    expect(third).toHaveAttribute("data-state", "inactive");
+    expect(first).toHaveAttribute("aria-hidden", "false");
+  });
+
   it("starts on the current product with persistent non-link states", () => {
     const { container } = render(
       <PdpCoreRoutineSection products={products} currentSlug="treat" />,
