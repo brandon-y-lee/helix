@@ -146,7 +146,7 @@ describe("PdpApplicationCarousel", () => {
     expect(screen.getByRole("button", { name: "Show previous application step" })).toBeVisible();
   });
 
-  it("retires phone instructions after 250ms and immediately when motion is reduced", () => {
+  it("retires phone instructions after 1500ms and immediately when motion is reduced", () => {
     vi.useFakeTimers();
     render(
       <PdpApplicationCarousel
@@ -160,7 +160,7 @@ describe("PdpApplicationCarousel", () => {
     const second = screen.getByText("Second application step is deliberately longer.").closest("article");
     const next = screen.getByRole("button", { name: "Show next application step" });
     fireEvent.click(next);
-    act(() => vi.advanceTimersByTime(249));
+    act(() => vi.advanceTimersByTime(1499));
     expect(first).toHaveAttribute("data-state", "outgoing");
     act(() => vi.advanceTimersByTime(1));
     expect(first).toHaveAttribute("data-state", "inactive");

@@ -48,10 +48,10 @@ async function expectExpandedAligned(section: Locator, name: string) {
   // final geometry catches WebKit clamping that occurs during that transition.
   await expect(section.locator('[data-selected="true"]')).toHaveCSS("opacity", "1");
   await expect.poll(async () => {
-    const [buttonBox, imageBox] = await Promise.all([button.boundingBox(), image.boundingBox()]);
-    if (!buttonBox || !imageBox) return false;
-    return Math.abs(buttonBox.x - imageBox.x) <= 1 &&
-      Math.abs(buttonBox.x + buttonBox.width - imageBox.x - imageBox.width) <= 1;
+    const buttonBox = await button.boundingBox();
+    const viewport = await button.evaluate(() => document.documentElement.clientWidth);
+    return buttonBox && Math.abs(buttonBox.x - 40) <= 1 &&
+      Math.abs(buttonBox.x + buttonBox.width - (viewport - 40)) <= 1;
   }).toBe(true);
   await expect.poll(() => button.evaluate((element) => {
     const description = document.getElementById(element.getAttribute("aria-describedby") ?? "");
@@ -162,7 +162,7 @@ test.describe("mobile serum effects", () => {
   test.use({ hasTouch: true });
 
   for (const width of [320, 390, 430, 800]) {
-    test(`capsules and expanded descriptions respect image bounds at ${width}px`, async ({ page, storefront }) => {
+    test(`capsules align with sections and expanded descriptions expose viewport-edge neighbors at ${width}px`, async ({ page, storefront }) => {
       await page.setViewportSize({ width, height: 1024 });
       await page.goto(productPath(storefront));
       await expect(page.locator('.search-sheet[data-state="closed"]')).toBeAttached();
@@ -182,11 +182,10 @@ test.describe("mobile serum effects", () => {
         }).toBeLessThanOrEqual(1);
         await expect.poll(() => rail.evaluate((element) => {
           const bounds = element.getBoundingClientRect();
-          const sectionBox = element.closest("section")!.getBoundingClientRect();
-          return Math.abs(bounds.left - sectionBox.left) <= 1 &&
-            Math.abs(bounds.right - sectionBox.right) <= 1;
+          return Math.abs(bounds.left) <= 1 &&
+            Math.abs(bounds.right - document.documentElement.clientWidth) <= 1;
         })).toBe(true);
-        await rail.evaluate((element) => element.scrollTo({ left: 24, behavior: "instant" }));
+        await rail.evaluate((element) => element.scrollTo({ left: parseFloat(getComputedStyle(element).paddingLeft), behavior: "instant" }));
         await expect.poll(async () => {
           const [button, viewport] = await Promise.all([first.boundingBox(), rail.boundingBox()]);
           return button && viewport ? Math.abs(button.x - viewport.x) : Infinity;
@@ -204,8 +203,12 @@ test.describe("mobile serum effects", () => {
           const button = section.getByRole("button", { name, exact: true });
           await button.tap();
           await expectExpandedAligned(section, name);
-          await expect(section.getByRole("button", { name: "Previous effect", includeHidden: true })).toBeHidden();
-          await expect(section.getByRole("button", { name: "Next effect", includeHidden: true })).toBeHidden();
+          const previous = section.getByRole("button", { name: "Previous effect", includeHidden: true });
+          const next = section.getByRole("button", { name: "Next effect", includeHidden: true });
+          if (name === effectNames[0]) await expect(previous).toBeHidden();
+          else await expect(previous).toBeVisible();
+          if (name === effectNames.at(-1)) await expect(next).toBeHidden();
+          else await expect(next).toBeVisible();
           const carousel = section.getByRole("region", { name: `${name} properties` });
           await expect(carousel.getByRole("button", { name: "Previous property" })).toBeVisible();
           await expect(carousel.getByRole("button", { name: "Next property" })).toBeVisible();
@@ -225,27 +228,6 @@ test.describe("mobile serum effects", () => {
             }).toBe(true);
             await expect(carousel.getByRole("button", { name: "Next property" })).toBeDisabled();
           }
-          await test.step("expanded rail endpoints expose capsules without blank spacers", async () => {
-            const image = section.getByRole("img", { name: `${name} model image placeholder` });
-            await rail.evaluate((element) => element.scrollTo({ left: 0, behavior: "instant" }));
-            await expect.poll(async () => {
-              const [buttonBox, imageBox] = await Promise.all([first.boundingBox(), image.boundingBox()]);
-              return buttonBox && imageBox ? Math.abs(buttonBox.x - imageBox.x) : Infinity;
-            }).toBeLessThanOrEqual(1);
-            await rail.evaluate((element) => element.scrollTo({ left: element.scrollWidth, behavior: "instant" }));
-            await expect.poll(async () => {
-              const [buttonBox, imageBox] = await Promise.all([last.boundingBox(), image.boundingBox()]);
-              return buttonBox && imageBox
-                ? Math.abs(buttonBox.x + buttonBox.width - imageBox.x - imageBox.width)
-                : Infinity;
-            }).toBeLessThanOrEqual(1);
-            await expect.poll(() => rail.evaluate((element) => {
-              const bounds = element.getBoundingClientRect();
-              const sectionBox = element.closest("section")!.getBoundingClientRect();
-              return Math.abs(bounds.left - sectionBox.left) <= 1 &&
-                Math.abs(bounds.right - sectionBox.right) <= 1;
-            })).toBe(true);
-          });
           await section.getByRole("button", { name: "Collapse effect description" }).tap();
           await expect(section.getByRole("region", { name: / properties$/ })).toHaveCount(0);
           await expect(button).toHaveAttribute("aria-expanded", "false");
@@ -276,6 +258,37 @@ test.describe("mobile serum effects", () => {
       expect(widths.page).toBeLessThanOrEqual(width + 1);
     });
   }
+
+  test("expanded effects progressively grow and fade during a held swipe", async ({ page, storefront }) => {
+    await page.setViewportSize({ width: 390, height: 1024 });
+    await page.goto(productPath(storefront));
+    const section = page.locator('#effects-prototype');
+    await section.getByRole("button", { name: "Hydration", exact: true }).tap();
+    await expectExpandedAligned(section, "Hydration");
+    const rail = section.locator('[aria-label="Explore product effects"]');
+    const incoming = section.getByRole("button", { name: "Barrier protection", exact: true });
+    const before = await incoming.boundingBox();
+    // Hold a native scroll between snap points to inspect the in-flight state.
+    await rail.evaluate((element) => {
+      element.style.scrollSnapType = 'none';
+      const [first, second] = Array.from(element.children) as HTMLElement[];
+      element.scrollLeft = (second.offsetLeft - first.offsetLeft) * .25;
+    });
+    await expect.poll(async () => {
+      const now = await incoming.boundingBox();
+      const opacity = await section.locator('[data-selected="true"]').evaluate(element => Number(getComputedStyle(element).opacity));
+      return !!now && !!before && now.height > before.height + 5 && opacity > .2 && opacity < .8;
+    }).toBe(true);
+    await rail.evaluate(element => { element.style.scrollSnapType = ''; });
+    await section.getByRole("button", { name: "Next effect" }).tap();
+    await expectExpandedAligned(section, "Barrier protection");
+    await expect(section.getByRole("button", { name: "Previous effect" })).toBeVisible();
+    await expect(section.getByRole("button", { name: "Next effect" })).toBeVisible();
+    await section.getByRole("button", { name: "Barrier protection", exact: true }).focus();
+    await page.keyboard.press('End');
+    await expectExpandedAligned(section, "Anti-aging & firmness");
+    await expect(section.getByRole("button", { name: "Next effect", includeHidden: true })).toBeHidden();
+  });
 
   test("effect focus survives height-only changes without recapturing page scroll", async ({ page, storefront, browserName }) => {
     await page.setViewportSize({ width: 390, height: 844 });

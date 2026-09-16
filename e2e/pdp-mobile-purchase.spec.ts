@@ -355,3 +355,83 @@ for (const group of ["core", "beyondCore"] as const) {
     await expect(page.locator(".pdp-sticky-purchase__identity")).toBeVisible();
   });
 }
+
+
+test.describe("gallery touch ownership", () => {
+  test.use({ hasTouch: true });
+
+  test("gallery image gesture ownership preserves zoom, video and desktop behavior", async ({ page, storefront }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(pilotProduct(storefront).path);
+    const gallery = page.locator(".pdp__gallery");
+    await expect(gallery).toHaveAttribute("data-pdp-gallery-multiple", "true");
+    const imageSlide = gallery.locator('[data-pdp-gallery-slide][data-media-kind="image"]').first();
+    await expect(imageSlide).toHaveCSS("touch-action", "pinch-zoom");
+    await expect(gallery.locator(".pdp__media-viewport")).toHaveCSS("touch-action", "pan-y pinch-zoom");
+    for (const videoSlide of await gallery.locator('[data-pdp-gallery-slide][data-media-kind="video"]').all()) {
+      await expect(videoSlide).toHaveCSS("touch-action", "auto");
+    }
+    await page.setViewportSize({ width: 821, height: 844 });
+    await expect(imageSlide).toHaveCSS("touch-action", "auto");
+  });
+
+  test("held gallery images keep native vertical movement from cancelling a swipe", async ({ page, storefront, browserName }) => {
+    test.skip(browserName !== "chromium", "Native touch streams use Chromium CDP; WebKit checks gesture CSS and existing gallery interactions.");
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto(pilotProduct(storefront).path);
+    const gallery = page.locator(".pdp__gallery");
+    const viewport = gallery.locator(".pdp__media-viewport");
+    const track = gallery.locator("[data-pdp-gallery-track]");
+    const views = gallery.locator("[data-pdp-media-thumbnail]");
+    await expect(gallery).toHaveAttribute("data-pdp-gallery-multiple", "true");
+    await expect(views.first()).toHaveAttribute("aria-pressed", "true");
+    await viewport.evaluate((element) => {
+      element.setAttribute("data-test-pointer-cancels", "0");
+      element.addEventListener("pointercancel", () => {
+        element.setAttribute("data-test-pointer-cancels", String(Number(element.getAttribute("data-test-pointer-cancels")) + 1));
+      });
+    });
+    const frame = await viewport.boundingBox();
+    if (!frame) throw new Error("Expected a measurable gallery viewport.");
+    const x = frame.x + frame.width * 0.8;
+    const y = frame.y + Math.min(frame.height * 0.5, 260);
+    const scrollBefore = await page.evaluate(() => window.scrollY);
+    const touch = await page.context().newCDPSession(page);
+    const move = async (nextX: number, nextY: number) => {
+      await touch.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: nextX, y: nextY }] });
+      await page.waitForTimeout(16);
+    };
+    try {
+      // Vertical movement alone must neither scroll nor cancel this image surface.
+      await touch.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y }] });
+      for (let distance = 15; distance <= 120; distance += 15) await move(x, y - distance);
+      await touch.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+      await expect(views.first()).toHaveAttribute("aria-pressed", "true");
+      expect(await page.evaluate(() => window.scrollY)).toBe(scrollBefore);
+      await expect(viewport).toHaveAttribute("data-test-pointer-cancels", "0");
+
+      // After horizontal intent, a vertical excursion must retain the dragged image.
+      await touch.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y }] });
+      for (let distance = 15; distance <= 90; distance += 15) await move(x - distance, y);
+      await expect(viewport).toHaveAttribute("data-dragging", "true");
+      const draggedTransform = await track.evaluate((element) => getComputedStyle(element).transform);
+      for (let distance = 15; distance <= 120; distance += 15) await move(x - 90, y - distance);
+      await expect(viewport).toHaveAttribute("data-dragging", "true");
+      expect(await track.evaluate((element) => getComputedStyle(element).transform)).toBe(draggedTransform);
+      expect(await page.evaluate(() => window.scrollY)).toBe(scrollBefore);
+      await expect(viewport).toHaveAttribute("data-test-pointer-cancels", "0");
+      await touch.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+      await expect(views.nth(1)).toHaveAttribute("aria-pressed", "true");
+
+      // The restriction belongs to gallery images, not the page gutter.
+      await touch.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: 2, y: 400 }] });
+      for (let distance = 15; distance <= 120; distance += 15) await move(2, 400 - distance);
+      await touch.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+      await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(scrollBefore + 30);
+    } finally {
+      await touch.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+      await touch.detach();
+    }
+  });
+});

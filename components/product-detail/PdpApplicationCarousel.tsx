@@ -50,7 +50,7 @@ export function PdpApplicationCarousel({
   pdpPresentation?: PdpPresentation;
 }) {
   const isMobile = usePdpMobilePresentation(pdpPresentation);
-  const durationMs = isMobile ? 250 : PDP_SLIDE_DURATION_MS;
+  const durationMs = isMobile ? 1500 : PDP_SLIDE_DURATION_MS;
   const stepButtons = useRef<(HTMLButtonElement | null)[]>([]);
   const nextButton = useRef<HTMLButtonElement | null>(null);
   const previousButton = useRef<HTMLButtonElement | null>(null);
@@ -240,7 +240,20 @@ export function PdpApplicationCarousel({
               aria-label="Show previous application step"
               onClick={() => advance(-1, "backward")}
             >
-              <span aria-hidden="true">←</span>
+              <svg
+                aria-hidden="true"
+                focusable="false"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M20 12H4m6-6-6 6 6 6" />
+              </svg>
             </button>
           ) : null}
           <button
@@ -251,7 +264,20 @@ export function PdpApplicationCarousel({
             aria-label="Show next application step"
             onClick={showNext}
           >
-            <span aria-hidden="true">→</span>
+            <svg
+              aria-hidden="true"
+              focusable="false"
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M4 12h16m-6-6 6 6-6 6" />
+            </svg>
           </button>
         </div>
         <p className="sr-only" aria-live="polite" aria-atomic="true">

@@ -1,6 +1,6 @@
 'use client';
 
-import { useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react';
 import { AnimatePresence, domMax, LazyMotion, useReducedMotion } from 'motion/react';
 import * as m from 'motion/react-m';
 import { effects, type Effect } from '@/lib/content/serum-effects';
@@ -86,41 +86,94 @@ export function PdpEffectsSection() {
   const [active, setActive] = useState<number | null>(null);
   const railRef = useRef<HTMLDivElement>(null);
   const closedEffect = useRef<number | null>(null);
-  const focusSelected = useRef(false);
+  const selectedRef = useRef<number | null>(null);
+  const [position, setPosition] = useState(0);
   const reduceMotion = !!useReducedMotion();
   const mobile = useSyncExternalStore(subscribeMobileEffects, mobileEffectsSnapshot, serverMobileEffectsSnapshot);
   const effect = active === null ? null : effects[active];
 
-  function select(index: number) { setActive(index); }
+  const mobileExpanded = mobile && active !== null;
+  selectedRef.current = active;
+
+  function centerCard(index: number, behavior: ScrollBehavior) {
+    const rail = railRef.current;
+    const card = rail?.children[index] as HTMLElement | undefined;
+    if (rail && card) rail.scrollTo({ left: card.offsetLeft - (rail.clientWidth - card.offsetWidth) / 2, behavior });
+  }
+
+  function select(index: number) {
+    if (mobileExpanded) {
+      centerCard(index, reduceMotion ? 'instant' : 'smooth');
+      if (!reduceMotion) return;
+    }
+    setPosition(index);
+    setActive(index);
+  }
   function close() {
     const selected = active;
     closedEffect.current = selected;
     setActive(null);
     if (selected !== null) (railRef.current?.children[selected] as HTMLElement | undefined)?.querySelector('button')?.focus({ preventScroll: true });
   }
-  function step(index: number) {
-    focusSelected.current = index === 0 || index === effects.length - 1;
-    select(index);
-  }
 
   useLayoutEffect(() => {
     const rail = railRef.current;
-    if (!rail) return;
-    function centerSelection() {
-      if (!rail || !window.matchMedia(MOBILE_EFFECTS_QUERY).matches) return;
-      const visibleIndex = active ?? closedEffect.current;
-      const selected = visibleIndex === null ? null : rail.children[visibleIndex] as HTMLElement;
-      rail.scrollTo({ left: selected ? selected.offsetLeft - (rail.clientWidth - selected.offsetWidth) / 2 : 0, behavior: 'instant' });
+    if (!rail || !mobile) return;
+    let width = -1;
+    function resize() {
+      if (!rail) return;
+      if (mobileExpanded) {
+        for (const slot of Array.from(rail.children)) {
+          const button = slot.querySelector('button');
+          const description = slot.querySelector<HTMLElement>(`.${styles.description}`);
+          if (button && description) button.style.setProperty('--card-height', `${description.offsetHeight}px`);
+        }
+      }
+      if (rail.clientWidth === width) return;
+      width = rail.clientWidth;
+      const index = selectedRef.current ?? closedEffect.current;
+      if (index !== null) {
+        centerCard(index, 'instant');
+        setPosition(index);
+      }
     }
-    centerSelection();
-    if (focusSelected.current && active !== null) {
-      (rail.children[active] as HTMLElement).querySelector('button')?.focus({ preventScroll: true });
-      focusSelected.current = false;
-    }
-    const observer = new ResizeObserver(centerSelection);
+    resize();
+    const observer = new ResizeObserver(resize);
     observer.observe(rail);
+    if (mobileExpanded) rail.querySelectorAll(`.${styles.description}`).forEach(description => observer.observe(description));
     return () => observer.disconnect();
-  }, [active]);
+  }, [mobile, mobileExpanded]);
+
+  useLayoutEffect(() => {
+    const rail = railRef.current;
+    if (!mobileExpanded || active === null || !rail) return;
+    const hiddenEndpoint = rail.parentElement?.querySelector(`.${styles.arrows} button:disabled`);
+    if (rail.contains(document.activeElement) || document.activeElement === hiddenEndpoint) {
+      (rail.children[active] as HTMLElement).querySelector('button')?.focus({ preventScroll: true });
+    }
+  }, [active, mobileExpanded]);
+
+  function scrollEffects() {
+    const rail = railRef.current;
+    if (!rail || !mobileExpanded) return;
+    const first = rail.children[0] as HTMLElement;
+    const second = rail.children[1] as HTMLElement;
+    const stride = second.offsetLeft - first.offsetLeft;
+    if (stride <= 0) return;
+    const next = Math.max(0, Math.min(effects.length - 1,
+      (rail.scrollLeft - first.offsetLeft + (rail.clientWidth - first.offsetWidth) / 2) / stride));
+    setPosition(next);
+    setActive(Math.round(next));
+  }
+
+  const visualContent = <>
+    <div className={styles.image} data-effect={effect?.id ?? 'hero'}>
+      <div className={styles.hue} role="img" aria-label={effect ? `${effect.title} model image placeholder` : 'Serum effects hero image placeholder'} />
+      <h2 id="effects-title" className={styles.heading}>Four effects.<br />One formula.</h2>
+    </div>
+    {effect && <Properties key={effect.id} effect={effect} reduceMotion={reduceMotion} />}
+  </>;
+  const mediaOpacity = reduceMotion ? 1 : Math.abs(position - Math.round(position)) * -2 + 1;
 
   return <LazyMotion features={domMax}>
     <section id="effects-prototype" className={styles.closer} aria-labelledby="effects-title" onKeyDown={event => {
@@ -129,38 +182,43 @@ export function PdpEffectsSection() {
       <div className={styles.stage}>
         {effect && <button className={styles.close} type="button" aria-label="Collapse effect description" onClick={close}><span aria-hidden="true">×</span></button>}
         <div className={styles.visualStage}>
-          <AnimatePresence mode="wait" initial={false}>
-            <m.div key={effect?.id ?? 'hero'} className={styles.visual} data-selected={!!effect}
-              initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { duration: reduceMotion ? 0 : .58, delay: reduceMotion ? 0 : .08, ease: 'easeInOut' } }}
-              exit={{ opacity: 0, transition: { duration: reduceMotion ? 0 : .24, ease: 'easeInOut' } }}>
-              <div className={styles.image} data-effect={effect?.id ?? 'hero'}>
-                <div className={styles.hue} role="img" aria-label={effect ? `${effect.title} model image placeholder` : 'Serum effects hero image placeholder'} />
-                <h2 id="effects-title" className={styles.heading}>Four effects.<br />One formula.</h2>
-              </div>
-              {effect && <Properties effect={effect} reduceMotion={reduceMotion} />}
-            </m.div>
-          </AnimatePresence>
+          {mobileExpanded ? <div className={styles.visual} data-selected="true" style={{ opacity: mediaOpacity }}>{visualContent}</div> :
+            <AnimatePresence mode="wait" initial={false}>
+              <m.div key={effect?.id ?? 'hero'} className={styles.visual} data-selected={!!effect}
+                initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { duration: reduceMotion ? 0 : .58, delay: reduceMotion ? 0 : .08, ease: 'easeInOut' } }}
+                exit={{ opacity: 0, transition: { duration: reduceMotion ? 0 : .24, ease: 'easeInOut' } }}>
+                {visualContent}
+              </m.div>
+            </AnimatePresence>}
+
         </div>
-        <m.div layout={reduceMotion ? false : 'position'} transition={{ duration: .42 }} className={styles.selector} data-open={!!effect}>
-          <m.div layoutScroll className={styles.effects} aria-label="Explore product effects" ref={railRef}>
+        <m.div layout={reduceMotion || mobile ? false : 'position'} transition={{ duration: .42 }} className={styles.selector} data-open={!!effect}>
+          <m.div layoutScroll className={styles.effects} aria-label="Explore product effects" ref={railRef} onScroll={scrollEffects}
+            onKeyDown={event => {
+              if (!mobileExpanded || active === null) return;
+              const next = event.key === 'ArrowRight' ? Math.min(effects.length - 1, active + 1) :
+                event.key === 'ArrowLeft' ? Math.max(0, active - 1) : event.key === 'Home' ? 0 : event.key === 'End' ? effects.length - 1 : null;
+              if (next !== null) { event.preventDefault(); select(next); }
+            }}>
             {effects.map((item, index) => {
               const expanded = active === index;
+              const expansion = reduceMotion ? Number(expanded) : Math.max(0, 1 - Math.abs(position - index));
               // Mobile wrapper transforms can shrink WebKit's scroll extent and clamp the selection out of view.
               return <m.div layout={reduceMotion || mobile ? false : 'position'} transition={{ duration: .42 }} className={styles.effect} key={item.id} data-expanded={expanded}>
-                <m.button layout={!reduceMotion} style={{ borderRadius: 28 }} transition={{ layout: { duration: .42, ease: [.22, 1, .36, 1] } }}
+                <m.button layout={!reduceMotion && !mobileExpanded} style={{ borderRadius: 28, ...(mobileExpanded ? { '--card-expansion': expansion } : {}) } as CSSProperties} transition={{ layout: { duration: .42, ease: [.22, 1, .36, 1] } }}
                   type="button" aria-label={item.title} aria-describedby={expanded ? `closer-effect-${item.id}` : undefined}
-                  aria-expanded={expanded} aria-controls={`closer-effect-${item.id}`} onClick={() => select(index)}>
-                  <m.span layout={reduceMotion ? false : 'position'} className={styles.effectLabel}><span className={styles.effectIcon} aria-hidden="true" /><span>{item.title}</span></m.span>
-                  <m.span layout={reduceMotion ? false : 'position'} animate={{ opacity: expanded ? 1 : 0 }} transition={{ duration: reduceMotion ? 0 : .42 }} id={`closer-effect-${item.id}`} className={styles.description} hidden={!expanded}>
+                  tabIndex={mobileExpanded && !expanded ? -1 : undefined} aria-expanded={expanded} aria-controls={`closer-effect-${item.id}`} onClick={() => select(index)}>
+                  <m.span layout={reduceMotion || mobileExpanded ? false : 'position'} className={styles.effectLabel}><span className={styles.effectIcon} aria-hidden="true" /><span>{item.title}</span></m.span>
+                  <m.span layout={reduceMotion || mobileExpanded ? false : 'position'} animate={{ opacity: mobileExpanded ? Math.max(0, expansion * 2 - 1) : expanded ? 1 : 0 }} transition={{ duration: reduceMotion || mobileExpanded ? 0 : .42 }} id={`closer-effect-${item.id}`} className={styles.description} aria-hidden={!expanded} hidden={!expanded && !mobileExpanded}>
                     <strong>{item.title}.</strong> {item.promise} {item.summary}
                   </m.span>
                 </m.button>
               </m.div>;
             })}
           </m.div>
-          {active !== null && <div className={styles.arrows}>
-            <button type="button" aria-label="Previous effect" disabled={active === 0} onClick={() => step(active - 1)}><Chevron previous /></button>
-            <button type="button" aria-label="Next effect" disabled={active === effects.length - 1} onClick={() => step(active + 1)}><Chevron /></button>
+          {mobileExpanded && <div className={styles.arrows}>
+            <button type="button" aria-label="Previous effect" disabled={active === 0} onClick={() => select(active - 1)}><Chevron previous /></button>
+            <button type="button" aria-label="Next effect" disabled={active === effects.length - 1} onClick={() => select(active + 1)}><Chevron /></button>
           </div>}
         </m.div>
       </div>
