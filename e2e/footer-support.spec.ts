@@ -80,8 +80,8 @@ test("the Helix Wordmark preserves full-band scaling and reduced motion", async 
   }
 });
 
-for (const width of [320, 390, 430, 720]) {
-  test(`phone footer exposes four full-width navigation groups before services at ${width}px`, async ({ page }) => {
+for (const width of [320, 390, 430, 720, 721, 769, 980]) {
+  test(`compact footer exposes four full-width navigation groups before services at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 844 });
     await page.goto("/");
     const footer = page.locator("#site-footer");
@@ -98,6 +98,8 @@ for (const width of [320, 390, 430, 720]) {
       const body = element.querySelector(".site-footer__body")!;
       const services = element.querySelector(".site-footer__services")!;
       const wordmark = element.querySelector(".site-footer__wordmark-band")!;
+      const shell = element.querySelector(".site-footer__inner")!;
+      const shellStyle = getComputedStyle(shell);
       const rect = (node: Element) => {
         const box = node.getBoundingClientRect();
         return { left: box.left, right: box.right, top: box.top, bottom: box.bottom, width: box.width };
@@ -107,6 +109,8 @@ for (const width of [320, 390, 430, 720]) {
         body: rect(body),
         services: rect(services),
         wordmark: rect(wordmark),
+        contentLeft: shell.getBoundingClientRect().left + parseFloat(shellStyle.paddingLeft),
+        contentRight: shell.getBoundingClientRect().right - parseFloat(shellStyle.paddingRight),
         groups: Array.from(nav.querySelectorAll("section"), rect),
         links: Array.from(nav.querySelectorAll("a"), (link) => ({
           label: link.textContent,
@@ -117,8 +121,8 @@ for (const width of [320, 390, 430, 720]) {
       };
     });
     expect(geometry.nav.width).toBeCloseTo(geometry.body.width, 1);
-    // The shared shell retains its fluid gutter above approximately 711px.
-    expect(Math.abs(geometry.nav.width - (width - 32))).toBeLessThanOrEqual(1);
+    expect(geometry.nav.left).toBeCloseTo(geometry.contentLeft, 1);
+    expect(geometry.nav.right).toBeCloseTo(geometry.contentRight, 1);
     expect(geometry.nav.top).toBeGreaterThanOrEqual(geometry.wordmark.bottom);
     expect(geometry.services.top).toBeGreaterThanOrEqual(geometry.nav.bottom);
     expect(geometry.groups).toHaveLength(4);
@@ -139,30 +143,22 @@ for (const width of [320, 390, 430, 720]) {
   });
 }
 
-test("tablet footer keeps its disclosures and desktop keeps visible navigation", async ({ page }) => {
-  await page.setViewportSize({ width: 721, height: 1024 });
-  await page.goto("/");
-  const footer = page.locator("#site-footer");
-  const disclosures = footer.locator(".site-footer__mobile-groups");
-  await disclosures.scrollIntoViewIfNeeded();
-  await expect(disclosures).toBeVisible();
-  await expect(footer.locator(".site-footer__nav")).toBeHidden();
-  await expect(disclosures.locator("details")).toHaveCount(4);
-  await expect(disclosures.locator("details[open]")).toHaveCount(0);
-  await disclosures.locator("summary").filter({ hasText: "Navigate" }).click();
-  await expect(disclosures.getByRole("link", { name: "Shop", exact: true })).toBeVisible();
-
-  await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.reload();
-  const navigation = footer.getByRole("navigation", { name: "Footer navigation" });
-  await navigation.scrollIntoViewIfNeeded();
-  await expect(navigation).toBeVisible();
-  await expect(disclosures).toBeHidden();
-  await expect(navigation.getByRole("heading", { level: 3 })).toHaveText([
-    "Navigate", "Support", "Legal", "Account",
-  ]);
-  const rows = await navigation.locator("section").evaluateAll((sections) =>
-    sections.map((section) => section.getBoundingClientRect().top),
-  );
-  for (const top of rows) expect(top).toBeCloseTo(rows[0], 1);
-});
+for (const width of [981, 1440]) {
+  test(`desktop footer keeps visible navigation at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 1000 });
+    await page.goto("/");
+    const footer = page.locator("#site-footer");
+    const disclosures = footer.locator(".site-footer__mobile-groups");
+    const navigation = footer.getByRole("navigation", { name: "Footer navigation" });
+    await navigation.scrollIntoViewIfNeeded();
+    await expect(navigation).toBeVisible();
+    await expect(disclosures).toBeHidden();
+    await expect(navigation.getByRole("heading", { level: 3 })).toHaveText([
+      "Navigate", "Support", "Legal", "Account",
+    ]);
+    const rows = await navigation.locator("section").evaluateAll((sections) =>
+      sections.map((section) => section.getBoundingClientRect().top),
+    );
+    for (const top of rows) expect(top).toBeCloseTo(rows[0], 1);
+  });
+}

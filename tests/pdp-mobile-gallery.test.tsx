@@ -70,7 +70,7 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("Treat mobile gallery", () => {
-  it("preserves vertical gestures and cancels interrupted horizontal gestures", () => {
+  it("ignores vertical-only selection and cancels interrupted horizontal gestures", () => {
     renderGallery();
     const bottle = screen.getByRole("img", { name: "Serum bottle" });
     const view = screen.getByRole("button", { name: "View bottle, media 1 of 3" });

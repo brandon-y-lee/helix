@@ -189,6 +189,54 @@ describe("PdpEffectsSection", () => {
     await waitFor(() => expect(screen.queryByRole("region", { name: / properties$/ })).not.toBeInTheDocument());
   });
 
+  it("morphs mobile effect cards and fades the media continuously while swiping", () => {
+    vi.mocked(window.matchMedia).mockImplementation((query: string) => ({
+      matches: query === "(max-width: 800px)", media: query,
+      addEventListener: vi.fn(), removeEventListener: vi.fn(),
+    }) as unknown as MediaQueryList);
+    render(<PdpEffectsSection />);
+    const rail = screen.getByLabelText("Explore product effects");
+    Object.defineProperty(rail, "clientWidth", { configurable: true, value: 390 });
+    Array.from(rail.children).forEach((card, index) => {
+      Object.defineProperty(card, "offsetLeft", { configurable: true, value: 40 + index * 322 });
+      Object.defineProperty(card, "offsetWidth", { configurable: true, value: 310 });
+    });
+    fireEvent.click(effectButton("Hydration"));
+    rail.scrollLeft = 322 * .25;
+    fireEvent.scroll(rail);
+    expect(effectButton("Hydration").style.getPropertyValue("--card-expansion")).toBe("0.75");
+    expect(effectButton("Barrier protection").style.getPropertyValue("--card-expansion")).toBe("0.25");
+    expect(screen.getByRole("img", { name: "Hydration model image placeholder" }).closest("[data-selected]")).toHaveStyle({ opacity: "0.5" });
+    expect(effectButton("Hydration")).toHaveAttribute("aria-expanded", "true");
+
+    rail.scrollLeft = 322 * .75;
+    fireEvent.scroll(rail);
+    expect(effectButton("Barrier protection")).toHaveAttribute("aria-expanded", "true");
+    expect(effectButton("Hydration")).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getAllByRole("region", { name: / properties$/ })).toHaveLength(1);
+    expect(screen.getByRole("img", { name: "Barrier protection model image placeholder" }).closest("[data-selected]")).toHaveStyle({ opacity: "0.5" });
+    fireEvent.click(effectButton("Brightening & clarity"));
+    expect(HTMLElement.prototype.scrollTo).toHaveBeenLastCalledWith({ left: 644, behavior: "smooth" });
+    fireEvent.keyDown(rail, { key: "Home" });
+    expect(HTMLElement.prototype.scrollTo).toHaveBeenLastCalledWith({ left: 0, behavior: "smooth" });
+  });
+
+  it("resolves mobile effect navigation immediately with reduced motion and restores close focus", () => {
+    motionPreference.reduced = true;
+    vi.mocked(window.matchMedia).mockImplementation((query: string) => ({
+      matches: query === "(max-width: 800px)", media: query,
+      addEventListener: vi.fn(), removeEventListener: vi.fn(),
+    }) as unknown as MediaQueryList);
+    render(<PdpEffectsSection />);
+    fireEvent.click(effectButton("Hydration"));
+    fireEvent.keyDown(screen.getByLabelText("Explore product effects"), { key: "End" });
+    expect(effectButton("Anti-aging & firmness")).toHaveAttribute("aria-expanded", "true");
+    expect(HTMLElement.prototype.scrollTo).toHaveBeenLastCalledWith(expect.objectContaining({ behavior: "instant" }));
+    fireEvent.keyDown(effectButton("Anti-aging & firmness"), { key: "Escape" });
+    expect(effectButton("Anti-aging & firmness")).toHaveFocus();
+    expect(screen.queryByRole("region", { name: / properties$/ })).not.toBeInTheDocument();
+  });
+
   it("preserves selection, property navigation, and closing with reduced motion", async () => {
     motionPreference.reduced = true;
     render(<PdpEffectsSection />);

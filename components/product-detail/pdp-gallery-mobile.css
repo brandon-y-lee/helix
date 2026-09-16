@@ -9,6 +9,10 @@
     touch-action: pan-y pinch-zoom;
   }
 
+  .pdp__gallery[data-pdp-gallery-presentation="mobile-pilot"][data-pdp-gallery-multiple="true"] .pdp__media-slide:not([data-media-kind="video"]) {
+    touch-action: pinch-zoom;
+  }
+
   .pdp__gallery[data-pdp-gallery-presentation="mobile-pilot"] .pdp__media-track {
     transition-duration: 260ms;
     transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);

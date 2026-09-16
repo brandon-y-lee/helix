@@ -126,17 +126,27 @@
   .stage { min-height: 680px; }
 }
 @media (max-width: 800px) {
-  .stage { display: flex; flex-direction: column; gap: 24px; height: auto; padding: 48px 0 28px; overflow: clip; }
+  .stage { display: flex; flex-direction: column; gap: 24px; height: auto; padding: 48px 0 28px; }
   .visualStage { min-height: 0; }
-  .visual { display: flex; flex-direction: column; gap: 20px; padding-inline: 24px; }
+  .visual { display: flex; flex-direction: column; gap: 20px; padding-inline: 0; }
   .image { height: clamp(300px, 95vw, 520px); flex: 0 0 auto; }
   .visual[data-selected='true'] .image { height: clamp(210px, 64vw, 340px); }
   .heading { font-size: clamp(30px, 7.6vw, 42px); padding: 20px; }
   .property { padding: 22px; }
   .ingredients { font-size: 14px; }
   .rationale { font-size: 13px; }
-  .selector { position: relative; width: 100%; }
-  .effects { position: relative; flex-direction: row; align-items: flex-end; gap: 12px; padding: 4px 24px; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; }
+  .selector { position: relative; width: calc(100% + 2 * var(--storefront-gutter)); margin-inline: calc(-1 * var(--storefront-gutter)); }
+  .effect button, .effect button:hover { box-shadow: none; }
+  .selector[data-open='true'] { --effect-inset: 40px; --effect-card-width: calc(100vw - 2 * var(--effect-inset)); }
+  .selector[data-open='true'] .effects { padding-inline: var(--effect-inset); scroll-snap-type: x mandatory; }
+  .selector[data-open='true'] .effect { flex: 0 0 var(--effect-card-width); width: var(--effect-card-width); display: flex; align-items: flex-end; scroll-snap-align: center; scroll-snap-stop: always; }
+  .selector[data-open='true'] .effect button { position: relative; flex: none; width: 100%; height: calc(44px + (var(--card-height, 180px) - 44px) * var(--card-expansion)); padding: 0; overflow: hidden; }
+  .selector[data-open='true'] .effectLabel { display: none; }
+  .selector[data-open='true'] .description { position: absolute; top: 0; left: 0; width: var(--effect-card-width); padding: 24px; }
+  .arrows { position: absolute; inset: auto 0 4px; display: flex; justify-content: space-between; pointer-events: none; }
+  .arrows button { width: 40px; height: 44px; padding: 10px; background: transparent; pointer-events: auto; }
+  .arrows button:disabled { visibility: hidden; }
+  .effects { position: relative; flex-direction: row; align-items: flex-end; gap: 12px; padding: 4px var(--storefront-gutter); overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; }
   .effects::-webkit-scrollbar { display: none; }
   .effect { flex: 0 0 auto; max-width: none; }
   .effectLabel { white-space: nowrap; font-size: 15px; }
