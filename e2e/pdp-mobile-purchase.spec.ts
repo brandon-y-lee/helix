@@ -430,7 +430,6 @@ test.describe("gallery touch ownership", () => {
       await touch.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
       await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(scrollBefore + 30);
     } finally {
-      await touch.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
       await touch.detach();
     }
   });
