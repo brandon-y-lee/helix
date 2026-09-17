@@ -456,7 +456,6 @@
   [data-pdp-presentation="mobile-pilot"] .pdp-reviews[data-review-empty="true"] {
     margin-top: 20px;
     padding: 24px 16px;
-    border-radius: 12px;
     background: var(--surface);
   }
 
