@@ -337,7 +337,9 @@ test.describe("mobile serum effects", () => {
           const frames = [];
           const end = performance.now() + 600;
           while (performance.now() < end) {
-            frames.push({ x: element.scrollLeft, height: element.clientHeight, y: window.scrollY, top: element.getBoundingClientRect().top });
+            const arrows = element.nextElementSibling!;
+            frames.push({ x: element.scrollLeft, height: element.clientHeight, y: window.scrollY, top: element.getBoundingClientRect().top,
+              moving: arrows.getAttribute('data-moving'), arrowOpacity: getComputedStyle(arrows.querySelector('button:last-child svg')!).opacity });
             await new Promise(requestAnimationFrame);
           }
           return frames;
@@ -351,6 +353,8 @@ test.describe("mobile serum effects", () => {
           expect(samples[index].y).toBe(pageY);
           expect(samples[index].top).toBeCloseTo(frame.y, 0);
         }
+        const settled = samples.find(sample => sample.moving === 'false');
+        expect(settled?.arrowOpacity).toBe('1');
         await expectExpandedAligned(section, effectNames[effectIndex + 1]);
         await expect(nextIcon).toHaveCSS('opacity', '1');
         if (effectIndex === effectNames.length - 2) await expect(nextButton).toBeHidden();
@@ -361,6 +365,75 @@ test.describe("mobile serum effects", () => {
       }
     });
   }
+
+  test("mobile Effects ease between overview and expanded views and honor motion preference changes", async ({ page, storefront }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(productPath(storefront));
+    const section = page.locator('#effects-prototype');
+    const stage = section.locator(':scope > div');
+    const hydration = section.getByRole('button', { name: 'Hydration', exact: true });
+    async function halfway() {
+      const opacity = await stage.evaluate(element => {
+        const transition = element.getAnimations().find(animation => animation instanceof CSSTransition && animation.transitionProperty === 'opacity');
+        if (!transition) throw new Error('Expected an opacity transition on the Effects view.');
+        transition.pause();
+        transition.currentTime = Number(transition.effect!.getComputedTiming().duration) / 2;
+        return Number(getComputedStyle(element).opacity);
+      });
+      expect(opacity).toBeGreaterThan(0);
+      expect(opacity).toBeLessThan(1);
+    }
+    async function finishFade() {
+      await stage.evaluate(element => element.getAnimations().forEach(animation => animation.finish()));
+    }
+    await hydration.click();
+    await halfway();
+    await expect(hydration).toHaveAttribute('aria-expanded', 'false');
+    await finishFade();
+    await expect(hydration).toHaveAttribute('aria-expanded', 'true');
+    await halfway();
+    await finishFade();
+    await expect(stage).not.toHaveAttribute('data-disclosure');
+
+    await section.getByRole('button', { name: 'Collapse effect description' }).click();
+    await halfway();
+    await expect(hydration).toHaveAttribute('aria-expanded', 'true');
+    await finishFade();
+    await expect(hydration).toHaveAttribute('aria-expanded', 'false');
+    await expect(hydration).toBeFocused();
+    await expect(section.getByRole('region', { name: / properties$/ })).toHaveCount(0);
+    await halfway();
+    await finishFade();
+    await expect(stage).not.toHaveAttribute('data-disclosure');
+
+    // Reverse before the incoming opacity has painted: no outgoing CSS event is guaranteed.
+    const reversed = stage.evaluate(element => new Promise<void>(resolve => {
+      const observer = new MutationObserver(() => {
+        if (element.getAttribute('data-disclosure') !== 'in') return;
+        observer.disconnect();
+        element.querySelector<HTMLButtonElement>('[aria-label="Collapse effect description"]')!.click();
+        resolve();
+      });
+      observer.observe(element, { attributes: true, attributeFilter: ['data-disclosure'] });
+    }));
+    await hydration.click();
+    await reversed;
+    await expect(stage).not.toHaveAttribute('data-disclosure');
+    await expect(stage).toHaveCSS('opacity', '1');
+    await expect(hydration).toHaveAttribute('aria-expanded', 'false');
+    await expect(hydration).toBeFocused();
+
+    await hydration.click();
+    await halfway();
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await expect(hydration).toHaveAttribute('aria-expanded', 'true');
+    await expect(stage).not.toHaveAttribute('data-disclosure');
+    await expect(stage).toHaveCSS('opacity', '1');
+    await hydration.focus();
+    await page.keyboard.press('Escape');
+    await expect(hydration).toHaveAttribute('aria-expanded', 'false');
+    await expect(hydration).toBeFocused();
+  });
 
   test("effect focus survives height-only changes without recapturing page scroll", async ({ page, storefront, browserName }) => {
     await page.setViewportSize({ width: 390, height: 844 });

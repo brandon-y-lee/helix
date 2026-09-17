@@ -3,15 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PdpEffectsSection } from "@/components/product-detail/PdpEffectsSection";
 
-const motionPreference = vi.hoisted(() => ({ reduced: false }));
-
-vi.mock("motion/react", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("motion/react")>();
-  return {
-    ...actual,
-    useReducedMotion: () => motionPreference.reduced,
-  };
-});
+const motionPreference = { reduced: false };
 
 const originalScrollTo = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "scrollTo");
 
@@ -33,7 +25,7 @@ beforeEach(() => {
     value: vi.fn(),
   });
   vi.stubGlobal("matchMedia", vi.fn((query: string) => ({
-    matches: false,
+    matches: query === "(prefers-reduced-motion: reduce)" && motionPreference.reduced,
     media: query,
     onchange: null,
     addEventListener: vi.fn(),
@@ -54,6 +46,17 @@ afterEach(() => {
 
 function effectButton(name: string) {
   return screen.getByRole("button", { name });
+}
+
+function finishDisclosure() {
+  const stage = screen.getByLabelText("Explore product effects").closest("section")!.firstElementChild! as HTMLElement;
+  const opacity = stage.getAttribute('data-disclosure') === 'out' ? '0' : '1';
+  const previousOpacity = stage.style.opacity;
+  stage.style.opacity = opacity;
+  const event = new Event("transitionend", { bubbles: true });
+  Object.defineProperty(event, "propertyName", { value: "opacity" });
+  fireEvent(stage, event);
+  stage.style.opacity = previousOpacity;
 }
 
 async function properties(name: string) {
@@ -189,9 +192,36 @@ describe("PdpEffectsSection", () => {
     await waitFor(() => expect(screen.queryByRole("region", { name: / properties$/ })).not.toBeInTheDocument());
   });
 
+  it("keeps the latest requested mobile view through opening and closing fades", () => {
+    vi.mocked(window.matchMedia).mockImplementation((query: string) => ({
+      matches: query === "(max-width: 800px)" || (query === "(prefers-reduced-motion: reduce)" && motionPreference.reduced), media: query,
+      addEventListener: vi.fn(), removeEventListener: vi.fn(),
+    }) as unknown as MediaQueryList);
+    render(<PdpEffectsSection />);
+    fireEvent.click(effectButton("Hydration"));
+    expect(effectButton("Hydration")).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(effectButton("Barrier protection"));
+    finishDisclosure();
+    expect(effectButton("Barrier protection")).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getAllByRole("region", { name: / properties$/ })).toHaveLength(1);
+
+    fireEvent.click(screen.getByRole("button", { name: "Collapse effect description" }));
+    fireEvent.click(effectButton("Barrier protection"));
+    finishDisclosure();
+    finishDisclosure();
+    expect(effectButton("Barrier protection")).toHaveAttribute("aria-expanded", "true");
+
+    fireEvent.keyDown(effectButton("Barrier protection"), { key: "Escape" });
+    finishDisclosure();
+    expect(effectButton("Barrier protection")).toHaveAttribute("aria-expanded", "false");
+    expect(effectButton("Barrier protection")).toHaveFocus();
+    expect(screen.queryByRole("region", { name: / properties$/ })).not.toBeInTheDocument();
+    finishDisclosure();
+  });
+
   it("morphs mobile effect cards and fades the media continuously while swiping", () => {
     vi.mocked(window.matchMedia).mockImplementation((query: string) => ({
-      matches: query === "(max-width: 800px)", media: query,
+      matches: query === "(max-width: 800px)" || (query === "(prefers-reduced-motion: reduce)" && motionPreference.reduced), media: query,
       addEventListener: vi.fn(), removeEventListener: vi.fn(),
     }) as unknown as MediaQueryList);
     render(<PdpEffectsSection />);
@@ -202,6 +232,8 @@ describe("PdpEffectsSection", () => {
       Object.defineProperty(card, "offsetWidth", { configurable: true, value: 310 });
     });
     fireEvent.click(effectButton("Hydration"));
+    finishDisclosure();
+    finishDisclosure();
     effectButton("Hydration").focus();
     fireEvent.touchStart(rail);
     rail.scrollLeft = 322 * .25;
@@ -233,7 +265,7 @@ describe("PdpEffectsSection", () => {
   it("resolves mobile effect navigation immediately with reduced motion and restores close focus", () => {
     motionPreference.reduced = true;
     vi.mocked(window.matchMedia).mockImplementation((query: string) => ({
-      matches: query === "(max-width: 800px)", media: query,
+      matches: query === "(max-width: 800px)" || (query === "(prefers-reduced-motion: reduce)" && motionPreference.reduced), media: query,
       addEventListener: vi.fn(), removeEventListener: vi.fn(),
     }) as unknown as MediaQueryList);
     render(<PdpEffectsSection />);
