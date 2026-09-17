@@ -127,46 +127,48 @@
 }
 @media (max-width: 800px) {
   .stage { display: flex; flex-direction: column; gap: 24px; height: auto; padding: 0; }
-  .stage[data-disclosure='out'] { opacity: 0; transition: opacity 180ms ease-in-out; }
-  .stage[data-disclosure='in'] { opacity: 1; transition: opacity 420ms cubic-bezier(.22, 1, .36, 1); }
   .visualStage { position: relative; min-height: 0; }
-  .visual { display: flex; flex-direction: column; gap: 20px; padding-inline: 0; }
+  .visual { display: flex; flex-direction: column; gap: 0; padding-inline: 0; }
   .image { height: clamp(300px, 95vw, 520px); flex: 0 0 auto; }
   .visual[data-selected='true'] .image { height: clamp(210px, 64vw, 340px); }
   .heading { font-size: clamp(30px, 7.6vw, 42px); padding: 20px; }
   .property { padding: 22px; }
   .properties { display: grid; }
+  .mobileProperties { height: 0; min-height: 0; overflow: clip; }
+  .mobileProperties[data-open='true'] { height: auto; }
+  .mobileProperties > .properties { padding-top: 20px; transition: opacity 420ms cubic-bezier(.22, 1, .36, 1); }
+  .mobileProperties[aria-hidden='true'] > .properties { opacity: 0; }
   /* Reserve natural copy height across effects so the swipe rail stays under the finger. */
   .propertySizer { display: grid; grid-area: 1 / 1; visibility: hidden; pointer-events: none; }
   .propertySizer .property, .propertyTrack { grid-area: 1 / 1; }
   .propertyControls { grid-row: 2; }
   .ingredients { font-size: 14px; }
   .rationale { font-size: 13px; }
-  .selector { position: relative; width: calc(100% + 2 * var(--storefront-gutter)); margin-inline: calc(-1 * var(--storefront-gutter)); }
+  .selector { --effect-card-width: calc(100vw - 80px); position: relative; width: calc(100% + 2 * var(--storefront-gutter)); margin-inline: calc(-1 * var(--storefront-gutter)); }
   .effect button, .effect button:hover { box-shadow: none; }
   .selector[data-open='true'] { --effect-inset: 40px; --effect-card-width: calc(100vw - 2 * var(--effect-inset)); }
   .selector[data-open='true'] .effects { height: calc(var(--effect-max-card-height, 180px) + 8px); padding-inline: var(--effect-inset); scroll-snap-type: x mandatory; }
   .selector[data-open='true'] .effect { flex: 0 0 var(--effect-card-width); width: var(--effect-card-width); display: flex; align-items: flex-end; scroll-snap-align: center; scroll-snap-stop: always; }
   .selector[data-open='true'] .effect button { position: relative; flex: none; width: 100%; height: calc(44px + (var(--card-height, 180px) - 44px) * var(--card-expansion)); padding: 0; overflow: hidden; }
-  .selector[data-open='true'] .effectLabel { display: none; }
-  .selector[data-open='true'] .description { position: absolute; top: 0; left: 0; width: var(--effect-card-width); padding: 24px; }
-  .arrows { position: absolute; inset: auto 0 4px; display: flex; justify-content: space-between; pointer-events: none; }
-  .arrows button { width: 40px; height: 44px; padding: 10px; background: transparent; pointer-events: auto; }
+  .selector .effect .effectLabel { display: flex; transition: opacity 180ms ease 120ms; }
+  .selector[data-open='true'] .effectLabel { position: absolute; left: 16px; top: 16px; opacity: 0; transition: opacity 120ms ease; }
+  .arrows { position: absolute; inset: auto 0 4px; display: flex; justify-content: space-between; overflow-x: clip; pointer-events: none; }
+  .arrows button { width: 40px; height: 44px; padding: 10px; background: transparent; pointer-events: auto; transform: translateX(var(--arrow-drift, 0px)); }
   .arrows button:disabled { visibility: hidden; }
-  .arrows svg { transform: translateX(8px); }
+  .arrows svg { transform: translateX(8px); transition: opacity 420ms cubic-bezier(.22, 1, .36, 1); }
   .arrows button:first-child svg { transform: translateX(-8px); }
-  .arrows[data-moving='true'] svg { opacity: 0; transition: none; }
-  .arrows[data-moving='true'] button { pointer-events: none; }
+  .arrows:is([data-dragging='true'], [data-pending='true']) svg { opacity: 0; transition: none; }
+  .arrows:is([data-dragging='true'], [data-pending='true']) button { pointer-events: none; }
   .effects { position: relative; flex-direction: row; align-items: flex-end; gap: 12px; padding: 4px var(--storefront-gutter); overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; }
   .effects::-webkit-scrollbar { display: none; }
   .effect { flex: 0 0 auto; max-width: none; }
   .effectLabel { white-space: nowrap; font-size: 15px; }
-  .effect button { padding: 16px 20px 16px 16px; }
+  .effect button { position: relative; padding: 16px 20px 16px 16px; overflow: hidden; }
   .effect[data-expanded='true'] { flex: 0 0 100%; width: 100%; }
   .effect[data-expanded='true'] button { padding: 24px; }
-  .description { font-size: 14px; line-height: 20px; }
+  .description { position: absolute; top: 0; left: 0; width: var(--effect-card-width); padding: 24px; font-size: 14px; line-height: 20px; pointer-events: none; }
   .close { top: 8px; right: 8px; border-radius: 0; background: transparent; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .stage[data-disclosure], .effect button, .arrows svg { transition: none; }
+  .mobileProperties > .properties, .selector .effect .effectLabel, .effect button, .arrows svg { transition: none; }
 }

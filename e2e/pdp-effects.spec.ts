@@ -298,12 +298,15 @@ test.describe("mobile serum effects", () => {
     await expect(section.getByRole("button", { name: "Next effect", includeHidden: true })).toBeHidden();
   });
 
-  for (const [effectIndex, startingEffect] of effectNames.slice(0, -1).entries()) {
+  for (const [effectIndex, startingEffect] of effectNames.entries()) {
     test(`native swipe from ${startingEffect} hides icons and settles without moving the page`, async ({ page, storefront, browserName }) => {
       test.skip(browserName !== "chromium", "Native touch streams use CDP; shared geometry and keyboard checks also run in WebKit.");
       await page.setViewportSize({ width: 390, height: 844 });
       await page.goto(productPath(storefront));
       const section = page.locator('#effects-prototype');
+      const direction = effectIndex === effectNames.length - 1 ? -1 : 1;
+      const fast = effectIndex === 0 || direction === -1;
+      const targetIndex = effectIndex + direction;
       const currentCard = section.getByRole("button", { name: startingEffect, exact: true });
       await currentCard.tap();
       await expectExpandedAligned(section, startingEffect);
@@ -311,105 +314,149 @@ test.describe("mobile serum effects", () => {
       await settleFocusLayout(page);
       const rail = section.locator('[aria-label="Explore product effects"]');
       await rail.evaluate(element => window.scrollBy({ top: element.getBoundingClientRect().bottom - 650, behavior: 'instant' }));
-      const nextButton = section.getByRole("button", { name: "Next effect", exact: true, includeHidden: true });
+      const nextButton = section.getByRole("button", { name: direction === 1 ? "Next effect" : "Previous effect", exact: true, includeHidden: true });
       const nextIcon = nextButton.locator('svg');
       await expect(nextIcon).toHaveCSS('opacity', '1');
       const glyph = (await nextIcon.boundingBox())!;
       const frame = (await rail.boundingBox())!;
-      expect(390 - glyph.x - glyph.width / 2).toBeCloseTo(12, 0);
+      expect(direction === 1 ? 390 - glyph.x - glyph.width / 2 : glyph.x + glyph.width / 2).toBeCloseTo(12, 0);
       expect(glyph.y + glyph.height / 2).toBeCloseTo(frame.y + frame.height - 4 - 22, 0);
       const y = frame.y + frame.height - 60;
       const pageY = await page.evaluate(() => window.scrollY);
       const touch = await page.context().newCDPSession(page);
       try {
-        await touch.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: 300, y }] });
-        for (let distance = 14; distance <= 210; distance += 14) {
-          await touch.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: 300 - distance, y }] });
-          await page.waitForTimeout(20);
+        const origin = direction === 1 ? 300 : 90;
+        await touch.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: origin, y }] });
+        for (let distance = fast ? 20 : 14; distance <= (fast ? 100 : 210); distance += fast ? 20 : 14) {
+          await touch.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: origin - distance * direction, y }] });
+          await page.waitForTimeout(fast ? 5 : 20);
         }
         // A paused finger must not allow the scroll-idle fallback to restore icons or move focus.
-        await page.waitForTimeout(250);
+        if (!fast) await page.waitForTimeout(250);
         await expect(nextIcon).toHaveCSS('opacity', '0');
         await expect(currentCard).toBeFocused();
         expect((await rail.boundingBox())!.height).toBeCloseTo(frame.height, 0);
         expect(await page.evaluate(() => window.scrollY)).toBe(pageY);
-        const release = rail.evaluate(async element => {
-          const frames = [];
-          const end = performance.now() + 600;
-          while (performance.now() < end) {
-            const arrows = element.nextElementSibling!;
-            frames.push({ x: element.scrollLeft, height: element.clientHeight, y: window.scrollY, top: element.getBoundingClientRect().top,
-              moving: arrows.getAttribute('data-moving'), arrowOpacity: getComputedStyle(arrows.querySelector('button:last-child svg')!).opacity });
-            await new Promise(requestAnimationFrame);
-          }
-          return frames;
-        });
+        const release = await rail.evaluateHandle((element, { incomingIndex, direction }) => {
+          const incoming = element.children[incomingIndex].querySelector('button')!;
+          let released = false;
+          element.addEventListener('touchend', () => { released = true; }, { once: true });
+          const done = (async () => {
+            const frames = [];
+            const end = performance.now() + 600;
+            while (performance.now() < end) {
+              const arrows = element.nextElementSibling!;
+              const previousIcon = arrows.querySelector(direction === 1 ? 'button:first-child svg' : 'button:last-child svg')!;
+              const icon = previousIcon.getBoundingClientRect();
+              frames.push({ x: element.scrollLeft, height: element.clientHeight, y: window.scrollY, top: element.getBoundingClientRect().top,
+                released, time: performance.now(), cardLeft: incoming.getBoundingClientRect().left, cardRight: incoming.getBoundingClientRect().right,
+                iconCenter: icon.left + icon.width / 2, arrowOpacity: getComputedStyle(previousIcon).visibility === 'visible' ? Number(getComputedStyle(previousIcon).opacity) : 0 });
+              await new Promise(requestAnimationFrame);
+            }
+            return frames;
+          })();
+          return { done };
+        }, { incomingIndex: targetIndex, direction });
         await touch.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-        const samples = await release;
+        const samples = await release.evaluate(recording => recording.done);
+        await release.dispose();
         expect(new Set(samples.map(sample => sample.x)).size).toBeGreaterThan(3);
         for (let index = 1; index < samples.length; index++) {
-          expect(samples[index].x).toBeGreaterThanOrEqual(samples[index - 1].x - 1);
+          expect(samples[index].x * direction).toBeGreaterThanOrEqual(samples[index - 1].x * direction - 1);
           expect(samples[index].height).toBe(samples[0].height);
           expect(samples[index].y).toBe(pageY);
           expect(samples[index].top).toBeCloseTo(frame.y, 0);
         }
-        const settled = samples.find(sample => sample.moving === 'false');
-        expect(settled?.arrowOpacity).toBe('1');
-        await expectExpandedAligned(section, effectNames[effectIndex + 1]);
+        const released = samples.find(sample => sample.released)!;
+        const visible = samples.find(sample => sample.released && sample.arrowOpacity > .01)!;
+        expect(released).toBeDefined();
+        expect(visible).toBeDefined();
+        // Check painted frames rather than wall-clock jitter on a busy browser worker.
+        expect(samples.indexOf(visible) - samples.indexOf(released)).toBeLessThanOrEqual(3);
+        expect(Math.abs(visible.cardLeft - 40)).toBeGreaterThan(20);
+        for (const sample of samples.filter(sample => sample.released && sample.arrowOpacity > .01)) {
+          expect(sample.iconCenter - (direction === 1 ? sample.cardLeft : sample.cardRight)).toBeCloseTo(direction === 1 ? -28 : 28, 0);
+        }
+        await expectExpandedAligned(section, effectNames[targetIndex]);
         await expect(nextIcon).toHaveCSS('opacity', '1');
-        if (effectIndex === effectNames.length - 2) await expect(nextButton).toBeHidden();
+        if (targetIndex === (direction === 1 ? effectNames.length - 1 : 0)) await expect(nextButton).toBeHidden();
         else await expect(nextButton).toBeVisible();
-        await expect(section.getByRole('button', { name: effectNames[effectIndex + 1], exact: true })).toBeFocused();
+        await expect(section.getByRole('button', { name: effectNames[targetIndex], exact: true })).toBeFocused();
       } finally {
         await touch.detach();
       }
     });
   }
 
-  test("mobile Effects ease between overview and expanded views and honor motion preference changes", async ({ page, storefront }) => {
+  test("mobile Effects slide between overview and expanded shapes and honor motion preference changes", async ({ page, storefront }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(productPath(storefront));
     const section = page.locator('#effects-prototype');
     const stage = section.locator(':scope > div');
-    const hydration = section.getByRole('button', { name: 'Hydration', exact: true });
-    async function halfway() {
-      const opacity = await stage.evaluate(element => {
-        const transition = element.getAnimations().find(animation => animation instanceof CSSTransition && animation.transitionProperty === 'opacity');
-        if (!transition) throw new Error('Expected an opacity transition on the Effects view.');
-        transition.pause();
-        transition.currentTime = Number(transition.effect!.getComputedTiming().duration) / 2;
-        return Number(getComputedStyle(element).opacity);
+    async function measure(button: Locator) {
+      return button.evaluate(element => {
+        const box = element.getBoundingClientRect();
+        return { width: box.width, height: box.height };
       });
-      expect(opacity).toBeGreaterThan(0);
-      expect(opacity).toBeLessThan(1);
     }
-    async function finishFade() {
-      await stage.evaluate(element => element.getAnimations().forEach(animation => animation.finish()));
+    async function sample(button: Locator) {
+      return button.evaluate(async element => {
+        const section = element.closest('section')!;
+        const samples = [];
+        const end = performance.now() + 650;
+        while (performance.now() < end) {
+          const box = element.getBoundingClientRect();
+          samples.push({ width: box.width, height: box.height, left: box.left,
+            imageHeight: section.querySelector('[data-effect]')!.getBoundingClientRect().height,
+            opacity: Number(getComputedStyle(section.firstElementChild!).opacity) });
+          await new Promise(requestAnimationFrame);
+        }
+        return samples;
+      });
     }
+    function expectShapeMotion(before: { width: number; height: number }, after: { width: number; height: number }, samples: Awaited<ReturnType<typeof sample>>) {
+      for (const dimension of ['width', 'height'] as const) {
+        const low = Math.min(before[dimension], after[dimension]);
+        const high = Math.max(before[dimension], after[dimension]);
+        expect(samples.filter(frame => frame[dimension] > low + 1 && frame[dimension] < high - 1).length).toBeGreaterThan(2);
+      }
+      expect(new Set(samples.map(frame => Math.round(frame.imageHeight))).size).toBeGreaterThan(3);
+      expect(samples.every(frame => frame.opacity === 1)).toBe(true);
+    }
+    for (const name of effectNames) {
+      const button = section.getByRole('button', { name, exact: true });
+      await button.scrollIntoViewIfNeeded();
+      const closed = await measure(button);
+      const opening = sample(button);
+      await button.click();
+      const openFrames = await opening;
+      await expect(stage).not.toHaveAttribute('data-disclosure');
+      await expectExpandedAligned(section, name);
+      const opened = await measure(button);
+      expectShapeMotion(closed, opened, openFrames);
+      const closing = sample(button);
+      await section.getByRole('button', { name: 'Collapse effect description' }).click();
+      const closeFrames = await closing;
+      await expect(stage).not.toHaveAttribute('data-disclosure');
+      expectShapeMotion(opened, await measure(button), closeFrames);
+      await expect(button).toHaveAttribute('aria-expanded', 'false');
+      await expect(button).toBeFocused();
+      await expect(section.getByRole('region', { name: / properties$/ })).toHaveCount(0);
+    }
+    const hydration = section.getByRole('button', { name: 'Hydration', exact: true });
     await hydration.click();
-    await halfway();
-    await expect(hydration).toHaveAttribute('aria-expanded', 'false');
-    await finishFade();
-    await expect(hydration).toHaveAttribute('aria-expanded', 'true');
-    await halfway();
-    await finishFade();
+    await expect(stage).toHaveAttribute('data-disclosure', 'opening');
+    await hydration.focus();
+    await page.keyboard.press('ArrowRight');
+    await expect(stage).not.toHaveAttribute('data-disclosure');
+    await expectExpandedAligned(section, 'Barrier protection');
+    await expect(section.getByRole('button', { name: 'Barrier protection', exact: true })).toBeFocused();
+    await page.keyboard.press('Escape');
     await expect(stage).not.toHaveAttribute('data-disclosure');
 
-    await section.getByRole('button', { name: 'Collapse effect description' }).click();
-    await halfway();
-    await expect(hydration).toHaveAttribute('aria-expanded', 'true');
-    await finishFade();
-    await expect(hydration).toHaveAttribute('aria-expanded', 'false');
-    await expect(hydration).toBeFocused();
-    await expect(section.getByRole('region', { name: / properties$/ })).toHaveCount(0);
-    await halfway();
-    await finishFade();
-    await expect(stage).not.toHaveAttribute('data-disclosure');
-
-    // Reverse before the incoming opacity has painted: no outgoing CSS event is guaranteed.
     const reversed = stage.evaluate(element => new Promise<void>(resolve => {
       const observer = new MutationObserver(() => {
-        if (element.getAttribute('data-disclosure') !== 'in') return;
+        if (element.getAttribute('data-disclosure') !== 'opening') return;
         observer.disconnect();
         element.querySelector<HTMLButtonElement>('[aria-label="Collapse effect description"]')!.click();
         resolve();
@@ -419,16 +466,14 @@ test.describe("mobile serum effects", () => {
     await hydration.click();
     await reversed;
     await expect(stage).not.toHaveAttribute('data-disclosure');
-    await expect(stage).toHaveCSS('opacity', '1');
     await expect(hydration).toHaveAttribute('aria-expanded', 'false');
     await expect(hydration).toBeFocused();
 
     await hydration.click();
-    await halfway();
+    await expect(stage).toHaveAttribute('data-disclosure', 'opening');
     await page.emulateMedia({ reducedMotion: 'reduce' });
-    await expect(hydration).toHaveAttribute('aria-expanded', 'true');
     await expect(stage).not.toHaveAttribute('data-disclosure');
-    await expect(stage).toHaveCSS('opacity', '1');
+    await expect(hydration).toHaveAttribute('aria-expanded', 'true');
     await hydration.focus();
     await page.keyboard.press('Escape');
     await expect(hydration).toHaveAttribute('aria-expanded', 'false');
