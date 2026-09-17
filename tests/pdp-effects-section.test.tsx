@@ -48,17 +48,6 @@ function effectButton(name: string) {
   return screen.getByRole("button", { name });
 }
 
-function finishDisclosure() {
-  const stage = screen.getByLabelText("Explore product effects").closest("section")!.firstElementChild! as HTMLElement;
-  const opacity = stage.getAttribute('data-disclosure') === 'out' ? '0' : '1';
-  const previousOpacity = stage.style.opacity;
-  stage.style.opacity = opacity;
-  const event = new Event("transitionend", { bubbles: true });
-  Object.defineProperty(event, "propertyName", { value: "opacity" });
-  fireEvent(stage, event);
-  stage.style.opacity = previousOpacity;
-}
-
 async function properties(name: string) {
   const carousel = await screen.findByRole("region", { name: `${name} properties` }, { timeout: 2500 });
   await waitFor(() => expect(carousel).toBeVisible(), { timeout: 2500 });
@@ -192,31 +181,26 @@ describe("PdpEffectsSection", () => {
     await waitFor(() => expect(screen.queryByRole("region", { name: / properties$/ })).not.toBeInTheDocument());
   });
 
-  it("keeps the latest requested mobile view through opening and closing fades", () => {
+  it("keeps the latest requested mobile view through opening and closing shape motion", () => {
     vi.mocked(window.matchMedia).mockImplementation((query: string) => ({
       matches: query === "(max-width: 800px)" || (query === "(prefers-reduced-motion: reduce)" && motionPreference.reduced), media: query,
       addEventListener: vi.fn(), removeEventListener: vi.fn(),
     }) as unknown as MediaQueryList);
     render(<PdpEffectsSection />);
     fireEvent.click(effectButton("Hydration"));
-    expect(effectButton("Hydration")).toHaveAttribute("aria-expanded", "false");
+    expect(effectButton("Hydration")).toHaveAttribute("aria-expanded", "true");
     fireEvent.click(effectButton("Barrier protection"));
-    finishDisclosure();
     expect(effectButton("Barrier protection")).toHaveAttribute("aria-expanded", "true");
     expect(screen.getAllByRole("region", { name: / properties$/ })).toHaveLength(1);
 
     fireEvent.click(screen.getByRole("button", { name: "Collapse effect description" }));
     fireEvent.click(effectButton("Barrier protection"));
-    finishDisclosure();
-    finishDisclosure();
     expect(effectButton("Barrier protection")).toHaveAttribute("aria-expanded", "true");
 
     fireEvent.keyDown(effectButton("Barrier protection"), { key: "Escape" });
-    finishDisclosure();
     expect(effectButton("Barrier protection")).toHaveAttribute("aria-expanded", "false");
     expect(effectButton("Barrier protection")).toHaveFocus();
     expect(screen.queryByRole("region", { name: / properties$/ })).not.toBeInTheDocument();
-    finishDisclosure();
   });
 
   it("morphs mobile effect cards and fades the media continuously while swiping", () => {
@@ -232,8 +216,6 @@ describe("PdpEffectsSection", () => {
       Object.defineProperty(card, "offsetWidth", { configurable: true, value: 310 });
     });
     fireEvent.click(effectButton("Hydration"));
-    finishDisclosure();
-    finishDisclosure();
     effectButton("Hydration").focus();
     fireEvent.touchStart(rail);
     rail.scrollLeft = 322 * .25;
@@ -243,6 +225,7 @@ describe("PdpEffectsSection", () => {
     expect(screen.getByRole("img", { name: "Hydration model image placeholder" }).closest("[data-selected]")).toHaveStyle({ opacity: "0.5" });
     expect(effectButton("Hydration")).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByRole("button", { name: "Next effect" }).parentElement).toHaveAttribute("data-moving", "true");
+    expect(screen.getByRole("button", { name: "Next effect" }).parentElement).toHaveAttribute("data-dragging", "true");
 
     rail.scrollLeft = 322 * .75;
     fireEvent.scroll(rail);
@@ -253,6 +236,9 @@ describe("PdpEffectsSection", () => {
     fireEvent(rail, new Event("scrollend"));
     expect(effectButton("Hydration")).toHaveFocus();
     fireEvent.touchEnd(rail);
+    expect(screen.getByRole("button", { name: "Next effect" }).parentElement).toHaveAttribute("data-dragging", "false");
+    expect(screen.getByRole("button", { name: "Next effect" }).parentElement).toHaveAttribute("data-moving", "true");
+    expect(effectButton("Hydration")).toHaveFocus();
     fireEvent(rail, new Event("scrollend"));
     expect(effectButton("Barrier protection")).toHaveFocus();
     expect(screen.getByRole("button", { name: "Next effect" }).parentElement).toHaveAttribute("data-moving", "false");

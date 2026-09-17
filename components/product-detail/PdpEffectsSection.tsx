@@ -4,6 +4,7 @@ import { useCallback, useLayoutEffect, useRef, useState, useSyncExternalStore, t
 import { AnimatePresence, domMax, LazyMotion } from 'motion/react';
 import * as m from 'motion/react-m';
 import { effects, type Effect } from '@/lib/content/serum-effects';
+import { animateEffectsGeometry, captureEffectsGeometry, type EffectsGeometrySnapshot } from './effects-disclosure-motion';
 import styles from './PdpEffectsSection.module.css';
 
 const MOBILE_EFFECTS_QUERY = '(max-width: 800px)';
@@ -100,12 +101,19 @@ function Properties({ effect, reduceMotion, mobile }: { effect: Effect; reduceMo
 export function PdpEffectsSection() {
   const [active, setActive] = useState<number | null>(null);
   const railRef = useRef<HTMLDivElement>(null);
-  const stageRef = useRef<HTMLDivElement>(null);
+  const imageRef = useRef<HTMLDivElement>(null);
+  const propertiesRef = useRef<HTMLDivElement>(null);
   const closedEffect = useRef<number | null>(null);
   const selectedRef = useRef<number | null>(null);
   const [position, setPosition] = useState(0);
   const [moving, setMoving] = useState(false);
-  const [disclosure, setDisclosure] = useState<'out' | 'in' | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const [arrowTarget, setArrowTarget] = useState<number | null>(null);
+  const arrowTargetRef = useRef<number | null>(null);
+  const scrollPosition = useRef(0);
+  const [disclosure, setDisclosure] = useState<'opening' | 'closing' | null>(null);
+  const disclosureFrom = useRef<EffectsGeometrySnapshot | null>(null);
+  const disclosureMotion = useRef<ReturnType<typeof animateEffectsGeometry> | null>(null);
   const requestedView = useRef<number | null>(null);
   const touching = useRef(false);
   const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -114,10 +122,33 @@ export function PdpEffectsSection() {
   const effect = active === null ? null : effects[active];
 
   const mobileExpanded = mobile && active !== null;
+  const viewOpen = active !== null && disclosure !== 'closing';
+  const mobileOpen = mobile && viewOpen;
   selectedRef.current = active;
 
-  function settle() {
-    if (!touching.current) setMoving(false);
+  const showArrowsFor = useCallback((index: number | null) => {
+    arrowTargetRef.current = index;
+    setArrowTarget(index);
+    const rail = railRef.current;
+    if (index !== null && rail) {
+      const stride = (rail.children[1] as HTMLElement).offsetLeft - (rail.children[0] as HTMLElement).offsetLeft;
+      rail.parentElement?.style.setProperty('--arrow-drift', `${(index - scrollPosition.current) * stride}px`);
+    }
+  }, []);
+
+  const settle = useCallback(() => {
+    if (!touching.current) { setMoving(false); showArrowsFor(selectedRef.current); }
+  }, [showArrowsFor]);
+
+  function releaseSwipe() {
+    touching.current = false;
+    setDragging(false);
+    const rail = railRef.current;
+    if (rail) {
+      const stride = (rail.children[1] as HTMLElement).offsetLeft - (rail.children[0] as HTMLElement).offsetLeft;
+      if (Math.abs(scrollPosition.current - Math.round(scrollPosition.current)) * stride <= 1) showArrowsFor(Math.round(scrollPosition.current));
+    }
+    scheduleSettle();
   }
 
   function scheduleSettle() {
@@ -133,7 +164,7 @@ export function PdpEffectsSection() {
       if (settleTimer.current) clearTimeout(settleTimer.current);
       touching.current = false;
     };
-  }, []);
+  }, [settle]);
 
   function centerCard(index: number, behavior: ScrollBehavior) {
     const rail = railRef.current;
@@ -144,22 +175,38 @@ export function PdpEffectsSection() {
   const commitView = useCallback((index: number | null) => {
     if (index === null) {
       closedEffect.current = active;
-      if (active !== null) (railRef.current?.children[active] as HTMLElement | undefined)?.querySelector('button')?.focus({ preventScroll: true });
     } else setPosition(index);
     setActive(index);
+    scrollPosition.current = index ?? 0;
+    arrowTargetRef.current = index;
+    setArrowTarget(index);
     setMoving(false);
     touching.current = false;
+    setDragging(false);
+    railRef.current?.parentElement?.style.setProperty('--arrow-drift', '0px');
   }, [active]);
 
   function changeView(index: number | null) {
+    if (disclosure && requestedView.current === index) return;
+    if (index === null && active !== null) {
+      (railRef.current?.children[active] as HTMLElement | undefined)?.querySelector('button')?.focus({ preventScroll: true });
+    }
+    const elements = disclosureElements();
+    disclosureFrom.current = mobile && !reduceMotion && elements ? captureEffectsGeometry(elements) : null;
+    disclosureMotion.current?.stop();
+    disclosureMotion.current = null;
     requestedView.current = index;
-    if (mobile && !reduceMotion) setDisclosure('out');
+    if (disclosureFrom.current) {
+      setDisclosure(index === null ? 'closing' : 'opening');
+      if (index !== null) commitView(index);
+    }
     else { commitView(index); setDisclosure(null); }
   }
 
   function select(index: number) {
-    if (disclosure === 'out') { requestedView.current = index; return; }
+    if (disclosure) { changeView(index); return; }
     if (mobileExpanded) {
+      showArrowsFor(index);
       centerCard(index, reduceMotion ? 'instant' : 'smooth');
       if (!reduceMotion) return;
     }
@@ -168,23 +215,10 @@ export function PdpEffectsSection() {
 
   function close() { changeView(null); }
 
-  useLayoutEffect(() => {
-    // A preference or breakpoint change must not leave a fade awaiting an event.
-    if (disclosure && (!mobile || reduceMotion)) {
-      if (disclosure === 'out') commitView(requestedView.current);
-      setDisclosure(null);
-    } else if (disclosure === 'out') {
-      // A reversal at opacity zero creates no CSS transition or transitionend.
-      const frame = requestAnimationFrame(() => {
-        const stage = stageRef.current;
-        if (stage && getComputedStyle(stage).opacity === '0' && stage.getAnimations().length === 0) {
-          commitView(requestedView.current);
-          setDisclosure('in');
-        }
-      });
-      return () => cancelAnimationFrame(frame);
-    }
-  }, [mobile, reduceMotion, disclosure, commitView]);
+  function disclosureElements() {
+    const rail = railRef.current, image = imageRef.current, properties = propertiesRef.current;
+    return rail && image && properties ? { rail, image, properties } : null;
+  }
 
   useLayoutEffect(() => {
     const rail = railRef.current;
@@ -192,7 +226,7 @@ export function PdpEffectsSection() {
     let width = -1;
     function resize() {
       if (!rail) return;
-      if (mobileExpanded) {
+      if (mobileOpen) {
         let maxHeight = 44;
         for (const slot of Array.from(rail.children)) {
           const button = slot.querySelector('button');
@@ -205,32 +239,56 @@ export function PdpEffectsSection() {
         rail.style.setProperty('--effect-max-card-height', `${maxHeight}px`);
       }
       if (rail.clientWidth === width) return;
+      disclosureMotion.current?.finish();
       width = rail.clientWidth;
       const index = selectedRef.current ?? closedEffect.current;
       if (index !== null) {
         centerCard(index, 'instant');
         setPosition(index);
+        scrollPosition.current = index;
       }
     }
     resize();
     const observer = new ResizeObserver(resize);
     observer.observe(rail);
-    if (mobileExpanded) rail.querySelectorAll(`.${styles.description}`).forEach(description => observer.observe(description));
+    if (mobileOpen) rail.querySelectorAll(`.${styles.description}`).forEach(description => observer.observe(description));
     return () => observer.disconnect();
-  }, [mobile, mobileExpanded]);
+  }, [mobile, mobileOpen]);
+
+  useLayoutEffect(() => {
+    if (!disclosure) return;
+    const elements = disclosureElements();
+    const finish = () => {
+      disclosureMotion.current = null;
+      disclosureFrom.current = null;
+      if (requestedView.current === null) commitView(null);
+      setDisclosure(null);
+    };
+    if (!mobile || reduceMotion || !elements) {
+      disclosureMotion.current?.stop();
+      finish();
+      return;
+    }
+    if (!disclosureFrom.current) return;
+    if (requestedView.current !== null) centerCard(requestedView.current, 'instant');
+    const animation = animateEffectsGeometry(elements, disclosureFrom.current, captureEffectsGeometry(elements), finish);
+    disclosureMotion.current = animation;
+    disclosureFrom.current = null;
+    return () => animation.stop();
+  }, [mobile, reduceMotion, disclosure, active, commitView]);
 
   useLayoutEffect(() => {
     const rail = railRef.current;
-    if (!mobileExpanded || moving || active === null || !rail) return;
+    if (!mobileExpanded || moving || disclosure || active === null || !rail) return;
     const hiddenEndpoint = rail.parentElement?.querySelector(`.${styles.arrows} button:disabled`);
     if (rail.contains(document.activeElement) || document.activeElement === hiddenEndpoint) {
       (rail.children[active] as HTMLElement).querySelector('button')?.focus({ preventScroll: true });
     }
-  }, [active, mobileExpanded, moving]);
+  }, [active, mobileExpanded, moving, disclosure]);
 
   function scrollEffects() {
     const rail = railRef.current;
-    if (!rail || !mobileExpanded) return;
+    if (!rail || !mobileExpanded || disclosure) return;
     setMoving(true);
     scheduleSettle();
     const first = rail.children[0] as HTMLElement;
@@ -239,32 +297,35 @@ export function PdpEffectsSection() {
     if (stride <= 0) return;
     const next = Math.max(0, Math.min(effects.length - 1,
       (rail.scrollLeft - first.offsetLeft + (rail.clientWidth - first.offsetWidth) / 2) / stride));
+    // Follow the destination of native post-release motion, even before it crosses halfway.
+    if (!touching.current && arrowTargetRef.current === null && next !== scrollPosition.current) {
+      showArrowsFor(next > scrollPosition.current ? Math.ceil(next) : Math.floor(next));
+    }
+    scrollPosition.current = next;
+    rail.parentElement?.style.setProperty('--arrow-drift', `${((arrowTargetRef.current ?? Math.round(next)) - next) * stride}px`);
     setPosition(next);
     setActive(Math.round(next));
   }
 
   const visualContent = <>
-    <div className={styles.image} data-effect={effect?.id ?? 'hero'}>
+    <div ref={imageRef} className={styles.image} data-effect={viewOpen ? effect?.id : 'hero'}>
       <div className={styles.hue} role="img" aria-label={effect ? `${effect.title} model image placeholder` : 'Serum effects hero image placeholder'} />
       <h2 id="effects-title" className={styles.heading}>Four effects.<br />One formula.</h2>
     </div>
-    {effect && <Properties key={effect.id} effect={effect} reduceMotion={reduceMotion} mobile={mobileExpanded} />}
+    {mobile ? <div ref={propertiesRef} className={styles.mobileProperties} data-open={viewOpen} aria-hidden={!viewOpen} inert={!viewOpen}>
+      {effect && <Properties key={effect.id} effect={effect} reduceMotion={reduceMotion} mobile />}
+    </div> : effect && <Properties key={effect.id} effect={effect} reduceMotion={reduceMotion} mobile={false} />}
   </>;
   const mediaOpacity = reduceMotion ? 1 : Math.abs(position - Math.round(position)) * -2 + 1;
 
   return <LazyMotion features={domMax}>
     <section id="effects-prototype" className={styles.closer} aria-labelledby="effects-title" onKeyDown={event => {
-      if (event.key === 'Escape' && (active !== null || disclosure === 'out')) { event.preventDefault(); close(); }
+      if (event.key === 'Escape' && active !== null) { event.preventDefault(); close(); }
     }}>
-      <div ref={stageRef} className={styles.stage} data-disclosure={mobile ? disclosure : undefined} onTransitionEnd={event => {
-        if (event.target !== event.currentTarget || event.propertyName !== 'opacity') return;
-        const opacity = getComputedStyle(event.currentTarget).opacity;
-        if (disclosure === 'out' && opacity === '0') { commitView(requestedView.current); setDisclosure('in'); }
-        else if (disclosure === 'in' && opacity === '1') setDisclosure(null);
-      }}>
+      <div className={styles.stage} data-disclosure={mobile ? disclosure : undefined}>
         <div className={styles.visualStage}>
-          {effect && <button className={styles.close} type="button" aria-label="Collapse effect description" onClick={close}><span aria-hidden="true">×</span></button>}
-          {mobileExpanded ? <div className={styles.visual} data-selected="true" style={{ opacity: mediaOpacity }}>{visualContent}</div> :
+          {viewOpen && <button className={styles.close} type="button" aria-label="Collapse effect description" onClick={close}><span aria-hidden="true">×</span></button>}
+          {mobile ? <div className={styles.visual} data-selected={viewOpen} style={{ opacity: disclosure ? 1 : mediaOpacity }}>{visualContent}</div> :
             <AnimatePresence mode="wait" initial={false}>
               <m.div key={effect?.id ?? 'hero'} className={styles.visual} data-selected={!!effect}
                 initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { duration: reduceMotion ? 0 : .58, delay: reduceMotion ? 0 : .08, ease: 'easeInOut' } }}
@@ -274,11 +335,11 @@ export function PdpEffectsSection() {
             </AnimatePresence>}
 
         </div>
-        <m.div layout={reduceMotion || mobile ? false : 'position'} transition={{ duration: .42 }} className={styles.selector} data-open={!!effect}>
+        <m.div layout={reduceMotion || mobile ? false : 'position'} transition={{ duration: .42 }} className={styles.selector} data-open={viewOpen}>
           <m.div layoutScroll className={styles.effects} aria-label="Explore product effects" ref={railRef} onScroll={scrollEffects}
-            onTouchStart={() => { touching.current = true; if (disclosure === 'in') setDisclosure(null); }}
-            onTouchEnd={() => { touching.current = false; scheduleSettle(); }}
-            onTouchCancel={() => { touching.current = false; scheduleSettle(); }}
+            onTouchStart={() => { disclosureMotion.current?.finish(); touching.current = true; setDragging(true); showArrowsFor(null); }}
+            onTouchEnd={releaseSwipe}
+            onTouchCancel={releaseSwipe}
             onKeyDown={event => {
               if (!mobileExpanded || active === null) return;
               const next = event.key === 'ArrowRight' ? Math.min(effects.length - 1, active + 1) :
@@ -286,24 +347,24 @@ export function PdpEffectsSection() {
               if (next !== null) { event.preventDefault(); select(next); }
             }}>
             {effects.map((item, index) => {
-              const expanded = active === index;
+              const expanded = viewOpen && active === index;
               const expansion = reduceMotion ? Number(expanded) : Math.max(0, 1 - Math.abs(position - index));
               // Mobile wrapper transforms can shrink WebKit's scroll extent and clamp the selection out of view.
               return <m.div layout={reduceMotion || mobile ? false : 'position'} transition={{ duration: .42 }} className={styles.effect} key={item.id} data-expanded={expanded}>
-                <m.button layout={!reduceMotion && !mobileExpanded} style={{ borderRadius: 28, ...(mobileExpanded ? { '--card-expansion': expansion } : {}) } as CSSProperties} transition={{ layout: { duration: .42, ease: [.22, 1, .36, 1] } }}
+                <m.button layout={!reduceMotion && !mobile} style={{ borderRadius: 28, ...(mobileOpen ? { '--card-expansion': expansion } : {}) } as CSSProperties} transition={{ layout: { duration: .42, ease: [.22, 1, .36, 1] } }}
                   type="button" aria-label={item.title} aria-describedby={expanded ? `closer-effect-${item.id}` : undefined}
-                  tabIndex={mobileExpanded && !expanded ? -1 : undefined} aria-expanded={expanded} aria-controls={`closer-effect-${item.id}`} onClick={() => select(index)}>
-                  <m.span layout={reduceMotion || mobileExpanded ? false : 'position'} className={styles.effectLabel}><span className={styles.effectIcon} aria-hidden="true" /><span>{item.title}</span></m.span>
-                  <m.span layout={reduceMotion || mobileExpanded ? false : 'position'} animate={{ opacity: mobileExpanded ? Math.max(0, expansion * 2 - 1) : expanded ? 1 : 0 }} transition={{ duration: reduceMotion || mobileExpanded ? 0 : .42 }} id={`closer-effect-${item.id}`} className={styles.description} aria-hidden={!expanded} hidden={!expanded && !mobileExpanded}>
+                  tabIndex={mobileOpen && !expanded ? -1 : undefined} aria-expanded={expanded} aria-controls={`closer-effect-${item.id}`} onClick={() => select(index)}>
+                  <m.span layout={reduceMotion || mobile ? false : 'position'} className={styles.effectLabel}><span className={styles.effectIcon} aria-hidden="true" /><span>{item.title}</span></m.span>
+                  <m.span initial={mobile ? false : undefined} layout={reduceMotion || mobile ? false : 'position'} animate={{ opacity: mobileOpen ? Math.max(0, expansion * 2 - 1) : expanded ? 1 : 0 }} transition={{ duration: reduceMotion || mobileOpen && !disclosure ? 0 : mobile && disclosure === 'closing' ? .12 : mobile ? .3 : .42, delay: !reduceMotion && mobile && disclosure === 'opening' ? .12 : 0 }} id={`closer-effect-${item.id}`} className={styles.description} aria-hidden={!expanded} hidden={!expanded && !mobile}>
                     <strong>{item.title}.</strong> {item.promise} {item.summary}
                   </m.span>
                 </m.button>
               </m.div>;
             })}
           </m.div>
-          {mobileExpanded && <div className={styles.arrows} data-moving={moving}>
-            <button type="button" aria-label="Previous effect" disabled={active === 0} onClick={() => select(active - 1)}><Chevron previous /></button>
-            <button type="button" aria-label="Next effect" disabled={active === effects.length - 1} onClick={() => select(active + 1)}><Chevron /></button>
+          {mobileOpen && <div className={styles.arrows} data-moving={moving} data-dragging={dragging} data-pending={arrowTarget === null}>
+            <button type="button" aria-label="Previous effect" disabled={(arrowTarget ?? active) === 0} onClick={() => select((arrowTarget ?? active) - 1)}><Chevron previous /></button>
+            <button type="button" aria-label="Next effect" disabled={(arrowTarget ?? active) === effects.length - 1} onClick={() => select((arrowTarget ?? active) + 1)}><Chevron /></button>
           </div>}
         </m.div>
       </div>
