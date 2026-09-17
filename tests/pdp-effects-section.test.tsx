@@ -202,12 +202,15 @@ describe("PdpEffectsSection", () => {
       Object.defineProperty(card, "offsetWidth", { configurable: true, value: 310 });
     });
     fireEvent.click(effectButton("Hydration"));
+    effectButton("Hydration").focus();
+    fireEvent.touchStart(rail);
     rail.scrollLeft = 322 * .25;
     fireEvent.scroll(rail);
     expect(effectButton("Hydration").style.getPropertyValue("--card-expansion")).toBe("0.75");
     expect(effectButton("Barrier protection").style.getPropertyValue("--card-expansion")).toBe("0.25");
     expect(screen.getByRole("img", { name: "Hydration model image placeholder" }).closest("[data-selected]")).toHaveStyle({ opacity: "0.5" });
     expect(effectButton("Hydration")).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("button", { name: "Next effect" }).parentElement).toHaveAttribute("data-moving", "true");
 
     rail.scrollLeft = 322 * .75;
     fireEvent.scroll(rail);
@@ -215,6 +218,12 @@ describe("PdpEffectsSection", () => {
     expect(effectButton("Hydration")).toHaveAttribute("aria-expanded", "false");
     expect(screen.getAllByRole("region", { name: / properties$/ })).toHaveLength(1);
     expect(screen.getByRole("img", { name: "Barrier protection model image placeholder" }).closest("[data-selected]")).toHaveStyle({ opacity: "0.5" });
+    fireEvent(rail, new Event("scrollend"));
+    expect(effectButton("Hydration")).toHaveFocus();
+    fireEvent.touchEnd(rail);
+    fireEvent(rail, new Event("scrollend"));
+    expect(effectButton("Barrier protection")).toHaveFocus();
+    expect(screen.getByRole("button", { name: "Next effect" }).parentElement).toHaveAttribute("data-moving", "false");
     fireEvent.click(effectButton("Brightening & clarity"));
     expect(HTMLElement.prototype.scrollTo).toHaveBeenLastCalledWith({ left: 644, behavior: "smooth" });
     fireEvent.keyDown(rail, { key: "Home" });

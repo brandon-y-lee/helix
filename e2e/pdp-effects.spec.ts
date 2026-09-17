@@ -203,6 +203,14 @@ test.describe("mobile serum effects", () => {
           const button = section.getByRole("button", { name, exact: true });
           await button.tap();
           await expectExpandedAligned(section, name);
+          const close = section.getByRole("button", { name: "Collapse effect description" });
+          await expect(close).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+          const imageBox = await section.locator('[data-effect]').boundingBox();
+          const closeBox = await close.boundingBox();
+          const sectionBox = await section.boundingBox();
+          expect(imageBox!.y).toBeCloseTo(sectionBox!.y, 0);
+          expect(closeBox!.y - imageBox!.y).toBeCloseTo(8, 0);
+          expect(imageBox!.x + imageBox!.width - closeBox!.x - closeBox!.width).toBeCloseTo(8, 0);
           const previous = section.getByRole("button", { name: "Previous effect", includeHidden: true });
           const next = section.getByRole("button", { name: "Next effect", includeHidden: true });
           if (name === effectNames[0]) await expect(previous).toBeHidden();
@@ -289,6 +297,70 @@ test.describe("mobile serum effects", () => {
     await expectExpandedAligned(section, "Anti-aging & firmness");
     await expect(section.getByRole("button", { name: "Next effect", includeHidden: true })).toBeHidden();
   });
+
+  for (const [effectIndex, startingEffect] of effectNames.slice(0, -1).entries()) {
+    test(`native swipe from ${startingEffect} hides icons and settles without moving the page`, async ({ page, storefront, browserName }) => {
+      test.skip(browserName !== "chromium", "Native touch streams use CDP; shared geometry and keyboard checks also run in WebKit.");
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.goto(productPath(storefront));
+      const section = page.locator('#effects-prototype');
+      const currentCard = section.getByRole("button", { name: startingEffect, exact: true });
+      await currentCard.tap();
+      await expectExpandedAligned(section, startingEffect);
+      await currentCard.focus();
+      await settleFocusLayout(page);
+      const rail = section.locator('[aria-label="Explore product effects"]');
+      await rail.evaluate(element => window.scrollBy({ top: element.getBoundingClientRect().bottom - 650, behavior: 'instant' }));
+      const nextButton = section.getByRole("button", { name: "Next effect", exact: true, includeHidden: true });
+      const nextIcon = nextButton.locator('svg');
+      await expect(nextIcon).toHaveCSS('opacity', '1');
+      const glyph = (await nextIcon.boundingBox())!;
+      const frame = (await rail.boundingBox())!;
+      expect(390 - glyph.x - glyph.width / 2).toBeCloseTo(12, 0);
+      expect(glyph.y + glyph.height / 2).toBeCloseTo(frame.y + frame.height - 4 - 22, 0);
+      const y = frame.y + frame.height - 60;
+      const pageY = await page.evaluate(() => window.scrollY);
+      const touch = await page.context().newCDPSession(page);
+      try {
+        await touch.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: 300, y }] });
+        for (let distance = 14; distance <= 210; distance += 14) {
+          await touch.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: 300 - distance, y }] });
+          await page.waitForTimeout(20);
+        }
+        // A paused finger must not allow the scroll-idle fallback to restore icons or move focus.
+        await page.waitForTimeout(250);
+        await expect(nextIcon).toHaveCSS('opacity', '0');
+        await expect(currentCard).toBeFocused();
+        expect((await rail.boundingBox())!.height).toBeCloseTo(frame.height, 0);
+        expect(await page.evaluate(() => window.scrollY)).toBe(pageY);
+        const release = rail.evaluate(async element => {
+          const frames = [];
+          const end = performance.now() + 600;
+          while (performance.now() < end) {
+            frames.push({ x: element.scrollLeft, height: element.clientHeight, y: window.scrollY, top: element.getBoundingClientRect().top });
+            await new Promise(requestAnimationFrame);
+          }
+          return frames;
+        });
+        await touch.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+        const samples = await release;
+        expect(new Set(samples.map(sample => sample.x)).size).toBeGreaterThan(3);
+        for (let index = 1; index < samples.length; index++) {
+          expect(samples[index].x).toBeGreaterThanOrEqual(samples[index - 1].x - 1);
+          expect(samples[index].height).toBe(samples[0].height);
+          expect(samples[index].y).toBe(pageY);
+          expect(samples[index].top).toBeCloseTo(frame.y, 0);
+        }
+        await expectExpandedAligned(section, effectNames[effectIndex + 1]);
+        await expect(nextIcon).toHaveCSS('opacity', '1');
+        if (effectIndex === effectNames.length - 2) await expect(nextButton).toBeHidden();
+        else await expect(nextButton).toBeVisible();
+        await expect(section.getByRole('button', { name: effectNames[effectIndex + 1], exact: true })).toBeFocused();
+      } finally {
+        await touch.detach();
+      }
+    });
+  }
 
   test("effect focus survives height-only changes without recapturing page scroll", async ({ page, storefront, browserName }) => {
     await page.setViewportSize({ width: 390, height: 844 });
