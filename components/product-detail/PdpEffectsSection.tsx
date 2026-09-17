@@ -1,18 +1,24 @@
 'use client';
 
-import { useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react';
-import { AnimatePresence, domMax, LazyMotion, useReducedMotion } from 'motion/react';
+import { useCallback, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react';
+import { AnimatePresence, domMax, LazyMotion } from 'motion/react';
 import * as m from 'motion/react-m';
 import { effects, type Effect } from '@/lib/content/serum-effects';
 import styles from './PdpEffectsSection.module.css';
 
 const MOBILE_EFFECTS_QUERY = '(max-width: 800px)';
+const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
 
-function subscribeMobileEffects(callback: () => void) {
-  const query = window.matchMedia?.(MOBILE_EFFECTS_QUERY);
+function subscribeEffectsQuery(media: string, callback: () => void) {
+  const query = window.matchMedia?.(media);
   query?.addEventListener?.('change', callback);
   return () => query?.removeEventListener?.('change', callback);
 }
+
+const subscribeMobileEffects = (callback: () => void) => subscribeEffectsQuery(MOBILE_EFFECTS_QUERY, callback);
+const subscribeMotionPreference = (callback: () => void) => subscribeEffectsQuery(REDUCED_MOTION_QUERY, callback);
+const reducedMotionSnapshot = () => window.matchMedia?.(REDUCED_MOTION_QUERY).matches ?? false;
+const serverMotionSnapshot = () => false;
 
 function mobileEffectsSnapshot() {
   return window.matchMedia?.(MOBILE_EFFECTS_QUERY).matches ?? false;
@@ -94,13 +100,16 @@ function Properties({ effect, reduceMotion, mobile }: { effect: Effect; reduceMo
 export function PdpEffectsSection() {
   const [active, setActive] = useState<number | null>(null);
   const railRef = useRef<HTMLDivElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
   const closedEffect = useRef<number | null>(null);
   const selectedRef = useRef<number | null>(null);
   const [position, setPosition] = useState(0);
   const [moving, setMoving] = useState(false);
+  const [disclosure, setDisclosure] = useState<'out' | 'in' | null>(null);
+  const requestedView = useRef<number | null>(null);
   const touching = useRef(false);
   const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const reduceMotion = !!useReducedMotion();
+  const reduceMotion = useSyncExternalStore(subscribeMotionPreference, reducedMotionSnapshot, serverMotionSnapshot);
   const mobile = useSyncExternalStore(subscribeMobileEffects, mobileEffectsSnapshot, serverMobileEffectsSnapshot);
   const effect = active === null ? null : effects[active];
 
@@ -132,22 +141,50 @@ export function PdpEffectsSection() {
     if (rail && card) rail.scrollTo({ left: card.offsetLeft - (rail.clientWidth - card.offsetWidth) / 2, behavior });
   }
 
+  const commitView = useCallback((index: number | null) => {
+    if (index === null) {
+      closedEffect.current = active;
+      if (active !== null) (railRef.current?.children[active] as HTMLElement | undefined)?.querySelector('button')?.focus({ preventScroll: true });
+    } else setPosition(index);
+    setActive(index);
+    setMoving(false);
+    touching.current = false;
+  }, [active]);
+
+  function changeView(index: number | null) {
+    requestedView.current = index;
+    if (mobile && !reduceMotion) setDisclosure('out');
+    else { commitView(index); setDisclosure(null); }
+  }
+
   function select(index: number) {
+    if (disclosure === 'out') { requestedView.current = index; return; }
     if (mobileExpanded) {
       centerCard(index, reduceMotion ? 'instant' : 'smooth');
       if (!reduceMotion) return;
     }
-    setPosition(index);
-    setActive(index);
+    changeView(index);
   }
-  function close() {
-    const selected = active;
-    closedEffect.current = selected;
-    setActive(null);
-    setMoving(false);
-    touching.current = false;
-    if (selected !== null) (railRef.current?.children[selected] as HTMLElement | undefined)?.querySelector('button')?.focus({ preventScroll: true });
-  }
+
+  function close() { changeView(null); }
+
+  useLayoutEffect(() => {
+    // A preference or breakpoint change must not leave a fade awaiting an event.
+    if (disclosure && (!mobile || reduceMotion)) {
+      if (disclosure === 'out') commitView(requestedView.current);
+      setDisclosure(null);
+    } else if (disclosure === 'out') {
+      // A reversal at opacity zero creates no CSS transition or transitionend.
+      const frame = requestAnimationFrame(() => {
+        const stage = stageRef.current;
+        if (stage && getComputedStyle(stage).opacity === '0' && stage.getAnimations().length === 0) {
+          commitView(requestedView.current);
+          setDisclosure('in');
+        }
+      });
+      return () => cancelAnimationFrame(frame);
+    }
+  }, [mobile, reduceMotion, disclosure, commitView]);
 
   useLayoutEffect(() => {
     const rail = railRef.current;
@@ -217,9 +254,14 @@ export function PdpEffectsSection() {
 
   return <LazyMotion features={domMax}>
     <section id="effects-prototype" className={styles.closer} aria-labelledby="effects-title" onKeyDown={event => {
-      if (event.key === 'Escape' && active !== null) { event.preventDefault(); close(); }
+      if (event.key === 'Escape' && (active !== null || disclosure === 'out')) { event.preventDefault(); close(); }
     }}>
-      <div className={styles.stage}>
+      <div ref={stageRef} className={styles.stage} data-disclosure={mobile ? disclosure : undefined} onTransitionEnd={event => {
+        if (event.target !== event.currentTarget || event.propertyName !== 'opacity') return;
+        const opacity = getComputedStyle(event.currentTarget).opacity;
+        if (disclosure === 'out' && opacity === '0') { commitView(requestedView.current); setDisclosure('in'); }
+        else if (disclosure === 'in' && opacity === '1') setDisclosure(null);
+      }}>
         <div className={styles.visualStage}>
           {effect && <button className={styles.close} type="button" aria-label="Collapse effect description" onClick={close}><span aria-hidden="true">×</span></button>}
           {mobileExpanded ? <div className={styles.visual} data-selected="true" style={{ opacity: mediaOpacity }}>{visualContent}</div> :
@@ -234,7 +276,7 @@ export function PdpEffectsSection() {
         </div>
         <m.div layout={reduceMotion || mobile ? false : 'position'} transition={{ duration: .42 }} className={styles.selector} data-open={!!effect}>
           <m.div layoutScroll className={styles.effects} aria-label="Explore product effects" ref={railRef} onScroll={scrollEffects}
-            onTouchStart={() => { touching.current = true; }}
+            onTouchStart={() => { touching.current = true; if (disclosure === 'in') setDisclosure(null); }}
             onTouchEnd={() => { touching.current = false; scheduleSettle(); }}
             onTouchCancel={() => { touching.current = false; scheduleSettle(); }}
             onKeyDown={event => {
