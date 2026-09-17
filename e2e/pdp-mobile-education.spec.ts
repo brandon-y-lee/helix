@@ -376,3 +376,44 @@ test("desktop Super Serum and nonpilot detail bodies retain their media and pane
   await expect(page.locator(".pdp-editorial-pair--use")).toBeVisible();
   await expectNoMainOverflow(page, 390);
 });
+
+test("mobile ingredients ease out before leaving layout and support reopening", async ({ page, storefront }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(pilotProduct(storefront).path);
+  const ingredients = page.locator('.pdp-ingredients');
+  const trigger = ingredients.getByRole('button', { name: 'FULL INGREDIENTS LIST', exact: true });
+  const full = ingredients.locator('.pdp-ingredients__full');
+  const close = ingredients.getByRole('button', { name: 'Close full ingredients list', exact: true });
+  await trigger.click();
+  await expect(full).toHaveCSS('opacity', '1');
+  await close.click();
+  const halfway = await full.evaluate(element => {
+    const transitions = element.getAnimations();
+    for (const transition of transitions) {
+      transition.pause();
+      transition.currentTime = 110;
+    }
+    const style = getComputedStyle(element);
+    return { count: transitions.length, opacity: Number(style.opacity), display: style.display, easing: style.transitionTimingFunction };
+  });
+  expect(halfway.count).toBeGreaterThan(0);
+  expect(halfway.opacity).toBeGreaterThan(0);
+  expect(halfway.opacity).toBeLessThan(1);
+  expect(halfway.display).not.toBe('none');
+  expect(halfway.easing).toContain('ease');
+  await expect(full).toHaveAttribute('aria-hidden', 'true');
+  await expect(full).toHaveAttribute('inert', '');
+  await expect(trigger).toBeFocused();
+  await full.evaluate(element => element.getAnimations().forEach(animation => animation.finish()));
+  await expect(full).toBeHidden();
+  await trigger.click();
+  await expect(full).toHaveCSS('opacity', '1');
+  await close.click();
+  await trigger.click();
+  await expect(full).toHaveCSS('opacity', '1');
+  await expect(trigger).toHaveAttribute('aria-expanded', 'true');
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.keyboard.press('Escape');
+  await expect(full).toHaveCSS('display', 'none');
+  await expect(trigger).toBeFocused();
+});

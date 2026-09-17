@@ -63,7 +63,7 @@ test("Effects keep distinct desktop panels, inset controls and preserved illustr
       await page.mouse.move(0, 0);
       await expect(option).toHaveCSS("background-color", PANEL_GRAY);
       const properties = section.getByRole("region", { name: `${effect.title} properties` });
-      await expect(properties.locator(":scope > div").first()).toHaveCSS("background-color", PANEL_GRAY);
+      await expect(properties.getByRole("article").first().locator("..")).toHaveCSS("background-color", PANEL_GRAY);
       await expect(section.locator(`[data-effect="${effect.id}"]`)).toHaveCSS("background-color", artwork[effect.id]);
     }
     await section.getByRole("button", { name: "Collapse effect description" }).click();

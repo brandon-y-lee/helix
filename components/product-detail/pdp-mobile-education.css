@@ -319,6 +319,16 @@
 
   .pdp-ingredients--mobile-pilot > .pdp-ingredients__full[data-state="inactive"] {
     display: none;
+    transition:
+      opacity 220ms ease,
+      transform 220ms ease,
+      visibility 0s linear 220ms,
+      display 220ms allow-discrete;
+  }
+
+  .pdp-ingredients--mobile-pilot > .pdp-ingredients__full[data-state="active"] {
+    /* Release the opening animation's final styles so closing can interpolate. */
+    animation-fill-mode: backwards;
   }
 
   .pdp-ingredients--mobile-pilot .pdp-ingredients__full h2 {
@@ -459,6 +469,7 @@
 }
 
 @media (max-width: 820px) and (prefers-reduced-motion: reduce) {
+  .pdp-ingredients--mobile-pilot > .pdp-ingredients__full[data-state="inactive"],
   [data-pdp-presentation="mobile-pilot"] :is(.pdp-outcome-split__track, .pdp-ink-option__fill, .pdp-application__swatch) {
     transition: none;
   }
