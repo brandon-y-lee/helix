@@ -396,6 +396,13 @@ describe("SystemIngredientCarousel", () => {
       expect(scrollPdrn).not.toHaveBeenCalled();
 
       navigate("system-ingredient-pdrn");
+      const tabs = screen.getAllByRole("tab");
+      fireEvent.keyDown(tabs[0], { key: "ArrowRight" });
+      fireEvent.keyDown(tabs[1], { key: "ArrowLeft" });
+      runFrames();
+      expect(scrollPdrn).not.toHaveBeenCalled();
+
+      navigate("system-ingredient-pdrn");
       unmount();
       runFrames();
       expect(scrollPdrn).not.toHaveBeenCalled();

@@ -142,7 +142,11 @@ export function SystemIngredientCarousel({
 
   useLayoutEffect(() => {
     const selected = cards[activeIndex];
-    if (!pendingAnchor || !selected || panelId(selected) !== pendingAnchor) return;
+    if (!pendingAnchor) return;
+    if (!selected || panelId(selected) !== pendingAnchor) {
+      setPendingAnchor(null);
+      return;
+    }
 
     // Schedule scrolling only after selection has revealed the requested panel.
     const frame = window.requestAnimationFrame(() => {
