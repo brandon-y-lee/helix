@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import {
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type PointerEvent,
@@ -75,6 +76,7 @@ export function SystemIngredientCarousel({
   const pointerFocusRef = useRef(false);
   const [railOffset, setRailOffset] = useState(0);
   const [centeredIndex, setCenteredIndex] = useState(0);
+  const [pendingAnchor, setPendingAnchor] = useState<string | null>(null);
   const {
     hideIndicator,
     indicatorRef,
@@ -120,27 +122,38 @@ export function SystemIngredientCarousel({
   }
 
   useEffect(() => {
-    let scrollFrame: number | undefined;
     function selectHashedIngredient() {
-      if (scrollFrame !== undefined) window.cancelAnimationFrame(scrollFrame);
       const hash = window.location.hash.slice(1);
       const hashIndex = cards.findIndex((card) => panelId(card) === hash);
-      if (hashIndex < 0) return;
+      if (hashIndex < 0) {
+        setPendingAnchor(null);
+        return;
+      }
 
       setCenteredIndex(hashIndex);
       selectIndex(hashIndex);
-      scrollFrame = window.requestAnimationFrame(() => {
-        document.getElementById(hash)?.scrollIntoView?.({ block: "start" });
-      });
+      setPendingAnchor(hash);
     }
 
     selectHashedIngredient();
     window.addEventListener("hashchange", selectHashedIngredient);
-    return () => {
-      window.removeEventListener("hashchange", selectHashedIngredient);
-      if (scrollFrame !== undefined) window.cancelAnimationFrame(scrollFrame);
-    };
+    return () => window.removeEventListener("hashchange", selectHashedIngredient);
   }, [cards, selectIndex]);
+
+  useLayoutEffect(() => {
+    const selected = cards[activeIndex];
+    if (!pendingAnchor || !selected || panelId(selected) !== pendingAnchor) return;
+
+    // Schedule scrolling only after selection has revealed the requested panel.
+    const frame = window.requestAnimationFrame(() => {
+      const target = document.getElementById(pendingAnchor);
+      if (window.location.hash.slice(1) === pendingAnchor && target && !target.hidden && !target.inert) {
+        target.scrollIntoView?.({ block: "start" });
+      }
+      setPendingAnchor(current => current === pendingAnchor ? null : current);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [activeIndex, cards, pendingAnchor]);
 
   useEffect(() => {
     setCenteredIndex(activeIndex);

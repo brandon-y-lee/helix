@@ -327,6 +327,30 @@ describe("SystemIngredientCarousel", () => {
     }
   });
 
+  it("waits for the requested panel to be visible even when a frame runs before selection commits", () => {
+    window.history.replaceState(null, "", "/system#system-ingredient-niacinamide");
+    const originalScroll = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "scrollIntoView");
+    const scrolled: { id: string; hidden: boolean; inert: boolean }[] = [];
+    const scroll = vi.fn(function (this: HTMLElement) {
+      scrolled.push({ id: this.id, hidden: this.hidden, inert: this.hasAttribute("inert") });
+    });
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", { configurable: true, value: scroll });
+    const requestFrame = vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      callback(0);
+      return 1;
+    });
+
+    try {
+      render(<SystemIngredientCarousel cards={cards} />);
+      expect(scrolled).toEqual([{ id: "system-ingredient-niacinamide", hidden: false, inert: false }]);
+      expect(scroll).toHaveBeenCalledWith({ block: "start" });
+    } finally {
+      requestFrame.mockRestore();
+      if (originalScroll) Object.defineProperty(HTMLElement.prototype, "scrollIntoView", originalScroll);
+      else Reflect.deleteProperty(HTMLElement.prototype, "scrollIntoView");
+    }
+  });
+
   it("scrolls only the current disclosed ingredient and cancels obsolete navigation", () => {
     const frames = new Map<number, FrameRequestCallback>();
     let frameId = 0;
@@ -363,6 +387,11 @@ describe("SystemIngredientCarousel", () => {
 
       navigate("system-ingredient-pdrn");
       navigate("system-ingredient-unknown");
+      runFrames();
+      expect(scrollPdrn).not.toHaveBeenCalled();
+
+      navigate("system-ingredient-pdrn");
+      window.history.replaceState(null, "", "/system#system-ingredient-niacinamide");
       runFrames();
       expect(scrollPdrn).not.toHaveBeenCalled();
 
