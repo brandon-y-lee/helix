@@ -30,7 +30,7 @@ Required edit: T4 must enforce the approved provider method allowlist, store tru
 
 ### R2 — P2 scope refinement: Do not make a sandbox offer wait for every live operation
 
-T3 currently waits for all T1/T2 work, including partial-refund reward debt policy, receipt delivery, and fulfillment outbox. That delays the user's concrete Super Serum request behind operations that a test order cannot exercise in production. The six sections are useful delivery slices, but several are too large to call approved tracer-bullet Tickets.
+T3 currently waits for all T1/T2 work, including partial-refund reward debt policy, receipt delivery, and fulfillment outbox. That delays the user's concrete Super Serum request behind operations that a Sandbox Order cannot exercise in production. The six sections are useful delivery slices, but several are too large to call approved tracer-bullet Tickets.
 
 Recommended edit: split T2 core durable payment recovery from live refund/reward/downstream operations. Permit T3 after T1 plus the core settlement/replay/ownership safeguards and verified prevention of live effects. Scope the bounded sandbox journey explicitly; refunds and unsettled accounting limitations must remain documented until their own work passes. Keep all financial, inventory, and operational requirements as live-launch gates. A prominently identified sandbox offer is a test fixture, not an assertion of physical stock on a live storefront.
 
