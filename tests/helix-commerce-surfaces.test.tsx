@@ -34,7 +34,7 @@ describe("helix Account, Cart, Checkout, and acknowledgement surfaces", () => {
       "Account unavailable | helix",
       "Cart | helix",
       "Checkout | helix",
-      "Payment verified | helix",
+      "Order status | helix",
     ]);
   });
 

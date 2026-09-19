@@ -8,6 +8,7 @@ const journey = vi.hoisted(() => ({
   markCartIdentityChanged: vi.fn(),
   mergeGuestCartIntoCurrentUser: vi.fn(),
   redirect: vi.fn(),
+  refresh: vi.fn(),
   signInWithPassword: vi.fn(),
 }));
 
@@ -19,6 +20,7 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
 vi.mock("next/navigation", () => ({
   redirect: journey.redirect,
+  useRouter: () => journey,
 }));
 
 vi.mock("@/lib/cart/server", () => ({
@@ -110,7 +112,6 @@ describe("Checkout creation and verified completion", () => {
     journey.getOrderConfirmationBySession.mockResolvedValue({
       items: [
         {
-          id: "item-1",
           line_subtotal_cents: 4200,
           product_name: "TREAT",
           quantity: 1,
@@ -118,6 +119,9 @@ describe("Checkout creation and verified completion", () => {
         },
       ],
       notice: "Sandbox Checkout — no real charge or fulfillment.",
+      state: "paid",
+      retryAfterSeconds: 5,
+      shipping: null,
       order: {
         discount_cents: 0,
         merchandise_subtotal_cents: 4200,
@@ -129,7 +133,6 @@ describe("Checkout creation and verified completion", () => {
         tax_cents: 0,
         total_cents: 4200,
       },
-      webhookPending: false,
     });
 
     render(
@@ -139,7 +142,7 @@ describe("Checkout creation and verified completion", () => {
     );
 
     expect(
-      screen.getByRole("heading", { level: 1, name: "Payment verified" }),
+      screen.getByRole("heading", { level: 1, name: "Sandbox payment verified" }),
     ).toBeVisible();
     expect(screen.getByText("HX-000101")).toBeVisible();
     expect(screen.getByText(/no real charge or fulfillment/i)).toBeVisible();
@@ -163,5 +166,25 @@ describe("Checkout creation and verified completion", () => {
       screen.getByText("We could not verify this payment status."),
     ).toBeVisible();
     expect(screen.queryByText("Payment verified")).not.toBeInTheDocument();
+    expect(screen.queryByText("Checking for payment confirmation.")).not.toBeInTheDocument();
+  });
+
+  it("offers bounded checking only for an authorized pending receipt", async () => {
+    journey.getOrderConfirmationBySession.mockResolvedValue({
+      state: "pending",
+      retryAfterSeconds: 5,
+      notice: "Sandbox Checkout — no real charge or fulfillment.",
+      order: {
+        order_number: "HX-000102", status: "pending_payment", reward_points_earned: 0,
+        reward_points_redeemed: 0, merchandise_subtotal_cents: 2500, discount_cents: 0,
+        shipping_cents: 500, tax_cents: 0, total_cents: 3000,
+      },
+      items: [],
+      shipping: null,
+    });
+    render(await CheckoutSuccessPage({ searchParams: Promise.resolve({ session_id: "cs_test_pending" }) }));
+    expect(screen.getByRole("heading", { name: "Awaiting payment confirmation" })).toBeVisible();
+    expect(screen.getByText("Checking for payment confirmation.")).toBeVisible();
+    expect(screen.queryByRole("heading", { name: "Sandbox payment verified" })).not.toBeInTheDocument();
   });
 });

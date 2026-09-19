@@ -22,9 +22,8 @@ export async function POST(request: Request): Promise<NextResponse> {
   try {
     const result = await processStripeWebhookEvent(event);
     return NextResponse.json({ ok: true, ...result });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "webhook failed";
-    console.error("[stripe-webhook] processing failed:", message);
+  } catch {
+    console.error("[stripe-webhook] payment_reconciliation_failed");
     return NextResponse.json({ error: "webhook processing failed" }, { status: 500 });
   }
 }

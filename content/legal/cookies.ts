@@ -1,5 +1,6 @@
 import type { LegalDocument } from "./types";
 import {
+  CHECKOUT_RECEIPT_COOKIE,
   COOKIE_ACKNOWLEDGEMENT_COOKIE,
   GUEST_CART_COOKIE,
   PENDING_CHECKOUT_COOKIE,
@@ -22,19 +23,20 @@ export const cookieCategories: CookieCategory[] = [
       "Supabase authentication cookies",
       GUEST_CART_COOKIE,
       PENDING_CHECKOUT_COOKIE,
+      CHECKOUT_RECEIPT_COOKIE,
       REFERRAL_COOKIE,
       COOKIE_ACKNOWLEDGEMENT_COOKIE,
     ],
     purpose:
-      "Keep Customers signed in, preserve Cart and referral state, track a pending sandbox Checkout, and remember the required-storage acknowledgement.",
+      "Keep Customers signed in, preserve Cart and referral state, track a pending sandbox Checkout, protect private guest receipts, and remember the required-storage acknowledgement.",
     optional: false,
   },
   {
     category: "Functional",
-    active: true,
-    examples: ["Stripe Payment Method Messaging Element storage on eligible product pages"],
+    active: false,
+    examples: ["Product-page payment-method messaging is currently disabled."],
     purpose:
-      "Let Stripe determine eligibility and render current payment-method information without the application deriving or presenting its own installment terms.",
+      "Not active while sandbox Checkout supports cards only.",
     optional: false,
   },
   {
@@ -59,7 +61,7 @@ export const cookiePolicy: LegalDocument = {
   description:
     "Current cookie and browser-storage behavior on the helix Public Site.",
   canonical: "/cookie-policy",
-  status: "Updated August 19, 2026",
+  status: "Updated September 18, 2026",
   intro:
     "This factual prelaunch summary documents the Cookie Categories currently reflected in application code. It is not an operative Cookie Policy, and optional analytics and advertising cookies are not implemented.",
   sections: [
@@ -74,7 +76,8 @@ export const cookiePolicy: LegalDocument = {
       id: "current-categories",
       title: "Current Categories",
       body: [
-        "The current site uses required storage for Supabase authentication, server-backed guest Carts, pending sandbox Checkout, Referral Codes, and Cookie Acknowledgement. Stripe may use functional cookies or similar storage when its payment-method messaging loads on eligible Product pages. No optional analytics or advertising categories are active.",
+        "The current site uses required storage for Supabase authentication, server-backed guest Carts, pending sandbox Checkout, private guest receipts, Referral Codes, and Cookie Acknowledgement. Product-page payment-method messaging is disabled while sandbox Checkout supports cards only. No optional analytics or advertising categories are active.",
+        "A private guest receipt cookie holds a random access token for up to 24 hours. The server stores only its hash and grants for specific guest Orders. Receipt access can remain after a Cart is cleared or merged during sign-in; revisiting a receipt does not extend its access window.",
       ],
     },
     {
