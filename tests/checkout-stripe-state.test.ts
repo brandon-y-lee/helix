@@ -4,6 +4,7 @@ import {
   checkoutCancellationState,
   checkoutSessionIsPaid,
   orderCanTransitionToPaymentFailed,
+  sanitizedStripeEventPayload,
 } from "@/lib/checkout/stripe-state";
 
 describe("Stripe checkout state", () => {
@@ -36,7 +37,30 @@ describe("Stripe checkout state", () => {
     expect(orderCanTransitionToPaymentFailed("refunded")).toBe(false);
   });
 
+  it("stores a minimal event audit record without customer payload fields", () => {
+    const event = {
+      api_version: "2026-06-24.dahlia",
+      data: {
+        object: {
+          id: "cs_test_123",
+          customer_details: { email: "customer@example.com" },
+        },
+      },
+      id: "evt_test_123",
+      request: { id: "req_123", idempotency_key: null },
+      type: "checkout.session.completed",
+    } as unknown as Parameters<typeof sanitizedStripeEventPayload>[0];
+    const payload = sanitizedStripeEventPayload(event);
 
+    expect(payload).toEqual({
+      api_version: "2026-06-24.dahlia",
+      event_id: "evt_test_123",
+      object_id: "cs_test_123",
+      request_id: "req_123",
+      type: "checkout.session.completed",
+    });
+    expect(JSON.stringify(payload)).not.toContain("customer@example.com");
+  });
 });
 
 describe("trusted checkout return origins", () => {

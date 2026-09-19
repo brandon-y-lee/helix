@@ -7,7 +7,6 @@ const boundary = vi.hoisted(() => ({
   retrieveSession: vi.fn(), expireSession: vi.fn(), retrieveBundle: vi.fn(), rpc: vi.fn(), from: vi.fn(),
   authorizeReceipt: vi.fn(), loadContract: vi.fn(), finalizePayment: vi.fn(),
   recordException: vi.fn(), getException: vi.fn(), resolveExceptions: vi.fn(), isLegacyOrder: vi.fn(), verifiedDelivery: vi.fn(),
-  workerRun: vi.fn(), workerClaim: vi.fn(), workerFinish: vi.fn(), workerHeartbeat: vi.fn(), workerIncident: vi.fn(),
 }));
 
 vi.mock("next/headers", () => ({
@@ -32,7 +31,8 @@ vi.mock("@/lib/orders/receipt-access", () => ({
   authorizeCheckoutReceipt: boundary.authorizeReceipt,
   ensureGuestReceiptBinding: vi.fn(),
 }));
-vi.mock("@/lib/orders/payment-contracts", () => ({
+vi.mock("@/lib/orders/payment-contracts", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/orders/payment-contracts")>()),
   loadCheckoutPaymentContract: boundary.loadContract,
   finalizeVerifiedCheckoutPayment: boundary.finalizePayment,
   recordCheckoutPaymentException: boundary.recordException,
@@ -41,16 +41,11 @@ vi.mock("@/lib/orders/payment-contracts", () => ({
   isLegacyCheckoutOrder: boundary.isLegacyOrder,
   readVerifiedCheckoutDelivery: boundary.verifiedDelivery,
 }));
-vi.mock("@/lib/payments/inbox", () => ({
-  claimPaymentWorkerRun: boundary.workerRun, claimPaymentEvents: boundary.workerClaim,
-  finishPaymentEvent: boundary.workerFinish, finishPaymentWorkerRun: boundary.workerHeartbeat,
-  recordPaymentEventIncident: boundary.workerIncident, recordPaymentRefundObservations: vi.fn(),
-}));
 
-import { getOrderConfirmationBySession, getOrdersForCurrentUser, reconcileCheckoutSession, cancelPendingCheckoutFromCookie } from "@/lib/orders/server";
+import { getOrderConfirmationBySession, reconcileCheckoutSession, cancelPendingCheckoutFromCookie } from "@/lib/orders/server";
+import { processStripeWebhookEvent } from "@/lib/stripe/webhook";
 import { CHECKOUT_CANCEL_COOKIE } from "@/lib/orders/checkout-cancel";
 import { checkoutPaymentFixture } from "@/tests/fixtures/checkout-payment-verification";
-import { runPaymentWorker } from "@/lib/payments/worker";
 
 const orderId = "00000000-0000-4000-8000-000000000410";
 const cartId = "00000000-0000-4000-8000-000000000411";
@@ -75,7 +70,7 @@ function result(data: unknown, error: { message: string } | null = null) {
     is: vi.fn(() => query), update: vi.fn((value: unknown) => { void value; return query; }), insert: vi.fn(() => query),
     upsert: vi.fn(() => query), limit: vi.fn(() => query),
     maybeSingle: vi.fn(async () => response), single: vi.fn(async () => response),
-    order: vi.fn(() => query),
+    order: vi.fn(async () => response),
     then: (resolve: (value: typeof response) => unknown) => Promise.resolve(response).then(resolve),
   };
   return query;
@@ -95,11 +90,6 @@ beforeEach(() => {
   boundary.recordException.mockResolvedValue(undefined);
   boundary.resolveExceptions.mockResolvedValue(undefined);
   boundary.cookieGet.mockReturnValue(undefined);
-  boundary.workerRun.mockResolvedValue({ token: "worker-run" });
-  boundary.workerClaim.mockResolvedValue([]);
-  boundary.workerFinish.mockResolvedValue(true);
-  boundary.workerHeartbeat.mockResolvedValue(true);
-  boundary.workerIncident.mockResolvedValue(true);
   boundary.from.mockImplementation((table: string) => {
     if (table === "orders") return result(order);
     if (table === "order_items") return result([]);
@@ -112,57 +102,6 @@ beforeEach(() => {
   });
 });
 afterEach(() => vi.unstubAllEnvs());
-
-describe("truthful private account Order history", () => {
-  it("marks an unresolved refund exception without rewriting the historical refunded status", async () => {
-    const historical = { id: orderId, order_number: "HX-410", status: "refunded", total_cents: 3200,
-      reward_points_earned: 32, reward_points_redeemed: 0, created_at: "2026-09-18T12:00:00Z" };
-    const query = result([historical]);
-    boundary.from.mockReturnValue(query);
-    boundary.rpc.mockReturnValue(result([orderId]));
-    await expect(getOrdersForCurrentUser()).resolves.toEqual([{ ...historical, verification_required: true }]);
-    expect(query.eq).toHaveBeenCalledWith("user_id", accountUserId);
-    expect(boundary.rpc).toHaveBeenCalledExactlyOnceWith("read_account_order_payment_exceptions", {
-      p_user_id: accountUserId, p_order_ids: [orderId],
-    });
-    expect(boundary.retrieveBundle).not.toHaveBeenCalled();
-    expect(boundary.getException).not.toHaveBeenCalled();
-  });
-  it("retains ordinary historical statuses with one batch read and exposes no exception details", async () => {
-    const statuses = ["pending_payment", "paid", "payment_failed", "cancelled", "refunded"];
-    const rows = statuses.map((status, index) => ({ id: `00000000-0000-4000-8000-00000000050${index}`,
-      order_number: `HX-${index}`, status, total_cents: 3200, reward_points_earned: 32,
-      reward_points_redeemed: 0, created_at: "2026-09-18T12:00:00Z" }));
-    boundary.from.mockReturnValue(result(rows));
-    boundary.rpc.mockReturnValue(result([]));
-    await expect(getOrdersForCurrentUser()).resolves.toEqual(rows.map((row) => ({ ...row, verification_required: false })));
-    expect(boundary.rpc).toHaveBeenCalledOnce();
-    expect(boundary.getException).not.toHaveBeenCalled();
-  });
-  it.each([null, {}, ["00000000-0000-4000-8000-000000000499"], [orderId, orderId], [{ id: orderId, private_payload: "secret" }]])(
-    "fails closed for malformed or unrequested exception IDs %j", async (exceptionIds) => {
-      boundary.from.mockReturnValue(result([order]));
-      boundary.rpc.mockReturnValue(result(exceptionIds));
-      await expect(getOrdersForCurrentUser()).rejects.toThrow("Failed to verify account payment state");
-    },
-  );
-  it("fails closed when exception storage is unavailable instead of claiming a completed refund", async () => {
-    boundary.from.mockReturnValue(result([{ ...order, status: "refunded" }]));
-    boundary.rpc.mockReturnValue(result(null, { message: "private exception payload" }));
-    await expect(getOrdersForCurrentUser()).rejects.toThrow("Failed to verify account payment state");
-    boundary.rpc.mockRejectedValue(new Error("private exception payload"));
-    await expect(getOrdersForCurrentUser()).rejects.toThrow("Failed to verify account payment state");
-  });
-  it("does not read private history for a guest or issue an empty exception batch", async () => {
-    boundary.identity.mockResolvedValue(null);
-    await expect(getOrdersForCurrentUser()).resolves.toEqual([]);
-    expect(boundary.from).not.toHaveBeenCalled(); expect(boundary.rpc).not.toHaveBeenCalled();
-    boundary.identity.mockResolvedValue({ id: accountUserId });
-    boundary.from.mockReturnValue(result([]));
-    await expect(getOrdersForCurrentUser()).resolves.toEqual([]);
-    expect(boundary.rpc).not.toHaveBeenCalled();
-  });
-});
 
 describe("private verified Order confirmation", () => {
   it("returns only receipt display fields to the owning account while refresh is deferred", async () => {
@@ -263,75 +202,33 @@ function paidFixture() {
 }
 
 describe("trusted payment reconciliation", () => {
-  it("recovers an early completion after attachment without requiring the browser return", async () => {
+  it("binds an early verified payment to its original sent attempt before the browser attaches it", async () => {
     const fixture = paidFixture();
-    boundary.authorizeReceipt.mockResolvedValue(false);
-    const envelope = { accountId: "acct_1Tm9WRFEzyaKzdmq", environment: "sandbox", eventId: "evt_early",
-      eventType: "checkout.session.completed", objectKind: "checkout.session", objectId: sessionId,
-      apiVersion: "2026-06-24.dahlia", createdAt: "2026-09-19T01:00:00Z", chargeId: null, paymentIntentId: null };
-    const claim = { id: "inbox-early", version: 2, attempts: 1, lifetimeAttempts: 1, leaseToken: "lease-1", envelope };
-    boundary.workerClaim.mockResolvedValueOnce([claim]);
+    const attemptId = "00000000-0000-4000-8000-000000000455";
+    fixture.accepted.attemptId = attemptId;
+    fixture.provider.session.metadata!.attempt_id = attemptId;
+    (fixture.provider.session.payment_intent as Stripe.PaymentIntent).metadata.attempt_id = attemptId;
+    let bound = false;
     const from = boundary.from.getMockImplementation()!;
-    boundary.from.mockImplementation((table: string) => table === "orders" ? result(null) : from(table));
-    await expect(runPaymentWorker()).resolves.toMatchObject({ retried: 1, processed: 0 });
-    expect(boundary.workerFinish).toHaveBeenLastCalledWith(expect.objectContaining({ disposition: "pending", code: "binding_pending" }));
-    expect(boundary.finalizePayment).not.toHaveBeenCalled();
-
-    boundary.from.mockImplementation(from);
-    boundary.workerClaim.mockResolvedValueOnce([{ ...claim, version: 3, attempts: 2, lifetimeAttempts: 2, leaseToken: "lease-2" }]);
-    await expect(runPaymentWorker()).resolves.toMatchObject({ processed: 1, retried: 0 });
-    expect(boundary.finalizePayment).toHaveBeenCalledWith(expect.objectContaining({ accepted: fixture.accepted }));
-    expect(boundary.authorizeReceipt).not.toHaveBeenCalled();
-    expect(boundary.identity).not.toHaveBeenCalled();
-  });
-  it("retries the same accepted payment identity after settlement commits before inbox completion", async () => {
-    paidFixture();
-    const claim = { id: "inbox-crash", version: 2, attempts: 1, lifetimeAttempts: 1, leaseToken: "lease-before-crash",
-      envelope: { accountId: "acct_1Tm9WRFEzyaKzdmq", environment: "sandbox", eventId: "evt_delayed_failure",
-        eventType: "checkout.session.async_payment_failed", objectKind: "checkout.session", objectId: sessionId,
-        apiVersion: "2026-06-24.dahlia", createdAt: "2026-09-18T01:00:00Z", chargeId: null, paymentIntentId: null } };
-    boundary.workerClaim.mockResolvedValueOnce([claim]);
-    boundary.workerFinish.mockRejectedValueOnce(new Error("crashed after financial commit"));
-    await expect(runPaymentWorker()).rejects.toThrow("durable reconciliation");
-    expect(boundary.finalizePayment).toHaveBeenCalledOnce();
-    expect(boundary.workerIncident).toHaveBeenCalledWith(expect.objectContaining({ code: "storage_unavailable" }));
-
-    boundary.workerClaim.mockResolvedValueOnce([{ ...claim, version: 3, attempts: 2, lifetimeAttempts: 2, leaseToken: "lease-after-crash" }]);
-    await expect(runPaymentWorker()).resolves.toMatchObject({ processed: 1 });
-    expect(boundary.finalizePayment).toHaveBeenCalledTimes(2);
-    expect(boundary.finalizePayment.mock.calls[1]).toEqual(boundary.finalizePayment.mock.calls[0]);
-    expect(boundary.rpc.mock.calls.filter(([name]) => name === "clear_paid_order_cart"))
-      .toEqual([["clear_paid_order_cart", { p_order_id: orderId }], ["clear_paid_order_cart", { p_order_id: orderId }]]);
-    expect(boundary.workerFinish).toHaveBeenLastCalledWith(expect.objectContaining({ disposition: "processed", leaseToken: "lease-after-crash" }));
-    expect(boundary.rpc.mock.calls.some(([name]) => name === "fail_checkout_order_from_stripe")).toBe(false);
-  });
-  it("returns a durable pending outcome when completion arrives before Session attachment", async () => {
-    paidFixture();
-    boundary.from.mockReturnValue(result(null));
-    await expect(reconcileCheckoutSession(sessionId)).resolves.toMatchObject({
-      disposition: "pending", code: "binding_pending", order: null,
+    boundary.from.mockImplementation((table) => table === "orders" ? result(bound ? fixture.pendingOrder : null) : from(table));
+    const rpc = boundary.rpc.getMockImplementation()!;
+    boundary.rpc.mockImplementation((name, args) => {
+      if (name === "read_pending_checkout_attempt") return result({ orderId, attemptId, stripeIdempotencyKey: `stripe-session:${orderId}:initial`,
+        sendStarted: true, legacy: false, contract: { ...fixture.accepted, sessionId: null } });
+      if (name === "bind_checkout_attempt_session") { bound = true; return result(true); }
+      return rpc(name, args);
     });
-    expect(boundary.finalizePayment).not.toHaveBeenCalled();
+    await expect(reconcileCheckoutSession(sessionId)).resolves.toMatchObject({ status: "paid" });
+    expect(boundary.rpc).toHaveBeenCalledWith("bind_checkout_attempt_session", expect.objectContaining({ p_attempt_id: attemptId, p_session_id: sessionId }));
+    expect(boundary.finalizePayment).toHaveBeenCalledOnce();
+    expect(boundary.authorizeReceipt).not.toHaveBeenCalled();
   });
-  it("ignores only a currently verified Session explicitly belonging to another application", async () => {
-    const { provider } = paidFixture();
-    boundary.from.mockReturnValue(result(null));
-    provider.session.client_reference_id = null;
-    provider.session.metadata = { application: "other-store" };
-    await expect(reconcileCheckoutSession(sessionId)).resolves.toMatchObject({ disposition: "pending", code: "binding_pending" });
-    (provider.session.payment_intent as Stripe.PaymentIntent).metadata = { application: "other-store" };
-    await expect(reconcileCheckoutSession(sessionId)).resolves.toMatchObject({ disposition: "ignored", order: null });
-    expect(boundary.finalizePayment).not.toHaveBeenCalled();
-    provider.session.metadata = {};
-    await expect(reconcileCheckoutSession(sessionId)).resolves.toMatchObject({ disposition: "pending", code: "binding_pending" });
-    provider.session.metadata = { application: "other-store", order_id: orderId };
-    await expect(reconcileCheckoutSession(sessionId)).resolves.toMatchObject({ disposition: "pending", code: "binding_pending" });
-  });
+
   it("settles a fully verified guest payment without browser access and preserves separate addresses", async () => {
     paidFixture();
     boundary.authorizeReceipt.mockResolvedValue(false);
     boundary.identity.mockResolvedValue(null);
-    await expect(reconcileCheckoutSession(sessionId)).resolves.toMatchObject({ disposition: "processed", order: { status: "paid", total_cents: 5500 } });
+    await expect(reconcileCheckoutSession(sessionId)).resolves.toMatchObject({ status: "paid", total_cents: 5500 });
     expect(boundary.authorizeReceipt).not.toHaveBeenCalled();
     expect(boundary.identity).not.toHaveBeenCalled();
     expect(boundary.finalizePayment).toHaveBeenCalledWith(expect.objectContaining({
@@ -347,7 +244,7 @@ describe("trusted payment reconciliation", () => {
   it("quarantines a paid Session with different Order Lines without granting any benefit", async () => {
     const { provider } = paidFixture();
     provider.lineItems[0].quantity = 3;
-    await expect(reconcileCheckoutSession(sessionId)).resolves.toMatchObject({ disposition: "quarantined", order: { status: "pending_payment" } });
+    await expect(reconcileCheckoutSession(sessionId)).resolves.toMatchObject({ status: "pending_payment" });
     expect(boundary.recordException).toHaveBeenCalledWith({
       orderId, attemptId: "attempt-1", sessionId, code: "line_items_mismatch",
       paymentIntentId: "pi_1", paymentStatus: "paid", amountCents: 5500,
@@ -381,7 +278,7 @@ describe("trusted payment reconciliation", () => {
     const { provider } = paidFixture();
     provider.session.payment_status = "unpaid";
     (provider.session.payment_intent as Stripe.PaymentIntent).status = "processing";
-    await expect(reconcileCheckoutSession(sessionId)).resolves.toMatchObject({ disposition: "pending", order: { status: "pending_payment" } });
+    await expect(reconcileCheckoutSession(sessionId)).resolves.toMatchObject({ status: "pending_payment" });
     expect(boundary.finalizePayment).not.toHaveBeenCalled();
     expect(boundary.rpc).not.toHaveBeenCalled();
     expect(boundary.resolveExceptions).not.toHaveBeenCalled();
@@ -419,7 +316,7 @@ describe("trusted payment reconciliation", () => {
       code: "side_effects_failed", paymentStatus: "paid", paymentIntentId: "pi_1", amountCents: 5500,
     }));
     expect(boundary.resolveExceptions).not.toHaveBeenCalled();
-    await expect(reconcileCheckoutSession(sessionId)).resolves.toMatchObject({ disposition: "processed", order: { status: "paid" } });
+    await expect(reconcileCheckoutSession(sessionId)).resolves.toMatchObject({ status: "paid" });
     expect(boundary.resolveExceptions).toHaveBeenCalledWith({ orderId, sessionId });
   });
 
@@ -456,6 +353,42 @@ describe("trusted payment reconciliation", () => {
     await expect(getOrderConfirmationBySession(sessionId)).resolves.toBeNull();
     expect(boundary.retrieveBundle).toHaveBeenCalledOnce();
     expect(boundary.finalizePayment).not.toHaveBeenCalled();
+  });
+});
+
+
+describe("webhook reconciliation", () => {
+  it("uses retrieved provider facts instead of a webhook's paid claim", async () => {
+    const { provider } = paidFixture();
+    const event = { id: "evt_test_paid_claim", type: "checkout.session.completed", livemode: false,
+      api_version: "2026-06-24.dahlia", request: null,
+      data: { object: { ...provider.session, payment_status: "paid" } },
+    } as Stripe.Event;
+    provider.session.payment_status = "unpaid";
+    (provider.session.payment_intent as Stripe.PaymentIntent).status = "processing";
+    const from = boundary.from.getMockImplementation()!;
+    boundary.from.mockImplementation((table: string) => table === "stripe_webhook_events" ? result(null) : from(table));
+    await expect(processStripeWebhookEvent(event)).rejects.toThrow("Payment reconciliation is not complete");
+    expect(boundary.retrieveBundle).toHaveBeenCalledWith({ sessionId });
+    expect(boundary.finalizePayment).not.toHaveBeenCalled();
+    expect(boundary.rpc).not.toHaveBeenCalled();
+    expect(boundary.authorizeReceipt).not.toHaveBeenCalled();
+  });
+  it("retains retryable webhook state when final acknowledgement storage fails", async () => {
+    const { provider } = paidFixture();
+    const event = { id: "evt_test_ack_failure", type: "checkout.session.completed", livemode: false,
+      api_version: "2026-06-24.dahlia", request: null, data: { object: provider.session },
+    } as Stripe.Event;
+    const eventQuery = result(null);
+    eventQuery.update.mockImplementation((value: unknown) => {
+      const update = value as Record<string, unknown>;
+      return "processed_at" in update ? result(null, { message: "write unavailable" }) : result(null);
+    });
+    const from = boundary.from.getMockImplementation()!;
+    boundary.from.mockImplementation((table: string) => table === "stripe_webhook_events" ? eventQuery : from(table));
+    await expect(processStripeWebhookEvent(event)).rejects.toThrow("Failed to mark webhook processed");
+    expect(eventQuery.update).toHaveBeenLastCalledWith({ processing_error: "payment_reconciliation_failed" });
+    expect(boundary.finalizePayment).toHaveBeenCalledOnce();
   });
 });
 
@@ -528,7 +461,8 @@ describe("owned paid receipt", () => {
 
 describe("legacy Session binding recovery", () => {
   it("retains an authenticated legacy payment with a missing binding as an operator exception", async () => {
-    const { pendingOrder } = paidFixture();
+    const { pendingOrder, provider } = paidFixture();
+    provider.session.metadata = { order_id: orderId, environment: "sandbox", schema: "checkout_v1" };
     const legacyOrder = { ...pendingOrder, stripe_checkout_session_id: null };
     let orderReads = 0;
     boundary.from.mockImplementation((table: string) => {
@@ -537,7 +471,7 @@ describe("legacy Session binding recovery", () => {
     });
     boundary.isLegacyOrder.mockResolvedValue(true);
     boundary.loadContract.mockResolvedValue(null);
-    await expect(reconcileCheckoutSession(sessionId)).resolves.toMatchObject({ disposition: "quarantined", order: { id: orderId, status: "pending_payment" } });
+    await expect(reconcileCheckoutSession(sessionId)).resolves.toMatchObject({ id: orderId, status: "pending_payment" });
     expect(boundary.recordException).toHaveBeenCalledWith({
       orderId, attemptId: null, sessionId, code: "missing_contract",
       paymentIntentId: "pi_1", paymentStatus: "paid", amountCents: 5500,
@@ -553,7 +487,7 @@ describe("legacy Session binding recovery", () => {
       throw new Error(`Unexpected table ${table}`);
     });
     boundary.isLegacyOrder.mockResolvedValue(false);
-    await expect(reconcileCheckoutSession(sessionId)).resolves.toMatchObject({ disposition: "pending", code: "binding_pending" });
+    await expect(reconcileCheckoutSession(sessionId)).rejects.toThrow("needs verification");
     expect(boundary.retrieveBundle).toHaveBeenCalledWith({ sessionId });
     expect(boundary.recordException).not.toHaveBeenCalled();
     expect(boundary.finalizePayment).not.toHaveBeenCalled();
@@ -570,7 +504,7 @@ describe("legacy Session binding recovery", () => {
       throw new Error(`Unexpected table ${table}`);
     });
     boundary.isLegacyOrder.mockResolvedValue(true);
-    await expect(reconcileCheckoutSession(sessionId)).resolves.toMatchObject({ disposition: "pending", code: "binding_pending" });
+    await expect(reconcileCheckoutSession(sessionId)).rejects.toThrow("needs verification");
     expect(boundary.isLegacyOrder).not.toHaveBeenCalled();
     expect(boundary.recordException).not.toHaveBeenCalled();
     expect(boundary.finalizePayment).not.toHaveBeenCalled();

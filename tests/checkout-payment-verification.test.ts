@@ -66,6 +66,24 @@ function legacyFixture(input = checkoutPaymentFixture()) {
 }
 
 describe("payment verification", () => {
+  it("releases an expired payment only with no payable Intent or recovery family", () => {
+    const input = checkoutPaymentFixture();
+    const session = input.provider.session;
+    session.status = "expired"; session.payment_status = "unpaid";
+    session.after_expiration = null; session.recovered_from = null;
+    const intent = session.payment_intent as Stripe.PaymentIntent;
+    intent.status = "canceled"; intent.amount_received = 0; intent.amount_capturable = 0;
+    expect(verifyCheckoutPayment(input)).toMatchObject({ status: "expired" });
+    intent.status = "processing";
+    expect(verifyCheckoutPayment(input)).toMatchObject({ status: "pending" });
+    session.payment_intent = null;
+    session.recovered_from = "cs_test_predecessor";
+    expect(verifyCheckoutPayment(input)).toMatchObject({ status: "pending" });
+    session.recovered_from = null;
+    session.after_expiration = { recovery: { enabled: true, url: "https://checkout.stripe.com/recover/test", expires_at: 2000000000, allow_promotion_codes: false } };
+    expect(verifyCheckoutPayment(input)).toMatchObject({ status: "pending" });
+  });
+
   it("verifies free shipping with zero tax under a completed automatic-tax calculation", () => {
     const input = taxedFixture();
     input.accepted.shippingCents = 0;
@@ -245,7 +263,7 @@ describe("payment verification", () => {
     expect(verifyCheckoutPayment(input)).toMatchObject({ status: "exception", code: "unsupported_zero_total", paymentIntentId: null, observedTotalCents: 0 });
   });
 
-  it.each(["pending", "expired", "failed"])("classifies an authenticated legacy %s Session without requiring a paid address", (state) => {
+  it.each(["pending", "expired", "failed"])("retains an unresolved legacy %s Session without releasing its reservation", (state) => {
     const input = legacyFixture();
     const session = input.provider.session;
     const intent = session.payment_intent as Stripe.PaymentIntent;
@@ -254,7 +272,7 @@ describe("payment verification", () => {
     intent.status = state === "failed" ? "requires_payment_method" : "processing";
     intent.last_payment_error = state === "failed" ? { type: "card_error", code: "card_declined" } : null;
     session.collected_information = null;
-    expect(verifyCheckoutPayment(input)).toEqual({ status: state, paymentIntentId: "pi_1" });
+    expect(verifyCheckoutPayment(input)).toEqual({ status: "pending", paymentIntentId: "pi_1" });
   });
   it("refuses a corrupted accepted pre-tax total even if Stripe reports that same amount", () => {
     const input = checkoutPaymentFixture();

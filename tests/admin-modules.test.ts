@@ -37,8 +37,8 @@ describe("admin module registry", () => {
         status: "active",
       },
     ];
-    const first = getAdminModules(["catalog.read"]);
-    const second = getAdminModules(["catalog.read"]);
+    const first = getAdminModules();
+    const second = getAdminModules();
 
     expect(sortAdminModules(fixtures).map((module) => module.id)).toEqual([
       "catalog",
@@ -55,7 +55,7 @@ describe("admin module registry", () => {
   });
 
   it("registers the Catalog Editor honestly for its integration route", () => {
-    expect(getAdminModules(["catalog.read"])).toContainEqual({
+    expect(getAdminModules()).toContainEqual({
       id: "catalog",
       label: "Catalog Editor",
       route: "/admin/catalog",
@@ -65,17 +65,5 @@ describe("admin module registry", () => {
       navigationOrder: 10,
       status: "active",
     });
-  });
-
-  it("exposes only modules authorized by the verified capabilities", () => {
-    expect(getAdminModules(["admin.access", "catalog.read"]).map(
-      (module) => module.route,
-    )).toEqual(["/admin/catalog"]);
-    expect(getAdminModules([
-      "admin.access", "catalog.read", "payments.manage",
-    ]).map((module) => module.route)).toEqual([
-      "/admin/catalog", "/admin/payments",
-    ]);
-    expect(getAdminModules([])).toEqual([]);
   });
 });

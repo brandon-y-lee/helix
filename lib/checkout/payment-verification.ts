@@ -89,6 +89,13 @@ export type CheckoutPaymentVerification =
   | { status: "exception"; code: PaymentVerificationExceptionCode;
       paymentIntentId: string | null; providerPaymentStatus: string; observedTotalCents: number | null };
 
+export function checkoutSessionDefinitelyExpired(session: Stripe.Checkout.Session): boolean {
+  const intent = session.payment_intent;
+  return session.status === "expired" && session.payment_status === "unpaid" && session.recovered_from === null &&
+    (session.after_expiration === null || session.after_expiration?.recovery?.enabled === false && !session.after_expiration.recovery.url) &&
+    (intent === null || typeof intent === "object" && intent.livemode === false && intent.status === "canceled" && intent.amount_received === 0 && intent.amount_capturable === 0);
+}
+
 export function verifyCheckoutPayment(input: {
   accepted: AcceptedCheckoutContract;
   provider: CheckoutPaymentProviderBundle;
@@ -134,11 +141,8 @@ export function verifyCheckoutPayment(input: {
   }
   if (session.payment_status !== "paid") {
     if (session.payment_status !== "unpaid" || intent?.status === "succeeded") return exception("payment_state_mismatch");
-    if (session.status === "expired") return { status: "expired", paymentIntentId };
+    if (session.status === "expired") return { status: checkoutSessionDefinitelyExpired(session) ? "expired" : "pending", paymentIntentId };
     if (session.status !== "open" && session.status !== "complete") return exception("payment_state_mismatch");
-    if (intent?.status === "canceled" || (session.status === "complete" && intent?.status === "requires_payment_method" && intent.last_payment_error)) {
-      return { status: "failed", paymentIntentId };
-    }
     return { status: "pending", paymentIntentId };
   }
   if (session.status !== "complete" || !intent || intent.status !== "succeeded") return exception("payment_state_mismatch");

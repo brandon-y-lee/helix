@@ -26,7 +26,7 @@ function amount(value: unknown): value is number {
   return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 && value <= 2147483647;
 }
 function nullableString(value: unknown): value is string | null { return value === null || typeof value === "string"; }
-function contract(value: unknown, sessionOptional = false): value is AcceptedCheckoutContract {
+export function isStoredCheckoutPaymentContract(value: unknown, sessionOptional = false): value is AcceptedCheckoutContract {
   return record(value) && ["checkout_v1", "checkout_v2"].includes(String(value.version))
     && typeof value.legacyEligible === "boolean" && (value.version !== "checkout_v1" || value.legacyEligible)
     && (value.version !== "checkout_v2" || (value.legacyEligible === false && typeof value.attemptId === "string" && value.attemptId.length > 0))
@@ -56,7 +56,7 @@ export async function prepareCheckoutPaymentContract(input: {
     p_order_id: input.orderId, p_attempt_token: input.attemptToken,
     p_stripe_idempotency_key: input.stripeIdempotencyKey, p_terms: input.terms,
   });
-  if (!contract(value, true) || value.version !== "checkout_v2" || !value.attemptId || value.orderId !== input.orderId) unavailable();
+  if (!isStoredCheckoutPaymentContract(value, true) || value.version !== "checkout_v2" || !value.attemptId || value.orderId !== input.orderId) unavailable();
   return { attemptId: value.attemptId, contract: value };
 }
 export async function bindCheckoutPaymentSession(input: {
@@ -74,7 +74,7 @@ export async function isLegacyCheckoutOrder(orderId: string): Promise<boolean> {
 export async function loadCheckoutPaymentContract(input: { orderId: string; sessionId: string }): Promise<AcceptedCheckoutContract | null> {
   const value = await rpc("read_checkout_payment_contract", { p_order_id: input.orderId, p_session_id: input.sessionId });
   if (value === null) return null;
-  if (!contract(value) || value.orderId !== input.orderId || value.sessionId !== input.sessionId) unavailable();
+  if (!isStoredCheckoutPaymentContract(value) || value.orderId !== input.orderId || value.sessionId !== input.sessionId) unavailable();
   return value;
 }
 export type VerifiedCheckoutDelivery = {

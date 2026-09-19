@@ -38,7 +38,6 @@
     "db:verify": "tsx scripts/db/verify-supabase-data.ts",
     "search:backfill": "tsx scripts/search-backfill.ts",
     "search:reindex": "pnpm run search:backfill",
-    "payments:plan": "tsx scripts/payments/plan.ts",
     "stripe:sync:sandbox": "tsx scripts/stripe-sync-sandbox.ts apply",
     "stripe:sandbox:plan": "tsx scripts/stripe-sync-sandbox.ts plan",
     "stripe:sandbox:verify": "tsx scripts/stripe-sync-sandbox.ts verify"

@@ -1,7 +1,6 @@
 import "server-only";
 
 import Stripe from "stripe";
-import { paymentDeadlineFetch } from "@/lib/payments/deadline";
 import {
   STRIPE_API_VERSION,
   readPaymentProviderConfig,
@@ -20,8 +19,7 @@ export function getStripeClient(
     apiVersion: STRIPE_API_VERSION,
     typescript: true,
     timeout: 4_000,
-    maxNetworkRetries: 0,
-    httpClient: Stripe.createFetchHttpClient(paymentDeadlineFetch),
+    maxNetworkRetries: 2,
   });
   cachedSecretKey = config.secretKey;
   return cachedStripe;

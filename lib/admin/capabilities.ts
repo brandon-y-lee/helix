@@ -10,7 +10,6 @@ export const ADMIN_CAPABILITIES = {
   catalogEdit: "catalog.edit",
   catalogPublish: "catalog.publish",
   catalogDelivery: "catalog.delivery",
-  paymentsManage: "payments.manage",
 } as const;
 
 export type AdminCapability =
@@ -23,13 +22,7 @@ const ADMIN_ROLE_CAPABILITIES: Readonly<
   Record<AdminRole, readonly AdminCapability[]>
 > = {
   admin: ALL_ADMIN_CAPABILITIES,
-  catalog_publisher: [
-    ADMIN_CAPABILITIES.access,
-    ADMIN_CAPABILITIES.catalogRead,
-    ADMIN_CAPABILITIES.catalogEdit,
-    ADMIN_CAPABILITIES.catalogPublish,
-    ADMIN_CAPABILITIES.catalogDelivery,
-  ],
+  catalog_publisher: ALL_ADMIN_CAPABILITIES,
   catalog_editor: [
     ADMIN_CAPABILITIES.access,
     ADMIN_CAPABILITIES.catalogRead,
@@ -73,9 +66,7 @@ export type AdminAccessDependencies = {
 export function capabilitiesForRole(
   role: AdminRole,
 ): readonly AdminCapability[] {
-  return Object.hasOwn(ADMIN_ROLE_CAPABILITIES, role)
-    ? ADMIN_ROLE_CAPABILITIES[role]
-    : [];
+  return ADMIN_ROLE_CAPABILITIES[role];
 }
 
 export function roleHasCapability(
