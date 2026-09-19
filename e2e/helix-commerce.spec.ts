@@ -20,7 +20,10 @@ test.beforeEach(async ({ page }) => {
     });
   });
   await page.route("**/cart/checkout-cancel", async (route) => {
-    await route.fulfill({ status: 204 });
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ status: "cancelled" }),
+    });
   });
 });
 
@@ -56,6 +59,8 @@ test("Account, Cart, Checkout, and acknowledgement use the helix identity", asyn
 test("Checkout cancellation returns to the intact Cart", async ({ page }) => {
   await page.goto("/cart?checkout=cancelled");
 
+  await expect(page.getByText("You returned from checkout. Your cart is still here.")).toBeVisible();
+  await page.getByRole("button", { name: "Cancel pending checkout" }).click();
   await expect(
     page.getByRole("status").filter({ hasText: "Sandbox checkout was cancelled" }),
   ).toBeVisible();
