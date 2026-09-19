@@ -76,11 +76,20 @@ begin
     or p_stripe_idempotency_key is null or p_stripe_idempotency_key not like 'stripe-session:'||p_order_id::text||':%'
   then raise exception using errcode='22023',message='Checkout preparation unavailable'; end if;
   v_existing:=public.read_pending_checkout_attempt(p_order_id);
-  if v_existing is not null then return v_existing; end if;
+  if v_existing is not null then
+    -- A local failure before permission to call Stripe may be retried under the
+    -- current Order claim. Sent or pre-cutover attempts stay closed.
+    if v_order.stripe_checkout_session_id is null and v_existing#>>'{contract,sessionId}' is null
+      and exists(select 1 from private.checkout_provider_sends where attempt_id=(v_existing->>'attemptId')::uuid
+        and not legacy and first_send_at is null) then
+      update public.orders set metadata=metadata||jsonb_build_object('stripe_creation_outcome','creating') where id=p_order_id;
+    end if;
+    return v_existing;
+  end if;
   if private.checkout_provider_call_possible(p_order_id) or v_order.stripe_checkout_session_id is not null
     or exists(select 1 from public.payment_attempts where order_id=p_order_id)
     or exists(select 1 from public.orders o where o.cart_id=v_cart and o.id<>p_order_id and o.status not in ('paid','refunded')
-      and ((o.status in ('pending_payment','payment_failed') and exists(select 1 from public.payment_attempts where order_id=o.id))
+      and ((o.status in ('pending_payment','payment_failed') and o.stripe_checkout_session_id is not null)
         or (o.stripe_checkout_session_id is null and private.checkout_provider_call_possible(o.id))))
   then raise exception using errcode='55000',message='Existing checkout requires verification'; end if;
   update public.orders set metadata=coalesce(metadata,'{}'::jsonb)||jsonb_build_object('stripe_idempotency_key',p_stripe_idempotency_key,'stripe_creation_outcome','creating') where id=p_order_id;

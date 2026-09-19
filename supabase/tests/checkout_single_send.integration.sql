@@ -63,6 +63,51 @@ SELECT payment_contract_test.assert((SELECT stripe_checkout_session_id='cs_test_
   AND (SELECT stripe_checkout_session_id='cs_test_once100' FROM public.payment_attempts WHERE order_id=payment_contract_test.id('order',100)),
   'Order and Attempt share the atomic original binding');
 
+-- A failure before the permanent send marker must remain retryable.
+SELECT payment_contract_test.seed(103);
+DO $$ DECLARE original jsonb; retried jsonb; claim uuid; admission jsonb; BEGIN
+  original:=public.prepare_checkout_attempt_once(payment_contract_test.id('order',103),payment_contract_test.id('claim',103),payment_contract_test.key(103),payment_contract_test.terms(103));
+  PERFORM payment_contract_test.assert(public.fail_checkout_attempt(payment_contract_test.id('order',103),payment_contract_test.id('claim',103),'Receipt setup failed before sending',true),
+    'a definite pre-send failure uses the existing local cleanup');
+  PERFORM payment_contract_test.assert((SELECT metadata->>'stripe_creation_outcome'='failed' FROM public.orders WHERE id=payment_contract_test.id('order',103)),
+    'regression reproduces the failed creation marker');
+  claim:=public.claim_checkout_attempt(payment_contract_test.id('order',103));
+  retried:=public.prepare_checkout_attempt_once(payment_contract_test.id('order',103),claim,payment_contract_test.key(103),payment_contract_test.terms(103));
+  PERFORM payment_contract_test.assert(retried->>'attemptId'=original->>'attemptId' AND retried->'contract'=original->'contract',
+    'unsent retry keeps the original Attempt and accepted terms');
+  admission:=public.admit_checkout_creation('acct_1Tm9WRFEzyaKzdmq',payment_contract_test.id('order',103),claim,payment_contract_test.key(103));
+  PERFORM payment_contract_test.assert((admission->>'allowed')::boolean,'unsent retry restores normal creation admission');
+  PERFORM payment_contract_test.assert(public.start_checkout_attempt_send(payment_contract_test.id('order',103),(retried->>'attemptId')::uuid,claim,payment_contract_test.key(103)),
+    'retry permits its first provider invocation');
+  PERFORM public.prepare_checkout_attempt_once(payment_contract_test.id('order',103),claim,payment_contract_test.key(103),payment_contract_test.terms(103));
+  PERFORM payment_contract_test.assert((SELECT metadata->>'stripe_creation_outcome'='unknown' FROM public.orders WHERE id=payment_contract_test.id('order',103))
+    AND NOT public.start_checkout_attempt_send(payment_contract_test.id('order',103),(retried->>'attemptId')::uuid,claim,payment_contract_test.key(103)),
+    'preparation never reopens an already sent unknown Attempt');
+END $$;
+
+-- Editing the cart after a proven pre-send failure can prepare a new quote.
+SELECT payment_contract_test.seed(104);
+SELECT public.prepare_checkout_attempt_once(payment_contract_test.id('order',104),payment_contract_test.id('claim',104),payment_contract_test.key(104),payment_contract_test.terms(104));
+SELECT payment_contract_test.assert(public.fail_checkout_attempt(payment_contract_test.id('order',104),payment_contract_test.id('claim',104),'Local setup failed before sending',true),
+  'changed-cart regression begins with a definite unsent failure');
+UPDATE public.carts SET checkout_generation=gen_random_uuid() WHERE id=payment_contract_test.id('cart',104);
+SELECT payment_contract_test.seed(105);
+UPDATE public.orders SET cart_id=payment_contract_test.id('cart',104),
+  checkout_generation=(SELECT checkout_generation FROM public.carts WHERE id=payment_contract_test.id('cart',104))
+  WHERE id=payment_contract_test.id('order',105);
+SELECT single_send_test.prepare(105);
+SELECT payment_contract_test.assert(single_send_test.send(105),'new quote may use the cart after a proven unsent failure');
+DO $$ DECLARE claim uuid; original jsonb; BEGIN
+  claim:=public.claim_checkout_attempt(payment_contract_test.id('order',104));
+  original:=public.prepare_checkout_attempt_once(payment_contract_test.id('order',104),claim,payment_contract_test.key(104),payment_contract_test.terms(104));
+  PERFORM public.admit_checkout_creation('acct_1Tm9WRFEzyaKzdmq',payment_contract_test.id('order',104),claim,payment_contract_test.key(104));
+  PERFORM payment_contract_test.assert(NOT public.start_checkout_attempt_send(payment_contract_test.id('order',104),(original->>'attemptId')::uuid,claim,payment_contract_test.key(104)),
+    'the competing old unsent Attempt cannot create after the new quote obtained permission');
+  PERFORM payment_contract_test.assert((SELECT count(*)=1 FROM private.checkout_provider_sends s JOIN public.payment_attempts a ON a.id=s.attempt_id
+    JOIN public.orders o ON o.id=a.order_id WHERE o.cart_id=payment_contract_test.id('cart',104) AND s.first_send_at IS NOT NULL),
+    'changed-cart quotes retain one permitted provider invocation');
+END $$;
+
 SELECT payment_contract_test.seed(101);
 SELECT single_send_test.prepare(101);
 SELECT payment_contract_test.assert(public.cancel_checkout_order_without_session(payment_contract_test.id('order',101),'Cancelled before sending'),

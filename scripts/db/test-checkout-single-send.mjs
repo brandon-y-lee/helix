@@ -77,7 +77,7 @@ try {
   loadCheckoutPaymentTestEffects(sql, source);
   for (const [file, names] of [
     ["20260819183701_contract_legacy_loyalty_implementation.sql", ["reserve_rewards_points", "release_rewards_reservations_for_order", "fail_checkout_attempt", "cancel_checkout_order_without_session"]],
-    ["20260801140000_checkout_terminal_state_cas.sql", ["prepare_checkout_attempt", "attach_checkout_session"]],
+    ["20260801140000_checkout_terminal_state_cas.sql", ["claim_checkout_attempt", "prepare_checkout_attempt", "attach_checkout_session"]],
     ["20260801060000_cart_server_integrity.sql", ["merge_guest_cart"]],
   ]) {
     const definitions = source(`supabase/migrations/${file}`);
