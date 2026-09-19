@@ -1,0 +1,20 @@
+{
+  "name": "Helix sandbox checkout origin",
+  "description": "Only the reviewed staging hostname may create checkout Sessions. Preserve all settlement routes.",
+  "active": true,
+  "conditionGroup": [
+    {
+      "conditions": [
+        { "type": "host", "op": "eq", "value": "helixskin.vercel.app", "neg": true },
+        { "type": "path", "op": "pre", "value": "/api/checkout/sessions" }
+      ]
+    },
+    {
+      "conditions": [
+        { "type": "host", "op": "eq", "value": "helixskin.vercel.app", "neg": true },
+        { "type": "route", "op": "eq", "value": "/api/checkout/sessions" }
+      ]
+    }
+  ],
+  "action": { "mitigate": { "action": "deny" } }
+}
