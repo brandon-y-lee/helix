@@ -24,6 +24,15 @@ const ADMIN_MODULE_REGISTRY: readonly AdminModule[] = [
     navigationOrder: 10,
     status: "active",
   },
+  {
+    id: "payments",
+    label: "Payments",
+    route: "/admin/payments",
+    description: "Review sandbox payment recovery and replay unresolved events.",
+    requiredCapability: ADMIN_CAPABILITIES.paymentsManage,
+    navigationOrder: 20,
+    status: "active",
+  },
 ];
 
 export function sortAdminModules(
@@ -36,6 +45,10 @@ export function sortAdminModules(
   );
 }
 
-export function getAdminModules(): AdminModule[] {
-  return sortAdminModules(ADMIN_MODULE_REGISTRY);
+export function getAdminModules(
+  capabilities: readonly AdminCapability[],
+): AdminModule[] {
+  return sortAdminModules(ADMIN_MODULE_REGISTRY).filter((module) =>
+    capabilities.includes(module.requiredCapability),
+  );
 }

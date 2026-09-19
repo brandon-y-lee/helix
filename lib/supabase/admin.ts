@@ -1,9 +1,22 @@
 import "server-only";
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { createSupabaseFetch } from "@/lib/supabase/network";
+import { createSupabaseFetch, SupabaseTransportAbortError } from "@/lib/supabase/network";
+import { getPaymentDeadlineRemainingMs, paymentDeadlineFetch } from "@/lib/payments/deadline";
 
 let adminClient: SupabaseClient | null = null;
+const boundedFetch = createSupabaseFetch({ fetchImplementation: paymentDeadlineFetch });
+
+const adminFetch: typeof fetch = async (input, init) => {
+  const response = await boundedFetch(input, init);
+  // The pinned PostgREST SDK retries HTTP 520 with an internal sleep that does
+  // not receive this request-scoped signal. The durable worker owns its retries.
+  if (Number.isFinite(getPaymentDeadlineRemainingMs()) && response.status === 520) {
+    await response.body?.cancel();
+    throw new SupabaseTransportAbortError();
+  }
+  return response;
+};
 
 function requiredEnv(name: string): string {
   const value = process.env[name];
@@ -23,7 +36,7 @@ export function createSupabaseAdminClient(): SupabaseClient {
         persistSession: false,
       },
       global: {
-        fetch: createSupabaseFetch(),
+        fetch: adminFetch,
       },
     },
   );

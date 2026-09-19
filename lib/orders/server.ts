@@ -32,9 +32,6 @@ import {
 import {
   checkoutCancellationState,
   orderCanTransitionToPaymentFailed,
-  sanitizedStripeEventPayload,
-  stripeWebhookClaimIsFresh,
-  stripeWebhookProcessingMarker,
 } from "@/lib/checkout/stripe-state";
 import {
   getActiveCartIdentity,
@@ -88,7 +85,8 @@ import {
 } from "@/lib/orders/payment-contracts";
 import { authorizeCheckoutReceipt, ensureGuestReceiptBinding } from "@/lib/orders/receipt-access";
 import type { OrderConfirmationDisplay } from "@/lib/orders/confirmation";
-import { reconcileFullStripeRefund } from "@/lib/orders/refunds";
+import { isExplicitlyUnrelatedPaymentMetadata } from "@/lib/payments/provider-identity";
+import type { PaymentReconciliationOutcome } from "@/lib/payments/reconciliation";
 import { getCurrentUser } from "@/lib/auth/session";
 import { REFERRAL_COOKIE } from "@/lib/referrals/constants";
 import {
@@ -1286,33 +1284,50 @@ function paymentObservation(session: Stripe.Checkout.Session): Pick<CheckoutPaym
 
 /** Trusted service entry point for signed webhooks and hosted recovery. Browser callers
  * must first prove receipt ownership and acquire their separate refresh lease. */
-export async function reconcileCheckoutSession(sessionId: string): Promise<OrderRow | null> {
+type CheckoutReconciliationOutcome = PaymentReconciliationOutcome & { order: OrderRow | null };
+
+export async function reconcileCheckoutSession(sessionId: string): Promise<CheckoutReconciliationOutcome> {
   const order = await loadOrderBySession(sessionId);
   const provider = await retrieveCheckoutPaymentProviderBundle({ sessionId });
   if (!order) {
     const session = provider.session;
+    const intent = session.payment_intent;
+    const unrelatedIntent = intent === null || typeof intent === "object" &&
+      intent.object === "payment_intent" && intent.livemode === false &&
+      isExplicitlyUnrelatedPaymentMetadata(intent.metadata) &&
+      intent.metadata.application === session.metadata?.application;
+    if (session.client_reference_id === null && isExplicitlyUnrelatedPaymentMetadata(session.metadata) && unrelatedIntent) {
+      return { disposition: "ignored", order: null };
+    }
     const legacyOrderId = session.client_reference_id;
     if (!legacyOrderId || !isUuid(legacyOrderId) || session.metadata?.order_id !== legacyOrderId ||
       session.metadata.environment !== CHECKOUT_ENVIRONMENT || !await isLegacyCheckoutOrder(legacyOrderId)) {
-      throw new Error("[orders] Checkout binding is not available for reconciliation.");
+      return { disposition: "pending", code: "binding_pending", order: null };
     }
     const legacyOrder = await loadOrderById(legacyOrderId);
     if (!legacyOrder || legacyOrder.checkout_environment !== CHECKOUT_ENVIRONMENT) {
-      throw new Error("[orders] Checkout binding is not available for reconciliation.");
+      return { disposition: "pending", code: "binding_pending", order: null };
     }
     await recordCheckoutPaymentException({
       orderId: legacyOrder.id, attemptId: null, sessionId,
       code: "missing_contract", ...paymentObservation(session),
     });
-    return legacyOrder;
+    return { disposition: "quarantined", code: "verification_mismatch", order: legacyOrder };
   }
-  return reconcileLoadedCheckoutPayment(order, provider);
+  return reconcileLoadedCheckoutPaymentOutcome(order, provider);
 }
 
 async function reconcileLoadedCheckoutPayment(
   order: OrderRow,
   provider: CheckoutPaymentProviderBundle,
 ): Promise<OrderRow | null> {
+  return (await reconcileLoadedCheckoutPaymentOutcome(order, provider)).order;
+}
+
+async function reconcileLoadedCheckoutPaymentOutcome(
+  order: OrderRow,
+  provider: CheckoutPaymentProviderBundle,
+): Promise<CheckoutReconciliationOutcome> {
   const session = provider.session;
   const accepted = await loadCheckoutPaymentContract({ orderId: order.id, sessionId: session.id });
   if (!accepted) {
@@ -1320,7 +1335,7 @@ async function reconcileLoadedCheckoutPayment(
       orderId: order.id, attemptId: null, sessionId: session.id,
       code: "missing_contract", ...paymentObservation(session),
     });
-    return order;
+    return { disposition: "quarantined", code: "verification_mismatch", order };
   }
 
   const verification = verifyCheckoutPayment({ accepted, provider });
@@ -1329,21 +1344,22 @@ async function reconcileLoadedCheckoutPayment(
       orderId: order.id, attemptId: accepted.attemptId, sessionId: session.id,
       code: verification.code, ...paymentObservation(session),
     });
-    return order;
+    return { disposition: "quarantined", code: "verification_mismatch", order };
   }
   // Provider evidence must never reverse a terminal local financial outcome.
-  if (order.status === "refunded") return order;
+  if (order.status === "refunded") return { disposition: "processed", order };
   if (verification.status === "pending") {
     if (order.status !== "paid" && session.status === "complete") await markStripeSessionProcessing(session);
-    return order;
+    return order.status === "paid" ? { disposition: "processed", order }
+      : { disposition: "pending", code: "provider_pending", order };
   }
   if (verification.status === "expired") {
     await expireStripeSession(session);
-    return loadOrderById(order.id);
+    return { disposition: "processed", order: await loadOrderById(order.id) };
   }
   if (verification.status === "failed") {
     await failStripeSession(session);
-    return loadOrderById(order.id);
+    return { disposition: "processed", order: await loadOrderById(order.id) };
   }
 
   if (verification.status !== "paid") throw new Error("[orders] Payment verification outcome is unsupported.");
@@ -1354,7 +1370,7 @@ async function reconcileLoadedCheckoutPayment(
   try {
     paidOrder = await finalizeVerifiedCheckoutPayment({ accepted, facts, rewardPointsEarned: earnedPoints }) as OrderRow | null;
     if (!paidOrder) throw new Error("[orders] Verified Checkout Session lost its accepted Order binding.");
-    if (paidOrder.status === "refunded") return paidOrder;
+    if (paidOrder.status === "refunded") return { disposition: "processed", order: paidOrder };
     if (paidOrder.status !== "paid") throw new Error("[orders] Verified checkout did not finalize.");
   } catch (error) {
     await recordCheckoutPaymentException({
@@ -1375,7 +1391,7 @@ async function reconcileLoadedCheckoutPayment(
     throw error;
   }
   await resolveCheckoutPaymentExceptions({ orderId: order.id, sessionId: session.id });
-  return paidOrder;
+  return { disposition: "processed", order: paidOrder };
 }
 
 async function cancelStripeCheckoutOrder(
@@ -1515,109 +1531,6 @@ async function failStripeSession(
   if (attemptError) throw new Error("[orders] Failed to record payment attempt failure.");
 }
 
-type StripeWebhookEventClaim = {
-  processed_at: string | null;
-  processing_error: string | null;
-};
-
-async function claimStripeWebhookEvent(
-  event: Stripe.Event,
-): Promise<"claimed" | "duplicate"> {
-  const admin = createSupabaseAdminClient();
-  const marker = stripeWebhookProcessingMarker();
-  const { data: existing, error: selectError } = await admin
-    .from("stripe_webhook_events")
-    .select("processed_at, processing_error")
-    .eq("stripe_event_id", event.id)
-    .maybeSingle();
-  if (selectError) {
-    throw new Error("[stripe] Failed to inspect webhook event.");
-  }
-
-  const existingClaim = existing as StripeWebhookEventClaim | null;
-  if (existingClaim?.processed_at || stripeWebhookClaimIsFresh(existingClaim?.processing_error)) {
-    return "duplicate";
-  }
-
-  if (!existingClaim) {
-    const { error: insertError } = await admin.from("stripe_webhook_events").insert({
-      stripe_event_id: event.id,
-      type: event.type,
-      livemode: event.livemode,
-      checkout_environment: CHECKOUT_ENVIRONMENT,
-      payload: sanitizedStripeEventPayload(event),
-      processing_error: marker,
-    });
-    if (!insertError) return "claimed";
-    if ((insertError as { code?: string }).code === "23505") return "duplicate";
-    throw new Error("[stripe] Failed to record webhook event.");
-  }
-
-  let claimQuery = admin
-    .from("stripe_webhook_events")
-    .update({ processing_error: marker })
-    .eq("stripe_event_id", event.id)
-    .is("processed_at", null);
-  claimQuery = existingClaim.processing_error === null
-    ? claimQuery.is("processing_error", null)
-    : claimQuery.eq("processing_error", existingClaim.processing_error);
-  const { data: claimed, error: claimError } = await claimQuery
-    .select("stripe_event_id")
-    .maybeSingle();
-  if (claimError) {
-    throw new Error("[stripe] Failed to claim webhook event.");
-  }
-  return claimed ? "claimed" : "duplicate";
-}
-
-export async function processStripeWebhookEvent(event: Stripe.Event): Promise<{
-  action: "processed" | "duplicate" | "ignored";
-  type: string;
-}> {
-  assertSandboxStripeObject(event);
-  const admin = createSupabaseAdminClient();
-  if ((await claimStripeWebhookEvent(event)) === "duplicate") {
-    return { action: "duplicate", type: event.type };
-  }
-
-  try {
-    if (
-      event.type === "checkout.session.completed" ||
-      event.type === "checkout.session.async_payment_succeeded" ||
-      event.type === "checkout.session.async_payment_failed" ||
-      event.type === "checkout.session.expired"
-    ) {
-      await reconcileCheckoutSession((event.data.object as Stripe.Checkout.Session).id);
-    } else if (event.type === "charge.refunded") {
-      await reconcileFullStripeRefund((event.data.object as Stripe.Charge).id);
-    }
-
-    const { error: updateError } = await admin
-      .from("stripe_webhook_events")
-      .update({ processed_at: new Date().toISOString(), processing_error: null })
-      .eq("stripe_event_id", event.id);
-    if (updateError) throw new Error("[stripe] Failed to mark webhook processed.");
-    return {
-      action:
-        event.type === "checkout.session.completed" ||
-        event.type === "checkout.session.async_payment_succeeded" ||
-        event.type === "checkout.session.async_payment_failed" ||
-        event.type === "checkout.session.expired" ||
-        event.type === "charge.refunded"
-          ? "processed"
-          : "ignored",
-      type: event.type,
-    };
-  } catch (error) {
-    const { error: auditError } = await admin
-      .from("stripe_webhook_events")
-      .update({ processing_error: "payment_reconciliation_failed" })
-      .eq("stripe_event_id", event.id);
-    if (auditError) throw new Error("[stripe] Failed to retain retryable webhook state.");
-    throw error;
-  }
-}
-
 export async function getOrderConfirmationBySession(
   sessionId: string,
 ): Promise<OrderConfirmation | null> {
@@ -1681,15 +1594,10 @@ export async function getOrderConfirmationBySession(
   };
 }
 
-export async function getOrdersForCurrentUser(): Promise<Array<{
-  id: string;
-  order_number: string;
-  status: OrderStatus;
-  total_cents: number;
-  reward_points_earned: number;
-  reward_points_redeemed: number;
-  created_at: string;
-}>> {
+type AccountOrderSummary = Pick<OrderRow, "id" | "order_number" | "status" | "total_cents" |
+  "reward_points_earned" | "reward_points_redeemed" | "created_at"> & { verification_required: boolean };
+
+export async function getOrdersForCurrentUser(): Promise<AccountOrderSummary[]> {
   const user = await getCurrentUser();
   if (!user) return [];
   const admin = createSupabaseAdminClient();
@@ -1700,15 +1608,35 @@ export async function getOrdersForCurrentUser(): Promise<Array<{
     .order("created_at", { ascending: false })
     .limit(10);
   if (error) throw new Error("[orders] Failed to load account orders.");
-  return (data ?? []) as Array<{
-    id: string;
-    order_number: string;
-    status: OrderStatus;
-    total_cents: number;
-    reward_points_earned: number;
-    reward_points_redeemed: number;
-    created_at: string;
-  }>;
+  if (data !== null && (!Array.isArray(data) || data.length > 10)) {
+    throw new Error("[orders] Failed to verify account orders.");
+  }
+  const orders = (data ?? []) as Array<Omit<AccountOrderSummary, "verification_required">>;
+  if (!orders.length) return [];
+  const orderIds = orders.map((order) => order.id);
+  if (!orderIds.every(isUuid) || new Set(orderIds).size !== orderIds.length) {
+    throw new Error("[orders] Failed to verify account orders.");
+  }
+  let exceptionIds: unknown;
+  try {
+    const result = await admin.rpc("read_account_order_payment_exceptions", {
+      p_user_id: user.id, p_order_ids: orderIds,
+    });
+    if (result.error) throw new Error("Payment exception read failed.");
+    exceptionIds = result.data;
+  } catch {
+    throw new Error("[orders] Failed to verify account payment state.");
+  }
+  if (!Array.isArray(exceptionIds) || exceptionIds.length > orderIds.length ||
+    !exceptionIds.every((id): id is string => typeof id === "string" && orderIds.includes(id)) ||
+    new Set(exceptionIds).size !== exceptionIds.length) {
+    throw new Error("[orders] Failed to verify account payment state.");
+  }
+  const unresolved = new Set(exceptionIds);
+  return orders.map(({ id, order_number, status, total_cents, reward_points_earned, reward_points_redeemed, created_at }) => ({
+    id, order_number, status, total_cents, reward_points_earned, reward_points_redeemed, created_at,
+    verification_required: unresolved.has(id),
+  }));
 }
 
 export function checkoutErrorResponseMessage(error: unknown): { message: string; status: number; retryAfterSeconds?: number } {

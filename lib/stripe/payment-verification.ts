@@ -3,6 +3,8 @@ import "server-only";
 import type Stripe from "stripe";
 import { STRIPE_API_VERSION, STRIPE_SANDBOX_ACCOUNT_ID } from "@/lib/checkout/config";
 import { getStripeClient } from "@/lib/stripe/server";
+import { isPaymentDeadlineError } from "@/lib/payments/deadline";
+import { PaymentProviderReadError, sanitizedPaymentProviderError } from "@/lib/payments/provider-errors";
 
 export type StripeAccountProvenance = {
   accountId: string;
@@ -24,13 +26,16 @@ const readErrorMessages = {
 } as const;
 
 export class StripePaymentVerificationReadError extends Error {
-  constructor(readonly code: keyof typeof readErrorMessages) {
+  readonly recovery: PaymentProviderReadError;
+  constructor(readonly code: keyof typeof readErrorMessages, recovery?: PaymentProviderReadError) {
     super(readErrorMessages[code]);
     this.name = "StripePaymentVerificationReadError";
+    this.recovery = recovery ?? new PaymentProviderReadError(code === "account_mismatch" || code === "invalid_session"
+      ? "provider_identity_mismatch" : code === "incomplete_line_items" ? "provider_schema_mismatch" : "provider_unavailable");
   }
 }
 
-const accountProofs = new WeakMap<Stripe, Promise<StripeAccountProvenance>>();
+const accountProofs = new WeakMap<Stripe, StripeAccountProvenance>();
 const requestOptions = { apiVersion: STRIPE_API_VERSION, timeout: 4_000, maxNetworkRetries: 0 };
 const sessionExpansions = [
   "payment_intent.payment_method",
@@ -47,21 +52,21 @@ export async function verifyStripeAccount(
 ): Promise<StripeAccountProvenance> {
   const cached = accountProofs.get(stripe);
   if (cached) return cached;
-  const proof = Promise.resolve().then(async (): Promise<StripeAccountProvenance> => {
-    try {
-      const account = await stripe.accounts.retrieve(null, {}, requestOptions);
-      if (account.id !== STRIPE_SANDBOX_ACCOUNT_ID) {
-        throw new StripePaymentVerificationReadError("account_mismatch");
-      }
-      return { accountId: account.id, apiVersion: STRIPE_API_VERSION };
-    } catch (error) {
-      accountProofs.delete(stripe);
-      if (error instanceof StripePaymentVerificationReadError) throw error;
-      throw new StripePaymentVerificationReadError("account_unverified");
+  try {
+    // In-flight requests belong to their own abort/deadline scope. Sharing one
+    // could make a worker await an unbounded browser request's response body.
+    const account = await stripe.accounts.retrieve(null, {}, requestOptions);
+    if (account.id !== STRIPE_SANDBOX_ACCOUNT_ID) {
+      throw new StripePaymentVerificationReadError("account_mismatch");
     }
-  });
-  accountProofs.set(stripe, proof);
-  return proof;
+    const proof: StripeAccountProvenance = { accountId: account.id, apiVersion: STRIPE_API_VERSION };
+    accountProofs.set(stripe, proof);
+    return proof;
+  } catch (error) {
+    if (isPaymentDeadlineError(error)) throw error;
+    if (error instanceof StripePaymentVerificationReadError) throw error;
+    throw new StripePaymentVerificationReadError("account_unverified", sanitizedPaymentProviderError(error));
+  }
 }
 
 export async function retrieveCheckoutPaymentProviderBundle(input: {
@@ -113,8 +118,9 @@ export async function retrieveCheckoutPaymentProviderBundle(input: {
     }
     throw new StripePaymentVerificationReadError("incomplete_line_items");
   } catch (error) {
+    if (isPaymentDeadlineError(error)) throw error;
     if (error instanceof StripePaymentVerificationReadError) throw error;
-    throw new StripePaymentVerificationReadError("provider_unavailable");
+    throw new StripePaymentVerificationReadError("provider_unavailable", sanitizedPaymentProviderError(error));
   }
 }
 
@@ -139,7 +145,8 @@ export async function expireCheckoutPaymentProviderSession(input: {
     }
     return session;
   } catch (error) {
+    if (isPaymentDeadlineError(error)) throw error;
     if (error instanceof StripePaymentVerificationReadError) throw error;
-    throw new StripePaymentVerificationReadError("provider_unavailable");
+    throw new StripePaymentVerificationReadError("provider_unavailable", sanitizedPaymentProviderError(error));
   }
 }

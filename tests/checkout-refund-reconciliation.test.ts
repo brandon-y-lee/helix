@@ -45,8 +45,8 @@ describe("full sandbox refund reconciliation", () => {
     missingAward = false;
     boundary.account.mockResolvedValue({ accountId: "acct_1Tm9WRFEzyaKzdmq", apiVersion: "2026-06-24.dahlia" });
     boundary.retrieve.mockResolvedValue(charge);
-    boundary.refunds.mockResolvedValue({ data: [{
-      id: "re_1", charge: "ch_1", payment_intent: "pi_1", currency: "usd", amount: 3000, status: "succeeded",
+    boundary.refunds.mockResolvedValue({ object: "list", data: [{
+      object: "refund", id: "re_1", charge: "ch_1", payment_intent: "pi_1", currency: "usd", amount: 3000, status: "succeeded",
     }], has_more: false });
     boundary.reverse.mockResolvedValue(undefined);
     boundary.exception.mockResolvedValue(undefined);
@@ -119,8 +119,8 @@ describe("full sandbox refund reconciliation", () => {
 
   it.each(["pending", "failed", "canceled", "requires_action"])(
     "does not infer successful returned money from a %s refund", async (status) => {
-      boundary.refunds.mockResolvedValue({ data: [{
-        id: "re_1", charge: "ch_1", payment_intent: "pi_1", currency: "usd", amount: 3000, status,
+      boundary.refunds.mockResolvedValue({ object: "list", data: [{
+        object: "refund", id: "re_1", charge: "ch_1", payment_intent: "pi_1", currency: "usd", amount: 3000, status,
       }], has_more: false });
       await expect(reconcileFullStripeRefund("ch_1")).rejects.toThrow("Refund reconciliation is temporarily unavailable.");
       expect(writes).toEqual([]);
@@ -145,12 +145,12 @@ describe("full sandbox refund reconciliation", () => {
   });
 
   it("uses every refund page and counts only successful returned amounts", async () => {
-    boundary.refunds.mockResolvedValueOnce({ data: [{
-      id: "re_1", charge: "ch_1", payment_intent: "pi_1", currency: "usd", amount: 1000, status: "succeeded",
+    boundary.refunds.mockResolvedValueOnce({ object: "list", data: [{
+      object: "refund", id: "re_1", charge: "ch_1", payment_intent: "pi_1", currency: "usd", amount: 1000, status: "succeeded",
     }, {
-      id: "re_failed", charge: "ch_1", payment_intent: "pi_1", currency: "usd", amount: 2000, status: "failed",
-    }], has_more: true }).mockResolvedValueOnce({ data: [{
-      id: "re_2", charge: "ch_1", payment_intent: "pi_1", currency: "usd", amount: 2000, status: "succeeded",
+      object: "refund", id: "re_failed", charge: "ch_1", payment_intent: "pi_1", currency: "usd", amount: 2000, status: "failed",
+    }], has_more: true }).mockResolvedValueOnce({ object: "list", data: [{
+      object: "refund", id: "re_2", charge: "ch_1", payment_intent: "pi_1", currency: "usd", amount: 2000, status: "succeeded",
     }], has_more: false });
     await reconcileFullStripeRefund("ch_1");
     expect(boundary.refunds).toHaveBeenNthCalledWith(2, {
@@ -174,8 +174,8 @@ describe("full sandbox refund reconciliation", () => {
   });
 
   it("requires explicit evidence that refund pagination is complete", async () => {
-    boundary.refunds.mockResolvedValue({ data: [{
-      id: "re_1", charge: "ch_1", payment_intent: "pi_1", currency: "usd", amount: 3000, status: "succeeded",
+    boundary.refunds.mockResolvedValue({ object: "list", data: [{
+      object: "refund", id: "re_1", charge: "ch_1", payment_intent: "pi_1", currency: "usd", amount: 3000, status: "succeeded",
     }] });
     await expect(reconcileFullStripeRefund("ch_1")).rejects.toThrow("Refund reconciliation is temporarily unavailable.");
     expect(boundary.reverse).not.toHaveBeenCalled();

@@ -1,6 +1,8 @@
 import Stripe from "stripe";
 import { describe, expect, it, vi } from "vitest";
 import { STRIPE_API_VERSION } from "@/lib/checkout/config";
+import { classifyPaymentFailure } from "@/lib/payments/provider-errors";
+import { PaymentDeadlineExceededError } from "@/lib/payments/deadline";
 import {
   expireCheckoutPaymentProviderSession,
   retrieveCheckoutPaymentProviderBundle,
@@ -55,6 +57,41 @@ function page(data: Stripe.LineItem[], hasMore = false) {
 }
 
 describe("Stripe payment verification reads", () => {
+  it("preserves only safe outage timing from a provider page failure", async () => {
+    const stripe = stripeClient();
+    vi.spyOn(stripe.accounts, "retrieve").mockResolvedValue(account());
+    vi.spyOn(stripe.checkout.sessions, "retrieve").mockResolvedValue(session());
+    vi.spyOn(stripe.checkout.sessions, "listLineItems").mockRejectedValue({ statusCode: 429,
+      headers: { "retry-after": "7200" }, message: "customer@example.test private payload" });
+    let caught: unknown;
+    try { await retrieveCheckoutPaymentProviderBundle({ stripe, sessionId: "cs_test_accepted" }); }
+    catch (error) { caught = error; }
+    expect(classifyPaymentFailure(caught)).toEqual({ disposition: "pending", code: "provider_unavailable", retryAfterSeconds: 7200 });
+    expect(JSON.stringify(caught)).not.toContain("customer@");
+  });
+  it("does not erase execution deadline errors behind a provider unavailable message", async () => {
+    const stripe = stripeClient();
+    vi.spyOn(stripe.accounts, "retrieve").mockResolvedValue(account());
+    vi.spyOn(stripe.checkout.sessions, "retrieve").mockRejectedValue(new PaymentDeadlineExceededError());
+    await expect(retrieveCheckoutPaymentProviderBundle({ stripe, sessionId: "cs_test_accepted" }))
+      .rejects.toBeInstanceOf(PaymentDeadlineExceededError);
+  });
+  it("does not borrow another request's in-flight account proof across deadline scopes", async () => {
+    const stripe = stripeClient();
+    let release!: (value: ReturnType<typeof account>) => void;
+    const retrieve = vi.spyOn(stripe.accounts, "retrieve")
+      .mockImplementationOnce(() => new Promise((resolve) => { release = resolve; }))
+      .mockResolvedValue(account());
+    const browserProof = verifyStripeAccount(stripe);
+    await vi.waitFor(() => expect(retrieve).toHaveBeenCalledOnce());
+    const workerProof = verifyStripeAccount(stripe);
+    await vi.waitFor(() => expect(retrieve).toHaveBeenCalledTimes(2));
+    await expect(workerProof).resolves.toMatchObject({ accountId: "acct_1Tm9WRFEzyaKzdmq" });
+    release(account());
+    await browserProof;
+    await verifyStripeAccount(stripe);
+    expect(retrieve).toHaveBeenCalledTimes(2);
+  });
   it("returns complete expanded expiration evidence without rereading the Session or lines", async () => {
     const stripe = stripeClient();
     const ownAccount = vi.spyOn(stripe.accounts, "retrieve").mockResolvedValue(account());
@@ -143,13 +180,12 @@ describe("Stripe payment verification reads", () => {
     });
   });
 
-  it("shares in-flight and successful proof only for the same credential client", async () => {
+  it("caches successful proof only for the same credential client", async () => {
     const stripe = stripeClient();
     const ownAccount = vi.spyOn(stripe.accounts, "retrieve").mockResolvedValue(account());
     const expected = { accountId: "acct_1Tm9WRFEzyaKzdmq", apiVersion: "2026-06-24.dahlia" };
 
-    expect(await Promise.all([verifyStripeAccount(stripe), verifyStripeAccount(stripe)]))
-      .toEqual([expected, expected]);
+    expect(await verifyStripeAccount(stripe)).toEqual(expected);
     expect(await verifyStripeAccount(stripe)).toEqual(expected);
     expect(ownAccount).toHaveBeenCalledTimes(1);
     expect(ownAccount).toHaveBeenCalledWith(null, {}, expect.objectContaining({

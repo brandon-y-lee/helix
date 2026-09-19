@@ -1,0 +1,163 @@
+.payment-operations {
+  display: grid;
+  gap: 32px;
+  max-width: 1120px;
+  min-width: 0;
+}
+
+.payment-operations__section,
+.payment-operations__card {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.payment-operations__section h2 {
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.payment-operations__card h3 {
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.payment-operations__note {
+  max-width: 75ch;
+  color: var(--admin-text-soft);
+  font-size: 0.85rem;
+}
+
+.payment-operations__warning {
+  padding: 12px 16px;
+  color: var(--admin-warning);
+  background: var(--admin-warning-soft);
+  border-left: 3px solid var(--admin-warning);
+  font-size: 0.9rem;
+}
+
+.payment-operations__metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr));
+  gap: 12px;
+}
+
+.payment-operations__metrics > div,
+.payment-operations__card {
+  padding: 18px;
+  background: var(--admin-surface);
+  border: 1px solid var(--admin-line);
+  border-radius: 8px;
+}
+
+.payment-operations__metrics dt,
+.payment-operations__facts dt {
+  color: var(--admin-text-soft);
+  font-size: 0.8rem;
+}
+
+.payment-operations__metrics dd {
+  margin-top: 6px;
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+
+.payment-operations__facts {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.payment-operations__facts > div {
+  display: grid;
+  grid-template-columns: minmax(125px, 0.3fr) minmax(0, 1fr);
+  gap: 8px 16px;
+}
+
+.payment-operations__facts dd {
+  min-width: 0;
+  font-size: 0.85rem;
+}
+
+.payment-operations code,
+.payment-operations dd,
+.payment-operations h3,
+.payment-operations p {
+  overflow-wrap: anywhere;
+}
+
+.payment-operations__list {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.payment-replay {
+  display: grid;
+  gap: 8px;
+  margin-top: 4px;
+  padding-top: 16px;
+  border-top: 1px solid var(--admin-line);
+}
+
+.payment-replay label {
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.payment-replay input {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 8px 10px;
+  color: var(--admin-text);
+  background: var(--admin-inset);
+  border: 1px solid var(--admin-control-line);
+  border-radius: 4px;
+  font: inherit;
+}
+
+.payment-replay__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.payment-replay button {
+  min-height: 44px;
+  padding: 8px 14px;
+  color: white;
+  background: var(--admin-accent);
+  border: 1px solid var(--admin-accent);
+  border-radius: 4px;
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.payment-replay button:disabled {
+  color: var(--admin-text-soft);
+  background: var(--admin-surface);
+  border-color: var(--admin-line);
+  cursor: not-allowed;
+}
+
+.payment-replay input:focus-visible,
+.payment-replay button:focus-visible {
+  outline: 3px solid var(--admin-accent);
+  outline-offset: 3px;
+}
+
+.payment-replay [role="status"] {
+  min-height: 1.5em;
+  font-size: 0.85rem;
+}
+
+@media (max-width: 520px) {
+  .payment-operations__facts > div {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+  }
+}
