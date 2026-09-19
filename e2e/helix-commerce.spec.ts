@@ -71,7 +71,11 @@ test("Checkout cancellation returns to the intact Cart", async ({ page }) => {
 });
 
 test("an unverifiable Checkout return fails closed", async ({ page }) => {
-  await page.goto("/checkout/success?session_id=invalid");
+  const response = await page.goto("/checkout/success?session_id=invalid");
+  expect(response?.headers()["cache-control"]).toContain("private");
+  expect(response?.headers()["cache-control"]).toContain("no-store");
+  expect(response?.headers()["referrer-policy"]).toBe("no-referrer");
+  await expect(page).toHaveTitle("Order status | helix");
 
   await expect(
     page.getByRole("heading", { level: 1, name: "Order status" }),
@@ -80,7 +84,7 @@ test("an unverifiable Checkout return fails closed", async ({ page }) => {
     page.getByText("We could not verify this payment status."),
   ).toBeVisible();
   await expect(
-    page.getByRole("heading", { level: 1, name: "Payment verified" }),
+    page.getByRole("heading", { level: 1, name: "Sandbox payment verified" }),
   ).toHaveCount(0);
 });
 

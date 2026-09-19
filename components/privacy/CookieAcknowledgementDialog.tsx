@@ -75,30 +75,29 @@ export function CookieAcknowledgementDialog({
             </div>
             <p id={descriptionId}>
               The helix Platform uses essential cookies for authentication,
-              Cart continuity, and remembering this acknowledgement. Stripe
-              may use functional storage when payment-method messaging loads
-              on an eligible Product page. Optional analytics and advertising
+              Cart continuity, private guest receipts, and remembering this acknowledgement.
+              Product-page payment messaging is currently disabled. Optional analytics and advertising
               categories are not active.
             </p>
             <div className="cookie-dialog__category">
               <div>
                 <h3>Essential cookies</h3>
                 <p>
-                  Required for account sessions, cart persistence, security, and
+                  Required for account sessions, cart persistence, private guest receipts, security, and
                   remembering this acknowledgement.
                 </p>
               </div>
               <span>Always on</span>
             </div>
-            <div className="cookie-dialog__category">
+            <div className="cookie-dialog__category cookie-dialog__category--inactive">
               <div>
                 <h3>Payment messaging</h3>
                 <p>
-                  Stripe may use functional storage to determine and display
-                  eligible payment-method information on product pages.
+                  Not active while checkout supports cards only. Product pages
+                  do not load payment-method messaging.
                 </p>
               </div>
-              <span>Active when eligible</span>
+              <span>Off</span>
             </div>
             <div className="cookie-dialog__category cookie-dialog__category--inactive">
               <div>

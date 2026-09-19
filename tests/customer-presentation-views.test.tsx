@@ -19,7 +19,9 @@ describe("customer presentation views", () => {
       <OrderConfirmationView
         confirmation={{
           notice: "Sandbox order notice.",
-          webhookPending: true,
+          state: "pending",
+          retryAfterSeconds: 5,
+          shipping: null,
           order: {
             order_number: "HLX-1001",
             status: "pending",
@@ -33,7 +35,6 @@ describe("customer presentation views", () => {
           },
           items: [
             {
-              id: "item-1",
               product_name: "Super Serum",
               variant_label: "30 mL",
               quantity: 2,
@@ -44,12 +45,14 @@ describe("customer presentation views", () => {
       />,
     );
 
-    const details = screen.getByRole("region", { name: "Paid Order details" });
+    expect(screen.getByRole("heading", { name: "Awaiting payment confirmation", level: 1 })).toBeVisible();
+    expect(screen.queryByText("Payment verified")).not.toBeInTheDocument();
+    const details = screen.getByRole("region", { name: "Pending Order details" });
     expect(within(details).getByText("HLX-1001")).toBeVisible();
-    expect(within(details).getByText("pending")).toBeVisible();
+    expect(within(details).getByText("Awaiting confirmation")).toBeVisible();
     expect(within(details).getByRole("status"))
-      .toHaveTextContent("Stripe has not completed payment confirmation yet.");
-    const items = screen.getByRole("region", { name: "Purchased items" });
+      .toHaveTextContent("Payment has not been verified yet.");
+    const items = screen.getByRole("region", { name: "Order items" });
     expect(within(items).getByText("Super Serum")).toBeVisible();
     expect(within(items).getByText("Qty 2")).toBeVisible();
     const totals = screen.getByRole("region", { name: "Order totals" });

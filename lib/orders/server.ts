@@ -5,6 +5,8 @@ import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import {
   CHECKOUT_ENVIRONMENT,
+  STRIPE_API_VERSION,
+  STRIPE_SANDBOX_ACCOUNT_ID,
   SANDBOX_CHECKOUT_NOTICE,
   assertSandboxStripeObject,
   readCheckoutConfig,
@@ -29,7 +31,6 @@ import {
 } from "@/lib/checkout/idempotency";
 import {
   checkoutCancellationState,
-  checkoutSessionIsPaid,
   orderCanTransitionToPaymentFailed,
   sanitizedStripeEventPayload,
   stripeWebhookClaimIsFresh,
@@ -58,13 +59,36 @@ import {
   PointsReservationUnavailableError,
   awardPaidOrderPoints,
   reservePointsForOrder,
-  reversePaidOrderPoints,
 } from "@/lib/rewards/operations";
 import {
   qualifiesForFreeStandardShipping,
 } from "@/content/support/policy";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getStripeClient } from "@/lib/stripe/server";
+import {
+  expireCheckoutPaymentProviderSession,
+  retrieveCheckoutPaymentProviderBundle,
+  verifyStripeAccount,
+} from "@/lib/stripe/payment-verification";
+import {
+  verifyCheckoutPayment,
+  type CheckoutPaymentProviderBundle,
+} from "@/lib/checkout/payment-verification";
+import {
+  bindCheckoutPaymentSession,
+  finalizeVerifiedCheckoutPayment,
+  getCheckoutPaymentException,
+  isLegacyCheckoutOrder,
+  loadCheckoutPaymentContract,
+  prepareCheckoutPaymentContract,
+  readVerifiedCheckoutDelivery,
+  recordCheckoutPaymentException,
+  resolveCheckoutPaymentExceptions,
+  type CheckoutPaymentException,
+} from "@/lib/orders/payment-contracts";
+import { authorizeCheckoutReceipt, ensureGuestReceiptBinding } from "@/lib/orders/receipt-access";
+import type { OrderConfirmationDisplay } from "@/lib/orders/confirmation";
+import { reconcileFullStripeRefund } from "@/lib/orders/refunds";
 import { getCurrentUser } from "@/lib/auth/session";
 import { REFERRAL_COOKIE } from "@/lib/referrals/constants";
 import {
@@ -73,11 +97,11 @@ import {
   type ReferralOffer,
 } from "@/lib/referrals/server";
 
-const CHECKOUT_SCHEMA_VERSION = "checkout_v1";
+const CHECKOUT_SCHEMA_VERSION = "checkout_v2";
 
 type OrderStatus = "pending_payment" | "paid" | "payment_failed" | "cancelled" | "refunded";
 
-type OrderRow = {
+export type OrderRow = {
   id: string;
   order_number: string;
   user_id: string | null;
@@ -114,6 +138,7 @@ type OrderRow = {
 
 type OrderItemSnapshot = {
   id: string;
+  product_id: string;
   product_slug: string;
   product_name: string;
   variant_key: string;
@@ -124,12 +149,7 @@ type OrderItemSnapshot = {
   product_snapshot: Record<string, unknown>;
 };
 
-export type OrderConfirmation = {
-  notice: typeof SANDBOX_CHECKOUT_NOTICE;
-  order: OrderRow;
-  items: OrderItemSnapshot[];
-  webhookPending: boolean;
-};
+export type OrderConfirmation = OrderConfirmationDisplay;
 
 type CreateCheckoutInput = {
   rewardTierId?: unknown;
@@ -184,18 +204,19 @@ async function clearPendingCheckoutCookie(): Promise<void> {
   });
 }
 
-function stripeLineItem(line: CheckoutCartLine): Stripe.Checkout.SessionCreateParams.LineItem {
+function stripeLineItem(line: OrderItemSnapshot): Stripe.Checkout.SessionCreateParams.LineItem {
   return {
     quantity: line.quantity,
     price_data: {
       currency: "usd",
-      unit_amount: line.price,
+      unit_amount: line.unit_price_cents,
       product_data: {
-        name: line.name,
+        name: line.product_name,
         metadata: {
-          product_id: line.productId,
-          slug: line.slug,
-          variant_key: line.variantId,
+          product_id: line.product_id,
+          slug: line.product_slug,
+          variant_key: line.variant_key,
+          order_line_id: line.id,
         },
       },
     },
@@ -210,6 +231,11 @@ async function ensurePaymentAttempt(input: {
   referralOffer: ReferralOffer | null;
   reactivate: boolean;
 }): Promise<void> {
+  const accepted = await loadCheckoutPaymentContract({ orderId: input.order.id, sessionId: input.session.id });
+  // Version-two attempts exist before provider creation and retain that stable
+  // identity. Only locally grandfathered Sessions use the historical row shape.
+  if (accepted?.version === "checkout_v2") return;
+  if (!accepted?.legacyEligible) throw new Error("[orders] Checkout attempt contract is unavailable.");
   const admin = createSupabaseAdminClient();
   const { error } = await admin.from("payment_attempts").upsert(
     {
@@ -224,7 +250,7 @@ async function ensurePaymentAttempt(input: {
       raw_status: input.session.status,
       last_error: null,
       metadata: {
-        schema: CHECKOUT_SCHEMA_VERSION,
+        schema: "checkout_v1",
         payment_method_configuration: input.session.payment_method_types?.length === 1 &&
           input.session.payment_method_types[0] === "card" ? CHECKOUT_PAYMENT_METHOD_POLICY : "provider_recorded",
         payment_method_types: input.session.payment_method_types ?? [],
@@ -240,7 +266,7 @@ async function ensurePaymentAttempt(input: {
     },
   );
   if (error) {
-    throw new Error(`[stripe] Failed to store payment attempt: ${error.message}`);
+    throw new Error("[stripe] Failed to store payment attempt.");
   }
   if (input.reactivate) {
     const { error: updateError } = await admin
@@ -251,23 +277,12 @@ async function ensurePaymentAttempt(input: {
         last_error: null,
       })
       .eq("idempotency_key", `payment-attempt:${input.session.id}`)
-      .neq("status", "paid");
+      .neq("status", "paid")
+      .neq("status", "refunded");
     if (updateError) {
-      throw new Error(`[stripe] Failed to reactivate payment attempt: ${updateError.message}`);
+      throw new Error("[stripe] Failed to reactivate payment attempt.");
     }
   }
-}
-
-function publicAddressSnapshot(address: Stripe.Address | null | undefined): Record<string, unknown> {
-  if (!address) return {};
-  return {
-    city: address.city ?? null,
-    country: address.country ?? null,
-    line1: address.line1 ?? null,
-    line2: address.line2 ?? null,
-    postal_code: address.postal_code ?? null,
-    state: address.state ?? null,
-  };
 }
 
 async function getOrCreateStripeCustomer(input: {
@@ -285,7 +300,7 @@ async function getOrCreateStripeCustomer(input: {
     .eq("checkout_environment", CHECKOUT_ENVIRONMENT)
     .maybeSingle();
 
-  if (error) throw new Error(`[stripe] Failed to load customer mapping: ${error.message}`);
+  if (error) throw new Error("[stripe] Failed to load customer mapping.");
   const existing = (data as { stripe_customer_id?: string } | null)?.stripe_customer_id;
   if (existing) return existing;
 
@@ -301,6 +316,7 @@ async function getOrCreateStripeCustomer(input: {
     { idempotencyKey: `customer:${input.userId}:${CHECKOUT_ENVIRONMENT}` },
   );
   assertSandboxStripeObject(customer);
+  if (customer.livemode !== false) throw new Error("[stripe] Customer mode could not be verified.");
 
   const { error: insertError } = await admin.from("stripe_customers").upsert(
     {
@@ -311,7 +327,7 @@ async function getOrCreateStripeCustomer(input: {
     },
     { onConflict: "user_id,checkout_environment" },
   );
-  if (insertError) throw new Error(`[stripe] Failed to store customer mapping: ${insertError.message}`);
+  if (insertError) throw new Error("[stripe] Failed to store customer mapping.");
 
   return customer.id;
 }
@@ -336,9 +352,10 @@ async function resolvePaidShippingCents(
     throw new CheckoutAdmissionError(429, Math.max(1, claim.retryAfterSeconds));
   }
   try {
+    await verifyStripeAccount(stripe);
     const rate = await stripe.shippingRates.retrieve(config.standardShippingRateId);
     assertSandboxStripeObject(rate);
-    if (rate.id !== config.standardShippingRateId || rate.fixed_amount?.currency !== "usd" ||
+    if (rate.livemode !== false || rate.id !== config.standardShippingRateId || rate.fixed_amount?.currency !== "usd" ||
       !Number.isSafeInteger(rate.fixed_amount.amount) || rate.fixed_amount.amount < 0) {
       throw new CheckoutError(
         "shipping_unavailable",
@@ -359,7 +376,7 @@ async function resolvePaidShippingCents(
 
 function checkoutRefreshSnapshot(session: Stripe.Checkout.Session): CachedCheckoutSession {
   assertSandboxStripeObject(session);
-  if (!session.status) throw new CheckoutAdmissionError(503);
+  if (session.livemode !== false || !session.status) throw new CheckoutAdmissionError(503);
   return {
     kind: "session",
     id: session.id,
@@ -377,19 +394,18 @@ async function refreshOwnedCheckoutSession(
   stripe: Stripe,
   order: OrderRow,
   sessionId: string,
-): Promise<{ verified: Stripe.Checkout.Session | null; cached: CachedCheckoutSession | null; retryAfterSeconds: number }> {
+): Promise<{ verified: Stripe.Checkout.Session | null; provider: CheckoutPaymentProviderBundle | null; cached: CachedCheckoutSession | null; retryAfterSeconds: number }> {
   const target: PaymentRefreshTarget = { kind: "session", orderId: order.id, sessionId };
   const claim = await claimPaymentRefresh({ accountId: config.accountId, target });
   const cached = claim.cached?.kind === "session" ? claim.cached : null;
-  if (!claim.allowed || !claim.token) return { verified: null, cached, retryAfterSeconds: claim.retryAfterSeconds };
+  if (!claim.allowed || !claim.token) return { verified: null, provider: null, cached, retryAfterSeconds: claim.retryAfterSeconds };
   try {
-    const session = await stripe.checkout.sessions.retrieve(sessionId);
-    assertSandboxStripeObject(session);
-    if (session.id !== sessionId) throw new CheckoutAdmissionError(503);
+    const provider = await retrieveCheckoutPaymentProviderBundle({ sessionId, stripe });
+    const session = provider.session;
     const completed = await finishPaymentRefresh({
       accountId: config.accountId, target, token: claim.token, snapshot: checkoutRefreshSnapshot(session),
     });
-    return { verified: completed ? session : null, cached: completed ? checkoutRefreshSnapshot(session) : null, retryAfterSeconds: 5 };
+    return { verified: completed ? session : null, provider: completed ? provider : null, cached: completed ? checkoutRefreshSnapshot(session) : null, retryAfterSeconds: 5 };
   } catch (error) {
     await finishPaymentRefresh({ accountId: config.accountId, target, token: claim.token, snapshot: null });
     throw error;
@@ -533,7 +549,7 @@ async function reserveOrderSnapshot(input: {
       "Your cart changed. Review it and try again.",
     );
   }
-  if (error) throw new Error(`[orders] Failed to reserve order snapshot: ${error.message}`);
+  if (error) throw new Error("[orders] Failed to reserve order snapshot.");
   return data as OrderRow;
 }
 
@@ -544,13 +560,14 @@ async function createReferralAttribution(
   if (!referralOffer || !order.user_id) return;
 
   const admin = createSupabaseAdminClient();
-  const { data: referralCode } = await admin
+  const { data: referralCode, error: referralCodeError } = await admin
     .from("referral_codes")
     .select("id")
     .eq("code", referralOffer.code)
     .maybeSingle();
+  if (referralCodeError) throw new Error("[referrals] Failed to load checkout attribution.");
   const referralCodeId = (referralCode as { id?: string } | null)?.id;
-  if (!referralCodeId) return;
+  if (!referralCodeId) throw new Error("[referrals] Accepted checkout attribution is unavailable.");
 
   const { error } = await admin.from("referral_attributions").upsert(
     {
@@ -565,7 +582,7 @@ async function createReferralAttribution(
     { onConflict: "source_key" },
   );
   if (error) {
-    throw new Error(`[referrals] Failed to reserve attribution: ${error.message}`);
+    throw new Error("[referrals] Failed to reserve attribution.");
   }
 }
 
@@ -618,7 +635,7 @@ async function cancelLoadedPendingOrder(order: OrderRow, reason: string): Promis
     p_reason: reason,
   });
   if (error) {
-    throw new Error(`[orders] Failed to cancel checkout order: ${error.message}`);
+    throw new Error("[orders] Failed to cancel checkout order.");
   }
   if (data === true) {
     revalidatePath("/account");
@@ -639,7 +656,7 @@ async function claimCheckoutAttempt(orderId: string): Promise<string> {
     );
   }
   if (error) {
-    throw new Error(`[orders] Failed to claim checkout attempt: ${error.message}`);
+    throw new Error("[orders] Failed to claim checkout attempt.");
   }
   if (typeof data !== "string") {
     throw new Error("[orders] Checkout attempt claim returned no token.");
@@ -657,7 +674,7 @@ async function releaseCheckoutAttempt(
     p_attempt_token: attemptToken,
   });
   if (error) {
-    throw new Error(`[orders] Failed to release checkout attempt: ${error.message}`);
+    throw new Error("[orders] Failed to release checkout attempt.");
   }
 }
 
@@ -675,7 +692,7 @@ async function markAttemptFailed(
     p_release_rewards: releaseRewards,
   });
   if (error) {
-    throw new Error(`[orders] Failed to mark checkout attempt failed: ${error.message}`);
+    throw new Error("[orders] Failed to mark checkout attempt failed.");
   }
   return data === true;
 }
@@ -696,7 +713,7 @@ async function prepareCheckoutAttempt(input: {
     p_stripe_idempotency_key: input.stripeIdempotencyKey,
   });
   if (error) {
-    throw new Error(`[orders] Failed to prepare checkout attempt: ${error.message}`);
+    throw new Error("[orders] Failed to prepare checkout attempt.");
   }
   if (data !== true) {
     throw new CheckoutError(
@@ -723,7 +740,7 @@ async function attachCheckoutSession(input: {
     p_stripe_idempotency_key: input.stripeIdempotencyKey,
   });
   if (error) {
-    throw new Error(`[orders] Failed to attach Checkout Session: ${error.message}`);
+    throw new Error("[orders] Failed to attach Checkout Session.");
   }
   if (data !== true) {
     const currentOrder = await loadOrderById(input.orderId);
@@ -732,7 +749,9 @@ async function attachCheckoutSession(input: {
       currentOrder.stripe_checkout_session_id === null &&
       checkoutCancellationState(input.session) === "open"
     ) {
-      await getStripeClient().checkout.sessions.expire(input.session.id);
+      const stripe = getStripeClient();
+      await verifyStripeAccount(stripe);
+      await stripe.checkout.sessions.expire(input.session.id);
     }
     throw new CheckoutError(
       "checkout_in_progress",
@@ -839,10 +858,11 @@ export async function createStripeCheckoutSession(
   });
 
   if (order.status === "paid" || order.status === "refunded") {
-    if (order.status === "paid") await clearPurchasedCartLines(order);
+    const exception = order.stripe_checkout_session_id
+      ? await getCheckoutPaymentException({ orderId: order.id, sessionId: order.stripe_checkout_session_id }) : null;
     throw new CheckoutError(
-      "checkout_unavailable",
-      "This checkout has already been completed.",
+      exception ? "checkout_in_progress" : "checkout_unavailable",
+      exception ? "This checkout payment is awaiting verification." : "This checkout has already been completed.",
     );
   }
 
@@ -887,9 +907,10 @@ export async function createStripeCheckoutSession(
             referralOffer,
             reactivate: true,
           });
+          if (!order.user_id) await ensureGuestReceiptBinding({ orderId: order.id, accountId: config.accountId });
           await setPendingCheckoutCookie(order.id);
         } catch (error) {
-          const message = error instanceof Error ? error.message : "Checkout recovery failed.";
+          const message = "Checkout recovery failed.";
           await markAttemptFailed(order, attemptToken, message, false);
           throw error;
         }
@@ -914,10 +935,12 @@ export async function createStripeCheckoutSession(
           referralOffer,
           reactivate: false,
         });
-        await finalizePaidStripeSession(refresh.verified);
+        const reconciled = refresh.provider ? await reconcileLoadedCheckoutPayment(order, refresh.provider) : null;
+        const verifiedPaid = reconciled?.status === "paid" &&
+          !await getCheckoutPaymentException({ orderId: order.id, sessionId: existingSession.id });
         throw new CheckoutError(
-          "checkout_unavailable",
-          "This checkout has already been completed.",
+          verifiedPaid ? "checkout_unavailable" : "checkout_in_progress",
+          verifiedPaid ? "This checkout has already been completed." : "This checkout payment is awaiting verification.",
         );
       }
       if (disposition === "processing") {
@@ -929,7 +952,7 @@ export async function createStripeCheckoutSession(
           referralOffer,
           reactivate: false,
         });
-        await finalizePaidStripeSession(refresh.verified);
+        if (refresh.provider) await reconcileLoadedCheckoutPayment(order, refresh.provider);
         throw new CheckoutError(
           "checkout_in_progress",
           "This checkout payment is still processing.",
@@ -960,9 +983,10 @@ export async function createStripeCheckoutSession(
           raw_status: existingSession.status ?? "unusable",
         })
         .eq("stripe_checkout_session_id", existingSession.id)
-        .neq("status", "paid");
+        .neq("status", "paid")
+        .neq("status", "refunded");
       if (attemptError) {
-        throw new Error(`[stripe] Failed to retire checkout attempt: ${attemptError.message}`);
+        throw new Error("[stripe] Failed to retire checkout attempt.");
       }
     }
 
@@ -987,6 +1011,8 @@ export async function createStripeCheckoutSession(
     try {
       await reserveReward({ order, userId: cart.userId, rewardTier });
       await createReferralAttribution(order, referralOffer);
+      if (!order.user_id) await ensureGuestReceiptBinding({ orderId: order.id, accountId: config.accountId });
+      await verifyStripeAccount(stripe);
 
       const origin = resolveCheckoutOrigin();
       const cancelUrl = buildCheckoutCancelUrl(origin);
@@ -995,13 +1021,30 @@ export async function createStripeCheckoutSession(
         userId: cart.userId,
         email: customerEmail,
       });
+      const acceptedLines = await loadOrderItems(order.id);
+      const prepared = await prepareCheckoutPaymentContract({
+        orderId: order.id, attemptToken, stripeIdempotencyKey,
+        terms: {
+          orderId: order.id, accountId: config.accountId, apiVersion: STRIPE_API_VERSION,
+          environment: CHECKOUT_ENVIRONMENT, currency: "USD", customerId: customerId ?? null,
+          lines: acceptedLines.map((line) => ({ lineId: line.id, productId: line.product_id,
+            productSlug: line.product_slug, variantKey: line.variant_key,
+            quantity: line.quantity, unitAmountCents: line.unit_price_cents })),
+          merchandiseSubtotalCents: order.merchandise_subtotal_cents,
+          discountCents: order.discount_cents, shippingCents: order.shipping_cents,
+          preTaxTotalCents: order.total_cents, couponId,
+          shippingRateId: freeShipping ? null : config.standardShippingRateId,
+          freeShipping, automaticTaxEnabled: config.automaticTaxEnabled, taxBehavior: "unspecified",
+        },
+      });
       stripeCreationStarted = true;
       session = await stripe.checkout.sessions.create(
         {
           mode: "payment",
           payment_method_types: [...CHECKOUT_PAYMENT_METHOD_TYPES],
-          line_items: availableLines.map(stripeLineItem),
+          line_items: acceptedLines.map(stripeLineItem),
           customer: customerId,
+          customer_update: customerId && config.automaticTaxEnabled ? { shipping: "auto" } : undefined,
           customer_email: customerId ? undefined : customerEmail ?? undefined,
           customer_creation: customerId ? undefined : "always",
           client_reference_id: order.id,
@@ -1017,6 +1060,7 @@ export async function createStripeCheckoutSession(
           payment_intent_data: {
             metadata: {
               order_id: order.id,
+              attempt_id: prepared.attemptId,
               environment: CHECKOUT_ENVIRONMENT,
               schema: CHECKOUT_SCHEMA_VERSION,
             },
@@ -1025,6 +1069,7 @@ export async function createStripeCheckoutSession(
           discounts: couponId ? [{ coupon: couponId }] : undefined,
           metadata: {
             order_id: order.id,
+            attempt_id: prepared.attemptId,
             cart_id: cart.cartId,
             environment: CHECKOUT_ENVIRONMENT,
             schema: CHECKOUT_SCHEMA_VERSION,
@@ -1040,17 +1085,10 @@ export async function createStripeCheckoutSession(
         session,
         stripeIdempotencyKey,
       });
-
-      await ensurePaymentAttempt({
-        order,
-        session,
-        stripeIdempotencyKey,
-        rewardTier,
-        referralOffer,
-        reactivate: true,
-      });
+      await bindCheckoutPaymentSession({ orderId: order.id, attemptId: prepared.attemptId,
+        sessionId: session.id, stripeIdempotencyKey });
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Stripe Checkout creation failed.";
+      const message = stripeCreationStarted ? "Checkout provider outcome needs reconciliation." : "Checkout preparation failed.";
       await markAttemptFailed(
         order,
         attemptToken,
@@ -1082,14 +1120,18 @@ export async function createStripeCheckoutSession(
       url: session.url,
     });
     if (createdDisposition === "paid") {
-      await finalizePaidStripeSession(session);
+      const refresh = await refreshOwnedCheckoutSession(config, stripe, order, session.id);
+      const reconciled = refresh.provider ? await reconcileLoadedCheckoutPayment(order, refresh.provider) : null;
+      const verifiedPaid = reconciled?.status === "paid" &&
+        !await getCheckoutPaymentException({ orderId: order.id, sessionId: session.id });
       throw new CheckoutError(
-        "checkout_unavailable",
-        "This checkout has already been completed.",
+        verifiedPaid ? "checkout_unavailable" : "checkout_in_progress",
+        verifiedPaid ? "This checkout has already been completed." : "This checkout payment is awaiting verification.",
       );
     }
     if (createdDisposition === "processing") {
-      await finalizePaidStripeSession(session);
+      const refresh = await refreshOwnedCheckoutSession(config, stripe, order, session.id);
+      if (refresh.provider) await reconcileLoadedCheckoutPayment(order, refresh.provider);
       throw new CheckoutError(
         "checkout_in_progress",
         "This checkout payment is still processing.",
@@ -1125,18 +1167,7 @@ async function loadOrderBySession(sessionId: string): Promise<OrderRow | null> {
     .select("*")
     .eq("stripe_checkout_session_id", sessionId)
     .maybeSingle();
-  if (error) throw new Error(`[orders] Failed to load order: ${error.message}`);
-  return data as OrderRow | null;
-}
-
-async function loadOrderByPaymentIntent(paymentIntentId: string): Promise<OrderRow | null> {
-  const admin = createSupabaseAdminClient();
-  const { data, error } = await admin
-    .from("orders")
-    .select("*")
-    .eq("stripe_payment_intent_id", paymentIntentId)
-    .maybeSingle();
-  if (error) throw new Error(`[orders] Failed to load order by payment intent: ${error.message}`);
+  if (error) throw new Error("[orders] Failed to load order.");
   return data as OrderRow | null;
 }
 
@@ -1147,7 +1178,7 @@ async function loadOrderById(orderId: string): Promise<OrderRow | null> {
     .select("*")
     .eq("id", orderId)
     .maybeSingle();
-  if (error) throw new Error(`[orders] Failed to load order: ${error.message}`);
+  if (error) throw new Error("[orders] Failed to load order.");
   return data as OrderRow | null;
 }
 
@@ -1158,7 +1189,7 @@ async function loadOrderItems(orderId: string): Promise<OrderItemSnapshot[]> {
     .select("*")
     .eq("order_id", orderId)
     .order("created_at", { ascending: true });
-  if (error) throw new Error(`[orders] Failed to load order items: ${error.message}`);
+  if (error) throw new Error("[orders] Failed to load order items.");
   return (data ?? []) as OrderItemSnapshot[];
 }
 
@@ -1170,7 +1201,7 @@ async function clearPurchasedCartLines(order: OrderRow): Promise<void> {
     p_order_id: order.id,
   });
   if (error) {
-    throw new Error(`[orders] Failed to clear paid cart items: ${error.message}`);
+    throw new Error("[orders] Failed to clear paid cart items.");
   }
 }
 
@@ -1184,34 +1215,9 @@ async function paymentAttemptMetadata(
     .eq("stripe_checkout_session_id", sessionId)
     .maybeSingle();
   if (error) {
-    throw new Error(`[stripe] Failed to load payment attempt metadata: ${error.message}`);
+    throw new Error("[stripe] Failed to load payment attempt metadata.");
   }
   return ((data as { metadata?: Record<string, unknown> } | null)?.metadata ?? {});
-}
-
-async function paymentMethodTypeForSession(
-  session: Stripe.Checkout.Session,
-): Promise<string | null> {
-  const paymentIntentId =
-    typeof session.payment_intent === "string"
-      ? session.payment_intent
-      : session.payment_intent?.id;
-  if (!paymentIntentId) return null;
-
-  const paymentIntent =
-    typeof session.payment_intent === "object" &&
-    session.payment_intent &&
-    typeof session.payment_intent.payment_method === "object"
-      ? session.payment_intent
-      : await getStripeClient().paymentIntents.retrieve(paymentIntentId, {
-          expand: ["payment_method"],
-        });
-  assertSandboxStripeObject(paymentIntent);
-
-  const paymentMethod = paymentIntent.payment_method;
-  return typeof paymentMethod === "object" && paymentMethod
-    ? paymentMethod.type
-    : null;
 }
 
 async function markStripeSessionProcessing(
@@ -1219,7 +1225,7 @@ async function markStripeSessionProcessing(
 ): Promise<void> {
   const admin = createSupabaseAdminClient();
   const metadata = await paymentAttemptMetadata(session.id);
-  await admin
+  const { error } = await admin
     .from("payment_attempts")
     .update({
       status: "processing",
@@ -1230,7 +1236,9 @@ async function markStripeSessionProcessing(
       },
     })
     .eq("stripe_checkout_session_id", session.id)
-    .neq("status", "paid");
+    .neq("status", "paid")
+    .neq("status", "refunded");
+  if (error) throw new Error("[orders] Failed to record payment processing.");
 }
 
 async function finalizePaidOrderSideEffects(order: OrderRow): Promise<void> {
@@ -1256,7 +1264,7 @@ async function finalizePaidOrderSideEffects(order: OrderRow): Promise<void> {
       { onConflict: "order_id", ignoreDuplicates: true },
     );
     if (feedbackError) {
-      throw new Error(`[feedback] Failed to make private feedback available: ${feedbackError.message}`);
+      throw new Error("[feedback] Failed to make private feedback available.");
     }
   }
 
@@ -1266,74 +1274,107 @@ async function finalizePaidOrderSideEffects(order: OrderRow): Promise<void> {
   revalidatePath("/rewards");
 }
 
-async function finalizePaidStripeSession(
-  session: Stripe.Checkout.Session,
-): Promise<OrderRow | null> {
-  assertSandboxStripeObject(session);
-  if (session.currency && session.currency !== "usd") {
-    throw new Error("[stripe] Checkout Session currency mismatch.");
-  }
-  if (!checkoutSessionIsPaid(session)) {
-    if (session.status === "complete") {
-      await markStripeSessionProcessing(session);
-    }
-    return loadOrderBySession(session.id);
-  }
+function paymentObservation(session: Stripe.Checkout.Session): Pick<CheckoutPaymentException, "paymentIntentId" | "paymentStatus" | "amountCents"> {
+  const paymentIntent = typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id;
+  return {
+    paymentIntentId: paymentIntent && /^pi_[A-Za-z0-9_]{1,200}$/.test(paymentIntent) ? paymentIntent : null,
+    paymentStatus: ["paid", "unpaid", "no_payment_required"].includes(session.payment_status) ? session.payment_status : "unknown",
+    amountCents: Number.isSafeInteger(session.amount_total) && (session.amount_total ?? -1) >= 0 &&
+      (session.amount_total ?? 0) <= 2_147_483_647 ? session.amount_total : null,
+  };
+}
 
-  const order = await loadOrderBySession(session.id);
-  if (!order) return null;
-  if (order.status === "paid") {
-    await finalizePaidOrderSideEffects(order);
+/** Trusted service entry point for signed webhooks and hosted recovery. Browser callers
+ * must first prove receipt ownership and acquire their separate refresh lease. */
+export async function reconcileCheckoutSession(sessionId: string): Promise<OrderRow | null> {
+  const order = await loadOrderBySession(sessionId);
+  const provider = await retrieveCheckoutPaymentProviderBundle({ sessionId });
+  if (!order) {
+    const session = provider.session;
+    const legacyOrderId = session.client_reference_id;
+    if (!legacyOrderId || !isUuid(legacyOrderId) || session.metadata?.order_id !== legacyOrderId ||
+      session.metadata.environment !== CHECKOUT_ENVIRONMENT || !await isLegacyCheckoutOrder(legacyOrderId)) {
+      throw new Error("[orders] Checkout binding is not available for reconciliation.");
+    }
+    const legacyOrder = await loadOrderById(legacyOrderId);
+    if (!legacyOrder || legacyOrder.checkout_environment !== CHECKOUT_ENVIRONMENT) {
+      throw new Error("[orders] Checkout binding is not available for reconciliation.");
+    }
+    await recordCheckoutPaymentException({
+      orderId: legacyOrder.id, attemptId: null, sessionId,
+      code: "missing_contract", ...paymentObservation(session),
+    });
+    return legacyOrder;
+  }
+  return reconcileLoadedCheckoutPayment(order, provider);
+}
+
+async function reconcileLoadedCheckoutPayment(
+  order: OrderRow,
+  provider: CheckoutPaymentProviderBundle,
+): Promise<OrderRow | null> {
+  const session = provider.session;
+  const accepted = await loadCheckoutPaymentContract({ orderId: order.id, sessionId: session.id });
+  if (!accepted) {
+    await recordCheckoutPaymentException({
+      orderId: order.id, attemptId: null, sessionId: session.id,
+      code: "missing_contract", ...paymentObservation(session),
+    });
     return order;
   }
-  if (!["pending_payment", "payment_failed"].includes(order.status)) return order;
 
-  const stripeTotal = typeof session.amount_total === "number" ? session.amount_total : order.total_cents;
-  const details = session.total_details;
-  const shippingCents = details?.amount_shipping ?? order.shipping_cents;
-  const discountCents = details?.amount_discount ?? order.discount_cents;
-  const taxCents = details?.amount_tax ?? Math.max(0, stripeTotal - Math.max(0, order.merchandise_subtotal_cents - discountCents) - shippingCents);
-  const earnedPoints = order.user_id
-    ? calculatePurchasePoints(Math.max(0, order.merchandise_subtotal_cents - discountCents))
-    : 0;
-
-  const admin = createSupabaseAdminClient();
-  const paymentIntent =
-    typeof session.payment_intent === "string"
-      ? session.payment_intent
-      : session.payment_intent?.id ?? null;
-  const customerId =
-    typeof session.customer === "string" ? session.customer : session.customer?.id ?? null;
-  const paymentMethodType = await paymentMethodTypeForSession(session);
-
-  const { data, error } = await admin
-    .rpc("finalize_paid_checkout_order", {
-      p_order_id: order.id,
-      p_session_id: session.id,
-      p_customer_email: session.customer_details?.email ?? order.customer_email,
-      p_discount_cents: discountCents,
-      p_shipping_cents: shippingCents,
-      p_tax_cents: taxCents,
-      p_total_cents: stripeTotal,
-      p_payment_intent_id: paymentIntent,
-      p_customer_id: customerId,
-      p_reward_points_earned: earnedPoints,
-      p_shipping_name: session.customer_details?.name ?? order.shipping_name,
-      p_shipping_address: publicAddressSnapshot(session.customer_details?.address),
-      p_billing_address: publicAddressSnapshot(session.customer_details?.address),
-      p_payment_method_type: paymentMethodType,
-      p_payment_raw_status: session.payment_status,
-    })
-    .maybeSingle();
-  if (error) throw new Error(`[orders] Failed to finalize order: ${error.message}`);
-  const paidOrder = data as OrderRow | null;
-  if (!paidOrder) {
-    throw new Error(
-      "[orders] Paid Checkout Session no longer owns this order or its reward reservation.",
-    );
+  const verification = verifyCheckoutPayment({ accepted, provider });
+  if (verification.status === "exception") {
+    await recordCheckoutPaymentException({
+      orderId: order.id, attemptId: accepted.attemptId, sessionId: session.id,
+      code: verification.code, ...paymentObservation(session),
+    });
+    return order;
+  }
+  // Provider evidence must never reverse a terminal local financial outcome.
+  if (order.status === "refunded") return order;
+  if (verification.status === "pending") {
+    if (order.status !== "paid" && session.status === "complete") await markStripeSessionProcessing(session);
+    return order;
+  }
+  if (verification.status === "expired") {
+    await expireStripeSession(session);
+    return loadOrderById(order.id);
+  }
+  if (verification.status === "failed") {
+    await failStripeSession(session);
+    return loadOrderById(order.id);
   }
 
-  await finalizePaidOrderSideEffects(paidOrder);
+  if (verification.status !== "paid") throw new Error("[orders] Payment verification outcome is unsupported.");
+  const facts = verification.facts;
+  const earnedPoints = order.user_id
+    ? calculatePurchasePoints(Math.max(0, facts.merchandiseSubtotalCents - facts.discountCents)) : 0;
+  let paidOrder: OrderRow | null;
+  try {
+    paidOrder = await finalizeVerifiedCheckoutPayment({ accepted, facts, rewardPointsEarned: earnedPoints }) as OrderRow | null;
+    if (!paidOrder) throw new Error("[orders] Verified Checkout Session lost its accepted Order binding.");
+    if (paidOrder.status === "refunded") return paidOrder;
+    if (paidOrder.status !== "paid") throw new Error("[orders] Verified checkout did not finalize.");
+  } catch (error) {
+    await recordCheckoutPaymentException({
+      orderId: order.id, attemptId: accepted.attemptId, sessionId: session.id,
+      code: "finalization_failed", paymentIntentId: facts.paymentIntentId,
+      paymentStatus: "paid", amountCents: facts.totalCents,
+    });
+    throw error;
+  }
+  try {
+    await finalizePaidOrderSideEffects(paidOrder);
+  } catch (error) {
+    await recordCheckoutPaymentException({
+      orderId: order.id, attemptId: accepted.attemptId, sessionId: session.id,
+      code: "side_effects_failed", paymentIntentId: facts.paymentIntentId,
+      paymentStatus: "paid", amountCents: facts.totalCents,
+    });
+    throw error;
+  }
+  await resolveCheckoutPaymentExceptions({ orderId: order.id, sessionId: session.id });
   return paidOrder;
 }
 
@@ -1344,63 +1385,41 @@ async function cancelStripeCheckoutOrder(
   let order = initialOrder;
   if (!order.stripe_checkout_session_id) {
     if (await cancelLoadedPendingOrder(order, reason)) return "cancelled";
-
-    const refreshedOrder = await loadOrderById(order.id);
-    if (!refreshedOrder || refreshedOrder.status === "cancelled") return "cancelled";
-    if (refreshedOrder.status === "paid" || refreshedOrder.status === "refunded") {
-      return "paid";
-    }
-    if (!refreshedOrder.stripe_checkout_session_id) return "processing";
-    order = refreshedOrder;
+    const current = await loadOrderById(order.id);
+    if (!current || current.status === "cancelled") return "cancelled";
+    if (current.status === "paid" || current.status === "refunded") return "paid";
+    if (!current.stripe_checkout_session_id) return "processing";
+    order = current;
   }
-
   const sessionId = order.stripe_checkout_session_id;
   if (!sessionId) return "processing";
-
-  const stripe = getStripeClient();
-  let session = await stripe.checkout.sessions.retrieve(sessionId);
-  assertSandboxStripeObject(session);
-
-  let cancellationState = checkoutCancellationState(session);
-  if (cancellationState === "paid") {
-    await finalizePaidStripeSession(session);
-    return "paid";
-  }
-
-  if (cancellationState === "processing") {
-    await finalizePaidStripeSession(session);
-    return "processing";
-  }
-
-  if (cancellationState === "open") {
+  const config = readPaymentProviderConfig();
+  const stripe = getStripeClient(config);
+  const refresh = await refreshOwnedCheckoutSession(config, stripe, order, sessionId);
+  if (!refresh.provider) return "processing";
+  let provider = refresh.provider;
+  if (checkoutCancellationState(provider.session) === "open") {
+    // A browser's ownership proof is not proof that a contradictory provider
+    // object belongs to this accepted attempt. Verify its binding before expiry.
+    await reconcileLoadedCheckoutPayment(order, provider);
+    if (await getCheckoutPaymentException({ orderId: order.id, sessionId })) return "processing";
+    // An expiration race is uncertain until the next separately admitted read.
+    // Do not bypass the shared cooldown by retrieving again in the catch path.
     try {
-      session = await stripe.checkout.sessions.expire(session.id);
-      assertSandboxStripeObject(session);
+      const expired = await expireCheckoutPaymentProviderSession({ sessionId, stripe });
+      // The newly expanded Session and PaymentIntent determine cancellation.
+      // The helper accepts only an expired response, so retained line observations
+      // cannot enter paid finalization or substitute an older PaymentIntent.
+      provider = { ...provider, session: expired };
     } catch {
-      session = await stripe.checkout.sessions.retrieve(session.id);
-      assertSandboxStripeObject(session);
-      if (checkoutSessionIsPaid(session)) {
-        await finalizePaidStripeSession(session);
-        return "paid";
-      }
-      cancellationState = checkoutCancellationState(session);
-      if (cancellationState === "processing") {
-        await finalizePaidStripeSession(session);
-        return "processing";
-      }
-      if (cancellationState !== "expired") {
-        throw new Error("Stripe Checkout cancellation failed.");
-      }
+      return "processing";
     }
-    cancellationState = checkoutCancellationState(session);
   }
-
-  if (cancellationState === "expired") {
-    await expireStripeSession(session);
-    return "cancelled";
-  }
-
-  throw new Error("Stripe Checkout returned an unknown cancellation state.");
+  const reconciled = await reconcileLoadedCheckoutPayment(order, provider);
+  if (!reconciled || await getCheckoutPaymentException({ orderId: order.id, sessionId })) return "processing";
+  if (reconciled.status === "paid" || reconciled.status === "refunded") return "paid";
+  if (reconciled.status === "cancelled") return "cancelled";
+  return "processing";
 }
 
 export async function cancelPendingCheckoutFromCookie(
@@ -1431,15 +1450,18 @@ export async function cancelPendingCheckoutFromCookie(
     await clearPendingCheckoutCookie();
     return { status: "not_found" };
   }
+  const user = await getCurrentUser();
+  const owned = order.stripe_checkout_session_id
+    ? await authorizeCheckoutReceipt({ orderId: order.id, sessionId: order.stripe_checkout_session_id,
+      accountId: STRIPE_SANDBOX_ACCOUNT_ID, verifiedUserId: user?.id ?? null })
+    : checkoutOrderBelongsToCurrentIdentity(order, await getActiveCartIdentity());
+  if (!owned) {
+    await clearPendingCheckoutCookie();
+    return { status: "not_owned" };
+  }
   if (!orderCanBeCancelled(order)) {
     await clearPendingCheckoutCookie();
     return { status: "not_cancellable" };
-  }
-
-  const identity = await getActiveCartIdentity();
-  if (!checkoutOrderBelongsToCurrentIdentity(order, identity)) {
-    await clearPendingCheckoutCookie();
-    return { status: "not_owned" };
   }
 
   const status = await cancelStripeCheckoutOrder(order, reason);
@@ -1460,7 +1482,7 @@ async function expireStripeSession(session: Stripe.Checkout.Session): Promise<vo
     p_reason: "Stripe Checkout expiration",
   });
   if (error) {
-    throw new Error(`[orders] Failed to expire Stripe checkout: ${error.message}`);
+    throw new Error("[orders] Failed to expire Stripe checkout.");
   }
 }
 
@@ -1482,70 +1504,15 @@ async function failStripeSession(
     },
   );
   if (failureError) {
-    throw new Error(`[orders] Failed to record Stripe payment failure: ${failureError.message}`);
+    throw new Error("[orders] Failed to record Stripe payment failure.");
   }
-  await admin
+  const { error: attemptError } = await admin
     .from("payment_attempts")
     .update({ raw_status: session.payment_status })
     .eq("stripe_checkout_session_id", session.id)
-    .neq("status", "paid");
-}
-
-async function handleFullRefund(charge: Stripe.Charge): Promise<void> {
-  assertSandboxStripeObject(charge);
-  if (!charge.refunded || charge.amount_refunded < charge.amount) return;
-  const paymentIntentId =
-    typeof charge.payment_intent === "string"
-      ? charge.payment_intent
-      : charge.payment_intent?.id ?? null;
-  if (!paymentIntentId) return;
-
-  const order = await loadOrderByPaymentIntent(paymentIntentId);
-  if (!order) return;
-
-  const admin = createSupabaseAdminClient();
-  await admin
-    .from("orders")
-    .update({
-      status: "refunded",
-      refunded_at: new Date().toISOString(),
-    })
-    .eq("id", order.id)
+    .neq("status", "paid")
     .neq("status", "refunded");
-  await admin
-    .from("payment_attempts")
-    .update({ status: "refunded", raw_status: "charge.refunded" })
-    .eq("order_id", order.id);
-
-  if (order.user_id) {
-    await reversePaidOrderPoints({
-      userId: order.user_id,
-      orderId: order.id,
-      orderNumber: order.order_number,
-      pointsEarned: order.reward_points_earned,
-      pointsRedeemed: order.reward_points_redeemed,
-    });
-  }
-  const { data: attribution } = await admin
-    .from("referral_attributions")
-    .select("id")
-    .eq("order_id", order.id)
-    .maybeSingle();
-  const attributionId = (attribution as { id?: string } | null)?.id;
-  if (attributionId) {
-    await admin
-      .from("referral_attributions")
-      .update({ status: "void" })
-      .eq("id", attributionId);
-    await admin
-      .from("referral_rewards")
-      .update({ status: "void" })
-      .eq("referral_attribution_id", attributionId)
-      .eq("status", "available");
-  }
-
-  revalidatePath("/account");
-  revalidatePath("/rewards");
+  if (attemptError) throw new Error("[orders] Failed to record payment attempt failure.");
 }
 
 type StripeWebhookEventClaim = {
@@ -1564,7 +1531,7 @@ async function claimStripeWebhookEvent(
     .eq("stripe_event_id", event.id)
     .maybeSingle();
   if (selectError) {
-    throw new Error(`[stripe] Failed to inspect webhook event: ${selectError.message}`);
+    throw new Error("[stripe] Failed to inspect webhook event.");
   }
 
   const existingClaim = existing as StripeWebhookEventClaim | null;
@@ -1583,7 +1550,7 @@ async function claimStripeWebhookEvent(
     });
     if (!insertError) return "claimed";
     if ((insertError as { code?: string }).code === "23505") return "duplicate";
-    throw new Error(`[stripe] Failed to record webhook event: ${insertError.message}`);
+    throw new Error("[stripe] Failed to record webhook event.");
   }
 
   let claimQuery = admin
@@ -1598,7 +1565,7 @@ async function claimStripeWebhookEvent(
     .select("stripe_event_id")
     .maybeSingle();
   if (claimError) {
-    throw new Error(`[stripe] Failed to claim webhook event: ${claimError.message}`);
+    throw new Error("[stripe] Failed to claim webhook event.");
   }
   return claimed ? "claimed" : "duplicate";
 }
@@ -1616,25 +1583,20 @@ export async function processStripeWebhookEvent(event: Stripe.Event): Promise<{
   try {
     if (
       event.type === "checkout.session.completed" ||
-      event.type === "checkout.session.async_payment_succeeded"
+      event.type === "checkout.session.async_payment_succeeded" ||
+      event.type === "checkout.session.async_payment_failed" ||
+      event.type === "checkout.session.expired"
     ) {
-      await finalizePaidStripeSession(event.data.object as Stripe.Checkout.Session);
-    } else if (event.type === "checkout.session.async_payment_failed") {
-      await failStripeSession(
-        event.data.object as Stripe.Checkout.Session,
-        "Stripe Checkout asynchronous payment failed",
-      );
-    } else if (event.type === "checkout.session.expired") {
-      await expireStripeSession(event.data.object as Stripe.Checkout.Session);
+      await reconcileCheckoutSession((event.data.object as Stripe.Checkout.Session).id);
     } else if (event.type === "charge.refunded") {
-      await handleFullRefund(event.data.object as Stripe.Charge);
+      await reconcileFullStripeRefund((event.data.object as Stripe.Charge).id);
     }
 
     const { error: updateError } = await admin
       .from("stripe_webhook_events")
       .update({ processed_at: new Date().toISOString(), processing_error: null })
       .eq("stripe_event_id", event.id);
-    if (updateError) throw new Error(`[stripe] Failed to mark webhook processed: ${updateError.message}`);
+    if (updateError) throw new Error("[stripe] Failed to mark webhook processed.");
     return {
       action:
         event.type === "checkout.session.completed" ||
@@ -1647,11 +1609,11 @@ export async function processStripeWebhookEvent(event: Stripe.Event): Promise<{
       type: event.type,
     };
   } catch (error) {
-    const message = error instanceof Error ? error.message : "webhook processing failed";
-    await admin
+    const { error: auditError } = await admin
       .from("stripe_webhook_events")
-      .update({ processing_error: message })
+      .update({ processing_error: "payment_reconciliation_failed" })
       .eq("stripe_event_id", event.id);
+    if (auditError) throw new Error("[stripe] Failed to retain retryable webhook state.");
     throw error;
   }
 }
@@ -1659,32 +1621,63 @@ export async function processStripeWebhookEvent(event: Stripe.Event): Promise<{
 export async function getOrderConfirmationBySession(
   sessionId: string,
 ): Promise<OrderConfirmation | null> {
-  if (!sessionId || !sessionId.startsWith("cs_")) return null;
-  const order = await loadOrderBySession(sessionId);
-  if (!order) return null;
-  const identity = await getActiveCartIdentity();
-  if (!checkoutOrderBelongsToCurrentIdentity(order, identity)) return null;
+  if (!/^cs_[A-Za-z0-9_]{1,200}$/.test(sessionId)) return null;
+  // Inspect only the local binding before authorization; provider reads and the
+  // private Order/line records are unavailable to a Session-ID bearer alone.
+  const admin = createSupabaseAdminClient();
+  const { data: binding, error: bindingError } = await admin.from("orders")
+    .select("id").eq("stripe_checkout_session_id", sessionId).maybeSingle();
+  if (bindingError) throw new Error("[orders] Failed to inspect receipt binding.");
+  const orderId = (binding as { id: string } | null)?.id;
+  if (!orderId) return null;
+  const user = await getCurrentUser();
+  if (!await authorizeCheckoutReceipt({ orderId, sessionId, accountId: STRIPE_SANDBOX_ACCOUNT_ID, verifiedUserId: user?.id ?? null })) return null;
   const config = readPaymentProviderConfig();
-  const stripe = getStripeClient(config);
-  let session: Stripe.Checkout.Session | null = null;
+  let order = await loadOrderBySession(sessionId);
+  if (!order || order.id !== orderId) return null;
+  let retryAfterSeconds = 5;
   try {
-    session = (await refreshOwnedCheckoutSession(config, stripe, order, sessionId)).verified;
+    const refresh = await refreshOwnedCheckoutSession(config, getStripeClient(config), order, sessionId);
+    retryAfterSeconds = Math.max(5, refresh.retryAfterSeconds);
+    if (refresh.provider) order = await reconcileLoadedCheckoutPayment(order, refresh.provider) ?? order;
   } catch (error) {
-    // Admission storage failure must not hide an already-authorized stored Order.
+    // Shared admission failure defers refresh but cannot invent a payment state.
     if (!(error instanceof CheckoutAdmissionError)) throw error;
+    retryAfterSeconds = Math.max(5, error.retryAfterSeconds);
   }
-
-  const finalized = session && checkoutSessionIsPaid(session)
-    ? await finalizePaidStripeSession(session)
-    : order;
-  if (!finalized) return null;
-
-  const items = await loadOrderItems(finalized.id);
+  const currentOrder = await loadOrderBySession(sessionId);
+  if (!currentOrder || currentOrder.id !== orderId) return null;
+  order = currentOrder;
+  const exception = await getCheckoutPaymentException({ orderId: order.id, sessionId });
+  const items = await loadOrderItems(order.id);
+  const state = exception ? "exception" : order.status === "pending_payment" ? "pending"
+    : order.status === "payment_failed" ? "failed" : order.status;
+  const delivery = state === "paid" || state === "refunded"
+    ? await readVerifiedCheckoutDelivery({ orderId: order.id, sessionId }) : null;
+  // Ownership and Session binding can change while an admitted provider read runs.
+  if (!await authorizeCheckoutReceipt({ orderId, sessionId, accountId: config.accountId, verifiedUserId: user?.id ?? null })) return null;
+  // Historical Orders may contain billing details in their shipping columns.
+  // Only immutable delivery facts established by the verifier reach the receipt.
+  const address = delivery?.shippingAddress;
+  const shipping = delivery && address &&
+    typeof address.line1 === "string" && typeof address.city === "string" &&
+    typeof address.state === "string" && typeof address.postal_code === "string" && typeof address.country === "string"
+    ? { name: delivery.shippingName, line1: address.line1, line2: typeof address.line2 === "string" ? address.line2 : null,
+      city: address.city, state: address.state, postal_code: address.postal_code, country: address.country } : null;
   return {
-    notice: SANDBOX_CHECKOUT_NOTICE,
-    order: finalized,
-    items,
-    webhookPending: finalized.status !== "paid",
+    notice: SANDBOX_CHECKOUT_NOTICE, state, retryAfterSeconds, shipping,
+    verificationIssue: exception?.code === "full_refund_reconciliation_failed" && exception.paymentStatus === "refunded"
+      ? "refund_reconciliation" : null,
+    order: {
+      order_number: order.order_number, status: order.status,
+      reward_points_earned: state === "paid" ? order.reward_points_earned : 0,
+      reward_points_redeemed: order.reward_points_redeemed,
+      merchandise_subtotal_cents: order.merchandise_subtotal_cents, discount_cents: order.discount_cents,
+      shipping_cents: order.shipping_cents, tax_cents: order.tax_cents, total_cents: order.total_cents,
+    },
+    items: items.map(({ product_name, variant_label, quantity, line_subtotal_cents }) => ({
+      product_name, variant_label, quantity, line_subtotal_cents,
+    })),
   };
 }
 
@@ -1706,7 +1699,7 @@ export async function getOrdersForCurrentUser(): Promise<Array<{
     .eq("user_id", user.id)
     .order("created_at", { ascending: false })
     .limit(10);
-  if (error) throw new Error(`[orders] Failed to load account orders: ${error.message}`);
+  if (error) throw new Error("[orders] Failed to load account orders.");
   return (data ?? []) as Array<{
     id: string;
     order_number: string;
