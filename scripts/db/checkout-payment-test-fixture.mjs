@@ -35,4 +35,3 @@ export function loadCheckoutPaymentTestEffects(sql, source) {
     ALTER TABLE public.rewards_reservations ENABLE ROW LEVEL SECURITY;
     GRANT SELECT, INSERT, UPDATE ON public.rewards_ledger_entries, public.rewards_reservations TO service_role;`);
 }
-
