@@ -1,8 +1,5 @@
 import type Stripe from "stripe";
 
-const STRIPE_WEBHOOK_PROCESSING_PREFIX = "processing:";
-const STRIPE_WEBHOOK_CLAIM_TIMEOUT_MS = 5 * 60 * 1000;
-
 export function checkoutSessionIsPaid(
   session: Pick<Stripe.Checkout.Session, "payment_status">,
 ): boolean {
@@ -21,22 +18,6 @@ export function checkoutCancellationState(
 
 export function orderCanTransitionToPaymentFailed(status: string): boolean {
   return status === "pending_payment" || status === "payment_failed";
-}
-
-export function stripeWebhookProcessingMarker(now = new Date()): string {
-  return `${STRIPE_WEBHOOK_PROCESSING_PREFIX}${now.toISOString()}`;
-}
-
-export function stripeWebhookClaimIsFresh(
-  value: string | null | undefined,
-  now = new Date(),
-): boolean {
-  if (!value?.startsWith(STRIPE_WEBHOOK_PROCESSING_PREFIX)) return false;
-  const startedAt = Date.parse(value.slice(STRIPE_WEBHOOK_PROCESSING_PREFIX.length));
-  return (
-    Number.isFinite(startedAt) &&
-    now.getTime() - startedAt < STRIPE_WEBHOOK_CLAIM_TIMEOUT_MS
-  );
 }
 
 export function sanitizedStripeEventPayload(

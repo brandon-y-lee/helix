@@ -20,7 +20,10 @@ test.beforeEach(async ({ page }) => {
     });
   });
   await page.route("**/cart/checkout-cancel", async (route) => {
-    await route.fulfill({ status: 204 });
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ status: "cancelled" }),
+    });
   });
 });
 
@@ -56,6 +59,8 @@ test("Account, Cart, Checkout, and acknowledgement use the helix identity", asyn
 test("Checkout cancellation returns to the intact Cart", async ({ page }) => {
   await page.goto("/cart?checkout=cancelled");
 
+  await expect(page.getByText("You returned from checkout. Your cart is still here.")).toBeVisible();
+  await page.getByRole("button", { name: "Cancel pending checkout" }).click();
   await expect(
     page.getByRole("status").filter({ hasText: "Sandbox checkout was cancelled" }),
   ).toBeVisible();
@@ -66,7 +71,11 @@ test("Checkout cancellation returns to the intact Cart", async ({ page }) => {
 });
 
 test("an unverifiable Checkout return fails closed", async ({ page }) => {
-  await page.goto("/checkout/success?session_id=invalid");
+  const response = await page.goto("/checkout/success?session_id=invalid");
+  expect(response?.headers()["cache-control"]).toContain("private");
+  expect(response?.headers()["cache-control"]).toContain("no-store");
+  expect(response?.headers()["referrer-policy"]).toBe("no-referrer");
+  await expect(page).toHaveTitle("Order status | helix");
 
   await expect(
     page.getByRole("heading", { level: 1, name: "Order status" }),
@@ -75,7 +84,7 @@ test("an unverifiable Checkout return fails closed", async ({ page }) => {
     page.getByText("We could not verify this payment status."),
   ).toBeVisible();
   await expect(
-    page.getByRole("heading", { level: 1, name: "Payment verified" }),
+    page.getByRole("heading", { level: 1, name: "Sandbox payment verified" }),
   ).toHaveCount(0);
 });
 

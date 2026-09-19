@@ -8,6 +8,7 @@ const journey = vi.hoisted(() => ({
   markCartIdentityChanged: vi.fn(),
   mergeGuestCartIntoCurrentUser: vi.fn(),
   redirect: vi.fn(),
+  refresh: vi.fn(),
   signInWithPassword: vi.fn(),
 }));
 
@@ -19,6 +20,7 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
 vi.mock("next/navigation", () => ({
   redirect: journey.redirect,
+  useRouter: () => journey,
 }));
 
 vi.mock("@/lib/cart/server", () => ({
@@ -78,32 +80,38 @@ describe("Account and Cart identity transition", () => {
 });
 
 describe("Checkout creation and verified completion", () => {
-  it("creates Checkout through the server-authoritative route", async () => {
-    const request = new Request("https://helixskin.vercel.app/api/checkout/sessions", {
-      body: JSON.stringify({ rewardTierId: "tier-500" }),
-      headers: { "content-type": "application/json" },
-      method: "POST",
-    });
+  it.each([null, "points_200", "points_400", "points_600"])(
+    "creates Checkout through the server-authoritative route with reward %s",
+    async (rewardTierId) => {
+      const request = new Request("https://helixskin.vercel.app/api/checkout/sessions", {
+        body: JSON.stringify({ rewardTierId }),
+        headers: {
+          "content-type": "application/json",
+          origin: "https://helixskin.vercel.app",
+        },
+        method: "POST",
+      });
 
-    const response = await createCheckout(request);
+      const response = await createCheckout(request);
 
-    expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({
-      orderId: "00000000-0000-4000-8000-000000000101",
-      orderNumber: "HX-000101",
-      sessionId: "cs_test_helix",
-      url: "https://checkout.stripe.test/cs_test_helix",
-    });
-    expect(journey.createStripeCheckoutSession).toHaveBeenCalledWith({
-      rewardTierId: "tier-500",
-    });
-  });
+      expect(response.status).toBe(200);
+      expect(response.headers.get("cache-control")).toBe("no-store");
+      expect(await response.json()).toEqual({
+        orderId: "00000000-0000-4000-8000-000000000101",
+        orderNumber: "HX-000101",
+        sessionId: "cs_test_helix",
+        url: "https://checkout.stripe.test/cs_test_helix",
+      });
+      expect(journey.createStripeCheckoutSession).toHaveBeenCalledWith({
+        rewardTierId,
+      });
+    },
+  );
 
   it("renders only a server-verified Sandbox Order confirmation", async () => {
     journey.getOrderConfirmationBySession.mockResolvedValue({
       items: [
         {
-          id: "item-1",
           line_subtotal_cents: 4200,
           product_name: "TREAT",
           quantity: 1,
@@ -111,6 +119,9 @@ describe("Checkout creation and verified completion", () => {
         },
       ],
       notice: "Sandbox Checkout — no real charge or fulfillment.",
+      state: "paid",
+      retryAfterSeconds: 5,
+      shipping: null,
       order: {
         discount_cents: 0,
         merchandise_subtotal_cents: 4200,
@@ -122,7 +133,6 @@ describe("Checkout creation and verified completion", () => {
         tax_cents: 0,
         total_cents: 4200,
       },
-      webhookPending: false,
     });
 
     render(
@@ -132,7 +142,7 @@ describe("Checkout creation and verified completion", () => {
     );
 
     expect(
-      screen.getByRole("heading", { level: 1, name: "Payment verified" }),
+      screen.getByRole("heading", { level: 1, name: "Sandbox payment verified" }),
     ).toBeVisible();
     expect(screen.getByText("HX-000101")).toBeVisible();
     expect(screen.getByText(/no real charge or fulfillment/i)).toBeVisible();
@@ -156,5 +166,25 @@ describe("Checkout creation and verified completion", () => {
       screen.getByText("We could not verify this payment status."),
     ).toBeVisible();
     expect(screen.queryByText("Payment verified")).not.toBeInTheDocument();
+    expect(screen.queryByText("Checking for payment confirmation.")).not.toBeInTheDocument();
+  });
+
+  it("offers bounded checking only for an authorized pending receipt", async () => {
+    journey.getOrderConfirmationBySession.mockResolvedValue({
+      state: "pending",
+      retryAfterSeconds: 5,
+      notice: "Sandbox Checkout — no real charge or fulfillment.",
+      order: {
+        order_number: "HX-000102", status: "pending_payment", reward_points_earned: 0,
+        reward_points_redeemed: 0, merchandise_subtotal_cents: 2500, discount_cents: 0,
+        shipping_cents: 500, tax_cents: 0, total_cents: 3000,
+      },
+      items: [],
+      shipping: null,
+    });
+    render(await CheckoutSuccessPage({ searchParams: Promise.resolve({ session_id: "cs_test_pending" }) }));
+    expect(screen.getByRole("heading", { name: "Awaiting payment confirmation" })).toBeVisible();
+    expect(screen.getByText("Checking for payment confirmation.")).toBeVisible();
+    expect(screen.queryByRole("heading", { name: "Sandbox payment verified" })).not.toBeInTheDocument();
   });
 });

@@ -164,8 +164,8 @@ describe("cart client outage recovery", () => {
       screen.getByRole("button", { name: "Sandbox checkout $44.00" }),
     ).toBeInTheDocument();
     expect(
-      screen.queryByText("SANDBOX CHECKOUT - NO REAL CHARGE OR FULFILLMENT"),
-    ).not.toBeInTheDocument();
+      screen.getByText("SANDBOX CHECKOUT - NO REAL CHARGE OR FULFILLMENT"),
+    ).toBeInTheDocument();
     expect(
       screen.queryByRole("link", { name: "View cart" }),
     ).not.toBeInTheDocument();

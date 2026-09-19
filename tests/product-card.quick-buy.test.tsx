@@ -52,6 +52,7 @@ import type {
   ProductCard as ProductCardModel,
 } from "@/lib/catalog/models";
 import type { Variant } from "@/lib/products";
+import { SANDBOX_CHECKOUT_NOTICE } from "@/lib/checkout/config";
 
 function phoneViewport(initialPhone = true) {
   let phone = initialPhone;
@@ -160,6 +161,7 @@ describe("ProductCard quick buy", () => {
       await user.click(trigger);
       const dialog = screen.getByRole("dialog", { name: "Quick buy CLEANSE" });
       expect(within(dialog).getByRole("button", { name: "BUY CLEANSE - $20.00" })).toBeVisible();
+      expect(within(dialog).getByText(SANDBOX_CHECKOUT_NOTICE)).toBeVisible();
       expect(document.body.style.overflow).toBe("hidden");
       expect(view.container.querySelector("[data-product-card-buy]")).toBeNull();
       await user.keyboard("{Escape}");
@@ -191,6 +193,7 @@ describe("ProductCard quick buy", () => {
       expect(selected).toBeChecked();
       expect(selected).toHaveFocus();
       expect(screen.getByRole("alert")).toBeVisible();
+      expect(screen.getByText(SANDBOX_CHECKOUT_NOTICE)).toBeVisible();
       expect(document.body.style.overflow).not.toBe("hidden");
       expect(screen.getAllByRole("button", { name: "BUY CLEANSE - $32.00" })).toHaveLength(1);
       resizePhone(true);

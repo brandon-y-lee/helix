@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useCartMutations } from "@/components/cart/useCart";
 import { cartErrorMessage } from "@/lib/cart/client";
+import { SANDBOX_CHECKOUT_NOTICE } from "@/lib/checkout/config";
 import { formatPrice } from "@/lib/products";
 
 type RewardTierSummary = {
@@ -159,6 +160,7 @@ export function CheckoutPanel({
         </p>
       )}
 
+      <p className="checkout-panel__notice">{SANDBOX_CHECKOUT_NOTICE}</p>
       <button
         type="button"
         className="btn btn--editorial-rounded"

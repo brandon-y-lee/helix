@@ -154,7 +154,11 @@ test("cookie acknowledgement keeps white elevation and gray category panels", as
     const dialog = page.getByRole("dialog", { name: "Cookie notice" });
     await expect(dialog).toHaveCSS("background-color", CANVAS_WHITE);
     await expectGrayPanels(dialog.locator(".cookie-dialog__category"));
-    await expect(dialog.locator(".cookie-dialog__category--inactive span")).toHaveCSS("background-color", CANVAS_WHITE);
+    const inactiveBadges = dialog.locator(".cookie-dialog__category--inactive span");
+    await expect(inactiveBadges).toHaveCount(2);
+    for (const badge of await inactiveBadges.all()) {
+      await expect(badge).toHaveCSS("background-color", CANVAS_WHITE);
+    }
     await expect(dialog.getByRole("button", { name: "Close cookie notice" })).toHaveCSS("border-top-color", CONTROL_BORDER);
     await dialog.getByRole("button", { name: "Acknowledge notice" }).click();
     await expect(dialog.getByRole("status")).toHaveText("Cookie notice acknowledged.");
