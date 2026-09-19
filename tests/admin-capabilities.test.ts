@@ -3,6 +3,7 @@ import {
   ADMIN_CAPABILITIES,
   checkAdminCapability,
   requireAdminCapability,
+  type AdminRole,
 } from "@/lib/admin/capabilities";
 
 const identity = {
@@ -29,8 +30,24 @@ describe("admin capability enforcement", () => {
       "catalog.edit",
       "catalog.publish",
       "catalog.delivery",
+      "payments.manage",
     ]);
   });
+
+  it.each(["admin", "catalog_publisher", "catalog_editor"] as const)(
+    "grants payment operations only to the active admin role: %s",
+    async (role) => {
+      await expect(
+        checkAdminCapability("payments.manage", {
+          getIdentity: async () => identity,
+          getMembership: async () => membership(role),
+        }),
+      ).resolves.toMatchObject({
+        status: role === "admin" ? "allowed" : "forbidden",
+        principal: identity,
+      });
+    },
+  );
 
   it("allows only a verified active membership with the capability", async () => {
     await expect(
@@ -82,6 +99,22 @@ describe("admin capability enforcement", () => {
       }),
     ).resolves.toEqual({ status: "unavailable", principal: identity });
   });
+
+  it.each(["unknown_role", "constructor", "__proto__"])(
+    "denies an unrecognized persisted role without an authorization error: %s",
+    async (role) => {
+      await expect(
+        checkAdminCapability(ADMIN_CAPABILITIES.access, {
+          getIdentity: async () => identity,
+          getMembership: async () => ({
+            user_id: identity.id,
+            role: role as AdminRole,
+            active: true,
+          }),
+        }),
+      ).resolves.toEqual({ status: "forbidden", principal: identity });
+    },
+  );
 
   it("throws a typed authentication failure for protected APIs", async () => {
     await expect(

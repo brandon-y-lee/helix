@@ -7,6 +7,7 @@ export type AccountDashboardOrder = {
   id: string;
   order_number: string;
   status: string;
+  verification_required: boolean;
   total_cents: number;
   reward_points_earned: number;
 };
@@ -78,7 +79,7 @@ export function AccountDashboardView({
               {orders.map((order) => (
                 <li key={order.id}>
                   <span>{order.order_number}</span>
-                  <span>{order.status}</span>
+                  <span>{order.verification_required ? "Verification required" : order.status}</span>
                   <span>{formatPrice(order.total_cents)}</span>
                   <span>{order.reward_points_earned} pts</span>
                 </li>

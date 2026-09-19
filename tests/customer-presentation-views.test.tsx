@@ -71,6 +71,7 @@ describe("customer presentation views", () => {
             id: "order-1",
             order_number: "HLX-1001",
             status: "paid",
+            verification_required: false,
             total_cents: 6800,
             reward_points_earned: 68,
           },
@@ -129,5 +130,29 @@ describe("customer presentation views", () => {
     expect(screen.getByText(/Eligible Paid Orders can unlock one private feedback request/))
       .toBeVisible();
     expect(screen.queryByRole("list")).not.toBeInTheDocument();
+  });
+
+  it("shows unresolved payment verification ahead of a historical refunded status", () => {
+    render(
+      <AccountDashboardView
+        email="customer@example.test"
+        verified
+        orders={[
+          { id: "order-1", order_number: "HLX-1001", status: "refunded", verification_required: true,
+            total_cents: 2500, reward_points_earned: 0 },
+          { id: "order-2", order_number: "HLX-1002", status: "refunded", verification_required: false,
+            total_cents: 2500, reward_points_earned: 0 },
+        ]}
+        rewards={null}
+        profileForm={null}
+        signOutControl={null}
+        renderFeedback={() => null}
+      />,
+    );
+    const uncertain = screen.getByText("HLX-1001").closest("li")!;
+    expect(within(uncertain).getByText("Verification required")).toBeVisible();
+    expect(within(uncertain).queryByText("refunded")).not.toBeInTheDocument();
+    const confirmed = screen.getByText("HLX-1002").closest("li")!;
+    expect(within(confirmed).getByText("refunded")).toBeVisible();
   });
 });
