@@ -6376,6 +6376,12 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 .pdp-sticky-purchase__action {
   min-width: 0;
   flex: 0 1 clamp(300px, 25vw, 420px);
+  display: grid;
+  gap: 8px;
+}
+
+.pdp-sticky-purchase__action > .checkout-panel__notice {
+  grid-column: 1 / -1;
 }
 
 .pdp-sticky-purchase .btn {
@@ -6768,7 +6774,8 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   display: flex;
   flex-direction: column;
   gap: 14px;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   padding: 16px;
   border: 1px solid color-mix(in srgb, var(--ink) 18%, transparent);
   border-radius: 16px 16px 12px 12px;

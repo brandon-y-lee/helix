@@ -8,6 +8,7 @@ const cart = vi.hoisted(() => ({
 vi.mock("@/components/cart/useCart", () => cart);
 
 import { CheckoutPanel } from "@/components/cart/CheckoutPanel";
+import { SANDBOX_CHECKOUT_NOTICE } from "@/lib/checkout/config";
 
 function response(body: unknown, status = 200) {
   return Promise.resolve(new Response(JSON.stringify(body), {
@@ -38,6 +39,8 @@ describe("Checkout helix rewards state", () => {
 
     render(<CheckoutPanel disabled={false} subtotal={5_000} />);
 
+    expect(screen.getByText(SANDBOX_CHECKOUT_NOTICE)).toBeVisible();
+    expect(screen.getByRole("button", { name: "Sandbox checkout $50.00" })).toBeEnabled();
     expect(await screen.findByText("helix rewards is temporarily unavailable."))
       .toBeVisible();
     expect(screen.queryByText(/an account is required/i)).not.toBeInTheDocument();
