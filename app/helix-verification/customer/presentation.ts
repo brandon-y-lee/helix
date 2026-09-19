@@ -35,8 +35,8 @@ export function customerRewardsFixture(state: CustomerFixtureState): RewardsSumm
 
 export function customerOrdersFixture(state: CustomerFixtureState): AccountDashboardOrder[] {
   return state === "empty" ? [] : [
-    { id: "sample-order", order_number: "SAMPLE-001", status: "paid", verification_required: false, total_cents: 5600, reward_points_earned: 560 },
-    { id: "sample-pending", order_number: "SAMPLE-002", status: "pending_payment", verification_required: false, total_cents: 3200, reward_points_earned: 0 },
+    { id: "sample-order", order_number: "SAMPLE-001", status: "paid", total_cents: 5600, reward_points_earned: 560 },
+    { id: "sample-pending", order_number: "SAMPLE-002", status: "pending_payment", total_cents: 3200, reward_points_earned: 0 },
   ];
 }
 

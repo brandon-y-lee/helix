@@ -1,31 +1,44 @@
 import { render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 
-const { readMembership } = vi.hoisted(() => ({ readMembership: vi.fn() }));
-
-vi.mock("@/lib/auth/session", () => ({
-  getCurrentIdentity: vi.fn(),
+vi.mock("@/lib/admin/capabilities", () => ({
+  ADMIN_CAPABILITIES: {
+    access: "admin.access",
+    catalogRead: "catalog.read",
+    catalogEdit: "catalog.edit",
+    catalogPublish: "catalog.publish",
+    catalogDelivery: "catalog.delivery",
+  },
+  checkAdminCapability: vi.fn(),
 }));
 
-vi.mock("@/lib/supabase/admin", () => ({
-  createSupabaseAdminClient: () => ({
-    from: () => ({
-      select: () => ({ eq: () => ({ maybeSingle: readMembership }) }),
-    }),
-  }),
+vi.mock("@/lib/admin/modules", () => ({
+  getAdminModules: vi.fn(),
 }));
 
 vi.mock("next/headers", () => ({
   headers: vi.fn(async () => new Headers()),
 }));
 
-vi.mock("next/navigation", () => ({
-  usePathname: () => "/admin",
-  redirect: (destination: string) => { throw new Error(`REDIRECT:${destination}`); },
+vi.mock("@/components/admin/shell/AdminRouteShell", () => ({
+  AdminRouteShell: ({
+    accountLabel,
+    children,
+  }: {
+    accountLabel: string;
+    children: React.ReactNode;
+  }) => (
+    <div data-testid="admin-shell">
+      <span>{accountLabel}</span>
+      {children}
+    </div>
+  ),
 }));
 
-vi.mock("@/app/account/actions", () => ({
-  signOutAction: vi.fn(),
+vi.mock("@/components/admin/shell/AdminAccessState", () => ({
+  AdminAccessState: ({ state }: { state: string }) => (
+    <div role="alert">{state}</div>
+  ),
 }));
 
 import AdminError from "@/app/admin/error";
@@ -34,30 +47,20 @@ import AdminLoading from "@/app/admin/loading";
 import AdminPage from "@/app/admin/page";
 import { metadata as catalogMetadata } from "@/app/admin/catalog/page";
 import { metadata as productEditorMetadata } from "@/app/admin/catalog/products/[productId]/page";
-import { getCurrentIdentity } from "@/lib/auth/session";
+import { checkAdminCapability } from "@/lib/admin/capabilities";
+import { getAdminModules } from "@/lib/admin/modules";
 
-const identity = {
-  id: "11111111-1111-4111-8111-111111111111",
-  email: "operator@example.com",
-};
-
-function setMembership(role = "admin", active = true) {
-  readMembership.mockResolvedValue({
-    data: { user_id: identity.id, role, active },
-    error: null,
-  });
-}
+const mockedCheckCapability = checkAdminCapability as unknown as Mock;
+const mockedGetModules = getAdminModules as unknown as Mock;
 
 beforeEach(() => {
-  vi.mocked(getCurrentIdentity).mockReset();
-  vi.mocked(getCurrentIdentity).mockResolvedValue(identity);
-  readMembership.mockReset();
-  setMembership();
-  window.localStorage.clear();
+  mockedCheckCapability.mockReset();
+  mockedGetModules.mockReset();
+  mockedGetModules.mockReturnValue([]);
 });
 
 describe("admin route hierarchy", () => {
-  it("presents the restricted hierarchy as helix Admin", async () => {
+  it("presents the restricted hierarchy as helix Admin", () => {
     expect(metadata.title).toEqual({
       default: "helix Admin",
       template: "%s | helix Admin",
@@ -65,83 +68,70 @@ describe("admin route hierarchy", () => {
     expect(catalogMetadata.title).toBe("Catalog Editor");
     expect(productEditorMetadata.title).toBe("Edit Catalog Product");
 
-    render(await AdminPage());
+    render(<AdminPage />);
     expect(screen.getByText("helix Platform", { exact: false })).toBeVisible();
   });
 
   it("marks the entire hierarchy noindex and nofollow", () => {
-    expect(metadata.robots).toMatchObject({ index: false, follow: false });
+    expect(metadata.robots).toMatchObject({
+      index: false,
+      follow: false,
+    });
   });
 
-  it("shows payment navigation only for the active admin membership", async () => {
-    const admin = render(await AdminLayout({ children: <p>Protected content</p> }));
-    expect(screen.getByRole("link", { name: "Payments" })).toHaveAttribute(
-      "href", "/admin/payments",
-    );
-    expect(screen.getByText("Protected content")).toBeVisible();
-    admin.unmount();
+  it("checks admin.access server-side before rendering the shell", async () => {
+    mockedCheckCapability.mockResolvedValue({
+      status: "allowed",
+      principal: {
+        id: "11111111-1111-4111-8111-111111111111",
+        email: "operator@example.com",
+      },
+      access: {
+        userId: "11111111-1111-4111-8111-111111111111",
+        email: "operator@example.com",
+        role: "admin",
+        capabilities: ["admin.access"],
+      },
+    });
 
-    setMembership("catalog_publisher");
-    render(await AdminLayout({ children: <p>Protected catalog content</p> }));
-    expect(screen.getByRole("link", { name: "Catalog Editor" })).toHaveAttribute(
-      "href", "/admin/catalog",
+    render(await AdminLayout({ children: <p>Protected content</p> }));
+
+    expect(mockedCheckCapability).toHaveBeenCalledWith("admin.access");
+    expect(screen.getByTestId("admin-shell")).toHaveTextContent(
+      "Protected content",
     );
-    expect(screen.queryByRole("link", { name: "Payments" })).toBeNull();
   });
 
   it.each(["forbidden", "unavailable"] as const)(
     "renders the truthful %s state instead of the shell",
     async (status) => {
-      if (status === "forbidden") setMembership("admin", false);
-      else readMembership.mockResolvedValue({ data: null, error: { code: "outage" } });
+      mockedCheckCapability.mockResolvedValue({
+        status,
+        principal:
+          status === "forbidden"
+            ? {
+                id: "11111111-1111-4111-8111-111111111111",
+                email: "operator@example.com",
+              }
+            : null,
+      });
 
       render(await AdminLayout({ children: <p>Protected content</p> }));
 
-      expect(screen.getByRole("heading", {
-        name: status === "forbidden" ? "Access denied" : "Authorization unavailable",
-      })).toBeVisible();
-      expect(screen.queryByText("Protected content")).toBeNull();
-      expect(screen.queryByRole("link", { name: "Payments" })).toBeNull();
+      expect(screen.getByRole("alert")).toHaveTextContent(status);
+      expect(screen.queryByTestId("admin-shell")).toBeNull();
     },
   );
 
-  it("uses current membership for a directly requested dashboard", async () => {
-    const admin = render(await AdminPage());
-    expect(screen.getByRole("heading", { name: "Payments" })).toBeVisible();
-    expect(screen.getByRole("heading", { name: "Catalog Editor" })).toBeVisible();
-    admin.unmount();
+  it("renders an honest empty registry state", () => {
+    render(<AdminPage />);
 
-    setMembership("catalog_editor");
-    render(await AdminPage());
-    expect(screen.getByRole("heading", { name: "Catalog Editor" })).toBeVisible();
-    expect(screen.queryByRole("heading", { name: "Payments" })).toBeNull();
-  });
-
-  it.each(["inactive", "missing", "unknown", "unavailable"])(
-    "denies a directly requested dashboard when membership is %s",
-    async (state) => {
-      if (state === "inactive") setMembership("admin", false);
-      if (state === "missing") readMembership.mockResolvedValue({ data: null, error: null });
-      if (state === "unknown") setMembership("unknown_role");
-      if (state === "unavailable") {
-        readMembership.mockResolvedValue({ data: null, error: { code: "outage" } });
-      }
-
-      render(await AdminPage());
-
-      expect(screen.getByRole("heading", {
-        name: state === "unavailable" ? "Authorization unavailable" : "Access denied",
-      })).toBeVisible();
-      expect(screen.queryByRole("heading", { name: "Payments" })).toBeNull();
-      expect(screen.queryByRole("link", { name: "Open module" })).toBeNull();
-    },
-  );
-
-  it("requires sign-in for a directly requested dashboard", async () => {
-    vi.mocked(getCurrentIdentity).mockResolvedValue(null);
-    await expect(AdminPage()).rejects.toThrow(
-      "REDIRECT:/account/sign-in?next=%2Fadmin",
-    );
+    expect(
+      screen.getByRole("heading", {
+        name: "No admin modules available",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/analytics|activity feed/i)).toBeNull();
   });
 
   it("provides loading and recoverable error surfaces", async () => {
@@ -156,6 +146,8 @@ describe("admin route hierarchy", () => {
     expect(screen.getByText("helix Admin")).toBeVisible();
     await screen.getByRole("button", { name: "Try again" }).click();
     expect(reset).toHaveBeenCalledOnce();
-    expect(screen.getByRole("alert")).toHaveTextContent("No changes were made");
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "No changes were made",
+    );
   });
 });

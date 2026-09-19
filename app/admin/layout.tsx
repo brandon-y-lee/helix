@@ -56,7 +56,7 @@ export default async function AdminLayout({
   return (
     <AdminRouteShell
       accountLabel={access.principal.email ?? "Authenticated account"}
-      modules={getAdminModules(access.access.capabilities)}
+      modules={getAdminModules()}
     >
       {children}
     </AdminRouteShell>

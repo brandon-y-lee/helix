@@ -6,7 +6,7 @@ import type { AcceptedCheckoutContract } from "@/lib/checkout/payment-verificati
 const boundary = vi.hoisted(() => ({
   cookieGet: vi.fn(), cookieSet: vi.fn(), identity: vi.fn(),
   retrieveSession: vi.fn(), createSession: vi.fn(), expireSession: vi.fn(), retrieveShipping: vi.fn(),
-  createCustomer: vi.fn(), retrieveAccount: vi.fn(), listLineItems: vi.fn(),
+  createCustomer: vi.fn(), retrieveCustomer: vi.fn(), retrieveAccount: vi.fn(), listLineItems: vi.fn(),
   authorizeReceipt: vi.fn(), rpc: vi.fn(), from: vi.fn(),
 }));
 vi.mock("next/headers", () => ({
@@ -25,7 +25,7 @@ vi.mock("@/lib/stripe/server", () => ({
     checkout: { sessions: { retrieve: boundary.retrieveSession, create: boundary.createSession, expire: boundary.expireSession, listLineItems: boundary.listLineItems } },
     accounts: { retrieve: boundary.retrieveAccount },
     shippingRates: { retrieve: boundary.retrieveShipping },
-    customers: { create: boundary.createCustomer },
+    customers: { create: boundary.createCustomer, retrieve: boundary.retrieveCustomer },
   }),
 }));
 
@@ -60,7 +60,7 @@ function paymentContract(overrides: Partial<AcceptedCheckoutContract> = {}): Acc
 function providerSession() {
   return { object: "checkout.session", id: sessionId, status: "open", payment_status: "unpaid", livemode: false,
     mode: "payment", currency: "usd", client_reference_id: orderId, amount_total: 5500,
-    metadata: { order_id: orderId, environment: "sandbox", schema: "checkout_v1" }, payment_intent: null,
+    metadata: { order_id: orderId, environment: "sandbox", schema: "checkout_v1" }, payment_intent: null, after_expiration: null, recovered_from: null,
     expires_at: Math.floor(Date.now() / 1000) + 1800,
     url: "https://checkout.stripe.com/c/pay/private", payment_method_types: ["card"] } satisfies Partial<Stripe.Checkout.Session>;
 }
@@ -112,10 +112,13 @@ function storageResult(name: string, args: Record<string, unknown> = {}) {
   if (name === "read_checkout_payment_exception") return { data: null, error: null };
   if (name === "bind_guest_checkout_receipt") return { data: { allowed: true, reused: false,
     expires_at: new Date(Date.now() + 86_400_000).toISOString(), retry_after_seconds: 0 }, error: null };
-  if (name === "prepare_checkout_payment_contract") return { data: { ...paymentContract(),
+  if (name === "find_unresolved_checkout_order" || name === "read_pending_checkout_attempt") return { data: null, error: null };
+  if (name === "prepare_checkout_attempt_once") return { data: { attemptId, orderId,
+    stripeIdempotencyKey: args.p_stripe_idempotency_key, sendStarted: false, legacy: false, contract: { ...paymentContract(),
     ...(args.p_terms as Record<string, unknown>), version: "checkout_v2", legacyEligible: false, attemptId, sessionId: null,
-  }, error: null };
-  if (["bind_checkout_payment_session", "record_checkout_payment_exception"].includes(name)) return { data: true, error: null };
+  } }, error: null };
+  if (["start_checkout_attempt_send", "bind_checkout_attempt_session"].includes(name)) return { data: true, error: null };
+  if (["bind_checkout_attempt_session", "record_checkout_payment_exception"].includes(name)) return { data: true, error: null };
   return null;
 }
 
@@ -136,7 +139,7 @@ function useCheckoutFixture(overrides: Record<string, unknown> = {}, priceCents 
   const session = providerSession();
   allowOwnedReceipt();
   boundary.createSession.mockImplementation(async (params: Stripe.Checkout.SessionCreateParams) => ({
-    ...session, metadata: params.metadata, client_reference_id: params.client_reference_id,
+    ...session, metadata: params.metadata, client_reference_id: params.client_reference_id, customer: params.customer ?? null,
   }));
   boundary.retrieveSession.mockResolvedValue(session);
   boundary.from.mockImplementation((table: string) => {
@@ -154,6 +157,7 @@ function useCheckoutFixture(overrides: Record<string, unknown> = {}, priceCents 
     throw new Error(`Unexpected table: ${table}`);
   });
   boundary.rpc.mockImplementation((name: string, args) => {
+    if (name === "find_unresolved_checkout_order") return Promise.resolve({ data: activeOrder.stripe_checkout_session_id ? orderId : null, error: null });
     const storage = storageResult(name, args);
     if (storage) return Promise.resolve(storage);
     if (name === "resolve_active_cart") return Promise.resolve({ data: [{ cart_id: cartId, user_id: null, status: "active" }], error: null });
@@ -206,7 +210,7 @@ describe("customer checkout admission", () => {
     const result = await createStripeCheckoutSession();
     expect(result).toMatchObject({ orderId, sessionId });
     expect(boundary.createSession).toHaveBeenCalledWith(expect.objectContaining({ payment_method_types: ["card"] }), expect.any(Object));
-    expect(boundary.rpc).toHaveBeenCalledWith("prepare_checkout_payment_contract", expect.objectContaining({
+    expect(boundary.rpc).toHaveBeenCalledWith("prepare_checkout_attempt_once", expect.objectContaining({
       p_order_id: orderId, p_terms: expect.objectContaining({ accountId, currency: "USD", merchandiseSubtotalCents: 5500 }),
     }));
     expect(boundary.from.mock.calls.some(([table]) => table === "payment_attempts")).toBe(false);
@@ -219,7 +223,7 @@ describe("customer checkout admission", () => {
     const createOrder = boundary.createSession.mock.invocationCallOrder[0];
     expect(boundary.retrieveAccount.mock.invocationCallOrder[0]).toBeLessThan(createOrder);
     expect(rpcCallOrder("bind_guest_checkout_receipt")).toBeLessThan(createOrder);
-    expect(rpcCallOrder("prepare_checkout_payment_contract")).toBeLessThan(createOrder);
+    expect(rpcCallOrder("prepare_checkout_attempt_once")).toBeLessThan(createOrder);
     expect(boundary.cookieSet).toHaveBeenCalledWith(CHECKOUT_RECEIPT_COOKIE, expect.stringMatching(/^[A-Za-z0-9_-]{43}$/),
       expect.objectContaining({ httpOnly: true, sameSite: "lax", path: "/", expires: expect.any(Date) }));
     const receiptCookieIndex = boundary.cookieSet.mock.calls.findIndex(([name]) => name === CHECKOUT_RECEIPT_COOKIE);
@@ -230,10 +234,10 @@ describe("customer checkout admission", () => {
       line_items: [expect.objectContaining({ quantity: 1, price_data: expect.objectContaining({ unit_amount: 5500,
         product_data: expect.objectContaining({ metadata: expect.objectContaining({ order_line_id: orderLine.id }) }) }) })],
     }), expect.any(Object));
-    expect(boundary.rpc).toHaveBeenCalledWith("bind_checkout_payment_session", expect.objectContaining({
+    expect(boundary.rpc).toHaveBeenCalledWith("bind_checkout_attempt_session", expect.objectContaining({
       p_order_id: orderId, p_attempt_id: attemptId, p_session_id: sessionId,
     }));
-    expect(rpcCallOrder("bind_checkout_payment_session")).toBeGreaterThan(createOrder);
+    expect(rpcCallOrder("bind_checkout_attempt_session")).toBeGreaterThan(createOrder);
   });
   it("rejects a wrong Stripe account before customer or Session writes", async () => {
     useCheckoutFixture({ user_id: "user-1" });
@@ -242,27 +246,23 @@ describe("customer checkout admission", () => {
     await expect(createStripeCheckoutSession()).rejects.toThrow("Payment provider account could not be verified.");
     expect(boundary.createCustomer).not.toHaveBeenCalled();
     expect(boundary.createSession).not.toHaveBeenCalled();
-    expect(boundary.rpc.mock.calls.some(([name]) => name === "prepare_checkout_payment_contract")).toBe(false);
+    expect(boundary.rpc.mock.calls.some(([name]) => name === "prepare_checkout_attempt_once")).toBe(false);
   });
-  it("verifies account provenance before creating a returning customer's Stripe mapping", async () => {
+  it("lets Checkout create a Customer within the single Session request when no mapping exists", async () => {
     useCheckoutFixture({ user_id: "user-1" });
     boundary.identity.mockResolvedValue({ id: "user-1", email: "customer@example.test" });
-    boundary.createCustomer.mockResolvedValue({ id: "cus_test_customer", livemode: false });
     await expect(createStripeCheckoutSession()).resolves.toMatchObject({ sessionId });
-    expect(boundary.retrieveAccount.mock.invocationCallOrder[0]).toBeLessThan(boundary.createCustomer.mock.invocationCallOrder[0]);
-    expect(boundary.rpc).toHaveBeenCalledWith("prepare_checkout_payment_contract", expect.objectContaining({
-      p_terms: expect.objectContaining({ customerId: "cus_test_customer" }),
-    }));
-    expect(boundary.rpc.mock.calls.some(([name]) => name === "bind_guest_checkout_receipt")).toBe(false);
+    expect(boundary.createCustomer).not.toHaveBeenCalled();
+    expect(boundary.createSession).toHaveBeenCalledWith(expect.objectContaining({ customer_creation: "always", customer_email: "customer@example.test" }), expect.any(Object));
   });
   it("does not create a Session when immutable payment terms cannot be stored", async () => {
     useCheckoutFixture();
     const original = boundary.rpc.getMockImplementation()!;
-    boundary.rpc.mockImplementation((name, ...args) => name === "prepare_checkout_payment_contract"
+    boundary.rpc.mockImplementation((name, ...args) => name === "prepare_checkout_attempt_once"
       ? Promise.resolve({ data: null, error: { message: "private storage failure" } }) : original(name, ...args));
-    await expect(createStripeCheckoutSession()).rejects.toThrow("Payment verification is temporarily unavailable.");
+    await expect(createStripeCheckoutSession()).rejects.toThrow("Checkout verification is temporarily unavailable.");
     expect(boundary.createSession).not.toHaveBeenCalled();
-    expect(boundary.rpc.mock.calls.some(([name]) => name === "bind_checkout_payment_session")).toBe(false);
+    expect(boundary.rpc.mock.calls.some(([name]) => name === "bind_checkout_attempt_session")).toBe(false);
   });
   it.each([null, sessionId])("does not expose a payable URL when receipt prebinding fails (existing Session: %s)", async (existingSessionId) => {
     useCheckoutFixture({ stripe_checkout_session_id: existingSessionId });
@@ -286,10 +286,8 @@ describe("customer checkout admission", () => {
     await expect(createStripeCheckoutSession()).resolves.toMatchObject({ sessionId, url: session.url });
     expect(boundary.createSession).not.toHaveBeenCalled();
     expect(boundary.from.mock.calls.some(([table]) => table === "payment_attempts")).toBe(false);
-    expect(boundary.rpc.mock.calls.some(([name]) => name === "prepare_checkout_payment_contract")).toBe(false);
-    expect(boundary.rpc).toHaveBeenCalledWith("prepare_checkout_attempt", expect.objectContaining({
-      p_detach_session: false, p_stripe_idempotency_key: recordedKey,
-    }));
+    expect(boundary.rpc.mock.calls.some(([name]) => name === "prepare_checkout_attempt_once")).toBe(false);
+    expect(boundary.rpc.mock.calls.some(([name]) => name === "prepare_checkout_attempt" || name === "start_checkout_attempt_send")).toBe(false);
     expect(boundary.cookieSet).toHaveBeenCalledWith(CHECKOUT_RECEIPT_COOKIE, expect.any(String), expect.objectContaining({ path: "/" }));
   });
   it("keeps cancellation processing when Stripe expiration fails without a second unbudgeted read", async () => {
@@ -314,7 +312,7 @@ describe("customer checkout admission", () => {
     boundary.cookieGet.mockImplementation((name) => name === CHECKOUT_CANCEL_COOKIE ? { value: orderId } : undefined);
     const metadata = { order_id: orderId, environment: "sandbox", schema: "checkout_v2", attempt_id: attemptId };
     const intent = { id: "pi_incomplete_authentication", object: "payment_intent", livemode: false,
-      currency: "usd", status: "requires_action", customer: "cus_owned_checkout", metadata };
+      currency: "usd", status: "requires_action", amount_received: 0, amount_capturable: 0, customer: "cus_owned_checkout", metadata };
     const open = { ...session, metadata, customer: intent.customer, payment_intent: intent, amount_total: 5000 };
     boundary.retrieveSession.mockResolvedValue(open);
     // Stripe returns IDs for expandable fields unless this request asks for their objects.
@@ -430,8 +428,7 @@ describe("customer checkout admission", () => {
     expect(await createStripeCheckoutSession()).toMatchObject({ sessionId, url: session.url });
     expect(boundary.retrieveSession).not.toHaveBeenCalled();
     expect(boundary.createSession).not.toHaveBeenCalled();
-    const attemptQuery = boundary.from.mock.results.find((_, index) => boundary.from.mock.calls[index][0] === "payment_attempts")?.value;
-    expect(attemptQuery.upsert).toHaveBeenCalledWith(expect.objectContaining({ metadata: expect.objectContaining({ payment_method_configuration: "provider_recorded", payment_method_types: ["afterpay_clearpay"] }) }), expect.any(Object));
+    expect(boundary.from.mock.calls.some(([table]) => table === "payment_attempts")).toBe(false);
   });
   it("uses the shared verified shipping quote when provider refresh is deferred", async () => {
     vi.stubEnv("STRIPE_STANDARD_SHIPPING_RATE_ID", "shr_standard");
@@ -444,16 +441,12 @@ describe("customer checkout admission", () => {
     expect(boundary.retrieveShipping).not.toHaveBeenCalled();
     expect(boundary.rpc).toHaveBeenCalledWith("reserve_checkout_order_snapshot_v2", expect.objectContaining({ p_shipping_cents: 700, p_total_cents: 3200 }));
   });
-  it("coalesces same-key provider retries even though their create quota is free", async () => {
-    useCheckoutFixture({ metadata: { stripe_idempotency_key: `stripe-session:${orderId}:initial` } });
+  it("never starts a second provider request when the durable first-send gate was consumed", async () => {
+    useCheckoutFixture();
     const original = boundary.rpc.getMockImplementation()!;
-    boundary.rpc.mockImplementation((name, ...args) => {
-      if (name === "admit_checkout_creation") return Promise.resolve({ data: { allowed: true, replay: true, retry_after_seconds: 0 }, error: null });
-      if (name === "claim_checkout_refresh") return Promise.resolve({ data: { allowed: false, token: null, cached: null, retry_after_seconds: 5 }, error: null });
-      return original(name, ...args);
-    });
-    const error = await createStripeCheckoutSession().catch((value: unknown) => value);
-    expect(checkoutErrorResponseMessage(error)).toMatchObject({ status: 429, retryAfterSeconds: 5 });
+    boundary.rpc.mockImplementation((name, ...args) => name === "start_checkout_attempt_send"
+      ? Promise.resolve({ data: false, error: null }) : original(name, ...args));
+    await expect(createStripeCheckoutSession()).rejects.toThrow("needs verification");
     expect(boundary.createSession).not.toHaveBeenCalled();
     expect(boundary.rpc.mock.calls.some(([name]) => name === "fail_checkout_attempt")).toBe(false);
   });
@@ -482,18 +475,13 @@ describe("customer checkout admission", () => {
     expect(boundary.cookieSet).not.toHaveBeenCalledWith(CHECKOUT_CANCEL_COOKIE, "", expect.any(Object));
     expect(boundary.createSession).not.toHaveBeenCalled();
   });
-  it("does not overwrite a newer refresh after a retry lease loses ownership", async () => {
+  it("does not release reservations when a cache write fails after provider creation", async () => {
     useCheckoutFixture();
     const original = boundary.rpc.getMockImplementation()!;
-    boundary.rpc.mockImplementation((name, ...args) => {
-      if (name === "admit_checkout_creation") return Promise.resolve({ data: { allowed: true, replay: true, retry_after_seconds: 0 }, error: null });
-      if (name === "finish_checkout_refresh") return Promise.resolve({ data: false, error: null });
-      return original(name, ...args);
-    });
-    const error = await createStripeCheckoutSession().catch((value: unknown) => value);
-    expect(checkoutErrorResponseMessage(error)).toMatchObject({ status: 503 });
+    boundary.rpc.mockImplementation((name, ...args) => name === "cache_created_checkout_session"
+      ? Promise.resolve({ data: false, error: null }) : original(name, ...args));
+    await expect(createStripeCheckoutSession()).rejects.toThrow("temporarily unavailable");
     expect(boundary.createSession).toHaveBeenCalledOnce();
-    expect(boundary.rpc.mock.calls.some(([name]) => name === "cache_created_checkout_session")).toBe(false);
     expect(boundary.rpc.mock.calls.some(([name]) => name === "fail_checkout_attempt")).toBe(false);
   });
   it("fails closed and redacts admission storage errors before provider writes", async () => {
@@ -530,13 +518,18 @@ describe("customer checkout admission", () => {
     expect(boundary.createSession).not.toHaveBeenCalled();
     expect(boundary.rpc.mock.calls.some(([name]) => name === "finalize_paid_checkout_order")).toBe(false);
   });
-  it("does not replace a verified expired Session while new checkout is disabled", async () => {
+  it("closes a positively expired Order without automatically replacing its Session", async () => {
     vi.stubEnv("CHECKOUT_ENABLED", "false");
-    const { session } = useCheckoutFixture({ stripe_checkout_session_id: sessionId });
+    const { session, activeOrder } = useCheckoutFixture({ stripe_checkout_session_id: sessionId });
     boundary.retrieveSession.mockResolvedValue({ ...session, status: "expired", expires_at: 1, url: null });
-    await expect(createStripeCheckoutSession()).rejects.toThrow("not enabled");
+    const original = boundary.rpc.getMockImplementation()!;
+    boundary.rpc.mockImplementation((name, ...args) => {
+      if (name === "expire_checkout_order_from_stripe") { activeOrder.status = "cancelled"; return Promise.resolve({ data: true, error: null }); }
+      return original(name, ...args);
+    });
+    await expect(createStripeCheckoutSession()).rejects.toThrow("previous checkout expired");
     expect(boundary.createSession).not.toHaveBeenCalled();
-    expect(boundary.rpc.mock.calls.some(([name]) => name === "prepare_checkout_attempt")).toBe(false);
+    expect(boundary.rpc.mock.calls.some(([name]) => name === "prepare_checkout_attempt_once")).toBe(false);
   });
   it("does not retrieve shipping or create a Session when refresh has no verified quote", async () => {
     vi.stubEnv("STRIPE_STANDARD_SHIPPING_RATE_ID", "shr_standard");
@@ -564,9 +557,8 @@ describe("customer checkout admission", () => {
     const recordedKey = `stripe-session:${orderId}:initial`;
     useCheckoutFixture({ stripe_checkout_session_id: sessionId, metadata: { stripe_idempotency_key: recordedKey } });
     await createStripeCheckoutSession();
-    expect(boundary.rpc).toHaveBeenCalledWith("prepare_checkout_attempt", expect.objectContaining({
-      p_detach_session: false, p_expected_session_id: sessionId, p_stripe_idempotency_key: recordedKey,
-    }));
+    expect(boundary.createSession).not.toHaveBeenCalled();
+    expect(boundary.rpc.mock.calls.some(([name]) => name === "prepare_checkout_attempt_once" || name === "start_checkout_attempt_send")).toBe(false);
   });
   it("reopens a rewarded Session using its existing reservation despite zero unreserved points", async () => {
     vi.stubEnv("STRIPE_REWARD_200_COUPON_ID", "coupon_points_200");
@@ -603,4 +595,51 @@ describe("customer checkout admission", () => {
     expect(boundary.createSession).not.toHaveBeenCalled();
     expect(boundary.createCustomer).not.toHaveBeenCalled();
   });
+  it("records send intent before Stripe and preserves uncertainty after a lost response", async () => {
+    useCheckoutFixture();
+    boundary.createSession.mockRejectedValue(new Error("private provider response lost"));
+    await expect(createStripeCheckoutSession()).rejects.toThrow("needs verification");
+    expect(rpcCallOrder("start_checkout_attempt_send")).toBeLessThan(boundary.createSession.mock.invocationCallOrder[0]);
+    expect(boundary.createSession).toHaveBeenCalledWith(expect.objectContaining({ after_expiration: { recovery: { enabled: false } } }),
+      expect.objectContaining({ maxNetworkRetries: 2, timeout: 4000, idempotencyKey: `stripe-session:${orderId}:initial` }));
+    const original = boundary.rpc.getMockImplementation()!;
+    boundary.rpc.mockImplementation((name, ...args) => name === "find_unresolved_checkout_order"
+      ? Promise.resolve({ data: orderId, error: null }) : original(name, ...args));
+    const from = boundary.from.getMockImplementation()!;
+    boundary.from.mockImplementation((table) => { if (table === "cart_items" || table === "rewards_accounts") throw new Error("Current quote must not be consulted"); return from(table); });
+    await expect(createStripeCheckoutSession({ rewardTierId: "changed" })).rejects.toThrow("needs verification");
+    expect(boundary.createSession).toHaveBeenCalledOnce();
+    expect(boundary.rpc.mock.calls.some(([name]) => name === "fail_checkout_attempt")).toBe(false);
+  });
+  it.each(["start_checkout_attempt_send", "bind_checkout_attempt_session"])("retains reservations when %s commits but its reply is lost", async (operation) => {
+    useCheckoutFixture();
+    const original = boundary.rpc.getMockImplementation()!;
+    boundary.rpc.mockImplementation((name, ...args) => name === operation
+      ? Promise.resolve({ data: null, error: { message: "private database response lost" } }) : original(name, ...args));
+    await expect(createStripeCheckoutSession()).rejects.toThrow("Checkout verification is temporarily unavailable");
+    expect(boundary.createSession).toHaveBeenCalledTimes(operation === "start_checkout_attempt_send" ? 0 : 1);
+    expect(boundary.rpc.mock.calls.some(([name]) => name === "fail_checkout_attempt")).toBe(false);
+  });
+  it("allows one provider creation across concurrent callers sharing the first-send gate", async () => {
+    useCheckoutFixture();
+    let sends = 0;
+    const original = boundary.rpc.getMockImplementation()!;
+    boundary.rpc.mockImplementation((name, ...args) => name === "start_checkout_attempt_send"
+      ? Promise.resolve({ data: sends++ === 0, error: null }) : original(name, ...args));
+    const outcomes = await Promise.allSettled([createStripeCheckoutSession(), createStripeCheckoutSession()]);
+    expect(outcomes.map((outcome) => outcome.status).sort()).toEqual(["fulfilled", "rejected"]);
+    expect(boundary.createSession).toHaveBeenCalledOnce();
+    expect(boundary.rpc.mock.calls.some(([name]) => name === "fail_checkout_attempt")).toBe(false);
+  });
+  it.each([false, true])("reuses only an authoritatively verified mapped Customer (deleted=%s)", async (deleted) => {
+    useCheckoutFixture({ user_id: "user-1" });
+    boundary.identity.mockResolvedValue({ id: "user-1", email: "customer@example.test" });
+    const from = boundary.from.getMockImplementation()!;
+    boundary.from.mockImplementation((table) => table === "stripe_customers" ? queryResult({ stripe_customer_id: "cus_verified" }) : from(table));
+    boundary.retrieveCustomer.mockResolvedValue({ id: "cus_verified", livemode: false, ...(deleted ? { deleted: true } : {}) });
+    if (deleted) { await expect(createStripeCheckoutSession()).rejects.toThrow("temporarily unavailable"); expect(boundary.createSession).not.toHaveBeenCalled(); }
+    else { await expect(createStripeCheckoutSession()).resolves.toMatchObject({ sessionId }); expect(boundary.createSession).toHaveBeenCalledWith(expect.objectContaining({ customer: "cus_verified", customer_creation: undefined }), expect.any(Object)); }
+    expect(boundary.createCustomer).not.toHaveBeenCalled();
+  });
+
 });

@@ -10,9 +10,6 @@ export const HELIX_STRIPE_WEBHOOK_EVENTS = [
   "checkout.session.async_payment_succeeded",
   "checkout.session.completed",
   "checkout.session.expired",
-  "refund.created",
-  "refund.updated",
-  "refund.failed",
 ] as const;
 type HelixStripeWebhookEvent = (typeof HELIX_STRIPE_WEBHOOK_EVENTS)[number];
 

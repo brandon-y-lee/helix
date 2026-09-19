@@ -11,15 +11,11 @@ vi.mock("@supabase/supabase-js", () => ({
 }));
 vi.mock("next/headers", () => ({ cookies: boundary.cookies, headers: async () => new Headers() }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
-vi.mock("stripe", async () => {
-  const { default: Stripe } = await vi.importActual<typeof import("stripe")>("stripe");
-  return {
-    default: class {
-      static createFetchHttpClient = Stripe.createFetchHttpClient;
-      checkout = { sessions: { retrieve: boundary.retrieveSession } };
-    },
-  };
-});
+vi.mock("stripe", () => ({
+  default: class {
+    checkout = { sessions: { retrieve: boundary.retrieveSession } };
+  },
+}));
 
 const origin = "https://helixskin.vercel.app";
 const sessionId = "cs_test_privateReceipt123";

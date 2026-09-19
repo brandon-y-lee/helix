@@ -1,10 +1,6 @@
 import "server-only";
 
 import type Stripe from "stripe";
-import type { PaymentRefundException } from "@/lib/payments/inbox";
-import { PaymentLeaseLostError } from "@/lib/payments/lease";
-import { PaymentProviderReadError, sanitizedPaymentProviderError } from "@/lib/payments/provider-errors";
-import { isPaymentDeadlineError } from "@/lib/payments/deadline";
 import { revalidatePath } from "next/cache";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getStripeClient } from "@/lib/stripe/server";
@@ -12,49 +8,39 @@ import { verifyStripeAccount } from "@/lib/stripe/payment-verification";
 import { reversePaidOrderPoints } from "@/lib/rewards/operations";
 import { recordCheckoutPaymentException, resolveCheckoutPaymentExceptions } from "@/lib/orders/payment-contracts";
 
-export async function readStripeChargeRefunds(stripe: Stripe, chargeId: string, paymentIntentId: string): Promise<Stripe.Refund[]> {
+async function successfulRefundAmount(stripe: Stripe, chargeId: string, paymentIntentId: string): Promise<number> {
   let startingAfter: string | undefined;
-  const current: Stripe.Refund[] = [];
+  let total = 0;
   const seen = new Set<string>();
   // A larger history needs operator review; a truncated page never proves a full refund.
   for (let page = 0; page < 5; page += 1) {
-    let refunds: Stripe.ApiList<Stripe.Refund>;
-    try {
-      refunds = await stripe.refunds.list({ charge: chargeId, limit: 100, starting_after: startingAfter });
-    } catch (error) {
-      if (isPaymentDeadlineError(error)) throw error;
-      throw sanitizedPaymentProviderError(error);
-    }
-    if (!refunds || refunds.object !== "list" || !Array.isArray(refunds.data) || refunds.data.length > 100 ||
-      typeof refunds.has_more !== "boolean" || (refunds.has_more && refunds.data.length === 0)) {
-      throw new PaymentProviderReadError("provider_schema_mismatch");
+    const refunds = await stripe.refunds.list({ charge: chargeId, limit: 100, starting_after: startingAfter });
+    if (!Array.isArray(refunds.data) || refunds.data.length > 100 || typeof refunds.has_more !== "boolean") {
+      throw new Error("Refund history could not be verified.");
     }
     for (const refund of refunds.data) {
-      if (!refund || refund.object !== "refund") throw new PaymentProviderReadError("provider_schema_mismatch");
       const refundChargeId = typeof refund.charge === "string" ? refund.charge : refund.charge?.id;
       const refundIntentId = typeof refund.payment_intent === "string" ? refund.payment_intent : refund.payment_intent?.id;
-      if (typeof refund.id !== "string" || !/^(?:re|pyr)_[A-Za-z0-9_]{1,200}$/.test(refund.id) ||
-        seen.has(refund.id) || refundChargeId !== chargeId || refundIntentId !== paymentIntentId ||
-        refund.currency !== "usd" || !Number.isSafeInteger(refund.amount) || refund.amount <= 0 || refund.amount > 2_147_483_647 ||
-        !(refund.status === null || (typeof refund.status === "string" && /^[a-z_]{1,80}$/.test(refund.status)))) {
-        throw new PaymentProviderReadError("provider_schema_mismatch");
+      if (!refund.id || seen.has(refund.id) || refundChargeId !== chargeId || refundIntentId !== paymentIntentId ||
+        refund.currency !== "usd" || !Number.isSafeInteger(refund.amount) || refund.amount <= 0) {
+        throw new Error("Refund facts disagree.");
       }
       seen.add(refund.id);
-      current.push(refund);
+      if (refund.status === "succeeded") total += refund.amount;
+      if (!Number.isSafeInteger(total) || total > 2_147_483_647) throw new Error("Refund facts disagree.");
     }
-    if (!refunds.has_more) return current;
+    if (!refunds.has_more) return total;
     startingAfter = refunds.data.at(-1)?.id;
     if (!startingAfter) break;
   }
-  throw new PaymentProviderReadError("provider_schema_mismatch");
+  throw new Error("Refund history could not be verified.");
 }
 
 /** Trusted provider reconciliation; never called with browser-supplied payment references. */
 export async function reconcileFullStripeRefund(chargeId: string): Promise<void> {
   try {
     await reconcileFullRefund(chargeId);
-  } catch (error) {
-    if (isPaymentDeadlineError(error) || error instanceof PaymentLeaseLostError) throw error;
+  } catch {
     throw new Error("Refund reconciliation is temporarily unavailable.");
   }
 }
@@ -70,20 +56,6 @@ async function reconcileFullRefund(chargeId: string): Promise<void> {
   const paymentIntentId = typeof charge.payment_intent === "string"
     ? charge.payment_intent : charge.payment_intent?.id;
   if (!paymentIntentId) throw new Error("Refund reconciliation is temporarily unavailable.");
-  const refunds = await readStripeChargeRefunds(stripe, chargeId, paymentIntentId);
-  await reconcileVerifiedFullStripeRefund({ charge, refunds });
-}
-
-/** Trusted current provider facts only; the hosted worker persists their observations first. */
-export async function reconcileVerifiedFullStripeRefund(input: {
-  charge: Stripe.Charge; refunds: Stripe.Refund[];
-  onException?: (exception: PaymentRefundException) => Promise<void>;
-  onReconciled?: (binding: { orderId: string; sessionId: string; paymentIntentId: string }) => Promise<void>;
-}): Promise<void> {
-  const { charge, refunds } = input;
-  const paymentIntentId = typeof charge.payment_intent === "string"
-    ? charge.payment_intent : charge.payment_intent?.id;
-  if (!paymentIntentId) throw new Error("Refund facts disagree.");
   const admin = createSupabaseAdminClient();
   const { data: order, error } = await admin.from("orders")
     .select("id,order_number,user_id,status,checkout_environment,currency,total_cents,stripe_checkout_session_id,stripe_payment_intent_id,reward_points_earned,reward_points_redeemed")
@@ -98,9 +70,7 @@ export async function reconcileVerifiedFullStripeRefund(input: {
       !Number.isSafeInteger(charge.amount) || charge.amount <= 0 ||
       charge.amount !== order.total_cents || charge.amount_captured !== charge.amount ||
       charge.amount_refunded !== charge.amount) throw new Error("Refund facts disagree.");
-    const succeededAmount = refunds.filter((refund) => refund.status === "succeeded")
-      .reduce((total, refund) => total + refund.amount, 0);
-    if (!Number.isSafeInteger(succeededAmount) || succeededAmount !== charge.amount) {
+    if (await successfulRefundAmount(stripe, chargeId, paymentIntentId) !== charge.amount) {
       throw new Error("Refund facts disagree.");
     }
     refundVerified = true;
@@ -147,22 +117,18 @@ export async function reconcileVerifiedFullStripeRefund(input: {
         if (currentError || current?.status !== "refunded") throw new Error("Refund effect failed.");
       }
     }
-    const binding = { orderId: order.id, sessionId: order.stripe_checkout_session_id, paymentIntentId };
-    if (input.onReconciled) await input.onReconciled(binding);
-    else await resolveCheckoutPaymentExceptions({ orderId: binding.orderId, sessionId: binding.sessionId,
-      code: "full_refund_reconciliation_failed" });
-  } catch (error) {
-    if (isPaymentDeadlineError(error) || error instanceof PaymentLeaseLostError) throw error;
-    const exception = {
-      orderId: order.id, sessionId: order.stripe_checkout_session_id, paymentIntentId,
-      paymentStatus: refundVerified ? "refunded" as const : "unknown" as const,
+    await resolveCheckoutPaymentExceptions({
+      orderId: order.id, sessionId: order.stripe_checkout_session_id,
+      code: "full_refund_reconciliation_failed",
+    });
+  } catch {
+    await recordCheckoutPaymentException({
+      orderId: order.id, attemptId: null, sessionId: order.stripe_checkout_session_id,
+      code: "full_refund_reconciliation_failed", paymentIntentId,
+      paymentStatus: refundVerified ? "refunded" : "unknown",
       amountCents: Number.isSafeInteger(charge.amount_refunded) && charge.amount_refunded >= 0 &&
         charge.amount_refunded <= 2_147_483_647 ? charge.amount_refunded : null,
-    };
-    if (input.onException) {
-      if (exception.amountCents === null) throw new Error("Refund facts disagree.");
-      await input.onException({ ...exception, amountCents: exception.amountCents });
-    } else await recordCheckoutPaymentException({ ...exception, attemptId: null, code: "full_refund_reconciliation_failed" });
+    });
     throw new Error("Refund reconciliation is temporarily unavailable.");
   }
   revalidatePath("/account");
