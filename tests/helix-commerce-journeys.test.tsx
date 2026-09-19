@@ -78,26 +78,33 @@ describe("Account and Cart identity transition", () => {
 });
 
 describe("Checkout creation and verified completion", () => {
-  it("creates Checkout through the server-authoritative route", async () => {
-    const request = new Request("https://helixskin.vercel.app/api/checkout/sessions", {
-      body: JSON.stringify({ rewardTierId: "tier-500" }),
-      headers: { "content-type": "application/json" },
-      method: "POST",
-    });
+  it.each([null, "points_200", "points_400", "points_600"])(
+    "creates Checkout through the server-authoritative route with reward %s",
+    async (rewardTierId) => {
+      const request = new Request("https://helixskin.vercel.app/api/checkout/sessions", {
+        body: JSON.stringify({ rewardTierId }),
+        headers: {
+          "content-type": "application/json",
+          origin: "https://helixskin.vercel.app",
+        },
+        method: "POST",
+      });
 
-    const response = await createCheckout(request);
+      const response = await createCheckout(request);
 
-    expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({
-      orderId: "00000000-0000-4000-8000-000000000101",
-      orderNumber: "HX-000101",
-      sessionId: "cs_test_helix",
-      url: "https://checkout.stripe.test/cs_test_helix",
-    });
-    expect(journey.createStripeCheckoutSession).toHaveBeenCalledWith({
-      rewardTierId: "tier-500",
-    });
-  });
+      expect(response.status).toBe(200);
+      expect(response.headers.get("cache-control")).toBe("no-store");
+      expect(await response.json()).toEqual({
+        orderId: "00000000-0000-4000-8000-000000000101",
+        orderNumber: "HX-000101",
+        sessionId: "cs_test_helix",
+        url: "https://checkout.stripe.test/cs_test_helix",
+      });
+      expect(journey.createStripeCheckoutSession).toHaveBeenCalledWith({
+        rewardTierId,
+      });
+    },
+  );
 
   it("renders only a server-verified Sandbox Order confirmation", async () => {
     journey.getOrderConfirmationBySession.mockResolvedValue({

@@ -10,6 +10,7 @@ import {
 } from "react";
 import Link from "next/link";
 import { AfterpayMessaging } from "@/components/product-detail/AfterpayMessaging";
+import { supportsCheckoutPaymentMethod } from "@/lib/checkout/payment-methods";
 import { ProductImage } from "@/components/product/ProductImage";
 import { useProductPurchase } from "@/components/cart/useProductPurchase";
 import type { CartAddInput } from "@/lib/cart/types";
@@ -411,7 +412,10 @@ export function PdpPurchaseIsland({
             {pending && cta.purchasable ? "Adding" : cta.label}
           </button>
         </div>
-        {!commerceDisabled && cta.purchasable && variant && (
+        {!commerceDisabled &&
+          cta.purchasable &&
+          variant &&
+          supportsCheckoutPaymentMethod("afterpay_clearpay") && (
           <AfterpayMessaging
             amount={variant.price}
             currency={currency}

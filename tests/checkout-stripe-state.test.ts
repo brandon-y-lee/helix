@@ -98,13 +98,13 @@ describe("trusted checkout return origins", () => {
     ).toBe("https://helixskin.vercel.app");
   });
 
-  it("allows only local HTTP request origins during development", () => {
+  it("does not derive a return origin from the browser even during development", () => {
     expect(
       resolveCheckoutOrigin({
         env: { NODE_ENV: "development" },
         requestOrigin: "http://127.0.0.1:3100",
       }),
-    ).toBe("http://127.0.0.1:3100");
+    ).toBe("http://localhost:3000");
     expect(
       resolveCheckoutOrigin({
         env: { NODE_ENV: "development" },
@@ -123,5 +123,40 @@ describe("trusted checkout return origins", () => {
         requestOrigin: "https://attacker.example",
       }),
     ).toBe("https://helixskin.vercel.app");
+  });
+
+  it("uses an explicit server-configured checkout origin", () => {
+    expect(
+      resolveCheckoutOrigin({
+        env: { NODE_ENV: "production", CHECKOUT_ORIGIN: "https://staging.helix.test" },
+        requestOrigin: "https://attacker.example",
+      }),
+    ).toBe("https://staging.helix.test");
+    expect(
+      resolveCheckoutOrigin({
+        env: { NODE_ENV: "development", CHECKOUT_ORIGIN: "http://127.0.0.1:3100" },
+      }),
+    ).toBe("http://127.0.0.1:3100");
+  });
+
+  it("treats an optional blank setting as unset", () => {
+    expect(
+      resolveCheckoutOrigin({ env: { NODE_ENV: "production", CHECKOUT_ORIGIN: "  " } }),
+    ).toBe("https://helixskin.vercel.app");
+  });
+
+  it.each([
+    ["production", "http://localhost:3000"],
+    ["production", "http://staging.helix.test"],
+    ["production", "https://staging.helix.test/path"],
+    ["production", "https://user:password@staging.helix.test"],
+    ["production", "https://staging.helix.test?redirect=other"],
+    ["production", "https://staging.helix.test#fragment"],
+    ["development", "http://attacker.example"],
+    ["development", "null"],
+  ])("fails closed for an invalid %s checkout origin %s", (nodeEnv, origin) => {
+    expect(() => resolveCheckoutOrigin({
+      env: { NODE_ENV: nodeEnv, CHECKOUT_ORIGIN: origin } as NodeJS.ProcessEnv,
+    })).toThrow("Checkout origin is not configured correctly.");
   });
 });

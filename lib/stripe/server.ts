@@ -3,19 +3,23 @@ import "server-only";
 import Stripe from "stripe";
 import {
   STRIPE_API_VERSION,
-  readCheckoutConfig,
-  type CheckoutConfig,
+  readPaymentProviderConfig,
+  type PaymentProviderConfig,
 } from "@/lib/checkout/config";
 
 let cachedStripe: Stripe | null = null;
 let cachedSecretKey: string | null = null;
 
-export function getStripeClient(config: CheckoutConfig = readCheckoutConfig()): Stripe {
+export function getStripeClient(
+  config: PaymentProviderConfig = readPaymentProviderConfig(),
+): Stripe {
   if (cachedStripe && cachedSecretKey === config.secretKey) return cachedStripe;
 
   cachedStripe = new Stripe(config.secretKey, {
     apiVersion: STRIPE_API_VERSION,
     typescript: true,
+    timeout: 4_000,
+    maxNetworkRetries: 0,
   });
   cachedSecretKey = config.secretKey;
   return cachedStripe;
@@ -24,9 +28,9 @@ export function getStripeClient(config: CheckoutConfig = readCheckoutConfig()): 
 export function constructStripeWebhookEvent(input: {
   rawBody: string | Buffer;
   signature: string | null;
-  config?: CheckoutConfig;
+  config?: PaymentProviderConfig;
 }): Stripe.Event {
-  const config = input.config ?? readCheckoutConfig();
+  const config = input.config ?? readPaymentProviderConfig();
   if (!input.signature) {
     throw new Error("Missing Stripe webhook signature.");
   }

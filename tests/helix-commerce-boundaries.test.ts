@@ -39,7 +39,7 @@ vi.mock("@/lib/checkout/config", async (importOriginal) => {
   return {
     ...actual,
     assertSandboxStripeObject: boundary.assertSandboxStripeObject,
-    readCheckoutConfig: vi.fn(() => ({})),
+    readPaymentProviderConfig: vi.fn(() => ({ accountId: "acct_1Tm9WRFEzyaKzdmq" })),
   };
 });
 
@@ -95,9 +95,12 @@ describe("verified Checkout completion boundary", () => {
       livemode: false,
       payment_status: "paid",
       status: "complete",
+      expires_at: Math.floor(Date.now() / 1000) + 1800,
+      url: null,
+      payment_method_types: ["card"],
     };
     const order = {
-      cart_id: null,
+      cart_id: "00000000-0000-4000-8000-000000000182",
       id: "00000000-0000-4000-8000-000000000181",
       order_number: "HX-000181",
       referral_code: null,
@@ -106,6 +109,14 @@ describe("verified Checkout completion boundary", () => {
       user_id: null,
     };
     const items = [{ id: "order-line-181", product_name: "TREAT" }];
+    boundary.cookieGet.mockImplementation((name: string) => name === GUEST_CART_COOKIE ? { value: "owned-guest-bearer" } : undefined);
+    boundary.getCurrentIdentity.mockResolvedValue(null);
+    boundary.rpc.mockImplementation(async (name: string) => {
+      if (name === "resolve_active_cart") return { data: [{ cart_id: order.cart_id, user_id: null, status: "active" }], error: null };
+      if (name === "claim_checkout_refresh") return { data: { allowed: true, token: "00000000-0000-4000-8000-000000000183", cached: null, retry_after_seconds: 0 }, error: null };
+      if (name === "finish_checkout_refresh") return { data: true, error: null };
+      return { data: null, error: null };
+    });
     boundary.retrieveSession.mockResolvedValue(session);
     boundary.from.mockImplementation((table: string) => {
       const query = {
