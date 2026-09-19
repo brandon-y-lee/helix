@@ -299,9 +299,60 @@ describe("customer checkout admission", () => {
     boundary.expireSession.mockRejectedValue(new Error("uncertain expiration result"));
     await expect(cancelPendingCheckoutFromCookie()).resolves.toEqual({ status: "processing" });
     expect(boundary.retrieveSession).toHaveBeenCalledOnce();
-    expect(boundary.expireSession).toHaveBeenCalledExactlyOnceWith(sessionId);
+    expect(boundary.expireSession).toHaveBeenCalledExactlyOnceWith(sessionId,
+      expect.objectContaining({ expand: expect.arrayContaining(["payment_intent.payment_method"]) }),
+      expect.objectContaining({ timeout: 4000, maxNetworkRetries: 0 }));
     expect(boundary.rpc.mock.calls.filter(([name]) => name === "claim_checkout_refresh")).toHaveLength(1);
     expect(boundary.cookieSet).not.toHaveBeenCalledWith(CHECKOUT_CANCEL_COOKIE, "", expect.any(Object));
+  });
+  it("cancels an incomplete authentication payment and reaches the atomic reservation release", async () => {
+    const userId = "00000000-0000-4000-8000-000000000047";
+    const { session, activeOrder } = useCheckoutFixture({ stripe_checkout_session_id: sessionId,
+      user_id: userId, reward_points_redeemed: 200, discount_cents: 500, total_cents: 5000 });
+    boundary.identity.mockResolvedValue({ id: userId, email: "customer@example.test" });
+    boundary.authorizeReceipt.mockImplementation((args) => args.p_order_id === orderId && args.p_user_id === userId);
+    boundary.cookieGet.mockImplementation((name) => name === CHECKOUT_CANCEL_COOKIE ? { value: orderId } : undefined);
+    const metadata = { order_id: orderId, environment: "sandbox", schema: "checkout_v2", attempt_id: attemptId };
+    const intent = { id: "pi_incomplete_authentication", object: "payment_intent", livemode: false,
+      currency: "usd", status: "requires_action", customer: "cus_owned_checkout", metadata };
+    const open = { ...session, metadata, customer: intent.customer, payment_intent: intent, amount_total: 5000 };
+    boundary.retrieveSession.mockResolvedValue(open);
+    // Stripe returns IDs for expandable fields unless this request asks for their objects.
+    boundary.expireSession.mockImplementation(async (_id: string, params?: Stripe.Checkout.SessionExpireParams) => ({
+      ...open, status: "expired", url: null,
+      payment_intent: params?.expand?.includes("payment_intent.payment_method") ? { ...intent, status: "canceled" } : intent.id,
+    }));
+    const originalRpc = boundary.rpc.getMockImplementation()!;
+    let exception: { code: string; paymentStatus: string; paymentIntentId: string; amountCents: number } | null = null;
+    boundary.rpc.mockImplementation((name, args) => {
+      if (name === "read_checkout_payment_contract") return Promise.resolve({ data: paymentContract({
+        version: "checkout_v2", legacyEligible: false, attemptId, customerId: intent.customer,
+        discountCents: 500, preTaxTotalCents: 5000, couponId: "coupon_points_200",
+      }), error: null });
+      if (name === "record_checkout_payment_exception") {
+        exception = { code: args.p_code, paymentStatus: args.p_payment_status,
+          paymentIntentId: args.p_payment_intent_id, amountCents: args.p_amount_cents };
+        return Promise.resolve({ data: true, error: null });
+      }
+      if (name === "read_checkout_payment_exception") return Promise.resolve({ data: exception, error: null });
+      if (name === "expire_checkout_order_from_stripe") {
+        activeOrder.status = "cancelled";
+        return Promise.resolve({ data: true, error: null });
+      }
+      return originalRpc(name, args);
+    });
+
+    await expect(cancelPendingCheckoutFromCookie()).resolves.toEqual({ status: "cancelled" });
+
+    expect(boundary.rpc).toHaveBeenCalledWith("expire_checkout_order_from_stripe", {
+      p_order_id: orderId, p_session_id: sessionId, p_reason: "Stripe Checkout expiration",
+    });
+    expect(boundary.rpc.mock.calls.filter(([name]) => name === "expire_checkout_order_from_stripe")).toHaveLength(1);
+    expect(boundary.rpc.mock.calls.some(([name]) => name === "record_checkout_payment_exception" ||
+      name === "finalize_verified_checkout_payment" || name === "clear_paid_order_cart" || name === "award_rewards_points")).toBe(false);
+    expect(boundary.retrieveSession).toHaveBeenCalledOnce();
+    expect(boundary.rpc.mock.calls.filter(([name]) => name === "claim_checkout_refresh")).toHaveLength(1);
+    expect(boundary.cookieSet).toHaveBeenCalledWith(CHECKOUT_CANCEL_COOKIE, "", expect.objectContaining({ maxAge: 0, httpOnly: true }));
   });
   it("records contradictory provider ownership instead of expiring an unrelated open Session", async () => {
     const { session } = useCheckoutFixture({ stripe_checkout_session_id: sessionId });
@@ -324,6 +375,22 @@ describe("customer checkout admission", () => {
       p_order_id: orderId, p_session_id: sessionId, p_code: "session_identity_mismatch", p_payment_status: "unpaid",
     }));
     expect(boundary.expireSession).not.toHaveBeenCalled();
+    expect(boundary.cookieSet).not.toHaveBeenCalledWith(CHECKOUT_CANCEL_COOKIE, "", expect.any(Object));
+  });
+  it("retains an existing genuine payment exception when cancellation is requested", async () => {
+    useCheckoutFixture({ stripe_checkout_session_id: sessionId });
+    boundary.cookieGet.mockImplementation((name) => name === CHECKOUT_CANCEL_COOKIE ? { value: orderId }
+      : name === GUEST_CART_COOKIE ? { value: guestToken } : undefined);
+    const originalRpc = boundary.rpc.getMockImplementation()!;
+    boundary.rpc.mockImplementation((name, args) => name === "read_checkout_payment_exception"
+      ? Promise.resolve({ data: { code: "amount_mismatch", paymentStatus: "paid",
+        paymentIntentId: "pi_requires_review", amountCents: 5500 }, error: null }) : originalRpc(name, args));
+
+    await expect(cancelPendingCheckoutFromCookie()).resolves.toEqual({ status: "processing" });
+
+    expect(boundary.expireSession).not.toHaveBeenCalled();
+    expect(boundary.rpc.mock.calls.some(([name]) => name === "resolve_checkout_payment_exceptions" ||
+      name === "expire_checkout_order_from_stripe")).toBe(false);
     expect(boundary.cookieSet).not.toHaveBeenCalledWith(CHECKOUT_CANCEL_COOKIE, "", expect.any(Object));
   });
   it("does not send provider writes when shared create admission is exhausted", async () => {

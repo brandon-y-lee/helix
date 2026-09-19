@@ -66,6 +66,7 @@ import {
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getStripeClient } from "@/lib/stripe/server";
 import {
+  expireCheckoutPaymentProviderSession,
   retrieveCheckoutPaymentProviderBundle,
   verifyStripeAccount,
 } from "@/lib/stripe/payment-verification";
@@ -1404,11 +1405,11 @@ async function cancelStripeCheckoutOrder(
     if (await getCheckoutPaymentException({ orderId: order.id, sessionId })) return "processing";
     // An expiration race is uncertain until the next separately admitted read.
     // Do not bypass the shared cooldown by retrieving again in the catch path.
-    await verifyStripeAccount(stripe);
     try {
-      const expired = await stripe.checkout.sessions.expire(sessionId);
-      assertSandboxStripeObject(expired);
-      if (expired.id !== sessionId) throw new Error("[orders] Checkout expiration binding changed.");
+      const expired = await expireCheckoutPaymentProviderSession({ sessionId, stripe });
+      // The newly expanded Session and PaymentIntent determine cancellation.
+      // The helper accepts only an expired response, so retained line observations
+      // cannot enter paid finalization or substitute an older PaymentIntent.
       provider = { ...provider, session: expired };
     } catch {
       return "processing";

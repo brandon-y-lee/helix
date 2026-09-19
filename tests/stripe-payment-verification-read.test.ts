@@ -2,6 +2,7 @@ import Stripe from "stripe";
 import { describe, expect, it, vi } from "vitest";
 import { STRIPE_API_VERSION } from "@/lib/checkout/config";
 import {
+  expireCheckoutPaymentProviderSession,
   retrieveCheckoutPaymentProviderBundle,
   verifyStripeAccount,
 } from "@/lib/stripe/payment-verification";
@@ -54,6 +55,84 @@ function page(data: Stripe.LineItem[], hasMore = false) {
 }
 
 describe("Stripe payment verification reads", () => {
+  it("returns complete expanded expiration evidence without rereading the Session or lines", async () => {
+    const stripe = stripeClient();
+    const ownAccount = vi.spyOn(stripe.accounts, "retrieve").mockResolvedValue(account());
+    const expiredSession = { ...session(), status: "expired", payment_status: "unpaid" } as ReturnType<typeof session>;
+    const expireSession = vi.spyOn(stripe.checkout.sessions, "expire").mockResolvedValue(expiredSession);
+    const retrieveSession = vi.spyOn(stripe.checkout.sessions, "retrieve");
+    const listLines = vi.spyOn(stripe.checkout.sessions, "listLineItems");
+
+    const result = await expireCheckoutPaymentProviderSession({ stripe, sessionId: "cs_test_accepted" });
+
+    expect(result).toEqual(expiredSession);
+    expect(result.payment_intent).toEqual({
+      id: "pi_test_accepted", status: "succeeded", payment_method: { type: "card" },
+    });
+    expect(ownAccount.mock.invocationCallOrder[0]).toBeLessThan(expireSession.mock.invocationCallOrder[0]);
+    expect(expireSession).toHaveBeenCalledWith("cs_test_accepted", {
+      expand: [
+        "payment_intent.payment_method", "discounts.coupon.applies_to", "discounts.coupon.currency_options",
+        "shipping_cost.shipping_rate", "shipping_cost.taxes", "total_details.breakdown",
+      ],
+    }, { apiVersion: "2026-06-24.dahlia", timeout: 4_000, maxNetworkRetries: 0 });
+    expect(retrieveSession).not.toHaveBeenCalled();
+    expect(listLines).not.toHaveBeenCalled();
+  });
+
+  it.each(["cs_live_unapproved", "", "cs_test_with whitespace"])("rejects invalid sandbox expiration reference %s before provider access", async (sessionId) => {
+    const stripe = stripeClient();
+    const ownAccount = vi.spyOn(stripe.accounts, "retrieve").mockResolvedValue(account());
+    const expireSession = vi.spyOn(stripe.checkout.sessions, "expire").mockResolvedValue(session());
+
+    await expect(expireCheckoutPaymentProviderSession({ stripe, sessionId }))
+      .rejects.toMatchObject({ code: "invalid_session" });
+    expect(ownAccount).not.toHaveBeenCalled();
+    expect(expireSession).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { id: "cs_test_different" },
+    { object: "payment_intent" },
+    { livemode: true },
+    { livemode: undefined },
+    { mode: "subscription" },
+    { status: "open" },
+    { status: "complete" },
+    { status: undefined },
+  ])("rejects unverified expiration evidence %j", async (override) => {
+    const stripe = stripeClient();
+    vi.spyOn(stripe.accounts, "retrieve").mockResolvedValue(account());
+    vi.spyOn(stripe.checkout.sessions, "expire").mockResolvedValue({
+      ...session(), status: "expired", ...override,
+    } as ReturnType<typeof session>);
+
+    await expect(expireCheckoutPaymentProviderSession({ stripe, sessionId: "cs_test_accepted" }))
+      .rejects.toMatchObject({ code: "invalid_session", message: "Sandbox checkout reference could not be verified." });
+  });
+
+  it.each(["account failure", "account mismatch", "expiration failure"])("redacts %s and refuses unproven expiration", async (failure) => {
+    const stripe = stripeClient();
+    const ownAccount = vi.spyOn(stripe.accounts, "retrieve").mockResolvedValue(account());
+    const expireSession = vi.spyOn(stripe.checkout.sessions, "expire");
+    const privateError = new Error("Private provider payload with recipient address and secret");
+    if (failure === "account failure") ownAccount.mockRejectedValueOnce(privateError);
+    else if (failure === "account mismatch") ownAccount.mockResolvedValueOnce(account("acct_unapproved"));
+    else expireSession.mockRejectedValueOnce(privateError);
+
+    const error = await expireCheckoutPaymentProviderSession({ stripe, sessionId: "cs_test_accepted" })
+      .catch((reason: unknown) => reason);
+
+    expect(error).toMatchObject(failure === "expiration failure"
+      ? { code: "provider_unavailable", message: "Payment provider could not be reached." }
+      : {
+        code: failure === "account mismatch" ? "account_mismatch" : "account_unverified",
+        message: "Payment provider account could not be verified.",
+      });
+    expect((error as Error).cause).toBeUndefined();
+    if (failure !== "expiration failure") expect(expireSession).not.toHaveBeenCalled();
+  });
+
   it("rejects credentials belonging to a different account", async () => {
     const stripe = stripeClient();
     vi.spyOn(stripe.accounts, "retrieve").mockResolvedValue(account("acct_unapproved"));

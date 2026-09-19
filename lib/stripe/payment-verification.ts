@@ -117,3 +117,29 @@ export async function retrieveCheckoutPaymentProviderBundle(input: {
     throw new StripePaymentVerificationReadError("provider_unavailable");
   }
 }
+
+export async function expireCheckoutPaymentProviderSession(input: {
+  sessionId: string;
+  stripe?: Stripe;
+}): Promise<Stripe.Checkout.Session> {
+  if (typeof input.sessionId !== "string" || !/^cs_test_[A-Za-z0-9_]+$/.test(input.sessionId)) {
+    throw new StripePaymentVerificationReadError("invalid_session");
+  }
+  const stripe = input.stripe ?? getStripeClient();
+  await verifyStripeAccount(stripe);
+  try {
+    const session = await stripe.checkout.sessions.expire(
+      input.sessionId,
+      { expand: sessionExpansions },
+      requestOptions,
+    );
+    if (!session || session.object !== "checkout.session" || session.id !== input.sessionId ||
+      session.livemode !== false || session.mode !== "payment" || session.status !== "expired") {
+      throw new StripePaymentVerificationReadError("invalid_session");
+    }
+    return session;
+  } catch (error) {
+    if (error instanceof StripePaymentVerificationReadError) throw error;
+    throw new StripePaymentVerificationReadError("provider_unavailable");
+  }
+}
