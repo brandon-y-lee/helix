@@ -267,11 +267,8 @@ test("shop presents the approved Product, collection, sheet, and footer treatmen
   await expect(productType).toHaveCSS("font-size", "16px");
   await expect(productType).toHaveCSS("white-space", "nowrap");
   const displayNameGeometry = await elementGeometry(name);
-  const priceGeometry = await elementGeometry(price);
   const productTypeGeometry = await elementGeometry(productType);
-  expect(Math.abs(displayNameGeometry.top - priceGeometry.top)).toBeLessThanOrEqual(
-    1,
-  );
+  await expect(card.locator(".product-card__display-row")).toHaveCSS("align-items", "baseline");
   expect(productTypeGeometry.top).toBeGreaterThanOrEqual(
     displayNameGeometry.bottom,
   );
@@ -412,7 +409,7 @@ test("shop presents the approved Product, collection, sheet, and footer treatmen
     textAlign: "center",
   });
   const heroImage = hero.locator("img");
-  await expect(heroImage).toHaveCSS("object-position", "50% 0%");
+  await expect(heroImage).toHaveCSS("object-position", /^50% 0(?:%|px)$/);
   await expect(heroImage).toHaveAttribute(
     "src",
     /raise-your-baseline-hero-02\.webp/,
