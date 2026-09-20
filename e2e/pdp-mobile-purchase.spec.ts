@@ -132,10 +132,18 @@ for (const viewport of [
     await expectStickyVisible(page, true);
     expect((await box(page.locator("[data-pdp-video-start]"))).y).toBeGreaterThan(0);
 
-    const stickyBox = await box(page.locator(".pdp-sticky-purchase"));
+    const sticky = page.locator(".pdp-sticky-purchase");
+    const stickyBox = await box(sticky);
+    const notice = sticky.locator(".checkout-panel__notice");
+    const noticeSpace = await notice.count()
+      ? (await box(notice)).height + await notice.evaluate((element) =>
+        Number.parseFloat(getComputedStyle(element.parentElement!).rowGap))
+      : 0;
     // Playwright desktop-browser viewport emulation has a zero hardware safe-area inset.
-    expect(stickyBox.height).toBeGreaterThanOrEqual(64);
-    expect(stickyBox.height).toBeLessThanOrEqual(76);
+    // The required Sandbox notice sits above the unchanged purchase controls.
+    expect(stickyBox.height - noticeSpace).toBeGreaterThanOrEqual(64);
+    expect(stickyBox.height - noticeSpace).toBeLessThanOrEqual(76);
+    expect(stickyBox.y).toBeGreaterThanOrEqual(0);
     expect(stickyBox.x).toBeCloseTo(0, 0);
     expect(stickyBox.width).toBeCloseTo(await page.evaluate(() => document.documentElement.clientWidth), 0);
     expect(stickyBox.y + stickyBox.height).toBeCloseTo(viewport.height, 0);
