@@ -3,7 +3,7 @@ import type { VerifiedCheckoutPaymentFacts } from "@/lib/checkout/payment-verifi
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const boundary = vi.hoisted(() => ({
-  cookieGet: vi.fn(), cookieSet: vi.fn(), identity: vi.fn(),
+  cookieGet: vi.fn(), cookieSet: vi.fn(), identity: vi.fn(), revalidate: vi.fn(),
   retrieveSession: vi.fn(), expireSession: vi.fn(), retrieveBundle: vi.fn(), rpc: vi.fn(), from: vi.fn(),
   authorizeReceipt: vi.fn(), loadContract: vi.fn(), finalizePayment: vi.fn(),
   recordException: vi.fn(), getException: vi.fn(), resolveExceptions: vi.fn(), isLegacyOrder: vi.fn(), verifiedDelivery: vi.fn(),
@@ -12,7 +12,7 @@ const boundary = vi.hoisted(() => ({
 vi.mock("next/headers", () => ({
   cookies: async () => ({ get: boundary.cookieGet, set: boundary.cookieSet }),
 }));
-vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("next/cache", () => ({ revalidatePath: boundary.revalidate }));
 vi.mock("@/lib/auth/session", () => ({
   getCurrentIdentity: boundary.identity, getCurrentUser: boundary.identity,
 }));
@@ -416,11 +416,14 @@ describe("verified cancellation outcome", () => {
 
 
 describe("owned paid receipt", () => {
-  it.each(["paid", "refunded"] as const)("renders only current %s display fields and the physical shipping address", async (currentStatus) => {
+  it.each([["pending_payment", "paid"], ["paid", "paid"], ["pending_payment", "refunded"]] as const)("renders %s to %s without invalidating caches during server rendering", async (initialStatus, currentStatus) => {
+    boundary.revalidate.mockImplementation(() => {
+      throw new Error("revalidatePath cannot be called during render");
+    });
     const { provider, pendingOrder, paidOrder } = paidFixture();
     provider.session.expires_at = Math.floor(Date.now() / 1000) + 1800;
     provider.session.url = null;
-    let storedOrder: Record<string, unknown> = pendingOrder;
+    let storedOrder: Record<string, unknown> = initialStatus === "paid" ? paidOrder : pendingOrder;
     boundary.from.mockImplementation((table: string) => {
       if (table === "orders") return result(storedOrder);
       if (table === "order_items") return result([{ id: "private-line-id", product_id: "private-product-id",
@@ -455,6 +458,9 @@ describe("owned paid receipt", () => {
       shipping: { name: "Shipping Recipient", line1: "10 Shipping Lane", line2: null,
         city: "Los Angeles", state: "CA", postal_code: "90001", country: "US" },
     });
+    expect(boundary.revalidate).not.toHaveBeenCalled();
+    expect(boundary.recordException).not.toHaveBeenCalled();
+    expect(boundary.finalizePayment).toHaveBeenCalledOnce();
   });
 });
 

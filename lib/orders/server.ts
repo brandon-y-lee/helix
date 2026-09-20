@@ -918,8 +918,6 @@ async function finalizePaidOrderSideEffects(order: OrderRow): Promise<void> {
 
   await qualifyReferralForPaidOrder(order.id);
   await clearPurchasedCartLines(order);
-  revalidatePath("/account");
-  revalidatePath("/rewards");
 }
 
 function paymentObservation(session: Stripe.Checkout.Session): Pick<CheckoutPaymentException, "paymentIntentId" | "paymentStatus" | "amountCents"> {
