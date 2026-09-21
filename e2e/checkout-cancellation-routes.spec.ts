@@ -54,11 +54,13 @@ test("the Cart return refreshes Points only after verified cancellation", async 
   }
 
   await cancelButton.click();
-  await expect(page).toHaveURL(/\/cart$/);
-  await expect(cancelButton).toHaveCount(0);
+  await expect(page).toHaveURL(/\/cart\?checkout=cancelled$/);
+  await expect(page.getByRole("status").filter({ hasText: "Sandbox checkout was cancelled." })).toBeVisible();
+  await expect(cancelButton).toBeDisabled();
   await expect(pointsBalance).toHaveText("Available Points Balance200");
   await expect(page.getByRole("radio", { name: "$5 off (200 Points)" })).toBeVisible();
   await expect(page.getByRole("button", { name: `Sandbox checkout ${formatPrice(cart.subtotal)}` })).toBeEnabled();
+  await expect(page.getByRole("status").filter({ hasText: "Sandbox checkout was cancelled." })).toBeVisible();
   expect(cancellationRequests).toEqual(["POST", "POST", "POST"]);
   await expect(page).toHaveTitle("Cart | helix");
 });
