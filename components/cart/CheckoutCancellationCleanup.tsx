@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { useCart } from "@/components/cart/useCart";
 
 type CancellationState = "idle" | "pending" | "cancelled" | "paid" | "processing" | "unavailable" | "error";
 
 export function CheckoutCancellationCleanup({ active }: { active: boolean }) {
+  const { refresh } = useCart();
   const [state, setState] = useState<CancellationState>("idle");
   if (!active) return null;
   const terminal = state === "cancelled" || state === "paid" || state === "unavailable";
@@ -32,6 +34,9 @@ export function CheckoutCancellationCleanup({ active }: { active: boolean }) {
         throw new Error("Cancellation could not be verified");
       }
       setState(result.status);
+      if (result.status === "cancelled" || result.status === "paid") {
+        void refresh();
+      }
     } catch {
       setState("error");
     }
