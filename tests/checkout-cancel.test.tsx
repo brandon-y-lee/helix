@@ -1,12 +1,21 @@
 import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CheckoutCancellationCleanup } from "@/components/cart/CheckoutCancellationCleanup";
 import {
   buildCheckoutCancelUrl,
   isCheckoutCancelledSearchParams,
 } from "@/lib/orders/checkout-cancel";
 
+const replaceLocation = vi.fn();
+beforeEach(() => {
+  replaceLocation.mockReset();
+  vi.stubGlobal("window", new Proxy(window, {
+    get: (target, key, receiver) => key === "location"
+      ? { replace: replaceLocation }
+      : Reflect.get(target, key, receiver),
+  }));
+});
 afterEach(() => vi.unstubAllGlobals());
 
 describe("checkout cancellation routing", () => {
@@ -39,6 +48,7 @@ describe("checkout cancellation routing", () => {
     render(<CheckoutCancellationCleanup active />);
 
     expect(fetchRequest).not.toHaveBeenCalled();
+    expect(replaceLocation).not.toHaveBeenCalled();
     await user.click(screen.getByRole("button", { name: "Cancel pending checkout" }));
 
     expect(fetchRequest).toHaveBeenCalledWith(
@@ -52,6 +62,7 @@ describe("checkout cancellation routing", () => {
       }),
     );
     expect(await screen.findByRole("status")).toHaveTextContent("Sandbox checkout was cancelled.");
+    expect(replaceLocation).toHaveBeenCalledExactlyOnceWith("/cart");
   });
 
   it("supports keyboard cancellation and retry while payment is processing", async () => {
@@ -70,10 +81,12 @@ describe("checkout cancellation routing", () => {
       "This payment is still processing. Try again shortly.",
     );
     expect(screen.getByRole("button")).toBeEnabled();
+    expect(replaceLocation).not.toHaveBeenCalled();
     await user.click(screen.getByRole("button"));
     expect(await screen.findByRole("status")).toHaveTextContent("Sandbox checkout was cancelled.");
     expect(screen.getByRole("button")).toBeDisabled();
     expect(fetchRequest).toHaveBeenCalledTimes(2);
+    expect(replaceLocation).toHaveBeenCalledExactlyOnceWith("/cart");
   });
 
   it.each([
@@ -89,6 +102,8 @@ describe("checkout cancellation routing", () => {
     expect(await screen.findByRole("status")).toHaveTextContent(message);
     expect(screen.getByRole("status")).not.toHaveTextContent("was cancelled");
     expect(screen.getByRole("button")).toBeDisabled();
+    if (status === "paid") expect(replaceLocation).toHaveBeenCalledExactlyOnceWith("/cart");
+    else expect(replaceLocation).not.toHaveBeenCalled();
   });
 
   it("disables repeat cancellation while the server response is pending", async () => {
@@ -104,9 +119,11 @@ describe("checkout cancellation routing", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Checking pending checkout…");
     await user.click(screen.getByRole("button"));
     expect(fetchRequest).toHaveBeenCalledTimes(1);
+    expect(replaceLocation).not.toHaveBeenCalled();
 
     await act(async () => { finishRequest(Response.json({ status: "cancelled" })); });
     expect(screen.getByRole("status")).toHaveTextContent("Sandbox checkout was cancelled.");
+    expect(replaceLocation).toHaveBeenCalledExactlyOnceWith("/cart");
   });
 
   it.each([429, 503])("keeps a %s failure retryable without claiming cancellation", async (status) => {
@@ -122,5 +139,6 @@ describe("checkout cancellation routing", () => {
     expect(screen.getByRole("status")).toHaveTextContent("We couldn't cancel checkout. Try again in a moment.");
     expect(screen.getByRole("status")).not.toHaveTextContent(/was cancelled|private details/);
     expect(screen.getByRole("button")).toBeEnabled();
+    expect(replaceLocation).not.toHaveBeenCalled();
   });
 });

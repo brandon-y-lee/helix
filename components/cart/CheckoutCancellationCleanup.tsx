@@ -32,6 +32,9 @@ export function CheckoutCancellationCleanup({ active }: { active: boolean }) {
         throw new Error("Cancellation could not be verified");
       }
       setState(result.status);
+      if (result.status === "cancelled" || result.status === "paid") {
+        window.location.replace("/cart");
+      }
     } catch {
       setState("error");
     }
