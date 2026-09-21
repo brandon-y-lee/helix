@@ -1,6 +1,7 @@
 import { expect, test } from "./storefront-fixture";
 import { createCartLayoutFixture } from "./cart-fixture";
 import { formatPrice } from "@/lib/products";
+import { REWARD_TIERS } from "@/lib/rewards/rules";
 
 test("the Cart return refreshes Points only after verified cancellation", async ({ page, request, storefront }) => {
   const retired = await request.get("/checkout/cancel", { maxRedirects: 0 });
@@ -8,6 +9,7 @@ test("the Cart return refreshes Points only after verified cancellation", async 
   expect(retired.headers().location).toBeUndefined();
 
   const cart = createCartLayoutFixture(storefront.snapshot.products, { lineCount: 1, quantity: 1 });
+  const tier = REWARD_TIERS[0];
   let cancelled = false;
   await page.route("**/api/cart", (route) => route.fulfill({
     contentType: "application/json",
@@ -16,8 +18,8 @@ test("the Cart return refreshes Points only after verified cancellation", async 
   await page.route("**/api/rewards/summary", (route) => route.fulfill({
     contentType: "application/json",
     body: JSON.stringify({
-      authenticated: true, pointsBalance: cancelled ? 200 : 0,
-      affordableTiers: cancelled ? [{ id: "points_200", points: 200, discountCents: 500, label: "$5 off" }] : [],
+      authenticated: true, pointsBalance: cancelled ? tier.points : 0,
+      affordableTiers: cancelled ? [tier] : [],
     }),
   }));
   const cancellationRequests: string[] = [];
@@ -57,8 +59,8 @@ test("the Cart return refreshes Points only after verified cancellation", async 
   await expect(page).toHaveURL(/\/cart\?checkout=cancelled$/);
   await expect(page.getByRole("status").filter({ hasText: "Sandbox checkout was cancelled." })).toBeVisible();
   await expect(cancelButton).toBeDisabled();
-  await expect(pointsBalance).toHaveText("Available Points Balance200");
-  await expect(page.getByRole("radio", { name: "$5 off (200 Points)" })).toBeVisible();
+  await expect(pointsBalance).toHaveText(`Available Points Balance${tier.points}`);
+  await expect(page.getByRole("radio", { name: `${tier.label} (${tier.points} Points)` })).toBeVisible();
   await expect(page.getByRole("button", { name: `Sandbox checkout ${formatPrice(cart.subtotal)}` })).toBeEnabled();
   await expect(page.getByRole("status").filter({ hasText: "Sandbox checkout was cancelled." })).toBeVisible();
   expect(cancellationRequests).toEqual(["POST", "POST", "POST"]);
