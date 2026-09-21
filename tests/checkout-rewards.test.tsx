@@ -37,7 +37,7 @@ describe("Checkout helix rewards state", () => {
       },
     }, 503)));
 
-    render(<CheckoutPanel disabled={false} subtotal={5_000} />);
+    render(<CheckoutPanel disabled={false} subtotal={5_000} cartUpdatedAt={1} />);
 
     expect(screen.getByText(SANDBOX_CHECKOUT_NOTICE)).toBeVisible();
     expect(screen.getByRole("button", { name: "Sandbox checkout $50.00" })).toBeEnabled();
@@ -53,7 +53,7 @@ describe("Checkout helix rewards state", () => {
       affordableTiers: [],
     })));
 
-    render(<CheckoutPanel disabled={false} subtotal={5_000} />);
+    render(<CheckoutPanel disabled={false} subtotal={5_000} cartUpdatedAt={1} />);
 
     expect(await screen.findByText(/an account is required/i)).toBeVisible();
     expect(screen.queryByText(/temporarily unavailable/i)).not.toBeInTheDocument();

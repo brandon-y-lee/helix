@@ -61,9 +61,9 @@ test("Checkout cancellation returns to the intact Cart", async ({ page }) => {
 
   await expect(page.getByText("You returned from checkout. Your cart is still here.")).toBeVisible();
   await page.getByRole("button", { name: "Cancel pending checkout" }).click();
-  await expect(
-    page.getByRole("status").filter({ hasText: "Sandbox checkout was cancelled" }),
-  ).toBeVisible();
+  await expect(page).toHaveURL(/\/cart\?checkout=cancelled$/);
+  await expect(page.getByRole("status").filter({ hasText: "Sandbox checkout was cancelled." })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Cancel pending checkout" })).toBeDisabled();
   await expect(
     page.locator("#content").getByText("Your cart is empty."),
   ).toBeVisible();

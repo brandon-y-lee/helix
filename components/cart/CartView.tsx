@@ -22,6 +22,7 @@ export function CartView({
     lines,
     subtotal,
     count,
+    dataUpdatedAt,
     loading,
     hasLoadedCart,
     error: queryError,
@@ -45,7 +46,7 @@ export function CartView({
   const freeShippingQualified = qualifiesForFreeStandardShipping(subtotal);
   const freeShippingRemaining = remainingForFreeStandardShipping(subtotal);
   const checkoutDisabled = loading || isMutating || lines.some((line) => !line.available || line.quantity <= 0);
-  const checkout = <CheckoutPanel disabled={checkoutDisabled} subtotal={subtotal} />;
+  const checkout = <CheckoutPanel disabled={checkoutDisabled} subtotal={subtotal} cartUpdatedAt={dataUpdatedAt} />;
 
   async function retryCart() {
     resetErrors();

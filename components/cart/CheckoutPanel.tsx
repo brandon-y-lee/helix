@@ -36,9 +36,11 @@ function isRewardTier(value: unknown): value is RewardTierSummary {
 export function CheckoutPanel({
   disabled,
   subtotal,
+  cartUpdatedAt,
 }: {
   disabled: boolean;
   subtotal: number;
+  cartUpdatedAt: number;
 }) {
   const [rewardSummary, setRewardSummary] = useState<RewardsSummaryResponse | null>(null);
   const [rewardsStatus, setRewardsStatus] = useState<
@@ -80,7 +82,7 @@ export function CheckoutPanel({
     return () => {
       active = false;
     };
-  }, [subtotal]);
+  }, [subtotal, cartUpdatedAt]);
 
   async function startCheckout() {
     if (pending || disabled) return;
