@@ -746,7 +746,7 @@ export async function createStripeCheckoutSession(
       cancel_url: buildCheckoutCancelUrl(origin), shipping_address_collection: { allowed_countries: ["US"] },
       shipping_options: shippingOptions({ ...config, standardShippingRateId: prepared.contract.shippingRateId }, prepared.contract.freeShipping),
       automatic_tax: { enabled: prepared.contract.automaticTaxEnabled === true },
-      after_expiration: { recovery: { enabled: false } }, allow_promotion_codes: false,
+      after_expiration: { recovery: { enabled: false } },
       discounts: prepared.contract.couponId ? [{ coupon: prepared.contract.couponId }] : undefined,
       payment_intent_data: { metadata: { order_id: order.id, attempt_id: prepared.attemptId,
         environment: CHECKOUT_ENVIRONMENT, schema: CHECKOUT_SCHEMA_VERSION } },

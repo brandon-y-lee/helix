@@ -138,9 +138,12 @@ function useCheckoutFixture(overrides: Record<string, unknown> = {}, priceCents 
   const activeOrder = { ...order, stripe_checkout_session_id: null, ...overrides };
   const session = providerSession();
   allowOwnedReceipt();
-  boundary.createSession.mockImplementation(async (params: Stripe.Checkout.SessionCreateParams) => ({
-    ...session, metadata: params.metadata, client_reference_id: params.client_reference_id, customer: params.customer ?? null,
-  }));
+  boundary.createSession.mockImplementation(async (params: Stripe.Checkout.SessionCreateParams) => {
+    if (params.discounts && params.allow_promotion_codes !== undefined) {
+      throw new Error("You may only specify one of these parameters: allow_promotion_codes, discounts.");
+    }
+    return { ...session, metadata: params.metadata, client_reference_id: params.client_reference_id, customer: params.customer ?? null };
+  });
   boundary.retrieveSession.mockResolvedValue(session);
   boundary.from.mockImplementation((table: string) => {
     if (table === "orders") return queryResult(activeOrder);
@@ -205,11 +208,20 @@ describe("customer checkout admission", () => {
     expect(boundary.retrieveSession).toHaveBeenCalledWith(sessionId, expect.objectContaining({ expand: expect.any(Array) }), expect.any(Object));
     expect(boundary.listLineItems).toHaveBeenCalledOnce();
   });
-  it("creates card-only Sessions and records the actual accepted method policy", async () => {
-    useCheckoutFixture();
-    const result = await createStripeCheckoutSession();
+  it.each([undefined, "points_200"])("creates card-only Sessions with the accepted reward tier %s", async (rewardTierId) => {
+    useCheckoutFixture({ user_id: "user-1" });
+    boundary.identity.mockResolvedValue({ id: "user-1", email: "customer@example.test" });
+    vi.stubEnv("STRIPE_REWARD_200_COUPON_ID", "coupon_points_200");
+    const originalFrom = boundary.from.getMockImplementation()!;
+    boundary.from.mockImplementation((table) => table === "rewards_reservations" ? queryResult([]) : originalFrom(table));
+    const originalRpc = boundary.rpc.getMockImplementation()!;
+    boundary.rpc.mockImplementation((name, ...args) => name === "reserve_rewards_points"
+      ? Promise.resolve({ data: true, error: null }) : originalRpc(name, ...args));
+    const result = await createStripeCheckoutSession({ rewardTierId });
     expect(result).toMatchObject({ orderId, sessionId });
-    expect(boundary.createSession).toHaveBeenCalledWith(expect.objectContaining({ payment_method_types: ["card"] }), expect.any(Object));
+    expect(boundary.createSession).toHaveBeenCalledWith(expect.objectContaining({
+      payment_method_types: ["card"], discounts: rewardTierId ? [{ coupon: "coupon_points_200" }] : undefined,
+    }), expect.any(Object));
     expect(boundary.rpc).toHaveBeenCalledWith("prepare_checkout_attempt_once", expect.objectContaining({
       p_order_id: orderId, p_terms: expect.objectContaining({ accountId, currency: "USD", merchandiseSubtotalCents: 5500 }),
     }));
