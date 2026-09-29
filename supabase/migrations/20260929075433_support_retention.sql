@@ -435,4 +435,3 @@ begin
       then interval '1 day' else interval '5 minutes' end,updated_at=v_now where id=p_id;
   return true;
 end $$;
-
