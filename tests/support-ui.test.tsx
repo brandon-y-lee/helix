@@ -149,6 +149,31 @@ describe("private support conversation", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
+  it("shows retained inquiry history without offering changes after content removal", () => {
+    const request = vi.fn();
+    render(<SupportConversation initialInquiry={{ ...inquiry, status: "closed", redactedAt: inquiry.updatedAt, messages: [] }} canReply initialAiStatus={{ available: true, job: null }} request={request} />);
+    expect(screen.getByText("This inquiry’s content has been removed under the retention policy. It cannot be reopened or changed.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Reopen inquiry" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "Reply" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "Internal note" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Generate draft" })).not.toBeInTheDocument();
+    expect(request).not.toHaveBeenCalled();
+  });
+
+  it.each(["Refresh inquiry", "Load earlier messages"])("replaces previously visible content when %s discovers retention", async (action) => {
+    const redacted = { ...inquiry, revision: 2, status: "closed", redactedAt: inquiry.updatedAt, subject: "Content removed", name: "", email: "", messages: [] };
+    const request = vi.fn().mockResolvedValue(new Response(JSON.stringify({ inquiry: redacted })));
+    render(<SupportConversation initialInquiry={{ ...inquiry, nextMessageCursor: "00000000-0000-4000-8000-000000000020" }} canReply request={request} />);
+    fireEvent.change(screen.getByLabelText("Reply"), { target: { value: "Local reply text." } });
+    await userEvent.click(screen.getByRole("button", { name: action }));
+    expect(await screen.findByText("This inquiry’s content has been removed under the retention policy. It cannot be reopened or changed.")).toBeInTheDocument();
+    expect(screen.queryByText(inquiry.messages[0].body)).not.toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "Reply" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Reopen inquiry" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Load earlier messages" })).not.toBeInTheDocument();
+    expect(request).toHaveBeenCalledTimes(1);
+  });
+
   it("loads earlier messages once each while preserving unsaved reply content and its current context", async () => {
     const cursor = "00000000-0000-4000-8000-000000000020";
     const initial = { ...inquiry, nextMessageCursor: cursor };

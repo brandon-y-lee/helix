@@ -27,8 +27,9 @@ function draftFailureReason(code: string | null): string {
   return "Draft generation failed. You can retry or continue with a manual reply.";
 }
 
-export function SupportConversation({ initialInquiry, canReply, initialAiStatus = { available: false, job: null }, request = fetch, navigationEnabled = true }: { initialInquiry: SupportInquiryDetail; canReply: boolean; initialAiStatus?: SupportAiStatus; request?: typeof fetch; navigationEnabled?: boolean }) {
+export function SupportConversation({ initialInquiry, canReply: accessCanReply, initialAiStatus = { available: false, job: null }, request = fetch, navigationEnabled = true }: { initialInquiry: SupportInquiryDetail; canReply: boolean; initialAiStatus?: SupportAiStatus; request?: typeof fetch; navigationEnabled?: boolean }) {
   const [inquiry, setInquiry] = useState(initialInquiry);
+  const canReply = accessCanReply && !inquiry.redactedAt;
   const [subject, setSubject] = useState(initialInquiry.draft?.subject ?? `Re: ${initialInquiry.subject}`.slice(0, 200));
   const [body, setBody] = useState(initialInquiry.draft?.body ?? "");
   const [note, setNote] = useState("");
@@ -129,6 +130,11 @@ export function SupportConversation({ initialInquiry, canReply, initialAiStatus 
       const older = result?.inquiry as SupportInquiryDetail | undefined;
       if (!response.ok || !older || older.id !== inquiry.id || !Array.isArray(older.messages) || older.messages.length > 50) {
         setError("Earlier messages could not be loaded. Retry, or refresh the inquiry if its history has changed. Your edits have been kept.");
+        return;
+      }
+      if (older.redactedAt) {
+        setInquiry(older);
+        setHistoryFocus((value) => value + 1);
         return;
       }
       if (older.nextMessageCursor === cursor) {
@@ -354,7 +360,7 @@ export function SupportConversation({ initialInquiry, canReply, initialAiStatus 
         {!unchanged && draft ? <p className={styles.muted}>Save your changes before approving a reply.</p> : null}
         {draft && !draft.approved && (reviewRequired || draft.inquiryRevision !== inquiry.revision) ? <p className={styles.notice}>Review the latest conversation and save your draft again before approving.</p> : null}
         <div className={styles.actions}><button className={styles.button} type="button" disabled={!approvable || pending} onClick={() => { if (draft) void mutate({ action: "approve_reply", expectedRevision: inquiry.revision, draftVersion: draft.version }); }}>Approve and queue reply</button></div>
-      </section> : <p className={styles.notice}>You have read-only access to this conversation.</p>}
+      </section> : <p className={styles.notice}>{inquiry.redactedAt ? "This inquiry’s content has been removed under the retention policy. It cannot be reopened or changed." : "You have read-only access to this conversation."}</p>}
       {canReply ? <section className={`${styles.card} ${styles.note}`} aria-labelledby="support-note-title">
         <h2 id="support-note-title">Private notes</h2>
         <p className={styles.muted}>Internal notes are visible only to support and are never included in outgoing replies.</p>

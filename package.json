@@ -10,6 +10,7 @@
   "scripts": {
     "email:auth": "tsx scripts/auth-email.ts",
     "email:deliveries": "tsx scripts/email-delivery.ts",
+    "email:operations": "tsx scripts/resend-operations.ts",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
