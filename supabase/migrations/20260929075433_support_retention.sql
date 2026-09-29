@@ -118,11 +118,15 @@ begin
       and (coalesce(j.received_at,b.created_at,p.created_at)<=p_now-interval '90 days'
         or (i.synthetic_at is not null and i.created_at<=p_now-interval '30 days') or i.redacted_at is not null)
       and (p.lease_expires_at is null or p.lease_expires_at<=p_now)
+      and (p.cleanup_lease_expires_at is null or p.cleanup_lease_expires_at<=p_now)
     order by coalesce(j.received_at,b.created_at,p.created_at),p.id limit p_limit loop
     select * into v_inquiry from private.support_inquiries where id=v_candidate.inquiry_id for update skip locked;
     if not found or v_inquiry.retention_hold_until>p_now then continue; end if;
     select * into v_photo from private.support_photos where id=v_candidate.id for update skip locked;
-    if not found or v_photo.clean_delete_requested_at is not null or v_photo.lease_expires_at>p_now then continue; end if;
+    -- An active cleanup worker may have claimed only the raw path. Keep its deletion
+    -- scope unchanged until acknowledgement or lease expiry; recheck after acquiring locks.
+    if not found or v_photo.clean_delete_requested_at is not null or v_photo.lease_expires_at>p_now
+      or v_photo.cleanup_lease_expires_at>p_now then continue; end if;
     update private.support_photos set clean_delete_requested_at=p_now,cleanup_next_attempt_at=least(cleanup_next_attempt_at,p_now),
       state=case when state in ('pending','processing') then 'rejected' else state end,
       rejection_reason=case when state in ('pending','processing') then 'expired' else rejection_reason end,

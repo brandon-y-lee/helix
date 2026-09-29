@@ -7,7 +7,7 @@ export const privacyPolicy: LegalDocument = {
   description:
     "Current account, Cart, search, sandbox Checkout, rewards, referral, private-feedback, browser-storage, and provider data practices on the helix Platform.",
   canonical: "/privacy",
-  status: "Updated September 28, 2026",
+  status: "Updated September 29, 2026",
   intro:
     "This page is a factual prelaunch summary of information processing currently implemented on the helix Platform. It is not an operative Privacy Policy until a Legal Operator and verified legal contact details exist.",
   sections: [
@@ -28,7 +28,8 @@ export const privacyPolicy: LegalDocument = {
         "Sandbox order records store order numbers, item snapshots, Stripe Checkout Session and PaymentIntent identifiers, checkout status, shipping and billing snapshots, reward and referral references, totals, and timestamps.",
         "Helix rewards, referrals, and private feedback store Available Points Balances, Points Ledger entries, Referral Codes, Referral Attributions, one-time Referral Rewards, private first-party feedback responses, and reward issuance status.",
         `${supportPolicy.contactStatus} When enabled, the form stores your name, email address, Inquiry Type, subject, and message privately for support. An optional Order association requires verified access to that Order. Only a confirmed acceptance means your Inquiry was received.`,
-        "Newsletter signup is not open. The footer updates module does not collect email addresses.",
+        "When enabled, support also accepts email replies and up to five JPEG, PNG, or WebP photos per message. Photos are stored privately, checked for supported content, and processed to remove unnecessary metadata.",
+        "When marketing signup is enabled, it records your email address, explicit permission, confirmation and withdrawal choices. Product availability requests are separate from marketing subscriptions; requesting one Product's notice does not subscribe you to general marketing.",
       ],
     },
     {
@@ -50,14 +51,15 @@ export const privacyPolicy: LegalDocument = {
       body: [
         "Information is used to operate account access, password reset, profile updates, product discovery, cart persistence, sandbox Checkout, order history, rewards, referrals, private feedback, security checks, and site reliability.",
         "When Support Intake is enabled, authorized support Operators review private inquiries, keep internal notes, and approve replies. Email acknowledgement and reply delivery may be unavailable during development testing or a provider outage.",
-        "Sandbox Checkout is used for payment simulation only. Sandbox Orders do not ship Products, purchase labels, send live Customer communications, send real Trustpilot invitations, personalize advertising, or process live payments.",
+        "When internal draft assistance is enabled and requested by the owner, selected conversation text and approved support information can be processed by OpenAI to suggest a reply. Photos are excluded from this input. A human must review and approve every reply before it can be sent.",
+        "Sandbox Checkout is used for payment simulation only. When development email is enabled, demo Order confirmations and simulated Tracking notices may be sent to approved test recipients. Sandbox Orders do not ship Products, purchase labels, send real Trustpilot invitations, personalize advertising, or process live payments.",
       ],
     },
     {
       id: "providers",
       title: "Service Providers",
       body: [
-        "Current providers reflected in the codebase include Supabase for authentication, profile, catalog, cart, order, reward, referral, private-feedback, and support data; Stripe for sandbox Checkout and payment status; Resend for enabled email delivery; Algolia for product search; Vercel and Next.js for hosting and application delivery; and Google Fonts for web font delivery.",
+        "Current providers reflected in the codebase include Supabase for authentication, profile, catalog, cart, order, reward, referral, private-feedback, support and subscription data; Stripe for sandbox Checkout and payment status; Resend for enabled email delivery, receiving and marketing preferences; OpenAI for enabled internal reply drafting; Algolia for product search; Vercel and Next.js for hosting and application delivery; and Google Fonts for web font delivery.",
         "Trustpilot invitations are not implemented in the current codebase. Sandbox orders do not send real Trustpilot invitations, and reward points are never conditioned on Trustpilot activity.",
         "Providers process information needed to deliver their configured site functions, subject to their own terms and privacy practices.",
       ],
@@ -78,7 +80,8 @@ export const privacyPolicy: LegalDocument = {
         "Guest cart tokens are configured for a 60-day cookie lifetime, and guest cart rows include an expiration timestamp.",
         "Guest receipt capabilities last no more than 24 hours from issuance, and each Order's receipt access has a fixed maximum window. Later checkouts can reuse an unexpired capability; viewing a receipt never extends its deadline. Expiry removes browser receipt access without deleting the underlying Order history.",
         "Order, payment-attempt, rewards-ledger, referral, and private-feedback records are retained as auditable sandbox transaction history unless removed through an administrative process.",
-        "Provider log retention follows each provider's configured service. No customer-facing provider-log retention schedule has been published.",
+        "Support cleanup is configured for Inquiry text twelve months after closure, photos ninety days after receipt, unsent drafts thirty days after creation, and minimal operational audit twelve months after creation. Reopening resets the Inquiry closure clock, but not photo age. Explicitly marked support and email test copies use a thirty-day cleanup period. Necessary safety or legal holds have a recorded reason and expiry; unresolved delivery may require reconciliation before cleanup.",
+        "Cleanup removes private content and derived copies while keeping minimal records needed to prevent duplicate sends or uploads. It does not delete unrelated Order or accounting history. Provider-held copies follow each provider's terms and account settings. Resend publishes a thirty-day email and log retention period for its Free, Pro and Scale plans, separate from Helix's cleanup of support text and photos.",
       ],
     },
     {
@@ -88,6 +91,7 @@ export const privacyPolicy: LegalDocument = {
         "Account holders can access and update profile names through the Account page and can request a password reset through the account forms.",
         "Users can remove cart items or clear the cart through the cart interface.",
         "Signed-in users can view their own sandbox order history, rewards ledger, referral code, and eligible private-feedback requests in Account and Rewards areas.",
+        "When email services are enabled, marketing links let you withdraw from the welcome series or all marketing. Product notification links let you cancel the corresponding Product request separately. These choices do not stop necessary account, Order or support messages.",
         "The Cookie notice explains current required and functional storage. Your Privacy Choices explains the current state of sale, sharing, and targeted-advertising controls.",
       ],
     },
