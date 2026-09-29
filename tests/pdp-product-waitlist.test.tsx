@@ -89,6 +89,8 @@ describe("Waitlist Product PDP enrollment", () => {
     );
     expect(email).toHaveFocus();
     expect(consent).not.toBeChecked();
+    expect(within(dialog).getByText(/expires 12 months after/)).toBeInTheDocument();
+    expect(within(dialog).getByRole("link", { name: "Manage Product notifications" })).toHaveAttribute("href", "/product-notifications");
     expect(document.body).toHaveAttribute("data-sheet-scroll-lock");
 
     await user.keyboard("{Escape}");
@@ -122,7 +124,7 @@ describe("Waitlist Product PDP enrollment", () => {
     );
 
     expect(await within(dialog).findByRole("status")).toHaveTextContent(
-      "You're on the waitlist for Mineral Guard.",
+      "Your Product notification request for Mineral Guard was received.",
     );
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/product-waitlist",
@@ -130,13 +132,33 @@ describe("Waitlist Product PDP enrollment", () => {
         method: "POST",
         credentials: "same-origin",
         cache: "no-store",
-        body: JSON.stringify({
-          productId: "123e4567-e89b-42d3-a456-426614174141",
-          email: "Customer@Example.COM",
-          marketingConsent: false,
-        }),
       }),
     );
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+      productId: "123e4567-e89b-42d3-a456-426614174141",
+      email: "Customer@Example.COM",
+      marketingConsent: false,
+      requestId: expect.stringMatching(/^[0-9a-f-]{36}$/),
+    });
+  });
+
+  it("retains a request identity after a lost response and confirms a separate marketing choice", async () => {
+    fetchMock.mockRejectedValueOnce(new Error("Response lost")).mockResolvedValue(new Response(JSON.stringify({ ok: true })));
+    const user = userEvent.setup();
+    renderWaitlist();
+    await user.click(screen.getAllByRole("button", { name: "Join the waitlist" })[0]);
+    const dialog = screen.getByRole("dialog");
+    await user.type(within(dialog).getByRole("textbox", { name: "Email address" }), "delivered@resend.dev");
+    await user.click(within(dialog).getByRole("checkbox"));
+    const submit = within(dialog).getByRole("button", { name: "Join the waitlist" });
+    await user.click(submit);
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent("temporarily unavailable");
+    await user.click(submit);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const first = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(first).toMatchObject({ marketingConsent: true, requestId: expect.stringMatching(/^[0-9a-f-]{36}$/) });
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual(first);
+    expect(await within(dialog).findByRole("status")).toHaveTextContent("If eligible, check your inbox to confirm marketing emails separately.");
   });
 
   it("retains the email after a recoverable error", async () => {

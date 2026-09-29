@@ -1,7 +1,11 @@
 import "server-only";
 
-import { createHmac } from "node:crypto";
+import { createHmac, randomBytes } from "node:crypto";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { assertEmailEnvironment, emailRecipientAllowed, type EmailEnvironment } from "@/lib/email/config";
+import { readBoundedBody } from "@/lib/email/provider";
+import { readMarketingTemplateContract, type MarketingTemplateContract } from "@/lib/marketing/contract";
+import { NOTIFICATION_REQUEST_ID } from "@/lib/waitlist/notifications";
 
 const REQUEST_BODY_LIMIT = 2048;
 const EMAIL_MAX_LENGTH = 254;
@@ -10,7 +14,7 @@ const PRODUCT_ID_PATTERN =
 const EMAIL_PATTERN =
   /^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/i;
 
-export const WAITLIST_CONSENT_POLICY_VERSION = "2026-08-10";
+export const WAITLIST_CONSENT_POLICY_VERSION = "2026-09-29-waitlist-v1";
 export const WAITLIST_ENROLLMENT_SOURCE = "pdp_waitlist";
 
 type WaitlistEnrollmentInput = {
@@ -20,6 +24,9 @@ type WaitlistEnrollmentInput = {
   policyVersion: string;
   source: string;
   abuseKey: string;
+  requestId: string;
+  confirmationToken: string | null;
+  marketingTemplateContract: MarketingTemplateContract | null;
 };
 
 type WaitlistEnrollmentResult = {
@@ -32,6 +39,7 @@ export type ProductWaitlistRequestAdapters = {
     input: WaitlistEnrollmentInput,
   ) => Promise<WaitlistEnrollmentResult>;
   abuseKey: (request: Request) => string;
+  env?: EmailEnvironment;
 };
 
 function response(
@@ -94,17 +102,11 @@ async function readBody(request: Request): Promise<unknown> {
     }
   }
 
-  const text = await request.text();
-  if (Buffer.byteLength(text, "utf8") > REQUEST_BODY_LIMIT) {
-    throw new WaitlistRequestError(
-      "payload_too_large",
-      "The request payload is too large.",
-      413,
-    );
-  }
   try {
+    const text = await readBoundedBody(request, REQUEST_BODY_LIMIT);
     return JSON.parse(text) as unknown;
-  } catch {
+  } catch (error) {
+    if (error instanceof RangeError) throw new WaitlistRequestError("payload_too_large", "The request payload is too large.", 413);
     throw new WaitlistRequestError(
       "invalid_json",
       "The request body must be valid JSON.",
@@ -144,6 +146,7 @@ export function productWaitlistAbuseKey(request: Request): string {
 
 function defaultAdapters(): ProductWaitlistRequestAdapters {
   return {
+    env: process.env,
     abuseKey: productWaitlistAbuseKey,
     enroll: async (input) => {
       const { data, error } = await createSupabaseAdminClient().rpc(
@@ -155,8 +158,11 @@ function defaultAdapters(): ProductWaitlistRequestAdapters {
           p_policy_version: input.policyVersion,
           p_source: input.source,
           p_abuse_key: input.abuseKey,
+          p_request_id: input.requestId,
+          p_confirmation_token: input.confirmationToken,
+          p_marketing_template_contract: input.marketingTemplateContract,
         },
-      );
+      ).abortSignal(AbortSignal.timeout(3_000));
       return { data, error };
     },
   };
@@ -166,6 +172,7 @@ export async function handleProductWaitlistRequest(
   request: Request,
   adapters: ProductWaitlistRequestAdapters = defaultAdapters(),
 ): Promise<Response> {
+  if (request.method !== "POST") return errorResponse("method_not_allowed", "Use the notification form.", 405);
   if (!requestHasSameOrigin(request)) {
     return errorResponse(
       "same_origin_required",
@@ -187,11 +194,13 @@ export async function handleProductWaitlistRequest(
     const productId = input.productId;
     const email = normalizedEmail(input.email);
     const marketingConsent = input.marketingConsent ?? false;
+    const requestId = input.requestId;
     if (
       typeof productId !== "string" ||
       !PRODUCT_ID_PATTERN.test(productId) ||
       email === null ||
       typeof marketingConsent !== "boolean"
+      || typeof requestId !== "string" || !NOTIFICATION_REQUEST_ID.test(requestId)
     ) {
       throw new WaitlistRequestError(
         "invalid_enrollment",
@@ -200,6 +209,16 @@ export async function handleProductWaitlistRequest(
       );
     }
 
+    let confirmationToken: string | null = null;
+    let marketingTemplateContract: MarketingTemplateContract | null = null;
+    if (marketingConsent) {
+      const env = adapters.env ?? process.env;
+      if (env.HELIX_MARKETING_ENABLED !== "true") throw new Error("Marketing is unavailable.");
+      assertEmailEnvironment(env);
+      if (!emailRecipientAllowed(email, env)) return response({ ok: true, message: "Your Product notification request was received." }, 200);
+      marketingTemplateContract = readMarketingTemplateContract(env);
+      confirmationToken = randomBytes(32).toString("base64url");
+    }
     const result = await adapters.enroll({
       productId,
       normalizedEmail: email,
@@ -207,6 +226,9 @@ export async function handleProductWaitlistRequest(
       policyVersion: WAITLIST_CONSENT_POLICY_VERSION,
       source: WAITLIST_ENROLLMENT_SOURCE,
       abuseKey: adapters.abuseKey(request),
+      requestId,
+      confirmationToken,
+      marketingTemplateContract,
     });
 
     const enrollment = result.data as
@@ -238,7 +260,7 @@ export async function handleProductWaitlistRequest(
     return response(
       {
         ok: true,
-        message: "Your Product waitlist enrollment is confirmed.",
+        message: "Your Product notification request was received.",
       },
       200,
     );

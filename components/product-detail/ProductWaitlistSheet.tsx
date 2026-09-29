@@ -11,6 +11,7 @@ import {
   PERSISTENT_SHEET_MOTION_TRANSITION,
   Sheet,
 } from "@/components/overlays/Sheet";
+import styles from "@/components/waitlist/ProductNotifications.module.css";
 
 type SubmissionState =
   | { kind: "idle"; message: "" }
@@ -32,6 +33,8 @@ export function ProductWaitlistSheet({
   returnFocus: () => void;
 }) {
   const emailRef = useRef<HTMLInputElement>(null);
+  const attempt = useRef<{ payload: string; id: string } | null>(null);
+  const inFlight = useRef(false);
   const [email, setEmail] = useState("");
   const [marketingConsent, setMarketingConsent] = useState(false);
   const [submission, setSubmission] = useState<SubmissionState>({
@@ -41,6 +44,7 @@ export function ProductWaitlistSheet({
   const initialFocus = useCallback(() => emailRef.current, []);
 
   useEffect(() => {
+    attempt.current = null;
     setEmail("");
     setMarketingConsent(false);
     setSubmission({ kind: "idle", message: "" });
@@ -48,51 +52,58 @@ export function ProductWaitlistSheet({
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (submission.kind === "pending") return;
+    if (inFlight.current) return;
     if (!emailRef.current?.checkValidity()) {
       emailRef.current?.reportValidity();
       return;
     }
 
-    setSubmission({ kind: "pending", message: "Joining the waitlist." });
+    inFlight.current = true;
+    setSubmission({ kind: "pending", message: "Submitting your request." });
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 15_000);
     try {
+      const payload = { productId, email, marketingConsent };
+      const fingerprint = JSON.stringify(payload);
+      if (attempt.current?.payload !== fingerprint) {
+        attempt.current = { payload: fingerprint, id: crypto.randomUUID() };
+      }
       const response = await fetch("/api/product-waitlist", {
         method: "POST",
         credentials: "same-origin",
         cache: "no-store",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          productId,
-          email,
-          marketingConsent,
-        }),
+        body: JSON.stringify({ ...payload, requestId: attempt.current.id }),
+        signal: controller.signal,
       });
-      const payload = (await response.json().catch(() => null)) as
-        | {
-            ok?: boolean;
-            error?: { message?: string };
-          }
-        | null;
+      const result = (await response.json().catch(() => null)) as {
+        ok?: boolean;
+        error?: { message?: string };
+      } | null;
 
-      if (!response.ok || payload?.ok !== true) {
+      if (!response.ok || result?.ok !== true) {
         setSubmission({
           kind: "error",
           message:
-            payload?.error?.message ??
+            result?.error?.message ??
             "The waitlist is temporarily unavailable. Try again.",
         });
         return;
       }
 
+      attempt.current = null;
       setSubmission({
         kind: "success",
-        message: `You're on the waitlist for ${productName}.`,
+        message: `Your Product notification request for ${productName} was received.${marketingConsent ? " If eligible, check your inbox to confirm marketing emails separately." : ""}`,
       });
     } catch {
       setSubmission({
         kind: "error",
         message: "The waitlist is temporarily unavailable. Try again.",
       });
+    } finally {
+      window.clearTimeout(timeout);
+      inFlight.current = false;
     }
   }
 
@@ -111,8 +122,12 @@ export function ProductWaitlistSheet({
     >
       <div className="product-waitlist-sheet__body">
         <p className="product-waitlist-sheet__intro">
-          Register your interest. We’ll confirm the request here without
-          promising launch timing, price, or access priority.
+          Request one notification when this Product becomes available to buy.
+          Your request expires 12 months after enrollment. No launch timing,
+          price, or access priority is promised.
+        </p>
+        <p className="product-waitlist-sheet__intro">
+          During development, emails can reach only approved test recipients.
         </p>
         <form className="product-waitlist-form" onSubmit={submit} noValidate>
           <label className="product-waitlist-form__field">
@@ -167,6 +182,12 @@ export function ProductWaitlistSheet({
             </p>
           )}
         </form>
+        <p className="product-waitlist-sheet__intro">
+          <a className={styles.managementLink} href="/product-notifications">
+            Manage Product notifications
+          </a>{" "}
+          independently of marketing emails.
+        </p>
       </div>
     </Sheet>
   );
