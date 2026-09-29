@@ -6,7 +6,7 @@ export const privacyChoices: LegalDocument = {
   metadataTitle: "Your Privacy Choices | helix",
   description: "Current Privacy Choice behavior on the helix Public Site.",
   canonical: "/privacy-choices",
-  status: "Updated August 19, 2026",
+  status: "Updated September 28, 2026",
   intro:
     "The current site does not include advertising pixels, cross-context behavioral advertising, or a sale/share opt-out workflow. This page explains the current status and links to related controls.",
   sections: [
@@ -30,7 +30,7 @@ export const privacyChoices: LegalDocument = {
       id: "requests",
       title: "Privacy Requests",
       body: [
-        `Use the Contact page to prepare access, correction, deletion, or Privacy Request details. ${supportPolicy.contactStatus} The page cannot submit or store a Privacy Request.`,
+        supportPolicy.privacyRequestRoute,
       ],
     },
     {

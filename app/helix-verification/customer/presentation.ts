@@ -55,6 +55,28 @@ export function customerOrderConfirmationFixture(state: CustomerFixtureState): O
       postal_code: "94110",
       country: "US",
     },
+    tracking: state === "populated" || state === "success" ? {
+      frozen: false,
+      shipments: [
+        {
+          id: "sample-shipment-one", number: 1, state: "delivered", version: 3,
+          items: [{ name: "Sample skincare product", variantLabel: "50 ml", quantity: 1 }],
+          events: [
+            { state: "dispatched", occurredAt: "2026-09-20T12:00:00.000Z" },
+            { state: "in_transit", occurredAt: "2026-09-21T12:00:00.000Z" },
+            { state: "delivered", occurredAt: "2026-09-22T12:00:00.000Z" },
+          ],
+        },
+        {
+          id: "sample-shipment-two", number: 2, state: "exception", version: 2,
+          items: [{ name: "Sample skincare product", variantLabel: "50 ml", quantity: 1 }],
+          events: [
+            { state: "dispatched", occurredAt: "2026-09-21T13:00:00.000Z" },
+            { state: "exception", occurredAt: "2026-09-22T13:00:00.000Z" },
+          ],
+        },
+      ],
+    } : undefined,
     order: {
       order_number: "SAMPLE-001",
       status: state === "pending" ? "pending_payment" : "paid",

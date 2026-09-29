@@ -16,8 +16,10 @@ export default function CheckoutPage() {
         <p className="checkout-panel__notice">{SANDBOX_CHECKOUT_NOTICE}</p>
         <p>
           Checkout starts from your cart and redirects to Stripe-hosted Checkout
-          in sandbox mode. No real charge, shipment, fulfillment, customer email,
-          or Trustpilot invitation is created from this environment.
+          in sandbox mode. No real charge, shipment, fulfillment, or Trustpilot
+          invitation is created from this environment. When development email is
+          enabled, demo order confirmations can be sent to approved test
+          recipients only.
         </p>
         <Link href="/cart" className="btn btn--editorial-rounded">
           Review cart

@@ -24,6 +24,25 @@ const ADMIN_MODULE_REGISTRY: readonly AdminModule[] = [
     navigationOrder: 10,
     status: "active",
   },
+  {
+    id: "demo-orders",
+    label: "Demo orders",
+    route: "/admin/demo-orders",
+    description:
+      "Simulate tracking for paid demo orders. No goods will ship.",
+    requiredCapability: ADMIN_CAPABILITIES.ordersSimulate,
+    navigationOrder: 20,
+    status: "active",
+  },
+  {
+    id: "support",
+    label: "Support Inbox",
+    route: "/admin/support",
+    description: "Review private inquiries and approve support replies.",
+    requiredCapability: ADMIN_CAPABILITIES.supportRead,
+    navigationOrder: 30,
+    status: "active",
+  },
 ];
 
 export function sortAdminModules(
@@ -36,6 +55,12 @@ export function sortAdminModules(
   );
 }
 
-export function getAdminModules(): AdminModule[] {
-  return sortAdminModules(ADMIN_MODULE_REGISTRY);
+export function getAdminModules(
+  capabilities: readonly AdminCapability[],
+): AdminModule[] {
+  return sortAdminModules(
+    ADMIN_MODULE_REGISTRY.filter((module) =>
+      capabilities.includes(module.requiredCapability),
+    ),
+  );
 }

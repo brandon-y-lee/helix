@@ -83,6 +83,7 @@ import {
 } from "@/lib/orders/payment-contracts";
 import { authorizeCheckoutReceipt, ensureGuestReceiptBinding } from "@/lib/orders/receipt-access";
 import type { OrderConfirmationDisplay } from "@/lib/orders/confirmation";
+import { readSimulatedTracking } from "@/lib/tracking/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { REFERRAL_COOKIE } from "@/lib/referrals/constants";
 import {
@@ -1200,6 +1201,9 @@ export async function getOrderConfirmationBySession(
     : order.status === "payment_failed" ? "failed" : order.status;
   const delivery = state === "paid" || state === "refunded"
     ? await readVerifiedCheckoutDelivery({ orderId: order.id, sessionId }) : null;
+  let trackingUnavailable = false;
+  const tracking = order.status === "paid" || order.status === "refunded"
+    ? await readSimulatedTracking(order.id).catch(() => { trackingUnavailable = true; return null; }) : null;
   // Ownership and Session binding can change while an admitted provider read runs.
   if (!await authorizeCheckoutReceipt({ orderId, sessionId, accountId: config.accountId, verifiedUserId: user?.id ?? null })) return null;
   // Historical Orders may contain billing details in their shipping columns.
@@ -1212,6 +1216,7 @@ export async function getOrderConfirmationBySession(
       city: address.city, state: address.state, postal_code: address.postal_code, country: address.country } : null;
   return {
     notice: SANDBOX_CHECKOUT_NOTICE, state, retryAfterSeconds, shipping,
+    ...(tracking ? { tracking } : {}), ...(trackingUnavailable ? { trackingUnavailable: true } : {}),
     verificationIssue: exception?.code === "full_refund_reconciliation_failed" && exception.paymentStatus === "refunded"
       ? "refund_reconciliation" : null,
     order: {

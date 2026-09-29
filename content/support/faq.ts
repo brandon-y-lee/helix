@@ -112,7 +112,7 @@ export const faqCategories: FAQCategory[] = [
         id: "checkout-availability",
         question: "Can I place an order right now?",
         answer:
-          "You can complete Stripe-hosted Checkout in sandbox mode only. It can collect sandbox checkout details and create sandbox order records, but it does not create a real charge, shipment, fulfillment, customer email, or Trustpilot invitation.",
+          "You can complete Stripe-hosted Checkout in sandbox mode only. It can collect sandbox checkout details and create sandbox order records, but it does not create a real charge, shipment, fulfillment, or Trustpilot invitation. When development email is enabled, demo order confirmations can be sent to approved test recipients only.",
       },
       {
         id: "cart-purpose",
@@ -179,7 +179,7 @@ export const faqCategories: FAQCategory[] = [
       {
         id: "damaged-missing",
         question: "Can I submit an Item Claim?",
-        answer: `No. Real Fulfillment and Support Intake are unavailable, so there is no Item Claim process or public submission destination. A ${returnsPolicy.issueReportWindowDays}-day reporting window is only a planning assumption.`,
+        answer: `No. Real Fulfillment and an Item Claim process are unavailable. The Contact page shows whether general Support Intake is open. A ${returnsPolicy.issueReportWindowDays}-day reporting window is only a planning assumption.`,
       },
       {
         id: "refund-timing",
@@ -241,13 +241,13 @@ export const faqCategories: FAQCategory[] = [
   {
     id: "contact",
     label: "Contact",
-    summary: "Support routing and the current intake limitation.",
+    summary: "Support routing and current intake availability.",
     items: [
       {
         id: "contact-topics",
-        question: "What will Support Intake cover?",
+        question: "What does Support Intake cover?",
         answer:
-          "The Contact page organizes Product, System, Account, Cart, Accessibility Feedback, Privacy Request, partnership, wholesale, and general Inquiry Types so details can be prepared while Support Intake is unavailable.",
+          "The Contact page organizes Product, System, Account, Cart, Accessibility Feedback, Privacy Request, partnership, wholesale, and general Inquiry Types. Check the page for current intake availability.",
         links: [{ label: "Contact", href: "/contact" }],
       },
       {
@@ -255,7 +255,7 @@ export const faqCategories: FAQCategory[] = [
         question: "Can I submit a Support Inquiry through the site?",
         answer:
           supportPolicy.contactStatus +
-          " The Contact page does not submit or store messages until a verified intake channel is published.",
+          " When the form is available, it stores accepted inquiries privately for review. Wait for the form to confirm acceptance. Email replies are limited during development testing, and acceptance does not mean an email has been delivered.",
       },
       {
         id: "private-details",

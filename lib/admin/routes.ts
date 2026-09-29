@@ -29,6 +29,9 @@ export function applicationRouteMode(pathname: string): ApplicationRouteMode {
     "/helix-verification/admin/catalog",
     "/helix-verification/admin/editor",
     "/helix-verification/admin/states",
+    "/helix-verification/admin/demo-orders",
+    "/helix-verification/admin/support",
+    "/helix-verification/admin/support/intake",
   ].includes(pathname)) return "standard-admin";
   if (/^\/admin\/catalog\/preview\/[^/]+\/?$/.test(pathname)) {
     return "catalog-preview";

@@ -9,10 +9,12 @@ export function VerificationAdminShell({
   children,
   modules = verificationAdminModules,
   viewPath = "/admin",
+  navigationEnabled = true,
 }: {
   children: ReactNode;
   modules?: readonly AdminModule[];
   viewPath?: string;
+  navigationEnabled?: boolean;
 }) {
   const [actionNotice, setActionNotice] = useState<string | null>(null);
 
@@ -21,6 +23,7 @@ export function VerificationAdminShell({
       accountLabel="Synthetic verification account"
       modules={modules}
       navigationPath={viewPath}
+      navigationEnabled={navigationEnabled}
       signOutAction={() => {
         setActionNotice("Sign out is disabled for synthetic verification.");
       }}

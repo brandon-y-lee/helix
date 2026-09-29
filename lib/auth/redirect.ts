@@ -6,9 +6,10 @@ export function safeReturnTo(value: FormDataEntryValue | string | null | undefin
   try {
     const decoded = decodeURIComponent(value);
     if (!decoded.startsWith("/") || decoded.startsWith("//")) return DEFAULT_RETURN_TO;
-    if (decoded.includes("\\") || decoded.includes("\n") || decoded.includes("\r")) {
+    if (decoded.includes("\\") || /[\u0000-\u001f\u007f]/.test(decoded)) {
       return DEFAULT_RETURN_TO;
     }
+    if (new URL(decoded, "https://helix.invalid").origin !== "https://helix.invalid") return DEFAULT_RETURN_TO;
     return decoded;
   } catch {
     return DEFAULT_RETURN_TO;

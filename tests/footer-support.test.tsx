@@ -1,6 +1,6 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { FAQAccordion } from "@/components/content/FAQAccordion";
 import { LegalDocumentLayout } from "@/components/content/LegalDocumentLayout";
 import { SiteFooter } from "@/components/shell/SiteFooter";
@@ -9,7 +9,6 @@ import { cookieCategories, cookiePolicy } from "@/content/legal/cookies";
 import { privacyChoices } from "@/content/legal/privacy-choices";
 import { privacyPolicy } from "@/content/legal/privacy";
 import { termsOfService } from "@/content/legal/terms";
-import { contactIntakeStatus } from "@/content/support/contact";
 import { faqCategories } from "@/content/support/faq";
 import {
   FORMER_BRAND_PATTERN,
@@ -105,7 +104,7 @@ describe("global footer", () => {
     });
     expect(
       within(serviceLinks).getByRole("link", {
-        name: "Contact status: Support Intake unavailable",
+        name: "Contact status: Check Support Intake availability",
       }),
     ).toHaveAttribute("href", "/contact");
     expect(
@@ -227,15 +226,16 @@ describe("legal and support content", () => {
 
     expect(combined).not.toMatch(/\[INSERT|INSERT COMPANY|hello@rhodeskin|afterpay/i);
     expect(combined).not.toMatch(
-      /development storefront|development platform|demo|test store|placeholder/i,
+      /development storefront|development platform|test store|placeholder/i,
     );
     expect(combined).not.toMatch(/mandatory arbitration|class-action waiver|jury-trial waiver/i);
     expect(combined).not.toMatch(/real payments are available|returns are accepted/i);
+    expect(combined).toMatch(/When development email is enabled.*demo order confirmations to approved test recipients only/i);
     expect(combined).toMatch(/sandbox Checkout/i);
     expect(combined).toMatch(/helix rewards/i);
     expect(combined).not.toMatch(FORMER_BRAND_PATTERN);
     expect(combined).not.toMatch(LEGACY_REWARDS_PATTERN);
-    expect(combined).toMatch(/does not submit or store messages/i);
+    expect(combined).toMatch(/message privately for support/i);
     expect(combined).toMatch(/WCAG 2\.2 AA/i);
     expect(combined).not.toMatch(FORMER_BRAND_PATTERN);
     expect(combined).not.toMatch(/helix (?:is responsible|will be liable|disclaims)/i);
@@ -300,18 +300,12 @@ describe("legal and support content", () => {
       .not.toBeInTheDocument();
   });
 
-  it("states the unavailable Support Intake and factual Accessibility Commitment", () => {
-    expect(contactIntakeStatus).toEqual({
-      configured: false,
-      heading: "SUPPORT INTAKE UNAVAILABLE",
-      message:
-        "No verified public Support Channel has been published for helix. This page only prepares inquiry details; it cannot submit a Support Inquiry.",
-    });
-
+  it("states conditional Support Intake and factual Accessibility Commitment", () => {
     const accessibilityText = documentText(accessibilityStatement);
     expect(accessibilityText).toMatch(/Accessibility Commitment/);
     expect(accessibilityText).toMatch(/target, not a formal certification/i);
-    expect(accessibilityText).toMatch(/No verified public Support Channel/);
+    expect(accessibilityText).toMatch(/Contact page shows current Support Intake availability/);
+    expect(accessibilityText).toMatch(/Only a confirmed acceptance/);
     expect(accessibilityText).not.toMatch(/Mei[ _-]Pelle/i);
   });
 
@@ -358,18 +352,21 @@ describe("legal and support content", () => {
     expect(faqText).toMatch(/Terms status page/i);
     expect(faqText).not.toMatch(/Does helix offer|Report the issue within|Approved refunds/i);
     expect(faqText).not.toMatch(
-      /development storefront|development platform|demo|test store|placeholder/i,
+      /development storefront|development platform|test store|placeholder/i,
     );
+    expect(faqText).toMatch(/When development email is enabled, demo order confirmations can be sent to approved test recipients only/i);
   });
 
-  it("renders contact routing without a nonfunctional submission form", () => {
-    render(<ContactPage />);
-
-    expect(screen.getByRole("heading", { level: 1, name: "CONTACT" })).toBeInTheDocument();
-    expect(screen.getByText(contactIntakeStatus.heading)).toBeInTheDocument();
-    expect(screen.getByText(/does not include a message form/i)).toBeInTheDocument();
-    expect(screen.queryByRole("form")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /send|submit|check message/i })).not.toBeInTheDocument();
-    expect(screen.queryByText(/message sent successfully/i)).not.toBeInTheDocument();
+  it("renders preparation guidance while unavailable intake stays closed", async () => {
+    const fetcher = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ available: false })));
+    try {
+      render(<ContactPage />);
+      expect(screen.getByRole("heading", { level: 1, name: "CONTACT" })).toBeInTheDocument();
+      expect(await screen.findByText(/Support Intake is currently unavailable/i)).toBeInTheDocument();
+      expect(screen.queryByRole("form")).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /submit inquiry/i })).not.toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Helpful details" })).toBeInTheDocument();
+      expect(screen.queryByText(/message sent successfully/i)).not.toBeInTheDocument();
+    } finally { fetcher.mockRestore(); }
   });
 });

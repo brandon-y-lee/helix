@@ -34,7 +34,7 @@ const nextConfig: NextConfig = {
           { key: "X-Frame-Options", value: "SAMEORIGIN" },
         ],
       },
-      ...["/checkout/success", "/api/checkout/status"].map((source) => ({
+      ...["/checkout/success", "/api/checkout/status", "/email-preferences", "/api/marketing/:path*", "/product-notifications", "/api/product-notifications/:path*"].map((source) => ({
         source,
         headers: [
           { key: "Cache-Control", value: "private, no-store" },

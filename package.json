@@ -8,6 +8,9 @@
     "node": "24.x"
   },
   "scripts": {
+    "email:auth": "tsx scripts/auth-email.ts",
+    "email:deliveries": "tsx scripts/email-delivery.ts",
+    "email:operations": "tsx scripts/resend-operations.ts",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
@@ -43,6 +46,7 @@
     "stripe:sandbox:verify": "tsx scripts/stripe-sync-sandbox.ts verify"
   },
   "dependencies": {
+    "@react-email/render": "2.1.0",
     "@stripe/react-stripe-js": "^6.8.0",
     "@stripe/stripe-js": "^9.12.0",
     "@supabase/ssr": "^0.12.0",
@@ -53,6 +57,8 @@
     "next": "15.5.19",
     "react": "19.1.0",
     "react-dom": "19.1.0",
+    "resend": "6.30.0",
+    "sharp": "0.35.5",
     "stripe": "^22.3.0"
   },
   "devDependencies": {
