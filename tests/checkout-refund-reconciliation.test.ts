@@ -2,21 +2,25 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const boundary = vi.hoisted(() => ({
   account: vi.fn(), retrieve: vi.fn(), refunds: vi.fn(), from: vi.fn(), reverse: vi.fn(),
-  exception: vi.fn(), resolve: vi.fn(), revalidate: vi.fn(),
+  exception: vi.fn(), resolve: vi.fn(), revalidate: vi.fn(), rpc: vi.fn(),
 }));
 vi.mock("@/lib/stripe/server", () => ({
   getStripeClient: () => ({ charges: { retrieve: boundary.retrieve }, refunds: { list: boundary.refunds } }),
 }));
 vi.mock("@/lib/stripe/payment-verification", () => ({ verifyStripeAccount: boundary.account }));
-vi.mock("@/lib/supabase/admin", () => ({ createSupabaseAdminClient: () => ({ from: boundary.from }) }));
+vi.mock("@/lib/supabase/admin", () => ({ createSupabaseAdminClient: () => ({ from: boundary.from, rpc: boundary.rpc }) }));
 vi.mock("@/lib/rewards/operations", () => ({ reversePaidOrderPoints: boundary.reverse }));
-vi.mock("@/lib/orders/payment-contracts", () => ({
+vi.mock("@/lib/orders/payment-contracts", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/orders/payment-contracts")>()),
   recordCheckoutPaymentException: boundary.exception,
   resolveCheckoutPaymentExceptions: boundary.resolve,
 }));
 vi.mock("next/cache", () => ({ revalidatePath: boundary.revalidate }));
 
 import { reconcileFullStripeRefund } from "@/lib/orders/refunds";
+import { checkoutPaymentFixture } from "@/tests/fixtures/checkout-payment-verification";
+
+const accepted = { ...checkoutPaymentFixture().accepted, trackingSchemaVersion: 1 };
 
 const order = {
   id: "order-1", order_number: "HX-123", user_id: "user-1", status: "paid",
@@ -49,6 +53,7 @@ describe("full sandbox refund reconciliation", () => {
       id: "re_1", charge: "ch_1", payment_intent: "pi_1", currency: "usd", amount: 3000, status: "succeeded",
     }], has_more: false });
     boundary.reverse.mockResolvedValue(undefined);
+    boundary.rpc.mockImplementation(async (name: string) => ({ data: name === "read_checkout_payment_contract" ? accepted : true, error: null }));
     boundary.exception.mockResolvedValue(undefined);
     boundary.resolve.mockResolvedValue(undefined);
     boundary.from.mockImplementation((table: string) => {
@@ -72,6 +77,56 @@ describe("full sandbox refund reconciliation", () => {
       };
       return query;
     });
+  });
+
+  it("records the verified refund freeze before unrelated effects and retains it when those effects fail", async () => {
+    boundary.reverse.mockRejectedValue(new Error("private points failure"));
+    await expect(reconcileFullStripeRefund("ch_1")).rejects.toThrow("Refund reconciliation is temporarily unavailable.");
+    expect(boundary.rpc).toHaveBeenCalledWith("record_verified_refund_simulation_freeze", {
+      p_order_id: order.id, p_session_id: order.stripe_checkout_session_id,
+      p_payment_intent_id: order.stripe_payment_intent_id, p_amount_cents: 3000,
+    });
+    expect(boundary.rpc.mock.invocationCallOrder[0]).toBeLessThan(boundary.reverse.mock.invocationCallOrder[0]);
+    expect(boundary.exception).toHaveBeenCalledWith(expect.objectContaining({ paymentStatus: "refunded" }));
+    expect(writes).toEqual([]);
+  });
+
+  it("keeps the verified refund retryable when its durable observation cannot be recorded", async () => {
+    boundary.rpc.mockImplementation(async (name: string) => ({ data: name === "read_checkout_payment_contract" ? accepted : false, error: null }));
+    await expect(reconcileFullStripeRefund("ch_1")).rejects.toThrow("Refund reconciliation is temporarily unavailable.");
+    expect(boundary.reverse).not.toHaveBeenCalled();
+    expect(writes).toEqual([]);
+    expect(boundary.exception).toHaveBeenCalledWith(expect.objectContaining({ paymentStatus: "refunded" }));
+  });
+
+  it.each([checkoutPaymentFixture().accepted, null])("preserves pre-activation reconciliation for a validated old contract or ineligible null", async (contract) => {
+    boundary.rpc.mockImplementation(async (name: string) => {
+      if (name !== "read_checkout_payment_contract") throw new Error("Tracking schema has not been installed");
+      return { data: contract, error: null };
+    });
+    await reconcileFullStripeRefund("ch_1");
+    expect(boundary.rpc).toHaveBeenCalledTimes(1);
+    expect(boundary.rpc).toHaveBeenCalledWith("read_checkout_payment_contract", { p_order_id: order.id, p_session_id: order.stripe_checkout_session_id });
+    expect(writes.at(-1)?.value.status).toBe("refunded");
+    expect(boundary.reverse).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    { ...accepted, trackingSchemaVersion: 2 }, { ...accepted, trackingSchemaVersion: null },
+    { ...accepted, trackingSchemaVersion: "1" }, { ...accepted, orderId: "another-order" },
+    { ...accepted, sessionId: "cs_other" }, { trackingSchemaVersion: 1 },
+  ])("rejects malformed or mismatched schema observations before refund effects", async (contract) => {
+    boundary.rpc.mockResolvedValue({ data: contract, error: null });
+    await expect(reconcileFullStripeRefund("ch_1")).rejects.toThrow("Refund reconciliation is temporarily unavailable.");
+    expect(boundary.reverse).not.toHaveBeenCalled();
+    expect(writes).toEqual([]);
+  });
+
+  it("does not interpret a missing or unavailable existing contract RPC as pre-activation proof", async () => {
+    boundary.rpc.mockResolvedValue({ data: null, error: { code: "PGRST202", message: "private schema detail" } });
+    await expect(reconcileFullStripeRefund("ch_1")).rejects.toThrow("Refund reconciliation is temporarily unavailable.");
+    expect(boundary.reverse).not.toHaveBeenCalled();
+    expect(writes).toEqual([]);
   });
 
   it("retains a retryable exception without claiming reconciliation when points reversal fails", async () => {

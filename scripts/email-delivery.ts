@@ -2,7 +2,7 @@ import "dotenv/config";
 import { createClient } from "@supabase/supabase-js";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
-import { assertEmailEnvironment, EmailConfigurationError, readEmailConfig, type EmailEnvironment } from "../lib/email/config";
+import { assertEmailEnvironment, EmailConfigurationError, readEmailConfig, readEmailSender, type EmailEnvironment } from "../lib/email/config";
 
 const project = "erasogmsqpgiirovubjh";
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -47,7 +47,11 @@ export async function runEmailDeliveryCommand(args: string[], env: EmailEnvironm
     try { readEmailConfig(env); } catch (error) {
       configuration = { ready: false, code: error instanceof EmailConfigurationError ? error.code : "invalid_configuration" };
     }
-    return { project, configuration, dispatchEnabled: env.HELIX_EMAIL_DISPATCH_ENABLED === "true", deliveries: data };
+    let orderSender: { ready: boolean; code?: string } = { ready: true };
+    try { readEmailSender("order_confirmation", env); } catch (error) {
+      orderSender = { ready: false, code: error instanceof EmailConfigurationError ? error.code : "invalid_configuration" };
+    }
+    return { project, configuration, orderSender, dispatchEnabled: env.HELIX_EMAIL_DISPATCH_ENABLED === "true", deliveries: data };
   }
   const current = data.find((row: { id: string }) => row.id === input.id);
   if (!current || current.updatedAt !== input.expectedUpdatedAt) throw new Error("Delivery changed; inspect it again before retrying.");

@@ -7,6 +7,7 @@ describe("isolated Admin presentation route modes", () => {
     "/helix-verification/admin/catalog",
     "/helix-verification/admin/editor",
     "/helix-verification/admin/states",
+    "/helix-verification/admin/demo-orders",
   ])("uses the Admin shell for the exact fixture %s", (pathname) => {
     expect(applicationRouteMode(pathname)).toBe("standard-admin");
   });

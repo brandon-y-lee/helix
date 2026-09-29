@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { ADMIN_CAPABILITIES } from "@/lib/admin/capabilities";
+import {
+  ADMIN_CAPABILITIES,
+  capabilitiesForRole,
+} from "@/lib/admin/capabilities";
 import {
   getAdminModules,
   sortAdminModules,
@@ -37,8 +40,8 @@ describe("admin module registry", () => {
         status: "active",
       },
     ];
-    const first = getAdminModules();
-    const second = getAdminModules();
+    const first = getAdminModules(capabilitiesForRole("admin"));
+    const second = getAdminModules(capabilitiesForRole("admin"));
 
     expect(sortAdminModules(fixtures).map((module) => module.id)).toEqual([
       "catalog",
@@ -55,7 +58,7 @@ describe("admin module registry", () => {
   });
 
   it("registers the Catalog Editor honestly for its integration route", () => {
-    expect(getAdminModules()).toContainEqual({
+    expect(getAdminModules(capabilitiesForRole("admin"))).toContainEqual({
       id: "catalog",
       label: "Catalog Editor",
       route: "/admin/catalog",
@@ -65,5 +68,29 @@ describe("admin module registry", () => {
       navigationOrder: 10,
       status: "active",
     });
+  });
+
+  it("shows demo orders only to principals with simulation authority", () => {
+    expect(
+      getAdminModules(capabilitiesForRole("admin")).map((module) => ({
+        label: module.label,
+        route: module.route,
+      })),
+    ).toEqual([
+      { label: "Catalog Editor", route: "/admin/catalog" },
+      { label: "Demo orders", route: "/admin/demo-orders" },
+    ]);
+    expect(
+      getAdminModules(capabilitiesForRole("catalog_publisher")).map(
+        (module) => module.route,
+      ),
+    ).toEqual(["/admin/catalog"]);
+    expect(
+      getAdminModules([ADMIN_CAPABILITIES.ordersSimulate]).map(
+        (module) => module.route,
+      ),
+    ).toEqual(["/admin/demo-orders"]);
+    expect(getAdminModules([ADMIN_CAPABILITIES.access])).toEqual([]);
+    expect(getAdminModules([])).toEqual([]);
   });
 });
