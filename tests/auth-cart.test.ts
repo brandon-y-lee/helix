@@ -18,6 +18,10 @@ describe("safe auth redirects", () => {
     expect(safeReturnTo("//example.com")).toBe("/account");
     expect(safeReturnTo("/account\nLocation:https://example.com")).toBe("/account");
   });
+
+  it.each(["/\t/evil.example", "/%09/evil.example", "/%00/account", "/%7f/account", "/%5cevil.example"])("rejects URL-parser control bypasses: %s", (value) => {
+    expect(safeReturnTo(value)).toBe("/account");
+  });
 });
 
 describe("account validation", () => {

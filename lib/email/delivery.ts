@@ -1,7 +1,8 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
 import { renderOrderConfirmation } from "@/lib/email/order-confirmation";
-import { emailRecipientAllowed, EmailConfigurationError, readEmailConfig, type EmailEnvironment } from "@/lib/email/config";
+import { renderOrderTracking } from "@/lib/email/order-tracking";
+import { emailRecipientAllowed, EmailConfigurationError, readEmailConfig, readEmailSender, type EmailEnvironment } from "@/lib/email/config";
 import type { EmailAttemptOutcome, EmailDeliveryStorage, EmailRequest } from "@/lib/email/types";
 
 export type EmailDeliveryDependencies = {
@@ -30,12 +31,12 @@ export async function dispatchEmailIntents({ storage, send, env }: EmailDelivery
     let payload: EmailRequest;
     try {
       payload = intent.requestPayload ?? {
-        from: config.from, to: [intent.recipient], reply_to: config.replyTo,
-        ...await renderOrderConfirmation(intent.receipt, config),
+        from: readEmailSender(intent.purpose, env), to: [intent.recipient], reply_to: config.replyTo,
+        ...await (intent.purpose === "order_confirmation" ? renderOrderConfirmation(intent.receipt, config) : renderOrderTracking(intent.receipt, config)),
         tags: [{ name: "helix_environment", value: "sandbox" }, { name: "helix_message_id", value: intent.id }],
       };
-    } catch {
-      await storage.finish(intent.id, intent.leaseToken, { kind: "blocked", code: "invalid_receipt" });
+    } catch (error) {
+      await storage.finish(intent.id, intent.leaseToken, { kind: "blocked", code: error instanceof EmailConfigurationError ? error.code : "invalid_receipt" });
       result.blocked++;
       continue;
     }

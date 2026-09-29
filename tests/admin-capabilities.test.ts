@@ -29,6 +29,7 @@ describe("admin capability enforcement", () => {
       "catalog.edit",
       "catalog.publish",
       "catalog.delivery",
+      "orders.simulate",
     ]);
   });
 
@@ -60,6 +61,31 @@ describe("admin capability enforcement", () => {
       checkAdminCapability(ADMIN_CAPABILITIES.catalogPublish, {
         getIdentity: async () => identity,
         getMembership: async () => membership("catalog_editor"),
+      }),
+    ).resolves.toEqual({ status: "forbidden", principal: identity });
+  });
+
+  it("limits demo-order simulation to active admins without expanding catalog roles", async () => {
+    for (const role of ["catalog_editor", "catalog_publisher"] as const) {
+      await expect(
+        checkAdminCapability("orders.simulate", {
+          getIdentity: async () => identity,
+          getMembership: async () => membership(role),
+        }),
+      ).resolves.toEqual({ status: "forbidden", principal: identity });
+    }
+
+    await expect(
+      checkAdminCapability("orders.simulate", {
+        getIdentity: async () => identity,
+        getMembership: async () => membership("admin"),
+      }),
+    ).resolves.toMatchObject({ status: "allowed" });
+
+    await expect(
+      checkAdminCapability("orders.simulate", {
+        getIdentity: async () => identity,
+        getMembership: async () => membership("admin", false),
       }),
     ).resolves.toEqual({ status: "forbidden", principal: identity });
   });

@@ -8,6 +8,7 @@
     "node": "24.x"
   },
   "scripts": {
+    "email:auth": "tsx scripts/auth-email.ts",
     "email:deliveries": "tsx scripts/email-delivery.ts",
     "dev": "next dev",
     "build": "next build",

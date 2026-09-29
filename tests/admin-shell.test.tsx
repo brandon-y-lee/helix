@@ -46,6 +46,7 @@ vi.mock("@/components/cart/CartProvider", () => ({
 import { ApplicationChrome } from "@/components/shell/ApplicationChrome";
 import { AdminNavigation } from "@/components/admin/shell/AdminNavigation";
 import { AdminShell } from "@/components/admin/shell/AdminShell";
+import { VerificationAdminShell } from "@/app/helix-verification/admin/VerificationAdminShell";
 import type { AdminModule } from "@/lib/admin/modules";
 import { adminReturnPath } from "@/lib/admin/routes";
 
@@ -98,6 +99,38 @@ describe("admin shell navigation", () => {
     expect(
       screen.getByRole("link", { name: "Catalog Editor" }),
     ).toHaveFocus();
+  });
+
+  it("isolates opted-out verification navigation while keeping the mobile drawer usable", async () => {
+    const user = userEvent.setup();
+    const { container } = render(
+      <VerificationAdminShell
+        modules={[{ ...modules[0], status: "active" }]}
+        navigationEnabled={false}
+      >
+        <h1>Demo tracking verification</h1>
+      </VerificationAdminShell>,
+    );
+
+    expect(container.querySelector('a[href^="/admin"]')).toBeNull();
+    const desktopNavigation = within(screen.getByRole("navigation"));
+    expect(
+      desktopNavigation.getByText("Overview").closest("[aria-disabled]"),
+    ).toHaveAttribute("aria-disabled", "true");
+    expect(
+      desktopNavigation.getByText("Catalog Editor").closest("[aria-disabled]"),
+    ).toHaveAttribute("aria-disabled", "true");
+
+    const menuButton = screen.getByRole("button", { name: "Menu" });
+    await user.click(menuButton);
+    const dialog = screen.getByRole("dialog", { name: "Admin menu" });
+    expect(within(dialog).queryByRole("link")).toBeNull();
+    expect(within(dialog).getByText("Overview")).toBeVisible();
+    expect(within(dialog).getByText("Catalog Editor")).toBeVisible();
+
+    await user.click(within(dialog).getByRole("button", { name: "Close" }));
+    expect(screen.queryByRole("dialog", { name: "Admin menu" })).toBeNull();
+    expect(menuButton).toHaveFocus();
   });
 
   it("closes the mobile drawer with Escape and restores menu focus", async () => {

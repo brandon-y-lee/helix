@@ -1,4 +1,5 @@
 import type { OrderConfirmationReceipt } from "@/lib/email/order-confirmation";
+import type { OrderTrackingReceipt } from "@/lib/email/order-tracking";
 
 export type EmailRequest = {
   from: string;
@@ -13,15 +14,16 @@ export type EmailRequest = {
 export type EmailIntent = {
   id: string;
   environment: "sandbox";
-  purpose: "order_confirmation";
   recipient: string;
-  receipt: OrderConfirmationReceipt;
   requestPayload: EmailRequest | null;
   idempotencyKey: string;
   firstAttemptAt: string | null;
   attemptCount: number;
   leaseToken: string;
-};
+} & (
+  | { purpose: "order_confirmation"; receipt: OrderConfirmationReceipt }
+  | { purpose: "order_tracking"; receipt: OrderTrackingReceipt }
+);
 
 export type EmailAttemptOutcome =
   | { kind: "accepted"; id: string }

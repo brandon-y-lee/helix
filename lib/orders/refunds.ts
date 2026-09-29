@@ -6,7 +6,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getStripeClient } from "@/lib/stripe/server";
 import { verifyStripeAccount } from "@/lib/stripe/payment-verification";
 import { reversePaidOrderPoints } from "@/lib/rewards/operations";
-import { recordCheckoutPaymentException, resolveCheckoutPaymentExceptions } from "@/lib/orders/payment-contracts";
+import { isStoredCheckoutPaymentContract, recordCheckoutPaymentException, resolveCheckoutPaymentExceptions } from "@/lib/orders/payment-contracts";
 
 async function successfulRefundAmount(stripe: Stripe, chargeId: string, paymentIntentId: string): Promise<number> {
   let startingAfter: string | undefined;
@@ -74,6 +74,26 @@ async function reconcileFullRefund(chargeId: string): Promise<void> {
       throw new Error("Refund facts disagree.");
     }
     refundVerified = true;
+    // The existing RPC remains available before the separately approved tracking
+    // migration. Its DB-owned projection marker makes the freeze mandatory once
+    // installed. An old/null contract can never enter the later activation cohort.
+    const { data: contract, error: contractError } = await admin.rpc("read_checkout_payment_contract", {
+      p_order_id: order.id, p_session_id: order.stripe_checkout_session_id,
+    });
+    if (contractError || (contract !== null && (!isStoredCheckoutPaymentContract(contract)
+      || contract.orderId !== order.id || contract.sessionId !== order.stripe_checkout_session_id))) {
+      throw new Error("Verified refund contract could not be read.");
+    }
+    if (contract !== null && "trackingSchemaVersion" in contract) {
+      if (contract.trackingSchemaVersion !== 1) throw new Error("Verified refund schema is unsupported.");
+      // Record truth before unrelated effects, using the same Order lock as
+      // simulation/preparation. Resend configuration never participates here.
+      const { data: freezeRecorded, error: freezeError } = await admin.rpc("record_verified_refund_simulation_freeze", {
+        p_order_id: order.id, p_session_id: order.stripe_checkout_session_id,
+        p_payment_intent_id: paymentIntentId, p_amount_cents: charge.amount,
+      });
+      if (freezeError || freezeRecorded !== true) throw new Error("Verified refund observation could not be recorded.");
+    }
     if (order.user_id) {
       if (order.reward_points_earned > 0) {
         const { data: award, error: awardError } = await admin.from("rewards_ledger_entries")

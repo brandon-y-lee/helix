@@ -83,12 +83,14 @@ export function AdminShell({
   children,
   signOutAction = defaultSignOutAction,
   navigationPath,
+  navigationEnabled = true,
 }: {
   accountLabel: string;
   modules: readonly AdminModule[];
   children: ReactNode;
   signOutAction?: SignOutAction;
   navigationPath?: string;
+  navigationEnabled?: boolean;
 }) {
   const currentPathname = usePathname();
   const pathname = navigationPath ?? currentPathname;
@@ -149,6 +151,7 @@ export function AdminShell({
           pathname={pathname}
           modules={modules}
           collapsed={sidebarCollapsed}
+          navigationEnabled={navigationEnabled}
         />
         <AdminAccount
           accountLabel={accountLabel}
@@ -199,6 +202,7 @@ export function AdminShell({
             pathname={pathname}
             modules={modules}
             onNavigate={closeMobileNavigation}
+            navigationEnabled={navigationEnabled}
           />
           <AdminAccount
             accountLabel={accountLabel}
