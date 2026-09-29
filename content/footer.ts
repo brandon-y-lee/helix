@@ -63,7 +63,7 @@ export const footerServiceCards: FooterServiceCard[] = [
   {
     id: "contact",
     label: "Contact status",
-    description: "Support Intake unavailable",
+    description: "Check Support Intake availability",
     href: "/contact",
     icon: "contact",
   },

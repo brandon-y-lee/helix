@@ -17,11 +17,10 @@ export const returnsPolicy = {
 };
 
 export const supportPolicy = {
-  contactIntakeConfigured: false,
   contactStatus:
-    "No verified public Support Channel has been published for helix.",
+    "The Contact page shows current Support Intake availability.",
   privacyRequestRoute:
-    "Use the Contact page to prepare Privacy Request details. The page cannot submit or store a request while Support Intake is unavailable.",
+    "Use the Contact page to check availability and choose Privacy request. A request is received only after the form confirms acceptance.",
 };
 
 export function qualifiesForFreeStandardShipping(subtotalCents: unknown): boolean {

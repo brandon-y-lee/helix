@@ -7,7 +7,7 @@ export const privacyPolicy: LegalDocument = {
   description:
     "Current account, Cart, search, sandbox Checkout, rewards, referral, private-feedback, browser-storage, and provider data practices on the helix Platform.",
   canonical: "/privacy",
-  status: "Updated September 18, 2026",
+  status: "Updated September 28, 2026",
   intro:
     "This page is a factual prelaunch summary of information processing currently implemented on the helix Platform. It is not an operative Privacy Policy until a Legal Operator and verified legal contact details exist.",
   sections: [
@@ -27,7 +27,7 @@ export const privacyPolicy: LegalDocument = {
         "Cart tools store selected products, variants, quantities, and cart status so you can review a routine before sandbox Checkout.",
         "Sandbox order records store order numbers, item snapshots, Stripe Checkout Session and PaymentIntent identifiers, checkout status, shipping and billing snapshots, reward and referral references, totals, and timestamps.",
         "Helix rewards, referrals, and private feedback store Available Points Balances, Points Ledger entries, Referral Codes, Referral Attributions, one-time Referral Rewards, private first-party feedback responses, and reward issuance status.",
-        `The Contact page explains Inquiry Types and preparation details. ${supportPolicy.contactStatus} The page does not submit or store messages.`,
+        `${supportPolicy.contactStatus} When enabled, the form stores your name, email address, Inquiry Type, subject, and message privately for support. An optional Order association requires verified access to that Order. Only a confirmed acceptance means your Inquiry was received.`,
         "Newsletter signup is not open. The footer updates module does not collect email addresses.",
       ],
     },
@@ -41,6 +41,7 @@ export const privacyPolicy: LegalDocument = {
         "Product search sends the search term to the configured Algolia index from the browser and receives storefront product records in response.",
         "Product-page payment-method messaging is currently disabled while sandbox Checkout supports cards only.",
         "Vercel, Next.js, Supabase, Algolia, and Google Fonts may process technical request data needed to host, secure, operate, and display the site.",
+        "Support Intake uses keyed digests of request-source addresses and email addresses to limit abuse. These are used for request limits, not advertising.",
       ],
     },
     {
@@ -48,6 +49,7 @@ export const privacyPolicy: LegalDocument = {
       title: "How Information Is Used",
       body: [
         "Information is used to operate account access, password reset, profile updates, product discovery, cart persistence, sandbox Checkout, order history, rewards, referrals, private feedback, security checks, and site reliability.",
+        "When Support Intake is enabled, authorized support Operators review private inquiries, keep internal notes, and approve replies. Email acknowledgement and reply delivery may be unavailable during development testing or a provider outage.",
         "Sandbox Checkout is used for payment simulation only. Sandbox Orders do not ship Products, purchase labels, send live Customer communications, send real Trustpilot invitations, personalize advertising, or process live payments.",
       ],
     },
@@ -55,7 +57,7 @@ export const privacyPolicy: LegalDocument = {
       id: "providers",
       title: "Service Providers",
       body: [
-        "Current providers reflected in the codebase include Supabase for authentication, profile, catalog, cart, order, reward, referral, and private-feedback data; Stripe for sandbox Checkout and payment status; Algolia for product search; Vercel and Next.js for hosting and application delivery; and Google Fonts for web font delivery.",
+        "Current providers reflected in the codebase include Supabase for authentication, profile, catalog, cart, order, reward, referral, private-feedback, and support data; Stripe for sandbox Checkout and payment status; Resend for enabled email delivery; Algolia for product search; Vercel and Next.js for hosting and application delivery; and Google Fonts for web font delivery.",
         "Trustpilot invitations are not implemented in the current codebase. Sandbox orders do not send real Trustpilot invitations, and reward points are never conditioned on Trustpilot activity.",
         "Providers process information needed to deliver their configured site functions, subject to their own terms and privacy practices.",
       ],
@@ -94,7 +96,7 @@ export const privacyPolicy: LegalDocument = {
       title: "U.S. State Privacy Requests",
       body: [
         "The site does not currently include advertising pixels, cross-context behavioral advertising, sale/share technology, or targeted-advertising opt-out technology.",
-        "A verified public Support Channel for Privacy Requests must exist before the site collects support messages or enables marketing email, optional analytics, advertising, or live Checkout.",
+        supportPolicy.privacyRequestRoute,
       ],
     },
     {
@@ -123,7 +125,7 @@ export const privacyPolicy: LegalDocument = {
       id: "contact",
       title: "Contact",
       body: [
-        `Use the Contact page to review current Privacy Request preparation details. ${supportPolicy.contactStatus} The page cannot submit or store a Privacy Request.`,
+        supportPolicy.privacyRequestRoute,
       ],
     },
   ],
