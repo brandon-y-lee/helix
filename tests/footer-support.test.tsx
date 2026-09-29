@@ -227,10 +227,11 @@ describe("legal and support content", () => {
 
     expect(combined).not.toMatch(/\[INSERT|INSERT COMPANY|hello@rhodeskin|afterpay/i);
     expect(combined).not.toMatch(
-      /development storefront|development platform|demo|test store|placeholder/i,
+      /development storefront|development platform|test store|placeholder/i,
     );
     expect(combined).not.toMatch(/mandatory arbitration|class-action waiver|jury-trial waiver/i);
     expect(combined).not.toMatch(/real payments are available|returns are accepted/i);
+    expect(combined).toMatch(/When development email is enabled.*demo order confirmations to approved test recipients only/i);
     expect(combined).toMatch(/sandbox Checkout/i);
     expect(combined).toMatch(/helix rewards/i);
     expect(combined).not.toMatch(FORMER_BRAND_PATTERN);
@@ -358,8 +359,9 @@ describe("legal and support content", () => {
     expect(faqText).toMatch(/Terms status page/i);
     expect(faqText).not.toMatch(/Does helix offer|Report the issue within|Approved refunds/i);
     expect(faqText).not.toMatch(
-      /development storefront|development platform|demo|test store|placeholder/i,
+      /development storefront|development platform|test store|placeholder/i,
     );
+    expect(faqText).toMatch(/When development email is enabled, demo order confirmations can be sent to approved test recipients only/i);
   });
 
   it("renders contact routing without a nonfunctional submission form", () => {

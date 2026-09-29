@@ -6,6 +6,13 @@ The maintainer owns exception recovery using [the recovery runbook](./sandbox-ch
 Live payments, fulfillment, customer email and promotion to `main` remain outside
 this approval. `in_stock` below is a sandbox fixture, not physical inventory.
 
+The separate Resend Spec #430 adds optional demo order confirmations for approved
+test recipients. This #408 / #413 runbook does not activate that service or
+authorize its test sends. Once its restricted email activation is separately
+verified, a fresh paid Sandbox Order may generate a clearly labeled demo email;
+the no-real-charge and no-real-fulfillment boundaries still apply. Payment
+settlement must remain independent of email delivery or provider availability.
+
 ## Fixed target and preflight
 
 | Resource | Approved identity |

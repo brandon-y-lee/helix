@@ -8,6 +8,7 @@
     "node": "24.x"
   },
   "scripts": {
+    "email:deliveries": "tsx scripts/email-delivery.ts",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
@@ -53,6 +54,7 @@
     "next": "15.5.19",
     "react": "19.1.0",
     "react-dom": "19.1.0",
+    "resend": "6.30.0",
     "stripe": "^22.3.0"
   },
   "devDependencies": {
