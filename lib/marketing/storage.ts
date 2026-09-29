@@ -5,9 +5,22 @@ import type { MarketingRequestStorage } from "@/lib/marketing/requests";
 import type { MarketingServiceStorage, MarketingSyncJob, MarketingSendContext, MarketingImportAdmission, MarketingImportJob } from "@/lib/marketing/service";
 
 async function rpc(name: string, args: Record<string, unknown>): Promise<unknown> {
-  const { data, error } = await createSupabaseAdminClient().rpc(name, args);
-  if (error) throw new Error("Email preferences are temporarily unavailable.");
-  return data;
+  const abort = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(() => {
+      abort.abort(); reject(new Error("Email preferences are temporarily unavailable."));
+    }, 3_000);
+  });
+  try {
+    // Bound response decoding as well as transport. A timed-out write may have
+    // committed; its consent/import identity remains the recovery boundary.
+    const { data, error } = await Promise.race([
+      createSupabaseAdminClient().rpc(name, args).abortSignal(abort.signal), deadline,
+    ]);
+    if (error) throw new Error("Email preferences are temporarily unavailable.");
+    return data;
+  } finally { clearTimeout(timer); }
 }
 function record(value: unknown): value is Record<string, unknown> { return !!value && typeof value === "object" && !Array.isArray(value); }
 function status(value: unknown): { status: string } {
@@ -53,9 +66,9 @@ export const marketingServiceStorage: MarketingServiceStorage = {
       || (value.importId !== null && (typeof value.importId !== "string" || !UUID.test(value.importId)))) throw new Error("Invalid Contact import admission.");
     return value as MarketingImportAdmission;
   },
-  async recordImport(job, admission, importId, outcome) {
+  async recordImport(job, admission, importId, outcome, failure) {
     return (await rpc("record_marketing_contact_import", { p_subscriber_id: job.subscriberId, p_generation: admission.generation,
-      p_admission_token: admission.admissionToken, p_import_id: importId, p_outcome: outcome })) === true;
+      p_admission_token: admission.admissionToken, p_import_id: importId, p_outcome: outcome, p_failure: failure ?? null })) === true;
   },
   async claimImports(lease, limit) {
     const value = await rpc("claim_marketing_contact_imports", { p_lease_token: lease, p_limit: limit });

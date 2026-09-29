@@ -1,5 +1,6 @@
 import { expect, it, vi } from "vitest";
 import { verifyMarketingPreferences, synchronizeMarketingContacts, reconcileMarketingImports, type MarketingSyncJob } from "@/lib/marketing/service";
+import { MarketingProviderError } from "@/lib/marketing/provider";
 const job: MarketingSyncJob = { subscriberId: "513b8721-ce66-4b3e-a44b-1c8881b556dc", email: "delivered@resend.dev",
   generation: 1, revision: 2, desiredSubscribed: true, syncScope: "confirmed", providerContactId: null,
   topicId: "61296d74-fad4-4c74-83d3-6a3e17ab9f74", leaseToken: "1dd29d69-1a8f-428c-bdd9-d7647791bbae" };
@@ -23,12 +24,19 @@ it("permits welcome only after fresh global and Topic checks for the current loc
   expect(deps.storage.observe).toHaveBeenCalledWith(expect.objectContaining({ subscriberId: job.subscriberId,
     generation: 1, revision: 2, contactId: contact.id, topicId: job.topicId, globalAllowed: true, topicAllowed: true }));
 });
+it("claims at most one import and one preference job per bounded worker invocation", async () => {
+  const deps = setup();
+  await reconcileMarketingImports(deps);
+  await synchronizeMarketingContacts(deps);
+  expect(deps.storage.claimImports).toHaveBeenCalledWith(expect.any(String), 1);
+  expect(deps.storage.claimSync).toHaveBeenCalledWith(expect.any(String), 1);
+});
 it.each(["global", "topic"])("honors a provider %s withdrawal without waiting for a webhook", async (scope) => {
   const deps = setup();
   if (scope === "global") deps.provider.getContact.mockResolvedValue({ ...contact, unsubscribed: true });
   else deps.provider.getTopic.mockResolvedValue("opt_out");
   expect(await verifyMarketingPreferences({ subscriberId: job.subscriberId, generation: 1, revision: 2, topicId: job.topicId }, deps)).toBe("blocked");
-  expect(deps.storage.observe).toHaveBeenCalledWith(expect.objectContaining({ globalAllowed: scope !== "global", topicAllowed: scope !== "topic" }));
+  expect(deps.storage.observe).toHaveBeenCalledWith(expect.objectContaining({ globalAllowed: scope !== "global", topicAllowed: false }));
 });
 it("fails closed on provider outage and stale observation writes", async () => {
   const deps = setup();
@@ -36,7 +44,7 @@ it("fails closed on provider outage and stale observation writes", async () => {
   const binding = { subscriberId: job.subscriberId, generation: 1, revision: 2, topicId: job.topicId };
   expect(await verifyMarketingPreferences(binding, deps)).toBe("deferred");
   deps.storage.observe.mockResolvedValue(false);
-  expect(await verifyMarketingPreferences(binding, deps)).toBe("blocked");
+  expect(await verifyMarketingPreferences(binding, deps)).toBe("deferred");
 });
 it("waits for contact synchronization rather than terminally dropping a fresh welcome", async () => {
   const deps = setup(); deps.storage.readContext.mockResolvedValue({ ...job, contactId: null, subscribed: true });
@@ -63,7 +71,18 @@ it.each(["global", "topic"])("preserves an existing %s deny after a new local co
   expect(await synchronizeMarketingContacts(deps)).toMatchObject({ synced: 0, deferred: 1 });
   expect(deps.provider.updateContact).not.toHaveBeenCalled();
   expect(deps.provider.updateTopic).not.toHaveBeenCalled();
-  expect(deps.storage.observe).toHaveBeenCalledWith(expect.objectContaining({ globalAllowed: scope !== "global", topicAllowed: scope !== "topic" }));
+  expect(deps.storage.observe).toHaveBeenCalledWith(expect.objectContaining({ globalAllowed: scope !== "global", topicAllowed: false }));
+});
+it("persists a known global denial without depending on an available Topic lookup", async () => {
+  const deps = setup();
+  deps.provider.getContact.mockResolvedValue({ ...contact, unsubscribed: true });
+  deps.provider.getTopic.mockRejectedValue(new Error("Topic lookup unavailable"));
+  expect(await synchronizeMarketingContacts(deps)).toMatchObject({ synced: 0, deferred: 1 });
+  expect(deps.storage.observe).toHaveBeenCalledWith(expect.objectContaining({ globalAllowed: false, topicAllowed: false }));
+  deps.storage.observe.mockClear();
+  expect(await verifyMarketingPreferences({ subscriberId: job.subscriberId, generation: 1, revision: 2, topicId: job.topicId }, deps)).toBe("blocked");
+  expect(deps.storage.observe).toHaveBeenCalledWith(expect.objectContaining({ globalAllowed: false, topicAllowed: false }));
+  expect(deps.provider.getTopic).not.toHaveBeenCalled();
 });
 it("submits one insert-only import after validating the Topic and durable admission", async () => {
   const deps = setup(); deps.provider.getContact.mockResolvedValue(null);
@@ -83,7 +102,18 @@ it("persists an unknown import response without granting send eligibility", asyn
   const deps = setup(); deps.provider.getContact.mockResolvedValue(null);
   deps.provider.createImport.mockRejectedValue(new Error("lost response"));
   expect(await synchronizeMarketingContacts(deps)).toMatchObject({ deferred: 1, synced: 0 });
-  expect(deps.storage.recordImport).toHaveBeenCalledWith(job, expect.anything(), null, "uncertain");
+  expect(deps.storage.recordImport).toHaveBeenCalledWith(job, expect.anything(), null, "uncertain",
+    { category: "provider_unavailable", httpStatus: null, providerName: null, retryAfterSeconds: null });
+  expect(deps.storage.observe).not.toHaveBeenCalled();
+});
+it("retains rate-limit evidence without treating it as authority to replay an import", async () => {
+  const deps = setup(); deps.provider.getContact.mockResolvedValue(null);
+  deps.provider.createImport.mockRejectedValue(new MarketingProviderError("provider_unavailable",
+    { httpStatus: 429, providerName: "rate_limit_exceeded", retryAfter: "10" }));
+  expect(await synchronizeMarketingContacts(deps)).toMatchObject({ deferred: 1, synced: 0 });
+  expect(deps.storage.recordImport).toHaveBeenCalledWith(job, expect.anything(), null, "uncertain",
+    { category: "rate_limited", httpStatus: 429, providerName: "rate_limit_exceeded", retryAfterSeconds: 10 });
+  expect(deps.provider.createImport).toHaveBeenCalledTimes(1);
   expect(deps.storage.observe).not.toHaveBeenCalled();
 });
 it("does not recreate a missing bound Contact or enroll with the wrong Topic default", async () => {

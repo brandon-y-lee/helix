@@ -1,6 +1,7 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
 import { assertEmailEnvironment, emailRecipientAllowed, type EmailEnvironment } from "@/lib/email/config";
+import { marketingProviderEvidence, type MarketingProviderEvidence } from "@/lib/marketing/provider";
 
 export type MarketingSyncJob = {
   subscriberId: string; email: string; generation: number; revision: number; desiredSubscribed: boolean;
@@ -28,7 +29,7 @@ export interface MarketingServiceStorage {
   claimSync(lease: string, limit: number): Promise<MarketingSyncJob[]>;
   validateSync(job: MarketingSyncJob): Promise<boolean>;
   admitImport(job: MarketingSyncJob): Promise<MarketingImportAdmission | null>;
-  recordImport(job: MarketingSyncJob, admission: MarketingImportAdmission, importId: string | null, outcome: "submitted" | "uncertain"): Promise<boolean>;
+  recordImport(job: MarketingSyncJob, admission: MarketingImportAdmission, importId: string | null, outcome: "submitted" | "uncertain", failure?: MarketingProviderEvidence): Promise<boolean>;
   claimImports(lease: string, limit: number): Promise<MarketingImportJob[]>;
   finishImport(job: MarketingImportJob, outcome: "pending" | "completed" | "failed"): Promise<boolean>;
   finishSync(job: MarketingSyncJob, contactId: string | null, outcome: "synced" | "retry"): Promise<boolean>;
@@ -45,7 +46,7 @@ function key(env: EmailEnvironment) {
 }
 
 export async function synchronizeMarketingContacts({ storage, provider, env }: MarketingServiceDependencies) {
-  const apiKey = key(env), jobs = await storage.claimSync(randomUUID(), 2);
+  const apiKey = key(env), jobs = await storage.claimSync(randomUUID(), 1);
   const result = { claimed: jobs.length, synced: 0, deferred: 0 };
   for (const job of jobs) {
     let contactId = job.providerContactId;
@@ -66,15 +67,18 @@ export async function synchronizeMarketingContacts({ storage, provider, env }: M
             try {
               importId = await provider.createImport(job.email, apiKey);
               await storage.recordImport(job, admission, importId, "submitted");
-            } catch {
+            } catch (error) {
               // Preserve a returned provider identity across a database failure;
               // retry only this local recording, never the import submission.
-              await storage.recordImport(job, admission, importId, importId ? "submitted" : "uncertain");
+              if (importId) await storage.recordImport(job, admission, importId, "submitted");
+              else await storage.recordImport(job, admission, null, "uncertain", marketingProviderEvidence(error));
             }
           }
           await storage.finishSync(job, null, "retry"); result.deferred++; continue;
         }
-        const topic = await provider.getTopic(contactId, job.topicId, apiKey);
+        // A known global withdrawal is sufficient evidence. Do not discard it
+        // because an unrelated Topic lookup is unavailable.
+        const topic = contact!.unsubscribed ? "opt_out" : await provider.getTopic(contactId, job.topicId, apiKey);
         if (await storage.finishSync(job, contactId, "synced")) {
           const saved = await storage.observe({ subscriberId: job.subscriberId, generation: job.generation, revision: job.revision,
             contactId, topicId: job.topicId, globalAllowed: !contact!.unsubscribed, topicAllowed: topic === "opt_in" });
@@ -101,7 +105,7 @@ export async function synchronizeMarketingContacts({ storage, provider, env }: M
 }
 
 export async function reconcileMarketingImports({ storage, provider, env }: MarketingServiceDependencies) {
-  const apiKey = key(env), jobs = await storage.claimImports(randomUUID(), 2);
+  const apiKey = key(env), jobs = await storage.claimImports(randomUUID(), 1);
   const result = { claimed: jobs.length, completed: 0, deferred: 0 };
   for (const job of jobs) {
     try {
@@ -131,9 +135,10 @@ export async function verifyMarketingPreferences(
     if (!context.contactId || !context.syncReady) return "deferred";
     const apiKey = key(env), contact = await provider.getContact(context.contactId, apiKey);
     if (!contact || contact.id !== context.contactId || contact.email.toLowerCase() !== context.email) return "deferred";
-    const topic = await provider.getTopic(contact.id, binding.topicId, apiKey);
+    const topic = contact.unsubscribed ? "opt_out" : await provider.getTopic(contact.id, binding.topicId, apiKey);
     const saved = await storage.observe({ subscriberId: context.subscriberId, generation: context.generation, revision: context.revision,
       contactId: contact.id, topicId: context.topicId, globalAllowed: !contact.unsubscribed, topicAllowed: topic === "opt_in" });
-    return saved && !contact.unsubscribed && topic === "opt_in" ? "eligible" : "blocked";
+    if (contact.unsubscribed || topic !== "opt_in") return "blocked";
+    return saved ? "eligible" : "deferred";
   } catch { return "deferred"; }
 }

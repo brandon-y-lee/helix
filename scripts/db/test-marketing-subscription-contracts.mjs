@@ -135,7 +135,7 @@ try {
     normalizedAddressConcurrency: true, actualConcurrentConfirmation: true,
     currentGenerationOnly: true, expiredTokenRejected: true, oldPreferenceWithdrawsCurrent: true,
     immutableEvidence: true, immutableTemplateContract: true, sharedAbuseBounds: true, actualConcurrentGlobalLimit: true,
-    generationFencing: true, providerDenialSticky: true, withdrawalQueuePositionPreserved: true, actualConcurrentCapacity: true, actualConcurrentImportAdmission: true, privateForcedRls: true,
+    generationFencing: true, sanitizedImportFailureEvidence: true, providerDenialSticky: true, withdrawalQueuePositionPreserved: true, actualConcurrentCapacity: true, actualConcurrentImportAdmission: true, privateForcedRls: true,
     serviceOnlyRpcs: true, providerMutations: 0 }, null, 2));
 } finally {
   if (created) docker(["exec", container, "dropdb", "-U", "postgres", database]);

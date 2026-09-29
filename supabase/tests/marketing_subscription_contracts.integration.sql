@@ -550,3 +550,57 @@ DO $$ DECLARE job jsonb; admitted jsonb; v_id uuid; denied boolean:=false; BEGIN
     '20000000-0000-0000-0000-000000000009','submitted'),'a late import UUID remains attachable for reconciliation');
 END $$;
 ROLLBACK;
+
+BEGIN;
+SET LOCAL ROLE service_role;
+DO $$ DECLARE n integer; job jsonb; admitted jsonb; v_id uuid; evidence jsonb; bad jsonb; denied boolean; BEGIN
+  FOR n IN 1..2 LOOP
+    PERFORM public.request_marketing_subscription('failure-evidence-'||n||'@example.invalid','footer','welcome_v1',
+      lpad(n::text,64,'a'),repeat('b',64),true,marketing_contract_test.contract());
+    PERFORM public.confirm_marketing_subscription(lpad(n::text,64,'a'),lpad(n::text,64,'p'));
+    job:=public.claim_marketing_sync('40000000-0000-0000-0000-000000000001',1)->0;
+    v_id:=(job->>'subscriberId')::uuid;
+    admitted:=public.admit_marketing_contact_import(v_id,(job->>'revision')::bigint,'40000000-0000-0000-0000-000000000001');
+    evidence:=jsonb_build_object('category',CASE WHEN n=1 THEN 'rate_limited' ELSE 'configuration_rejected' END,
+      'httpStatus',CASE WHEN n=1 THEN 429 ELSE 401 END,
+      'providerName',CASE WHEN n=1 THEN 'rate_limit_exceeded' ELSE 'invalid_api_key' END,
+      'retryAfterSeconds',CASE WHEN n=1 THEN 9 ELSE null END);
+    PERFORM marketing_contract_test.assert(public.record_marketing_contact_import(v_id,1,(admitted->>'admissionToken')::uuid,
+      null,'uncertain',evidence),'finite failure classification can be retained');
+    PERFORM marketing_contract_test.assert((SELECT state='uncertain' AND first_failure=evidence
+      FROM private.marketing_contact_imports WHERE subscriber_id=v_id),'failure diagnostics never prove non-admission');
+    PERFORM marketing_contract_test.assert(NOT (public.admit_marketing_contact_import(v_id,(job->>'revision')::bigint,
+      '40000000-0000-0000-0000-000000000001')->>'allowSubmit')::boolean,
+      'neither rate limits nor configuration classifications authorize replay');
+    PERFORM public.record_marketing_contact_import(v_id,1,(admitted->>'admissionToken')::uuid,null,'uncertain',
+      jsonb_build_object('category','provider_unavailable','httpStatus',503,'providerName',null,'retryAfterSeconds',null));
+    PERFORM marketing_contract_test.assert((SELECT first_failure=evidence FROM private.marketing_contact_imports WHERE subscriber_id=v_id),
+      'later finite diagnostics cannot rewrite the first failure evidence');
+    FOREACH bad IN ARRAY ARRAY[
+      evidence||'{"message":"Never retain raw provider text"}'::jsonb,
+      evidence||'{"category":"anything_else"}'::jsonb,
+      evidence||'{"httpStatus":"429"}'::jsonb,
+      evidence||'{"httpStatus":99}'::jsonb,
+      evidence||'{"httpStatus":600}'::jsonb,
+      evidence||'{"providerName":"untrusted@example.invalid"}'::jsonb,
+      evidence||'{"retryAfterSeconds":86401}'::jsonb,
+      evidence||'{"retryAfterSeconds":0.5}'::jsonb,
+      evidence-'providerName'
+    ] LOOP
+      denied:=false;
+      BEGIN PERFORM public.record_marketing_contact_import(v_id,1,(admitted->>'admissionToken')::uuid,null,'uncertain',bad);
+      EXCEPTION WHEN invalid_parameter_value THEN denied:=true; END;
+      PERFORM marketing_contract_test.assert(denied,'unbounded or unrecognized provider diagnostics are rejected');
+    END LOOP;
+    PERFORM marketing_contract_test.assert(public.record_marketing_contact_import(v_id,1,(admitted->>'admissionToken')::uuid,
+      ('20000000-0000-0000-0000-'||lpad(n::text,12,'0'))::uuid,'submitted',null),
+      'a recovered import identity remains recordable after a classified failure');
+    PERFORM marketing_contract_test.assert((SELECT state='submitted' AND first_failure=evidence
+      FROM private.marketing_contact_imports WHERE subscriber_id=v_id),'recovery retains the immutable historical diagnostics');
+    denied:=false;
+    BEGIN UPDATE private.marketing_contact_imports SET first_failure=null WHERE subscriber_id=v_id;
+    EXCEPTION WHEN object_not_in_prerequisite_state THEN denied:=true; END;
+    PERFORM marketing_contract_test.assert(denied,'the first failure evidence cannot be erased');
+  END LOOP;
+END $$;
+ROLLBACK;

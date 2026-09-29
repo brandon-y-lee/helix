@@ -203,6 +203,32 @@ revoke all on function private.preserve_marketing_evidence(),private.marketing_a
 grant execute on function private.marketing_address_lock(text),private.marketing_request_allowed(text),
   private.valid_marketing_template_contract(jsonb) to service_role;
 
+-- Only finite diagnostics may be retained. Failure classifications never authorize another submission.
+create function private.valid_marketing_import_failure(p_failure jsonb) returns boolean
+language sql immutable security invoker set search_path='' as $$
+  select p_failure is null or coalesce(
+    pg_catalog.jsonb_typeof(p_failure)='object'
+    and pg_catalog.octet_length(p_failure::text)<=512
+    and p_failure ?& array['category','httpStatus','providerName','retryAfterSeconds']
+    and p_failure-array['category','httpStatus','providerName','retryAfterSeconds']='{}'::jsonb
+    and pg_catalog.jsonb_typeof(p_failure->'category')='string'
+    and p_failure->>'category' in ('rate_limited','quota_exceeded','configuration_rejected',
+      'provider_unavailable','provider_contract_invalid')
+    and (p_failure->'httpStatus'='null'::jsonb or case when pg_catalog.jsonb_typeof(p_failure->'httpStatus')='number'
+      and p_failure->>'httpStatus' ~ '^[0-9]{3}$' then (p_failure->>'httpStatus')::integer between 100 and 599 else false end)
+    and (p_failure->'providerName'='null'::jsonb or (pg_catalog.jsonb_typeof(p_failure->'providerName')='string'
+      and p_failure->>'providerName' in ('invalid_idempotency_key','validation_error','missing_api_key','invalid_api_key',
+        'restricted_api_key','suspended_api_key','invalid_permission','not_found','method_not_allowed',
+        'concurrent_idempotent_requests','invalid_idempotent_request','resource_locked','invalid_attachment',
+        'invalid_parameter','missing_required_field','missing_required_parameter','daily_quota_exceeded',
+        'monthly_quota_exceeded','rate_limit_exceeded','application_error','internal_server_error','service_unavailable')))
+    and (p_failure->'retryAfterSeconds'='null'::jsonb or case when pg_catalog.jsonb_typeof(p_failure->'retryAfterSeconds')='number'
+      and p_failure->>'retryAfterSeconds' ~ '^[0-9]{1,5}$'
+      then (p_failure->>'retryAfterSeconds')::integer between 0 and 86400 else false end),false);
+$$;
+revoke all on function private.valid_marketing_import_failure(jsonb) from public,anon,authenticated,service_role;
+grant execute on function private.valid_marketing_import_failure(jsonb) to service_role;
+
 -- One durable admission per confirmed generation. Unknown provider outcomes survive all later choices.
 create table private.marketing_contact_imports (
   subscriber_id uuid not null,
@@ -211,6 +237,7 @@ create table private.marketing_contact_imports (
   admission_token uuid not null unique default extensions.gen_random_uuid(),
   topic_id text not null,
   provider_import_id uuid unique,
+  first_failure jsonb check(private.valid_marketing_import_failure(first_failure)),
   state text not null check(state in ('admitted','submitted','uncertain','completed','failed')),
   admitted_at timestamptz not null default clock_timestamp(),
   next_poll_at timestamptz not null default clock_timestamp(),
@@ -640,12 +667,12 @@ begin
 end $$;
 
 create function public.record_marketing_contact_import(p_subscriber_id uuid,p_generation bigint,p_admission_token uuid,
-  p_import_id uuid,p_outcome text)
+  p_import_id uuid,p_outcome text,p_failure jsonb default null)
 returns boolean language plpgsql security invoker set search_path='' as $$
 declare v_subscriber private.marketing_subscribers%rowtype; v_import private.marketing_contact_imports%rowtype;
 begin
   if p_outcome is null or p_outcome not in ('submitted','uncertain')
-    or (p_outcome='submitted' and p_import_id is null) then
+    or (p_outcome='submitted' and p_import_id is null) or not private.valid_marketing_import_failure(p_failure) then
     raise exception using errcode='22023',message='invalid marketing import submission result'; end if;
   select * into v_subscriber from private.marketing_subscribers where id=p_subscriber_id;
   if not found then return false; end if;
@@ -658,6 +685,7 @@ begin
       and v_import.provider_import_id is distinct from p_import_id) then return false; end if;
   if v_import.state in ('completed','failed') then return v_import.provider_import_id is not distinct from p_import_id; end if;
   update private.marketing_contact_imports set provider_import_id=coalesce(provider_import_id,p_import_id),
+    first_failure=coalesce(first_failure,p_failure),
     state=case when coalesce(provider_import_id,p_import_id) is not null then 'submitted' else 'uncertain' end,
     next_poll_at=pg_catalog.clock_timestamp(),updated_at=pg_catalog.clock_timestamp()
     where subscriber_id=p_subscriber_id and generation=p_generation;
@@ -730,11 +758,11 @@ begin
   return true;
 end $$;
 revoke all on function private.marketing_import_work(private.marketing_contact_imports,boolean),
-  public.admit_marketing_contact_import(uuid,bigint,uuid),public.record_marketing_contact_import(uuid,bigint,uuid,uuid,text),
+  public.admit_marketing_contact_import(uuid,bigint,uuid),public.record_marketing_contact_import(uuid,bigint,uuid,uuid,text,jsonb),
   public.claim_marketing_contact_imports(uuid,integer),public.finish_marketing_contact_import(uuid,bigint,uuid,text)
   from public,anon,authenticated,service_role;
 grant execute on function private.marketing_import_work(private.marketing_contact_imports,boolean),
-  public.admit_marketing_contact_import(uuid,bigint,uuid),public.record_marketing_contact_import(uuid,bigint,uuid,uuid,text),
+  public.admit_marketing_contact_import(uuid,bigint,uuid),public.record_marketing_contact_import(uuid,bigint,uuid,uuid,text,jsonb),
   public.claim_marketing_contact_imports(uuid,integer),public.finish_marketing_contact_import(uuid,bigint,uuid,text) to service_role;
 
 create function private.preserve_marketing_import_identity() returns trigger language plpgsql
@@ -743,6 +771,7 @@ security invoker set search_path='' as $$ begin
   if row(new.subscriber_id,new.generation,new.confirmation_revision,new.admission_token,new.topic_id,new.admitted_at)
       is distinct from row(old.subscriber_id,old.generation,old.confirmation_revision,old.admission_token,old.topic_id,old.admitted_at)
     or (old.provider_import_id is not null and new.provider_import_id is distinct from old.provider_import_id)
+    or (old.first_failure is not null and new.first_failure is distinct from old.first_failure)
     or (old.state in ('completed','failed') and new.state is distinct from old.state)
     or (old.completed_at is not null and new.completed_at is distinct from old.completed_at) then
     raise exception using errcode='55000',message='marketing import admission and provider identity are immutable'; end if;
