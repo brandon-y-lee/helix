@@ -128,7 +128,10 @@ test("populated cart lines, quantities and Redemption Tiers retain distinct neut
     await expectWhiteCanvas(page);
     await expect(page.locator("#content .cart-item")).toHaveCount(cart.lines.length);
     await expect(page.locator("#content .reward-selector")).toBeVisible();
-    await expectGrayPanels(page.locator("#content .cart-item, #content .cart-summary"));
+    await expectGrayPanels(page.locator("#content .cart-summary"));
+    for (const item of await page.locator("#content .cart-item").all()) {
+      await expect(item).toHaveCSS("background-color", CANVAS_WHITE);
+    }
     for (const control of await page.locator("#content .qty, #content .reward-selector").all()) {
       await expect(control).toHaveCSS("background-color", CANVAS_WHITE);
       await expect(control).toHaveCSS("border-top-color", CONTROL_BORDER);
@@ -139,7 +142,10 @@ test("populated cart lines, quantities and Redemption Tiers retain distinct neut
     await cartTrigger.click();
     const drawer = page.getByRole("dialog", { name: "Cart", exact: true });
     await expect(drawer.locator(".cart-sheet")).toHaveCSS("background-color", CANVAS_WHITE);
-    await expectGrayPanels(drawer.locator(".cart-item, .cart-summary"));
+    await expectGrayPanels(drawer.locator(".cart-summary"));
+    for (const item of await drawer.locator(".cart-item").all()) {
+      await expect(item).toHaveCSS("background-color", CANVAS_WHITE);
+    }
     await page.keyboard.press("Escape");
     await expect(cartTrigger).toBeFocused();
   }

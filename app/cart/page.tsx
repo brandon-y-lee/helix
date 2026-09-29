@@ -20,7 +20,7 @@ export default async function CartPage({ searchParams }: CartPageProps) {
   return (
     <div className="container public-utility-page">
       <div className="page-head">
-        <h1>Cart</h1>
+        <h1 className="cart-page-title">Your <strong>CART</strong></h1>
       </div>
       {returnedFromCheckout && (
         <div className="cart-notice">
