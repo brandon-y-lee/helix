@@ -66,6 +66,12 @@ Vercel values that cannot be retrieved, `environment` records each key's applied
 `{id,updatedAt}` metadata; the local credential hash must still match its approved
 or generated receipt. After successful minimal SMTP postflight, privately record
 `smtpApplied:{fingerprint,credentialVersion}` for retry-baseline verification.
+After successful control postflight, record the returned
+`observations.controlsFingerprint` as `controlsAppliedFingerprint` in that same
+manifest-bound receipt. Repeated verification/apply requires either the exact
+initial baseline or this exact recorded postflight. Matching enabled flags alone
+does not authorize changed revisions or admission cutoffs; an intervening
+disable/re-enable requires a fresh reviewed plan.
 With `smtp.change:true`, apply installs the approved credential even when public
 SMTP fields already match; those fields cannot prove the current password.
 

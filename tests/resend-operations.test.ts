@@ -197,7 +197,26 @@ describe("restricted Resend operational command", () => {
     expect(sql).toContain("public.configure_support_intake(true,((public.read_support_intake_control())->>'updatedAt')::timestamptz)");
     expect(sql).toContain("public.configure_support_receiving(true,((public.read_support_receiving_control())->>'updatedAt')::timestamptz)");
     expect(sql).not.toMatch(/delete from|truncate|stripe|auth.users/i);
-    f.fetcher.mockClear(); expect(await f.run("apply")).toMatchObject({ applied: true }); expect(mutations(f.fetcher)).toEqual([]);
+    f.fetcher.mockClear();
+    await expect(f.run("apply")).rejects.toThrow("activation_preflight_failed");
+    expect(mutations(f.fetcher)).toEqual([]);
+    f.local.setupReceipt = { manifestSha256: digest(JSON.stringify(f.manifest)), codeSha: f.manifest.codeSha,
+      controlsFingerprint: f.manifest.expectedControlsFingerprint, controlsAppliedFingerprint: fingerprint(f.current.controls), credentials: {}, evidence: {} };
+    expect(await f.run("apply")).toMatchObject({ applied: true }); expect(mutations(f.fetcher)).toEqual([]);
+  });
+
+  it("rejects changed control revisions and cutoffs after an intervening disable/re-enable despite matching booleans", async () => {
+    const f = await setup(); await f.run("apply");
+    f.local.setupReceipt = { manifestSha256: digest(JSON.stringify(f.manifest)), codeSha: f.manifest.codeSha,
+      controlsFingerprint: f.manifest.expectedControlsFingerprint, controlsAppliedFingerprint: fingerprint(f.current.controls), credentials: {}, evidence: {} };
+    expect(await f.run("verify")).toMatchObject({ readyForGuardedApply: true, findings: [] });
+    const changed = (row: Record<string, unknown>) => ({ ...row, enabled: true, updatedAt: "2026-09-29T03:00:00.000Z", acceptedAfter: "2026-09-29T03:00:00.000Z" });
+    f.current.controls = Object.fromEntries(Object.entries(f.current.controls).map(([key, value]) => [key,
+      Array.isArray(value) ? value.map(changed) : changed(value as Record<string, unknown>)]));
+    f.fetcher.mockClear();
+    expect(await f.run("verify")).toMatchObject({ readyForGuardedApply: false, findings: ["control_baseline_drift"] });
+    await expect(f.run("apply")).rejects.toThrow("activation_preflight_failed");
+    expect(mutations(f.fetcher)).toEqual([]);
   });
 
   it("disables admission while provider reads are unavailable, preserving cleanup and financial reconciliation", async () => {

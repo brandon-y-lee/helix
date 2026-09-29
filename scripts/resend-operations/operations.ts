@@ -47,7 +47,7 @@ export type Manifest = {
 export type SetupReceipt = { manifestSha256: string; codeSha: string; controlsFingerprint: string;
   credentials: Record<string, { version: string; sha256: string }>; evidence: Record<string, string>;
   environment?: Record<string, { id: string; updatedAt: number }>;
-  smtpApplied?: { fingerprint: string; credentialVersion: string } };
+  smtpApplied?: { fingerprint: string; credentialVersion: string }; controlsAppliedFingerprint?: string };
 export type LocalEvidence = { codeSha: string; clean: boolean; migrations: Record<string, string>; evidence: Record<string, string>; setupReceipt?: unknown };
 export function parseManifest(value: unknown): Manifest {
   if (!record(value) || !exactKeys(value, ["version", "codeSha", "project", "origin", "ownerRecipient", "allowSimulators", "receivingAddress", "photoBucket",
@@ -320,8 +320,12 @@ export async function runResendOperations(command: ReturnType<typeof parseComman
   });
   const desiredMatches = Object.entries(manifest.enable).every(([key, enabled]) => controlEnabled(controls[key]) === enabled);
   const expectedControls = manifest.expectedControlsFingerprint ?? receipt?.controlsFingerprint;
-  if (!desiredMatches && (observations.controlsFingerprint !== expectedControls
-    || (manifest.expectedControlsFingerprint === null && Object.values(controls).some(v => controlEnabled(v) !== false)))) add("control_baseline_drift");
+  const baselineMatches = observations.controlsFingerprint === expectedControls
+    && (manifest.expectedControlsFingerprint !== null || Object.values(controls).every(v => controlEnabled(v) === false));
+  const appliedFingerprint = receipt?.controlsAppliedFingerprint;
+  const recordedApplyMatches = desiredMatches && typeof appliedFingerprint === "string" && sha.test(appliedFingerprint)
+    && observations.controlsFingerprint === appliedFingerprint;
+  if (!baselineMatches && !recordedApplyMatches) add("control_baseline_drift");
   const report = { command, manifestSha256, codeSha: manifest.codeSha, readyForGuardedApply: findings.length === 0,
     operationalAcceptanceComplete: false, findings, observations, requiredEvidence: PROOF_KINDS,
     intended: { webhook: { endpoint: `${TARGET.origin}/api/webhooks/resend`, events: WEBHOOK_EVENTS },
@@ -344,7 +348,8 @@ export async function runResendOperations(command: ReturnType<typeof parseComman
   if (!desiredMatches) await supabase("/database/query", "POST", { query: controlChangeSql(controls, manifest.enable), read_only: false });
   const after: Record<string, unknown> = {};
   for (const [key, fn] of Object.entries(CONTROL_READS)) after[key] = await rpc(fn);
-  if (!Object.entries(manifest.enable).every(([key, enabled]) => controlEnabled(after[key]) === enabled)) fail("control_postflight_failed");
+  if (!Object.entries(manifest.enable).every(([key, enabled]) => controlEnabled(after[key]) === enabled)
+    || (desiredMatches && fingerprint(after) !== observations.controlsFingerprint)) fail("control_postflight_failed");
   return { ...report, applied: true, observations: { ...observations, controlsFingerprint: fingerprint(after) },
     note: "Admission controls are configured. Hosted flags, mailbox receipt and the acceptance runbook remain separate evidence." };
 }

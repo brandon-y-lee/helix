@@ -109,18 +109,27 @@ begin;
 select support_retention_test.seed(30);
 select support_retention_test.seed(31);
 set local role service_role;
-do $$ declare denied boolean:=false; revision integer; begin
+do $$ declare denied boolean:=false; revision integer; held_until timestamptz; begin
   begin perform public.configure_support_retention(support_retention_test.id('editor',1),support_retention_test.id('inquiry',30),1,
     clock_timestamp()+interval '1 day','legal',false); exception when insufficient_privilege then denied:=true; end;
   perform support_retention_test.assert(denied,'catalog access cannot place support retention holds');
   perform support_retention_test.assert(public.configure_support_retention(support_retention_test.actor(),support_retention_test.id('inquiry',30),1,
     clock_timestamp()+interval '1 day','legal',false),'an authorized timed hold is saved');
+  select retention_hold_until into held_until from private.support_inquiries where id=support_retention_test.id('inquiry',30);
+  perform support_retention_test.assert(not public.configure_support_retention(support_retention_test.actor(),support_retention_test.id('inquiry',30),1,
+    null,null,false),'a stale revision cannot release a newer retention hold');
+  perform support_retention_test.assert(not public.configure_support_retention(support_retention_test.actor(),support_retention_test.id('inquiry',30),1,
+    clock_timestamp()+interval '2 days','safety',false),'a stale revision cannot replace a newer retention hold');
+  perform support_retention_test.assert((select i.revision=2 and i.retention_hold_until=held_until and i.retention_hold_reason='legal'
+    from private.support_inquiries i where id=support_retention_test.id('inquiry',30)),
+    'a saved hold advances the revision and stale changes preserve its exact scope');
   perform public.run_support_retention(20);
   perform support_retention_test.assert((select redacted_at is null from private.support_inquiries where id=support_retention_test.id('inquiry',30))
     and (select redacted_at is not null from private.support_inquiries where id=support_retention_test.id('inquiry',31)),
     'a hold protects only its selected Inquiry');
   select i.revision into revision from private.support_inquiries i where id=support_retention_test.id('inquiry',30);
-  perform public.configure_support_retention(support_retention_test.actor(),support_retention_test.id('inquiry',30),revision,null,null,false);
+  perform support_retention_test.assert(public.configure_support_retention(support_retention_test.actor(),support_retention_test.id('inquiry',30),revision,null,null,false),
+    'the current revision can explicitly release the hold');
   perform public.run_support_retention(20);
   perform support_retention_test.assert((select redacted_at is not null from private.support_inquiries where id=support_retention_test.id('inquiry',30)),
     'releasing a hold allows overdue content to expire');
@@ -459,4 +468,22 @@ select support_retention_test.assert((select content_deleted_at is not null and 
 select support_retention_test.assert((select count(*)=2 from private.email_intents where purpose='support_reply'
   and receipt->>'inquiryId'=support_retention_test.id('inquiry',170)::text and content_deleted_at is null),
   'remaining revision-bound reply copies stay queued for a later bounded redaction pass');
+rollback;
+
+
+-- A hold change advances context, so an earlier exact reply approval is no longer current.
+begin;
+select support_retention_test.seed(180,interval '1 day',false);
+set local role service_role;
+select public.mutate_support_inquiry(support_retention_test.actor(),support_retention_test.id('inquiry',180),1,
+  'save_draft',0,'Private approved subject','Private approved reply');
+select public.mutate_support_inquiry(support_retention_test.actor(),support_retention_test.id('inquiry',180),2,'approve_reply',1);
+select support_retention_test.assert((select state='queued' from private.email_intents where purpose='support_reply'
+  and receipt->>'inquiryId'=support_retention_test.id('inquiry',180)::text),'the exact human approval initially queues its reply');
+select public.configure_support_retention(support_retention_test.actor(),support_retention_test.id('inquiry',180),2,
+  clock_timestamp()+interval '1 day','legal',false);
+select support_retention_test.assert((select revision=3 from private.support_inquiries where id=support_retention_test.id('inquiry',180))
+  and (select state='blocked' and error_code='approval_stale' from private.email_intents where purpose='support_reply'
+    and receipt->>'inquiryId'=support_retention_test.id('inquiry',180)::text),
+  'a retention hold change invalidates the earlier approval and blocks its queued reply');
 rollback;

@@ -52,7 +52,9 @@ begin
     raise exception using errcode='22023',message='invalid_support_input'; end if;
   select * into v_inquiry from private.support_inquiries where id=p_inquiry_id for update;
   if not found or v_inquiry.redacted_at is not null or p_expected_revision is distinct from v_inquiry.revision then return false; end if;
-  update private.support_inquiries set retention_hold_until=p_hold_until,retention_hold_reason=p_hold_reason,
+  perform private.invalidate_support_approval(p_inquiry_id);
+  update private.support_inquiries set revision=revision+1,updated_at=pg_catalog.clock_timestamp(),
+    retention_hold_until=p_hold_until,retention_hold_reason=p_hold_reason,
     retention_hold_actor_id=case when p_hold_until is not null then p_actor_id end,
     synthetic_at=case when p_mark_synthetic then coalesce(synthetic_at,pg_catalog.clock_timestamp()) else synthetic_at end
     where id=p_inquiry_id;
