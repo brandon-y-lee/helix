@@ -20,7 +20,7 @@ async function rpc(name: string, args: Record<string, unknown>): Promise<unknown
     ]);
     if (error) throw new Error("Email preferences are temporarily unavailable.");
     return data;
-  } finally { clearTimeout(timer); }
+  } finally { clearTimeout(timer); abort.abort(); }
 }
 function record(value: unknown): value is Record<string, unknown> { return !!value && typeof value === "object" && !Array.isArray(value); }
 function status(value: unknown): { status: string } {
@@ -62,7 +62,7 @@ export const marketingServiceStorage: MarketingServiceStorage = {
     if (value === null) return null;
     if (!record(value) || typeof value.allowSubmit !== "boolean" || !Number.isSafeInteger(value.generation) || Number(value.generation) < 1
       || typeof value.admissionToken !== "string" || !UUID.test(value.admissionToken)
-      || !["admitted", "submitted", "uncertain", "completed", "failed"].includes(String(value.state))
+      || !["admitted", "submitted", "uncertain", "retry_wait", "exhausted", "completed", "failed"].includes(String(value.state))
       || (value.importId !== null && (typeof value.importId !== "string" || !UUID.test(value.importId)))) throw new Error("Invalid Contact import admission.");
     return value as MarketingImportAdmission;
   },

@@ -52,13 +52,20 @@ async function providerDeadline<T>(operation: (signal: AbortSignal) => Promise<T
   });
   try { return await Promise.race([operation(controller.signal), deadline]); }
   catch (error) { throw error instanceof MarketingProviderError ? error : new MarketingProviderError("provider_unavailable"); }
-  finally { clearTimeout(timer); }
+  finally { clearTimeout(timer); controller.abort(); }
 }
 async function responseError(response: Response): Promise<MarketingProviderError> {
   let providerName: unknown;
   try {
     const body: unknown = JSON.parse(await readBoundedBody(response, 16_384));
-    if (record(body)) providerName = body.name;
+    if (record(body)) {
+      providerName = body.name;
+      // An import identity or contradictory body is not an ordinary rate rejection.
+      // Keep the HTTP evidence, but never interpret or rebind an identity from an error.
+      if (providerName === "rate_limit_exceeded" && (!Object.keys(body).every((key) => ["name", "message", "statusCode"].includes(key))
+        || (Object.hasOwn(body, "message") && typeof body.message !== "string")
+        || (Object.hasOwn(body, "statusCode") && body.statusCode !== response.status))) providerName = undefined;
+    }
   } catch { /* Retain status only when provider error content cannot be safely decoded. */ }
   return new MarketingProviderError("provider_unavailable", { httpStatus: response.status, providerName, retryAfter: response.headers.get("Retry-After") });
 }

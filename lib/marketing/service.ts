@@ -13,7 +13,7 @@ export type MarketingSendContext = {
 };
 export type MarketingImportAdmission = {
   allowSubmit: boolean; generation: number; admissionToken: string; importId: string | null;
-  state: "admitted" | "submitted" | "uncertain" | "completed" | "failed";
+  state: "admitted" | "submitted" | "uncertain" | "retry_wait" | "exhausted" | "completed" | "failed";
 };
 export type MarketingImportJob = { subscriberId: string; generation: number; email: string; importId: string | null; leaseToken: string };
 export interface MarketingContactProvider {
@@ -29,7 +29,7 @@ export interface MarketingServiceStorage {
   claimSync(lease: string, limit: number): Promise<MarketingSyncJob[]>;
   validateSync(job: MarketingSyncJob): Promise<boolean>;
   admitImport(job: MarketingSyncJob): Promise<MarketingImportAdmission | null>;
-  recordImport(job: MarketingSyncJob, admission: MarketingImportAdmission, importId: string | null, outcome: "submitted" | "uncertain", failure?: MarketingProviderEvidence): Promise<boolean>;
+  recordImport(job: MarketingSyncJob, admission: MarketingImportAdmission, importId: string | null, outcome: "submitted" | "uncertain" | "rate_limited", failure?: MarketingProviderEvidence): Promise<boolean>;
   claimImports(lease: string, limit: number): Promise<MarketingImportJob[]>;
   finishImport(job: MarketingImportJob, outcome: "pending" | "completed" | "failed"): Promise<boolean>;
   finishSync(job: MarketingSyncJob, contactId: string | null, outcome: "synced" | "retry"): Promise<boolean>;
@@ -71,7 +71,13 @@ export async function synchronizeMarketingContacts({ storage, provider, env }: M
               // Preserve a returned provider identity across a database failure;
               // retry only this local recording, never the import submission.
               if (importId) await storage.recordImport(job, admission, importId, "submitted");
-              else await storage.recordImport(job, admission, null, "uncertain", marketingProviderEvidence(error));
+              else {
+                const failure = marketingProviderEvidence(error);
+                // Only Resend's explicit rate rejection may schedule another
+                // durable attempt. Every other missing-ID result stays uncertain.
+                const outcome = failure.httpStatus === 429 && failure.providerName === "rate_limit_exceeded" ? "rate_limited" : "uncertain";
+                await storage.recordImport(job, admission, null, outcome, failure);
+              }
             }
           }
           await storage.finishSync(job, null, "retry"); result.deferred++; continue;
@@ -79,10 +85,14 @@ export async function synchronizeMarketingContacts({ storage, provider, env }: M
         // A known global withdrawal is sufficient evidence. Do not discard it
         // because an unrelated Topic lookup is unavailable.
         const topic = contact!.unsubscribed ? "opt_out" : await provider.getTopic(contactId, job.topicId, apiKey);
-        if (await storage.finishSync(job, contactId, "synced")) {
+        const synced = await storage.finishSync(job, contactId, "synced");
+        // Existing exact bindings can retain a restrictive observation across
+        // a lease refresh. SQL still fences generation, revision and identity.
+        const boundDenial = job.providerContactId === contactId && (contact!.unsubscribed || topic === "opt_out");
+        if (synced || boundDenial) {
           const saved = await storage.observe({ subscriberId: job.subscriberId, generation: job.generation, revision: job.revision,
             contactId, topicId: job.topicId, globalAllowed: !contact!.unsubscribed, topicAllowed: topic === "opt_in" });
-          if (saved && !contact!.unsubscribed && topic === "opt_in") result.synced++;
+          if (synced && saved && !contact!.unsubscribed && topic === "opt_in") result.synced++;
           else result.deferred++;
         } else result.deferred++;
         continue;

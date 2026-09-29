@@ -15,7 +15,28 @@ CREATE FUNCTION marketing_contract_test.contract() RETURNS jsonb LANGUAGE sql AS
       'welcome_education',jsonb_build_object('id','education_synthetic','sha256',repeat('c',64))))
 $$;
 
+CREATE FUNCTION marketing_contract_test.payload(p_id uuid) RETURNS jsonb LANGUAGE sql AS $$
+  SELECT jsonb_build_object('from',receipt->'templateContract'->>'from','reply_to',receipt->'templateContract'->>'replyTo',
+    'to',jsonb_build_array(recipient),'subject','Synthetic approved message','html','<p>Synthetic approved message</p>',
+    'text','Synthetic approved message','tags',jsonb_build_array(jsonb_build_object('name','helix_environment','value',environment),
+      jsonb_build_object('name','helix_message_id','value',id::text))) || CASE WHEN purpose='marketing_confirmation' THEN '{}'::jsonb
+      ELSE jsonb_build_object('topic_id',receipt->'templateContract'->>'topicId','headers',jsonb_build_object(
+        'List-Unsubscribe','<'||(receipt->'templateContract'->>'siteOrigin')||'/api/marketing/unsubscribe?token='||(receipt->>'preferenceToken')||'>',
+        'List-Unsubscribe-Post','List-Unsubscribe=One-Click')) END
+  FROM private.email_intents WHERE id=p_id;
+$$;
+GRANT EXECUTE ON FUNCTION marketing_contract_test.payload(uuid) TO service_role;
+
 -- APPLY MARKETING SUBSCRIPTION MIGRATION
+
+SELECT marketing_contract_test.assert((SELECT count(*)=3 AND NOT bool_or(enabled) FROM private.email_controls
+  WHERE purpose IN ('marketing_confirmation','welcome_initial','welcome_education')),'marketing delivery starts disabled');
+SELECT marketing_contract_test.assert(public.request_marketing_subscription('disabled@example.invalid','footer','welcome_v1',
+  repeat('a',64),repeat('b',64),true,marketing_contract_test.contract())->>'status'='unavailable',
+  'disabled marketing cannot admit confirmation work');
+SELECT marketing_contract_test.assert((SELECT count(*)=0 FROM private.marketing_subscribers),'disabled admission creates no subscriber');
+SELECT public.configure_marketing_email(true,(SELECT jsonb_object_agg(c->>'purpose',c->'updatedAt')
+  FROM jsonb_array_elements(public.read_marketing_email_control()) c));
 
 BEGIN;
 SET LOCAL ROLE service_role;
@@ -563,7 +584,7 @@ DO $$ DECLARE n integer; job jsonb; admitted jsonb; v_id uuid; evidence jsonb; b
     admitted:=public.admit_marketing_contact_import(v_id,(job->>'revision')::bigint,'40000000-0000-0000-0000-000000000001');
     evidence:=jsonb_build_object('category',CASE WHEN n=1 THEN 'rate_limited' ELSE 'configuration_rejected' END,
       'httpStatus',CASE WHEN n=1 THEN 429 ELSE 401 END,
-      'providerName',CASE WHEN n=1 THEN 'rate_limit_exceeded' ELSE 'invalid_api_key' END,
+      'providerName',CASE WHEN n=1 THEN 'daily_quota_exceeded' ELSE 'invalid_api_key' END,
       'retryAfterSeconds',CASE WHEN n=1 THEN 9 ELSE null END);
     PERFORM marketing_contract_test.assert(public.record_marketing_contact_import(v_id,1,(admitted->>'admissionToken')::uuid,
       null,'uncertain',evidence),'finite failure classification can be retained');
@@ -602,5 +623,452 @@ DO $$ DECLARE n integer; job jsonb; admitted jsonb; v_id uuid; evidence jsonb; b
     EXCEPTION WHEN object_not_in_prerequisite_state THEN denied:=true; END;
     PERFORM marketing_contract_test.assert(denied,'the first failure evidence cannot be erased');
   END LOOP;
+END $$;
+ROLLBACK;
+
+
+-- Shared queue boundaries: each capability is one confirmation occurrence, each confirmed
+-- generation has exactly two scheduled welcome messages, and attempted work stays uncertain.
+BEGIN;
+SET LOCAL ROLE service_role;
+SELECT public.request_marketing_subscription('confirmation-queue@example.invalid','footer','welcome_v1',
+  repeat('a',64),repeat('b',64),true,marketing_contract_test.contract());
+DO $$ DECLARE work jsonb; v_id uuid; payload jsonb; old_payload jsonb; BEGIN
+  work:=public.claim_email_intents('sandbox','40000000-0000-0000-0000-000000000001',1)->0;
+  v_id:=(work->>'id')::uuid;
+  PERFORM marketing_contract_test.assert(work->>'purpose'='marketing_confirmation','a fresh confirmation is claimable');
+  payload:=marketing_contract_test.payload(v_id);
+  PERFORM marketing_contract_test.assert(public.prepare_email_attempt(v_id,'40000000-0000-0000-0000-000000000001',payload) IS NOT NULL,
+    'the current confirmation occurrence can prepare one frozen handoff');
+  old_payload:=payload;
+  UPDATE private.marketing_subscribers SET last_requested_at=clock_timestamp()-interval '61 seconds';
+  PERFORM public.request_marketing_subscription('confirmation-queue@example.invalid','footer','welcome_v1',
+    repeat('c',64),repeat('b',64),true,marketing_contract_test.contract());
+  PERFORM marketing_contract_test.assert((SELECT count(*)=2 FROM private.email_intents WHERE purpose='marketing_confirmation'),
+    'resend creates a separate durable capability occurrence');
+  PERFORM marketing_contract_test.assert((SELECT receipt->>'confirmationToken'=repeat('a',64) AND request_payload=old_payload
+    AND error_code='reconciliation_required' FROM private.email_intents WHERE id=v_id),
+    'rotation never rewrites an attempted confirmation or claims it was unsent');
+  PERFORM public.finish_email_attempt(v_id,'40000000-0000-0000-0000-000000000001','blocked',null,'marketing_not_eligible');
+  PERFORM marketing_contract_test.assert((SELECT state='uncertain' AND error_code='reconciliation_required'
+    FROM private.email_intents WHERE id=v_id),'post-handoff rotation requires reconciliation');
+  work:=public.claim_email_intents('sandbox','40000000-0000-0000-0000-000000000002',1)->0;
+  PERFORM marketing_contract_test.assert(work->'receipt'->>'confirmationToken'=repeat('c',64),
+    'only the rotated current capability is claimable');
+  v_id:=(work->>'id')::uuid;
+  UPDATE private.marketing_confirmation_tokens SET expires_at=clock_timestamp()-interval '1 second'
+    WHERE consumed_at IS NULL;
+  PERFORM marketing_contract_test.assert(public.prepare_email_attempt(v_id,'40000000-0000-0000-0000-000000000002',
+    marketing_contract_test.payload(v_id)) IS NULL,'confirmation expiry is enforced at the handoff boundary');
+  PERFORM marketing_contract_test.assert((SELECT first_attempt_at IS NULL AND state='blocked' FROM private.email_intents WHERE id=v_id),
+    'an expired never-attempted capability is safely blocked');
+END $$;
+ROLLBACK;
+
+BEGIN;
+SET LOCAL ROLE service_role;
+SELECT public.request_marketing_subscription('welcome-queue@example.invalid','footer','welcome_v1',
+  repeat('a',64),repeat('b',64),true,marketing_contract_test.contract());
+SELECT public.confirm_marketing_subscription(repeat('a',64),repeat('p',64));
+SELECT public.confirm_marketing_subscription(repeat('a',64),repeat('q',64));
+DO $$ DECLARE job jsonb; work jsonb; v_id uuid; v_subscriber uuid; payload jsonb; denied boolean:=false; BEGIN
+  PERFORM marketing_contract_test.assert((SELECT count(*)=2 FROM private.email_intents
+    WHERE purpose IN ('welcome_initial','welcome_education')),'confirmation creates exactly two welcome intents');
+  PERFORM marketing_contract_test.assert((SELECT max(next_attempt_at)-min(next_attempt_at)=interval '72 hours'
+    AND bool_and(receipt->>'preferenceToken'=repeat('p',64)) FROM private.email_intents
+    WHERE purpose IN ('welcome_initial','welcome_education')),'education is due seventy-two hours after the initial message');
+  work:=public.claim_email_intents('sandbox','40000000-0000-0000-0000-000000000001',1)->0;
+  v_id:=(work->>'id')::uuid;
+  PERFORM marketing_contract_test.assert(work->>'purpose'='welcome_initial','fresh initial welcome is claimable');
+  PERFORM marketing_contract_test.assert(public.claim_email_intents('sandbox','40000000-0000-0000-0000-000000000009',1)='[]'::jsonb,
+    'education cannot be claimed early and consumed confirmation is canceled');
+  payload:=marketing_contract_test.payload(v_id);
+  PERFORM marketing_contract_test.assert(public.prepare_email_attempt(v_id,'40000000-0000-0000-0000-000000000001',payload) IS NULL,
+    'local confirmation alone cannot bypass provider preference synchronization');
+  PERFORM marketing_contract_test.assert((SELECT first_attempt_at IS NULL AND state='retry' FROM private.email_intents WHERE id=v_id)
+    AND NOT EXISTS(SELECT 1 FROM private.marketing_send_reservations),'unverified preferences cannot reserve capacity or hand off');
+  job:=public.claim_marketing_sync('40000000-0000-0000-0000-000000000002',1)->0;
+  v_subscriber:=(job->>'subscriberId')::uuid;
+  PERFORM public.finish_marketing_sync(v_subscriber,2,'40000000-0000-0000-0000-000000000002','contact_queue','topic_synthetic','synced');
+  PERFORM public.record_marketing_provider_observation(v_subscriber,1,2,'contact_queue','topic_synthetic',true,true);
+  UPDATE private.email_intents SET next_attempt_at=clock_timestamp() WHERE id=v_id;
+  PERFORM public.claim_email_intents('sandbox','40000000-0000-0000-0000-000000000003',1);
+  BEGIN PERFORM public.prepare_email_attempt(v_id,'40000000-0000-0000-0000-000000000003',
+    jsonb_set(payload,'{headers,List-Unsubscribe}','"<https://other.invalid/unsubscribe>"'));
+  EXCEPTION WHEN invalid_parameter_value THEN denied:=true; END;
+  PERFORM marketing_contract_test.assert(denied,'unsubscribe metadata is bound to the frozen preference capability and website');
+  denied:=false;
+  BEGIN PERFORM public.prepare_email_attempt(v_id,'40000000-0000-0000-0000-000000000003',jsonb_set(payload,'{topic_id}','"other_topic"'));
+  EXCEPTION WHEN invalid_parameter_value THEN denied:=true; END;
+  PERFORM marketing_contract_test.assert(denied,'the current contract binds the exact provider Topic');
+  PERFORM marketing_contract_test.assert(public.prepare_email_attempt(v_id,'40000000-0000-0000-0000-000000000003',payload) IS NOT NULL,
+    'fresh matching preferences permit an atomic welcome reservation and handoff');
+  PERFORM public.finish_email_attempt(v_id,'40000000-0000-0000-0000-000000000003','retry',null,'provider_unavailable');
+  PERFORM marketing_contract_test.assert((SELECT state='uncertain' AND request_payload=payload FROM private.email_intents WHERE id=v_id),
+    'a retry preserves possible acceptance and the exact frozen request');
+  UPDATE private.email_intents SET next_attempt_at=clock_timestamp() WHERE id=v_id;
+  PERFORM public.claim_email_intents('sandbox','40000000-0000-0000-0000-000000000004',1);
+  PERFORM public.record_marketing_provider_observation(v_subscriber,1,2,'contact_queue','topic_synthetic',true,true);
+  PERFORM marketing_contract_test.assert(public.prepare_email_attempt(v_id,'40000000-0000-0000-0000-000000000004',payload) IS NOT NULL
+    AND (SELECT count(*)=1 FROM private.marketing_send_reservations),'retry uses its existing frequency reservation');
+  PERFORM public.withdraw_marketing_subscription(repeat('p',64),'global');
+  PERFORM marketing_contract_test.assert(public.finish_email_attempt(v_id,'40000000-0000-0000-0000-000000000004','accepted',
+    'synthetic-welcome-accepted',null),'late provider acceptance remains recordable after withdrawal');
+  PERFORM marketing_contract_test.assert((SELECT state='accepted' AND provider_email_id='synthetic-welcome-accepted'
+    FROM private.email_intents WHERE id=v_id),'known provider acceptance wins over the withdrawal cancellation marker');
+  PERFORM marketing_contract_test.assert((SELECT state='blocked' AND first_attempt_at IS NULL FROM private.email_intents
+    WHERE purpose='welcome_education'),'withdrawal cancels queued later education');
+END $$;
+ROLLBACK;
+
+-- These fixture-only clock changes exercise scheduled work without sleeping for days.
+BEGIN;
+SELECT public.request_marketing_subscription('education-queue@example.invalid','footer','welcome_v1',
+  repeat('a',64),repeat('b',64),true,marketing_contract_test.contract());
+SELECT public.confirm_marketing_subscription(repeat('a',64),repeat('p',64));
+ALTER TABLE private.marketing_generations DISABLE TRIGGER USER;
+UPDATE private.marketing_generations SET confirmed_at=clock_timestamp()-interval '73 hours';
+ALTER TABLE private.marketing_generations ENABLE TRIGGER USER;
+UPDATE private.email_intents SET next_attempt_at=clock_timestamp() WHERE purpose='welcome_education';
+SET LOCAL ROLE service_role;
+DO $$ DECLARE work jsonb; v_id uuid; job jsonb; v_subscriber uuid; BEGIN
+  job:=public.claim_marketing_sync('40000000-0000-0000-0000-000000000002',1)->0;
+  v_subscriber:=(job->>'subscriberId')::uuid;
+  PERFORM public.finish_marketing_sync(v_subscriber,2,'40000000-0000-0000-0000-000000000002','contact_education','topic_synthetic','synced');
+  PERFORM public.record_marketing_provider_observation(v_subscriber,1,2,'contact_education','topic_synthetic',true,true);
+  work:=public.claim_email_intents('sandbox','40000000-0000-0000-0000-000000000001',1)->0;
+  v_id:=(work->>'id')::uuid;
+  PERFORM marketing_contract_test.assert(work->>'purpose'='welcome_initial','initial precedes due education');
+  PERFORM marketing_contract_test.assert(public.prepare_email_attempt(v_id,'40000000-0000-0000-0000-000000000001',
+    marketing_contract_test.payload(v_id)) IS NULL,'initial welcome expires twenty-four hours after due before any handoff');
+  PERFORM marketing_contract_test.assert((SELECT state='blocked' AND error_code='marketing_expired' FROM private.email_intents WHERE id=v_id),
+    'expired initial cannot later backfill');
+  work:=public.claim_email_intents('sandbox','40000000-0000-0000-0000-000000000003',1)->0;
+  v_id:=(work->>'id')::uuid;
+  PERFORM marketing_contract_test.assert(work->>'purpose'='welcome_education','due education is claimable');
+  PERFORM marketing_contract_test.assert(public.prepare_email_attempt(v_id,'40000000-0000-0000-0000-000000000003',
+    marketing_contract_test.payload(v_id)) IS NULL,'education cannot hand off unless its initial message was accepted');
+  PERFORM marketing_contract_test.assert((SELECT error_code='marketing_initial_not_accepted' AND first_attempt_at IS NULL
+    FROM private.email_intents WHERE id=v_id),'education waits without spending capacity');
+END $$;
+ROLLBACK;
+
+BEGIN;
+SET LOCAL ROLE service_role;
+SELECT public.request_marketing_subscription('activation-cutoff@example.invalid','footer','welcome_v1',
+  repeat('a',64),repeat('b',64),true,marketing_contract_test.contract());
+DO $$ DECLARE control jsonb; work jsonb; BEGIN
+  control:=(SELECT jsonb_object_agg(c->>'purpose',c->'updatedAt') FROM jsonb_array_elements(public.read_marketing_email_control()) c);
+  PERFORM marketing_contract_test.assert(public.configure_marketing_email(false,control),'all three purposes atomically disable');
+  PERFORM marketing_contract_test.assert(NOT public.configure_marketing_email(true,control),'stale activation decisions fail closed');
+  PERFORM public.configure_marketing_email(true,(SELECT jsonb_object_agg(c->>'purpose',c->'updatedAt')
+    FROM jsonb_array_elements(public.read_marketing_email_control()) c));
+  work:=public.claim_email_intents('sandbox','40000000-0000-0000-0000-000000000001',1)->0;
+  PERFORM marketing_contract_test.assert(public.prepare_email_attempt((work->>'id')::uuid,
+    '40000000-0000-0000-0000-000000000001',marketing_contract_test.payload((work->>'id')::uuid)) IS NULL,
+    'activation cutoff does not backfill earlier admissions');
+END $$;
+ROLLBACK;
+
+-- Additive import-retry regressions; append after the marketing subscription integration assertions.
+-- All addresses and provider identifiers are synthetic, and every scenario rolls back its rows.
+CREATE FUNCTION marketing_contract_test.import_retry_setup(p_suffix text) RETURNS jsonb LANGUAGE plpgsql AS $$
+DECLARE v_job jsonb; v_import jsonb; BEGIN
+  PERFORM public.request_marketing_subscription('retry-'||p_suffix||'@example.invalid','footer','welcome_v1',
+    repeat('a',64),repeat('b',64),true,marketing_contract_test.contract());
+  PERFORM public.confirm_marketing_subscription(repeat('a',64),repeat('p',64));
+  v_job:=public.claim_marketing_sync('91000000-0000-0000-0000-000000000001',1)->0;
+  v_import:=public.admit_marketing_contact_import((v_job->>'subscriberId')::uuid,(v_job->>'revision')::bigint,
+    '91000000-0000-0000-0000-000000000001');
+  RETURN v_job||v_import;
+END $$;
+GRANT EXECUTE ON FUNCTION marketing_contract_test.import_retry_setup(text) TO service_role;
+
+BEGIN;
+SET LOCAL ROLE service_role;
+DO $$ DECLARE first_work jsonb; retry_work jsonb; inspection jsonb; v_id uuid; original_due timestamptz;
+  failure jsonb:='{"category":"rate_limited","httpStatus":429,"providerName":"rate_limit_exceeded","retryAfterSeconds":null}';
+BEGIN
+  first_work:=marketing_contract_test.import_retry_setup('success'); v_id:=(first_work->>'subscriberId')::uuid;
+  PERFORM marketing_contract_test.assert(public.record_marketing_contact_import(v_id,1,(first_work->>'admissionToken')::uuid,
+    null,'rate_limited',failure),'exact rate limit rejection records successfully');
+  SELECT next_submission_at INTO original_due FROM private.marketing_contact_imports WHERE subscriber_id=v_id;
+  PERFORM marketing_contract_test.assert((SELECT state='retry_wait' AND attempt_count=1 AND first_failure=failure
+    AND next_submission_at>clock_timestamp()+interval '59 seconds' FROM private.marketing_contact_imports WHERE subscriber_id=v_id),
+    'exact rate limit uses durable default 60-second backoff');
+  PERFORM public.record_marketing_contact_import(v_id,1,(first_work->>'admissionToken')::uuid,null,'rate_limited',failure);
+  PERFORM marketing_contract_test.assert((SELECT next_submission_at=original_due FROM private.marketing_contact_imports WHERE subscriber_id=v_id),
+    'duplicate rejection evidence never postpones retry');
+  PERFORM marketing_contract_test.assert(NOT (public.admit_marketing_contact_import(v_id,2,
+    '91000000-0000-0000-0000-000000000001')->>'allowSubmit')::boolean,'backoff blocks early admission');
+  UPDATE private.marketing_contact_imports SET next_submission_at=clock_timestamp()-interval '1 second' WHERE subscriber_id=v_id;
+  PERFORM marketing_contract_test.assert(public.admit_marketing_contact_import(v_id,3,
+    '91000000-0000-0000-0000-000000000001') IS NULL,'wrong current revision cannot admit due retry');
+  PERFORM marketing_contract_test.assert(public.admit_marketing_contact_import(v_id,2,
+    '91000000-0000-0000-0000-000000000099') IS NULL,'wrong synchronization lease cannot admit due retry');
+  retry_work:=public.admit_marketing_contact_import(v_id,2,'91000000-0000-0000-0000-000000000001');
+  PERFORM marketing_contract_test.assert((retry_work->>'allowSubmit')::boolean AND retry_work->>'attemptCount'='2'
+    AND retry_work->>'admissionToken'<>first_work->>'admissionToken','due retry rotates admission token once');
+  PERFORM marketing_contract_test.assert(NOT public.record_marketing_contact_import(v_id,1,(first_work->>'admissionToken')::uuid,
+    '92000000-0000-0000-0000-000000000001','submitted'),'prior attempt UUID cannot attach after token rotation');
+  PERFORM marketing_contract_test.assert(NOT public.record_marketing_contact_import(v_id,1,(first_work->>'admissionToken')::uuid,
+    null,'rate_limited',failure),'prior attempt rejection cannot attach after token rotation');
+  PERFORM public.record_marketing_contact_import(v_id,1,(retry_work->>'admissionToken')::uuid,
+    '92000000-0000-0000-0000-000000000002','submitted');
+  PERFORM public.record_marketing_contact_import(v_id,1,(retry_work->>'admissionToken')::uuid,null,'rate_limited',failure);
+  PERFORM marketing_contract_test.assert((SELECT state='submitted' AND attempt_count=2 AND first_failure=failure
+    AND provider_import_id='92000000-0000-0000-0000-000000000002' FROM private.marketing_contact_imports WHERE subscriber_id=v_id),
+    'later diagnostic cannot downgrade accepted UUID and historical evidence survives success');
+  inspection:=public.read_marketing_operations()->0;
+  PERFORM marketing_contract_test.assert(inspection->>'attemptCount'='2' AND inspection->>'importState'='submitted'
+    AND inspection->>'currentConsentStatus'='confirmed' AND inspection->>'currentGeneration'='1'
+    AND inspection-array['subscriberId','generation','importState','attemptCount','nextSubmissionAt','providerImportId',
+      'firstFailure','currentConsentStatus','currentGeneration']='{}'::jsonb,'inspection is sanitized and operationally useful');
+END $$;
+ROLLBACK;
+
+-- Failure to durably record a response must never enable local automatic feedback/re-submission.
+BEGIN;
+SET LOCAL ROLE service_role;
+DO $$ DECLARE work jsonb; v_id uuid; denied boolean:=false; polled jsonb; BEGIN
+  work:=marketing_contract_test.import_retry_setup('lost-record'); v_id:=(work->>'subscriberId')::uuid;
+  BEGIN
+    PERFORM public.record_marketing_contact_import(v_id,1,(work->>'admissionToken')::uuid,null,'uncertain',
+      '{"category":"rate_limited","httpStatus":"429","providerName":"rate_limit_exceeded","retryAfterSeconds":60}');
+  EXCEPTION WHEN invalid_parameter_value THEN denied:=true; END;
+  PERFORM marketing_contract_test.assert(denied,'malformed response evidence cannot be recorded as rejection');
+  PERFORM marketing_contract_test.assert(NOT (public.admit_marketing_contact_import(v_id,2,
+    '91000000-0000-0000-0000-000000000001')->>'allowSubmit')::boolean,'failed result recording does not authorize another submission');
+  UPDATE private.marketing_contact_imports SET next_poll_at=clock_timestamp()-interval '1 second' WHERE subscriber_id=v_id;
+  polled:=public.claim_marketing_contact_imports('93000000-0000-0000-0000-000000000001',1)->0;
+  PERFORM marketing_contract_test.assert(polled->>'state'='uncertain','abandoned attempt becomes uncertain');
+  PERFORM public.record_marketing_contact_import(v_id,1,(work->>'admissionToken')::uuid,null,'rate_limited',
+    '{"category":"rate_limited","httpStatus":429,"providerName":"rate_limit_exceeded","retryAfterSeconds":60}');
+  PERFORM marketing_contract_test.assert((SELECT state='uncertain' AND next_submission_at IS NULL
+    FROM private.marketing_contact_imports WHERE subscriber_id=v_id),'late 429 cannot undo established uncertainty');
+  PERFORM marketing_contract_test.assert(NOT public.finish_marketing_contact_import(v_id,1,
+    '93000000-0000-0000-0000-000000000001','failed'),'unknown identity cannot become terminal failed');
+END $$;
+ROLLBACK;
+
+-- A prior exact 429 is historical evidence, never authority to retry a later uncertain attempt.
+BEGIN;
+SET LOCAL ROLE service_role;
+DO $$ DECLARE work jsonb; retry_work jsonb; v_id uuid;
+  failure jsonb:='{"category":"rate_limited","httpStatus":429,"providerName":"rate_limit_exceeded","retryAfterSeconds":0}';
+BEGIN
+  work:=marketing_contract_test.import_retry_setup('timeout-after-rejection'); v_id:=(work->>'subscriberId')::uuid;
+  PERFORM public.record_marketing_contact_import(v_id,1,(work->>'admissionToken')::uuid,null,'rate_limited',failure);
+  UPDATE private.marketing_contact_imports SET next_submission_at=clock_timestamp()-interval '1 second' WHERE subscriber_id=v_id;
+  retry_work:=public.admit_marketing_contact_import(v_id,2,'91000000-0000-0000-0000-000000000001');
+  PERFORM public.record_marketing_contact_import(v_id,1,(retry_work->>'admissionToken')::uuid,null,'uncertain');
+  PERFORM public.record_marketing_contact_import(v_id,1,(retry_work->>'admissionToken')::uuid,null,'rate_limited',failure);
+  PERFORM marketing_contract_test.assert((SELECT state='uncertain' AND attempt_count=2 AND first_failure=failure
+    AND next_submission_at IS NULL FROM private.marketing_contact_imports WHERE subscriber_id=v_id),
+    'timeout after rejected attempt remains uncertain despite first rate-limit evidence');
+END $$;
+ROLLBACK;
+
+BEGIN;
+SET LOCAL ROLE service_role;
+DO $$ DECLARE work jsonb; again jsonb; job jsonb; v_id uuid; inspection jsonb; BEGIN
+  work:=marketing_contract_test.import_retry_setup('withdraw-backoff'); v_id:=(work->>'subscriberId')::uuid;
+  PERFORM public.record_marketing_contact_import(v_id,1,(work->>'admissionToken')::uuid,null,'rate_limited',
+    '{"category":"rate_limited","httpStatus":429,"providerName":"rate_limit_exceeded","retryAfterSeconds":15}');
+  PERFORM public.withdraw_marketing_subscription(repeat('p',64),'global');
+  UPDATE private.marketing_contact_imports SET next_submission_at=clock_timestamp()-interval '1 second' WHERE subscriber_id=v_id;
+  PERFORM marketing_contract_test.assert(public.admit_marketing_contact_import(v_id,2,
+    '91000000-0000-0000-0000-000000000001') IS NULL,'withdrawal blocks a due retry under its old lease');
+  UPDATE private.marketing_subscribers SET last_requested_at=clock_timestamp()-interval '61 seconds' WHERE id=v_id;
+  PERFORM public.request_marketing_subscription('retry-withdraw-backoff@example.invalid','footer','welcome_v1',
+    repeat('c',64),repeat('b',64),true,marketing_contract_test.contract());
+  PERFORM public.confirm_marketing_subscription(repeat('c',64),repeat('q',64));
+  UPDATE private.marketing_provider_sync SET lease_expires_at=clock_timestamp()-interval '1 second' WHERE subscriber_id=v_id;
+  job:=public.claim_marketing_sync('91000000-0000-0000-0000-000000000002',1)->0;
+  again:=public.admit_marketing_contact_import(v_id,(job->>'revision')::bigint,'91000000-0000-0000-0000-000000000002');
+  PERFORM marketing_contract_test.assert((again->>'allowSubmit')::boolean AND again->>'generation'='2'
+    AND again->>'attemptCount'='1','new explicit confirmed generation receives its own admission after known rejection');
+  PERFORM marketing_contract_test.assert((SELECT state='exhausted' AND attempt_count=1 AND next_submission_at IS NULL
+    FROM private.marketing_contact_imports WHERE subscriber_id=v_id AND generation=1),
+    'new generation retires old known-rejected backoff without reviving it');
+  PERFORM marketing_contract_test.assert(NOT public.record_marketing_contact_import(v_id,1,(work->>'admissionToken')::uuid,
+    '92000000-0000-0000-0000-000000000009','submitted'),'old exhausted callback cannot reopen a prior generation');
+  PERFORM marketing_contract_test.assert(NOT public.record_marketing_contact_import(v_id,1,(work->>'admissionToken')::uuid,
+    null,'uncertain'),'old exhausted uncertainty cannot overwrite the terminal known rejection');
+  SELECT item INTO inspection FROM jsonb_array_elements(public.read_marketing_operations()) item WHERE item->>'generation'='1';
+  PERFORM marketing_contract_test.assert(inspection->>'generation'='1' AND inspection->>'currentGeneration'='2'
+    AND inspection->>'currentConsentStatus'='confirmed','operations distinguishes old admission from current permission');
+END $$;
+ROLLBACK;
+
+BEGIN;
+SET LOCAL ROLE service_role;
+DO $$ DECLARE work jsonb; n integer; v_id uuid; BEGIN
+  work:=marketing_contract_test.import_retry_setup('exhausted'); v_id:=(work->>'subscriberId')::uuid;
+  FOR n IN 1..3 LOOP
+    PERFORM public.record_marketing_contact_import(v_id,1,(work->>'admissionToken')::uuid,null,'rate_limited',
+      '{"category":"rate_limited","httpStatus":429,"providerName":"rate_limit_exceeded","retryAfterSeconds":1}');
+    IF n<3 THEN
+      UPDATE private.marketing_contact_imports SET next_submission_at=clock_timestamp()-interval '1 second' WHERE subscriber_id=v_id;
+      work:=public.admit_marketing_contact_import(v_id,2,'91000000-0000-0000-0000-000000000001');
+    END IF;
+  END LOOP;
+  PERFORM marketing_contract_test.assert((SELECT state='exhausted' AND attempt_count=3 AND next_submission_at IS NULL
+    FROM private.marketing_contact_imports WHERE subscriber_id=v_id),'third rejection exhausts the total admission budget');
+  PERFORM marketing_contract_test.assert(NOT (public.admit_marketing_contact_import(v_id,2,
+    '91000000-0000-0000-0000-000000000001')->>'allowSubmit')::boolean,'exhausted admission never permits a fourth submission');
+  PERFORM marketing_contract_test.assert(jsonb_array_length(public.claim_marketing_contact_imports(
+    '93000000-0000-0000-0000-000000000001',1))=0,'known rejected attempts do not enter provider polling');
+  PERFORM marketing_contract_test.assert(public.read_marketing_operations()->0->>'importState'='exhausted',
+    'exhaustion remains visible for operator inspection');
+END $$;
+ROLLBACK;
+
+BEGIN;
+SET LOCAL ROLE service_role;
+DO $$ DECLARE work jsonb; v_id uuid; BEGIN
+  work:=marketing_contract_test.import_retry_setup('horizon'); v_id:=(work->>'subscriberId')::uuid;
+  PERFORM public.record_marketing_contact_import(v_id,1,(work->>'admissionToken')::uuid,null,'rate_limited',
+    '{"category":"rate_limited","httpStatus":429,"providerName":"rate_limit_exceeded","retryAfterSeconds":3600}');
+  PERFORM marketing_contract_test.assert((SELECT state='exhausted' AND attempt_count=1 FROM private.marketing_contact_imports
+    WHERE subscriber_id=v_id),'Retry-After beyond initial one-hour horizon is exhausted rather than shortened');
+END $$;
+ROLLBACK;
+
+BEGIN;
+SET LOCAL ROLE service_role;
+DO $$ DECLARE work jsonb; v_id uuid; failure jsonb; BEGIN
+  work:=marketing_contract_test.import_retry_setup('nonexact'); v_id:=(work->>'subscriberId')::uuid;
+  FOREACH failure IN ARRAY ARRAY[
+    '{"category":"rate_limited","httpStatus":429,"providerName":"daily_quota_exceeded","retryAfterSeconds":1}'::jsonb,
+    '{"category":"rate_limited","httpStatus":503,"providerName":"rate_limit_exceeded","retryAfterSeconds":1}'::jsonb,
+    '{"category":"provider_unavailable","httpStatus":500,"providerName":"application_error","retryAfterSeconds":1}'::jsonb
+  ] LOOP
+    PERFORM public.record_marketing_contact_import(v_id,1,(work->>'admissionToken')::uuid,null,'uncertain',failure);
+    PERFORM marketing_contract_test.assert((SELECT state='uncertain' AND attempt_count=1 AND next_submission_at IS NULL
+      FROM private.marketing_contact_imports WHERE subscriber_id=v_id),'nonexact failure stays uncertain');
+  END LOOP;
+END $$;
+DO $$ DECLARE denied boolean; v_limit integer; BEGIN
+  FOREACH v_limit IN ARRAY ARRAY[0,51,null] LOOP
+    denied:=false;
+    BEGIN PERFORM public.read_marketing_operations(v_limit);
+    EXCEPTION WHEN invalid_parameter_value THEN denied:=true; END;
+    PERFORM marketing_contract_test.assert(denied,'operations rejects unbounded or invalid limits');
+  END LOOP;
+END $$;
+ROLLBACK;
+SELECT marketing_contract_test.assert(NOT has_function_privilege('anon','public.read_marketing_operations(integer)','EXECUTE')
+  AND NOT has_function_privilege('authenticated','public.read_marketing_operations(integer)','EXECUTE'),
+  'operations is unavailable to browser roles');
+
+BEGIN;
+SET LOCAL ROLE service_role;
+DO $$ DECLARE job jsonb; v_id uuid; work jsonb; BEGIN
+  PERFORM public.request_marketing_subscription('retry-expired-horizon@example.invalid','footer','welcome_v1',
+    repeat('a',64),repeat('b',64),true,marketing_contract_test.contract());
+  PERFORM public.confirm_marketing_subscription(repeat('a',64),repeat('p',64));
+  job:=public.claim_marketing_sync('91000000-0000-0000-0000-000000000001',1)->0; v_id:=(job->>'subscriberId')::uuid;
+  INSERT INTO private.marketing_contact_imports(subscriber_id,generation,confirmation_revision,topic_id,state,
+    admitted_at,attempt_started_at,next_submission_at,first_failure)
+    VALUES(v_id,1,2,'topic_synthetic','retry_wait',clock_timestamp()-interval '1 hour',
+      clock_timestamp()-interval '1 hour',clock_timestamp()-interval '1 second',
+      '{"category":"rate_limited","httpStatus":429,"providerName":"rate_limit_exceeded","retryAfterSeconds":60}');
+  work:=public.admit_marketing_contact_import(v_id,2,'91000000-0000-0000-0000-000000000001');
+  PERFORM marketing_contract_test.assert(NOT (work->>'allowSubmit')::boolean AND work->>'state'='exhausted'
+    AND work->>'attemptCount'='1','a due retry after the original hour expires without a new submission');
+END $$;
+ROLLBACK;
+
+BEGIN;
+SET LOCAL ROLE service_role;
+SELECT public.request_marketing_subscription('fresh-reactivation@example.invalid','footer','welcome_v1',
+  repeat('a',64),repeat('b',64),true,marketing_contract_test.contract());
+SELECT public.configure_marketing_email(false,(SELECT jsonb_object_agg(c->>'purpose',c->'updatedAt')
+  FROM jsonb_array_elements(public.read_marketing_email_control()) c));
+SELECT public.configure_marketing_email(true,(SELECT jsonb_object_agg(c->>'purpose',c->'updatedAt')
+  FROM jsonb_array_elements(public.read_marketing_email_control()) c));
+UPDATE private.marketing_subscribers SET last_requested_at=clock_timestamp()-interval '61 seconds';
+SELECT public.request_marketing_subscription('fresh-reactivation@example.invalid','footer','welcome_v1',
+  repeat('c',64),repeat('b',64),true,marketing_contract_test.contract());
+DO $$ DECLARE work jsonb; BEGIN
+  PERFORM marketing_contract_test.assert((SELECT generation=2 FROM private.marketing_subscribers),
+    'a fresh request after reactivation starts a generation inside the active cutoff');
+  PERFORM marketing_contract_test.assert(public.confirm_marketing_subscription(repeat('a',64),repeat('p',64))->>'status'='invalid',
+    'reactivation does not restore the prior capability');
+  work:=public.claim_email_intents('sandbox','40000000-0000-0000-0000-000000000001',1)->0;
+  PERFORM marketing_contract_test.assert(work->'receipt'->>'confirmationToken'=repeat('c',64)
+    AND public.prepare_email_attempt((work->>'id')::uuid,'40000000-0000-0000-0000-000000000001',
+      marketing_contract_test.payload((work->>'id')::uuid)) IS NOT NULL,
+    'a fresh post-reactivation confirmation is deliverable');
+END $$;
+ROLLBACK;
+
+BEGIN;
+SET LOCAL ROLE service_role;
+SELECT public.request_marketing_subscription('denial-during-sync@example.invalid','footer','welcome_v1',
+  repeat('a',64),repeat('b',64),true,marketing_contract_test.contract());
+SELECT public.confirm_marketing_subscription(repeat('a',64),repeat('p',64));
+DO $$ DECLARE job jsonb; v_id uuid; BEGIN
+  job:=public.claim_marketing_sync('40000000-0000-0000-0000-000000000001',1)->0;
+  v_id:=(job->>'subscriberId')::uuid;
+  PERFORM public.finish_marketing_sync(v_id,2,'40000000-0000-0000-0000-000000000001','contact_denial','topic_synthetic','synced');
+  UPDATE private.marketing_provider_sync SET state='pending',next_attempt_at=clock_timestamp() WHERE subscriber_id=v_id;
+  PERFORM public.claim_marketing_sync('40000000-0000-0000-0000-000000000002',1);
+  PERFORM marketing_contract_test.assert(NOT public.record_marketing_provider_observation(v_id,1,2,'contact_denial','topic_synthetic',true,true),
+    'an in-progress synchronization cannot supply positive provider evidence');
+  PERFORM public.record_marketing_provider_observation(v_id,1,2,'contact_wrong','topic_synthetic',false,true);
+  PERFORM marketing_contract_test.assert((SELECT status='confirmed' FROM private.marketing_subscribers WHERE id=v_id),
+    'an incorrectly bound Contact denial does not affect consent');
+  PERFORM public.record_marketing_provider_observation(v_id,1,2,'contact_denial','topic_synthetic',false,true);
+  PERFORM marketing_contract_test.assert((SELECT status='withdrawn' AND NOT global_allowed FROM private.marketing_subscribers WHERE id=v_id),
+    'a current exactly bound denial persists even while the synchronization lease is active');
+  UPDATE private.marketing_subscribers SET last_requested_at=clock_timestamp()-interval '61 seconds' WHERE id=v_id;
+  PERFORM public.request_marketing_subscription('denial-during-sync@example.invalid','footer','welcome_v1',
+    repeat('c',64),repeat('b',64),true,marketing_contract_test.contract());
+  PERFORM public.confirm_marketing_subscription(repeat('c',64),repeat('q',64));
+  PERFORM public.record_marketing_provider_observation(v_id,1,2,'contact_denial','topic_synthetic',false,true);
+  PERFORM marketing_contract_test.assert((SELECT generation=2 AND status='confirmed' FROM private.marketing_subscribers WHERE id=v_id),
+    'a stale generation denial cannot overwrite a newer explicit confirmation');
+END $$;
+ROLLBACK;
+
+BEGIN;
+SET LOCAL ROLE service_role;
+DO $$ DECLARE work jsonb; v_id uuid; denied boolean:=false; BEGIN
+  work:=marketing_contract_test.import_retry_setup('explicit-outcome'); v_id:=(work->>'subscriberId')::uuid;
+  BEGIN PERFORM public.record_marketing_contact_import(v_id,1,(work->>'admissionToken')::uuid,null,'rate_limited',
+    '{"category":"rate_limited","httpStatus":429,"providerName":"daily_quota_exceeded","retryAfterSeconds":1}');
+  EXCEPTION WHEN invalid_parameter_value THEN denied:=true; END;
+  PERFORM marketing_contract_test.assert(denied,'explicit rate-limited outcome requires the exact approved status and provider name');
+  PERFORM public.record_marketing_contact_import(v_id,1,(work->>'admissionToken')::uuid,null,'uncertain',
+    '{"category":"rate_limited","httpStatus":429,"providerName":"rate_limit_exceeded","retryAfterSeconds":1}');
+  PERFORM marketing_contract_test.assert((SELECT state='uncertain' AND next_submission_at IS NULL
+    FROM private.marketing_contact_imports WHERE subscriber_id=v_id),
+    'uncertain outcome cannot authorize a retry from diagnostic classification alone');
+END $$;
+ROLLBACK;
+
+BEGIN;
+SET LOCAL ROLE service_role;
+DO $$ DECLARE work jsonb; v_id uuid; BEGIN
+  work:=marketing_contract_test.import_retry_setup('contact-during-backoff'); v_id:=(work->>'subscriberId')::uuid;
+  PERFORM public.record_marketing_contact_import(v_id,1,(work->>'admissionToken')::uuid,null,'rate_limited',
+    '{"category":"rate_limited","httpStatus":429,"providerName":"rate_limit_exceeded","retryAfterSeconds":60}');
+  PERFORM public.finish_marketing_sync(v_id,2,'91000000-0000-0000-0000-000000000001',
+    'contact_appeared','topic_synthetic','synced');
+  PERFORM public.record_marketing_provider_observation(v_id,1,2,'contact_appeared','topic_synthetic',true,true);
+  PERFORM marketing_contract_test.assert((public.read_marketing_send_context(v_id,1)->>'syncReady')::boolean,
+    'known rejection does not block fresh validated preferences when a Contact independently appears');
+  PERFORM marketing_contract_test.assert((private.reserve_marketing_capacity(v_id,1,2,
+    '92000000-0000-0000-0000-000000000009','welcome_initial',clock_timestamp(),null,false)->>'eligible')::boolean,
+    'known rejection is not an unresolved provider admission barrier');
+  UPDATE private.marketing_provider_sync SET state='pending',next_attempt_at=clock_timestamp() WHERE subscriber_id=v_id;
+  PERFORM public.claim_marketing_sync('91000000-0000-0000-0000-000000000002',1);
+  PERFORM marketing_contract_test.assert(public.admit_marketing_contact_import(v_id,2,'91000000-0000-0000-0000-000000000002') IS NULL,
+    'a sticky bound Contact never authorizes another import');
+  PERFORM public.record_marketing_provider_observation(v_id,1,2,'contact_appeared','topic_synthetic',false,true);
+  PERFORM marketing_contract_test.assert((SELECT status='withdrawn' FROM private.marketing_subscribers WHERE id=v_id),
+    'native denial still withdraws permission during a known-rejection backoff');
 END $$;
 ROLLBACK;

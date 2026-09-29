@@ -1,3 +1,51 @@
+-- Only the three approved marketing purposes extend the shared dispatcher.
+alter table private.email_controls drop constraint email_controls_purpose_check;
+alter table private.email_controls add constraint email_controls_purpose_check check(purpose in (
+  'order_confirmation','order_tracking','support_acknowledgement','support_reply',
+  'marketing_confirmation','welcome_initial','welcome_education'));
+alter table private.email_intents drop constraint email_intents_purpose_check;
+alter table private.email_intents add constraint email_intents_purpose_check check(purpose in (
+  'order_confirmation','order_tracking','support_acknowledgement','support_reply',
+  'marketing_confirmation','welcome_initial','welcome_education'));
+insert into private.email_controls(environment,purpose) values
+  ('sandbox','marketing_confirmation'),('sandbox','welcome_initial'),('sandbox','welcome_education');
+create unique index email_marketing_welcome_identity_idx on private.email_intents(
+  purpose,(receipt->>'subscriberId'),(receipt->>'generation')) where purpose in ('welcome_initial','welcome_education');
+create unique index email_marketing_confirmation_identity_idx on private.email_intents(
+  (receipt->>'subscriberId'),(receipt->>'generation'),(extensions.digest(receipt->>'confirmationToken','sha256')))
+  where purpose='marketing_confirmation';
+create index email_marketing_subscriber_idx on private.email_intents((receipt->>'subscriberId'))
+  where purpose in ('marketing_confirmation','welcome_initial','welcome_education');
+
+create function public.read_marketing_email_control() returns jsonb language sql stable security invoker set search_path='' as $$
+  select pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object('purpose',purpose,'enabled',enabled,
+    'acceptedAfter',accepted_after,'updatedAt',updated_at) order by purpose)
+  from private.email_controls where environment='sandbox'
+    and purpose in ('marketing_confirmation','welcome_initial','welcome_education');
+$$;
+create function public.configure_marketing_email(p_enabled boolean,p_expected_updated_at jsonb)
+returns boolean language plpgsql security invoker set search_path='' as $$
+declare v_count integer; v_now timestamptz;
+begin
+  if p_enabled is null or pg_catalog.jsonb_typeof(p_expected_updated_at) is distinct from 'object'
+    or p_expected_updated_at-array['marketing_confirmation','welcome_initial','welcome_education']<>'{}'::jsonb
+    or not p_expected_updated_at ?& array['marketing_confirmation','welcome_initial','welcome_education'] then return false; end if;
+  perform 1 from private.email_controls where environment='sandbox'
+    and purpose in ('marketing_confirmation','welcome_initial','welcome_education') order by purpose for update;
+  select count(*) into v_count from private.email_controls where environment='sandbox'
+    and purpose in ('marketing_confirmation','welcome_initial','welcome_education')
+    and pg_catalog.to_jsonb(updated_at)=p_expected_updated_at->purpose;
+  if v_count<>3 then return false; end if;
+  v_now:=pg_catalog.clock_timestamp();
+  update private.email_controls set enabled=p_enabled,
+    accepted_after=case when p_enabled and not enabled then greatest(accepted_after,v_now) else accepted_after end,
+    updated_at=v_now where environment='sandbox' and purpose in ('marketing_confirmation','welcome_initial','welcome_education');
+  return true;
+end $$;
+revoke all on function public.read_marketing_email_control(),public.configure_marketing_email(boolean,jsonb)
+  from public,anon,authenticated,service_role;
+grant execute on function public.read_marketing_email_control(),public.configure_marketing_email(boolean,jsonb) to service_role;
+
 -- Marketing permission remains private and independent from Product Waitlists.
 create table private.marketing_subscribers (
   id uuid primary key default extensions.gen_random_uuid(),
@@ -127,7 +175,7 @@ create function private.request_marketing_subscription(
 ) returns jsonb language plpgsql security invoker set search_path='' as $$
 declare v_email text:=pg_catalog.lower(pg_catalog.btrim(p_email));
   v_subscriber private.marketing_subscribers%rowtype;
-  v_hash text; v_now timestamptz;
+  v_hash text; v_now timestamptz; v_cutoff timestamptz;
 begin
   if p_consent is distinct from true then
     raise exception using errcode='22023',message='explicit marketing consent is required';
@@ -140,6 +188,13 @@ begin
     or p_abuse_key is null or p_abuse_key !~ '^[0-9a-f]{64}$'
     or not private.valid_marketing_template_contract(p_template_contract)
   then raise exception using errcode='22023',message='invalid marketing subscription request'; end if;
+  perform 1 from private.email_controls where environment='sandbox'
+    and purpose in ('marketing_confirmation','welcome_initial','welcome_education') order by purpose for share;
+  if (select count(*) from private.email_controls where environment='sandbox'
+    and purpose in ('marketing_confirmation','welcome_initial','welcome_education') and enabled
+    and accepted_after<=pg_catalog.clock_timestamp())<>3 then return '{"status":"unavailable"}'::jsonb; end if;
+  select max(accepted_after) into v_cutoff from private.email_controls where environment='sandbox'
+    and purpose in ('marketing_confirmation','welcome_initial','welcome_education');
   if not private.marketing_request_allowed(v_email) then return '{"status":"accepted"}'::jsonb; end if;
   perform private.marketing_address_lock(v_email);
   v_now:=pg_catalog.clock_timestamp();
@@ -153,7 +208,8 @@ begin
       values(v_email,'pending',v_hash,v_now) returning * into v_subscriber;
   elsif v_subscriber.status='withdrawn' or exists(select 1 from private.marketing_generations g
     where g.subscriber_id=v_subscriber.id and g.generation=v_subscriber.generation
-      and (g.template_contract is distinct from p_template_contract or g.wording_version is distinct from p_wording_version)) then
+      and (g.template_contract is distinct from p_template_contract or g.wording_version is distinct from p_wording_version
+        or g.requested_at<v_cutoff)) then
     update private.marketing_subscribers set generation=generation+1,revision=revision+1,status='pending',
       current_confirmation_hash=v_hash,last_requested_at=v_now,updated_at=v_now
       where id=v_subscriber.id returning * into v_subscriber;
@@ -168,6 +224,7 @@ begin
     values(v_hash,v_subscriber.id,v_subscriber.generation,v_now,v_now+interval '24 hours');
   insert into private.marketing_consent_evidence(subscriber_id,generation,revision,event,source,wording_version,occurred_at)
     values(v_subscriber.id,v_subscriber.generation,v_subscriber.revision,'requested',p_source,p_wording_version,v_now);
+  perform private.enqueue_marketing_confirmation(v_subscriber,p_confirmation_token);
   if exists(select 1 from private.marketing_provider_sync where subscriber_id=v_subscriber.id) then
     perform private.refresh_marketing_sync(v_subscriber);
   end if;
@@ -229,7 +286,7 @@ $$;
 revoke all on function private.valid_marketing_import_failure(jsonb) from public,anon,authenticated,service_role;
 grant execute on function private.valid_marketing_import_failure(jsonb) to service_role;
 
--- One durable admission per confirmed generation. Unknown provider outcomes survive all later choices.
+-- One durable admission per confirmed generation. Only exact rate-limit rejections permit bounded retries.
 create table private.marketing_contact_imports (
   subscriber_id uuid not null,
   generation bigint not null,
@@ -238,7 +295,10 @@ create table private.marketing_contact_imports (
   topic_id text not null,
   provider_import_id uuid unique,
   first_failure jsonb check(private.valid_marketing_import_failure(first_failure)),
-  state text not null check(state in ('admitted','submitted','uncertain','completed','failed')),
+  state text not null check(state in ('admitted','submitted','uncertain','retry_wait','exhausted','completed','failed')),
+  attempt_count integer not null default 1 check(attempt_count between 1 and 3),
+  attempt_started_at timestamptz not null default clock_timestamp(),
+  next_submission_at timestamptz,
   admitted_at timestamptz not null default clock_timestamp(),
   next_poll_at timestamptz not null default clock_timestamp(),
   poll_lease_token uuid,
@@ -248,10 +308,13 @@ create table private.marketing_contact_imports (
   primary key(subscriber_id,generation),
   foreign key(subscriber_id,generation) references private.marketing_generations(subscriber_id,generation),
   check((poll_lease_token is null)=(poll_lease_expires_at is null)),
-  check(state not in ('submitted','completed') or provider_import_id is not null)
+  check(state not in ('submitted','completed','failed') or provider_import_id is not null),
+  check((state='retry_wait')=(next_submission_at is not null)),
+  check(state not in ('retry_wait','exhausted') or provider_import_id is null)
 );
 create unique index marketing_one_unresolved_import_idx on private.marketing_contact_imports(subscriber_id)
-  where state in ('admitted','submitted','uncertain');
+  where state in ('admitted','submitted','uncertain','retry_wait');
+create index marketing_import_operations_idx on private.marketing_contact_imports(updated_at desc,subscriber_id,generation);
 create index marketing_import_poll_idx on private.marketing_contact_imports(next_poll_at,subscriber_id)
   where state in ('admitted','submitted','uncertain');
 alter table private.marketing_contact_imports enable row level security;
@@ -342,6 +405,7 @@ begin
   insert into private.marketing_consent_evidence(subscriber_id,generation,revision,event,source,wording_version,occurred_at)
     values(v_subscriber.id,v_subscriber.generation,v_subscriber.revision,'confirmed',v_generation.source,v_generation.wording_version,v_now);
   perform private.refresh_marketing_sync(v_subscriber);
+  perform private.enqueue_marketing_welcome(v_subscriber,p_preference_token);
   return pg_catalog.jsonb_build_object('status','confirmed','subscriberId',v_subscriber.id,'generation',v_subscriber.generation);
 end $$;
 
@@ -371,6 +435,7 @@ begin
     values(v_id,v_subscriber.generation,v_subscriber.revision,'withdrawn_'||p_scope,
       v_generation.source,v_generation.wording_version,v_now);
   perform private.refresh_marketing_sync(v_subscriber);
+  perform private.cancel_ineligible_marketing_intents(v_subscriber);
   return '{"status":"accepted"}'::jsonb;
 end $$;
 revoke all on function private.refresh_marketing_sync(private.marketing_subscribers),
@@ -490,7 +555,7 @@ begin
   if not found or v_subscriber.generation is distinct from p_generation or v_subscriber.revision is distinct from p_revision
     or v_sync.generation is distinct from p_generation or v_sync.revision is distinct from p_revision
     or v_sync.contact_id is distinct from p_contact_id or v_sync.topic_id is distinct from p_topic_id
-    or v_sync.state<>'synced' or v_subscriber.status<>'confirmed' then return false; end if;
+    or v_sync.contact_id is null or v_sync.topic_id is null or v_subscriber.status<>'confirmed' then return false; end if;
   v_now:=pg_catalog.clock_timestamp();
   if not p_global_allowed or not p_topic_allowed then
     update private.marketing_subscribers set status='withdrawn',global_allowed=global_allowed and p_global_allowed,
@@ -501,8 +566,12 @@ begin
     insert into private.marketing_consent_evidence(subscriber_id,generation,revision,event,source,wording_version,occurred_at)
       values(p_subscriber_id,p_generation,v_subscriber.revision,'provider_denied',v_generation.source,v_generation.wording_version,v_now);
     perform private.refresh_marketing_sync(v_subscriber);
+    perform private.cancel_ineligible_marketing_intents(v_subscriber);
     return false;
   end if;
+  -- A fresh restrictive observation cannot be lost to a concurrent synchronization refresh.
+  -- Positive evidence still requires a completed current synchronization.
+  if v_sync.state<>'synced' then return false; end if;
   update private.marketing_provider_sync set observation_generation=p_generation,observation_revision=p_revision,
     observation_contact_id=p_contact_id,observation_topic_id=p_topic_id,observation_global_allowed=p_global_allowed,
     observation_topic_allowed=p_topic_allowed,observed_at=v_now,updated_at=v_now where subscriber_id=p_subscriber_id;
@@ -636,33 +705,54 @@ create function private.marketing_import_work(p_import private.marketing_contact
 returns jsonb language sql immutable security invoker set search_path='' as $$
   select pg_catalog.jsonb_build_object('subscriberId',p_import.subscriber_id,'generation',p_import.generation,
     'confirmationRevision',p_import.confirmation_revision,'admissionToken',p_import.admission_token,
-    'importId',p_import.provider_import_id,'state',p_import.state,'topicId',p_import.topic_id,'allowSubmit',p_allow_submit);
+    'importId',p_import.provider_import_id,'state',p_import.state,'topicId',p_import.topic_id,'allowSubmit',p_allow_submit,
+    'attemptCount',p_import.attempt_count,'nextSubmissionAt',p_import.next_submission_at);
 $$;
 
 create function public.admit_marketing_contact_import(p_subscriber_id uuid,p_revision bigint,p_lease_token uuid)
 returns jsonb language plpgsql security invoker set search_path='' as $$
 declare v_subscriber private.marketing_subscribers%rowtype; v_sync private.marketing_provider_sync%rowtype;
-  v_import private.marketing_contact_imports%rowtype;
+  v_import private.marketing_contact_imports%rowtype; v_now timestamptz;
 begin
   select * into v_subscriber from private.marketing_subscribers where id=p_subscriber_id;
   if not found then return null; end if;
   perform private.marketing_address_lock(v_subscriber.normalized_email);
   select * into v_subscriber from private.marketing_subscribers where id=p_subscriber_id for update;
   select * into v_sync from private.marketing_provider_sync where subscriber_id=p_subscriber_id for update;
+  v_now:=pg_catalog.clock_timestamp();
   if not found or v_subscriber.status<>'confirmed' or not v_subscriber.global_allowed or not v_subscriber.topic_allowed
     or v_subscriber.revision is distinct from p_revision or v_sync.revision is distinct from p_revision
+    or v_sync.generation is distinct from v_subscriber.generation
     or v_sync.lease_revision is distinct from p_revision or v_sync.lease_token is distinct from p_lease_token
-    or p_lease_token is null or v_sync.state<>'leased' or not v_sync.desired_subscribed
-    or v_sync.lease_expires_at<=pg_catalog.clock_timestamp() then return null; end if;
+    or p_lease_token is null or v_sync.state<>'leased' or not v_sync.desired_subscribed or v_sync.contact_id is not null
+    or v_sync.lease_expires_at<=v_now then return null; end if;
+  -- A new explicit confirmation may start fresh only after old known-rejected retries are retired.
+  update private.marketing_contact_imports set state='exhausted',next_submission_at=null,updated_at=v_now
+    where subscriber_id=p_subscriber_id and generation<>v_subscriber.generation and state='retry_wait';
   select * into v_import from private.marketing_contact_imports
-    where subscriber_id=p_subscriber_id and generation=v_subscriber.generation;
-  if found then return private.marketing_import_work(v_import,false); end if;
+    where subscriber_id=p_subscriber_id and generation=v_subscriber.generation for update;
+  if found then
+    if v_import.state='retry_wait' then
+      if v_import.attempt_count>=3 or v_now>=v_import.admitted_at+interval '1 hour'
+        or v_import.confirmation_revision is distinct from p_revision then
+        update private.marketing_contact_imports set state='exhausted',next_submission_at=null,updated_at=v_now
+          where subscriber_id=p_subscriber_id and generation=v_import.generation returning * into v_import;
+      elsif v_import.next_submission_at<=v_now then
+        update private.marketing_contact_imports set state='admitted',attempt_count=attempt_count+1,
+          admission_token=extensions.gen_random_uuid(),attempt_started_at=v_now,next_submission_at=null,
+          next_poll_at=v_now+interval '2 minutes',poll_lease_token=null,poll_lease_expires_at=null,updated_at=v_now
+          where subscriber_id=p_subscriber_id and generation=v_import.generation returning * into v_import;
+        return private.marketing_import_work(v_import,true);
+      end if;
+    end if;
+    return private.marketing_import_work(v_import,false);
+  end if;
   select * into v_import from private.marketing_contact_imports
-    where subscriber_id=p_subscriber_id and state in ('admitted','submitted','uncertain');
+    where subscriber_id=p_subscriber_id and state in ('admitted','submitted','uncertain','retry_wait');
   if found then return private.marketing_import_work(v_import,false); end if;
   insert into private.marketing_contact_imports(subscriber_id,generation,confirmation_revision,topic_id,state,next_poll_at)
     values(p_subscriber_id,v_subscriber.generation,p_revision,v_sync.topic_id,'admitted',
-      pg_catalog.clock_timestamp()+interval '2 minutes') returning * into v_import;
+      v_now+interval '2 minutes') returning * into v_import;
   return private.marketing_import_work(v_import,true);
 end $$;
 
@@ -670,9 +760,12 @@ create function public.record_marketing_contact_import(p_subscriber_id uuid,p_ge
   p_import_id uuid,p_outcome text,p_failure jsonb default null)
 returns boolean language plpgsql security invoker set search_path='' as $$
 declare v_subscriber private.marketing_subscribers%rowtype; v_import private.marketing_contact_imports%rowtype;
+  v_now timestamptz; v_retry_at timestamptz; v_exact_rejection boolean; v_state text;
 begin
-  if p_outcome is null or p_outcome not in ('submitted','uncertain')
-    or (p_outcome='submitted' and p_import_id is null) or not private.valid_marketing_import_failure(p_failure) then
+  if p_outcome is null or p_outcome not in ('submitted','uncertain','rate_limited')
+    or (p_outcome='submitted' and p_import_id is null) or not private.valid_marketing_import_failure(p_failure)
+    or (p_outcome='rate_limited' and (p_import_id is not null or not coalesce(
+      p_failure->'httpStatus'='429'::jsonb and p_failure->>'providerName'='rate_limit_exceeded',false))) then
     raise exception using errcode='22023',message='invalid marketing import submission result'; end if;
   select * into v_subscriber from private.marketing_subscribers where id=p_subscriber_id;
   if not found then return false; end if;
@@ -684,10 +777,32 @@ begin
     or (v_import.provider_import_id is not null and p_import_id is not null
       and v_import.provider_import_id is distinct from p_import_id) then return false; end if;
   if v_import.state in ('completed','failed') then return v_import.provider_import_id is not distinct from p_import_id; end if;
+  v_now:=pg_catalog.clock_timestamp();
+  -- This is the sole retry inference. Category alone, quota 429s, timeouts and missing UUIDs do not prove rejection.
+  v_exact_rejection:=coalesce(p_outcome='rate_limited' and p_import_id is null and v_import.provider_import_id is null
+    and p_failure->'httpStatus'='429'::jsonb and p_failure->>'providerName'='rate_limit_exceeded',false);
+  if v_import.state='exhausted' then
+    return v_exact_rejection; -- A terminal known rejection never reopens a superseded generation.
+  end if;
+  if v_import.state='retry_wait' and v_exact_rejection then
+    return true; -- A replayed result cannot postpone the backoff or replenish attempts.
+  end if;
+  if coalesce(v_import.provider_import_id,p_import_id) is not null then
+    v_state:='submitted';
+  elsif v_exact_rejection and v_import.state='admitted' then
+    v_retry_at:=v_now+pg_catalog.make_interval(secs=>greatest(1,coalesce((p_failure->>'retryAfterSeconds')::integer,60)));
+    v_state:=case when v_import.attempt_count>=3 or v_retry_at>=v_import.admitted_at+interval '1 hour'
+      or v_subscriber.generation<>p_generation or v_subscriber.revision<>v_import.confirmation_revision
+      or v_subscriber.status<>'confirmed' or not v_subscriber.global_allowed or not v_subscriber.topic_allowed
+      then 'exhausted' else 'retry_wait' end;
+  else
+    -- Once an attempt is uncertain, a later diagnostic cannot turn it into permission to retry.
+    v_state:='uncertain';
+  end if;
   update private.marketing_contact_imports set provider_import_id=coalesce(provider_import_id,p_import_id),
-    first_failure=coalesce(first_failure,p_failure),
-    state=case when coalesce(provider_import_id,p_import_id) is not null then 'submitted' else 'uncertain' end,
-    next_poll_at=pg_catalog.clock_timestamp(),updated_at=pg_catalog.clock_timestamp()
+    first_failure=coalesce(first_failure,p_failure),state=v_state,
+    next_submission_at=case when v_state='retry_wait' then v_retry_at else null end,
+    poll_lease_token=null,poll_lease_expires_at=null,next_poll_at=v_now,updated_at=v_now
     where subscriber_id=p_subscriber_id and generation=p_generation;
   -- The admission belongs to its old generation, but reconciliation follows the current choice.
   if v_subscriber.generation<>p_generation or v_subscriber.revision<>v_import.confirmation_revision then
@@ -765,18 +880,371 @@ grant execute on function private.marketing_import_work(private.marketing_contac
   public.admit_marketing_contact_import(uuid,bigint,uuid),public.record_marketing_contact_import(uuid,bigint,uuid,uuid,text,jsonb),
   public.claim_marketing_contact_imports(uuid,integer),public.finish_marketing_contact_import(uuid,bigint,uuid,text) to service_role;
 
+-- Sanitized service-only operations view: no address, token, message body, or template configuration.
+create function public.read_marketing_operations(p_limit integer default 20)
+returns jsonb language plpgsql stable security invoker set search_path='' as $$
+declare v_work jsonb;
+begin
+  if p_limit is null or p_limit not between 1 and 50 then
+    raise exception using errcode='22023',message='invalid marketing operations limit'; end if;
+  select coalesce(pg_catalog.jsonb_agg(x.work order by x.updated_at desc,x.subscriber_id,x.generation),'[]'::jsonb)
+    into v_work from (
+      select m.updated_at,m.subscriber_id,m.generation,pg_catalog.jsonb_build_object(
+        'subscriberId',m.subscriber_id,'generation',m.generation,'importState',m.state,
+        'attemptCount',m.attempt_count,'nextSubmissionAt',m.next_submission_at,
+        'providerImportId',m.provider_import_id,'firstFailure',m.first_failure,
+        'currentConsentStatus',s.status,'currentGeneration',s.generation) as work
+      from private.marketing_contact_imports m join private.marketing_subscribers s on s.id=m.subscriber_id
+      order by m.updated_at desc,m.subscriber_id,m.generation limit p_limit
+    ) x;
+  return v_work;
+end $$;
+revoke all on function public.read_marketing_operations(integer) from public,anon,authenticated,service_role;
+grant execute on function public.read_marketing_operations(integer) to service_role;
+
 create function private.preserve_marketing_import_identity() returns trigger language plpgsql
 security invoker set search_path='' as $$ begin
   if tg_op='DELETE' then raise exception using errcode='55000',message='marketing import admission must be retained'; end if;
-  if row(new.subscriber_id,new.generation,new.confirmation_revision,new.admission_token,new.topic_id,new.admitted_at)
-      is distinct from row(old.subscriber_id,old.generation,old.confirmation_revision,old.admission_token,old.topic_id,old.admitted_at)
+  if row(new.subscriber_id,new.generation,new.confirmation_revision,new.topic_id,new.admitted_at)
+      is distinct from row(old.subscriber_id,old.generation,old.confirmation_revision,old.topic_id,old.admitted_at)
     or (old.provider_import_id is not null and new.provider_import_id is distinct from old.provider_import_id)
     or (old.first_failure is not null and new.first_failure is distinct from old.first_failure)
-    or (old.state in ('completed','failed') and new.state is distinct from old.state)
+    or (old.state in ('completed','failed','exhausted') and new.state is distinct from old.state)
     or (old.completed_at is not null and new.completed_at is distinct from old.completed_at) then
     raise exception using errcode='55000',message='marketing import admission and provider identity are immutable'; end if;
+  if row(new.admission_token,new.attempt_count,new.attempt_started_at)
+      is distinct from row(old.admission_token,old.attempt_count,old.attempt_started_at)
+    and not (old.state='retry_wait' and new.state='admitted' and old.provider_import_id is null
+      and new.provider_import_id is null and new.admission_token<>old.admission_token
+      and new.attempt_count=old.attempt_count+1 and new.attempt_count<=3
+      and new.attempt_started_at>=old.next_submission_at
+      and new.attempt_started_at<old.admitted_at+interval '1 hour') then
+    raise exception using errcode='55000',message='marketing import attempt requires a bounded rejected retry'; end if;
   return new;
 end $$;
 create trigger preserve_marketing_import_identity before update or delete on private.marketing_contact_imports
   for each row execute function private.preserve_marketing_import_identity();
 revoke all on function private.preserve_marketing_import_identity() from public,anon,authenticated,service_role;
+
+
+create function private.marketing_intent_current(p_intent private.email_intents,p_subscriber private.marketing_subscribers)
+returns boolean language sql security invoker set search_path='' as $$
+  select coalesce(p_intent.recipient=p_subscriber.normalized_email
+    and p_intent.receipt->>'subscriberId'=p_subscriber.id::text
+    and (p_intent.receipt->>'generation')::bigint=p_subscriber.generation
+    and (p_intent.receipt->>'revision')::bigint=p_subscriber.revision
+    and case when p_intent.purpose='marketing_confirmation' then p_subscriber.status='pending'
+      and p_subscriber.current_confirmation_hash=pg_catalog.encode(extensions.digest(p_intent.receipt->>'confirmationToken','sha256'),'hex')
+      and exists(select 1 from private.marketing_confirmation_tokens t where t.token_hash=p_subscriber.current_confirmation_hash
+        and t.subscriber_id=p_subscriber.id and t.generation=p_subscriber.generation and t.consumed_at is null
+        and t.expires_at>pg_catalog.clock_timestamp())
+    else p_subscriber.status='confirmed' and p_subscriber.global_allowed and p_subscriber.topic_allowed end,false);
+$$;
+create function private.cancel_ineligible_marketing_intents(p_subscriber private.marketing_subscribers) returns void
+language sql security invoker set search_path='' as $$
+  update private.email_intents e set
+    state=case when e.first_attempt_at is null then 'blocked' when e.lease_token is not null then e.state else 'uncertain' end,
+    error_code=case when e.first_attempt_at is null then 'marketing_not_eligible' else 'reconciliation_required' end,
+    lease_token=case when e.first_attempt_at is null then null else e.lease_token end,
+    lease_expires_at=case when e.first_attempt_at is null then null else e.lease_expires_at end,
+    updated_at=pg_catalog.clock_timestamp()
+  where e.purpose in ('marketing_confirmation','welcome_initial','welcome_education')
+    and e.receipt->>'subscriberId'=p_subscriber.id::text and e.provider_email_id is null
+    and e.state in ('queued','leased','retry','uncertain')
+    and not private.marketing_intent_current(e,p_subscriber);
+$$;
+create function private.enqueue_marketing_confirmation(p_subscriber private.marketing_subscribers,p_token text) returns void
+language plpgsql security invoker set search_path='' as $$
+declare v_generation private.marketing_generations%rowtype;
+begin
+  perform private.cancel_ineligible_marketing_intents(p_subscriber);
+  select * into strict v_generation from private.marketing_generations where subscriber_id=p_subscriber.id and generation=p_subscriber.generation;
+  insert into private.email_intents(environment,purpose,recipient,receipt,state,idempotency_key)
+    values('sandbox','marketing_confirmation',p_subscriber.normalized_email,pg_catalog.jsonb_build_object(
+      'schemaVersion',1,'subscriberId',p_subscriber.id,'generation',p_subscriber.generation,'revision',p_subscriber.revision,
+      'confirmationToken',p_token,'templateContract',v_generation.template_contract),'queued',
+      'helix:sandbox:marketing_confirmation:'||p_subscriber.id::text||':'||p_subscriber.generation::text||':'||
+        pg_catalog.encode(extensions.digest(p_token,'sha256'),'hex')) on conflict do nothing;
+end $$;
+create function private.enqueue_marketing_welcome(p_subscriber private.marketing_subscribers,p_token text) returns void
+language plpgsql security invoker set search_path='' as $$
+declare v_generation private.marketing_generations%rowtype; v_purpose text; v_due timestamptz;
+begin
+  perform private.cancel_ineligible_marketing_intents(p_subscriber);
+  select * into strict v_generation from private.marketing_generations where subscriber_id=p_subscriber.id and generation=p_subscriber.generation;
+  foreach v_purpose in array array['welcome_initial','welcome_education'] loop
+    v_due:=v_generation.confirmed_at+case when v_purpose='welcome_education' then interval '72 hours' else interval '0' end;
+    insert into private.email_intents(environment,purpose,recipient,receipt,state,idempotency_key,next_attempt_at,created_at)
+      values('sandbox',v_purpose,p_subscriber.normalized_email,pg_catalog.jsonb_build_object(
+        'schemaVersion',1,'subscriberId',p_subscriber.id,'generation',p_subscriber.generation,'revision',p_subscriber.revision,
+        'preferenceToken',p_token,'templateContract',v_generation.template_contract),'queued',
+        'helix:sandbox:'||v_purpose||':'||p_subscriber.id::text||':'||p_subscriber.generation::text,v_due,v_generation.confirmed_at)
+      on conflict do nothing;
+  end loop;
+end $$;
+revoke all on function private.marketing_intent_current(private.email_intents,private.marketing_subscribers),
+  private.cancel_ineligible_marketing_intents(private.marketing_subscribers),
+  private.enqueue_marketing_confirmation(private.marketing_subscribers,text),private.enqueue_marketing_welcome(private.marketing_subscribers,text)
+  from public,anon,authenticated,service_role;
+grant execute on function private.marketing_intent_current(private.email_intents,private.marketing_subscribers),
+  private.cancel_ineligible_marketing_intents(private.marketing_subscribers),
+  private.enqueue_marketing_confirmation(private.marketing_subscribers,text),private.enqueue_marketing_welcome(private.marketing_subscribers,text) to service_role;
+
+-- Extend the current support/tracking dispatcher guards with marketing admission.
+create or replace function public.prepare_email_attempt(p_id uuid,p_lease_token uuid,p_request_payload jsonb)
+returns jsonb language plpgsql security invoker set search_path='' as $$
+declare v_intent private.email_intents%rowtype; v_order_id uuid; v_purpose text; v_inquiry_id uuid;
+  v_subscriber private.marketing_subscribers%rowtype; v_generation private.marketing_generations%rowtype;
+  v_marketing boolean; v_capacity jsonb; v_due timestamptz; v_retry_at timestamptz; v_reason text;
+begin
+  -- Identity fields are immutable. Lock Order before intent for all tracking handoffs.
+  select order_id,purpose into v_order_id,v_purpose from private.email_intents where id=p_id;
+  if v_purpose='order_tracking' then
+    perform 1 from public.orders where id=v_order_id for update;
+  end if;
+  if v_purpose='support_reply' then
+    select a.inquiry_id into v_inquiry_id from private.support_reply_approvals a where a.email_intent_id=p_id;
+    perform 1 from private.support_inquiries where id=v_inquiry_id for update;
+  end if;
+  v_marketing:=v_purpose in ('marketing_confirmation','welcome_initial','welcome_education');
+  if v_marketing then
+    -- All recipient transitions take address, subscriber, then intent locks in this order.
+    select s.* into v_subscriber from private.marketing_subscribers s join private.email_intents e
+      on e.receipt->>'subscriberId'=s.id::text where e.id=p_id;
+    if not found then return null; end if;
+    perform private.marketing_address_lock(v_subscriber.normalized_email);
+    select * into v_subscriber from private.marketing_subscribers where id=v_subscriber.id for update;
+  end if;
+  select * into v_intent from private.email_intents where id=p_id for update;
+  if not found or v_intent.state<>'leased' or v_intent.lease_token is distinct from p_lease_token
+    or p_lease_token is null or v_intent.lease_expires_at<=pg_catalog.clock_timestamp()
+    or v_intent.attempt_count>=5 or v_intent.content_deleted_at is not null
+    or v_intent.provider_email_id is not null
+    or (v_intent.first_attempt_at is not null and v_intent.first_attempt_at<=pg_catalog.clock_timestamp()-interval '23 hours')
+  then return null; end if;
+  if v_intent.purpose='order_tracking' then
+    if private.simulation_is_frozen(v_intent.order_id) then
+      update private.email_intents set state='blocked',error_code='order_refunded',lease_token=null,
+        lease_expires_at=null,updated_at=pg_catalog.clock_timestamp() where id=p_id;
+      return null;
+    end if;
+    perform 1 from private.email_controls
+      where environment='sandbox' and purpose='order_tracking' and enabled for share;
+    if not found or not private.simulation_order_eligible(v_intent.order_id) then
+      update private.email_intents set state='blocked',error_code='simulation_unavailable',lease_token=null,
+        lease_expires_at=null,updated_at=pg_catalog.clock_timestamp() where id=p_id;
+      return null;
+    end if;
+  end if;
+  if v_intent.purpose in ('support_acknowledgement','support_reply') then
+    perform 1 from private.email_controls where environment=v_intent.environment
+      and purpose=v_intent.purpose and enabled for share;
+    if not found then
+      update private.email_intents set state='blocked',error_code='support_delivery_disabled',
+        lease_token=null,lease_expires_at=null,updated_at=pg_catalog.clock_timestamp() where id=p_id;
+      return null;
+    end if;
+  end if;
+  if v_intent.purpose='support_reply' and not exists (
+    select 1 from private.support_reply_approvals a
+    join private.support_inquiries i on i.id=a.inquiry_id
+    join private.support_drafts d on d.id=a.draft_id
+    join private.support_messages m on m.id=a.message_id
+    where a.email_intent_id=v_intent.id and a.inquiry_revision=i.revision
+      and exists(select 1 from public.admin_memberships where user_id=a.actor_id and active and role='admin')
+      and d.inquiry_revision=i.revision and d.version=i.current_draft_version
+      and d.recipient=v_intent.recipient and d.subject=m.subject and d.body=m.body
+      and m.kind='reply' and m.email_intent_id=v_intent.id and m.inquiry_id=i.id
+      and v_intent.receipt=pg_catalog.jsonb_build_object(
+        'renderVersion','support-text-v1','inquiryId',i.id,'messageId',m.id,
+        'inquiryRevision',i.revision,'draftVersion',d.version,'subject',d.subject,
+        'body',d.body,'html',private.support_plain_html(d.body),'attachments','[]'::jsonb)
+  ) then
+    update private.email_intents set state=case when first_attempt_at is null then 'blocked' else 'uncertain' end,
+      error_code=case when first_attempt_at is null then 'approval_stale' else 'reconciliation_required' end,
+      lease_token=null,lease_expires_at=null,updated_at=pg_catalog.clock_timestamp() where id=p_id;
+    return null;
+  end if;
+  if v_marketing then
+    select * into v_generation from private.marketing_generations
+      where subscriber_id=v_subscriber.id and generation=v_subscriber.generation;
+    perform 1 from private.email_controls where environment=v_intent.environment
+      and purpose=v_intent.purpose and enabled and accepted_after<=v_generation.requested_at for share;
+    if not found or not private.marketing_intent_current(v_intent,v_subscriber)
+      or v_intent.receipt->'templateContract' is distinct from v_generation.template_contract
+      or v_intent.receipt->'schemaVersion' is distinct from '1'::jsonb
+      or (v_intent.purpose in ('welcome_initial','welcome_education') and not exists (
+        select 1 from private.marketing_preference_tokens t where t.subscriber_id=v_subscriber.id
+          and t.generation=v_subscriber.generation and t.token_hash=pg_catalog.encode(
+            extensions.digest(v_intent.receipt->>'preferenceToken','sha256'),'hex')))
+    then
+      update private.email_intents set state=case when first_attempt_at is null then 'blocked' else 'uncertain' end,
+        error_code=case when first_attempt_at is null then 'marketing_not_eligible' else 'reconciliation_required' end,
+        lease_token=null,lease_expires_at=null,updated_at=pg_catalog.clock_timestamp() where id=p_id;
+      return null;
+    end if;
+    if p_request_payload->>'from' is distinct from v_generation.template_contract->>'from'
+      or p_request_payload->>'reply_to' is distinct from v_generation.template_contract->>'replyTo'
+      or (v_intent.purpose='marketing_confirmation' and (p_request_payload ? 'headers' or p_request_payload ? 'topic_id'))
+      or (v_intent.purpose in ('welcome_initial','welcome_education') and (
+        p_request_payload->>'topic_id' is distinct from v_generation.template_contract->>'topicId'
+        or p_request_payload->'headers' is distinct from pg_catalog.jsonb_build_object(
+          'List-Unsubscribe','<'||(v_generation.template_contract->>'siteOrigin')||
+            '/api/marketing/unsubscribe?token='||(v_intent.receipt->>'preferenceToken')||'>',
+          'List-Unsubscribe-Post','List-Unsubscribe=One-Click')))
+    then raise exception using errcode='22023',message='marketing request does not match frozen contract'; end if;
+  end if;
+  if v_intent.purpose in ('support_acknowledgement','support_reply') and (
+    p_request_payload->>'subject' is distinct from v_intent.receipt->>'subject'
+    or p_request_payload->>'text' is distinct from v_intent.receipt->>'body'
+    or p_request_payload->>'html' is distinct from v_intent.receipt->>'html'
+    or v_intent.receipt->'attachments' is distinct from '[]'::jsonb
+    or v_intent.receipt->>'renderVersion' is distinct from case when v_intent.purpose='support_reply'
+      then 'support-text-v1' else 'support-ack-v1' end
+  ) then raise exception using errcode='22023',message='support request does not match approval'; end if;
+  if p_request_payload is null or pg_catalog.jsonb_typeof(p_request_payload)<>'object'
+    or p_request_payload->'to' is distinct from pg_catalog.jsonb_build_array(v_intent.recipient)
+    or pg_catalog.jsonb_typeof(p_request_payload->'from') is distinct from 'string'
+    or pg_catalog.length(p_request_payload->>'from') not between 3 and 320
+    or pg_catalog.jsonb_typeof(p_request_payload->'subject') is distinct from 'string'
+    or pg_catalog.length(p_request_payload->>'subject') not between 1 and 300
+    or pg_catalog.jsonb_typeof(p_request_payload->'reply_to') is distinct from 'string'
+    or pg_catalog.length(p_request_payload->>'reply_to') not between 3 and 254
+    or pg_catalog.jsonb_typeof(p_request_payload->'html') is distinct from 'string'
+    or pg_catalog.length(p_request_payload->>'html') not between 1 and 1000000
+    or pg_catalog.jsonb_typeof(p_request_payload->'text') is distinct from 'string'
+    or pg_catalog.length(p_request_payload->>'text') not between 1 and 1000000
+    or p_request_payload->'tags' is distinct from pg_catalog.jsonb_build_array(
+      pg_catalog.jsonb_build_object('name','helix_environment','value',v_intent.environment),
+      pg_catalog.jsonb_build_object('name','helix_message_id','value',v_intent.id::text))
+    or p_request_payload-(case when v_intent.purpose in ('welcome_initial','welcome_education')
+      then array['from','to','reply_to','subject','html','text','tags','headers','topic_id']
+      else array['from','to','reply_to','subject','html','text','tags'] end)<>'{}'::jsonb
+    or (v_intent.request_payload is not null and v_intent.request_payload is distinct from p_request_payload)
+  then raise exception using errcode='22023',message='email request does not match frozen envelope'; end if;
+  if v_intent.purpose in ('welcome_initial','welcome_education') then
+    v_due:=v_generation.confirmed_at+case when v_intent.purpose='welcome_education' then interval '72 hours' else interval '0' end;
+    v_capacity:=private.reserve_marketing_capacity(v_subscriber.id,v_subscriber.generation,v_subscriber.revision,
+      v_intent.id,v_intent.purpose,v_due,v_intent.first_attempt_at,exists(select 1 from private.email_intents e
+        where e.purpose='welcome_initial' and e.receipt->>'subscriberId'=v_subscriber.id::text
+          and e.receipt->>'generation'=v_subscriber.generation::text and e.provider_email_id is not null));
+    if (v_capacity->>'eligible')::boolean is distinct from true then
+      v_reason:=v_capacity->>'reason';
+      v_retry_at:=coalesce((v_capacity->>'retryAt')::timestamptz,pg_catalog.clock_timestamp()+interval '1 minute');
+      if v_intent.first_attempt_at is null then v_retry_at:=least(v_retry_at,v_due+interval '24 hours'); end if;
+      update private.email_intents set
+        state=case when first_attempt_at is not null then 'uncertain'
+          when v_reason in ('consent_ineligible','expired') then 'blocked' else 'retry' end,
+        error_code=case when first_attempt_at is not null and v_reason='consent_ineligible' then 'reconciliation_required'
+          when v_reason='preferences_unverified' then 'marketing_preferences_unavailable'
+          when v_reason='expired' then 'marketing_expired' else 'marketing_'||v_reason end,
+        next_attempt_at=v_retry_at,lease_token=null,lease_expires_at=null,updated_at=pg_catalog.clock_timestamp() where id=p_id;
+      return null;
+    end if;
+  end if;
+  update private.email_intents set request_payload=coalesce(request_payload,p_request_payload),
+    first_attempt_at=coalesce(first_attempt_at,pg_catalog.clock_timestamp()),attempt_count=attempt_count+1,
+    updated_at=pg_catalog.clock_timestamp() where id=p_id returning * into v_intent;
+  return private.email_intent_work(v_intent);
+end $$;
+
+create or replace function public.claim_email_intents(p_environment text,p_lease_token uuid,p_limit integer)
+returns jsonb language plpgsql security invoker set search_path='' as $$
+declare v_work jsonb;
+begin
+  if p_environment is distinct from 'sandbox' or p_lease_token is null or p_limit is null or p_limit not between 1 and 5 then
+    raise exception using errcode='22023',message='invalid email claim';
+  end if;
+  -- An expired worker may already have sent. Once provider idempotency is near expiry,
+  -- preserve uncertainty for human reconciliation instead of issuing another send.
+  with expired as (
+    select id from private.email_intents where environment=p_environment and state in ('leased','retry','uncertain')
+      and (lease_expires_at is null or lease_expires_at<=pg_catalog.clock_timestamp())
+      and first_attempt_at is not null and (first_attempt_at<=pg_catalog.clock_timestamp()-interval '23 hours' or attempt_count>=5)
+      and (state<>'uncertain' or error_code is distinct from 'reconciliation_required')
+    order by created_at,id for update skip locked limit p_limit
+  ) update private.email_intents i set state='uncertain',lease_token=null,lease_expires_at=null,
+    error_code='reconciliation_required',updated_at=pg_catalog.clock_timestamp()
+    from expired where i.id=expired.id;
+  with accepted as (
+    select id from private.email_intents where environment=p_environment and state='accepted'
+      and lease_expires_at<=pg_catalog.clock_timestamp()
+    order by lease_expires_at,id for update skip locked limit p_limit
+  ) update private.email_intents i set lease_token=null,lease_expires_at=null,updated_at=pg_catalog.clock_timestamp()
+    from accepted where i.id=accepted.id;
+  with candidates as (
+    select id from private.email_intents where environment=p_environment
+      and content_deleted_at is null and provider_email_id is null and attempt_count<5
+      and (first_attempt_at is null or first_attempt_at>pg_catalog.clock_timestamp()-interval '23 hours')
+      and (state in ('queued','retry','uncertain') or (state='leased' and lease_expires_at<=pg_catalog.clock_timestamp()))
+      and next_attempt_at<=pg_catalog.clock_timestamp()
+      and delivery_status is null
+      and not (purpose='support_reply' and coalesce(error_code,'') in
+        ('approval_stale','approval_revoked','reconciliation_required'))
+      and not (purpose in ('marketing_confirmation','welcome_initial','welcome_education')
+        and coalesce(error_code,'')='reconciliation_required')
+    order by next_attempt_at,created_at,id for update skip locked limit p_limit
+  ), claimed as (
+    update private.email_intents i set state='leased',lease_token=p_lease_token,
+      lease_expires_at=pg_catalog.clock_timestamp()+interval '5 minutes',updated_at=pg_catalog.clock_timestamp()
+    from candidates c where i.id=c.id returning i.*
+  ) select coalesce(pg_catalog.jsonb_agg(private.email_intent_work(claimed)),'[]'::jsonb) into v_work from claimed;
+  return v_work;
+end $$;
+
+create or replace function public.retry_email_delivery(p_id uuid,p_expected_updated_at timestamptz) returns boolean
+language plpgsql security invoker set search_path='' as $$
+begin
+  update private.email_intents set state='queued',next_attempt_at=pg_catalog.clock_timestamp(),
+    error_code=null,updated_at=pg_catalog.clock_timestamp()
+  where id=p_id and updated_at=p_expected_updated_at and state in ('blocked','failed','retry','uncertain')
+    and provider_email_id is null and delivery_status is null and content_deleted_at is null
+    and not (purpose='support_reply' and coalesce(error_code,'') in
+      ('approval_stale','approval_revoked','reconciliation_required'))
+    and not (purpose in ('marketing_confirmation','welcome_initial','welcome_education')
+      and coalesce(error_code,'') in ('reconciliation_required','marketing_not_eligible','marketing_expired'))
+    and lease_token is null and attempt_count<5
+    and (first_attempt_at is null or first_attempt_at>pg_catalog.clock_timestamp()-interval '23 hours');
+  return found;
+end $$;
+
+create or replace function public.finish_email_attempt(
+  p_id uuid,p_lease_token uuid,p_outcome text,p_provider_email_id text,p_error_code text
+) returns boolean language plpgsql security invoker set search_path='' as $$
+declare v_intent private.email_intents%rowtype;
+begin
+  if p_outcome is null or p_outcome not in ('accepted','retry','uncertain','blocked','failed')
+    or (p_error_code is not null and p_error_code !~ '^[a-z][a-z0-9_]{0,63}$')
+    or (p_provider_email_id is not null and pg_catalog.length(p_provider_email_id) not between 1 and 200)
+    or (p_outcome<>'accepted' and p_provider_email_id is not null)
+  then raise exception using errcode='22023',message='invalid email attempt result'; end if;
+  select * into v_intent from private.email_intents where id=p_id for update;
+  if not found or p_lease_token is null or v_intent.lease_token is distinct from p_lease_token
+    or v_intent.state not in ('leased','accepted')
+    or v_intent.lease_expires_at<=pg_catalog.clock_timestamp() then return false; end if;
+  if p_outcome='accepted' and (p_provider_email_id is null or v_intent.first_attempt_at is null) then return false; end if;
+  if p_provider_email_id is not null then
+    perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('email-provider:'||p_provider_email_id,0));
+  end if;
+  if p_provider_email_id is not null and (v_intent.provider_email_id is not null and v_intent.provider_email_id<>p_provider_email_id
+    or exists(select 1 from private.email_intents where provider_email_id=p_provider_email_id and id<>p_id)) then
+    update private.email_intents set error_code='provider_identity_conflict',updated_at=pg_catalog.clock_timestamp() where id=p_id;
+    return false;
+  end if;
+  update private.email_intents set
+    state=case when provider_email_id is not null or p_outcome='accepted' then 'accepted'
+      when purpose in ('marketing_confirmation','welcome_initial','welcome_education') and first_attempt_at is not null then 'uncertain'
+      when p_outcome in ('retry','uncertain') and first_attempt_at is not null
+        and (first_attempt_at<=pg_catalog.clock_timestamp()-interval '23 hours' or attempt_count>=5) then 'uncertain'
+      else p_outcome end,
+    provider_email_id=coalesce(provider_email_id,p_provider_email_id),
+    error_code=case when provider_email_id is not null or p_outcome='accepted' then null
+      when purpose in ('marketing_confirmation','welcome_initial','welcome_education') and first_attempt_at is not null
+        and (p_outcome in ('blocked','failed') or error_code='reconciliation_required'
+          or first_attempt_at<=pg_catalog.clock_timestamp()-interval '23 hours' or attempt_count>=5)
+        then 'reconciliation_required' else p_error_code end,
+    next_attempt_at=pg_catalog.clock_timestamp()+pg_catalog.make_interval(secs=>least(3600,60*(2^greatest(attempt_count-1,0)))::integer),
+    lease_token=null,lease_expires_at=null,updated_at=pg_catalog.clock_timestamp()
+  where id=p_id;
+  return true;
+end $$;

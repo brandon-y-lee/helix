@@ -106,15 +106,42 @@ it("persists an unknown import response without granting send eligibility", asyn
     { category: "provider_unavailable", httpStatus: null, providerName: null, retryAfterSeconds: null });
   expect(deps.storage.observe).not.toHaveBeenCalled();
 });
-it("retains rate-limit evidence without treating it as authority to replay an import", async () => {
+it("records only an explicit rate rejection for a future durably admitted retry", async () => {
   const deps = setup(); deps.provider.getContact.mockResolvedValue(null);
   deps.provider.createImport.mockRejectedValue(new MarketingProviderError("provider_unavailable",
     { httpStatus: 429, providerName: "rate_limit_exceeded", retryAfter: "10" }));
   expect(await synchronizeMarketingContacts(deps)).toMatchObject({ deferred: 1, synced: 0 });
-  expect(deps.storage.recordImport).toHaveBeenCalledWith(job, expect.anything(), null, "uncertain",
+  expect(deps.storage.recordImport).toHaveBeenCalledWith(job, expect.anything(), null, "rate_limited",
     { category: "rate_limited", httpStatus: 429, providerName: "rate_limit_exceeded", retryAfterSeconds: 10 });
   expect(deps.provider.createImport).toHaveBeenCalledTimes(1);
   expect(deps.storage.observe).not.toHaveBeenCalled();
+});
+it.each([
+  { httpStatus: 429, providerName: "validation_error" },
+  { httpStatus: 429, providerName: "daily_quota_exceeded" },
+  { httpStatus: 503, providerName: "rate_limit_exceeded" },
+  { httpStatus: 500, providerName: "application_error" },
+])("keeps every other failed import response unresolved %#", async (details) => {
+  const deps = setup(); deps.provider.getContact.mockResolvedValue(null);
+  deps.provider.createImport.mockRejectedValue(new MarketingProviderError("provider_unavailable", details));
+  await synchronizeMarketingContacts(deps);
+  expect(deps.storage.recordImport).toHaveBeenCalledWith(job, expect.anything(), null, "uncertain", expect.any(Object));
+  expect(deps.provider.createImport).toHaveBeenCalledTimes(1);
+});
+it("does not replay an import when recording its rate rejection fails", async () => {
+  const deps = setup(); deps.provider.getContact.mockResolvedValue(null);
+  deps.provider.createImport.mockRejectedValue(new MarketingProviderError("provider_unavailable", { httpStatus: 429, providerName: "rate_limit_exceeded" }));
+  deps.storage.recordImport.mockRejectedValueOnce(new Error("database unavailable"));
+  await synchronizeMarketingContacts(deps);
+  expect(deps.provider.createImport).toHaveBeenCalledTimes(1);
+  expect(deps.storage.recordImport).toHaveBeenCalledTimes(1);
+});
+it("rechecks current native denial before any due rate-limit retry", async () => {
+  const deps = setup(); deps.provider.getContact.mockResolvedValue({ ...contact, unsubscribed: true });
+  deps.storage.admitImport.mockResolvedValue({ allowSubmit: true, generation: 1, admissionToken: job.leaseToken, importId: null, state: "retry_wait" });
+  await synchronizeMarketingContacts(deps);
+  expect(deps.storage.admitImport).not.toHaveBeenCalled(); expect(deps.provider.createImport).not.toHaveBeenCalled();
+  expect(deps.storage.observe).toHaveBeenCalledWith(expect.objectContaining({ globalAllowed: false }));
 });
 it("does not recreate a missing bound Contact or enroll with the wrong Topic default", async () => {
   const deps = setup(); deps.provider.getContact.mockResolvedValue(null);
@@ -141,6 +168,15 @@ it("cannot persist preference evidence after its lease or consent revision was r
   const deps = setup(); deps.storage.finishSync.mockResolvedValue(false);
   expect(await synchronizeMarketingContacts(deps)).toMatchObject({ synced: 0, deferred: 1 });
   expect(deps.storage.observe).not.toHaveBeenCalled();
+});
+it("retains a restrictive observation for an already bound Contact when the sync lease changes", async () => {
+  const deps = setup();
+  deps.storage.claimSync.mockResolvedValue([{ ...job, providerContactId: contact.id }]);
+  deps.provider.getContact.mockResolvedValue({ ...contact, unsubscribed: true });
+  deps.storage.finishSync.mockResolvedValue(false);
+  expect(await synchronizeMarketingContacts(deps)).toMatchObject({ synced: 0, deferred: 1 });
+  expect(deps.storage.observe).toHaveBeenCalledWith(expect.objectContaining({ generation: 1, revision: 2,
+    contactId: contact.id, globalAllowed: false, topicAllowed: false }));
 });
 it("reconciles import completion through storage without granting or sending anything", async () => {
   const deps = setup(), imported = { subscriberId: job.subscriberId, generation: 1, email: job.email, importId: contact.id, leaseToken: job.leaseToken };

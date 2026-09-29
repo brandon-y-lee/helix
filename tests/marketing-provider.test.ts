@@ -111,13 +111,28 @@ it.each([
   [500, "application_error", "provider_unavailable"],
   [503, "service_unavailable", "provider_unavailable"],
 ] as const)("retains sanitized %i %s operator evidence without replaying an import", async (status, name, category) => {
-  const fetcher = vi.fn().mockResolvedValue(Response.json({ name, message: "private@resend.dev re_private", extra: "private@resend.dev" }, {
+  const fetcher = vi.fn().mockResolvedValue(Response.json({ name, message: "private@resend.dev re_private", statusCode: status }, {
     status, headers: { "Retry-After": "12" },
   })); vi.stubGlobal("fetch", fetcher);
   const error = await resendMarketingContacts.createImport("delivered@resend.dev", "re_synthetic").catch((value: unknown) => value);
   expect(error).toBeInstanceOf(MarketingProviderError);
   expect(marketingProviderEvidence(error)).toEqual({ category, httpStatus: status, providerName: name, retryAfterSeconds: 12 });
   expect(String(error)).not.toContain("private");
+  expect(JSON.stringify(error)).not.toContain("private");
+  expect(fetcher).toHaveBeenCalledTimes(1);
+});
+it.each([
+  { object: "contact_import", id }, { id }, { id: null }, { object: null },
+  { statusCode: 200 }, { statusCode: "429" }, { statusCode: null },
+  { message: { id } }, { message: null }, { message: 429 }, { extra: "private@resend.dev" },
+])("treats contradictory or malformed 429 bodies as uncertain %#", async (extra) => {
+  const fetcher = vi.fn().mockResolvedValue(Response.json({ name: "rate_limit_exceeded", ...extra }, {
+    status: 429, headers: { "Retry-After": "12" },
+  }));
+  vi.stubGlobal("fetch", fetcher);
+  const error = await resendMarketingContacts.createImport("delivered@resend.dev", "re_synthetic").catch((value: unknown) => value);
+  expect(marketingProviderEvidence(error)).toEqual({ category: "provider_unavailable", httpStatus: 429, providerName: null, retryAfterSeconds: 12 });
+  expect(JSON.stringify(error)).not.toContain(id);
   expect(JSON.stringify(error)).not.toContain("private");
   expect(fetcher).toHaveBeenCalledTimes(1);
 });
@@ -209,4 +224,13 @@ it("resolves a later Topic page within the shared deadline", async () => {
   expect(await resendMarketingContacts.getTopic(id, topic, "re_synthetic")).toBe("opt_out");
   expect(fetcher.mock.calls[1][0]).toBe(`https://api.resend.com/contacts/${id}/topics?limit=100&after=${id}`);
   expect(fetcher.mock.calls[0][1].signal).toBe(fetcher.mock.calls[1][1].signal);
+});
+it.each([200, 429])("aborts an unread oversized declared response body at status %i", async (status) => {
+  const fetcher = vi.fn().mockResolvedValue(new Response(new ReadableStream(), {
+    status, headers: { "Content-Length": "16385" },
+  }));
+  vi.stubGlobal("fetch", fetcher);
+  await expect(resendMarketingContacts.createImport("delivered@resend.dev", "re_synthetic")).rejects.toThrow("Marketing provider needs operator attention.");
+  expect(fetcher).toHaveBeenCalledTimes(1);
+  expect((fetcher.mock.calls[0][1] as RequestInit).signal?.aborted).toBe(true);
 });
