@@ -3,13 +3,22 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { EmailDeliveryStorage, EmailIntent } from "@/lib/email/types";
 
 async function rpc(name: string, args: Record<string, unknown>): Promise<unknown> {
-  const { data, error } = await createSupabaseAdminClient().rpc(name, args);
-  if (error) throw new Error("Email storage is temporarily unavailable.");
-  return data;
+  const abort = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(() => { abort.abort(); reject(new Error("Email storage is temporarily unavailable.")); }, 3_000);
+  });
+  try {
+    // A timed-out mutation may have committed. Never replay it here; the stable
+    // intent, lease and attempt identity preserve recovery after interruption.
+    const { data, error } = await Promise.race([createSupabaseAdminClient().rpc(name, args).abortSignal(abort.signal), deadline]);
+    if (error) throw new Error("Email storage is temporarily unavailable.");
+    return data;
+  } finally { clearTimeout(timer); abort.abort(); }
 }
 function intent(value: unknown): EmailIntent {
   if (!value || typeof value !== "object" || !("id" in value) || !("environment" in value)
-    || value.environment !== "sandbox" || !("purpose" in value) || !["order_confirmation", "order_tracking", "support_acknowledgement", "support_reply"].includes(String(value.purpose))
+    || value.environment !== "sandbox" || !("purpose" in value) || !["order_confirmation", "order_tracking", "support_acknowledgement", "support_reply", "marketing_confirmation", "welcome_initial", "welcome_education"].includes(String(value.purpose))
     || !("leaseToken" in value) || typeof value.leaseToken !== "string"
     || !("idempotencyKey" in value) || typeof value.idempotencyKey !== "string"
     || !("recipient" in value) || typeof value.recipient !== "string") {
