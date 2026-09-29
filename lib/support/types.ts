@@ -11,7 +11,27 @@ export type SupportInquirySummary = {
   createdAt: string;
   updatedAt: string;
   lastDeliveryState: string | null;
+  pendingInbound?: number;
 };
+
+export type SupportPhoto = {
+  id: string;
+  status: "pending" | "processing" | "ready" | "rejected" | "expired";
+  rejectionReason: string | null;
+};
+
+export type SupportQuarantinedInbound = {
+  id: string;
+  subject: string;
+  body: string;
+  receivedAt: string;
+  reason: string;
+  participantMatches: boolean;
+  acceptAllowed: boolean;
+  retryAllowed?: boolean;
+};
+
+export type SupportInboundReviewMutation = { action: "accept" | "dismiss" | "retry"; inboundId: string; expectedRevision: number };
 
 export type SupportMessage = {
   id: string;
@@ -20,6 +40,7 @@ export type SupportMessage = {
   body: string;
   createdAt: string;
   delivery: { state: string; deliveryStatus: string | null; errorCode: string | null } | null;
+  photos?: SupportPhoto[];
 };
 
 export type SupportDraft = {
@@ -37,6 +58,7 @@ export type SupportInquiryDetail = SupportInquirySummary & {
   nextMessageCursor: string | null;
   draft: SupportDraft | null;
   order: { orderNumber: string } | null;
+  quarantinedInbound?: SupportQuarantinedInbound[];
 };
 
 export type SupportInquiryCursor = { createdAt: string; id: string };

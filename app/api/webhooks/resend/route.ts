@@ -3,6 +3,9 @@ import { Resend } from "resend";
 import { assertEmailEnvironment, EmailConfigurationError } from "@/lib/email/config";
 import { readBoundedBody } from "@/lib/email/provider";
 import { recordEmailDeliveryEvent } from "@/lib/email/storage";
+import { recordSupportReceivedEvent } from "@/lib/support/inbound-webhook";
+import { inboundStorage } from "@/lib/support/inbound-storage";
+import { supportRfcMessageId } from "@/lib/support/threading";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -31,8 +34,20 @@ export async function POST(request: Request) {
   if (!record(event) || typeof event.type !== "string" || !record(event.data)) {
     return NextResponse.json({ error: "Invalid delivery event." }, { status: 400, headers });
   }
-  if (!deliveryEvents.has(event.type)) return NextResponse.json({ ok: true }, { headers });
   const data = event.data;
+  if (event.type === "email.received") {
+    if (typeof data.email_id !== "string" || !uuid.test(data.email_id)
+      || typeof event.created_at !== "string" || !Number.isFinite(Date.parse(event.created_at))) {
+      return NextResponse.json({ error: "Invalid receiving event." }, { status: 400, headers });
+    }
+    try {
+      await recordSupportReceivedEvent(request.headers.get("svix-id")!, data, event.created_at, process.env);
+      return NextResponse.json({ ok: true }, { headers });
+    } catch {
+      return NextResponse.json({ error: "Incoming event could not be recorded." }, { status: 500, headers });
+    }
+  }
+  if (!deliveryEvents.has(event.type)) return NextResponse.json({ ok: true }, { headers });
   if (!record(data.tags)) return NextResponse.json({ ok: true }, { headers });
   const messageId = data.tags?.helix_message_id;
   if (data.tags.helix_environment !== "sandbox" || typeof messageId !== "string" || !uuid.test(messageId)) return NextResponse.json({ ok: true }, { headers });
@@ -44,6 +59,7 @@ export async function POST(request: Request) {
   try {
     await recordEmailDeliveryEvent({ eventId: request.headers.get("svix-id")!, messageId,
       providerEmailId: data.email_id, eventType: event.type, occurredAt: event.created_at, sender: data.from, recipient: data.to[0] });
+    if (supportRfcMessageId(data.message_id)) await inboundStorage.recordRfc(messageId, data.email_id, data.message_id);
     return NextResponse.json({ ok: true }, { headers });
   } catch {
     return NextResponse.json({ error: "Delivery event could not be recorded." }, { status: 500, headers });
