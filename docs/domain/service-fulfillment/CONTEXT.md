@@ -36,6 +36,10 @@ _Avoid_: Order, Fulfillment, Delivery
 The Customer-visible information describing a Shipment's movement and carrier status.
 _Avoid_: Shipment, Delivery
 
+**Simulated Shipment**:
+A development-only representation of dispatch and delivery for a Sandbox Order. Its movement, Tracking, and Delivery states are explicitly simulated; they never establish physical Fulfillment or carrier activity.
+_Avoid_: Shipment, Fulfillment, Delivery
+
 **Delivery**:
 The transfer of a Shipment to its destination or authorized recipient.
 _Avoid_: Shipment, Fulfillment
