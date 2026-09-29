@@ -1730,6 +1730,10 @@ body[data-sheet-scroll-lock] .site-header {
   margin-top: 18px;
 }
 
+.checkout-panel > .btn {
+  margin-top: 0;
+}
+
 .checkout-panel__sandbox {
   justify-self: center;
   border: 1px solid var(--line);
