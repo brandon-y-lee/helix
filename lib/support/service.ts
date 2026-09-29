@@ -1,13 +1,12 @@
 import "server-only";
-import { requireAdminCapability, type AdminCapability } from "@/lib/admin/capabilities";
+import { requireAdminCapability } from "@/lib/admin/capabilities";
 import { SupportError, supportUuid } from "@/lib/support/request";
 import { supportRpc } from "@/lib/support/storage";
 import type { SupportInquiryDetail, SupportInquiryList, SupportMutation } from "@/lib/support/types";
 
 export async function requireSupportAccess(capability: "support.read" | "support.reply") {
   try {
-    // The shared capability registry is extended with this Ticket after consuming R1-02.
-    return await requireAdminCapability(capability as AdminCapability);
+    return await requireAdminCapability(capability);
   } catch (error) {
     const code = error && typeof error === "object" && "code" in error ? error.code : null;
     throw new SupportError(code === "authentication_required" ? "authentication_required"

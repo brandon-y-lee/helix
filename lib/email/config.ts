@@ -34,9 +34,14 @@ export function readEmailConfig(env: EmailEnvironment) {
 }
 
 /** Validate a purpose's sender only when preparing a new message of that purpose. */
-export function readEmailSender(purpose: "order_confirmation" | "order_tracking", env: EmailEnvironment): string {
-  if (purpose !== "order_confirmation" && purpose !== "order_tracking") throw new EmailConfigurationError("unsupported_email_purpose");
-  const from = value(env, "HELIX_EMAIL_ORDER_FROM");
+export function readEmailSender(purpose: "order_confirmation" | "order_tracking" | "support_acknowledgement" | "support_reply", env: EmailEnvironment): string {
+  let key: string;
+  switch (purpose) {
+    case "order_confirmation": case "order_tracking": key = "HELIX_EMAIL_ORDER_FROM"; break;
+    case "support_acknowledgement": case "support_reply": key = "HELIX_EMAIL_SUPPORT_FROM"; break;
+    default: throw new EmailConfigurationError("unsupported_email_purpose");
+  }
+  const from = value(env, key);
   const sender = isEmailAddress(from) ? from : from.match(/^[^<>\r\n]{1,100} <([^<>\s]+)>$/)?.[1];
   if (!sender || !isEmailAddress(sender)) throw new EmailConfigurationError("invalid_email_identity");
   return from;

@@ -34,6 +34,15 @@ const ADMIN_MODULE_REGISTRY: readonly AdminModule[] = [
     navigationOrder: 20,
     status: "active",
   },
+  {
+    id: "support",
+    label: "Support Inbox",
+    route: "/admin/support",
+    description: "Review private inquiries and approve support replies.",
+    requiredCapability: ADMIN_CAPABILITIES.supportRead,
+    navigationOrder: 30,
+    status: "active",
+  },
 ];
 
 export function sortAdminModules(
