@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { contactInquiryTypes } from "@/content/support/contact";
 import type { SupportInquiryList, SupportInquiryStatus } from "@/lib/support/types";
+import { supportInboxHref } from "@/lib/support/pagination";
 import styles from "./support.module.css";
 
 type InboxStatus = SupportInquiryStatus | "all";
@@ -25,10 +26,6 @@ const DELIVERY_LABELS: Readonly<Record<string, string>> = {
   cancelled: "Email cancelled",
 };
 
-function inquiryPageHref(status: InboxStatus, page?: number) {
-  return `/admin/support?status=${status}${page !== undefined ? `&page=${page}` : ""}`;
-}
-
 export function supportDeliveryLabel(state: string | null): string {
   if (state === null) return "No email delivery recorded";
   return Object.hasOwn(DELIVERY_LABELS, state)
@@ -52,10 +49,11 @@ export function InquiryTime({ value }: { value: string }) {
 
 export function SupportInbox({
   inquiries,
-  nextPage,
+  nextCursor,
+  previousCursor,
   status,
-  page,
-}: SupportInquiryList & { status: InboxStatus; page: number }) {
+  hasCursor,
+}: SupportInquiryList & { status: InboxStatus; hasCursor: boolean }) {
   return (
     <section className={styles.panel} aria-labelledby="support-inbox-title">
       <header className={styles.header}>
@@ -66,7 +64,7 @@ export function SupportInbox({
         {(["open", "closed", "all"] as const).map((filter) => (
           <Link
             key={filter}
-            href={inquiryPageHref(filter)}
+            href={supportInboxHref(filter)}
             className={styles.textButton}
             aria-current={status === filter ? "page" : undefined}
           >
@@ -98,20 +96,20 @@ export function SupportInbox({
         ))}
       </ul>
       {inquiries.length === 0 && (
-        <p className={styles.empty}>No {status === "all" ? "" : `${status} `}inquiries on this page.</p>
+        <p className={styles.empty}>No {status === "all" ? "" : `${status} `}inquiries in this view.</p>
       )}
-      <nav className={styles.actions} aria-label="Inquiry pages">
-        {page > 0 && (
-          <Link href={inquiryPageHref(status, page - 1)} className={styles.textButton}>
-            Previous page
+      <nav className={styles.actions} aria-label="Inquiry navigation">
+        {previousCursor !== null && (
+          <Link href={supportInboxHref(status, previousCursor, "newer")} className={styles.textButton}>
+            Newer inquiries
           </Link>
         )}
-        <span className={styles.muted}>Page {page + 1}</span>
-        {nextPage !== null && (
-          <Link href={inquiryPageHref(status, nextPage)} className={styles.textButton}>
-            Next page
+        {nextCursor !== null && (
+          <Link href={supportInboxHref(status, nextCursor, "older")} className={styles.textButton}>
+            Older inquiries
           </Link>
         )}
+        {hasCursor && <Link href={supportInboxHref(status)} className={styles.textButton}>Newest inquiries</Link>}
       </nav>
     </section>
   );

@@ -69,7 +69,7 @@ function defaultDependencies(): SupportIntakeDependencies {
 export async function handleSupportIntakeRequest(request: Request, dependencies: SupportIntakeDependencies = defaultDependencies()): Promise<Response> {
   try {
     const origin = intakeOrigin(dependencies.env);
-    if (request.method === "GET") return supportResponse({ available: Boolean(origin && await dependencies.available()) });
+    if (request.method === "GET") return supportResponse({ available: Boolean(origin && new URL(request.url).origin === origin && await dependencies.available()) });
     if (!origin) throw new SupportError("support_unavailable");
     assertSupportOrigin(request, origin);
     if (!await dependencies.available()) throw new SupportError("support_unavailable");

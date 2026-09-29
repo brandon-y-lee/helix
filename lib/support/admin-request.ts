@@ -1,11 +1,12 @@
 import "server-only";
 import { assertSupportOrigin, readSupportJson, SupportError, supportFailure, supportResponse, supportText, supportUuid } from "@/lib/support/request";
 import { getSupportInquiryForActor, listSupportInquiriesForActor, mutateSupportInquiryForActor, requireSupportAccess } from "@/lib/support/service";
+import { parseSupportInboxQuery, SupportPaginationError, type SupportInboxQuery } from "@/lib/support/pagination";
 import type { SupportMutation } from "@/lib/support/types";
 
 export type SupportAdminDependencies = {
   requireAccess(capability: "support.read" | "support.reply"): Promise<{ userId: string }>;
-  list(actorId: string, query: { status?: string; page?: number }): Promise<unknown>;
+  list(actorId: string, query: SupportInboxQuery): Promise<unknown>;
   get(actorId: string, id: string, before?: string): Promise<unknown>;
   mutate(actorId: string, id: string, mutation: SupportMutation): Promise<unknown>;
 };
@@ -45,11 +46,16 @@ export async function handleSupportAdminRequest(request: Request, id?: string, d
         return supportResponse({ inquiry });
       }
       const query = new URL(request.url).searchParams;
-      const page = query.get("page");
-      return supportResponse(await dependencies.list(access.userId, { status: query.get("status") ?? undefined, page: page === null ? 0 : Number(page) }));
+      const value = (key: string) => {
+        const values = query.getAll(key);
+        return values.length > 1 ? values : values[0];
+      };
+      return supportResponse(await dependencies.list(access.userId, parseSupportInboxQuery({
+        status: value("status"), before: value("before"), after: value("after"), page: value("page"),
+      })));
     }
     assertSupportOrigin(request);
     if (request.method !== "POST" || !id) throw new SupportError("invalid_support_input");
     return supportResponse({ inquiry: await dependencies.mutate(access.userId, supportUuid(id), mutation(await readSupportJson(request))) });
-  } catch (error) { return supportFailure(error); }
+  } catch (error) { return supportFailure(error instanceof SupportPaginationError ? new SupportError("invalid_support_input") : error); }
 }

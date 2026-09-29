@@ -2,6 +2,7 @@ import "server-only";
 import { requireAdminCapability } from "@/lib/admin/capabilities";
 import { SupportError, supportUuid } from "@/lib/support/request";
 import { supportRpc } from "@/lib/support/storage";
+import { isSupportInboxCursor, type SupportInboxQuery } from "@/lib/support/pagination";
 import type { SupportInquiryDetail, SupportInquiryList, SupportMutation } from "@/lib/support/types";
 
 export async function requireSupportAccess(capability: "support.read" | "support.reply") {
@@ -14,12 +15,15 @@ export async function requireSupportAccess(capability: "support.read" | "support
   }
 }
 
-export async function listSupportInquiriesForActor(actorId: string, query: { status?: string; page?: number }): Promise<SupportInquiryList> {
-  const status = query.status && ["open", "closed", "all"].includes(query.status) ? query.status : "open";
-  const page = Number.isSafeInteger(query.page) && query.page! >= 0 && query.page! <= 1000 ? query.page! : 0;
-  const data = await supportRpc("list_support_inquiries", { p_actor_id: actorId, p_status: status, p_page: page });
+export async function listSupportInquiriesForActor(actorId: string, query: SupportInboxQuery): Promise<SupportInquiryList> {
+  if (!["open", "closed", "all"].includes(query.status) || !["older", "newer"].includes(query.direction)
+    || (query.cursor !== undefined && !isSupportInboxCursor(query.cursor))) throw new SupportError("invalid_support_input");
+  const data = await supportRpc("list_support_inquiries", { p_actor_id: actorId, p_status: query.status,
+    p_cursor_created_at: query.cursor?.createdAt ?? null, p_cursor_id: query.cursor?.id ?? null, p_direction: query.direction });
   if (!data || typeof data !== "object" || !("inquiries" in data) || !Array.isArray(data.inquiries)
-    || data.inquiries.length > 25 || !("nextPage" in data)) throw new SupportError("support_unavailable");
+    || data.inquiries.length > 25 || !("nextCursor" in data) || !("previousCursor" in data)
+    || (data.nextCursor !== null && !isSupportInboxCursor(data.nextCursor))
+    || (data.previousCursor !== null && !isSupportInboxCursor(data.previousCursor))) throw new SupportError("support_unavailable");
   return data as SupportInquiryList;
 }
 

@@ -73,6 +73,22 @@ describe("support intake", () => {
     expect(dependencies.available).not.toHaveBeenCalled();
   });
 
+  it("only advertises availability on the exact configured intake origin", async () => {
+    const dependencies = setup();
+    for (const origin of ["https://helix-preview.vercel.app", "https://alias.example"]) {
+      const get = await handleSupportIntakeRequest(new Request(`${origin}/api/support/intake`), dependencies);
+      expect(await get.json()).toEqual({ available: false });
+      const post = await handleSupportIntakeRequest(new Request(`${origin}/api/support/intake`, {
+        method: "POST", headers: { origin, "content-type": "application/json" }, body: JSON.stringify(input),
+      }), dependencies);
+      expect(post.status).toBe(403);
+    }
+    expect(dependencies.available).not.toHaveBeenCalled();
+    expect(dependencies.submit).not.toHaveBeenCalled();
+    const canonical = await handleSupportIntakeRequest(new Request(`${env.HELIX_EMAIL_SITE_ORIGIN}/api/support/intake`), dependencies);
+    expect(await canonical.json()).toEqual({ available: true });
+  });
+
   it("bounds streamed request bytes even when content-length is omitted", async () => {
     const dependencies = setup();
     const response = await handleSupportIntakeRequest(request({ ...input, body: "𐀀".repeat(20_000) }), dependencies);

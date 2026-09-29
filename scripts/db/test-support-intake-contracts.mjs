@@ -81,6 +81,48 @@ COMMIT;`);
   }
 }
 
+// A held READ COMMITTED reader must not repeat or omit rows after another connection updates the Inbox.
+async function proveConcurrentInboxPaging() {
+  sql(`INSERT INTO private.support_inquiries(id,name,email,inquiry_type,subject,created_at)
+    SELECT support_contract_test.id('concurrent-inbox',n),'Synthetic concurrent customer',
+      'concurrent-page-'||n||'@example.invalid','general','Concurrent page fixture',
+      timestamptz '2100-01-01 00:00:00+00'+n*interval '1 microsecond' FROM generate_series(1,30) n;`);
+  const reader = session();
+  try {
+    reader.child.stdin.write(`BEGIN; SET LOCAL ROLE service_role;
+      SELECT public.list_support_inquiries(support_contract_test.actor('admin'),'open');
+      \\echo inbox-page-held
+    `);
+    await Promise.race([until(() => reader.output().includes("inbox-page-held"), "Inbox page reader barrier timed out"),
+      reader.done.then(() => { throw new Error("Inbox reader exited before its barrier"); })]);
+    const firstPage = JSON.parse(reader.output().split("\n").find((line) => line.startsWith("{")));
+    const cursor = firstPage.nextCursor;
+    const nextStatement = `SELECT public.list_support_inquiries(support_contract_test.actor('admin'),'open',
+      '${cursor.createdAt}'::timestamptz,'${cursor.id}'::uuid,'older');`;
+    const before = JSON.parse(sql(`SET ROLE service_role; ${nextStatement}`));
+    // These commit on a separate database connection while the first reader remains open.
+    sql(`BEGIN; SET LOCAL ROLE service_role;
+      INSERT INTO private.support_inquiries(id,name,email,inquiry_type,subject,created_at)
+      VALUES(support_contract_test.id('concurrent-inbox-new',1),'Synthetic concurrent insert',
+        'concurrent-new@example.invalid','general','Inserted during active pagination',timestamptz '2100-01-02 00:00:00+00');
+      SELECT public.mutate_support_inquiry(support_contract_test.actor('admin'),
+        support_contract_test.id('concurrent-inbox',3),1,'add_note',null,null,'Updated by another connection');
+      COMMIT;`);
+    reader.child.stdin.end(`${nextStatement} COMMIT;\n`);
+    await reader.done;
+    const pages = reader.output().split("\n").filter((line) => line.startsWith("{")).map((line) => JSON.parse(line));
+    assert.equal(pages.length, 2, "The same reader observes two bounded Inbox pages");
+    assert.deepEqual(pages[1].inquiries.map((inquiry) => inquiry.id), before.inquiries.map((inquiry) => inquiry.id),
+      "An independently committed insert/update does not shift the existing next-page cursor");
+    const updatedId = sql("SELECT support_contract_test.id('concurrent-inbox',3);").trim();
+    assert.equal(pages[1].inquiries.find((inquiry) => inquiry.id === updatedId)?.revision, 2,
+      "The reader sees current data without changing its immutable pagination position");
+  } finally {
+    if (!reader.child.stdin.destroyed) reader.child.stdin.end("ROLLBACK;\n");
+    await reader.done.catch(() => {});
+  }
+}
+
 // Hold an old-schema refund read open while the complete tracking migration and
 // first activation commit elsewhere. That pre-install Order must never gain admission.
 async function proveSchemaInstallationRace() {
@@ -385,6 +427,9 @@ try {
     AND attempt_count=0 FROM private.email_intents WHERE id='${editReply}'::uuid;`).trim(), "t",
   "Concurrent context invalidation wins before provider preparation and records no attempted send");
 
+  stage = "concurrent Inbox pagination";
+  await proveConcurrentInboxPaging();
+
   stage = "final shared tracking concurrency";
   await proveTrackingConcurrency();
 
@@ -398,6 +443,8 @@ try {
     intakeDisabledByDefault: true, atomicInquiryAcknowledgement: true, failureRollsBackAdmission: true,
     boundedDurableAbuseControls: true, privateForcedRls: true, serviceOnlyRpcs: true,
     activeAdminRequired: true, boundedConversationPages: true, stableMessageCursor: true,
+    inboxBeyond25025Rows: true, bidirectionalInboxCursors: true, inboxMicrosecondPrecision: true,
+    immutableInboxPositions: true, actualConcurrentInboxPagination: true,
     exactDraftApproval: true, staleApprovalBlocked: true, deliveryOutcomeSummaries: true,
     uncertainReplyCannotBeReplaced: true, actualConcurrentIntake: true,
     actualConcurrentApproval: true, actualConcurrentEditPreparation: true,

@@ -6,7 +6,7 @@ const id = "5728e722-cc81-43be-b446-0695c7dc3aef";
 const origin = "https://helixskin.vercel.app";
 function setup() {
   return { requireAccess: vi.fn().mockResolvedValue({ userId: "trusted-operator" }),
-    list: vi.fn().mockResolvedValue({ inquiries: [], nextPage: null }),
+    list: vi.fn().mockResolvedValue({ inquiries: [], nextCursor: null, previousCursor: null }),
     get: vi.fn().mockResolvedValue({ id, revision: 2 }),
     mutate: vi.fn().mockResolvedValue({ id, revision: 3 }),
   } satisfies SupportAdminDependencies;

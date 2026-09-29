@@ -39,9 +39,12 @@ export type SupportInquiryDetail = SupportInquirySummary & {
   order: { orderNumber: string } | null;
 };
 
+export type SupportInquiryCursor = { createdAt: string; id: string };
+
 export type SupportInquiryList = {
   inquiries: SupportInquirySummary[];
-  nextPage: number | null;
+  nextCursor: SupportInquiryCursor | null;
+  previousCursor: SupportInquiryCursor | null;
 };
 
 export type SupportMutation =

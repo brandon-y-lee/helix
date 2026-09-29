@@ -94,7 +94,7 @@ DO $$ DECLARE denied boolean:=false; BEGIN
   BEGIN PERFORM 1 FROM private.support_messages; EXCEPTION WHEN insufficient_privilege THEN denied:=true; END;
   PERFORM support_contract_test.assert(denied,'authenticated customers cannot read support messages');
   denied:=false;
-  BEGIN PERFORM public.list_support_inquiries(support_contract_test.actor('admin'),'all',0);
+  BEGIN PERFORM public.list_support_inquiries(support_contract_test.actor('admin'),'all');
   EXCEPTION WHEN insufficient_privilege THEN denied:=true; END;
   PERFORM support_contract_test.assert(denied,'a browser cannot impersonate an Admin through a service RPC');
 END $$;
@@ -281,7 +281,7 @@ DO $$ DECLARE v_id uuid; actor_kind text; denied boolean; BEGIN
   v_id:=(support_contract_test.submit(60)->>'inquiryId')::uuid;
   FOREACH actor_kind IN ARRAY ARRAY['catalog_publisher','catalog_editor','inactive','customer','unknown'] LOOP
     denied:=false;
-    BEGIN PERFORM public.list_support_inquiries(support_contract_test.actor(actor_kind),'all',0);
+    BEGIN PERFORM public.list_support_inquiries(support_contract_test.actor(actor_kind),'all');
     EXCEPTION WHEN insufficient_privilege THEN denied:=true; END;
     PERFORM support_contract_test.assert(denied,'only an active support Admin can list private Inquiries');
     denied:=false;
@@ -564,7 +564,7 @@ BEGIN
       'the admitted callback correlates to the prepared support reply');
     detail:=public.get_support_inquiry(support_contract_test.actor('admin'),v_id);
     SELECT inquiry INTO listed FROM jsonb_array_elements(
-      public.list_support_inquiries(support_contract_test.actor('admin'),'all',0)->'inquiries') inquiry
+      public.list_support_inquiries(support_contract_test.actor('admin'),'all')->'inquiries') inquiry
       WHERE inquiry->>'id'=v_id::text;
     PERFORM support_contract_test.assert(detail->>'lastDeliveryState'=outcome AND listed->>'lastDeliveryState'=outcome,
       'Inquiry detail and inbox summaries prefer the actual delivery outcome over acceptance');
@@ -574,5 +574,158 @@ BEGIN
       'conversation messages preserve both accepted send state and the distinct delivery outcome');
     n:=n+1;
   END LOOP;
+END $$;
+ROLLBACK;
+
+-- Large synthetic fixture bypasses intake throttles solely to prove that every Inbox row remains reachable.
+BEGIN;
+SET LOCAL ROLE service_role;
+INSERT INTO private.support_inquiries(id,name,email,inquiry_type,subject,created_at,updated_at)
+SELECT support_contract_test.id('inbox-page',n),'Synthetic paging customer','paging-'||n||'@example.invalid',
+  'general','Synthetic page question',timestamptz '2026-01-01 00:00:00+00'+(n/100)*interval '1 second',
+  timestamptz '2026-01-01 00:00:00+00'
+FROM generate_series(1,25031) n;
+DO $$ DECLARE page jsonb; first_page jsonb; second_page jsonb; changed_page jsonb; cursor_value jsonb;
+  before_ids uuid[]; after_ids uuid[]; all_ids uuid[]:='{}'::uuid[];
+  changed_id uuid; inserted_id uuid:=support_contract_test.id('inbox-new',25032);
+  page_count integer:=0; item_count integer; denied boolean; cursor_time timestamptz; cursor_id uuid;
+  invalid_status text; invalid_direction text;
+BEGIN
+  first_page:=public.list_support_inquiries(support_contract_test.actor('admin'));
+  PERFORM support_contract_test.assert(jsonb_array_length(first_page->'inquiries')=25
+    AND first_page->>'previousCursor' IS NULL AND first_page->>'nextCursor' IS NOT NULL,
+    'the default Inbox begins with a bounded newest page and only an older cursor');
+  PERFORM support_contract_test.assert((SELECT count(DISTINCT inquiry->>'createdAt')=1
+    FROM jsonb_array_elements(first_page->'inquiries') inquiry),
+    'the large fixture exercises equal-timestamp identity ordering across page boundaries');
+  cursor_value:=first_page->'nextCursor';
+  second_page:=public.list_support_inquiries(support_contract_test.actor('admin'),'open',
+    (cursor_value->>'createdAt')::timestamptz,(cursor_value->>'id')::uuid,'older');
+  SELECT array_agg((inquiry->>'id')::uuid ORDER BY position) INTO before_ids
+    FROM jsonb_array_elements(second_page->'inquiries') WITH ORDINALITY items(inquiry,position);
+  changed_id:=before_ids[10];
+  INSERT INTO private.support_inquiries(id,name,email,inquiry_type,subject,created_at)
+  VALUES(inserted_id,'Synthetic new customer','new-paging@example.invalid','general','Inserted after page one',
+    timestamptz '2026-01-02 00:00:00+00');
+  PERFORM public.mutate_support_inquiry(support_contract_test.actor('admin'),changed_id,1,'add_note',null,null,
+    'New internal context must not move an existing Inquiry between pages');
+  changed_page:=public.list_support_inquiries(support_contract_test.actor('admin'),'open',
+    (cursor_value->>'createdAt')::timestamptz,(cursor_value->>'id')::uuid,'older');
+  SELECT array_agg((inquiry->>'id')::uuid ORDER BY position) INTO after_ids
+    FROM jsonb_array_elements(changed_page->'inquiries') WITH ORDINALITY items(inquiry,position);
+  PERFORM support_contract_test.assert(before_ids=after_ids,
+    'new Inquiry creation and updates do not shift an existing older-page cursor');
+  cursor_value:=changed_page->'previousCursor';
+  changed_page:=public.list_support_inquiries(support_contract_test.actor('admin'),'open',
+    (cursor_value->>'createdAt')::timestamptz,(cursor_value->>'id')::uuid,'newer');
+  SELECT array_agg((inquiry->>'id')::uuid ORDER BY position) INTO before_ids
+    FROM jsonb_array_elements(first_page->'inquiries') WITH ORDINALITY items(inquiry,position);
+  SELECT array_agg((inquiry->>'id')::uuid ORDER BY position) INTO after_ids
+    FROM jsonb_array_elements(changed_page->'inquiries') WITH ORDINALITY items(inquiry,position);
+  PERFORM support_contract_test.assert(before_ids=after_ids,
+    'backward pagination returns the same immediately preceding page despite a newer insertion');
+  cursor_value:=changed_page->'previousCursor';
+  page:=public.list_support_inquiries(support_contract_test.actor('admin'),'open',
+    (cursor_value->>'createdAt')::timestamptz,(cursor_value->>'id')::uuid,'newer');
+  PERFORM support_contract_test.assert(jsonb_array_length(page->'inquiries')=1
+    AND page#>>'{inquiries,0,id}'=inserted_id::text AND page->>'previousCursor' IS NULL,
+    'newer traversal eventually reaches the newly inserted Inquiry and reports its boundary');
+
+  page:=public.list_support_inquiries(support_contract_test.actor('admin'),'all');
+  LOOP
+    page_count:=page_count+1;
+    item_count:=jsonb_array_length(page->'inquiries');
+    PERFORM support_contract_test.assert(item_count BETWEEN 1 AND 25 AND page_count<=1100,
+      'every Inbox page stays bounded and traversal terminates');
+    PERFORM support_contract_test.assert((SELECT bool_and(previous_created_at IS NULL
+        OR (previous_created_at,previous_id)>((inquiry->>'createdAt')::timestamptz,(inquiry->>'id')::uuid))
+      FROM (SELECT inquiry,lag((inquiry->>'createdAt')::timestamptz) OVER (ORDER BY position) previous_created_at,
+        lag((inquiry->>'id')::uuid) OVER (ORDER BY position) previous_id
+        FROM jsonb_array_elements(page->'inquiries') WITH ORDINALITY AS items(inquiry,position)) ordered),
+      'Inbox pages preserve descending immutable creation time and UUID ordering');
+    SELECT array_agg((inquiry->>'id')::uuid ORDER BY position) INTO after_ids
+      FROM jsonb_array_elements(page->'inquiries') WITH ORDINALITY items(inquiry,position);
+    all_ids:=all_ids||after_ids;
+    EXIT WHEN page->>'nextCursor' IS NULL;
+    cursor_value:=page->'nextCursor';
+    page:=public.list_support_inquiries(support_contract_test.actor('admin'),'all',
+      (cursor_value->>'createdAt')::timestamptz,(cursor_value->>'id')::uuid,'older');
+  END LOOP;
+  PERFORM support_contract_test.assert(page_count=1002 AND cardinality(all_ids)=25032
+    AND (SELECT count(DISTINCT id)=25032 FROM unnest(all_ids) id),
+    'all Inquiries remain reachable without overlap beyond the former 25025-row offset ceiling');
+  PERFORM support_contract_test.assert(NOT EXISTS(SELECT id FROM private.support_inquiries EXCEPT SELECT unnest(all_ids)),
+    'complete keyset traversal omits no Inquiry');
+
+  FOREACH invalid_direction IN ARRAY ARRAY['sideways','',null] LOOP
+    denied:=false;
+    BEGIN PERFORM public.list_support_inquiries(support_contract_test.actor('admin'),'open',null,null,invalid_direction);
+    EXCEPTION WHEN invalid_parameter_value THEN denied:=true; END;
+    PERFORM support_contract_test.assert(denied,'Inbox rejects unsupported directions');
+  END LOOP;
+  FOREACH invalid_status IN ARRAY ARRAY['unknown','',null] LOOP
+    denied:=false;
+    BEGIN PERFORM public.list_support_inquiries(support_contract_test.actor('admin'),invalid_status);
+    EXCEPTION WHEN invalid_parameter_value THEN denied:=true; END;
+    PERFORM support_contract_test.assert(denied,'Inbox rejects unsupported status filters');
+  END LOOP;
+  FOREACH cursor_time IN ARRAY ARRAY[timestamptz 'infinity',timestamptz '-infinity'] LOOP
+    denied:=false;
+    BEGIN PERFORM public.list_support_inquiries(support_contract_test.actor('admin'),'all',cursor_time,inserted_id);
+    EXCEPTION WHEN invalid_parameter_value THEN denied:=true; END;
+    PERFORM support_contract_test.assert(denied,'Inbox rejects nonfinite cursor timestamps');
+  END LOOP;
+  denied:=false;
+  BEGIN PERFORM public.list_support_inquiries(support_contract_test.actor('admin'),'all',clock_timestamp(),null);
+  EXCEPTION WHEN invalid_parameter_value THEN denied:=true; END;
+  PERFORM support_contract_test.assert(denied,'Inbox rejects a timestamp without its identity cursor');
+  denied:=false;
+  BEGIN PERFORM public.list_support_inquiries(support_contract_test.actor('admin'),'all',null,inserted_id);
+  EXCEPTION WHEN invalid_parameter_value THEN denied:=true; END;
+  PERFORM support_contract_test.assert(denied,'Inbox rejects an identity without its timestamp cursor');
+  page:=public.list_support_inquiries(support_contract_test.actor('admin'),'all',
+    timestamptz '2026-01-01 00:03:00+00',support_contract_test.id('nonexistent-inbox-cursor',1));
+  PERFORM support_contract_test.assert(jsonb_array_length(page->'inquiries')=25,
+    'an intrinsic tuple cursor remains valid without looking up an existing Inquiry row');
+END $$;
+ROLLBACK;
+
+BEGIN;
+SET LOCAL ROLE service_role;
+SET LOCAL TIME ZONE 'America/Los_Angeles';
+INSERT INTO private.support_inquiries(id,name,email,inquiry_type,subject,created_at)
+SELECT support_contract_test.id('inbox-microsecond',n),'Synthetic precise customer','precise-'||n||'@example.invalid',
+  'general','Synthetic precise page',timestamptz '2026-01-01 00:00:00+00'+n*interval '1 microsecond'
+FROM generate_series(1,30) n;
+DO $$ DECLARE first_page jsonb; second_page jsonb; reverse_page jsonb; cursor_value jsonb;
+  ids uuid[]; denied boolean:=false;
+BEGIN
+  first_page:=public.list_support_inquiries(support_contract_test.actor('admin'),'open');
+  cursor_value:=first_page->'nextCursor';
+  PERFORM support_contract_test.assert(cursor_value->>'createdAt'='2026-01-01T00:00:00.000006Z',
+    'cursor timestamps preserve all six microsecond digits in UTC regardless of session timezone');
+  second_page:=public.list_support_inquiries(support_contract_test.actor('admin'),'open',
+    (cursor_value->>'createdAt')::timestamptz,(cursor_value->>'id')::uuid);
+  SELECT array_agg((inquiry->>'id')::uuid ORDER BY position) INTO ids
+    FROM jsonb_array_elements(second_page->'inquiries') WITH ORDINALITY items(inquiry,position);
+  PERFORM support_contract_test.assert(ids=ARRAY[
+    support_contract_test.id('inbox-microsecond',5),support_contract_test.id('inbox-microsecond',4),
+    support_contract_test.id('inbox-microsecond',3),support_contract_test.id('inbox-microsecond',2),
+    support_contract_test.id('inbox-microsecond',1)] AND second_page->>'nextCursor' IS NULL,
+    'microsecond-only timestamp differences produce no omitted or repeated Inquiries');
+  cursor_value:=second_page->'previousCursor';
+  reverse_page:=public.list_support_inquiries(support_contract_test.actor('admin'),'open',
+    (cursor_value->>'createdAt')::timestamptz,(cursor_value->>'id')::uuid,'newer');
+  PERFORM support_contract_test.assert(reverse_page->'inquiries'=first_page->'inquiries',
+    'microsecond cursor precision also preserves reverse pagination');
+  BEGIN UPDATE private.support_inquiries SET created_at=created_at+interval '1 microsecond'
+    WHERE id=support_contract_test.id('inbox-microsecond',1);
+  EXCEPTION WHEN object_not_in_prerequisite_state THEN denied:=true; END;
+  PERFORM support_contract_test.assert(denied,'Inquiry creation timestamps cannot be rewritten to move page positions');
+  denied:=false;
+  BEGIN UPDATE private.support_inquiries SET id=support_contract_test.id('rewritten-inbox-identity',1)
+    WHERE id=support_contract_test.id('inbox-microsecond',1);
+  EXCEPTION WHEN object_not_in_prerequisite_state THEN denied:=true; END;
+  PERFORM support_contract_test.assert(denied,'Inquiry identities cannot be rewritten to move tied page positions');
 END $$;
 ROLLBACK;

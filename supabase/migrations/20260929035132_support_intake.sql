@@ -33,10 +33,23 @@ create table private.support_inquiries (
   subject text not null check (pg_catalog.length(subject) between 1 and 200),
   order_id uuid references public.orders(id),
   current_draft_version integer not null default 0 check (current_draft_version>=0),
-  created_at timestamptz not null default pg_catalog.clock_timestamp(),
+  created_at timestamptz not null default pg_catalog.clock_timestamp() check (pg_catalog.isfinite(created_at)),
   updated_at timestamptz not null default pg_catalog.clock_timestamp()
 );
-create index support_inquiries_queue_idx on private.support_inquiries(status,updated_at desc,id);
+create index support_inquiries_queue_idx on private.support_inquiries(status,created_at desc,id desc);
+create index support_inquiries_created_idx on private.support_inquiries(created_at desc,id desc);
+-- Cursor coordinates never change when an Inquiry is edited, closed, or reopened.
+create function private.preserve_support_inquiry_identity() returns trigger
+language plpgsql security invoker set search_path='' as $$
+begin
+  if (new.id,new.created_at) is distinct from (old.id,old.created_at) then
+    raise exception using errcode='55000',message='support_inquiry_identity_immutable';
+  end if;
+  return new;
+end $$;
+create trigger preserve_support_inquiry_identity before update on private.support_inquiries
+  for each row execute function private.preserve_support_inquiry_identity();
+revoke all on function private.preserve_support_inquiry_identity() from public,anon,authenticated,service_role;
 create table private.support_messages (
   id uuid primary key default extensions.gen_random_uuid(),
   inquiry_id uuid not null references private.support_inquiries(id),
@@ -246,20 +259,55 @@ language sql stable security invoker set search_path='' as $$
       where e.receipt->>'inquiryId'=p_inquiry.id::text and e.purpose in ('support_acknowledgement','support_reply')
       order by e.created_at desc,e.id desc limit 1));
 $$;
-create function public.list_support_inquiries(p_actor_id uuid,p_status text,p_page integer) returns jsonb
-language plpgsql stable security invoker set search_path='' as $$
-declare v_rows jsonb; v_more boolean;
+create function public.list_support_inquiries(
+  p_actor_id uuid,p_status text default 'open',p_cursor_created_at timestamptz default null,
+  p_cursor_id uuid default null,p_direction text default 'older'
+) returns jsonb language plpgsql stable security invoker set search_path='' as $$
+declare
+  v_rows jsonb;
+  v_first_created_at timestamptz;
+  v_first_id uuid;
+  v_last_created_at timestamptz;
+  v_last_id uuid;
+  v_next jsonb;
+  v_previous jsonb;
 begin
   perform private.require_support_admin(p_actor_id);
-  if p_status is null or p_status not in ('open','closed','all') or p_page is null or p_page not between 0 and 1000 then
+  if p_status is null or p_status not in ('open','closed','all')
+    or p_direction is null or p_direction not in ('older','newer')
+    or (p_cursor_created_at is null)<>(p_cursor_id is null)
+    or (p_cursor_created_at is not null and not pg_catalog.isfinite(p_cursor_created_at)) then
     raise exception using errcode='22023',message='invalid_support_input';
   end if;
-  select coalesce(pg_catalog.jsonb_agg(private.support_inquiry_summary(q) order by q.updated_at desc,q.id),'[]'::jsonb)
-    into v_rows from (select * from private.support_inquiries where p_status='all' or status=p_status
-      order by updated_at desc,id limit 25 offset p_page*25) q;
-  select exists(select 1 from private.support_inquiries where p_status='all' or status=p_status
-    order by updated_at desc,id limit 1 offset (p_page+1)*25) into v_more;
-  return pg_catalog.jsonb_build_object('inquiries',v_rows,'nextPage',case when v_more then p_page+1 else null end);
+  -- A cursor is a position, not a row capability; lifecycle cleanup cannot invalidate it.
+  if p_cursor_created_at is not null and p_direction='newer' then
+    select coalesce(pg_catalog.jsonb_agg(private.support_inquiry_summary(q)
+      order by q.created_at desc,q.id desc),'[]'::jsonb) into v_rows
+      from (select * from private.support_inquiries where (p_status='all' or status=p_status)
+        and (created_at,id)>(p_cursor_created_at,p_cursor_id)
+        order by created_at,id limit 25) q;
+  else
+    select coalesce(pg_catalog.jsonb_agg(private.support_inquiry_summary(q)
+      order by q.created_at desc,q.id desc),'[]'::jsonb) into v_rows
+      from (select * from private.support_inquiries where (p_status='all' or status=p_status)
+        and (p_cursor_created_at is null or (created_at,id)<(p_cursor_created_at,p_cursor_id))
+        order by created_at desc,id desc limit 25) q;
+  end if;
+  v_first_created_at:=coalesce((v_rows->0->>'createdAt')::timestamptz,p_cursor_created_at);
+  v_first_id:=coalesce((v_rows->0->>'id')::uuid,p_cursor_id);
+  v_last_created_at:=coalesce((v_rows->(pg_catalog.jsonb_array_length(v_rows)-1)->>'createdAt')::timestamptz,p_cursor_created_at);
+  v_last_id:=coalesce((v_rows->(pg_catalog.jsonb_array_length(v_rows)-1)->>'id')::uuid,p_cursor_id);
+  if exists(select 1 from private.support_inquiries where (p_status='all' or status=p_status)
+    and (created_at,id)<(v_last_created_at,v_last_id)) then
+    v_next:=pg_catalog.jsonb_build_object('createdAt',pg_catalog.to_char(v_last_created_at at time zone 'UTC',
+      'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),'id',v_last_id);
+  end if;
+  if exists(select 1 from private.support_inquiries where (p_status='all' or status=p_status)
+    and (created_at,id)>(v_first_created_at,v_first_id)) then
+    v_previous:=pg_catalog.jsonb_build_object('createdAt',pg_catalog.to_char(v_first_created_at at time zone 'UTC',
+      'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),'id',v_first_id);
+  end if;
+  return pg_catalog.jsonb_build_object('inquiries',v_rows,'nextCursor',v_next,'previousCursor',v_previous);
 end $$;
 create function public.get_support_inquiry(p_actor_id uuid,p_inquiry_id uuid,p_before_message_id uuid default null) returns jsonb
 language plpgsql stable security invoker set search_path='' as $$
@@ -397,13 +445,13 @@ end $$;
 revoke all on function private.support_plain_html(text),private.require_support_admin(uuid),
   private.support_inquiry_summary(private.support_inquiries),private.invalidate_support_approval(uuid),
   public.support_intake_available(),public.read_support_intake_control(),public.configure_support_intake(boolean,timestamptz),
-  public.submit_support_inquiry(uuid,text,text,text,text,text,text,text,uuid),public.list_support_inquiries(uuid,text,integer),
+  public.submit_support_inquiry(uuid,text,text,text,text,text,text,text,uuid),public.list_support_inquiries(uuid,text,timestamptz,uuid,text),
   public.get_support_inquiry(uuid,uuid,uuid),public.mutate_support_inquiry(uuid,uuid,integer,text,integer,text,text,text)
   from public,anon,authenticated,service_role;
 grant execute on function private.support_plain_html(text),private.require_support_admin(uuid),
   private.support_inquiry_summary(private.support_inquiries),private.invalidate_support_approval(uuid),
   public.support_intake_available(),public.read_support_intake_control(),public.configure_support_intake(boolean,timestamptz),
-  public.submit_support_inquiry(uuid,text,text,text,text,text,text,text,uuid),public.list_support_inquiries(uuid,text,integer),
+  public.submit_support_inquiry(uuid,text,text,text,text,text,text,text,uuid),public.list_support_inquiries(uuid,text,timestamptz,uuid,text),
   public.get_support_inquiry(uuid,uuid,uuid),public.mutate_support_inquiry(uuid,uuid,integer,text,integer,text,text,text) to service_role;
 -- Support send guard extension.
 create or replace function public.prepare_email_attempt(p_id uuid,p_lease_token uuid,p_request_payload jsonb)

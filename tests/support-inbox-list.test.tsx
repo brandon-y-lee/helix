@@ -17,16 +17,17 @@ vi.mock("@/lib/support/service", () => ({
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.authorize.mockResolvedValue({ userId: "trusted-operator", capabilities: ["support.read"] });
-  mocks.inquiries.mockResolvedValue({ inquiries: [], nextPage: null });
+  mocks.inquiries.mockResolvedValue({ inquiries: [], nextCursor: null, previousCursor: null });
 });
 
 describe("Support Inbox list", () => {
-  it("shows escaped inquiry details, delivery state, filters, and bounded page links", () => {
+  it("shows escaped inquiry details, delivery state, and stable older/newer navigation", () => {
     const { container } = render(
       <SupportInbox
         status="open"
-        page={1}
-        nextPage={2}
+        hasCursor
+        nextCursor={{ createdAt: "2026-09-28T12:00:00.123456+00:00", id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" }}
+        previousCursor={{ createdAt: "2026-09-28T14:00:00.654321+00:00", id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb" }}
         inquiries={[
           {
             id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
@@ -61,9 +62,10 @@ describe("Support Inbox list", () => {
     expect(within(filters).getByRole("link", { name: "Open" })).toHaveAttribute("aria-current", "page");
     expect(within(filters).getByRole("link", { name: "Closed" })).toHaveAttribute("href", "/admin/support?status=closed");
     expect(within(filters).getByRole("link", { name: "All" })).toHaveAttribute("href", "/admin/support?status=all");
-    expect(screen.getByRole("link", { name: "Previous page" })).toHaveAttribute("href", "/admin/support?status=open&page=0");
-    expect(screen.getByRole("link", { name: "Next page" })).toHaveAttribute("href", "/admin/support?status=open&page=2");
-    expect(screen.getByText("Page 2")).toBeVisible();
+    expect(screen.getByRole("link", { name: "Newer inquiries" })).toHaveAttribute("href", "/admin/support?status=open&after=2026-09-28T14%3A00%3A00.654321%2B00%3A00%2Cbbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb");
+    expect(screen.getByRole("link", { name: "Older inquiries" })).toHaveAttribute("href", "/admin/support?status=open&before=2026-09-28T12%3A00%3A00.123456%2B00%3A00%2Caaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
+    expect(screen.getByRole("link", { name: "Newest inquiries" })).toHaveAttribute("href", "/admin/support?status=open");
+    expect(screen.queryByText(/^Page \d/)).not.toBeInTheDocument();
   });
 
   it("keeps inquiries private when support permission cannot be verified", async () => {
@@ -82,8 +84,9 @@ describe("Support Inbox list", () => {
     render(
       <SupportInbox
         status="closed"
-        page={0}
-        nextPage={null}
+        hasCursor={false}
+        nextCursor={null}
+        previousCursor={null}
         inquiries={[{
           id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
           revision: 1,
@@ -99,25 +102,41 @@ describe("Support Inbox list", () => {
       />,
     );
     expect(screen.getByText("Email delivery status unavailable")).toBeVisible();
-    expect(screen.queryByRole("link", { name: "Previous page" })).toBeNull();
-    expect(screen.queryByRole("link", { name: "Next page" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Newer inquiries" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Older inquiries" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Newest inquiries" })).toBeNull();
   });
 
   it.each([
-    [{ status: "closed", page: "2" }, "closed", 2],
-    [{ status: "all", page: "1000" }, "all", 1000],
-    [{ status: "open", page: "0" }, "open", 0],
-    [{ status: "unknown", page: "1001" }, "open", 0],
-    [{ status: ["closed", "all"], page: ["1", "2"] }, "open", 0],
-    [{ status: "all", page: "1e2" }, "all", 0],
-    [{ status: "all", page: "-1" }, "all", 0],
-    [{}, "open", 0],
-  ] satisfies [Record<string, string | string[]>, "open" | "closed" | "all", number][])("loads only the bounded filter and page for %j", async (query, status, page) => {
+    [{ status: "closed" }, "closed", "older", undefined],
+    [{}, "open", "older", undefined],
+    [{ status: "all", before: "2026-09-28T12:00:00.123456+00:00,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" }, "all", "older", { createdAt: "2026-09-28T12:00:00.123456+00:00", id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" }],
+    [{ status: "closed", after: "2026-09-28T14:00:00.654321+00:00,bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb" }, "closed", "newer", { createdAt: "2026-09-28T14:00:00.654321+00:00", id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb" }],
+  ] as const)("loads the selected filter and exact cursor for %j", async (query, status, direction, cursor) => {
     const { default: SupportInboxPage } = await import("@/app/admin/support/page");
     render(await SupportInboxPage({ searchParams: Promise.resolve({ ...query }) }));
 
-    expect(mocks.inquiries).toHaveBeenCalledWith("trusted-operator", { status, page });
-    expect(screen.getByText(`Page ${page + 1}`)).toBeVisible();
-    expect(screen.getByText(`No ${status === "all" ? "" : `${status} `}inquiries on this page.`)).toBeVisible();
+    expect(mocks.inquiries).toHaveBeenCalledWith("trusted-operator", { status, direction, cursor });
+    expect(screen.queryByText(/^Page \d/)).not.toBeInTheDocument();
+    expect(screen.getByText(`No ${status === "all" ? "" : `${status} `}inquiries in this view.`)).toBeVisible();
+    if (cursor) expect(screen.getByRole("link", { name: "Newest inquiries" })).toHaveAttribute("href", `/admin/support?status=${status}`);
+    else expect(screen.queryByRole("link", { name: "Newest inquiries" })).not.toBeInTheDocument();
+  });
+
+  it.each([
+    { before: "not-a-cursor" },
+    { after: "" },
+    { before: ["one", "two"] },
+    { before: "2026-09-28T12:00:00Z,aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", after: "2026-09-28T14:00:00Z,bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb" },
+    { page: "0" },
+    { page: "1001" },
+    { page: ["1", "2"] },
+  ])("rejects ambiguous, invalid, or legacy navigation %j instead of silently loading newest", async (query) => {
+    const { default: SupportInboxPage } = await import("@/app/admin/support/page");
+    render(await SupportInboxPage({ searchParams: Promise.resolve({ status: "closed", ...query }) }));
+
+    expect(mocks.inquiries).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert")).toHaveTextContent("Support Inbox unavailable");
+    expect(screen.getByRole("link", { name: "Newest inquiries" })).toHaveAttribute("href", "/admin/support?status=closed");
   });
 });
