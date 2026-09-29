@@ -1,10 +1,11 @@
 export const CHECKOUT_ENVIRONMENT = "sandbox";
+export const STRIPE_SANDBOX_ACCOUNT_ID = "acct_1Tm9WRFEzyaKzdmq";
 export const STRIPE_API_VERSION = "2026-06-24.dahlia";
 export const SANDBOX_CHECKOUT_NOTICE = "SANDBOX CHECKOUT - NO REAL CHARGE OR FULFILLMENT";
 
-export type CheckoutConfig = {
+export type PaymentProviderConfig = {
   environment: typeof CHECKOUT_ENVIRONMENT;
-  enabled: true;
+  accountId: typeof STRIPE_SANDBOX_ACCOUNT_ID;
   secretKey: string;
   webhookSecret: string;
   standardShippingRateId: string | null;
@@ -16,6 +17,8 @@ export type CheckoutConfig = {
     referral15: string | null;
   };
 };
+
+export type CheckoutConfig = PaymentProviderConfig & { enabled: true };
 
 export class CheckoutConfigError extends Error {
   code: "checkout_disabled" | "checkout_misconfigured" | "live_mode_blocked";
@@ -48,11 +51,11 @@ function isLiveStripePublishableKey(value: unknown): boolean {
 }
 
 export function isTestStripeSecretKey(value: unknown): boolean {
-  return typeof value === "string" && /^sk_test_/i.test(value);
+  return typeof value === "string" && /^sk_test_\S+$/i.test(value);
 }
 
 function isTestStripePublishableKey(value: unknown): boolean {
-  return typeof value === "string" && /^pk_test_/i.test(value);
+  return typeof value === "string" && /^pk_test_\S+$/i.test(value);
 }
 
 function assertNoLiveStripeConfig(env: NodeJS.ProcessEnv): void {
@@ -75,14 +78,18 @@ function assertNoLiveStripeConfig(env: NodeJS.ProcessEnv): void {
   }
 }
 
-export function readCheckoutConfig(env: NodeJS.ProcessEnv = process.env): CheckoutConfig {
+export function readPaymentProviderConfig(
+  env: NodeJS.ProcessEnv = process.env,
+): PaymentProviderConfig {
   assertNoLiveStripeConfig(env);
 
-  const enabled = isTruthy(readEnv(env, "CHECKOUT_ENABLED"));
-  if (!enabled) {
+  // S1 is bound to this one operationally verified sandbox account. The optional
+  // assertion preserves pre-cutover settlement configuration without broadening it.
+  const accountId = readEnv(env, "STRIPE_ACCOUNT_ID") ?? STRIPE_SANDBOX_ACCOUNT_ID;
+  if (accountId !== STRIPE_SANDBOX_ACCOUNT_ID) {
     throw new CheckoutConfigError(
-      "checkout_disabled",
-      "Sandbox checkout is not enabled for this environment.",
+      "checkout_misconfigured",
+      "Stripe sandbox account is unapproved.",
     );
   }
 
@@ -103,7 +110,7 @@ export function readCheckoutConfig(env: NodeJS.ProcessEnv = process.env): Checko
   }
 
   const webhookSecret = readEnv(env, "STRIPE_WEBHOOK_SECRET");
-  if (!webhookSecret || !webhookSecret.startsWith("whsec_")) {
+  if (!webhookSecret || !/^whsec_\S+$/.test(webhookSecret)) {
     throw new CheckoutConfigError(
       "checkout_misconfigured",
       "Stripe webhook signing secret is missing or invalid.",
@@ -112,7 +119,7 @@ export function readCheckoutConfig(env: NodeJS.ProcessEnv = process.env): Checko
 
   return {
     environment: CHECKOUT_ENVIRONMENT,
-    enabled: true,
+    accountId,
     secretKey,
     webhookSecret,
     standardShippingRateId: readEnv(env, "STRIPE_STANDARD_SHIPPING_RATE_ID") ?? null,
@@ -124,6 +131,18 @@ export function readCheckoutConfig(env: NodeJS.ProcessEnv = process.env): Checko
       referral15: readEnv(env, "STRIPE_REFERRAL_15_COUPON_ID") ?? null,
     },
   };
+}
+
+export function readCheckoutConfig(env: NodeJS.ProcessEnv = process.env): CheckoutConfig {
+  const provider = readPaymentProviderConfig(env);
+  if (!isTruthy(readEnv(env, "CHECKOUT_ENABLED"))) {
+    throw new CheckoutConfigError(
+      "checkout_disabled",
+      "Sandbox checkout is not enabled for this environment.",
+    );
+  }
+
+  return { ...provider, enabled: true };
 }
 
 export function stripeMessagingPublishableKey(

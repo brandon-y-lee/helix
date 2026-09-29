@@ -17,15 +17,33 @@ const HOME_VIDEO_PATHS = [
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   async headers() {
-    return HOME_VIDEO_PATHS.map((source) => ({
-      source,
-      headers: [
-        {
-          key: "Cache-Control",
-          value: IMMUTABLE_MEDIA_CACHE_CONTROL,
-        },
-      ],
-    }));
+    return [
+      ...HOME_VIDEO_PATHS.map((source) => ({
+        source,
+        headers: [
+          {
+            key: "Cache-Control",
+            value: IMMUTABLE_MEDIA_CACHE_CONTROL,
+          },
+        ],
+      })),
+      {
+        source: "/cart/:path*",
+        headers: [
+          { key: "Content-Security-Policy", value: "frame-ancestors 'self'" },
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+        ],
+      },
+      ...["/checkout/success", "/api/checkout/status"].map((source) => ({
+        source,
+        headers: [
+          { key: "Cache-Control", value: "private, no-store" },
+          { key: "Referrer-Policy", value: "no-referrer" },
+          { key: "Content-Security-Policy", value: "frame-ancestors 'self'" },
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+        ],
+      })),
+    ];
   },
   async redirects() {
     return [

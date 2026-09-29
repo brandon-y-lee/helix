@@ -131,6 +131,7 @@ export function useCart() {
 
   return {
     ...cart,
+    dataUpdatedAt: query.dataUpdatedAt,
     loading: query.isFetching,
     hasLoadedCart: !commerceEnabled || query.data !== undefined,
     error,

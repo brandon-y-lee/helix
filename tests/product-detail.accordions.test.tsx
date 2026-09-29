@@ -819,7 +819,7 @@ describe("ProductDetail purchase accordions", () => {
     expect(cartMock.openCartDrawer).not.toHaveBeenCalled();
   });
 
-  it("keeps selected server product pricing in sync with main messaging and the sticky CTA", async () => {
+  it("keeps selected pricing and purchase controls in sync without advertising unsupported financing", async () => {
     const user = userEvent.setup();
     const base = makeProduct();
     const secondVariant: OfferAvailability = {
@@ -849,25 +849,15 @@ describe("ProductDetail purchase accordions", () => {
       />,
     );
 
-    const initialMessage = screen.getByTestId("afterpay-messaging-boundary");
     const initialAdd = screen.getByRole("button", {
       name: "BUY Super Serum - $25.00",
     });
     expect(initialAdd).not.toHaveTextContent(/[–—]/);
-    expect(initialMessage).toHaveAttribute("data-amount", "2500");
-    expect(initialMessage).toHaveAttribute("data-currency", "USD");
-    expect(before(initialAdd, initialMessage)).toBe(true);
-    expect(document.querySelector(".pdp-sticky-purchase")).not.toContainElement(
-      initialMessage,
-    );
-    expect(screen.getAllByTestId("afterpay-messaging-boundary")).toHaveLength(1);
+    expect(screen.queryByTestId("afterpay-messaging-boundary")).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "30 mL" }));
 
-    expect(screen.getByTestId("afterpay-messaging-boundary")).toHaveAttribute(
-      "data-amount",
-      "4200",
-    );
+    expect(screen.queryByTestId("afterpay-messaging-boundary")).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "BUY Super Serum - $42.00" }),
     ).toBeInTheDocument();

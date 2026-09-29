@@ -89,7 +89,7 @@ describe("public route states", () => {
     expect(await screen.findByText(/your cart is empty/i)).toBeVisible();
   });
 
-  it("renders a generic checkout cancellation notice without order details", async () => {
+  it("renders an informational checkout return and an explicit cancellation action", async () => {
     render(
       <CartProvider>
         {await CartPage({
@@ -98,11 +98,11 @@ describe("public route states", () => {
       </CartProvider>,
     );
 
-    const notice = screen.getByRole("status");
-    expect(notice).toHaveTextContent(
-      "Sandbox checkout was cancelled. Your cart is still here.",
-    );
+    const notice = screen.getByText("You returned from checkout. Your cart is still here.");
+    expect(notice).toBeVisible();
     expect(notice).not.toHaveTextContent(/order|session|payment intent/i);
+    expect(screen.getByRole("button", { name: "Cancel pending checkout" })).toBeEnabled();
+    expect(screen.queryByText(/checkout was cancelled/i)).not.toBeInTheDocument();
   });
 
   it("renders the sign-in access experience without changing its auth contract", async () => {

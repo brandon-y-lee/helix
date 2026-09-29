@@ -44,7 +44,17 @@ export function customerOrderConfirmationFixture(state: CustomerFixtureState): O
   if (state === "unverified") return null;
   return {
     notice: SANDBOX_CHECKOUT_NOTICE,
-    webhookPending: state === "pending",
+    state: state === "pending" ? "pending" : "paid",
+    retryAfterSeconds: 5,
+    shipping: state === "pending" ? null : {
+      name: "Sample Recipient",
+      line1: "123 Example Street",
+      line2: null,
+      city: "San Francisco",
+      state: "CA",
+      postal_code: "94110",
+      country: "US",
+    },
     order: {
       order_number: "SAMPLE-001",
       status: state === "pending" ? "pending_payment" : "paid",
@@ -56,6 +66,6 @@ export function customerOrderConfirmationFixture(state: CustomerFixtureState): O
       tax_cents: 100,
       total_cents: 5600,
     },
-    items: [{ id: "sample-line", product_name: "Sample skincare product", variant_label: "50 ml", quantity: 2, line_subtotal_cents: 6000 }],
+    items: [{ product_name: "Sample skincare product", variant_label: "50 ml", quantity: 2, line_subtotal_cents: 6000 }],
   };
 }

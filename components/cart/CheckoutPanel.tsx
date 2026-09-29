@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useCartMutations } from "@/components/cart/useCart";
 import { cartErrorMessage } from "@/lib/cart/client";
+import { SANDBOX_CHECKOUT_NOTICE } from "@/lib/checkout/config";
 import { formatPrice } from "@/lib/products";
 
 type RewardTierSummary = {
@@ -35,9 +36,11 @@ function isRewardTier(value: unknown): value is RewardTierSummary {
 export function CheckoutPanel({
   disabled,
   subtotal,
+  cartUpdatedAt,
 }: {
   disabled: boolean;
   subtotal: number;
+  cartUpdatedAt: number;
 }) {
   const [rewardSummary, setRewardSummary] = useState<RewardsSummaryResponse | null>(null);
   const [rewardsStatus, setRewardsStatus] = useState<
@@ -79,7 +82,7 @@ export function CheckoutPanel({
     return () => {
       active = false;
     };
-  }, [subtotal]);
+  }, [subtotal, cartUpdatedAt]);
 
   async function startCheckout() {
     if (pending || disabled) return;
@@ -158,6 +161,7 @@ export function CheckoutPanel({
         </p>
       )}
 
+      <p className="checkout-panel__notice">{SANDBOX_CHECKOUT_NOTICE}</p>
       <button
         type="button"
         className="btn btn--editorial-rounded"

@@ -32,6 +32,7 @@ import { metadata as privacyChoicesMetadata } from "@/app/privacy-choices/page";
 import { metadata as privacyMetadata } from "@/app/privacy/page";
 import { metadata as termsMetadata } from "@/app/terms/page";
 import {
+  CHECKOUT_RECEIPT_COOKIE,
   COOKIE_ACKNOWLEDGEMENT_COOKIE,
   GUEST_CART_COOKIE,
   PENDING_CHECKOUT_COOKIE,
@@ -170,7 +171,7 @@ describe("global footer", () => {
     const dialog = screen.getByRole("dialog", { name: "Cookie notice" });
     expect(dialog).toHaveTextContent("Essential cookies");
     expect(dialog).toHaveTextContent("Payment messaging");
-    expect(dialog).toHaveTextContent("Active when eligible");
+    expect(dialog).toHaveTextContent("Not active while checkout supports cards only");
     await user.click(within(dialog).getByRole("button", { name: /acknowledge notice/i }));
     expect(within(dialog).getByRole("status")).toHaveTextContent(
       "Cookie notice acknowledged.",
@@ -262,7 +263,7 @@ describe("legal and support content", () => {
     expect(cookieCategories).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ category: "Essential", active: true, optional: false }),
-        expect.objectContaining({ category: "Functional", active: true, optional: false }),
+        expect.objectContaining({ category: "Functional", active: false, optional: false }),
         expect.objectContaining({ category: "Analytics", active: false }),
         expect.objectContaining({ category: "Advertising", active: false }),
       ]),
@@ -275,6 +276,7 @@ describe("legal and support content", () => {
       expect.arrayContaining([
         GUEST_CART_COOKIE,
         PENDING_CHECKOUT_COOKIE,
+        CHECKOUT_RECEIPT_COOKIE,
         REFERRAL_COOKIE,
         COOKIE_ACKNOWLEDGEMENT_COOKIE,
       ]),

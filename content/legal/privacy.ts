@@ -7,7 +7,7 @@ export const privacyPolicy: LegalDocument = {
   description:
     "Current account, Cart, search, sandbox Checkout, rewards, referral, private-feedback, browser-storage, and provider data practices on the helix Platform.",
   canonical: "/privacy",
-  status: "Updated August 19, 2026",
+  status: "Updated September 18, 2026",
   intro:
     "This page is a factual prelaunch summary of information processing currently implemented on the helix Platform. It is not an operative Privacy Policy until a Legal Operator and verified legal contact details exist.",
   sections: [
@@ -37,8 +37,9 @@ export const privacyPolicy: LegalDocument = {
       body: [
         "Supabase authentication uses cookies to maintain sessions.",
         "Guest Carts use a high-entropy HttpOnly cookie named helix_guest_cart. The server stores only a hashed version of the guest token with Cart records.",
+        "Guest receipt access uses a separate HttpOnly cookie named helix_checkout_receipt containing a random 32-byte token. The server stores only the token hash and access grants for specific guest Orders. Clearing or merging a Cart does not immediately remove those receipt grants.",
         "Product search sends the search term to the configured Algolia index from the browser and receives storefront product records in response.",
-        "Eligible product pages load Stripe's Payment Method Messaging Element. Stripe may receive technical data such as an IP address, browser details, cookies, and interactions needed to determine eligibility and render current payment-method information.",
+        "Product-page payment-method messaging is currently disabled while sandbox Checkout supports cards only.",
         "Vercel, Next.js, Supabase, Algolia, and Google Fonts may process technical request data needed to host, secure, operate, and display the site.",
       ],
     },
@@ -54,7 +55,7 @@ export const privacyPolicy: LegalDocument = {
       id: "providers",
       title: "Service Providers",
       body: [
-        "Current providers reflected in the codebase include Supabase for authentication, profile, catalog, cart, order, reward, referral, and private-feedback data; Stripe for sandbox Checkout, payment status, and eligible product-page payment-method messaging; Algolia for product search; Vercel and Next.js for hosting and application delivery; and Google Fonts for web font delivery.",
+        "Current providers reflected in the codebase include Supabase for authentication, profile, catalog, cart, order, reward, referral, and private-feedback data; Stripe for sandbox Checkout and payment status; Algolia for product search; Vercel and Next.js for hosting and application delivery; and Google Fonts for web font delivery.",
         "Trustpilot invitations are not implemented in the current codebase. Sandbox orders do not send real Trustpilot invitations, and reward points are never conditioned on Trustpilot activity.",
         "Providers process information needed to deliver their configured site functions, subject to their own terms and privacy practices.",
       ],
@@ -63,7 +64,7 @@ export const privacyPolicy: LegalDocument = {
       id: "cookies",
       title: "Cookies and Browser Storage",
       body: [
-        "Required storage supports authentication, Guest Cart continuity, pending sandbox Checkout, Referral Codes, Cookie Acknowledgement, and security. Stripe may use functional storage when its payment-method messaging loads on eligible Product pages. Optional analytics and advertising categories are not active.",
+        "Required storage supports authentication, Guest Cart continuity, pending sandbox Checkout, private guest receipts, Referral Codes, Cookie Acknowledgement, and security. Product-page payment-method messaging is currently disabled. Optional analytics and advertising categories are not active.",
         "The footer links to the Cookie Policy status page and opens the Cookie notice. Acknowledging that notice does not create a Cookie Preference or enable optional storage.",
       ],
     },
@@ -73,6 +74,7 @@ export const privacyPolicy: LegalDocument = {
       body: [
         "Supabase account and profile data remain until the account or profile is changed or removed through application or administrative processes.",
         "Guest cart tokens are configured for a 60-day cookie lifetime, and guest cart rows include an expiration timestamp.",
+        "Guest receipt capabilities last no more than 24 hours from issuance, and each Order's receipt access has a fixed maximum window. Later checkouts can reuse an unexpired capability; viewing a receipt never extends its deadline. Expiry removes browser receipt access without deleting the underlying Order history.",
         "Order, payment-attempt, rewards-ledger, referral, and private-feedback records are retained as auditable sandbox transaction history unless removed through an administrative process.",
         "Provider log retention follows each provider's configured service. No customer-facing provider-log retention schedule has been published.",
       ],

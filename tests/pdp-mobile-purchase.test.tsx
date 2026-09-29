@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PdpPurchaseIsland, type PdpPurchaseIslandProps } from "@/components/product-detail/PdpPurchaseIsland";
 import { registerHeaderCartFocus } from "@/components/overlays/modal-state";
+import { SANDBOX_CHECKOUT_NOTICE } from "@/lib/checkout/config";
 
 const purchaseMock = vi.hoisted(() => vi.fn());
 vi.mock("@/components/cart/useProductPurchase", async () => {
@@ -88,6 +89,30 @@ beforeEach(() => {
 afterEach(() => { unregisterFocus(); headerCartButton.remove(); vi.restoreAllMocks(); vi.unstubAllGlobals(); mediaListeners.clear(); });
 
 describe("Super Serum mobile purchase", () => {
+  it.each([
+    { width: 390, presentation: "mobile-pilot" as const },
+    { width: 1024, presentation: "default" as const },
+  ])("shows the full sandbox warning at both $presentation purchase actions", async (viewport) => {
+    width = viewport.width;
+    const { container } = mount({
+      presentation: viewport.presentation,
+      status: "available",
+      variants: [{ id: "single", label: "15 mL", price: 2500, available: true, purchaseLabel: "BUY", purchasable: true }],
+    });
+    const main = container.querySelector(".pdp__purchase") as HTMLElement;
+    expect(within(main).getByText(SANDBOX_CHECKOUT_NOTICE)).toBeVisible();
+    expect(within(main).getByRole("button", { name: "BUY" })).toBeEnabled();
+
+    mainBottom = -1;
+    videoTop = -1;
+    await changeViewport();
+    const sticky = container.querySelector(".pdp-sticky-purchase") as HTMLElement;
+    expect(sticky).toHaveAttribute("data-visible", "true");
+    expect(sticky).not.toHaveAttribute("aria-hidden", "true");
+    expect(within(sticky).getByText(SANDBOX_CHECKOUT_NOTICE)).toBeVisible();
+    expect(within(sticky).getByRole("button")).toBeEnabled();
+  });
+
   it("uses the passed main action boundary even while the video remains below the viewport", async () => {
     const { container } = mount();
     const sticky = container.querySelector(".pdp-sticky-purchase")!;

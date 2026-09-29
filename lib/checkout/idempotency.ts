@@ -36,7 +36,6 @@ type CheckoutSessionState = {
 
 export type CheckoutSessionDisposition =
   | "reuse"
-  | "replace"
   | "paid"
   | "processing";
 
@@ -110,9 +109,6 @@ export function checkoutSessionDisposition(
   nowSeconds = Math.floor(Date.now() / 1000),
 ): CheckoutSessionDisposition {
   if (session.paymentStatus === "paid") return "paid";
-  if (session.orderStatus === "payment_failed" && session.status === "complete") {
-    return "replace";
-  }
   if (session.status === "complete") return "processing";
   if (
     session.status === "open" &&
@@ -121,5 +117,5 @@ export function checkoutSessionDisposition(
   ) {
     return "reuse";
   }
-  return "replace";
+  return "processing";
 }

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   CheckoutConfigError,
   readCheckoutConfig,
+  readPaymentProviderConfig,
   assertSandboxStripeObject,
   stripeMessagingPublishableKey,
 } from "@/lib/checkout/config";
@@ -10,6 +11,7 @@ describe("sandbox checkout config", () => {
   const baseEnv = {
     CHECKOUT_MODE: "sandbox",
     CHECKOUT_ENABLED: "true",
+    STRIPE_ACCOUNT_ID: "acct_1Tm9WRFEzyaKzdmq",
     STRIPE_SECRET_KEY: "sk_test_123",
     NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: "pk_test_123",
     STRIPE_WEBHOOK_SECRET: "whsec_123",
@@ -25,6 +27,52 @@ describe("sandbox checkout config", () => {
     expect(() =>
       readCheckoutConfig({ ...baseEnv, CHECKOUT_ENABLED: "false" }),
     ).toThrow(CheckoutConfigError);
+  });
+
+  it("keeps validated payment settlement available when new checkout is disabled", () => {
+    expect(
+      readPaymentProviderConfig({ ...baseEnv, CHECKOUT_ENABLED: "false" }),
+    ).toMatchObject({
+      environment: "sandbox",
+      accountId: "acct_1Tm9WRFEzyaKzdmq",
+      secretKey: "sk_test_123",
+      webhookSecret: "whsec_123",
+    });
+  });
+
+  it("preserves existing settlement configuration for the fixed approved account", () => {
+    expect(readPaymentProviderConfig({
+      ...baseEnv,
+      CHECKOUT_ENABLED: "false",
+      STRIPE_ACCOUNT_ID: undefined,
+    }).accountId).toBe("acct_1Tm9WRFEzyaKzdmq");
+  });
+
+  it("rejects an unapproved account even when checkout is disabled", () => {
+    expect(() => readPaymentProviderConfig({
+      ...baseEnv,
+      CHECKOUT_ENABLED: "false",
+      STRIPE_ACCOUNT_ID: "acct_unapproved",
+    })).toThrow(CheckoutConfigError);
+  });
+
+  it.each([
+    ["STRIPE_SECRET_KEY", undefined],
+    ["STRIPE_SECRET_KEY", "sk_test_"],
+    ["STRIPE_SECRET_KEY", "sk_test_contains whitespace"],
+    ["STRIPE_SECRET_KEY", "sk_live_blocked"],
+    ["NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY", "pk_test_"],
+    ["NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY", "pk_live_blocked"],
+    ["STRIPE_WEBHOOK_SECRET", undefined],
+    ["STRIPE_WEBHOOK_SECRET", "whsec_"],
+    ["STRIPE_WEBHOOK_SECRET", "not-a-signing-secret"],
+    ["CHECKOUT_MODE", "live"],
+  ])("fails closed for invalid %s provider configuration (%s)", (key, value) => {
+    expect(() => readPaymentProviderConfig({
+      ...baseEnv,
+      CHECKOUT_ENABLED: "false",
+      [key]: value,
+    })).toThrow(CheckoutConfigError);
   });
 
   it("rejects live keys and live objects", () => {
