@@ -74,6 +74,9 @@ does not authorize changed revisions or admission cutoffs; an intervening
 disable/re-enable requires a fresh reviewed plan.
 With `smtp.change:true`, apply installs the approved credential even when public
 SMTP fields already match; those fields cannot prove the current password.
+With `smtp.change:false`, apply preserves the exact observed Auth mail baseline,
+including default SMTP and existing templates. Security, site-origin and drift
+checks still apply; independent email purposes can be enabled without an Auth patch.
 
 ```sh
 export DOTENV_CONFIG_PATH=/private/path/helix-resend.env
@@ -154,6 +157,8 @@ before changing it. Keep admission and dispatch off until postflight passes.
    change, existing-account continuity, disabled tracking, no Send Email Hook,
    and recoverable prior SMTP credentials. If the shared project has Accounts
    outside the restriction, leave SMTP unchanged until continuity is resolved.
+   Record this deferral in the private Auth evidence; it is not passed Resend Auth
+   qualification, and the Spec stays open until that qualification is complete.
    Apply only the approved SMTP/template patch; preserve all other Auth security,
    rate-limit, redirect, session and notification settings. Deployed scanner-safe
    confirmation must precede the template switch.

@@ -9,7 +9,7 @@ import { type LocalEvidence, CONTROL_READS, PROOF_KINDS, SCHEDULES, TARGET, WEBH
 const digest = (v: string) => createHash("sha256").update(v).digest("hex");
 const id = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
 const stamp = "2026-09-29T01:00:00.000Z";
-async function setup() {
+async function setup(preserveDefaultSmtp = false) {
   const purposeNames = ["marketing_confirmation", "welcome_initial", "welcome_education"] as const;
   const native = Object.fromEntries(purposeNames.map((purpose, i) => [purpose, {
     id: id(i + 1), alias: `helix-r1-${purpose.replaceAll("_", "-")}`, current_version_id: id(i + 11), status: "published", has_unpublished_versions: false,
@@ -42,6 +42,10 @@ async function setup() {
   })) }]));
   env.HELIX_EMAIL_MARKETING_CONTRACT = JSON.stringify({ version: "welcome_v1", siteOrigin: TARGET.origin, from: "Helix <onboarding@resend.dev>",
     replyTo: env.HELIX_EMAIL_REPLY_TO, postalAddress: "Approved postal identity", topicId: id(50), templates: runtimeTemplates });
+  if (preserveDefaultSmtp) {
+    for (const key of Object.keys(buildAuthEmailTemplates(TARGET.origin))) current.smtp[key] = "";
+    for (const key of Object.keys(current.smtp).filter(key => key.startsWith("smtp_"))) current.smtp[key] = null;
+  }
   const baseline = await runAuthEmailCommand(["verify"], env, buildAuthEmailTemplates, async () => new Response(JSON.stringify(current.smtp)));
   const manifest: Manifest = {
     version: 1, codeSha: "b".repeat(40), project: TARGET.project, origin: TARGET.origin, ownerRecipient: env.HELIX_EMAIL_OWNER_RECIPIENT,
@@ -118,6 +122,42 @@ describe("restricted Resend operational command", () => {
     expect(result).toMatchObject({ readyForGuardedApply: true, operationalAcceptanceComplete: false, findings: [], observations: { deploymentId: "dpl_qualified", topicId: id(50) } });
     expect(mutations(f.fetcher)).toEqual([]);
     expect(f.fetcher.mock.calls.every(([url]) => !String(url).endsWith("/emails"))).toBe(true);
+  });
+
+  it("applies every independent purpose while preserving the approved default Auth mail configuration", async () => {
+    const f = await setup(true), before = structuredClone(f.current.smtp);
+    expect(await f.run("verify")).toMatchObject({ readyForGuardedApply: true, operationalAcceptanceComplete: false, findings: [] });
+    expect(mutations(f.fetcher)).toEqual([]);
+    expect(await f.run("apply")).toMatchObject({ applied: true, operationalAcceptanceComplete: false });
+    expect(mutations(f.fetcher)).toHaveLength(1);
+    expect(new URL(String(mutations(f.fetcher)[0][0])).pathname).toBe(`/v1/projects/${TARGET.project}/database/query`);
+    expect(f.current.smtp).toEqual(before);
+    for (const control of Object.values(f.current.controls)) {
+      for (const row of Array.isArray(control) ? control : [control]) expect(row).toMatchObject({ enabled: true });
+    }
+  });
+
+  it.each([
+    ["mailer_autoconfirm", true, "smtp_security_configuration_mismatch"],
+    ["site_url", "https://another.example", "smtp_site_origin_mismatch"],
+    ["mailer_otp_exp", 7200, "smtp_baseline_drift"],
+  ])("still blocks preserved default Auth mail when %s drifts", async (field, value, finding) => {
+    const f = await setup(true); f.current.smtp[String(field)] = value;
+    expect(await f.run("verify")).toMatchObject({ readyForGuardedApply: false, findings: expect.arrayContaining([finding]) });
+    await expect(f.run("apply")).rejects.toThrow("activation_preflight_failed");
+    expect(mutations(f.fetcher)).toEqual([]);
+  });
+
+  it("rechecks preserved default Auth mail immediately before enabling independent purposes", async () => {
+    const f = await setup(true), provider = f.fetcher.getMockImplementation()!;
+    let authReads = 0;
+    f.fetcher.mockImplementation(async (input, options) => {
+      if (new URL(String(input)).pathname.endsWith("/config/auth") && ++authReads === 2) f.current.smtp.mailer_otp_exp = 7200;
+      return provider(input, options);
+    });
+    await expect(f.run("apply")).rejects.toThrow("smtp_changed_during_preflight");
+    expect(authReads).toBe(2);
+    expect(mutations(f.fetcher)).toEqual([]);
   });
 
   it("accepts an approvable setup plan before keys and proof exist, then binds generated receipts to that exact plan", async () => {

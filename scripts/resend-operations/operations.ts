@@ -312,7 +312,6 @@ export async function runResendOperations(command: ReturnType<typeof parseComman
     observations.smtpFingerprint = auth.observedFingerprint;
     if (auth.findings.length) add("smtp_security_configuration_mismatch");
     if (auth.changedFields.includes("site_url")) add("smtp_site_origin_mismatch");
-    if (!auth.configurationMatches && !manifest.smtp.change) add("smtp_configuration_mismatch");
     const applied = receipt?.smtpApplied;
     const previousApply = manifest.smtp.change && auth.configurationMatches && applied?.fingerprint === auth.observedFingerprint
       && applied.credentialVersion === manifest.credentialVersions.RESEND_API_KEY?.version;
