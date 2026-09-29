@@ -12,6 +12,7 @@ export type SupportInquirySummary = {
   updatedAt: string;
   lastDeliveryState: string | null;
   pendingInbound?: number;
+  redactedAt?: string | null;
 };
 
 export type SupportPhoto = {
