@@ -98,6 +98,29 @@ afterEach(() => {
 });
 
 describe("cart client outage recovery", () => {
+  it.each([
+    ["page", 2500, 2500, "Add $25.00 more for FREE shipping"],
+    ["drawer", 5000, 5000, "FREE shipping threshold reached"],
+    ["page", 7500, 5000, "FREE shipping threshold reached"],
+  ] as const)("shows bounded shipping progress in a %s cart at %i cents", async (mode, subtotal, progressValue, message) => {
+    vi.stubGlobal("fetch", vi.fn<typeof fetch>((input) =>
+      response(String(input).startsWith("/api/rewards/summary")
+        ? { authenticated: false }
+        : { ...knownCart, subtotal }),
+    ));
+
+    render(<CartProvider><CartView mode={mode} /></CartProvider>);
+
+    const progress = await screen.findByRole("progressbar", { name: "Free standard shipping progress" });
+    expect(progress).toHaveAttribute("max", "5000");
+    expect(progress).toHaveAttribute("value", String(progressValue));
+    expect(progress).toHaveAttribute("aria-valuetext", expect.stringContaining("before discounts"));
+    const summary = screen.getByRole("complementary", { name: "Order summary" });
+    expect(summary).toHaveTextContent(message);
+    expect(within(summary).queryByRole("heading", { name: "Summary" })).not.toBeInTheDocument();
+    expect(within(summary).getByText("Sandbox")).toBeVisible();
+  });
+
   it("lets keyboard users reach drawer items independently from the order summary", async () => {
     vi.stubGlobal("fetch", vi.fn<typeof fetch>((input) =>
       response(String(input).startsWith("/api/rewards/summary")
@@ -120,7 +143,7 @@ describe("cart client outage recovery", () => {
     const summary = screen.getByRole("complementary", { name: "Order summary" });
     expect(items).not.toContainElement(summary);
     expect(within(summary).getByRole("button", {
-      name: "Sandbox checkout $44.00",
+      name: "Checkout $44.00",
     })).toBeEnabled();
   });
 
@@ -158,10 +181,10 @@ describe("cart client outage recovery", () => {
     expect(await screen.findByText("known:2")).toBeInTheDocument();
     expect(cartRequests).toBe(1);
     expect(
-      screen.getByText("$6.00 away from the free standard shipping threshold."),
-    ).toBeInTheDocument();
+      screen.getByRole("complementary", { name: "Order summary" }),
+    ).toHaveTextContent("Add $6.00 more for FREE shipping");
     expect(
-      screen.getByRole("button", { name: "Sandbox checkout $44.00" }),
+      screen.getByRole("button", { name: "Checkout $44.00" }),
     ).toBeInTheDocument();
     expect(
       screen.queryByText("SANDBOX CHECKOUT - NO REAL CHARGE OR FULFILLMENT"),

@@ -85,7 +85,7 @@ describe("public route states", () => {
       </CartProvider>,
     );
 
-    expect(screen.getByRole("heading", { level: 1, name: "Cart" })).toBeVisible();
+    expect(screen.getByRole("heading", { level: 1, name: "Your CART" })).toBeVisible();
     expect(await screen.findByText(/your cart is empty/i)).toBeVisible();
   });
 
