@@ -79,4 +79,21 @@ describe("support verification isolation", () => {
     expect(await (await first(path)).json()).toMatchObject({ inquiry: { revision: 3 } });
     expect(await (await second(path)).json()).toMatchObject({ inquiry: { revision: 2 } });
   });
+
+  it("keeps generated drafts inert and unapproved inside the conversation adapter", async () => {
+    const liveFetch = vi.fn(() => { throw new Error("Unexpected real fetch"); });
+    vi.stubGlobal("fetch", liveFetch);
+    await expect(SupportConversationVerificationPage({ searchParams: Promise.resolve({ scenario: "ai-draft" }) })).resolves.toBeDefined();
+    const request = createSupportConversationRequest("ai-draft");
+    const inquiry = supportInquiryFixture("ai-draft");
+    const path = `/api/admin/support/${inquiry.id}`;
+    expect(await (await request(`${path}/ai-draft`, post({ action: "request", requestId: "synthetic-request", expectedRevision: 2, expectedDraftVersion: 1 }))).json())
+      .toMatchObject({ available: true, job: { state: "queued" } });
+    expect(await (await request(path)).json()).toMatchObject({ inquiry: { draft: { id: "synthetic-draft", approved: false } } });
+    const completion = await (await request(`${path}/ai-draft`)).json();
+    expect(completion).toMatchObject({ available: true, job: { state: "completed", draftId: "synthetic-ai-draft", needsHuman: true },
+      inquiry: { revision: 3, draft: { id: "synthetic-ai-draft", version: 2, approved: false } } });
+    await expect(request("https://api.openai.com/v1/responses", post({}))).rejects.toThrow("Unsupported synthetic request");
+    expect(liveFetch).not.toHaveBeenCalled();
+  });
 });

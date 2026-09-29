@@ -14,7 +14,7 @@ export default async function SupportConversationVerificationPage({ searchParams
   const query = await searchParams;
   const scenario = query.scenario ?? "photos";
   if (Object.keys(query).some((key) => key !== "scenario") || typeof scenario !== "string"
-    || !["photos", "new-context", "refresh-error", "quarantine"].includes(scenario)) notFound();
+    || !["photos", "new-context", "refresh-error", "quarantine", "ai-draft"].includes(scenario)) notFound();
   return <VerificationAdminShell modules={getAdminModules(["support.read", "support.reply"])} viewPath="/admin/support" navigationEnabled={false}>
     <SupportConversationVerification key={scenario} scenario={scenario as SupportConversationScenario} />
   </VerificationAdminShell>;

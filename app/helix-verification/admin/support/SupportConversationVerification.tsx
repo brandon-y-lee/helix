@@ -2,9 +2,9 @@
 
 import { useMemo } from "react";
 import { SupportConversation } from "@/components/admin/support/SupportConversation";
-import type { SupportInboundReviewMutation, SupportInquiryDetail, SupportMutation } from "@/lib/support/types";
+import type { SupportAiJob, SupportInboundReviewMutation, SupportInquiryDetail, SupportMutation } from "@/lib/support/types";
 
-export type SupportConversationScenario = "photos" | "new-context" | "refresh-error" | "quarantine";
+export type SupportConversationScenario = "photos" | "new-context" | "refresh-error" | "quarantine" | "ai-draft";
 const inquiryId = "30000000-0000-4000-8000-000000000001";
 const photoId = "30000000-0000-4000-8000-000000000002";
 const inquiryPath = `/api/admin/support/${inquiryId}`;
@@ -32,15 +32,33 @@ export function supportInquiryFixture(scenario: SupportConversationScenario): Su
   };
 }
 
-// This adapter cannot read accounts, send replies, upload files, or access Storage.
+// This adapter cannot read accounts, generate text, send replies, upload files, or access Storage.
 export function createSupportConversationRequest(scenario: SupportConversationScenario): typeof fetch {
   let inquiry = supportInquiryFixture(scenario);
+  let aiJob: SupportAiJob | null = null;
   let refreshFailed = false;
   let contextChanged = false;
   const response = (status = 200) => Response.json({ inquiry: structuredClone(inquiry) }, { status });
   return async (input, options) => {
     if (typeof input !== "string") throw new Error("Unsupported synthetic request");
     const method = options?.method ?? "GET";
+    if (input === `${inquiryPath}/ai-draft` && scenario === "ai-draft") {
+      if (method === "POST" && typeof options?.body === "string") {
+        const mutation = JSON.parse(options.body);
+        if (mutation.action !== "request" || mutation.expectedRevision !== inquiry.revision || mutation.expectedDraftVersion !== inquiry.draft?.version) throw new Error("Unsupported synthetic mutation");
+        aiJob ??= { id: "30000000-0000-4000-8000-000000000003", state: "queued", inquiryRevision: inquiry.revision, draftVersion: inquiry.draft?.version ?? 0,
+          createdAt: receivedAt, errorCode: null, draftId: null, needsHuman: null, references: [] };
+      } else if (method === "GET") {
+        if (aiJob?.state === "queued") {
+          inquiry = { ...inquiry, revision: inquiry.revision + 1, draft: { id: "synthetic-ai-draft", version: (inquiry.draft?.version ?? 0) + 1,
+            inquiryRevision: inquiry.revision + 1, recipient: inquiry.email, subject: "Re: Product photo question",
+            body: "Thank you for your question. Please share which product you are asking about so we can review the details.", approved: false } };
+          aiJob = { ...aiJob, state: "completed", draftId: inquiry.draft!.id, needsHuman: true,
+            references: [{ id: "faq:medical-advice", text: "Helix does not provide medical advice." }] };
+        }
+      } else throw new Error("Unsupported synthetic request");
+      return Response.json({ available: true, job: aiJob, ...(aiJob?.state === "completed" ? { inquiry: structuredClone(inquiry) } : {}) });
+    }
     if (input === inquiryPath && method === "GET") {
       if (scenario === "refresh-error" && !refreshFailed) {
         refreshFailed = true;
@@ -91,5 +109,5 @@ export function createSupportConversationRequest(scenario: SupportConversationSc
 export function SupportConversationVerification({ scenario }: { scenario: SupportConversationScenario }) {
   const request = useMemo(() => createSupportConversationRequest(scenario), [scenario]);
   const inquiry = useMemo(() => supportInquiryFixture(scenario), [scenario]);
-  return <SupportConversation initialInquiry={inquiry} canReply request={request} navigationEnabled={false} />;
+  return <SupportConversation initialInquiry={inquiry} canReply initialAiStatus={{ available: scenario === "ai-draft", job: null }} request={request} navigationEnabled={false} />;
 }

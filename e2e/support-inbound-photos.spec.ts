@@ -131,6 +131,42 @@ for (const viewport of viewports) {
     await expect(approve).toBeDisabled();
     await expectContained(page, blocked);
   });
+
+  test(`generated support drafts preserve unsaved edits and require explicit approval at ${viewport.width}px`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    const blocked = await containSupportFixture(page);
+    await page.goto(`${fixtureRoot}?scenario=ai-draft`);
+    const subject = page.getByLabel("Reply subject", { exact: true });
+    const reply = page.getByLabel("Reply", { exact: true });
+    const approve = page.getByRole("button", { name: "Approve and queue reply", exact: true });
+    await subject.fill("My unsaved subject");
+    await reply.fill("My unsaved reply before generation.");
+    const generate = page.getByRole("button", { name: "Generate draft", exact: true });
+    await generate.focus();
+    await page.keyboard.press("Enter");
+    await expect(reply).toBeEnabled();
+    await reply.fill("My unsaved reply during generation.");
+    await page.getByRole("button", { name: "Check draft status", exact: true }).click();
+    await expect(page.getByRole("region", { name: "Draft assistance", exact: true })).toContainText("Additional human review is needed.");
+    await expect(subject).toHaveValue("My unsaved subject");
+    await expect(reply).toHaveValue("My unsaved reply during generation.");
+    await expect(approve).toBeDisabled();
+    const saved = page.getByRole("region", { name: "Saved reply for approval", exact: true });
+    const generatedBody = "Thank you for your question. Please share which product you are asking about so we can review the details.";
+    await expect(saved).toContainText(generatedBody);
+    await expect(saved).toContainText("Helix does not provide medical advice.");
+    await expect(saved).not.toContainText("Already approved.");
+    await expectContained(page, blocked);
+    const load = saved.getByRole("button", { name: "Load generated draft into editor", exact: true });
+    await load.focus();
+    await page.keyboard.press("Enter");
+    await expect(reply).toHaveValue(generatedBody);
+    await expect(approve).toBeEnabled();
+    await approve.click();
+    await expect(page.getByRole("status").filter({ hasText: "Reply approved and queued." })).toBeVisible();
+    await expect(approve).toBeDisabled();
+    await expectContained(page, blocked);
+  });
 }
 
 test("support refresh failure keeps reply edits and permits manual recovery", async ({ page }) => {

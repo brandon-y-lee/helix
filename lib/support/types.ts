@@ -61,6 +61,20 @@ export type SupportInquiryDetail = SupportInquirySummary & {
   quarantinedInbound?: SupportQuarantinedInbound[];
 };
 
+export type SupportAiJob = {
+  id: string;
+  state: "queued" | "running" | "completed" | "failed" | "cancelled" | "stale";
+  inquiryRevision: number;
+  draftVersion: number;
+  createdAt: string;
+  errorCode: string | null;
+  draftId: string | null;
+  needsHuman: boolean | null;
+  references: { id: string; text: string }[];
+};
+
+export type SupportAiStatus = { available: boolean; job: SupportAiJob | null; inquiry?: SupportInquiryDetail };
+
 export type SupportInquiryCursor = { createdAt: string; id: string };
 
 export type SupportInquiryList = {

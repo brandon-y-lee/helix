@@ -20,6 +20,9 @@ const failures = {
   upload_expired: [410, "This photo upload has expired. Send a new inquiry if you still need to share it."],
   photo_limit_exceeded: [400, "You can attach up to five photos to a message."],
   photo_budget_exceeded: [413, "Photos must total 20 MiB or less per message."],
+  ai_unavailable: [503, "AI drafting is unavailable. You can still write a manual reply."],
+  ai_busy: [409, "Another draft is being prepared. Wait for it to finish or cancel it first."],
+  ai_context_unavailable: [409, "This inquiry needs a manual reply or review of incoming content before drafting."],
 } as const;
 export type SupportErrorCode = keyof typeof failures;
 
