@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { formatPrice } from "@/lib/products";
 import type { OrderConfirmationDisplay, OrderConfirmationState } from "@/lib/orders/confirmation";
+import { SimulatedTrackingTimeline } from "@/components/cart/SimulatedTrackingTimeline";
 
 export type { OrderConfirmationDisplay } from "@/lib/orders/confirmation";
 
@@ -122,6 +123,9 @@ export function OrderConfirmationView({
           </div>
         </dl>
       </section>
+
+      {confirmation.tracking && <SimulatedTrackingTimeline tracking={confirmation.tracking} />}
+      {confirmation.trackingUnavailable && <p className="form-status">Demo tracking is temporarily unavailable.</p>}
 
       {shipping && (
         <section className="checkout-result__panel" aria-label="Shipping address">

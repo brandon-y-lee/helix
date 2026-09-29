@@ -1,0 +1,67 @@
+.timeline {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.notice {
+  color: #5f6963;
+  font-size: 0.9rem;
+}
+
+.shipment {
+  margin-top: 20px;
+  border-top: 1px solid #d8d8dc;
+  padding-top: 20px;
+}
+
+.heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+
+.heading h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-family: var(--font);
+}
+
+.state {
+  border: 1px solid #d8d8dc;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.items {
+  display: grid;
+  gap: 6px;
+  margin: 16px 0;
+  padding-left: 20px;
+  font-size: 0.9rem;
+}
+
+.events {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding-left: 20px;
+}
+
+.events li {
+  padding-left: 4px;
+}
+
+.events span,
+.events time {
+  display: block;
+}
+
+.events time {
+  margin-top: 2px;
+  color: #5f6963;
+  font-size: 0.8rem;
+}

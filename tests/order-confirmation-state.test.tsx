@@ -25,6 +25,13 @@ function receipt(state: OrderConfirmationState): OrderConfirmationDisplay {
 }
 
 describe("truthful private Order confirmation", () => {
+  it("preserves the paid receipt when tracking history is temporarily unavailable", () => {
+    render(<OrderConfirmationView confirmation={{ ...receipt("paid"), trackingUnavailable: true }} />);
+    expect(screen.getByRole("heading", { name: "Sandbox payment verified" })).toBeVisible();
+    expect(screen.getByText("Demo tracking is temporarily unavailable.")).toBeVisible();
+    expect(screen.queryByRole("region", { name: "Simulated tracking" })).not.toBeInTheDocument();
+  });
+
   it("distinguishes a reported refund from unfinished local reconciliation", () => {
     const confirmation = receipt("exception");
     confirmation.verificationIssue = "refund_reconciliation";

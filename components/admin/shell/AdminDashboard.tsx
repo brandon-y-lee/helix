@@ -21,7 +21,7 @@ export function AdminDashboard({
       {modules.length === 0 ? (
         <section className="admin-dashboard__empty" role="status">
           <h2>No admin modules available</h2>
-          <p>No internal tools are registered for this console.</p>
+          <p>No internal tools are available for this account.</p>
         </section>
       ) : (
         <section

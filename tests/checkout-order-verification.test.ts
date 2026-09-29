@@ -98,12 +98,43 @@ beforeEach(() => {
   boundary.rpc.mockImplementation((name: string) => {
     if (name === "resolve_active_cart") return result([]);
     if (name === "claim_checkout_refresh") return result({ allowed: false, token: null, cached: null, retry_after_seconds: 5 });
+    if (name === "read_simulated_tracking") return result(null);
     throw new Error(`Unexpected operation ${name}`);
   });
 });
 afterEach(() => vi.unstubAllEnvs());
 
 describe("private verified Order confirmation", () => {
+  it("includes simulated history only after receipt ownership and rechecks ownership after the private read", async () => {
+    const tracking = { frozen: false, shipments: [{ id: "simulated-1", number: 1, state: "dispatched", version: 1,
+      items: [{ name: "Cleanser", variantLabel: "100 ml", quantity: 1 }],
+      events: [{ state: "dispatched", occurredAt: "2026-09-28T12:00:00Z" }] }] };
+    boundary.from.mockImplementation((table: string) => result(table === "orders" ? { ...order, status: "paid" } : []));
+    boundary.rpc.mockImplementation((name: string) => name === "read_simulated_tracking" ? result(tracking)
+      : result({ allowed: false, token: null, cached: null, retry_after_seconds: 5 }));
+    const confirmation = await getOrderConfirmationBySession(sessionId);
+    expect(confirmation?.tracking).toEqual(tracking);
+    expect(boundary.rpc).toHaveBeenCalledWith("read_simulated_tracking", { p_order_id: orderId });
+    const reads = boundary.rpc.mock.invocationCallOrder;
+    expect(boundary.authorizeReceipt.mock.invocationCallOrder[0]).toBeLessThan(reads.at(-1)!);
+    expect(boundary.authorizeReceipt.mock.invocationCallOrder.at(-1)).toBeGreaterThan(reads.at(-1)!);
+    boundary.authorizeReceipt.mockReset().mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+    await expect(getOrderConfirmationBySession(sessionId)).resolves.toBeNull();
+  });
+
+  it("keeps a paid receipt usable before the tracking migration exists and during tracking failure", async () => {
+    boundary.from.mockImplementation((table: string) => result(table === "orders" ? { ...order, status: "paid" } : []));
+    boundary.rpc.mockImplementation((name: string) => name === "read_simulated_tracking"
+      ? Promise.resolve({ data: null, error: { code: "PGRST202" } })
+      : result({ allowed: false, token: null, cached: null, retry_after_seconds: 5 }));
+    const absent = await getOrderConfirmationBySession(sessionId);
+    expect(absent).toMatchObject({ state: "paid" });
+    expect(absent?.trackingUnavailable).not.toBe(true);
+    boundary.rpc.mockImplementation((name: string) => name === "read_simulated_tracking"
+      ? Promise.resolve({ data: null, error: { code: "connection_failure", message: "private detail" } })
+      : result({ allowed: false, token: null, cached: null, retry_after_seconds: 5 }));
+    expect(await getOrderConfirmationBySession(sessionId)).toMatchObject({ state: "paid", trackingUnavailable: true });
+  });
   it("returns only receipt display fields to the owning account while refresh is deferred", async () => {
     const confirmation = await getOrderConfirmationBySession(sessionId);
     expect(confirmation).toMatchObject({ state: "pending", order: { order_number: "HX-410", total_cents: 3200 } });
@@ -448,6 +479,7 @@ describe("owned paid receipt", () => {
         return result(true);
       }
       if (["finish_checkout_refresh", "qualify_referral_for_paid_order"].includes(name)) return result(true);
+      if (name === "read_simulated_tracking") return result(null);
       throw new Error(`Unexpected operation ${name}`);
     });
     await expect(getOrderConfirmationBySession(sessionId)).resolves.toEqual({
