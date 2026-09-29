@@ -6,6 +6,7 @@ import {
 } from "@/lib/waitlist/server";
 
 const PRODUCT_ID = "123e4567-e89b-42d3-a456-426614174141";
+const REQUEST_ID = "8b2a2873-79bc-4782-b906-30575f5f4f45";
 
 function request(
   body: unknown,
@@ -30,7 +31,7 @@ function request(
   return new Request("https://helix.test/api/product-waitlist", {
     method: "POST",
     headers,
-    body: JSON.stringify(body),
+    body: JSON.stringify(body && typeof body === "object" && !Array.isArray(body) ? { requestId: REQUEST_ID, ...body } : body),
   });
 }
 
@@ -96,15 +97,18 @@ describe("Product waitlist request boundary", () => {
     expect(response.headers.get("cache-control")).toBe("private, no-store");
     expect(await response.json()).toEqual({
       ok: true,
-      message: "Your Product waitlist enrollment is confirmed.",
+      message: "Your Product notification request was received.",
     });
     expect(rpc).toHaveBeenCalledWith({
       productId: PRODUCT_ID,
       normalizedEmail: "customer@example.com",
       marketingConsent: false,
-      policyVersion: "2026-08-10",
+      policyVersion: "2026-09-29-waitlist-v1",
       source: "pdp_waitlist",
       abuseKey: "hashed-client-key",
+      requestId: REQUEST_ID,
+      confirmationToken: null,
+      marketingTemplateContract: null,
     });
   });
 
@@ -171,7 +175,7 @@ describe("Product waitlist request boundary", () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
       ok: true,
-      message: "Your Product waitlist enrollment is confirmed.",
+      message: "Your Product notification request was received.",
     });
   });
 
@@ -213,5 +217,49 @@ describe("Product waitlist request boundary", () => {
     expect(JSON.stringify(await failed.json())).not.toContain(
       "private@example.com",
     );
+  });
+
+  it("submits fresh checked marketing consent inside the one enrollment transaction", async () => {
+    const { value, rpc } = adapters();
+    const template = { id: "93a3ecbc-2a25-48a7-8fe9-5a7bd40f2e34", sha256: "a".repeat(64) };
+    const contract = { version: "welcome_v1", siteOrigin: "https://helix.test", from: "helix <onboarding@resend.dev>",
+      replyTo: "support@example.test", postalAddress: "Synthetic business mailing address", topicId: "61296d74-fad4-4c74-83d3-6a3e17ab9f74",
+      templates: { marketing_confirmation: template, welcome_initial: template, welcome_education: template } };
+    value.env = { HELIX_EMAIL_ENVIRONMENT: "sandbox", HELIX_EMAIL_MODE: "restricted", HELIX_MARKETING_ENABLED: "true",
+      HELIX_EMAIL_OWNER_RECIPIENT: "owner@example.test", HELIX_EMAIL_MARKETING_CONTRACT: JSON.stringify(contract) };
+    const input = { productId: PRODUCT_ID, email: "owner@example.test", marketingConsent: true };
+    expect((await handleProductWaitlistRequest(request(input), value)).status).toBe(200);
+    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(rpc).toHaveBeenCalledWith(expect.objectContaining({ marketingConsent: true, requestId: REQUEST_ID,
+      marketingTemplateContract: contract, confirmationToken: expect.stringMatching(/^[A-Za-z0-9_-]{43}$/) }));
+    rpc.mockResolvedValueOnce({ data: { ok: false, code: "marketing_unavailable" }, error: null });
+    expect((await handleProductWaitlistRequest(request(input), value)).status).toBe(503);
+    value.env.HELIX_MARKETING_ENABLED = "false";
+    rpc.mockClear();
+    expect((await handleProductWaitlistRequest(request(input), value)).status).toBe(503);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("rejects an undeclared oversized body and a replay without its request identity", async () => {
+    const { value, rpc } = adapters();
+    expect((await handleProductWaitlistRequest(request({ productId: PRODUCT_ID, email: "x".repeat(2_048) }), value)).status).toBe(413);
+    expect((await handleProductWaitlistRequest(request({ productId: PRODUCT_ID, email: "customer@example.test", requestId: null }), value)).status).toBe(400);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("acknowledges restricted checked intake without disclosing the recipient gate or partially enrolling", async () => {
+    const { value, rpc } = adapters();
+    value.env = { HELIX_EMAIL_ENVIRONMENT: "sandbox", HELIX_EMAIL_MODE: "restricted", HELIX_MARKETING_ENABLED: "true",
+      HELIX_EMAIL_OWNER_RECIPIENT: "owner@example.test" };
+    const response = await handleProductWaitlistRequest(request({ productId: PRODUCT_ID,
+      email: "visitor@example.test", marketingConsent: true }), value);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ ok: true, message: "Your Product notification request was received." });
+    expect(rpc).not.toHaveBeenCalled();
+    const unchecked = await handleProductWaitlistRequest(request({ productId: PRODUCT_ID,
+      email: "visitor@example.test", marketingConsent: false }), value);
+    expect(unchecked.status).toBe(200);
+    expect(rpc).toHaveBeenCalledOnce();
+    expect(rpc).toHaveBeenCalledWith(expect.objectContaining({ marketingConsent: false, confirmationToken: null }));
   });
 });

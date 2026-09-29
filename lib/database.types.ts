@@ -1583,6 +1583,9 @@ export type Database = {
           p_policy_version: string
           p_product_id: string
           p_source: string
+          p_request_id: string
+          p_confirmation_token?: string | null
+          p_marketing_template_contract?: Json | null
         }
         Returns: Json
       }
