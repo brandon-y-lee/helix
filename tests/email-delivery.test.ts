@@ -25,7 +25,7 @@ function setup(overrides: Partial<EmailIntent> = {}) {
     finish: vi.fn().mockResolvedValue(true),
   };
   const send = vi.fn().mockResolvedValue({ kind: "accepted", id: "email-provider-1" });
-  const dependencies = { storage, send, env } satisfies EmailDeliveryDependencies;
+  const dependencies: EmailDeliveryDependencies = { storage, send, env };
   return { dependencies, storage, send };
 }
 
@@ -109,5 +109,28 @@ it("does not require a current sender to retry an already frozen request", async
   const retry = setup({ requestPayload: frozen, firstAttemptAt: new Date().toISOString(), attemptCount: 1 });
   retry.dependencies.env = { ...env, HELIX_EMAIL_ORDER_FROM: "" };
   await dispatchEmailIntents(retry.dependencies);
+  expect(retry.send).toHaveBeenCalledWith(frozen, intent.idempotencyKey, "re_synthetic_test");
+});
+
+it("keeps a support conversation's frozen receiving domain and RFC headers across a domain switch", async () => {
+  const replyTo = `reply-${"a".repeat(48)}@previous.example`;
+  const reply: Partial<EmailIntent> = { purpose: "support_reply", receipt: {
+    renderVersion: "support-text-v2", inquiryId: "76041b97-2f83-4f66-89b4-2fdb7d754889",
+    messageId: "c6b256dd-f1cd-414c-a14e-64741656e0ca", inquiryRevision: 3, draftVersion: 1,
+    subject: "Your product question", body: "Thank you for the additional detail.",
+    html: '<div style="white-space: pre-wrap">Thank you for the additional detail.</div>', attachments: [],
+    replyTo, headers: { "In-Reply-To": "<customer-message@example.test>", References: "<customer-message@example.test>" },
+  } };
+  const first = setup(reply);
+  const supportEnv = { ...env, HELIX_EMAIL_SUPPORT_FROM: "Helix <onboarding@resend.dev>", HELIX_EMAIL_REPLY_TO: "support@new.example" };
+  first.dependencies.env = supportEnv;
+  first.send.mockRejectedValueOnce(new Error("lost response"));
+  expect(await dispatchEmailIntents(first.dependencies)).toMatchObject({ deferred: 1 });
+  const frozen = first.storage.prepare.mock.calls[0][2];
+  expect(frozen).toMatchObject({ reply_to: replyTo, headers: reply.receipt && "headers" in reply.receipt ? reply.receipt.headers : undefined });
+  expect(frozen).not.toHaveProperty("attachments");
+  const retry = setup({ ...reply, requestPayload: frozen, firstAttemptAt: new Date().toISOString(), attemptCount: 1 });
+  retry.dependencies.env = { ...supportEnv, HELIX_EMAIL_SUPPORT_FROM: "", HELIX_EMAIL_REPLY_TO: "support@another.example" };
+  expect(await dispatchEmailIntents(retry.dependencies)).toMatchObject({ accepted: 1 });
   expect(retry.send).toHaveBeenCalledWith(frozen, intent.idempotencyKey, "re_synthetic_test");
 });

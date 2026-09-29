@@ -30,4 +30,17 @@ describe("frozen support email content", () => {
     expect(() => renderSupportEmail("support_acknowledgement", { ...receipt, body: "Your account exists." })).toThrow();
     expect(() => renderSupportEmail("support_acknowledgement", reply)).toThrow();
   });
+
+  it("reuses the approved receiving identity and known threading headers unchanged", () => {
+    const receipt = { ...reply, renderVersion: "support-text-v2" as const,
+      replyTo: `reply-${"a".repeat(48)}@previous.resend.app`,
+      headers: { "In-Reply-To": "<incoming@example.test>", References: "<first@example.test> <incoming@example.test>" } };
+    expect(renderSupportEmail("support_reply", receipt)).toEqual({ subject: reply.subject, text: reply.body,
+      html: reply.html, reply_to: receipt.replyTo, headers: receipt.headers });
+    for (const headers of [{ ...receipt.headers, Bcc: "outside@example.test" },
+      { ...receipt.headers, "In-Reply-To": "<incoming@example.test>\r\nBcc: outsider@example.test" },
+      { ...receipt.headers, References: "<different@example.test>" }]) {
+      expect(() => renderSupportEmail("support_reply", { ...receipt, headers })).toThrow();
+    }
+  });
 });

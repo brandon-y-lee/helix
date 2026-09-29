@@ -2,11 +2,23 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import type { SupportInquiryDetail, SupportMutation } from "@/lib/support/types";
+import type { SupportInboundReviewMutation, SupportInquiryDetail, SupportMutation } from "@/lib/support/types";
 import { InquiryTime, supportDeliveryLabel } from "./SupportInbox";
+import { SupportPhotoViewer } from "./SupportPhotoViewer";
 import styles from "./support.module.css";
 
-export function SupportConversation({ initialInquiry, canReply }: { initialInquiry: SupportInquiryDetail; canReply: boolean }) {
+function incomingReviewReason(reason: string): string {
+  if (reason === "forwarded_message") return "Forwarded content needs review.";
+  if (reason === "automated_message") return "Automated email cannot be added to the conversation.";
+  if (["sender_mismatch", "invalid_sender", "reply_to_changed"].includes(reason)) return "The sender or reply address could not be matched safely.";
+  if (["authentication_failed", "authentication_unknown"].includes(reason)) return "The email’s origin could not be verified.";
+  if (["attachment_metadata_invalid", "attachment_limits_exceeded"].includes(reason)) return "The attached files need review.";
+  if (["invalid_body", "body_truncated", "empty_message"].includes(reason)) return "The message content could not be accepted in full.";
+  if (reason === "fetch_failed") return "The incoming email could not be retrieved.";
+  return "The conversation match needs review.";
+}
+
+export function SupportConversation({ initialInquiry, canReply, request = fetch, navigationEnabled = true }: { initialInquiry: SupportInquiryDetail; canReply: boolean; request?: typeof fetch; navigationEnabled?: boolean }) {
   const [inquiry, setInquiry] = useState(initialInquiry);
   const [subject, setSubject] = useState(initialInquiry.draft?.subject ?? `Re: ${initialInquiry.subject}`.slice(0, 200));
   const [body, setBody] = useState(initialInquiry.draft?.body ?? "");
@@ -21,7 +33,8 @@ export function SupportConversation({ initialInquiry, canReply }: { initialInqui
   const submitting = useRef(false);
   const draft = inquiry.draft;
   const unchanged = draft?.subject === subject && draft.body === body;
-  const approvable = canReply && draft && unchanged && !reviewRequired && !draft.approved && draft.inquiryRevision === inquiry.revision;
+  const incomingPending = (inquiry.pendingInbound ?? 0) > 0;
+  const approvable = canReply && draft && unchanged && !incomingPending && !reviewRequired && !draft.approved && draft.inquiryRevision === inquiry.revision;
 
   useEffect(() => { if (historyFocus > 0) historyHeading.current?.focus(); }, [historyFocus]);
 
@@ -35,7 +48,7 @@ export function SupportConversation({ initialInquiry, canReply }: { initialInqui
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), 15_000);
     try {
-      const response = await fetch(`/api/admin/support/${encodeURIComponent(inquiry.id)}?before=${encodeURIComponent(cursor)}`, { credentials: "same-origin", cache: "no-store", signal: controller.signal });
+      const response = await request(`/api/admin/support/${encodeURIComponent(inquiry.id)}?before=${encodeURIComponent(cursor)}`, { credentials: "same-origin", cache: "no-store", signal: controller.signal });
       const result = await response.json();
       const older = result?.inquiry as SupportInquiryDetail | undefined;
       if (!response.ok || !older || older.id !== inquiry.id || !Array.isArray(older.messages) || older.messages.length > 50) {
@@ -79,7 +92,7 @@ export function SupportConversation({ initialInquiry, canReply }: { initialInqui
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), 15_000);
     try {
-      const response = await fetch(`/api/admin/support/${encodeURIComponent(inquiry.id)}`, { credentials: "same-origin", cache: "no-store", signal: controller.signal });
+      const response = await request(`/api/admin/support/${encodeURIComponent(inquiry.id)}`, { credentials: "same-origin", cache: "no-store", signal: controller.signal });
       const result = await response.json();
       if (!response.ok || !result?.inquiry) return false;
       setInquiry(result.inquiry as SupportInquiryDetail);
@@ -106,7 +119,7 @@ export function SupportConversation({ initialInquiry, canReply }: { initialInqui
     setPending(false);
   }
 
-  async function mutate(mutation: SupportMutation) {
+  async function mutate(mutation: SupportMutation | SupportInboundReviewMutation) {
     if (submitting.current || !canReply) return;
     submitting.current = true;
     setPending(true);
@@ -115,7 +128,8 @@ export function SupportConversation({ initialInquiry, canReply }: { initialInqui
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), 15_000);
     try {
-      const response = await fetch(`/api/admin/support/${encodeURIComponent(inquiry.id)}`, {
+      const incomingReview = "inboundId" in mutation;
+      const response = await request(`/api/admin/support/${encodeURIComponent(inquiry.id)}${incomingReview ? "/inbound" : ""}`, {
         method: "POST", credentials: "same-origin", cache: "no-store", signal: controller.signal,
         headers: { "Content-Type": "application/json" }, body: JSON.stringify(mutation),
       });
@@ -148,6 +162,11 @@ export function SupportConversation({ initialInquiry, canReply }: { initialInqui
       } else if (mutation.action === "add_note") {
         setNote("");
         setNotice("Internal note saved. It will not be emailed to the customer.");
+      } else if (incomingReview) {
+        setReviewRequired(true);
+        setNotice(mutation.action === "accept" ? "Incoming email added. Review the latest conversation and save your draft again before approving. Your edits have been kept."
+          : mutation.action === "retry" ? "Incoming email processing restarted. Your edits have been kept."
+            : "Incoming email dismissed. Your edits have been kept.");
       } else {
         setNotice(`${updated.status === "closed" ? "Inquiry closed" : "Inquiry reopened"}. Review and approve any revised reply before delivery.`);
       }
@@ -170,7 +189,7 @@ export function SupportConversation({ initialInquiry, canReply }: { initialInqui
   return (
     <section className={styles.panel} aria-labelledby="support-conversation-title">
       <div className={styles.actions}>
-        <Link href="/admin/support" className={styles.textButton}>Back to Support Inbox</Link>
+        {navigationEnabled ? <Link href="/admin/support" className={styles.textButton}>Back to Support Inbox</Link> : <span className={styles.muted}>Support Inbox preview</span>}
         <button className={styles.textButton} type="button" disabled={pending} onClick={() => void refresh()}>Refresh inquiry</button>
       </div>
       <header className={styles.header}>
@@ -186,6 +205,23 @@ export function SupportConversation({ initialInquiry, canReply }: { initialInqui
       {canReply ? <p id="support-status-effect" className={styles.muted}>Changing inquiry status invalidates a queued reply approval. If delivery may have started, review its outcome before approving another reply. Accepted messages remain in the conversation.</p> : null}
       {error ? <p role="alert" className={styles.error}>{error}</p> : null}
       {notice ? <p role="status" className={styles.notice}>{notice}</p> : null}
+      {incomingPending ? <p className={styles.notice}>Incoming messages or photos are still being checked or need review below. Reply approval is unavailable until they are resolved. Refresh the inquiry, review the latest context, and save your draft again before approving.</p> : null}
+      {inquiry.quarantinedInbound?.length ? <section className={styles.card} aria-labelledby="support-incoming-review-title">
+        <h2 id="support-incoming-review-title">Incoming email for review</h2>
+        <p className={styles.muted}>This content has not been added to the conversation. Email content does not verify the sender’s identity or authorize access to an Order. Adding a message keeps the reply recipient fixed as {inquiry.email}.</p>
+        <ul className={styles.conversation}>{inquiry.quarantinedInbound.map((incoming) => <li className={styles.card} key={incoming.id}>
+          <h3>{incoming.subject || "Incoming email"}</h3>
+          <p className={styles.meta}><InquiryTime value={incoming.receivedAt} /><span>{incoming.retryAllowed ? "Processing could not finish" : incoming.acceptAllowed ? "Conversation match needs review" : "Cannot be added safely"}</span></p>
+          <p>{incomingReviewReason(incoming.reason)}</p>
+          {!incoming.participantMatches ? <p>The sender does not match this conversation’s participant.</p> : null}
+          <p className={styles.messageBody}>{incoming.body || "Message content is not available."}</p>
+          {canReply ? <div className={styles.actions}>
+            {incoming.acceptAllowed ? <button type="button" className={styles.textButton} disabled={pending} onClick={() => void mutate({ action: "accept", inboundId: incoming.id, expectedRevision: inquiry.revision })}>Add to this conversation</button> : null}
+            {incoming.retryAllowed ? <button type="button" className={styles.textButton} disabled={pending} onClick={() => void mutate({ action: "retry", inboundId: incoming.id, expectedRevision: inquiry.revision })}>Retry incoming email</button> : null}
+            <button type="button" className={styles.textButton} disabled={pending} onClick={() => void mutate({ action: "dismiss", inboundId: incoming.id, expectedRevision: inquiry.revision })}>Dismiss incoming email</button>
+          </div> : null}
+        </li>)}</ul>
+      </section> : null}
       <section aria-labelledby="support-messages-title">
         <h2 id="support-messages-title" tabIndex={-1} ref={historyHeading}>Conversation</h2>
         {inquiry.nextMessageCursor ? <div className={styles.actions}><button type="button" className={styles.textButton} disabled={pending || paginationBlocked} onClick={() => void loadEarlier()}>Load earlier messages</button></div> : null}
@@ -195,6 +231,7 @@ export function SupportConversation({ initialInquiry, canReply }: { initialInqui
               <p className={styles.meta}><span>{message.kind === "note" ? "Internal note · visible only to support" : message.kind === "inbound" ? "Customer inquiry" : "Support reply"}</span><InquiryTime value={message.createdAt} /></p>
               {message.subject ? <h3>{message.subject}</h3> : null}
               <p className={styles.messageBody}>{message.body}</p>
+              {message.photos?.length ? <section className={styles.photos} aria-label="Private customer photos">{message.photos.map((photo, index) => <SupportPhotoViewer key={photo.id} inquiryId={inquiry.id} photo={photo} index={index + 1} request={request} />)}</section> : null}
               {message.delivery ? <p className={styles.meta}>{supportDeliveryLabel(message.delivery.deliveryStatus ?? message.delivery.state)}</p> : null}
             </li>
           ))}
@@ -216,6 +253,7 @@ export function SupportConversation({ initialInquiry, canReply }: { initialInqui
           <h3>Saved reply</h3>
           <p><strong>To:</strong> {draft.recipient}</p>
           <p><strong>Subject:</strong> {draft.subject}</p>
+          <p><strong>Attachments:</strong> None. Customer photos stay private in the conversation.</p>
           <p className={styles.messageBody}>{draft.body}</p>
           {draft.approved ? <p>Already approved. Check the reply’s delivery state in the conversation.</p> : null}
         </section> : null}

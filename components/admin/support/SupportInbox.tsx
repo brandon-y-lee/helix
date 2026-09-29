@@ -86,6 +86,7 @@ export function SupportInbox({
             <p className={styles.meta}>
               <span>{contactInquiryTypes.find((type) => type.value === inquiry.inquiryType)?.label ?? "Unclassified inquiry"}</span>
               <span className={styles.badge}>{inquiry.status === "open" ? "Open" : "Closed"}</span>
+              {(inquiry.pendingInbound ?? 0) > 0 ? <span className={styles.badge}>Incoming content needs review</span> : null}
               <span>{supportDeliveryLabel(inquiry.lastDeliveryState)}</span>
             </p>
             <p className={styles.meta}>

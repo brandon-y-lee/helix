@@ -14,6 +14,12 @@ const failures = {
   reply_reconciliation_required: [409, "An earlier reply needs delivery review before another reply can be queued."],
   same_origin_required: [403, "This request must originate from helix."],
   payload_too_large: [413, "The inquiry is too large. Please shorten your message."],
+  pending_support_context: [409, "Incoming content needs processing or review before a reply can be approved."],
+  invalid_photo_input: [400, "Check the photos and try again."],
+  upload_forbidden: [403, "This photo upload is unavailable."],
+  upload_expired: [410, "This photo upload has expired. Send a new inquiry if you still need to share it."],
+  photo_limit_exceeded: [400, "You can attach up to five photos to a message."],
+  photo_budget_exceeded: [413, "Photos must total 20 MiB or less per message."],
 } as const;
 export type SupportErrorCode = keyof typeof failures;
 

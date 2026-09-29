@@ -5,3 +5,6 @@
 .error { color: #8b2f26; line-height: 1.6; }
 .retry { min-height: 44px; width: fit-content; padding: 10px 14px; color: var(--ink); border: 1px solid var(--line); border-radius: 5px; background: var(--bg); font: inherit; cursor: pointer; }
 .retry:focus-visible, .notice h2:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
+.photos { display: grid; gap: 12px; padding: 0; list-style: none; }
+.photos li { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+.photoStatus { display: grid; gap: 14px; min-width: 0; }
