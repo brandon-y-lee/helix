@@ -1,8 +1,9 @@
 import { createHmac } from "node:crypto";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-const mocks = vi.hoisted(() => ({ record: vi.fn(), dispatch: vi.fn(), inbound: vi.fn(), rfc: vi.fn() }));
+const mocks = vi.hoisted(() => ({ record: vi.fn(), dispatch: vi.fn(), inbound: vi.fn(), rfc: vi.fn(), materialize: vi.fn() }));
 vi.mock("@/lib/email/storage", () => ({ recordEmailDeliveryEvent: mocks.record, emailDeliveryStorage: {} }));
 vi.mock("@/lib/email/delivery", () => ({ dispatchEmailIntents: mocks.dispatch }));
+vi.mock("@/lib/waitlist/storage", () => ({ materializeProductNotifications: mocks.materialize }));
 vi.mock("@/lib/support/inbound-storage", () => ({ inboundRpc: mocks.inbound, inboundStorage: { recordRfc: mocks.rfc } }));
 import { POST as receive } from "@/app/api/webhooks/resend/route";
 import { GET as dispatch } from "@/app/api/internal/email-dispatch/route";
@@ -18,6 +19,15 @@ function webhook(input: unknown = event, alter = false) {
   return new Request("https://helixskin.vercel.app/api/webhooks/resend", { method: "POST", body: body + (alter ? " " : ""),
     headers: { "svix-id": id, "svix-timestamp": timestamp, "svix-signature": `v1,${signature}` } });
 }
+function enabledDispatcher() {
+  vi.stubEnv("HELIX_EMAIL_DISPATCH_ENABLED", "true"); vi.stubEnv("RESEND_API_KEY", "re_synthetic");
+  vi.stubEnv("HELIX_EMAIL_SITE_ORIGIN", "https://helixskin.vercel.app");
+  vi.stubEnv("HELIX_EMAIL_REPLY_TO", "support@example.test"); vi.stubEnv("HELIX_EMAIL_OWNER_RECIPIENT", "owner@example.test");
+  vi.stubEnv("HELIX_EMAIL_PRODUCT_FROM", "Helix <onboarding@resend.dev>");
+}
+function dispatcherRequest(authorized = true) {
+  return new Request("https://helixskin.vercel.app/api/internal/email-dispatch", { headers: authorized ? { Authorization: `Bearer ${secret}` } : {} });
+}
 beforeEach(() => {
   vi.clearAllMocks();
   vi.stubEnv("HELIX_EMAIL_ENVIRONMENT", "sandbox"); vi.stubEnv("HELIX_EMAIL_MODE", "restricted");
@@ -25,6 +35,7 @@ beforeEach(() => {
   vi.stubEnv("HELIX_EMAIL_DISPATCH_ENABLED", "false"); vi.stubEnv("RESEND_API_KEY", "");
   mocks.record.mockResolvedValue(undefined); mocks.dispatch.mockResolvedValue({ claimed: 0 });
   mocks.inbound.mockResolvedValue({ status: "queued" }); mocks.rfc.mockResolvedValue(true);
+  mocks.materialize.mockResolvedValue(2);
 });
 
 it("durably queues signed incoming mail before acknowledgement without a sending key", async () => {
@@ -100,7 +111,54 @@ it("rejects a tampered raw body before storage", async () => {
 it("requires the scheduler secret before claiming any work", async () => {
   expect((await dispatch(new Request("https://helixskin.vercel.app/api/internal/email-dispatch"))).status).toBe(401);
   expect(mocks.dispatch).not.toHaveBeenCalled();
+  expect(mocks.materialize).not.toHaveBeenCalled();
   expect((await dispatch(new Request("https://helixskin.vercel.app/api/internal/email-dispatch", { headers: { Authorization: `Bearer ${secret}` } }))).status).toBe(200);
+});
+
+it("materializes a bounded batch before dispatching and returns only aggregate Product work", async () => {
+  enabledDispatcher();
+  const response = await dispatch(dispatcherRequest());
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({ ok: true, claimed: 0, productNotifications: { status: "complete", created: 2 } });
+  expect(mocks.materialize).toHaveBeenCalledExactlyOnceWith();
+  expect(mocks.materialize.mock.invocationCallOrder[0]).toBeLessThan(mocks.dispatch.mock.invocationCallOrder[0]);
+});
+
+it("leaves all email work untouched when dispatch is disabled or the caller is unauthenticated", async () => {
+  const disabled = await dispatch(dispatcherRequest());
+  expect(disabled.status).toBe(200);
+  expect(await disabled.json()).toEqual({ ok: true, claimed: 0, accepted: 0, deferred: 0, blocked: 0,
+    productNotifications: { status: "disabled", created: 0 } });
+  enabledDispatcher();
+  expect((await dispatch(dispatcherRequest(false))).status).toBe(401);
+  expect(mocks.materialize).not.toHaveBeenCalled();
+  expect(mocks.dispatch).not.toHaveBeenCalled();
+});
+
+it("continues ordinary dispatch if Product materialization is unavailable without exposing diagnostics", async () => {
+  enabledDispatcher();
+  mocks.materialize.mockRejectedValue(new Error("Private address recipient@example.test and private token"));
+  mocks.dispatch.mockResolvedValue({ claimed: 1, accepted: 1, deferred: 0, blocked: 0 });
+  const response = await dispatch(dispatcherRequest());
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({ ok: true, claimed: 1, accepted: 1, deferred: 0, blocked: 0,
+    productNotifications: { status: "unavailable", created: 0 } });
+  expect(mocks.dispatch).toHaveBeenCalledOnce();
+});
+
+it("checks shared configuration before materialization but permits other delivery when only the Product sender is missing", async () => {
+  enabledDispatcher();
+  vi.stubEnv("RESEND_API_KEY", "");
+  expect((await dispatch(dispatcherRequest())).status).toBe(503);
+  expect(mocks.materialize).not.toHaveBeenCalled();
+  expect(mocks.dispatch).not.toHaveBeenCalled();
+  vi.stubEnv("RESEND_API_KEY", "re_synthetic");
+  vi.stubEnv("HELIX_EMAIL_PRODUCT_FROM", "");
+  const response = await dispatch(dispatcherRequest());
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({ productNotifications: { status: "unavailable", created: 0 } });
+  expect(mocks.materialize).not.toHaveBeenCalled();
+  expect(mocks.dispatch).toHaveBeenCalledOnce();
 });
 it("ignores signed messages from another environment or without local correlation", async () => {
   const other = { ...event, data: { ...event.data, tags: { ...event.data.tags, helix_environment: "production" } } };

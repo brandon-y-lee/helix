@@ -183,8 +183,9 @@ export function ProductNotifications({
         </p>
         {submission.kind === "success" && (
           <p className={styles.note}>
-            For additional Product requests, request links again after one
-            minute.
+            Each email includes up to 20 requests. Wait at least one minute before
+            requesting more links. Requests are limited to three per address per
+            hour.
           </p>
         )}
       </form>

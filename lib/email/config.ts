@@ -34,11 +34,12 @@ export function readEmailConfig(env: EmailEnvironment) {
 }
 
 /** Validate a purpose's sender only when preparing a new message of that purpose. */
-export function readEmailSender(purpose: "order_confirmation" | "order_tracking" | "support_acknowledgement" | "support_reply", env: EmailEnvironment): string {
+export function readEmailSender(purpose: "order_confirmation" | "order_tracking" | "support_acknowledgement" | "support_reply" | "product_availability" | "product_waitlist_recovery", env: EmailEnvironment): string {
   let key: string;
   switch (purpose) {
     case "order_confirmation": case "order_tracking": key = "HELIX_EMAIL_ORDER_FROM"; break;
     case "support_acknowledgement": case "support_reply": key = "HELIX_EMAIL_SUPPORT_FROM"; break;
+    case "product_availability": case "product_waitlist_recovery": key = "HELIX_EMAIL_PRODUCT_FROM"; break;
     default: throw new EmailConfigurationError("unsupported_email_purpose");
   }
   const from = value(env, key);

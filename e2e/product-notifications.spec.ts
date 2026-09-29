@@ -195,7 +195,7 @@ for (const viewport of [
     await expect(panel.getByRole("status")).toBeFocused();
     expect(submissions).toHaveLength(2);
     expect(submissions[1].body).toEqual(submissions[0].body);
-    await expect(panel).toContainText("request links again after one minute");
+    await expect(panel).toContainText("Each email includes up to 20 requests. Wait at least one minute before requesting more links. Requests are limited to three per address per hour.");
     await expectFits(page, viewport.width);
   });
 

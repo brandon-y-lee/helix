@@ -40,6 +40,9 @@ describe("Product notification management", () => {
       "If this address is eligible, check your inbox for private cancellation links.",
     );
     expect(screen.getByRole("status")).toHaveFocus();
+    expect(screen.getByText(/Each email includes up to 20 requests/)).toHaveTextContent(
+      "Each email includes up to 20 requests. Wait at least one minute before requesting more links. Requests are limited to three per address per hour.",
+    );
     expect(
       screen.queryByRole("link", { name: /cancel/i }),
     ).not.toBeInTheDocument();

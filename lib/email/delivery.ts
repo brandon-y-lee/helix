@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { renderOrderConfirmation } from "@/lib/email/order-confirmation";
 import { renderOrderTracking } from "@/lib/email/order-tracking";
 import { renderSupportEmail } from "@/lib/support/email";
+import { renderProductNotification } from "@/lib/waitlist/templates";
 import { isMarketingPurpose, parseMarketingReceipt, type MarketingPurpose } from "@/lib/marketing/contract";
 import { renderMarketingMessage } from "@/lib/marketing/templates";
 import { MarketingProviderError, resendMarketingContacts } from "@/lib/marketing/provider";
@@ -24,6 +25,7 @@ async function renderEmailContent(intent: Exclude<EmailIntent, MarketingIntent>,
     case "order_confirmation": return renderOrderConfirmation(intent.receipt, config);
     case "order_tracking": return renderOrderTracking(intent.receipt, config);
     case "support_acknowledgement": case "support_reply": return renderSupportEmail(intent.purpose, intent.receipt);
+    case "product_availability": case "product_waitlist_recovery": return renderProductNotification(intent.purpose, intent.receipt, config);
   }
 }
 

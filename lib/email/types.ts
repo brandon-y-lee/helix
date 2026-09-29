@@ -2,6 +2,7 @@ import type { OrderConfirmationReceipt } from "@/lib/email/order-confirmation";
 import type { OrderTrackingReceipt } from "@/lib/email/order-tracking";
 import type { SupportAcknowledgementReceipt, SupportReplyReceipt } from "@/lib/support/email";
 import type { MarketingPurpose, MarketingReceipt } from "@/lib/marketing/contract";
+import type { ProductAvailabilityReceipt, ProductRecoveryReceipt } from "@/lib/waitlist/templates";
 
 export type EmailRequest = {
   from: string;
@@ -30,6 +31,8 @@ export type EmailIntent = {
   | { purpose: "support_acknowledgement"; receipt: SupportAcknowledgementReceipt }
   | { purpose: "support_reply"; receipt: SupportReplyReceipt }
   | { purpose: MarketingPurpose; receipt: MarketingReceipt }
+  | { purpose: "product_availability"; receipt: ProductAvailabilityReceipt }
+  | { purpose: "product_waitlist_recovery"; receipt: ProductRecoveryReceipt }
 );
 
 export type EmailAttemptOutcome =
