@@ -33,8 +33,8 @@ const identity = {
 };
 
 describe("Sandbox Order confirmation email", () => {
-  it("renders the fixed receipt and unmistakable demo disclosure in accessible HTML and plain text", () => {
-    const message = renderOrderConfirmation(receipt, identity);
+  it("renders the fixed receipt and unmistakable demo disclosure in accessible HTML and plain text", async () => {
+    const message = await renderOrderConfirmation(receipt, identity);
     const document = new DOMParser().parseFromString(message.html, "text/html");
 
     expect(message.subject).toBe("[DEMO] helix order HX-20260928-0042 confirmed");
@@ -71,7 +71,7 @@ describe("Sandbox Order confirmation email", () => {
     expect(message.text).not.toMatch(/session_id|receipt_token|\/account\/orders|\/checkout\/success/);
   });
 
-  it("rejects unsafe or oversized receipt content without truncating accepted order facts", () => {
+  it("rejects unsafe or oversized receipt content without truncating accepted order facts", async () => {
     const invalidReceipts: OrderConfirmationReceipt[] = [
       { ...receipt, orderNumber: "HX-0042\r\nBcc: other@example.test" },
       { ...receipt, items: [] },
@@ -85,29 +85,29 @@ describe("Sandbox Order confirmation email", () => {
     ];
 
     for (const invalidReceipt of invalidReceipts) {
-      expect(() => renderOrderConfirmation(invalidReceipt, identity))
-        .toThrow("Invalid order confirmation receipt.");
+      await expect(renderOrderConfirmation(invalidReceipt, identity))
+        .rejects.toThrow("Invalid order confirmation receipt.");
     }
   });
 
-  it("uses only safe configured contact URLs and escapes customer and product text", () => {
+  it("uses only safe configured contact URLs and escapes customer and product text", async () => {
     for (const siteOrigin of [
       "javascript:alert(1)",
       "https://user:password@example.test",
       "https://example.test/checkout?token=private",
       "http://example.test",
     ]) {
-      expect(() => renderOrderConfirmation(receipt, { ...identity, siteOrigin }))
-        .toThrow("Invalid order confirmation identity.");
+      await expect(renderOrderConfirmation(receipt, { ...identity, siteOrigin }))
+        .rejects.toThrow("Invalid order confirmation identity.");
     }
-    expect(() => renderOrderConfirmation(receipt, {
+    await expect(renderOrderConfirmation(receipt, {
       ...identity,
       replyTo: "support@example.test\r\nBcc: other@example.test",
-    })).toThrow("Invalid order confirmation identity.");
+    })).rejects.toThrow("Invalid order confirmation identity.");
 
     const productName = "<img src=x onerror=alert(1)> & Serum";
     const customerName = "<script>alert(1)</script>";
-    const message = renderOrderConfirmation({
+    const message = await renderOrderConfirmation({
       ...receipt,
       shippingName: customerName,
       items: [{ ...receipt.items[0], name: productName }],
@@ -125,11 +125,11 @@ describe("Sandbox Order confirmation email", () => {
     expect(message.html).not.toContain(identity.siteOrigin);
   });
 
-  it("renders all 100 admitted Checkout lines without dropping receipt facts", () => {
+  it("renders all 100 admitted Checkout lines without dropping receipt facts", async () => {
     const items = Array.from({ length: 100 }, (_, index) => ({
       name: `Checkout product ${index + 1}`, quantity: 1, unitPriceCents: 2500, lineSubtotalCents: 2500,
     }));
-    const message = renderOrderConfirmation({
+    const message = await renderOrderConfirmation({
       ...receipt, items, merchandiseSubtotalCents: 250000, discountCents: 0,
       shippingCents: 0, taxCents: 0, totalCents: 250000,
     }, identity);
@@ -144,8 +144,8 @@ describe("Sandbox Order confirmation email", () => {
     expect(new TextEncoder().encode(message.html).byteLength).toBeLessThan(102_000);
   });
 
-  it("accepts a verified address without a second line and keeps the 50-line escaped-text fixture below clipping limits", () => {
-    const message = renderOrderConfirmation({
+  it("accepts a verified address without a second line and keeps the 50-line escaped-text fixture below clipping limits", async () => {
+    const message = await renderOrderConfirmation({
       ...receipt,
       items: Array.from({ length: 50 }, () => ({ ...receipt.items[0], name: '"'.repeat(200) })),
       shippingName: '"'.repeat(200),

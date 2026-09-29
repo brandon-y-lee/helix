@@ -31,7 +31,7 @@ export async function dispatchEmailIntents({ storage, send, env }: EmailDelivery
     try {
       payload = intent.requestPayload ?? {
         from: config.from, to: [intent.recipient], reply_to: config.replyTo,
-        ...renderOrderConfirmation(intent.receipt, config),
+        ...await renderOrderConfirmation(intent.receipt, config),
         tags: [{ name: "helix_environment", value: "sandbox" }, { name: "helix_message_id", value: intent.id }],
       };
     } catch {

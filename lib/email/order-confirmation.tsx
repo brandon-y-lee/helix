@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-head-element -- This document is an email, not a Next.js page. */
 import "server-only";
 import type { CSSProperties } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
+import { render } from "@react-email/render";
 
 export type OrderConfirmationReceipt = {
   orderNumber: string;
@@ -78,10 +78,10 @@ function contactUrlFor(identity: EmailIdentity): string {
   }
 }
 
-export function renderOrderConfirmation(
+export async function renderOrderConfirmation(
   receipt: OrderConfirmationReceipt,
   identity: EmailIdentity,
-): { subject: string; html: string; text: string } {
+): Promise<{ subject: string; html: string; text: string }> {
   assertReceipt(receipt);
   const money = (cents: number) => new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -104,7 +104,7 @@ export function renderOrderConfirmation(
     ["Demo order total", money(receipt.totalCents)],
   ];
 
-  const html = "<!DOCTYPE html>" + renderToStaticMarkup(
+  const html = await render(
     <html lang="en" dir="ltr">
       <head>
         <meta charSet="utf-8" />

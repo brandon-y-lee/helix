@@ -44,6 +44,7 @@
     "stripe:sandbox:verify": "tsx scripts/stripe-sync-sandbox.ts verify"
   },
   "dependencies": {
+    "@react-email/render": "2.1.0",
     "@stripe/react-stripe-js": "^6.8.0",
     "@stripe/stripe-js": "^9.12.0",
     "@supabase/ssr": "^0.12.0",
