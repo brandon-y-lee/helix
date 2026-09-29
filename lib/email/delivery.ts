@@ -2,14 +2,23 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { renderOrderConfirmation } from "@/lib/email/order-confirmation";
 import { renderOrderTracking } from "@/lib/email/order-tracking";
+import { renderSupportEmail } from "@/lib/support/email";
 import { emailRecipientAllowed, EmailConfigurationError, readEmailConfig, readEmailSender, type EmailEnvironment } from "@/lib/email/config";
-import type { EmailAttemptOutcome, EmailDeliveryStorage, EmailRequest } from "@/lib/email/types";
+import type { EmailAttemptOutcome, EmailDeliveryStorage, EmailIntent, EmailRequest } from "@/lib/email/types";
 
 export type EmailDeliveryDependencies = {
   storage: EmailDeliveryStorage;
   send(payload: EmailRequest, idempotencyKey: string, apiKey: string): Promise<EmailAttemptOutcome>;
   env: EmailEnvironment;
 };
+
+async function renderEmailContent(intent: EmailIntent, config: ReturnType<typeof readEmailConfig>) {
+  switch (intent.purpose) {
+    case "order_confirmation": return renderOrderConfirmation(intent.receipt, config);
+    case "order_tracking": return renderOrderTracking(intent.receipt, config);
+    case "support_acknowledgement": case "support_reply": return renderSupportEmail(intent.purpose, intent.receipt);
+  }
+}
 
 export async function dispatchEmailIntents({ storage, send, env }: EmailDeliveryDependencies) {
   const result = { claimed: 0, accepted: 0, deferred: 0, blocked: 0 };
@@ -32,7 +41,7 @@ export async function dispatchEmailIntents({ storage, send, env }: EmailDelivery
     try {
       payload = intent.requestPayload ?? {
         from: readEmailSender(intent.purpose, env), to: [intent.recipient], reply_to: config.replyTo,
-        ...await (intent.purpose === "order_confirmation" ? renderOrderConfirmation(intent.receipt, config) : renderOrderTracking(intent.receipt, config)),
+        ...await renderEmailContent(intent, config),
         tags: [{ name: "helix_environment", value: "sandbox" }, { name: "helix_message_id", value: intent.id }],
       };
     } catch (error) {

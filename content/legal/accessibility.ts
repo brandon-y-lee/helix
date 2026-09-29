@@ -7,7 +7,7 @@ export const accessibilityStatement: LegalDocument = {
   description:
     "The helix Accessibility Commitment, implemented practices, known limitations, and feedback status.",
   canonical: "/accessibility",
-  status: "Updated August 19, 2026",
+  status: "Updated September 28, 2026",
   intro:
     "The helix Accessibility Commitment is to provide a usable Public Site experience for Visitors using keyboard, screen-reader, magnification, touch, and pointer input.",
   sections: [
@@ -45,7 +45,7 @@ export const accessibilityStatement: LegalDocument = {
       title: "Feedback",
       body: [
         "Use the Contact page and choose Accessibility feedback to prepare page, device, browser, assistive technology, and task details.",
-        `${supportPolicy.contactStatus} The Contact page therefore cannot submit or store Accessibility Feedback.`,
+        `${supportPolicy.contactStatus} When the form is available, choose Accessibility feedback and submit your message. Only a confirmed acceptance means the feedback was received.`,
       ],
     },
     {

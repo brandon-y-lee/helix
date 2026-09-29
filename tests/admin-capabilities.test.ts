@@ -30,6 +30,8 @@ describe("admin capability enforcement", () => {
       "catalog.publish",
       "catalog.delivery",
       "orders.simulate",
+      "support.read",
+      "support.reply",
     ]);
   });
 

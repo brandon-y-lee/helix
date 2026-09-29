@@ -79,6 +79,7 @@ describe("admin module registry", () => {
     ).toEqual([
       { label: "Catalog Editor", route: "/admin/catalog" },
       { label: "Demo orders", route: "/admin/demo-orders" },
+      { label: "Support Inbox", route: "/admin/support" },
     ]);
     expect(
       getAdminModules(capabilitiesForRole("catalog_publisher")).map(

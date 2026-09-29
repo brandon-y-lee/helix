@@ -1,5 +1,3 @@
-import { supportPolicy } from "@/content/support/policy";
-
 export type ContactInquiryType = {
   value: string;
   label: string;
@@ -78,9 +76,3 @@ export const contactPreparationGroups: ContactPreparationGroup[] = [
     ],
   },
 ];
-
-export const contactIntakeStatus = {
-  configured: supportPolicy.contactIntakeConfigured,
-  heading: "SUPPORT INTAKE UNAVAILABLE",
-  message: `${supportPolicy.contactStatus} This page only prepares inquiry details; it cannot submit a Support Inquiry.`,
-};

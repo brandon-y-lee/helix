@@ -1,5 +1,6 @@
 import type { OrderConfirmationReceipt } from "@/lib/email/order-confirmation";
 import type { OrderTrackingReceipt } from "@/lib/email/order-tracking";
+import type { SupportAcknowledgementReceipt, SupportReplyReceipt } from "@/lib/support/email";
 
 export type EmailRequest = {
   from: string;
@@ -23,6 +24,8 @@ export type EmailIntent = {
 } & (
   | { purpose: "order_confirmation"; receipt: OrderConfirmationReceipt }
   | { purpose: "order_tracking"; receipt: OrderTrackingReceipt }
+  | { purpose: "support_acknowledgement"; receipt: SupportAcknowledgementReceipt }
+  | { purpose: "support_reply"; receipt: SupportReplyReceipt }
 );
 
 export type EmailAttemptOutcome =

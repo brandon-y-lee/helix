@@ -11,6 +11,8 @@ export const ADMIN_CAPABILITIES = {
   catalogPublish: "catalog.publish",
   catalogDelivery: "catalog.delivery",
   ordersSimulate: "orders.simulate",
+  supportRead: "support.read",
+  supportReply: "support.reply",
 } as const;
 
 export type AdminCapability =
