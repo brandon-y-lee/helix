@@ -487,3 +487,41 @@ select support_retention_test.assert((select revision=3 from private.support_inq
     and receipt->>'inquiryId'=support_retention_test.id('inquiry',180)::text),
   'a retention hold change invalidates the earlier approval and blocks its queued reply');
 rollback;
+
+-- Retention cannot widen the deletion scope of a cleanup lease already handed to a worker.
+begin;
+select support_retention_test.seed(190);
+insert into private.support_intake_submissions(abuse_key,submission_id,payload_hash,inquiry_id)
+  values(repeat('6',64),support_retention_test.id('submission',190),repeat('7',64),support_retention_test.id('inquiry',190));
+insert into private.support_upload_batches(submission_id,inquiry_id,message_id,capability_hash,source_hash,email_hash,manifest,created_at)
+  values(support_retention_test.id('submission',190),support_retention_test.id('inquiry',190),support_retention_test.id('message',190),
+    repeat('8',64),repeat('9',64),repeat('a',64),jsonb_build_array(jsonb_build_object('uploadId',support_retention_test.id('upload',190),
+      'contentType','image/png','byteSize',1024)),clock_timestamp()-interval '13 months');
+update private.support_photos set state='ready',upload_completed=true,charged_bytes=1024,clean_bytes=512,width=32,height=32,
+  last_processing_until=clock_timestamp()-interval '10 minutes',upload_expires_at=clock_timestamp()-interval '1 day'
+  where inquiry_id=support_retention_test.id('inquiry',190);
+update private.support_inquiries set status='closed',closed_at=clock_timestamp()-interval '13 months'
+  where id=support_retention_test.id('inquiry',190);
+set local role service_role;
+do $$ declare work jsonb; photo uuid; begin
+  work:=public.claim_support_photo_cleanup(support_retention_test.id('cleanup',190),5);
+  photo:=(work#>>'{0,id}')::uuid;
+  perform support_retention_test.assert(jsonb_array_length(work)=1 and work#>>'{0,rawPath}' is not null
+    and work#>>'{0,cleanPath}' is null,'the first worker leases only raw deletion before retention runs');
+  perform public.run_support_retention(20);
+  perform support_retention_test.assert(public.get_support_photo(support_retention_test.actor(),support_retention_test.id('inquiry',190),photo) is null,
+    'retiring the Inquiry revokes photo access immediately while the raw-only cleanup lease is active');
+  perform support_retention_test.assert(public.finish_support_photo_cleanup(photo,support_retention_test.id('cleanup',190),'done'),
+    'the original worker acknowledges its raw-only deletion');
+  perform support_retention_test.assert((select raw_deleted_at is not null and clean_deleted_at is null
+    from private.support_photos where id=photo),'a raw-only cleanup acknowledgement cannot claim normalized photo deletion');
+  perform public.run_support_retention(20);
+  work:=public.claim_support_photo_cleanup(support_retention_test.id('cleanup',191),5);
+  perform support_retention_test.assert(jsonb_array_length(work)=1 and work#>>'{0,id}'=photo::text
+    and work#>>'{0,cleanPath}' is not null,'retention schedules normalized deletion immediately after the prior lease finishes');
+  perform support_retention_test.assert(public.finish_support_photo_cleanup(photo,support_retention_test.id('cleanup',191),'done'),
+    'the worker leased the normalized path can acknowledge its deletion');
+  perform support_retention_test.assert((select clean_deleted_at is not null from private.support_photos where id=photo),
+    'normalized deletion is complete only after its own worker acknowledgement');
+end $$;
+rollback;
