@@ -1,0 +1,36 @@
+model = "gpt-6-sol"
+model_provider = "openai"
+forced_login_method = "chatgpt"
+cli_auth_credentials_store = "file"
+approval_policy = "never"
+sandbox_mode = "read-only"
+web_search = "disabled"
+[features]
+shell_tool = false
+unified_exec = false
+multi_agent = false
+hooks = false
+plugins = false
+apps = false
+image_generation = false
+memories = false
+view_image = false
+code_mode_host = false
+browser_use = false
+browser_use_external = false
+computer_use = false
+remote_plugin = false
+goals = false
+skill_search = false
+sleep_tool = false
+tool_suggest = false
+shell_snapshot = false
+workspace_dependencies = false
+daemon_auto_start = false
+unbounded_connection_retries = false
+[apps._default]
+enabled = false
+[history]
+persistence = "none"
+[analytics]
+enabled = false
