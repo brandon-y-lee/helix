@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useCartMutations } from "@/components/cart/useCart";
 import { cartErrorMessage } from "@/lib/cart/client";
-import { SANDBOX_CHECKOUT_NOTICE } from "@/lib/checkout/config";
 import { formatPrice } from "@/lib/products";
 
 type RewardTierSummary = {
@@ -145,8 +144,7 @@ export function CheckoutPanel({
           </>
         ) : (
           <p className="checkout-panel__hint">
-            An account is required to earn and redeem Points. Guest sandbox
-            checkout is still available.
+            An account is required to earn and redeem Points.
             {" "}
             <Link href="/account/sign-in?next=%2Fcart">Sign in</Link>
           </p>
@@ -157,12 +155,11 @@ export function CheckoutPanel({
         <p className="form-status form-status--error" role="status">
           {cartErrorMessage(
             checkoutError,
-            "Sandbox checkout is temporarily unavailable.",
+            "Checkout is temporarily unavailable.",
           )}
         </p>
       )}
 
-      <p className="checkout-panel__notice">{SANDBOX_CHECKOUT_NOTICE}</p>
       <button
         type="button"
         className="btn btn--editorial-rounded"
@@ -170,8 +167,9 @@ export function CheckoutPanel({
         aria-busy={pending || undefined}
         onClick={() => void startCheckout()}
       >
-        {pending ? "Opening sandbox checkout" : `Sandbox checkout ${formatPrice(subtotal)}`}
+        {pending ? "Opening checkout" : `Checkout ${formatPrice(subtotal)}`}
       </button>
+      <span className="checkout-panel__sandbox">Sandbox</span>
     </div>
   );
 }

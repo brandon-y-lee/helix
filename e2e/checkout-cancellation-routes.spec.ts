@@ -45,7 +45,7 @@ test("the Cart return refreshes Points only after verified cancellation", async 
   await expect(page.getByText("Sandbox checkout was cancelled.")).toHaveCount(0);
   const pointsBalance = page.locator("#content .summary-row").filter({ hasText: "Available Points Balance" });
   await expect(pointsBalance).toHaveText("Available Points Balance0");
-  await expect(page.getByRole("button", { name: `Sandbox checkout ${formatPrice(cart.subtotal)}` })).toBeEnabled();
+  await expect(page.getByRole("button", { name: `Checkout ${formatPrice(cart.subtotal)}` })).toBeEnabled();
 
   for (const message of ["We couldn't cancel checkout. Try again in a moment.", "This payment is still processing. Try again shortly."]) {
     await cancelButton.click();
@@ -61,7 +61,7 @@ test("the Cart return refreshes Points only after verified cancellation", async 
   await expect(cancelButton).toBeDisabled();
   await expect(pointsBalance).toHaveText(`Available Points Balance${tier.points}`);
   await expect(page.getByRole("radio", { name: `${tier.label} (${tier.points} Points)` })).toBeVisible();
-  await expect(page.getByRole("button", { name: `Sandbox checkout ${formatPrice(cart.subtotal)}` })).toBeEnabled();
+  await expect(page.getByRole("button", { name: `Checkout ${formatPrice(cart.subtotal)}` })).toBeEnabled();
   await expect(page.getByRole("status").filter({ hasText: "Sandbox checkout was cancelled." })).toBeVisible();
   expect(cancellationRequests).toEqual(["POST", "POST", "POST"]);
   await expect(page).toHaveTitle("Cart | helix");

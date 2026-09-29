@@ -5,7 +5,7 @@ import { CheckoutPanel } from "@/components/cart/CheckoutPanel";
 import { useCart, useCartMutations } from "@/components/cart/useCart";
 import { ProductImage } from "@/components/product/ProductImage";
 import {
-  formatFreeShippingThreshold,
+  FREE_STANDARD_SHIPPING_THRESHOLD_CENTS,
   qualifiesForFreeStandardShipping,
   remainingForFreeStandardShipping,
 } from "@/content/support/policy";
@@ -236,25 +236,25 @@ export function CartView({
         className={isDrawer ? "cart-summary cart-summary--drawer" : "cart-summary"}
         aria-label="Order summary"
       >
-        <h2>Summary</h2>
+        <div className="cart-shipping">
+          <progress
+            className="cart-shipping__progress"
+            aria-label="Free standard shipping progress"
+            aria-valuetext={`${formatPrice(subtotal)} of ${formatPrice(FREE_STANDARD_SHIPPING_THRESHOLD_CENTS)} merchandise subtotal before discounts`}
+            max={FREE_STANDARD_SHIPPING_THRESHOLD_CENTS}
+            value={Math.max(0, FREE_STANDARD_SHIPPING_THRESHOLD_CENTS - freeShippingRemaining)}
+          />
+          <p className="cart-shipping__message" role="status">
+            {freeShippingQualified
+              ? <>FREE shipping threshold reached</>
+              : <>Add <strong>{formatPrice(freeShippingRemaining)}</strong> more for <strong>FREE shipping</strong></>}
+          </p>
+        </div>
         <div className="summary-row">
-          <span>Subtotal ({count} items)</span>
+          <span>Subtotal</span>
           <span>{formatPrice(subtotal)}</span>
         </div>
-        <div className="summary-row">
-          <span>Standard shipping</span>
-          <span>
-            {freeShippingQualified
-              ? "Free threshold met"
-            : `Free at ${formatFreeShippingThreshold()}`}
-          </span>
-        </div>
         {isDrawer ? <div className="cart-summary__action">{checkout}</div> : checkout}
-        <p className="cart-summary__note">
-          {freeShippingQualified
-            ? "Your cart meets the free standard shipping threshold."
-            : `${formatPrice(freeShippingRemaining)} away from the free standard shipping threshold.`}
-        </p>
       </aside>
     </div>
   );

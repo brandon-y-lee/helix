@@ -139,7 +139,7 @@ test("phone cart keeps populated items, update recovery and checkout reachable a
     await expect(items.getByRole("list", { name: "Cart items" }).getByRole("listitem")).toHaveCount(6);
     await expect(trigger).toHaveAccessibleName("CART (12), 12 items");
     const summary = drawer.getByRole("complementary", { name: "Order summary" });
-    const checkout = summary.getByRole("button", { name: `Sandbox checkout ${formatPrice(cart.subtotal)}` });
+    const checkout = summary.getByRole("button", { name: `Checkout ${formatPrice(cart.subtotal)}` });
     await expect(checkout).toBeEnabled();
     await expect(summary.getByRole("link", { name: "Sign in", exact: true })).toBeVisible();
 
