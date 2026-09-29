@@ -1,3 +1,5 @@
+import type { SimulatedTrackingView } from "@/lib/tracking/types";
+
 export type OrderConfirmationState =
   | "pending"
   | "paid"
@@ -13,6 +15,8 @@ export type OrderConfirmationDisplay = {
   verificationIssue?: "refund_reconciliation" | null;
   notice: string;
   retryAfterSeconds: number;
+  tracking?: SimulatedTrackingView | null;
+  trackingUnavailable?: boolean;
   order: {
     order_number: string;
     status: string;

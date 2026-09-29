@@ -19,10 +19,10 @@ import {
   logSupabaseUnavailable,
 } from "@/lib/supabase/network";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { resolvePublicSiteOrigin } from "@/lib/site-url";
+import { accountEmailOrigin } from "@/lib/auth/email-confirmation";
 
 function originFromHeaders(headersList: Headers): string {
-  return resolvePublicSiteOrigin({ requestOrigin: headersList.get("origin") });
+  return accountEmailOrigin(headersList.get("origin"));
 }
 
 async function unavailableAuthState(
@@ -144,21 +144,18 @@ export async function forgotPasswordAction(
 
   const headersList = await headers();
   const redirectTo = `${originFromHeaders(headersList)}/auth/callback?next=${encodeURIComponent("/account/reset-password")}`;
-  const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo,
-  });
-  if (error) {
-    const unavailable = await unavailableAuthState(
-      error,
-      "auth.resetPasswordForEmail",
-    );
-    if (unavailable) return unavailable;
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+    // Address-dependent delivery errors must not reveal whether an Account exists.
+    if (error) console.warn("[account-email] recovery_request_unavailable");
+  } catch {
+    console.warn("[account-email] recovery_request_unavailable");
   }
 
   return {
     status: "success",
-    message: "If an account exists for that email, password reset instructions will arrive shortly.",
+    message: "If an account exists for that email, check your inbox for a password reset link. Delivery may be delayed or unavailable. Wait a minute before requesting another link.",
   };
 }
 

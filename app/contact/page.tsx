@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { ContactForm } from "@/components/support/ContactForm";
 import {
   contactInquiryTypes,
-  contactIntakeStatus,
   contactPreparationGroups,
 } from "@/content/support/contact";
 import { createPublicSiteMetadata } from "@/lib/public-site-metadata";
@@ -22,29 +22,19 @@ export default function ContactPage() {
           <p className="eyebrow">Support</p>
           <h1>CONTACT</h1>
           <p>
-            Prepare Product, Routine, Account, Cart, Accessibility Feedback,
-            Privacy Request, and partnership questions while Support Intake is
-            unavailable.
+            Product, routine, account, accessibility, privacy, and partnership
+            questions. Check the current intake status below to get in touch.
           </p>
         </div>
         <aside>
-          <p className="eyebrow">{contactIntakeStatus.heading}</p>
-          <p>{contactIntakeStatus.message}</p>
+          <p className="eyebrow">HERE TO HELP</p>
+          <p>Find product guidance and current service policies in our frequently asked questions.</p>
           <Link href="/faq">Read FAQ</Link>
         </aside>
       </header>
 
       <section className="contact-status" aria-label="Current contact status">
-        <h2>Current status</h2>
-        <p>
-          The site does not include a message form, email submission, or ticket
-          creation until a verified support destination is published.
-        </p>
-        <p>
-          For now, use the categories below to identify what information should
-          be ready for product, account, accessibility, privacy, wholesale, or
-          partnership questions.
-        </p>
+        <ContactForm />
       </section>
 
       <section className="contact-layout" aria-label="Contact routing">

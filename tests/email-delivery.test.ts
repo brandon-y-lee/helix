@@ -18,7 +18,7 @@ const env = {
   HELIX_EMAIL_ALLOW_SIMULATORS: "true", RESEND_API_KEY: "re_synthetic_test",
 };
 function setup(overrides: Partial<EmailIntent> = {}) {
-  const row = { ...intent, ...overrides };
+  const row = { ...intent, ...overrides } as EmailIntent;
   const storage = {
     claim: vi.fn().mockResolvedValue([row]),
     prepare: vi.fn().mockImplementation(async (_id, _lease, payload) => ({ ...row, requestPayload: row.requestPayload ?? payload, firstAttemptAt: row.firstAttemptAt ?? new Date().toISOString() })),
@@ -79,10 +79,35 @@ it("pauses dispatch without requiring or touching provider credentials", async (
   expect(storage.claim).not.toHaveBeenCalled();
   expect(send).not.toHaveBeenCalled();
 });
-it.each(["Helix <onboarding@resend.dev", "onboarding@resend.dev>"])("fails closed on malformed sender identity %s", async (from) => {
+it.each(["Helix <onboarding@resend.dev", "onboarding@resend.dev>"])("blocks only the affected intent for malformed sender identity %s", async (from) => {
   const { dependencies, storage, send } = setup();
   dependencies.env = { ...env, HELIX_EMAIL_ORDER_FROM: from };
-  await expect(dispatchEmailIntents(dependencies)).rejects.toThrow("configuration");
-  expect(storage.claim).not.toHaveBeenCalled();
+  expect(await dispatchEmailIntents(dependencies)).toMatchObject({ claimed: 1, blocked: 1 });
+  expect(storage.finish).toHaveBeenCalledWith(intent.id, intent.leaseToken, { kind: "blocked", code: "invalid_email_identity" });
   expect(send).not.toHaveBeenCalled();
+});
+
+it("delivers a simulated tracking event through the same stable private message path", async () => {
+  const { dependencies, storage, send } = setup({ purpose: "order_tracking", receipt: {
+    orderNumber: "HX-DEMO-1", shipmentNumber: 2, status: "dispatched", occurredAt: "2026-09-28T12:00:00Z",
+    items: [{ name: "Cleanser", variantLabel: "100 ml", quantity: 1 }],
+  } });
+  expect(await dispatchEmailIntents(dependencies)).toMatchObject({ accepted: 1 });
+  expect(send.mock.calls[0][0].subject).toMatch(/DEMO.*HX-DEMO-1/);
+  expect(send.mock.calls[0][0].text).toContain("All carrier events are simulated.");
+  expect(send.mock.calls[0][0].text).not.toContain("123 Synthetic St");
+  storage.prepare.mockResolvedValue(null);
+  send.mockClear();
+  expect(await dispatchEmailIntents(dependencies)).toMatchObject({ accepted: 0, deferred: 1 });
+  expect(send).not.toHaveBeenCalled();
+});
+
+it("does not require a current sender to retry an already frozen request", async () => {
+  const initial = setup();
+  await dispatchEmailIntents(initial.dependencies);
+  const frozen = initial.send.mock.calls[0][0];
+  const retry = setup({ requestPayload: frozen, firstAttemptAt: new Date().toISOString(), attemptCount: 1 });
+  retry.dependencies.env = { ...env, HELIX_EMAIL_ORDER_FROM: "" };
+  await dispatchEmailIntents(retry.dependencies);
+  expect(retry.send).toHaveBeenCalledWith(frozen, intent.idempotencyKey, "re_synthetic_test");
 });

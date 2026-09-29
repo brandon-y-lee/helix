@@ -10,6 +10,9 @@ export const ADMIN_CAPABILITIES = {
   catalogEdit: "catalog.edit",
   catalogPublish: "catalog.publish",
   catalogDelivery: "catalog.delivery",
+  ordersSimulate: "orders.simulate",
+  supportRead: "support.read",
+  supportReply: "support.reply",
 } as const;
 
 export type AdminCapability =
@@ -22,7 +25,13 @@ const ADMIN_ROLE_CAPABILITIES: Readonly<
   Record<AdminRole, readonly AdminCapability[]>
 > = {
   admin: ALL_ADMIN_CAPABILITIES,
-  catalog_publisher: ALL_ADMIN_CAPABILITIES,
+  catalog_publisher: [
+    ADMIN_CAPABILITIES.access,
+    ADMIN_CAPABILITIES.catalogRead,
+    ADMIN_CAPABILITIES.catalogEdit,
+    ADMIN_CAPABILITIES.catalogPublish,
+    ADMIN_CAPABILITIES.catalogDelivery,
+  ],
   catalog_editor: [
     ADMIN_CAPABILITIES.access,
     ADMIN_CAPABILITIES.catalogRead,

@@ -66,7 +66,7 @@ export const termsOfService: LegalDocument = {
       id: "contact",
       title: "Contact Status",
       body: [
-        `${supportPolicy.contactStatus} No legal contact destination has been published. The Contact page can help prepare inquiry details but cannot submit a Support Inquiry.`,
+        `${supportPolicy.contactStatus} When enabled, it accepts private Support Inquiries. Submission does not promise email delivery or a response time. No legal contact destination has been published.`,
       ],
     },
   ],

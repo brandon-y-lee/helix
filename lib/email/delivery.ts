@@ -1,14 +1,24 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
 import { renderOrderConfirmation } from "@/lib/email/order-confirmation";
-import { emailRecipientAllowed, EmailConfigurationError, readEmailConfig, type EmailEnvironment } from "@/lib/email/config";
-import type { EmailAttemptOutcome, EmailDeliveryStorage, EmailRequest } from "@/lib/email/types";
+import { renderOrderTracking } from "@/lib/email/order-tracking";
+import { renderSupportEmail } from "@/lib/support/email";
+import { emailRecipientAllowed, EmailConfigurationError, readEmailConfig, readEmailSender, type EmailEnvironment } from "@/lib/email/config";
+import type { EmailAttemptOutcome, EmailDeliveryStorage, EmailIntent, EmailRequest } from "@/lib/email/types";
 
 export type EmailDeliveryDependencies = {
   storage: EmailDeliveryStorage;
   send(payload: EmailRequest, idempotencyKey: string, apiKey: string): Promise<EmailAttemptOutcome>;
   env: EmailEnvironment;
 };
+
+async function renderEmailContent(intent: EmailIntent, config: ReturnType<typeof readEmailConfig>) {
+  switch (intent.purpose) {
+    case "order_confirmation": return renderOrderConfirmation(intent.receipt, config);
+    case "order_tracking": return renderOrderTracking(intent.receipt, config);
+    case "support_acknowledgement": case "support_reply": return renderSupportEmail(intent.purpose, intent.receipt);
+  }
+}
 
 export async function dispatchEmailIntents({ storage, send, env }: EmailDeliveryDependencies) {
   const result = { claimed: 0, accepted: 0, deferred: 0, blocked: 0 };
@@ -30,12 +40,12 @@ export async function dispatchEmailIntents({ storage, send, env }: EmailDelivery
     let payload: EmailRequest;
     try {
       payload = intent.requestPayload ?? {
-        from: config.from, to: [intent.recipient], reply_to: config.replyTo,
-        ...await renderOrderConfirmation(intent.receipt, config),
+        from: readEmailSender(intent.purpose, env), to: [intent.recipient], reply_to: config.replyTo,
+        ...await renderEmailContent(intent, config),
         tags: [{ name: "helix_environment", value: "sandbox" }, { name: "helix_message_id", value: intent.id }],
       };
-    } catch {
-      await storage.finish(intent.id, intent.leaseToken, { kind: "blocked", code: "invalid_receipt" });
+    } catch (error) {
+      await storage.finish(intent.id, intent.leaseToken, { kind: "blocked", code: error instanceof EmailConfigurationError ? error.code : "invalid_receipt" });
       result.blocked++;
       continue;
     }
