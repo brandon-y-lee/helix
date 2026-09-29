@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { handleSupportIntakeRequest, type SupportIntakeDependencies } from "@/lib/support/intake";
 import { SupportError } from "@/lib/support/request";
+import { createHash } from "node:crypto";
 
 const env = { HELIX_SUPPORT_INTAKE_ENABLED: "true", HELIX_EMAIL_ENVIRONMENT: "sandbox",
   HELIX_EMAIL_MODE: "restricted", HELIX_EMAIL_SITE_ORIGIN: "https://helixskin.vercel.app" };
@@ -69,7 +70,7 @@ describe("support intake", () => {
     const dependencies = setup();
     dependencies.env = { ...env, HELIX_SUPPORT_INTAKE_ENABLED: "false" };
     const response = await handleSupportIntakeRequest(new Request(`${env.HELIX_EMAIL_SITE_ORIGIN}/api/support/intake`), dependencies);
-    expect(await response.json()).toEqual({ available: false });
+    expect(await response.json()).toEqual({ available: false, photosAvailable: false });
     expect(dependencies.available).not.toHaveBeenCalled();
   });
 
@@ -77,7 +78,7 @@ describe("support intake", () => {
     const dependencies = setup();
     for (const origin of ["https://helix-preview.vercel.app", "https://alias.example"]) {
       const get = await handleSupportIntakeRequest(new Request(`${origin}/api/support/intake`), dependencies);
-      expect(await get.json()).toEqual({ available: false });
+      expect(await get.json()).toEqual({ available: false, photosAvailable: false });
       const post = await handleSupportIntakeRequest(new Request(`${origin}/api/support/intake`, {
         method: "POST", headers: { origin, "content-type": "application/json" }, body: JSON.stringify(input),
       }), dependencies);
@@ -86,7 +87,7 @@ describe("support intake", () => {
     expect(dependencies.available).not.toHaveBeenCalled();
     expect(dependencies.submit).not.toHaveBeenCalled();
     const canonical = await handleSupportIntakeRequest(new Request(`${env.HELIX_EMAIL_SITE_ORIGIN}/api/support/intake`), dependencies);
-    expect(await canonical.json()).toEqual({ available: true });
+    expect(await canonical.json()).toEqual({ available: true, photosAvailable: false });
   });
 
   it("bounds streamed request bytes even when content-length is omitted", async () => {
@@ -94,5 +95,46 @@ describe("support intake", () => {
     const response = await handleSupportIntakeRequest(request({ ...input, body: "𐀀".repeat(20_000) }), dependencies);
     expect(response.status).toBe(413);
     expect(dependencies.submit).not.toHaveBeenCalled();
+  });
+
+  it("binds photo admission to a private capability and the original message before accepting it", async () => {
+    const dependencies = setup();
+    dependencies.env = { ...env, HELIX_SUPPORT_PHOTOS_ENABLED: "true", HELIX_SUPPORT_PHOTO_BUCKET: "helix-support-private", NEXT_PUBLIC_SUPABASE_URL: "https://erasogmsqpgiirovubjh.supabase.co", SUPABASE_SERVICE_ROLE_KEY: "synthetic-service-key", HELIX_SUPPORT_PHOTO_ACCESS_SECRET: "synthetic-photo-access-secret-32-characters" } as typeof env;
+    const uploadCapability = Buffer.alloc(32, 7).toString("base64url");
+    const photos = [{ uploadId: "c4f6ea1a-ac10-41e9-b924-8fbc634b5bdb", byteSize: 1024, contentType: "image/jpeg" }];
+    const response = await handleSupportIntakeRequest(request({ ...input, uploadCapability, photos }), dependencies);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ ok: true });
+    expect(dependencies.submit).toHaveBeenCalledWith(expect.objectContaining({
+      photoManifest: photos, uploadCapabilityHash: createHash("sha256").update(uploadCapability).digest("hex"),
+    }));
+    expect(JSON.stringify(dependencies.submit.mock.calls)).not.toContain(uploadCapability);
+  });
+
+  it("rejects excessive or ambiguous photo reservations without accepting the message", async () => {
+    const dependencies = setup();
+    dependencies.env = { ...env, HELIX_SUPPORT_PHOTOS_ENABLED: "true", HELIX_SUPPORT_PHOTO_BUCKET: "helix-support-private", NEXT_PUBLIC_SUPABASE_URL: "https://erasogmsqpgiirovubjh.supabase.co", SUPABASE_SERVICE_ROLE_KEY: "synthetic-service-key", HELIX_SUPPORT_PHOTO_ACCESS_SECRET: "synthetic-photo-access-secret-32-characters" } as typeof env;
+    const uploadCapability = Buffer.alloc(32, 7).toString("base64url");
+    const photo = { uploadId: "c4f6ea1a-ac10-41e9-b924-8fbc634b5bdb", byteSize: 10 * 1024 * 1024, contentType: "image/png" };
+    for (const extra of [
+      { photos: [photo] }, { photos: [photo], uploadCapability: input.submissionId },
+      { photos: [photo, photo], uploadCapability },
+      { photos: [{ ...photo, byteSize: photo.byteSize + 1 }], uploadCapability },
+      { photos: [{ ...photo, contentType: "image/svg+xml" }], uploadCapability },
+      { photos: [photo, { ...photo, uploadId: "77774444-aaaa-4bbb-8ccc-111122223333" }, { ...photo, uploadId: "99994444-aaaa-4bbb-8ccc-111122223333" }], uploadCapability },
+    ]) expect((await handleSupportIntakeRequest(request({ ...input, ...extra }), dependencies)).status).toBe(400);
+    expect(dependencies.submit).not.toHaveBeenCalled();
+  });
+
+  it("offers text-only intake while private photo admission is disabled", async () => {
+    const dependencies = setup();
+    const response = await handleSupportIntakeRequest(new Request(`${env.HELIX_EMAIL_SITE_ORIGIN}/api/support/intake`), dependencies);
+    expect(await response.json()).toEqual({ available: true, photosAvailable: false });
+    expect((await handleSupportIntakeRequest(request({ ...input,
+      uploadCapability: Buffer.alloc(32, 7).toString("base64url"),
+      photos: [{ uploadId: "c4f6ea1a-ac10-41e9-b924-8fbc634b5bdb", byteSize: 1024, contentType: "image/jpeg" }],
+    }), dependencies)).status).toBe(503);
+    expect(dependencies.submit).not.toHaveBeenCalled();
+    expect((await handleSupportIntakeRequest(request(), dependencies)).status).toBe(200);
   });
 });
