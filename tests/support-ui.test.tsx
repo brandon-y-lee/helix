@@ -7,7 +7,7 @@ import type { SupportInquiryDetail } from "@/lib/support/types";
 
 const pageAccess = vi.hoisted(() => ({ authorize: vi.fn(), load: vi.fn() }));
 vi.mock("@/lib/admin/capabilities", () => ({ requireAdminCapability: pageAccess.authorize }));
-vi.mock("@/lib/support/service", () => ({ getSupportInquiryForActor: pageAccess.load }));
+vi.mock("@/lib/support/service", () => ({ getSupportInquiryForActor: pageAccess.load, requireSupportAccess: pageAccess.authorize }));
 
 afterEach(() => vi.unstubAllGlobals());
 

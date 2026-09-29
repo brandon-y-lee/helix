@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState, type FormEvent } from "react";
-import type { SupportInboundReviewMutation, SupportInquiryDetail, SupportMutation } from "@/lib/support/types";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import type { SupportAiStatus, SupportInboundReviewMutation, SupportInquiryDetail, SupportMutation } from "@/lib/support/types";
 import { InquiryTime, supportDeliveryLabel } from "./SupportInbox";
 import { SupportPhotoViewer } from "./SupportPhotoViewer";
 import styles from "./support.module.css";
@@ -18,7 +18,16 @@ function incomingReviewReason(reason: string): string {
   return "The conversation match needs review.";
 }
 
-export function SupportConversation({ initialInquiry, canReply, request = fetch, navigationEnabled = true }: { initialInquiry: SupportInquiryDetail; canReply: boolean; request?: typeof fetch; navigationEnabled?: boolean }) {
+type AiDraftRequest = { action: "request"; requestId: string; expectedRevision: number; expectedDraftVersion: number };
+
+function draftFailureReason(code: string | null): string {
+  if (code === "authentication_required") return "Draft worker needs owner attention. Check its sign-in before retrying, or continue with a manual reply.";
+  if (code === "runtime_mismatch") return "Draft worker needs owner attention. Check its setup before retrying, or continue with a manual reply.";
+  if (code === "quota_exceeded") return "Drafting allowance is unavailable. Retry after it resets, or continue with a manual reply.";
+  return "Draft generation failed. You can retry or continue with a manual reply.";
+}
+
+export function SupportConversation({ initialInquiry, canReply, initialAiStatus = { available: false, job: null }, request = fetch, navigationEnabled = true }: { initialInquiry: SupportInquiryDetail; canReply: boolean; initialAiStatus?: SupportAiStatus; request?: typeof fetch; navigationEnabled?: boolean }) {
   const [inquiry, setInquiry] = useState(initialInquiry);
   const [subject, setSubject] = useState(initialInquiry.draft?.subject ?? `Re: ${initialInquiry.subject}`.slice(0, 200));
   const [body, setBody] = useState(initialInquiry.draft?.body ?? "");
@@ -31,12 +40,79 @@ export function SupportConversation({ initialInquiry, canReply, request = fetch,
   const [historyFocus, setHistoryFocus] = useState(0);
   const historyHeading = useRef<HTMLHeadingElement>(null);
   const submitting = useRef(false);
+  const [aiStatus, setAiStatus] = useState(initialAiStatus);
+  const [aiPending, setAiPending] = useState(false);
+  const [aiError, setAiError] = useState("");
+  const aiRequest = useRef<AiDraftRequest | null>(null);
+  const aiController = useRef<AbortController | null>(null);
+  const aiMounted = useRef(true);
   const draft = inquiry.draft;
+  const aiJob = aiStatus.job;
+  const aiActive = aiJob?.state === "queued" || aiJob?.state === "running";
+  const generatedDraft = aiJob?.state === "completed" && draft?.id === aiJob.draftId;
   const unchanged = draft?.subject === subject && draft.body === body;
   const incomingPending = (inquiry.pendingInbound ?? 0) > 0;
   const approvable = canReply && draft && unchanged && !incomingPending && !reviewRequired && !draft.approved && draft.inquiryRevision === inquiry.revision;
 
   useEffect(() => { if (historyFocus > 0) historyHeading.current?.focus(); }, [historyFocus]);
+
+  const checkAiDraft = useCallback(async (mutation?: AiDraftRequest | { action: "cancel"; jobId: string }) => {
+    if (!canReply || aiController.current) return;
+    const controller = new AbortController();
+    aiController.current = controller;
+    setAiPending(true);
+    setAiError("");
+    const timeout = window.setTimeout(() => controller.abort(), 15_000);
+    try {
+      const response = await request(`/api/admin/support/${encodeURIComponent(inquiry.id)}/ai-draft`, {
+        credentials: "same-origin", cache: "no-store", signal: controller.signal,
+        ...(mutation ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(mutation) } : {}),
+      });
+      const result = await response.json() as SupportAiStatus;
+      if (response.status >= 400 && response.status < 500) aiRequest.current = null;
+      if (!response.ok || typeof result?.available !== "boolean" || !("job" in result)) throw new Error("ai_status_unavailable");
+      if (!aiMounted.current) return;
+      setAiStatus(result);
+      if (result.job?.state === "stale") setReviewRequired(true);
+      if (mutation) aiRequest.current = null;
+      const updated = result.inquiry;
+      if (result.job?.state === "completed" && updated?.id === inquiry.id && updated.draft?.id === result.job.draftId) {
+        // A delayed job response cannot replace newer saved work. Editor text stays local.
+        setInquiry((current) => updated.revision > current.revision && (updated.draft?.version ?? 0) >= (current.draft?.version ?? 0) ? updated : current);
+      }
+    } catch {
+      if (aiMounted.current) setAiError("Draft status could not be confirmed. Check its status or retry the request. Your edits have been kept.");
+    } finally {
+      window.clearTimeout(timeout);
+      aiController.current = null;
+      if (aiMounted.current) setAiPending(false);
+    }
+  }, [canReply, inquiry.id, request]);
+
+  useEffect(() => {
+    aiMounted.current = true;
+    return () => { aiMounted.current = false; aiController.current?.abort(); };
+  }, []);
+
+  useEffect(() => {
+    if (!canReply || !aiStatus.available) return;
+    const reconnect = () => { void checkAiDraft(); };
+    window.addEventListener("online", reconnect);
+    let checks = 0;
+    const timer = aiActive ? window.setInterval(() => {
+      if (++checks > 100) {
+        window.clearInterval(timer);
+        setAiError("Automatic draft status checks paused. Check the draft status to continue.");
+      } else void checkAiDraft();
+    }, 3_000) : undefined;
+    return () => { window.removeEventListener("online", reconnect); window.clearInterval(timer); };
+  }, [aiActive, aiJob?.id, aiStatus.available, canReply, checkAiDraft]);
+
+  function generateDraft() {
+    if (pending || aiPending || aiActive || incomingPending || reviewRequired || inquiry.status !== "open") return;
+    aiRequest.current ??= { action: "request", requestId: crypto.randomUUID(), expectedRevision: inquiry.revision, expectedDraftVersion: draft?.version ?? 0 };
+    void checkAiDraft(aiRequest.current);
+  }
 
   async function loadEarlier() {
     const cursor = inquiry.nextMessageCursor;
@@ -240,6 +316,20 @@ export function SupportConversation({ initialInquiry, canReply, request = fetch,
       {canReply ? <section className={styles.card} aria-labelledby="support-reply-title">
         <h2 id="support-reply-title">Manual reply</h2>
         <p className={styles.muted}>Save your draft, review its recipient and content, then explicitly approve it for delivery. Email remains restricted to approved test recipients during development.</p>
+        {aiStatus.available ? <section aria-label="Draft assistance">
+          <p className={styles.muted}>Generate a draft from accepted conversation text and support facts. Review all wording before approving a reply.</p>
+          <div className={styles.actions}>
+            <button type="button" className={styles.textButton} disabled={pending || aiPending || aiActive || incomingPending || reviewRequired || inquiry.status !== "open"} onClick={generateDraft}>{aiRequest.current ? "Retry draft request" : "Generate draft"}</button>
+            {aiActive && aiJob ? <button type="button" className={styles.textButton} disabled={aiPending} onClick={() => void checkAiDraft({ action: "cancel", jobId: aiJob.id })}>Cancel draft generation</button> : null}
+            {aiJob || aiError ? <button type="button" className={styles.textButton} disabled={aiPending} onClick={() => void checkAiDraft()}>Check draft status</button> : null}
+          </div>
+          {aiActive ? <p role="status">{aiJob?.state === "queued" ? "Draft generation queued." : "Draft generation in progress."} You can keep editing your reply.</p> : null}
+          {aiJob?.state === "completed" ? <p role="status">{generatedDraft ? "Generated draft saved for review." : "Generated draft is no longer the current saved reply. Refresh the inquiry to review its latest state."} {aiJob.needsHuman ? "Additional human review is needed. " : ""}Your editor text has been kept.</p> : null}
+          {aiJob?.state === "cancelled" ? <p role="status">Draft generation cancelled. Your editor text has been kept.</p> : null}
+          {aiJob?.state === "failed" ? <p role="status">{draftFailureReason(aiJob.errorCode)}</p> : null}
+          {aiJob?.state === "stale" ? <p role="status">Draft generation stopped because the conversation changed. Refresh the inquiry, review the latest context, and save your draft before trying again. Your editor text has been kept.</p> : null}
+          {aiError ? <p role="alert" className={styles.error}>{aiError}</p> : null}
+        </section> : null}
         <form className={styles.form} onSubmit={saveDraft}>
           <fieldset disabled={pending}>
             <legend className="sr-only">Reply draft</legend>
@@ -255,6 +345,10 @@ export function SupportConversation({ initialInquiry, canReply, request = fetch,
           <p><strong>Subject:</strong> {draft.subject}</p>
           <p><strong>Attachments:</strong> None. Customer photos stay private in the conversation.</p>
           <p className={styles.messageBody}>{draft.body}</p>
+          {generatedDraft ? <>
+            {aiJob.references.length ? <div><h4>Draft references</h4><ul>{aiJob.references.map((reference) => <li key={reference.id}>{reference.text}</li>)}</ul></div> : null}
+            {!unchanged ? <><p className={styles.muted}>Loading this draft replaces the text currently in your editor.</p><button type="button" className={styles.textButton} disabled={pending} onClick={() => { setSubject(draft.subject); setBody(draft.body); }}>Load generated draft into editor</button></> : null}
+          </> : null}
           {draft.approved ? <p>Already approved. Check the reply’s delivery state in the conversation.</p> : null}
         </section> : null}
         {!unchanged && draft ? <p className={styles.muted}>Save your changes before approving a reply.</p> : null}
