@@ -112,7 +112,7 @@ export const faqCategories: FAQCategory[] = [
         id: "checkout-availability",
         question: "Can I place an order right now?",
         answer:
-          "You can complete Stripe-hosted Checkout in sandbox mode only. It can collect sandbox checkout details and create sandbox order records, but it does not create a real charge, shipment, fulfillment, customer email, or Trustpilot invitation.",
+          "You can complete Stripe-hosted Checkout in sandbox mode only. It can collect sandbox checkout details and create sandbox order records, but it does not create a real charge, shipment, fulfillment, or Trustpilot invitation. When development email is enabled, demo order confirmations can be sent to approved test recipients only.",
       },
       {
         id: "cart-purpose",

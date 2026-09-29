@@ -7,7 +7,7 @@ export const termsOfService: LegalDocument = {
   description:
     "Prelaunch Terms of Service status for helix account, catalog, sandbox cart, and website features.",
   canonical: "/terms",
-  status: "Updated August 19, 2026",
+  status: "Updated September 28, 2026",
   intro:
     "This page records the current prelaunch service boundary. It is not an operative Terms of Service and does not identify helix as a responsible legal person or entity.",
   sections: [
@@ -31,7 +31,7 @@ export const termsOfService: LegalDocument = {
       id: "commerce-status",
       title: "Commerce Status",
       body: [
-        "Checkout operates only through Stripe sandbox mode. Sandbox transactions can create Order and payment-status records for testing, but they do not create real charges, Shipments, Fulfillment, labels, customer emails, or Trustpilot invitations.",
+        "Checkout operates only through Stripe sandbox mode. Sandbox transactions can create Order and payment-status records for testing, but they do not create real charges, Shipments, Fulfillment, labels, or Trustpilot invitations. When development email is enabled, Helix may send clearly labeled demo order confirmations to approved test recipients only.",
         "Cart, rewards, referral, shipping, tax, and Order totals are revalidated on the server before sandbox Checkout. Browser-submitted prices, balances, discounts, user IDs, and totals are not authoritative.",
         "Shipping, Return, Exchange, and refund content describes planned service direction only. It does not create a real purchase, Shipment, Return right, refund obligation, or other commerce commitment.",
       ],
