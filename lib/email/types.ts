@@ -1,6 +1,7 @@
 import type { OrderConfirmationReceipt } from "@/lib/email/order-confirmation";
 import type { OrderTrackingReceipt } from "@/lib/email/order-tracking";
 import type { SupportAcknowledgementReceipt, SupportReplyReceipt } from "@/lib/support/email";
+import type { MarketingPurpose, MarketingReceipt } from "@/lib/marketing/contract";
 
 export type EmailRequest = {
   from: string;
@@ -10,6 +11,8 @@ export type EmailRequest = {
   html: string;
   text: string;
   tags: { name: string; value: string }[];
+  topic_id?: string;
+  headers?: Record<string, string>;
 };
 
 export type EmailIntent = {
@@ -26,6 +29,7 @@ export type EmailIntent = {
   | { purpose: "order_tracking"; receipt: OrderTrackingReceipt }
   | { purpose: "support_acknowledgement"; receipt: SupportAcknowledgementReceipt }
   | { purpose: "support_reply"; receipt: SupportReplyReceipt }
+  | { purpose: MarketingPurpose; receipt: MarketingReceipt }
 );
 
 export type EmailAttemptOutcome =

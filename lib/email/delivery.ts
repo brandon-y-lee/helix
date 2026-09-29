@@ -3,6 +3,11 @@ import { randomUUID } from "node:crypto";
 import { renderOrderConfirmation } from "@/lib/email/order-confirmation";
 import { renderOrderTracking } from "@/lib/email/order-tracking";
 import { renderSupportEmail } from "@/lib/support/email";
+import { isMarketingPurpose, parseMarketingReceipt, type MarketingPurpose } from "@/lib/marketing/contract";
+import { renderMarketingMessage } from "@/lib/marketing/templates";
+import { MarketingProviderError, resendMarketingContacts } from "@/lib/marketing/provider";
+import { verifyMarketingPreferences } from "@/lib/marketing/service";
+import { marketingServiceStorage } from "@/lib/marketing/storage";
 import { emailRecipientAllowed, EmailConfigurationError, readEmailConfig, readEmailSender, type EmailEnvironment } from "@/lib/email/config";
 import type { EmailAttemptOutcome, EmailDeliveryStorage, EmailIntent, EmailRequest } from "@/lib/email/types";
 
@@ -12,7 +17,9 @@ export type EmailDeliveryDependencies = {
   env: EmailEnvironment;
 };
 
-async function renderEmailContent(intent: EmailIntent, config: ReturnType<typeof readEmailConfig>) {
+type MarketingIntent = Extract<EmailIntent, { purpose: MarketingPurpose }>;
+function marketingIntent(intent: EmailIntent): intent is MarketingIntent { return isMarketingPurpose(intent.purpose); }
+async function renderEmailContent(intent: Exclude<EmailIntent, MarketingIntent>, config: ReturnType<typeof readEmailConfig>) {
   switch (intent.purpose) {
     case "order_confirmation": return renderOrderConfirmation(intent.receipt, config);
     case "order_tracking": return renderOrderTracking(intent.receipt, config);
@@ -24,7 +31,9 @@ export async function dispatchEmailIntents({ storage, send, env }: EmailDelivery
   const result = { claimed: 0, accepted: 0, deferred: 0, blocked: 0 };
   if (env.HELIX_EMAIL_DISPATCH_ENABLED !== "true") return result;
   const config = readEmailConfig(env);
-  const intents = await storage.claim(randomUUID(), 5);
+  // One complete attempt fits the hosted deadline, including native preference
+  // reads. Do not lease a batch that cannot be processed before that deadline.
+  const intents = await storage.claim(randomUUID(), 1);
   result.claimed = intents.length;
   for (const intent of intents) {
     if (intent.firstAttemptAt && Date.now() - Date.parse(intent.firstAttemptAt) >= 23 * 60 * 60 * 1000) {
@@ -38,15 +47,35 @@ export async function dispatchEmailIntents({ storage, send, env }: EmailDelivery
       continue;
     }
     let payload: EmailRequest;
+    let eligibility: "eligible" | "blocked" | "deferred" = "eligible";
     try {
-      payload = intent.requestPayload ?? {
-        from: readEmailSender(intent.purpose, env), to: [intent.recipient], reply_to: config.replyTo,
-        ...await renderEmailContent(intent, config),
-        tags: [{ name: "helix_environment", value: "sandbox" }, { name: "helix_message_id", value: intent.id }],
-      };
+      if (intent.requestPayload) payload = intent.requestPayload;
+      else {
+        const content = marketingIntent(intent)
+          ? await renderMarketingMessage(intent.purpose, intent.receipt, config.apiKey)
+          : { from: readEmailSender(intent.purpose, env), reply_to: config.replyTo,
+            ...await renderEmailContent(intent, config) };
+        payload = { ...content, to: [intent.recipient],
+          tags: [{ name: "helix_environment", value: "sandbox" }, { name: "helix_message_id", value: intent.id }] };
+      }
+      if (intent.purpose === "welcome_initial" || intent.purpose === "welcome_education") {
+        const receipt = parseMarketingReceipt(intent.receipt);
+        eligibility = await verifyMarketingPreferences({ subscriberId: receipt.subscriberId, generation: receipt.generation,
+          revision: receipt.revision, topicId: receipt.templateContract.topicId },
+        { storage: marketingServiceStorage, provider: resendMarketingContacts, env });
+      }
     } catch (error) {
-      await storage.finish(intent.id, intent.leaseToken, { kind: "blocked", code: error instanceof EmailConfigurationError ? error.code : "invalid_receipt" });
-      result.blocked++;
+      const unavailable = error instanceof MarketingProviderError && error.code === "provider_unavailable";
+      await storage.finish(intent.id, intent.leaseToken, { kind: unavailable ? "retry" : "blocked",
+        code: unavailable ? "marketing_template_unavailable" : error instanceof EmailConfigurationError ? error.code
+          : error instanceof MarketingProviderError ? "invalid_marketing_template" : "invalid_receipt" });
+      if (unavailable) result.deferred++; else result.blocked++;
+      continue;
+    }
+    if (eligibility !== "eligible") {
+      await storage.finish(intent.id, intent.leaseToken, { kind: eligibility === "blocked" ? "blocked" : "retry",
+        code: eligibility === "blocked" ? "marketing_not_eligible" : "marketing_preferences_unavailable" });
+      result[eligibility]++;
       continue;
     }
     const prepared = await storage.prepare(intent.id, intent.leaseToken, payload);

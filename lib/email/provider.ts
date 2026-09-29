@@ -3,9 +3,19 @@ import type { EmailAttemptOutcome, EmailRequest } from "@/lib/email/types";
 
 // Use a bounded REST request: SDK development logging may include raw provider errors.
 export async function sendResendEmail(payload: EmailRequest, idempotencyKey: string, apiKey: string): Promise<EmailAttemptOutcome> {
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<EmailAttemptOutcome>((resolve) => {
+    timer = setTimeout(() => { controller.abort(); resolve({ kind: "uncertain", code: "provider_connection_uncertain" }); }, 8_000);
+  });
   try {
+    return await Promise.race([send(), deadline]);
+  } catch { return { kind: "uncertain", code: "provider_connection_uncertain" }; }
+  finally { clearTimeout(timer); controller.abort(); }
+
+  async function send(): Promise<EmailAttemptOutcome> {
     const response = await fetch("https://api.resend.com/emails", {
-      method: "POST", signal: AbortSignal.timeout(8_000), redirect: "error", cache: "no-store",
+      method: "POST", signal: controller.signal, redirect: "error", cache: "no-store",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json", "Idempotency-Key": idempotencyKey },
       body: JSON.stringify(payload),
     });
@@ -23,7 +33,7 @@ export async function sendResendEmail(payload: EmailRequest, idempotencyKey: str
       return { kind: "uncertain", code: "provider_invalid_response" };
     }
     return { kind: "accepted", id: data.id };
-  } catch { return { kind: "uncertain", code: "provider_connection_uncertain" }; }
+  }
 }
 
 export async function readBoundedBody(message: Pick<Request, "body" | "headers">, limit: number): Promise<string> {
