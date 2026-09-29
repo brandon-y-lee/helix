@@ -75,7 +75,7 @@ describe("Sandbox Order confirmation email", () => {
     const invalidReceipts: OrderConfirmationReceipt[] = [
       { ...receipt, orderNumber: "HX-0042\r\nBcc: other@example.test" },
       { ...receipt, items: [] },
-      { ...receipt, items: Array.from({ length: 51 }, () => receipt.items[0]) },
+      { ...receipt, items: Array.from({ length: 101 }, () => receipt.items[0]) },
       { ...receipt, items: [{ ...receipt.items[0], name: "a".repeat(201) }] },
       { ...receipt, shippingName: "Demo\nForged order" },
       { ...receipt, totalCents: 7665.1 },
@@ -125,7 +125,26 @@ describe("Sandbox Order confirmation email", () => {
     expect(message.html).not.toContain(identity.siteOrigin);
   });
 
-  it("accepts a verified address without a second line and keeps the largest supported receipt below email clipping limits", () => {
+  it("renders all 100 admitted Checkout lines without dropping receipt facts", () => {
+    const items = Array.from({ length: 100 }, (_, index) => ({
+      name: `Checkout product ${index + 1}`, quantity: 1, unitPriceCents: 2500, lineSubtotalCents: 2500,
+    }));
+    const message = renderOrderConfirmation({
+      ...receipt, items, merchandiseSubtotalCents: 250000, discountCents: 0,
+      shippingCents: 0, taxCents: 0, totalCents: 250000,
+    }, identity);
+    const document = new DOMParser().parseFromString(message.html, "text/html");
+    expect(document.querySelectorAll('table[aria-label="Order summary"] tbody tr')).toHaveLength(100);
+    for (const item of items) {
+      expect(document.body.textContent).toContain(item.name);
+      expect(message.text).toContain(`${item.name}: 1 × $25.00 = $25.00`);
+    }
+    expect(document.body.textContent).toContain("$2,500.00");
+    expect(message.text).toContain("Demo order total: $2,500.00");
+    expect(new TextEncoder().encode(message.html).byteLength).toBeLessThan(102_000);
+  });
+
+  it("accepts a verified address without a second line and keeps the 50-line escaped-text fixture below clipping limits", () => {
     const message = renderOrderConfirmation({
       ...receipt,
       items: Array.from({ length: 50 }, () => ({ ...receipt.items[0], name: '"'.repeat(200) })),

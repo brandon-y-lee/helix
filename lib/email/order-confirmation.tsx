@@ -47,7 +47,8 @@ function assertReceipt(receipt: OrderConfirmationReceipt): void {
   const address = receipt?.shippingAddress;
   const valid = receipt && receipt.currency === "USD"
     && typeof receipt.orderNumber === "string" && /^[A-Za-z0-9-]{1,64}$/.test(receipt.orderNumber)
-    && Array.isArray(receipt.items) && receipt.items.length > 0 && receipt.items.length <= 50
+    // Match the existing Order admission and verified Checkout bundle ceiling.
+    && Array.isArray(receipt.items) && receipt.items.length > 0 && receipt.items.length <= 100
     && receipt.items.every((item) => item && text(item.name)
       && Number.isSafeInteger(item.quantity) && item.quantity > 0 && item.quantity <= 999
       && cents(item.unitPriceCents) && cents(item.lineSubtotalCents))
