@@ -66,6 +66,11 @@ async function setup(preserveDefaultSmtp = false) {
     const body = options?.body ? JSON.parse(String(options.body)) as Record<string, unknown> : {};
     const response = (value: unknown) => new Response(JSON.stringify(value));
     if (url.hostname === "api.supabase.com" && url.pathname.endsWith(`/projects/${TARGET.project}`)) return response({ id: TARGET.project, status: "ACTIVE_HEALTHY" });
+    if (url.pathname.includes("/rpc/")) {
+      expect((options?.headers as Record<string, string>).apikey).toBe(env.SUPABASE_SERVICE_ROLE_KEY);
+      expect((options?.headers as Record<string, string>).Authorization).toBe(`Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`);
+      return response(current.controls[Object.entries(CONTROL_READS).find(([, fn]) => url.pathname.endsWith(fn))![0]]);
+    }
     if (url.pathname.endsWith("/config/auth")) {
       if (method === "PATCH") { Object.assign(current.smtp, body); if (current.patchChangesSecurity) current.smtp.mailer_otp_exp = 1; }
       return response(current.smtp);
@@ -86,7 +91,11 @@ async function setup(preserveDefaultSmtp = false) {
     }
     if (url.pathname.includes("/storage/v1/bucket/")) return response({ name: manifest.photoBucket, public: false, file_size_limit: 10485760, allowed_mime_types: ["image/webp", "image/jpeg", "image/png"] });
     if (url.pathname.endsWith("/database/query/read-only")) {
-      if (String(body.query).includes("'supportDelivery'")) return response([{ controls: snapshot() }]);
+      // The Management read-only role can SELECT private controls, but cannot execute service-only RPCs.
+      if (Object.values(CONTROL_READS).some(fn => String(body.query).includes(`public.${fn}(`))) {
+        return new Response(JSON.stringify({ code: "42501" }), { status: 400 });
+      }
+      if (String(body.query).includes("as support_delivery")) return response([{ support_delivery: current.supportDelivery }]);
       if (String(body.query).includes("schema_migrations")) return response([{ state: { migrations: manifest.migrations.map(m => m.file.slice(0, 14)), cron: true } }]);
       return response(SCHEDULES.map(s => ({ jobname: s.name, schedule: s.schedule, command: s.command, active: true })));
     }
@@ -123,6 +132,12 @@ describe("restricted Resend operational command", () => {
       findings: expect.arrayContaining(["deployment_read_failed", "topic_missing_or_mismatched", "template_welcome_initial_missing", "webhook_missing_or_ambiguous"]) });
     expect(mutations(f.fetcher)).toEqual([]);
     expect(JSON.stringify(result)).not.toMatch(/owner@example|private-management|private-service|private-resend|provider-private-content|Approved postal/);
+  });
+
+  it("verifies controls without executing protected RPCs through the Management read-only role", async () => {
+    const f = await setup();
+    expect(await f.run("verify")).toMatchObject({ readyForGuardedApply: true, findings: [] });
+    expect(mutations(f.fetcher)).toEqual([]);
   });
 
   it("activates acknowledgement and human-approved reply delivery with Support Intake", async () => {

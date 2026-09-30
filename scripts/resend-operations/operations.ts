@@ -187,12 +187,16 @@ export async function runResendOperations(command: ReturnType<typeof parseComman
     } catch (error) { if (error instanceof OperationsError) throw error; fail("provider_read_or_write_failed"); }
   }
   const supabase = (path: string, method = "GET", body?: unknown) => request(`https://api.supabase.com/v1/projects/${TARGET.project}${path}`, required("SUPABASE_ACCESS_TOKEN"), method, body);
+  const rpc = (name: string) => request(`https://${TARGET.project}.supabase.co/rest/v1/rpc/${name}`, required("SUPABASE_SERVICE_ROLE_KEY"), "POST", {}, { apikey: required("SUPABASE_SERVICE_ROLE_KEY") });
   const resend = (path: string) => request(`https://api.resend.com${path}`, required("RESEND_API_KEY"));
   const vercel = (path: string) => request(`https://api.vercel.com${path}${path.includes("?") ? "&" : "?"}teamId=${TARGET.team}`, required("VERCEL_ACCESS_TOKEN"));
   async function readControls(): Promise<Record<string, unknown>> {
-    const result = await supabase("/database/query/read-only", "POST", { query: `select ${readControlsSql} as controls` });
-    if (!Array.isArray(result) || result.length !== 1 || !record(result[0]) || !record(result[0].controls)) fail("invalid_controls");
-    const controls = result[0].controls;
+    // The Management read-only role cannot execute the service-only control RPCs.
+    const controls: Record<string, unknown> = {};
+    for (const [key, fn] of Object.entries(CONTROL_READS)) controls[key] = await rpc(fn);
+    const result = await supabase("/database/query/read-only", "POST", { query: `select ${supportDeliverySql} as support_delivery` });
+    if (!Array.isArray(result) || result.length !== 1 || !record(result[0])) fail("invalid_controls");
+    controls.supportDelivery = result[0].support_delivery;
     if (!exactKeys(controls, [...Object.keys(CONTROL_READS), "supportDelivery"])
       || Object.keys(CONTROL_READS).some(key => controlEnabled(controls[key]) === null)) fail("invalid_controls");
     const delivery = controls.supportDelivery;
