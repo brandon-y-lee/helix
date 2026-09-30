@@ -78,6 +78,13 @@ With `smtp.change:false`, apply preserves the exact observed Auth mail baseline,
 including default SMTP and existing templates. Security, site-origin and drift
 checks still apply; independent email purposes can be enabled without an Auth patch.
 
+The existing `enable.support` selection covers Support Intake and both outgoing
+support purposes (`support_acknowledgement` and `support_reply`). The observed
+control fingerprint includes each delivery row's flag, revision and acceptance
+cutoff. Apply changes them in the same locked transaction as intake and checks
+all three afterward. A previous fingerprint that omitted delivery rows must be
+replaced by a fresh reviewed baseline; do not reinterpret the old receipt.
+
 ```sh
 export DOTENV_CONFIG_PATH=/private/path/helix-resend.env
 HELIX_RESEND_MANIFEST=/private/path/helix-resend-activation.json
@@ -336,7 +343,9 @@ Pro AI account likewise supplies no zero-retention guarantee.
 ## Disable and rollback
 
 1. Re-read and verify the exact applied state, then use the approved disable
-   manifest to turn off new database admission/purposes. Disable deployed
+   manifest to turn off new database admission/purposes, including both support
+   delivery purposes. The command preserves the observed receiving state so
+   published reply routes and inbound reconciliation remain available. Disable deployed
    `HELIX_EMAIL_DISPATCH_ENABLED`, `HELIX_SUPPORT_INTAKE_ENABLED`,
    `HELIX_SUPPORT_PHOTOS_ENABLED`, `HELIX_ORDER_SIMULATION_ENABLED`,
    `HELIX_MARKETING_ENABLED` and `HELIX_SUPPORT_AI_ENABLED`; stop the Mac worker.

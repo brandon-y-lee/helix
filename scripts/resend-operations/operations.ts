@@ -109,7 +109,12 @@ function templateRuntimeFingerprint(v: Record<string, unknown>) {
     html: v.html, text: v.text, from: v.from, replyTo: v.reply_to })).digest("hex");
 }
 const literal = (v: unknown) => `'${JSON.stringify(v).replaceAll("'", "''")}'::jsonb`;
-const readControlsSql = `jsonb_build_object(${Object.entries(CONTROL_READS).map(([k, fn]) => `'${k}', public.${fn}()`).join(", ")})`;
+const supportDeliveryPurposes = ["support_acknowledgement", "support_reply"] as const;
+const supportDeliverySql = `(select jsonb_agg(jsonb_build_object('purpose',purpose,'enabled',enabled,
+  'updatedAt',updated_at,'acceptedAfter',accepted_after) order by purpose)
+  from private.email_controls where environment='sandbox' and purpose in ('support_acknowledgement','support_reply'))`;
+const readControlsSql = `jsonb_build_object(${Object.entries(CONTROL_READS).map(([k, fn]) => `'${k}', public.${fn}()`).join(", ")},
+  'supportDelivery', ${supportDeliverySql})`;
 function controlEnabled(value: unknown): boolean | null {
   const rows = Array.isArray(value) ? value : [value];
   if (!rows.length || !rows.every(v => record(v) && typeof v.enabled === "boolean" && text(v.updatedAt))) return null;
@@ -117,7 +122,12 @@ function controlEnabled(value: unknown): boolean | null {
   return enabled.every(v => v === true) ? true : enabled.every(v => v === false) ? false : null;
 }
 
-/** Fixed transaction, existing CAS functions, one lock order. No manifest-supplied SQL is accepted. */
+function controlsMatch(controls: Record<string, unknown>, desired: Manifest["enable"]) {
+  return Object.entries(desired).every(([key, enabled]) => controlEnabled(controls[key]) === enabled)
+    && controlEnabled(controls.supportDelivery) === desired.support;
+}
+
+/** Fixed transaction, revision-checked controls, one lock order. No manifest-supplied SQL is accepted. */
 export function controlChangeSql(before: Record<string, unknown>, desired: Manifest["enable"]) {
   return `begin;
 set local lock_timeout = '5s';
@@ -142,6 +152,8 @@ ${Object.entries(desired).filter(([k, enabled]) => controlEnabled(before[k]) !==
       : `public.configure_product_notification_email(${enabled},${map})`;
     return `  if not ${call} then raise exception 'activation_control_conflict'; end if;`;
   }).join("\n")}
+${controlEnabled(before.supportDelivery) === desired.support ? "" : `  update private.email_controls set enabled=${desired.support},updated_at=pg_catalog.clock_timestamp()
+    where environment='sandbox' and purpose in ('support_acknowledgement','support_reply') and enabled is distinct from ${desired.support};`}
 end $helix$;
 commit;`;
 }
@@ -178,22 +190,36 @@ export async function runResendOperations(command: ReturnType<typeof parseComman
   const rpc = (name: string) => request(`https://${TARGET.project}.supabase.co/rest/v1/rpc/${name}`, required("SUPABASE_SERVICE_ROLE_KEY"), "POST", {}, { apikey: required("SUPABASE_SERVICE_ROLE_KEY") });
   const resend = (path: string) => request(`https://api.resend.com${path}`, required("RESEND_API_KEY"));
   const vercel = (path: string) => request(`https://api.vercel.com${path}${path.includes("?") ? "&" : "?"}teamId=${TARGET.team}`, required("VERCEL_ACCESS_TOKEN"));
-  const controls: Record<string, unknown> = {};
+  async function readControls(): Promise<Record<string, unknown>> {
+    // The Management read-only role cannot execute the service-only control RPCs.
+    const controls: Record<string, unknown> = {};
+    for (const [key, fn] of Object.entries(CONTROL_READS)) controls[key] = await rpc(fn);
+    const result = await supabase("/database/query/read-only", "POST", { query: `select ${supportDeliverySql} as support_delivery` });
+    if (!Array.isArray(result) || result.length !== 1 || !record(result[0])) fail("invalid_controls");
+    controls.supportDelivery = result[0].support_delivery;
+    if (!exactKeys(controls, [...Object.keys(CONTROL_READS), "supportDelivery"])
+      || Object.keys(CONTROL_READS).some(key => controlEnabled(controls[key]) === null)) fail("invalid_controls");
+    const delivery = controls.supportDelivery;
+    // A prior partial activation can leave mixed flags. Exact membership and revisions remain mandatory.
+    if (!Array.isArray(delivery) || delivery.length !== supportDeliveryPurposes.length || !delivery.every((row, index) =>
+      record(row) && row.purpose === supportDeliveryPurposes[index] && typeof row.enabled === "boolean"
+      && text(row.updatedAt) && text(row.acceptedAfter))) fail("invalid_support_delivery_controls");
+    return controls;
+  }
+  let controls: Record<string, unknown> = {};
   async function inspect(label: string, read: () => Promise<void>) { try { await read(); } catch (error) { add(`${label}_${error instanceof OperationsError && error.code === "provider_http_404" ? "missing" : "read_failed"}`); } }
   await inspect("project", async () => { const p = await supabase(""); if (!record(p) || (p.id !== TARGET.project && p.ref !== TARGET.project) || p.status !== "ACTIVE_HEALTHY") fail("project_unavailable"); });
-  for (const [key, fn] of Object.entries(CONTROL_READS)) await inspect(`control_${key}`, async () => {
-    const value = await rpc(fn); if (controlEnabled(value) === null) fail("invalid_control"); controls[key] = value;
-  });
-  if (Object.keys(controls).length === 6) observations.controlsFingerprint = fingerprint(controls);
+  await inspect("controls", async () => { controls = await readControls(); observations.controlsFingerprint = fingerprint(controls); });
   if (local.codeSha !== manifest.codeSha || !local.clean) add("reviewed_clean_source_required");
-  const allOff = Object.fromEntries(Object.keys(CONTROL_READS).map(k => [k, false])) as Manifest["enable"];
   if (command === "disable") {
     // Recovery must remain usable during an email/hosting outage; only the fixed project and fresh CAS state are needed.
-    if (findings.some(v => v === "project_read_failed" || v.startsWith("control_"))) fail("disable_preflight_failed");
-    await supabase("/database/query", "POST", { query: controlChangeSql(controls, allOff), read_only: false });
-    for (const fn of Object.values(CONTROL_READS)) if (controlEnabled(await rpc(fn)) !== false) fail("disable_postflight_failed");
+    if (findings.some(v => v.startsWith("project_") || v.startsWith("controls_"))) fail("disable_preflight_failed");
+    const paused = { ...Object.fromEntries(Object.keys(CONTROL_READS).map(k => [k, false])),
+      receiving: controlEnabled(controls.receiving)! } as Manifest["enable"];
+    await supabase("/database/query", "POST", { query: controlChangeSql(controls, paused), read_only: false });
+    if (!controlsMatch(await readControls(), paused)) fail("disable_postflight_failed");
     return { command, manifestSha256, admissionDisabled: true, dispatchPauseRequired: true,
-      preserved: ["stripe_settlement", "signed_callbacks", "accepted_support", "marketing_repair", "retention"], findings: [] };
+      preserved: ["stripe_settlement", "signed_callbacks", "accepted_support", "receiving", "marketing_repair", "retention"], findings: [] };
   }
   if (!manifest.migrations.every(m => local.migrations[m.file] === m.sha256)) add("migration_source_drift");
   if (!PROOF_KINDS.every(kind => {
@@ -317,7 +343,7 @@ export async function runResendOperations(command: ReturnType<typeof parseComman
       && applied.credentialVersion === manifest.credentialVersions.RESEND_API_KEY?.version;
     if (auth.observedFingerprint !== manifest.smtp.beforeFingerprint && !previousApply) add("smtp_baseline_drift");
   });
-  const desiredMatches = Object.entries(manifest.enable).every(([key, enabled]) => controlEnabled(controls[key]) === enabled);
+  const desiredMatches = controlsMatch(controls, manifest.enable);
   const expectedControls = manifest.expectedControlsFingerprint ?? receipt?.controlsFingerprint;
   const baselineMatches = observations.controlsFingerprint === expectedControls
     && (manifest.expectedControlsFingerprint !== null || Object.values(controls).every(v => controlEnabled(v) === false));
@@ -345,9 +371,8 @@ export async function runResendOperations(command: ReturnType<typeof parseComman
     observations.smtpFingerprint = after.report.observedFingerprint;
   }
   if (!desiredMatches) await supabase("/database/query", "POST", { query: controlChangeSql(controls, manifest.enable), read_only: false });
-  const after: Record<string, unknown> = {};
-  for (const [key, fn] of Object.entries(CONTROL_READS)) after[key] = await rpc(fn);
-  if (!Object.entries(manifest.enable).every(([key, enabled]) => controlEnabled(after[key]) === enabled)
+  const after = await readControls();
+  if (!controlsMatch(after, manifest.enable)
     || (desiredMatches && fingerprint(after) !== observations.controlsFingerprint)) fail("control_postflight_failed");
   return { ...report, applied: true, observations: { ...observations, controlsFingerprint: fingerprint(after) },
     note: "Admission controls are configured. Hosted flags, mailbox receipt and the acceptance runbook remain separate evidence." };
