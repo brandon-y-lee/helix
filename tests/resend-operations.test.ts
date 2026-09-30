@@ -20,11 +20,13 @@ async function setup(preserveDefaultSmtp = false) {
   const controls: Record<string, unknown> = Object.fromEntries(Object.keys(CONTROL_READS).map(k => [k, { enabled: false, updatedAt: stamp, acceptedAfter: stamp }]));
   controls.marketing = purposeNames.map(purpose => ({ purpose, enabled: false, updatedAt: stamp, acceptedAfter: stamp }));
   controls.product = ["product_availability", "product_waitlist_recovery"].map(purpose => ({ purpose, enabled: false, updatedAt: stamp, acceptedAfter: stamp }));
-  const current = { controls, smtp: {
+  const current = { controls, supportDelivery: ["support_acknowledgement", "support_reply"].map(purpose =>
+    ({ purpose, enabled: false, updatedAt: stamp, acceptedAfter: stamp })), smtp: {
     ...buildAuthEmailTemplates(TARGET.origin), site_url: TARGET.origin, smtp_host: "smtp.resend.com", smtp_port: "465", smtp_user: "resend",
     smtp_admin_email: "onboarding@resend.dev", smtp_sender_name: "Helix", smtp_pass: "private-old-password", external_email_enabled: true,
     mailer_autoconfirm: false, mailer_secure_email_change_enabled: true, hook_send_email_enabled: false, mailer_otp_exp: 3600,
   } as Record<string, unknown>, missing: false, drift: false, patchChangesSecurity: false, envDrift: false, sensitive: false };
+  const snapshot = () => ({ ...current.controls, supportDelivery: current.supportDelivery });
   const secrets = ["RESEND_API_KEY", "RESEND_RECEIVING_API_KEY", "RESEND_WEBHOOK_SECRET", "HELIX_EMAIL_DISPATCH_SECRET",
     "HELIX_SUPPORT_INGEST_SECRET", "HELIX_SUPPORT_RETENTION_SECRET", "HELIX_SUPPORT_PHOTO_ACCESS_SECRET", "HELIX_SUPPORT_AI_WORKER_SECRET"];
   const env: Record<string, string> = {
@@ -55,7 +57,7 @@ async function setup(preserveDefaultSmtp = false) {
     evidence: Object.fromEntries(PROOF_KINDS.map(kind => [kind, { file: `/private/evidence/${kind}`, sha256: "2".repeat(64) }])) as Manifest["evidence"],
     setupReceiptFile: "/private/evidence/setup-receipt.json",
     smtp: { change: false, beforeFingerprint: baseline.observedFingerprint!, rollbackReference: "private-before-state-v1" },
-    expectedControlsFingerprint: fingerprint(controls), enable: { confirmation: true, tracking: true, support: true, receiving: true, marketing: true, product: true },
+    expectedControlsFingerprint: fingerprint(snapshot()), enable: { confirmation: true, tracking: true, support: true, receiving: true, marketing: true, product: true },
   };
   const local: LocalEvidence = { codeSha: manifest.codeSha, clean: true, migrations: { [manifest.migrations[0].file]: "1".repeat(64) },
     evidence: Object.fromEntries(Object.values(manifest.evidence).map(e => [e.file, e.sha256!])) };
@@ -64,10 +66,6 @@ async function setup(preserveDefaultSmtp = false) {
     const body = options?.body ? JSON.parse(String(options.body)) as Record<string, unknown> : {};
     const response = (value: unknown) => new Response(JSON.stringify(value));
     if (url.hostname === "api.supabase.com" && url.pathname.endsWith(`/projects/${TARGET.project}`)) return response({ id: TARGET.project, status: "ACTIVE_HEALTHY" });
-    if (url.pathname.includes("/rpc/")) {
-      expect((options?.headers as Record<string, string>).apikey).toBe(env.SUPABASE_SERVICE_ROLE_KEY);
-      return response(current.controls[Object.entries(CONTROL_READS).find(([, fn]) => url.pathname.endsWith(fn))![0]]);
-    }
     if (url.pathname.endsWith("/config/auth")) {
       if (method === "PATCH") { Object.assign(current.smtp, body); if (current.patchChangesSecurity) current.smtp.mailer_otp_exp = 1; }
       return response(current.smtp);
@@ -88,13 +86,23 @@ async function setup(preserveDefaultSmtp = false) {
     }
     if (url.pathname.includes("/storage/v1/bucket/")) return response({ name: manifest.photoBucket, public: false, file_size_limit: 10485760, allowed_mime_types: ["image/webp", "image/jpeg", "image/png"] });
     if (url.pathname.endsWith("/database/query/read-only")) {
+      if (String(body.query).includes("'supportDelivery'")) return response([{ controls: snapshot() }]);
       if (String(body.query).includes("schema_migrations")) return response([{ state: { migrations: manifest.migrations.map(m => m.file.slice(0, 14)), cron: true } }]);
       return response(SCHEDULES.map(s => ({ jobname: s.name, schedule: s.schedule, command: s.command, active: true })));
     }
     if (url.pathname.endsWith("/database/query")) {
-      const enabled = String(body.query).includes("configure_order_confirmation_email(true");
-      current.controls = Object.fromEntries(Object.entries(current.controls).map(([key, value]) => [key, Array.isArray(value)
-        ? value.map(v => ({ ...v, enabled })) : { ...(value as Record<string, unknown>), enabled }]));
+      const query = String(body.query);
+      const configure = { confirmation: "order_confirmation_email", tracking: "simulated_tracking", support: "support_intake",
+        receiving: "support_receiving", marketing: "marketing_email", product: "product_notification_email" };
+      for (const [key, name] of Object.entries(configure)) {
+        const match = query.match(new RegExp(`configure_${name}\\((true|false)`));
+        if (!match) continue;
+        const value = current.controls[key], enabled = match[1] === "true";
+        current.controls[key] = Array.isArray(value) ? value.map(row => ({ ...row, enabled }))
+          : { ...(value as Record<string, unknown>), enabled };
+      }
+      const delivery = query.match(/update private\.email_controls set enabled=(true|false)/);
+      if (delivery) current.supportDelivery = current.supportDelivery.map(row => ({ ...row, enabled: delivery[1] === "true" }));
       return response([]);
     }
     throw new Error(`Unexpected fake provider route: ${url.pathname}`);
@@ -102,7 +110,7 @@ async function setup(preserveDefaultSmtp = false) {
   const run = (command: "plan" | "verify" | "apply" | "disable", confirm = true) => {
     const raw = JSON.stringify(manifest); return runResendOperations(command, raw, env, local, fetcher, confirm ? digest(raw) : "0".repeat(64));
   };
-  return { manifest, env, local, current, fetcher, run, native };
+  return { manifest, env, local, current, fetcher, run, native, snapshot };
 }
 const mutations = (fetcher: Awaited<ReturnType<typeof setup>>["fetcher"]) => fetcher.mock.calls.filter(([url, options]) =>
   options?.method === "PATCH" || new URL(String(url)).pathname.endsWith("/database/query"));
@@ -115,6 +123,68 @@ describe("restricted Resend operational command", () => {
       findings: expect.arrayContaining(["deployment_read_failed", "topic_missing_or_mismatched", "template_welcome_initial_missing", "webhook_missing_or_ambiguous"]) });
     expect(mutations(f.fetcher)).toEqual([]);
     expect(JSON.stringify(result)).not.toMatch(/owner@example|private-management|private-service|private-resend|provider-private-content|Approved postal/);
+  });
+
+  it("activates acknowledgement and human-approved reply delivery with Support Intake", async () => {
+    const f = await setup();
+    expect(await f.run("apply")).toMatchObject({ applied: true });
+    expect(f.current.supportDelivery).toEqual([
+      { purpose: "support_acknowledgement", enabled: true, updatedAt: stamp, acceptedAfter: stamp },
+      { purpose: "support_reply", enabled: true, updatedAt: stamp, acceptedAfter: stamp },
+    ]);
+  });
+
+  it.each([false, true])("repairs support delivery when intake is already enabled (mixed=%s)", async mixed => {
+    const f = await setup();
+    f.current.controls.support = { enabled: true, updatedAt: stamp };
+    f.current.supportDelivery[0].enabled = mixed;
+    f.manifest.expectedControlsFingerprint = fingerprint(f.snapshot());
+    expect(await f.run("apply")).toMatchObject({ applied: true });
+    expect(f.current.supportDelivery.every(row => row.enabled)).toBe(true);
+    expect(f.current.controls.support).toEqual({ enabled: true, updatedAt: stamp });
+  });
+
+  it.each(["missing", "extra", "duplicate", "invalid revision"])("rejects %s support delivery rows before any write", async kind => {
+    const f = await setup();
+    if (kind === "missing") f.current.supportDelivery.pop();
+    if (kind === "extra") f.current.supportDelivery.push({ ...f.current.supportDelivery[0], purpose: "order_confirmation" });
+    if (kind === "duplicate") f.current.supportDelivery[1] = { ...f.current.supportDelivery[0] };
+    if (kind === "invalid revision") f.current.supportDelivery[0].updatedAt = "";
+    expect(await f.run("verify")).toMatchObject({ readyForGuardedApply: false, findings: expect.arrayContaining(["controls_read_failed"]) });
+    await expect(f.run("apply")).rejects.toThrow("activation_preflight_failed");
+    await expect(f.run("disable")).rejects.toThrow("disable_preflight_failed");
+    expect(mutations(f.fetcher)).toEqual([]);
+  });
+
+  it.each([0, 1])("binds support delivery row %i revisions and cutoffs into the approved fingerprint", async index => {
+    const f = await setup();
+    f.current.supportDelivery[index].updatedAt = "2026-09-29T02:00:00.000Z";
+    f.current.supportDelivery[index].acceptedAfter = "2026-09-29T02:00:00.000Z";
+    expect(await f.run("verify")).toMatchObject({ readyForGuardedApply: false, findings: ["control_baseline_drift"] });
+    await expect(f.run("apply")).rejects.toThrow("activation_preflight_failed");
+    expect(mutations(f.fetcher)).toEqual([]);
+  });
+
+  it("does not report successful apply when a support delivery control remains disabled", async () => {
+    const f = await setup(), provider = f.fetcher.getMockImplementation()!;
+    f.fetcher.mockImplementation(async (input, options) => {
+      const result = await provider(input, options);
+      if (new URL(String(input)).pathname.endsWith("/database/query")) f.current.supportDelivery[1].enabled = false;
+      return result;
+    });
+    await expect(f.run("apply")).rejects.toThrow("control_postflight_failed");
+  });
+
+  it.each([false, true])("pauses mixed support sends and intake without changing receiving=%s", async receiving => {
+    const f = await setup();
+    await f.run("apply");
+    f.current.controls.receiving = { enabled: receiving, updatedAt: stamp };
+    f.current.supportDelivery[1].enabled = false;
+    expect(await f.run("disable")).toMatchObject({ admissionDisabled: true, preserved: expect.arrayContaining(["receiving"]) });
+    expect(f.current.controls.support).toMatchObject({ enabled: false });
+    expect(f.current.supportDelivery.every(row => row.enabled === false)).toBe(true);
+    expect(f.current.controls.receiving).toEqual({ enabled: receiving, updatedAt: stamp });
+    expect(f.current.supportDelivery.map(row => row.acceptedAfter)).toEqual([stamp, stamp]);
   });
 
   it("verifies the ready private setup and derives generated IDs without sending mail", async () => {
@@ -169,7 +239,7 @@ describe("restricted Resend operational command", () => {
     expect(pending).toMatchObject({ readyForGuardedApply: false, findings: expect.arrayContaining(["credential_receipt_missing_or_value_drift", "private_evidence_missing_or_changed"]) });
     expect(mutations(f.fetcher)).toEqual([]);
     f.local.setupReceipt = { manifestSha256: digest(JSON.stringify(f.manifest)), codeSha: f.manifest.codeSha,
-      controlsFingerprint: fingerprint(f.current.controls), credentials: { RESEND_API_KEY: { version: "new-private-v1", sha256: digest(f.env.RESEND_API_KEY) } },
+      controlsFingerprint: fingerprint(f.snapshot()), credentials: { RESEND_API_KEY: { version: "new-private-v1", sha256: digest(f.env.RESEND_API_KEY) } },
       evidence: Object.fromEntries(PROOF_KINDS.map(kind => [kind, "2".repeat(64)])) };
     expect(await f.run("verify")).toMatchObject({ readyForGuardedApply: true, findings: [] });
     (f.local.setupReceipt as { manifestSha256: string }).manifestSha256 = "0".repeat(64);
@@ -195,7 +265,7 @@ describe("restricted Resend operational command", () => {
     const f = await setup(); f.current.sensitive = true;
     expect(await f.run("verify")).toMatchObject({ readyForGuardedApply: false, findings: expect.arrayContaining(["hosted_sensitive_revision_unbound"]) });
     f.local.setupReceipt = { manifestSha256: digest(JSON.stringify(f.manifest)), codeSha: f.manifest.codeSha,
-      controlsFingerprint: fingerprint(f.current.controls), credentials: {}, evidence: {}, environment:
+      controlsFingerprint: fingerprint(f.snapshot()), credentials: {}, evidence: {}, environment:
         Object.fromEntries(Object.keys(f.manifest.credentialVersions).map(k => [k, { id: `env_${k}`, updatedAt: 500 }])) };
     expect(await f.run("verify")).toMatchObject({ readyForGuardedApply: true, findings: [] });
     const receipt = f.local.setupReceipt as { environment: Record<string, { updatedAt: number }> };
@@ -241,14 +311,14 @@ describe("restricted Resend operational command", () => {
     await expect(f.run("apply")).rejects.toThrow("activation_preflight_failed");
     expect(mutations(f.fetcher)).toEqual([]);
     f.local.setupReceipt = { manifestSha256: digest(JSON.stringify(f.manifest)), codeSha: f.manifest.codeSha,
-      controlsFingerprint: f.manifest.expectedControlsFingerprint, controlsAppliedFingerprint: fingerprint(f.current.controls), credentials: {}, evidence: {} };
+      controlsFingerprint: f.manifest.expectedControlsFingerprint, controlsAppliedFingerprint: fingerprint(f.snapshot()), credentials: {}, evidence: {} };
     expect(await f.run("apply")).toMatchObject({ applied: true }); expect(mutations(f.fetcher)).toEqual([]);
   });
 
   it("rejects changed control revisions and cutoffs after an intervening disable/re-enable despite matching booleans", async () => {
     const f = await setup(); await f.run("apply");
     f.local.setupReceipt = { manifestSha256: digest(JSON.stringify(f.manifest)), codeSha: f.manifest.codeSha,
-      controlsFingerprint: f.manifest.expectedControlsFingerprint, controlsAppliedFingerprint: fingerprint(f.current.controls), credentials: {}, evidence: {} };
+      controlsFingerprint: f.manifest.expectedControlsFingerprint, controlsAppliedFingerprint: fingerprint(f.snapshot()), credentials: {}, evidence: {} };
     expect(await f.run("verify")).toMatchObject({ readyForGuardedApply: true, findings: [] });
     const changed = (row: Record<string, unknown>) => ({ ...row, enabled: true, updatedAt: "2026-09-29T03:00:00.000Z", acceptedAfter: "2026-09-29T03:00:00.000Z" });
     f.current.controls = Object.fromEntries(Object.entries(f.current.controls).map(([key, value]) => [key,
