@@ -72,6 +72,10 @@ Target WCAG 2.2 AA. Prevent layout shift and horizontal overflow, keep client bu
 
 Preserve uncommitted user work, review the final diff for scope drift and unnecessary complexity, and commit only completed task-related work. Preserve history: use additive commits and PRs rather than amend, reset, force-push, or unrelated rewrites.
 
+### Minimal testing
+
+For code or test changes, follow [the testing strategy](docs/agents/testing-strategy.md). In final diff review, identify the distinct plausible regression each affected test catches; consolidate tests that repeat the same outcome and failure mechanism. Keep direct proof for authorization, private data, money, concurrency, idempotency, and recovery at a reliable boundary. This selects coverage; [engineering workflow](docs/agents/engineering-workflow.md) still governs required verification gates.
+
 ### Canonical delivery workflow
 
 For planned features, behavior changes, bugs, refactors, production fixes, or security fixes, read `docs/agents/engineering-workflow.md` before creating issues, branches, commits, or PRs. The canonical sequence is:
