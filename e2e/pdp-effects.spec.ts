@@ -85,6 +85,24 @@ async function propertyGeometry(card: Locator) {
   });
 }
 
+async function sampleEffectShape(button: Locator) {
+  return button.evaluate(async element => {
+    const section = element.closest('section')!;
+    const samples = [];
+    const end = performance.now() + 650;
+    while (performance.now() < end) {
+      const box = element.getBoundingClientRect();
+      samples.push({ width: box.width, height: box.height, left: box.left,
+        imageHeight: section.querySelector('[data-effect]')!.getBoundingClientRect().height,
+        buttonOpacity: Number(getComputedStyle(element).opacity),
+        descriptionOpacity: Number(getComputedStyle(element.querySelector('[id^="closer-effect-"]')!).opacity),
+        opacity: Number(getComputedStyle(section.firstElementChild!).opacity) });
+      await new Promise(requestAnimationFrame);
+    }
+    return samples;
+  });
+}
+
 async function verticalBounds(locator: Locator) {
   const box = await locator.boundingBox();
   if (!box) throw new Error("Expected a rendered effects section element.");
@@ -117,7 +135,17 @@ test("serum effects keep the selected property in view on desktop", async ({
   });
 
   await test.step("desktop next property scrolls to the complete second card", async () => {
-    await section.getByRole("button", { name: "Hydration", exact: true }).click();
+    const option = section.getByRole("button", { name: "Hydration", exact: true });
+    const before = await option.boundingBox();
+    const opening = sampleEffectShape(option);
+    await option.click();
+    const frames = await opening;
+    const after = await option.boundingBox();
+    if (!before || !after) throw new Error("Expected rendered effect button bounds.");
+    for (const dimension of ['width', 'height'] as const) {
+      expect(frames.filter(frame => frame[dimension] > before[dimension] + 1 && frame[dimension] < after[dimension] - 1).length).toBeGreaterThan(2);
+    }
+    expect(frames.every(frame => frame.buttonOpacity === 1 && frame.descriptionOpacity === 1)).toBe(true);
     const carousel = section.getByRole("region", { name: "Hydration properties" });
     await expect(carousel.getByRole("heading", { name: "Water binding" })).toBeVisible();
     await expect(carousel.getByRole("button", { name: "Previous property" })).toBeDisabled();
@@ -267,7 +295,7 @@ test.describe("mobile serum effects", () => {
     });
   }
 
-  test("expanded effects progressively grow and fade during a held swipe", async ({ page, storefront }) => {
+  test("expanded effects progressively grow while only the media fades during a held swipe", async ({ page, storefront }) => {
     await page.setViewportSize({ width: 390, height: 1024 });
     await page.goto(productPath(storefront));
     const section = page.locator('#effects-prototype');
@@ -284,9 +312,11 @@ test.describe("mobile serum effects", () => {
     });
     await expect.poll(async () => {
       const now = await incoming.boundingBox();
-      const opacity = await section.locator('[data-selected="true"]').evaluate(element => Number(getComputedStyle(element).opacity));
+      const opacity = await section.getByRole('img', { name: 'Hydration model image placeholder' }).evaluate(element => Number(getComputedStyle(element).opacity));
       return !!now && !!before && now.height > before.height + 5 && opacity > .2 && opacity < .8;
     }).toBe(true);
+    await expect(section.locator('[data-selected="true"]')).toHaveCSS('opacity', '1');
+    await expect(incoming).toHaveCSS('opacity', '1');
     await rail.evaluate(element => { element.style.scrollSnapType = ''; });
     await section.getByRole("button", { name: "Next effect" }).tap();
     await expectExpandedAligned(section, "Barrier protection");
@@ -399,22 +429,7 @@ test.describe("mobile serum effects", () => {
         return { width: box.width, height: box.height };
       });
     }
-    async function sample(button: Locator) {
-      return button.evaluate(async element => {
-        const section = element.closest('section')!;
-        const samples = [];
-        const end = performance.now() + 650;
-        while (performance.now() < end) {
-          const box = element.getBoundingClientRect();
-          samples.push({ width: box.width, height: box.height, left: box.left,
-            imageHeight: section.querySelector('[data-effect]')!.getBoundingClientRect().height,
-            opacity: Number(getComputedStyle(section.firstElementChild!).opacity) });
-          await new Promise(requestAnimationFrame);
-        }
-        return samples;
-      });
-    }
-    function expectShapeMotion(before: { width: number; height: number }, after: { width: number; height: number }, samples: Awaited<ReturnType<typeof sample>>) {
+    function expectShapeMotion(before: { width: number; height: number }, after: { width: number; height: number }, samples: Awaited<ReturnType<typeof sampleEffectShape>>) {
       for (const dimension of ['width', 'height'] as const) {
         const low = Math.min(before[dimension], after[dimension]);
         const high = Math.max(before[dimension], after[dimension]);
@@ -422,19 +437,20 @@ test.describe("mobile serum effects", () => {
       }
       expect(new Set(samples.map(frame => Math.round(frame.imageHeight))).size).toBeGreaterThan(3);
       expect(samples.every(frame => frame.opacity === 1)).toBe(true);
+      expect(samples.every(frame => frame.buttonOpacity === 1 && frame.descriptionOpacity === 1)).toBe(true);
     }
     for (const name of effectNames) {
       const button = section.getByRole('button', { name, exact: true });
       await button.scrollIntoViewIfNeeded();
       const closed = await measure(button);
-      const opening = sample(button);
+      const opening = sampleEffectShape(button);
       await button.click();
       const openFrames = await opening;
       await expect(stage).not.toHaveAttribute('data-disclosure');
       await expectExpandedAligned(section, name);
       const opened = await measure(button);
       expectShapeMotion(closed, opened, openFrames);
-      const closing = sample(button);
+      const closing = sampleEffectShape(button);
       await section.getByRole('button', { name: 'Collapse effect description' }).click();
       const closeFrames = await closing;
       await expect(stage).not.toHaveAttribute('data-disclosure');

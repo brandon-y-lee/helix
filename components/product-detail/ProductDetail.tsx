@@ -239,7 +239,6 @@ export function ProductDetail({
         >
           <p className="pdp__collection">{routineLabel}</p>
           <h1>{product.displayName}</h1>
-          <p className="pdp__tagline">{product.productType}</p>
           <p className="pdp__description">{leadDescription}</p>
         </PdpPurchaseIsland>
       </div>
