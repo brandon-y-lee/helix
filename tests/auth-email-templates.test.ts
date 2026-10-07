@@ -12,7 +12,11 @@ describe("Supabase-owned account email templates", () => {
       if (!key.endsWith("_content")) continue;
       expect(html).toContain('<html lang="en"');
       expect(html).toContain('<h1');
-      expect(html).not.toMatch(/<script|<img|\.Data|\.Email|unsubscribe|discount/i);
+      const doc = new DOMParser().parseFromString(html, "text/html");
+      expect(doc.querySelectorAll("img")).toHaveLength(1);
+      expect(doc.querySelector("img")?.getAttribute("src")).toBe("https://helixskin.vercel.app/brand/helix-wordmark-email.png");
+      expect(doc.querySelector("img")?.alt).toBe("helix");
+      expect(html).not.toMatch(/<script|<svg|\.Data|\.Email|unsubscribe|discount/i);
     }
   });
   it("switches the reviewed domain without deriving an email identity or accepting URL injection", () => {
