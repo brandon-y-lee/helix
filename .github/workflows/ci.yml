@@ -55,6 +55,36 @@ jobs:
           VERIFICATION_RESULT: ${{ needs.ticket-verification.result }}
         run: test "$VERIFICATION_RESULT" == 'success'
 
+  # Quality and production verification run independently on the same PR merge tree.
+  integration-quality:
+    if: ${{ github.event_name == 'pull_request' && !startsWith(github.base_ref, 'codex/spec-') && github.event.pull_request.draft == false }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Complete Vitest suite
+        run: pnpm test
+
   integration-verification:
     if: ${{ github.event_name == 'pull_request' && !startsWith(github.base_ref, 'codex/spec-') && github.event.pull_request.draft == false }}
     runs-on: ubuntu-latest
@@ -81,15 +111,6 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Lint
-        run: pnpm lint
-
-      - name: Typecheck
-        run: pnpm typecheck
-
-      - name: Complete Vitest suite
-        run: pnpm test
-
       - name: Install Playwright browsers
         if: ${{ github.event_name == 'pull_request' }}
         run: pnpm exec playwright install --with-deps chromium
@@ -112,24 +133,26 @@ jobs:
           if-no-files-found: ignore
 
   integration-gate:
-    needs: integration-verification
+    needs: [integration-quality, integration-verification]
     if: ${{ always() && github.event_name == 'pull_request' && !startsWith(github.base_ref, 'codex/spec-') && github.event.pull_request.draft == false }}
     runs-on: ubuntu-latest
     steps:
       - name: Report Integration Gate
         env:
+          QUALITY_RESULT: ${{ needs.integration-quality.result }}
           VERIFICATION_RESULT: ${{ needs.integration-verification.result }}
-        run: test "$VERIFICATION_RESULT" == 'success'
+        run: test "$QUALITY_RESULT" == 'success' && test "$VERIFICATION_RESULT" == 'success'
 
   # Classic main protection remains deferred and still requires this context.
   # It is not part of the active dev delivery contract.
   ci:
     name: ${{ github.base_ref == 'main' && 'ci' || 'main-ci-not-applicable' }}
-    needs: integration-verification
+    needs: [integration-quality, integration-verification]
     if: ${{ always() && github.event_name == 'pull_request' && github.base_ref == 'main' && github.event.pull_request.draft == false }}
     runs-on: ubuntu-latest
     steps:
       - name: Report Main Compatibility Gate
         env:
+          QUALITY_RESULT: ${{ needs.integration-quality.result }}
           VERIFICATION_RESULT: ${{ needs.integration-verification.result }}
-        run: test "$VERIFICATION_RESULT" == 'success'
+        run: test "$QUALITY_RESULT" == 'success' && test "$VERIFICATION_RESULT" == 'success'
