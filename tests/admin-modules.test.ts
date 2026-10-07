@@ -70,7 +70,7 @@ describe("admin module registry", () => {
     });
   });
 
-  it("shows demo orders only to principals with simulation authority", () => {
+  it("filters registered modules by their explicit capabilities", () => {
     expect(
       getAdminModules(capabilitiesForRole("admin")).map((module) => ({
         label: module.label,
@@ -81,11 +81,12 @@ describe("admin module registry", () => {
       { label: "Demo orders", route: "/admin/demo-orders" },
       { label: "Support Inbox", route: "/admin/support" },
     ]);
-    expect(
-      getAdminModules(capabilitiesForRole("catalog_publisher")).map(
-        (module) => module.route,
-      ),
-    ).toEqual(["/admin/catalog"]);
+    for (const role of ["catalog_editor", "catalog_publisher"] as const) {
+      expect(getAdminModules(capabilitiesForRole(role)).map((module) => module.route)).toEqual(["/admin/catalog"]);
+    }
+    expect(getAdminModules([ADMIN_CAPABILITIES.supportRead])).toEqual([
+      expect.objectContaining({ id: "support", route: "/admin/support", requiredCapability: ADMIN_CAPABILITIES.supportRead }),
+    ]);
     expect(
       getAdminModules([ADMIN_CAPABILITIES.ordersSimulate]).map(
         (module) => module.route,
