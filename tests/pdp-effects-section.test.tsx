@@ -222,7 +222,7 @@ describe("PdpEffectsSection", () => {
     fireEvent.scroll(rail);
     expect(effectButton("Hydration").style.getPropertyValue("--card-expansion")).toBe("0.75");
     expect(effectButton("Barrier protection").style.getPropertyValue("--card-expansion")).toBe("0.25");
-    expect(screen.getByRole("img", { name: "Hydration model image placeholder" }).closest("[data-selected]")).toHaveStyle({ opacity: "0.5" });
+    expect(screen.getByRole("img", { name: "Hydration model image placeholder" })).toHaveStyle({ opacity: "0.5" });
     expect(effectButton("Hydration")).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByRole("button", { name: "Next effect" }).parentElement).toHaveAttribute("data-moving", "true");
     expect(screen.getByRole("button", { name: "Next effect" }).parentElement).toHaveAttribute("data-dragging", "true");
@@ -232,7 +232,7 @@ describe("PdpEffectsSection", () => {
     expect(effectButton("Barrier protection")).toHaveAttribute("aria-expanded", "true");
     expect(effectButton("Hydration")).toHaveAttribute("aria-expanded", "false");
     expect(screen.getAllByRole("region", { name: / properties$/ })).toHaveLength(1);
-    expect(screen.getByRole("img", { name: "Barrier protection model image placeholder" }).closest("[data-selected]")).toHaveStyle({ opacity: "0.5" });
+    expect(screen.getByRole("img", { name: "Barrier protection model image placeholder" })).toHaveStyle({ opacity: "0.5" });
     fireEvent(rail, new Event("scrollend"));
     expect(effectButton("Hydration")).toHaveFocus();
     fireEvent.touchEnd(rail);
