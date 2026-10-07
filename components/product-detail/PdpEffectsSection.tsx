@@ -113,6 +113,7 @@ export function PdpEffectsSection() {
   const scrollPosition = useRef(0);
   const [disclosure, setDisclosure] = useState<'opening' | 'closing' | null>(null);
   const disclosureFrom = useRef<EffectsGeometrySnapshot | null>(null);
+  const disclosureIsMobile = useRef(false);
   const disclosureMotion = useRef<ReturnType<typeof animateEffectsGeometry> | null>(null);
   const requestedView = useRef<number | null>(null);
   const touching = useRef(false);
@@ -192,7 +193,8 @@ export function PdpEffectsSection() {
       (railRef.current?.children[active] as HTMLElement | undefined)?.querySelector('button')?.focus({ preventScroll: true });
     }
     const elements = disclosureElements();
-    disclosureFrom.current = mobile && !reduceMotion && elements ? captureEffectsGeometry(elements) : null;
+    disclosureIsMobile.current = mobile;
+    disclosureFrom.current = !reduceMotion && elements ? captureEffectsGeometry(elements) : null;
     disclosureMotion.current?.stop();
     disclosureMotion.current = null;
     requestedView.current = index;
@@ -215,18 +217,19 @@ export function PdpEffectsSection() {
 
   function close() { changeView(null); }
 
-  function disclosureElements() {
+  const disclosureElements = useCallback(() => {
     const rail = railRef.current, image = imageRef.current, properties = propertiesRef.current;
-    return rail && image && properties ? { rail, image, properties } : null;
-  }
+    if (!rail) return null;
+    return mobile ? image && properties ? { rail, image, properties } : null : { rail };
+  }, [mobile]);
 
   useLayoutEffect(() => {
     const rail = railRef.current;
-    if (!rail || !mobile) return;
+    if (!rail) return;
     let width = -1;
     function resize() {
       if (!rail) return;
-      if (mobileOpen) {
+      if (mobile && mobileOpen) {
         let maxHeight = 44;
         for (const slot of Array.from(rail.children)) {
           const button = slot.querySelector('button');
@@ -242,7 +245,7 @@ export function PdpEffectsSection() {
       disclosureMotion.current?.finish();
       width = rail.clientWidth;
       const index = selectedRef.current ?? closedEffect.current;
-      if (index !== null) {
+      if (mobile && index !== null) {
         centerCard(index, 'instant');
         setPosition(index);
         scrollPosition.current = index;
@@ -264,18 +267,18 @@ export function PdpEffectsSection() {
       if (requestedView.current === null) commitView(null);
       setDisclosure(null);
     };
-    if (!mobile || reduceMotion || !elements) {
+    if (reduceMotion || !elements || mobile !== disclosureIsMobile.current) {
       disclosureMotion.current?.stop();
       finish();
       return;
     }
     if (!disclosureFrom.current) return;
-    if (requestedView.current !== null) centerCard(requestedView.current, 'instant');
+    if (mobile && requestedView.current !== null) centerCard(requestedView.current, 'instant');
     const animation = animateEffectsGeometry(elements, disclosureFrom.current, captureEffectsGeometry(elements), finish);
     disclosureMotion.current = animation;
     disclosureFrom.current = null;
     return () => animation.stop();
-  }, [mobile, reduceMotion, disclosure, active, commitView]);
+  }, [mobile, reduceMotion, disclosure, active, commitView, disclosureElements]);
 
   useLayoutEffect(() => {
     const rail = railRef.current;
@@ -307,36 +310,35 @@ export function PdpEffectsSection() {
     setActive(Math.round(next));
   }
 
+  const mediaOpacity = reduceMotion ? 1 : Math.abs(position - Math.round(position)) * -2 + 1;
+  const imageLabel = viewOpen && effect ? `${effect.title} model image placeholder` : 'Serum effects hero image placeholder';
   const visualContent = <>
     <div ref={imageRef} className={styles.image} data-effect={viewOpen ? effect?.id : 'hero'}>
-      <div className={styles.hue} role="img" aria-label={effect ? `${effect.title} model image placeholder` : 'Serum effects hero image placeholder'} />
+      {mobile ? <div className={styles.hue} data-media-effect={viewOpen ? effect?.id : 'hero'} role="img" aria-label={imageLabel} style={{ opacity: disclosure ? 1 : mediaOpacity }} /> :
+        <AnimatePresence mode="wait" initial={false}>
+          <m.div key={viewOpen ? effect?.id : 'hero'} className={styles.hue} data-media-effect={viewOpen ? effect?.id : 'hero'} role="img" aria-label={imageLabel}
+            initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { duration: reduceMotion ? 0 : .58, delay: reduceMotion ? 0 : .08, ease: 'easeInOut' } }}
+            exit={{ opacity: 0, transition: { duration: reduceMotion ? 0 : .24, ease: 'easeInOut' } }} />
+        </AnimatePresence>}
       <h2 id="effects-title" className={styles.heading}>Four effects.<br />One formula.</h2>
     </div>
     {mobile ? <div ref={propertiesRef} className={styles.mobileProperties} data-open={viewOpen} aria-hidden={!viewOpen} inert={!viewOpen}>
       {effect && <Properties key={effect.id} effect={effect} reduceMotion={reduceMotion} mobile />}
-    </div> : effect && <Properties key={effect.id} effect={effect} reduceMotion={reduceMotion} mobile={false} />}
+    </div> : viewOpen && effect && <Properties key={effect.id} effect={effect} reduceMotion={reduceMotion} mobile={false} />}
   </>;
-  const mediaOpacity = reduceMotion ? 1 : Math.abs(position - Math.round(position)) * -2 + 1;
 
   return <LazyMotion features={domMax}>
     <section id="effects-prototype" className={styles.closer} aria-labelledby="effects-title" onKeyDown={event => {
       if (event.key === 'Escape' && active !== null) { event.preventDefault(); close(); }
     }}>
-      <div className={styles.stage} data-disclosure={mobile ? disclosure : undefined}>
+      <div className={styles.stage} data-disclosure={disclosure}>
         <div className={styles.visualStage}>
           {viewOpen && <button className={styles.close} type="button" aria-label="Collapse effect description" onClick={close}><span aria-hidden="true">×</span></button>}
-          {mobile ? <div className={styles.visual} data-selected={viewOpen} style={{ opacity: disclosure ? 1 : mediaOpacity }}>{visualContent}</div> :
-            <AnimatePresence mode="wait" initial={false}>
-              <m.div key={effect?.id ?? 'hero'} className={styles.visual} data-selected={!!effect}
-                initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { duration: reduceMotion ? 0 : .58, delay: reduceMotion ? 0 : .08, ease: 'easeInOut' } }}
-                exit={{ opacity: 0, transition: { duration: reduceMotion ? 0 : .24, ease: 'easeInOut' } }}>
-                {visualContent}
-              </m.div>
-            </AnimatePresence>}
+          <div className={styles.visual} data-selected={viewOpen}>{visualContent}</div>
 
         </div>
-        <m.div layout={reduceMotion || mobile ? false : 'position'} transition={{ duration: .42 }} className={styles.selector} data-open={viewOpen}>
-          <m.div layoutScroll className={styles.effects} aria-label="Explore product effects" ref={railRef} onScroll={scrollEffects}
+        <div className={styles.selector} data-open={viewOpen}>
+          <div className={styles.effects} aria-label="Explore product effects" ref={railRef} onScroll={scrollEffects}
             onTouchStart={() => { disclosureMotion.current?.finish(); touching.current = true; setDragging(true); showArrowsFor(null); }}
             onTouchEnd={releaseSwipe}
             onTouchCancel={releaseSwipe}
@@ -350,23 +352,23 @@ export function PdpEffectsSection() {
               const expanded = viewOpen && active === index;
               const expansion = reduceMotion ? Number(expanded) : Math.max(0, 1 - Math.abs(position - index));
               // Mobile wrapper transforms can shrink WebKit's scroll extent and clamp the selection out of view.
-              return <m.div layout={reduceMotion || mobile ? false : 'position'} transition={{ duration: .42 }} className={styles.effect} key={item.id} data-expanded={expanded}>
-                <m.button layout={!reduceMotion && !mobile} style={{ borderRadius: 28, ...(mobileOpen ? { '--card-expansion': expansion } : {}) } as CSSProperties} transition={{ layout: { duration: .42, ease: [.22, 1, .36, 1] } }}
+              return <div className={styles.effect} key={item.id} data-expanded={expanded}>
+                <button style={{ borderRadius: 28, ...(mobileOpen ? { '--card-expansion': expansion } : {}) } as CSSProperties}
                   type="button" aria-label={item.title} aria-describedby={expanded ? `closer-effect-${item.id}` : undefined}
                   tabIndex={mobileOpen && !expanded ? -1 : undefined} aria-expanded={expanded} aria-controls={`closer-effect-${item.id}`} onClick={() => select(index)}>
-                  <m.span layout={reduceMotion || mobile ? false : 'position'} className={styles.effectLabel}><span className={styles.effectIcon} aria-hidden="true" /><span>{item.title}</span></m.span>
-                  <m.span initial={mobile ? false : undefined} layout={reduceMotion || mobile ? false : 'position'} animate={{ opacity: mobileOpen ? Math.max(0, expansion * 2 - 1) : expanded ? 1 : 0 }} transition={{ duration: reduceMotion || mobileOpen && !disclosure ? 0 : mobile && disclosure === 'closing' ? .12 : mobile ? .3 : .42, delay: !reduceMotion && mobile && disclosure === 'opening' ? .12 : 0 }} id={`closer-effect-${item.id}`} className={styles.description} aria-hidden={!expanded} hidden={!expanded && !mobile}>
+                  <span className={styles.effectLabel}><span className={styles.effectIcon} aria-hidden="true" /><span>{item.title}</span></span>
+                  <span style={{ visibility: mobile && (!mobileOpen || expansion === 0) ? 'hidden' : undefined }} id={`closer-effect-${item.id}`} className={styles.description} aria-hidden={!expanded} hidden={!expanded && !mobile}>
                     <strong>{item.title}.</strong> {item.promise} {item.summary}
-                  </m.span>
-                </m.button>
-              </m.div>;
+                  </span>
+                </button>
+              </div>;
             })}
-          </m.div>
+          </div>
           {mobileOpen && <div className={styles.arrows} data-moving={moving} data-dragging={dragging} data-pending={arrowTarget === null}>
             <button type="button" aria-label="Previous effect" disabled={(arrowTarget ?? active) === 0} onClick={() => select((arrowTarget ?? active) - 1)}><Chevron previous /></button>
             <button type="button" aria-label="Next effect" disabled={(arrowTarget ?? active) === effects.length - 1} onClick={() => select((arrowTarget ?? active) + 1)}><Chevron /></button>
           </div>}
-        </m.div>
+        </div>
       </div>
     </section>
   </LazyMotion>;

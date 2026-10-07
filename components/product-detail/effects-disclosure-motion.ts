@@ -2,8 +2,9 @@ import { animate } from 'motion';
 
 export type EffectsGeometryElements = {
   rail: HTMLElement;
-  image: HTMLElement;
-  properties: HTMLElement;
+  // Mobile also reshapes the image/properties and gives horizontal slots a flex basis.
+  image?: HTMLElement;
+  properties?: HTMLElement;
 };
 
 export type EffectsGeometrySnapshot = {
@@ -33,8 +34,8 @@ export function captureEffectsGeometry({ rail, image, properties }: EffectsGeome
       paddingRight: parseFloat(railStyle.paddingRight),
       scrollLeft: rail.scrollLeft,
     },
-    imageHeight: image.getBoundingClientRect().height,
-    propertiesHeight: properties.getBoundingClientRect().height,
+    imageHeight: image?.getBoundingClientRect().height ?? 0,
+    propertiesHeight: properties?.getBoundingClientRect().height ?? 0,
   };
 }
 
@@ -60,16 +61,16 @@ export function animateEffectsGeometry(
   }
 
   own(rail, ['height', 'padding-left', 'padding-right', 'scroll-snap-type', 'scroll-behavior', 'overflow-anchor']);
-  own(image, ['height']);
-  own(properties, ['height', 'overflow-x', 'overflow-y']);
+  if (image) own(image, ['height']);
+  if (properties) own(properties, ['height', 'overflow-x', 'overflow-y']);
   for (const { slot, button } of slots) {
-    own(slot, ['width', 'flex-basis']);
+    own(slot, image ? ['width', 'flex-basis'] : ['width']);
     own(button, ['width', 'height']);
   }
   rail.style.scrollSnapType = 'none';
   rail.style.scrollBehavior = 'auto';
   rail.style.overflowAnchor = 'none';
-  properties.style.overflow = 'hidden';
+  if (properties) properties.style.overflow = 'hidden';
 
   function apply(progress: number) {
     const mix = (start: number, end: number) => start + (end - start) * progress;
@@ -77,12 +78,12 @@ export function animateEffectsGeometry(
     rail.style.height = px(from.rail.height, to.rail.height);
     rail.style.paddingLeft = px(from.rail.paddingLeft, to.rail.paddingLeft);
     rail.style.paddingRight = px(from.rail.paddingRight, to.rail.paddingRight);
-    image.style.height = px(from.imageHeight, to.imageHeight);
-    properties.style.height = px(from.propertiesHeight, to.propertiesHeight);
+    if (image) image.style.height = px(from.imageHeight, to.imageHeight);
+    if (properties) properties.style.height = px(from.propertiesHeight, to.propertiesHeight);
     slots.forEach(({ slot, button }, index) => {
       const width = px(from.slots[index].width, to.slots[index].width);
       slot.style.width = width;
-      slot.style.flexBasis = width;
+      if (image) slot.style.flexBasis = width;
       button.style.width = width;
       button.style.height = px(from.slots[index].buttonHeight, to.slots[index].buttonHeight);
     });
