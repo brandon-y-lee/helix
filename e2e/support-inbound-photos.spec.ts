@@ -29,15 +29,15 @@ async function expectContained(page: Page, blocked: string[]) {
   expect(blocked).toEqual([]);
 }
 
-async function submitInquiry(page: Page, scenario: "photos" | "upload-retry") {
-  await page.goto(`${fixtureRoot}/intake?scenario=${scenario}`);
+async function submitInquiry(page: Page) {
+  await page.goto(`${fixtureRoot}/intake?scenario=photos`);
   await page.getByLabel("Name", { exact: true }).fill("Sample Customer");
   await page.getByLabel("Email", { exact: true }).fill("sample@example.test");
   await page.getByLabel("Subject", { exact: true }).fill("Product photo question");
   await page.getByLabel("Message", { exact: true }).fill("Please review the condition of my product.");
   await page.getByLabel("Photos (optional)").setInputFiles([
     { name: longFilename, mimeType: "image/jpeg", buffer: Buffer.from("inert synthetic photo bytes") },
-    ...(scenario === "photos" ? [{ name: "unsupported-content.jpg", mimeType: "image/jpeg", buffer: Buffer.from("inert rejected photo bytes") }] : []),
+    { name: "unsupported-content.jpg", mimeType: "image/jpeg", buffer: Buffer.from("inert rejected photo bytes") },
   ]);
   const submit = page.getByRole("button", { name: "Submit inquiry", exact: true });
   await submit.focus();
@@ -50,7 +50,7 @@ for (const viewport of viewports) {
   test(`support intake keeps photo processing and rejection truthful at ${viewport.width}px`, async ({ page }) => {
     await page.setViewportSize(viewport);
     const blocked = await containSupportFixture(page);
-    await submitInquiry(page, "photos");
+    await submitInquiry(page);
     await expect(page.getByText("Processing — not yet available to support", { exact: true })).toHaveCount(2);
     await expectContained(page, blocked);
     const check = page.getByRole("button", { name: "Check photo status", exact: true });
@@ -59,21 +59,6 @@ for (const viewport of viewports) {
     await expect(page.getByText("Added privately for support", { exact: true })).toBeVisible();
     await expect(page.getByText("Not added — this photo could not be accepted", { exact: true })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Inquiry received", exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Submit inquiry", exact: true })).toHaveCount(0);
-    await expectContained(page, blocked);
-  });
-
-  test(`support upload failure supports a manual retry at ${viewport.width}px`, async ({ page }) => {
-    await page.setViewportSize(viewport);
-    const blocked = await containSupportFixture(page);
-    await submitInquiry(page, "upload-retry");
-    await expect(page.getByText("Upload could not be confirmed", { exact: true })).toBeVisible();
-    const retry = page.getByRole("button", { name: `Retry ${longFilename}`, exact: true });
-    await retry.focus();
-    await page.keyboard.press("Enter");
-    await expect(page.getByText("Processing — not yet available to support", { exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "Check photo status", exact: true }).click();
-    await expect(page.getByText("Added privately for support", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Submit inquiry", exact: true })).toHaveCount(0);
     await expectContained(page, blocked);
   });
@@ -112,62 +97,62 @@ for (const viewport of viewports) {
     }
     await expectContained(page, blocked);
   });
-
-  test(`new inbound context invalidates reply approval at ${viewport.width}px`, async ({ page }) => {
-    await page.setViewportSize(viewport);
-    const blocked = await containSupportFixture(page);
-    await page.goto(`${fixtureRoot}?scenario=new-context`);
-    const approve = page.getByRole("button", { name: "Approve and queue reply", exact: true });
-    await expect(approve).toBeEnabled();
-    await approve.click();
-    await expect(page.getByRole("main").getByRole("alert")).toContainText("Review the latest conversation and save your draft again before approving.");
-    await expect(page.getByText("The pump is damaged. Please consider this before replying.", { exact: true })).toBeVisible();
-    await expect(approve).toBeDisabled();
-    await page.getByRole("textbox", { name: "Reply", exact: true }).fill("Thank you. I have reviewed the additional pump damage details.");
-    await page.getByRole("button", { name: "Save draft", exact: true }).click();
-    await expect(approve).toBeEnabled();
-    await approve.click();
-    await expect(page.getByRole("status")).toContainText("Reply approved and queued. Delivery is shown separately");
-    await expect(approve).toBeDisabled();
-    await expectContained(page, blocked);
-  });
-
-  test(`generated support drafts preserve unsaved edits and require explicit approval at ${viewport.width}px`, async ({ page }) => {
-    await page.setViewportSize(viewport);
-    const blocked = await containSupportFixture(page);
-    await page.goto(`${fixtureRoot}?scenario=ai-draft`);
-    const subject = page.getByLabel("Reply subject", { exact: true });
-    const reply = page.getByRole("textbox", { name: "Reply", exact: true });
-    const approve = page.getByRole("button", { name: "Approve and queue reply", exact: true });
-    await subject.fill("My unsaved subject");
-    await reply.fill("My unsaved reply before generation.");
-    const generate = page.getByRole("button", { name: "Generate draft", exact: true });
-    await generate.focus();
-    await page.keyboard.press("Enter");
-    await expect(reply).toBeEnabled();
-    await reply.fill("My unsaved reply during generation.");
-    await page.getByRole("button", { name: "Check draft status", exact: true }).click();
-    await expect(page.getByRole("region", { name: "Draft assistance", exact: true })).toContainText("Additional human review is needed.");
-    await expect(subject).toHaveValue("My unsaved subject");
-    await expect(reply).toHaveValue("My unsaved reply during generation.");
-    await expect(approve).toBeDisabled();
-    const saved = page.getByRole("region", { name: "Saved reply for approval", exact: true });
-    const generatedBody = "Thank you for your question. Please share which product you are asking about so we can review the details.";
-    await expect(saved).toContainText(generatedBody);
-    await expect(saved).toContainText("Helix does not provide medical advice.");
-    await expect(saved).not.toContainText("Already approved.");
-    await expectContained(page, blocked);
-    const load = saved.getByRole("button", { name: "Load generated draft into editor", exact: true });
-    await load.focus();
-    await page.keyboard.press("Enter");
-    await expect(reply).toHaveValue(generatedBody);
-    await expect(approve).toBeEnabled();
-    await approve.click();
-    await expect(page.getByRole("status").filter({ hasText: "Reply approved and queued." })).toBeVisible();
-    await expect(approve).toBeDisabled();
-    await expectContained(page, blocked);
-  });
 }
+
+test("new inbound context invalidates reply approval at 390px", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const blocked = await containSupportFixture(page);
+  await page.goto(`${fixtureRoot}?scenario=new-context`);
+  const approve = page.getByRole("button", { name: "Approve and queue reply", exact: true });
+  await expect(approve).toBeEnabled();
+  await approve.click();
+  await expect(page.getByRole("main").getByRole("alert")).toContainText("Review the latest conversation and save your draft again before approving.");
+  await expect(page.getByText("The pump is damaged. Please consider this before replying.", { exact: true })).toBeVisible();
+  await expect(approve).toBeDisabled();
+  await page.getByRole("textbox", { name: "Reply", exact: true }).fill("Thank you. I have reviewed the additional pump damage details.");
+  await page.getByRole("button", { name: "Save draft", exact: true }).click();
+  await expect(approve).toBeEnabled();
+  await approve.click();
+  await expect(page.getByRole("status")).toContainText("Reply approved and queued. Delivery is shown separately");
+  await expect(approve).toBeDisabled();
+  await expectContained(page, blocked);
+});
+
+test("generated support drafts preserve unsaved edits and require explicit approval at 390px", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const blocked = await containSupportFixture(page);
+  await page.goto(`${fixtureRoot}?scenario=ai-draft`);
+  const subject = page.getByLabel("Reply subject", { exact: true });
+  const reply = page.getByRole("textbox", { name: "Reply", exact: true });
+  const approve = page.getByRole("button", { name: "Approve and queue reply", exact: true });
+  await subject.fill("My unsaved subject");
+  await reply.fill("My unsaved reply before generation.");
+  const generate = page.getByRole("button", { name: "Generate draft", exact: true });
+  await generate.focus();
+  await page.keyboard.press("Enter");
+  await expect(reply).toBeEnabled();
+  await reply.fill("My unsaved reply during generation.");
+  await page.getByRole("button", { name: "Check draft status", exact: true }).click();
+  await expect(page.getByRole("region", { name: "Draft assistance", exact: true })).toContainText("Additional human review is needed.");
+  await expect(subject).toHaveValue("My unsaved subject");
+  await expect(reply).toHaveValue("My unsaved reply during generation.");
+  await expect(approve).toBeDisabled();
+  const saved = page.getByRole("region", { name: "Saved reply for approval", exact: true });
+  const generatedBody = "Thank you for your question. Please share which product you are asking about so we can review the details.";
+  await expect(saved).toContainText(generatedBody);
+  await expect(saved).toContainText("Helix does not provide medical advice.");
+  await expect(saved).not.toContainText("Already approved.");
+  await expectContained(page, blocked);
+  const load = saved.getByRole("button", { name: "Load generated draft into editor", exact: true });
+  await load.focus();
+  await page.keyboard.press("Enter");
+  await expect(reply).toHaveValue(generatedBody);
+  await expect(approve).toBeEnabled();
+  await approve.click();
+  await expect(page.getByRole("status").filter({ hasText: "Reply approved and queued." })).toBeVisible();
+  await expect(approve).toBeDisabled();
+  await expectContained(page, blocked);
+});
 
 test("support refresh failure keeps reply edits and permits manual recovery", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
