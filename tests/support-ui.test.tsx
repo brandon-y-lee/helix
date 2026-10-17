@@ -40,6 +40,7 @@ describe("Support Intake", () => {
     vi.stubGlobal("fetch", fetch);
     render(<ContactForm />);
     await screen.findByRole("button", { name: "Submit inquiry" });
+    expect(screen.queryByText(/Development service|Email acknowledgements and replies can reach only approved/i)).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText(/^First and last name/), { target: { value: "Sample Customer" } });
     fireEvent.change(screen.getByRole("textbox", { name: "Email" }), { target: { value: "sample@example.com" } });
     fireEvent.change(screen.getByLabelText(/^Topic/), { target: { value: "A product question" } });

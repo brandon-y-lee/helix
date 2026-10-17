@@ -15,7 +15,7 @@ export default async function SupportIntakeVerificationPage({ searchParams = Pro
   if (Object.keys(query).some((key) => key !== "scenario") || typeof scenario !== "string"
     || !["photos", "upload-retry"].includes(scenario)) notFound();
   return <main id="content">
-    <ContactPageContent verification>
+    <ContactPageContent>
       <SupportIntakeVerification key={scenario} scenario={scenario as SupportIntakeScenario} />
     </ContactPageContent>
   </main>;

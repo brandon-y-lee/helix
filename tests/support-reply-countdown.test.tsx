@@ -25,8 +25,8 @@ describe("reply countdown", () => {
   it("renders a clock-independent fallback on the server", () => {
     const now = vi.spyOn(Date, "now").mockImplementation(() => { throw new Error("Server render read the clock"); });
     const markup = renderToString(<ReplyCountdown />);
-    expect(markup).toContain("Next weekday at noon Pacific");
-    expect(markup).toContain("Next weekday reply target: noon Pacific");
+    expect(markup).toContain("…");
+    expect(markup).toContain("the next weekday reply target: noon Pacific");
     expect(markup).toContain("Monday–Friday at noon Pacific");
     expect(now).not.toHaveBeenCalled();
   });
@@ -45,7 +45,7 @@ describe("reply countdown", () => {
 
     expect(recoverableError).not.toHaveBeenCalled();
     expect(container.querySelector("h1")).toBe(originalHeading);
-    expect(screen.queryByText("Next weekday at noon Pacific")).not.toBeInTheDocument();
+    expect(screen.queryByText("…")).not.toBeInTheDocument();
     expect(screen.getByText("01:00:00")).toBeInTheDocument();
     expect(screen.getByText("Monday, Oct 19 at noon Pacific")).toHaveAttribute("datetime", "2026-10-19T19:00:00.000Z");
   });
@@ -86,12 +86,12 @@ describe("reply countdown", () => {
 
   it("keeps one stable accessible heading and excludes ticking digits from announcements", () => {
     const { container } = render(<ReplyCountdown className="contact-countdown" />);
-    const heading = screen.getByRole("heading", { level: 1, name: "Next weekday reply target: noon Pacific" });
+    const heading = screen.getByRole("heading", { level: 1, name: "We'll get back to you within the next weekday reply target: noon Pacific" });
     expect(heading).toHaveClass("contact-countdown");
     expect(screen.getByText("00:00:02")).toHaveAttribute("aria-hidden", "true");
     expect(container.querySelector("[aria-live], [role='timer'], [role='status']")).toBeNull();
     act(() => vi.advanceTimersByTime(1000));
-    expect(heading).toHaveAccessibleName("Next weekday reply target: noon Pacific");
+    expect(heading).toHaveAccessibleName("We'll get back to you within the next weekday reply target: noon Pacific");
   });
 
   it("clears its interval and listeners when unmounted", () => {

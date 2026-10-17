@@ -39,13 +39,13 @@ export function ReplyCountdown({ className }: { className?: string }) {
   return (
     <div className={styles.countdown}>
       <h1 className={[styles.heading, className].filter(Boolean).join(" ")}>
-        <span className={styles.srOnly}>Next weekday reply target: noon Pacific</span>
-        <span className={styles.label} aria-hidden="true">Reply target in</span>
-        <span className={countdown === null ? styles.fallback : styles.digits} aria-hidden="true">
-          {countdown === null ? "Next weekday at noon Pacific" : formatReplyCountdown(countdown.remainingMs)}
+        <span>We&apos;ll get back to you within</span>{" "}
+        <span className={styles.srOnly}>the next weekday reply target: noon Pacific</span>
+        <span className={styles.digits} aria-hidden="true">
+          {countdown === null ? "…" : formatReplyCountdown(countdown.remainingMs)}
         </span>
       </h1>
-      <p className={styles.target}>
+      <p className={styles.srOnly}>
         {countdown === null ? "Monday–Friday at noon Pacific" : (
           <time dateTime={new Date(countdown.target).toISOString()}>
             {targetCalendar.format(countdown.target)} at noon Pacific

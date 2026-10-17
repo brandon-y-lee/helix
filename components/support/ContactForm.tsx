@@ -214,7 +214,7 @@ export function ContactForm({ request = fetch }: { request?: typeof fetch } = {}
   if (received) return (
     <div className={styles.notice}>
       <h2 ref={successHeading} tabIndex={-1}>Inquiry received</h2>
-      <p role="status">Your message is saved for the Helix support team. Email delivery is restricted during development; this confirmation does not mean an email was sent.</p>
+      <p role="status">Your message is saved for the Helix support team.</p>
       {photos.length ? <section aria-labelledby="support-photo-status-title" className={styles.photoStatus}>
         <h3 id="support-photo-status-title">Your photos</h3>
         <p>Your message stays saved if a photo cannot be added. Keep this page open to check photos or retry an upload.</p>
@@ -232,11 +232,7 @@ export function ContactForm({ request = fetch }: { request?: typeof fetch } = {}
     <form className={`contact-form ${styles.form}`} onSubmit={submit} aria-labelledby="contact-form-title">
       <h2 className="sr-only" id="contact-form-title">Send an inquiry</h2>
       <p className={styles.requiredNote}>* indicates a required field</p>
-      <div className={styles.developmentNotice} id="contact-development-notice">
-        <p className={styles.noticeTitle}>Development service</p>
-        <p>Inquiries are saved privately. Email acknowledgements and replies can reach only approved test recipients during development. Do not include passwords, payment card numbers, one-time codes, or medical records.</p>
-      </div>
-      <fieldset className={styles.fields} disabled={pending} aria-describedby="contact-development-notice">
+      <fieldset className={styles.fields} disabled={pending}>
         <legend className="sr-only">Inquiry details</legend>
         <div className="contact-field"><label htmlFor="support-type">Contact reason</label><select id="support-type" name="inquiryType" defaultValue="general">{contactInquiryTypes.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}</select></div>
         <div className="contact-form__grid">

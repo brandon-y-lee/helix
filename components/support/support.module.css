@@ -19,9 +19,6 @@
 .form textarea { min-height: 200px; }
 .form input:focus-visible, .form select:focus-visible, .form textarea:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
 .requiredNote, .helper, .privacy { color: var(--ink-soft); font-size: .75rem; line-height: 1.65; }
-.developmentNotice { padding-left: 16px; border-left: 2px solid var(--line); color: var(--ink-soft); font-size: .75rem; line-height: 1.65; }
-.noticeTitle { margin-bottom: 4px; color: var(--ink); font-size: .6875rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
-.developmentNotice p { max-width: 860px; }
 .uploadZone { position: relative; min-width: 0; border: 1px solid var(--control-line); border-radius: 12px; background: var(--bg); }
 .uploadZone:focus-within, .uploadZoneActive { outline: 2px solid var(--ink); outline-offset: 3px; }
 .form .photoInput { position: absolute; width: 1px; height: 1px; min-height: 0; margin: -1px; padding: 0; overflow: hidden; border: 0; clip-path: inset(50%); white-space: nowrap; }
