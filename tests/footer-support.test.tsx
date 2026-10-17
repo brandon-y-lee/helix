@@ -361,11 +361,14 @@ describe("legal and support content", () => {
     const fetcher = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ available: false })));
     try {
       render(<ContactPage />);
-      expect(screen.getByRole("heading", { level: 1, name: "CONTACT" })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { level: 1, name: "Contact us" })).toBeInTheDocument();
       expect(await screen.findByText(/Support Intake is currently unavailable/i)).toBeInTheDocument();
       expect(screen.queryByRole("form")).not.toBeInTheDocument();
       expect(screen.queryByRole("button", { name: /submit inquiry/i })).not.toBeInTheDocument();
+      await userEvent.click(screen.getByText("Before you send"));
       expect(screen.getByRole("heading", { name: "Helpful details" })).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "support@helixskin.com" })).toHaveAttribute("href", "mailto:support@helixskin.com");
+      expect(screen.getByText(/These hours and the reply aim are not yet in effect/)).toBeInTheDocument();
       expect(screen.queryByText(/message sent successfully/i)).not.toBeInTheDocument();
     } finally { fetcher.mockRestore(); }
   });
