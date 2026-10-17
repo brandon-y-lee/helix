@@ -3,6 +3,7 @@
   margin-inline: auto;
   padding: 64px 32px 80px;
   color: var(--ink);
+  overflow-wrap: anywhere;
 }
 .intro { margin-bottom: 36px; }
 .eyebrow { margin-bottom: 18px; font-size: .7rem; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; }

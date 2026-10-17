@@ -176,3 +176,61 @@ describe("private support photo context", () => {
     expect(insidePreview ? screen.getByRole("button", { name: "View private photo 1" }) : outsideButton).toHaveFocus();
   });
 });
+
+describe("contact media control", () => {
+  it("shares validation across drop and paste, preserves selection on empty input, and never uploads before submission", async () => {
+    const request = vi.fn().mockResolvedValue(Response.json({ available: true, photosAvailable: true }));
+    render(<ContactForm request={request} />);
+    await screen.findByRole("button", { name: "Submit inquiry" });
+    const input = screen.getByLabelText("Photos (optional)");
+    const zone = input.parentElement!;
+    const selected = new File(["private image"], "selected.jpg", { type: "image/jpeg" });
+    fireEvent.drop(zone, { dataTransfer: { files: [selected] } });
+    expect(screen.getByRole("button", { name: "Remove selected.jpg" })).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("1 photo selected.");
+    fireEvent.drop(zone, { dataTransfer: { files: [] } });
+    fireEvent.change(input, { target: { files: [] } });
+    expect(screen.getByRole("button", { name: "Remove selected.jpg" })).toBeInTheDocument();
+    fireEvent.paste(input, { clipboardData: { files: [new File(["svg"], "bad.svg", { type: "image/svg+xml" })] } });
+    expect(screen.getByRole("alert")).toHaveTextContent("Choose JPEG, PNG, or WebP files.");
+    expect(screen.getByRole("button", { name: "Remove selected.jpg" })).toBeInTheDocument();
+    const pasted = new File(["pasted image"], "pasted.png", { type: "image/png" });
+    fireEvent.paste(input, { clipboardData: { files: [pasted] } });
+    expect(screen.getByRole("button", { name: "Remove pasted.png" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Remove selected.jpg" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    const textPaste = new Event("paste", { bubbles: true, cancelable: true });
+    Object.defineProperty(textPaste, "clipboardData", { value: { files: [] } });
+    fireEvent(input, textPaste);
+    expect(textPaste.defaultPrevented).toBe(false);
+    await userEvent.click(screen.getByRole("button", { name: "Remove pasted.png" }));
+    expect(screen.getByRole("status")).toHaveTextContent("No photos selected.");
+    expect(input).toHaveAccessibleName("Photos (optional)");
+    expect(input).toHaveAccessibleDescription(/paste images while the upload control is focused.*replaces/i);
+    expect(request).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects photo changes while the message is pending", async () => {
+    let accept: (response: Response) => void = () => {};
+    const request = vi.fn().mockResolvedValueOnce(Response.json({ available: true, photosAvailable: true }))
+      .mockImplementationOnce(() => new Promise<Response>((resolve) => { accept = resolve; }));
+    render(<ContactForm request={request} />);
+    await screen.findByRole("button", { name: "Submit inquiry" });
+    fireEvent.change(screen.getByLabelText(/^First and last name/), { target: { value: "Sample Customer" } });
+    fireEvent.change(screen.getByRole("textbox", { name: "Email" }), { target: { value: "sample@example.test" } });
+    fireEvent.change(screen.getByLabelText(/^Topic/), { target: { value: "Question" } });
+    fireEvent.change(screen.getByLabelText(/^Tell us the details/), { target: { value: "Synthetic check" } });
+    const input = screen.getByLabelText("Photos (optional)");
+    const zone = input.parentElement!;
+    await userEvent.click(screen.getByRole("button", { name: "Submit inquiry" }));
+    expect(input).toBeDisabled();
+    const file = new File(["image"], "blocked.jpg", { type: "image/jpeg" });
+    fireEvent.drop(zone, { dataTransfer: { files: [file] } });
+    fireEvent.paste(input, { clipboardData: { files: [file] } });
+    expect(screen.queryByRole("button", { name: "Remove blocked.jpg" })).not.toBeInTheDocument();
+    await act(async () => accept(Response.json({ ok: true })));
+    expect(await screen.findByRole("heading", { name: "Inquiry received" })).toHaveFocus();
+    expect(request).toHaveBeenCalledTimes(2);
+    expect(JSON.parse(request.mock.calls[1][1].body)).not.toHaveProperty("photos");
+  });
+});

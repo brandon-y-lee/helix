@@ -17,6 +17,7 @@ export function ContactForm({ request = fetch }: { request?: typeof fetch } = {}
   const [photos, setPhotos] = useState<SelectedPhoto[]>([]);
   const [photoError, setPhotoError] = useState("");
   const [photosPending, setPhotosPending] = useState(false);
+  const [draggingPhotos, setDraggingPhotos] = useState(false);
   const attempt = useRef<{ payload: string; id: string; capability: string } | null>(null);
   const admissions = useRef(new Map<string, { photoId: string; uploadUrl: string; uploaded: boolean }>());
   const uploading = useRef(false);
@@ -121,6 +122,29 @@ export function ContactForm({ request = fetch }: { request?: typeof fetch } = {}
     }
   }
 
+  function selectPhotos(files: File[]) {
+    if (!files.length || submitting.current || pending || received || !photosAvailable) return;
+    // Picker, drop and paste share the same bounds; selection never uploads a file.
+    if (files.length > 5) {
+      setPhotoError("Photos were not added. Choose no more than five photos.");
+      return;
+    }
+    if (files.some((file) => !["image/jpeg", "image/png", "image/webp"].includes(file.type))) {
+      setPhotoError("Photos were not added. Choose JPEG, PNG, or WebP files.");
+      return;
+    }
+    if (files.some((file) => file.size <= 0 || file.size > 10 * 1024 * 1024)) {
+      setPhotoError("Photos were not added. Each photo must be no larger than 10 MiB.");
+      return;
+    }
+    if (files.reduce((total, file) => total + file.size, 0) > 20 * 1024 * 1024) {
+      setPhotoError("Photos were not added. Photos must total no more than 20 MiB.");
+      return;
+    }
+    setPhotos(files.map((file) => ({ uploadId: crypto.randomUUID(), file })));
+    setPhotoError("");
+  }
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (submitting.current) return;
@@ -222,30 +246,42 @@ export function ContactForm({ request = fetch }: { request?: typeof fetch } = {}
         <div className="contact-field"><label htmlFor="support-subject">Topic <span aria-hidden="true">*</span></label><input id="support-subject" name="subject" maxLength={200} required /></div>
         <div className="contact-field"><label htmlFor="support-message">Tell us the details <span aria-hidden="true">*</span></label><p className={styles.helper} id="support-message-help">Include the product name or order reference if relevant, and let us know how we can help.</p><textarea aria-describedby="support-message-help" id="support-message" name="body" rows={7} maxLength={10_000} required /></div>
         {photosAvailable ? <div className="contact-field">
-          <label htmlFor="support-photos">Photos (optional)</label>
+          <label id="support-photos-label" htmlFor="support-photos">Photos (optional)</label>
           <p className={styles.helper} id="support-photo-limits">Add up to five JPEG, PNG, or WebP photos, 10 MiB each and 20 MiB total. Photos are private and checked before support can view them.</p>
-          <input className={styles.photoInput} id="support-photos" type="file" accept="image/jpeg,image/png,image/webp" multiple aria-describedby="support-photo-limits" onChange={(event) => {
-            const files = Array.from(event.target.files ?? []);
-            event.target.value = "";
-            if (files.length > 5) {
-              setPhotoError("Photos were not added. Choose no more than five photos.");
-              return;
-            }
-            if (files.some((file) => !["image/jpeg", "image/png", "image/webp"].includes(file.type))) {
-              setPhotoError("Photos were not added. Choose JPEG, PNG, or WebP files.");
-              return;
-            }
-            if (files.some((file) => file.size <= 0 || file.size > 10 * 1024 * 1024)) {
-              setPhotoError("Photos were not added. Each photo must be no larger than 10 MiB.");
-              return;
-            }
-            if (files.reduce((total, file) => total + file.size, 0) > 20 * 1024 * 1024) {
-              setPhotoError("Photos were not added. Photos must total no more than 20 MiB.");
-              return;
-            }
-            setPhotos(files.map((file) => ({ uploadId: crypto.randomUUID(), file })));
-            setPhotoError("");
-          }} />
+          <p className="sr-only" id="support-photo-instructions">Choose Upload to select photos, or paste images while the upload control is focused. A new selection replaces the selected photos.</p>
+          <div className={`${styles.uploadZone} ${draggingPhotos ? styles.uploadZoneActive : ""}`}
+            onDragOver={(event) => { event.preventDefault(); if (!pending) setDraggingPhotos(true); }}
+            onDragLeave={(event) => { if (!(event.relatedTarget instanceof Node) || !event.currentTarget.contains(event.relatedTarget)) setDraggingPhotos(false); }}
+            onDrop={(event) => {
+              event.preventDefault();
+              setDraggingPhotos(false);
+              selectPhotos(Array.from(event.dataTransfer.files));
+            }}
+            onPaste={(event) => {
+              const files = Array.from(event.clipboardData.files);
+              if (!files.length) return;
+              event.preventDefault();
+              selectPhotos(files);
+            }}>
+            <input className={styles.photoInput} id="support-photos" type="file" accept="image/jpeg,image/png,image/webp" multiple
+              aria-labelledby="support-photos-label" aria-describedby="support-photo-limits support-photo-instructions"
+              onChange={(event) => {
+                const files = Array.from(event.target.files ?? []);
+                event.target.value = "";
+                selectPhotos(files);
+              }} />
+            <label className={styles.uploadLabel} htmlFor="support-photos" aria-hidden="true">
+              <span className={styles.uploadPrompt}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="1" /><circle cx="8" cy="9" r="1.5" /><path d="m3 17 5-5 4 4 4-6 5 7" /></svg>
+                <span>Drag or paste image here</span>
+              </span>
+              <span className={styles.uploadAction}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3" aria-hidden="true"><path d="M12 16V3m-4 4 4-4 4 4M5 12v8h14v-8" /></svg>
+                Upload
+              </span>
+            </label>
+          </div>
+          <p className="sr-only" role="status">{photos.length ? `${photos.length} ${photos.length === 1 ? "photo selected" : "photos selected"}.` : "No photos selected."}</p>
           {photos.length ? <ul className={styles.photos}>{photos.map((photo) => <li key={photo.uploadId}><span>{photo.file.name}</span><button className={styles.retry} type="button" onClick={() => setPhotos((current) => current.filter((item) => item.uploadId !== photo.uploadId))}>Remove {photo.file.name}</button></li>)}</ul> : null}
           {photoError ? <p role="alert" className={styles.error}>{photoError}</p> : null}
         </div> : <p>Photo attachments are currently unavailable. You can still send your message.</p>}

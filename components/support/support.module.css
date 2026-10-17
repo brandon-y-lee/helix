@@ -22,8 +22,15 @@
 .developmentNotice { padding-left: 16px; border-left: 2px solid var(--line); color: var(--ink-soft); font-size: .75rem; line-height: 1.65; }
 .noticeTitle { margin-bottom: 4px; color: var(--ink); font-size: .6875rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
 .developmentNotice p { max-width: 860px; }
-.form .photoInput { padding: 12px; font-size: .8125rem; }
-.photoInput::file-selector-button { min-height: 32px; margin-right: 16px; padding: 4px 12px; border: 1px solid var(--line); border-radius: 0; background: var(--bg); color: var(--ink); font: inherit; cursor: pointer; }
+.uploadZone { position: relative; min-width: 0; border: 1px solid var(--control-line); border-radius: 12px; background: var(--bg); }
+.uploadZone:focus-within, .uploadZoneActive { outline: 2px solid var(--ink); outline-offset: 3px; }
+.form .photoInput { position: absolute; width: 1px; height: 1px; min-height: 0; margin: -1px; padding: 0; overflow: hidden; border: 0; clip-path: inset(50%); white-space: nowrap; }
+.form .uploadLabel { display: flex; align-items: center; justify-content: space-between; min-height: 64px; gap: 20px; padding: 16px 20px; color: var(--ink-soft); font-size: .875rem; cursor: pointer; }
+.uploadPrompt, .uploadAction { display: flex; align-items: center; gap: 10px; }
+.uploadPrompt { min-width: 0; }
+.uploadAction { flex-shrink: 0; color: var(--ink); }
+.uploadLabel svg { flex-shrink: 0; width: 22px; height: 22px; }
+.fields:disabled .uploadLabel { cursor: wait; }
 .privacy a { color: inherit; text-decoration: underline; text-underline-offset: 3px; }
 .privacy a:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
 .form :global(.contact-form__actions) { display: block; }
@@ -36,5 +43,8 @@
 @media (max-width: 767px) {
   .form :global(.contact-form__grid) { grid-template-columns: 1fr; }
   .form textarea { min-height: 180px; }
+  .form .uploadLabel { gap: 12px; padding: 14px; font-size: .8125rem; }
+  .uploadPrompt { gap: 8px; }
+  .uploadAction { gap: 6px; }
   .notice { padding-block: 24px; }
 }
