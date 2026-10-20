@@ -1,5 +1,7 @@
 /* eslint-disable @next/next/no-head-element -- Standalone email document. */
+/* eslint-disable @next/next/no-img-element -- Standard PNG images are required for email clients. */
 import "server-only";
+import { emailDesign } from "@/lib/email/design";
 import { render } from "@react-email/render";
 import { isEmailAddress } from "@/lib/email/config";
 import { MAX_RECOVERY_LINKS, NOTIFICATION_CAPABILITY, NOTIFICATION_REQUEST_ID } from "@/lib/waitlist/notifications";
@@ -67,20 +69,27 @@ export async function renderProductNotification(purpose: ProductNotificationPurp
       : links.map((link) => `Cancel ${link.productName}: ${link.url}\nLink expires ${link.expires} UTC.`)),
     ...(!availability ? [continuation, `Request links: ${managementUrl}`] : []),
     "This does not change your marketing email preferences.", `Questions? ${identity.replyTo}`].join("\n\n");
-  const html = await render(<html lang="en" dir="ltr"><head><title>{title}</title></head>
-    <body style={{ margin: 0, padding: "24px 12px", backgroundColor: "#f5f4ef", color: "#171b18", fontFamily: "Manrope, Arial, sans-serif" }}>
-      <table role="presentation" style={{ width: "100%", maxWidth: 600, margin: "0 auto", backgroundColor: "#ffffff", borderCollapse: "collapse" }}><tbody><tr><td style={{ padding: 28 }}>
-        <p style={{ margin: "0 0 24px", fontFamily: "Marcellus, Georgia, serif", fontSize: 24 }}>helix</p>
-        <h1 style={{ fontFamily: "Marcellus, Georgia, serif", fontSize: 28, fontWeight: 400 }}>{title}</h1>
-        <p style={{ lineHeight: "24px" }}>{introduction}</p><p style={{ lineHeight: "24px" }}>{detail}</p>
-        {availability ? <p><a style={{ color: "#245439" }} href={productUrl!}>View {availability.productName}</a></p>
-          : links.map((link) => <div key={`${link.enrollmentId}:${link.generation}`} style={{ margin: "24px 0" }}>
-            <p><a style={{ color: "#245439" }} href={link.url}>Cancel {link.productName}</a></p><p>Link expires {link.expires} UTC.</p>
+  const html = await render(<html lang="en" dir="ltr"><head><meta charSet="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><meta name="color-scheme" content={emailDesign.colorScheme} /><meta name="supported-color-schemes" content="light" /><title>{title}</title></head>
+    <body {...emailDesign.canvasAttributes} style={emailDesign.body}>
+      <div lang="en" dir="ltr" aria-hidden="true" style={emailDesign.preheader}>{title}. {availability ? "Checkout uses test payments. No goods will ship." : "Choose a link, then confirm cancellation on the next page."}</div>
+      <table lang="en" dir="ltr" role="presentation" {...emailDesign.canvasAttributes} width="100%" cellPadding="0" cellSpacing="0"><tbody><tr><td align="center" style={emailDesign.outerCell}>
+      <table role="presentation" {...emailDesign.canvasAttributes} width="100%" cellPadding="0" cellSpacing="0" style={emailDesign.container}><tbody><tr><td style={emailDesign.content}>
+        <p style={emailDesign.wordmark}><img src={new URL(emailDesign.wordmarkPath, origin).href} alt="helix" width={emailDesign.wordmarkWidth} height={emailDesign.wordmarkHeight} style={emailDesign.wordmarkImage} /></p>
+        <p style={emailDesign.eyebrow}>{availability ? "DEMO PRODUCT UPDATE" : "PRODUCT NOTIFICATIONS"}</p>
+        <h1 style={emailDesign.heading}>{title}</h1>
+        <p style={emailDesign.paragraph}>{introduction}</p><p style={emailDesign.paragraph}>{detail}</p>
+        {availability ? <p style={emailDesign.action}><a style={emailDesign.button} href={productUrl!}>View Product details</a></p>
+          : links.map((link) => <div key={`${link.enrollmentId}:${link.generation}`} style={{ margin: "24px 0", paddingBottom: "20px", borderBottom: `1px solid ${emailDesign.line}` }}>
+            <p style={{ margin: "0 0 8px" }}><a style={{ ...emailDesign.link, display: "inline-block", padding: "10px 0" }} href={link.url}>Cancel {link.productName}</a></p>
+            <p style={{ margin: 0, color: emailDesign.muted, fontSize: "14px", lineHeight: "22px" }}>Link expires {link.expires} UTC.</p>
           </div>)}
-        {!availability && <p style={{ lineHeight: "24px" }}>{continuation}</p>}
-        <p><a style={{ color: "#245439" }} href={managementUrl}>{availability ? "Manage Product notifications" : "Request links"}</a></p>
-        <p style={{ lineHeight: "24px" }}>This does not change your marketing email preferences.</p>
-        <p>Questions? <a style={{ color: "#245439" }} href={`mailto:${identity.replyTo}`}>{identity.replyTo}</a></p>
+        {!availability && <p style={emailDesign.paragraph}>{continuation}</p>}
+        <div style={emailDesign.footer}>
+          <p style={{ margin: "0 0 12px" }}><a style={emailDesign.link} href={managementUrl}>{availability ? "Manage Product notifications" : "Request links"}</a></p>
+          <p style={{ margin: "0 0 12px" }}>This does not change your marketing email preferences.</p>
+          <p style={{ margin: 0 }}>Questions? <a style={emailDesign.link} href={`mailto:${identity.replyTo}`}>{identity.replyTo}</a></p>
+        </div>
+      </td></tr></tbody></table>
       </td></tr></tbody></table>
     </body></html>);
   return { subject, html, text };

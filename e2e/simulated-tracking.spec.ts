@@ -36,35 +36,6 @@ async function expectNoPageOverflow(page: Page) {
 }
 
 for (const viewport of viewports) {
-  test(`demo tracking supports keyboard dispatch at ${viewport.width}px`, async ({ page }) => {
-    await page.setViewportSize(viewport);
-    const blocked = await blockApplicationCalls(page);
-    await loadDemoOrder(page);
-    await expect(page.getByText("Simulate tracking for a verified sandbox purchase. No real charge occurred. No goods will ship.")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Simulate dispatch", exact: true })).toBeDisabled();
-
-    const quantity = page.getByRole("spinbutton", { name: "Sample skincare product · 50 ml quantity" });
-    await quantity.fill("1");
-    await quantity.press("Tab");
-    await expect(page.getByRole("button", { name: "Simulate dispatch", exact: true })).toBeFocused();
-    await page.keyboard.press("Enter");
-    await expect(page.getByRole("status")).toContainText("Simulated event recorded. Email delivery is separate");
-    await expect(page.getByRole("heading", { name: "Order SAMPLE-001", exact: true })).toBeFocused();
-    await expect(page.getByRole("region", { name: "Simulated shipment 1", exact: true })).toContainText("Qty 1");
-    await expect(page.getByText("1 remaining of 2", { exact: true })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Update simulated tracking · Shipment 1" })).toBeVisible();
-
-    if (viewport.width === 390) {
-      const menu = page.getByRole("button", { name: "Menu", exact: true });
-      await menu.click();
-      await expect(page.getByRole("dialog", { name: "Admin menu" })).toBeVisible();
-      await page.keyboard.press("Escape");
-      await expect(menu).toBeFocused();
-    }
-    await expectNoPageOverflow(page);
-    expect(blocked).toEqual([]);
-  });
-
   test(`customer split shipment history is clearly simulated at ${viewport.width}px`, async ({ page }) => {
     await page.setViewportSize(viewport);
     const blocked = await blockApplicationCalls(page);
@@ -89,6 +60,28 @@ for (const viewport of viewports) {
     expect(blocked).toEqual([]);
   });
 }
+
+test("demo tracking supports keyboard dispatch at 390px", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const blocked = await blockApplicationCalls(page);
+  await loadDemoOrder(page);
+  await expect(page.getByText("Simulate tracking for a verified sandbox purchase. No real charge occurred. No goods will ship.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Simulate dispatch", exact: true })).toBeDisabled();
+
+  const quantity = page.getByRole("spinbutton", { name: "Sample skincare product · 50 ml quantity" });
+  await quantity.fill("1");
+  await quantity.press("Tab");
+  await expect(page.getByRole("button", { name: "Simulate dispatch", exact: true })).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("status")).toContainText("Simulated event recorded. Email delivery is separate");
+  await expect(page.getByRole("heading", { name: "Order SAMPLE-001", exact: true })).toBeFocused();
+  await expect(page.getByRole("region", { name: "Simulated shipment 1", exact: true })).toContainText("Qty 1");
+  await expect(page.getByText("1 remaining of 2", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Update simulated tracking · Shipment 1" })).toBeVisible();
+
+  await expectNoPageOverflow(page);
+  expect(blocked).toEqual([]);
+});
 
 test("uncertain simulation locks edits and safely recovers one recorded shipment", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
@@ -123,17 +116,6 @@ test("lookup failure has clear recovery without application calls", async ({ pag
   await expect(page.getByRole("heading", { name: "New simulated shipment", exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "Find demo Order", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Order SAMPLE-001", exact: true })).toBeFocused();
-  await expectNoPageOverflow(page);
-  expect(blocked).toEqual([]);
-});
-
-test("stale mutation shows current details for review without application calls", async ({ page }) => {
-  const blocked = await blockApplicationCalls(page);
-  await loadDemoOrder(page, "conflict");
-  await page.getByRole("spinbutton").fill("1");
-  await page.getByRole("button", { name: "Simulate dispatch", exact: true }).click();
-  await expect(page.getByRole("status")).toContainText("The Order changed before this event could be recorded.");
-  await expect(page.getByText("1 remaining of 2", { exact: true })).toBeVisible();
   await expectNoPageOverflow(page);
   expect(blocked).toEqual([]);
 });

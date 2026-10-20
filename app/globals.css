@@ -3029,6 +3029,7 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 .cart-layout--drawer .cart-item {
   grid-template-columns: 64px 1fr auto;
   gap: 14px;
+  column-gap: 18px;
 }
 
 .cart-item__warning {

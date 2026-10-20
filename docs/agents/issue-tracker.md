@@ -29,6 +29,8 @@ Internal delivery PRs are still required. Each approved `type:ticket` maps to on
 
 ## Delivery operations
 
+Publish or update issues, PRs, and delivery state only under the action authority recorded in the [engineering workflow](./engineering-workflow.md#direct-to-dev-paths-and-authority). Record independent planning approval on the existing Spec/Tickets; a readiness label or agent verdict does not grant remote-write or merge authority. Until publishing is authorized, retain the reviewed plan locally.
+
 - **Claim a ticket**: `gh issue edit <number> --add-assignee @me --remove-label ready-for-agent --add-label workflow:in-progress`
 - **Mark review-ready**: `gh issue edit <number> --remove-label workflow:in-progress --add-label workflow:review`
 - **Establish a Spec Branch**: `scripts/git/codex-task.sh spec-start <spec-number>-<slug>` creates the exact remote-`dev` branch and draft Spec PR before exposing child Tickets.

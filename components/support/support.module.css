@@ -8,3 +8,40 @@
 .photos { display: grid; gap: 12px; padding: 0; list-style: none; }
 .photos li { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
 .photoStatus { display: grid; gap: 14px; min-width: 0; }
+
+/* One continuous form, shared by the public page and the inert verification fixture. */
+.form { gap: 20px; }
+.form .fields { gap: 24px; }
+.form :global(.contact-form__grid) { gap: 24px; }
+.form :global(.contact-field) { gap: 8px; }
+.form label { font-size: .8125rem; font-weight: 500; letter-spacing: 0; line-height: 1.5; text-transform: none; }
+.form input, .form select, .form textarea { min-height: 48px; border: 1px solid var(--control-line); border-radius: 0; padding: 12px 14px; background: var(--bg); font-size: 1rem; }
+.form textarea { min-height: 200px; }
+.form input:focus-visible, .form select:focus-visible, .form textarea:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+.requiredNote, .helper, .privacy { color: var(--ink-soft); font-size: .75rem; line-height: 1.65; }
+.uploadZone { position: relative; min-width: 0; border: 1px solid var(--control-line); border-radius: 12px; background: var(--bg); }
+.uploadZone:focus-within, .uploadZoneActive { outline: 2px solid var(--ink); outline-offset: 3px; }
+.form .photoInput { position: absolute; width: 1px; height: 1px; min-height: 0; margin: -1px; padding: 0; overflow: hidden; border: 0; clip-path: inset(50%); white-space: nowrap; }
+.form .uploadLabel { display: flex; align-items: center; justify-content: space-between; min-height: 64px; gap: 20px; padding: 16px 20px; color: var(--ink-soft); font-size: .875rem; cursor: pointer; }
+.uploadPrompt, .uploadAction { display: flex; align-items: center; gap: 10px; }
+.uploadPrompt { min-width: 0; }
+.uploadAction { flex-shrink: 0; color: var(--ink); }
+.uploadLabel svg { flex-shrink: 0; width: 22px; height: 22px; }
+.fields:disabled .uploadLabel { cursor: wait; }
+.privacy a { color: inherit; text-decoration: underline; text-underline-offset: 3px; }
+.privacy a:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+.form :global(.contact-form__actions) { display: block; }
+.submit { display: block; width: 100%; min-height: 52px; padding: 14px 24px; border: 1px solid var(--ink); border-radius: 0; background: var(--ink); color: #fff; font: inherit; font-size: .8125rem; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; cursor: pointer; }
+.submit:hover { background: #303632; }
+.submit:focus-visible { outline: 2px solid var(--ink); outline-offset: 4px; }
+.submit:disabled { cursor: wait; }
+.notice { padding: 28px 0; border-inline: 0; border-radius: 0; background: none; }
+.notice h2 { font-size: clamp(1.5rem, 3vw, 2rem); }
+@media (max-width: 767px) {
+  .form :global(.contact-form__grid) { grid-template-columns: 1fr; }
+  .form textarea { min-height: 180px; }
+  .form .uploadLabel { gap: 12px; padding: 14px; font-size: .8125rem; }
+  .uploadPrompt { gap: 8px; }
+  .uploadAction { gap: 6px; }
+  .notice { padding-block: 24px; }
+}

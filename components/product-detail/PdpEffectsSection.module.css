@@ -23,10 +23,10 @@
 .visual { height: 100%; display: grid; grid-template-rows: minmax(0, 1fr); gap: 18px; min-width: 0; min-height: 0; }
 .visual[data-selected='true'] { grid-template-rows: minmax(80px, 1fr) auto; }
 .image { position: relative; min-height: 0; border-radius: var(--pdp-panel-radius); background: #dce3dd; overflow: hidden; }
-.image[data-effect='hydration'] { background: #dce6df; }
-.image[data-effect='barrier'] { background: #d7ded1; }
-.image[data-effect='clarity'] { background: #e9dfcb; }
-.image[data-effect='firmness'] { background: #dcd8e3; }
+.hue[data-media-effect='hydration'] { background: #dce6df; }
+.hue[data-media-effect='barrier'] { background: #d7ded1; }
+.hue[data-media-effect='clarity'] { background: #e9dfcb; }
+.hue[data-media-effect='firmness'] { background: #dcd8e3; }
 .hue { position: absolute; inset: 0; }
 .heading { position: relative; display: grid; align-content: center; height: 100%; margin: 0; padding: 24px; text-align: center; font: 400 clamp(32px, 3.4vw, 50px)/1.13 var(--font-heading), Georgia, serif; letter-spacing: -.035em; }
 .properties { min-width: 0; }
@@ -46,7 +46,7 @@
 .selector { grid-column: 1; grid-row: 1; align-self: center; min-width: 0; }
 .effects { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
 .effect { max-width: 100%; }
-.effect button { display: block; width: 100%; padding: 16px 22px 16px 16px; border: 0; border-radius: 28px; background: var(--card); box-shadow: inset 0 0 0 1px var(--control-line); color: var(--text); text-align: left; font: inherit; cursor: pointer; transition: box-shadow 220ms ease; }
+.effect button { display: block; overflow: hidden; width: 100%; padding: 16px 22px 16px 16px; border: 0; border-radius: 28px; background: var(--card); box-shadow: inset 0 0 0 1px var(--control-line); color: var(--text); text-align: left; font: inherit; cursor: pointer; transition: box-shadow 220ms ease; }
 .effect button:hover { box-shadow: inset 0 0 0 1px var(--ink); }
 .effectLabel { display: flex; align-items: center; gap: 12px; font-size: 17px; line-height: 24px; font-weight: 650; }
 .effectIcon { position: relative; flex: 0 0 auto; width: 22px; height: 22px; border: 1px solid currentColor; border-radius: 50%; }
@@ -136,8 +136,7 @@
   .properties { display: grid; }
   .mobileProperties { height: 0; min-height: 0; overflow: clip; }
   .mobileProperties[data-open='true'] { height: auto; }
-  .mobileProperties > .properties { padding-top: 20px; transition: opacity 420ms cubic-bezier(.22, 1, .36, 1); }
-  .mobileProperties[aria-hidden='true'] > .properties { opacity: 0; }
+  .mobileProperties > .properties { padding-top: 20px; }
   /* Reserve natural copy height across effects so the swipe rail stays under the finger. */
   .propertySizer { display: grid; grid-area: 1 / 1; visibility: hidden; pointer-events: none; }
   .propertySizer .property, .propertyTrack { grid-area: 1 / 1; }
@@ -150,8 +149,8 @@
   .selector[data-open='true'] .effects { height: calc(var(--effect-max-card-height, 180px) + 8px); padding-inline: var(--effect-inset); scroll-snap-type: x mandatory; }
   .selector[data-open='true'] .effect { flex: 0 0 var(--effect-card-width); width: var(--effect-card-width); display: flex; align-items: flex-end; scroll-snap-align: center; scroll-snap-stop: always; }
   .selector[data-open='true'] .effect button { position: relative; flex: none; width: 100%; height: calc(44px + (var(--card-height, 180px) - 44px) * var(--card-expansion)); padding: 0; overflow: hidden; }
-  .selector .effect .effectLabel { display: flex; transition: opacity 180ms ease 120ms; }
-  .selector[data-open='true'] .effectLabel { position: absolute; left: 16px; top: 16px; opacity: 0; transition: opacity 120ms ease; }
+  .selector .effect .effectLabel { display: flex; }
+  .selector[data-open='true'] .effectLabel { position: absolute; left: 16px; top: 16px; visibility: hidden; }
   .arrows { position: absolute; inset: auto 0 4px; display: flex; justify-content: space-between; overflow-x: clip; pointer-events: none; }
   .arrows button { width: 40px; height: 44px; padding: 10px; background: transparent; pointer-events: auto; transform: translateX(var(--arrow-drift, 0px)); }
   .arrows button:disabled { visibility: hidden; }

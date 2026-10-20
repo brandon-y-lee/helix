@@ -114,7 +114,10 @@ describe("Sandbox Order confirmation email", () => {
     }, { ...identity, siteOrigin: "https://new-helix.example" });
     const document = new DOMParser().parseFromString(message.html, "text/html");
 
-    expect(document.querySelector("img, script, [onerror]")).toBeNull();
+    expect(document.querySelector("script, [onerror]")).toBeNull();
+    expect(document.querySelectorAll("img")).toHaveLength(1);
+    expect(document.querySelector("img")?.getAttribute("src")).toBe("https://new-helix.example/brand/helix-wordmark-email.png");
+    expect(document.querySelector("img")?.alt).toBe("helix");
     expect(document.body.textContent).toContain(productName);
     expect(document.body.textContent).toContain(customerName);
     expect(message.text).toContain(productName);

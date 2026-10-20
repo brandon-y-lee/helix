@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   ADMIN_CAPABILITIES,
+  capabilitiesForRole,
   checkAdminCapability,
   requireAdminCapability,
 } from "@/lib/admin/capabilities";
@@ -67,29 +68,25 @@ describe("admin capability enforcement", () => {
     ).resolves.toEqual({ status: "forbidden", principal: identity });
   });
 
-  it("limits demo-order simulation to active admins without expanding catalog roles", async () => {
-    for (const role of ["catalog_editor", "catalog_publisher"] as const) {
-      await expect(
-        checkAdminCapability("orders.simulate", {
+  it("limits simulation and Support capabilities to active admins without expanding catalog roles", async () => {
+    for (const capability of [ADMIN_CAPABILITIES.ordersSimulate, ADMIN_CAPABILITIES.supportRead, ADMIN_CAPABILITIES.supportReply]) {
+      for (const role of ["catalog_editor", "catalog_publisher"] as const) {
+        expect(capabilitiesForRole(role)).not.toContain(capability);
+        await expect(checkAdminCapability(capability, {
           getIdentity: async () => identity,
           getMembership: async () => membership(role),
-        }),
-      ).resolves.toEqual({ status: "forbidden", principal: identity });
-    }
-
-    await expect(
-      checkAdminCapability("orders.simulate", {
+        })).resolves.toEqual({ status: "forbidden", principal: identity });
+      }
+      expect(capabilitiesForRole("admin")).toContain(capability);
+      await expect(checkAdminCapability(capability, {
         getIdentity: async () => identity,
         getMembership: async () => membership("admin"),
-      }),
-    ).resolves.toMatchObject({ status: "allowed" });
-
-    await expect(
-      checkAdminCapability("orders.simulate", {
+      })).resolves.toMatchObject({ status: "allowed" });
+      await expect(checkAdminCapability(capability, {
         getIdentity: async () => identity,
         getMembership: async () => membership("admin", false),
-      }),
-    ).resolves.toEqual({ status: "forbidden", principal: identity });
+      })).resolves.toEqual({ status: "forbidden", principal: identity });
+    }
   });
 
   it("fails closed when identity or membership cannot be determined", async () => {

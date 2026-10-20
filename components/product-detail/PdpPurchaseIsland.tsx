@@ -11,7 +11,6 @@ import {
 import Link from "next/link";
 import { AfterpayMessaging } from "@/components/product-detail/AfterpayMessaging";
 import { supportsCheckoutPaymentMethod } from "@/lib/checkout/payment-methods";
-import { SANDBOX_CHECKOUT_NOTICE } from "@/lib/checkout/config";
 import { ProductImage } from "@/components/product/ProductImage";
 import { useProductPurchase } from "@/components/cart/useProductPurchase";
 import type { CartAddInput } from "@/lib/cart/types";
@@ -391,14 +390,11 @@ export function PdpPurchaseIsland({
           </>
         )}
 
-        {cta.purchasable && (
-          <p className="checkout-panel__notice">{SANDBOX_CHECKOUT_NOTICE}</p>
-        )}
         <div className="pdp__actions">
           <button
             ref={mainBuyButtonRef}
             type="button"
-            className="btn"
+            className="btn btn--editorial-rounded"
             data-pdp-buy-button
             onClick={() => {
               setActionOrigin("main");
@@ -456,9 +452,6 @@ export function PdpPurchaseIsland({
           </span>
         </div>
         <div className="pdp-sticky-purchase__action">
-          {cta.purchasable && (
-            <p className="checkout-panel__notice">{SANDBOX_CHECKOUT_NOTICE}</p>
-          )}
           {stickyConfiguration && (
             <select
               ref={stickyConfigurationRef}

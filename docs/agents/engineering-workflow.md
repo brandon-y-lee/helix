@@ -10,19 +10,37 @@ Substantial planned work uses:
 grill-with-docs | wayfinder → to-spec → to-tickets → Spec Branch → implement → Ticket Review → ticket-gate → Combined Spec Review → integration-gate → dev
 ```
 
-The user owns three planning gates: shared understanding, the specification, and the tracer-bullet Ticket breakdown. Work after an approved Ticket may proceed autonomously within its stated scope.
+The user sets goals, constraints, and priorities and steers the work. Independent agents approve shared understanding, specifications, test seams, and tracer-bullet Ticket breakdowns within those goals. Routine planning approval does not wait for the user; it permits scoped local implementation, not remote delivery.
 
-`grill-with-docs` fits a coherent idea that can reach shared understanding in one session. Wayfinder fits multi-session fog that needs decisions, research, or prototypes. Planning and domain-documentation changes still enter `dev` through planning PRs before `to-spec`.
+`grill-with-docs` fits a coherent idea that can reach shared understanding in one session. Wayfinder fits multi-session fog that needs decisions, research, or prototypes. Planning and domain-documentation changes still enter `dev` through planning PRs when integration is authorized; local specification and review need not wait for that merge.
+
+## Goal-bounded planning approval
+
+Use three roles, with no additional standing approval layer:
+
+| Role | Responsibility |
+| --- | --- |
+| Dot / delivery lead | Capture the user's goal and constraints, draft the plan, coordinate one owner per task, resolve findings, and keep the user informed. |
+| Spec reviewer | Independently critique goal fidelity, acceptance criteria, scope, tracer-bullet completeness, dependencies, and proposed test seams. |
+| Standards reviewer | Independently critique architecture, security, privacy, accessibility, reliability, proportional testing, and feasibility under repository rules. |
+
+Both reviewers must approve the exact candidate before local implementation. Neither may author or implement that candidate, approve their own work, or substitute for the other reviewer. Give each reviewer the goal, candidate, and applicable sources; obtain separate verdicts before sharing conclusions. The same two review roles perform Ticket Review and Combined Spec Review on committed code, with independence from its implementer.
+
+Record the goal source and constraints, candidate revision or content hash, reviewer task identities, each `approve` / `revise` / `blocked` verdict, findings and their resolution, and separately granted action authority in the existing Spec/Ticket body or comment. Until publishing is authorized, keep this bounded record with the local plan. Changed plans require delta approval from both reviewers; approval never carries across an unreviewed revision. Labels and dot memory are pointers, not approval evidence.
+
+The dot revises and resubmits routine disagreements within the goal. It reports approved scope, material decisions, progress, and blockers to the user without making acknowledgement a gate. Ask only when proceeding needs a new or changed goal, a consequential choice the goal does not resolve, or separately required authorization. Agents cannot broaden goals, accept unresolved actionable findings, waive required failed/flaky/skipped proof, or override the safety floor. Existing tool permissions, custom rules, and automatic approval review remain authoritative.
+
+These repository rules override generic skill steps that request routine human approval of a specification, test seam, or Ticket breakdown. Human-only choices in `grill-with-docs` or Wayfinder still go to the user when the goal does not resolve them. Preserve required planning records, independent reviews, and executable gates.
 
 ## Planning and domain documentation
 
-Start `codex/plan-<slug>` before a `grill-with-docs` session that may edit the repository. Capture resolved, project-specific platform domain language in the applicable `CONTEXT.md`, including customer-facing, operational, editorial, service, and governance concepts. Exclude generic technical vocabulary, specifications, and implementation decisions. Future tasks may append justified terms as the platform language develops. Record only qualifying durable decisions in ADRs. After shared understanding is confirmed, review and merge those documents into `dev` through a planning PR before `to-spec`. An empty planning branch is discarded.
+Start `codex/plan-<slug>` before a `grill-with-docs` session that may edit the repository. Capture resolved, project-specific platform domain language in the applicable `CONTEXT.md`, including customer-facing, operational, editorial, service, and governance concepts. Exclude generic technical vocabulary, specifications, and implementation decisions. Future tasks may append justified terms as the platform language develops. Record only qualifying durable decisions in ADRs. After independent planning approval, prepare those documents for a planning PR; merge only under separately granted integration authority. An empty planning branch is discarded.
 
 Wayfinder decisions use the same planning-PR rule when they change repository documentation. Close a completed map after its frontier and fog are empty and link the resulting Spec.
 
 ## Establish the Spec delivery boundary
 
-`to-spec` publishes the approved specification as a `type:spec` issue. `to-tickets` publishes the user-approved Tickets as native sub-issues with native dependencies, but does not add `ready-for-agent` yet. Move the Spec to `workflow:planned`, then run:
+With issue-publication authority, `to-spec` publishes the agent-approved specification as a `type:spec` issue and `to-tickets` publishes agent-approved Tickets as native sub-issues with native dependencies, without `ready-for-agent`. Move the Spec to `workflow:planned`. With branch-push and PR-creation authority, run:
 
 ```bash
 scripts/git/codex-task.sh spec-start <spec-number>-<slug>
@@ -30,7 +48,9 @@ scripts/git/codex-task.sh spec-start <spec-number>-<slug>
 
 The repeat-safe setup creates `codex/spec-<spec-number>-<slug>` from the exact current remote `dev`, pushes it, opens its draft Spec PR to `dev`, and only then exposes the approved child Tickets. A partial setup fails closed; do not reset, retarget, or recreate uncertain state.
 
-A Spec Branch is the visible delivery boundary for one approved multi-Ticket Spec. Adding or removing required Tickets needs user approval and returns the Spec PR to draft.
+A Spec Branch is the visible delivery boundary for one approved multi-Ticket Spec. Adding, removing, or changing required Tickets within the goal requires renewed independent planning approval and returns the Spec PR to draft; changing the goal requires the user.
+
+Without authority for initial remote setup, finish local planning and its independent reviews, then report Spec setup as a delivery-authorization blocker. Spec Ticket implementation begins only after the required published issue, claim, and recorded Spec Branch exist. Properly established Tickets may continue scoped local implementation while authority for later push or integration is pending. Do not bypass required Spec setup or manufacture remote readiness.
 
 | Artifact | Ready | Claimed | Review | Complete |
 | --- | --- | --- | --- | --- |
@@ -70,7 +90,7 @@ If `dev` advances, incorporate it again and repeat affected verification and rev
 
 ## Cancellation and recovery
 
-For cancellation or failure, a failed Spec PR returns to draft. Ticket-specific defects use repair Ticket PRs; cross-Ticket conflicts belong to the Spec Closer; scope expansion requires user approval. A sound abandoned Spec keeps its draft PR and history but loses stale assignment. A cancelled or untrustworthy Spec closes without entering `dev`; reuse requires newly approved Tickets from current `dev` or a valid replacement Spec Branch. Never reset, rebase, force-push, or silently salvage it.
+For cancellation or failure, a failed Spec PR returns to draft. Ticket-specific defects use repair Ticket PRs; cross-Ticket conflicts belong to the Spec Closer. Plan changes within the goal require renewed independent approval; goal expansion requires the user. A sound abandoned Spec keeps its draft PR and history but loses stale assignment. A cancelled or untrustworthy Spec closes without entering `dev`; reuse requires newly approved Tickets from current `dev` or a valid replacement Spec Branch. Never reset, rebase, force-push, or silently salvage it.
 
 Cancelled or superseded issues retain their history: comment with the reason and replacement link, apply `wontfix`, and close them. GitHub treats closed native blockers as resolved, so reconcile every dependent Ticket before cancelling a blocker.
 
@@ -81,11 +101,13 @@ Urgent, standalone, trivial, and planning work remain direct-to-`dev` through `i
 - **Trivial non-behavioral work** may skip GitHub planning artifacts. It still uses `codex/trivial-<slug>`, proportional verification, `code-review`, a PR into `dev`, and `integration-gate`.
 - **Urgent production or security fixes** may skip exploration, specification, and decomposition. Create one abbreviated GitHub Ticket, use `codex/<ticket>-urgent-<slug>`, and commit with only the `Refs #<ticket>` footer. The normal review, PR, and Integration Gate still apply. Record deferred context immediately afterward.
 
-Invoking `implement` for an approved Ticket authorizes Ticket-scoped tracker updates, branch push, PR creation, and the applicable merge after review and CI pass. It does not authorize production promotion, live configuration apply, destructive operations, unrelated fixes, or scope expansion.
+An agent-approved Ticket authorizes local implementation, verification, and task-scoped commits within the user's goal. Issue updates/publication, branch push, PR creation, merge into a Spec Branch or `dev`, and any deployment require applicable user-granted authority; neither planning approval nor invoking `implement` supplies it. Record which operations and scope the user authorized, reuse that authorization within its bounds, and ask only for missing authority when a concrete reviewed result is ready. Steps above that perform remote writes apply only with that authority. If it is absent, deliver reviewed local commits and continue unaffected work.
+
+Production promotion, live payments/configuration, real customer sends, destructive operations, privacy/security exceptions, and goal expansion remain outside agent planning approval and subject to their explicit authorization requirements. Agents cannot grant these permissions or override tool/custom-rule boundaries. Required CI gates and unresolved actionable findings cannot be waived by agent approval.
 
 When implementation exposes new work:
 
-- Required work that changes the Ticket or Spec pauses for user approval.
+- Required work that changes the Ticket or Spec within the goal returns to independent planning review; only a goal change or unresolved consequential choice needs the user.
 - Independent follow-up becomes a new child Ticket with explicit dependencies.
 - A discovery that invalidates the solution returns to `grill-with-docs` or Wayfinder.
 

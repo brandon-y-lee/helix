@@ -118,7 +118,6 @@ describe("cart client outage recovery", () => {
     const summary = screen.getByRole("complementary", { name: "Order summary" });
     expect(summary).toHaveTextContent(message);
     expect(within(summary).queryByRole("heading", { name: "Summary" })).not.toBeInTheDocument();
-    expect(within(summary).getByText("Sandbox")).toBeVisible();
   });
 
   it("lets keyboard users reach drawer items independently from the order summary", async () => {

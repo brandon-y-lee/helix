@@ -169,7 +169,6 @@ export function CheckoutPanel({
       >
         {pending ? "Opening checkout" : `Checkout ${formatPrice(subtotal)}`}
       </button>
-      <span className="checkout-panel__sandbox">Sandbox</span>
     </div>
   );
 }

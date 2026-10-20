@@ -41,12 +41,13 @@ const ciPublicRuntimeSecrets = [
   "NEXT_PUBLIC_ALGOLIA_INDEX_NAME",
 ] as const;
 
-function workflowStep(name: string): string {
+function workflowStep(name: string, job?: string): string {
+  const workflow = job ? workflowJob(job) : ciWorkflow;
   const marker = `      - name: ${name}`;
-  const start = ciWorkflow.indexOf(marker);
+  const start = workflow.indexOf(marker);
   expect(start, `Missing CI step: ${name}`).toBeGreaterThanOrEqual(0);
-  const nextStep = ciWorkflow.indexOf("\n      - ", start + marker.length);
-  return ciWorkflow.slice(start, nextStep < 0 ? undefined : nextStep);
+  const nextStep = workflow.indexOf("\n      - ", start + marker.length);
+  return workflow.slice(start, nextStep < 0 ? undefined : nextStep);
 }
 
 function workflowJob(name: string): string {
@@ -335,8 +336,9 @@ process.exit(2);
 
 describe("GitHub Actions CI", () => {
   it("receives the approved public runtime configuration from repository secrets", () => {
+    const productionWork = workflowJob("integration-verification");
     for (const key of ciPublicRuntimeSecrets) {
-      expect(ciWorkflow).toContain(`${key}: \${{ secrets.${key} }}`);
+      expect(productionWork).toContain(`${key}: \${{ secrets.${key} }}`);
     }
 
     expect(ciWorkflow).not.toContain("SUPABASE_SERVICE_ROLE_KEY");
@@ -350,17 +352,17 @@ describe("GitHub Actions CI", () => {
       "Build receipted production artifact",
       "Verify receipted production artifact",
     ]) {
-      expect(workflowStep(name)).toContain(
+      expect(workflowStep(name, "integration-verification")).toContain(
         "if: ${{ github.event_name == 'pull_request' }}",
       );
     }
 
-    expect(workflowStep("Upload Playwright report")).toContain(
+    expect(workflowStep("Upload Playwright report", "integration-verification")).toContain(
       "if: ${{ failure() && github.event_name == 'pull_request' }}",
     );
 
     for (const name of ["Lint", "Typecheck"]) {
-      expect(workflowStep(name)).not.toContain("github.event_name");
+      expect(workflowStep(name, "integration-quality")).not.toContain("github.event_name");
     }
     expect(workflowJob("ticket-verification")).toContain(
       "- name: Complete Vitest suite\n        run: pnpm test",
@@ -390,6 +392,29 @@ describe("GitHub Actions CI", () => {
     expect(integrationWork).toContain("scripts/verify-production-ci.ts build");
     expect(integrationWork).toContain("scripts/verify-production-ci.ts verify");
     expect(integrationWork).toContain("retention-days: 7");
+    expect(integrationWork).not.toMatch(/run: pnpm (lint|typecheck|test)\b/);
+    expect(integrationWork.indexOf("scripts/verify-production-ci.ts build"))
+      .toBeLessThan(integrationWork.indexOf("scripts/verify-production-ci.ts verify"));
+
+    const qualityWork = workflowJob("integration-quality");
+    const integrationCondition = "if: \${{ github.event_name == 'pull_request' && !startsWith(github.base_ref, 'codex/spec-') && github.event.pull_request.draft == false }}";
+    for (const work of [qualityWork, integrationWork]) {
+      expect(work).toContain(integrationCondition);
+      expect(work).not.toMatch(/^    needs:/m);
+      expect(work).not.toContain("continue-on-error");
+    }
+    expect(qualityWork).not.toMatch(/Playwright|verify-production|secrets\./i);
+    for (const [step, command] of [
+      ["Install dependencies", "pnpm install --frozen-lockfile"],
+      ["Lint", "pnpm lint"],
+      ["Typecheck", "pnpm typecheck"],
+      ["Complete Vitest suite", "pnpm test"],
+    ]) {
+      expect(workflowStep(step, "integration-quality").match(/^        run: (.+)$/m)?.[1])
+        .toBe(command);
+      expect(qualityWork.match(new RegExp(command.replaceAll(" ", "\\s+"), "g")))
+        .toHaveLength(1);
+    }
 
     for (const gate of ["ticket-gate", "integration-gate"]) {
       const finalJob = workflowJob(gate);
@@ -400,10 +425,34 @@ describe("GitHub Actions CI", () => {
     expect(mainCompatibility).toContain(
       "name: ${{ github.base_ref == 'main' && 'ci' || 'main-ci-not-applicable' }}",
     );
-    expect(mainCompatibility).toContain("needs: integration-verification");
+    expect(mainCompatibility).toContain("needs: [integration-quality, integration-verification]");
     expect(mainCompatibility).toContain("github.base_ref == 'main'");
     expect(mainCompatibility).toContain("Report Main Compatibility Gate");
     expect(mainCompatibility).not.toContain("github.event_name == 'push'");
+  });
+
+  it("requires successful quality and production results for both integration reporters", () => {
+    const results = ["success", "failure", "cancelled", "skipped", "", "unknown"];
+    for (const gate of ["integration-gate", "ci"]) {
+      const reporter = workflowJob(gate);
+      expect(reporter).toContain("needs: [integration-quality, integration-verification]");
+      expect(reporter).toContain("QUALITY_RESULT: \${{ needs.integration-quality.result }}");
+      expect(reporter).toContain("VERIFICATION_RESULT: \${{ needs.integration-verification.result }}");
+      expect(reporter).toContain("if: \${{ always()");
+      expect(reporter).not.toContain("continue-on-error");
+      const script = reporter.match(/^        run: (.+)$/m)?.[1];
+      expect(script).toBeDefined();
+      for (const quality of results) {
+        for (const production of results) {
+          const result = spawnSync("bash", ["-c", script!], {
+            encoding: "utf8",
+            env: { ...process.env, QUALITY_RESULT: quality, VERIFICATION_RESULT: production },
+          });
+          expect(result.status, `${gate}: quality=${quality}, production=${production}`)
+            .toBe(quality === "success" && production === "success" ? 0 : 1);
+        }
+      }
+    }
   });
 });
 

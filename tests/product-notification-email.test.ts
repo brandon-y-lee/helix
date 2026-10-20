@@ -14,7 +14,11 @@ describe("requested Product notification emails", () => {
     expect(mail.html).toContain("Helix &amp; &lt;Product&gt;");
     expect(mail.html).toContain('lang="en"');
     expect(mail.html).toContain('role="presentation"');
-    expect(mail.html).not.toMatch(/<script|<img|\bOrder\b|priority access/i);
+    const doc = new DOMParser().parseFromString(mail.html, "text/html");
+    expect(doc.querySelectorAll("img")).toHaveLength(1);
+    expect(doc.querySelector("img")?.getAttribute("src")).toBe("https://helixskin.vercel.app/brand/helix-wordmark-email.png");
+    expect(doc.querySelector("img")?.alt).toBe("helix");
+    expect(mail.html).not.toMatch(/<script|<svg|\bOrder\b|priority access/i);
   });
   it("makes each recovery link withdrawal-only and explains bounded continuation", async () => {
     const mail = await renderProductNotification("product_waitlist_recovery", { schemaVersion: 1, links: [

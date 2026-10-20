@@ -38,7 +38,8 @@ describe("Checkout helix rewards state", () => {
 
     render(<CheckoutPanel disabled={false} subtotal={5_000} cartUpdatedAt={1} />);
 
-    expect(screen.getByText("Sandbox")).toBeVisible();
+    expect(screen.getByLabelText("Sandbox checkout")).toBeVisible();
+    expect(screen.queryByText("Sandbox")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Checkout $50.00" })).toBeEnabled();
     expect(await screen.findByText("helix rewards is temporarily unavailable."))
       .toBeVisible();

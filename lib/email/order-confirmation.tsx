@@ -1,6 +1,8 @@
 /* eslint-disable @next/next/no-head-element -- This document is an email, not a Next.js page. */
+/* eslint-disable @next/next/no-img-element -- Standard PNG images are required for email clients. */
 import "server-only";
 import type { CSSProperties } from "react";
+import { emailDesign } from "@/lib/email/design";
 import { render } from "@react-email/render";
 
 export type OrderConfirmationReceipt = {
@@ -30,14 +32,9 @@ export type OrderConfirmationReceipt = {
 
 type EmailIdentity = { siteOrigin: string; replyTo: string };
 
-const paragraph: CSSProperties = { margin: "0 0 16px", lineHeight: "24px" };
+const paragraph = emailDesign.paragraph;
 const cell: CSSProperties = { padding: "14px 0", textAlign: "left", verticalAlign: "top" };
 const amountCell: CSSProperties = { ...cell, textAlign: "right", whiteSpace: "nowrap" };
-const heading: CSSProperties = {
-  color: "#111312",
-  fontFamily: "Marcellus, Georgia, serif",
-  fontWeight: 400,
-};
 const demoNotice = "No real charge occurred. No goods will ship.";
 
 function assertReceipt(receipt: OrderConfirmationReceipt): void {
@@ -109,36 +106,36 @@ export async function renderOrderConfirmation(
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>{subject}</title>
+        <meta name="color-scheme" content={emailDesign.colorScheme} /><meta name="supported-color-schemes" content="light" /><title>{subject}</title>
       </head>
-      <body style={{ margin: 0, padding: 0, backgroundColor: "#f5f5f7", color: "#111312", fontFamily: "Manrope, Arial, sans-serif", fontSize: "16px" }}>
-        <div style={{ display: "none", maxHeight: 0, overflow: "hidden", opacity: 0 }}>
+      <body {...emailDesign.canvasAttributes} style={emailDesign.body}>
+        <div lang="en" dir="ltr" aria-hidden="true" style={emailDesign.preheader}>
           Your demo order is confirmed. {demoNotice}
         </div>
-        <table role="presentation" width="100%" cellPadding="0" cellSpacing="0" style={{ borderCollapse: "collapse" }}>
+        <table lang="en" dir="ltr" role="presentation" {...emailDesign.canvasAttributes} width="100%" cellPadding="0" cellSpacing="0" style={{ borderCollapse: "collapse" }}>
           <tbody>
             <tr>
-              <td align="center" style={{ padding: "24px 12px" }}>
-                <table role="presentation" width="100%" cellPadding="0" cellSpacing="0" style={{ maxWidth: "600px", backgroundColor: "#ffffff", borderCollapse: "collapse" }}>
+              <td align="center" style={emailDesign.outerCell}>
+                <table role="presentation" {...emailDesign.canvasAttributes} width="100%" cellPadding="0" cellSpacing="0" style={emailDesign.container}>
                   <tbody>
                     <tr>
-                      <td style={{ padding: "28px 24px" }}>
-                        <p style={{ ...heading, margin: "0 0 28px", fontSize: "28px" }}>helix</p>
-                        <p style={{ margin: "0 0 10px", color: "#28362f", fontSize: "13px", letterSpacing: "1px", fontWeight: 700 }}>DEMO PURCHASE</p>
-                        <h1 style={{ ...heading, fontSize: "30px", lineHeight: "36px", margin: "0 0 16px" }}>Demo order confirmed</h1>
+                      <td style={emailDesign.content}>
+                        <p style={emailDesign.wordmark}><img src={new URL(emailDesign.wordmarkPath, identity.siteOrigin).href} alt="helix" width={emailDesign.wordmarkWidth} height={emailDesign.wordmarkHeight} style={emailDesign.wordmarkImage} /></p>
+                        <p style={emailDesign.eyebrow}>DEMO PURCHASE</p>
+                        <h1 style={emailDesign.heading}>Demo order confirmed</h1>
                         <p style={paragraph}>{demoNotice}</p>
                         <p style={paragraph}>Order {receipt.orderNumber}<br />Currency: {receipt.currency}</p>
-                        <h2 style={{ ...heading, fontSize: "22px", lineHeight: "28px", margin: "28px 0 8px" }}>Order summary</h2>
+                        <h2 style={emailDesign.subheading}>Order summary</h2>
                         <table aria-label="Order summary" width="100%" cellPadding="0" cellSpacing="0" style={{ borderCollapse: "collapse", fontSize: "14px", lineHeight: "22px" }}>
                           <thead>
-                            <tr style={{ borderBottom: "1px solid #d8d8dc" }}>
+                            <tr style={{ borderBottom: `1px solid ${emailDesign.line}` }}>
                               <th scope="col" style={cell}>Item</th>
                               <th scope="col" style={amountCell}>Amount</th>
                             </tr>
                           </thead>
                           <tbody>
                             {receipt.items.map((item, index) => (
-                              <tr key={index} style={{ borderBottom: "1px solid #d8d8dc" }}>
+                              <tr key={index} style={{ borderBottom: `1px solid ${emailDesign.line}` }}>
                                 <td style={{ ...cell, paddingRight: "12px", overflowWrap: "anywhere" }}>
                                   {item.name}<br />{item.quantity} × {money(item.unitPriceCents)}
                                 </td>
@@ -155,15 +152,17 @@ export async function renderOrderConfirmation(
                             ))}
                           </tfoot>
                         </table>
-                        <h2 style={{ ...heading, fontSize: "22px", lineHeight: "28px", margin: "28px 0 12px" }}>Delivery details (demo)</h2>
+                        <h2 style={emailDesign.subheading}>Delivery details (demo)</h2>
                         <p style={{ ...paragraph, overflowWrap: "anywhere" }}>
                           {addressLines.map((line, index) => <span key={index}>{line}<br /></span>)}
                         </p>
                         <p style={paragraph}>This address was provided for the checkout demonstration. No physical shipment will be created.</p>
-                        <p style={{ ...paragraph, marginTop: "28px" }}>
-                          <a href={contactUrl} style={{ color: "#28362f", textDecoration: "underline" }}>Visit helix contact information</a>
-                        </p>
-                        <p style={{ ...paragraph, fontSize: "13px", color: "#5d5c55", overflowWrap: "anywhere" }}>Reply address: {identity.replyTo}</p>
+                        <div style={emailDesign.footer}>
+                          <p style={{ margin: "0 0 12px" }}>
+                            <a href={contactUrl} style={emailDesign.link}>Visit helix contact information</a>
+                          </p>
+                          <p style={{ margin: 0 }}>Reply address: {identity.replyTo}</p>
+                        </div>
                       </td>
                     </tr>
                   </tbody>

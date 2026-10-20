@@ -16,7 +16,7 @@ Ticket PRs squash-merge into their Spec Branch. The final Spec PR regular-merges
 
 ## Establish a Spec Branch and draft Spec PR
 
-After the approved Ticket set is published without `ready-for-agent`, run from a clean checkout:
+After the independently approved Ticket set is published without `ready-for-agent`, and branch-push/PR-creation authority is recorded under the engineering workflow, run from a clean checkout:
 
 ```bash
 scripts/git/codex-task.sh spec-start <spec-number>-<slug>
@@ -50,7 +50,7 @@ The command fails on dirty state, missing or uncertain GitHub facts, a missing t
 
 ## Prepare for review and PR
 
-Commit the implementation before `code-review`. Ticket Review compares committed Ticket work against the immutable Ticket Snapshot. Spec Ticket commits include both footers:
+Local checkpoint commits may precede review; they are not completion or integration evidence. Commit the review candidate before `code-review`. Ticket Review compares committed Ticket work against the immutable Ticket Snapshot. Spec Ticket commits include both footers:
 
 ```text
 Refs #<ticket-number>
@@ -72,7 +72,7 @@ Allowed synchronization reasons are `merge-conflict`, `newly-approved-blocker`, 
 
 Run Ticket Review on the Standards and Spec axes against the printed Ticket Snapshot. Resolve every confirmed actionable finding or obtain explicit human acceptance; P0/P1 findings always block. If fixes or justified synchronization add commits, rerun affected checks and delta review.
 
-After review passes, push and open a ready PR targeting the printed Spec Branch. The PR body follows `.github/PULL_REQUEST_TEMPLATE.md`. `ticket-gate` is the executable merge gate. An approved Ticket authorizes its assigned agent to squash-merge after Ticket Review and the gate pass.
+After review passes, push and open a ready PR targeting the printed Spec Branch only with recorded authority for those operations. The PR body follows `.github/PULL_REQUEST_TEMPLATE.md`. `ticket-gate` is the executable merge gate. Squash-merge only after Ticket Review, the gate, and applicable user-granted merge authority are verified. Planning approval alone supplies no remote delivery authority; see the engineering workflow.
 
 ## Clean up after merge
 

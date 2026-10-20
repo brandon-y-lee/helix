@@ -89,18 +89,14 @@ beforeEach(() => {
 afterEach(() => { unregisterFocus(); headerCartButton.remove(); vi.restoreAllMocks(); vi.unstubAllGlobals(); mediaListeners.clear(); });
 
 describe("Super Serum mobile purchase", () => {
-  it.each([
-    { width: 390, presentation: "mobile-pilot" as const },
-    { width: 1024, presentation: "default" as const },
-  ])("shows the full sandbox warning at both $presentation purchase actions", async (viewport) => {
-    width = viewport.width;
+  it("keeps both purchase actions available without duplicate sandbox notices", async () => {
     const { container } = mount({
-      presentation: viewport.presentation,
+      presentation: "mobile-pilot",
       status: "available",
       variants: [{ id: "single", label: "15 mL", price: 2500, available: true, purchaseLabel: "BUY", purchasable: true }],
     });
     const main = container.querySelector(".pdp__purchase") as HTMLElement;
-    expect(within(main).getByText(SANDBOX_CHECKOUT_NOTICE)).toBeVisible();
+    expect(within(main).queryByText(SANDBOX_CHECKOUT_NOTICE)).not.toBeInTheDocument();
     expect(within(main).getByRole("button", { name: "BUY" })).toBeEnabled();
 
     mainBottom = -1;
@@ -109,7 +105,7 @@ describe("Super Serum mobile purchase", () => {
     const sticky = container.querySelector(".pdp-sticky-purchase") as HTMLElement;
     expect(sticky).toHaveAttribute("data-visible", "true");
     expect(sticky).not.toHaveAttribute("aria-hidden", "true");
-    expect(within(sticky).getByText(SANDBOX_CHECKOUT_NOTICE)).toBeVisible();
+    expect(within(sticky).queryByText(SANDBOX_CHECKOUT_NOTICE)).not.toBeInTheDocument();
     expect(within(sticky).getByRole("button")).toBeEnabled();
   });
 
