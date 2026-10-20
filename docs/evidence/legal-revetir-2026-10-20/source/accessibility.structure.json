@@ -1,0 +1,28 @@
+{
+  "headings": [
+    {
+      "level": "H1",
+      "text": "Fashion should be accessible to everyone. REVETIR is committed to ensuring that our website and services are accessible to people with disabilities and provide an inclusive experience for all users."
+    },
+    {
+      "level": "H2",
+      "text": "Our commitment"
+    },
+    {
+      "level": "H2",
+      "text": "Accessibility barriers"
+    }
+  ],
+  "links": [
+    {
+      "text": "care@revetir.com",
+      "href": "mailto:care@revetir.com"
+    },
+    {
+      "text": "← CUSTOMER CARE",
+      "href": "/us/customer-care"
+    }
+  ],
+  "paragraphs": 4,
+  "listItems": 3
+}
