@@ -100,11 +100,11 @@ test("phone FAQ categories reveal the hash selection and keep native answers usa
 test("legal Contents uses a closed phone disclosure and exposes one navigation across breakpoints", async ({ browserName, page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await page.goto("/terms");
+  await page.goto("/cookie-policy");
 
   const contents = page.locator("details.legal-toc--mobile");
   const summary = contents.locator("summary");
-  const navigation = page.getByRole("navigation", { name: "Terms of Service sections" });
+  const navigation = page.getByRole("navigation", { name: "Cookie Policy sections" });
   await expectWhiteCanvas(page);
   await expectGrayPanels(page.locator(".legal-document section"));
   await expect(contents).toHaveCSS("background-color", PANEL_GRAY);
@@ -119,8 +119,8 @@ test("legal Contents uses a closed phone disclosure and exposes one navigation a
   await page.keyboard.press(browserName === "webkit" ? "Alt+Tab" : "Tab");
   await expect(navigation.getByRole("link").first()).toBeFocused();
   await page.keyboard.press("Enter");
-  await expect(page).toHaveURL(/\/terms#publication-status$/);
-  await expectAnchorBelowHeader(page.locator("#publication-status"));
+  await expect(page).toHaveURL(/\/cookie-policy#what-cookies-do$/);
+  await expectAnchorBelowHeader(page.locator("#what-cookies-do"));
   await expectNoDocumentOverflow(page);
 
   await page.setViewportSize({ width: 720, height: 1024 });
@@ -130,8 +130,8 @@ test("legal Contents uses a closed phone disclosure and exposes one navigation a
   await expect(contents.getByRole("navigation")).toBeVisible();
   await expect(page.locator(".legal-toc--desktop")).toBeHidden();
   const desktopContents = page.locator(".legal-toc--desktop");
-  const mobilePublication = contents.getByRole("link", { name: "Publication Status", exact: true });
-  const desktopPublication = desktopContents.getByRole("link", { name: "Publication Status", exact: true });
+  const mobilePublication = contents.getByRole("link", { name: "What Cookies Do", exact: true });
+  const desktopPublication = desktopContents.getByRole("link", { name: "What Cookies Do", exact: true });
   await summary.focus();
   await page.keyboard.press("Enter");
   await expect(contents).not.toHaveAttribute("open");
@@ -174,7 +174,7 @@ test("legal Contents uses a closed phone disclosure and exposes one navigation a
 
   // A pointer interaction with non-focusable prose also ends Contents ownership.
   await summary.focus();
-  await page.getByRole("heading", { name: "Terms of Service", exact: true }).click();
+  await page.getByRole("heading", { name: "Cookie Policy", exact: true }).click();
   const focusIsInContents = () => page.evaluate(() =>
     Boolean(document.activeElement?.closest(".legal-toc")),
   );

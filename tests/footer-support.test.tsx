@@ -4,7 +4,6 @@ import { describe, expect, it, vi } from "vitest";
 import { FAQAccordion } from "@/components/content/FAQAccordion";
 import { LegalDocumentLayout } from "@/components/content/LegalDocumentLayout";
 import { SiteFooter } from "@/components/shell/SiteFooter";
-import { accessibilityStatement } from "@/content/legal/accessibility";
 import { cookieCategories, cookiePolicy } from "@/content/legal/cookies";
 import { privacyChoices } from "@/content/legal/privacy-choices";
 import { privacyPolicy } from "@/content/legal/privacy";
@@ -179,8 +178,8 @@ describe("global footer", () => {
 });
 
 describe("legal and support content", () => {
-  it("keeps Legal Documents visibly unavailable until a Legal Operator exists", () => {
-    render(<LegalDocumentLayout document={termsOfService} />);
+  it("retains the existing cookie summary publication status outside the copied policies", () => {
+    render(<LegalDocumentLayout document={cookiePolicy} />);
 
     expect(screen.getByText("Not in effect")).toBeInTheDocument();
     expect(screen.getByText(/helix is the brand, not a legal person or entity/i))
@@ -207,21 +206,18 @@ describe("legal and support content", () => {
     }))).toEqual([
       { title: "FAQ | helix", siteName: "helix" },
       { title: "Contact | helix", siteName: "helix" },
-      { title: "Accessibility Statement | helix", siteName: "helix" },
+      { title: "Accessibility | helix", siteName: "helix" },
       { title: "Privacy Policy | helix", siteName: "helix" },
       { title: "Your Privacy Choices | helix", siteName: "helix" },
       { title: "Cookie Policy | helix", siteName: "helix" },
-      { title: "Terms of Service | helix", siteName: "helix" },
+      { title: "Terms & Conditions | helix", siteName: "helix" },
     ]);
   });
 
   it("matches actual data practices and avoids unresolved public placeholders", () => {
     const combined = documentText({
-      privacyPolicy,
-      termsOfService,
       cookiePolicy,
       privacyChoices,
-      accessibilityStatement,
     });
 
     expect(combined).not.toMatch(/\[INSERT|INSERT COMPANY|hello@rhodeskin|afterpay/i);
@@ -230,23 +226,13 @@ describe("legal and support content", () => {
     );
     expect(combined).not.toMatch(/mandatory arbitration|class-action waiver|jury-trial waiver/i);
     expect(combined).not.toMatch(/real payments are available|returns are accepted/i);
-    expect(combined).toMatch(/When development email is enabled.*demo order confirmations to approved test recipients only/i);
     expect(combined).toMatch(/sandbox Checkout/i);
-    expect(combined).toMatch(/helix rewards/i);
     expect(combined).not.toMatch(FORMER_BRAND_PATTERN);
     expect(combined).not.toMatch(LEGACY_REWARDS_PATTERN);
-    expect(combined).toMatch(/message privately for support/i);
-    expect(combined).toMatch(/WCAG 2\.2 AA/i);
     expect(combined).not.toMatch(FORMER_BRAND_PATTERN);
     expect(combined).not.toMatch(/helix (?:is responsible|will be liable|disclaims)/i);
     const publicSentences = [
-      ...[
-        accessibilityStatement,
-        cookiePolicy,
-        privacyChoices,
-        privacyPolicy,
-        termsOfService,
-      ].flatMap((document) => [
+      ...[cookiePolicy, privacyChoices].flatMap((document) => [
         document.intro,
         ...document.sections.flatMap((section) => section.body),
       ]),
@@ -282,7 +268,7 @@ describe("legal and support content", () => {
       ]),
     );
     expect(
-      documentText({ cookieCategories, cookiePolicy, privacyPolicy, privacyChoices }),
+      documentText({ cookieCategories, cookiePolicy, privacyChoices }),
     ).not.toMatch(
       new RegExp(
         `${FORMER_BRAND_SNAKE}|cookie preferences|cookie-preference|consent`,
@@ -298,15 +284,6 @@ describe("legal and support content", () => {
       .toBeInTheDocument();
     expect(screen.queryByText(/essential-storage acknowledgement/i))
       .not.toBeInTheDocument();
-  });
-
-  it("states conditional Support Intake and factual Accessibility Commitment", () => {
-    const accessibilityText = documentText(accessibilityStatement);
-    expect(accessibilityText).toMatch(/Accessibility Commitment/);
-    expect(accessibilityText).toMatch(/target, not a formal certification/i);
-    expect(accessibilityText).toMatch(/Contact page shows current Support Intake availability/);
-    expect(accessibilityText).toMatch(/Only a confirmed acceptance/);
-    expect(accessibilityText).not.toMatch(/Mei[ _-]Pelle/i);
   });
 
   it("defines and applies the shared free standard shipping threshold", () => {

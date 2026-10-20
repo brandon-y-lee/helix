@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { FAQAccordion } from "@/components/content/FAQAccordion";
 import { faqCategories } from "@/content/support/faq";
 import { LegalDocumentLayout } from "@/components/content/LegalDocumentLayout";
-import { termsOfService } from "@/content/legal/terms";
+import { cookiePolicy } from "@/content/legal/cookies";
 
 describe("mobile service navigation", () => {
   afterEach(() => {
@@ -25,12 +25,12 @@ describe("mobile service navigation", () => {
       phone = isPhone;
       changes.forEach((listener) => listener({ matches: phone } as MediaQueryListEvent));
     });
-    render(<><button type="button">Outside navigation</button><LegalDocumentLayout document={termsOfService} /></>);
+    render(<><button type="button">Outside navigation</button><LegalDocumentLayout document={cookiePolicy} /></>);
     const summary = screen.getByText("Contents", { selector: "summary" });
     const disclosure = summary.closest("details")!;
     await user.click(summary);
-    const phoneLink = within(disclosure).getByRole("link", { name: "Publication Status" });
-    const desktopLink = screen.getAllByRole("link", { name: "Publication Status" })
+    const phoneLink = within(disclosure).getByRole("link", { name: "What Cookies Do" });
+    const desktopLink = screen.getAllByRole("link", { name: "What Cookies Do" })
       .find((link) => !disclosure.contains(link))!;
     phoneLink.focus();
     phoneLink.blur(); // A CSS-hidden focused link can leave body active before resize fires.
@@ -57,7 +57,7 @@ describe("mobile service navigation", () => {
 
   it("lets readers expand the Legal Document contents and follow a section link", async () => {
     const user = userEvent.setup();
-    render(<LegalDocumentLayout document={termsOfService} />);
+    render(<LegalDocumentLayout document={cookiePolicy} />);
 
     const contents = screen.getByText("Contents", { selector: "summary" });
     const disclosure = contents.closest("details")!;
@@ -66,7 +66,7 @@ describe("mobile service navigation", () => {
     await user.click(contents);
 
     expect(disclosure).toHaveAttribute("open");
-    const firstSection = termsOfService.sections[0];
+    const firstSection = cookiePolicy.sections[0];
     const link = within(disclosure).getByRole("link", {
       name: firstSection.title,
     });

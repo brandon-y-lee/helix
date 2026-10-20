@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { LegalDocumentLayout } from "@/components/content/LegalDocumentLayout";
+import { PolicyDocumentLayout } from "@/components/content/PolicyDocumentLayout";
 import { accessibilityStatement } from "@/content/legal/accessibility";
 import { createPublicSiteMetadata } from "@/lib/public-site-metadata";
 
@@ -10,5 +10,5 @@ export const metadata: Metadata = createPublicSiteMetadata({
 });
 
 export default function AccessibilityPage() {
-  return <LegalDocumentLayout document={accessibilityStatement} />;
+  return <PolicyDocumentLayout document={accessibilityStatement} />;
 }

@@ -1,0 +1,193 @@
+{
+  "substitutions": [
+    [
+      "REVETIR LLC",
+      "Helix Labs LLC"
+    ],
+    [
+      "REVETIR",
+      "Helix"
+    ],
+    [
+      "Revetir",
+      "Helix"
+    ],
+    [
+      "care@revetir.com",
+      "support@helixskin.com"
+    ],
+    [
+      "2 Park Avenue, 20th Floor, New York, NY 10016",
+      "2747 Haste Street, Berkeley CA 94704"
+    ],
+    [
+      "https://www.revetir.com",
+      "https://helixskin.vercel.app"
+    ]
+  ],
+  "linkMap": {
+    "/us/customer-care/shipping-policy": "/faq#shipping",
+    "/us/customer-care/shipping-policy#duties-taxes": "/faq#shipping",
+    "/us/customer-care/return-policy": "/faq#returns",
+    "/us/guest/self-serve": "/contact",
+    "/us/customer-care/contact-us": "/contact",
+    "/us/customer-care": "/contact",
+    "/us/privacy-policy": "/privacy",
+    "/us/terms-conditions": "/terms",
+    "/us/cookie-policy": "/cookie-policy"
+  },
+  "pages": [
+    {
+      "route": "/privacy",
+      "sourceUrl": "https://revetir.com/us/privacy-policy",
+      "sourceFile": "source/privacy-policy.rendered.article.html",
+      "sourceSha256": "ff085f24360c528ff3201159f26b093ab2aec942258a386f1efa3e533e0ecc48",
+      "sourceCharacters": 14142,
+      "expectedCharacters": 14136,
+      "textSubstitutions": [
+        {
+          "before": "REVETIR LLC",
+          "after": "Helix Labs LLC",
+          "occurrences": 1
+        },
+        {
+          "before": "REVETIR",
+          "after": "Helix",
+          "occurrences": 10
+        },
+        {
+          "before": "care@revetir.com",
+          "after": "support@helixskin.com",
+          "occurrences": 4
+        },
+        {
+          "before": "2 Park Avenue, 20th Floor, New York, NY 10016",
+          "after": "2747 Haste Street, Berkeley CA 94704",
+          "occurrences": 1
+        }
+      ],
+      "links": [
+        {
+          "text": "care@revetir.com",
+          "href": "mailto:care@revetir.com",
+          "target": "mailto:support@helixskin.com"
+        },
+        {
+          "text": "care@revetir.com",
+          "href": "mailto:care@revetir.com",
+          "target": "mailto:support@helixskin.com"
+        },
+        {
+          "text": "care@revetir.com",
+          "href": "mailto:care@revetir.com",
+          "target": "mailto:support@helixskin.com"
+        },
+        {
+          "text": "care@revetir.com",
+          "href": "mailto:care@revetir.com",
+          "target": "mailto:support@helixskin.com"
+        }
+      ],
+      "omittedClauses": 0,
+      "substantiveRewrites": 0
+    },
+    {
+      "route": "/terms",
+      "sourceUrl": "https://revetir.com/us/terms-conditions",
+      "sourceFile": "source/terms-conditions.rendered.article.html",
+      "sourceSha256": "551d826194e7afe1c37184e1a6f4f3a9b82b261376f21625c3c62982887a1628",
+      "sourceCharacters": 35295,
+      "expectedCharacters": 35149,
+      "textSubstitutions": [
+        {
+          "before": "REVETIR LLC",
+          "after": "Helix Labs LLC",
+          "occurrences": 2
+        },
+        {
+          "before": "REVETIR",
+          "after": "Helix",
+          "occurrences": 84
+        },
+        {
+          "before": "care@revetir.com",
+          "after": "support@helixskin.com",
+          "occurrences": 4
+        },
+        {
+          "before": "2 Park Avenue, 20th Floor, New York, NY 10016",
+          "after": "2747 Haste Street, Berkeley CA 94704",
+          "occurrences": 1
+        },
+        {
+          "before": "https://www.revetir.com",
+          "after": "https://helixskin.vercel.app",
+          "occurrences": 1
+        }
+      ],
+      "links": [
+        {
+          "text": "Shipping Policy",
+          "href": "/us/customer-care/shipping-policy",
+          "target": "/faq#shipping"
+        },
+        {
+          "text": "Shipping Policy",
+          "href": "/us/customer-care/shipping-policy#duties-taxes",
+          "target": "/faq#shipping"
+        },
+        {
+          "text": "Return Policy",
+          "href": "/us/customer-care/return-policy",
+          "target": "/faq#returns"
+        },
+        {
+          "text": "request a return online",
+          "href": "/us/guest/self-serve",
+          "target": "/contact"
+        },
+        {
+          "text": "Customer Care",
+          "href": "/us/customer-care/contact-us",
+          "target": "/contact"
+        }
+      ],
+      "omittedClauses": 0,
+      "substantiveRewrites": 0
+    },
+    {
+      "route": "/accessibility",
+      "sourceUrl": "https://revetir.com/us/customer-care/accessibility",
+      "sourceFile": "source/accessibility.rendered.article.html",
+      "sourceSha256": "b4077dabb7391be7e2a425cec4b8bccab9946f460503eab1c13baca8f27fc4e2",
+      "sourceCharacters": 1041,
+      "expectedCharacters": 1044,
+      "textSubstitutions": [
+        {
+          "before": "REVETIR",
+          "after": "Helix",
+          "occurrences": 1
+        },
+        {
+          "before": "care@revetir.com",
+          "after": "support@helixskin.com",
+          "occurrences": 1
+        }
+      ],
+      "links": [
+        {
+          "text": "care@revetir.com",
+          "href": "mailto:care@revetir.com",
+          "target": "mailto:support@helixskin.com"
+        },
+        {
+          "text": "← Customer Care",
+          "href": "/us/customer-care",
+          "target": "/contact"
+        }
+      ],
+      "omittedClauses": 0,
+      "substantiveRewrites": 0
+    }
+  ]
+}
