@@ -25,6 +25,13 @@ const links: Record<string, string> = {
   "mailto:care@revetir.com": "mailto:support@helixskin.com",
 };
 const substitute = (value: string) => substitutions.reduce((text, [before, after]) => text.replaceAll(before, after), value);
+const approvedCorrections: Record<string, { find: string; replace: string }[]> = JSON.parse(
+  fs.readFileSync("scripts/legal/approved-factual-corrections.json", "utf8"),
+);
+const expectedText = (slug: string, text: string) => (approvedCorrections[slug] ?? []).reduce(
+  (value, correction) => value.replace(correction.find.trim(), correction.replace.trim()),
+  substitute(text),
+);
 const normalize = (value: string | null) => (value ?? "").replace(/\s+/g, " ").trim();
 function fragment(html: string) {
   const element = document.createElement("div");
@@ -38,11 +45,11 @@ describe("complete authorized local policy copies", () => {
     ["terms-conditions", termsOfService],
     ["accessibility", accessibilityStatement],
   ] as const) {
-    it(`${policy.canonical} preserves every source clause, heading and link in order`, () => {
+    it(`${policy.canonical} preserves source wording except the exact approved factual corrections`, () => {
       const source = fragment(fs.readFileSync(`docs/evidence/legal-revetir-2026-10-20/source/${slug}.rendered.article.html`, "utf8"));
       const actual = fragment(renderToStaticMarkup(<PolicyDocumentLayout document={policy} />));
       const blocks = (root: Element) => [...root.querySelectorAll("h1,h2,h3,h4,p,li")].map((node) => ({ tag: node.tagName, text: normalize(node.textContent) }));
-      expect(blocks(actual)).toEqual(blocks(source).map((block) => ({ ...block, text: substitute(block.text) })));
+      expect(blocks(actual)).toEqual(blocks(source).map((block) => ({ ...block, text: expectedText(slug, block.text).replace(/\s+/g, " ").trim() })));
       const expectedLinks = [...source.querySelectorAll("a")].map((a) => ({ text: substitute(normalize(a.textContent)), href: links[a.getAttribute("href")!] }));
       expect(expectedLinks.every((a) => a.href)).toBe(true);
       expect([...actual.querySelectorAll("a")].map((a) => ({ text: normalize(a.textContent), href: a.getAttribute("href") }))).toEqual(expectedLinks);
@@ -51,6 +58,23 @@ describe("complete authorized local policy copies", () => {
       expect(actual.querySelector("script,iframe,style,[onclick]")).toBeNull();
     });
   }
+
+  it("limits factual changes to the four approved areas and retains unresolved operational wording", () => {
+    expect(Object.keys(approvedCorrections).sort()).toEqual(["privacy-policy", "terms-conditions"]);
+    for (const correction of Object.values(approvedCorrections).flat()) {
+      expect(correction).toHaveProperty("area", expect.stringMatching(/^(accounts|payments|tracking|pricing)$/));
+    }
+    const privacy = fragment(renderToStaticMarkup(privacyPolicy.content));
+    const terms = fragment(renderToStaticMarkup(termsOfService.content));
+    expect(privacy.textContent).not.toMatch(/Square|Google login|Google-verified|Meta|Global Privacy Control|turn off Marketing Cookies|update or delete your account data/);
+    expect(terms.textContent).not.toMatch(/Square|Live Price|sourcing network|limited to one per customer/);
+    expect(privacy.textContent).toContain("We provide at least two methods for you to exercise these rights.");
+    expect(privacy.textContent).toContain("we may keep order and billing records for up to 7 years");
+    expect(terms.textContent).toContain("Most orders ship 5–7 business days after being placed.");
+    expect(terms.textContent).toContain("Helix offers free returns on all orders.");
+    expect(terms.textContent).toContain("a refund will be issued to your original payment method within 2 business days.");
+    expect([privacy.textContent, terms.textContent].join(" ")).not.toMatch(/\b(?:sandbox|development)\b|live payments (?:are|have been) (?:enabled|activated)/i);
+  });
 
   it("exposes the confirmed operator and accessible email links without adding a contents widget", () => {
     render(<PolicyDocumentLayout document={privacyPolicy} />);

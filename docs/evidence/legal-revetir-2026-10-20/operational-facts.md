@@ -1,5 +1,7 @@
 # Revetir legal copy: independent operational-facts review
 
+> Baseline findings retained for traceability. The owner subsequently approved corrections to payments, tracking, accounts and pricing only; see [factual-corrections-report.md](./factual-corrections-report.md). Accessibility and the shipping/returns/privacy-handling/retention decisions remain unresolved and unchanged.
+
 Reviewed 2026-10-20 against Helix base `cac2e99` in `/tmp/helix-legal-revetir` (`codex/plan-legal-revetir`). This is a content parity and factual readiness review, not an implementation or a determination of legal enforceability. No remote state was mutated or operational service activated.
 
 **Latest scope clarification:** Preserve every source clause in the local reviewable implementation, with the authorized identity/address/email/link substitutions. Square, advertising, and other conflicting clauses remain visible there for review. Nothing in this report authorizes omission, a legal rewrite, public publication, or service activation. Suggested factual corrections below are disposition proposals for the owner; this reviewer changed no application copy.

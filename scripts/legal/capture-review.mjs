@@ -5,7 +5,7 @@ import { chromium } from "@playwright/test";
 
 const origin = process.env.HELIX_LEGAL_PREVIEW_URL ?? "http://127.0.0.1:3036";
 assert.ok(["localhost", "127.0.0.1"].includes(new URL(origin).hostname));
-const out = "/tmp/helix-legal-artifacts/implementation";
+const out = process.env.HELIX_LEGAL_CAPTURE_DIRECTORY ?? "/tmp/helix-legal-artifacts/implementation";
 fs.mkdirSync(out, { recursive: true });
 const evidence = new URL("../../docs/evidence/legal-revetir-2026-10-20/", import.meta.url);
 const manifest = JSON.parse(fs.readFileSync(new URL("substitutions.json", evidence), "utf8"));
@@ -23,7 +23,7 @@ try {
       const response = await page.goto(origin + policy.route, { waitUntil: "networkidle" });
       assert.equal(response.status(), 200);
       await page.evaluate(() => document.fonts.ready);
-      const result = await page.evaluate(({ source, substitutions, linkMap }) => {
+      const result = await page.evaluate(({ source, substitutions, linkMap, factualCorrections }) => {
         const article = document.querySelector("article[aria-label]");
         const original = document.createElement("div");
         original.innerHTML = source;
@@ -31,7 +31,7 @@ try {
         const substitute = (text) => substitutions.reduce((value, [before, after]) => value.replaceAll(before, after), text);
         const blocks = (root) => [...root.querySelectorAll("h1,h2,h3,h4,p,li")].map((element) => ({ tag: element.tagName, text: normalized(element.textContent) }));
         const actual = blocks(article);
-        const expected = blocks(original).map((block) => ({ ...block, text: substitute(block.text) }));
+        const expected = blocks(original).map((block) => ({ ...block, text: normalized(factualCorrections.reduce((value, correction) => value.replace(correction.find.trim(), correction.replace.trim()), substitute(block.text))) }));
         const actualLinks = [...article.querySelectorAll("a")].map((a) => ({ text: normalized(a.textContent), href: a.getAttribute("href") }));
         const expectedLinks = [...original.querySelectorAll("a")].map((a) => ({ text: substitute(normalized(a.textContent)), href: a.getAttribute("href").startsWith("mailto:") ? substitute(a.getAttribute("href")) : linkMap[a.getAttribute("href")] }));
         const rect = article.getBoundingClientRect();
@@ -52,7 +52,7 @@ try {
           firstParagraph: { font: getComputedStyle(p).fontFamily, fontSize: getComputedStyle(p).fontSize, lineHeight: getComputedStyle(p).lineHeight },
           hasSummaryNotices: /Not in effect|No Legal Operator|not an operative|prelaunch/i.test(article.textContent),
         };
-      }, { source, substitutions: manifest.substitutions, linkMap: manifest.linkMap });
+      }, { source, substitutions: manifest.substitutions, linkMap: manifest.linkMap, factualCorrections: policy.factualCorrections ?? [] });
       assert.equal(result.contentParity, true, `${policy.route} ${size}: content parity`);
       assert.equal(result.linkParity, true, `${policy.route} ${size}: link parity`);
       assert.ok(result.documentWidth <= width, `${policy.route} ${size}: horizontal overflow`);

@@ -43,7 +43,7 @@
       "sourceFile": "source/privacy-policy.rendered.article.html",
       "sourceSha256": "ff085f24360c528ff3201159f26b093ab2aec942258a386f1efa3e533e0ecc48",
       "sourceCharacters": 14142,
-      "expectedCharacters": 14136,
+      "expectedCharacters": 11643,
       "textSubstitutions": [
         {
           "before": "REVETIR LLC",
@@ -88,8 +88,98 @@
           "target": "mailto:support@helixskin.com"
         }
       ],
-      "omittedClauses": 0,
-      "substantiveRewrites": 0
+      "factualCorrections": [
+        {
+          "area": "accounts",
+          "find": "Username and password, order history, customer identifiers, and, when you choose Google login, your Google-verified email address, name, and profile image. Google does not share your Google password with Helix.",
+          "replace": "Email address and password, optional first and last name, order history, and customer identifiers."
+        },
+        {
+          "area": "payments",
+          "find": "Payment details required to process your order are collected through Square's PCI-compliant payment fields. Square tokenizes the payment information for processing; Helix does not receive or store your full card number or security code.",
+          "replace": "Payment details entered through Stripe Checkout are handled by Stripe; Helix does not receive or store your full card number or security code."
+        },
+        {
+          "area": "tracking",
+          "find": ", to analyze site usage",
+          "replace": ""
+        },
+        {
+          "area": "tracking",
+          "find": "and to analyze and improve our website and offerings. For example, we analyze browsing data to understand which products and pages are popular and to optimize our site's performance.",
+          "replace": "and to improve our website and offerings."
+        },
+        {
+          "area": "tracking",
+          "find": "We use advertising and measurement technologies to understand how people find Helix, measure advertising results, connect product interactions with our catalog, and show relevant advertisements, subject to your privacy choices.",
+          "replace": "Optional analytics and advertising technologies are not active on this website."
+        },
+        {
+          "area": "tracking",
+          "find": "while marketing and analytics are based on your consent or on our legitimate interest to run our business responsibly.",
+          "replace": "while marketing is based on your consent or on our legitimate interest to run our business responsibly."
+        },
+        {
+          "area": "tracking",
+          "find": " We also use optional analytics and advertising technologies as described below.",
+          "replace": ""
+        },
+        {
+          "area": "tracking",
+          "find": "Helix uses Vercel Web Analytics without cookies for anonymous, aggregate page and shopping-event counts. Optional Google Analytics and Vercel performance tools are disabled unless you enable Analytics Cookies in Your Privacy Choices. Marketing tracking, including Meta's advertising technologies, is enabled by default unless you turn off Marketing Cookies or your browser sends a Global Privacy Control signal.",
+          "replace": "Optional analytics and advertising technologies are not active on this website."
+        },
+        {
+          "area": "tracking",
+          "find": "You can review and change these settings through Your Privacy Choices in the website footer. Your selections are saved in the browser you use. You may need to set them again if you clear browser storage or use another browser or device. We recognize Global Privacy Control as a request to opt out of advertising-related sharing for that browser.",
+          "replace": "Your Privacy Choices in the website footer explains our use of required browser storage."
+        },
+        {
+          "area": "tracking",
+          "find": "Turning off optional analytics or marketing tracking does not prevent you from creating an account or placing an order. ",
+          "replace": ""
+        },
+        {
+          "area": "tracking",
+          "find": "You can opt out of advertising-related sharing through Your Privacy Choices or a Global Privacy Control signal. ",
+          "replace": ""
+        },
+        {
+          "area": "payments",
+          "find": "When you pay by card or an eligible digital payment method, the information needed to process the transaction is sent to Square. Square handles the payment through PCI-compliant infrastructure and returns the payment result needed to complete the order.",
+          "replace": "When you enter card payment details through Stripe Checkout, those details are handled by Stripe."
+        },
+        {
+          "area": "accounts",
+          "find": "When you choose Google login, Google authenticates you and provides Helix with your verified email address, name, and profile image. ",
+          "replace": ""
+        },
+        {
+          "area": "tracking",
+          "find": "Vercel receives anonymous, aggregate page and shopping-event data through its cookie-free Web Analytics service. We also share website activity and related information with Meta and, when optional analytics is enabled, Google Analytics and Vercel performance tools. Depending on the service and your choices, this can include pages and products viewed, shopping and purchase events, browser identifiers, IP address and device information. For advertising measurement and matching, we may also send a hashed version of your email address or phone number to Meta. Hashing transforms these details for matching; it does not make them anonymous.",
+          "replace": "Optional analytics and advertising technologies are not active on this website."
+        },
+        {
+          "area": "payments",
+          "find": "(for example, to Square or Google in the U.S.)",
+          "replace": "(for example, to Stripe in the U.S.)"
+        },
+        {
+          "area": "accounts",
+          "find": "You can also update or delete your account data anytime via your user account or by contacting us.",
+          "replace": "You can update your name and password through your user account or contact us about your account data."
+        },
+        {
+          "area": "payments",
+          "find": "Payment information entered through Square's payment fields is tokenized for processing, and Helix does not receive or store full card numbers or security codes.",
+          "replace": "Payment details entered through Stripe Checkout are handled by Stripe, and Helix does not receive or store full card numbers or security codes."
+        },
+        {
+          "area": "tracking",
+          "find": "To opt out of advertising-related sharing, open Your Privacy Choices in the website footer and turn off Marketing Cookies, or use a browser that sends a Global Privacy Control signal. ",
+          "replace": ""
+        }
+      ]
     },
     {
       "route": "/terms",
@@ -97,7 +187,7 @@
       "sourceFile": "source/terms-conditions.rendered.article.html",
       "sourceSha256": "551d826194e7afe1c37184e1a6f4f3a9b82b261376f21625c3c62982887a1628",
       "sourceCharacters": 35295,
-      "expectedCharacters": 35149,
+      "expectedCharacters": 35000,
       "textSubstitutions": [
         {
           "before": "REVETIR LLC",
@@ -152,8 +242,28 @@
           "target": "/contact"
         }
       ],
-      "omittedClauses": 0,
-      "substantiveRewrites": 0
+      "factualCorrections": [
+        {
+          "area": "pricing",
+          "find": "Items are limited to one per customer. ",
+          "replace": ""
+        },
+        {
+          "area": "pricing",
+          "find": "Live Price is derived from the lowest current asking price observed for an item across Helix's sourcing network.",
+          "replace": "Prices are the catalog prices displayed on our website and are validated at checkout."
+        },
+        {
+          "area": "payments",
+          "find": "Payments are securely processed by Square through PCI-compliant infrastructure. Card information entered in Square payment fields is tokenized for processing; Helix does not receive or store card numbers or security codes.",
+          "replace": "Card payment details entered through Stripe Checkout are handled by Stripe; Helix does not receive or store card numbers or security codes."
+        },
+        {
+          "area": "payments",
+          "find": "Refunds are processed through Square",
+          "replace": "Refunds are processed through Stripe"
+        }
+      ]
     },
     {
       "route": "/accessibility",
@@ -186,8 +296,7 @@
           "target": "/contact"
         }
       ],
-      "omittedClauses": 0,
-      "substantiveRewrites": 0
+      "factualCorrections": []
     }
   ]
 }

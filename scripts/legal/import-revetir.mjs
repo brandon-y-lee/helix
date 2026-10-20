@@ -34,6 +34,7 @@ const substitute = (text) => substitutions.reduce((value, [before, after]) => va
 const escape = (text) => text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;").replaceAll("{", "&#123;").replaceAll("}", "&#125;");
 const allowedTags = new Set(["div", "header", "nav", "section", "h1", "h2", "h3", "h4", "p", "ul", "ol", "li", "strong", "em", "a", "span", "br"]);
 const reports = [];
+const approvedCorrections = JSON.parse(fs.readFileSync(new URL("approved-factual-corrections.json", import.meta.url), "utf8"));
 
 for (const page of pages) {
   const sourceFile = new URL(`source/${page.source}.rendered.article.html`, evidence);
@@ -54,6 +55,18 @@ for (const page of pages) {
     countedText = countedText.replaceAll(before, after);
     return { before, after, occurrences };
   }).filter(({ occurrences }) => occurrences);
+  const textNodes = [];
+  const walker = document.createTreeWalker(container, document.defaultView.NodeFilter.SHOW_TEXT);
+  while (walker.nextNode()) textNodes.push(walker.currentNode);
+  for (const node of textNodes) node.textContent = substitute(node.textContent);
+  const factualCorrections = approvedCorrections[page.source] ?? [];
+  for (const correction of factualCorrections) {
+    const matches = textNodes.filter((node) => node.textContent.includes(correction.find));
+    if (matches.length !== 1 || matches[0].textContent.split(correction.find).length !== 2) {
+      throw new Error(`Expected one exact approved correction match: ${page.source}: ${correction.find}`);
+    }
+    matches[0].textContent = matches[0].textContent.replace(correction.find, correction.replace);
+  }
   function jsx(node) {
     if (node.nodeType === 3) return escape(substitute(node.textContent));
     if (node.nodeType !== 1) return "";
@@ -84,7 +97,7 @@ for (const page of pages) {
   // Retire only the three superseded policy-summary modules.
   const old = new URL(`content/legal/${page.file}.ts`, root);
   if (fs.existsSync(old)) fs.unlinkSync(old);
-  reports.push({ route: page.route, sourceUrl: `https://revetir.com/us/${page.file === "accessibility" ? "customer-care/" : ""}${page.source}`, sourceFile: `source/${page.source}.rendered.article.html`, sourceSha256: crypto.createHash("sha256").update(source).digest("hex"), sourceCharacters: sourceText.length, expectedCharacters: substitute(sourceText).length, textSubstitutions: counts, links: sourceLinks.map((link) => ({ ...link, target: link.href.startsWith("mailto:") ? substitute(link.href) : links[link.href] })), omittedClauses: 0, substantiveRewrites: 0 });
+  reports.push({ route: page.route, sourceUrl: `https://revetir.com/us/${page.file === "accessibility" ? "customer-care/" : ""}${page.source}`, sourceFile: `source/${page.source}.rendered.article.html`, sourceSha256: crypto.createHash("sha256").update(source).digest("hex"), sourceCharacters: sourceText.length, expectedCharacters: container.textContent.length, textSubstitutions: counts, links: sourceLinks.map((link) => ({ ...link, target: link.href.startsWith("mailto:") ? substitute(link.href) : links[link.href] })), factualCorrections });
 }
 fs.writeFileSync(new URL("substitutions.json", evidence), JSON.stringify({ substitutions, linkMap: links, pages: reports }, null, 2) + "\n");
-console.log("Generated three complete local review copies; no substantive clauses omitted or rewritten.");
+console.log("Generated local review copies with only recorded identity substitutions and approved factual corrections.");

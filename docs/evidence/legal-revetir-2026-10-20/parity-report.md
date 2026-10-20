@@ -1,5 +1,7 @@
 # Complete legal copy: parity and local-review handoff
 
+> Historical checkpoint: this report records the complete-copy review at `26e2911`. The subsequent owner-approved payment, tracking, account and pricing corrections are documented in [factual-corrections-report.md](./factual-corrections-report.md); its allowlist is now applied by the parity tests and importer. The original Library screenshots remain historical snapshots.
+
 This is a local-only implementation requested by Brandon. Every source clause remains present, including the operational conflicts listed separately in `operational-facts.md`. There are **zero omitted clauses and zero substantive rewrites**. Copying establishes neither legal adequacy nor actual operational compliance. No policy was publicly activated.
 
 ## Exact content boundary
