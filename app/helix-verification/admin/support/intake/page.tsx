@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { ContactPageContent } from "@/components/support/ContactPageContent";
 import { SupportIntakeVerification, type SupportIntakeScenario } from "../SupportIntakeVerification";
 
 export const dynamic = "force-dynamic";
@@ -13,13 +14,9 @@ export default async function SupportIntakeVerificationPage({ searchParams = Pro
   const scenario = query.scenario ?? "photos";
   if (Object.keys(query).some((key) => key !== "scenario") || typeof scenario !== "string"
     || !["photos", "upload-retry"].includes(scenario)) notFound();
-  return <main className="support-page contact-page" id="content">
-    <header className="support-hero">
-      <p className="eyebrow">Synthetic verification · No messages or photos are sent</p>
-      <h1>Contact support</h1>
-    </header>
-    <section className="contact-status" aria-label="Current contact status">
+  return <main id="content">
+    <ContactPageContent>
       <SupportIntakeVerification key={scenario} scenario={scenario as SupportIntakeScenario} />
-    </section>
+    </ContactPageContent>
   </main>;
 }
