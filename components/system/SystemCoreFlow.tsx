@@ -40,6 +40,11 @@ export function SystemCoreFlow({ items }: { items: SystemCoreFlowItem[] }) {
   const { activeIndex, handleTabKeyDown, registerTab, selectIndex } =
     useRovingTabSelection(items.length);
 
+  function selectStep(index: number) {
+    setPendingAnchor(null);
+    selectIndex(index);
+  }
+
   useEffect(() => {
     function selectHashedStep() {
       const hash = window.location.hash.slice(1);
@@ -184,8 +189,11 @@ export function SystemCoreFlow({ items }: { items: SystemCoreFlowItem[] }) {
               aria-selected={index === activeIndex}
               data-display-number={item.displayNumber}
               tabIndex={index === activeIndex ? 0 : -1}
-              onClick={() => selectIndex(index)}
-              onKeyDown={(event) => handleTabKeyDown(event, index)}
+              onClick={() => selectStep(index)}
+              onKeyDown={(event) => {
+                handleTabKeyDown(event, index);
+                if (event.defaultPrevented) setPendingAnchor(null);
+              }}
             >
               <strong>{item.stepName}</strong>
               <span>{item.displayName}</span>
@@ -200,7 +208,7 @@ export function SystemCoreFlow({ items }: { items: SystemCoreFlowItem[] }) {
           className="system-arrow-control"
           type="button"
           aria-label="Previous Core step"
-          onClick={() => selectIndex(activeIndex - 1)}
+          onClick={() => selectStep(activeIndex - 1)}
         >
           <span aria-hidden="true">←</span>
         </button>
@@ -208,7 +216,7 @@ export function SystemCoreFlow({ items }: { items: SystemCoreFlowItem[] }) {
           className="system-arrow-control"
           type="button"
           aria-label="Next Core step"
-          onClick={() => selectIndex(activeIndex + 1)}
+          onClick={() => selectStep(activeIndex + 1)}
         >
           <span aria-hidden="true">→</span>
         </button>

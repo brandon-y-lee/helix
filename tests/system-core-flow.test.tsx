@@ -114,6 +114,14 @@ describe("SystemCoreFlow", () => {
       fireEvent.click(screen.getAllByRole("tab")[0]);
       frame.run();
       expect(scroll).not.toHaveBeenCalled();
+      navigate("system-treat");
+      fireEvent.click(screen.getAllByRole("tab")[1]);
+      frame.run();
+      expect(scroll).not.toHaveBeenCalled();
+      navigate("system-seal");
+      fireEvent.keyDown(screen.getAllByRole("tab")[2], { key: "End" });
+      frame.run();
+      expect(scroll).not.toHaveBeenCalled();
       navigate("system-cleanse");
       window.history.replaceState(null, "", "/system#step-recode");
       frame.run();
