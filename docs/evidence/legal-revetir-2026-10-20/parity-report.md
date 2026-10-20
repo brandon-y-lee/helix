@@ -54,7 +54,7 @@ The website identity uses the repository canonical origin, `https://helixskin.ve
 ## Verification
 
 - Frozen dependency install: `pnpm install --frozen-lockfile --ignore-scripts` — passed. Initial shared dependency reuse and offline install lacked packages; the isolated install resolved that environment issue. Lockfile unchanged.
-- `pnpm exec vitest run tests/legal-policy-parity.test.tsx tests/footer-support.test.tsx tests/mobile-services.test.tsx --maxWorkers=2` — 3 files, 18 tests passed. New parity coverage replaces obsolete prelaunch-copy assertions. Existing Contents/focus tests now use the unaffected Cookie Policy, retaining that shared behavior coverage.
+- `pnpm exec vitest run tests/customer-rewards-migration.test.ts tests/legal-policy-parity.test.tsx tests/footer-support.test.tsx tests/mobile-services.test.tsx --maxWorkers=2` — 4 files, 19 tests passed. New parity coverage replaces obsolete prelaunch-copy assertions. Existing Contents/focus tests now use the unaffected Cookie Policy, retaining that shared behavior coverage. Independent review found static filename references in the rewards migration test; commit `6dff8e0` fixes those references without weakening assertions.
 - `pnpm typecheck` — passed after isolated dependencies were installed.
 - Targeted ESLint with `ESLINT_USE_FLAT_CONFIG=false` and the repository `.eslintrc.json` — passed; only the existing configuration deprecation notice. The default flat-config invocation was unsuitable for this repository.
 - `git diff --check` — passed.
@@ -64,7 +64,7 @@ The website identity uses the repository canonical origin, `https://helixskin.ve
 
 ## Scope and disposition
 
-Implemented only `/privacy`, `/terms`, `/accessibility` and their content/layout/test/evidence seams. FAQ, Cookie Policy, Privacy Choices, global navigation, providers/settings, Supabase and remote branches were not changed. FAQ dissatisfaction remains open with no new exact copy instruction. The untouched Cookie/Privacy Choices pages still contain their existing prelaunch/legal-operator status; reconciliating them would require additional scope.
+Implemented only `/privacy`, `/terms`, `/accessibility` and their content/layout/test/evidence seams. FAQ, Cookie Policy, Privacy Choices, global navigation, providers/settings, Supabase and remote branches were not changed. FAQ dissatisfaction remains open with no new exact copy instruction. The untouched Cookie/Privacy Choices pages still contain their existing prelaunch/legal-operator status; reconciling them would require additional scope.
 
 Proven conflicts: Square versus Stripe sandbox; Google login; optional analytics/Meta sharing and privacy toggles/GPC; account deletion UI; one-item restriction; lowest-ask sourcing pricing; fashion category. Unverified owner practices: physical fulfillment/returns/refund promises; privacy/accessibility/security/dispute mailbox handling and manual rights fulfillment; record retention/transfer safeguards/review cadence; actual optional provider processing; accessibility conformance wording; incorporated policies and adoption dates. Exact clauses and smallest suggested factual substitutions are in `operational-facts.md`. All remain in the local copy as explicitly instructed; adoption requires disposition.
 
@@ -74,6 +74,6 @@ Worktree `/tmp/helix-legal-revetir`; branch `codex/plan-legal-revetir`; start `c
 
 Preview: `http://127.0.0.1:3036/privacy`, `/terms`, `/accessibility`. Run `pnpm dev --hostname 127.0.0.1 --port 3036` from the worktree. Contact worktree, shared dev and port 3018 were untouched.
 
-Screenshots: `/tmp/helix-legal-artifacts/{source,baseline,implementation}`. Source capture details/checksums are in `source/README.md` and `source/manifest.json`; final actual-browser results are in `browser-results.json`. Library screenshot identities and independent review outcomes will be recorded in the final delivery record.
+Screenshots: `/tmp/helix-legal-artifacts/{source,baseline,implementation}`. Source capture details/checksums are in `source/README.md` and `source/manifest.json`; final actual-browser results are in `browser-results.json`. All twelve final screenshots were successfully saved to Library; exact IDs, versions and local paths are in `screenshots-library.json`. Standards review approved `6dff8e0` after the bounded filename fix, with no open implementation findings. Spec review independently approved the same source commit, including six fresh browser checks. See `standards-review.md` and `spec-review.md` for independent evidence. The initial upload-helper connection failed before any write; the available ordered batch-create route succeeded for every screenshot and local identity metadata was persisted.
 
 Subagents: `source_layout`, `content_facts`, then independent `spec_review` and `standards_review`, all explicitly requested gpt-6.1-sol/high. Library skill used only for requested screenshot deliverables. Content reviewer used Supabase skill for local provider/data facts; no Supabase changes.
