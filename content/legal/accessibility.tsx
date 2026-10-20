@@ -9,7 +9,7 @@ export const accessibilityStatement: PolicyDocument = {
   variant: "accessibility",
   content: (<>
 <div><header><p>Accessibility</p>
-<h1>Fashion should be accessible to everyone. Helix is committed to ensuring that our website and services are accessible to people with disabilities and provide an inclusive experience for all users.</h1>
+<h1>Skincare should be accessible to everyone. Helix is committed to ensuring that our website and services are accessible to people with disabilities and provide an inclusive experience for all users.</h1>
 </header>
 <div data-policy-reading=""><div><section id="commitment" aria-labelledby="commitment-title"><h2 id="commitment-title">Our commitment</h2>
 <div data-policy-prose=""><p>We strive to maintain compliance with the Web Content Accessibility Guidelines (WCAG) 2.1 Level AA standards and continuously work to improve the accessibility of our website.</p>

@@ -179,7 +179,9 @@
           "find": "To opt out of advertising-related sharing, open Your Privacy Choices in the website footer and turn off Marketing Cookies, or use a browser that sends a Global Privacy Control signal. ",
           "replace": ""
         }
-      ]
+      ],
+      "terminologyCorrections": [],
+      "returnPolicyCorrections": []
     },
     {
       "route": "/terms",
@@ -187,7 +189,7 @@
       "sourceFile": "source/terms-conditions.rendered.article.html",
       "sourceSha256": "551d826194e7afe1c37184e1a6f4f3a9b82b261376f21625c3c62982887a1628",
       "sourceCharacters": 35295,
-      "expectedCharacters": 35000,
+      "expectedCharacters": 34799,
       "textSubstitutions": [
         {
           "before": "REVETIR LLC",
@@ -263,6 +265,38 @@
           "find": "Refunds are processed through Square",
           "replace": "Refunds are processed through Stripe"
         }
+      ],
+      "terminologyCorrections": [
+        {
+          "find": "the shoe box, dust bag, brand tags and authenticity card",
+          "replace": "the product box, container and product label"
+        }
+      ],
+      "returnPolicyCorrections": [
+        {
+          "find": "Returns must be requested within 7 calendar days of delivery and meet the condition and packaging requirements in our ",
+          "replace": "Return requests must be submitted within 30 days of receipt. Opened products are considered case by case; acceptance is not guaranteed. Further details are set out in our "
+        },
+        {
+          "find": "The return must be requested within 7 calendar days of the delivery date.",
+          "replace": "Return requests must be submitted within 30 days of receipt."
+        },
+        {
+          "find": "The item must be in its original condition and cannot be used, altered, washed, marked or damaged.",
+          "replace": "Opened products are considered case by case; acceptance is not guaranteed. Products must not otherwise be altered, marked or damaged."
+        },
+        {
+          "find": "The item must be returned with all original packaging intact, which may include the product box, container and product label. Packaging cannot be altered, damaged or removed.",
+          "replace": "Return the product with its original packaging where available, including the product box, container and product label. Opening the product or its packaging does not automatically make a return request ineligible."
+        },
+        {
+          "operation": "remove-paragraph",
+          "find": "Face masks: In the interest of hygiene, face masks and face coverings are considered Final Sale."
+        },
+        {
+          "operation": "remove-paragraph",
+          "find": "Intimate apparel and swimwear: Lingerie, hosiery, underwear, swimsuits and bikini bottoms cannot be worn and must be returned with the original hygienic protection sticker intact to be eligible for a refund."
+        }
       ]
     },
     {
@@ -271,7 +305,7 @@
       "sourceFile": "source/accessibility.rendered.article.html",
       "sourceSha256": "b4077dabb7391be7e2a425cec4b8bccab9946f460503eab1c13baca8f27fc4e2",
       "sourceCharacters": 1041,
-      "expectedCharacters": 1044,
+      "expectedCharacters": 1045,
       "textSubstitutions": [
         {
           "before": "REVETIR",
@@ -296,7 +330,14 @@
           "target": "/contact"
         }
       ],
-      "factualCorrections": []
+      "factualCorrections": [],
+      "terminologyCorrections": [
+        {
+          "find": "Fashion should be accessible to everyone.",
+          "replace": "Skincare should be accessible to everyone."
+        }
+      ],
+      "returnPolicyCorrections": []
     }
   ]
 }
