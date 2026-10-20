@@ -23,12 +23,17 @@ try {
       const response = await page.goto(origin + policy.route, { waitUntil: "networkidle" });
       assert.equal(response.status(), 200);
       await page.evaluate(() => document.fonts.ready);
-      const result = await page.evaluate(({ source, substitutions, linkMap, factualCorrections }) => {
+      const result = await page.evaluate(({ source, substitutions, linkMap, factualCorrections, removedParagraphs }) => {
         const article = document.querySelector("article[aria-label]");
         const original = document.createElement("div");
         original.innerHTML = source;
         const normalized = (text) => text.replace(/\s+/g, " ").trim();
         const substitute = (text) => substitutions.reduce((value, [before, after]) => value.replaceAll(before, after), text);
+        for (const text of removedParagraphs) {
+          const matches = [...original.querySelectorAll("p")].filter((paragraph) => substitute(normalized(paragraph.textContent)) === normalized(text));
+          if (matches.length !== 1) throw new Error(`Expected one approved removed paragraph: ${text}`);
+          matches[0].remove();
+        }
         const blocks = (root) => [...root.querySelectorAll("h1,h2,h3,h4,p,li")].map((element) => ({ tag: element.tagName, text: normalized(element.textContent) }));
         const actual = blocks(article);
         const expected = blocks(original).map((block) => ({ ...block, text: normalized(factualCorrections.reduce((value, correction) => value.replace(correction.find.trim(), correction.replace.trim()), substitute(block.text))) }));
@@ -52,7 +57,11 @@ try {
           firstParagraph: { font: getComputedStyle(p).fontFamily, fontSize: getComputedStyle(p).fontSize, lineHeight: getComputedStyle(p).lineHeight },
           hasSummaryNotices: /Not in effect|No Legal Operator|not an operative|prelaunch/i.test(article.textContent),
         };
-      }, { source, substitutions: manifest.substitutions, linkMap: manifest.linkMap, factualCorrections: [...(policy.factualCorrections ?? []), ...(policy.terminologyCorrections ?? [])] });
+      }, {
+        source, substitutions: manifest.substitutions, linkMap: manifest.linkMap,
+        factualCorrections: [...(policy.factualCorrections ?? []), ...(policy.terminologyCorrections ?? []), ...(policy.returnPolicyCorrections ?? []).filter((correction) => correction.operation !== "remove-paragraph")],
+        removedParagraphs: (policy.returnPolicyCorrections ?? []).filter((correction) => correction.operation === "remove-paragraph").map((correction) => correction.find),
+      });
       assert.equal(result.contentParity, true, `${policy.route} ${size}: content parity`);
       assert.equal(result.linkParity, true, `${policy.route} ${size}: link parity`);
       assert.ok(result.documentWidth <= width, `${policy.route} ${size}: horizontal overflow`);

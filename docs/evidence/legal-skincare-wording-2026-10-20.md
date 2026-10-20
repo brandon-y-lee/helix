@@ -38,3 +38,7 @@ Exact plan SHA256 `f48e90d2b4d42a563734731f151bc28b4af8a3e2e943db192bf1d530d4552
 Existing parity expectations and offline importer/capture tooling now apply the separate two-entry terminology allowlist after the unchanged factual allowlist. No new test cases were added for copy; existing full-source parity proves all unaffected text, links and structure stay intact. Focused tests, lint/typecheck, importer reproducibility, responsive capture and exact-commit reviews are recorded in `/tmp/helix-legal-skincare-evidence/`.
 
 Local preview: `http://127.0.0.1:3039/accessibility`, `/terms`, `/privacy`, `/cookie-policy`, `/privacy-choices`. Run `pnpm dev --hostname 127.0.0.1 --port 3039` from the worktree. The requested Browser surface is unavailable in this execution environment; repository-owned focused browser capture supplies isolated Chromium verification, without user Chrome access. Full suite, production build and remote CI/delivery gates were intentionally not run for this local-only copy revision and remain required before any later integration.
+
+## Subsequent approved return-policy revision
+
+The three substantive clauses above record the historical `8beb427` checkpoint. The owner subsequently approved their removal/reconciliation and restored the 30-day-from-receipt, case-by-case opened-product policy. See [the return-policy revision](./legal-skincare-return-policy.md) for the exact current local changes; the historical proposals above are no longer pending decisions.
