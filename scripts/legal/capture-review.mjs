@@ -52,7 +52,7 @@ try {
           firstParagraph: { font: getComputedStyle(p).fontFamily, fontSize: getComputedStyle(p).fontSize, lineHeight: getComputedStyle(p).lineHeight },
           hasSummaryNotices: /Not in effect|No Legal Operator|not an operative|prelaunch/i.test(article.textContent),
         };
-      }, { source, substitutions: manifest.substitutions, linkMap: manifest.linkMap, factualCorrections: policy.factualCorrections ?? [] });
+      }, { source, substitutions: manifest.substitutions, linkMap: manifest.linkMap, factualCorrections: [...(policy.factualCorrections ?? []), ...(policy.terminologyCorrections ?? [])] });
       assert.equal(result.contentParity, true, `${policy.route} ${size}: content parity`);
       assert.equal(result.linkParity, true, `${policy.route} ${size}: link parity`);
       assert.ok(result.documentWidth <= width, `${policy.route} ${size}: horizontal overflow`);

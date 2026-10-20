@@ -179,7 +179,8 @@
           "find": "To opt out of advertising-related sharing, open Your Privacy Choices in the website footer and turn off Marketing Cookies, or use a browser that sends a Global Privacy Control signal. ",
           "replace": ""
         }
-      ]
+      ],
+      "terminologyCorrections": []
     },
     {
       "route": "/terms",
@@ -187,7 +188,7 @@
       "sourceFile": "source/terms-conditions.rendered.article.html",
       "sourceSha256": "551d826194e7afe1c37184e1a6f4f3a9b82b261376f21625c3c62982887a1628",
       "sourceCharacters": 35295,
-      "expectedCharacters": 35000,
+      "expectedCharacters": 34988,
       "textSubstitutions": [
         {
           "before": "REVETIR LLC",
@@ -263,6 +264,12 @@
           "find": "Refunds are processed through Square",
           "replace": "Refunds are processed through Stripe"
         }
+      ],
+      "terminologyCorrections": [
+        {
+          "find": "the shoe box, dust bag, brand tags and authenticity card",
+          "replace": "the product box, container and product label"
+        }
       ]
     },
     {
@@ -271,7 +278,7 @@
       "sourceFile": "source/accessibility.rendered.article.html",
       "sourceSha256": "b4077dabb7391be7e2a425cec4b8bccab9946f460503eab1c13baca8f27fc4e2",
       "sourceCharacters": 1041,
-      "expectedCharacters": 1044,
+      "expectedCharacters": 1045,
       "textSubstitutions": [
         {
           "before": "REVETIR",
@@ -296,7 +303,13 @@
           "target": "/contact"
         }
       ],
-      "factualCorrections": []
+      "factualCorrections": [],
+      "terminologyCorrections": [
+        {
+          "find": "Fashion should be accessible to everyone.",
+          "replace": "Skincare should be accessible to everyone."
+        }
+      ]
     }
   ]
 }

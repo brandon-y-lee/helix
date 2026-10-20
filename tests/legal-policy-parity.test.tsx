@@ -28,7 +28,13 @@ const substitute = (value: string) => substitutions.reduce((text, [before, after
 const approvedCorrections: Record<string, { find: string; replace: string }[]> = JSON.parse(
   fs.readFileSync("scripts/legal/approved-factual-corrections.json", "utf8"),
 );
-const expectedText = (slug: string, text: string) => (approvedCorrections[slug] ?? []).reduce(
+const terminologyCorrections: Record<string, { find: string; replace: string }[]> = JSON.parse(
+  fs.readFileSync("scripts/legal/approved-terminology-corrections.json", "utf8"),
+);
+const expectedText = (slug: string, text: string) => [
+  ...(approvedCorrections[slug] ?? []),
+  ...(terminologyCorrections[slug] ?? []),
+].reduce(
   (value, correction) => value.replace(correction.find.trim(), correction.replace.trim()),
   substitute(text),
 );
@@ -45,7 +51,7 @@ describe("complete authorized local policy copies", () => {
     ["terms-conditions", termsOfService],
     ["accessibility", accessibilityStatement],
   ] as const) {
-    it(`${policy.canonical} preserves source wording except the exact approved factual corrections`, () => {
+    it(`${policy.canonical} preserves source wording except the exact approved factual and terminology corrections`, () => {
       const source = fragment(fs.readFileSync(`docs/evidence/legal-revetir-2026-10-20/source/${slug}.rendered.article.html`, "utf8"));
       const actual = fragment(renderToStaticMarkup(<PolicyDocumentLayout document={policy} />));
       const blocks = (root: Element) => [...root.querySelectorAll("h1,h2,h3,h4,p,li")].map((node) => ({ tag: node.tagName, text: normalize(node.textContent) }));
