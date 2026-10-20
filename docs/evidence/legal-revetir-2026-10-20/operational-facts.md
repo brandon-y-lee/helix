@@ -1,0 +1,118 @@
+# Revetir legal copy: independent operational-facts review
+
+> Baseline findings retained for traceability. The owner subsequently approved corrections to payments, tracking, accounts and pricing only; see [factual-corrections-report.md](./factual-corrections-report.md). Accessibility and the shipping/returns/privacy-handling/retention decisions remain unresolved and unchanged.
+
+Reviewed 2026-10-20 against Helix base `cac2e99` in `/tmp/helix-legal-revetir` (`codex/plan-legal-revetir`). This is a content parity and factual readiness review, not an implementation or a determination of legal enforceability. No remote state was mutated or operational service activated.
+
+**Latest scope clarification:** Preserve every source clause in the local reviewable implementation, with the authorized identity/address/email/link substitutions. Square, advertising, and other conflicting clauses remain visible there for review. Nothing in this report authorizes omission, a legal rewrite, public publication, or service activation. Suggested factual corrections below are disposition proposals for the owner; this reviewer changed no application copy.
+
+## Sources and scope
+
+Read the complete current articles at [Privacy Policy](https://revetir.com/us/privacy-policy), [Terms & Conditions](https://revetir.com/us/terms-conditions), and [Accessibility](https://revetir.com/us/customer-care/accessibility), including all Terms sections 1–23 and all Privacy sections. Privacy is dated September 11, 2026; Terms is dated October 2026; Accessibility has no article date. Cross-checked the independently captured HTML in `source/*.response.html`. Article text, rather than shared navigation/newsletter/footer marketing, is the comparison unit. Source/layout evidence is maintained separately by the source reviewer.
+
+Read `AGENTS.md`, `CONTEXT-MAP.md`, `docs/agents/domain.md`, the engineering workflow, and the Trust & Policy and Service & Fulfillment glossaries. Used the Supabase skill for the local data-handling review; no Supabase configuration, query, schema, or security fix was attempted. No subagents were spawned by this reviewer.
+
+Owner-confirmed facts supplied for this review override old placeholder content: **Helix Labs LLC DBA Helix**, **2747 Haste Street, Berkeley CA 94704**, **US-only initial launch**, **support@helixskin.com**. The old local assertions that a Legal Operator/contact identity is absent are therefore stale. The address/email confirmation does not by itself prove mailbox operation, service response coverage, or a live commerce launch.
+
+## Findings that can be resolved from repository evidence
+
+These are narrow factual corrections that can be prepared without inventing a new business policy. The task owner must still approve substantive departures from exact source copy within the planning workflow.
+
+| ID | Exact source clause / location | Helix evidence and smallest correction |
+| --- | --- | --- |
+| F1 | Privacy opening: “REVETIR LLC … principal office at 2 Park Avenue, 20th Floor, New York, NY 10016.” Terms opening repeats the same operator/address. | Substitute owner-confirmed Helix Labs LLC/Helix and Berkeley address. Brand/email/website identity substitutions are authorized. Do not accidentally turn every occurrence of the brand into the legal entity: Terms 11.2 explicitly names the entity. |
+| F2 | Privacy, Payment Information: “Payment details required to process your order are collected through Square's PCI-compliant payment fields.” Square also appears in Data Sharing, Data Security, Terms 14.2 and Terms 15. | Helix uses **Stripe sandbox**, not Square. `lib/checkout/config.ts:1` fixes environment to sandbox and rejects live mode/keys; `lib/orders/server.ts:743` creates a Stripe Checkout Session; `lib/checkout/payment-methods.ts` restricts methods to card. Replace the provider fact consistently, and retain a sandbox/no real charge or fulfillment qualifier. Merely substituting Stripe into ordinary live-payment prose would still overstate current capability. Do not copy Square-specific PCI/tokenization implementation language as a verified Stripe integration fact without provider-specific validation. |
+| F3 | Privacy, Account and Login Data: “when you choose Google login, your Google-verified email address, name, and profile image.” Data Sharing repeats Google authentication. | `app/account/actions.ts:46` onward implements email/password sign-in, signup, reset, profile-name updates, and sign-out. No OAuth entry point or Google-login UI was found in `app`, `components`, or `lib`. Remove Google-login/profile-image collection claims; use the actual email/password and optional-name fields. Algolia site search is supported by `lib/algolia/search-client.ts`. |
+| F4 | Privacy, How We Use: “Advertising and measurement: We use advertising and measurement technologies … show relevant advertisements, subject to your privacy choices.” Cookies: “REVETIR uses Vercel Web Analytics without cookies … Optional Google Analytics and Vercel performance tools … Marketing tracking, including Meta's advertising technologies, is enabled by default …” | No analytics/advertising SDKs or tag loaders found in `package.json`, root layout, application shell, or a bounded search across app/components/lib. `content/legal/cookies.ts` explicitly marks both categories inactive. Replace those claims with the current inactive status. Do not enable any trackers to make the copy true. Hosting on Vercel does not establish Vercel Web Analytics usage. |
+| F5 | Privacy, Cookies: “We recognize Global Privacy Control as a request to opt out of advertising-related sharing for that browser.” California section: “turn off Marketing Cookies, or use a browser that sends a Global Privacy Control signal.” Data Sharing similarly promises an opt-out. | `app/privacy-choices/page.tsx:19` and `components/privacy/CookieAcknowledgementDialog.tsx` offer an acknowledgement of required storage, with no optional toggles. No GPC handler was found. Replace promised toggles/GPC processing with truthful present controls; do not suggest customers can opt out through a control that does not exist. Acknowledgement is not consent. |
+| F6 | Privacy, Data Sharing: “We also share website activity and related information with Meta … For advertising measurement and matching, we may also send a hashed version of your email address or phone number to Meta.” | No Meta transport/integration was found; current privacy content expressly excludes advertising pixels/cross-context advertising. Remove the affirmative sharing claim. Distinguish required technical requests and Algolia search from advertising. Do not infer a broad legal “no sale” determination solely from the absence of a pixel; confirm any offline/vendor data practice with owner. |
+| F7 | Privacy, Data Retention: “You can also update or delete your account data anytime via your user account or by contacting us.” | Account profile-name/password editing exists; self-service account deletion/export does not. `app/account/actions.ts` exports only sign-in, signup, password reset/update, profile update, and sign-out. Retain the verified editing capability, remove the account-deletion UI promise, and route manual rights requests only as approved under D2 below. |
+| F8 | Terms 14.1.1: “Items are limited to one per customer.” | `lib/cart/validation.ts:3` accepts integer quantities 1–99, with server quantity mutations in `lib/cart/server.ts:474`. No one-per-customer purchase rule was found. Remove the blanket restriction rather than invent a new commercial limit or changing cart behavior for copy parity. The technical 99 cap need not become a public sales policy. |
+| F9 | Terms 14.2: “Live Price is derived from the lowest current asking price observed for an item across REVETIR's sourcing network.” | `lib/cart/server.ts:258` takes the selected canonical variant's `price_cents`; lines 353 onward load product variants from Supabase; server checkout snapshots/revalidates accepted values in `lib/orders/server.ts`. There is no sourcing-network/lowest-ask marketplace mechanism. Replace only that mechanism with server-authoritative displayed catalog pricing. Do not imply fixed/reserved prices merely because the source's pricing mechanism is false. |
+| F10 | Accessibility opening: “Fashion should be accessible to everyone.” | Helix is skincare. A minimal “Skincare should be accessible to everyone” edit corrects the category while preserving the sentence's intent. This is beyond the already authorized mechanical identity substitutions and should be included explicitly in the owner's wording decision. |
+
+## Smallest concrete owner decisions still required
+
+Repository source can show a mechanism or a target. It cannot establish a company's records policy, mailbox coverage, commercial promise, contract execution, or conformance history. The following clauses must not be silently adopted as current facts.
+
+### D1 — Commerce scope and actual shipping/returns promises
+
+Exact affected Terms clauses:
+
+- **14.4:** “REVETIR offers free standard shipping to delivery addresses within the United States.” “Most orders ship 5–7 business days after being placed.”
+- **14.4:** “Tracking information becomes available within 48 hours after a shipment is dispatched.” “REVETIR will send an email with a link to track the package.”
+- **14.4.1:** “Your order may be fulfilled by a merchant outside the United States.” “Applicable duties and taxes are included in the total shown at checkout and prepaid by REVETIR upon shipment.” “You will not be asked to pay additional import duties or taxes to receive your order.” The same section incorporates personal-import/customs arrangements.
+- **14.5:** “Orders may be canceled prior to being processed for shipment … a full refund will be issued to your original payment method.”
+- **15:** “REVETIR offers free returns on all orders.” “Returns must be requested within 7 calendar days of delivery …”
+- **15:** “You can request a return online … a prepaid return label will be sent by email.”
+- **15:** “a refund will be issued to your original payment method within 2 business days.” “Refunds are processed through Square and typically appear within 7–12 business days …”
+- **15.1:** “REVETIR does not offer direct exchanges.”
+- **15.3:** “REVETIR reviews purchasing and return patterns … subject to periodic review.”
+
+Privacy also describes actual shipping (“To process and ship your orders”) and sharing with shipping/logistics providers as an existing practice.
+
+**Evidence:** `lib/checkout/config.ts` is sandbox-only; `lib/orders/server.ts:747` collects US shipping addresses, but this does not establish fulfillment. `docs/domain/service-fulfillment/CONTEXT.md` says physical Fulfillment is not currently available. `docs/operations/resend-simulated-tracking.md` describes simulated tracking, not carrier service. `content/support/policy.ts` currently carries a **planned** $50+ free-shipping threshold, 2–5 business-day processing, 3–10 business-day transit, 30-day return window, and 1–2-week refund processing; these are not adopted live commitments. `lib/orders/server.ts:323` implements the sandbox $50 threshold, including a configured paid rate below it. No real return-label portal, logistics provider, or live returns service is established here.
+
+**Smallest decision:** Approve one short current-commerce paragraph preserving the sandbox/no fulfillment boundary, and explicitly decide whether copied purchase sections will be marked future terms pending launch or rewritten to state current unavailability. If operative future purchase commitments are desired now, owner must supply/approve shipping price/threshold and timing, return window/condition/cost, cancellation cutoff, refund promise, exchange policy, and international-fulfillment/customs approach. US-only customers do **not** establish domestic-only sourcing or DDP customs capability. Do not elevate the old planned constants into binding promises automatically.
+
+The apparel-specific Terms 15 details (“shoe box, dust bag, brand tags and authenticity card”; face coverings; lingerie/hosiery/underwear/swimsuits) do not describe Helix's skincare catalog. Minimal approved correction: remove those irrelevant examples/clauses while owner confirms unopened/unused skincare eligibility; do not manufacture a cosmetic hygiene exception. Terms 16's claim that manufacturer warranties are provided by the manufacturer rather than Helix is also unverified for an own-brand skincare business; confirm the warranty arrangement or approve removal of that assertion.
+
+### D2 — Privacy/contact handling and actual support capability
+
+Exact affected Privacy clauses:
+
+- **Your Privacy Rights:** “We provide at least two methods for you to exercise these rights.” “We will respond to your request within the time frame required by law (typically 30 days for GDPR) and will not charge you a fee … If you make a request, we will verify your identity before fulfilling it.”
+- **Data Retention:** “For requests you make (such as account deletion), we will promptly delete or de-identify your data unless there is a legal reason to retain it …”
+- **How to Contact Us:** email with subject “Privacy”; “We will respond to your inquiries or requests as promptly as possible.”
+
+Accessibility asks users to email with subject **“Accessibility Barriers”**, “so that we may address the issue as soon as possible.” Terms 3, 5.3, 14.2.1, 15.2, 22.1, and 23 also direct security/IP/payment/support/dispute notices to customer care.
+
+**Evidence:** Owner confirms the address `support@helixskin.com`. The repo's Contact UI includes **Privacy request** and **Accessibility feedback** Inquiry Types (`content/support/contact.ts`). Actual form admission requires explicit environment flags, same-origin validation and database availability (`lib/support/intake.ts:29` onward). `docs/operations/resend-support-intake.md` states source does not prove a hosted Support Channel; acceptance does not prove email delivery or promise a response time. Outbound email is restricted to the configured owner and exact simulators (`lib/email/config.ts:14`), and hosted activation is a separate exact-manifest rehearsal (`docs/operations/resend-activation.md`). No current inbox reading, remote activation inspection, or test email was performed by this review. The old glossary statement that no public channel exists is not sufficient to override new owner email confirmation, but neither is it evidence the inbox is monitored.
+
+**Smallest decision:** Owner confirms that this mailbox accepts and is monitored for privacy, accessibility, security, and dispute notices, and names the person/process that verifies identity, tracks applicable deadlines, and performs manual deletion/access/correction requests. Approve a precise email-only route if that is the actual process; remove “at least two methods” and self-service deletion claims unless a second effective method is established. A contact form acceptance mechanism alone is not an account-erasure process. Do not invent a guaranteed reply SLA or promise completed deletion.
+
+### D3 — Retention, provider contracts and security review cadence
+
+Exact affected Privacy clauses:
+
+- **Data Retention:** “we may keep order and billing records for up to 7 years as required for accounting and tax purposes.” “When information is no longer needed, we either delete it or anonymize it in a secure manner.”
+- **Data Sharing:** “Any transfer of data outside your country … is protected by appropriate safeguards such as standard contractual clauses or adequacy decisions as required by law.”
+- **Data Security:** “We regularly review our security procedures and update them as needed.”
+- **Updates:** “California law requires that we review this policy at least once every 12 months, and we follow that practice (even if no changes are needed).”
+
+**Evidence:** Account/transaction records do not have a verified universal seven-year lifecycle in the application. `supabase/migrations/20260929075433_support_retention.sql:82` onward implements narrower support rules: inquiry text twelve months after closure, photos ninety days after receipt, unsent drafts thirty days after creation, minimal audit twelve months, marked test copies thirty days, subject to holds/reconciliation. `lib/support/retention.ts` requires an enabled restricted sandbox configuration and valid project; code existence does not prove a hosted cleanup schedule. `content/legal/privacy.ts` documents auditable sandbox transaction history retained until administrative removal. Provider contracts, actual data locations, DPAs/SCC execution, a company security-review cadence, and prior annual policy reviews were not verified.
+
+**Smallest decision:** Owner approves the record-class retention policy and who executes deletion/holds, confirms the provider-contract/transfer safeguards actually in force, and approves truthful review-cadence language. Keep implemented support cleanup distinct from an approved accounting-retention obligation and from provider-held copies. Do not replace “7 years” with another invented period. The source's statement about what California law requires has not been independently adopted as a legal conclusion in this review.
+
+### D4 — Actual provider/processing disclosures omitted by direct copy
+
+Privacy's broad “IT, Authentication, and Service Providers” category is compatible in principle but does not tell the whole concrete Helix story if used as a substitute for its current disclosure. The source specifically names Google login, Square, Meta, Google Analytics and Vercel analytics; it does not describe Helix rewards/referrals, private feedback, conditional support-photo retention, or OpenAI-assisted support drafts.
+
+**Evidence:** `content/legal/privacy.ts` and the relevant implementations identify Supabase (accounts/private application records), Stripe sandbox, Resend (conditional email/receiving/subscriptions), Algolia (interactive search), Vercel (hosting), and conditional OpenAI drafting. `docs/operations/resend-support-ai.md:9` says selected customer message text can contain personal information; photos, names, addresses, internal notes and Order records are not added as separate inputs. Human approval is required before send, and no zero-retention promise is established. `lib/support/ai.ts` has explicit owner/restricted-environment gates. `app/layout.tsx` uses `next/font/google`; do not treat that build-time font configuration by itself as proof that visitors directly contact Google on every page view.
+
+**Smallest decision:** Approve retaining a short accurate provider/data-use paragraph from Helix's factual disclosure, with “when enabled” qualifiers for support/email/AI; confirm any additional offline vendors/practices not discoverable from code. Do not silently remove material current processing to achieve exact Revetir parity. Do not claim every coded optional provider is operationally active.
+
+### D5 — Accessibility target versus conformance implication
+
+Exact source commitment: **“We strive to maintain compliance with the Web Content Accessibility Guidelines (WCAG) 2.1 Level AA standards and continuously work to improve the accessibility of our website.”**
+
+**Evidence:** `AGENTS.md` sets the engineering target at **WCAG 2.2 AA**. `content/legal/accessibility.ts` says this is a target, not certification or a formal conformance report; it explicitly records no third-party audit/conformance report/vendor certification. Semantic UI/tests support practices, not a general compliance finding. This reviewer did not conduct a full accessibility audit. Source “strive to maintain compliance” is aspirational but suggests an established compliance baseline that this repository does not establish.
+
+**Smallest decision:** Approve replacing that one sentence with **“We aim to meet WCAG 2.2 Level AA and continue to improve the accessibility of our website.”** This states the existing target without an earned-conformance implication. Keep the feedback invitation once D2 mailbox handling is confirmed. Do not downgrade the engineering target to 2.1 or claim certification merely to match the reference.
+
+### D6 — Remaining operational statements versus copied legal policy choices
+
+The US scope of Terms and adult audience are consistent with owner facts/current intended audience. However:
+
+- Privacy says **“We require users to be at least 18 years old”** and will delete inadvertently collected minor data “as soon as possible.” There is no date-of-birth verification in account actions. A contractual age restriction need not imply verification, but the owner must support the deletion procedure through D2. Terms 20.1 itself both permits under-18 use with parental permission and says **“You may not use this Website if you are under the age of 18.”** Preserve this source language in the local copy. Its internal ambiguity is a separate legal-policy observation, not an instruction to rewrite the terms or invent age verification; the narrow operational decision is the manual minor-data request process.
+- Terms 14.2.1 promises written dispute handling and potentially collection referrals; Terms 15.3 asserts purchasing/return-pattern review with periodic review. These are company practices, not mechanisms proved by sandbox refunds. Smallest decision: confirm the manual practices or approve wording that does not assert an existing review program.
+- Terms 1.1 incorporates **“Return Policy, Payment Information Policy, Product Information Policy, Promotions, and FAQs”** as additional terms. Helix has factual/prelaunch pages, not demonstrated canonical operative counterparts for every referenced policy. Smallest decision: approve exactly which existing Helix policies are incorporated; do not link nonexistent Revetir-only policy routes or silently make every FAQ a binding term. Terms 19 can link Helix's `/cookie-policy` only with its current truthful storage state.
+- Source dates are historical Revetir dates, not proof of Helix adoption. Smallest decision: approve the Helix effective/updated date when the actual document is adopted; a source-capture date alone is not an effective date.
+
+Terms 6's IP assignment, the warranty/liability disclaimers, arbitration/class waiver, AAA rules, California choice of law and **Los Angeles County/Central District** venue are legal policy terms. A Berkeley address does not automatically change them or prove them false. They should be preserved under the authorized copy scope unless the owner explicitly directs substantive revisions; do not silently rewrite legal strategy under the guise of a factual correction. They were inspected, but enforceability was not assessed.
+
+## Review result and boundaries
+
+**Identity-only substitution is insufficient for accurate operative Helix documents.** The source contains several direct mechanism mismatches and unresolved service promises. F1–F10 identify narrow, evidence-backed corrections. D1–D6 identify concrete owner facts/wording choices; they do not authorize feature development or operational activation.
+
+Completed read-only repository/text inspection and public page retrieval. No app files changed, no service started, no UI browser/viewport claimed, no tests added or run, and no heavy suite/build executed; this task is an evidence report. No remote provider state read was required to mutate anything because no mutation was attempted. No emails, issue updates, push, merge, deploy, or commit were performed. Port 3018 and the contact worktree were untouched. This file is the sole deliverable from this reviewer.

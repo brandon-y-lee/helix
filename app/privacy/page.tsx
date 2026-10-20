@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { LegalDocumentLayout } from "@/components/content/LegalDocumentLayout";
+import { PolicyDocumentLayout } from "@/components/content/PolicyDocumentLayout";
 import { privacyPolicy } from "@/content/legal/privacy";
 import { createPublicSiteMetadata } from "@/lib/public-site-metadata";
 
@@ -10,5 +10,5 @@ export const metadata: Metadata = createPublicSiteMetadata({
 });
 
 export default function PrivacyPage() {
-  return <LegalDocumentLayout document={privacyPolicy} />;
+  return <PolicyDocumentLayout document={privacyPolicy} />;
 }
