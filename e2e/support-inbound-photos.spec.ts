@@ -31,10 +31,10 @@ async function expectContained(page: Page, blocked: string[]) {
 
 async function submitInquiry(page: Page) {
   await page.goto(`${fixtureRoot}/intake?scenario=photos`);
-  await page.getByLabel("First and last name", { exact: true }).fill("Sample Customer");
-  await page.getByLabel("Email", { exact: true }).fill("sample@example.test");
-  await page.getByLabel("Topic", { exact: true }).fill("Product photo question");
-  await page.getByLabel("Tell us the details", { exact: true }).fill("Please review the condition of my product.");
+  await page.getByRole("textbox", { name: "First and last name", exact: true }).fill("Sample Customer");
+  await page.getByRole("textbox", { name: "Email", exact: true }).fill("sample@example.test");
+  await page.getByRole("textbox", { name: "Topic", exact: true }).fill("Product photo question");
+  await page.getByRole("textbox", { name: "Tell us the details", exact: true }).fill("Please review the condition of my product.");
   await page.getByLabel("Photos (optional)").setInputFiles([
     { name: longFilename, mimeType: "image/jpeg", buffer: Buffer.from("inert synthetic photo bytes") },
     { name: "unsupported-content.jpg", mimeType: "image/jpeg", buffer: Buffer.from("inert rejected photo bytes") },
