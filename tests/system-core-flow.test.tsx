@@ -1,6 +1,6 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   SystemCoreFlow,
   type SystemCoreFlowItem,
@@ -46,7 +46,105 @@ afterEach(() => {
   window.history.replaceState(null, "", "/");
 });
 
+function mockScrollFrames() {
+  const frames = new Map<number, FrameRequestCallback>();
+  let nextId = 0;
+  const request = vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+    frames.set(++nextId, callback);
+    return nextId;
+  });
+  const cancel = vi.spyOn(window, "cancelAnimationFrame").mockImplementation((id) => {
+    frames.delete(id);
+  });
+  return {
+    frames,
+    run: () => act(() => {
+      const callbacks = [...frames.values()];
+      frames.clear();
+      callbacks.forEach((callback) => callback(0));
+    }),
+    restore: () => { request.mockRestore(); cancel.mockRestore(); },
+  };
+}
+
 describe("SystemCoreFlow", () => {
+  it("positions a selected fragment after load without moving keyboard focus", () => {
+    const frame = mockScrollFrames();
+    let readyState: DocumentReadyState = "interactive";
+    const readiness = vi.spyOn(document, "readyState", "get").mockImplementation(() => readyState);
+    window.history.replaceState(null, "", "/system#system-seal");
+    const { unmount } = render(<SystemCoreFlow items={coreItems} />);
+    try {
+      const core = document.getElementById("system-core")!;
+      const scroll = vi.fn(() => expect(core).toHaveAttribute("data-active-step", "seal"));
+      core.scrollIntoView = scroll;
+      const tab = screen.getAllByRole("tab")[2];
+      tab.focus();
+      expect(frame.frames.size).toBe(0);
+      readyState = "complete";
+      fireEvent(window, new Event("load"));
+      expect(frame.frames.size).toBe(1);
+      frame.run();
+      expect(scroll).toHaveBeenCalledExactlyOnceWith({ block: "start", behavior: "instant" });
+      expect(tab).toHaveFocus();
+    } finally {
+      unmount();
+      readiness.mockRestore();
+      frame.restore();
+    }
+  });
+
+  it("cancels stale fragment corrections on hash changes, manual selection and unmount", () => {
+    const frame = mockScrollFrames();
+    const navigate = (hash: string) => {
+      window.history.replaceState(null, "", `/system#${hash}`);
+      fireEvent(window, new HashChangeEvent("hashchange"));
+    };
+    const { unmount } = render(<SystemCoreFlow items={coreItems} />);
+    try {
+      const core = document.getElementById("system-core")!;
+      const scroll = vi.fn();
+      core.scrollIntoView = scroll;
+      navigate("system-seal");
+      expect(frame.frames.size).toBe(1);
+      navigate("system-ingredient-niacinamide");
+      frame.run();
+      expect(scroll).not.toHaveBeenCalled();
+      navigate("system-treat");
+      fireEvent.click(screen.getAllByRole("tab")[0]);
+      frame.run();
+      expect(scroll).not.toHaveBeenCalled();
+      navigate("system-cleanse");
+      window.history.replaceState(null, "", "/system#step-recode");
+      frame.run();
+      expect(scroll).not.toHaveBeenCalled();
+      navigate("system-seal");
+      unmount();
+      expect(frame.frames.size).toBe(0);
+      frame.run();
+      expect(scroll).not.toHaveBeenCalled();
+    } finally {
+      unmount();
+      frame.restore();
+    }
+  });
+
+  it("removes a pending load correction when the Core unmounts", () => {
+    const frame = mockScrollFrames();
+    const readiness = vi.spyOn(document, "readyState", "get").mockReturnValue("interactive");
+    window.history.replaceState(null, "", "/system#system-seal");
+    const { unmount } = render(<SystemCoreFlow items={coreItems} />);
+    try {
+      unmount();
+      fireEvent(window, new Event("load"));
+      expect(frame.frames.size).toBe(0);
+    } finally {
+      unmount();
+      readiness.mockRestore();
+      frame.restore();
+    }
+  });
+
   it("presents the fixed Core sequence with catalog-backed active copy", () => {
     const { container } = render(<SystemCoreFlow items={coreItems} />);
 

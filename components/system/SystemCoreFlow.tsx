@@ -3,6 +3,9 @@
 import Link from "next/link";
 import {
   useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
   type CSSProperties,
 } from "react";
 import { HelixIdentity } from "@/components/brand/HelixIdentity";
@@ -32,6 +35,8 @@ function stepKey(item: SystemCoreFlowItem) {
 }
 
 export function SystemCoreFlow({ items }: { items: SystemCoreFlowItem[] }) {
+  const sectionRef = useRef<HTMLElement>(null);
+  const [pendingAnchor, setPendingAnchor] = useState<string | null>(null);
   const { activeIndex, handleTabKeyDown, registerTab, selectIndex } =
     useRovingTabSelection(items.length);
 
@@ -39,7 +44,12 @@ export function SystemCoreFlow({ items }: { items: SystemCoreFlowItem[] }) {
     function selectHashedStep() {
       const hash = window.location.hash.slice(1);
       const hashedIndex = items.findIndex((item) => item.anchorId === hash);
-      if (hashedIndex >= 0) selectIndex(hashedIndex);
+      if (hashedIndex >= 0) {
+        selectIndex(hashedIndex);
+        setPendingAnchor(hash);
+      } else {
+        setPendingAnchor(null);
+      }
     }
 
     selectHashedStep();
@@ -47,10 +57,37 @@ export function SystemCoreFlow({ items }: { items: SystemCoreFlowItem[] }) {
     return () => window.removeEventListener("hashchange", selectHashedStep);
   }, [items, selectIndex]);
 
+  useLayoutEffect(() => {
+    if (!pendingAnchor) return;
+    if (items[activeIndex]?.anchorId !== pendingAnchor) {
+      setPendingAnchor(null);
+      return;
+    }
+
+    let frame: number | undefined;
+    const positionSelectedStep = () => {
+      frame = window.requestAnimationFrame(() => {
+        if (window.location.hash.slice(1) === pendingAnchor) {
+          sectionRef.current?.scrollIntoView?.({ block: "start", behavior: "instant" });
+        }
+        setPendingAnchor(null);
+      });
+    };
+    // Reload can restore the previous fragment's scroll before hydration selects this step.
+    if (document.readyState === "complete") positionSelectedStep();
+    else window.addEventListener("load", positionSelectedStep, { once: true });
+
+    return () => {
+      window.removeEventListener("load", positionSelectedStep);
+      if (frame !== undefined) window.cancelAnimationFrame(frame);
+    };
+  }, [activeIndex, items, pendingAnchor]);
+
   if (items.length === 0) return null;
 
   return (
     <section
+      ref={sectionRef}
       id="system-core"
       className="system-flow"
       aria-labelledby="system-core-flow-heading"

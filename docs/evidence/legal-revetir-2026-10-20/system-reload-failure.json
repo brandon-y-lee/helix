@@ -1,0 +1,903 @@
+{
+  "build": "S1wZvdCwR0guC0AvfkarT",
+  "diagnostic": "canonical media containment, exact immediate fragment/reload sequence and viewport/header assertions, CPU throttle6, no retry",
+  "results": [
+    {
+      "width": 320,
+      "attempt": 1,
+      "outcome": "failed",
+      "error": "expect(locator).toBeInViewport() failed\n\nLocator:  locator('#system-core')\nExpected: in viewport\nReceived: viewport ratio 0\nTimeout:  5000ms\n\nCall log:\n\u001b[2m  - Expect \"to.be.in.viewport\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('#system-core')\u001b[22m\n\u001b[2m    8 \u00d7 locator resolved to <section id=\"system-core\" class=\"system-flow\" data-active-step=\"seal\" aria-labelledby=\"system-core-flow-heading\">\u2026</section>\u001b[22m\n\u001b[2m      - unexpected value \"viewport ratio 0\"\u001b[22m\n",
+      "checkpoints": [
+        {
+          "stage": "final",
+          "url": "http://127.0.0.1:3038/system#system-seal",
+          "events": [
+            {
+              "event": "DOMContentLoaded",
+              "t": 77.30000001192093,
+              "hash": "#system-seal",
+              "y": 4564,
+              "ready": "interactive",
+              "fonts": "loading",
+              "restoration": "auto",
+              "active": "cleanse"
+            },
+            {
+              "event": "scroll",
+              "t": 211.39999997615814,
+              "hash": "#system-seal",
+              "y": 4564,
+              "ready": "interactive",
+              "fonts": "loading",
+              "restoration": "auto",
+              "active": "cleanse"
+            },
+            {
+              "event": "load",
+              "t": 216,
+              "hash": "#system-seal",
+              "y": 4564,
+              "ready": "complete",
+              "fonts": "loading",
+              "restoration": "auto",
+              "active": "cleanse"
+            },
+            {
+              "event": "pageshow",
+              "t": 217.19999998807907,
+              "hash": "#system-seal",
+              "y": 4564,
+              "ready": "complete",
+              "fonts": "loading",
+              "restoration": "auto",
+              "active": "cleanse"
+            },
+            {
+              "event": "final",
+              "t": 5374.699999988079,
+              "hash": "#system-seal",
+              "y": 4564,
+              "ready": "complete",
+              "fonts": "loaded",
+              "restoration": "auto",
+              "core": {
+                "x": 16,
+                "y": -3564,
+                "width": 288,
+                "height": 490.953125,
+                "top": -3564,
+                "right": 304,
+                "bottom": -3073.046875,
+                "left": 16
+              },
+              "anchor": {
+                "x": 17,
+                "y": -3627,
+                "width": 1,
+                "height": 1,
+                "top": -3627,
+                "right": 18,
+                "bottom": -3626,
+                "left": 17
+              },
+              "active": "seal"
+            }
+          ]
+        }
+      ],
+      "priorDocuments": [
+        [
+          {
+            "event": "DOMContentLoaded",
+            "t": 441.5,
+            "hash": "#system-ingredient-niacinamide",
+            "y": 0,
+            "ready": "interactive",
+            "fonts": "loading",
+            "restoration": "auto",
+            "active": "cleanse"
+          },
+          {
+            "event": "load",
+            "t": 694.5,
+            "hash": "#system-ingredient-niacinamide",
+            "y": 0,
+            "ready": "complete",
+            "fonts": "loading",
+            "restoration": "auto",
+            "active": "cleanse"
+          },
+          {
+            "event": "pageshow",
+            "t": 695.5,
+            "hash": "#system-ingredient-niacinamide",
+            "y": 0,
+            "ready": "complete",
+            "fonts": "loading",
+            "restoration": "auto",
+            "active": "cleanse"
+          },
+          {
+            "event": "scrollIntoView",
+            "detail": {
+              "id": "system-ingredient-niacinamide",
+              "stack": "Error\n    at Element.scrollIntoView (<anonymous>:8:97)\n    at http://127.0.0.1:3038/_next/static/chunks/app/system/page-64425ea38c1e5d4d.js:1:9357"
+            },
+            "t": 964,
+            "hash": "#system-ingredient-niacinamide",
+            "y": 0,
+            "ready": "complete",
+            "fonts": "loaded",
+            "restoration": "auto",
+            "active": "cleanse"
+          },
+          {
+            "event": "scroll",
+            "t": 1016,
+            "hash": "#system-ingredient-niacinamide",
+            "y": 4564,
+            "ready": "complete",
+            "fonts": "loaded",
+            "restoration": "auto",
+            "active": "cleanse"
+          }
+        ]
+      ]
+    },
+    {
+      "width": 320,
+      "attempt": 2,
+      "outcome": "passed",
+      "checkpoints": [
+        {
+          "stage": "final",
+          "url": "http://127.0.0.1:3038/system#system-seal",
+          "events": [
+            {
+              "event": "DOMContentLoaded",
+              "t": 65.39999997615814,
+              "hash": "#system-seal",
+              "y": 937,
+              "ready": "interactive",
+              "fonts": "loading",
+              "restoration": "auto",
+              "active": "cleanse"
+            },
+            {
+              "event": "scroll",
+              "t": 163.30000001192093,
+              "hash": "#system-seal",
+              "y": 937,
+              "ready": "interactive",
+              "fonts": "loading",
+              "restoration": "auto",
+              "active": "cleanse"
+            },
+            {
+              "event": "load",
+              "t": 190.19999998807907,
+              "hash": "#system-seal",
+              "y": 937,
+              "ready": "complete",
+              "fonts": "loaded",
+              "restoration": "auto",
+              "active": "cleanse"
+            },
+            {
+              "event": "pageshow",
+              "t": 190.69999998807907,
+              "hash": "#system-seal",
+              "y": 937,
+              "ready": "complete",
+              "fonts": "loaded",
+              "restoration": "auto",
+              "active": "cleanse"
+            },
+            {
+              "event": "final",
+              "t": 408.80000001192093,
+              "hash": "#system-seal",
+              "y": 937,
+              "ready": "complete",
+              "fonts": "loaded",
+              "restoration": "auto",
+              "core": {
+                "x": 16,
+                "y": 63,
+                "width": 288,
+                "height": 490.953125,
+                "top": 63,
+                "right": 304,
+                "bottom": 553.953125,
+                "left": 16
+              },
+              "anchor": {
+                "x": 17,
+                "y": 0,
+                "width": 1,
+                "height": 1,
+                "top": 0,
+                "right": 18,
+                "bottom": 1,
+                "left": 17
+              },
+              "active": "seal"
+            }
+          ]
+        }
+      ],
+      "priorDocuments": [
+        [
+          {
+            "event": "DOMContentLoaded",
+            "t": 62.60000002384186,
+            "hash": "#system-ingredient-niacinamide",
+            "y": 0,
+            "ready": "interactive",
+            "fonts": "loading",
+            "restoration": "auto",
+            "active": "cleanse"
+          },
+          {
+            "event": "load",
+            "t": 383.10000002384186,
+            "hash": "#system-ingredient-niacinamide",
+            "y": 0,
+            "ready": "complete",
+            "fonts": "loaded",
+            "restoration": "auto",
+            "active": "cleanse"
+          },
+          {
+            "event": "pageshow",
+            "t": 383.10000002384186,
+            "hash": "#system-ingredient-niacinamide",
+            "y": 0,
+            "ready": "complete",
+            "fonts": "loaded",
+            "restoration": "auto",
+            "active": "cleanse"
+          },
+          {
+            "event": "scrollIntoView",
+            "detail": {
+              "id": "system-ingredient-niacinamide",
+              "stack": "Error\n    at Element.scrollIntoView (<anonymous>:8:97)\n    at http://127.0.0.1:3038/_next/static/chunks/app/system/page-64425ea38c1e5d4d.js:1:9357"
+            },
+            "t": 616,
+            "hash": "#system-ingredient-niacinamide",
+            "y": 0,
+            "ready": "complete",
+            "fonts": "loaded",
+            "restoration": "auto",
+            "active": "cleanse"
+          },
+          {
+            "event": "scroll",
+            "t": 657.5,
+            "hash": "#system-ingredient-niacinamide",
+            "y": 4564,
+            "ready": "complete",
+            "fonts": "loaded",
+            "restoration": "auto",
+            "active": "cleanse"
+          },
+          {
+            "event": "hashchange",
+            "t": 875.5,
+            "hash": "#system-seal",
+            "y": 937,
+            "ready": "complete",
+            "fonts": "loaded",
+            "restoration": "auto",
+            "active": "cleanse"
+          }
+        ]
+      ]
+    },
+    {
+      "width": 721,
+      "attempt": 1,
+      "outcome": "passed",
+      "checkpoints": [
+        {
+          "stage": "final",
+          "url": "http://127.0.0.1:3038/system#system-seal",
+          "events": [
+            {
+              "event": "DOMContentLoaded",
+              "t": 61.69999998807907,
+              "hash": "#system-seal",
+              "y": 937,
+              "ready": "interactive",
+              "fonts": "loading",
+              "restoration": "auto",
+              "active": "cleanse"
+            },
+            {
+              "event": "scroll",
+              "t": 162.30000001192093,
+              "hash": "#system-seal",
+              "y": 937,
+              "ready": "interactive",
+              "fonts": "loading",
+              "restoration": "auto",
+              "active": "cleanse"
+            },
+            {
+              "event": "load",
+              "t": 212.30000001192093,
+              "hash": "#system-seal",
+              "y": 937,
+              "ready": "complete",
+              "fonts": "loading",
+              "restoration": "auto",
+              "active": "cleanse"
+            },
+            {
+              "event": "pageshow",
+              "t": 213.5,
+              "hash": "#system-seal",
+              "y": 937,
+              "ready": "complete",
+              "fonts": "loading",
+              "restoration": "auto",
+              "active": "cleanse"
+            },
+            {
+              "event": "final",
+              "t": 424.60000002384186,
+              "hash": "#system-seal",
+              "y": 937,
+              "ready": "complete",
+              "fonts": "loaded",
+              "restoration": "auto",
+              "core": {
+                "x": 16.21875,
+                "y": 63,
+                "width": 688.5625,
+                "height": 820,
+                "top": 63,
+                "right": 704.78125,
+                "bottom": 883,
+                "left": 16.21875
+              },
+              "anchor": {
+                "x": 17.21875,
+                "y": 0,
+                "width": 1,
+                "height": 1,
+                "top": 0,
+                "right": 18.21875,
+                "bottom": 1,
+                "left": 17.21875
+              },
+              "active": "seal"
+            }
+          ]
+        }
+      ],
+      "priorDocuments": [
+        [
+          {
+            "event": "DOMContentLoaded",
+            "t": 63.30000001192093,
+            "hash": "#system-ingredient-niacinamide",
+            "y": 0,
+            "ready": "interactive",
+            "fonts": "loading",
+            "restoration": "auto",
+            "active": "cleanse"
+          },
+          {
+            "event": "load",
+            "t": 394.5,
+            "hash": "#system-ingredient-niacinamide",
+            "y": 0,
+            "ready": "complete",
+            "fonts": "loaded",
+            "restoration": "auto",
+            "active": "cleanse"
+          },
+          {
+            "event": "pageshow",
+            "t": 394.5999999642372,
+            "hash": "#system-ingredient-niacinamide",
+            "y": 0,
+            "ready": "complete",
+            "fonts": "loaded",
+            "restoration": "auto",
+            "active": "cleanse"
+          },
+          {
+            "event": "scrollIntoView",
+            "detail": {
+              "id": "system-ingredient-niacinamide",
+              "stack": "Error\n    at Element.scrollIntoView (<anonymous>:8:97)\n    at http://127.0.0.1:3038/_next/static/chunks/app/system/page-64425ea38c1e5d4d.js:1:9357"
+            },
+            "t": 633.1999999880791,
+            "hash": "#system-ingredient-niacinamide",
+            "y": 0,
+            "ready": "complete",
+            "fonts": "loaded",
+            "restoration": "auto",
+            "active": "cleanse"
+          },
+          {
+            "event": "scroll",
+            "t": 675.6999999880791,
+            "hash": "#system-ingredient-niacinamide",
+            "y": 4710,
+            "ready": "complete",
+            "fonts": "loaded",
+            "restoration": "auto",
+            "active": "cleanse"
+          },
+          {
+            "event": "hashchange",
+            "t": 955.8999999761581,
+            "hash": "#system-seal",
+            "y": 937,
+            "ready": "complete",
+            "fonts": "loaded",
+            "restoration": "auto",
+            "active": "cleanse"
+          }
+        ]
+      ]
+    },
+    {
+      "width": 721,
+      "attempt": 2,
+      "outcome": "passed",
+      "checkpoints": [
+        {
+          "stage": "final",
+          "url": "http://127.0.0.1:3038/system#system-seal",
+          "events": [
+            {
+              "event": "DOMContentLoaded",
+              "t": 64.30000001192093,
+              "hash": "#system-seal",
+              "y": 937,
+              "ready": "interactive",
+              "fonts": "loading",
+              "restoration": "auto",
+              "active": "cleanse"
+            },
+            {
+              "event": "scroll",
+              "t": 162.0999999642372,
+              "hash": "#system-seal",
+              "y": 937,
+              "ready": "interactive",
+              "fonts": "loading",
+              "restoration": "auto",
+              "active": "cleanse"
+            },
+            {
+              "event": "load",
+              "t": 195.30000001192093,
+              "hash": "#system-seal",
+              "y": 937,
+              "ready": "complete",
+              "fonts": "loading",
+              "restoration": "auto",
+              "active": "cleanse"
+            },
+            {
+              "event": "pageshow",
+              "t": 195.69999998807907,
+              "hash": "#system-seal",
+              "y": 937,
+              "ready": "complete",
+              "fonts": "loading",
+              "restoration": "auto",
+              "active": "cleanse"
+            },
+            {
+              "event": "final",
+              "t": 410.30000001192093,
+              "hash": "#system-seal",
+              "y": 937,
+              "ready": "complete",
+              "fonts": "loaded",
+              "restoration": "auto",
+              "core": {
+                "x": 16.21875,
+                "y": 63,
+                "width": 688.5625,
+                "height": 820,
+                "top": 63,
+                "right": 704.78125,
+                "bottom": 883,
+                "left": 16.21875
+              },
+              "anchor": {
+                "x": 17.21875,
+                "y": 0,
+                "width": 1,
+                "height": 1,
+                "top": 0,
+                "right": 18.21875,
+                "bottom": 1,
+                "left": 17.21875
+              },
+              "active": "seal"
+            }
+          ]
+        }
+      ],
+      "priorDocuments": [
+        [
+          {
+            "event": "DOMContentLoaded",
+            "t": 61.5,
+            "hash": "#system-ingredient-niacinamide",
+            "y": 0,
+            "ready": "interactive",
+            "fonts": "loading",
+            "restoration": "auto",
+            "active": "cleanse"
+          },
+          {
+            "event": "load",
+            "t": 378.2000000476837,
+            "hash": "#system-ingredient-niacinamide",
+            "y": 0,
+            "ready": "complete",
+            "fonts": "loading",
+            "restoration": "auto",
+            "active": "cleanse"
+          },
+          {
+            "event": "pageshow",
+            "t": 378.30000001192093,
+            "hash": "#system-ingredient-niacinamide",
+            "y": 0,
+            "ready": "complete",
+            "fonts": "loading",
+            "restoration": "auto",
+            "active": "cleanse"
+          },
+          {
+            "event": "scrollIntoView",
+            "detail": {
+              "id": "system-ingredient-niacinamide",
+              "stack": "Error\n    at Element.scrollIntoView (<anonymous>:8:97)\n    at http://127.0.0.1:3038/_next/static/chunks/app/system/page-64425ea38c1e5d4d.js:1:9357"
+            },
+            "t": 617.9000000357628,
+            "hash": "#system-ingredient-niacinamide",
+            "y": 0,
+            "ready": "complete",
+            "fonts": "loaded",
+            "restoration": "auto",
+            "active": "cleanse"
+          },
+          {
+            "event": "scroll",
+            "t": 659.2000000476837,
+            "hash": "#system-ingredient-niacinamide",
+            "y": 4710,
+            "ready": "complete",
+            "fonts": "loaded",
+            "restoration": "auto",
+            "active": "cleanse"
+          },
+          {
+            "event": "hashchange",
+            "t": 917.4000000357628,
+            "hash": "#system-seal",
+            "y": 937,
+            "ready": "complete",
+            "fonts": "loaded",
+            "restoration": "auto",
+            "active": "cleanse"
+          }
+        ]
+      ]
+    },
+    {
+      "width": 1440,
+      "attempt": 1,
+      "outcome": "passed",
+      "checkpoints": [
+        {
+          "stage": "final",
+          "url": "http://127.0.0.1:3038/system#system-seal",
+          "events": [
+            {
+              "event": "DOMContentLoaded",
+              "t": 63.19999998807907,
+              "hash": "#system-seal",
+              "y": 937,
+              "ready": "interactive",
+              "fonts": "loading",
+              "restoration": "auto",
+              "active": "cleanse"
+            },
+            {
+              "event": "scroll",
+              "t": 168.5,
+              "hash": "#system-seal",
+              "y": 937,
+              "ready": "interactive",
+              "fonts": "loading",
+              "restoration": "auto",
+              "active": "cleanse"
+            },
+            {
+              "event": "load",
+              "t": 212,
+              "hash": "#system-seal",
+              "y": 937,
+              "ready": "complete",
+              "fonts": "loading",
+              "restoration": "auto",
+              "active": "cleanse"
+            },
+            {
+              "event": "pageshow",
+              "t": 212.69999998807907,
+              "hash": "#system-seal",
+              "y": 937,
+              "ready": "complete",
+              "fonts": "loading",
+              "restoration": "auto",
+              "active": "cleanse"
+            },
+            {
+              "event": "final",
+              "t": 475.69999998807907,
+              "hash": "#system-seal",
+              "y": 937,
+              "ready": "complete",
+              "fonts": "loaded",
+              "restoration": "auto",
+              "core": {
+                "x": 32.390625,
+                "y": 63,
+                "width": 1375.21875,
+                "height": 773.546875,
+                "top": 63,
+                "right": 1407.609375,
+                "bottom": 836.546875,
+                "left": 32.390625
+              },
+              "anchor": {
+                "x": 33.390625,
+                "y": 0,
+                "width": 1,
+                "height": 1,
+                "top": 0,
+                "right": 34.390625,
+                "bottom": 1,
+                "left": 33.390625
+              },
+              "active": "seal"
+            }
+          ]
+        }
+      ],
+      "priorDocuments": [
+        [
+          {
+            "event": "DOMContentLoaded",
+            "t": 60.60000002384186,
+            "hash": "#system-ingredient-niacinamide",
+            "y": 0,
+            "ready": "interactive",
+            "fonts": "loading",
+            "restoration": "auto",
+            "active": "cleanse"
+          },
+          {
+            "event": "load",
+            "t": 387.10000002384186,
+            "hash": "#system-ingredient-niacinamide",
+            "y": 0,
+            "ready": "complete",
+            "fonts": "loaded",
+            "restoration": "auto",
+            "active": "cleanse"
+          },
+          {
+            "event": "pageshow",
+            "t": 387.10000002384186,
+            "hash": "#system-ingredient-niacinamide",
+            "y": 0,
+            "ready": "complete",
+            "fonts": "loaded",
+            "restoration": "auto",
+            "active": "cleanse"
+          },
+          {
+            "event": "scrollIntoView",
+            "detail": {
+              "id": "system-ingredient-niacinamide",
+              "stack": "Error\n    at Element.scrollIntoView (<anonymous>:8:97)\n    at http://127.0.0.1:3038/_next/static/chunks/app/system/page-64425ea38c1e5d4d.js:1:9357"
+            },
+            "t": 619,
+            "hash": "#system-ingredient-niacinamide",
+            "y": 0,
+            "ready": "complete",
+            "fonts": "loaded",
+            "restoration": "auto",
+            "active": "cleanse"
+          },
+          {
+            "event": "scroll",
+            "t": 657.6000000238419,
+            "hash": "#system-ingredient-niacinamide",
+            "y": 4074,
+            "ready": "complete",
+            "fonts": "loaded",
+            "restoration": "auto",
+            "active": "cleanse"
+          },
+          {
+            "event": "hashchange",
+            "t": 913.5,
+            "hash": "#system-seal",
+            "y": 937,
+            "ready": "complete",
+            "fonts": "loaded",
+            "restoration": "auto",
+            "active": "cleanse"
+          }
+        ]
+      ]
+    },
+    {
+      "width": 1440,
+      "attempt": 2,
+      "outcome": "passed",
+      "checkpoints": [
+        {
+          "stage": "final",
+          "url": "http://127.0.0.1:3038/system#system-seal",
+          "events": [
+            {
+              "event": "DOMContentLoaded",
+              "t": 64.89999997615814,
+              "hash": "#system-seal",
+              "y": 937,
+              "ready": "interactive",
+              "fonts": "loading",
+              "restoration": "auto",
+              "active": "cleanse"
+            },
+            {
+              "event": "scroll",
+              "t": 220.80000001192093,
+              "hash": "#system-seal",
+              "y": 937,
+              "ready": "interactive",
+              "fonts": "loaded",
+              "restoration": "auto",
+              "active": "cleanse"
+            },
+            {
+              "event": "load",
+              "t": 266.80000001192093,
+              "hash": "#system-seal",
+              "y": 937,
+              "ready": "complete",
+              "fonts": "loaded",
+              "restoration": "auto",
+              "active": "cleanse"
+            },
+            {
+              "event": "pageshow",
+              "t": 266.80000001192093,
+              "hash": "#system-seal",
+              "y": 937,
+              "ready": "complete",
+              "fonts": "loaded",
+              "restoration": "auto",
+              "active": "cleanse"
+            },
+            {
+              "event": "final",
+              "t": 525.8000000119209,
+              "hash": "#system-seal",
+              "y": 937,
+              "ready": "complete",
+              "fonts": "loaded",
+              "restoration": "auto",
+              "core": {
+                "x": 32.390625,
+                "y": 63,
+                "width": 1375.21875,
+                "height": 773.546875,
+                "top": 63,
+                "right": 1407.609375,
+                "bottom": 836.546875,
+                "left": 32.390625
+              },
+              "anchor": {
+                "x": 33.390625,
+                "y": 0,
+                "width": 1,
+                "height": 1,
+                "top": 0,
+                "right": 34.390625,
+                "bottom": 1,
+                "left": 33.390625
+              },
+              "active": "seal"
+            }
+          ]
+        }
+      ],
+      "priorDocuments": [
+        [
+          {
+            "event": "DOMContentLoaded",
+            "t": 65.29999995231628,
+            "hash": "#system-ingredient-niacinamide",
+            "y": 0,
+            "ready": "interactive",
+            "fonts": "loading",
+            "restoration": "auto",
+            "active": "cleanse"
+          },
+          {
+            "event": "load",
+            "t": 409.0999999642372,
+            "hash": "#system-ingredient-niacinamide",
+            "y": 0,
+            "ready": "complete",
+            "fonts": "loaded",
+            "restoration": "auto",
+            "active": "cleanse"
+          },
+          {
+            "event": "pageshow",
+            "t": 409.19999998807907,
+            "hash": "#system-ingredient-niacinamide",
+            "y": 0,
+            "ready": "complete",
+            "fonts": "loaded",
+            "restoration": "auto",
+            "active": "cleanse"
+          },
+          {
+            "event": "scrollIntoView",
+            "detail": {
+              "id": "system-ingredient-niacinamide",
+              "stack": "Error\n    at Element.scrollIntoView (<anonymous>:8:97)\n    at http://127.0.0.1:3038/_next/static/chunks/app/system/page-64425ea38c1e5d4d.js:1:9357"
+            },
+            "t": 637.2999999523163,
+            "hash": "#system-ingredient-niacinamide",
+            "y": 0,
+            "ready": "complete",
+            "fonts": "loaded",
+            "restoration": "auto",
+            "active": "cleanse"
+          },
+          {
+            "event": "scroll",
+            "t": 679.1999999880791,
+            "hash": "#system-ingredient-niacinamide",
+            "y": 4074,
+            "ready": "complete",
+            "fonts": "loaded",
+            "restoration": "auto",
+            "active": "cleanse"
+          },
+          {
+            "event": "hashchange",
+            "t": 926.5999999642372,
+            "hash": "#system-seal",
+            "y": 937,
+            "ready": "complete",
+            "fonts": "loaded",
+            "restoration": "auto",
+            "active": "cleanse"
+          }
+        ]
+      ]
+    }
+  ]
+}
