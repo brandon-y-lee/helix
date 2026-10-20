@@ -1,6 +1,6 @@
 # Approved local factual corrections
 
-Revision boundary: `26e2911` → the subsequent local correction commit. The owner approved **payments, tracking, accounts and pricing only**. No public activation, provider/configuration change, push, merge, or new operational commitment is authorized.
+Revision boundary: `26e2911` → `4484137`. The owner approved **payments, tracking, accounts and pricing only**. No public activation, provider/configuration change, push, merge, or new operational commitment is authorized.
 
 ## Exact scope
 
@@ -104,3 +104,5 @@ Accessibility is unchanged. There is no evidence of verified conformance; no new
 ## Local evidence
 
 Preview paths: `http://127.0.0.1:3036/privacy`, `/terms`, `/accessibility`. Run from `/tmp/helix-legal-revetir`: `pnpm dev --hostname 127.0.0.1 --port 3036`. Revised local browser artifacts use `/tmp/helix-legal-artifacts/factual-corrections`, preserving earlier Library-backed screenshot files and identities. No new Library upload was performed. Existing Library IDs show the prior complete-copy checkpoint, not this corrected text.
+
+Independent gpt-6.1-sol/high Spec/Standards review: **PASS**, no actionable findings at `4484137`. The reviewer independently verified exact byte equality after only the 22 approved replacements, unchanged Accessibility/layout/source snapshots, all 20 focused tests, typecheck, targeted lint and diff checks. See `factual-corrections-review.md`. Final HTTP recheck: `/privacy`, `/terms`, `/accessibility` each returned 200 on port 3036.
