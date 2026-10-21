@@ -1,0 +1,24 @@
+Exact b63779a final-image browser run; no baseline attribution or waiver.
+  17 failed
+    [chromium] › e2e/pdp-effects.spec.ts:431:5 › mobile serum effects › native swipe from Anti-aging & firmness hides icons and settles without moving the page 
+    [webkit] › e2e/auth-confirmation.spec.ts:2:1 › account email confirmation preserves the browser Origin without leaking the token in its referrer 
+    [webkit] › e2e/email-preferences.spec.ts:72:3 › subscription requires consent and safely retries an unavailable request at 390px 
+    [webkit] › e2e/email-preferences.spec.ts:153:3 › confirmation requires an explicit token-safe action and recovers from an invalid link response at 390px 
+    [webkit] › e2e/email-preferences.spec.ts:72:3 › subscription requires consent and safely retries an unavailable request at 1440px 
+    [webkit] › e2e/email-preferences.spec.ts:153:3 › confirmation requires an explicit token-safe action and recovers from an invalid link response at 1440px 
+    [webkit] › e2e/pdp-effects.spec.ts:98:1 › serum effects keep the selected property in view on desktop 
+    [webkit] › e2e/product-notifications.spec.ts:180:3 › Opening or scanning a private link cannot cancel a Product notification at 390px 
+    [webkit] › e2e/product-notifications.spec.ts:180:3 › Opening or scanning a private link cannot cancel a Product notification at 1440px 
+    [webkit] › e2e/simulated-tracking.spec.ts:93:1 › demo tracking supports keyboard dispatch at 390px 
+    [webkit] › e2e/simulated-tracking.spec.ts:135:1 › uncertain simulation locks edits and safely recovers one recorded shipment 
+    [webkit] › e2e/storefront.spec.ts:187:1 › shop presents the approved Product, collection, sheet, and footer treatment 
+    [webkit] › e2e/storefront.spec.ts:768:1 › mobile quick buy Escape preserves the Customer's viewport and focus preview 
+    [webkit] › e2e/storefront.spec.ts:829:3 › touch Quick Buy › close preserves the viewport without pinning desktop preview 
+    [webkit] › e2e/storefront.spec.ts:868:1 › mobile quick buy opens the cart drawer and restores focus on Escape 
+    [webkit] › e2e/support-inbound-photos.spec.ts:105:3 › private photos and pending context remain bounded at 390px 
+    [webkit] › e2e/surface-palette.spec.ts:53:1 › discovery controls remain distinct on neutral cards and sheets 
+  12 skipped
+  347 passed (4.3m)
+
+
+Full unit command also failed: Vitest-worker Timeout calling onTaskUpdate (all2722 assertions passed,8existing skips).
