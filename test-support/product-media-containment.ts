@@ -1,4 +1,5 @@
 import type { Page, Route } from "@playwright/test";
+import { FAQ_HERO_IMAGE } from "@/lib/content/faq-hero";
 import type { StorefrontSnapshot } from "@/test-support/storefront-baseline";
 
 const TEST_IMAGE = Buffer.from(
@@ -176,6 +177,12 @@ export function createProductMediaContainment(
         },
         status: 200,
       });
+      return;
+    }
+
+    // This exact immutable editorial asset is real media, not a Product fixture.
+    if (request.sourceUrl === FAQ_HERO_IMAGE) {
+      await route.fallback();
       return;
     }
 
