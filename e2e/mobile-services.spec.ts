@@ -32,7 +32,7 @@ test("phone FAQ categories clear the sticky rail and keep native answers usable"
   const policies = navigation.getByRole("link", { name: "Policies", exact: true });
   const products = navigation.getByRole("link", { name: "Products", exact: true });
   const expectClearance = async (id: string) => {
-    await expect.poll(async () => page.locator(id).evaluate((element) => {
+    await expect.poll(async () => page.locator(id).first().evaluate((element) => {
       const nav = document.querySelector('.faq-category-nav')!.getBoundingClientRect();
       return element.getBoundingClientRect().top - nav.bottom;
     })).toBeGreaterThanOrEqual(20);
@@ -69,6 +69,15 @@ test("phone FAQ categories clear the sticky rail and keep native answers usable"
   await page.reload();
   await expect(policies).toHaveAttribute('aria-current', 'location');
   await expectClearance('#policies');
+  for (const width of [720, 390]) {
+    await page.setViewportSize({ width, height: 844 });
+    await expect(policies).toHaveAttribute('aria-current', 'location');
+    await expect.poll(async () => policies.evaluate((element) => {
+      const rail = element.closest('nav')!.getBoundingClientRect();
+      const link = element.getBoundingClientRect();
+      return link.left >= rail.left - 1 && link.right <= rail.right + 1;
+    })).toBe(true);
+  }
   await products.click();
   const firstAnswer = page.locator("#products details").first();
   const summary = firstAnswer.locator("summary");

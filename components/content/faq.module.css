@@ -96,6 +96,7 @@
   opacity: 1;
   transition: opacity 700ms var(--faq-ease);
 }
+.item:global(.faq-item)[open] > summary .icon { transform: none; }
 .icon i {
   position: absolute;
   top: 8px;

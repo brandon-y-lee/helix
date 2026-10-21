@@ -4,6 +4,15 @@ import { useEffect, useRef, useState } from "react";
 import type { FAQCategory } from "@/content/support/faq";
 import styles from "./faq.module.css";
 
+function revealCurrentLink(nav: HTMLElement | null) {
+  const link = nav?.querySelector<HTMLAnchorElement>('a[aria-current="location"]');
+  if (!nav || !link || nav.scrollWidth <= nav.clientWidth) return;
+  const frame = nav.getBoundingClientRect();
+  const target = link.getBoundingClientRect();
+  if (target.left < frame.left) nav.scrollLeft += target.left - frame.left;
+  else if (target.right > frame.right) nav.scrollLeft += target.right - frame.right;
+}
+
 export function FAQCategoryNav({ categories }: { categories: Pick<FAQCategory, "id" | "label">[] }) {
   const navigation = useRef<HTMLElement>(null);
   const [activeId, setActiveId] = useState<string | null>(categories[0]?.id ?? null);
@@ -37,7 +46,7 @@ export function FAQCategoryNav({ categories }: { categories: Pick<FAQCategory, "
     const schedule = () => {
       if (!frame) frame = window.requestAnimationFrame(readScroll);
     };
-    const resize = () => { measureRail(); schedule(); };
+    const resize = () => { measureRail(); revealCurrentLink(nav); schedule(); };
     measureRail();
     readFragment();
     const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(resize);
@@ -61,13 +70,7 @@ export function FAQCategoryNav({ categories }: { categories: Pick<FAQCategory, "
   }, [categories]);
 
   useEffect(() => {
-    const nav = navigation.current;
-    const link = nav?.querySelector<HTMLAnchorElement>('a[aria-current="location"]');
-    if (!nav || !link || nav.scrollWidth <= nav.clientWidth) return;
-    const frame = nav.getBoundingClientRect();
-    const target = link.getBoundingClientRect();
-    if (target.left < frame.left) nav.scrollLeft += target.left - frame.left;
-    else if (target.right > frame.right) nav.scrollLeft += target.right - frame.right;
+    revealCurrentLink(navigation.current);
   }, [activeId]);
 
   return (

@@ -126,6 +126,6 @@ describe("FAQ disclosure enhancement", () => {
     expect(summary).toHaveAttribute("aria-expanded", "false");
     expect(details).not.toHaveAttribute("open");
     expect(summary).toHaveFocus();
-    expect(within(details).queryByRole("link")).not.toBeInTheDocument();
+    expect(answerLink.parentElement?.closest("div")).not.toHaveAttribute("inert");
   });
 });

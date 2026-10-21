@@ -18,7 +18,7 @@ export default function FAQPage() {
       <header className="storefront-shell system-hero" aria-labelledby="faq-heading" data-layout-shell="storefront">
         <div className="system-hero__surface">
           <Image src="/media/system/a-new-philosophy-hero-01.webp" alt="" fill priority
-            sizes="(max-width: 711px) calc(100vw - 32px), 95.5vw" className="system-hero__image" />
+            sizes="(max-width: 720px) 180vh, 100vw" className="system-hero__image" />
           <div className="system-hero__copy">
             <h1 id="faq-heading">In case you were wondering...</h1>
           </div>

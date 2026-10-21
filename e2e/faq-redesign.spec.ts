@@ -56,6 +56,7 @@ test('FAQ disclosure reverses motion, follows native state and settles reduced m
   await page.goto('/faq#products');
   const details = page.locator('#products details').nth(1);
   const summary = details.locator('summary');
+  const closedHeight = (await details.boundingBox())!.height;
   await summary.focus();
   await summary.press('Enter');
   await expect(summary).toHaveAttribute('aria-expanded', 'true');
@@ -65,8 +66,10 @@ test('FAQ disclosure reverses motion, follows native state and settles reduced m
   await expect(details.locator('> div')).toHaveAttribute('inert', '');
   await summary.press('Enter');
   await expect(details).toHaveAttribute('open', '');
+  await expect(summary.locator('span[aria-hidden]')).toHaveCSS('transform', 'none');
   await expect.poll(() => details.evaluate((element) => element.getAnimations().length)).toBe(0);
   expect(await details.evaluate((element) => (element as HTMLElement).style.height)).toBe('');
+  expect((await details.boundingBox())!.height).toBeGreaterThan(closedHeight + 20);
   const link = details.getByRole('link', { name: 'Shop the system' });
   await link.focus();
   await summary.evaluate((element) => (element as HTMLElement).click());
@@ -75,6 +78,7 @@ test('FAQ disclosure reverses motion, follows native state and settles reduced m
   await expect(details.getByRole('link')).toHaveCount(0);
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await expect(details).not.toHaveAttribute('open');
+  await expect(details.locator('> div')).not.toHaveAttribute('inert');
   await expect.poll(() => details.evaluate((element) => element.getAnimations().length)).toBe(0);
   await details.evaluate((element) => { (element as HTMLDetailsElement).open = true; });
   await expect(summary).toHaveAttribute('aria-expanded', 'true');

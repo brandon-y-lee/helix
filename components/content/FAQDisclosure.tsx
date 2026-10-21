@@ -32,6 +32,10 @@ export function FAQDisclosure({ question, panelId, initiallyOpen, children }: {
       animation.current = null;
       element.style.height = "";
       nativeOpen(open);
+      // Native closed details already excludes its answer from focus/AX, while
+      // remaining searchable. Inert is only needed during animated closing.
+      answer.inert = false;
+      answer.removeAttribute("aria-hidden");
     };
     const transition = (open: boolean) => {
       requested.current = open;
@@ -71,8 +75,8 @@ export function FAQDisclosure({ question, panelId, initiallyOpen, children }: {
     requested.current = element.open;
     expectedNativeOpen.current = element.open;
     setExpanded(element.open);
-    answer.inert = !element.open;
-    answer.setAttribute("aria-hidden", String(!element.open));
+    answer.inert = false;
+    answer.removeAttribute("aria-hidden");
     setEnhanced(true);
     const onNativeToggle = () => {
       if (element.open !== expectedNativeOpen.current) transition(element.open);
