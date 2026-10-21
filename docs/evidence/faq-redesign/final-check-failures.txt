@@ -22,3 +22,5 @@ Exact b63779a final-image browser run; no baseline attribution or waiver.
 
 
 Full unit command also failed: Vitest-worker Timeout calling onTaskUpdate (all2722 assertions passed,8existing skips).
+
+Subsequent authorized serialized unit recovery at76a60b5: pnpm exec vitest run --no-file-parallelism --maxWorkers=1; exit0,254filespassed/1skipped,2722testspassed/8existing skips,221.06s,no unhandled errors. Original failure above retained; browser failures unchanged.
