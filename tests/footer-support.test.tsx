@@ -324,7 +324,7 @@ describe("legal and support content", () => {
     await user.click(orderSummary);
     expect(orderDetails).not.toHaveAttribute("open");
 
-    const hero = document.querySelector(".system-hero")!;
+    const hero = document.querySelector<HTMLElement>(".system-hero")!;
     expect(within(hero).getByRole("heading", { level: 1 })).toHaveTextContent("In case you were wondering...");
     expect(hero.querySelector("img")).toHaveAttribute("alt", "");
     expect(hero.querySelector("img")?.getAttribute("src")).toContain("13df364513afd448dd571acd4f8efd29084e59aff7956c7fd5d332549cd4b773.webp");
