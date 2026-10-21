@@ -106,3 +106,26 @@ describe("mobile service navigation", () => {
     expect(window.location.hash).toBe("");
   });
 });
+
+// FAQ enhancement must preserve native behavior and accessible requested state.
+describe("FAQ disclosure enhancement", () => {
+  it("tracks native opens and restores focus before closing a focused answer", async () => {
+    const user = userEvent.setup();
+    render(<FAQAccordion categories={faqCategories} />);
+    const summary = screen.getByText("What products are in the current system?").closest("summary")!;
+    const details = summary.closest("details")!;
+    expect(summary).toHaveAttribute("aria-expanded", "false");
+    act(() => {
+      details.open = true;
+      details.dispatchEvent(new Event("toggle"));
+    });
+    expect(summary).toHaveAttribute("aria-expanded", "true");
+    const answerLink = within(details).getByRole("link", { name: "Shop the system" });
+    answerLink.focus();
+    await user.click(summary);
+    expect(summary).toHaveAttribute("aria-expanded", "false");
+    expect(details).not.toHaveAttribute("open");
+    expect(summary).toHaveFocus();
+    expect(answerLink.parentElement?.closest("div")).not.toHaveAttribute("inert");
+  });
+});
