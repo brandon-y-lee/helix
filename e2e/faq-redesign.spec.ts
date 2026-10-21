@@ -1,9 +1,11 @@
 import { expect, test } from './storefront-fixture';
 import { expectNoMainOverflow } from './layout-assertions';
+import { FAQ_HERO_IMAGE } from '@/lib/content/faq-hero';
 
 test('FAQ matches System hero and has responsive single-title islands', async ({ page }, testInfo) => {
   for (const width of [320, 390, 720, 760, 761, 1024, 1440]) {
-    await page.setViewportSize({ width, height: 1000 });
+    const height = width <= 760 ? 844 : width === 1024 ? 900 : 1000;
+    await page.setViewportSize({ width, height });
     await page.goto('/faq');
     const hero = page.locator('.system-hero');
     await expect(hero.getByRole('heading', { level: 1 })).toHaveText('In case you were wondering...');
@@ -14,11 +16,21 @@ test('FAQ matches System hero and has responsive single-title islands', async ({
         left: surface.left, right: window.innerWidth - surface.right,
         font: getComputedStyle(title).fontSize };
     });
-    expect(dimensions.hero).toBeCloseTo(936, 0);
+    expect(dimensions.hero).toBeCloseTo(height - 64, 0);
     expect(Math.abs(dimensions.left - dimensions.right)).toBeLessThan(1);
     if (width === 1440) expect(dimensions.font).toBe('24px');
     if (width === 1024) expect(dimensions.font).toBe('18px');
-    await expect(hero.locator('img')).toHaveCSS('object-position', width <= 720 ? '60% 50%' : '50% 15%');
+    const image = hero.locator('img');
+    await expect(image).toHaveCSS('object-position', width <= height ? '85% 50%' : '50% 15%');
+    await expect.poll(() => image.evaluate((element: HTMLImageElement) =>
+      element.complete && element.naturalWidth > 0 && element.naturalHeight > 0,
+    )).toBe(true);
+    const loaded = await image.evaluate((element: HTMLImageElement) => ({
+      source: new URL(element.currentSrc, location.href).searchParams.get('url'),
+      ratio: element.naturalWidth / element.naturalHeight,
+    }));
+    expect(loaded.source).toBe(FAQ_HERO_IMAGE);
+    expect(loaded.ratio).toBeCloseTo(2160 / 1216, 2);
     const titles = page.locator('.faq-category h2');
     await expect(titles).toHaveCount(8);
     await expect(page.locator('.faq-category .eyebrow')).toHaveCount(0);

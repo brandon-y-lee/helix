@@ -2,7 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { FAQAccordion } from "@/components/content/FAQAccordion";
+import FAQPage from "@/app/faq/page";
 import { LegalDocumentLayout } from "@/components/content/LegalDocumentLayout";
 import { SiteFooter } from "@/components/shell/SiteFooter";
 import { cookieCategories, cookiePolicy } from "@/content/legal/cookies";
@@ -302,7 +302,7 @@ describe("legal and support content", () => {
 
   it("renders FAQ categories with canonical anchors and native disclosures", async () => {
     const user = userEvent.setup();
-    render(<FAQAccordion categories={faqCategories} />);
+    render(<FAQPage />);
 
     expect(screen.getByRole("link", { name: "Products" })).toHaveAttribute(
       "href",
@@ -324,6 +324,10 @@ describe("legal and support content", () => {
     await user.click(orderSummary);
     expect(orderDetails).not.toHaveAttribute("open");
 
+    const hero = document.querySelector(".system-hero")!;
+    expect(within(hero).getByRole("heading", { level: 1 })).toHaveTextContent("In case you were wondering...");
+    expect(hero.querySelector("img")).toHaveAttribute("alt", "");
+    expect(hero.querySelector("img")?.getAttribute("src")).toContain("13df364513afd448dd571acd4f8efd29084e59aff7956c7fd5d332549cd4b773.webp");
     const faqText = document.body.textContent ?? "";
     expect(faqText).toContain("$50+");
     expect(faqText).toMatch(/No real shipping or Fulfillment capability is available/i);

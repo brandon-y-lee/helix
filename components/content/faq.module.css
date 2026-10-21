@@ -1,4 +1,8 @@
 .page { width: 100%; }
+.page .heroImage { object-position: 50% 15%; }
+@media (max-aspect-ratio: 1/1) {
+  .page .heroImage { object-position: 85% 50%; }
+}
 .shell:global(.faq-shell) {
   --faq-rail-height: 72px;
   --faq-clearance: calc(var(--site-header-height) + 24px);
