@@ -48,6 +48,18 @@ test("Treat fills the desktop hero and reveals details inside its original scrol
     for (const partner of partners) {
       await expect(routine.getByRole("link", { name: new RegExp(partner.displayName) })).toHaveAttribute("href", partner.path);
     }
+    for (const thumbnail of await routine.locator(".pdp-routine-links__image").all()) {
+      const image = thumbnail.locator("img");
+      if (await image.count()) {
+        const bounds = await thumbnail.boundingBox();
+        const imageBounds = await image.boundingBox();
+        if (!bounds || !imageBounds) throw new Error("Routine thumbnail geometry is unavailable.");
+        expect(Math.abs(imageBounds.x - bounds.x)).toBeLessThanOrEqual(1);
+        expect(Math.abs(imageBounds.y - bounds.y)).toBeLessThanOrEqual(1);
+        expect(Math.abs(imageBounds.width - bounds.width)).toBeLessThanOrEqual(1);
+        expect(Math.abs(imageBounds.height - bounds.height)).toBeLessThanOrEqual(1);
+      }
+    }
     const galleryBox = await gallery.boundingBox();
     const purchaseBox = await purchase.boundingBox();
     if (!galleryBox || !purchaseBox) throw new Error("Treat hero geometry is unavailable.");
@@ -140,6 +152,9 @@ test("Treat's main purchase action uses amber and the reference gray without cha
   expect(await main.evaluate((button) => getComputedStyle(button, "::before").backgroundColor)).toBe("rgb(103, 100, 94)");
   await expect(main).toHaveText(label ?? "");
   await main.focus();
+  await page.keyboard.press("Tab");
+  await page.keyboard.press("Shift+Tab");
+  await expect(main).toBeFocused();
   await expect(main).toHaveCSS("outline-style", "solid");
   await expect(page.locator("[data-sticky-pdp-buy-button]")).not.toHaveCSS("background-color", "rgb(228, 193, 117)");
 });

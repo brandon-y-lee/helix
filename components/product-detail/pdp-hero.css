@@ -82,10 +82,15 @@
 }
 
 .pdp-routine-links__image {
+  position: relative;
   width: 64px;
   height: 72px;
   overflow: hidden;
   border-radius: var(--radius);
+}
+
+.pdp-routine-links__image img {
+  object-fit: contain;
 }
 
 .pdp-routine-links__copy {
