@@ -14,23 +14,11 @@
 }
 
 @media (min-width: 821px) {
-  .pdp[data-product-slug="super-serum"] {
-    /* A viewport-sized starting point, with room to grow for zoom or details. */
-    height: auto;
-    min-height: calc(
-      100svh - var(--site-header-height) - var(--storefront-gutter)
-    );
-  }
-
   .pdp[data-product-slug="super-serum"] .pdp__purchase {
     align-self: stretch;
-    position: static;
+    min-height: 0;
     display: flex;
     flex-direction: column;
-    max-height: none;
-    overflow: visible;
-    overscroll-behavior: auto;
-    scrollbar-gutter: auto;
   }
 
   .pdp[data-product-slug="super-serum"] .pdp__purchase > * {
