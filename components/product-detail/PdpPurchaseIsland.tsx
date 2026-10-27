@@ -44,6 +44,7 @@ type PdpPurchaseCartBase = Pick<
 
 export type PdpPurchaseIslandProps = {
   accordions: ReactNode;
+  routine?: ReactNode;
   cartItem: PdpPurchaseCartBase;
   children: ReactNode;
   currency: "USD";
@@ -66,6 +67,7 @@ export type PdpPurchaseIslandProps = {
 
 export function PdpPurchaseIsland({
   accordions,
+  routine,
   cartItem,
   children,
   currency,
@@ -425,6 +427,7 @@ export function PdpPurchaseIsland({
         <p className="add-feedback" role="status" aria-live={stickyFeedback ? "off" : "polite"}>
           {added ? "Added to cart" : addError}
         </p>
+        {routine}
         {accordions}
       </div>
 

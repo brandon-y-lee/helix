@@ -41,6 +41,13 @@ test("Treat fills the desktop hero and reveals details inside its original scrol
     const gallery = hero.locator(".pdp__gallery");
     await expect(purchase.locator("h1")).toHaveText(product.displayName);
     await expect(purchase.locator(".pdp__tagline")).toHaveText("the daily skin concentrate");
+    await expect(purchase.locator(".pdp__price")).toHaveCount(0);
+    const routine = purchase.getByRole("region", { name: "Complete the routine", exact: true });
+    const partners = storefront.snapshot.products.filter((candidate) => candidate.routineGroup === "core" && candidate.slug !== product.slug);
+    await expect(routine.getByRole("link")).toHaveCount(partners.length);
+    for (const partner of partners) {
+      await expect(routine.getByRole("link", { name: new RegExp(partner.displayName) })).toHaveAttribute("href", partner.path);
+    }
     const galleryBox = await gallery.boundingBox();
     const purchaseBox = await purchase.boundingBox();
     if (!galleryBox || !purchaseBox) throw new Error("Treat hero geometry is unavailable.");
@@ -112,6 +119,29 @@ test("Treat fills the desktop hero and reveals details inside its original scrol
     measurements.push({ viewport, gallery: galleryBox, purchase: purchaseBox, styles, opened, switched, closed, finalBox });
   }
   await writeFile(testInfo.outputPath("geometry.json"), JSON.stringify(measurements, null, 2));
+});
+
+test("Treat's main purchase action uses amber and the reference gray without changing its price", async ({ page, storefront }) => {
+  const product = storefront.snapshot.products.find(({ slug }) => slug === "super-serum");
+  if (!product) throw new Error("The canonical snapshot must include Treat (super-serum).");
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto(product.path);
+  const main = page.locator("[data-pdp-buy-button]");
+  await page.mouse.move(0, 0);
+  await expect(main).toHaveCSS("background-color", "rgb(228, 193, 117)");
+  await expect(main).toHaveCSS("color", "rgb(17, 19, 18)");
+  await expect(main).toHaveCSS("border-top-color", "rgb(103, 100, 94)");
+  await expect(main).toHaveCSS("border-top-width", "1px");
+  const label = await main.textContent();
+  await main.hover();
+  await expect(main).toHaveCSS("color", "rgb(255, 255, 255)");
+  await expect.poll(() => main.evaluate((button) => getComputedStyle(button, "::before").opacity)).toBe("1");
+  expect(await main.evaluate((button) => getComputedStyle(button, "::before").backgroundColor)).toBe("rgb(103, 100, 94)");
+  await expect(main).toHaveText(label ?? "");
+  await main.focus();
+  await expect(main).toHaveCSS("outline-style", "solid");
+  await expect(page.locator("[data-sticky-pdp-buy-button]")).not.toHaveCSS("background-color", "rgb(228, 193, 117)");
 });
 
 test("Treat preserves normal-motion bottom reveal and trigger focus when switching details", async ({ page, storefront }) => {

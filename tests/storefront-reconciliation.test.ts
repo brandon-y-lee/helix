@@ -181,7 +181,7 @@ function collectionHtml(products: readonly StorefrontSnapshotProduct[]) {
 function pdpHtml(item: StorefrontSnapshotProduct) {
   const presentation = productOfferPresentation(item.variants);
   const initialVariant = presentation.offers[0] ?? item.variants[0];
-  const price = presentation.showPrice && initialVariant
+  const price = item.slug !== "super-serum" && presentation.showPrice && initialVariant
     ? `<p class="pdp__price">$${(initialVariant.price / 100).toFixed(2)}</p>`
     : "";
   const options = presentation.showVariantOptions
@@ -206,6 +206,28 @@ function pdpHtml(item: StorefrontSnapshotProduct) {
 }
 
 describe("Storefront snapshot reconciliation", () => {
+  it.each([false, true])("checks Treat's authoritative CTA price without standalone pricing (corrupted: %s)", async (corrupted) => {
+    const treat = product({ slug: "super-serum", path: "/products/super-serum" });
+    const treatSnapshot = { ...snapshot, products: [treat, beyond, waitlist] };
+    let now = 0;
+    const fetch = vi.fn(async (input: string | URL | Request) => {
+      const path = new URL(String(input)).pathname;
+      if (path === "/collections/shop") return new Response(collectionHtml(treatSnapshot.products));
+      if (path === "/collections/core") return new Response(collectionHtml([treat]));
+      if (path === "/collections/beyond-the-core") return new Response(collectionHtml([beyond, waitlist]));
+      if (path === treat.path) return new Response(corrupted ? pdpHtml(treat).replace("$22.00", "$1.00") : pdpHtml(treat));
+      return new Response("Not found", { status: 404 });
+    });
+    const result = reconcileStorefrontSnapshot(treatSnapshot, {
+      baseURL: "http://127.0.0.1:3000",
+      fetch,
+      now: () => now,
+      sleep: async (milliseconds) => { now += milliseconds; },
+    });
+    if (corrupted) await expect(result).rejects.toThrow(/initial purchase label/);
+    else await expect(result).resolves.toBeUndefined();
+  });
+
   it("keeps the snapshot fixed while the rendered Storefront cache converges", async () => {
     let shopReads = 0;
     let now = 0;

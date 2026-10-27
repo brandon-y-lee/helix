@@ -16,6 +16,7 @@ import { PdpProfileSplit } from "@/components/product-detail/PdpProfileSplit";
 import { PdpPurchaseAccordions } from "@/components/product-detail/PdpPurchaseAccordions";
 import { PdpPurchaseIsland } from "@/components/product-detail/PdpPurchaseIsland";
 import { PdpRoutineVideo } from "@/components/product-detail/PdpRoutineVideo";
+import { PdpRoutineLinks } from "@/components/product-detail/PdpRoutineLinks";
 import {
   applicationIslandProps,
   galleryIslandProps,
@@ -240,7 +241,11 @@ export function ProductDetail({
         <PdpPurchaseIsland
           key={`purchase:${product.slug}`}
           {...purchaseProps}
+          showPrice={product.slug !== "super-serum" && purchaseProps.showPrice}
           presentation={presentation}
+          routine={product.slug === "super-serum" ? (
+            <PdpRoutineLinks products={coreProducts} currentSlug={product.slug} />
+          ) : null}
           accordions={
             <PdpPurchaseAccordions
               key={`accordions:${product.slug}`}

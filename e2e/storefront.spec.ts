@@ -570,9 +570,13 @@ test("PDP resolves canonical data and exposes an available variant", async ({
     purchase.buyLabel,
   );
 
-  await expect(page.locator(".pdp__price")).toHaveText(
-    formatPrice(purchase.variant.price),
-  );
+  if (product.slug === "super-serum") {
+    await expect(page.locator(".pdp__price")).toHaveCount(0);
+  } else {
+    await expect(page.locator(".pdp__price")).toHaveText(
+      formatPrice(purchase.variant.price),
+    );
+  }
   await expect(
     page.getByRole("region", {
       name: `${product.displayName} routine video`,
