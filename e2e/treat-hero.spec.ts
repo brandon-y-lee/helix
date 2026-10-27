@@ -23,7 +23,7 @@ test("Treat's hero stretches on desktop and grows naturally for purchase details
     const purchase = hero.locator(".pdp__purchase");
     const gallery = hero.locator(".pdp__gallery");
     await expect(purchase.locator("h1")).toHaveText(product.displayName);
-    await expect(purchase.locator(".pdp__tagline")).toHaveCount(0);
+    await expect(purchase.locator(".pdp__tagline")).toHaveText("the daily skin concentrate");
     const galleryBox = await gallery.boundingBox();
     const purchaseBox = await purchase.boundingBox();
     if (!galleryBox || !purchaseBox) throw new Error("Treat hero geometry is unavailable.");
