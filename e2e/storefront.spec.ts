@@ -725,18 +725,24 @@ test("PDP purchase island contains and reveals purchase details across its respo
   expect(
     desktopPurchase!.x - (desktopGallery!.x + desktopGallery!.width),
   ).toBeCloseTo(821 * 0.0225, 1);
+  const naturalHeight = product.slug === "super-serum";
   expect(desktopPresentation).toMatchObject({
     backgroundColor: PANEL_GRAY,
-    overflowY: "auto",
-    position: "sticky",
-    scrollbarGutter: "stable",
+    overflowY: naturalHeight ? "visible" : "auto",
+    position: naturalHeight ? "static" : "sticky",
+    scrollbarGutter: naturalHeight ? "auto" : "stable",
   });
   expect(desktopPresentation.borderRadius).not.toBe("0px");
-  expect(desktopPresentation.scrollHeight).toBeGreaterThan(
-    desktopPresentation.clientHeight,
-  );
+  if (naturalHeight) {
+    expect(desktopPurchase!.height).toBeCloseTo(desktopGallery!.height, 0);
+    expect(desktopPresentation.scrollHeight).toBe(desktopPresentation.clientHeight);
+  } else {
+    expect(desktopPresentation.scrollHeight).toBeGreaterThan(
+      desktopPresentation.clientHeight,
+    );
+    expect(desktopPresentation.bottom).toBeLessThan(480);
+  }
   expect(desktopPresentation.top).toBeGreaterThan(0);
-  expect(desktopPresentation.bottom).toBeLessThan(480);
 
   await howToUse.focus();
   await page.keyboard.press("Enter");
