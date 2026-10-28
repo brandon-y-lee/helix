@@ -169,12 +169,12 @@ export const faqCategories: FAQCategory[] = [
   {
     id: "returns",
     label: "Returns & Refunds",
-    summary: "Unavailable Return, Item Claim, Exchange, and refund capabilities.",
+    summary: "Return requests, product condition, Item Claims, Exchanges and refunds.",
     items: [
       {
         id: "return-window",
-        question: "Is a Return Policy in effect?",
-        answer: `No operative Return Policy is in effect. A ${returnsPolicy.returnWindowDays}-day Return Window is only a planning assumption. ${returnsPolicy.condition} This is not a current Customer instruction.`,
+        question: "What is the return policy?",
+        answer: `Return requests must be submitted within ${returnsPolicy.returnWindowDays} days of receipt. ${returnsPolicy.condition}`,
       },
       {
         id: "damaged-missing",

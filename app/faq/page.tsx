@@ -1,4 +1,7 @@
 import type { Metadata } from "next";
+import Image from "next/image";
+import { FAQ_HERO_IMAGE } from "@/lib/content/faq-hero";
+import styles from "@/components/content/faq.module.css";
 import { FAQAccordion } from "@/components/content/FAQAccordion";
 import { faqCategories } from "@/content/support/faq";
 import { createPublicSiteMetadata } from "@/lib/public-site-metadata";
@@ -12,14 +15,15 @@ export const metadata: Metadata = createPublicSiteMetadata({
 
 export default function FAQPage() {
   return (
-    <div className="support-page faq-page">
-      <header className="support-hero">
-        <p className="eyebrow">Support</p>
-        <h1>FAQ</h1>
-        <p>
-          Product, account, order, shipping, return, rewards, contact, and
-          policy answers in one place.
-        </p>
+    <div className={`faq-page ${styles.page}`}>
+      <header className="storefront-shell system-hero" aria-labelledby="faq-heading" data-layout-shell="storefront">
+        <div className="system-hero__surface">
+          <Image src={FAQ_HERO_IMAGE} alt="" fill priority
+            sizes="(max-width: 720px) 180vh, 100vw" className={`system-hero__image ${styles.heroImage}`} />
+          <div className="system-hero__copy">
+            <h1 id="faq-heading">In case you were wondering...</h1>
+          </div>
+        </div>
       </header>
       <FAQAccordion categories={faqCategories} />
     </div>
