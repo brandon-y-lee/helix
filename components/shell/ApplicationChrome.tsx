@@ -6,6 +6,7 @@ import { CartDrawerHost } from "@/components/cart/CartDrawer";
 import { CartProvider } from "@/components/cart/CartProvider";
 import { Header } from "@/components/shell/Header";
 import { SiteFooter } from "@/components/shell/SiteFooter";
+import { PrivacyMeasurement } from "@/components/privacy/PrivacyMeasurement";
 import { applicationRouteMode } from "@/lib/admin/routes";
 
 export function ApplicationChrome({ children }: { children: ReactNode }) {
@@ -29,6 +30,7 @@ export function ApplicationChrome({ children }: { children: ReactNode }) {
 
   return (
     <CartProvider key={`${mode}:${commerceDisabled}`} disabled={commerceDisabled}>
+      <PrivacyMeasurement />
       <Header commerceDisabled={commerceDisabled} />
       <main
         id="content"

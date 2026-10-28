@@ -88,8 +88,10 @@ describe("complete authorized local policy copies", () => {
     }
     const privacy = fragment(renderToStaticMarkup(privacyPolicy.content));
     const terms = fragment(renderToStaticMarkup(termsOfService.content));
-    expect(privacy.textContent).not.toMatch(/Square|Google login|Google-verified|Meta|Global Privacy Control|turn off Marketing Cookies|update or delete your account data/);
+    expect(privacy.textContent).not.toMatch(/Square|Google login|Google-verified|turn off Marketing Cookies|update or delete your account data/);
     expect(terms.textContent).not.toMatch(/Square|Live Price|sourcing network|limited to one per customer/);
+    expect(privacy.textContent).toContain("run only when enabled on this website and you allow the relevant category");
+    expect(privacy.textContent).toContain("We apply Global Privacy Control");
     expect(privacy.textContent).toContain("We provide at least two methods for you to exercise these rights.");
     expect(privacy.textContent).toContain("we may keep order and billing records for up to 7 years");
     expect(terms.textContent).toContain("Most orders ship 5–7 business days after being placed.");

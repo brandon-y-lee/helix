@@ -29,8 +29,8 @@ describe("mobile service navigation", () => {
     const summary = screen.getByText("Contents", { selector: "summary" });
     const disclosure = summary.closest("details")!;
     await user.click(summary);
-    const phoneLink = within(disclosure).getByRole("link", { name: "What Cookies Do" });
-    const desktopLink = screen.getAllByRole("link", { name: "What Cookies Do" })
+    const phoneLink = within(disclosure).getByRole("link", { name: cookiePolicy.sections[0].title });
+    const desktopLink = screen.getAllByRole("link", { name: cookiePolicy.sections[0].title })
       .find((link) => !disclosure.contains(link))!;
     phoneLink.focus();
     phoneLink.blur(); // A CSS-hidden focused link can leave body active before resize fires.

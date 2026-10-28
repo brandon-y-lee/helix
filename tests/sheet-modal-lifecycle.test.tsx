@@ -3,7 +3,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { PERSISTENT_SHEET_MOTION_TRANSITION, Sheet } from "@/components/overlays/Sheet";
-import { CookieAcknowledgementDialog } from "@/components/privacy/CookieAcknowledgementDialog";
+import { PrivacyChoicesDialog } from "@/components/privacy/PrivacyChoicesDialog";
 import { useModalPresence } from "@/components/overlays/modal-state";
 
 vi.mock("motion/react", async (importOriginal) => {
@@ -132,21 +132,25 @@ describe("shared modal lifecycle", () => {
     existingInert.remove();
   });
 
-  it("locks Cookie notice behind its own focus trap and restores its trigger", async () => {
+  it("locks privacy choices behind its own focus trap and restores its trigger", async () => {
     const user = userEvent.setup();
-    const { container } = render(<CookieAcknowledgementDialog />);
-    const trigger = screen.getByRole("button", { name: "Cookie notice" });
+    const { container } = render(<PrivacyChoicesDialog />);
+    const trigger = screen.getByRole("button", { name: "Your Privacy Choices" });
     await user.click(trigger);
-    const dialog = screen.getByRole("dialog", { name: "Cookie notice" });
+    const dialog = screen.getByRole("dialog", { name: "Your Privacy Choices" });
     expect(document.body).toHaveStyle({ overflow: "hidden" });
     expect(container).toHaveAttribute("inert");
     expect(dialog.closest("[inert]")).toBeNull();
-    const close = within(dialog).getByRole("button", { name: "Close cookie notice" });
-    await waitFor(() => expect(close).toHaveFocus());
+    const close = within(dialog).getByRole("button", { name: "Close privacy choices" });
+    await waitFor(() => expect(dialog).toHaveFocus());
     await user.tab({ shift: true });
-    expect(within(dialog).getByRole("button", { name: "Done" })).toHaveFocus();
+    expect(within(dialog).getByRole("button", { name: "Confirm my choices" })).toHaveFocus();
+    await user.tab();
+    expect(close).toHaveFocus();
+    await user.tab({ shift: true });
+    expect(within(dialog).getByRole("button", { name: "Confirm my choices" })).toHaveFocus();
     await user.keyboard("{Escape}");
-    expect(screen.queryByRole("dialog", { name: "Cookie notice" })).toBeNull();
+    expect(screen.queryByRole("dialog", { name: "Your Privacy Choices" })).toBeNull();
     expect(container).not.toHaveAttribute("inert");
     expect(document.body).not.toHaveStyle({ overflow: "hidden" });
     expect(trigger).toHaveFocus();

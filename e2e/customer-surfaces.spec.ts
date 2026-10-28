@@ -151,26 +151,76 @@ test("populated cart lines, quantities and Redemption Tiers retain distinct neut
   }
 });
 
-test("cookie acknowledgement keeps white elevation and gray category panels", async ({ page }) => {
+test("privacy choices preserves focus and truthful categories through interrupted and repeated flows", async ({ page }) => {
   for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844 }, { width: 320, height: 480 }]) {
     await page.setViewportSize(viewport);
     await page.goto("/cookie-policy");
-    const trigger = page.getByRole("button", { name: "Cookie notice", exact: true });
-    await trigger.click();
-    const dialog = page.getByRole("dialog", { name: "Cookie notice" });
-    await expect(dialog).toHaveCSS("background-color", CANVAS_WHITE);
-    await expectGrayPanels(dialog.locator(".cookie-dialog__category"));
-    const inactiveBadges = dialog.locator(".cookie-dialog__category--inactive span");
-    await expect(inactiveBadges).toHaveCount(2);
-    for (const badge of await inactiveBadges.all()) {
-      await expect(badge).toHaveCSS("background-color", CANVAS_WHITE);
+    const trigger = page.locator(".site-footer").getByRole("button", { name: "Your Privacy Choices", exact: true });
+    const initialURL = page.url();
+    await expect(page.locator(".site-footer").getByRole("button", { name: "Cookie notice" })).toHaveCount(0);
+    await expect(page.locator(".site-footer").getByRole("link", { name: "Your Privacy Choices" })).toHaveCount(0);
+    for (const method of ["outside", "close", "escape", "confirm"] as const) {
+      await trigger.click();
+      const dialog = page.getByRole("dialog", { name: "Your Privacy Choices" });
+      const close = dialog.getByRole("button", { name: "Close privacy choices" });
+      const confirm = dialog.getByRole("button", { name: "Confirm my choices" });
+      const essential = dialog.getByRole("button", { name: "Essential Cookies Always Active" });
+      const analytics = dialog.getByRole("button", { name: "Analytics" });
+      await expect(dialog).toHaveCSS("background-color", CANVAS_WHITE);
+      await expect(dialog).toBeFocused();
+      await expect(dialog.getByRole("switch")).toHaveCount(2);
+      await expect(dialog.getByRole("button", { name: "Accept All" })).toBeVisible();
+      await expect(dialog.locator(".privacy-dialog__body")).toHaveJSProperty("scrollTop", 0);
+      await expect(essential).toHaveAttribute("aria-expanded", "true");
+      await expect(analytics).toHaveAttribute("aria-expanded", "false");
+      await page.keyboard.press("Shift+Tab");
+      await expect(confirm).toBeFocused();
+      await page.keyboard.press("Tab");
+      await expect(close).toBeFocused();
+      await page.keyboard.press("Shift+Tab");
+      await expect(confirm).toBeFocused();
+      await expect(page.locator("body")).toHaveCSS("overflow", "hidden");
+      await expect(page.locator("main")).toHaveAttribute("inert", "");
+      await analytics.click();
+      await expect(analytics).toHaveAttribute("aria-expanded", "true");
+      await expect(essential).toHaveAttribute("aria-expanded", "false");
+      await expect(confirm).toBeInViewport();
+      const bounds = await dialog.boundingBox();
+      expect(bounds).not.toBeNull();
+      expect(bounds!.x).toBeGreaterThanOrEqual(16);
+      expect(bounds!.y).toBeGreaterThanOrEqual(0);
+      expect(bounds!.width).toBeLessThanOrEqual(viewport.width - 32);
+      expect(bounds!.height).toBeLessThanOrEqual(viewport.height * 0.9 + 1);
+      if (method === "outside") await page.locator(".privacy-dialog-backdrop").click({ position: { x: 2, y: 2 } });
+      else if (method === "close") await close.click();
+      else if (method === "escape") await page.keyboard.press("Escape");
+      else await confirm.click();
+      await expect(dialog).toHaveCount(0);
+      await expect(trigger).toBeFocused();
+      await expect(page.locator("main")).not.toHaveAttribute("inert");
+      await expect(page.locator("body")).not.toHaveCSS("overflow", "hidden");
+      expect(page.url()).toBe(initialURL);
     }
-    await expect(dialog.getByRole("button", { name: "Close cookie notice" })).toHaveCSS("border-top-color", CONTROL_BORDER);
-    await dialog.getByRole("button", { name: "Acknowledge notice" }).click();
-    await expect(dialog.getByRole("status")).toHaveText("Cookie notice acknowledged.");
-    await page.keyboard.press("Escape");
-    await expect(dialog).toHaveCount(0);
-    await expect(trigger).toBeFocused();
     await expectNoMainOverflow(page, viewport.width);
+  }
+});
+
+test("cookie policy retains the current legal layout with readable scoped tables and working links", async ({ page }) => {
+  for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844 }, { width: 320, height: 480 }]) {
+    await page.setViewportSize(viewport);
+    await page.goto("/cookie-policy");
+    await expect(page).toHaveTitle("Cookie Policy | helix");
+    const policy = page.getByRole("article", { name: "Cookie Policy" });
+    await expect(policy.getByRole("heading", { level: 1, name: "Cookie Policy" })).toBeVisible();
+    await expect(policy).not.toContainText(/Not in effect|prelaunch|No Legal Operator/);
+    await expect(policy.getByRole("table", {name:"Required cookies"}).getByRole("columnheader")).toHaveText(["Name", "Function", "Duration"]);
+    await expect(policy.getByRole("table", {name:"Required cookies"}).getByRole("row")).toHaveCount(8);
+    await expect(policy.getByRole("link", { name: "support@helixskin.com" })).toHaveAttribute("href", "mailto:support@helixskin.com");
+    await expectNoMainOverflow(page, viewport.width);
+    await page.locator(".site-footer").getByRole("button", { name: "Your Privacy Choices" }).click();
+    await page.getByRole("dialog").getByRole("link", { name: "Privacy Policy", exact: true }).first().click();
+    await expect(page).toHaveURL(/\/privacy$/);
+    await expect(page.getByRole("heading", { level: 1, name: "Privacy Policy" })).toBeVisible();
+    await expect(page.locator("body")).not.toHaveCSS("overflow", "hidden");
   }
 });
