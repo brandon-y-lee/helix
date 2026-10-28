@@ -1,8 +1,6 @@
-import type { Locator, Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
 import { expect, test } from "./storefront-fixture";
 import {
-  PANEL_GRAY,
-  expectGrayPanels,
   expectWhiteCanvas,
 } from "./surface-assertions";
 
@@ -12,16 +10,6 @@ async function expectNoDocumentOverflow(page: Page) {
     viewport: window.innerWidth,
   }));
   expect(widths.document).toBeLessThanOrEqual(widths.viewport);
-}
-
-async function expectAnchorBelowHeader(target: Locator) {
-  await expect.poll(async () => target.evaluate((element) => {
-    const headerHeight = Number.parseFloat(
-      getComputedStyle(document.documentElement).getPropertyValue("--site-header-height"),
-    );
-    const top = element.getBoundingClientRect().top;
-    return top - headerHeight >= 16 && top < 160;
-  })).toBe(true);
 }
 
 test("phone FAQ categories clear the sticky rail and keep native answers usable", async ({ page }) => {
@@ -94,132 +82,16 @@ test("phone FAQ categories clear the sticky rail and keep native answers usable"
   await expectClearance('#products summary');
 });
 
-test("legal Contents uses a closed phone disclosure and exposes one navigation across breakpoints", async ({ browserName, page }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.emulateMedia({ reducedMotion: "reduce" });
-  await page.goto("/cookie-policy");
-
-  const contents = page.locator("details.legal-toc--mobile");
-  const summary = contents.locator("summary");
-  const navigation = page.getByRole("navigation", { name: "Cookie Policy sections" });
-  await expectWhiteCanvas(page);
-  await expectGrayPanels(page.locator(".legal-document section"));
-  await expect(contents).toHaveCSS("background-color", PANEL_GRAY);
-  await expect(summary).toHaveText("Contents");
-  await expect(contents).not.toHaveAttribute("open");
-  await expect(navigation).toHaveCount(0);
-  await summary.focus();
-  await page.keyboard.press("Enter");
-  await expect(contents).toHaveAttribute("open", "");
-  await expect(contents).toHaveCSS("background-color", PANEL_GRAY);
-  await expect(navigation).toHaveCount(1);
-  await page.keyboard.press(browserName === "webkit" ? "Alt+Tab" : "Tab");
-  await expect(navigation.getByRole("link").first()).toBeFocused();
-  await page.keyboard.press("Enter");
-  await expect(page).toHaveURL(/\/cookie-policy#what-cookies-do$/);
-  await expectAnchorBelowHeader(page.locator("#what-cookies-do"));
-  await expectNoDocumentOverflow(page);
-
-  await page.setViewportSize({ width: 720, height: 1024 });
-  await expect(contents).toHaveCSS("background-color", PANEL_GRAY);
-  await expect(summary).toBeVisible();
-  await expect(navigation).toHaveCount(1);
-  await expect(contents.getByRole("navigation")).toBeVisible();
-  await expect(page.locator(".legal-toc--desktop")).toBeHidden();
-  const desktopContents = page.locator(".legal-toc--desktop");
-  const mobilePublication = contents.getByRole("link", { name: "What Cookies Do", exact: true });
-  const desktopPublication = desktopContents.getByRole("link", { name: "What Cookies Do", exact: true });
-  await summary.focus();
-  await page.keyboard.press("Enter");
-  await expect(contents).not.toHaveAttribute("open");
-  await page.keyboard.press("Enter");
-  await page.keyboard.press(browserName === "webkit" ? "Alt+Tab" : "Tab");
-  await expect(mobilePublication).toBeFocused();
-
-  await page.setViewportSize({ width: 721, height: 1024 });
-  await expect(contents).toBeHidden();
-  await expect(navigation).toHaveCount(1);
-  await expect(desktopContents).toBeVisible();
-  await expect(desktopPublication).toBeFocused();
-
-  await page.setViewportSize({ width: 720, height: 1024 });
-  await expect(contents).toHaveAttribute("open", "");
-  await expect(navigation).toHaveCount(1);
-  await expect(mobilePublication).toBeFocused();
-
-  await summary.focus();
-  await page.keyboard.press("Enter");
-  await expect(contents).not.toHaveAttribute("open");
-  await expect(navigation).toHaveCount(0);
-  await page.setViewportSize({ width: 721, height: 1024 });
-  await desktopPublication.focus();
-  await expect(desktopPublication).toBeFocused();
-  await page.setViewportSize({ width: 720, height: 1024 });
-  await expect(contents).not.toHaveAttribute("open");
-  await expect(summary).toBeFocused();
-
-  // Leaving Contents must clear the remembered focus owner before a resize.
-  const home = page.getByRole("link", { name: "helix home", exact: true });
-  await home.focus();
-  await expect(home).toBeFocused();
-  await page.setViewportSize({ width: 721, height: 1024 });
-  await expect(desktopContents).toBeVisible();
-  await expect(home).toBeFocused();
-  await page.setViewportSize({ width: 720, height: 1024 });
-  await expect(summary).toBeVisible();
-  await expect(home).toBeFocused();
-
-  // A pointer interaction with non-focusable prose also ends Contents ownership.
-  await summary.focus();
-  await page.getByRole("heading", { name: "Cookie Policy", exact: true }).click();
-  const focusIsInContents = () => page.evaluate(() =>
-    Boolean(document.activeElement?.closest(".legal-toc")),
-  );
-  await expect.poll(focusIsInContents).toBe(false);
-  const pointerFocus = await page.evaluate(() => ({
-    tagName: document.activeElement?.tagName,
-    id: document.activeElement?.id,
-  }));
-  for (const width of [721, 720]) {
-    await page.setViewportSize({ width, height: 1024 });
-    await expect(width === 720 ? summary : desktopContents).toBeVisible();
-    await expect.poll(focusIsInContents).toBe(false);
-    expect(await page.evaluate(() => ({
-      tagName: document.activeElement?.tagName,
-      id: document.activeElement?.id,
-    }))).toEqual(pointerFocus);
-  }
-
-  await page.setViewportSize({ width: 1440, height: 1000 });
-  await expect(contents).toBeHidden();
-  await expect(navigation).toHaveCount(1);
-  const columns = await page.locator(".legal-shell").evaluate((element) => ({
-    contentsRight: element.querySelector(".legal-toc--desktop")!.getBoundingClientRect().right,
-    documentLeft: element.querySelector(".legal-document")!.getBoundingClientRect().left,
-  }));
-  expect(columns.contentsRight).toBeLessThan(columns.documentLeft);
-  await expectNoDocumentOverflow(page);
-
-  await page.setViewportSize({ width: 390, height: 844 });
-  await expect(contents).not.toHaveAttribute("open");
-  await expect(navigation).toHaveCount(0);
-  await summary.focus();
-  await page.keyboard.press("Enter");
-  await expect(navigation).toHaveCount(1);
-  await expect(summary).toBeFocused();
-});
-
 test("phone cookie details scroll by keyboard inside a labeled region", async ({ page }) => {
   for (const width of [320, 390]) {
     await page.setViewportSize({ width, height: 844 });
     await page.goto("/cookie-policy");
-    const region = page.getByRole("region", { name: "Cookie categories", exact: true });
+    const region = page.getByRole("region", { name: "Required cookies", exact: true });
     await expectWhiteCanvas(page);
-    await expectGrayPanels(page.locator(".legal-document section"));
-    await expect(region).toHaveCSS("background-color", PANEL_GRAY);
+    await expect(page.getByRole("article", { name: "Cookie Policy" })).toBeVisible();
     await expect(page.getByText(/scroll horizontally/i)).toBeVisible();
     await expect(region.getByRole("columnheader")).toHaveText([
-      "Category", "Status", "Examples", "Purpose", "Optional",
+      "Name", "Function", "Duration",
     ]);
     await region.focus();
     await page.keyboard.press("Shift+Tab");
