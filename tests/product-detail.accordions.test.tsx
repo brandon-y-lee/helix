@@ -354,7 +354,7 @@ describe("ProductDetail purchase accordions", () => {
       finish: item.finish,
       keyIngredients: item.keyIngredients,
       pdpContent: item.pdpContent ?? null,
-      status: item.status,
+      status: index === 1 ? item.status : "coming_soon",
       routineGroup: "core",
       systemStepPosition: ([1, 3, 5] as const)[index],
       systemStepName: (["CLEANSE", "TREAT", "SEAL"] as const)[index],
@@ -392,6 +392,14 @@ describe("ProductDetail purchase accordions", () => {
     expect(container.querySelector("[data-pdp-details-routine]")).toBeNull();
     expect(before(ingredients, coreRoutine)).toBe(true);
     expect(container.querySelectorAll(".pdp-core-routine")).toHaveLength(1);
+    const links = screen.getByRole("region", { name: "Complete the routine" });
+    expect(within(links).getAllByRole("link")).toHaveLength(2);
+    expect(within(links).getByRole("link", { name: /CLEANSE/ })).toHaveAttribute("href", "/products/biotic-reset");
+    expect(within(links).getByRole("link", { name: /SEAL/ })).toHaveAttribute("href", "/products/ceramide-cushion");
+    expect(within(links).getAllByText("Coming soon")).toHaveLength(2);
+    expect(within(links).queryByRole("button")).not.toBeInTheDocument();
+    expect(before(container.querySelector("[data-pdp-buy-button]")!, links)).toBe(true);
+    expect(before(links, container.querySelector(".pdp-accordions")!)).toBe(true);
   });
 
   it("omits Details and Core Routine for a Product Beyond The Core", () => {
@@ -413,6 +421,8 @@ describe("ProductDetail purchase accordions", () => {
       name: "The Core for clearer, healthier skin.",
     })).toBeNull();
     expect(container.querySelector("[data-pdp-details-routine]")).toBeNull();
+    expect(screen.queryByRole("region", { name: "Complete the routine" })).toBeNull();
+    expect(container.querySelector(".pdp__price")).toHaveTextContent("$25.00");
     expect(container.querySelector(".pdp-core-routine")).toBeNull();
   });
 
@@ -853,6 +863,7 @@ describe("ProductDetail purchase accordions", () => {
       name: "BUY Super Serum - $25.00",
     });
     expect(initialAdd).not.toHaveTextContent(/[–—]/);
+    expect(document.querySelector(".pdp__price")).not.toBeInTheDocument();
     expect(screen.queryByTestId("afterpay-messaging-boundary")).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "30 mL" }));

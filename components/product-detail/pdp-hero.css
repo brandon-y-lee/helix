@@ -1,0 +1,164 @@
+/* Treat's introduction stays together when the desktop island stretches. */
+.pdp[data-product-slug="super-serum"] .pdp__intro {
+  margin-bottom: 16px;
+}
+
+.pdp[data-product-slug="super-serum"] .pdp__tagline {
+  margin-top: 12px;
+  font-size: clamp(1.05rem, 1.4vw, 1.2rem);
+  line-height: 1.4;
+}
+
+.pdp[data-product-slug="super-serum"] .pdp-family-selector {
+  margin-top: 0;
+}
+
+.pdp[data-product-slug="super-serum"] .field-label {
+  margin-top: 0;
+}
+
+.pdp[data-product-slug="super-serum"] [data-pdp-buy-button] {
+  /* Reuse the existing Treat amber palette value and shared fill behavior. */
+  --pdp-treat-amber: #e4c175;
+  --button-fill: var(--storefront-warm-gray);
+  --button-fill-text: #fff;
+  --button-fill-border: var(--storefront-warm-gray);
+  border-color: var(--storefront-warm-gray);
+  background: var(--pdp-treat-amber);
+  color: var(--ink);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .pdp[data-product-slug="super-serum"] [data-pdp-buy-button]:not(:disabled):hover {
+    color: var(--button-fill-text);
+  }
+}
+
+.pdp[data-product-slug="super-serum"] .add-feedback:empty {
+  min-height: 0;
+  margin: 0;
+}
+
+.pdp-routine-links {
+  container-type: inline-size;
+  margin-block: 24px;
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+}
+
+.pdp-routine-links h2 {
+  margin: 0 0 16px;
+  font-family: var(--font);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.pdp-routine-links__grid {
+  display: grid;
+  gap: 16px;
+}
+
+.pdp-routine-links__card {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid transparent;
+  border-radius: var(--pdp-panel-radius);
+  background: var(--surface-inset);
+}
+
+.pdp-routine-links__card:hover {
+  border-color: var(--control-line);
+}
+
+.pdp-routine-links__card:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
+}
+
+.pdp-routine-links__image {
+  position: relative;
+  width: 64px;
+  height: 72px;
+  overflow: hidden;
+  border-radius: var(--radius);
+}
+
+.pdp-routine-links__image img {
+  object-fit: contain;
+}
+
+.pdp-routine-links__copy {
+  min-width: 0;
+}
+
+.pdp-routine-links__copy > * {
+  display: block;
+}
+
+.pdp-routine-links__copy strong {
+  overflow: hidden;
+  font-size: 0.86rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pdp-routine-links__copy > span {
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.pdp-routine-links__copy small {
+  margin-top: 8px;
+  font-size: 0.7rem;
+}
+
+@container (min-width: 480px) {
+  .pdp-routine-links__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 821px) {
+  .pdp[data-product-slug="super-serum"] .pdp__purchase {
+    align-self: stretch;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .pdp[data-product-slug="super-serum"] .pdp__purchase > * {
+    flex: none;
+  }
+
+  .pdp[data-product-slug="super-serum"] .pdp__intro {
+    margin-bottom: 24px;
+  }
+
+  .pdp[data-product-slug="super-serum"] .pdp__collection {
+    margin-bottom: 12px;
+  }
+
+  .pdp[data-product-slug="super-serum"] .pdp__description {
+    margin-top: 24px;
+  }
+
+  .pdp[data-product-slug="super-serum"] .pdp__actions {
+    margin-top: 24px;
+  }
+
+  .pdp[data-product-slug="super-serum"] .add-feedback {
+    margin-top: 8px;
+    margin-bottom: 28px;
+  }
+
+  .pdp[data-product-slug="super-serum"] .pdp-accordions {
+    margin-top: auto;
+  }
+}

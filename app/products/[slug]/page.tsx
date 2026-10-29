@@ -88,6 +88,7 @@ export default async function ProductDetailPage({
         <ProductDetail
           key={product.slug}
           product={product}
+          subtitle={product.slug === "super-serum" ? "the daily skin concentrate" : undefined}
           presentation={presentation}
           coreProducts={coreProducts}
           stripePublishableKey={stripeMessagingPublishableKey()}
