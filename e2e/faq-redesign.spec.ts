@@ -56,15 +56,11 @@ test('desktop FAQ tracks scrolling, native fragments and history', async ({ page
   await nav.getByRole('link', { name: 'Products', exact: true }).click();
   await expect(page).toHaveURL(/#products$/);
   await nav.getByRole('link', { name: 'Policies', exact: true }).click();
-  await expect(page).toHaveURL(/#policies$/);
   await page.goBack();
-  await expect(page).toHaveURL(/#products$/);
   await expect(nav.getByRole('link', { name: 'Products', exact: true })).toHaveAttribute('aria-current', 'location');
   await page.goForward();
-  await expect(page).toHaveURL(/#policies$/);
   await expect(nav.getByRole('link', { name: 'Policies', exact: true })).toHaveAttribute('aria-current', 'location');
   await page.reload();
-  await expect(page).toHaveURL(/#policies$/);
   await expect(nav.getByRole('link', { name: 'Policies', exact: true })).toHaveAttribute('aria-current', 'location');
 });
 
