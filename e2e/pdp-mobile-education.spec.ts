@@ -306,8 +306,12 @@ test("inline INCI preserves the reader's place and visible focus through disclos
   const search = page.getByRole("button", { name: "SEARCH", exact: true });
   await search.focus();
   await search.click();
-  await expect(page.getByRole("dialog", { name: "Search", exact: true })).toBeVisible();
+  const searchDialog = page.getByRole("dialog", { name: "Search", exact: true });
+  await expect(searchDialog).toBeVisible();
+  await expect(searchDialog.getByRole("searchbox", { name: "Search products" })).toBeFocused();
   await page.keyboard.press("Escape");
+  await expect(searchDialog).toHaveCount(0);
+  await expect.poll(() => page.evaluate(() => document.body.style.overflow)).not.toBe("hidden");
   await expect(search).toBeFocused();
   await expect(trigger).toHaveAttribute("aria-expanded", "true");
   await trigger.focus();

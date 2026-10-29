@@ -1,8 +1,9 @@
 import { render, screen, within } from "@testing-library/react";
+import { renderToStaticMarkup } from "react-dom/server";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { FAQAccordion } from "@/components/content/FAQAccordion";
-import { LegalDocumentLayout } from "@/components/content/LegalDocumentLayout";
+import FAQPage from "@/app/faq/page";
+import CookiePolicyPage from "@/app/cookie-policy/page";
 import { SiteFooter } from "@/components/shell/SiteFooter";
 import { cookieCategories, cookiePolicy } from "@/content/legal/cookies";
 import { privacyChoices } from "@/content/legal/privacy-choices";
@@ -19,6 +20,7 @@ import {
   formatFreeShippingThreshold,
   qualifiesForFreeStandardShipping,
   remainingForFreeStandardShipping,
+  returnsPolicy,
 } from "@/content/support/policy";
 import ContactPage from "@/app/contact/page";
 import PrivacyChoicesPage from "@/app/privacy-choices/page";
@@ -138,7 +140,7 @@ describe("global footer", () => {
     expect(screen.queryByRole("link", { name: /instagram/i })).not.toBeInTheDocument();
   });
 
-  it("toggles mobile groups and opens the cookie notice", async () => {
+  it("toggles mobile groups and opens privacy choices", async () => {
     const user = userEvent.setup();
     render(<SiteFooter />);
 
@@ -165,28 +167,27 @@ describe("global footer", () => {
     expect(within(mobileGroups).getByRole("link", { name: "Create account" }))
       .toHaveAttribute("href", "/account/sign-up");
 
-    await user.click(screen.getByRole("button", { name: "Cookie notice" }));
-    const dialog = screen.getByRole("dialog", { name: "Cookie notice" });
-    expect(dialog).toHaveTextContent("Essential cookies");
-    expect(dialog).toHaveTextContent("Payment messaging");
-    expect(dialog).toHaveTextContent("Not active while checkout supports cards only");
-    await user.click(within(dialog).getByRole("button", { name: /acknowledge notice/i }));
-    expect(within(dialog).getByRole("status")).toHaveTextContent(
-      "Cookie notice acknowledged.",
-    );
+    await user.click(screen.getByRole("button", { name: "Your Privacy Choices" }));
+    const dialog = screen.getByRole("dialog", { name: "Your Privacy Choices" });
+    expect(dialog).toHaveTextContent("Essential");
+    expect(dialog).toHaveTextContent("Always Active");
+    expect(within(dialog).getByRole("link", { name: "Cookie Policy" })).toHaveAttribute("href", "/cookie-policy");
+    await user.click(within(dialog).getByRole("button", { name: "Confirm my choices" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Cookie notice" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Your Privacy Choices" })).not.toBeInTheDocument();
   });
 });
 
 describe("legal and support content", () => {
-  it("retains the existing cookie summary publication status outside the copied policies", () => {
-    render(<LegalDocumentLayout document={cookiePolicy} />);
-
-    expect(screen.getByText("Not in effect")).toBeInTheDocument();
-    expect(screen.getByText(/helix is the brand, not a legal person or entity/i))
-      .toBeInTheDocument();
-    expect(screen.getByText(/No Legal Operator or verified legal contact details/i))
-      .toBeInTheDocument();
-    expect(screen.queryByText("Official")).not.toBeInTheDocument();
+  it("renders a consumer cookie policy in the current legal layout", () => {
+    render(<CookiePolicyPage />);
+    expect(screen.getByRole("article", { name: "Cookie Policy" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Cookie Policy" })).toBeInTheDocument();
+    expect(screen.queryByText("Not in effect")).not.toBeInTheDocument();
+    expect(screen.queryByText(/No Legal Operator/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("table", {name:"Required cookies"})).toHaveTextContent("Duration");
+    expect(screen.getByRole("link", { name: "support@helixskin.com" })).toHaveAttribute("href", "mailto:support@helixskin.com");
   });
 
   it("uses helix metadata across trust, support, and policy routes", () => {
@@ -226,7 +227,7 @@ describe("legal and support content", () => {
     );
     expect(combined).not.toMatch(/mandatory arbitration|class-action waiver|jury-trial waiver/i);
     expect(combined).not.toMatch(/real payments are available|returns are accepted/i);
-    expect(combined).toMatch(/sandbox Checkout/i);
+    expect(combined).not.toMatch(/prelaunch|not an operative|No Legal Operator/i);
     expect(combined).not.toMatch(FORMER_BRAND_PATTERN);
     expect(combined).not.toMatch(LEGACY_REWARDS_PATTERN);
     expect(combined).not.toMatch(FORMER_BRAND_PATTERN);
@@ -249,7 +250,6 @@ describe("legal and support content", () => {
     expect(cookieCategories).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ category: "Essential", active: true, optional: false }),
-        expect.objectContaining({ category: "Functional", active: false, optional: false }),
         expect.objectContaining({ category: "Analytics", active: false }),
         expect.objectContaining({ category: "Advertising", active: false }),
       ]),
@@ -271,19 +271,17 @@ describe("legal and support content", () => {
       documentText({ cookieCategories, cookiePolicy, privacyChoices }),
     ).not.toMatch(
       new RegExp(
-        `${FORMER_BRAND_SNAKE}|cookie preferences|cookie-preference|consent`,
+        `${FORMER_BRAND_SNAKE}`,
         "i",
       ),
     );
   });
 
-  it("describes the visible acknowledgement as required and functional", () => {
+  it("keeps the privacy choices route useful with the same dialog", async () => {
     render(<PrivacyChoicesPage />);
-
-    expect(screen.getByText(/required and functional storage acknowledgement/i))
-      .toBeInTheDocument();
-    expect(screen.queryByText(/essential-storage acknowledgement/i))
-      .not.toBeInTheDocument();
+    expect(screen.queryByText("Not in effect")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Your Privacy Choices" }));
+    expect(screen.getByRole("dialog", { name: "Your Privacy Choices" })).toHaveTextContent("Your choices are stored in this browser");
   });
 
   it("defines and applies the shared free standard shipping threshold", () => {
@@ -300,7 +298,7 @@ describe("legal and support content", () => {
 
   it("renders FAQ categories with canonical anchors and native disclosures", async () => {
     const user = userEvent.setup();
-    render(<FAQAccordion categories={faqCategories} />);
+    render(<FAQPage />);
 
     expect(screen.getByRole("link", { name: "Products" })).toHaveAttribute(
       "href",
@@ -322,10 +320,24 @@ describe("legal and support content", () => {
     await user.click(orderSummary);
     expect(orderDetails).not.toHaveAttribute("open");
 
+    const hero = document.querySelector<HTMLElement>(".system-hero")!;
+    expect(within(hero).getByRole("heading", { level: 1 })).toHaveTextContent("In case you were wondering...");
+    expect(hero.querySelector("img")).toHaveAttribute("alt", "");
+    expect(hero.querySelector("img")?.getAttribute("src")).toContain("13df364513afd448dd571acd4f8efd29084e59aff7956c7fd5d332549cd4b773.webp");
     const faqText = document.body.textContent ?? "";
     expect(faqText).toContain("$50+");
     expect(faqText).toMatch(/No real shipping or Fulfillment capability is available/i);
-    expect(faqText).toMatch(/No operative Return Policy is in effect/i);
+    const returnAnswer = faqCategories.find((category) => category.id === "returns")!
+      .items.find((item) => item.id === "return-window")!.answer;
+    const returnWindow = `Return requests must be submitted within ${returnsPolicy.returnWindowDays} days of receipt.`;
+    expect(returnsPolicy.returnWindowDays).toBe(30);
+    expect(returnAnswer).toContain(returnWindow);
+    expect(returnAnswer).toContain(returnsPolicy.condition);
+    expect(returnAnswer).toContain("acceptance is not guaranteed");
+    expect(returnAnswer).not.toMatch(/unopened|unused|planning assumption|not in effect/i);
+    const legalTerms = renderToStaticMarkup(termsOfService.content);
+    expect(legalTerms).toContain(returnWindow);
+    expect(legalTerms).toContain(returnsPolicy.condition);
     expect(faqText).toMatch(/Terms status page/i);
     expect(faqText).not.toMatch(/Does helix offer|Report the issue within|Approved refunds/i);
     expect(faqText).not.toMatch(

@@ -194,6 +194,13 @@ describe("routine Product Media containment", () => {
     );
     expect(homepage.fallback).toHaveBeenCalledOnce();
 
+    const editorialUrl = `${mediaOrigin}/storage/v1/object/public/helix-catalog/pages/faq/hero/13df364513afd448dd571acd4f8efd29084e59aff7956c7fd5d332549cd4b773.webp`;
+    for (const url of [editorialUrl, `http://127.0.0.1:3000/_next/image?url=${encodeURIComponent(editorialUrl)}&w=1920&q=75`]) {
+      const editorial = await harness.dispatch(url);
+      expect(editorial.fallback).toHaveBeenCalledOnce();
+      expect(editorial.fulfill).not.toHaveBeenCalled();
+    }
+
     expect(containment.report()).toEqual({
       containedRequests: 3,
       imageRequests: 2,
@@ -227,7 +234,7 @@ describe("routine Product Media containment", () => {
     });
     await containment.install(harness.page);
     const unexpectedUrl =
-      `${mediaOrigin}/storage/v1/object/public/helix-catalog/unexpected.webp`;
+      `${mediaOrigin}/storage/v1/object/public/helix-catalog/pages/faq/hero/unexpected.webp`;
 
     await expect(harness.dispatch(unexpectedUrl)).rejects.toThrow(
       `Product Media request is absent from the live Storefront: ${unexpectedUrl}`,

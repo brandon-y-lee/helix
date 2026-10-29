@@ -35,6 +35,8 @@ const escape = (text) => text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").r
 const allowedTags = new Set(["div", "header", "nav", "section", "h1", "h2", "h3", "h4", "p", "ul", "ol", "li", "strong", "em", "a", "span", "br"]);
 const reports = [];
 const approvedCorrections = JSON.parse(fs.readFileSync(new URL("approved-factual-corrections.json", import.meta.url), "utf8"));
+const approvedTerminology = JSON.parse(fs.readFileSync(new URL("approved-terminology-corrections.json", import.meta.url), "utf8"));
+const approvedReturns = JSON.parse(fs.readFileSync(new URL("approved-return-policy-corrections.json", import.meta.url), "utf8"));
 
 for (const page of pages) {
   const sourceFile = new URL(`source/${page.source}.rendered.article.html`, evidence);
@@ -60,8 +62,18 @@ for (const page of pages) {
   while (walker.nextNode()) textNodes.push(walker.currentNode);
   for (const node of textNodes) node.textContent = substitute(node.textContent);
   const factualCorrections = approvedCorrections[page.source] ?? [];
-  for (const correction of factualCorrections) {
-    const matches = textNodes.filter((node) => node.textContent.includes(correction.find));
+  const terminologyCorrections = approvedTerminology[page.source] ?? [];
+  const returnPolicyCorrections = approvedReturns[page.source] ?? [];
+  for (const correction of [...factualCorrections, ...terminologyCorrections, ...returnPolicyCorrections]) {
+    if (correction.operation === "remove-paragraph") {
+      const paragraphs = [...container.querySelectorAll("p")].filter((paragraph) => paragraph.textContent.trim() === correction.find);
+      if (paragraphs.length !== 1) {
+        throw new Error(`Expected one complete approved paragraph: ${page.source}: ${correction.find}`);
+      }
+      paragraphs[0].remove();
+      continue;
+    }
+    const matches = textNodes.filter((node) => node.isConnected && node.textContent.includes(correction.find));
     if (matches.length !== 1 || matches[0].textContent.split(correction.find).length !== 2) {
       throw new Error(`Expected one exact approved correction match: ${page.source}: ${correction.find}`);
     }
@@ -97,7 +109,7 @@ for (const page of pages) {
   // Retire only the three superseded policy-summary modules.
   const old = new URL(`content/legal/${page.file}.ts`, root);
   if (fs.existsSync(old)) fs.unlinkSync(old);
-  reports.push({ route: page.route, sourceUrl: `https://revetir.com/us/${page.file === "accessibility" ? "customer-care/" : ""}${page.source}`, sourceFile: `source/${page.source}.rendered.article.html`, sourceSha256: crypto.createHash("sha256").update(source).digest("hex"), sourceCharacters: sourceText.length, expectedCharacters: container.textContent.length, textSubstitutions: counts, links: sourceLinks.map((link) => ({ ...link, target: link.href.startsWith("mailto:") ? substitute(link.href) : links[link.href] })), factualCorrections });
+  reports.push({ route: page.route, sourceUrl: `https://revetir.com/us/${page.file === "accessibility" ? "customer-care/" : ""}${page.source}`, sourceFile: `source/${page.source}.rendered.article.html`, sourceSha256: crypto.createHash("sha256").update(source).digest("hex"), sourceCharacters: sourceText.length, expectedCharacters: container.textContent.length, textSubstitutions: counts, links: sourceLinks.map((link) => ({ ...link, target: link.href.startsWith("mailto:") ? substitute(link.href) : links[link.href] })), factualCorrections, terminologyCorrections, returnPolicyCorrections });
 }
 fs.writeFileSync(new URL("substitutions.json", evidence), JSON.stringify({ substitutions, linkMap: links, pages: reports }, null, 2) + "\n");
-console.log("Generated local review copies with only recorded identity substitutions and approved factual corrections.");
+console.log("Generated local review copies with only recorded identity substitutions and approved factual, terminology and return-policy corrections.");
