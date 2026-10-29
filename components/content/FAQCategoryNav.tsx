@@ -23,6 +23,8 @@ export function FAQCategoryNav({ categories }: { categories: Pick<FAQCategory, "
     const phone = window.matchMedia?.("(max-width: 760px)");
     let frame = 0;
     let disposed = false;
+    let followScroll = true;
+    let lastScrollY = window.scrollY;
     const threshold = () => {
       const header = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--site-header-height")) || 64;
       return header + (phone?.matches ? nav.getBoundingClientRect().height : 0) + 24;
@@ -30,6 +32,10 @@ export function FAQCategoryNav({ categories }: { categories: Pick<FAQCategory, "
     const measureRail = () => shell.style.setProperty("--faq-rail-height", `${nav.getBoundingClientRect().height}px`);
     const readFragment = () => {
       const id = categories.find((category) => `#${category.id}` === window.location.hash)?.id;
+      window.cancelAnimationFrame(frame);
+      frame = 0;
+      followScroll = !id;
+      lastScrollY = window.scrollY;
       setActiveId(id ?? (window.location.hash ? null : categories[0]?.id ?? null));
     };
     const readScroll = () => {
@@ -46,7 +52,15 @@ export function FAQCategoryNav({ categories }: { categories: Pick<FAQCategory, "
     const schedule = () => {
       if (!frame) frame = window.requestAnimationFrame(readScroll);
     };
-    const resize = () => { measureRail(); revealCurrentLink(nav); schedule(); };
+    const onScroll = () => {
+      if (window.scrollY === lastScrollY) return;
+      lastScrollY = window.scrollY;
+      followScroll = true;
+      schedule();
+    };
+    // Layout can settle before native fragment restoration. Keep its selection
+    // until vertical movement resumes normal viewport tracking.
+    const resize = () => { measureRail(); revealCurrentLink(nav); if (followScroll) schedule(); };
     measureRail();
     readFragment();
     const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(resize);
@@ -55,7 +69,7 @@ export function FAQCategoryNav({ categories }: { categories: Pick<FAQCategory, "
     if (contents) observer?.observe(contents);
     window.addEventListener("hashchange", readFragment);
     window.addEventListener("popstate", readFragment);
-    window.addEventListener("scroll", schedule, { passive: true });
+    window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", resize);
     void document.fonts?.ready.then(() => { if (!disposed) resize(); });
     return () => {
@@ -64,7 +78,7 @@ export function FAQCategoryNav({ categories }: { categories: Pick<FAQCategory, "
       observer?.disconnect();
       window.removeEventListener("hashchange", readFragment);
       window.removeEventListener("popstate", readFragment);
-      window.removeEventListener("scroll", schedule);
+      window.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", resize);
     };
   }, [categories]);
