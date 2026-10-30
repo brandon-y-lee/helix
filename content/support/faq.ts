@@ -169,12 +169,12 @@ export const faqCategories: FAQCategory[] = [
   {
     id: "returns",
     label: "Returns & Refunds",
-    summary: "Unavailable Return, Item Claim, Exchange, and refund capabilities.",
+    summary: "Return requests, product condition, Item Claims, Exchanges and refunds.",
     items: [
       {
         id: "return-window",
-        question: "Is a Return Policy in effect?",
-        answer: `No operative Return Policy is in effect. A ${returnsPolicy.returnWindowDays}-day Return Window is only a planning assumption. ${returnsPolicy.condition} This is not a current Customer instruction.`,
+        question: "What is the return policy?",
+        answer: `Return requests must be submitted within ${returnsPolicy.returnWindowDays} days of receipt. ${returnsPolicy.condition}`,
       },
       {
         id: "damaged-missing",
@@ -293,9 +293,9 @@ export const faqCategories: FAQCategory[] = [
       },
       {
         id: "cookies",
-        question: "What does the Cookie notice record?",
+        question: "What can I manage in Your Privacy Choices?",
         answer:
-          "The Cookie notice records only a Cookie Acknowledgement for the required and functional storage disclosure. It does not offer optional Cookie Preferences. Your Privacy Choices explains the current state of sale, sharing, and targeted-advertising controls.",
+          "Your Privacy Choices in the footer lets you allow or turn off optional analytics and marketing. Confirm my choices saves your selection in this browser; closing without confirming discards changes. Global Privacy Control keeps marketing off while your browser sends that signal. Required cookies support account access and shopping; you can manage cookies through your browser settings.",
         links: [
           { label: "Cookie Policy", href: "/cookie-policy" },
           { label: "Your Privacy Choices", href: "/privacy-choices" },

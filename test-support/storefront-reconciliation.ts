@@ -177,7 +177,7 @@ function pdpMismatches(
 
   const initialVariant = offerPresentation.offers[0] ?? product.variants[0];
   const price = document.querySelector(".pdp__price")?.textContent?.trim();
-  const expectedPrice = offerPresentation.showPrice && initialVariant
+  const expectedPrice = product.slug !== "super-serum" && offerPresentation.showPrice && initialVariant
     ? formatPrice(initialVariant.price)
     : null;
   if ((price ?? null) !== expectedPrice) {

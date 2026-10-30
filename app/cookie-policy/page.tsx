@@ -1,6 +1,12 @@
 import type { Metadata } from "next";
-import { LegalDocumentLayout } from "@/components/content/LegalDocumentLayout";
-import { cookieCategories, cookiePolicy } from "@/content/legal/cookies";
+import Link from "next/link";
+import { PolicyDocumentLayout } from "@/components/content/PolicyDocumentLayout";
+import { PrivacyChoicesDialog } from "@/components/privacy/PrivacyChoicesDialog";
+import {
+  cookiePolicy,
+  requiredCookies,
+  browserStorage,
+} from "@/content/legal/cookies";
 import { createPublicSiteMetadata } from "@/lib/public-site-metadata";
 
 export const metadata: Metadata = createPublicSiteMetadata({
@@ -11,42 +17,121 @@ export const metadata: Metadata = createPublicSiteMetadata({
 
 export default function CookiePolicyPage() {
   return (
-    <LegalDocumentLayout document={cookiePolicy}>
-      <div className="legal-table-block">
-        <p className="legal-table-cue" id="cookie-table-cue">
-          Scroll horizontally to view all cookie details.
-        </p>
-        <div
-          className="legal-table-wrap"
-          role="region"
-          aria-label="Cookie categories"
-          aria-describedby="cookie-table-cue"
-          tabIndex={0}
-        >
-          <table>
-            <thead>
-              <tr>
-                <th scope="col">Category</th>
-                <th scope="col">Status</th>
-                <th scope="col">Examples</th>
-                <th scope="col">Purpose</th>
-                <th scope="col">Optional</th>
-              </tr>
-            </thead>
-            <tbody>
-              {cookieCategories.map((category) => (
-                <tr key={category.category}>
-                  <th scope="row">{category.category}</th>
-                  <td>{category.active ? "Active" : "Not active"}</td>
-                  <td>{category.examples.join("; ")}</td>
-                  <td>{category.purpose}</td>
-                  <td>{category.optional ? "Yes" : "No"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </LegalDocumentLayout>
+    <PolicyDocumentLayout
+      document={{
+        ...cookiePolicy,
+        variant: "document",
+        content: (
+          <>
+            <h1>Cookie Policy</h1>
+            <p data-policy-gap="large" data-policy-tone="muted">
+              {cookiePolicy.status}
+            </p>
+            <p data-policy-gap="large" data-policy-tone="muted">
+              {cookiePolicy.intro}
+            </p>
+            {cookiePolicy.sections.map((section) => (
+              <section id={section.id} key={section.id}>
+                <h2>{section.title}</h2>
+                {section.body.map((paragraph) => (
+                  <p
+                    key={paragraph}
+                    data-policy-gap="normal"
+                    data-policy-tone="muted"
+                  >
+                    {paragraph}
+                  </p>
+                ))}
+                {section.id === "required-cookies" && (
+                  <>
+                    <p data-policy-gap="small" id="cookie-table-cue">
+                      Scroll horizontally to view the table on smaller screens.
+                    </p>
+                    <div
+                      className="policy-cookie-table"
+                      role="region"
+                      aria-label="Required cookies"
+                      aria-describedby="cookie-table-cue"
+                      tabIndex={0}
+                    >
+                      <table aria-label="Required cookies">
+                        <thead>
+                          <tr>
+                            <th scope="col">Name</th>
+                            <th scope="col">Function</th>
+                            <th scope="col">Duration</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {requiredCookies.map((cookie) => (
+                            <tr key={cookie.name}>
+                              <th scope="row">{cookie.name}</th>
+                              <td>{cookie.purpose}</td>
+                              <td>{cookie.duration}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                )}
+                {section.id === "optional-storage" && (
+                  <div
+                    className="policy-cookie-table"
+                    role="region"
+                    aria-label="Browser storage and optional services"
+                    tabIndex={0}
+                  >
+                    <table aria-label="Browser storage and optional services">
+                      <thead>
+                        <tr>
+                          <th scope="col">Name</th>
+                          <th scope="col">Function</th>
+                          <th scope="col">Duration</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {browserStorage.map((row) => (
+                          <tr key={row.name}>
+                            <th scope="row">{row.name}</th>
+                            <td>{row.purpose}</td>
+                            <td>{row.duration}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+                {section.id === "your-choices" && (
+                  <PrivacyChoicesDialog triggerClassName="policy-privacy-trigger" />
+                )}
+                {section.id === "contact" && (
+                  <p>
+                    <a
+                      href="mailto:support@helixskin.com"
+                      data-policy-link="email"
+                    >
+                      support@helixskin.com
+                    </a>{" "}
+                    · <Link href="/privacy">Privacy Policy</Link>
+                  </p>
+                )}
+                {section.id === "other-services" && (
+                  <p>
+                    <a href="https://stripe.com/privacy">
+                      Stripe Privacy Policy
+                    </a>{" "}
+                    ·{" "}
+                    <a href="https://stripe.com/legal/cookies-policy">
+                      Stripe Cookie Policy
+                    </a>
+                  </p>
+                )}
+              </section>
+            ))}
+          </>
+        ),
+      }}
+    />
   );
 }

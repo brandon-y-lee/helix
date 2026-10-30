@@ -1,43 +1,27 @@
 import type { LegalDocument } from "./types";
-import { supportPolicy } from "@/content/support/policy";
 
 export const privacyChoices: LegalDocument = {
   title: "Your Privacy Choices",
   metadataTitle: "Your Privacy Choices | helix",
-  description: "Current Privacy Choice behavior on the helix Public Site.",
+  description:
+    "Review required storage and your privacy choices on the Helix website.",
   canonical: "/privacy-choices",
-  status: "Updated September 28, 2026",
+  status: "Last updated October 28, 2026",
   intro:
-    "The current site does not include advertising pixels, cross-context behavioral advertising, or a sale/share opt-out workflow. This page explains the current status and links to related controls.",
+    "Helix Labs LLC DBA Helix uses required cookies to support account access, shopping and security. You can choose whether to allow optional analytics and marketing technologies in this browser.",
   sections: [
     {
-      id: "current-status",
-      title: "Current Status",
-      body: [
-        "The site does not include advertising tags, behavioral advertising scripts, or a data-sale workflow. Because those categories are not active, this page does not show an inactive opt-out switch.",
-      ],
-    },
-    {
       id: "available-controls",
-      title: "Available Controls",
+      title: "Review your choices",
       body: [
-        "The Cookie notice records only that the required and functional storage disclosure was shown and acknowledged. It is not a Cookie Preference or optional-storage choice.",
-        "Account holders can access and update profile information through the Account page.",
-        "Cart contents can be edited or cleared through the cart interface.",
+        "Open Your Privacy Choices on this page or from the footer at any time. The dialog explains required storage and search, and lets you allow or turn off optional analytics and marketing. Confirm my choices saves your selection for 180 days in this browser. Closing without confirming discards changes. Global Privacy Control keeps marketing off while your browser sends that signal. You can also block or delete cookies through your browser settings, although some website features may stop working.",
       ],
     },
     {
       id: "requests",
-      title: "Privacy Requests",
+      title: "Privacy requests",
       body: [
-        supportPolicy.privacyRequestRoute,
-      ],
-    },
-    {
-      id: "future",
-      title: "Future Advertising or Analytics",
-      body: [
-        "If the helix Platform later adds optional analytics, advertising, or other privacy-choice technology, this page and a genuine Cookie Preference control must be updated before those tools are enabled.",
+        "For questions about your personal information or to exercise your privacy rights, contact support@helixskin.com. Read our Privacy Policy for further information.",
       ],
     },
   ],

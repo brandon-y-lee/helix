@@ -1,9 +1,6 @@
-import type { Locator, Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
 import { expect, test } from "./storefront-fixture";
 import {
-  CONTROL_BORDER,
-  PANEL_GRAY,
-  expectGrayPanels,
   expectWhiteCanvas,
 } from "./surface-assertions";
 
@@ -15,31 +12,22 @@ async function expectNoDocumentOverflow(page: Page) {
   expect(widths.document).toBeLessThanOrEqual(widths.viewport);
 }
 
-async function expectAnchorBelowHeader(target: Locator) {
-  await expect.poll(async () => target.evaluate((element) => {
-    const headerHeight = Number.parseFloat(
-      getComputedStyle(document.documentElement).getPropertyValue("--site-header-height"),
-    );
-    const top = element.getBoundingClientRect().top;
-    return top - headerHeight >= 16 && top < 160;
-  })).toBe(true);
-}
-
-test("phone FAQ categories reveal the hash selection and keep native answers usable", async ({ page }) => {
+test("phone FAQ categories clear the sticky rail and keep native answers usable", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/faq#policies");
-
   const navigation = page.getByRole("navigation", { name: "FAQ categories" });
   const policies = navigation.getByRole("link", { name: "Policies", exact: true });
-  await expect(policies).toHaveAttribute("aria-current", "location");
-  const neutralCategories = navigation.locator("a:not([aria-current])");
+  const products = navigation.getByRole("link", { name: "Products", exact: true });
+  const expectClearance = async (id: string) => {
+    await expect.poll(async () => page.locator(id).first().evaluate((element) => {
+      const nav = document.querySelector('.faq-category-nav')!.getBoundingClientRect();
+      return element.getBoundingClientRect().top - nav.bottom;
+    })).toBeGreaterThanOrEqual(20);
+  };
   await expectWhiteCanvas(page);
-  await expectGrayPanels(page.locator(".faq-item"));
-  await expectGrayPanels(neutralCategories);
-  for (const category of await neutralCategories.all()) {
-    await expect(category).toHaveCSS("border-top-color", CONTROL_BORDER);
-  }
+  await expect(page.locator('.faq-categories')).toHaveCSS('background-color', 'rgb(241, 240, 237)');
+  await expect(policies).toHaveAttribute("aria-current", "location");
   await expect(policies).toHaveCSS("background-color", "rgb(17, 19, 18)");
   await expect(policies).toHaveCSS("color", "rgb(255, 253, 248)");
   await expect(navigation.locator('[aria-current="location"]')).toHaveCount(1);
@@ -47,182 +35,63 @@ test("phone FAQ categories reveal the hash selection and keep native answers usa
     const selected = element.querySelector('[aria-current="location"]')!;
     const nav = element.getBoundingClientRect();
     const link = selected.getBoundingClientRect();
-    return element.scrollLeft > 0 && link.left >= nav.left - 1 && link.right <= nav.right + 1;
+    return link.left >= nav.left - 1 && link.right <= nav.right + 1;
   })).toBe(true);
-
-  const geometry = await navigation.evaluate((element) => ({
-    width: element.clientWidth,
-    scrollWidth: element.scrollWidth,
-    links: Array.from(element.querySelectorAll("a"), (link) => ({
-      top: link.getBoundingClientRect().top,
-      height: link.getBoundingClientRect().height,
-    })),
-  }));
-  expect(geometry.scrollWidth).toBeGreaterThan(geometry.width);
-  for (const link of geometry.links) {
-    expect(link.top).toBeCloseTo(geometry.links[0].top, 1);
-    expect(link.height).toBeGreaterThanOrEqual(44);
+  for (const link of await navigation.locator('a').all()) {
+    expect((await link.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   }
-  await expectAnchorBelowHeader(page.locator("#policies"));
+  await expectClearance('#policies');
   await expectNoDocumentOverflow(page);
-
-  // Each category retains its original first-answer-open default.
   const categories = page.locator(".faq-category");
   await expect(categories).toHaveCount(8);
   for (const category of await categories.all()) {
     await expect(category.locator("details[open]")).toHaveCount(1);
-    await expect(category.locator("details").first()).toHaveAttribute("open", "");
   }
-
-  const products = navigation.getByRole("link", { name: "Products", exact: true });
   await products.click();
   await expect(page).toHaveURL(/\/faq#products$/);
   await expect(products).toHaveAttribute("aria-current", "location");
-  await expect(policies).not.toHaveAttribute("aria-current", "location");
-  await expect(products).toHaveCSS("background-color", "rgb(17, 19, 18)");
-  await expect(products).toHaveCSS("color", "rgb(255, 253, 248)");
-  await expect(policies).toHaveCSS("background-color", PANEL_GRAY);
-  await expect(policies).toHaveCSS("border-top-color", CONTROL_BORDER);
-  await expectAnchorBelowHeader(page.locator("#products"));
-
+  await expectClearance('#products');
+  await page.goBack();
+  await expect(policies).toHaveAttribute('aria-current', 'location');
+  await expectClearance('#policies');
+  await page.reload();
+  await expect(policies).toHaveAttribute('aria-current', 'location');
+  await expectClearance('#policies');
+  for (const width of [720, 390]) {
+    await page.setViewportSize({ width, height: 844 });
+    await expect(policies).toHaveAttribute('aria-current', 'location');
+    await expect.poll(async () => policies.evaluate((element) => {
+      const rail = element.closest('nav')!.getBoundingClientRect();
+      const link = element.getBoundingClientRect();
+      return link.left >= rail.left - 1 && link.right <= rail.right + 1;
+    })).toBe(true);
+  }
+  await products.click();
   const firstAnswer = page.locator("#products details").first();
   const summary = firstAnswer.locator("summary");
   await summary.focus();
   await page.keyboard.press("Enter");
   await expect(firstAnswer).not.toHaveAttribute("open");
+  await expect(summary).toHaveAttribute('aria-expanded', 'false');
   await expect(summary).toBeFocused();
-  await page.keyboard.press("Enter");
+  await page.keyboard.press("Space");
   await expect(firstAnswer).toHaveAttribute("open", "");
+  await expect(summary).toHaveAttribute('aria-expanded', 'true');
   await expect(firstAnswer.locator("p")).toBeVisible();
   expect((await summary.boundingBox())!.height).toBeGreaterThanOrEqual(48);
-});
-
-test("legal Contents uses a closed phone disclosure and exposes one navigation across breakpoints", async ({ browserName, page }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.emulateMedia({ reducedMotion: "reduce" });
-  await page.goto("/cookie-policy");
-
-  const contents = page.locator("details.legal-toc--mobile");
-  const summary = contents.locator("summary");
-  const navigation = page.getByRole("navigation", { name: "Cookie Policy sections" });
-  await expectWhiteCanvas(page);
-  await expectGrayPanels(page.locator(".legal-document section"));
-  await expect(contents).toHaveCSS("background-color", PANEL_GRAY);
-  await expect(summary).toHaveText("Contents");
-  await expect(contents).not.toHaveAttribute("open");
-  await expect(navigation).toHaveCount(0);
-  await summary.focus();
-  await page.keyboard.press("Enter");
-  await expect(contents).toHaveAttribute("open", "");
-  await expect(contents).toHaveCSS("background-color", PANEL_GRAY);
-  await expect(navigation).toHaveCount(1);
-  await page.keyboard.press(browserName === "webkit" ? "Alt+Tab" : "Tab");
-  await expect(navigation.getByRole("link").first()).toBeFocused();
-  await page.keyboard.press("Enter");
-  await expect(page).toHaveURL(/\/cookie-policy#what-cookies-do$/);
-  await expectAnchorBelowHeader(page.locator("#what-cookies-do"));
-  await expectNoDocumentOverflow(page);
-
-  await page.setViewportSize({ width: 720, height: 1024 });
-  await expect(contents).toHaveCSS("background-color", PANEL_GRAY);
-  await expect(summary).toBeVisible();
-  await expect(navigation).toHaveCount(1);
-  await expect(contents.getByRole("navigation")).toBeVisible();
-  await expect(page.locator(".legal-toc--desktop")).toBeHidden();
-  const desktopContents = page.locator(".legal-toc--desktop");
-  const mobilePublication = contents.getByRole("link", { name: "What Cookies Do", exact: true });
-  const desktopPublication = desktopContents.getByRole("link", { name: "What Cookies Do", exact: true });
-  await summary.focus();
-  await page.keyboard.press("Enter");
-  await expect(contents).not.toHaveAttribute("open");
-  await page.keyboard.press("Enter");
-  await page.keyboard.press(browserName === "webkit" ? "Alt+Tab" : "Tab");
-  await expect(mobilePublication).toBeFocused();
-
-  await page.setViewportSize({ width: 721, height: 1024 });
-  await expect(contents).toBeHidden();
-  await expect(navigation).toHaveCount(1);
-  await expect(desktopContents).toBeVisible();
-  await expect(desktopPublication).toBeFocused();
-
-  await page.setViewportSize({ width: 720, height: 1024 });
-  await expect(contents).toHaveAttribute("open", "");
-  await expect(navigation).toHaveCount(1);
-  await expect(mobilePublication).toBeFocused();
-
-  await summary.focus();
-  await page.keyboard.press("Enter");
-  await expect(contents).not.toHaveAttribute("open");
-  await expect(navigation).toHaveCount(0);
-  await page.setViewportSize({ width: 721, height: 1024 });
-  await desktopPublication.focus();
-  await expect(desktopPublication).toBeFocused();
-  await page.setViewportSize({ width: 720, height: 1024 });
-  await expect(contents).not.toHaveAttribute("open");
-  await expect(summary).toBeFocused();
-
-  // Leaving Contents must clear the remembered focus owner before a resize.
-  const home = page.getByRole("link", { name: "helix home", exact: true });
-  await home.focus();
-  await expect(home).toBeFocused();
-  await page.setViewportSize({ width: 721, height: 1024 });
-  await expect(desktopContents).toBeVisible();
-  await expect(home).toBeFocused();
-  await page.setViewportSize({ width: 720, height: 1024 });
-  await expect(summary).toBeVisible();
-  await expect(home).toBeFocused();
-
-  // A pointer interaction with non-focusable prose also ends Contents ownership.
-  await summary.focus();
-  await page.getByRole("heading", { name: "Cookie Policy", exact: true }).click();
-  const focusIsInContents = () => page.evaluate(() =>
-    Boolean(document.activeElement?.closest(".legal-toc")),
-  );
-  await expect.poll(focusIsInContents).toBe(false);
-  const pointerFocus = await page.evaluate(() => ({
-    tagName: document.activeElement?.tagName,
-    id: document.activeElement?.id,
-  }));
-  for (const width of [721, 720]) {
-    await page.setViewportSize({ width, height: 1024 });
-    await expect(width === 720 ? summary : desktopContents).toBeVisible();
-    await expect.poll(focusIsInContents).toBe(false);
-    expect(await page.evaluate(() => ({
-      tagName: document.activeElement?.tagName,
-      id: document.activeElement?.id,
-    }))).toEqual(pointerFocus);
-  }
-
-  await page.setViewportSize({ width: 1440, height: 1000 });
-  await expect(contents).toBeHidden();
-  await expect(navigation).toHaveCount(1);
-  const columns = await page.locator(".legal-shell").evaluate((element) => ({
-    contentsRight: element.querySelector(".legal-toc--desktop")!.getBoundingClientRect().right,
-    documentLeft: element.querySelector(".legal-document")!.getBoundingClientRect().left,
-  }));
-  expect(columns.contentsRight).toBeLessThan(columns.documentLeft);
-  await expectNoDocumentOverflow(page);
-
-  await page.setViewportSize({ width: 390, height: 844 });
-  await expect(contents).not.toHaveAttribute("open");
-  await expect(navigation).toHaveCount(0);
-  await summary.focus();
-  await page.keyboard.press("Enter");
-  await expect(navigation).toHaveCount(1);
-  await expect(summary).toBeFocused();
+  await expectClearance('#products summary');
 });
 
 test("phone cookie details scroll by keyboard inside a labeled region", async ({ page }) => {
   for (const width of [320, 390]) {
     await page.setViewportSize({ width, height: 844 });
     await page.goto("/cookie-policy");
-    const region = page.getByRole("region", { name: "Cookie categories", exact: true });
+    const region = page.getByRole("region", { name: "Required cookies", exact: true });
     await expectWhiteCanvas(page);
-    await expectGrayPanels(page.locator(".legal-document section"));
-    await expect(region).toHaveCSS("background-color", PANEL_GRAY);
+    await expect(page.getByRole("article", { name: "Cookie Policy" })).toBeVisible();
     await expect(page.getByText(/scroll horizontally/i)).toBeVisible();
     await expect(region.getByRole("columnheader")).toHaveText([
-      "Category", "Status", "Examples", "Purpose", "Optional",
+      "Name", "Function", "Duration",
     ]);
     await region.focus();
     await page.keyboard.press("Shift+Tab");

@@ -389,11 +389,12 @@ describe("CatalogEditor sections", () => {
     await screen.findByRole("heading", { name: "CLEANSE" });
 
     fireEvent.click(screen.getByRole("button", { name: "Validate" }));
-    expect(
-      await screen.findByText("SKU must be unique within this product."),
-    ).toBeVisible();
+    const duplicateSkuError = await screen.findByText(
+      "SKU must be unique within this product.",
+    );
     expect(screen.getByRole("alert", { name: "" })).toBeInTheDocument();
     await waitFor(() => {
+      expect(duplicateSkuError).toBeVisible();
       expect(disclosure(container, "section-product_variants").open).toBe(true);
       expect(disclosure(container, "group-variant-records").open).toBe(true);
       expect(

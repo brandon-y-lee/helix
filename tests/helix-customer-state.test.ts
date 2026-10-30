@@ -18,7 +18,7 @@ const customerStateRuntimeFiles = [
   "lib/orders/checkout-cancel.ts",
   "lib/referrals/constants.ts",
   "lib/supabase/auth-cookies.ts",
-  "components/privacy/CookieAcknowledgementDialog.tsx",
+  "components/privacy/PrivacyChoicesDialog.tsx",
 ];
 
 describe("helix customer-state identifiers", () => {

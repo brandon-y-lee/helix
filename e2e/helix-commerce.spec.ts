@@ -27,7 +27,7 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-test("Account, Cart, Checkout, and acknowledgement use the helix identity", async ({
+test("Account, Cart, Checkout, and privacy choices use the helix identity", async ({
   page,
 }) => {
   await page.goto("/account/sign-in");
@@ -48,10 +48,10 @@ test("Account, Cart, Checkout, and acknowledgement use the helix identity", asyn
     page.getByText(/no real charge, shipment, fulfillment/i),
   ).toBeVisible();
 
-  await page.getByRole("button", { name: "Cookie notice" }).click();
-  const acknowledgement = page.getByRole("dialog", { name: "Cookie notice" });
-  await expect(acknowledgement).toContainText(
-    "The helix Platform uses essential cookies",
+  await page.getByRole("button", { name: "Your Privacy Choices" }).click();
+  const privacyChoices = page.getByRole("dialog", { name: "Your Privacy Choices" });
+  await expect(privacyChoices).toContainText(
+    "Helix Labs LLC DBA Helix",
   );
   await expect(page.locator("body")).not.toContainText(formerBrandPattern);
 });

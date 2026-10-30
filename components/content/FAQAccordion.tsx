@@ -1,51 +1,28 @@
 import Link from "next/link";
 import type { FAQCategory } from "@/content/support/faq";
-import { FAQCategoryNav } from "@/components/content/FAQCategoryNav";
+import { FAQCategoryNav } from "./FAQCategoryNav";
+import { FAQDisclosure } from "./FAQDisclosure";
+import styles from "./faq.module.css";
 
 export function FAQAccordion({ categories }: { categories: FAQCategory[] }) {
   return (
-    <div className="faq-shell">
+    <div className={`faq-shell ${styles.shell}`}>
       <FAQCategoryNav categories={categories.map(({ id, label }) => ({ id, label }))} />
-
-      <div className="faq-categories">
+      <div className={`faq-categories ${styles.categories}`}>
         {categories.map((category) => (
-          <section
-            key={category.id}
-            id={category.id}
-            className="faq-category"
-            aria-labelledby={`faq-${category.id}-heading`}
-          >
-            <div className="section-head">
-              <div>
-                <p className="eyebrow">{category.label}</p>
-                <h2 id={`faq-${category.id}-heading`}>{category.label}</h2>
-                <p>{category.summary}</p>
-              </div>
-            </div>
-            <div className="faq-list">
-              {category.items.map((item, itemIndex) => {
-                const panelId = `faq-panel-${item.id}`;
-                return (
-                  <details key={item.id} className="faq-item" open={itemIndex === 0}>
-                    <summary aria-controls={panelId}>
-                      <span>{item.question}</span>
-                      <span aria-hidden="true">+</span>
-                    </summary>
-                    <div id={panelId}>
-                      <p>{item.answer}</p>
-                      {item.links && (
-                        <ul>
-                          {item.links.map((link) => (
-                            <li key={link.href}>
-                              <Link href={link.href}>{link.label}</Link>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  </details>
-                );
-              })}
+          <section key={category.id} id={category.id} className={`faq-category ${styles.category}`}
+            aria-labelledby={`faq-${category.id}-heading`}>
+            <h2 id={`faq-${category.id}-heading`} className={styles.title}>{category.label}</h2>
+            <div className={`faq-list ${styles.list}`}>
+              {category.items.map((item, index) => (
+                <FAQDisclosure key={item.id} question={item.question} panelId={`faq-panel-${item.id}`}
+                  initiallyOpen={index === 0}>
+                  <p>{item.answer}</p>
+                  {item.links && <ul>{item.links.map((link) => (
+                    <li key={link.href}><Link href={link.href}>{link.label}</Link></li>
+                  ))}</ul>}
+                </FAQDisclosure>
+              ))}
             </div>
           </section>
         ))}

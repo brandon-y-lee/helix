@@ -5,7 +5,7 @@ import {
   footerStatusModules,
   type FooterServiceCard,
 } from "@/content/footer";
-import { CookieAcknowledgementDialog } from "@/components/privacy/CookieAcknowledgementDialog";
+import { PrivacyChoicesDialog } from "@/components/privacy/PrivacyChoicesDialog";
 import { FooterWordmark } from "@/components/shell/FooterWordmark";
 
 function FooterServiceIcon({ name }: { name: FooterServiceCard["icon"] }) {
@@ -165,8 +165,7 @@ export function SiteFooter() {
         <div className="site-footer__utility">
           <p className="site-footer__locale">{footerStatusModules.locale}</p>
           <div className="site-footer__utility-links">
-            <CookieAcknowledgementDialog triggerClassName="site-footer__utility-button" />
-            <Link href="/privacy-choices">Your Privacy Choices</Link>
+            <PrivacyChoicesDialog triggerClassName="site-footer__utility-button" />
             <Link href="/cookie-policy">Cookie Policy</Link>
           </div>
           <p className="site-footer__copyright">

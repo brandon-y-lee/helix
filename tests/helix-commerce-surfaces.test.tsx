@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { metadata as accountMetadata } from "@/app/account/page";
 import { metadata as signInMetadata } from "@/app/account/sign-in/page";
 import { metadata as signUpMetadata } from "@/app/account/sign-up/page";
@@ -9,11 +9,10 @@ import { metadata as unavailableMetadata } from "@/app/account/service-unavailab
 import { metadata as cartMetadata } from "@/app/cart/page";
 import { metadata as checkoutMetadata } from "@/app/checkout/page";
 import { metadata as successMetadata } from "@/app/checkout/success/page";
-import { CookieAcknowledgementDialog } from "@/components/privacy/CookieAcknowledgementDialog";
-import { COOKIE_ACKNOWLEDGEMENT_COOKIE } from "@/lib/customer-state-identifiers";
+import { PrivacyChoicesDialog } from "@/components/privacy/PrivacyChoicesDialog";
 import { FORMER_BRAND_PATTERN } from "@/tests/helpers/former-identifiers";
 
-describe("helix Account, Cart, Checkout, and acknowledgement surfaces", () => {
+describe("helix Account, Cart, Checkout, and privacy surfaces", () => {
   it("uses the approved brand casing in route metadata", () => {
     expect([
       accountMetadata.title,
@@ -38,22 +37,24 @@ describe("helix Account, Cart, Checkout, and acknowledgement surfaces", () => {
     ]);
   });
 
-  it("presents truthful helix acknowledgement copy and writes its record", () => {
-    render(<CookieAcknowledgementDialog />);
-    fireEvent.click(screen.getByRole("button", { name: "Cookie notice" }));
-
-    expect(screen.getByRole("dialog")).toHaveTextContent(
-      "The helix Platform uses essential cookies",
-    );
-    expect(screen.getByRole("dialog")).not.toHaveTextContent(
-      FORMER_BRAND_PATTERN,
-    );
-
-    fireEvent.click(
-      screen.getByRole("button", { name: "Acknowledge notice" }),
-    );
-    expect(document.cookie).toContain(
-      `${COOKIE_ACKNOWLEDGEMENT_COOKIE}=required-and-payment-functional`,
-    );
+  it("presents scoped privacy choices without persisting a dismissal", () => {
+    const cookies = vi.spyOn(document, "cookie", "set");
+    const storage = vi.spyOn(Storage.prototype, "setItem");
+    const initialUrl = window.location.href;
+    try {
+      render(<PrivacyChoicesDialog />);
+      fireEvent.click(screen.getByRole("button", { name: "Your Privacy Choices" }));
+      const dialog = screen.getByRole("dialog");
+      expect(dialog).toHaveTextContent("Helix Labs LLC DBA Helix");
+      expect(dialog).toHaveTextContent("Your choices are stored in this browser");
+      expect(dialog).not.toHaveTextContent(FORMER_BRAND_PATTERN);
+      expect(screen.getAllByRole("switch")).toHaveLength(2);
+      expect(screen.getByRole("button", { name: "Accept All" })).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Close privacy choices" }));
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      expect(window.location.href).toBe(initialUrl);
+      expect(cookies).not.toHaveBeenCalled();
+      expect(storage).not.toHaveBeenCalled();
+    } finally { cookies.mockRestore(); storage.mockRestore(); }
   });
 });

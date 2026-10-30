@@ -28,7 +28,21 @@ const substitute = (value: string) => substitutions.reduce((text, [before, after
 const approvedCorrections: Record<string, { find: string; replace: string }[]> = JSON.parse(
   fs.readFileSync("scripts/legal/approved-factual-corrections.json", "utf8"),
 );
-const expectedText = (slug: string, text: string) => (approvedCorrections[slug] ?? []).reduce(
+const terminologyCorrections: Record<string, { find: string; replace: string }[]> = JSON.parse(
+  fs.readFileSync("scripts/legal/approved-terminology-corrections.json", "utf8"),
+);
+type ReturnCorrection = { find: string; replace: string; operation?: undefined }
+  | { find: string; operation: "remove-paragraph" };
+const returnPolicyCorrections: Record<string, ReturnCorrection[]> = JSON.parse(
+  fs.readFileSync("scripts/legal/approved-return-policy-corrections.json", "utf8"),
+);
+const expectedText = (slug: string, text: string) => [
+  ...(approvedCorrections[slug] ?? []),
+  ...(terminologyCorrections[slug] ?? []),
+  ...(returnPolicyCorrections[slug] ?? []).filter(
+    (correction): correction is Extract<ReturnCorrection, { replace: string }> => correction.operation !== "remove-paragraph",
+  ),
+].reduce(
   (value, correction) => value.replace(correction.find.trim(), correction.replace.trim()),
   substitute(text),
 );
@@ -45,8 +59,16 @@ describe("complete authorized local policy copies", () => {
     ["terms-conditions", termsOfService],
     ["accessibility", accessibilityStatement],
   ] as const) {
-    it(`${policy.canonical} preserves source wording except the exact approved factual corrections`, () => {
+    it(`${policy.canonical} preserves source wording except the exact approved corrections`, () => {
       const source = fragment(fs.readFileSync(`docs/evidence/legal-revetir-2026-10-20/source/${slug}.rendered.article.html`, "utf8"));
+      for (const correction of returnPolicyCorrections[slug] ?? []) {
+        if (correction.operation !== "remove-paragraph") continue;
+        const matches = [...source.querySelectorAll("p")].filter(
+          (paragraph) => substitute(normalize(paragraph.textContent)) === normalize(correction.find),
+        );
+        expect(matches).toHaveLength(1);
+        matches[0].remove();
+      }
       const actual = fragment(renderToStaticMarkup(<PolicyDocumentLayout document={policy} />));
       const blocks = (root: Element) => [...root.querySelectorAll("h1,h2,h3,h4,p,li")].map((node) => ({ tag: node.tagName, text: normalize(node.textContent) }));
       expect(blocks(actual)).toEqual(blocks(source).map((block) => ({ ...block, text: expectedText(slug, block.text).replace(/\s+/g, " ").trim() })));
@@ -66,8 +88,10 @@ describe("complete authorized local policy copies", () => {
     }
     const privacy = fragment(renderToStaticMarkup(privacyPolicy.content));
     const terms = fragment(renderToStaticMarkup(termsOfService.content));
-    expect(privacy.textContent).not.toMatch(/Square|Google login|Google-verified|Meta|Global Privacy Control|turn off Marketing Cookies|update or delete your account data/);
+    expect(privacy.textContent).not.toMatch(/Square|Google login|Google-verified|turn off Marketing Cookies|update or delete your account data/);
     expect(terms.textContent).not.toMatch(/Square|Live Price|sourcing network|limited to one per customer/);
+    expect(privacy.textContent).toContain("run only when enabled on this website and you allow the relevant category");
+    expect(privacy.textContent).toContain("We apply Global Privacy Control");
     expect(privacy.textContent).toContain("We provide at least two methods for you to exercise these rights.");
     expect(privacy.textContent).toContain("we may keep order and billing records for up to 7 years");
     expect(terms.textContent).toContain("Most orders ship 5–7 business days after being placed.");

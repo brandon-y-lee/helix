@@ -16,6 +16,7 @@ import { PdpProfileSplit } from "@/components/product-detail/PdpProfileSplit";
 import { PdpPurchaseAccordions } from "@/components/product-detail/PdpPurchaseAccordions";
 import { PdpPurchaseIsland } from "@/components/product-detail/PdpPurchaseIsland";
 import { PdpRoutineVideo } from "@/components/product-detail/PdpRoutineVideo";
+import { PdpRoutineLinks } from "@/components/product-detail/PdpRoutineLinks";
 import {
   applicationIslandProps,
   galleryIslandProps,
@@ -42,6 +43,7 @@ import { SERUM_EFFECTS_PRODUCT_ID } from "@/lib/content/serum-effects";
 import type { PdpPresentation } from "./pdp-presentation";
 import { PdpEducationFocus } from "./PdpEducationFocus";
 import "./pdp-mobile-education.css";
+import "./pdp-hero.css";
 
 function compactDescription(value: string) {
   const sentences = value
@@ -141,6 +143,7 @@ export function ProductDetail({
   stripePublishableKey = null,
   commerceDisabled = false,
   presentation = "default",
+  subtitle,
 }: {
   product: PdpProduct;
   coreProducts?: CoreRoutineSummary[];
@@ -149,6 +152,7 @@ export function ProductDetail({
   stripePublishableKey?: string | null;
   commerceDisabled?: boolean;
   presentation?: PdpPresentation;
+  subtitle?: string;
 }) {
   const routineLabel = routineDisplayLabelForProduct(product);
   const leadDescription = compactDescription(
@@ -217,10 +221,18 @@ export function ProductDetail({
     howToUse,
     corePresentation,
   );
+  const productIntro = (
+    <>
+      <p className="pdp__collection">{routineLabel}</p>
+      <h1>{product.displayName}</h1>
+      {subtitle?.trim() && <p className="pdp__tagline">{subtitle.trim()}</p>}
+      <p className="pdp__description">{leadDescription}</p>
+    </>
+  );
 
   return (
     <>
-      <div className="pdp" data-pdp-primary-section>
+      <div className="pdp" data-pdp-primary-section data-product-slug={product.slug}>
         <PdpGalleryIsland
           key={`gallery:${product.slug}`}
           {...galleryProps}
@@ -229,7 +241,11 @@ export function ProductDetail({
         <PdpPurchaseIsland
           key={`purchase:${product.slug}`}
           {...purchaseProps}
+          showPrice={product.slug !== "super-serum" && purchaseProps.showPrice}
           presentation={presentation}
+          routine={product.slug === "super-serum" ? (
+            <PdpRoutineLinks products={coreProducts} currentSlug={product.slug} />
+          ) : null}
           accordions={
             <PdpPurchaseAccordions
               key={`accordions:${product.slug}`}
@@ -237,9 +253,9 @@ export function ProductDetail({
             />
           }
         >
-          <p className="pdp__collection">{routineLabel}</p>
-          <h1>{product.displayName}</h1>
-          <p className="pdp__description">{leadDescription}</p>
+          {product.slug === "super-serum" ? (
+            <div className="pdp__intro">{productIntro}</div>
+          ) : productIntro}
         </PdpPurchaseIsland>
       </div>
 

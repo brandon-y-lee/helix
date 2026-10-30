@@ -1,0 +1,14 @@
+{
+  "accessibility": [
+    {
+      "find": "Fashion should be accessible to everyone.",
+      "replace": "Skincare should be accessible to everyone."
+    }
+  ],
+  "terms-conditions": [
+    {
+      "find": "the shoe box, dust bag, brand tags and authenticity card",
+      "replace": "the product box, container and product label"
+    }
+  ]
+}

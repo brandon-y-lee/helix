@@ -41,15 +41,15 @@ An affirmative Customer choice to receive promotional communications from helix.
 _Avoid_: Product Waitlist Enrollment, Account Creation, Implied Consent
 
 **Cookie Preference**:
-A Customer choice about an available optional Cookie Category. Optional Cookie Preferences are not currently a Current Capability.
+A Visitor or Customer choice about an optional Cookie Category, saved for the browser where the choice is made. Optional collection requires both an enabled service and the applicable permission.
 _Avoid_: Privacy Choice, Cookie Policy
 
 **Cookie Acknowledgement**:
-The record that a Visitor was shown the current required and functional browser-storage disclosure, without implying that an optional Cookie Preference was available.
+A historical record that a Visitor acknowledged an earlier required and functional browser-storage disclosure. It does not grant optional collection permission.
 _Avoid_: Cookie Preference, Consent
 
 **Cookie Category**:
-A named class of browser storage grouped by its platform purpose and whether it is required or optional.
+A named class of browser storage and related technologies grouped by platform purpose and whether the category is required or optional.
 _Avoid_: Cookie Preference, Provider Cookie
 
 **Accessibility Commitment**:
