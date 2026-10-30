@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { AccountAccessLayout } from "@/components/account/AccountAccessLayout";
 import { AccountDashboardView } from "@/components/account/AccountDashboardView";
 import { AccountUnavailable } from "@/components/account/AccountUnavailable";
@@ -14,6 +15,7 @@ export function CustomerPresentationFixture({ view, state, form }: {
   state: CustomerFixtureState;
   form: CustomerFixtureForm;
 }) {
+  const [signedOut, setSignedOut] = useState(false);
   const action: AccountFormAction = async () => {
     if (state === "pending") return new Promise(() => {});
     if (state === "validation") return {
@@ -45,13 +47,14 @@ export function CustomerPresentationFixture({ view, state, form }: {
   if (view === "rewards") return <RewardsView rewards={customerRewardsFixture(state)} renderFeedback={renderFeedback} />;
   if (view === "account") {
     if (state === "unavailable") return <AccountUnavailable />;
+    if (signedOut || state === "signed-out") return <AccountAccessLayout heading="Sign in"><SignInForm next="/account" action={action} /></AccountAccessLayout>;
     return <AccountDashboardView
       email="sample@example.test"
       verified={state !== "unverified"}
       orders={customerOrdersFixture(state)}
       rewards={customerRewardsFixture(state)}
       profileForm={<ProfileForm firstName="Sample" lastName="Account" action={action} />}
-      signOutControl={<button type="button" className="btn btn--ghost btn--sm btn--editorial-rounded account-signout">Sign out</button>}
+      signOutControl={<button type="button" onClick={() => setSignedOut(true)} className="btn btn--ghost btn--sm btn--editorial-rounded account-signout">Sign out</button>}
       renderFeedback={renderFeedback}
     />;
   }
