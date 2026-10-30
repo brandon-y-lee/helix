@@ -177,7 +177,7 @@ test("cookie acknowledgement keeps white elevation and gray category panels", as
 });
 
 
-test("account disclosures retain drafts, support keyboard toggling and local exit", async ({ page }) => {
+test("account disclosures retain drafts, support keyboard toggling and local exit", async ({ page }, testInfo) => {
   const writes: string[] = [];
   await page.route("**/*", route => {
     if (route.request().method() === "POST") {
@@ -189,6 +189,7 @@ test("account disclosures retain drafts, support keyboard toggling and local exi
   for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844 }, { width: 320, height: 640 }]) {
     await page.setViewportSize(viewport);
     await page.goto("/helix-verification/customer/account?state=empty");
+    await page.screenshot({ path: testInfo.outputPath(`account-${viewport.width}.png`), fullPage: true });
     const summaries = page.locator(".account-disclosure > summary");
     await expect(summaries).toHaveCount(7);
     const settings = summaries.filter({ hasText: "Account settings" });
