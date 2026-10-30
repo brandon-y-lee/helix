@@ -11987,11 +11987,21 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 /* Customer account: FAQ disclosures within an editorial account layout. */
 .account-dashboard {
   display: grid;
-  grid-template-columns: minmax(220px, 0.8fr) minmax(0, 2fr);
-  gap: clamp(40px, 7vw, 110px);
-  padding-block: clamp(48px, 7vw, 100px) clamp(72px, 9vw, 130px);
+  max-width: none;
+  grid-template-columns: clamp(240px, 30.5vw, 480px) minmax(0, 1fr);
+  gap: var(--storefront-gutter);
+  align-items: start;
+  padding: clamp(32px, 4vw, 56px) var(--storefront-gutter) var(--storefront-gutter);
+  color: var(--storefront-warm-gray);
 }
 
+.account-intro, .account-disclosures {
+  background: #f1f0ed;
+  border-radius: 12px;
+  padding: max(24px, 2.25vw);
+}
+
+.account-intro { position: sticky; top: calc(var(--site-header-height) + 24px); }
 .account-intro h1 {
   font-size: clamp(2.6rem, 4vw, 4rem);
   margin-top: 18px;
@@ -12012,12 +12022,9 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 .account-help { border-top: 1px solid var(--line); padding-top: 24px; margin-top: 48px; font-size: 0.83rem; }
 .account-help > p + p { color: var(--ink-soft); margin-top: 8px; }
 .account-help a { display: inline-block; margin-top: 12px; text-decoration: underline; text-underline-offset: 5px; }
-.account-disclosures { min-width: 0; display: grid; gap: 12px; align-content: start; }
-.account-disclosure summary { min-height: 78px; padding: 24px; }
-.account-disclosure summary h2 { display: flex; align-items: center; gap: 20px; font-family: var(--font); font-size: 1rem; font-weight: 600; line-height: 1.4; }
-.account-disclosure summary .account-disclosure__number { font-size: 0.65rem; font-weight: 400; color: var(--ink-soft); transform: none; }
-.account-disclosure summary .account-disclosure__plus { font-size: 1.5rem; font-weight: 400; line-height: 1; }
-.account-disclosure__body { padding: 0 24px 28px; font-size: 0.87rem; }
+.account-disclosures { min-width: 0; }
+.account-disclosure .faq-item > summary { min-height: 72px; padding-block: 22px; }
+.account-disclosure__body { padding: 4px 0 16px; font-size: 0.87rem; }
 .account-panel-intro { color: var(--ink-soft); max-width: 58ch; margin-bottom: 26px; }
 .account-settings-layout { display: grid; grid-template-columns: 1.1fr 1fr; gap: 28px; }
 .account-disclosure h3 { font-family: var(--font); font-size: 0.9rem; font-weight: 650; line-height: 1.4; }
@@ -12053,20 +12060,24 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 .account-disclosure summary:hover { background: rgba(17, 19, 18, 0.025); }
 
 @media (max-width: 900px) {
-  .account-dashboard { grid-template-columns: minmax(180px, 0.7fr) minmax(0, 1.5fr); gap: 32px; }
   .account-settings-layout { grid-template-columns: 1fr; }
   .account-security { border-left: 0; padding: 24px 0 0; border-top: 1px solid var(--line); }
 }
 
-@media (max-width: 640px) {
-  .account-dashboard { grid-template-columns: minmax(0, 1fr); gap: 36px; padding-top: 36px; }
+@media (max-width: 760px) {
+  .account-dashboard { grid-template-columns: minmax(0, 1fr); gap: 16px; padding-top: 16px; }
+  .account-intro { position: static; }
+  .account-intro, .account-disclosures { padding: 24px 20px; }
   .account-intro h1 { font-size: 2.8rem; margin-top: 12px; }
   .account-intro__description { margin-top: 16px; }
-  .account-identity { margin-top: 24px; }
-  .account-help { margin-top: 24px; padding-top: 20px; }
-  .account-disclosure summary { min-height: 72px; padding: 20px; }
-  .account-disclosure summary h2 { font-size: 0.94rem; gap: 14px; }
-  .account-disclosure__body { padding: 0 20px 24px; }
+  .account-identity { margin-top: 24px; display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; }
+  .account-identity > p { grid-column: 1; }
+  .account-identity > form, .account-identity > button { grid-column: 2; grid-row: 1 / span 3; align-self: start; }
+  .account-dashboard .account-identity .account-signout { margin: 0; }
+  .account-help { margin-top: 24px; padding-top: 16px; }
+  .account-help > p { display: none; }
+  .account-help a { margin-top: 0; }
+  .account-disclosure__body { font-size: 1rem; }
   .account-rewards { gap: 20px; }
 }
 /* Independent disclosure and consent controls; no nested interactive elements. */

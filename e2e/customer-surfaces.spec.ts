@@ -59,7 +59,13 @@ test("private customer content is rendered on the shared surfaces without live c
       await page.goto(`/helix-verification/customer/${view}?state=${state}`);
       await expect(page.locator("h1")).toBeVisible();
       await expectWhiteCanvas(page);
-      await expectGrayPanels(page.locator("#content .account-disclosure, #content .account-panel, #content .checkout-result__panel, #content .public-utility-page > .empty-state"));
+      if (view === "account" && state !== "unavailable") {
+        for (const island of await page.locator(".account-intro, .account-disclosures").all()) {
+          await expect(island).toHaveCSS("background-color", "rgb(241, 240, 237)");
+        }
+      } else {
+        await expectGrayPanels(page.locator("#content .account-panel, #content .checkout-result__panel, #content .public-utility-page > .empty-state"));
+      }
       for (const control of await page.locator('#content .account-form input:not([type="hidden"]), #content .account-form select, #content .account-form textarea').all()) {
         await expect(control).toHaveCSS("background-color", CANVAS_WHITE);
         await expect(control).toHaveCSS("border-top-color", CONTROL_BORDER);
@@ -219,8 +225,9 @@ test("account disclosures retain drafts, support keyboard toggling and local exi
   for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844 }, { width: 320, height: 640 }]) {
     await page.setViewportSize(viewport);
     await page.goto("/helix-verification/customer/account?state=empty");
+    await expect(page.locator(".account-disclosure .faq-item").first()).toHaveAttribute("data-expanded", "true");
     await page.screenshot({ path: testInfo.outputPath(`account-${viewport.width}.png`), fullPage: true });
-    const summaries = page.locator(".account-disclosure > summary");
+    const summaries = page.locator(".account-disclosure summary");
     await expect(summaries).toHaveCount(7);
     const settings = summaries.filter({ hasText: "Account settings" });
     await page.getByLabel("First name", { exact: true }).fill("Unfinished draft");
@@ -231,7 +238,10 @@ test("account disclosures retain drafts, support keyboard toggling and local exi
     await settings.press("Space");
     await expect(page.getByLabel("First name", { exact: true })).toHaveValue("Unfinished draft");
     for (const summary of await summaries.all()) {
-      if (await summary.evaluate(el => el.parentElement!.hasAttribute("open"))) await summary.click();
+      if (await summary.getAttribute("aria-expanded") === "true") {
+        await summary.click();
+        await expect(summary.locator("..")).not.toHaveAttribute("open", "");
+      }
       await summary.press("Enter");
       await expect(summary.locator("..")).toHaveAttribute("open", "");
       await expectNoMainOverflow(page, viewport.width);

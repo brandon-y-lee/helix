@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
+import { FAQDisclosure } from "@/components/content/FAQDisclosure";
 import { formatPrice } from "@/lib/products";
 import type { RewardsSummary } from "@/lib/rewards/server";
 
@@ -26,21 +27,18 @@ export type AccountDashboardViewProps = {
   renderFeedback: (request: RewardsSummary["feedbackRequests"][number]) => ReactNode;
 };
 
-function AccountSection({ id, title, number, open = false, children }: {
+function AccountSection({ id, title, open = false, children }: {
   id: string;
   title: string;
-  number: string;
   open?: boolean;
   children: ReactNode;
 }) {
   return (
-    <details className="faq-item account-disclosure" open={open}>
-      <summary aria-controls={`account-panel-${id}`}>
-        <h2><small className="account-disclosure__number" aria-hidden="true">{number}</small>{title}</h2>
-        <span className="account-disclosure__plus" aria-hidden="true">+</span>
-      </summary>
-      <div id={`account-panel-${id}`} className="account-disclosure__body">{children}</div>
-    </details>
+    <div className="account-disclosure">
+      <FAQDisclosure question={title} panelId={`account-panel-${id}`} initiallyOpen={open}>
+        <div className="account-disclosure__body">{children}</div>
+      </FAQDisclosure>
+    </div>
   );
 }
 
@@ -77,7 +75,7 @@ export function AccountDashboardView({
       </header>
 
       <section className="account-disclosures" aria-label="Manage your account">
-        <AccountSection id="settings" title="Account settings" number="01" open>
+        <AccountSection id="settings" title="Account settings" open>
           <p className="account-panel-intro">Make yourself at home. Keep your personal details up to date.</p>
           <div className="account-settings-layout">
             <section aria-labelledby="account-profile-heading">
@@ -93,7 +91,7 @@ export function AccountDashboardView({
           </div>
         </AccountSection>
 
-        <AccountSection id="orders" title="Order history" number="02">
+        <AccountSection id="orders" title="Order history">
           {orders.length > 0 ? (
             <ul className="account-orders" aria-label="Your orders">
               {orders.map((order) => (
@@ -111,19 +109,19 @@ export function AccountDashboardView({
           )}
         </AccountSection>
 
-        <AccountSection id="addresses" title="Address book" number="03">
+        <AccountSection id="addresses" title="Address book">
           <AccountEmpty title="One less thing to remember. Soon.">
             <p>Saving addresses to your account is not available yet. You can enter a shipping address during checkout.</p>
           </AccountEmpty>
         </AccountSection>
 
-        <AccountSection id="payments" title="Payment methods" number="04">
+        <AccountSection id="payments" title="Payment methods">
           <AccountEmpty title="Payment details, kept at checkout.">
             <p>Saved payment methods are not available in your account. Payment details are entered securely during sandbox checkout.</p>
           </AccountEmpty>
         </AccountSection>
 
-        <AccountSection id="rewards" title="Rewards" number="05">
+        <AccountSection id="rewards" title="Rewards">
           {rewards ? (
             <dl className="account-rewards">
               <div><dt>Available Points Balance</dt><dd>{rewards.pointsBalance}</dd></div>
@@ -134,7 +132,7 @@ export function AccountDashboardView({
           <Link href="/rewards" className="account-text-link">Explore helix rewards <span aria-hidden="true">↗</span></Link>
         </AccountSection>
 
-        <AccountSection id="reviews" title="Reviews" number="06">
+        <AccountSection id="reviews" title="Reviews">
           <p className="account-panel-intro">Your experience matters. Feedback shared here is private, not a published product review or a Trustpilot review.</p>
           {rewards && rewards.feedbackRequests.length > 0 ? (
             <ul className="account-feedback">
@@ -150,7 +148,7 @@ export function AccountDashboardView({
           </AccountEmpty>}
         </AccountSection>
 
-        <AccountSection id="replenishment" title="Auto-replenishment" number="07">
+        <AccountSection id="replenishment" title="Auto-replenishment">
           <AccountEmpty title="A routine on your terms.">
             <p>Auto-replenishment is not available yet. No recurring orders or subscription enrollment are offered here.</p>
             <Link href="/collections/shop" className="account-text-link">Shop when you need it <span aria-hidden="true">↗</span></Link>

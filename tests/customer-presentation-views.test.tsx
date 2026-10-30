@@ -102,8 +102,8 @@ describe("customer presentation views", () => {
     expect(screen.getByLabelText("First name")).toHaveValue("Alex");
     expect(screen.getByRole("button", { name: "Sign out" })).toBeVisible();
     const labels = ["Account settings", "Order history", "Address book", "Payment methods", "Rewards", "Reviews", "Auto-replenishment"];
-    expect(Array.from(document.querySelectorAll("summary h2"), (node) => node.textContent?.replace(/^\d+/, ""))).toEqual(labels);
-    const orderHeading = screen.getByRole("heading", { name: /Order history/ });
+    expect(Array.from(document.querySelectorAll("summary > span:first-child"), (node) => node.textContent)).toEqual(labels);
+    const orderHeading = screen.getByText("Order history", { exact: true });
     fireEvent.click(orderHeading.closest("summary")!);
     const orders = orderHeading.closest("details")!;
     expect(within(orders).getByText("HLX-1001")).toBeVisible();
