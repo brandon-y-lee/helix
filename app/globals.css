@@ -11986,6 +11986,8 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 
 /* Customer account: FAQ disclosures within an editorial account layout. */
 .account-dashboard {
+  --faq-ease: cubic-bezier(.76, 0, .24, 1);
+  --faq-clearance: calc(var(--site-header-height) + 24px);
   display: grid;
   max-width: none;
   grid-template-columns: clamp(240px, 30.5vw, 480px) minmax(0, 1fr);
