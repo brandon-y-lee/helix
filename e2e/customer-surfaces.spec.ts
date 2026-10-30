@@ -61,7 +61,7 @@ test("private customer content is rendered on the shared surfaces without live c
       await expectWhiteCanvas(page);
       if (view === "account" && state !== "unavailable") {
         for (const island of await page.locator(".account-intro, .account-disclosures").all()) {
-          await expect(island).toHaveCSS("background-color", "rgb(241, 240, 237)");
+          await expect(island).toHaveCSS("background-color", "rgb(245, 245, 247)");
         }
       } else {
         await expectGrayPanels(page.locator("#content .account-panel, #content .checkout-result__panel, #content .public-utility-page > .empty-state"));
