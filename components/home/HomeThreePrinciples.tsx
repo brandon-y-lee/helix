@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import type { HomeThreePrinciple } from "@/lib/content/home";
 
@@ -54,16 +55,8 @@ export function HomeThreePrinciples({ headingId, principles }: HomeThreePrincipl
 
   return (
     <div className="home-three-principles" data-active-index={activeIndex}>
-      <h2
-        id={headingId}
-        className="home-plug-panel__title home-three-principles__title"
-      >
-        {activePrinciple.titleLines.map((line, index) => (
-          <span key={line}>
-            {line}
-            {index < activePrinciple.titleLines.length - 1 ? " " : ""}
-          </span>
-        ))}
+      <h2 id={headingId} className="sr-only">
+        {activePrinciple.titleLines.join(" ")}
       </h2>
 
       <div id={contentId} className="home-three-principles__copy">
@@ -73,6 +66,9 @@ export function HomeThreePrinciples({ headingId, principles }: HomeThreePrincipl
         >
           {activePrinciple.description}
         </p>
+        <Link href="/about" className="btn btn--ghost btn--editorial-rounded home-three-principles__cta">
+          Our values
+        </Link>
       </div>
 
       <div

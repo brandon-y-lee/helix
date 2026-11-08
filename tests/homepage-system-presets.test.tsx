@@ -158,6 +158,17 @@ describe("homepage product wiring", () => {
     expect(within(core).getAllByRole("img", { name: "Biotic Reset product bottle." })).toHaveLength(1);
   });
 
+  it("introduces canonical Super Serum after the Core with its campaign image and product destination", async () => {
+    render(<CartProvider>{await HomePage()}</CartProvider>);
+    const core = sectionForHeading("The Core");
+    const spotlight = sectionForHeading("Bounce, bottled.");
+    expect(core.nextElementSibling).toBe(spotlight);
+    expect(spotlight.nextElementSibling).toBe(sectionForHeading("Plug and Play"));
+    expect(within(spotlight).getByRole("link", { name: "Discover Super Serum" })).toHaveAttribute("href", "/products/super-serum");
+    expect(within(spotlight).getByRole("img", { name: "Editorial portrait of a man gently touching his cheek." })).toHaveAttribute("src", expect.stringContaining("super-serum-editorial-v1.webp"));
+    expect(within(sectionForHeading("Simple is not basic.")).getByRole("link", { name: "Our values" })).toHaveAttribute("href", "/about");
+  });
+
   it("uses the lowercase helix name in the editorial hero", async () => {
     render(<CartProvider>{await HomePage()}</CartProvider>);
 
@@ -196,6 +207,7 @@ describe("homepage product wiring", () => {
     ]);
     expect(screen.queryByRole("link", { name: "Maxxing Serum" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Peptide Bounce" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Bounce, bottled." })).not.toBeInTheDocument();
   });
 
   it("selects only Super Serum when retired TREAT products are also present", async () => {

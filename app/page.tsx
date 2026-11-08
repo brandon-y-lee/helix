@@ -6,6 +6,7 @@ import { HomeBackgroundVideo } from "@/components/home/HomeBackgroundVideo";
 import { HomeCoreShowcase } from "@/components/home/HomeCoreShowcase";
 import { HomeIngredientPreview } from "@/components/home/HomeIngredientPreview";
 import { HomePrinciplesPortrait } from "@/components/home/HomePrinciplesPortrait";
+import { HomeSuperSerumSpotlight } from "@/components/home/HomeSuperSerumSpotlight";
 import { HomeThreePrinciples } from "@/components/home/HomeThreePrinciples";
 import {
   getCachedIngredientIndexProducts,
@@ -47,6 +48,7 @@ export default async function HomePage() {
     getCachedIngredientIndexProducts(),
   ]);
   const productsBySlug = new Map(products.map((product) => [product.slug, product]));
+  const superSerum = productsBySlug.get("super-serum");
   const coreProducts = productsForSlugs(productsBySlug, CORE_PRODUCT_SLUGS);
   const ingredientCards = buildIngredientIndex(ingredientProducts).slice(0, 3);
   const beyondCoreProducts = productsForSlugs(
@@ -84,6 +86,8 @@ export default async function HomePage() {
       </section>
 
       <HomeCoreShowcase products={coreProducts} />
+
+      {superSerum && <HomeSuperSerumSpotlight product={superSerum} />}
 
       <section className="home-section home-section--core-support home-lander-plug" aria-labelledby="plug-play-heading">
         <div className="home-plug-split">

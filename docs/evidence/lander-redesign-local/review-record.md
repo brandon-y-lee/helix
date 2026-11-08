@@ -32,3 +32,17 @@ Authority: local implementation/verification/checkpoint only. No remote publicat
 ## Reference blocker
 
 Library skill current c2/library and materialization guide read. Tool inventory has only Library create/replace/prepare_uploads/finalize_uploads; no list/search/read/prepare_materialize. user_message_read returned all five exact attachment IDs/names/sizes but no bytes or transfers. No image download attempted, no denial and no uncertain transfer. Helper sources library_file_transfer.py and library_hosted_apps.py fetched unchanged into /tmp/helix-lander-library-helpers, ready for supported transfer objects. Do not guess URLs or scan workspace for Library-backed targets.
+
+## Reference completion update
+
+Parent resolved materialization via supported Space flow. All five files at /Users/brandonlee/helix-landing-references verified with file and exact byte sizes, then all pixels inspected directly. Initial tooling blocker resolved; no transfer denial occurred.
+
+Reference-completion-plan.md SHA3086681f42f3004e96d65d579c0262594b732f1f78ce153b966907d700f2bae1 independently approved by /root/spec_review and /root/standards_review before generation/implementation. Generated model is readable and optimized project-local; provenance in image-provenance.md.
+
+Super Serum section now58/42 directly after Core; values now large Manrope statement with Our Values CTA and bottom selectors per supplied screenshot. 1440px computed serum columns770.125/557.68; values703.734/624.062. Mobile390, narrow320, tablet768: single column and no horizontal overflow. Generated image loaded with natural image width390 on mobile and806 desktop optimized rendition. Reduced-motion browser emulation: hero static, zero hero/plug videos, zero controls; emulation reset. Final mobile End test selected/focused Sustainability with aria-pressed=true.
+
+Transferable screenshot evidence saved in /tmp/helix-lander-evidence/: serum-desktop.jpg, serum-mobile.jpg, values-desktop.jpg, values-mobile.jpg. Browser measurements and screenshots used public catalog content only; no account/customer screens or private data captured.
+
+After dependency repair: lint and typecheck PASS. Previous complete serial suite PASS255 files/2725 tests, 1 file/8 tests pre-existing skips. Complete final suite rerunning after reference-completion changes. Standard4-worker full run failed2 unrelated tests by timeouts plus1 worker timeout; serial run resolved those without modifying tests or timeouts. No gate claimed for failed/default run.
+
+Final complete serial Vitest: PASS255 files /2726 tests;1 file /8 tests skipped (existing catalog-restore-sql-service). Command pnpm exec vitest run --maxWorkers=1, duration210.31s. Final lint/typecheck/diff whitespace checks PASS. Skipped SQL proof is unchanged, outside this UI scope; no full integration gate claimed.

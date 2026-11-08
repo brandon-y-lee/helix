@@ -108,33 +108,8 @@
   min-height: clamp(640px, 86svh, 880px);
 }
 
-.home-lander-principles .home-three-principles-panel {
-  padding: var(--pdp-panel-padding);
-  background: var(--surface);
-}
-
-.home-lander-principles .home-three-principles {
-  width: 100%;
-  grid-template-rows: auto minmax(160px, 1fr) auto;
-}
-
-.home-lander-principles .home-three-principles__title {
-  font-size: clamp(2.5rem, 4.5vw, 4.5rem);
-  line-height: 1;
-}
-
-.home-lander-principles .home-three-principles__copy {
-  min-height: 160px;
-  padding-block: 32px;
-}
-
 @media (max-width: 900px) {
   .home-lander-plug .home-plug-split {
-    grid-template-columns: 1fr;
-    min-height: 0;
-  }
-
-  .home-section.home-lander-principles {
     grid-template-columns: 1fr;
     min-height: 0;
   }
@@ -180,18 +155,6 @@
     min-height: 320px;
   }
 
-  .home-lander-principles .home-three-principles {
-    grid-template-rows: auto auto auto;
-  }
-
-  .home-lander-principles .home-three-principles__title {
-    font-size: 2.5rem;
-  }
-
-  .home-lander-principles .home-three-principles__copy {
-    min-height: 0;
-    padding-block: 24px;
-  }
 }
 
 /* Keep the top-state overlay navigation inside this route's inset hero. */
@@ -200,4 +163,150 @@ body:has(main[data-storefront-main] > .home-lander-hero)
   top: var(--storefront-gutter);
   left: var(--storefront-gutter);
   right: var(--storefront-gutter);
+}
+
+.home-lander-serum {
+  display: grid;
+  grid-template-columns: minmax(0, 58fr) minmax(0, 42fr);
+  gap: var(--pdp-panel-gap);
+  margin: 0 var(--storefront-gutter) var(--pdp-panel-gap);
+  min-height: clamp(560px, 68svh, 760px);
+}
+
+.home-lander-serum .home-lander-serum__media,
+.home-lander-serum .home-lander-serum__copy {
+  min-width: 0;
+  border-radius: var(--pdp-panel-radius);
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.home-lander-serum .home-lander-serum__media {
+  position: relative;
+  min-height: inherit;
+}
+
+.home-lander-serum .home-lander-serum__image {
+  object-fit: cover;
+  object-position: 55% 44%;
+}
+
+.home-lander-serum .home-lander-serum__copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: clamp(24px, 2.5vw, 40px);
+  padding: clamp(28px, 3.5vw, 56px);
+}
+
+.home-lander-serum .home-lander-serum__eyebrow {
+  color: var(--ink-soft);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.home-lander-serum h2 {
+  font-size: clamp(2.5rem, 4.1vw, 4.5rem);
+  line-height: 1.04;
+  text-wrap: balance;
+}
+
+.home-lander-serum .home-lander-serum__body {
+  display: grid;
+  gap: 20px;
+  max-width: 40ch;
+  color: var(--ink-soft);
+  font-size: clamp(1rem, 1.12vw, 1.125rem);
+  line-height: 1.65;
+}
+
+.home-section.home-lander-principles {
+  grid-template-columns: minmax(0, 53fr) minmax(0, 47fr);
+}
+
+.home-lander-principles .home-three-principles-panel {
+  padding: clamp(24px, 2.5vw, 48px);
+  background: #f1f0ec;
+}
+
+.home-lander-principles .home-three-principles {
+  width: 100%;
+  grid-template-rows: minmax(360px, 1fr) auto;
+}
+
+.home-lander-principles .home-three-principles__copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 28px;
+  min-height: 0;
+  padding: 0 0 40px;
+}
+
+.home-lander-principles .home-three-principles__description {
+  max-width: 29ch;
+  color: var(--storefront-warm-gray);
+  font-family: var(--font);
+  font-size: clamp(1.6rem, 2.6vw, 2.7rem);
+  line-height: 1.24;
+  text-wrap: pretty;
+}
+
+.home-lander-principles .home-three-principles__label {
+  min-height: clamp(64px, 7vw, 90px);
+  color: var(--storefront-warm-gray);
+  font-size: clamp(1.25rem, 2vw, 2rem);
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: lowercase;
+}
+
+@media (max-width: 900px) {
+  .home-lander-serum,
+  .home-section.home-lander-principles {
+    grid-template-columns: 1fr;
+    min-height: 0;
+  }
+
+  .home-lander-serum .home-lander-serum__media {
+    min-height: 0;
+    aspect-ratio: 4 / 3;
+  }
+
+  .home-lander-serum .home-lander-serum__copy {
+    min-height: 400px;
+  }
+
+  .home-lander-principles .home-three-principles {
+    grid-template-rows: auto auto;
+  }
+
+  .home-lander-principles .home-three-principles__copy {
+    min-height: 250px;
+    padding-bottom: 36px;
+  }
+}
+
+@media (max-width: 720px) {
+  .home-lander-serum .home-lander-serum__copy {
+    min-height: 0;
+    padding: 28px 24px 32px;
+    gap: 24px;
+  }
+
+  .home-lander-serum h2 {
+    font-size: 2.5rem;
+  }
+
+  .home-lander-principles .home-three-principles__description {
+    font-size: 1.6rem;
+  }
+
+  .home-lander-principles .home-three-principles__copy {
+    min-height: 280px;
+  }
 }
