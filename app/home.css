@@ -6,7 +6,12 @@
   border-radius: var(--pdp-panel-radius);
 }
 
-/* The opaque top band keeps white navigation readable over even white video frames. */
+/* Let the video control sit above the scrim in the hero's stacking context. */
+.home-lander-hero .home-video-hero__media {
+  z-index: auto;
+}
+
+/* The dark top band keeps white navigation readable over even white video frames. */
 .home-lander-hero .home-video-hero__scrim::after {
   content: "";
   position: absolute;
