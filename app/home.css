@@ -6,6 +6,14 @@
   border-radius: var(--pdp-panel-radius);
 }
 
+/* The opaque top band keeps white navigation readable over even white video frames. */
+.home-lander-hero .home-video-hero__scrim::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(10, 12, 11, 0.66) 0 88px, transparent 220px);
+}
+
 .home-lander-hero .home-video-hero__content {
   padding: calc(var(--site-header-height) + 32px) var(--pdp-panel-padding) 40px;
   pointer-events: none;

@@ -22,9 +22,16 @@ describe("HomeThreePrinciples input changes", () => {
     fireEvent.pointerEnter(sustainability);
     expect(mission).toHaveAttribute("aria-pressed", "true");
 
-    fireEvent.click(sustainability);
+    fireEvent.pointerDown(sustainability);
+    fireEvent.click(sustainability, { detail: 1 });
     expect(sustainability).toHaveAttribute("aria-pressed", "true");
     fireEvent.pointerEnter(innovation);
     expect(innovation).toHaveAttribute("aria-pressed", "true");
+
+    fireEvent.focus(mission);
+    fireEvent.keyDown(mission, { key: "Enter" });
+    fireEvent.click(mission, { detail: 0 });
+    fireEvent.pointerEnter(innovation);
+    expect(mission).toHaveAttribute("aria-pressed", "true");
   });
 });

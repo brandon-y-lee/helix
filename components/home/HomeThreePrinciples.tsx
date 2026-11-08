@@ -91,8 +91,8 @@ export function HomeThreePrinciples({ headingId, principles }: HomeThreePrincipl
               aria-pressed={isActive}
               aria-controls={contentId}
               data-active={isActive ? "true" : "false"}
-              onClick={() => {
-                keyboardIntent.current = false;
+              onClick={(event) => {
+                keyboardIntent.current = event.detail === 0;
                 activate(index);
               }}
               onFocus={() => {

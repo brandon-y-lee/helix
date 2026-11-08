@@ -46,3 +46,11 @@ Transferable screenshot evidence saved in /tmp/helix-lander-evidence/: serum-des
 After dependency repair: lint and typecheck PASS. Previous complete serial suite PASS255 files/2725 tests, 1 file/8 tests pre-existing skips. Complete final suite rerunning after reference-completion changes. Standard4-worker full run failed2 unrelated tests by timeouts plus1 worker timeout; serial run resolved those without modifying tests or timeouts. No gate claimed for failed/default run.
 
 Final complete serial Vitest: PASS255 files /2726 tests;1 file /8 tests skipped (existing catalog-restore-sql-service). Command pnpm exec vitest run --maxWorkers=1, duration210.31s. Final lint/typecheck/diff whitespace checks PASS. Skipped SQL proof is unchanged, outside this UI scope; no full integration gate claimed.
+
+## Committed-code reviews and correction
+
+Candidate9f55ce800f3ce720c24618ee67f43c34a7d37b74 vs base830a3975154b4554bf2d7dbdba713eb2c4d96a46: Spec /root/spec_review APPROVE, no actionable findings. Standards /root/standards_review REVISE P2: native Enter/Space and assistive clicks have detail0 and must preserve keyboard intent. Regression added to existing focused test reproduced failure; onClick now distinguishes detail0 from pointer click, and affected19 tests PASS. No source scope expansion.
+
+Added homepage-scoped top scrim (66% dark band through88px, fade to220px) under the approved header-readability requirement; mathematically white video maps to RGB93.3/94.62/93.96 before underlying scrim, with white navigation text contrast comfortably above4.5:1. Browser bright-frame verification pending retained production preview.
+
+Initial sandboxed production build failed Google Fonts DNS (Manrope/Marcellus); network-enabled build succeeded, with an existing unrelated SimulatedTrackingConsole autoprefixer 'end' warning. No auth/provider/config changes. Retained production build and complete serial suite are rerunning after the final handler/scrim correction.
