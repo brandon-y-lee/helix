@@ -138,6 +138,16 @@ beforeEach(() => {
 });
 
 describe("homepage product wiring", () => {
+  it("ends with the principles after ingredient education and omits the retired final video", async () => {
+    render(<CartProvider>{await HomePage()}</CartProvider>);
+    const ingredients = sectionForHeading("Know what you are using.");
+    const principles = sectionForHeading("Simple is not basic.");
+    expect(ingredients.nextElementSibling).toBe(principles);
+    expect(principles.nextElementSibling).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Invest in your skin." })).not.toBeInTheDocument();
+    expect(document.querySelector(".home-final-media")).not.toBeInTheDocument();
+  });
+
   it("offers one Core product list through the shared carousel without duplicating its imagery", async () => {
     render(<CartProvider>{await HomePage()}</CartProvider>);
 

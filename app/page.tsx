@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import "./home.css";
 import Link from "next/link";
 import { HomeBeyondCoreShowcase } from "@/components/home/HomeBeyondCoreShowcase";
 import { HomeBackgroundVideo } from "@/components/home/HomeBackgroundVideo";
@@ -56,7 +57,7 @@ export default async function HomePage() {
   return (
     <>
       <section
-        className="home-video-hero"
+        className="home-video-hero home-lander-hero"
         data-header-layout="overlay"
         data-header-theme="light"
         aria-labelledby="home-hero-heading"
@@ -84,22 +85,7 @@ export default async function HomePage() {
 
       <HomeCoreShowcase products={coreProducts} />
 
-      <section
-        className="home-section home-section--principles"
-        aria-labelledby="home-three-principles-heading"
-      >
-        <div className="home-three-principles-panel">
-          <HomeThreePrinciples
-            headingId="home-three-principles-heading"
-            principles={homeThreePrinciples}
-          />
-        </div>
-        <div className="home-three-principles-visual">
-          <HomePrinciplesPortrait />
-        </div>
-      </section>
-
-      <section className="home-section home-section--core-support" aria-labelledby="plug-play-heading">
+      <section className="home-section home-section--core-support home-lander-plug" aria-labelledby="plug-play-heading">
         <div className="home-plug-split">
           <div className="home-plug-media">
             <HomeBackgroundVideo placement="plug" />
@@ -154,20 +140,18 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section className="home-section home-section--final" aria-labelledby="final-heading">
-        <HomeBackgroundVideo placement="final" />
-        <div className="home-final">
-          <h2 id="final-heading" className="display-secondary home-final__title">
-            Invest in your skin.
-          </h2>
-          <p className="home-final__copy">
-            Three steps, one order, repeatable morning or night.
-          </p>
-          <div className="hero__actions home-video-hero__actions home-final__actions">
-            <Link href="#core-three" className="home-final__cta home-final__cta--primary">
-              Shop The Core
-            </Link>
-          </div>
+      <section
+        className="home-section home-section--principles home-lander-principles"
+        aria-labelledby="home-three-principles-heading"
+      >
+        <div className="home-three-principles-panel">
+          <HomeThreePrinciples
+            headingId="home-three-principles-heading"
+            principles={homeThreePrinciples}
+          />
+        </div>
+        <div className="home-three-principles-visual">
+          <HomePrinciplesPortrait />
         </div>
       </section>
     </>

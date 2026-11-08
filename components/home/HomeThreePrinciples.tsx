@@ -11,6 +11,7 @@ type HomeThreePrinciplesProps = {
 export function HomeThreePrinciples({ headingId, principles }: HomeThreePrinciplesProps) {
   const [activeIndex, setActiveIndex] = useState(0);
   const contentId = useId();
+  const keyboardIntent = useRef(false);
   const labelRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const activePrinciple = principles[activeIndex] ?? principles[0];
 
@@ -25,6 +26,7 @@ export function HomeThreePrinciples({ headingId, principles }: HomeThreePrincipl
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLButtonElement>, index: number) {
+    keyboardIntent.current = true;
     if (!["ArrowDown", "ArrowRight", "ArrowUp", "ArrowLeft", "Home", "End"].includes(event.key)) {
       return;
     }
@@ -93,11 +95,26 @@ export function HomeThreePrinciples({ headingId, principles }: HomeThreePrincipl
               aria-pressed={isActive}
               aria-controls={contentId}
               data-active={isActive ? "true" : "false"}
-              onClick={() => activate(index)}
-              onFocus={() => activate(index)}
+              onClick={() => {
+                keyboardIntent.current = false;
+                activate(index);
+              }}
+              onFocus={() => {
+                keyboardIntent.current = true;
+                activate(index);
+              }}
+              onPointerDown={() => {
+                keyboardIntent.current = false;
+              }}
+              onPointerMove={(event) => {
+                if (event.pointerType !== "touch") {
+                  keyboardIntent.current = false;
+                  activate(index);
+                }
+              }}
               onKeyDown={(event) => handleKeyDown(event, index)}
               onPointerEnter={(event) => {
-                if (event.pointerType !== "touch") activate(index);
+                if (event.pointerType !== "touch" && !keyboardIntent.current) activate(index);
               }}
             >
               <span>{principle.label}</span>

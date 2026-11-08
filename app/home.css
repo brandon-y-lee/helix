@@ -1,0 +1,203 @@
+/* Homepage-only island layout; every rule is scoped to its named section. */
+.home-video-hero.home-lander-hero {
+  height: calc(100svh - var(--storefront-gutter) - 2.5vw);
+  min-height: 620px;
+  margin: var(--storefront-gutter) var(--storefront-gutter) 2.5vw;
+  border-radius: var(--pdp-panel-radius);
+}
+
+.home-lander-hero .home-video-hero__content {
+  padding: calc(var(--site-header-height) + 32px) var(--pdp-panel-padding) 40px;
+  pointer-events: none;
+}
+
+.home-lander-hero .home-video-hero__content > div {
+  gap: 18px;
+  pointer-events: auto;
+}
+
+.home-lander-hero .home-video-hero__title {
+  max-width: 16ch;
+  font-size: clamp(2rem, 3.35vw, 3rem);
+  line-height: 1.08;
+}
+
+.home-lander-hero .home-video-hero__display-line {
+  font-size: clamp(1rem, 1.5vw, 1.25rem);
+  font-weight: 500;
+}
+
+.home-lander-hero .home-video-hero__eyebrow {
+  font-size: 0.7rem;
+}
+
+.home-lander-hero .home-video-control,
+.home-lander-plug .home-video-control {
+  position: absolute;
+  z-index: 3;
+  right: 24px;
+  bottom: 24px;
+  display: grid;
+  place-items: center;
+  min-width: 64px;
+  min-height: 44px;
+  border: 1px solid #fff;
+  border-radius: 999px;
+  background: rgba(17, 19, 18, 0.72);
+  color: #fff;
+  font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.home-lander-hero .home-video-control:focus-visible,
+.home-lander-plug .home-video-control:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 4px;
+}
+
+.home-section.home-lander-plug,
+.home-section.home-lander-principles {
+  margin: 0 var(--storefront-gutter) var(--pdp-panel-gap);
+  padding: 0;
+  border: 0;
+  gap: var(--pdp-panel-gap);
+  background: transparent;
+}
+
+.home-lander-plug .home-plug-split {
+  grid-template-columns: minmax(0, 65fr) minmax(0, 35fr);
+  gap: var(--pdp-panel-gap);
+  min-height: clamp(540px, 76svh, 820px);
+}
+
+.home-lander-plug .home-plug-media,
+.home-lander-plug .home-plug-panel,
+.home-lander-principles .home-three-principles-panel,
+.home-lander-principles .home-three-principles-visual {
+  border-radius: var(--pdp-panel-radius);
+  overflow: hidden;
+}
+
+.home-lander-plug .home-plug-panel {
+  padding: var(--pdp-panel-padding);
+  background: var(--surface);
+  justify-items: start;
+  text-align: left;
+}
+
+.home-lander-plug .home-plug-panel__title {
+  justify-items: start;
+  font-size: clamp(2.5rem, 5vw, 4.5rem);
+  line-height: 0.95;
+}
+
+.home-lander-plug .home-plug-panel__body {
+  justify-items: start;
+  max-width: 32ch;
+}
+
+.home-lander-plug .home-plug-media__caption {
+  max-width: 26ch;
+  padding-right: 80px;
+  white-space: normal;
+  line-height: 1.1;
+}
+
+.home-section.home-lander-principles {
+  min-height: clamp(640px, 86svh, 880px);
+}
+
+.home-lander-principles .home-three-principles-panel {
+  padding: var(--pdp-panel-padding);
+  background: var(--surface);
+}
+
+.home-lander-principles .home-three-principles {
+  width: 100%;
+  grid-template-rows: auto minmax(160px, 1fr) auto;
+}
+
+.home-lander-principles .home-three-principles__title {
+  font-size: clamp(2.5rem, 4.5vw, 4.5rem);
+  line-height: 1;
+}
+
+.home-lander-principles .home-three-principles__copy {
+  min-height: 160px;
+  padding-block: 32px;
+}
+
+@media (max-width: 900px) {
+  .home-lander-plug .home-plug-split {
+    grid-template-columns: 1fr;
+    min-height: 0;
+  }
+
+  .home-section.home-lander-principles {
+    grid-template-columns: 1fr;
+    min-height: 0;
+  }
+
+  .home-lander-plug .home-plug-panel {
+    min-height: 340px;
+  }
+}
+
+@media (max-width: 720px) {
+  .home-lander-hero .home-video-hero__content {
+    min-height: inherit;
+    padding: calc(var(--site-header-height) + 36px) 20px max(28px, env(safe-area-inset-bottom));
+  }
+
+  .home-lander-hero .home-video-hero__content > div {
+    max-width: 100%;
+  }
+
+  .home-lander-hero .home-video-hero__title {
+    max-width: 15ch;
+    font-size: 2rem;
+  }
+
+  .home-lander-hero .home-video-hero__actions {
+    width: min(100%, 280px);
+  }
+
+  .home-lander-hero .home-video-control {
+    top: calc(var(--site-header-height) + 16px);
+    bottom: auto;
+    right: 20px;
+  }
+
+  .home-lander-plug .home-plug-media__caption {
+    left: 20px;
+    bottom: 24px;
+    max-width: calc(100% - 40px);
+    font-size: 1.75rem;
+  }
+
+  .home-lander-plug .home-plug-panel {
+    min-height: 320px;
+  }
+
+  .home-lander-principles .home-three-principles {
+    grid-template-rows: auto auto auto;
+  }
+
+  .home-lander-principles .home-three-principles__title {
+    font-size: 2.5rem;
+  }
+
+  .home-lander-principles .home-three-principles__copy {
+    min-height: 0;
+    padding-block: 24px;
+  }
+}
+
+/* Keep the top-state overlay navigation inside this route's inset hero. */
+body:has(main[data-storefront-main] > .home-lander-hero)
+  .site-header[data-nav-state="top"] {
+  top: var(--storefront-gutter);
+  left: var(--storefront-gutter);
+  right: var(--storefront-gutter);
+}
