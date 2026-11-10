@@ -25,6 +25,25 @@ Production Browser checks at1440×900,768×1024,390×844,320×568: image loads; 
 
 Preview diagnosed/restored: original server process was absent. Rebuilt final production preview started in Codex terminal (PTY) on127.0.0.1:3100 and Browser visibly rendered final v3 product hero. Earlier host-local HTTP probe returned200; sandbox-only probes cannot reach host listener, so use approved host-local check for final status. No deployment or service/config changes.
 
+## Final review and Library blocker
+
+Committed candidate `ee0daddeec095084c2df340b68036bf9eed73b03` against `0bb27d3`: Spec `/root/spec_review` APPROVE and Standards `/root/standards_review` APPROVE, no actionable findings. Both inspected distinct composition, reference consistency, canonical packaging/label, hand anatomy, responsive screenshots and preserved layout. Prepare PASS.
+
+The five-file Library replacement was DENIED by automatic approval review before the upload helper process started. No Library writes or byte transfers executed, and no uncertain outcome. Exact rejection:
+
+> This action was rejected due to unacceptable risk.
+> Reason: This replaces five files in an external Library destination, exporting nonpublic generated assets and local preview screenshots; the user authorized the local redesign and preview but not this specific Library upload or destination.
+> Do not bypass this rejection through a workaround or indirect execution. Continue with a safer alternative, or carry out checks to prove that the action is authorized or low risk before trying again. Complete unaffected work without asking for confirmation. Report anything that remains blocked, clarify why it was blocked by auto-review, inform the user of the risk and ask for approval.
+
+Required user-message read/search after denial found no explicit human Library upload authorization; no retry or alternate transfer attempted. Existing native Library files still contain v2 imagery, NOT the current v3 composition. Pending targets (local new source → existing Library identity/current retained version):
+- `public/media/home/super-serum-editorial-v3.webp` → `libfile_97ced86e21d48191ba16c83f4fb7d5a2`, version0.
+- `landing-desktop-v3.jpg` → `libfile_4d66b5b7596c819180d68c4f56dda0ed`, version1.
+- `landing-mobile-v3.jpg` → `libfile_98adba32d55c8191a664c1b58d4cee26`, version1.
+- `serum-desktop-v3.jpg` → `libfile_399aa4ce84b081918456854bd1a98047`, version0.
+- `serum-mobile-v3.jpg` → `libfile_77ff4222f0fc8191bc3cbc52ea2a971f`, version0.
+
+All new assets/screenshots remain locally reviewable. Do not present the old Library file IDs as updated v3 deliverables. Upload requires explicit user approval for these five replacements; user-visible local preview and code handoff are unaffected.
+
 ## Exact generation prompt
 
 Use case: photorealistic-natural. Asset type: NEW Helix Super Serum product-hero campaign photograph for a beauty ecommerce landing page. Input image1 and image2 are ONLY male model identity and photographic style references from the Treat PDP; do NOT reproduce either prior pose or photograph. Input image3 is the EXACT Super Serum product appearance reference. Create a genuinely NEW pose and composition: tight almost FRONTAL head-and-bare-shoulders beauty portrait, the man looking directly into the camera, head upright, relaxed confident expression. He holds the CLOSED Super Serum dropper bottle upright beside the LEFT side of his cheek/temple (viewer left), label facing camera. A natural hand gently grips the lower bottle with anatomically correct fingers; no extra fingers. Bottle and face are the two clear focal points, inspired by a face-plus-product beauty campaign, not a detached studio side-profile. Preserve the same model's facial proportions, strong dark brows, brown eyes, straight nose, full lips, angular jaw, olive skin tone, dark wet-styled swept-back hair with loose strands. Preserve soft studio lighting, cool pale-gray seamless background, realistic pores and natural hydrated skin texture from the references, without airbrushing or heavy makeup. Landscape4:3 frame, full forehead and chin visible with modest headroom; face and COMPLETE bottle including white dropper top and glass base fit within central80percent of frame for responsive cover crops. Bottle should be a realistic small serum bottle around half the height of the head, not oversized. Match image3's exact frosted cylindrical glass bottle, thick clear base, silver metal collar, white rounded rubber dropper bulb, black vertical helix wordmark and Super Serum product title, reference label arrangement. Do not invent or rewrite ingredients, claims or label copy; smaller print can be naturally less legible due photographic scale but must not become new advertising text. Keep the wordmark and product title accurate. No pink bottle, no Smooche branding. No serum smear, no other prop, no jewelry, no clothes, no text outside the genuine bottle label, no webpage/UI/collage, no watermark. This must be a fresh campaign photograph of the SAME referenced man holding the actual Helix serum, not an outpainting/crop of an earlier portrait. Output only the finished color photograph.
