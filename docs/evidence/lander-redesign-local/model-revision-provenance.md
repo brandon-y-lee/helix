@@ -22,6 +22,18 @@ Production Browser preview at 1440×900, 768×1024, 390×844 and 320×568: optim
 
 Screenshots `/tmp/helix-lander-revision-evidence/serum-desktop-v2.jpg`, `serum-mobile-v2.jpg`, `serum-narrow-v2.jpg`, plus updated full-page previews. Raw responsive measurements `model-viewports.json`. No model-generation blocker remains. Local production preview remains on port3100.
 
+## Final local review and deliverables
+
+Committed candidate `4cc446b90043f0a1c9ae934759e56df331648f98` against `66e219f`: Spec `/root/spec_review` APPROVE and Standards `/root/standards_review` APPROVE, no actionable findings. Both inspected the generated asset, supplied reference pixels, diff and desktop/mobile previews. `codex-task.sh prepare` PASS. Approvals cover the local image correction only; native touch proof and complete integration verification remain unclaimed.
+
+Confirmed Library screenshots (identity metadata applied successfully):
+- Full desktop: `libfile_4d66b5b7596c819180d68c4f56dda0ed`, version1.
+- Full mobile: `libfile_98adba32d55c8191a664c1b58d4cee26`, version1.
+- Serum desktop: `libfile_399aa4ce84b081918456854bd1a98047`, version0.
+- Serum mobile: `libfile_77ff4222f0fc8191bc3cbc52ea2a971f`, version0.
+
+Existing full-page screenshot identities were replaced with version guards, preserving history. Native asset `libfile_97ced86e21d48191ba16c83f4fb7d5a2`, version0. Local preview `http://127.0.0.1:3100/`; run `pnpm start --hostname 127.0.0.1 --port 3100` in `/tmp/helix-lander-review`. Library deliverable writes only; no Git push, merge, deployment or provider configuration changes. Unrelated root-checkout legal edits preserved.
+
 ## Exact built-in Image prompt
 
 Use case: identity-preserve. Asset type: Helix men's skincare landing-page Super Serum editorial photograph, clean finished photograph only. Input image 1 (treat-pdp-outcomes-03) is the PRIMARY face, pose, lighting and color reference. Input image 2 (treat-pdp-outcomes-01) is a SUPPORTING reference of the same male model visual identity and natural skin texture. Adapt the PRIMARY portrait into a 4:3 LANDSCAPE photograph suitable for an inset responsive website image panel. Preserve that exact young adult man's facial identity: face proportions, strong brows, brown eyes, straight nose, full lips, angular jaw, olive warm skin tone and short dark wet-styled swept-back hair with a few loose strands. Preserve the primary reference's right-facing three-quarter camera angle, calm expression, bare shoulders, soft studio lighting, pale cool-gray seamless background, realistic pores and subtle hydrated skin sheen. Widen the background and shoulder framing while retaining a tight beauty portrait: include full forehead and chin with modest breathing room above and below for responsive crops, face centered within the landscape frame and looking toward the right. The goal is a consistent additional photograph from the SAME Treat PDP model shoot, not a new face or styling. Keep natural skin texture, not airbrushed or plastic. No hand, no serum smear on this clean portrait, no bottle, packaging, jewelry, text, logos, watermark, webpage, collage or extra person. Do not copy the original screenshot interface. Output only the finished 4:3 landscape color photograph.
