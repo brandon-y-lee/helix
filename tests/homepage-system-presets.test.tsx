@@ -166,7 +166,7 @@ describe("homepage product wiring", () => {
     expect(spotlight.nextElementSibling).toBe(sectionForHeading("Plug and Play"));
     expect(within(spotlight).getByText("Super Serum", { exact: true })).toBeInTheDocument();
     expect(within(spotlight).getByText("A lightweight serum with PDRN, humectants, niacinamide, peptides, and adenosine for hydrated, supple-looking skin.", { exact: true })).toBeInTheDocument();
-    expect(within(spotlight).getByText("The treatment layer of The Core. Use after cleansing and before moisturizer, morning and night.", { exact: true })).toBeInTheDocument();
+    expect(within(spotlight).queryByText("The treatment layer of The Core. Use after cleansing and before moisturizer, morning and night.", { exact: true })).not.toBeInTheDocument();
     expect(within(spotlight).getByRole("link", { name: "Shop Now" })).toHaveAttribute("href", "/products/super-serum");
     expect(within(spotlight).getByRole("img", { name: "Man facing the camera holding a Helix Super Serum bottle beside his cheek." })).toHaveAttribute("src", expect.stringContaining("super-serum-editorial-v3.webp"));
     expect(within(sectionForHeading("Simple is not basic.")).getByRole("link", { name: "Our values" })).toHaveAttribute("href", "/about");

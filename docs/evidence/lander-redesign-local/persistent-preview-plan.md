@@ -1,0 +1,24 @@
+# Persistent local preview — candidate 1
+
+Goal source: user “I need you to keep the server running. It keeps disconnecting.” Parent requests investigation, reliable persistent local service, latest revision preserved, session-survival verification, no deployment/security-setting changes. Local service authority is explicit; no remote delivery, root service, LAN/public exposure or auth/firewall/TCC changes.
+
+## Findings
+
+No TCP3100 listener, no existing com.helix.local-preview LaunchAgent/service, no recent node/next/pnpm diagnostic crash report. Previous launches used foreground Codex exec PTYs, no persistent supervisor/log files. Source/build is in /tmp/helix-lander-review and that directory was cleared once earlier. Confirmed fragility is unsupervised terminal-bound execution and temporary storage; exact previous termination cause/signal is not recoverable, so do not claim a proven app crash or a proven Codex kill mechanism.
+
+Latest app checkpoint ece67ba, branch codex/plan-lander-redesign-local, worktree clean. Preserve source worktree/Git metadata/history and unrelated legal edits. No application-code changes. New repo files only bounded local plan/evidence/config sample.
+
+## Implementation
+
+1. Create private durable runtime `/Users/brandonlee/Library/Application Support/HelixPreview/site`, parent/state/log directories0700. Snapshot the exact task HEAD's tracked files via git archive, copy current locked node_modules locally with relative symlinks preserved, and build there. No .git or unrelated shared-checkout edits copied. Copy existing .env.local into this private runtime with0600 permissions, no printed/logged values; required for the same existing app/runtime, no new recipient or service credentials. Keep manifest with commit/branch/time/public-source checksums, no secrets. Preserve original source paths. Audit no Desktop/tmp dependency symlinks apart from intentionally absent .git; runtime must start without protected Desktop access, avoiding any Full Disk Access/TCC change.
+2. Install user-only `~/Library/LaunchAgents/com.helix.local-preview.plist` from the reviewable candidate. ProgramArguments directly run existing `/Users/brandonlee/.nvm/versions/node/v24.19.0/bin/node` and runtime site's next CLI, `start --hostname 127.0.0.1 --port 3100`. WorkingDirectory durable site; NODE_ENV production and explicit PATH, no credentials in plist. KeepAlive=true, RunAtLoad=true, ThrottleInterval10, Umask077, private stdout/stderr logs. Do not overwrite any pre-existing agent/state; recheck before installation. No sudo, system daemon, new software, sleep/security/network settings, broad permissions or external publishing.
+3. Bootstrap in gui/501. If a port occupant appears, identify it and do not kill unrelated processes. If macOS requests security/privacy permission, stop and ask rather than weakening protections. Logs retained locally; only sanitized startup/status output returned.
+4. Write concise local management README: URL, runtime snapshot/source commit, start/restart/status/stop commands, log locations, and refresh instructions. This is a production preview snapshot: subsequent application edits require refreshing tracked files/dependencies/env/build and restarting, not HMR. Existing source remains /tmp and can be reconstructed from its preserved Git branch if cleared. Runtime survives its loss independently. NVM executable path must be updated if that Node installation is removed.
+
+Review candidate plist `/tmp/helix-preview-service-review/com.helix.local-preview.plist`; exact contents included in evidence review. Apple launchd guide and installed launchd.plist/launchctl manuals consulted. User agents run while logged in; login autostart is configuration, not an assertion of an observed reboot/login test.
+
+## Verification and handoff
+
+Validate plist with plutil and node runtime/build; no application code changes, so full Vitest not needed. Inspect runtime symlink dependency paths/private modes without disclosing env. Verify service PID/state, listener bound ONLY127.0.0.1:3100, root HTTP200 and latest hero/copy/CSS/public assets; Browser renders desktop/mobile. Verify process parent launchd(PPID1) after bootstrap command/shell exits, then send SIGTERM ONLY to the identified owned launchd service and observe automatic new PID/HTTP200 within a bounded30s poll. Recheck from separate completed exec sessions and after other work. Do not kill Codex, log out, reboot or change energy settings for testing. Record observed uptime/restart evidence, not an always-on guarantee; Mac sleep/shutdown/logout and removed runtime/node/config can prevent availability.
+
+Commit/prepare and independent review final config/evidence. Leave service running. Report exact URL, installed paths/commands, source/runtime distinction, tests and honest limits. No push/deploy/Library writes.

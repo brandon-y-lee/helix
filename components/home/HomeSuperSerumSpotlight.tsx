@@ -22,10 +22,6 @@ export function HomeSuperSerumSpotlight({ product }: { product: ProductCard }) {
             A lightweight serum with PDRN, humectants, niacinamide, peptides,
             and adenosine for hydrated, supple-looking skin.
           </p>
-          <p>
-            The treatment layer of The Core. Use after cleansing and before
-            moisturizer, morning and night.
-          </p>
         </div>
         <Link href={`/products/${product.slug}`} className="btn btn--ghost btn--editorial-rounded">
           Shop Now
