@@ -140,7 +140,7 @@ beforeEach(() => {
 describe("homepage product wiring", () => {
   it("ends with the principles after ingredient education and omits the retired final video", async () => {
     render(<CartProvider>{await HomePage()}</CartProvider>);
-    const ingredients = sectionForHeading("Research-Backed Ingredients");
+    const ingredients = sectionForHeading("Research-backed Ingredients");
     const principles = sectionForHeading("Simple is not basic.");
     expect(ingredients.nextElementSibling).toBe(principles);
     expect(principles.nextElementSibling).toBeNull();
@@ -303,7 +303,7 @@ describe("homepage product wiring", () => {
   it("links homepage ingredient previews to their canonical System anchors", async () => {
     render(<CartProvider>{await HomePage()}</CartProvider>);
 
-    const ingredients = sectionForHeading("Research-Backed Ingredients");
+    const ingredients = sectionForHeading("Research-backed Ingredients");
     expect(
       within(ingredients).getByRole("list", { name: "Ingredient literacy preview" }),
     ).toBeInTheDocument();

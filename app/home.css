@@ -210,11 +210,11 @@ body:has(main[data-storefront-main] > .home-lander-hero)
 .home-lander-serum .home-lander-serum__copy {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: center;
   gap: 24px;
   padding: var(--pdp-panel-padding);
-  text-align: left;
+  text-align: center;
 }
 
 .home-lander-serum .home-lander-serum__eyebrow {
@@ -280,7 +280,7 @@ body:has(main[data-storefront-main] > .home-lander-hero)
 
 .home-lander-principles .home-three-principles__description {
   max-width: 29ch;
-  color: var(--ink-soft);
+  color: #000;
   font-family: var(--font-heading);
   font-size: clamp(1.6rem, 2.6vw, 2.7rem);
   line-height: 1.24;

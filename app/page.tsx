@@ -127,7 +127,7 @@ export default async function HomePage() {
           data-layout-shell="storefront"
         >
           <div className="home-lander-ingredients__intro">
-            <h2 id="ingredients-heading">Research-Backed Ingredients</h2>
+            <h2 id="ingredients-heading">Research-backed Ingredients</h2>
             <p>
               See how our formulas nourish your skin--instantly, and years down the line.
               Our index explains what an ingredient is, where it appears, and how it supports your skin.
