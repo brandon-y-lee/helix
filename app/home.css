@@ -323,3 +323,33 @@ body:has(main[data-storefront-main] > .home-lander-hero)
     min-height: 280px;
   }
 }
+
+/* One vertical rhythm for the landing page, independent of its outer gutters. */
+main[data-storefront-main]:has(> .home-lander-hero) {
+  --home-section-gap: 2.5vw;
+  display: flex;
+  flex-direction: column;
+  gap: var(--home-section-gap);
+  padding-bottom: var(--home-section-gap);
+}
+
+main[data-storefront-main]:has(> .home-lander-hero) > section {
+  flex-shrink: 0;
+  min-width: 0;
+  margin-block: 0;
+  padding-block: 0;
+}
+
+main[data-storefront-main]:has(> .home-lander-hero) > .home-lander-hero {
+  margin-top: var(--storefront-gutter);
+}
+
+main[data-storefront-main]:has(> .home-lander-hero) > .home-band,
+.home-lander-principles .home-three-principles__labels,
+.home-lander-principles .home-three-principles__label {
+  border: 0;
+}
+
+body:has(main[data-storefront-main] > .home-lander-hero) .site-footer {
+  border-top: 0;
+}
