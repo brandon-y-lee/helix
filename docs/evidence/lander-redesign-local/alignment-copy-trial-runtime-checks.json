@@ -1,0 +1,13 @@
+{
+  "checked_at": "2026-11-10T11:04:01.467986+00:00",
+  "source_commit": "e61b301845899bbb13ffafcb58b205e3cbb1478d",
+  "http": 200,
+  "heading_exact": true,
+  "old_heading_absent": true,
+  "pid": 17099,
+  "parent_pid": 1,
+  "loopback_only": true,
+  "plist_unchanged": true,
+  "runtime_source_hashes_match": true,
+  "rollback_preserved": true
+}

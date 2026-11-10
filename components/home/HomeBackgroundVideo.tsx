@@ -21,7 +21,7 @@ type HomeVideoConfig = {
   videoClassName: string;
 };
 
-type HomeVideoState = "pending" | "motion" | "static" | "failed";
+type HomeVideoState = "pending" | "motion" | "paused" | "static" | "failed";
 
 const HOME_VIDEO_CONFIG = {
   hero: {
@@ -186,6 +186,8 @@ export function HomeBackgroundVideo({
   const [isNearViewport, setIsNearViewport] = useState(eager);
   const [isPlaying, setIsPlaying] = useState(false);
   const [hasFailed, setHasFailed] = useState(false);
+  const [manuallyPaused, setManuallyPaused] = useState(false);
+  const [hasPlayed, setHasPlayed] = useState(false);
   const documentVisible = useDocumentVisibility();
   const allowMotion = !useReducedMotionPreference();
 
@@ -201,6 +203,7 @@ export function HomeBackgroundVideo({
 
   useEffect(() => {
     setHasFailed(false);
+    setHasPlayed(false);
     setIsPlaying(false);
 
     if (!allowMotion) {
@@ -227,7 +230,7 @@ export function HomeBackgroundVideo({
     const video = videoRef.current;
     if (!video) return;
 
-    if (!allowMotion || !documentVisible || !isNearViewport || hasFailed) {
+    if (!allowMotion || !documentVisible || !isNearViewport || hasFailed || manuallyPaused) {
       pauseVideo(video);
       setIsPlaying(false);
       return;
@@ -255,6 +258,7 @@ export function HomeBackgroundVideo({
     allowMotion,
     documentVisible,
     hasFailed,
+    manuallyPaused,
     isNearViewport,
     shouldRenderVideo,
   ]);
@@ -263,17 +267,18 @@ export function HomeBackgroundVideo({
     ? "static"
     : hasFailed
       ? "failed"
-      : isPlaying
-        ? "motion"
-        : "pending";
+      : manuallyPaused
+        ? "paused"
+        : isPlaying
+          ? "motion"
+          : "pending";
 
   return (
     <div
       ref={frameRef}
       className={frameClassName}
       data-motion-state={motionState}
-      data-video-ready={isPlaying && !hasFailed ? "true" : "false"}
-      aria-hidden="true"
+      data-video-ready={hasPlayed && !hasFailed ? "true" : "false"}
     >
       <Image
         className={posterClassName}
@@ -290,7 +295,7 @@ export function HomeBackgroundVideo({
           ref={setVideoElement}
           className={videoClassName}
           aria-hidden="true"
-          autoPlay
+          autoPlay={!manuallyPaused}
           disablePictureInPicture
           loop
           muted
@@ -301,6 +306,7 @@ export function HomeBackgroundVideo({
           onPause={() => setIsPlaying(false)}
           onPlaying={() => {
             setHasFailed(false);
+            setHasPlayed(true);
             setIsPlaying(true);
           }}
           onStalled={() => setIsPlaying(false)}
@@ -314,6 +320,17 @@ export function HomeBackgroundVideo({
             <source key={source.src} src={source.src} type={source.type} />
           ))}
         </video>
+      ) : null}
+      {placement !== "final" && shouldRenderVideo && !hasFailed ? (
+        <button
+          type="button"
+          className="home-video-control"
+          aria-label={manuallyPaused ? "Play background video" : "Pause background video"}
+          aria-pressed={manuallyPaused}
+          onClick={() => setManuallyPaused((paused) => !paused)}
+        >
+          <span aria-hidden="true">{manuallyPaused ? "Play" : "Pause"}</span>
+        </button>
       ) : null}
     </div>
   );

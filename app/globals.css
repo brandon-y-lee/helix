@@ -7182,6 +7182,11 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
   border-radius: var(--radius-editorial-button);
 }
 
+/* Existing destinations of the homepage values CTAs clear the sticky header. */
+.about-page :is(#about-men-heading, #quality-heading, #sustainability-heading) {
+  scroll-margin-top: calc(var(--site-header-height) + 16px);
+}
+
 .system-page,
 .about-page {
   --editorial-max: min(100%, 1540px);

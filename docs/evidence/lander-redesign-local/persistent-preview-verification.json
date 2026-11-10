@@ -1,0 +1,40 @@
+{
+  "first_check_at": "2026-11-10T09:33:38.453552+00:00",
+  "service": "gui/501/com.helix.local-preview",
+  "pid": 89079,
+  "parent_pid": 1,
+  "bootstrap_shell_finished": true,
+  "listener_addresses": [
+    "127.0.0.1:3100"
+  ],
+  "http_status": 200,
+  "asset_status": 200,
+  "content_checks": {
+    "title": true,
+    "first_paragraph": true,
+    "removed_paragraph_absent": true
+  },
+  "snapshot_commit": "ec11d9970fa009fef8b4384990aae7dedc97764c",
+  "login_reboot_tested": false,
+  "codex_quit_tested": false,
+  "controlled_exit_recovery": {
+    "signal": "SIGTERM",
+    "old_pid": 89079,
+    "new_pid": 90201,
+    "parent_pid": 1,
+    "http_status": 200,
+    "seconds": 3.2,
+    "checked_at": "2026-11-10T09:34:10.222709+00:00"
+  },
+  "later_independent_shell_check": {
+    "checked_at": "2026-11-10T09:38:47.768959+00:00",
+    "pid": 90201,
+    "parent_pid": 1,
+    "same_recovered_pid": true,
+    "seconds_since_recovery": 277.5,
+    "http_status": 200,
+    "asset_status": 200,
+    "loopback_only": true,
+    "removed_paragraph_absent": true
+  }
+}
