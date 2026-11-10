@@ -9,7 +9,7 @@ Only implementation files changed: `components/home/HomeSuperSerumSpotlight.tsx`
 - Recovered baseline homepage tests PASS11tests.
 - Updated existing expectation before implementation: FAIL1/PASS10, missing new heading as expected. Green focused suite PASS4files/24tests. Missing-product heading assertion updated too, preserving meaningful guard coverage. No added mirrored styling test.
 - Lint PASS/no warnings or errors. Typecheck PASS. Diff whitespace check PASS.
-- Production build pending; retained output `/tmp/helix-serum-card-iteration/build.log`.
+- Production build PASS(exit0); retained output `/tmp/helix-serum-card-iteration/build.log`, with existing unrelated admin CSS autoprefixer warning only. Production Browser recheck confirms exact text,58/42/zero gap and loaded image; desktop/mobile screenshots refreshed from retained build.
 - Full Vitest/integration gate not rerun or claimed for this presentation/copy-only iteration.
 
 Browser dev preview, `/` and native CTA to `/products/super-serum`:
@@ -24,6 +24,8 @@ Browser dev preview, `/` and native CTA to `/products/super-serum`:
 All: image loaded, outer radius12px/inner radii0, content justify-content flex-end. CTA bottom/left inset matches32px desktop or20px mobile,2px keyboard focus outline stays safely inside card. Complete face/bottle framing inspected desktop/mobile/narrow. `Shop Now` native link navigates to canonical product. User copy exact in DOM. Other section source/styles untouched, surrounding2.5vw rhythm preserved. Initial back navigation showed development Router Cache's prior SSR copy; explicit reload rendered current text correctly. No production defect asserted.
 
 Evidence `/tmp/helix-serum-card-iteration/`: desktop.jpg,mobile.jpg,narrow.jpg,measurements.json. Viewport override reset. Preview reopens at3100 after production build. Library skill loaded for attachment routing; no Library upload/retrieval writes attempted in this revision.
+
+Independent committed-code review `b5122e336259d021adf23c9fd4e522ded2b92865` against36e4df7: Spec `/root/spec_review` APPROVE; Standards `/root/standards_review` APPROVE, no actionable findings. Both approvals cover independent local WIP only; they do not approve final new-attachment matching or integration. Prepare PASS. Production server running in Codex terminal on `http://127.0.0.1:3100/`; run `pnpm start --hostname 127.0.0.1 --port 3100` in the worktree. No push/deployment/remote provider changes; unrelated root legal edits preserved.
 
 ## Remaining reference dependency
 
