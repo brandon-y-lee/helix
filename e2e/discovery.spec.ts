@@ -265,7 +265,7 @@ test("reduced motion presents Product discovery copy immediately", async ({
   ).toBe(true);
 });
 
-test("Three Principles selection uses only a persistent 700ms label fade", async ({
+test("Three Principles retain selection with eased labels, copy and a one-frame image slide", async ({
   page,
 }) => {
   await page.emulateMedia({ reducedMotion: null });
@@ -280,32 +280,39 @@ test("Three Principles selection uses only a persistent 700ms label fade", async
   });
   const principles = [mission, innovation, sustainability];
 
+  // Prove hydration before measuring the initial presentation.
+  await innovation.click();
+  await expect(innovation).toHaveAttribute("aria-pressed", "true");
+  await mission.click();
+  await page.mouse.move(0, 0);
   await expect(mission).toHaveAttribute("aria-pressed", "true");
-  await expect(mission).toHaveCSS("transition-property", "opacity");
-  await expect
-    .poll(() =>
-      Promise.all(
-        principles.map((principle) =>
-          principle.evaluate((element) => getComputedStyle(element).opacity),
-        ),
-      ),
-    )
-    .toEqual(["1", "0.75", "0.75"]);
+  await expect(mission).toHaveCSS("transition-property", "color");
+  await expect(mission).toHaveCSS("color", "rgb(17, 19, 18)");
+  const slides = page.locator(".home-three-principles__slide");
+  const rail = page.locator(".home-three-principles-visual__rail");
+  await expect(slides).toHaveCount(3);
+  await expect(slides.nth(0)).toHaveCSS("opacity", "1");
+  for (const animated of [slides.nth(0), rail]) {
+    await expect(animated).toHaveCSS("transition-duration", "1s");
+    await expect(animated).toHaveCSS("transition-timing-function", "ease");
+  }
+  await expect(slides.nth(0)).toHaveCSS("transition-property", "opacity");
+  await expect(rail).toHaveCSS("transition-property", "transform");
   const initialPresentation = await Promise.all(
     principles.map(principlePresentation),
   );
   expect(initialPresentation.map(({ opacity }) => opacity)).toEqual([
     "1",
-    "0.75",
-    "0.75",
+    "1",
+    "1",
   ]);
-  expect(new Set(initialPresentation.map(({ color }) => color)).size).toBe(1);
+  expect(new Set(initialPresentation.map(({ color }) => color)).size).toBe(2);
   expect(
     new Set(initialPresentation.map(({ fontWeight }) => fontWeight)).size,
   ).toBe(1);
   expect(
     initialPresentation.every(({ transitionDuration }) =>
-      transitionDurationMs(transitionDuration) === 700,
+      transitionDurationMs(transitionDuration) === 1_000,
     ),
   ).toBe(true);
   expect(
@@ -342,6 +349,22 @@ test("Three Principles selection uses only a persistent 700ms label fade", async
   await expect(innovation).toBeFocused();
   await expect(innovation).toHaveAttribute("aria-pressed", "true");
 
+  await expect(slides.nth(1)).toHaveAttribute("aria-hidden", "false");
+  await expect(slides.nth(1)).not.toHaveAttribute("inert", "");
+  for (const index of [0, 2]) {
+    await expect(slides.nth(index)).toHaveAttribute("aria-hidden", "true");
+    await expect(slides.nth(index)).toHaveAttribute("inert", "");
+    await expect(slides.nth(index)).toHaveCSS("opacity", "0");
+  }
+  await expect(slides.nth(1)).toHaveCSS("opacity", "1");
+  await expect(page.getByRole("link", { name: "Our formulation", exact: true }))
+    .toHaveAttribute("href", "/about#quality-heading");
+  await expect(page.getByRole("link", { name: "Our mission", exact: true })).toHaveCount(0);
+  await expect.poll(() => rail.evaluate((element) => {
+    const offset = new DOMMatrixReadOnly(getComputedStyle(element).transform).m42;
+    return Math.abs(offset + element.parentElement!.getBoundingClientRect().height);
+  })).toBeLessThan(1);
+
   const selectedPresentation = await Promise.all(
     principles.map(principlePresentation),
   );
@@ -367,7 +390,7 @@ test("Three Principles selection is immediate with reduced motion", async ({
   const innovation = group.getByRole("button", { name: "innovation" });
 
   await expect(mission).toHaveCSS("opacity", "1");
-  await expect(innovation).toHaveCSS("opacity", "0.75");
+  await expect(innovation).toHaveCSS("opacity", "1");
   expect(
     transitionDurationMs(
       await innovation.evaluate(
@@ -379,7 +402,23 @@ test("Three Principles selection is immediate with reduced motion", async ({
   await innovation.click();
   await expect(innovation).toHaveAttribute("aria-pressed", "true");
   await expect(innovation).toHaveCSS("opacity", "1");
-  await expect(mission).toHaveCSS("opacity", "0.75");
+  await expect(mission).toHaveCSS("opacity", "1");
+  const slides = page.locator(".home-three-principles__slide");
+  const rail = page.locator(".home-three-principles-visual__rail");
+  await expect(slides.nth(1)).toHaveCSS("opacity", "1");
+  await expect(slides.nth(0)).toHaveCSS("opacity", "0");
+  await expect(slides.nth(2)).toHaveCSS("opacity", "0");
+  for (const animated of [mission, slides.nth(1), rail]) {
+    expect(transitionDurationMs(await animated.evaluate(
+      (element) => getComputedStyle(element).transitionDuration,
+    ))).toBeLessThanOrEqual(1);
+  }
+  await expect(page.getByRole("link", { name: "Our formulation", exact: true }))
+    .toHaveAttribute("href", "/about#quality-heading");
+  expect(await rail.evaluate((element) => {
+    const offset = new DOMMatrixReadOnly(getComputedStyle(element).transform).m42;
+    return Math.abs(offset + element.parentElement!.getBoundingClientRect().height);
+  })).toBeLessThan(1);
 });
 
 for (const collection of ["The Core", "Beyond The Core"]) {
@@ -494,26 +533,36 @@ test("Core changes from one card and a preview to two and then its desktop grid 
   await firstCard?.dispose();
 });
 
-test("phone ingredient preview is finite and returns to its stacked list above 720px", async ({ page }) => {
-  await page.setViewportSize({ width: 720, height: 900 });
+test("ingredient preview remains a linked, stacked thumbnail list across breakpoints", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
-  const ingredients = page.getByRole("region", { name: "Ingredient literacy preview", exact: true });
+  const ingredients = page.getByRole("list", { name: "Ingredient literacy preview", exact: true });
   const links = ingredients.getByRole("link");
-  const count = await links.count();
-  expect(count).toBeGreaterThan(1);
-  for (let index = 1; index < count; index += 1) {
-    await expect(ingredients.locator(".home-beyond-carousel__track")).toHaveAttribute("data-motion", "idle");
-    await ingredients.getByRole("button", { name: "Next ingredient" }).click();
-    await expect(ingredients).toHaveAttribute("data-active-index", String(index));
+  await expect(links).toHaveCount(3);
+  for (const [index, id] of ["pdrn", "peptides", "niacinamide"].entries()) {
+    await expect(links.nth(index)).toHaveAttribute("href", `/system#system-ingredient-${id}`);
   }
-  await expect(ingredients.getByRole("button", { name: "Next ingredient" })).toHaveCount(0);
-  await ingredients.getByRole("button", { name: "Previous ingredient" }).focus();
-  await page.setViewportSize({ width: 721, height: 900 });
-  await expect(ingredients.getByRole("button", { name: "Previous ingredient" })).toHaveCount(0);
-  await expect(ingredients).toBeFocused();
-  const bounds = await links.evaluateAll((items) => items.map((item) => item.getBoundingClientRect().top));
-  expect(bounds[1]).toBeGreaterThan(bounds[0]);
-  expect(bounds[2]).toBeGreaterThan(bounds[1]);
+  await expect(ingredients.locator("img")).toHaveCount(3);
+  await expect(page.locator(".home-lander-ingredients").getByRole("button", { name: /(?:Next|Previous) ingredient/ })).toHaveCount(0);
+  await links.last().focus();
+  for (const width of [390, 720, 721, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect(links.last()).toBeFocused();
+    const bounds = await links.evaluateAll((items) => items.map((item) => {
+      const box = item.getBoundingClientRect();
+      return { top: box.top, bottom: box.bottom, left: box.left, right: box.right };
+    }));
+    expect(bounds[1].top).toBeGreaterThanOrEqual(bounds[0].bottom);
+    expect(bounds[2].top).toBeGreaterThanOrEqual(bounds[1].bottom);
+    expect(bounds.every((box) => box.left >= 0 && box.right <= width)).toBe(true);
+    for (const image of await ingredients.locator("img").all()) {
+      await expect(image).toHaveAttribute("alt", "");
+      const box = await image.boundingBox();
+      expect(box).not.toBeNull();
+      expect(box!.width).toBeGreaterThan(0);
+      expect(Math.abs(box!.width - box!.height)).toBeLessThan(1);
+    }
+  }
 });
 
 test("homepage ingredient discovery lands below the fixed System header", async ({

@@ -550,6 +550,15 @@ body:has(main[data-storefront-main] > .home-lander-hero) .site-footer {
 }
 
 @media (max-width: 360px) {
+  /* The outer hero inset already provides the compact navigation gutter. */
+  body:has(main[data-storefront-main] > .home-lander-hero) .site-header[data-nav-state="top"] .site-header__bar {
+    padding-inline: 0;
+  }
+
+  body:has(main[data-storefront-main] > .home-lander-hero) .site-header[data-nav-state="top"] .brand {
+    width: 6rem;
+  }
+
   .home-ingredient-row__image {
     flex-basis: 72px;
     width: 72px;
