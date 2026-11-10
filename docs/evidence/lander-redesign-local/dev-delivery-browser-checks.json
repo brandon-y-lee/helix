@@ -1,0 +1,43 @@
+{
+  "candidate": "02cf6c7c307020a7debd7a403b226fd312d5c4b4",
+  "checks": [
+    {
+      "descriptionColors": [
+        "rgb(0, 0, 0)",
+        "rgb(0, 0, 0)",
+        "rgb(0, 0, 0)"
+      ],
+      "ingredientTitle": "Research-backed Ingredients",
+      "overflow": false,
+      "principlesColumns": "663.898px 663.906px",
+      "privacyControl": true,
+      "serumAlignment": "center",
+      "viewport": [
+        1440,
+        900
+      ]
+    },
+    {
+      "homepageIslands": 0,
+      "overflow": false,
+      "path": "/products/super-serum",
+      "pdp": true
+    },
+    {
+      "heroMotion": "paused",
+      "heroPlayControl": true,
+      "ingredientTitle": "Research-backed Ingredients",
+      "overflow": false,
+      "serumAlignment": "center",
+      "viewport": [
+        390,
+        844
+      ]
+    },
+    {
+      "activeCta": "/about#sustainability-heading",
+      "focus": "sustainability",
+      "selected": "2"
+    }
+  ]
+}
