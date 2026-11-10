@@ -377,3 +377,121 @@ main[data-storefront-main]:has(> .home-lander-hero) > .home-band,
 body:has(main[data-storefront-main] > .home-lander-hero) .site-footer {
   border-top: 0;
 }
+
+.home-lander-ingredients {
+  margin-inline: var(--storefront-gutter);
+}
+
+.home-lander-ingredients__panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(32px, 5vw, 72px);
+  padding: var(--pdp-panel-padding);
+  border-radius: var(--pdp-panel-radius);
+  background: var(--surface);
+}
+
+.home-lander-ingredients__intro {
+  display: grid;
+  justify-items: start;
+  gap: 24px;
+  min-width: 0;
+}
+
+.home-lander-ingredients h2 {
+  font-size: clamp(2.5rem, 4.1vw, 4.5rem);
+  line-height: 1.04;
+  text-wrap: balance;
+}
+
+.home-lander-ingredients__intro > p {
+  max-width: 42ch;
+  color: var(--ink-soft);
+  font-size: clamp(1rem, 1.12vw, 1.125rem);
+  line-height: 1.65;
+}
+
+.home-ingredient-list {
+  display: grid;
+  gap: 32px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.home-ingredient-row {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  min-width: 0;
+  border-radius: 8px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.home-ingredient-row__image {
+  flex: 0 0 112px;
+  width: 112px;
+  height: 112px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.home-ingredient-row__copy {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.home-ingredient-row h3 {
+  font-family: var(--font);
+  font-size: 1.125rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.home-ingredient-row p {
+  color: var(--ink-soft);
+  font-size: 1rem;
+  line-height: 1.55;
+}
+
+.home-ingredient-row:hover h3,
+.home-ingredient-row:focus-visible h3 {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.home-ingredient-row:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 4px;
+}
+
+@media (max-width: 900px) {
+  .home-lander-ingredients__panel {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 40px;
+  }
+}
+
+@media (max-width: 720px) {
+  .home-ingredient-row {
+    gap: 16px;
+  }
+
+  .home-ingredient-row__image {
+    flex-basis: 88px;
+    width: 88px;
+    height: 88px;
+  }
+}
+
+@media (max-width: 360px) {
+  .home-ingredient-row__image {
+    flex-basis: 72px;
+    width: 72px;
+    height: 72px;
+  }
+}

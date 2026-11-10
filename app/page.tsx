@@ -122,16 +122,16 @@ export default async function HomePage() {
 
       <HomeBeyondCoreShowcase products={beyondCoreProducts} />
 
-      <section className="home-band home-section" aria-labelledby="ingredients-heading">
+      <section className="home-section home-lander-ingredients" aria-labelledby="ingredients-heading">
         <div
-          className="storefront-shell home-split home-split--ingredients"
+          className="home-lander-ingredients__panel"
           data-layout-shell="storefront"
         >
-          <div className="storefront-reading">
-            <h2 id="ingredients-heading">Know what you are using.</h2>
+          <div className="home-lander-ingredients__intro">
+            <h2 id="ingredients-heading">Research-Backed Ingredients</h2>
             <p>
-              Learn how our formulas nourish your skin--instantly, and years down the line. <br />
-              Our index explains what an ingredient is, where it appears, and how its formula supports your skin.
+              See how our formulas nourish your skin--instantly, and years down the line.
+              Our index explains what an ingredient is, where it appears, and how it supports your skin.
             </p>
             <Link href="/system#system-ingredients" className="btn btn--ghost btn--editorial-rounded">
               READ THE INDEX
