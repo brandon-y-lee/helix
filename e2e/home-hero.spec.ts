@@ -35,6 +35,13 @@ test.describe("principles touch selection", () => {
     const principles = page.locator(".home-lander-principles");
     const mission = principles.getByRole("button", { name: "mission", exact: true });
     const innovation = principles.getByRole("button", { name: "innovation", exact: true });
+    // Prove hydrated event handling before the pan; SSR's default state alone
+    // could otherwise make a pre-hydration gesture look like a success.
+    await innovation.tap();
+    await expect(innovation).toHaveAttribute("aria-pressed", "true");
+    await expect(principles.getByRole("link", { name: "Our formulation", exact: true })).toBeVisible();
+    await mission.tap();
+    await expect(mission).toHaveAttribute("aria-pressed", "true");
     await innovation.scrollIntoViewIfNeeded();
     await expect(mission).toHaveAttribute("aria-pressed", "true");
     const box = await innovation.boundingBox();
