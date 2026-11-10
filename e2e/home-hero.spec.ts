@@ -26,6 +26,52 @@ test("homepage hero CTAs remain usable on desktop and mobile", async ({
   ).toBeInViewport();
 });
 
+test.describe("principles touch selection", () => {
+  test.use({ hasTouch: true, viewport: { width: 390, height: 844 } });
+
+  test("a native vertical pan preserves selection while a deliberate tap selects", async ({ page, browserName }) => {
+    test.skip(browserName !== "chromium", "Native touch pan uses Chromium's input protocol; mandatory Chromium CI runs this proof.");
+    await page.goto("/");
+    const principles = page.locator(".home-lander-principles");
+    const mission = principles.getByRole("button", { name: "mission", exact: true });
+    const innovation = principles.getByRole("button", { name: "innovation", exact: true });
+    await innovation.scrollIntoViewIfNeeded();
+    await expect(mission).toHaveAttribute("aria-pressed", "true");
+    const box = await innovation.boundingBox();
+    if (!box) throw new Error("Innovation selector has no touch target.");
+    const x = box.x + box.width / 2;
+    const y = box.y + box.height / 2;
+    const distance = Math.min(140, y - 20);
+    expect(distance).toBeGreaterThan(40);
+    const initialScrollY = await page.evaluate(() => window.scrollY);
+    const initialUrl = page.url();
+    const input = await page.context().newCDPSession(page);
+    try {
+      await input.send("Input.dispatchTouchEvent", {
+        type: "touchStart", touchPoints: [{ x, y, id: 1 }],
+      });
+      for (const fraction of [0.15, 0.4, 0.7, 1]) {
+        await input.send("Input.dispatchTouchEvent", {
+          type: "touchMove", touchPoints: [{ x, y: y - distance * fraction, id: 1 }],
+        });
+      }
+      await input.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    } finally {
+      await input.detach();
+    }
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(initialScrollY + 20);
+    await expect(mission).toHaveAttribute("aria-pressed", "true");
+    await expect(innovation).toHaveAttribute("aria-pressed", "false");
+    expect(page.url()).toBe(initialUrl);
+
+    await innovation.tap();
+    await expect(innovation).toHaveAttribute("aria-pressed", "true");
+    await expect(principles.getByRole("link", { name: "Our formulation", exact: true })).toHaveAttribute("href", "/about#quality-heading");
+    await expect(principles.getByRole("link", { name: "Our mission", exact: true })).toHaveCount(0);
+    await expect(principles.locator(".home-three-principles-visual__rail")).toHaveAttribute("data-active-principle", "innovation");
+  });
+});
+
 for (const viewport of [{ width: 320, height: 568 }, { width: 568, height: 320 }]) {
   test(`homepage campaign actions fit at ${viewport.width} by ${viewport.height}`, async ({ page }) => {
     await page.setViewportSize(viewport);
