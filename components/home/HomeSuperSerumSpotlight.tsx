@@ -15,20 +15,15 @@ export function HomeSuperSerumSpotlight({ product }: { product: ProductCard }) {
         />
       </div>
       <div className="home-lander-serum__copy">
-        <p className="home-lander-serum__eyebrow">{product.displayName} / {product.productType}</p>
-        <h2 id="home-serum-heading">Bounce, bottled.</h2>
+        <p className="home-lander-serum__eyebrow">Super Serum</p>
+        <h2 id="home-serum-heading">One Step For Longevity</h2>
         <div className="home-lander-serum__body">
           <p>
-            A lightweight PDRN serum with humectants, niacinamide, peptides,
-            and adenosine for hydrated, supple-looking skin.
-          </p>
-          <p>
-            The treatment layer of The Core. Use after cleansing and before
-            moisturizer, morning and night.
+            A lightweight serum with PDRN, humectants, ...
           </p>
         </div>
         <Link href={`/products/${product.slug}`} className="btn btn--ghost btn--editorial-rounded">
-          Discover Super Serum
+          Shop Now
         </Link>
       </div>
     </section>
