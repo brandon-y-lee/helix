@@ -1,0 +1,23 @@
+{
+  "checked_at": "2026-11-10T10:38:32.904865+00:00",
+  "source_commit": "ada10108e159e3f40bec48d34baf4c12921da16c",
+  "pid": 90201,
+  "parent_pid": 1,
+  "loopback_only": true,
+  "http": {
+    "/": 200,
+    "/system": 200,
+    "/about": 200,
+    "/media/home/why-three.webp": 200,
+    "/media/system/ingredients/peptides.jpg": 200,
+    "/media/system/ingredients/cica-centella.jpg": 200
+  },
+  "plist_unchanged": true,
+  "runtime_source_hashes_match": true,
+  "private_state_0700": true,
+  "env_regular_0600": true,
+  "rollback_preserved": true,
+  "native_touch_gesture_tested": false,
+  "full_integration_tested": false,
+  "session_quit_login_reboot_tested": false
+}
