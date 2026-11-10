@@ -7,8 +7,8 @@ export function HomeSuperSerumSpotlight({ product }: { product: ProductCard }) {
     <section className="home-lander-serum" aria-labelledby="home-serum-heading">
       <div className="home-lander-serum__media">
         <Image
-          src="/media/home/super-serum-editorial-v1.webp"
-          alt="Editorial portrait of a man gently touching his cheek."
+          src="/media/home/super-serum-editorial-v2.webp"
+          alt="Three-quarter portrait of a man with dark wet-styled hair against a pale gray background."
           fill
           sizes="(max-width: 900px) 100vw, 56vw"
           className="home-lander-serum__image"

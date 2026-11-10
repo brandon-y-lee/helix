@@ -165,7 +165,7 @@ describe("homepage product wiring", () => {
     expect(core.nextElementSibling).toBe(spotlight);
     expect(spotlight.nextElementSibling).toBe(sectionForHeading("Plug and Play"));
     expect(within(spotlight).getByRole("link", { name: "Discover Super Serum" })).toHaveAttribute("href", "/products/super-serum");
-    expect(within(spotlight).getByRole("img", { name: "Editorial portrait of a man gently touching his cheek." })).toHaveAttribute("src", expect.stringContaining("super-serum-editorial-v1.webp"));
+    expect(within(spotlight).getByRole("img", { name: "Three-quarter portrait of a man with dark wet-styled hair against a pale gray background." })).toHaveAttribute("src", expect.stringContaining("super-serum-editorial-v2.webp"));
     expect(within(sectionForHeading("Simple is not basic.")).getByRole("link", { name: "Our values" })).toHaveAttribute("href", "/about");
   });
 
