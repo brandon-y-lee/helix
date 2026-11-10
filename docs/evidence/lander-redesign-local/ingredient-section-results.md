@@ -18,3 +18,7 @@ Machine observations: `ingredient-section-browser-checks.json` and `ingredient-s
 ## Handoff
 
 Live URL http://127.0.0.1:3100/; runtime app checkpoint886817e. Existing service/management commands remain in persistent-preview-management.md. Editing the temporary source worktree does not hot-reload the durable production snapshot; refresh/build/restart after future changes. Leave service running. No push, merge, deployment, Library upload or provider mutation. Existing unrelated root legal work preserved. Library skill used only to determine available reference access; no relevant repo-local skill applied.
+
+## Independent final review
+
+Both roles reviewed committed candidate `b0d50ec68ca36b5f11abaee0d759942e2f7e0b35` against36d5000, application886817e. `/root/spec_review`: **approve**, no actionable findings. `/root/standards_review`: **approve**, no actionable findings. Both inspected exact source, screenshots and browser/runtime evidence; neither edited files or interrupted the service. Reference composition remains parent-inspected; full integration and login/reboot/session-quit are not claimed. This later evidence-only receipt does not change the reviewed application candidate.
