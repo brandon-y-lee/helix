@@ -1,0 +1,235 @@
+{
+  "candidate": "886817ee720adea7381206ad1a44eabaa2fd9d29",
+  "checks": [
+    {
+      "bottom": 543.5859375,
+      "gaps": {
+        "after": 36,
+        "before": 36
+      },
+      "heading": "Research-Backed Ingredients",
+      "introduction": "See how our formulas nourish your skin--instantly, and years down the line. Our index explains what an ingredient is, where it appears, and how it supports your skin.",
+      "overflow": false,
+      "panel": {
+        "background": "rgb(245, 245, 247)",
+        "columns": "612.102px 612.102px",
+        "radius": "12px"
+      },
+      "rows": [
+        {
+          "body": "Polynucleotide that supports a hydrated, replenished-looking finish.",
+          "border": "0px",
+          "heading": "PDRN / Sodium DNA",
+          "href": "/system#system-ingredient-pdrn",
+          "image": "/_next/image?url=%2Fmedia%2Fsystem%2Fingredients%2Fpdrn.jpg&w=3840&q=75",
+          "imageLoaded": true,
+          "shadow": "none",
+          "thumbnail": [
+            112,
+            112
+          ]
+        },
+        {
+          "body": "Combination of amino acids that result in a smoother, conditioned-looking surface.",
+          "border": "0px",
+          "heading": "Peptides",
+          "href": "/system#system-ingredient-peptides",
+          "image": "/_next/image?url=%2Fmedia%2Fsystem%2Fingredients%2Fpeptides.jpg&w=3840&q=75",
+          "imageLoaded": true,
+          "shadow": "none",
+          "thumbnail": [
+            112,
+            112
+          ]
+        },
+        {
+          "body": "Vitamin derivative that strengthens and brightens the skin barrier.",
+          "border": "0px",
+          "heading": "Niacinamide",
+          "href": "/system#system-ingredient-niacinamide",
+          "image": "/_next/image?url=%2Fmedia%2Fsystem%2Fingredients%2Fniacinamide.jpg&w=3840&q=75",
+          "imageLoaded": true,
+          "shadow": "none",
+          "thumbnail": [
+            112,
+            112
+          ]
+        }
+      ],
+      "top": 79.5859375,
+      "viewport": [
+        1440,
+        900
+      ]
+    },
+    {
+      "contentWidth": 718,
+      "gaps": {
+        "after": 19.1953125,
+        "before": 19.1953125
+      },
+      "heading": "Research-Backed Ingredients",
+      "headingWidth": 518.7890625,
+      "overflow": false,
+      "panelColumns": "678.453px",
+      "panelRadius": "12px",
+      "rows": [
+        {
+          "border": "0px",
+          "contentFits": true,
+          "heading": "PDRN / Sodium DNA",
+          "imageLoaded": true,
+          "rowWidth": 678.453125,
+          "shadow": "none",
+          "thumbnail": [
+            112,
+            112
+          ]
+        },
+        {
+          "border": "0px",
+          "contentFits": true,
+          "heading": "Peptides",
+          "imageLoaded": true,
+          "rowWidth": 678.453125,
+          "shadow": "none",
+          "thumbnail": [
+            112,
+            112
+          ]
+        },
+        {
+          "border": "0px",
+          "contentFits": true,
+          "heading": "Niacinamide",
+          "imageLoaded": true,
+          "rowWidth": 678.453125,
+          "shadow": "none",
+          "thumbnail": [
+            112,
+            112
+          ]
+        }
+      ],
+      "viewport": [
+        768,
+        1024
+      ]
+    },
+    {
+      "contentWidth": 343,
+      "gaps": {
+        "after": 9.75,
+        "before": 9.75
+      },
+      "heading": "Research-Backed Ingredients",
+      "headingWidth": 303,
+      "overflow": false,
+      "panelColumns": "303px",
+      "panelRadius": "12px",
+      "rows": [
+        {
+          "border": "0px",
+          "contentFits": true,
+          "heading": "PDRN / Sodium DNA",
+          "imageLoaded": true,
+          "rowWidth": 303,
+          "shadow": "none",
+          "thumbnail": [
+            88,
+            88
+          ]
+        },
+        {
+          "border": "0px",
+          "contentFits": true,
+          "heading": "Peptides",
+          "imageLoaded": true,
+          "rowWidth": 303,
+          "shadow": "none",
+          "thumbnail": [
+            88,
+            88
+          ]
+        },
+        {
+          "border": "0px",
+          "contentFits": true,
+          "heading": "Niacinamide",
+          "imageLoaded": true,
+          "rowWidth": 303,
+          "shadow": "none",
+          "thumbnail": [
+            88,
+            88
+          ]
+        }
+      ],
+      "viewport": [
+        390,
+        844
+      ]
+    },
+    {
+      "contentWidth": 273,
+      "gaps": {
+        "after": 8,
+        "before": 8
+      },
+      "heading": "Research-Backed Ingredients",
+      "headingWidth": 233,
+      "overflow": false,
+      "panelColumns": "233px",
+      "panelRadius": "12px",
+      "rows": [
+        {
+          "border": "0px",
+          "contentFits": true,
+          "heading": "PDRN / Sodium DNA",
+          "imageLoaded": true,
+          "rowWidth": 233,
+          "shadow": "none",
+          "thumbnail": [
+            72,
+            72
+          ]
+        },
+        {
+          "border": "0px",
+          "contentFits": true,
+          "heading": "Peptides",
+          "imageLoaded": true,
+          "rowWidth": 233,
+          "shadow": "none",
+          "thumbnail": [
+            72,
+            72
+          ]
+        },
+        {
+          "border": "0px",
+          "contentFits": true,
+          "heading": "Niacinamide",
+          "imageLoaded": true,
+          "rowWidth": 233,
+          "shadow": "none",
+          "thumbnail": [
+            72,
+            72
+          ]
+        }
+      ],
+      "viewport": [
+        320,
+        568
+      ]
+    }
+  ],
+  "keyboard": {
+    "pdrnAndNiacinamideFocusOutline": "2px solid rgb(47,111,97)",
+    "tabOrder": "PDRN → Peptides → Niacinamide",
+    "enterDestination": "/system#system-ingredient-niacinamide",
+    "activeIngredient": "niacinamide",
+    "mobilePeptidesFocusOutline": "2px solid rgb(47,111,97)"
+  }
+}
