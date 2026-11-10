@@ -357,6 +357,17 @@ main[data-storefront-main]:has(> .home-lander-hero) > .home-lander-hero {
   margin-top: var(--storefront-gutter);
 }
 
+/* Add to the existing 2.5vw flow gap for 5vw above carousel introductions. */
+main[data-storefront-main]:has(> .home-lander-hero)
+  > :is(.home-section--core, .home-section--beyond) {
+  margin-block-start: var(--home-section-gap);
+}
+
+.home-section--core .home-section__intro,
+.home-section--beyond .home-section__intro {
+  margin-bottom: var(--home-section-gap);
+}
+
 main[data-storefront-main]:has(> .home-lander-hero) > .home-band,
 .home-lander-principles .home-three-principles__labels,
 .home-lander-principles .home-three-principles__label {
