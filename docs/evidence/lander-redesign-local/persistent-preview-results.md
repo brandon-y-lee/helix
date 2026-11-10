@@ -31,3 +31,7 @@ See sanitized `persistent-preview-verification.json` and `persistent-preview-bro
 Restart: `launchctl kickstart -k gui/501/com.helix.local-preview`. Stop: `launchctl bootout gui/501/com.helix.local-preview`. Management guide includes bootstrap/status and refresh/rollback procedure. Leave the service running at handoff.
 
 This is a production snapshot, not hot reload: future source edits must be explicitly copied and built in the durable runtime before restart. The original editable worktree remains `/tmp/helix-lander-review`. Mac must be awake and logged in. KeepAlive restarts exited processes; it does not guarantee every provider request. No power/security setting was changed to evade those limits.
+
+## Independent final review
+
+Both roles reviewed committed candidate `0d21ed9db897e8de12da78efd4e55cc5e7467922` against `ece67ba9edaa78856100b99fa75ae63b16a144e6`, including installed configuration, runtime, copy delta, evidence and screenshots. `/root/spec_review`: **approve**, no actionable findings. `/root/standards_review`: **approve**, no actionable findings. Both independently checked installed plist identity, running service, loopback listener, private modes and runtime source match. Standards also confirmed all1584symlinks remain inside the site; its additional ps inspection was sandbox-restricted, so it reviewed recorded PPID/restart evidence. Neither edited files or interrupted the service. This later evidence-only receipt does not change the reviewed application/configuration candidate.
