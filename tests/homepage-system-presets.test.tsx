@@ -161,11 +161,12 @@ describe("homepage product wiring", () => {
   it("introduces canonical Super Serum after the Core with its campaign image and product destination", async () => {
     render(<CartProvider>{await HomePage()}</CartProvider>);
     const core = sectionForHeading("The Core");
-    const spotlight = sectionForHeading("One Step For Longevity");
+    const spotlight = sectionForHeading("One step for Longevity");
     expect(core.nextElementSibling).toBe(spotlight);
     expect(spotlight.nextElementSibling).toBe(sectionForHeading("Plug and Play"));
     expect(within(spotlight).getByText("Super Serum", { exact: true })).toBeInTheDocument();
-    expect(within(spotlight).getByText("A lightweight serum with PDRN, humectants, ...", { exact: true })).toBeInTheDocument();
+    expect(within(spotlight).getByText("A lightweight serum with PDRN, humectants, niacinamide, peptides, and adenosine for hydrated, supple-looking skin.", { exact: true })).toBeInTheDocument();
+    expect(within(spotlight).getByText("The treatment layer of The Core. Use after cleansing and before moisturizer, morning and night.", { exact: true })).toBeInTheDocument();
     expect(within(spotlight).getByRole("link", { name: "Shop Now" })).toHaveAttribute("href", "/products/super-serum");
     expect(within(spotlight).getByRole("img", { name: "Man facing the camera holding a Helix Super Serum bottle beside his cheek." })).toHaveAttribute("src", expect.stringContaining("super-serum-editorial-v3.webp"));
     expect(within(sectionForHeading("Simple is not basic.")).getByRole("link", { name: "Our values" })).toHaveAttribute("href", "/about");
@@ -209,7 +210,7 @@ describe("homepage product wiring", () => {
     ]);
     expect(screen.queryByRole("link", { name: "Maxxing Serum" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Peptide Bounce" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "One Step For Longevity" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "One step for Longevity" })).not.toBeInTheDocument();
   });
 
   it("selects only Super Serum when retired TREAT products are also present", async () => {
