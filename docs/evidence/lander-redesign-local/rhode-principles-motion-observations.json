@@ -1,0 +1,326 @@
+{
+  "source": "https://www.rhodeskin.com/",
+  "note": "Live DOM during hover. Host dispatch incurred a delay; elapsedMs is host-tool timing, not transition duration. Computed CSS duration/easing and actual intermediate opacity/vertical transforms are authoritative.",
+  "samples": [
+    {
+      "elapsedMs": 104007,
+      "dom": {
+        "imageRail": {
+          "duration": "1s",
+          "easing": "ease",
+          "transform": "matrix(1, 0, 0, 1, 0, -5.88868)"
+        },
+        "imageScales": [
+          "matrix(1.0658, 0, 0, 1.06581, 0, 0)",
+          "matrix(1.1974, 0, 0, 1.19736, 0, 0)",
+          "matrix(1.2, 0, 0, 1.2, 0, 0)"
+        ],
+        "selected": [
+          "true",
+          "false",
+          "false"
+        ],
+        "textSlides": [
+          {
+            "duration": "1s",
+            "easing": "ease",
+            "opacity": "0.992262",
+            "style": "width: 631px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 1000ms;"
+          },
+          {
+            "duration": "1s",
+            "easing": "ease",
+            "opacity": "0.00773809",
+            "style": "width: 631px; opacity: 1; transform: translate3d(-631px, 0px, 0px); transition-duration: 1000ms;"
+          },
+          {
+            "duration": "1s",
+            "easing": "ease",
+            "opacity": "0",
+            "style": "width: 631px; opacity: 0.00158479; transform: translate3d(-1261px, 0px, 0px); transition-duration: 1000ms;"
+          }
+        ]
+      }
+    },
+    {
+      "elapsedMs": 104067,
+      "dom": {
+        "imageRail": {
+          "duration": "1s",
+          "easing": "ease",
+          "transform": "matrix(1, 0, 0, 1, 0, -5.88868)"
+        },
+        "imageScales": [
+          "matrix(1.0658, 0, 0, 1.06581, 0, 0)",
+          "matrix(1.1974, 0, 0, 1.19736, 0, 0)",
+          "matrix(1.2, 0, 0, 1.2, 0, 0)"
+        ],
+        "selected": [
+          "true",
+          "false",
+          "false"
+        ],
+        "textSlides": [
+          {
+            "duration": "1s",
+            "easing": "ease",
+            "opacity": "0.992262",
+            "style": "width: 631px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 1000ms;"
+          },
+          {
+            "duration": "1s",
+            "easing": "ease",
+            "opacity": "0.00773809",
+            "style": "width: 631px; opacity: 1; transform: translate3d(-631px, 0px, 0px); transition-duration: 1000ms;"
+          },
+          {
+            "duration": "1s",
+            "easing": "ease",
+            "opacity": "0",
+            "style": "width: 631px; opacity: 0.00158479; transform: translate3d(-1261px, 0px, 0px); transition-duration: 1000ms;"
+          }
+        ]
+      }
+    },
+    {
+      "elapsedMs": 104074,
+      "dom": {
+        "imageRail": {
+          "duration": "1s",
+          "easing": "ease",
+          "transform": "matrix(1, 0, 0, 1, 0, -14.426)"
+        },
+        "imageScales": [
+          "matrix(1.0658, 0, 0, 1.06581, 0, 0)",
+          "matrix(1.1974, 0, 0, 1.19736, 0, 0)",
+          "matrix(1.2, 0, 0, 1.2, 0, 0)"
+        ],
+        "selected": [
+          "true",
+          "false",
+          "false"
+        ],
+        "textSlides": [
+          {
+            "duration": "1s",
+            "easing": "ease",
+            "opacity": "0.981043",
+            "style": "width: 631px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 1000ms;"
+          },
+          {
+            "duration": "1s",
+            "easing": "ease",
+            "opacity": "0.0189567",
+            "style": "width: 631px; opacity: 1; transform: translate3d(-631px, 0px, 0px); transition-duration: 1000ms;"
+          },
+          {
+            "duration": "1s",
+            "easing": "ease",
+            "opacity": "0",
+            "style": "width: 631px; opacity: 0.00158479; transform: translate3d(-1261px, 0px, 0px); transition-duration: 1000ms;"
+          }
+        ]
+      }
+    },
+    {
+      "elapsedMs": 104094,
+      "dom": {
+        "imageRail": {
+          "duration": "1s",
+          "easing": "ease",
+          "transform": "matrix(1, 0, 0, 1, 0, -24.3951)"
+        },
+        "imageScales": [
+          "matrix(1.0658, 0, 0, 1.06581, 0, 0)",
+          "matrix(1.1974, 0, 0, 1.19736, 0, 0)",
+          "matrix(1.2, 0, 0, 1.2, 0, 0)"
+        ],
+        "selected": [
+          "false",
+          "true",
+          "false"
+        ],
+        "textSlides": [
+          {
+            "duration": "1s",
+            "easing": "ease",
+            "opacity": "0.967943",
+            "style": "width: 631px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 1000ms;"
+          },
+          {
+            "duration": "1s",
+            "easing": "ease",
+            "opacity": "0.0320566",
+            "style": "width: 631px; opacity: 1; transform: translate3d(-631px, 0px, 0px); transition-duration: 1000ms;"
+          },
+          {
+            "duration": "1s",
+            "easing": "ease",
+            "opacity": "0",
+            "style": "width: 631px; opacity: 0.00158479; transform: translate3d(-1261px, 0px, 0px); transition-duration: 1000ms;"
+          }
+        ]
+      }
+    },
+    {
+      "elapsedMs": 104105,
+      "dom": {
+        "imageRail": {
+          "duration": "1s",
+          "easing": "ease",
+          "transform": "matrix(1, 0, 0, 1, 0, -38.1766)"
+        },
+        "imageScales": [
+          "matrix(1.0658, 0, 0, 1.06581, 0, 0)",
+          "matrix(1.1974, 0, 0, 1.19736, 0, 0)",
+          "matrix(1.2, 0, 0, 1.2, 0, 0)"
+        ],
+        "selected": [
+          "false",
+          "true",
+          "false"
+        ],
+        "textSlides": [
+          {
+            "duration": "1s",
+            "easing": "ease",
+            "opacity": "0.949834",
+            "style": "width: 631px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 1000ms;"
+          },
+          {
+            "duration": "1s",
+            "easing": "ease",
+            "opacity": "0.0501664",
+            "style": "width: 631px; opacity: 1; transform: translate3d(-631px, 0px, 0px); transition-duration: 1000ms;"
+          },
+          {
+            "duration": "1s",
+            "easing": "ease",
+            "opacity": "0",
+            "style": "width: 631px; opacity: 0.00158479; transform: translate3d(-1261px, 0px, 0px); transition-duration: 1000ms;"
+          }
+        ]
+      }
+    },
+    {
+      "elapsedMs": 104117,
+      "dom": {
+        "imageRail": {
+          "duration": "1s",
+          "easing": "ease",
+          "transform": "matrix(1, 0, 0, 1, 0, -38.1766)"
+        },
+        "imageScales": [
+          "matrix(1.0658, 0, 0, 1.06581, 0, 0)",
+          "matrix(1.1974, 0, 0, 1.19736, 0, 0)",
+          "matrix(1.2, 0, 0, 1.2, 0, 0)"
+        ],
+        "selected": [
+          "false",
+          "true",
+          "false"
+        ],
+        "textSlides": [
+          {
+            "duration": "1s",
+            "easing": "ease",
+            "opacity": "0.949834",
+            "style": "width: 631px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 1000ms;"
+          },
+          {
+            "duration": "1s",
+            "easing": "ease",
+            "opacity": "0.0501664",
+            "style": "width: 631px; opacity: 1; transform: translate3d(-631px, 0px, 0px); transition-duration: 1000ms;"
+          },
+          {
+            "duration": "1s",
+            "easing": "ease",
+            "opacity": "0",
+            "style": "width: 631px; opacity: 0.00158479; transform: translate3d(-1261px, 0px, 0px); transition-duration: 1000ms;"
+          }
+        ]
+      }
+    },
+    {
+      "elapsedMs": 104132,
+      "dom": {
+        "imageRail": {
+          "duration": "1s",
+          "easing": "ease",
+          "transform": "matrix(1, 0, 0, 1, 0, -38.1766)"
+        },
+        "imageScales": [
+          "matrix(1.0658, 0, 0, 1.06581, 0, 0)",
+          "matrix(1.1974, 0, 0, 1.19736, 0, 0)",
+          "matrix(1.2, 0, 0, 1.2, 0, 0)"
+        ],
+        "selected": [
+          "false",
+          "true",
+          "false"
+        ],
+        "textSlides": [
+          {
+            "duration": "1s",
+            "easing": "ease",
+            "opacity": "0.949834",
+            "style": "width: 631px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 1000ms;"
+          },
+          {
+            "duration": "1s",
+            "easing": "ease",
+            "opacity": "0.0501664",
+            "style": "width: 631px; opacity: 1; transform: translate3d(-631px, 0px, 0px); transition-duration: 1000ms;"
+          },
+          {
+            "duration": "1s",
+            "easing": "ease",
+            "opacity": "0",
+            "style": "width: 631px; opacity: 0.00158479; transform: translate3d(-1261px, 0px, 0px); transition-duration: 1000ms;"
+          }
+        ]
+      }
+    },
+    {
+      "elapsedMs": 104145,
+      "dom": {
+        "imageRail": {
+          "duration": "1s",
+          "easing": "ease",
+          "transform": "matrix(1, 0, 0, 1, 0, -38.1766)"
+        },
+        "imageScales": [
+          "matrix(1.0658, 0, 0, 1.06581, 0, 0)",
+          "matrix(1.1974, 0, 0, 1.19736, 0, 0)",
+          "matrix(1.2, 0, 0, 1.2, 0, 0)"
+        ],
+        "selected": [
+          "false",
+          "true",
+          "false"
+        ],
+        "textSlides": [
+          {
+            "duration": "1s",
+            "easing": "ease",
+            "opacity": "0.949834",
+            "style": "width: 631px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 1000ms;"
+          },
+          {
+            "duration": "1s",
+            "easing": "ease",
+            "opacity": "0.0501664",
+            "style": "width: 631px; opacity: 1; transform: translate3d(-631px, 0px, 0px); transition-duration: 1000ms;"
+          },
+          {
+            "duration": "1s",
+            "easing": "ease",
+            "opacity": "0",
+            "style": "width: 631px; opacity: 0.00158479; transform: translate3d(-1261px, 0px, 0px); transition-duration: 1000ms;"
+          }
+        ]
+      }
+    }
+  ]
+}

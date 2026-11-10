@@ -256,12 +256,12 @@ body:has(main[data-storefront-main] > .home-lander-hero)
 }
 
 .home-section.home-lander-principles {
-  grid-template-columns: minmax(0, 53fr) minmax(0, 47fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 }
 
 .home-lander-principles .home-three-principles-panel {
-  padding: clamp(24px, 2.5vw, 48px);
-  background: #f1f0ec;
+  padding: var(--pdp-panel-padding);
+  background: var(--surface);
 }
 
 .home-lander-principles .home-three-principles {
@@ -270,31 +270,33 @@ body:has(main[data-storefront-main] > .home-lander-hero)
 }
 
 .home-lander-principles .home-three-principles__copy {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: flex-start;
-  gap: 28px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  align-content: start;
   min-height: 0;
   padding: 0 0 40px;
 }
 
 .home-lander-principles .home-three-principles__description {
   max-width: 29ch;
-  color: var(--storefront-warm-gray);
-  font-family: var(--font);
+  color: var(--ink-soft);
+  font-family: var(--font-heading);
   font-size: clamp(1.6rem, 2.6vw, 2.7rem);
   line-height: 1.24;
   text-wrap: pretty;
+  animation: none;
 }
 
 .home-lander-principles .home-three-principles__label {
-  min-height: clamp(64px, 7vw, 90px);
-  color: var(--storefront-warm-gray);
-  font-size: clamp(1.25rem, 2vw, 2rem);
-  font-weight: 700;
-  letter-spacing: 0;
-  text-transform: lowercase;
+  min-height: clamp(58px, 7.2vh, 74px);
+  color: var(--ink-soft);
+  font-size: clamp(0.8rem, 0.95vw, 0.95rem);
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 1;
+  transition: color 1000ms ease;
 }
 
 @media (max-width: 900px) {
@@ -376,6 +378,65 @@ main[data-storefront-main]:has(> .home-lander-hero) > .home-band,
 
 body:has(main[data-storefront-main] > .home-lander-hero) .site-footer {
   border-top: 0;
+}
+
+.home-lander-principles .home-three-principles__labels {
+  border-bottom: 1px solid var(--line);
+}
+
+.home-lander-principles .home-three-principles__label {
+  border-top: 1px solid var(--line);
+}
+
+.home-lander-principles .home-three-principles__label[data-active="true"] {
+  color: var(--ink);
+}
+
+.home-three-principles__slide {
+  grid-area: 1 / 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 28px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 1000ms ease;
+}
+
+.home-three-principles__slide[data-active="true"] {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* The rail is one frame high; its children extend beyond the clipped frame. */
+.home-three-principles-visual__rail {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  transition: transform 1000ms ease;
+}
+
+.home-three-principles-visual__slide {
+  position: relative;
+  flex: 0 0 100%;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.home-lander-principles .home-three-principles-visual__image {
+  transform: none;
+  will-change: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-three-principles__slide,
+  .home-three-principles-visual__rail,
+  .home-lander-principles .home-three-principles__label {
+    transition: none;
+  }
 }
 
 .home-lander-ingredients {

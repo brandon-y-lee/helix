@@ -7185,6 +7185,11 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 }
 
 .system-page,
+/* Existing destinations of the homepage values CTAs clear the sticky header. */
+.about-page :is(#about-men-heading, #quality-heading, #sustainability-heading) {
+  scroll-margin-top: calc(var(--site-header-height) + 16px);
+}
+
 .about-page {
   --editorial-max: min(100%, 1540px);
   --editorial-panel-gutter: 24px;

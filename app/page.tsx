@@ -5,7 +5,6 @@ import { HomeBeyondCoreShowcase } from "@/components/home/HomeBeyondCoreShowcase
 import { HomeBackgroundVideo } from "@/components/home/HomeBackgroundVideo";
 import { HomeCoreShowcase } from "@/components/home/HomeCoreShowcase";
 import { HomeIngredientPreview } from "@/components/home/HomeIngredientPreview";
-import { HomePrinciplesPortrait } from "@/components/home/HomePrinciplesPortrait";
 import { HomeSuperSerumSpotlight } from "@/components/home/HomeSuperSerumSpotlight";
 import { HomeThreePrinciples } from "@/components/home/HomeThreePrinciples";
 import {
@@ -148,15 +147,10 @@ export default async function HomePage() {
         className="home-section home-section--principles home-lander-principles"
         aria-labelledby="home-three-principles-heading"
       >
-        <div className="home-three-principles-panel">
-          <HomeThreePrinciples
-            headingId="home-three-principles-heading"
-            principles={homeThreePrinciples}
-          />
-        </div>
-        <div className="home-three-principles-visual">
-          <HomePrinciplesPortrait />
-        </div>
+        <HomeThreePrinciples
+          headingId="home-three-principles-heading"
+          principles={homeThreePrinciples}
+        />
       </section>
     </>
   );
