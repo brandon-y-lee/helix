@@ -25,6 +25,10 @@ Native mobile drag was NOT RUN: IAB rejects `Input.dispatchTouchEvent` as unsupp
 
 Checks: focused Vitest PASS (4 files, 24 tests); lint PASS with no warnings/errors; typecheck PASS. Production build and committed-code reviews recorded below when complete. Full Vitest and integration gate not rerun for this CSS-only correction; no integration claim.
 
+Production build PASS (exit 0), retained log `build.log` beside raw measurements. `codex-task.sh prepare` PASS. Both independent reviewers approved committed candidate `f484e2ebf7564fed862eee14026dc37b012117a2` against `a2db620`: Spec `/root/spec_review` APPROVE, Standards `/root/standards_review` APPROVE, with no actionable findings. Their approval explicitly covers only the local WIP spacing/border revision; model and native-touch proof remain pending.
+
+Local production preview: `pnpm start --hostname 127.0.0.1 --port 3100` from this worktree. Initial sandbox launch could not bind the port; the approved local launch is running. No remote changes.
+
 Raw measurements `/tmp/helix-lander-revision-evidence/spacing.json`. Desktop and mobile screenshots in that directory use `-v2.jpg` filenames; full-page previews still contain the pending model candidate. Browser observations used only public storefront content.
 
 ## Model blocker
