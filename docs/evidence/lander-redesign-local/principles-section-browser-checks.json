@@ -1,0 +1,1000 @@
+{
+  "source": "ada10108e159e3f40bec48d34baf4c12921da16c",
+  "viewports": [
+    {
+      "activeImage": "mission",
+      "bottom": 953.5859375,
+      "columns": "663.898px 663.906px",
+      "descriptionFont": "Marcellus, \"Marcellus Fallback\", Georgia, serif",
+      "frameHeight": 774,
+      "headingFont": "\"Marcellus\",\"Marcellus Fallback\",Georgia,serif",
+      "images": [
+        {
+          "loaded": true,
+          "src": "/media/home/why-three.webp"
+        },
+        {
+          "loaded": true,
+          "src": "/media/system/ingredients/peptides.jpg"
+        },
+        {
+          "loaded": false,
+          "src": "/media/system/ingredients/cica-centella.jpg"
+        }
+      ],
+      "labels": [
+        {
+          "borderTop": "1px",
+          "fontSize": "13.68px",
+          "name": "mission",
+          "rect": {
+            "bottom": 790.9921875,
+            "height": 64.796875,
+            "left": 64.3984375,
+            "right": 664.296875,
+            "top": 726.1953125,
+            "width": 599.8984375,
+            "x": 64.3984375,
+            "y": 726.1953125
+          },
+          "tracking": "1.6416px",
+          "transform": "uppercase",
+          "weight": "800"
+        },
+        {
+          "borderTop": "1px",
+          "fontSize": "13.68px",
+          "name": "innovation",
+          "rect": {
+            "bottom": 855.7890625,
+            "height": 64.796875,
+            "left": 64.3984375,
+            "right": 664.296875,
+            "top": 790.9921875,
+            "width": 599.8984375,
+            "x": 64.3984375,
+            "y": 790.9921875
+          },
+          "tracking": "1.6416px",
+          "transform": "uppercase",
+          "weight": "800"
+        },
+        {
+          "borderTop": "1px",
+          "fontSize": "13.68px",
+          "name": "sustainability",
+          "rect": {
+            "bottom": 920.5859375,
+            "height": 64.796875,
+            "left": 64.3984375,
+            "right": 664.296875,
+            "top": 855.7890625,
+            "width": 599.8984375,
+            "x": 64.3984375,
+            "y": 855.7890625
+          },
+          "tracking": "1.6416px",
+          "transform": "uppercase",
+          "weight": "800"
+        }
+      ],
+      "overflow": false,
+      "panelBackground": "rgb(245, 245, 247)",
+      "railHeight": 774,
+      "railTransform": "matrix(1, 0, 0, 1, 0, 0)",
+      "railTransition": "transform 1s",
+      "selected": "0",
+      "slides": [
+        {
+          "active": "true",
+          "hidden": "false",
+          "link": {
+            "href": "/about#about-men-heading",
+            "text": "Our mission"
+          },
+          "opacity": "1",
+          "transition": "opacity 1s"
+        },
+        {
+          "active": "false",
+          "hidden": "true",
+          "link": {
+            "href": "/about#quality-heading",
+            "text": "Our formulation"
+          },
+          "opacity": "0",
+          "transition": "opacity 1s"
+        },
+        {
+          "active": "false",
+          "hidden": "true",
+          "link": {
+            "href": "/about#sustainability-heading",
+            "text": "Our approach"
+          },
+          "opacity": "0",
+          "transition": "opacity 1s"
+        }
+      ],
+      "top": 179.5859375,
+      "viewport": [
+        1440,
+        900
+      ]
+    },
+    {
+      "activeImage": "sustainability",
+      "bottom": 580.0859375,
+      "columns": "663.898px 663.906px",
+      "descriptionFont": "Marcellus, \"Marcellus Fallback\", Georgia, serif",
+      "frameHeight": 774,
+      "headingFont": "\"Marcellus\",\"Marcellus Fallback\",Georgia,serif",
+      "images": [
+        {
+          "loaded": true,
+          "src": "/media/home/why-three.webp"
+        },
+        {
+          "loaded": true,
+          "src": "/media/system/ingredients/peptides.jpg"
+        },
+        {
+          "loaded": true,
+          "src": "/media/system/ingredients/cica-centella.jpg"
+        }
+      ],
+      "labels": [
+        {
+          "borderTop": "1px",
+          "fontSize": "13.68px",
+          "name": "mission",
+          "rect": {
+            "bottom": 417.4921875,
+            "height": 64.796875,
+            "left": 64.3984375,
+            "right": 664.296875,
+            "top": 352.6953125,
+            "width": 599.8984375,
+            "x": 64.3984375,
+            "y": 352.6953125
+          },
+          "tracking": "1.6416px",
+          "transform": "uppercase",
+          "weight": "800"
+        },
+        {
+          "borderTop": "1px",
+          "fontSize": "13.68px",
+          "name": "innovation",
+          "rect": {
+            "bottom": 482.2890625,
+            "height": 64.796875,
+            "left": 64.3984375,
+            "right": 664.296875,
+            "top": 417.4921875,
+            "width": 599.8984375,
+            "x": 64.3984375,
+            "y": 417.4921875
+          },
+          "tracking": "1.6416px",
+          "transform": "uppercase",
+          "weight": "800"
+        },
+        {
+          "borderTop": "1px",
+          "fontSize": "13.68px",
+          "name": "sustainability",
+          "rect": {
+            "bottom": 547.0859375,
+            "height": 64.796875,
+            "left": 64.3984375,
+            "right": 664.296875,
+            "top": 482.2890625,
+            "width": 599.8984375,
+            "x": 64.3984375,
+            "y": 482.2890625
+          },
+          "tracking": "1.6416px",
+          "transform": "uppercase",
+          "weight": "800"
+        }
+      ],
+      "overflow": false,
+      "panelBackground": "rgb(245, 245, 247)",
+      "railHeight": 774,
+      "railTransform": "matrix(1, 0, 0, 1, 0, -1548)",
+      "railTransition": "transform 1s",
+      "selected": "2",
+      "slides": [
+        {
+          "active": "false",
+          "hidden": "true",
+          "link": {
+            "href": "/about#about-men-heading",
+            "text": "Our mission"
+          },
+          "opacity": "0",
+          "transition": "opacity 1s"
+        },
+        {
+          "active": "false",
+          "hidden": "true",
+          "link": {
+            "href": "/about#quality-heading",
+            "text": "Our formulation"
+          },
+          "opacity": "0",
+          "transition": "opacity 1s"
+        },
+        {
+          "active": "true",
+          "hidden": "false",
+          "link": {
+            "href": "/about#sustainability-heading",
+            "text": "Our approach"
+          },
+          "opacity": "1",
+          "transition": "opacity 1s"
+        }
+      ],
+      "top": -193.9140625,
+      "viewport": [
+        1440,
+        900
+      ]
+    },
+    {
+      "activeImage": "sustainability",
+      "bottom": 1737.1328125,
+      "columns": "718.453px",
+      "descriptionFont": "Marcellus, \"Marcellus Fallback\", Georgia, serif",
+      "frameHeight": 620,
+      "headingFont": "\"Marcellus\",\"Marcellus Fallback\",Georgia,serif",
+      "images": [
+        {
+          "loaded": true,
+          "src": "/media/home/why-three.webp"
+        },
+        {
+          "loaded": true,
+          "src": "/media/system/ingredients/peptides.jpg"
+        },
+        {
+          "loaded": true,
+          "src": "/media/system/ingredients/cica-centella.jpg"
+        }
+      ],
+      "labels": [
+        {
+          "borderTop": "1px",
+          "fontSize": "12.8px",
+          "name": "mission",
+          "rect": {
+            "bottom": 890.5,
+            "height": 94.171875,
+            "left": 37.2734375,
+            "right": 715.7265625,
+            "top": 796.328125,
+            "width": 678.453125,
+            "x": 37.2734375,
+            "y": 796.328125
+          },
+          "tracking": "1.536px",
+          "transform": "uppercase",
+          "weight": "800"
+        },
+        {
+          "borderTop": "1px",
+          "fontSize": "12.8px",
+          "name": "innovation",
+          "rect": {
+            "bottom": 984.6796875,
+            "height": 94.1796875,
+            "left": 37.2734375,
+            "right": 715.7265625,
+            "top": 890.5,
+            "width": 678.453125,
+            "x": 37.2734375,
+            "y": 890.5
+          },
+          "tracking": "1.536px",
+          "transform": "uppercase",
+          "weight": "800"
+        },
+        {
+          "borderTop": "1px",
+          "fontSize": "12.8px",
+          "name": "sustainability",
+          "rect": {
+            "bottom": 1078.859375,
+            "height": 94.1796875,
+            "left": 37.2734375,
+            "right": 715.7265625,
+            "top": 984.6796875,
+            "width": 678.453125,
+            "x": 37.2734375,
+            "y": 984.6796875
+          },
+          "tracking": "1.536px",
+          "transform": "uppercase",
+          "weight": "800"
+        }
+      ],
+      "overflow": false,
+      "panelBackground": "rgb(245, 245, 247)",
+      "railHeight": 620,
+      "railTransform": "matrix(1, 0, 0, 1, 0, -1240)",
+      "railTransition": "transform 1s",
+      "selected": "2",
+      "slides": [
+        {
+          "active": "false",
+          "hidden": "true",
+          "link": {
+            "href": "/about#about-men-heading",
+            "text": "Our mission"
+          },
+          "opacity": "0",
+          "transition": "opacity 1s"
+        },
+        {
+          "active": "false",
+          "hidden": "true",
+          "link": {
+            "href": "/about#quality-heading",
+            "text": "Our formulation"
+          },
+          "opacity": "0",
+          "transition": "opacity 1s"
+        },
+        {
+          "active": "true",
+          "hidden": "false",
+          "link": {
+            "href": "/about#sustainability-heading",
+            "text": "Our approach"
+          },
+          "opacity": "1",
+          "transition": "opacity 1s"
+        }
+      ],
+      "top": 464.984375,
+      "viewport": [
+        768,
+        1024
+      ]
+    },
+    {
+      "activeImage": "sustainability",
+      "bottom": 830.8828125,
+      "columns": "343px",
+      "descriptionFont": "Marcellus, \"Marcellus Fallback\", Georgia, serif",
+      "frameHeight": 428.75,
+      "headingFont": "\"Marcellus\",\"Marcellus Fallback\",Georgia,serif",
+      "images": [
+        {
+          "loaded": true,
+          "src": "/media/home/why-three.webp"
+        },
+        {
+          "loaded": true,
+          "src": "/media/system/ingredients/peptides.jpg"
+        },
+        {
+          "loaded": true,
+          "src": "/media/system/ingredients/cica-centella.jpg"
+        }
+      ],
+      "labels": [
+        {
+          "borderTop": "1px",
+          "fontSize": "12.8px",
+          "name": "mission",
+          "rect": {
+            "bottom": 243.6015625,
+            "height": 60.765625,
+            "left": 36,
+            "right": 339,
+            "top": 182.8359375,
+            "width": 303,
+            "x": 36,
+            "y": 182.8359375
+          },
+          "tracking": "1.536px",
+          "transform": "uppercase",
+          "weight": "800"
+        },
+        {
+          "borderTop": "1px",
+          "fontSize": "12.8px",
+          "name": "innovation",
+          "rect": {
+            "bottom": 304.3671875,
+            "height": 60.765625,
+            "left": 36,
+            "right": 339,
+            "top": 243.6015625,
+            "width": 303,
+            "x": 36,
+            "y": 243.6015625
+          },
+          "tracking": "1.536px",
+          "transform": "uppercase",
+          "weight": "800"
+        },
+        {
+          "borderTop": "1px",
+          "fontSize": "12.8px",
+          "name": "sustainability",
+          "rect": {
+            "bottom": 365.1328125,
+            "height": 60.765625,
+            "left": 36,
+            "right": 339,
+            "top": 304.3671875,
+            "width": 303,
+            "x": 36,
+            "y": 304.3671875
+          },
+          "tracking": "1.536px",
+          "transform": "uppercase",
+          "weight": "800"
+        }
+      ],
+      "overflow": false,
+      "panelBackground": "rgb(245, 245, 247)",
+      "railHeight": 428.75,
+      "railTransform": "matrix(1, 0, 0, 1, 0, -857.5)",
+      "railTransition": "transform 1s",
+      "selected": "2",
+      "slides": [
+        {
+          "active": "false",
+          "hidden": "true",
+          "link": {
+            "href": "/about#about-men-heading",
+            "text": "Our mission"
+          },
+          "opacity": "0",
+          "transition": "opacity 1s"
+        },
+        {
+          "active": "false",
+          "hidden": "true",
+          "link": {
+            "href": "/about#quality-heading",
+            "text": "Our formulation"
+          },
+          "opacity": "0",
+          "transition": "opacity 1s"
+        },
+        {
+          "active": "true",
+          "hidden": "false",
+          "link": {
+            "href": "/about#sustainability-heading",
+            "text": "Our approach"
+          },
+          "opacity": "1",
+          "transition": "opacity 1s"
+        }
+      ],
+      "top": -117.1640625,
+      "viewport": [
+        390,
+        844
+      ]
+    },
+    {
+      "activeImage": "innovation",
+      "bottom": 638,
+      "columns": "273px",
+      "descriptionFont": "Marcellus, \"Marcellus Fallback\", Georgia, serif",
+      "frameHeight": 341.25,
+      "headingFont": "\"Marcellus\",\"Marcellus Fallback\",Georgia,serif",
+      "images": [
+        {
+          "loaded": true,
+          "src": "/media/home/why-three.webp"
+        },
+        {
+          "loaded": true,
+          "src": "/media/system/ingredients/peptides.jpg"
+        },
+        {
+          "loaded": true,
+          "src": "/media/system/ingredients/cica-centella.jpg"
+        }
+      ],
+      "labels": [
+        {
+          "borderTop": "1px",
+          "fontSize": "12.8px",
+          "name": "mission",
+          "rect": {
+            "bottom": 143.75,
+            "height": 58,
+            "left": 36,
+            "right": 269,
+            "top": 85.75,
+            "width": 233,
+            "x": 36,
+            "y": 85.75
+          },
+          "tracking": "1.536px",
+          "transform": "uppercase",
+          "weight": "800"
+        },
+        {
+          "borderTop": "1px",
+          "fontSize": "12.8px",
+          "name": "innovation",
+          "rect": {
+            "bottom": 201.75,
+            "height": 58,
+            "left": 36,
+            "right": 269,
+            "top": 143.75,
+            "width": 233,
+            "x": 36,
+            "y": 143.75
+          },
+          "tracking": "1.536px",
+          "transform": "uppercase",
+          "weight": "800"
+        },
+        {
+          "borderTop": "1px",
+          "fontSize": "12.8px",
+          "name": "sustainability",
+          "rect": {
+            "bottom": 259.75,
+            "height": 58,
+            "left": 36,
+            "right": 269,
+            "top": 201.75,
+            "width": 233,
+            "x": 36,
+            "y": 201.75
+          },
+          "tracking": "1.536px",
+          "transform": "uppercase",
+          "weight": "800"
+        }
+      ],
+      "overflow": false,
+      "panelBackground": "rgb(245, 245, 247)",
+      "railHeight": 341.25,
+      "railTransform": "matrix(1, 0, 0, 1, 0, -240.793)",
+      "railTransition": "transform 1s",
+      "selected": "1",
+      "slides": [
+        {
+          "active": "false",
+          "hidden": "true",
+          "link": {
+            "href": "/about#about-men-heading",
+            "text": "Our mission"
+          },
+          "opacity": "0.294379",
+          "transition": "opacity 1s"
+        },
+        {
+          "active": "true",
+          "hidden": "false",
+          "link": {
+            "href": "/about#quality-heading",
+            "text": "Our formulation"
+          },
+          "opacity": "0.705621",
+          "transition": "opacity 1s"
+        },
+        {
+          "active": "false",
+          "hidden": "true",
+          "link": {
+            "href": "/about#sustainability-heading",
+            "text": "Our approach"
+          },
+          "opacity": "0",
+          "transition": "opacity 1s"
+        }
+      ],
+      "top": -269.9921875,
+      "viewport": [
+        320,
+        568
+      ]
+    }
+  ],
+  "motionSamples": [
+    {
+      "at": 1794306808285,
+      "dom": {
+        "easing": "ease",
+        "focus": "innovation",
+        "rail": "matrix(1, 0, 0, 1, 0, 0)",
+        "railDuration": "1s",
+        "selected": "1",
+        "slides": [
+          {
+            "hidden": "true",
+            "inert": true,
+            "opacity": "1"
+          },
+          {
+            "hidden": "false",
+            "inert": false,
+            "opacity": "0"
+          },
+          {
+            "hidden": "true",
+            "inert": true,
+            "opacity": "0"
+          }
+        ]
+      }
+    },
+    {
+      "at": 1794306808291,
+      "dom": {
+        "easing": "ease",
+        "focus": "innovation",
+        "rail": "matrix(1, 0, 0, 1, 0, 0)",
+        "railDuration": "1s",
+        "selected": "1",
+        "slides": [
+          {
+            "hidden": "true",
+            "inert": true,
+            "opacity": "1"
+          },
+          {
+            "hidden": "false",
+            "inert": false,
+            "opacity": "0"
+          },
+          {
+            "hidden": "true",
+            "inert": true,
+            "opacity": "0"
+          }
+        ]
+      }
+    },
+    {
+      "at": 1794306808297,
+      "dom": {
+        "easing": "ease",
+        "focus": "innovation",
+        "rail": "matrix(1, 0, 0, 1, 0, 0)",
+        "railDuration": "1s",
+        "selected": "1",
+        "slides": [
+          {
+            "hidden": "true",
+            "inert": true,
+            "opacity": "1"
+          },
+          {
+            "hidden": "false",
+            "inert": false,
+            "opacity": "0"
+          },
+          {
+            "hidden": "true",
+            "inert": true,
+            "opacity": "0"
+          }
+        ]
+      }
+    },
+    {
+      "at": 1794306808302,
+      "dom": {
+        "easing": "ease",
+        "focus": "innovation",
+        "rail": "matrix(1, 0, 0, 1, 0, -6.22405)",
+        "railDuration": "1s",
+        "selected": "1",
+        "slides": [
+          {
+            "hidden": "true",
+            "inert": true,
+            "opacity": "0.991959"
+          },
+          {
+            "hidden": "false",
+            "inert": false,
+            "opacity": "0.00804141"
+          },
+          {
+            "hidden": "true",
+            "inert": true,
+            "opacity": "0"
+          }
+        ]
+      }
+    },
+    {
+      "at": 1794306808308,
+      "dom": {
+        "easing": "ease",
+        "focus": "innovation",
+        "rail": "matrix(1, 0, 0, 1, 0, -6.22405)",
+        "railDuration": "1s",
+        "selected": "1",
+        "slides": [
+          {
+            "hidden": "true",
+            "inert": true,
+            "opacity": "0.991959"
+          },
+          {
+            "hidden": "false",
+            "inert": false,
+            "opacity": "0.00804141"
+          },
+          {
+            "hidden": "true",
+            "inert": true,
+            "opacity": "0"
+          }
+        ]
+      }
+    },
+    {
+      "at": 1794306808313,
+      "dom": {
+        "easing": "ease",
+        "focus": "innovation",
+        "rail": "matrix(1, 0, 0, 1, 0, -6.22405)",
+        "railDuration": "1s",
+        "selected": "1",
+        "slides": [
+          {
+            "hidden": "true",
+            "inert": true,
+            "opacity": "0.991959"
+          },
+          {
+            "hidden": "false",
+            "inert": false,
+            "opacity": "0.00804141"
+          },
+          {
+            "hidden": "true",
+            "inert": true,
+            "opacity": "0"
+          }
+        ]
+      }
+    },
+    {
+      "at": 1794306808317,
+      "dom": {
+        "easing": "ease",
+        "focus": "innovation",
+        "rail": "matrix(1, 0, 0, 1, 0, -14.1599)",
+        "railDuration": "1s",
+        "selected": "1",
+        "slides": [
+          {
+            "hidden": "true",
+            "inert": true,
+            "opacity": "0.981705"
+          },
+          {
+            "hidden": "false",
+            "inert": false,
+            "opacity": "0.0182945"
+          },
+          {
+            "hidden": "true",
+            "inert": true,
+            "opacity": "0"
+          }
+        ]
+      }
+    },
+    {
+      "at": 1794306808327,
+      "dom": {
+        "easing": "ease",
+        "focus": "innovation",
+        "rail": "matrix(1, 0, 0, 1, 0, -14.1599)",
+        "railDuration": "1s",
+        "selected": "1",
+        "slides": [
+          {
+            "hidden": "true",
+            "inert": true,
+            "opacity": "0.981705"
+          },
+          {
+            "hidden": "false",
+            "inert": false,
+            "opacity": "0.0182945"
+          },
+          {
+            "hidden": "true",
+            "inert": true,
+            "opacity": "0"
+          }
+        ]
+      }
+    },
+    {
+      "at": 1794306808331,
+      "dom": {
+        "easing": "ease",
+        "focus": "innovation",
+        "rail": "matrix(1, 0, 0, 1, 0, -25.4639)",
+        "railDuration": "1s",
+        "selected": "1",
+        "slides": [
+          {
+            "hidden": "true",
+            "inert": true,
+            "opacity": "0.967101"
+          },
+          {
+            "hidden": "false",
+            "inert": false,
+            "opacity": "0.0328991"
+          },
+          {
+            "hidden": "true",
+            "inert": true,
+            "opacity": "0"
+          }
+        ]
+      }
+    },
+    {
+      "at": 1794306808337,
+      "dom": {
+        "easing": "ease",
+        "focus": "innovation",
+        "rail": "matrix(1, 0, 0, 1, 0, -25.4639)",
+        "railDuration": "1s",
+        "selected": "1",
+        "slides": [
+          {
+            "hidden": "true",
+            "inert": true,
+            "opacity": "0.967101"
+          },
+          {
+            "hidden": "false",
+            "inert": false,
+            "opacity": "0.0328991"
+          },
+          {
+            "hidden": "true",
+            "inert": true,
+            "opacity": "0"
+          }
+        ]
+      }
+    }
+  ],
+  "reducedMotion": {
+    "easing": "ease",
+    "focus": "sustainability",
+    "rail": "matrix(1, 0, 0, 1, 0, -1548)",
+    "railDuration": "0s",
+    "selected": "2",
+    "slides": [
+      {
+        "hidden": "true",
+        "inert": true,
+        "opacity": "0"
+      },
+      {
+        "hidden": "true",
+        "inert": true,
+        "opacity": "0"
+      },
+      {
+        "hidden": "false",
+        "inert": false,
+        "opacity": "1"
+      }
+    ]
+  },
+  "anchors": [
+    {
+      "headerBottom": 64,
+      "overflow": false,
+      "scrollMargin": "80px",
+      "targetText": "MEN DESERVE A BETTER SYSTEM.",
+      "targetTop": 79.8125,
+      "url": "/about#about-men-heading"
+    },
+    {
+      "headerBottom": 63.84578074514866,
+      "overflow": false,
+      "scrollMargin": "80px",
+      "targetText": "PURPOSEFUL COMPOUNDS. NO EMPTY STATUS.",
+      "targetTop": 79.765625,
+      "url": "/about#quality-heading"
+    },
+    {
+      "headerBottom": 63.94717340543866,
+      "overflow": false,
+      "scrollMargin": "80px",
+      "targetText": "LESS, DONE BETTER.",
+      "targetTop": 80.203125,
+      "url": "/about#sustainability-heading"
+    }
+  ],
+  "systemRegression": {
+    "editorialGutter": "24px",
+    "editorialMax": "min(100%,1540px)",
+    "overflow": false,
+    "path": "/system",
+    "scrollMargin": "0px",
+    "width": "1425px"
+  },
+  "mobileClick": {
+    "easing": "ease",
+    "focus": "innovation",
+    "rail": "matrix(1, 0, 0, 1, 0, -219.216)",
+    "railDuration": "1s",
+    "selected": "1",
+    "slides": [
+      {
+        "hidden": "true",
+        "inert": true,
+        "opacity": "0.488708"
+      },
+      {
+        "hidden": "false",
+        "inert": false,
+        "opacity": "0.511292"
+      },
+      {
+        "hidden": "true",
+        "inert": true,
+        "opacity": "0"
+      }
+    ]
+  },
+  "touch": {
+    "unitRegression": "passed: touch focus/move/cancel keeps selection; deliberate click selects",
+    "nativeGesture": "not run: IAB does not support Input.dispatchTouchEvent or Input.synthesizeScrollGesture",
+    "touchEmulationRestored": true
+  },
+  "focusTransfer": "actual hover from focused Mission CTA moved focus to Innovation selector before old panel became inert",
+  "mediaEmulationRestored": true,
+  "rapidReverseSettled": {
+    "easing": "ease",
+    "focus": "innovation",
+    "rail": "matrix(1, 0, 0, 1, 0, -774)",
+    "railDuration": "1s",
+    "selected": "1",
+    "slides": [
+      {
+        "hidden": "true",
+        "inert": true,
+        "opacity": "0"
+      },
+      {
+        "hidden": "false",
+        "inert": false,
+        "opacity": "1"
+      },
+      {
+        "hidden": "true",
+        "inert": true,
+        "opacity": "0"
+      }
+    ]
+  },
+  "finalIngredientCheck": {
+    "gapToPrinciples": 36,
+    "heading": "Research-Backed Ingredients",
+    "rows": 3
+  }
+}

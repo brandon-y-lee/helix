@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
+import "./home.css";
 import Link from "next/link";
 import { HomeBeyondCoreShowcase } from "@/components/home/HomeBeyondCoreShowcase";
 import { HomeBackgroundVideo } from "@/components/home/HomeBackgroundVideo";
 import { HomeCoreShowcase } from "@/components/home/HomeCoreShowcase";
 import { HomeIngredientPreview } from "@/components/home/HomeIngredientPreview";
-import { HomePrinciplesPortrait } from "@/components/home/HomePrinciplesPortrait";
+import { HomeSuperSerumSpotlight } from "@/components/home/HomeSuperSerumSpotlight";
 import { HomeThreePrinciples } from "@/components/home/HomeThreePrinciples";
 import {
   getCachedIngredientIndexProducts,
@@ -46,6 +47,7 @@ export default async function HomePage() {
     getCachedIngredientIndexProducts(),
   ]);
   const productsBySlug = new Map(products.map((product) => [product.slug, product]));
+  const superSerum = productsBySlug.get("super-serum");
   const coreProducts = productsForSlugs(productsBySlug, CORE_PRODUCT_SLUGS);
   const ingredientCards = buildIngredientIndex(ingredientProducts).slice(0, 3);
   const beyondCoreProducts = productsForSlugs(
@@ -56,7 +58,7 @@ export default async function HomePage() {
   return (
     <>
       <section
-        className="home-video-hero"
+        className="home-video-hero home-lander-hero"
         data-header-layout="overlay"
         data-header-theme="light"
         aria-labelledby="home-hero-heading"
@@ -84,22 +86,9 @@ export default async function HomePage() {
 
       <HomeCoreShowcase products={coreProducts} />
 
-      <section
-        className="home-section home-section--principles"
-        aria-labelledby="home-three-principles-heading"
-      >
-        <div className="home-three-principles-panel">
-          <HomeThreePrinciples
-            headingId="home-three-principles-heading"
-            principles={homeThreePrinciples}
-          />
-        </div>
-        <div className="home-three-principles-visual">
-          <HomePrinciplesPortrait />
-        </div>
-      </section>
+      {superSerum && <HomeSuperSerumSpotlight product={superSerum} />}
 
-      <section className="home-section home-section--core-support" aria-labelledby="plug-play-heading">
+      <section className="home-section home-section--core-support home-lander-plug" aria-labelledby="plug-play-heading">
         <div className="home-plug-split">
           <div className="home-plug-media">
             <HomeBackgroundVideo placement="plug" />
@@ -132,16 +121,16 @@ export default async function HomePage() {
 
       <HomeBeyondCoreShowcase products={beyondCoreProducts} />
 
-      <section className="home-band home-section" aria-labelledby="ingredients-heading">
+      <section className="home-section home-lander-ingredients" aria-labelledby="ingredients-heading">
         <div
-          className="storefront-shell home-split home-split--ingredients"
+          className="home-lander-ingredients__panel"
           data-layout-shell="storefront"
         >
-          <div className="storefront-reading">
-            <h2 id="ingredients-heading">Know what you are using.</h2>
+          <div className="home-lander-ingredients__intro">
+            <h2 id="ingredients-heading">Research-backed Ingredients</h2>
             <p>
-              Learn how our formulas nourish your skin--instantly, and years down the line. <br />
-              Our index explains what an ingredient is, where it appears, and how its formula supports your skin.
+              See how our formulas nourish your skin--instantly, and years down the line.
+              Our index explains what an ingredient is, where it appears, and how it supports your skin.
             </p>
             <Link href="/system#system-ingredients" className="btn btn--ghost btn--editorial-rounded">
               READ THE INDEX
@@ -154,21 +143,14 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section className="home-section home-section--final" aria-labelledby="final-heading">
-        <HomeBackgroundVideo placement="final" />
-        <div className="home-final">
-          <h2 id="final-heading" className="display-secondary home-final__title">
-            Invest in your skin.
-          </h2>
-          <p className="home-final__copy">
-            Three steps, one order, repeatable morning or night.
-          </p>
-          <div className="hero__actions home-video-hero__actions home-final__actions">
-            <Link href="#core-three" className="home-final__cta home-final__cta--primary">
-              Shop The Core
-            </Link>
-          </div>
-        </div>
+      <section
+        className="home-section home-section--principles home-lander-principles"
+        aria-labelledby="home-three-principles-heading"
+      >
+        <HomeThreePrinciples
+          headingId="home-three-principles-heading"
+          principles={homeThreePrinciples}
+        />
       </section>
     </>
   );

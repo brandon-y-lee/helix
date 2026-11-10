@@ -3,6 +3,8 @@ export type HomeThreePrinciple = {
   label: string;
   titleLines: readonly string[];
   description: string;
+  cta: { label: string; href: string };
+  image: { src: string; position: string };
 };
 
 export type HomeCoreDescriptionKey = "cleanse" | "treat" | "seal";
@@ -59,6 +61,8 @@ export const homeThreePrinciples = [
     titleLines: ["Simple is", "not basic."],
     description:
       "Restore, protect, and nurture the skin you have now for lasting results that reveal themselves over time.",
+    cta: { label: "Our mission", href: "/about#about-men-heading" },
+    image: { src: "/media/home/why-three.webp", position: "50% 68%" },
   },
   {
     id: "innovation",
@@ -66,6 +70,8 @@ export const homeThreePrinciples = [
     titleLines: ["Formulated", "for longevity."],
     description:
       "Developed with award-winning dermatologists, chemists, and industry leaders.",
+    cta: { label: "Our formulation", href: "/about#quality-heading" },
+    image: { src: "/media/system/ingredients/peptides.jpg", position: "50% 50%" },
   },
   {
     id: "sustainability",
@@ -73,5 +79,7 @@ export const homeThreePrinciples = [
     titleLines: ["Mindful skincare,", "built in."],
     description:
       "From consciously-sourced ingredients to packaging made with post-consumer recycled materials.",
+    cta: { label: "Our approach", href: "/about#sustainability-heading" },
+    image: { src: "/media/system/ingredients/cica-centella.jpg", position: "50% 50%" },
   },
 ] as const satisfies readonly HomeThreePrinciple[];

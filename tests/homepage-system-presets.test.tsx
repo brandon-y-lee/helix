@@ -138,6 +138,16 @@ beforeEach(() => {
 });
 
 describe("homepage product wiring", () => {
+  it("ends with the principles after ingredient education and omits the retired final video", async () => {
+    render(<CartProvider>{await HomePage()}</CartProvider>);
+    const ingredients = sectionForHeading("Research-backed Ingredients");
+    const principles = sectionForHeading("Simple is not basic.");
+    expect(ingredients.nextElementSibling).toBe(principles);
+    expect(principles.nextElementSibling).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Invest in your skin." })).not.toBeInTheDocument();
+    expect(document.querySelector(".home-final-media")).not.toBeInTheDocument();
+  });
+
   it("offers one Core product list through the shared carousel without duplicating its imagery", async () => {
     render(<CartProvider>{await HomePage()}</CartProvider>);
 
@@ -146,6 +156,20 @@ describe("homepage product wiring", () => {
     expect(within(rail).getAllByRole("listitem")).toHaveLength(3);
     expect(within(core).getAllByRole("link", { name: "Biotic Reset" })).toHaveLength(1);
     expect(within(core).getAllByRole("img", { name: "Biotic Reset product bottle." })).toHaveLength(1);
+  });
+
+  it("introduces canonical Super Serum after the Core with its campaign image and product destination", async () => {
+    render(<CartProvider>{await HomePage()}</CartProvider>);
+    const core = sectionForHeading("The Core");
+    const spotlight = sectionForHeading("One step for Longevity");
+    expect(core.nextElementSibling).toBe(spotlight);
+    expect(spotlight.nextElementSibling).toBe(sectionForHeading("Plug and Play"));
+    expect(within(spotlight).getByText("Super Serum", { exact: true })).toBeInTheDocument();
+    expect(within(spotlight).getByText("A lightweight serum with PDRN, humectants, niacinamide, peptides, and adenosine for hydrated, supple-looking skin.", { exact: true })).toBeInTheDocument();
+    expect(within(spotlight).queryByText("The treatment layer of The Core. Use after cleansing and before moisturizer, morning and night.", { exact: true })).not.toBeInTheDocument();
+    expect(within(spotlight).getByRole("link", { name: "Shop Now" })).toHaveAttribute("href", "/products/super-serum");
+    expect(within(spotlight).getByRole("img", { name: "Man facing the camera holding a Helix Super Serum bottle beside his cheek." })).toHaveAttribute("src", expect.stringContaining("super-serum-editorial-v3.webp"));
+    expect(within(sectionForHeading("Simple is not basic.")).getByRole("link", { name: "Our mission" })).toHaveAttribute("href", "/about#about-men-heading");
   });
 
   it("uses the lowercase helix name in the editorial hero", async () => {
@@ -186,6 +210,7 @@ describe("homepage product wiring", () => {
     ]);
     expect(screen.queryByRole("link", { name: "Maxxing Serum" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Peptide Bounce" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "One step for Longevity" })).not.toBeInTheDocument();
   });
 
   it("selects only Super Serum when retired TREAT products are also present", async () => {
@@ -278,9 +303,9 @@ describe("homepage product wiring", () => {
   it("links homepage ingredient previews to their canonical System anchors", async () => {
     render(<CartProvider>{await HomePage()}</CartProvider>);
 
-    const ingredients = sectionForHeading("Know what you are using.");
+    const ingredients = sectionForHeading("Research-backed Ingredients");
     expect(
-      within(ingredients).getByRole("region", { name: "Ingredient literacy preview" }),
+      within(ingredients).getByRole("list", { name: "Ingredient literacy preview" }),
     ).toBeInTheDocument();
     expect(
       within(ingredients).getByRole("link", {

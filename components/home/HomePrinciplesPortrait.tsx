@@ -1,37 +1,31 @@
-"use client";
-
 import Image from "next/image";
-import { useScrollDirectionZoom } from "@/components/home/useScrollDirectionZoom";
+import type { HomeThreePrinciple } from "@/lib/content/home";
 
-const MIN_SCALE = 1.01;
-const RESTING_SCALE = 1.07;
-const MAX_SCALE = 1.16;
-
-export function HomePrinciplesPortrait() {
-  const frameRef = useScrollDirectionZoom<HTMLDivElement>({
-    cssVariable: "--home-principles-image-scale",
-    minScale: MIN_SCALE,
-    restingScale: RESTING_SCALE,
-    maxScale: MAX_SCALE,
-    observedAncestorSelector: ".home-section--principles",
-    staticMediaQuery: "(max-width: 900px)",
-  });
-
+export function HomePrinciplesPortrait({ activeIndex, principles }: {
+  activeIndex: number;
+  principles: readonly HomeThreePrinciple[];
+}) {
   return (
-    <div
-      ref={frameRef}
-      className="home-three-principles-visual__zoom"
-      data-scroll-zoom-active="false"
-      data-scroll-zoom-motion="static"
-    >
-      <Image
-        src="/media/home/why-three.webp"
-        alt="Black-and-white editorial portrait."
-        fill
-        sizes="(max-width: 900px) 100vw, 50vw"
-        className="home-three-principles-visual__image"
-        unoptimized
-      />
+    <div className="home-three-principles-visual" aria-hidden="true">
+      <div
+        className="home-three-principles-visual__rail"
+        data-active-principle={principles[activeIndex]?.id}
+        style={{ transform: `translate3d(0, ${-activeIndex * 100}%, 0)` }}
+      >
+        {principles.map((principle) => (
+          <div key={principle.id} className="home-three-principles-visual__slide">
+            <Image
+              src={principle.image.src}
+              alt=""
+              fill
+              sizes="(max-width: 900px) 100vw, 50vw"
+              className="home-three-principles-visual__image"
+              style={{ objectPosition: principle.image.position }}
+              unoptimized
+            />
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
