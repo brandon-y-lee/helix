@@ -64,7 +64,7 @@ export const homeThreePrinciples = [
     description:
       "Restore, protect, and nurture the skin you have now for lasting results that reveal themselves over time.",
     cta: { label: "Our mission", href: "/about#about-men-heading" },
-    image: { src: HOME_MISSION_IMAGE, position: "50% 68%" },
+    image: { src: HOME_MISSION_IMAGE, position: "50% 0%" },
   },
   {
     id: "innovation",
