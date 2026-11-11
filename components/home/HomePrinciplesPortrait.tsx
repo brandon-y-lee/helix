@@ -13,7 +13,10 @@ export function HomePrinciplesPortrait({ activeIndex, principles }: {
         style={{ transform: `translate3d(0, ${-activeIndex * 100}%, 0)` }}
       >
         {principles.map((principle) => (
-          <div key={principle.id} className="home-three-principles-visual__slide">
+          <div
+            key={principle.id}
+            className={`home-three-principles-visual__slide${principle.image.fit === "contain" ? " home-three-principles-visual__slide--contained" : ""}`}
+          >
             <Image
               src={principle.image.src}
               alt=""

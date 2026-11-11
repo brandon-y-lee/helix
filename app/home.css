@@ -439,6 +439,15 @@ body:has(main[data-storefront-main] > .home-lander-hero) .site-footer {
   will-change: auto;
 }
 
+.home-three-principles-visual__slide--contained {
+  background: #fff;
+}
+
+.home-lander-principles .home-three-principles-visual__slide--contained .home-three-principles-visual__image {
+  box-sizing: border-box;
+  padding: clamp(12px, 2vw, 32px);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .home-three-principles__slide,
   .home-three-principles-visual__rail,
