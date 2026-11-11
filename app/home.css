@@ -210,11 +210,11 @@ body:has(main[data-storefront-main] > .home-lander-hero)
 .home-lander-serum .home-lander-serum__copy {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   gap: 24px;
   padding: var(--pdp-panel-padding);
-  text-align: center;
+  text-align: left;
 }
 
 .home-lander-serum .home-lander-serum__eyebrow {
@@ -253,6 +253,14 @@ body:has(main[data-storefront-main] > .home-lander-hero)
   color: var(--ink-soft);
   font-size: clamp(1rem, 1.12vw, 1.125rem);
   line-height: 1.65;
+}
+
+@media (min-width: 901px) {
+  .home-lander-serum h2 {
+    max-width: 100%;
+    font-size: clamp(1.75rem, 2.7vw, 3rem);
+    text-wrap: wrap;
+  }
 }
 
 .home-section.home-lander-principles {
