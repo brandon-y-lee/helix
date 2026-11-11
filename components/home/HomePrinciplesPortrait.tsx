@@ -20,7 +20,10 @@ export function HomePrinciplesPortrait({ activeIndex, principles }: {
               fill
               sizes="(max-width: 900px) 100vw, 50vw"
               className="home-three-principles-visual__image"
-              style={{ objectPosition: principle.image.position }}
+              style={{
+                objectPosition: principle.image.position,
+                objectFit: principle.image.fit ?? "cover",
+              }}
               unoptimized
             />
           </div>

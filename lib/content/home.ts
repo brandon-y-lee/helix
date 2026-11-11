@@ -1,4 +1,7 @@
-import { HOME_MISSION_IMAGE } from "@/lib/content/home-principles-media";
+import {
+  HOME_INNOVATION_IMAGE,
+  HOME_MISSION_IMAGE,
+} from "@/lib/content/home-principles-media";
 
 export type HomeThreePrinciple = {
   id: "mission" | "innovation" | "sustainability";
@@ -6,7 +9,7 @@ export type HomeThreePrinciple = {
   titleLines: readonly string[];
   description: string;
   cta: { label: string; href: string };
-  image: { src: string; position: string };
+  image: { src: string; position: string; fit?: "cover" | "contain" };
 };
 
 export type HomeCoreDescriptionKey = "cleanse" | "treat" | "seal";
@@ -73,7 +76,7 @@ export const homeThreePrinciples = [
     description:
       "Developed with award-winning dermatologists, chemists, and industry leaders.",
     cta: { label: "Our formulation", href: "/about#quality-heading" },
-    image: { src: "/media/system/ingredients/peptides.jpg", position: "50% 50%" },
+    image: { src: HOME_INNOVATION_IMAGE, position: "50% 50%", fit: "contain" },
   },
   {
     id: "sustainability",
