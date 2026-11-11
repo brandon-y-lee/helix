@@ -16,7 +16,7 @@ export function HomeSuperSerumSpotlight({ product }: { product: ProductCard }) {
       </div>
       <div className="home-lander-serum__copy">
         <p className="home-lander-serum__eyebrow">Super Serum</p>
-        <h2 id="home-serum-heading">One step for Longevity</h2>
+        <h2 id="home-serum-heading">One Step For Longevity</h2>
         <div className="home-lander-serum__body">
           <p>
             A lightweight serum with PDRN, humectants, niacinamide, peptides,

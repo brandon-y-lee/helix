@@ -241,7 +241,7 @@ body:has(main[data-storefront-main] > .home-lander-hero)
 }
 
 .home-lander-serum h2 {
-  font-size: clamp(2.5rem, 4.1vw, 4.5rem);
+  font-size: clamp(2.75rem, 4.4vw, 4.75rem);
   line-height: 1.04;
   text-wrap: balance;
 }
@@ -258,7 +258,7 @@ body:has(main[data-storefront-main] > .home-lander-hero)
 @media (min-width: 901px) {
   .home-lander-serum h2 {
     max-width: 100%;
-    font-size: clamp(1.75rem, 2.7vw, 3rem);
+    font-size: clamp(1.875rem, 2.9vw, 3.25rem);
     text-wrap: wrap;
   }
 }
@@ -335,7 +335,7 @@ body:has(main[data-storefront-main] > .home-lander-hero)
 
 @media (max-width: 720px) {
   .home-lander-serum h2 {
-    font-size: 2.5rem;
+    font-size: 2.75rem;
   }
 
   .home-lander-principles .home-three-principles__description {

@@ -161,7 +161,7 @@ describe("homepage product wiring", () => {
   it("introduces canonical Super Serum after the Core with its campaign image and product destination", async () => {
     render(<CartProvider>{await HomePage()}</CartProvider>);
     const core = sectionForHeading("The Core");
-    const spotlight = sectionForHeading("One step for Longevity");
+    const spotlight = sectionForHeading("One Step For Longevity");
     expect(core.nextElementSibling).toBe(spotlight);
     expect(spotlight.nextElementSibling).toBe(sectionForHeading("Plug and Play"));
     expect(within(spotlight).getByText("Super Serum", { exact: true })).toBeInTheDocument();
@@ -210,7 +210,7 @@ describe("homepage product wiring", () => {
     ]);
     expect(screen.queryByRole("link", { name: "Maxxing Serum" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Peptide Bounce" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "One step for Longevity" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "One Step For Longevity" })).not.toBeInTheDocument();
   });
 
   it("selects only Super Serum when retired TREAT products are also present", async () => {
