@@ -1,3 +1,5 @@
+import { HOME_MISSION_IMAGE } from "@/lib/content/home-principles-media";
+
 export type HomeThreePrinciple = {
   id: "mission" | "innovation" | "sustainability";
   label: string;
@@ -62,7 +64,7 @@ export const homeThreePrinciples = [
     description:
       "Restore, protect, and nurture the skin you have now for lasting results that reveal themselves over time.",
     cta: { label: "Our mission", href: "/about#about-men-heading" },
-    image: { src: "/media/home/why-three.webp", position: "50% 68%" },
+    image: { src: HOME_MISSION_IMAGE, position: "50% 68%" },
   },
   {
     id: "innovation",
