@@ -39,7 +39,7 @@ test.describe("principles touch selection", () => {
     // could otherwise make a pre-hydration gesture look like a success.
     await innovation.tap();
     await expect(innovation).toHaveAttribute("aria-pressed", "true");
-    await expect(principles.getByRole("link", { name: "Our formulation", exact: true })).toBeVisible();
+    await expect(principles.getByRole("link", { name: "our formulations", exact: true })).toBeVisible();
     await mission.tap();
     await expect(mission).toHaveAttribute("aria-pressed", "true");
     await innovation.scrollIntoViewIfNeeded();
@@ -73,8 +73,8 @@ test.describe("principles touch selection", () => {
 
     await innovation.tap();
     await expect(innovation).toHaveAttribute("aria-pressed", "true");
-    await expect(principles.getByRole("link", { name: "Our formulation", exact: true })).toHaveAttribute("href", "/about#quality-heading");
-    await expect(principles.getByRole("link", { name: "Our mission", exact: true })).toHaveCount(0);
+    await expect(principles.getByRole("link", { name: "our formulations", exact: true })).toHaveAttribute("href", "/about#quality-heading");
+    await expect(principles.getByRole("link", { name: "our values", exact: true })).toHaveCount(0);
     await expect(principles.locator(".home-three-principles-visual__rail")).toHaveAttribute("data-active-principle", "innovation");
   });
 });

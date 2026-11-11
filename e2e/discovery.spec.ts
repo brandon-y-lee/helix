@@ -357,12 +357,16 @@ test("Three Principles retain selection with eased labels, copy and a one-frame 
     await expect(slides.nth(index)).toHaveCSS("opacity", "0");
   }
   await expect(slides.nth(1)).toHaveCSS("opacity", "1");
-  await expect(page.getByRole("link", { name: "Our formulation", exact: true }))
+  await expect(page.getByRole("link", { name: "our formulations", exact: true }))
     .toHaveAttribute("href", "/about#quality-heading");
-  await expect(page.getByRole("link", { name: "Our mission", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "our values", exact: true })).toHaveCount(0);
   await expect.poll(() => rail.evaluate((element) => {
-    const offset = new DOMMatrixReadOnly(getComputedStyle(element).transform).m42;
-    return Math.abs(offset + element.parentElement!.getBoundingClientRect().height);
+    const frame = element.parentElement!.getBoundingClientRect();
+    const selected = element.children[1]!.getBoundingClientRect();
+    return Math.max(
+      Math.abs(selected.top - frame.top),
+      Math.abs(selected.bottom - frame.bottom),
+    );
   })).toBeLessThan(1);
 
   const selectedPresentation = await Promise.all(
@@ -413,11 +417,15 @@ test("Three Principles selection is immediate with reduced motion", async ({
       (element) => getComputedStyle(element).transitionDuration,
     ))).toBeLessThanOrEqual(1);
   }
-  await expect(page.getByRole("link", { name: "Our formulation", exact: true }))
+  await expect(page.getByRole("link", { name: "our formulations", exact: true }))
     .toHaveAttribute("href", "/about#quality-heading");
   expect(await rail.evaluate((element) => {
-    const offset = new DOMMatrixReadOnly(getComputedStyle(element).transform).m42;
-    return Math.abs(offset + element.parentElement!.getBoundingClientRect().height);
+    const frame = element.parentElement!.getBoundingClientRect();
+    const selected = element.children[1]!.getBoundingClientRect();
+    return Math.max(
+      Math.abs(selected.top - frame.top),
+      Math.abs(selected.bottom - frame.bottom),
+    );
   })).toBeLessThan(1);
 });
 

@@ -66,8 +66,8 @@ export const homeThreePrinciples = [
     label: "mission",
     titleLines: ["Simple is", "not basic."],
     description:
-      "Restore, protect, and nurture the skin you have now for lasting results that reveal themselves over time.",
-    cta: { label: "Our mission", href: "/about#about-men-heading" },
+      "To restore, protect, and nurture the skin you have now for lasting results that reveal themselves over time.",
+    cta: { label: "our values", href: "/about#about-men-heading" },
     image: { src: HOME_MISSION_IMAGE, position: "50% 0%" },
   },
   {
@@ -76,7 +76,7 @@ export const homeThreePrinciples = [
     titleLines: ["Formulated", "for longevity."],
     description:
       "Developed with award-winning dermatologists, chemists, and industry leaders.",
-    cta: { label: "Our formulation", href: "/about#quality-heading" },
+    cta: { label: "our formulations", href: "/about#quality-heading" },
     image: { src: HOME_INNOVATION_IMAGE, position: "50% 50%", fit: "contain" },
   },
   {
@@ -85,7 +85,7 @@ export const homeThreePrinciples = [
     titleLines: ["Mindful skincare,", "built in."],
     description:
       "From consciously-sourced ingredients to packaging made with post-consumer recycled materials.",
-    cta: { label: "Our approach", href: "/about#sustainability-heading" },
+    cta: { label: "our impact", href: "/about#sustainability-heading" },
     image: { src: HOME_SUSTAINABILITY_IMAGE, position: "50% 50%" },
   },
 ] as const satisfies readonly HomeThreePrinciple[];

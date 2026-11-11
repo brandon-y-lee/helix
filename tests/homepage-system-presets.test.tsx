@@ -169,7 +169,7 @@ describe("homepage product wiring", () => {
     expect(within(spotlight).queryByText("The treatment layer of The Core. Use after cleansing and before moisturizer, morning and night.", { exact: true })).not.toBeInTheDocument();
     expect(within(spotlight).getByRole("link", { name: "Shop Now" })).toHaveAttribute("href", "/products/super-serum");
     expect(within(spotlight).getByRole("img", { name: "Man facing the camera holding a Helix Super Serum bottle beside his cheek." })).toHaveAttribute("src", expect.stringContaining("super-serum-editorial-v3.webp"));
-    expect(within(sectionForHeading("Simple is not basic.")).getByRole("link", { name: "Our mission" })).toHaveAttribute("href", "/about#about-men-heading");
+    expect(within(sectionForHeading("Simple is not basic.")).getByRole("link", { name: "our values" })).toHaveAttribute("href", "/about#about-men-heading");
   });
 
   it("uses the lowercase helix name in the editorial hero", async () => {
