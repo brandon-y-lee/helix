@@ -416,12 +416,19 @@ body:has(main[data-storefront-main] > .home-lander-hero) .site-footer {
   pointer-events: auto;
 }
 
-/* The rail is one frame high; its children extend beyond the clipped frame. */
+/* Separate neighboring paint from fractional clip edges when a slide settles. */
+.home-lander-principles .home-three-principles-visual {
+  --home-principles-slide-gap: 2px;
+  background: #fff;
+}
+
+/* The rail is one frame high; translate by a frame plus its guard gap. */
 .home-three-principles-visual__rail {
   position: absolute;
   inset: 0;
   display: flex;
   flex-direction: column;
+  row-gap: var(--home-principles-slide-gap);
   transition: transform 1000ms ease;
 }
 
