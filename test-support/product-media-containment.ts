@@ -3,6 +3,7 @@ import { FAQ_HERO_IMAGE } from "@/lib/content/faq-hero";
 import {
   HOME_INNOVATION_IMAGE,
   HOME_MISSION_IMAGE,
+  HOME_SUSTAINABILITY_IMAGE,
 } from "@/lib/content/home-principles-media";
 import type { StorefrontSnapshot } from "@/test-support/storefront-baseline";
 
@@ -188,7 +189,8 @@ export function createProductMediaContainment(
     if (
       request.sourceUrl === FAQ_HERO_IMAGE ||
       request.sourceUrl === HOME_MISSION_IMAGE ||
-      request.sourceUrl === HOME_INNOVATION_IMAGE
+      request.sourceUrl === HOME_INNOVATION_IMAGE ||
+      request.sourceUrl === HOME_SUSTAINABILITY_IMAGE
     ) {
       await route.fallback();
       return;

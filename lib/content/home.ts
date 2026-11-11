@@ -1,6 +1,7 @@
 import {
   HOME_INNOVATION_IMAGE,
   HOME_MISSION_IMAGE,
+  HOME_SUSTAINABILITY_IMAGE,
 } from "@/lib/content/home-principles-media";
 
 export type HomeThreePrinciple = {
@@ -85,6 +86,6 @@ export const homeThreePrinciples = [
     description:
       "From consciously-sourced ingredients to packaging made with post-consumer recycled materials.",
     cta: { label: "Our approach", href: "/about#sustainability-heading" },
-    image: { src: "/media/system/ingredients/cica-centella.jpg", position: "50% 50%" },
+    image: { src: HOME_SUSTAINABILITY_IMAGE, position: "50% 50%" },
   },
 ] as const satisfies readonly HomeThreePrinciple[];
