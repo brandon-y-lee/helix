@@ -149,7 +149,7 @@ function ReviewRow({
           )}
         </div>
         {review.verifiedPurchase && <p>Verified purchase</p>}
-        {review.offerNotice && <p>Received a next-purchase offer; no review required.</p>}
+        {review.offerNotice && <p>Next-purchase offer provided; no review required.</p>}
         <h3>{review.title}</h3>
         <p className="storefront-reading">{review.body}</p>
         {reviewDetails.length > 0 && (

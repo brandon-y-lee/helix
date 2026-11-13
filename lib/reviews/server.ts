@@ -1,5 +1,5 @@
 import "server-only";
-import { unstable_cache, revalidateTag } from "next/cache";
+import { unstable_noStore, revalidateTag } from "next/cache";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth/session";
 import {
@@ -73,19 +73,17 @@ export async function ownedReviews(): Promise<OwnedReview[]> {
 export const readReviewPage = async (
   slug: string,
   after: string | null = null,
-): Promise<ReviewPage> =>
-  parseReviewPage(
+): Promise<ReviewPage> => {
+  // Disclosure can change after publication; opt this enabled read out of Data/Full Route caching.
+  unstable_noStore();
+  return parseReviewPage(
     await reviewRpc("read_public_product_reviews", {
       p_slug: slug,
       p_after: after,
       p_limit: 5,
     }),
   );
-export const cachedReviewPage = unstable_cache(
-  async (slug: string) => readReviewPage(slug),
-  ["public-product-reviews-v1"],
-  { tags: [REVIEW_CACHE_TAG], revalidate: 60 },
-);
+};
 export function invalidateReviews() {
   revalidateTag(REVIEW_CACHE_TAG);
 }

@@ -79,7 +79,7 @@ describe("public reviews", () => {
     expect(screen.getByText("3.2")).toBeInTheDocument();
     expect(screen.getByText("Verified purchase")).toBeInTheDocument();
     expect(
-      screen.getByText("Received a next-purchase offer; no review required."),
+      screen.getByText("Next-purchase offer provided; no review required."),
     ).toBeInTheDocument();
     expect(screen.queryByRole("meter")).not.toBeInTheDocument();
     expect(

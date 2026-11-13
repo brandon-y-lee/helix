@@ -1,5 +1,5 @@
 import { PublicReviewFeed } from '@/components/reviews/PublicReviewFeed';
-import { cachedReviewPage, reviewsEnabled } from '@/lib/reviews/server';
+import { readReviewPage, reviewsEnabled } from '@/lib/reviews/server';
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ProductDetail } from "@/components/product-detail/ProductDetail";
@@ -77,7 +77,7 @@ export default async function ProductDetailPage({
   const related = await relatedPromise;
   const structuredData = buildProductStructuredData(product, siteUrl);
   const presentation = getPdpPresentation(product.slug);
-  const reviewPage = reviewsEnabled() ? await cachedReviewPage(slug).catch(() => null) : undefined;
+  const reviewPage = reviewsEnabled() ? await readReviewPage(slug).catch(() => null) : undefined;
 
   return (
     <>
