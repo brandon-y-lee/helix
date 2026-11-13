@@ -3,6 +3,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  readdirSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
@@ -737,7 +738,7 @@ done
     } finally { cleanupFixture(tempRoot); }
   });
 
-  it.each(["missing-ref", "empty-ref", "unknown-change", "stale-bootstrap", "manifest-collision"])("preserves unsafe Spec setup: %s", (scenario) => {
+  it.each(["missing-ref", "empty-ref", "unknown-change", "altered-manifest", "stale-bootstrap", "manifest-collision"])("preserves unsafe Spec setup: %s", (scenario) => {
     const { root, tempRoot } = initialiseRemoteRepository();
     try {
       expectSuccess(git(root, "switch", "dev"));
@@ -755,10 +756,12 @@ done
         writeFileSync(fakeGh.statePath, JSON.stringify({ draftPr: true, prCreates: 1, readyTickets: [] }));
       } else if (scenario === "empty-ref") {
         expectSuccess(git(root, "push", "origin", "dev:refs/heads/codex/spec-45-checkout"));
-      } else if (scenario === "unknown-change") {
+      } else if (scenario === "unknown-change" || scenario === "altered-manifest") {
         expectSuccess(git(root, "switch", "-c", "codex/spec-45-checkout"));
-        writeFileSync(join(root, "unexpected.txt"), "unknown\n");
-        expectSuccess(git(root, "add", "unexpected.txt"));
+        const path = scenario === "altered-manifest" ? manifest : "unexpected.txt";
+        mkdirSync(dirname(join(root, path)), { recursive: true });
+        writeFileSync(join(root, path), "unknown\n");
+        expectSuccess(git(root, "add", path));
         expectSuccess(git(root, "commit", "-m", "unknown change"));
         expectSuccess(git(root, "push", "origin", "codex/spec-45-checkout"));
         expectSuccess(git(root, "switch", "dev"));
@@ -776,6 +779,31 @@ done
       expect(git(root, "ls-remote", "--heads", "origin").stdout).toBe(before);
       expect(JSON.parse(readFileSync(fakeGh.statePath, "utf8")).readyTickets).toEqual([]);
       expect(git(root, "status", "--porcelain").stdout).toBe("");
+    } finally { cleanupFixture(tempRoot); }
+  });
+
+  it("preserves caller state and readiness when initial Spec publication is rejected", () => {
+    const { root, tempRoot, remote } = initialiseRemoteRepository();
+    try {
+      expectSuccess(git(root, "push", "origin", "dev"));
+      const hook = join(remote, "hooks/pre-receive");
+      writeFileSync(hook, "#!/bin/sh\nexit 1\n");
+      chmodSync(hook, 0o755);
+      const fakeGh = writeSpecSetupFakeGh(tempRoot);
+      const refs = git(root, "ls-remote", "--heads", "origin").stdout;
+      const head = git(root, "rev-parse", "HEAD").stdout;
+      const index = readFileSync(join(root, ".git/index"));
+      const result = run(taskHelper, ["spec-start", "45-checkout"], root, {
+        env: { GH_BIN: fakeGh.executable, FAKE_SPEC_SETUP_STATE: fakeGh.statePath, TMPDIR: join(tempRoot, "tasks") },
+      });
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toContain("could not publish Spec manifest");
+      expect(git(root, "ls-remote", "--heads", "origin").stdout).toBe(refs);
+      expect(git(root, "rev-parse", "HEAD").stdout).toBe(head);
+      expect(readFileSync(join(root, ".git/index"))).toEqual(index);
+      expect(git(root, "status", "--porcelain").stdout).toBe("");
+      expect(JSON.parse(readFileSync(fakeGh.statePath, "utf8"))).toEqual({ draftPr: false, prCreates: 0, readyTickets: [] });
+      expect(readdirSync(join(tempRoot, "tasks"))).toEqual([]);
     } finally { cleanupFixture(tempRoot); }
   });
 
