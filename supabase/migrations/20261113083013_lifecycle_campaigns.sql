@@ -119,7 +119,8 @@ begin
          left join public.product_variants v on v.product_id=i.product_id and v.variant_key=i.variant_key
          where i.cart_id=a.cart_id and (p.status is distinct from 'available' or p.catalog_status is distinct from 'active'
            or v.archived_at is not null or v.available is distinct from true or v.inventory_status in ('out_of_stock','unavailable')))
-       or exists(select 1 from public.orders where cart_id=a.cart_id and status in ('paid','refunded'))
+       or exists(select 1 from public.orders where cart_id=a.cart_id and status in ('paid','refunded')
+         and coalesce(paid_at,updated_at,created_at)>=a.cart_changed_at)
        or exists(select 1 from private.email_intents where purpose='lifecycle_cart' and receipt->'lifecycle'->>'cartId'=a.cart_id::text
          and first_attempt_at>t-interval '7 days' and receipt->'lifecycle'->>'sourceKey'<>source)
        then return null; end if;
@@ -142,7 +143,7 @@ end $$;
 -- Short admission backoff makes a rejected/unavailable address yield to the next.
 create table private.lifecycle_campaign_scan (
  subscriber_id uuid not null references private.marketing_subscribers(id),kind text not null check(kind in ('welcome','cart','browse')),
- next_check_at timestamptz not null,primary key(subscriber_id,kind)
+ next_check_at timestamptz not null,last_selected_at timestamptz not null default clock_timestamp(),primary key(subscriber_id,kind)
 );
 alter table private.lifecycle_campaign_scan enable row level security;
 alter table private.lifecycle_campaign_scan force row level security;
@@ -159,16 +160,17 @@ begin
    select jsonb_build_object('subscriberId',s.id,'email',s.normalized_email,'kind',k.kind,'sourceKey',src.value->>'sourceKey') candidate
    from private.marketing_subscribers s cross join (values ('welcome',1),('cart',2),('browse',3)) k(kind,priority)
    cross join lateral (select private.lifecycle_source(s.id,k.kind) value) src
+   left join private.lifecycle_campaign_scan history on history.subscriber_id=s.id and history.kind=k.kind
    where src.value is not null
      and not exists(select 1 from private.lifecycle_campaign_scan b where b.subscriber_id=s.id and b.kind=k.kind and b.next_check_at>clock_timestamp())
      and not exists(select 1 from private.email_intents e where e.idempotency_key='helix:sandbox:lifecycle:'||(src.value->>'sourceKey'))
      and not exists(select 1 from private.email_intents e where e.recipient=s.normalized_email and e.purpose in ('lifecycle_welcome','lifecycle_cart','lifecycle_browse')
        and e.state in ('queued','retry','leased','uncertain') and e.provider_email_id is null)
-   order by k.priority,s.id limit p_limit
+   order by history.last_selected_at nulls first,k.priority,s.id limit p_limit
  ) q;
  for item in select value from jsonb_array_elements(result) loop
    insert into private.lifecycle_campaign_scan(subscriber_id,kind,next_check_at) values((item->>'subscriberId')::uuid,item->>'kind',clock_timestamp()+interval '5 minutes')
-   on conflict(subscriber_id,kind) do update set next_check_at=excluded.next_check_at;
+   on conflict(subscriber_id,kind) do update set next_check_at=excluded.next_check_at,last_selected_at=clock_timestamp();
  end loop;
  return result;
 end $$;
@@ -216,7 +218,9 @@ end $$;
 create function public.lifecycle_campaign_readiness() returns boolean language sql stable security invoker set search_path='' as $$
  select exists(select 1 from private.lifecycle_control where enabled)
    and exists(select 1 from private.lifecycle_offer_control where enabled)
-   and exists(select 1 from private.email_controls where purpose='lifecycle_welcome' and enabled)
+   and (select count(*)=4 from private.email_controls where environment='sandbox'
+     and purpose in ('marketing_confirmation','welcome_initial','welcome_education','lifecycle_welcome')
+     and enabled and accepted_after<=clock_timestamp())
 $$;
 create or replace function public.prepare_email_attempt(p_id uuid,p_lease_token uuid,p_request_payload jsonb)
 returns jsonb language plpgsql security invoker set search_path='' as $$

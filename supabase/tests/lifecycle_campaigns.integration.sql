@@ -5,6 +5,17 @@ CREATE FUNCTION campaign_test.contract() RETURNS jsonb LANGUAGE sql AS $$ SELECT
 UPDATE private.lifecycle_control SET enabled=true;
 UPDATE private.lifecycle_offer_control SET enabled=true;
 UPDATE private.email_controls SET enabled=true,accepted_after=clock_timestamp()-interval '10 days' WHERE purpose like 'lifecycle_%';
+-- Readiness must agree with all actual subscription admission gates.
+DO $$ DECLARE purpose_name text; BEGIN
+ PERFORM campaign_test.assert(public.lifecycle_campaign_readiness(),'all admission controls ready');
+ FOREACH purpose_name IN ARRAY ARRAY['marketing_confirmation','welcome_initial','welcome_education','lifecycle_welcome'] LOOP
+   UPDATE private.email_controls SET enabled=false WHERE purpose=purpose_name;
+   PERFORM campaign_test.assert(NOT public.lifecycle_campaign_readiness(),'disabled admission prerequisite must hide popup: '||purpose_name);
+   UPDATE private.email_controls SET enabled=true,accepted_after=clock_timestamp()+interval '1 day' WHERE purpose=purpose_name;
+   PERFORM campaign_test.assert(NOT public.lifecycle_campaign_readiness(),'future admission cutoff must hide popup: '||purpose_name);
+   UPDATE private.email_controls SET accepted_after=clock_timestamp()-interval '10 days' WHERE purpose=purpose_name;
+ END LOOP;
+END $$;
 SELECT public.request_marketing_subscription('campaign@example.invalid','welcome_popup','2026-11-13-lifecycle-v1',repeat('G',43),repeat('3',64),true,campaign_test.contract());
 SELECT public.confirm_marketing_subscription_scoped(repeat('G',43),repeat('H',43),'lifecycle');
 SELECT campaign_test.assert((SELECT private.lifecycle_source(id,'welcome') IS NOT NULL FROM private.marketing_subscribers WHERE normalized_email='campaign@example.invalid'),'fresh confirmed welcome eligible');
@@ -117,3 +128,24 @@ CREATE TABLE campaign_test.timezone_identity AS SELECT private.lifecycle_source(
 SET TIME ZONE 'America/Los_Angeles';
 SELECT campaign_test.assert((SELECT private.lifecycle_source(s.id,'browse')->>'sourceKey'=i.identity FROM private.marketing_subscribers s CROSS JOIN campaign_test.timezone_identity i WHERE s.normalized_email='campaign603@example.invalid'),'browse identity stable across session timezone');
 SET TIME ZONE 'UTC';
+
+-- Fairness remains across expired backoff cycles, not only within five minutes.
+BEGIN;
+SELECT campaign_test.seed(610,'browse'); SELECT campaign_test.seed(611,'browse'); SELECT campaign_test.seed(612,'browse');
+UPDATE private.lifecycle_campaign_scan SET next_check_at=clock_timestamp()-interval '1 second';
+DO $$ DECLARE candidate jsonb; seen text[]:=array[]::text[]; attempts integer; BEGIN
+ FOR attempts IN 1..8 LOOP
+   candidate:=public.list_lifecycle_campaigns(1)->0;
+   IF candidate IS NULL THEN EXIT; END IF;
+   PERFORM campaign_test.assert(NOT (candidate->>'sourceKey'=ANY(seen)),'expired backoff must not reset unfair UUID order');
+   seen:=array_append(seen,candidate->>'sourceKey');
+   IF candidate->>'email'='campaign612@example.invalid' THEN
+     PERFORM campaign_test.assert(public.admit_lifecycle_campaign((candidate->>'subscriberId')::uuid,'browse',candidate->>'sourceKey',null),'later eligible recipient actually admits after unavailable candidates');
+   END IF;
+   -- Simulate a scheduler cadence slower than the retry delay without changing scan history.
+   UPDATE private.lifecycle_campaign_scan SET next_check_at=clock_timestamp()-interval '1 second';
+   EXIT WHEN (SELECT count(*)=3 FROM unnest(seen) key WHERE key LIKE 'browse:'||payment_contract_test.id('user',610)||':%' OR key LIKE 'browse:'||payment_contract_test.id('user',611)||':%' OR key LIKE 'browse:'||payment_contract_test.id('user',612)||':%');
+ END LOOP;
+ PERFORM campaign_test.assert((SELECT count(*)=3 FROM unnest(seen) key WHERE key LIKE 'browse:'||payment_contract_test.id('user',610)||':%' OR key LIKE 'browse:'||payment_contract_test.id('user',611)||':%' OR key LIKE 'browse:'||payment_contract_test.id('user',612)||':%'),'later eligible recipients reached across multiple retry cycles');
+END $$;
+ROLLBACK;
