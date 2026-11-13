@@ -30,6 +30,7 @@ describe("admin capability enforcement", () => {
       "catalog.edit",
       "catalog.publish",
       "catalog.delivery",
+      "fulfillment.manage",
       "orders.simulate",
       "support.read",
       "support.reply",
