@@ -515,8 +515,9 @@ begin
     values(p_user_id,s.id,s.generation,product,t,t)
     on conflict(user_id) do update set subscriber_id=excluded.subscriber_id,generation=excluded.generation,
       product_id=excluded.product_id,product_seen_at=excluded.product_seen_at,updated_at=excluded.updated_at,
-      cart_id=case when lifecycle_activity.generation=excluded.generation then lifecycle_activity.cart_id else null end,
-      cart_changed_at=case when lifecycle_activity.generation=excluded.generation then lifecycle_activity.cart_changed_at else null end;
+      cart_id=case when lifecycle_activity.subscriber_id=excluded.subscriber_id and lifecycle_activity.generation=excluded.generation then lifecycle_activity.cart_id else null end,
+      cart_revision=case when lifecycle_activity.subscriber_id=excluded.subscriber_id and lifecycle_activity.generation=excluded.generation then lifecycle_activity.cart_revision else 0 end,
+      cart_changed_at=case when lifecycle_activity.subscriber_id=excluded.subscriber_id and lifecycle_activity.generation=excluded.generation then lifecycle_activity.cart_changed_at else null end;
   return true;
 end $$;
 create function private.record_lifecycle_cart_mutation() returns trigger language plpgsql security invoker set search_path='' as $$
@@ -533,23 +534,37 @@ begin
     values(owner,s.id,s.generation,cart,nextval('private.lifecycle_activity_revision_seq'),t,t)
     on conflict(user_id) do update set subscriber_id=excluded.subscriber_id,generation=excluded.generation,
       cart_id=excluded.cart_id,cart_revision=excluded.cart_revision,cart_changed_at=t,updated_at=t,
-      product_id=case when lifecycle_activity.generation=excluded.generation then lifecycle_activity.product_id else null end,
-      product_seen_at=case when lifecycle_activity.generation=excluded.generation then lifecycle_activity.product_seen_at else null end;
+      product_id=case when lifecycle_activity.subscriber_id=excluded.subscriber_id and lifecycle_activity.generation=excluded.generation then lifecycle_activity.product_id else null end,
+      product_seen_at=case when lifecycle_activity.subscriber_id=excluded.subscriber_id and lifecycle_activity.generation=excluded.generation then lifecycle_activity.product_seen_at else null end;
   return coalesce(new,old);
 end $$;
 create trigger lifecycle_cart_mutation after insert or update or delete on public.cart_items
   for each row execute function private.record_lifecycle_cart_mutation();
 create function public.cleanup_lifecycle_activity(p_limit integer default 500) returns integer
 language plpgsql security invoker set search_path='' as $$
-declare n integer;
+declare n integer:=0; a record; cutoff timestamptz:=pg_catalog.clock_timestamp()-interval '30 days';
 begin
   if p_limit is null or p_limit not between 1 and 1000 then raise exception 'invalid cleanup limit'; end if;
-  delete from private.lifecycle_activity where user_id in (select a.user_id from private.lifecycle_activity a
-    left join private.marketing_subscribers s on s.id=a.subscriber_id
-    where a.updated_at<pg_catalog.clock_timestamp()-interval '30 days' or s.status<>'confirmed'
-      or not s.global_allowed or not s.topic_allowed or a.generation<>s.generation
-    order by a.updated_at limit p_limit for update of a skip locked);
-  get diagnostics n=row_count;
+  for a in select x.user_id, (s.status<>'confirmed' or not s.global_allowed or not s.topic_allowed or x.generation<>s.generation) as invalid
+    from private.lifecycle_activity x join private.marketing_subscribers s on s.id=x.subscriber_id
+    where x.cart_changed_at<cutoff or x.product_seen_at<cutoff or x.updated_at<cutoff
+      or s.status<>'confirmed' or not s.global_allowed or not s.topic_allowed or x.generation<>s.generation
+    order by x.updated_at limit p_limit for update of x skip locked
+  loop
+    if a.invalid then
+      delete from private.lifecycle_activity where user_id=a.user_id;
+    else
+      -- Expire channels independently; cart revision remains a non-reusable dedupe identity.
+      update private.lifecycle_activity set
+        cart_id=case when cart_changed_at<cutoff then null else cart_id end,
+        cart_changed_at=case when cart_changed_at<cutoff then null else cart_changed_at end,
+        product_id=case when product_seen_at<cutoff then null else product_id end,
+        product_seen_at=case when product_seen_at<cutoff then null else product_seen_at end
+      where user_id=a.user_id;
+      delete from private.lifecycle_activity where user_id=a.user_id and cart_changed_at is null and product_seen_at is null;
+    end if;
+    n:=n+1;
+  end loop;
   return n;
 end $$;
 create function public.read_lifecycle_activity(p_user_id uuid) returns jsonb
@@ -575,3 +590,20 @@ grant execute on function private.label_lifecycle_evidence(),private.lifecycle_v
   public.configure_lifecycle_consent(boolean,timestamptz),public.read_lifecycle_consent_control(),
   public.record_lifecycle_product_visit(uuid,text),public.cleanup_lifecycle_activity(integer),public.read_lifecycle_activity(uuid),
   public.confirm_marketing_subscription(text,text),private.enqueue_marketing_welcome(private.marketing_subscribers,text) to service_role;
+
+-- The browser must acknowledge the exact immutable scope assigned to this token.
+create function public.confirm_marketing_subscription_scoped(p_confirmation_token text,p_preference_token text,p_scope text)
+returns jsonb language plpgsql security invoker set search_path='' as $$
+declare version text;
+begin
+  if p_scope is null or p_scope not in ('welcome','lifecycle') then return '{"status":"invalid"}'; end if;
+  select g.template_contract->>'version' into version from private.marketing_confirmation_tokens t
+    join private.marketing_generations g on g.subscriber_id=t.subscriber_id and g.generation=t.generation
+    where t.token_hash=pg_catalog.encode(extensions.digest(p_confirmation_token,'sha256'),'hex');
+  if version is distinct from (case when p_scope='lifecycle' then 'lifecycle_v1' else 'welcome_v1' end) then
+    return '{"status":"invalid"}';
+  end if;
+  return public.confirm_marketing_subscription(p_confirmation_token,p_preference_token);
+end $$;
+revoke all on function public.confirm_marketing_subscription_scoped(text,text,text) from public,anon,authenticated;
+grant execute on function public.confirm_marketing_subscription_scoped(text,text,text) to service_role;

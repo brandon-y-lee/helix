@@ -53,7 +53,7 @@ it("keeps confirmation and withdrawal available when new marketing requests are 
   const token = "T".repeat(43);
   expect((await handleMarketingRequest(request({ email: "owner@example.test", consent: true }), "subscription", deps)).status).toBe(503);
   expect((await handleMarketingRequest(request({ token }), "confirm", deps)).status).toBe(200);
-  expect(deps.storage.confirm).toHaveBeenCalledWith(token, expect.stringMatching(/^[A-Za-z0-9_-]{43}$/));
+  expect(deps.storage.confirm).toHaveBeenCalledWith(token, expect.stringMatching(/^[A-Za-z0-9_-]{43}$/), "welcome");
   expect((await handleMarketingRequest(request({ token, scope: "all" }), "preferences", deps)).status).toBe(200);
   expect(deps.storage.withdraw).toHaveBeenCalledWith(token, "all");
 });

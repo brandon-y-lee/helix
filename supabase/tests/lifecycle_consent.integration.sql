@@ -49,3 +49,28 @@ INSERT INTO auth.users(id,email,email_confirmed_at) VALUES('eeeeeeee-0000-4000-8
 SELECT public.request_marketing_subscription('race-upgrade@example.invalid','email_preferences','2026-09-29-welcome-v1',repeat('T',43),repeat('e',64),true,marketing_contract_test.contract());
 SELECT public.confirm_marketing_subscription(repeat('T',43),repeat('V',43));
 SELECT public.request_marketing_subscription('race-upgrade@example.invalid','welcome_popup','2026-11-13-lifecycle-v1',repeat('Y',43),repeat('e',64),true,lifecycle_test.contract());
+
+-- Equal generation numbers never make different subscribers interchangeable.
+SELECT public.request_marketing_subscription('switch-a@example.invalid','welcome_popup','2026-11-13-lifecycle-v1',repeat('A',43),repeat('1',64),true,lifecycle_test.contract());
+SELECT lifecycle_test.assert(public.confirm_marketing_subscription_scoped(repeat('A',43),repeat('B',43),'welcome')->>'status'='invalid','tampered welcome display cannot grant lifecycle');
+SELECT lifecycle_test.assert(public.confirm_marketing_subscription_scoped(repeat('A',43),repeat('B',43),null)->>'status'='invalid','missing displayed scope cannot grant lifecycle');
+SELECT lifecycle_test.assert(public.confirm_marketing_subscription_scoped(repeat('A',43),repeat('B',43),'lifecycle')->>'status'='confirmed','matching lifecycle display can confirm');
+SELECT public.request_marketing_subscription('switch-b@example.invalid','welcome_popup','2026-11-13-lifecycle-v1',repeat('C',43),repeat('2',64),true,lifecycle_test.contract());
+SELECT public.confirm_marketing_subscription(repeat('C',43),repeat('D',43));
+INSERT INTO auth.users(id,email,email_confirmed_at) VALUES('eeeeeeee-0000-4000-8000-000000000011','switch-a@example.invalid',clock_timestamp());
+INSERT INTO public.carts(id,user_id) VALUES('eeeeeeee-0000-4000-8000-000000000012','eeeeeeee-0000-4000-8000-000000000011');
+INSERT INTO public.cart_items(id,cart_id,product_id,variant_key,quantity) VALUES('eeeeeeee-0000-4000-8000-000000000013','eeeeeeee-0000-4000-8000-000000000012',notification_contract_test.id('already-available'),'30ml',1);
+UPDATE auth.users SET email='switch-b@example.invalid' WHERE id='eeeeeeee-0000-4000-8000-000000000011';
+SELECT lifecycle_test.assert(public.record_lifecycle_product_visit('eeeeeeee-0000-4000-8000-000000000011','synthetic-already-available'),'new subscriber visit admitted');
+SELECT lifecycle_test.assert((SELECT generation=1 AND cart_id IS NULL AND cart_changed_at IS NULL AND cart_revision=0 AND product_id IS NOT NULL FROM private.lifecycle_activity WHERE user_id='eeeeeeee-0000-4000-8000-000000000011'),'new subscriber cannot inherit cart despite equal generation');
+UPDATE auth.users SET email='switch-a@example.invalid' WHERE id='eeeeeeee-0000-4000-8000-000000000011';
+UPDATE public.cart_items SET quantity=2 WHERE id='eeeeeeee-0000-4000-8000-000000000013';
+SELECT lifecycle_test.assert((SELECT generation=1 AND product_id IS NULL AND product_seen_at IS NULL AND cart_id IS NOT NULL FROM private.lifecycle_activity WHERE user_id='eeeeeeee-0000-4000-8000-000000000011'),'new subscriber cannot inherit browse despite equal generation');
+-- Retention is per channel, not extended by unrelated fresh activity.
+UPDATE private.lifecycle_activity SET product_id=notification_contract_test.id('already-available'),product_seen_at=clock_timestamp()-interval '31 days' WHERE user_id='eeeeeeee-0000-4000-8000-000000000011';
+SELECT public.cleanup_lifecycle_activity();
+SELECT lifecycle_test.assert((SELECT product_id IS NULL AND product_seen_at IS NULL AND cart_id IS NOT NULL AND cart_changed_at IS NOT NULL FROM private.lifecycle_activity WHERE user_id='eeeeeeee-0000-4000-8000-000000000011'),'fresh cart cannot retain stale browse');
+UPDATE private.lifecycle_activity SET product_id=notification_contract_test.id('already-available'),product_seen_at=clock_timestamp(),cart_changed_at=clock_timestamp()-interval '31 days' WHERE user_id='eeeeeeee-0000-4000-8000-000000000011';
+CREATE TABLE lifecycle_test.retention_revision AS SELECT cart_revision FROM private.lifecycle_activity WHERE user_id='eeeeeeee-0000-4000-8000-000000000011';
+SELECT public.cleanup_lifecycle_activity();
+SELECT lifecycle_test.assert((SELECT product_id IS NOT NULL AND product_seen_at IS NOT NULL AND cart_id IS NULL AND cart_changed_at IS NULL AND a.cart_revision=r.cart_revision FROM private.lifecycle_activity a CROSS JOIN lifecycle_test.retention_revision r WHERE a.user_id='eeeeeeee-0000-4000-8000-000000000011'),'fresh browse cannot retain stale cart; revision remains stable');

@@ -11,7 +11,7 @@ export type SubscriptionRequest = {
 };
 export interface MarketingRequestStorage {
   request(input: SubscriptionRequest): Promise<{ status: string }>;
-  confirm(token: string, preferenceToken: string): Promise<{ status: string }>;
+  confirm(token: string, preferenceToken: string, scope: "welcome" | "lifecycle"): Promise<{ status: string }>;
   withdraw(token: string, scope: "all" | "welcome"): Promise<{ status: string }>;
 }
 const headers = { "Cache-Control": "private, no-store", "Referrer-Policy": "no-referrer" };
@@ -48,7 +48,8 @@ export async function handleMarketingRequest(request: Request, action: Marketing
     }
     if (typeof body.token !== "string" || !CAPABILITY.test(body.token)) return response(400);
     if (action === "confirm") {
-      const result = await storage.confirm(body.token, randomBytes(32).toString("base64url"));
+      if (body.scope !== undefined && body.scope !== "welcome" && body.scope !== "lifecycle") return response(400);
+      const result = await storage.confirm(body.token, randomBytes(32).toString("base64url"), body.scope === "lifecycle" ? "lifecycle" : "welcome");
       return response(result.status === "confirmed" ? 200 : 400, result.status === "confirmed");
     }
     if (body.scope !== "all" && body.scope !== "welcome") return response(400);

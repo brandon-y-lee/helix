@@ -32,3 +32,15 @@ describe("explicit lifecycle subscription",()=>{
     expect(d.storage.request).not.toHaveBeenCalled();
   });
 });
+
+it("posts the displayed scope to the token-bound confirmation guard",async()=>{
+  const d=deps();d.storage.confirm.mockResolvedValue({status:"invalid"});
+  const token="A".repeat(43);
+  expect((await handleMarketingRequest(request({token,scope:"welcome"}),"confirm",d)).status).toBe(400);
+  expect(d.storage.confirm).toHaveBeenLastCalledWith(token,expect.any(String),"welcome");
+  expect((await handleMarketingRequest(request({token,scope:undefined}),"confirm",d)).status).toBe(400);
+  expect(d.storage.confirm).toHaveBeenLastCalledWith(token,expect.any(String),"welcome");
+  d.storage.confirm.mockResolvedValue({status:"confirmed"});
+  expect((await handleMarketingRequest(request({token,scope:"lifecycle"}),"confirm",d)).status).toBe(200);
+  expect(d.storage.confirm).toHaveBeenLastCalledWith(token,expect.any(String),"lifecycle");
+});

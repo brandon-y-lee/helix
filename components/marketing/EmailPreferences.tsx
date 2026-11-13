@@ -175,7 +175,7 @@ export function EmailPreferences({
               onClick={() =>
                 void submit(
                   "/api/marketing/confirm",
-                  { token: confirmToken },
+                  { token: confirmToken, scope: lifecycle ? "lifecycle" : "welcome" },
                   "Your subscription is confirmed. Existing email opt-outs still apply.",
                 )
               }
