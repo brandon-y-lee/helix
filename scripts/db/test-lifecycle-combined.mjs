@@ -67,6 +67,35 @@ const tail=`
   console.error('review race: payment risk restriction');
   await concurrentLocked("SELECT 1 FROM public.orders WHERE id=payment_contract_test.id('order',905) FOR UPDATE; UPDATE review_test.risk SET evidence=jsonb_set(evidence,'{status}',to_jsonb('disputed'::text)) WHERE order_id=payment_contract_test.id('order',905);",'SET ROLE service_role; SELECT review_test.prepare(905);');
   assert.equal(sql("SELECT count(*) FROM private.email_intents WHERE recipient IN ('review902@example.invalid','review903@example.invalid','review904@example.invalid','review905@example.invalid') AND purpose='lifecycle_review_winback' AND first_attempt_at IS NULL;").trim(),'4');
+  sql(source('supabase/tests/review_winback_checkout_race.integration.sql'));
+  async function reviewCheckoutEmailRace(n,m) {
+    const gate=session(),checkout=session(),email=session();
+    const settled=[gate.done,checkout.done,email.done];settled.forEach(p=>p.catch(()=>{}));
+    try {
+      gate.child.stdin.write("SELECT pg_advisory_lock(4981970);\\\\echo gate-ready\\n");
+      await until(()=>gate.output().includes('gate-ready'),'Checkout barrier gate missing');
+      checkout.child.stdin.end("BEGIN; SET LOCAL application_name='review_checkout_race'; SET LOCAL statement_timeout='12s'; SET LOCAL helix_test.review_checkout_barrier='on'; SET ROLE service_role; SELECT review_test.checkout_prepare("+m+"); COMMIT;");
+      await until(()=>sql("SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE datname=current_database() AND application_name='review_checkout_race' AND wait_event_type='Lock' AND wait_event='advisory');").trim()==='t','Checkout never reached authentic outer-entry barrier');
+      email.child.stdin.end("BEGIN; SET LOCAL application_name='review_email_race'; SET LOCAL statement_timeout='12s'; SET ROLE service_role; SELECT review_test.prepare("+n+"); COMMIT;");
+      await until(()=>sql("SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE datname=current_database() AND application_name='review_email_race' AND wait_event_type='Lock');").trim()==='t','Email did not contend with held checkout order locks');
+      gate.child.stdin.end('SELECT pg_advisory_unlock(4981970);');
+      await Promise.all(settled);
+      assert.equal(sql("SELECT count(*) FROM private.checkout_payment_contracts WHERE order_id=payment_contract_test.id('order',"+m+");").trim(),'1');
+      assert.equal(sql("SELECT count(*) FROM private.lifecycle_offers WHERE source_order_id=payment_contract_test.id('order',"+n+") AND reserved_order_id=payment_contract_test.id('order',"+m+");").trim(),'1');
+      assert.equal(sql("SELECT first_attempt_at IS NULL FROM private.email_intents WHERE recipient='review"+n+"@example.invalid' AND purpose='lifecycle_review_winback';").trim(),'t');
+    } finally {
+      for(const s of [gate,checkout,email]) if(!s.child.stdin.destroyed)s.child.stdin.end('ROLLBACK;');
+      await Promise.allSettled(settled);
+    }
+  }
+  console.error('review two-Order race: fresh checkout');await reviewCheckoutEmailRace(970,1970);
+  console.error('review two-Order race: held recovery');await reviewCheckoutEmailRace(972,1972);
+  console.error('review new-redemption race: source risk restriction');
+  const riskCheckout=await concurrentLocked("SELECT 1 FROM public.orders WHERE id=payment_contract_test.id('order',976) FOR UPDATE; UPDATE review_test.risk SET evidence=jsonb_set(evidence,'{status}',to_jsonb('disputed'::text)) WHERE order_id=payment_contract_test.id('order',976);",'SET ROLE service_role; SELECT review_test.try_checkout(1976);');
+  assert.ok(riskCheckout[1].split('\\n').includes('f'));
+  assert.equal(sql("SELECT count(*) FROM private.checkout_payment_contracts WHERE order_id=payment_contract_test.id('order',1976);").trim(),'0');
+  assert.equal(sql("SELECT reserved_order_id IS NULL FROM private.lifecycle_offers WHERE source_order_id=payment_contract_test.id('order',976);").trim(),'t');
+  sql('DROP FUNCTION private.lifecycle_offer_verified_email(uuid,boolean); ALTER FUNCTION private.lifecycle_offer_verified_email_race_original(uuid,boolean) RENAME TO lifecycle_offer_verified_email;');
   const grants=await concurrentLocked("SET ROLE service_role; SELECT public.grant_lifecycle_offer('cart','combined@example.invalid','same-combined-source','coupon_cart');");
   assert.equal(sql("SELECT count(*) FROM private.lifecycle_offers WHERE email='combined@example.invalid';").trim(),'1');
   sql('SET ROLE service_role; SELECT offer_test.seed(520,510); SELECT offer_test.seed(521,510);');
@@ -82,4 +111,4 @@ harness=harness.replace(${JSON.stringify(assertionsAnchor)},()=>${JSON.stringify
 wrapper=once(wrapper,'const output=execFileSync',injection+'const output=execFileSync');
 const output=execFileSync(process.execPath,['--input-type=module','-',container],{input:wrapper,encoding:'utf8',maxBuffer:8*1024*1024});
 assert.equal(JSON.parse(output).status,'passed');
-console.log(JSON.stringify({status:'passed',postgresMajor:17,combinedConsentAndOffers:true,priorNotificationContracts:true,actualOfferLockRaces:2,actualCampaignLockRaces:4,actualReviewLockRaces:5,providerMutations:0}));
+console.log(JSON.stringify({status:'passed',postgresMajor:17,combinedConsentAndOffers:true,priorNotificationContracts:true,actualOfferLockRaces:2,actualCampaignLockRaces:4,actualReviewLockRaces:8,providerMutations:0}));

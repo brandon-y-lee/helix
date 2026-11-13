@@ -25,3 +25,9 @@ Future authoritative evidence writers must acquire the original Order row lock b
 ## Local verification
 
 `node scripts/db/test-lifecycle-combined.mjs helix-spec358-pg` installs all retained predecessor migrations and this Ticket into an owned disposable PostgreSQL17 database. Production null boundaries are proved before test-only evidence readers replace them. Historical fixture timestamp setup restores the immutable generation trigger before eligibility assertions. Tests exercise partial/revoked/unknown/adverse/stale proof, timing, unconditional offer binding, and real grant/admission, withdrawal, refund, delivery-revocation and risk-restriction races. No provider calls or real data are used.
+
+### Checkout and email lock order
+
+Both outer offer-checkout entrypoints acquire the existing checkout-creation advisory guard before any row locks. Snapshot admission also takes its existing cart-generation/idempotency advisories first. Existing source and consuming Order rows are then locked in UUID order, before snapshot Cart rows, auth or offer rows. This applies to fresh use and original held-checkout recovery. New snapshot rows are transaction-private until commit. Inner reservation repeats the same pair lock defensively; rearranging only that inner function would be too late. Email retains its sorted Order→Cart protocol.
+
+The combined harness pauses the real checkout path at an unchanged auth lookup, then runs actual email preparation concurrently. It checks both fresh reservation and held recovery, immutable single checkout contract/reservation, and no email handoff after checkout admission. Substituting the prior outer/inner definitions in an isolated test database reproduces `deadlock detected`; the revised protocol completes. A further real source-risk restriction race rejects new checkout use without reserving the entitlement or freezing a payment contract.

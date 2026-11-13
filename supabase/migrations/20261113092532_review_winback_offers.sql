@@ -65,15 +65,26 @@ create or replace function public.read_lifecycle_offers(p_user_id uuid,p_cart_id
       and not exists(select 1 from private.lifecycle_offers w where w.kind='welcome' and w.user_id=u.id and w.id<>o.id)))
 $$;
 
+-- All existing Order rows precede Cart/auth/offer locks, in the same UUID order
+-- as lifecycle email preparation. Outer entrypoints must call this before locking
+-- the consuming order: reordering only reserve_lifecycle_offer would be too late.
+create function private.lock_lifecycle_offer_orders(p_order_id uuid,p_offer_id uuid) returns void
+language plpgsql security invoker set search_path='' as $$ begin
+  perform 1 from public.orders where id=p_order_id
+    or id=(select source_order_id from private.lifecycle_offers where id=p_offer_id)
+    order by id for update;
+end $$;
+revoke all on function private.lock_lifecycle_offer_orders(uuid,uuid) from public,anon,authenticated;
+grant execute on function private.lock_lifecycle_offer_orders(uuid,uuid) to service_role;
+
 create or replace function private.reserve_lifecycle_offer(p_order_id uuid,p_offer_id uuid) returns void language plpgsql security invoker set search_path='' as $$
 declare v_order public.orders; v_offer private.lifecycle_offers; v_email text;
 begin
+  perform private.lock_lifecycle_offer_orders(p_order_id,p_offer_id);
   select * into v_order from public.orders where id=p_order_id for update;
   if not found or v_order.checkout_environment<>'sandbox' or v_order.status not in ('pending_payment','payment_failed') or v_order.user_id is null then raise exception 'Offer unavailable'; end if;
   v_email:=private.lifecycle_offer_verified_email(v_order.user_id,true);
   if v_email is null then raise exception 'Offer requires a verified account'; end if;
-  -- Serialize source refund/restriction with new checkout use, before the offer lock.
-  perform 1 from public.orders where id=(select source_order_id from private.lifecycle_offers where id=p_offer_id) for update;
   select * into v_offer from private.lifecycle_offers where id=p_offer_id for update;
   if not found or v_offer.email<>v_email or lower(btrim(v_order.customer_email)) is distinct from v_email
     or (v_offer.user_id is not null and v_offer.user_id<>v_order.user_id) or v_offer.consumed_at is not null
@@ -102,3 +113,39 @@ language sql volatile security invoker set search_path='' as $$
     and (kind<>'review_winback' or private.review_winback_offer_eligible(o))
     and (kind<>'welcome' or private.lifecycle_welcome_recipient_eligible(email,id))
 $$;
+
+create or replace function public.reserve_checkout_order_with_offer(
+  p_idempotency_key text,p_user_id uuid,p_cart_id uuid,p_checkout_generation uuid,p_customer_email text,p_currency text,
+  p_merchandise_subtotal_cents integer,p_discount_cents integer,p_shipping_cents integer,p_tax_cents integer,p_total_cents integer,
+  p_referral_code text,p_reward_points_redeemed integer,p_reward_discount_cents integer,p_checkout_environment text,p_metadata jsonb,p_items jsonb,p_offer_id uuid
+) returns setof public.orders language plpgsql security invoker set search_path='' as $$ declare v_order public.orders; v_coupon text;
+begin
+  -- Preserve the single-send predecessor guard before snapshot advisories/rows.
+  perform private.lock_checkout_cart_creation(p_cart_id);
+  -- Acquire snapshot's advisory locks before its row locks, including replay.
+  perform pg_advisory_xact_lock(hashtextextended('checkout-cart:'||p_cart_id::text||':'||p_checkout_generation::text,0));
+  perform pg_advisory_xact_lock(hashtextextended('checkout:'||p_idempotency_key,0));
+  perform private.lock_lifecycle_offer_orders((select id from public.orders where idempotency_key=p_idempotency_key),p_offer_id);
+  select coupon_id into v_coupon from private.lifecycle_offers where id=p_offer_id;
+  if not found then raise exception 'Offer unavailable'; end if;
+  select * into v_order from public.reserve_checkout_order_snapshot_v2(p_idempotency_key,p_user_id,p_cart_id,p_checkout_generation,p_customer_email,p_currency,
+    p_merchandise_subtotal_cents,p_discount_cents,p_shipping_cents,p_tax_cents,p_total_cents,p_referral_code,p_reward_points_redeemed,p_reward_discount_cents,
+    p_checkout_environment,p_metadata||jsonb_build_object('offer_id',p_offer_id,'offer_coupon_id',v_coupon),p_items);
+  perform private.reserve_lifecycle_offer(v_order.id,p_offer_id);
+  return next v_order;
+end $$;
+
+create or replace function public.prepare_checkout_attempt_once(p_order_id uuid,p_attempt_token uuid,p_stripe_idempotency_key text,p_terms jsonb)
+returns jsonb language plpgsql security invoker set search_path='' as $$ declare v_offer text; begin
+  -- The single-send predecessor acquires this before Order locks.
+  perform private.lock_checkout_cart_creation((select cart_id from public.orders where id=p_order_id));
+  -- Metadata binding is immutable; read it without a lock to discover the pair.
+  select metadata->>'offer_id' into v_offer from public.orders where id=p_order_id;
+  perform private.lock_lifecycle_offer_orders(p_order_id,v_offer::uuid);
+  select metadata->>'offer_id' into v_offer from public.orders where id=p_order_id for update;
+  if v_offer is not null then
+    if p_terms->>'offerId' is distinct from v_offer then raise exception 'Offer terms differ'; end if;
+    perform private.reserve_lifecycle_offer(p_order_id,v_offer::uuid);
+  elsif p_terms->>'offerId' is not null then raise exception 'Unexpected offer'; end if;
+  return private.prepare_checkout_attempt_without_offer(p_order_id,p_attempt_token,p_stripe_idempotency_key,p_terms-'offerId');
+end $$;
