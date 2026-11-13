@@ -46,6 +46,7 @@ export function AccountDashboardView({
       <section className="account-grid" aria-label="Account overview">
         <article className="account-section">
           <h2>Overview</h2>
+          <Link href="/account/reviews">Your public product reviews</Link>
           <dl className="account-details">
             <div>
               <dt>Email</dt>

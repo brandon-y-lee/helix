@@ -140,6 +140,7 @@ export function ProductDetail({
   coreProducts = [],
   content = product.pdpContent ?? null,
   reviews = EMPTY_PRODUCT_REVIEWS,
+  reviewContent,
   stripePublishableKey = null,
   commerceDisabled = false,
   presentation = "default",
@@ -149,6 +150,7 @@ export function ProductDetail({
   coreProducts?: CoreRoutineSummary[];
   content?: ProductPdpContent | null;
   reviews?: ProductReviews;
+  reviewContent?: ReactNode;
   stripePublishableKey?: string | null;
   commerceDisabled?: boolean;
   presentation?: PdpPresentation;
@@ -384,13 +386,13 @@ export function ProductDetail({
         )}
       </PdpDesktopMotion>
 
-      <ProductReviewsSection
+      {reviewContent ?? (<ProductReviewsSection
         key={`reviews:${product.slug}`}
         productName={product.displayName}
         productSlug={product.slug}
         reviews={reviews}
         pdpPresentation={presentation}
-      />
+      />)}
     </>
   );
 }

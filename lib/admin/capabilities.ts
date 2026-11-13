@@ -13,6 +13,7 @@ export const ADMIN_CAPABILITIES = {
   ordersSimulate: "orders.simulate",
   supportRead: "support.read",
   supportReply: "support.reply",
+  reviewsModerate: "reviews.moderate",
 } as const;
 
 export type AdminCapability =

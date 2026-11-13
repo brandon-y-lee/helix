@@ -68,6 +68,7 @@ function StarRating({
 }
 
 function ReviewResponseMeter({ reviews }: { reviews: ProductReviews }) {
+  if (reviews.hideMeter) return null;
   const values = reviews.reviews.map((review) => review.meterValue);
   const value = values.length
     ? Math.round(values.reduce((sum, item) => sum + item, 0) / values.length)
@@ -147,6 +148,8 @@ function ReviewRow({
             <time dateTime={review.date}>{formatReviewDate(review.date)}</time>
           )}
         </div>
+        {review.verifiedPurchase && <p>Verified purchase</p>}
+        {review.offerNotice && <p>Received a next-purchase offer; no review required.</p>}
         <h3>{review.title}</h3>
         <p className="storefront-reading">{review.body}</p>
         {reviewDetails.length > 0 && (
@@ -182,16 +185,16 @@ export function ProductReviewsSection({
     [reviews.reviews],
   );
   const [visibleCount, setVisibleCount] = useState(() =>
-    Math.min(INITIAL_VISIBLE_REVIEW_COUNT, reviews.reviews.length),
+    reviews.aggregate ? reviews.reviews.length : Math.min(INITIAL_VISIBLE_REVIEW_COUNT, reviews.reviews.length),
   );
 
   useEffect(() => {
     setVisibleCount(
-      Math.min(INITIAL_VISIBLE_REVIEW_COUNT, reviews.reviews.length),
+      reviews.aggregate ? reviews.reviews.length : Math.min(INITIAL_VISIBLE_REVIEW_COUNT, reviews.reviews.length),
     );
-  }, [collectionKey, productSlug, reviews.reviews.length]);
+  }, [collectionKey, productSlug, reviews.reviews.length, reviews.aggregate]);
 
-  const summary = reviewSummary(reviews.reviews);
+  const summary = reviews.aggregate ?? reviewSummary(reviews.reviews);
   const visibleReviews = reviews.reviews.slice(0, visibleCount);
   const hasMore = visibleCount < reviews.reviews.length;
 
@@ -243,7 +246,7 @@ export function ProductReviewsSection({
           </div>
 
           <p className="sr-only" aria-live="polite" aria-atomic="true">
-            Showing {visibleReviews.length} of {reviews.reviews.length} reviews.
+            Showing {visibleReviews.length} of {summary.count} reviews.
           </p>
 
           {hasMore && (

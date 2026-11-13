@@ -80,6 +80,7 @@ describe("admin module registry", () => {
       { label: "Catalog Editor", route: "/admin/catalog" },
       { label: "Demo orders", route: "/admin/demo-orders" },
       { label: "Support Inbox", route: "/admin/support" },
+      { label: "Product reviews", route: "/admin/reviews" },
     ]);
     for (const role of ["catalog_editor", "catalog_publisher"] as const) {
       expect(getAdminModules(capabilitiesForRole(role)).map((module) => module.route)).toEqual(["/admin/catalog"]);
