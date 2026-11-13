@@ -153,13 +153,13 @@ function isCheckoutSession(value: unknown): value is CheckoutSession {
   );
 }
 
-export function createCheckoutSession(rewardTierId: string | null) {
+export function createCheckoutSession(rewardTierId: string | null, offerId?: string) {
   return requestJson(
     "/api/checkout/sessions",
     {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ rewardTierId }),
+      body: JSON.stringify({ rewardTierId, ...(offerId ? { offerId } : {}) }),
     },
     isCheckoutSession,
     "Sandbox checkout is temporarily unavailable.",

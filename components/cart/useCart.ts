@@ -207,8 +207,8 @@ export function useCartMutations() {
   const checkoutMutation = useMutation({
     mutationKey: CHECKOUT_MUTATION_KEY,
     scope: CART_MUTATION_SCOPE,
-    mutationFn: (rewardTierId: string | null) =>
-      createCheckoutSession(rewardTierId),
+    mutationFn: ({ rewardTierId, offerId }: { rewardTierId: string | null; offerId?: string }) =>
+      createCheckoutSession(rewardTierId, offerId),
   });
 
   const pending = useMutationState({
@@ -277,11 +277,11 @@ export function useCartMutations() {
     }
   }, [clearMutation, commerceEnabled, resetErrors]);
 
-  const startCheckout = useCallback(async (rewardTierId: string | null) => {
+  const startCheckout = useCallback(async (rewardTierId: string | null, offerId?: string) => {
     if (!commerceEnabled) return null;
     resetErrors();
     try {
-      return await checkoutMutation.mutateAsync(rewardTierId);
+      return await checkoutMutation.mutateAsync({ rewardTierId, offerId });
     } catch {
       return null;
     }

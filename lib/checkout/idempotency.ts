@@ -21,6 +21,7 @@ export type CheckoutFingerprintInput = {
     points: number;
   };
   referralCode: string | null;
+  offerId?: string;
   discountCents: number;
   shippingCents: number;
   freeShipping: boolean;
@@ -68,6 +69,7 @@ function checkoutFingerprint(input: CheckoutFingerprintInput): string {
       lines,
       reward: input.reward,
       referralCode: input.referralCode,
+      ...(input.offerId ? { offerId: input.offerId } : {}),
       discountCents: input.discountCents,
       shippingCents: input.shippingCents,
       freeShipping: input.freeShipping,

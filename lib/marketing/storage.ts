@@ -38,8 +38,8 @@ export const marketingRequestStorage: MarketingRequestStorage = {
       p_wording_version: input.wordingVersion, p_confirmation_token: input.confirmationToken, p_abuse_key: input.abuseKey,
       p_consent: input.consent, p_template_contract: input.templateContract }));
   },
-  async confirm(token, preferenceToken) {
-    return status(await rpc("confirm_marketing_subscription", { p_confirmation_token: token, p_preference_token: preferenceToken }));
+  async confirm(token, preferenceToken, scope) {
+    return status(await rpc("confirm_marketing_subscription_scoped", { p_confirmation_token: token, p_preference_token: preferenceToken, p_scope: scope }));
   },
   async withdraw(token, scope) { return status(await rpc("withdraw_marketing_subscription", { p_token: token, p_scope: scope === "all" ? "global" : "topic" })); },
 };
