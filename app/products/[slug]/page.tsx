@@ -1,3 +1,4 @@
+import { LifecycleProductVisit } from "@/components/marketing/LifecycleProductVisit";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ProductDetail } from "@/components/product-detail/ProductDetail";
@@ -85,6 +86,7 @@ export default async function ProductDetailPage({
         }}
       />
       <div className="storefront-shell" data-layout-shell="storefront" data-pdp-presentation={presentation}>
+        {process.env.HELIX_LIFECYCLE_ENABLED === "true" && <LifecycleProductVisit productSlug={slug} />}
         <ProductDetail
           key={product.slug}
           product={product}

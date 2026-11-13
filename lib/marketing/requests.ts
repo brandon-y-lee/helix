@@ -6,12 +6,12 @@ import { CAPABILITY, readMarketingTemplateContract, type MarketingTemplateContra
 
 export type MarketingAction = "subscription" | "confirm" | "preferences";
 export type SubscriptionRequest = {
-  email: string; consent: true; source: "email_preferences"; wordingVersion: "2026-09-29-welcome-v1";
+  email: string; consent: true; source: "email_preferences" | "welcome_popup"; wordingVersion: "2026-09-29-welcome-v1" | "2026-11-13-lifecycle-v1";
   confirmationToken: string; abuseKey: string; templateContract: MarketingTemplateContract;
 };
 export interface MarketingRequestStorage {
   request(input: SubscriptionRequest): Promise<{ status: string }>;
-  confirm(token: string, preferenceToken: string): Promise<{ status: string }>;
+  confirm(token: string, preferenceToken: string, scope: "welcome" | "lifecycle"): Promise<{ status: string }>;
   withdraw(token: string, scope: "all" | "welcome"): Promise<{ status: string }>;
 }
 const headers = { "Cache-Control": "private, no-store", "Referrer-Policy": "no-referrer" };
@@ -30,20 +30,26 @@ export async function handleMarketingRequest(request: Request, action: Marketing
   try {
     if (action === "subscription") {
       if (typeof body.email !== "string" || body.consent !== true) return response(400);
+      if (body.scope !== undefined && body.scope !== "welcome" && body.scope !== "lifecycle") return response(400);
+      const lifecycle = body.scope === "lifecycle";
+      if (body.source !== undefined && body.source !== "email_preferences" && !(lifecycle && body.source === "welcome_popup")) return response(400);
+      if (lifecycle && env.HELIX_LIFECYCLE_ENABLED !== "true") return response(503);
       const email = body.email.trim().toLowerCase();
       if (!isEmailAddress(email) || email.split("@")[0].length > 64) return response(400);
       if (env.HELIX_MARKETING_ENABLED !== "true") return response(503);
       assertEmailEnvironment(env);
       // Same outward state for restricted and permitted addresses; never substitute a recipient.
       if (!emailRecipientAllowed(email, env)) return response(202, true);
-      const result = await storage.request({ email, consent: true, source: "email_preferences", wordingVersion: "2026-09-29-welcome-v1",
+      const result = await storage.request({ email, consent: true, source: lifecycle && body.source === "welcome_popup" ? "welcome_popup" : "email_preferences",
+        wordingVersion: lifecycle ? "2026-11-13-lifecycle-v1" : "2026-09-29-welcome-v1",
         confirmationToken: randomBytes(32).toString("base64url"), abuseKey: createHash("sha256").update(`marketing-request:${email}`).digest("hex"),
-        templateContract: readMarketingTemplateContract(env) });
+        templateContract: readMarketingTemplateContract(env, lifecycle ? "lifecycle" : "welcome") });
       return response(result.status === "accepted" ? 202 : 503, result.status === "accepted");
     }
     if (typeof body.token !== "string" || !CAPABILITY.test(body.token)) return response(400);
     if (action === "confirm") {
-      const result = await storage.confirm(body.token, randomBytes(32).toString("base64url"));
+      if (body.scope !== undefined && body.scope !== "welcome" && body.scope !== "lifecycle") return response(400);
+      const result = await storage.confirm(body.token, randomBytes(32).toString("base64url"), body.scope === "lifecycle" ? "lifecycle" : "welcome");
       return response(result.status === "confirmed" ? 200 : 400, result.status === "confirmed");
     }
     if (body.scope !== "all" && body.scope !== "welcome") return response(400);
