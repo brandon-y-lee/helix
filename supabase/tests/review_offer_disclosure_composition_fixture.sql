@@ -1,5 +1,7 @@
 -- Installed only by the pinned two-checkout disposable-PostgreSQL harness.
 -- Fresh live rows are synthetic evidence; existing sandbox provenance is never promoted.
+-- Start a separate synthetic enrollment time window after the retained rate-limit proofs.
+UPDATE private.marketing_request_limits SET occurrences=ARRAY(SELECT t-interval '2 hours' FROM unnest(occurrences) t);
 ALTER TYPE public.checkout_environment ADD VALUE IF NOT EXISTS 'live';
 ALTER TABLE public.orders DROP CONSTRAINT orders_sandbox_only;
 ALTER TABLE private.lifecycle_offers DROP CONSTRAINT lifecycle_offers_environment_check;
