@@ -89,6 +89,34 @@ describe("review request authority", () => {
     );
     expect(d.rpc).not.toHaveBeenCalled();
   });
+  it("requires moderator authority and neutral reason for explicit takedown", async () => {
+    const d = dependencies();
+    const body = {
+      id: input.orderItemId,
+      expectedRevision: 3,
+      decision: "removed",
+      reason: "personal_data",
+    };
+    expect((await handleReviewMutation(req(body), "moderate", d)).status).toBe(
+      200,
+    );
+    expect(d.rpc).toHaveBeenCalledWith("moderate_product_review", {
+      p_actor_id: "server-admin",
+      p_review_id: input.orderItemId,
+      p_expected_revision: 3,
+      p_decision: "removed",
+      p_reason: "personal_data",
+    });
+    expect(
+      (
+        await handleReviewMutation(
+          req({ ...body, reason: "low_rating" }),
+          "moderate",
+          d,
+        )
+      ).status,
+    ).toBe(400);
+  });
   it("does not accept low rating as a moderation reason", async () => {
     const d = dependencies();
     expect(

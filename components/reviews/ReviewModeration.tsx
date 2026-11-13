@@ -5,6 +5,10 @@ export type ModerationRow = {
   id: string;
   revision: number;
   environment: string;
+  status: string;
+  publishedRevision: number | null;
+  publishedTitle: string | null;
+  publishedBody: string | null;
   productSlug: string;
   displayName: string;
   rating: number;
@@ -47,7 +51,7 @@ export function ReviewModeration({ initial }: { initial: ModerationRow[] }) {
         the customer’s words. Sandbox approvals are never displayed publicly.
       </p>
       <p role="status">{message}</p>
-      {rows.length === 0 && <p>No pending reviews.</p>}
+      {rows.length === 0 && <p>No pending or published reviews.</p>}
       {rows.map((row) => (
         <form
           className="review-editor"
@@ -68,12 +72,30 @@ export function ReviewModeration({ initial }: { initial: ModerationRow[] }) {
           <p>
             {row.displayName} · {row.rating}/5 · {row.environment}
           </p>
+          <p>Latest revision: {row.status}</p>
           <p>{row.body}</p>
+          {row.publishedRevision !== null && (
+            <aside>
+              <h3>Currently published: {row.publishedTitle}</h3>
+              <p>{row.publishedBody}</p>
+              <p>
+                Removing publication also closes any pending edit. The author
+                can submit a new revision.
+              </p>
+            </aside>
+          )}
           <label>
             Decision
             <select name="decision" disabled={busy}>
-              <option value="published">Approve</option>
-              <option value="rejected">Reject</option>
+              {row.status === "pending" && (
+                <>
+                  <option value="published">Approve latest revision</option>
+                  <option value="rejected">Reject latest revision</option>
+                </>
+              )}
+              {row.publishedRevision !== null && (
+                <option value="removed">Remove published review</option>
+              )}
             </select>
           </label>
           <label>

@@ -93,8 +93,10 @@ export async function handleReviewMutation(
         });
       else {
         if (
-          !["published", "rejected"].includes(String(body.decision)) ||
-          (body.decision === "rejected" &&
+          !["published", "rejected", "removed"].includes(
+            String(body.decision),
+          ) ||
+          (body.decision !== "published" &&
             !MODERATION_REASONS.includes(
               body.reason as (typeof MODERATION_REASONS)[number],
             ))
@@ -105,7 +107,7 @@ export async function handleReviewMutation(
           p_review_id: body.id,
           p_expected_revision: body.expectedRevision,
           p_decision: body.decision,
-          p_reason: body.decision === "rejected" ? body.reason : null,
+          p_reason: body.decision !== "published" ? body.reason : null,
         });
       }
     }

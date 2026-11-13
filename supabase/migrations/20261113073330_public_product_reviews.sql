@@ -29,7 +29,7 @@ create table private.product_review_revisions (
 );
 create table private.product_review_audit (
  id bigint generated always as identity primary key, review_id uuid not null references private.product_reviews(id),
- revision integer not null, actor_id uuid not null, action text not null check(action in ('submitted','published','rejected','withdrawn')),
+ revision integer not null, actor_id uuid not null, action text not null check(action in ('submitted','published','rejected','removed','withdrawn')),
  reason text check(reason is null or reason in ('spam','personal_data','threats','unrelated','promotional_claims')),
  created_at timestamptz not null default now()
 );
@@ -86,13 +86,13 @@ returns jsonb language plpgsql security definer set search_path='' as $$
 declare r private.product_reviews;
 begin
  if not exists(select 1 from public.admin_memberships where user_id=p_actor_id and active and role='admin') then raise exception 'moderation forbidden' using errcode='42501'; end if;
- if p_decision not in ('published','rejected') or p_decision is null or (p_decision='rejected' and (p_reason is null or p_reason not in ('spam','personal_data','threats','unrelated','promotional_claims'))) or (p_decision='published' and p_reason is not null) then raise exception 'invalid decision' using errcode='22023'; end if;
+ if p_decision not in ('published','rejected','removed') or p_decision is null or (p_decision in ('rejected','removed') and (p_reason is null or p_reason not in ('spam','personal_data','threats','unrelated','promotional_claims'))) or (p_decision='published' and p_reason is not null) then raise exception 'invalid decision' using errcode='22023'; end if;
  select * into r from private.product_reviews where id=p_review_id for update;
- if not found or (r.status<>'pending' and not (r.status='published' and p_decision='rejected')) or r.revision<>p_expected_revision then raise exception 'review revision conflict' using errcode='40001'; end if;
+ if not found or ((p_decision='removed' and r.published_revision is null) or (p_decision<>'removed' and r.status<>'pending' and not (r.status='published' and p_decision='rejected'))) or r.revision<>p_expected_revision then raise exception 'review revision conflict' using errcode='40001'; end if;
  if p_decision='published' and r.environment='live' and not (select publication_enabled from private.product_review_control where singleton) then raise exception 'publication disabled' using errcode='42501'; end if;
- update private.product_reviews set status=p_decision,published_revision=case when p_decision='published' then r.revision when r.status='published' then null else r.published_revision end where id=r.id;
+ update private.product_reviews set status=case when p_decision='removed' then 'rejected' else p_decision end,published_revision=case when p_decision='removed' then null when p_decision='published' then r.revision when r.status='published' then null else r.published_revision end where id=r.id;
  insert into private.product_review_audit(review_id,revision,actor_id,action,reason) values(r.id,r.revision,p_actor_id,p_decision,p_reason);
- return jsonb_build_object('id',r.id,'revision',r.revision,'status',p_decision);
+ return jsonb_build_object('id',r.id,'revision',r.revision,'status',case when p_decision='removed' then 'rejected' else p_decision end);
 end $$;
 
 create function public.read_public_product_reviews(p_slug text,p_after uuid default null,p_limit integer default 5)
@@ -126,7 +126,7 @@ create function public.read_product_review_queue(p_actor_id uuid)
 returns jsonb language plpgsql stable security definer set search_path='' as $$
 begin
  if not exists(select 1 from public.admin_memberships where user_id=p_actor_id and active and role='admin') then raise exception 'moderation forbidden' using errcode='42501'; end if;
- return (select coalesce(jsonb_agg(x),'[]'::jsonb) from (select r.id,r.revision,r.environment,p.slug as "productSlug",v.display_name as "displayName",v.rating,v.title,v.body from private.product_reviews r join private.product_review_revisions v on v.review_id=r.id and v.revision=r.revision join public.products p on p.id=r.product_id where r.status='pending' order by v.created_at,r.id limit 100) x);
+ return (select coalesce(jsonb_agg(x),'[]'::jsonb) from (select r.id,r.revision,r.environment,r.status,r.published_revision as "publishedRevision",pv.title as "publishedTitle",pv.body as "publishedBody",p.slug as "productSlug",v.display_name as "displayName",v.rating,v.title,v.body from private.product_reviews r join private.product_review_revisions v on v.review_id=r.id and v.revision=r.revision join public.products p on p.id=r.product_id left join private.product_review_revisions pv on pv.review_id=r.id and pv.revision=r.published_revision where (r.status='pending' or r.published_revision is not null) order by v.created_at,r.id limit 100) x);
 end $$;
 
 revoke all on function public.submit_product_review(uuid,uuid,integer,text,integer,text,text,boolean),public.withdraw_product_review(uuid,uuid,integer),public.moderate_product_review(uuid,uuid,integer,text,text),public.read_public_product_reviews(text,uuid,integer),public.read_owned_product_reviews(uuid),public.read_product_review_queue(uuid) from public,anon,authenticated;

@@ -170,7 +170,20 @@ try {
  PERFORM check_review((SELECT revision=3 AND status='withdrawn' FROM private.product_reviews WHERE id=demo_id));
  PERFORM moderate_product_review(tid(5),live_id,2,'published');
  PERFORM check_review((read_public_product_reviews('synthetic-serum')->>'average')::numeric=2.5);
- END$$;`);
+ END$$;
+ -- Rejecting an edit must not prevent a later neutral takedown of older publication.
+ SET ROLE service_role;
+ SELECT submit_product_review(tid(3),tid(33),2,'Lee',2,'Another edit','An updated honest account.',true);
+ SELECT moderate_product_review(tid(5),'${ids[0]}',3,'rejected','personal_data');
+ SELECT check_review((read_public_product_reviews('synthetic-serum')->>'count')::int=2);
+ SELECT check_review((SELECT count(*)=1 FROM jsonb_array_elements(read_product_review_queue(tid(5))) x WHERE x->>'id'='${ids[0]}' AND x->>'status'='rejected' AND (x->>'publishedRevision')::int=2));
+ SELECT moderate_product_review(tid(5),'${ids[0]}',3,'removed','personal_data');
+ SELECT check_review((read_public_product_reviews('synthetic-serum')->>'count')::int=1);
+ SELECT check_review((read_public_product_reviews('synthetic-serum')->>'average')::numeric=3);
+ DO $$BEGIN BEGIN PERFORM moderate_product_review(tid(5),'${ids[0]}',3,'published');RAISE EXCEPTION 'removed publication revived';EXCEPTION WHEN serialization_failure THEN NULL;END;END$$;
+ RESET ROLE;
+ SELECT check_review((SELECT count(*)=3 FROM private.product_review_revisions WHERE review_id='${ids[0]}'));
+ SELECT check_review((SELECT count(*)=1 FROM private.product_review_audit WHERE review_id='${ids[0]}' AND action='removed' AND reason='personal_data'));`);
   console.log(
     "Public review SQL: ownership, consent/revision, neutral publication, sandbox exclusion, withdrawal fencing, RLS concurrent dedupe, publication gate, complete aggregates, pagination and order provenance passed.",
   );
