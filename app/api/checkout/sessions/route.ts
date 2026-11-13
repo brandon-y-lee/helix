@@ -19,6 +19,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     const body = await readCheckoutRequest(request);
     const result = await createStripeCheckoutSession({
       rewardTierId: body.rewardTierId,
+      ...(body.offerId ? { offerId: body.offerId } : {}),
     });
     return NextResponse.json(result, { headers: checkoutResponseHeaders() });
   } catch (error) {
