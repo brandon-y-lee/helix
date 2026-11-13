@@ -1,3 +1,5 @@
+import { PublicReviewFeed } from '@/components/reviews/PublicReviewFeed';
+import { readReviewPage, reviewsEnabled } from '@/lib/reviews/server';
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ProductDetail } from "@/components/product-detail/ProductDetail";
@@ -75,6 +77,7 @@ export default async function ProductDetailPage({
   const related = await relatedPromise;
   const structuredData = buildProductStructuredData(product, siteUrl);
   const presentation = getPdpPresentation(product.slug);
+  const reviewPage = reviewsEnabled() ? await readReviewPage(slug).catch(() => null) : undefined;
 
   return (
     <>
@@ -90,6 +93,7 @@ export default async function ProductDetailPage({
           product={product}
           subtitle={product.slug === "super-serum" ? "the daily skin concentrate" : undefined}
           presentation={presentation}
+          reviewContent={reviewPage !== undefined ? <PublicReviewFeed slug={slug} productName={product.displayName} initial={reviewPage}/> : undefined}
           coreProducts={coreProducts}
           stripePublishableKey={stripeMessagingPublishableKey()}
         />

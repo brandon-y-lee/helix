@@ -18,9 +18,13 @@ export type ProductReview = {
   title: string;
   body: string;
   meterValue: number;
+  verifiedPurchase?: boolean;
+  offerNotice?: boolean;
 };
 
 export type ProductReviews = {
+  aggregate?: {count:number;average:number};
+  hideMeter?: boolean;
   meter: ProductResponseMeter;
   reviews: ProductReview[];
 };
