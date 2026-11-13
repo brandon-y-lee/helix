@@ -8,3 +8,14 @@ it('applies the sandbox recipient policy before grants or admission',async()=>{
  const grant=vi.fn(),admit=vi.fn();const result=await runLifecycleCampaigns({env:{HELIX_LIFECYCLE_CAMPAIGNS_ENABLED:'true',HELIX_EMAIL_ENVIRONMENT:'sandbox',HELIX_EMAIL_MODE:'restricted',HELIX_EMAIL_OWNER_RECIPIENT:'owner@example.test'},list:vi.fn().mockResolvedValue([{...candidate,email:'real-customer@example.test'}]),grant,offer:vi.fn(),admit,cleanup:vi.fn()});
  expect(result.deferred).toBe(1);expect(grant).not.toHaveBeenCalled();expect(admit).not.toHaveBeenCalled();
 });
+it('review stays independently off and never uses generic offer grant',async()=>{
+ const grantReview=vi.fn(),grant=vi.fn(),admit=vi.fn();
+ const d={env:{HELIX_LIFECYCLE_CAMPAIGNS_ENABLED:'true',HELIX_EMAIL_ENVIRONMENT:'sandbox',HELIX_EMAIL_MODE:'restricted',HELIX_EMAIL_OWNER_RECIPIENT:'owner@example.test'},list:vi.fn().mockResolvedValue([{...candidate,kind:'review_winback',sourceKey:'review_winback:order-id'}]),grant,grantReview,offer:vi.fn(),admit,cleanup:vi.fn()};
+ expect((await runLifecycleCampaigns(d)).deferred).toBe(1);expect(grantReview).not.toHaveBeenCalled();expect(grant).not.toHaveBeenCalled();
+});
+it('review uses order-bound internal grant and final usable-offer admission',async()=>{
+ const grantReview=vi.fn().mockResolvedValue('offer'),grant=vi.fn(),admit=vi.fn().mockResolvedValue(true);
+ const d={env:{HELIX_LIFECYCLE_CAMPAIGNS_ENABLED:'true',HELIX_LIFECYCLE_REVIEWS_ENABLED:'true',HELIX_EMAIL_ENVIRONMENT:'sandbox',HELIX_EMAIL_MODE:'restricted',HELIX_EMAIL_OWNER_RECIPIENT:'owner@example.test'},list:vi.fn().mockResolvedValue([{...candidate,kind:'review_winback',sourceKey:'review_winback:order-id'}]),grant,grantReview,offer:vi.fn().mockResolvedValue({}),admit,cleanup:vi.fn()};
+ expect((await runLifecycleCampaigns(d)).admitted).toBe(1);expect(grantReview).toHaveBeenCalledWith({subscriberId:'a',orderId:'order-id'});expect(grant).not.toHaveBeenCalled();
+ d.offer.mockResolvedValue(null);expect((await runLifecycleCampaigns(d)).deferred).toBe(1);expect(admit).toHaveBeenCalledTimes(1);
+});

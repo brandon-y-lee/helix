@@ -121,7 +121,7 @@ export function CheckoutPanel({
         <label><input type="radio" name="lifecycleOffer" checked={!selectedOffer} onChange={() => setSelectedOffer("")} />No offer</label>
         {offers.map((offer) => <label key={offer.id}><input type="radio" name="lifecycleOffer" checked={selectedOffer === offer.id}
           onChange={() => { setSelectedOffer(offer.id); setSelectedReward("none"); }} />
-          {offer.percentOff}% off merchandise · {offer.kind === "welcome" ? "Welcome offer" : "Cart offer"}
+          {offer.percentOff}% off merchandise · {offer.kind === "welcome" ? "Welcome offer" : offer.kind === "review_winback" ? "Next-purchase offer" : "Cart offer"}
           {" "}(expires {new Date(offer.expiresAt).toLocaleDateString()})
         </label>)}
         <p className="checkout-panel__hint">One use, for your verified account. Excludes tax and shipping. Offers cannot be combined with points rewards or referral discounts.</p>

@@ -1,7 +1,7 @@
 import 'server-only';
 import {createHash} from 'node:crypto';
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
-import { grantLifecycleOffer,readLifecycleOfferForDelivery,verifyConfiguredOfferCoupon } from '@/lib/offers/server';
+import { grantReviewWinbackOffer,grantLifecycleOffer,readLifecycleOfferForDelivery,verifyConfiguredOfferCoupon } from '@/lib/offers/server';
 import { readMarketingTemplateContract,LIFECYCLE_PURPOSES,UUID } from './contract';
 import { readEmailConfig } from '@/lib/email/config';
 import { renderMarketingMessage } from './templates';
@@ -11,17 +11,17 @@ async function rpc(name:string,args:Record<string,unknown>={}){
  if(error) throw new Error('Lifecycle service unavailable.');return data;
 }
 export function lifecycleCampaignDependencies():CampaignDependencies{return {
- env:process.env,grant:grantLifecycleOffer,offer:readLifecycleOfferForDelivery,
+ env:process.env,grantReview:grantReviewWinbackOffer,grant:grantLifecycleOffer,offer:readLifecycleOfferForDelivery,
  async list(){const data=await rpc('list_lifecycle_campaigns',{p_limit:1});
- if(!Array.isArray(data)||data.length>1||data.some(c=>!c||!UUID.test(c.subscriberId)||!['welcome','cart','browse'].includes(c.kind)||typeof c.email!=='string'||typeof c.sourceKey!=='string'||c.sourceKey.length>300))throw new Error('Invalid campaign work.');return data as CampaignCandidate[];},
+ if(!Array.isArray(data)||data.length>1||data.some(c=>!c||!UUID.test(c.subscriberId)||!['welcome','cart','review_winback','browse'].includes(c.kind)||typeof c.email!=='string'||typeof c.sourceKey!=='string'||c.sourceKey.length>300))throw new Error('Invalid campaign work.');return data as CampaignCandidate[];},
  async admit(c,id){return await rpc('admit_lifecycle_campaign',{p_subscriber_id:c.subscriberId,p_kind:c.kind,p_source_key:c.sourceKey,p_offer_id:id})===true;},
  cleanup(){return rpc('cleanup_lifecycle_activity',{p_limit:100});}
 };}
 async function checkLifecyclePopupReady():Promise<boolean>{
  try{
    if(process.env.HELIX_LIFECYCLE_ENABLED!=='true'||process.env.HELIX_LIFECYCLE_CAMPAIGNS_ENABLED!=='true'||process.env.HELIX_MARKETING_ENABLED!=='true') return false;
-   const config=readEmailConfig(process.env),contract=readMarketingTemplateContract(process.env,'lifecycle');
-   if(LIFECYCLE_PURPOSES.some(p=>!contract.templates[p])||await rpc('lifecycle_campaign_readiness')!==true) return false;
+   const config=readEmailConfig(process.env),contract=readMarketingTemplateContract(process.env,process.env.HELIX_LIFECYCLE_REVIEWS_ENABLED==='true'?'lifecycle_reviews':'lifecycle');
+   if(LIFECYCLE_PURPOSES.filter(p=>contract.version==='lifecycle_v2'||p!=='lifecycle_review_winback').some(p=>!contract.templates[p])||await rpc('lifecycle_campaign_readiness')!==true) return false;
    await verifyConfiguredOfferCoupon('welcome');
    // Approval must refer to an actually published, unchanged native template.
    const receipt={schemaVersion:1 as const,subscriberId:'eeeeeeee-0000-4000-8000-000000000001',generation:1,revision:1,

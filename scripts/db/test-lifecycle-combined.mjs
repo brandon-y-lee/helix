@@ -30,6 +30,8 @@ const addition=`
   migration('_checkout_single_send.sql');
   migration('_lifecycle_offer_entitlements.sql');
   migration('_lifecycle_campaigns.sql');
+  migration('_review_winback_core.sql');
+  migration('_review_winback_offers.sql');
   sql('GRANT SELECT,INSERT,UPDATE ON auth.users TO service_role;');
   const start=fixture.indexOf('CREATE FUNCTION payment_contract_test.facts(');const end=fixture.indexOf('\\n$$;',start)+4;assert.ok(start>=0&&end>start);sql(fixture.slice(start,end));
 `;
@@ -50,6 +52,21 @@ const tail=`
   assert.equal(sql("SELECT status FROM public.orders WHERE id=payment_contract_test.id('order',602);").trim(),'paid');
   assert.equal(sql("SELECT first_attempt_at IS NULL FROM private.email_intents WHERE recipient='buyer602@example.invalid' AND purpose='lifecycle_browse';").trim(),'t');
   sql("SELECT campaign_test.assert(private.lifecycle_source((SELECT id FROM private.marketing_subscribers WHERE normalized_email='buyer602@example.invalid'),'cart') IS NULL,'converted current cart remains suppressed'); SELECT public.clear_paid_order_cart(payment_contract_test.id('order',602)); SELECT campaign_test.assert((SELECT c.checkout_generation IS DISTINCT FROM o.checkout_generation FROM public.carts c JOIN public.orders o ON o.cart_id=c.id WHERE o.id=payment_contract_test.id('order',602)),'real paid clear rotates retained cart generation'); UPDATE public.orders SET paid_at=clock_timestamp()-interval '2 days' WHERE id=payment_contract_test.id('order',602); INSERT INTO public.cart_items(cart_id,product_id,variant_key,quantity) VALUES(payment_contract_test.id('cart',602),notification_contract_test.id('already-available'),'30ml',1); UPDATE private.lifecycle_activity SET cart_changed_at=clock_timestamp()-interval '25 hours' WHERE user_id=payment_contract_test.id('user',602); SELECT campaign_test.assert(private.lifecycle_source((SELECT id FROM private.marketing_subscribers WHERE normalized_email='buyer602@example.invalid'),'cart') IS NOT NULL,'returning purchaser rearms retained cart after a new mutation and quiet period');");
+  sql(source('supabase/tests/review_winback.integration.sql'));
+  sql(source('supabase/tests/review_winback_offers.integration.sql'));
+  console.error('review race: grant and invitation');
+  await concurrentLocked('SET ROLE service_role; SELECT review_test.admit(901);');
+  assert.equal(sql("SELECT count(*) FROM private.email_intents WHERE recipient='review901@example.invalid' AND purpose='lifecycle_review_winback';").trim(),'1');
+  assert.equal(sql("SELECT count(*) FROM private.lifecycle_offers WHERE email='review901@example.invalid' AND kind='review_winback';").trim(),'1');
+  console.error('review race: withdrawal');
+  await concurrentLocked("SET ROLE service_role; SELECT public.withdraw_marketing_subscription(rpad('review-pref-902',43,'0'),'global');",'SET ROLE service_role; SELECT review_test.prepare(902);');
+  console.error('review race: refund');
+  await concurrentLocked("UPDATE public.orders SET status='refunded' WHERE id=payment_contract_test.id('order',903);",'SET ROLE service_role; SELECT review_test.prepare(903);');
+  console.error('review race: delivery revocation');
+  await concurrentLocked("SELECT 1 FROM public.orders WHERE id=payment_contract_test.id('order',904) FOR UPDATE; UPDATE review_test.delivery SET evidence=jsonb_set(evidence,'{status}',to_jsonb('revoked'::text)) WHERE order_id=payment_contract_test.id('order',904);",'SET ROLE service_role; SELECT review_test.prepare(904);');
+  console.error('review race: payment risk restriction');
+  await concurrentLocked("SELECT 1 FROM public.orders WHERE id=payment_contract_test.id('order',905) FOR UPDATE; UPDATE review_test.risk SET evidence=jsonb_set(evidence,'{status}',to_jsonb('disputed'::text)) WHERE order_id=payment_contract_test.id('order',905);",'SET ROLE service_role; SELECT review_test.prepare(905);');
+  assert.equal(sql("SELECT count(*) FROM private.email_intents WHERE recipient IN ('review902@example.invalid','review903@example.invalid','review904@example.invalid','review905@example.invalid') AND purpose='lifecycle_review_winback' AND first_attempt_at IS NULL;").trim(),'4');
   const grants=await concurrentLocked("SET ROLE service_role; SELECT public.grant_lifecycle_offer('cart','combined@example.invalid','same-combined-source','coupon_cart');");
   assert.equal(sql("SELECT count(*) FROM private.lifecycle_offers WHERE email='combined@example.invalid';").trim(),'1');
   sql('SET ROLE service_role; SELECT offer_test.seed(520,510); SELECT offer_test.seed(521,510);');
@@ -65,4 +82,4 @@ harness=harness.replace(${JSON.stringify(assertionsAnchor)},()=>${JSON.stringify
 wrapper=once(wrapper,'const output=execFileSync',injection+'const output=execFileSync');
 const output=execFileSync(process.execPath,['--input-type=module','-',container],{input:wrapper,encoding:'utf8',maxBuffer:8*1024*1024});
 assert.equal(JSON.parse(output).status,'passed');
-console.log(JSON.stringify({status:'passed',postgresMajor:17,combinedConsentAndOffers:true,priorNotificationContracts:true,actualOfferLockRaces:2,actualCampaignLockRaces:4,providerMutations:0}));
+console.log(JSON.stringify({status:'passed',postgresMajor:17,combinedConsentAndOffers:true,priorNotificationContracts:true,actualOfferLockRaces:2,actualCampaignLockRaces:4,actualReviewLockRaces:5,providerMutations:0}));
