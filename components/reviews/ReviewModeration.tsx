@@ -29,6 +29,8 @@ export function ReviewModeration({ initial }: { initial: ModerationRow[] }) {
         body: JSON.stringify({
           id: row.id,
           expectedRevision: row.revision,
+          expectedPublishedRevision:
+            decision === "removed" ? row.publishedRevision : null,
           decision,
           reason,
         }),

@@ -131,6 +131,11 @@ try {
  SELECT submit_product_review(tid(3),tid(33),1,'Lee',2,'An update','Some improvement after more use.',true);
  SELECT check_review((read_public_product_reviews('synthetic-serum')->>'average')::numeric=3);
  SELECT moderate_product_review(tid(5),'${ids[0]}',2,'published');
+ DO $$BEGIN
+ BEGIN PERFORM moderate_product_review(tid(5),'${ids[0]}',2,'removed','personal_data',1);RAISE EXCEPTION 'stale publication takedown escaped';EXCEPTION WHEN serialization_failure THEN NULL;END;
+ BEGIN PERFORM moderate_product_review(tid(5),'${ids[0]}',2,'removed','personal_data',NULL);RAISE EXCEPTION 'null publication fence escaped';EXCEPTION WHEN serialization_failure THEN NULL;END;
+ BEGIN PERFORM moderate_product_review(tid(5),'${ids[0]}',2,'rejected','personal_data');RAISE EXCEPTION 'stale edit rejection escaped';EXCEPTION WHEN serialization_failure THEN NULL;END;
+ END$$;
  SELECT check_review((read_public_product_reviews('synthetic-serum')->>'average')::numeric=3.5);
  SELECT withdraw_product_review(tid(4),'${ids[1]}',1);
  SELECT check_review((read_public_product_reviews('synthetic-serum')->>'count')::int=1);
@@ -178,17 +183,56 @@ try {
  SELECT check_review((read_public_product_reviews('synthetic-serum')->>'count')::int=2);
  SELECT check_review((SELECT count(*)=1 FROM jsonb_array_elements(read_product_review_queue(tid(5))) x WHERE x->>'id'='${ids[0]}' AND x->>'status'='rejected' AND (x->>'publishedRevision')::int=2));
  DO $$BEGIN
- BEGIN PERFORM moderate_product_review(tid(5),'${ids[0]}',NULL,'removed','personal_data');RAISE EXCEPTION 'null moderation revision escaped';EXCEPTION WHEN serialization_failure THEN NULL;END;
+ BEGIN PERFORM moderate_product_review(tid(5),'${ids[0]}',NULL,'removed','personal_data',2);RAISE EXCEPTION 'null moderation revision escaped';EXCEPTION WHEN serialization_failure THEN NULL;END;
  BEGIN PERFORM withdraw_product_review(tid(3),'${ids[0]}',NULL);RAISE EXCEPTION 'null withdrawal revision escaped';EXCEPTION WHEN serialization_failure THEN NULL;END;
  END$$;
  SELECT check_review((read_public_product_reviews('synthetic-serum')->>'count')::int=2);
- SELECT moderate_product_review(tid(5),'${ids[0]}',3,'removed','personal_data');
+ SELECT moderate_product_review(tid(5),'${ids[0]}',3,'removed','personal_data',2);
  SELECT check_review((read_public_product_reviews('synthetic-serum')->>'count')::int=1);
  SELECT check_review((read_public_product_reviews('synthetic-serum')->>'average')::numeric=3);
  DO $$BEGIN BEGIN PERFORM moderate_product_review(tid(5),'${ids[0]}',3,'published');RAISE EXCEPTION 'removed publication revived';EXCEPTION WHEN serialization_failure THEN NULL;END;END$$;
  RESET ROLE;
  SELECT check_review((SELECT count(*)=3 FROM private.product_review_revisions WHERE review_id='${ids[0]}'));
  SELECT check_review((SELECT count(*)=1 FROM private.product_review_audit WHERE review_id='${ids[0]}' AND action='removed' AND reason='personal_data'));`);
+  // More than a full page of publications cannot hide newer pending reviews or old takedown targets.
+  sql(`INSERT INTO auth.users SELECT tid(n),now() FROM generate_series(100,205)n;
+ INSERT INTO private.product_reviews(id,user_id,product_id,order_item_id,environment,revision,published_revision,status)
+ SELECT tid(1000+n),tid(n),tid(10),tid(31),'sandbox',1,CASE WHEN n<205 THEN 1 ELSE NULL END,CASE WHEN n<205 THEN 'published' ELSE 'pending' END FROM generate_series(100,205)n;
+ INSERT INTO private.product_review_revisions SELECT tid(1000+n),1,'Synthetic',1,'Pagination fixture','Synthetic pagination review.','public-review-v1',now() FROM generate_series(100,205)n;`);
+  let cursor = null;
+  const seen = new Set();
+  let pages = 0;
+  do {
+    const rows = JSON.parse(
+      sql(
+        `SET ROLE service_role; SELECT read_product_review_queue(tid(5),${cursor ? `'${cursor}'` : "null"});`,
+      ),
+    );
+    assert.ok(rows.length <= 101);
+    for (const row of rows.slice(0, 100)) {
+      assert.ok(!seen.has(row.id), "page must not duplicate a review");
+      seen.add(row.id);
+    }
+    cursor = rows.length > 100 ? rows[99].id : null;
+    pages++;
+  } while (cursor);
+  assert.ok(pages > 1);
+  assert.equal(
+    seen.size,
+    Number(
+      sql(
+        `SELECT count(*) FROM private.product_reviews WHERE status='pending' OR published_revision IS NOT NULL`,
+      ).trim(),
+    ),
+  );
+  assert.ok(
+    seen.has(sql("SELECT tid(1205)").trim()),
+    "new pending review reachable",
+  );
+  assert.ok(
+    seen.has(sql("SELECT tid(1100)").trim()),
+    "older published takedown target reachable",
+  );
   console.log(
     "Public review SQL: ownership, consent/revision, neutral publication, sandbox exclusion, withdrawal fencing, RLS concurrent dedupe, publication gate, complete aggregates, pagination and order provenance passed.",
   );

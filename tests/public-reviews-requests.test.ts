@@ -94,6 +94,7 @@ describe("review request authority", () => {
     const body = {
       id: input.orderItemId,
       expectedRevision: 3,
+      expectedPublishedRevision: 2,
       decision: "removed",
       reason: "personal_data",
     };
@@ -104,6 +105,7 @@ describe("review request authority", () => {
       p_actor_id: "server-admin",
       p_review_id: input.orderItemId,
       p_expected_revision: 3,
+      p_expected_published_revision: 2,
       p_decision: "removed",
       p_reason: "personal_data",
     });

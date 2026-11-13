@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { REVIEW_UUID } from "@/lib/reviews/contract";
 import {
   ReviewModeration,
   type ModerationRow,
@@ -8,7 +10,19 @@ import {
   reviewsEnabled,
 } from "@/lib/reviews/server";
 export const dynamic = "force-dynamic";
-export default async function ModerationPage() {
+export default async function ModerationPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ after?: string }>;
+}) {
+  const { after } = await searchParams;
+  if (after && !REVIEW_UUID.test(after))
+    return (
+      <p>
+        Invalid review page.{" "}
+        <Link href="/admin/reviews">Return to first page</Link>
+      </p>
+    );
   try {
     const actor = await reviewModerator();
     if (!reviewsEnabled())
@@ -20,8 +34,21 @@ export default async function ModerationPage() {
       );
     const rows = await reviewRpc("read_product_review_queue", {
       p_actor_id: actor,
+      p_after: after ?? null,
     });
-    return <ReviewModeration initial={rows as ModerationRow[]} />;
+    const page = rows as ModerationRow[];
+    const next = page.length > 100 ? page[99].id : null;
+    return (
+      <>
+        <ReviewModeration key={after ?? "first"} initial={page.slice(0, 100)} />
+        <nav aria-label="Review moderation pages">
+          {after && <Link href="/admin/reviews">First page</Link>}
+          {next && (
+            <Link href={`/admin/reviews?after=${next}`}>Next reviews</Link>
+          )}
+        </nav>
+      </>
+    );
   } catch {
     return (
       <section>

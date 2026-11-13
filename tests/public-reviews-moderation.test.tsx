@@ -34,6 +34,7 @@ it("offers neutral takedown of retained publication after latest edit rejection"
   fireEvent.click(screen.getByRole("button", { name: "Record decision" }));
   await waitFor(() => expect(fetcher).toHaveBeenCalledOnce());
   expect(JSON.parse(String(fetcher.mock.calls[0][1].body))).toMatchObject({
+    expectedPublishedRevision: 2,
     decision: "removed",
     expectedRevision: 3,
     reason: "spam",

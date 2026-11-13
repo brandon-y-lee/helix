@@ -93,6 +93,9 @@ export async function handleReviewMutation(
         });
       else {
         if (
+          (body.decision === "removed" &&
+            (!Number.isSafeInteger(body.expectedPublishedRevision) ||
+              Number(body.expectedPublishedRevision) < 1)) ||
           !["published", "rejected", "removed"].includes(
             String(body.decision),
           ) ||
@@ -107,6 +110,8 @@ export async function handleReviewMutation(
           p_review_id: body.id,
           p_expected_revision: body.expectedRevision,
           p_decision: body.decision,
+          p_expected_published_revision:
+            body.decision === "removed" ? body.expectedPublishedRevision : null,
           p_reason: body.decision !== "published" ? body.reason : null,
         });
       }
