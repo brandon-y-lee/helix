@@ -1,12 +1,33 @@
+import type { CartState } from "@/lib/cart/types";
 import { test, expect } from "./storefront-fixture";
 for (const width of [390, 1440])
   test(`public review submission and withdrawal at ${width}px`, async ({
     page,
   }) => {
     await page.setViewportSize({ width, height: 900 });
-    const writes: string[] = [];
+    const unexpected: string[] = [];
     await page.route("**/api/**", async (route) => {
-      writes.push(route.request().url());
+      const request = route.request();
+      const url = new URL(request.url());
+      const base = new URL(test.info().project.use.baseURL as string);
+      // The shared shell reads its cart. Fulfill only that exact read locally;
+      // mutations and all review/provider requests remain forbidden.
+      if (
+        url.origin === base.origin &&
+        url.pathname === "/api/cart" &&
+        !url.search &&
+        request.method() === "GET"
+      ) {
+        return route.fulfill({
+          json: {
+            lines: [],
+            count: 0,
+            subtotal: 0,
+            currency: "USD",
+          } satisfies CartState,
+        });
+      }
+      unexpected.push(`${request.method()} ${request.url()}`);
       await route.abort();
     });
     await page.goto("/helix-verification/reviews");
@@ -39,5 +60,5 @@ for (const width of [390, 1440])
           document.documentElement.clientWidth,
       ),
     ).toBe(true);
-    expect(writes).toEqual([]);
+    expect(unexpected).toEqual([]);
   });
