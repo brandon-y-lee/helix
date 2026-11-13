@@ -1,3 +1,4 @@
+import { OFFER_ID } from "@/lib/offers/rules";
 import { NextResponse } from "next/server";
 import { resolveCheckoutOrigin } from "@/lib/checkout/origin";
 import { rewardTierById, type RewardTier } from "@/lib/rewards/rules";
@@ -58,10 +59,17 @@ async function readJsonObject(request: Request): Promise<Record<string, unknown>
 
 export async function readCheckoutRequest(request: Request): Promise<{
   rewardTierId: RewardTier["id"] | null;
+  offerId?: string;
 }> {
   const body = await readJsonObject(request);
-  if (Object.keys(body).some((key) => key !== "rewardTierId")) {
+  if (Object.keys(body).some((key) => key !== "rewardTierId" && key !== "offerId")) {
     throw new CheckoutRequestError("Invalid checkout request.", 400);
+  }
+  if (body.offerId !== undefined && body.offerId !== null) {
+    if (typeof body.offerId !== "string" || !OFFER_ID.test(body.offerId) || body.rewardTierId != null) {
+      throw new CheckoutRequestError("Choose one valid offer or points reward.", 400);
+    }
+    return { rewardTierId: null, offerId: body.offerId };
   }
   if (body.rewardTierId === undefined || body.rewardTierId === null) {
     return { rewardTierId: null };

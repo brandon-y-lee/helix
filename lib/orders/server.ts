@@ -1,3 +1,4 @@
+import { resolveCheckoutOffer } from "@/lib/offers/server";
 import "server-only";
 
 import type Stripe from "stripe";
@@ -151,6 +152,7 @@ export type OrderConfirmation = OrderConfirmationDisplay;
 
 type CreateCheckoutInput = {
   rewardTierId?: unknown;
+  offerId?: unknown;
 };
 
 type CreateCheckoutResult = {
@@ -399,6 +401,7 @@ async function reserveOrderSnapshot(input: {
   rewardTier: RewardTier | null;
   referralOffer: ReferralOffer | null;
   idempotencyKey: string;
+  offerId?: string;
 }): Promise<OrderRow> {
   const admin = createSupabaseAdminClient();
   const totalCents = Math.max(0, input.merchandiseSubtotalCents - input.discountCents) + input.shippingCents;
@@ -410,7 +413,8 @@ async function reserveOrderSnapshot(input: {
     checkout_generation: input.checkoutGeneration,
   };
   const { data, error } = await admin
-    .rpc("reserve_checkout_order_snapshot_v2", {
+    .rpc(input.offerId ? "reserve_checkout_order_with_offer" : "reserve_checkout_order_snapshot_v2", {
+      ...(input.offerId ? { p_offer_id: input.offerId } : {}),
       p_idempotency_key: input.idempotencyKey,
       p_user_id: input.userId,
       p_cart_id: input.cartId,
@@ -632,18 +636,20 @@ export async function createStripeCheckoutSession(
     );
   }
 
+  if (input.offerId && input.rewardTierId) throw new CheckoutError("reward_unavailable", "Choose one offer or points reward.");
+  const lifecycleOffer = await resolveCheckoutOffer(input.offerId, cart.subtotal, cart.userId, stripe);
   const rewardTier = cart.userId ? rewardTierById(input.rewardTierId) : null;
   if (input.rewardTierId && !rewardTier) {
     throw new CheckoutError("reward_unavailable", "Selected points reward is not available.");
   }
   const rewardDiscountCents = rewardDiscountForTier(rewardTier, cart.subtotal);
-  const referralOffer = await resolveReferralOffer({
+  const referralOffer = lifecycleOffer ? null : await resolveReferralOffer({
     userId: cart.userId,
     merchandiseSubtotalCents: cart.subtotal,
     rewardTier,
   });
   const referralDiscountCents = rewardTier ? 0 : (referralOffer?.discountCents ?? 0);
-  const discountCents = Math.max(rewardDiscountCents, referralDiscountCents);
+  const discountCents = Math.max(rewardDiscountCents, referralDiscountCents, lifecycleOffer?.discountCents ?? 0);
   const netMerchandiseCents = Math.max(0, cart.subtotal - discountCents);
   const freeShipping = qualifiesForFreeStandardShipping(netMerchandiseCents);
   const shippingCents = await resolvePaidShippingCents(config, stripe, freeShipping);
@@ -654,7 +660,7 @@ export async function createStripeCheckoutSession(
     );
   }
   const couponId =
-    couponIdForReward(config, rewardTier) ??
+    lifecycleOffer?.couponId ?? couponIdForReward(config, rewardTier) ??
     (referralOffer ? config.rewardCouponIds.referral15 : null);
   if ((rewardTier || referralOffer) && !couponId) {
     throw new CheckoutError(
@@ -684,6 +690,7 @@ export async function createStripeCheckoutSession(
       points: rewardTier?.points ?? 0,
     },
     referralCode: referralOffer?.code ?? null,
+    ...(lifecycleOffer ? { offerId: lifecycleOffer.id } : {}),
     discountCents,
     shippingCents,
     freeShipping,
@@ -700,6 +707,7 @@ export async function createStripeCheckoutSession(
     rewardTier,
     referralOffer,
     idempotencyKey: orderIdempotencyKey,
+    ...(lifecycleOffer ? { offerId: lifecycleOffer.id } : {}),
   });
 
   if (order.status === "paid" || order.status === "refunded") {
@@ -729,6 +737,7 @@ export async function createStripeCheckoutSession(
           variantKey: line.variant_key, quantity: line.quantity, unitAmountCents: line.unit_price_cents })),
         merchandiseSubtotalCents: order.merchandise_subtotal_cents, discountCents: order.discount_cents,
         shippingCents: order.shipping_cents, preTaxTotalCents: order.total_cents, couponId,
+        ...(lifecycleOffer ? { offerId: lifecycleOffer.id } : {}),
         shippingRateId: freeShipping ? null : config.standardShippingRateId, freeShipping,
         automaticTaxEnabled: config.automaticTaxEnabled, taxBehavior: "unspecified" } });
     if (prepared.sendStarted || prepared.legacy) { providerMayHaveStarted = true; throw uncertainCheckout(); }
@@ -750,9 +759,11 @@ export async function createStripeCheckoutSession(
       after_expiration: { recovery: { enabled: false } },
       discounts: prepared.contract.couponId ? [{ coupon: prepared.contract.couponId }] : undefined,
       payment_intent_data: { metadata: { order_id: order.id, attempt_id: prepared.attemptId,
-        environment: CHECKOUT_ENVIRONMENT, schema: CHECKOUT_SCHEMA_VERSION } },
+        environment: CHECKOUT_ENVIRONMENT, schema: CHECKOUT_SCHEMA_VERSION,
+        ...(prepared.contract.offerId ? { offer_id: prepared.contract.offerId } : {}) } },
       metadata: { order_id: order.id, attempt_id: prepared.attemptId, cart_id: cart.cartId,
-        environment: CHECKOUT_ENVIRONMENT, schema: CHECKOUT_SCHEMA_VERSION, referral: referralOffer ? "true" : "false" },
+        environment: CHECKOUT_ENVIRONMENT, schema: CHECKOUT_SCHEMA_VERSION,
+        ...(prepared.contract.offerId ? { offer_id: prepared.contract.offerId } : {}), referral: referralOffer ? "true" : "false" },
     };
     await setPendingCheckoutCookie(order.id);
     // A lost database reply is also uncertain. Once this gate is attempted, only

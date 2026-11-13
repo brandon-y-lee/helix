@@ -28,6 +28,7 @@ export type AcceptedCheckoutContract = {
   shippingCents: number;
   preTaxTotalCents: number;
   couponId: string | null;
+  offerId?: string;
   shippingRateId: string | null;
   freeShipping: boolean;
   automaticTaxEnabled: boolean | null;
@@ -139,6 +140,12 @@ export function verifyCheckoutPayment(input: {
   if (session.payment_status === "no_payment_required" || session.amount_total === 0 || accepted.preTaxTotalCents === 0) {
     return exception("unsupported_zero_total");
   }
+  // An offer must not expose a checkout link with a provider-rounded discount
+  // different from the immutable quote. Missing totals fail closed as well.
+  if (accepted.offerId && session.status === "open" && session.payment_status === "unpaid" &&
+      (session.amount_subtotal !== accepted.merchandiseSubtotalCents || session.total_details?.amount_discount !== accepted.discountCents)) {
+    return exception("discount_mismatch");
+  }
   if (session.payment_status !== "paid") {
     if (session.payment_status !== "unpaid" || intent?.status === "succeeded") return exception("payment_state_mismatch");
     if (session.status === "expired") return { status: checkoutSessionDefinitelyExpired(session) ? "expired" : "pending", paymentIntentId };
@@ -193,7 +200,7 @@ function objectId(value: string | { id: string } | null | undefined): string | n
 }
 
 function identityMetadata(metadata: Stripe.Metadata | null, accepted: AcceptedCheckoutContract, legacy: boolean): boolean {
-  return metadata?.order_id === accepted.orderId && metadata.environment === "sandbox" &&
+  return (!accepted.offerId || metadata?.offer_id === accepted.offerId) && metadata?.order_id === accepted.orderId && metadata.environment === "sandbox" &&
     (legacy ? (!metadata.schema || metadata.schema === "checkout_v1") :
       metadata.schema === "checkout_v2" && metadata.attempt_id === accepted.attemptId);
 }
