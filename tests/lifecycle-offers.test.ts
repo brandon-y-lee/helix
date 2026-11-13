@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { offerDiscountCents, validateOfferCoupon, offerCouponId } from "@/lib/offers/rules";
+import { offerDiscountCents, validateOfferCoupon, offerCouponId, isOfferSummary } from "@/lib/offers/rules";
 import { readCheckoutRequest } from "@/lib/checkout/request";
 import { checkoutOrderIdempotencyKey } from "@/lib/checkout/idempotency";
 
@@ -35,5 +35,15 @@ describe("recipient-bound lifecycle checkout offers", () => {
       customerEmail: "buyer@example.test", currency: "USD" as const, lines: [{ productId: "p", variantKey: "v", quantity: 1, unitPriceCents: 1000 }],
       reward: { tierId: null, points: 0 }, referralCode: null, discountCents: 100, shippingCents: 0, freeShipping: true };
     expect(checkoutOrderIdempotencyKey({ ...input, offerId: "one" })).not.toBe(checkoutOrderIdempotencyKey({ ...input, offerId: "two" }));
+  });
+});
+
+describe("unconditional review win-back offer", () => {
+  it("requires its own configured ten-percent coupon, never the cart coupon", () => {
+    expect(offerCouponId("review_winback", { HELIX_OFFERS_ENABLED: "true", STRIPE_CART_10_COUPON_ID: "cart" })).toBeNull();
+    expect(offerCouponId("review_winback", { HELIX_OFFERS_ENABLED: "true", STRIPE_REVIEW_WINBACK_10_COUPON_ID: "review" })).toBe("review");
+    const offer={id:"11111111-1111-4111-8111-111111111111",kind:"review_winback",percentOff:10,expiresAt:"2027-01-01"};
+    expect(isOfferSummary(offer)).toBe(true);
+    expect(isOfferSummary({...offer,percentOff:15})).toBe(false);
   });
 });

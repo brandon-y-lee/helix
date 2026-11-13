@@ -27,3 +27,10 @@ it('coalesces concurrent readiness reads, caches failures, and honors disabled f
  vi.setSystemTime(540000);m.coupon.mockResolvedValue('coupon');expect(await lifecyclePopupReady()).toBe(true);
  vi.stubEnv('HELIX_OFFERS_ENABLED','false');expect(await lifecyclePopupReady()).toBe(false);
 });
+it('v2 enrollment readiness requires its own immutable contract and never borrows v1 approval',async()=>{
+ ready();vi.stubEnv('HELIX_LIFECYCLE_REVIEWS_ENABLED','true');vi.useFakeTimers();vi.setSystemTime(700000);
+ expect(await lifecyclePopupReady()).toBe(false);expect(m.coupon).not.toHaveBeenCalled();
+ const contract=JSON.parse(process.env.HELIX_EMAIL_LIFECYCLE_CONTRACT!);contract.version='lifecycle_v2';contract.templates.lifecycle_review_winback=entry;
+ vi.stubEnv('HELIX_EMAIL_LIFECYCLE_REVIEWS_CONTRACT',JSON.stringify(contract));
+ expect(await lifecyclePopupReady()).toBe(true);expect(m.render.mock.calls[0][1].templateContract.version).toBe('lifecycle_v2');
+});

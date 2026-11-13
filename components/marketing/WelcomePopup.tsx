@@ -25,6 +25,7 @@ export function WelcomePopup() {
 function WelcomePopupVisit() {
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState("");
+  const [scope, setScope] = useState<"lifecycle" | "lifecycle_reviews">("lifecycle");
   const [consent, setConsent] = useState(false);
   const [state, setState] = useState<"idle" | "pending" | "success" | "error">("idle");
   const title = useId();
@@ -64,6 +65,9 @@ function WelcomePopupVisit() {
         const result: unknown = response.ok ? await response.json() : null;
         if (!alive || controller.signal.aborted || dismissed() || modalPresentRef.current || document.visibilityState !== "visible") return;
         if (result && typeof result === "object" && "ready" in result && result.ready === true) {
+          const readyScope = "scope" in result ? result.scope : "lifecycle";
+          if (readyScope !== "lifecycle" && readyScope !== "lifecycle_reviews") return;
+          setScope(readyScope);
           priorFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
           setOpen(true);
         }
@@ -87,7 +91,7 @@ function WelcomePopupVisit() {
       const response = await fetch("/api/marketing/subscription", {
         method: "POST", credentials: "same-origin", cache: "no-store", referrerPolicy: "no-referrer",
         headers: { "Content-Type": "application/json" }, signal: controller.signal,
-        body: JSON.stringify({ email: email.trim(), consent: true, scope: "lifecycle", source: "welcome_popup" }),
+        body: JSON.stringify({ email: email.trim(), consent: true, scope, source: "welcome_popup" }),
       });
       if (controller.signal.aborted) return;
       if (!response.ok) throw new Error("Unavailable");
@@ -114,7 +118,7 @@ function WelcomePopupVisit() {
         {state !== "success" && <form onSubmit={submit} className={styles.form}>
           <label className={styles.field}>Email address<input type="email" autoComplete="email" required maxLength={254} value={email} onChange={e=>setEmail(e.target.value)} disabled={state === "pending"} /></label>
           <label className={styles.consent}><input type="checkbox" checked={consent} onChange={e=>setConsent(e.target.checked)} disabled={state === "pending"} required />
-            <span>I want helix welcome offers, cart and product reminders, and skincare education emails. Helix may use my signed-in product visits and cart activity for these reminders. I can unsubscribe at any time.</span>
+            <span>I want helix welcome offers, cart and product reminders, and skincare education{scope === "lifecycle_reviews" ? ", post-purchase follow-ups, review invitations and next-purchase offers" : ""} emails. Helix may use my signed-in product visits and cart activity for these reminders. I can unsubscribe at any time.</span>
           </label>
           <a href="/privacy" className={styles.privacy}>Privacy Policy</a>
           <button className="btn btn--editorial-rounded" type="submit" disabled={state === "pending"}>{state === "pending" ? "Submitting…" : "Join the list"}</button>

@@ -18,7 +18,7 @@ async function rpc(name: string, args: Record<string, unknown>): Promise<unknown
 }
 function intent(value: unknown): EmailIntent {
   if (!value || typeof value !== "object" || !("id" in value) || !("environment" in value)
-    || value.environment !== "sandbox" || !("purpose" in value) || !["order_confirmation", "order_tracking", "support_acknowledgement", "support_reply", "marketing_confirmation", "welcome_initial", "welcome_education", "lifecycle_welcome", "lifecycle_cart", "lifecycle_browse", "product_availability", "product_waitlist_recovery"].includes(String(value.purpose))
+    || value.environment !== "sandbox" || !("purpose" in value) || !["order_confirmation", "order_tracking", "support_acknowledgement", "support_reply", "marketing_confirmation", "welcome_initial", "welcome_education", "lifecycle_welcome", "lifecycle_cart", "lifecycle_browse", "lifecycle_review_winback", "product_availability", "product_waitlist_recovery"].includes(String(value.purpose))
     || !("leaseToken" in value) || typeof value.leaseToken !== "string"
     || !("idempotencyKey" in value) || typeof value.idempotencyKey !== "string"
     || !("recipient" in value) || typeof value.recipient !== "string") {

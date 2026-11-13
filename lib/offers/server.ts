@@ -35,7 +35,7 @@ export async function verifyConfiguredOfferCoupon(kind: OfferKind, stripe?: Stri
   return id;
 }
 /** Internal campaign call only after its current consent/source admission; no public grant endpoint. */
-export async function grantLifecycleOffer(input: { kind: OfferKind; email: string; sourceKey: string }): Promise<string | null> {
+export async function grantLifecycleOffer(input: { kind: Exclude<OfferKind, "review_winback">; email: string; sourceKey: string }): Promise<string | null> {
   const couponId = await verifyConfiguredOfferCoupon(input.kind);
   const value = await rpc("grant_lifecycle_offer", { p_kind: input.kind, p_email: input.email, p_source_key: input.sourceKey, p_coupon_id: couponId });
   if (value === null) return null;
@@ -60,4 +60,14 @@ export async function readLifecycleOfferForDelivery(id: string, email: string): 
   if (!isOfferSummary(value) || !("couponId" in value) || typeof value.couponId !== "string") throw new OfferUnavailableError();
   if (await verifyConfiguredOfferCoupon(value.kind) !== value.couponId) return null;
   return { id: value.id, kind: value.kind, percentOff: value.percentOff, expiresAt: value.expiresAt };
+}
+
+/** Private order-bound grant. Database resolves the recipient; no arbitrary email grant. */
+export async function grantReviewWinbackOffer(input: { subscriberId: string; orderId: string }): Promise<string | null> {
+  if (!OFFER_ID.test(input.subscriberId) || !OFFER_ID.test(input.orderId)) throw new OfferUnavailableError();
+  const couponId = await verifyConfiguredOfferCoupon("review_winback");
+  const value = await rpc("grant_review_winback_offer", { p_subscriber_id: input.subscriberId, p_order_id: input.orderId, p_coupon_id: couponId });
+  if (value === null) return null;
+  if (typeof value !== "string" || !OFFER_ID.test(value)) throw new OfferUnavailableError();
+  return value;
 }

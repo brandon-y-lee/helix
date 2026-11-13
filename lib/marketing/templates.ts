@@ -45,7 +45,7 @@ export async function renderMarketingMessage(purpose: MarketingPurpose, rawRecei
   const confirmation = purpose === "marketing_confirmation";
   const token = confirmation ? receipt.confirmationToken : receipt.preferenceToken;
   if (!token) throw new MarketingProviderError("provider_contract_invalid");
-  const url = `${contract.siteOrigin}/email-preferences?${confirmation ? "confirm" : "unsubscribe"}=${token}${contract.version === "lifecycle_v1" ? "&scope=lifecycle" : ""}`;
+  const url = `${contract.siteOrigin}/email-preferences?${confirmation ? "confirm" : "unsubscribe"}=${token}${contract.version === "lifecycle_v2" ? "&scope=lifecycle_reviews" : contract.version === "lifecycle_v1" ? "&scope=lifecycle" : ""}`;
   const required = confirmation ? "HELIX_CONFIRM_URL" : "HELIX_PREFERENCES_URL";
   const hasVariable = (body: string, name: string) => body.includes(`{{${name}}}`) || body.includes(`{{{${name}}}}`);
   if (![native.html, native.text].every((body) => hasVariable(body, required))
@@ -55,7 +55,8 @@ export async function renderMarketingMessage(purpose: MarketingPurpose, rawRecei
   const extra: Record<string,string> = {};
   if (purpose.startsWith("lifecycle_")) {
     const flow=receipt.lifecycle;
-    if (!flow || purpose !== `lifecycle_${flow.kind}` || contract.version !== "lifecycle_v1") throw new MarketingProviderError("provider_contract_invalid");
+    if (!flow || purpose !== `lifecycle_${flow.kind}` || (contract.version !== "lifecycle_v1" && contract.version !== "lifecycle_v2")) throw new MarketingProviderError("provider_contract_invalid");
+    if (flow.kind === "review_winback" && contract.version !== "lifecycle_v2") throw new MarketingProviderError("provider_contract_invalid");
     if (flow.kind === "browse") {
       if (!flow.productSlug || !/^[a-z0-9][a-z0-9-]{0,159}$/.test(flow.productSlug) || !flow.productName || flow.offerId !== null) throw new MarketingProviderError("provider_contract_invalid");
       extra.HELIX_PRODUCT_NAME=flow.productName;
@@ -65,7 +66,11 @@ export async function renderMarketingMessage(purpose: MarketingPurpose, rawRecei
       extra.HELIX_OFFER_PERCENT=flow.kind === "welcome" ? "15" : "10";
       extra.HELIX_OFFER_EXPIRES_AT=new Date(flow.offerExpiresAt).toISOString();
       extra.HELIX_OFFER_TERMS=`${extra.HELIX_OFFER_PERCENT}% off USD merchandise only. Excludes shipping and tax. Sign in with a verified account matching this email and select your offer in cart. One use, no stacking. Expires ${extra.HELIX_OFFER_EXPIRES_AT}.${flow.kind === "welcome" ? " First purchase only." : ""}`;
-      extra.HELIX_CART_URL=`${contract.siteOrigin}/cart`;
+      if (flow.kind === "review_winback") {
+        extra.HELIX_REVIEW_URL=`${contract.siteOrigin}/account/reviews`;
+        extra.HELIX_SHOP_URL=`${contract.siteOrigin}/cart`;
+        extra.HELIX_OFFER_TERMS += " Your offer is yours whether or not you leave a review. All honest feedback is welcome.";
+      } else extra.HELIX_CART_URL=`${contract.siteOrigin}/cart`;
     }
     if (![native.html,native.text].every(body=>Object.keys(extra).every(key=>hasVariable(body,key)))) throw new MarketingProviderError("provider_contract_invalid");
   }
