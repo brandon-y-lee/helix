@@ -132,3 +132,27 @@ SELECT payment_contract_test.assert(NOT lifecycle_test.snapshot(530,true),'incor
 SELECT payment_contract_test.assert(NOT EXISTS(SELECT 1 FROM public.orders WHERE idempotency_key='checkout:sandbox:'||md5('wrapper:530')||md5('wrapper:530')),'failed offer check rolls back Order');
 SELECT payment_contract_test.assert(lifecycle_test.snapshot(530,false),'actual snapshot and offer reserve atomically');
 SELECT payment_contract_test.assert((SELECT reserved_order_id IS NOT NULL FROM private.lifecycle_offers WHERE email='buyer530@example.invalid'),'snapshot holds the grant');
+
+-- Welcome email promises must observe account history even before binding the new offer.
+-- Existing purchase on A, current verified address B: suppress a previously unbound B grant.
+SELECT public.grant_lifecycle_offer('welcome','paid-changed@example.invalid','paid-changed','coupon_welcome');
+UPDATE auth.users SET email='paid-changed@example.invalid' WHERE id=payment_contract_test.id('user',505);
+SELECT payment_contract_test.assert(public.grant_lifecycle_offer('welcome','paid-changed@example.invalid','paid-changed','coupon_welcome') IS NULL,'paid account email change suppresses grant retry');
+SELECT payment_contract_test.assert(public.read_lifecycle_offer_for_delivery((SELECT id FROM private.lifecycle_offers WHERE email='paid-changed@example.invalid'),'paid-changed@example.invalid') IS NULL,'paid account email change suppresses delivery');
+UPDATE auth.users SET email='paid-new@example.invalid' WHERE id=payment_contract_test.id('user',505);
+SELECT payment_contract_test.assert(public.grant_lifecycle_offer('welcome','paid-new@example.invalid','paid-new','coupon_welcome') IS NULL,'paid account email change suppresses new grant');
+-- Existing bound welcome on A, current verified address B, even without a paid order.
+SELECT public.grant_lifecycle_offer('welcome','bound-changed@example.invalid','bound-changed','coupon_welcome');
+UPDATE auth.users SET email='bound-changed@example.invalid' WHERE id=payment_contract_test.id('user',500);
+SELECT payment_contract_test.assert(public.grant_lifecycle_offer('welcome','bound-changed@example.invalid','bound-changed','coupon_welcome') IS NULL,'bound welcome account email change suppresses grant retry');
+SELECT payment_contract_test.assert(public.read_lifecycle_offer_for_delivery((SELECT id FROM private.lifecycle_offers WHERE email='bound-changed@example.invalid'),'bound-changed@example.invalid') IS NULL,'bound welcome account email change suppresses delivery');
+UPDATE auth.users SET email='bound-new@example.invalid' WHERE id=payment_contract_test.id('user',500);
+SELECT payment_contract_test.assert(public.grant_lifecycle_offer('welcome','bound-new@example.invalid','bound-new','coupon_welcome') IS NULL,'bound welcome account email change suppresses new grant');
+
+-- Paused admission exposes only the original held never-sent checkout, not fresh grants.
+UPDATE private.lifecycle_offer_control SET enabled=false;
+SELECT payment_contract_test.assert(jsonb_array_length(public.read_lifecycle_offers(payment_contract_test.id('user',508),payment_contract_test.id('cart',508),false))=1,'paused original unsent reservation remains discoverable');
+SELECT payment_contract_test.assert(jsonb_array_length(public.read_lifecycle_offers(payment_contract_test.id('user',508),payment_contract_test.id('cart',509),false))=0,'paused recovery does not allow another cart');
+SELECT payment_contract_test.assert(jsonb_array_length(public.read_lifecycle_offers(payment_contract_test.id('user',509),payment_contract_test.id('cart',509),false))=0,'paused recovery does not allow fresh grant');
+SELECT payment_contract_test.assert(lifecycle_test.reserve(508),'paused original unsent reservation remains reservable');
+UPDATE private.lifecycle_offer_control SET enabled=true;

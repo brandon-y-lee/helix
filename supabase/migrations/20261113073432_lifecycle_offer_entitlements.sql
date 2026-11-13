@@ -39,6 +39,18 @@ create function private.lifecycle_offer_immutable() returns trigger language plp
 end $$;
 create trigger lifecycle_offer_immutable before update on private.lifecycle_offers for each row execute function private.lifecycle_offer_immutable();
 
+-- Resolve the current verified recipient account without exposing auth identities.
+-- An email change must not produce an offer the account cannot redeem.
+create function private.lifecycle_welcome_recipient_eligible(p_email text,p_offer_id uuid default null) returns boolean
+language sql stable security definer set search_path='' as $$
+  select not exists(select 1 from public.orders where lower(btrim(customer_email))=p_email and status in ('paid','refunded'))
+    and not exists(select 1 from auth.users u where lower(btrim(u.email))=p_email and u.email_confirmed_at is not null
+      and (exists(select 1 from public.orders o where o.user_id=u.id and o.status in ('paid','refunded'))
+        or exists(select 1 from private.lifecycle_offers w where w.kind='welcome' and w.user_id=u.id and w.id is distinct from p_offer_id)))
+$$;
+revoke all on function private.lifecycle_welcome_recipient_eligible(text,uuid) from public,anon,authenticated;
+grant execute on function private.lifecycle_welcome_recipient_eligible(text,uuid) to service_role;
+
 -- Only an eligibility-checked campaign service may grant; a browser cannot mint offers.
 create function public.grant_lifecycle_offer(p_kind text,p_email text,p_source_key text,p_coupon_id text) returns uuid
 language plpgsql security invoker set search_path='' as $$
@@ -51,13 +63,14 @@ begin
   perform pg_advisory_xact_lock(hashtextextended('lifecycle-offer:'||v_email,0));
   select * into v_existing from private.lifecycle_offers where kind=p_kind and source_key=p_source_key;
   if found then
+    if p_kind='welcome' and not private.lifecycle_welcome_recipient_eligible(v_email,v_existing.id) then return null; end if;
     if v_existing.email<>v_email or v_existing.coupon_id<>p_coupon_id then raise exception 'Offer identity differs'; end if;
     return v_existing.id;
   end if;
   if p_kind='welcome' then
     select id into v_id from private.lifecycle_offers where kind='welcome' and email=v_email;
-    if found then return v_id; end if;
-    if exists(select 1 from public.orders where lower(btrim(customer_email))=v_email and status in ('paid','refunded')) then return null; end if;
+    if not private.lifecycle_welcome_recipient_eligible(v_email,v_id) then return null; end if;
+    if v_id is not null then return v_id; end if;
   end if;
   insert into private.lifecycle_offers(kind,email,source_key,percent_off,coupon_id)
     values(p_kind,v_email,p_source_key,case when p_kind='welcome' then 15 else 10 end,p_coupon_id) returning id into v_id;
@@ -77,11 +90,10 @@ end $$;
 revoke all on function private.lifecycle_verified_email(uuid,boolean) from public,anon,authenticated;
 grant execute on function private.lifecycle_verified_email(uuid,boolean) to service_role;
 
-create function public.read_lifecycle_offers(p_user_id uuid,p_cart_id uuid default null) returns jsonb language sql stable security invoker set search_path='' as $$
-  select coalesce(jsonb_agg(jsonb_build_object('id',o.id,'kind',o.kind,'percentOff',o.percent_off,'expiresAt',o.expires_at,'couponId',o.coupon_id) order by o.percent_off desc,o.issued_at),'[]'::jsonb)
+create function public.read_lifecycle_offers(p_user_id uuid,p_cart_id uuid default null,p_new_admission boolean default true) returns jsonb language sql stable security invoker set search_path='' as $$
+  select coalesce(jsonb_agg(jsonb_build_object('id',o.id,'kind',o.kind,'percentOff',o.percent_off,'expiresAt',o.expires_at,'couponId',o.coupon_id,'recovering',o.reserved_order_id is not null) order by o.percent_off desc,o.issued_at),'[]'::jsonb)
   from private.lifecycle_offers o join (select p_user_id as id,private.lifecycle_verified_email(p_user_id,false) as email) u on u.email=o.email
-  where exists(select 1 from private.lifecycle_offer_control where enabled)
-    and (o.user_id is null or o.user_id=u.id) and o.consumed_at is null and ((o.reserved_order_id is null and o.expires_at>now()) or exists(
+  where (o.user_id is null or o.user_id=u.id) and o.consumed_at is null and ((o.reserved_order_id is null and o.expires_at>now() and p_new_admission and exists(select 1 from private.lifecycle_offer_control where enabled)) or exists(
       select 1 from public.orders held where held.id=o.reserved_order_id and held.user_id=u.id and held.cart_id=p_cart_id
         and held.status in ('pending_payment','payment_failed') and held.stripe_checkout_session_id is null
         and not private.checkout_provider_call_possible(held.id)))
@@ -181,7 +193,7 @@ language sql stable security invoker set search_path='' as $$
   from private.lifecycle_offers where id=p_offer_id and email=lower(btrim(p_email)) and consumed_at is null
     and (user_id is null or private.lifecycle_verified_email(user_id)=email)
     and reserved_order_id is null and expires_at>now() and exists(select 1 from private.lifecycle_offer_control where enabled)
-    and (kind<>'welcome' or not exists(select 1 from public.orders p where (p.user_id=lifecycle_offers.user_id or lower(btrim(p.customer_email))=lifecycle_offers.email) and p.status in ('paid','refunded')))
+    and (kind<>'welcome' or private.lifecycle_welcome_recipient_eligible(email,id))
 $$;
 revoke all on function public.read_lifecycle_offer_for_delivery(uuid,text) from public,anon,authenticated;
 grant execute on function public.read_lifecycle_offer_for_delivery(uuid,text) to service_role;
