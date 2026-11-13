@@ -34,6 +34,7 @@ describe("admin capability enforcement", () => {
       "orders.simulate",
       "support.read",
       "support.reply",
+      "reviews.moderate",
     ]);
   });
 
@@ -70,7 +71,7 @@ describe("admin capability enforcement", () => {
   });
 
   it("limits simulation and Support capabilities to active admins without expanding catalog roles", async () => {
-    for (const capability of [ADMIN_CAPABILITIES.ordersSimulate, ADMIN_CAPABILITIES.supportRead, ADMIN_CAPABILITIES.supportReply]) {
+    for (const capability of [ADMIN_CAPABILITIES.ordersSimulate, ADMIN_CAPABILITIES.supportRead, ADMIN_CAPABILITIES.supportReply, ADMIN_CAPABILITIES.reviewsModerate]) {
       for (const role of ["catalog_editor", "catalog_publisher"] as const) {
         expect(capabilitiesForRole(role)).not.toContain(capability);
         await expect(checkAdminCapability(capability, {

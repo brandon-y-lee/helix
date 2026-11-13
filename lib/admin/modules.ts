@@ -14,6 +14,7 @@ export type AdminModule = {
 };
 
 const ADMIN_MODULE_REGISTRY: readonly AdminModule[] = [
+  { id: "reviews", label: "Product reviews", route: "/admin/reviews", description: "Moderate public reviews using the same rules for every rating.", requiredCapability: ADMIN_CAPABILITIES.reviewsModerate, navigationOrder: 40, status: "active" },
   {
     id: "shipments",
     label: "Shipment records",

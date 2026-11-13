@@ -12005,3 +12005,12 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
 .privacy-dialog__notice { margin-top:16px !important; padding:12px; background:#f3f4f6; }
 .privacy-dialog__actions [role="alert"] { color:#991b1b; }
 @media (max-width:480px) { .privacy-dialog__category-row .privacy-dialog__switch { margin-right:16px; } }
+
+.review-page { max-width: 850px; margin: 5vw auto; padding: 2.5vw; }
+.review-editor { padding: 24px; margin: 24px 0; background: #f3f3f0; border-radius: 18px; }
+.review-editor form,.review-editor { display: grid; gap: 16px; }
+.review-editor label { display: grid; gap: 6px; }
+.review-editor input:not([type=checkbox]), .review-editor select,.review-editor textarea { width: 100%; max-width: 100%; padding: 12px; border: 1px solid #777; border-radius: 6px; background: white; color: black; font: inherit; }
+.review-editor textarea { min-height: 120px; }
+.review-editor .review-consent { display: flex; align-items: flex-start; gap: 12px; }
+.review-editor button { min-height: 44px; }
