@@ -195,6 +195,7 @@ function writeSpecSetupFakeGh(tempRoot: string): {
     executable,
     `#!/usr/bin/env node
 import { readFileSync, writeFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 const args = process.argv.slice(2);
 const statePath = process.env.FAKE_SPEC_SETUP_STATE;
 const state = JSON.parse(readFileSync(statePath, "utf8"));
@@ -208,10 +209,20 @@ if (args[0] === "api" && args[1] === "repos/brandon-y-lee/helix/issues/45") {
   process.exit(0);
 }
 if (args[0] === "pr" && args[1] === "list") {
-  process.stdout.write(state.draftPr ? "OPEN\\ttrue\\thttps://example.test/pr/1\\n" : "");
+  const query = args[args.indexOf("--jq") + 1];
+  const original = ".[0] | [.state, .isDraft, .url] | @tsv";
+  const corrected = ".[] | [.state, .isDraft, .url] | @tsv";
+  if (query !== original && query !== corrected) throw new Error("unexpected PR selector");
+  process.stdout.write(state.draftPr ? "OPEN\\ttrue\\thttps://example.test/pr/1\\n" : query === original ? "\\t\\t\\n" : "");
   process.exit(0);
 }
 if (args[0] === "pr" && args[1] === "create") {
+  const head = args[args.indexOf("--head") + 1];
+  const count = execFileSync("git", ["rev-list", "--count", "dev.." + head], { encoding: "utf8" }).trim();
+  if (count === "0" || process.env.FAKE_SPEC_PR_FAILURE === "1") {
+    process.stderr.write("No commits or injected PR failure\\n");
+    process.exit(1);
+  }
   state.draftPr = true;
   state.prCreates += 1;
   save();
@@ -645,9 +656,19 @@ describe("Codex workflow task helper", () => {
   });
 
   it("repeat-safely creates a Spec Branch and draft PR before exposing child Tickets", () => {
-    const { root, tempRoot, devSha } = initialiseRemoteRepository();
+    const { root, tempRoot, remote, devSha } = initialiseRemoteRepository();
     try {
       expectSuccess(git(root, "push", "origin", "dev"));
+      const hook = join(remote, "hooks/pre-receive");
+      writeFileSync(hook, `#!/bin/sh
+while read old new ref; do
+  [ "$ref" = refs/heads/codex/spec-45-checkout ] || continue
+  [ "$old" = 0000000000000000000000000000000000000000 ] || exit 1
+  [ "$(git rev-parse "$new^")" = "${devSha}" ] || exit 1
+  [ "$(git diff-tree --no-commit-id --name-only -r "$new")" = docs/specs/45-checkout.md ] || exit 1
+done
+`);
+      chmodSync(hook, 0o755);
       const fakeGh = writeSpecSetupFakeGh(tempRoot);
       const options = {
         env: {
@@ -664,7 +685,7 @@ describe("Codex workflow task helper", () => {
       );
       expectSuccess(started);
       expect(started.stdout).toContain(
-        `Spec Branch: codex/spec-45-checkout @ ${devSha}`,
+        "Spec Branch: codex/spec-45-checkout @ ",
       );
       expect(started.stdout).toContain("Draft Spec PR: https://example.test/pr/1");
       expect(
@@ -675,7 +696,11 @@ describe("Codex workflow task helper", () => {
           "origin",
           "refs/heads/codex/spec-45-checkout",
         ).stdout.split(/\s+/)[0],
-      ).toBe(devSha);
+      ).not.toBe(devSha);
+      const bootstrap = git(root, "rev-parse", "codex/spec-45-checkout").stdout.trim();
+      expect(git(root, "rev-parse", bootstrap + "^").stdout.trim()).toBe(devSha);
+      expect(git(root, "diff", "--name-only", devSha, bootstrap).stdout.trim()).toBe("docs/specs/45-checkout.md");
+      expect(git(root, "show", bootstrap + ":docs/specs/45-checkout.md").stdout).toContain(devSha);
 
       const repeated = run(
         taskHelper,
@@ -693,6 +718,65 @@ describe("Codex workflow task helper", () => {
     } finally {
       cleanupFixture(tempRoot);
     }
+  });
+
+  it("recovers Spec setup after failed PR without exposing Tickets early", () => {
+    const { root, tempRoot } = initialiseRemoteRepository();
+    try {
+      expectSuccess(git(root, "push", "origin", "dev"));
+      const fakeGh = writeSpecSetupFakeGh(tempRoot);
+      const env = { GH_BIN: fakeGh.executable, FAKE_SPEC_SETUP_STATE: fakeGh.statePath };
+      const failed = run(taskHelper, ["spec-start", "45-checkout"], root, { env: { ...env, FAKE_SPEC_PR_FAILURE: "1" } });
+      expect(failed.status).not.toBe(0);
+      expect(failed.stderr).toContain("draft Spec PR creation failed");
+      expect(JSON.parse(readFileSync(fakeGh.statePath, "utf8")).readyTickets).toEqual([]);
+      expectSuccess(run(taskHelper, ["spec-start", "45-checkout"], root, { env }));
+      expect(git(root, "rev-list", "--count", "dev..codex/spec-45-checkout").stdout.trim()).toBe("1");
+      expect(git(root, "status", "--porcelain").stdout).toBe("");
+      expect(JSON.parse(readFileSync(fakeGh.statePath, "utf8")).prCreates).toBe(1);
+    } finally { cleanupFixture(tempRoot); }
+  });
+
+  it.each(["missing-ref", "empty-ref", "unknown-change", "stale-bootstrap", "manifest-collision"])("preserves unsafe Spec setup: %s", (scenario) => {
+    const { root, tempRoot } = initialiseRemoteRepository();
+    try {
+      expectSuccess(git(root, "switch", "dev"));
+      const manifest = "docs/specs/45-checkout.md";
+      if (scenario === "manifest-collision") {
+        mkdirSync(join(root, "docs/specs"), { recursive: true });
+        writeFileSync(join(root, manifest), "existing content\n");
+        expectSuccess(git(root, "add", manifest));
+        expectSuccess(git(root, "commit", "-m", "existing manifest"));
+      }
+      expectSuccess(git(root, "push", "origin", "dev"));
+      const fakeGh = writeSpecSetupFakeGh(tempRoot);
+      const env = { GH_BIN: fakeGh.executable, FAKE_SPEC_SETUP_STATE: fakeGh.statePath };
+      if (scenario === "missing-ref") {
+        writeFileSync(fakeGh.statePath, JSON.stringify({ draftPr: true, prCreates: 1, readyTickets: [] }));
+      } else if (scenario === "empty-ref") {
+        expectSuccess(git(root, "push", "origin", "dev:refs/heads/codex/spec-45-checkout"));
+      } else if (scenario === "unknown-change") {
+        expectSuccess(git(root, "switch", "-c", "codex/spec-45-checkout"));
+        writeFileSync(join(root, "unexpected.txt"), "unknown\n");
+        expectSuccess(git(root, "add", "unexpected.txt"));
+        expectSuccess(git(root, "commit", "-m", "unknown change"));
+        expectSuccess(git(root, "push", "origin", "codex/spec-45-checkout"));
+        expectSuccess(git(root, "switch", "dev"));
+      } else if (scenario === "stale-bootstrap") {
+        expect(run(taskHelper, ["spec-start", "45-checkout"], root, { env: { ...env, FAKE_SPEC_PR_FAILURE: "1" } }).status).not.toBe(0);
+        writeFileSync(join(root, "advance.txt"), "dev advanced\n");
+        expectSuccess(git(root, "add", "advance.txt"));
+        expectSuccess(git(root, "commit", "-m", "advance dev"));
+        expectSuccess(git(root, "push", "origin", "dev"));
+      }
+      const before = git(root, "ls-remote", "--heads", "origin").stdout;
+      const result = run(taskHelper, ["spec-start", "45-checkout"], root, { env });
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toContain(scenario === "missing-ref" ? "target 'codex/spec-45-checkout' is missing" : scenario === "manifest-collision" ? "manifest already exists" : scenario === "empty-ref" ? "has no bootstrap" : "stale or unrecognized");
+      expect(git(root, "ls-remote", "--heads", "origin").stdout).toBe(before);
+      expect(JSON.parse(readFileSync(fakeGh.statePath, "utf8")).readyTickets).toEqual([]);
+      expect(git(root, "status", "--porcelain").stdout).toBe("");
+    } finally { cleanupFixture(tempRoot); }
   });
 
   it("prepares Ticket Review against the snapshot when sibling work advances the Spec Branch", () => {
