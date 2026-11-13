@@ -177,6 +177,11 @@ try {
  SELECT moderate_product_review(tid(5),'${ids[0]}',3,'rejected','personal_data');
  SELECT check_review((read_public_product_reviews('synthetic-serum')->>'count')::int=2);
  SELECT check_review((SELECT count(*)=1 FROM jsonb_array_elements(read_product_review_queue(tid(5))) x WHERE x->>'id'='${ids[0]}' AND x->>'status'='rejected' AND (x->>'publishedRevision')::int=2));
+ DO $$BEGIN
+ BEGIN PERFORM moderate_product_review(tid(5),'${ids[0]}',NULL,'removed','personal_data');RAISE EXCEPTION 'null moderation revision escaped';EXCEPTION WHEN serialization_failure THEN NULL;END;
+ BEGIN PERFORM withdraw_product_review(tid(3),'${ids[0]}',NULL);RAISE EXCEPTION 'null withdrawal revision escaped';EXCEPTION WHEN serialization_failure THEN NULL;END;
+ END$$;
+ SELECT check_review((read_public_product_reviews('synthetic-serum')->>'count')::int=2);
  SELECT moderate_product_review(tid(5),'${ids[0]}',3,'removed','personal_data');
  SELECT check_review((read_public_product_reviews('synthetic-serum')->>'count')::int=1);
  SELECT check_review((read_public_product_reviews('synthetic-serum')->>'average')::numeric=3);

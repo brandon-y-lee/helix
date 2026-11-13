@@ -75,7 +75,7 @@ declare r private.product_reviews;
 begin
  select * into r from private.product_reviews where id=p_review_id and user_id=p_user_id for update;
  if not found then raise exception 'review unavailable' using errcode='42501'; end if;
- if r.revision<>p_expected_revision then raise exception 'review revision conflict' using errcode='40001'; end if;
+ if p_expected_revision is null or p_expected_revision<1 or r.revision<>p_expected_revision then raise exception 'review revision conflict' using errcode='40001'; end if;
  update private.product_reviews set revision=revision+1,published_revision=null,status='withdrawn' where id=r.id;
  insert into private.product_review_audit(review_id,revision,actor_id,action) values(r.id,r.revision+1,p_user_id,'withdrawn');
  return jsonb_build_object('id',r.id,'revision',r.revision+1,'status','withdrawn');
@@ -88,7 +88,7 @@ begin
  if not exists(select 1 from public.admin_memberships where user_id=p_actor_id and active and role='admin') then raise exception 'moderation forbidden' using errcode='42501'; end if;
  if p_decision not in ('published','rejected','removed') or p_decision is null or (p_decision in ('rejected','removed') and (p_reason is null or p_reason not in ('spam','personal_data','threats','unrelated','promotional_claims'))) or (p_decision='published' and p_reason is not null) then raise exception 'invalid decision' using errcode='22023'; end if;
  select * into r from private.product_reviews where id=p_review_id for update;
- if not found or ((p_decision='removed' and r.published_revision is null) or (p_decision<>'removed' and r.status<>'pending' and not (r.status='published' and p_decision='rejected'))) or r.revision<>p_expected_revision then raise exception 'review revision conflict' using errcode='40001'; end if;
+ if not found or p_expected_revision is null or p_expected_revision<1 or ((p_decision='removed' and r.published_revision is null) or (p_decision<>'removed' and r.status<>'pending' and not (r.status='published' and p_decision='rejected'))) or r.revision<>p_expected_revision then raise exception 'review revision conflict' using errcode='40001'; end if;
  if p_decision='published' and r.environment='live' and not (select publication_enabled from private.product_review_control where singleton) then raise exception 'publication disabled' using errcode='42501'; end if;
  update private.product_reviews set status=case when p_decision='removed' then 'rejected' else p_decision end,published_revision=case when p_decision='removed' then null when p_decision='published' then r.revision when r.status='published' then null else r.published_revision end where id=r.id;
  insert into private.product_review_audit(review_id,revision,actor_id,action,reason) values(r.id,r.revision,p_actor_id,p_decision,p_reason);
