@@ -11,9 +11,11 @@ type Submission =
 export function EmailPreferences({
   confirmToken,
   unsubscribeToken,
+  lifecycle = false,
 }: {
   confirmToken?: string;
   unsubscribeToken?: string;
+  lifecycle?: boolean;
 }) {
   const [email, setEmail] = useState("");
   const [consent, setConsent] = useState(false);
@@ -114,7 +116,7 @@ export function EmailPreferences({
               disabled={pending}
               onClick={() => void withdraw("welcome")}
             >
-              Stop welcome emails
+              {lifecycle ? "Stop lifecycle emails" : "Stop welcome emails"}
             </button>
           )}
           {withdrawnScope !== "all" && (
@@ -162,8 +164,7 @@ export function EmailPreferences({
         <p className="eyebrow">helix emails</p>
         <h1 id="email-preferences-heading">Confirm your subscription</h1>
         <p className={styles.intro}>
-          Confirm that you want to receive helix marketing emails, including our
-          welcome series and skincare education.
+          {lifecycle ? "Confirm that you want helix welcome offers, cart and product reminders, and skincare education emails. We use your signed-in product visits and cart activity for these reminders. You can unsubscribe at any time." : "Confirm that you want to receive helix marketing emails, including our welcome series and skincare education."}
         </p>
         <div className={styles.form}>
           {submission.kind !== "success" && (

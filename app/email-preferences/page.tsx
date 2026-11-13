@@ -58,6 +58,7 @@ export default async function EmailPreferencesPage({
                 ? `unsubscribe:${withdrawal}`
                 : "subscription"
           }
+          lifecycle={query.scope === "lifecycle"}
           confirmToken={isToken(confirmation) ? confirmation : undefined}
           unsubscribeToken={isToken(withdrawal) ? withdrawal : undefined}
         />
