@@ -12,6 +12,8 @@ describe("public review contract", () => {
       consent: true,
     };
     expect(parseReviewSubmission(input).rating).toBe(1);
+    expect(() => parseReviewSubmission({ ...input, offerNotice: false })).toThrow();
+    expect(() => parseReviewSubmission({ ...input, offerNotice: true })).toThrow();
     expect(() => parseReviewSubmission({ ...input, consent: false })).toThrow();
     expect(() => parseReviewSubmission({ ...input, rating: 5.5 })).toThrow();
     expect(() =>

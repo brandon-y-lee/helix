@@ -54,6 +54,7 @@ try {
     new URL("../../supabase/migrations", import.meta.url),
   ).find((x) => x.endsWith("_public_product_reviews.sql"));
   sql(read(`supabase/migrations/${migration}`));
+  sql(read("supabase/migrations/20261113101020_public_review_offer_disclosure.sql"));
   sql(`SET ROLE service_role;
  SELECT public.submit_product_review(public.tid(1),public.tid(31),0,'Alex',1,'Not for me','This texture was not for me.',true);
  DO $$BEGIN BEGIN PERFORM public.submit_product_review(public.tid(2),public.tid(31),0,'Wrong',5,'No','Not my purchase.',true);RAISE EXCEPTION 'ownership escaped';EXCEPTION WHEN insufficient_privilege THEN NULL;END;END$$;
@@ -233,6 +234,7 @@ try {
     seen.has(sql("SELECT tid(1100)").trim()),
     "older published takedown target reachable",
   );
+  sql(read("supabase/tests/public_review_disclosure_consumer.integration.sql"));
   console.log(
     "Public review SQL: ownership, consent/revision, neutral publication, sandbox exclusion, withdrawal fencing, RLS concurrent dedupe, publication gate, complete aggregates, pagination and order provenance passed.",
   );
