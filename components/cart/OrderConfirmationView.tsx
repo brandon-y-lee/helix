@@ -1,3 +1,4 @@
+import { ManualShipmentTimeline } from "./ManualShipmentTimeline";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { formatPrice } from "@/lib/products";
@@ -124,6 +125,8 @@ export function OrderConfirmationView({
         </dl>
       </section>
 
+      {confirmation.manualShipments && <ManualShipmentTimeline records={confirmation.manualShipments} />}
+      {confirmation.manualShipmentsUnavailable && <p className="form-status">Shipment records are temporarily unavailable.</p>}
       {confirmation.tracking && <SimulatedTrackingTimeline tracking={confirmation.tracking} />}
       {confirmation.trackingUnavailable && <p className="form-status">Demo tracking is temporarily unavailable.</p>}
 

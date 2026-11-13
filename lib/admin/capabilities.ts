@@ -10,6 +10,7 @@ export const ADMIN_CAPABILITIES = {
   catalogEdit: "catalog.edit",
   catalogPublish: "catalog.publish",
   catalogDelivery: "catalog.delivery",
+  fulfillmentManage: "fulfillment.manage",
   ordersSimulate: "orders.simulate",
   supportRead: "support.read",
   supportReply: "support.reply",

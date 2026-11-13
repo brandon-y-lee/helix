@@ -1,4 +1,5 @@
 import "server-only";
+import { readManualShipments } from "@/lib/shipments/server";
 
 import type Stripe from "stripe";
 import { cookies } from "next/headers";
@@ -1204,6 +1205,8 @@ export async function getOrderConfirmationBySession(
   let trackingUnavailable = false;
   const tracking = order.status === "paid" || order.status === "refunded"
     ? await readSimulatedTracking(order.id).catch(() => { trackingUnavailable = true; return null; }) : null;
+  let manualShipmentsUnavailable = false;
+  const manualShipments = await readManualShipments(order.id).catch(() => { manualShipmentsUnavailable = true; return null; });
   // Ownership and Session binding can change while an admitted provider read runs.
   if (!await authorizeCheckoutReceipt({ orderId, sessionId, accountId: config.accountId, verifiedUserId: user?.id ?? null })) return null;
   // Historical Orders may contain billing details in their shipping columns.
@@ -1216,6 +1219,7 @@ export async function getOrderConfirmationBySession(
       city: address.city, state: address.state, postal_code: address.postal_code, country: address.country } : null;
   return {
     notice: SANDBOX_CHECKOUT_NOTICE, state, retryAfterSeconds, shipping,
+    ...(manualShipments ? { manualShipments } : {}), ...(manualShipmentsUnavailable ? { manualShipmentsUnavailable: true } : {}),
     ...(tracking ? { tracking } : {}), ...(trackingUnavailable ? { trackingUnavailable: true } : {}),
     verificationIssue: exception?.code === "full_refund_reconciliation_failed" && exception.paymentStatus === "refunded"
       ? "refund_reconciliation" : null,
