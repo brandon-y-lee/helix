@@ -78,7 +78,7 @@ begin
 end $$;
 
 -- Narrow auth lookup avoids granting the application role broad auth.users access.
-create function private.lifecycle_verified_email(p_user_id uuid,p_lock boolean default false) returns text
+create function private.lifecycle_offer_verified_email(p_user_id uuid,p_lock boolean default false) returns text
 language plpgsql security definer set search_path='' as $$ declare v_email text; begin
   if p_lock then
     select lower(btrim(email)) into v_email from auth.users where id=p_user_id and email_confirmed_at is not null for update;
@@ -87,12 +87,12 @@ language plpgsql security definer set search_path='' as $$ declare v_email text;
   end if;
   return v_email;
 end $$;
-revoke all on function private.lifecycle_verified_email(uuid,boolean) from public,anon,authenticated;
-grant execute on function private.lifecycle_verified_email(uuid,boolean) to service_role;
+revoke all on function private.lifecycle_offer_verified_email(uuid,boolean) from public,anon,authenticated;
+grant execute on function private.lifecycle_offer_verified_email(uuid,boolean) to service_role;
 
 create function public.read_lifecycle_offers(p_user_id uuid,p_cart_id uuid default null,p_new_admission boolean default true) returns jsonb language sql stable security invoker set search_path='' as $$
   select coalesce(jsonb_agg(jsonb_build_object('id',o.id,'kind',o.kind,'percentOff',o.percent_off,'expiresAt',o.expires_at,'couponId',o.coupon_id,'recovering',o.reserved_order_id is not null) order by o.percent_off desc,o.issued_at),'[]'::jsonb)
-  from private.lifecycle_offers o join (select p_user_id as id,private.lifecycle_verified_email(p_user_id,false) as email) u on u.email=o.email
+  from private.lifecycle_offers o join (select p_user_id as id,private.lifecycle_offer_verified_email(p_user_id,false) as email) u on u.email=o.email
   where (o.user_id is null or o.user_id=u.id) and o.consumed_at is null and ((o.reserved_order_id is null and o.expires_at>now() and p_new_admission and exists(select 1 from private.lifecycle_offer_control where enabled)) or exists(
       select 1 from public.orders held where held.id=o.reserved_order_id and held.user_id=u.id and held.cart_id=p_cart_id
         and held.status in ('pending_payment','payment_failed') and held.stripe_checkout_session_id is null
@@ -106,7 +106,7 @@ declare v_order public.orders; v_offer private.lifecycle_offers; v_email text;
 begin
   select * into v_order from public.orders where id=p_order_id for update;
   if not found or v_order.checkout_environment<>'sandbox' or v_order.status not in ('pending_payment','payment_failed') or v_order.user_id is null then raise exception 'Offer unavailable'; end if;
-  v_email:=private.lifecycle_verified_email(v_order.user_id,true);
+  v_email:=private.lifecycle_offer_verified_email(v_order.user_id,true);
   if v_email is null then raise exception 'Offer requires a verified account'; end if;
   select * into v_offer from private.lifecycle_offers where id=p_offer_id for update;
   if not found or v_offer.email<>v_email or lower(btrim(v_order.customer_email)) is distinct from v_email
@@ -191,7 +191,7 @@ create function public.read_lifecycle_offer_for_delivery(p_offer_id uuid,p_email
 language sql stable security invoker set search_path='' as $$
   select jsonb_build_object('id',id,'kind',kind,'percentOff',percent_off,'expiresAt',expires_at,'couponId',coupon_id)
   from private.lifecycle_offers where id=p_offer_id and email=lower(btrim(p_email)) and consumed_at is null
-    and (user_id is null or private.lifecycle_verified_email(user_id)=email)
+    and (user_id is null or private.lifecycle_offer_verified_email(user_id)=email)
     and reserved_order_id is null and expires_at>now() and exists(select 1 from private.lifecycle_offer_control where enabled)
     and (kind<>'welcome' or private.lifecycle_welcome_recipient_eligible(email,id))
 $$;
