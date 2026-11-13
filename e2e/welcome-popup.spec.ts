@@ -165,7 +165,7 @@ test("review confirmation binds the displayed scope and missing scope cannot cla
   await page.goto(`/email-preferences?confirm=${token}`);
   await expect(page.getByText(/post-purchase follow-ups, review invitations/)).toHaveCount(0);
   await page.getByRole("button", { name: "Confirm subscription" }).click();
-  await expect(page.getByRole("alert")).toContainText("invalid or has expired");
+  await expect(page.getByRole("alert").filter({ hasText: "invalid or has expired" })).toContainText("invalid or has expired");
   expect(campaign.confirmations).toEqual([{ token, scope: "welcome" }]);
   await page.goto(`/email-preferences?confirm=${token}&scope=lifecycle_reviews`);
   await expect(page.getByText(/Confirm that you want.*post-purchase follow-ups, review invitations and next-purchase offers/)).toBeVisible();
