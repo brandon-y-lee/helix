@@ -1,0 +1,11 @@
+# Serum left alignment local trial
+
+Goal: retain vertical centering while left-aligning product hero elements/copy and try a single-line desktop title. Parent inspected supplied Helix and Smooche references; preserve Helix typography, current image,58:42 split, spacing and outlined CTA. Local-only from merged dev2e2f3ac. No push/merge/deploy.
+
+Exact candidate plan SHA256: e429d0c0ce7401cc3a22a3a933a313d85d41b92ac0d2d968f34245834daeb488. Independent /root/spec_review and /root/standards_review both approve before implementation, no actionable findings. Full plan held locally at /tmp/helix-serum-left-preview-plan.md. Isolated helper branch codex/plan-serum-left-aligned-preview at /tmp/helix-serum-left-preview preserves dirty shared checkout and original prototype.
+
+Only application change: app/home.css copy align-items:flex-start/text-align:left, keeping justify-content:center. Above900px fluid heading clamp(1.75rem,2.7vw,3rem) with ordinary wrapping and max-width100%. No nowrap or truncated text; original mobile40px scale and stack remain.
+
+Locked install PASS after sandbox network access retry. Lint/typecheck PASS. Existing homepage11 + principles3 tests PASS. No new tests for reversible CSS-only layout. Whitespace PASS. Browser baseline1440px heading59.04px/two lines/center alignment. Trial checked901,1024,1280,1440,1920: one line,28–48px, loaded fonts, no overflow; all element left edges agree and group center error below0.01px. Checked900,720,390,320: stacked,40px title; two lines at390/320, no overflow. Simulated200% desktop text enlargement at901 wraps to three lines without overflow; temporary font overrides restored, not a physical-device or native-browser-zoom claim. CTA keyboard focus visible, canonical href preserved. Actual navigation must be rechecked on persistent preview because temporary server became unavailable during browser/runtime reconnection. Desktop screenshot inspected; mobile capture was visually unreliable after viewport change, so persistent mobile view still needs inspection.
+
+Next: committed-code reviews and helper prepare; refresh persistent loopback3100 snapshot with private env and previous-runtime rollback, verify production build/HTTP/source hashes and desktop/mobile behavior. No full remote integration CI, push or provider operations for this local trial.

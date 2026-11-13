@@ -9,18 +9,18 @@ describe("HomeThreePrinciples input changes", () => {
     const mission = screen.getByRole("button", { name: "mission" });
     const innovation = screen.getByRole("button", { name: "innovation" });
     const sustainability = screen.getByRole("button", { name: "sustainability" });
-    expect(screen.getByRole("link", { name: "Our mission" })).toHaveAttribute("href", "/about#about-men-heading");
+    expect(screen.getByRole("link", { name: "our values" })).toHaveAttribute("href", "/about#about-men-heading");
 
     fireEvent.keyDown(mission, { key: "End" });
     fireEvent.pointerEnter(innovation);
     expect(sustainability).toHaveFocus();
     expect(sustainability).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("link", { name: "Our approach" })).toHaveAttribute("href", "/about#sustainability-heading");
-    expect(screen.queryByRole("link", { name: "Our mission" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "our impact" })).toHaveAttribute("href", "/about#sustainability-heading");
+    expect(screen.queryByRole("link", { name: "our values" })).not.toBeInTheDocument();
 
     fireEvent.pointerMove(innovation);
     expect(innovation).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("link", { name: "Our formulation" })).toHaveAttribute("href", "/about#quality-heading");
+    expect(screen.getByRole("link", { name: "our formulas" })).toHaveAttribute("href", "/about#quality-heading");
 
     fireEvent.focus(mission);
     fireEvent.pointerEnter(sustainability);
@@ -60,12 +60,12 @@ describe("HomeThreePrinciples input changes", () => {
     fireEvent(innovation, touch("pointerup"));
     fireEvent.click(innovation, { detail: 1 });
     expect(innovation).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("link", { name: "Our formulation" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "our formulas" })).toBeInTheDocument();
   });
 
   it("moves focus from an outgoing CTA to the newly selected control before hiding its panel", () => {
     render(<HomeThreePrinciples headingId="principles" principles={homeThreePrinciples} />);
-    const outgoing = screen.getByRole("link", { name: "Our mission" });
+    const outgoing = screen.getByRole("link", { name: "our values" });
     const innovation = screen.getByRole("button", { name: "innovation" });
     outgoing.focus();
     fireEvent.pointerMove(innovation);
@@ -74,7 +74,7 @@ describe("HomeThreePrinciples input changes", () => {
     expect(innovation).toHaveAttribute("aria-pressed", "true");
     expect(outgoing.parentElement).toHaveAttribute("inert");
     expect(outgoing.parentElement).toHaveAttribute("aria-hidden", "true");
-    expect(screen.queryByRole("link", { name: "Our mission" })).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Our formulation" }).parentElement).toHaveAttribute("id", innovation.getAttribute("aria-controls"));
+    expect(screen.queryByRole("link", { name: "our values" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "our formulas" }).parentElement).toHaveAttribute("id", innovation.getAttribute("aria-controls"));
   });
 });

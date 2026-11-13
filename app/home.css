@@ -210,11 +210,11 @@ body:has(main[data-storefront-main] > .home-lander-hero)
 .home-lander-serum .home-lander-serum__copy {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   gap: 24px;
   padding: var(--pdp-panel-padding);
-  text-align: center;
+  text-align: left;
 }
 
 .home-lander-serum .home-lander-serum__eyebrow {
@@ -241,7 +241,7 @@ body:has(main[data-storefront-main] > .home-lander-hero)
 }
 
 .home-lander-serum h2 {
-  font-size: clamp(2.5rem, 4.1vw, 4.5rem);
+  font-size: clamp(2.75rem, 4.4vw, 4.75rem);
   line-height: 1.04;
   text-wrap: balance;
 }
@@ -253,6 +253,14 @@ body:has(main[data-storefront-main] > .home-lander-hero)
   color: var(--ink-soft);
   font-size: clamp(1rem, 1.12vw, 1.125rem);
   line-height: 1.65;
+}
+
+@media (min-width: 901px) {
+  .home-lander-serum h2 {
+    max-width: 100%;
+    font-size: clamp(1.875rem, 2.9vw, 3.25rem);
+    text-wrap: wrap;
+  }
 }
 
 .home-section.home-lander-principles {
@@ -327,7 +335,7 @@ body:has(main[data-storefront-main] > .home-lander-hero)
 
 @media (max-width: 720px) {
   .home-lander-serum h2 {
-    font-size: 2.5rem;
+    font-size: 2.75rem;
   }
 
   .home-lander-principles .home-three-principles__description {
@@ -408,12 +416,19 @@ body:has(main[data-storefront-main] > .home-lander-hero) .site-footer {
   pointer-events: auto;
 }
 
-/* The rail is one frame high; its children extend beyond the clipped frame. */
+/* Separate neighboring paint from fractional clip edges when a slide settles. */
+.home-lander-principles .home-three-principles-visual {
+  --home-principles-slide-gap: 2px;
+  background: #fff;
+}
+
+/* The rail is one frame high; translate by a frame plus its guard gap. */
 .home-three-principles-visual__rail {
   position: absolute;
   inset: 0;
   display: flex;
   flex-direction: column;
+  row-gap: var(--home-principles-slide-gap);
   transition: transform 1000ms ease;
 }
 
@@ -429,6 +444,15 @@ body:has(main[data-storefront-main] > .home-lander-hero) .site-footer {
 .home-lander-principles .home-three-principles-visual__image {
   transform: none;
   will-change: auto;
+}
+
+.home-three-principles-visual__slide--contained {
+  background: #fff;
+}
+
+.home-lander-principles .home-three-principles-visual__slide--contained .home-three-principles-visual__image {
+  box-sizing: border-box;
+  padding: clamp(12px, 2vw, 32px);
 }
 
 @media (prefers-reduced-motion: reduce) {

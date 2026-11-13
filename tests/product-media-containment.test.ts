@@ -194,11 +194,18 @@ describe("routine Product Media containment", () => {
     );
     expect(homepage.fallback).toHaveBeenCalledOnce();
 
-    const editorialUrl = `${mediaOrigin}/storage/v1/object/public/helix-catalog/pages/faq/hero/13df364513afd448dd571acd4f8efd29084e59aff7956c7fd5d332549cd4b773.webp`;
-    for (const url of [editorialUrl, `http://127.0.0.1:3000/_next/image?url=${encodeURIComponent(editorialUrl)}&w=1920&q=75`]) {
-      const editorial = await harness.dispatch(url);
-      expect(editorial.fallback).toHaveBeenCalledOnce();
-      expect(editorial.fulfill).not.toHaveBeenCalled();
+    const editorialUrls = [
+      `${mediaOrigin}/storage/v1/object/public/helix-catalog/pages/faq/hero/13df364513afd448dd571acd4f8efd29084e59aff7956c7fd5d332549cd4b773.webp`,
+      `${mediaOrigin}/storage/v1/object/public/helix-catalog/pages/home/principles/mission/53676dcc05da072cd1155e7cb189c57001338cdede56bf7da695fb0df2780d66.webp`,
+      `${mediaOrigin}/storage/v1/object/public/helix-catalog/pages/home/principles/innovation/697128d5e99c87bf7a9a36c3e175e762cd9fb9e459cc450e4af0e309e7b18e5c.webp`,
+      `${mediaOrigin}/storage/v1/object/public/helix-catalog/pages/home/principles/sustainability/6ba59b2951f8625909e7a4b871ccfcaad7cb1378d153dc893e2790efc67482ed.webp`,
+    ];
+    for (const editorialUrl of editorialUrls) {
+      for (const url of [editorialUrl, `http://127.0.0.1:3000/_next/image?url=${encodeURIComponent(editorialUrl)}&w=1920&q=75`]) {
+        const editorial = await harness.dispatch(url);
+        expect(editorial.fallback).toHaveBeenCalledOnce();
+        expect(editorial.fulfill).not.toHaveBeenCalled();
+      }
     }
 
     expect(containment.report()).toEqual({
@@ -233,13 +240,18 @@ describe("routine Product Media containment", () => {
       approvedMediaOrigin: mediaOrigin,
     });
     await containment.install(harness.page);
-    const unexpectedUrl =
-      `${mediaOrigin}/storage/v1/object/public/helix-catalog/pages/faq/hero/unexpected.webp`;
-
-    await expect(harness.dispatch(unexpectedUrl)).rejects.toThrow(
-      `Product Media request is absent from the live Storefront: ${unexpectedUrl}`,
-    );
-    expect(containment.report().rejectedRequests).toBe(1);
+    for (const path of [
+      "pages/faq/hero/unexpected.webp",
+      "pages/home/principles/mission/unexpected.webp",
+      "pages/home/principles/innovation/unexpected.webp",
+      "pages/home/principles/sustainability/unexpected.webp",
+    ]) {
+      const unexpectedUrl = `${mediaOrigin}/storage/v1/object/public/helix-catalog/${path}`;
+      await expect(harness.dispatch(unexpectedUrl)).rejects.toThrow(
+        `Product Media request is absent from the live Storefront: ${unexpectedUrl}`,
+      );
+    }
+    expect(containment.report().rejectedRequests).toBe(4);
   });
 
   it("blocks an unclassified public Storage request outside known buckets", async () => {

@@ -1,0 +1,9 @@
+# Innovation Polaroid framing correction
+
+The user requested extra whitespace to improve the Innovation image's fit. Parent screenshot inspection identified a complete Polaroid with gray side strips and faint canvas edges. Library read/materialization tools are unavailable in this executor, so the attachment was not independently inspected here. The same mismatch was reproduced in the actual 1920-pixel local browser: a white image canvas inside a light-gray contain frame. Source perimeter pixels are RGB 254–255.
+
+Exact local plan SHA-256 `70a9f1046c1f97844e4866def3011b4e0526c366cdeaf86a9b2be146a816102d` received independent Spec and Standards approval before implementation, without actionable findings. Local plan: `/tmp/helix-innovation-framing-plan.md`. User authority covers this local adjustment, with no push, merge, or deployment.
+
+Slides using the existing `contain` image fit now have a white background and responsive image padding of `clamp(12px, 2vw, 32px)` with explicit border-box sizing. Only Innovation currently uses contain. The entire approved canvas, photograph, border, and handwriting remain visible without stretching or cropping. The shared outer frame, rounded clipping, rail, transitions, controls, text, CTAs, Mission top crop, and Sustainability centered cover treatment remain unchanged.
+
+The approved Innovation source pixels and immutable Supabase object are unchanged. No additional upload, overwrite, deletion, or remote configuration change. Existing focused tests, lint, typecheck, helper preparation, committed independent review, production preview refresh, and desktop/mobile visual inspection form the verification path. No tests were added for this reversible styling change. Actual runtime verification remains pending at this source checkpoint; full remote CI and physical-device testing are outside this local iteration.

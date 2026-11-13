@@ -87,7 +87,8 @@ jobs:
 
   integration-verification:
     if: ${{ github.event_name == 'pull_request' && !startsWith(github.base_ref, 'codex/spec-') && github.event.pull_request.draft == false }}
-    runs-on: ubuntu-latest
+    # Playwright 1.55.1 supports Ubuntu 24.04; avoid latest-image OS migrations.
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
