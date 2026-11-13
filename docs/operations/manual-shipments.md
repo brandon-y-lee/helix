@@ -16,3 +16,5 @@ Local proof:
 - `pnpm typecheck` and `pnpm lint`
 
 The SQL runner accepts only a labelled local synthetic PostgreSQL 17 container and creates/drops its own uniquely named database. It exercises the actual payment-contract predecessor, authorization/grants, concurrent quantity allocation, command/revision conflicts, cancellation, correction audit and absence of private audit data from customer output. Full suite, production build and browser integration verification remain distinct required stages; local focused proof is not hosted activation evidence.
+
+Carrier or tracking-reference typos may be corrected while keeping the current non-cancelled status. Delivered corrections require a reason. These corrections retain fulfillment timestamps and allocations, increment the revision, and are audited; an unchanged submission is rejected.

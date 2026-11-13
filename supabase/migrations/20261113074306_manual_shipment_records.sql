@@ -112,16 +112,19 @@ begin
  insert into private.manual_shipment_allocations(shipment_id,order_item_id,quantity) select s.id,(x->>'orderItemId')::uuid,(x->>'quantity')::integer from jsonb_array_elements(p_command->'lines') x;
  else
  select * into s from private.manual_shipments where id=sid and order_id=oid for update;
- if not found or s.version<>v or s.version>=100 or s.state='cancelled' or s.state=st or jsonb_array_length(p_command->'lines')<>0 then return jsonb_build_object('status','conflict');end if;
- if not ((s.state='preparing' and st in ('dispatched','exception','cancelled')) or (s.state='dispatched' and st in ('delivered','exception','cancelled'))
+ if not found or s.version<>v or s.version>=100 or s.state='cancelled' or jsonb_array_length(p_command->'lines')<>0 then return jsonb_build_object('status','conflict');end if;
+ if s.state=st then
+ if s.carrier=p_command->>'carrier' and s.tracking_reference=p_command->>'trackingReference' then return jsonb_build_object('status','conflict');end if;
+ if s.state='delivered' and why is null then return jsonb_build_object('status','invalid');end if;
+ elsif not ((s.state='preparing' and st in ('dispatched','exception','cancelled')) or (s.state='dispatched' and st in ('delivered','exception','cancelled'))
  or (s.state='exception' and st in ('dispatched','delivered','cancelled')) or (s.state='delivered' and st in ('exception','cancelled') and why is not null))
  then return jsonb_build_object('status','invalid');end if;
- if st in ('dispatched','delivered') and not private.manual_shipment_eligible(oid) then return jsonb_build_object('status','ineligible');end if;
+ if s.state<>st and st in ('dispatched','delivered') and not private.manual_shipment_eligible(oid) then return jsonb_build_object('status','ineligible');end if;
  old_state:=s.state;
  update private.manual_shipments set state=st,version=version+1,carrier=p_command->>'carrier',tracking_reference=p_command->>'trackingReference',
  ever_dispatched=ever_dispatched or st in ('dispatched','delivered'),released=(st='cancelled' and state='preparing' and not ever_dispatched),
- dispatched_at=case when st in ('dispatched','delivered') then coalesce(dispatched_at,clock_timestamp()) else dispatched_at end,
- delivered_at=case when st='delivered' then clock_timestamp() when state='delivered' then null else delivered_at end where id=s.id returning * into s;
+ dispatched_at=case when state=st then dispatched_at when st in ('dispatched','delivered') then coalesce(dispatched_at,clock_timestamp()) else dispatched_at end,
+ delivered_at=case when state=st then delivered_at when st='delivered' then clock_timestamp() when state='delivered' then null else delivered_at end where id=s.id returning * into s;
  end if;
  result:=jsonb_build_object('status','applied','shipmentId',s.id,'version',s.version);
  insert into private.manual_shipment_audit(command_id,actor_id,order_id,shipment_id,payload,prior_state,state,version,reason,result)

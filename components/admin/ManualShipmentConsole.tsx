@@ -237,7 +237,14 @@ export function ManualShipmentConsole({ enabled }: { enabled: boolean }) {
                 </ul>
                 <label className={styles.field}>
                   Next status
-                  <select name="state" className={styles.input}>
+                  <select
+                    name="state"
+                    className={styles.input}
+                    defaultValue={s.state}
+                  >
+                    <option value={s.state}>
+                      {s.state} (keep status, correct details)
+                    </option>
                     {SHIPMENT_STATES.filter((st) =>
                       allowedShipmentTransition(
                         s.state,

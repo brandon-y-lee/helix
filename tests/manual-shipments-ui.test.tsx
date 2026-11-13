@@ -53,6 +53,60 @@ describe("manual shipment UI", () => {
       ).not.toBeInTheDocument(),
     );
   });
+  it("defaults to the current delivered status when correcting a reference", async () => {
+    const bodies: Record<string, unknown>[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url, init) => {
+        const body = JSON.parse(init.body);
+        bodies.push(body);
+        return {
+          ok: true,
+          json: async () =>
+            body.orderNumber
+              ? {
+                  order: {
+                    ...order,
+                    shipments: [
+                      {
+                        id,
+                        version: 3,
+                        state: "delivered",
+                        carrier: "UPS",
+                        trackingReference: "TYPO",
+                        dispatchedAt: null,
+                        deliveredAt: null,
+                        items: [],
+                      },
+                    ],
+                  },
+                }
+              : { status: "applied" },
+        };
+      }),
+    );
+    render(<ManualShipmentConsole enabled />);
+    fireEvent.change(screen.getByLabelText("Order number"), {
+      target: { value: "HX-1" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Find order" }));
+    const status = await screen.findByLabelText("Next status");
+    expect(status).toHaveValue("delivered");
+    fireEvent.change(screen.getByLabelText("Tracking reference"), {
+      target: { value: "CORRECT" },
+    });
+    fireEvent.change(screen.getByLabelText(/Correction reason/), {
+      target: { value: "Tracking typo" },
+    });
+    fireEvent.submit(status.closest("form")!);
+    await screen.findByText("Shipment record saved. No email was sent.");
+    expect(bodies[1]).toMatchObject({
+      state: "delivered",
+      expectedVersion: 3,
+      trackingReference: "CORRECT",
+      correctionReason: "Tracking typo",
+    });
+  });
   it("labels customer records as manual demo and renders tracking references as text", () => {
     render(
       <ManualShipmentTimeline
