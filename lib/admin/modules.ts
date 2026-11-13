@@ -15,6 +15,15 @@ export type AdminModule = {
 
 const ADMIN_MODULE_REGISTRY: readonly AdminModule[] = [
   {
+    id: "shipments",
+    label: "Shipment records",
+    route: "/admin/shipments",
+    description: "Maintain private manual shipment records. No carrier integration.",
+    requiredCapability: ADMIN_CAPABILITIES.fulfillmentManage,
+    navigationOrder: 50,
+    status: "active",
+  },
+  {
     id: "catalog",
     label: "Catalog Editor",
     route: "/admin/catalog",
