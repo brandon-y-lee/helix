@@ -76,7 +76,7 @@ export const homeThreePrinciples = [
     titleLines: ["Formulated", "for longevity."],
     description:
       "Developed with award-winning dermatologists, chemists, and industry leaders.",
-    cta: { label: "our formulations", href: "/about#quality-heading" },
+    cta: { label: "our formulas", href: "/about#quality-heading" },
     image: { src: HOME_INNOVATION_IMAGE, position: "50% 50%", fit: "contain" },
   },
   {

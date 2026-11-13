@@ -20,7 +20,7 @@ describe("HomeThreePrinciples input changes", () => {
 
     fireEvent.pointerMove(innovation);
     expect(innovation).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("link", { name: "our formulations" })).toHaveAttribute("href", "/about#quality-heading");
+    expect(screen.getByRole("link", { name: "our formulas" })).toHaveAttribute("href", "/about#quality-heading");
 
     fireEvent.focus(mission);
     fireEvent.pointerEnter(sustainability);
@@ -60,7 +60,7 @@ describe("HomeThreePrinciples input changes", () => {
     fireEvent(innovation, touch("pointerup"));
     fireEvent.click(innovation, { detail: 1 });
     expect(innovation).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("link", { name: "our formulations" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "our formulas" })).toBeInTheDocument();
   });
 
   it("moves focus from an outgoing CTA to the newly selected control before hiding its panel", () => {
@@ -75,6 +75,6 @@ describe("HomeThreePrinciples input changes", () => {
     expect(outgoing.parentElement).toHaveAttribute("inert");
     expect(outgoing.parentElement).toHaveAttribute("aria-hidden", "true");
     expect(screen.queryByRole("link", { name: "our values" })).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "our formulations" }).parentElement).toHaveAttribute("id", innovation.getAttribute("aria-controls"));
+    expect(screen.getByRole("link", { name: "our formulas" }).parentElement).toHaveAttribute("id", innovation.getAttribute("aria-controls"));
   });
 });

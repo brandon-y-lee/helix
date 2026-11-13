@@ -357,7 +357,7 @@ test("Three Principles retain selection with eased labels, copy and a one-frame 
     await expect(slides.nth(index)).toHaveCSS("opacity", "0");
   }
   await expect(slides.nth(1)).toHaveCSS("opacity", "1");
-  await expect(page.getByRole("link", { name: "our formulations", exact: true }))
+  await expect(page.getByRole("link", { name: "our formulas", exact: true }))
     .toHaveAttribute("href", "/about#quality-heading");
   await expect(page.getByRole("link", { name: "our values", exact: true })).toHaveCount(0);
   await expect.poll(() => rail.evaluate((element) => {
@@ -417,7 +417,7 @@ test("Three Principles selection is immediate with reduced motion", async ({
       (element) => getComputedStyle(element).transitionDuration,
     ))).toBeLessThanOrEqual(1);
   }
-  await expect(page.getByRole("link", { name: "our formulations", exact: true }))
+  await expect(page.getByRole("link", { name: "our formulas", exact: true }))
     .toHaveAttribute("href", "/about#quality-heading");
   expect(await rail.evaluate((element) => {
     const frame = element.parentElement!.getBoundingClientRect();
