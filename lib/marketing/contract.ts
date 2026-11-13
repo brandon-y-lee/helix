@@ -3,7 +3,7 @@ import { isEmailAddress, type EmailEnvironment } from "@/lib/email/config";
 export const MARKETING_PURPOSES = ["marketing_confirmation", "welcome_initial", "welcome_education"] as const;
 export type MarketingPurpose = typeof MARKETING_PURPOSES[number];
 export type MarketingTemplateContract = {
-  version: "welcome_v1";
+  version: "welcome_v1" | "lifecycle_v1";
   siteOrigin: string;
   from: string;
   replyTo: string;
@@ -28,7 +28,7 @@ function only(value: Record<string, unknown>, keys: string[]) { return Object.ke
 
 export function parseMarketingTemplateContract(value: unknown): MarketingTemplateContract {
   if (!object(value) || !only(value, ["version", "siteOrigin", "from", "replyTo", "postalAddress", "topicId", "templates"])
-    || value.version !== "welcome_v1" || typeof value.siteOrigin !== "string" || typeof value.from !== "string"
+    || (value.version !== "welcome_v1" && value.version !== "lifecycle_v1") || typeof value.siteOrigin !== "string" || typeof value.from !== "string"
     || typeof value.replyTo !== "string" || !isEmailAddress(value.replyTo) || typeof value.postalAddress !== "string"
     || value.postalAddress.trim().length < 5 || value.postalAddress.length > 500 || /[\r\n<>]/.test(value.postalAddress)
     || typeof value.topicId !== "string" || !UUID.test(value.topicId) || !object(value.templates)
@@ -44,10 +44,12 @@ export function parseMarketingTemplateContract(value: unknown): MarketingTemplat
   }
   return value as MarketingTemplateContract;
 }
-export function readMarketingTemplateContract(env: EmailEnvironment) {
-  const raw = env.HELIX_EMAIL_MARKETING_CONTRACT ?? "";
+export function readMarketingTemplateContract(env: EmailEnvironment, scope: "welcome" | "lifecycle" = "welcome") {
+  const raw = (scope === "lifecycle" ? env.HELIX_EMAIL_LIFECYCLE_CONTRACT : env.HELIX_EMAIL_MARKETING_CONTRACT) ?? "";
   if (raw.length > 16_384) throw new Error("Marketing template approval is invalid.");
-  return parseMarketingTemplateContract(JSON.parse(raw));
+  const contract = parseMarketingTemplateContract(JSON.parse(raw));
+  if (contract.version !== (scope === "lifecycle" ? "lifecycle_v1" : "welcome_v1")) throw new Error("Marketing scope approval differs.");
+  return contract;
 }
 export function parseMarketingReceipt(value: unknown): MarketingReceipt {
   if (!object(value) || value.schemaVersion !== 1 || typeof value.subscriberId !== "string" || !UUID.test(value.subscriberId)

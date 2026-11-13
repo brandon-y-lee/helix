@@ -44,7 +44,7 @@ export async function renderMarketingMessage(purpose: MarketingPurpose, rawRecei
   const confirmation = purpose === "marketing_confirmation";
   const token = confirmation ? receipt.confirmationToken : receipt.preferenceToken;
   if (!token) throw new MarketingProviderError("provider_contract_invalid");
-  const url = `${contract.siteOrigin}/email-preferences?${confirmation ? "confirm" : "unsubscribe"}=${token}`;
+  const url = `${contract.siteOrigin}/email-preferences?${confirmation ? "confirm" : "unsubscribe"}=${token}${contract.version === "lifecycle_v1" ? "&scope=lifecycle" : ""}`;
   const required = confirmation ? "HELIX_CONFIRM_URL" : "HELIX_PREFERENCES_URL";
   const hasVariable = (body: string, name: string) => body.includes(`{{${name}}}`) || body.includes(`{{{${name}}}}`);
   if (![native.html, native.text].every((body) => hasVariable(body, required))

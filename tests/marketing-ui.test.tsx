@@ -66,7 +66,7 @@ describe("marketing subscription and preferences", () => {
       expect.objectContaining({
         method: "POST",
         referrerPolicy: "no-referrer",
-        body: JSON.stringify({ token: "synthetic-confirmation" }),
+        body: JSON.stringify({ token: "synthetic-confirmation", scope: "welcome" }),
       }),
     );
     expect(await screen.findByRole("status")).toHaveTextContent(
@@ -330,4 +330,14 @@ describe("marketing subscription and preferences", () => {
       expect(document.body).not.toHaveTextContent(/first|second/);
     },
   );
+});
+
+it("submits lifecycle scope only alongside its explicit behavioral consent display", async () => {
+  const fetch=vi.fn().mockResolvedValue(new Response(JSON.stringify({ok:true})));
+  vi.stubGlobal("fetch",fetch);
+  render(<EmailPreferences confirmToken="synthetic-lifecycle" lifecycle />);
+  expect(screen.getByText(/We use your signed-in product visits and cart activity/)).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button",{name:"Confirm subscription"}));
+  expect(fetch).toHaveBeenCalledWith("/api/marketing/confirm",expect.objectContaining({body:JSON.stringify({token:"synthetic-lifecycle",scope:"lifecycle"})}));
+  vi.unstubAllGlobals();
 });
