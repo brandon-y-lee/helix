@@ -6,8 +6,20 @@ create table private.product_reviews (
  product_id uuid not null references public.products(id), order_item_id uuid not null references public.order_items(id),
  environment text not null check(environment in ('sandbox','live')), revision integer not null default 0,
  published_revision integer, status text not null check(status in ('pending','published','rejected','withdrawn')),
- offer_notice boolean not null default false, created_at timestamptz not null default now(), unique(user_id,product_id)
+ offer_notice boolean not null default false, created_at timestamptz not null default now(), unique(user_id,product_id,environment)
 );
+-- Provenance is captured from the verified purchase once and can never be promoted.
+create function private.protect_product_review_provenance()
+returns trigger language plpgsql set search_path='' as $$
+begin
+ if (new.user_id,new.product_id,new.order_item_id,new.environment) is distinct from
+    (old.user_id,old.product_id,old.order_item_id,old.environment) then
+ raise exception 'review provenance is immutable' using errcode='23514'; end if;
+ return new;
+end $$;
+revoke all on function private.protect_product_review_provenance() from public,anon,authenticated,service_role;
+create trigger product_review_provenance_immutable before update on private.product_reviews
+for each row execute function private.protect_product_review_provenance();
 create table private.product_review_revisions (
  review_id uuid not null references private.product_reviews(id), revision integer not null,
  display_name text not null check(length(display_name) between 1 and 60), rating integer not null check(rating between 1 and 5),
@@ -44,7 +56,7 @@ begin
  where i.id=p_order_item_id and i.product_id is not null and o.user_id=p_user_id and o.status in ('paid','refunded')
  and exists(select 1 from private.checkout_verified_payments v where v.order_id=o.id and v.session_id=o.stripe_checkout_session_id);
  if not found then raise exception 'verified purchase required' using errcode='42501'; end if;
- select * into v_review from private.product_reviews where user_id=p_user_id and product_id=v_item.product_id for update;
+ select * into v_review from private.product_reviews where user_id=p_user_id and product_id=v_item.product_id and environment=v_item.environment for update;
  if coalesce(v_review.revision,0)<>p_expected_revision then raise exception 'review revision conflict' using errcode='40001'; end if;
  if (select count(*) from private.product_review_audit where actor_id=p_user_id and action='submitted' and created_at>now()-interval '1 minute')>=5 then raise exception 'review rate limited' using errcode='54000'; end if;
  if v_review.id is null then
@@ -101,14 +113,14 @@ $$;
 create function public.read_owned_product_reviews(p_user_id uuid)
 returns jsonb language sql stable security definer set search_path='' as $$
  select coalesce(jsonb_agg(x),'[]'::jsonb) from (
- select distinct on(i.product_id) i.id as "orderItemId",i.product_name as "productName",i.product_slug as "productSlug",r.id,r.revision,r.status,r.environment,
+ select distinct on(i.product_id,o.checkout_environment) i.id as "orderItemId",i.product_name as "productName",i.product_slug as "productSlug",r.id,r.revision,r.status,o.checkout_environment::text as environment,
  v.display_name as "displayName",v.rating,v.title,v.body
  from public.order_items i join public.orders o on o.id=i.order_id
- left join private.product_reviews r on r.user_id=p_user_id and r.product_id=i.product_id
+ left join private.product_reviews r on r.user_id=p_user_id and r.product_id=i.product_id and r.environment=o.checkout_environment::text
  left join private.product_review_revisions v on v.review_id=r.id and v.revision=(select max(revision) from private.product_review_revisions where review_id=r.id)
  where o.user_id=p_user_id and i.product_id is not null and o.status in ('paid','refunded')
  and exists(select 1 from private.checkout_verified_payments vp where vp.order_id=o.id and vp.session_id=o.stripe_checkout_session_id)
- order by i.product_id,i.id limit 100) x;
+ order by i.product_id,o.checkout_environment,i.id limit 100) x;
 $$;
 create function public.read_product_review_queue(p_actor_id uuid)
 returns jsonb language plpgsql stable security definer set search_path='' as $$

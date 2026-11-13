@@ -70,37 +70,40 @@ try {
  SET ROLE anon; DO $$BEGIN BEGIN PERFORM * FROM private.product_reviews;RAISE EXCEPTION 'private table escaped';EXCEPTION WHEN insufficient_privilege THEN NULL;END;END$$;RESET ROLE;`);
   // Real overlapping transactions must serialize on the account lock; a retry cannot create another vote.
   const statement = `SET ROLE service_role; SELECT submit_product_review(tid(2),tid(32),0,'Jo',3,'Mixed','Some things worked, some did not.',true);`;
-  const first = spawn("docker", args, { stdio: ["pipe", "pipe", "pipe"] });
-  let firstOutput = "";
-  first.stdout.on("data", (x) => (firstOutput += x));
-  let firstError = "";
-  first.stderr.on("data", (x) => (firstError += x));
-  const firstDone = new Promise((resolve) => first.on("close", resolve));
-  first.stdin.write(`BEGIN;${statement}\n\\echo held\n`);
-  const deadline = Date.now() + 8000;
-  while (!firstOutput.includes("held")) {
-    assert.ok(Date.now() < deadline, firstError || "first lock timeout");
-    await new Promise((r) => setTimeout(r, 20));
+  async function concurrentSubmission(statement) {
+    const first = spawn("docker", args, { stdio: ["pipe", "pipe", "pipe"] });
+    let firstOutput = "";
+    first.stdout.on("data", (x) => (firstOutput += x));
+    let firstError = "";
+    first.stderr.on("data", (x) => (firstError += x));
+    const firstDone = new Promise((resolve) => first.on("close", resolve));
+    first.stdin.write(`BEGIN;${statement}\n\\echo held\n`);
+    const deadline = Date.now() + 8000;
+    while (!firstOutput.includes("held")) {
+      assert.ok(Date.now() < deadline, firstError || "first lock timeout");
+      await new Promise((r) => setTimeout(r, 20));
+    }
+    const second = spawn("docker", args, { stdio: ["pipe", "pipe", "pipe"] });
+    let secondError = "";
+    second.stderr.on("data", (x) => (secondError += x));
+    const secondDone = new Promise((resolve) => second.on("close", resolve));
+    second.stdin.end(
+      `SET application_name='public-review-contender';${statement}`,
+    );
+    while (
+      sql(
+        `select exists(select 1 from pg_stat_activity where datname=current_database() and application_name='public-review-contender' and wait_event_type='Lock')`,
+      ).trim() !== "t"
+    ) {
+      assert.ok(Date.now() < deadline, "contender did not lock");
+      await new Promise((r) => setTimeout(r, 20));
+    }
+    first.stdin.end("COMMIT;");
+    assert.equal(await firstDone, 0);
+    assert.notEqual(await secondDone, 0);
+    assert.match(secondError, /revision conflict/);
   }
-  const second = spawn("docker", args, { stdio: ["pipe", "pipe", "pipe"] });
-  let secondError = "";
-  second.stderr.on("data", (x) => (secondError += x));
-  const secondDone = new Promise((resolve) => second.on("close", resolve));
-  second.stdin.end(
-    `SET application_name='public-review-contender';${statement}`,
-  );
-  while (
-    sql(
-      `select exists(select 1 from pg_stat_activity where datname=current_database() and application_name='public-review-contender' and wait_event_type='Lock')`,
-    ).trim() !== "t"
-  ) {
-    assert.ok(Date.now() < deadline, "contender did not lock");
-    await new Promise((r) => setTimeout(r, 20));
-  }
-  first.stdin.end("COMMIT;");
-  assert.equal(await firstDone, 0);
-  assert.notEqual(await secondDone, 0);
-  assert.match(secondError, /revision conflict/);
+  await concurrentSubmission(statement);
   sql(
     `SELECT check_review((select count(*)=1 from private.product_reviews where user_id=tid(2)));`,
   );
@@ -133,10 +136,41 @@ try {
  SELECT check_review((read_public_product_reviews('synthetic-serum')->>'count')::int=1);
  SELECT check_review((read_public_product_reviews('synthetic-serum')->>'average')::numeric=2);
  RESET ROLE;
- -- Even corrupted review-only provenance cannot turn a sandbox purchase into a public review.
- UPDATE private.product_reviews SET environment='live' WHERE user_id=tid(2);
- SET ROLE service_role; SELECT moderate_product_review(tid(5),(SELECT (read_owned_product_reviews(tid(2))->0->>'id')::uuid),1,'published');
- SELECT check_review((read_public_product_reviews('synthetic-serum')->>'count')::int=1);RESET ROLE;`);
+ -- Provenance cannot be changed even by a direct table update.
+ DO $$BEGIN BEGIN UPDATE private.product_reviews SET environment='live' WHERE user_id=tid(2);RAISE EXCEPTION 'provenance mutation escaped';EXCEPTION WHEN check_violation THEN NULL;END;END$$;
+ -- Same account/product can rehearse and later submit a genuinely paid purchase independently.
+ INSERT INTO public.orders(id,order_number,user_id,status,merchandise_subtotal_cents,total_cents,idempotency_key,stripe_checkout_session_id,checkout_environment)
+ VALUES(tid(41),'REV-LIVE-2',tid(2),'paid',100,100,'review-live-2','cs_review_live_2','live');
+ INSERT INTO public.order_items(id,order_id,product_id,product_slug,product_name,variant_key,variant_label,unit_price_cents,quantity,line_subtotal_cents)
+ VALUES(tid(42),tid(41),tid(10),'synthetic-serum','Synthetic serum','one','One',100,1,100);
+ INSERT INTO private.checkout_verified_payments(order_id,session_id,contract_version,payment_intent_id,discount_cents,shipping_cents,tax_cents,total_cents,tax_breakdown,shipping_name,shipping_address)
+ VALUES(tid(41),'cs_review_live_2','checkout_v2','pi_review_live_2',0,0,0,100,'[]','Synthetic','{}');
+ SET ROLE service_role;
+ SELECT check_review(jsonb_array_length(read_owned_product_reviews(tid(2)))=2);
+ SELECT check_review((SELECT count(*)=1 FROM jsonb_array_elements(read_owned_product_reviews(tid(2))) x WHERE x->>'environment'='live' AND x->>'id' IS NULL));
+ RESET ROLE;`);
+  await concurrentSubmission(
+    `SET ROLE service_role; SELECT submit_product_review(tid(2),tid(42),0,'Jo',4,'Live purchase','My genuine purchase experience.',true);`,
+  );
+  sql(`SET ROLE service_role;
+ DO $$BEGIN BEGIN PERFORM submit_product_review(tid(2),tid(42),0,'Jo',5,'Duplicate','Duplicate genuine purchase.',true);RAISE EXCEPTION 'live duplicate escaped';EXCEPTION WHEN serialization_failure THEN NULL;END;END$$;
+ RESET ROLE;
+ SELECT check_review((select count(*)=2 from private.product_reviews where user_id=tid(2)));
+ DO $$DECLARE live_id uuid; demo_id uuid; BEGIN
+ SELECT id INTO live_id FROM private.product_reviews WHERE user_id=tid(2) AND environment='live';
+ SELECT id INTO demo_id FROM private.product_reviews WHERE user_id=tid(2) AND environment='sandbox';
+ PERFORM moderate_product_review(tid(5),live_id,1,'published');
+ PERFORM moderate_product_review(tid(5),demo_id,1,'published');
+ PERFORM check_review((read_public_product_reviews('synthetic-serum')->>'count')::int=2);
+ PERFORM submit_product_review(tid(2),tid(32),1,'Jo',1,'Demo edit','Only change the demo review.',true);
+ PERFORM check_review((SELECT revision=1 AND status='published' FROM private.product_reviews WHERE id=live_id));
+ PERFORM withdraw_product_review(tid(2),demo_id,2);
+ PERFORM check_review((read_public_product_reviews('synthetic-serum')->>'count')::int=2);
+ PERFORM submit_product_review(tid(2),tid(42),1,'Jo',3,'Live edit','Only change the genuine review.',true);
+ PERFORM check_review((SELECT revision=3 AND status='withdrawn' FROM private.product_reviews WHERE id=demo_id));
+ PERFORM moderate_product_review(tid(5),live_id,2,'published');
+ PERFORM check_review((read_public_product_reviews('synthetic-serum')->>'average')::numeric=2.5);
+ END$$;`);
   console.log(
     "Public review SQL: ownership, consent/revision, neutral publication, sandbox exclusion, withdrawal fencing, RLS concurrent dedupe, publication gate, complete aggregates, pagination and order provenance passed.",
   );

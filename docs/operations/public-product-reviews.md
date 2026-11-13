@@ -11,7 +11,7 @@ Source implementation only. No migration was applied remotely, no customer revie
 
 `HELIX_PUBLIC_REVIEWS_ENABLED=true` enables the application surfaces and submission routes only. It defaults off. Independent database `private.product_review_control.publication_enabled` defaults false and has no customer/operator HTTP toggle. Enabling the application alone never enables public publication. Actual activation needs a separately reviewed migration/environment manifest and authorization.
 
-A purchase must belong to the authenticated, email-confirmed account and have immutable checkout verified-payment evidence bound to its stored session. Refunds do not erase a genuine past purchase. One review exists per account/product; keep sandbox rehearsal accounts separate from future real customer accounts. Initial scope does not claim guest purchases by an email typed into the browser.
+A purchase must belong to the authenticated, email-confirmed account and have immutable checkout verified-payment evidence bound to its stored session. Refunds do not erase a genuine past purchase. One review exists per account/product/immutable purchase provenance. Sandbox rehearsal and genuine purchases by the same account have separate review identities; neither can overwrite or occupy the other. Initial scope does not claim guest purchases by an email typed into the browser.
 
 The current checkout accepts sandbox orders only. Their reviews can exercise private submission/moderation but are permanently excluded from the genuine PDP projection. The projection checks both review provenance and original Order provenance; changing a review field or application flag cannot convert a demo purchase into a public endorsement. This change does not enable live Stripe checkout. Live commerce remains a separate prerequisite.
 
@@ -25,7 +25,7 @@ No email invitation, discount or delivery event is created here. `offer_notice` 
 
 ## Reliability and proof
 
-Submission serializes per account with a database advisory lock and expected revision, then atomically writes revision/audit state. The unique account/product constraint is a second dedupe guard. Requests are bounded and same-origin; identity and moderation authority are server-derived and rechecked in SQL. Submission is limited to five accepted revisions per minute per account. Read/mutation functions have fixed search paths and service-only grants; private tables are RLS-enabled with no direct client grants.
+Submission serializes per account with a database advisory lock and expected revision, then atomically writes revision/audit state. The unique account/product/provenance constraint is a second dedupe guard. Requests are bounded and same-origin; identity and moderation authority are server-derived and rechecked in SQL. Submission is limited to five accepted revisions per minute per account. Read/mutation functions have fixed search paths and service-only grants; private tables are RLS-enabled with no direct client grants.
 
 Run focused proof:
 
@@ -46,4 +46,4 @@ Passed: 14 focused review/PDP unit and interaction tests; 9 focused admin capabi
 
 The first complete Vitest run overlapped another worktree's full run and was interrupted at the delivery lead's direction (exit 130). Observed timeout failures were in unchanged `storefront-reconciliation.test.ts` (2) and `catalog-editor-sections.test.tsx` (7); the latter reached 178 seconds under contention. This is NOT a full-suite pass and does not establish those failures are harmless. Rerun serially after review fixes, without relaxing timeouts. The production build and new browser test have not run; they remain required verification.
 
-Pending reviewed design delta: environment-scoped uniqueness may replace the current strict account/product uniqueness so a separate sandbox rehearsal cannot occupy a future genuine review. The current candidate has not implemented that unapproved delta.
+Approved provenance delta implemented: submission and owned reads scope by server-derived purchase environment; immutable review provenance prevents promotion, and ID-scoped moderation/withdrawal cannot affect the other environment. Synthetic and future-live SQL fixtures verify isolation for the same account/product.
