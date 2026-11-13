@@ -29,11 +29,26 @@ const addition=`
   sql(fixture.split('-- APPLY PAYMENT CONTRACT MIGRATION')[0].replace("INSERT INTO public.system_steps VALUES ('TREAT', 3, 'core');","INSERT INTO public.system_steps VALUES ('TREAT', 3, 'core') ON CONFLICT DO NOTHING;"));
   migration('_checkout_single_send.sql');
   migration('_lifecycle_offer_entitlements.sql');
+  migration('_lifecycle_campaigns.sql');
   sql('GRANT SELECT,INSERT,UPDATE ON auth.users TO service_role;');
   const start=fixture.indexOf('CREATE FUNCTION payment_contract_test.facts(');const end=fixture.indexOf('\\n$$;',start)+4;assert.ok(start>=0&&end>start);sql(fixture.slice(start,end));
 `;
 const tail=`
   sql(source('supabase/tests/lifecycle_offers.integration.sql').replaceAll('lifecycle_test','offer_test'));
+  sql(source('supabase/tests/lifecycle_campaigns.integration.sql'));
+  console.error('campaign race: admission');
+  const campaignAdmissions=await concurrentLocked("SET ROLE service_role; SELECT campaign_test.admit(600,'cart');");
+  assert.equal(sql("SELECT count(*) FROM private.email_intents WHERE recipient='campaign600@example.invalid' AND purpose='lifecycle_cart';").trim(),'1');
+  console.error('campaign race: capacity');
+  const campaignCaps=await concurrentLocked("SET ROLE service_role; SELECT campaign_test.capacity(603,603);","SET ROLE service_role; SELECT campaign_test.capacity(603,604);");
+  assert.ok(campaignCaps[0].includes('true')&&campaignCaps[1].includes('frequency_limited'));
+  console.error('campaign race: withdrawal');
+  await concurrentLocked("SET ROLE service_role; SELECT public.withdraw_marketing_subscription(rpad('pref601',43,'0'),'global');","SET ROLE service_role; SELECT campaign_test.prepare(601);");
+  assert.equal(sql("SELECT first_attempt_at IS NULL FROM private.email_intents WHERE recipient='campaign601@example.invalid' AND purpose='lifecycle_browse';").trim(),'t');
+  console.error('campaign race: payment');
+  await concurrentLocked("SET ROLE service_role; SELECT public.finalize_verified_checkout_payment(payment_contract_test.id('order',602),(public.read_pending_checkout_attempt(payment_contract_test.id('order',602))->>'attemptId')::uuid,'cs_test_contract602','checkout_v2',payment_contract_test.facts(602)||jsonb_build_object('discountCents',250,'totalCents',2990),22);","SET ROLE service_role; SELECT campaign_test.prepare(602);");
+  assert.equal(sql("SELECT status FROM public.orders WHERE id=payment_contract_test.id('order',602);").trim(),'paid');
+  assert.equal(sql("SELECT first_attempt_at IS NULL FROM private.email_intents WHERE recipient='buyer602@example.invalid' AND purpose='lifecycle_browse';").trim(),'t');
   const grants=await concurrentLocked("SET ROLE service_role; SELECT public.grant_lifecycle_offer('cart','combined@example.invalid','same-combined-source','coupon_cart');");
   assert.equal(sql("SELECT count(*) FROM private.lifecycle_offers WHERE email='combined@example.invalid';").trim(),'1');
   sql('SET ROLE service_role; SELECT offer_test.seed(520,510); SELECT offer_test.seed(521,510);');
@@ -49,4 +64,4 @@ harness=harness.replace(${JSON.stringify(assertionsAnchor)},()=>${JSON.stringify
 wrapper=once(wrapper,'const output=execFileSync',injection+'const output=execFileSync');
 const output=execFileSync(process.execPath,['--input-type=module','-',container],{input:wrapper,encoding:'utf8',maxBuffer:8*1024*1024});
 assert.equal(JSON.parse(output).status,'passed');
-console.log(JSON.stringify({status:'passed',postgresMajor:17,combinedConsentAndOffers:true,priorNotificationContracts:true,actualOfferLockRaces:2,providerMutations:0}));
+console.log(JSON.stringify({status:'passed',postgresMajor:17,combinedConsentAndOffers:true,priorNotificationContracts:true,actualOfferLockRaces:2,actualCampaignLockRaces:4,providerMutations:0}));

@@ -221,7 +221,7 @@ for (const viewport of viewports) {
     await expect(confirm).toBeEnabled();
     expect(submissions).toHaveLength(1);
     expectPrivateSubmission(page, submissions[0], "/api/marketing/confirm", {
-      token,
+      token, scope: "welcome",
     });
 
     await confirm.click();
@@ -232,7 +232,7 @@ for (const viewport of viewports) {
     await expect(confirm).toHaveCount(0);
     expect(submissions).toHaveLength(2);
     expectPrivateSubmission(page, submissions[1], "/api/marketing/confirm", {
-      token,
+      token, scope: "welcome",
     });
     await expectFitsViewport(page, viewport.width);
   });

@@ -1,0 +1,12 @@
+/** Review/publish these sources as native templates, then pin IDs + fingerprints.
+ * Not a fallback sender: runtime only renders the independently approved native version. */
+const footer='<p><a href="{{{HELIX_PREFERENCES_URL}}}">Email preferences and unsubscribe</a></p><p>{{{HELIX_POSTAL_ADDRESS}}}</p>';
+const textFooter='\n\nEmail preferences and unsubscribe: {{{HELIX_PREFERENCES_URL}}}\n{{{HELIX_POSTAL_ADDRESS}}}';
+const frame=(body:string)=>`<!doctype html><html lang="en"><head><meta charset="utf-8"><title>helix</title></head><body style="margin:0;background:#f4f3ef;color:#171717;font:16px/1.6 Arial,sans-serif"><main style="max-width:560px;margin:32px auto;padding:28px"><p style="font-size:28px">helix</p>${body}${footer}</main></body></html>`;
+const offerHtml='<p>{{{HELIX_OFFER_PERCENT}}}% off your next eligible purchase.</p><p>{{{HELIX_OFFER_TERMS}}}</p><p>Offer expires: {{{HELIX_OFFER_EXPIRES_AT}}}</p><p><a href="{{{HELIX_CART_URL}}}">View your cart</a></p>';
+const offerText='\n{{{HELIX_OFFER_PERCENT}}}% off your next eligible purchase.\n{{{HELIX_OFFER_TERMS}}}\nOffer expires: {{{HELIX_OFFER_EXPIRES_AT}}}\nView your cart: {{{HELIX_CART_URL}}}';
+export const lifecycleTemplateSources={
+ lifecycle_welcome:{subject:'Welcome to helix: your first-purchase offer',html:frame('<h1>Start with your skin.</h1><p>Your welcome offer is ready.</p>'+offerHtml),text:'helix\nStart with your skin. Your welcome offer is ready.'+offerText+textFooter},
+ lifecycle_cart:{subject:'Your helix routine is waiting',html:frame('<h1>Make room for your routine.</h1><p>You left something in your cart.</p>'+offerHtml),text:'helix\nYou left something in your cart.'+offerText+textFooter},
+ lifecycle_browse:{subject:'Take another look at {{{HELIX_PRODUCT_NAME}}}',html:frame('<h1>{{{HELIX_PRODUCT_NAME}}}</h1><p>The product you viewed is available.</p><p><a href="{{{HELIX_PRODUCT_URL}}}">Explore {{{HELIX_PRODUCT_NAME}}}</a></p>'),text:'helix\n{{{HELIX_PRODUCT_NAME}}}\nThe product you viewed is available.\nExplore: {{{HELIX_PRODUCT_URL}}}'+textFooter}
+};

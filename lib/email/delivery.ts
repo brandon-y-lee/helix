@@ -1,4 +1,5 @@
 import "server-only";
+import { readLifecycleOfferForDelivery } from "@/lib/offers/server";
 import { randomUUID } from "node:crypto";
 import { renderOrderConfirmation } from "@/lib/email/order-confirmation";
 import { renderOrderTracking } from "@/lib/email/order-tracking";
@@ -60,8 +61,14 @@ export async function dispatchEmailIntents({ storage, send, env }: EmailDelivery
         payload = { ...content, to: [intent.recipient],
           tags: [{ name: "helix_environment", value: "sandbox" }, { name: "helix_message_id", value: intent.id }] };
       }
-      if (intent.purpose === "welcome_initial" || intent.purpose === "welcome_education") {
+      if (marketingIntent(intent) && intent.purpose !== "marketing_confirmation") {
         const receipt = parseMarketingReceipt(intent.receipt);
+        if (intent.purpose.startsWith("lifecycle_") && !intent.firstAttemptAt && receipt.lifecycle?.kind !== "browse") {
+          if (!receipt.lifecycle?.offerId || !await readLifecycleOfferForDelivery(receipt.lifecycle.offerId,intent.recipient)) {
+            await storage.finish(intent.id,intent.leaseToken,{kind:"blocked",code:"lifecycle_offer_unavailable"});
+            result.blocked++; continue;
+          }
+        }
         eligibility = await verifyMarketingPreferences({ subscriberId: receipt.subscriberId, generation: receipt.generation,
           revision: receipt.revision, topicId: receipt.templateContract.topicId },
         { storage: marketingServiceStorage, provider: resendMarketingContacts, env });
