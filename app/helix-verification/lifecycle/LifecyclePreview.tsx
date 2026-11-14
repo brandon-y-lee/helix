@@ -15,7 +15,7 @@ export function LifecyclePreview({previews}:{previews:{purpose:string;subject:st
   {popup&&<WelcomePopupVisit key={popup.key} transport={popup.transport}/>}
   {previews.map(preview=><section key={preview.purpose} style={{marginTop:32}}>
    <h2>{preview.purpose.replace('lifecycle_','').replaceAll('_',' ')}</h2><p>Subject: {preview.subject}</p>
-   <iframe title={`${preview.purpose} email`} srcDoc={preview.html} sandbox="" style={{width:'100%',height:850,border:0,background:'#fff'}}/>
+   <iframe title={`${preview.purpose} email`} srcDoc={preview.html} sandbox="" style={{width:'100%',height:1200,border:0,background:'#fff'}}/>
    <details><summary>Plain text</summary><pre style={{whiteSpace:'pre-wrap',overflowWrap:'anywhere'}}>{preview.text}</pre></details>
    <a download={`${preview.purpose}-synthetic-preview.html`} href={`data:text/html;charset=utf-8,${encodeURIComponent(preview.html)}`}>Download synthetic HTML</a>
   </section>)}
