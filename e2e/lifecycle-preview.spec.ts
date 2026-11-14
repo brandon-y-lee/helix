@@ -15,6 +15,9 @@ for(const width of [390,1440]){
    const iframe=page.locator(`iframe[title="lifecycle_${kind} email"]`);
    const frame=page.frameLocator(`iframe[title="lifecycle_${kind} email"]`);
    await expect(frame.locator('h1')).toBeVisible();
+   await expect(frame.locator('img[alt="helix"]')).toBeVisible();
+   expect(await frame.locator('img').evaluate(el=>(el as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+   expect(await frame.locator('h1').evaluate(async el=>{await el.ownerDocument.fonts.load('32px Marcellus');return el.ownerDocument.fonts.check('32px Marcellus');})).toBe(true);
    const result=await frame.locator('body').evaluate(body=>{
     const doc=body.ownerDocument;
     return {backgrounds:[doc.documentElement,body,...doc.querySelectorAll('table,td,main')].map(el=>getComputedStyle(el).backgroundColor),ink:getComputedStyle(body).color,links:[...doc.querySelectorAll('a')].map(el=>getComputedStyle(el).color),overflow:doc.documentElement.scrollWidth>doc.documentElement.clientWidth,hrefs:doc.querySelectorAll('[href]').length,height:doc.documentElement.scrollHeight};

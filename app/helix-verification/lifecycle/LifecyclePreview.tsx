@@ -19,6 +19,6 @@ export function LifecyclePreview({previews}:{previews:{purpose:string;subject:st
    <details><summary>Plain text</summary><pre style={{whiteSpace:'pre-wrap',overflowWrap:'anywhere'}}>{preview.text}</pre></details>
    <a download={`${preview.purpose}-synthetic-preview.html`} href={`data:text/html;charset=utf-8,${encodeURIComponent(preview.html)}`}>Download synthetic HTML</a>
   </section>)}
-  <p>White-only browser preview. Email clients may transform or strip styles; Gmail, Outlook and Apple Mail rendering has not been tested. Draft HTML changes require separately reviewed native-template publication and new approval fingerprints before activation.</p>
+  <p>White-only browser preview. Marcellus uses a Georgia fallback in email clients that do not support web fonts. Downloaded previews require these local image and font assets and are not self-contained. Email clients may transform or strip styles; Gmail, Outlook and Apple Mail rendering has not been tested. Draft HTML changes require separately reviewed native-template publication and new approval fingerprints before activation.</p>
  </section>;
 }

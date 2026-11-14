@@ -64,8 +64,18 @@ export async function renderMarketingMessage(purpose: MarketingPurpose, rawRecei
     } else {
       if (!flow.offerId || !UUID.test(flow.offerId) || !flow.offerExpiresAt || !Number.isFinite(Date.parse(flow.offerExpiresAt))) throw new MarketingProviderError("provider_contract_invalid");
       extra.HELIX_OFFER_PERCENT=flow.kind === "welcome" ? "15" : "10";
-      extra.HELIX_OFFER_EXPIRES_AT=new Date(flow.offerExpiresAt).toISOString();
-      extra.HELIX_OFFER_TERMS=`${extra.HELIX_OFFER_PERCENT}% off USD merchandise only. Excludes shipping and tax. Sign in with a verified account matching this email and select your offer in cart. One use, no stacking. Expires ${extra.HELIX_OFFER_EXPIRES_AT}.${flow.kind === "welcome" ? " First purchase only." : ""}`;
+      // New approved sources opt in; previously pinned sources keep exact ISO output.
+      const readable = [native.html, native.text].map(body => hasVariable(body, "HELIX_OFFER_EXPIRES_LABEL"));
+      if (readable[0] !== readable[1] || (readable[0] && [native.html,native.text].some(body => hasVariable(body,"HELIX_OFFER_EXPIRES_AT")))) throw new MarketingProviderError("provider_contract_invalid");
+      const expires = new Date(flow.offerExpiresAt);
+      const expiryKey = readable[0] ? "HELIX_OFFER_EXPIRES_LABEL" : "HELIX_OFFER_EXPIRES_AT";
+      extra[expiryKey] = readable[0] ? new Intl.DateTimeFormat("en-US", {
+        timeZone: "America/Los_Angeles", month: "long", day: "numeric", year: "numeric",
+        hour: "numeric", minute: "2-digit", hour12: true, timeZoneName: "long",
+        ...(expires.getUTCSeconds() || expires.getUTCMilliseconds() ? { second: "2-digit" as const } : {}),
+        ...(expires.getUTCMilliseconds() ? { fractionalSecondDigits: 3 as const } : {}),
+      }).format(expires) : expires.toISOString();
+      extra.HELIX_OFFER_TERMS=`${extra.HELIX_OFFER_PERCENT}% off USD merchandise only. Excludes shipping and tax. Sign in with a verified account matching this email and select your offer in cart. One use, no stacking. Expires ${extra[expiryKey]}.${flow.kind === "welcome" ? " First purchase only." : ""}`;
       if (flow.kind === "review_winback") {
         extra.HELIX_REVIEW_URL=`${contract.siteOrigin}/account/reviews`;
         extra.HELIX_SHOP_URL=`${contract.siteOrigin}/cart`;
