@@ -16,13 +16,45 @@ function rememberDismissal() {
   try { localStorage.setItem(DISMISSAL_KEY, String(Date.now() + THIRTY_DAYS)); } catch { /* Current view still closes. */ }
 }
 
+export type WelcomePopupSubscription = {
+  email: string;
+  consent: true;
+  scope: "lifecycle" | "lifecycle_reviews";
+  source: "welcome_popup";
+};
+export type WelcomePopupTransport = {
+  readiness(signal: AbortSignal): Promise<unknown>;
+  subscribe(input: WelcomePopupSubscription, signal: AbortSignal): Promise<{ ok: boolean }>;
+  isDismissed(): boolean;
+  rememberDismissal(): void;
+};
+const productionTransport: WelcomePopupTransport = {
+  async readiness(signal) {
+    const response = await fetch("/api/marketing/readiness", {
+      cache: "no-store", credentials: "same-origin", referrerPolicy: "no-referrer", signal,
+    });
+    return response.ok ? response.json() : null;
+  },
+  async subscribe(input, signal) {
+    const response = await fetch("/api/marketing/subscription", {
+      method: "POST", credentials: "same-origin", cache: "no-store", referrerPolicy: "no-referrer",
+      headers: { "Content-Type": "application/json" }, signal,
+      body: JSON.stringify(input),
+    });
+    return { ok: response.ok };
+  },
+  isDismissed: dismissed,
+  rememberDismissal,
+};
+
 export function WelcomePopup() {
   const pathname = usePathname();
   if (pathname !== "/" && !/^\/products\/[^/]+\/?$/.test(pathname)) return null;
   return <WelcomePopupVisit key={pathname} />;
 }
 
-function WelcomePopupVisit() {
+/** Preview callers supply one stable in-memory transport and remount to reset. */
+export function WelcomePopupVisit({ transport = productionTransport }: { transport?: WelcomePopupTransport } = {}) {
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState("");
   const [scope, setScope] = useState<"lifecycle" | "lifecycle_reviews">("lifecycle");
@@ -40,7 +72,7 @@ function WelcomePopupVisit() {
   const modalPresentRef = useRef(modalPresent);
   modalPresentRef.current = modalPresent;
   function close() {
-    rememberDismissal();
+    transport.rememberDismissal();
     submission.current?.abort();
     setOpen(false);
   }
@@ -56,14 +88,11 @@ function WelcomePopupVisit() {
     let alive = true;
     let timeout: ReturnType<typeof setTimeout> | undefined;
     const timer = setTimeout(async () => {
-      if (dismissed() || document.visibilityState !== "visible" || modalPresentRef.current) return;
+      if (transport.isDismissed() || document.visibilityState !== "visible" || modalPresentRef.current) return;
       timeout = setTimeout(() => controller.abort(), 3000);
       try {
-        const response = await fetch("/api/marketing/readiness", {
-          cache: "no-store", credentials: "same-origin", referrerPolicy: "no-referrer", signal: controller.signal,
-        });
-        const result: unknown = response.ok ? await response.json() : null;
-        if (!alive || controller.signal.aborted || dismissed() || modalPresentRef.current || document.visibilityState !== "visible") return;
+        const result: unknown = await transport.readiness(controller.signal);
+        if (!alive || controller.signal.aborted || transport.isDismissed() || modalPresentRef.current || document.visibilityState !== "visible") return;
         if (result && typeof result === "object" && "ready" in result && result.ready === true) {
           const readyScope = "scope" in result ? result.scope : "lifecycle";
           if (readyScope !== "lifecycle" && readyScope !== "lifecycle_reviews") return;
@@ -75,7 +104,7 @@ function WelcomePopupVisit() {
       finally { clearTimeout(timeout); }
     }, 12000);
     return () => { alive = false; clearTimeout(timer); clearTimeout(timeout); controller.abort(); submission.current?.abort(); };
-  }, []);
+  }, [transport]);
 
   useEffect(() => { if (state === "success") resultRef.current?.focus(); }, [state]);
 
@@ -88,14 +117,12 @@ function WelcomePopupVisit() {
     submission.current = controller;
     const timeout = setTimeout(() => controller.abort(), 5000);
     try {
-      const response = await fetch("/api/marketing/subscription", {
-        method: "POST", credentials: "same-origin", cache: "no-store", referrerPolicy: "no-referrer",
-        headers: { "Content-Type": "application/json" }, signal: controller.signal,
-        body: JSON.stringify({ email: email.trim(), consent: true, scope, source: "welcome_popup" }),
-      });
+      const response = await transport.subscribe(
+        { email: email.trim(), consent: true, scope, source: "welcome_popup" }, controller.signal,
+      );
       if (controller.signal.aborted) return;
       if (!response.ok) throw new Error("Unavailable");
-      rememberDismissal();
+      transport.rememberDismissal();
       setEmail("");
       setState("success");
     } catch { if (!controller.signal.aborted) setState("error"); }
