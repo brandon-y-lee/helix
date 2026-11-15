@@ -88,6 +88,9 @@ begin
  if e is null or (e->>'deliveredAt')::timestamptz<greatest(cutoff,g.confirmed_at) then return null; end if;
  due:=(e->>'deliveredAt')::timestamptz+interval '14 days';
  if due>clock_timestamp() then return null; end if;
+ -- Frozen terminal grants cannot be delivered or replaced, even if admission was interrupted.
+ if exists(select 1 from private.lifecycle_offers f where f.kind='review_winback' and f.source_order_id=o.id
+   and (f.expires_at<=clock_timestamp() or f.consumed_at is not null)) then return null; end if;
  if private.lifecycle_unresolved_checkout(s.normalized_email) then return null; end if;
  return e||jsonb_build_object('kind','review_winback','sourceKey','review_winback:'||o.id,'dueAt',due,'productSlug',null,'productName',null);
 end $$;

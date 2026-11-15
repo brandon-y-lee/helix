@@ -160,3 +160,20 @@ DO $$ DECLARE contract text; definition text; malformed text; BEGIN
  END LOOP;
  PERFORM campaign_test.assert(private.guest_review_contracts_ready(),'valid scalar contracts restored');
 END $$;
+
+-- A scheduler crash after grant but before email admission must not starve later orders.
+SELECT review_test.grant(1024);
+ALTER TABLE private.lifecycle_offers DISABLE TRIGGER lifecycle_offer_immutable;
+UPDATE private.lifecycle_offers SET issued_at=clock_timestamp()-interval '20 days',expires_at=clock_timestamp()-interval '6 days'
+ WHERE source_order_id=payment_contract_test.id('order',1024);
+ALTER TABLE private.lifecycle_offers ENABLE TRIGGER lifecycle_offer_immutable;
+DO $$ DECLARE sid uuid; frozen private.lifecycle_offers; BEGIN
+ SELECT id INTO sid FROM private.marketing_subscribers WHERE normalized_email='review1024@example.invalid';
+ SELECT * INTO frozen FROM private.lifecycle_offers WHERE source_order_id=payment_contract_test.id('order',1024);
+ PERFORM campaign_test.assert(NOT EXISTS(SELECT 1 FROM private.email_intents WHERE idempotency_key='helix:sandbox:lifecycle:review_winback:'||payment_contract_test.id('order',1024)),'interruption leaves no email intent');
+ PERFORM campaign_test.assert(private.review_winback_source(sid,payment_contract_test.id('order',1024)) IS NULL,'expired grant is terminal for discovery');
+ PERFORM campaign_test.assert(private.lifecycle_source(sid,'review_winback')->>'sourceKey'='review_winback:'||payment_contract_test.id('order',1025),'discovery advances to later eligible order');
+ PERFORM campaign_test.assert(review_test.grant(1024) IS NULL,'no replacement grant after frozen expiry');
+ PERFORM campaign_test.assert((SELECT id=frozen.id AND expires_at=frozen.expires_at AND issued_at=frozen.issued_at FROM private.lifecycle_offers WHERE source_order_id=payment_contract_test.id('order',1024)),'no expiry rotation or extension');
+ PERFORM campaign_test.assert(public.read_lifecycle_offer_for_delivery(frozen.id,'review1024@example.invalid') IS NULL,'expired grant never deliverable');
+END $$;
