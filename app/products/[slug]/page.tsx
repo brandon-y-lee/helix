@@ -1,3 +1,4 @@
+import { LifecycleProductVisit } from "@/components/marketing/LifecycleProductVisit";
 import { PublicReviewFeed } from '@/components/reviews/PublicReviewFeed';
 import { readReviewPage, reviewsEnabled } from '@/lib/reviews/server';
 import type { Metadata } from "next";
@@ -88,6 +89,7 @@ export default async function ProductDetailPage({
         }}
       />
       <div className="storefront-shell" data-layout-shell="storefront" data-pdp-presentation={presentation}>
+        {process.env.HELIX_LIFECYCLE_ENABLED === "true" && <LifecycleProductVisit productSlug={slug} />}
         <ProductDetail
           key={product.slug}
           product={product}

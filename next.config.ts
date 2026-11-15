@@ -18,6 +18,7 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   async headers() {
     return [
+      { source: "/fonts/marcellus-latin.woff2", headers: [{ key: "Access-Control-Allow-Origin", value: "*" }] },
       ...HOME_VIDEO_PATHS.map((source) => ({
         source,
         headers: [

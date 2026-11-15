@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { isOfferSummary, offerDiscountCents, type OfferSummary } from "@/lib/offers/rules";
 import { useEffect, useMemo, useState } from "react";
 import { useCartMutations } from "@/components/cart/useCart";
 import { cartErrorMessage } from "@/lib/cart/client";
@@ -46,6 +47,9 @@ export function CheckoutPanel({
     "loading" | "ready" | "unavailable"
   >("loading");
   const [selectedReward, setSelectedReward] = useState("none");
+  const [offers, setOffers] = useState<OfferSummary[]>([]);
+  const [selectedOffer, setSelectedOffer] = useState("");
+  const [offersUnavailable, setOffersUnavailable] = useState(false);
   const {
     checkoutPending: pending,
     checkoutError,
@@ -83,17 +87,45 @@ export function CheckoutPanel({
     };
   }, [subtotal, cartUpdatedAt]);
 
+  useEffect(() => {
+    if (!rewardSummary?.authenticated) { setOffers([]); setSelectedOffer(""); setOffersUnavailable(false); return; }
+    const controller = new AbortController();
+    fetch("/api/offers", { cache: "no-store", signal: controller.signal })
+      .then(async (response) => {
+        const value: unknown = await response.json();
+        if (!response.ok || !value || typeof value !== "object" || !("offers" in value) || !Array.isArray(value.offers) || !value.offers.every(isOfferSummary)) throw new Error("Offers unavailable");
+        const nextOffers = value.offers;
+        if (!controller.signal.aborted) { setOffers(nextOffers); setOffersUnavailable(false); setSelectedOffer((id) => nextOffers.some((offer: OfferSummary) => offer.id === id) ? id : ""); }
+      }).catch(() => { if (!controller.signal.aborted) { setOffers([]); setSelectedOffer(""); setOffersUnavailable(true); } });
+    return () => controller.abort();
+  }, [subtotal, cartUpdatedAt, rewardSummary?.authenticated]);
+
+  const activeOffer = offers.find((offer) => offer.id === selectedOffer);
+  const checkoutSubtotal = subtotal - (activeOffer ? offerDiscountCents(subtotal, activeOffer.percentOff) : 0);
+
   async function startCheckout() {
     if (pending || disabled) return;
     resetErrors();
     const session = await createCheckout(
       selectedReward === "none" ? null : selectedReward,
+      selectedOffer || undefined,
     );
     if (session) window.location.assign(session.url);
   }
 
   return (
     <div className="checkout-panel" aria-label="Sandbox checkout">
+      {offersUnavailable && <p role="status" className="checkout-panel__hint">Offers are temporarily unavailable. You can still check out without an offer.</p>}
+      {offers.length > 0 && <fieldset className="reward-selector">
+        <legend>Your offers</legend>
+        <label><input type="radio" name="lifecycleOffer" checked={!selectedOffer} onChange={() => setSelectedOffer("")} />No offer</label>
+        {offers.map((offer) => <label key={offer.id}><input type="radio" name="lifecycleOffer" checked={selectedOffer === offer.id}
+          onChange={() => { setSelectedOffer(offer.id); setSelectedReward("none"); }} />
+          {offer.percentOff}% off merchandise · {offer.kind === "welcome" ? "Welcome offer" : offer.kind === "review_winback" ? "Next-purchase offer" : "Cart offer"}
+          {" "}(expires {new Date(offer.expiresAt).toLocaleDateString()})
+        </label>)}
+        <p className="checkout-panel__hint">One use, for your verified account. Excludes tax and shipping. Offers cannot be combined with points rewards or referral discounts.</p>
+      </fieldset>}
       <div className="checkout-panel__rewards">
         {rewardsStatus === "loading" ? (
           <p className="checkout-panel__hint">Loading helix rewards.</p>
@@ -130,7 +162,7 @@ export function CheckoutPanel({
                     name="rewardTier"
                     value={tier.id}
                     checked={selectedReward === tier.id}
-                    onChange={() => setSelectedReward(tier.id)}
+                    onChange={() => { setSelectedReward(tier.id); setSelectedOffer(""); }}
                   />
                   {tier.label} ({tier.points} Points)
                 </label>
@@ -160,6 +192,7 @@ export function CheckoutPanel({
         </p>
       )}
 
+      {activeOffer && <p className="checkout-panel__hint">Estimated merchandise total after offer. Tax and shipping are calculated at checkout.</p>}
       <button
         type="button"
         className="btn btn--editorial-rounded"
@@ -167,7 +200,7 @@ export function CheckoutPanel({
         aria-busy={pending || undefined}
         onClick={() => void startCheckout()}
       >
-        {pending ? "Opening checkout" : `Checkout ${formatPrice(subtotal)}`}
+        {pending ? "Opening checkout" : `Checkout ${formatPrice(checkoutSubtotal)}`}
       </button>
     </div>
   );

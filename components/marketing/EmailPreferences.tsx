@@ -11,11 +11,18 @@ type Submission =
 export function EmailPreferences({
   confirmToken,
   unsubscribeToken,
+  lifecycle = false,
+  reviews = false,
 }: {
   confirmToken?: string;
   unsubscribeToken?: string;
+  lifecycle?: boolean;
+  reviews?: boolean;
 }) {
   const [email, setEmail] = useState("");
+  lifecycle = lifecycle || reviews;
+  const consentScope = reviews ? "lifecycle_reviews" : lifecycle ? "lifecycle" : "welcome";
+  const lifecycleCopy = `I want helix welcome offers, cart and product reminders, skincare education${reviews ? ", post-purchase follow-ups, review invitations and next-purchase offers" : ""} emails. Helix may use my signed-in product visits and cart activity for these reminders. I can unsubscribe at any time.`;
   const [consent, setConsent] = useState(false);
   const [submission, setSubmission] = useState<Submission>({
     kind: "idle",
@@ -114,7 +121,7 @@ export function EmailPreferences({
               disabled={pending}
               onClick={() => void withdraw("welcome")}
             >
-              Stop welcome emails
+              {lifecycle ? "Stop lifecycle emails" : "Stop welcome emails"}
             </button>
           )}
           {withdrawnScope !== "all" && (
@@ -148,7 +155,7 @@ export function EmailPreferences({
     if (!event.currentTarget.reportValidity() || !consent) return;
     void submit(
       "/api/marketing/subscription",
-      { email, consent: true },
+      { email, consent: true, ...(lifecycle ? { scope: consentScope } : {}) },
       "If this address is eligible, check your inbox to confirm.",
     );
   }
@@ -162,8 +169,7 @@ export function EmailPreferences({
         <p className="eyebrow">helix emails</p>
         <h1 id="email-preferences-heading">Confirm your subscription</h1>
         <p className={styles.intro}>
-          Confirm that you want to receive helix marketing emails, including our
-          welcome series and skincare education.
+          {reviews ? "Confirm that you want helix welcome offers, cart and product reminders, skincare education, post-purchase follow-ups, review invitations and next-purchase offers. Helix may use your signed-in product visits and cart activity for reminders. You can unsubscribe at any time." : lifecycle ? "Confirm that you want helix welcome offers, cart and product reminders, and skincare education emails. We use your signed-in product visits and cart activity for these reminders. You can unsubscribe at any time." : "Confirm that you want to receive helix marketing emails, including our welcome series and skincare education."}
         </p>
         <div className={styles.form}>
           {submission.kind !== "success" && (
@@ -174,7 +180,7 @@ export function EmailPreferences({
               onClick={() =>
                 void submit(
                   "/api/marketing/confirm",
-                  { token: confirmToken },
+                  { token: confirmToken, scope: consentScope },
                   "Your subscription is confirmed. Existing email opt-outs still apply.",
                 )
               }
@@ -208,8 +214,7 @@ export function EmailPreferences({
       <p className="eyebrow">helix emails</p>
       <h1 id="email-preferences-heading">Stay in the know</h1>
       <p className={styles.intro}>
-        Sign up for our welcome series and skincare education. You can
-        unsubscribe at any time.
+        {lifecycle ? "Choose whether to receive helix lifecycle emails. You can unsubscribe at any time." : "Sign up for our welcome series and skincare education. You can unsubscribe at any time."}
       </p>
       <form className={styles.form} onSubmit={subscribe}>
         <label className={styles.field}>
@@ -242,8 +247,7 @@ export function EmailPreferences({
             disabled={pending}
           />
           <span>
-            I want to receive helix marketing emails, including a welcome series
-            and skincare education. I can unsubscribe at any time.
+            {lifecycle ? lifecycleCopy : "I want to receive helix marketing emails, including a welcome series and skincare education. I can unsubscribe at any time."}
           </span>
         </label>
         <p className={styles.note}>

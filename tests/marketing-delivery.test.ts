@@ -1,5 +1,6 @@
 import { afterEach, expect, it, vi } from "vitest";
-const marketing = vi.hoisted(() => ({ render: vi.fn(), verify: vi.fn() }));
+const marketing = vi.hoisted(() => ({ render: vi.fn(), verify: vi.fn(), offer: vi.fn() }));
+vi.mock("@/lib/offers/server",()=>({readLifecycleOfferForDelivery:marketing.offer}));
 vi.mock("@/lib/marketing/templates", () => ({ renderMarketingMessage: marketing.render }));
 vi.mock("@/lib/marketing/service", () => ({ verifyMarketingPreferences: marketing.verify }));
 import { dispatchEmailIntents } from "@/lib/email/delivery";
@@ -76,4 +77,14 @@ it("does not render or inspect provider preferences for a disallowed recipient",
   const { dependencies, send } = setup({ ...welcome, recipient: "customer@example.test" });
   expect(await dispatchEmailIntents(dependencies)).toMatchObject({ blocked: 1 });
   expect(send).not.toHaveBeenCalled(); expect(marketing.render).not.toHaveBeenCalled(); expect(marketing.verify).not.toHaveBeenCalled();
+});
+
+it("never hands off an unusable lifecycle discount but preserves attempted retry identity",async()=>{
+ const intent={...welcome,purpose:"lifecycle_cart",receipt:{...receipt,templateContract:{...receipt.templateContract,version:"lifecycle_v1"},lifecycle:{kind:"cart",offerId:"eeeeeeee-0000-4000-8000-000000000002"}}} as EmailIntent;
+ marketing.offer.mockResolvedValue(null);
+ const first=setup(intent);expect(await dispatchEmailIntents(first.dependencies)).toMatchObject({blocked:1});
+ expect(first.send).not.toHaveBeenCalled();expect(first.storage.prepare).not.toHaveBeenCalled();
+ marketing.offer.mockClear();
+ const retry=setup({...intent,firstAttemptAt:new Date().toISOString(),requestPayload:{...message,to:[intent.recipient],tags:[]}});
+ expect(await dispatchEmailIntents(retry.dependencies)).toMatchObject({accepted:1});expect(marketing.offer).not.toHaveBeenCalled();
 });

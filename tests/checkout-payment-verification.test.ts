@@ -113,6 +113,21 @@ describe("payment verification", () => {
     input.provider.session.payment_method_types = undefined as unknown as string[];
     expect(verifyCheckoutPayment(input)).toMatchObject({ status: "exception", code: "payment_identity_mismatch" });
   });
+  it("rejects an open lifecycle checkout before its link can be used when rounded totals differ", () => {
+    const input = discountedFixture();
+    input.accepted.offerId = "11111111-1111-4111-8111-111111111111";
+    input.provider.session.metadata!.offer_id = input.accepted.offerId;
+    input.provider.session.status = "open";
+    input.provider.session.payment_status = "unpaid";
+    input.provider.session.payment_intent = null;
+    expect(verifyCheckoutPayment(input)).toMatchObject({ status: "pending" });
+    input.provider.session.total_details!.amount_discount += 1;
+    expect(verifyCheckoutPayment(input)).toMatchObject({ status: "exception", code: "discount_mismatch" });
+    input.provider.session.total_details!.amount_discount -= 1;
+    input.provider.session.metadata!.offer_id = "different";
+    expect(verifyCheckoutPayment(input)).toMatchObject({ status: "exception", code: "session_identity_mismatch" });
+  });
+
   it("accepts exact accepted percentage discounts without inventing Stripe's fractional-cent rounding direction", () => {
     const input = discountedFixture();
     const coupon = input.provider.session.discounts![0].coupon as Stripe.Coupon;
@@ -149,6 +164,9 @@ describe("payment verification", () => {
 
   it("checks percentage allocation on each eligible line while keeping the accepted aggregate exact", () => {
     const input = discountedFixture();
+    input.accepted.offerId = "11111111-1111-4111-8111-111111111111";
+    input.provider.session.metadata!.offer_id = input.accepted.offerId;
+    (input.provider.session.payment_intent as Stripe.PaymentIntent).metadata.offer_id = input.accepted.offerId;
     const coupon = input.provider.session.discounts![0].coupon as Stripe.Coupon;
     coupon.amount_off = null;
     coupon.percent_off = 15;

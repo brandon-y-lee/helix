@@ -25,7 +25,8 @@ export default async function EmailPreferencesPage({
   const query = await searchParams;
   const confirmation = query.confirm;
   const withdrawal = query.unsubscribe;
-  const invalidLink =
+  const invalidScope = query.scope !== undefined && query.scope !== "welcome" && query.scope !== "lifecycle" && query.scope !== "lifecycle_reviews";
+  const invalidLink = invalidScope ||
     (confirmation !== undefined && !isToken(confirmation)) ||
     (withdrawal !== undefined && !isToken(withdrawal)) ||
     (confirmation !== undefined && withdrawal !== undefined);
@@ -53,11 +54,13 @@ export default async function EmailPreferencesPage({
         <EmailPreferences
           key={
             confirmation !== undefined
-              ? `confirm:${confirmation}`
+              ? `confirm:${confirmation}:${query.scope ?? "welcome"}`
               : withdrawal !== undefined
-                ? `unsubscribe:${withdrawal}`
-                : "subscription"
+                ? `unsubscribe:${withdrawal}:${query.scope ?? "welcome"}`
+                : `subscription:${query.scope ?? "welcome"}`
           }
+          lifecycle={query.scope === "lifecycle" || query.scope === "lifecycle_reviews"}
+          reviews={query.scope === "lifecycle_reviews"}
           confirmToken={isToken(confirmation) ? confirmation : undefined}
           unsubscribeToken={isToken(withdrawal) ? withdrawal : undefined}
         />

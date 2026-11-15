@@ -1,4 +1,5 @@
 import "server-only";
+import { OFFER_ID } from "@/lib/offers/rules";
 import type Stripe from "stripe";
 import type { AcceptedCheckoutContract, PaymentVerificationExceptionCode, VerifiedCheckoutPaymentFacts } from "@/lib/checkout/payment-verification";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -35,6 +36,7 @@ export function isStoredCheckoutPaymentContract(value: unknown, sessionOptional 
     && value.accountId === "acct_1Tm9WRFEzyaKzdmq" && value.apiVersion === "2026-06-24.dahlia"
     && value.environment === "sandbox" && value.currency === "USD" && nullableString(value.customerId)
     && [value.merchandiseSubtotalCents, value.discountCents, value.shippingCents, value.preTaxTotalCents].every(amount)
+    && (value.offerId === undefined || (typeof value.offerId === "string" && OFFER_ID.test(value.offerId)))
     && nullableString(value.couponId) && nullableString(value.shippingRateId) && typeof value.freeShipping === "boolean"
     && (typeof value.automaticTaxEnabled === "boolean" || (value.version === "checkout_v1" && value.automaticTaxEnabled === null))
     && (["exclusive", "inclusive", "unspecified"].includes(String(value.taxBehavior)) || (value.version === "checkout_v1" && value.taxBehavior === null))
