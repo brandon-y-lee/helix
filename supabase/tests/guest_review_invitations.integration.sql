@@ -126,7 +126,7 @@ SELECT private.reserve_lifecycle_offer(payment_contract_test.id('order',2026),(S
 SELECT campaign_test.assert((SELECT user_id=payment_contract_test.id('user',1026) AND source_user_id IS NULL AND reserved_order_id=payment_contract_test.id('order',2026) FROM private.lifecycle_offers WHERE source_order_id=payment_contract_test.id('order',1026)),'real redemption binds matching account without changing guest source');
 DO $$ DECLARE denied boolean:=false; BEGIN
  BEGIN UPDATE private.lifecycle_offers SET user_id=payment_contract_test.id('user',1023) WHERE source_order_id=payment_contract_test.id('order',1026);
- EXCEPTION WHEN raise_exception THEN denied:=true; END;
+ EXCEPTION WHEN integrity_constraint_violation THEN denied:=true; END;
  PERFORM campaign_test.assert(denied,'claimed guest benefit cannot transfer accounts');
 END $$;
 
