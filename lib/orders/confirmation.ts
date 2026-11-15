@@ -1,3 +1,4 @@
+import type { ManualShipments } from "@/lib/shipments/contract";
 import type { SimulatedTrackingView } from "@/lib/tracking/types";
 
 export type OrderConfirmationState =
@@ -15,6 +16,8 @@ export type OrderConfirmationDisplay = {
   verificationIssue?: "refund_reconciliation" | null;
   notice: string;
   retryAfterSeconds: number;
+  manualShipments?: ManualShipments | null;
+  manualShipmentsUnavailable?: boolean;
   tracking?: SimulatedTrackingView | null;
   trackingUnavailable?: boolean;
   order: {

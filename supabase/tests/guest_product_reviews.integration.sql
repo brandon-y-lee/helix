@@ -1,0 +1,64 @@
+-- Synthetic guest orders, never real purchases or identities.
+insert into public.orders(id,order_number,status,customer_email,merchandise_subtotal_cents,total_cents,idempotency_key,stripe_checkout_session_id)
+select tid(8000+n),'GUEST-'||n,'paid',case when n=4 then 'other@example.test' else 'guest@example.test' end,100,100,'guest-review-'||n,'cs_guest_'||n from generate_series(1,5)n;
+insert into public.order_items(id,order_id,product_id,product_slug,product_name,variant_key,variant_label,unit_price_cents,quantity,line_subtotal_cents)
+select tid(8100+n),tid(8000+n),tid(10),'synthetic-serum','Synthetic serum','one','One',100,1,100 from generate_series(1,5)n;
+insert into private.checkout_verified_payments(order_id,session_id,contract_version,payment_intent_id,discount_cents,shipping_cents,tax_cents,total_cents,tax_breakdown,shipping_name,shipping_address)
+select tid(8000+n),'cs_guest_'||n,'checkout_v2','pi_guest_'||n,0,0,0,100,'[]','Synthetic','{}' from generate_series(1,4)n;
+create function pg_temp.expect_denied(q text) returns void language plpgsql as $$begin begin execute q; raise exception 'expected denial'; exception when insufficient_privilege or invalid_parameter_value or unique_violation then null; end; end$$;
+select pg_temp.expect_denied(format('select issue_guest_review_link_v1(%L,%L,%L,now()+interval ''1 day'')',tid(8001),'wrong@example.test',repeat('a',43)));
+select pg_temp.expect_denied(format('select issue_guest_review_link_v1(%L,%L,%L,now()+interval ''1 day'')',tid(8005),'guest@example.test',repeat('a',43)));
+set role service_role;
+select check_review(issue_guest_review_link_v1(tid(8001),'guest@example.test',repeat('a',43),now()+interval '1 day'));
+select check_review(guest_review_link_valid_v1(tid(8001),' GUEST@example.test ',repeat('a',43)));
+select check_review(not guest_review_link_valid_v1(tid(8002),'guest@example.test',repeat('a',43)));
+select check_review(not guest_review_link_valid_v1(tid(8001),'other@example.test',repeat('a',43)));
+select check_review(not guest_review_link_valid_v1(tid(8001),'guest@example.test',repeat('z',43)));
+select check_review(jsonb_array_length(read_guest_product_reviews(repeat('a',43)))=1);
+reset role;
+select check_review((select token_hash=encode(extensions.digest(repeat('a',43),'sha256'),'hex') from private.guest_review_links where order_id=tid(8001)));
+select check_review(issue_guest_review_link_v1(tid(8001),'guest@example.test',repeat('a',43),(select expires_at from private.guest_review_links where order_id=tid(8001))));
+select pg_temp.expect_denied(format('select issue_guest_review_link_v1(%L,%L,%L,now()+interval ''1 day'')',tid(8001),'guest@example.test',repeat('b',43)));
+select pg_temp.expect_denied(format('select submit_guest_product_review(%L,%L,0,''Guest'',1,''Title'',''Honest review body'',true)',repeat('a',43),tid(8102)));
+set role service_role;
+select submit_guest_product_review(repeat('a',43),tid(8101),0,'Guest',1,'Not for me','Honest negative experience.',true);
+reset role;
+select check_review((select user_id is null and guest_subject_id is not null from private.product_reviews where order_item_id=tid(8101)));
+select check_review((select count(*)=1 from private.product_review_audit a join private.product_reviews r on r.id=a.review_id where r.order_item_id=tid(8101) and a.actor_id is null and a.guest_subject_id=r.guest_subject_id));
+select check_review(issue_guest_review_link_v1(tid(8002),'guest@example.test',repeat('b',43),now()+interval '1 day'));
+select check_review((read_guest_product_reviews(repeat('b',43))->0->>'revision')::int=1);
+do $$begin begin perform submit_guest_product_review(repeat('b',43),tid(8102),0,'Guest',5,'Duplicate','Should not duplicate.',true);raise exception 'duplicate escaped';exception when serialization_failure then null;end;end$$;
+select submit_guest_product_review(repeat('b',43),tid(8102),1,'Guest',2,'Updated','Still an honest experience.',true);
+select check_review((select count(*)=1 from private.product_reviews where guest_subject_id is not null));
+select moderate_product_review(tid(5),(read_guest_product_reviews(repeat('a',43))->0->>'id')::uuid,2,'published');
+select check_review(not exists(select 1 from jsonb_array_elements(read_public_product_reviews('synthetic-serum')->'reviews') r where r->>'displayName'='Guest'));
+select withdraw_guest_product_review(repeat('a',43),(read_guest_product_reviews(repeat('a',43))->0->>'id')::uuid,2);
+do $$begin begin perform moderate_product_review(tid(5),(read_guest_product_reviews(repeat('a',43))->0->>'id')::uuid,2,'published');raise exception 'stale approval escaped';exception when serialization_failure then null;end;end$$;
+select issue_guest_review_link_v1(tid(8004),'other@example.test',repeat('d',43),now()+interval '1 day');
+select pg_temp.expect_denied(format('select withdraw_guest_product_review(%L,%L,3)',repeat('d',43),(read_guest_product_reviews(repeat('a',43))->0->>'id')));
+update private.guest_review_links set revoked_at=now() where order_id=tid(8001);
+select check_review(not guest_review_link_valid_v1(tid(8001),'guest@example.test',repeat('a',43)));
+select pg_temp.expect_denied(format('select read_guest_product_reviews(%L)',repeat('a',43)));
+update private.guest_review_links set created_at=now()-interval '2 days',expires_at=now()-interval '1 day' where order_id=tid(8002);
+select check_review(not guest_review_link_valid_v1(tid(8002),'guest@example.test',repeat('b',43)));
+select pg_temp.expect_denied(format('select submit_guest_product_review(%L,%L,3,''Guest'',5,''Expired'',''Expired link must fail.'',true)',repeat('b',43),tid(8102)));
+set role anon;
+do $$begin begin perform issue_guest_review_link_v1(tid(8003),'guest@example.test',repeat('c',43),now()+interval '1 day');raise exception 'issuer exposed';exception when insufficient_privilege then null;end;end$$;
+do $$begin begin perform read_guest_product_reviews(repeat('a',43));raise exception 'rpc exposed';exception when insufficient_privilege then null;end;end$$;
+reset role;
+select check_review(not private.guest_public_review_offer_notice(tid(8001),tid(10),'sandbox'));
+create table private.lifecycle_offers(id uuid);
+do $$begin begin perform private.guest_public_review_offer_notice(tid(8001),tid(10),'sandbox');raise exception 'partial disclosure escaped';exception when object_not_in_prerequisite_state then null;end;end$$;
+drop table private.lifecycle_offers;
+create function public.has_guest_review_winback_offer_v1(uuid,uuid,text) returns boolean language sql as $$select null::boolean$$;
+do $$begin begin perform private.guest_public_review_offer_notice(tid(8001),tid(10),'sandbox');raise exception 'null disclosure escaped';exception when object_not_in_prerequisite_state then null;end;end$$;
+create or replace function public.has_guest_review_winback_offer_v1(uuid,uuid,text) returns boolean language sql as $$select true$$;
+select check_review(private.guest_public_review_offer_notice(tid(8001),tid(10),'sandbox'));
+-- Future-live synthetic order stays isolated from the same email's sandbox identity.
+update public.orders set checkout_environment='live' where id=tid(8003);
+select issue_guest_review_link_v1(tid(8003),'guest@example.test',repeat('c',43),now()+interval '1 day');
+select submit_guest_product_review(repeat('c',43),tid(8103),0,'Genuine synthetic guest',1,'Mixed result','A synthetic negative review.',true);
+select moderate_product_review(tid(5),(read_guest_product_reviews(repeat('c',43))->0->>'id')::uuid,1,'published');
+select check_review(exists(select 1 from jsonb_array_elements(read_public_product_reviews('synthetic-serum')->'reviews') r where r->>'displayName'='Genuine synthetic guest' and (r->>'offerNotice')::boolean));
+select check_review((select count(*)=2 from private.product_reviews r join private.guest_review_subjects s on s.id=r.guest_subject_id where s.normalized_email='guest@example.test'));
+select check_review(not guest_review_link_valid_v1(tid(8002),'guest@example.test',repeat('c',43)));

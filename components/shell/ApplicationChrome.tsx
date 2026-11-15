@@ -26,7 +26,8 @@ export function ApplicationChrome({ children }: { children: ReactNode }) {
     !pathname.startsWith("/products/") &&
     !isPdpVerification;
 
-  if (mode === "standard-admin") return children;
+  // Capability fragments must never reach analytics or commerce effects.
+  if (pathname === "/reviews/guest" || pathname === "/helix-verification/guest-reviews" || mode === "standard-admin") return children;
 
   return (
     <CartProvider key={`${mode}:${commerceDisabled}`} disabled={commerceDisabled}>
