@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const boundary = vi.hoisted(() => ({
   cookieGet: vi.fn(), cookieSet: vi.fn(), identity: vi.fn(), revalidate: vi.fn(),
   retrieveSession: vi.fn(), expireSession: vi.fn(), retrieveBundle: vi.fn(), rpc: vi.fn(), from: vi.fn(),
+  manualShipments: vi.fn(),
   authorizeReceipt: vi.fn(), loadContract: vi.fn(), finalizePayment: vi.fn(),
   recordException: vi.fn(), getException: vi.fn(), resolveExceptions: vi.fn(), isLegacyOrder: vi.fn(), verifiedDelivery: vi.fn(),
 }));
@@ -26,6 +27,8 @@ vi.mock("@/lib/stripe/payment-verification", () => ({
   retrieveCheckoutPaymentProviderBundle: boundary.retrieveBundle,
   verifyStripeAccount: vi.fn(),
 }));
+
+vi.mock("@/lib/shipments/server", () => ({ readManualShipments: boundary.manualShipments }));
 
 vi.mock("@/lib/orders/receipt-access", () => ({
   authorizeCheckoutReceipt: boundary.authorizeReceipt,
@@ -87,6 +90,7 @@ beforeEach(() => {
   boundary.getException.mockResolvedValue(null);
   boundary.isLegacyOrder.mockResolvedValue(false);
   boundary.verifiedDelivery.mockResolvedValue(null);
+  boundary.manualShipments.mockResolvedValue(null);
   boundary.recordException.mockResolvedValue(undefined);
   boundary.resolveExceptions.mockResolvedValue(undefined);
   boundary.cookieGet.mockReturnValue(undefined);
@@ -105,6 +109,18 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllEnvs());
 
 describe("private verified Order confirmation", () => {
+  it("reads manual records only inside receipt ownership checks and keeps failures optional", async () => {
+    boundary.manualShipments.mockResolvedValue({ environment: "sandbox", shipments: [] });
+    const confirmation = await getOrderConfirmationBySession(sessionId);
+    expect(confirmation?.manualShipments).toEqual({ environment: "sandbox", shipments: [] });
+    expect(boundary.authorizeReceipt.mock.invocationCallOrder[0]).toBeLessThan(boundary.manualShipments.mock.invocationCallOrder[0]);
+    expect(boundary.authorizeReceipt.mock.invocationCallOrder.at(-1)).toBeGreaterThan(boundary.manualShipments.mock.invocationCallOrder[0]);
+    boundary.authorizeReceipt.mockReset().mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+    await expect(getOrderConfirmationBySession(sessionId)).resolves.toBeNull();
+    boundary.authorizeReceipt.mockResolvedValue(true);
+    boundary.manualShipments.mockRejectedValue(new Error("unavailable"));
+    await expect(getOrderConfirmationBySession(sessionId)).resolves.toMatchObject({manualShipmentsUnavailable:true});
+  });
   it("includes simulated history only after receipt ownership and rechecks ownership after the private read", async () => {
     const tracking = { frozen: false, shipments: [{ id: "simulated-1", number: 1, state: "dispatched", version: 1,
       items: [{ name: "Cleanser", variantLabel: "100 ml", quantity: 1 }],
