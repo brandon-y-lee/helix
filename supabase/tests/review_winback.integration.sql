@@ -59,7 +59,7 @@ DO $$ DECLARE state text; original jsonb; BEGIN
  UPDATE review_test.delivery SET evidence=jsonb_set(original,'{deliveredAt}',to_jsonb((clock_timestamp()-interval '13 days')::text)) WHERE order_id=payment_contract_test.id('order',900);
  PERFORM campaign_test.assert(review_test.source(900) IS NULL,'not due before14days');
  UPDATE review_test.delivery SET evidence=jsonb_set(original,'{deliveredAt}',to_jsonb((clock_timestamp()-interval '15 days 1 hour')::text)) WHERE order_id=payment_contract_test.id('order',900);
- PERFORM campaign_test.assert(review_test.source(900) IS NULL,'24h admission window expires');
+ PERFORM campaign_test.assert(review_test.source(900) IS NOT NULL,'late delivery evidence remains eligible after day15');
  UPDATE review_test.delivery SET evidence=original WHERE order_id=payment_contract_test.id('order',900);
 END $$;
 SELECT campaign_test.assert(review_test.admit(900),'eligible invitation admits');

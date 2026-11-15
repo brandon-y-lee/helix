@@ -33,6 +33,7 @@ const addition=`
   migration('_review_winback_core.sql');
   migration('_review_winback_offers.sql');
   migration('_review_offer_disclosure_contract.sql');
+  migration('_guest_review_invitations.sql');
   sql('GRANT SELECT,INSERT,UPDATE ON auth.users TO service_role;');
   const start=fixture.indexOf('CREATE FUNCTION payment_contract_test.facts(');const end=fixture.indexOf('\\n$$;',start)+4;assert.ok(start>=0&&end>start);sql(fixture.slice(start,end));
 `;
@@ -98,6 +99,9 @@ const tail=`
   assert.equal(sql("SELECT reserved_order_id IS NULL FROM private.lifecycle_offers WHERE source_order_id=payment_contract_test.id('order',976);").trim(),'t');
   sql('DROP FUNCTION private.lifecycle_offer_verified_email(uuid,boolean); ALTER FUNCTION private.lifecycle_offer_verified_email_race_original(uuid,boolean) RENAME TO lifecycle_offer_verified_email;');
   sql(source('supabase/tests/review_offer_disclosure.integration.sql'));
+  sql(source('supabase/tests/guest_review_invitations.integration.sql'));
+  await concurrentLocked('SET ROLE service_role; SELECT review_test.admit(1020);');
+  assert.equal(sql("SELECT count(*) FROM private.email_intents WHERE recipient='review1020@example.invalid' AND purpose='lifecycle_review_winback';").trim(),'1');
   const grants=await concurrentLocked("SET ROLE service_role; SELECT public.grant_lifecycle_offer('cart','combined@example.invalid','same-combined-source','coupon_cart');");
   assert.equal(sql("SELECT count(*) FROM private.lifecycle_offers WHERE email='combined@example.invalid';").trim(),'1');
   sql('SET ROLE service_role; SELECT offer_test.seed(520,510); SELECT offer_test.seed(521,510);');

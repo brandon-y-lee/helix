@@ -67,7 +67,7 @@ export async function renderMarketingMessage(purpose: MarketingPurpose, rawRecei
       extra.HELIX_OFFER_EXPIRES_AT=new Date(flow.offerExpiresAt).toISOString();
       extra.HELIX_OFFER_TERMS=`${extra.HELIX_OFFER_PERCENT}% off USD merchandise only. Excludes shipping and tax. Sign in with a verified account matching this email and select your offer in cart. One use, no stacking. Expires ${extra.HELIX_OFFER_EXPIRES_AT}.${flow.kind === "welcome" ? " First purchase only." : ""}`;
       if (flow.kind === "review_winback") {
-        extra.HELIX_REVIEW_URL=`${contract.siteOrigin}/account/reviews`;
+        extra.HELIX_REVIEW_URL=flow.guestReviewToken ? `${contract.siteOrigin}/reviews/guest#token=${flow.guestReviewToken}` : `${contract.siteOrigin}/account/reviews`;
         extra.HELIX_SHOP_URL=`${contract.siteOrigin}/cart`;
         extra.HELIX_OFFER_TERMS += " Your offer is yours whether or not you leave a review. All honest feedback is welcome.";
       } else extra.HELIX_CART_URL=`${contract.siteOrigin}/cart`;

@@ -40,3 +40,14 @@ it("passes explicit displayed v2 scope to storage but missing scope remains welc
  expect((await handleMarketingRequest(req(),"confirm",{storage,env:{}})).status).toBe(400);
  expect(storage.confirm).toHaveBeenLastCalledWith(token,expect.any(String),"welcome");
 });
+
+it("renders a bounded guest capability at fixed origin, keeps account redemption terms",async()=>{
+ const native={id,current_version_id:id,status:"published",has_unpublished_versions:false,from:null,reply_to:null,...lifecycleTemplateSources.lifecycle_review_winback};
+ const receipt={schemaVersion:1,subscriberId:id,generation:2,revision:2,preferenceToken:"P".repeat(43),templateContract:{...contract,templates:{...contract.templates,lifecycle_review_winback:{id,sha256:marketingTemplateFingerprint(native)}}},lifecycle:{kind:"review_winback",sourceKey:"review_winback:"+id,dueAt:"2026-12-01T00:00:00Z",offerId:id,offerExpiresAt:"2026-12-15T00:00:00Z",productSlug:null,productName:null,guestReviewToken:"G".repeat(43)}};
+ const message=await renderMarketingMessage("lifecycle_review_winback",receipt,"re_synthetic",async()=>native);
+ expect(message.text).toContain("https://helixskin.vercel.app/reviews/guest#token="+"G".repeat(43));
+ expect(message.text).toContain("Sign in with a verified account matching this email");
+ expect(message.text).toContain("whether or not you leave a review");
+ await expect(renderMarketingMessage("lifecycle_review_winback",{...receipt,lifecycle:{...receipt.lifecycle,guestReviewToken:"https://evil.invalid"}},"re_synthetic",async()=>native)).rejects.toThrow();
+ await expect(renderMarketingMessage("lifecycle_welcome",{...receipt,lifecycle:{...receipt.lifecycle,kind:"welcome"}},"re_synthetic",async()=>native)).rejects.toThrow();
+});
