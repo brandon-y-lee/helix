@@ -3,7 +3,8 @@ import { lifecycleTemplateSources } from '@/lib/marketing/lifecycle-template-sou
 for (const [purpose,source] of Object.entries(lifecycleTemplateSources)) {
  it(`${purpose} uses accessible white editorial surfaces and live contract fields`,()=>{
   const doc=new DOMParser().parseFromString(source.html,'text/html');
-  expect(doc.documentElement.lang).toBe('en');
+  expect(doc.documentElement.lang).toBe('en');expect(doc.documentElement.dir).toBe('ltr');
+  expect(doc.body.firstElementChild?.getAttribute('lang')).toBe('en');expect(doc.body.firstElementChild?.getAttribute('dir')).toBe('ltr');
   for (const element of [doc.documentElement,doc.body,...doc.querySelectorAll('table,td')]) expect((element as HTMLElement).style.backgroundColor).toBe('rgb(255, 255, 255)');
   expect(doc.body.style.color).toBe('rgb(98, 99, 94)');
   expect(doc.querySelectorAll('h1')).toHaveLength(1);
