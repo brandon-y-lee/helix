@@ -235,8 +235,12 @@ try {
     "older published takedown target reachable",
   );
   sql(read("supabase/tests/public_review_disclosure_consumer.integration.sql"));
+  sql(read("supabase/migrations/20261115023923_guest_product_review_links.sql"));
+  sql(read("supabase/tests/guest_product_reviews.integration.sql"));
+  await concurrentSubmission(`SET ROLE service_role; SELECT submit_guest_product_review(repeat('d',43),tid(8104),0,'Other guest',1,'Negative','Concurrent guest submission.',true);`);
+  sql(`SELECT check_review((select count(*)=1 from private.product_reviews where order_item_id=tid(8104)));`);
   console.log(
-    "Public review SQL: ownership, consent/revision, neutral publication, sandbox exclusion, withdrawal fencing, RLS concurrent dedupe, publication gate, complete aggregates, pagination and order provenance passed.",
+    "Public and guest review SQL: ownership, consent/revision, neutral publication, sandbox exclusion, withdrawal fencing, RLS concurrent dedupe, publication gate, complete aggregates, pagination and order provenance passed.",
   );
 } finally {
   docker(["exec", container, "dropdb", "--if-exists", "-U", "postgres", db]);

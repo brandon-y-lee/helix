@@ -4,9 +4,11 @@ import type { OwnedReview } from "@/lib/reviews/contract";
 export function ReviewForm({
   purchase,
   transport = fetch,
+  endpointPrefix = "/api/reviews",
 }: {
   purchase: OwnedReview;
   transport?: typeof fetch;
+  endpointPrefix?: string;
 }) {
   const [revision, setRevision] = useState(purchase.revision ?? 0),
     [id, setId] = useState(purchase.id),
@@ -23,7 +25,7 @@ export function ReviewForm({
     setBusy(true);
     setMessage("");
     try {
-      const response = await transport(`/api/reviews/${action}`, {
+      const response = await transport(`${endpointPrefix}/${action}`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(
