@@ -135,3 +135,28 @@ DO $$ BEGIN
   EXECUTE 'select campaign_test.assert(private.guest_public_review_offer_notice($1,$2,$3),$4)' USING payment_contract_test.id('order',1024),payment_contract_test.id('product',1),'sandbox','actual consumer sees later guest offer';
  END IF;
 END $$;
+
+-- Malformed optional contracts must fail closed, not coerce text or take first set row.
+DO $$ DECLARE contract text; definition text; malformed text; BEGIN
+ FOREACH contract IN ARRAY ARRAY['public.issue_guest_review_link_v1(uuid,text,text,timestamptz)','public.guest_review_link_valid_v1(uuid,text,text)'] LOOP
+  definition:=pg_get_functiondef(to_regprocedure(contract));
+  EXECUTE 'DROP FUNCTION '||contract;
+  malformed:=CASE WHEN contract LIKE '%issue_%' THEN 'CREATE FUNCTION public.issue_guest_review_link_v1(uuid,text,text,timestamptz)' ELSE 'CREATE FUNCTION public.guest_review_link_valid_v1(uuid,text,text)' END;
+  EXECUTE malformed||' RETURNS text LANGUAGE sql AS '||quote_literal('SELECT ''true''::text');
+  PERFORM campaign_test.assert(NOT private.guest_review_contracts_ready(),'text contract rejected');
+  PERFORM campaign_test.assert(review_test.source(1020) IS NULL,'text contract prevents discovery');
+  PERFORM campaign_test.assert(NOT review_test.admit(1020),'text contract prevents admission');
+  PERFORM campaign_test.assert(NOT private.review_guest_capability_valid(payment_contract_test.id('order',1020),'review1020@example.invalid',repeat('a',43)),'text contract fails validity');
+  EXECUTE 'DROP FUNCTION '||contract;
+  EXECUTE malformed||' RETURNS SETOF boolean LANGUAGE sql AS '||quote_literal('SELECT true');
+  PERFORM campaign_test.assert(NOT private.guest_review_contracts_ready(),'set contract rejected');
+  PERFORM campaign_test.assert(review_test.source(1020) IS NULL,'set contract prevents discovery');
+  PERFORM campaign_test.assert(NOT review_test.admit(1020),'set contract prevents admission');
+  PERFORM campaign_test.assert(NOT private.review_guest_capability_valid(payment_contract_test.id('order',1020),'review1020@example.invalid',repeat('a',43)),'set contract fails validity');
+  EXECUTE 'DROP FUNCTION '||contract;
+  EXECUTE definition;
+  EXECUTE 'REVOKE ALL ON FUNCTION '||contract||' FROM public,anon,authenticated';
+  EXECUTE 'GRANT EXECUTE ON FUNCTION '||contract||' TO service_role';
+ END LOOP;
+ PERFORM campaign_test.assert(private.guest_review_contracts_ready(),'valid scalar contracts restored');
+END $$;

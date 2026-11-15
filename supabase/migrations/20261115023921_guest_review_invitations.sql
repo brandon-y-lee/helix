@@ -1,9 +1,19 @@
 -- Guest review invitations; no activation or provider truth is introduced.
+-- A signature alone is insufficient: optional contracts must be scalar boolean functions.
+create function private.guest_review_contracts_ready() returns boolean
+language sql stable security invoker set search_path='' as $$
+ select count(*)=2 from pg_catalog.pg_proc p
+ where p.oid in (to_regprocedure('public.issue_guest_review_link_v1(uuid,text,text,timestamp with time zone)'),
+   to_regprocedure('public.guest_review_link_valid_v1(uuid,text,text)'))
+   and p.prorettype='pg_catalog.bool'::regtype and not p.proretset and p.prokind='f';
+$$;
+revoke all on function private.guest_review_contracts_ready() from public,anon,authenticated;
+grant execute on function private.guest_review_contracts_ready() to service_role;
 create function private.review_guest_capability_valid(p_order_id uuid,p_email text,p_token text) returns boolean
 language plpgsql volatile security invoker set search_path='' as $$
 declare valid boolean;
 begin
- if p_token is null or p_token !~ '^[A-Za-z0-9_-]{43}$' or to_regprocedure('public.guest_review_link_valid_v1(uuid,text,text)') is null then return false; end if;
+ if p_token is null or p_token !~ '^[A-Za-z0-9_-]{43}$' or not private.guest_review_contracts_ready() then return false; end if;
  execute 'select public.guest_review_link_valid_v1($1,$2,$3)' into valid using p_order_id,p_email,p_token;
  return coalesce(valid,false);
 end $$;
@@ -73,8 +83,7 @@ begin
  if cutoff is null then return null; end if;
  select * into o from public.orders where id=p_order_id and lower(btrim(customer_email))=s.normalized_email;
  if not found or o.created_at<greatest(cutoff,g.confirmed_at) or o.paid_at<greatest(cutoff,g.confirmed_at) then return null; end if;
- if o.user_id is null and (to_regprocedure('public.issue_guest_review_link_v1(uuid,text,text,timestamp with time zone)') is null
-   or to_regprocedure('public.guest_review_link_valid_v1(uuid,text,text)') is null) then return null; end if;
+ if o.user_id is null and not private.guest_review_contracts_ready() then return null; end if;
  e:=private.review_winback_eligibility(o.id,o.user_id,s.normalized_email);
  if e is null or (e->>'deliveredAt')::timestamptz<greatest(cutoff,g.confirmed_at) then return null; end if;
  due:=(e->>'deliveredAt')::timestamptz+interval '14 days';
@@ -171,8 +180,7 @@ begin
  -- Never mint/rotate capabilities on replay, including terminal or uncertain intents.
  if exists(select 1 from private.email_intents where idempotency_key='helix:sandbox:lifecycle:'||p_source_key) then return false; end if;
  if p_kind='review_winback' and src->>'userId' is null then
-   if to_regprocedure('public.issue_guest_review_link_v1(uuid,text,text,timestamp with time zone)') is null
-     or to_regprocedure('public.guest_review_link_valid_v1(uuid,text,text)') is null then return false; end if;
+   if not private.guest_review_contracts_ready() then return false; end if;
    token:=translate(rtrim(encode(extensions.gen_random_bytes(32),'base64'),'='),'+/','-_');
    execute 'select public.issue_guest_review_link_v1($1,$2,$3,$4)' into issued
      using (src->>'orderId')::uuid,s.normalized_email,token,clock_timestamp()+interval '30 days';
