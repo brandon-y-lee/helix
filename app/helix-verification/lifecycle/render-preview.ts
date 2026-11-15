@@ -18,7 +18,9 @@ export async function renderLifecyclePreviews() {
   // Map only these public brand assets to the local preview server. Navigation stays inert.
   const previewHtml=message.html
    .replaceAll('https://preview.example.test/brand/helix-wordmark-email.png','/brand/helix-wordmark-email.png')
-   .replaceAll('https://preview.example.test/fonts/marcellus-latin.woff2','/fonts/marcellus-latin.woff2');
+   .replaceAll('https://preview.example.test/fonts/marcellus-latin.woff2','/fonts/marcellus-latin.woff2')
+   .replaceAll('https://preview.example.test/media/email/welcome-super-serum.jpg','/media/email/welcome-super-serum.jpg')
+   .replaceAll('https://preview.example.test/media/system/ingredients/peptides.jpg','/media/system/ingredients/peptides.jpg');
   // Neutralize only preview navigation; production source and renderer stay intact.
   return {purpose,subject:message.subject,text:message.text.replace(/https:\/\/preview\.example\.test\/\S+/g,'[non-operative preview link]'),html:previewHtml.replace(/href="[^"]*"/g,'aria-disabled="true" role="link" tabindex="-1"')};
  }));

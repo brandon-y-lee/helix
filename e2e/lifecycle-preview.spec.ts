@@ -16,7 +16,18 @@ for(const width of [390,1440]){
    const frame=page.frameLocator(`iframe[title="lifecycle_${kind} email"]`);
    await expect(frame.locator('h1')).toBeVisible();
    await expect(frame.locator('img[alt="helix"]')).toBeVisible();
-   expect(await frame.locator('img').evaluate(el=>(el as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+   for(const img of await frame.locator('img').all()) {
+    await expect(img).toBeVisible();
+    await expect.poll(()=>img.evaluate(el=>(el as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+   }
+   if(kind==='welcome'){
+    await expect(frame.getByRole('link',{name:'View your offer in cart'})).toBeVisible();
+    // Images blocked: the offer, deadline and action remain live readable HTML.
+    await frame.locator('img').evaluateAll(images=>images.forEach(img=>(img as HTMLElement).style.visibility='hidden'));
+    await expect(frame.getByRole('heading',{name:'Your first step. 15% off.'})).toBeVisible();
+    await expect(frame.getByText('Use your offer by', {exact:false})).toBeVisible();
+    await frame.locator('img').evaluateAll(images=>images.forEach(img=>(img as HTMLElement).style.visibility='visible'));
+   }
    expect(await frame.locator('h1').evaluate(async el=>{await el.ownerDocument.fonts.load('32px Marcellus');return el.ownerDocument.fonts.check('32px Marcellus');})).toBe(true);
    const result=await frame.locator('body').evaluate(body=>{
     const doc=body.ownerDocument;
