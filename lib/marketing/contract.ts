@@ -22,7 +22,7 @@ export type MarketingReceipt = {
   confirmationToken?: string;
   preferenceToken?: string;
   templateContract: MarketingTemplateContract;
-  lifecycle?: {kind:"welcome"|"cart"|"browse"|"review_winback";sourceKey:string;dueAt:string;offerId:string|null;offerExpiresAt:string|null;productSlug:string|null;productName:string|null};
+  lifecycle?: {kind:"welcome"|"cart"|"browse"|"review_winback";sourceKey:string;dueAt:string;offerId:string|null;offerExpiresAt:string|null;productSlug:string|null;productName:string|null;guestReviewToken?:string};
 };
 export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 export const CAPABILITY = /^[A-Za-z0-9_-]{43}$/;
@@ -63,5 +63,7 @@ export function parseMarketingReceipt(value: unknown): MarketingReceipt {
     || (value.preferenceToken !== undefined && (typeof value.preferenceToken !== "string" || !CAPABILITY.test(value.preferenceToken)))) {
     throw new Error("Marketing message context is invalid.");
   }
+  if (object(value.lifecycle) && value.lifecycle.guestReviewToken !== undefined &&
+    (value.lifecycle.kind !== "review_winback" || typeof value.lifecycle.guestReviewToken !== "string" || !CAPABILITY.test(value.lifecycle.guestReviewToken))) throw new Error("Marketing message context is invalid.");
   return { ...value, templateContract: parseMarketingTemplateContract(value.templateContract) } as MarketingReceipt;
 }

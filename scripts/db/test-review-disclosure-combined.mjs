@@ -21,6 +21,7 @@ pinned(producer,producerSha);pinned(consumer,consumerSha);
 const allowlist=new Set([
  'supabase/migrations/20261113073330_public_product_reviews.sql',
  'supabase/migrations/20261113101020_public_review_offer_disclosure.sql',
+ 'supabase/migrations/20261115023923_guest_product_review_links.sql',
  'supabase/tests/public_review_disclosure_composition.integration.sql',
 ]);
 function foreign(path){assert.ok(allowlist.has(path),'Non-allowlisted consumer source');return git(consumer,['show',`${consumerSha}:${path}`]);}
@@ -31,7 +32,7 @@ function once(text,anchor,replacement){assert.equal(text.split(anchor).length-1,
 for(const order of ['consumer-first','producer-first']){
  let runner=git(producer,['show',`${producerSha}:scripts/db/test-lifecycle-combined.mjs`]);
  runner=once(runner,"const root=fileURLToPath(new URL('../../',import.meta.url));",`const root=${JSON.stringify(producer+'/')};`);
- const anchor=order==='consumer-first'?"  migration('_lifecycle_offer_entitlements.sql');":"  migration('_review_offer_disclosure_contract.sql');";
+ const anchor=order==='consumer-first'?"  migration('_lifecycle_offer_entitlements.sql');":"  migration('_guest_review_invitations.sql');";
  runner=once(runner,anchor,order==='consumer-first'?foreignMigrations+'\n'+anchor:anchor+'\n'+foreignMigrations);
  runner=once(runner,"  const grants=await concurrentLocked",composition+'\n  const grants=await concurrentLocked');
  const output=execFileSync(process.execPath,['--input-type=module','-',container],{cwd:producer,input:runner,encoding:'utf8',maxBuffer:8*1024*1024});
