@@ -14,6 +14,7 @@ export function LifecyclePreview({previews}:{previews:{purpose:string;subject:st
   <p>The real popup appears after its normal 12-second delay. Close or Escape dismisses it; reset starts a fresh simulation.</p>
   {popup&&<WelcomePopupVisit key={popup.key} transport={popup.transport}/>}
   {previews.map(preview=><section key={preview.purpose} style={{marginTop:32}}>
+   {preview.purpose==='lifecycle_welcome'&&<p><a href="/helix-verification/lifecycle/welcome">Open welcome email preview</a></p>}
    <h2>{preview.purpose.replace('lifecycle_','').replaceAll('_',' ')}</h2><p>Subject: {preview.subject}</p>
    <iframe title={`${preview.purpose} email`} srcDoc={preview.html} sandbox="" style={{width:'100%',height:preview.purpose==='lifecycle_welcome'?2600:1200,border:0,background:'#fff'}}/>
    <details><summary>Plain text</summary><pre style={{whiteSpace:'pre-wrap',overflowWrap:'anywhere'}}>{preview.text}</pre></details>

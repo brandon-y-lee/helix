@@ -46,5 +46,11 @@ for(const width of [390,1440]){
   await expect(reset).toBeFocused();await reset.click();await page.clock.fastForward(13000);await expect(dialog.getByRole('textbox')).toHaveValue('');await expect(dialog.getByRole('checkbox')).not.toBeChecked();
   await dialog.screenshot({path:testInfo.outputPath(`popup-${width}.png`)});
   expect(await page.evaluate(()=>Object.values(localStorage).some(v=>v.includes('synthetic@example.test')))).toBe(false);expect(unexpected).toEqual([]);
+  await page.keyboard.press('Escape');
+  await page.goto('/helix-verification/lifecycle/welcome');
+  await expect(page.getByRole('heading',{name:'Start with your skin.'})).toBeVisible();
+  for(const img of await page.locator('img').all())await expect.poll(()=>img.evaluate(el=>(el as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)).toBe(false);
+  await page.screenshot({path:testInfo.outputPath(`welcome-isolated-${width}.png`),fullPage:true});
  });
 }
