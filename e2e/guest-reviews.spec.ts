@@ -27,6 +27,14 @@ for (const width of [390, 1440])
     await expect(
       page.getByText("Submitted for moderation.", { exact: false }),
     ).toBeVisible();
+    await page.getByLabel("Your rating").selectOption("2");
+    await page.getByLabel("Your experience").fill("Updated synthetic experience after another use.");
+    await page.getByRole("checkbox").check();
+    await page.getByRole("button", { name: "Submit review" }).click();
+    await expect(page.getByRole("checkbox")).not.toBeChecked();
+    await expect(page.getByText("Submitted for moderation.", { exact: false })).toBeVisible();
+    await expect(page.getByLabel("Your rating")).toHaveValue("2");
+    await expect(page.getByLabel("Your experience")).toHaveValue("Updated synthetic experience after another use.");
     await page.getByRole("button", { name: "Withdraw review" }).click();
     await expect(
       page.getByText("Your review is no longer public."),
