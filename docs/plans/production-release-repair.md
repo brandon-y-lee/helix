@@ -93,3 +93,34 @@ The exact Auth callback additions and narrow WAF checkout-host allowance require
 separate action-time security approval after current-state verification. The
 denied full Production environment export is not retried; only non-secret
 origin/mode values and scoped metadata may inform a coherent production build.
+
+## Reviewed v3 / v3.1 continuation
+
+Both independent reviewers approved v3 before editing: register the existing
+account keyboard/draft/exit workflow separately for 1440,390,320px. Retained
+report timing proves the failing first attempt exhausted its shared30s budget
+with about130ms left at the third Reset password click; retry took27.9s.
+All original actions/assertions remain, each viewport owns its page/interceptors/
+write collector, and default timeout/retries remain unchanged. No app change.
+Evidence: `/tmp/helix-release-evidence/account-timeout-diagnosis.json`.
+
+Both also approved v3.1's three literal identity corrections: Terms Website
+URL and matching generator/test substitution now name the selected serving
+Production host https://www.helixskin.us. No legal obligations or unconfirmed
+promises change; the dev alias remains separate.
+
+Before those deltas, source7f66491 received separate Spec and Standards source
+approval, full ordinary unit2873pass/8existing SQL skips, lint/types and guarded
+SQL proof. Fresh configured-us build rNsdwcrOfMe1RpvSmHiCz completed full
+Chromium207pass/3catalog skips/0unexpected/0flaky, HTML ok:true, identity and
+cleanup passed. Report `/tmp/helix-release-evidence/chromium-7f66491.json`.
+These are exact prior-candidate results; the new delta requires fresh review
+and affected/full browser checks. No gate waiver.
+
+The three browser prerequisite skips remain explicit conditional activation
+proof gaps. Unit coordination/touch-close proof is not equivalent to desktop
+two-card handoff viewport behavior. Unit available purchase/sticky state and
+real browser visibility do not prove rich available sticky purchase→cart→focus
+return. The present catalog lacks those prerequisites, and this source repair
+changes no catalog/offer availability. Do not activate those paths without the
+missing native browser proof.
