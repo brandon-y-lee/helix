@@ -31,9 +31,14 @@ timeouts in `catalog-editor-sections.test.tsx` and `storefront-reconciliation.te
 plus an `onTaskUpdate` reporting timeout (291 files/2864 tests passed, eight
 existing SQL-fixture skips). Heavy unrelated host load and swap pressure were
 observed, but causality is unproven. Timeouts, workers and assertions stay intact.
-The complete post-repair Chromium run is pending at this checkpoint; see the
-latest outcome appended to the [evidence record](../plans/domain-transition.md).
+The complete post-repair Chromium run finished with 206 passed, three existing
+catalog skips, and one dashboard flake: reset-password navigation exceeded the
+30-second test budget on its first attempt, then passed retry. All 12 PDP effects
+tests passed without retries. The HTML report records `ok:false`; runner exit 0
+is not a clean browser gate. See the final [evidence record](../plans/domain-transition.md).
 No release readiness or gate waiver is implied by source review or the 40-pass run.
+The final delivery SHA and summary are also left in the local ignored artifact
+`test-results/domain-release-handoff.json`; resolve `git rev-parse HEAD` here.
 
 Required integration and configuration dependencies for the release owner:
 

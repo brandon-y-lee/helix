@@ -767,3 +767,59 @@ unchanged dedicated DB evidence is retained; no migration or database source
 changed. **Local verification and integration readiness remain BLOCKED.**
 The release owner must receive the exact failed and passed results, not a
 completion claim. The latest full-browser outcome will be appended separately.
+
+
+## V6 final browser result and blocked release handoff
+
+Complete owned configured-`.us` verification on source-delivery checkpoint
+`b7857fd` built `e675hhIlDN4fWDBbIk8eU`, verified loopback port 50931 and finished
+cleanup successfully. Cold `/products/beaming-prep` returned 200 with the selected
+`https://www.helixskin.us` canonical and structured-data URL. The browser suite
+ran 210 tests: **206 passed, three existing catalog prerequisites skipped, one
+flaky**. All 12 PDP effects tests, including all four native swipes, passed their
+first attempt; combined with 40/40 retries-disabled repetitions, the original
+synthetic fast-swipe regression is verified without weakening assertions.
+
+The new remaining browser blocker is
+`e2e/customer-surfaces.spec.ts:253`, “account disclosures retain drafts, support
+keyboard toggling and local exit”. The first attempt exceeded the 30000 ms test
+budget during Reset password navigation: expected `/account/forgot-password`,
+but the URL remained the synthetic account fixture. Retry 1 passed. The dashboard
+source/test files remain byte-identical to incorporated dev `3519c00`. Neither that
+fact nor retry success establishes a harmless or resolved cause. The HTML report
+has `ok:false` despite runner exit 0. No dashboard behavior, test timeout, retry,
+assertion or tolerance was changed to hide it. Hand this exact failure to the
+release owner/account owner; it is outside the reviewed swipe timing repair.
+
+Final logs/artifacts:
+
+- `/tmp/helix-domain-v6-production.log`
+- `/tmp/helix-domain-v6-full-verification` (report, screenshots, traces, original
+  build ID and cold-origin evidence preserved)
+- `/tmp/helix-domain-v6-browser-summary.json`
+- `test-results/domain-release-handoff.json` (local ignored delivery metadata,
+  written after the final checkpoint to include its exact Git SHA)
+
+The three catalog skips retain their prior reasons: rich PDP has no Offer for
+available-variant/sticky-purchase checks, and the catalog lacks two collection
+Products with Offers for cross-Product Quick Buy. No catalog mutation was made.
+Prior dedicated SQL-fixture suites were not repeated because all database and
+migration source remains unchanged. Actual hosted Auth/cookie/email/checkout
+proof, remote integration gates and production release are not performed here.
+Local full run command: `pnpm exec tsx /tmp/helix-domain-verify.mts`.
+
+**Final readiness: BLOCKED**, with nine current unit timeouts/reporting error
+and the dashboard browser flake unresolved. The narrowly reviewed test repair
+and domain candidate are local only. Both prior failed unit runs and the first
+35-pass/five-fail concurrent swipe run remain part of the evidence; the later
+40-pass run does not erase them or prove host-pressure causality. Further unit
+retry requires a materially changed condition or new diagnostic evidence.
+
+Both independent reviewers approved the exact source changes and release-owner
+handoff structure. Final evidence review must preserve this blocked conclusion,
+not grant a failure waiver. Task `6afa7b47-533c-8191-bc49-e3bfa19120d8` owns all
+integration/deployment decisions and must select/verify the exact combined SHA.
+The reviewed local runtime source remains `37d4391`; v6 only repairs synthetic input
+timing and retains completed frame evidence. No remote Git writes, hosted
+configuration, deployments, security controls, Production/dev aliases, DNS,
+provider data, campaigns, tracking, support copy or payment modes changed here.
