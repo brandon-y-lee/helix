@@ -286,3 +286,11 @@ serving domains, provider Checkout returns/webhooks and real mailbox exchange
 remain rollout acceptance work. The user subsequently selected Resend's inbox
 instead of Gmail; this task only corrected that prerequisite description and
 did not modify support copy or send mail.
+
+Final committed Candidate v3 `97831246af0da0233d4b3a865e49367fb8f8c473` was
+independently approved against `619209c` by `/root/domain_spec_review` and
+`/root/domain_standards_review`, 2026-11-16. Both verdicts: approve, no actionable
+findings. Reviewers verified the normal complete-suite log, unchanged
+assertions/timeouts/workers/isolation, configured-domain artifact and explicit
+hosted acceptance limits. Worktree was clean and `prepare` passed before review.
+This final documentation record adds no further executable change.
