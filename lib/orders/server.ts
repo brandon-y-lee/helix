@@ -152,6 +152,7 @@ type OrderItemSnapshot = {
 export type OrderConfirmation = OrderConfirmationDisplay;
 
 type CreateCheckoutInput = {
+  requestOrigin?: string;
   rewardTierId?: unknown;
   offerId?: unknown;
 };
@@ -613,6 +614,7 @@ async function markAttemptFailed(
 export async function createStripeCheckoutSession(
   input: CreateCheckoutInput = {},
 ): Promise<CreateCheckoutResult> {
+  const origin = resolveCheckoutOrigin({ requestOrigin: input.requestOrigin });
   const config = readPaymentProviderConfig();
   const stripe = getStripeClient(config);
   const identity = await getActiveCartIdentity();
@@ -748,7 +750,6 @@ export async function createStripeCheckoutSession(
     await reserveReward({ order, userId: cart.userId, rewardTier });
     await createReferralAttribution(order, referralOffer);
     if (!order.user_id) await ensureGuestReceiptBinding({ orderId: order.id, accountId: config.accountId });
-    const origin = resolveCheckoutOrigin();
     const params: Stripe.Checkout.SessionCreateParams = {
       mode: "payment", payment_method_types: [...CHECKOUT_PAYMENT_METHOD_TYPES], line_items: acceptedLines.map(stripeLineItem),
       customer: customerId, customer_update: customerId && prepared.contract.automaticTaxEnabled ? { shipping: "auto" } : undefined,

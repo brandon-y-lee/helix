@@ -1,5 +1,5 @@
 import "server-only";
-import { resolvePublicSiteOrigin } from "@/lib/site-url";
+import { compatibleRequestOrigin, isControlledPublicSiteOrigin, resolvePublicSiteOrigin } from "@/lib/site-url";
 
 export const accountEmailHeaders = {
   "Cache-Control": "private, no-store",
@@ -12,12 +12,10 @@ export const accountEmailHeaders = {
 export function accountEmailOrigin(requestOrigin?: string | null): string {
   if (process.env.NODE_ENV === "development") return resolvePublicSiteOrigin({ requestOrigin });
   const configured = process.env.HELIX_EMAIL_SITE_ORIGIN?.trim();
-  if (!configured) return resolvePublicSiteOrigin({ requestOrigin });
-  const origin = new URL(configured);
-  if (origin.protocol !== "https:" || origin.origin !== configured || origin.username || origin.password || !/^[a-z0-9.-]+$/i.test(origin.hostname)) {
+  if (configured && !isControlledPublicSiteOrigin(configured)) {
     throw new Error("Invalid account email origin.");
   }
-  return origin.origin;
+  return compatibleRequestOrigin(configured || resolvePublicSiteOrigin(), requestOrigin);
 }
 
 export const emailOtpTypes = ["signup", "email", "recovery", "invite", "magiclink", "email_change"] as const;

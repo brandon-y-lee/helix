@@ -13,7 +13,8 @@ export class CheckoutRequestError extends Error {
 }
 
 export function assertCheckoutRequestOrigin(request: Request): void {
-  if (request.headers.get("origin") !== resolveCheckoutOrigin()) {
+  const origin = request.headers.get("origin");
+  if (origin !== new URL(request.url).origin || origin !== resolveCheckoutOrigin({ requestOrigin: origin })) {
     throw new CheckoutRequestError("Checkout request is not allowed.", 403);
   }
 }

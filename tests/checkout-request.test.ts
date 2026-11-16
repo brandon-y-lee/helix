@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { POST as createCheckout } from "@/app/api/checkout/sessions/route";
 import { POST as cancelCheckout } from "@/app/cart/checkout-cancel/route";
 import { CheckoutAdmissionError } from "@/lib/checkout/admission";
+import { assertCheckoutRequestOrigin } from "@/lib/checkout/request";
 
 const runtime = vi.hoisted(() => ({ cookies: vi.fn() }));
 vi.mock("next/headers", () => ({ cookies: runtime.cookies, headers: vi.fn() }));
@@ -14,6 +15,17 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllEnvs());
 
 describe("checkout browser request boundary", () => {
+  it.each(["https://www.helixskin.us", "https://helixskin.vercel.app"])("accepts a same-host checkout request during cutover: %s", (origin) => {
+    vi.stubEnv("CHECKOUT_ORIGIN", "https://www.helixskin.us");
+    expect(() => assertCheckoutRequestOrigin(new Request(`${origin}/api/checkout/sessions`, { headers: { origin } }))).not.toThrow();
+  });
+  it.each(["https://helixskin.vercel.app", "https://attacker.example", "https://helixskin.us"])("rejects mismatched or unselected URL/Origin pairs: %s", (host) => {
+    vi.stubEnv("CHECKOUT_ORIGIN", "https://www.helixskin.us");
+    expect(() => assertCheckoutRequestOrigin(new Request(`${host}/api/checkout/sessions`, { headers: { origin: "https://www.helixskin.us" } }))).toThrow("not allowed");
+    if (host !== "https://helixskin.vercel.app") {
+      expect(() => assertCheckoutRequestOrigin(new Request(`${host}/api/checkout/sessions`, { headers: { origin: host } }))).toThrow("not allowed");
+    }
+  });
   it("rejects an unapproved Origin before accepting checkout input", async () => {
     vi.stubEnv("CHECKOUT_ORIGIN", "https://helixskin.vercel.app");
     const response = await createCheckout(

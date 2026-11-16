@@ -44,10 +44,12 @@ live payment configuration was changed for #191.
 
 ## Application consumers
 
-`lib/site-url.ts` owns and enforces the canonical deployed origin. Generated
-deployment hostnames and stale deployed environment values cannot override it;
-only HTTP loopback origins are configurable in local development. Its
-consumers include:
+`lib/site-url.ts` owns the deployed-origin default. The local `.us` transition
+candidate additionally permits the exact controlled origins documented in
+[`helixskin-us-transition.md`](helixskin-us-transition.md) when explicitly
+configured; that plan does not establish a hosted cutover. Generated deployment
+hostnames and arbitrary environment values cannot override the default. Local
+development continues to use HTTP loopback origins. Consumers include:
 
 - Supabase Auth confirmation and password-recovery redirects in
   `app/account/actions.ts`
